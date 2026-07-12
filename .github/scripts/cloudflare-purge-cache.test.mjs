@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  buildHostnamePurgePayload,
   buildPurgePayload,
+  chunkPurgeHosts,
   chunkPurgeUrls,
   discoverZoneId,
+  parsePurgeHosts,
   parsePurgeUrls,
   purgeCloudflareCache,
 } from './cloudflare-purge-cache.mjs';
@@ -28,6 +31,21 @@ test('builds a files purge payload without duplicates', () => {
   );
 });
 
+test('parses and builds a deduplicated hostname purge payload', () => {
+  const hosts = parsePurgeHosts(
+    ' ogabassey.com,\nwww.ogabassey.com\nogabassey.com\n'
+  );
+
+  assert.deepEqual(hosts, [
+    'ogabassey.com',
+    'www.ogabassey.com',
+    'ogabassey.com',
+  ]);
+  assert.deepEqual(buildHostnamePurgePayload(hosts), {
+    hosts: ['ogabassey.com', 'www.ogabassey.com'],
+  });
+});
+
 test('chunks purge URLs at the Cloudflare single-file portable limit', () => {
   const urls = Array.from({ length: 205 }, (_, index) => `https://ogabassey.com/blog/${index}`);
 
@@ -37,6 +55,16 @@ test('chunks purge URLs at the Cloudflare single-file portable limit', () => {
   assert.equal(chunks[0].length, 100);
   assert.equal(chunks[1].length, 100);
   assert.equal(chunks[2].length, 5);
+});
+
+test('chunks hostname purges at Cloudflare hostname limit', () => {
+  const hosts = Array.from({ length: 31 }, (_, index) => `${index}.example.com`);
+
+  const chunks = chunkPurgeHosts(hosts);
+
+  assert.equal(chunks.length, 2);
+  assert.equal(chunks[0].length, 30);
+  assert.equal(chunks[1].length, 1);
 });
 
 test('discovers zone id by zone name using Cloudflare API', async () => {
@@ -56,7 +84,7 @@ test('discovers zone id by zone name using Cloudflare API', async () => {
   assert.equal(calls[0].path, '/zones?name=ogabassey.com');
 });
 
-test('skips purge when token or URLs are missing', async () => {
+test('skips purge when token or purge targets are missing', async () => {
   const warnings = [];
   const logger = {
     log: () => {},
@@ -67,6 +95,7 @@ test('skips purge when token or URLs are missing', async () => {
     await purgeCloudflareCache({
       logger,
       token: '',
+      hosts: [],
       zoneName: 'ogabassey.com',
       urls: ['https://ogabassey.com/blog'],
     }),
@@ -78,12 +107,13 @@ test('skips purge when token or URLs are missing', async () => {
     await purgeCloudflareCache({
       logger,
       token: 'token',
+      hosts: [],
       zoneName: 'ogabassey.com',
       urls: [],
     }),
-    { skipped: true, reason: 'missing-urls' }
+    { skipped: true, reason: 'missing-targets' }
   );
-  assert.match(warnings[1], /no purge URLs/);
+  assert.match(warnings[1], /no purge targets/);
 });
 
 test('surfaces zone discovery failures before purge', async () => {
@@ -141,6 +171,59 @@ test('purges files after zone discovery', async () => {
   assert.equal(result.skipped, false);
   assert.equal(calls[1].path, '/zones/zone-123/purge_cache');
   assert.deepEqual(calls[1].options.body, { files: ['https://ogabassey.com/blog'] });
+});
+
+test('purges hostnames after zone discovery', async () => {
+  const calls = [];
+  const logger = { log: () => {}, warn: () => {} };
+  const fetchJson = async (path, options) => {
+    calls.push({ path, options });
+    if (path.startsWith('/zones?')) {
+      return { result: [{ id: 'zone-123' }], success: true };
+    }
+    return { result: { id: 'purge-123' }, success: true };
+  };
+
+  const result = await purgeCloudflareCache({
+    fetchJson,
+    hosts: ['ogabassey.com', 'www.ogabassey.com'],
+    logger,
+    token: 'token',
+    urls: [],
+    zoneName: 'ogabassey.com',
+  });
+
+  assert.deepEqual(result.purgedHosts, ['ogabassey.com', 'www.ogabassey.com']);
+  assert.equal(calls[1].path, '/zones/zone-123/purge_cache');
+  assert.deepEqual(calls[1].options.body, {
+    hosts: ['ogabassey.com', 'www.ogabassey.com'],
+  });
+});
+
+test('uses separate Cloudflare requests for hostname and URL purges', async () => {
+  const calls = [];
+  const fetchJson = async (path, options) => {
+    calls.push({ path, options });
+    return { result: { id: 'purge-123' }, success: true };
+  };
+
+  const result = await purgeCloudflareCache({
+    fetchJson,
+    hosts: ['ogabassey.com'],
+    logger: { log: () => {}, warn: () => {} },
+    token: 'token',
+    urls: ['https://ogabassey.com/blog'],
+    zoneId: 'zone-123',
+  });
+
+  const purgeCalls = calls.filter((call) => call.path.endsWith('/purge_cache'));
+  assert.equal(purgeCalls.length, 2);
+  assert.deepEqual(purgeCalls[0].options.body, { hosts: ['ogabassey.com'] });
+  assert.deepEqual(purgeCalls[1].options.body, {
+    files: ['https://ogabassey.com/blog'],
+  });
+  assert.deepEqual(result.purgedHosts, ['ogabassey.com']);
+  assert.deepEqual(result.purgedUrls, ['https://ogabassey.com/blog']);
 });
 
 test('sends multiple purge requests when URL list exceeds one Cloudflare batch', async () => {

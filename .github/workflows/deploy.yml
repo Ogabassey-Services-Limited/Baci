@@ -195,6 +195,25 @@ jobs:
       # Do NOT remove it — without it, each deploy uploads thousands of individual files.
       - name: Deploy to Vercel (with retry)
         run: .github/scripts/deploy-with-retry.sh .github/scripts/run-pinned-vercel.sh deploy --yes --prebuilt --prod --archive=tgz
+      # Storefront HTML contains deployment-bound Server Action and asset IDs.
+      # Cloudflare can otherwise keep serving the previous deployment's HTML
+      # after the production alias has moved, which sends stale action IDs to
+      # the new deployment. Purge each public hostname instead of the entire
+      # zone so unrelated zone hostnames keep their warm cache.
+      - name: Purge Cloudflare storefront host caches
+        env:
+          CLOUDFLARE_PURGE_HOSTS: |
+            ogabassey.com
+            www.ogabassey.com
+            blog.ogabassey.com
+            installments.ogabassey.com
+          CLOUDFLARE_PURGE_URLS: ''
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN is required for post-deploy hostname purging."
+            exit 1
+          fi
+          node .github/scripts/cloudflare-purge-cache.mjs
       - name: Smoke test storefront blog
         id: storefront-blog-smoke
         continue-on-error: true
