@@ -61,7 +61,7 @@ export function buildInternalProductPurgeEntries(
 /**
  * Collect the DISTINCT slug-values under which the given products' per-slug Next
  * product-detail cache (`getProductScopedCacheTag('product', merchantId, slug)`,
- * used by `getCachedProduct`/`getCachedProductWithDetails`/…) may be tagged, so a
+ * used by `getCachedProductWithDetails`/`getCachedProductLcpHint`/…) may be tagged, so a
  * caller can bust those tags BEFORE scheduling the Cloudflare purge — otherwise a
  * CF MISS refills the edge from the still-cached, still-tagged Next entry until
  * its cacheLife TTL, defeating the purge.

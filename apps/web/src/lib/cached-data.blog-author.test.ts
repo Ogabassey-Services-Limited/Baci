@@ -112,7 +112,7 @@ function setupBlogAuthorFetch({
       }
 
       if (key === 'test-anon-key') {
-        return { from: publicFrom };
+        return { from: publicFrom, rpc: merchantRpc };
       }
 
       throw new Error(`Unexpected Supabase key: ${key}`);

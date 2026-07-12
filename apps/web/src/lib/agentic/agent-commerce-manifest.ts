@@ -49,7 +49,11 @@ const AGENTIC_OPTIONAL_IDENTITY_HEADERS = ['agent-id'] as const;
 
 type MerchantPaymentConfig = Pick<
   CachedMerchant,
-  'business_name' | 'feature_settings' | 'paystack_subaccount_code' | 'slug'
+  | 'business_name'
+  | 'feature_settings'
+  | 'paystack_subaccount_code'
+  | 'paystack_subaccount_configured'
+  | 'slug'
 >;
 
 type AgentCommerceCheckoutLinks = {
@@ -65,7 +69,9 @@ type AgentCommerceLinks = AgentPolicyUrls &
     agent_native_commerce: string;
     feeds: {
       agent_products: string;
+      agent_repairs: string;
       facebook_catalog_xml: string;
+      facebook_repairs_xml: string;
       google_merchant_xml: string;
     };
     llms: string;
@@ -158,9 +164,14 @@ export function buildAgentCommerceManifest(
       product_feed: buildUrl(baseUrl, STOREFRONT_FEED_ROUTES.openaiProductFeed),
       feeds: {
         agent_products: buildUrl(baseUrl, STOREFRONT_FEED_ROUTES.agentProducts),
+        agent_repairs: buildUrl(baseUrl, STOREFRONT_FEED_ROUTES.agentRepairs),
         facebook_catalog_xml: buildUrl(
           baseUrl,
           STOREFRONT_FEED_ROUTES.facebookCatalogXml
+        ),
+        facebook_repairs_xml: buildUrl(
+          baseUrl,
+          STOREFRONT_FEED_ROUTES.facebookRepairsXml
         ),
         google_merchant_xml: buildUrl(
           baseUrl,
@@ -183,9 +194,15 @@ function buildAgenticPaymentMethods(
   googlePayConfig: GooglePayAgenticConfig | null
 ) {
   const methods: AgenticPaymentMethod[] = [];
+  // The public storefront snapshot omits the raw paystack_subaccount_code and
+  // exposes the derived paystack_subaccount_configured hint instead, so the
+  // public capability check accepts either signal (mirroring
+  // isPaystackCheckoutAvailable). Private payment paths stay authoritative
+  // over the raw code when a session is actually charged.
   const paystackReady =
     getPaystackSecretKey() &&
-    isValidPaystackSubaccountCode(merchant.paystack_subaccount_code);
+    (isValidPaystackSubaccountCode(merchant.paystack_subaccount_code) ||
+      merchant.paystack_subaccount_configured === true);
   if (paystackReady) {
     methods.push(AGENTIC_PAYMENT_METHOD_PAYSTACK_BANK_TRANSFER);
     if (googlePayConfig?.gateway === 'paystack') {

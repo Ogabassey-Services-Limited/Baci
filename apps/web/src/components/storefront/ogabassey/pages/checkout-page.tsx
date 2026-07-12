@@ -68,7 +68,7 @@ import { toast } from '@/hooks/use-toast';
 import { createClient } from '@/lib/supabase/client';
 import { calculateCommerce } from '@/lib/supabase/client';
 import { buildCheckoutOrderItems } from '@/lib/checkout/build-order-items';
-import { hasPriceNegotiationEntitlement } from '@/lib/feature-flags';
+import { hasStorefrontPriceNegotiation } from '@/lib/storefront-price-negotiation';
 import {
   calculateCartItemSubtotal,
   calculateCartTotal,
@@ -474,7 +474,7 @@ export const CheckoutPage: React.FC = () => {
   // hardcoded 'NGN'; the compact formatter renders order amounts.
   const { formatCurrencyAuto, currencySymbol, currencyCode } = useCurrency();
 
-  const hasPriceNegotiation = hasPriceNegotiationEntitlement(merchant?.plan_tier, merchant?.slug);
+  const hasPriceNegotiation = hasStorefrontPriceNegotiation(merchant);
 
   const checkoutCart = sanitizeCartItems(cart, hasPriceNegotiation);
   const quoteItemsFingerprint = checkoutCart

@@ -1,38 +1,17 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { cacheLife, cacheTag } from 'next/cache';
-import { CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters';
 import { getPublicSupabaseClient } from '@/lib/cached-data';
-import { buildClusterGuideSearchQuery } from './build-cluster-guide-search-query';
 import type {
   BuildCommercialGuideLinksContext,
   PublishedClusterPost,
 } from './content-cluster-types';
+import { buildStorefrontClusterGuideRequest } from './storefront-cluster-guide-request';
 
 const CLUSTER_GUIDE_CANDIDATE_LIMIT = 64;
 
 // Optional overlay read: bound it and disable PostgREST auto-retry so a slow
 // response cannot fan out into 4 attempts (~34s). See the retry note below.
 const CLUSTER_GUIDE_TIMEOUT_MS = 3_000;
-
-type StorefrontClusterRule = {
-  rule_order: number;
-  category_slug: string;
-  category_names: string[];
-  article_tokens: string[];
-};
-
-// Keep the database pre-cap classifier aligned with the semantic classifier
-// that performs the final guide scoring. The RPC validates and bounds this
-// public rule payload before using it.
-const STOREFRONT_CLUSTER_RULES: StorefrontClusterRule[] = Object.entries(
-  CONTENT_CLUSTER_SUPPORT
-).map(([categorySlug, support], ruleOrder) => ({
-  rule_order: ruleOrder,
-  category_slug: categorySlug,
-  category_names: [...support.categoryNames],
-  article_tokens: [...support.articleTokens],
-}));
-
 type StorefrontClusterGuideDatabase = {
   public: {
     Tables: Record<string, never>;
@@ -41,7 +20,9 @@ type StorefrontClusterGuideDatabase = {
       get_storefront_cluster_guide_candidates_v1: {
         Args: {
           p_category_slug: string;
-          p_cluster_rules: StorefrontClusterRule[];
+          p_cluster_rules: ReturnType<
+            typeof buildStorefrontClusterGuideRequest
+          >['p_cluster_rules'];
           p_merchant_id: string;
           p_search_query: string;
           p_limit?: number;
@@ -101,12 +82,13 @@ export async function getPublishedClusterPosts(
   // fallback for an unknown RPC into an array on current postgrest-js.
   const supabase =
     getPublicSupabaseClient() as SupabaseClient<StorefrontClusterGuideDatabase>;
+  const request = buildStorefrontClusterGuideRequest(context);
   const guideQuery = supabase
     .rpc('get_storefront_cluster_guide_candidates_v1', {
-      p_category_slug: context.categorySlug,
-      p_cluster_rules: STOREFRONT_CLUSTER_RULES,
+      p_category_slug: request.p_category_slug,
+      p_cluster_rules: request.p_cluster_rules,
       p_merchant_id: merchantId,
-      p_search_query: buildClusterGuideSearchQuery(context),
+      p_search_query: request.p_search_query,
       p_limit: CLUSTER_GUIDE_CANDIDATE_LIMIT,
     })
     .abortSignal(AbortSignal.timeout(CLUSTER_GUIDE_TIMEOUT_MS));

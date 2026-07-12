@@ -17,10 +17,11 @@ import type {
   SupportedClusterCategory,
 } from '@/lib/storefront-content/content-cluster-types';
 import { loadPublishedClusterPostsSafely } from '@/lib/storefront-content/load-published-cluster-posts-safely';
+import type { CompareLinkGraphEntry } from '@/lib/storefront-link-modules/compare-link-graph';
 import {
-  type CompareLinkGraphEntry,
+  buildCategoryCompareGraphSlugSet,
   isMaintainedCompareGraphSlug,
-} from '@/lib/storefront-link-modules/compare-link-graph';
+} from '@/lib/storefront-link-modules/compare-maintained-slug';
 import {
   appendCountryContext,
   getCountryShoppingContext,
@@ -302,6 +303,7 @@ type CachedComparePageModel =
 interface ProductCompareOverlayContext {
   kind: 'product';
   storeUrl: string;
+  storeSlug: string;
   categorySlug: string;
   categoryName: string;
   canonicalSlug: string;
@@ -414,7 +416,7 @@ async function loadComparePageForRequest(args: {
 }): Promise<ProductComparePageModel | BrandComparePageModel | null> {
   // Over-long / repeatedly-encoded bot categories can never match; bail before
   // getCachedComparePageModel -> getCachedCompareCategoryInventory
-  // (`'use cache: remote'`, keyed on categorySlug) runs with an unbounded key.
+  // (local `'use cache'`, keyed on categorySlug) runs with an unbounded key.
   // comparisonSlug is NOT gated here: it's a composite `${left}-vs-${right}` of
   // two product slugs (each up to 200 chars), so the single-slug bound would
   // wrongly 404 legitimate long compare URLs. The parsed halves are gated after
@@ -461,9 +463,6 @@ async function loadComparePageForRequest(args: {
 
   let core: CachedComparePageCore | null;
 
-  const _tStart = performance.now();
-  let _tModelDone = _tStart;
-
   try {
     core = await getCachedComparePageModel(
       args.merchantId,
@@ -471,7 +470,6 @@ async function loadComparePageForRequest(args: {
       args.categorySlug,
       parsed.canonicalSlug
     );
-    _tModelDone = performance.now();
   } catch (error) {
     // Degrade the single failing request instead of poisoning the cache (the
     // cached builder throws on transient LOAD-BEARING failures — inventory /
@@ -494,17 +492,6 @@ async function loadComparePageForRequest(args: {
   // remote cache: a transient failure here yields empty links / curated-slug
   // fallback indexability for this one request without caching it or 404ing.
   const model = await applyComparePageOverlay(core, args.merchantId);
-  const _tOverlayDone = performance.now();
-
-  // Per-phase timing telemetry for the compare render (this route has a history
-  // of ~30s stalls on large categories). Grep `COMPARE_PHASE_TIMING` in logs.
-  console.log('COMPARE_PHASE_TIMING', {
-    categorySlug: args.categorySlug.slice(0, 60),
-    canonicalSlug: parsed.canonicalSlug.slice(0, 80),
-    model_ms: Math.round(_tModelDone - _tStart),
-    overlay_ms: Math.round(_tOverlayDone - _tModelDone),
-    total_ms: Math.round(_tOverlayDone - _tStart),
-  });
 
   const isCanonicalSlugRequest = args.comparisonSlug === parsed.canonicalSlug;
 
@@ -555,33 +542,51 @@ async function applyComparePageOverlay(
   }
 
   const { overlay, ...pageModel } = core;
-  const _oStart = performance.now();
   const [guidePosts, compareGraphProducts] = await Promise.all([
     loadSupportedGuidePosts(merchantId, overlay.guideLoadContext),
     loadCompareGraphProducts({
       categorySlug: overlay.categorySlug,
       merchantId,
+      storeSlug: overlay.storeSlug,
     }),
   ]);
-  const _oReads = performance.now();
-  console.log('COMPARE_OVERLAY_TIMING', {
-    categorySlug: overlay.categorySlug.slice(0, 60),
-    graphProductCount: compareGraphProducts.products.length,
-    graphFailed: compareGraphProducts.failed,
-    reads_ms: Math.round(_oReads - _oStart),
-  });
-  const semanticCompareProducts = compareGraphProducts.products.map(
-    (product) => ({ ...product, status: 'active' })
-  );
+  const semanticCompareProducts = compareGraphProducts.products;
+  // The approval selector now recognizes that these pair candidates already
+  // passed buildProductCompareCandidate, so this category build is genuinely
+  // O(products^2), not O(products^2) nested inside up to 150 discovery builds.
+  // Build it from the SAME request inventory used by related links: this avoids
+  // a duplicate ~0.5MB Supabase read and removes the stale per-instance slug-set
+  // cache while keeping core, links, and indexability on one active-product
+  // snapshot.
+  const categoryGraphSlugs = compareGraphProducts.failed
+    ? undefined
+    : new Set(
+        buildCategoryCompareGraphSlugSet({
+          storeUrl: overlay.storeUrl,
+          categorySlug: overlay.categorySlug,
+          categoryName: overlay.categoryName,
+          products: semanticCompareProducts,
+          productsAreKnownActive: false,
+        })
+      );
   const routeApprovalProducts = compareGraphProducts.failed
     ? semanticCompareProducts
     : includeClickedCompareProducts({
         products: semanticCompareProducts,
         clickedProducts: [overlay.leftProduct, overlay.rightProduct],
       });
-  // On a transient graph failure fall back to the curated-slug decision — the
-  // same behavior as before this was cached, just no longer frozen for the
-  // cache window.
+  // For categories beyond the bounded semantic inventory, a clicked product can
+  // resolve from the larger compare inventory and be appended to
+  // routeApprovalProducts. The category slug set was built from the bounded
+  // inventory ALONE, so it can't attest to those overflow pairs — force the
+  // uncached rebuild (over routeApprovalProducts incl. the clicked products) for
+  // that request rather than demoting a valid overflow pair to legacy/noindex.
+  const hasOverflowClickedProduct =
+    routeApprovalProducts.length > semanticCompareProducts.length;
+  // Only fall back to the curated-slug decision when the inventory read failed;
+  // without products the graph cannot be built. A successful read produces the
+  // graph set synchronously from that exact inventory, so approval cannot drift
+  // between two independent network reads.
   const isMaintainedGraphCanonicalSlug = compareGraphProducts.failed
     ? overlay.isCuratedCanonicalSlug
     : isMaintainedCompareGraphSlug({
@@ -591,6 +596,9 @@ async function applyComparePageOverlay(
         products: routeApprovalProducts,
         productsAreKnownActive: false,
         comparisonSlug: overlay.canonicalSlug,
+        categoryGraphSlugs: hasOverflowClickedProduct
+          ? undefined
+          : categoryGraphSlugs,
       });
   const relatedCompareLinks = buildRelatedCompareLinks({
     storeUrl: overlay.storeUrl,
@@ -670,9 +678,7 @@ async function getCachedComparePageModel(
     // Unit tests do not run with Next cacheComponents enabled.
   }
 
-  const _mStart = performance.now();
   const merchant = await getMerchantByIdentifier(merchantSlug);
-  const _mMerchant = performance.now();
 
   if (!merchant) {
     return null;
@@ -722,7 +728,6 @@ async function getCachedComparePageModel(
     categorySlug,
     merchantSlug
   );
-  const _mInventory = performance.now();
 
   if (inventory.isCollection) {
     logCompareRouteMiss({
@@ -771,15 +776,6 @@ async function getCachedComparePageModel(
       getCachedProductWithDetails(merchant.id, parsed.leftKey),
       getCachedProductWithDetails(merchant.id, parsed.rightKey),
     ]);
-    const _mDetails = performance.now();
-    console.log('COMPARE_MODEL_TIMING', {
-      categorySlug: categorySlug.slice(0, 60),
-      productCount: normalizedProducts.length,
-      merchant_ms: Math.round(_mMerchant - _mStart),
-      inventory_ms: Math.round(_mInventory - _mMerchant),
-      // includes the sync buildCuratedCompareSlugSet (~20ms) + the details await
-      slugset_plus_details_ms: Math.round(_mDetails - _mInventory),
-    });
 
     if (!leftDetails || !rightDetails) {
       // The cached inventory just said both products exist and are active, so
@@ -913,6 +909,7 @@ async function getCachedComparePageModel(
       overlay: {
         kind: 'product',
         storeUrl,
+        storeSlug: args.merchantSlug,
         categorySlug: args.categorySlug,
         categoryName,
         canonicalSlug: parsed.canonicalSlug,

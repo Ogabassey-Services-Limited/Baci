@@ -1,9 +1,5 @@
 import { cacheLife, cacheTag } from 'next/cache';
-import {
-  getCachedFeatureSettings,
-  getMerchantStrict,
-  getPublicSupabaseClient,
-} from '@/lib/cached-data';
+import { getMerchantStrict, getPublicSupabaseClient } from '@/lib/cached-data';
 import { filterPublicBlogCategories } from '@/lib/public-blog-content-quality';
 import { buildStoreUrl } from '@/lib/store-url';
 import {
@@ -34,8 +30,7 @@ export async function resolveBlogCategoryHub(
     return null;
   }
 
-  const features = await getCachedFeatureSettings(merchant.id);
-  if (!features?.blog_enabled) {
+  if (!merchant.feature_settings?.blog_enabled) {
     return null;
   }
 

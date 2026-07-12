@@ -38,11 +38,25 @@ vi.mock('@/components/seo/json-ld', () => ({
   JsonLd: mocks.JsonLd,
 }));
 
-vi.mock('@/lib/cached-data', () => ({
-  getCachedCategories: vi.fn(),
-  getCachedCategoryPageData: vi.fn(),
-  getRequestScopedMerchant: vi.fn(),
-}));
+vi.mock('@/lib/cached-data', () => {
+  const getCachedCategories = vi.fn();
+
+  return {
+    getCachedCategories,
+    getStorefrontCategories: async (...args: unknown[]) => {
+      try {
+        return {
+          categories: await getCachedCategories(...args),
+          queryFailed: false,
+        };
+      } catch {
+        return { categories: [], queryFailed: true };
+      }
+    },
+    getCachedCategoryPageData: vi.fn(),
+    getRequestScopedMerchant: vi.fn(),
+  };
+});
 
 vi.mock('@/lib/routes', () => ({
   asRoute: (path: string) => path,
@@ -261,6 +275,27 @@ describe('ComparePageContent', () => {
 
     expect(
       screen.getByRole('heading', { name: 'No product comparisons available' })
+    ).toBeInTheDocument();
+  });
+
+  it('renders the compare shell when optional category navigation is unavailable', async () => {
+    vi.mocked(getCachedCategories).mockRejectedValueOnce(
+      new Error('category timeout')
+    );
+
+    render(
+      await ComparePageContent({
+        params: Promise.resolve({ slug: 'ogabassey' }),
+      })
+    );
+
+    expect(
+      screen.getByRole('heading', { name: 'Compare products' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', {
+        name: 'Product comparisons temporarily unavailable',
+      })
     ).toBeInTheDocument();
   });
 

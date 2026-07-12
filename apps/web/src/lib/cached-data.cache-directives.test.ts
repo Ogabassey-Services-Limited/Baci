@@ -2,11 +2,14 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type * as TypeScript from 'typescript';
+import type * as TypeScript from '@typescript/typescript6';
 import { describe, expect, it } from 'vitest';
 
 const require = createRequire(import.meta.url);
-const ts = require('typescript') as typeof TypeScript;
+// The classic compiler API used below is gone from typescript@7 (native
+// compiler), so this test pins Microsoft's @typescript/typescript6 compat
+// package instead of the workspace `typescript` version.
+const ts = require('@typescript/typescript6') as typeof TypeScript;
 const CACHED_DATA_SOURCE = readFileSync(
   join(dirname(fileURLToPath(import.meta.url)), 'cached-data.ts'),
   'utf8'
@@ -62,7 +65,7 @@ describe('cached-data cache directives', () => {
 
     // The full category payload can include an unbounded product array, so the
     // wrapper must not write that whole aggregate into one remote cache item.
-    expect(source).toContain('getCachedCategoryPageShellData');
+    expect(source).toContain('getCategoryPageShellData');
     expect(source).toContain('getCachedCategoryPageProducts');
   });
 
@@ -120,13 +123,29 @@ describe('cached-data cache directives', () => {
     }
   });
 
+  it('keeps the route-critical category page shell off the remote cache handler', () => {
+    // The compare page model and compare category inventory were demoted from
+    // 'use cache: remote' to local 'use cache' (PR #3049) because their Vercel
+    // remote-cache SET (RemoteCacheHandler K.set) hangs and never persists under
+    // crawler load. This shell is the LAST route-critical remote write on the
+    // compare/category path — it is nested by the category listing page, both
+    // compare reads, the price-band page, and the category-scoped semantic
+    // inventory — and it is keyed on an unbounded (high-cardinality) category
+    // slug. It therefore belongs on the same local cache: no remote write
+    // round-trip, and its 'storefront-page' window (revalidate 300) already
+    // bounds cross-instance staleness of the rarely-changing shell to ~5min.
+    const source = getFunctionSource('getCachedCategoryPageShellData');
+
+    expect(source).toContain("'use cache';");
+    expect(source).not.toContain("'use cache: remote';");
+    expect(source).toContain("cacheLife('storefront-page');");
+    expect(source).toContain('cacheTag(');
+  });
+
   it('keeps high-cardinality public product reads off the remote cache handler', () => {
     for (const functionName of [
       'getCachedProductLcpHint',
-      'getCachedProduct',
       'getCachedProductWithDetails',
-      'getCachedProductReviews',
-      'getCachedProductRatingStats',
     ]) {
       const source = getFunctionSource(functionName);
       expect(source, functionName).toContain("'use cache';");
@@ -134,36 +153,6 @@ describe('cached-data cache directives', () => {
       expect(source, functionName).toContain("cacheLife('products');");
       expect(source, functionName).toContain('cacheTag(');
     }
-  });
-
-  it('keeps public blog metadata and listing data off the remote cache handler', () => {
-    for (const functionName of ['getCachedBlogPost', 'getCachedBlogListing']) {
-      const source = getFunctionSource(functionName);
-      expect(source, functionName).toContain("'use cache';");
-      expect(source, functionName).not.toContain("'use cache: remote';");
-
-      // Next 16's local `use cache` API explicitly supports cacheLife/cacheTag.
-      // Keep these so blog metadata/content stays tag-revalidatable without
-      // reintroducing RemoteCacheHandler.
-      expect(source, functionName).toContain('cacheTag(');
-    }
-  });
-
-  it('moves only the high-cost blog post renders to the long-lived `blog` profile; keeps the listing short', () => {
-    // Blog posts are keyed by a bounded postSlug, so they use the near-static
-    // `blog` profile (hourly revalidate) to avoid re-rendering every 60s under
-    // crawler load.
-    const postSource = getFunctionSource('getCachedBlogPost');
-    expect(postSource).toContain("cacheLife('blog');");
-    expect(postSource).not.toContain("cacheLife('merchant');");
-
-    // The listing takes user-supplied search/category args, and a `'use cache'`
-    // function takes a single static profile (no conditional cacheLife), so it
-    // stays on the short `merchant` profile — avoids long-lived retention of
-    // arbitrary filter permutations.
-    const listingSource = getFunctionSource('getCachedBlogListing');
-    expect(listingSource).toContain("cacheLife('merchant');");
-    expect(listingSource).not.toContain("cacheLife('blog');");
   });
 });
 

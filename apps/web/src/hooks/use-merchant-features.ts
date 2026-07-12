@@ -32,6 +32,7 @@ export interface StorefrontFeatures {
   hasGoogleAnalytics: boolean;
   hasFacebookPixel: boolean;
   hasTiktokPixel: boolean;
+  repairsCatalogEnabled: boolean;
 }
 
 /**
@@ -130,6 +131,7 @@ const DEFAULT_STOREFRONT_FEATURES: StorefrontFeatures = {
   hasGoogleAnalytics: false,
   hasFacebookPixel: false,
   hasTiktokPixel: false,
+  repairsCatalogEnabled: false,
 };
 
 interface UseStorefrontFeaturesOptions {
@@ -244,6 +246,7 @@ export function useStorefrontFeatures({
     isOrderTrackingEnabled: features.orderTrackingEnabled,
     isDiscountCodesEnabled: features.discountCodesEnabled,
     isGuestCheckoutEnabled: features.guestCheckoutEnabled,
+    isRepairsCatalogEnabled: features.repairsCatalogEnabled,
     pages: features.pages,
     shippingProviders: features.shippingProviders,
     freeShippingThreshold: features.freeShippingThreshold,

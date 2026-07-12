@@ -249,6 +249,23 @@ describe('getStorefrontNotificationNavigationTarget', () => {
       })
     ).toEqual({ screen: 'home' });
   });
+
+  it('routes repair payloads to storefront repairs with the repair id', () => {
+    expect(
+      getStorefrontNotificationNavigationTarget({
+        type: 'repair',
+        repair_id: 'repair-123',
+      })
+    ).toEqual({ screen: 'repairs', params: { id: 'repair-123' } });
+  });
+
+  it('routes repair payloads without ids to storefront repairs', () => {
+    expect(
+      getStorefrontNotificationNavigationTarget({
+        type: 'repair',
+      })
+    ).toEqual({ screen: 'repairs' });
+  });
 });
 
 describe('getAdminNotificationNavigationTarget — edge cases', () => {
@@ -288,5 +305,33 @@ describe('getAdminNotificationNavigationTarget — edge cases', () => {
     expect(
       getAdminNotificationNavigationTarget({ type: 'jumia_order' })
     ).toEqual({ screen: 'orders' });
+  });
+
+  it('routes repair payloads to the booking detail using camelCase or snake_case ids', () => {
+    expect(
+      getAdminNotificationNavigationTarget({
+        type: 'repair',
+        repairId: 'repair-42',
+      })
+    ).toEqual({
+      screen: 'repair',
+      params: { id: 'repair-42' },
+    });
+
+    expect(
+      getAdminNotificationNavigationTarget({
+        type: 'repair',
+        repair_id: 'repair-99',
+      })
+    ).toEqual({
+      screen: 'repair',
+      params: { id: 'repair-99' },
+    });
+  });
+
+  it('falls back to the repairs list when a repair payload lacks a repair id', () => {
+    expect(
+      getAdminNotificationNavigationTarget({ type: 'repair' })
+    ).toEqual({ screen: 'repairs' });
   });
 });

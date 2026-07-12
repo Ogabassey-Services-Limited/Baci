@@ -5,19 +5,33 @@ import {
   getCachedMerchantByDomain,
 } from '@/lib/cached-data';
 import { isValidMerchantIdentifier } from '@/lib/validation';
+import { deviceDetail, enabledMerchant } from './repair-page.test-fixtures';
+
+const mockRepairBookingWizard = vi.fn();
 
 vi.mock('@/components/storefront/RepairBookingWizard', () => ({
-  RepairBookingWizard: ({
-    merchantId,
-    merchantName,
-  }: {
+  RepairBookingWizard: (props: {
     merchantId: string;
     merchantName: string;
-  }) => (
-    <div data-merchant-id={merchantId} data-merchant-name={merchantName}>
-      Repair booking wizard
-    </div>
-  ),
+    preselection?: unknown;
+  }) => {
+    mockRepairBookingWizard(props);
+    return (
+      <div
+        data-merchant-id={props.merchantId}
+        data-merchant-name={props.merchantName}
+      >
+        Repair booking wizard
+      </div>
+    );
+  },
+}));
+
+const mockGetRepairDeviceDetailBySlug = vi.fn();
+
+vi.mock('@/lib/repairs/repairs-catalog-data', () => ({
+  getRepairDeviceDetailBySlug: (...args: unknown[]) =>
+    mockGetRepairDeviceDetailBySlug(...args),
 }));
 
 vi.mock('@/lib/cached-data', () => ({
@@ -40,10 +54,33 @@ vi.mock('next/navigation', () => ({
 
 const { default: RepairPage, generateMetadata } = await import('./page');
 
+function callRepairPage(
+  slug: string,
+  searchParams: Record<string, string> = {}
+) {
+  return RepairPage({
+    params: Promise.resolve({ slug }),
+    searchParams: Promise.resolve(searchParams),
+  });
+}
+
+function callGenerateMetadata(
+  slug: string,
+  searchParams: Record<string, string> = {}
+) {
+  return generateMetadata({
+    params: Promise.resolve({ slug }),
+    searchParams: Promise.resolve(searchParams),
+  });
+}
+
 describe('RepairPage', () => {
   beforeEach(() => {
     vi.mocked(getCachedMerchant).mockReset();
     notFound.mockClear();
+    mockRepairBookingWizard.mockClear();
+    mockGetRepairDeviceDetailBySlug.mockReset();
+    mockGetRepairDeviceDetailBySlug.mockResolvedValue(deviceDetail);
   });
 
   it('renders crawler-visible repair guidance before the booking wizard', async () => {
@@ -53,11 +90,7 @@ describe('RepairPage', () => {
       template_id: 'ogabassey',
     } as unknown as Awaited<ReturnType<typeof getCachedMerchant>>);
 
-    const { container } = render(
-      await RepairPage({
-        params: Promise.resolve({ slug: 'ogabassey' }),
-      })
-    );
+    const { container } = render(await callRepairPage('ogabassey'));
 
     expect(
       screen.getByRole('heading', { name: 'Before you book a repair' })
@@ -69,6 +102,7 @@ describe('RepairPage', () => {
       'data-merchant-id',
       'merchant-1'
     );
+    expect(mockGetRepairDeviceDetailBySlug).not.toHaveBeenCalled();
 
     const jsonLd = JSON.parse(
       container.querySelector('script[type="application/ld+json"]')
@@ -82,6 +116,107 @@ describe('RepairPage', () => {
     ]);
   });
 
+  it('resolves the device and quote query params into a wizard preselection', async () => {
+    vi.mocked(getCachedMerchant).mockResolvedValue(enabledMerchant);
+
+    render(
+      await callRepairPage('ogabassey', {
+        device: 'apple-iphone-13-pro-max',
+        quote: '22222222-2222-4222-8222-222222222222',
+      })
+    );
+
+    expect(mockGetRepairDeviceDetailBySlug).toHaveBeenCalledWith(
+      'merchant-1',
+      'apple-iphone-13-pro-max'
+    );
+    expect(mockRepairBookingWizard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        preselection: expect.objectContaining({
+          deviceId: 'device-1',
+          deviceLabel: 'Apple iPhone 13 Pro Max',
+          quoteId: '22222222-2222-4222-8222-222222222222',
+          quoteLabel: 'Screen Replacement',
+          quotePrice: 25000,
+        }),
+      })
+    );
+  });
+
+  it('renders the booking wizard for generic repairs-catalog merchants', async () => {
+    vi.mocked(getCachedMerchant).mockResolvedValue({
+      ...enabledMerchant,
+      business_name: 'Generic Gadgets',
+      template_id: 'default',
+    });
+
+    render(await callRepairPage('generic-gadgets'));
+
+    expect(screen.getByText('Repair booking wizard')).toHaveAttribute(
+      'data-merchant-name',
+      'Generic Gadgets'
+    );
+    expect(notFound).not.toHaveBeenCalled();
+  });
+
+  it('preselects the device only when the quote id does not match any active quote', async () => {
+    vi.mocked(getCachedMerchant).mockResolvedValue(enabledMerchant);
+
+    render(
+      await callRepairPage('ogabassey', {
+        device: 'apple-iphone-13-pro-max',
+        quote: '99999999-9999-4999-8999-999999999999',
+      })
+    );
+
+    expect(mockRepairBookingWizard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        preselection: expect.objectContaining({
+          deviceId: 'device-1',
+          quoteId: undefined,
+        }),
+      })
+    );
+  });
+
+  it('falls back to the free-text wizard when the device slug does not resolve', async () => {
+    vi.mocked(getCachedMerchant).mockResolvedValue(enabledMerchant);
+    mockGetRepairDeviceDetailBySlug.mockResolvedValueOnce(null);
+
+    render(await callRepairPage('ogabassey', { device: 'unknown-device' }));
+
+    expect(mockRepairBookingWizard).toHaveBeenCalledWith(
+      expect.objectContaining({ preselection: undefined })
+    );
+  });
+
+  it('skips the catalogue lookup entirely when the repairs flag is off', async () => {
+    vi.mocked(getCachedMerchant).mockResolvedValue({
+      ...enabledMerchant,
+      feature_settings: { repairs_catalog_enabled: false },
+    });
+
+    render(
+      await callRepairPage('ogabassey', { device: 'apple-iphone-13-pro-max' })
+    );
+
+    expect(mockGetRepairDeviceDetailBySlug).not.toHaveBeenCalled();
+    expect(mockRepairBookingWizard).toHaveBeenCalledWith(
+      expect.objectContaining({ preselection: undefined })
+    );
+  });
+
+  it('ignores a malformed device query param without erroring', async () => {
+    vi.mocked(getCachedMerchant).mockResolvedValue(enabledMerchant);
+
+    render(await callRepairPage('ogabassey', { device: '../../etc/passwd' }));
+
+    expect(mockGetRepairDeviceDetailBySlug).not.toHaveBeenCalled();
+    expect(mockRepairBookingWizard).toHaveBeenCalledWith(
+      expect.objectContaining({ preselection: undefined })
+    );
+  });
+
   it('returns repair metadata with an absolute title and a useful service description', async () => {
     vi.mocked(getCachedMerchant).mockResolvedValue({
       business_name: 'Ogabassey',
@@ -89,9 +224,7 @@ describe('RepairPage', () => {
       template_id: 'ogabassey',
     } as unknown as Awaited<ReturnType<typeof getCachedMerchant>>);
 
-    const metadata = await generateMetadata({
-      params: Promise.resolve({ slug: 'ogabassey' }),
-    });
+    const metadata = await callGenerateMetadata('ogabassey');
 
     // Absolute so the platform `%s | Baci` template never applies, and
     // distinct from the /repairs landing-page title.
@@ -105,9 +238,7 @@ describe('RepairPage', () => {
   it('throws notFound when the merchant is missing', async () => {
     vi.mocked(getCachedMerchant).mockResolvedValue(null);
 
-    await expect(
-      RepairPage({ params: Promise.resolve({ slug: 'missing' }) })
-    ).rejects.toThrow('NEXT_NOT_FOUND');
+    await expect(callRepairPage('missing')).rejects.toThrow('NEXT_NOT_FOUND');
   });
 
   it('throws notFound for merchants that are not on the Ogabassey template', async () => {
@@ -117,9 +248,9 @@ describe('RepairPage', () => {
       template_id: 'default',
     } as unknown as Awaited<ReturnType<typeof getCachedMerchant>>);
 
-    await expect(
-      RepairPage({ params: Promise.resolve({ slug: 'other-store' }) })
-    ).rejects.toThrow('NEXT_NOT_FOUND');
+    await expect(callRepairPage('other-store')).rejects.toThrow(
+      'NEXT_NOT_FOUND'
+    );
   });
 
   it('returns not-found metadata for merchants that are not on the Ogabassey template', async () => {
@@ -129,9 +260,7 @@ describe('RepairPage', () => {
       template_id: 'default',
     } as unknown as Awaited<ReturnType<typeof getCachedMerchant>>);
 
-    const metadata = await generateMetadata({
-      params: Promise.resolve({ slug: 'other-store' }),
-    });
+    const metadata = await callGenerateMetadata('other-store');
 
     expect(metadata.title).toBe('Store Not Found');
   });
@@ -139,11 +268,9 @@ describe('RepairPage', () => {
   it('rejects invalid slugs before reaching the cached merchant lookups', async () => {
     vi.mocked(isValidMerchantIdentifier).mockReturnValueOnce(false);
 
-    await expect(
-      RepairPage({
-        params: Promise.resolve({ slug: '%2525'.repeat(500) }),
-      })
-    ).rejects.toThrow('NEXT_NOT_FOUND');
+    await expect(callRepairPage('%2525'.repeat(500))).rejects.toThrow(
+      'NEXT_NOT_FOUND'
+    );
 
     // The unbounded `'use cache'` keys must never see a bot-supplied slug.
     expect(getCachedMerchant).not.toHaveBeenCalled();
@@ -153,9 +280,7 @@ describe('RepairPage', () => {
   it('returns not-found metadata for invalid slugs without a cached lookup', async () => {
     vi.mocked(isValidMerchantIdentifier).mockReturnValueOnce(false);
 
-    const metadata = await generateMetadata({
-      params: Promise.resolve({ slug: '../../etc/passwd' }),
-    });
+    const metadata = await callGenerateMetadata('../../etc/passwd');
 
     expect(metadata.title).toBe('Store Not Found');
     expect(getCachedMerchant).not.toHaveBeenCalled();

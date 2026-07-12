@@ -49,7 +49,7 @@ The Baci Mobile Admin is a React Native application built with Expo, designed sp
 ## Tech Stack
 
 - **Framework**: Expo 54 + React Native 0.81
-- **Language**: TypeScript 5.9
+- **Language**: TypeScript 6.0
 - **Navigation**: Expo Router (file-based routing)
 - **State Management**: Zustand + TanStack Query
 - **Storage**: MMKV (fastest React Native storage)

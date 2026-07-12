@@ -1,20 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getCachedProductSemanticInventory } from '@/lib/storefront-product/get-cached-product-semantic-inventory';
 import {
   buildRelatedCompareLinks,
+  COMPARE_GRAPH_PRODUCT_LIMIT,
   dedupeCompareLinks,
   includeClickedCompareProducts,
   loadCompareGraphProducts,
 } from './compare-page-link-helpers';
+import { getCachedCompareCategoryInventory } from './get-cached-compare-category-inventory';
 
-vi.mock(
-  '@/lib/storefront-product/get-cached-product-semantic-inventory',
-  () => ({
-    getCachedProductSemanticInventory: vi.fn(),
-  })
-);
+vi.mock('./get-cached-compare-category-inventory', () => ({
+  COMPARE_CATEGORY_INVENTORY_PRODUCT_LIMIT: 600,
+  getCachedCompareCategoryInventory: vi.fn(),
+}));
 
-const mockedInventory = vi.mocked(getCachedProductSemanticInventory);
+const mockedInventory = vi.mocked(getCachedCompareCategoryInventory);
 
 const products = [
   {
@@ -60,16 +59,70 @@ describe('compare page link helpers', () => {
     mockedInventory.mockReset();
   });
 
-  it('loads compare graph products from bounded semantic inventory', async () => {
-    mockedInventory.mockResolvedValueOnce(products);
+  it('reuses the bounded compare category inventory for graph products', async () => {
+    mockedInventory.mockResolvedValueOnce({
+      isCollection: false,
+      fallbackName: 'Smartphones',
+      products: products.map((product) => ({
+        ...product,
+        status: 'active',
+      })),
+    });
 
     await expect(
       loadCompareGraphProducts({
         categorySlug: 'smartphones',
         merchantId: 'merchant-1',
+        storeSlug: 'ogabassey',
       })
-    ).resolves.toEqual({ failed: false, products });
-    expect(mockedInventory).toHaveBeenCalledWith('merchant-1', 'smartphones');
+    ).resolves.toEqual({
+      failed: false,
+      products: products.map((product) => ({
+        ...product,
+        status: 'active',
+      })),
+    });
+    expect(mockedInventory).toHaveBeenCalledWith(
+      'merchant-1',
+      'smartphones',
+      'ogabassey'
+    );
+  });
+
+  it('keeps graph products exact-category scoped and bounded', async () => {
+    mockedInventory.mockResolvedValueOnce({
+      isCollection: false,
+      fallbackName: 'Computers',
+      products: [
+        ...Array.from(
+          { length: COMPARE_GRAPH_PRODUCT_LIMIT + 1 },
+          (_, index) => ({
+            ...products[index % products.length],
+            slug: `laptop-${index}`,
+            category_slug: 'laptops',
+            status: 'active',
+          })
+        ),
+        {
+          ...products[0],
+          slug: 'child-product',
+          category_slug: 'gaming-laptops',
+          status: 'active',
+        },
+      ],
+    });
+
+    const result = await loadCompareGraphProducts({
+      categorySlug: 'laptops',
+      merchantId: 'merchant-1',
+      storeSlug: 'ogabassey',
+    });
+
+    expect(result.failed).toBe(false);
+    expect(result.products).toHaveLength(COMPARE_GRAPH_PRODUCT_LIMIT);
+    expect(
+      result.products.every((product) => product.category_slug === 'laptops')
+    ).toBe(true);
   });
 
   it('falls back to an empty failed inventory when compare graph loading fails', async () => {
@@ -82,6 +135,7 @@ describe('compare page link helpers', () => {
       loadCompareGraphProducts({
         categorySlug: 'smartphones',
         merchantId: 'merchant-1',
+        storeSlug: 'ogabassey',
       })
     ).resolves.toEqual({ failed: true, products: [] });
     expect(consoleSpy).toHaveBeenCalled();

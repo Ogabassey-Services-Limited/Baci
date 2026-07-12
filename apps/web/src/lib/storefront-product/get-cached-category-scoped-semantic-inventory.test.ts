@@ -35,7 +35,6 @@ const categoryScopeShell = {
     kind: 'category' as const,
     categoryId: 'cat-laptops',
     categoryIds: ['cat-laptops', 'cat-gaming-laptops'],
-    scopeQueryFailed: false,
   },
 };
 
@@ -162,14 +161,11 @@ describe('getCachedCategoryScopedSemanticInventory', () => {
     expect(from).not.toHaveBeenCalled();
   });
 
-  it('throws on a transient scope failure so an empty pool is never fixed', async () => {
-    mockGetCachedCategoryPageShellData.mockResolvedValue({
-      ...categoryScopeShell,
-      productScope: {
-        ...categoryScopeShell.productScope,
-        scopeQueryFailed: true,
-      },
+  it('propagates a transient shell failure so an empty pool is never fixed', async () => {
+    const shellError = Object.assign(new Error('statement timeout'), {
+      code: '57014',
     });
+    mockGetCachedCategoryPageShellData.mockRejectedValue(shellError);
     mockGetPublicSupabaseClient.mockReturnValue({ from: vi.fn() });
 
     await expect(
@@ -178,7 +174,7 @@ describe('getCachedCategoryScopedSemanticInventory', () => {
         'laptops',
         'ogabassey'
       )
-    ).rejects.toThrow(/unavailable/);
+    ).rejects.toBe(shellError);
   });
 
   it('falls back to an ilike membership filter for legacy category URLs and resolves the slug from the category column', async () => {

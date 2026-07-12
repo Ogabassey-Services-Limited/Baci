@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  buildCompareLinkGraph,
-  COMPARE_GRAPH_INDEXABLE_CATEGORY_LINK_LIMIT,
-  isMaintainedCompareGraphSlug,
-} from './compare-link-graph';
+import { buildCompareLinkGraph } from './compare-link-graph';
 
 const products = [
   {
@@ -220,42 +216,5 @@ describe('buildCompareLinkGraph', () => {
         (entry) => entry.comparisonSlug === 'google-pixel-8-vs-xiaomi-13t'
       )
     ).toBe(false);
-  });
-
-  it('keeps category-window graph links indexable up to the compare index limit', () => {
-    const categoryProducts = Array.from({ length: 90 }, (_, index) => ({
-      id: `p-phone-${index}`,
-      name: `Phone ${index}`,
-      slug: `phone-${index}`,
-      brand: `Brand ${index % 4}`,
-      price: 250_000 + index,
-      status: 'active',
-      category_slug: 'smartphones',
-      product_key_specs: {
-        chipset: `Chip ${index}`,
-        ram_gb: 4 + index,
-        storage_gb: 64 + index,
-      },
-    }));
-    const graph = buildCompareLinkGraph({
-      storeUrl: 'https://ogabassey.com',
-      categorySlug: 'smartphones',
-      categoryName: 'Smartphones',
-      products: categoryProducts,
-      maxLinks: COMPARE_GRAPH_INDEXABLE_CATEGORY_LINK_LIMIT,
-    });
-    const deepGraphEntry = graph[60];
-
-    expect(graph.length).toBe(COMPARE_GRAPH_INDEXABLE_CATEGORY_LINK_LIMIT);
-    expect(deepGraphEntry).toBeDefined();
-    expect(
-      isMaintainedCompareGraphSlug({
-        storeUrl: 'https://ogabassey.com',
-        categorySlug: 'smartphones',
-        categoryName: 'Smartphones',
-        products: categoryProducts,
-        comparisonSlug: deepGraphEntry?.comparisonSlug ?? '',
-      })
-    ).toBe(true);
   });
 });

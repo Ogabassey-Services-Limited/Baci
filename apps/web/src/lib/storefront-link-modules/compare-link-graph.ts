@@ -1,8 +1,5 @@
 import { buildProductCompareCandidate } from '@/lib/storefront-compare/compare-eligibility';
-import {
-  buildCanonicalProductCompareSlug,
-  parseCompareSlug,
-} from '@/lib/storefront-compare/compare-slugs';
+import { buildCanonicalProductCompareSlug } from '@/lib/storefront-compare/compare-slugs';
 import { selectApprovedCompareGraphEntries } from './compare-link-graph-approval';
 import {
   buildCanonicalPair,
@@ -52,7 +49,7 @@ function hasUsefulSpecs(product: CompareLinkGraphProduct) {
   return Object.keys(product.product_key_specs ?? {}).length > 0;
 }
 
-function isActiveCompareProduct(
+export function isActiveCompareProduct(
   product: CompareLinkGraphProduct,
   productsAreKnownActive: boolean
 ) {
@@ -233,42 +230,11 @@ export function buildCompareLinkGraph({
     requiredProductSlugs: anchorProductSlug ? [anchorProductSlug] : undefined,
     policyProducts,
     candidateEntries: sortedCandidateEntries,
+    candidateEntriesAreIndexable: true,
     maxLinks,
   });
 }
 
-export function isMaintainedCompareGraphSlug(
-  input: BuildCompareLinkGraphInput & { comparisonSlug: string }
-) {
-  const parsed = parseCompareSlug(input.comparisonSlug);
-
-  if (!parsed) {
-    return false;
-  }
-
-  const isInGraph = (links: CompareLinkGraphEntry[]) =>
-    links.some((entry) => entry.comparisonSlug === parsed.canonicalSlug);
-
-  if (
-    isInGraph(
-      buildCompareLinkGraph({
-        ...input,
-        currentComparisonSlug: undefined,
-        maxLinks: COMPARE_GRAPH_INDEXABLE_CATEGORY_LINK_LIMIT,
-      })
-    )
-  ) {
-    return true;
-  }
-
-  return [parsed.leftKey, parsed.rightKey].some((anchorProductSlug) =>
-    isInGraph(
-      buildCompareLinkGraph({
-        ...input,
-        anchorProductSlug,
-        currentComparisonSlug: undefined,
-        maxLinks: 8,
-      })
-    )
-  );
-}
+// The maintained-slug read paths (buildCategoryCompareGraphSlugSet,
+// isMaintainedCompareGraphSlug) live in ./compare-maintained-slug to keep this
+// module under the 300-line cap.

@@ -1,6 +1,6 @@
 import { cacheLife, cacheTag } from 'next/cache';
 import { getBlogCacheTag } from '@/lib/blog-cache-tags';
-import { getCachedFeatureSettings, getMerchantSafe } from '@/lib/cached-data';
+import { getMerchantSafe } from '@/lib/cached-data';
 import { applyPublicBlogSqlFilters } from '@/lib/public-blog-sql-filters';
 import { toSafeInternalRedirectPath } from '@/lib/safe-internal-redirect-path';
 import { createPublicClient } from '@/lib/supabase/anon';
@@ -48,8 +48,7 @@ export async function getCachedStorefrontBlogPostStatus(
     return FAIL_OPEN;
   }
 
-  const features = await getCachedFeatureSettings(merchant.id);
-  if (!features?.blog_enabled) {
+  if (!merchant.feature_settings?.blog_enabled) {
     return MISSING;
   }
 

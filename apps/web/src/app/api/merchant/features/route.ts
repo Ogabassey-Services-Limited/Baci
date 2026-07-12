@@ -7,6 +7,7 @@ import {
 import {
   revalidateFeatures,
   revalidateMerchant,
+  revalidateRepairsCatalog,
 } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
@@ -40,6 +41,7 @@ export interface MerchantFeatureSettings {
   discount_codes_enabled: boolean;
   guest_checkout_enabled: boolean;
   agentic_checkout_enabled: boolean;
+  repairs_catalog_enabled: boolean;
 
   // Payment gateways
   paystack_enabled: boolean;
@@ -169,6 +171,7 @@ const MERCHANT_FEATURE_SELECT_FIELDS: readonly (keyof MerchantFeatureSettings)[]
     'discount_codes_enabled',
     'guest_checkout_enabled',
     'agentic_checkout_enabled',
+    'repairs_catalog_enabled',
     'paystack_enabled',
     'korapay_enabled',
     'pay_on_delivery_enabled',
@@ -276,6 +279,18 @@ function hasNonEmptyGrowthIntegrationSetting(updates: Record<string, unknown>) {
       ? value.trim().length > 0
       : value !== null && value !== undefined;
   });
+}
+
+function revalidateMerchantFeatureCaches(
+  merchantId: string,
+  updates: Record<string, unknown>
+) {
+  revalidateFeatures(merchantId);
+  revalidateMerchant(merchantId);
+
+  if ('repairs_catalog_enabled' in updates) {
+    revalidateRepairsCatalog(merchantId);
+  }
 }
 
 type MerchantFeatureDefaultField = Exclude<
@@ -517,9 +532,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // Invalidate cache
-    revalidateFeatures(access.merchantId);
-    revalidateMerchant(access.merchantId);
+    revalidateMerchantFeatureCaches(access.merchantId, sanitizedUpdates);
 
     return jsonNoStore(redactMerchantFeatureSettingsResponse(settings));
   } catch (error) {
@@ -643,9 +656,7 @@ export async function PUT(request: NextRequest) {
       return jsonNoStore({ error: 'Failed to save settings' }, { status: 500 });
     }
 
-    // Invalidate cache
-    revalidateFeatures(access.merchantId);
-    revalidateMerchant(access.merchantId);
+    revalidateMerchantFeatureCaches(access.merchantId, sanitizedSettings);
 
     return jsonNoStore(redactMerchantFeatureSettingsResponse(settings));
   } catch (error) {

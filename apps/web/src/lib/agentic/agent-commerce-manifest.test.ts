@@ -75,6 +75,33 @@ describe('agent commerce manifest builder', () => {
     );
   });
 
+  it('advertises the repairs catalog feeds alongside the product feeds', async () => {
+    const { buildAgentCommerceManifest } = await import(
+      '@/lib/agentic/agent-commerce-manifest'
+    );
+
+    const manifest = buildAgentCommerceManifest(
+      {
+        business_name: 'Ogabassey',
+        feature_settings: { pay_on_delivery_enabled: true },
+        paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
+        slug: 'ogabassey',
+      },
+      'https://ogabassey.com'
+    );
+
+    expect(manifest.links.feeds.facebook_repairs_xml).toBe(
+      'https://ogabassey.com/feeds/facebook-repairs.xml'
+    );
+    expect(manifest.links.feeds.agent_repairs).toBe(
+      'https://ogabassey.com/feeds/agent-repairs.jsonl'
+    );
+    // Product feeds remain advertised.
+    expect(manifest.links.feeds.agent_products).toBe(
+      'https://ogabassey.com/feeds/agent-products.jsonl'
+    );
+  });
+
   it('advertises only pay-on-delivery when Paystack is not configured', async () => {
     vi.stubEnv('PAYSTACK_SECRET_KEY', '');
 
@@ -166,6 +193,31 @@ describe('agent commerce manifest builder', () => {
     expect(manifest.payment_methods).toEqual([]);
     expect(manifest.auth).toBeNull();
     expect(manifest.links.checkout_sessions).toBeUndefined();
+  });
+
+  it('advertises Paystack from the snapshot capability hint when the raw subaccount code is omitted', async () => {
+    // The public storefront snapshot intentionally omits the raw
+    // paystack_subaccount_code and only exposes the derived
+    // paystack_subaccount_configured hint. The public manifest must gate on
+    // the hint so configured merchants keep agentic checkout; private payment
+    // paths remain authoritative over the raw code at charge time.
+    const { buildAgentCommerceManifest } = await import(
+      '@/lib/agentic/agent-commerce-manifest'
+    );
+
+    const manifest = buildAgentCommerceManifest(
+      {
+        business_name: 'Ogabassey',
+        feature_settings: { pay_on_delivery_enabled: false },
+        paystack_subaccount_code: null,
+        paystack_subaccount_configured: true,
+        slug: 'ogabassey',
+      },
+      'https://ogabassey.com'
+    );
+
+    expect(manifest.payment_methods).toEqual(['paystack_bank_transfer']);
+    expect(manifest.capabilities).toContain('checkout.session.complete');
   });
 
   it('hides checkout mutations when payment methods are unavailable', async () => {

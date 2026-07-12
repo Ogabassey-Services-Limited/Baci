@@ -7,7 +7,8 @@ import { getCachedProductSeoLinkData } from './get-cached-product-seo-link-data'
 const mocks = vi.hoisted(() => ({
   cacheLife: vi.fn(),
   cacheTag: vi.fn(),
-  getUncachedProductSeoLinkData: vi.fn(),
+  client: { rpc: vi.fn() },
+  readStorefrontPdpSemanticEnrichment: vi.fn(),
 }));
 
 vi.mock('next/cache', () => ({
@@ -15,20 +16,19 @@ vi.mock('next/cache', () => ({
   cacheTag: (...args: string[]) => mocks.cacheTag(...args),
 }));
 
-vi.mock('./get-product-seo-link-direct-data', () => ({
-  getUncachedProductSeoLinkData: (
-    merchantId: string,
-    categorySlug: string,
-    productId: string
-  ) => mocks.getUncachedProductSeoLinkData(merchantId, categorySlug, productId),
+vi.mock('@/lib/cached-data', () => ({
+  getPublicSupabaseClient: () => mocks.client,
+}));
+
+vi.mock('./storefront-pdp-semantic-enrichment', () => ({
+  readStorefrontPdpSemanticEnrichment: (...args: unknown[]) =>
+    mocks.readStorefrontPdpSemanticEnrichment(...args),
 }));
 
 const moduleDir = dirname(fileURLToPath(import.meta.url));
 const source = [
   'get-cached-product-seo-link-data.ts',
-  'get-product-seo-link-direct-data.ts',
-  'get-product-seo-link-guides.ts',
-  'get-product-seo-link-inventory.ts',
+  'storefront-pdp-semantic-enrichment.ts',
 ]
   .map((file) => readFileSync(join(moduleDir, file), 'utf8'))
   .join('\n');
@@ -42,7 +42,10 @@ const seoLinkData = {
 describe('getCachedProductSeoLinkData', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.getUncachedProductSeoLinkData.mockResolvedValue(seoLinkData);
+    mocks.readStorefrontPdpSemanticEnrichment.mockResolvedValue({
+      status: 'found',
+      value: seoLinkData,
+    });
   });
 
   it('keeps SEO link enrichment off the remote cache handler and remote helpers', () => {
@@ -51,15 +54,17 @@ describe('getCachedProductSeoLinkData', () => {
     expect(source).not.toContain('getCachedCategoryPageData');
     expect(source).not.toContain('getPublishedClusterPosts');
     expect(source).not.toContain('getPublishedProductGuidePosts');
-    expect(source).toContain('getCachedFeatureSettings');
+    expect(source).not.toContain('getCachedFeatureSettings');
   });
 
-  it('tags the local cache and delegates to direct reads', async () => {
+  it('tags the local cache and delegates to one semantic snapshot', async () => {
     const result = await getCachedProductSeoLinkData(
       'merchant-1',
       'laptops',
-      'ogabassey',
-      'prod-1'
+      'prod-1',
+      'legion-5',
+      'Lenovo',
+      true
     );
 
     expect(result).toBe(seoLinkData);
@@ -70,10 +75,17 @@ describe('getCachedProductSeoLinkData', () => {
       'blog-posts',
       'seo-links-merchant-1-laptops-prod-1'
     );
-    expect(mocks.getUncachedProductSeoLinkData).toHaveBeenCalledWith(
-      'merchant-1',
-      'laptops',
-      'prod-1'
+    expect(mocks.readStorefrontPdpSemanticEnrichment).toHaveBeenCalledWith(
+      mocks.client,
+      expect.objectContaining({
+        clusterRequest: expect.objectContaining({
+          p_category_slug: 'laptops',
+          p_search_query: expect.stringContaining('"lenovo"'),
+        }),
+        includeGuides: true,
+        merchantId: 'merchant-1',
+        productId: 'prod-1',
+      })
     );
   });
 
@@ -86,9 +98,53 @@ describe('getCachedProductSeoLinkData', () => {
       getCachedProductSeoLinkData(
         'merchant-1',
         'laptops',
-        'ogabassey',
-        'prod-1'
+        'prod-1',
+        'legion-5',
+        'Lenovo',
+        true
       )
     ).resolves.toBe(seoLinkData);
+  });
+
+  it('throws transient snapshot failures before an empty enrichment can be cached', async () => {
+    mocks.readStorefrontPdpSemanticEnrichment.mockResolvedValueOnce({
+      status: 'unavailable',
+      error: {
+        code: '57014',
+        kind: 'timeout',
+        operation: 'pdp_semantic_enrichment',
+        retryable: true,
+      },
+    });
+
+    await expect(
+      getCachedProductSeoLinkData(
+        'merchant-1',
+        'laptops',
+        'prod-1',
+        'legion-5',
+        'Lenovo',
+        true
+      )
+    ).rejects.toMatchObject({
+      failure: expect.objectContaining({ code: '57014' }),
+    });
+  });
+
+  it('caches a genuine enrichment miss as an explicit empty optional model', async () => {
+    mocks.readStorefrontPdpSemanticEnrichment.mockResolvedValueOnce({
+      status: 'not_found',
+    });
+
+    await expect(
+      getCachedProductSeoLinkData(
+        'merchant-1',
+        'laptops',
+        'missing-product',
+        'missing-product',
+        null,
+        true
+      )
+    ).resolves.toEqual(seoLinkData);
   });
 });

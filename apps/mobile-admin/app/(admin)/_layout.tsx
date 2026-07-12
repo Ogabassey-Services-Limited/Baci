@@ -169,6 +169,14 @@ export default function AdminLayout() {
         />
         <Stack.Screen name="negotiations" options={{ title: 'Negotiations' }} />
         <Stack.Screen
+          name="repairs/index"
+          options={{ title: 'Repair Bookings' }}
+        />
+        <Stack.Screen
+          name="repairs/[id]"
+          options={{ title: 'Booking Details', presentation: 'card' }}
+        />
+        <Stack.Screen
           name="store-settings"
           options={{ title: 'Store Settings' }}
         />

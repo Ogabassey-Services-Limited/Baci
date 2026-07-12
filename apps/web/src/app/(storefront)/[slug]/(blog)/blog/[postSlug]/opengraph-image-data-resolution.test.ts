@@ -3,13 +3,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const {
   mockCreatePublicClient,
   mockFetch,
-  mockGetCachedFeatureSettings,
   mockGetCachedMerchant,
   mockGetCachedMerchantByDomain,
 } = vi.hoisted(() => ({
   mockCreatePublicClient: vi.fn(),
   mockFetch: vi.fn(),
-  mockGetCachedFeatureSettings: vi.fn(),
   mockGetCachedMerchant: vi.fn(),
   mockGetCachedMerchantByDomain: vi.fn(),
 }));
@@ -24,8 +22,6 @@ vi.mock('@/env', () => ({
 }));
 
 vi.mock('@/lib/cached-data', () => ({
-  getCachedFeatureSettings: (...args: unknown[]) =>
-    mockGetCachedFeatureSettings(...args),
   getCachedMerchant: (...args: unknown[]) => mockGetCachedMerchant(...args),
   getCachedMerchantByDomain: (...args: unknown[]) =>
     mockGetCachedMerchantByDomain(...args),
@@ -60,6 +56,7 @@ const merchant = {
     accent: '#f5a623',
   },
   logo_url: 'https://cdn.ogabassey.com/media/merchant-1/logo.png',
+  feature_settings: { blog_enabled: true },
 };
 
 const postRow: PostRow = {
@@ -96,7 +93,6 @@ beforeEach(() => {
   vi.stubGlobal('fetch', mockFetch);
   mockGetCachedMerchant.mockResolvedValue(merchant);
   mockGetCachedMerchantByDomain.mockResolvedValue(merchant);
-  mockGetCachedFeatureSettings.mockResolvedValue({ blog_enabled: true });
   installPostQuery(postRow);
 });
 
@@ -115,14 +111,16 @@ describe('merchant blog OG image data resolution', () => {
       getMerchantBlogOgImageData('blank-name-shop', 'post-a')
     ).resolves.toBeNull();
 
-    mockGetCachedMerchant.mockResolvedValueOnce(merchant);
-    mockGetCachedFeatureSettings.mockResolvedValueOnce({ blog_enabled: false });
+    mockGetCachedMerchant.mockResolvedValueOnce({
+      ...merchant,
+      feature_settings: { blog_enabled: false },
+    });
     await expect(
       getMerchantBlogOgImageData('blog-disabled-shop', 'post-a')
     ).resolves.toBeNull();
   });
 
-  it('returns null when merchant or feature visibility lookups time out', async () => {
+  it('returns null when the merchant snapshot lookup times out', async () => {
     const consoleErrorSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
@@ -135,18 +133,6 @@ describe('merchant blog OG image data resolution', () => {
     );
     await vi.advanceTimersByTimeAsync(4000);
     await expect(merchantTimeout).resolves.toBeNull();
-
-    vi.useRealTimers();
-    vi.useFakeTimers();
-    mockGetCachedFeatureSettings.mockReturnValueOnce(
-      new Promise(() => undefined)
-    );
-    const featureTimeout = getMerchantBlogOgMetadataData(
-      'feature-timeout-shop',
-      'post-a'
-    );
-    await vi.advanceTimersByTimeAsync(4000);
-    await expect(featureTimeout).resolves.toBeNull();
 
     consoleErrorSpy.mockRestore();
   });

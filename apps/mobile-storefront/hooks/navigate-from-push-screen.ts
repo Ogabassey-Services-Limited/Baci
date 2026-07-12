@@ -18,6 +18,9 @@ export function navigateFromPushScreen(
     case 'orders':
       router.push('/orders');
       break;
+    case 'repairs':
+      router.push('/repairs');
+      break;
     case 'product':
       if (params?.slug) {
         router.push(`/product/${params.slug}`);

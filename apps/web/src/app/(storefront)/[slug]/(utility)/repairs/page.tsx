@@ -3,14 +3,19 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { JsonLd } from '@/components/seo/json-ld';
 import { OgabasseyV2Repairs } from '@/components/storefront/ogabassey/pages/repairs';
+import { GenericRepairsPage } from '@/components/storefront/repairs/GenericRepairsPage';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import {
+  type CachedMerchant,
   getCachedMerchant,
   getCachedMerchantByDomain,
 } from '@/lib/cached-data';
+import { getRepairDevicesForMerchant } from '@/lib/repairs/repairs-catalog-data';
+import { isRepairsCatalogEnabled } from '@/lib/repairs/repairs-feature';
 import { generateBreadcrumbSchema } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildStorefrontMetadataTitle } from '@/lib/storefront-metadata-title';
+import { buildRepairsIndexSchema } from '@/lib/storefront-repairs/repairs-schema';
 import {
   isDomainIdentifier,
   isValidMerchantIdentifier,
@@ -31,13 +36,34 @@ async function getRepairsMerchant(slug: string) {
     : await getCachedMerchant(lookupKey);
 }
 
+function isOgabasseyMerchant(merchant: CachedMerchant): boolean {
+  return merchant.template_id === OGABASSEY_TEMPLATE_ID;
+}
+
+function isCatalogEnabledForMerchant(merchant: CachedMerchant): boolean {
+  return isRepairsCatalogEnabled({
+    businessType: merchant.business_type,
+    repairsCatalogEnabled: merchant.feature_settings?.repairs_catalog_enabled,
+  });
+}
+
+/**
+ * Ogabassey keeps its existing static "Repair Lab" landing even when the
+ * catalogue flag is off, so the page always renders for that template. Every
+ * other template only renders once the merchant has opted into the
+ * repairs catalogue (electronics/gadgets business type + feature flag on).
+ */
+function shouldRenderRepairsPage(merchant: CachedMerchant): boolean {
+  return isOgabasseyMerchant(merchant) || isCatalogEnabledForMerchant(merchant);
+}
+
 export async function generateMetadata({
   params,
 }: RepairsPageProps): Promise<Metadata> {
   const { slug } = await params;
   const merchant = await getRepairsMerchant(slug);
 
-  if (merchant?.template_id !== OGABASSEY_TEMPLATE_ID) {
+  if (!merchant || !shouldRenderRepairsPage(merchant)) {
     return {
       title: 'Repair Service Not Found',
     };
@@ -86,8 +112,7 @@ export default async function RepairsPage({ params }: RepairsPageProps) {
     notFound();
   }
 
-  // Only show for Ogabassey template (merchant-specific feature)
-  if (merchant.template_id !== OGABASSEY_TEMPLATE_ID) {
+  if (!shouldRenderRepairsPage(merchant)) {
     notFound();
   }
 
@@ -97,13 +122,38 @@ export default async function RepairsPage({ params }: RepairsPageProps) {
     { name: merchant.business_name || 'Home', url: baseUrl },
     { name: 'Repairs', url: canonicalUrl },
   ]);
+  const basePath = getRepairsBasePath(await headers(), merchant);
+  const catalogEnabled = isCatalogEnabledForMerchant(merchant);
+  const groups = catalogEnabled
+    ? await getRepairDevicesForMerchant(merchant.id).catch((error) => {
+        console.error('Error loading repair devices for storefront:', error);
+        return [];
+      })
+    : undefined;
+  // Additive ItemList of device repair pages so crawlers/agents can discover
+  // every per-device page from the index. Null when the catalogue is empty.
+  const repairsIndexSchema = groups?.length
+    ? buildRepairsIndexSchema({
+        groups,
+        merchantName: merchant.business_name,
+        repairsUrl: canonicalUrl,
+        storeBaseUrl: baseUrl,
+      })
+    : null;
 
   return (
     <>
       <JsonLd data={breadcrumbSchema} />
-      <OgabasseyV2Repairs
-        basePath={getRepairsBasePath(await headers(), merchant)}
-      />
+      {repairsIndexSchema && <JsonLd data={repairsIndexSchema} />}
+      {isOgabasseyMerchant(merchant) ? (
+        <OgabasseyV2Repairs basePath={basePath} groups={groups} />
+      ) : (
+        <GenericRepairsPage
+          basePath={basePath}
+          groups={groups ?? []}
+          merchantName={merchant.business_name}
+        />
+      )}
     </>
   );
 }

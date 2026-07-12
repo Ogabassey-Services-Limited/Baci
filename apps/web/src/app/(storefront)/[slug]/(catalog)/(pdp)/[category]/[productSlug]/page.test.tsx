@@ -1741,9 +1741,9 @@ describe('[category]/[productSlug] page metadata', () => {
   });
 
   it('returns noindex metadata for mixed-case product slugs (real HTTP 308 happens during page render)', async () => {
-    mockGetCachedProductWithDetails
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(categorizedDetailedProduct);
+    mockGetCachedProductWithDetails.mockResolvedValueOnce(
+      categorizedDetailedProduct
+    );
 
     const metadata = await generateMetadata({
       params: Promise.resolve({
@@ -1756,15 +1756,10 @@ describe('[category]/[productSlug] page metadata', () => {
 
     expect(metadata.robots).toMatchObject({ index: false, follow: true });
     expect(metadata.alternates).toBeNull();
-    expect(mockGetCachedProductWithDetails).toHaveBeenNthCalledWith(
-      1,
+    expect(mockGetCachedProductWithDetails).toHaveBeenCalledOnce();
+    expect(mockGetCachedProductWithDetails).toHaveBeenCalledWith(
       'merchant-1',
       'HP-LAPTOP-14-EP0063NIA'
-    );
-    expect(mockGetCachedProductWithDetails).toHaveBeenNthCalledWith(
-      2,
-      'merchant-1',
-      'hp-laptop-14-ep0063nia'
     );
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
   });

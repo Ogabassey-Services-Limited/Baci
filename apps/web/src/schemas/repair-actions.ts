@@ -1,6 +1,22 @@
 import { z } from 'zod';
+import { repairsDeviceDetailRouteParamsSchema } from '@/schemas/repair-catalog';
 
 export const repairMerchantIdSchema = z.uuid();
+
+/**
+ * `/[slug]/repair?device=<slug>&quote=<id>` preselection query params. Reuses
+ * the same device-slug shape the storefront read API validates route params
+ * with, so a malformed/bot-supplied slug is rejected before it ever reaches
+ * the catalogue data layer.
+ */
+export const repairBookingSearchParamsSchema = z.object({
+  device: repairsDeviceDetailRouteParamsSchema.shape.deviceSlug.optional(),
+  quote: z.uuid().optional(),
+});
+
+export type RepairBookingSearchParams = z.infer<
+  typeof repairBookingSearchParamsSchema
+>;
 
 const optionalPlaceText = (maxLength: number) =>
   z.string().trim().max(maxLength).optional().default('');
