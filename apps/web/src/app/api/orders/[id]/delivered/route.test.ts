@@ -98,6 +98,7 @@ function createSupabaseMock(
     | 'pending'
     | 'processing'
     | 'outcome_unknown'
+    | 'order_not_found'
     | null = null
 ) {
   const merchantBuilder = createSelectBuilder({ data: merchant, error: null });
@@ -124,7 +125,10 @@ function createSupabaseMock(
       if (fn === 'prepare_order_notification_outbox_manual_send') {
         return Promise.resolve({
           data: {
-            outbox_id: '10000000-0000-4000-8000-000000000001',
+            outbox_id:
+              terminalOutboxStatus === 'order_not_found'
+                ? null
+                : '10000000-0000-4000-8000-000000000001',
             status:
               terminalOutboxStatus === 'skipped' ? null : terminalOutboxStatus,
           },
@@ -318,6 +322,22 @@ describe('POST /api/orders/[id]/delivered', () => {
       notificationSkipped: true,
       reason: 'notification_delivery_outcome_unknown',
     });
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when the order is not owned by the merchant', async () => {
+    const supabase = createSupabaseMock(deliveredOrder, 'order_not_found');
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+
+    const response = await POST(createRequest(), {
+      params: Promise.resolve({ id: orderId }),
+    });
+
+    expect(response.status).toBe(404);
     expect(sendEmail).not.toHaveBeenCalled();
   });
 

@@ -95,6 +95,20 @@ describe('getManualOrderNotificationOutboxBlockingState', () => {
     });
   });
 
+  it('returns not_found when the order does not belong to the merchant', async () => {
+    const result = await getManualOrderNotificationOutboxBlockingState({
+      eventType: 'order_delivered',
+      merchantId: 'merchant-1',
+      orderId: 'order-1',
+      supabase: createSupabaseMock({
+        outbox_id: null,
+        status: 'order_not_found',
+      }),
+    });
+
+    expect(result).toEqual({ status: 'not_found' });
+  });
+
   it('blocks manual sends while a matching outbox row is pending', async () => {
     const result = await getManualOrderNotificationOutboxBlockingState({
       eventType: 'order_shipped',

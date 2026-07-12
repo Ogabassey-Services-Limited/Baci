@@ -10,11 +10,6 @@ import type {
 } from '@/lib/order-fulfillment-notification-types';
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 
-export type {
-  OrderFulfillmentNotificationEventType,
-  OrderFulfillmentNotificationResult,
-} from '@/lib/order-fulfillment-notification-types';
-
 interface SendOrderFulfillmentNotificationParams {
   courierName?: string;
   estimatedDelivery?: string;
@@ -27,7 +22,6 @@ interface SendOrderFulfillmentNotificationParams {
   };
   trackingNumber?: string;
 }
-
 const merchantSchema = z.object({
   id: z.string().min(1),
   business_name: z.string().min(1),
@@ -56,7 +50,12 @@ const fulfillmentOrderSchema = z.object({
   id: z.string().min(1),
   customer_id: z.string().nullable().optional(),
   order_number: z.string().nullable(),
-  customer_name: z.string().min(1),
+  customer_name: z
+    .string()
+    .trim()
+    .nullable()
+    .optional()
+    .transform((value) => value || 'Customer'),
   customer_email: z.string().nullable().optional(),
   customer_phone: z.string().nullable().optional(),
   shipping_status: fulfillmentShippingStatusSchema,

@@ -23,6 +23,7 @@ DECLARE
   v_manual_skipped_order_id uuid := '8f0ed783-0000-4000-8000-000000000808';
   v_delivered_completed_order_id uuid := '8f0ed783-0000-4000-8000-000000000806';
   v_direct_out_for_delivery_order_id uuid := '8f0ed783-0000-4000-8000-000000000809';
+  v_direct_completed_order_id uuid := '8f0ed783-0000-4000-8000-000000000810';
   v_shipped_count integer;
   v_delivered_count integer;
   v_repeat_shipped_count integer;
@@ -210,6 +211,24 @@ BEGIN
   THEN
     RAISE EXCEPTION 'expected pending outbox metadata to preserve manual shipment details, got %',
       v_manual_metadata;
+  END IF;
+
+  SELECT prepared.result->>'status'
+  INTO v_manual_prepared_status
+  FROM (
+    SELECT public.prepare_order_notification_outbox_manual_send(
+      '8f0ed783-0000-4000-8000-000000000899'::uuid,
+      v_merchant_id,
+      'order_shipped',
+      NULL,
+      NULL,
+      NULL
+    ) AS result
+  ) AS prepared;
+
+  IF v_manual_prepared_status IS DISTINCT FROM 'order_not_found' THEN
+    RAISE EXCEPTION 'missing or cross-merchant order should not be claimed, got %',
+      v_manual_prepared_status;
   END IF;
 
   SELECT public.complete_order_notification_outbox_manual_result(
@@ -689,6 +708,42 @@ BEGIN
 
   IF v_delivered_completed_count <> 1 THEN
     RAISE EXCEPTION 'expected delivered->completed normalization to avoid duplicate delivered events, got %',
+      v_delivered_completed_count;
+  END IF;
+
+  INSERT INTO public.orders (
+    id,
+    merchant_id,
+    order_number,
+    customer_name,
+    customer_email,
+    shipping_status,
+    payment_status,
+    total
+  )
+  VALUES (
+    v_direct_completed_order_id,
+    v_merchant_id,
+    'OUTBOX-DIRECT-COMPLETED-001',
+    'Direct Completed Customer',
+    'direct-completed@example.com',
+    'processing',
+    'paid',
+    10000
+  );
+
+  UPDATE public.orders
+  SET shipping_status = 'completed'
+  WHERE id = v_direct_completed_order_id;
+
+  SELECT count(*)::integer
+  INTO v_delivered_completed_count
+  FROM public.order_notification_outbox
+  WHERE order_id = v_direct_completed_order_id
+    AND event_type = 'order_delivered';
+
+  IF v_delivered_completed_count <> 1 THEN
+    RAISE EXCEPTION 'expected direct completed transition to enqueue delivered event, got %',
       v_delivered_completed_count;
   END IF;
 

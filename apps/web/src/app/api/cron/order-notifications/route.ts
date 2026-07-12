@@ -18,8 +18,7 @@ const batchSizeSchema = z
     (value) => value ?? DEFAULT_BATCH_SIZE,
     z.coerce.number().finite().transform(Math.trunc)
   )
-  .transform((value) => Math.min(Math.max(value, 1), MAX_BATCH_SIZE))
-  .catch(DEFAULT_BATCH_SIZE);
+  .transform((value) => Math.min(Math.max(value, 1), MAX_BATCH_SIZE));
 const claimedRowsSchema = z.array(claimedOrderNotificationOutboxRowSchema);
 
 export async function GET(request: Request) {
@@ -28,7 +27,13 @@ export async function GET(request: Request) {
   }
 
   const url = new URL(request.url);
-  const batchSize = batchSizeSchema.parse(url.searchParams.get('batchSize'));
+  const parsedBatchSize = batchSizeSchema.safeParse(
+    url.searchParams.get('batchSize')
+  );
+  if (!parsedBatchSize.success) {
+    return NextResponse.json({ error: 'Invalid batch size' }, { status: 400 });
+  }
+  const batchSize = parsedBatchSize.data;
   const supabase = createServiceClient();
   const workerId = `web-cron-${Date.now()}`;
   const { data, error } = await supabase.rpc(

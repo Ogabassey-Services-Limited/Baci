@@ -5,10 +5,8 @@ import {
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
-import {
-  type OrderFulfillmentNotificationResult,
-  sendOrderFulfillmentNotification,
-} from '@/lib/order-fulfillment-notification';
+import { sendOrderFulfillmentNotification } from '@/lib/order-fulfillment-notification';
+import type { OrderFulfillmentNotificationResult } from '@/lib/order-fulfillment-notification-types';
 import { completeManualOrderNotificationOutboxEvent } from '@/lib/order-notification-outbox-manual-result';
 import { getManualOrderNotificationOutboxBlockingState } from '@/lib/order-notification-outbox-manual-state';
 import { orderIdParamsSchema } from '@/schemas/orders';
@@ -140,6 +138,12 @@ export async function POST(
         { error: 'Failed to verify notification state' },
         { status: 500 }
       );
+    }
+    if (blockingState.status === 'not_found') {
+      return responseForResult({
+        status: 'not_found',
+        error: 'Order not found',
+      });
     }
     if (blockingState.status === 'blocked') {
       switch (blockingState.outboxStatus) {

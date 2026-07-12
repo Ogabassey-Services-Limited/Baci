@@ -69,17 +69,19 @@ async function updateOutboxStatus(
   id: string,
   values: Record<string, unknown>
 ) {
-  const { error } = await supabase
-    .from('order_notification_outbox')
-    .update({
-      ...values,
-      locked_at: null,
-      locked_by: null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', id);
-
-  if (error) {
+  try {
+    const { error } = await supabase
+      .from('order_notification_outbox')
+      .update({
+        ...values,
+        locked_at: null,
+        locked_by: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id);
+    if (!error) return;
+    throw error;
+  } catch (error) {
     logger.error({
       message: 'Failed to update order notification outbox row',
       outboxId: id,

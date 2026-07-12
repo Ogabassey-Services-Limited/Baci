@@ -10,6 +10,7 @@ type BlockingOutboxStatus =
 
 type ManualOutboxStateResult =
   | { status: 'clear'; claimId: string }
+  | { status: 'not_found' }
   | { status: 'error'; error: string }
   | { status: 'blocked'; outboxStatus: BlockingOutboxStatus };
 
@@ -38,9 +39,15 @@ interface GetManualOutboxStateParams {
 }
 
 const manualOutboxPreparationSchema = z.object({
-  outbox_id: z.string().uuid(),
+  outbox_id: z.string().uuid().nullable(),
   status: z
-    .enum(['outcome_unknown', 'pending', 'processing', 'sent'])
+    .enum([
+      'order_not_found',
+      'outcome_unknown',
+      'pending',
+      'processing',
+      'sent',
+    ])
     .nullable(),
 });
 
@@ -101,7 +108,13 @@ export async function getManualOrderNotificationOutboxBlockingState({
 
   const parsed = manualOutboxPreparationSchema.safeParse(data);
   if (parsed.success) {
+    if (parsed.data.status === 'order_not_found') {
+      return { status: 'not_found' };
+    }
     if (parsed.data.status === null) {
+      if (!parsed.data.outbox_id) {
+        return { status: 'error', error: 'missing_outbox_claim_id' };
+      }
       return { status: 'clear', claimId: parsed.data.outbox_id };
     }
     if (isBlockingOutboxStatus(parsed.data.status)) {

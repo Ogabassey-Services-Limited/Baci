@@ -160,18 +160,24 @@ describe('GET /api/cron/order-notifications', () => {
     );
   });
 
-  it('clamps oversized batch sizes and defaults malformed values', async () => {
+  it('clamps oversized batch sizes', async () => {
     await GET(cronRequest('/api/cron/order-notifications?batchSize=999'));
     expect(mockSupabase.rpc).toHaveBeenLastCalledWith(
       'claim_order_notification_outbox',
       expect.objectContaining({ p_batch_size: 10 })
     );
+  });
 
-    await GET(cronRequest('/api/cron/order-notifications?batchSize=invalid'));
-    expect(mockSupabase.rpc).toHaveBeenLastCalledWith(
-      'claim_order_notification_outbox',
-      expect.objectContaining({ p_batch_size: 1 })
+  it('returns 400 for malformed batch sizes', async () => {
+    const response = await GET(
+      cronRequest('/api/cron/order-notifications?batchSize=invalid')
     );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Invalid batch size',
+    });
+    expect(mockSupabase.rpc).not.toHaveBeenCalled();
   });
 
   it('serializes claimed events for the same order while allowing different orders to proceed', async () => {

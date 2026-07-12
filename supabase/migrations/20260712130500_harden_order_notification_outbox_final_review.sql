@@ -175,6 +175,15 @@ BEGIN
     END IF;
   END IF;
 
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.orders AS orders
+    WHERE orders.id = p_order_id
+      AND orders.merchant_id = p_merchant_id
+  ) THEN
+    RETURN jsonb_build_object('status', 'order_not_found', 'outbox_id', NULL);
+  END IF;
+
   SELECT outbox.id, outbox.status, outbox.skip_reason
   INTO v_outbox_id, v_status, v_skip_reason
   FROM public.order_notification_outbox AS outbox

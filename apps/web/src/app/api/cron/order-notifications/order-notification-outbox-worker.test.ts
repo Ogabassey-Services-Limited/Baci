@@ -155,4 +155,26 @@ describe('order notification outbox worker', () => {
       })
     );
   });
+
+  it('normalizes rejected sent-marker writes before applying the safe fallback', async () => {
+    const { client, builder } = createSupabase([]);
+    builder.eq
+      .mockRejectedValueOnce(new Error('database connection reset'))
+      .mockResolvedValueOnce({ error: null });
+    sendNotification.mockResolvedValue({
+      status: 'sent',
+      messageId: 'message-1',
+    });
+    const summary = createOrderNotificationCronSummary(1);
+
+    await processClaimedOrderNotificationRows(client as never, [row], summary);
+
+    expect(summary).toMatchObject({ sent: 1, retried: 0 });
+    expect(builder.update).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        skip_reason: 'delivery_outcome_unknown',
+        status: 'skipped',
+      })
+    );
+  });
 });

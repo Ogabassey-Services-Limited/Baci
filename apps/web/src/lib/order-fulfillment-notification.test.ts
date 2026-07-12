@@ -46,7 +46,7 @@ const baseOrder = {
   id: 'order-1',
   customer_id: 'customer-1',
   order_number: 'ORD-001',
-  customer_name: 'Jane Doe',
+  customer_name: 'Jane Doe' as string | null,
   customer_email: 'jane@example.com' as string | null,
   customer_phone: '08012345678',
   shipping_status: 'shipped',
@@ -204,6 +204,22 @@ describe('sendOrderFulfillmentNotification', () => {
     );
   });
 
+  it('uses a safe customer-name fallback for legacy nullable orders', async () => {
+    const result = await sendOrderFulfillmentNotification({
+      eventType: 'order_shipped',
+      merchantId: 'merchant-1',
+      orderId: 'order-1',
+      supabase: createSupabaseMock({
+        order: { ...baseOrder, customer_name: null },
+      }),
+    });
+
+    expect(result).toMatchObject({ status: 'sent' });
+    expect(sendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ toName: 'Customer' })
+    );
+  });
+
   it('sends historical shipped outbox events after the order advances to out for delivery', async () => {
     const result = await sendOrderFulfillmentNotification({
       eventType: 'order_shipped',
@@ -345,7 +361,7 @@ describe('sendOrderFulfillmentNotification', () => {
       merchantId: 'merchant-1',
       orderId: 'order-1',
       supabase: createSupabaseMock({
-        order: { ...baseOrder, customer_name: '' },
+        order: { ...baseOrder, id: '' },
       }),
     });
 
