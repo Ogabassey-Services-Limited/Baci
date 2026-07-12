@@ -24,7 +24,8 @@ The scheduled workflow in `.github/workflows/seo-monitoring.yml` reads:
   - Defaults to `https://ogabassey.com` when unset
 - Repository variable `PAGESPEED_EXTRA_URLS`
   - Optional comma-separated additional URLs for PageSpeed audits
-  - Uses `PAGESPEED_EXTRA_URLS` when set; otherwise inherits `SEO_MERCHANT_ORIGINS`, including its `https://ogabassey.com` default
+  - Appended to `SEO_MERCHANT_ORIGINS`; it never replaces the monitored merchant roots
+  - Use this for representative category and product URLs
 - Repository variable `PAGESPEED_STRATEGIES`
   - Optional, defaults to `mobile,desktop`
 - Repository variable `PAGE_SPEED_TIMEOUT_MS`
