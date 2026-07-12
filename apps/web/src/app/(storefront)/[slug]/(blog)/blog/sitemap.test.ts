@@ -11,17 +11,11 @@ vi.mock('next/headers', () => ({
 }));
 
 const mockGetMerchantByIdentifier = vi.fn();
-const mockGetCachedFeatureSettings =
-  vi.fn<(merchantId: string) => Promise<{ blog_enabled: boolean }>>();
-mockGetCachedFeatureSettings.mockImplementation(async () => ({
-  blog_enabled: true,
-}));
+let mockBlogEnabled = true;
 
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: (...args: unknown[]) =>
     mockGetMerchantByIdentifier(...args),
-  getCachedFeatureSettings: (merchantId: string) =>
-    mockGetCachedFeatureSettings(merchantId),
 }));
 
 interface BlogPostRow {
@@ -80,7 +74,10 @@ vi.mock('../../sitemap-data', () => ({
         : `https://${merchant.slug}.usebaci.com`;
 
     return {
-      merchant,
+      merchant: {
+        ...merchant,
+        feature_settings: { blog_enabled: mockBlogEnabled },
+      },
       storeUrl,
       supabase: { from: mockFrom },
     };
@@ -107,9 +104,7 @@ describe('blog sitemap', () => {
       id: 'merchant-1',
       slug: 'ogabassey',
     });
-    mockGetCachedFeatureSettings.mockImplementation(async () => ({
-      blog_enabled: true,
-    }));
+    mockBlogEnabled = true;
     mockEq.mockImplementation(() => ({ eq: mockEq, not: mockNot }));
     mockNot.mockReset();
   });
@@ -196,9 +191,7 @@ describe('blog sitemap', () => {
       slug: 'ogabassey',
       custom_domain: 'ogabassey.com',
     });
-    mockGetCachedFeatureSettings.mockResolvedValueOnce({
-      blog_enabled: false,
-    });
+    mockBlogEnabled = false;
 
     await expect(sitemap()).resolves.toEqual([]);
   });

@@ -2,7 +2,6 @@ import type { PostgrestError } from '@supabase/supabase-js';
 import type { MetadataRoute } from 'next';
 import {
   getCachedCategoryPageData,
-  getCachedFeatureSettings,
   getMerchantByIdentifier,
 } from '@/lib/cached-data';
 import { normalizeProductKeySpecs } from '@/lib/product-key-specs-normalize';
@@ -559,9 +558,9 @@ export async function getCommercialSupportSitemapEntries(
  * sitemap routes), so every child resolves on both custom domains and
  * platform subdomains.
  */
-export async function getSitemapIndexLinks(
+export function getSitemapIndexLinks(
   context: StorefrontSitemapContext
-): Promise<string[]> {
+): string[] {
   const { merchant, storeUrl } = context;
   const links = [
     `${storeUrl}/sitemap/static.xml`,
@@ -574,16 +573,9 @@ export async function getSitemapIndexLinks(
     links.push(`${storeUrl}/sitemap/repairs.xml`);
   }
 
-  let blogEnabled = false;
-  try {
-    const features = await getCachedFeatureSettings(merchant.id);
-    blogEnabled = Boolean(features?.blog_enabled);
-  } catch (error) {
-    // Degrade to the core children rather than failing the whole index.
-    console.warn('storefront sitemap: blog feature lookup unavailable', {
-      error,
-    });
-  }
+  // The merchant snapshot already carries feature_settings; no second feature
+  // lookup (and no failure mode for it) is needed on the sitemap index path.
+  const blogEnabled = Boolean(merchant.feature_settings?.blog_enabled);
 
   if (blogEnabled) {
     links.push(

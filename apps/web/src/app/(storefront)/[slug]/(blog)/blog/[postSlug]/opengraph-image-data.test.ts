@@ -3,13 +3,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const {
   mockCreatePublicClient,
   mockFetch,
-  mockGetCachedFeatureSettings,
   mockGetCachedMerchant,
   mockGetCachedMerchantByDomain,
 } = vi.hoisted(() => ({
   mockCreatePublicClient: vi.fn(),
   mockFetch: vi.fn(),
-  mockGetCachedFeatureSettings: vi.fn(),
   mockGetCachedMerchant: vi.fn(),
   mockGetCachedMerchantByDomain: vi.fn(),
 }));
@@ -24,8 +22,6 @@ vi.mock('@/env', () => ({
 }));
 
 vi.mock('@/lib/cached-data', () => ({
-  getCachedFeatureSettings: (...args: unknown[]) =>
-    mockGetCachedFeatureSettings(...args),
   getCachedMerchant: (...args: unknown[]) => mockGetCachedMerchant(...args),
   getCachedMerchantByDomain: (...args: unknown[]) =>
     mockGetCachedMerchantByDomain(...args),
@@ -57,6 +53,7 @@ const merchant = {
     accent: '#f5a623',
   },
   logo_url: 'https://cdn.ogabassey.com/media/merchant-1/logo.png',
+  feature_settings: { blog_enabled: true },
 };
 
 const postRow: PostRow = {
@@ -105,7 +102,6 @@ beforeEach(() => {
   vi.stubGlobal('fetch', mockFetch);
   mockGetCachedMerchant.mockResolvedValue(merchant);
   mockGetCachedMerchantByDomain.mockResolvedValue(merchant);
-  mockGetCachedFeatureSettings.mockResolvedValue({ blog_enabled: true });
   installPostQuery(postRow);
 });
 

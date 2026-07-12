@@ -3,19 +3,40 @@ import {
   type CompareLinkGraphEntry,
   type CompareLinkGraphProduct,
 } from '@/lib/storefront-link-modules/compare-link-graph';
-import { getCachedProductSemanticInventory } from '@/lib/storefront-product/get-cached-product-semantic-inventory';
+import {
+  COMPARE_CATEGORY_INVENTORY_PRODUCT_LIMIT,
+  getCachedCompareCategoryInventory,
+} from './get-cached-compare-category-inventory';
+
+// Preserve the former semantic-overlay bound while sourcing it from the
+// category snapshot that the compare core already loaded. This must remain at
+// or below COMPARE_CATEGORY_INVENTORY_PRODUCT_LIMIT so every emitted graph URL
+// can resolve from the same authoritative compare inventory.
+export const COMPARE_GRAPH_PRODUCT_LIMIT = Math.min(
+  300,
+  COMPARE_CATEGORY_INVENTORY_PRODUCT_LIMIT
+);
 
 export async function loadCompareGraphProducts(input: {
   categorySlug: string;
   merchantId: string;
+  storeSlug: string;
 }) {
   try {
+    // getCachedComparePageModel loads this exact category snapshot before the
+    // overlay runs. Re-reading the same Cache Components key reuses that local
+    // snapshot instead of issuing the former second, ~0.5MB Supabase request.
+    const inventory = await getCachedCompareCategoryInventory(
+      input.merchantId,
+      input.categorySlug,
+      input.storeSlug
+    );
+
     return {
       failed: false,
-      products: await getCachedProductSemanticInventory(
-        input.merchantId,
-        input.categorySlug
-      ),
+      products: inventory.products
+        .filter((product) => product.category_slug === input.categorySlug)
+        .slice(0, COMPARE_GRAPH_PRODUCT_LIMIT),
     };
   } catch (error) {
     console.warn('Failed to load bounded compare graph inventory', {

@@ -1,4 +1,4 @@
-import { getCachedFeatureSettings, getMerchantSafe } from '@/lib/cached-data';
+import { getMerchantSafe } from '@/lib/cached-data';
 import { normalizeStorefrontCategoryValue } from '@/lib/normalize-storefront-category-value';
 import {
   filterPublicBlogPosts,
@@ -32,13 +32,7 @@ export async function getLiveBlogPost(
 
   if (!merchant) return null;
 
-  let features: Awaited<ReturnType<typeof getCachedFeatureSettings>>;
-  try {
-    features = await getCachedFeatureSettings(merchant.id);
-  } catch {
-    return null; // Treat settings fetch failure as "blog disabled"
-  }
-  if (!features?.blog_enabled) return null;
+  if (!merchant.feature_settings?.blog_enabled) return null;
 
   const supabase = createPublicClient({
     clientInfo: 'baci-web-live-blog-post',
