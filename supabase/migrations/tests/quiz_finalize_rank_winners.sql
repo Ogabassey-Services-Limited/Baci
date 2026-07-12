@@ -71,6 +71,8 @@ DECLARE
   v_e_unverified uuid := '00000000-0000-4000-8000-0000000fe002';
   v_e_noconfig uuid := '00000000-0000-4000-8000-0000000fe003'; -- verified + due but NO prize config
   v_e_nopermit uuid := '00000000-0000-4000-8000-0000000fe004'; -- verified + configured + due but NO permit ref
+  v_e_emptyprizes uuid := '00000000-0000-4000-8000-0000000fe005'; -- ranked_prizes=[] must mint nothing
+  v_e_inflight uuid := '00000000-0000-4000-8000-0000000fe006';    -- ends_at passed but a 'started' attempt in flight
   v_a1 uuid := '00000000-0000-4000-8000-0000000fa011'; -- c1 best
   v_a2 uuid := '00000000-0000-4000-8000-0000000fa012'; -- c1 lower (dedup target)
   v_a3 uuid := '00000000-0000-4000-8000-0000000fa013'; -- c2
@@ -87,8 +89,11 @@ DECLARE
   v_noconfig_awards integer;
   v_nopermit_minted integer;
   v_nopermit_awards integer;
+  v_emptyprizes_minted integer;
+  v_inflight_minted integer;
 BEGIN
-  INSERT INTO public.merchants (id, email) VALUES (v_merchant, 'rank-winners@test.com');
+  -- Non-NGN payout currency: awards must be stored in it, not hard-coded NGN.
+  INSERT INTO public.merchants (id, email, payout_currency) VALUES (v_merchant, 'rank-winners@test.com', 'KES');
 
   INSERT INTO public.customers (id, merchant_id, full_name, email, loyalty_points) VALUES
     (v_c1, v_merchant, 'C1', 'c1@rw.com', 100),
@@ -111,6 +116,14 @@ BEGIN
     -- Compliance-verified, configured and due, but carries NO permit reference.
     -- Blocked ONLY by the permit gate: never finalized or minted.
     (v_e_nopermit, v_merchant, 'rw-nopermit', 'RW No Permit', 'completed', v_now - interval '1 hour', true, NULL,
+      '{"ranked_winner_count":3,"grand_prize_amount":50000,"cash_prize_amount":10000}'::jsonb),
+    -- Explicit but EMPTY ranked schedule: must mint NOTHING (never fall back to
+    -- the default grand+cash series, which would create claimable NULL awards).
+    (v_e_emptyprizes, v_merchant, 'rw-emptyprizes', 'RW Empty Prizes', 'completed', v_now - interval '1 hour', true, 'NLRC-TEST-PERMIT',
+      '{"ranked_prizes":[]}'::jsonb),
+    -- ends_at just passed but a player is still mid-attempt within the max-play
+    -- window: must NOT finalize/mint yet (would exclude a valid late submission).
+    (v_e_inflight, v_merchant, 'rw-inflight', 'RW In Flight', 'active', v_now - interval '5 minutes', true, 'NLRC-TEST-PERMIT',
       '{"ranked_winner_count":3,"grand_prize_amount":50000,"cash_prize_amount":10000}'::jsonb);
 
   INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, attempt_number, integrity_tier, score, started_at, submitted_at) VALUES
@@ -128,6 +141,14 @@ BEGIN
   -- An eligible-looking attempt on the NO-PERMIT event to prove the permit gate.
   INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, attempt_number, integrity_tier, score, started_at, submitted_at) VALUES
     ('00000000-0000-4000-8000-0000000fa018', v_e_nopermit, v_c1, 'submitted', 1, 'basic', 10, v_now - interval '10 min', v_now - interval '8 min');
+  -- A submitted attempt on the EMPTY-PRIZES event (proves 0 awards is due to the
+  -- empty schedule, not to an empty ranking).
+  INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, attempt_number, integrity_tier, score, started_at, submitted_at) VALUES
+    ('00000000-0000-4000-8000-0000000fa019', v_e_emptyprizes, v_c1, 'submitted', 1, 'basic', 10, v_now - interval '10 min', v_now - interval '8 min');
+  -- A still-'started' (in-flight) attempt on the IN-FLIGHT event, within the
+  -- 1-hour max-play window, that must block finalization/minting.
+  INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, attempt_number, integrity_tier, score, started_at, submitted_at) VALUES
+    ('00000000-0000-4000-8000-0000000fa020', v_e_inflight, v_c1, 'started', 1, 'basic', 0, v_now - interval '3 minutes', NULL);
 
   -- Mint the verified event.
   v_minted := public.mint_quiz_event_ranked_awards(v_e_verified);
@@ -136,7 +157,7 @@ BEGIN
   END IF;
 
   -- Grand: rank 1 = C1, award_type grand, attempt_id NULL (CHECK), amount 50000.
-  SELECT customer_id, attempt_id, award_type, amount, status INTO v_grand
+  SELECT customer_id, attempt_id, award_type, amount, status, currency INTO v_grand
   FROM public.quiz_awards WHERE event_id = v_e_verified AND award_type = 'grand';
   IF v_grand.customer_id IS DISTINCT FROM v_c1 THEN
     RAISE EXCEPTION 'Grand winner must be C1, got %', v_grand.customer_id;
@@ -146,6 +167,9 @@ BEGIN
   END IF;
   IF v_grand.amount IS DISTINCT FROM 50000 OR v_grand.status IS DISTINCT FROM 'approved' THEN
     RAISE EXCEPTION 'Grand award amount/status wrong: amt=% status=%', v_grand.amount, v_grand.status;
+  END IF;
+  IF v_grand.currency IS DISTINCT FROM 'KES' THEN
+    RAISE EXCEPTION 'Grand award must use the merchant payout currency (KES), got %', v_grand.currency;
   END IF;
 
   -- Rank 2 cash: C2 (higher loyalty tiebreak over C3), attempt_id = a3.
@@ -193,6 +217,20 @@ BEGIN
     RAISE EXCEPTION 'Event without permit ref must mint 0 awards, got %', v_nopermit_minted;
   END IF;
 
+  -- Empty explicit schedule: ranked_prizes=[] must mint NOTHING (no fallback to
+  -- the default grand+cash series).
+  v_emptyprizes_minted := public.mint_quiz_event_ranked_awards(v_e_emptyprizes);
+  IF v_emptyprizes_minted IS DISTINCT FROM 0 THEN
+    RAISE EXCEPTION 'Empty ranked_prizes schedule must mint 0 awards, got %', v_emptyprizes_minted;
+  END IF;
+
+  -- In-flight gate: an ends_at-passed event with a 'started' attempt still within
+  -- the max-play window must mint nothing yet (the late submission can still win).
+  v_inflight_minted := public.mint_quiz_event_ranked_awards(v_e_inflight);
+  IF v_inflight_minted IS DISTINCT FROM 0 THEN
+    RAISE EXCEPTION 'Event with an in-flight attempt must mint 0 awards, got %', v_inflight_minted;
+  END IF;
+
   -- Fail-closed compliance gate: finalize_due must skip the unverified event.
   PERFORM public.finalize_due_quiz_events();
 
@@ -228,6 +266,15 @@ BEGIN
   END IF;
   IF (SELECT award_finalized_at FROM public.quiz_events WHERE id = v_e_nopermit) IS NOT NULL THEN
     RAISE EXCEPTION 'No-permit event must not be finalized by finalize_due_quiz_events';
+  END IF;
+
+  -- In-flight gate (cron): an event with a still-'started' attempt in the
+  -- max-play window must NOT be finalized/minted by finalize_due yet.
+  IF (SELECT award_finalized_at FROM public.quiz_events WHERE id = v_e_inflight) IS NOT NULL THEN
+    RAISE EXCEPTION 'In-flight event must not be finalized by finalize_due_quiz_events';
+  END IF;
+  IF (SELECT count(*) FROM public.quiz_awards WHERE event_id = v_e_inflight) IS DISTINCT FROM 0 THEN
+    RAISE EXCEPTION 'In-flight event must have zero awards after finalize_due';
   END IF;
 END;
 $$ LANGUAGE plpgsql;

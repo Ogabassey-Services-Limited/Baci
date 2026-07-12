@@ -49,6 +49,7 @@ DECLARE
   v_status text;
   v_ends_at timestamptz;
   v_currency text := 'NGN';
+  v_payout_currency text;
   v_ranked_count integer;
   v_ranked_prizes jsonb;
   v_has_explicit boolean;
@@ -63,9 +64,10 @@ BEGIN
   -- (enforcePrizeProductionGuard requires a non-blank nlrc_permit_ref), so the
   -- cron/service-role path can't create approved cash/grand awards for events
   -- the rest of the app would reject as unpermitted.
-  SELECT e.settings, e.compliance_verified, e.nlrc_permit_ref, e.status, e.ends_at
-    INTO v_settings, v_compliance_verified, v_permit_ref, v_status, v_ends_at
+  SELECT e.settings, e.compliance_verified, e.nlrc_permit_ref, e.status, e.ends_at, m.payout_currency
+    INTO v_settings, v_compliance_verified, v_permit_ref, v_status, v_ends_at, v_payout_currency
   FROM public.quiz_events e
+  LEFT JOIN public.merchants m ON m.id = e.merchant_id
   WHERE e.id = p_event_id;
 
   IF v_settings IS NULL
@@ -75,17 +77,33 @@ BEGIN
     RETURN 0;
   END IF;
 
+  -- Store awards in the merchant's payout currency (multi-country); fall back to
+  -- NGN only when the merchant has none configured. Hard-coding NGN would corrupt
+  -- payout data for non-Nigerian merchants.
+  v_currency := COALESCE(NULLIF(pg_catalog.btrim(v_payout_currency), ''), 'NGN');
+
   -- Only mint for a CLOSED event (mirrors the finalize wrappers). A direct
   -- service-role call must never mint winners while the event is still open —
-  -- the leaderboard isn't final until it ends. For active/scheduled events the
-  -- same 10-minute in-flight grace as the wrappers applies: because award
-  -- inserts are idempotent, an early direct mint would freeze the winner set and
-  -- later finalization could not correct it, so a player who started just before
-  -- ends_at must still be able to submit and compete. A 'completed' event has no
-  -- in-flight risk and finalizes immediately.
+  -- the leaderboard isn't final until it ends. For an ends_at-based close, defer
+  -- until no attempt is still in flight: an attempt started just before ends_at
+  -- can legitimately keep playing (per-question timers run past ends_at — up to
+  -- ~50 min for a 10-topic × 5-question × 60s quiz), and because award inserts
+  -- are idempotent an early mint would freeze the winner set and permanently
+  -- exclude that valid late submission. A 'started' attempt older than the
+  -- 1-hour max-play window is treated as abandoned and no longer blocks. A
+  -- 'completed' event was closed explicitly and finalizes immediately.
   IF NOT (
     v_status = 'completed'
-    OR (v_ends_at IS NOT NULL AND v_ends_at <= pg_catalog.now() - interval '10 minutes')
+    OR (
+      v_ends_at IS NOT NULL
+      AND v_ends_at <= pg_catalog.now()
+      AND NOT EXISTS (
+        SELECT 1 FROM public.quiz_attempts a
+        WHERE a.event_id = p_event_id
+          AND a.status = 'started'
+          AND a.started_at >= pg_catalog.now() - interval '1 hour'
+      )
+    )
   ) THEN
     RETURN 0;
   END IF;
@@ -115,15 +133,14 @@ BEGIN
   END IF;
 
   v_ranked_prizes := v_settings->'ranked_prizes';
-  -- An explicit ranked_prizes schedule defines its OWN set of ranks; the default
-  -- winner-count cap must not truncate it (a 5-entry schedule must mint 5, not the
-  -- default 3). Guard jsonb_array_length against non-array settings.
-  v_has_explicit := pg_catalog.jsonb_array_length(
-    CASE
-      WHEN pg_catalog.jsonb_typeof(v_ranked_prizes) = 'array' THEN v_ranked_prizes
-      ELSE '[]'::jsonb
-    END
-  ) > 0;
+  -- The PRESENCE of a ranked_prizes key means the merchant opted into an explicit
+  -- schedule — honor it verbatim even when empty or malformed: an empty/disabled
+  -- schedule must mint NOTHING, never fall through to the default grand+cash
+  -- series (which would create claimable NULL-amount awards). Only a full absence
+  -- of ranked_prizes uses the default series. A populated explicit schedule still
+  -- mints every one of its ranks (the prize_plan join, not a winner-count cap,
+  -- bounds the rank set).
+  v_has_explicit := (v_settings ? 'ranked_prizes');
 
   -- With no explicit schedule the default series drives minting, so a <1 count
   -- means there is nothing to mint. An explicit schedule mints its own ranks
@@ -302,10 +319,23 @@ BEGIN
     AND pg_catalog.btrim(nlrc_permit_ref) <> ''
     -- Never finalize/mint for a cancelled event.
     AND status <> 'cancelled'
-    -- Same 10-min grace as the cron: a player who started just before ends_at
-    -- can still submit and compete before winners are minted. An already
-    -- 'completed' event has no in-flight risk, so it finalizes immediately.
-    AND (status = 'completed' OR (ends_at IS NOT NULL AND ends_at <= pg_catalog.now() - interval '10 minutes'));
+    -- Same in-flight gate as the cron: defer an ends_at-based close until no
+    -- attempt is still legitimately in flight (a 'started' attempt within the
+    -- 1-hour max-play window), so a valid late submission isn't excluded from the
+    -- idempotent-once award set. A 'completed' event finalizes immediately.
+    AND (
+      status = 'completed'
+      OR (
+        ends_at IS NOT NULL
+        AND ends_at <= pg_catalog.now()
+        AND NOT EXISTS (
+          SELECT 1 FROM public.quiz_attempts a
+          WHERE a.event_id = p_event_id
+            AND a.status = 'started'
+            AND a.started_at >= pg_catalog.now() - interval '1 hour'
+        )
+      )
+    );
 
   IF NOT FOUND THEN
     RETURN 0;
@@ -354,19 +384,34 @@ BEGIN
       AND e.nlrc_permit_ref IS NOT NULL
       AND pg_catalog.btrim(e.nlrc_permit_ref) <> ''
       AND e.status IN ('active', 'scheduled', 'completed')
-      -- Due when already 'completed' (immediate — no in-flight risk) OR past the
-      -- 10-min grace after ends_at. A player who started just before the deadline
-      -- can still be mid-attempt (per-question timers run past ends_at), so the
-      -- grace lets those attempts submit and compete instead of being dropped.
-      -- Keying ONLY on ends_at would strand a completed event whose ends_at is
-      -- null (activation initializes ends_at = null) — it would never auto-mint.
+      -- Due when already 'completed' (immediate — no in-flight risk) OR ends_at
+      -- has passed AND no attempt is still legitimately in flight. A player who
+      -- started just before the deadline can keep playing (per-question timers run
+      -- past ends_at, up to ~50 min), so defer until every such 'started' attempt
+      -- has submitted or aged out of the 1-hour max-play window — otherwise a
+      -- valid late submission is excluded from the idempotent-once award set.
+      -- Keying only on ends_at would also strand a completed event whose ends_at
+      -- is null (activation initializes ends_at = null).
       AND (
         e.status = 'completed'
-        OR (e.ends_at IS NOT NULL AND e.ends_at <= pg_catalog.now() - interval '10 minutes')
+        OR (
+          e.ends_at IS NOT NULL
+          AND e.ends_at <= pg_catalog.now()
+          AND NOT EXISTS (
+            SELECT 1 FROM public.quiz_attempts a
+            WHERE a.event_id = e.id
+              AND a.status = 'started'
+              AND a.started_at >= pg_catalog.now() - interval '1 hour'
+          )
+        )
       )
-      -- Only auto-finalize events that carry prize configuration. Unconfigured
-      -- events (e.g. legacy/e2e test events with no prize settings) are left
-      -- untouched: no stamp, no awards, and never re-selected (no retry storm).
+      -- Only auto-finalize events that carry RANKED prize configuration.
+      -- Unconfigured events (legacy/e2e) and product-prize events (prize_product_id
+      -- with no ranked keys) are left untouched here: no stamp, no awards, never
+      -- re-selected (no retry storm). Product-prize event closure and backfilling
+      -- any Phase-1a stub-finalized events (award_finalized_at set without ranked
+      -- awards) are deliberately OUT OF SCOPE for the ranked-winner minter and are
+      -- tracked as a separate event-lifecycle follow-up.
       AND (
         e.settings ? 'ranked_prizes'
         OR e.settings ? 'ranked_winner_count'
@@ -374,6 +419,12 @@ BEGIN
         OR e.settings ? 'cash_prize_amount'
       )
     ORDER BY e.ends_at ASC
+    -- Bounded batch per invocation: a large backlog of due events must not exceed
+    -- the statement/route timeout in one transaction (which would roll back and
+    -- make the every-minute cron retry the same oversized batch forever). Remaining
+    -- events are claimed by later runs; FOR UPDATE SKIP LOCKED lets successive/
+    -- parallel runs make progress without contending on the same rows.
+    LIMIT 100
     FOR UPDATE SKIP LOCKED
   LOOP
     UPDATE public.quiz_events
