@@ -77,7 +77,7 @@ export async function fetchOrderById(
 ) {
   let orderQuery = supabase
     .from('orders')
-    .select(ORDER_COLUMNS)
+    .select(`${ORDER_COLUMNS}, cancelled_at`)
     .eq('id', orderId)
     .eq('merchant_id', merchantId);
 
@@ -223,6 +223,8 @@ export async function fetchOrderById(
     getOrderPaymentTransactionTotals(transactions);
   const { amountPaid, balance, paymentStatus } =
     getEffectiveOrderPaymentSummary({
+      isCancelled:
+        Boolean(order.cancelled_at) || order.shipping_status === 'cancelled',
       orderTotal,
       paymentStatus: order.payment_status,
       storedAmountPaid: Number(order.amount_paid) || 0,

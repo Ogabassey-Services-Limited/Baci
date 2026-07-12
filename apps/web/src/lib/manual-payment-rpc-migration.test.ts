@@ -16,6 +16,13 @@ const indexMigration = readFileSync(
   ),
   'utf8'
 );
+const cancelledOrderGuardMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/migrations/20260712102000_preserve_cancelled_order_shipping_state.sql'
+  ),
+  'utf8'
+);
 
 describe('manual payment RPC migration', () => {
   it('builds the retry-key index concurrently outside a transaction', () => {
@@ -70,6 +77,15 @@ describe('manual payment RPC migration', () => {
   it('rejects fresh manual payments on refunded orders', () => {
     expect(migration).toContain("v_order.payment_status = 'refunded'");
     expect(migration).toContain("'error_code', 'ORDER_REFUNDED'");
+  });
+
+  it('preserves shipping state for legacy cancellations', () => {
+    expect(cancelledOrderGuardMigration).toContain(
+      "OLD.shipping_status = 'cancelled' OR OLD.cancelled_at IS NOT NULL"
+    );
+    expect(cancelledOrderGuardMigration).toContain(
+      'NEW.shipping_status := OLD.shipping_status'
+    );
   });
 
   it('reconciles idempotent replays from completed payment ledger rows', () => {

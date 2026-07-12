@@ -701,17 +701,13 @@ describe('useRecordPayment', () => {
     expect(new Set(mocks.storageValues.values()).size).toBe(2);
   });
 
-  it('continues recording when persisted retry state cannot be read', async () => {
+  it('stops recording when persisted retry state cannot be read', async () => {
     mocks.getSession.mockResolvedValue({
       data: { session: { access_token: 'token-1' } },
     });
     vi.mocked(AsyncStorage.getItem).mockRejectedValueOnce(
       new Error('storage unavailable')
     );
-    mocks.fetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({ recorded: true }),
-    });
     const consoleError = vi
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
@@ -729,9 +725,11 @@ describe('useRecordPayment', () => {
         orderId: 'order-1',
         paymentMethod: 'cash',
       })
-    ).resolves.toEqual({ recorded: true });
+    ).rejects.toThrow(
+      'Unable to verify the previous payment attempt. Please try again.'
+    );
 
-    expect(mocks.fetch).toHaveBeenCalledOnce();
+    expect(mocks.fetch).not.toHaveBeenCalled();
     expect(consoleError).toHaveBeenCalledWith(
       'Failed to read manual payment retry key',
       expect.any(Error)
@@ -857,6 +855,55 @@ describe('useRecordPayment', () => {
       payment_method: 'bank_transfer',
       reference: 'GOOD-REF',
     });
+  });
+
+  it('retains a reused key after an API auth rejection', async () => {
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token-1' } },
+    });
+    const abortError = new Error('aborted');
+    abortError.name = 'AbortError';
+    mocks.fetch
+      .mockRejectedValueOnce(abortError)
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        statusText: 'Unauthorized',
+        text: async () => JSON.stringify({ error: 'Unauthorized' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ idempotency_replayed: true }),
+      });
+    const mutation = useRecordPayment() as unknown as {
+      mutationFn: (vars: {
+        amount: number;
+        orderId: string;
+        paymentMethod: string;
+      }) => Promise<unknown>;
+    };
+    const input = {
+      amount: 5000,
+      orderId: 'order-1',
+      paymentMethod: 'cash',
+    };
+
+    await expect(mutation.mutationFn(input)).rejects.toThrow(
+      'Request timed out. Please check your connection and try again.'
+    );
+    await expect(mutation.mutationFn(input)).rejects.toThrow('Unauthorized');
+    await expect(mutation.mutationFn(input)).resolves.toMatchObject({
+      idempotency_replayed: true,
+      reconciled_previous_payment: true,
+    });
+
+    const requestBodies = mocks.fetch.mock.calls.map(([, init]) =>
+      JSON.parse(String(init?.body))
+    );
+    expect(new Set(requestBodies.map((body) => body.idempotency_key))).toEqual(
+      new Set(['11111111-1111-4111-8111-111111111111'])
+    );
+    expect(generateUUID).toHaveBeenCalledTimes(1);
   });
 
   it('retains the original key and details after retryable inventory failures', async () => {

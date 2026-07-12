@@ -18,6 +18,8 @@ import { parseResponsePayload } from './response-utils';
 const RECORD_PAYMENT_TIMEOUT_MS = 15_000;
 const RECORD_PAYMENT_RETRY_LEASE_MS = 15 * 60 * 1000;
 const RECORD_PAYMENT_RETRY_KEY_PREFIX = 'manual-payment-retry:';
+const RETRY_STATE_READ_ERROR_MESSAGE =
+  'Unable to verify the previous payment attempt. Please try again.';
 const RETRYABLE_RECORD_PAYMENT_ERROR_CODES = new Set([
   'serialized_inventory_unavailable',
 ]);
@@ -80,6 +82,7 @@ export function useRecordPayment() {
         );
       } catch (error) {
         console.error('Failed to read manual payment retry key', error);
+        throw new Error(RETRY_STATE_READ_ERROR_MESSAGE);
       }
       const now = Date.now();
       const memoryRetry =
@@ -195,7 +198,8 @@ export function useRecordPayment() {
           response.status < 500 &&
           ![408, 425, 429].includes(response.status) &&
           !isRetryableRecordPaymentError(response, payload);
-        if (isDefinitiveClientError) {
+        const isAuthRejection = [401, 403].includes(response.status);
+        if (isDefinitiveClientError && (!reusableRetry || !isAuthRejection)) {
           await clearRejectedRetry();
         }
         const errorMessage =

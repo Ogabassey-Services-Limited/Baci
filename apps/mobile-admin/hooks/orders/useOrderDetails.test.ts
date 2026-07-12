@@ -335,6 +335,34 @@ describe('fetchOrderById', () => {
     );
   });
 
+  it('does not promote a cancelled order when reconciliation payments cover the total', async () => {
+    supabaseMock.setOrderDetailResult({
+      data: {
+        amount_paid: 0,
+        cancelled_at: '2026-07-12T09:00:00Z',
+        id: 'order-1',
+        payment_status: 'unpaid',
+        recorded_by_user_id: null,
+        shipping_status: 'pending',
+        total: 500,
+        wallet_amount_used: 0,
+      },
+      error: null,
+    });
+    supabaseMock.setTableResult('transactions', {
+      data: [{ amount: 500, transaction_type: 'payment' }],
+      error: null,
+    });
+
+    await expect(fetchOrderById('order-1', 'merchant-1')).resolves.toEqual(
+      expect.objectContaining({
+        amount_paid: 500,
+        balance: 0,
+        payment_status: 'unpaid',
+      })
+    );
+  });
+
   it('excludes refund rows when deriving effective payment status', async () => {
     supabaseMock.setOrderDetailResult({
       data: {

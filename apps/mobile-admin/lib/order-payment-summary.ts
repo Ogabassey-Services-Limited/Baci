@@ -7,6 +7,7 @@ const RECONCILABLE_PAYMENT_STATUSES = new Set<PaymentStatus>([
 ]);
 
 interface OrderPaymentSummaryInput {
+  isCancelled: boolean;
   orderTotal: number;
   paymentStatus: PaymentStatus;
   storedAmountPaid: number;
@@ -16,6 +17,7 @@ interface OrderPaymentSummaryInput {
 }
 
 export function getEffectiveOrderPaymentSummary({
+  isCancelled,
   orderTotal,
   paymentStatus,
   storedAmountPaid,
@@ -32,7 +34,8 @@ export function getEffectiveOrderPaymentSummary({
   );
   const effectivePaymentStatus: PaymentStatus =
     paymentStatus === 'paid' ||
-    (RECONCILABLE_PAYMENT_STATUSES.has(paymentStatus) &&
+    (!isCancelled &&
+      RECONCILABLE_PAYMENT_STATUSES.has(paymentStatus) &&
       orderTotal > 0 &&
       amountPaid >= orderTotal)
       ? 'paid'

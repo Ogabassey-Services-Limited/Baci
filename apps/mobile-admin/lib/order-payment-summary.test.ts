@@ -5,6 +5,7 @@ describe('getEffectiveOrderPaymentSummary', () => {
   it('reconciles a stale partial status when completed payments cover the order', () => {
     expect(
       getEffectiveOrderPaymentSummary({
+        isCancelled: false,
         orderTotal: 982_000,
         paymentStatus: 'partially_paid',
         storedAmountPaid: 900_000,
@@ -22,6 +23,7 @@ describe('getEffectiveOrderPaymentSummary', () => {
   it('preserves refunded status even when historical payments cover the order', () => {
     expect(
       getEffectiveOrderPaymentSummary({
+        isCancelled: false,
         orderTotal: 800,
         paymentStatus: 'refunded',
         storedAmountPaid: 800,
@@ -38,6 +40,7 @@ describe('getEffectiveOrderPaymentSummary', () => {
 
   it('does not count wallet credit twice when it also has a transaction row', () => {
     const result = getEffectiveOrderPaymentSummary({
+      isCancelled: false,
       orderTotal: 150,
       paymentStatus: 'partially_paid',
       storedAmountPaid: 100,
@@ -55,6 +58,7 @@ describe('getEffectiveOrderPaymentSummary', () => {
 
   it('adds only wallet credit not represented by transaction rows', () => {
     const result = getEffectiveOrderPaymentSummary({
+      isCancelled: false,
       orderTotal: 150,
       paymentStatus: 'partially_paid',
       storedAmountPaid: 100,
@@ -72,6 +76,7 @@ describe('getEffectiveOrderPaymentSummary', () => {
 
   it('clamps wallet adjustment when transaction rows exceed wallet usage', () => {
     const result = getEffectiveOrderPaymentSummary({
+      isCancelled: false,
       orderTotal: 150,
       paymentStatus: 'partially_paid',
       storedAmountPaid: 100,
@@ -90,6 +95,7 @@ describe('getEffectiveOrderPaymentSummary', () => {
   it('uses the order total when the stored status is already paid', () => {
     expect(
       getEffectiveOrderPaymentSummary({
+        isCancelled: false,
         orderTotal: 500,
         paymentStatus: 'paid',
         storedAmountPaid: 300,
@@ -107,6 +113,7 @@ describe('getEffectiveOrderPaymentSummary', () => {
   it('does not reconcile a zero-total partial order to paid', () => {
     expect(
       getEffectiveOrderPaymentSummary({
+        isCancelled: false,
         orderTotal: 0,
         paymentStatus: 'partially_paid',
         storedAmountPaid: 0,
@@ -124,6 +131,7 @@ describe('getEffectiveOrderPaymentSummary', () => {
   it('preserves a zero-total refunded order', () => {
     expect(
       getEffectiveOrderPaymentSummary({
+        isCancelled: false,
         orderTotal: 0,
         paymentStatus: 'refunded',
         storedAmountPaid: 0,
@@ -141,6 +149,7 @@ describe('getEffectiveOrderPaymentSummary', () => {
   it('uses the stored amount when it exceeds the completed ledger total', () => {
     expect(
       getEffectiveOrderPaymentSummary({
+        isCancelled: false,
         orderTotal: 500,
         paymentStatus: 'partially_paid',
         storedAmountPaid: 450,
@@ -152,6 +161,24 @@ describe('getEffectiveOrderPaymentSummary', () => {
       amountPaid: 450,
       balance: 50,
       paymentStatus: 'partially_paid',
+    });
+  });
+
+  it('does not promote a cancelled order from reconciliation payments', () => {
+    expect(
+      getEffectiveOrderPaymentSummary({
+        isCancelled: true,
+        orderTotal: 500,
+        paymentStatus: 'unpaid',
+        storedAmountPaid: 0,
+        transactionTotal: 500,
+        walletAmountUsed: 0,
+        walletTransactionTotal: 0,
+      })
+    ).toEqual({
+      amountPaid: 500,
+      balance: 0,
+      paymentStatus: 'unpaid',
     });
   });
 });
