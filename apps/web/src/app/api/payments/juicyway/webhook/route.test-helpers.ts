@@ -334,7 +334,7 @@ export function wireProcessingMocks(
       if (table === 'reconciliation_review') {
         return { insert: mockReconciliationInsert };
       }
-      throw new Error(`Unexpected admin table: ${table}`);
+      return fromMock(table) as never;
     }
   );
   mockAdminSupabase.rpc = vi.fn().mockResolvedValue({ error: null });
