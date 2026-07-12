@@ -5,6 +5,7 @@ import { logger } from '@/lib/logger';
 import { ensurePaidOrderInventoryConfirmed } from '@/lib/payments/ensure-paid-order-inventory-confirmed';
 import { finalizeOrderGatewayPayment } from '@/lib/payments/finalize-order-gateway-payment';
 import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
+import { reconcilePaypalOrderToPaid } from '@/lib/payments/reconcile-paypal-order';
 import type { GatewayVerificationResult } from '@/lib/payments/types';
 import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -202,6 +203,38 @@ async function verifyPaymentReference(reference: string) {
       orderNumber:
         existingOrder?.order_number ||
         transaction.gateway_reference.slice(0, 8).toUpperCase(),
+    });
+  }
+
+  // F-101: PayPal settles direct-to-merchant. The generic `.neq('completed')`
+  // update + `if(updatedTxn)` side-effect path could mark the order paid while
+  // SKIPPING the direct settlement + notify + email. Delegate the PayPal
+  // completed-but-unpaid reconcile to the single authoritative writer so the
+  // settlement, currency-aware email and push run on EVERY path, gated by the
+  // CAS claim (not by `updatedTxn`). Non-PayPal gateways keep the generic path.
+  if (transaction.gateway === 'paypal' && transaction.order_id) {
+    const { data: orderRow } = await supabase
+      .from('orders')
+      .select('total, payment_status, shipping_status, amount_paid')
+      .eq('id', transaction.order_id)
+      .eq('merchant_id', transaction.merchant_id)
+      .maybeSingle();
+    const lockedResidual = Number(transaction.amount) || 0;
+    const orderTotal = Number(orderRow?.total) || lockedResidual;
+    return reconcilePaypalOrderToPaid({
+      supabase,
+      merchantId: transaction.merchant_id,
+      orderId: transaction.order_id,
+      paypalOrderId: transaction.gateway_reference ?? parsedReference.data,
+      transactionId: transaction.id,
+      lockedResidual,
+      orderTotal,
+      prepaidTender: Math.max(orderTotal - lockedResidual, 0),
+      preCaptureStatus: {
+        payment_status: orderRow?.payment_status ?? null,
+        shipping_status: orderRow?.shipping_status ?? null,
+        amount_paid: orderRow?.amount_paid ?? 0,
+      },
     });
   }
 

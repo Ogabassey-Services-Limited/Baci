@@ -2,7 +2,7 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
-import { initiatePaypalOrderRefund } from '@/lib/payments/paypal-order-refund';
+import { refundPaypalOrder } from '@/lib/payments/refund-paypal-order';
 import { initiateRefund as initiatePaystackRefund } from '@/lib/paystack';
 
 /**
@@ -40,6 +40,7 @@ interface CancellationPaymentTransaction {
   gateway: string;
   gateway_reference: string | null;
   gateway_response: unknown;
+  metadata?: unknown;
 }
 
 interface GatewayRefundOutcome {
@@ -64,17 +65,6 @@ async function dispatchGatewayRefund(
     return paystackRefund.success
       ? { success: true, refundId: paystackRefund.data.id }
       : { success: false, error: paystackRefund.error };
-  }
-
-  if (transaction.gateway === 'paypal') {
-    const paypalRefund = await initiatePaypalOrderRefund({
-      merchantId: order.merchant_id,
-      gatewayResponse: transaction.gateway_response,
-      reason,
-    });
-    return paypalRefund.success
-      ? { success: true, refundId: paypalRefund.refundId }
-      : { success: false, error: paypalRefund.error };
   }
 
   if (transaction.gateway === 'korapay') {
@@ -160,7 +150,7 @@ export async function processOrderCancellationRefund(
 
   const { data: transaction } = await supabase
     .from('transactions')
-    .select('gateway, gateway_reference, gateway_response')
+    .select('gateway, gateway_reference, gateway_response, metadata')
     .eq('order_id', order.id)
     .eq('transaction_type', 'payment')
     .eq('status', 'completed')
@@ -180,6 +170,36 @@ export async function processOrderCancellationRefund(
   }
 
   const reason = cancellationReason || 'Order cancelled';
+
+  // PayPal (BYOK) is a mixed-tender split: the residual settled to PayPal, the
+  // prepaid tender (wallet + savings) settled Baci-side. Route through the
+  // single splitter, which refunds each leg, records per-channel audit rows,
+  // and reports the true `totalRefunded` — never one row claiming the whole
+  // amount_paid was refunded via PayPal (F-74).
+  if (transaction.gateway === 'paypal') {
+    const split = await refundPaypalOrder({
+      supabase,
+      merchantId: order.merchant_id,
+      order: {
+        id: order.id,
+        order_number: order.order_number,
+        currency: order.currency,
+      },
+      transaction: {
+        gateway_response: transaction.gateway_response,
+        metadata: transaction.metadata,
+      },
+      reason,
+    });
+    return {
+      attempted: true,
+      success: split.success,
+      amount: split.totalRefunded,
+      refundId: split.paypalRefundIds[0],
+      error: split.error,
+    };
+  }
+
   const outcome = await dispatchGatewayRefund(
     order,
     transaction as CancellationPaymentTransaction,

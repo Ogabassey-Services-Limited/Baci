@@ -2,15 +2,17 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
+import { computeOrderResidualAmount } from '@/lib/payments/order-residual-amount';
 
 /**
- * Pre-capture context loader for the PayPal capture-order route (Wave 2, see
- * docs/payments/byok-payment-providers-plan.md Phase 2). Performs every
- * transaction/order fetch and mismatch check ported from the prototype
- * (P0-security scoping: gateway + reference + order + merchant), returning
- * either the validated context or a ready-to-send `{ status, body }` so the
- * route stays under the 300-line cap. The already-completed case is returned
- * here as an idempotent 200 success.
+ * Pure STATE LOADER for the PayPal capture-order route (see
+ * docs/payments/paypal-capture-reconciliation-design.md §6). It fetches the
+ * transaction + order, performs the P0-security scoping/mismatch guards, and
+ * computes `currentResidual` — then hands the raw state to
+ * `resolvePaypalCaptureOutcome`. It NO LONGER decides proceed / reconcileOnly /
+ * idempotent-200, and NO LONGER runs the one-sided `amount > total` check: those
+ * decisions moved into the single authoritative resolver + residual-freshness
+ * contract (§2/§4a).
  */
 
 export interface PaypalCaptureTransaction {
@@ -33,28 +35,24 @@ export interface PaypalCaptureOrderSnapshot {
   order_number: string | null;
   shipping_status: string | null;
   payment_status: string | null;
-  /**
-   * Pre-capture amount already settled Baci-side (mixed-tender redemption).
-   * Carried so the finalizer can restore it if an inventory rollback undoes the
-   * paid transition (F-58).
-   */
+  /** Pre-capture amount already settled Baci-side (mixed-tender redemption). */
   amount_paid: number | string | null;
 }
 
-export type PaypalCaptureContext =
+export type PaypalCaptureStateLoad =
   | {
-      proceed: true;
-      /**
-       * True when the transaction is already `completed` but the order never
-       * advanced to `paid` (a prior capture's order write failed). The route
-       * must skip the PayPal capture call and reconcile the order only.
-       */
-      reconcileOnly: boolean;
+      ok: true;
       transaction: PaypalCaptureTransaction;
       orderSnapshot: PaypalCaptureOrderSnapshot;
       metadata: Record<string, unknown> | null;
+      /** transactions.amount — order-ccy residual the buyer approved (§2). */
+      lockedResidual: number;
+      /** computeOrderResidualAmount recomputed now (§2). */
+      currentResidual: number;
+      presentmentAmount?: number;
+      presentmentCurrency?: string;
     }
-  | { proceed: false; status: number; body: Record<string, unknown> };
+  | { ok: false; status: number; body: Record<string, unknown> };
 
 export function orderNumberFallback(orderId: string): string {
   return orderId.slice(0, 8).toUpperCase();
@@ -68,7 +66,7 @@ export async function loadPaypalCaptureContext(
     merchantId: string;
     customerEmail: string;
   }
-): Promise<PaypalCaptureContext> {
+): Promise<PaypalCaptureStateLoad> {
   const { orderId, paypalOrderId, merchantId, customerEmail } = input;
 
   const { data: transaction, error: txnFetchError } = await supabase
@@ -89,72 +87,37 @@ export async function loadPaypalCaptureContext(
       error: txnFetchError,
     });
     return {
-      proceed: false,
+      ok: false,
       status: 404,
       body: { error: 'Transaction not found for this reference' },
     };
   }
 
   if (transaction.order_id !== orderId) {
-    return {
-      proceed: false,
-      status: 400,
-      body: { error: 'Order ID mismatch' },
-    };
+    return { ok: false, status: 400, body: { error: 'Order ID mismatch' } };
   }
 
   if (transaction.merchant_id !== merchantId) {
-    return {
-      proceed: false,
-      status: 400,
-      body: { error: 'Merchant mismatch' },
-    };
+    return { ok: false, status: 400, body: { error: 'Merchant mismatch' } };
   }
 
   const reqEmail = customerEmail.toLowerCase();
   const metadata = transaction.metadata as Record<string, unknown> | null;
 
-  // When a first capture flipped `transactions.status` to 'completed' but its
-  // order write failed, a retry lands here. Only treat the capture as an
-  // idempotent success once the order is actually `paid`; otherwise fall
-  // through with `reconcileOnly` so the route repairs the failed order write
-  // instead of sending the customer to success on an unpaid order. Mirrors
-  // /api/payments/verify's completed-transaction fall-through.
-  let reconcileOnly = false;
-  if (transaction.status !== 'pending') {
-    if (transaction.status === 'completed') {
-      const { data: existingOrder } = await supabase
-        .from('orders')
-        .select('order_number, payment_status')
-        .eq('id', orderId)
-        .eq('merchant_id', merchantId)
-        .maybeSingle();
-      if (existingOrder?.payment_status === 'paid') {
-        return {
-          proceed: false,
-          status: 200,
-          body: {
-            success: true,
-            status: 'success',
-            orderNumber:
-              existingOrder.order_number || orderNumberFallback(orderId),
-          },
-        };
-      }
-      reconcileOnly = true;
-    } else {
-      return {
-        proceed: false,
-        status: 400,
-        body: { error: 'Transaction is already in a non-pending state' },
-      };
-    }
+  // Only `pending` (about to capture) and `completed` (reconcile a lost order
+  // write) are valid states for this route; anything else is a hard error.
+  if (transaction.status !== 'pending' && transaction.status !== 'completed') {
+    return {
+      ok: false,
+      status: 400,
+      body: { error: 'Transaction is already in a non-pending state' },
+    };
   }
 
   const txnMetaEmail = metadata?.customer_email as string | undefined;
   if (txnMetaEmail && txnMetaEmail.toLowerCase() !== reqEmail) {
     return {
-      proceed: false,
+      ok: false,
       status: 400,
       body: { error: 'Customer email mismatch with transaction metadata' },
     };
@@ -170,7 +133,7 @@ export async function loadPaypalCaptureContext(
     .maybeSingle();
 
   if (orderFetchError || !orderSnapshot) {
-    return { proceed: false, status: 404, body: { error: 'Order not found' } };
+    return { ok: false, status: 404, body: { error: 'Order not found' } };
   }
 
   if (
@@ -178,27 +141,55 @@ export async function loadPaypalCaptureContext(
     orderSnapshot.customer_email.toLowerCase() !== reqEmail
   ) {
     return {
-      proceed: false,
+      ok: false,
       status: 400,
       body: { error: 'Customer email mismatch with order record' },
     };
   }
 
-  // The transaction amount is what PayPal was asked to charge (the gateway
-  // residual). For a mixed-tender order (wallet credit / redeemed savings) that
-  // is legitimately LESS than the order total, so only reject an OVER-charge or
-  // a currency drift here — the exact captured amount is validated downstream
-  // against the stored presentment metadata.
-  if (
-    Number(transaction.amount) > Number(orderSnapshot.total) ||
-    orderSnapshot.currency !== transaction.currency
-  ) {
+  // Currency consistency between order and transaction is a data-integrity
+  // guard (unrelated to residual freshness, which the resolver owns).
+  if (orderSnapshot.currency !== transaction.currency) {
     return {
-      proceed: false,
+      ok: false,
       status: 400,
-      body: { error: 'Order amount or currency mismatch with transaction' },
+      body: { error: 'Order currency mismatch with transaction' },
     };
   }
 
-  return { proceed: true, reconcileOnly, transaction, orderSnapshot, metadata };
+  const orderTotal = Number(orderSnapshot.total);
+  const residual = await computeOrderResidualAmount(supabase, {
+    orderId,
+    merchantId,
+    orderTotal,
+  });
+  if (!residual.ok) {
+    return {
+      ok: false,
+      status: 500,
+      body: {
+        error: 'Unable to verify order payment amount',
+        code: 'ORDER_AMOUNT_LOOKUP_FAILED',
+      },
+    };
+  }
+
+  const presentmentAmount = Number(metadata?.paypal_presentment_amount);
+  const presentmentCurrency =
+    typeof metadata?.paypal_presentment_currency === 'string'
+      ? metadata.paypal_presentment_currency
+      : undefined;
+
+  return {
+    ok: true,
+    transaction,
+    orderSnapshot,
+    metadata,
+    lockedResidual: Number(transaction.amount),
+    currentResidual: residual.residualAmount,
+    presentmentAmount: Number.isFinite(presentmentAmount)
+      ? presentmentAmount
+      : undefined,
+    presentmentCurrency,
+  };
 }

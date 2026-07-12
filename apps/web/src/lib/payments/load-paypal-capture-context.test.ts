@@ -1,11 +1,16 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadPaypalCaptureContext } from './load-paypal-capture-context';
+import { computeOrderResidualAmount } from './order-residual-amount';
 
 vi.mock('server-only', () => ({}));
 
 vi.mock('@/lib/logger', () => ({
   logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
+}));
+
+vi.mock('./order-residual-amount', () => ({
+  computeOrderResidualAmount: vi.fn(),
 }));
 
 const ORDER_ID = '123e4567-e89b-12d3-a456-426614174111';
@@ -21,6 +26,7 @@ const PENDING_TXN = {
   status: 'pending',
   metadata: {
     customer_email: 'customer@example.com',
+    paypal_mode: 'live',
     paypal_presentment_amount: 100,
     paypal_presentment_currency: 'USD',
   },
@@ -35,6 +41,7 @@ const ORDER_SNAPSHOT = {
   customer_email: 'customer@example.com',
   order_number: 'BACI-1002',
   shipping_status: 'pending',
+  payment_status: 'unpaid',
   amount_paid: 0,
 };
 
@@ -73,160 +80,89 @@ const input = {
   customerEmail: 'customer@example.com',
 };
 
-describe('loadPaypalCaptureContext', () => {
-  it('proceeds with the validated transaction and order snapshot', async () => {
-    const result = await loadPaypalCaptureContext(buildSupabase({}), input);
-
-    expect(result.proceed).toBe(true);
-    if (result.proceed) {
-      expect(result.reconcileOnly).toBe(false);
-      expect(result.transaction.id).toBe('txn-1');
-      expect(result.orderSnapshot.order_number).toBe('BACI-1002');
-      // F-58: pre-capture amount_paid is carried so the finalizer can restore it
-      // on an inventory rollback.
-      expect(result.orderSnapshot.amount_paid).toBe(0);
-      expect(result.metadata?.paypal_presentment_amount).toBe(100);
-    }
+describe('loadPaypalCaptureContext (state loader)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(computeOrderResidualAmount).mockResolvedValue({
+      ok: true,
+      walletAmountUsed: 30000,
+      savingsAmountUsed: 0,
+      residualAmount: 100000,
+    });
   });
 
-  it('returns 404 when the transaction is not found', async () => {
+  it('returns the raw state with locked + current residual (no proceed/reconcile decision)', async () => {
+    const result = await loadPaypalCaptureContext(buildSupabase({}), input);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.lockedResidual).toBe(130000);
+    expect(result.currentResidual).toBe(100000);
+    expect(result.transaction.id).toBe('txn-1');
+    expect(result.orderSnapshot.payment_status).toBe('unpaid');
+    expect(result.presentmentAmount).toBe(100);
+    expect(result.presentmentCurrency).toBe('USD');
+  });
+
+  it('accepts an already-completed transaction (reconcile is decided by the resolver, not here)', async () => {
+    const result = await loadPaypalCaptureContext(
+      buildSupabase({ txn: { ...PENDING_TXN, status: 'completed' } }),
+      input
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  it('404s when the transaction is missing', async () => {
     const result = await loadPaypalCaptureContext(
       buildSupabase({ txn: null }),
       input
     );
-
-    expect(result).toEqual({
-      proceed: false,
-      status: 404,
-      body: { error: 'Transaction not found for this reference' },
-    });
+    expect(result).toMatchObject({ ok: false, status: 404 });
   });
 
-  it('returns 400 on order_id mismatch', async () => {
-    const result = await loadPaypalCaptureContext(
-      buildSupabase({ txn: { ...PENDING_TXN, order_id: 'other' } }),
-      input
-    );
-
-    expect(result).toEqual({
-      proceed: false,
-      status: 400,
-      body: { error: 'Order ID mismatch' },
-    });
-  });
-
-  it('returns 400 on merchant mismatch', async () => {
-    const result = await loadPaypalCaptureContext(
-      buildSupabase({ txn: { ...PENDING_TXN, merchant_id: 'other' } }),
-      input
-    );
-
-    expect(result).toEqual({
-      proceed: false,
-      status: 400,
-      body: { error: 'Merchant mismatch' },
-    });
-  });
-
-  it('returns an idempotent 200 when the transaction is completed and the order is paid', async () => {
-    const result = await loadPaypalCaptureContext(
-      buildSupabase({
-        txn: { ...PENDING_TXN, status: 'completed' },
-        order: { order_number: 'BACI-1002', payment_status: 'paid' },
-      }),
-      input
-    );
-
-    expect(result).toEqual({
-      proceed: false,
-      status: 200,
-      body: { success: true, status: 'success', orderNumber: 'BACI-1002' },
-    });
-  });
-
-  it('flags reconcileOnly when the transaction completed but the order is still unpaid', async () => {
-    // A prior capture flipped the transaction to completed but its order write
-    // failed, leaving the order unpaid. The loader must NOT short-circuit as a
-    // success — it must signal the route to reconcile the failed order write.
-    const result = await loadPaypalCaptureContext(
-      buildSupabase({
-        txn: { ...PENDING_TXN, status: 'completed' },
-        order: { ...ORDER_SNAPSHOT, payment_status: 'unpaid' },
-      }),
-      input
-    );
-
-    expect(result.proceed).toBe(true);
-    if (result.proceed) {
-      expect(result.reconcileOnly).toBe(true);
-      expect(result.orderSnapshot.order_number).toBe('BACI-1002');
-    }
-  });
-
-  it('returns 400 when the transaction is in another non-pending state', async () => {
+  it('400s on a non-pending / non-completed transaction', async () => {
     const result = await loadPaypalCaptureContext(
       buildSupabase({ txn: { ...PENDING_TXN, status: 'failed' } }),
       input
     );
-
-    expect(result).toEqual({
-      proceed: false,
-      status: 400,
-      body: { error: 'Transaction is already in a non-pending state' },
-    });
+    expect(result).toMatchObject({ ok: false, status: 400 });
   });
 
-  it('returns 400 on transaction-metadata email mismatch', async () => {
-    const result = await loadPaypalCaptureContext(buildSupabase({}), {
-      ...input,
-      customerEmail: 'someone-else@example.com',
-    });
-
-    expect(result).toEqual({
-      proceed: false,
-      status: 400,
-      body: { error: 'Customer email mismatch with transaction metadata' },
-    });
+  it('400s on a transaction metadata email mismatch', async () => {
+    const result = await loadPaypalCaptureContext(
+      buildSupabase({
+        txn: {
+          ...PENDING_TXN,
+          metadata: { customer_email: 'someone-else@example.com' },
+        },
+      }),
+      input
+    );
+    expect(result).toMatchObject({ ok: false, status: 400 });
   });
 
-  it('returns 404 when the order is not found', async () => {
+  it('404s when the order is missing', async () => {
     const result = await loadPaypalCaptureContext(
       buildSupabase({ order: null }),
       input
     );
-
-    expect(result).toEqual({
-      proceed: false,
-      status: 404,
-      body: { error: 'Order not found' },
-    });
+    expect(result).toMatchObject({ ok: false, status: 404 });
   });
 
-  it('returns 400 on order amount/currency mismatch', async () => {
+  it('400s on an order/transaction currency mismatch', async () => {
     const result = await loadPaypalCaptureContext(
-      buildSupabase({ order: { ...ORDER_SNAPSHOT, total: 999 } }),
+      buildSupabase({ order: { ...ORDER_SNAPSHOT, currency: 'USD' } }),
       input
     );
-
-    expect(result).toEqual({
-      proceed: false,
-      status: 400,
-      body: { error: 'Order amount or currency mismatch with transaction' },
-    });
+    expect(result).toMatchObject({ ok: false, status: 400 });
   });
 
-  it('proceeds for a mixed-tender order whose residual charge is below the order total', async () => {
-    // Wallet credit / redeemed savings settle Baci-side, so the PayPal
-    // transaction amount is the residual and is legitimately LESS than the order
-    // total. That must NOT be rejected as a mismatch (only an over-charge is).
-    const result = await loadPaypalCaptureContext(
-      buildSupabase({
-        txn: { ...PENDING_TXN, amount: 100_000 },
-        order: { ...ORDER_SNAPSHOT, total: 130_000 },
-      }),
-      input
-    );
-
-    expect(result.proceed).toBe(true);
+  it('500s when the residual lookup fails', async () => {
+    vi.mocked(computeOrderResidualAmount).mockResolvedValue({
+      ok: false,
+      reason: 'wallet_lookup_failed',
+    });
+    const result = await loadPaypalCaptureContext(buildSupabase({}), input);
+    expect(result).toMatchObject({ ok: false, status: 500 });
   });
 });

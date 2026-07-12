@@ -1,11 +1,11 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
-import { finalizePaypalCaptureOrder } from '@/lib/payments/finalize-paypal-capture-order';
 import { computeOrderResidualAmount } from '@/lib/payments/order-residual-amount';
 import {
   getPaypalCheckoutCredentials,
   readPaypalFeatureConfig,
 } from '@/lib/payments/paypal-checkout-credentials';
+import { reconcileCompletedPaypalOrderForCreate } from '@/lib/payments/paypal-completed-order-reconcile';
 import {
   getReusablePayPalOrderId,
   resolvePaypalPresentment,
@@ -167,26 +167,23 @@ export async function POST(request: NextRequest) {
         .eq('merchant_id', merchant_id)
         .maybeSingle();
 
-      await finalizePaypalCaptureOrder({
-        supabase,
+      // Route through the SAME reconcile funnel as capture-order/verify — the
+      // completed txn already carries the capture response, so the writer's CAS
+      // finalizes idempotently (no second charge). Then block the retry.
+      await reconcileCompletedPaypalOrderForCreate(supabase, {
         merchantId: merchant_id,
         orderId: order_id,
         paypalOrderId: completedPaypalTxn.gateway_reference,
-        transaction: {
-          id: completedPaypalTxn.id,
-          amount: Number(completedPaypalTxn.amount),
-        },
-        orderSnapshot: {
-          order_number: null,
-          shipping_status:
-            typeof orderSnapshot.shipping_status === 'string'
-              ? orderSnapshot.shipping_status
-              : null,
+        orderTotal,
+        preCaptureStatus: {
           payment_status:
             typeof orderSnapshot.payment_status === 'string'
               ? orderSnapshot.payment_status
               : null,
-          total: orderTotal,
+          shipping_status:
+            typeof orderSnapshot.shipping_status === 'string'
+              ? orderSnapshot.shipping_status
+              : null,
           amount_paid: (orderRow?.amount_paid as number | string | null) ?? 0,
         },
       });
@@ -383,6 +380,39 @@ export async function POST(request: NextRequest) {
         });
       }
       if (reuse.outcome === 'already_captured') {
+        // F-393: the reuse branch used to 409 WITHOUT finalizing — money was
+        // captured at PayPal but the order stayed unpaid + unsettled. Route it
+        // through the SAME reconcile funnel as the completed-txn guard (fetch
+        // the PayPal order, validate, persist, reconcile idempotently) BEFORE
+        // blocking the retry.
+        const { data: reuseOrderRow } = await supabase
+          .from('orders')
+          .select('amount_paid')
+          .eq('id', order_id)
+          .eq('merchant_id', merchant_id)
+          .maybeSingle();
+
+        await reconcileCompletedPaypalOrderForCreate(supabase, {
+          credentials,
+          mode,
+          merchantId: merchant_id,
+          orderId: order_id,
+          paypalOrderId: reusablePayPalOrderId,
+          orderTotal,
+          preCaptureStatus: {
+            payment_status:
+              typeof orderSnapshot.payment_status === 'string'
+                ? orderSnapshot.payment_status
+                : null,
+            shipping_status:
+              typeof orderSnapshot.shipping_status === 'string'
+                ? orderSnapshot.shipping_status
+                : null,
+            amount_paid:
+              (reuseOrderRow?.amount_paid as number | string | null) ?? 0,
+          },
+        });
+
         return NextResponse.json(
           {
             error:

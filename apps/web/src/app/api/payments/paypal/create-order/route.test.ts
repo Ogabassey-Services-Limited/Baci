@@ -1,12 +1,12 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getFreshNgnPerUsdt } from '@/lib/juicyway/rates';
-import { finalizePaypalCaptureOrder } from '@/lib/payments/finalize-paypal-capture-order';
 import {
   getDecryptedMerchantCredential,
   markMerchantCredentialInvalid,
 } from '@/lib/payments/merchant-credentials';
 import { computeOrderResidualAmount } from '@/lib/payments/order-residual-amount';
+import { reconcileCompletedPaypalOrderForCreate } from '@/lib/payments/paypal-completed-order-reconcile';
 import { createOrder, getOrder } from '@/lib/paypal';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { POST } from './route';
@@ -17,8 +17,8 @@ vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: vi.fn(),
 }));
 
-vi.mock('@/lib/payments/finalize-paypal-capture-order', () => ({
-  finalizePaypalCaptureOrder: vi.fn().mockResolvedValue(undefined),
+vi.mock('@/lib/payments/paypal-completed-order-reconcile', () => ({
+  reconcileCompletedPaypalOrderForCreate: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('@/lib/paypal', () => ({
@@ -358,6 +358,13 @@ describe('POST /api/payments/paypal/create-order', () => {
     const response = await POST(createRequest());
     expect(response.status).toBe(409);
     expect((await response.json()).code).toBe('ORDER_ALREADY_CAPTURED');
+    // F-393: the reuse branch now FINALIZES the captured order through the
+    // shared reconcile funnel before blocking, instead of 409-ing an unpaid,
+    // unsettled order.
+    expect(reconcileCompletedPaypalOrderForCreate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ paypalOrderId: 'PP-COMPLETED' })
+    );
     // No fresh PayPal order and no repointed pending row.
     expect(createOrder).not.toHaveBeenCalled();
     expect(supabase.update).not.toHaveBeenCalled();
@@ -387,17 +394,16 @@ describe('POST /api/payments/paypal/create-order', () => {
 
     expect(response.status).toBe(409);
     expect((await response.json()).code).toBe('ORDER_ALREADY_CAPTURED');
-    // Reconciled the existing capture instead of minting a fresh order.
-    expect(finalizePaypalCaptureOrder).toHaveBeenCalledWith(
+    // Reconciled the existing capture through the shared funnel instead of
+    // minting a fresh order.
+    expect(reconcileCompletedPaypalOrderForCreate).toHaveBeenCalledWith(
+      expect.anything(),
       expect.objectContaining({
         merchantId: MERCHANT_ID,
         orderId: ORDER_ID,
         paypalOrderId: 'PP-DONE',
-        transaction: { id: 'txn-completed', amount: 130000 },
-        orderSnapshot: expect.objectContaining({
-          total: 130000,
-          amount_paid: 0,
-        }),
+        orderTotal: 130000,
+        preCaptureStatus: expect.objectContaining({ amount_paid: 0 }),
       })
     );
     // No second PayPal order, no fresh checkout amount lookup reaches PayPal.
@@ -428,7 +434,7 @@ describe('POST /api/payments/paypal/create-order', () => {
 
     expect(response.status).toBe(200);
     expect((await response.json()).reused).toBe(true);
-    expect(finalizePaypalCaptureOrder).not.toHaveBeenCalled();
+    expect(reconcileCompletedPaypalOrderForCreate).not.toHaveBeenCalled();
   });
 
   it('converts NGN to USD and records a fee-waived residual transaction (no init-time accrual)', async () => {

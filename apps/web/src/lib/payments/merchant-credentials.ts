@@ -236,3 +236,32 @@ export async function deleteMerchantCredentials(
 
   assertNoRpcError(error, 'delete_merchant_payment_credential');
 }
+
+/**
+ * Deletes ONE (merchant, provider, role, environment) vault slot. Used to roll
+ * back a single failed credential save without wiping the merchant's other
+ * environments/roles (payment-credentials:204).
+ *
+ * AUTHORIZATION: calls the service_role-only RPC directly and performs no
+ * caller authorization itself. The calling API route MUST verify staff/owner
+ * access to `merchantId` before calling this.
+ */
+export async function deleteMerchantCredential(
+  merchantId: string,
+  provider: PaymentProvider,
+  role: PaymentCredentialRole,
+  environment: PaymentCredentialEnvironment
+): Promise<void> {
+  const supabase = createAdminClient();
+  const { error } = await supabase.rpc(
+    'delete_merchant_payment_credential_role',
+    {
+      p_merchant_id: merchantId,
+      p_provider: provider,
+      p_credential_role: role,
+      p_environment: environment,
+    }
+  );
+
+  assertNoRpcError(error, 'delete_merchant_payment_credential_role');
+}

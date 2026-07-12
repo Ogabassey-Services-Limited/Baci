@@ -9,6 +9,7 @@ import {
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
+  deleteMerchantCredential,
   deleteMerchantCredentials,
   getMerchantPaymentCredentialMeta,
   type MerchantPaymentCredentialMetaRow,
@@ -42,6 +43,7 @@ vi.mock('@/lib/cache-revalidation', () => ({
 
 vi.mock('@/lib/payments/merchant-credentials', () => ({
   deleteMerchantCredentials: vi.fn(),
+  deleteMerchantCredential: vi.fn(),
   getMerchantPaymentCredentialMeta: vi.fn(),
   setMerchantPaymentCredential: vi.fn(),
   touchMerchantCredentialValidated: vi.fn(),
@@ -405,9 +407,11 @@ describe('/api/merchant/payment-credentials', () => {
     expect(customSettings).not.toHaveProperty('paypalClientSecret');
   });
 
-  it('rolls back the first credential role and errors when the second write fails (S-245)', async () => {
+  it('rolls back ONLY the failed environment/roles and errors when the second write fails (S-245 + payment-credentials:204)', async () => {
     // client_id write lands, secret_key write fails → we must never persist a
-    // half-saved pair, so the whole provider's credentials are deleted.
+    // half-saved pair. The rollback is scoped to the two roles at THIS
+    // environment, never the provider-wide delete that would nuke an unrelated
+    // LIVE pair (payment-credentials:204).
     vi.mocked(setMerchantPaymentCredential)
       .mockResolvedValueOnce('client-id-credential')
       .mockRejectedValueOnce(new Error('vault write failed'));
@@ -415,10 +419,20 @@ describe('/api/merchant/payment-credentials', () => {
     const response = await POST(saveRequest());
 
     expect(response.status).toBe(500);
-    expect(deleteMerchantCredentials).toHaveBeenCalledWith(
+    expect(deleteMerchantCredential).toHaveBeenCalledWith(
       MERCHANT_ID,
-      'paypal'
+      'paypal',
+      'client_id',
+      'live'
     );
+    expect(deleteMerchantCredential).toHaveBeenCalledWith(
+      MERCHANT_ID,
+      'paypal',
+      'secret_key',
+      'live'
+    );
+    // The provider-wide delete must NOT run for a single failed save.
+    expect(deleteMerchantCredentials).not.toHaveBeenCalled();
     // A half-pair must never be marked validated.
     expect(touchMerchantCredentialValidated).not.toHaveBeenCalled();
   });

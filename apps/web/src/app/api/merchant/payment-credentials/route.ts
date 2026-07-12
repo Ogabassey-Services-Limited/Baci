@@ -13,6 +13,7 @@ import {
 } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
+  deleteMerchantCredential,
   deleteMerchantCredentials,
   getMerchantPaymentCredentialMeta,
   setMerchantPaymentCredential,
@@ -199,8 +200,22 @@ export async function POST(request: NextRequest) {
         secretKey
       );
     } catch (writeError) {
+      // Roll back ONLY the two roles just written at THIS environment
+      // (payment-credentials:204). The provider-wide delete would nuke an
+      // unrelated LIVE pair when a sandbox save half-failed.
       try {
-        await deleteMerchantCredentials(merchantId, provider);
+        await deleteMerchantCredential(
+          merchantId,
+          provider,
+          'client_id',
+          environment
+        );
+        await deleteMerchantCredential(
+          merchantId,
+          provider,
+          'secret_key',
+          environment
+        );
       } catch (rollbackError) {
         console.error(
           'payment-credentials: failed to roll back half-saved credential pair:',

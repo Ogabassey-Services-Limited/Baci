@@ -121,35 +121,18 @@ describe('markPaypalCredentialInvalid', () => {
     );
   });
 
-  it('also clears paypal_enabled so checkout stops advertising PayPal (C-143)', async () => {
+  it('does NOT disable the merchant-wide PayPal feature flag on a runtime 401 (credentials:162)', async () => {
     await markPaypalCredentialInvalid(MERCHANT_ID, 'live', 'unauthorized');
 
-    expect(disablePaypalFeatureFlag).toHaveBeenCalledWith(MERCHANT_ID);
-  });
-
-  it('still clears paypal_enabled even if marking the credential invalid fails', async () => {
-    vi.mocked(markMerchantCredentialInvalid).mockRejectedValue(
-      new Error('rpc down')
-    );
-
-    await markPaypalCredentialInvalid(MERCHANT_ID, 'live', 'unauthorized');
-
-    expect(disablePaypalFeatureFlag).toHaveBeenCalledWith(MERCHANT_ID);
+    // A single, possibly transient, OAuth 401 must not take the merchant's
+    // entire PayPal offline across every environment/customer. The credential
+    // mark alone fails checkout closed; flag lifecycle stays with settings.
+    expect(disablePaypalFeatureFlag).not.toHaveBeenCalled();
   });
 
   it('never throws when the RPC fails', async () => {
     vi.mocked(markMerchantCredentialInvalid).mockRejectedValue(
       new Error('rpc down')
-    );
-
-    await expect(
-      markPaypalCredentialInvalid(MERCHANT_ID, 'live', 'unauthorized')
-    ).resolves.toBeUndefined();
-  });
-
-  it('never throws when clearing paypal_enabled fails', async () => {
-    vi.mocked(disablePaypalFeatureFlag).mockRejectedValue(
-      new Error('flag update down')
     );
 
     await expect(

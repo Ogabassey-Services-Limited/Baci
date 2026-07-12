@@ -32,6 +32,28 @@ export function usePaypalReturn({
 }: UsePaypalReturnParams): void {
   const handledRef = useRef(false);
 
+  // Hold the caller callbacks in a ref refreshed each render. The parent passes
+  // inline `getHref`/`routerPush`/… whose identity changes every render; if the
+  // capture effect depended on them its cleanup would run on every re-render,
+  // flip `active=false`, and DISCARD an in-flight successful capture — stranding
+  // the customer on checkout (use-paypal-return:49). Narrowing the effect deps
+  // to `[merchantId]` (the flow is already single-shot via `handledRef`) keeps
+  // the effect stable while the ref serves the latest callbacks.
+  const callbacksRef = useRef({
+    getHref,
+    routerPush,
+    clearCart,
+    clearCheckoutSession,
+    setIsProcessing,
+  });
+  callbacksRef.current = {
+    getHref,
+    routerPush,
+    clearCart,
+    clearCheckoutSession,
+    setIsProcessing,
+  };
+
   useEffect(() => {
     if (handledRef.current || typeof window === 'undefined') return;
 
@@ -41,21 +63,20 @@ export function usePaypalReturn({
     }
     handledRef.current = true;
 
-    let active = true;
-
     (async () => {
-      setIsProcessing?.(true);
+      const cb = callbacksRef.current;
+      cb.setIsProcessing?.(true);
       const result = await capturePaypalReturn(search, merchantId);
-      if (!active) return;
+      const current = callbacksRef.current;
 
       if (result.status === 'captured') {
-        clearCheckoutSession();
-        clearCart();
+        current.clearCheckoutSession();
+        current.clearCart();
         const trackingParam = result.trackingToken
           ? `&trackingToken=${result.trackingToken}`
           : '';
-        routerPush(
-          getHref(
+        current.routerPush(
+          current.getHref(
             `/order-success?type=paypal&orderId=${result.orderId}${trackingParam}`
           )
         );
@@ -74,18 +95,10 @@ export function usePaypalReturn({
           variant: 'destructive',
         });
       }
-      setIsProcessing?.(false);
+      current.setIsProcessing?.(false);
     })();
-
-    return () => {
-      active = false;
-    };
-  }, [
-    merchantId,
-    getHref,
-    routerPush,
-    clearCart,
-    clearCheckoutSession,
-    setIsProcessing,
-  ]);
+    // Single-shot: guarded by `handledRef`, keyed only to `merchantId`. Do NOT
+    // add the caller callbacks here — their changing identity would tear down
+    // an in-flight capture.
+  }, [merchantId]);
 }

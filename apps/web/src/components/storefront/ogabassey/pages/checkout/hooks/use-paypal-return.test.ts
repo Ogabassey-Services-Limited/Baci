@@ -104,4 +104,41 @@ describe('usePaypalReturn', () => {
     });
     expect(params.routerPush).not.toHaveBeenCalled();
   });
+
+  it('completes an in-flight capture even when the parent re-renders with fresh callback identities (use-paypal-return:49)', async () => {
+    setLocationSearch('?paypal_return=1&token=PP-1');
+    let resolveCapture: (value: unknown) => void = () => {};
+    capturePaypalReturn.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveCapture = resolve;
+      })
+    );
+
+    const first = baseParams();
+    const { rerender } = renderHook((props) => usePaypalReturn(props), {
+      initialProps: first,
+    });
+
+    // The parent re-renders mid-capture with BRAND-NEW inline callbacks (new
+    // identities). The old bug tore the effect down here and discarded the
+    // capture; now the effect stays keyed to [merchantId] and callbacks live in
+    // a ref, so the in-flight capture survives.
+    const second = baseParams();
+    rerender(second);
+
+    resolveCapture({
+      status: 'captured',
+      orderId: 'order-1',
+      trackingToken: 'trk-1',
+    });
+
+    await waitFor(() => {
+      expect(second.routerPush).toHaveBeenCalledWith(
+        '/store/order-success?type=paypal&orderId=order-1&trackingToken=trk-1'
+      );
+    });
+    // The capture fired exactly once despite the re-render.
+    expect(capturePaypalReturn).toHaveBeenCalledTimes(1);
+    expect(first.routerPush).not.toHaveBeenCalled();
+  });
 });

@@ -1,34 +1,18 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { filePaypalCapturePersistFailureReview } from '@/lib/payments/file-paypal-capture-persist-failure-review';
 import { loadPaypalCaptureContext } from '@/lib/payments/load-paypal-capture-context';
-import {
-  getDecryptedMerchantCredential,
-  markMerchantCredentialInvalid,
-} from '@/lib/payments/merchant-credentials';
-import { runPaypalCaptureSideEffects } from '@/lib/payments/paypal-capture-side-effects';
-import { captureOrder, detectPayPalResponseMode } from '@/lib/paypal';
+import { handlePaypalCaptureOutcome } from '@/lib/payments/paypal-capture-outcome-handlers';
+import { getPaypalCheckoutCredentials } from '@/lib/payments/paypal-checkout-credentials';
+import { getOrder } from '@/lib/paypal';
 import { createServiceClient } from '@/lib/supabase/service';
 import { POST } from './route';
 
 vi.mock('server-only', () => ({}));
 
-vi.mock('next/server', async () => {
-  const actual =
-    await vi.importActual<typeof import('next/server')>('next/server');
-  return { ...actual, after: vi.fn((fn: () => unknown) => fn()) };
-});
-
 vi.mock('@/lib/supabase/service', () => ({ createServiceClient: vi.fn() }));
 
 vi.mock('@/lib/paypal', () => ({
-  captureOrder: vi.fn(),
-  detectPayPalResponseMode: vi.fn(),
-}));
-
-vi.mock('@/lib/payments/merchant-credentials', () => ({
-  getDecryptedMerchantCredential: vi.fn(),
-  markMerchantCredentialInvalid: vi.fn(),
+  getOrder: vi.fn(),
 }));
 
 vi.mock('@/lib/payments/load-paypal-capture-context', () => ({
@@ -36,20 +20,12 @@ vi.mock('@/lib/payments/load-paypal-capture-context', () => ({
   orderNumberFallback: (id: string) => id.slice(0, 8).toUpperCase(),
 }));
 
-vi.mock('@/lib/payments/paypal-capture-side-effects', () => ({
-  runPaypalCaptureSideEffects: vi.fn(),
+vi.mock('@/lib/payments/paypal-capture-outcome-handlers', () => ({
+  handlePaypalCaptureOutcome: vi.fn(),
 }));
 
-vi.mock('@/lib/payments/file-paypal-capture-persist-failure-review', () => ({
-  filePaypalCapturePersistFailureReview: vi.fn(),
-}));
-
-// finalizePaypalCaptureOrder runs for real here so the route wiring is exercised
-// end-to-end; its inventory dependency is stubbed to the confirm-success path.
-vi.mock('@/lib/payments/ensure-paid-order-inventory-confirmed', () => ({
-  ensurePaidOrderInventoryConfirmed: vi.fn().mockResolvedValue(undefined),
-  isSerializedInventoryUnavailableError: vi.fn(() => false),
-  rollbackOrderStatusAfterInventoryConfirmationFailure: vi.fn(),
+vi.mock('@/lib/payments/paypal-checkout-credentials', () => ({
+  getPaypalCheckoutCredentials: vi.fn(),
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -62,552 +38,169 @@ const PAYPAL_ORDER_ID = 'PP-ORD-1';
 
 const META = {
   customer_email: 'customer@example.com',
+  paypal_mode: 'live',
   paypal_presentment_amount: 100,
   paypal_presentment_currency: 'USD',
-  // Customer checkout is live-only (F10); the capture route reads the order's
-  // original mode from transaction metadata, so the happy-path fixture is live.
-  paypal_mode: 'live',
 };
 
-const DEFAULT_ORDER = {
-  id: ORDER_ID,
-  order_number: 'BACI-1002',
-  customer_id: 'c1',
-  total: 130000,
-  subtotal: 120000,
-  shipping_fee: 10000,
-  customer_name: 'Ada',
-  customer_email: 'customer@example.com',
-  customer_phone: '0800',
-  shipping_address: {},
-  currency: 'NGN',
-  order_items: [],
-};
-
-function proceedContext() {
+function transaction(status = 'pending') {
   return {
-    proceed: true,
-    reconcileOnly: false,
-    transaction: {
-      id: 'txn-1',
-      order_id: ORDER_ID,
-      merchant_id: MERCHANT_ID,
-      amount: 130000,
-      currency: 'NGN',
-      status: 'pending',
-      metadata: META,
-      platform_fee: 0,
-    },
-    orderSnapshot: {
-      id: ORDER_ID,
-      merchant_id: MERCHANT_ID,
-      total: 130000,
-      currency: 'NGN',
-      customer_email: 'customer@example.com',
-      order_number: 'BACI-1002',
-      shipping_status: 'pending',
-      payment_status: 'unpaid',
-    },
+    id: 'txn-1',
+    order_id: ORDER_ID,
+    merchant_id: MERCHANT_ID,
+    amount: 130000,
+    currency: 'NGN',
+    status,
     metadata: META,
+    platform_fee: 0,
   };
 }
 
-function captureData(
-  captures: {
-    id: string;
-    status: string;
-    amount: { value: string; currency_code: string };
-  }[] = [
-    {
-      id: 'cap-1',
-      status: 'COMPLETED',
-      amount: { value: '100.00', currency_code: 'USD' },
-    },
-  ]
-) {
+function orderSnapshot(overrides: Record<string, unknown> = {}) {
   return {
-    id: 'CAP',
-    status: 'COMPLETED' as const,
-    purchase_units: [{ payments: { captures } }],
-    links: [
-      {
-        href: 'https://api-m.sandbox.paypal.com/v2/checkout/orders/PP-ORD-1',
-        rel: 'self',
-        method: 'GET',
-      },
-    ],
+    id: ORDER_ID,
+    merchant_id: MERCHANT_ID,
+    total: 130000,
+    currency: 'NGN',
+    customer_email: 'customer@example.com',
+    order_number: 'BACI-1002',
+    shipping_status: 'pending',
+    payment_status: 'unpaid',
+    amount_paid: 0,
+    ...overrides,
   };
 }
 
-function buildServiceMock({
-  custom = { paypal_enabled: true, paypal_mode: 'live' } as Record<
-    string,
-    unknown
-  >,
-  updatedTxn = { data: { id: 'txn-1' }, error: null } as {
-    data: unknown;
-    error: unknown;
-  },
-  orderResult = { data: DEFAULT_ORDER, error: null } as {
-    data: unknown;
-    error: unknown;
-  },
-  // Result of the race-loser re-read of `orders` via maybeSingle (G4).
-  reReadOrder = { data: null, error: null } as {
-    data: unknown;
-    error: unknown;
-  },
-} = {}) {
-  let lastTable = '';
-  // finalize now claims the paid transition with a `.neq('payment_status',
-  // 'paid')` CAS and reads the row back via maybeSingle (F-268). The order UPDATE
-  // resolves to `orderResult`; a plain SELECT re-read (race-loser check, or the
-  // finalize lost-claim branch) resolves to `reReadOrder`.
-  let lastWasUpdate = false;
-  const mock = {
-    from: vi.fn((t: string) => {
-      lastTable = t;
-      lastWasUpdate = false;
-      return mock;
-    }),
-    select: vi.fn(() => mock),
-    eq: vi.fn(() => mock),
-    neq: vi.fn(() => mock),
-    update: vi.fn(() => {
-      lastWasUpdate = true;
-      return mock;
-    }),
-    single: vi.fn(() => {
-      if (lastTable === 'merchant_feature_settings') {
-        return Promise.resolve({
-          data: { custom_settings: custom },
-          error: null,
-        });
-      }
-      if (lastTable === 'orders') {
-        return Promise.resolve(orderResult);
-      }
-      return Promise.resolve({ data: null, error: null });
-    }),
-    maybeSingle: vi.fn(() => {
-      if (lastTable === 'transactions') {
-        return Promise.resolve(updatedTxn);
-      }
-      if (lastTable === 'orders') {
-        return Promise.resolve(lastWasUpdate ? orderResult : reReadOrder);
-      }
-      return Promise.resolve({ data: null, error: null });
-    }),
-  };
-  return mock;
+function loadOk(overrides: Record<string, unknown> = {}) {
+  return {
+    ok: true,
+    transaction: transaction(),
+    orderSnapshot: orderSnapshot(),
+    metadata: META,
+    lockedResidual: 100000,
+    currentResidual: 100000,
+    presentmentAmount: 100,
+    presentmentCurrency: 'USD',
+    ...overrides,
+  } as never;
 }
 
-function createRequest(bodyOverrides: Record<string, unknown> = {}) {
-  return new NextRequest(
-    'https://example.com/api/payments/paypal/capture-order',
-    {
-      method: 'POST',
-      body: JSON.stringify({
-        order_id: ORDER_ID,
-        paypal_order_id: PAYPAL_ORDER_ID,
-        customer_email: 'customer@example.com',
-        merchant_id: MERCHANT_ID,
-        ...bodyOverrides,
-      }),
-      headers: { 'Content-Type': 'application/json' },
-    }
-  );
-}
-
-function mockVaultOk() {
-  vi.mocked(getDecryptedMerchantCredential).mockImplementation(
-    async (_merchant, _provider, role) =>
-      role === 'client_id' ? 'mock-client-id' : 'mock-secret-key'
-  );
-}
-
-describe('POST /api/payments/paypal/capture-order', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    vi.mocked(loadPaypalCaptureContext).mockResolvedValue(
-      proceedContext() as never
-    );
-    vi.mocked(createServiceClient).mockReturnValue(buildServiceMock() as never);
-    vi.mocked(captureOrder).mockResolvedValue({
-      success: true,
-      data: captureData(),
-    });
-    vi.mocked(detectPayPalResponseMode).mockReturnValue('live');
-    mockVaultOk();
+function request() {
+  return new NextRequest('http://localhost/api/payments/paypal/capture-order', {
+    method: 'POST',
+    body: JSON.stringify({
+      order_id: ORDER_ID,
+      paypal_order_id: PAYPAL_ORDER_ID,
+      merchant_id: MERCHANT_ID,
+      customer_email: 'customer@example.com',
+    }),
+    headers: { 'content-type': 'application/json' },
   });
+}
 
-  it('returns 400 for an invalid payload', async () => {
-    const response = await POST(
-      new NextRequest('https://example.com', {
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.mocked(createServiceClient).mockReturnValue({} as never);
+  vi.mocked(getPaypalCheckoutCredentials).mockResolvedValue({
+    clientId: 'cid',
+    secretKey: 'sec',
+  });
+  vi.mocked(handlePaypalCaptureOutcome).mockImplementation(
+    async (_ctx, outcome) =>
+      new Response(JSON.stringify({ dispatched: outcome.kind }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }) as never
+  );
+});
+
+describe('POST /api/payments/paypal/capture-order (funnel dispatch)', () => {
+  it('400s on an invalid body', async () => {
+    const res = await POST(
+      new NextRequest('http://localhost/x', {
         method: 'POST',
         body: JSON.stringify({}),
+        headers: { 'content-type': 'application/json' },
       })
     );
-    expect(response.status).toBe(400);
-    expect((await response.json()).error).toBe('Invalid input parameters');
+    expect(res.status).toBe(400);
   });
 
-  it('passes a context rejection straight through', async () => {
+  it('returns the loader error verbatim', async () => {
     vi.mocked(loadPaypalCaptureContext).mockResolvedValue({
-      proceed: false,
+      ok: false,
       status: 404,
       body: { error: 'Transaction not found for this reference' },
     });
-
-    const response = await POST(createRequest());
-    expect(response.status).toBe(404);
-    expect((await response.json()).error).toBe(
-      'Transaction not found for this reference'
-    );
+    const res = await POST(request());
+    expect(res.status).toBe(404);
   });
 
-  it('rejects a sandbox-environment order with 400 PAYPAL_SANDBOX_NOT_ALLOWED before capturing', async () => {
-    // The order's stored mode is sandbox (or missing) — a sandbox capture could
-    // mark the order paid with no real funds, so refuse before hitting PayPal or
-    // the credential vault (F10).
-    const base = proceedContext();
-    vi.mocked(loadPaypalCaptureContext).mockResolvedValue({
-      ...base,
-      metadata: { ...META, paypal_mode: 'sandbox' },
-      transaction: {
-        ...base.transaction,
-        metadata: { ...META, paypal_mode: 'sandbox' },
-      },
+  it('rejects a non-live (sandbox) order before touching PayPal', async () => {
+    vi.mocked(loadPaypalCaptureContext).mockResolvedValue(
+      loadOk({ metadata: { ...META, paypal_mode: 'sandbox' } })
+    );
+    const res = await POST(request());
+    const json = await res.json();
+    expect(res.status).toBe(400);
+    expect(json.code).toBe('PAYPAL_SANDBOX_NOT_ALLOWED');
+  });
+
+  it('400s PAYPAL_NOT_CONFIGURED when the vault has no credentials', async () => {
+    vi.mocked(loadPaypalCaptureContext).mockResolvedValue(loadOk());
+    vi.mocked(getPaypalCheckoutCredentials).mockResolvedValue(null);
+    const res = await POST(request());
+    const json = await res.json();
+    expect(res.status).toBe(400);
+    expect(json.code).toBe('PAYPAL_NOT_CONFIGURED');
+  });
+
+  it('unpaid + pending → captures optimistically (capture_then_finalize), no getOrder', async () => {
+    vi.mocked(loadPaypalCaptureContext).mockResolvedValue(loadOk());
+    const res = await POST(request());
+    const json = await res.json();
+    expect(json.dispatched).toBe('capture_then_finalize');
+    expect(getOrder).not.toHaveBeenCalled();
+  });
+
+  it('completed txn → reconcile_completed_unpaid without re-fetching PayPal', async () => {
+    vi.mocked(loadPaypalCaptureContext).mockResolvedValue(
+      loadOk({ transaction: transaction('completed') })
+    );
+    const res = await POST(request());
+    const json = await res.json();
+    expect(json.dispatched).toBe('reconcile_completed_unpaid');
+    expect(getOrder).not.toHaveBeenCalled();
+  });
+
+  it('paid-elsewhere order + captured stale PayPal order → looks up status and blocks (F-203)', async () => {
+    vi.mocked(loadPaypalCaptureContext).mockResolvedValue(
+      loadOk({ orderSnapshot: orderSnapshot({ payment_status: 'paid' }) })
+    );
+    vi.mocked(getOrder).mockResolvedValue({
+      success: true,
+      data: { id: PAYPAL_ORDER_ID, status: 'COMPLETED' },
     } as never);
 
-    const response = await POST(createRequest());
-    expect(response.status).toBe(400);
-    expect((await response.json()).code).toBe('PAYPAL_SANDBOX_NOT_ALLOWED');
-    expect(getDecryptedMerchantCredential).not.toHaveBeenCalled();
-    expect(captureOrder).not.toHaveBeenCalled();
-  });
+    const res = await POST(request());
+    const json = await res.json();
 
-  it('returns 400 paypal_not_configured when the vault has no credentials', async () => {
-    vi.mocked(getDecryptedMerchantCredential).mockRejectedValue(
-      new Error('missing')
-    );
-
-    const response = await POST(createRequest());
-    expect(response.status).toBe(400);
-    expect((await response.json()).code).toBe('PAYPAL_NOT_CONFIGURED');
-    expect(captureOrder).not.toHaveBeenCalled();
-  });
-
-  it('marks credentials invalid and returns 400 on a PayPal 401', async () => {
-    vi.mocked(captureOrder).mockResolvedValue({
-      success: false,
-      error: 'invalid_client',
-      code: 'HTTP_401',
-    });
-
-    const response = await POST(createRequest());
-    expect(response.status).toBe(400);
-    expect((await response.json()).code).toBe('INVALID_PROVIDER_CREDENTIALS');
-    expect(markMerchantCredentialInvalid).toHaveBeenCalledWith(
-      MERCHANT_ID,
-      'paypal',
-      'secret_key',
-      'live',
-      'invalid_client'
+    expect(getOrder).toHaveBeenCalledTimes(1);
+    expect(json.dispatched).toBe('block_paid_elsewhere');
+    expect(handlePaypalCaptureOutcome).toHaveBeenCalledWith(
+      expect.anything(),
+      { kind: 'block_paid_elsewhere', captured: true },
+      expect.objectContaining({ status: 'COMPLETED' })
     );
   });
 
-  it('hard-rejects a mode mismatch (sandbox response for a live store)', async () => {
-    vi.mocked(detectPayPalResponseMode).mockReturnValue('sandbox');
-
-    const response = await POST(createRequest());
-    expect(response.status).toBe(400);
-    expect((await response.json()).code).toBe('PAYPAL_MODE_MISMATCH');
-  });
-
-  it('files a reconciliation review when rejecting a captured-but-mismatched payment', async () => {
-    // The mismatch is only detectable after PayPal captured funds, so the
-    // captured payment must be queued for reconciliation, never dropped.
-    vi.mocked(detectPayPalResponseMode).mockReturnValue('sandbox');
-
-    const response = await POST(createRequest());
-    expect(response.status).toBe(400);
-    expect((await response.json()).code).toBe('PAYPAL_MODE_MISMATCH');
-    expect(filePaypalCapturePersistFailureReview).toHaveBeenCalledWith(
-      expect.objectContaining({
-        gatewayReference: PAYPAL_ORDER_ID,
-        merchantId: MERCHANT_ID,
-        orderId: ORDER_ID,
-        transactionId: 'txn-1',
-        metadata: expect.objectContaining({ stage: 'mode_mismatch' }),
-      })
+  it('unpaid + pending + stale (raised) total → rejects underpayment BEFORE capture (F-194)', async () => {
+    vi.mocked(loadPaypalCaptureContext).mockResolvedValue(
+      loadOk({ lockedResidual: 100000, currentResidual: 130000 })
     );
-  });
-
-  it('fails closed when PayPal response mode cannot be determined', async () => {
-    vi.mocked(captureOrder).mockResolvedValue({
-      success: true,
-      data: { ...captureData(), links: undefined },
-    });
-    vi.mocked(detectPayPalResponseMode).mockReturnValue('unknown');
-
-    const response = await POST(createRequest());
-    expect(response.status).toBe(400);
-    expect((await response.json()).code).toBe('PAYPAL_MODE_MISMATCH');
-  });
-
-  it('rejects when the captured total does not match the presentment', async () => {
-    vi.mocked(captureOrder).mockResolvedValue({
-      success: true,
-      data: captureData([
-        {
-          id: 'cap-1',
-          status: 'COMPLETED',
-          amount: { value: '1.00', currency_code: 'USD' },
-        },
-      ]),
-    });
-
-    const response = await POST(createRequest());
-    expect(response.status).toBe(400);
-    expect((await response.json()).error).toBe(
-      'Payment amount mismatch with PayPal capture'
-    );
-  });
-
-  it('files a reconciliation review when capture validation fails after a COMPLETED capture', async () => {
-    // Funds are already captured (COMPLETED) but the amount does not reconcile
-    // with the stored presentment — the captured money must produce an ops
-    // signal, never a bare 400.
-    vi.mocked(captureOrder).mockResolvedValue({
-      success: true,
-      data: captureData([
-        {
-          id: 'cap-1',
-          status: 'COMPLETED',
-          amount: { value: '1.00', currency_code: 'USD' },
-        },
-      ]),
-    });
-
-    const response = await POST(createRequest());
-    expect(response.status).toBe(400);
-    expect(filePaypalCapturePersistFailureReview).toHaveBeenCalledWith(
-      expect.objectContaining({
-        gatewayReference: PAYPAL_ORDER_ID,
-        merchantId: MERCHANT_ID,
-        orderId: ORDER_ID,
-        transactionId: 'txn-1',
-        metadata: expect.objectContaining({
-          stage: 'capture_amount_mismatch',
-          reason: 'Payment amount mismatch with PayPal capture',
-        }),
-      })
-    );
-  });
-
-  it('rejects a partial capture set where one capture is not completed', async () => {
-    vi.mocked(captureOrder).mockResolvedValue({
-      success: true,
-      data: captureData([
-        {
-          id: 'cap-1',
-          status: 'COMPLETED',
-          amount: { value: '60.00', currency_code: 'USD' },
-        },
-        {
-          id: 'cap-2',
-          status: 'PENDING',
-          amount: { value: '40.00', currency_code: 'USD' },
-        },
-      ]),
-    });
-
-    const response = await POST(createRequest());
-    expect(response.status).toBe(400);
-    expect((await response.json()).error).toBe(
-      'PayPal capture is not completed'
-    );
-  });
-
-  it('accepts a multi-capture set that sums to the presentment total', async () => {
-    vi.mocked(captureOrder).mockResolvedValue({
-      success: true,
-      data: captureData([
-        {
-          id: 'cap-1',
-          status: 'COMPLETED',
-          amount: { value: '60.00', currency_code: 'USD' },
-        },
-        {
-          id: 'cap-2',
-          status: 'COMPLETED',
-          amount: { value: '40.00', currency_code: 'USD' },
-        },
-      ]),
-    });
-
-    const response = await POST(createRequest());
-    expect(response.status).toBe(200);
-    expect((await response.json()).success).toBe(true);
-    expect(runPaypalCaptureSideEffects).toHaveBeenCalledWith(
-      expect.objectContaining({
-        merchantId: MERCHANT_ID,
-        paypalOrderId: PAYPAL_ORDER_ID,
-        grossAmount: 130000,
-      })
-    );
-  });
-
-  it('files a reconciliation review and returns 500 when the DB write fails after capture', async () => {
-    vi.mocked(createServiceClient).mockReturnValue(
-      buildServiceMock({
-        updatedTxn: { data: null, error: { message: 'db down' } },
-      }) as never
-    );
-
-    const response = await POST(createRequest());
-    expect(response.status).toBe(500);
-    expect((await response.json()).code).toBe('CAPTURE_PERSIST_FAILED');
-    expect(filePaypalCapturePersistFailureReview).toHaveBeenCalledWith(
-      expect.objectContaining({
-        merchantId: MERCHANT_ID,
-        orderId: ORDER_ID,
-        transactionId: 'txn-1',
-      })
-    );
-  });
-
-  it('completes the capture and runs side effects on the happy path', async () => {
-    const response = await POST(createRequest());
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({
-      success: true,
-      status: 'success',
-      orderNumber: 'BACI-1002',
-    });
-    expect(runPaypalCaptureSideEffects).toHaveBeenCalledTimes(1);
-    // No captured-but-failed condition on the happy path → no ops signal filed.
-    expect(filePaypalCapturePersistFailureReview).not.toHaveBeenCalled();
-  });
-
-  it('captures with the order original PayPal environment even if the merchant flipped mode mid-checkout', async () => {
-    // Order was created LIVE (metadata.paypal_mode='live'); the merchant then
-    // flipped feature settings to sandbox. Capture must use the ORIGINAL live
-    // environment/vault slot, not the current feature config.
-    const base = proceedContext();
-    vi.mocked(loadPaypalCaptureContext).mockResolvedValue({
-      ...base,
-      metadata: { ...META, paypal_mode: 'live' },
-      transaction: {
-        ...base.transaction,
-        metadata: { ...META, paypal_mode: 'live' },
-      },
-    } as never);
-    vi.mocked(createServiceClient).mockReturnValue(
-      buildServiceMock({
-        custom: { paypal_enabled: true, paypal_mode: 'sandbox' },
-      }) as never
-    );
-    vi.mocked(detectPayPalResponseMode).mockReturnValue('live');
-
-    const response = await POST(createRequest());
-
-    expect(response.status).toBe(200);
-    expect(getDecryptedMerchantCredential).toHaveBeenCalledWith(
-      MERCHANT_ID,
-      'paypal',
-      'client_id',
-      'live'
-    );
-    expect(getDecryptedMerchantCredential).toHaveBeenCalledWith(
-      MERCHANT_ID,
-      'paypal',
-      'secret_key',
-      'live'
-    );
-    expect(captureOrder).toHaveBeenCalledWith(
-      'mock-client-id',
-      'mock-secret-key',
-      PAYPAL_ORDER_ID,
-      'live',
-      expect.stringContaining('capture-')
-    );
-  });
-
-  it('race-loser returns idempotent success when the winner already marked the order paid', async () => {
-    // The pending-row update matched nothing (a concurrent request won). The
-    // winner already finalized the order to paid, so this loser must return
-    // idempotent success WITHOUT re-running finalization/side effects.
-    vi.mocked(createServiceClient).mockReturnValue(
-      buildServiceMock({
-        updatedTxn: { data: null, error: null },
-        reReadOrder: {
-          data: { payment_status: 'paid', order_number: 'BACI-1002' },
-          error: null,
-        },
-      }) as never
-    );
-
-    const response = await POST(createRequest());
-
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({
-      success: true,
-      status: 'success',
-      orderNumber: 'BACI-1002',
-    });
-    expect(runPaypalCaptureSideEffects).not.toHaveBeenCalled();
-  });
-
-  it('race-loser reconciles the order when the winner captured but never finalized', async () => {
-    // The pending-row update matched nothing, but the order is still unpaid —
-    // the winner captured funds then failed to finalize. The loser must run the
-    // reconcile path (mark paid + side effects), not blindly claim success.
-    vi.mocked(createServiceClient).mockReturnValue(
-      buildServiceMock({
-        updatedTxn: { data: null, error: null },
-        reReadOrder: {
-          data: { payment_status: 'unpaid', order_number: 'BACI-1002' },
-          error: null,
-        },
-      }) as never
-    );
-
-    const response = await POST(createRequest());
-
-    expect(response.status).toBe(200);
-    expect((await response.json()).success).toBe(true);
-    expect(runPaypalCaptureSideEffects).toHaveBeenCalledWith(
-      expect.objectContaining({
-        merchantId: MERCHANT_ID,
-        paypalOrderId: PAYPAL_ORDER_ID,
-      })
-    );
-  });
-
-  it('reconciles a completed-but-unpaid order without re-calling PayPal', async () => {
-    // A prior capture flipped the transaction to completed but its order write
-    // failed. The retry must reconcile the order to paid and run the side
-    // effects — never re-hit PayPal, never return success on an unpaid order.
-    const base = proceedContext();
-    vi.mocked(loadPaypalCaptureContext).mockResolvedValue({
-      ...base,
-      reconcileOnly: true,
-      transaction: { ...base.transaction, status: 'completed' },
-    } as never);
-
-    const response = await POST(createRequest());
-
-    expect(response.status).toBe(200);
-    expect((await response.json()).success).toBe(true);
-    expect(captureOrder).not.toHaveBeenCalled();
-    expect(getDecryptedMerchantCredential).not.toHaveBeenCalled();
-    expect(runPaypalCaptureSideEffects).toHaveBeenCalledWith(
-      expect.objectContaining({
-        merchantId: MERCHANT_ID,
-        paypalOrderId: PAYPAL_ORDER_ID,
-      })
-    );
+    const res = await POST(request());
+    const json = await res.json();
+    expect(json.dispatched).toBe('reject_underpayment');
+    expect(getOrder).not.toHaveBeenCalled();
   });
 });

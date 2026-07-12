@@ -1,11 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { initiatePaypalOrderRefund } from '@/lib/payments/paypal-order-refund';
 import { initiateRefund as initiatePaystackRefund } from '@/lib/paystack';
 import {
   processOrderCancellationRefund,
   type RefundableOrder,
 } from './order-cancellation-refund';
+import { refundPaypalOrder } from './refund-paypal-order';
 
 vi.mock('server-only', () => ({}));
 
@@ -13,8 +13,8 @@ vi.mock('@/lib/paystack', () => ({
   initiateRefund: vi.fn(),
 }));
 
-vi.mock('@/lib/payments/paypal-order-refund', () => ({
-  initiatePaypalOrderRefund: vi.fn(),
+vi.mock('@/lib/payments/refund-paypal-order', () => ({
+  refundPaypalOrder: vi.fn(),
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -60,9 +60,13 @@ describe('processOrderCancellationRefund', () => {
       success: true,
       data: { id: 987 },
     } as never);
-    vi.mocked(initiatePaypalOrderRefund).mockResolvedValue({
+    vi.mocked(refundPaypalOrder).mockResolvedValue({
       success: true,
-      refundId: 'REFUND-1',
+      paypalRefunded: 50000,
+      prepaidRestored: 15000,
+      totalRefunded: 65000,
+      paypalRefundIds: ['REFUND-1'],
+      savingsRestored: true,
     });
   });
 
@@ -131,12 +135,15 @@ describe('processOrderCancellationRefund', () => {
     );
   });
 
-  it('refunds a paid PayPal order through the BYOK refund helper', async () => {
+  it('routes a paid PayPal order through the mixed-tender splitter and reports the true total (F-74)', async () => {
     const supabase = buildSupabase({
       transaction: {
         gateway: 'paypal',
         gateway_reference: 'PP-ORD-1',
         gateway_response: { purchase_units: [] },
+        metadata: {
+          paypal_split: { paypalResidualPaid: 50000, prepaidPaid: 15000 },
+        },
       },
     });
 
@@ -149,25 +156,34 @@ describe('processOrderCancellationRefund', () => {
     expect(result).toEqual({
       attempted: true,
       success: true,
-      amount: 65000,
+      amount: 65000, // paypal residual (50k) + prepaid restored (15k)
       refundId: 'REFUND-1',
     });
-    expect(initiatePaypalOrderRefund).toHaveBeenCalledWith({
-      merchantId: 'merchant-1',
-      gatewayResponse: { purchase_units: [] },
-      reason: 'Order cancelled',
-    });
-    expect(supabase._insert).toHaveBeenCalledWith(
+    expect(refundPaypalOrder).toHaveBeenCalledWith(
       expect.objectContaining({
-        gateway: 'paypal',
-        gateway_reference: 'REFUND-1',
+        merchantId: 'merchant-1',
+        order: expect.objectContaining({ id: 'order-1', currency: 'NGN' }),
+        transaction: expect.objectContaining({
+          gateway_response: { purchase_units: [] },
+          metadata: {
+            paypal_split: { paypalResidualPaid: 50000, prepaidPaid: 15000 },
+          },
+        }),
+        reason: 'Order cancelled',
       })
     );
+    // The splitter records its own per-channel audit rows; the caller does not.
+    expect(supabase._insert).not.toHaveBeenCalled();
   });
 
-  it('surfaces a PayPal refund failure without writing an audit row', async () => {
-    vi.mocked(initiatePaypalOrderRefund).mockResolvedValue({
+  it('surfaces a PayPal split failure', async () => {
+    vi.mocked(refundPaypalOrder).mockResolvedValue({
       success: false,
+      paypalRefunded: 0,
+      prepaidRestored: 0,
+      totalRefunded: 0,
+      paypalRefundIds: [],
+      savingsRestored: false,
       error: 'PayPal capture reference not found for this order',
     });
     const supabase = buildSupabase({
@@ -187,18 +203,17 @@ describe('processOrderCancellationRefund', () => {
     expect(result).toEqual({
       attempted: true,
       success: false,
-      amount: 65000,
+      amount: 0,
       error: 'PayPal capture reference not found for this order',
     });
-    expect(supabase._insert).not.toHaveBeenCalled();
   });
 
-  it('flags auditRecordFailed when the refund succeeds but the audit insert fails', async () => {
+  it('flags auditRecordFailed when a Paystack refund succeeds but the audit insert fails', async () => {
     const supabase = buildSupabase({
       transaction: {
-        gateway: 'paypal',
-        gateway_reference: 'PP-ORD-1',
-        gateway_response: {},
+        gateway: 'paystack',
+        gateway_reference: 'PSK-REF',
+        gateway_response: null,
       },
       insertError: { message: 'db down' },
     });
@@ -213,7 +228,7 @@ describe('processOrderCancellationRefund', () => {
       attempted: true,
       success: true,
       amount: 65000,
-      refundId: 'REFUND-1',
+      refundId: 987,
       auditRecordFailed: true,
     });
   });

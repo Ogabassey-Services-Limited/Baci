@@ -172,9 +172,11 @@ function buildSupabase({
         select: vi.fn().mockReturnThis(),
         update: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        maybeSingle: vi
-          .fn()
-          .mockResolvedValue({ data: existingOrder ?? null, error: null }),
+        neq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: orderUpdateData ?? existingOrder ?? null,
+          error: null,
+        }),
         single: vi
           .fn()
           .mockResolvedValue({ data: orderUpdateData ?? null, error: null }),

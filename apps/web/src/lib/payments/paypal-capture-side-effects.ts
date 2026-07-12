@@ -135,6 +135,9 @@ async function emailConfirmation(
       subtotal: Number(order.subtotal || 0),
       shippingFee: Number(order.shipping_fee || 0),
       total: Number(order.total || 0),
+      // F-138: pass the order currency so the confirmation email does not
+      // default the template to NGN (mirrors verify/route.ts).
+      currency: order.currency ?? 'USD',
       shippingAddress: addressPayload,
       merchantName: merchant.business_name,
       merchantUrl,
