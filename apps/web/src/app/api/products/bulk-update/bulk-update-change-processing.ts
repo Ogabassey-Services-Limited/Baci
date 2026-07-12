@@ -36,20 +36,21 @@ function purgeEntriesFromRows(
   return (rows ?? []).flatMap((row) => {
     const slug = row.slug?.trim() || row.id;
     return slug
-      ? [{
-          slug,
-          categorySegment: resolveProductPurgeCategorySegmentForRow({
+      ? [
+          {
             slug,
-            category: row.category,
-            categories: row.categories,
-            product_categories: row.product_categories,
-          }),
-        }]
+            categorySegment: resolveProductPurgeCategorySegmentForRow({
+              slug,
+              category: row.category,
+              categories: row.categories,
+              product_categories: row.product_categories,
+            }),
+          },
+        ]
       : [];
   });
 }
 const BULK_UPDATE_CONCURRENCY = 10;
- 
 
 const emptyProductChangeResult = (): ProductChangeResult => ({
   updated: 0,
@@ -169,7 +170,9 @@ async function processBulkUpdateChange({
         BULK_PURGE_ROW_COLUMNS
       );
       if (error) throw error;
-      onPurgeEntries?.(purgeEntriesFromRows(updatedRows as BulkPurgeProductRow[]));
+      onPurgeEntries?.(
+        purgeEntriesFromRows(updatedRows as BulkPurgeProductRow[])
+      );
       result.updated = 1;
       return result;
     }
@@ -183,36 +186,37 @@ async function processBulkUpdateChange({
       const { data: insertedRow, error } = await supabase
         .from('products')
         .insert({
-        merchant_id: merchantId,
-        name: change.details.name,
-        description: change.details.description || '',
-        price: change.details.price,
-        cost_price: change.details.cost_price,
-        stock_quantity: change.details.stock || 0,
-        sku,
-        slug,
-        status: 'draft',
-        condition: 'new',
-        manage_stock: true,
-        brand: change.details.brand || merchantBusinessName,
-        category: change.details.category || 'General',
-        taxable: true,
-        schema_markup: {
-          '@context': 'https://schema.org/',
-          '@type': 'Product',
+          merchant_id: merchantId,
           name: change.details.name,
+          description: change.details.description || '',
+          price: change.details.price,
+          cost_price: change.details.cost_price,
+          stock_quantity: change.details.stock || 0,
           sku,
-          brand: {
-            '@type': 'Brand',
-            name: change.details.brand || merchantBusinessName,
+          slug,
+          status: 'draft',
+          condition: 'new',
+          manage_stock: true,
+          brand: change.details.brand || merchantBusinessName,
+          category: change.details.category || 'General',
+          taxable: true,
+          schema_markup: {
+            '@context': 'https://schema.org/',
+            '@type': 'Product',
+            name: change.details.name,
+            sku,
+            brand: {
+              '@type': 'Brand',
+              name: change.details.brand || merchantBusinessName,
+            },
+            offers: {
+              '@type': 'Offer',
+              priceCurrency: currency,
+              price: change.details.price,
+              availability: 'https://schema.org/InStock',
+            },
           },
-          offers: {
-            '@type': 'Offer',
-            priceCurrency: currency,
-            price: change.details.price,
-            availability: 'https://schema.org/InStock',
-          },
-        },
+        })
         })
         .select('id')
         .maybeSingle();
@@ -243,7 +247,9 @@ async function processBulkUpdateChange({
         .eq('merchant_id', merchantId)
         .select(BULK_PURGE_ROW_COLUMNS);
       if (error) throw error;
-      onPurgeEntries?.(purgeEntriesFromRows(archivedRows as BulkPurgeProductRow[]));
+      onPurgeEntries?.(
+        purgeEntriesFromRows(archivedRows as BulkPurgeProductRow[])
+      );
       result.removed = 1;
     }
   } catch (err) {
@@ -295,16 +301,18 @@ export async function processBulkUpdateChanges({
     offset += BULK_UPDATE_CONCURRENCY
   ) {
     const groupResults = await Promise.all(
-      groupedChanges.slice(offset, offset + BULK_UPDATE_CONCURRENCY).map((group) =>
-        processChangeGroup({
-          group,
-          currency,
-          merchantBusinessName,
-          merchantId,
-          onPurgeEntries,
-          supabase,
-        })
-      )
+      groupedChanges
+        .slice(offset, offset + BULK_UPDATE_CONCURRENCY)
+        .map((group) =>
+          processChangeGroup({
+            group,
+            currency,
+            merchantBusinessName,
+            merchantId,
+            onPurgeEntries,
+            supabase,
+          })
+        )
     );
 
     for (const groupResult of groupResults) {

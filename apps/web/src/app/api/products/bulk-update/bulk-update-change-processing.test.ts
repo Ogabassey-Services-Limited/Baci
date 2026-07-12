@@ -4,6 +4,7 @@ import { processBulkUpdateChanges } from './bulk-update-change-processing';
 function createProductsQuery(error: unknown) {
   const query: Record<string, unknown> = {};
   query.eq = vi.fn(() => query);
+  query.select = vi.fn(() => query);
   // biome-ignore lint/suspicious/noThenProperty: Supabase builders are thenable.
   query.then = vi.fn((resolve: (value: { error: unknown }) => void) =>
     resolve({ error })
@@ -25,7 +26,13 @@ describe('processBulkUpdateChanges', () => {
           }),
           insert: vi.fn((payload: Record<string, unknown>) => {
             inserts.push(payload);
-            return Promise.resolve({ error: null });
+            return {
+              select: vi.fn(() => ({
+                maybeSingle: vi.fn(() =>
+                  Promise.resolve({ data: { id: 'created-id' }, error: null })
+                ),
+              })),
+            };
           }),
         };
       }),
@@ -87,6 +94,7 @@ describe('processBulkUpdateChanges', () => {
         update: vi.fn(() => {
           const query: Record<string, unknown> = {};
           query.eq = vi.fn(() => query);
+          query.select = vi.fn(() => query);
           // biome-ignore lint/suspicious/noThenProperty: Supabase builders are thenable.
           query.then = vi.fn(
             (resolve: (value: { error: null }) => void) =>
