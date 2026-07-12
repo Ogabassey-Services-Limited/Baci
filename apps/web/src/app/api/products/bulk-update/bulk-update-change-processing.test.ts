@@ -78,4 +78,46 @@ describe('processBulkUpdateChanges', () => {
       },
     });
   });
+
+  it('caps concurrent product groups at ten', async () => {
+    let activeGroups = 0;
+    let maxActiveGroups = 0;
+    const supabase = {
+      from: vi.fn(() => ({
+        update: vi.fn(() => {
+          const query: Record<string, unknown> = {};
+          query.eq = vi.fn(() => query);
+          // biome-ignore lint/suspicious/noThenProperty: Supabase builders are thenable.
+          query.then = vi.fn(
+            (resolve: (value: { error: null }) => void) =>
+              new Promise<void>((complete) => {
+                activeGroups += 1;
+                maxActiveGroups = Math.max(maxActiveGroups, activeGroups);
+                Promise.resolve().then(() => {
+                  activeGroups -= 1;
+                  resolve({ error: null });
+                  complete();
+                });
+              })
+          );
+          return query;
+        }),
+      })),
+    };
+
+    await processBulkUpdateChanges({
+      changes: Array.from({ length: 11 }, (_, index) => ({
+        type: 'update' as const,
+        productId: `product-${index}`,
+        newPrice: index,
+        details: { name: `Product ${index}`, price: index },
+      })),
+      currency: 'NGN',
+      merchantBusinessName: 'Test Store',
+      merchantId: 'merchant-1',
+      supabase: supabase as never,
+    });
+
+    expect(maxActiveGroups).toBe(10);
+  });
 });

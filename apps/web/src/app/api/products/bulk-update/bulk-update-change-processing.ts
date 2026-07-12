@@ -48,6 +48,8 @@ function purgeEntriesFromRows(
       : [];
   });
 }
+const BULK_UPDATE_CONCURRENCY = 10;
+ 
 
 const emptyProductChangeResult = (): ProductChangeResult => ({
   updated: 0,
@@ -287,10 +289,13 @@ export async function processBulkUpdateChanges({
   const summary = emptyProductChangeResult();
   const groupedChanges = groupChangesByProduct(changes);
 
-  const groupResults: ProductChangeResult[] = [];
-  for (let offset = 0; offset < groupedChanges.length; offset += 10) {
-    const batchResults = await Promise.all(
-      groupedChanges.slice(offset, offset + 10).map((group) =>
+  for (
+    let offset = 0;
+    offset < groupedChanges.length;
+    offset += BULK_UPDATE_CONCURRENCY
+  ) {
+    const groupResults = await Promise.all(
+      groupedChanges.slice(offset, offset + BULK_UPDATE_CONCURRENCY).map((group) =>
         processChangeGroup({
           group,
           currency,
@@ -301,14 +306,13 @@ export async function processBulkUpdateChanges({
         })
       )
     );
-    groupResults.push(...batchResults);
-  }
 
-  for (const groupResult of groupResults) {
-    summary.updated += groupResult.updated;
-    summary.created += groupResult.created;
-    summary.removed += groupResult.removed;
-    summary.errors.push(...groupResult.errors);
+    for (const groupResult of groupResults) {
+      summary.updated += groupResult.updated;
+      summary.created += groupResult.created;
+      summary.removed += groupResult.removed;
+      summary.errors.push(...groupResult.errors);
+    }
   }
 
   return summary;
