@@ -5,11 +5,20 @@ import {
   GIGL_STATIONS_TIMEOUT_MS,
   withGiglRequestTimeout,
 } from './gigl.constants';
+import type {
+  GiglLocation,
+  GiglResolutionOptions,
+  GiglStationResolution,
+  NearestGiglDirectoryLookup,
+} from './gigl.directory';
 import type { GiglServiceCentre, GiglStation } from './gigl.schemas';
 import { giglSchemas } from './gigl.schemas';
 
 function normalizeLocation(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]/g, '');
+  return value
+    .toLowerCase()
+    .replace(/\b(state|province|region)\b/g, '')
+    .replace(/[^a-z0-9]/g, '');
 }
 
 export class GiglStationsService {
@@ -26,7 +35,10 @@ export class GiglStationsService {
     { promise: Promise<GiglServiceCentre[]>; timeout: number }
   >();
 
-  constructor(private readonly apiClient: GiglApiClient) {}
+  constructor(
+    private readonly apiClient: GiglApiClient,
+    private readonly nearestDirectoryLookup?: NearestGiglDirectoryLookup
+  ) {}
 
   async getLocations(_countryCode = 'NG'): Promise<UnifiedLocation[]> {
     const stations = await this.getStations();
@@ -227,5 +239,52 @@ export class GiglStationsService {
     }
 
     return station || null;
+  }
+
+  async resolveStationForLocation(
+    location: GiglLocation,
+    options?: GiglResolutionOptions
+  ): Promise<GiglStationResolution | null> {
+    const stations = await this.getStations(options?.timeout, options?.signal);
+    const normalizedCity = normalizeLocation(location.city);
+    const cityStation = stations.find((station) =>
+      [station.City, station.StationName]
+        .filter((value): value is string => Boolean(value))
+        .some((value) => normalizeLocation(value) === normalizedCity)
+    );
+
+    const hasCoordinates =
+      Number.isFinite(location.latitude) && Number.isFinite(location.longitude);
+    if (cityStation && !options?.preferNearest) return { station: cityStation };
+
+    if (hasCoordinates && this.nearestDirectoryLookup) {
+      try {
+        const nearest = await this.nearestDirectoryLookup(
+          location.latitude as number,
+          location.longitude as number,
+          { signal: options?.signal, timeout: options?.timeout }
+        );
+        if (nearest) {
+          const station = stations.find(
+            (candidate) => candidate.StationId === nearest.stationId
+          );
+          if (station) {
+            return { station, serviceCentres: nearest.serviceCentres };
+          }
+        }
+      } catch {
+        // The periodically synced directory is an optimization. Live regional
+        // station matching remains available when Supabase is transiently down.
+      }
+    }
+
+    if (cityStation) return { station: cityStation };
+    const normalizedState = normalizeLocation(location.state);
+    const stateStation = stations.find((station) =>
+      [station.StateName, station.State]
+        .filter((value): value is string => Boolean(value))
+        .some((value) => normalizeLocation(value) === normalizedState)
+    );
+    return stateStation ? { station: stateStation } : null;
   }
 }

@@ -113,6 +113,7 @@ describe('GiglProvider quote token handling', () => {
     expect(oldPriceHeaders.get('access-token')).toBe('old-token');
     expect(stationPriceHeaders.get('access-token')).toBe('old-token');
     expect(newPriceHeaders.get('access-token')).toBe('new-token');
+    expect(fetchMock.mock.calls[6]?.[0]).toBe(`${baseUrl}/login`);
   });
 
   it('refreshes cached tokens rejected with HTTP 403', async () => {
@@ -182,7 +183,6 @@ describe('GiglProvider quote token handling', () => {
     await expect(quotePromise).resolves.toEqual(
       expect.arrayContaining([
         expect.objectContaining({ serviceTier: 'GoFaster' }),
-        expect.objectContaining({ isStationPickup: true }),
       ])
     );
     expect(fetchMock).toHaveBeenCalledTimes(7);

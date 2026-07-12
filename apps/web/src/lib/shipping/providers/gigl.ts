@@ -15,6 +15,7 @@ import { BaseShippingProvider } from './base';
 import { GiglApiClient } from './gigl.auth';
 import { bookGiglShipment } from './gigl.booking';
 import { GIGL_QUOTE_TIMEOUT_MS, type GiglFetchOptions } from './gigl.constants';
+import { findNearestGiglServiceCentres } from './gigl.directory';
 import { getGiglQuotes } from './gigl.quotes';
 import { GiglStationsService } from './gigl.stations';
 import { trackGiglShipment } from './gigl.tracking';
@@ -31,7 +32,10 @@ export class GiglProvider extends BaseShippingProvider {
       this.safeFetch(url, options),
     log: (level, message, data) => this.log(level, message, data),
   });
-  private readonly stationsService = new GiglStationsService(this.apiClient);
+  private readonly stationsService = new GiglStationsService(
+    this.apiClient,
+    findNearestGiglServiceCentres
+  );
 
   getLocations(countryCode = 'NG'): Promise<UnifiedLocation[]> {
     return this.stationsService.getLocations(countryCode);

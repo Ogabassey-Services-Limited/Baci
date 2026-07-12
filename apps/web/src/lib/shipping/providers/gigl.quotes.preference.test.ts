@@ -74,6 +74,10 @@ describe('GiglProvider quote delivery preference', () => {
   });
 
   it('requests only station-pickup pricing when the quote asks for pickup stations', async () => {
+    const resolutionSpy = vi.spyOn(
+      GiglStationsService.prototype,
+      'resolveStationForLocation'
+    );
     const fetchMock = mockGiglFetchSequence(
       jsonResponse(loginResponse),
       jsonResponse(stationsResponse),
@@ -103,5 +107,9 @@ describe('GiglProvider quote delivery preference', () => {
       String(fetchMock.mock.calls[2]?.[1]?.body ?? '{}')
     );
     expect(pricePayload.PickUpOptions).toBe(1);
+    expect(resolutionSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ latitude: 4.8156, longitude: 7.0498 }),
+      expect.objectContaining({ preferNearest: true })
+    );
   });
 });

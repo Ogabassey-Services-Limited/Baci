@@ -90,6 +90,10 @@ describe('GiglProvider quote requests', () => {
   });
 
   it('fetches a quote through the configured login, station, and price endpoints', async () => {
+    const resolutionSpy = vi.spyOn(
+      GiglStationsService.prototype,
+      'resolveStationForLocation'
+    );
     const fetchMock = mockGiglFetchSequence(
       jsonResponse(loginResponse),
       jsonResponse(stationsResponse),
@@ -149,9 +153,16 @@ describe('GiglProvider quote requests', () => {
     });
     expect(pricePayload).not.toHaveProperty('CustomerCode');
     expect(pricePayload).not.toHaveProperty('CustomerType');
+    expect(
+      resolutionSpy.mock.calls.map((call) => call[1]?.preferNearest)
+    ).toEqual([false]);
   });
 
   it('falls back to a station-pickup quote when home delivery is unavailable', async () => {
+    const resolutionSpy = vi.spyOn(
+      GiglStationsService.prototype,
+      'resolveStationForLocation'
+    );
     mockGiglFetchSequence(
       jsonResponse(loginResponse),
       jsonResponse(stationsResponse),
@@ -187,6 +198,73 @@ describe('GiglProvider quote requests', () => {
       minDays: 1,
       maxDays: 3,
     });
+    expect(
+      resolutionSpy.mock.calls.map((call) => call[1]?.preferNearest)
+    ).toEqual([false, true]);
+  });
+
+  it('keeps prefetched station centres when nearest-station repricing fails', async () => {
+    const portHarcourtStation = {
+      StationId: 30,
+      StationName: 'PORT HARCOURT',
+      StationCode: 'PHC',
+      State: 'RIVERS',
+      StateName: 'RIVERS',
+      City: 'PORT HARCOURT',
+      Address: undefined,
+      Latitude: undefined,
+      Longitude: undefined,
+    };
+    const lagosStation = {
+      ...portHarcourtStation,
+      StationId: 4,
+      StationName: 'LAGOS',
+      StationCode: 'LOS',
+      State: 'LAGOS',
+      StateName: 'LAGOS',
+      City: 'LAGOS',
+    };
+    vi.spyOn(GiglStationsService.prototype, 'resolveStationForLocation')
+      .mockResolvedValueOnce({ station: portHarcourtStation })
+      .mockResolvedValueOnce({
+        station: lagosStation,
+        serviceCentres: [
+          {
+            StationId: 4,
+            StationName: 'LAGOS',
+            StationCode: 'LOS',
+            ServiceCentreId: 65,
+            ServiceCentreName: 'SANGO OTTA',
+            ServiceCentreCode: 'SOT',
+            Address: undefined,
+            Latitude: 6.707,
+            Longitude: 3.243,
+          },
+        ],
+      });
+    const unavailable = jsonResponse({
+      success: true,
+      data: { message: 'Unavailable', status: 503, data: null },
+    });
+    mockGiglFetchSequence(
+      jsonResponse(loginResponse),
+      jsonResponse(stationsResponse),
+      unavailable.clone(),
+      unavailable.clone(),
+      jsonResponse(priceResponse),
+      jsonResponse(priceResponse),
+      unavailable.clone(),
+      unavailable.clone(),
+      jsonResponse(serviceCentresResponse)
+    );
+
+    const quotes = await buildQuoteHarness().getQuotes(quoteRequest);
+
+    expect(quotes).not.toHaveLength(0);
+    expect(
+      quotes.every((quote) => quote.providerRateId?.startsWith('GIGL_30_'))
+    ).toBe(true);
+    expect(quotes.every((quote) => quote.stationId === 30)).toBe(true);
   });
 
   it('keeps station-pickup fallback when only GoFaster home delivery succeeds', async () => {
