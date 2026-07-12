@@ -1,7 +1,10 @@
 import { getZeptoMailFromDomain, getZeptoMailToken } from '@/env';
 import { getActiveMerchantSendingDomain } from '@/lib/merchant-sending-domain';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { zeptoMailRequest } from '@/lib/zeptomail-transport';
+import {
+  ZEPTOMAIL_DELIVERY_OUTCOME_UNKNOWN_CODE,
+  zeptoMailRequest,
+} from '@/lib/zeptomail-transport';
 
 /**
  * Resolve the ZeptoMail API token. Called inside each send attempt's
@@ -158,6 +161,7 @@ interface SendEmailWithTemplateParams {
 }
 
 interface EmailResult {
+  deliveryOutcome?: 'unknown';
   success: boolean;
   messageId?: string;
   error?: string;
@@ -218,7 +222,11 @@ interface SendFailure {
  */
 function parseError(error: unknown): SendFailure {
   if (error instanceof Error) {
-    return { message: error.message };
+    const code =
+      'code' in error && typeof error.code === 'string'
+        ? error.code
+        : undefined;
+    return { message: error.message, code };
   }
 
   const zeptoError = error as ZeptoMailError;
@@ -580,6 +588,9 @@ export async function sendEmail({
   });
   return {
     success: false,
+    ...(lastError.code === ZEPTOMAIL_DELIVERY_OUTCOME_UNKNOWN_CODE
+      ? { deliveryOutcome: 'unknown' as const }
+      : {}),
     error: lastError.message || 'Unknown error',
     errorCode: lastError.code,
     errorDetails: lastError.details,

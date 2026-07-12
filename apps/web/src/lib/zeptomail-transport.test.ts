@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { zeptoMailRequest } from './zeptomail-transport';
+import {
+  ZEPTOMAIL_DELIVERY_OUTCOME_UNKNOWN_CODE,
+  zeptoMailRequest,
+} from './zeptomail-transport';
 
 const fetchMock = vi.fn();
 
@@ -102,9 +105,12 @@ describe('zeptoMailRequest', () => {
       )
     );
 
-    await expect(zeptoMailRequest('email', {}, 'token')).rejects.toThrow(
-      'ZeptoMail request timed out after 30000ms'
-    );
+    const result = zeptoMailRequest('email', {}, 'token');
+
+    await expect(result).rejects.toMatchObject({
+      code: ZEPTOMAIL_DELIVERY_OUTCOME_UNKNOWN_CODE,
+      message: 'ZeptoMail request timed out after 30000ms',
+    });
   });
 
   it('merges the undici cause into network failure messages', async () => {

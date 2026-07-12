@@ -136,6 +136,7 @@ DECLARE
   v_auth_uid uuid := auth.uid();
   v_auth_role text := coalesce(auth.role(), '');
   v_outbox_id uuid;
+  v_skip_reason text;
   v_status text;
 BEGIN
   IF p_event_type NOT IN ('order_shipped', 'order_delivered') THEN
@@ -164,8 +165,8 @@ BEGIN
     END IF;
   END IF;
 
-  SELECT outbox.id, outbox.status
-  INTO v_outbox_id, v_status
+  SELECT outbox.id, outbox.status, outbox.skip_reason
+  INTO v_outbox_id, v_status, v_skip_reason
   FROM public.order_notification_outbox AS outbox
   WHERE outbox.order_id = p_order_id
     AND outbox.merchant_id = p_merchant_id
@@ -195,6 +196,10 @@ BEGIN
 
   IF v_status IN ('pending', 'processing', 'sent') THEN
     RETURN v_status;
+  END IF;
+
+  IF v_status = 'skipped' AND v_skip_reason = 'delivery_outcome_unknown' THEN
+    RETURN 'outcome_unknown';
   END IF;
 
   RETURN NULL;
@@ -228,6 +233,77 @@ COMMENT ON FUNCTION public.prepare_order_notification_outbox_manual_send(
 ) IS
   'Returns the latest blocking outbox state and atomically enriches pending shipped events with legacy manual endpoint details.';
 
+-- A direct processing -> out_for_delivery transition represents the same
+-- customer-visible shipment event as processing -> shipped. Do not enqueue a
+-- second shipped event when an order merely advances shipped -> out_for_delivery.
+CREATE OR REPLACE FUNCTION public.enqueue_order_fulfillment_notification()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_event_type text;
+BEGIN
+  IF TG_OP <> 'UPDATE' THEN
+    RETURN NEW;
+  END IF;
+
+  IF current_setting('baci.order_notification_outbox.suppress_enqueue', true) = 'true' THEN
+    RETURN NEW;
+  END IF;
+
+  IF NEW.shipping_status IS NOT DISTINCT FROM OLD.shipping_status THEN
+    RETURN NEW;
+  END IF;
+
+  IF OLD.shipping_status IN ('delivered', 'completed')
+    AND NEW.shipping_status IN ('delivered', 'completed')
+  THEN
+    RETURN NEW;
+  END IF;
+
+  IF NEW.shipping_status = 'shipped'
+    OR (
+      NEW.shipping_status = 'out_for_delivery'
+      AND OLD.shipping_status NOT IN ('shipped', 'out_for_delivery', 'delivered', 'completed')
+    )
+  THEN
+    v_event_type := 'order_shipped';
+  ELSIF NEW.shipping_status IN ('delivered', 'completed') THEN
+    v_event_type := 'order_delivered';
+  ELSE
+    RETURN NEW;
+  END IF;
+
+  INSERT INTO public.order_notification_outbox (
+    order_id,
+    merchant_id,
+    event_type,
+    next_attempt_at,
+    metadata
+  )
+  VALUES (
+    NEW.id,
+    NEW.merchant_id,
+    v_event_type,
+    now(),
+    jsonb_build_object(
+      'previous_shipping_status', OLD.shipping_status,
+      'shipping_status', NEW.shipping_status,
+      'source', 'orders_shipping_status_trigger'
+    )
+  )
+  ON CONFLICT (order_id, event_type)
+    WHERE status IN ('pending', 'processing')
+    DO NOTHING;
+
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.enqueue_order_fulfillment_notification() FROM PUBLIC;
+
 DROP FUNCTION IF EXISTS public.claim_order_notification_outbox(integer, text);
 
 CREATE FUNCTION public.claim_order_notification_outbox(
@@ -241,7 +317,8 @@ RETURNS TABLE (
   event_type text,
   attempt_count integer,
   max_attempts integer,
-  metadata jsonb
+  metadata jsonb,
+  event_sequence bigint
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -251,6 +328,22 @@ DECLARE
   v_batch_size integer := greatest(1, least(coalesce(p_batch_size, 25), 100));
   v_worker_id text := coalesce(nullif(btrim(p_worker_id), ''), 'order-notifications-worker');
 BEGIN
+  -- A worker may disappear after the provider accepted the final attempt but
+  -- before the terminal write. Never resend that indeterminate delivery.
+  UPDATE public.order_notification_outbox AS outbox
+  SET
+    status = 'skipped',
+    skip_reason = 'delivery_outcome_unknown',
+    skipped_at = now(),
+    next_attempt_at = NULL,
+    locked_at = NULL,
+    locked_by = NULL,
+    last_error = coalesce(outbox.last_error, 'worker_abandoned_final_attempt'),
+    updated_at = now()
+  WHERE outbox.status = 'processing'
+    AND outbox.attempt_count >= outbox.max_attempts
+    AND outbox.locked_at < now() - interval '15 minutes';
+
   RETURN QUERY
   WITH candidates AS (
     SELECT outbox.id
@@ -268,24 +361,37 @@ BEGIN
     ORDER BY outbox.event_sequence ASC
     LIMIT v_batch_size
     FOR UPDATE SKIP LOCKED
+  ), claimed AS (
+    UPDATE public.order_notification_outbox AS outbox
+    SET
+      status = 'processing',
+      locked_at = now(),
+      locked_by = v_worker_id,
+      attempt_count = outbox.attempt_count + 1,
+      updated_at = now()
+    FROM candidates
+    WHERE outbox.id = candidates.id
+    RETURNING
+      outbox.id,
+      outbox.order_id,
+      outbox.merchant_id,
+      outbox.event_type,
+      outbox.attempt_count,
+      outbox.max_attempts,
+      outbox.metadata,
+      outbox.event_sequence
   )
-  UPDATE public.order_notification_outbox AS outbox
-  SET
-    status = 'processing',
-    locked_at = now(),
-    locked_by = v_worker_id,
-    attempt_count = outbox.attempt_count + 1,
-    updated_at = now()
-  FROM candidates
-  WHERE outbox.id = candidates.id
-  RETURNING
-    outbox.id,
-    outbox.order_id,
-    outbox.merchant_id,
-    outbox.event_type,
-    outbox.attempt_count,
-    outbox.max_attempts,
-    outbox.metadata;
+  SELECT
+    claimed.id,
+    claimed.order_id,
+    claimed.merchant_id,
+    claimed.event_type,
+    claimed.attempt_count,
+    claimed.max_attempts,
+    claimed.metadata,
+    claimed.event_sequence
+  FROM claimed
+  ORDER BY claimed.event_sequence ASC;
 END;
 $$;
 

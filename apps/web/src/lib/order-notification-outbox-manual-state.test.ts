@@ -104,6 +104,20 @@ describe('getManualOrderNotificationOutboxBlockingState', () => {
     expect(result).toEqual({ status: 'blocked', outboxStatus: 'processing' });
   });
 
+  it('blocks manual retries when the provider delivery outcome is unknown', async () => {
+    const result = await getManualOrderNotificationOutboxBlockingState({
+      eventType: 'order_delivered',
+      merchantId: 'merchant-1',
+      orderId: 'order-1',
+      supabase: createSupabaseMock('outcome_unknown'),
+    });
+
+    expect(result).toEqual({
+      status: 'blocked',
+      outboxStatus: 'outcome_unknown',
+    });
+  });
+
   it('allows manual retries after a skipped outbox row', async () => {
     const result = await getManualOrderNotificationOutboxBlockingState({
       eventType: 'order_delivered',

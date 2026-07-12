@@ -1,7 +1,11 @@
 import { logger } from '@/lib/logger';
 import type { OrderFulfillmentNotificationEventType } from '@/lib/order-fulfillment-notification-types';
 
-type BlockingOutboxStatus = 'pending' | 'processing' | 'sent';
+type BlockingOutboxStatus =
+  | 'outcome_unknown'
+  | 'pending'
+  | 'processing'
+  | 'sent';
 
 type ManualOutboxStateResult =
   | { status: 'clear' }
@@ -33,7 +37,12 @@ interface GetManualOutboxStateParams {
 }
 
 function isBlockingOutboxStatus(value: unknown): value is BlockingOutboxStatus {
-  return value === 'pending' || value === 'processing' || value === 'sent';
+  return (
+    value === 'outcome_unknown' ||
+    value === 'pending' ||
+    value === 'processing' ||
+    value === 'sent'
+  );
 }
 
 function getErrorMessage(error: unknown): string {

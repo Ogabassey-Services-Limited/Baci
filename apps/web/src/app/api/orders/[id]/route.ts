@@ -249,10 +249,12 @@ export async function PATCH(
       isShippingProviderCode(existingOrder.shipping_provider) &&
       Boolean(existingOrder.selected_quote_id);
 
-    if (
+    const needsPreUpdateInventoryConfirmation =
       isPaidStatusUpdate(updates.payment_status) &&
-      needsProviderShipmentBooking
-    ) {
+      shipping_status !== undefined &&
+      shipping_status !== existingOrder.shipping_status;
+
+    if (needsPreUpdateInventoryConfirmation) {
       const paidStatus = updates.payment_status;
       const { error: paidUpdateError } = await supabase
         .from('orders')

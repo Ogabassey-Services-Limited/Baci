@@ -55,7 +55,11 @@ function buildMerchantEmailContext(merchant: MerchantRecord) {
 }
 
 function handleEmailFailure(
-  emailResult: { error?: string; success: boolean },
+  emailResult: {
+    deliveryOutcome?: 'unknown';
+    error?: string;
+    success: boolean;
+  },
   orderId: string,
   fallbackMessage: string
 ): OrderFulfillmentNotificationResult {
@@ -65,7 +69,14 @@ function handleEmailFailure(
     error,
     orderId,
   });
-  return { status: 'failed', error, details: emailResult.error };
+  return {
+    status: 'failed',
+    error,
+    details: emailResult.error,
+    ...(emailResult.deliveryOutcome
+      ? { deliveryOutcome: emailResult.deliveryOutcome }
+      : {}),
+  };
 }
 
 function buildTrackingUrl(

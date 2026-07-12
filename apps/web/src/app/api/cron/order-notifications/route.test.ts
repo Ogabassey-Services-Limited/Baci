@@ -246,6 +246,42 @@ describe('GET /api/cron/order-notifications', () => {
     );
   });
 
+  it('does not retry when the provider may already have accepted the email', async () => {
+    mockSupabase.rpc.mockResolvedValue({
+      data: [
+        {
+          attempt_count: 1,
+          event_type: 'order_delivered',
+          id: 'outbox-unknown',
+          max_attempts: 5,
+          merchant_id: 'merchant-1',
+          order_id: 'order-unknown',
+        },
+      ],
+      error: null,
+    });
+    mockSendOrderFulfillmentNotification.mockReset();
+    mockSendOrderFulfillmentNotification.mockResolvedValueOnce({
+      status: 'failed',
+      deliveryOutcome: 'unknown',
+      error: 'ZeptoMail request timed out after 30000ms',
+    });
+
+    const response = await GET(cronRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({ skipped: 1, retried: 0, success: true });
+    const updateBuilder = mockSupabase.from.mock.results[0]?.value;
+    expect(updateBuilder.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        next_attempt_at: null,
+        skip_reason: 'delivery_outcome_unknown',
+        status: 'skipped',
+      })
+    );
+  });
+
   it('marks exhausted failed notifications as terminal failed', async () => {
     mockSupabase.rpc.mockResolvedValue({
       data: [

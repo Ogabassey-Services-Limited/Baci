@@ -17,6 +17,7 @@ export type OrderFulfillmentNotificationResult =
         | OrderNotificationRecipientFailureReason
         | 'notification_already_sent'
         | 'notification_already_skipped'
+        | 'notification_delivery_outcome_unknown'
         | 'notification_pending'
         | 'notification_processing'
         | 'order_not_in_required_status';
@@ -24,6 +25,7 @@ export type OrderFulfillmentNotificationResult =
     }
   | {
       status: 'not_found' | 'invalid_state' | 'failed';
+      deliveryOutcome?: 'unknown';
       error: string;
       details?: unknown;
     };

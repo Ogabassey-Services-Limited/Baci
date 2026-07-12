@@ -492,6 +492,56 @@ describe('PATCH /api/orders/[id]', () => {
     });
   });
 
+  it('confirms paid non-provider status changes before committing fulfillment', async () => {
+    const existingOrder: ExistingOrder = {
+      id: 'order-1',
+      order_number: 'BACI-001',
+      shipping_status: 'processing',
+      payment_status: 'pending',
+      is_credit_order: false,
+      customer_id: null,
+      selected_quote_id: null,
+      shipping_provider: null,
+      tracking_number: null,
+      shipment_id: null,
+    };
+    const updatedOrder: UpdatedOrder = {
+      id: 'order-1',
+      shipping_status: 'shipped',
+      shipping_provider: null,
+      tracking_number: null,
+    };
+    const { supabase, ordersUpdate } = createSupabaseMock(
+      existingOrder,
+      updatedOrder
+    );
+
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+
+    const response = await PATCH(
+      createPatchRequest({
+        payment_status: 'paid',
+        shipping_status: 'shipped',
+      }),
+      { params: Promise.resolve({ id: 'order-1' }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(ordersUpdate).toHaveBeenNthCalledWith(1, {
+      payment_status: 'paid',
+    });
+    expect(
+      vi.mocked(ensurePaidOrderInventoryConfirmed).mock.invocationCallOrder[0]
+    ).toBeLessThan(ordersUpdate.mock.invocationCallOrder[1] ?? 0);
+    expect(ordersUpdate).toHaveBeenNthCalledWith(2, {
+      shipping_status: 'shipped',
+    });
+  });
+
   it('does not book a paid provider shipment when serialized inventory is unavailable', async () => {
     const existingOrder: ExistingOrder = {
       id: 'order-1',

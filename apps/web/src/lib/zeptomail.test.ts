@@ -18,6 +18,7 @@ const auditState = {
 // The fetch-based transport replaced the zeptomail SDK; dispatch by endpoint
 // so the per-method assertions below keep receiving the payload as-is.
 vi.mock('@/lib/zeptomail-transport', () => ({
+  ZEPTOMAIL_DELIVERY_OUTCOME_UNKNOWN_CODE: 'ZEPTOMAIL_DELIVERY_OUTCOME_UNKNOWN',
   zeptoMailRequest: (
     endpoint: string,
     payload: Record<string, unknown>,
@@ -316,6 +317,28 @@ describe('zeptomail audit logging', () => {
         provider_error_message: 'Server overloaded',
       },
     });
+  });
+
+  it('marks transport failures as having an unknown delivery outcome', async () => {
+    const transportError = Object.assign(new Error('socket closed'), {
+      code: 'ZEPTOMAIL_DELIVERY_OUTCOME_UNKNOWN',
+    });
+    sendMailMock.mockRejectedValueOnce(transportError);
+    const { sendEmail } = await import('./zeptomail');
+
+    const result = await sendEmail({
+      to: 'customer@example.com',
+      subject: 'Delivery outcome test',
+      htmlContent: '<p>Hello</p>',
+      emailType: 'orders',
+    });
+
+    expect(result).toMatchObject({
+      success: false,
+      deliveryOutcome: 'unknown',
+      error: 'socket closed',
+    });
+    expect(sendMailMock).toHaveBeenCalledTimes(1);
   });
 
   it('rejects missing runtime batch recipients without writing invalid audit rows', async () => {

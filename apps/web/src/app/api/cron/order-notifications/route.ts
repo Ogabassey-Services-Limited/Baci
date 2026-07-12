@@ -128,6 +128,20 @@ async function markSkipped(
   });
 }
 
+async function markDeliveryOutcomeUnknown(
+  supabase: SupabaseClientLike,
+  row: ClaimedOrderNotificationOutboxRow,
+  error: string
+) {
+  await updateOutboxStatus(supabase, row.id, {
+    last_error: error,
+    next_attempt_at: null,
+    skip_reason: 'delivery_outcome_unknown',
+    skipped_at: new Date().toISOString(),
+    status: 'skipped' satisfies OrderNotificationOutboxStatus,
+  });
+}
+
 async function markFailedOrRetry(
   supabase: SupabaseClientLike,
   row: ClaimedOrderNotificationOutboxRow,
@@ -180,6 +194,12 @@ async function processClaimedRow(
     if (result.status === 'skipped') {
       summary.skipped += 1;
       await markSkipped(supabase, row, result.reason);
+      return;
+    }
+
+    if (result.deliveryOutcome === 'unknown') {
+      summary.skipped += 1;
+      await markDeliveryOutcomeUnknown(supabase, row, result.error);
       return;
     }
 

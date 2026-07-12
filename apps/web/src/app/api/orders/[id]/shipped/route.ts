@@ -143,6 +143,11 @@ export async function POST(
     }
     if (blockingState.status === 'blocked') {
       switch (blockingState.outboxStatus) {
+        case 'outcome_unknown':
+          return responseForResult({
+            status: 'skipped',
+            reason: 'notification_delivery_outcome_unknown',
+          });
         case 'sent':
           return responseForResult({
             status: 'skipped',

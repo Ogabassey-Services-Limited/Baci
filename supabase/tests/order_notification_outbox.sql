@@ -22,6 +22,7 @@ DECLARE
   v_manual_processing_order_id uuid := '8f0ed783-0000-4000-8000-000000000805';
   v_manual_skipped_order_id uuid := '8f0ed783-0000-4000-8000-000000000808';
   v_delivered_completed_order_id uuid := '8f0ed783-0000-4000-8000-000000000806';
+  v_direct_out_for_delivery_order_id uuid := '8f0ed783-0000-4000-8000-000000000809';
   v_shipped_count integer;
   v_delivered_count integer;
   v_repeat_shipped_count integer;
@@ -36,6 +37,8 @@ DECLARE
   v_delivered_completed_count integer;
   v_claimed record;
   v_processing_status text;
+  v_previous_event_sequence bigint := 0;
+  v_stale_outbox_id uuid;
 BEGIN
   INSERT INTO public.merchants (id, email, business_name, slug)
   VALUES (
@@ -539,6 +542,42 @@ BEGIN
       v_delivered_completed_count;
   END IF;
 
+  INSERT INTO public.orders (
+    id,
+    merchant_id,
+    order_number,
+    customer_name,
+    customer_email,
+    shipping_status,
+    payment_status,
+    total
+  )
+  VALUES (
+    v_direct_out_for_delivery_order_id,
+    v_merchant_id,
+    'OUTBOX-DIRECT-OUT-FOR-DELIVERY-001',
+    'Direct Out For Delivery Customer',
+    'direct-out-for-delivery@example.com',
+    'processing',
+    'paid',
+    10000
+  );
+
+  UPDATE public.orders
+  SET shipping_status = 'out_for_delivery'
+  WHERE id = v_direct_out_for_delivery_order_id;
+
+  SELECT count(*)::integer
+  INTO v_shipped_count
+  FROM public.order_notification_outbox
+  WHERE order_id = v_direct_out_for_delivery_order_id
+    AND event_type = 'order_shipped';
+
+  IF v_shipped_count <> 1 THEN
+    RAISE EXCEPTION 'expected direct out-for-delivery transition to enqueue one shipped event, got %',
+      v_shipped_count;
+  END IF;
+
   SELECT *
   INTO v_claimed
   FROM public.claim_order_notification_outbox(1, 'order-outbox-test-worker')
@@ -556,9 +595,55 @@ BEGIN
   FROM public.order_notification_outbox
   WHERE id = v_claimed.id;
 
+  v_stale_outbox_id := v_claimed.id;
+
   IF v_processing_status IS DISTINCT FROM 'processing' THEN
     RAISE EXCEPTION 'claimed row status should be processing, got %', v_processing_status;
   END IF;
+
+  UPDATE public.order_notification_outbox
+  SET
+    attempt_count = max_attempts,
+    locked_at = now() - interval '16 minutes'
+  WHERE id = v_claimed.id;
+
+  FOR v_claimed IN
+    SELECT *
+    FROM public.claim_order_notification_outbox(100, 'order-outbox-recovery-worker')
+  LOOP
+    IF v_claimed.event_sequence < v_previous_event_sequence THEN
+      RAISE EXCEPTION 'claimed rows returned out of event order: % after %',
+        v_claimed.event_sequence,
+        v_previous_event_sequence;
+    END IF;
+    v_previous_event_sequence := v_claimed.event_sequence;
+  END LOOP;
+
+  SELECT status
+  INTO v_processing_status
+  FROM public.order_notification_outbox
+  WHERE id = v_stale_outbox_id;
+
+  IF v_processing_status IS DISTINCT FROM 'skipped' THEN
+    RAISE EXCEPTION 'abandoned final attempt should be terminalized as skipped, got %',
+      v_processing_status;
+  END IF;
+
+  SELECT public.prepare_order_notification_outbox_manual_send(
+    v_order_id,
+    v_merchant_id,
+    'order_shipped',
+    NULL,
+    NULL,
+    NULL
+  )
+  INTO v_manual_prepared_status;
+
+  IF v_manual_prepared_status IS DISTINCT FROM 'outcome_unknown' THEN
+    RAISE EXCEPTION 'unknown provider outcome should block manual retries, got %',
+      v_manual_prepared_status;
+  END IF;
+
 END $$;
 
 ROLLBACK;
