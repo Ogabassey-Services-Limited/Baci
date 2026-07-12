@@ -135,6 +135,11 @@ function createDeferred<T>() {
   return { promise, resolve };
 }
 
+function expectThemeProviderNotRendered() {
+  expect(themeProviderAppearances).toEqual([]);
+  expect(themeProviderDocumentScopes).toEqual([]);
+}
+
 const baseMerchant = {
   id: 'merchant-1',
   slug: 'ogabassey',
@@ -328,7 +333,7 @@ describe('storefront layout', () => {
     expect(screen.getByText('Generic storefront content')).toBeInTheDocument();
   });
 
-  it('waits for params before rendering the static PPR shell fallback', async () => {
+  it('renders the neutral static PPR shell before params resolve', async () => {
     vi.mocked(getStorefrontShellSnapshotBase).mockReturnValue(
       createDeferred<typeof baseShellSnapshotWithoutCategories>().promise
     );
@@ -347,26 +352,11 @@ describe('storefront layout', () => {
       await Promise.resolve();
     });
 
-    expect(themeProviderAppearances).toEqual([]);
+    expectThemeProviderNotRendered();
     expect(getStorefrontShellSnapshotBase).not.toHaveBeenCalled();
     expect(
-      screen.queryByRole('status', { name: /loading storefront chrome/i })
-    ).not.toBeInTheDocument();
-
-    await act(async () => {
-      deferredParams.resolve({ slug: 'generic-store' });
-      await deferredParams.promise;
-    });
-
-    await screen.findByRole('status', { name: /loading storefront chrome/i });
-
-    expect(themeProviderAppearances).toEqual([
-      { mode: 'light', variant: 'default' },
-    ]);
-    expect(themeProviderDocumentScopes).toEqual([false]);
-    expect(getStorefrontShellSnapshotBase).toHaveBeenCalledWith(
-      'generic-store'
-    );
+      screen.getByRole('status', { name: /loading storefront chrome/i })
+    ).toBeInTheDocument();
     const staticShell = container?.querySelector(
       '.storefront-ppr-static-shell'
     );
@@ -382,10 +372,21 @@ describe('storefront layout', () => {
     ).toBeFalsy();
     expect(screen.queryByText('Storefront content')).not.toBeInTheDocument();
 
+    await act(async () => {
+      deferredParams.resolve({ slug: 'generic-store' });
+      await deferredParams.promise;
+    });
+
+    await waitFor(() => {
+      expect(getStorefrontShellSnapshotBase).toHaveBeenCalledWith(
+        'generic-store'
+      );
+    });
+
     unmount();
   });
 
-  it('uses the neutral static fallback with OgaBassey appearance before tenant data resolves', async () => {
+  it('uses an explicit OgaBassey appearance for the static fallback', async () => {
     vi.mocked(getStorefrontShellSnapshotBase).mockReturnValue(
       createDeferred<typeof baseShellSnapshotWithoutCategories>().promise
     );
@@ -394,6 +395,7 @@ describe('storefront layout', () => {
     let container: HTMLElement | undefined;
 
     const ui = StorefrontLayout({
+      fallbackAppearance: { mode: 'system', variant: 'ogabassey' },
       params: Promise.resolve({ slug: 'ogabassey.com' }),
       children: <main>Storefront content</main>,
     });
@@ -405,10 +407,7 @@ describe('storefront layout', () => {
 
     await screen.findByRole('status', { name: /loading storefront chrome/i });
 
-    expect(themeProviderAppearances).toEqual([
-      { mode: 'system', variant: 'ogabassey' },
-    ]);
-    expect(themeProviderDocumentScopes).toEqual([false]);
+    expectThemeProviderNotRendered();
     const staticShell = container?.querySelector(
       '.storefront-ppr-static-shell'
     );
@@ -458,6 +457,7 @@ describe('storefront layout', () => {
     );
 
     let unmount: () => void = () => undefined;
+    let container: HTMLElement | undefined;
 
     const ui = StorefrontLayout({
       fallbackAppearance: { mode: 'system', variant: 'ogabassey' },
@@ -467,16 +467,18 @@ describe('storefront layout', () => {
     });
 
     await act(async () => {
-      ({ unmount } = render(ui));
+      ({ container, unmount } = render(ui));
       await Promise.resolve();
     });
 
     await screen.findByText('Loading route shell');
 
-    expect(themeProviderAppearances).toEqual([
-      { mode: 'system', variant: 'ogabassey' },
-    ]);
-    expect(themeProviderDocumentScopes).toEqual([false]);
+    expectThemeProviderNotRendered();
+    const staticShell = container?.querySelector(
+      '.storefront-ppr-static-shell'
+    );
+    expect(staticShell).toHaveClass('storefront-variant-ogabassey');
+    expect(staticShell).toHaveClass('storefront-mode-system');
     expect(screen.getByText('Loading route shell')).toBeInTheDocument();
     expect(
       screen.queryByRole('status', { name: /loading storefront chrome/i })

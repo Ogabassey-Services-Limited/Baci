@@ -3,7 +3,7 @@ import '@/app/(storefront)/storefront-core.css';
 import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
 import type React from 'react';
-import { Suspense, use } from 'react';
+import { Suspense } from 'react';
 import { ShellChromeLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import { AdAttributionCapture } from '@/components/storefront/ad-attribution-capture';
 import { DeferredPageViewTracker } from '@/components/storefront/deferred-page-view-tracker';
@@ -295,12 +295,6 @@ function StorefrontPprStaticShell({
   );
 }
 
-function resolveFallbackAppearanceForSlug(slug: string): StorefrontAppearance {
-  return isValidMerchantIdentifier(slug)
-    ? resolveStorefrontAppearance(slug)
-    : DEFAULT_STOREFRONT_APPEARANCE;
-}
-
 export async function StorefrontLayoutContent(props: {
   children: React.ReactNode;
   params: Promise<{ slug: string }>;
@@ -358,51 +352,21 @@ export async function StorefrontLayoutContent(props: {
   );
 }
 
-function StorefrontLayoutShell(props: {
-  children: React.ReactNode;
-  fallbackAppearance?: StorefrontAppearance;
-  loadingFallback?: React.ReactNode;
-  params: Promise<{ slug: string }>;
-}) {
-  const resolvedParams = use(props.params);
-  // Keep the request-bound tenant lookup out of the prerendered root HTML.
-  // Next 16.2/PPR can resume Googlebot's blocking metadata boundary into the
-  // dynamic Suspense slot when that slot owns a visible fallback. Preserve the
-  // human PPR shell as a static sibling instead: browsers get immediate chrome
-  // and LCP imagery, while the resume slot itself stays null for bot/blocking
-  // metadata requests.
-  const {
-    fallbackAppearance = resolveFallbackAppearanceForSlug(resolvedParams.slug),
-    loadingFallback,
-  } = props;
-  // Undefined uses the shared ShellChromeLoading; explicit null opts out for
-  // routes that intentionally need no static visual shell.
-  const fallbackContent =
-    loadingFallback === undefined ? <ShellChromeLoading /> : loadingFallback;
-  const staticLoadingFallback = fallbackContent ? (
-    <StorefrontThemeFrame appearance={fallbackAppearance} scopeDocument={false}>
-      {fallbackContent}
-    </StorefrontThemeFrame>
-  ) : null;
-
-  return (
-    <StorefrontPprStaticShell
-      appearance={fallbackAppearance}
-      loadingFallback={staticLoadingFallback}
-    >
-      <StorefrontLayoutContent params={Promise.resolve(resolvedParams)}>
-        {props.children}
-      </StorefrontLayoutContent>
-    </StorefrontPprStaticShell>
-  );
-}
-
 export default function StorefrontLayout(props: {
   children: React.ReactNode;
   fallbackAppearance?: StorefrontAppearance;
   loadingFallback?: React.ReactNode;
   params: Promise<{ slug: string }>;
 }) {
+  const {
+    fallbackAppearance = DEFAULT_STOREFRONT_APPEARANCE,
+    loadingFallback,
+  } = props;
+  // Undefined uses the shared conservative shell; explicit null opts out for
+  // routes that intentionally need no static visual fallback.
+  const fallbackContent =
+    loadingFallback === undefined ? <ShellChromeLoading /> : loadingFallback;
+
   return (
     <>
       {/*
@@ -414,9 +378,21 @@ export default function StorefrontLayout(props: {
         `/api/attr`, which re-sets the cookie via HTTP.
       */}
       <AdAttributionCapture />
-      <Suspense fallback={null}>
-        <StorefrontLayoutShell {...props} />
-      </Suspense>
+      {/*
+        Keep params and tenant reads inside the null Suspense resume slot so
+        the neutral shell can be prerendered before dynamic params resolve.
+        Next 16.2/PPR can resume Googlebot's blocking metadata boundary into
+        the dynamic slot when that slot owns a visible fallback, so the visual
+        shell remains a static sibling instead.
+      */}
+      <StorefrontPprStaticShell
+        appearance={fallbackAppearance}
+        loadingFallback={fallbackContent}
+      >
+        <StorefrontLayoutContent params={props.params}>
+          {props.children}
+        </StorefrontLayoutContent>
+      </StorefrontPprStaticShell>
     </>
   );
 }
