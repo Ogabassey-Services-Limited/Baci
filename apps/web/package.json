@@ -13,7 +13,7 @@
     "format": "biome format --write .",
     "analyze": "next experimental-analyze --output",
     "docs": "typedoc",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "NODE_OPTIONS=--max-old-space-size=8192 tsc --noEmit",
     "test": "vitest run",
     "test:ci": "pnpm test && pnpm verify:quiz-assets",
     "verify:quiz-assets": "tsx src/scripts/verify-quiz-assets-cli.ts",
