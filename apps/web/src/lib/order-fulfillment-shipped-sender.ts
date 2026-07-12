@@ -84,7 +84,6 @@ export async function sendShippedNotification({
   const senderName = merchant.email_sender_name
     ? `${merchant.email_sender_name} Shipping`
     : `${merchant.business_name} Shipping`;
-  await beforeProviderDispatch?.();
   const emailResult = await sendEmail({
     to: recipient.email,
     clientReference: `order:${order.id}:shipped_email`,
@@ -95,6 +94,7 @@ export async function sendShippedNotification({
     replyTo: replyToEmail,
     emailType: 'orders',
     fromName: senderName,
+    beforeTransportDispatch: beforeProviderDispatch,
     auditContext: {
       merchantId,
       orderId: order.id,

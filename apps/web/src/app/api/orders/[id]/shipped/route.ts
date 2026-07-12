@@ -176,24 +176,47 @@ export async function POST(
       }
     }
 
-    const result = await sendOrderFulfillmentNotification({
-      beforeProviderDispatch: () =>
-        beginOrderNotificationOutboxDispatch({
+    let result: OrderFulfillmentNotificationResult;
+    try {
+      result = await sendOrderFulfillmentNotification({
+        beforeProviderDispatch: () =>
+          beginOrderNotificationOutboxDispatch({
+            claimId: blockingState.claimId,
+            eventType: 'order_shipped',
+            merchantId,
+            orderId: parsedParams.data.id,
+            supabase: authenticatedSupabase,
+          }),
+        courierName,
+        estimatedDelivery,
+        eventType: 'order_shipped',
+        merchantId,
+        mismatchBehavior: 'invalid_state',
+        orderId: parsedParams.data.id,
+        supabase: auth.supabase,
+        trackingNumber,
+      });
+    } catch (error) {
+      try {
+        await completeManualOrderNotificationOutboxEvent({
           claimId: blockingState.claimId,
           eventType: 'order_shipped',
           merchantId,
           orderId: parsedParams.data.id,
-          supabase: authenticatedSupabase,
-        }),
-      courierName,
-      estimatedDelivery,
-      eventType: 'order_shipped',
-      merchantId,
-      mismatchBehavior: 'invalid_state',
-      orderId: parsedParams.data.id,
-      supabase: auth.supabase,
-      trackingNumber,
-    });
+          result: {
+            status: 'failed',
+            error: 'Notification dispatch failed before completion',
+          },
+          supabase: auth.supabase,
+        });
+      } catch (completionError) {
+        console.error(
+          'Failed to release shipped notification manual claim:',
+          completionError
+        );
+      }
+      throw error;
+    }
 
     await completeManualOrderNotificationOutboxEvent({
       claimId: blockingState.claimId,

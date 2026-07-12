@@ -45,8 +45,11 @@ describe('sendShippedNotification', () => {
   });
 
   it('returns sent after the provider accepts the shipped email', async () => {
-    sendEmail.mockResolvedValue({ success: true, messageId: 'message-1' });
     const beforeProviderDispatch = vi.fn().mockResolvedValue(undefined);
+    sendEmail.mockImplementation(async (params) => {
+      await params.beforeTransportDispatch?.();
+      return { success: true, messageId: 'message-1' };
+    });
 
     const result = await sendShippedNotification({
       beforeProviderDispatch,
@@ -68,9 +71,6 @@ describe('sendShippedNotification', () => {
       })
     );
     expect(beforeProviderDispatch).toHaveBeenCalledOnce();
-    expect(beforeProviderDispatch.mock.invocationCallOrder[0]).toBeLessThan(
-      sendEmail.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY
-    );
   });
 
   it('returns the provider failure without throwing', async () => {
@@ -95,6 +95,10 @@ describe('sendShippedNotification', () => {
     const beforeProviderDispatch = vi
       .fn()
       .mockRejectedValue(new Error('dispatch marker unavailable'));
+    sendEmail.mockImplementation(async (params) => {
+      await params.beforeTransportDispatch?.();
+      return { success: true, messageId: 'message-1' };
+    });
 
     await expect(
       sendShippedNotification({
@@ -105,6 +109,6 @@ describe('sendShippedNotification', () => {
       })
     ).rejects.toThrow('dispatch marker unavailable');
 
-    expect(sendEmail).not.toHaveBeenCalled();
+    expect(sendEmail).toHaveBeenCalledOnce();
   });
 });

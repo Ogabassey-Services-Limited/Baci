@@ -152,6 +152,29 @@ describe('zeptomail audit logging', () => {
     });
   });
 
+  it('marks the dispatch boundary after audit setup and immediately before transport', async () => {
+    const beforeTransportDispatch = vi.fn(() => {
+      expect(auditState.inserts).toHaveLength(1);
+      expect(sendMailMock).not.toHaveBeenCalled();
+      return Promise.resolve();
+    });
+    sendMailMock.mockResolvedValue({ request_id: 'boundary-test' });
+    const { sendEmail } = await import('./zeptomail');
+
+    const result = await sendEmail({
+      to: 'customer@example.com',
+      subject: 'Dispatch boundary',
+      htmlContent: '<p>Hello</p>',
+      beforeTransportDispatch,
+    });
+
+    expect(result.success).toBe(true);
+    expect(beforeTransportDispatch).toHaveBeenCalledOnce();
+    expect(beforeTransportDispatch.mock.invocationCallOrder[0]).toBeLessThan(
+      sendMailMock.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY
+    );
+  });
+
   // Δ-64 (A1): forward `clientReference` to ZeptoMail's documented
   // `client_reference` field so the outbox helper has a server-side audit
   // trail showing which sends actually went out (used to bound the

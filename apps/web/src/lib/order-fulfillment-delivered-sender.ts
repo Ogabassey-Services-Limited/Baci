@@ -59,7 +59,6 @@ export async function sendDeliveredNotification({
     googlePlaceId: featureSettings?.google_place_id || null,
   };
   const senderName = merchant.email_sender_name || merchant.business_name;
-  await beforeProviderDispatch?.();
   const emailResult = await sendEmail({
     to: recipient.email,
     clientReference: `order:${order.id}:delivered_email`,
@@ -70,6 +69,7 @@ export async function sendDeliveredNotification({
     replyTo: replyToEmail,
     emailType: 'orders',
     fromName: senderName,
+    beforeTransportDispatch: beforeProviderDispatch,
     auditContext: {
       merchantId,
       orderId: order.id,

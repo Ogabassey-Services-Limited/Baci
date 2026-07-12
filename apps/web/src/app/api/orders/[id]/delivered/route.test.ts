@@ -304,6 +304,28 @@ describe('POST /api/orders/[id]/delivered', () => {
     );
   });
 
+  it('releases the manual claim when notification sending throws', async () => {
+    const supabase = createSupabaseMock(deliveredOrder);
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+    vi.mocked(sendEmail).mockRejectedValue(new Error('sender crashed'));
+
+    const response = await POST(createRequest(), {
+      params: Promise.resolve({ id: orderId }),
+    });
+
+    expect(response.status).toBe(500);
+    expect(
+      (supabase as unknown as { rpc: ReturnType<typeof vi.fn> }).rpc
+    ).toHaveBeenCalledWith(
+      'complete_order_notification_outbox_manual_result',
+      expect.objectContaining({ p_status: 'failed' })
+    );
+  });
+
   it('does not resend when the previous delivery outcome is unknown', async () => {
     const supabase = createSupabaseMock(deliveredOrder, 'outcome_unknown');
     vi.mocked(authenticateApiRequest).mockResolvedValue({

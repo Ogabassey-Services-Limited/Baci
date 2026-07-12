@@ -140,6 +140,7 @@ interface SendEmailParams {
   // duplicate window. Not an idempotency key (ZeptoMail does not support
   // one); idempotency lives in the payment_side_effects claim row.
   clientReference?: string;
+  beforeTransportDispatch?: () => Promise<void>;
 }
 
 interface EmailAttachment {
@@ -392,6 +393,7 @@ export async function sendEmail({
   auditContext,
   merchantId,
   clientReference,
+  beforeTransportDispatch,
 }: SendEmailParams): Promise<EmailResult> {
   const sender = await resolveSenderAddress(
     emailType,
@@ -467,6 +469,7 @@ export async function sendEmail({
       auditContext,
     }),
   ]);
+  let transportDispatchMarked = false;
 
   // Run the retry loop for a single From identity. Returns the success result,
   // or the parsed failure when all attempts for this sender were exhausted.
@@ -481,6 +484,11 @@ export async function sendEmail({
     for (let attempt = 0; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
       attemptsMade = attempt + 1;
       try {
+        const token = getRequiredToken();
+        if (!transportDispatchMarked) {
+          await beforeTransportDispatch?.();
+          transportDispatchMarked = true;
+        }
         const response = await zeptoMailRequest(
           'email',
           {
@@ -510,7 +518,7 @@ export async function sendEmail({
               ],
             }),
           },
-          getRequiredToken()
+          token
         );
 
         await updateEmailAttempts(auditIds, {
