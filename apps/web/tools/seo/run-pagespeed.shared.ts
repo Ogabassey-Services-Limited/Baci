@@ -82,14 +82,32 @@ function buildPsiUrl({
 }
 
 function buildPageSpeedSummary(results: PageSpeedAuditResult[]): string {
-  const lines = ['## PageSpeed Insights'];
+  const lines = [
+    '## PageSpeed Insights',
+    '',
+    '| Target | Strategy | Status | Performance | LCP | CLS | TBT | INP |',
+    '| --- | --- | --- | ---: | ---: | ---: | ---: | ---: |',
+  ];
 
   for (const result of results) {
     lines.push(
-      `- ${result.label} (${result.strategy}): ${result.passed ? 'PASS' : 'FAIL'}`
+      `| [${result.label}](${result.url}) | ${result.strategy} | ${
+        result.passed ? 'PASS' : 'FAIL'
+      } | ${formatScore(result.scores.performance)} | ${formatMilliseconds(
+        result.vitals.lcp
+      )} | ${formatCls(result.vitals.cls)} | ${formatMilliseconds(
+        result.vitals.tbt
+      )} | ${formatMilliseconds(result.vitals.inp)} |`
     );
+  }
 
-    if (!result.passed) {
+  const failedResults = results.filter((result) => !result.passed);
+
+  if (failedResults.length > 0) {
+    lines.push('', '### Failures');
+
+    for (const result of failedResults) {
+      lines.push(`- ${result.label} (${result.strategy})`);
       for (const failure of result.failures) {
         lines.push(
           failure.message
@@ -103,6 +121,20 @@ function buildPageSpeedSummary(results: PageSpeedAuditResult[]): string {
   }
 
   return `${lines.join('\n')}\n`;
+}
+
+function formatScore(value: number | null | undefined): string {
+  return typeof value === 'number'
+    ? String(Math.round(value * 100))
+    : 'missing';
+}
+
+function formatMilliseconds(value: number | null | undefined): string {
+  return typeof value === 'number' ? `${Math.round(value)} ms` : 'missing';
+}
+
+function formatCls(value: number | null | undefined): string {
+  return typeof value === 'number' ? value.toFixed(3) : 'missing';
 }
 
 function parseHttpUrl(value: string): string {

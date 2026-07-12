@@ -85,4 +85,36 @@ describe('run-pagespeed shared helpers', () => {
       ])
     ).toContain('request: timed out');
   });
+
+  it('renders every measured vital for passing and failing targets', () => {
+    const summary = pageSpeedShared.buildPageSpeedSummary([
+      {
+        label: 'merchant-home',
+        url: 'https://ogabassey.com/',
+        strategy: 'mobile',
+        passed: true,
+        failures: [],
+        scores: { performance: 0.91 },
+        vitals: { lcp: 2410.4, cls: 0.0341, tbt: 100.2, inp: 180.7 },
+      },
+      {
+        label: 'merchant-pdp',
+        url: 'https://ogabassey.com/smartphones/iphone-16-pro-max',
+        strategy: 'mobile',
+        passed: false,
+        failures: [{ metric: 'lcp', actual: 3200, threshold: 2500 }],
+        scores: { performance: 0.74 },
+        vitals: { lcp: 3200, cls: null, tbt: 205, inp: null },
+      },
+    ]);
+
+    expect(summary).toContain(
+      '| [merchant-home](https://ogabassey.com/) | mobile | PASS | 91 | 2410 ms | 0.034 | 100 ms | 181 ms |'
+    );
+    expect(summary).toContain(
+      '| [merchant-pdp](https://ogabassey.com/smartphones/iphone-16-pro-max) | mobile | FAIL | 74 | 3200 ms | missing | 205 ms | missing |'
+    );
+    expect(summary).toContain('### Failures');
+    expect(summary).toContain('lcp: 3200 (threshold 2500)');
+  });
 });
