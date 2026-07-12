@@ -97,6 +97,7 @@ export async function POST(request: NextRequest) {
 
   const reference = generatePaymentReference('wusdt');
   const amountMinor = Math.round(parsed.data.amount * 100);
+  const walletCreditAmount = amountMinor / 100;
   const customerName =
     parsed.data.customerName ||
     [customer.first_name, customer.last_name].filter(Boolean).join(' ') ||
@@ -108,13 +109,13 @@ export async function POST(request: NextRequest) {
     juicyway_expected_currency: 'USDT',
     merchant_slug: merchant.slug,
     transaction_type: USDT_WALLET_TOP_UP_TRANSACTION_TYPE,
-    wallet_credit_amount: parsed.data.amount,
+    wallet_credit_amount: walletCreditAmount,
   };
 
   const { data: transaction, error: transactionError } = await supabase
     .from('transactions')
     .insert({
-      amount: parsed.data.amount,
+      amount: walletCreditAmount,
       currency: 'USDT',
       description: 'Customer USDT wallet top-up',
       gateway: 'juicyway',
@@ -164,7 +165,7 @@ export async function POST(request: NextRequest) {
         items: [{ name: 'USDT Wallet Funding', type: 'digital' }],
       },
       payment_method: { type: 'crypto_address' },
-      redirect_url: `${protocol}://${merchant.slug}.${env.NEXT_PUBLIC_ROOT_DOMAIN}/wallet?funding=${reference}`,
+      redirect_url: `${protocol}://${merchant.slug}.${env.NEXT_PUBLIC_ROOT_DOMAIN}/wallet?fund-usdt=1&funding=${reference}`,
       reference,
     });
     if (!session.id) throw new Error('Juicyway session id missing');
@@ -201,7 +202,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       {
-        amount: parsed.data.amount,
+        amount: walletCreditAmount,
         chain: parsed.data.chain,
         currency: 'USDT',
         depositAddress: address?.address ?? null,

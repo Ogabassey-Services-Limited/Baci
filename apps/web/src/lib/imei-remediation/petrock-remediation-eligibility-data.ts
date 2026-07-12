@@ -114,7 +114,9 @@ export async function loadPetrockRemediationEligibility({
 
   const { data: assessment, error: assessmentError } = await supabaseAdmin
     .from('petrock_orders')
-    .select('id, status, eligibility_evidence, failure_reason')
+    .select(
+      'id, status, eligibility_evidence, failure_reason, remediation_product_id'
+    )
     .match({ customer_id: customerId, source_lookup_id: lookupId })
     .maybeSingle();
   if (assessmentError) throw assessmentError;
@@ -193,13 +195,22 @@ export async function loadPetrockRemediationEligibility({
       : evaluation;
   }
   const eligible = new Set(evaluation.productIds);
+  const lockedProductId =
+    assessment?.status === 'payment_pending' &&
+    typeof assessment.remediation_product_id === 'string'
+      ? assessment.remediation_product_id
+      : null;
   return {
     assessmentId: resumableAssessment ? String(assessment.id) : undefined,
     evidence,
     kind: 'eligible' as const,
     needsAssessment: !resumableAssessment,
     offers: products
-      .filter((product) => eligible.has(product.id))
+      .filter(
+        (product) =>
+          eligible.has(product.id) &&
+          (!lockedProductId || product.id === lockedProductId)
+      )
       .map((product) => ({
         carrier: product.carrier,
         id: product.id,

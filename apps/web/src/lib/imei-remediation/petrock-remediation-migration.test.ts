@@ -95,6 +95,21 @@ describe('Petrock remediation migrations', () => {
     expect(sql).not.toMatch(/GRANT EXECUTE[^;]+TO authenticated/is);
   });
 
+  it('revalidates the selected remediation product against the assessed device model', () => {
+    const sql = migration(
+      '20260712160000_petrock_remediation_model_scope_guard.sql'
+    );
+    expect(sql).toContain(
+      'CREATE OR REPLACE FUNCTION public.petrock_model_scope_matches'
+    );
+    expect(sql).toContain('v_order.device_model');
+    expect(sql).toContain('v_product.model_scope');
+    expect(sql).toContain('remediation product is not eligible');
+    expect(sql).toContain(
+      'REVOKE ALL ON FUNCTION public.petrock_model_scope_matches(text, jsonb)'
+    );
+  });
+
   it('leases, advances, and terminally resolves remediation work atomically', () => {
     const sql = [
       '20260711202300_petrock_remediation_reconciliation_rpcs.sql',

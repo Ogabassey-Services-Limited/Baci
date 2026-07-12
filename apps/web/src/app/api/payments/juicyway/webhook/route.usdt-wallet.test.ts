@@ -114,6 +114,9 @@ describe('Juicyway USDT wallet settlement', () => {
     expect(webhookTest.mockAdminSupabase.from).toHaveBeenCalledWith(
       'transactions'
     );
+    const transactionBuilder = vi.mocked(webhookTest.mockAdminSupabase.from)
+      .mock.results[0]?.value as { eq: ReturnType<typeof vi.fn> };
+    expect(transactionBuilder.eq).toHaveBeenCalledWith('gateway', 'juicyway');
   });
 
   it('marks a failed wallet top-up transaction as failed', async () => {

@@ -63,4 +63,42 @@ describe('useImeiPendingLookup', () => {
       AsyncStorage.getItem(pendingImeiStorageKey('merchant-1', 'customer-1'))
     ).resolves.toBeNull();
   });
+
+  it('continues low-frequency polling for a stale restored lookup', async () => {
+    jest.useFakeTimers();
+    const key = pendingImeiStorageKey('merchant-1', 'customer-1');
+    await AsyncStorage.setItem(
+      key,
+      JSON.stringify({
+        createdAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+        lookupId: '11111111-1111-4111-8111-111111111111',
+        tier: 'blacklist',
+      })
+    );
+    mockPollImeiLookup.mockResolvedValue({
+      kind: 'pending',
+      pollAfterMs: 5000,
+    });
+    const { result } = renderHook(() =>
+      useImeiPendingLookup({
+        accessToken: 'token',
+        apiBaseUrl: 'https://shop.example.com',
+        customerId: 'customer-1',
+        merchantId: 'merchant-1',
+      })
+    );
+    await act(async () => undefined);
+    expect(result.current.paused).toBe(true);
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(60_000);
+    });
+
+    expect(mockPollImeiLookup).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lookupId: '11111111-1111-4111-8111-111111111111',
+      })
+    );
+    jest.useRealTimers();
+  });
 });

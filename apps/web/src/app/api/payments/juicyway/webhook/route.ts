@@ -216,6 +216,7 @@ export async function POST(request: NextRequest) {
         'id, order_id, merchant_id, amount, platform_fee, status, metadata, created_at'
       )
       .eq('gateway_reference', reference)
+      .eq('gateway', 'juicyway')
       .single();
 
     if (transactionError || !transaction) {

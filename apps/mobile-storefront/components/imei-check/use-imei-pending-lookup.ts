@@ -11,6 +11,7 @@ import { pollImeiLookup } from '@/lib/imei-poll-client';
 import type { ImeiResult } from '@/lib/validation';
 
 const MAX_ACTIVE_POLL_MS = 5 * 60 * 1000;
+const PAUSED_POLL_MS = 60 * 1000;
 
 interface ActivePendingLookup extends PendingImeiLookup {
   pollAfterMs: number;
@@ -83,41 +84,45 @@ export function useImeiPendingLookup({
 
   useEffect(() => {
     if (!pending) return;
-    if (Date.now() - Date.parse(pending.createdAt) >= MAX_ACTIVE_POLL_MS) {
+    const isStale =
+      Date.now() - Date.parse(pending.createdAt) >= MAX_ACTIVE_POLL_MS;
+    if (isStale) {
       setPaused(true);
-      return;
     }
 
     let cancelled = false;
-    const timer = setTimeout(async () => {
-      const outcome = await pollImeiLookup({
-        accessToken,
-        apiBaseUrl,
-        lookupId: pending.lookupId,
-      });
-      if (cancelled) return;
+    const timer = setTimeout(
+      async () => {
+        const outcome = await pollImeiLookup({
+          accessToken,
+          apiBaseUrl,
+          lookupId: pending.lookupId,
+        });
+        if (cancelled) return;
 
-      if (outcome.kind === 'pending' || outcome.kind === 'retry') {
-        setPending((current) =>
-          current ? { ...current, pollAfterMs: outcome.pollAfterMs } : current
+        if (outcome.kind === 'pending' || outcome.kind === 'retry') {
+          setPending((current) =>
+            current ? { ...current, pollAfterMs: outcome.pollAfterMs } : current
+          );
+          return;
+        }
+
+        if (storageKey) await clearPendingImeiLookup(storageKey);
+        setPending(null);
+        setPaused(false);
+        setTerminal(
+          outcome.kind === 'complete'
+            ? {
+                kind: 'complete',
+                lookupId: pending.lookupId,
+                result: outcome.result,
+                tier: pending.tier,
+              }
+            : { error: outcome.error, kind: 'error', tier: pending.tier }
         );
-        return;
-      }
-
-      if (storageKey) await clearPendingImeiLookup(storageKey);
-      setPending(null);
-      setPaused(false);
-      setTerminal(
-        outcome.kind === 'complete'
-          ? {
-              kind: 'complete',
-              lookupId: pending.lookupId,
-              result: outcome.result,
-              tier: pending.tier,
-            }
-          : { error: outcome.error, kind: 'error', tier: pending.tier }
-      );
-    }, pending.pollAfterMs);
+      },
+      isStale ? PAUSED_POLL_MS : pending.pollAfterMs
+    );
     return () => {
       cancelled = true;
       clearTimeout(timer);

@@ -62,10 +62,10 @@ function adminClient() {
   return { client: { from: vi.fn(() => builder) }, builder };
 }
 
-function request() {
+function request(amount = 25) {
   return new Request('https://ogabassey.usebaci.com/api/wallet/usdt', {
     body: JSON.stringify({
-      amount: 25,
+      amount,
       billingAddress: {
         city: 'Lagos',
         country: 'NG',
@@ -155,6 +155,31 @@ describe('POST USDT wallet top-up initialize', () => {
     expect(database.builder.update).toHaveBeenCalledWith(
       expect.objectContaining({
         metadata: expect.objectContaining({ juicyway_expected_amount: 2500 }),
+      })
+    );
+  });
+
+  it('locks wallet credit to the same cent-rounded amount sent to Juicyway', async () => {
+    await POST(request(1.004) as never);
+
+    expect(mocks.initialize).toHaveBeenCalledWith(
+      expect.objectContaining({ amount: 100 })
+    );
+    expect(database.builder.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        amount: 1,
+        metadata: expect.objectContaining({ wallet_credit_amount: 1 }),
+      })
+    );
+  });
+
+  it('redirects back into the existing USDT wallet funding flow', async () => {
+    await POST(request() as never);
+
+    expect(mocks.initialize).toHaveBeenCalledWith(
+      expect.objectContaining({
+        redirect_url:
+          'http://ogabassey.usebaci.com/wallet?fund-usdt=1&funding=WUSDT-TEST',
       })
     );
   });

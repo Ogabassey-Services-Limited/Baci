@@ -240,6 +240,7 @@ describe('loadPetrockRemediationEligibility', () => {
             simLock: 'Locked',
           },
           id: 'order-1',
+          remediation_product_id: 'product-1',
           status: 'payment_pending',
         },
         error: null,
@@ -265,6 +266,22 @@ describe('loadPetrockRemediationEligibility', () => {
             success_rate: 82,
             turnaround: '1-7 Days',
           },
+          {
+            carrier: 'AT&T',
+            excluded_reason: null,
+            id: 'product-2',
+            launch_carrier: true,
+            manual_disabled: false,
+            model_scope: { kind: 'range', max: 17, min: 17 },
+            price_ngn: 80_000,
+            price_usdt: 50,
+            provider_product_id: 'provider-2',
+            raw_name: 'AT&T Alternate Unlock',
+            refund_policy: 'refundable',
+            status_segment: 'clean',
+            success_rate: 75,
+            turnaround: '1-10 Days',
+          },
         ],
         error: null,
       }),
@@ -272,7 +289,7 @@ describe('loadPetrockRemediationEligibility', () => {
     };
     const catalogBuilder = {
       match: vi.fn().mockResolvedValue({
-        data: [{ product_id: 'provider-1' }],
+        data: [{ product_id: 'provider-1' }, { product_id: 'provider-2' }],
         error: null,
       }),
       select: vi.fn(() => catalogBuilder),
@@ -297,6 +314,7 @@ describe('loadPetrockRemediationEligibility', () => {
       assessmentId: 'order-1',
       kind: 'eligible',
       needsAssessment: false,
+      offers: [{ id: 'product-1' }],
     });
   });
 
