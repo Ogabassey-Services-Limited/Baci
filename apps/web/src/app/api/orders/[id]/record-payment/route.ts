@@ -478,8 +478,8 @@ export async function POST(
       shipping_status: rpcShippingStatus,
     };
 
-    let orderCancelledByClamp = false;
-    if (!createdTransaction?.id && !isOrderClampedAsCancelled(updatedOrder)) {
+    const orderCancelledByClamp = isOrderClampedAsCancelled(updatedOrder);
+    if (!createdTransaction?.id && !orderCancelledByClamp) {
       logger.error({
         message: 'RecordPayment atomic insert omitted transaction id',
         manualPaymentResult,
@@ -491,8 +491,7 @@ export async function POST(
       );
     }
 
-    if (isOrderClampedAsCancelled(updatedOrder)) {
-      orderCancelledByClamp = true;
+    if (orderCancelledByClamp) {
       // Link the reconciliation row to the transaction just recorded (matched
       // by reference) so ops can trace the captured money. Falls back to null
       // for a referenceless manual/cash payment.
@@ -548,17 +547,7 @@ export async function POST(
       });
     }
 
-    const transactionId = createdTransaction?.id;
-    if (!transactionId) {
-      logger.error({
-        message: 'RecordPayment side effects require a transaction id',
-        orderId,
-      });
-      return NextResponse.json(
-        { error: 'Failed to record payment' },
-        { status: 500 }
-      );
-    }
+    const transactionId = createdTransaction.id;
 
     // Paid-order side effects (only when NOT cancelled).
     if (isFullyPaid) {
@@ -760,40 +749,50 @@ export async function POST(
           orderId,
         });
         after(async () => {
-          const serviceClient = createServiceClient();
-          await runManualPaymentSideEffect({
-            actor: `record-payment:${user.id}`,
-            execute: async () => {
-              const emailResult = await sendEmail({
-                to: order.customer_email,
-                toName: order.customer_name,
-                subject: `Payment Receipt - Order #${receiptData.orderNumber}`,
-                htmlContent,
-                textContent,
-                replyTo: replyToEmail,
-                emailType: 'orders',
-                fromName: senderName,
-                clientReference: `manual-payment:${transactionId}:partial-receipt`,
-                auditContext: {
-                  merchantId: merchant.id,
-                  orderId: order.id,
-                  customerId: order.customer_id,
-                  metadata: {
-                    trigger: 'manual_payment_receipt',
+          try {
+            const serviceClient = createServiceClient();
+            await runManualPaymentSideEffect({
+              actor: `record-payment:${user.id}`,
+              execute: async () => {
+                const emailResult = await sendEmail({
+                  to: order.customer_email,
+                  toName: order.customer_name,
+                  subject: `Payment Receipt - Order #${receiptData.orderNumber}`,
+                  htmlContent,
+                  textContent,
+                  replyTo: replyToEmail,
+                  emailType: 'orders',
+                  fromName: senderName,
+                  clientReference: `manual-payment:${transactionId}:partial-receipt`,
+                  auditContext: {
+                    merchantId: merchant.id,
+                    orderId: order.id,
+                    customerId: order.customer_id,
+                    metadata: {
+                      trigger: 'manual_payment_receipt',
+                    },
                   },
-                },
-              });
-              if (!emailResult.success) {
-                throw new Error(
-                  emailResult.error || 'payment_receipt_email_failed'
-                );
-              }
-            },
-            orderId,
-            step: 'partial_receipt',
-            supabase: serviceClient,
-            transactionId,
-          });
+                });
+                if (!emailResult.success) {
+                  throw new Error(
+                    emailResult.error || 'payment_receipt_email_failed'
+                  );
+                }
+              },
+              orderId,
+              step: 'partial_receipt',
+              supabase: serviceClient,
+              transactionId,
+            });
+          } catch (error) {
+            logger.error({
+              actor: `record-payment:${user.id}`,
+              error,
+              message: 'Manual partial-payment receipt failed after response',
+              orderId,
+              transactionId,
+            });
+          }
         });
       } catch (emailErr) {
         logger.error({

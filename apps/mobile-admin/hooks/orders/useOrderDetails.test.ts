@@ -274,6 +274,8 @@ describe('fetchOrderById', () => {
       expect.arrayContaining([
         { method: 'eq', args: ['order_id', 'order-1'] },
         { method: 'eq', args: ['merchant_id', 'merchant-1'] },
+        { method: 'eq', args: ['transaction_type', 'payment'] },
+        { method: 'in', args: ['status', ['success', 'completed']] },
       ])
     );
   });
