@@ -118,6 +118,102 @@ describe('AddressAutocomplete (portal dropdown)', () => {
     expect(screen.getByText(TEST_PREDICTION.secondaryText)).toBeTruthy();
   });
 
+  it('clears visible suggestions immediately when the query changes', async () => {
+    mockPredictionsSuccess();
+    renderField(<AddressAutocomplete />);
+    const input = await focusTypeAndWait('Allen');
+
+    fireEvent.changeText(input, 'Banana Island');
+
+    expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeNull();
+  });
+
+  it('ignores an older prediction response after a newer query resolves', async () => {
+    let resolveOld: ((response: Response) => void) | undefined;
+    fetchMock
+      .mockImplementationOnce(
+        () => new Promise<Response>((resolve) => (resolveOld = resolve))
+      )
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          predictions: [
+            { ...TEST_PREDICTION, mainText: 'Banana Island', placeId: 'new' },
+          ],
+        }),
+        text: async () => '',
+      } as Response);
+    renderField(<AddressAutocomplete />);
+    const input = screen.getByRole('combobox');
+    fireEvent(input, 'focus');
+    fireEvent.changeText(input, 'Allen');
+    act(() => jest.advanceTimersByTime(300));
+    fireEvent.changeText(input, 'Banana');
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(screen.getByText('Banana Island')).toBeTruthy();
+
+    await act(async () => {
+      resolveOld?.({
+        ok: true,
+        json: async () => ({ predictions: [TEST_PREDICTION] }),
+        text: async () => '',
+      } as Response);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeNull();
+    expect(screen.getByText('Banana Island')).toBeTruthy();
+  });
+
+  it('clears loading and ignores results when the query is cleared in flight', async () => {
+    let resolveRequest: ((response: Response) => void) | undefined;
+    fetchMock.mockImplementationOnce(
+      () => new Promise<Response>((resolve) => (resolveRequest = resolve))
+    );
+    renderField(<AddressAutocomplete />);
+    const input = screen.getByRole('combobox');
+    fireEvent(input, 'focus');
+    fireEvent.changeText(input, 'Allen');
+    await act(async () => jest.advanceTimersByTime(300));
+    expect(screen.getByLabelText('Loading address suggestions')).toBeTruthy();
+
+    fireEvent.changeText(input, '');
+    await act(async () => {
+      resolveRequest?.({
+        ok: true,
+        json: async () => ({ predictions: [TEST_PREDICTION] }),
+        text: async () => '',
+      } as Response);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByLabelText('Loading address suggestions')).toBeNull();
+    expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeNull();
+  }, 30_000);
+
+  it('does not reopen suggestions from a measurement completed after blur', async () => {
+    let finishMeasurement:
+      | (MeasureFn extends (cb: infer C) => void ? C : never)
+      | undefined;
+    measureSpy.mockImplementation((cb) => {
+      finishMeasurement = cb;
+    });
+    mockPredictionsSuccess();
+    renderField(<AddressAutocomplete />);
+    const input = await focusTypeAndWait();
+
+    fireEvent(input, 'blur');
+    act(() => finishMeasurement?.(16, 200, 343, 52));
+
+    expect(screen.queryByText(TEST_PREDICTION.mainText)).toBeNull();
+  });
+
   it('keeps free text committed as the user types (no selection required)', async () => {
     const onChangeText = jest.fn();
     renderField(<AddressAutocomplete onChangeText={onChangeText} />);

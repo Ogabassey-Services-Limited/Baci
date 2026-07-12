@@ -1,4 +1,5 @@
 import { Alert } from 'react-native';
+import { dedupeSavedAddressesById } from '@/lib/checkout-saved-address';
 import { createLogger } from '@/lib/logger';
 import { normalizeSavedAddresses } from '@/lib/saved-addresses';
 import { supabase } from '@/lib/supabase';
@@ -53,7 +54,9 @@ async function writeSavedAddresses(
   const MAX_ATTEMPTS = 2;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     const snapshot = await fetchSavedAddressesSnapshot(customerId, merchantId);
-    const next = normalizeSavedAddresses(mutate(snapshot.addresses));
+    const next = dedupeSavedAddressesById(
+      normalizeSavedAddresses(mutate(snapshot.addresses))
+    );
 
     const scopedUpdate = supabase
       .from('customers')

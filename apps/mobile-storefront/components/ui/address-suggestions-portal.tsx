@@ -1,10 +1,8 @@
 import {
   createContext,
   type ReactNode,
-  useCallback,
   useContext,
   useEffect,
-  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -109,12 +107,10 @@ export function AddressSuggestionsProvider({
   }
   const store = storeRef.current;
 
-  const show = useCallback(
-    (next: AddressSuggestionsState) => store.set(next),
-    [store]
-  );
-  const hide = useCallback(() => store.set(null), [store]);
-  const value = useMemo(() => ({ show, hide }), [show, hide]);
+  const value = {
+    show: (next: AddressSuggestionsState) => store.set(next),
+    hide: () => store.set(null),
+  };
 
   return (
     <AddressSuggestionsContext.Provider value={value}>
@@ -147,17 +143,24 @@ function AddressSuggestionsHost({ store }: { store: SuggestionsStore }) {
   }
 
   const { anchor, colors, isDark, onSelect, predictions } = state;
-  const top = anchor.y + anchor.height + DROPDOWN_ANCHOR_GAP;
+  const belowTop = anchor.y + anchor.height + DROPDOWN_ANCHOR_GAP;
   const bottomLimit =
     (keyboardTop ?? Dimensions.get('window').height) -
     DROPDOWN_KEYBOARD_PADDING;
+  const availableBelow = bottomLimit - belowTop;
+  const aboveBottom = Math.min(anchor.y, bottomLimit) - DROPDOWN_ANCHOR_GAP;
+  const availableAbove = Math.max(0, aboveBottom);
+  const placeAbove = availableBelow <= 0 && availableAbove > 0;
   const maxHeight = Math.max(
     0,
-    Math.min(DROPDOWN_MAX_HEIGHT, bottomLimit - top)
+    Math.min(DROPDOWN_MAX_HEIGHT, placeAbove ? availableAbove : availableBelow)
   );
   if (maxHeight === 0) {
     return null;
   }
+  const top = placeAbove
+    ? Math.max(0, aboveBottom - maxHeight)
+    : belowTop;
 
   return (
     <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>

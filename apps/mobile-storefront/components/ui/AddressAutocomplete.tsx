@@ -70,6 +70,7 @@ export function AddressAutocomplete({
   const isDark = (colorScheme ?? 'light') === 'dark';
 
   const isMountedRef = useRef(true);
+  const latestQueryRef = useRef(value);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const wrapperRef = useRef<View>(null);
 
@@ -90,10 +91,12 @@ export function AddressAutocomplete({
   if (value !== prevValue) {
     setPrevValue(value);
     setInternalValue(value);
+    latestQueryRef.current = value;
   }
 
   const handlePredictionSelect = async (prediction: PlacePrediction) => {
     Keyboard.dismiss();
+    latestQueryRef.current = prediction.mainText;
     setInternalValue(prediction.mainText);
     onChangeText?.(prediction.mainText);
     setPredictions([]);
@@ -126,9 +129,10 @@ export function AddressAutocomplete({
     }
     let lastX = -1;
     let lastY = -1;
+    let cancelled = false;
     const publish = () => {
       wrapperRef.current?.measureInWindow((x, y, width, height) => {
-        if (width <= 0 || height <= 0) {
+        if (cancelled || width <= 0 || height <= 0) {
           return;
         }
         if (
@@ -151,6 +155,7 @@ export function AddressAutocomplete({
     publish();
     const tracker = setInterval(publish, ANCHOR_TRACK_INTERVAL_MS);
     return () => {
+      cancelled = true;
       clearInterval(tracker);
       portal.hide();
     };
@@ -182,15 +187,18 @@ export function AddressAutocomplete({
       input,
       sessionToken,
     });
-    if (isMountedRef.current) {
+    if (isMountedRef.current && latestQueryRef.current === input) {
       setPredictions(results);
       setIsLoading(false);
     }
   };
 
   const handleInputChange = (text: string) => {
+    latestQueryRef.current = text;
     setInternalValue(text);
     onChangeText?.(text);
+    setPredictions([]);
+    setIsLoading(false);
     if (debounceTimer.current) {
       clearTimeout(debounceTimer.current);
     }
@@ -200,9 +208,11 @@ export function AddressAutocomplete({
   };
 
   const handleClear = () => {
+    latestQueryRef.current = '';
     setInternalValue('');
     onChangeText?.('');
     setPredictions([]);
+    setIsLoading(false);
   };
 
   return (
@@ -253,6 +263,7 @@ export function AddressAutocomplete({
 
         {isLoading ? (
           <ActivityIndicator
+            accessibilityLabel="Loading address suggestions"
             size="small"
             color={BRAND.primary}
             style={styles.loader}

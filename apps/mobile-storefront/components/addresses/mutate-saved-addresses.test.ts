@@ -313,6 +313,21 @@ describe('deleteAddressRecord', () => {
     expect(writtenAddresses(0).map((a) => a.id)).toEqual(['addr-2']);
   });
 
+  it('does not return duplicate ids left in the stored address list', async () => {
+    mockSingle.mockResolvedValue(
+      snapshot([address('addr-1'), address('addr-1'), address('addr-2')])
+    );
+    mockUpdateResult.mockResolvedValue(matchedRow);
+
+    const result = await deleteAddressRecord({
+      ...params,
+      addressId: 'addr-2',
+    });
+
+    expect(result?.map((item) => item.id)).toEqual(['addr-1']);
+    expect(writtenAddresses(0).map((item) => item.id)).toEqual(['addr-1']);
+  });
+
   it('retries once from fresh data when a concurrent edit invalidates the version guard', async () => {
     // First snapshot is already stale by write time; the retry sees addr-2,
     // which only exists in the fresh second snapshot.
