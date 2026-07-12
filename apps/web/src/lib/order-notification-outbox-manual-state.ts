@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import type { OrderFulfillmentNotificationEventType } from '@/lib/order-fulfillment-notification-types';
 
@@ -8,7 +9,7 @@ type BlockingOutboxStatus =
   | 'sent';
 
 type ManualOutboxStateResult =
-  | { status: 'clear' }
+  | { status: 'clear'; claimId: string }
   | { status: 'error'; error: string }
   | { status: 'blocked'; outboxStatus: BlockingOutboxStatus };
 
@@ -35,6 +36,13 @@ interface GetManualOutboxStateParams {
   supabase: ManualOutboxStateSupabaseClient;
   trackingNumber?: string;
 }
+
+const manualOutboxPreparationSchema = z.object({
+  outbox_id: z.string().uuid(),
+  status: z
+    .enum(['outcome_unknown', 'pending', 'processing', 'sent'])
+    .nullable(),
+});
 
 function isBlockingOutboxStatus(value: unknown): value is BlockingOutboxStatus {
   return (
@@ -91,16 +99,14 @@ export async function getManualOrderNotificationOutboxBlockingState({
     return { status: 'error', error: message };
   }
 
-  if (data === null || data === undefined) {
-    return { status: 'clear' };
-  }
-
-  if (isBlockingOutboxStatus(data)) {
-    return { status: 'blocked', outboxStatus: data };
-  }
-
-  if (data === 'skipped' || data === 'failed') {
-    return { status: 'clear' };
+  const parsed = manualOutboxPreparationSchema.safeParse(data);
+  if (parsed.success) {
+    if (parsed.data.status === null) {
+      return { status: 'clear', claimId: parsed.data.outbox_id };
+    }
+    if (isBlockingOutboxStatus(parsed.data.status)) {
+      return { status: 'blocked', outboxStatus: parsed.data.status };
+    }
   }
 
   logger.warn({

@@ -10,8 +10,18 @@ import { logger } from '@/lib/logger';
 import { getManualOrderNotificationOutboxBlockingState } from './order-notification-outbox-manual-state';
 
 function createSupabaseMock(data: unknown, error: unknown = null) {
+  const outboxId = '10000000-0000-4000-8000-000000000001';
+  const responseData =
+    typeof data === 'string'
+      ? {
+          outbox_id: outboxId,
+          status: data === 'skipped' || data === 'failed' ? null : data,
+        }
+      : data === null
+        ? { outbox_id: outboxId, status: null }
+        : data;
   return {
-    rpc: vi.fn().mockResolvedValue({ data, error }),
+    rpc: vi.fn().mockResolvedValue({ data: responseData, error }),
   };
 }
 
@@ -79,7 +89,10 @@ describe('getManualOrderNotificationOutboxBlockingState', () => {
       supabase: createSupabaseMock(null),
     });
 
-    expect(result).toEqual({ status: 'clear' });
+    expect(result).toEqual({
+      status: 'clear',
+      claimId: '10000000-0000-4000-8000-000000000001',
+    });
   });
 
   it('blocks manual sends while a matching outbox row is pending', async () => {
@@ -126,7 +139,10 @@ describe('getManualOrderNotificationOutboxBlockingState', () => {
       supabase: createSupabaseMock('skipped'),
     });
 
-    expect(result).toEqual({ status: 'clear' });
+    expect(result).toEqual({
+      status: 'clear',
+      claimId: '10000000-0000-4000-8000-000000000001',
+    });
   });
 
   it('allows manual retries after a failed outbox row', async () => {
@@ -137,7 +153,10 @@ describe('getManualOrderNotificationOutboxBlockingState', () => {
       supabase: createSupabaseMock('failed'),
     });
 
-    expect(result).toEqual({ status: 'clear' });
+    expect(result).toEqual({
+      status: 'clear',
+      claimId: '10000000-0000-4000-8000-000000000001',
+    });
   });
 
   it('returns error for an unrecognized outbox state', async () => {
@@ -155,7 +174,7 @@ describe('getManualOrderNotificationOutboxBlockingState', () => {
     expect(logger.warn).toHaveBeenCalledWith(
       expect.objectContaining({
         message: 'Unexpected manual order notification outbox blocking state',
-        state: 'archived',
+        state: expect.objectContaining({ status: 'archived' }),
       })
     );
   });

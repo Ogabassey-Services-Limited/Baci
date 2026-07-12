@@ -182,6 +182,7 @@ export async function POST(
     });
 
     await completeManualOrderNotificationOutboxEvent({
+      claimId: blockingState.claimId,
       eventType: 'order_shipped',
       merchantId,
       orderId: parsedParams.data.id,

@@ -119,7 +119,16 @@ GRANT EXECUTE ON FUNCTION public.get_order_notification_outbox_manual_terminal_s
   text
 ) TO authenticated, service_role;
 
-CREATE OR REPLACE FUNCTION public.prepare_order_notification_outbox_manual_send(
+DROP FUNCTION IF EXISTS public.prepare_order_notification_outbox_manual_send(
+  uuid,
+  uuid,
+  text,
+  text,
+  text,
+  text
+);
+
+CREATE FUNCTION public.prepare_order_notification_outbox_manual_send(
   p_order_id uuid,
   p_merchant_id uuid,
   p_event_type text,
@@ -127,7 +136,7 @@ CREATE OR REPLACE FUNCTION public.prepare_order_notification_outbox_manual_send(
   p_courier_name text DEFAULT NULL,
   p_estimated_delivery text DEFAULT NULL
 )
-RETURNS text
+RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
@@ -135,6 +144,7 @@ AS $$
 DECLARE
   v_auth_uid uuid := auth.uid();
   v_auth_role text := coalesce(auth.role(), '');
+  v_claimed boolean := false;
   v_outbox_id uuid;
   v_skip_reason text;
   v_status text;
@@ -195,11 +205,16 @@ BEGIN
   END IF;
 
   IF v_status IN ('pending', 'processing', 'sent') THEN
-    RETURN v_status;
+    RETURN jsonb_build_object('status', v_status, 'outbox_id', v_outbox_id);
   END IF;
 
   IF v_status = 'skipped' AND v_skip_reason = 'delivery_outcome_unknown' THEN
-    RETURN 'outcome_unknown';
+    RETURN jsonb_build_object(
+      'status',
+      'outcome_unknown',
+      'outbox_id',
+      v_outbox_id
+    );
   END IF;
 
   IF v_status IN ('skipped', 'failed') THEN
@@ -211,9 +226,55 @@ BEGIN
       locked_by = 'manual-endpoint',
       updated_at = now()
     WHERE outbox.id = v_outbox_id;
+    v_claimed := true;
+  ELSE
+    INSERT INTO public.order_notification_outbox (
+      order_id,
+      merchant_id,
+      event_type,
+      status,
+      attempt_count,
+      locked_at,
+      locked_by,
+      next_attempt_at,
+      metadata
+    )
+    VALUES (
+      p_order_id,
+      p_merchant_id,
+      p_event_type,
+      'processing',
+      1,
+      now(),
+      'manual-endpoint',
+      NULL,
+      jsonb_build_object('source', 'manual_endpoint_claim')
+    )
+    ON CONFLICT (order_id, event_type)
+      WHERE status IN ('pending', 'processing')
+      DO NOTHING
+    RETURNING id INTO v_outbox_id;
+
+    IF v_outbox_id IS NULL THEN
+      SELECT outbox.id, outbox.status
+      INTO v_outbox_id, v_status
+      FROM public.order_notification_outbox AS outbox
+      WHERE outbox.order_id = p_order_id
+        AND outbox.merchant_id = p_merchant_id
+        AND outbox.event_type = p_event_type
+        AND outbox.status IN ('pending', 'processing')
+      ORDER BY outbox.event_sequence DESC
+      LIMIT 1;
+
+      RETURN jsonb_build_object('status', v_status, 'outbox_id', v_outbox_id);
+    END IF;
+    v_claimed := true;
   END IF;
 
-  RETURN NULL;
+  RETURN jsonb_build_object(
+    'status', CASE WHEN v_claimed THEN NULL ELSE v_status END,
+    'outbox_id', v_outbox_id
+  );
 END;
 $$;
 

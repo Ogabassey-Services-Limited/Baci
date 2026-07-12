@@ -111,6 +111,7 @@ function createSupabaseMock(
     | 'skipped'
     | 'pending'
     | 'processing'
+    | 'outcome_unknown'
     | null = null
 ) {
   const merchantBuilder = createSelectBuilder({ data: merchant, error: null });
@@ -128,7 +129,14 @@ function createSupabaseMock(
     }),
     rpc: vi.fn((fn: string) => {
       if (fn === 'prepare_order_notification_outbox_manual_send') {
-        return Promise.resolve({ data: terminalOutboxStatus, error: null });
+        return Promise.resolve({
+          data: {
+            outbox_id: '10000000-0000-4000-8000-000000000001',
+            status:
+              terminalOutboxStatus === 'skipped' ? null : terminalOutboxStatus,
+          },
+          error: null,
+        });
       }
       return Promise.resolve({ data: 1, error: null });
     }),
@@ -217,6 +225,7 @@ describe('POST /api/orders/[id]/shipped', () => {
       p_merchant_id: 'merchant-1',
       p_message_id: 'msg-1',
       p_order_id: orderId,
+      p_outbox_id: '10000000-0000-4000-8000-000000000001',
       p_skip_reason: null,
       p_status: 'sent',
     });

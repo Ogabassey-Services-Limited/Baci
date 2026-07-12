@@ -63,7 +63,7 @@ export function getFulfillmentOrderItems(order: FulfillmentOrderRecord) {
   return (
     order.order_items?.map((item) => ({
       name: item.name || 'Product',
-      quantity: item.quantity || 1,
+      quantity: item.quantity ?? 1,
     })) || []
   );
 }

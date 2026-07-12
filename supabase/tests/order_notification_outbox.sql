@@ -30,6 +30,7 @@ DECLARE
   v_manual_active_count integer;
   v_manual_status text;
   v_manual_prepared_status text;
+  v_manual_claim_id uuid;
   v_manual_terminal_status text;
   v_manual_updated_count integer;
   v_manual_processing_status text;
@@ -177,15 +178,20 @@ BEGIN
   SET shipping_status = 'shipped'
   WHERE id = v_manual_order_id;
 
-  SELECT public.prepare_order_notification_outbox_manual_send(
-    v_manual_order_id,
-    v_merchant_id,
-    'order_shipped',
-    'MANUAL-TRACK-001',
-    'Manual Courier',
-    '2026-07-15'
-  )
-  INTO v_manual_prepared_status;
+  SELECT
+    prepared.result->>'status',
+    (prepared.result->>'outbox_id')::uuid
+  INTO v_manual_prepared_status, v_manual_claim_id
+  FROM (
+    SELECT public.prepare_order_notification_outbox_manual_send(
+      v_manual_order_id,
+      v_merchant_id,
+      'order_shipped',
+      'MANUAL-TRACK-001',
+      'Manual Courier',
+      '2026-07-15'
+    ) AS result
+  ) AS prepared;
 
   IF v_manual_prepared_status IS DISTINCT FROM 'pending' THEN
     RAISE EXCEPTION 'expected manual preparation to return pending, got %',
@@ -212,12 +218,13 @@ BEGIN
     'order_shipped',
     'sent',
     'manual-message-1',
-    NULL
+    NULL,
+    v_manual_claim_id
   )
   INTO v_manual_updated_count;
 
-  IF v_manual_updated_count <> 1 THEN
-    RAISE EXCEPTION 'expected manual endpoint completion to consume one active outbox row, got %',
+  IF v_manual_updated_count <> 0 THEN
+    RAISE EXCEPTION 'expected manual completion not to consume an unclaimed pending row, got %',
       v_manual_updated_count;
   END IF;
 
@@ -227,8 +234,8 @@ BEGIN
   WHERE order_id = v_manual_order_id
     AND status IN ('pending', 'processing');
 
-  IF v_manual_active_count <> 0 THEN
-    RAISE EXCEPTION 'expected manual endpoint completion to leave no active outbox rows, got %',
+  IF v_manual_active_count <> 1 THEN
+    RAISE EXCEPTION 'expected unclaimed pending row to remain active, got %',
       v_manual_active_count;
   END IF;
 
@@ -238,8 +245,8 @@ BEGIN
   WHERE order_id = v_manual_order_id
     AND event_type = 'order_shipped';
 
-  IF v_manual_status IS DISTINCT FROM 'sent' THEN
-    RAISE EXCEPTION 'expected manual endpoint consumed row to be sent, got %', v_manual_status;
+  IF v_manual_status IS DISTINCT FROM 'pending' THEN
+    RAISE EXCEPTION 'expected unclaimed row to remain pending, got %', v_manual_status;
   END IF;
 
   SELECT public.get_order_notification_outbox_manual_terminal_status(
@@ -249,10 +256,15 @@ BEGIN
   )
   INTO v_manual_terminal_status;
 
-  IF v_manual_terminal_status IS DISTINCT FROM 'sent' THEN
-    RAISE EXCEPTION 'expected manual terminal-state RPC to return sent, got %',
+  IF v_manual_terminal_status IS DISTINCT FROM 'pending' THEN
+    RAISE EXCEPTION 'expected manual terminal-state RPC to return pending, got %',
       v_manual_terminal_status;
   END IF;
+
+  UPDATE public.order_notification_outbox
+  SET status = 'sent', sent_at = now(), updated_at = now()
+  WHERE order_id = v_manual_order_id
+    AND event_type = 'order_shipped';
 
   INSERT INTO public.orders (
     id,
@@ -294,7 +306,15 @@ BEGIN
     'order_shipped',
     'sent',
     'manual-message-processing-1',
-    NULL
+    NULL,
+    (
+      SELECT outbox.id
+      FROM public.order_notification_outbox AS outbox
+      WHERE outbox.order_id = v_manual_processing_order_id
+        AND outbox.event_type = 'order_shipped'
+      ORDER BY outbox.event_sequence DESC
+      LIMIT 1
+    )
   )
   INTO v_manual_updated_count;
 
@@ -372,30 +392,38 @@ BEGIN
       v_manual_terminal_status;
   END IF;
 
-  SELECT public.prepare_order_notification_outbox_manual_send(
-    v_manual_skipped_order_id,
-    v_merchant_id,
-    'order_shipped',
-    NULL,
-    NULL,
-    NULL
-  )
-  INTO v_manual_prepared_status;
+  SELECT
+    prepared.result->>'status',
+    (prepared.result->>'outbox_id')::uuid
+  INTO v_manual_prepared_status, v_manual_claim_id
+  FROM (
+    SELECT public.prepare_order_notification_outbox_manual_send(
+      v_manual_skipped_order_id,
+      v_merchant_id,
+      'order_shipped',
+      NULL,
+      NULL,
+      NULL
+    ) AS result
+  ) AS prepared;
 
   IF v_manual_prepared_status IS NOT NULL THEN
     RAISE EXCEPTION 'expected first skipped-row retry claimant to proceed, got %',
       v_manual_prepared_status;
   END IF;
 
-  SELECT public.prepare_order_notification_outbox_manual_send(
-    v_manual_skipped_order_id,
-    v_merchant_id,
-    'order_shipped',
-    NULL,
-    NULL,
-    NULL
-  )
-  INTO v_manual_prepared_status;
+  SELECT prepared.result->>'status'
+  INTO v_manual_prepared_status
+  FROM (
+    SELECT public.prepare_order_notification_outbox_manual_send(
+      v_manual_skipped_order_id,
+      v_merchant_id,
+      'order_shipped',
+      NULL,
+      NULL,
+      NULL
+    ) AS result
+  ) AS prepared;
 
   IF v_manual_prepared_status IS DISTINCT FROM 'processing' THEN
     RAISE EXCEPTION 'expected concurrent manual retry to observe processing claim, got %',
@@ -408,7 +436,8 @@ BEGIN
     'order_shipped',
     'sent',
     'manual-message-after-skip-1',
-    NULL
+    NULL,
+    v_manual_claim_id
   )
   INTO v_manual_updated_count;
 
@@ -464,15 +493,20 @@ BEGIN
       v_manual_terminal_status;
   END IF;
 
-  SELECT public.prepare_order_notification_outbox_manual_send(
-    v_manual_skipped_order_id,
-    v_merchant_id,
-    'order_shipped',
-    NULL,
-    NULL,
-    NULL
-  )
-  INTO v_manual_prepared_status;
+  SELECT
+    prepared.result->>'status',
+    (prepared.result->>'outbox_id')::uuid
+  INTO v_manual_prepared_status, v_manual_claim_id
+  FROM (
+    SELECT public.prepare_order_notification_outbox_manual_send(
+      v_manual_skipped_order_id,
+      v_merchant_id,
+      'order_shipped',
+      NULL,
+      NULL,
+      NULL
+    ) AS result
+  ) AS prepared;
 
   IF v_manual_prepared_status IS NOT NULL THEN
     RAISE EXCEPTION 'expected retryable row to be claimed for known-failure test, got %',
@@ -485,7 +519,8 @@ BEGIN
     'order_shipped',
     'failed',
     NULL,
-    'provider unavailable'
+    'provider unavailable',
+    v_manual_claim_id
   )
   INTO v_manual_updated_count;
 
@@ -503,15 +538,20 @@ BEGIN
       v_processing_status;
   END IF;
 
-  SELECT public.prepare_order_notification_outbox_manual_send(
-    v_manual_skipped_order_id,
-    v_merchant_id,
-    'order_shipped',
-    NULL,
-    NULL,
-    NULL
-  )
-  INTO v_manual_prepared_status;
+  SELECT
+    prepared.result->>'status',
+    (prepared.result->>'outbox_id')::uuid
+  INTO v_manual_prepared_status, v_manual_claim_id
+  FROM (
+    SELECT public.prepare_order_notification_outbox_manual_send(
+      v_manual_skipped_order_id,
+      v_merchant_id,
+      'order_shipped',
+      NULL,
+      NULL,
+      NULL
+    ) AS result
+  ) AS prepared;
 
   IF v_manual_prepared_status IS NOT NULL THEN
     RAISE EXCEPTION 'released known failure should be retryable, got %',
@@ -524,7 +564,8 @@ BEGIN
     'order_shipped',
     'skipped',
     NULL,
-    'test_cleanup'
+    'test_cleanup',
+    v_manual_claim_id
   );
 
   SELECT public.complete_order_notification_outbox_manual_result(
@@ -533,7 +574,8 @@ BEGIN
     'order_shipped',
     'failed',
     NULL,
-    'missing order'
+    'missing order',
+    '8f0ed783-0000-4000-8000-000000000899'::uuid
   )
   INTO v_manual_updated_count;
 
@@ -757,15 +799,18 @@ BEGIN
       v_processing_status;
   END IF;
 
-  SELECT public.prepare_order_notification_outbox_manual_send(
-    v_order_id,
-    v_merchant_id,
-    'order_shipped',
-    NULL,
-    NULL,
-    NULL
-  )
-  INTO v_manual_prepared_status;
+  SELECT prepared.result->>'status'
+  INTO v_manual_prepared_status
+  FROM (
+    SELECT public.prepare_order_notification_outbox_manual_send(
+      v_order_id,
+      v_merchant_id,
+      'order_shipped',
+      NULL,
+      NULL,
+      NULL
+    ) AS result
+  ) AS prepared;
 
   IF v_manual_prepared_status IS DISTINCT FROM 'outcome_unknown' THEN
     RAISE EXCEPTION 'unknown provider outcome should block manual retries, got %',

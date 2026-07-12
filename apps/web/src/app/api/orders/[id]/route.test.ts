@@ -543,7 +543,7 @@ describe('PATCH /api/orders/[id]', () => {
     });
   });
 
-  it('rolls back a paid pre-update when the fulfillment update fails', async () => {
+  it('files reconciliation review when the paid pre-update rollback also fails', async () => {
     const existingOrder: ExistingOrder = {
       id: 'order-1',
       order_number: 'BACI-001',
@@ -573,6 +573,9 @@ describe('PATCH /api/orders/[id]', () => {
       user: createMockUser(),
       supabase,
     });
+    vi.mocked(
+      rollbackOrderStatusAfterInventoryConfirmationFailure
+    ).mockRejectedValueOnce(new Error('rollback failed'));
 
     const response = await PATCH(
       createPatchRequest({
@@ -589,6 +592,16 @@ describe('PATCH /api/orders/[id]', () => {
       payment_status: 'pending',
       shipping_status: 'processing',
     });
+    expect(fileInventoryConfirmationFailureReview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchantId: 'merchant-1',
+        metadata: expect.objectContaining({
+          rollbackError: 'rollback failed',
+          source: 'merchant_fulfillment_update_after_inventory_confirmation',
+        }),
+        orderId: 'order-1',
+      })
+    );
   });
 
   it('does not book a paid provider shipment when serialized inventory is unavailable', async () => {

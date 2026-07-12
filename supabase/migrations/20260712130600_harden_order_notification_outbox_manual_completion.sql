@@ -2,13 +2,23 @@
 -- row or an already-sent latest row must never cause the manual endpoint to
 -- insert a competing terminal marker.
 
-CREATE OR REPLACE FUNCTION public.complete_order_notification_outbox_manual_result(
+DROP FUNCTION IF EXISTS public.complete_order_notification_outbox_manual_result(
+  uuid,
+  uuid,
+  text,
+  text,
+  text,
+  text
+);
+
+CREATE FUNCTION public.complete_order_notification_outbox_manual_result(
   p_order_id uuid,
   p_merchant_id uuid,
   p_event_type text,
   p_status text,
   p_message_id text DEFAULT NULL,
-  p_skip_reason text DEFAULT NULL
+  p_skip_reason text DEFAULT NULL,
+  p_outbox_id uuid DEFAULT NULL
 )
 RETURNS integer
 LANGUAGE plpgsql
@@ -54,24 +64,18 @@ BEGIN
   WITH latest AS (
     SELECT outbox.id, outbox.status
     FROM public.order_notification_outbox AS outbox
-    WHERE outbox.order_id = p_order_id
+    WHERE outbox.id = p_outbox_id
+      AND outbox.order_id = p_order_id
       AND outbox.merchant_id = p_merchant_id
       AND outbox.event_type = p_event_type
-    ORDER BY outbox.event_sequence DESC
     LIMIT 1
     FOR UPDATE
   ), updated AS (
     UPDATE public.order_notification_outbox AS outbox
     SET
       status = p_status,
-      sent_at = CASE
-        WHEN p_status = 'sent' THEN now()
-        ELSE NULL
-      END,
-      skipped_at = CASE
-        WHEN p_status = 'skipped' THEN now()
-        ELSE NULL
-      END,
+      sent_at = CASE WHEN p_status = 'sent' THEN now() ELSE NULL END,
+      skipped_at = CASE WHEN p_status = 'skipped' THEN now() ELSE NULL END,
       skip_reason = CASE
         WHEN p_status = 'skipped' THEN coalesce(p_skip_reason, 'manual_endpoint_skipped')
         ELSE NULL
@@ -91,59 +95,13 @@ BEGIN
       updated_at = now()
     FROM latest
     WHERE outbox.id = latest.id
-      AND (
-        latest.status IN ('pending', 'skipped', 'failed')
-        OR (
-          latest.status = 'processing'
-          AND outbox.locked_by = 'manual-endpoint'
-        )
-      )
+      AND latest.status = 'processing'
+      AND outbox.locked_by = 'manual-endpoint'
     RETURNING outbox.id
-  ), inserted AS (
-    INSERT INTO public.order_notification_outbox (
-      order_id,
-      merchant_id,
-      event_type,
-      status,
-      sent_at,
-      skipped_at,
-      skip_reason,
-      last_error,
-      next_attempt_at,
-      metadata
-    )
-    SELECT
-      p_order_id,
-      p_merchant_id,
-      p_event_type,
-      p_status,
-      CASE WHEN p_status = 'sent' THEN now() ELSE NULL END,
-      CASE WHEN p_status = 'skipped' THEN now() ELSE NULL END,
-      CASE WHEN p_status = 'skipped'
-        THEN coalesce(p_skip_reason, 'manual_endpoint_skipped')
-        ELSE NULL
-      END,
-      CASE WHEN p_status = 'failed'
-        THEN coalesce(p_skip_reason, 'manual_endpoint_failed')
-        ELSE NULL
-      END,
-      NULL,
-      jsonb_strip_nulls(jsonb_build_object(
-        'source', 'manual_endpoint_completion',
-        'manual_endpoint_completed_at', now(),
-        'manual_endpoint_message_id', p_message_id
-      ))
-    WHERE NOT EXISTS (SELECT 1 FROM latest)
-      AND p_status IN ('sent', 'skipped')
-    RETURNING id
   )
   SELECT count(*)::integer
   INTO v_updated_count
-  FROM (
-    SELECT id FROM updated
-    UNION ALL
-    SELECT id FROM inserted
-  ) AS completed_rows;
+  FROM updated;
 
   RETURN v_updated_count;
 END;
@@ -155,7 +113,8 @@ REVOKE ALL ON FUNCTION public.complete_order_notification_outbox_manual_result(
   text,
   text,
   text,
-  text
+  text,
+  uuid
 ) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.complete_order_notification_outbox_manual_result(
   uuid,
@@ -163,7 +122,8 @@ GRANT EXECUTE ON FUNCTION public.complete_order_notification_outbox_manual_resul
   text,
   text,
   text,
-  text
+  text,
+  uuid
 ) TO authenticated, service_role;
 
 COMMENT ON FUNCTION public.complete_order_notification_outbox_manual_result(
@@ -172,6 +132,7 @@ COMMENT ON FUNCTION public.complete_order_notification_outbox_manual_result(
   text,
   text,
   text,
-  text
+  text,
+  uuid
 ) IS
-  'Records manual fulfillment outcomes against only the latest event cycle; processing and sent rows remain untouched.';
+  'Records a manual fulfillment outcome against only the exact row claimed by the manual endpoint.';

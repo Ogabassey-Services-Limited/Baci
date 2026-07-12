@@ -14,6 +14,7 @@ interface ManualOutboxSupabaseClient {
       p_merchant_id: string;
       p_message_id: string | null;
       p_order_id: string;
+      p_outbox_id: string;
       p_skip_reason: string | null;
       p_status: ManualOutboxCompletionStatus;
     }
@@ -21,6 +22,7 @@ interface ManualOutboxSupabaseClient {
 }
 
 interface CompleteManualOutboxParams {
+  claimId: string;
   eventType: OrderFulfillmentNotificationEventType;
   merchantId: string;
   orderId: string;
@@ -51,6 +53,7 @@ function getManualSkipReason(
 }
 
 export async function completeManualOrderNotificationOutboxEvent({
+  claimId,
   eventType,
   merchantId,
   orderId,
@@ -68,6 +71,7 @@ export async function completeManualOrderNotificationOutboxEvent({
       p_message_id:
         result.status === 'sent' ? (result.messageId ?? null) : null,
       p_order_id: orderId,
+      p_outbox_id: claimId,
       p_skip_reason: getManualSkipReason(result),
       p_status: status,
     }

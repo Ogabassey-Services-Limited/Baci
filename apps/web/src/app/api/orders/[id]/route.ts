@@ -432,6 +432,23 @@ export async function PATCH(
             orderId: id,
             error: rollbackError,
           });
+          await fileInventoryConfirmationFailureReview({
+            gatewayReference: null,
+            merchantId,
+            metadata: {
+              fulfillmentUpdateError: updateError,
+              rollbackError:
+                rollbackError instanceof Error
+                  ? rollbackError.message
+                  : rollbackError,
+              source:
+                'merchant_fulfillment_update_after_inventory_confirmation',
+            },
+            orderId: id,
+            reason:
+              'Inventory was confirmed after a paid pre-update, but the fulfillment update and paid-status rollback both failed.',
+            transactionId: null,
+          });
         }
       }
       return NextResponse.json(

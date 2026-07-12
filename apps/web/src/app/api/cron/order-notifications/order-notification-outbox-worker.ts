@@ -13,7 +13,7 @@ export const claimedOrderNotificationOutboxRowSchema = z.object({
   event_sequence: z.number().int().positive().optional(),
   id: z.string().min(1),
   max_attempts: z.number().int().positive(),
-  metadata: z.unknown().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
   merchant_id: z.string().min(1),
   order_id: z.string().min(1),
 });
@@ -102,7 +102,7 @@ async function markSent(
   await updateOutboxStatus(supabase, row.id, {
     last_error: null,
     metadata: {
-      ...getShipmentMetadata(row),
+      ...(row.metadata ?? {}),
       ...(messageId ? { message_id: messageId } : {}),
     },
     sent_at: new Date().toISOString(),

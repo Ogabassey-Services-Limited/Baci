@@ -40,4 +40,13 @@ describe('order fulfillment sender helpers', () => {
       buildFulfillmentTrackingUrl('usebaci.com', 'store', order, 'A B')
     ).toBe('https://usebaci.com/track/A%20B');
   });
+
+  it('preserves an explicit zero item quantity', () => {
+    expect(
+      getFulfillmentOrderItems({
+        ...order,
+        order_items: [{ name: 'Removed item', quantity: 0 }],
+      })
+    ).toEqual([{ name: 'Removed item', quantity: 0 }]);
+  });
 });

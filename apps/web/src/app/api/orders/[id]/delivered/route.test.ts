@@ -97,6 +97,7 @@ function createSupabaseMock(
     | 'skipped'
     | 'pending'
     | 'processing'
+    | 'outcome_unknown'
     | null = null
 ) {
   const merchantBuilder = createSelectBuilder({ data: merchant, error: null });
@@ -121,7 +122,14 @@ function createSupabaseMock(
     }),
     rpc: vi.fn((fn: string) => {
       if (fn === 'prepare_order_notification_outbox_manual_send') {
-        return Promise.resolve({ data: terminalOutboxStatus, error: null });
+        return Promise.resolve({
+          data: {
+            outbox_id: '10000000-0000-4000-8000-000000000001',
+            status:
+              terminalOutboxStatus === 'skipped' ? null : terminalOutboxStatus,
+          },
+          error: null,
+        });
       }
       return Promise.resolve({ data: 1, error: null });
     }),
@@ -205,6 +213,7 @@ describe('POST /api/orders/[id]/delivered', () => {
       p_merchant_id: 'merchant-1',
       p_message_id: 'msg-1',
       p_order_id: orderId,
+      p_outbox_id: '10000000-0000-4000-8000-000000000001',
       p_skip_reason: null,
       p_status: 'sent',
     });
@@ -289,6 +298,27 @@ describe('POST /api/orders/[id]/delivered', () => {
       'complete_order_notification_outbox_manual_result',
       expect.anything()
     );
+  });
+
+  it('does not resend when the previous delivery outcome is unknown', async () => {
+    const supabase = createSupabaseMock(deliveredOrder, 'outcome_unknown');
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+
+    const response = await POST(createRequest(), {
+      params: Promise.resolve({ id: orderId }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      notificationSkipped: true,
+      reason: 'notification_delivery_outcome_unknown',
+    });
+    expect(sendEmail).not.toHaveBeenCalled();
   });
 
   it('allows manual delivered retry after a skipped outbox row', async () => {

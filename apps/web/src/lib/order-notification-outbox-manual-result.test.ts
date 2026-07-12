@@ -24,6 +24,7 @@ describe('completeManualOrderNotificationOutboxEvent', () => {
     const supabase = createSupabaseMock();
 
     await completeManualOrderNotificationOutboxEvent({
+      claimId: '10000000-0000-4000-8000-000000000001',
       eventType: 'order_shipped',
       merchantId: 'merchant-1',
       orderId: 'order-1',
@@ -38,6 +39,7 @@ describe('completeManualOrderNotificationOutboxEvent', () => {
         p_merchant_id: 'merchant-1',
         p_message_id: 'msg-1',
         p_order_id: 'order-1',
+        p_outbox_id: '10000000-0000-4000-8000-000000000001',
         p_skip_reason: null,
         p_status: 'sent',
       }
@@ -48,6 +50,7 @@ describe('completeManualOrderNotificationOutboxEvent', () => {
     const supabase = createSupabaseMock();
 
     await completeManualOrderNotificationOutboxEvent({
+      claimId: '10000000-0000-4000-8000-000000000001',
       eventType: 'order_delivered',
       merchantId: 'merchant-1',
       orderId: 'order-1',
@@ -62,6 +65,7 @@ describe('completeManualOrderNotificationOutboxEvent', () => {
         p_merchant_id: 'merchant-1',
         p_message_id: null,
         p_order_id: 'order-1',
+        p_outbox_id: '10000000-0000-4000-8000-000000000001',
         p_skip_reason: 'missing_customer_email',
         p_status: 'skipped',
       }
@@ -72,6 +76,7 @@ describe('completeManualOrderNotificationOutboxEvent', () => {
     const supabase = createSupabaseMock();
 
     await completeManualOrderNotificationOutboxEvent({
+      claimId: '10000000-0000-4000-8000-000000000001',
       eventType: 'order_shipped',
       merchantId: 'merchant-1',
       orderId: 'order-1',
@@ -92,6 +97,7 @@ describe('completeManualOrderNotificationOutboxEvent', () => {
     const supabase = createSupabaseMock();
 
     await completeManualOrderNotificationOutboxEvent({
+      claimId: '10000000-0000-4000-8000-000000000001',
       eventType: 'order_shipped',
       merchantId: 'merchant-1',
       orderId: 'order-1',
@@ -112,6 +118,7 @@ describe('completeManualOrderNotificationOutboxEvent', () => {
     const supabase = createSupabaseMock();
 
     await completeManualOrderNotificationOutboxEvent({
+      claimId: '10000000-0000-4000-8000-000000000001',
       eventType: 'order_shipped',
       merchantId: 'merchant-1',
       orderId: 'order-1',
@@ -141,6 +148,7 @@ describe('completeManualOrderNotificationOutboxEvent', () => {
 
     await expect(
       completeManualOrderNotificationOutboxEvent({
+        claimId: '10000000-0000-4000-8000-000000000001',
         eventType: 'order_shipped',
         merchantId: 'merchant-1',
         orderId: 'order-1',
