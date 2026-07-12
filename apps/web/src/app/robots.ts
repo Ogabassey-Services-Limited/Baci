@@ -1,9 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { headers } from 'next/headers';
-import {
-  getCachedFeatureSettings,
-  getMerchantByIdentifier,
-} from '@/lib/cached-data';
+import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { resolveRouteIdentifier } from '@/lib/storefront-route-identifier';
 
 function parseHostHeader(hostHeader: string) {
@@ -83,8 +80,7 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
       if (routeIdentifier) {
         const merchant = await getMerchantByIdentifier(routeIdentifier);
         if (merchant?.id) {
-          const features = await getCachedFeatureSettings(merchant.id);
-          blogEnabled = Boolean(features?.blog_enabled);
+          blogEnabled = Boolean(merchant.feature_settings?.blog_enabled);
         }
       }
     } catch (error) {

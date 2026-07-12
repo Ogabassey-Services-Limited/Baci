@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/cached-data', () => ({
-  getCachedFeatureSettings: vi.fn(),
   getMerchantSafe: vi.fn(),
 }));
 
@@ -40,7 +39,7 @@ vi.mock('@/lib/supabase/anon', () => ({
   })),
 }));
 
-import { getCachedFeatureSettings, getMerchantSafe } from '@/lib/cached-data';
+import { getMerchantSafe } from '@/lib/cached-data';
 import { getLiveBlogPost } from '@/lib/live-blog-post';
 
 const mockMerchant = {
@@ -50,6 +49,7 @@ const mockMerchant = {
   logo_url: 'https://example.com/logo.png',
   custom_domain: 'shop.example.com',
   country: 'IN',
+  feature_settings: { blog_enabled: true },
 };
 
 describe('getLiveBlogPost', () => {
@@ -97,14 +97,10 @@ describe('getLiveBlogPost', () => {
   });
 
   it('returns null when blog is not enabled', async () => {
-    vi.mocked(getMerchantSafe).mockResolvedValue(mockMerchant as never);
-    vi.mocked(getCachedFeatureSettings).mockResolvedValue({
-      blog_enabled: false,
-      blog_discover_image_validation_enabled: false,
-      shipping_insurance_enabled: false,
-      shipping_insurance_min_order_value: 5000,
-      shipping_insurance_opt_in_default: false,
-    });
+    vi.mocked(getMerchantSafe).mockResolvedValue({
+      ...mockMerchant,
+      feature_settings: { blog_enabled: false },
+    } as never);
 
     const result = await getLiveBlogPost('test-store', 'my-post');
     expect(result).toBeNull();
@@ -112,13 +108,6 @@ describe('getLiveBlogPost', () => {
 
   it('returns null when blog post is not found', async () => {
     vi.mocked(getMerchantSafe).mockResolvedValue(mockMerchant as never);
-    vi.mocked(getCachedFeatureSettings).mockResolvedValue({
-      blog_enabled: true,
-      blog_discover_image_validation_enabled: false,
-      shipping_insurance_enabled: false,
-      shipping_insurance_min_order_value: 5000,
-      shipping_insurance_opt_in_default: false,
-    });
     mockSingle.mockResolvedValueOnce({
       data: null,
       error: { code: 'PGRST116', message: 'Not found' },
@@ -130,13 +119,6 @@ describe('getLiveBlogPost', () => {
 
   it('returns post with merchant data and related posts on success', async () => {
     vi.mocked(getMerchantSafe).mockResolvedValue(mockMerchant as never);
-    vi.mocked(getCachedFeatureSettings).mockResolvedValue({
-      blog_enabled: true,
-      blog_discover_image_validation_enabled: false,
-      shipping_insurance_enabled: false,
-      shipping_insurance_min_order_value: 5000,
-      shipping_insurance_opt_in_default: false,
-    });
 
     const mockPost = {
       id: 'post-1',
@@ -166,13 +148,6 @@ describe('getLiveBlogPost', () => {
 
   it('excludes published posts without a published_at timestamp from live detail and related queries', async () => {
     vi.mocked(getMerchantSafe).mockResolvedValue(mockMerchant as never);
-    vi.mocked(getCachedFeatureSettings).mockResolvedValue({
-      blog_enabled: true,
-      blog_discover_image_validation_enabled: false,
-      shipping_insurance_enabled: false,
-      shipping_insurance_min_order_value: 5000,
-      shipping_insurance_opt_in_default: false,
-    });
 
     mockSingle.mockResolvedValueOnce({
       data: {
@@ -208,13 +183,6 @@ describe('getLiveBlogPost', () => {
 
   it('slugifies free-text blog categories before filtering related products', async () => {
     vi.mocked(getMerchantSafe).mockResolvedValue(mockMerchant as never);
-    vi.mocked(getCachedFeatureSettings).mockResolvedValue({
-      blog_enabled: true,
-      blog_discover_image_validation_enabled: false,
-      shipping_insurance_enabled: false,
-      shipping_insurance_min_order_value: 5000,
-      shipping_insurance_opt_in_default: false,
-    });
 
     mockSingle.mockResolvedValueOnce({
       data: {
@@ -243,13 +211,6 @@ describe('getLiveBlogPost', () => {
 
   it('returns empty relatedPosts when related posts query errors', async () => {
     vi.mocked(getMerchantSafe).mockResolvedValue(mockMerchant as never);
-    vi.mocked(getCachedFeatureSettings).mockResolvedValue({
-      blog_enabled: true,
-      blog_discover_image_validation_enabled: false,
-      shipping_insurance_enabled: false,
-      shipping_insurance_min_order_value: 5000,
-      shipping_insurance_opt_in_default: false,
-    });
 
     const mockPost = {
       id: 'post-1',
@@ -271,13 +232,6 @@ describe('getLiveBlogPost', () => {
 
   it('filters test and agent-integration posts from related posts', async () => {
     vi.mocked(getMerchantSafe).mockResolvedValue(mockMerchant as never);
-    vi.mocked(getCachedFeatureSettings).mockResolvedValue({
-      blog_enabled: true,
-      blog_discover_image_validation_enabled: false,
-      shipping_insurance_enabled: false,
-      shipping_insurance_min_order_value: 5000,
-      shipping_insurance_opt_in_default: false,
-    });
 
     mockSingle.mockResolvedValueOnce({
       data: {
@@ -316,13 +270,6 @@ describe('getLiveBlogPost', () => {
 
   it('over-fetches related live posts so valid entries still fill all slots', async () => {
     vi.mocked(getMerchantSafe).mockResolvedValue(mockMerchant as never);
-    vi.mocked(getCachedFeatureSettings).mockResolvedValue({
-      blog_enabled: true,
-      blog_discover_image_validation_enabled: false,
-      shipping_insurance_enabled: false,
-      shipping_insurance_min_order_value: 5000,
-      shipping_insurance_opt_in_default: false,
-    });
 
     mockSingle.mockResolvedValueOnce({
       data: {
@@ -386,13 +333,6 @@ describe('getLiveBlogPost', () => {
 
   it('returns null for public test posts instead of exposing direct article URLs', async () => {
     vi.mocked(getMerchantSafe).mockResolvedValue(mockMerchant as never);
-    vi.mocked(getCachedFeatureSettings).mockResolvedValue({
-      blog_enabled: true,
-      blog_discover_image_validation_enabled: false,
-      shipping_insurance_enabled: false,
-      shipping_insurance_min_order_value: 5000,
-      shipping_insurance_opt_in_default: false,
-    });
 
     mockSingle.mockResolvedValueOnce({
       data: {
@@ -414,13 +354,6 @@ describe('getLiveBlogPost', () => {
 
   it('normalizes postSlug to lowercase and trimmed', async () => {
     vi.mocked(getMerchantSafe).mockResolvedValue(mockMerchant as never);
-    vi.mocked(getCachedFeatureSettings).mockResolvedValue({
-      blog_enabled: true,
-      blog_discover_image_validation_enabled: false,
-      shipping_insurance_enabled: false,
-      shipping_insurance_min_order_value: 5000,
-      shipping_insurance_opt_in_default: false,
-    });
     mockSingle.mockResolvedValueOnce({ data: null, error: null });
 
     await getLiveBlogPost('test-store', '  My-Post  ');
@@ -434,13 +367,6 @@ describe('getLiveBlogPost', () => {
     // so the related-products query should skip the category relation filter
     // filter rather than query with an empty or normalized-null value.
     vi.mocked(getMerchantSafe).mockResolvedValue(mockMerchant as never);
-    vi.mocked(getCachedFeatureSettings).mockResolvedValue({
-      blog_enabled: true,
-      blog_discover_image_validation_enabled: false,
-      shipping_insurance_enabled: false,
-      shipping_insurance_min_order_value: 5000,
-      shipping_insurance_opt_in_default: false,
-    });
 
     mockSingle.mockResolvedValueOnce({
       data: {
@@ -470,13 +396,6 @@ describe('getLiveBlogPost', () => {
 
   it('returns null and logs error for non-PGRST116 post errors', async () => {
     vi.mocked(getMerchantSafe).mockResolvedValue(mockMerchant as never);
-    vi.mocked(getCachedFeatureSettings).mockResolvedValue({
-      blog_enabled: true,
-      blog_discover_image_validation_enabled: false,
-      shipping_insurance_enabled: false,
-      shipping_insurance_min_order_value: 5000,
-      shipping_insurance_opt_in_default: false,
-    });
 
     const consoleSpy = vi
       .spyOn(console, 'error')

@@ -17,9 +17,9 @@ vi.mock('next/headers', () => ({
 }));
 
 vi.mock('@/lib/cached-data', () => ({
-  getMerchantByIdentifier: vi.fn(async () => ({ id: 'merchant-1' })),
-  getCachedFeatureSettings: vi.fn(async () => ({
-    blog_enabled: mockBlogEnabled,
+  getMerchantByIdentifier: vi.fn(async () => ({
+    id: 'merchant-1',
+    feature_settings: { blog_enabled: mockBlogEnabled },
   })),
 }));
 

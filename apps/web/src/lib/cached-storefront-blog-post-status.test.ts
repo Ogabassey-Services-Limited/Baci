@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockGetCachedFeatureSettings = vi.fn();
 const mockGetMerchantSafe = vi.fn();
 const mockApplyPublicBlogSqlFilters = vi.fn((query: unknown) => query);
 const mockCreatePublicClient = vi.fn();
@@ -8,8 +7,6 @@ const mockCreatePublicClient = vi.fn();
 vi.mock('next/cache', () => ({ cacheLife: vi.fn(), cacheTag: vi.fn() }));
 
 vi.mock('@/lib/cached-data', () => ({
-  getCachedFeatureSettings: (...args: unknown[]) =>
-    mockGetCachedFeatureSettings(...args),
   getMerchantSafe: (...args: unknown[]) => mockGetMerchantSafe(...args),
 }));
 
@@ -60,8 +57,8 @@ describe('getCachedStorefrontBlogPostStatus', () => {
     mockGetMerchantSafe.mockResolvedValue({
       id: 'merchant-1',
       is_published: true,
+      feature_settings: { blog_enabled: true },
     });
-    mockGetCachedFeatureSettings.mockResolvedValue({ blog_enabled: true });
   });
 
   it('fails open for blank inputs before querying', async () => {
@@ -177,7 +174,11 @@ describe('getCachedStorefrontBlogPostStatus', () => {
   });
 
   it('reports missing when the merchant blog feature is disabled', async () => {
-    mockGetCachedFeatureSettings.mockResolvedValueOnce({ blog_enabled: false });
+    mockGetMerchantSafe.mockResolvedValueOnce({
+      id: 'merchant-1',
+      is_published: true,
+      feature_settings: { blog_enabled: false },
+    });
 
     await expect(
       getCachedStorefrontBlogPostStatus('ogabassey', 'post')

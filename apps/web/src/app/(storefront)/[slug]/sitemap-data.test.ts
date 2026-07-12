@@ -8,7 +8,6 @@ process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
 let mockHeaders = new Map<string, string>();
 const mockGetMerchantByIdentifier = vi.fn();
 const mockGetCachedCategoryPageData = vi.fn();
-const mockGetCachedFeatureSettings = vi.fn();
 const mockBuildCommercialSupportDiscoveryLinks = vi.fn();
 const mockQueryResults = new Map<
   string,
@@ -22,8 +21,6 @@ vi.mock('@/lib/cached-data', () => ({
     mockGetMerchantByIdentifier(...args),
   getCachedCategoryPageData: (...args: unknown[]) =>
     mockGetCachedCategoryPageData(...args),
-  getCachedFeatureSettings: (...args: unknown[]) =>
-    mockGetCachedFeatureSettings(...args),
 }));
 
 vi.mock('@/lib/storefront-compare/build-compare-discovery-links', () => ({
@@ -148,12 +145,10 @@ describe('sitemap-data', () => {
     mockGetMerchantByIdentifier.mockResolvedValue({
       id: 'merchant-1',
       slug: 'ogabassey',
+      feature_settings: { blog_enabled: true },
     });
     mockGetCachedCategoryPageData.mockReset();
     mockGetCachedCategoryPageData.mockResolvedValue(null);
-    mockGetCachedFeatureSettings.mockReset();
-    // Default to blog enabled; individual tests can override.
-    mockGetCachedFeatureSettings.mockResolvedValue({ blog_enabled: true });
     mockBuildCommercialSupportDiscoveryLinks.mockReset();
     mockBuildCommercialSupportDiscoveryLinks.mockReturnValue([]);
   });
@@ -164,6 +159,7 @@ describe('sitemap-data', () => {
       id: 'merchant-1',
       slug: 'ogabassey',
       custom_domain: 'ogabassey.com',
+      feature_settings: { blog_enabled: true },
     });
     const { resolveStorefrontSitemapContext } = sitemapData;
 
@@ -197,6 +193,7 @@ describe('sitemap-data', () => {
       id: 'merchant-1',
       slug: 'ogabassey',
       custom_domain: 'ogabassey.com',
+      feature_settings: { blog_enabled: true },
     });
     const { resolveStorefrontSitemapContext } = sitemapData;
 
@@ -492,6 +489,7 @@ describe('sitemap-data', () => {
       id: 'merchant-1',
       slug: 'ogabassey',
       custom_domain: 'ogabassey.com',
+      feature_settings: { blog_enabled: true },
     });
     const { resolveStorefrontSitemapContext, getSitemapIndexLinks } =
       sitemapData;
@@ -521,9 +519,10 @@ describe('sitemap-data', () => {
       slug: 'ogabassey',
       custom_domain: 'ogabassey.com',
       business_type: 'electronics',
-      feature_settings: { repairs_catalog_enabled: true },
+      // blog_enabled comes straight off the snapshot's feature_settings now;
+      // pinning it false keeps this case about the repairs link alone.
+      feature_settings: { repairs_catalog_enabled: true, blog_enabled: false },
     });
-    mockGetCachedFeatureSettings.mockResolvedValue({ blog_enabled: false });
 
     const { resolveStorefrontSitemapContext, getSitemapIndexLinks } =
       sitemapData;
@@ -552,9 +551,8 @@ describe('sitemap-data', () => {
       slug: 'ogabassey',
       custom_domain: 'ogabassey.com',
       business_type: 'electronics',
-      feature_settings: { repairs_catalog_enabled: false },
+      feature_settings: { repairs_catalog_enabled: false, blog_enabled: false },
     });
-    mockGetCachedFeatureSettings.mockResolvedValue({ blog_enabled: false });
 
     const { resolveStorefrontSitemapContext, getSitemapIndexLinks } =
       sitemapData;
@@ -668,8 +666,8 @@ describe('sitemap-data', () => {
       id: 'merchant-1',
       slug: 'ogabassey',
       custom_domain: 'ogabassey.com',
+      feature_settings: { blog_enabled: false },
     });
-    mockGetCachedFeatureSettings.mockResolvedValue({ blog_enabled: false });
 
     const { resolveStorefrontSitemapContext, getSitemapIndexLinks } =
       sitemapData;
@@ -690,32 +688,21 @@ describe('sitemap-data', () => {
     ]);
   });
 
-  it('keeps the core sitemap index links when the blog feature lookup fails', async () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
-      return undefined;
-    });
-    mockGetCachedFeatureSettings.mockRejectedValue(
-      new Error('feature settings unavailable')
-    );
+  it('keeps the core sitemap index links when the snapshot has no blog flag', () => {
     const { getSitemapIndexLinks } = sitemapData;
 
-    try {
-      const links = await getSitemapIndexLinks({
-        merchant: { id: 'merchant-1', slug: 'ogabassey' },
-        storeUrl: 'https://ogabassey.com',
-        supabase: {},
-      } as unknown as StorefrontSitemapContext);
+    const links = getSitemapIndexLinks({
+      merchant: { id: 'merchant-1', slug: 'ogabassey' },
+      storeUrl: 'https://ogabassey.com',
+      supabase: {},
+    } as unknown as StorefrontSitemapContext);
 
-      expect(links).toEqual([
-        'https://ogabassey.com/sitemap/static.xml',
-        'https://ogabassey.com/sitemap/products.xml',
-        'https://ogabassey.com/sitemap/categories.xml',
-        'https://ogabassey.com/sitemap/commercial-support.xml',
-      ]);
-      expect(warnSpy).toHaveBeenCalled();
-    } finally {
-      warnSpy.mockRestore();
-    }
+    expect(links).toEqual([
+      'https://ogabassey.com/sitemap/static.xml',
+      'https://ogabassey.com/sitemap/products.xml',
+      'https://ogabassey.com/sitemap/categories.xml',
+      'https://ogabassey.com/sitemap/commercial-support.xml',
+    ]);
   });
 
   it('serializes sitemap XML responses with image namespace when needed', async () => {

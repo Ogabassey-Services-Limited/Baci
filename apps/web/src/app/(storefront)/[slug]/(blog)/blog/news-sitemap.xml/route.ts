@@ -1,7 +1,6 @@
 import type { PostgrestError } from '@supabase/supabase-js';
 import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { getCachedFeatureSettings } from '@/lib/cached-data';
 import { filterPublicBlogPosts } from '@/lib/public-blog-content-quality';
 import {
   createSitemapUnavailableResponse,
@@ -141,8 +140,7 @@ export async function GET(
   }
 
   const { merchant, storeUrl, supabase } = sitemapContext;
-  const features = await getCachedFeatureSettings(merchant.id);
-  if (!features?.blog_enabled) {
+  if (!merchant.feature_settings?.blog_enabled) {
     return createNewsSitemapResponse([]);
   }
 

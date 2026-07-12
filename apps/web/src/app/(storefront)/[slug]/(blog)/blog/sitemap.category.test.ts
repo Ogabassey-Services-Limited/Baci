@@ -11,14 +11,10 @@ vi.mock('next/headers', () => ({
 }));
 
 const mockGetMerchantByIdentifier = vi.fn();
-const mockGetCachedFeatureSettings =
-  vi.fn<(merchantId: string) => Promise<{ blog_enabled: boolean }>>();
 
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: (...args: unknown[]) =>
     mockGetMerchantByIdentifier(...args),
-  getCachedFeatureSettings: (merchantId: string) =>
-    mockGetCachedFeatureSettings(merchantId),
 }));
 
 interface BlogPostRow {
@@ -105,9 +101,7 @@ describe('blog category sitemap entries', () => {
       id: 'merchant-1',
       slug: 'ogabassey',
       custom_domain: 'ogabassey.com',
-    });
-    mockGetCachedFeatureSettings.mockResolvedValue({
-      blog_enabled: true,
+      feature_settings: { blog_enabled: true },
     });
     mockEq.mockImplementation(() => ({ eq: mockEq, not: mockNot }));
   });

@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCacheLife = vi.fn();
 const mockCacheTag = vi.fn();
-const mockGetCachedFeatureSettings = vi.fn();
 const mockGetMerchantStrict = vi.fn();
 const mockGetPublicSupabaseClient = vi.fn();
 
@@ -12,8 +11,6 @@ vi.mock('next/cache', () => ({
 }));
 
 vi.mock('@/lib/cached-data', () => ({
-  getCachedFeatureSettings: (...args: unknown[]) =>
-    mockGetCachedFeatureSettings(...args),
   getMerchantStrict: (...args: unknown[]) => mockGetMerchantStrict(...args),
   getPublicSupabaseClient: (...args: unknown[]) =>
     mockGetPublicSupabaseClient(...args),
@@ -43,8 +40,8 @@ describe('resolveBlogCategoryHub', () => {
       business_name: 'Ogabassey',
       custom_domain: 'ogabassey.com',
       slug: 'ogabassey',
+      feature_settings: { blog_enabled: true },
     });
-    mockGetCachedFeatureSettings.mockResolvedValue({ blog_enabled: true });
   });
 
   it('resolves a public category slug to its label and clean canonical URL', async () => {
@@ -71,7 +68,13 @@ describe('resolveBlogCategoryHub', () => {
   });
 
   it('returns null when the blog feature is disabled', async () => {
-    mockGetCachedFeatureSettings.mockResolvedValue({ blog_enabled: false });
+    mockGetMerchantStrict.mockResolvedValue({
+      id: 'merchant-1',
+      business_name: 'Ogabassey',
+      custom_domain: 'ogabassey.com',
+      slug: 'ogabassey',
+      feature_settings: { blog_enabled: false },
+    });
 
     await expect(
       resolveBlogCategoryHub('ogabassey.com', 'smartphones')
@@ -85,7 +88,6 @@ describe('resolveBlogCategoryHub', () => {
     await expect(
       resolveBlogCategoryHub('unknown.com', 'smartphones')
     ).resolves.toBeNull();
-    expect(mockGetCachedFeatureSettings).not.toHaveBeenCalled();
     expect(mockGetPublicSupabaseClient).not.toHaveBeenCalled();
   });
 
