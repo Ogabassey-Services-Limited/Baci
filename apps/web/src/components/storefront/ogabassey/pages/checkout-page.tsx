@@ -14,6 +14,7 @@ import {
   Plane,
   ShieldCheck,
   ShoppingBag,
+  Store,
   Truck,
   Check,
   Copy,
@@ -62,14 +63,17 @@ import { getCredPalKey, openCredPalCheckout } from '@/lib/credpal';
 import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
 import { asRoute } from '@/lib/routes';
 import { AUTO_FRACTION_OPTIONS } from '@/lib/currency';
+import { getCountryByCode } from '@/lib/countries';
 import { formatAmountInCurrency } from '@/lib/resolve-merchant-currency';
 import type { ShippingQuote } from '@/types/shipping-quote';
+import { getSubdivisions } from '@/lib/shipping/merchant-rates/subdivisions';
 import { toast } from '@/hooks/use-toast';
 import { createClient } from '@/lib/supabase/client';
 import { calculateCommerce } from '@/lib/supabase/client';
 import { buildCheckoutOrderItems } from '@/lib/checkout/build-order-items';
 import { hasStorefrontPriceNegotiation } from '@/lib/storefront-price-negotiation';
 import {
+  calculateCartCatalogSubtotal,
   calculateCartItemSubtotal,
   calculateCartTotal,
   getCartItemCheckoutUnitPrice,
@@ -107,12 +111,17 @@ import {
   KLUMP_WALLET_CREDIT_UNAVAILABLE_TOAST,
   createSelectDeliveryMethod,
   getAirDeliveryQuotes,
+  getDeliveryEstimateLabel,
   getDoorDeliveryQuotes,
+  getForwardableSelectedQuoteId,
+  getMerchantRateId,
+  getPickupStationCopy,
   getStationPickupAddressText,
   getStationPickupQuote,
   getStationPickupQuotes,
   inferAddressLocationFromInput,
   isGiglGoFasterQuote,
+  isMerchantQuote,
   isStationPickupQuote,
   isKlumpUnavailableForGatewayAmount,
   resetDeliveryQuotesForAddressChange,
@@ -167,6 +176,18 @@ const MANUAL_ADDRESS_LOCATION_DEBOUNCE_MS = 500;
 function raiseCheckoutError(message: string): never {
   throw new Error(message);
 }
+
+/**
+ * /api/orders rejection codes raised by the merchant-shipping-rate money guard.
+ * They all mean "the fee the client quoted no longer matches the merchant's
+ * rate config for this destination/subtotal" — surface a single re-quote hint.
+ */
+const SHIPPING_RATE_REJECTION_CODES = new Set([
+  'SHIPPING_FEE_MISMATCH',
+  'SHIPPING_RATE_INVALID',
+  'SHIPPING_RATE_ZONE_MISMATCH',
+  'SHIPPING_RATE_CONDITION_UNMET',
+]);
 
 interface ResumedOrderFormFields {
   firstName: string;
@@ -281,25 +302,61 @@ async function loadResumedCheckoutOrder({
 }
 
 interface LoadShippingStatesParams {
+  /** Merchant country (ISO-2, upper-case) the address form is keyed to. */
+  merchantCountry: string;
+  /**
+   * Aborted by the effect cleanup when `merchantCountry` changes so a stale NG
+   * `/api/shipping/locations` response can't clobber a fresher subdivision list.
+   */
+  signal: AbortSignal;
   setIsLoadingLocations: (isLoading: boolean) => void;
   setShippingStates: (states: string[]) => void;
 }
 
 async function loadShippingStates({
+  merchantCountry,
+  signal,
   setIsLoadingLocations,
   setShippingStates,
 }: LoadShippingStatesParams): Promise<void> {
+  // Non-NG markets derive their state list from the merchant-country
+  // subdivision vocabulary (IN/AE ship real states; unsupported countries
+  // yield [] — a graceful, no-worse-than-today fallback). NG keeps the rich
+  // /api/shipping/locations dataset AND its state->city sub-fetch untouched.
+  if (merchantCountry !== 'NG') {
+    setShippingStates(
+      getSubdivisions(merchantCountry).map((subdivision) => subdivision.name)
+    );
+    return;
+  }
+
   setIsLoadingLocations(true);
   try {
-    const res = await fetch('/api/shipping/locations');
+    const res = await fetch('/api/shipping/locations', { signal });
+    // A newer merchantCountry (e.g. NG→IN once an async merchant resolves)
+    // aborts this request via the effect cleanup. Bail before overwriting the
+    // fresh non-NG subdivisions with the stale NG payload. Checking
+    // `signal.aborted` (not just relying on the fetch to reject) also covers
+    // mocked/instant fetches that resolve regardless of the abort.
+    if (signal.aborted) {
+      return;
+    }
     if (res.ok) {
       const data = await res.json();
+      if (signal.aborted) {
+        return;
+      }
       setShippingStates(data.states || []);
     }
   } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      return;
+    }
     console.error('Failed to fetch states', error);
   } finally {
-    setIsLoadingLocations(false);
+    if (!signal.aborted) {
+      setIsLoadingLocations(false);
+    }
   }
 }
 
@@ -469,6 +526,12 @@ export const CheckoutPage: React.FC = () => {
   const merchantContext = useMerchantSafe();
   const merchant = merchantContext?.merchant;
 
+  // Address-form country: the merchant's own market (ISO-2, upper-case), NG as
+  // the pilot default when unset. Drives the state list source, the Places
+  // country bias, and whether the NG-only state->city sub-fetch runs — so a
+  // non-NG merchant's shoppers can populate state/city and reach merchant rates.
+  const merchantCountry = (merchant?.country?.trim() || 'NG').toUpperCase();
+
   // Merchant-resolved currency (payout_currency first, country second, NGN
   // fallback). `currencyCode` is sent to /api/payments/initialize instead of a
   // hardcoded 'NGN'; the compact formatter renders order amounts.
@@ -485,6 +548,16 @@ export const CheckoutPage: React.FC = () => {
     .join('|');
 
   const checkoutCartTotal = calculateCartTotal(
+    checkoutCart,
+    hasPriceNegotiation
+  );
+
+  // Catalog (pre-negotiation) subtotal sent to the quotes API. The order-time
+  // merchant-rate fee guard verifies free-over / price-tier thresholds against
+  // the canonical CATALOG subtotal, so quoting with the negotiated
+  // `checkoutCartTotal` could select a different tier and fail-closed 400 a
+  // legitimate checkout. See `calculateCartCatalogSubtotal`.
+  const checkoutCartCatalogSubtotal = calculateCartCatalogSubtotal(
     checkoutCart,
     hasPriceNegotiation
   );
@@ -1012,7 +1085,17 @@ export const CheckoutPage: React.FC = () => {
   const quoteRequestSequence = useRef(0);
   const quoteAbortController = useRef<AbortController | null>(null);
   const stationPickupQuote = getStationPickupQuote(shippingQuotes);
+  // All pickup options for this zone. A merchant can configure several pickup
+  // locations, so when there is more than one we render a selectable list
+  // instead of collapsing to the first quote.
   const stationPickupQuotes = getStationPickupQuotes(shippingQuotes);
+  // True when the merchant configured at least one PICKUP rate for this zone.
+  // `stationPickupQuote` is only the FIRST station-pickup quote, which can be a
+  // GIGL station when both a GIGL station and a merchant pickup are returned —
+  // so delivery-tab visibility must key off ALL station-pickup quotes, not the
+  // first, otherwise the free hardcoded legacy pickup tab would leak through and
+  // let a Lagos shopper bypass the merchant's configured pickup fee.
+  const hasMerchantPickupQuote = stationPickupQuotes.some(isMerchantQuote);
   const doorDeliveryQuotes = getDoorDeliveryQuotes(shippingQuotes);
   const airDeliveryQuotes = getAirDeliveryQuotes(shippingQuotes);
   const selectedQuote = shippingQuotes.find(
@@ -1052,6 +1135,32 @@ export const CheckoutPage: React.FC = () => {
   );
   if (eligibleDeliveryMethod !== deliveryMethod) {
     setDeliveryMethod(eligibleDeliveryMethod);
+  }
+
+  // R16-2: when the merchant exposes pickup rates for this zone, the legacy
+  // hardcoded `pickup` tab is HIDDEN (see the tab list). But a shopper who had
+  // already selected legacy `pickup` while the quotes were still loading would
+  // otherwise keep `deliveryMethod === 'pickup'` — the card is merely hidden,
+  // `rawIsDeliveryValid` still treats pickup as valid, and the order submits
+  // `shipping_fee: 0` with no `shipping_rate_id`, bypassing the merchant pickup
+  // fee. Force the selection onto the merchant pickup rate so the fee is
+  // applied. react.dev "adjust state during render when a derived value
+  // changes" pattern (NOT a manual memo). Guarded on legacy `pickup` still
+  // being the ELIGIBLE method so it can never override the eligibility redirect
+  // above; only fires when a merchant pickup quote exists, leaving NG /
+  // non-merchant pickup-less flows untouched.
+  const firstMerchantPickupQuoteId = hasMerchantPickupQuote
+    ? (stationPickupQuotes.find(isMerchantQuote)?.id ?? '')
+    : '';
+  if (
+    hasMerchantPickupQuote &&
+    deliveryMethod === 'pickup' &&
+    eligibleDeliveryMethod === 'pickup'
+  ) {
+    setDeliveryMethod('pickup_station');
+    if (firstMerchantPickupQuoteId) {
+      setSelectedQuoteId(firstMerchantPickupQuoteId);
+    }
   }
 
   // Delivery step validation (hydration-safe)
@@ -1109,10 +1218,22 @@ export const CheckoutPage: React.FC = () => {
     setCheckoutFields,
   ]);
 
-  // Fetch States on mount (try/finally hoisted to module scope for the compiler)
+  // Load the address state list. NG hits /api/shipping/locations (rich data);
+  // non-NG markets derive their states from the subdivision vocabulary. Keyed
+  // on merchantCountry so it settles correctly once the merchant resolves.
+  // (try/finally hoisted to module scope for the compiler.)
   useEffect(() => {
-    loadShippingStates({ setIsLoadingLocations, setShippingStates });
-  }, []);
+    const controller = new AbortController();
+    loadShippingStates({
+      merchantCountry,
+      signal: controller.signal,
+      setIsLoadingLocations,
+      setShippingStates,
+    });
+    return () => {
+      controller.abort();
+    };
+  }, [merchantCountry]);
 
   // Clear stale city options inline during render when the selected state is
   // reset (react.dev "adjusting state when a prop changes" pattern — avoids a
@@ -1125,9 +1246,12 @@ export const CheckoutPage: React.FC = () => {
     }
   }
 
-  // Fetch Cities when State changes
+  // Fetch Cities when State changes. NG-only: the /api/shipping/locations city
+  // dataset is Nigerian. Non-NG cities come from the typed address via
+  // inferAddressLocationFromInput's rawCity (no list lookup needed), so a NG
+  // city fetch must never fire for a non-NG address.
   useEffect(() => {
-    if (!newAddressState) {
+    if (merchantCountry !== 'NG' || !newAddressState) {
       return;
     }
     const fetchCities = async () => {
@@ -1148,7 +1272,7 @@ export const CheckoutPage: React.FC = () => {
       }
     };
     fetchCities();
-  }, [newAddressState]);
+  }, [merchantCountry, newAddressState]);
 
   // Function to fetch quotes. The async core (with its try/finally and
   // synchronous loading-state writes) lives in module-scope
@@ -1179,6 +1303,14 @@ export const CheckoutPage: React.FC = () => {
             deliveryPreference,
             latitude: deliveryCoordinates?.latitude,
             longitude: deliveryCoordinates?.longitude,
+            // Domestic (v1): the destination country is the merchant's own
+            // country so merchant rate zones match; checkout keeps the free-text
+            // state. `getCountryByCode` accepts a code or falls back to Nigeria.
+            countryCode: merchantCountry,
+            country: getCountryByCode(merchantCountry)?.name ?? 'Nigeria',
+            // Catalog (pre-negotiation) basis so free-over / price-tier merchant
+            // rates quote at the same tier the order-time fee guard verifies.
+            cartSubtotal: checkoutCartCatalogSubtotal,
           },
           checkoutCart,
           {
@@ -1264,6 +1396,13 @@ export const CheckoutPage: React.FC = () => {
     resolvedQuoteRequestKey,
     deliveryCoordinates?.latitude,
     deliveryCoordinates?.longitude,
+    // Re-quote when the canonical CATALOG subtotal shifts without the item
+    // fingerprint changing — e.g. toggling assurance or changing an assurance
+    // rate. That basis is what free-over / price-tier merchant rates quote
+    // against and what `/api/orders` recomputes the fee guard from, so a stale
+    // fee here would fail-closed a legitimate cart. Derived from cart state, so
+    // it is stable between renders and never loops.
+    checkoutCartCatalogSubtotal,
   ]);
 
 
@@ -1734,6 +1873,14 @@ export const CheckoutPage: React.FC = () => {
       city: finalCity,
       state: finalState,
       phone: customerPhone || selectedAddress?.phone || '',
+      // Persist the merchant country so stored orders and the immediate
+      // invoice/receipt carry the real country instead of the downstream `NG`
+      // fallback — a non-NG (IN/AE) order is quoted+charged for the merchant
+      // country and must be invoiced for it too. Mirrors the country the
+      // shipping quote request already sends. NG orders now carry
+      // 'Nigeria'/'NG' explicitly, which is exactly what the fallback assumed.
+      countryCode: merchantCountry,
+      country: getCountryByCode(merchantCountry)?.name ?? 'Nigeria',
     };
 
     // Identify selected shipping provider.
@@ -1747,6 +1894,24 @@ export const CheckoutPage: React.FC = () => {
     // separately; admin order views can still show "Pickup"/"Airport".
     let shippingProvider: string | null = null;
     let trackingNumber = undefined;
+
+    // Merchant-configured rate selection (id `mrate_<uuid>`). When present the
+    // order takes the RPC null-provider bypass and sends `shipping_rate_id`
+    // instead; the route recomputes the fee from rate config server-side.
+    //
+    // Only the QUOTED methods (`door`/`pickup_station`) carry a merchant rate.
+    // Guard the extraction so a stale `mrate_<uuid>` left in `selectedQuoteId`
+    // after switching to legacy `pickup`/`airport` (which submit
+    // `selected_quote_id: null` + `shipping_fee: 0`) never leaks a
+    // `shipping_rate_id` into the body — that would make /api/orders treat a
+    // store-pickup/airport checkout as a merchant-rate order and reject it with
+    // `SHIPPING_FEE_MISMATCH` (paid rate) or route the wrong provider (free
+    // rate). Mirrors how `getForwardableSelectedQuoteId` restricts
+    // `selected_quote_id` to the same two methods.
+    const merchantRateId =
+      deliveryMethod === 'door' || deliveryMethod === 'pickup_station'
+        ? getMerchantRateId(selectedQuoteId)
+        : null;
 
     // Prepare order items for API
     const orderItems = buildCheckoutOrderItems(checkoutCart);
@@ -1780,7 +1945,9 @@ export const CheckoutPage: React.FC = () => {
       selectedQuoteId
     ) {
       if (selectedQuote && selectedQuoteMatchesDeliveryMethod) {
-        shippingProvider = selectedQuote.provider; // e.g. 'GIGL', 'Topship'
+        // Merchant rates take the null-provider path (fee recomputed from rate
+        // config); only carrier quotes stamp a bookable provider.
+        shippingProvider = merchantRateId ? null : selectedQuote.provider; // e.g. 'GIGL', 'Topship'
       } else {
         // B3 review fix #1: do NOT fabricate a 'Standard' provider —
         // selectedQuoteId is dangling (stored id with no matching
@@ -1850,12 +2017,24 @@ export const CheckoutPage: React.FC = () => {
         checkoutFingerprint,
         paymentMethod: normalizedPaymentMethod,
         shippingProvider,
+        // Airport (GIGL GoFaster) forwards its real carrier quote id only when
+        // the current selection matches the airport method. Door/pickup use
+        // `getForwardableSelectedQuoteId`, which additionally omits a merchant
+        // rate's synthetic `mrate_<uuid>` id — the reuse route validates
+        // `selected_quote_id` as a UUID and would 400 (clearing the stored
+        // pending order). Reuse reopens an already-fee-verified order and does
+        // not re-verify shipping, so omitting the id is safe.
         selectedQuoteId:
-          deliveryMethod === 'door' ||
-          deliveryMethod === 'pickup_station' ||
-          (deliveryMethod === 'airport' && selectedQuoteMatchesDeliveryMethod)
-            ? selectedQuoteId || undefined
-            : undefined,
+          deliveryMethod === 'airport'
+            ? selectedQuoteMatchesDeliveryMethod
+              ? selectedQuoteId || undefined
+              : undefined
+            : getForwardableSelectedQuoteId(deliveryMethod, selectedQuoteId),
+        // R14-3: forward the BARE merchant rate id so the reuse route can
+        // re-stamp fulfillment metadata if the original stamp failed. This is
+        // the null-provider path's identity (selected_quote_id stays omitted
+        // above — the `mrate_` id is not a uuid the reuse schema accepts).
+        shippingRateId: merchantRateId ?? undefined,
       });
 
       if (reusablePendingOrder.clearStoredOrder) {
@@ -1939,20 +2118,24 @@ export const CheckoutPage: React.FC = () => {
             shipping_address: shippingAddressData,
             source: 'online_store',
             shipping_provider: shippingProvider,
-            // B3 review fix (PR #1611): explicit null on the wire,
-            // and coerce empty string → null too. `selectedQuoteId`
-            // is `useState<string>('')` so it can be `''` if the
-            // pre-submit guard above is somehow bypassed (future
-            // refactor, race). `selectedQuoteId || null` covers both
-            // empty string AND undefined defensively. The RPC schema
-            // is `.nullable().optional()` so null is canonical.
+            // Merchant-rate orders: send the bare rate id and force the null
+            // shipping_provider/selected_quote_id path (there is no persisted
+            // quote row to book). The route recomputes + verifies the fee.
+            ...(merchantRateId ? { shipping_rate_id: merchantRateId } : {}),
+            // B3 review fix (PR #1611): explicit null on the wire. The RPC
+            // schema is `.nullable().optional()` so null is canonical. Merchant
+            // rates always resolve to null here (they carry shipping_rate_id);
+            // pickup/airport and an empty/dangling selection also resolve to
+            // null. Shared with the reuse path so the two can't drift.
             selected_quote_id:
-              deliveryMethod === 'door' ||
-              deliveryMethod === 'pickup_station' ||
-              (deliveryMethod === 'airport' &&
-                selectedQuoteMatchesDeliveryMethod)
-                ? selectedQuoteId || null
-                : null,
+              deliveryMethod === 'airport'
+                ? selectedQuoteMatchesDeliveryMethod
+                  ? selectedQuoteId || null
+                  : null
+                : (getForwardableSelectedQuoteId(
+                    deliveryMethod,
+                    selectedQuoteId,
+                  ) ?? null),
             // Wallet redemption (2025: auto-apply at checkout)
             use_wallet_credit: payWithWallet && walletAmountUsed > 0,
             wallet_amount: walletAmountUsed,
@@ -1997,6 +2180,13 @@ export const CheckoutPage: React.FC = () => {
             details: errorData.details,
             fullResponse: errorData
           });
+          if (SHIPPING_RATE_REJECTION_CODES.has(errorCode)) {
+            // The merchant re-priced / re-zoned their rate under us; ask the
+            // customer to refresh so a fresh quote (and fee) is fetched.
+            raiseCheckoutError(
+              'Shipping cost changed — please refresh and try again.'
+            );
+          }
           raiseCheckoutError(getCheckoutOrderErrorMessage(errorData));
         }
 
@@ -3403,6 +3593,7 @@ export const CheckoutPage: React.FC = () => {
                               const inferred = inferAddressLocationFromInput(
                                 newVal,
                                 shippingStates,
+                                merchantCountry,
                               );
                               if (inferred) {
                                 resetQuotesForAddressChange();
@@ -3437,7 +3628,7 @@ export const CheckoutPage: React.FC = () => {
                               }
                             }}
                             placeholder="Start typing your address..."
-                            country="NG"
+                            country={merchantCountry}
                             className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-hidden focus-visible:ring-0 focus:border-store-primary text-sm text-gray-900 placeholder:text-gray-400"
                           />
                           {isHydrated && newAddressState && newAddressCity && (
@@ -3458,16 +3649,30 @@ export const CheckoutPage: React.FC = () => {
                           </label>
                           <div className="flex gap-3 overflow-x-auto pb-1">
                             {(['door', 'airport', 'pickup_station', 'pickup'] as const).map((method) => {
-                              // Store ships from Lagos: pickup is Lagos-only and
-                              // airport is for non-Lagos states with an airport.
-                              // Shared with the mobile storefront so they can't drift.
+                              // Store ships from Lagos: the legacy in-store
+                              // pickup is Lagos-only and airport is for non-Lagos
+                              // states with an airport. Shared with the mobile
+                              // storefront so they can't drift. Exception: a
+                              // merchant/GIGL station quote reveals the
+                              // provider-aware pickup_station tab even in Lagos,
+                              // so merchant-configured pickup rates aren't hidden.
                               if (
                                 method === 'pickup_station' &&
-                                isPickupEligible(newAddressState)
+                                isPickupEligible(newAddressState) &&
+                                !stationPickupQuote &&
+                                !hasMerchantPickupQuote
                               ) {
                                 return null;
                               }
-                              if (method === 'pickup' && !isPickupEligible(newAddressState)) {
+                              if (
+                                method === 'pickup' &&
+                                (!isPickupEligible(newAddressState) ||
+                                  hasMerchantPickupQuote)
+                              ) {
+                                // Hide the hardcoded in-store pickup once the
+                                // merchant configures its own pickup rate — the
+                                // pickup_station tab renders it (avoids a
+                                // duplicate "Store Pickup" affordance).
                                 return null;
                               }
                               if (
@@ -3477,12 +3682,16 @@ export const CheckoutPage: React.FC = () => {
                                 return null;
                               }
 
+                              // Merchant `pickup` rates reuse the station-pickup
+                              // tab with neutral (non-GIGL) copy.
+                              const pickupStationCopy =
+                                getPickupStationCopy(stationPickupQuote);
                               const Icon = method === 'door' ? Truck : method === 'airport' ? Plane : Building2;
                               const label =
                                 method === 'door'
                                   ? 'By Road'
                                   : method === 'pickup_station'
-                                    ? 'Pickup Station'
+                                    ? pickupStationCopy.methodLabel
                                     : method === 'pickup'
                                       ? 'Store Pickup'
                                       : 'By Air';
@@ -3490,7 +3699,7 @@ export const CheckoutPage: React.FC = () => {
                                 method === 'door'
                                   ? 'To your address'
                                   : method === 'pickup_station'
-                                    ? 'Collect at service centre'
+                                    ? pickupStationCopy.methodSubtitle
                                     : method === 'pickup'
                                       ? 'Collect at store'
                                       : 'Via air cargo';
@@ -3532,13 +3741,18 @@ export const CheckoutPage: React.FC = () => {
                           </div>
                         )}
 
-                        {deliveryMethod === 'pickup_station' && (
-                          isLoadingQuotes ? (
+                        {deliveryMethod === 'pickup_station' &&
+                          (isLoadingQuotes ? (
                             <SmartQuoteLoader />
                           ) : stationPickupQuotes.length > 0 ? (
+                            // A merchant/GIGL zone can expose several pickup
+                            // locations: render every one as an individually
+                            // selectable option instead of collapsing to the
+                            // first. Copy is provider-aware (GIGL vs merchant
+                            // "Store Pickup") via getPickupStationCopy.
                             <fieldset className="m-0 mt-4 min-w-0 border-0 p-0 animate-in fade-in">
                               <legend className="mb-3 text-xs font-bold uppercase tracking-wide text-store-background-text/70">
-                                Select Pickup Station (GIGL)
+                                {getPickupStationCopy(stationPickupQuote).detailHeading}
                               </legend>
                               <div className="space-y-3">
                                 {stationPickupQuotes.map((quote) => (
@@ -3563,8 +3777,13 @@ export const CheckoutPage: React.FC = () => {
                                         </span>
                                         <p className="mt-0.5 text-xs text-store-background-text/65">
                                           {quote.stationAddress ||
-                                            'Collect from this GIGL service centre.'}
+                                            getPickupStationCopy(quote).detailFallback}
                                         </p>
+                                        {quote.stationInstructions && (
+                                          <p className="mt-1 text-xs text-store-background-text/55">
+                                            {quote.stationInstructions}
+                                          </p>
+                                        )}
                                       </div>
                                     </div>
                                     <span className="shrink-0 text-sm font-bold text-store-background-text">
@@ -3578,8 +3797,7 @@ export const CheckoutPage: React.FC = () => {
                             <div className="mt-4 rounded-xl border border-store-background-text/10 bg-store-background p-4 text-sm text-store-background-text/65">
                               No nearby GIG Logistics pickup station is available for this address yet.
                             </div>
-                          )
-                        )}
+                          ))}
 
                         {/* Airport Options */}
                         {deliveryMethod === 'airport' && (
@@ -3725,12 +3943,22 @@ export const CheckoutPage: React.FC = () => {
                                       <div>
                                         <div className="flex items-center gap-2">
                                           <span className="text-sm font-bold text-gray-900">{quote.displayName}</span>
-                                          {quote.carrierName.includes('GIG') && <span className="text-[10px] bg-black text-white px-1.5 py-0.5 rounded font-bold">GIGL</span>}
-                                          {quote.carrierName.includes('Topship') && <span className="text-[10px] bg-blue-600 text-white px-1.5 py-0.5 rounded font-bold">Best Value</span>}
+                                          {isMerchantQuote(quote) ? (
+                                            <span className="inline-flex items-center gap-1 text-[10px] bg-store-primary/10 text-store-primary px-1.5 py-0.5 rounded font-bold">
+                                              <Store size={11} /> Store
+                                            </span>
+                                          ) : (
+                                            <>
+                                              {quote.carrierName.includes('GIG') && <span className="text-[10px] bg-black text-white px-1.5 py-0.5 rounded font-bold">GIGL</span>}
+                                              {quote.carrierName.includes('Topship') && <span className="text-[10px] bg-blue-600 text-white px-1.5 py-0.5 rounded font-bold">Best Value</span>}
+                                            </>
+                                          )}
                                         </div>
-                                        <p className="text-xs text-gray-500 mt-0.5">
-                                          Est. Delivery: {quote.deliveryRange || `${quote.estimatedDays} days`}
-                                        </p>
+                                        {getDeliveryEstimateLabel(quote) && (
+                                          <p className="text-xs text-gray-500 mt-0.5">
+                                            Est. Delivery: {getDeliveryEstimateLabel(quote)}
+                                          </p>
+                                        )}
                                       </div>
                                     </div>
                                     <span className="font-bold text-sm text-gray-900">
@@ -3747,10 +3975,10 @@ export const CheckoutPage: React.FC = () => {
                                   </div>
                                   <div className="min-w-0 flex-1">
                                     <h4 className="text-sm font-bold text-store-background-text">
-                                      GIGL doesn't currently support door delivery to this location.
+                                      {getPickupStationCopy(stationPickupQuote).doorUnavailableTitle}
                                     </h4>
                                     <p className="mt-1 text-xs text-store-background-text/65">
-                                      Choose Pickup Stations (GIGL) to collect from a nearby service centre.
+                                      {getPickupStationCopy(stationPickupQuote).doorUnavailableBody}
                                     </p>
                                     <p className="mt-3 text-xs font-medium text-store-background-text">
                                       {getStationPickupAddressText(stationPickupQuote) ||
@@ -3768,7 +3996,7 @@ export const CheckoutPage: React.FC = () => {
                                         }}
                                         className="inline-flex items-center justify-center rounded-full bg-store-primary px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-store-primary/90"
                                       >
-                                        Choose Pickup Stations (GIGL)
+                                        {getPickupStationCopy(stationPickupQuote).chooseButtonLabel}
                                       </button>
                                     </div>
                                   </div>

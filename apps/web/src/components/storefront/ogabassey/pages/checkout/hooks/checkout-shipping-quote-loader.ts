@@ -23,6 +23,15 @@ interface QuoteReceiver {
   deliveryPreference: 'door' | 'pickup_station';
   latitude?: number;
   longitude?: number;
+  /** Merchant-country display name (e.g. 'Nigeria', 'India') — no longer hardcoded to Nigeria. */
+  country: string;
+  /** Merchant-country ISO code (e.g. 'NG', 'IN'), drives country-aware merchant zone matching. */
+  countryCode: string;
+  /**
+   * Catalog subtotal (merchant-currency major units) forwarded as `cart_subtotal`
+   * so the route can evaluate free-over/price-tier merchant rate conditions.
+   */
+  cartSubtotal: number;
 }
 
 interface QuoteState {
@@ -60,6 +69,14 @@ function buildQuoteRequestKey(receiver: QuoteReceiver, cart: QuoteCartItem[]) {
     state: receiver.state.trim().toLowerCase(),
     latitude: receiver.latitude,
     longitude: receiver.longitude,
+    // A catalog-subtotal change (e.g. assurance toggle) can flip merchant
+    // free-over/price-tier rates even when the item list is unchanged, so the
+    // subtotal is part of the request key to force a re-quote.
+    cartSubtotal: receiver.cartSubtotal,
+    // A merchant-country change re-quotes because it drives country-aware zone
+    // matching (non-NG merchants resolve different zones/rates).
+    country: receiver.country,
+    countryCode: receiver.countryCode,
   });
 }
 
@@ -102,7 +119,10 @@ export async function loadCheckoutShippingQuotes(
           address: receiver.address,
           city: receiver.city,
           state: receiver.state,
-          country: 'Nigeria',
+          // Country is derived from the merchant (not hardcoded Nigeria) so a
+          // non-NG merchant quotes against its own country-aware zones/rates.
+          country: receiver.country,
+          countryCode: receiver.countryCode,
           ...(Number.isFinite(receiver.latitude) &&
           Number.isFinite(receiver.longitude)
             ? {
@@ -117,6 +137,14 @@ export async function loadCheckoutShippingQuotes(
           weight: 1,
           value: item.negotiatedPrice ?? item.price,
         })),
+        // Catalog subtotal lets the route evaluate merchant free-over /
+        // price-tier rate conditions at quote time (advisory; order creation
+        // re-derives the fee server-side).
+        cart_subtotal: receiver.cartSubtotal,
+        // Opt-in: this client can thread a merchant rate's synthetic
+        // `mrate_<uuid>` id back as `shipping_rate_id`, so the route may return
+        // (otherwise gated) merchant-configured rates.
+        supports_merchant_rates: true,
       }),
       signal: abortController.signal,
     });

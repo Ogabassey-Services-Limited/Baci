@@ -15,6 +15,7 @@ import {
   readOptionalShippingFee,
   readReuseQuoteValidationContext,
 } from './quote-validation-context';
+import { restampMerchantRateOnReuse } from './restamp-merchant-rate';
 import { shippingProviderResolution } from './shipping-provider-resolution';
 
 function mapReuseOrderError(
@@ -256,6 +257,18 @@ export async function POST(request: NextRequest) {
         },
         { status: mappedError.status }
       );
+    }
+
+    // R14-3: if the checkout forwarded a merchant rate id (a reopened
+    // merchant-rate order whose original post-create stamp may have failed),
+    // best-effort re-stamp the fulfillment provider + rate name. Never rejects
+    // the reuse — the order is prepared regardless of the stamp outcome.
+    if (parsed.data.shipping_rate_id) {
+      await restampMerchantRateOnReuse({
+        orderId: parsed.data.order_id,
+        merchantId: parsed.data.merchant_id,
+        shippingRateId: parsed.data.shipping_rate_id,
+      });
     }
 
     return NextResponse.json({ order });

@@ -236,4 +236,96 @@ describe('OrderDetailsClientPage', () => {
       screen.getByText('No tracking information available.')
     ).toBeInTheDocument();
   });
+
+  it('surfaces the merchant shipping rate name for a merchant-rate order', () => {
+    render(
+      <OrderDetailsClientPage
+        initialOrder={makeOrder({
+          shipping_provider: 'MERCHANT_PICKUP',
+          shipping_rate_name: 'Ikeja Store Pickup',
+        })}
+      />
+    );
+
+    // The human rate name (pickup location / zone / tier) is shown instead of
+    // the bare `MERCHANT_PICKUP` provider label.
+    expect(screen.getByText('Shipping Method')).toBeInTheDocument();
+    expect(screen.getByText('Ikeja Store Pickup')).toBeInTheDocument();
+    expect(screen.queryByText('MERCHANT_PICKUP')).not.toBeInTheDocument();
+    // Merchant-pickup orders have no tracking, yet still show the method.
+    expect(
+      screen.queryByText('No tracking information available.')
+    ).not.toBeInTheDocument();
+  });
+
+  it('falls back to the provider label when no shipping rate name is present', () => {
+    render(
+      <OrderDetailsClientPage
+        initialOrder={makeOrder({ shipping_provider: 'Topship' })}
+      />
+    );
+
+    expect(screen.getByText('Provider')).toBeInTheDocument();
+    expect(screen.getByText('Topship')).toBeInTheDocument();
+  });
+
+  it('renders the pickup collection address and instructions for a merchant-pickup order', () => {
+    render(
+      <OrderDetailsClientPage
+        initialOrder={makeOrder({
+          shipping_provider: 'MERCHANT_PICKUP',
+          shipping_rate_name: 'Ikeja Store Pickup',
+          shipping_pickup_details: {
+            label: 'Ikeja Flagship Store',
+            address: '12 Allen Avenue',
+            city: 'Ikeja',
+            state: 'Lagos',
+            countryCode: 'NG',
+            instructions: 'Ring the bell twice and ask for Ada',
+          },
+        })}
+      />
+    );
+
+    expect(screen.getByText('Pickup Location')).toBeInTheDocument();
+    expect(screen.getByText('Ikeja Flagship Store')).toBeInTheDocument();
+    expect(
+      screen.getByText('12 Allen Avenue, Ikeja, Lagos')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Ring the bell twice and ask for Ada')
+    ).toBeInTheDocument();
+  });
+
+  it('renders no pickup location block when the snapshot is null', () => {
+    render(
+      <OrderDetailsClientPage
+        initialOrder={makeOrder({
+          shipping_provider: 'MERCHANT_PICKUP',
+          shipping_rate_name: 'Ikeja Store Pickup',
+          shipping_pickup_details: null,
+        })}
+      />
+    );
+
+    expect(screen.queryByText('Pickup Location')).not.toBeInTheDocument();
+  });
+
+  it('does not render a pickup location block for a non-pickup order carrying a stray snapshot', () => {
+    render(
+      <OrderDetailsClientPage
+        initialOrder={makeOrder({
+          shipping_provider: 'MERCHANT',
+          shipping_rate_name: 'Express Delivery',
+          shipping_pickup_details: {
+            label: 'Should Not Show',
+            address: '99 Hidden Road',
+          },
+        })}
+      />
+    );
+
+    expect(screen.queryByText('Pickup Location')).not.toBeInTheDocument();
+    expect(screen.queryByText('Should Not Show')).not.toBeInTheDocument();
+  });
 });

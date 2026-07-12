@@ -14,9 +14,14 @@ vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: vi.fn(),
 }));
 
+vi.mock('./restamp-merchant-rate', () => ({
+  restampMerchantRateOnReuse: vi.fn(),
+}));
+
 import { cookies } from 'next/headers';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { createClient } from '@/lib/supabase/server';
+import { restampMerchantRateOnReuse } from './restamp-merchant-rate';
 
 describe('POST /api/orders/reuse', () => {
   const mockRpc = vi.fn();
@@ -69,6 +74,66 @@ describe('POST /api/orders/reuse', () => {
         p_payment_method: 'card',
       })
     );
+  });
+
+  it('re-stamps a merchant-rate reuse when a shipping_rate_id is forwarded', async () => {
+    mockRpc.mockResolvedValue({
+      data: {
+        id: 'order-123',
+        order_number: 'ORD-123',
+        tracking_token: 'tracking-token-123',
+      },
+      error: null,
+    });
+
+    const request = new NextRequest('http://localhost/api/orders/reuse', {
+      method: 'POST',
+      body: JSON.stringify({
+        order_id: '4dc0ee52-d9c4-406a-b6ca-80c84eef6a8f',
+        merchant_id: 'e6e2e46c-5e3c-40c1-b0ae-832d6d20f0a2',
+        tracking_token: 'tracking-token-123',
+        customer_email: 'john@example.com',
+        payment_method: 'card',
+        shipping_rate_id: '123e4567-e89b-12d3-a456-426614174777',
+      }),
+    });
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(200);
+    expect(restampMerchantRateOnReuse).toHaveBeenCalledWith({
+      orderId: '4dc0ee52-d9c4-406a-b6ca-80c84eef6a8f',
+      merchantId: 'e6e2e46c-5e3c-40c1-b0ae-832d6d20f0a2',
+      shippingRateId: '123e4567-e89b-12d3-a456-426614174777',
+    });
+  });
+
+  it('does not re-stamp a normal reuse without a shipping_rate_id', async () => {
+    mockRpc.mockResolvedValue({
+      data: {
+        id: 'order-123',
+        order_number: 'ORD-123',
+        tracking_token: 'tracking-token-123',
+      },
+      error: null,
+    });
+
+    const request = new NextRequest('http://localhost/api/orders/reuse', {
+      method: 'POST',
+      body: JSON.stringify({
+        order_id: '4dc0ee52-d9c4-406a-b6ca-80c84eef6a8f',
+        merchant_id: 'e6e2e46c-5e3c-40c1-b0ae-832d6d20f0a2',
+        tracking_token: 'tracking-token-123',
+        customer_email: 'john@example.com',
+        payment_method: 'card',
+        shipping_provider: 'GIGL',
+      }),
+    });
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(200);
+    expect(restampMerchantRateOnReuse).not.toHaveBeenCalled();
   });
 
   it('returns 400 for invalid input', async () => {

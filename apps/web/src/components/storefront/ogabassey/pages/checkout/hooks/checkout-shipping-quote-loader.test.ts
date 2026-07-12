@@ -16,6 +16,9 @@ const receiver = {
   longitude: 7.0498,
   phone: '08012345678',
   state: 'Rivers',
+  country: 'Nigeria',
+  countryCode: 'NG',
+  cartSubtotal: 500_000,
 };
 const cart = [
   { name: 'iPhone 13', negotiatedPrice: 0, price: 500_000, quantity: 1 },
@@ -125,7 +128,16 @@ describe('loadCheckoutShippingQuotes', () => {
     expect(requestBody).toMatchObject({
       deliveryPreference: 'door',
       items: [expect.objectContaining({ value: 0 })],
-      receiver: { latitude: 4.8156, longitude: 7.0498 },
+      // Merchant-country + subtotal + opt-in flag must reach the quotes body so
+      // non-NG merchants match their own zones and merchant rates are returned.
+      cart_subtotal: 500_000,
+      supports_merchant_rates: true,
+      receiver: {
+        latitude: 4.8156,
+        longitude: 7.0498,
+        country: 'Nigeria',
+        countryCode: 'NG',
+      },
     });
 
     await loadCheckoutShippingQuotes(receiver, cart, {

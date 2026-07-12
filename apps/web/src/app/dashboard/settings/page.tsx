@@ -5,6 +5,7 @@ import {
   Receipt,
   Shield,
   ShieldCheck,
+  Truck,
   Users,
 } from 'lucide-react';
 import type { Metadata } from 'next';
@@ -147,6 +148,32 @@ export default async function SettingsPage() {
             >
               <Link href="/dashboard/settings/tax">
                 <span>Manage Tax Settings</span>
+                <ChevronRight className="size-4" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Shipping Rates Card */}
+        <Card className="glass">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Truck className="size-5" />
+              Shipping Rates
+            </CardTitle>
+            <CardDescription>
+              Set up delivery zones and rates so customers can check out
+              anywhere.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="outline"
+              className="w-full justify-between"
+              asChild
+            >
+              <Link href="/dashboard/settings/shipping">
+                <span>Manage Shipping Rates</span>
                 <ChevronRight className="size-4" />
               </Link>
             </Button>
