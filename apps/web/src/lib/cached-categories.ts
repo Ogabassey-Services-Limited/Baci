@@ -1,5 +1,6 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
-import { cacheTag } from 'next/cache';
+import { cacheLife, cacheTag } from 'next/cache';
+import { cache } from 'react';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 
 export interface CategoryNavItem {
@@ -35,9 +36,19 @@ function getPublicSupabaseClient() {
 export async function getCachedNavigationCategories(
   merchantId: string
 ): Promise<CategoryNavItem[]> {
-  'use cache: remote';
-  cacheTag('categories', 'navigation-categories');
-  // Default cache life is sufficient, or use cacheLife if precise control needed
+  // PR4a: local `'use cache'`, not the framework remote handler. Top-level
+  // {name,slug} rows (~19, <2KB) via an indexed parent_id-null read (<10ms) —
+  // no cross-instance sharing need, and the coarse remote SET is the exit-128
+  // write hazard. A bounded `categories` life caps cross-instance staleness,
+  // and the merchant-scoped tag rides alongside the coarse tags that
+  // revalidateCategories() already busts.
+  'use cache';
+  cacheLife('categories');
+  cacheTag(
+    'categories',
+    'navigation-categories',
+    `navigation-categories-${merchantId}`
+  );
 
   const supabase = getPublicSupabaseClient();
 
@@ -49,8 +60,11 @@ export async function getCachedNavigationCategories(
     .order('name');
 
   if (error) {
+    // Fail loud: a transient nav read must never be persisted as an empty nav.
+    // The request-local getStorefrontNavigationCategories boundary below
+    // catches this OUTSIDE the cache scope so the page still renders.
     console.error('Failed to fetch navigation categories:', error);
-    return [];
+    throw error;
   }
 
   const categories = data || [];
@@ -112,3 +126,28 @@ export async function getCachedNavigationCategories(
     return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
   });
 }
+
+/**
+ * Request-local fail-open boundary for the storefront shell navigation.
+ *
+ * The nav dropdown is optional enrichment: a transient category read must not
+ * turn an otherwise-renderable page into a 500. The cached fill above stays
+ * fail-loud (so a transient failure is never persisted as an empty nav); this
+ * uncached boundary catches that throw OUTSIDE the Cache Components scope and
+ * degrades to an empty nav for the current request only, so the next request
+ * retries against the origin. Consumers (storefront shell, ogabassey home)
+ * must call this wrapper, never the cached fill directly.
+ */
+export const getStorefrontNavigationCategories = cache(
+  async (merchantId: string): Promise<CategoryNavItem[]> => {
+    try {
+      return await getCachedNavigationCategories(merchantId);
+    } catch (error) {
+      console.error('Navigation categories query failed outside cache:', {
+        merchantId,
+        error,
+      });
+      return [];
+    }
+  }
+);

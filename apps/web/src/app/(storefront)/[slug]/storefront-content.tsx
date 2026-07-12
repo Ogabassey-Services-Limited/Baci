@@ -10,7 +10,7 @@ import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
 import { OGABASSEY_MERCHANT_ID } from '@/config/ogabassey';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
-import { getCachedNavigationCategories } from '@/lib/cached-categories';
+import { getStorefrontNavigationCategories } from '@/lib/cached-categories';
 import {
   type CachedMerchant,
   getCachedStorefrontHomeProducts,
@@ -253,7 +253,7 @@ export async function StorefrontContent({
   // Parallel data fetching — both use remote cache
   const [products, categories] = await Promise.all([
     productsPromise,
-    getCachedNavigationCategories(merchant.id),
+    getStorefrontNavigationCategories(merchant.id),
   ]);
 
   const headersList = await headers();

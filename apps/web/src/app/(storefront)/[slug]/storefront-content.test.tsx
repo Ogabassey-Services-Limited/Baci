@@ -12,7 +12,7 @@ vi.mock('@/lib/cached-data', async (importOriginal) => {
   };
 });
 vi.mock('@/lib/cached-categories', () => ({
-  getCachedNavigationCategories: vi.fn(() => Promise.resolve([])),
+  getStorefrontNavigationCategories: vi.fn(() => Promise.resolve([])),
 }));
 vi.mock('@/templates/registry', () => ({
   getTemplate: vi.fn(() => null),

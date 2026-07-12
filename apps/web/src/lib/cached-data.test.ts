@@ -487,6 +487,33 @@ describe('cached merchant entity normalization', () => {
       })
     );
   });
+
+  it('throws on a transient id lookup error so it is never cached as absence', async () => {
+    const consoleSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    harness.mockSingle.mockResolvedValueOnce({
+      data: null,
+      error: { code: '57014', message: 'canceling statement due to timeout' },
+      count: null,
+    });
+
+    await expect(getCachedMerchantById(mockMerchant.id)).rejects.toEqual({
+      code: '57014',
+      message: 'canceling statement due to timeout',
+    });
+    expect(consoleSpy).toHaveBeenCalled();
+  });
+
+  it('returns null for a genuinely absent merchant (PGRST116 no rows)', async () => {
+    harness.mockSingle.mockResolvedValueOnce({
+      data: null,
+      error: { code: 'PGRST116', message: 'No rows found' },
+      count: null,
+    });
+
+    await expect(getCachedMerchantById('missing-merchant')).resolves.toBeNull();
+  });
 });
 
 describe('getCachedFeatureSettings', () => {

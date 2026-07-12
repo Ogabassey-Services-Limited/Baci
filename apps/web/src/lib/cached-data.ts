@@ -1024,7 +1024,11 @@ export const getRequestScopedBlogPost = cache(
 export async function getCachedMerchantById(
   merchantId: string
 ): Promise<CachedMerchant | null> {
-  'use cache: remote';
+  // PR4a: local `'use cache'`, not the framework remote handler. Primary-key
+  // .single() (<5ms), ~75 keys, tiny row — no cross-instance sharing need, and
+  // the remote SET is the exit-128 write hazard. Consumed only by background
+  // repair notifications, both of which already `.catch(() => null)`.
+  'use cache';
   cacheLife('merchant');
   cacheTag('merchants', `merchant-id-${merchantId}`);
 
@@ -1064,8 +1068,14 @@ export async function getCachedMerchantById(
     .single();
 
   if (error) {
+    // A genuine "no rows" is real absence (this merchant id does not exist);
+    // any other error is transient/authoritative and must fail loud so the
+    // cache never persists null-as-absence for a merchant that does exist.
+    if (isPostgrestNoRowsError(error)) {
+      return null;
+    }
     console.error('Error fetching merchant by ID:', error);
-    return null;
+    throw error;
   }
 
   return normalizeCachedMerchantEntity(data);
