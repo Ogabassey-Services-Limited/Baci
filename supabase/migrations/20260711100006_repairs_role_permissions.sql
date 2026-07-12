@@ -39,7 +39,7 @@ FROM (
     ('marketing', '{"repairs": {"view": true}}'::jsonb),
     ('sales_rep', '{"repairs": {"view": true, "edit": true}}'::jsonb)
 ) AS seed(role, repairs)
-WHERE rp.role = seed.role;
+WHERE rp.role = seed.role::public.staff_role;
 
 -- ---------------------------------------------------------------------------
 -- 2. Move the repairs bookings table onto check_staff_permission
