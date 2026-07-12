@@ -214,7 +214,12 @@ export function AddressAutocomplete({
   };
 
   return (
-    <View ref={wrapperRef} style={[styles.wrapper, containerStyle]}>
+    <View
+      collapsable={false}
+      ref={wrapperRef}
+      style={[styles.wrapper, containerStyle]}
+      testID="address-autocomplete-anchor"
+    >
       {label && (
         <Text style={[styles.label, { color: colors.textSecondary }]}>
           {label}

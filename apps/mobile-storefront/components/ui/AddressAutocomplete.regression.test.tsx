@@ -62,6 +62,14 @@ afterEach(() => {
 });
 
 describe('AddressAutocomplete regressions', () => {
+  it('keeps the measured anchor materialized for native layout', () => {
+    renderField();
+
+    expect(
+      screen.getByTestId('address-autocomplete-anchor').props.collapsable
+    ).toBe(false);
+  });
+
   it('cancels the pending prediction request when cleared before debounce', () => {
     renderField();
     const input = screen.getByRole('combobox');
