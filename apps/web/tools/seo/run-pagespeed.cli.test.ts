@@ -35,6 +35,8 @@ vi.mock('./run-pagespeed', () => ({
 describe('run-pagespeed cli', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv('SEO_MERCHANT_ORIGINS', '');
+    vi.stubEnv('PAGESPEED_EXTRA_URLS', '');
     vi.resetModules();
   });
 
@@ -101,6 +103,34 @@ describe('run-pagespeed cli', () => {
     expect(mockRunPageSpeedAudit).toHaveBeenCalledWith(
       expect.objectContaining({
         extraUrls: ['notaurl', 'https://ogabassey.com'],
+      })
+    );
+    expect(log).toHaveBeenCalled();
+  });
+
+  it('always includes configured merchant origins alongside extra urls', async () => {
+    vi.stubEnv(
+      'SEO_MERCHANT_ORIGINS',
+      'https://ogabassey.com,https://shop.example.com'
+    );
+    vi.stubEnv(
+      'PAGESPEED_EXTRA_URLS',
+      'https://ogabassey.com,https://ogabassey.com/smartphones,https://ogabassey.com/smartphones/iphone-16-pro-max'
+    );
+    mockRunPageSpeedAudit.mockResolvedValue([]);
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const { main } = await import('./run-pagespeed.cli');
+
+    await main();
+
+    expect(mockRunPageSpeedAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        extraUrls: [
+          'https://ogabassey.com',
+          'https://shop.example.com',
+          'https://ogabassey.com/smartphones',
+          'https://ogabassey.com/smartphones/iphone-16-pro-max',
+        ],
       })
     );
     expect(log).toHaveBeenCalled();
