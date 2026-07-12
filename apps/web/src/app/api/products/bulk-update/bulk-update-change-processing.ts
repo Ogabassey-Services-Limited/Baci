@@ -3,10 +3,14 @@ import type { z } from 'zod';
 import { generateProductSlug, generateSlug } from '@/lib/seo-utils';
 import {
   resolveProductPurgeCategorySegment,
-  resolveProductPurgeCategorySegmentForRow,
   type StorefrontProductPurgeEntry,
 } from '@/lib/storefront-product-purge-urls';
 import type { BulkUpdateChangesSchema } from '@/schemas/dashboard-product-import-actions';
+import {
+  BULK_PURGE_ROW_COLUMNS,
+  getBulkPurgeEntries,
+  type BulkPurgeProductRow,
+} from './bulk-update-purge-entries';
 
 type BulkUpdateChange = z.infer<
   typeof BulkUpdateChangesSchema
@@ -19,37 +23,6 @@ type ProductChangeResult = {
   errors: string[];
 };
 
-const BULK_PURGE_ROW_COLUMNS =
-  'id, slug, category, categories:category_id(slug), product_categories(categories(slug))';
-
-interface BulkPurgeProductRow {
-  id: string;
-  slug: string | null;
-  category: string | null;
-  categories?: unknown;
-  product_categories?: unknown;
-}
-
-function purgeEntriesFromRows(
-  rows: BulkPurgeProductRow[] | null | undefined
-): StorefrontProductPurgeEntry[] {
-  return (rows ?? []).flatMap((row) => {
-    const slug = row.slug?.trim() || row.id;
-    return slug
-      ? [
-          {
-            slug,
-            categorySegment: resolveProductPurgeCategorySegmentForRow({
-              slug,
-              category: row.category,
-              categories: row.categories,
-              product_categories: row.product_categories,
-            }),
-          },
-        ]
-      : [];
-  });
-}
 const BULK_UPDATE_CONCURRENCY = 10;
 
 const emptyProductChangeResult = (): ProductChangeResult => ({
@@ -59,32 +32,27 @@ const emptyProductChangeResult = (): ProductChangeResult => ({
   errors: [],
 });
 
-function getChangeGroupKey(change: BulkUpdateChange): string | null {
-  const productId = change.productId?.trim();
-  if (productId) return `id:${productId}`;
-
-  const sku = change.details.sku?.trim();
-  if (sku) return `sku:${sku}`;
-
-  const name = change.details.name?.trim();
-  if (name) return `name:${name}`;
-
-  return null;
-}
-
 function groupChangesByProduct(
   changes: BulkUpdateChange[]
 ): BulkUpdateChange[][] {
+  const hasAmbiguousExistingTarget = changes.some(
+    (change) => change.type !== 'new' && !change.productId?.trim()
+  );
+  if (hasAmbiguousExistingTarget) {
+    return [changes];
+  }
+
   const groups: BulkUpdateChange[][] = [];
   const groupByKey = new Map<string, BulkUpdateChange[]>();
+  const newProductChanges: BulkUpdateChange[] = [];
 
   for (const change of changes) {
-    const key = getChangeGroupKey(change);
-    if (!key) {
-      groups.push([change]);
+    if (change.type === 'new') {
+      newProductChanges.push(change);
       continue;
     }
 
+    const key = `id:${change.productId?.trim()}`;
     const existingGroup = groupByKey.get(key);
     if (existingGroup) {
       existingGroup.push(change);
@@ -94,6 +62,10 @@ function groupChangesByProduct(
     const group = [change];
     groupByKey.set(key, group);
     groups.push(group);
+  }
+
+  if (newProductChanges.length > 0) {
+    groups.push(newProductChanges);
   }
 
   return groups;
@@ -171,7 +143,7 @@ async function processBulkUpdateChange({
       );
       if (error) throw error;
       onPurgeEntries?.(
-        purgeEntriesFromRows(updatedRows as BulkPurgeProductRow[])
+        getBulkPurgeEntries(updatedRows as BulkPurgeProductRow[] | null)
       );
       result.updated = 1;
       return result;
@@ -217,7 +189,6 @@ async function processBulkUpdateChange({
             },
           },
         })
-        })
         .select('id')
         .maybeSingle();
 
@@ -248,7 +219,7 @@ async function processBulkUpdateChange({
         .select(BULK_PURGE_ROW_COLUMNS);
       if (error) throw error;
       onPurgeEntries?.(
-        purgeEntriesFromRows(archivedRows as BulkPurgeProductRow[])
+        getBulkPurgeEntries(archivedRows as BulkPurgeProductRow[] | null)
       );
       result.removed = 1;
     }
