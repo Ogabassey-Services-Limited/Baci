@@ -27,11 +27,16 @@ export default async function FAQSettingsPage() {
     redirect('/onboarding');
   }
 
-  // Get sample products for FAQ generation context
-  const products = await getCachedProducts(merchant.id, {
-    includeVariants: false,
-    limit: 10,
-  });
+  // Sample products improve generation context but must not gate FAQ settings.
+  let products: Awaited<ReturnType<typeof getCachedProducts>> = [];
+  try {
+    products = await getCachedProducts(merchant.id, {
+      includeVariants: false,
+      limit: 10,
+    });
+  } catch {
+    // The cached reader throws so transient failures are never stored as empty data.
+  }
   const sampleProducts = products.slice(0, 10).map(
     (
       // biome-ignore lint/suspicious/noExplicitAny: Product type mismatch with DB

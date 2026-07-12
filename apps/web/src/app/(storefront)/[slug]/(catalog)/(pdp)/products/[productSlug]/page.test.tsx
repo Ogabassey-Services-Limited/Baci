@@ -27,7 +27,6 @@ const mockNotFound = vi.fn(() => {
 });
 const mockGetRequestScopedMerchant = vi.fn();
 const mockGetCachedLegacyProductRedirectTarget = vi.fn();
-const mockGetCachedProduct = vi.fn();
 const mockGetCachedProductWithDetails = vi.fn();
 const mockGetCachedProductRatingStats = vi.fn();
 const mockGetCachedProductReviews = vi.fn();
@@ -61,7 +60,6 @@ vi.mock('@/lib/cached-data', () => ({
     mockGetRequestScopedMerchant(...args),
   getCachedLegacyProductRedirectTarget: (...args: unknown[]) =>
     mockGetCachedLegacyProductRedirectTarget(...args),
-  getCachedProduct: (...args: unknown[]) => mockGetCachedProduct(...args),
   getCachedProductWithDetails: (...args: unknown[]) =>
     mockGetCachedProductWithDetails(...args),
   getCachedProductRatingStats: (...args: unknown[]) =>
@@ -246,26 +244,6 @@ const baseMerchant = {
   country: 'NG',
 };
 
-const categorizedProduct = {
-  id: 'prod-1',
-  name: 'iPhone 15',
-  slug: 'iphone-15',
-  description: 'A phone',
-  status: 'active',
-  base_price: 500000,
-  sale_price: null,
-  track_quantity: false,
-  quantity: 10,
-  images: [],
-  product_variants: [],
-  product_categories: [
-    { categories: { id: 'cat-1', name: 'Phones', slug: 'phones' } },
-  ],
-  specifications: null,
-  product_key_specs: null,
-  category_slug: 'phones',
-};
-
 const categorizedDetailedProduct = {
   id: 'prod-1',
   merchant_id: 'merchant-1',
@@ -290,14 +268,7 @@ const categorizedDetailedProduct = {
   product_key_specs: null,
 };
 
-const uncategorizedProduct = {
-  ...categorizedProduct,
-  id: 'prod-2',
-  name: 'Mystery Item',
-  slug: 'mystery-item',
-  product_categories: [],
-  category_slug: undefined,
-};
+const categorizedProduct = categorizedDetailedProduct;
 
 const uncategorizedDetailedProduct = {
   ...categorizedDetailedProduct,
@@ -307,6 +278,8 @@ const uncategorizedDetailedProduct = {
   category: undefined,
   categories: null,
 };
+
+const uncategorizedProduct = uncategorizedDetailedProduct;
 
 function makeHeaders(entries: Record<string, string> = {}) {
   const map = new Map(Object.entries(entries));
@@ -366,7 +339,7 @@ describe('products/[productSlug] page', () => {
 
   it('redirects categorized legacy products after the request boundary in development', async () => {
     vi.stubEnv('NODE_ENV', 'development');
-    mockGetCachedProduct.mockResolvedValue(categorizedProduct);
+    mockGetCachedProductWithDetails.mockResolvedValue(categorizedProduct);
     mockHeaders.mockReturnValue(makeHeaders({}));
 
     await expect(
@@ -385,7 +358,7 @@ describe('products/[productSlug] page', () => {
   });
 
   it('redirects categorized products to the category URL when the cached product has a stale products canonical', async () => {
-    mockGetCachedProduct.mockResolvedValue({
+    mockGetCachedProductWithDetails.mockResolvedValue({
       ...categorizedProduct,
       canonical_url: '/products/iphone-15',
     });
@@ -413,7 +386,7 @@ describe('products/[productSlug] page', () => {
   });
 
   it('defers generic PDP first paint to the route loader while the client page is pending', async () => {
-    mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
+    mockGetCachedProductWithDetails.mockResolvedValue(uncategorizedProduct);
     mockConnection.mockImplementationOnce(
       () =>
         new Promise(() => {
@@ -441,11 +414,11 @@ describe('products/[productSlug] page', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText('mystery-item')).not.toBeInTheDocument();
     expect(mockConnection).toHaveBeenCalledOnce();
-    expect(mockGetCachedProduct).not.toHaveBeenCalled();
+    expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
   });
 
   it('keeps product metadata cacheable without request binding', async () => {
-    mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
+    mockGetCachedProductWithDetails.mockResolvedValue(uncategorizedProduct);
 
     await generateMetadata(
       {
@@ -465,7 +438,7 @@ describe('products/[productSlug] page', () => {
   describe('redirect routing mode', () => {
     it('returns noindex metadata in development for categorized URLs (real redirect happens during page render)', async () => {
       vi.stubEnv('NODE_ENV', 'development');
-      mockGetCachedProduct.mockResolvedValue(categorizedProduct);
+      mockGetCachedProductWithDetails.mockResolvedValue(categorizedProduct);
       mockHeaders.mockReturnValue(makeHeaders({}));
 
       const metadata = await generateMetadata(
@@ -485,7 +458,7 @@ describe('products/[productSlug] page', () => {
     });
 
     it('returns noindex metadata in production for categorized URLs (real redirect happens during page render)', async () => {
-      mockGetCachedProduct.mockResolvedValue(categorizedProduct);
+      mockGetCachedProductWithDetails.mockResolvedValue(categorizedProduct);
 
       const metadata = await generateMetadata(
         {
@@ -504,7 +477,7 @@ describe('products/[productSlug] page', () => {
     });
 
     it('redirects categorized products after the request boundary in production', async () => {
-      mockGetCachedProduct.mockResolvedValue(categorizedProduct);
+      mockGetCachedProductWithDetails.mockResolvedValue(categorizedProduct);
       mockHeaders.mockReturnValue(makeHeaders({}));
 
       await expect(
@@ -522,7 +495,7 @@ describe('products/[productSlug] page', () => {
 
     it('preserves the development slug prefix during page render', async () => {
       vi.stubEnv('NODE_ENV', 'development');
-      mockGetCachedProduct.mockResolvedValue(categorizedProduct);
+      mockGetCachedProductWithDetails.mockResolvedValue(categorizedProduct);
       mockHeaders.mockReturnValue(makeHeaders({}));
 
       await expect(
@@ -543,7 +516,7 @@ describe('products/[productSlug] page', () => {
 
   describe('uncategorized product', () => {
     it('renders metadata instead of redirecting when product has no category', async () => {
-      mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
+      mockGetCachedProductWithDetails.mockResolvedValue(uncategorizedProduct);
 
       const metadata = await generateMetadata(
         {
@@ -573,7 +546,7 @@ describe('products/[productSlug] page', () => {
         ...baseMerchant,
         custom_domain: 'ogabassey.com',
       });
-      mockGetCachedProduct.mockResolvedValue({
+      mockGetCachedProductWithDetails.mockResolvedValue({
         ...uncategorizedProduct,
         canonical_url: 'https://usebaci.com/products/mystery-item',
       });
@@ -598,7 +571,7 @@ describe('products/[productSlug] page', () => {
     });
 
     it('normalizes explicit plus-model product metadata before rendering', async () => {
-      mockGetCachedProduct.mockResolvedValue({
+      mockGetCachedProductWithDetails.mockResolvedValue({
         ...uncategorizedProduct,
         id: 'prod-plus',
         name: 'Samsung Galaxy Tab S9+',
@@ -628,7 +601,7 @@ describe('products/[productSlug] page', () => {
     });
 
     it('uses normalized generated product metadata when explicit title sanitizes empty', async () => {
-      mockGetCachedProduct.mockResolvedValue({
+      mockGetCachedProductWithDetails.mockResolvedValue({
         ...uncategorizedProduct,
         id: 'prod-plus-empty-title',
         name: 'Samsung Galaxy Tab S9+',
@@ -655,7 +628,7 @@ describe('products/[productSlug] page', () => {
     });
 
     it('normalizes explicit currency-symbol product metadata before rendering', async () => {
-      mockGetCachedProduct.mockResolvedValue({
+      mockGetCachedProductWithDetails.mockResolvedValue({
         ...uncategorizedProduct,
         id: 'prod-gift-card',
         name: 'PSN Gift Card £50',
@@ -686,7 +659,7 @@ describe('products/[productSlug] page', () => {
   });
 
   it('returns noindex metadata for attribute-only variant params (real redirect happens during page render)', async () => {
-    mockGetCachedProduct.mockResolvedValue(null);
+    mockGetCachedProductWithDetails.mockResolvedValue(null);
     mockGetCachedProductWithDetails.mockResolvedValue(
       uncategorizedDetailedProduct
     );
@@ -725,7 +698,7 @@ describe('products/[productSlug] page', () => {
   });
 
   it('strips the internal metadata cache bucket from variant cleanup redirects', async () => {
-    mockGetCachedProduct.mockResolvedValue(null);
+    mockGetCachedProductWithDetails.mockResolvedValue(null);
     mockGetCachedProductWithDetails.mockResolvedValue(
       uncategorizedDetailedProduct
     );
@@ -764,7 +737,7 @@ describe('products/[productSlug] page', () => {
   });
 
   it('returns noindex metadata (not a redirect) for legacy archived variant slugs so the page render issues the real HTTP 308', async () => {
-    mockGetCachedProduct.mockResolvedValue(null);
+    mockGetCachedProductWithDetails.mockResolvedValue(null);
     mockGetCachedProductWithDetails.mockResolvedValue(null);
     mockGetCachedLegacyProductRedirectTarget.mockResolvedValue({
       id: 'parent-1',
@@ -794,7 +767,7 @@ describe('products/[productSlug] page', () => {
   });
 
   it('redirects legacy archived variant slugs during page render too', async () => {
-    mockGetCachedProduct.mockResolvedValue(null);
+    mockGetCachedProductWithDetails.mockResolvedValue(null);
     mockGetCachedProductWithDetails.mockResolvedValue(null);
     mockGetCachedLegacyProductRedirectTarget.mockResolvedValue({
       id: 'parent-1',
@@ -827,7 +800,7 @@ describe('products/[productSlug] page', () => {
   });
 
   it('throws notFound from metadata when product and legacy redirect are missing', async () => {
-    mockGetCachedProduct.mockResolvedValue(null);
+    mockGetCachedProductWithDetails.mockResolvedValue(null);
     mockGetCachedProductWithDetails.mockResolvedValue(null);
     mockGetCachedLegacyProductRedirectTarget.mockResolvedValue(null);
     mockHeaders.mockReturnValue(makeHeaders({}));
@@ -850,7 +823,7 @@ describe('products/[productSlug] page', () => {
   });
 
   it('returns a route-not-found resolution when no legacy redirect target exists', async () => {
-    mockGetCachedProduct.mockResolvedValue(null);
+    mockGetCachedProductWithDetails.mockResolvedValue(null);
     mockGetCachedProductWithDetails.mockResolvedValue(null);
     mockGetCachedLegacyProductRedirectTarget.mockResolvedValue(null);
     mockHeaders.mockReturnValue(makeHeaders({}));
@@ -891,7 +864,7 @@ describe('products/[productSlug] page', () => {
       ).rejects.toThrow('NEXT_NOT_FOUND');
 
       expect(mockNotFound).toHaveBeenCalledTimes(1);
-      expect(mockGetCachedProduct).not.toHaveBeenCalled();
+      expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
       expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
       expect(mockGetCachedLegacyProductRedirectTarget).not.toHaveBeenCalled();
     } finally {
@@ -917,7 +890,7 @@ describe('products/[productSlug] page', () => {
       ).rejects.toThrow('NEXT_NOT_FOUND');
 
       expect(mockNotFound).toHaveBeenCalledTimes(1);
-      expect(mockGetCachedProduct).not.toHaveBeenCalled();
+      expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
       expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
       expect(mockGetCachedLegacyProductRedirectTarget).not.toHaveBeenCalled();
     } finally {
@@ -926,7 +899,7 @@ describe('products/[productSlug] page', () => {
   });
 
   it('falls back to detailed product lookup and returns noindex metadata when category mismatch is detected', async () => {
-    mockGetCachedProduct.mockResolvedValue(null);
+    mockGetCachedProductWithDetails.mockResolvedValue(null);
     mockGetCachedProductWithDetails.mockResolvedValue(
       categorizedDetailedProduct
     );
@@ -953,7 +926,7 @@ describe('products/[productSlug] page', () => {
   });
 
   it('strips HTML from product metadata descriptions', async () => {
-    mockGetCachedProduct.mockResolvedValue({
+    mockGetCachedProductWithDetails.mockResolvedValue({
       ...uncategorizedProduct,
       meta_description:
         '<p>The <strong>best</strong> phone for creators and gamers.</p>',
@@ -1016,7 +989,7 @@ describe('products/[productSlug] page', () => {
       custom_domain: 'ogabassey.com',
       slug: 'ogabassey',
     });
-    mockGetCachedProduct.mockResolvedValue({
+    mockGetCachedProductWithDetails.mockResolvedValue({
       ...uncategorizedProduct,
       images: ['https://cdn.example.com/products/mystery-item.png'],
     });
@@ -1041,7 +1014,7 @@ describe('products/[productSlug] page', () => {
   });
 
   it('does not retry detailed lookup with a lowercased slug', async () => {
-    mockGetCachedProduct.mockResolvedValue(null);
+    mockGetCachedProductWithDetails.mockResolvedValue(null);
     mockGetCachedProductWithDetails.mockResolvedValue(null);
     mockGetCachedLegacyProductRedirectTarget.mockResolvedValue(null);
 
@@ -1075,7 +1048,7 @@ describe('products/[productSlug] page', () => {
         ...baseMerchant,
         payout_currency: null,
       });
-      mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
+      mockGetCachedProductWithDetails.mockResolvedValue(uncategorizedProduct);
 
       const resolution = await resolveProductPage({
         params: Promise.resolve({
@@ -1112,7 +1085,7 @@ describe('products/[productSlug] page', () => {
     });
 
     it('passes getProductUrl output into JSON-LD and breadcrumb URLs on fallback legacy pages', async () => {
-      mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
+      mockGetCachedProductWithDetails.mockResolvedValue(uncategorizedProduct);
       mockHeaders.mockReturnValue(makeHeaders({}));
       mockGetProductUrl.mockReturnValue('/products/mystery-item');
 
@@ -1162,7 +1135,7 @@ describe('products/[productSlug] page', () => {
         ...uncategorizedProduct,
         canonical_url: `${productUrl}?utm_source=google#reviews`,
       };
-      mockGetCachedProduct.mockResolvedValue(product);
+      mockGetCachedProductWithDetails.mockResolvedValue(product);
       mockGetValidatedProductUrl.mockReturnValue(productUrl);
 
       const metadata = await generateMetadata(
@@ -1246,7 +1219,7 @@ describe('products/[productSlug] page', () => {
         },
       },
     });
-    mockGetCachedProduct.mockResolvedValue({
+    mockGetCachedProductWithDetails.mockResolvedValue({
       ...uncategorizedProduct,
       slug: 'iphone-17-pro-max',
       name: 'iPhone 17 Pro Max',

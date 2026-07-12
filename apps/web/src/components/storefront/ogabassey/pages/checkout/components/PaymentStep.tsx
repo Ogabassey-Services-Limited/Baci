@@ -44,6 +44,7 @@ interface PaymentStepProps {
   merchant:
     | {
         paystack_subaccount_code?: string | null;
+        paystack_subaccount_configured?: boolean | null;
         feature_settings?: FeatureSettings | null;
       }
     | null

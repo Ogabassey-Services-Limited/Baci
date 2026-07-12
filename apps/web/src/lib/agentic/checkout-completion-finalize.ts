@@ -184,8 +184,8 @@ export async function finalizeAgenticCheckoutPayment({
       revalidateProducts(merchantId);
 
       // revalidateProducts(merchantId) busts only the merchant-wide/listing
-      // tags — NOT the per-slug tag getCachedProduct() uses (the PDP's primary
-      // data source), so a just-sold-out product can keep rendering in-stock on
+      // tags — NOT the per-slug tag the bounded PDP snapshot uses, so a
+      // just-sold-out product can keep rendering in-stock on
       // its own PDP for the full 'products' cacheLife TTL. orderSessionCalc
       // .lineItems carries only product_id (never slug), and item.product_id is
       // always the PARENT product id (plain or variant line), so resolve slugs

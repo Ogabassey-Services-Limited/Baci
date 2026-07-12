@@ -5,9 +5,9 @@ import { Suspense } from 'react';
 import { CatalogListingLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import { STOREFRONT_METADATA_CACHE_BUCKET_QUERY_PARAM } from '@/config/storefront-metadata-cache-bots';
 import {
-  getCachedCategories,
   getCachedCategoryPageData,
   getRequestScopedMerchant,
+  getStorefrontCategories,
 } from '@/lib/cached-data';
 import {
   generateMetaDescription,
@@ -105,9 +105,11 @@ export async function generateMetadata({
   }
 
   const storeUrl = buildStoreUrl(merchant);
-  const categories = await getCachedCategories(merchant.id);
+  const { categories, queryFailed } = await getStorefrontCategories(
+    merchant.id
+  );
 
-  if (hasActiveCompareCategory(categories)) {
+  if (!queryFailed && hasActiveCompareCategory(categories)) {
     return generateCategoryMetadata(
       buildCompareCategoryPageProps(slug, searchParams)
     );
@@ -146,7 +148,7 @@ export async function generateMetadata({
       canonical: `${storeUrl}/compare`,
     },
     robots:
-      hasCompareSections && !hasQueryParams
+      !queryFailed && hasCompareSections && !hasQueryParams
         ? getIndexableRobotsMetadata()
         : { index: false, follow: true },
     openGraph: {
@@ -175,9 +177,11 @@ async function CompareIndexRuntime(props: CompareIndexPageProps) {
   const merchant = await getRequestScopedMerchant(slug);
 
   if (merchant) {
-    const categories = await getCachedCategories(merchant.id);
+    const { categories, queryFailed } = await getStorefrontCategories(
+      merchant.id
+    );
 
-    if (hasActiveCompareCategory(categories)) {
+    if (!queryFailed && hasActiveCompareCategory(categories)) {
       return (
         <CategoryPageRoute
           {...buildCompareCategoryPageProps(slug, props.searchParams)}

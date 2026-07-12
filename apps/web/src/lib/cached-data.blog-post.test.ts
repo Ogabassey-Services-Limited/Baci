@@ -14,7 +14,7 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: (...args: unknown[]) => mockCreateClient(...args),
 }));
 
-import { cacheTag } from 'next/cache';
+import { cacheLife, cacheTag } from 'next/cache';
 import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import { getCachedBlogPost } from '@/lib/cached-data';
 import { STOREFRONT_BLOG_POST_SELECT } from '@/lib/storefront-blog-post-select';
@@ -97,6 +97,7 @@ function buildBlogPostRow(overrides: Record<string, unknown> = {}) {
 interface BlogPostFetchMocks {
   categoryRelatedPostsResult?: { data: unknown; error: unknown };
   merchantRow: Record<string, unknown>;
+  postLookupError?: unknown;
   publishedPost: Record<string, unknown>;
   linkedProductsResult?: { data: unknown; error: unknown };
   relatedPostsResult?: { data: unknown; error: unknown };
@@ -106,6 +107,7 @@ function setupBlogPostFetch({
   categoryRelatedPostsResult,
   linkedProductsResult,
   merchantRow,
+  postLookupError,
   publishedPost,
   relatedPostsResult,
 }: BlogPostFetchMocks) {
@@ -113,7 +115,10 @@ function setupBlogPostFetch({
     singleResult: { data: { blog_enabled: true }, error: null },
   });
   const postLookupBuilder = createQueryBuilder({
-    singleResult: { data: publishedPost, error: null },
+    singleResult: {
+      data: postLookupError ? null : publishedPost,
+      error: postLookupError ?? null,
+    },
   });
   const relatedPostsBuilder = createQueryBuilder({
     queryResult: relatedPostsResult,
@@ -126,20 +131,20 @@ function setupBlogPostFetch({
   });
   const relatedProductsBuilder = createQueryBuilder({});
 
-  // Merchant-by-domain resolution now happens in a single service-role RPC
-  // (resolve_storefront_cached_merchant) instead of serial domains + merchants
-  // reads.
+  // Merchant-by-domain resolution happens in one public-safe bounded RPC.
   const serviceRpc = vi.fn((fnName: string) => {
-    if (fnName === 'resolve_storefront_cached_merchant') {
+    if (fnName === 'resolve_storefront_public_snapshot_v2') {
       return Promise.resolve({
         data: [
           {
+            resolution_status: 'found',
             custom_domain: 'ogabassey.com',
             feature_settings: merchantRow.feature_settings ?? null,
             merchant_data: merchantRow,
           },
         ],
         error: null,
+        status: 200,
       });
     }
 
@@ -194,7 +199,7 @@ function setupBlogPostFetch({
       }
 
       if (key === 'test-anon-key') {
-        return { from: publicFrom };
+        return { from: publicFrom, rpc: serviceRpc };
       }
 
       throw new Error(`Unexpected Supabase key: ${key}`);
@@ -246,7 +251,87 @@ describe('getCachedBlogPost', () => {
       'blog-posts',
       getBlogCacheTag('ogabassey.com', 'factory-unlocked-iphones-explained')
     );
-    expect(cacheTag).toHaveBeenCalledWith('products', 'products-merchant-1');
+    expect(cacheTag).toHaveBeenCalledWith(
+      'blog-posts',
+      'products',
+      'products-merchant-1'
+    );
+    expect(cacheLife).toHaveBeenCalledWith('blog');
+  });
+
+  it('throws a core post query failure instead of caching it as not found', async () => {
+    const queryError = { code: '57014', message: 'statement timeout' };
+    setupBlogPostFetch({
+      merchantRow: buildMerchantRow(),
+      postLookupError: queryError,
+      publishedPost: buildBlogPostRow(),
+    });
+
+    await expect(
+      getCachedBlogPost('ogabassey.com', 'factory-unlocked-iphones-explained')
+    ).rejects.toEqual(queryError);
+  });
+
+  it('returns null for the explicit PostgREST no-row result', async () => {
+    setupBlogPostFetch({
+      merchantRow: buildMerchantRow(),
+      postLookupError: { code: 'PGRST116', message: 'No rows found' },
+      publishedPost: buildBlogPostRow(),
+    });
+
+    await expect(
+      getCachedBlogPost('ogabassey.com', 'missing-blog-post')
+    ).resolves.toBeNull();
+  });
+
+  it('keeps optional enrichment failures request-local and retries them later', async () => {
+    setupBlogPostFetch({
+      merchantRow: buildMerchantRow(),
+      publishedPost: buildBlogPostRow(),
+      relatedPostsResult: {
+        data: null,
+        error: { code: '57014', message: 'statement timeout' },
+      },
+    });
+
+    const degraded = await getCachedBlogPost(
+      'ogabassey.com',
+      'factory-unlocked-iphones-explained'
+    );
+    expect(degraded).toEqual(
+      expect.objectContaining({
+        post: expect.objectContaining({ id: 'post-1' }),
+        relatedPosts: [],
+        relatedProducts: [],
+      })
+    );
+
+    setupBlogPostFetch({
+      merchantRow: buildMerchantRow(),
+      publishedPost: buildBlogPostRow({ category: null }),
+      relatedPostsResult: {
+        data: [
+          {
+            id: 'recovered-related-post',
+            slug: 'recovered-related-post',
+            title: 'Recovered related post',
+          },
+        ],
+        error: null,
+      },
+    });
+
+    const recovered = await getCachedBlogPost(
+      'ogabassey.com',
+      'factory-unlocked-iphones-explained'
+    );
+    expect(recovered?.relatedPosts).toEqual([
+      {
+        id: 'recovered-related-post',
+        slug: 'recovered-related-post',
+        title: 'Recovered related post',
+      },
+    ]);
   });
 
   it('excludes published posts without a published_at timestamp from detail and related queries', async () => {

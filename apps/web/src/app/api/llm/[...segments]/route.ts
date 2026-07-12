@@ -115,7 +115,7 @@ async function handleLlmRequest(
       default:
         // Treat as category. Over-long / repeatedly-encoded bot segments can
         // never match; bail before getCachedCategoryPageData ->
-        // getCachedCategoryPageShellData (`'use cache: remote'`, keyed on the
+        // getCachedCategoryPageShellData (local `'use cache'`, keyed on the
         // category segment) runs with an unbounded key. (slug is already
         // bounded by the getMerchantByIdentifier check above.)
         if (!evaluateStorefrontSlugSafety(page).safe) {

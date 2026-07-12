@@ -14,7 +14,12 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: (...args: unknown[]) => mockCreateClient(...args),
 }));
 
-import { getCachedBlogAuthor, getCachedBlogListing } from '@/lib/cached-data';
+import { cacheLife } from 'next/cache';
+import {
+  getCachedBlogAuthor,
+  getCachedBlogListing,
+  getCachedFeatureSettings,
+} from '@/lib/cached-data';
 import {
   buildBlogMerchantRow,
   createBlogMerchantRpcMock,
@@ -56,6 +61,7 @@ function createQueryBuilder({
 
 function setupBlogListingFetch({
   categories = [],
+  categoriesError = null,
   count,
   featureSettingsResults = [
     { data: { blog_enabled: true }, error: null },
@@ -64,6 +70,7 @@ function setupBlogListingFetch({
   posts = [],
 }: {
   categories?: Array<{ category: string | null }>;
+  categoriesError?: unknown;
   count?: number | null;
   featureSettingsResults?: Array<{ data: unknown; error: unknown }>;
   posts?: Array<{
@@ -90,7 +97,10 @@ function setupBlogListingFetch({
     queryResult: { data: posts, count: count ?? posts.length, error: null },
   });
   const categoriesBuilder = createQueryBuilder({
-    queryResult: { data: categories, error: null },
+    queryResult: {
+      data: categoriesError ? null : categories,
+      error: categoriesError,
+    },
   });
   const merchantRpc = createBlogMerchantRpcMock();
 
@@ -144,7 +154,7 @@ function setupBlogListingFetch({
       }
 
       if (key === 'test-anon-key') {
-        return { from: publicFrom };
+        return { from: publicFrom, rpc: merchantRpc };
       }
 
       throw new Error(`Unexpected Supabase key: ${key}`);
@@ -192,6 +202,7 @@ describe('getCachedBlogListing', () => {
     expect(postsBuilder.range.mock.invocationCallOrder[0]).toBeGreaterThan(
       postsBuilder.not.mock.invocationCallOrder.at(-1) ?? 0
     );
+    expect(cacheLife).toHaveBeenCalledWith('merchant');
   });
 
   it('uses estimated counts for public listing pagination to avoid full COUNT scans', async () => {
@@ -219,19 +230,12 @@ describe('getCachedBlogListing', () => {
     );
   });
 
-  it('falls back to the legacy feature settings projection while the repairs flag migration is pending', async () => {
+  it('resolves blog gating from the merchant snapshot without querying feature settings', async () => {
+    // Blog gating rides the merchant snapshot's feature_settings, so a pending
+    // repairs-flag migration on merchant_feature_settings cannot affect the
+    // public blog listing at all — the table is never queried on this path.
     const { featureSettingsSelects } = setupBlogListingFetch({
-      featureSettingsResults: [
-        {
-          data: null,
-          error: {
-            code: '42703',
-            message:
-              'column merchant_feature_settings.repairs_catalog_enabled does not exist',
-          },
-        },
-        { data: { blog_enabled: true }, error: null },
-      ],
+      featureSettingsResults: [],
       posts: [{ id: 'post-1', slug: 'best-phones', title: 'Best Phones' }],
     });
 
@@ -239,9 +243,7 @@ describe('getCachedBlogListing', () => {
 
     expect(result).not.toBeNull();
     expect(result?.posts.map((post) => post.id)).toEqual(['post-1']);
-    expect(featureSettingsSelects).toHaveLength(2);
-    expect(featureSettingsSelects[0]).toContain('repairs_catalog_enabled');
-    expect(featureSettingsSelects[1]).not.toContain('repairs_catalog_enabled');
+    expect(featureSettingsSelects).toHaveLength(0);
   });
 
   it('uses estimated counts for author pagination to avoid full COUNT scans', async () => {
@@ -330,6 +332,29 @@ describe('getCachedBlogListing', () => {
     expect(result.categories).toEqual(['Smartphones']);
   });
 
+  it('keeps category lookup failures request-local and retries them later', async () => {
+    setupBlogListingFetch({
+      categoriesError: { code: 'PGRST003', message: 'pool timeout' },
+      posts: [{ id: 'public-1', slug: 'best-phones', title: 'Best Phones' }],
+    });
+
+    const degraded = await getCachedBlogListing('ogabassey');
+    expect(degraded).toEqual(
+      expect.objectContaining({
+        posts: [{ id: 'public-1', slug: 'best-phones', title: 'Best Phones' }],
+        categories: [],
+      })
+    );
+
+    setupBlogListingFetch({
+      categories: [{ category: 'Smartphones' }],
+      posts: [{ id: 'public-1', slug: 'best-phones', title: 'Best Phones' }],
+    });
+
+    const recovered = await getCachedBlogListing('ogabassey');
+    expect(recovered?.categories).toEqual(['Smartphones']);
+  });
+
   it('keeps totalPages at least at the current non-empty page when estimated counts undercount', async () => {
     setupBlogListingFetch({
       count: 1,
@@ -348,5 +373,38 @@ describe('getCachedBlogListing', () => {
     expect(result?.posts.map((post) => post.id)).toEqual(['page-3-post']);
     expect(result?.currentPage).toBe(3);
     expect(result?.totalPages).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('getCachedFeatureSettings', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('falls back to the legacy feature settings projection while the repairs flag migration is pending', async () => {
+    const { featureSettingsSelects } = setupBlogListingFetch({
+      featureSettingsResults: [
+        {
+          data: null,
+          error: {
+            code: '42703',
+            message:
+              'column merchant_feature_settings.repairs_catalog_enabled does not exist',
+          },
+        },
+        { data: { blog_enabled: true }, error: null },
+      ],
+    });
+
+    const settings = await getCachedFeatureSettings('merchant-1');
+
+    expect(settings).toMatchObject({
+      blog_enabled: true,
+      // Normalized default while the column is missing.
+      repairs_catalog_enabled: false,
+    });
+    expect(featureSettingsSelects).toHaveLength(2);
+    expect(featureSettingsSelects[0]).toContain('repairs_catalog_enabled');
+    expect(featureSettingsSelects[1]).not.toContain('repairs_catalog_enabled');
   });
 });
