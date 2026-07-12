@@ -30,6 +30,17 @@ interface CompleteManualOutboxParams {
   supabase: ManualOutboxSupabaseClient;
 }
 
+interface PersistManualOutboxParams {
+  claimId: string;
+  eventType: OrderFulfillmentNotificationEventType;
+  merchantId: string;
+  messageId: string | null;
+  orderId: string;
+  skipReason: string | null;
+  status: ManualOutboxCompletionStatus;
+  supabase: ManualOutboxSupabaseClient;
+}
+
 function getManualCompletionStatus(
   result: OrderFulfillmentNotificationResult
 ): ManualOutboxCompletionStatus | null {
@@ -52,6 +63,37 @@ function getManualSkipReason(
   return null;
 }
 
+async function persistManualOutboxResult({
+  claimId,
+  eventType,
+  merchantId,
+  messageId,
+  orderId,
+  skipReason,
+  status,
+  supabase,
+}: PersistManualOutboxParams): Promise<unknown | null> {
+  try {
+    const { data, error } = await supabase.rpc(
+      'complete_order_notification_outbox_manual_result',
+      {
+        p_event_type: eventType,
+        p_merchant_id: merchantId,
+        p_message_id: messageId,
+        p_order_id: orderId,
+        p_outbox_id: claimId,
+        p_skip_reason: skipReason,
+        p_status: status,
+      }
+    );
+    if (error) return error;
+    if (data === 1) return null;
+    return new Error('Expected one completed outbox row');
+  } catch (error) {
+    return error;
+  }
+}
+
 export async function completeManualOrderNotificationOutboxEvent({
   claimId,
   eventType,
@@ -63,19 +105,18 @@ export async function completeManualOrderNotificationOutboxEvent({
   const status = getManualCompletionStatus(result);
   if (!status) return;
 
-  const { error } = await supabase.rpc(
-    'complete_order_notification_outbox_manual_result',
-    {
-      p_event_type: eventType,
-      p_merchant_id: merchantId,
-      p_message_id:
-        result.status === 'sent' ? (result.messageId ?? null) : null,
-      p_order_id: orderId,
-      p_outbox_id: claimId,
-      p_skip_reason: getManualSkipReason(result),
-      p_status: status,
-    }
-  );
+  const messageId =
+    result.status === 'sent' ? (result.messageId ?? null) : null;
+  const error = await persistManualOutboxResult({
+    claimId,
+    eventType,
+    merchantId,
+    messageId,
+    orderId,
+    skipReason: getManualSkipReason(result),
+    status,
+    supabase,
+  });
 
   if (error) {
     logger.warn({
@@ -86,6 +127,30 @@ export async function completeManualOrderNotificationOutboxEvent({
       orderId,
       status,
     });
+
+    if (status === 'sent') {
+      const fallbackError = await persistManualOutboxResult({
+        claimId,
+        eventType,
+        merchantId,
+        messageId,
+        orderId,
+        skipReason: 'delivery_outcome_unknown',
+        status: 'skipped',
+        supabase,
+      });
+      if (fallbackError) {
+        logger.warn({
+          message:
+            'Failed to terminalize manual order notification after sent marker persistence failed',
+          error: fallbackError,
+          eventType,
+          merchantId,
+          orderId,
+        });
+      }
+    }
+
     throw new Error('Failed to persist manual order notification outcome', {
       cause: error,
     });

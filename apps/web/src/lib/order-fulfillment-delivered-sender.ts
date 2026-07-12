@@ -19,6 +19,7 @@ import { resolveOrderNotificationRecipient } from '@/lib/order-notification-reci
 import { sendEmail } from '@/lib/zeptomail';
 
 interface SendDeliveredNotificationParams {
+  beforeProviderDispatch?: () => Promise<void>;
   featureSettings: FeatureSettingsRecord | null;
   merchant: MerchantRecord;
   merchantId: string;
@@ -26,6 +27,7 @@ interface SendDeliveredNotificationParams {
 }
 
 export async function sendDeliveredNotification({
+  beforeProviderDispatch,
   featureSettings,
   merchant,
   merchantId,
@@ -57,6 +59,7 @@ export async function sendDeliveredNotification({
     googlePlaceId: featureSettings?.google_place_id || null,
   };
   const senderName = merchant.email_sender_name || merchant.business_name;
+  await beforeProviderDispatch?.();
   const emailResult = await sendEmail({
     to: recipient.email,
     clientReference: `order:${order.id}:delivered_email`,

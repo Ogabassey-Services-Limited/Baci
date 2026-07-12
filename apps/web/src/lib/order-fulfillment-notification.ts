@@ -11,6 +11,7 @@ import type {
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 
 interface SendOrderFulfillmentNotificationParams {
+  beforeProviderDispatch?: () => Promise<void>;
   courierName?: string;
   estimatedDelivery?: string;
   eventType: OrderFulfillmentNotificationEventType;
@@ -96,12 +97,6 @@ function tableQuery(
   table: string
 ): QueryBuilder {
   return supabase.from(table) as QueryBuilder;
-}
-
-function getRequiredShippingStatusMessage(
-  eventType: OrderFulfillmentNotificationEventType
-): 'shipped' | 'delivered' {
-  return eventType === 'order_shipped' ? 'shipped' : 'delivered';
 }
 
 function isOrderInRequiredShippingStatus(
@@ -229,6 +224,7 @@ async function loadFeatureSettings(
 }
 
 export async function sendOrderFulfillmentNotification({
+  beforeProviderDispatch,
   courierName,
   estimatedDelivery,
   eventType,
@@ -263,7 +259,8 @@ export async function sendOrderFulfillmentNotification({
     )
   ) {
     if (mismatchBehavior === 'invalid_state') {
-      const requiredStatus = getRequiredShippingStatusMessage(eventType);
+      const requiredStatus =
+        eventType === 'order_shipped' ? 'shipped' : 'delivered';
       return {
         status: 'invalid_state',
         error: `Order must be marked as ${requiredStatus} first`,
@@ -275,6 +272,7 @@ export async function sendOrderFulfillmentNotification({
 
   if (eventType === 'order_shipped') {
     return sendFulfillmentNotificationEmail({
+      beforeProviderDispatch,
       courierName,
       estimatedDelivery,
       eventType,
@@ -291,6 +289,7 @@ export async function sendOrderFulfillmentNotification({
     orderId
   );
   return sendFulfillmentNotificationEmail({
+    beforeProviderDispatch,
     eventType,
     featureSettings,
     merchant,

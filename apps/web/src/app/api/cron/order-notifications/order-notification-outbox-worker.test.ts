@@ -1,8 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const sendNotification = vi.hoisted(() => vi.fn());
+const beginDispatch = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/order-fulfillment-notification', () => ({
   sendOrderFulfillmentNotification: sendNotification,
+}));
+vi.mock('@/lib/order-notification-outbox-dispatch', () => ({
+  beginOrderNotificationOutboxDispatch: beginDispatch,
 }));
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn() } }));
 
@@ -27,12 +31,24 @@ const row = {
   order_id: '10000000-0000-4000-8000-000000000003',
 };
 
+function mockNotificationResult(result: unknown) {
+  sendNotification.mockImplementation(
+    async (params: { beforeProviderDispatch?: () => Promise<void> }) => {
+      await params.beforeProviderDispatch?.();
+      return result;
+    }
+  );
+}
+
 describe('order notification outbox worker', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    beginDispatch.mockResolvedValue(undefined);
+  });
 
   it('marks successful sends as sent while preserving existing metadata', async () => {
     const { client, builder } = createSupabase([null]);
-    sendNotification.mockResolvedValue({
+    mockNotificationResult({
       status: 'sent',
       messageId: 'message-1',
     });
@@ -45,6 +61,9 @@ describe('order notification outbox worker', () => {
     );
 
     expect(summary).toMatchObject({ sent: 1, retried: 0, skipped: 0 });
+    expect(beginDispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ claimId: row.id, orderId: row.order_id })
+    );
     expect(builder.update).toHaveBeenCalledWith(
       expect.objectContaining({
         metadata: {
@@ -56,9 +75,26 @@ describe('order notification outbox worker', () => {
     );
   });
 
+  it('does not complete the notification when the dispatch boundary cannot be persisted', async () => {
+    const { client, builder } = createSupabase([null]);
+    beginDispatch.mockRejectedValue(new Error('dispatch marker unavailable'));
+    mockNotificationResult({ status: 'sent', messageId: 'message-1' });
+    const summary = createOrderNotificationCronSummary(1);
+
+    await processClaimedOrderNotificationRows(client as never, [row], summary);
+
+    expect(summary).toMatchObject({ retried: 1, sent: 0 });
+    expect(builder.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        last_error: 'dispatch marker unavailable',
+        status: 'pending',
+      })
+    );
+  });
+
   it('marks skipped notification results as skipped', async () => {
     const { client, builder } = createSupabase([null]);
-    sendNotification.mockResolvedValue({
+    mockNotificationResult({
       status: 'skipped',
       reason: 'missing_customer_email',
     });
@@ -77,7 +113,7 @@ describe('order notification outbox worker', () => {
 
   it('reschedules known failures while attempts remain', async () => {
     const { client, builder } = createSupabase([null]);
-    sendNotification.mockResolvedValue({
+    mockNotificationResult({
       status: 'failed',
       error: 'provider unavailable',
     });
@@ -96,7 +132,7 @@ describe('order notification outbox worker', () => {
 
   it('marks known failures terminal after the final attempt', async () => {
     const { client, builder } = createSupabase([null]);
-    sendNotification.mockResolvedValue({
+    mockNotificationResult({
       status: 'failed',
       error: 'provider unavailable',
     });
@@ -116,7 +152,7 @@ describe('order notification outbox worker', () => {
 
   it('never retries an ambiguous provider delivery outcome', async () => {
     const { client, builder } = createSupabase([null]);
-    sendNotification.mockResolvedValue({
+    mockNotificationResult({
       status: 'failed',
       deliveryOutcome: 'unknown',
       error: 'request timed out',
@@ -139,7 +175,7 @@ describe('order notification outbox worker', () => {
       { message: 'first write failed' },
       null,
     ]);
-    sendNotification.mockResolvedValue({
+    mockNotificationResult({
       status: 'sent',
       messageId: 'message-1',
     });
@@ -161,7 +197,7 @@ describe('order notification outbox worker', () => {
     builder.eq
       .mockRejectedValueOnce(new Error('database connection reset'))
       .mockResolvedValueOnce({ error: null });
-    sendNotification.mockResolvedValue({
+    mockNotificationResult({
       status: 'sent',
       messageId: 'message-1',
     });

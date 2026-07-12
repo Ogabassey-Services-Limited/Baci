@@ -139,12 +139,14 @@ describe('completeManualOrderNotificationOutboxEvent', () => {
     );
   });
 
-  it('propagates outbox completion failures so the route cannot report success', async () => {
+  it('terminalizes a sent claim as outcome-unknown before propagating persistence failure', async () => {
     const supabase = createSupabaseMock();
-    supabase.rpc.mockResolvedValueOnce({
-      data: null,
-      error: { message: 'rpc failed' },
-    });
+    supabase.rpc
+      .mockResolvedValueOnce({
+        data: null,
+        error: { message: 'rpc failed' },
+      })
+      .mockResolvedValueOnce({ data: 1, error: null });
 
     await expect(
       completeManualOrderNotificationOutboxEvent({
@@ -157,6 +159,16 @@ describe('completeManualOrderNotificationOutboxEvent', () => {
       })
     ).rejects.toThrow('Failed to persist manual order notification outcome');
 
+    expect(supabase.rpc).toHaveBeenNthCalledWith(
+      2,
+      'complete_order_notification_outbox_manual_result',
+      expect.objectContaining({
+        p_message_id: 'msg-1',
+        p_skip_reason: 'delivery_outcome_unknown',
+        p_status: 'skipped',
+      })
+    );
+
     expect(logger.warn).toHaveBeenCalledWith(
       expect.objectContaining({
         message: 'Failed to mark manual order notification outbox row complete',
@@ -164,5 +176,49 @@ describe('completeManualOrderNotificationOutboxEvent', () => {
         orderId: 'order-1',
       })
     );
+  });
+
+  it('also terminalizes a sent claim when the primary persistence request rejects', async () => {
+    const supabase = createSupabaseMock();
+    supabase.rpc
+      .mockRejectedValueOnce(new Error('network unavailable'))
+      .mockResolvedValueOnce({ data: 1, error: null });
+
+    await expect(
+      completeManualOrderNotificationOutboxEvent({
+        claimId: '10000000-0000-4000-8000-000000000001',
+        eventType: 'order_delivered',
+        merchantId: 'merchant-1',
+        orderId: 'order-1',
+        result: { status: 'sent', message: 'sent', messageId: 'msg-2' },
+        supabase,
+      })
+    ).rejects.toThrow('Failed to persist manual order notification outcome');
+
+    expect(supabase.rpc).toHaveBeenNthCalledWith(
+      2,
+      'complete_order_notification_outbox_manual_result',
+      expect.objectContaining({
+        p_message_id: 'msg-2',
+        p_skip_reason: 'delivery_outcome_unknown',
+        p_status: 'skipped',
+      })
+    );
+  });
+
+  it('treats a zero-row completion as a persistence failure', async () => {
+    const supabase = createSupabaseMock();
+    supabase.rpc.mockResolvedValueOnce({ data: 0, error: null });
+
+    await expect(
+      completeManualOrderNotificationOutboxEvent({
+        claimId: '10000000-0000-4000-8000-000000000001',
+        eventType: 'order_shipped',
+        merchantId: 'merchant-1',
+        orderId: 'order-1',
+        result: { status: 'failed', error: 'provider unavailable' },
+        supabase,
+      })
+    ).rejects.toThrow('Failed to persist manual order notification outcome');
   });
 });

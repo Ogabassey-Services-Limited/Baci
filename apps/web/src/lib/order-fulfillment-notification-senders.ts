@@ -9,6 +9,7 @@ import type {
 import { sendShippedNotification } from '@/lib/order-fulfillment-shipped-sender';
 
 interface SendFulfillmentNotificationEmailParams {
+  beforeProviderDispatch?: () => Promise<void>;
   courierName?: string;
   estimatedDelivery?: string;
   eventType: OrderFulfillmentNotificationEventType;
@@ -20,6 +21,7 @@ interface SendFulfillmentNotificationEmailParams {
 }
 
 export function sendFulfillmentNotificationEmail({
+  beforeProviderDispatch,
   courierName,
   estimatedDelivery,
   eventType,
@@ -31,6 +33,7 @@ export function sendFulfillmentNotificationEmail({
 }: SendFulfillmentNotificationEmailParams): Promise<OrderFulfillmentNotificationResult> {
   if (eventType === 'order_shipped') {
     return sendShippedNotification({
+      beforeProviderDispatch,
       courierName,
       estimatedDelivery,
       merchant,
@@ -40,6 +43,7 @@ export function sendFulfillmentNotificationEmail({
     });
   }
   return sendDeliveredNotification({
+    beforeProviderDispatch,
     featureSettings,
     merchant,
     merchantId,

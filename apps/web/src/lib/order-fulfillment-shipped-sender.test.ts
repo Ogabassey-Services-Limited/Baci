@@ -29,7 +29,9 @@ describe('sendShippedNotification', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('skips orders without a valid customer email', async () => {
+    const beforeProviderDispatch = vi.fn();
     const result = await sendShippedNotification({
+      beforeProviderDispatch,
       merchantId: 'merchant-1',
       merchant,
       order: { ...order, customer_email: null },
@@ -38,13 +40,16 @@ describe('sendShippedNotification', () => {
       status: 'skipped',
       reason: 'missing_customer_email',
     });
+    expect(beforeProviderDispatch).not.toHaveBeenCalled();
     expect(sendEmail).not.toHaveBeenCalled();
   });
 
   it('returns sent after the provider accepts the shipped email', async () => {
     sendEmail.mockResolvedValue({ success: true, messageId: 'message-1' });
+    const beforeProviderDispatch = vi.fn().mockResolvedValue(undefined);
 
     const result = await sendShippedNotification({
+      beforeProviderDispatch,
       merchantId: 'merchant-1',
       merchant,
       order,
@@ -61,6 +66,10 @@ describe('sendShippedNotification', () => {
         clientReference: 'order:order-1:shipped_email',
         to: 'customer@example.com',
       })
+    );
+    expect(beforeProviderDispatch).toHaveBeenCalledOnce();
+    expect(beforeProviderDispatch.mock.invocationCallOrder[0]).toBeLessThan(
+      sendEmail.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY
     );
   });
 
@@ -80,5 +89,22 @@ describe('sendShippedNotification', () => {
       status: 'failed',
       error: 'provider unavailable',
     });
+  });
+
+  it('does not call the provider when the dispatch boundary fails', async () => {
+    const beforeProviderDispatch = vi
+      .fn()
+      .mockRejectedValue(new Error('dispatch marker unavailable'));
+
+    await expect(
+      sendShippedNotification({
+        beforeProviderDispatch,
+        merchantId: 'merchant-1',
+        merchant,
+        order,
+      })
+    ).rejects.toThrow('dispatch marker unavailable');
+
+    expect(sendEmail).not.toHaveBeenCalled();
   });
 });

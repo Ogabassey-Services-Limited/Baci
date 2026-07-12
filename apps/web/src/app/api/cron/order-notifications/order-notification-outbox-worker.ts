@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { sendOrderFulfillmentNotification } from '@/lib/order-fulfillment-notification';
+import { beginOrderNotificationOutboxDispatch } from '@/lib/order-notification-outbox-dispatch';
 import type { createServiceClient } from '@/lib/supabase/service';
 
 const RETRY_BASE_DELAY_MS = 5 * 60 * 1000;
@@ -173,6 +174,14 @@ async function processClaimedRow(
   try {
     const shipmentMetadata = getShipmentMetadata(row);
     const result = await sendOrderFulfillmentNotification({
+      beforeProviderDispatch: () =>
+        beginOrderNotificationOutboxDispatch({
+          claimId: row.id,
+          eventType: row.event_type,
+          merchantId: row.merchant_id,
+          orderId: row.order_id,
+          supabase,
+        }),
       courierName: shipmentMetadata.manual_courier_name,
       estimatedDelivery: shipmentMetadata.manual_estimated_delivery,
       eventType: row.event_type,

@@ -7,6 +7,7 @@ import {
 import { checkCsrfProtection } from '@/lib/csrf';
 import { sendOrderFulfillmentNotification } from '@/lib/order-fulfillment-notification';
 import type { OrderFulfillmentNotificationResult } from '@/lib/order-fulfillment-notification-types';
+import { beginOrderNotificationOutboxDispatch } from '@/lib/order-notification-outbox-dispatch';
 import { completeManualOrderNotificationOutboxEvent } from '@/lib/order-notification-outbox-manual-result';
 import { getManualOrderNotificationOutboxBlockingState } from '@/lib/order-notification-outbox-manual-state';
 import { orderIdParamsSchema } from '@/schemas/orders';
@@ -107,6 +108,7 @@ export async function POST(
         { status: 401 }
       );
     }
+    const authenticatedSupabase = auth.supabase;
 
     const merchantId = await getMerchantIdForApiUser(auth.supabase);
     if (!merchantId) {
@@ -175,6 +177,14 @@ export async function POST(
     }
 
     const result = await sendOrderFulfillmentNotification({
+      beforeProviderDispatch: () =>
+        beginOrderNotificationOutboxDispatch({
+          claimId: blockingState.claimId,
+          eventType: 'order_shipped',
+          merchantId,
+          orderId: parsedParams.data.id,
+          supabase: authenticatedSupabase,
+        }),
       courierName,
       estimatedDelivery,
       eventType: 'order_shipped',

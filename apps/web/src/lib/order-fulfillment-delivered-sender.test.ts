@@ -29,7 +29,9 @@ describe('sendDeliveredNotification', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('skips orders without a valid customer email and preserves rating context', async () => {
+    const beforeProviderDispatch = vi.fn();
     const result = await sendDeliveredNotification({
+      beforeProviderDispatch,
       merchantId: 'merchant-1',
       featureSettings: { google_place_id: 'place-1' },
       merchant,
@@ -40,13 +42,16 @@ describe('sendDeliveredNotification', () => {
       reason: 'missing_customer_email',
       hasGoogleRating: true,
     });
+    expect(beforeProviderDispatch).not.toHaveBeenCalled();
     expect(sendEmail).not.toHaveBeenCalled();
   });
 
   it('returns sent after the provider accepts the delivered email', async () => {
     sendEmail.mockResolvedValue({ success: true, messageId: 'message-1' });
+    const beforeProviderDispatch = vi.fn().mockResolvedValue(undefined);
 
     const result = await sendDeliveredNotification({
+      beforeProviderDispatch,
       merchantId: 'merchant-1',
       featureSettings: { google_place_id: 'place-1' },
       merchant,
@@ -64,6 +69,10 @@ describe('sendDeliveredNotification', () => {
         clientReference: 'order:order-1:delivered_email',
         to: 'customer@example.com',
       })
+    );
+    expect(beforeProviderDispatch).toHaveBeenCalledOnce();
+    expect(beforeProviderDispatch.mock.invocationCallOrder[0]).toBeLessThan(
+      sendEmail.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY
     );
   });
 

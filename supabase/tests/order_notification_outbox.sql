@@ -24,6 +24,7 @@ DECLARE
   v_delivered_completed_order_id uuid := '8f0ed783-0000-4000-8000-000000000806';
   v_direct_out_for_delivery_order_id uuid := '8f0ed783-0000-4000-8000-000000000809';
   v_direct_completed_order_id uuid := '8f0ed783-0000-4000-8000-000000000810';
+  v_unstarted_stale_order_id uuid := '8f0ed783-0000-4000-8000-000000000811';
   v_shipped_count integer;
   v_delivered_count integer;
   v_repeat_shipped_count integer;
@@ -37,9 +38,12 @@ DECLARE
   v_manual_processing_status text;
   v_manual_metadata jsonb;
   v_delivered_completed_count integer;
+  v_dispatch_started_at timestamptz;
+  v_attempt_count integer;
   v_claimed record;
   v_processing_status text;
   v_previous_event_sequence bigint := 0;
+  v_reclaimed_count integer;
   v_stale_outbox_id uuid;
 BEGIN
   INSERT INTO public.merchants (id, email, business_name, slug)
@@ -826,9 +830,21 @@ BEGIN
     RAISE EXCEPTION 'claimed row status should be processing, got %', v_processing_status;
   END IF;
 
+  SELECT public.begin_order_notification_outbox_dispatch(
+    v_claimed.id,
+    v_order_id,
+    v_merchant_id,
+    'order_shipped'
+  )
+  INTO v_manual_updated_count;
+
+  IF v_manual_updated_count <> 1 THEN
+    RAISE EXCEPTION 'expected exact processing claim to begin dispatch, got % updates',
+      v_manual_updated_count;
+  END IF;
+
   UPDATE public.order_notification_outbox
   SET
-    attempt_count = max_attempts,
     locked_at = now() - interval '16 minutes'
   WHERE id = v_claimed.id;
 
@@ -850,7 +866,7 @@ BEGIN
   WHERE id = v_stale_outbox_id;
 
   IF v_processing_status IS DISTINCT FROM 'skipped' THEN
-    RAISE EXCEPTION 'abandoned final attempt should be terminalized as skipped, got %',
+    RAISE EXCEPTION 'abandoned non-final dispatch should be terminalized as skipped, got %',
       v_processing_status;
   END IF;
 
@@ -870,6 +886,77 @@ BEGIN
   IF v_manual_prepared_status IS DISTINCT FROM 'outcome_unknown' THEN
     RAISE EXCEPTION 'unknown provider outcome should block manual retries, got %',
       v_manual_prepared_status;
+  END IF;
+
+  INSERT INTO public.orders (
+    id,
+    merchant_id,
+    order_number,
+    customer_name,
+    customer_email,
+    shipping_status,
+    payment_status,
+    total
+  )
+  VALUES (
+    v_unstarted_stale_order_id,
+    v_merchant_id,
+    'OUTBOX-UNSTARTED-STALE-001',
+    'Unstarted Stale Customer',
+    'unstarted-stale@example.com',
+    'processing',
+    'paid',
+    10000
+  );
+
+  INSERT INTO public.order_notification_outbox (
+    order_id,
+    merchant_id,
+    event_type,
+    status,
+    attempt_count,
+    locked_at,
+    locked_by,
+    next_attempt_at
+  )
+  VALUES (
+    v_unstarted_stale_order_id,
+    v_merchant_id,
+    'order_shipped',
+    'processing',
+    1,
+    now() - interval '16 minutes',
+    'abandoned-before-dispatch-worker',
+    NULL
+  );
+
+  SELECT count(*)::integer
+  INTO v_reclaimed_count
+  FROM public.claim_order_notification_outbox(
+    100,
+    'order-outbox-safe-recovery-worker'
+  ) AS claimed
+  WHERE claimed.order_id = v_unstarted_stale_order_id;
+
+  IF v_reclaimed_count <> 1 THEN
+    RAISE EXCEPTION 'expected abandoned pre-dispatch claim to be safely reclaimed, got % rows',
+      v_reclaimed_count;
+  END IF;
+
+  SELECT outbox.status, outbox.attempt_count, outbox.dispatch_started_at
+  INTO v_processing_status, v_attempt_count, v_dispatch_started_at
+  FROM public.order_notification_outbox AS outbox
+  WHERE outbox.order_id = v_unstarted_stale_order_id
+    AND outbox.event_type = 'order_shipped';
+
+  IF v_processing_status IS DISTINCT FROM 'processing'
+    OR v_attempt_count IS DISTINCT FROM 1
+    OR v_dispatch_started_at IS NOT NULL
+  THEN
+    RAISE EXCEPTION 'safe reclaim must preserve one unstarted attempt, got status %, attempts %, dispatch %',
+      v_processing_status,
+      v_attempt_count,
+      v_dispatch_started_at;
   END IF;
 
 END $$;
