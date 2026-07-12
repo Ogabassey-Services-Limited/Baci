@@ -16,30 +16,41 @@ interface MockNextImageProps {
 }
 
 vi.mock('next/image', () => ({
-  default: ({
-    src,
-    alt,
-    preload,
-    priority,
-    loading,
-    fill,
-    sizes,
-    fetchPriority,
-    ...props
-  }: MockNextImageProps) => (
-    <img
-      src={src}
-      alt={alt}
-      data-preload={preload ? 'true' : 'false'}
-      data-priority={priority ? 'true' : 'false'}
-      data-loading={loading}
-      data-fill={fill ? 'true' : 'false'}
-      data-fetchpriority={fetchPriority}
-      data-sizes={sizes}
-      data-testid="next-image"
-      {...props}
-    />
-  ),
+    default: ({
+      src,
+      alt,
+      preload,
+      priority,
+      loading,
+      fill,
+      sizes,
+      fetchPriority,
+      ...props
+    }: MockNextImageProps) => (
+      <img
+        src={src}
+        alt={alt}
+        data-preload={preload ? 'true' : 'false'}
+        data-priority={priority ? 'true' : 'false'}
+        data-loading={loading}
+        data-fill={fill ? 'true' : 'false'}
+        data-fetchpriority={fetchPriority}
+        data-sizes={sizes}
+        data-testid="next-image"
+        {...props}
+      />
+    ),
+    getImageProps: ({
+      fill: _fill,
+      loader: _loader,
+      preload: _preload,
+      priority: _priority,
+      quality: _quality,
+      ...props
+    }: MockNextImageProps & {
+      loader?: unknown;
+      quality?: number;
+    }) => ({ props }),
 }));
 
 vi.mock('next/link', () => ({
@@ -86,17 +97,17 @@ describe('OgabasseyV2Blog', () => {
     render(<OgabasseyV2Blog posts={mockPosts} storeSlug="/test-store" />);
 
     const featuredImage = screen
-      .getAllByTestId('next-image')
-      .find((img) => img.getAttribute('src') === 'https://example.com/featured.jpg');
+      .getByRole('link', { name: /featured post/i })
+      .querySelector('img');
 
     expect(featuredImage).toBeInTheDocument();
-    expect(featuredImage).toHaveAttribute('data-preload', 'false');
-    expect(featuredImage).toHaveAttribute('data-loading', 'eager');
-    expect(featuredImage).toHaveAttribute('data-fetchpriority', 'high');
-    expect(featuredImage).toHaveAttribute('data-priority', 'false');
-    expect(featuredImage).toHaveAttribute('data-fill', 'true');
-    expect(featuredImage).toHaveAttribute('data-sizes', '100vw');
-    expect(featuredImage).toHaveAttribute('quality', '50');
+    expect(featuredImage).toHaveAttribute(
+      'src',
+      'https://example.com/featured.jpg'
+    );
+    expect(featuredImage).toHaveAttribute('loading', 'eager');
+    expect(featuredImage).toHaveAttribute('fetchpriority', 'high');
+    expect(featuredImage).toHaveAttribute('sizes', '100vw');
   });
 
   it('renders grid posts with lazy low-priority images', () => {

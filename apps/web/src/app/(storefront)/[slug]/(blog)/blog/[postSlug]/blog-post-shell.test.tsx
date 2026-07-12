@@ -13,8 +13,12 @@ interface MockImageProps {
   src: string;
 }
 
-vi.mock('next/image', () => ({
-  default: ({
+// The blog post hero now renders through CdnFormatImage (explicit per-format
+// <picture>). Its real pipeline calls next/image's `getImageProps`; surface it
+// as a plain <img> so these tests keep asserting the LCP `preload`-only
+// convention (no loading/fetchPriority pair) — not image internals.
+vi.mock('@/components/storefront/cdn-format-image', () => ({
+  CdnFormatImage: ({
     alt,
     fetchPriority,
     fill,
@@ -24,7 +28,7 @@ vi.mock('next/image', () => ({
     sizes,
     src,
   }: MockImageProps) => (
-    // biome-ignore lint/performance/noImgElement: Test mock for next/image intentionally uses <img>
+    // biome-ignore lint/performance/noImgElement: Test mock for CdnFormatImage intentionally uses <img>
     <img
       alt={alt}
       data-fetchpriority={fetchPriority ?? ''}
