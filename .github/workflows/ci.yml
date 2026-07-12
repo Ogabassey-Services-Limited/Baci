@@ -433,6 +433,14 @@ jobs:
   build:
     name: Build
     needs: [changes, quality, mobile-quality]
+    # Required-check hygiene: this gate must be always-CONCLUSIVE. Without an
+    # explicit `if`, GitHub skips `build` whenever an upstream `needs` job is
+    # skipped, and a "skipped" required check permanently blocks merge under
+    # enforce_admins for legitimate migration/docs/CI-only PRs (the web build
+    # has nothing to do, but the check never reports success). Run unless an
+    # upstream job actually failed/was cancelled; the web build steps stay gated
+    # on changes.web and the final step reports success when there is nothing to build.
+    if: ${{ always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
