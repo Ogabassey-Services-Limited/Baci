@@ -27,8 +27,10 @@
       "!**/src/app/preview",
       "!**/src/templates",
       "!**/mcp-server",
-      "!**/baci-mobile-storefront",
-      "!**/baci-mobile-admin",
+      "!**/android",
+      "!**/ios",
+      "!**/.expo",
+      "!apps/mobile-storefront/global.css",
       "!process_*.cjs",
       "!**/public"
     ]
@@ -301,6 +303,50 @@
         "rules": {
           "security": {
             "noDangerouslySetInnerHtml": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["apps/mobile-admin/**", "apps/mobile-storefront/**"],
+      "formatter": { "enabled": false },
+      "assist": {
+        "actions": {
+          "source": {
+            "organizeImports": "off"
+          }
+        }
+      },
+      "javascript": {
+        "globals": ["__DEV__", "jest", "vi"]
+      },
+      "linter": {
+        "rules": {
+          "a11y": {
+            "useAriaPropsSupportedByRole": "off",
+            "useButtonType": "off"
+          },
+          "complexity": {
+            "noUselessConstructor": "warn",
+            "noUselessSwitchCase": "warn",
+            "useLiteralKeys": "warn",
+            "useOptionalChain": "warn"
+          },
+          "style": {
+            "noNonNullAssertion": "warn",
+            "useCollapsedElseIf": "warn",
+            "useConsistentArrayType": "warn",
+            "useExponentiationOperator": "warn",
+            "useImportType": "warn",
+            "useNodejsImportProtocol": "warn",
+            "useNumberNamespace": "warn",
+            "useTemplate": "warn"
+          },
+          "suspicious": {
+            "noEmptyBlockStatements": "warn",
+            "noThenProperty": "warn",
+            "noVar": "warn",
+            "useAwait": "warn"
           }
         }
       }

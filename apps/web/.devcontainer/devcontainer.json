@@ -5,11 +5,7 @@
   "workspaceFolder": "/app",
   "customizations": {
     "vscode": {
-      "extensions": [
-        "dbaeumer.vscode-eslint",
-        "esbenp.prettier-vscode",
-        "bradlc.vscode-tailwindcss"
-      ]
+      "extensions": ["biomejs.biome", "bradlc.vscode-tailwindcss"]
     }
   }
 }

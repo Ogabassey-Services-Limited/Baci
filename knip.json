@@ -8,8 +8,7 @@
         "src/app/**/{page,layout,loading,error,not-found,global-error,route,template,default}.{ts,tsx}"
       ],
       "project": ["src/**/*.{ts,tsx,js,jsx}"],
-      "ignore": ["**/*.d.ts", "src/components/ui/**"],
-      "ignoreDependencies": ["eslint-config-next"]
+      "ignore": ["**/*.d.ts", "src/components/ui/**"]
     },
     "apps/mobile-admin": {
       "entry": ["app/**/*.{ts,tsx}", "app.json"],

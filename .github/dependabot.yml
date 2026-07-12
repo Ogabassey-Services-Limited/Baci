@@ -47,8 +47,8 @@ updates:
   # Listing both `"/"` and `"/apps/web"` (the first updater) violates that
   # rule and risks the validator dropping or merging blocks.
   #
-  # Trade-off: root-only tooling devDeps (Turbo, Expo lint/Knip ESLint config
-  # packages, plus the `hono` / `@hono/node-server` override-only entries)
+  # Trade-off: root-only tooling devDeps (Turbo, Knip, Biome, TypeScript,
+  # plus the `hono` / `@hono/node-server` override-only entries)
   # won't be auto-bumped by Dependabot. They're stable infra/tooling — manual
   # bumps are acceptable, and the override-only ones aren't bumpable by
   # Dependabot anyway since they live in `pnpm.overrides` not `dependencies`.

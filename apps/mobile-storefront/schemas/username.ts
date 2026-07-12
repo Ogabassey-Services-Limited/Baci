@@ -7,7 +7,7 @@ export const USERNAME_MAX_LENGTH = 20;
 // control ranges. Mirrors the web `cleanUsername` strip set so both clients
 // feed the authoritative RPC the exact same normalized value.
 const ZERO_WIDTH_AND_CONTROL =
-  // eslint-disable-next-line no-control-regex
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional strip of C0/C1 control + zero-width chars, mirrors the web cleanUsername set.
   /[\u200B-\u200F\uFEFF\u2060\u00AD\u0000-\u001F\u007F-\u009F]/g;
 
 /**

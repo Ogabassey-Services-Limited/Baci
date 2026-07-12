@@ -239,7 +239,9 @@ class OfflineQueueManager {
 
   private notifyListeners(): void {
     const state = this.getState();
-    this.listeners.forEach((listener) => listener(state));
+    this.listeners.forEach((listener) => {
+      listener(state);
+    });
   }
 }
 

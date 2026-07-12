@@ -18,7 +18,7 @@
     "check:platform-drift": "node ./scripts/check-platform-drift.mjs",
     "check:module-size": "node ./scripts/check-module-size.mjs",
     "check:route-size": "node ./scripts/check-route-size.mjs",
-    "lint": "NODE_OPTIONS='--no-warnings --import tsx' expo lint",
+    "lint": "biome check .",
     "typecheck": "tsc --noEmit",
     "test": "jest --runInBand"
   },
@@ -104,6 +104,7 @@
   },
   "devDependencies": {
     "@babel/plugin-transform-dynamic-import": "^7.29.7",
+    "@biomejs/biome": "^2.5.0",
     "@jest/globals": "^29.7.0",
     "@posthog/cli": "^0.7.34",
     "@react-native/metro-config": "0.86.0",

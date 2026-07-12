@@ -145,6 +145,7 @@ type HookState = {
 };
 
 function getHookState() {
+  // biome-ignore lint/correctness/useHookAtTopLevel: test helper wraps the hook so renderHook can drive it.
   return useUnlinkedOrderItemReconciliation() as unknown as HookState;
 }
 
