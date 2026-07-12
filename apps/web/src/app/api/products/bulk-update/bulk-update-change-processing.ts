@@ -1,20 +1,18 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { z } from 'zod';
 import { generateProductSlug, generateSlug } from '@/lib/seo-utils';
 import {
   resolveProductPurgeCategorySegment,
   type StorefrontProductPurgeEntry,
 } from '@/lib/storefront-product-purge-urls';
-import type { BulkUpdateChangesSchema } from '@/schemas/dashboard-product-import-actions';
+import {
+  type BulkUpdateChange,
+  groupBulkUpdateChanges,
+} from './bulk-update-change-groups';
 import {
   BULK_PURGE_ROW_COLUMNS,
   type BulkPurgeProductRow,
   getBulkPurgeEntries,
 } from './bulk-update-purge-entries';
-
-type BulkUpdateChange = z.infer<
-  typeof BulkUpdateChangesSchema
->['changes'][number];
 
 type ProductChangeResult = {
   updated: number;
@@ -31,53 +29,6 @@ const emptyProductChangeResult = (): ProductChangeResult => ({
   removed: 0,
   errors: [],
 });
-
-function groupChangesByProduct(
-  changes: BulkUpdateChange[]
-): BulkUpdateChange[][] {
-  const hasAmbiguousExistingTarget = changes.some(
-    (change) => change.type !== 'new' && !change.productId?.trim()
-  );
-  if (hasAmbiguousExistingTarget) {
-    return [changes];
-  }
-
-  const hasNewProduct = changes.some((change) => change.type === 'new');
-  const hasSlugGeneratingUpdate = changes.some(
-    (change) => change.type === 'update' && Boolean(change.details.name?.trim())
-  );
-  if (hasNewProduct && hasSlugGeneratingUpdate) {
-    return [changes];
-  }
-
-  const groups: BulkUpdateChange[][] = [];
-  const groupByKey = new Map<string, BulkUpdateChange[]>();
-  const newProductChanges: BulkUpdateChange[] = [];
-
-  for (const change of changes) {
-    if (change.type === 'new') {
-      newProductChanges.push(change);
-      continue;
-    }
-
-    const key = `id:${change.productId?.trim().toLowerCase()}`;
-    const existingGroup = groupByKey.get(key);
-    if (existingGroup) {
-      existingGroup.push(change);
-      continue;
-    }
-
-    const group = [change];
-    groupByKey.set(key, group);
-    groups.push(group);
-  }
-
-  if (newProductChanges.length > 0) {
-    groups.push(newProductChanges);
-  }
-
-  return groups;
-}
 
 function summarizeChangeFailure(
   change: BulkUpdateChange,
@@ -272,7 +223,7 @@ export async function processBulkUpdateChanges({
   supabase: SupabaseClient;
 }): Promise<ProductChangeResult> {
   const summary = emptyProductChangeResult();
-  const groupedChanges = groupChangesByProduct(changes);
+  const groupedChanges = groupBulkUpdateChanges(changes);
 
   for (
     let offset = 0;

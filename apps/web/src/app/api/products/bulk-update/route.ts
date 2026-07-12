@@ -94,7 +94,11 @@ export async function POST(request: NextRequest) {
       currency,
       merchantBusinessName,
       merchantId,
-      onPurgeEntries: (entries) => purgeEntries.push(...entries),
+      onPurgeEntries: (entries) => {
+        for (const entry of entries) {
+          purgeEntries.push(entry);
+        }
+      },
       supabase,
     });
 

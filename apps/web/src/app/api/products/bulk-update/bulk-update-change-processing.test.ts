@@ -118,7 +118,7 @@ describe('processBulkUpdateChanges', () => {
         type: 'update' as const,
         productId: `product-${index}`,
         newPrice: index,
-        details: { name: `Product ${index}`, price: index },
+        details: { price: index },
       })),
       currency: 'NGN',
       merchantBusinessName: 'Test Store',
