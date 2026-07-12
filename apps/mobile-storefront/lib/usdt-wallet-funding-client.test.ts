@@ -70,10 +70,16 @@ describe('createUsdtWalletFundingClient', () => {
       fetchImpl,
     });
 
-    await expect(client.status('wusdt_ref')).resolves.toMatchObject({
+    await expect(
+      client.status('wusdt_ref', 'ogabassey')
+    ).resolves.toMatchObject({
       address: 'TLateAddress',
       fundingStatus: 'pending',
       kind: 'ready',
     });
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'https://shop.example.com/api/storefront/customer/wallet/top-up/usdt/wusdt_ref?merchantSlug=ogabassey',
+      expect.objectContaining({ method: 'GET' })
+    );
   });
 });

@@ -10,12 +10,24 @@ const API_BASE_URL = resolveStorefrontApiBaseUrl(
 );
 
 export default function UsdtWalletFundingRoute() {
-  const { amount } = useLocalSearchParams<{ amount?: string }>();
+  const { amount, returnTo } = useLocalSearchParams<{
+    amount?: string;
+    returnTo?: string;
+  }>();
   const customer = useAuthStore((state) => state.customer);
   const accessToken = useAuthStore((state) => state.session?.access_token);
   const numericAmount = Number(amount);
   if (!accessToken) {
-    return <Redirect href="/auth/login?returnTo=/wallet/usdt" />;
+    const fundingParams = new URLSearchParams();
+    if (amount) fundingParams.set('amount', amount);
+    if (returnTo) fundingParams.set('returnTo', returnTo);
+    const query = fundingParams.toString();
+    const fundingReturnTo = `/wallet/usdt${query ? `?${query}` : ''}`;
+    return (
+      <Redirect
+        href={`/auth/login?returnTo=${encodeURIComponent(fundingReturnTo)}`}
+      />
+    );
   }
   return (
     <UsdtWalletFundingScreen

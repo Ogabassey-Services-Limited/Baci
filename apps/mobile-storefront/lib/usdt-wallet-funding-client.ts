@@ -85,10 +85,10 @@ export function createUsdtWalletFundingClient({
       }
     },
 
-    async status(reference: string) {
+    async status(reference: string, merchantSlug: string) {
       try {
         const response = await fetchImpl(
-          `${baseUrl}/api/storefront/customer/wallet/top-up/usdt/${encodeURIComponent(reference)}`,
+          `${baseUrl}/api/storefront/customer/wallet/top-up/usdt/${encodeURIComponent(reference)}?merchantSlug=${encodeURIComponent(merchantSlug)}`,
           { headers: headers(), method: 'GET' }
         );
         const data = record(await response.json());

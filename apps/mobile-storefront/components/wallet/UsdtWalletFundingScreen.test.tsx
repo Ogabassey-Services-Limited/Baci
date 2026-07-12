@@ -109,11 +109,15 @@ describe('UsdtWalletFundingScreen', () => {
       screen.getByRole('button', { name: /create deposit address/i })
     );
     await waitFor(() => expect(mockInitialize).toHaveBeenCalled());
+    expect(
+      await screen.findByText('Preparing your deposit address…')
+    ).toBeTruthy();
 
     await act(async () => {
       await jest.advanceTimersByTimeAsync(5_000);
     });
 
+    expect(mockStatus).toHaveBeenCalledWith('wusdt_ref', 'ogabassey');
     expect(await screen.findByText('TLateAddress')).toBeTruthy();
   });
 });

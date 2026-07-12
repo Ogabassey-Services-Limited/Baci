@@ -69,7 +69,7 @@ export function UsdtWalletFundingScreen({
     let cancelled = false;
     const client = createUsdtWalletFundingClient({ accessToken, apiBaseUrl });
     const refresh = async () => {
-      const result = await client.status(reference);
+      const result = await client.status(reference, merchantSlug);
       if (cancelled || result.kind !== 'ready') return;
       if (result.address) setAddress(result.address);
       setStatus(result.fundingStatus);
