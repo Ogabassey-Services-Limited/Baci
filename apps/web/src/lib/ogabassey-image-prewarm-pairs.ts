@@ -90,25 +90,28 @@ export const BLOG_IMAGE_WIDTH_QUALITY_PAIRS: readonly PrewarmWidthQualityPair[] 
 // components, so every q70 variant was COLD after a purge/image change: the
 // post-#3044 DebugBear waterfall measured the first `width=640,quality=70`
 // fetch at ~5s (cold fill) while already-warm variants served in ~400ms.
-// Widths are the picks next/image ACTUALLY emits for each hero's `sizes`
-// against the configured deviceSizes ([640,750,828,1080,1200,1440,…]):
-//   - mobile carousel (hero-mobile-image-config): sizes '40vw' → 384/640 at
-//     DPR 2–3. Its <source> is capped at max-width:767px, so the trailing
-//     50vw branch never renders — desktop is a separate component.
+// Warms the FULL responsive ladder next/image can emit for the hero, because
+// the two components together span it across DPR 1–3:
+//   - mobile carousel (hero-mobile-image-config): sizes '40vw' (filtered to
+//     allSizes ≥ 256) → 384/640 at DPR 2–3. Its <source> is capped at
+//     max-width:767px, so the trailing 50vw branch never renders — desktop is
+//     a separate component.
 //   - desktop grid HeroBigImage (hero-desktop-grid): a FIXED
 //     '(min-width:768px) 480px' slot. A px-only `sizes` carries no `vw`, so
 //     next/image emits the full deviceSizes ladder (get-img-props getWidths)
-//     and the browser resolves the 480px slot by DPR → 640 (1x/1.25x),
-//     750 (1.5x laptop scaling), 1080 (2x) and 1440 (3x). 1200 is unreachable
-//     at this slot (it needs DPR 2.5) — the previous [384,640,1200] list
-//     warmed a URL no visitor requests while leaving the real 1080/1440
-//     desktop-retina LCP picks cold, defeating this tier's purpose.
+//     and the browser resolves the 480px slot by DPR: the smallest candidate
+//     ≥ 480·DPR — 640 (≤1.33×), 750 (1.5×), 828 (~1.6–1.7×), 1080 (2×/2.25×),
+//     1200 (2.5× — real 250% Windows display scaling) and 1440 (3×). ALL are
+//     reachable, so omitting any (e.g. an earlier drop of 1200) leaves that
+//     DPR band's LCP cold after image updates. Retina tiers ≥1920 (DPR 4+) are
+//     omitted, the same trade-off the PDP/blog sets accept.
 // Kept OUT of ALL_WIDTH_QUALITY_PAIRS below and warmed by its OWN dedicated
 // invocation (like BLOG_IMAGE_WIDTH_QUALITY_PAIRS) for the product's PRIMARY
 // image only — the sole image the hero ever renders — so it never spends the
-// shared product per-invocation URL budget.
+// shared product per-invocation URL budget (7 pairs × 3 formats = 21 URLs,
+// far under the 120 cap).
 export const HOME_HERO_IMAGE_WIDTH_QUALITY_PAIRS: readonly PrewarmWidthQualityPair[] =
-  [384, 640, 750, 1080, 1440].map((width) => ({
+  [384, 640, 750, 828, 1080, 1200, 1440].map((width) => ({
     width,
     quality: MOBILE_HERO_IMAGE_QUALITY,
   }));
