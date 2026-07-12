@@ -1047,7 +1047,6 @@ export async function getCachedMerchantById(
         slug,
         business_address,
         payout_currency,
-        paystack_subaccount_code,
         is_published,
         template_id,
         plan_expires_at,
@@ -2765,6 +2764,33 @@ export async function getCachedFeatureSettings(
     // Rethrow so Cache Components skips caching this failure.
     throw error;
   }
+}
+
+/**
+ * Whether a merchant has a Paystack subaccount configured, derived server-side
+ * via the bounded, published-scoped `storefront_merchant_has_paystack_subaccount`
+ * SECURITY DEFINER RPC — never exposing the raw `paystack_subaccount_code`.
+ * Cached per merchant on the same `features-<id>` tag as the feature settings so
+ * it invalidates together and stays off the hot public path's request timeline.
+ */
+export async function getCachedMerchantPaystackSubaccountConfigured(
+  merchantId: string
+): Promise<boolean> {
+  'use cache';
+  cacheLife('products');
+  cacheTag(`features-${merchantId}`);
+
+  const supabase = getServiceSupabaseClient();
+  const { data, error } = await supabase.rpc(
+    'storefront_merchant_has_paystack_subaccount',
+    { p_merchant_id: merchantId }
+  );
+  if (error) {
+    console.error('Error checking paystack subaccount presence:', error);
+    // Rethrow so Cache Components skip caching this failure.
+    throw error;
+  }
+  return Boolean(data);
 }
 
 /**
