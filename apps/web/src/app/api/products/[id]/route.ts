@@ -15,6 +15,7 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { prewarmOgabasseyImageTransforms } from '@/lib/ogabassey-image-prewarm';
+import { HOME_HERO_IMAGE_WIDTH_QUALITY_PAIRS } from '@/lib/ogabassey-image-prewarm-pairs';
 import {
   getPrimaryProductImage,
   PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL,
@@ -88,10 +89,27 @@ function schedulePrewarmProductImageTransforms(imagePaths: string[]): void {
     return;
   }
 
+  // The home hero (hero-desktop-grid / mobile carousel) only ever renders a
+  // product's PRIMARY image, and it renders it at a q70 tier the default
+  // product matrix deliberately omits. Warm that tier in its OWN invocation
+  // for the primary image only: a separate call carries its own 120-URL budget,
+  // so it can never steal PDP/card coverage from a multi-image product update.
+  const primaryImage = getPrimaryProductImage(imagePaths);
+
+  const run = () =>
+    Promise.all([
+      prewarmOgabasseyImageTransforms(imagePaths),
+      primaryImage
+        ? prewarmOgabasseyImageTransforms([primaryImage], {
+            widthQualityPairs: HOME_HERO_IMAGE_WIDTH_QUALITY_PAIRS,
+          })
+        : Promise.resolve(),
+    ]);
+
   try {
-    after(() => prewarmOgabasseyImageTransforms(imagePaths));
+    after(() => run());
   } catch {
-    void prewarmOgabasseyImageTransforms(imagePaths);
+    void run();
   }
 }
 

@@ -86,21 +86,38 @@ export const BLOG_IMAGE_WIDTH_QUALITY_PAIRS: readonly PrewarmWidthQualityPair[] 
     })),
   ];
 
-// Home hero (MobileLcpHeroImage / hero-desktop-grid) renders at
-// MOBILE_HERO_IMAGE_QUALITY (70) — a tier this matrix never covered, so every
-// hero variant was COLD after a purge/image change: the post-#3044 DebugBear
-// waterfall measured the first `width=640,quality=70` fetch at ~5s (cold
-// fill) while already-warm variants served in ~400ms. Widths are the picks
-// the post-#3044 `sizes` ('(max-width: 767px) 40vw, 50vw') actually emits:
-// 384/640 = mobile 40vw at DPR 2–3, 1200 = desktop 50vw at DPR 2. Kept to
-// three widths (9 URLs/image with the 3 format tiers) so the per-invocation
-// URL budget (120) still covers a multi-image product update.
-const HOME_HERO_WIDTH_QUALITY_PAIRS: readonly PrewarmWidthQualityPair[] = [
-  384, 640, 1200,
-].map((width) => ({ width, quality: MOBILE_HERO_IMAGE_QUALITY }));
+// Home hero renders at MOBILE_HERO_IMAGE_QUALITY (70) across BOTH hero
+// components, so every q70 variant was COLD after a purge/image change: the
+// post-#3044 DebugBear waterfall measured the first `width=640,quality=70`
+// fetch at ~5s (cold fill) while already-warm variants served in ~400ms.
+// Widths are the picks next/image ACTUALLY emits for each hero's `sizes`
+// against the configured deviceSizes ([640,750,828,1080,1200,1440,…]):
+//   - mobile carousel (hero-mobile-image-config): sizes '40vw' → 384/640 at
+//     DPR 2–3. Its <source> is capped at max-width:767px, so the trailing
+//     50vw branch never renders — desktop is a separate component.
+//   - desktop grid HeroBigImage (hero-desktop-grid): a FIXED
+//     '(min-width:768px) 480px' slot. A px-only `sizes` carries no `vw`, so
+//     next/image emits the full deviceSizes ladder (get-img-props getWidths)
+//     and the browser resolves the 480px slot by DPR → 640 (1x/1.25x),
+//     750 (1.5x laptop scaling), 1080 (2x) and 1440 (3x). 1200 is unreachable
+//     at this slot (it needs DPR 2.5) — the previous [384,640,1200] list
+//     warmed a URL no visitor requests while leaving the real 1080/1440
+//     desktop-retina LCP picks cold, defeating this tier's purpose.
+// Kept OUT of ALL_WIDTH_QUALITY_PAIRS below and warmed by its OWN dedicated
+// invocation (like BLOG_IMAGE_WIDTH_QUALITY_PAIRS) for the product's PRIMARY
+// image only — the sole image the hero ever renders — so it never spends the
+// shared product per-invocation URL budget.
+export const HOME_HERO_IMAGE_WIDTH_QUALITY_PAIRS: readonly PrewarmWidthQualityPair[] =
+  [384, 640, 750, 1080, 1440].map((width) => ({
+    width,
+    quality: MOBILE_HERO_IMAGE_QUALITY,
+  }));
 
+// Default matrix for PRODUCT image updates (PDP hero + listing card), applied
+// to EVERY image of an updated product. The home-hero q70 tier is deliberately
+// excluded (see above) so a multi-image product update keeps full PDP/card
+// coverage within the 120-URL per-invocation budget.
 export const ALL_WIDTH_QUALITY_PAIRS: readonly PrewarmWidthQualityPair[] = [
   ...PDP_HERO_WIDTH_QUALITY_PAIRS,
   ...LISTING_CARD_WIDTH_QUALITY_PAIRS,
-  ...HOME_HERO_WIDTH_QUALITY_PAIRS,
 ];
