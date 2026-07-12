@@ -465,7 +465,14 @@ export async function POST(request: NextRequest) {
 
         // Send order confirmation email
         try {
-          const { data: merchantDetails } = await supabase
+          // Read merchant identity/branding via the service-role client. This
+          // webhook has no user session (signature-verified, cookieless), so an
+          // anon read here depends on the permissive `merchants` anon grant and
+          // leaks tax_identification_number / cac_rc_number on the anon path.
+          // The S0-A containment revokes that anon grant, so this must not run
+          // as anon. (payments/webhook and payments/verify read merchants the
+          // same way.)
+          const { data: merchantDetails } = await createAdminClient()
             .from('merchants')
             .select(
               'business_name, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number'
