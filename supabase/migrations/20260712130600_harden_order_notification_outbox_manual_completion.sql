@@ -25,7 +25,7 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
-  IF p_status NOT IN ('sent', 'skipped') THEN
+  IF p_status NOT IN ('sent', 'skipped', 'failed') THEN
     RAISE EXCEPTION 'invalid manual order notification status: %', p_status
       USING ERRCODE = '22023';
   END IF;
@@ -66,7 +66,7 @@ BEGIN
       status = p_status,
       sent_at = CASE
         WHEN p_status = 'sent' THEN now()
-        ELSE outbox.sent_at
+        ELSE NULL
       END,
       skipped_at = CASE
         WHEN p_status = 'skipped' THEN now()
@@ -76,7 +76,10 @@ BEGIN
         WHEN p_status = 'skipped' THEN coalesce(p_skip_reason, 'manual_endpoint_skipped')
         ELSE NULL
       END,
-      last_error = NULL,
+      last_error = CASE
+        WHEN p_status = 'failed' THEN coalesce(p_skip_reason, 'manual_endpoint_failed')
+        ELSE NULL
+      END,
       next_attempt_at = NULL,
       locked_at = NULL,
       locked_by = NULL,
@@ -105,6 +108,7 @@ BEGIN
       sent_at,
       skipped_at,
       skip_reason,
+      last_error,
       next_attempt_at,
       metadata
     )
@@ -119,6 +123,10 @@ BEGIN
         THEN coalesce(p_skip_reason, 'manual_endpoint_skipped')
         ELSE NULL
       END,
+      CASE WHEN p_status = 'failed'
+        THEN coalesce(p_skip_reason, 'manual_endpoint_failed')
+        ELSE NULL
+      END,
       NULL,
       jsonb_strip_nulls(jsonb_build_object(
         'source', 'manual_endpoint_completion',
@@ -126,6 +134,7 @@ BEGIN
         'manual_endpoint_message_id', p_message_id
       ))
     WHERE NOT EXISTS (SELECT 1 FROM latest)
+      AND p_status IN ('sent', 'skipped')
     RETURNING id
   )
   SELECT count(*)::integer

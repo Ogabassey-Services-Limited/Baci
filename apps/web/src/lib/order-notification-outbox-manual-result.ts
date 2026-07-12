@@ -4,7 +4,7 @@ import type {
   OrderFulfillmentNotificationResult,
 } from '@/lib/order-fulfillment-notification-types';
 
-type ManualOutboxCompletionStatus = 'sent' | 'skipped';
+type ManualOutboxCompletionStatus = 'failed' | 'sent' | 'skipped';
 
 interface ManualOutboxSupabaseClient {
   rpc: (
@@ -36,7 +36,7 @@ function getManualCompletionStatus(
   if (result.status === 'failed' && result.deliveryOutcome === 'unknown') {
     return 'skipped';
   }
-  return null;
+  return 'failed';
 }
 
 function getManualSkipReason(
@@ -46,6 +46,7 @@ function getManualSkipReason(
   if (result.status === 'failed' && result.deliveryOutcome === 'unknown') {
     return 'delivery_outcome_unknown';
   }
+  if ('error' in result) return result.error;
   return null;
 }
 

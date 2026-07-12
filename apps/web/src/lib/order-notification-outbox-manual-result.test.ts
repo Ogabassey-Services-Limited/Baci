@@ -68,7 +68,7 @@ describe('completeManualOrderNotificationOutboxEvent', () => {
     );
   });
 
-  it('does not consume outbox rows when the manual send fails', async () => {
+  it('releases manual claims as retryable failed rows after known failures', async () => {
     const supabase = createSupabaseMock();
 
     await completeManualOrderNotificationOutboxEvent({
@@ -79,7 +79,33 @@ describe('completeManualOrderNotificationOutboxEvent', () => {
       supabase,
     });
 
-    expect(supabase.rpc).not.toHaveBeenCalled();
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'complete_order_notification_outbox_manual_result',
+      expect.objectContaining({
+        p_skip_reason: 'provider unavailable',
+        p_status: 'failed',
+      })
+    );
+  });
+
+  it('releases manual claims after invalid order state results', async () => {
+    const supabase = createSupabaseMock();
+
+    await completeManualOrderNotificationOutboxEvent({
+      eventType: 'order_shipped',
+      merchantId: 'merchant-1',
+      orderId: 'order-1',
+      result: { status: 'invalid_state', error: 'Order must be shipped' },
+      supabase,
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'complete_order_notification_outbox_manual_result',
+      expect.objectContaining({
+        p_skip_reason: 'Order must be shipped',
+        p_status: 'failed',
+      })
+    );
   });
 
   it('records unknown manual delivery outcomes as blocking skips', async () => {

@@ -464,6 +464,84 @@ BEGIN
       v_manual_terminal_status;
   END IF;
 
+  SELECT public.prepare_order_notification_outbox_manual_send(
+    v_manual_skipped_order_id,
+    v_merchant_id,
+    'order_shipped',
+    NULL,
+    NULL,
+    NULL
+  )
+  INTO v_manual_prepared_status;
+
+  IF v_manual_prepared_status IS NOT NULL THEN
+    RAISE EXCEPTION 'expected retryable row to be claimed for known-failure test, got %',
+      v_manual_prepared_status;
+  END IF;
+
+  SELECT public.complete_order_notification_outbox_manual_result(
+    v_manual_skipped_order_id,
+    v_merchant_id,
+    'order_shipped',
+    'failed',
+    NULL,
+    'provider unavailable'
+  )
+  INTO v_manual_updated_count;
+
+  SELECT status
+  INTO v_processing_status
+  FROM public.order_notification_outbox
+  WHERE order_id = v_manual_skipped_order_id
+    AND event_type = 'order_shipped'
+  ORDER BY event_sequence DESC
+  LIMIT 1;
+
+  IF v_manual_updated_count <> 1 OR v_processing_status IS DISTINCT FROM 'failed' THEN
+    RAISE EXCEPTION 'known manual failure should release claim as failed, count %, status %',
+      v_manual_updated_count,
+      v_processing_status;
+  END IF;
+
+  SELECT public.prepare_order_notification_outbox_manual_send(
+    v_manual_skipped_order_id,
+    v_merchant_id,
+    'order_shipped',
+    NULL,
+    NULL,
+    NULL
+  )
+  INTO v_manual_prepared_status;
+
+  IF v_manual_prepared_status IS NOT NULL THEN
+    RAISE EXCEPTION 'released known failure should be retryable, got %',
+      v_manual_prepared_status;
+  END IF;
+
+  PERFORM public.complete_order_notification_outbox_manual_result(
+    v_manual_skipped_order_id,
+    v_merchant_id,
+    'order_shipped',
+    'skipped',
+    NULL,
+    'test_cleanup'
+  );
+
+  SELECT public.complete_order_notification_outbox_manual_result(
+    '8f0ed783-0000-4000-8000-000000000899'::uuid,
+    v_merchant_id,
+    'order_shipped',
+    'failed',
+    NULL,
+    'missing order'
+  )
+  INTO v_manual_updated_count;
+
+  IF v_manual_updated_count <> 0 THEN
+    RAISE EXCEPTION 'failed result without a claimed row should not insert an outbox marker, got %',
+      v_manual_updated_count;
+  END IF;
+
 
   UPDATE public.orders
   SET shipping_status = 'shipped'
