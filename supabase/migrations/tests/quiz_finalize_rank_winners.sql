@@ -2,7 +2,7 @@
 -- REGRESSION TEST: quiz ranked-winner minting + auto-finalize
 --   Validates public.mint_quiz_event_ranked_awards and
 --   public.finalize_due_quiz_events from migration
---   20260707110000_quiz_finalize_rank_winners.sql:
+--   20260712150000_quiz_finalize_rank_winners.sql:
 --     * function security (SECURITY DEFINER + blank search_path) & grants
 --     * CHECK-constraint-correct rows: grand (rank1, attempt_id NULL) and
 --       cash (rank2..N, attempt_id set), best-attempt-per-customer, disqualified
@@ -73,6 +73,7 @@ DECLARE
   v_e_nopermit uuid := '00000000-0000-4000-8000-0000000fe004'; -- verified + configured + due but NO permit ref
   v_e_emptyprizes uuid := '00000000-0000-4000-8000-0000000fe005'; -- ranked_prizes=[] must mint nothing
   v_e_inflight uuid := '00000000-0000-4000-8000-0000000fe006';    -- ends_at passed but a 'started' attempt in flight
+  v_e_justended uuid := '00000000-0000-4000-8000-0000000fe007';   -- ends_at within the 2-min settle grace
   v_a1 uuid := '00000000-0000-4000-8000-0000000fa011'; -- c1 best
   v_a2 uuid := '00000000-0000-4000-8000-0000000fa012'; -- c1 lower (dedup target)
   v_a3 uuid := '00000000-0000-4000-8000-0000000fa013'; -- c2
@@ -91,6 +92,7 @@ DECLARE
   v_nopermit_awards integer;
   v_emptyprizes_minted integer;
   v_inflight_minted integer;
+  v_justended_minted integer;
 BEGIN
   -- Non-NGN payout currency: awards must be stored in it, not hard-coded NGN.
   INSERT INTO public.merchants (id, email, payout_currency) VALUES (v_merchant, 'rank-winners@test.com', 'KES');
@@ -124,6 +126,10 @@ BEGIN
     -- ends_at just passed but a player is still mid-attempt within the max-play
     -- window: must NOT finalize/mint yet (would exclude a valid late submission).
     (v_e_inflight, v_merchant, 'rw-inflight', 'RW In Flight', 'active', v_now - interval '5 minutes', true, 'NLRC-TEST-PERMIT',
+      '{"ranked_winner_count":3,"grand_prize_amount":50000,"cash_prize_amount":10000}'::jsonb),
+    -- ends_at only 1 min ago (< 2-min settle grace) with NO in-flight attempt:
+    -- must NOT mint yet, so a just-committed start can't be excluded by a race.
+    (v_e_justended, v_merchant, 'rw-justended', 'RW Just Ended', 'active', v_now - interval '1 minute', true, 'NLRC-TEST-PERMIT',
       '{"ranked_winner_count":3,"grand_prize_amount":50000,"cash_prize_amount":10000}'::jsonb);
 
   INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, attempt_number, integrity_tier, score, started_at, submitted_at) VALUES
@@ -149,6 +155,10 @@ BEGIN
   -- 1-hour max-play window, that must block finalization/minting.
   INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, attempt_number, integrity_tier, score, started_at, submitted_at) VALUES
     ('00000000-0000-4000-8000-0000000fa020', v_e_inflight, v_c1, 'started', 1, 'basic', 0, v_now - interval '3 minutes', NULL);
+  -- A submitted attempt on the JUST-ENDED event: only the settle grace (not an
+  -- in-flight attempt) should block minting here.
+  INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, attempt_number, integrity_tier, score, started_at, submitted_at) VALUES
+    ('00000000-0000-4000-8000-0000000fa021', v_e_justended, v_c1, 'submitted', 1, 'basic', 10, v_now - interval '10 min', v_now - interval '30 seconds');
 
   -- Mint the verified event.
   v_minted := public.mint_quiz_event_ranked_awards(v_e_verified);
@@ -229,6 +239,14 @@ BEGIN
   v_inflight_minted := public.mint_quiz_event_ranked_awards(v_e_inflight);
   IF v_inflight_minted IS DISTINCT FROM 0 THEN
     RAISE EXCEPTION 'Event with an in-flight attempt must mint 0 awards, got %', v_inflight_minted;
+  END IF;
+
+  -- Settle-grace gate: an event whose ends_at is within the 2-min settle grace
+  -- must mint nothing yet (a start committing just after the deadline could
+  -- otherwise be excluded by the READ COMMITTED in-flight check).
+  v_justended_minted := public.mint_quiz_event_ranked_awards(v_e_justended);
+  IF v_justended_minted IS DISTINCT FROM 0 THEN
+    RAISE EXCEPTION 'Event within the settle grace must mint 0 awards, got %', v_justended_minted;
   END IF;
 
   -- Fail-closed compliance gate: finalize_due must skip the unverified event.

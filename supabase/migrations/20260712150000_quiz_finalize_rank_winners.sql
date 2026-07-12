@@ -96,7 +96,12 @@ BEGIN
     v_status = 'completed'
     OR (
       v_ends_at IS NOT NULL
-      AND v_ends_at <= pg_catalog.now()
+      -- Settle grace: wait 2 min past ends_at so a start_quiz_attempt that passed
+      -- its open-event check just before the deadline has COMMITTED its insert and
+      -- is visible to the in-flight NOT EXISTS below (READ COMMITTED can't see an
+      -- uncommitted start). This is separate from the max-play window — long
+      -- quizzes are handled by the in-flight gate, not by this grace.
+      AND v_ends_at <= pg_catalog.now() - interval '2 minutes'
       AND NOT EXISTS (
         SELECT 1 FROM public.quiz_attempts a
         WHERE a.event_id = p_event_id
@@ -327,7 +332,9 @@ BEGIN
       status = 'completed'
       OR (
         ends_at IS NOT NULL
-        AND ends_at <= pg_catalog.now()
+        -- 2-min settle grace so a just-committed start is visible to the
+        -- in-flight NOT EXISTS below (see mint_quiz_event_ranked_awards).
+        AND ends_at <= pg_catalog.now() - interval '2 minutes'
         AND NOT EXISTS (
           SELECT 1 FROM public.quiz_attempts a
           WHERE a.event_id = p_event_id
@@ -396,7 +403,9 @@ BEGIN
         e.status = 'completed'
         OR (
           e.ends_at IS NOT NULL
-          AND e.ends_at <= pg_catalog.now()
+          -- 2-min settle grace so a just-committed start is visible to the
+          -- in-flight NOT EXISTS below (see mint_quiz_event_ranked_awards).
+          AND e.ends_at <= pg_catalog.now() - interval '2 minutes'
           AND NOT EXISTS (
             SELECT 1 FROM public.quiz_attempts a
             WHERE a.event_id = e.id

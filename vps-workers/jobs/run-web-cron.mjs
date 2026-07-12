@@ -41,6 +41,7 @@ const WEB_CRON_CONFIG = new Map([
   ],
   ['/api/cron/ios-live-build-sync', { method: 'GET', timeoutMs: 60_000 }],
   ['/api/cron/android-live-build-sync', { method: 'GET', timeoutMs: 60_000 }],
+  ['/api/quiz/finalize', { method: 'GET', timeoutMs: 5 * 60_000 }],
 ]);
 
 const RESPONSE_PREVIEW_LIMIT = 500;
