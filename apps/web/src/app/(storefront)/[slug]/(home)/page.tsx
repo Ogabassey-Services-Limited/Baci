@@ -18,6 +18,12 @@ import { isValidMerchantIdentifier } from '@/lib/validation';
 
 const OGABASSEY_DOMAIN_IDENTIFIER = new URL(OGABASSEY_URL).hostname;
 
+export function generateStaticParams(): Array<{ slug: string }> {
+  return [OGABASSEY_DOMAIN_IDENTIFIER, OGABASSEY_TEMPLATE_ID].map((slug) => ({
+    slug,
+  }));
+}
+
 function isOgabasseyIdentifier(slug: string): boolean {
   const normalizedSlug = slug.toLowerCase();
   return (
