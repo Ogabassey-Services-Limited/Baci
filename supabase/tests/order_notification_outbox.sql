@@ -28,9 +28,11 @@ DECLARE
   v_import_outbox_count integer;
   v_manual_active_count integer;
   v_manual_status text;
+  v_manual_prepared_status text;
   v_manual_terminal_status text;
   v_manual_updated_count integer;
   v_manual_processing_status text;
+  v_manual_metadata jsonb;
   v_delivered_completed_count integer;
   v_claimed record;
   v_processing_status text;
@@ -171,6 +173,35 @@ BEGIN
   UPDATE public.orders
   SET shipping_status = 'shipped'
   WHERE id = v_manual_order_id;
+
+  SELECT public.prepare_order_notification_outbox_manual_send(
+    v_manual_order_id,
+    v_merchant_id,
+    'order_shipped',
+    'MANUAL-TRACK-001',
+    'Manual Courier',
+    '2026-07-15'
+  )
+  INTO v_manual_prepared_status;
+
+  IF v_manual_prepared_status IS DISTINCT FROM 'pending' THEN
+    RAISE EXCEPTION 'expected manual preparation to return pending, got %',
+      v_manual_prepared_status;
+  END IF;
+
+  SELECT metadata
+  INTO v_manual_metadata
+  FROM public.order_notification_outbox
+  WHERE order_id = v_manual_order_id
+    AND event_type = 'order_shipped';
+
+  IF v_manual_metadata->>'manual_tracking_number' IS DISTINCT FROM 'MANUAL-TRACK-001'
+    OR v_manual_metadata->>'manual_courier_name' IS DISTINCT FROM 'Manual Courier'
+    OR v_manual_metadata->>'manual_estimated_delivery' IS DISTINCT FROM '2026-07-15'
+  THEN
+    RAISE EXCEPTION 'expected pending outbox metadata to preserve manual shipment details, got %',
+      v_manual_metadata;
+  END IF;
 
   SELECT public.complete_order_notification_outbox_manual_result(
     v_manual_order_id,
@@ -362,6 +393,41 @@ BEGIN
 
   IF v_manual_terminal_status IS DISTINCT FROM 'sent' THEN
     RAISE EXCEPTION 'expected manual retry completion to create sent marker, got %',
+      v_manual_terminal_status;
+  END IF;
+
+  UPDATE public.orders
+  SET shipping_status = 'returned'
+  WHERE id = v_manual_skipped_order_id;
+
+  UPDATE public.orders
+  SET shipping_status = 'shipped'
+  WHERE id = v_manual_skipped_order_id;
+
+  UPDATE public.order_notification_outbox
+  SET
+    status = 'skipped',
+    skip_reason = 'missing_customer_email',
+    skipped_at = now(),
+    updated_at = now()
+  WHERE id = (
+    SELECT outbox.id
+    FROM public.order_notification_outbox AS outbox
+    WHERE outbox.order_id = v_manual_skipped_order_id
+      AND outbox.event_type = 'order_shipped'
+    ORDER BY outbox.event_sequence DESC
+    LIMIT 1
+  );
+
+  SELECT public.get_order_notification_outbox_manual_terminal_status(
+    v_manual_skipped_order_id,
+    v_merchant_id,
+    'order_shipped'
+  )
+  INTO v_manual_terminal_status;
+
+  IF v_manual_terminal_status IS NOT NULL THEN
+    RAISE EXCEPTION 'expected latest skipped event to remain retryable despite an older sent event, got %',
       v_manual_terminal_status;
   END IF;
 

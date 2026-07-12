@@ -48,6 +48,11 @@ describe('GET /api/cron/order-notifications', () => {
           event_type: 'order_shipped',
           id: 'outbox-1',
           max_attempts: 5,
+          metadata: {
+            manual_courier_name: 'DHL',
+            manual_estimated_delivery: '2026-07-15',
+            manual_tracking_number: 'TRACK-123',
+          },
           merchant_id: 'merchant-1',
           order_id: 'order-1',
         },
@@ -109,9 +114,12 @@ describe('GET /api/cron/order-notifications', () => {
     );
     expect(sendOrderFulfillmentNotification).toHaveBeenCalledWith(
       expect.objectContaining({
+        courierName: 'DHL',
+        estimatedDelivery: '2026-07-15',
         eventType: 'order_shipped',
         merchantId: 'merchant-1',
         orderId: 'order-1',
+        trackingNumber: 'TRACK-123',
       })
     );
     expect(body).toMatchObject({
@@ -271,5 +279,38 @@ describe('GET /api/cron/order-notifications', () => {
         status: 'failed',
       })
     );
+  });
+
+  it('returns 500 when a terminal outbox state cannot be persisted', async () => {
+    const updateBuilder = createUpdateBuilder();
+    updateBuilder.eq.mockResolvedValueOnce({
+      error: { message: 'database unavailable' },
+    });
+    mockSupabase.from.mockReturnValue(updateBuilder);
+    mockSupabase.rpc.mockResolvedValueOnce({
+      data: [
+        {
+          attempt_count: 1,
+          event_type: 'order_shipped',
+          id: 'outbox-persist-failure',
+          max_attempts: 5,
+          merchant_id: 'merchant-1',
+          order_id: 'order-persist-failure',
+        },
+      ],
+      error: null,
+    });
+    mockSendOrderFulfillmentNotification.mockReset();
+    mockSendOrderFulfillmentNotification.mockResolvedValueOnce({
+      status: 'sent',
+      messageId: 'msg-persist-failure',
+    });
+
+    const response = await GET(cronRequest());
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Failed to persist order notification outcome',
+    });
   });
 });

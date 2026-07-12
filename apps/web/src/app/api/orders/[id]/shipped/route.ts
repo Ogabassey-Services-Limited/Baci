@@ -127,10 +127,13 @@ export async function POST(
     }
 
     const blockingState = await getManualOrderNotificationOutboxBlockingState({
+      courierName,
+      estimatedDelivery,
       eventType: 'order_shipped',
       merchantId,
       orderId: parsedParams.data.id,
       supabase: auth.supabase,
+      trackingNumber,
     });
     if (blockingState.status === 'error') {
       return NextResponse.json(

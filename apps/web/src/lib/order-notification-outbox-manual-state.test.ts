@@ -32,11 +32,41 @@ describe('getManualOrderNotificationOutboxBlockingState', () => {
 
     expect(result).toEqual({ status: 'blocked', outboxStatus: 'sent' });
     expect(supabase.rpc).toHaveBeenCalledWith(
-      'get_order_notification_outbox_manual_terminal_status',
+      'prepare_order_notification_outbox_manual_send',
       {
+        p_courier_name: null,
+        p_estimated_delivery: null,
         p_event_type: 'order_shipped',
         p_merchant_id: 'merchant-1',
         p_order_id: 'order-1',
+        p_tracking_number: null,
+      }
+    );
+  });
+
+  it('passes manual shipment details for pending outbox enrichment', async () => {
+    const supabase = createSupabaseMock('pending');
+
+    const result = await getManualOrderNotificationOutboxBlockingState({
+      courierName: 'DHL',
+      estimatedDelivery: '2026-07-15',
+      eventType: 'order_shipped',
+      merchantId: 'merchant-1',
+      orderId: 'order-1',
+      supabase,
+      trackingNumber: 'TRACK-123',
+    });
+
+    expect(result).toEqual({ status: 'blocked', outboxStatus: 'pending' });
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'prepare_order_notification_outbox_manual_send',
+      {
+        p_courier_name: 'DHL',
+        p_estimated_delivery: '2026-07-15',
+        p_event_type: 'order_shipped',
+        p_merchant_id: 'merchant-1',
+        p_order_id: 'order-1',
+        p_tracking_number: 'TRACK-123',
       }
     );
   });
@@ -127,8 +157,7 @@ describe('getManualOrderNotificationOutboxBlockingState', () => {
     expect(result).toEqual({ status: 'error', error: 'rpc failed' });
     expect(logger.warn).toHaveBeenCalledWith(
       expect.objectContaining({
-        message:
-          'Failed to read manual order notification outbox blocking state',
+        message: 'Failed to prepare manual order notification outbox state',
         orderId: 'order-1',
       })
     );

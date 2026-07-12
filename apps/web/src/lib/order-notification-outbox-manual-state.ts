@@ -10,20 +10,26 @@ type ManualOutboxStateResult =
 
 interface ManualOutboxStateSupabaseClient {
   rpc: (
-    fn: 'get_order_notification_outbox_manual_terminal_status',
+    fn: 'prepare_order_notification_outbox_manual_send',
     args: {
+      p_courier_name: string | null;
+      p_estimated_delivery: string | null;
       p_event_type: OrderFulfillmentNotificationEventType;
       p_merchant_id: string;
       p_order_id: string;
+      p_tracking_number: string | null;
     }
   ) => PromiseLike<{ data: unknown; error: unknown }>;
 }
 
 interface GetManualOutboxStateParams {
+  courierName?: string;
+  estimatedDelivery?: string;
   eventType: OrderFulfillmentNotificationEventType;
   merchantId: string;
   orderId: string;
   supabase: ManualOutboxStateSupabaseClient;
+  trackingNumber?: string;
 }
 
 function isBlockingOutboxStatus(value: unknown): value is BlockingOutboxStatus {
@@ -44,24 +50,30 @@ function getErrorMessage(error: unknown): string {
 }
 
 export async function getManualOrderNotificationOutboxBlockingState({
+  courierName,
+  estimatedDelivery,
   eventType,
   merchantId,
   orderId,
   supabase,
+  trackingNumber,
 }: GetManualOutboxStateParams): Promise<ManualOutboxStateResult> {
   const { data, error } = await supabase.rpc(
-    'get_order_notification_outbox_manual_terminal_status',
+    'prepare_order_notification_outbox_manual_send',
     {
+      p_courier_name: courierName ?? null,
+      p_estimated_delivery: estimatedDelivery ?? null,
       p_event_type: eventType,
       p_merchant_id: merchantId,
       p_order_id: orderId,
+      p_tracking_number: trackingNumber ?? null,
     }
   );
 
   if (error) {
     const message = getErrorMessage(error);
     logger.warn({
-      message: 'Failed to read manual order notification outbox blocking state',
+      message: 'Failed to prepare manual order notification outbox state',
       error,
       eventType,
       merchantId,

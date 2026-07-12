@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { getCronSecret } from '@/env';
 import { hasValidCronSecret } from '@/lib/cron-secret-auth';
 import { logger } from '@/lib/logger';
@@ -7,7 +8,6 @@ import {
   sendOrderFulfillmentNotification,
 } from '@/lib/order-fulfillment-notification';
 import { createServiceClient } from '@/lib/supabase/service';
-
 export const maxDuration = 60;
 
 const DEFAULT_BATCH_SIZE = 1;
@@ -15,15 +15,21 @@ const MAX_BATCH_SIZE = 10;
 const RETRY_BASE_DELAY_MS = 5 * 60 * 1000;
 const RETRY_MAX_DELAY_MS = 60 * 60 * 1000;
 const PROCESS_CONCURRENCY = 5;
-
 type ClaimedOrderNotificationOutboxRow = {
   attempt_count: number;
   event_type: OrderFulfillmentNotificationEventType;
   id: string;
   max_attempts: number;
+  metadata?: unknown;
   merchant_id: string;
   order_id: string;
 };
+
+const outboxShipmentMetadataSchema = z.object({
+  manual_courier_name: z.string().trim().min(1).optional(),
+  manual_estimated_delivery: z.string().trim().min(1).optional(),
+  manual_tracking_number: z.string().trim().min(1).optional(),
+});
 
 type OrderNotificationOutboxStatus = 'pending' | 'sent' | 'skipped' | 'failed';
 
@@ -36,6 +42,19 @@ interface CronSummary {
   sent: number;
   skipped: number;
   success: true;
+}
+
+class OutboxStatusUpdateError extends Error {
+  constructor(
+    readonly outboxId: string,
+    options: { cause: unknown }
+  ) {
+    super(
+      `Failed to persist order notification outbox row ${outboxId}`,
+      options
+    );
+    this.name = 'OutboxStatusUpdateError';
+  }
 }
 
 function clampBatchSize(value: string | null): number {
@@ -71,7 +90,13 @@ async function updateOutboxStatus(
       outboxId: id,
       error,
     });
+    throw new OutboxStatusUpdateError(id, { cause: error });
   }
+}
+
+function getShipmentMetadata(row: ClaimedOrderNotificationOutboxRow) {
+  const parsed = outboxShipmentMetadataSchema.safeParse(row.metadata);
+  return parsed.success ? parsed.data : {};
 }
 
 async function markSent(
@@ -81,7 +106,10 @@ async function markSent(
 ) {
   await updateOutboxStatus(supabase, row.id, {
     last_error: null,
-    metadata: messageId ? { message_id: messageId } : {},
+    metadata: {
+      ...getShipmentMetadata(row),
+      ...(messageId ? { message_id: messageId } : {}),
+    },
     sent_at: new Date().toISOString(),
     status: 'sent' satisfies OrderNotificationOutboxStatus,
   });
@@ -132,11 +160,15 @@ async function processClaimedRow(
   summary: CronSummary
 ) {
   try {
+    const shipmentMetadata = getShipmentMetadata(row);
     const result = await sendOrderFulfillmentNotification({
+      courierName: shipmentMetadata.manual_courier_name,
+      estimatedDelivery: shipmentMetadata.manual_estimated_delivery,
       eventType: row.event_type,
       merchantId: row.merchant_id,
       orderId: row.order_id,
       supabase,
+      trackingNumber: shipmentMetadata.manual_tracking_number,
     });
 
     if (result.status === 'sent') {
@@ -153,6 +185,9 @@ async function processClaimedRow(
 
     await markFailedOrRetry(supabase, row, result.error, summary);
   } catch (error) {
+    if (error instanceof OutboxStatusUpdateError) {
+      throw error;
+    }
     const message = error instanceof Error ? error.message : 'unknown_error';
     logger.error({
       message: 'Unhandled order notification outbox processing failure',
@@ -191,7 +226,7 @@ async function processClaimedRows(
   let nextGroupIndex = 0;
   const workerCount = Math.min(PROCESS_CONCURRENCY, groups.length);
 
-  await Promise.all(
+  const workerResults = await Promise.allSettled(
     Array.from({ length: workerCount }, async () => {
       while (nextGroupIndex < groups.length) {
         const group = groups[nextGroupIndex];
@@ -203,16 +238,12 @@ async function processClaimedRows(
       }
     })
   );
+  const failedWorker = workerResults.find(
+    (result) => result.status === 'rejected'
+  );
+  if (failedWorker?.status === 'rejected') throw failedWorker.reason;
 }
 
-/**
- * GET /api/cron/order-notifications
- *
- * Scheduled execution lives in vps-workers; keep CRON_SECRET gating intact.
- * Claims and drains transactional outbox rows created when order fulfillment
- * status transitions happen, so email provider failures cannot roll back or
- * block the order status update path.
- */
 export async function GET(request: Request) {
   if (!hasValidCronSecret(request.headers, getCronSecret())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -252,7 +283,17 @@ export async function GET(request: Request) {
     success: true,
   };
 
-  await processClaimedRows(supabase, rows, summary);
-
+  try {
+    await processClaimedRows(supabase, rows, summary);
+  } catch (error) {
+    logger.error({
+      message: 'Failed to persist order notification outcome',
+      error,
+    });
+    return NextResponse.json(
+      { error: 'Failed to persist order notification outcome' },
+      { status: 500 }
+    );
+  }
   return NextResponse.json(summary);
 }

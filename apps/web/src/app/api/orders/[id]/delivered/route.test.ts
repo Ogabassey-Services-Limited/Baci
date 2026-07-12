@@ -120,7 +120,7 @@ function createSupabaseMock(
       throw new Error(`Unexpected table: ${table}`);
     }),
     rpc: vi.fn((fn: string) => {
-      if (fn === 'get_order_notification_outbox_manual_terminal_status') {
+      if (fn === 'prepare_order_notification_outbox_manual_send') {
         return Promise.resolve({ data: terminalOutboxStatus, error: null });
       }
       return Promise.resolve({ data: 1, error: null });

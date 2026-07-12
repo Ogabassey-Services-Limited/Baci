@@ -235,7 +235,6 @@ describe('web cron worker', () => {
     assert.equal(signal instanceof AbortSignal, true);
   });
 
-
   it('allows the order notification outbox cron endpoint', async () => {
     const calls = [];
     const result = await runWebCron({
@@ -269,6 +268,22 @@ describe('web cron worker', () => {
         }),
       /Unsupported web cron path/
     );
+  });
+
+  it('rejects absolute and protocol-relative cron paths before allowlisting', () => {
+    for (const path of [
+      'https://attacker.example/api/cron/order-notifications',
+      '//attacker.example/api/cron/order-notifications',
+    ]) {
+      assert.throws(
+        () =>
+          buildWebCronUrl({
+            baseUrl: 'https://ogabassey.com',
+            path,
+          }),
+        /must be a root-relative path/
+      );
+    }
   });
 
   it('requires a safe base URL', () => {

@@ -127,7 +127,7 @@ function createSupabaseMock(
       throw new Error(`Unexpected table: ${table}`);
     }),
     rpc: vi.fn((fn: string) => {
-      if (fn === 'get_order_notification_outbox_manual_terminal_status') {
+      if (fn === 'prepare_order_notification_outbox_manual_send') {
         return Promise.resolve({ data: terminalOutboxStatus, error: null });
       }
       return Promise.resolve({ data: 1, error: null });
@@ -257,9 +257,16 @@ describe('POST /api/orders/[id]/shipped', () => {
       supabase,
     });
 
-    const response = await POST(createRequest(), {
-      params: Promise.resolve({ id: orderId }),
-    });
+    const response = await POST(
+      createRequest({
+        courier_name: 'DHL',
+        estimated_delivery: '2026-07-15',
+        tracking_number: 'TRACK-123',
+      }),
+      {
+        params: Promise.resolve({ id: orderId }),
+      }
+    );
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -268,6 +275,16 @@ describe('POST /api/orders/[id]/shipped', () => {
       reason: 'notification_pending',
     });
     expect(sendEmail).not.toHaveBeenCalled();
+    expect(
+      (supabase as unknown as { rpc: ReturnType<typeof vi.fn> }).rpc
+    ).toHaveBeenCalledWith('prepare_order_notification_outbox_manual_send', {
+      p_courier_name: 'DHL',
+      p_estimated_delivery: '2026-07-15',
+      p_event_type: 'order_shipped',
+      p_merchant_id: 'merchant-1',
+      p_order_id: orderId,
+      p_tracking_number: 'TRACK-123',
+    });
     expect(
       (supabase as unknown as { rpc: ReturnType<typeof vi.fn> }).rpc
     ).not.toHaveBeenCalledWith(
