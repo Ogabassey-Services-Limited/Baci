@@ -5,7 +5,8 @@ import {
 } from '@/lib/storefront-product-variants';
 
 const mockWithSupabaseRetry = jest.fn();
-const mockRpc = jest.fn();
+const mockRpc =
+  jest.fn<(...args: unknown[]) => Promise<{ data: unknown; error: unknown }>>();
 
 jest.mock('@/lib/api', () => ({
   withSupabaseRetry: (operation: () => Promise<unknown>, options?: unknown) =>
@@ -41,6 +42,21 @@ describe('storefront-product-variants', () => {
       {}
     );
     expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('deduplicates product ids into one bounded rpc call', async () => {
+    mockRpc.mockResolvedValueOnce({ data: [], error: null });
+
+    await getStorefrontProductVariantsByProductIds([
+      'product-1',
+      'product-2',
+      'product-1',
+    ]);
+
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+    expect(mockRpc).toHaveBeenCalledWith('get_storefront_product_variants', {
+      p_product_ids: ['product-1', 'product-2'],
+    });
   });
 
   it('hydrates rows with storefront-safe variants from the rpc', async () => {
@@ -92,24 +108,26 @@ describe('storefront-product-variants', () => {
       error: { message: 'boom' },
     }));
 
-    const rows = [{ id: 'product-1', variants: [] }];
+    const rows = [{ id: 'product-1', variants: [{ id: 'embedded-variant' }] }];
 
     await expect(
       hydrateProductRowsWithStorefrontVariants(rows)
     ).resolves.toEqual(rows);
   });
 
-  it('returns rows unchanged when the rpc returns no variants', async () => {
+  it('clears stale embedded variants when a successful rpc returns no visible variants', async () => {
     mockRpc.mockImplementation(async () => ({
       data: [],
       error: null,
     }));
 
-    const rows = [{ id: 'product-1', variants: [] }];
+    const rows = [
+      { id: 'product-1', variants: [{ id: 'hidden-inventory-anchor' }] },
+    ];
 
     await expect(
       hydrateProductRowsWithStorefrontVariants(rows)
-    ).resolves.toEqual(rows);
+    ).resolves.toEqual([{ id: 'product-1', variants: [] }]);
   });
 
   it('groups rpc variants by product id', async () => {
@@ -167,7 +185,7 @@ describe('storefront-product-variants', () => {
     });
   });
 
-  it('returns an empty object when the rpc errors', async () => {
+  it('returns null when the rpc errors', async () => {
     mockRpc.mockImplementation(async () => ({
       data: null,
       error: { message: 'boom' },
@@ -175,6 +193,6 @@ describe('storefront-product-variants', () => {
 
     await expect(
       getStorefrontProductVariantsByProductIds(['product-1'])
-    ).resolves.toEqual({});
+    ).resolves.toBeNull();
   });
 });

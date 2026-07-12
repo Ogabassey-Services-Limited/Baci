@@ -52,7 +52,7 @@ export async function getStorefrontProductVariantsByProductIds(
       error,
       productIds: uniqueProductIds,
     });
-    return {} as Record<string, StorefrontProductVariantRow[]>;
+    return null;
   }
 
   const variantsByProductId: Record<string, StorefrontProductVariantRow[]> = {};
@@ -77,19 +77,18 @@ export async function hydrateProductRowsWithStorefrontVariants<
       .filter((id): id is string => typeof id === 'string')
   );
 
+  if (variantsByProductId === null) {
+    return rows;
+  }
+
   return rows.map((row) => {
     if (typeof row.id !== 'string') {
       return row;
     }
 
-    const hydratedVariants = variantsByProductId[row.id];
-    if (!hydratedVariants || hydratedVariants.length === 0) {
-      return row;
-    }
-
     return {
       ...row,
-      variants: hydratedVariants,
+      variants: variantsByProductId[row.id] ?? [],
     };
   });
 }

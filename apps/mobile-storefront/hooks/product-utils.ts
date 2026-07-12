@@ -5,9 +5,9 @@ import { createLogger } from '@/lib/logger';
 import { normalizeVariantAttributes } from '@/lib/product-normalization';
 import { removeProductSlugFromProductsCache } from '@/lib/product-query-cache';
 import { getProductSlugFallbackCandidates } from '@/lib/product-slug-fallback';
-import { hydrateProductRowsWithStorefrontVariants } from '@/lib/storefront-product-variants';
 import { supabase } from '@/lib/supabase';
-import { PRODUCT_DETAIL_SELECT, PRODUCT_SELECT } from './product-select';
+import { hydrateRowsNeedingStorefrontVariants } from './product-hydration';
+import { PRODUCT_DETAIL_SELECT } from './product-select';
 
 export { fetchAvailableBrands } from './product-brands';
 export { fetchProductsPage } from './product-pages';
@@ -26,7 +26,7 @@ const log = createLogger('Products');
 
 export const MERCHANT_SLUG = CONFIG.MERCHANT_SLUG || 'ogabassey';
 export const CONSTANT_MERCHANT_ID = CONFIG.MERCHANT_ID;
-export const PRODUCT_QUERY_VERSION = 'variant-media-v1';
+export const PRODUCT_QUERY_VERSION = 'variant-media-v2';
 
 export function buildProductQueryKey(slug: string, merchantId: string) {
   return ['product', PRODUCT_QUERY_VERSION, slug, merchantId] as const;
@@ -65,7 +65,7 @@ export async function resolveProductRow(merchantId: string, slug: string) {
   const exact = await fetchProductRow(merchantId, slug, 'Product');
   if (exact.error) throw exact.error;
   if (exact.data) {
-    const [hydratedProduct] = await hydrateProductRowsWithStorefrontVariants([
+    const [hydratedProduct] = await hydrateRowsNeedingStorefrontVariants([
       exact.data,
     ]);
     return hydratedProduct ?? exact.data;
@@ -80,9 +80,9 @@ export async function resolveProductRow(merchantId: string, slug: string) {
     );
     if (fallback.error) throw fallback.error;
     if (fallback.data) {
-      const [hydratedFallback] = await hydrateProductRowsWithStorefrontVariants(
-        [fallback.data]
-      );
+      const [hydratedFallback] = await hydrateRowsNeedingStorefrontVariants([
+        fallback.data,
+      ]);
       log.warn(`Resolved legacy product slug "${slug}" to "${fallbackSlug}"`);
       return hydratedFallback ?? fallback.data;
     }
