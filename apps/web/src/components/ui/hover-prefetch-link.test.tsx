@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import type { Route } from 'next';
 import type { ComponentProps } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -23,7 +24,9 @@ describe('HoverPrefetchLink', () => {
   it('disables prefetch until the pointer enters', () => {
     // Arrange / Act
     render(
-      <HoverPrefetchLink href="/gaming-laptops/foo">Foo</HoverPrefetchLink>
+      <HoverPrefetchLink href={'/gaming-laptops/foo' as Route}>
+        Foo
+      </HoverPrefetchLink>
     );
 
     // Assert: prefetch is off on first render (false, not eager viewport prefetch)
@@ -36,7 +39,9 @@ describe('HoverPrefetchLink', () => {
   it('enables the default (auto) prefetch after pointer enter', () => {
     // Arrange
     render(
-      <HoverPrefetchLink href="/gaming-laptops/foo">Foo</HoverPrefetchLink>
+      <HoverPrefetchLink href={'/gaming-laptops/foo' as Route}>
+        Foo
+      </HoverPrefetchLink>
     );
     const link = screen.getByRole('link', { name: 'Foo' });
 
@@ -52,7 +57,10 @@ describe('HoverPrefetchLink', () => {
     // onto the link — they must not be stuck with the cold-click path.
     const onFocus = vi.fn();
     render(
-      <HoverPrefetchLink href="/gaming-laptops/foo" onFocus={onFocus}>
+      <HoverPrefetchLink
+        href={'/gaming-laptops/foo' as Route}
+        onFocus={onFocus}
+      >
         Foo
       </HoverPrefetchLink>
     );
@@ -70,7 +78,7 @@ describe('HoverPrefetchLink', () => {
     // Arrange
     const onPointerEnter = vi.fn();
     render(
-      <HoverPrefetchLink href="/x" onPointerEnter={onPointerEnter}>
+      <HoverPrefetchLink href={'/x' as Route} onPointerEnter={onPointerEnter}>
         Foo
       </HoverPrefetchLink>
     );
@@ -85,7 +93,7 @@ describe('HoverPrefetchLink', () => {
   it('forwards href and arbitrary anchor props to the underlying link', () => {
     // Arrange / Act
     render(
-      <HoverPrefetchLink href="/target" className="related-link">
+      <HoverPrefetchLink href={'/target' as Route} className="related-link">
         Foo
       </HoverPrefetchLink>
     );
