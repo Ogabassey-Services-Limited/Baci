@@ -72,7 +72,8 @@ describe('ogabassey image prewarm pair matrices', () => {
   it('warms the home-hero q70 tier across the full ladder both hero components emit', () => {
     // Home hero renders at MOBILE_HERO_IMAGE_QUALITY (70) across two components
     // that together span the responsive ladder over DPR 1–3:
-    //   - mobile carousel: sizes '40vw' → 384/640 at DPR 2–3.
+    //   - mobile carousel: sizes '40vw' → floor is 256 (imageSizes default
+    //     includes 256; a 320px viewport at DPR 2 picks 256w), then 384/640.
     //   - desktop grid HeroBigImage: a fixed '(min-width:768px) 480px' slot. A
     //     px-only `sizes` emits the full deviceSizes ladder; the 480px slot
     //     resolves by DPR (smallest candidate ≥ 480·DPR) to 640/750/828/1080/
@@ -82,7 +83,7 @@ describe('ogabassey image prewarm pair matrices', () => {
       HOME_HERO_IMAGE_WIDTH_QUALITY_PAIRS.map((pair) => pair.width).sort(
         (a, b) => a - b
       )
-    ).toEqual([384, 640, 750, 828, 1080, 1200, 1440]);
+    ).toEqual([256, 384, 640, 750, 828, 1080, 1200, 1440]);
     expect(
       HOME_HERO_IMAGE_WIDTH_QUALITY_PAIRS.every((pair) => pair.quality === 70)
     ).toBe(true);

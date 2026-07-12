@@ -92,8 +92,11 @@ export const BLOG_IMAGE_WIDTH_QUALITY_PAIRS: readonly PrewarmWidthQualityPair[] 
 // fetch at ~5s (cold fill) while already-warm variants served in ~400ms.
 // Warms the FULL responsive ladder next/image can emit for the hero, because
 // the two components together span it across DPR 1–3:
-//   - mobile carousel (hero-mobile-image-config): sizes '40vw' (filtered to
-//     allSizes ≥ 256) → 384/640 at DPR 2–3. Its <source> is capped at
+//   - mobile carousel (hero-mobile-image-config): sizes '40vw' → next/image
+//     filters allSizes ≥ deviceSizes[0]·0.40 = 256, so 256 is the FLOOR (the
+//     app leaves `imageSizes` at Next's default [16…256,384], so 256 is a real
+//     emitted bucket). A 320px viewport at DPR 2 resolves 40vw·2 = 256 → 256w;
+//     larger phones at DPR 2–3 pick 384/640. Its <source> is capped at
 //     max-width:767px, so the trailing 50vw branch never renders — desktop is
 //     a separate component.
 //   - desktop grid HeroBigImage (hero-desktop-grid): a FIXED
@@ -102,16 +105,16 @@ export const BLOG_IMAGE_WIDTH_QUALITY_PAIRS: readonly PrewarmWidthQualityPair[] 
 //     and the browser resolves the 480px slot by DPR: the smallest candidate
 //     ≥ 480·DPR — 640 (≤1.33×), 750 (1.5×), 828 (~1.6–1.7×), 1080 (2×/2.25×),
 //     1200 (2.5× — real 250% Windows display scaling) and 1440 (3×). ALL are
-//     reachable, so omitting any (e.g. an earlier drop of 1200) leaves that
-//     DPR band's LCP cold after image updates. Retina tiers ≥1920 (DPR 4+) are
-//     omitted, the same trade-off the PDP/blog sets accept.
+//     reachable, so omitting any (e.g. an earlier drop of 256 or 1200) leaves
+//     that DPR band's LCP cold after image updates. Retina tiers ≥1920 (DPR 4+)
+//     are omitted, the same trade-off the PDP/blog sets accept.
 // Kept OUT of ALL_WIDTH_QUALITY_PAIRS below and warmed by its OWN dedicated
 // invocation (like BLOG_IMAGE_WIDTH_QUALITY_PAIRS) for the product's PRIMARY
 // image only — the sole image the hero ever renders — so it never spends the
-// shared product per-invocation URL budget (7 pairs × 3 formats = 21 URLs,
+// shared product per-invocation URL budget (8 pairs × 3 formats = 24 URLs,
 // far under the 120 cap).
 export const HOME_HERO_IMAGE_WIDTH_QUALITY_PAIRS: readonly PrewarmWidthQualityPair[] =
-  [384, 640, 750, 828, 1080, 1200, 1440].map((width) => ({
+  [256, 384, 640, 750, 828, 1080, 1200, 1440].map((width) => ({
     width,
     quality: MOBILE_HERO_IMAGE_QUALITY,
   }));

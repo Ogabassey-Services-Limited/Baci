@@ -26,6 +26,10 @@ import { sanitizeHtml } from '@/lib/sanitize';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { sanitizeSchemaMarkup } from '@/lib/sanitize-json-ld';
 import {
+  extractProductImageUrls,
+  scheduleProductImageTransformsPrewarm,
+} from '@/lib/schedule-product-image-prewarm';
+import {
   generateMetaDescription,
   generateProductSchema,
   generateProductSlug,
@@ -727,6 +731,17 @@ export async function POST(request: NextRequest) {
         purgeError,
       });
     }
+
+    // Pre-warm the CDN image-transform cache for the new product's images
+    // (incl. the home-hero q70 tier for the primary image) so a brand-new
+    // product that immediately enters the launch/home hero never pays the cold
+    // transform on its first storefront request. The update path warms on edit,
+    // but a product can reach the hero straight from create (published at
+    // create, or a later status-only publish that never rewrites images), so
+    // the create path must warm too. Fire-and-forget; never throws.
+    scheduleProductImageTransformsPrewarm(
+      extractProductImageUrls(resolvedImages)
+    );
 
     return NextResponse.json({ product }, { status: 201 });
   } catch (error) {
