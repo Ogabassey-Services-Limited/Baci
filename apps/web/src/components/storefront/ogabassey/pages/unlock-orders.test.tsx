@@ -1,12 +1,15 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const list = vi.hoisted(() => vi.fn());
+const mocks = vi.hoisted(() => ({
+  list: vi.fn(),
+  merchantContext: vi.fn(),
+}));
 vi.mock('./imei-remediation-api', () => ({
-  imeiRemediationApi: { list },
+  imeiRemediationApi: { list: mocks.list },
 }));
 vi.mock('@/hooks/use-merchant-client', () => ({
-  useMerchantSafe: () => ({ merchant: { slug: 'ogabassey' } }),
+  useMerchantSafe: mocks.merchantContext,
 }));
 
 import { OgabasseyUnlockOrders } from './unlock-orders';
@@ -14,7 +17,11 @@ import { OgabasseyUnlockOrders } from './unlock-orders';
 describe('OgabasseyUnlockOrders', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    list.mockResolvedValue([
+    mocks.merchantContext.mockReturnValue({
+      basePath: '/ogabassey',
+      merchant: { slug: 'ogabassey' },
+    });
+    mocks.list.mockResolvedValue([
       {
         amountNgn: 100_000,
         amountUsdt: null,
@@ -42,6 +49,24 @@ describe('OgabasseyUnlockOrders', () => {
     expect(screen.getByText(/in progress/i)).toBeInTheDocument();
     expect(screen.getByText(/₦100,000/)).toBeInTheDocument();
     expect(screen.queryByText(/provider order/i)).toBeNull();
-    expect(list).toHaveBeenCalledWith('ogabassey');
+    expect(mocks.list).toHaveBeenCalledWith('ogabassey');
+    expect(screen.getByRole('link', { name: /new check/i })).toHaveAttribute(
+      'href',
+      '/ogabassey/imei-check'
+    );
+  });
+
+  it('keeps the new-check link root-relative on domain storefronts', async () => {
+    mocks.merchantContext.mockReturnValue({
+      merchant: { slug: 'ogabassey' },
+    });
+
+    render(<OgabasseyUnlockOrders />);
+
+    await screen.findByText('iPhone 17 Pro Max');
+    expect(screen.getByRole('link', { name: /new check/i })).toHaveAttribute(
+      'href',
+      '/imei-check'
+    );
   });
 });

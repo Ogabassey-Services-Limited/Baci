@@ -3,6 +3,7 @@
 import { Clock3, LockKeyhole, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
+import { resolveStorefrontPathHref } from '@/lib/storefront-path-prefix';
 import {
   type ImeiRemediationOrder,
   imeiRemediationApi,
@@ -28,7 +29,9 @@ function statusLabel(status: string) {
 }
 
 export function OgabasseyUnlockOrders() {
-  const merchantSlug = useMerchantSafe()?.merchant?.slug;
+  const merchantContext = useMerchantSafe();
+  const basePath = merchantContext?.basePath ?? '';
+  const merchantSlug = merchantContext?.merchant?.slug;
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<ImeiRemediationOrder[]>([]);
 
@@ -68,7 +71,7 @@ export function OgabasseyUnlockOrders() {
           </div>
           <a
             className="shrink-0 text-sm font-bold text-[var(--store-primary,#dc2626)]"
-            href="/imei-check"
+            href={resolveStorefrontPathHref(basePath, '/imei-check')}
           >
             New check
           </a>
