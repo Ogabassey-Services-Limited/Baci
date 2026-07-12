@@ -8,8 +8,8 @@ import {
 import type { BulkUpdateChangesSchema } from '@/schemas/dashboard-product-import-actions';
 import {
   BULK_PURGE_ROW_COLUMNS,
-  getBulkPurgeEntries,
   type BulkPurgeProductRow,
+  getBulkPurgeEntries,
 } from './bulk-update-purge-entries';
 
 type BulkUpdateChange = z.infer<
