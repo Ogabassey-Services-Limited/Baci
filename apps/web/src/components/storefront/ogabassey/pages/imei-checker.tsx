@@ -8,6 +8,7 @@ import {
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { useOptionalCustomerAuth } from '@/contexts/customer-auth-context';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { OgabasseyImeiEntry } from './imei-checker-entry';
 import { performImeiCheck } from './imei-checker-request';
 import type {
@@ -76,6 +77,7 @@ async function fetchDeviceSuggestions(
 
 export const OgabasseyImeiChecker: React.FC = () => {
   const customerAuth = useOptionalCustomerAuth();
+  const merchantSlug = useMerchantSafe()?.merchant?.slug;
   const {
     brand,
     canToggleServices,
@@ -110,6 +112,7 @@ export const OgabasseyImeiChecker: React.FC = () => {
     useState<ImeiRequestIdentity | null>(null);
   const pendingLookup = useImeiPendingLookup({
     customerId: customerAuth?.customer?.id,
+    merchantSlug,
   });
 
   useEffect(() => {
@@ -165,6 +168,11 @@ export const OgabasseyImeiChecker: React.FC = () => {
   const handleCheck = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isValidDeviceIdentifier(imei, identifier)) return;
+    if (!merchantSlug) {
+      setError('This storefront is unavailable. Refresh and try again.');
+      setNeedsWalletFunding(false);
+      return;
+    }
 
     setIsLoading(true);
     setResult(null);
@@ -202,6 +210,7 @@ export const OgabasseyImeiChecker: React.FC = () => {
       selectedTier,
       currentTier.price,
       idempotencyKey,
+      merchantSlug,
       device
     );
 

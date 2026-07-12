@@ -22,6 +22,7 @@ describe('useImeiPendingLookup', () => {
       useImeiPendingLookup({
         customerId: 'customer-1',
         host: 'shop.example.com',
+        merchantSlug: 'ogabassey',
       })
     );
 
@@ -59,6 +60,7 @@ describe('useImeiPendingLookup', () => {
       useImeiPendingLookup({
         customerId: 'customer-1',
         host: 'shop.example.com',
+        merchantSlug: 'ogabassey',
       })
     );
 
@@ -82,6 +84,7 @@ describe('useImeiPendingLookup', () => {
       useImeiPendingLookup({
         customerId: 'customer-1',
         host: 'shop.example.com',
+        merchantSlug: 'ogabassey',
       })
     );
     await act(async () => undefined);
@@ -92,7 +95,8 @@ describe('useImeiPendingLookup', () => {
     });
 
     expect(pollImeiCheck).toHaveBeenCalledWith(
-      '11111111-1111-4111-8111-111111111111'
+      '11111111-1111-4111-8111-111111111111',
+      'ogabassey'
     );
     vi.useRealTimers();
   });

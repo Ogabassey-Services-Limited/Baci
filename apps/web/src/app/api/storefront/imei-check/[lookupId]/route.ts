@@ -18,6 +18,7 @@ import {
 } from '@/lib/rate-limit';
 import { resolveStorefrontMerchantFromRequest } from '@/lib/storefront-merchant';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { RouteIdentifierSchema } from '@/schemas/route-identifier';
 import { errorBody, UUID_PATTERN } from '../route-helpers';
 
 interface LookupStatusRow {
@@ -65,7 +66,23 @@ export async function GET(
     );
   }
 
+  const rawMerchantSlug = new URL(request.url).searchParams.get('merchantSlug');
+  const parsedMerchantSlug =
+    rawMerchantSlug === null
+      ? undefined
+      : RouteIdentifierSchema.safeParse(rawMerchantSlug);
+  if (parsedMerchantSlug && !parsedMerchantSlug.success) {
+    return NextResponse.json(
+      errorBody({
+        code: 'INVALID_MERCHANT_SLUG',
+        error: 'Invalid merchant slug',
+      }),
+      { status: 400 }
+    );
+  }
+
   const merchantResolution = await resolveStorefrontMerchantFromRequest({
+    fallbackIdentifier: parsedMerchantSlug?.data,
     lookupError: 'Failed to validate storefront host',
     notFoundError: 'IMEI check is only available on storefront hosts',
     request: request as NextRequest,

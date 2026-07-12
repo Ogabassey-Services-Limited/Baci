@@ -31,9 +31,11 @@ type PendingTerminal =
 export function useImeiPendingLookup({
   customerId,
   host,
+  merchantSlug,
 }: {
   customerId?: string;
   host?: string;
+  merchantSlug?: string;
 }) {
   const resolvedHost =
     host ?? (typeof window === 'undefined' ? '' : window.location.host);
@@ -62,7 +64,7 @@ export function useImeiPendingLookup({
   }, [storageKey]);
 
   useEffect(() => {
-    if (!pending) return;
+    if (!pending || !merchantSlug) return;
 
     const isStale =
       Date.now() - Date.parse(pending.createdAt) >= MAX_ACTIVE_POLL_MS;
@@ -72,7 +74,7 @@ export function useImeiPendingLookup({
 
     let cancelled = false;
     const timer = setTimeout(async () => {
-      const outcome = await pollImeiCheck(pending.lookupId);
+      const outcome = await pollImeiCheck(pending.lookupId, merchantSlug);
       if (cancelled) return;
 
       if (outcome.kind === 'pending' || outcome.kind === 'retry') {
@@ -101,7 +103,7 @@ export function useImeiPendingLookup({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [pending, storageKey]);
+  }, [merchantSlug, pending, storageKey]);
 
   return {
     clear() {

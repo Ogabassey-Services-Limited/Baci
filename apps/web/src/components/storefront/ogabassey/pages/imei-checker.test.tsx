@@ -6,6 +6,7 @@ import { OgabasseyImeiChecker } from './imei-checker';
 import { getDisplayTier } from './imei-checker-tiers';
 
 const fetchMock = vi.fn();
+const mocks = vi.hoisted(() => ({ useMerchantSafe: vi.fn() }));
 
 vi.stubGlobal('fetch', fetchMock);
 
@@ -28,11 +29,18 @@ vi.mock('next/link', () => ({
     </a>
   ),
 }));
+vi.mock('@/hooks/use-merchant-client', () => ({
+  useMerchantSafe: mocks.useMerchantSafe,
+}));
 
 describe('OgabasseyImeiChecker', () => {
   beforeEach(() => {
     document.cookie = 'csrf-token=test-csrf-token; path=/';
     fetchMock.mockReset();
+    mocks.useMerchantSafe.mockReturnValue({
+      basePath: '/ogabassey',
+      merchant: { slug: 'ogabassey' },
+    });
   });
 
   const getFetchHeaders = (callIndex: number) => {
@@ -130,10 +138,24 @@ describe('OgabasseyImeiChecker', () => {
       clientCapabilities: ['imei-async-v1'],
       device: 'smartphone',
       imei: '354442067957452',
+      merchantSlug: 'ogabassey',
       tier: 'full',
     });
     expect(await screen.findByText('iPhone 15 Pro')).toBeInTheDocument();
     expect(screen.getByText('Safe to buy')).toBeInTheDocument();
+  });
+
+  it('shows an error instead of silently dropping submission without merchant context', async () => {
+    mocks.useMerchantSafe.mockReturnValue(null);
+    render(<OgabasseyImeiChecker />);
+
+    enterValidImei();
+    fireEvent.click(screen.getByRole('button', { name: /verify now/i }));
+
+    expect(
+      await screen.findByText(/storefront is unavailable/i)
+    ).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('shows the pending state and polls an async check to completion', async () => {
@@ -167,7 +189,7 @@ describe('OgabasseyImeiChecker', () => {
     );
     expect(await screen.findByText('iPhone 15 Pro')).toBeInTheDocument();
     expect(fetchMock.mock.calls[1]?.[0]).toBe(
-      '/api/storefront/imei-check/11111111-1111-4111-8111-111111111111'
+      '/api/storefront/imei-check/11111111-1111-4111-8111-111111111111?merchantSlug=ogabassey'
     );
   });
 
@@ -297,7 +319,7 @@ describe('OgabasseyImeiChecker', () => {
     ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /fund wallet/i })).toHaveAttribute(
       'href',
-      '/wallet?fund=1'
+      '/ogabassey/wallet?fund=1'
     );
   });
 

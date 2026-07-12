@@ -62,6 +62,7 @@ export async function performImeiCheck(
   tier: ImeiServiceTierKey,
   tierPrice: number,
   idempotencyKey: string,
+  merchantSlug: string,
   device?: ImeiDeviceCategory
 ): Promise<ImeiCheckOutcome> {
   try {
@@ -75,6 +76,7 @@ export async function performImeiCheck(
         clientCapabilities: ['imei-async-v1'],
         ...(device ? { device } : {}),
         imei,
+        merchantSlug,
         tier,
       }),
     });
@@ -141,11 +143,12 @@ export async function performImeiCheck(
 }
 
 export async function pollImeiCheck(
-  lookupId: string
+  lookupId: string,
+  merchantSlug: string
 ): Promise<ImeiPollOutcome> {
   try {
     const response = await fetchWithCsrf(
-      `/api/storefront/imei-check/${encodeURIComponent(lookupId)}`,
+      `/api/storefront/imei-check/${encodeURIComponent(lookupId)}?merchantSlug=${encodeURIComponent(merchantSlug)}`,
       { method: 'GET' }
     );
     const data = (await response.json()) as ImeiApiPayload;

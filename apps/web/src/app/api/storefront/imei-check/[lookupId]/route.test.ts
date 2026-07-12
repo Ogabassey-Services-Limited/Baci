@@ -127,6 +127,40 @@ describe('GET /api/storefront/imei-check/[lookupId]', () => {
     });
   });
 
+  it('uses the query merchant slug on a root-host path storefront', async () => {
+    mocks.createAdminClient.mockReturnValue(
+      adminWithRow({
+        cached_response: { data: { device: 'iPhone' }, success: true },
+        cached_status: 200,
+        customer_id: 'customer-1',
+        id: LOOKUP_ID,
+        merchant_id: 'merchant-1',
+        status: 'completed',
+      })
+    );
+    const rootRequest = new Request(
+      `https://usebaci.com/api/storefront/imei-check/${LOOKUP_ID}?merchantSlug=ogabassey`
+    );
+
+    const response = await GET(rootRequest, context());
+
+    expect(response.status).toBe(200);
+    expect(mocks.resolveMerchant).toHaveBeenCalledWith(
+      expect.objectContaining({ fallbackIdentifier: 'ogabassey' })
+    );
+  });
+
+  it('rejects an invalid query merchant slug', async () => {
+    const rootRequest = new Request(
+      `https://usebaci.com/api/storefront/imei-check/${LOOKUP_ID}?merchantSlug=../another-store`
+    );
+
+    const response = await GET(rootRequest, context());
+
+    expect(response.status).toBe(400);
+    expect(mocks.resolveMerchant).not.toHaveBeenCalled();
+  });
+
   it('does not expose a lookup owned by another customer', async () => {
     mocks.createAdminClient.mockReturnValue(
       adminWithRow({

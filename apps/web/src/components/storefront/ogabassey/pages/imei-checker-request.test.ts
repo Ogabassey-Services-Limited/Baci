@@ -28,7 +28,8 @@ describe('performImeiCheck', () => {
       '490154203237518',
       'full',
       1500,
-      '00000000-0000-4000-8000-000000000000'
+      '00000000-0000-4000-8000-000000000000',
+      'ogabassey'
     );
 
     expect(outcome).toMatchObject({
@@ -56,6 +57,7 @@ describe('performImeiCheck', () => {
       'blacklist',
       700,
       '00000000-0000-4000-8000-000000000000',
+      'ogabassey',
       'smartphone'
     );
 
@@ -63,6 +65,7 @@ describe('performImeiCheck', () => {
     expect(JSON.parse(String(init.body))).toMatchObject({
       clientCapabilities: ['imei-async-v1'],
       device: 'smartphone',
+      merchantSlug: 'ogabassey',
     });
     expect(outcome).toMatchObject({
       error: null,
@@ -96,14 +99,21 @@ describe('performImeiCheck', () => {
         }),
       });
 
-    await expect(pollImeiCheck('lookup-1')).resolves.toEqual({
+    await expect(pollImeiCheck('lookup-1', 'ogabassey')).resolves.toEqual({
       kind: 'pending',
       pollAfterMs: 5000,
     });
-    await expect(pollImeiCheck('lookup-1')).resolves.toMatchObject({
+    await expect(
+      pollImeiCheck('lookup-1', 'ogabassey')
+    ).resolves.toMatchObject({
       kind: 'complete',
       result: { device: 'iPhone' },
     });
+    expect(mockFetchWithCsrf).toHaveBeenNthCalledWith(
+      1,
+      '/api/storefront/imei-check/lookup-1?merchantSlug=ogabassey',
+      { method: 'GET' }
+    );
   });
 
   it('returns a successful result and clears the request identity', async () => {
@@ -123,7 +133,8 @@ describe('performImeiCheck', () => {
         '490154203237518',
         'full',
         1500,
-        '00000000-0000-4000-8000-000000000000'
+        '00000000-0000-4000-8000-000000000000',
+        'ogabassey'
       )
     ).resolves.toEqual({
       error: null,
@@ -143,7 +154,8 @@ describe('performImeiCheck', () => {
         '490154203237518',
         'full',
         1500,
-        '00000000-0000-4000-8000-000000000000'
+        '00000000-0000-4000-8000-000000000000',
+        'ogabassey'
       )
     ).resolves.toMatchObject({
       error: expect.stringMatching(/network error/i),

@@ -116,23 +116,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const merchantResolution = await resolveStorefrontMerchantFromRequest({
-      lookupError: 'Failed to validate storefront host',
-      notFoundError: 'IMEI check is only available on storefront hosts',
-      request,
-      rootDomain: getRootDomain() || 'usebaci.com',
-    });
-    if (!merchantResolution.success) {
-      return json(
-        errorBody({
-          code: 'STOREFRONT_NOT_FOUND',
-          error: merchantResolution.error,
-        }),
-        merchantResolution.status
-      );
-    }
-    const merchantId = String(merchantResolution.merchant.id);
-
     const rawIdempotencyKey = request.headers.get('Idempotency-Key') ?? '';
     if (!rawIdempotencyKey || !UUID_PATTERN.test(rawIdempotencyKey)) {
       return json(
@@ -165,6 +148,23 @@ export async function POST(request: NextRequest) {
         400
       );
     }
+    const merchantResolution = await resolveStorefrontMerchantFromRequest({
+      fallbackIdentifier: bodyParse.data.merchantSlug,
+      lookupError: 'Failed to validate storefront host',
+      notFoundError: 'IMEI check is only available on storefront hosts',
+      request,
+      rootDomain: getRootDomain() || 'usebaci.com',
+    });
+    if (!merchantResolution.success) {
+      return json(
+        errorBody({
+          code: 'STOREFRONT_NOT_FOUND',
+          error: merchantResolution.error,
+        }),
+        merchantResolution.status
+      );
+    }
+    const merchantId = String(merchantResolution.merchant.id);
     const requestedTier = bodyParse.data.tier;
     const deviceCategory = bodyParse.data.device;
     const clientSupportsAsync =

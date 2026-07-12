@@ -4,6 +4,7 @@ import {
   isImeiServiceTierKey,
 } from '@baci/shared/imei';
 import { z } from 'zod';
+import { RouteIdentifierSchema } from './route-identifier';
 
 export const imeiCheckSchema = z
   .object({
@@ -18,6 +19,7 @@ export const imeiCheckSchema = z
     imei: z
       .string()
       .regex(/^[A-Za-z0-9]{8,15}$/, 'Enter a valid IMEI or serial number'),
+    merchantSlug: RouteIdentifierSchema.optional(),
     tier: z
       .string()
       .default('full')

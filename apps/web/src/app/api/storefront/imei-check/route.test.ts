@@ -136,19 +136,21 @@ function hashImeiForTest(imei: string) {
 
 function createRequest(
   body: Record<string, unknown> = { imei: VALID_IMEI, tier: 'full' },
-  headers: Record<string, string> = {}
+  headers: Record<string, string> = {},
+  url = 'https://ogabassey.usebaci.com/api/storefront/imei-check'
 ) {
+  const requestUrl = new URL(url);
   return {
     json: () => Promise.resolve(body),
     headers: new Headers({
       authorization: 'Bearer token',
-      host: 'ogabassey.usebaci.com',
+      host: requestUrl.host,
       'idempotency-key': IDEMPOTENCY_KEY,
       ...headers,
     }),
     method: 'POST',
-    nextUrl: new URL('https://ogabassey.usebaci.com/api/storefront/imei-check'),
-    url: 'https://ogabassey.usebaci.com/api/storefront/imei-check',
+    nextUrl: requestUrl,
+    url: requestUrl.toString(),
   } as unknown as NextRequest;
 }
 
@@ -458,6 +460,27 @@ describe('POST /api/storefront/imei-check', () => {
     expect(
       mocks.mockResolveStorefrontMerchantFromRequest
     ).not.toHaveBeenCalled();
+  });
+
+  it('uses the submitted merchant slug on a root-host path storefront', async () => {
+    const { POST } = await importRoute();
+
+    const response = await POST(
+      createRequest(
+        {
+          imei: VALID_IMEI,
+          merchantSlug: 'ogabassey',
+          tier: 'full',
+        },
+        {},
+        'https://usebaci.com/api/storefront/imei-check'
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.mockResolveStorefrontMerchantFromRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ fallbackIdentifier: 'ogabassey' })
+    );
   });
 
   it('returns 400 when Idempotency-Key is missing or malformed', async () => {

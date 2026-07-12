@@ -8,12 +8,24 @@ describe('imeiCheckSchema', () => {
         clientCapabilities: ['imei-async-v1'],
         device: 'smartphone',
         imei: '490154203237518',
+        merchantSlug: 'ogabassey',
         tier: 'blacklist',
       })
     ).toMatchObject({
       clientCapabilities: ['imei-async-v1'],
       device: 'smartphone',
+      merchantSlug: 'ogabassey',
     });
+  });
+
+  it('rejects an invalid path-storefront merchant identifier', () => {
+    expect(
+      imeiCheckSchema.safeParse({
+        imei: '490154203237518',
+        merchantSlug: '../another-store',
+        tier: 'blacklist',
+      }).success
+    ).toBe(false);
   });
 
   it('rejects device context that the tier does not support', () => {
