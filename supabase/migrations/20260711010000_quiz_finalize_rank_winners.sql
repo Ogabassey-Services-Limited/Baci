@@ -45,33 +45,47 @@ AS $$
 DECLARE
   v_settings jsonb;
   v_compliance_verified boolean;
+  v_permit_ref text;
   v_status text;
   v_ends_at timestamptz;
   v_currency text := 'NGN';
   v_ranked_count integer;
   v_ranked_prizes jsonb;
+  v_has_explicit boolean;
   v_grand_amount numeric;
   v_cash_amount numeric;
   v_minted integer := 0;
 BEGIN
-  -- Fail-closed on compliance even when this minter is invoked DIRECTLY (not
-  -- only via the finalize wrappers): never mint an award row for an event whose
-  -- compliance has not been verified.
-  SELECT e.settings, e.compliance_verified, e.status, e.ends_at
-    INTO v_settings, v_compliance_verified, v_status, v_ends_at
+  -- Fail-closed on compliance AND permit evidence even when this minter is
+  -- invoked DIRECTLY (not only via the finalize wrappers): never mint an award
+  -- row for an event whose compliance has not been verified OR whose permit
+  -- reference is missing/blank. This mirrors the user-facing prize guard
+  -- (enforcePrizeProductionGuard requires a non-blank nlrc_permit_ref), so the
+  -- cron/service-role path can't create approved cash/grand awards for events
+  -- the rest of the app would reject as unpermitted.
+  SELECT e.settings, e.compliance_verified, e.nlrc_permit_ref, e.status, e.ends_at
+    INTO v_settings, v_compliance_verified, v_permit_ref, v_status, v_ends_at
   FROM public.quiz_events e
   WHERE e.id = p_event_id;
 
-  IF v_settings IS NULL OR v_compliance_verified IS NOT TRUE THEN
+  IF v_settings IS NULL
+     OR v_compliance_verified IS NOT TRUE
+     OR v_permit_ref IS NULL
+     OR pg_catalog.btrim(v_permit_ref) = '' THEN
     RETURN 0;
   END IF;
 
   -- Only mint for a CLOSED event (mirrors the finalize wrappers). A direct
   -- service-role call must never mint winners while the event is still open —
-  -- the leaderboard isn't final until it ends.
+  -- the leaderboard isn't final until it ends. For active/scheduled events the
+  -- same 10-minute in-flight grace as the wrappers applies: because award
+  -- inserts are idempotent, an early direct mint would freeze the winner set and
+  -- later finalization could not correct it, so a player who started just before
+  -- ends_at must still be able to submit and compete. A 'completed' event has no
+  -- in-flight risk and finalizes immediately.
   IF NOT (
     v_status = 'completed'
-    OR (v_ends_at IS NOT NULL AND v_ends_at <= pg_catalog.now())
+    OR (v_ends_at IS NOT NULL AND v_ends_at <= pg_catalog.now() - interval '10 minutes')
   ) THEN
     RETURN 0;
   END IF;
@@ -99,11 +113,24 @@ BEGIN
   IF v_settings->>'ranked_winner_count' ~ '^[0-9]+$' THEN
     v_ranked_count := LEAST((v_settings->>'ranked_winner_count')::numeric, 1000)::integer;
   END IF;
-  IF v_ranked_count < 1 THEN
-    RETURN 0;
-  END IF;
 
   v_ranked_prizes := v_settings->'ranked_prizes';
+  -- An explicit ranked_prizes schedule defines its OWN set of ranks; the default
+  -- winner-count cap must not truncate it (a 5-entry schedule must mint 5, not the
+  -- default 3). Guard jsonb_array_length against non-array settings.
+  v_has_explicit := pg_catalog.jsonb_array_length(
+    CASE
+      WHEN pg_catalog.jsonb_typeof(v_ranked_prizes) = 'array' THEN v_ranked_prizes
+      ELSE '[]'::jsonb
+    END
+  ) > 0;
+
+  -- With no explicit schedule the default series drives minting, so a <1 count
+  -- means there is nothing to mint. An explicit schedule mints its own ranks
+  -- regardless of ranked_winner_count.
+  IF NOT v_has_explicit AND v_ranked_count < 1 THEN
+    RETURN 0;
+  END IF;
   -- Guard the amount casts: a non-numeric configured amount (e.g. a
   -- currency-formatted string "₦50,000") must yield NULL rather than raising
   -- and aborting the whole finalize. The minter already treats NULL/negative as
@@ -149,8 +176,7 @@ BEGIN
       CASE WHEN gs.rank = 1 THEN 'grand' ELSE 'cash' END AS award_type,
       CASE WHEN gs.rank = 1 THEN v_grand_amount ELSE v_cash_amount END AS amount
     FROM pg_catalog.generate_series(1, v_ranked_count) AS gs(rank)
-    WHERE pg_catalog.jsonb_typeof(v_ranked_prizes) IS DISTINCT FROM 'array'
-       OR pg_catalog.jsonb_array_length(v_ranked_prizes) = 0
+    WHERE NOT v_has_explicit
   ),
   best_attempts AS (
     -- One row per customer: their single best clean attempt for this event.
@@ -219,8 +245,11 @@ BEGIN
       pg_catalog.now()
     FROM ranked r
     JOIN prize_plan pp ON pp.rank = r.rnk
-    WHERE r.rnk <= v_ranked_count
-      AND pp.award_type IN ('grand', 'cash')
+    -- The rank set is already bounded by prize_plan (an explicit schedule's own
+    -- ranks, or the default 1..v_ranked_count series), so no extra winner-count
+    -- cap is applied here — an explicit schedule beyond the default count is
+    -- fully honored rather than silently truncated at 3.
+    WHERE pp.award_type IN ('grand', 'cash')
     ON CONFLICT DO NOTHING
     RETURNING 1
   )
@@ -265,6 +294,12 @@ BEGIN
   WHERE id = p_event_id
     AND award_finalized_at IS NULL
     AND compliance_verified = true
+    -- Permit evidence required before minting real awards (mirrors the
+    -- user-facing enforcePrizeProductionGuard). Gating the UPDATE — not just the
+    -- minter — ensures a permit-less event is never stamped award_finalized_at
+    -- (which is idempotent-once), so it isn't stranded "finalized with 0 awards".
+    AND nlrc_permit_ref IS NOT NULL
+    AND pg_catalog.btrim(nlrc_permit_ref) <> ''
     -- Never finalize/mint for a cancelled event.
     AND status <> 'cancelled'
     -- Same 10-min grace as the cron: a player who started just before ends_at
@@ -311,15 +346,24 @@ BEGIN
   FOR v_event_id IN
     SELECT e.id
     FROM public.quiz_events e
-    WHERE e.ends_at IS NOT NULL
-      -- Grace window after ends_at: a player who started just before the
-      -- deadline can still be mid-attempt (per-question timers run past
-      -- ends_at). Waiting 10 min before auto-finalizing lets those in-flight
-      -- attempts submit and compete for a rank instead of being dropped.
-      AND e.ends_at <= pg_catalog.now() - interval '10 minutes'
-      AND e.award_finalized_at IS NULL
+    WHERE e.award_finalized_at IS NULL
       AND e.compliance_verified = true            -- fail-closed money gate
+      -- Permit evidence required before auto-minting real awards (mirrors the
+      -- user-facing enforcePrizeProductionGuard). Never finalize an event whose
+      -- permit reference is missing/blank.
+      AND e.nlrc_permit_ref IS NOT NULL
+      AND pg_catalog.btrim(e.nlrc_permit_ref) <> ''
       AND e.status IN ('active', 'scheduled', 'completed')
+      -- Due when already 'completed' (immediate — no in-flight risk) OR past the
+      -- 10-min grace after ends_at. A player who started just before the deadline
+      -- can still be mid-attempt (per-question timers run past ends_at), so the
+      -- grace lets those attempts submit and compete instead of being dropped.
+      -- Keying ONLY on ends_at would strand a completed event whose ends_at is
+      -- null (activation initializes ends_at = null) — it would never auto-mint.
+      AND (
+        e.status = 'completed'
+        OR (e.ends_at IS NOT NULL AND e.ends_at <= pg_catalog.now() - interval '10 minutes')
+      )
       -- Only auto-finalize events that carry prize configuration. Unconfigured
       -- events (e.g. legacy/e2e test events with no prize settings) are left
       -- untouched: no stamp, no awards, and never re-selected (no retry storm).
