@@ -5,10 +5,17 @@ import { Text, View } from 'react-native';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { BRAND } from '@/constants/Colors';
 import type { ShippingAddressInput } from '@/lib/validation';
-import { CheckoutFormField } from './CheckoutFormField';
 import { checkoutContactCardStyles as styles } from './CheckoutContactCard.styles';
+import { CheckoutFormField } from './CheckoutFormField';
 import { CheckoutGuestSaveDetails } from './CheckoutGuestSaveDetails';
 import { CollapsibleCheckoutCard } from './selection/CollapsibleCheckoutCard';
+
+// Email addresses can't contain whitespace; strip it as the user types so a
+// stray space (common on mobile keyboards after autocomplete) can't produce a
+// validation error they have to hunt for.
+function stripEmailWhitespace(value: string): string {
+  return value.replace(/\s+/g, '');
+}
 
 type CheckoutContactCardColors = {
   background: string;
@@ -85,74 +92,75 @@ export function CheckoutContactCard({
       }
     >
       <View style={[styles.cardBody, styles.contactCardBody]}>
-          <View style={styles.row}>
-            {CONTACT_NAME_FIELDS.map((field) => (
-              <View key={field.name} style={styles.halfInput}>
-                <Text style={[styles.label, { color: colors.textSecondary }]}>
-                  {field.label}
-                </Text>
-                <CheckoutFormField
-                  autoCapitalize="words"
-                  colors={colors}
-                  control={control}
-                  errors={errors}
-                  isDark={isDark}
-                  label=""
-                  name={field.name}
-                  placeholder={field.placeholder}
-                />
-              </View>
-            ))}
-          </View>
-
-          <Text
-            style={[
-              styles.label,
-              { color: colors.textSecondary, marginBottom: 8 },
-            ]}
-          >
-            Phone Number
-          </Text>
-          <Controller
-            control={control}
-            name="phone"
-            render={({ field: { onBlur, onChange, value } }) => (
-              <PhoneInput
-                containerStyle={styles.compactInputGroup}
-                error={errors.phone?.message}
-                onBlur={onBlur}
-                onChangeText={onChange}
-                value={value}
+        <View style={styles.row}>
+          {CONTACT_NAME_FIELDS.map((field) => (
+            <View key={field.name} style={styles.halfInput}>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>
+                {field.label}
+              </Text>
+              <CheckoutFormField
+                autoCapitalize="words"
+                colors={colors}
+                control={control}
+                errors={errors}
+                isDark={isDark}
+                label=""
+                name={field.name}
+                placeholder={field.placeholder}
               />
-            )}
-          />
-
-          <Text style={[styles.label, { color: colors.textSecondary }]}>
-            Email Address
-          </Text>
-          <CheckoutFormField
-            autoCapitalize="none"
-            colors={colors}
-            containerStyle={styles.compactInputGroup}
-            control={control}
-            errors={errors}
-            isDark={isDark}
-            keyboardType="email-address"
-            label=""
-            name="email"
-            placeholder="john@example.com"
-          />
-
-          {!isAuthenticated ? (
-            <CheckoutGuestSaveDetails
-              accountPassword={accountPassword}
-              colors={colors}
-              onChangeAccountPassword={onChangeAccountPassword}
-              onToggleSaveDetails={onToggleSaveDetails}
-              saveDetails={saveDetails}
-            />
-          ) : null}
+            </View>
+          ))}
         </View>
+
+        <Text
+          style={[
+            styles.label,
+            { color: colors.textSecondary, marginBottom: 8 },
+          ]}
+        >
+          Phone Number
+        </Text>
+        <Controller
+          control={control}
+          name="phone"
+          render={({ field: { onBlur, onChange, value } }) => (
+            <PhoneInput
+              containerStyle={styles.compactInputGroup}
+              error={errors.phone?.message}
+              onBlur={onBlur}
+              onChangeText={onChange}
+              value={value}
+            />
+          )}
+        />
+
+        <Text style={[styles.label, { color: colors.textSecondary }]}>
+          Email Address
+        </Text>
+        <CheckoutFormField
+          autoCapitalize="none"
+          colors={colors}
+          containerStyle={styles.compactInputGroup}
+          control={control}
+          errors={errors}
+          isDark={isDark}
+          keyboardType="email-address"
+          label=""
+          name="email"
+          placeholder="john@example.com"
+          transformText={stripEmailWhitespace}
+        />
+
+        {!isAuthenticated ? (
+          <CheckoutGuestSaveDetails
+            accountPassword={accountPassword}
+            colors={colors}
+            onChangeAccountPassword={onChangeAccountPassword}
+            onToggleSaveDetails={onToggleSaveDetails}
+            saveDetails={saveDetails}
+          />
+        ) : null}
+      </View>
     </CollapsibleCheckoutCard>
   );
 }

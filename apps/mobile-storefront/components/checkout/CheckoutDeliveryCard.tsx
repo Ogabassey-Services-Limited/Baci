@@ -1,15 +1,14 @@
 import { Controller } from 'react-hook-form';
 import { View } from 'react-native';
 import { AddressAutocomplete } from '@/components/ui/AddressAutocomplete';
-import { CHECKOUT_DELIVERY_Z_INDEX } from './CheckoutDeliveryCard.constants';
 import { checkoutDeliveryCardStyles as styles } from './CheckoutDeliveryCard.styles';
 import type { CheckoutDeliveryCardProps } from './CheckoutDeliveryCard.types';
 import { CheckoutDeliveryDefaultCheckbox } from './CheckoutDeliveryDefaultCheckbox';
 import { CheckoutDeliveryLocationPicker } from './CheckoutDeliveryLocationPicker';
 import { CheckoutDeliveryNewAddressIntro } from './CheckoutDeliveryNewAddressIntro';
 import { CheckoutDeliverySummary } from './CheckoutDeliverySummary';
-import { CollapsibleCheckoutCard } from './selection/CollapsibleCheckoutCard';
 import { SavedAddressOptions } from './SavedAddressOptions';
+import { CollapsibleCheckoutCard } from './selection/CollapsibleCheckoutCard';
 
 export function CheckoutDeliveryCard({
   colors,
@@ -35,8 +34,6 @@ export function CheckoutDeliveryCard({
   onUseSavedAddress,
   saveAsDefaultAddress,
   savedAddresses,
-  scrollOffsetRef,
-  scrollRef,
   selectedSavedAddress,
   selectedSavedAddressId,
 }: CheckoutDeliveryCardProps) {
@@ -52,8 +49,6 @@ export function CheckoutDeliveryCard({
       collapsed={showCollapseAction && isCollapsed}
       canCollapse={showCollapseAction}
       onToggle={onToggleCollapsed}
-      overflowVisible
-      zIndex={CHECKOUT_DELIVERY_Z_INDEX.card}
       summary={
         <CheckoutDeliverySummary
           colors={colors}
@@ -63,100 +58,88 @@ export function CheckoutDeliveryCard({
         />
       }
     >
-      <View
-        style={[
-          styles.cardBody,
-          {
-            overflow: 'visible',
-            zIndex: CHECKOUT_DELIVERY_Z_INDEX.body,
-          },
-        ]}
-      >
-          <SavedAddressOptions
-            colors={colors}
-            defaultSavedAddress={defaultSavedAddress}
-            isAddingNewAddress={isAddingNewAddress}
-            isDark={isDark}
-            isLoadingSavedAddresses={isLoadingSavedAddresses}
-            onOpenNewAddressEditor={onOpenNewAddressEditor}
-            onUseSavedAddress={onUseSavedAddress}
-            savedAddresses={savedAddresses}
-            selectedSavedAddress={selectedSavedAddress}
-            selectedSavedAddressId={selectedSavedAddressId}
-          />
-          {hasSavedAddresses && !isAddingNewAddress ? (
-            isAuthenticated ? (
+      <View style={styles.cardBody}>
+        <SavedAddressOptions
+          colors={colors}
+          defaultSavedAddress={defaultSavedAddress}
+          isAddingNewAddress={isAddingNewAddress}
+          isDark={isDark}
+          isLoadingSavedAddresses={isLoadingSavedAddresses}
+          onOpenNewAddressEditor={onOpenNewAddressEditor}
+          onUseSavedAddress={onUseSavedAddress}
+          savedAddresses={savedAddresses}
+          selectedSavedAddress={selectedSavedAddress}
+          selectedSavedAddressId={selectedSavedAddressId}
+        />
+        {hasSavedAddresses && !isAddingNewAddress ? (
+          isAuthenticated ? (
+            <CheckoutDeliveryDefaultCheckbox
+              checked={saveAsDefaultAddress}
+              colors={colors}
+              label={
+                selectedSavedAddress?.is_default
+                  ? 'Keep as default address'
+                  : 'Make selected address my default'
+              }
+              onToggle={onToggleSaveAsDefaultAddress}
+            />
+          ) : null
+        ) : (
+          <>
+            {hasSavedAddresses ? (
+              <CheckoutDeliveryNewAddressIntro
+                colors={colors}
+                isDark={isDark}
+              />
+            ) : null}
+            <Controller
+              control={control}
+              name="address"
+              render={({ field: { onChange, value } }) => (
+                <AddressAutocomplete
+                  label="Street Address"
+                  onChangeText={(text) => onAddressTextChanged(text, onChange)}
+                  onSelect={(place) => onAddressSelected(place, onChange)}
+                  placeholder="Start typing your address…"
+                  value={value}
+                />
+              )}
+            />
+            <View style={styles.row}>
+              <CheckoutDeliveryLocationPicker
+                colors={colors}
+                control={control}
+                error={errors.city?.message}
+                isDark={isDark}
+                isLoading={isLoadingCities}
+                label="City"
+                onPress={onOpenCityPicker}
+                placeholder="Select city"
+                valueName="city"
+              />
+              <CheckoutDeliveryLocationPicker
+                colors={colors}
+                control={control}
+                error={errors.state?.message}
+                isDark={isDark}
+                isLoading={isLoadingLocations}
+                label="State"
+                onPress={onOpenStatePicker}
+                placeholder="Select state"
+                valueName="state"
+              />
+            </View>
+            {isAuthenticated ? (
               <CheckoutDeliveryDefaultCheckbox
                 checked={saveAsDefaultAddress}
                 colors={colors}
-                label={
-                  selectedSavedAddress?.is_default
-                    ? 'Keep as default address'
-                    : 'Make selected address my default'
-                }
+                label="Set as default address"
                 onToggle={onToggleSaveAsDefaultAddress}
               />
-            ) : null
-          ) : (
-            <>
-              {hasSavedAddresses ? (
-                <CheckoutDeliveryNewAddressIntro
-                  colors={colors}
-                  isDark={isDark}
-                />
-              ) : null}
-              <Controller
-                control={control}
-                name="address"
-                render={({ field: { onChange, value } }) => (
-                  <AddressAutocomplete
-                    label="Street Address"
-                    onChangeText={(text) =>
-                      onAddressTextChanged(text, onChange)
-                    }
-                    onSelect={(place) => onAddressSelected(place, onChange)}
-                    placeholder="Start typing your address…"
-                    scrollOffsetRef={scrollOffsetRef}
-                    scrollRef={scrollRef}
-                    value={value}
-                  />
-                )}
-              />
-              <View style={styles.row}>
-                <CheckoutDeliveryLocationPicker
-                  colors={colors}
-                  control={control}
-                  error={errors.city?.message}
-                  isDark={isDark}
-                  isLoading={isLoadingCities}
-                  label="City"
-                  onPress={onOpenCityPicker}
-                  placeholder="Select city"
-                  valueName="city"
-                />
-                <CheckoutDeliveryLocationPicker
-                  colors={colors}
-                  control={control}
-                  error={errors.state?.message}
-                  isDark={isDark}
-                  isLoading={isLoadingLocations}
-                  label="State"
-                  onPress={onOpenStatePicker}
-                  placeholder="Select state"
-                  valueName="state"
-                />
-              </View>
-              {isAuthenticated ? (
-                <CheckoutDeliveryDefaultCheckbox
-                  checked={saveAsDefaultAddress}
-                  colors={colors}
-                  label="Set as default address"
-                  onToggle={onToggleSaveAsDefaultAddress}
-                />
-              ) : null}
-            </>
-          )}
-        </View>
+            ) : null}
+          </>
+        )}
+      </View>
     </CollapsibleCheckoutCard>
   );
 }

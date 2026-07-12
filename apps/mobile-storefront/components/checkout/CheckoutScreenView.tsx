@@ -1,4 +1,3 @@
-import { Stack } from 'expo-router';
 import React, { useRef } from 'react';
 import { Platform } from 'react-native';
 import {
@@ -17,6 +16,7 @@ import {
 import { CryptoSelectionModal } from '@/components/checkout/CryptoSelectionModal';
 import { PatternedBackground } from '@/components/storefront/PatternedBackground';
 import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
+import { AddressSuggestionsProvider } from '@/components/ui/address-suggestions-portal';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { useAuthStatus } from '@/hooks/use-auth-guard';
@@ -186,13 +186,10 @@ export function CheckoutScreenView() {
   });
 
   return (
-    <>
-      <Stack.Screen
-        options={{
-          headerShown: false,
-        }}
-      />
-
+    <AddressSuggestionsProvider>
+      {/* headerShown: false lives in the stack REGISTRATION
+          (RootStackScreens.tsx) — setting it here applied a frame late and
+          made the screen mount low, then jump up on iOS. */}
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <PatternedBackground
           backgroundColor={colors.background}
@@ -285,6 +282,6 @@ export function CheckoutScreenView() {
         }}
         onClosePayment={() => setCryptoPayment(null)}
       />
-    </>
+    </AddressSuggestionsProvider>
   );
 }

@@ -125,8 +125,6 @@ function CheckoutDeliveryCardHarness({
       onUseSavedAddress={jest.fn()}
       saveAsDefaultAddress={false}
       savedAddresses={savedAddresses}
-      scrollOffsetRef={{ current: 0 }}
-      scrollRef={{ current: null }}
       selectedSavedAddress={selectedSavedAddress}
       selectedSavedAddressId={selectedSavedAddressId}
     />
@@ -192,9 +190,7 @@ describe('CheckoutDeliveryCard', () => {
     expect(screen.getByText('Home')).toBeTruthy();
     expect(screen.getByText('12 Marina Road, Lagos, Lagos')).toBeTruthy();
 
-    fireEvent.press(
-      screen.getByRole('button', { name: 'Edit Delivery' })
-    );
+    fireEvent.press(screen.getByRole('button', { name: 'Edit Delivery' }));
 
     expect(onToggleCollapsed).toHaveBeenCalledTimes(1);
   });

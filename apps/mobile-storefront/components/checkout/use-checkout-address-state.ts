@@ -1,7 +1,6 @@
 import type { User } from '@supabase/supabase-js';
 import { useEffect, useRef, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
-import type { ScrollView } from 'react-native';
 import { deriveCheckoutIdentity } from '@/lib/checkout-identity';
 import type { ShippingAddressInput } from '@/lib/validation';
 import { trackCheckoutRouteStarted } from '@/services/tiktok-checkout-route-tracking';
@@ -30,8 +29,6 @@ export function useCheckoutAddressState({
   subtotal,
   user,
 }: UseCheckoutAddressStateParams) {
-  const addressScrollRef = useRef<ScrollView>(null);
-  const addressScrollOffsetRef = useRef(0);
   const hasTrackedStart = useRef(false);
   const [saveDetails, setSaveDetails] = useState(false);
   const [accountPassword, setAccountPassword] = useState('');
@@ -141,8 +138,6 @@ export function useCheckoutAddressState({
 
   return {
     accountPassword,
-    addressScrollOffsetRef,
-    addressScrollRef,
     currentContactSummary,
     currentDeliverySummary,
     form,

@@ -116,8 +116,6 @@ function createProps(
 ): AddressStepProps {
   return {
     accountPassword: '',
-    addressScrollOffsetRef: { current: 0 },
-    addressScrollRef: { current: null },
     colors,
     contactSummary: 'Ada Lovelace',
     control: {} as AddressStepProps['control'],

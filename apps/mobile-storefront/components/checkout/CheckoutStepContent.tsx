@@ -41,8 +41,6 @@ export function CheckoutStepContent({
     return (
       <CheckoutAddressStepView
         accountPassword={addressState.accountPassword}
-        addressScrollOffsetRef={addressState.addressScrollOffsetRef}
-        addressScrollRef={addressState.addressScrollRef}
         colors={colors}
         contactSummary={addressState.currentContactSummary}
         control={addressState.form.control}
