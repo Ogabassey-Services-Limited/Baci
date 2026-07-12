@@ -41,6 +41,14 @@ export interface PaypalCaptureState {
   lockedResidual: number;
   /** computeOrderResidualAmount recomputed at capture/reconcile time (§2). */
   currentResidual: number;
+  /**
+   * True when THIS transaction is the one that settled the order — i.e. the
+   * CAS-winning writer stamped its `paypal_split` onto this txn row. The split
+   * is only ever written to the settling txn, so a genuine duplicate (a
+   * different PayPal order settled this order) never carries it. Lets the
+   * resolver tell a lost pending→completed flip write (idempotent) from a real
+   * second charge (block+refund). §3c row 2. */
+  thisTxnSettledOrder?: boolean;
   /** Set once a capture response exists (informational; integrity is checked
    * separately by validatePaypalCaptureSet). */
   capturedPresentment?: number;
@@ -125,6 +133,7 @@ export function resolvePaypalCaptureOutcome(
     paypalOrderStatus,
     lockedResidual,
     currentResidual,
+    thisTxnSettledOrder,
   } = state;
 
   const captured = isCaptured(paypalOrderStatus);
@@ -134,6 +143,16 @@ export function resolvePaypalCaptureOutcome(
   // 1. This txn already paid the order — the CAS winner ran side effects and
   //    recorded amount_paid. Idempotent success. (§3c row 1)
   if (paid && txnStatus === 'completed') {
+    return { kind: 'already_paid_idempotent' };
+  }
+
+  // 1b. This PayPal order legitimately settled the order, but its pending→
+  //     completed flip write was lost (order is paid, this txn still pending,
+  //     yet the settlement split the CAS-winner stamps on the SETTLING txn is
+  //     present on this row). Idempotent — refunding here would claw back a
+  //     real payment. This is what distinguishes a lost-write from a genuine
+  //     duplicate; a duplicate never carries this order's split. (§3c row 2)
+  if (paid && thisTxnSettledOrder) {
     return { kind: 'already_paid_idempotent' };
   }
 

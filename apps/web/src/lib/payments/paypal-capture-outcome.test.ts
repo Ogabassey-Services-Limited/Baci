@@ -161,6 +161,37 @@ describe('resolvePaypalCaptureOutcome — §3 state table', () => {
     ).toEqual({ kind: 'already_paid_idempotent' });
   });
 
+  it('3c row 2: PAID + this txn pending but IS the settler (lost flip write) → already_paid_idempotent, NOT refund', () => {
+    // The writer marked the order paid via this PayPal order (split stamped on
+    // this txn) but the pending→completed flip write was lost. A retry must be
+    // idempotent — refunding here would claw back a legitimate payment.
+    expect(
+      resolvePaypalCaptureOutcome(
+        state({
+          orderPaymentStatus: 'paid',
+          txnStatus: 'pending',
+          paypalOrderStatus: 'COMPLETED',
+          thisTxnSettledOrder: true,
+        })
+      )
+    ).toEqual({ kind: 'already_paid_idempotent' });
+  });
+
+  it('3c row 2: PAID + this txn pending and NOT the settler (genuine duplicate) → block_paid_elsewhere captured', () => {
+    // A DIFFERENT PayPal order settled this one; this txn carries no split, so
+    // its own capture is a real duplicate and must be refunded.
+    expect(
+      resolvePaypalCaptureOutcome(
+        state({
+          orderPaymentStatus: 'paid',
+          txnStatus: 'pending',
+          paypalOrderStatus: 'COMPLETED',
+          thisTxnSettledOrder: false,
+        })
+      )
+    ).toEqual({ kind: 'block_paid_elsewhere', captured: true });
+  });
+
   it('residual within EPSILON is treated as fresh (no false underpayment)', () => {
     expect(
       resolvePaypalCaptureOutcome(

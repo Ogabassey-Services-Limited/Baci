@@ -222,6 +222,25 @@ describe('reconcilePaypalOrderToPaid', () => {
     expect(runPaypalCaptureSideEffects).not.toHaveBeenCalled();
   });
 
+  it('block-refunded: CAS loses, re-read shows refunded → 409 ORDER_ALREADY_REFUNDED, no re-settle (Gap 2)', async () => {
+    const { client } = makeSupabase([
+      { data: null, error: null }, // CAS update matched nothing (refunded ≠ paid but guarded)
+      {
+        data: { payment_status: 'refunded', order_number: 'BACI-1002' },
+        error: null,
+      },
+    ]);
+
+    const res = await reconcilePaypalOrderToPaid(input(client));
+    const json = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(json.code).toBe('ORDER_ALREADY_REFUNDED');
+    // A refunded order is never re-settled and never re-files a persist review.
+    expect(runPaypalCaptureSideEffects).not.toHaveBeenCalled();
+    expect(filePaypalCapturePersistFailureReview).not.toHaveBeenCalled();
+  });
+
   it('DB error on CAS update files review and returns 500', async () => {
     const { client } = makeSupabase([
       { data: null, error: { message: 'boom' } }, // CAS update errors

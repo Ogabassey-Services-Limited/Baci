@@ -57,6 +57,10 @@ export function buildPaypalCaptureState(
     paypalOrderStatus,
     lockedResidual: ctx.lockedResidual,
     currentResidual: ctx.currentResidual,
+    // The writer stamps `paypal_split` only onto the txn it settled, so its
+    // presence on THIS row means this PayPal order paid the order even if the
+    // pending→completed flip write was lost (§3c row 2).
+    thisTxnSettledOrder: Boolean(ctx.transaction.metadata?.paypal_split),
     presentmentAmount: ctx.presentmentAmount,
   };
 }

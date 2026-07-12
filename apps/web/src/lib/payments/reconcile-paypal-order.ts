@@ -139,6 +139,11 @@ export async function reconcilePaypalOrderToPaid(
     .eq('id', orderId)
     .eq('merchant_id', merchantId)
     .neq('payment_status', 'paid')
+    // Never resurrect a refunded order. The capture-route resolver already
+    // blocks refunded, but the verify + create-order reconcile paths call this
+    // writer directly; without this guard `.neq(paid)` alone would flip
+    // refunded→paid and re-run settlement/email/fee. Handled as a 409 below.
+    .neq('payment_status', 'refunded')
     .select(ORDER_SELECT)
     .maybeSingle();
 
@@ -170,6 +175,25 @@ export async function reconcilePaypalOrderToPaid(
         status: 'success',
         orderNumber: existing.order_number || orderNumberFallback(orderId),
       });
+    }
+
+    // The CAS was declined because the order is refunded, not because of a race.
+    // Do NOT re-settle it (that would re-emit the settlement/email/fee); the
+    // captured funds are handled by the refund path. Report a blocked 409.
+    if (existing?.payment_status === 'refunded') {
+      logger.warn({
+        message: 'PayPal reconcile: refused to re-settle a refunded order',
+        orderId,
+        paypalOrderId,
+        transactionId,
+      });
+      return NextResponse.json(
+        {
+          error: 'Order was refunded and cannot be re-settled',
+          code: 'ORDER_ALREADY_REFUNDED',
+        },
+        { status: 409 }
+      );
     }
 
     await filePaypalCapturePersistFailureReview({
