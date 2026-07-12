@@ -46,7 +46,9 @@ export async function GET(
 
   const { reference } = await params;
   if (!REFERENCE_PATTERN.test(reference)) return notFound();
+  const merchantSlug = new URL(request.url).searchParams.get('merchantSlug');
   const merchant = await resolveStorefrontMerchantFromRequest({
+    fallbackIdentifier: merchantSlug,
     lookupError: 'Failed to validate storefront host',
     notFoundError: 'USDT funding is only available on storefront hosts',
     request,

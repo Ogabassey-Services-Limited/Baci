@@ -5,6 +5,9 @@ const list = vi.hoisted(() => vi.fn());
 vi.mock('./imei-remediation-api', () => ({
   imeiRemediationApi: { list },
 }));
+vi.mock('@/hooks/use-merchant-client', () => ({
+  useMerchantSafe: () => ({ merchant: { slug: 'ogabassey' } }),
+}));
 
 import { OgabasseyUnlockOrders } from './unlock-orders';
 
@@ -39,5 +42,6 @@ describe('OgabasseyUnlockOrders', () => {
     expect(screen.getByText(/in progress/i)).toBeInTheDocument();
     expect(screen.getByText(/₦100,000/)).toBeInTheDocument();
     expect(screen.queryByText(/provider order/i)).toBeNull();
+    expect(list).toHaveBeenCalledWith('ogabassey');
   });
 });

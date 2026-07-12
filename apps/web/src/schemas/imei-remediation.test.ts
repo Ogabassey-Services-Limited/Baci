@@ -10,6 +10,7 @@ describe('IMEI remediation schemas', () => {
       imeiRemediationEligibilitySchema.safeParse({
         identifier: '490154203237518',
         lookupId: '11111111-1111-4111-8111-111111111111',
+        merchantSlug: 'ogabassey',
       }).success
     ).toBe(true);
   });
@@ -20,12 +21,23 @@ describe('IMEI remediation schemas', () => {
       orderId: '11111111-1111-4111-8111-111111111111',
       paymentCurrency: 'USDT',
       productId: '22222222-2222-4222-8222-222222222222',
+      merchantSlug: 'ogabassey',
     };
     expect(imeiRemediationOrderSchema.safeParse(input).success).toBe(true);
     expect(
       imeiRemediationOrderSchema.safeParse({
         ...input,
         paymentCurrency: 'USD',
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects an invalid path-storefront merchant identifier', () => {
+    expect(
+      imeiRemediationEligibilitySchema.safeParse({
+        identifier: '490154203237518',
+        lookupId: '11111111-1111-4111-8111-111111111111',
+        merchantSlug: '../another-store',
       }).success
     ).toBe(false);
   });

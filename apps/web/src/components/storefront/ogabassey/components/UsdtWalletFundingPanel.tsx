@@ -47,7 +47,10 @@ export function UsdtWalletFundingPanel({
     if (!funding?.reference || funding.status !== 'pending') return;
     let cancelled = false;
     const refresh = async () => {
-      const result = await usdtWalletFundingApi.status(funding.reference);
+      const result = await usdtWalletFundingApi.status(
+        funding.reference,
+        merchantSlug
+      );
       if (cancelled || result.kind !== 'ready') return;
       if (result.amount !== null) setAmount(String(result.amount));
       if (
@@ -75,7 +78,7 @@ export function UsdtWalletFundingPanel({
       cancelled = true;
       clearInterval(interval);
     };
-  }, [funding?.reference, funding?.status, onFunded]);
+  }, [funding?.reference, funding?.status, merchantSlug, onFunded]);
 
   const submit = async () => {
     const numericAmount = Number(amount);

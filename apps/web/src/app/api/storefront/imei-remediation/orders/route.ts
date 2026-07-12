@@ -53,7 +53,9 @@ export async function GET(request: NextRequest) {
       rateLimit.resetTime
     );
   }
+  const merchantSlug = new URL(request.url).searchParams.get('merchantSlug');
   const merchant = await resolveStorefrontMerchantFromRequest({
+    fallbackIdentifier: merchantSlug,
     lookupError: 'Failed to validate storefront host',
     notFoundError: 'Remediation is only available on storefront hosts',
     request,
@@ -130,6 +132,7 @@ export async function POST(request: NextRequest) {
   }
 
   const merchant = await resolveStorefrontMerchantFromRequest({
+    fallbackIdentifier: parsed.data.merchantSlug,
     lookupError: 'Failed to validate storefront host',
     notFoundError: 'Remediation is only available on storefront hosts',
     request,

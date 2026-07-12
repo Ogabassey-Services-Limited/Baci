@@ -49,10 +49,10 @@ describe('usdtWalletFundingApi', () => {
     });
 
     await expect(
-      usdtWalletFundingApi.status('wusdt_ref')
+      usdtWalletFundingApi.status('wusdt_ref', 'ogabassey')
     ).resolves.toMatchObject({ fundingStatus: 'completed', kind: 'ready' });
     expect(fetchWithCsrf).toHaveBeenCalledWith(
-      '/api/storefront/customer/wallet/top-up/usdt/wusdt_ref',
+      '/api/storefront/customer/wallet/top-up/usdt/wusdt_ref?merchantSlug=ogabassey',
       { method: 'GET' }
     );
   });

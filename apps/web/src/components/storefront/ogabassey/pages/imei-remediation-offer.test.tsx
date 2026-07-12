@@ -12,6 +12,9 @@ vi.mock('./imei-remediation-api', () => ({
     place: mocks.place,
   },
 }));
+vi.mock('@/hooks/use-merchant-client', () => ({
+  useMerchantSafe: () => ({ merchant: { slug: 'ogabassey' } }),
+}));
 
 import { ImeiRemediationOffer } from './imei-remediation-offer';
 
@@ -71,6 +74,9 @@ describe('ImeiRemediationOffer', () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/sim-locked to at&t/i)).toBeInTheDocument();
     expect(screen.getByText(/usually 1-7 days/i)).toBeInTheDocument();
+    expect(mocks.eligibility).toHaveBeenCalledWith(
+      expect.objectContaining({ merchantSlug: 'ogabassey' })
+    );
   });
 
   it('confirms USDT wallet payment and links to order tracking', async () => {
@@ -90,7 +96,10 @@ describe('ImeiRemediationOffer', () => {
 
     await waitFor(() =>
       expect(mocks.place).toHaveBeenCalledWith(
-        expect.objectContaining({ paymentCurrency: 'USDT' })
+        expect.objectContaining({
+          merchantSlug: 'ogabassey',
+          paymentCurrency: 'USDT',
+        })
       )
     );
     expect(

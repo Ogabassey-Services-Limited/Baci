@@ -21,8 +21,19 @@ describe('imeiRemediationApi', () => {
       imeiRemediationApi.eligibility({
         identifier: '490154203237518',
         lookupId: '11111111-1111-4111-8111-111111111111',
+        merchantSlug: 'ogabassey',
       })
     ).resolves.toEqual({ kind: 'hidden' });
+    expect(fetchWithCsrf).toHaveBeenCalledWith(
+      '/api/storefront/imei-remediation/eligibility',
+      expect.objectContaining({
+        body: JSON.stringify({
+          identifier: '490154203237518',
+          lookupId: '11111111-1111-4111-8111-111111111111',
+          merchantSlug: 'ogabassey',
+        }),
+      })
+    );
   });
 
   it('returns only server-approved eligible offers', async () => {
@@ -53,6 +64,7 @@ describe('imeiRemediationApi', () => {
       imeiRemediationApi.eligibility({
         identifier: '490154203237518',
         lookupId: '11111111-1111-4111-8111-111111111111',
+        merchantSlug: 'ogabassey',
       })
     ).resolves.toMatchObject({
       assessmentId: '22222222-2222-4222-8222-222222222222',
@@ -76,6 +88,7 @@ describe('imeiRemediationApi', () => {
     await expect(
       imeiRemediationApi.place({
         identifier: '490154203237518',
+        merchantSlug: 'ogabassey',
         orderId: '22222222-2222-4222-8222-222222222222',
         paymentCurrency: 'USDT',
         productId: '33333333-3333-4333-8333-333333333333',
@@ -84,5 +97,19 @@ describe('imeiRemediationApi', () => {
       kind: 'pending',
       status: 'submission_unknown',
     });
+  });
+
+  it('carries the path-storefront merchant when listing unlock orders', async () => {
+    fetchWithCsrf.mockResolvedValue({
+      json: async () => ({ orders: [], success: true }),
+      ok: true,
+      status: 200,
+    });
+
+    await expect(imeiRemediationApi.list('ogabassey')).resolves.toEqual([]);
+    expect(fetchWithCsrf).toHaveBeenCalledWith(
+      '/api/storefront/imei-remediation/orders?merchantSlug=ogabassey',
+      { method: 'GET' }
+    );
   });
 });

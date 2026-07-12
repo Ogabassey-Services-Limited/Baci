@@ -113,6 +113,22 @@ describe('GET /api/storefront/customer/wallet/top-up/usdt/[reference]', () => {
       reference: REFERENCE,
       success: true,
     });
+    expect(mocks.resolveMerchant).toHaveBeenCalledWith(
+      expect.objectContaining({ fallbackIdentifier: null })
+    );
+  });
+
+  it('carries the path-storefront merchant on root-host status polling', async () => {
+    const rootRequest = new Request(
+      'https://usebaci.com/api/storefront/customer/wallet/top-up/usdt/wusdt_m123_1a2b3c?merchantSlug=ogabassey'
+    );
+
+    const response = await GET(rootRequest as never, context());
+
+    expect(response.status).toBe(200);
+    expect(mocks.resolveMerchant).toHaveBeenCalledWith(
+      expect.objectContaining({ fallbackIdentifier: 'ogabassey' })
+    );
   });
 
   it('refreshes and persists a delayed Juicyway deposit address', async () => {

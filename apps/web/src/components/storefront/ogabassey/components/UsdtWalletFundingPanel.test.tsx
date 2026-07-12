@@ -75,7 +75,10 @@ describe('UsdtWalletFundingPanel', () => {
     );
 
     expect(await screen.findByText('TResumedAddress')).toBeInTheDocument();
-    expect(mocks.status).toHaveBeenCalledWith('wusdt_ref_123456');
+    expect(mocks.status).toHaveBeenCalledWith(
+      'wusdt_ref_123456',
+      'ogabassey'
+    );
     expect(mocks.initialize).not.toHaveBeenCalled();
   });
 });

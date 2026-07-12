@@ -163,6 +163,77 @@ describe('resolveStorefrontMerchantFromRequest', () => {
     expect(mockGetMerchantByIdentifier).not.toHaveBeenCalled();
   });
 
+  it('uses an explicit fallback identifier on the platform root host', async () => {
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      business_name: 'Ogabassey',
+      id: 'merchant-1',
+      slug: 'ogabassey',
+    });
+    const { resolveStorefrontMerchantFromRequest } = await import(
+      '@/lib/storefront-merchant'
+    );
+
+    const result = await resolveStorefrontMerchantFromRequest({
+      fallbackIdentifier: 'ogabassey',
+      lookupError: 'Lookup failed',
+      notFoundError: 'Storefront not found',
+      request: new Request('https://usebaci.com/api/storefront/example'),
+      rootDomain: 'usebaci.com',
+    });
+
+    expect(result).toMatchObject({
+      identifier: 'ogabassey',
+      merchant: { id: 'merchant-1', slug: 'ogabassey' },
+      success: true,
+    });
+    expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey');
+  });
+
+  it.each([
+    [
+      'custom-domain',
+      'https://ogabassey.com/api/storefront/example',
+      'ogabassey.com',
+    ],
+    [
+      'subdomain',
+      'https://ogabassey.usebaci.com/api/storefront/example',
+      'ogabassey',
+    ],
+  ])('keeps a %s host authoritative over a fallback identifier', async (_kind, url, expectedIdentifier) => {
+    mockGetMerchantByIdentifier.mockImplementation((identifier) =>
+      Promise.resolve(
+        identifier === expectedIdentifier
+          ? {
+              business_name: 'Ogabassey',
+              id: 'merchant-1',
+              slug: 'ogabassey',
+            }
+          : null
+      )
+    );
+    const { resolveStorefrontMerchantFromRequest } = await import(
+      '@/lib/storefront-merchant'
+    );
+
+    const result = await resolveStorefrontMerchantFromRequest({
+      fallbackIdentifier: 'another-store',
+      lookupError: 'Lookup failed',
+      notFoundError: 'Storefront not found',
+      request: new Request(url),
+      rootDomain: 'usebaci.com',
+    });
+
+    expect(result).toMatchObject({
+      identifier: expectedIdentifier,
+      merchant: { id: 'merchant-1', slug: 'ogabassey' },
+      success: true,
+    });
+    expect(mockGetMerchantByIdentifier).not.toHaveBeenCalledWith(
+      'another-store'
+    );
+  });
+
   it('returns 404 when no merchant matches a storefront host', async () => {
     mockGetMerchantByIdentifier.mockResolvedValue(null);
     const { resolveStorefrontMerchantFromRequest } = await import(

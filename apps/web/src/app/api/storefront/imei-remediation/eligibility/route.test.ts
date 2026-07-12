@@ -58,11 +58,18 @@ vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: () => ({}) }));
 
 import { POST } from './route';
 
-function request() {
-  return new Request('https://ogabassey.usebaci.com/api/remediation', {
+function request({
+  merchantSlug,
+  url = 'https://ogabassey.usebaci.com/api/remediation',
+}: {
+  merchantSlug?: string;
+  url?: string;
+} = {}) {
+  return new Request(url, {
     body: JSON.stringify({
       identifier: '490154203237518',
       lookupId: '11111111-1111-4111-8111-111111111111',
+      ...(merchantSlug ? { merchantSlug } : {}),
     }),
     method: 'POST',
   });
@@ -130,6 +137,23 @@ describe('POST /api/storefront/imei-remediation/eligibility', () => {
         orderId: 'assessment-1',
         statusSegment: 'clean',
       })
+    );
+    expect(mocks.resolveMerchant).toHaveBeenCalledWith(
+      expect.objectContaining({ fallbackIdentifier: undefined })
+    );
+  });
+
+  it('uses the supplied merchant for a root-host path storefront', async () => {
+    const response = await POST(
+      request({
+        merchantSlug: 'ogabassey',
+        url: 'https://usebaci.com/api/remediation',
+      }) as never
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.resolveMerchant).toHaveBeenCalledWith(
+      expect.objectContaining({ fallbackIdentifier: 'ogabassey' })
     );
   });
 

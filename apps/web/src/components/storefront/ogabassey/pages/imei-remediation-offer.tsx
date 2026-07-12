@@ -2,6 +2,7 @@
 
 import { CheckCircle2, Clock3, LockKeyhole, WalletCards } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { ImeiRemediationCurrencyOption as CurrencyOption } from './imei-remediation-currency-option';
 import {
   imeiRemediationApi,
@@ -23,6 +24,7 @@ export function ImeiRemediationOffer({
   identifier: string;
   lookupId: string;
 }) {
+  const merchantSlug = useMerchantSafe()?.merchant?.slug;
   const [availability, setAvailability] = useState<Availability>({
     kind: 'hidden',
   });
@@ -35,6 +37,7 @@ export function ImeiRemediationOffer({
   const [walletNeeded, setWalletNeeded] = useState(false);
 
   useEffect(() => {
+    if (!merchantSlug) return;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const startedAt = Date.now();
@@ -42,6 +45,7 @@ export function ImeiRemediationOffer({
       const result = await imeiRemediationApi.eligibility({
         identifier,
         lookupId,
+        merchantSlug,
       });
       if (cancelled) return;
       if (result.kind === 'pending' && Date.now() - startedAt < 5 * 60_000) {
@@ -55,9 +59,9 @@ export function ImeiRemediationOffer({
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [identifier, lookupId]);
+  }, [identifier, lookupId, merchantSlug]);
 
-  if (availability.kind !== 'eligible') return null;
+  if (!merchantSlug || availability.kind !== 'eligible') return null;
   const selectedOffer =
     availability.offers.find((candidate) => candidate.id === selectedOfferId) ??
     availability.offers[0];
@@ -69,6 +73,7 @@ export function ImeiRemediationOffer({
     setWalletNeeded(false);
     const result = await imeiRemediationApi.place({
       identifier,
+      merchantSlug,
       orderId: availability.assessmentId,
       paymentCurrency,
       productId: selectedOffer.id,

@@ -66,8 +66,11 @@ import { GET, POST } from './route';
 const ORDER_ID = '11111111-1111-4111-8111-111111111111';
 const PRODUCT_ID = '22222222-2222-4222-8222-222222222222';
 
-function request(overrides: Record<string, unknown> = {}) {
-  return new Request('https://ogabassey.usebaci.com/api/remediation/orders', {
+function request(
+  overrides: Record<string, unknown> = {},
+  url = 'https://ogabassey.usebaci.com/api/remediation/orders'
+) {
+  return new Request(url, {
     body: JSON.stringify({
       identifier: '490154203237518',
       orderId: ORDER_ID,
@@ -169,10 +172,31 @@ describe('POST /api/storefront/imei-remediation/orders', () => {
         supabase: {},
       })
     );
+    expect(mocks.resolveMerchant).toHaveBeenCalledWith(
+      expect.objectContaining({ fallbackIdentifier: null })
+    );
+  });
+
+  it('uses the supplied merchant when listing from a root-host path storefront', async () => {
+    const response = await GET(
+      new Request(
+        'https://usebaci.com/api/storefront/imei-remediation/orders?merchantSlug=ogabassey'
+      ) as never
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.resolveMerchant).toHaveBeenCalledWith(
+      expect.objectContaining({ fallbackIdentifier: 'ogabassey' })
+    );
   });
 
   it('places a validated capture-first order and returns pending', async () => {
-    const response = await POST(request() as never);
+    const response = await POST(
+      request(
+        { merchantSlug: 'ogabassey' },
+        'https://usebaci.com/api/remediation/orders'
+      ) as never
+    );
 
     expect(response.status).toBe(202);
     await expect(response.json()).resolves.toMatchObject({
@@ -186,6 +210,9 @@ describe('POST /api/storefront/imei-remediation/orders', () => {
         identifier: '490154203237518',
         paymentCurrency: 'NGN',
       })
+    );
+    expect(mocks.resolveMerchant).toHaveBeenCalledWith(
+      expect.objectContaining({ fallbackIdentifier: 'ogabassey' })
     );
   });
 

@@ -2,6 +2,7 @@
 
 import { Clock3, LockKeyhole, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import {
   type ImeiRemediationOrder,
   imeiRemediationApi,
@@ -27,13 +28,15 @@ function statusLabel(status: string) {
 }
 
 export function OgabasseyUnlockOrders() {
+  const merchantSlug = useMerchantSafe()?.merchant?.slug;
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<ImeiRemediationOrder[]>([]);
 
   useEffect(() => {
+    if (!merchantSlug) return;
     let cancelled = false;
     const refresh = async () => {
-      const result = await imeiRemediationApi.list();
+      const result = await imeiRemediationApi.list(merchantSlug);
       if (!cancelled) {
         setOrders(result);
         setLoading(false);
@@ -45,7 +48,7 @@ export function OgabasseyUnlockOrders() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, []);
+  }, [merchantSlug]);
 
   return (
     <main className="min-h-screen bg-[var(--store-background,#f9fafb)] px-4 py-8 md:px-6">

@@ -60,7 +60,11 @@ function offer(value: unknown): ImeiRemediationOffer | null {
   };
 }
 
-async function eligibility(input: { identifier: string; lookupId: string }) {
+async function eligibility(input: {
+  identifier: string;
+  lookupId: string;
+  merchantSlug: string;
+}) {
   try {
     const response = await fetchWithCsrf(
       '/api/storefront/imei-remediation/eligibility',
@@ -121,6 +125,7 @@ async function eligibility(input: { identifier: string; lookupId: string }) {
 
 async function place(input: {
   identifier: string;
+  merchantSlug: string;
   orderId: string;
   paymentCurrency: 'NGN' | 'USDT';
   productId: string;
@@ -164,9 +169,9 @@ async function place(input: {
   }
 }
 
-async function list(): Promise<ImeiRemediationOrder[]> {
+async function list(merchantSlug: string): Promise<ImeiRemediationOrder[]> {
   const response = await fetchWithCsrf(
-    '/api/storefront/imei-remediation/orders',
+    `/api/storefront/imei-remediation/orders?merchantSlug=${encodeURIComponent(merchantSlug)}`,
     { method: 'GET' }
   );
   const data = record(await response.json());
