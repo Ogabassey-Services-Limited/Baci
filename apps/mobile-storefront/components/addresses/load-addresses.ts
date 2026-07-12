@@ -1,3 +1,4 @@
+import { dedupeSavedAddressesById } from '@/lib/checkout-saved-address';
 import { createLogger } from '@/lib/logger';
 import { normalizeSavedAddresses } from '@/lib/saved-addresses';
 import { supabase } from '@/lib/supabase';
@@ -36,7 +37,10 @@ async function fetchSavedAddresses(customerId: string, merchantId: string) {
 
   normalized.sort((a, b) => (b.is_default ? 1 : 0) - (a.is_default ? 1 : 0));
 
-  return normalized;
+  // The stored saved_addresses JSON can repeat the same id; de-dupe so the
+  // account address list doesn't collide on its React keys (mirrors the
+  // checkout picker's fetchCheckoutSavedAddresses).
+  return dedupeSavedAddressesById(normalized);
 }
 
 export async function loadAddresses({

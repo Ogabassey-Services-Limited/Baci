@@ -4,9 +4,6 @@ import { palette, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
 export const addressAutocompleteStyles = StyleSheet.create({
   wrapper: {
     position: 'relative',
-    overflow: 'visible',
-    zIndex: 1000,
-    elevation: 1000,
   },
   label: {
     fontSize: 13,
@@ -18,7 +15,6 @@ export const addressAutocompleteStyles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderRadius: RADIUS.xl,
-    overflow: 'visible',
     minHeight: 52,
     borderColor: 'transparent',
   },
@@ -45,19 +41,15 @@ export const addressAutocompleteStyles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
   },
-  dropdown: {
+  // Floating dropdown rendered by the screen-root suggestions portal —
+  // positioned in window coordinates under the field (left/top/width/maxHeight
+  // are set dynamically from the measured anchor).
+  floatingDropdown: {
     position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: RADIUS.xl,
     ...SHADOWS.md,
     overflow: 'hidden',
-    marginTop: 4,
-    maxHeight: 280,
-    zIndex: 9999,
-    elevation: 9999,
   },
   predictionItem: {
     paddingHorizontal: SPACING.md,

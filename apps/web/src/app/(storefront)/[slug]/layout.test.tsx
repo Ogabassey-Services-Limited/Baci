@@ -12,7 +12,6 @@ const providerSnapshots: unknown[] = [];
 const themeProviderAppearances: unknown[] = [];
 const themeProviderDocumentScopes: unknown[] = [];
 let themeProviderRenders = 0;
-const mockConnection = vi.hoisted(() => vi.fn());
 const mockIsValidMerchantIdentifier = vi.hoisted(() =>
   vi.fn<(value: string) => boolean>(() => true)
 );
@@ -103,10 +102,6 @@ const notFound = vi.fn(() => {
 
 vi.mock('next/navigation', () => ({
   notFound: () => notFound(),
-}));
-
-vi.mock('next/server', () => ({
-  connection: () => mockConnection(),
 }));
 
 vi.mock('next/headers', () => ({
@@ -203,7 +198,6 @@ describe('storefront layout', () => {
     vi.mocked(getStorefrontShellSnapshotBase).mockReset();
     vi.mocked(getStorefrontShellSnapshot).mockReset();
     notFound.mockClear();
-    mockConnection.mockClear();
     mockIsValidMerchantIdentifier.mockReset();
     mockIsValidMerchantIdentifier.mockReturnValue(true);
     mockWebMcp.mockClear();
@@ -237,9 +231,6 @@ describe('storefront layout', () => {
     await waitFor(() => {
       expect(getStorefrontShellSnapshotBase).toHaveBeenCalledWith('ogabassey');
     });
-    // Keep tenant/chrome rendering request-bound so the PPR resume slot does
-    // not hydrate against the static fallback shell under CPU throttling.
-    expect(mockConnection).toHaveBeenCalledTimes(1);
     expect(getStorefrontShellSnapshot).toHaveBeenCalledWith(
       baseShellSnapshotWithoutCategories
     );
@@ -282,7 +273,6 @@ describe('storefront layout', () => {
       })
     );
 
-    expect(mockConnection).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('ogabassey-layout')).toHaveAttribute(
       'data-preload-hero-lcp',
       'false'
@@ -295,7 +285,7 @@ describe('storefront layout', () => {
     );
   });
 
-  it('does not force non-OgaBassey storefront layouts request-bound', async () => {
+  it('renders non-OgaBassey storefront layouts without a request-bound bailout', async () => {
     const genericMerchant = {
       ...baseShellSnapshot.merchant,
       business_name: 'Generic Store',
@@ -326,7 +316,6 @@ describe('storefront layout', () => {
       })
     );
 
-    expect(mockConnection).not.toHaveBeenCalled();
     expect(themeProviderAppearances).toEqual([
       { mode: 'light', variant: 'default' },
     ]);
@@ -613,7 +602,6 @@ describe('storefront layout', () => {
 describe('storefront layout metadata', () => {
   beforeEach(() => {
     vi.mocked(getRequestScopedMerchant).mockReset();
-    mockConnection.mockClear();
   });
 
   it('returns noindex metadata without inherited canonicals when the storefront slug is invalid', async () => {
@@ -652,7 +640,6 @@ describe('storefront layout metadata', () => {
       params: Promise.resolve({ slug: 'ogabassey' }),
     });
 
-    expect(mockConnection).not.toHaveBeenCalled();
     expect(metadata.metadataBase?.toString()).toBe('https://ogabassey.com/');
     expect(metadata.other).toEqual({
       'apple-itunes-app': 'app-id=6472735367',

@@ -122,6 +122,15 @@ describe('CheckoutContactCard', () => {
     expect(onToggleSaveDetails).toHaveBeenCalledTimes(1);
   });
 
+  it('strips whitespace from the email as the user types', () => {
+    render(<CheckoutContactCardHarness />);
+
+    const emailInput = screen.getByPlaceholderText('john@example.com');
+    fireEvent.changeText(emailInput, ' ja ne@ example.com ');
+
+    expect(emailInput.props.value).toBe('jane@example.com');
+  });
+
   it('shows account creation details and password validation for guests saving details', () => {
     const onChangeAccountPassword = jest.fn();
 
@@ -146,16 +155,12 @@ describe('CheckoutContactCard', () => {
     expect(onChangeAccountPassword).toHaveBeenCalledWith('long-enough');
   });
 
-
-
   it('keeps guest contact fields expanded even if parent state is collapsed', () => {
     render(<CheckoutContactCardHarness isCollapsed />);
 
     expect(screen.getByPlaceholderText('E.g. John')).toBeTruthy();
     expect(screen.queryByText('Signed in')).toBeNull();
-    expect(
-      screen.queryByRole('button', { name: /edit contact/i })
-    ).toBeNull();
+    expect(screen.queryByRole('button', { name: /edit contact/i })).toBeNull();
   });
 
   it('renders the collapsed signed-in summary and edit action', () => {
@@ -175,9 +180,7 @@ describe('CheckoutContactCard', () => {
     expect(screen.getByText('jane@example.com')).toBeTruthy();
     expect(screen.getByText('+2348012345678')).toBeTruthy();
 
-    fireEvent.press(
-      screen.getByRole('button', { name: 'Edit Contact' })
-    );
+    fireEvent.press(screen.getByRole('button', { name: 'Edit Contact' }));
 
     expect(onToggleCollapsed).toHaveBeenCalledTimes(1);
   });
@@ -207,9 +210,7 @@ describe('CheckoutContactCard', () => {
     expect(
       screen.queryByRole('button', { name: /done editing contact/i })
     ).toBeNull();
-    expect(
-      screen.queryByRole('button', { name: /edit contact/i })
-    ).toBeNull();
+    expect(screen.queryByRole('button', { name: /edit contact/i })).toBeNull();
   });
 
   it('passes phone validation errors into the phone input', () => {

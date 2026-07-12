@@ -35,9 +35,9 @@ function normalizeText(value: string | undefined): string {
  * duplicates collide on their React key (`key={address.id}`) and show a
  * duplicated row. De-duping at the data boundary keeps the UI resilient.
  */
-export function dedupeSavedAddressesById(
-  addresses: SavedAddress[]
-): SavedAddress[] {
+export function dedupeSavedAddressesById<T extends { id: string }>(
+  addresses: T[]
+): T[] {
   const seenIds = new Set<string>();
   return addresses.filter((address) => {
     if (!address.id || seenIds.has(address.id)) {

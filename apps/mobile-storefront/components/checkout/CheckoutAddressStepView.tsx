@@ -28,8 +28,6 @@ type ColorsScheme = (typeof Colors)['light'];
 
 interface CheckoutAddressStepViewProps {
   accountPassword: string;
-  addressScrollOffsetRef: CheckoutDeliveryCardProps['scrollOffsetRef'];
-  addressScrollRef: CheckoutDeliveryCardProps['scrollRef'];
   colors: ColorsScheme;
   contactSummary: string;
   control: Control<ShippingAddressInput>;
@@ -79,8 +77,6 @@ interface CheckoutAddressStepViewProps {
 
 export function CheckoutAddressStepView({
   accountPassword,
-  addressScrollOffsetRef,
-  addressScrollRef,
   colors,
   contactSummary,
   control,
@@ -167,7 +163,6 @@ export function CheckoutAddressStepView({
 
   return (
     <ScrollView
-      ref={addressScrollRef}
       style={styles.formContainer}
       contentContainerStyle={[
         styles.formContent,
@@ -176,10 +171,6 @@ export function CheckoutAddressStepView({
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
-      onScroll={(event) => {
-        addressScrollOffsetRef.current = event.nativeEvent.contentOffset.y;
-      }}
-      scrollEventThrottle={16}
     >
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
@@ -235,8 +226,6 @@ export function CheckoutAddressStepView({
           onUseSavedAddress={onUseSavedAddress}
           saveAsDefaultAddress={saveAsDefaultAddress}
           savedAddresses={savedAddresses}
-          scrollOffsetRef={addressScrollOffsetRef}
-          scrollRef={addressScrollRef}
           selectedSavedAddress={selectedSavedAddress}
           selectedSavedAddressId={selectedSavedAddressId}
         />

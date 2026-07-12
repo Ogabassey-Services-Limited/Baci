@@ -21,12 +21,19 @@ import type {
   AddressAutocompleteProps,
   PlacePrediction,
 } from './AddressAutocomplete.types';
-import { AddressPredictionsDropdown } from './AddressPredictionsDropdown';
+import { useAddressSuggestionsPortal } from './address-suggestions-portal';
 import { applyPlaceSelection } from './apply-place-selection';
-import { useAddressAutocompleteKeyboard } from './use-address-autocomplete-keyboard';
 
 export type { PlaceDetails } from './AddressAutocomplete.types';
 
+const PREDICTIONS_DEBOUNCE_MS = 300;
+const MIN_QUERY_LENGTH = 2;
+// Re-measure while visible so the dropdown follows form scroll and resize.
+// Skip sub-pixel changes to avoid no-op host renders.
+const ANCHOR_TRACK_INTERVAL_MS = 120;
+const ANCHOR_EPSILON_PX = 0.5;
+
+/** Inline address field backed by a screen-root suggestions portal. */
 export function AddressAutocomplete({
   value = '',
   onChangeText,
@@ -36,13 +43,12 @@ export function AddressAutocomplete({
   label,
   country = 'ng',
   placeholder = 'Start typing your address...',
-  onBlur,
-  onFocus,
-  scrollRef,
-  scrollOffsetRef,
-  ...props
 }: AddressAutocompleteProps) {
+  const portal = useAddressSuggestionsPortal();
   const [predictions, setPredictions] = useState<PlacePrediction[]>([]);
+  const [isFocused, setIsFocused] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [internalValue, setInternalValue] = useState(value);
   const [sessionToken, setSessionToken] = useState(generateSessionToken);
   const prevSessionTokenRef = useRef(sessionToken);
   useEffect(() => {
@@ -51,46 +57,26 @@ export function AddressAutocomplete({
       prevSessionTokenRef.current = sessionToken;
     }
   }, [sessionToken]);
-  const [isOpen, setIsOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [internalValue, setInternalValue] = useState(value);
+
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const isDark = (colorScheme ?? 'light') === 'dark';
-  const [isFocused, setIsFocused] = useState(false);
 
   const isMountedRef = useRef(true);
+  const latestQueryRef = useRef(value);
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const wrapperRef = useRef<View>(null);
+
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
-    };
-  }, []);
-
-  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
-  const blurCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const wrapperRef = useRef<View>(null);
-
-  useEffect(() => {
-    return () => {
       if (debounceTimer.current) {
         clearTimeout(debounceTimer.current);
         debounceTimer.current = null;
       }
-      if (blurCloseTimerRef.current) {
-        clearTimeout(blurCloseTimerRef.current);
-        blurCloseTimerRef.current = null;
-      }
     };
   }, []);
-
-  useAddressAutocompleteKeyboard({
-    isOpen,
-    predictionCount: predictions.length,
-    scrollOffsetRef,
-    scrollRef,
-    wrapperRef,
-  });
 
   // Adjust state inline during render when the controlled value prop changes
   // (https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
@@ -98,49 +84,15 @@ export function AddressAutocomplete({
   if (value !== prevValue) {
     setPrevValue(value);
     setInternalValue(value);
+    latestQueryRef.current = value;
   }
-
-  const fetchPredictions = async (input: string) => {
-    if (input.length < 2) {
-      if (isMountedRef.current) {
-        setPredictions([]);
-      }
-      return;
-    }
-
-    if (isMountedRef.current) {
-      setIsLoading(true);
-    }
-    const results = await fetchAddressPredictions({
-      country,
-      input,
-      sessionToken,
-    });
-    if (isMountedRef.current) {
-      setPredictions(results);
-      setIsLoading(false);
-    }
-  };
-
-  const handleInputChange = (text: string) => {
-    setInternalValue(text);
-    onChangeText?.(text);
-    setIsOpen(text.trim().length >= 2);
-
-    if (debounceTimer.current) {
-      clearTimeout(debounceTimer.current);
-    }
-
-    debounceTimer.current = setTimeout(() => {
-      fetchPredictions(text);
-    }, 300);
-  };
 
   const handlePredictionSelect = async (prediction: PlacePrediction) => {
     Keyboard.dismiss();
+    latestQueryRef.current = prediction.mainText;
     setInternalValue(prediction.mainText);
     onChangeText?.(prediction.mainText);
-    setIsOpen(false);
+    setPredictions([]);
     if (isMountedRef.current) {
       setIsLoading(true);
     }
@@ -156,15 +108,118 @@ export function AddressAutocomplete({
     });
   };
 
+  // Keep the screen-root dropdown attached while the form scrolls or resizes.
+  const shouldShowSuggestions = isFocused && predictions.length > 0;
+  useEffect(() => {
+    if (!shouldShowSuggestions) {
+      portal.hide();
+      return;
+    }
+    let lastX = -1;
+    let lastY = -1;
+    let lastWidth = -1;
+    let lastHeight = -1;
+    let cancelled = false;
+    const publish = () => {
+      wrapperRef.current?.measureInWindow((x, y, width, height) => {
+        if (cancelled || width <= 0 || height <= 0) {
+          return;
+        }
+        if (
+          Math.abs(x - lastX) < ANCHOR_EPSILON_PX &&
+          Math.abs(y - lastY) < ANCHOR_EPSILON_PX &&
+          Math.abs(width - lastWidth) < ANCHOR_EPSILON_PX &&
+          Math.abs(height - lastHeight) < ANCHOR_EPSILON_PX
+        ) {
+          return;
+        }
+        lastX = x;
+        lastY = y;
+        lastWidth = width;
+        lastHeight = height;
+        portal.show({
+          anchor: { height, width, x, y },
+          colors,
+          isDark,
+          onSelect: handlePredictionSelect,
+          predictions,
+        });
+      });
+    };
+    publish();
+    const tracker = setInterval(publish, ANCHOR_TRACK_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(tracker);
+      portal.hide();
+    };
+    // handlePredictionSelect is recreated per render; the effect keys off the
+    // data that changes what the portal displays.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: see above
+  }, [
+    shouldShowSuggestions,
+    predictions,
+    colors,
+    isDark,
+    portal,
+    handlePredictionSelect,
+  ]);
+
+  const fetchPredictions = async (input: string) => {
+    if (input.length < MIN_QUERY_LENGTH) {
+      if (isMountedRef.current) {
+        setPredictions([]);
+      }
+      return;
+    }
+
+    if (isMountedRef.current) {
+      setIsLoading(true);
+    }
+    const results = await fetchAddressPredictions({
+      country,
+      input,
+      sessionToken,
+    });
+    if (isMountedRef.current && latestQueryRef.current === input) {
+      setPredictions(results);
+      setIsLoading(false);
+    }
+  };
+
+  const handleInputChange = (text: string) => {
+    latestQueryRef.current = text;
+    setInternalValue(text);
+    onChangeText?.(text);
+    setPredictions([]);
+    setIsLoading(false);
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+    debounceTimer.current = setTimeout(() => {
+      fetchPredictions(text);
+    }, PREDICTIONS_DEBOUNCE_MS);
+  };
+
   const handleClear = () => {
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+      debounceTimer.current = null;
+    }
+    latestQueryRef.current = '';
     setInternalValue('');
     onChangeText?.('');
     setPredictions([]);
-    setIsOpen(false);
+    setIsLoading(false);
   };
 
   return (
-    <View ref={wrapperRef} style={[styles.wrapper, containerStyle]}>
+    <View
+      collapsable={false}
+      ref={wrapperRef}
+      style={[styles.wrapper, containerStyle]}
+      testID="address-autocomplete-anchor"
+    >
       {label && (
         <Text style={[styles.label, { color: colors.textSecondary }]}>
           {label}
@@ -197,28 +252,8 @@ export function AddressAutocomplete({
           style={[styles.input, { color: colors.text }]}
           value={internalValue}
           onChangeText={handleInputChange}
-          onFocus={(event) => {
-            if (blurCloseTimerRef.current) {
-              clearTimeout(blurCloseTimerRef.current);
-              blurCloseTimerRef.current = null;
-            }
-            setIsFocused(true);
-            if (internalValue.trim().length >= 2) {
-              setIsOpen(true);
-            }
-            onFocus?.(event);
-          }}
-          onBlur={(event) => {
-            setIsFocused(false);
-            if (blurCloseTimerRef.current) {
-              clearTimeout(blurCloseTimerRef.current);
-            }
-            blurCloseTimerRef.current = setTimeout(() => {
-              setIsOpen(false);
-              blurCloseTimerRef.current = null;
-            }, 150);
-            onBlur?.(event);
-          }}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
           placeholder={placeholder}
           placeholderTextColor={colors.placeholder}
           autoComplete="street-address"
@@ -226,12 +261,12 @@ export function AddressAutocomplete({
           accessibilityLabel="Street address"
           accessibilityHint="Start typing to see address suggestions"
           accessibilityRole="combobox"
-          accessibilityState={{ expanded: isOpen }}
-          {...props}
+          accessibilityState={{ expanded: shouldShowSuggestions }}
         />
 
         {isLoading ? (
           <ActivityIndicator
+            accessibilityLabel="Loading address suggestions"
             size="small"
             color={BRAND.primary}
             style={styles.loader}
@@ -259,15 +294,6 @@ export function AddressAutocomplete({
         <Text style={[styles.error, { color: colors.destructive }]}>
           {error}
         </Text>
-      )}
-
-      {isOpen && predictions.length > 0 && (
-        <AddressPredictionsDropdown
-          colors={colors}
-          isDark={isDark}
-          onSelectPrediction={handlePredictionSelect}
-          predictions={predictions}
-        />
       )}
     </View>
   );

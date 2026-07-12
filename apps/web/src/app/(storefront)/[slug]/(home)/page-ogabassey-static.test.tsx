@@ -69,6 +69,13 @@ describe('OgaBassey dynamic homepage routing', () => {
     mockStorefrontPageContent.mockClear();
   });
 
+  it('prerenders both OgaBassey home identifiers', async () => {
+    const { generateStaticParams } = await import('./page');
+    const params = generateStaticParams();
+
+    expect(params).toEqual([{ slug: 'ogabassey.com' }, { slug: 'ogabassey' }]);
+  });
+
   it('keeps route-specific stylesheets out of the shared route import', async () => {
     await import('./page');
 
