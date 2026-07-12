@@ -52,7 +52,7 @@ function mockDetailsSuccess() {
     ok: true,
     json: async () => TEST_DETAILS_RESPONSE,
     text: async () => '',
-  });
+  } as Response);
 }
 
 function renderField(ui: React.ReactElement) {
@@ -74,7 +74,7 @@ async function focusTypeAndWait(text = 'Lagos') {
 type MeasureFn = (
   cb: (x: number, y: number, w: number, h: number) => void
 ) => void;
-let measureSpy: jest.SpyInstance;
+let measureSpy: jest.SpiedFunction<MeasureFn>;
 
 describe('AddressAutocomplete (portal dropdown)', () => {
   beforeEach(() => {

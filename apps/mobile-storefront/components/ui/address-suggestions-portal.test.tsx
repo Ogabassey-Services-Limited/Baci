@@ -1,5 +1,11 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import { Keyboard, Pressable, StyleSheet, Text } from 'react-native';
+import {
+  Keyboard,
+  type KeyboardEvent,
+  Pressable,
+  StyleSheet,
+  Text,
+} from 'react-native';
 import Colors from '@/constants/Colors';
 import {
   AddressSuggestionsProvider,
@@ -12,6 +18,19 @@ const prediction = {
   placeId: 'place-1',
   secondaryText: 'Ikeja, Lagos',
 };
+
+function keyboardEvent(screenY: number): KeyboardEvent {
+  return {
+    duration: 0,
+    easing: 'keyboard',
+    endCoordinates: {
+      height: 0,
+      screenX: 0,
+      screenY,
+      width: 0,
+    },
+  };
+}
 
 function Harness({ anchorY = 200 }: { anchorY?: number }) {
   const portal = useAddressSuggestionsPortal();
@@ -56,13 +75,17 @@ describe('AddressSuggestionsProvider', () => {
   });
 
   it('positions suggestions above an input hidden by the keyboard', () => {
-    let onKeyboardShow: ((event: { endCoordinates: { screenY: number } }) => void) | undefined;
-    jest.spyOn(Keyboard, 'addListener').mockImplementation(
-      (event: string, listener: typeof onKeyboardShow) => {
+    let onKeyboardShow:
+      | Parameters<typeof Keyboard.addListener>[1]
+      | undefined;
+    jest
+      .spyOn(Keyboard, 'addListener')
+      .mockImplementation((event, listener) => {
         if (event === 'keyboardDidShow') onKeyboardShow = listener;
-        return { remove: jest.fn() };
-      }
-    );
+        return { remove: jest.fn() } as unknown as ReturnType<
+          typeof Keyboard.addListener
+        >;
+      });
     render(
       <AddressSuggestionsProvider>
         <Harness anchorY={620} />
@@ -70,7 +93,7 @@ describe('AddressSuggestionsProvider', () => {
     );
     fireEvent.press(screen.getByRole('button', { name: 'Show' }));
 
-    act(() => onKeyboardShow?.({ endCoordinates: { screenY: 600 } }));
+    act(() => onKeyboardShow?.(keyboardEvent(600)));
 
     const dropdown = screen.getByLabelText('Address suggestions');
     const style = StyleSheet.flatten(dropdown.props.style);
@@ -94,13 +117,17 @@ describe('AddressSuggestionsProvider', () => {
   });
 
   it('hides suggestions when no vertical space is available', () => {
-    let onKeyboardShow: ((event: { endCoordinates: { screenY: number } }) => void) | undefined;
-    jest.spyOn(Keyboard, 'addListener').mockImplementation(
-      (event: string, listener: typeof onKeyboardShow) => {
+    let onKeyboardShow:
+      | Parameters<typeof Keyboard.addListener>[1]
+      | undefined;
+    jest
+      .spyOn(Keyboard, 'addListener')
+      .mockImplementation((event, listener) => {
         if (event === 'keyboardDidShow') onKeyboardShow = listener;
-        return { remove: jest.fn() };
-      }
-    );
+        return { remove: jest.fn() } as unknown as ReturnType<
+          typeof Keyboard.addListener
+        >;
+      });
     render(
       <AddressSuggestionsProvider>
         <Harness anchorY={0} />
@@ -108,7 +135,7 @@ describe('AddressSuggestionsProvider', () => {
     );
     fireEvent.press(screen.getByRole('button', { name: 'Show' }));
 
-    act(() => onKeyboardShow?.({ endCoordinates: { screenY: 8 } }));
+    act(() => onKeyboardShow?.(keyboardEvent(8)));
 
     expect(screen.queryByLabelText('Address suggestions')).toBeNull();
   });
