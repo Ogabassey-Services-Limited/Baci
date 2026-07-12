@@ -10,6 +10,7 @@ type BlockingOutboxStatus =
 
 type ManualOutboxStateResult =
   | { status: 'clear'; claimId: string }
+  | { status: 'invalid_state' }
   | { status: 'not_found' }
   | { status: 'error'; error: string }
   | { status: 'blocked'; outboxStatus: BlockingOutboxStatus };
@@ -43,6 +44,7 @@ const manualOutboxPreparationSchema = z.object({
   status: z
     .enum([
       'order_not_found',
+      'invalid_state',
       'outcome_unknown',
       'pending',
       'processing',
@@ -110,6 +112,9 @@ export async function getManualOrderNotificationOutboxBlockingState({
   if (parsed.success) {
     if (parsed.data.status === 'order_not_found') {
       return { status: 'not_found' };
+    }
+    if (parsed.data.status === 'invalid_state') {
+      return { status: 'invalid_state' };
     }
     if (parsed.data.status === null) {
       if (!parsed.data.outbox_id) {

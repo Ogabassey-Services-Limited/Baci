@@ -47,6 +47,15 @@ const fulfillmentShippingStatusSchema = z.enum([
   'failed',
 ]);
 
+const fulfillmentShippingAddressSchema = z.union([
+  z.object({
+    address: z.string().nullable().optional(),
+    city: z.string().nullable().optional(),
+    state: z.string().nullable().optional(),
+  }),
+  z.string().transform((address) => ({ address })),
+]);
+
 const fulfillmentOrderSchema = z.object({
   id: z.string().min(1),
   customer_id: z.string().nullable().optional(),
@@ -63,14 +72,7 @@ const fulfillmentOrderSchema = z.object({
   shipping_provider: z.string().nullable().optional(),
   tracking_number: z.string().nullable().optional(),
   tracking_token: z.string().nullable().optional(),
-  shipping_address: z
-    .object({
-      address: z.string().nullable().optional(),
-      city: z.string().nullable().optional(),
-      state: z.string().nullable().optional(),
-    })
-    .nullable()
-    .optional(),
+  shipping_address: fulfillmentShippingAddressSchema.nullable().optional(),
   order_items: z
     .array(
       z.object({

@@ -19,6 +19,7 @@ DECLARE
   v_import_order_id uuid := '8f0ed783-0000-4000-8000-000000000803';
   v_import_sync_order_id uuid := '8f0ed783-0000-4000-8000-000000000807';
   v_manual_order_id uuid := '8f0ed783-0000-4000-8000-000000000804';
+  v_manual_invalid_order_id uuid := '8f0ed783-0000-4000-8000-000000000812';
   v_manual_processing_order_id uuid := '8f0ed783-0000-4000-8000-000000000805';
   v_manual_skipped_order_id uuid := '8f0ed783-0000-4000-8000-000000000808';
   v_delivered_completed_order_id uuid := '8f0ed783-0000-4000-8000-000000000806';
@@ -178,6 +179,55 @@ BEGIN
     'paid',
     10000
   );
+
+  INSERT INTO public.orders (
+    id,
+    merchant_id,
+    order_number,
+    customer_name,
+    customer_email,
+    shipping_status,
+    payment_status,
+    total
+  )
+  VALUES (
+    v_manual_invalid_order_id,
+    v_merchant_id,
+    'OUTBOX-MANUAL-INVALID-001',
+    'Manual Invalid Customer',
+    'manual-invalid-customer@example.com',
+    'processing',
+    'paid',
+    10000
+  );
+
+  SELECT prepared.result->>'status'
+  INTO v_manual_prepared_status
+  FROM (
+    SELECT public.prepare_order_notification_outbox_manual_send(
+      v_manual_invalid_order_id,
+      v_merchant_id,
+      'order_shipped',
+      'PREMATURE-TRACK-001',
+      'Premature Courier',
+      '2026-07-14'
+    ) AS result
+  ) AS prepared;
+
+  IF v_manual_prepared_status IS DISTINCT FROM 'invalid_state' THEN
+    RAISE EXCEPTION 'expected pre-shipment manual send to return invalid_state, got %',
+      v_manual_prepared_status;
+  END IF;
+
+  SELECT count(*)::integer
+  INTO v_manual_active_count
+  FROM public.order_notification_outbox
+  WHERE order_id = v_manual_invalid_order_id;
+
+  IF v_manual_active_count <> 0 THEN
+    RAISE EXCEPTION 'expected pre-shipment manual send not to create an outbox claim, got % rows',
+      v_manual_active_count;
+  END IF;
 
   UPDATE public.orders
   SET shipping_status = 'shipped'

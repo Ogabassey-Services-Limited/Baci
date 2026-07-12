@@ -75,7 +75,9 @@ function createSupabaseMock({
   order = baseOrder,
   settings = { google_place_id: 'place-1' },
 }: {
-  order?: typeof baseOrder;
+  order?: Omit<typeof baseOrder, 'shipping_address'> & {
+    shipping_address: unknown;
+  };
   settings?: { google_place_id: string | null };
 } = {}) {
   const merchantBuilder = createSelectBuilder({ data: merchant, error: null });
@@ -164,6 +166,24 @@ describe('sendOrderFulfillmentNotification', () => {
     expect(generateOrderDeliveredEmail).toHaveBeenCalledWith(
       expect.objectContaining({ googlePlaceId: 'place-1' })
     );
+  });
+
+  it('sends delivered email for legacy orders with a string shipping address', async () => {
+    const result = await sendOrderFulfillmentNotification({
+      eventType: 'order_delivered',
+      merchantId: 'merchant-1',
+      orderId: 'order-1',
+      supabase: createSupabaseMock({
+        order: {
+          ...baseOrder,
+          shipping_address: '1 Legacy Street, Lagos',
+          shipping_status: 'delivered',
+        },
+      }),
+    });
+
+    expect(result).toMatchObject({ status: 'sent', messageId: 'msg-1' });
+    expect(sendEmail).toHaveBeenCalledOnce();
   });
 
   it('treats completed orders as delivered for fulfillment notifications', async () => {

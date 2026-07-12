@@ -753,6 +753,7 @@ describe('orderUpdateSchema', () => {
     const result = orderUpdateSchema.safeParse({
       payment_status: 'paid',
       shipping_status: 'completed',
+      merchant_id: '123e4567-e89b-12d3-a456-426614174000',
       notes: null,
       shipping_address: { city: 'Lagos' },
     });
@@ -764,8 +765,8 @@ describe('orderUpdateSchema', () => {
     expect(
       orderUpdateSchema.safeParse({ shipping_status: 'teleported' }).success
     ).toBe(false);
-    expect(
-      orderUpdateSchema.safeParse({ merchant_id: 'merchant-2' }).success
-    ).toBe(false);
+    expect(orderUpdateSchema.safeParse({ unexpected: true }).success).toBe(
+      false
+    );
   });
 });

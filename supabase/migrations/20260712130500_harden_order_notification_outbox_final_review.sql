@@ -21,14 +21,19 @@ ALTER TABLE public.order_notification_outbox
   ALTER COLUMN event_sequence SET DEFAULT
     nextval('public.order_notification_outbox_event_sequence_seq'::regclass);
 
-WITH ordered_existing_rows AS (
+WITH sequence_base AS (
+  SELECT
+    coalesce(max(outbox.event_sequence), 0) AS base_value
+  FROM public.order_notification_outbox AS outbox
+), ordered_existing_rows AS (
   SELECT
     outbox.id,
-    nextval('public.order_notification_outbox_event_sequence_seq'::regclass)
+    sequence_base.base_value
+      + row_number() OVER (ORDER BY outbox.created_at ASC, outbox.id ASC)
       AS event_sequence
   FROM public.order_notification_outbox AS outbox
+  CROSS JOIN sequence_base
   WHERE outbox.event_sequence IS NULL
-  ORDER BY outbox.created_at ASC, outbox.id ASC
 )
 UPDATE public.order_notification_outbox AS outbox
 SET event_sequence = ordered_existing_rows.event_sequence
@@ -140,6 +145,7 @@ DECLARE
   v_auth_role text := coalesce(auth.role(), '');
   v_claimed boolean := false;
   v_outbox_id uuid;
+  v_order_shipping_status text;
   v_skip_reason text;
   v_status text;
 BEGIN
@@ -169,13 +175,23 @@ BEGIN
     END IF;
   END IF;
 
-  IF NOT EXISTS (
-    SELECT 1
-    FROM public.orders AS orders
-    WHERE orders.id = p_order_id
-      AND orders.merchant_id = p_merchant_id
-  ) THEN
+  SELECT orders.shipping_status
+  INTO v_order_shipping_status
+  FROM public.orders AS orders
+  WHERE orders.id = p_order_id
+    AND orders.merchant_id = p_merchant_id;
+
+  IF NOT FOUND THEN
     RETURN jsonb_build_object('status', 'order_not_found', 'outbox_id', NULL);
+  END IF;
+
+  IF (p_event_type = 'order_shipped' AND v_order_shipping_status <> 'shipped')
+    OR (
+      p_event_type = 'order_delivered'
+      AND v_order_shipping_status NOT IN ('delivered', 'completed')
+    )
+  THEN
+    RETURN jsonb_build_object('status', 'invalid_state', 'outbox_id', NULL);
   END IF;
 
   SELECT outbox.id, outbox.status, outbox.skip_reason

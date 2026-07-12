@@ -375,6 +375,9 @@ export const orderIdParamsSchema = z.object({
 
 export const orderUpdateSchema = z
   .strictObject({
+    // Transitional compatibility for deployed mobile clients. Authorization
+    // remains derived from the authenticated user; this value is ignored.
+    merchant_id: z.uuid(),
     payment_status: z.enum([
       'paid',
       'unpaid',

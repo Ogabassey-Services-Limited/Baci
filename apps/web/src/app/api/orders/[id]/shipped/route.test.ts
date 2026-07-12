@@ -112,6 +112,7 @@ function createSupabaseMock(
     | 'pending'
     | 'processing'
     | 'outcome_unknown'
+    | 'invalid_state'
     | null = null
 ) {
   const merchantBuilder = createSelectBuilder({ data: merchant, error: null });
@@ -354,6 +355,22 @@ describe('POST /api/orders/[id]/shipped', () => {
       'complete_order_notification_outbox_manual_result',
       expect.anything()
     );
+  });
+
+  it('rejects a manual shipped notification before creating a valid claim', async () => {
+    const supabase = createSupabaseMock(shippedOrder, 'invalid_state');
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+
+    const response = await POST(createRequest(), {
+      params: Promise.resolve({ id: orderId }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(sendEmail).not.toHaveBeenCalled();
   });
 
   it('releases the manual claim when notification sending throws', async () => {

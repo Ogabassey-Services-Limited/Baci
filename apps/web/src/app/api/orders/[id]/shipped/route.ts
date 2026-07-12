@@ -147,6 +147,12 @@ export async function POST(
         error: 'Order not found',
       });
     }
+    if (blockingState.status === 'invalid_state') {
+      return responseForResult({
+        status: 'invalid_state',
+        error: 'Order must be marked as shipped first',
+      });
+    }
     if (blockingState.status === 'blocked') {
       switch (blockingState.outboxStatus) {
         case 'outcome_unknown':

@@ -109,6 +109,20 @@ describe('getManualOrderNotificationOutboxBlockingState', () => {
     expect(result).toEqual({ status: 'not_found' });
   });
 
+  it('returns invalid_state before a manual notification claim is created', async () => {
+    const result = await getManualOrderNotificationOutboxBlockingState({
+      eventType: 'order_shipped',
+      merchantId: 'merchant-1',
+      orderId: 'order-1',
+      supabase: createSupabaseMock({
+        outbox_id: null,
+        status: 'invalid_state',
+      }),
+    });
+
+    expect(result).toEqual({ status: 'invalid_state' });
+  });
+
   it('blocks manual sends while a matching outbox row is pending', async () => {
     const result = await getManualOrderNotificationOutboxBlockingState({
       eventType: 'order_shipped',
