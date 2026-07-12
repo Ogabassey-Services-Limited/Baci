@@ -66,7 +66,9 @@ export interface PrewarmOgabasseyImageTransformsOptions {
   /**
    * Width×quality variants to prime per image. Defaults to the product
    * surfaces' matrix (PDP hero + listing card); blog call sites pass
-   * `BLOG_IMAGE_WIDTH_QUALITY_PAIRS` instead.
+   * `BLOG_IMAGE_WIDTH_QUALITY_PAIRS`, and the product-write path warms the
+   * primary image once more with `HOME_HERO_IMAGE_WIDTH_QUALITY_PAIRS` — each
+   * in its own invocation so the shared per-image URL budget is never split.
    */
   widthQualityPairs?: readonly PrewarmWidthQualityPair[];
   /** Injectable for tests. Defaults to the global `fetch`. */
