@@ -320,6 +320,29 @@ describe('cached merchant entity normalization', () => {
     );
   });
 
+  it('passes repairs_catalog_enabled from the snapshot through the normalizer untouched', async () => {
+    // The public repairs catalogue (repair pages, PDP repair link, repairs
+    // sitemap) gates on this flag; the snapshot normalizer must not strip it
+    // once the RPC allowlist (20260712100000) projects it.
+    harness.mockRpc.mockResolvedValueOnce({
+      data: [
+        {
+          resolution_status: 'found',
+          custom_domain: 'fashion.example',
+          feature_settings: { blog_enabled: true, repairs_catalog_enabled: true },
+          merchant_data: { ...mockMerchant, slug: 'fashion-store' },
+        },
+      ],
+      error: null,
+    });
+
+    const merchant = await getCachedMerchantByDomain('fashion.example');
+
+    expect(merchant?.feature_settings).toEqual(
+      expect.objectContaining({ repairs_catalog_enabled: true })
+    );
+  });
+
   it('returns null when the storefront merchant resolver has no domain match', async () => {
     harness.mockRpc.mockResolvedValueOnce({
       data: [
