@@ -1,21 +1,20 @@
 import type { QuoteRequest, ShippingQuote } from '../types';
 import type { GiglApiClient } from './gigl.auth';
 import {
-  buildGiglProviderRateId,
-  GIGL_DEFAULT_SPECIAL_PACKAGE_ID,
   GIGL_QUOTE_TIMEOUT_MS,
-  GiglDeliveryType,
   type GiglQuoteIo,
-  type GiglToken,
-  getVehicleTypeForWeight,
   isGiglAbortError,
   PickupOptions,
-  ShipmentType,
 } from './gigl.constants';
+import { fetchGiglQuote } from './gigl.fetch-quote';
 import { getGiglInternationalQuotes } from './gigl.international';
+import {
+  createGiglQuoteSelections,
+  type GiglQuoteSelection,
+  runGiglQuoteSelections,
+} from './gigl.quote-selections';
 import type { GiglStation } from './gigl.schemas';
-import { giglSchemas } from './gigl.schemas';
-import { expandGiglServiceCentreQuotes } from './gigl.service-centre-quotes';
+import { createGiglStationQuoteExpander } from './gigl.station-quote-expander';
 import type { GiglStationsService } from './gigl.stations';
 export function getGiglQuotes(
   apiClient: GiglApiClient,
@@ -26,13 +25,12 @@ export function getGiglQuotes(
   if (request.shipmentType === 'international') {
     return getGiglInternationalQuotes(apiClient, io, request);
   }
-  const signal = AbortSignal.timeout(GIGL_QUOTE_TIMEOUT_MS);
   return getQuotesWithinTimeout(
     apiClient,
     stationsService,
     io,
     request,
-    signal
+    AbortSignal.timeout(GIGL_QUOTE_TIMEOUT_MS)
   );
 }
 async function getQuotesWithinTimeout(
@@ -55,7 +53,6 @@ async function getQuotesWithinTimeout(
           signal
         )
       : null;
-
     if (!request.sender || !senderStation) {
       io.log('warn', 'No GIGL station found for sender location', {
         city: request.sender?.city,
@@ -63,12 +60,15 @@ async function getQuotesWithinTimeout(
       });
       return [];
     }
-    const receiverStation = await stationsService.findStationForCity(
-      request.receiver.city,
-      request.receiver.state,
-      GIGL_QUOTE_TIMEOUT_MS,
-      signal
+    const receiverResolution = await stationsService.resolveStationForLocation(
+      request.receiver,
+      {
+        preferNearest: request.deliveryPreference === 'pickup_station',
+        timeout: GIGL_QUOTE_TIMEOUT_MS,
+        signal,
+      }
     );
+    const receiverStation = receiverResolution?.station ?? null;
 
     if (!receiverStation) {
       io.log('warn', 'No GIGL station found for receiver location', {
@@ -82,49 +82,38 @@ async function getQuotesWithinTimeout(
       0
     );
     const isPickupOnly = request.deliveryPreference === 'pickup_station';
-    const pickupOptions = isPickupOnly
-      ? [PickupOptions.ServiceCentre]
-      : [PickupOptions.HomeDelivery, PickupOptions.ServiceCentre];
-    const quoteSelections = pickupOptions.flatMap((pickupOption) =>
-      [GiglDeliveryType.GoStandard, GiglDeliveryType.GoFaster].map(
-        (deliveryType) => ({ deliveryType, pickupOption })
-      )
-    );
-    const quoteResults = await Promise.all(
-      quoteSelections.map(({ deliveryType, pickupOption }) =>
-        fetchGiglQuote(
-          apiClient,
-          io,
-          tokenData,
-          request,
-          senderStation,
-          receiverStation,
-          pickupOption,
-          deliveryType,
-          totalWeight,
-          signal
-        ).catch((error) => {
-          if (signal.aborted || isGiglAbortError(error)) {
-            io.log('warn', 'GIGL quote option timed out', {
-              timeoutMs: GIGL_QUOTE_TIMEOUT_MS,
-              pickupOption,
-              deliveryType,
-            });
-            return null;
-          }
-          io.log('error', 'GIGL quote option failed', {
-            error: String(error),
+    const fetchSelections = (
+      station: GiglStation,
+      selections: GiglQuoteSelection[],
+      selectionSignal = signal
+    ) =>
+      runGiglQuoteSelections({
+        selections,
+        signal: selectionSignal,
+        timeoutMs: GIGL_QUOTE_TIMEOUT_MS,
+        log: io.log,
+        fetchQuote: ({ deliveryType, pickupOption }) =>
+          fetchGiglQuote(
+            apiClient,
+            io,
+            tokenData,
+            request,
+            senderStation,
+            station,
             pickupOption,
             deliveryType,
-          });
-          return null;
-        })
-      )
-    );
-    const expandStationQuote = (quote: ShippingQuote) =>
-      expandGiglServiceCentreQuotes({
-        baseQuote: quote,
-        fetchServiceCentres: () =>
+            totalWeight,
+            selectionSignal
+          ),
+      });
+    if (isPickupOnly) {
+      const quoteResults = await fetchSelections(
+        receiverStation,
+        createGiglQuoteSelections(PickupOptions.ServiceCentre)
+      );
+      const expandStationQuote = createGiglStationQuoteExpander({
+        directoryCentres: receiverResolution?.serviceCentres,
+        fetchLiveCentres: () =>
           stationsService.getServiceCentres(
             receiverStation.StationId,
             GIGL_QUOTE_TIMEOUT_MS,
@@ -135,22 +124,78 @@ async function getQuotesWithinTimeout(
         receiver: request.receiver,
         receiverStation,
       });
-    if (isPickupOnly) {
       const stationQuotes = quoteResults.filter(
         (quote): quote is ShippingQuote => quote !== null
       );
       return (await Promise.all(stationQuotes.map(expandStationQuote))).flat();
     }
-    const homeQuotes = quoteResults
-      .slice(0, 2)
-      .filter((quote): quote is ShippingQuote => quote !== null);
+    const pickupController = new AbortController();
+    const pickupSignal = AbortSignal.any([signal, pickupController.signal]);
+    const homeQuotesPromise = fetchSelections(
+      receiverStation,
+      createGiglQuoteSelections(PickupOptions.HomeDelivery)
+    );
+    const prefetchedPickupQuotes = fetchSelections(
+      receiverStation,
+      createGiglQuoteSelections(PickupOptions.ServiceCentre),
+      pickupSignal
+    );
+    void prefetchedPickupQuotes.catch(() => undefined);
+    const homeQuotes = (await homeQuotesPromise).filter(
+      (quote): quote is ShippingQuote => quote !== null
+    );
     const hasRoadHome = homeQuotes.some(
       (quote) => quote.serviceTier === 'GoStandard'
     );
-    if (hasRoadHome) return homeQuotes;
-    const stationPickupQuotes = quoteResults
-      .slice(2)
-      .filter((quote): quote is ShippingQuote => quote !== null);
+    if (hasRoadHome) {
+      pickupController.abort();
+      return homeQuotes;
+    }
+    let pickupResolution = receiverResolution;
+    let pickupStation = receiverStation;
+    let pickupQuotes = await prefetchedPickupQuotes;
+    if (!receiverResolution?.serviceCentres?.length && !signal.aborted) {
+      const nearestResolution = await stationsService.resolveStationForLocation(
+        request.receiver,
+        {
+          preferNearest: true,
+          timeout: GIGL_QUOTE_TIMEOUT_MS,
+          signal,
+        }
+      );
+      if (nearestResolution) {
+        if (nearestResolution.station.StationId === receiverStation.StationId) {
+          pickupResolution = nearestResolution;
+        } else {
+          const nearestQuotes = await fetchSelections(
+            nearestResolution.station,
+            createGiglQuoteSelections(PickupOptions.ServiceCentre),
+            signal
+          );
+          if (nearestQuotes.some((quote) => quote !== null)) {
+            pickupResolution = nearestResolution;
+            pickupQuotes = nearestQuotes;
+            pickupStation = nearestResolution.station;
+          }
+        }
+      }
+    }
+    const stationPickupQuotes = pickupQuotes.filter(
+      (quote): quote is ShippingQuote => quote !== null
+    );
+    const expandStationQuote = createGiglStationQuoteExpander({
+      directoryCentres: pickupResolution?.serviceCentres,
+      fetchLiveCentres: () =>
+        stationsService.getServiceCentres(
+          pickupStation.StationId,
+          GIGL_QUOTE_TIMEOUT_MS,
+          pickupSignal
+        ),
+      generateQuoteId: io.generateQuoteId,
+      log: io.log,
+      receiver: request.receiver,
+      receiverStation: pickupStation,
+    });
     const expandedStationQuotes = (
       await Promise.all(stationPickupQuotes.map(expandStationQuote))
     ).flat();
@@ -164,137 +209,5 @@ async function getQuotesWithinTimeout(
     }
     io.log('error', 'Failed to get GIGL quotes', { error: String(error) });
     return [];
-  }
-}
-
-async function fetchGiglQuote(
-  apiClient: GiglApiClient,
-  io: GiglQuoteIo,
-  tokenData: GiglToken,
-  request: QuoteRequest,
-  senderStation: GiglStation,
-  receiverStation: GiglStation,
-  pickupOption: PickupOptions,
-  deliveryType: GiglDeliveryType,
-  totalWeight: number,
-  signal: AbortSignal
-): Promise<ShippingQuote | null> {
-  try {
-    const activeTokenData = apiClient.currentToken ?? tokenData;
-    const { envelope, response } =
-      await apiClient.safeFetchEnvelopeWithAccessToken(
-        `${apiClient.baseUrl}/price/v3`,
-        activeTokenData,
-        () => ({
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            SenderStationId: senderStation.StationId,
-            ReceiverStationId: receiverStation.StationId,
-            SenderLocation: {
-              Latitude:
-                request.sender?.latitude ?? senderStation.Latitude ?? 6.5244,
-              Longitude:
-                request.sender?.longitude ?? senderStation.Longitude ?? 3.3792,
-            },
-            ReceiverLocation: {
-              Latitude:
-                request.receiver.latitude ?? receiverStation.Latitude ?? 6.5244,
-              Longitude:
-                request.receiver.longitude ??
-                receiverStation.Longitude ??
-                3.3792,
-            },
-            VehicleType: getVehicleTypeForWeight(totalWeight),
-            PickUpOptions: pickupOption,
-            IsPriorityShipment: deliveryType === GiglDeliveryType.GoFaster,
-            ShipmentItems: request.items.map((item) => ({
-              ItemName: item.name,
-              Description: item.description || item.name,
-              Quantity: item.quantity,
-              Weight: item.weight,
-              Value: item.value,
-              IsVolumetric: false,
-              ShipmentType: ShipmentType.Regular,
-              SpecialPackageId: GIGL_DEFAULT_SPECIAL_PACKAGE_ID,
-            })),
-          }),
-          timeout: GIGL_QUOTE_TIMEOUT_MS,
-          signal,
-        })
-      );
-    if (!response.ok) {
-      const error = await response.text();
-      io.log('warn', 'GIGL quote request failed', {
-        status: response.status,
-        error,
-      });
-      return null;
-    }
-    if (envelope?.status !== 200) {
-      return null;
-    }
-    const priceData = apiClient.parseEnvelopeData(
-      envelope,
-      giglSchemas.priceData,
-      'price'
-    );
-    const isStationPickup = pickupOption === PickupOptions.ServiceCentre;
-    const serviceName =
-      deliveryType === GiglDeliveryType.GoFaster ? 'GoFaster' : 'GoStandard';
-    const stationPickupDisplayName = receiverStation.Address
-      ? `GIG Logistics - Pickup at ${receiverStation.StationName} (${receiverStation.Address})`
-      : `GIG Logistics - Pickup at ${receiverStation.StationName}`;
-    return {
-      id: io.generateQuoteId(),
-      provider: 'GIGL',
-      serviceTier: isStationPickup
-        ? `Station Pickup - ${serviceName}`
-        : serviceName,
-      carrierName: 'GIG Logistics',
-      displayName: isStationPickup
-        ? `${stationPickupDisplayName} - ${serviceName}`
-        : `GIG Logistics - ${serviceName}`,
-      estimatedDays: 2,
-      deliveryRange: '1-3 working days',
-      minDays: 1,
-      maxDays: 3,
-      price: Math.round(priceData.GrandTotal),
-      currency: 'NGN',
-      pickupIncluded: true,
-      insuranceIncluded: true,
-      providerRateId: buildGiglProviderRateId({
-        receiverStationId: receiverStation.StationId,
-        pickupOption,
-        vehicleType: getVehicleTypeForWeight(totalWeight),
-        deliveryType,
-      }),
-      expiresAt: io.getQuoteExpiry(1),
-      stationId: isStationPickup ? receiverStation.StationId : undefined,
-      stationName: isStationPickup ? receiverStation.StationName : undefined,
-      stationAddress: isStationPickup ? receiverStation.Address : undefined,
-      stationCode: isStationPickup ? receiverStation.StationCode : undefined,
-      isStationPickup,
-      // Keep pickupStation* aliases for existing app/API consumers while station* fields back DB persistence.
-      pickupStationId: isStationPickup ? receiverStation.StationId : undefined,
-      pickupStationName: isStationPickup
-        ? receiverStation.StationName
-        : undefined,
-      pickupStationAddress: isStationPickup
-        ? receiverStation.Address
-        : undefined,
-      pickupStationCode: isStationPickup
-        ? receiverStation.StationCode
-        : undefined,
-      rawResponse: priceData,
-    };
-  } catch (error) {
-    if (signal.aborted || isGiglAbortError(error)) {
-      throw error;
-    }
-    io.log('error', 'Error fetching GIGL quote', { error: String(error) });
-    return null;
   }
 }

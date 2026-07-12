@@ -88,6 +88,22 @@ describe('deploy crontab', () => {
     );
   });
 
+  it('refreshes the GIGL service-centre directory outside checkout', () => {
+    const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
+
+    assert.match(
+      deployScript,
+      /15 4\s+\* \* \* flock -n \$REMOTE_DIR\/locks\/sync-gigl-service-centres\.lock/
+    );
+    assert.match(
+      deployScript,
+      /\$NODE_BIN \$REMOTE_DIR\/jobs\/sync-gigl-service-centres\.mjs/
+    );
+    assert.match(deployScript, /GIGL_BASE_URL=\.\.\./);
+    assert.match(deployScript, /GIGL_EMAIL=\.\.\./);
+    assert.match(deployScript, /GIGL_PASSWORD=\.\.\./);
+  });
+
   it('serializes the AI storefront worker behind the shared workload lock', () => {
     const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
 

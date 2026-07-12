@@ -213,4 +213,87 @@ describe('GIGL station lookup', () => {
     await expect(provider.getLocations()).resolves.toHaveLength(2);
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
+
+  it('uses the synced nearest centre for ambiguous border locations', async () => {
+    const { GiglStationsService } = await import('./gigl.stations');
+    const service = new GiglStationsService(
+      {} as never,
+      vi.fn().mockResolvedValue({
+        stationId: 4,
+        serviceCentres: [
+          {
+            StationId: 4,
+            StationName: 'LAGOS',
+            ServiceCentreId: 65,
+            ServiceCentreName: 'SANGO OTTA',
+            Latitude: 6.707,
+            Longitude: 3.243,
+          },
+        ],
+      })
+    );
+    vi.spyOn(service, 'getStations').mockResolvedValue([
+      {
+        StationId: 2,
+        StationName: 'ABEOKUTA',
+        StateName: 'OGUN',
+        StationCode: undefined,
+        State: undefined,
+        City: undefined,
+        Address: undefined,
+        Latitude: undefined,
+        Longitude: undefined,
+      },
+      {
+        StationId: 4,
+        StationName: 'LAGOS',
+        StateName: 'LAGOS',
+        StationCode: undefined,
+        State: undefined,
+        City: undefined,
+        Address: undefined,
+        Latitude: undefined,
+        Longitude: undefined,
+      },
+    ]);
+
+    await expect(
+      service.resolveStationForLocation({
+        city: 'Alagbado',
+        state: 'Ogun State',
+        latitude: 6.68,
+        longitude: 3.27,
+      })
+    ).resolves.toEqual({
+      station: expect.objectContaining({ StationId: 4 }),
+      serviceCentres: [expect.objectContaining({ ServiceCentreId: 65 })],
+    });
+  });
+
+  it('normalizes state suffixes when coordinates are unavailable', async () => {
+    const { GiglStationsService } = await import('./gigl.stations');
+    const service = new GiglStationsService({} as never);
+    vi.spyOn(service, 'getStations').mockResolvedValue([
+      {
+        StationId: 2,
+        StationName: 'ABEOKUTA',
+        StateName: 'OGUN',
+        StationCode: undefined,
+        State: undefined,
+        City: undefined,
+        Address: undefined,
+        Latitude: undefined,
+        Longitude: undefined,
+      },
+    ]);
+
+    await expect(
+      service.resolveStationForLocation({
+        city: 'Alagbado',
+        state: 'Ogun State',
+      })
+    ).resolves.toEqual({
+      station: expect.objectContaining({ StationId: 2 }),
+    });
+  });
 });
