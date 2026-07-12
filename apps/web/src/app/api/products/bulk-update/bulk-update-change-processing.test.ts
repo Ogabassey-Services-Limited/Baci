@@ -128,4 +128,56 @@ describe('processBulkUpdateChanges', () => {
 
     expect(maxActiveGroups).toBe(10);
   });
+
+  it('keeps differently cased UUIDs for the same product sequential', async () => {
+    let activeUpdates = 0;
+    let maxActiveUpdates = 0;
+    const supabase = {
+      from: vi.fn(() => ({
+        update: vi.fn(() => {
+          const query: Record<string, unknown> = {};
+          query.eq = vi.fn(() => query);
+          query.select = vi.fn(() => query);
+          // biome-ignore lint/suspicious/noThenProperty: Supabase builders are thenable.
+          query.then = vi.fn(
+            (resolve: (value: { error: null }) => void) =>
+              new Promise<void>((complete) => {
+                activeUpdates += 1;
+                maxActiveUpdates = Math.max(maxActiveUpdates, activeUpdates);
+                Promise.resolve().then(() => {
+                  activeUpdates -= 1;
+                  resolve({ error: null });
+                  complete();
+                });
+              })
+          );
+          return query;
+        }),
+      })),
+    };
+    const productId = 'A0000000-0000-4000-8000-000000000000';
+
+    await processBulkUpdateChanges({
+      changes: [
+        {
+          type: 'update',
+          productId,
+          newPrice: 100,
+          details: { name: 'Product A', price: 100 },
+        },
+        {
+          type: 'update',
+          productId: productId.toLowerCase(),
+          newPrice: 150,
+          details: { name: 'Product A', price: 150 },
+        },
+      ],
+      currency: 'NGN',
+      merchantBusinessName: 'Test Store',
+      merchantId: 'merchant-1',
+      supabase: supabase as never,
+    });
+
+    expect(maxActiveUpdates).toBe(1);
+  });
 });

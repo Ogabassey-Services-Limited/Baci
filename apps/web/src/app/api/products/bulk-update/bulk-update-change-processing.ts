@@ -52,7 +52,7 @@ function groupChangesByProduct(
       continue;
     }
 
-    const key = `id:${change.productId?.trim()}`;
+    const key = `id:${change.productId?.trim().toLowerCase()}`;
     const existingGroup = groupByKey.get(key);
     if (existingGroup) {
       existingGroup.push(change);
