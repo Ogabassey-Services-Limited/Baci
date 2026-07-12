@@ -32,6 +32,19 @@ function keyboardEvent(screenY: number): KeyboardEvent {
   };
 }
 
+function captureKeyboardShow(): (screenY: number) => void {
+  let listener: Parameters<typeof Keyboard.addListener>[1] | undefined;
+  jest
+    .spyOn(Keyboard, 'addListener')
+    .mockImplementation((event, nextListener) => {
+      if (event.endsWith('Show')) listener = nextListener;
+      return { remove: jest.fn() } as unknown as ReturnType<
+        typeof Keyboard.addListener
+      >;
+    });
+  return (screenY) => act(() => listener?.(keyboardEvent(screenY)));
+}
+
 function Harness({ anchorY = 200 }: { anchorY?: number }) {
   const portal = useAddressSuggestionsPortal();
   return (
@@ -75,17 +88,7 @@ describe('AddressSuggestionsProvider', () => {
   });
 
   it('positions suggestions above an input hidden by the keyboard', () => {
-    let onKeyboardShow:
-      | Parameters<typeof Keyboard.addListener>[1]
-      | undefined;
-    jest
-      .spyOn(Keyboard, 'addListener')
-      .mockImplementation((event, listener) => {
-        if (event === 'keyboardDidShow') onKeyboardShow = listener;
-        return { remove: jest.fn() } as unknown as ReturnType<
-          typeof Keyboard.addListener
-        >;
-      });
+    const showKeyboard = captureKeyboardShow();
     render(
       <AddressSuggestionsProvider>
         <Harness anchorY={620} />
@@ -93,12 +96,30 @@ describe('AddressSuggestionsProvider', () => {
     );
     fireEvent.press(screen.getByRole('button', { name: 'Show' }));
 
-    act(() => onKeyboardShow?.(keyboardEvent(600)));
+    showKeyboard(600);
 
     const dropdown = screen.getByLabelText('Address suggestions');
     const style = StyleSheet.flatten(dropdown.props.style);
     expect(style.top).toBeLessThan(620);
     expect(style.top + style.maxHeight).toBeLessThanOrEqual(592);
+  });
+
+  it('positions suggestions above when the space below is unusably short', () => {
+    const showKeyboard = captureKeyboardShow();
+    render(
+      <AddressSuggestionsProvider>
+        <Harness anchorY={530} />
+      </AddressSuggestionsProvider>
+    );
+    fireEvent.press(screen.getByRole('button', { name: 'Show' }));
+
+    showKeyboard(600);
+
+    const style = StyleSheet.flatten(
+      screen.getByLabelText('Address suggestions').props.style
+    );
+    expect(style.top).toBeLessThan(530);
+    expect(style.maxHeight).toBe(280);
   });
 
   it('positions suggestions below an input when space is available', () => {
@@ -117,17 +138,7 @@ describe('AddressSuggestionsProvider', () => {
   });
 
   it('hides suggestions when no vertical space is available', () => {
-    let onKeyboardShow:
-      | Parameters<typeof Keyboard.addListener>[1]
-      | undefined;
-    jest
-      .spyOn(Keyboard, 'addListener')
-      .mockImplementation((event, listener) => {
-        if (event === 'keyboardDidShow') onKeyboardShow = listener;
-        return { remove: jest.fn() } as unknown as ReturnType<
-          typeof Keyboard.addListener
-        >;
-      });
+    const showKeyboard = captureKeyboardShow();
     render(
       <AddressSuggestionsProvider>
         <Harness anchorY={0} />
@@ -135,7 +146,7 @@ describe('AddressSuggestionsProvider', () => {
     );
     fireEvent.press(screen.getByRole('button', { name: 'Show' }));
 
-    act(() => onKeyboardShow?.(keyboardEvent(8)));
+    showKeyboard(8);
 
     expect(screen.queryByLabelText('Address suggestions')).toBeNull();
   });

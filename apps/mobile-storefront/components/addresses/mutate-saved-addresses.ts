@@ -54,8 +54,8 @@ async function writeSavedAddresses(
   const MAX_ATTEMPTS = 2;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     const snapshot = await fetchSavedAddressesSnapshot(customerId, merchantId);
-    const next = dedupeSavedAddressesById(
-      normalizeSavedAddresses(mutate(snapshot.addresses))
+    const next = normalizeSavedAddresses(
+      dedupeSavedAddressesById(mutate(snapshot.addresses))
     );
 
     const scopedUpdate = supabase

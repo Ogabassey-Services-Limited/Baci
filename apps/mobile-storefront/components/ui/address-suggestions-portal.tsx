@@ -2,20 +2,12 @@ import {
   createContext,
   type ReactNode,
   useContext,
-  useEffect,
   useRef,
-  useState,
   useSyncExternalStore,
 } from 'react';
-import {
-  Dimensions,
-  Keyboard,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';
+import { useKeyboard } from '@/hooks/use-keyboard';
 import { addressAutocompleteStyles as styles } from './AddressAutocomplete.styles';
 import type { PlacePrediction } from './AddressAutocomplete.types';
 import { AddressPredictionRow } from './AddressPredictionRow';
@@ -23,6 +15,7 @@ import { AddressPredictionRow } from './AddressPredictionRow';
 type ColorsScheme = (typeof Colors)['light'];
 
 const DROPDOWN_MAX_HEIGHT = 280;
+const DROPDOWN_MIN_USABLE_HEIGHT = 120;
 const DROPDOWN_ANCHOR_GAP = 4;
 const DROPDOWN_KEYBOARD_PADDING = 8;
 
@@ -122,21 +115,7 @@ export function AddressSuggestionsProvider({
 
 function AddressSuggestionsHost({ store }: { store: SuggestionsStore }) {
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot);
-
-  // Track the keyboard so the list never extends underneath it.
-  const [keyboardTop, setKeyboardTop] = useState<number | null>(null);
-  useEffect(() => {
-    const showSub = Keyboard.addListener('keyboardDidShow', (event) => {
-      setKeyboardTop(event.endCoordinates.screenY);
-    });
-    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
-      setKeyboardTop(null);
-    });
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
+  const { keyboardTop } = useKeyboard();
 
   if (!state || state.predictions.length === 0) {
     return null;
@@ -150,7 +129,9 @@ function AddressSuggestionsHost({ store }: { store: SuggestionsStore }) {
   const availableBelow = bottomLimit - belowTop;
   const aboveBottom = Math.min(anchor.y, bottomLimit) - DROPDOWN_ANCHOR_GAP;
   const availableAbove = Math.max(0, aboveBottom);
-  const placeAbove = availableBelow <= 0 && availableAbove > 0;
+  const placeAbove =
+    availableBelow < DROPDOWN_MIN_USABLE_HEIGHT &&
+    availableAbove > availableBelow;
   const maxHeight = Math.max(
     0,
     Math.min(DROPDOWN_MAX_HEIGHT, placeAbove ? availableAbove : availableBelow)

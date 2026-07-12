@@ -30,7 +30,10 @@ jest.mock('@/lib/logger', () => ({
 }));
 
 jest.mock('@/lib/saved-addresses', () => ({
-  normalizeSavedAddresses: (addresses: Address[]) => addresses,
+  normalizeSavedAddresses: (addresses: Address[]) =>
+    addresses.length === 1 && !addresses[0]?.is_default
+      ? [{ ...addresses[0], is_default: true }]
+      : addresses,
 }));
 
 jest.mock('@/lib/supabase', () => ({
@@ -309,7 +312,7 @@ describe('deleteAddressRecord', () => {
 
     const result = await deleteAddressRecord(params);
 
-    expect(result).toEqual([address('addr-2')]);
+    expect(result).toEqual([address('addr-2', true)]);
     expect(writtenAddresses(0).map((a) => a.id)).toEqual(['addr-2']);
   });
 
@@ -326,6 +329,7 @@ describe('deleteAddressRecord', () => {
 
     expect(result?.map((item) => item.id)).toEqual(['addr-1']);
     expect(writtenAddresses(0).map((item) => item.id)).toEqual(['addr-1']);
+    expect(result?.[0]?.is_default).toBe(true);
   });
 
   it('retries once from fresh data when a concurrent edit invalidates the version guard', async () => {
@@ -342,10 +346,10 @@ describe('deleteAddressRecord', () => {
 
     const result = await deleteAddressRecord(params);
 
-    expect(result).toEqual([address('addr-2')]);
+    expect(result).toEqual([address('addr-2', true)]);
     // The mutation was re-applied to the FRESH second snapshot.
     expect(writtenAddresses(0)).toEqual([]);
-    expect(writtenAddresses(1)).toEqual([address('addr-2')]);
+    expect(writtenAddresses(1)).toEqual([address('addr-2', true)]);
     // Each attempt carried its own snapshot's version guard.
     expect(mockUpdateEqArgs[0]).toContainEqual(['updated_at', 'v1']);
     expect(mockUpdateEqArgs[1]).toContainEqual(['updated_at', 'v2']);

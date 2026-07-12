@@ -16,6 +16,8 @@ interface UseKeyboardResult {
   isKeyboardVisible: boolean;
   /** Current keyboard height */
   keyboardHeight: number;
+  /** Window-coordinate top edge of the keyboard, or null when hidden */
+  keyboardTop: number | null;
   /** Dismiss the keyboard programmatically */
   dismissKeyboard: () => void;
   /** Wrap a submit handler to dismiss keyboard before execution */
@@ -38,6 +40,7 @@ interface UseKeyboardResult {
 export function useKeyboard(): UseKeyboardResult {
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [keyboardTop, setKeyboardTop] = useState<number | null>(null);
 
   useEffect(() => {
     // Use different events for iOS vs Android
@@ -49,11 +52,13 @@ export function useKeyboard(): UseKeyboardResult {
     const showSubscription = Keyboard.addListener(showEvent, (event) => {
       setIsKeyboardVisible(true);
       setKeyboardHeight(event.endCoordinates.height);
+      setKeyboardTop(event.endCoordinates.screenY);
     });
 
     const hideSubscription = Keyboard.addListener(hideEvent, () => {
       setIsKeyboardVisible(false);
       setKeyboardHeight(0);
+      setKeyboardTop(null);
     });
 
     return () => {
@@ -83,6 +88,7 @@ export function useKeyboard(): UseKeyboardResult {
   return {
     isKeyboardVisible,
     keyboardHeight,
+    keyboardTop,
     dismissKeyboard,
     withKeyboardDismiss,
   };

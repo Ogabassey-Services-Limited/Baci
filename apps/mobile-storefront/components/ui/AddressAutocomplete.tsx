@@ -28,19 +28,12 @@ export type { PlaceDetails } from './AddressAutocomplete.types';
 
 const PREDICTIONS_DEBOUNCE_MS = 300;
 const MIN_QUERY_LENGTH = 2;
-// While the dropdown is visible, re-measure the field at this cadence so the
-// list follows it through form scrolls; skip updates below the epsilon to
-// avoid no-op host renders.
+// Re-measure while visible so the dropdown follows form scroll and resize.
+// Skip sub-pixel changes to avoid no-op host renders.
 const ANCHOR_TRACK_INTERVAL_MS = 120;
 const ANCHOR_EPSILON_PX = 0.5;
 
-/**
- * Inline address field: type directly in the form, suggestions drop down
- * beneath it. The list itself renders through AddressSuggestionsProvider's
- * screen-root layer (never inside the form's ScrollView), so list taps don't
- * blur the input and no scroll gesture can steal or dismiss it — the old
- * grace-timer/scrim/z-index workarounds stay unnecessary.
- */
+/** Inline address field backed by a screen-root suggestions portal. */
 export function AddressAutocomplete({
   value = '',
   onChangeText,
@@ -115,12 +108,7 @@ export function AddressAutocomplete({
     });
   };
 
-  // Publish the dropdown into the screen-root portal whenever it should be
-  // visible, anchored at the field's window position. While visible, keep
-  // re-measuring on an interval so the list stays attached to the field when
-  // the form scrolls (scrolling must NOT dismiss the suggestions — the
-  // keyboard may tuck away via keyboardDismissMode="on-drag", but the list
-  // follows the field until the user picks, clears, or focuses elsewhere).
+  // Keep the screen-root dropdown attached while the form scrolls or resizes.
   const shouldShowSuggestions = isFocused && predictions.length > 0;
   useEffect(() => {
     if (!shouldShowSuggestions) {
@@ -129,6 +117,8 @@ export function AddressAutocomplete({
     }
     let lastX = -1;
     let lastY = -1;
+    let lastWidth = -1;
+    let lastHeight = -1;
     let cancelled = false;
     const publish = () => {
       wrapperRef.current?.measureInWindow((x, y, width, height) => {
@@ -137,12 +127,16 @@ export function AddressAutocomplete({
         }
         if (
           Math.abs(x - lastX) < ANCHOR_EPSILON_PX &&
-          Math.abs(y - lastY) < ANCHOR_EPSILON_PX
+          Math.abs(y - lastY) < ANCHOR_EPSILON_PX &&
+          Math.abs(width - lastWidth) < ANCHOR_EPSILON_PX &&
+          Math.abs(height - lastHeight) < ANCHOR_EPSILON_PX
         ) {
           return;
         }
         lastX = x;
         lastY = y;
+        lastWidth = width;
+        lastHeight = height;
         portal.show({
           anchor: { height, width, x, y },
           colors,
@@ -208,6 +202,10 @@ export function AddressAutocomplete({
   };
 
   const handleClear = () => {
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+      debounceTimer.current = null;
+    }
     latestQueryRef.current = '';
     setInternalValue('');
     onChangeText?.('');
