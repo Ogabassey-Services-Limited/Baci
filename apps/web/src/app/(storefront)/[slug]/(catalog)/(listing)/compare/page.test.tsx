@@ -33,11 +33,25 @@ vi.mock('next/server', () => ({
   connection: () => mockConnection(),
 }));
 
-vi.mock('@/lib/cached-data', () => ({
-  getCachedCategories: vi.fn(),
-  getCachedCategoryPageData: vi.fn(),
-  getRequestScopedMerchant: vi.fn(),
-}));
+vi.mock('@/lib/cached-data', () => {
+  const getCachedCategories = vi.fn();
+
+  return {
+    getCachedCategories,
+    getStorefrontCategories: async (...args: unknown[]) => {
+      try {
+        return {
+          categories: await getCachedCategories(...args),
+          queryFailed: false,
+        };
+      } catch {
+        return { categories: [], queryFailed: true };
+      }
+    },
+    getCachedCategoryPageData: vi.fn(),
+    getRequestScopedMerchant: vi.fn(),
+  };
+});
 
 vi.mock('../[category]/page', () => ({
   default: (props: CategoryPageProps) => mockCategoryPageRoute(props),

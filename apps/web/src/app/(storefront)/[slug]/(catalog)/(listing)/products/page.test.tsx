@@ -41,10 +41,18 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-vi.mock('@/lib/cached-data', () => ({
-  getCachedCategories: vi.fn(),
-  getRequestScopedMerchant: vi.fn(),
-}));
+vi.mock('@/lib/cached-data', () => {
+  const getCachedCategories = vi.fn();
+
+  return {
+    getCachedCategories,
+    getStorefrontCategories: async (...args: unknown[]) => ({
+      categories: await getCachedCategories(...args),
+      queryFailed: false,
+    }),
+    getRequestScopedMerchant: vi.fn(),
+  };
+});
 
 vi.mock('@/lib/cached-storefront-product-index', () => ({
   getCachedStorefrontProductIndex: vi.fn(),

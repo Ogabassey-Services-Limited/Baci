@@ -31,7 +31,7 @@ import {
   NegotiationModal,
 } from './NegotiationModal';
 import { runCartTotalNegotiation } from '../lib/cart-total-negotiation';
-import { hasPriceNegotiationEntitlement } from '@/lib/feature-flags';
+import { hasStorefrontPriceNegotiation } from '@/lib/storefront-price-negotiation';
 import { isProductNegotiable } from '@baci/shared/lib';
 import {
   calculateCartTotal,
@@ -74,7 +74,7 @@ export const CartSidebar: React.FC = () => {
       ? (merchant.vat_rate ?? 7.5) / 100
       : 0;
 
-  const hasPriceNegotiation = hasPriceNegotiationEntitlement(merchant?.plan_tier, merchant?.slug);
+  const hasPriceNegotiation = hasStorefrontPriceNegotiation(merchant);
 
   const displayCart = sanitizeCartItems(cart, hasPriceNegotiation);
 

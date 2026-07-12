@@ -1,19 +1,26 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { cacheLife, cacheTag } from 'next/cache';
+import { getPublicSupabaseClient } from '@/lib/cached-data';
+import { buildStorefrontClusterGuideRequest } from '@/lib/storefront-content/storefront-cluster-guide-request';
+import { unwrapStorefrontReadResultForCache } from '@/lib/storefront-read-result';
+import type { StorefrontDatabase } from '@/types/storefront-database';
 import {
-  getUncachedProductSeoLinkData,
   type ProductSeoLinkData,
-} from './get-product-seo-link-direct-data';
+  readStorefrontPdpSemanticEnrichment,
+} from './storefront-pdp-semantic-enrichment';
 
 export type { ProductSeoLinkData };
 
 // Strict local-cache SEO enrichment. Keep this unit off `use cache: remote` and
-// off nested remote-cache helpers: inventory errors throw so degraded link-poor
-// data is not cached, while non-critical guide-post reads fail open to [].
+// nested remote-cache helpers. Any snapshot failure throws before this cache can
+// commit; the server component degrades the optional section outside the cache.
 export async function getCachedProductSeoLinkData(
   merchantId: string,
   categorySlug: string,
-  _storeSlug: string,
-  productId = ''
+  productId: string,
+  productSlug: string,
+  productBrand: string | null | undefined,
+  blogEnabled: boolean
 ): Promise<ProductSeoLinkData> {
   'use cache';
   try {
@@ -28,9 +35,28 @@ export async function getCachedProductSeoLinkData(
     // Unit tests do not run with Next cacheComponents enabled.
   }
 
-  return await getUncachedProductSeoLinkData(
-    merchantId,
+  const client =
+    getPublicSupabaseClient() as unknown as SupabaseClient<StorefrontDatabase>;
+  const clusterRequest = buildStorefrontClusterGuideRequest({
+    pageKind: 'product',
     categorySlug,
-    productId
+    brands: productBrand ? [productBrand] : [],
+    productSlugs: productSlug ? [productSlug] : [],
+  });
+  const enrichment = unwrapStorefrontReadResultForCache(
+    await readStorefrontPdpSemanticEnrichment(client, {
+      clusterRequest,
+      includeGuides: blogEnabled,
+      merchantId,
+      productId,
+    })
+  );
+
+  return (
+    enrichment ?? {
+      guidePosts: [],
+      inventory: [],
+      priorityGuidePostSlugs: [],
+    }
   );
 }

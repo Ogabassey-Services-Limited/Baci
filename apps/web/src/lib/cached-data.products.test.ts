@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   getCachedCategoryPageData,
   getCachedLegacyProductRedirectTarget,
-  getCachedProduct,
   getCachedProductCanonicalRedirectTarget,
   getCachedProductLcpHint,
   getCachedProducts,
@@ -100,75 +99,69 @@ describe('cached-data product query projections', () => {
     /(?:^|[\s,])track_quantity\s*(?:,|\n|$)/;
   const standaloneDescriptionColumnPattern =
     /(?:^|[\s,])description\s*(?:,|\n|$)/;
-
-  it('getCachedProduct uses explicit column select without product_variants', async () => {
-    harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
-
-    await getCachedProduct('merchant-123', 'iphone-16');
-
-    expect(harness.mockEq).toHaveBeenCalledWith('merchant_id', 'merchant-123');
-    expect(harness.mockEq).toHaveBeenCalledWith('slug', 'iphone-16');
-    const selectArg = String(harness.mockSelect.mock.calls.at(-1)?.[0]);
-    expect(selectArg).not.toMatch(/\*\s*,/);
-    expect(selectArg).not.toMatch(standaloneCurrencyColumnPattern);
-    expect(selectArg).not.toMatch(standaloneQuantityColumnPattern);
-    expect(selectArg).not.toMatch(standaloneTrackQuantityColumnPattern);
-    expect(selectArg).toContain('quantity:stock_quantity');
-    expect(selectArg).toContain('track_quantity:manage_stock');
-    expect(selectArg).toContain('categories:category_id');
-    expect(selectArg).not.toContain('is_featured');
-    expect(selectArg).toContain('canonical_url');
-  });
-
-  it('getCachedProductLcpHint reads route and image fields, then hydrates public variants by RPC', async () => {
-    harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
-    harness.mockRpc.mockResolvedValueOnce({
-      data: [
-        {
-          attributes: { storage: '128GB' },
-          id: 'variant-1',
-          product_id: 'product-123',
-          stock_quantity: 2,
+  const resolvedPdpSnapshot = (
+    product: Record<string, unknown> = singleProduct
+  ) => ({
+    data: [
+      {
+        resolution_status: 'found',
+        product_data: {
+          categories: {
+            id: 'category-123',
+            name: 'Smartphones',
+            slug: 'smartphones',
+          },
+          merchant_id: 'merchant-123',
+          name: 'iPhone 16',
+          price: 910000,
+          product_key_specs: null,
+          product_offers: [],
+          product_variants: [],
+          ...product,
         },
-      ],
-      error: null,
-    });
+      },
+    ],
+    error: null,
+    status: 200,
+  });
+  const missingPdpSnapshot = {
+    data: [{ resolution_status: 'not_found', product_data: null }],
+    error: null,
+    status: 200,
+  };
+
+  it('getCachedProductLcpHint reads route, image, and variant data from one bounded snapshot', async () => {
+    harness.mockRpc.mockResolvedValueOnce(
+      resolvedPdpSnapshot({
+        ...singleProduct,
+        brand: 'Apple',
+        images: ['https://example.com/iphone.jpg'],
+        price: 910000,
+        product_variants: [
+          {
+            attributes: { storage: '128GB' },
+            id: 'variant-1',
+            product_id: 'product-123',
+            stock_quantity: 2,
+          },
+        ],
+      })
+    );
 
     const result = await getCachedProductLcpHint('merchant-123', 'iphone-16');
 
-    expect(harness.mockEq).toHaveBeenCalledWith('merchant_id', 'merchant-123');
-    expect(harness.mockEq).toHaveBeenCalledWith('slug', 'iphone-16');
-    const selectArg = String(harness.mockSelect.mock.calls.at(-1)?.[0]);
-    expect(selectArg).toContain('brand');
-    expect(selectArg).toContain('condition');
-    expect(selectArg).toContain('id');
-    expect(selectArg).toContain('name');
-    expect(selectArg).toContain('slug');
-    expect(selectArg).toContain('price');
-    expect(selectArg).toContain('images');
-    expect(selectArg).toContain('color');
-    expect(selectArg).toContain('default_variant_id');
-    expect(selectArg).toContain('manage_stock');
-    expect(selectArg).toContain('schema_markup');
-    expect(selectArg).toContain('stock');
-    expect(selectArg).toContain('stock_quantity');
-    expect(selectArg).toContain('variant_attributes');
-    expect(selectArg).toContain('categories:category_id');
-    expect(selectArg).toContain('product_categories');
-    expect(selectArg).not.toContain('product_variants');
-    expect(selectArg).not.toContain('price_override');
-    expect(selectArg).not.toContain('primary_image');
-    expect(selectArg).not.toMatch(standaloneDescriptionColumnPattern);
-    expect(selectArg).not.toContain('specifications');
-    expect(selectArg).not.toContain('review_count');
-    expect(selectArg).not.toContain('product_key_specs');
-    expect(selectArg).not.toContain('product_offers');
     expect(harness.mockRpc).toHaveBeenCalledWith(
-      'get_storefront_product_variants',
+      'get_storefront_pdp_core_v2',
       {
-        p_product_ids: ['product-123'],
-      }
+        // p_branch_id omitted: null would GET-serialize to the literal
+        // string 'null' and 22P02 the RPC (see storefront-pdp-core-snapshot).
+        p_merchant_id: 'merchant-123',
+        p_product_slug: 'iphone-16',
+      },
+      { get: true }
     );
+    expect(harness.mockRpc).toHaveBeenCalledOnce();
+    expect(harness.mockSelect).not.toHaveBeenCalled();
     expect(cacheTag).toHaveBeenCalledWith(
       'product',
       'product-lcp-hint',
@@ -176,9 +169,12 @@ describe('cached-data product query projections', () => {
       getProductScopedCacheTag('product', 'merchant-123', 'iphone-16')
     );
     expect(cacheTag).toHaveBeenCalledWith(
-      'products',
-      'product-variants',
-      'products-merchant-123'
+      'product',
+      'product-details',
+      'product-lcp-hint',
+      'products-merchant-123',
+      'categories-merchant-123',
+      getProductScopedCacheTag('product', 'merchant-123', 'iphone-16')
     );
     expect(result?.product_variants).toEqual([
       expect.objectContaining({
@@ -189,29 +185,21 @@ describe('cached-data product query projections', () => {
     expect(result?.variant_attributes).toEqual({ storage: ['128GB'] });
   });
 
-  it('getCachedProductLcpHint hydrates serialized public variant stock', async () => {
-    harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
-    harness.mockRpc.mockResolvedValueOnce({
-      data: [
-        {
-          attributes: { storage: '128GB' },
-          id: 'variant-1',
-          product_id: 'product-123',
-          stock_quantity: 0,
-        },
-      ],
-      error: null,
-    });
-    vi.mocked(
-      getPublicSerializedVariantSummariesByProductId
-    ).mockResolvedValueOnce([
-      {
-        inventoryTrackingPolicy: 'serialized_then_unlimited',
-        productId: 'product-123',
-        publicAvailableUnits: 0,
-        variantId: 'variant-1',
-      },
-    ] satisfies PublicSerializedVariantSummary[]);
+  it('getCachedProductLcpHint preserves serialized public stock from the snapshot', async () => {
+    harness.mockRpc.mockResolvedValueOnce(
+      resolvedPdpSnapshot({
+        ...singleProduct,
+        product_variants: [
+          {
+            attributes: { storage: '128GB' },
+            id: 'variant-1',
+            inventory_tracking_policy: 'serialized_then_unlimited',
+            product_id: 'product-123',
+            stock_quantity: 9999,
+          },
+        ],
+      })
+    );
 
     const result = await getCachedProductLcpHint('merchant-123', 'iphone-16');
 
@@ -222,43 +210,72 @@ describe('cached-data product query projections', () => {
         stock_quantity: 9999,
       }),
     ]);
-    expect(getPublicSerializedVariantSummariesByProductId).toHaveBeenCalledWith(
-      expect.objectContaining({ from: expect.any(Function) }),
-      'merchant-123',
-      ['product-123']
-    );
+    expect(
+      getPublicSerializedVariantSummariesByProductId
+    ).not.toHaveBeenCalled();
   });
 
-  it('getCachedProductLcpHint can skip public variant hydration for image-only callers', async () => {
-    harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
+  it('getCachedProductLcpHint omits snapshot variants for image-only callers', async () => {
+    harness.mockRpc.mockResolvedValueOnce(
+      resolvedPdpSnapshot({
+        ...singleProduct,
+        product_variants: [{ id: 'variant-1', product_id: 'product-123' }],
+      })
+    );
 
-    await getCachedProductLcpHint('merchant-123', 'iphone-16', {
+    const result = await getCachedProductLcpHint('merchant-123', 'iphone-16', {
       includeVariants: false,
     });
 
-    expect(harness.mockRpc).not.toHaveBeenCalledWith(
-      'get_storefront_product_variants',
-      expect.any(Object)
-    );
+    expect(result).not.toHaveProperty('product_variants');
+    expect(harness.mockRpc).toHaveBeenCalledOnce();
   });
 
   it('getCachedProductLcpHint supports UUID-shaped product slugs as well as IDs', async () => {
     const uuidPath = 'ABCDEF12-3456-4789-ABCD-ABCDEF123456';
-    harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
+    harness.mockRpc.mockResolvedValueOnce(resolvedPdpSnapshot());
 
     await getCachedProductLcpHint('merchant-123', uuidPath);
 
-    expect(harness.mockOr).toHaveBeenCalledWith(
-      `slug.eq.${uuidPath.toLowerCase()},id.eq.${uuidPath}`
+    expect(harness.mockRpc).toHaveBeenCalledWith(
+      'get_storefront_pdp_core_v2',
+      {
+        // p_branch_id omitted: null would GET-serialize to the literal
+        // string 'null' and 22P02 the RPC (see storefront-pdp-core-snapshot).
+        p_merchant_id: 'merchant-123',
+        p_product_slug: uuidPath,
+      },
+      { get: true }
     );
   });
 
-  it('getCachedProductLcpHint returns null on query error', async () => {
-    harness.mockMaybeSingle.mockResolvedValueOnce(productQueryError);
+  it('getCachedProductWithDetails preserves UUID routes for products without a stored slug', async () => {
+    harness.mockRpc.mockResolvedValueOnce(
+      resolvedPdpSnapshot({
+        ...singleProduct,
+        slug: null,
+      })
+    );
+
+    await expect(
+      getCachedProductWithDetails('merchant-123', 'product-123')
+    ).resolves.toEqual(expect.objectContaining({ slug: 'product-123' }));
+  });
+
+  it('getCachedProductLcpHint throws on snapshot errors instead of caching false absence', async () => {
+    harness.mockRpc.mockResolvedValueOnce({
+      ...productQueryError,
+      status: 500,
+    });
 
     await expect(
       getCachedProductLcpHint('merchant-123', 'missing-product')
-    ).resolves.toBeNull();
+    ).rejects.toMatchObject({
+      failure: {
+        code: '42P01',
+        operation: 'pdp_core_snapshot',
+      },
+    });
   });
 
   it('getCachedProductCanonicalRedirectTarget uses the narrow proxy preflight projection', async () => {
@@ -303,27 +320,37 @@ describe('cached-data product query projections', () => {
     ).rejects.toEqual(productQueryError.error);
   });
 
-  it('getCachedProductWithDetails uses explicit column select without product_variants', async () => {
-    harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
+  it('getCachedProductWithDetails returns relations from the bounded snapshot', async () => {
+    harness.mockRpc.mockResolvedValueOnce(
+      resolvedPdpSnapshot({
+        ...singleProduct,
+        fulfillmentFields: { imei: true },
+        imageHint: 'phone on white background',
+        product_key_specs: { has_ois: true },
+        product_offers: [{ id: 'offer-1', status: 'active' }],
+      })
+    );
 
-    await getCachedProductWithDetails('merchant-123', 'iphone-16');
+    const result = await getCachedProductWithDetails(
+      'merchant-123',
+      'iphone-16'
+    );
 
-    expect(harness.mockEq).toHaveBeenCalledWith('merchant_id', 'merchant-123');
-    expect(harness.mockEq).toHaveBeenCalledWith('slug', 'iphone-16');
-    const selectArg = String(harness.mockSelect.mock.calls.at(-1)?.[0]);
-    expect(selectArg).not.toMatch(/\*\s*,/);
-    expect(selectArg).toContain('imageHint:image_hint');
-    expect(selectArg).toContain('fulfillmentFields:fulfillment_fields');
-    expect(selectArg).toContain('created_at');
-    expect(selectArg).toContain('updated_at');
-    expect(selectArg).toContain('product_key_specs (');
-    expect(selectArg).toContain('has_ois');
-    expect(selectArg).not.toContain('product_variants');
+    expect(result).toEqual(
+      expect.objectContaining({
+        fulfillmentFields: { imei: true },
+        imageHint: 'phone on white background',
+        product_key_specs: { has_ois: true },
+        product_offers: [{ id: 'offer-1', status: 'active' }],
+      })
+    );
+    expect(harness.mockRpc).toHaveBeenCalledOnce();
+    expect(harness.mockSelect).not.toHaveBeenCalled();
   });
 
   it('uses ByteString-safe product cache tags for non-ASCII product slugs', async () => {
     const productSlug = 'dell-alienware-x14-r2-–-14”';
-    harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
+    harness.mockRpc.mockResolvedValueOnce(resolvedPdpSnapshot());
 
     await getCachedProductWithDetails('merchant-123', productSlug);
 
@@ -547,11 +574,8 @@ describe('cached-data product query projections', () => {
     );
   });
 
-  it('getCachedProducts gracefully degrades when serialized summary fetch fails', async () => {
+  it('getCachedProducts throws when serialized summary fetch fails so the cache cannot persist stale stock', async () => {
     const fetchError = new Error('RPC failed');
-    const consoleSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => undefined);
     harness.mockListResult.data = [{ id: 'product-123', slug: 'iphone-16' }];
     harness.mockListResult.error = null;
     harness.mockRpc.mockResolvedValueOnce({ data: [], error: null });
@@ -559,13 +583,7 @@ describe('cached-data product query projections', () => {
       getPublicSerializedVariantSummariesByProductId
     ).mockRejectedValueOnce(fetchError);
 
-    await expect(getCachedProducts('merchant-123')).resolves.toEqual([
-      expect.objectContaining({ id: 'product-123' }),
-    ]);
-    expect(consoleSpy).toHaveBeenCalledWith(
-      'Error fetching serialized variant summaries:',
-      fetchError
-    );
+    await expect(getCachedProducts('merchant-123')).rejects.toBe(fetchError);
   });
 
   it('getCachedProducts throws when the public variant RPC fails to avoid caching empty variants', async () => {
@@ -584,129 +602,72 @@ describe('cached-data product query projections', () => {
     );
   });
 
-  it('getCachedProduct returns null on query error', async () => {
-    harness.mockMaybeSingle.mockResolvedValueOnce(productQueryError);
-
-    await expect(
-      getCachedProduct('merchant-123', 'missing-product')
-    ).resolves.toBeNull();
-  });
-
-  it('getCachedProduct treats an expected missing lookup as null without logging an error', async () => {
-    const consoleErrorSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => undefined);
-    harness.mockMaybeSingle.mockResolvedValueOnce({ data: null, error: null });
-
-    await expect(
-      getCachedProduct('merchant-123', 'legacy-product-slug')
-    ).resolves.toBeNull();
-
-    expect(harness.mockMaybeSingle).toHaveBeenCalledOnce();
-    expect(harness.mockSingle).not.toHaveBeenCalled();
-    expect(consoleErrorSpy).not.toHaveBeenCalled();
-  });
-
-  it('getCachedProduct attaches storefront variants from the public RPC', async () => {
-    harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
-    harness.mockRpc.mockResolvedValueOnce({
-      data: [
-        {
-          id: 'variant-1',
-          product_id: 'product-123',
-          attributes: { storage: '128GB', sim_type: 'eSIM Only' },
-          stock_quantity: 2,
-        },
-      ],
-      error: null,
-    });
-
-    const result = await getCachedProduct('merchant-123', 'iphone-16');
-
-    expect(result?.product_variants).toEqual([
-      expect.objectContaining({
-        id: 'variant-1',
-        attributes: { storage: '128GB', sim_type: 'eSIM Only' },
-      }),
-    ]);
-    expect(harness.mockRpc).toHaveBeenCalledWith(
-      'get_storefront_product_variants',
-      {
-        p_product_ids: ['product-123'],
-      }
-    );
-  });
-
-  it('getCachedProduct maps price fields to legacy base/sale fields', async () => {
-    harness.mockMaybeSingle.mockResolvedValueOnce({
-      data: {
-        id: 'product-123',
-        slug: 'iphone-16',
-        price: 910000,
-        compare_at_price: 950000,
-      },
-      error: null,
-    });
-    harness.mockRpc.mockResolvedValueOnce({
-      data: [],
-      error: null,
-    });
-
-    const result = await getCachedProduct('merchant-123', 'iphone-16');
-
-    expect(result).toEqual(
-      expect.objectContaining({
-        id: 'product-123',
-        base_price: 950000,
-        sale_price: 910000,
-      })
-    );
-  });
-
-  it('getCachedProduct throws when the public variant RPC fails to avoid caching empty variants', async () => {
-    harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
-    harness.mockRpc.mockResolvedValueOnce(rpcFailure);
-
-    await expect(getCachedProduct('merchant-123', 'iphone-16')).rejects.toEqual(
-      rpcFailure.error
-    );
-    expect(harness.mockRpc).toHaveBeenCalledWith(
-      'get_storefront_product_variants',
-      {
-        p_product_ids: ['product-123'],
-      }
-    );
-  });
-
-  it('getCachedProductWithDetails returns null on query error', async () => {
-    harness.mockMaybeSingle.mockResolvedValueOnce(productQueryError);
+  it('getCachedProductWithDetails returns null only for an explicit not-found snapshot', async () => {
+    harness.mockRpc.mockResolvedValueOnce(missingPdpSnapshot);
 
     await expect(
       getCachedProductWithDetails('merchant-123', 'missing-product')
     ).resolves.toBeNull();
   });
 
-  it('getCachedLegacyProductRedirectTarget throws on query error to avoid caching false misses', async () => {
-    harness.mockMaybeSingle.mockResolvedValueOnce(productQueryError);
+  it('getCachedLegacyProductRedirectTarget throws on snapshot error to avoid caching false misses', async () => {
+    harness.mockRpc.mockResolvedValueOnce({
+      ...productQueryError,
+      status: 500,
+    });
 
     await expect(
       getCachedLegacyProductRedirectTarget('merchant-123', 'missing-product')
-    ).rejects.toEqual(expect.objectContaining({ message: 'db error' }));
+    ).rejects.toMatchObject({
+      failure: {
+        code: '42P01',
+        operation: 'pdp_core_snapshot',
+      },
+    });
   });
 
-  it('getCachedProductWithDetails attaches storefront variants from the public RPC', async () => {
-    harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
+  it('getCachedLegacyProductRedirectTarget returns the canonical parent from the snapshot', async () => {
     harness.mockRpc.mockResolvedValueOnce({
       data: [
         {
-          id: 'variant-2',
-          product_id: 'product-123',
-          attributes: { storage: '256GB' },
-          stock_quantity: 1,
+          resolution_status: 'redirect',
+          product_data: {
+            categories: { id: 'category-123', name: 'Phones', slug: 'phones' },
+            id: 'parent-product',
+            name: 'Canonical Phone',
+            slug: 'canonical-phone',
+            status: 'active',
+          },
         },
       ],
       error: null,
+      status: 200,
     });
+
+    await expect(
+      getCachedLegacyProductRedirectTarget('merchant-123', 'legacy-phone')
+    ).resolves.toEqual(
+      expect.objectContaining({
+        id: 'parent-product',
+        slug: 'canonical-phone',
+      })
+    );
+  });
+
+  it('getCachedProductWithDetails includes variants from the same snapshot', async () => {
+    harness.mockRpc.mockResolvedValueOnce(
+      resolvedPdpSnapshot({
+        ...singleProduct,
+        product_variants: [
+          {
+            id: 'variant-2',
+            product_id: 'product-123',
+            attributes: { storage: '256GB' },
+            stock_quantity: 1,
+          },
+        ],
+      })
+    );
 
     const result = await getCachedProductWithDetails(
       'merchant-123',
@@ -720,25 +681,37 @@ describe('cached-data product query projections', () => {
       }),
     ]);
     expect(harness.mockRpc).toHaveBeenCalledWith(
-      'get_storefront_product_variants',
+      'get_storefront_pdp_core_v2',
       {
-        p_product_ids: ['product-123'],
-      }
+        // p_branch_id omitted: null would GET-serialize to the literal
+        // string 'null' and 22P02 the RPC (see storefront-pdp-core-snapshot).
+        p_merchant_id: 'merchant-123',
+        p_product_slug: 'iphone-16',
+      },
+      { get: true }
     );
   });
 
-  it('getCachedProductWithDetails throws when the public variant RPC fails to avoid caching empty variants', async () => {
-    harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
+  it('getCachedProductWithDetails throws when the snapshot RPC fails to avoid caching partial products', async () => {
     harness.mockRpc.mockResolvedValueOnce(rpcFailure);
 
     await expect(
       getCachedProductWithDetails('merchant-123', 'iphone-16')
-    ).rejects.toEqual(rpcFailure.error);
+    ).rejects.toMatchObject({
+      failure: {
+        code: 'P0001',
+        operation: 'pdp_core_snapshot',
+      },
+    });
     expect(harness.mockRpc).toHaveBeenCalledWith(
-      'get_storefront_product_variants',
+      'get_storefront_pdp_core_v2',
       {
-        p_product_ids: ['product-123'],
-      }
+        // p_branch_id omitted: null would GET-serialize to the literal
+        // string 'null' and 22P02 the RPC (see storefront-pdp-core-snapshot).
+        p_merchant_id: 'merchant-123',
+        p_product_slug: 'iphone-16',
+      },
+      { get: true }
     );
   });
 
