@@ -36,6 +36,20 @@ vi.mock('@/lib/storefront-product-purge', () => ({
     mockScheduleStorefrontProductPurge(...args),
 }));
 
+const mockScheduleProductImageTransformsPrewarm = vi.fn();
+vi.mock('@/lib/schedule-product-image-prewarm', async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import('@/lib/schedule-product-image-prewarm')
+    >();
+  return {
+    // Keep the real URL extractor; spy only on the scheduling side effect.
+    ...actual,
+    scheduleProductImageTransformsPrewarm: (...args: unknown[]) =>
+      mockScheduleProductImageTransformsPrewarm(...args),
+  };
+});
+
 type MerchantContextMock = {
   merchantId: string;
   merchantSlug?: string;
@@ -673,6 +687,20 @@ describe('POST /api/products', () => {
       expect(res.status).toBe(201);
       expect(json.product).toBeDefined();
       expect(json.product.id).toBe(PRODUCT_ID);
+    });
+
+    it('pre-warms the CDN image transforms for the new product', async () => {
+      insertResult = { id: PRODUCT_ID, slug: 'test-product' };
+
+      const res = await POST(makePostRequest(validCreateBody));
+
+      expect(res.status).toBe(201);
+      // A brand-new product can enter the launch/home hero straight from create,
+      // so the create path must warm its image transforms (incl. the home-hero
+      // q70 tier) just like the update path does. validCreateBody has one image.
+      expect(mockScheduleProductImageTransformsPrewarm).toHaveBeenCalledWith([
+        'https://example.com/image.png',
+      ]);
     });
 
     it('schedules a Cloudflare purge for the new product', async () => {

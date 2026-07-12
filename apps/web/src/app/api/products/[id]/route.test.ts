@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { HOME_HERO_IMAGE_WIDTH_QUALITY_PAIRS } from '@/lib/ogabassey-image-prewarm-pairs';
 
 // ---- Mocks ----
 
@@ -1738,10 +1739,17 @@ describe('PUT /api/products/[id]', () => {
       );
 
       expect(res.status).toBe(200);
+      // Default product matrix (PDP hero + listing card) for EVERY image.
       expect(mockPrewarmOgabasseyImageTransforms).toHaveBeenCalledWith([
         'https://cdn.ogabassey.com/core-assets/products/phone.avif',
         'https://cdn.ogabassey.com/core-assets/products/phone-back.avif',
       ]);
+      // Dedicated home-hero q70 warm — PRIMARY image only, own invocation, so
+      // it never truncates the shared product coverage for multi-image updates.
+      expect(mockPrewarmOgabasseyImageTransforms).toHaveBeenCalledWith(
+        ['https://cdn.ogabassey.com/core-assets/products/phone.avif'],
+        { widthQualityPairs: HOME_HERO_IMAGE_WIDTH_QUALITY_PAIRS }
+      );
     });
 
     it('does not call the prewarm when the update does not touch the images column', async () => {

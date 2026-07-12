@@ -5,6 +5,7 @@ import { DEFAULT_IMAGE_QUALITY } from '@/config/cdn';
 import {
   ALL_WIDTH_QUALITY_PAIRS,
   BLOG_IMAGE_WIDTH_QUALITY_PAIRS,
+  HOME_HERO_IMAGE_WIDTH_QUALITY_PAIRS,
 } from './ogabassey-image-prewarm-pairs';
 
 describe('ogabassey image prewarm pair matrices', () => {
@@ -67,5 +68,43 @@ describe('ogabassey image prewarm pair matrices', () => {
     );
 
     expect(new Set(keys).size).toBe(keys.length);
+  });
+  it('warms the home-hero q70 tier across the full ladder both hero components emit', () => {
+    // Home hero renders at MOBILE_HERO_IMAGE_QUALITY (70) across two components
+    // that together span the responsive ladder over DPR 1–3:
+    //   - mobile carousel: sizes '40vw' → floor is 256 (imageSizes default
+    //     includes 256; a 320px viewport at DPR 2 picks 256w), then 384/640.
+    //   - desktop grid HeroBigImage: a fixed '(min-width:768px) 480px' slot. A
+    //     px-only `sizes` emits the full deviceSizes ladder; the 480px slot
+    //     resolves by DPR (smallest candidate ≥ 480·DPR) to 640/750/828/1080/
+    //     1200/1440 — including 1200 at 2.5× (real 250% Windows display
+    //     scaling). Every reachable band must be warmed or its LCP stays cold.
+    expect(
+      HOME_HERO_IMAGE_WIDTH_QUALITY_PAIRS.map((pair) => pair.width).sort(
+        (a, b) => a - b
+      )
+    ).toEqual([256, 384, 640, 750, 828, 1080, 1200, 1440]);
+    expect(
+      HOME_HERO_IMAGE_WIDTH_QUALITY_PAIRS.every((pair) => pair.quality === 70)
+    ).toBe(true);
+  });
+
+  it('keeps the home-hero q70 tier OUT of the shared product default matrix', () => {
+    // The q70 tier rides its own dedicated prewarm invocation (warmed for the
+    // primary image only). Leaking it into ALL_WIDTH_QUALITY_PAIRS would spend
+    // the shared per-image budget on variants only the home hero uses.
+    expect(ALL_WIDTH_QUALITY_PAIRS.some((pair) => pair.quality === 70)).toBe(
+      false
+    );
+  });
+
+  it('lets a three-image product update fit one prewarm invocation budget', () => {
+    // buildPrewarmUrls slices at MAX_PREWARM_URLS_PER_INVOCATION (120) and each
+    // pair expands into 3 format tiers (fallback + avif + auto). The product
+    // default matrix must let a 3-image update warm every image completely —
+    // the regression this guards against is the home-hero tier inflating the
+    // matrix until the third image's URLs are truncated.
+    const urlsForThreeImages = ALL_WIDTH_QUALITY_PAIRS.length * 3 * 3;
+    expect(urlsForThreeImages).toBeLessThanOrEqual(120);
   });
 });

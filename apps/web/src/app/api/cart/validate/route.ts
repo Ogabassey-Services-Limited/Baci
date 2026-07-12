@@ -120,47 +120,47 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient();
 
-    let products: CartProductRow[] = [];
-    if (validFormatIds.length > 0) {
-      const { data, error } = await supabase
-        .from('products')
-        .select('id, name, price, stock, stock_quantity, status, manage_stock')
-        .in('id', validFormatIds)
-        .returns<CartProductRow[]>();
+    const [productsResult, variantsResult] = await Promise.all([
+      validFormatIds.length > 0
+        ? supabase
+            .from('products')
+            .select(
+              'id, name, price, stock, stock_quantity, status, manage_stock'
+            )
+            .in('id', validFormatIds)
+            .returns<CartProductRow[]>()
+        : Promise.resolve({ data: null, error: null }),
+      validVariantIds.length > 0 && validFormatIds.length > 0
+        ? (supabase.rpc('get_storefront_product_variants', {
+            p_product_ids: Array.from(new Set(validFormatIds)),
+          }) as unknown as Promise<{
+            data: CartVariantRow[] | null;
+            error: { message: string } | null;
+          }>)
+        : Promise.resolve({ data: null, error: null }),
+    ]);
 
-      if (error) {
-        console.error('Cart validation query error:', error);
-        return NextResponse.json(
-          { error: `Failed to validate cart: ${error.message}` },
-          { status: 500 }
-        );
-      }
-
-      products = data || [];
+    if (productsResult.error) {
+      console.error('Cart validation query error:', productsResult.error);
+      return NextResponse.json(
+        { error: `Failed to validate cart: ${productsResult.error.message}` },
+        { status: 500 }
+      );
     }
 
-    let variants: CartVariantRow[] = [];
-    if (validVariantIds.length > 0 && validFormatIds.length > 0) {
-      const { data, error } = (await supabase.rpc(
-        'get_storefront_product_variants',
-        {
-          p_product_ids: Array.from(new Set(validFormatIds)),
-        }
-      )) as {
-        data: CartVariantRow[] | null;
-        error: { message: string } | null;
-      };
-
-      if (error) {
-        console.error('Cart validation variant query error:', error);
-        return NextResponse.json(
-          { error: `Failed to validate cart: ${error.message}` },
-          { status: 500 }
-        );
-      }
-
-      variants = data || [];
+    if (variantsResult.error) {
+      console.error(
+        'Cart validation variant query error:',
+        variantsResult.error
+      );
+      return NextResponse.json(
+        { error: `Failed to validate cart: ${variantsResult.error.message}` },
+        { status: 500 }
+      );
     }
+
+    const products = productsResult.data || [];
+    const variants = variantsResult.data || [];
 
     const productMap = new Map(
       products.map((product) => [String(product.id), product])
