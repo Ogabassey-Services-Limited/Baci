@@ -204,6 +204,25 @@ describe('sendOrderFulfillmentNotification', () => {
     );
   });
 
+  it('sends historical shipped outbox events after the order advances to out for delivery', async () => {
+    const result = await sendOrderFulfillmentNotification({
+      eventType: 'order_shipped',
+      merchantId: 'merchant-1',
+      orderId: 'order-1',
+      supabase: createSupabaseMock({
+        order: { ...baseOrder, shipping_status: 'out_for_delivery' },
+      }),
+    });
+
+    expect(result).toMatchObject({ status: 'sent', messageId: 'msg-1' });
+    expect(generateOrderShippedEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        courierName: 'TOPSHIP',
+        trackingNumber: 'T222600389',
+      })
+    );
+  });
+
   it('keeps manual shipped sends strict when the order already advanced', async () => {
     const result = await sendOrderFulfillmentNotification({
       eventType: 'order_shipped',

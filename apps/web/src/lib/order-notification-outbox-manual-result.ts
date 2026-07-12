@@ -68,5 +68,8 @@ export async function completeManualOrderNotificationOutboxEvent({
       orderId,
       status,
     });
+    throw new Error('Failed to persist manual order notification outcome', {
+      cause: error,
+    });
   }
 }

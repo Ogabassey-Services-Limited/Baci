@@ -82,20 +82,22 @@ describe('completeManualOrderNotificationOutboxEvent', () => {
     expect(supabase.rpc).not.toHaveBeenCalled();
   });
 
-  it('logs and does not throw when outbox completion fails', async () => {
+  it('propagates outbox completion failures so the route cannot report success', async () => {
     const supabase = createSupabaseMock();
     supabase.rpc.mockResolvedValueOnce({
       data: null,
       error: { message: 'rpc failed' },
     });
 
-    await completeManualOrderNotificationOutboxEvent({
-      eventType: 'order_shipped',
-      merchantId: 'merchant-1',
-      orderId: 'order-1',
-      result: { status: 'sent', message: 'sent', messageId: 'msg-1' },
-      supabase,
-    });
+    await expect(
+      completeManualOrderNotificationOutboxEvent({
+        eventType: 'order_shipped',
+        merchantId: 'merchant-1',
+        orderId: 'order-1',
+        result: { status: 'sent', message: 'sent', messageId: 'msg-1' },
+        supabase,
+      })
+    ).rejects.toThrow('Failed to persist manual order notification outcome');
 
     expect(logger.warn).toHaveBeenCalledWith(
       expect.objectContaining({

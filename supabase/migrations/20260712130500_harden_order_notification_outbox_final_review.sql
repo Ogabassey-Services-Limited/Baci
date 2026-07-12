@@ -5,8 +5,47 @@
 --      asynchronous sender preserves the caller's tracking payload.
 --   3. Claimed rows expose immutable event metadata to the worker.
 
+-- Add the ordering key without an identity/NOT NULL constraint first so this
+-- migration remains safe when earlier outbox migrations have already queued
+-- rows. The owned sequence provides the same monotonic insertion ordering for
+-- both backfilled and future events.
+CREATE SEQUENCE IF NOT EXISTS public.order_notification_outbox_event_sequence_seq;
+
 ALTER TABLE public.order_notification_outbox
-  ADD COLUMN IF NOT EXISTS event_sequence bigint GENERATED ALWAYS AS IDENTITY;
+  ADD COLUMN IF NOT EXISTS event_sequence bigint;
+
+ALTER SEQUENCE public.order_notification_outbox_event_sequence_seq
+  OWNED BY public.order_notification_outbox.event_sequence;
+
+ALTER TABLE public.order_notification_outbox
+  ALTER COLUMN event_sequence SET DEFAULT
+    nextval('public.order_notification_outbox_event_sequence_seq'::regclass);
+
+WITH ordered_existing_rows AS (
+  SELECT
+    outbox.id,
+    nextval('public.order_notification_outbox_event_sequence_seq'::regclass)
+      AS event_sequence
+  FROM public.order_notification_outbox AS outbox
+  WHERE outbox.event_sequence IS NULL
+  ORDER BY outbox.created_at ASC, outbox.id ASC
+)
+UPDATE public.order_notification_outbox AS outbox
+SET event_sequence = ordered_existing_rows.event_sequence
+FROM ordered_existing_rows
+WHERE outbox.id = ordered_existing_rows.id;
+
+SELECT setval(
+  'public.order_notification_outbox_event_sequence_seq'::regclass,
+  greatest(
+    coalesce((SELECT max(outbox.event_sequence) FROM public.order_notification_outbox AS outbox), 0),
+    1
+  ),
+  EXISTS (SELECT 1 FROM public.order_notification_outbox)
+);
+
+ALTER TABLE public.order_notification_outbox
+  ALTER COLUMN event_sequence SET NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_order_notification_outbox_event_sequence
   ON public.order_notification_outbox (order_id, event_type, event_sequence DESC);

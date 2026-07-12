@@ -43,6 +43,7 @@ export type FulfillmentShippingStatus =
   | 'pending'
   | 'processing'
   | 'shipped'
+  | 'out_for_delivery'
   | 'delivered'
   | 'completed'
   | 'cancelled'

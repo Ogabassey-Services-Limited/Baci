@@ -43,6 +43,7 @@ const fulfillmentShippingStatusSchema = z.enum([
   'pending',
   'processing',
   'shipped',
+  'out_for_delivery',
   'delivered',
   'completed',
   'cancelled',
@@ -110,7 +111,9 @@ function isOrderInRequiredShippingStatus(
 ): boolean {
   if (eventType === 'order_shipped') {
     if (allowHistoricalShippedEvent) {
-      return ['completed', 'delivered', 'shipped'].includes(shippingStatus);
+      return ['completed', 'delivered', 'out_for_delivery', 'shipped'].includes(
+        shippingStatus
+      );
     }
     return shippingStatus === 'shipped';
   }
