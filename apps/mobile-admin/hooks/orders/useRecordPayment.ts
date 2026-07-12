@@ -16,10 +16,11 @@ import {
 import { parseResponsePayload } from './response-utils';
 
 const RECORD_PAYMENT_TIMEOUT_MS = 15_000;
-const RECORD_PAYMENT_RETRY_LEASE_MS = 15 * 60 * 1000;
 const RECORD_PAYMENT_RETRY_KEY_PREFIX = 'manual-payment-retry:';
 const RETRY_STATE_READ_ERROR_MESSAGE =
   'Unable to verify the previous payment attempt. Please try again.';
+const RETRY_STATE_WRITE_ERROR_MESSAGE =
+  'Unable to secure this payment attempt. Please try again.';
 const RETRYABLE_RECORD_PAYMENT_ERROR_CODES = new Set([
   'serialized_inventory_unavailable',
 ]);
@@ -84,25 +85,15 @@ export function useRecordPayment() {
         console.error('Failed to read manual payment retry key', error);
         throw new Error(RETRY_STATE_READ_ERROR_MESSAGE);
       }
-      const now = Date.now();
       const memoryRetry =
         pendingIdempotencyKeys.current.get(requestFingerprint);
-      const reusableMemoryRetry =
-        memoryRetry &&
-        now - memoryRetry.createdAt <= RECORD_PAYMENT_RETRY_LEASE_MS
-          ? memoryRetry
-          : null;
-      if (memoryRetry && !reusableMemoryRetry) {
-        pendingIdempotencyKeys.current.delete(requestFingerprint);
-      }
       const reusableStoredRetry =
         storedRetry?.fingerprint === requestFingerprint &&
-        storedRetry.status === 'pending' &&
-        now - storedRetry.createdAt <= RECORD_PAYMENT_RETRY_LEASE_MS
+        storedRetry.status === 'pending'
           ? storedRetry
           : null;
-      const reusableRetry = reusableMemoryRetry ?? reusableStoredRetry;
-      const createdAt = reusableRetry?.createdAt || now;
+      const reusableRetry = memoryRetry ?? reusableStoredRetry;
+      const createdAt = reusableRetry?.createdAt || Date.now();
       const idempotencyKey = reusableRetry?.idempotencyKey ?? generateUUID();
       const retryPaymentMethod = reusableRetry?.paymentMethod ?? paymentMethod;
       const retryReference = reusableRetry
@@ -128,6 +119,7 @@ export function useRecordPayment() {
         );
       } catch (error) {
         console.error('Failed to persist manual payment retry key', error);
+        throw new Error(RETRY_STATE_WRITE_ERROR_MESSAGE);
       }
 
       const clearRejectedRetry = async () => {

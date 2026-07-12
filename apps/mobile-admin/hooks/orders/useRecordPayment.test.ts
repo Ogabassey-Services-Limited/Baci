@@ -483,13 +483,10 @@ describe('useRecordPayment', () => {
     expect(generateUUID).toHaveBeenCalledTimes(1);
   });
 
-  it('discards an expired retry key and uses the current payment details', async () => {
+  it('keeps an older pending retry key until the attempt is resolved', async () => {
     mocks.getSession.mockResolvedValue({
       data: { session: { access_token: 'token-1' } },
     });
-    vi.mocked(generateUUID).mockReturnValue(
-      '22222222-2222-4222-8222-222222222222'
-    );
     mocks.fetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ recorded: true }),
@@ -525,10 +522,11 @@ describe('useRecordPayment', () => {
 
     const requestBody = JSON.parse(String(mocks.fetch.mock.calls[0][1]?.body));
     expect(requestBody).toMatchObject({
-      idempotency_key: '22222222-2222-4222-8222-222222222222',
-      payment_method: 'bank_transfer',
-      reference: 'CURRENT-REFERENCE',
+      idempotency_key: '11111111-1111-4111-8111-111111111111',
+      payment_method: 'cash',
+      reference: 'STALE-REFERENCE',
     });
+    expect(generateUUID).not.toHaveBeenCalled();
   });
 
   it('reuses a persisted idempotency key after the hook remounts', async () => {
@@ -737,17 +735,13 @@ describe('useRecordPayment', () => {
     consoleError.mockRestore();
   });
 
-  it('continues recording when the retry key cannot be persisted', async () => {
+  it('stops recording when the retry key cannot be persisted', async () => {
     mocks.getSession.mockResolvedValue({
       data: { session: { access_token: 'token-1' } },
     });
     vi.mocked(AsyncStorage.setItem).mockRejectedValueOnce(
       new Error('storage full')
     );
-    mocks.fetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({ recorded: true }),
-    });
     const consoleError = vi
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
@@ -765,9 +759,11 @@ describe('useRecordPayment', () => {
         orderId: 'order-1',
         paymentMethod: 'cash',
       })
-    ).resolves.toEqual({ recorded: true });
+    ).rejects.toThrow(
+      'Unable to secure this payment attempt. Please try again.'
+    );
 
-    expect(mocks.fetch).toHaveBeenCalledOnce();
+    expect(mocks.fetch).not.toHaveBeenCalled();
     expect(consoleError).toHaveBeenCalledWith(
       'Failed to persist manual payment retry key',
       expect.any(Error)
