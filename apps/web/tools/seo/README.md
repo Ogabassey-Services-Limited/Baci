@@ -12,6 +12,7 @@ This directory contains the repo-side SEO monitoring entrypoints for the web app
 - `pnpm --dir apps/web seo:pagespeed`
   - Calls the PageSpeed Insights API for a small set of critical public URLs
   - Evaluates a stable threshold set for performance, accessibility, best-practices, SEO, LCP, CLS, TBT, and INP
+  - Enforces INP when PSI returns field or scripted-interaction data; otherwise TBT remains the lab responsiveness gate because a navigation-only Lighthouse run cannot measure INP
 
 ## GitHub workflow inputs
 

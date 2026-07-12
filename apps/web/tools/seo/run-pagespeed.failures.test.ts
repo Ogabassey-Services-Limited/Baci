@@ -13,9 +13,16 @@ describe('run-pagespeed failures', () => {
       if (callCount === 1) {
         return Promise.resolve(
           new Response(
-            JSON.stringify({ error: { message: 'quota exceeded' } }),
+            JSON.stringify({
+              error: {
+                status: 'INVALID_ARGUMENT',
+                message: 'API key should-not-be-logged is invalid',
+                errors: [{ reason: 'badRequest' }],
+                details: [{ reason: 'API_KEY_INVALID' }],
+              },
+            }),
             {
-              status: 429,
+              status: 400,
             }
           )
         );
@@ -58,10 +65,13 @@ describe('run-pagespeed failures', () => {
         {
           metric: 'request',
           message:
-            'PageSpeed Insights request failed for https://usebaci.com/ (mobile) with status 429',
+            'PageSpeed Insights request failed for https://usebaci.com/ (mobile) with status 400; API status INVALID_ARGUMENT; reasons badRequest, API_KEY_INVALID',
         },
       ],
     });
+    expect(results[0]?.failures[0]?.message).not.toContain(
+      'should-not-be-logged'
+    );
     expect(results.slice(1).every((result) => result.passed)).toBe(true);
   });
 

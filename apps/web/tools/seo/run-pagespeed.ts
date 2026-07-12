@@ -51,7 +51,7 @@ function evaluatePageSpeedResult(
       failures.push({ metric, actual, threshold });
     }
   }
-  if (vitals.inp === null || vitals.inp > AUDIT_THRESHOLDS.inp) {
+  if (vitals.inp !== null && vitals.inp > AUDIT_THRESHOLDS.inp) {
     failures.push({
       metric: 'inp',
       actual: vitals.inp,
@@ -159,8 +159,9 @@ async function fetchPageSpeedPayload(
       signal: controller.signal,
     });
     if (!response.ok) {
+      const apiErrorDetails = await describePageSpeedApiError(response);
       throw new Error(
-        `PageSpeed Insights request failed for ${options.targetUrl} (${options.strategy}) with status ${response.status}`
+        `PageSpeed Insights request failed for ${options.targetUrl} (${options.strategy}) with status ${response.status}${apiErrorDetails ? `; ${apiErrorDetails}` : ''}`
       );
     }
     return (await response.json()) as PageSpeedApiResponse;
@@ -174,6 +175,53 @@ async function fetchPageSpeedPayload(
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function describePageSpeedApiError(
+  response: Response
+): Promise<string | null> {
+  let payload: unknown;
+
+  try {
+    payload = await response.json();
+  } catch {
+    return null;
+  }
+
+  if (!isRecord(payload) || !isRecord(payload.error)) {
+    return null;
+  }
+
+  const descriptions: string[] = [];
+  const status = readSafeApiToken(payload.error.status);
+  if (status) {
+    descriptions.push(`API status ${status}`);
+  }
+
+  const reasons = [payload.error.errors, payload.error.details]
+    .filter(Array.isArray)
+    .flat()
+    .flatMap((entry) => {
+      if (!isRecord(entry)) return [];
+      const reason = readSafeApiToken(entry.reason);
+      return reason ? [reason] : [];
+    });
+  const uniqueReasons = [...new Set(reasons)];
+  if (uniqueReasons.length > 0) {
+    descriptions.push(`reasons ${uniqueReasons.join(', ')}`);
+  }
+
+  return descriptions.length > 0 ? descriptions.join('; ') : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function readSafeApiToken(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const token = value.trim();
+  return /^[A-Za-z0-9_.-]{1,80}$/.test(token) ? token : null;
 }
 
 function resolveTimeoutMs(): number {

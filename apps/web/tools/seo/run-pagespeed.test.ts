@@ -94,7 +94,7 @@ describe('run-pagespeed', () => {
     expect(result.vitals.inp).toBe(240);
   });
 
-  it('fails when both field and lab INP are missing', () => {
+  it('uses TBT as the lab responsiveness gate when INP is unavailable', () => {
     const result = pageSpeedTools.evaluatePageSpeedResult({
       lighthouseResult: {
         categories: {
@@ -111,11 +111,10 @@ describe('run-pagespeed', () => {
       },
     });
 
-    expect(result.failures).toContainEqual({
-      metric: 'inp',
-      actual: null,
-      threshold: 200,
-    });
+    expect(result.passed).toBe(true);
+    expect(result.failures).not.toContainEqual(
+      expect.objectContaining({ metric: 'inp' })
+    );
     expect(result.vitals.inp).toBeNull();
   });
 
