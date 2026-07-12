@@ -33,6 +33,19 @@ function getManualCompletionStatus(
 ): ManualOutboxCompletionStatus | null {
   if (result.status === 'sent') return 'sent';
   if (result.status === 'skipped') return 'skipped';
+  if (result.status === 'failed' && result.deliveryOutcome === 'unknown') {
+    return 'skipped';
+  }
+  return null;
+}
+
+function getManualSkipReason(
+  result: OrderFulfillmentNotificationResult
+): string | null {
+  if (result.status === 'skipped') return result.reason;
+  if (result.status === 'failed' && result.deliveryOutcome === 'unknown') {
+    return 'delivery_outcome_unknown';
+  }
   return null;
 }
 
@@ -54,7 +67,7 @@ export async function completeManualOrderNotificationOutboxEvent({
       p_message_id:
         result.status === 'sent' ? (result.messageId ?? null) : null,
       p_order_id: orderId,
-      p_skip_reason: result.status === 'skipped' ? result.reason : null,
+      p_skip_reason: getManualSkipReason(result),
       p_status: status,
     }
   );

@@ -82,6 +82,30 @@ describe('completeManualOrderNotificationOutboxEvent', () => {
     expect(supabase.rpc).not.toHaveBeenCalled();
   });
 
+  it('records unknown manual delivery outcomes as blocking skips', async () => {
+    const supabase = createSupabaseMock();
+
+    await completeManualOrderNotificationOutboxEvent({
+      eventType: 'order_shipped',
+      merchantId: 'merchant-1',
+      orderId: 'order-1',
+      result: {
+        status: 'failed',
+        deliveryOutcome: 'unknown',
+        error: 'request timed out',
+      },
+      supabase,
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'complete_order_notification_outbox_manual_result',
+      expect.objectContaining({
+        p_skip_reason: 'delivery_outcome_unknown',
+        p_status: 'skipped',
+      })
+    );
+  });
+
   it('propagates outbox completion failures so the route cannot report success', async () => {
     const supabase = createSupabaseMock();
     supabase.rpc.mockResolvedValueOnce({

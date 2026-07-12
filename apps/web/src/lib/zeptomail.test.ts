@@ -479,6 +479,33 @@ describe('zeptomail audit logging', () => {
     });
   });
 
+  it('does not try a platform fallback after an ambiguous custom-domain send', async () => {
+    getActiveMerchantSendingDomainMock.mockResolvedValue('ogabassey.com');
+    sendMailMock.mockRejectedValueOnce(
+      Object.assign(new Error('socket closed after request write'), {
+        code: 'ZEPTOMAIL_DELIVERY_OUTCOME_UNKNOWN',
+      })
+    );
+    const { sendEmail } = await import('./zeptomail');
+
+    const result = await sendEmail({
+      to: 'customer@example.com',
+      subject: 'Order Confirmation',
+      htmlContent: '<p>Hello</p>',
+      emailType: 'orders',
+      auditContext: { merchantId: 'merchant-1', orderId: 'order-1' },
+    });
+
+    expect(result).toMatchObject({
+      success: false,
+      deliveryOutcome: 'unknown',
+    });
+    expect(sendMailMock).toHaveBeenCalledTimes(1);
+    expect(sendMailMock.mock.calls[0]?.[0]?.from?.address).toBe(
+      'orders@ogabassey.com'
+    );
+  });
+
   it('falls back to the platform domain for order mail without a custom domain', async () => {
     getActiveMerchantSendingDomainMock.mockResolvedValue(null);
     sendMailMock.mockResolvedValue({ request_id: 'zepto-fallback' });

@@ -553,6 +553,8 @@ export async function sendEmail({
     return primary.ok;
   }
   let lastError = primary.failed;
+  let deliveryOutcomeUnknown =
+    lastError.code === ZEPTOMAIL_DELIVERY_OUTCOME_UNKNOWN_CODE;
   let totalAttempts = primary.attempts;
   let finalSenderAddress = sender.address;
 
@@ -560,7 +562,7 @@ export async function sendEmail({
   // not-yet-verified domain, restricted sender). Order confirmations must not be
   // lost to that, so retry once from the platform domain — mirroring the
   // auth-email hook, which also falls back to the platform sender.
-  if (sender.isCustomDomain) {
+  if (sender.isCustomDomain && !deliveryOutcomeUnknown) {
     const platformSender = getSenderAddress(emailType, fromName);
     console.warn(
       `ZeptoMail custom sender rejected (${lastError.code ?? 'unknown'}); retrying from platform sender`
@@ -573,6 +575,8 @@ export async function sendEmail({
       return fallback.ok;
     }
     lastError = fallback.failed;
+    deliveryOutcomeUnknown ||=
+      lastError.code === ZEPTOMAIL_DELIVERY_OUTCOME_UNKNOWN_CODE;
     totalAttempts += fallback.attempts;
     finalSenderAddress = platformSender.address;
   }
@@ -588,9 +592,7 @@ export async function sendEmail({
   });
   return {
     success: false,
-    ...(lastError.code === ZEPTOMAIL_DELIVERY_OUTCOME_UNKNOWN_CODE
-      ? { deliveryOutcome: 'unknown' as const }
-      : {}),
+    ...(deliveryOutcomeUnknown ? { deliveryOutcome: 'unknown' as const } : {}),
     error: lastError.message || 'Unknown error',
     errorCode: lastError.code,
     errorDetails: lastError.details,

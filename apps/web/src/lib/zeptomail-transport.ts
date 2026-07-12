@@ -28,6 +28,27 @@ class ZeptoMailDeliveryOutcomeUnknownError extends Error {
   readonly code = ZEPTOMAIL_DELIVERY_OUTCOME_UNKNOWN_CODE;
 }
 
+const DEFINITE_PRE_SEND_NETWORK_CODES = new Set([
+  'EAI_AGAIN',
+  'ECONNREFUSED',
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'ENOTFOUND',
+  'UND_ERR_CONNECT_TIMEOUT',
+]);
+
+function getNetworkErrorCode(error: unknown): string | undefined {
+  if (
+    error !== null &&
+    typeof error === 'object' &&
+    'code' in error &&
+    typeof error.code === 'string'
+  ) {
+    return error.code;
+  }
+  return undefined;
+}
+
 export type ZeptoMailEndpoint =
   | 'email'
   | 'email/template'
@@ -112,6 +133,11 @@ function describeTransportFailure(error: unknown): Error {
     // audit rows record more than a bare "fetch failed".
     const cause = error.cause;
     if (cause instanceof Error && cause.message) {
+      if (
+        DEFINITE_PRE_SEND_NETWORK_CODES.has(getNetworkErrorCode(cause) ?? '')
+      ) {
+        return new Error(`${error.message}: ${cause.message}`);
+      }
       return new ZeptoMailDeliveryOutcomeUnknownError(
         `${error.message}: ${cause.message}`
       );
