@@ -159,7 +159,7 @@ export interface MerchantAnalyticsResponse {
 
 export interface WebsiteAnalyticsSummary {
   bestSeller: {
-    id: string;
+    id: string | null;
     name: string;
     units_sold: number;
     revenue: number;

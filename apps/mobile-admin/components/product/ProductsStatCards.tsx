@@ -116,19 +116,19 @@ function WebsiteStatCards() {
       <ProductStatCard
         colors={colors}
         title="Best Seller"
-        value={bestSeller ? bestSeller.name : '-'}
+        value={bestSeller ? bestSeller.name : 'No data'}
         subtitle={bestSeller ? `${bestSeller.units_sold} sold` : ''}
       />
       <ProductStatCard
         colors={colors}
         title="Most Searched"
-        value={mostSearched ? mostSearched.query : '-'}
+        value={mostSearched ? mostSearched.query : 'No data'}
         subtitle={mostSearched ? `${mostSearched.count} searches` : ''}
       />
       <ProductStatCard
         colors={colors}
         title="Top Converting"
-        value={topConverting ? topConverting.name : '-'}
+        value={topConverting ? topConverting.name : 'No data'}
         subtitle={
           topConverting
             ? `${topConverting.conversionRate.toFixed(1)}% rate`
