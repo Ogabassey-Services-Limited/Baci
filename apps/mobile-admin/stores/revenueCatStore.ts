@@ -1,5 +1,6 @@
 import type {
   CustomerInfo,
+  LogHandler,
   PurchasesOffering,
   PurchasesOfferings,
   PurchasesPackage,
@@ -10,6 +11,7 @@ import {
   isRuntimePlatform,
   selectRuntimePlatform,
 } from '@/config/runtime-platform';
+import { configureRevenueCatDevelopmentLogging } from './revenueCatDevelopmentLogging';
 import {
   isProFromInfo,
   shouldSkipNativePurchasesOnDevelopmentSimulator,
@@ -27,6 +29,7 @@ interface PurchasesModule {
     aPackage: PurchasesPackage
   ): Promise<{ customerInfo: CustomerInfo }>;
   restorePurchases(): Promise<CustomerInfo>;
+  setLogHandler(handler: LogHandler): void;
 }
 
 // 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
@@ -138,6 +141,7 @@ export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
       }
 
       try {
+        configureRevenueCatDevelopmentLogging(purchasesRef);
         purchasesRef.configure({ apiKey });
 
         const info = await purchasesRef.getCustomerInfo();

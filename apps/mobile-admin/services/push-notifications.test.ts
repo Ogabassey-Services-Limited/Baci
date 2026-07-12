@@ -79,6 +79,23 @@ describe('push notification native loading', () => {
     runtimePlatformMock.isRuntimePlatform.mockImplementation(
       (platform: string) => platform === runtimePlatform
     );
+    process.env.EXPO_PUBLIC_ENABLE_REMOTE_PUSH_IN_DEV = '1';
+  });
+
+  it('skips remote token registration by default in local development', async () => {
+    const notificationModule = createNotificationModule();
+    delete process.env.EXPO_PUBLIC_ENABLE_REMOTE_PUSH_IN_DEV;
+    mockPhysicalDevice();
+    vi.doMock('expo-notifications', () => notificationModule);
+
+    const { registerForPushNotifications } = await import(
+      './push-notifications'
+    );
+
+    await expect(registerForPushNotifications()).resolves.toBeNull();
+    expect(notificationModule.setNotificationHandler).toHaveBeenCalled();
+    expect(notificationModule.getPermissionsAsync).not.toHaveBeenCalled();
+    expect(notificationModule.getExpoPushTokenAsync).not.toHaveBeenCalled();
   });
 
   it('loads the notifications module but skips push-token registration on simulators', async () => {

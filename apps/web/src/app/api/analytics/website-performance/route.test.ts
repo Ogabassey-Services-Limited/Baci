@@ -48,23 +48,13 @@ function createRequest(url: string, headers?: HeadersInit) {
 }
 
 function mockSuccessfulAnalyticsAggregation() {
-  const mockSelect = vi.fn().mockReturnThis();
-  const mockEq = vi.fn().mockReturnThis();
-  const mockGte = vi.fn().mockReturnThis();
-  const mockLte = vi.fn().mockReturnThis();
-  const mockIn = vi.fn().mockResolvedValue({ data: [], error: null });
-
   mockAuthenticateApiRequest.mockResolvedValueOnce({
     error: null,
     supabase: {
-      from: vi.fn(() => ({
-        select: mockSelect,
-        eq: mockEq,
-        gte: mockGte,
-        lte: mockLte,
-        in: mockIn,
-      })),
-      rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
+      rpc: vi
+        .fn()
+        .mockResolvedValueOnce({ data: [], error: null })
+        .mockResolvedValueOnce({ data: {}, error: null }),
     },
     user: { id: 'user-1' },
   });
@@ -203,17 +193,13 @@ describe('GET /api/analytics/website-performance', () => {
     mockAuthenticateApiRequest.mockResolvedValueOnce({
       error: null,
       supabase: {
-        from: vi.fn().mockReturnValue({
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          gte: vi.fn().mockReturnThis(),
-          lte: vi.fn().mockReturnThis(),
-          in: vi.fn().mockResolvedValue({
+        rpc: vi
+          .fn()
+          .mockResolvedValueOnce({ data: [], error: null })
+          .mockResolvedValueOnce({
             data: null,
             error: { message: 'events failed' },
           }),
-        }),
-        rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
       },
       user: { id: 'user-1' },
     });
@@ -227,6 +213,68 @@ describe('GET /api/analytics/website-performance', () => {
 
     expect(response.status).toBe(500);
     expect(body.error).toBe('Failed to aggregate events');
+  });
+
+  it('paginates event rows while the aggregation rpc is not deployed', async () => {
+    const fullPage = Array.from({ length: 1000 }, () => ({
+      event_type: 'search',
+      event_data: { search_term: 'iphone' },
+    }));
+    const range = vi
+      .fn()
+      .mockResolvedValueOnce({ data: fullPage, error: null })
+      .mockResolvedValueOnce({
+        data: [{ event_type: 'search', event_data: { search_term: 'iphone' } }],
+        error: null,
+      });
+    const eventQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      gte: vi.fn().mockReturnThis(),
+      lte: vi.fn().mockReturnThis(),
+      in: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      range,
+    };
+    mockAuthenticateApiRequest.mockResolvedValueOnce({
+      error: null,
+      supabase: {
+        from: vi.fn(() => eventQuery),
+        rpc: vi
+          .fn()
+          .mockResolvedValueOnce({ data: [], error: null })
+          .mockResolvedValueOnce({
+            data: null,
+            error: { code: 'PGRST202', message: 'function missing' },
+          }),
+      },
+      user: { id: 'user-1' },
+    });
+    mockRequestGemmaCompletion.mockResolvedValueOnce({
+      status: 'success',
+      data: { insights: [] },
+    });
+
+    const response = await GET(
+      createRequest(
+        'http://localhost/api/analytics/website-performance?startDate=2026-04-01T00:00:00.000Z&endDate=2026-04-10T23:59:59.999Z'
+      )
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.summary.mostSearched).toEqual({
+      query: 'iphone',
+      count: 1001,
+    });
+    expect(range).toHaveBeenCalledWith(0, 999);
+    expect(range).toHaveBeenCalledWith(1000, 1999);
+    expect(eventQuery.in).toHaveBeenCalledWith('event_type', [
+      'search',
+      'product_view',
+      'purchase',
+      'add_to_cart',
+    ]);
   });
 
   it('returns 400 when branchId is provided', async () => {
@@ -244,52 +292,37 @@ describe('GET /api/analytics/website-performance', () => {
     );
   });
   it('returns deterministic analytics data for a valid request', async () => {
-    const mockSelect = vi.fn().mockReturnThis();
-    const mockEq = vi.fn().mockReturnThis();
-    const mockGte = vi.fn().mockReturnThis();
-    const mockLte = vi.fn().mockReturnThis();
-    const mockIn = vi.fn().mockReturnThis();
-
     mockAuthenticateApiRequest.mockResolvedValue({
       error: null,
       supabase: {
-        from: vi.fn((table) => {
-          if (table === 'analytics_events') {
-            return {
-              select: mockSelect,
-              eq: mockEq,
-              gte: mockGte,
-              lte: mockLte,
-              in: mockIn,
-            };
-          }
-          return { select: mockSelect, eq: mockEq };
-        }),
-        rpc: vi.fn().mockResolvedValue({
-          data: [
-            { id: 'prod-1', name: 'Product A', units_sold: 50, revenue: 1000 },
-          ],
-          error: null,
-        }),
+        rpc: vi
+          .fn()
+          .mockResolvedValueOnce({
+            data: [
+              {
+                id: 'prod-1',
+                name: 'Product A',
+                total_sold: 50,
+                total_revenue: 1000,
+              },
+            ],
+            error: null,
+          })
+          .mockResolvedValueOnce({
+            data: {
+              mostSearched: { query: 'shoes', count: 2 },
+              topConverting: {
+                id: 'prod-1',
+                name: 'Product A',
+                actions: 10,
+                conversionRate: 100,
+                views: 10,
+              },
+            },
+            error: null,
+          }),
       },
       user: { id: 'user-1' },
-    });
-
-    mockIn.mockResolvedValue({
-      data: [
-        { event_type: 'search', event_data: { query: 'shoes' } },
-        { event_type: 'search', event_data: { query: 'shoes' } },
-        { event_type: 'search', event_data: { query: 'shirts' } },
-        {
-          event_type: 'product_view',
-          event_data: { product_id: 'prod-1', product_name: 'Product A' },
-        },
-        {
-          event_type: 'purchase',
-          event_data: { product_id: 'prod-1', product_name: 'Product A' },
-        },
-      ],
-      error: null,
     });
 
     mockRequestGemmaCompletion.mockResolvedValueOnce({
@@ -488,14 +521,10 @@ describe('GET /api/analytics/website-performance', () => {
     mockAuthenticateApiRequest.mockResolvedValueOnce({
       error: null,
       supabase: {
-        from: vi.fn().mockReturnValue({
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          gte: vi.fn().mockReturnThis(),
-          lte: vi.fn().mockReturnThis(),
-          in: vi.fn().mockResolvedValue({ data: [], error: null }),
-        }),
-        rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
+        rpc: vi
+          .fn()
+          .mockResolvedValueOnce({ data: [], error: null })
+          .mockResolvedValueOnce({ data: {}, error: null }),
       },
       user: { id: 'user-1' },
     });

@@ -121,7 +121,31 @@ describe('ProductsStatCards', () => {
     screen.getByText('Best Seller');
     screen.getByText('Most Searched');
     screen.getByText('Top Converting');
-    expect(screen.getAllByText('-')).toHaveLength(3);
+    expect(screen.getAllByText('No data')).toHaveLength(3);
+  });
+
+  it('renders normalized website analytics values without undefined labels', () => {
+    vi.mocked(useWebsiteAnalytics).mockReturnValue({
+      data: {
+        summary: {
+          bestSeller: {
+            id: 'product-1',
+            name: 'Phone XYZ',
+            revenue: 1000,
+            units_sold: 3,
+          },
+          mostSearched: null,
+          topConverting: null,
+        },
+      },
+      isLoading: false,
+    } as unknown as ReturnType<typeof useWebsiteAnalytics>);
+
+    render(<ProductsStatCards activeTab="on_website" />);
+
+    screen.getByText('3 sold');
+    expect(screen.queryByText(/undefined/)).not.toBeInTheDocument();
+    expect(screen.getAllByText('No data')).toHaveLength(2);
   });
 
   it('renders zero inventory amounts explicitly', () => {
