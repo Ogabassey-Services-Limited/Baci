@@ -302,6 +302,48 @@ describe('handlePaypalCaptureOutcome', () => {
     expect(res.status).toBe(409);
   });
 
+  it('capture_then_finalize but the captured set fails validation → refunds the charged funds + 400 (F4)', async () => {
+    // Captured 1.00 USD but the stored presentment is 100 USD → validation
+    // fails AFTER the buyer was charged. The funds must be refunded, not left
+    // stranded behind a bare 400.
+    vi.mocked(captureOrder).mockResolvedValue({
+      success: true,
+      data: {
+        id: 'PP-1',
+        status: 'COMPLETED',
+        links: [],
+        purchase_units: [
+          {
+            payments: {
+              captures: [
+                {
+                  id: 'CAP-1',
+                  status: 'COMPLETED',
+                  amount: { value: '1.00', currency_code: 'USD' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    } as never);
+
+    const res = await handlePaypalCaptureOutcome(
+      ctxFixture(),
+      { kind: 'capture_then_finalize' },
+      undefined
+    );
+
+    expect(res.status).toBe(400);
+    expect(refundCapturedPaypalOrder).toHaveBeenCalledTimes(1);
+    expect(filePaypalCapturePersistFailureReview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({ stage: 'capture_amount_mismatch' }),
+      })
+    );
+    expect(reconcilePaypalOrderToPaid).not.toHaveBeenCalled();
+  });
+
   it('reconcile_completed_unpaid → settles via the writer', async () => {
     const res = await handlePaypalCaptureOutcome(
       ctxFixture(),

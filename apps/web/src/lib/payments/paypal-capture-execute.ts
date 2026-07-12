@@ -57,10 +57,11 @@ export function buildPaypalCaptureState(
     paypalOrderStatus,
     lockedResidual: ctx.lockedResidual,
     currentResidual: ctx.currentResidual,
-    // The writer stamps `paypal_split` only onto the txn it settled, so its
-    // presence on THIS row means this PayPal order paid the order even if the
-    // pending→completed flip write was lost (§3c row 2).
-    thisTxnSettledOrder: Boolean(ctx.transaction.metadata?.paypal_split),
+    // Authoritative settler signal: the reconcile CAS stamps the settling txn on
+    // orders.paid_transaction_id ATOMICALLY, so this holds even if the
+    // best-effort pending→completed flip or split write was lost (§3c row 2).
+    thisTxnSettledOrder:
+      ctx.orderSnapshot.paid_transaction_id === ctx.transaction.id,
     presentmentAmount: ctx.presentmentAmount,
   };
 }
@@ -169,6 +170,13 @@ export async function settleCompletedPaypalOrder(
       ctx.presentmentCurrency
     );
     if (!validation.ok) {
+      // Funds are already captured to the merchant. Refund them before failing
+      // the checkout, so the buyer is not charged for an order we reject (F4).
+      const refund = await refundCapturedPaypalOrder(
+        ctx,
+        details,
+        'PayPal reported COMPLETED but the captured set failed validation; refunding'
+      );
       await filePaypalCapturePersistFailureReview({
         gatewayReference: ctx.paypalOrderId,
         merchantId: ctx.merchantId,
@@ -176,7 +184,12 @@ export async function settleCompletedPaypalOrder(
         reason:
           'PayPal order reported COMPLETED but the captured set failed validation during reconcile',
         transactionId: ctx.transaction.id,
-        metadata: { stage: 'reconcile_validation', reason: validation.reason },
+        metadata: {
+          stage: 'reconcile_validation',
+          reason: validation.reason,
+          refundSucceeded: refund.success,
+          refundError: refund.error ?? null,
+        },
       });
       return NextResponse.json({ error: validation.reason }, { status: 400 });
     }

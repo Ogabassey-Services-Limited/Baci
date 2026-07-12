@@ -42,12 +42,12 @@ export interface PaypalCaptureState {
   /** computeOrderResidualAmount recomputed at capture/reconcile time (§2). */
   currentResidual: number;
   /**
-   * True when THIS transaction is the one that settled the order — i.e. the
-   * CAS-winning writer stamped its `paypal_split` onto this txn row. The split
-   * is only ever written to the settling txn, so a genuine duplicate (a
-   * different PayPal order settled this order) never carries it. Lets the
-   * resolver tell a lost pending→completed flip write (idempotent) from a real
-   * second charge (block+refund). §3c row 2. */
+   * True when THIS transaction is the one that settled the order — i.e.
+   * orders.paid_transaction_id (stamped ATOMICALLY by the CAS-winning writer)
+   * equals this txn's id. Because it is written in the same statement as
+   * payment_status='paid', it survives a lost best-effort split/flip write, so
+   * the resolver reliably tells a legitimate settlement (idempotent) from a real
+   * second charge by a different PayPal order (block+refund). §3c row 2. */
   thisTxnSettledOrder?: boolean;
   /** Set once a capture response exists (informational; integrity is checked
    * separately by validatePaypalCaptureSet). */

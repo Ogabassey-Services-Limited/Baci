@@ -75,7 +75,12 @@ export async function restorePrepaidTender(
       p_customer_id: customerId,
       p_merchant_id: merchantId,
       p_amount: prepaidPaid,
-      p_source_type: 'order',
+      // `order_refund` maps to a `refund` wallet-transaction type in
+      // credit_customer_wallet. The previous 'order' was rejected 22023
+      // (unsupported source type) before any credit, so the prepaid leg of a
+      // cancelled mixed-tender PayPal order was never refunded. Idempotent per
+      // order via source_id=orderId (advisory lock + dedupe inside the RPC).
+      p_source_type: 'order_refund',
       p_source_id: orderId,
       p_description: `Prepaid refund for cancelled order ${
         input.orderNumber || orderId.slice(0, 8)

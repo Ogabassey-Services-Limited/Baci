@@ -12,6 +12,7 @@ import {
 import { orderNumberFallback } from '@/lib/payments/load-paypal-capture-context';
 import { runPaypalCaptureSideEffects } from '@/lib/payments/paypal-capture-side-effects';
 import { handlePaypalReconcileInventoryFailure } from '@/lib/payments/reconcile-paypal-inventory';
+import { refundDuplicatePaypalCapture } from '@/lib/payments/refund-duplicate-paypal-capture';
 
 /**
  * The ONE idempotent writer that advances a PayPal order to `paid` and runs the
@@ -131,6 +132,12 @@ export async function reconcilePaypalOrderToPaid(
     .update({
       payment_status: 'paid',
       amount_paid: orderTotal,
+      // Stamp the settling transaction ATOMICALLY with the paid flip. This is
+      // the authoritative "which txn settled this order" signal used by the
+      // resolver, /verify and the CAS-loser branch below — it survives a lost
+      // best-effort split write, so a legit capture is never mistaken for a
+      // duplicate and a duplicate is never confirmed without a refund.
+      paid_transaction_id: transactionId,
       ...(preCaptureStatus.shipping_status === 'pending' && {
         shipping_status: 'processing',
       }),
@@ -164,12 +171,50 @@ export async function reconcilePaypalOrderToPaid(
     // genuinely could not update. Re-read to tell them apart.
     const { data: existing } = await supabase
       .from('orders')
-      .select('order_number, payment_status')
+      .select('order_number, payment_status, paid_transaction_id')
       .eq('id', orderId)
       .eq('merchant_id', merchantId)
       .maybeSingle();
 
     if (existing?.payment_status === 'paid') {
+      const paidTransactionId = existing.paid_transaction_id as string | null;
+      // A DIFFERENT transaction settled this order after we loaded state but
+      // before this CAS, yet every path into this writer runs AFTER PayPal
+      // captured funds — so this request's capture is a genuine duplicate.
+      // Refund it instead of returning a bare success (F1). Only auto-refund
+      // when the marker proves another txn settled it; a null marker (settled
+      // by a non-PayPal tender or before this marker existed) is flagged for a
+      // manual duplicate check rather than risking a claw-back of a real
+      // payment.
+      if (paidTransactionId && paidTransactionId !== transactionId) {
+        const { data: txnRow } = await supabase
+          .from('transactions')
+          .select('gateway_response')
+          .eq('id', transactionId)
+          .maybeSingle();
+        return refundDuplicatePaypalCapture({
+          merchantId,
+          orderId,
+          transactionId,
+          gatewayReference: paypalOrderId,
+          gatewayResponse: txnRow?.gateway_response ?? null,
+          orderNumber: existing.order_number ?? null,
+          source: 'reconcile',
+        });
+      }
+      if (!paidTransactionId) {
+        await filePaypalCapturePersistFailureReview({
+          gatewayReference: paypalOrderId,
+          merchantId,
+          orderId,
+          reason:
+            'PayPal capture completed on an order already paid with no settling-txn marker; manual duplicate check needed',
+          transactionId,
+          metadata: { stage: 'paid_no_settler_marker' },
+        });
+      }
+      // paidTransactionId === transactionId: this txn settled the order and this
+      // is an idempotent retry — success, no refund.
       return NextResponse.json({
         success: true,
         status: 'success',

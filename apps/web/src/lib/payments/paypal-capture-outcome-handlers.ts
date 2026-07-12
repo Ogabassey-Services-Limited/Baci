@@ -10,6 +10,7 @@ import {
   buildPaypalCaptureState,
   buildReconcileInput,
   type PaypalCaptureContext,
+  refundCapturedPaypalOrder,
   settleCompletedPaypalOrder,
   successResponse,
 } from '@/lib/payments/paypal-capture-execute';
@@ -156,6 +157,14 @@ async function captureAndReconcilePaypalOrder(
     ctx.presentmentCurrency
   );
   if (!validation.ok) {
+    // The buyer has already been charged (capture COMPLETED). Refund the
+    // captured funds before failing the checkout so we don't strand a charge
+    // for an order we reject (F4).
+    const refund = await refundCapturedPaypalOrder(
+      ctx,
+      captureData,
+      'PayPal captured but the set failed validation; refunding'
+    );
     await filePaypalCapturePersistFailureReview({
       gatewayReference: ctx.paypalOrderId,
       merchantId: ctx.merchantId,
@@ -166,6 +175,8 @@ async function captureAndReconcilePaypalOrder(
       metadata: {
         stage: 'capture_amount_mismatch',
         reason: validation.reason,
+        refundSucceeded: refund.success,
+        refundError: refund.error ?? null,
       },
     });
     return NextResponse.json({ error: validation.reason }, { status: 400 });

@@ -6,7 +6,7 @@ import { ensurePaidOrderInventoryConfirmed } from '@/lib/payments/ensure-paid-or
 import { finalizeOrderGatewayPayment } from '@/lib/payments/finalize-order-gateway-payment';
 import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
 import { reconcilePaypalOrderToPaid } from '@/lib/payments/reconcile-paypal-order';
-import { refundDuplicatePaypalCaptureOnVerify } from '@/lib/payments/refund-duplicate-paypal-verify-capture';
+import { refundDuplicatePaypalCapture } from '@/lib/payments/refund-duplicate-paypal-capture';
 import type { GatewayVerificationResult } from '@/lib/payments/types';
 import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -113,7 +113,9 @@ async function verifyPaymentReference(reference: string) {
   const { data: existingOrder } = transaction.order_id
     ? await supabase
         .from('orders')
-        .select('id, order_number, payment_status, shipping_status')
+        .select(
+          'id, order_number, payment_status, shipping_status, paid_transaction_id'
+        )
         .eq('id', transaction.order_id)
         .maybeSingle()
     : { data: null };
@@ -132,9 +134,14 @@ async function verifyPaymentReference(reference: string) {
   }
 
   const isPaypalTransaction = transaction.gateway === 'paypal';
-  const thisTxnSettledOrder = Boolean(
-    (transaction.metadata as Record<string, unknown> | null)?.paypal_split
-  );
+  // Authoritative settler signal: the reconcile CAS stamps
+  // orders.paid_transaction_id with the settling txn ATOMICALLY, so it survives a
+  // lost split/metadata write (unlike transactions.metadata.paypal_split, which
+  // is best-effort). A completed PayPal txn whose id is NOT the order's
+  // paid_transaction_id did not settle the order — treating absence of the split
+  // as proof of duplication would refund a real payment (Codex pass-8 P1).
+  const thisTxnSettledOrder =
+    existingOrder?.paid_transaction_id === transaction.id;
 
   // A completed PayPal transaction that did not settle an already-paid order is
   // a duplicate capture and must be refunded before any idempotent success path.
@@ -144,13 +151,14 @@ async function verifyPaymentReference(reference: string) {
     existingOrder?.payment_status === 'paid' &&
     !thisTxnSettledOrder
   ) {
-    return refundDuplicatePaypalCaptureOnVerify({
-      gatewayReference: transaction.gateway_reference,
-      gatewayResponse: transaction.gateway_response,
+    return refundDuplicatePaypalCapture({
       merchantId: transaction.merchant_id,
       orderId: transaction.order_id,
-      orderNumber: existingOrder.order_number ?? null,
       transactionId: transaction.id,
+      gatewayReference: transaction.gateway_reference,
+      gatewayResponse: transaction.gateway_response,
+      orderNumber: existingOrder?.order_number ?? null,
+      source: 'verify',
     });
   }
 

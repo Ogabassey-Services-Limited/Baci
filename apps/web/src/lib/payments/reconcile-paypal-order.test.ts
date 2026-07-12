@@ -1,3 +1,4 @@
+import { NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   ensurePaidOrderInventoryConfirmed,
@@ -8,6 +9,7 @@ import { filePaypalCapturePersistFailureReview } from './file-paypal-capture-per
 import { handlePaymentForCancelledOrder } from './handle-payment-for-cancelled-order';
 import { runPaypalCaptureSideEffects } from './paypal-capture-side-effects';
 import { reconcilePaypalOrderToPaid } from './reconcile-paypal-order';
+import { refundDuplicatePaypalCapture } from './refund-duplicate-paypal-capture';
 
 vi.mock('server-only', () => ({}));
 
@@ -31,6 +33,10 @@ vi.mock('@/lib/payments/file-paypal-capture-persist-failure-review', () => ({
 
 vi.mock('@/lib/payments/paypal-capture-side-effects', () => ({
   runPaypalCaptureSideEffects: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('./refund-duplicate-paypal-capture', () => ({
+  refundDuplicatePaypalCapture: vi.fn(),
 }));
 
 vi.mock('@/lib/payments/handle-payment-for-cancelled-order', () => ({
@@ -144,10 +150,12 @@ describe('reconcilePaypalOrderToPaid', () => {
 
     expect(res.status).toBe(200);
     expect(json).toMatchObject({ success: true, status: 'success' });
-    // amount_paid set once to the order total (F: exactly-once).
+    // amount_paid set once to the order total (F: exactly-once), and the
+    // settling txn stamped atomically in the same CAS update.
     expect(captured.updates[0]).toMatchObject({
       payment_status: 'paid',
       amount_paid: 130000,
+      paid_transaction_id: TXN_ID,
     });
     // paypal_split persisted for the refund funnel (F-74).
     const splitUpdate = captured.updates.find((u) => 'metadata' in u) as {
@@ -160,11 +168,15 @@ describe('reconcilePaypalOrderToPaid', () => {
     expect(runPaypalCaptureSideEffects).toHaveBeenCalledTimes(1);
   });
 
-  it('block-already-paid: CAS loses, re-read shows paid → idempotent 200, no side effects (exactly-once)', async () => {
+  it('settler-retry: CAS loses, paid_transaction_id === this txn → idempotent 200, no refund, no side effects', async () => {
     const { client } = makeSupabase([
       { data: null, error: null }, // CAS update matched nothing
       {
-        data: { payment_status: 'paid', order_number: 'BACI-1002' },
+        data: {
+          payment_status: 'paid',
+          order_number: 'BACI-1002',
+          paid_transaction_id: TXN_ID,
+        },
         error: null,
       },
     ]);
@@ -174,7 +186,70 @@ describe('reconcilePaypalOrderToPaid', () => {
 
     expect(res.status).toBe(200);
     expect(json).toMatchObject({ success: true, status: 'success' });
-    // The loser never re-runs side effects — the winner already did.
+    // This txn settled the order (retry) — never re-runs side effects, never
+    // refunds, never files a review.
+    expect(runPaypalCaptureSideEffects).not.toHaveBeenCalled();
+    expect(refundDuplicatePaypalCapture).not.toHaveBeenCalled();
+    expect(filePaypalCapturePersistFailureReview).not.toHaveBeenCalled();
+  });
+
+  it('different-settler: CAS loses, paid_transaction_id is another txn → refunds this duplicate capture (F1)', async () => {
+    (
+      refundDuplicatePaypalCapture as ReturnType<typeof vi.fn>
+    ).mockResolvedValue(
+      NextResponse.json({ success: true, status: 'success' })
+    );
+    const { client } = makeSupabase([
+      { data: null, error: null }, // CAS update matched nothing
+      {
+        data: {
+          payment_status: 'paid',
+          order_number: 'BACI-1002',
+          paid_transaction_id: 'another-txn-id',
+        },
+        error: null,
+      },
+      { data: { gateway_response: { capture: 'x' } }, error: null }, // txn gateway_response fetch
+    ]);
+
+    const res = await reconcilePaypalOrderToPaid(input(client));
+
+    expect(res.status).toBe(200);
+    expect(refundDuplicatePaypalCapture).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId: ORDER_ID,
+        transactionId: TXN_ID,
+        source: 'reconcile',
+      })
+    );
+    expect(runPaypalCaptureSideEffects).not.toHaveBeenCalled();
+  });
+
+  it('no-marker: CAS loses, paid but paid_transaction_id null → success + files a manual-check review (no auto-refund)', async () => {
+    const { client } = makeSupabase([
+      { data: null, error: null }, // CAS update matched nothing
+      {
+        data: {
+          payment_status: 'paid',
+          order_number: 'BACI-1002',
+          paid_transaction_id: null,
+        },
+        error: null,
+      },
+    ]);
+
+    const res = await reconcilePaypalOrderToPaid(input(client));
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json).toMatchObject({ success: true, status: 'success' });
+    // Can't prove it's a duplicate → flag for manual check, never auto-refund.
+    expect(refundDuplicatePaypalCapture).not.toHaveBeenCalled();
+    expect(filePaypalCapturePersistFailureReview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({ stage: 'paid_no_settler_marker' }),
+      })
+    );
     expect(runPaypalCaptureSideEffects).not.toHaveBeenCalled();
   });
 

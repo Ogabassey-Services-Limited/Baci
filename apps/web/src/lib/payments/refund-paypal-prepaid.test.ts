@@ -117,6 +117,9 @@ describe('restorePrepaidTender', () => {
         p_merchant_id: 'm1',
         p_amount: 50000,
         p_source_id: 'o1',
+        // Must be a source type credit_customer_wallet accepts; 'order' raised
+        // 22023 and silently stranded the prepaid refund (Codex pass-8 P1).
+        p_source_type: 'order_refund',
       })
     );
   });

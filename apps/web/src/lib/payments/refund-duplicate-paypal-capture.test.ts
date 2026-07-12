@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { filePaypalCapturePersistFailureReview } from './file-paypal-capture-persist-failure-review';
 import { initiatePaypalOrderRefund } from './paypal-order-refund';
-import { refundDuplicatePaypalCaptureOnVerify } from './refund-duplicate-paypal-verify-capture';
+import { refundDuplicatePaypalCapture } from './refund-duplicate-paypal-capture';
 
 vi.mock('server-only', () => ({}));
 
@@ -22,20 +22,21 @@ const BASE = {
     purchase_units: [{ payments: { captures: [{ id: 'CAP-1' }] } }],
   },
   orderNumber: 'BACI-2001',
+  source: 'verify' as const,
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe('refundDuplicatePaypalCaptureOnVerify', () => {
+describe('refundDuplicatePaypalCapture', () => {
   it('refunds the duplicate capture, files a captured_after_settlement review, and returns success', async () => {
     (initiatePaypalOrderRefund as ReturnType<typeof vi.fn>).mockResolvedValue({
       success: true,
       refundIds: ['REF-1'],
     });
 
-    const res = await refundDuplicatePaypalCaptureOnVerify(BASE);
+    const res = await refundDuplicatePaypalCapture(BASE);
     const json = await res.json();
 
     expect(res.status).toBe(200);
@@ -44,14 +45,12 @@ describe('refundDuplicatePaypalCaptureOnVerify', () => {
       status: 'success',
       orderNumber: 'BACI-2001',
     });
-    // Refund targets THIS transaction's stored capture response.
     expect(initiatePaypalOrderRefund).toHaveBeenCalledWith(
       expect.objectContaining({
         merchantId: 'm-1',
         gatewayResponse: BASE.gatewayResponse,
       })
     );
-    // Review records the duplicate for audit with the verify source.
     expect(filePaypalCapturePersistFailureReview).toHaveBeenCalledWith(
       expect.objectContaining({
         orderId: 'order-123e4567',
@@ -65,13 +64,27 @@ describe('refundDuplicatePaypalCaptureOnVerify', () => {
     );
   });
 
+  it('records the source (reconcile) that detected the duplicate', async () => {
+    (initiatePaypalOrderRefund as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+    });
+
+    await refundDuplicatePaypalCapture({ ...BASE, source: 'reconcile' });
+
+    expect(filePaypalCapturePersistFailureReview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({ source: 'reconcile' }),
+      })
+    );
+  });
+
   it('still returns success and records the failure when the refund fails (buyer already paid; flagged for manual refund)', async () => {
     (initiatePaypalOrderRefund as ReturnType<typeof vi.fn>).mockResolvedValue({
       success: false,
       error: 'capture not refundable',
     });
 
-    const res = await refundDuplicatePaypalCaptureOnVerify(BASE);
+    const res = await refundDuplicatePaypalCapture(BASE);
     const json = await res.json();
 
     expect(res.status).toBe(200);
@@ -91,7 +104,7 @@ describe('refundDuplicatePaypalCaptureOnVerify', () => {
       success: true,
     });
 
-    const res = await refundDuplicatePaypalCaptureOnVerify({
+    const res = await refundDuplicatePaypalCapture({
       ...BASE,
       orderNumber: null,
     });

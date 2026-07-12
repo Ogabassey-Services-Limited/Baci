@@ -67,6 +67,7 @@ function orderSnapshot(overrides: Record<string, unknown> = {}) {
     shipping_status: 'pending',
     payment_status: 'unpaid',
     amount_paid: 0,
+    paid_transaction_id: null,
     ...overrides,
   };
 }

@@ -5,25 +5,28 @@ import { filePaypalCapturePersistFailureReview } from '@/lib/payments/file-paypa
 import { initiatePaypalOrderRefund } from '@/lib/payments/paypal-order-refund';
 
 /**
- * `/verify` counterpart of the capture route's `handleBlockPaidElsewhere`
- * (docs/payments/paypal-capture-reconciliation-design.md §6). It handles the
- * one case the verify already-paid fast path must NOT swallow: a PayPal
- * transaction that is `completed` on an order that is already `paid`, but which
- * did NOT settle that order (a stale/duplicate PayPal order captured after the
- * order was paid by another tender or PayPal order).
+ * Shared handler for a PayPal capture that was completed but is NOT the one that
+ * settled its order (docs/payments/paypal-capture-reconciliation-design.md §6,
+ * the block_paid_elsewhere family). It refunds the captured funds and files a
+ * review, then returns idempotent success because the order IS paid.
  *
- * The settling txn is the only one the writer stamps `paypal_split` onto, so a
- * completed PayPal txn WITHOUT that split on an already-paid order is a genuine
- * duplicate capture: refund the captured funds to the buyer and file a review
- * rather than returning a bare success that leaves the money stranded.
+ * Two callers reach this with the authoritative
+ * `orders.paid_transaction_id !== thisTransactionId` signal (set atomically in
+ * the reconcile CAS, so it survives a lost split/metadata write):
+ *  - `/verify`, when a completed PayPal txn arrives on an already-paid order it
+ *    did not settle (source: 'verify');
+ *  - the reconcile writer's CAS-loser branch, when this request captured PayPal
+ *    funds but another tender/PayPal order won the paid-CAS first
+ *    (source: 'reconcile').
  */
-export async function refundDuplicatePaypalCaptureOnVerify(input: {
+export async function refundDuplicatePaypalCapture(input: {
   merchantId: string;
   orderId: string;
   transactionId: string;
   gatewayReference: string | null;
   gatewayResponse: unknown;
   orderNumber: string | null;
+  source: 'verify' | 'reconcile';
 }): Promise<NextResponse> {
   const {
     merchantId,
@@ -32,13 +35,13 @@ export async function refundDuplicatePaypalCaptureOnVerify(input: {
     gatewayReference,
     gatewayResponse,
     orderNumber,
+    source,
   } = input;
 
   const refund = await initiatePaypalOrderRefund({
     merchantId,
     gatewayResponse,
-    reason:
-      'Duplicate PayPal capture detected on verify for an already-settled order',
+    reason: `Duplicate PayPal capture detected on ${source} for an already-settled order`,
   });
 
   await filePaypalCapturePersistFailureReview({
@@ -46,11 +49,11 @@ export async function refundDuplicatePaypalCaptureOnVerify(input: {
     merchantId,
     orderId,
     reason:
-      'PayPal transaction completed on an order already settled by another tender or PayPal order (detected on verify)',
+      'PayPal capture completed on an order already settled by another tender or PayPal order',
     transactionId,
     metadata: {
       stage: 'captured_after_settlement',
-      source: 'verify',
+      source,
       refundSucceeded: refund.success,
       refundError: refund.error ?? null,
     },

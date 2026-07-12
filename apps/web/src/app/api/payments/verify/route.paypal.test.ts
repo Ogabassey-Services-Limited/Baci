@@ -72,8 +72,8 @@ vi.mock('@/lib/supabase/service', () => ({
 }));
 
 const mockRefundDuplicate = vi.fn();
-vi.mock('@/lib/payments/refund-duplicate-paypal-verify-capture', () => ({
-  refundDuplicatePaypalCaptureOnVerify: (...args: unknown[]) =>
+vi.mock('@/lib/payments/refund-duplicate-paypal-capture', () => ({
+  refundDuplicatePaypalCapture: (...args: unknown[]) =>
     mockRefundDuplicate(...args),
 }));
 
@@ -339,8 +339,8 @@ describe('POST /api/payments/verify — paypal branch', () => {
   });
 
   it('refunds a duplicate PayPal capture when a completed txn did NOT settle an already-paid order (Codex P1)', async () => {
-    // completed PayPal txn, NO paypal_split on its metadata → it is not the
-    // settler; the order is already paid (by another tender/PayPal order).
+    // completed PayPal txn on a paid order whose paid_transaction_id points at a
+    // DIFFERENT txn → this txn is not the settler → duplicate capture.
     mockRefundDuplicate.mockResolvedValue(
       NextResponse.json({
         success: true,
@@ -351,7 +351,6 @@ describe('POST /api/payments/verify — paypal branch', () => {
     const supabase = buildSupabase({
       transactionRow: {
         ...paypalTransactionRow('completed'),
-        metadata: null,
         gateway_response: { purchase_units: [{ payments: { captures: [] } }] },
       },
       existingOrder: {
@@ -359,6 +358,7 @@ describe('POST /api/payments/verify — paypal branch', () => {
         order_number: 'ORD-PP1',
         payment_status: 'paid',
         shipping_status: 'processing',
+        paid_transaction_id: 'a-different-txn',
       },
     });
     mockCreateServiceClient.mockReturnValue(supabase);
@@ -372,17 +372,17 @@ describe('POST /api/payments/verify — paypal branch', () => {
         orderId: 'order-1',
         transactionId: 'txn-paypal-1',
         gatewayReference: REFERENCE,
+        source: 'verify',
       })
     );
     // The duplicate is never settled/notified as a fresh payment.
     expect(supabase.rpc).not.toHaveBeenCalled();
   });
 
-  it('does NOT refund when the completed PayPal txn IS the settler (paypal_split present) — idempotent success', async () => {
+  it('does NOT refund when the completed PayPal txn IS the settler (paid_transaction_id matches) — idempotent success', async () => {
     const supabase = buildSupabase({
       transactionRow: {
         ...paypalTransactionRow('completed'),
-        metadata: { paypal_split: { paypalResidualPaid: 25, prepaidPaid: 0 } },
         gateway_response: {},
       },
       existingOrder: {
@@ -390,6 +390,7 @@ describe('POST /api/payments/verify — paypal branch', () => {
         order_number: 'ORD-PP1',
         payment_status: 'paid',
         shipping_status: 'processing',
+        paid_transaction_id: 'txn-paypal-1',
       },
     });
     mockCreateServiceClient.mockReturnValue(supabase);

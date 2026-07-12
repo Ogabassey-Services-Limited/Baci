@@ -37,6 +37,9 @@ export interface PaypalCaptureOrderSnapshot {
   payment_status: string | null;
   /** Pre-capture amount already settled Baci-side (mixed-tender redemption). */
   amount_paid: number | string | null;
+  /** transactions.id that settled the order (atomic settler marker); null until
+   * paid. Authoritative "did THIS txn settle the order" signal. */
+  paid_transaction_id: string | null;
 }
 
 export type PaypalCaptureStateLoad =
@@ -126,7 +129,7 @@ export async function loadPaypalCaptureContext(
   const { data: orderSnapshot, error: orderFetchError } = await supabase
     .from('orders')
     .select(
-      'id, merchant_id, total, currency, customer_email, order_number, shipping_status, payment_status, amount_paid'
+      'id, merchant_id, total, currency, customer_email, order_number, shipping_status, payment_status, amount_paid, paid_transaction_id'
     )
     .eq('id', orderId)
     .eq('merchant_id', merchantId)
