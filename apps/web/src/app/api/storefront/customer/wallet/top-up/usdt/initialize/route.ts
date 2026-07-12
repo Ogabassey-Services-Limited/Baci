@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
       order_id: null,
       platform_fee: 0,
       status: 'pending',
-      transaction_type: 'payment',
+      transaction_type: 'wallet_topup',
     })
     .select('id')
     .single();
@@ -178,10 +178,14 @@ export async function POST(request: NextRequest) {
     if (!capture.success) throw new Error(capture.error);
 
     const payment = capture.data.payment;
+    const capturedAmountMinor = Number(payment.amount);
+    if (!Number.isFinite(capturedAmountMinor) || capturedAmountMinor <= 0) {
+      throw new Error('Juicyway captured amount missing');
+    }
     const address = extractCryptoAddress(payment.payment_method);
     const nextMetadata = {
       ...metadata,
-      juicyway_expected_amount: amountMinor,
+      juicyway_expected_amount: capturedAmountMinor,
       juicyway_payment_id: payment.id,
       juicyway_session_id: session.id,
     };

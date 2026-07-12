@@ -24,6 +24,28 @@ const lookup = {
 };
 
 describe('resolveClaimedPetrockLookup', () => {
+  it('refunds a claimed submission_unknown lookup that has no provider id', async () => {
+    const result = await resolveClaimedPetrockLookup({
+      encryptionKey: 'a'.repeat(64),
+      lookup: {
+        id: 'lookup-1',
+        identifier_ciphertext: 'ciphertext',
+        lease_token: 'lease-1',
+        provider_order_id: null,
+        status: 'submission_unknown',
+        tier: 'blacklist',
+      },
+      provider: { poll: vi.fn() },
+      supabaseAdmin: {} as never,
+    });
+
+    expect(result.kind).toBe('failure');
+    expect(mocks.finalize).toHaveBeenCalledWith(
+      expect.objectContaining({
+        terminalStatus: 'refunded_error',
+      })
+    );
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.reschedule.mockResolvedValue(true);

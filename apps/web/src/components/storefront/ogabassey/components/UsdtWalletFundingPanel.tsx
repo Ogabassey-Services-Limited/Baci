@@ -9,6 +9,7 @@ export function UsdtWalletFundingPanel({
   customerName,
   customerPhone,
   initialAmount,
+  initialReference,
   merchantSlug,
   onFunded,
 }: {
@@ -16,6 +17,7 @@ export function UsdtWalletFundingPanel({
   customerName?: string;
   customerPhone?: string;
   initialAmount?: number;
+  initialReference?: string;
   merchantSlug: string;
   onFunded: () => void;
 }) {
@@ -31,7 +33,11 @@ export function UsdtWalletFundingPanel({
     address: string | null;
     reference: string;
     status: string;
-  } | null>(null);
+  } | null>(
+    initialReference
+      ? { address: null, reference: initialReference, status: 'pending' }
+      : null
+  );
   const [line1, setLine1] = useState('');
   const [pending, setPending] = useState(false);
   const [state, setState] = useState('');
@@ -43,6 +49,15 @@ export function UsdtWalletFundingPanel({
     const refresh = async () => {
       const result = await usdtWalletFundingApi.status(funding.reference);
       if (cancelled || result.kind !== 'ready') return;
+      if (result.amount !== null) setAmount(String(result.amount));
+      if (
+        result.chain === 'AVAXC' ||
+        result.chain === 'ETH' ||
+        result.chain === 'MATIC' ||
+        result.chain === 'TRX'
+      ) {
+        setChain(result.chain);
+      }
       setFunding((current) =>
         current
           ? {
@@ -54,6 +69,7 @@ export function UsdtWalletFundingPanel({
       );
       if (result.fundingStatus === 'completed') onFunded();
     };
+    void refresh();
     const interval = setInterval(refresh, 5_000);
     return () => {
       cancelled = true;

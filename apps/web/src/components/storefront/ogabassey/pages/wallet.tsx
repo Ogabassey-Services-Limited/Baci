@@ -21,12 +21,16 @@ interface OgabasseyV2WalletProps {
   initialShowFunding?: boolean;
   initialShowUsdtFunding?: boolean;
   initialUsdtAmount?: number;
+  initialUsdtReference?: string;
+  usdtWalletEnabled?: boolean;
 }
 
 export function OgabasseyV2Wallet({
   initialShowFunding = false,
   initialShowUsdtFunding = false,
   initialUsdtAmount,
+  initialUsdtReference,
+  usdtWalletEnabled = false,
 }: OgabasseyV2WalletProps) {
   const {
     customer,
@@ -40,7 +44,7 @@ export function OgabasseyV2Wallet({
   const [hasFetchSettled, setHasFetchSettled] = useState(false);
   const [showFunding, setShowFunding] = useState(initialShowFunding);
   const [showUsdtFunding, setShowUsdtFunding] = useState(
-    initialShowUsdtFunding
+    initialShowUsdtFunding && usdtWalletEnabled
   );
   const [refreshToken, setRefreshToken] = useState(0);
 
@@ -56,7 +60,9 @@ export function OgabasseyV2Wallet({
     setFetchedIdentity(identity);
     setWallet(null);
     setShowFunding(identity ? initialShowFunding : false);
-    setShowUsdtFunding(identity ? initialShowUsdtFunding : false);
+    setShowUsdtFunding(
+      identity ? initialShowUsdtFunding && usdtWalletEnabled : false
+    );
     setHasFetchSettled(false);
   }
 
@@ -159,13 +165,15 @@ export function OgabasseyV2Wallet({
                   >
                     <Plus size={20} /> Fund Wallet
                   </button>
-                  <button
-                    className="w-full rounded-xl border border-white/30 px-4 py-3.5 font-bold text-white transition-colors hover:bg-white/10"
-                    onClick={() => setShowUsdtFunding((visible) => !visible)}
-                    type="button"
-                  >
-                    Fund USDT
-                  </button>
+                  {usdtWalletEnabled ? (
+                    <button
+                      className="w-full rounded-xl border border-white/30 px-4 py-3.5 font-bold text-white transition-colors hover:bg-white/10"
+                      onClick={() => setShowUsdtFunding((visible) => !visible)}
+                      type="button"
+                    >
+                      Fund USDT
+                    </button>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -194,7 +202,7 @@ export function OgabasseyV2Wallet({
               />
             ) : null}
 
-            {showUsdtFunding ? (
+            {usdtWalletEnabled && showUsdtFunding ? (
               <UsdtWalletFundingPanel
                 balance={wallet?.balances?.USDT ?? 0}
                 customerName={
@@ -204,6 +212,7 @@ export function OgabasseyV2Wallet({
                 }
                 customerPhone={customer?.phone ?? undefined}
                 initialAmount={initialUsdtAmount}
+                initialReference={initialUsdtReference}
                 merchantSlug={merchant?.slug ?? ''}
                 onFunded={() => setRefreshToken((token) => token + 1)}
               />

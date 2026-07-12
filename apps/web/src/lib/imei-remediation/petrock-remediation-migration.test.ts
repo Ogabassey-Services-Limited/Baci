@@ -131,6 +131,15 @@ describe('Petrock remediation migrations', () => {
     );
   });
 
+  it('recovers no-id IMEI lookups and isolates USDT wallet transactions', () => {
+    const sql = migration('20260712190000_petrock_codex_review_hardening.sql');
+    expect(sql).toContain(
+      "l.status = 'submission_unknown' AND l.provider_order_id IS NULL"
+    );
+    expect(sql).toContain("'wallet_topup'::text");
+    expect(sql).toContain('transactions_transaction_type_check');
+  });
+
   it('leases, advances, and terminally resolves remediation work atomically', () => {
     const sql = [
       '20260711202300_petrock_remediation_reconciliation_rpcs.sql',

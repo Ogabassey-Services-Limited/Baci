@@ -67,6 +67,8 @@ async function status(reference: string) {
     const data = record(await response.json());
     if (response.ok && data?.success === true) {
       return {
+        amount: typeof data.amount === 'number' ? data.amount : null,
+        chain: typeof data.chain === 'string' ? data.chain : null,
         depositAddress:
           typeof data.depositAddress === 'string' ? data.depositAddress : null,
         fundingStatus:

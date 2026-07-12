@@ -6,15 +6,21 @@ vi.mock('@/components/storefront/ogabassey/pages/wallet', () => ({
     initialShowFunding,
     initialShowUsdtFunding,
     initialUsdtAmount,
+    initialUsdtReference,
+    usdtWalletEnabled,
   }: {
     initialShowFunding?: boolean;
     initialShowUsdtFunding?: boolean;
     initialUsdtAmount?: number;
+    initialUsdtReference?: string;
+    usdtWalletEnabled?: boolean;
   }) => (
     <div
       data-initial-show-funding={String(initialShowFunding ?? false)}
       data-initial-show-usdt={String(initialShowUsdtFunding ?? false)}
       data-initial-usdt-amount={String(initialUsdtAmount ?? '')}
+      data-initial-usdt-reference={String(initialUsdtReference ?? '')}
+      data-usdt-wallet-enabled={String(usdtWalletEnabled ?? false)}
     >
       Wallet UI
     </div>
@@ -36,6 +42,25 @@ describe('WalletContentSection', () => {
     expect(heading).toHaveClass('sr-only');
     expect(section).toHaveAttribute('aria-labelledby', 'wallet-page-title');
     expect(screen.getByText('Wallet UI')).toBeInTheDocument();
+  });
+
+  it('forwards USDT capability and redirected funding reference', () => {
+    render(
+      <WalletContentSection
+        initialShowUsdtFunding
+        initialUsdtReference="wusdt_ref_123456"
+        usdtWalletEnabled
+      />
+    );
+
+    expect(screen.getByText('Wallet UI')).toHaveAttribute(
+      'data-initial-usdt-reference',
+      'wusdt_ref_123456'
+    );
+    expect(screen.getByText('Wallet UI')).toHaveAttribute(
+      'data-usdt-wallet-enabled',
+      'true'
+    );
   });
 
   it('forwards the funding deep-link state to the wallet UI', () => {

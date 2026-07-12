@@ -1,10 +1,12 @@
 import {
+  IMEI_IDENTIFIER_BY_DEVICE,
   IMEI_SERVICE_TIERS,
   type ImeiIdentifierType,
   type ImeiServiceTierKey,
   isValidDeviceIdentifier,
   normalizeDeviceIdentifier,
   PUBLIC_IMEI_SERVICE_TIERS,
+  resolveInputIdentifier,
 } from '@baci/shared/imei';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { NextRequest } from 'next/server';
@@ -177,7 +179,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const requestedIdentifier = IMEI_SERVICE_TIERS[requestedTier].identifier;
+    const tierIdentifier = IMEI_SERVICE_TIERS[requestedTier].identifier;
+    const requestedIdentifier = deviceCategory
+      ? resolveInputIdentifier(
+          tierIdentifier,
+          IMEI_IDENTIFIER_BY_DEVICE[deviceCategory]
+        )
+      : tierIdentifier;
     // Validate the RAW submitted value first. Normalizing before validating
     // would silently truncate an over-length input (e.g. a 15-char serial
     // sliced to 14) into a spurious "valid" value that then bills a wallet

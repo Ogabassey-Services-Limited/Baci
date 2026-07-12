@@ -31,6 +31,7 @@ export const imeiCheckSchema = z
   .superRefine((value, context) => {
     if (
       value.device &&
+      isImeiServiceTierKey(value.tier) &&
       !IMEI_SERVICE_TIERS[value.tier].deviceCategories.some(
         (category) => category === value.device
       )

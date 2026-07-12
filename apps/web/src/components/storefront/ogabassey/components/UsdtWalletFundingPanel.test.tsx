@@ -23,6 +23,9 @@ describe('UsdtWalletFundingPanel', () => {
       reference: 'wusdt_ref',
     });
     mocks.status.mockResolvedValue({
+      amount: 65,
+      chain: 'TRX',
+      depositAddress: null,
       fundingStatus: 'pending',
       kind: 'ready',
     });
@@ -51,5 +54,28 @@ describe('UsdtWalletFundingPanel', () => {
     expect(mocks.initialize).toHaveBeenCalledWith(
       expect.objectContaining({ amount: 65, chain: 'TRX' })
     );
+  });
+
+  it('resumes status polling from a redirected funding reference', async () => {
+    mocks.status.mockResolvedValue({
+      amount: 65,
+      chain: 'TRX',
+      depositAddress: 'TResumedAddress',
+      fundingStatus: 'pending',
+      kind: 'ready',
+    });
+
+    render(
+      <UsdtWalletFundingPanel
+        balance={0}
+        initialReference="wusdt_ref_123456"
+        merchantSlug="ogabassey"
+        onFunded={vi.fn()}
+      />
+    );
+
+    expect(await screen.findByText('TResumedAddress')).toBeInTheDocument();
+    expect(mocks.status).toHaveBeenCalledWith('wusdt_ref_123456');
+    expect(mocks.initialize).not.toHaveBeenCalled();
   });
 });

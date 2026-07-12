@@ -32,4 +32,21 @@ describe('imeiCheckSchema', () => {
         .clientCapabilities
     ).toEqual([]);
   });
+
+  it('returns validation errors instead of throwing for an unknown tier with a device', () => {
+    expect(() =>
+      imeiCheckSchema.safeParse({
+        device: 'laptop',
+        imei: 'ABCDEFGH12',
+        tier: 'not-a-real-tier',
+      })
+    ).not.toThrow();
+    expect(
+      imeiCheckSchema.safeParse({
+        device: 'laptop',
+        imei: 'ABCDEFGH12',
+        tier: 'not-a-real-tier',
+      }).success
+    ).toBe(false);
+  });
 });

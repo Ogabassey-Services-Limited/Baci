@@ -72,7 +72,7 @@ export const mockAdminSupabase = {
 
 function resetAdminFromMock() {
   mockAdminSupabase.from.mockImplementation((table: string) => {
-    if (table === 'transactions') {
+    if (table !== 'reconciliation_review') {
       return mockSupabase.from(table) as never;
     }
     if (table === 'reconciliation_review') {
@@ -82,8 +82,12 @@ function resetAdminFromMock() {
   });
 }
 
+const mockCreateServerClient = vi.hoisted(() => vi.fn());
+export function getMockCreateServerClient() {
+  return mockCreateServerClient;
+}
 vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn(() => mockSupabase),
+  createClient: mockCreateServerClient,
 }));
 
 vi.mock('@/lib/supabase/admin', () => ({
@@ -204,6 +208,7 @@ export async function setupJuicywayWebhookTest(): Promise<
   ReturnType<typeof vi.fn>
 > {
   vi.clearAllMocks();
+  mockCreateServerClient.mockImplementation(() => mockSupabase);
   resetAdminFromMock();
   mockSupabase.from.mockImplementation(() => ({
     delete: vi.fn().mockReturnThis(),

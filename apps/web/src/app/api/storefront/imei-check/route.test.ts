@@ -512,6 +512,24 @@ describe('POST /api/storefront/imei-check', () => {
     expect(mocks.mockRequestSickwCheck).not.toHaveBeenCalled();
   });
 
+  it('rejects an IMEI for a serial-only device tab before any wallet debit', async () => {
+    const { POST } = await importRoute();
+
+    const response = await POST(
+      createRequest({
+        device: 'laptop',
+        imei: VALID_IMEI,
+        tier: 'activation',
+      })
+    );
+    const body = (await response.json()) as { code: string };
+
+    expect(response.status).toBe(400);
+    expect(body.code).toBe('INVALID_IMEI');
+    expect(mocks.mockRedeemImeiWalletPayment).not.toHaveBeenCalled();
+    expect(mocks.mockRequestSickwCheck).not.toHaveBeenCalled();
+  });
+
   it('returns 404 when the authenticated user has no customer for the storefront', async () => {
     mocks.mockResolveImeiCustomer.mockResolvedValueOnce(null);
     const { POST } = await importRoute();

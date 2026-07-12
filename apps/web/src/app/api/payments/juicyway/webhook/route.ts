@@ -1,5 +1,4 @@
 import { formatOrderItemDisplayName } from '@baci/shared/lib';
-import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
 import {
   fetchAnalyticsPlatformConfig,
@@ -30,7 +29,6 @@ import {
 } from '@/lib/payments/handle-payment-for-cancelled-order';
 import { handleJuicywayWalletTopUpIfNeeded } from '@/lib/payments/juicyway-wallet-top-up';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
 
 // Juicyway webhook IP whitelist (from docs)
@@ -239,8 +237,7 @@ export async function POST(request: NextRequest) {
     });
     if (walletTopUpResponse) return walletTopUpResponse;
 
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    const supabase = adminSupabase;
 
     // Check if already processed (idempotency)
     if (transaction.status === 'completed') {

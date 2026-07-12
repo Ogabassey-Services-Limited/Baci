@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { isUsdtWalletEnabled } from '@/env';
 
 import {
   getCachedMerchant,
@@ -13,6 +14,7 @@ import { WalletContentSection } from './wallet-content-section';
 import {
   isWalletFundingDeepLink,
   parseUsdtWalletFundingAmount,
+  parseUsdtWalletFundingReference,
 } from './wallet-funding-deep-link';
 
 export const metadata: Metadata = {
@@ -67,6 +69,10 @@ async function WalletContent({ params, searchParams }: WalletPageProps) {
       initialUsdtAmount={parseUsdtWalletFundingAmount(
         resolvedSearchParams.amount
       )}
+      initialUsdtReference={parseUsdtWalletFundingReference(
+        resolvedSearchParams.funding
+      )}
+      usdtWalletEnabled={isUsdtWalletEnabled()}
     />
   );
 }

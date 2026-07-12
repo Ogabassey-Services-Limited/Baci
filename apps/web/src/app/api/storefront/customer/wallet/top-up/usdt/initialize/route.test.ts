@@ -136,7 +136,7 @@ describe('POST USDT wallet top-up initialize', () => {
     );
   });
 
-  it('keeps the customer-approved amount locked when capture metadata drifts', async () => {
+  it('persists the provider-captured amount for exact webhook settlement matching', async () => {
     mocks.capture.mockResolvedValue({
       data: {
         payment: {
@@ -154,8 +154,19 @@ describe('POST USDT wallet top-up initialize', () => {
 
     expect(database.builder.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        metadata: expect.objectContaining({ juicyway_expected_amount: 2500 }),
+        metadata: expect.objectContaining({
+          juicyway_expected_amount: 9999,
+          wallet_credit_amount: 25,
+        }),
       })
+    );
+  });
+
+  it('stores wallet funding outside merchant-payment transaction accounting', async () => {
+    await POST(request() as never);
+
+    expect(database.builder.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ transaction_type: 'wallet_topup' })
     );
   });
 

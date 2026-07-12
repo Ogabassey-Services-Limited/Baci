@@ -4,12 +4,16 @@ interface WalletContentSectionProps {
   initialShowFunding?: boolean;
   initialShowUsdtFunding?: boolean;
   initialUsdtAmount?: number;
+  initialUsdtReference?: string;
+  usdtWalletEnabled?: boolean;
 }
 
 export function WalletContentSection({
   initialShowFunding = false,
   initialShowUsdtFunding = false,
   initialUsdtAmount,
+  initialUsdtReference,
+  usdtWalletEnabled = false,
 }: WalletContentSectionProps) {
   return (
     <section aria-labelledby="wallet-page-title">
@@ -20,6 +24,8 @@ export function WalletContentSection({
         initialShowFunding={initialShowFunding}
         initialShowUsdtFunding={initialShowUsdtFunding}
         initialUsdtAmount={initialUsdtAmount}
+        initialUsdtReference={initialUsdtReference}
+        usdtWalletEnabled={usdtWalletEnabled}
       />
     </section>
   );

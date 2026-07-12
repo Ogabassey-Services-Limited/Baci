@@ -66,7 +66,8 @@ describe('createPetrockProvider', () => {
         getOrder: vi.fn().mockResolvedValue({
           data: {
             orderUuid: 'order-123',
-            replay: 'Model Description: iPhone 15 Pro<br>USA Blacklist: Clean',
+            replay:
+              'Model Description: iPhone 15 Pro<br>USA Blacklist: Clean<br>Sold To: Apple Store<br>Finance: Clean<br>Photo URL: https://example.com/device.jpg',
             status: 'success',
           },
           ok: true,
@@ -89,6 +90,9 @@ describe('createPetrockProvider', () => {
           blacklistStatus: 'Clean',
           device: 'iPhone 15 Pro',
           imei: '490154203237518',
+          soldBy: 'Apple Store',
+          financeStatus: 'Clean',
+          devicePhoto: 'https://example.com/device.jpg',
         },
         success: true,
       },

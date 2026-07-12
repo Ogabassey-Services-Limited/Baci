@@ -37,6 +37,31 @@ export async function resolveClaimedPetrockLookup({
   supabaseAdmin: AdminClient;
 }) {
   if (!lookup.provider_order_id || !lookup.identifier_ciphertext) {
+    if (lookup.status === 'submission_unknown' && !lookup.provider_order_id) {
+      const body = {
+        code: 'PETROCK_SUBMISSION_UNRESOLVED',
+        error:
+          'IMEI submission could not be confirmed; your wallet was refunded.',
+        lookupId: lookup.id,
+        status: 'error' as const,
+        success: false as const,
+      };
+      const finalized = await finalizePetrockLookup({
+        body,
+        leaseToken: lookup.lease_token,
+        lookupId: lookup.id,
+        providerStatus: 'submission_unresolved',
+        status: 502,
+        supabaseAdmin,
+        terminalStatus: 'refunded_error',
+      });
+      return finalized
+        ? { body, kind: 'failure' as const, status: 502 }
+        : {
+            kind: 'lease_lost' as const,
+            pollAfterMs: PETROCK_MAX_POLL_AFTER_MS,
+          };
+    }
     const pollAfterMs = PETROCK_MAX_POLL_AFTER_MS;
     const rescheduled = await reschedulePetrockLookupPoll({
       leaseToken: lookup.lease_token,
