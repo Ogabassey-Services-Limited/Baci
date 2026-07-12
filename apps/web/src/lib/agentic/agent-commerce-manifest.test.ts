@@ -195,6 +195,31 @@ describe('agent commerce manifest builder', () => {
     expect(manifest.links.checkout_sessions).toBeUndefined();
   });
 
+  it('advertises Paystack from the snapshot capability hint when the raw subaccount code is omitted', async () => {
+    // The public storefront snapshot intentionally omits the raw
+    // paystack_subaccount_code and only exposes the derived
+    // paystack_subaccount_configured hint. The public manifest must gate on
+    // the hint so configured merchants keep agentic checkout; private payment
+    // paths remain authoritative over the raw code at charge time.
+    const { buildAgentCommerceManifest } = await import(
+      '@/lib/agentic/agent-commerce-manifest'
+    );
+
+    const manifest = buildAgentCommerceManifest(
+      {
+        business_name: 'Ogabassey',
+        feature_settings: { pay_on_delivery_enabled: false },
+        paystack_subaccount_code: null,
+        paystack_subaccount_configured: true,
+        slug: 'ogabassey',
+      },
+      'https://ogabassey.com'
+    );
+
+    expect(manifest.payment_methods).toEqual(['paystack_bank_transfer']);
+    expect(manifest.capabilities).toContain('checkout.session.complete');
+  });
+
   it('hides checkout mutations when payment methods are unavailable', async () => {
     const { buildAgentCommerceManifest } = await import(
       '@/lib/agentic/agent-commerce-manifest'

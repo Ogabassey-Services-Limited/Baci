@@ -116,6 +116,7 @@ describe('OgabasseyPdpSemanticSections', () => {
           business_name: 'OgaBassey',
           country: 'NG',
           payout_currency: 'USD',
+          feature_settings: { blog_enabled: true },
         },
         product,
         productComparePathPrefix: '/ogabassey',
@@ -127,8 +128,10 @@ describe('OgabasseyPdpSemanticSections', () => {
     expect(mockGetCachedProductSeoLinkData).toHaveBeenCalledWith(
       'merchant-1',
       'laptops',
-      'ogabassey',
-      'prod-1'
+      'prod-1',
+      'lenovo-legion',
+      'Lenovo',
+      true
     );
     expect(mockBuildProductSemanticModel).toHaveBeenCalledWith(
       expect.objectContaining({

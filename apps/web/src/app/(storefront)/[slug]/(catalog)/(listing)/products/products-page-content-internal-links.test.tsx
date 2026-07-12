@@ -60,6 +60,10 @@ vi.mock(
 
 vi.mock('@/lib/cached-data', () => ({
   getCachedCategories: (...args: unknown[]) => mockGetCachedCategories(...args),
+  getStorefrontCategories: async (...args: unknown[]) => ({
+    categories: await mockGetCachedCategories(...args),
+    queryFailed: false,
+  }),
   getRequestScopedMerchant: (...args: unknown[]) =>
     mockGetRequestScopedMerchant(...args),
 }));

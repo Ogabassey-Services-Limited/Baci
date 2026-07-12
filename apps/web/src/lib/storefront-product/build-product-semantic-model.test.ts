@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { PRODUCT_SCOPED_COMPARE_DISCOVERY_PRODUCT_LIMIT } from '@/lib/storefront-compare/build-compare-discovery-links';
-import { buildProductSemanticModel } from './build-product-semantic-model';
+import {
+  buildProductSemanticModel,
+  MAX_SEMANTIC_SECTION_CARDS,
+} from './build-product-semantic-model';
 import type {
   BuildProductSemanticModelInput,
   ProductSemanticCandidate,
@@ -572,5 +575,71 @@ describe('buildProductSemanticModel', () => {
 
     expect(noBrandModel.sameBrand).toBeNull();
     expect(noBrandModel.guideLinks).toEqual([]);
+  });
+
+  it('keeps the viewed product independent of a saturated enrichment inventory cap', () => {
+    // The PDP enrichment RPC caps its OTHER-product inventory
+    // (PDP_SEMANTIC_INVENTORY_LIMIT = 48). The viewed product is sourced from
+    // the bounded PDP core snapshot, never from that capped inventory, so a full
+    // inventory that does NOT contain the current product must never drop it:
+    // its own support surface stays, and it is excluded from its own
+    // alternative/same-brand/same-price cards (it is the anchor, not a
+    // candidate). The cap therefore only bounds the OTHER candidates and can
+    // never crowd the viewed product out of its own PDP.
+    const SATURATED_ENRICHMENT_INVENTORY = 48;
+    const currentProduct = makeCandidate({
+      slug: 'anchor-flagship',
+      name: 'Anchor Flagship',
+      brand: 'Apple',
+      price: 500_000,
+      product_key_specs: { chipset: 'A19 Pro', ram_gb: 8, storage_gb: 256 },
+    });
+    const inventory = Array.from(
+      { length: SATURATED_ENRICHMENT_INVENTORY },
+      (_, index) =>
+        makeCandidate({
+          slug: `enrichment-candidate-${index}`,
+          name: `Enrichment Candidate ${index}`,
+          brand: index % 2 === 0 ? 'Apple' : 'Samsung',
+          price: 480_000 + index * 1_000,
+          product_key_specs: {
+            chipset: `Chip ${index}`,
+            ram_gb: 8,
+            storage_gb: 128,
+          },
+        })
+    );
+
+    const model = buildProductSemanticModel(
+      makeInput({ currentProduct, inventory })
+    );
+
+    // The viewed product's own presentation survives regardless of inventory
+    // size — the category hub link is derived from the current product.
+    expect(model.supportLinks).toEqual(
+      expect.arrayContaining([
+        {
+          href: 'https://ogabassey.com/smartphones',
+          label: 'Shop more Smartphones',
+        },
+      ])
+    );
+
+    // The viewed product is the anchor: it never appears as a candidate card,
+    // and the capped inventory only bounds the OTHER candidates (<= MAX cards).
+    const allCards = [
+      ...(model.alternatives?.cards ?? []),
+      ...(model.sameBrand?.cards ?? []),
+      ...(model.samePrice?.cards ?? []),
+    ];
+    expect(
+      allCards.some((card) => card.href.endsWith('/anchor-flagship'))
+    ).toBe(false);
+    expect(model.alternatives?.cards.length ?? 0).toBeLessThanOrEqual(
+      MAX_SEMANTIC_SECTION_CARDS
+    );
+    expect(model.sameBrand?.cards.length ?? 0).toBeLessThanOrEqual(
+      MAX_SEMANTIC_SECTION_CARDS
+    );
   });
 });

@@ -57,6 +57,16 @@ vi.mock(
 
 vi.mock('@/lib/cached-data', () => ({
   getCachedCategories: (...args: unknown[]) => mockGetCachedCategories(...args),
+  getStorefrontCategories: async (...args: unknown[]) => {
+    try {
+      return {
+        categories: await mockGetCachedCategories(...args),
+        queryFailed: false,
+      };
+    } catch {
+      return { categories: [], queryFailed: true };
+    }
+  },
   getRequestScopedMerchant: (...args: unknown[]) =>
     mockGetRequestScopedMerchant(...args),
 }));
@@ -88,8 +98,17 @@ vi.mock('@/lib/validation', () => ({
 }));
 
 vi.mock('./product-index-card', () => ({
-  ProductIndexCard: ({ formattedPrice }: { formattedPrice: string }) => (
-    <span>{formattedPrice}</span>
+  ProductIndexCard: ({
+    formattedPrice,
+    product,
+  }: {
+    formattedPrice: string;
+    product: { name: string };
+  }) => (
+    <article>
+      <h2>{product.name}</h2>
+      <span>{formattedPrice}</span>
+    </article>
   ),
 }));
 
@@ -242,6 +261,46 @@ describe('ProductsPageContent', () => {
 
     expect(screen.getByText(/₹|INR/)).toBeInTheDocument();
     expect(screen.queryByText(/₦/)).not.toBeInTheDocument();
+  });
+
+  it('keeps rendering products when optional category navigation is unavailable', async () => {
+    mockGetRequestScopedMerchant.mockResolvedValue({
+      id: 'merchant-1',
+      business_name: 'Demo Store',
+      slug: 'demo-store',
+      country: 'NG',
+      payout_currency: 'NGN',
+      site_description: 'Browse products',
+    });
+    mockGetCachedCategories.mockRejectedValueOnce(
+      new Error('category timeout')
+    );
+    mockGetCachedStorefrontProductIndex.mockResolvedValue({
+      hasError: false,
+      totalCount: 1,
+      totalPages: 1,
+      products: [
+        {
+          id: 'product-1',
+          name: 'Galaxy S25',
+          slug: 'galaxy-s25',
+          price: 1_000_000,
+          images: [],
+          categories: [{ name: 'Smartphones', slug: 'smartphones' }],
+        },
+      ],
+    });
+
+    render(
+      (await ProductsPageContent({
+        params: Promise.resolve({ slug: 'demo-store' }),
+        searchParams: Promise.resolve({ page: '1' }),
+      })) as React.ReactElement
+    );
+
+    expect(
+      screen.getByRole('heading', { name: 'Galaxy S25' })
+    ).toBeInTheDocument();
   });
 
   it('enables crawl discovery pagination for the product index', async () => {

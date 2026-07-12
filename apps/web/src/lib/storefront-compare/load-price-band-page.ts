@@ -117,7 +117,7 @@ export async function loadPriceBandPage(
 
   // Over-long / repeatedly-encoded bot segments can never match a category or
   // curated band; bail before getCachedCategoryPageData ->
-  // getCachedCategoryPageShellData (`'use cache: remote'`, keyed on
+  // getCachedCategoryPageShellData (local `'use cache'`, keyed on
   // categorySlug) runs with an unbounded key — the cached category fetch runs
   // BEFORE the curated-band check, so an unsafe priceBandSlug would otherwise
   // still trigger it. (merchantSlug is already bounded by

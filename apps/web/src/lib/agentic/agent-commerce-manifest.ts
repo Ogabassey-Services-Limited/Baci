@@ -49,7 +49,11 @@ const AGENTIC_OPTIONAL_IDENTITY_HEADERS = ['agent-id'] as const;
 
 type MerchantPaymentConfig = Pick<
   CachedMerchant,
-  'business_name' | 'feature_settings' | 'paystack_subaccount_code' | 'slug'
+  | 'business_name'
+  | 'feature_settings'
+  | 'paystack_subaccount_code'
+  | 'paystack_subaccount_configured'
+  | 'slug'
 >;
 
 type AgentCommerceCheckoutLinks = {
@@ -190,9 +194,15 @@ function buildAgenticPaymentMethods(
   googlePayConfig: GooglePayAgenticConfig | null
 ) {
   const methods: AgenticPaymentMethod[] = [];
+  // The public storefront snapshot omits the raw paystack_subaccount_code and
+  // exposes the derived paystack_subaccount_configured hint instead, so the
+  // public capability check accepts either signal (mirroring
+  // isPaystackCheckoutAvailable). Private payment paths stay authoritative
+  // over the raw code when a session is actually charged.
   const paystackReady =
     getPaystackSecretKey() &&
-    isValidPaystackSubaccountCode(merchant.paystack_subaccount_code);
+    (isValidPaystackSubaccountCode(merchant.paystack_subaccount_code) ||
+      merchant.paystack_subaccount_configured === true);
   if (paystackReady) {
     methods.push(AGENTIC_PAYMENT_METHOD_PAYSTACK_BANK_TRANSFER);
     if (googlePayConfig?.gateway === 'paystack') {

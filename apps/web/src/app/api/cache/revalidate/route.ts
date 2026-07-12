@@ -186,7 +186,7 @@ export async function POST(request: NextRequest) {
         // Bust the per-slug Next product-detail caches for every resolved slug
         // BEFORE scheduling the edge purge below: without this, a Cloudflare
         // MISS after the purge refills the edge from the still-tagged Next
-        // entry (getCachedProduct is tagged per-slug, unaffected by the
+        // entry (the PDP snapshot is tagged per-slug, unaffected by the
         // slug-less revalidateProducts above) until its cacheLife TTL,
         // defeating it.
         revalidateProductSlugs(merchantId, resolvedSlugs);

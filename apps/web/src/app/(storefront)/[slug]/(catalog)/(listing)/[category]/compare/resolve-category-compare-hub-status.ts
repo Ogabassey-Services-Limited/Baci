@@ -32,11 +32,13 @@ export type CategoryCompareHubStatus =
  *
  * - Unpublished/draft store: the storefront layout serves the coming-soon shell
  *   (200) before the hub page ever runs, so its hubs must not be hard-404ed.
- * - Degraded categories load: `getCachedCategories` swallows a transient query
- *   error and returns `[]`, which is indistinguishable from a genuinely
- *   category-less store; a store-wide categories outage would otherwise
- *   hard-404 every live hub. This mirrors the `inventoryDegraded` fail-open on
- *   the per-category inventory path.
+ * - Degraded categories load: `getCachedCategories` now THROWS on a transient
+ *   query error (fail-loud, so the failure is never cached as an empty list);
+ *   the throw propagates to the internal route's catch, which returns the
+ *   fail-open shape — a store-wide categories outage can never hard-404 a
+ *   live hub. An EMPTY list from a successful query stays ambiguous
+ *   (genuinely category-less store) and also fails open below. This mirrors
+ *   the `inventoryDegraded` fail-open on the per-category inventory path.
  *
  * A genuinely-unknown category on an established store (categories loaded
  * non-empty, slug absent) still resolves to 'empty' — that closes the
@@ -70,8 +72,9 @@ export async function resolveCategoryCompareHubStatus(input: {
   }
 
   const categories = await getCachedCategories(merchant.id);
-  // Empty list is ambiguous: a transient (swallowed) categories-load failure or
-  // a genuinely category-less store. Fail open, uncached — never hard-404 nor
+  // Transient categories-load failures THROW past this point (the internal
+  // route's catch fails open); an empty list from a successful query is a
+  // genuinely category-less store. Fail open, uncached — never hard-404 nor
   // cache a verdict on this signal.
   if (categories.length === 0) {
     return { kind: 'unknown' };

@@ -1,14 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetRequestScopedMerchant = vi.fn();
-const mockGetCachedProduct = vi.fn();
 const mockGetCachedProductWithDetails = vi.fn();
 const mockGetCachedLegacyProductRedirectTarget = vi.fn();
 
+// getProductCached performs ONE detail lookup (getCachedProductWithDetails);
+// the former separate getCachedProduct LCP-projection call was folded into it
+// by the bounded-snapshot adoption, so it is deliberately absent here.
 vi.mock('@/lib/cached-data', () => ({
   getCachedLegacyProductRedirectTarget: (...args: unknown[]) =>
     mockGetCachedLegacyProductRedirectTarget(...args),
-  getCachedProduct: (...args: unknown[]) => mockGetCachedProduct(...args),
   getCachedProductWithDetails: (...args: unknown[]) =>
     mockGetCachedProductWithDetails(...args),
   getRequestScopedMerchant: (...args: unknown[]) =>
@@ -68,7 +69,6 @@ describe('getRequestScopedProduct', () => {
       cache.clear();
     }
     mockGetRequestScopedMerchant.mockResolvedValue(merchant);
-    mockGetCachedProduct.mockResolvedValue(null);
     mockGetCachedProductWithDetails.mockResolvedValue(null);
   });
 
@@ -78,7 +78,6 @@ describe('getRequestScopedProduct', () => {
 
     expect(second).toBe(first);
     expect(mockGetRequestScopedMerchant).toHaveBeenCalledTimes(1);
-    expect(mockGetCachedProduct).toHaveBeenCalledTimes(1);
     expect(mockGetCachedProductWithDetails).toHaveBeenCalledTimes(1);
   });
 
@@ -86,13 +85,13 @@ describe('getRequestScopedProduct', () => {
     await getRequestScopedProduct('test-store', 'first-product');
     await getRequestScopedProduct('test-store', 'second-product');
 
-    expect(mockGetCachedProduct).toHaveBeenCalledTimes(2);
-    expect(mockGetCachedProduct).toHaveBeenNthCalledWith(
+    expect(mockGetCachedProductWithDetails).toHaveBeenCalledTimes(2);
+    expect(mockGetCachedProductWithDetails).toHaveBeenNthCalledWith(
       1,
       'merchant-1',
       'first-product'
     );
-    expect(mockGetCachedProduct).toHaveBeenNthCalledWith(
+    expect(mockGetCachedProductWithDetails).toHaveBeenNthCalledWith(
       2,
       'merchant-1',
       'second-product'
@@ -109,13 +108,13 @@ describe('getRequestScopedProduct', () => {
     await getRequestScopedProduct('store-a', 'shared-product-slug');
     await getRequestScopedProduct('store-b', 'shared-product-slug');
 
-    expect(mockGetCachedProduct).toHaveBeenCalledTimes(2);
-    expect(mockGetCachedProduct).toHaveBeenNthCalledWith(
+    expect(mockGetCachedProductWithDetails).toHaveBeenCalledTimes(2);
+    expect(mockGetCachedProductWithDetails).toHaveBeenNthCalledWith(
       1,
       'merchant-a',
       'shared-product-slug'
     );
-    expect(mockGetCachedProduct).toHaveBeenNthCalledWith(
+    expect(mockGetCachedProductWithDetails).toHaveBeenNthCalledWith(
       2,
       'merchant-b',
       'shared-product-slug'
@@ -128,7 +127,6 @@ describe('getRequestScopedProduct', () => {
     const result = await getRequestScopedProduct('test-store', 'test-product');
 
     expect(result).toBeNull();
-    expect(mockGetCachedProduct).not.toHaveBeenCalled();
     expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
   });
 
@@ -139,6 +137,6 @@ describe('getRequestScopedProduct', () => {
     await expect(
       getRequestScopedProduct('test-store', 'test-product')
     ).rejects.toBe(lookupError);
-    expect(mockGetCachedProduct).not.toHaveBeenCalled();
+    expect(mockGetCachedProductWithDetails).not.toHaveBeenCalled();
   });
 });

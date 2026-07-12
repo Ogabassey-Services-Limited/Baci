@@ -1,4 +1,5 @@
 import { headers } from 'next/headers';
+import { Suspense } from 'react';
 import { JsonLd } from '@/components/seo/json-ld';
 import { ProductSemanticSections } from '@/components/storefront/ogabassey/seo/product-semantic-sections';
 import { PdpRepairDeviceLink } from '@/components/storefront/repairs/PdpRepairDeviceLink';
@@ -12,7 +13,6 @@ import { isPaystackConfigured } from '@/lib/paystack';
 import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import {
   buildStorefrontAcceptedPaymentMethods,
-  generateAggregateRating,
   generateBreadcrumbSchema,
   generateFAQSchema,
   generateProductSchema,
@@ -31,21 +31,124 @@ import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant
 import type { FAQItem } from '@/types/faq';
 import ProductDetailClient from './product-detail-client';
 import type { ProductPageRuntimeProps } from './product-page-types';
+import { buildProductReviewEnhancementSchema } from './product-review-enhancement-schema';
 
+/**
+ * Critical PDP shell. Everything here renders from the already-resolved
+ * `product`/`merchant` with NO await on reviews, semantic inventory, guide
+ * posts or the repairs catalogue, so the core product, the LCP image and the
+ * price/availability (offers) JSON-LD are never blocked by optional
+ * enrichment. The enrichment — the SEO semantic link graph, guides, the live
+ * review structured data and the repair-device link — streams below the
+ * visible shell in ProductPageBelowFold.
+ */
 export async function ProductPageRuntime({
   merchant,
   product,
   slug,
 }: ProductPageRuntimeProps) {
-  // categorySlug/supportedClusterCategory only depend on `product` (already
-  // resolved), so they're computed up front to fold the category-page-data +
-  // guide-posts fetch into the same Promise.all as the review fetch below —
-  // neither pair depends on the other's result, and merging them removes a
-  // sequential await hop (the category fetch previously waited for the
-  // unrelated review fetch to settle first).
   const categorySlug =
     product.category_slug ||
     (product.category ? generateSlug(product.category) : 'products');
+  const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
+  const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
+  const currency = resolveMerchantCurrencyConfig(merchant).code;
+  const productUrl = getValidatedProductUrl(product, baseUrl, merchant.slug);
+
+  // Built from `product` alone: carries offers (price/availability) and product
+  // identity for crawlers on the critical path. Live review signals
+  // (aggregateRating + review) are NOT inlined here — they stream below as a
+  // url-matched enhancement so this block never awaits the reviews query.
+  const productSchema = generateProductSchema(
+    product,
+    merchant.business_name || 'Baci Store',
+    currency,
+    merchant.country || 'NG',
+    merchant.logo_url,
+    trustProfile,
+    {
+      acceptedPaymentMethods: buildStorefrontAcceptedPaymentMethods(merchant, {
+        korapayConfigured: isKorapayConfigured(),
+        paystackConfigured: isPaystackConfigured(),
+        currency,
+      }),
+      productUrl,
+    }
+  );
+
+  const categoryName =
+    product.categories?.name || product.category || 'All Products';
+  const categoryUrl = `${baseUrl}/${categorySlug}`;
+  const breadcrumbItems = [
+    { name: merchant.business_name || 'Home', url: baseUrl },
+    { name: categoryName, url: categoryUrl },
+    { name: product.name, url: productUrl },
+  ];
+  const breadcrumbSchema = generateBreadcrumbSchema(breadcrumbItems);
+  const productFaqs = (product as unknown as { faqs?: FAQItem[] }).faqs;
+  const faqSchema =
+    productFaqs && productFaqs.length > 0
+      ? generateFAQSchema(productFaqs)
+      : null;
+
+  return (
+    <>
+      <JsonLd data={productSchema} />
+      <JsonLd data={breadcrumbSchema} />
+      {faqSchema && <JsonLd data={faqSchema} />}
+      <ProductDetailClient product={product} faqs={productFaqs} />
+      {/* Optional SEO enrichment, live review structured data and the repairs
+          link stream BELOW the already-rendered product shell. fallback={null}
+          is safe: this content appends beneath the visible PDP/LCP shell, so it
+          never hides or shifts it (matches the canonical categorized PDP's
+          semantic-section boundary). */}
+      <Suspense fallback={null}>
+        <ProductPageBelowFold
+          baseUrl={baseUrl}
+          categoryName={categoryName}
+          categorySlug={categorySlug}
+          currency={currency}
+          merchant={merchant}
+          product={product}
+          productUrl={productUrl}
+          slug={slug}
+        />
+      </Suspense>
+    </>
+  );
+}
+
+interface ProductPageBelowFoldProps {
+  baseUrl: string;
+  categoryName: string;
+  categorySlug: string;
+  currency: string;
+  merchant: ProductPageRuntimeProps['merchant'];
+  product: ProductPageRuntimeProps['product'];
+  productUrl: string;
+  slug: string;
+}
+
+/**
+ * Deferred, non-critical PDP enrichment. Its reviews/inventory/guide/repairs
+ * reads are degradable and MUST stay below the critical shell's Suspense
+ * boundary so a slow or failed optional read never blocks or 404s the core
+ * product page.
+ *
+ * Exported so integration tests can pre-await it directly: React's client
+ * renderer (used by @testing-library/react) cannot invoke async components as
+ * JSX, only the RSC server renderer can.
+ */
+export async function ProductPageBelowFold({
+  baseUrl,
+  categoryName,
+  categorySlug,
+  currency,
+  merchant,
+  product,
+  productUrl,
+  slug,
+}: ProductPageBelowFoldProps) {
   const supportedClusterCategory =
     categorySlug in CONTENT_CLUSTER_SUPPORT
       ? (categorySlug as SupportedClusterCategory)
@@ -69,54 +172,14 @@ export async function ProductPageRuntime({
           })
         : Promise.resolve([]),
     ]);
-  // `product` comes from the request-scoped product cache. Mutating it in place
-  // would pollute the shared reference for subsequent renders in the same
-  // request or across requests that replay the same cache entry.
-  const productWithReviews =
-    recentReviews && recentReviews.length > 0
-      ? {
-          ...product,
-          reviews: recentReviews.map((r) => ({
-            author: r.reviewer_name || 'Anonymous',
-            datePublished: r.created_at,
-            reviewBody: r.review_text || '',
-            reviewRating: r.rating,
-          })),
-        }
-      : product;
-  const headersList = await headers();
-  const baseUrl = buildRequestScopedStoreUrl(merchant, headersList);
-  const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
-  const currency = resolveMerchantCurrencyConfig(merchant).code;
-  const productUrl = getValidatedProductUrl(product, baseUrl, merchant.slug);
-  const productSchema = generateProductSchema(
-    productWithReviews,
-    merchant.business_name || 'Baci Store',
-    currency,
-    merchant.country || 'NG',
-    merchant.logo_url,
-    trustProfile,
-    {
-      acceptedPaymentMethods: buildStorefrontAcceptedPaymentMethods(merchant, {
-        korapayConfigured: isKorapayConfigured(),
-        paystackConfigured: isPaystackConfigured(),
-        currency,
-      }),
-      productUrl,
-    }
-  );
-  if (reviewStats && reviewStats.totalReviews > 0) {
-    const aggregateRating = generateAggregateRating({
-      averageRating: reviewStats.averageRating,
-      reviewCount: reviewStats.totalReviews,
-    });
-    if (aggregateRating) {
-      productSchema.aggregateRating = aggregateRating;
-    }
-  }
 
-  const categoryName =
-    product.categories?.name || product.category || 'All Products';
+  const reviewEnhancementSchema = buildProductReviewEnhancementSchema({
+    productName: product.name,
+    productUrl,
+    reviewStats,
+    recentReviews,
+  });
+
   // buildProductSemanticModel normalizes each candidate via
   // `category_slug ?? categorySlug`, then keeps only candidates whose
   // category_slug === categorySlug. The old getCachedCategoryPageData rows
@@ -161,34 +224,21 @@ export async function ProductPageRuntime({
     currency,
     country: merchant.country,
   });
-  const categoryUrl = `${baseUrl}/${categorySlug}`;
-  const breadcrumbItems = [
-    { name: merchant.business_name || 'Home', url: baseUrl },
-    { name: categoryName, url: categoryUrl },
-    { name: product.name, url: productUrl },
-  ];
-  const breadcrumbSchema = generateBreadcrumbSchema(breadcrumbItems);
-  const productFaqs = (product as unknown as { faqs?: FAQItem[] }).faqs;
-  const faqSchema =
-    productFaqs && productFaqs.length > 0
-      ? generateFAQSchema(productFaqs)
-      : null;
+
   // Awaited directly (not rendered as `<PdpRepairDeviceLink />`) because this
   // is an async component: React's client renderer (used by
   // @testing-library/react in tests) cannot invoke async components as JSX,
   // only the RSC server renderer can — matching how this function itself is
-  // pre-awaited by its caller instead of rendered as JSX.
+  // pre-awaited in tests instead of rendered as JSX.
   const repairDeviceLink = await PdpRepairDeviceLink({
-    basePath: getStorefrontPathPrefix(headersList, merchant),
+    basePath: getStorefrontPathPrefix(await headers(), merchant),
     merchant,
     productId: product.id,
   });
+
   return (
     <>
-      <JsonLd data={productSchema} />
-      <JsonLd data={breadcrumbSchema} />
-      {faqSchema && <JsonLd data={faqSchema} />}
-      <ProductDetailClient product={product} faqs={productFaqs} />
+      {reviewEnhancementSchema && <JsonLd data={reviewEnhancementSchema} />}
       <ProductSemanticSections
         model={{
           ...semanticModel,
