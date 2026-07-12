@@ -65,7 +65,11 @@ export async function getCachedStorefrontProductSlugResolution(
   merchantId: string,
   productSlug: string
 ): Promise<StorefrontProductSlugResolutionResult> {
-  'use cache: remote';
+  // PR4a: local `'use cache'`, not the framework remote handler. Keyed on
+  // arbitrary crawler product slugs (unbounded remote keys) while the origin is
+  // a ~2ms anon SECURITY DEFINER RPC — remote SET is pure exit-128 hazard here.
+  // The fail-open contract (hasError → proxy must not 404) is unchanged.
+  'use cache';
   const normalizedMerchantId = merchantId.trim();
   const normalizedSlug = productSlug.trim().toLowerCase();
   if (!normalizedMerchantId || !normalizedSlug) {

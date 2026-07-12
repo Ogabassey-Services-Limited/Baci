@@ -154,6 +154,17 @@ describe('cached-data cache directives', () => {
       expect(source, functionName).toContain('cacheTag(');
     }
   });
+
+  it('keeps the unbounded-key canonical redirect preflight off the remote cache handler (PR4a)', () => {
+    // Keyed on arbitrary crawler product slugs (unbounded remote keys); origin
+    // is an indexed slug/id .maybeSingle() (<15ms). Already fail-loud. The
+    // remote SET is the exit-128 write hazard, so it must be local.
+    const source = getFunctionSource('getCachedProductCanonicalRedirectTarget');
+    expect(source).toContain("'use cache';");
+    expect(source).not.toContain("'use cache: remote';");
+    expect(source).toContain("cacheLife('products');");
+    expect(source).toContain('cacheTag(');
+  });
 });
 
 describe('next.config cacheLife profiles', () => {

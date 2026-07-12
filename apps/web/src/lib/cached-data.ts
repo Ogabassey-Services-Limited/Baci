@@ -1520,7 +1520,13 @@ export async function getCachedProductCanonicalRedirectTarget(
   merchantId: string,
   productSlug: string
 ): Promise<CachedProductCanonicalRedirectTarget | null> {
-  'use cache: remote';
+  // PR4a: local `'use cache'`, not the framework remote handler. The proxy
+  // canonical-redirect preflight is keyed on arbitrary crawler product slugs
+  // (unbounded remote keys); the origin is an indexed slug/id .maybeSingle()
+  // (<15ms) and the read already fails loud, so the shared remote SET only adds
+  // the exit-128 write hazard. The 308-vs-render answer is deterministic per
+  // slug, so a per-instance local cache is behaviourally identical.
+  'use cache';
   cacheLife('products');
   cacheTag(
     'product',
