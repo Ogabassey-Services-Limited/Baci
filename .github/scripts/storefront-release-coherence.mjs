@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { purgeCloudflareCache } from './cloudflare-purge-cache.mjs';
+import { buildReleaseProbeUrl, purgeSitemapBackedHtml } from './storefront-sitemap-purge.mjs';
 
 const DEFAULT_ATTEMPTS = 4;
 const DEFAULT_RETRY_DELAY_MS = 3_000;
 const DEFAULT_TIMEOUT_MS = 20_000;
-const RELEASE_PROBE_PARAM = '__baci_release_probe';
 const RESERVED_ROUTE_ROOTS = new Set([
   '_next',
   'about',
@@ -178,12 +177,6 @@ async function fetchMarkedHtml({ fetchImpl, label, timeoutMs, url, userAgent }) 
   }
 }
 
-function cacheBustedUrl(baseUrl, path, requestId) {
-  const url = new URL(path, baseUrl);
-  url.searchParams.set(RELEASE_PROBE_PARAM, requestId);
-  return url.href;
-}
-
 export async function probePromotedRelease({
   baseUrl,
   fetchImpl = fetch,
@@ -195,14 +188,14 @@ export async function probePromotedRelease({
     fetchImpl,
     label: 'cache-busted canonical home',
     timeoutMs,
-    url: cacheBustedUrl(baseUrl, '/', `${requestId}-home`),
+    url: buildReleaseProbeUrl(baseUrl, '/', `${requestId}-home`),
     userAgent: RELEASE_USER_AGENTS.browser,
   });
   const products = await fetchMarkedHtml({
     fetchImpl,
     label: 'cache-busted products page',
     timeoutMs,
-    url: cacheBustedUrl(baseUrl, '/products', `${requestId}-products`),
+    url: buildReleaseProbeUrl(baseUrl, '/products', `${requestId}-products`),
     userAgent: RELEASE_USER_AGENTS.browser,
   });
   if (products.marker !== home.marker) {
@@ -270,20 +263,29 @@ export async function warmAndAssertCanaries({
 
 export async function runReleaseCoherence(options = {}) {
   const config = readReleaseConfig(options.env);
-  const probe = await probePromotedRelease({ ...config, ...options });
+  const requestId = options.requestId || randomUUID();
+  const probe = await probePromotedRelease({ ...config, ...options, requestId });
   const urls = buildCanaryUrls(config.baseUrl, probe.pdpPath);
   const logger = options.logger || console;
-  logger.log(`Promoted storefront dpl ${probe.marker}; purging ${urls.join(', ')}`);
-  const purge = await (options.purgeImpl || purgeCloudflareCache)({
-    fetchJson: options.cloudflareFetchJson,
+  logger.log(`Promoted storefront dpl ${probe.marker}; discovering canonical sitemap URLs.`);
+  const purge = await (options.releasePurgeImpl || purgeSitemapBackedHtml)({
+    baseUrl: config.baseUrl,
+    canaryUrls: urls,
+    cloudflareFetchJson: options.cloudflareFetchJson,
+    env: options.env,
+    fetchImpl: options.fetchImpl,
     logger,
+    purgeImpl: options.purgeImpl,
+    requestId,
+    sleep: options.sleep,
+    timeoutMs: config.timeoutMs,
     token: config.token,
-    urls,
+    userAgent: RELEASE_USER_AGENTS.browser,
     zoneId: config.zoneId,
   });
-  if (purge.skipped) throw new Error(`Cloudflare canary purge was skipped: ${purge.reason}`);
+  if (purge.skipped) throw new Error(`Storefront HTML purge was skipped: ${purge.reason}`);
   await warmAndAssertCanaries({ ...config, ...options, expectedMarker: probe.marker, logger, urls });
-  return { marker: probe.marker, pdpPath: probe.pdpPath, urls };
+  return { marker: probe.marker, pdpPath: probe.pdpPath, purgedUrls: purge.urls, urls };
 }
 
 const isMain = process.argv[1] === fileURLToPath(import.meta.url);

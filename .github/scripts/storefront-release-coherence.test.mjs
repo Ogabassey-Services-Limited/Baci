@@ -18,6 +18,7 @@ const ENV = {
   STOREFRONT_RELEASE_RETRY_DELAY_MS: '1',
   STOREFRONT_RELEASE_TIMEOUT_MS: '1000',
 };
+const BASE_URL = ENV.STOREFRONT_RELEASE_BASE_URL;
 const MARKER = 'release_123';
 const PDP_PATH = '/smartphones/pixel-9-pro';
 
@@ -43,6 +44,10 @@ function makeSuccessfulFetch(overrides = {}) {
     return response(html(MARKER, extra));
   };
   return { calls, fetchImpl };
+}
+
+async function successfulReleasePurge({ canaryUrls }) {
+  return { skipped: false, urls: canaryUrls };
 }
 
 test('extracts one deployment marker and rejects missing or mixed markers', () => {
@@ -77,26 +82,25 @@ test('discovers a PDP and builds only the five exact origin HTML canaries', () =
   );
 });
 
-test('purges exact URLs then verifies browser and Googlebot variants', async () => {
+test('delegates whole-site purge then verifies browser and Googlebot canaries', async () => {
   const { calls, fetchImpl } = makeSuccessfulFetch();
-  const cloudflareCalls = [];
+  const purgeCalls = [];
   const result = await runReleaseCoherence({
-    cloudflareFetchJson: async (path, options) => {
-      cloudflareCalls.push({ options, path });
-      return { result: { id: 'purge-123' }, success: true };
-    },
     env: ENV,
     fetchImpl,
     logger: { log: () => {}, warn: () => {} },
+    releasePurgeImpl: async (options) => {
+      purgeCalls.push(options);
+      return { skipped: false, urls: [...options.canaryUrls, `${BASE_URL}/faq`] };
+    },
     requestId: 'request-1',
   });
 
   assert.equal(result.marker, MARKER);
   assert.equal(result.pdpPath, PDP_PATH);
-  assert.equal(cloudflareCalls.length, 1);
-  assert.equal(cloudflareCalls[0].path, '/zones/zone-123/purge_cache');
-  assert.deepEqual(cloudflareCalls[0].options.body, { files: result.urls });
-  assert.equal('purge_everything' in cloudflareCalls[0].options.body, false);
+  assert.equal(purgeCalls.length, 1);
+  assert.deepEqual(purgeCalls[0].canaryUrls, result.urls);
+  assert.deepEqual(result.purgedUrls, [...result.urls, `${BASE_URL}/faq`]);
 
   const warmCalls = calls.filter(({ url }) => !new URL(url).search);
   assert.equal(warmCalls.length, 10);
@@ -127,7 +131,7 @@ test('retries a stale warm response within the configured bound', async () => {
     env: ENV,
     fetchImpl,
     logger: { log: () => {}, warn: () => {} },
-    purgeImpl: async ({ urls, zoneId }) => ({ purgedUrls: urls, skipped: false, zoneId }),
+    releasePurgeImpl: successfulReleasePurge,
     requestId: 'request-2',
     sleep: async () => {
       sleepCalls += 1;
@@ -162,7 +166,7 @@ test('aborts before purge when cache-busted home and products markers differ', a
         env: ENV,
         fetchImpl,
         logger: { log: () => {}, warn: () => {} },
-        purgeImpl: async () => {
+        releasePurgeImpl: async () => {
           purgeCalls += 1;
           return { skipped: false };
         },
@@ -198,7 +202,7 @@ test('fails after bounded retries when a canonical response keeps an old marker'
         env: ENV,
         fetchImpl,
         logger: { log: () => {}, warn: () => {} },
-        purgeImpl: async () => ({ skipped: false }),
+        releasePurgeImpl: successfulReleasePurge,
         requestId: 'request-old-canonical',
         sleep: async () => {
           sleepCalls += 1;
@@ -210,7 +214,7 @@ test('fails after bounded retries when a canonical response keeps an old marker'
   assert.equal(sleepCalls, 1);
 });
 
-test('fails closed when the Cloudflare helper skips the purge', async () => {
+test('fails closed when the whole-site purge is skipped', async () => {
   const { calls, fetchImpl } = makeSuccessfulFetch();
 
   await assert.rejects(
@@ -219,10 +223,10 @@ test('fails closed when the Cloudflare helper skips the purge', async () => {
         env: ENV,
         fetchImpl,
         logger: { log: () => {}, warn: () => {} },
-        purgeImpl: async () => ({ reason: 'missing-token', skipped: true }),
+        releasePurgeImpl: async () => ({ reason: 'missing-token', skipped: true }),
         requestId: 'request-skipped-purge',
       }),
-    /Cloudflare canary purge was skipped: missing-token/
+    /Storefront HTML purge was skipped: missing-token/
   );
   assert.equal(calls.length, 2);
 });
@@ -252,7 +256,7 @@ test('fails on a non-2xx promoted release probe', async () => {
         env: ENV,
         fetchImpl: async () => response('unavailable', 503),
         logger: { log: () => {}, warn: () => {} },
-        purgeImpl: async () => assert.fail('purge should not run'),
+        releasePurgeImpl: async () => assert.fail('purge should not run'),
         requestId: 'request-3',
       }),
     /cache-busted canonical home returned HTTP 503/

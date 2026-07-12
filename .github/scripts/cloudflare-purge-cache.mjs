@@ -33,8 +33,11 @@ export function chunkPurgeUrls(urls, size = CLOUDFLARE_SINGLE_FILE_PURGE_MAX_OPE
   return chunks;
 }
 
-async function defaultFetchJson(path, { body, method = 'GET', token } = {}) {
-  const response = await fetch(`${CLOUDFLARE_API_BASE_URL}${path}`, {
+export async function fetchCloudflareJson(
+  path,
+  { body, fetchImpl = fetch, method = 'GET', token } = {}
+) {
+  const response = await fetchImpl(`${CLOUDFLARE_API_BASE_URL}${path}`, {
     method,
     headers: {
       authorization: `Bearer ${token}`,
@@ -48,17 +51,29 @@ async function defaultFetchJson(path, { body, method = 'GET', token } = {}) {
     const details = json?.errors
       ?.map((error) => `${error.code ?? 'unknown'}:${error.message}`)
       .join('; ');
-    throw new Error(
+    const error = new Error(
       `Cloudflare API request failed for ${path}: HTTP ${response.status}${
         details ? ` ${details}` : ''
       }`
     );
+    error.status = response.status;
+    const retryAfter = response.headers.get('retry-after');
+    if (retryAfter) {
+      const seconds = Number(retryAfter);
+      const retryAt = Number.isFinite(seconds)
+        ? Date.now() + seconds * 1000
+        : Date.parse(retryAfter);
+      if (Number.isFinite(retryAt)) {
+        error.retryAfterMs = Math.max(0, retryAt - Date.now());
+      }
+    }
+    throw error;
   }
 
   return json;
 }
 
-export async function discoverZoneId({ fetchJson = defaultFetchJson, token, zoneName }) {
+export async function discoverZoneId({ fetchJson = fetchCloudflareJson, token, zoneName }) {
   if (!zoneName) {
     throw new Error('CLOUDFLARE_ZONE_NAME is required when CLOUDFLARE_ZONE_ID is not set');
   }
@@ -75,7 +90,7 @@ export async function discoverZoneId({ fetchJson = defaultFetchJson, token, zone
 }
 
 export async function purgeCloudflareCache({
-  fetchJson = defaultFetchJson,
+  fetchJson = fetchCloudflareJson,
   logger = console,
   token,
   urls,

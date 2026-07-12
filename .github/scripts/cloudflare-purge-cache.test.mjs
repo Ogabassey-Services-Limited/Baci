@@ -4,9 +4,29 @@ import {
   buildPurgePayload,
   chunkPurgeUrls,
   discoverZoneId,
+  fetchCloudflareJson,
   parsePurgeUrls,
   purgeCloudflareCache,
 } from './cloudflare-purge-cache.mjs';
+
+test('preserves Cloudflare status and Retry-After metadata on failures', async () => {
+  await assert.rejects(
+    () =>
+      fetchCloudflareJson('/zones/zone-123/purge_cache', {
+        fetchImpl: async () =>
+          new Response(JSON.stringify({ errors: [], success: false }), {
+            headers: { 'content-type': 'application/json', 'retry-after': '2' },
+            status: 429,
+          }),
+        token: 'token',
+      }),
+    (error) => {
+      assert.equal(error.status, 429);
+      assert.ok(error.retryAfterMs >= 1_900 && error.retryAfterMs <= 2_000);
+      return true;
+    }
+  );
+});
 
 test('parses comma and newline separated purge URLs', () => {
   assert.deepEqual(
