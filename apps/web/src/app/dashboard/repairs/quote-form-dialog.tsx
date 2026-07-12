@@ -39,6 +39,7 @@ interface FormState {
   serviceTypeId: string;
   price: string;
   isFromPrice: boolean;
+  isActive: boolean;
   partQuality: string;
   turnaround: string;
   warrantyDays: string;
@@ -55,6 +56,7 @@ function toFormState(
       serviceTypeId: serviceTypes[0]?.id ?? '',
       price: '',
       isFromPrice: true,
+      isActive: true,
       partQuality: '',
       turnaround: '',
       warrantyDays: '',
@@ -66,6 +68,7 @@ function toFormState(
     serviceTypeId: quote.serviceTypeId,
     price: String(quote.price),
     isFromPrice: quote.isFromPrice,
+    isActive: quote.isActive,
     partQuality: quote.partQuality ?? '',
     turnaround: quote.turnaround ?? '',
     warrantyDays: quote.warrantyDays !== null ? String(quote.warrantyDays) : '',
@@ -132,6 +135,7 @@ export default function QuoteFormDialog({
       serviceTypeId: form.serviceTypeId,
       price,
       isFromPrice: form.isFromPrice,
+      isActive: form.isActive,
       partQuality: form.partQuality.trim() || null,
       turnaround: form.turnaround.trim() || null,
       warrantyDays,
@@ -218,6 +222,17 @@ export default function QuoteFormDialog({
             />
             <Label htmlFor="quote-is-from-price">
               Price is a starting ("from") price
+            </Label>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Switch
+              id="quote-active"
+              checked={form.isActive}
+              onCheckedChange={(checked) => setField('isActive', checked)}
+            />
+            <Label htmlFor="quote-active">
+              Active (visible in the public catalogue)
             </Label>
           </div>
 
