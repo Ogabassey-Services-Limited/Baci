@@ -298,6 +298,56 @@ describe('useRecordPayment', () => {
     expect(generateUUID).toHaveBeenCalledTimes(1);
   });
 
+  it('retains a pending key when a retry cannot authenticate before sending', async () => {
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token-1' } },
+    });
+    const abortError = new Error('aborted');
+    abortError.name = 'AbortError';
+    mocks.fetch.mockRejectedValueOnce(abortError).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ idempotency_replayed: true }),
+    });
+    const mutation = useRecordPayment() as unknown as {
+      mutationFn: (vars: {
+        amount: number;
+        orderId: string;
+        paymentMethod: string;
+      }) => Promise<unknown>;
+    };
+    const input = {
+      amount: 5000,
+      orderId: 'order-1',
+      paymentMethod: 'cash',
+    };
+
+    await expect(mutation.mutationFn(input)).rejects.toThrow(
+      'Request timed out. Please check your connection and try again.'
+    );
+
+    mocks.getSession.mockResolvedValue({ data: { session: null } });
+    await expect(mutation.mutationFn(input)).rejects.toThrow(
+      'Not authenticated'
+    );
+
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token-1' } },
+    });
+    await expect(mutation.mutationFn(input)).resolves.toMatchObject({
+      idempotency_replayed: true,
+      reconciled_previous_payment: true,
+    });
+
+    const requestBodies = mocks.fetch.mock.calls.map(([, init]) =>
+      JSON.parse(String(init?.body))
+    );
+    expect(requestBodies).toHaveLength(2);
+    expect(requestBodies[0].idempotency_key).toBe(
+      requestBodies[1].idempotency_key
+    );
+    expect(generateUUID).toHaveBeenCalledTimes(1);
+  });
+
   it('reuses the pending idempotency key when only notes change', async () => {
     mocks.getSession.mockResolvedValue({
       data: { session: { access_token: 'token-1' } },

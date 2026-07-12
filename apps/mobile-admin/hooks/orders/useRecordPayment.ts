@@ -33,11 +33,7 @@ function isRetryableRecordPaymentError(
   response: Response,
   payload: Record<string, unknown> | string | null
 ) {
-  if (
-    response.status !== 409 ||
-    !payload ||
-    typeof payload !== 'object'
-  ) {
+  if (response.status !== 409 || !payload || typeof payload !== 'object') {
     return false;
   }
 
@@ -86,9 +82,11 @@ export function useRecordPayment() {
         console.error('Failed to read manual payment retry key', error);
       }
       const now = Date.now();
-      const memoryRetry = pendingIdempotencyKeys.current.get(requestFingerprint);
+      const memoryRetry =
+        pendingIdempotencyKeys.current.get(requestFingerprint);
       const reusableMemoryRetry =
-        memoryRetry && now - memoryRetry.createdAt <= RECORD_PAYMENT_RETRY_LEASE_MS
+        memoryRetry &&
+        now - memoryRetry.createdAt <= RECORD_PAYMENT_RETRY_LEASE_MS
           ? memoryRetry
           : null;
       if (memoryRetry && !reusableMemoryRetry) {
@@ -100,14 +98,12 @@ export function useRecordPayment() {
         now - storedRetry.createdAt <= RECORD_PAYMENT_RETRY_LEASE_MS
           ? storedRetry
           : null;
-      const reusableRetry =
-        reusableMemoryRetry ?? reusableStoredRetry;
+      const reusableRetry = reusableMemoryRetry ?? reusableStoredRetry;
       const createdAt = reusableRetry?.createdAt || now;
-      const idempotencyKey =
-        reusableRetry?.idempotencyKey ?? generateUUID();
+      const idempotencyKey = reusableRetry?.idempotencyKey ?? generateUUID();
       const retryPaymentMethod = reusableRetry?.paymentMethod ?? paymentMethod;
       const retryReference = reusableRetry
-        ? reusableRetry.reference ?? undefined
+        ? (reusableRetry.reference ?? undefined)
         : reference?.trim() || undefined;
       pendingIdempotencyKeys.current.set(requestFingerprint, {
         createdAt,
@@ -182,7 +178,10 @@ export function useRecordPayment() {
           RECORD_PAYMENT_TIMEOUT_MS
         );
       } catch (error) {
-        if (error instanceof AuthenticatedFetchPreflightError) {
+        if (
+          error instanceof AuthenticatedFetchPreflightError &&
+          !reusableRetry
+        ) {
           await clearRejectedRetry();
         }
         throw error;
