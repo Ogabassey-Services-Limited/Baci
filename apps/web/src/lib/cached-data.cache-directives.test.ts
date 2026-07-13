@@ -222,19 +222,27 @@ describe('cached-data cache directives', () => {
 
   it('keeps pagination truthful past the capped ID list (PR4b review fix)', () => {
     // The cap bounds the cached ID list, but totalPages must reflect the EXACT
-    // count or valid pages past the cap 404. When the list hits the cap, an
-    // exact head-count query supplies totalProductCount; windows beyond the
-    // cached list are fetched per-request with the same deterministic ordering.
+    // count or valid pages past the cap 404. The exact head-count query must
+    // run UNCONDITIONALLY: PostgREST max-rows (managed default 1,000 — not
+    // overridden in supabase/config.toml) clamps responses BELOW the 2,000
+    // cap, so any "did we hit the cap?" gate silently reports the clamped
+    // length as the total. Windows beyond the cached list are fetched
+    // per-request with the same deterministic ordering, and no-limit
+    // consumers get the FULL ID list assembled per-request.
     const cachedIdsSource = getFunctionSource(
       'getCachedCategoryPageProductIds'
     );
     expect(cachedIdsSource).toContain('totalProductCount');
     expect(cachedIdsSource).toContain("count: 'exact'");
+    // No cap-equality gate in front of the count (max-rows clamp trap).
+    expect(cachedIdsSource).not.toContain('=== CATEGORY_PAGE_PRODUCT_ID_CAP');
     const aggregateSource = getFunctionSource(
       'getCachedCategoryPageProductsUncached'
     );
     expect(aggregateSource).toContain('totalProductCount');
     expect(aggregateSource).toContain('fetchCategoryPageProductIdWindow');
+    // Unbounded (no-limit) consumers assemble the complete ID list.
+    expect(aggregateSource).toContain('fetchAllCategoryPageProductIds');
   });
 
   it('demotes the service-role dashboard-stats read to local and fail-loud (PR4b)', () => {

@@ -2155,24 +2155,29 @@ async function getCachedCategoryPageProductIds({
 
   const productIds = extractCategoryPageProductIds(data);
 
-  // The ID list is truncated at the cap, so the list length alone would
-  // understate totalPages and 404 valid deep pages. Only when the cap is hit
-  // does an exact count (head request — no rows) supply the real total.
-  let totalProductCount = productIds.length;
-  if (productIds.length === CATEGORY_PAGE_PRODUCT_ID_CAP) {
-    const { count, error: countError } = await buildCategoryPageProductIdsQuery(
-      supabase,
-      merchantId,
-      scope,
-      { count: 'exact', head: true }
-    );
+  // The truncated list length can NEVER be trusted as the scope size: besides
+  // our own cap, PostgREST clamps every response to the server's max-rows
+  // (this project does not override it in supabase/config.toml, so the
+  // Supabase managed default of 1,000 applies — BELOW the 2,000 cap), so a
+  // "did we hit the cap?" gate would silently report the clamped length as
+  // the total. Always fetch the exact count (head request — no rows, same
+  // indexed filters) so pagination totals stay truthful under any clamp
+  // (PR4b review round 2).
+  const { count, error: countError } = await buildCategoryPageProductIdsQuery(
+    supabase,
+    merchantId,
+    scope,
+    { count: 'exact', head: true }
+  );
 
-    if (countError) {
-      throw countError;
-    }
-
-    totalProductCount = Math.max(count ?? productIds.length, productIds.length);
+  if (countError) {
+    throw countError;
   }
+
+  const totalProductCount = Math.max(
+    count ?? productIds.length,
+    productIds.length
+  );
 
   return { productIds, productsQueryFailed: false, totalProductCount };
 }
@@ -2210,6 +2215,62 @@ async function fetchCategoryPageProductIdWindow({
   }
 
   return extractCategoryPageProductIds(data);
+}
+
+/**
+ * Ranged-page size for assembling the full ID list past the cached window.
+ * Matches the PostgREST max-rows clamp (Supabase managed default 1,000) so
+ * each iteration fetches the largest window the server will return.
+ */
+const CATEGORY_PAGE_PRODUCT_ID_ASSEMBLY_PAGE_SIZE = 1000;
+
+/**
+ * Assembles the COMPLETE ordered product-ID list for unbounded (no-limit)
+ * consumers — price-band pages and LLM category markdown expect the full
+ * category payload (PR4b review round 2). The cached item stays capped; only
+ * the remainder past the cached list is paged in per-request with the same
+ * deterministic ordering. The loop is bounded: `from` strictly advances every
+ * iteration and an empty window terminates it (count drift safety).
+ */
+async function fetchAllCategoryPageProductIds({
+  merchantId,
+  scope,
+  seedIds,
+  totalProductCount,
+}: {
+  merchantId: string;
+  scope: CachedCategoryPageProductScope;
+  seedIds: string[];
+  totalProductCount: number;
+}): Promise<string[]> {
+  const ids = [...seedIds];
+  const seen = new Set(ids);
+  let from = ids.length;
+
+  while (ids.length < totalProductCount) {
+    const window = await fetchCategoryPageProductIdWindow({
+      merchantId,
+      scope,
+      from,
+      to: from + CATEGORY_PAGE_PRODUCT_ID_ASSEMBLY_PAGE_SIZE - 1,
+    });
+
+    if (window.length === 0) {
+      // The cached count over-reported the live rows (drift between the
+      // cached fill and now) — stop rather than loop.
+      break;
+    }
+
+    from += window.length;
+    for (const id of window) {
+      if (!seen.has(id)) {
+        seen.add(id);
+        ids.push(id);
+      }
+    }
+  }
+
+  return ids;
 }
 
 async function getCategoryPageProductIds({
@@ -2383,7 +2444,27 @@ async function getCachedCategoryPageProductsUncached({
   let windowQueryFailed = false;
 
   if (!hasBoundedWindow) {
-    productWindow = idResult.productIds;
+    if (idResult.totalProductCount > idResult.productIds.length) {
+      // Unbounded consumers (price-band page, LLM category markdown) expect
+      // the FULL category payload; the cached list is capped/clamped, so the
+      // remainder is assembled per-request with the same ordering (PR4b r2).
+      try {
+        productWindow = await fetchAllCategoryPageProductIds({
+          merchantId,
+          scope,
+          seedIds: idResult.productIds,
+          totalProductCount: idResult.totalProductCount,
+        });
+      } catch (error) {
+        console.error('Full product ID assembly failed outside cache:', error);
+        // Degrade to the capped cached list and flag the failure so
+        // consumers fail open instead of misreading a partial catalog.
+        productWindow = idResult.productIds;
+        windowQueryFailed = true;
+      }
+    } else {
+      productWindow = idResult.productIds;
+    }
   } else if (
     windowStart + productLimit <= idResult.productIds.length ||
     idResult.totalProductCount <= idResult.productIds.length

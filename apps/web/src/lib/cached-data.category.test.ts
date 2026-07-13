@@ -294,6 +294,116 @@ describe('getCachedCategoryPageData category routing and fallback logic', () => 
     expect(harness.mockRange).not.toHaveBeenCalled();
   });
 
+  it('reports the exact count even when the server max-rows clamp returns fewer rows than the cap (PR4b r2)', async () => {
+    harness.mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'cat-active-123',
+        name: 'Active Category',
+        slug: 'active-category',
+        description: 'Standard active category',
+        image_url: null,
+        is_active: true,
+        seo_heading: null,
+        seo_description: null,
+        seo_features: null,
+        seo_faq: null,
+        parent: null,
+      },
+      error: null,
+    });
+    // Supabase max-rows (managed default 1,000 — not overridden in
+    // supabase/config.toml) clamps the response BELOW the 2,000 cap, so a
+    // `length === CAP` gate would never fire and the truncated length would
+    // silently masquerade as the total. The exact count must ALWAYS run.
+    const clampedIds = Array.from({ length: 1000 }, (_, index) => ({
+      id: `product-${index}`,
+    }));
+    harness.mockListResults.push(
+      { data: [{ id: 'cat-active-123' }], error: null }, // scope resolution
+      { data: clampedIds, error: null }, // ID query clamped by max-rows
+      { data: null, error: null, count: 1367 }, // exact head-count query
+      {
+        data: clampedIds
+          .slice(0, 20)
+          .map(({ id }) => ({ id, name: `Product ${id}` })),
+        error: null,
+      } // detail chunk for the requested window
+    );
+
+    const getBoundedCategoryPageData = getCachedCategoryPageData as unknown as (
+      merchantId: string,
+      categorySlug: string,
+      storeSlug: string,
+      productOffset: number,
+      productLimit: number
+    ) => ReturnType<typeof getCachedCategoryPageData>;
+    const result = await getBoundedCategoryPageData(
+      'merchant-123',
+      'active-category',
+      'test-store',
+      0,
+      20
+    );
+
+    expect(result).toMatchObject({
+      productCount: 1367,
+      productsArePrePaginated: true,
+      productsQueryFailed: false,
+    });
+  });
+
+  it('assembles the FULL ID list per-request for unbounded consumers past the cached list (PR4b r2)', async () => {
+    harness.mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'cat-active-123',
+        name: 'Active Category',
+        slug: 'active-category',
+        description: 'Standard active category',
+        image_url: null,
+        is_active: true,
+        seo_heading: null,
+        seo_description: null,
+        seo_features: null,
+        seo_faq: null,
+        parent: null,
+      },
+      error: null,
+    });
+    // No-limit consumers (price-band page, LLM category markdown) expect the
+    // COMPLETE category payload. The cached list stays clamped/capped; the
+    // remainder must be assembled per-request with the same ordering.
+    const cachedIds = Array.from({ length: 1000 }, (_, index) => ({
+      id: `product-${index}`,
+    }));
+    const tailIds = Array.from({ length: 10 }, (_, index) => ({
+      id: `product-${1000 + index}`,
+    }));
+    harness.mockListResults.push(
+      { data: [{ id: 'cat-active-123' }], error: null }, // scope resolution
+      { data: cachedIds, error: null }, // clamped cached ID query
+      { data: null, error: null, count: 1010 }, // exact head-count query
+      { data: tailIds, error: null } // assembly window (1000..1999 → 10 rows)
+      // detail chunks intentionally fall through to the harness default
+      // ({ data: [], error: null }) — coverage is asserted via .in('id', …).
+    );
+
+    const result = await getCachedCategoryPageData(
+      'merchant-123',
+      'active-category',
+      'test-store'
+    );
+
+    // The assembly loop fetched the remainder with the shared ordering.
+    expect(harness.mockRange).toHaveBeenCalledWith(1000, 1999);
+    // Every one of the 1,010 IDs (cached + assembled) reached a detail chunk.
+    const detailChunkIds = harness.mockIn.mock.calls
+      .filter((call) => call[0] === 'id')
+      .flatMap((call) => call[1] as string[]);
+    expect(new Set(detailChunkIds).size).toBe(1010);
+    expect(result.productsArePrePaginated).toBeUndefined();
+    expect(result).toMatchObject({ productsQueryFailed: false });
+  });
+
   it('serves pages beyond the capped ID window from a direct ranged query, not a 404 (PR4b)', async () => {
     harness.mockSingle.mockResolvedValueOnce({
       data: {
@@ -417,6 +527,7 @@ describe('getCachedCategoryPageData category routing and fallback logic', () => 
     harness.mockListResults.push(
       { data: [{ id: 'cat-active-123' }], error: null },
       { data: productIds, error: null },
+      { data: null, error: null, count: 49 }, // exact head-count (always runs)
       { data: [], error: { message: 'detail timeout' } },
       {
         data: [
@@ -470,6 +581,7 @@ describe('getCachedCategoryPageData category routing and fallback logic', () => 
     harness.mockListResults.push(
       { data: [{ id: 'cat-parent' }, { id: 'cat-child' }], error: null },
       { data: [{ id: 'product-1' }], error: null },
+      { data: null, error: null, count: 1 }, // exact head-count (always runs)
       { data: [{ id: 'product-1', name: 'Scoped Product' }], error: null }
     );
 
@@ -479,11 +591,12 @@ describe('getCachedCategoryPageData category routing and fallback logic', () => 
       'product_categories.category_id',
       ['cat-parent', 'cat-child']
     );
+    // ID query + exact head-count query + detail query are all category-scoped.
     expect(
       harness.mockIn.mock.calls.filter(
         ([column]) => column === 'product_categories.category_id'
       )
-    ).toHaveLength(2);
+    ).toHaveLength(3);
     const detailSelect = harness.mockSelect.mock.calls
       .map(([select]) => String(select))
       .find(
@@ -523,6 +636,7 @@ describe('getCachedCategoryPageData category routing and fallback logic', () => 
     harness.mockListResults.push(
       { data: [{ id: 'cat-parent' }], error: null },
       { data: productIds, error: null },
+      { data: null, error: null, count: 21 }, // exact head-count (always runs)
       { data: returnedProducts, error: null }
     );
 
@@ -562,6 +676,7 @@ describe('getCachedCategoryPageData category routing and fallback logic', () => 
     harness.mockListResults.push(
       { data: [{ id: 'cat-parent' }], error: null },
       { data: productIds, error: null },
+      { data: null, error: null, count: 49 }, // exact head-count (always runs)
       {
         data: requestedWindow.map(({ id }) => ({
           id,
