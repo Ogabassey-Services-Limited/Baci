@@ -156,6 +156,10 @@ export async function POST(request: NextRequest) {
       .eq('id', merchantId)
       .single();
 
+    let legacySyncWarning:
+      | 'legacy_fetch_failed'
+      | 'legacy_update_failed'
+      | null = null;
     if (existingLegacyError) {
       logger.error({
         message: 'Failed to fetch merchant legacy virtual terminal code',
@@ -163,17 +167,8 @@ export async function POST(request: NextRequest) {
         merchantId,
         paystackCode: result.data.code,
       });
-      return NextResponse.json(
-        {
-          error: 'Terminal created but failed to verify local sync state',
-          paystackCode: result.data.code,
-        },
-        { status: 500 }
-      );
-    }
-
-    let legacySyncWarning: 'legacy_update_failed' | null = null;
-    if (!existingLegacy?.virtual_terminal_code) {
+      legacySyncWarning = 'legacy_fetch_failed';
+    } else if (!existingLegacy?.virtual_terminal_code) {
       const { data: updatedLegacy, error: updateLegacyError } = await supabase
         .from('merchants')
         .update({ virtual_terminal_code: result.data.code })

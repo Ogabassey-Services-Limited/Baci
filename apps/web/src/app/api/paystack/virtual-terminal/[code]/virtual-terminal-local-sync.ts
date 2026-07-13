@@ -4,11 +4,14 @@ import type { createClient } from '@/lib/supabase/server';
 
 type VirtualTerminalSupabaseClient = ReturnType<typeof createClient>;
 
-type TerminalPatch = { name: string } | { active: false };
-
-function terminalPatchValues(patch: TerminalPatch) {
-  return 'name' in patch ? { name: patch.name } : { active: patch.active };
-}
+type TerminalPatch =
+  | {
+      accountName?: string | null;
+      accountNumber?: string | null;
+      bank?: string | null;
+      name: string;
+    }
+  | { active: false };
 
 export async function verifyTerminalOwnership(
   supabase: VirtualTerminalSupabaseClient,
@@ -70,47 +73,24 @@ export async function syncTerminalRecord(
   code: string,
   patch: TerminalPatch
 ): Promise<NextResponse | null> {
-  const { data: updatedTerminal, error: updateError } = await supabase
-    .from('virtual_terminals')
-    .update(terminalPatchValues(patch))
-    .eq('merchant_id', merchantId)
-    .eq('code', code)
-    .select('id')
-    .maybeSingle();
+  const isNamePatch = 'name' in patch;
+  const { data: syncedTerminalId, error: syncError } = await supabase.rpc(
+    'sync_virtual_terminal_local',
+    {
+      p_account_name: isNamePatch ? (patch.accountName ?? null) : null,
+      p_account_number: isNamePatch ? (patch.accountNumber ?? null) : null,
+      p_active: isNamePatch ? null : patch.active,
+      p_bank: isNamePatch ? (patch.bank ?? null) : null,
+      p_code: code,
+      p_merchant_id: merchantId,
+      p_name: isNamePatch ? patch.name : null,
+    }
+  );
 
-  if (updateError) {
+  if (syncError || !syncedTerminalId) {
     logger.error({
       message: 'Failed to sync virtual terminal record',
-      error: updateError,
-      merchantId,
-      code,
-    });
-    return NextResponse.json(
-      { error: 'Failed to sync Virtual Terminal locally' },
-      { status: 500 }
-    );
-  }
-
-  if (updatedTerminal?.id) return null;
-
-  const name = 'name' in patch ? patch.name : 'Legacy Virtual Terminal';
-  const active = 'active' in patch ? patch.active : true;
-  const { data: insertedTerminal, error: insertError } = await supabase
-    .from('virtual_terminals')
-    .insert({
-      active,
-      code,
-      merchant_id: merchantId,
-      name,
-      payment_link: `https://paystack.com/vt/${code}`,
-    })
-    .select('id')
-    .maybeSingle();
-
-  if (insertError || !insertedTerminal?.id) {
-    logger.error({
-      message: 'Failed to backfill virtual terminal record',
-      error: insertError ?? 'terminal_not_inserted',
+      error: syncError ?? 'terminal_not_synced',
       merchantId,
       code,
     });

@@ -128,43 +128,64 @@ describe('virtual terminal local sync helpers', () => {
   });
 
   it('backfills a missing virtual terminal row after a Paystack update succeeds', async () => {
-    const updateChain = createChain({ data: null, error: null });
-    const insertChain = createChain({
-      data: { id: 'terminal-1' },
+    const rpc = vi.fn().mockResolvedValue({
+      data: 'terminal-1',
       error: null,
     });
-    const update = vi.fn(() => updateChain);
-    const insert = vi.fn(() => insertChain);
     const supabase = {
-      from: vi.fn(() => ({ insert, update })),
+      rpc,
     };
 
     await expect(
       syncTerminalRecord(supabase as never, 'merchant-1', 'VT_123', {
+        accountName: 'Test Store',
+        accountNumber: '1234567890',
+        bank: 'Test Bank',
         name: 'Sales Terminal',
       })
     ).resolves.toBeNull();
 
-    expect(update).toHaveBeenCalledWith({ name: 'Sales Terminal' });
-    expect(insert).toHaveBeenCalledWith({
-      active: true,
-      code: 'VT_123',
-      merchant_id: 'merchant-1',
-      name: 'Sales Terminal',
-      payment_link: 'https://paystack.com/vt/VT_123',
+    expect(rpc).toHaveBeenCalledWith('sync_virtual_terminal_local', {
+      p_account_name: 'Test Store',
+      p_account_number: '1234567890',
+      p_active: null,
+      p_bank: 'Test Bank',
+      p_code: 'VT_123',
+      p_merchant_id: 'merchant-1',
+      p_name: 'Sales Terminal',
     });
-    expect(supabase.from).toHaveBeenCalledWith('virtual_terminals');
   });
 
-  it('returns a 500 response when updating the local terminal row fails', async () => {
-    const updateChain = createChain({
-      data: null,
-      error: { message: 'update failed' },
+  it('uses the constrained RPC for terminal deactivation', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: 'terminal-1',
+      error: null,
     });
-    const update = vi.fn(() => updateChain);
-    const supabase = {
-      from: vi.fn(() => ({ update })),
-    };
+    const supabase = { rpc };
+
+    await expect(
+      syncTerminalRecord(supabase as never, 'merchant-1', 'VT_123', {
+        active: false,
+      })
+    ).resolves.toBeNull();
+
+    expect(rpc).toHaveBeenCalledWith('sync_virtual_terminal_local', {
+      p_account_name: null,
+      p_account_number: null,
+      p_active: false,
+      p_bank: null,
+      p_code: 'VT_123',
+      p_merchant_id: 'merchant-1',
+      p_name: null,
+    });
+  });
+
+  it('returns a 500 response when the constrained sync RPC fails', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: 'sync failed' },
+    });
+    const supabase = { rpc };
 
     const response = await syncTerminalRecord(
       supabase as never,
@@ -179,17 +200,12 @@ describe('virtual terminal local sync helpers', () => {
     });
   });
 
-  it('returns a 500 response when backfilling a missing terminal row fails', async () => {
-    const updateChain = createChain({ data: null, error: null });
-    const insertChain = createChain({
+  it('returns a 500 response when the sync RPC returns no terminal id', async () => {
+    const rpc = vi.fn().mockResolvedValue({
       data: null,
-      error: { message: 'insert failed' },
+      error: null,
     });
-    const update = vi.fn(() => updateChain);
-    const insert = vi.fn(() => insertChain);
-    const supabase = {
-      from: vi.fn(() => ({ insert, update })),
-    };
+    const supabase = { rpc };
 
     const response = await syncTerminalRecord(
       supabase as never,
@@ -201,13 +217,6 @@ describe('virtual terminal local sync helpers', () => {
     expect(response?.status).toBe(500);
     await expect(response?.json()).resolves.toEqual({
       error: 'Failed to sync Virtual Terminal locally',
-    });
-    expect(insert).toHaveBeenCalledWith({
-      active: false,
-      code: 'VT_123',
-      merchant_id: 'merchant-1',
-      name: 'Legacy Virtual Terminal',
-      payment_link: 'https://paystack.com/vt/VT_123',
     });
   });
 

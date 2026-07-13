@@ -12737,6 +12737,18 @@ export type Database = {
         };
         Returns: boolean;
       };
+      sync_virtual_terminal_local: {
+        Args: {
+          p_account_name?: string | null;
+          p_account_number?: string | null;
+          p_active?: boolean | null;
+          p_bank?: string | null;
+          p_code: string;
+          p_merchant_id: string;
+          p_name?: string | null;
+        };
+        Returns: string;
+      };
       claim_customer_on_phone_auth: {
         Args: {
           p_first_name?: string;
