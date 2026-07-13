@@ -1,6 +1,7 @@
 'use client';
 
 import { AlertTriangle } from 'lucide-react';
+import type { Route } from 'next';
 import Link from 'next/link';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { resolveStorefrontPathHref } from '@/lib/storefront-path-prefix';
@@ -32,7 +33,9 @@ export function ImeiCheckerError({
         {needsWalletFunding ? (
           <Link
             className="inline-flex rounded-lg bg-[var(--store-primary)] px-3 py-2 text-sm font-bold text-[var(--store-primary-text,#ffffff)] hover:opacity-90"
-            href={resolveStorefrontPathHref(basePath, '/wallet?fund=1')}
+            href={
+              resolveStorefrontPathHref(basePath, '/wallet?fund=1') as Route
+            }
           >
             Fund wallet
           </Link>
