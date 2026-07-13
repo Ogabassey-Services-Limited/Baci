@@ -134,4 +134,19 @@ describe('buildRelationDeltas', () => {
       expected
     );
   });
+
+  it.each([
+    '',
+    ' ',
+    true,
+    Number.MAX_SAFE_INTEGER + 1,
+  ])('rejects a malformed table counter value', (seqScan) => {
+    expect(() =>
+      buildRelationDeltas(
+        snapshot(),
+        snapshot({ tables: [table({ seq_scan: seqScan })] }),
+        fingerprint
+      )
+    ).toThrow(/table\[0\]\.seq_scan must be a non-negative integer string/i);
+  });
 });

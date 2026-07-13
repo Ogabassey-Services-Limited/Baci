@@ -26,6 +26,43 @@ function requireSame(before, after, path, message, allowNull = false) {
   return left === null ? null : String(left);
 }
 
+function extensionManifest(snapshot, label) {
+  if (!Array.isArray(snapshot?.extensions)) {
+    throw new Error(`${label}.extensions must be an array`);
+  }
+  const extensions = new Map();
+  snapshot.extensions.forEach((extension, index) => {
+    const entry = `${label}.extensions[${index}]`;
+    if (typeof extension?.name !== 'string' || extension.name.trim() === '') {
+      throw new Error(`${entry}.name must be a non-empty string`);
+    }
+    if (
+      typeof extension?.version !== 'string' ||
+      extension.version.trim() === ''
+    ) {
+      throw new Error(`${entry}.version must be a non-empty string`);
+    }
+    if (extensions.has(extension.name)) {
+      throw new Error(`${label}.extensions contains a duplicate name`);
+    }
+    extensions.set(extension.name, extension.version);
+  });
+  return Object.fromEntries(
+    [...extensions.entries()].sort(([left], [right]) =>
+      left.localeCompare(right)
+    )
+  );
+}
+
+function requireSameExtensions(before, after) {
+  const left = extensionManifest(before, 'before');
+  const right = extensionManifest(after, 'after');
+  if (JSON.stringify(left) !== JSON.stringify(right)) {
+    throw new Error('interval crosses an extension manifest change');
+  }
+  return left;
+}
+
 export function validateIntervalSafety(before, after) {
   requireSame(
     before,
@@ -63,6 +100,7 @@ export function validateIntervalSafety(before, after) {
         ),
       ])
     ),
+    extensions: requireSameExtensions(before, after),
     database_stats_reset: requireSame(
       before,
       after,

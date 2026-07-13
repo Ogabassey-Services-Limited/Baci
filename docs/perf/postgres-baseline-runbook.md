@@ -121,7 +121,9 @@ example:
 The SQL begins a read-only transaction and rolls it back. It intentionally does
 not call any statistics-reset function. A snapshot still fails the evidence gate
 if the interval later crosses a reset, restart, build change, or statement-entry
-deallocation.
+deallocation. The interval also rejects an extension manifest or cron workload
+identity change; the snapshot retains cron job IDs, schedules, active state, and
+an MD5 digest of each command for this private comparison, never the command text.
 
 ## 3. Capture client telemetry separately
 
@@ -220,6 +222,8 @@ summary when any of these conditions is observed:
   because PostgreSQL 17 has no per-relation reset timestamp to compare;
 - a statement entry has a new or missing `stats_since` boundary, including a
   targeted `pg_stat_statements_reset` that does not alter the global reset time;
+- the extension manifest or cron job identity, schedule, command digest, or
+  active state changes between captures;
 - table or index identities change between snapshots, or their cumulative
   activity counters regress;
 - any collection-affecting setting changes, including `track_io_timing`,

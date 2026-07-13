@@ -1,3 +1,5 @@
+import { validateCronJobIdentities } from './postgres-baseline-delta-cron.mjs';
+
 const IO_COUNTERS = [
   'reads',
   'writes',
@@ -8,6 +10,8 @@ const IO_COUNTERS = [
   'reuses',
   'fsyncs',
 ];
+const INTEGER_STRING = /^\d+$/;
+const DECIMAL_STRING = /^(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
 const IO_TIMINGS = [
   'read_time',
   'write_time',
@@ -24,6 +28,9 @@ function requiredString(value, label) {
 }
 
 function integer(value, label) {
+  if (typeof value !== 'string' || !INTEGER_STRING.test(value)) {
+    throw new Error(`${label} must be a non-negative integer string`);
+  }
   try {
     const parsed = BigInt(value);
     if (parsed < 0n) throw new Error('negative');
@@ -36,8 +43,15 @@ function integer(value, label) {
 }
 
 function decimal(value, label) {
+  if (typeof value !== 'string' || !DECIMAL_STRING.test(value)) {
+    throw new Error(`${label} must be a non-negative number`);
+  }
   const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < 0) {
+  if (
+    !Number.isFinite(parsed) ||
+    parsed < 0 ||
+    (Number.isInteger(parsed) && !Number.isSafeInteger(parsed))
+  ) {
     throw new Error(`${label} must be a non-negative number`);
   }
   return parsed;
@@ -201,6 +215,7 @@ export function buildOperationalDeltas(before, after, fingerprint) {
   const afterIo = keyedRows(after, 'io', 'after', ioIdentity);
   const beforeJobs = cronJobs(before, 'before');
   const afterJobs = cronJobs(after, 'after');
+  validateCronJobIdentities(before, after);
   const beforeRuns = cronRuns(before, 'before');
   const afterRuns = cronRuns(after, 'after');
   const runKeys = new Set([...beforeRuns.keys(), ...afterRuns.keys()]);

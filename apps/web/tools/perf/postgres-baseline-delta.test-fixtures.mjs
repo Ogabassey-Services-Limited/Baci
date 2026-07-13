@@ -24,8 +24,12 @@ function statement(overrides = {}) {
     rows: '20',
     shared_blks_hit: '1000',
     shared_blks_read: '10',
+    shared_blks_dirtied: '0',
+    shared_blks_written: '0',
     local_blks_hit: '0',
     local_blks_read: '0',
+    local_blks_dirtied: '0',
+    local_blks_written: '0',
     temp_blks_read: '2',
     temp_blks_written: '3',
     blk_read_time: '0',
@@ -182,6 +186,10 @@ function snapshot(overrides = {}) {
       'pg_stat_statements.track_planning': 'on',
       'pg_stat_statements.track_utility': 'on',
     },
+    extensions: [
+      { name: 'pg_cron', version: '1.6' },
+      { name: 'pg_stat_statements', version: '1.12' },
+    ],
     statements: [statement()],
     tables: [table()],
     indexes: [index()],
@@ -190,6 +198,20 @@ function snapshot(overrides = {}) {
     locks: [lockRow()],
     cron: {
       jobs: { active: '1', total: '2' },
+      job_identities: [
+        {
+          active: true,
+          command_digest: '4c9b0d8ce51124b8f0c74da2fbe6c352',
+          jobid: '1',
+          schedule: '0 * * * *',
+        },
+        {
+          active: false,
+          command_digest: '5ca21a0ac03d399a6f6db0a272271930',
+          jobid: '2',
+          schedule: '30 * * * *',
+        },
+      ],
       runs_last_24h: [{ runs: '3', status: 'succeeded' }],
     },
     client_telemetry: {

@@ -123,4 +123,44 @@ describe('postgres baseline reset boundary validation', () => {
       })
     ).toThrow(/collection settings change/i);
   });
+
+  it('rejects an extension version change irrespective of snapshot order', () => {
+    const before = snapshot({
+      extensions: [
+        { name: 'pg_cron', version: '1.6' },
+        { name: 'pg_stat_statements', version: '1.12' },
+      ],
+    });
+    const reordered = snapshot({
+      captured_at: END,
+      extensions: [
+        { name: 'pg_stat_statements', version: '1.12' },
+        { name: 'pg_cron', version: '1.6' },
+      ],
+    });
+
+    expect(() =>
+      createDelta({
+        afterRaw: raw(reordered),
+        beforeRaw: raw(before),
+        deployedSha: 'a'.repeat(40),
+      })
+    ).not.toThrow();
+
+    const after = snapshot({
+      captured_at: END,
+      extensions: [
+        { name: 'pg_stat_statements', version: '1.13' },
+        { name: 'pg_cron', version: '1.6' },
+      ],
+    });
+
+    expect(() =>
+      createDelta({
+        afterRaw: raw(after),
+        beforeRaw: raw(before),
+        deployedSha: 'a'.repeat(40),
+      })
+    ).toThrow(/extension manifest change/i);
+  });
 });

@@ -90,8 +90,12 @@ statement_rows AS (
     statements.rows::text AS rows,
     statements.shared_blks_hit::text AS shared_blks_hit,
     statements.shared_blks_read::text AS shared_blks_read,
+    statements.shared_blks_dirtied::text AS shared_blks_dirtied,
+    statements.shared_blks_written::text AS shared_blks_written,
     statements.local_blks_hit::text AS local_blks_hit,
     statements.local_blks_read::text AS local_blks_read,
+    statements.local_blks_dirtied::text AS local_blks_dirtied,
+    statements.local_blks_written::text AS local_blks_written,
     statements.temp_blks_read::text AS temp_blks_read,
     statements.temp_blks_written::text AS temp_blks_written,
     statements.shared_blk_read_time::text AS blk_read_time,
@@ -199,6 +203,7 @@ connection_rows AS (
     coalesce(nullif(application_name, ''), 'unset') AS application_name,
     count(*)::text AS connections
   FROM pg_stat_activity
+  WHERE pid IS DISTINCT FROM pg_backend_pid()
   GROUP BY
     backend_type,
     coalesce(state, 'not_applicable'),
@@ -218,6 +223,14 @@ cron_jobs AS (
   SELECT
     count(*)::text AS total,
     count(*) FILTER (WHERE active)::text AS active
+  FROM cron.job
+),
+cron_job_rows AS (
+  SELECT
+    jobid::text AS jobid,
+    schedule,
+    active,
+    md5(command) AS command_digest
   FROM cron.job
 ),
 cron_runs AS (
@@ -295,6 +308,10 @@ SELECT jsonb_build_object(
   ),
   'cron', jsonb_build_object(
     'jobs', (SELECT to_jsonb(cron_jobs) FROM cron_jobs),
+    'job_identities', coalesce(
+      (SELECT jsonb_agg(to_jsonb(cron_job_rows)) FROM cron_job_rows),
+      '[]'::jsonb
+    ),
     'runs_last_24h', coalesce(
       (SELECT jsonb_agg(to_jsonb(cron_runs)) FROM cron_runs),
       '[]'::jsonb

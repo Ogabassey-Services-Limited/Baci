@@ -6,8 +6,12 @@ const COUNTERS = [
   'rows',
   'shared_blks_hit',
   'shared_blks_read',
+  'shared_blks_dirtied',
+  'shared_blks_written',
   'local_blks_hit',
   'local_blks_read',
+  'local_blks_dirtied',
+  'local_blks_written',
   'temp_blks_read',
   'temp_blks_written',
   'blk_read_time',
@@ -199,8 +203,12 @@ function resultRow(key, delta) {
     rows: delta.rows,
     shared_blks_hit: delta.shared_blks_hit,
     shared_blks_read: delta.shared_blks_read,
+    shared_blks_dirtied: delta.shared_blks_dirtied,
+    shared_blks_written: delta.shared_blks_written,
     local_blks_hit: delta.local_blks_hit,
     local_blks_read: delta.local_blks_read,
+    local_blks_dirtied: delta.local_blks_dirtied,
+    local_blks_written: delta.local_blks_written,
     temp_blks_read: delta.temp_blks_read,
     temp_blks_written: delta.temp_blks_written,
     blk_read_time_ms: delta.blk_read_time,
@@ -259,6 +267,5 @@ export function buildStatementDeltas(before, after, fingerprint) {
         right.total_exec_time_ms +
         right.total_plan_time_ms -
         (left.total_exec_time_ms + left.total_plan_time_ms)
-    )
-    .slice(0, 50);
+    );
 }

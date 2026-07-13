@@ -12,7 +12,6 @@ describe('postgres baseline operational deltas', () => {
           captured_at: END,
           connections: [connectionRow({ connections: '3' })],
           cron: {
-            jobs: { active: '2', total: '4' },
             runs_last_24h: [{ runs: '5', status: 'succeeded' }],
           },
           io: [
@@ -39,8 +38,8 @@ describe('postgres baseline operational deltas', () => {
       ],
       cron: {
         jobs: {
-          active: { after: '2', before: '1', delta: '1' },
-          total: { after: '4', before: '2', delta: '2' },
+          active: { after: '1', before: '1', delta: '0' },
+          total: { after: '2', before: '2', delta: '0' },
         },
         runs_last_24h: [
           {
@@ -65,7 +64,7 @@ describe('postgres baseline operational deltas', () => {
       ],
     });
     expect(JSON.stringify(result.operational_deltas)).not.toMatch(
-      /client backend|checkout-worker|relation|AccessShareLock|succeeded/i
+      /client backend|checkout-worker|relation|AccessShareLock|succeeded|0 \* \* \* \*|4c9b0d8ce51124b8f0c74da2fbe6c352/i
     );
     expect(
       result.operational_deltas.cron.runs_last_24h[0].runs
@@ -97,5 +96,38 @@ describe('postgres baseline operational deltas', () => {
         deployedSha: 'f'.repeat(40),
       })
     ).toThrow(/after\.io\[0\]\.op_bytes changed/i);
+  });
+
+  it.each([
+    '',
+    ' ',
+    true,
+    Number.MAX_SAFE_INTEGER + 1,
+  ])('rejects a malformed integer counter value', (reads) => {
+    expect(() =>
+      createDelta({
+        afterRaw: raw(snapshot({ captured_at: END, io: [ioRow({ reads })] })),
+        beforeRaw: raw(snapshot()),
+        deployedSha: 'f'.repeat(40),
+      })
+    ).toThrow(/after\.io\[0\]\.reads must be a non-negative integer string/i);
+  });
+
+  it.each([
+    '',
+    ' ',
+    true,
+    1,
+    '1e100',
+  ])('rejects a malformed or precision-unsafe timing value', (readTime) => {
+    expect(() =>
+      createDelta({
+        afterRaw: raw(
+          snapshot({ captured_at: END, io: [ioRow({ read_time: readTime })] })
+        ),
+        beforeRaw: raw(snapshot()),
+        deployedSha: 'f'.repeat(40),
+      })
+    ).toThrow(/after\.io\[0\]\.read_time must be a non-negative number/i);
   });
 });

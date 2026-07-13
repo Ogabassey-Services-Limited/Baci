@@ -1,10 +1,12 @@
 import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-const repoRoot = process.cwd().endsWith('/apps/web')
-  ? resolve(process.cwd(), '../..')
-  : process.cwd();
+const repoRoot = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  '../../../..'
+);
 const sqlPath = resolve(
   repoRoot,
   'supabase/diagnostics/postgres-performance-snapshot.sql'
@@ -44,6 +46,18 @@ describe('postgres performance snapshot', () => {
     expect(sql).toMatch(/calls::text AS calls/i);
     expect(sql).toMatch(/plans::text AS plans/i);
     expect(sql).toMatch(/statements\.stats_since::text AS stats_since/i);
+    expect(sql).toMatch(
+      /statements\.shared_blks_dirtied::text AS shared_blks_dirtied/i
+    );
+    expect(sql).toMatch(
+      /statements\.shared_blks_written::text AS shared_blks_written/i
+    );
+    expect(sql).toMatch(
+      /statements\.local_blks_dirtied::text AS local_blks_dirtied/i
+    );
+    expect(sql).toMatch(
+      /statements\.local_blks_written::text AS local_blks_written/i
+    );
     expect(sql).toMatch(/temp_bytes::text AS temp_bytes/i);
     expect(sql).toMatch(/wal_bytes::text AS wal_bytes/i);
     expect(sql).toMatch(
@@ -101,7 +115,8 @@ describe('postgres performance snapshot', () => {
     }
     expect(sql).toMatch(/relid::text AS relid/i);
     expect(sql).toMatch(/indexrelid::text AS indexrelid/i);
-    expect(sql).not.toMatch(/cron\.job[^\n]*command/i);
+    expect(sql).toMatch(/md5\(command\) AS command_digest/i);
+    expect(sql).not.toMatch(/\bcommand\s+AS\s+command\b/i);
   });
 
   it('normalizes nullable pg_stat_io cells before the strict delta parser reads them', async () => {
@@ -133,7 +148,7 @@ describe('postgres performance snapshot', () => {
     const sql = await readFile(sqlPath, 'utf8');
 
     expect(sql).toMatch(
-      /GROUP BY\s+backend_type,\s+coalesce\(state, 'not_applicable'\),\s+coalesce\(nullif\(application_name, ''\), 'unset'\)/i
+      /FROM pg_stat_activity\s+WHERE pid IS DISTINCT FROM pg_backend_pid\(\)\s+GROUP BY\s+backend_type,\s+coalesce\(state, 'not_applicable'\),\s+coalesce\(nullif\(application_name, ''\), 'unset'\)/i
     );
   });
 
