@@ -62,7 +62,7 @@ describe('resolveOgabasseyHomeHeroShell', () => {
       [{ id: 'p1' }],
       '/ogabassey'
     );
-    expect(shell).toEqual({ slides: [SLIDE] });
+    expect(shell).toEqual({ status: 'published', slides: [SLIDE] });
   });
 
   it('returns null when the merchant is missing', async () => {
@@ -72,30 +72,37 @@ describe('resolveOgabasseyHomeHeroShell', () => {
     expect(mockLoadLaunchProducts).not.toHaveBeenCalled();
   });
 
-  it('returns null when the publication status is null (matches the streamed page gate)', async () => {
+  it('returns an unpublished result when publication status is null', async () => {
     mockGetCachedMerchant.mockResolvedValue({
       id: 'merchant-1',
       is_published: null,
     });
 
-    await expect(resolveOgabasseyHomeHeroShell('')).resolves.toBeNull();
+    await expect(resolveOgabasseyHomeHeroShell('')).resolves.toEqual({
+      status: 'unpublished',
+    });
     expect(mockLoadLaunchProducts).not.toHaveBeenCalled();
   });
 
-  it('returns null when the merchant is unpublished', async () => {
+  it('returns an unpublished result when the merchant is unpublished', async () => {
     mockGetCachedMerchant.mockResolvedValue({
       id: 'merchant-1',
       is_published: false,
     });
 
-    await expect(resolveOgabasseyHomeHeroShell('')).resolves.toBeNull();
+    await expect(resolveOgabasseyHomeHeroShell('')).resolves.toEqual({
+      status: 'unpublished',
+    });
     expect(mockLoadLaunchProducts).not.toHaveBeenCalled();
   });
 
-  it('returns null when no slides can be built (empty launch feed)', async () => {
+  it('keeps a published empty state when no launch slides can be built', async () => {
     mockBuildLaunchSlides.mockReturnValue([]);
 
-    await expect(resolveOgabasseyHomeHeroShell('')).resolves.toBeNull();
+    await expect(resolveOgabasseyHomeHeroShell('')).resolves.toEqual({
+      status: 'published',
+      slides: [],
+    });
   });
 
   it('fails open to null when a cached lookup throws (shell must not break)', async () => {

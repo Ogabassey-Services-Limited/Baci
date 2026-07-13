@@ -44,14 +44,20 @@ describe('HeroUtilityPanel', () => {
     expect(screen.getByTestId('utility-modal')).toHaveTextContent('airtime');
   });
 
-  it('rotates the utility copy before manual selection', () => {
+  it('keeps utility copy stable until the user selects an option', () => {
     render(<HeroUtilityPanel />);
 
     act(() => {
       vi.advanceTimersByTime(2500);
     });
 
+    expect(screen.queryByText(/data!/i)).not.toBeInTheDocument();
+    expect(screen.getAllByText(/airtime!/i)[0]).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole('button', { name: /data/i })[0]);
+
     expect(screen.getAllByText(/data!/i)[0]).toBeInTheDocument();
+    expect(screen.getByTestId('utility-modal')).toHaveTextContent('data');
   });
 
   it('does not use content visibility on the above-fold utility panel', () => {

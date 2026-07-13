@@ -63,12 +63,6 @@ vi.mock('next/server', () => ({
   connection: vi.fn(() => Promise.resolve()),
 }));
 
-vi.mock('./ogabassey-home-hero-section', () => ({
-  OgabasseyHomeHeroSection: ({ pathPrefix }: { pathPrefix: string }) => (
-    <section aria-label="Product hero" data-prefix={pathPrefix} />
-  ),
-}));
-
 vi.mock('./ogabassey-home-dynamic-content', () => ({
   OgabasseyHomeDynamicContent: ({ pathPrefix }: { pathPrefix: string }) => {
     if (mockDynamicContentShouldSuspend()) {
@@ -114,33 +108,62 @@ describe('OgabasseyHomePageContent', () => {
     );
   });
 
-  it('renders the final hero and dynamic home content with the path-mode prefix after the publication guard', async () => {
-    const result = await OgabasseyHomePageContent({ pathPrefix: '/ogabassey' });
+  it('renders only request-bound home content with the path-mode prefix after the publication guard', async () => {
+    const result = await OgabasseyHomePageContent({
+      pathPrefix: '/ogabassey',
+      renderFallbackHeading: false,
+    });
 
     render(result as ReactElement);
 
     expect(
-      screen.getByRole('region', { name: /product hero/i })
-    ).toHaveAttribute('data-prefix', '/ogabassey');
+      screen.queryByRole('region', { name: /product hero/i })
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole('region', { name: /dynamic home content/i })
     ).toHaveTextContent('/ogabassey');
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
     expect(getRequestScopedMerchant).toHaveBeenCalledWith('ogabassey');
   });
 
-  it('keeps the final hero visible when below-fold dynamic content suspends', async () => {
-    mockDynamicContentShouldSuspend.mockReturnValue(true);
-
-    const result = await OgabasseyHomePageContent({ pathPrefix: '/ogabassey' });
+  it('restores the H1 after the publication guard when the cached Hero degraded', async () => {
+    const result = await OgabasseyHomePageContent({
+      pathPrefix: '/ogabassey',
+      renderFallbackHeading: true,
+    });
 
     render(result as ReactElement);
 
     expect(
-      screen.getByRole('region', { name: /product hero/i })
-    ).toHaveAttribute('data-prefix', '/ogabassey');
+      screen.getByRole('heading', {
+        level: 1,
+        name: 'OgaBassey - Official Online Store',
+      })
+    ).toBeInTheDocument();
+  });
+
+  it('does not introduce a second Hero when below-fold dynamic content suspends', async () => {
+    mockDynamicContentShouldSuspend.mockReturnValue(true);
+
+    const result = await OgabasseyHomePageContent({
+      pathPrefix: '/ogabassey',
+      renderFallbackHeading: true,
+    });
+
+    render(result as ReactElement);
+
+    expect(
+      screen.queryByRole('region', { name: /product hero/i })
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole('region', { name: /dynamic home content/i })
     ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', {
+        level: 1,
+        name: 'OgaBassey - Official Online Store',
+      })
+    ).toBeInTheDocument();
   });
 
   it('resolves the homepage merchant from custom-domain request context', async () => {
@@ -148,14 +171,17 @@ describe('OgabasseyHomePageContent', () => {
       new Headers([['x-custom-domain', 'ogabassey.com']])
     );
 
-    const result = await OgabasseyHomePageContent({ pathPrefix: '' });
+    const result = await OgabasseyHomePageContent({
+      pathPrefix: '',
+      renderFallbackHeading: false,
+    });
 
     render(result as ReactElement);
 
     expect(getRequestScopedMerchant).toHaveBeenCalledWith('ogabassey.com');
     expect(
-      screen.getByRole('region', { name: /product hero/i })
-    ).toHaveAttribute('data-prefix', '');
+      screen.queryByRole('region', { name: /product hero/i })
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole('region', { name: /dynamic home content/i })
     ).toBeEmptyDOMElement();
@@ -166,14 +192,17 @@ describe('OgabasseyHomePageContent', () => {
       new Headers([['x-merchant-slug', 'ogabassey']])
     );
 
-    const result = await OgabasseyHomePageContent({ pathPrefix: '/ogabassey' });
+    const result = await OgabasseyHomePageContent({
+      pathPrefix: '/ogabassey',
+      renderFallbackHeading: false,
+    });
 
     render(result as ReactElement);
 
     expect(getRequestScopedMerchant).toHaveBeenCalledWith('ogabassey');
     expect(
-      screen.getByRole('region', { name: /product hero/i })
-    ).toHaveAttribute('data-prefix', '');
+      screen.queryByRole('region', { name: /product hero/i })
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole('region', { name: /dynamic home content/i })
     ).toBeEmptyDOMElement();
@@ -184,7 +213,10 @@ describe('OgabasseyHomePageContent', () => {
       new Headers([['host', 'baci-preview.vercel.app']])
     );
 
-    await OgabasseyHomePageContent({ pathPrefix: '/ogabassey' });
+    await OgabasseyHomePageContent({
+      pathPrefix: '/ogabassey',
+      renderFallbackHeading: false,
+    });
 
     expect(getRequestScopedMerchant).toHaveBeenCalledWith('ogabassey');
   });
@@ -195,7 +227,10 @@ describe('OgabasseyHomePageContent', () => {
       is_published: false,
     });
 
-    const result = await OgabasseyHomePageContent({ pathPrefix: '/ogabassey' });
+    const result = await OgabasseyHomePageContent({
+      pathPrefix: '/ogabassey',
+      renderFallbackHeading: true,
+    });
 
     render(result as ReactElement);
 
@@ -205,13 +240,17 @@ describe('OgabasseyHomePageContent', () => {
     expect(
       screen.queryByRole('region', { name: /dynamic home content/i })
     ).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
   });
 
   it('returns 404 when merchant lookup is null', async () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValueOnce(null);
 
     await expect(
-      OgabasseyHomePageContent({ pathPrefix: '/ogabassey' })
+      OgabasseyHomePageContent({
+        pathPrefix: '/ogabassey',
+        renderFallbackHeading: true,
+      })
     ).rejects.toThrow('not-found');
 
     expect(notFound).toHaveBeenCalledOnce();

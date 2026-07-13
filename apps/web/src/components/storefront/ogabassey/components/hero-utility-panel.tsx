@@ -8,7 +8,7 @@ import {
   Zap,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 type UtilityTab = 'airtime' | 'data' | 'tv' | 'power' | 'betting';
 
@@ -81,26 +81,12 @@ function UtilityOptionButton({
 
 export function HeroUtilityPanel() {
   const [activeUtilityIndex, setActiveUtilityIndex] = useState(0);
-  const [isManualUtility, setIsManualUtility] = useState(false);
   const [showUtilityModal, setShowUtilityModal] = useState(false);
   const [utilityTab, setUtilityTab] = useState<UtilityTab>('airtime');
-
-  useEffect(() => {
-    if (isManualUtility) {
-      return;
-    }
-
-    const interval = window.setInterval(() => {
-      setActiveUtilityIndex((prev) => (prev + 1) % UTILITY_WORDS.length);
-    }, 2500);
-
-    return () => window.clearInterval(interval);
-  }, [isManualUtility]);
 
   const handleUtilitySelect = (option: UtilityOption, index: number) => {
     setUtilityTab(option.id);
     setShowUtilityModal(true);
-    setIsManualUtility(true);
     setActiveUtilityIndex(index);
   };
 

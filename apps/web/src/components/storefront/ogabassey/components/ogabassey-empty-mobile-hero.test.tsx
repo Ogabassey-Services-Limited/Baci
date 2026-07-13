@@ -2,11 +2,11 @@ import { render } from '@testing-library/react';
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { OGABASSEY_SHELL_BANNER_INLINE_SRC } from '@/config/ogabassey-shell-banner-inline';
-import { OgabasseyShellMobileHero } from './ogabassey-shell-mobile-hero';
+import { OgabasseyEmptyMobileHero } from './ogabassey-empty-mobile-hero';
 
-describe('OgabasseyShellMobileHero', () => {
+describe('OgabasseyEmptyMobileHero', () => {
   it('paints a full-width inline AVIF art image as the LCP candidate', () => {
-    const { container } = render(<OgabasseyShellMobileHero />);
+    const { container } = render(<OgabasseyEmptyMobileHero />);
 
     const img = container.querySelector('img');
     expect(img).toBeInTheDocument();
@@ -14,7 +14,7 @@ describe('OgabasseyShellMobileHero', () => {
     expect(img?.getAttribute('src')).toBe(OGABASSEY_SHELL_BANNER_INLINE_SRC);
     expect(img?.getAttribute('src')).toMatch(/^data:image\/avif;base64,/);
     // Full-bleed so the element box is large enough to be the Largest
-    // Contentful Paint; text and CTA stay themeable HTML overlays.
+    // Contentful Paint; truthful generic copy stays an HTML overlay.
     expect(img?.className).toContain('h-full');
     expect(img?.className).toContain('w-full');
     expect(img?.className).toContain('object-cover');
@@ -25,30 +25,25 @@ describe('OgabasseyShellMobileHero', () => {
     expect(img?.getAttribute('height')).toBe('540');
   });
 
-  it('keeps product-agnostic launch copy and a themeable CTA outside the baked image', () => {
-    const { container } = render(<OgabasseyShellMobileHero />);
+  it('keeps truthful product-agnostic copy without a fake CTA or stock claim', () => {
+    const { container } = render(<OgabasseyEmptyMobileHero />);
 
-    // Copy is generic so the shell never advertises a specific device that the
-    // live product-driven hero may not lead with.
-    expect(container.textContent).toContain('Just Launched');
-    expect(container.textContent).toContain('The newest devices, in stock now.');
-    expect(container.textContent).toContain('Shop Now');
-
-    const ctaStyle = container.querySelector('span')?.getAttribute('style');
-    expect(ctaStyle).toContain('background-color: var(--store-primary)');
-    expect(ctaStyle).toContain('border-color: var(--store-border)');
-    expect(ctaStyle).toContain('color: var(--store-on-primary)');
+    expect(container.textContent).toContain('OgaBassey');
+    expect(container.textContent).toContain(
+      'Explore phones, laptops, gaming and more.'
+    );
+    expect(container.textContent).not.toMatch(/in stock|shop now/i);
+    expect(container.querySelector('a, button')).toBeNull();
   });
 
   it('is decorative and emits no preload hint or interactive control', () => {
-    const html = renderToString(<OgabasseyShellMobileHero />);
+    const html = renderToString(<OgabasseyEmptyMobileHero />);
     const template = document.createElement('template');
     template.innerHTML = html;
 
     const wrapper = template.content.querySelector('.mb-4');
     const img = template.content.querySelector('img');
-    // The real streamed carousel owns the accessible banner; this shell is a
-    // non-interactive first-flush visual placeholder only.
+    // Hero owns the accessible H1; this empty-feed visual stays decorative.
     expect(wrapper?.getAttribute('aria-hidden')).toBe('true');
     expect(img?.getAttribute('aria-hidden')).toBe('true');
     expect(img?.getAttribute('alt')).toBe('');
@@ -56,8 +51,8 @@ describe('OgabasseyShellMobileHero', () => {
     expect(template.content.querySelector('link[rel="preload"]')).toBeNull();
   });
 
-  it('keeps the carousel hero geometry so the streamed banner fills it cleanly', () => {
-    const { container } = render(<OgabasseyShellMobileHero />);
+  it('keeps populated carousel geometry when the launch feed is empty', () => {
+    const { container } = render(<OgabasseyEmptyMobileHero />);
 
     const panel = container.querySelector('.h-48');
     expect(panel).toBeInTheDocument();

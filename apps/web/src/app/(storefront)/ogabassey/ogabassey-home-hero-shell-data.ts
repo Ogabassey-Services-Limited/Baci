@@ -9,47 +9,55 @@ import { loadOgabasseyLaunchProducts } from './ogabassey-home-launch-products';
 const OGABASSEY_MERCHANT_SLUG = 'ogabassey';
 
 // The shell lookup runs on the critical path of the home page's FIRST flush
-// (it feeds both the slide-0 preload and the non-hydrated fallback). It is
+// (it feeds both the slide-0 preload and the permanent cached Hero). It is
 // cached ('use cache: remote'), so it is near-instant on a warm cache and a
 // single round-trip on a cold miss — but a degraded/saturated backend could
 // otherwise stall the entire shell paint. Cap it: past this budget we fail
-// open to the generic baked banner (losing only the preload optimization,
-// never the page).
+// closed by omitting the shopping Hero (losing only the promotional surface,
+// never the page or publication guard).
 const SHELL_LOOKUP_BUDGET_MS = 500;
 
 export interface OgabasseyHomeHeroShell {
+  status: 'published';
   slides: LaunchProductSlide[];
 }
 
+export interface OgabasseyHomeHeroUnpublishedShell {
+  status: 'unpublished';
+}
+
+export type OgabasseyHomeHeroShellResult =
+  | OgabasseyHomeHeroShell
+  | OgabasseyHomeHeroUnpublishedShell;
+
 async function resolveShellSlides(
   pathPrefix: string
-): Promise<OgabasseyHomeHeroShell | null> {
+): Promise<OgabasseyHomeHeroShellResult | null> {
   const merchant = await getCachedMerchant(OGABASSEY_MERCHANT_SLUG);
-  // `!== true` so a NULL publication status counts as unpublished — the
-  // streamed page gates on `!merchant.is_published`, and the shell must never
-  // show a product hero for a merchant the page will render as unpublished.
-  if (!merchant?.id || merchant.is_published !== true) {
+  if (!merchant?.id) {
     return null;
+  }
+  // Keep publication distinct from a degraded cache/feed result. The static
+  // owner must fail closed and omit every shopping surface while the request
+  // subtree renders StoreNotPublished; treating this as generic null would
+  // otherwise expose the baked Shop Now hero and utility buttons.
+  if (merchant.is_published !== true) {
+    return { status: 'unpublished' };
   }
 
   // Per-leg failures inside loadOgabasseyLaunchProducts already degrade to
-  // empty arrays, so a single failing feed cannot throw here. The streamed
-  // interactive hero resolves the SAME cached loader, so the fallback and the
-  // hero render identical (possibly degraded) data — the swap stays a no-op.
+  // empty arrays, so a single failing feed cannot throw here. The permanent
+  // Hero then keeps its fixed empty geometry without a request-time swap.
   const products = await loadOgabasseyLaunchProducts(
     merchant.id,
     resolveMerchantCurrencyConfig(merchant)
   );
   const slides = buildLaunchSlides(products, pathPrefix);
-  if (slides.length === 0) {
-    return null;
-  }
-
-  return { slides };
+  return { status: 'published', slides };
 }
 
 /**
- * Cached-only slide lookup for the home hero's STATIC shell fallback.
+ * Cached-only slide lookup for the permanent home Hero in the static shell.
  *
  * Mirrors `resolveBlogPostHeroShell`: every leg is `'use cache'`-backed
  * (`getCachedMerchant` + the launch-product lookups inside
@@ -58,13 +66,13 @@ async function resolveShellSlides(
  * (`headers()`/`connection()`), which stay exclusively in
  * `ogabassey-home-page-content.tsx` (the #2479→#2637 PPR-resume hazard).
  *
- * Fail-open: any error degrades to `null`, which keeps today's generic baked
- * banner as the fallback — a cold cache miss or transient query failure must
- * not take down the shell.
+ * Fail-closed: errors/timeouts degrade to `null`, which omits promotional
+ * shopping UI while request-bound content continues independently. A cold
+ * cache miss or transient query failure must never take down the page.
  */
 export async function resolveOgabasseyHomeHeroShell(
   pathPrefix: string
-): Promise<OgabasseyHomeHeroShell | null> {
+): Promise<OgabasseyHomeHeroShellResult | null> {
   let budgetTimer: ReturnType<typeof setTimeout> | undefined;
   try {
     const budget = new Promise<null>((resolve) => {

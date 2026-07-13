@@ -1,12 +1,12 @@
 import { Suspense } from 'react';
 import { JsonLd } from '@/components/seo/json-ld';
+import { Hero } from '@/components/storefront/ogabassey/components/Hero';
 import {
   OGABASSEY_DESCRIPTION,
   OGABASSEY_HOME_URL,
   OGABASSEY_SOCIAL_IMAGE_URL,
   OGABASSEY_TITLE,
 } from '@/config/ogabassey';
-import { OgabasseyHomeHeroFallback } from './ogabassey-home-hero-fallback';
 import { preloadOgabasseyHomeHeroResources } from './ogabassey-home-hero-resource-hints';
 import { resolveOgabasseyHomeHeroShell } from './ogabassey-home-hero-shell-data';
 import { OgabasseyHomePageContent } from './ogabassey-home-page-content';
@@ -40,10 +40,13 @@ export async function OgabasseyStaticHomePageContent({
   pathPrefix,
 }: OgabasseyStaticHomePageContentProps) {
   // Cached-only lookup (never request APIs — those stay in the dynamic
-  // subtree). Slide-0 becomes both a first-flush preload hint and a
-  // pixel-identical fallback frame; failure degrades to the generic banner.
+  // subtree). This is the single owner of the homepage Hero: the same tree is
+  // emitted in the static artifact and hydrated in place, so request-time
+  // content can never replace the LCP node. Unknown/unpublished state omits
+  // the shopping surface rather than leaking a Shop Now shell before guards.
   const heroShell = await resolveOgabasseyHomeHeroShell(pathPrefix);
-  const shellSlides = heroShell?.slides ?? null;
+  const shellSlides =
+    heroShell?.status === 'published' ? heroShell.slides : null;
   if (shellSlides?.[0]) {
     preloadOgabasseyHomeHeroResources(shellSlides[0].imageUrl);
   }
@@ -52,15 +55,15 @@ export async function OgabasseyStaticHomePageContent({
     <>
       <JsonLd data={ogabasseyStaticHomepageSchema} />
       <OgabasseyHomeStyleLoader />
-      {/* The static PPR shell first-flushes the REAL slide-0 hero frame (cached
-          lookup, non-hydrated, same image URL as the streamed hero) so the LCP
-          image is discoverable immediately and the Suspense swap is visually a
-          no-op. The interactive carousel still streams after request headers
-          resolve path-mode vs subdomain links. */}
-      <Suspense
-        fallback={<OgabasseyHomeHeroFallback shellSlides={shellSlides} />}
-      >
-        <OgabasseyHomePageContent pathPrefix={pathPrefix} />
+      {shellSlides ? <Hero slides={shellSlides} /> : null}
+      {/* Merchant validation, analytics and the product grid are deliberately
+          below the permanent critical viewport. They may stream, suspend or
+          fail without replacing the Hero DOM or its slide-0 image. */}
+      <Suspense fallback={null}>
+        <OgabasseyHomePageContent
+          pathPrefix={pathPrefix}
+          renderFallbackHeading={!shellSlides}
+        />
       </Suspense>
     </>
   );

@@ -18,6 +18,7 @@ import {
   HERO_MOBILE_EYEBROW_CLASSES,
   HERO_MOBILE_IMAGE_COLUMN_CLASSES,
   HERO_MOBILE_PANEL_CLASSES,
+  HERO_MOBILE_PLAY_TOGGLE_SLOT_CLASSES,
   HERO_MOBILE_PRICE_CLASSES,
   HERO_MOBILE_SLIDE_GRID_CLASSES,
   HERO_MOBILE_TEXT_COLUMN_CLASSES,
@@ -44,7 +45,12 @@ export function HeroMobileCarousel({ slides }: HeroMobileCarouselProps) {
   const [cycle, setCycle] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   // Persistent pause via the explicit control (WCAG 2.2.2), vs transient touch.
-  const [userPaused, setUserPaused] = useState(false);
+  // The critical slide is stable by default. Slow mobile lab runs currently
+  // reach LCP after the former 5s autoplay deadline, which could hide slide 0
+  // and start a lazy slide-1 request before LCP settled. Rotation is therefore
+  // an explicit progressive enhancement: swipe/dots work immediately, while
+  // timed rotation begins only after the user presses Play.
+  const [userPaused, setUserPaused] = useState(true);
   // Pause while keyboard / screen-reader focus is inside the carousel so the
   // focused slide/link can't be hidden (inert) out from under the user.
   const [isFocusWithin, setIsFocusWithin] = useState(false);
@@ -69,8 +75,8 @@ export function HeroMobileCarousel({ slides }: HeroMobileCarouselProps) {
   }, [currentSlide, slideCount]);
 
   const fillAnimates = hasMultipleSlides && !prefersReducedMotion;
-  const autoAdvances =
-    fillAnimates && !isPaused && !userPaused && !isFocusWithin;
+  const rotationEnabled = fillAnimates && !userPaused;
+  const autoAdvances = rotationEnabled && !isPaused && !isFocusWithin;
 
   useEffect(() => {
     if (!autoAdvances) {
@@ -215,7 +221,7 @@ export function HeroMobileCarousel({ slides }: HeroMobileCarouselProps) {
                 <span className="absolute inset-x-0 top-1/2 block h-1 -translate-y-1/2 overflow-hidden rounded-full bg-store-primary/20">
                   {isActive ? (
                     <CarouselProgressFill
-                      animate={fillAnimates}
+                      animate={rotationEnabled}
                       cycleKey={cycle}
                       durationMs={AUTO_ADVANCE_MS}
                       isPaused={isPaused || userPaused || isFocusWithin}
@@ -230,7 +236,7 @@ export function HeroMobileCarousel({ slides }: HeroMobileCarouselProps) {
             );
           })}
           </div>
-          {fillAnimates ? (
+          {!prefersReducedMotion ? (
             // Persistent pause/play control (WCAG 2.2.2) for the auto-rotating
             // full-bleed link, for keyboard / pointer / screen-reader users.
             // Primary-filled circle for contrast on the page background.
@@ -246,7 +252,13 @@ export function HeroMobileCarousel({ slides }: HeroMobileCarouselProps) {
                 setUserPaused((value) => !value);
               }}
             />
-          ) : null}
+          ) : (
+            <div
+              aria-hidden="true"
+              className={`${HERO_MOBILE_PLAY_TOGGLE_SLOT_CLASSES} invisible`}
+              data-ogabassey-carousel-toggle-slot="reserved"
+            />
+          )}
         </div>
       ) : null}
     </div>

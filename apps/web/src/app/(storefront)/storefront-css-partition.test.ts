@@ -460,7 +460,7 @@ describe('storefront CSS partitioning', () => {
     expect(defaultDetailClient).not.toMatch(/storefront-pdp\.css/);
   });
 
-  it('keeps server-rendered hero utilities in the homepage critical CSS', () => {
+  it('keeps the permanent Hero and empty-feed geometry in homepage critical CSS', () => {
     const homeCriticalCss = readStorefrontFile('storefront-home-critical.css');
 
     expect(homeCriticalCss).toMatch(
@@ -473,6 +473,9 @@ describe('storefront CSS partitioning', () => {
       /@source\s+["'][^"']*hero-desktop-grid\.tsx["']/
     );
     expect(homeCriticalCss).toMatch(
+      /@source\s+["'][^"']*ogabassey-empty-mobile-hero\.tsx["']/
+    );
+    expect(homeCriticalCss).not.toMatch(
       /@source\s+["'][^"']*ogabassey-home-hero-fallback\.tsx["']/
     );
   });

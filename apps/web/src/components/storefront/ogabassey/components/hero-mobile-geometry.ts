@@ -1,13 +1,10 @@
 /**
  * Shared geometry classes for the mobile hero's first frame.
  *
- * Consumed by BOTH the interactive carousel (`hero-mobile-carousel.tsx`) and
- * the static PPR-shell fallback (`ogabassey-home-hero-fallback.tsx`). The
- * fallback must be pixel-identical to the carousel's slide-0 frame so the
- * Suspense swap is visually a no-op — home's field CLS (0.37) came from the
- * generic baked banner being replaced by a differently-shaped product hero.
- * Keeping the classes in one module makes that parity structural: a styling
- * change either moves both surfaces together or fails the parity test.
+ * Consumed by the permanent carousel rendered in the static PPR artifact.
+ * The critical Hero is no longer mirrored by a temporary fallback and then
+ * replaced after request-time work; these constants keep its first frame and
+ * controls geometry explicit and testable through hydration.
  */
 
 export const HERO_MOBILE_WRAPPER_CLASSES = 'md:hidden mb-4 order-1';
