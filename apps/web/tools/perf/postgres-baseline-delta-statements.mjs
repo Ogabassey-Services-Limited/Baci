@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 
 const COUNTERS = [
   'calls',
+  'plans',
   'total_plan_time',
   'total_exec_time',
   'rows',
@@ -13,6 +14,10 @@ const COUNTERS = [
   'temp_blks_written',
   'blk_read_time',
   'blk_write_time',
+  'local_blk_read_time',
+  'local_blk_write_time',
+  'temp_blk_read_time',
+  'temp_blk_write_time',
   'wal_records',
   'wal_fpi',
   'wal_bytes',
@@ -22,6 +27,10 @@ const DECIMAL_COUNTERS = new Set([
   'total_exec_time',
   'blk_read_time',
   'blk_write_time',
+  'local_blk_read_time',
+  'local_blk_write_time',
+  'temp_blk_read_time',
+  'temp_blk_write_time',
 ]);
 
 function requiredString(statement, field, label) {
@@ -174,10 +183,16 @@ function counterDeltas(beforeGroup, afterGroup, key) {
 
 function resultRow(key, delta) {
   const calls = BigInt(delta.calls);
+  const plans = BigInt(delta.plans);
   return {
     statement_fingerprint: key,
     calls: delta.calls,
+    plans: delta.plans,
     total_plan_time_ms: delta.total_plan_time,
+    mean_plan_time_ms:
+      plans === 0n
+        ? 0
+        : Number((Number(delta.total_plan_time) / Number(plans)).toFixed(3)),
     total_exec_time_ms: delta.total_exec_time,
     mean_exec_time_ms:
       calls === 0n
@@ -192,6 +207,10 @@ function resultRow(key, delta) {
     temp_blks_written: delta.temp_blks_written,
     blk_read_time_ms: delta.blk_read_time,
     blk_write_time_ms: delta.blk_write_time,
+    local_blk_read_time_ms: delta.local_blk_read_time,
+    local_blk_write_time_ms: delta.local_blk_write_time,
+    temp_blk_read_time_ms: delta.temp_blk_read_time,
+    temp_blk_write_time_ms: delta.temp_blk_write_time,
     wal_records: delta.wal_records,
     wal_fpi: delta.wal_fpi,
     wal_bytes: delta.wal_bytes,
@@ -233,7 +252,12 @@ export function buildStatementDeltas(before, after) {
       );
       return resultRow(key, counterDeltas(beforeGroup, afterGroup, key));
     })
-    .filter((statement) => statement.calls !== '0')
-    .sort((left, right) => right.total_exec_time_ms - left.total_exec_time_ms)
+    .filter((statement) => statement.calls !== '0' || statement.plans !== '0')
+    .sort(
+      (left, right) =>
+        right.total_exec_time_ms +
+        right.total_plan_time_ms -
+        (left.total_exec_time_ms + left.total_plan_time_ms)
+    )
     .slice(0, 50);
 }

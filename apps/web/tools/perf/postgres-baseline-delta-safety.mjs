@@ -7,6 +7,7 @@ const COLLECTION_SETTING_KEYS = [
   'pg_stat_statements.max',
   'pg_stat_statements.track',
   'pg_stat_statements.track_planning',
+  'pg_stat_statements.track_utility',
 ];
 
 function requireSame(before, after, path, message, allowNull = false) {

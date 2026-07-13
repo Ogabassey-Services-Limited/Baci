@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { buildOperationalDeltas } from './postgres-baseline-delta-operational.mjs';
 import { buildRelationDeltas } from './postgres-baseline-delta-relations.mjs';
 import { validateIntervalSafety } from './postgres-baseline-delta-safety.mjs';
 import { buildStatementDeltas } from './postgres-baseline-delta-statements.mjs';
@@ -221,6 +222,7 @@ export function createPostgresBaselineDelta({
     },
     statement_deltas: buildStatementDeltas(before, after),
     relation_deltas: buildRelationDeltas(before, after),
+    operational_deltas: buildOperationalDeltas(before, after),
     client_telemetry: {
       included: false,
       required_for: ['p50', 'p95', 'p99', 'errors', 'timeouts', 'throughput'],

@@ -160,11 +160,13 @@ hashes are audit pointers, not proof that a ciphertext contains a given snapshot
 verify each bundle's contents before deleting plaintext or publishing the summary.
 The summary uses an allowlist and excludes raw query text, role/database names,
 application names, platform secrets, and client telemetry. It retains normalized
-statement-shape fingerprints; deterministic table/index fingerprints with
-reset-bounded activity and before/after/delta gauges; exact integer deltas as
-strings; exact per-day integer rates as integer or rational strings; approximate
-per-day timing rates; reset boundaries; server build; and encrypted-artifact
-SHA-256 hashes. Each artifact hash is explicitly labelled
+statement-shape fingerprints with plan-only work and shared/local/temporary I/O
+timings; deterministic table/index fingerprints with activity and
+before/after/delta gauges; deterministic I/O, connection, lock, and cron
+context fingerprints with allowlisted deltas or comparisons; exact integer
+deltas as strings; exact per-day integer rates as integer or rational strings;
+approximate per-day timing rates; reset boundaries; server build; and
+encrypted-artifact SHA-256 hashes. Each artifact hash is explicitly labelled
 `source: encrypted_artifact`.
 
 Statement fingerprints are derived from normalized statement shape plus stable
@@ -189,8 +191,9 @@ summary when any of these conditions is observed:
 - table or index identities change between snapshots, or their cumulative
   activity counters regress;
 - any collection-affecting setting changes, including `track_io_timing`,
-  `track_wal_io_timing`, or the captured `pg_stat_statements` settings;
-- any compared cumulative database, WAL, or statement counter regresses;
+  `track_wal_io_timing`, or the captured `pg_stat_statements` settings
+  (including utility tracking);
+- any compared cumulative database, WAL, statement, or I/O counter regresses;
 - the statements array, stable statement context, required boundary, or counter
   data is missing or malformed;
 - either encrypted evidence artifact is missing or empty.

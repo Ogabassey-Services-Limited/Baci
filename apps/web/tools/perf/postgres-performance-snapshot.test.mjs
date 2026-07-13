@@ -33,6 +33,7 @@ describe('postgres performance snapshot', () => {
     expect(sql).toContain('extensions.pg_stat_statements');
     expect(sql).toContain('extensions.pg_stat_statements_info');
     expect(sql).toMatch(/calls::text AS calls/i);
+    expect(sql).toMatch(/plans::text AS plans/i);
     expect(sql).toMatch(/statements\.stats_since::text AS stats_since/i);
     expect(sql).toMatch(/temp_bytes::text AS temp_bytes/i);
     expect(sql).toMatch(/wal_bytes::text AS wal_bytes/i);
@@ -42,6 +43,12 @@ describe('postgres performance snapshot', () => {
     expect(sql).toMatch(
       /statements\.shared_blk_write_time::text AS blk_write_time/i
     );
+    expect(sql).toMatch(
+      /statements\.local_blk_read_time::text AS local_blk_read_time/i
+    );
+    expect(sql).toMatch(
+      /statements\.temp_blk_write_time::text AS temp_blk_write_time/i
+    );
     expect(sql).not.toMatch(/\bqueryid\b/i);
   });
 
@@ -49,8 +56,16 @@ describe('postgres performance snapshot', () => {
     const sql = await readFile(sqlPath, 'utf8');
 
     expect(sql).toMatch(
-      /statements\.query\s+IS NULL\s+OR\s+statements\.query NOT ILIKE '%extensions\.pg_stat_statements%'/i
+      /statements\.query\s+IS NULL\s+OR\s+\(\s*statements\.query NOT ILIKE '%extensions\.pg_stat_statements%'/i
     );
+  });
+
+  it('captures every statement collection setting and excludes the capture utility commands', async () => {
+    const sql = await readFile(sqlPath, 'utf8');
+
+    expect(sql).toContain("'pg_stat_statements.track_utility'");
+    expect(sql).toMatch(/statements\.calls > 0\s+OR statements\.plans > 0/i);
+    expect(sql).toMatch(/statements\.query NOT IN \(\s*'BEGIN',\s*'ROLLBACK'/i);
   });
 
   it('captures the P0 database surfaces without persisting advisor commands', async () => {

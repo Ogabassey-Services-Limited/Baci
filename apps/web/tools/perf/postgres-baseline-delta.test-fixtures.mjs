@@ -17,6 +17,7 @@ function statement(overrides = {}) {
     queryid: '111',
     stats_since: '2026-07-01T00:00:00.000Z',
     calls: '10',
+    plans: '10',
     total_plan_time: '1.5',
     total_exec_time: '100.5',
     rows: '20',
@@ -28,6 +29,10 @@ function statement(overrides = {}) {
     temp_blks_written: '3',
     blk_read_time: '0',
     blk_write_time: '0',
+    local_blk_read_time: '0',
+    local_blk_write_time: '0',
+    temp_blk_read_time: '0',
+    temp_blk_write_time: '0',
     wal_records: '4',
     wal_fpi: '1',
     wal_bytes: '512',
@@ -69,6 +74,48 @@ function index(overrides = {}) {
     idx_tup_read: '30',
     idx_tup_fetch: '40',
     index_bytes: '500',
+    ...overrides,
+  };
+}
+
+function ioRow(overrides = {}) {
+  return {
+    backend_type: 'client backend',
+    object: 'relation',
+    context: 'normal',
+    reads: '10',
+    read_time: '1.5',
+    writes: '20',
+    write_time: '2.5',
+    writebacks: '30',
+    writeback_time: '3.5',
+    extends: '40',
+    extend_time: '4.5',
+    hits: '50',
+    evictions: '60',
+    reuses: '70',
+    fsyncs: '80',
+    fsync_time: '5.5',
+    ...overrides,
+  };
+}
+
+function connectionRow(overrides = {}) {
+  return {
+    backend_type: 'client backend',
+    state: 'active',
+    application_name: 'checkout-worker',
+    connections: '1',
+    ...overrides,
+  };
+}
+
+function lockRow(overrides = {}) {
+  return {
+    locktype: 'relation',
+    mode: 'AccessShareLock',
+    granted: true,
+    locks: '2',
     ...overrides,
   };
 }
@@ -127,10 +174,18 @@ function snapshot(overrides = {}) {
       'pg_stat_statements.max': '5000',
       'pg_stat_statements.track': 'all',
       'pg_stat_statements.track_planning': 'on',
+      'pg_stat_statements.track_utility': 'on',
     },
     statements: [statement()],
     tables: [table()],
     indexes: [index()],
+    io: [ioRow()],
+    connections: [connectionRow()],
+    locks: [lockRow()],
+    cron: {
+      jobs: { active: '1', total: '2' },
+      runs_last_24h: [{ runs: '3', status: 'succeeded' }],
+    },
     client_telemetry: {
       p95: 999,
       secret: 'must-not-persist',
@@ -148,6 +203,7 @@ function snapshot(overrides = {}) {
     database: { ...base.database, ...overrides.database },
     wal: { ...base.wal, ...overrides.wal },
     settings: { ...base.settings, ...overrides.settings },
+    cron: { ...base.cron, ...overrides.cron },
   };
 }
 
@@ -166,8 +222,11 @@ function createDelta(options) {
 export default {
   END,
   START,
+  connectionRow,
   createDelta,
   index,
+  ioRow,
+  lockRow,
   raw,
   sha256,
   snapshot,

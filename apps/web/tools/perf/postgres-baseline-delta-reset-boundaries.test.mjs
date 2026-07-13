@@ -106,6 +106,7 @@ describe('postgres baseline reset boundary validation', () => {
     ['track_wal_io_timing', 'on'],
     ['pg_stat_statements.track', 'top'],
     ['pg_stat_statements.track_planning', 'off'],
+    ['pg_stat_statements.track_utility', 'off'],
   ])('rejects an interval with changed %s', (setting, value) => {
     expect(() =>
       createDelta({

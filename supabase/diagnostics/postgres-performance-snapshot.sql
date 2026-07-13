@@ -75,6 +75,7 @@ statement_rows AS (
     statements.query,
     statements.stats_since::text AS stats_since,
     statements.calls::text AS calls,
+    statements.plans::text AS plans,
     statements.total_plan_time::text AS total_plan_time,
     statements.total_exec_time::text AS total_exec_time,
     statements.rows::text AS rows,
@@ -86,6 +87,10 @@ statement_rows AS (
     statements.temp_blks_written::text AS temp_blks_written,
     statements.shared_blk_read_time::text AS blk_read_time,
     statements.shared_blk_write_time::text AS blk_write_time,
+    statements.local_blk_read_time::text AS local_blk_read_time,
+    statements.local_blk_write_time::text AS local_blk_write_time,
+    statements.temp_blk_read_time::text AS temp_blk_read_time,
+    statements.temp_blk_write_time::text AS temp_blk_write_time,
     statements.wal_records::text AS wal_records,
     statements.wal_fpi::text AS wal_fpi,
     statements.wal_bytes::text AS wal_bytes
@@ -99,10 +104,21 @@ statement_rows AS (
     WHERE pg_database.oid = statements.dbid
   ) AS database_role ON true
   WHERE database_role.datname = current_database()
-    AND statements.calls > 0
+    AND (statements.calls > 0 OR statements.plans > 0)
     AND (
       statements.query IS NULL
-      OR statements.query NOT ILIKE '%extensions.pg_stat_statements%'
+      OR (
+        statements.query NOT ILIKE '%extensions.pg_stat_statements%'
+        AND statements.query NOT IN (
+          'BEGIN',
+          'ROLLBACK',
+          'SET TRANSACTION READ ONLY',
+          'SET LOCAL statement_timeout = ''120s''',
+          'SET LOCAL lock_timeout = ''5s''',
+          'SET LOCAL timezone = ''UTC''',
+          'SET LOCAL DateStyle = ''ISO, MDY'''
+        )
+      )
     )
 ),
 table_rows AS (
@@ -207,7 +223,9 @@ platform_settings AS (
     'pg_stat_statements.max', current_setting('pg_stat_statements.max', true),
     'pg_stat_statements.track', current_setting('pg_stat_statements.track', true),
     'pg_stat_statements.track_planning',
-      current_setting('pg_stat_statements.track_planning', true)
+      current_setting('pg_stat_statements.track_planning', true),
+    'pg_stat_statements.track_utility',
+      current_setting('pg_stat_statements.track_utility', true)
   ) AS value
 )
 SELECT jsonb_build_object(
