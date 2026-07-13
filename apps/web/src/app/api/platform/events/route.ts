@@ -5,10 +5,7 @@ import {
   isEventPipelineEnqueueEnabled,
   isLegacyAnalyticsFanoutDisabled,
 } from '@/lib/events/event-pipeline-config';
-import {
-  requiresLegacyPlatformFanout,
-  toClientPlatformDomainEventName,
-} from '@/lib/events/event-route-registry';
+import { toClientPlatformDomainEventName } from '@/lib/events/event-route-registry';
 import { readBoundedJsonBody } from '@/lib/events/read-bounded-json-body';
 import { recordPlatformDomainEvent } from '@/lib/events/record-platform-domain-event';
 import {
@@ -192,10 +189,7 @@ export async function POST(request: NextRequest) {
 
     // Also forward to platform's external analytics if configured
     // This runs in background, doesn't block response
-    if (
-      !isLegacyAnalyticsFanoutDisabled() ||
-      requiresLegacyPlatformFanout(event_type)
-    ) {
+    if (!isLegacyAnalyticsFanoutDisabled()) {
       forwardToPlatformAnalytics(
         event_type,
         event_data,

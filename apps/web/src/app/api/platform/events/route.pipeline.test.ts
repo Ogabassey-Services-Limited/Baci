@@ -2,12 +2,13 @@ import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
+  from: vi.fn(),
   legacyFanoutDisabled: true,
   record: vi.fn(),
   upsert: vi.fn(),
 }));
 vi.mock('@supabase/supabase-js', () => ({
-  createClient: () => ({ from: () => ({ upsert: mocks.upsert }) }),
+  createClient: () => ({ from: mocks.from }),
 }));
 vi.mock('@/lib/events/event-pipeline-config', () => ({
   isEventPipelineEnqueueEnabled: () => true,
@@ -23,6 +24,16 @@ describe('POST /api/platform/events durable pipeline', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.legacyFanoutDisabled = true;
+    mocks.from.mockImplementation((table: string) => {
+      if (table === 'platform_events') return { upsert: mocks.upsert };
+      if (table === 'platform_settings') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null }),
+        };
+      }
+      throw new Error(`Unexpected table: ${table}`);
+    });
   });
 
   it('falls back to legacy persistence when durable enqueue fails during shadow mode', async () => {
@@ -73,5 +84,26 @@ describe('POST /api/platform/events durable pipeline', () => {
       })
     );
     expect(mocks.upsert).not.toHaveBeenCalled();
+  });
+
+  it('does not forward client conversion claims after the legacy fanout cutover', async () => {
+    mocks.record.mockResolvedValue({ queue_message_id: 1 });
+
+    const response = await POST(
+      new NextRequest('https://usebaci.com/api/platform/events', {
+        body: JSON.stringify({
+          event_type: 'platform_purchase',
+          event_data: { value: 10_000 },
+        }),
+        method: 'POST',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.record).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({ eventName: 'platform.client.observed.v1' })
+    );
+    expect(mocks.from).not.toHaveBeenCalledWith('platform_settings');
   });
 });

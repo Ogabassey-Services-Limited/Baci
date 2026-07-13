@@ -201,10 +201,6 @@ export function resolveEventRoute(event: DomainEventV1): EventRouteResolution {
     : { destinations: [], kind: 'no_route' };
 }
 
-export function requiresLegacyPlatformFanout(eventType: string): boolean {
-  return CLIENT_PLATFORM_OBSERVATION_ONLY.has(eventType);
-}
-
 export function toAnalyticsDomainEventName(eventType: string): string {
   return eventType === 'purchase'
     ? 'analytics.purchase.completed.v1'
