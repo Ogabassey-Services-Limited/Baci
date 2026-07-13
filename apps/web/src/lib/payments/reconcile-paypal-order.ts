@@ -125,6 +125,71 @@ export async function reconcilePaypalOrderToPaid(
     preCaptureStatus,
   } = input;
 
+  // 0. CLAIM THE TRANSACTION. Settlement is a statement about a specific payment,
+  //    so the payment row — not just the order row — has to still be settleable.
+  //
+  //    Every CAS below is on `orders` alone, and `settleCompletedPaypalOrder`
+  //    skips its re-checks entirely once the txn is already `completed`. So a
+  //    refund lane running concurrently (a stale-amount rejection, a mode
+  //    mismatch, a duplicate clawback) could mark this transaction `refunded` and
+  //    hand the money back, while this lane — holding a snapshot loaded before
+  //    that — still flipped the order to `paid` and stamped `paid_transaction_id`
+  //    to the refunded txn. The merchant ships; the buyer already has their money
+  //    back. Claiming the row here closes that window: a terminal txn matches no
+  //    row and settlement aborts.
+  //
+  //    It doubles as the row-count assertion the flips elsewhere lack — supabase-js
+  //    reports `error: null` for an update that matched NOTHING, so "the flip
+  //    succeeded" was never actually verified. `.in('pending','completed')` also
+  //    heals a lost pending→completed flip on the way through.
+  const { data: claimedTransaction, error: claimError } = await supabase
+    .from('transactions')
+    .update({ status: 'completed', updated_at: new Date().toISOString() })
+    .eq('id', transactionId)
+    .in('status', ['pending', 'completed'])
+    .select('id')
+    .maybeSingle();
+
+  if (claimError) {
+    await filePaypalCapturePersistFailureReview({
+      gatewayReference: paypalOrderId,
+      merchantId,
+      orderId,
+      reason: 'PayPal capture completed but the transaction claim failed',
+      transactionId,
+      metadata: { stage: 'transaction_claim' },
+    });
+    return persistFailureResponse();
+  }
+
+  if (!claimedTransaction) {
+    // The transaction is terminal (refunded/failed) — the money has already been
+    // given back, or was never ours to settle. Do NOT mark the order paid.
+    logger.error({
+      message:
+        'PayPal reconcile: refusing to settle against a transaction that is no longer settleable (already refunded/failed)',
+      orderId,
+      paypalOrderId,
+      transactionId,
+    });
+    await filePaypalCapturePersistFailureReview({
+      gatewayReference: paypalOrderId,
+      merchantId,
+      orderId,
+      reason:
+        'PayPal settlement attempted against a refunded/failed transaction; order left unpaid',
+      transactionId,
+      metadata: { stage: 'transaction_not_settleable' },
+    });
+    return NextResponse.json(
+      {
+        error: 'This payment is no longer settleable',
+        code: 'TRANSACTION_NOT_SETTLEABLE',
+      },
+      { status: 409 }
+    );
+  }
+
   // 1. CAS claim: only the request that flips unpaid→paid records amount_paid
   //    and runs the side effects; concurrent reconciles find the order already
   //    paid and return idempotent success. `amount_paid` is set once here.
@@ -158,6 +223,10 @@ export async function reconcilePaypalOrderToPaid(
     // charges the buyer twice for one order. The resolver now blocks this too;
     // this is the backstop for any writer path that reaches here directly.
     .neq('payment_status', 'bnpl_approved')
+    // Settled by another tender in part — same reasoning as `paid`. It is in
+    // NON_PAYABLE_PAYMENT_STATUSES but was missing from this hand-maintained
+    // `.neq` list, which is precisely the drift the shared constant exists to stop.
+    .neq('payment_status', 'partially_paid')
     // And never resurrect a dead checkout. The abandoned-order cron sets
     // payment_status='cancelled' while leaving shipping_status='pending', so the
     // shipping-status guards elsewhere do not see it. Declined here → refunded by

@@ -327,42 +327,67 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // EVERY stored PayPal order must be checked against PayPal before we mint a
+    // replacement — not just a re-usable one.
+    //
+    // This guard used to live inside `if (reusablePayPalOrderId)`, and
+    // `getReusablePayPalOrderId` returns null as soon as the presentment moves by
+    // more than $0.02. NGN presentments are recomputed from an FX rate cached for
+    // only 5 minutes, so on a ~$100 order almost ANY retry a few minutes later
+    // re-prices past that tolerance — which skipped the capture check entirely.
+    // The default post-failure retry journey (capture succeeded at PayPal, the
+    // local write failed, buyer clicks "Pay with PayPal" again) therefore minted a
+    // SECOND order and repointed the transaction to it, destroying the only local
+    // reference to the first. The buyer was charged twice and the first capture was
+    // stranded in the merchant's account, invisible: no webhook, no cron, and no
+    // row pointing at it.
+    //
+    // Whether we may reuse the order is a separate, later question from whether it
+    // already took the buyer's money.
+    const storedPaypalOrderId = existingTransaction?.gateway_reference ?? null;
     const reusablePayPalOrderId = getReusablePayPalOrderId(
       existingTransaction,
       presentmentAmount,
       presentmentCurrency
     );
-    if (reusablePayPalOrderId) {
-      // Reuse the stored PayPal order while it is still capturable (CREATED /
-      // PAYER_ACTION_REQUIRED / APPROVED), returning its approval link so a
-      // cancel-then-retry can complete the SAME order (F3/F-158). ONLY a
-      // COMPLETED order — PayPal already captured the funds — blocks with a 409
-      // the checkout can surface (H1): minting a fresh order would hand the buyer
-      // a second approval link for money already collected. A dead
-      // (voided/expired) order, or a capturable one with no approval link, falls
-      // through to a fresh mint below (the prior order was never captured).
+
+    if (storedPaypalOrderId) {
       const reuse = await resolveReusablePaypalApproval(
         credentials,
-        reusablePayPalOrderId,
+        storedPaypalOrderId,
         mode
       );
-      if (reuse.outcome === 'reuse') {
-        return NextResponse.json({
-          id: reusablePayPalOrderId,
-          approveUrl: reuse.approveUrl,
-          reused: true,
+
+      if (reuse.outcome === 'already_captured') {
+        // Money is already at the merchant. Route it through the SAME settlement
+        // funnel as the capture route BEFORE blocking the retry, so it inherits
+        // residual freshness and post-capture refunds (F-393).
+        await reconcileCompletedPaypalOrderForCreate(supabase, {
+          merchantId: merchant_id,
+          orderId: order_id,
+          paypalOrderId: storedPaypalOrderId,
         });
+
+        return NextResponse.json(
+          {
+            error:
+              'This order has already been captured by PayPal and is being finalized',
+            code: 'ORDER_ALREADY_CAPTURED',
+          },
+          { status: 409 }
+        );
       }
+
       if (reuse.outcome === 'lookup_failed') {
         // We could not establish whether the stored PayPal order was already
         // captured. Minting a replacement could double-charge, so fail closed and
         // let the buyer retry once PayPal is reachable again.
         logger.warn({
           message:
-            'PayPal create-order: reusable-order lookup failed; refusing to mint a replacement',
+            'PayPal create-order: stored-order lookup failed; refusing to mint a replacement',
           merchantId: merchant_id,
           orderId: order_id,
-          paypalOrderId: reusablePayPalOrderId,
+          paypalOrderId: storedPaypalOrderId,
           reason: reuse.reason,
         });
         return NextResponse.json(
@@ -374,25 +399,17 @@ export async function POST(request: NextRequest) {
           { status: 503 }
         );
       }
-      if (reuse.outcome === 'already_captured') {
-        // F-393: the reuse branch used to 409 WITHOUT finalizing — money was
-        // captured at PayPal but the order stayed unpaid + unsettled. Route it
-        // through the SAME settlement funnel as the capture route BEFORE blocking
-        // the retry, so it inherits residual freshness and post-capture refunds.
-        await reconcileCompletedPaypalOrderForCreate(supabase, {
-          merchantId: merchant_id,
-          orderId: order_id,
-          paypalOrderId: reusablePayPalOrderId,
-        });
 
-        return NextResponse.json(
-          {
-            error:
-              'This order has already been captured by PayPal and is being finalized',
-            code: 'ORDER_ALREADY_CAPTURED',
-          },
-          { status: 409 }
-        );
+      // Still capturable and NOT captured. Hand back the same approval link only
+      // when the price has not moved (F3/F-158); otherwise fall through to mint a
+      // correctly-priced replacement, which is safe now that we know this order
+      // never took the buyer's money.
+      if (reuse.outcome === 'reuse' && reusablePayPalOrderId) {
+        return NextResponse.json({
+          id: reusablePayPalOrderId,
+          approveUrl: reuse.approveUrl,
+          reused: true,
+        });
       }
     }
 

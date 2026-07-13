@@ -659,4 +659,100 @@ describe('POST /api/payments/paypal/create-order', () => {
     expect((await response.json()).code).toBe('FX_RATE_UNAVAILABLE');
     expect(createOrder).not.toHaveBeenCalled();
   });
+  describe('presentment-drift double-charge guard (Fable F1 — P0)', () => {
+    it('CHECKS a stored PayPal order for capture even when the price has drifted past reuse tolerance', async () => {
+      // THE BUG: the capture check used to live inside `if (reusablePayPalOrderId)`,
+      // and reusability is lost as soon as the presentment moves by >$0.02. NGN
+      // presentments are recomputed from an FX rate cached for only 5 minutes, so
+      // almost ANY retry minutes later re-priced past tolerance and skipped the
+      // check — minting a SECOND PayPal order for money PayPal had already taken,
+      // and repointing the txn so the first capture became unreachable.
+      vi.mocked(createAdminClient).mockReturnValue(
+        buildSupabaseMock({
+          existingTxn: {
+            gateway_reference: 'PP-CAPTURED',
+            metadata: {
+              // Stored at a materially different presentment → NOT reusable.
+              paypal_presentment_amount: 90,
+              paypal_presentment_currency: 'USD',
+            },
+          },
+        }) as never
+      );
+      mockVaultOk();
+      vi.mocked(getOrder).mockResolvedValue({
+        success: true,
+        data: { id: 'PP-CAPTURED', status: 'COMPLETED' },
+      } as never);
+
+      const response = await POST(createRequest());
+
+      // It must look the stored order up...
+      expect(getOrder).toHaveBeenCalledWith(
+        'mock-client-id',
+        'mock-secret-key',
+        'PP-CAPTURED',
+        'live'
+      );
+      // ...find it captured, block, and reconcile it — NOT mint a second order.
+      expect(response.status).toBe(409);
+      expect((await response.json()).code).toBe('ORDER_ALREADY_CAPTURED');
+      expect(createOrder).not.toHaveBeenCalled();
+      expect(reconcileCompletedPaypalOrderForCreate).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ paypalOrderId: 'PP-CAPTURED' })
+      );
+    });
+
+    it('fails CLOSED when a price-drifted stored order cannot be looked up (never mints blind)', async () => {
+      vi.mocked(createAdminClient).mockReturnValue(
+        buildSupabaseMock({
+          existingTxn: {
+            gateway_reference: 'PP-UNKNOWN',
+            metadata: {
+              paypal_presentment_amount: 90,
+              paypal_presentment_currency: 'USD',
+            },
+          },
+        }) as never
+      );
+      mockVaultOk();
+      vi.mocked(getOrder).mockResolvedValue({
+        success: false,
+        error: 'network',
+      } as never);
+
+      const response = await POST(createRequest());
+
+      // A lookup failure is NOT evidence the order was never captured.
+      expect(response.status).toBe(503);
+      expect((await response.json()).code).toBe('PAYPAL_ORDER_LOOKUP_FAILED');
+      expect(createOrder).not.toHaveBeenCalled();
+    });
+
+    it('mints a correctly-repriced replacement once the stored order is PROVEN uncaptured', async () => {
+      vi.mocked(createAdminClient).mockReturnValue(
+        buildSupabaseMock({
+          existingTxn: {
+            gateway_reference: 'PP-STALE',
+            metadata: {
+              paypal_presentment_amount: 90,
+              paypal_presentment_currency: 'USD',
+            },
+          },
+        }) as never
+      );
+      mockVaultOk();
+      vi.mocked(getOrder).mockResolvedValue({
+        success: true,
+        data: { id: 'PP-STALE', status: 'VOIDED' },
+      } as never);
+
+      const response = await POST(createRequest());
+
+      // Dead order, never captured → safe to mint at the new price.
+      expect(response.status).toBe(200);
+      expect(createOrder).toHaveBeenCalledTimes(1);
+    });
+  });
 });

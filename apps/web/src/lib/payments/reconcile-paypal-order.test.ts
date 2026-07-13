@@ -89,17 +89,28 @@ const PAID_ORDER = {
  * awaiting the builder directly) dequeues the next programmed result in
  * resolution order.
  */
-function makeSupabase(steps: Array<{ data?: unknown; error?: unknown }>) {
+function makeSupabase(
+  steps: Array<{ data?: unknown; error?: unknown }>,
+  options?: { claim?: { data?: unknown; error?: unknown } }
+) {
   let i = 0;
   const captured: { updates: Record<string, unknown>[] } = { updates: [] };
-  const next = () => steps[i++] ?? { data: null, error: null };
+  // The writer first CLAIMS the transaction row (refusing to settle against a
+  // refunded/failed payment). That is a terminal call, so it consumes the first
+  // programmed step — default it to a successful claim so each test keeps
+  // describing only the order-level behaviour it cares about.
+  const programmed = [
+    options?.claim ?? { data: { id: TXN_ID }, error: null },
+    ...steps,
+  ];
+  const next = () => programmed[i++] ?? { data: null, error: null };
   const from = () => {
     const b: Record<string, unknown> = {};
     b.update = (payload: Record<string, unknown>) => {
       captured.updates.push(payload);
       return b;
     };
-    for (const m of ['select', 'eq', 'neq', 'insert']) {
+    for (const m of ['select', 'eq', 'neq', 'in', 'insert']) {
       b[m] = () => b;
     }
     b.maybeSingle = () => Promise.resolve(next());
@@ -151,8 +162,12 @@ describe('reconcilePaypalOrderToPaid', () => {
     expect(res.status).toBe(200);
     expect(json).toMatchObject({ success: true, status: 'success' });
     // amount_paid set once to the order total (F: exactly-once), and the
-    // settling txn stamped atomically in the same CAS update.
-    expect(captured.updates[0]).toMatchObject({
+    // settling txn stamped atomically in the same CAS update. (updates[0] is now
+    // the transaction claim that precedes the order CAS.)
+    const orderUpdate = captured.updates.find(
+      (u) => u.payment_status === 'paid'
+    );
+    expect(orderUpdate).toMatchObject({
       payment_status: 'paid',
       amount_paid: 130000,
       paid_transaction_id: TXN_ID,
@@ -329,5 +344,45 @@ describe('reconcilePaypalOrderToPaid', () => {
 
     expect(res.status).toBe(500);
     expect(filePaypalCapturePersistFailureReview).toHaveBeenCalled();
+  });
+  it('REFUSES to settle when the transaction was refunded concurrently (Fable F2)', async () => {
+    // A refund lane (stale-amount rejection, mode mismatch, duplicate clawback)
+    // can mark this txn `refunded` and hand the buyer their money back while this
+    // lane is still holding a snapshot loaded before that. Every CAS below is on
+    // `orders` alone, so without claiming the payment row the order would flip to
+    // `paid` — pointing `paid_transaction_id` at a REFUNDED payment. The merchant
+    // ships and the buyer already has the money.
+    const { client, captured } = makeSupabase([], {
+      claim: { data: null, error: null }, // no row matched: txn is terminal
+    });
+
+    const response = await reconcilePaypalOrderToPaid(input(client));
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body.code).toBe('TRANSACTION_NOT_SETTLEABLE');
+    // The order must never have been touched.
+    expect(captured.updates.some((u) => u.payment_status === 'paid')).toBe(
+      false
+    );
+    expect(filePaypalCapturePersistFailureReview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: { stage: 'transaction_not_settleable' },
+      })
+    );
+  });
+
+  it('heals a lost pending→completed flip by claiming the transaction on the way through', async () => {
+    const { client, captured } = makeSupabase([
+      { data: PAID_ORDER, error: null }, // CAS update
+      { data: { metadata: {} }, error: null }, // split select
+      { error: null }, // split update
+    ]);
+
+    await reconcilePaypalOrderToPaid(input(client));
+
+    // The claim is an unconditional advance to `completed`, so a payment whose
+    // flip write was lost still ends up correctly recorded.
+    expect(captured.updates[0]).toMatchObject({ status: 'completed' });
   });
 });

@@ -84,6 +84,12 @@ export async function loadPaypalCaptureContext(
       'id, order_id, merchant_id, amount, currency, status, metadata, platform_fee'
     )
     .eq('gateway', 'paypal')
+    // Payments only. Refund AUDIT rows are also gateway=paypal with
+    // status=completed, so without this they were loaded as if they were the
+    // buyer's payment — a settlement/clawback decision made against a refund
+    // record. Today they dead-end only because their gateway_response is null;
+    // that is one populated field away from refunding real money.
+    .eq('transaction_type', 'payment')
     .eq('gateway_reference', paypalOrderId)
     .eq('order_id', orderId)
     .eq('merchant_id', merchantId)

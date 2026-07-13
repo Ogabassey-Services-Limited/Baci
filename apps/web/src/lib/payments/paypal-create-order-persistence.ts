@@ -55,17 +55,39 @@ export async function persistPaypalPendingTransaction(
     paypal_fx_rate: params.fxRate,
   };
 
-  if (params.existingTransaction?.gateway_reference) {
+  const supersededPaypalOrderId = params.existingTransaction?.gateway_reference;
+
+  if (supersededPaypalOrderId) {
     const existingMetadata =
-      (params.existingTransaction.metadata as Record<string, unknown> | null) ??
-      {};
+      (params.existingTransaction?.metadata as Record<
+        string,
+        unknown
+      > | null) ?? {};
+
+    // Repointing the row overwrites `gateway_reference`, which is the ONLY local
+    // pointer to the PayPal order we are replacing. The caller has already proven
+    // that order was not captured — but the buyer may still be holding its
+    // approval link in another tab, and PayPal Orders v2 has no way to void an
+    // approved order. If they complete it, that capture would otherwise belong to
+    // no transaction at all: unfindable, unrefundable, and (with no webhook and no
+    // cron) never noticed. Keep the trail so it stays reconcilable by hand.
+    const superseded = Array.isArray(
+      existingMetadata.superseded_paypal_order_ids
+    )
+      ? (existingMetadata.superseded_paypal_order_ids as unknown[])
+      : [];
+
     const { error } = await supabase
       .from('transactions')
       .update({
         gateway_reference: params.paypalOrderId,
         amount: params.amount,
         merchant_amount: params.amount,
-        metadata: { ...existingMetadata, ...presentmentMetadata },
+        metadata: {
+          ...existingMetadata,
+          ...presentmentMetadata,
+          superseded_paypal_order_ids: [...superseded, supersededPaypalOrderId],
+        },
         updated_at: new Date().toISOString(),
       })
       .eq('order_id', params.orderId)
