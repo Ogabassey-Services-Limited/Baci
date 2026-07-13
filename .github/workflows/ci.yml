@@ -274,7 +274,32 @@ jobs:
           else
             turbo_cache_args=("--cache=local:rw,remote:rw")
           fi
-          pnpm turbo run test --concurrency=3 --log-order=stream "${turbo_cache_args[@]}"
+          # The web vitest suite (the ~12min long pole) runs sharded in the
+          # parallel quality-test-web matrix below; exclusion filters subtract
+          # from the affected set.
+          pnpm turbo run test --concurrency=3 --log-order=stream "${turbo_cache_args[@]}" --filter='!@baci/web'
+
+  quality-test-web:
+    name: Quality Gate - Test (web shard ${{ matrix.shard }})
+    needs: [changes]
+    # Only the full-affected plan runs the complete web suite; targeted plans
+    # keep their narrow vitest invocations inside quality-test.
+    if: needs.changes.outputs.web == 'true' && needs.changes.outputs.test_plan_mode == 'full-affected'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+      - uses: ./.github/actions/pnpm-install-cached
+      - name: Run web vitest shard
+        run: pnpm --filter @baci/web exec vitest run --shard=${{ matrix.shard }}/3
 
   quality-misc:
     name: Quality Gate - Misc
@@ -371,7 +396,7 @@ jobs:
 
   quality:
     name: Quality Gate
-    needs: [changes, quality-lint, quality-typecheck, quality-test, quality-misc, mobile-quality, silent-revert-guard]
+    needs: [changes, quality-lint, quality-typecheck, quality-test, quality-test-web, quality-misc, mobile-quality, silent-revert-guard]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -383,6 +408,7 @@ jobs:
           TYPECHECK_RESULT: ${{ needs['quality-typecheck'].result }}
           TEST_RESULT: ${{ needs['quality-test'].result }}
           MISC_RESULT: ${{ needs['quality-misc'].result }}
+          WEB_TEST_RESULT: ${{ needs['quality-test-web'].result }}
           MOBILE_QUALITY_RESULT: ${{ needs['mobile-quality'].result }}
           SILENT_REVERT_GUARD_RESULT: ${{ needs['silent-revert-guard'].result }}
         run: |
@@ -393,7 +419,7 @@ jobs:
             exit 1
           fi
 
-          for result in "$LINT_RESULT" "$TYPECHECK_RESULT" "$TEST_RESULT" "$MISC_RESULT" "$MOBILE_QUALITY_RESULT" "$SILENT_REVERT_GUARD_RESULT"; do
+          for result in "$LINT_RESULT" "$TYPECHECK_RESULT" "$TEST_RESULT" "$WEB_TEST_RESULT" "$MISC_RESULT" "$MOBILE_QUALITY_RESULT" "$SILENT_REVERT_GUARD_RESULT"; do
             case "$result" in
               success|skipped)
                 ;;
