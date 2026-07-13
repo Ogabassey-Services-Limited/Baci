@@ -63,9 +63,12 @@ jest.mock('expo-notifications', () => ({
     .mockResolvedValue(null),
 }));
 
+jest.mock('@/services/push-notification-channels', () => ({
+  ensureAndroidNotificationChannels: mockEnsureAndroidNotificationChannels,
+}));
+
 jest.mock('@/services/push-notifications', () => ({
   clearBadge: jest.fn(),
-  ensureAndroidNotificationChannels: mockEnsureAndroidNotificationChannels,
   handleNotificationResponse: jest.fn(),
   registerForPushNotifications: mockRegisterForPushNotifications,
   removePushTokenFromServer: mockRemovePushTokenFromServer,
@@ -150,9 +153,8 @@ describe('usePushNotifications', () => {
   });
 
   it('ensures Android channels even when a stored token skips full registration', async () => {
-    const { Platform } = jest.requireActual<typeof import('react-native')>(
-      'react-native'
-    );
+    const { Platform } =
+      jest.requireActual<typeof import('react-native')>('react-native');
     const originalOS = Platform.OS;
     Object.defineProperty(Platform, 'OS', {
       configurable: true,

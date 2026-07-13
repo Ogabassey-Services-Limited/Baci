@@ -12,9 +12,9 @@ import {
   storeLocalPushToken,
 } from '@/lib/push-token-storage';
 import { trackError } from '@/services/analytics';
+import { ensureAndroidNotificationChannels } from '@/services/push-notification-channels';
 import {
   clearBadge,
-  ensureAndroidNotificationChannels,
   handleNotificationResponse,
   registerForPushNotifications,
   removePushTokenFromServer,
