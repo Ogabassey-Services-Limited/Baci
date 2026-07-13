@@ -41,6 +41,11 @@ const mockQueryBuilder = {
   single: mockSingle,
 };
 const mockFrom = jest.fn((_table: string) => mockQueryBuilder);
+const mockReceiptRpcMaybeSingle =
+  jest.fn<() => Promise<SupabaseSingleResponse>>();
+const mockRpc = jest.fn((_fn: string, _args: unknown) => ({
+  maybeSingle: mockReceiptRpcMaybeSingle,
+}));
 const mockUseAuthStore = Object.assign(
   jest.fn((selector: (state: MockAuthState) => unknown) =>
     selector(mockAuthState)
@@ -64,11 +69,11 @@ jest.mock('@/lib/config', () => ({
 }));
 
 jest.mock('@/lib/logger', () => ({
-  createLogger: () => ({ warn: jest.fn() }),
+  createLogger: () => ({ warn: jest.fn(), info: jest.fn(), error: jest.fn() }),
 }));
 
 jest.mock('@/lib/supabase', () => ({
-  supabase: { from: mockFrom },
+  supabase: { from: mockFrom, rpc: mockRpc },
 }));
 
 jest.mock('@/stores/auth-store', () => ({
@@ -268,5 +273,57 @@ describe('useReceipts', () => {
     await expect(
       (receiptDetailQueryOptions('order-1') as QueryOptions).queryFn()
     ).rejects.toThrow('receipt detail failed');
+  });
+});
+
+describe('useMerchantReceiptInfo', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('reads receipt merchant info via the bounded RPC, not a raw merchants select', async () => {
+    const { useMerchantReceiptInfo } = await import('@/hooks/use-receipts');
+    mockReceiptRpcMaybeSingle.mockResolvedValue({
+      data: {
+        business_name: 'OgaBassey',
+        bank_name: 'Test Bank',
+        bank_account_number: '0123456789',
+        bank_account_name: 'OgaBassey Ltd',
+      },
+      error: null,
+    });
+
+    function Probe() {
+      useMerchantReceiptInfo();
+      return <View testID="probe" />;
+    }
+
+    render(<Probe />);
+    const options = mockUseQuery.mock.calls[0]?.[0] as QueryOptions;
+    const info = (await options.queryFn()) as { bank_account_number: string };
+
+    expect(mockRpc).toHaveBeenCalledWith(
+      'get_storefront_receipt_merchant_info',
+      { p_slug: 'ogabassey' }
+    );
+    expect(mockReceiptRpcMaybeSingle).toHaveBeenCalledTimes(1);
+    // Regression guard: bank/tax identity must NOT come from a raw anon
+    // merchants table read (removed by S0-A).
+    expect(mockFrom).not.toHaveBeenCalledWith('merchants');
+    expect(info.bank_account_number).toBe('0123456789');
+  });
+
+  it('throws when the RPC returns no merchant row', async () => {
+    const { useMerchantReceiptInfo } = await import('@/hooks/use-receipts');
+    mockReceiptRpcMaybeSingle.mockResolvedValue({ data: null, error: null });
+
+    function Probe() {
+      useMerchantReceiptInfo();
+      return <View testID="probe" />;
+    }
+
+    render(<Probe />);
+    const options = mockUseQuery.mock.calls[0]?.[0] as QueryOptions;
+    await expect(options.queryFn()).rejects.toThrow('Merchant not found');
   });
 });

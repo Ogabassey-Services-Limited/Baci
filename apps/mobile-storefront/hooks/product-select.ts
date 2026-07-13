@@ -1,19 +1,12 @@
+/**
+ * Storefront reads intentionally exclude the protected product_variants relationship.
+ * All roles hydrate variant-bearing rows through the bounded storefront RPC so an
+ * authenticated session cannot trigger per-row staff/owner RLS checks here.
+ */
 export const PRODUCT_SELECT = `
   id, name, slug, description, price, compare_at_price, created_at,
   images, brand, condition, has_condition_offers, variant_model, available_conditions, average_rating, review_count, status, specifications,
   has_variants, variant_attributes, manage_stock, stock, stock_quantity,
-  variants:product_variants!product_variants_product_id_fkey (
-    id,
-    product_id,
-    merchant_id,
-    condition,
-    sku,
-    price_override,
-    primary_image,
-    images,
-    stock_quantity,
-    attributes
-  ),
   categories (id, name, slug)
 `;
 
@@ -31,18 +24,6 @@ export const PRODUCT_DETAIL_SELECT = `
     images,
     condition_notes,
     grade
-  ),
-  variants:product_variants!product_variants_product_id_fkey (
-    id,
-    product_id,
-    merchant_id,
-    condition,
-    sku,
-    price_override,
-    primary_image,
-    images,
-    stock_quantity,
-    attributes
   ),
   categories (id, name, slug)
 `;

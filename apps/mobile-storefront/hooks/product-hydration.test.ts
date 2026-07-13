@@ -26,7 +26,7 @@ describe('product-hydration', () => {
     jest.clearAllMocks();
   });
 
-  it('identifies only variant products without embedded variants as hydration candidates', () => {
+  it('identifies every variant-bearing product as a hydration candidate', () => {
     expect(
       needsVariantHydration({
         has_variants: true,
@@ -56,7 +56,7 @@ describe('product-hydration', () => {
         has_variants: true,
         variants: [{ id: 'variant-1' }],
       })
-    ).toBe(false);
+    ).toBe(true);
     expect(
       needsVariantHydration({
         has_variants: false,
@@ -68,6 +68,20 @@ describe('product-hydration', () => {
         variants: [],
       })
     ).toBe(false);
+    expect(
+      needsVariantHydration({
+        has_variants: false,
+        variant_model: 'sku_matrix',
+        variants: [],
+      })
+    ).toBe(true);
+    expect(
+      needsVariantHydration({
+        has_variants: null,
+        variant_model: 'sku_matrix',
+        variants: [],
+      })
+    ).toBe(true);
   });
 
   it('returns empty hydration input without calling the variant hydrator', async () => {
@@ -76,7 +90,7 @@ describe('product-hydration', () => {
     expect(mockHydrateProductRowsWithStorefrontVariants).not.toHaveBeenCalled();
   });
 
-  it('hydrates only rows that need storefront variants and preserves row order', async () => {
+  it('hydrates all variant-bearing rows in one batch and preserves row order', async () => {
     const rows = [
       {
         id: 'needs-hydration',
@@ -98,17 +112,24 @@ describe('product-hydration', () => {
       ...rows[0],
       variants: [{ id: 'hydrated-variant' }],
     };
+    const rehydratedEmbeddedRow = {
+      ...rows[1],
+      variants: [{ id: 'rpc-variant' }],
+    };
     mockHydrateProductRowsWithStorefrontVariants.mockImplementationOnce(
-      async () => [hydratedRow]
+      async () => [rehydratedEmbeddedRow, hydratedRow]
     );
 
     const result = await hydrateRowsNeedingStorefrontVariants(rows);
 
     expect(mockHydrateProductRowsWithStorefrontVariants).toHaveBeenCalledWith([
       rows[0],
+      rows[1],
     ]);
-    expect(result).toEqual([hydratedRow, rows[1], rows[2]]);
-    expect(result[1]).toBe(rows[1]);
+    expect(mockHydrateProductRowsWithStorefrontVariants).toHaveBeenCalledTimes(
+      1
+    );
+    expect(result).toEqual([hydratedRow, rehydratedEmbeddedRow, rows[2]]);
     expect(result[2]).toBe(rows[2]);
   });
 
@@ -153,7 +174,7 @@ describe('product-hydration', () => {
 
     expect(result).toBe(rows);
     expect(mockLoggerWarn).toHaveBeenCalledWith(
-      'Failed to hydrate storefront variants; using embedded rows',
+      'Failed to hydrate storefront variants; using original rows',
       expect.objectContaining({
         error: expect.any(Error),
       })
