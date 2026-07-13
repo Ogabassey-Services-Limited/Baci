@@ -11,14 +11,14 @@ import { sendShippedNotification } from '@/lib/order-fulfillment-shipped-sender'
 interface SendFulfillmentNotificationEmailParams {
   beforeProviderDispatch?: () => Promise<void>;
   resetProviderDispatch?: () => Promise<void>;
-  courierName?: string;
+  courierName?: string | null;
   estimatedDelivery?: string;
   eventType: OrderFulfillmentNotificationEventType;
   featureSettings?: FeatureSettingsRecord | null;
   merchant: MerchantRecord;
   merchantId: string;
   order: FulfillmentOrderRecord;
-  trackingNumber?: string;
+  trackingNumber?: string | null;
 }
 
 export function sendFulfillmentNotificationEmail({

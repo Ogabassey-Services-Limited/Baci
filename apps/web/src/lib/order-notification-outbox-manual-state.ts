@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import type { OrderFulfillmentNotificationEventType } from '@/lib/order-fulfillment-notification-types';
+import { resolveOrderNotificationOutboxShipmentMetadata } from '@/lib/order-notification-outbox-shipment-metadata';
+
+type ShipmentSnapshot = ReturnType<
+  typeof resolveOrderNotificationOutboxShipmentMetadata
+>;
 
 type BlockingOutboxStatus =
   | 'outcome_unknown'
@@ -9,7 +14,12 @@ type BlockingOutboxStatus =
   | 'sent';
 
 type ManualOutboxStateResult =
-  | { status: 'clear'; claimId: string; claimOwner: string }
+  | {
+      status: 'clear';
+      claimId: string;
+      claimOwner: string;
+      shipmentSnapshot: ShipmentSnapshot;
+    }
   | { status: 'invalid_state' }
   | { status: 'not_found' }
   | { status: 'error'; error: string }
@@ -41,6 +51,7 @@ interface GetManualOutboxStateParams {
 
 const manualOutboxPreparationSchema = z.object({
   claim_owner: z.string().min(1).nullable().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
   outbox_id: z.string().uuid().nullable(),
   status: z
     .enum([
@@ -125,6 +136,9 @@ export async function getManualOrderNotificationOutboxBlockingState({
         status: 'clear',
         claimId: parsed.data.outbox_id,
         claimOwner: parsed.data.claim_owner,
+        shipmentSnapshot: resolveOrderNotificationOutboxShipmentMetadata(
+          parsed.data.metadata
+        ),
       };
     }
     if (isBlockingOutboxStatus(parsed.data.status)) {

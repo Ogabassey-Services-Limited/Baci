@@ -27,7 +27,9 @@ DECLARE
   v_direct_completed_order_id uuid := '8f0ed783-0000-4000-8000-000000000810';
   v_unstarted_stale_order_id uuid := '8f0ed783-0000-4000-8000-000000000811';
   v_ordered_retry_order_id uuid := '8f0ed783-0000-4000-8000-000000000813';
+  v_correction_order_id uuid := '8f0ed783-0000-4000-8000-000000000814';
   v_shipped_count integer;
+  v_distinct_cycle_count integer;
   v_delivered_count integer;
   v_repeat_shipped_count integer;
   v_import_outbox_count integer;
@@ -40,6 +42,8 @@ DECLARE
   v_manual_updated_count integer;
   v_manual_processing_status text;
   v_manual_metadata jsonb;
+  v_manual_prepared_metadata jsonb;
+  v_shipped_cycle_metadata jsonb[];
   v_delivered_completed_count integer;
   v_dispatch_started_at timestamptz;
   v_attempt_count integer;
@@ -239,8 +243,13 @@ BEGIN
   SELECT
     prepared.result->>'status',
     (prepared.result->>'outbox_id')::uuid,
-    prepared.result->>'claim_owner'
-  INTO v_manual_prepared_status, v_manual_claim_id, v_manual_claim_owner
+    prepared.result->>'claim_owner',
+    prepared.result->'metadata'
+  INTO
+    v_manual_prepared_status,
+    v_manual_claim_id,
+    v_manual_claim_owner,
+    v_manual_prepared_metadata
   FROM (
     SELECT public.prepare_order_notification_outbox_manual_send(
       v_manual_order_id,
@@ -401,11 +410,11 @@ BEGIN
   WHERE order_id = v_manual_processing_order_id
     AND event_type = 'order_shipped';
 
-  IF v_manual_metadata->>'manual_tracking_number' IS DISTINCT FROM 'PROCESSING-TRACK-001'
-    OR v_manual_metadata->>'manual_courier_name' IS DISTINCT FROM 'Processing Courier'
-    OR v_manual_metadata->>'manual_estimated_delivery' IS DISTINCT FROM '2026-07-16'
+  IF v_manual_metadata ? 'manual_tracking_number'
+    OR v_manual_metadata ? 'manual_courier_name'
+    OR v_manual_metadata ? 'manual_estimated_delivery'
   THEN
-    RAISE EXCEPTION 'expected processing outbox metadata to preserve manual shipment details, got %',
+    RAISE EXCEPTION 'expected cron-claimed outbox metadata to reject stale manual shipment details, got %',
       v_manual_metadata;
   END IF;
 
@@ -504,8 +513,13 @@ BEGIN
   SELECT
     prepared.result->>'status',
     (prepared.result->>'outbox_id')::uuid,
-    prepared.result->>'claim_owner'
-  INTO v_manual_prepared_status, v_manual_claim_id, v_manual_claim_owner
+    prepared.result->>'claim_owner',
+    prepared.result->'metadata'
+  INTO
+    v_manual_prepared_status,
+    v_manual_claim_id,
+    v_manual_claim_owner,
+    v_manual_prepared_metadata
   FROM (
     SELECT public.prepare_order_notification_outbox_manual_send(
       v_manual_skipped_order_id,
@@ -532,6 +546,12 @@ BEGIN
     OR v_manual_metadata->>'manual_estimated_delivery' IS DISTINCT FROM '2026-07-17'
   THEN
     RAISE EXCEPTION 'expected retry claim metadata to preserve manual shipment details, got %',
+      v_manual_metadata;
+  END IF;
+
+  IF v_manual_prepared_metadata IS DISTINCT FROM v_manual_metadata THEN
+    RAISE EXCEPTION 'expected manual retry claim to return its immutable rendering metadata, got % instead of %',
+      v_manual_prepared_metadata,
       v_manual_metadata;
   END IF;
 
@@ -714,11 +734,11 @@ BEGIN
 
 
   UPDATE public.orders
-  SET shipping_status = 'shipped'
-  WHERE id = v_order_id;
-
-  UPDATE public.orders
-  SET shipping_status = 'shipped'
+  SET
+    shipping_provider = 'DHL-CYCLE-1',
+    tracking_number = 'CYCLE-TRACK-1',
+    tracking_token = 'cycle-token-1',
+    shipping_status = 'shipped'
   WHERE id = v_order_id;
 
   SELECT count(*)::integer
@@ -730,6 +750,133 @@ BEGIN
   IF v_shipped_count <> 1 THEN
     RAISE EXCEPTION 'expected exactly one shipped outbox event, got %', v_shipped_count;
   END IF;
+
+  UPDATE public.orders
+  SET shipping_status = 'returned'
+  WHERE id = v_order_id;
+
+  UPDATE public.orders
+  SET shipping_status = 'processing'
+  WHERE id = v_order_id;
+
+  UPDATE public.orders
+  SET
+    shipping_provider = 'GIGL-CYCLE-2',
+    tracking_number = 'CYCLE-TRACK-2',
+    tracking_token = 'cycle-token-2',
+    shipping_status = 'shipped'
+  WHERE id = v_order_id;
+
+  SELECT count(*)::integer
+  INTO v_repeat_shipped_count
+  FROM public.order_notification_outbox
+  WHERE order_id = v_order_id
+    AND event_type = 'order_shipped';
+
+  IF v_repeat_shipped_count <> 2 THEN
+    RAISE EXCEPTION 'expected re-shipping while the prior event is active to enqueue a distinct event cycle, got %',
+      v_repeat_shipped_count;
+  END IF;
+
+  SELECT count(DISTINCT fulfillment_cycle_id)::integer
+  INTO v_distinct_cycle_count
+  FROM public.order_notification_outbox
+  WHERE order_id = v_order_id
+    AND event_type = 'order_shipped';
+
+  IF v_distinct_cycle_count <> 2 THEN
+    RAISE EXCEPTION 'expected returned -> processing -> shipped to retain two durable cycle identities, got %',
+      v_distinct_cycle_count;
+  END IF;
+
+  SELECT array_agg(outbox.metadata ORDER BY outbox.event_sequence)
+  INTO v_shipped_cycle_metadata
+  FROM public.order_notification_outbox AS outbox
+  WHERE outbox.order_id = v_order_id
+    AND outbox.event_type = 'order_shipped';
+
+  IF v_shipped_cycle_metadata[1]->>'fulfillment_tracking_number'
+      IS DISTINCT FROM 'CYCLE-TRACK-1'
+    OR v_shipped_cycle_metadata[1]->>'fulfillment_courier_name'
+      IS DISTINCT FROM 'DHL-CYCLE-1'
+    OR v_shipped_cycle_metadata[2]->>'fulfillment_tracking_number'
+      IS DISTINCT FROM 'CYCLE-TRACK-2'
+    OR v_shipped_cycle_metadata[2]->>'fulfillment_courier_name'
+      IS DISTINCT FROM 'GIGL-CYCLE-2'
+  THEN
+    RAISE EXCEPTION 'expected each active shipment cycle to preserve its own rendering snapshot, got %',
+      v_shipped_cycle_metadata;
+  END IF;
+
+  INSERT INTO public.orders (
+    id,
+    merchant_id,
+    order_number,
+    customer_name,
+    customer_email,
+    shipping_status,
+    payment_status,
+    total
+  )
+  VALUES (
+    v_correction_order_id,
+    v_merchant_id,
+    'OUTBOX-CORRECTION-001',
+    'Correction Customer',
+    'correction-customer@example.com',
+    'processing',
+    'paid',
+    10000
+  );
+
+  UPDATE public.orders
+  SET shipping_status = 'shipped'
+  WHERE id = v_correction_order_id;
+
+  UPDATE public.orders
+  SET
+    shipping_provider = 'SELF',
+    tracking_number = 'LATE-TRACK-1',
+    tracking_token = 'late-token-1'
+  WHERE id = v_correction_order_id;
+
+  SELECT metadata
+  INTO v_manual_metadata
+  FROM public.order_notification_outbox
+  WHERE order_id = v_correction_order_id
+    AND event_type = 'order_shipped';
+
+  IF v_manual_metadata->>'fulfillment_tracking_number'
+      IS DISTINCT FROM 'LATE-TRACK-1'
+    OR v_manual_metadata->>'fulfillment_tracking_token'
+      IS DISTINCT FROM 'late-token-1'
+  THEN
+    RAISE EXCEPTION 'expected same-cycle tracking details to enrich the pending snapshot before dispatch, got %',
+      v_manual_metadata;
+  END IF;
+
+  UPDATE public.orders
+  SET shipping_status = 'processing'
+  WHERE id = v_correction_order_id;
+
+  UPDATE public.orders
+  SET shipping_status = 'shipped'
+  WHERE id = v_correction_order_id;
+
+  SELECT count(*)::integer
+  INTO v_shipped_count
+  FROM public.order_notification_outbox
+  WHERE order_id = v_correction_order_id
+    AND event_type = 'order_shipped';
+
+  IF v_shipped_count <> 1 THEN
+    RAISE EXCEPTION 'expected shipped -> processing -> shipped correction to preserve one shipment cycle, got %',
+      v_shipped_count;
+  END IF;
+
+  UPDATE public.order_notification_outbox
+  SET status = 'sent', sent_at = now(), updated_at = now()
+  WHERE order_id = v_correction_order_id;
 
 
 
@@ -755,8 +902,8 @@ BEGIN
   WHERE order_id = v_order_id
     AND event_type = 'order_shipped';
 
-  IF v_repeat_shipped_count <> 2 THEN
-    RAISE EXCEPTION 'expected re-shipping after terminal outbox row to enqueue a second shipped event, got %',
+  IF v_repeat_shipped_count <> 3 THEN
+    RAISE EXCEPTION 'expected re-shipping after terminal outbox rows to enqueue another shipped event, got %',
       v_repeat_shipped_count;
   END IF;
 
@@ -772,6 +919,25 @@ BEGIN
 
   IF v_delivered_count <> 1 THEN
     RAISE EXCEPTION 'expected exactly one delivered outbox event, got %', v_delivered_count;
+  END IF;
+
+  UPDATE public.orders
+  SET shipping_status = 'processing'
+  WHERE id = v_order_id;
+
+  UPDATE public.orders
+  SET shipping_status = 'delivered'
+  WHERE id = v_order_id;
+
+  SELECT count(*)::integer
+  INTO v_delivered_count
+  FROM public.order_notification_outbox
+  WHERE order_id = v_order_id
+    AND event_type = 'order_delivered';
+
+  IF v_delivered_count <> 1 THEN
+    RAISE EXCEPTION 'expected delivered -> processing -> delivered correction to preserve one delivered event, got %',
+      v_delivered_count;
   END IF;
 
   INSERT INTO public.orders (
@@ -1119,6 +1285,7 @@ BEGIN
     order_id,
     merchant_id,
     event_type,
+    fulfillment_cycle_id,
     status,
     attempt_count,
     locked_at,
@@ -1129,6 +1296,11 @@ BEGIN
     v_unstarted_stale_order_id,
     v_merchant_id,
     'order_shipped',
+    (
+      SELECT fulfillment_notification_cycle_id
+      FROM public.orders
+      WHERE id = v_unstarted_stale_order_id
+    ),
     'processing',
     1,
     now() - interval '16 minutes',
