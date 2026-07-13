@@ -15,10 +15,16 @@ BEGIN
     SELECT 1
     FROM pg_roles
     WHERE rolname = current_user
-      AND (rolsuper OR rolbypassrls)
+      AND (
+        rolsuper
+        OR (
+          rolbypassrls
+          AND pg_has_role(current_user, 'pg_read_all_stats', 'member')
+        )
+      )
   ) THEN
     RAISE EXCEPTION
-      'postgres-performance-snapshot.sql requires a superuser or BYPASSRLS capture role';
+      'postgres-performance-snapshot.sql requires a superuser or capture role with BYPASSRLS and pg_read_all_stats';
   END IF;
   IF EXISTS (
     SELECT 1

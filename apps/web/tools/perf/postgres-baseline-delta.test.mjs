@@ -286,6 +286,23 @@ describe('createPostgresBaselineDelta', () => {
     ).toThrow(/must be an integer string/i);
   });
 
+  it.each([
+    ['blank', ''],
+    ['whitespace', ' '],
+    ['boolean', false],
+    ['numeric', 0],
+    ['negative', '-1'],
+    ['overflow', '1e309'],
+  ])('rejects a %s database timing counter before calculating aggregate deltas', (_label, value) => {
+    expect(() =>
+      createDelta({
+        afterRaw: raw(snapshot({ captured_at: END })),
+        beforeRaw: raw(snapshot({ database: { blk_read_time: value } })),
+        deployedSha: 'd'.repeat(40),
+      })
+    ).toThrow(/blk_read_time must be a non-negative number/i);
+  });
+
   it('rejects invalid deployment identifiers and non-forward intervals', () => {
     expect(() =>
       createDelta({

@@ -46,13 +46,15 @@ describe('postgres performance snapshot', () => {
     expect(sql).toMatch(/requires PostgreSQL 17/i);
   });
 
-  it('requires a capture role that bypasses cron row-level security', async () => {
+  it('requires pg_read_all_stats alongside BYPASSRLS for non-superuser captures', async () => {
     const sql = await readFile(sqlPath, 'utf8');
 
     expect(sql).toMatch(
-      /FROM pg_roles\s+WHERE rolname = current_user\s+AND \(rolsuper OR rolbypassrls\)/i
+      /FROM pg_roles\s+WHERE rolname = current_user\s+AND \(\s*rolsuper\s+OR \(\s*rolbypassrls\s+AND pg_has_role\(current_user, 'pg_read_all_stats', 'member'\)\s*\)\s*\)/i
     );
-    expect(sql).toMatch(/requires a superuser or BYPASSRLS capture role/i);
+    expect(sql).toMatch(
+      /requires a superuser or capture role with BYPASSRLS and pg_read_all_stats/i
+    );
   });
 
   it('captures cumulative counters as text and keeps queryid out of the contract', async () => {

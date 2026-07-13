@@ -34,6 +34,7 @@ const WAL_COUNTERS = [
   'wal_buffers_full',
 ];
 const INTEGER_STRING = /^\d+$/;
+const DECIMAL_STRING = /^(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
 function parseSnapshot(raw, label) {
   let parsed;
   try {
@@ -77,8 +78,15 @@ function timestamp(value, label) {
   return milliseconds;
 }
 function decimal(value, label) {
+  if (typeof value !== 'string' || !DECIMAL_STRING.test(value)) {
+    throw new Error(`${label} must be a non-negative number`);
+  }
   const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < 0) {
+  if (
+    !Number.isFinite(parsed) ||
+    parsed < 0 ||
+    (Number.isInteger(parsed) && !Number.isSafeInteger(parsed))
+  ) {
     throw new Error(`${label} must be a non-negative number`);
   }
   return parsed;
