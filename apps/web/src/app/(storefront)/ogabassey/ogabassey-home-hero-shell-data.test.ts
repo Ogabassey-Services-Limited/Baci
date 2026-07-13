@@ -41,15 +41,17 @@ describe('resolveOgabasseyHomeHeroShell', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetCachedMerchant.mockResolvedValue({
+      custom_domain: 'ogabassey.com',
       id: 'merchant-1',
       is_published: true,
+      slug: 'ogabassey',
     });
     mockLoadLaunchProducts.mockResolvedValue([{ id: 'p1' }]);
     mockBuildLaunchSlides.mockReturnValue([SLIDE]);
   });
 
-  it('returns cached launch slides for the published ogabassey merchant', async () => {
-    const shell = await resolveOgabasseyHomeHeroShell('/ogabassey');
+  it('builds origin-independent canonical links for every OgaBassey alias', async () => {
+    const shell = await resolveOgabasseyHomeHeroShell();
 
     expect(mockGetCachedMerchant).toHaveBeenCalledWith('ogabassey');
     // Hero prices format in the merchant's resolved currency (NGN for the
@@ -60,49 +62,61 @@ describe('resolveOgabasseyHomeHeroShell', () => {
     );
     expect(mockBuildLaunchSlides).toHaveBeenCalledWith(
       [{ id: 'p1' }],
-      '/ogabassey'
+      'https://ogabassey.com'
     );
-    expect(shell).toEqual({ slides: [SLIDE] });
+    expect(shell).toEqual({
+      status: 'published',
+      merchantId: 'merchant-1',
+      slides: [SLIDE],
+    });
   });
 
   it('returns null when the merchant is missing', async () => {
     mockGetCachedMerchant.mockResolvedValue(null);
 
-    await expect(resolveOgabasseyHomeHeroShell('')).resolves.toBeNull();
+    await expect(resolveOgabasseyHomeHeroShell()).resolves.toBeNull();
     expect(mockLoadLaunchProducts).not.toHaveBeenCalled();
   });
 
-  it('returns null when the publication status is null (matches the streamed page gate)', async () => {
+  it('returns an unpublished result when publication status is null', async () => {
     mockGetCachedMerchant.mockResolvedValue({
       id: 'merchant-1',
       is_published: null,
     });
 
-    await expect(resolveOgabasseyHomeHeroShell('')).resolves.toBeNull();
+    await expect(resolveOgabasseyHomeHeroShell()).resolves.toEqual({
+      status: 'unpublished',
+    });
     expect(mockLoadLaunchProducts).not.toHaveBeenCalled();
   });
 
-  it('returns null when the merchant is unpublished', async () => {
+  it('returns an unpublished result when the merchant is unpublished', async () => {
     mockGetCachedMerchant.mockResolvedValue({
       id: 'merchant-1',
       is_published: false,
     });
 
-    await expect(resolveOgabasseyHomeHeroShell('')).resolves.toBeNull();
+    await expect(resolveOgabasseyHomeHeroShell()).resolves.toEqual({
+      status: 'unpublished',
+    });
     expect(mockLoadLaunchProducts).not.toHaveBeenCalled();
   });
 
-  it('returns null when no slides can be built (empty launch feed)', async () => {
+  it('keeps a published empty state when no launch slides can be built', async () => {
     mockBuildLaunchSlides.mockReturnValue([]);
 
-    await expect(resolveOgabasseyHomeHeroShell('')).resolves.toBeNull();
+    await expect(resolveOgabasseyHomeHeroShell()).resolves.toEqual({
+      status: 'published',
+      merchantId: 'merchant-1',
+      slides: [],
+    });
   });
 
   it('fails open to null when a cached lookup throws (shell must not break)', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     mockGetCachedMerchant.mockRejectedValue(new Error('cache backend down'));
 
-    await expect(resolveOgabasseyHomeHeroShell('')).resolves.toBeNull();
+    await expect(resolveOgabasseyHomeHeroShell()).resolves.toBeNull();
   });
 
   it('rethrows a Next-internal error instead of swallowing it (unstable_rethrow contract)', async () => {
@@ -113,7 +127,7 @@ describe('resolveOgabasseyHomeHeroShell', () => {
       throw error;
     });
 
-    await expect(resolveOgabasseyHomeHeroShell('')).rejects.toThrow(
+    await expect(resolveOgabasseyHomeHeroShell()).rejects.toThrow(
       nextInternalError
     );
   });
@@ -129,7 +143,7 @@ describe('resolveOgabasseyHomeHeroShell', () => {
         })
       );
 
-      const shellPromise = resolveOgabasseyHomeHeroShell('');
+      const shellPromise = resolveOgabasseyHomeHeroShell();
       await vi.advanceTimersByTimeAsync(500);
 
       await expect(shellPromise).resolves.toBeNull();

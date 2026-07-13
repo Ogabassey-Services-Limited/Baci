@@ -4,52 +4,64 @@ import { unstable_rethrow } from 'next/navigation';
 import { buildLaunchSlides } from '@/components/storefront/ogabassey/components/build-launch-slides';
 import type { LaunchProductSlide } from '@/components/storefront/ogabassey/components/LaunchCarousel';
 import { getCachedMerchant } from '@/lib/cached-data';
+import { buildStoreUrl } from '@/lib/store-url';
 import { loadOgabasseyLaunchProducts } from './ogabassey-home-launch-products';
 
 const OGABASSEY_MERCHANT_SLUG = 'ogabassey';
 
 // The shell lookup runs on the critical path of the home page's FIRST flush
-// (it feeds both the slide-0 preload and the non-hydrated fallback). It is
+// (it feeds both the slide-0 preload and request-gated Hero data). It is
 // cached ('use cache: remote'), so it is near-instant on a warm cache and a
 // single round-trip on a cold miss — but a degraded/saturated backend could
 // otherwise stall the entire shell paint. Cap it: past this budget we fail
-// open to the generic baked banner (losing only the preload optimization,
-// never the page).
+// closed by omitting the shopping Hero (losing only the promotional surface,
+// never the page or publication guard).
 const SHELL_LOOKUP_BUDGET_MS = 500;
 
 export interface OgabasseyHomeHeroShell {
+  status: 'published';
+  merchantId: string;
   slides: LaunchProductSlide[];
 }
 
-async function resolveShellSlides(
-  pathPrefix: string
-): Promise<OgabasseyHomeHeroShell | null> {
+export interface OgabasseyHomeHeroUnpublishedShell {
+  status: 'unpublished';
+}
+
+export type OgabasseyHomeHeroShellResult =
+  | OgabasseyHomeHeroShell
+  | OgabasseyHomeHeroUnpublishedShell;
+
+async function resolveShellSlides(): Promise<OgabasseyHomeHeroShellResult | null> {
   const merchant = await getCachedMerchant(OGABASSEY_MERCHANT_SLUG);
-  // `!== true` so a NULL publication status counts as unpublished — the
-  // streamed page gates on `!merchant.is_published`, and the shell must never
-  // show a product hero for a merchant the page will render as unpublished.
-  if (!merchant?.id || merchant.is_published !== true) {
+  if (!merchant?.id) {
     return null;
+  }
+  // Keep publication distinct from a degraded cache/feed result so the static
+  // parent emits neither preload nor Hero-shaped fallback while the request
+  // boundary renders StoreNotPublished.
+  if (merchant.is_published !== true) {
+    return { status: 'unpublished' };
   }
 
   // Per-leg failures inside loadOgabasseyLaunchProducts already degrade to
-  // empty arrays, so a single failing feed cannot throw here. The streamed
-  // interactive hero resolves the SAME cached loader, so the fallback and the
-  // hero render identical (possibly degraded) data — the swap stays a no-op.
+  // empty arrays, so a single failing feed cannot throw here. The publication-
+  // gated Hero then keeps its fixed empty geometry after the guard succeeds.
   const products = await loadOgabasseyLaunchProducts(
     merchant.id,
     resolveMerchantCurrencyConfig(merchant)
   );
-  const slides = buildLaunchSlides(products, pathPrefix);
-  if (slides.length === 0) {
-    return null;
-  }
-
-  return { slides };
+  // This static shell is shared by the canonical domain, custom/subdomain
+  // aliases, and the platform's /ogabassey path. A request-relative prefix
+  // cannot be correct for all of those origins without pulling headers() onto
+  // the critical path. Canonical absolute PDP links are origin-independent and
+  // remain correct before hydration in every alias context.
+  const slides = buildLaunchSlides(products, buildStoreUrl(merchant));
+  return { status: 'published', merchantId: merchant.id, slides };
 }
 
 /**
- * Cached-only slide lookup for the home hero's STATIC shell fallback.
+ * Cached-only slide lookup for the request-gated home Hero.
  *
  * Mirrors `resolveBlogPostHeroShell`: every leg is `'use cache'`-backed
  * (`getCachedMerchant` + the launch-product lookups inside
@@ -58,19 +70,18 @@ async function resolveShellSlides(
  * (`headers()`/`connection()`), which stay exclusively in
  * `ogabassey-home-page-content.tsx` (the #2479→#2637 PPR-resume hazard).
  *
- * Fail-open: any error degrades to `null`, which keeps today's generic baked
- * banner as the fallback — a cold cache miss or transient query failure must
- * not take down the shell.
+ * The static shell may use the result as inert preload/fallback data, but only
+ * the request-scoped publication boundary may render it as shopping UI.
+ * Errors/timeouts degrade to `null`; a cold cache miss or transient query
+ * failure must never take down the page.
  */
-export async function resolveOgabasseyHomeHeroShell(
-  pathPrefix: string
-): Promise<OgabasseyHomeHeroShell | null> {
+export async function resolveOgabasseyHomeHeroShell(): Promise<OgabasseyHomeHeroShellResult | null> {
   let budgetTimer: ReturnType<typeof setTimeout> | undefined;
   try {
     const budget = new Promise<null>((resolve) => {
       budgetTimer = setTimeout(() => resolve(null), SHELL_LOOKUP_BUDGET_MS);
     });
-    return await Promise.race([resolveShellSlides(pathPrefix), budget]);
+    return await Promise.race([resolveShellSlides(), budget]);
   } catch (error) {
     unstable_rethrow(error);
     console.error('Failed to resolve home hero shell slides', { error });

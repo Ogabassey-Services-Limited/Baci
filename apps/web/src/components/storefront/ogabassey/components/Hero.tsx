@@ -4,25 +4,27 @@ import { HeroDesktopGrid } from './hero-desktop-grid';
 import { HeroMobileCarousel } from './hero-mobile-carousel';
 import { HeroUtilityPanel } from './hero-utility-panel';
 import type { LaunchProductSlide } from './LaunchCarousel';
+import { OgabasseyEmptyMobileHero } from './ogabassey-empty-mobile-hero';
 
 interface HeroProps {
   /** Launch products (pinned A27/Power 80, then newest), pre-selected upstream.
    *  Drives both the mobile carousel and the desktop grid; each card deep-links
    *  to its PDP. Server-rendered so the links are crawlable; the first image of
-   *  each viewport is the eager LCP element (mobile is also covered by the baked
-   *  PPR shell banner). */
+   *  each viewport is the eager LCP element. An empty, published feed keeps the
+   *  same viewport geometry with the baked product-agnostic banner. */
   slides: LaunchProductSlide[];
 }
-
 
 function HeroEmptyGeometry() {
   return (
     <>
       <div
         aria-hidden="true"
-        className="md:hidden mb-4 order-1 h-48 rounded-2xl shadow-2xl ring-1 ring-store-border/70 bg-store-secondary"
+        className="md:hidden order-1"
         data-ogabassey-empty-mobile-hero="true"
-      />
+      >
+        <OgabasseyEmptyMobileHero />
+      </div>
       <div
         aria-hidden="true"
         className="hidden md:grid grid-cols-1 lg:grid-cols-5 gap-4 h-auto lg:h-[540px] order-2"

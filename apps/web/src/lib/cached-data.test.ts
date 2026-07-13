@@ -32,6 +32,7 @@ import {
   getCachedMerchant,
   getCachedMerchantByDomain,
   getCachedMerchantById,
+  getCachedMerchantPaystackSubaccountConfigured,
   getCachedProductRatingStats,
   getCachedProductReviews,
   getCachedProducts,
@@ -613,6 +614,54 @@ describe('getCachedFeatureSettings', () => {
     });
     expect(result).not.toHaveProperty('facebook_capi_token');
     expect(result).not.toHaveProperty('ga4_api_secret');
+  });
+});
+
+describe('getCachedMerchantPaystackSubaccountConfigured', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    harness = buildCachedDataTestHarness();
+    mockCreateClient.mockReturnValue({
+      from: harness.mockFrom,
+      rpc: harness.mockRpc,
+      auth: { getUser: vi.fn() },
+    });
+  });
+
+  it('calls the bounded storefront RPC with the anonymous client', async () => {
+    harness.mockRpc.mockResolvedValueOnce({
+      data: true,
+      error: null,
+      count: null,
+    });
+
+    await expect(
+      getCachedMerchantPaystackSubaccountConfigured('merchant-1')
+    ).resolves.toBe(true);
+
+    expect(mockCreateClient).toHaveBeenCalledWith(
+      'https://test.supabase.co',
+      'test-anon-key',
+      expect.any(Object)
+    );
+    expect(harness.mockRpc).toHaveBeenCalledWith(
+      'storefront_merchant_has_paystack_subaccount',
+      { p_merchant_id: 'merchant-1' }
+    );
+  });
+
+  it('rethrows RPC errors instead of caching a false result', async () => {
+    const rpcError = { code: 'PGRST000', message: 'RPC unavailable' };
+    harness.mockRpc.mockResolvedValueOnce({
+      data: null,
+      error: rpcError,
+      count: null,
+    });
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    await expect(
+      getCachedMerchantPaystackSubaccountConfigured('merchant-1')
+    ).rejects.toEqual(rpcError);
   });
 });
 

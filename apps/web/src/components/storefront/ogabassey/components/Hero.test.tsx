@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockGadgetPattern = vi.hoisted(() => vi.fn());
 const mockMobileCarousel = vi.hoisted(() => vi.fn());
 const mockDesktopGrid = vi.hoisted(() => vi.fn());
+const mockEmptyMobileHero = vi.hoisted(() => vi.fn());
 
 vi.mock('./hero-mobile-carousel', () => ({
   HeroMobileCarousel: (props: Record<string, unknown>) => {
@@ -32,6 +33,13 @@ vi.mock('./hero-utility-panel', () => ({
   ),
 }));
 
+vi.mock('./ogabassey-empty-mobile-hero', () => ({
+  OgabasseyEmptyMobileHero: () => {
+    mockEmptyMobileHero();
+    return <div data-testid="empty-mobile-hero" />;
+  },
+}));
+
 import { Hero } from './Hero';
 import type { LaunchProductSlide } from './LaunchCarousel';
 
@@ -53,6 +61,7 @@ describe('Hero', () => {
     mockGadgetPattern.mockClear();
     mockMobileCarousel.mockClear();
     mockDesktopGrid.mockClear();
+    mockEmptyMobileHero.mockClear();
   });
 
   it('renders the sr-only storefront heading', () => {
@@ -82,7 +91,8 @@ describe('Hero', () => {
     expect(mockDesktopGrid).not.toHaveBeenCalled();
     expect(
       container.querySelector('[data-ogabassey-empty-mobile-hero="true"]')
-    ).toHaveClass('h-48');
+    ).toContainElement(screen.getByTestId('empty-mobile-hero'));
+    expect(mockEmptyMobileHero).toHaveBeenCalledOnce();
     expect(
       container.querySelector('[data-ogabassey-empty-desktop-hero="true"]')
     ).toHaveClass('lg:h-[540px]');

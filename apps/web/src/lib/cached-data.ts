@@ -2730,7 +2730,7 @@ export async function getCachedMerchantPaystackSubaccountConfigured(
   cacheLife('products');
   cacheTag(`features-${merchantId}`);
 
-  const supabase = getServiceSupabaseClient();
+  const supabase = getPublicSupabaseClient();
   const { data, error } = await supabase.rpc(
     'storefront_merchant_has_paystack_subaccount',
     { p_merchant_id: merchantId }
