@@ -62,7 +62,7 @@ export async function sendSnapchatEvent(
   eventId?: string,
   signal?: AbortSignal,
   eventTime?: number
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; httpStatus?: number }> {
   if (!pixelId || !accessToken) {
     return { success: false, error: 'Missing pixel ID or access token' };
   }
@@ -118,7 +118,7 @@ export async function sendSnapchatEvent(
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Snapchat CAPI error:', errorText);
-      return { success: false, error: errorText };
+      return { success: false, error: errorText, httpStatus: response.status };
     }
 
     return { success: true };

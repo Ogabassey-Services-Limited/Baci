@@ -190,6 +190,7 @@ export async function POST(request: NextRequest) {
     if (durableEnqueue) {
       const context = await resolveEventIngressContext({
         merchantId: input.merchant_id,
+        pageUrl: input.page_url ?? request.headers.get('referer') ?? undefined,
         request,
         supabase,
       });

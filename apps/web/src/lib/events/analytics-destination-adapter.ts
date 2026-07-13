@@ -40,6 +40,13 @@ function parseStatus(error: string | undefined): number | undefined {
   return match?.[1] ? Number(match[1]) : undefined;
 }
 
+function occurredAtMicros(occurredAt: string | undefined): number | undefined {
+  const timestamp = occurredAt ? Date.parse(occurredAt) : Number.NaN;
+  return Number.isFinite(timestamp) && timestamp > 0
+    ? Math.floor(timestamp * 1_000)
+    : undefined;
+}
+
 function providerErrorCode(error: string | undefined): string {
   const normalized = error?.toLowerCase() ?? '';
   if (/missing_|missing\s/.test(normalized))
@@ -230,7 +237,8 @@ export async function deliverAnalyticsEvent(
         value: conversion.custom_data.value,
       },
       false,
-      signal
+      signal,
+      occurredAtMicros(conversion.occurred_at)
     );
     return result.success
       ? { success: true, terminalOutcome: 'delivered' }
@@ -256,7 +264,7 @@ export async function deliverAnalyticsEvent(
       ? providerErrorCode(result.error)
       : 'analytics_config_unavailable',
     errorMessage: result?.error ?? 'Destination adapter produced no result',
-    httpStatus: parseStatus(result?.error),
+    httpStatus: result?.httpStatus ?? parseStatus(result?.error),
     success: false,
   };
 }

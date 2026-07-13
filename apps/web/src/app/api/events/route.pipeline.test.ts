@@ -94,6 +94,11 @@ describe('POST /api/events durable pipeline', () => {
 
     expect(response.status).toBe(200);
     expect(body.event_id).toMatch(/^evt_/);
+    expect(mocks.resolveContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pageUrl: 'https://shop.usebaci.com/products?customer=private',
+      })
+    );
     expect(mocks.record).toHaveBeenCalledWith(
       expect.any(Object),
       expect.objectContaining({

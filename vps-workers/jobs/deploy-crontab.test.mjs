@@ -220,8 +220,16 @@ describe('deploy crontab', () => {
     assert.match(deployScript, /process-domain-events\.sh --once/);
     assert.match(
       deployScript,
+      /process-domain-events\.lock bash -lc 'export NODE_ENV=production && export BACI_WORKER_PROFILE=event-pipeline/
+    );
+    assert.match(
+      deployScript,
       /\* \* \* \* \* flock -n \$REMOTE_DIR\/locks\/process-event-deliveries\.lock/
     );
     assert.match(deployScript, /process-event-deliveries\.sh --once/);
+    assert.match(
+      deployScript,
+      /process-event-deliveries\.lock bash -lc 'export NODE_ENV=production && export BACI_WORKER_PROFILE=event-pipeline/
+    );
   });
 });

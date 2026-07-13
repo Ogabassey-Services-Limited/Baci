@@ -85,16 +85,20 @@ async function resolveDomain(
 }
 
 function storefrontSlugFromPath(
-  requestUrl: string | undefined,
+  pageUrl: string | undefined,
   host: string,
   rootDomain: string
 ): string | null {
-  if (!requestUrl || (host !== rootDomain && host !== `www.${rootDomain}`)) {
+  if (!pageUrl || (host !== rootDomain && host !== `www.${rootDomain}`)) {
     return null;
   }
   try {
-    const [segment] = new URL(requestUrl).pathname.split('/').filter(Boolean);
-    return segment && /^[a-z0-9][a-z0-9-]{0,99}$/i.test(segment)
+    const url = new URL(pageUrl);
+    if (normalizeHost(url.host) !== host) return null;
+    const [segment] = url.pathname.split('/').filter(Boolean);
+    return segment &&
+      segment !== 'api' &&
+      /^[a-z0-9][a-z0-9-]{0,99}$/i.test(segment)
       ? segment
       : null;
   } catch {
@@ -104,10 +108,12 @@ function storefrontSlugFromPath(
 
 export async function resolveEventIngressContext({
   merchantId,
+  pageUrl,
   request,
   supabase,
 }: {
   merchantId?: string;
+  pageUrl?: string;
   request: HeaderReader;
   supabase: SupabaseClient;
 }): Promise<EventIngressContext> {
@@ -117,7 +123,11 @@ export async function resolveEventIngressContext({
   );
   const slug =
     storefrontSlugFromHost(host, rootDomain) ??
-    storefrontSlugFromPath(request.url, host, rootDomain);
+    storefrontSlugFromPath(
+      pageUrl ?? request.headers.get('referer') ?? undefined,
+      host,
+      rootDomain
+    );
   const domain = customDomainFromHost(host, rootDomain);
 
   let resolvedMerchantId: string | null | undefined = null;

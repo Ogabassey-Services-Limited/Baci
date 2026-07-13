@@ -42,6 +42,7 @@ describe('sendFacebookCAPIEvent', () => {
           error: { message: 'Invalid access token' },
         }),
         ok: false,
+        status: 401,
       })
     );
 
@@ -52,7 +53,11 @@ describe('sendFacebookCAPIEvent', () => {
       {}
     );
 
-    expect(result).toEqual({ error: 'Invalid access token', success: false });
+    expect(result).toEqual({
+      error: 'Invalid access token',
+      httpStatus: 401,
+      success: false,
+    });
   });
 
   it('returns a network failure without throwing', async () => {

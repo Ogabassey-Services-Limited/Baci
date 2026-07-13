@@ -248,6 +248,7 @@ describe('tiktokEventsAPI', () => {
       vi.fn().mockResolvedValue({
         json: vi.fn().mockResolvedValue({ message: 'invalid access token' }),
         ok: false,
+        status: 401,
       })
     );
 
@@ -258,6 +259,10 @@ describe('tiktokEventsAPI', () => {
       { contentId: 'sku-1' }
     );
 
-    expect(result).toEqual({ error: 'invalid access token', success: false });
+    expect(result).toEqual({
+      error: 'invalid access token',
+      httpStatus: 401,
+      success: false,
+    });
   });
 });

@@ -211,7 +211,12 @@ export async function sendFacebookCAPIEvent(
   limitedDataUse?: boolean,
   signal?: AbortSignal,
   eventTime?: number
-): Promise<{ success: boolean; response?: CAPIResponse; error?: string }> {
+): Promise<{
+  success: boolean;
+  response?: CAPIResponse;
+  error?: string;
+  httpStatus?: number;
+}> {
   if (!pixelId || !accessToken) {
     return { success: false, error: 'Missing pixel ID or access token' };
   }
@@ -282,6 +287,7 @@ export async function sendFacebookCAPIEvent(
       return {
         success: false,
         error: errorData.error?.message || 'Unknown error',
+        httpStatus: response.status,
       };
     }
 

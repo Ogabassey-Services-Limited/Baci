@@ -391,15 +391,17 @@ const serverSchema = z
       process.env.GITHUB_ACTIONS === 'true' &&
       Boolean(process.env.GITHUB_RUN_ID) &&
       Boolean(process.env.GITHUB_REPOSITORY);
-    // This VPS worker only runs Ollama layout generation; it never signs
-    // agentic JWTs, so it should not fail boot on unrelated signing material.
-    const isAiStorefrontWorker =
-      process.env.BACI_WORKER_PROFILE === 'ai-storefront-jobs';
+    // These bounded VPS workers never sign agentic JWTs, so they should not
+    // fail boot on unrelated signing material.
+    const isNonAgenticWorker = [
+      'ai-storefront-jobs',
+      'event-pipeline',
+    ].includes(process.env.BACI_WORKER_PROFILE ?? '');
 
     if (
       value.NODE_ENV !== 'production' ||
       isGitHubActionsBuild ||
-      isAiStorefrontWorker ||
+      isNonAgenticWorker ||
       value.SUPABASE_AGENTIC_JWT_PRIVATE_JWK ||
       value.SUPABASE_JWT_SECRET
     ) {

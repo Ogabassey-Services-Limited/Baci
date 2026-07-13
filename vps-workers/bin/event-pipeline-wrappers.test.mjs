@@ -14,6 +14,7 @@ for (const [wrapper, script] of [
     const source = readFileSync(join(directory, wrapper), 'utf8');
     assert.match(source, /set -euo pipefail/);
     assert.match(source, /run-web-script\.sh/);
+    assert.match(source, /BACI_WORKER_PROFILE="\$\{BACI_WORKER_PROFILE:-event-pipeline\}"/);
     assert.match(source, new RegExp(script.replaceAll('/', '\\/')));
     assert.match(source, /"\$@"/);
   });

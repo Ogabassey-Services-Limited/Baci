@@ -26,6 +26,7 @@ Wants=network-online.target
 Type=simple
 WorkingDirectory=$REMOTE_DIR
 Environment=NODE_ENV=production
+Environment=BACI_WORKER_PROFILE=event-pipeline
 ExecStart=$FLOCK_BIN -n $REMOTE_DIR/locks/$lock_name.lock $REMOTE_DIR/bin/$wrapper_name
 Restart=on-failure
 RestartSec=5

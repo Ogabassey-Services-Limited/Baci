@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   fetchConfig: vi.fn(),
+  loadPaidOrderDeliveryEvent: vi.fn(),
+  sendGA4Event: vi.fn(),
   sendToAdPlatforms: vi.fn(),
 }));
 
@@ -12,6 +14,14 @@ vi.mock('@/lib/analytics/analytics-platform-config', () => ({
 
 vi.mock('@/lib/analytics/send-to-ad-platforms', () => ({
   sendToAdPlatforms: mocks.sendToAdPlatforms,
+}));
+
+vi.mock('@/lib/ga4-measurement-protocol', () => ({
+  sendGA4Event: mocks.sendGA4Event,
+}));
+
+vi.mock('./paid-order-delivery-event', () => ({
+  loadPaidOrderDeliveryEvent: mocks.loadPaidOrderDeliveryEvent,
 }));
 
 import { deliverAnalyticsEvent } from './analytics-destination-adapter';
@@ -115,5 +125,76 @@ describe('deliverAnalyticsEvent', () => {
       errorCode: 'analytics_config_unavailable',
       success: false,
     });
+  });
+
+  it('preserves a provider rejection HTTP status for delivery classification', async () => {
+    mocks.sendToAdPlatforms.mockResolvedValue({
+      facebook: {
+        error: 'Request rejected',
+        httpStatus: 400,
+        success: false,
+      },
+    });
+
+    await expect(
+      deliverAnalyticsEvent({} as never, event, 'facebook')
+    ).resolves.toMatchObject({
+      errorCode: 'provider_rejected',
+      httpStatus: 400,
+      success: false,
+    });
+  });
+
+  it('uses the paid-order occurrence time for GA4 purchases', async () => {
+    const paidEvent: DomainEventV1 = {
+      ...event,
+      data: {
+        ...event.data,
+        event_data: { order_id: 'order-1' },
+        event_type: 'purchase',
+      },
+      event_name: 'analytics.purchase.completed.v1',
+      subject: { id: 'order-1', type: 'order' },
+    };
+    mocks.fetchConfig.mockResolvedValue({
+      facebook_capi_token: null,
+      facebook_pixel_id: null,
+      ga4_api_secret: 'ga-secret',
+      google_analytics_id: 'G-TEST',
+      offline_conversions_enabled: true,
+      snapchat_capi_token: null,
+      snapchat_pixel_id: null,
+      tiktok_access_token: null,
+      tiktok_pixel_id: null,
+    });
+    mocks.loadPaidOrderDeliveryEvent.mockResolvedValue({
+      conversion: {
+        custom_data: { currency: 'NGN', value: 100 },
+        event_id: 'event-1',
+        event_type: 'purchase',
+        merchant_id: event.merchant_id,
+        occurred_at: event.occurred_at,
+        source: 'server',
+        user_data: {},
+      },
+      gaClientId: '123.456',
+      orderNumber: 'ORDER-1',
+    });
+    mocks.sendGA4Event.mockResolvedValue({ success: true });
+
+    await expect(
+      deliverAnalyticsEvent({} as never, paidEvent, 'ga4')
+    ).resolves.toEqual({ success: true, terminalOutcome: 'delivered' });
+
+    expect(mocks.sendGA4Event).toHaveBeenCalledWith(
+      'G-TEST',
+      'ga-secret',
+      'purchase',
+      expect.objectContaining({ clientId: '123.456' }),
+      expect.objectContaining({ transaction_id: 'ORDER-1' }),
+      false,
+      undefined,
+      Date.parse(event.occurred_at) * 1_000
+    );
   });
 });

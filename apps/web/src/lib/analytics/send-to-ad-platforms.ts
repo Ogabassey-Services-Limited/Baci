@@ -65,7 +65,7 @@ export interface ConversionEvent {
 export type AdPlatformResults = Partial<
   Record<
     'facebook' | 'tiktok' | 'snapchat',
-    { success: boolean; error?: string }
+    { success: boolean; error?: string; httpStatus?: number }
   >
 >;
 

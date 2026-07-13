@@ -20,6 +20,7 @@ test('installs restart-on-failure event workers behind shared flock locks', () =
     /install_service \\\n {2}baci-event-delivery-worker \\\n[\s\S]*? {2}process-event-deliveries \\\n {2}process-event-deliveries\.sh/
   );
   assert.match(source, /ExecStart=\$FLOCK_BIN -n/);
+  assert.match(source, /Environment=BACI_WORKER_PROFILE=event-pipeline/);
   assert.match(source, /Restart=on-failure/);
   assert.match(source, /KillSignal=SIGTERM/);
   assert.match(source, /NoNewPrivileges=true/);

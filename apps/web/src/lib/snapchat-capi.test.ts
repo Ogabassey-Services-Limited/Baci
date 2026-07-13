@@ -34,6 +34,7 @@ describe('sendSnapchatEvent', () => {
       'fetch',
       vi.fn().mockResolvedValue({
         ok: false,
+        status: 400,
         text: vi.fn().mockResolvedValue('invalid access token'),
       })
     );
@@ -45,6 +46,10 @@ describe('sendSnapchatEvent', () => {
       {}
     );
 
-    expect(result).toEqual({ error: 'invalid access token', success: false });
+    expect(result).toEqual({
+      error: 'invalid access token',
+      httpStatus: 400,
+      success: false,
+    });
   });
 });

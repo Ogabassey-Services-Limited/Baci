@@ -78,9 +78,10 @@ describe('resolveEventIngressContext', () => {
   it('derives and verifies a storefront slug from a root-domain path', async () => {
     const result = await resolveEventIngressContext({
       merchantId: 'merchant-1',
+      pageUrl: 'https://usebaci.com/shop/products/phone',
       request: request(
         { host: 'usebaci.com' },
-        'https://usebaci.com/shop/api/analytics/conversion'
+        'https://usebaci.com/api/events'
       ),
       supabase: lookupClient({ id: 'merchant-1' }) as never,
     });
@@ -90,6 +91,27 @@ describe('resolveEventIngressContext', () => {
       ok: true,
       trustLevel: 'tenant_verified_client',
     });
+  });
+
+  it('does not resolve a path storefront from a posted URL on another host', async () => {
+    const client = lookupClient({ id: 'merchant-1' });
+    const result = await resolveEventIngressContext({
+      merchantId: 'merchant-1',
+      pageUrl: 'https://attacker.example/shop/products/phone',
+      request: request(
+        { host: 'usebaci.com' },
+        'https://usebaci.com/api/events'
+      ),
+      supabase: client as never,
+    });
+
+    expect(result).toEqual({
+      merchantId: 'merchant-1',
+      ok: true,
+      trustLevel: 'anonymous_client',
+      verified: false,
+    });
+    expect(client.from).not.toHaveBeenCalled();
   });
 
   it('keeps an unknown tenant host anonymous', async () => {
