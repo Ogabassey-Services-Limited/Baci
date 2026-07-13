@@ -24,6 +24,7 @@ const files = [
   '20260712150140_event_pipeline_retention_rpc.sql',
   '20260713120000_event_delivery_replay_and_idempotency_fixes.sql',
   '20260713222000_platform_event_legacy_idempotency.sql',
+  '20260714000100_harden_event_pipeline_admin_filters.sql',
 ] as const;
 
 const sql = Object.fromEntries(
@@ -148,11 +149,15 @@ describe('durable domain-event migration contract', () => {
 
   it('uses guarded platform-admin RPCs without granting table access', () => {
     const admin = sql['20260712150126_event_pipeline_admin_rpcs.sql'];
+    const adminFilterHardening =
+      sql['20260714000100_harden_event_pipeline_admin_filters.sql'];
     expect(admin).toContain('eventing.is_event_pipeline_operator_v1()');
     expect(admin).toContain('TO authenticated, service_role');
     expect(admin).not.toMatch(
       /GRANT\s+SELECT\s+ON\s+TABLE[\s\S]*authenticated/i
     );
+    expect(adminFilterHardening).toContain('p_status IS NULL');
+    expect(adminFilterHardening).toContain('p_destination IS NULL');
   });
 
   it('bounds successful-attempt and PGMQ archive retention work', () => {
