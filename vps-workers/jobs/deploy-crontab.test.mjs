@@ -24,6 +24,24 @@ describe('deploy crontab', () => {
     );
   });
 
+
+  it('schedules the order notification outbox cron through run-web-cron', () => {
+    const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
+
+    assert.match(
+      deployScript,
+      /\*\/5 \* \* \* \* flock -n \$REMOTE_DIR\/locks\/order-notifications\.lock/
+    );
+    assert.match(
+      deployScript,
+      /\$NODE_BIN \$REMOTE_DIR\/jobs\/run-web-cron\.mjs \/api\/cron\/order-notifications\?batchSize=5/
+    );
+    assert.match(
+      deployScript,
+      />> \$REMOTE_DIR\/logs\/order-notifications\.log 2>&1/
+    );
+  });
+
   it('schedules the agentic commerce health cron through run-web-cron', () => {
     const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
 

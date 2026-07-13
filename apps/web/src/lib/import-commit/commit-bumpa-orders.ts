@@ -140,13 +140,16 @@ async function replaceImportedOrderItems(
   orderPatch: ReturnType<typeof buildOrderInsertPayload>,
   expectedUpdatedAt: string | null | undefined
 ) {
-  const { data, error } = await supabase.rpc('replace_imported_order_items', {
-    p_order_id: orderId,
-    p_items: buildOrderItems(orderId, order),
-    p_merchant_id: merchantId,
-    p_order_patch: orderPatch,
-    p_expected_updated_at: expectedUpdatedAt ?? null,
-  });
+  const { data, error } = await supabase.rpc(
+    'replace_imported_order_items_suppressing_order_notifications',
+    {
+      p_order_id: orderId,
+      p_items: buildOrderItems(orderId, order),
+      p_merchant_id: merchantId,
+      p_order_patch: orderPatch,
+      p_expected_updated_at: expectedUpdatedAt ?? null,
+    }
+  );
 
   if (error) {
     throw new Error(`Failed to update imported order: ${error.message}`);

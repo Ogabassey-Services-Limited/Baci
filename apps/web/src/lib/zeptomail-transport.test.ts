@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { zeptoMailRequest } from './zeptomail-transport';
+import {
+  ZEPTOMAIL_DELIVERY_OUTCOME_UNKNOWN_CODE,
+  zeptoMailRequest,
+} from './zeptomail-transport';
 
 const fetchMock = vi.fn();
 
@@ -102,21 +105,45 @@ describe('zeptoMailRequest', () => {
       )
     );
 
-    await expect(zeptoMailRequest('email', {}, 'token')).rejects.toThrow(
-      'ZeptoMail request timed out after 30000ms'
-    );
+    const result = zeptoMailRequest('email', {}, 'token');
+
+    await expect(result).rejects.toMatchObject({
+      code: ZEPTOMAIL_DELIVERY_OUTCOME_UNKNOWN_CODE,
+      message: 'ZeptoMail request timed out after 30000ms',
+    });
   });
 
   it('merges the undici cause into network failure messages', async () => {
     const failure = new TypeError('fetch failed');
-    (failure as TypeError & { cause?: Error }).cause = new Error(
-      'getaddrinfo ENOTFOUND api.zeptomail.com'
+    (failure as TypeError & { cause?: Error }).cause = Object.assign(
+      new Error('getaddrinfo ENOTFOUND api.zeptomail.com'),
+      { code: 'ENOTFOUND' }
     );
     fetchMock.mockRejectedValueOnce(failure);
 
-    await expect(zeptoMailRequest('email', {}, 'token')).rejects.toThrow(
-      'fetch failed: getaddrinfo ENOTFOUND api.zeptomail.com'
+    const result = zeptoMailRequest('email', {}, 'token');
+
+    await expect(result).rejects.toMatchObject({
+      message: 'fetch failed: getaddrinfo ENOTFOUND api.zeptomail.com',
+    });
+    await expect(result).rejects.not.toHaveProperty(
+      'code',
+      ZEPTOMAIL_DELIVERY_OUTCOME_UNKNOWN_CODE
     );
+  });
+
+  it('classifies mid-flight disconnects as having an unknown delivery outcome', async () => {
+    const failure = new TypeError('fetch failed');
+    (failure as TypeError & { cause?: Error }).cause = Object.assign(
+      new Error('socket hang up'),
+      { code: 'ECONNRESET' }
+    );
+    fetchMock.mockRejectedValueOnce(failure);
+
+    await expect(zeptoMailRequest('email', {}, 'token')).rejects.toMatchObject({
+      code: ZEPTOMAIL_DELIVERY_OUTCOME_UNKNOWN_CODE,
+      message: 'fetch failed: socket hang up',
+    });
   });
 
   it('rethrows plain Error network failures unchanged', async () => {

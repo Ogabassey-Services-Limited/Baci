@@ -102,7 +102,6 @@ describe('useUpdateOrderStatus', () => {
       'https://example.test/api/orders/order-1',
       expect.objectContaining({
         body: JSON.stringify({
-          merchant_id: 'merchant-1',
           shipping_status: 'shipped',
         }),
         headers: expect.objectContaining({
