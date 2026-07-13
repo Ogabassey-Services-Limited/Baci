@@ -137,10 +137,10 @@ BEGIN
       'platform read guard policy must be restrictive to enforce published-only access';
   END IF;
 
-  IF policy_roles NOT LIKE '%anon%'
-     OR policy_roles NOT LIKE '%authenticated%' THEN
+  IF policy_roles NOT LIKE '%authenticated%'
+     OR policy_roles LIKE '%anon%' THEN
     RAISE EXCEPTION
-      'platform read guard policy must target anon + authenticated, found %',
+      'authenticated platform read guard policy must target only authenticated, found %',
       policy_roles;
   END IF;
 
@@ -148,7 +148,40 @@ BEGIN
      OR policy_using NOT ILIKE '%status = ''published''%'
      OR policy_using NOT ILIKE '%published_at IS NOT NULL%'
      OR policy_using NOT ILIKE '%is_platform_admin%' THEN
-    RAISE EXCEPTION 'platform read guard policy using is incomplete: %', policy_using;
+    RAISE EXCEPTION 'authenticated platform read guard policy using is incomplete: %', policy_using;
+  END IF;
+
+  SELECT
+    array_to_string(polroles::regrole[]::text[], ','),
+    COALESCE(pg_get_expr(polqual, polrelid), ''),
+    polpermissive
+  INTO policy_roles, policy_using, policy_is_permissive
+  FROM pg_policy
+  WHERE polrelid = 'public.blog_posts'::regclass
+    AND polname = 'Anon platform blog posts require published status';
+
+  IF policy_roles IS NULL THEN
+    RAISE EXCEPTION
+      'missing policy: Anon platform blog posts require published status';
+  END IF;
+
+  IF policy_is_permissive IS TRUE THEN
+    RAISE EXCEPTION
+      'anonymous platform read guard policy must be restrictive to enforce published-only access';
+  END IF;
+
+  IF policy_roles NOT LIKE '%anon%'
+     OR policy_roles LIKE '%authenticated%' THEN
+    RAISE EXCEPTION
+      'anonymous platform read guard policy must target only anon, found %',
+      policy_roles;
+  END IF;
+
+  IF policy_using NOT ILIKE '%is_platform_post%'
+     OR policy_using NOT ILIKE '%status = ''published''%'
+     OR policy_using NOT ILIKE '%published_at IS NOT NULL%'
+     OR policy_using ILIKE '%is_platform_admin%' THEN
+    RAISE EXCEPTION 'anonymous platform read guard policy using is incomplete: %', policy_using;
   END IF;
 
   SELECT
