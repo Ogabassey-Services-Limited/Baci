@@ -17,6 +17,7 @@ function buildParams(
     hasFundingAccount: boolean;
     hasWalletData: boolean;
     isCreating: boolean;
+    needsPhone: boolean;
     routeAction: string | undefined;
   }> = {}
 ) {
@@ -27,6 +28,7 @@ function buildParams(
     hasFundingAccount = false,
     hasWalletData = true,
     isCreating = false,
+    needsPhone = false,
     routeAction = 'bank-transfer',
   } = overrides;
 
@@ -37,6 +39,7 @@ function buildParams(
       hasFundingAccount,
       hasWalletData,
       isCreating,
+      needsPhone,
     },
     customerId,
     routeAction,
@@ -109,6 +112,37 @@ describe('useWalletRouteActionSetup', () => {
     expect(createFundingAccount).not.toHaveBeenCalled();
   });
 
+  it('opens the fund panel and clears the latch when a phone is needed', () => {
+    const createFundingAccount = jest.fn();
+    const params = buildParams({
+      canCreateFundingAccount: false,
+      createFundingAccount,
+      needsPhone: true,
+    });
+
+    const { rerender } = renderHook(
+      (props: ReturnType<typeof buildParams>) =>
+        useWalletRouteActionSetup(props),
+      { initialProps: params }
+    );
+
+    // Fund panel opened for the phone prompt; no doomed create call, no
+    // silent no-op that leaves the intent latched forever.
+    expect(noopSetters.setShowFundPanel).toHaveBeenCalledWith(true);
+    expect(createFundingAccount).not.toHaveBeenCalled();
+
+    // Latch cleared: a re-render must not re-open the panel.
+    noopSetters.setShowFundPanel.mockClear();
+    rerender(
+      buildParams({
+        canCreateFundingAccount: false,
+        createFundingAccount,
+        needsPhone: true,
+      })
+    );
+    expect(noopSetters.setShowFundPanel).not.toHaveBeenCalled();
+  });
+
   it('does nothing for non-bank-transfer actions', () => {
     const createFundingAccount = jest.fn();
 
@@ -156,6 +190,7 @@ describe('useWalletRouteActionSetup', () => {
         hasFundingAccount: false,
         hasWalletData: true,
         isCreating: false,
+        needsPhone: false,
       },
       customerId,
       routeAction: 'fund',

@@ -3,8 +3,8 @@ import { Redirect, router } from 'expo-router';
 import { useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useColorScheme } from '@/components/useColorScheme';
-import { deriveWalletFundingAccountAvailability } from '@/components/wallet/deriveWalletFundingAccountAvailability';
 import { useWalletBalanceContractWarning } from '@/components/wallet/use-wallet-balance-contract-warning';
+import { useWalletFundingAccountController } from '@/components/wallet/use-wallet-funding-account-controller';
 import { useWalletRouteActionSetup } from '@/components/wallet/use-wallet-route-action-setup';
 import { WalletScreenView } from '@/components/wallet/WalletScreenView';
 import { WALLET_TAB_SCROLL_PADDING_BOTTOM } from '@/components/wallet/wallet-tab.constants';
@@ -24,11 +24,7 @@ import { pickMerchantId } from '@/lib/pick-merchant-id';
 import { sanitizeWalletReturnTo } from '@/lib/sanitize-wallet-return-to';
 import { cancelSavingsReminderNotification } from '@/services/savings-reminder-notifications';
 import { useAuthStore } from '@/stores/auth-store';
-import {
-  createWalletFundingAccount,
-  fundWallet,
-  redeemWalletPoints,
-} from './wallet-screen.handlers';
+import { fundWallet, redeemWalletPoints } from './wallet-screen.handlers';
 import {
   deriveWalletDisplayData,
   getWalletLoadingMessage,
@@ -58,10 +54,11 @@ export function WalletScreen({
   const routeRequiredAmount = normalizeWalletFundAmountParam(requiredAmount);
   const walletReturnTo = sanitizeWalletReturnTo(returnTo);
   const { isLoading: authLoading, redirectTo } = useRequireAuth();
-  const { customer, merchantId, user } = useAuthStore(
+  const { customer, merchantId, updateProfile, user } = useAuthStore(
     useShallow((state) => ({
       customer: state.customer,
       merchantId: state.merchantId,
+      updateProfile: state.updateProfile,
       user: state.user,
     }))
   );
@@ -98,14 +95,20 @@ export function WalletScreen({
   const {
     canCreateFundingAccount,
     createFundingAccountUnavailableMessage,
-    customerPhone,
-    isPaymentSettingsPending,
-    walletDvaEnabled,
-  } = deriveWalletFundingAccountAvailability({
+    needsPhone,
+    onCreateFundingAccount: handleCreateFundingAccount,
+    onSubmitPhone: handleSubmitPhone,
+  } = useWalletFundingAccountController({
+    activeMerchantId,
+    activeMerchantSlug,
+    createFundingAccount: createFundingAccountMutation.mutateAsync,
+    customerId: customer?.id,
     customerPhone: customer?.phone,
     isPaymentSettingsError,
     isPaymentSettingsPending: isPaymentSettingsQueryPending,
     paymentSettings,
+    setShowFundPanel,
+    updateProfile,
   });
   useWalletBalanceContractWarning({
     merchantId: activeMerchantId,
@@ -114,17 +117,6 @@ export function WalletScreen({
   });
   const handleFundAmountChange = (value: string) =>
     setFundAmount(sanitizeWalletFundAmount(value));
-  const handleCreateFundingAccount = () =>
-    createWalletFundingAccount({
-      activeMerchantId,
-      activeMerchantSlug,
-      createFundingAccount: createFundingAccountMutation.mutateAsync,
-      customerId: customer?.id,
-      customerPhone,
-      isPaymentSettingsError,
-      isPaymentSettingsPending,
-      walletDvaEnabled,
-    });
   useWalletRouteActionSetup({
     bankTransfer: {
       canCreateFundingAccount,
@@ -132,6 +124,7 @@ export function WalletScreen({
       hasFundingAccount: Boolean(data?.wallet?.funding_account),
       hasWalletData: Boolean(data),
       isCreating: createFundingAccountMutation.isPending,
+      needsPhone,
     },
     customerId: customer?.id,
     routeAction,
@@ -258,6 +251,7 @@ export function WalletScreen({
         isRedeemPending: redeemMutation.isPending,
         isRefetching,
         loyaltyPoints: walletData.loyalty_points,
+        needsPhone,
         onAddSavingsContribution: handleAddSavingsContribution,
         onChangeSavingsDevice: (product, variantId) =>
           changeSavingsGoalDevice({
@@ -285,6 +279,7 @@ export function WalletScreen({
         onResetFund: resetFundPanel,
         onResetRedeem: resetRedeemPanel,
         onStartSavings: handleOpenSavings,
+        onSubmitPhone: handleSubmitPhone,
         redeemPoints,
         savingsContributionAmount,
         savingsBalance,
