@@ -252,10 +252,23 @@ export async function POST(request: NextRequest) {
             .eq('id', transaction.order_id)
             .maybeSingle();
 
-        if (completedOrderError && isEventPipelineEnqueueEnabled()) {
-          throw new Error('completed_order_lookup_failed', {
-            cause: completedOrderError,
+        if (completedOrderError) {
+          // A failed re-read must not be acknowledged as "Already processed"
+          // — that would consume the redelivery that could heal a wedge.
+          logger.error({
+            error: completedOrderError,
+            message: 'Order state lookup failed on Juicyway redelivery',
+            orderId: transaction.order_id,
           });
+          if (isEventPipelineEnqueueEnabled()) {
+            throw new Error('completed_order_lookup_failed', {
+              cause: completedOrderError,
+            });
+          }
+          return NextResponse.json(
+            { error: 'Order state lookup failed' },
+            { status: 500 }
+          );
         }
 
         const completedOrderIsCancelled =

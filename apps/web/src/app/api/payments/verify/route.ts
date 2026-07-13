@@ -136,6 +136,21 @@ async function verifyPaymentReference(reference: string) {
     });
   }
 
+  if (!transaction.order_id) {
+    // Wallet top-ups and other non-order references have their own
+    // verification flows. Flipping the transaction here would make the
+    // gateway webhook short-circuit on the completed row without ever
+    // running that flow's crediting logic — refuse instead of finalizing.
+    logger.warn({
+      message: 'Payment verify called for a transaction without an order',
+      reference: parsedReference.data,
+    });
+    return NextResponse.json(
+      { error: 'Transaction is not an order payment' },
+      { status: 409 }
+    );
+  }
+
   const verification = await verifyGatewayPayment(
     transaction.gateway,
     parsedReference.data
@@ -214,21 +229,6 @@ async function verifyPaymentReference(reference: string) {
         { status: 400 }
       );
     }
-  }
-
-  if (!transaction.order_id) {
-    // Wallet top-ups and other non-order references have their own
-    // verification flows. Flipping the transaction here would make the
-    // gateway webhook short-circuit on the completed row without ever
-    // running that flow's crediting logic — refuse instead of finalizing.
-    logger.warn({
-      message: 'Payment verify called for a transaction without an order',
-      reference: parsedReference.data,
-    });
-    return NextResponse.json(
-      { error: 'Transaction is not an order payment' },
-      { status: 409 }
-    );
   }
 
   // Shared finalizer with the gateway webhook and the reconcile cron: the

@@ -297,14 +297,16 @@ export async function POST(request: NextRequest) {
         .select('payment_status, shipping_status')
         .eq('id', transaction.order_id)
         .maybeSingle<OrderStatusRollbackSnapshot>();
-    if (preUpdateStatusError) {
-      // Non-fatal: fall back to the legacy safe defaults below rather than
-      // rolling back with NULLs (both columns are NOT NULL).
-      logger.warn({
+    if (preUpdateStatusError || !preUpdateOrderStatus) {
+      // Fail closed BEFORE mutating: without a trustworthy snapshot a later
+      // inventory-confirmation failure could not roll the order back to its
+      // real prior state. Klump retries on non-2xx.
+      logger.error({
         error: preUpdateStatusError,
         message: 'Klump pre-update order status snapshot failed',
         orderId: transaction.order_id,
       });
+      return errorResponse('Failed to snapshot order status', 500);
     }
 
     const { data: updatedOrder, error: orderError } = await updateKlumpOrder({
@@ -385,10 +387,8 @@ export async function POST(request: NextRequest) {
               transaction.merchant_id,
               order.id,
               {
-                payment_status:
-                  preUpdateOrderStatus?.payment_status ?? 'pending',
-                shipping_status:
-                  preUpdateOrderStatus?.shipping_status ?? 'pending',
+                payment_status: preUpdateOrderStatus.payment_status,
+                shipping_status: preUpdateOrderStatus.shipping_status,
               }
             );
           } catch (rollbackError) {
