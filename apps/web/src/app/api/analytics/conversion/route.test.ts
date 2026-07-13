@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   enqueueEnabled: false,
@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   resolveContext: vi.fn(),
   send: vi.fn(),
 }));
+const FIXED_EVENT_TIME = 1_784_937_600;
 
 vi.mock('@supabase/supabase-js', () => ({
   createClient: () => ({ from: mocks.from }),
@@ -42,7 +43,7 @@ function request(overrides: Record<string, unknown> = {}) {
       custom_data: { currency: 'NGN', value: 100 },
       event_name: 'START_CHECKOUT',
       event_source: 'web',
-      event_time: Math.floor(Date.now() / 1_000),
+      event_time: FIXED_EVENT_TIME,
       merchant_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
       user_data: {},
       ...overrides,
@@ -55,6 +56,8 @@ function request(overrides: Record<string, unknown> = {}) {
 describe('POST /api/analytics/conversion', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(FIXED_EVENT_TIME * 1_000));
     mocks.enqueueEnabled = false;
     mocks.fanoutDisabled = false;
     const analytics = { upsert: vi.fn().mockResolvedValue({ error: null }) };
@@ -71,6 +74,10 @@ describe('POST /api/analytics/conversion', () => {
     );
     mocks.send.mockResolvedValue({ facebook: { success: true } });
     mocks.record.mockResolvedValue({ queue_message_id: 1 });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('rejects caller-owned routing fields through strict validation', async () => {

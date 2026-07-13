@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
   const parsed = analyticsEventRequestSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Invalid input', details: parsed.error.flatten() },
+      { code: 'invalid_input', error: 'Invalid input' },
       { status: 400 }
     );
   }

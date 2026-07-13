@@ -139,6 +139,25 @@ describe('POST /api/events', () => {
         error: 'Missing required fields: event_type and merchant_id',
       });
     });
+
+    it('returns the stable invalid-input error contract for schema failures', async () => {
+      const request = new NextRequest('http://localhost:3000/api/events', {
+        method: 'POST',
+        body: JSON.stringify({
+          event_type: 'page_view',
+          merchant_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
+          page_url: 'not-a-url',
+        }),
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        code: 'invalid_input',
+        error: 'Invalid input',
+      });
+    });
   });
 
   describe('Event insertion', () => {

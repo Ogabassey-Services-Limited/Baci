@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   from: vi.fn(),
   legacyFanoutDisabled: true,
   record: vi.fn(),
+  resolveContext: vi.fn(),
   upsert: vi.fn(),
 }));
 vi.mock('@supabase/supabase-js', () => ({
@@ -13,6 +14,9 @@ vi.mock('@supabase/supabase-js', () => ({
 vi.mock('@/lib/events/event-pipeline-config', () => ({
   isEventPipelineEnqueueEnabled: () => true,
   isLegacyAnalyticsFanoutDisabled: () => mocks.legacyFanoutDisabled,
+}));
+vi.mock('@/lib/events/event-ingress-context', () => ({
+  resolveEventIngressContext: mocks.resolveContext,
 }));
 vi.mock('@/lib/events/record-platform-domain-event', () => ({
   recordPlatformDomainEvent: mocks.record,
@@ -24,6 +28,12 @@ describe('POST /api/platform/events durable pipeline', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.legacyFanoutDisabled = true;
+    mocks.resolveContext.mockResolvedValue({
+      merchantId: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
+      ok: true,
+      trustLevel: 'tenant_verified_client',
+      verified: true,
+    });
     mocks.from.mockImplementation((table: string) => {
       if (table === 'platform_events') return { upsert: mocks.upsert };
       if (table === 'platform_settings') {
@@ -105,5 +115,27 @@ describe('POST /api/platform/events durable pipeline', () => {
       expect.objectContaining({ eventName: 'platform.client.observed.v1' })
     );
     expect(mocks.from).not.toHaveBeenCalledWith('platform_settings');
+  });
+
+  it('uses the validated page URL to resolve a merchant ingress context', async () => {
+    mocks.record.mockResolvedValue({ queue_message_id: 1 });
+    const request = new NextRequest('https://usebaci.com/api/platform/events', {
+      body: JSON.stringify({
+        event_type: 'landing_page_view',
+        merchant_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
+        page_url: 'https://usebaci.com/shop/products',
+      }),
+      method: 'POST',
+    });
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(200);
+    expect(mocks.resolveContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchantId: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
+        pageUrl: 'https://usebaci.com/shop/products',
+      })
+    );
   });
 });

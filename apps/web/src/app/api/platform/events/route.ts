@@ -12,6 +12,10 @@ import {
   type PlatformEventRequestInput,
   platformEventRequestSchema,
 } from '@/schemas/platform-event';
+import {
+  forwardToPlatformAnalytics,
+  type PlatformEventType,
+} from './platform-event-forwarding';
 
 // Lazy initialization to avoid build-time errors
 function getSupabaseAdmin() {
@@ -21,11 +25,7 @@ function getSupabaseAdmin() {
   );
 }
 
-/** Platform-wide default currency when an event doesn't carry its own. */
-const DEFAULT_PLATFORM_CURRENCY = 'NGN';
 const MAX_EVENT_BYTES = 64 * 1024;
-
-export type PlatformEventType = PlatformEventRequestInput['event_type'];
 
 function persistLegacyPlatformEvent(args: {
   eventData: PlatformEventRequestInput['event_data'];
@@ -105,6 +105,7 @@ export async function POST(request: NextRequest) {
       const context = merchant_id
         ? await resolveEventIngressContext({
             merchantId: merchant_id,
+            pageUrl: page_url,
             request,
             supabase: getSupabaseAdmin(),
           })
@@ -190,13 +191,13 @@ export async function POST(request: NextRequest) {
     // Also forward to platform's external analytics if configured
     // This runs in background, doesn't block response
     if (!isLegacyAnalyticsFanoutDisabled()) {
-      forwardToPlatformAnalytics(
-        event_type,
-        event_data,
+      forwardToPlatformAnalytics({
+        eventData: event_data,
         eventId,
+        eventType: event_type,
+        pageUrl: page_url,
         request,
-        page_url
-      ).catch((forwardError) => {
+      }).catch((forwardError) => {
         console.warn('Failed to forward to platform analytics:', forwardError);
       });
     }
@@ -208,127 +209,5 @@ export async function POST(request: NextRequest) {
       { error: 'Internal server error' },
       { status: 500 }
     );
-  }
-}
-
-type PlatformEventData = PlatformEventRequestInput['event_data'];
-
-/**
- * Forward events to platform's configured analytics (GA4, Facebook, etc.)
- */
-async function forwardToPlatformAnalytics(
-  eventType: PlatformEventType,
-  eventData: PlatformEventData,
-  eventId: string,
-  request: NextRequest,
-  pageUrl?: string
-) {
-  // Get platform settings
-  const { data: settings } = await getSupabaseAdmin()
-    .from('platform_settings')
-    .select(
-      'google_analytics_id, ga4_api_secret, facebook_pixel_id, facebook_capi_token'
-    )
-    .single();
-
-  if (!settings) return;
-
-  // const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://baci.app';
-
-  // Map platform events to GA4 event names
-  const ga4EventMap: Record<PlatformEventType, string> = {
-    landing_page_view: 'page_view',
-    pricing_page_view: 'page_view',
-    merchant_signup_started: 'begin_checkout', // Treat signup as conversion funnel
-    merchant_signup_completed: 'sign_up',
-    merchant_first_sale: 'purchase', // Merchant's success = platform success
-    merchant_store_published: 'generate_lead',
-    platform_checkout: 'begin_checkout',
-    platform_purchase: 'purchase',
-  };
-
-  // Forward to GA4 if configured
-  if (settings.google_analytics_id && settings.ga4_api_secret) {
-    try {
-      const { sendGA4Event, generateClientId } = await import(
-        '@/lib/ga4-measurement-protocol'
-      );
-      await sendGA4Event(
-        settings.google_analytics_id,
-        settings.ga4_api_secret,
-        ga4EventMap[eventType] || eventType,
-        {
-          clientId: generateClientId(),
-          ipAddress:
-            request.headers.get('x-forwarded-for')?.split(',')[0] || undefined,
-          userAgent: request.headers.get('user-agent') || undefined,
-        },
-        {
-          // Add value for purchase events. Honor the client-passed (and
-          // Zod-validated) currency instead of discarding it — only fall
-          // back to the platform default when the event carries none.
-          ...(eventType === 'platform_purchase' && eventData?.value
-            ? {
-                value: eventData.value,
-                currency: eventData.currency ?? DEFAULT_PLATFORM_CURRENCY,
-              }
-            : {}),
-          // Add page info
-          page_location: pageUrl,
-          event_id: eventId,
-        }
-      );
-    } catch (err) {
-      console.warn('GA4 forward failed:', err);
-    }
-  }
-
-  // Forward to Facebook CAPI if configured
-  if (settings.facebook_pixel_id && settings.facebook_capi_token) {
-    try {
-      const { sendFacebookCAPIEvent } = await import('@/lib/facebook-capi');
-
-      // Map platform events to Facebook standard events
-      type FacebookEventName =
-        | 'PageView'
-        | 'Lead'
-        | 'CompleteRegistration'
-        | 'Purchase'
-        | 'InitiateCheckout';
-
-      const fbEventMap: Partial<Record<PlatformEventType, FacebookEventName>> =
-        {
-          landing_page_view: 'PageView',
-          merchant_signup_completed: 'CompleteRegistration',
-          merchant_store_published: 'Lead',
-          platform_purchase: 'Purchase',
-          merchant_signup_started: 'InitiateCheckout',
-        };
-
-      const fbEvent = fbEventMap[eventType];
-      if (fbEvent) {
-        await sendFacebookCAPIEvent(
-          settings.facebook_pixel_id,
-          settings.facebook_capi_token,
-          fbEvent,
-          {
-            clientIpAddress:
-              request.headers.get('x-forwarded-for')?.split(',')[0] ||
-              undefined,
-            clientUserAgent: request.headers.get('user-agent') || undefined,
-          },
-          eventType === 'platform_purchase'
-            ? {
-                value: eventData?.value || 0,
-                currency: eventData?.currency ?? DEFAULT_PLATFORM_CURRENCY,
-              }
-            : undefined,
-          pageUrl,
-          eventId
-        );
-      }
-    } catch (err) {
-      console.warn('Facebook CAPI forward failed:', err);
-    }
   }
 }
