@@ -9,6 +9,7 @@ import type {
   PaypalCaptureTransaction,
 } from '@/lib/payments/load-paypal-capture-context';
 import { orderNumberFallback } from '@/lib/payments/load-paypal-capture-context';
+import { markPaypalTransactionRefunded } from '@/lib/payments/mark-paypal-transaction-refunded';
 import type { PaypalCaptureState } from '@/lib/payments/paypal-capture-outcome';
 import { validatePaypalCaptureSet } from '@/lib/payments/paypal-capture-validation';
 import { initiatePaypalOrderRefund } from '@/lib/payments/paypal-order-refund';
@@ -119,7 +120,16 @@ async function resolveCaptureGatewayResponse(
   return data?.gateway_response ?? null;
 }
 
-/** Full-refunds every completed capture on a stale/mispriced captured order. */
+/**
+ * Full-refunds every completed capture on a stale/mispriced captured order, and
+ * marks the transaction terminal so NO later path can settle the order against
+ * the money we just returned.
+ *
+ * The terminal stamp is what makes the refund safe to leave behind: without it a
+ * refunded-but-still-`pending` row is re-fetched by a retry (PayPal reports the
+ * order COMPLETED), and `settleCompletedPaypalOrder` — which does not re-run the
+ * mode/validation checks that triggered the refund — would flip it to paid.
+ */
 export async function refundCapturedPaypalOrder(
   ctx: PaypalCaptureContext,
   remote: PayPalOrderDetails | undefined,
@@ -131,6 +141,7 @@ export async function refundCapturedPaypalOrder(
     gatewayResponse,
     reason,
   });
+  await markPaypalTransactionRefunded(ctx.supabase, ctx.transaction.id, reason);
   return { success: result.success, error: result.error };
 }
 

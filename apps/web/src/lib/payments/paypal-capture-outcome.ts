@@ -136,10 +136,13 @@ function isCaptured(status: PaypalOrderStatus | undefined): boolean {
 export function resolvePaypalCaptureOutcome(
   state: PaypalCaptureState
 ): PaypalCaptureOutcome {
+  // NOTE: `txnStatus` is deliberately NOT consulted here. A completed transaction
+  // row is not evidence that THIS txn settled the order — only the atomic settler
+  // marker is (see rule 1). Its other job, telling us PayPal already captured, is
+  // done upstream: the funnel derives `paypalOrderStatus = COMPLETED` from it.
   const {
     orderPaymentStatus,
     orderShippingStatus,
-    txnStatus,
     paypalOrderStatus,
     lockedResidual,
     currentResidual,
@@ -150,15 +153,17 @@ export function resolvePaypalCaptureOutcome(
   const paid = orderPaymentStatus === 'paid';
   const cancelled = orderShippingStatus === 'cancelled';
 
-  // 1. This txn settled the order — either the marker names it, or the order is
-  //    paid and this txn is completed with no evidence of a different settler.
-  //    Idempotent success. Note the `other_txn` exclusion: a completed txn whose
-  //    order was actually settled by SOMETHING ELSE is a stranded duplicate, and
-  //    must fall through to rule 2 to be refunded — not reported as success.
+  // 1. ONLY positive proof that THIS txn settled the order takes the idempotent
+  //    fast path. Everything else on a paid order falls through to rule 2.
+  //
+  //    In particular `unknown` must NOT short-circuit here, even when this txn is
+  //    already `completed`: orders paid by a NON-PayPal tender (Paystack/Korapay)
+  //    never stamp `paid_transaction_id`, so `unknown` is precisely the state of a
+  //    stale PayPal capture landing on an order another gateway paid. Reporting
+  //    that as clean success would leave real duplicate funds in the merchant's
+  //    PayPal account with nobody told. Rule 2 blocks it and files a review (and
+  //    still never auto-refunds an unprovable duplicate).
   if (paid && settlerVerdict === 'this_txn') {
-    return { kind: 'already_paid_idempotent' };
-  }
-  if (paid && txnStatus === 'completed' && settlerVerdict !== 'other_txn') {
     return { kind: 'already_paid_idempotent' };
   }
 

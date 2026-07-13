@@ -5,12 +5,7 @@ import { logger } from '@/lib/logger';
 import { ensurePaidOrderInventoryConfirmed } from '@/lib/payments/ensure-paid-order-inventory-confirmed';
 import { finalizeOrderGatewayPayment } from '@/lib/payments/finalize-order-gateway-payment';
 import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
-import {
-  isProvenDuplicate,
-  resolvePaypalSettlerVerdict,
-} from '@/lib/payments/paypal-settler-verdict';
-import { reconcilePaypalOrderToPaid } from '@/lib/payments/reconcile-paypal-order';
-import { refundDuplicatePaypalCapture } from '@/lib/payments/refund-duplicate-paypal-capture';
+import { runPaypalReconcileFunnel } from '@/lib/payments/paypal-settlement-funnel';
 import type { GatewayVerificationResult } from '@/lib/payments/types';
 import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -137,40 +132,26 @@ async function verifyPaymentReference(reference: string) {
     );
   }
 
-  const isPaypalTransaction = transaction.gateway === 'paypal';
-  // Authoritative settler signal: the reconcile CAS stamps
-  // orders.paid_transaction_id with the settling txn ATOMICALLY, so it survives a
-  // lost split/metadata write (unlike transactions.metadata.paypal_split, which
-  // is best-effort). THREE states, not two — a NULL marker (a pre-migration paid
-  // order, or a paid path that does not stamp it) is NOT proof that something
-  // else settled the order, so it must never trigger an auto-refund.
-  const settlerVerdict = resolvePaypalSettlerVerdict(
-    existingOrder?.paid_transaction_id,
-    transaction.id
-  );
-
-  // A completed PayPal txn on an already-paid order that PROVABLY did not settle
-  // it (the marker names a different txn) is a duplicate capture — a stale PayPal
-  // order captured after another tender/PayPal order paid it. The fast path below
-  // would confirm it and strand the funds, so refund it here instead: the /verify
-  // counterpart of the capture route's block_paid_elsewhere. An `unknown` verdict
-  // falls through to the normal path and is never clawed back (Codex pass-9 P1).
+  // A COMPLETED PayPal transaction means PayPal already took the buyer's money,
+  // so deciding what happens to it (settle, review, or refund a proven
+  // duplicate) belongs to the shared settlement funnel.
+  //
+  // Gated on completed deliberately: a pending PayPal transaction has taken no
+  // money, so the checkout poller adds no PayPal API calls.
   if (
-    isPaypalTransaction &&
+    transaction.gateway === 'paypal' &&
     transaction.status === 'completed' &&
-    existingOrder?.payment_status === 'paid' &&
-    isProvenDuplicate(settlerVerdict) &&
     transaction.order_id
   ) {
-    return refundDuplicatePaypalCapture({
+    const funnel = await runPaypalReconcileFunnel(supabase, {
       merchantId: transaction.merchant_id,
       orderId: transaction.order_id,
-      transactionId: transaction.id,
-      gatewayReference: transaction.gateway_reference,
-      gatewayResponse: transaction.gateway_response,
-      orderNumber: existingOrder?.order_number ?? null,
-      source: 'verify',
+      paypalOrderId: transaction.gateway_reference,
     });
+    if (funnel.ok) {
+      return funnel.response;
+    }
+    return NextResponse.json(funnel.body, { status: funnel.status });
   }
 
   const isSupportedOrderGateway =
@@ -260,37 +241,12 @@ async function verifyPaymentReference(reference: string) {
     });
   }
 
-  // F-101: PayPal settles direct-to-merchant. The generic `.neq('completed')`
-  // update + `if(updatedTxn)` side-effect path could mark the order paid while
-  // SKIPPING the direct settlement + notify + email. Delegate the PayPal
-  // completed-but-unpaid reconcile to the single authoritative writer so the
-  // settlement, currency-aware email and push run on EVERY path, gated by the
-  // CAS claim (not by `updatedTxn`). Non-PayPal gateways keep the generic path.
-  if (transaction.gateway === 'paypal' && transaction.order_id) {
-    const { data: orderRow } = await supabase
-      .from('orders')
-      .select('total, payment_status, shipping_status, amount_paid')
-      .eq('id', transaction.order_id)
-      .eq('merchant_id', transaction.merchant_id)
-      .maybeSingle();
-    const lockedResidual = Number(transaction.amount) || 0;
-    const orderTotal = Number(orderRow?.total) || lockedResidual;
-    return reconcilePaypalOrderToPaid({
-      supabase,
-      merchantId: transaction.merchant_id,
-      orderId: transaction.order_id,
-      paypalOrderId: transaction.gateway_reference ?? parsedReference.data,
-      transactionId: transaction.id,
-      lockedResidual,
-      orderTotal,
-      prepaidTender: Math.max(orderTotal - lockedResidual, 0),
-      preCaptureStatus: {
-        payment_status: orderRow?.payment_status ?? null,
-        shipping_status: orderRow?.shipping_status ?? null,
-        amount_paid: orderRow?.amount_paid ?? 0,
-      },
-    });
-  }
+  // NOTE: every PayPal transaction that reaches a 'success' verification is by
+  // definition `completed` (see verifyGatewayPayment — PayPal has no webhook, so
+  // the stored status IS the verification), and those were already routed through
+  // the settlement funnel above. There is deliberately no PayPal branch here: a
+  // second place deciding how to settle PayPal is precisely what let /verify drift
+  // from the capture route.
 
   // Verify the gateway-confirmed amount matches our stored transaction amount
   // (mirrors the webhook's amount/currency checks to prevent partial-pay exploits)

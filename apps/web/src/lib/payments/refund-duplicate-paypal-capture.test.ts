@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { filePaypalCapturePersistFailureReview } from './file-paypal-capture-persist-failure-review';
+import { markPaypalTransactionRefunded } from './mark-paypal-transaction-refunded';
 import { initiatePaypalOrderRefund } from './paypal-order-refund';
 import { refundDuplicatePaypalCapture } from './refund-duplicate-paypal-capture';
 
@@ -7,6 +8,10 @@ vi.mock('server-only', () => ({}));
 
 vi.mock('./paypal-order-refund', () => ({
   initiatePaypalOrderRefund: vi.fn(),
+}));
+
+vi.mock('./mark-paypal-transaction-refunded', () => ({
+  markPaypalTransactionRefunded: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('./file-paypal-capture-persist-failure-review', () => ({
@@ -61,6 +66,22 @@ describe('refundDuplicatePaypalCapture', () => {
           refundSucceeded: true,
         }),
       })
+    );
+  });
+
+  it('marks the refunded capture terminal so no later retry can settle against it (Codex pass-10 P1)', async () => {
+    vi.mocked(initiatePaypalOrderRefund).mockResolvedValue({
+      success: true,
+    } as never);
+
+    await refundDuplicatePaypalCapture({ ...BASE, source: 'verify' });
+
+    // Refunding the money is only half the job: a still-`completed` row gets
+    // picked back up by a retry and settled against funds we already returned.
+    expect(markPaypalTransactionRefunded).toHaveBeenCalledWith(
+      undefined,
+      BASE.transactionId,
+      expect.stringContaining('verify')
     );
   });
 

@@ -1,19 +1,9 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { loadPaypalCaptureContext } from '@/lib/payments/load-paypal-capture-context';
-import {
-  buildPaypalCaptureState,
-  type PaypalCaptureContext,
-} from '@/lib/payments/paypal-capture-execute';
-import {
-  mapPaypalOrderStatus,
-  needsPaypalStatusLookup,
-  type PaypalOrderStatus,
-  resolvePaypalCaptureOutcome,
-} from '@/lib/payments/paypal-capture-outcome';
-import { handlePaypalCaptureOutcome } from '@/lib/payments/paypal-capture-outcome-handlers';
+import type { PaypalCaptureContext } from '@/lib/payments/paypal-capture-execute';
 import { getPaypalCheckoutCredentials } from '@/lib/payments/paypal-checkout-credentials';
-import { getOrder, type PayPalOrderDetails } from '@/lib/paypal';
+import { resolveAndDispatchPaypalSettlement } from '@/lib/payments/paypal-settlement-funnel';
 import { createServiceClient } from '@/lib/supabase/service';
 import { paypalCaptureOrderSchema } from '@/schemas/paypal-checkout';
 
@@ -93,38 +83,10 @@ export async function POST(request: NextRequest) {
       presentmentCurrency: load.presentmentCurrency,
     };
 
-    // Derive the live PayPal status cheaply: a completed txn already captured; a
-    // settled/cancelled order is looked up (to know whether a stale order
-    // captured); a plainly-unpaid order captures optimistically.
-    let remote: PayPalOrderDetails | undefined;
-    let paypalOrderStatus: PaypalOrderStatus;
-    if (load.transaction.status === 'completed') {
-      paypalOrderStatus = 'COMPLETED';
-    } else if (
-      needsPaypalStatusLookup(
-        load.orderSnapshot.payment_status,
-        load.orderSnapshot.shipping_status
-      )
-    ) {
-      const fetched = await getOrder(
-        credentials.clientId,
-        credentials.secretKey,
-        paypal_order_id,
-        mode
-      );
-      remote = fetched.success ? fetched.data : undefined;
-      paypalOrderStatus = fetched.success
-        ? mapPaypalOrderStatus(fetched.data.status)
-        : 'UNKNOWN';
-    } else {
-      paypalOrderStatus = 'APPROVED';
-    }
-
-    const outcome = resolvePaypalCaptureOutcome(
-      buildPaypalCaptureState(ctx, paypalOrderStatus)
-    );
-
-    return handlePaypalCaptureOutcome(ctx, outcome, remote);
+    // One funnel for every settlement decision (capture-order / verify /
+    // create-order): it derives the live PayPal status, resolves the outcome and
+    // dispatches. This route is the only caller allowed to actually charge.
+    return await resolveAndDispatchPaypalSettlement(ctx, 'capture');
   } catch (error) {
     logger.error({
       message: 'PayPal capture order error',

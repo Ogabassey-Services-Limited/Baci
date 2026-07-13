@@ -158,34 +158,14 @@ export async function POST(request: NextRequest) {
     }
 
     if (completedPaypalTxn?.gateway_reference) {
-      // Read the pre-capture amount_paid so a reconcile that hits an inventory
-      // rollback restores it rather than zeroing a mixed-tender redemption.
-      const { data: orderRow } = await supabase
-        .from('orders')
-        .select('amount_paid')
-        .eq('id', order_id)
-        .eq('merchant_id', merchant_id)
-        .maybeSingle();
-
-      // Route through the SAME reconcile funnel as capture-order/verify — the
-      // completed txn already carries the capture response, so the writer's CAS
-      // finalizes idempotently (no second charge). Then block the retry.
+      // Route through the SAME settlement funnel as capture-order/verify — one
+      // resolver, one writer — so this guard inherits residual freshness, the
+      // settler verdict and post-capture refunds instead of re-deriving them.
+      // Then block the retry.
       await reconcileCompletedPaypalOrderForCreate(supabase, {
         merchantId: merchant_id,
         orderId: order_id,
         paypalOrderId: completedPaypalTxn.gateway_reference,
-        orderTotal,
-        preCaptureStatus: {
-          payment_status:
-            typeof orderSnapshot.payment_status === 'string'
-              ? orderSnapshot.payment_status
-              : null,
-          shipping_status:
-            typeof orderSnapshot.shipping_status === 'string'
-              ? orderSnapshot.shipping_status
-              : null,
-          amount_paid: (orderRow?.amount_paid as number | string | null) ?? 0,
-        },
       });
 
       return NextResponse.json(
@@ -403,35 +383,12 @@ export async function POST(request: NextRequest) {
       if (reuse.outcome === 'already_captured') {
         // F-393: the reuse branch used to 409 WITHOUT finalizing — money was
         // captured at PayPal but the order stayed unpaid + unsettled. Route it
-        // through the SAME reconcile funnel as the completed-txn guard (fetch
-        // the PayPal order, validate, persist, reconcile idempotently) BEFORE
-        // blocking the retry.
-        const { data: reuseOrderRow } = await supabase
-          .from('orders')
-          .select('amount_paid')
-          .eq('id', order_id)
-          .eq('merchant_id', merchant_id)
-          .maybeSingle();
-
+        // through the SAME settlement funnel as the capture route BEFORE blocking
+        // the retry, so it inherits residual freshness and post-capture refunds.
         await reconcileCompletedPaypalOrderForCreate(supabase, {
-          credentials,
-          mode,
           merchantId: merchant_id,
           orderId: order_id,
           paypalOrderId: reusablePayPalOrderId,
-          orderTotal,
-          preCaptureStatus: {
-            payment_status:
-              typeof orderSnapshot.payment_status === 'string'
-                ? orderSnapshot.payment_status
-                : null,
-            shipping_status:
-              typeof orderSnapshot.shipping_status === 'string'
-                ? orderSnapshot.shipping_status
-                : null,
-            amount_paid:
-              (reuseOrderRow?.amount_paid as number | string | null) ?? 0,
-          },
         });
 
         return NextResponse.json(

@@ -170,16 +170,38 @@ describe('resolvePaypalCaptureOutcome — §3 state table', () => {
     });
   });
 
-  it('3c: PAID + this txn completed → already_paid_idempotent', () => {
+  it('3c: PAID + this txn completed AND proven to be the settler → already_paid_idempotent', () => {
     expect(
       resolvePaypalCaptureOutcome(
         state({
           orderPaymentStatus: 'paid',
           txnStatus: 'completed',
           paypalOrderStatus: 'COMPLETED',
+          settlerVerdict: 'this_txn',
         })
       )
     ).toEqual({ kind: 'already_paid_idempotent' });
+  });
+
+  it('3c: PAID + this txn completed but settler UNKNOWN → blocks (escalates), never a silent success', () => {
+    // Being `completed` is not proof this txn settled the order. Orders paid by a
+    // non-PayPal tender never stamp a marker, so this is exactly a stale PayPal
+    // capture on a Paystack/Korapay-paid order — it must be escalated, not
+    // reported clean.
+    expect(
+      resolvePaypalCaptureOutcome(
+        state({
+          orderPaymentStatus: 'paid',
+          txnStatus: 'completed',
+          paypalOrderStatus: 'COMPLETED',
+          settlerVerdict: 'unknown',
+        })
+      )
+    ).toEqual({
+      kind: 'block_paid_elsewhere',
+      captured: true,
+      settlerVerdict: 'unknown',
+    });
   });
 
   it('3c row 2: PAID + this txn pending but IS the settler (lost flip write) → already_paid_idempotent, NOT refund', () => {

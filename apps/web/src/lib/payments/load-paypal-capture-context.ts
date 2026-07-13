@@ -67,7 +67,13 @@ export async function loadPaypalCaptureContext(
     orderId: string;
     paypalOrderId: string;
     merchantId: string;
-    customerEmail: string;
+    /**
+     * The buyer-supplied email, for the CAPTURE route — it stops a capture
+     * request being pointed at somebody else's order. Internal reconcile-only
+     * callers (/verify, create-order) omit it: they already established which
+     * order they are acting on, and they never charge.
+     */
+    customerEmail?: string;
   }
 ): Promise<PaypalCaptureStateLoad> {
   const { orderId, paypalOrderId, merchantId, customerEmail } = input;
@@ -104,7 +110,7 @@ export async function loadPaypalCaptureContext(
     return { ok: false, status: 400, body: { error: 'Merchant mismatch' } };
   }
 
-  const reqEmail = customerEmail.toLowerCase();
+  const reqEmail = customerEmail?.toLowerCase();
   const metadata = transaction.metadata as Record<string, unknown> | null;
 
   // Only `pending` (about to capture) and `completed` (reconcile a lost order
@@ -118,7 +124,7 @@ export async function loadPaypalCaptureContext(
   }
 
   const txnMetaEmail = metadata?.customer_email as string | undefined;
-  if (txnMetaEmail && txnMetaEmail.toLowerCase() !== reqEmail) {
+  if (reqEmail && txnMetaEmail && txnMetaEmail.toLowerCase() !== reqEmail) {
     return {
       ok: false,
       status: 400,
@@ -140,6 +146,7 @@ export async function loadPaypalCaptureContext(
   }
 
   if (
+    reqEmail &&
     orderSnapshot.customer_email &&
     orderSnapshot.customer_email.toLowerCase() !== reqEmail
   ) {

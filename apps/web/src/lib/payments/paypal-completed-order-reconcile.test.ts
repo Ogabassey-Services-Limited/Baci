@@ -1,9 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getOrder } from '@/lib/paypal';
-import { validatePaypalCaptureSet } from './paypal-capture-validation';
 import { reconcileCompletedPaypalOrderForCreate } from './paypal-completed-order-reconcile';
-import { reconcilePaypalOrderToPaid } from './reconcile-paypal-order';
+import { runPaypalReconcileFunnel } from './paypal-settlement-funnel';
 
 vi.mock('server-only', () => ({}));
 
@@ -11,138 +10,75 @@ vi.mock('@/lib/logger', () => ({
   logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
 }));
 
-vi.mock('@/lib/paypal', () => ({ getOrder: vi.fn() }));
-
-vi.mock('./paypal-capture-validation', () => ({
-  validatePaypalCaptureSet: vi.fn(),
+vi.mock('./paypal-settlement-funnel', () => ({
+  runPaypalReconcileFunnel: vi.fn(),
 }));
 
-vi.mock('./reconcile-paypal-order', () => ({
-  reconcilePaypalOrderToPaid: vi.fn().mockResolvedValue(undefined),
-}));
+const MERCHANT_ID = 'm1';
+const ORDER_ID = 'o1';
+const PAYPAL_ORDER_ID = 'PP-1';
 
-vi.mock('./file-paypal-capture-persist-failure-review', () => ({
-  filePaypalCapturePersistFailureReview: vi.fn().mockResolvedValue(undefined),
-}));
+const supabase = {} as unknown as SupabaseClient;
 
-function buildSupabase(txn: Record<string, unknown> | null) {
-  const flip = vi.fn(() => builder);
-  const builder: Record<string, unknown> = {
-    select: () => builder,
-    update: () => flip(),
-    eq: () => builder,
-    maybeSingle: () => Promise.resolve({ data: txn, error: null }),
-    // biome-ignore lint/suspicious/noThenProperty: intentional thenable query-builder mock
-    then: (resolve: (v: unknown) => unknown) =>
-      Promise.resolve({ error: null }).then(resolve),
+function input() {
+  return {
+    merchantId: MERCHANT_ID,
+    orderId: ORDER_ID,
+    paypalOrderId: PAYPAL_ORDER_ID,
   };
-  const client = { from: () => builder };
-  return { client: client as unknown as SupabaseClient, flip };
 }
-
-const BASE = {
-  merchantId: 'm1',
-  orderId: 'o1',
-  paypalOrderId: 'PP-1',
-  orderTotal: 130000,
-  preCaptureStatus: {
-    payment_status: 'unpaid',
-    shipping_status: 'pending',
-    amount_paid: 0,
-  },
-};
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(validatePaypalCaptureSet).mockReturnValue({
-    ok: true,
-    capturedTotal: 100,
-    currency: 'USD',
-  });
 });
 
-describe('reconcileCompletedPaypalOrderForCreate (F-393)', () => {
-  it('no transaction row → does nothing', async () => {
-    const { client } = buildSupabase(null);
-    await reconcileCompletedPaypalOrderForCreate(client, BASE);
-    expect(reconcilePaypalOrderToPaid).not.toHaveBeenCalled();
+/**
+ * This guard used to re-implement validate → flip → settle, which is how it
+ * drifted from the capture route (it never checked residual freshness, and it
+ * settled anyway after a failed transaction write). It now delegates to the one
+ * settlement funnel, so the contract worth testing here is THAT it delegates —
+ * the funnel's own suite covers the decisions themselves.
+ */
+describe('reconcileCompletedPaypalOrderForCreate', () => {
+  it('delegates the captured order to the single settlement funnel', async () => {
+    vi.mocked(runPaypalReconcileFunnel).mockResolvedValue({
+      ok: true,
+      response: NextResponse.json({ success: true }),
+    });
+
+    await reconcileCompletedPaypalOrderForCreate(supabase, input());
+
+    expect(runPaypalReconcileFunnel).toHaveBeenCalledTimes(1);
+    expect(runPaypalReconcileFunnel).toHaveBeenCalledWith(supabase, {
+      merchantId: MERCHANT_ID,
+      orderId: ORDER_ID,
+      paypalOrderId: PAYPAL_ORDER_ID,
+    });
   });
 
-  it('already-completed txn → reconciles directly without re-fetching PayPal', async () => {
-    const { client } = buildSupabase({
-      id: 'txn-1',
-      amount: 100000,
-      status: 'completed',
-      metadata: {},
+  it('does not throw when the funnel cannot load the context (the route still blocks the retry)', async () => {
+    vi.mocked(runPaypalReconcileFunnel).mockResolvedValue({
+      ok: false,
+      status: 404,
+      body: { error: 'Transaction not found for this reference' },
     });
-    await reconcileCompletedPaypalOrderForCreate(client, BASE);
-    expect(getOrder).not.toHaveBeenCalled();
-    expect(reconcilePaypalOrderToPaid).toHaveBeenCalledWith(
-      expect.objectContaining({
-        transactionId: 'txn-1',
-        lockedResidual: 100000,
-        prepaidTender: 30000,
-      })
-    );
+
+    await expect(
+      reconcileCompletedPaypalOrderForCreate(supabase, input())
+    ).resolves.toBeUndefined();
   });
 
-  it('pending txn (reuse branch) + PayPal COMPLETED → validates, flips txn, reconciles (no 2nd charge)', async () => {
-    vi.mocked(getOrder).mockResolvedValue({
-      success: true,
-      data: {
-        id: 'PP-1',
-        status: 'COMPLETED',
-        purchase_units: [{ payments: { captures: [] } }],
-      },
-    } as never);
-    const { client, flip } = buildSupabase({
-      id: 'txn-1',
-      amount: 100000,
-      status: 'pending',
-      metadata: {
-        paypal_presentment_amount: 100,
-        paypal_presentment_currency: 'USD',
-      },
+  it('does not throw when the funnel declines to settle (e.g. a rejected stale amount)', async () => {
+    vi.mocked(runPaypalReconcileFunnel).mockResolvedValue({
+      ok: true,
+      response: NextResponse.json(
+        { error: 'The order total changed', code: 'PAYPAL_AMOUNT_STALE' },
+        { status: 409 }
+      ),
     });
 
-    await reconcileCompletedPaypalOrderForCreate(client, {
-      ...BASE,
-      credentials: { clientId: 'c', secretKey: 's' },
-      mode: 'live',
-    });
-
-    expect(flip).toHaveBeenCalled();
-    expect(reconcilePaypalOrderToPaid).toHaveBeenCalledTimes(1);
-  });
-
-  it('pending txn but no credentials → cannot reconcile, does nothing', async () => {
-    const { client } = buildSupabase({
-      id: 'txn-1',
-      amount: 100000,
-      status: 'pending',
-      metadata: {},
-    });
-    await reconcileCompletedPaypalOrderForCreate(client, BASE);
-    expect(getOrder).not.toHaveBeenCalled();
-    expect(reconcilePaypalOrderToPaid).not.toHaveBeenCalled();
-  });
-
-  it('pending txn + PayPal not COMPLETED → nothing captured, does nothing', async () => {
-    vi.mocked(getOrder).mockResolvedValue({
-      success: true,
-      data: { id: 'PP-1', status: 'APPROVED' },
-    } as never);
-    const { client } = buildSupabase({
-      id: 'txn-1',
-      amount: 100000,
-      status: 'pending',
-      metadata: {},
-    });
-    await reconcileCompletedPaypalOrderForCreate(client, {
-      ...BASE,
-      credentials: { clientId: 'c', secretKey: 's' },
-      mode: 'live',
-    });
-    expect(reconcilePaypalOrderToPaid).not.toHaveBeenCalled();
+    await expect(
+      reconcileCompletedPaypalOrderForCreate(supabase, input())
+    ).resolves.toBeUndefined();
   });
 });

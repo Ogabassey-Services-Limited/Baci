@@ -2,6 +2,7 @@ import 'server-only';
 
 import { NextResponse } from 'next/server';
 import { filePaypalCapturePersistFailureReview } from '@/lib/payments/file-paypal-capture-persist-failure-review';
+import { markPaypalTransactionRefunded } from '@/lib/payments/mark-paypal-transaction-refunded';
 import { initiatePaypalOrderRefund } from '@/lib/payments/paypal-order-refund';
 
 /**
@@ -43,6 +44,14 @@ export async function refundDuplicatePaypalCapture(input: {
     gatewayResponse,
     reason: `Duplicate PayPal capture detected on ${source} for an already-settled order`,
   });
+
+  // Close the door behind the refund: a still-`completed` row could be picked up
+  // by a later retry and settled against money we just gave back.
+  await markPaypalTransactionRefunded(
+    undefined,
+    transactionId,
+    `duplicate capture refunded on ${source}`
+  );
 
   await filePaypalCapturePersistFailureReview({
     gatewayReference,

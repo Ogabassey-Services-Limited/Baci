@@ -396,14 +396,15 @@ describe('POST /api/payments/paypal/create-order', () => {
     expect((await response.json()).code).toBe('ORDER_ALREADY_CAPTURED');
     // Reconciled the existing capture through the shared funnel instead of
     // minting a fresh order.
+    // The guard now just names the order; the settlement funnel derives the
+    // totals, residual and pre-capture status itself from the same loader the
+    // capture route uses — so this path cannot drift from it again.
     expect(reconcileCompletedPaypalOrderForCreate).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         merchantId: MERCHANT_ID,
         orderId: ORDER_ID,
         paypalOrderId: 'PP-DONE',
-        orderTotal: 130000,
-        preCaptureStatus: expect.objectContaining({ amount_paid: 0 }),
       })
     );
     // No second PayPal order, no fresh checkout amount lookup reaches PayPal.
