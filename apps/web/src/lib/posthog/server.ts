@@ -91,6 +91,57 @@ function normalizeCapturedError(
   return normalizedError;
 }
 
+/**
+ * Fire-and-forget server-side product-event capture. Unlike
+ * `captureServerException` (exception-only) this sends a named event with a
+ * customer-keyed `distinctId`. It stamps `app_surface: 'web'`/`runtime: 'nodejs'`
+ * and scrubs properties, then awaits an immediate flush so the event survives a
+ * short-lived serverless invocation. The await is bounded by an internal
+ * timeout and it is fail-open — it never throws — so it can be awaited safely
+ * inside a payment/webhook path without delaying callers indefinitely.
+ */
+const SERVER_EVENT_CAPTURE_TIMEOUT_MS = 3_000;
+
+export async function captureServerEvent(
+  event: string,
+  properties: Record<string, unknown>,
+  distinctId: string = SERVER_DISTINCT_ID
+): Promise<boolean> {
+  const client = getPostHogServerClient();
+
+  if (!client) {
+    return false;
+  }
+
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    await Promise.race([
+      client.captureImmediate({
+        distinctId,
+        event,
+        properties: sanitizePostHogProperties({
+          ...properties,
+          app_surface: 'web',
+          runtime: 'nodejs',
+        }),
+      }),
+      new Promise((_resolve, reject) => {
+        timeoutHandle = setTimeout(
+          () => reject(new Error('captureServerEvent timed out')),
+          SERVER_EVENT_CAPTURE_TIMEOUT_MS
+        );
+      }),
+    ]);
+
+    return true;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timeoutHandle);
+  }
+}
+
 export async function captureServerException(
   error: unknown,
   properties?: Record<string, unknown>,

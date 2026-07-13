@@ -5,6 +5,8 @@ import { useOptionalCustomerAuth } from '@/contexts/customer-auth-context';
 import { toast } from '@/hooks/use-toast';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { fetchWithCsrf } from '@/lib/api-client';
+import { captureClientEvent } from '@/lib/posthog/capture-client-event';
+import { WALLET_FUNDING_TELEMETRY } from '@/lib/posthog/wallet-funding-events';
 import { useWallet } from '@/components/storefront/ogabassey/pages/checkout/hooks/use-wallet';
 import {
   createWalletIdempotencyKey,
@@ -222,6 +224,20 @@ export const UtilityModal = ({
     return walletIdempotencyAttemptRef.current.key;
   };
 
+  const handleSelectPaymentMethod = (method: UtilityPaymentMethod) => {
+    captureClientEvent(
+      WALLET_FUNDING_TELEMETRY.events.paymentMethodSelected,
+      {
+        method,
+        wallet_balance: walletBalance,
+        can_use_wallet: canUseWallet,
+        merchant_slug: merchant?.slug,
+        customer_id: customer?.id,
+      }
+    );
+    setPayWithWallet(method === 'wallet');
+  };
+
   const handlePurchase = async (payload: UtilityCheckoutPayload) => {
     if (isAuthLoading) {
       toast({
@@ -380,8 +396,8 @@ export const UtilityModal = ({
                     ? () => setShowFundingPanel((visible) => !visible)
                     : undefined
                 }
-                onSelectCard={() => setPayWithWallet(false)}
-                onSelectWallet={() => setPayWithWallet(true)}
+                onSelectCard={() => handleSelectPaymentMethod('card')}
+                onSelectWallet={() => handleSelectPaymentMethod('wallet')}
                 selectedPaymentMethod={selectedPaymentMethod}
                 showWalletRow={isAuthenticated}
                 walletBalance={walletBalance}
@@ -392,10 +408,12 @@ export const UtilityModal = ({
                   <WalletFundingPanel
                     account={fundingAccount}
                     autoCreate
+                    customerId={customer?.id}
                     merchantSlug={merchant?.slug}
                     onAccountCreated={setFundingAccount}
                     onRefreshBalance={refreshWallet}
                     requiresConsent={requiresFundingAccountConsent}
+                    surface={WALLET_FUNDING_TELEMETRY.surfaces.utilityModal}
                   />
                 </div>
               ) : null}

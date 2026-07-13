@@ -5,6 +5,7 @@ import { CreditCard, History, Loader2, Plus, Wallet } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
+import { WALLET_FUNDING_TELEMETRY } from '@/lib/posthog/wallet-funding-events';
 import { EmptyState } from '../components/empty-state';
 import { UsdtWalletFundingPanel } from '../components/UsdtWalletFundingPanel';
 import { WalletFundingPanel } from '../components/WalletFundingPanel';
@@ -181,6 +182,7 @@ export function OgabasseyV2Wallet({
             {showFundingPanel ? (
               <WalletFundingPanel
                 account={wallet?.fundingAccount ?? null}
+                customerId={customer?.id}
                 merchantSlug={merchant?.slug}
                 onAccountCreated={(account) =>
                   setWallet((current) =>
@@ -199,6 +201,7 @@ export function OgabasseyV2Wallet({
                   wallet?.walletDvaEnabled === true &&
                   Boolean(customer?.phone?.trim())
                 }
+                surface={WALLET_FUNDING_TELEMETRY.surfaces.walletPage}
               />
             ) : null}
 

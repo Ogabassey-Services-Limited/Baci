@@ -8,6 +8,8 @@ import { findCustomerWalletPaymentAccountByReceiver } from '@/lib/customer-walle
 import { WALLET_TOP_UP_TRANSACTION_TYPE } from '@/lib/customer-wallet-top-up';
 import { logger } from '@/lib/logger';
 import { hasActivePaystackOrderDvaAlias } from '@/lib/payments/paystack-dva-order-alias';
+import { captureServerEvent } from '@/lib/posthog/server';
+import { WALLET_FUNDING_TELEMETRY } from '@/lib/posthog/wallet-funding-events';
 
 const POSTGRES_UNIQUE_VIOLATION = '23505';
 
@@ -205,6 +207,22 @@ export async function confirmPaystackWalletDvaTopUp({
   if (error) {
     throw error;
   }
+
+  // Funnel completion: fire only on the fresh insert (not the 23505 re-read
+  // above, and not from the webhook call site — neither can distinguish a first
+  // credit from a retry). Fail-open so telemetry never blocks the money path.
+  await captureServerEvent(
+    WALLET_FUNDING_TELEMETRY.events.transferCredited,
+    {
+      amount: verifiedAmount.amount,
+      currency: verifiedAmount.currency ?? 'NGN',
+      customer_id: walletAccount.customerId,
+      gateway: 'paystack',
+      gateway_reference: gatewayReference,
+      merchant_id: walletAccount.merchantId,
+    },
+    walletAccount.customerId
+  );
 
   return {
     kind: 'match',

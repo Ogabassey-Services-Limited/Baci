@@ -112,8 +112,10 @@ describe('OgabasseyV2Wallet', () => {
     expect(screen.getByTestId('wallet-funding-panel')).toBeInTheDocument();
     expect(fundingPanelProps.current).toMatchObject({
       account: fundingAccount,
+      customerId: 'customer-1',
       merchantSlug: 'ogabassey',
       requiresConsent: false,
+      surface: 'wallet_page',
     });
   });
 

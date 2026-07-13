@@ -5,10 +5,15 @@ import { confirmPaystackWalletDvaTopUp } from '@/lib/payments/confirm-paystack-w
 const mockFindCustomerWalletPaymentAccountByReceiver = vi.hoisted(() =>
   vi.fn()
 );
+const mockCaptureServerEvent = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/customer-wallet-payment-accounts', () => ({
   findCustomerWalletPaymentAccountByReceiver: (...args: unknown[]) =>
     mockFindCustomerWalletPaymentAccountByReceiver(...args),
+}));
+
+vi.mock('@/lib/posthog/server', () => ({
+  captureServerEvent: mockCaptureServerEvent,
 }));
 
 const walletAccount = {
@@ -185,6 +190,18 @@ describe('confirmPaystackWalletDvaTopUp', () => {
         }),
       })
     );
+    expect(mockCaptureServerEvent).toHaveBeenCalledWith(
+      'wallet_funding_transfer_credited',
+      expect.objectContaining({
+        amount: 20000,
+        currency: 'NGN',
+        customer_id: 'customer-1',
+        gateway: 'paystack',
+        gateway_reference: 'PSK_REF_1',
+        merchant_id: 'merchant-1',
+      }),
+      'customer-1'
+    );
   });
 
   it('files a review and does not credit wallet when an active order DVA aliases the receiver', async () => {
@@ -224,6 +241,7 @@ describe('confirmPaystackWalletDvaTopUp', () => {
         paystack_ref: 'PSK_REF_1',
       })
     );
+    expect(mockCaptureServerEvent).not.toHaveBeenCalled();
   });
 
   it('re-reads the existing transaction when the gateway reference wins concurrently', async () => {
@@ -256,6 +274,9 @@ describe('confirmPaystackWalletDvaTopUp', () => {
       kind: 'match',
       transaction: { id: 'txn-winner' },
     });
+    // Retry re-reads an already-credited transaction — must not re-emit the
+    // funnel-completion event or the credited count would double.
+    expect(mockCaptureServerEvent).not.toHaveBeenCalled();
   });
 
   it('throws non-unique transaction insert errors', async () => {
