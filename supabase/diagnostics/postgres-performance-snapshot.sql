@@ -129,6 +129,8 @@ statement_rows AS (
         )
         AND statements.query !~*
           '^SET LOCAL (statement_timeout|lock_timeout|timezone|DateStyle) = \$1$'
+        AND statements.query NOT LIKE
+          '%postgres-performance-snapshot.sql requires PostgreSQL 17%'
       )
     )
 ),
@@ -209,6 +211,7 @@ lock_rows AS (
     granted,
     count(*)::text AS locks
   FROM pg_locks
+  WHERE pid IS DISTINCT FROM pg_backend_pid()
   GROUP BY locktype, mode, granted
 ),
 cron_jobs AS (

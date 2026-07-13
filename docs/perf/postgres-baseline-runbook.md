@@ -38,6 +38,10 @@ Start only when all of the following are true:
 5. No application deploy, migration, statistics reset, database restart,
    maintenance event, compute resize, or Supabase platform update is scheduled
    between captures.
+6. No operator may call `pg_stat_reset_single_table_counters()` (or any
+   per-relation statistics reset) between captures. PostgreSQL 17 exposes no
+   per-relation reset timestamp, so discard the interval even if a busy
+   relation's counters later exceed their first-capture values.
 
 Do not overlap this window with the separately offered
 `supabase-postgres-17.6.1.141` platform update. If either the authenticated
@@ -211,6 +215,9 @@ summary when any of these conditions is observed:
 - database, `pg_stat_statements`, `pg_stat_io`, or WAL statistics reset;
 - `pg_stat_statements` deallocation count changes;
 - a previously captured statement disappears;
+- `pg_stat_reset_single_table_counters()` or another per-relation statistics
+  reset occurs during the interval; this is an operator-enforced rejection
+  because PostgreSQL 17 has no per-relation reset timestamp to compare;
 - a statement entry has a new or missing `stats_since` boundary, including a
   targeted `pg_stat_statements_reset` that does not alter the global reset time;
 - table or index identities change between snapshots, or their cumulative

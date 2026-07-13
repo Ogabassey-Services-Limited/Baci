@@ -79,6 +79,9 @@ describe('postgres performance snapshot', () => {
     expect(sql).toMatch(
       /statements\.query !~\*\s+'\^SET LOCAL \(statement_timeout\|lock_timeout\|timezone\|DateStyle\) = \\\$1\$'/i
     );
+    expect(sql).toMatch(
+      /statements\.query NOT LIKE\s+'%postgres-performance-snapshot\.sql requires PostgreSQL 17%'/i
+    );
   });
 
   it('captures the P0 database surfaces without persisting advisor commands', async () => {
@@ -131,6 +134,14 @@ describe('postgres performance snapshot', () => {
 
     expect(sql).toMatch(
       /GROUP BY\s+backend_type,\s+coalesce\(state, 'not_applicable'\),\s+coalesce\(nullif\(application_name, ''\), 'unset'\)/i
+    );
+  });
+
+  it('excludes the snapshot backend from lock gauges', async () => {
+    const sql = await readFile(sqlPath, 'utf8');
+
+    expect(sql).toMatch(
+      /FROM pg_locks\s+WHERE pid IS DISTINCT FROM pg_backend_pid\(\)\s+GROUP BY/i
     );
   });
 });
