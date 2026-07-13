@@ -12,18 +12,25 @@ import { getVerdictColors } from './get-verdict-colors';
 import { styles } from './imei-check.styles';
 import type { ImeiCheckerColors } from './imei-check.types';
 import { getImeiResultStatusCards } from './imei-check-result-status-cards';
+import { ImeiRemediationOffer } from './imei-remediation-offer';
 import { isStatusClean } from './is-status-clean';
 
 interface ImeiCheckResultViewProps {
+  accessToken?: string;
+  apiBaseUrl?: string;
   colors: ImeiCheckerColors;
   currentTier: ImeiServiceTierDefinition;
+  lookupId?: string | null;
   result: ImeiResult;
   onReset: () => void;
 }
 
 export function ImeiCheckResultView({
+  accessToken,
+  apiBaseUrl,
   colors,
   currentTier,
+  lookupId,
   result,
   onReset,
 }: ImeiCheckResultViewProps) {
@@ -109,6 +116,16 @@ export function ImeiCheckResultView({
             {result.verdict}
           </Text>
         </View>
+
+        {lookupId && apiBaseUrl ? (
+          <ImeiRemediationOffer
+            accessToken={accessToken}
+            apiBaseUrl={apiBaseUrl}
+            colors={colors}
+            identifier={result.imei}
+            lookupId={lookupId}
+          />
+        ) : null}
 
         <Pressable
           style={[

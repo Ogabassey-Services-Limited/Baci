@@ -155,12 +155,43 @@ describe('QuoteFormDialog', () => {
           serviceTypeId: 'st-2',
           price: 5000,
           isFromPrice: true,
+          isActive: true,
         })
       );
     });
     expect(onSaved).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'new-quote' })
     );
+  });
+
+  it('re-enables an inactive quote via the active toggle', async () => {
+    mockUpdateQuote.mockResolvedValue({ ...QUOTE, isActive: true });
+
+    render(
+      <QuoteFormDialog
+        open
+        onOpenChange={vi.fn()}
+        deviceId="device-1"
+        serviceTypes={SERVICE_TYPES}
+        initial={{ ...QUOTE, isActive: false }}
+        onSaved={vi.fn()}
+      />
+    );
+
+    const activeSwitch = screen.getByRole('switch', {
+      name: /active \(visible in the public catalogue\)/i,
+    });
+    expect(activeSwitch).toHaveAttribute('aria-checked', 'false');
+
+    fireEvent.click(activeSwitch);
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(mockUpdateQuote).toHaveBeenCalledWith(
+        'quote-1',
+        expect.objectContaining({ isActive: true })
+      );
+    });
   });
 
   it('rejects a submit with an invalid price', () => {

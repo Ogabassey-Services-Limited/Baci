@@ -175,6 +175,34 @@ describe('web cron worker', () => {
     assert.equal(signal instanceof AbortSignal, true);
   });
 
+  it('allows the Petrock catalog sync cron endpoint', async () => {
+    const result = await runWebCron({
+      path: '/api/cron/sync-petrock-catalog',
+      env: {
+        BACI_WEB_BASE_URL: 'https://ogabassey.com',
+        CRON_SECRET: 'secret',
+      },
+      fetchFn: () => new Response('ok', { status: 200 }),
+      logger: noopLogger,
+    });
+
+    assert.deepEqual(result, { status: 200, body: 'ok' });
+  });
+
+  it('allows the Petrock reconciliation cron endpoint', async () => {
+    const result = await runWebCron({
+      path: '/api/cron/petrock-reconcile',
+      env: {
+        BACI_WEB_BASE_URL: 'https://ogabassey.com',
+        CRON_SECRET: 'secret',
+      },
+      fetchFn: () => new Response('ok', { status: 200 }),
+      logger: noopLogger,
+    });
+
+    assert.deepEqual(result, { status: 200, body: 'ok' });
+  });
+
   it('allows the agentic commerce health cron endpoint', async () => {
     const calls = [];
     const result = await runWebCron({

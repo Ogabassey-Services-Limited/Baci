@@ -137,6 +137,37 @@ export default function OrderDetailsClientPage({
   const displayItems = getOrderItems(order);
   const orderCurrency = order.currency || 'NGN';
 
+  // Prefer the human name of the merchant-configured shipping rate a shopper
+  // bought (e.g. "Standard", "Express", or the pickup-location name) over the
+  // bare provider label (`MERCHANT`/`MERCHANT_PICKUP`). Fall back to the provider
+  // for carrier orders and older merchant-rate orders that predate rate-name
+  // capture.
+  const shippingMethodLabel =
+    order.shipping_rate_name || order.shipping_provider || null;
+  const shippingMethodHeading = order.shipping_rate_name
+    ? 'Shipping Method'
+    : 'Provider';
+
+  // Surface the merchant pickup collection point so the merchant still knows
+  // where the shopper collects even if the rate is later edited/deleted. Only
+  // merchant-pickup orders (provider MERCHANT_PICKUP) carry this snapshot;
+  // ship/carrier orders leave it null and render nothing.
+  const pickupDetails =
+    order.shipping_provider === 'MERCHANT_PICKUP'
+      ? order.shipping_pickup_details
+      : null;
+  const pickupLabel = pickupDetails?.label?.trim() || '';
+  const pickupAddressLine = pickupDetails
+    ? [pickupDetails.address, pickupDetails.city, pickupDetails.state]
+        .map((part) => part?.trim())
+        .filter((part): part is string => Boolean(part))
+        .join(', ')
+    : '';
+  const pickupInstructions = pickupDetails?.instructions?.trim() || '';
+  const hasPickupDetails = Boolean(
+    pickupLabel || pickupAddressLine || pickupInstructions
+  );
+
   const doesOrderRequireFulfillment = () => {
     // Check for fulfillment fields OR assurance
     // Assurance items implicitly require fulfillment (device details)
@@ -490,13 +521,35 @@ export default function OrderDetailsClientPage({
               <CardHeader>
                 <CardTitle>Shipment</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
+                {shippingMethodLabel && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      {shippingMethodHeading}
+                    </p>
+                    <p className="font-semibold">{shippingMethodLabel}</p>
+                  </div>
+                )}
+                {hasPickupDetails && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Pickup Location
+                    </p>
+                    {pickupLabel && (
+                      <p className="font-semibold">{pickupLabel}</p>
+                    )}
+                    {pickupAddressLine && (
+                      <p className="text-sm">{pickupAddressLine}</p>
+                    )}
+                    {pickupInstructions && (
+                      <p className="text-sm text-muted-foreground">
+                        {pickupInstructions}
+                      </p>
+                    )}
+                  </div>
+                )}
                 {order.tracking_number ? (
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Provider</p>
-                      <p className="font-semibold">{order.shipping_provider}</p>
-                    </div>
                     <div>
                       <p className="text-sm text-muted-foreground">
                         Tracking #
@@ -510,9 +563,11 @@ export default function OrderDetailsClientPage({
                     </Button>
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No tracking information available.
-                  </p>
+                  !shippingMethodLabel && (
+                    <p className="text-sm text-muted-foreground">
+                      No tracking information available.
+                    </p>
+                  )
                 )}
               </CardContent>
             </Card>

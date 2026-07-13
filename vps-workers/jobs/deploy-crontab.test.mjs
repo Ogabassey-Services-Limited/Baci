@@ -58,6 +58,32 @@ describe('deploy crontab', () => {
     );
   });
 
+  it('schedules the Petrock catalog sync nightly through run-web-cron', () => {
+    const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
+
+    assert.match(
+      deployScript,
+      /15 2\s+\* \* \* flock -n \$REMOTE_DIR\/locks\/sync-petrock-catalog\.lock/
+    );
+    assert.match(
+      deployScript,
+      /run-web-cron\.mjs \/api\/cron\/sync-petrock-catalog/
+    );
+  });
+
+  it('schedules Petrock reconciliation every minute through run-web-cron', () => {
+    const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
+
+    assert.match(
+      deployScript,
+      /\* \*\s+\* \* \* flock -n \$REMOTE_DIR\/locks\/petrock-reconcile\.lock/
+    );
+    assert.match(
+      deployScript,
+      /run-web-cron\.mjs \/api\/cron\/petrock-reconcile/
+    );
+  });
+
   it('schedules the iOS live-build sync daily backstop through run-web-cron', () => {
     const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
 

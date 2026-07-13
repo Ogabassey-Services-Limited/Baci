@@ -63,6 +63,11 @@ const RATE_LIMITS: Record<string, RateLimitConfig> = {
   default: { maxRequests: 50, windowMs: 60_000 },
 };
 
+const IMEI_POLL_RATE_LIMIT: RateLimitConfig = {
+  maxRequests: 120,
+  windowMs: 60_000,
+};
+
 // ---------------------------------------------------------------------------
 // IP validation (Edge-compatible, no Node.js 'net' module)
 // ---------------------------------------------------------------------------
@@ -249,13 +254,19 @@ function checkMemoryRateLimit(
 // Main entry point (async — uses Redis when available, memory fallback)
 // ---------------------------------------------------------------------------
 
-export async function checkRateLimit(
-  request: NextRequest
-): Promise<RateLimitResult> {
+export function checkRateLimit(request: NextRequest): Promise<RateLimitResult> {
   const identifier = getClientIdentifier(request);
   const pathname = request.nextUrl.pathname;
   const { config, pattern } = getRateLimitConfig(pathname);
 
+  return applyRateLimit(identifier, pattern, config);
+}
+
+async function applyRateLimit(
+  identifier: string,
+  pattern: string,
+  config: RateLimitConfig
+): Promise<RateLimitResult> {
   // Try Upstash first
   const limiter = getUpstashLimiter(config);
   if (limiter) {
@@ -275,6 +286,16 @@ export async function checkRateLimit(
 
   // Fallback to in-memory
   return checkMemoryRateLimit(identifier, pattern, config);
+}
+
+export function checkImeiPollRateLimit(
+  request: NextRequest
+): Promise<RateLimitResult> {
+  return applyRateLimit(
+    getClientIdentifier(request),
+    '/api/storefront/imei-check/:lookupId:poll',
+    IMEI_POLL_RATE_LIMIT
+  );
 }
 
 // ---------------------------------------------------------------------------

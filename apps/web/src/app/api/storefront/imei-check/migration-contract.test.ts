@@ -98,4 +98,117 @@ describe('IMEI lookup migration grants', () => {
       'refund_imei_wallet_payment: wallet not found for customer'
     );
   });
+
+  it('installs the Petrock write-ahead debit and private provider state contract', () => {
+    const sql = [
+      '20260710210000_petrock_provider_product_catalog.sql',
+      '20260710210100_petrock_imei_async_foundation.sql',
+    ]
+      .map((fileName) => readFileSync(migrationPath(fileName), 'utf8'))
+      .join('\n');
+
+    for (const status of [
+      'provider_submitting',
+      'pending_provider',
+      'submission_unknown',
+    ]) {
+      expect(sql).toContain(`'${status}'::text`);
+    }
+
+    expect(sql).toContain(
+      'CREATE TABLE IF NOT EXISTS public.imei_provider_products'
+    );
+    expect(sql).toContain(
+      'CREATE OR REPLACE FUNCTION public.sync_petrock_imei_provider_products'
+    );
+    expect(sql).toMatch(
+      /UPDATE public\.imei_provider_products[\s\S]+active = false[\s\S]+INSERT INTO public\.imei_provider_products[\s\S]+ON CONFLICT \(provider, product_id\) DO UPDATE/i
+    );
+    expect(sql).toContain(
+      'CREATE OR REPLACE FUNCTION public.redeem_imei_wallet_and_begin_provider_submission'
+    );
+    expect(sql).toContain("source_type = 'imei_wallet_payment'");
+    expect(sql).toContain("'provider_submitting'");
+    expect(sql).toContain('feedback_token_hash = p_feedback_token_hash');
+    expect(sql).toContain('identifier_ciphertext = p_identifier_ciphertext');
+    expect(sql).toContain(
+      'REVOKE ALL ON public.imei_lookups FROM PUBLIC, anon, authenticated;'
+    );
+    expect(sql).toMatch(
+      /GRANT\s+SELECT\s*\([^)]+\)\s+ON\s+public\.imei_lookups\s+TO\s+authenticated/is
+    );
+    expect(sql).not.toMatch(
+      /GRANT\s+SELECT\s*\([^)]*(?:feedback_token_hash|identifier_ciphertext|cost_usd|provider_order_id)[^)]*\)\s+ON\s+public\.imei_lookups\s+TO\s+authenticated/is
+    );
+    expect(sql).toContain(
+      'REVOKE ALL ON FUNCTION public.redeem_imei_wallet_and_begin_provider_submission'
+    );
+    expect(sql).toContain('TO service_role;');
+  });
+
+  it('leases reconciliation rows and finalizes Petrock results atomically', () => {
+    const sql = [
+      '20260710210200_petrock_imei_reconciliation_rpcs.sql',
+      '20260712143000_petrock_review_recovery_hardening.sql',
+    ]
+      .map((fileName) => readFileSync(migrationPath(fileName), 'utf8'))
+      .join('\n');
+
+    expect(sql).toContain('FOR UPDATE SKIP LOCKED');
+    expect(sql).toContain('reconcile_lease_until');
+    expect(sql).toContain('p_lease_token uuid DEFAULT NULL::uuid');
+    expect(sql).toContain('reconcile_lease_token = p_lease_token');
+    expect(sql).toContain('reconcile_lease_until >= pg_catalog.now()');
+    expect(sql).toContain('provider_order_id = COALESCE');
+    expect(sql).toContain('p_order_id text DEFAULT NULL::text');
+    expect(sql).toContain(
+      'DROP FUNCTION IF EXISTS public.mark_petrock_imei_submission_unknown'
+    );
+    expect(sql).toContain(
+      'CREATE OR REPLACE FUNCTION public.finalize_petrock_imei_lookup'
+    );
+    expect(sql).toContain('PERFORM * FROM public.refund_imei_wallet_payment');
+    expect(sql).toContain(
+      "v_current_status = ANY (ARRAY['provider_submitting'::text, 'pending_provider'::text, 'submission_unknown'::text])"
+    );
+    expect(sql).toContain('GRANT EXECUTE ON FUNCTION');
+    expect(sql).toContain('TO service_role;');
+  });
+
+  it('reserves customer status polls so clients and cron do not double-poll', () => {
+    const sql = readFileSync(
+      migrationPath('20260710210300_petrock_imei_status_poll_rpcs.sql'),
+      'utf8'
+    );
+
+    expect(sql).toContain(
+      'CREATE OR REPLACE FUNCTION public.claim_petrock_imei_lookup_poll'
+    );
+    expect(sql).toContain('FOR UPDATE SKIP LOCKED');
+    expect(sql).toContain('l.customer_id = p_customer_id');
+    expect(sql).toContain('l.merchant_id = p_merchant_id');
+    expect(sql).toContain('reconcile_lease_token = p_lease_token');
+    expect(sql).toContain('TO service_role;');
+  });
+
+  it('stores only private metadata for untrusted Petrock feedback capture', () => {
+    const sql = readFileSync(
+      migrationPath('20260711200000_petrock_feedback_capture.sql'),
+      'utf8'
+    );
+
+    expect(sql).toContain(
+      'CREATE TABLE IF NOT EXISTS public.petrock_feedback_events'
+    );
+    expect(sql).toContain(
+      'ALTER TABLE public.petrock_feedback_events ENABLE ROW LEVEL SECURITY'
+    );
+    expect(sql).toContain(
+      'REVOKE ALL ON public.petrock_feedback_events FROM PUBLIC, anon, authenticated'
+    );
+    expect(sql).toContain(
+      'GRANT SELECT, INSERT ON public.petrock_feedback_events TO service_role'
+    );
+    expect(sql).not.toMatch(/raw_body|payload\s+jsonb/i);
+  });
 });

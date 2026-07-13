@@ -45,6 +45,25 @@ export function CustomerOrderDetailsContent({
 }: CustomerOrderDetailsContentProps) {
   const getHref = (path: string): string => `${basePath}${path}`;
   const currency = order.currency || 'NGN';
+  // Surface the merchant pickup collection point so the shopper still knows
+  // where to collect even if the rate is later edited/deleted. Only
+  // merchant-pickup orders (provider MERCHANT_PICKUP) carry this snapshot; ship
+  // and carrier orders leave it null and render nothing.
+  const pickupDetails =
+    order.shipping_provider === 'MERCHANT_PICKUP'
+      ? order.shipping_pickup_details
+      : null;
+  const pickupLabel = pickupDetails?.label?.trim() || '';
+  const pickupAddressLine = pickupDetails
+    ? [pickupDetails.address, pickupDetails.city, pickupDetails.state]
+        .map((part) => part?.trim())
+        .filter((part): part is string => Boolean(part))
+        .join(', ')
+    : '';
+  const pickupInstructions = pickupDetails?.instructions?.trim() || '';
+  const hasPickupDetails = Boolean(
+    pickupLabel || pickupAddressLine || pickupInstructions
+  );
   const documentLabel =
     order.current_document_kind === 'receipt'
       ? 'Download Receipt'
@@ -150,9 +169,30 @@ export function CustomerOrderDetailsContent({
                       {formatStatusLabel(order.shipping_status)}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {order.shipping_provider ||
+                      {order.shipping_rate_name ||
+                        order.shipping_provider ||
                         'Shipping updates will appear here'}
                     </p>
+                    {hasPickupDetails && (
+                      <div className="mt-2 space-y-0.5">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Pickup location
+                        </p>
+                        {pickupLabel && (
+                          <p className="text-sm font-medium">{pickupLabel}</p>
+                        )}
+                        {pickupAddressLine && (
+                          <p className="text-sm text-muted-foreground">
+                            {pickupAddressLine}
+                          </p>
+                        )}
+                        {pickupInstructions && (
+                          <p className="text-sm text-muted-foreground">
+                            {pickupInstructions}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex gap-3">
