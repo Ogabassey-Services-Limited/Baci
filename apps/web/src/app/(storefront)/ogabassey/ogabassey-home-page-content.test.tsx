@@ -2,42 +2,47 @@ import { render, screen } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockDynamicContentShouldSuspend, mockHeaders, mockPublishedMerchant } =
-  vi.hoisted(() => ({
-    mockHeaders: vi.fn(() => Promise.resolve(new Headers())),
-    mockDynamicContentShouldSuspend: vi.fn(() => false),
-    mockPublishedMerchant: {
-      id: 'merchant-1',
-      business_name: 'OgaBassey',
-      business_type: 'electronics',
-      email: 'hello@ogabassey.com',
-      phone: '+2341234567',
-      logo_url: '',
-      brand_colors: undefined,
-      country: 'NG',
-      pages: undefined,
-      slug: 'ogabassey',
-      custom_domain: 'ogabassey.com',
-      favicon_svg_url: undefined,
-      favicon_png_32_url: undefined,
-      favicon_apple_touch_url: undefined,
-      social_media: undefined,
-      business_address: '',
-      is_published: true,
-      feature_settings: undefined,
-      template_id: 'ogabassey',
-      vat_registration_status: undefined,
-      vat_rate: undefined,
-      hero_slides: undefined,
-      mobile_hero_slides: undefined,
-      site_title: '',
-      site_tagline: '',
-      site_description: '',
-      payout_currency: 'NGN',
-      plan_tier: 'free',
-      premium_features: undefined,
-    },
-  }));
+const {
+  mockDynamicContentShouldSuspend,
+  mockHeaders,
+  mockHeroRender,
+  mockPublishedMerchant,
+} = vi.hoisted(() => ({
+  mockHeaders: vi.fn(() => Promise.resolve(new Headers())),
+  mockDynamicContentShouldSuspend: vi.fn(() => false),
+  mockHeroRender: vi.fn(),
+  mockPublishedMerchant: {
+    id: 'merchant-1',
+    business_name: 'OgaBassey',
+    business_type: 'electronics',
+    email: 'hello@ogabassey.com',
+    phone: '+2341234567',
+    logo_url: '',
+    brand_colors: undefined,
+    country: 'NG',
+    pages: undefined,
+    slug: 'ogabassey',
+    custom_domain: 'ogabassey.com',
+    favicon_svg_url: undefined,
+    favicon_png_32_url: undefined,
+    favicon_apple_touch_url: undefined,
+    social_media: undefined,
+    business_address: '',
+    is_published: true,
+    feature_settings: undefined,
+    template_id: 'ogabassey',
+    vat_registration_status: undefined,
+    vat_rate: undefined,
+    hero_slides: undefined,
+    mobile_hero_slides: undefined,
+    site_title: '',
+    site_tagline: '',
+    site_description: '',
+    payout_currency: 'NGN',
+    plan_tier: 'free',
+    premium_features: undefined,
+  },
+}));
 
 vi.mock('@/lib/cached-data', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
@@ -63,12 +68,6 @@ vi.mock('next/server', () => ({
   connection: vi.fn(() => Promise.resolve()),
 }));
 
-vi.mock('./ogabassey-home-hero-section', () => ({
-  OgabasseyHomeHeroSection: ({ pathPrefix }: { pathPrefix: string }) => (
-    <section aria-label="Product hero" data-prefix={pathPrefix} />
-  ),
-}));
-
 vi.mock('./ogabassey-home-dynamic-content', () => ({
   OgabasseyHomeDynamicContent: ({ pathPrefix }: { pathPrefix: string }) => {
     if (mockDynamicContentShouldSuspend()) {
@@ -82,6 +81,15 @@ vi.mock('@/components/storefront/store-not-published', () => ({
   StoreNotPublished: ({ businessName }: { businessName: string }) => (
     <div data-testid="store-not-published">{businessName}</div>
   ),
+}));
+
+vi.mock('@/components/storefront/ogabassey/components/Hero', () => ({
+  Hero: ({ slides }: { slides: unknown[] }) => {
+    mockHeroRender(slides);
+    return (
+      <section aria-label="Product hero" data-slide-count={slides.length} />
+    );
+  },
 }));
 
 vi.mock('next/link', () => ({
@@ -104,6 +112,17 @@ import { notFound } from 'next/navigation';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { OgabasseyHomePageContent } from './ogabassey-home-page-content';
 
+const SHELL_SLIDE = {
+  kind: 'product' as const,
+  id: 'p1',
+  name: 'Tecno Spark 40 Pro',
+  priceLabel: '₦250,000',
+  href: 'https://ogabassey.com/smartphones/tecno-spark-40-pro',
+  imageUrl: 'https://cdn.ogabassey.com/products/tecno.avif',
+  imageAlt: 'Tecno Spark 40 Pro',
+  ctaLabel: 'Shop now',
+};
+
 describe('OgabasseyHomePageContent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -114,33 +133,59 @@ describe('OgabasseyHomePageContent', () => {
     );
   });
 
-  it('renders the final hero and dynamic home content with the path-mode prefix after the publication guard', async () => {
-    const result = await OgabasseyHomePageContent({ pathPrefix: '/ogabassey' });
+  it('renders one Hero with request-bound content after the publication guard', async () => {
+    const result = await OgabasseyHomePageContent({
+      pathPrefix: '/ogabassey',
+      shellMerchantId: 'merchant-1',
+      shellSlides: [SHELL_SLIDE],
+    });
 
     render(result as ReactElement);
 
     expect(
       screen.getByRole('region', { name: /product hero/i })
-    ).toHaveAttribute('data-prefix', '/ogabassey');
+    ).toHaveAttribute('data-slide-count', '1');
     expect(
       screen.getByRole('region', { name: /dynamic home content/i })
     ).toHaveTextContent('/ogabassey');
     expect(getRequestScopedMerchant).toHaveBeenCalledWith('ogabassey');
   });
 
-  it('keeps the final hero visible when below-fold dynamic content suspends', async () => {
+  it('restores the H1 after the publication guard when the cached Hero degraded', async () => {
+    const result = await OgabasseyHomePageContent({
+      pathPrefix: '/ogabassey',
+      shellMerchantId: null,
+      shellSlides: null,
+    });
+
+    render(result as ReactElement);
+
+    expect(
+      screen.getByRole('heading', {
+        level: 1,
+        name: 'OgaBassey - Official Online Store',
+      })
+    ).toBeInTheDocument();
+  });
+
+  it('keeps the publication-gated Hero when below-fold content suspends', async () => {
     mockDynamicContentShouldSuspend.mockReturnValue(true);
 
-    const result = await OgabasseyHomePageContent({ pathPrefix: '/ogabassey' });
+    const result = await OgabasseyHomePageContent({
+      pathPrefix: '/ogabassey',
+      shellMerchantId: 'merchant-1',
+      shellSlides: [SHELL_SLIDE],
+    });
 
     render(result as ReactElement);
 
     expect(
       screen.getByRole('region', { name: /product hero/i })
-    ).toHaveAttribute('data-prefix', '/ogabassey');
+    ).toHaveAttribute('data-slide-count', '1');
     expect(
       screen.queryByRole('region', { name: /dynamic home content/i })
     ).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
   });
 
   it('resolves the homepage merchant from custom-domain request context', async () => {
@@ -148,14 +193,18 @@ describe('OgabasseyHomePageContent', () => {
       new Headers([['x-custom-domain', 'ogabassey.com']])
     );
 
-    const result = await OgabasseyHomePageContent({ pathPrefix: '' });
+    const result = await OgabasseyHomePageContent({
+      pathPrefix: '',
+      shellMerchantId: 'merchant-1',
+      shellSlides: [],
+    });
 
     render(result as ReactElement);
 
     expect(getRequestScopedMerchant).toHaveBeenCalledWith('ogabassey.com');
     expect(
       screen.getByRole('region', { name: /product hero/i })
-    ).toHaveAttribute('data-prefix', '');
+    ).toHaveAttribute('data-slide-count', '0');
     expect(
       screen.getByRole('region', { name: /dynamic home content/i })
     ).toBeEmptyDOMElement();
@@ -166,14 +215,18 @@ describe('OgabasseyHomePageContent', () => {
       new Headers([['x-merchant-slug', 'ogabassey']])
     );
 
-    const result = await OgabasseyHomePageContent({ pathPrefix: '/ogabassey' });
+    const result = await OgabasseyHomePageContent({
+      pathPrefix: '/ogabassey',
+      shellMerchantId: 'merchant-1',
+      shellSlides: [SHELL_SLIDE],
+    });
 
     render(result as ReactElement);
 
     expect(getRequestScopedMerchant).toHaveBeenCalledWith('ogabassey');
     expect(
       screen.getByRole('region', { name: /product hero/i })
-    ).toHaveAttribute('data-prefix', '');
+    ).toHaveAttribute('data-slide-count', '1');
     expect(
       screen.getByRole('region', { name: /dynamic home content/i })
     ).toBeEmptyDOMElement();
@@ -184,7 +237,11 @@ describe('OgabasseyHomePageContent', () => {
       new Headers([['host', 'baci-preview.vercel.app']])
     );
 
-    await OgabasseyHomePageContent({ pathPrefix: '/ogabassey' });
+    await OgabasseyHomePageContent({
+      pathPrefix: '/ogabassey',
+      shellMerchantId: 'merchant-1',
+      shellSlides: [SHELL_SLIDE],
+    });
 
     expect(getRequestScopedMerchant).toHaveBeenCalledWith('ogabassey');
   });
@@ -195,7 +252,11 @@ describe('OgabasseyHomePageContent', () => {
       is_published: false,
     });
 
-    const result = await OgabasseyHomePageContent({ pathPrefix: '/ogabassey' });
+    const result = await OgabasseyHomePageContent({
+      pathPrefix: '/ogabassey',
+      shellMerchantId: 'merchant-1',
+      shellSlides: [SHELL_SLIDE],
+    });
 
     render(result as ReactElement);
 
@@ -205,13 +266,49 @@ describe('OgabasseyHomePageContent', () => {
     expect(
       screen.queryByRole('region', { name: /dynamic home content/i })
     ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('region', { name: /product hero/i })
+    ).not.toBeInTheDocument();
+    expect(mockHeroRender).not.toHaveBeenCalled();
+    expect(document.querySelector('a, button, img')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
+  });
+
+  it('rejects cached shell slides from a different request merchant', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValueOnce({
+      ...mockPublishedMerchant,
+      id: 'merchant-2',
+    });
+
+    const result = await OgabasseyHomePageContent({
+      pathPrefix: '',
+      shellMerchantId: 'merchant-1',
+      shellSlides: [SHELL_SLIDE],
+    });
+
+    render(result as ReactElement);
+
+    expect(mockHeroRender).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole('region', { name: /product hero/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', {
+        level: 1,
+        name: 'OgaBassey - Official Online Store',
+      })
+    ).toBeInTheDocument();
   });
 
   it('returns 404 when merchant lookup is null', async () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValueOnce(null);
 
     await expect(
-      OgabasseyHomePageContent({ pathPrefix: '/ogabassey' })
+      OgabasseyHomePageContent({
+        pathPrefix: '/ogabassey',
+        shellMerchantId: 'merchant-1',
+        shellSlides: [SHELL_SLIDE],
+      })
     ).rejects.toThrow('not-found');
 
     expect(notFound).toHaveBeenCalledOnce();

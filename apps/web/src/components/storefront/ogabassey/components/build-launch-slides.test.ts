@@ -26,6 +26,17 @@ describe('buildLaunchSlides', () => {
     expect(slides[0].href).toContain('samsung-galaxy-a27-5g');
   });
 
+  it('builds an exact canonical PDP URL from an absolute store base', () => {
+    const [slide] = buildLaunchSlides(
+      [baseProduct({ id: 'a', slug: 'samsung-galaxy-a27-5g' })],
+      'https://ogabassey.com'
+    );
+
+    expect(slide.href).toBe(
+      'https://ogabassey.com/smartphones/samsung-galaxy-a27-5g'
+    );
+  });
+
   it('uses a pre-order CTA label for pre-order products and Shop now otherwise', () => {
     const slides = buildLaunchSlides(
       [

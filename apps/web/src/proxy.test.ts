@@ -1050,6 +1050,7 @@ describe('Middleware Proxy', () => {
       expect(res.headers.get('Cache-Control')).toContain('no-store');
       expect(res.headers.get('Vercel-CDN-Cache-Control')).toBeNull();
       expect(res.headers.get('CDN-Cache-Control')).toBeNull();
+      expect(res.headers.get('Vercel-Cache-Tag')).toBeNull();
       expect(res.headers.get('Content-Type')).toContain('text/html');
       // Header-level noindex so HEAD / non-HTML-parsing crawlers still see it.
       expect(res.headers.get('X-Robots-Tag')).toContain('noindex');
@@ -2928,6 +2929,50 @@ describe('Middleware Proxy', () => {
   });
 
   it.each([
+    ['custom-domain home', 'https://ogabassey.com/', 'ph:ogabassey.com'],
+    [
+      'custom-domain nested listing',
+      'https://ogabassey.com/smartphones/compare/iphone-15-vs-samsung-s24',
+      'ph:ogabassey.com',
+    ],
+    [
+      'merchant subdomain home',
+      `https://merchant-demo.${ROOT_DOMAIN}/`,
+      'ps:merchant-demo',
+    ],
+    [
+      'root-domain merchant path',
+      `https://${ROOT_DOMAIN}/merchant-demo`,
+      'ps:merchant-demo',
+    ],
+    [
+      'preview merchant path',
+      'https://baci-preview-team.vercel.app/merchant-demo',
+      'ps:merchant-demo',
+    ],
+  ])('tags cacheable %s documents for publication eviction', async (_label, url, expectedTag) => {
+    const req = new NextRequest(url);
+    req.headers.set('host', new URL(url).host);
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('Vercel-Cache-Tag')).toBe(expectedTag);
+  });
+
+  it.each([
+    ['reserved checkout route', `https://${ROOT_DOMAIN}/checkout`],
+    ['platform API route', `https://${ROOT_DOMAIN}/api`],
+    ['invalid IP custom-domain host', 'https://203.0.113.10/'],
+  ])('omits publication tags for %s', async (_label, url) => {
+    const req = new NextRequest(url);
+    req.headers.set('host', new URL(url).host);
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('Vercel-Cache-Tag')).toBeNull();
+  });
+
+  it.each([
     {
       headers: { cookie: 'sb-auth-token=legacy-session' },
       url: 'https://ogabassey.com/smartphones',
@@ -2964,6 +3009,27 @@ describe('Middleware Proxy', () => {
     );
     expect(res.headers.get('Cache-Control')).not.toContain('s-maxage');
     expect(res.headers.get('Vary')).toContain('Cookie');
+    expect(res.headers.get('Vercel-Cache-Tag')).toBeNull();
+  });
+
+  it.each([
+    'POST',
+    'PUT',
+  ])('never CDN-caches a %s storefront document', async (method) => {
+    const url = 'https://ogabassey.com/smartphones';
+    const req = new NextRequest(url, {
+      headers: { host: 'ogabassey.com' },
+      method,
+    });
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('Cache-Control')).toBe(
+      'private, no-store, max-age=0, must-revalidate'
+    );
+    expect(res.headers.get('Vercel-CDN-Cache-Control')).toBeNull();
+    expect(res.headers.get('CDN-Cache-Control')).toBeNull();
+    expect(res.headers.get('Vercel-Cache-Tag')).toBeNull();
   });
 
   it.each([
@@ -3040,6 +3106,7 @@ describe('Middleware Proxy', () => {
     // a stray CDN-Cache-Control here would edge-cache private content.
     expect(res.headers.get('Vercel-CDN-Cache-Control')).toBeNull();
     expect(res.headers.get('CDN-Cache-Control')).toBeNull();
+    expect(res.headers.get('Vercel-Cache-Tag')).toBeNull();
   });
 
   it('does not vary anonymous query-string nested listings by Cookie', async () => {
@@ -3070,6 +3137,9 @@ describe('Middleware Proxy', () => {
     expect(res.headers.get('Cache-Control')).toBe(
       's-maxage=300, stale-while-revalidate=86400'
     );
+    expect(res.headers.get('Vercel-Cache-Tag')).toBe(
+      url.includes(ROOT_DOMAIN) ? 'ps:ogabassey' : 'ph:ogabassey.com'
+    );
   });
 
   it.each([
@@ -3085,6 +3155,7 @@ describe('Middleware Proxy', () => {
     expect(res.headers.get('Cache-Control')).toBe(
       'no-cache, must-revalidate, max-age=0'
     );
+    expect(res.headers.get('Vercel-Cache-Tag')).toBeNull();
   });
 
   it.each(

@@ -14,6 +14,7 @@ import { revalidatePath, revalidateTag } from 'next/cache';
 import { after } from 'next/server';
 import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import { purgeCloudflareUrls } from '@/lib/cloudflare-purge';
+import { buildMerchantPublicationDataCacheTags } from '@/lib/merchant-publication-data-cache-tags';
 import {
   getPlatformBlogPostCacheTag,
   PLATFORM_BLOG_CACHE_TAG,
@@ -181,7 +182,9 @@ export function revalidateCategories(
 
 /**
  * Revalidate all cached data related to a merchant store.
- * Call after merchant settings update, publish/unpublish, etc.
+ * Call after ordinary merchant settings updates. Publication transitions must
+ * use `revalidateMerchantPublication` because stale-while-revalidate is unsafe
+ * for storefront availability state.
  */
 export function revalidateMerchant(merchantId: string, merchantSlug?: string) {
   revalidateTag('merchants', 'merchant');
@@ -193,6 +196,40 @@ export function revalidateMerchant(merchantId: string, merchantSlug?: string) {
 
   // Dashboard stats may change
   revalidateTag(`dashboard-${merchantId}`, 'merchant');
+}
+
+/**
+ * Hard-expire merchant-scoped publication data before the caller evicts cached
+ * storefront documents at the outer CDN. Publication is an availability
+ * boundary, so the normal stale-while-revalidate profile is unsafe here.
+ */
+export function revalidateMerchantPublication({
+  merchantId,
+  canonicalMerchantSlug,
+  identifiers,
+}: {
+  merchantId: string;
+  canonicalMerchantSlug: string | null | undefined;
+  identifiers: readonly (string | null | undefined)[];
+}): void {
+  const normalizedMerchantId = normalizeMerchantIdForRevalidation(merchantId);
+  if (!normalizedMerchantId) {
+    console.warn(
+      'Skipped publication cache revalidation for invalid merchant ID',
+      { merchantId }
+    );
+    throw new Error('Invalid merchant ID for publication cache revalidation');
+  }
+
+  const immediateExpiry = { expire: 0 } as const;
+  for (const tag of buildMerchantPublicationDataCacheTags({
+    canonicalMerchantSlug,
+    identifiers,
+    merchantId: normalizedMerchantId,
+  })) {
+    revalidateTag(tag, immediateExpiry);
+  }
+  revalidateTag(`dashboard-${normalizedMerchantId}`, 'merchant');
 }
 
 /**

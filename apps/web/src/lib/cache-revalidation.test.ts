@@ -41,6 +41,7 @@ import {
   revalidateFeatures,
   revalidateMerchant,
   revalidateMerchantFeed,
+  revalidateMerchantPublication,
   revalidatePageConfig,
   revalidatePlatformBlog,
   revalidateProductSlugs,
@@ -373,6 +374,89 @@ describe('cache-revalidation utilities', () => {
         'merchant'
       );
       expect(mockRevalidateTag).toHaveBeenCalledTimes(3);
+    });
+  });
+
+  describe('revalidateMerchantPublication', () => {
+    it('hard-expires only the merchant-scoped publication caches and aliases', () => {
+      revalidateMerchantPublication({
+        merchantId: MERCHANT_ID,
+        canonicalMerchantSlug: 'ogabassey',
+        identifiers: ['ogabassey', 'old-store', 'OGABASSEY.COM'],
+      });
+
+      expect(mockRevalidateTag).not.toHaveBeenCalledWith(
+        'merchants',
+        expect.anything()
+      );
+      expect(mockRevalidateTag).not.toHaveBeenCalledWith(
+        'domains',
+        expect.anything()
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `merchant-id-${MERCHANT_ID}`,
+        { expire: 0 }
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith('merchant-ogabassey', {
+        expire: 0,
+      });
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'merchant-slug-ogabassey',
+        { expire: 0 }
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'merchant-slug-old-store',
+        { expire: 0 }
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith('domain-ogabassey.com', {
+        expire: 0,
+      });
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'domain-www.ogabassey.com',
+        { expire: 0 }
+      );
+      expect(mockPurgeCloudflareUrls).not.toHaveBeenCalled();
+    });
+
+    it('throws when an invalid merchant ID prevents publication revalidation', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+        // Expected in this runtime-guard test.
+      });
+
+      expect(() =>
+        revalidateMerchantPublication({
+          merchantId: ' ',
+          canonicalMerchantSlug: 'ogabassey',
+          identifiers: ['ogabassey'],
+        })
+      ).toThrow('Invalid merchant ID for publication cache revalidation');
+
+      expect(mockRevalidateTag).not.toHaveBeenCalled();
+      expect(mockPurgeCloudflareUrls).not.toHaveBeenCalled();
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      warnSpy.mockRestore();
+    });
+
+    it('hard-expires domain state without a canonical slug', () => {
+      expect(() =>
+        revalidateMerchantPublication({
+          merchantId: MERCHANT_ID,
+          canonicalMerchantSlug: null,
+          identifiers: [null, 'ogabassey.com'],
+        })
+      ).not.toThrow();
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `merchant-id-${MERCHANT_ID}`,
+        { expire: 0 }
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith('domain-ogabassey.com', {
+        expire: 0,
+      });
+      expect(mockRevalidateTag).not.toHaveBeenCalledWith(
+        expect.stringMatching(/^merchant-slug-/),
+        expect.anything()
+      );
     });
   });
 

@@ -6,16 +6,15 @@ import {
   OGABASSEY_SOCIAL_IMAGE_URL,
   OGABASSEY_TITLE,
 } from '@/config/ogabassey';
-import { OgabasseyHomeHeroFallback } from './ogabassey-home-hero-fallback';
 import { preloadOgabasseyHomeHeroResources } from './ogabassey-home-hero-resource-hints';
 import { resolveOgabasseyHomeHeroShell } from './ogabassey-home-hero-shell-data';
 import { OgabasseyHomePageContent } from './ogabassey-home-page-content';
 import { OgabasseyHomeStyleLoader } from './ogabassey-home-style-loader';
+import { OgabasseyPublicationSafeHeroFallback } from './ogabassey-publication-safe-hero-fallback';
 
 interface OgabasseyStaticHomePageContentProps {
-  /** Static per-route path prefix for storefront links: '' for the apex domain
-   *  (ogabassey.com), '/ogabassey' for the path-based route. Passed as a
-   *  constant from each route's page so the hero needs no per-request headers. */
+  /** Static per-route prefix for request-streamed storefront links: '' for the
+   *  apex domain and '/ogabassey' for the path route. */
   pathPrefix: string;
 }
 
@@ -40,10 +39,17 @@ export async function OgabasseyStaticHomePageContent({
   pathPrefix,
 }: OgabasseyStaticHomePageContentProps) {
   // Cached-only lookup (never request APIs — those stay in the dynamic
-  // subtree). Slide-0 becomes both a first-flush preload hint and a
-  // pixel-identical fallback frame; failure degrades to the generic banner.
-  const heroShell = await resolveOgabasseyHomeHeroShell(pathPrefix);
-  const shellSlides = heroShell?.slides ?? null;
+  // subtree). Slides are inert data here: only the request-scoped subtree may
+  // turn them into shopping UI after it confirms the current publication
+  // state. The slide-0 preload intentionally stays early for LCP discovery. In
+  // the narrow stale-shell window it can disclose/fetch the formerly public
+  // image URL, but it cannot render product UI or expose PDP navigation; the
+  // visible surface is tenant- and publication-gated below.
+  const heroShell = await resolveOgabasseyHomeHeroShell();
+  const shellSlides =
+    heroShell?.status === 'published' ? heroShell.slides : null;
+  const shellMerchantId =
+    heroShell?.status === 'published' ? heroShell.merchantId : null;
   if (shellSlides?.[0]) {
     preloadOgabasseyHomeHeroResources(shellSlides[0].imageUrl);
   }
@@ -52,15 +58,23 @@ export async function OgabasseyStaticHomePageContent({
     <>
       <JsonLd data={ogabasseyStaticHomepageSchema} />
       <OgabasseyHomeStyleLoader />
-      {/* The static PPR shell first-flushes the REAL slide-0 hero frame (cached
-          lookup, non-hydrated, same image URL as the streamed hero) so the LCP
-          image is discoverable immediately and the Suspense swap is visually a
-          no-op. The interactive carousel still streams after request headers
-          resolve path-mode vs subdomain links. */}
+      {/* The fallback reserves the critical viewport without emitting product
+          copy, images, links or controls. The sole shopping Hero is rendered
+          only after the request-scoped publication guard succeeds. */}
       <Suspense
-        fallback={<OgabasseyHomeHeroFallback shellSlides={shellSlides} />}
+        fallback={
+          shellSlides ? (
+            <OgabasseyPublicationSafeHeroFallback
+              hasCarouselControls={shellSlides.length > 1}
+            />
+          ) : null
+        }
       >
-        <OgabasseyHomePageContent pathPrefix={pathPrefix} />
+        <OgabasseyHomePageContent
+          pathPrefix={pathPrefix}
+          shellMerchantId={shellMerchantId}
+          shellSlides={shellSlides}
+        />
       </Suspense>
     </>
   );

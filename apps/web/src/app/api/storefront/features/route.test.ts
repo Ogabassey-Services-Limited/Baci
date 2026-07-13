@@ -100,10 +100,10 @@ describe('GET /api/storefront/features', () => {
     expect(body.klumpMaxAmount).toBe(1000000);
     expect(body.reviewsEnabled).toBe(true);
     expect(mockGetCachedFeatureSettings).toHaveBeenCalledWith('merchant-1');
-    // Regression guards: never select the raw paystack_subaccount_code column,
-    // and derive the hint via the bounded payment-settings RPC instead.
+    // Regression guard: keep this public merchant projection exact and derive
+    // the payment hint via the bounded RPC instead of selecting financial data.
     expect(mockMerchantSelect).toHaveBeenCalledWith(
-      expect.not.stringContaining('paystack_subaccount_code')
+      'id, country, business_type'
     );
     expect(mockGetCachedMerchantPaystackSubaccount).toHaveBeenCalledWith(
       'merchant-1'

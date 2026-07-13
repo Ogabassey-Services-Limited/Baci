@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { HERO_MOBILE_UTILITY_PANEL_MIN_HEIGHT_CLASS } from '@/components/storefront/ogabassey/components/hero-mobile-geometry';
 
 vi.mock('@/components/seo/json-ld', () => ({
   JsonLd: () => <script type="application/ld+json" />,
@@ -9,13 +10,26 @@ vi.mock('./ogabassey-home-style-loader', () => ({
 }));
 const mockDynamicContentSuspends = vi.hoisted(() => ({ value: false }));
 vi.mock('./ogabassey-home-page-content', () => ({
-  OgabasseyHomePageContent: ({ pathPrefix }: { pathPrefix: string }) => {
+  OgabasseyHomePageContent: ({
+    pathPrefix,
+    shellMerchantId,
+    shellSlides,
+  }: {
+    pathPrefix: string;
+    shellMerchantId: string | null;
+    shellSlides: unknown[] | null;
+  }) => {
     if (mockDynamicContentSuspends.value) {
       // Suspend forever so the Suspense fallback actually renders.
       throw new Promise(() => undefined);
     }
     return (
-      <section aria-label="Dynamic home content" data-prefix={pathPrefix} />
+      <section
+        aria-label="Dynamic home content"
+        data-prefix={pathPrefix}
+        data-shell-merchant-id={shellMerchantId ?? 'none'}
+        data-shell-slide-count={shellSlides?.length ?? 'none'}
+      />
     );
   },
 }));
@@ -32,9 +46,17 @@ vi.mock('./ogabassey-home-hero-resource-hints', () => ({
     mockPreloadHeroResources(...args),
 }));
 
-const mockHeroFallback = vi.hoisted(() => vi.fn((_props: unknown) => null));
-vi.mock('./ogabassey-home-hero-fallback', () => ({
-  OgabasseyHomeHeroFallback: (props: unknown) => mockHeroFallback(props),
+const mockCriticalHero = vi.hoisted(() => vi.fn());
+vi.mock('@/components/storefront/ogabassey/components/Hero', () => ({
+  Hero: (props: { slides: unknown[] }) => {
+    mockCriticalHero(props);
+    return (
+      <section
+        aria-label="Permanent critical hero"
+        data-slide-count={props.slides.length}
+      />
+    );
+  },
 }));
 
 import { OgabasseyStaticHomePageContent } from './ogabassey-static-home-page-content';
@@ -54,16 +76,46 @@ describe('OgabasseyStaticHomePageContent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockDynamicContentSuspends.value = false;
-    mockResolveHeroShell.mockResolvedValue({ slides: [SHELL_SLIDE] });
+    mockResolveHeroShell.mockResolvedValue({
+      status: 'published',
+      merchantId: 'merchant-1',
+      slides: [SHELL_SLIDE],
+    });
   });
 
-  it('streams dynamic home content with the static route prefix', async () => {
+  it('passes cached slides into the request-scoped publication owner', async () => {
     render(await OgabasseyStaticHomePageContent({ pathPrefix: '/ogabassey' }));
 
     expect(
+      screen.queryByRole('region', { name: /permanent critical hero/i })
+    ).not.toBeInTheDocument();
+    expect(
       screen.getByRole('region', { name: /dynamic home content/i })
-    ).toHaveAttribute('data-prefix', '/ogabassey');
-    expect(mockResolveHeroShell).toHaveBeenCalledWith('/ogabassey');
+    ).toHaveAttribute('data-shell-slide-count', '1');
+    expect(
+      screen.getByRole('region', { name: /dynamic home content/i })
+    ).toHaveAttribute('data-shell-merchant-id', 'merchant-1');
+    expect(mockCriticalHero).not.toHaveBeenCalled();
+    expect(mockResolveHeroShell).toHaveBeenCalledWith();
+  });
+
+  it('passes an empty published feed through the publication owner', async () => {
+    mockResolveHeroShell.mockResolvedValue({
+      status: 'published',
+      merchantId: 'merchant-1',
+      slides: [],
+    });
+
+    render(await OgabasseyStaticHomePageContent({ pathPrefix: '' }));
+
+    expect(
+      screen.queryByRole('region', { name: /permanent critical hero/i })
+    ).not.toBeInTheDocument();
+    expect(mockCriticalHero).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole('region', { name: /dynamic home content/i })
+    ).toHaveAttribute('data-shell-slide-count', '0');
+    expect(mockPreloadHeroResources).not.toHaveBeenCalled();
   });
 
   it('passes the apex-domain root prefix through to the dynamic home content', async () => {
@@ -80,25 +132,50 @@ describe('OgabasseyStaticHomePageContent', () => {
     expect(mockPreloadHeroResources).toHaveBeenCalledWith(SHELL_SLIDE.imageUrl);
   });
 
-  it('threads the resolved shell slides into the Suspense fallback', async () => {
+  it('shows only publication-safe geometry while the publication owner suspends', async () => {
     mockDynamicContentSuspends.value = true;
 
     render(await OgabasseyStaticHomePageContent({ pathPrefix: '' }));
 
-    expect(mockHeroFallback).toHaveBeenCalledWith(
-      expect.objectContaining({ shellSlides: [SHELL_SLIDE] })
-    );
+    expect(
+      screen.queryByRole('region', { name: /permanent critical hero/i })
+    ).not.toBeInTheDocument();
+    expect(
+      document.querySelector(
+        '[data-ogabassey-publication-safe-hero-fallback="true"]'
+      )
+    ).toBeInTheDocument();
+    expect(document.querySelector('a, button, img')).not.toBeInTheDocument();
+    expect(
+      document.querySelector(
+        '[data-ogabassey-publication-safe-utility-fallback="true"]'
+      )
+    ).toHaveClass(HERO_MOBILE_UTILITY_PANEL_MIN_HEIGHT_CLASS);
+    expect(
+      screen.queryByRole('region', { name: /dynamic home content/i })
+    ).not.toBeInTheDocument();
   });
 
-  it('threads null shell slides into the fallback when the lookup fails open', async () => {
-    mockDynamicContentSuspends.value = true;
+  it('fails closed without shopping UI when the shell lookup fails open', async () => {
     mockResolveHeroShell.mockResolvedValue(null);
 
     render(await OgabasseyStaticHomePageContent({ pathPrefix: '' }));
 
-    expect(mockHeroFallback).toHaveBeenCalledWith(
-      expect.objectContaining({ shellSlides: null })
-    );
+    expect(
+      screen.queryByRole('region', { name: /permanent critical hero/i })
+    ).not.toBeInTheDocument();
+    expect(mockCriticalHero).not.toHaveBeenCalled();
+  });
+
+  it('omits shopping UI when the cached merchant is unpublished', async () => {
+    mockResolveHeroShell.mockResolvedValue({ status: 'unpublished' });
+
+    render(await OgabasseyStaticHomePageContent({ pathPrefix: '' }));
+
+    expect(
+      screen.queryByRole('region', { name: /permanent critical hero/i })
+    ).not.toBeInTheDocument();
+    expect(mockCriticalHero).not.toHaveBeenCalled();
   });
 
   it('skips the preload and keeps rendering when the shell lookup fails open', async () => {
@@ -109,6 +186,6 @@ describe('OgabasseyStaticHomePageContent', () => {
     expect(mockPreloadHeroResources).not.toHaveBeenCalled();
     expect(
       screen.getByRole('region', { name: /dynamic home content/i })
-    ).toBeInTheDocument();
+    ).toHaveAttribute('data-shell-slide-count', 'none');
   });
 });
