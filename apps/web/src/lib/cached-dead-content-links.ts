@@ -39,12 +39,14 @@ export async function getCachedDeadContentLinkSlugs(
   blogSlugs: string[],
   productSlugs: string[]
 ): Promise<DeadStorefrontContentLinkSlugs> {
-  // PR4b: local `'use cache'`, not the framework remote handler. Keyed on the
-  // exact blog+product link set of a page (high-cardinality keys → poor remote
-  // hit-ratio); already fail-loud (throws so callers fail open, treating all
-  // links as live). No cross-instance need, and the remote SET is the exit-128
-  // hazard the plan targets.
-  'use cache';
+  // PR4b review round 4: stays `'use cache: remote'` (demotion REVERTED).
+  // Tagged `blog-posts` (busted by revalidateBlogPosts/revalidateBlogFeed) and
+  // `products-${merchantId}` (busted by revalidateProducts). Dead-link
+  // detection must see a product/post going live or dying on EVERY instance;
+  // a local entry would keep an unpublished link marked live (or strike a
+  // republished one) until `cacheLife` expiry. Already fail-loud (throws so
+  // callers fail open, treating all links as live).
+  'use cache: remote';
   cacheLife('merchant');
   cacheTag('blog-posts', `products-${merchantId}`);
 

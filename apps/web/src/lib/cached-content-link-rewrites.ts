@@ -187,13 +187,16 @@ export async function getCachedContentLinkRewrites(
   blogSlugs: string[],
   productSlugs: string[]
 ): Promise<StorefrontContentLinkRewrites> {
-  // PR4b: local `'use cache'`, not the framework remote handler. Keyed on the
-  // exact blog+product link set of a page (high-cardinality keys → poor remote
-  // hit-ratio); already fail-loud (every lookup throws so the failure is never
-  // cached and callers fail open). The remote SET is pure exit-128 hazard,
-  // while a per-instance local cache still absorbs the multi-query + N-RPC
-  // fanout within a render.
-  'use cache';
+  // PR4b review round 4: stays `'use cache: remote'` (demotion REVERTED).
+  // Tagged `blog-posts`, `product-legacy-redirect`, `products-${id}` and
+  // `categories-${id}` — all four are busted by live revalidators
+  // (revalidateBlogPosts/revalidateBlogFeed, revalidateProducts,
+  // revalidateCategories). Link rewriting is exactly the contract that must
+  // propagate: after a product is archived or a blog slug renamed, an instance
+  // holding a LOCAL entry would keep rewriting links to a dead target. Already
+  // fail-loud (every lookup throws so the failure is never cached and callers
+  // fail open).
+  'use cache: remote';
   cacheLife('merchant');
   cacheTag(
     'blog-posts',

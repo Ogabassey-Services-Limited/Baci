@@ -339,12 +339,15 @@ describe('cached-content-link-rewrites cache directive', () => {
     'utf8'
   );
 
-  it('reads per-request off the local cache handler, not the remote handler (PR4b)', () => {
-    // Keyed on the exact blog+product link set of a page (high-cardinality
-    // keys → poor remote hit-ratio) and already fail-loud (every lookup
-    // throws). The remote SET is pure exit-128 hazard; a local per-instance
-    // cache still absorbs the multi-query + N-RPC fanout within a render.
-    expect(source).not.toContain("'use cache: remote';");
-    expect(source).toContain("'use cache';");
+  it('stays on the shared remote cache handler so rewrite invalidation reaches every instance (PR4b review r4)', () => {
+    // Demotion REVERTED. Tagged `blog-posts`, `product-legacy-redirect`,
+    // `products-${id}` and `categories-${id}` — every one is busted by a live
+    // revalidator (revalidateBlogPosts/revalidateBlogFeed, revalidateProducts,
+    // revalidateCategories). Link rewriting is precisely the contract that must
+    // propagate: after a product is archived or a blog slug renamed, an
+    // instance holding a LOCAL entry would keep rewriting links to a dead
+    // target. Still fail-loud (every lookup throws).
+    expect(source).toContain("'use cache: remote';");
+    expect(source).not.toContain("'use cache';");
   });
 });

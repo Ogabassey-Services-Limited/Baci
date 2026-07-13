@@ -176,13 +176,15 @@ describe('cached-category-product-counts cache directive', () => {
     'utf8'
   );
 
-  it('reads per-request off the local cache handler, not the remote handler (PR4b)', () => {
-    // Aggregates over paginated products; output Record is bounded by the
-    // #categories argument. No cross-instance need — the consumer already
-    // try/catches to empty counts. Demote off the remote SET (exit-128 hazard);
-    // the fill now fails loud so a transient error is never cached as empty.
-    expect(source).not.toContain("'use cache: remote';");
-    expect(source).toContain("'use cache';");
+  it('stays on the shared remote cache handler so count invalidation reaches every instance (PR4b review r4)', () => {
+    // Demotion REVERTED. These counts are tagged `products-${id}` AND
+    // `categories-${id}`, both busted by live revalidators (revalidateProducts,
+    // revalidateCategories). A product added or removed must change the
+    // category count on EVERY instance — a local entry never sees the bust and
+    // would serve a stale count until cacheLife expiry. The fill still fails
+    // loud so a transient error is never cached as empty counts.
+    expect(source).toContain("'use cache: remote';");
+    expect(source).not.toContain("'use cache';");
     expect(source).toContain('throw error');
   });
 });

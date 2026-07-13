@@ -42,6 +42,12 @@ Production traces show the managed Vercel `RemoteCacheHandler` returning **502/5
 
 ## 1. Summary classification table (26 sites)
 
+> ⚠️ **SUPERSEDED IN PART — read [§8](#8-corrections-2026-07-13--pr4b-codex-review-pr-3108) first.**
+> The DEMOTE verdicts below were reached by judging consumer staleness
+> tolerance. That method is invalid: **8 of 8** audited DEMOTE sites turned out
+> to have a live `revalidateTag` contract and were reverted to remote. Before
+> acting on any DEMOTE row here, run the §8.1 grep procedure.
+
 Legend — **X-inst**: is cross-instance *sharing* actually required for correctness/cost? **Rec**: REMOVE = strip remote (local `use cache` or direct read; recompute is cheap / HTML is CDN-cached) · DEMOTE = local `use cache`, bounded life · KEEP = needs the future resilient adapter.
 
 | # | File : function | Key varies on | Cardinality | Payload bound | Origin cost (miss) | X-inst | Rec |
@@ -93,6 +99,8 @@ Rationale bucket: indexed same-region read **< 50 ms** (plan's threshold), *or* 
 - **`getPublishedProductGuidePosts`** (storefront-content/get-published-product-guide-posts.ts:39) — **ORPHANED**: only referenced by its own test + a *negative* assertion in `get-cached-product-seo-link-data.test.ts` (which asserts the SEO path no longer calls it). No production consumer. → REMOVE (delete or strip). Also swallows errors (`return []`).
 
 ### 2B. DEMOTE — local `'use cache'`, bounded life (15)
+
+> ⚠️ **SUPERSEDED — see [§8](#8-corrections-2026-07-13--pr4b-codex-review-pr-3108).** Every one of the 8 sites from this bucket that PR4b actually attempted to demote had a live `revalidateTag` contract and was reverted to `'use cache: remote'`. The rationale below (staleness tolerance, payload size, key cardinality) does **not** establish that a demotion is safe — only the §8.1 grep does.
 
 Rationale bucket: recompute is non-trivial (multi-query, hydration, aggregation) so per-instance caching is worth keeping, but nothing requires the value to be *shared* across instances, and the consuming HTML/JSON tolerates per-instance cold misses. Moving off the framework remote handler removes the `exit 128` write path. Several need an added SQL cap.
 
@@ -210,10 +218,71 @@ alongside #18/#20/#21 — they must move onto the application-owned
 `cacheHandlers.remote` (fail-open get/set, size caps, circuit breaker,
 versioned invalidation), never stay on the framework default long-term.
 
-**Re-audit of the sites that remain demoted (D/E/F):** none of the other 8
-demoted sites has an invalidation-propagation contract — their consumers
-either tolerate `cacheLife`-bounded per-instance staleness (categories,
-counts, IDs+exact-count, dashboard/analytics aggregates) or fail open per
-request (content-link helpers). #7's pagination-truth fix (exact head-count +
-per-request tail window) additionally removes the truncation the cap
-introduced.
+### 8.1 The rule must be verified by GREP, not by judgement
+
+The first re-audit of the remaining demoted sites asserted, by reasoning about
+consumer tolerance, that *"none of the other 8 demoted sites has an
+invalidation-propagation contract."* **That claim was false for all 8.** Codex
+round 4 caught #7 (`getCachedCategoryPageProductIds`) — and a mechanical
+re-audit then showed the same defect in the other seven. Judgement about
+"does this consumer tolerate staleness?" is the wrong question and produced
+the wrong answer eight times out of eight.
+
+**The only sound procedure** — run it for every site before demoting anything:
+
+1. List the site's `cacheTag(...)` values verbatim.
+2. `grep` the repo for every `revalidateTag` / `revalidatePath` call —
+   `cache-revalidation.ts` **and** any direct calls — plus the **call sites**
+   of each `revalidate*` helper (a helper with zero call sites is dead code and
+   imposes no contract).
+3. If ANY live revalidator targets ANY of the site's tags, the site has an
+   invalidation-propagation contract and **must stay on the shared remote
+   store**. Stay-local requires *no* revalidator to target it.
+
+Payload size, key cardinality, authed-vs-public, and "the consumer already
+try/catches" are all **irrelevant** to this test. They may justify a cap, a
+fail-loud fill, or a resilient adapter — never a demotion.
+
+### 8.2 Corrected audit table (grep-verified, 2026-07-13, PR4b round 4)
+
+Every site PR4b demoted, its tags, and the live revalidators that target them:
+
+| # | Site | `cacheTag(...)` | Live revalidator(s) targeting it | Verdict |
+|---|---|---|---|---|
+| 2 | `getCachedProducts` | `products`, `products-${mid}` | `revalidateProducts` → `products-${mid}` | **REVERT → remote** |
+| 4 | `getCachedCategories` | `categories`, `categories-${mid}` | `revalidateCategories` → `categories-${mid}` | **REVERT → remote** |
+| 7 | `getCachedCategoryPageProductIds` | `category-page-data`, `products`, `categories`, `products-${mid}`, `categories-${mid}` | `revalidateProducts` → `category-page-data`, `products-${mid}`; `revalidateCategories` → `category-page-data`, `categories-${mid}` | **REVERT → remote** (Codex `PRRT_kwDOQZgfis6QjNxf`) |
+| 8 | `getCachedDashboardStats` | `dashboard`, `dashboard-${mid}` | `revalidateProducts`, `revalidateMerchant`, `revalidateMerchantPublication` → `dashboard-${mid}` | **REVERT → remote** |
+| 9 | `getCachedPlatformAnalytics` | `analytics` | `revalidateAnalytics` → `analytics` (admin "refresh analytics views" route — an explicit user-triggered bust) | **REVERT → remote** |
+| 14 | `getCachedCategoryProductCounts` | `categories`, `categories-${mid}`, `products`, `products-${mid}` | `revalidateProducts` → `products-${mid}`; `revalidateCategories` → `categories-${mid}` | **REVERT → remote** |
+| 15 | `getCachedContentLinkRewrites` | `blog-posts`, `product-legacy-redirect`, `products-${mid}`, `categories-${mid}` | `revalidateProducts` → `products-${mid}`, `product-legacy-redirect`; `revalidateBlogPosts`/`revalidateBlogFeed` → `blog-posts`; `revalidateCategories` → `categories-${mid}` | **REVERT → remote** |
+| 16 | `getCachedDeadContentLinkSlugs` | `blog-posts`, `products-${mid}` | `revalidateProducts` → `products-${mid}`; `revalidateBlogPosts`/`revalidateBlogFeed` → `blog-posts` | **REVERT → remote** |
+
+**Result: 8 of 8 demoted sites had a live revalidator. PR4b therefore demotes
+ZERO sites.** All 8 join #19 and #22–#25 in the Slice H (PR4d) resilient-adapter
+migration set (13 sites total alongside #18/#20/#21) — the correct fix for the
+`exit 128` remote-write hazard is the application-owned `cacheHandlers.remote`
+(fail-open get/set, size caps, circuit breaker, versioned invalidation), **not**
+a demotion that silently breaks tag invalidation.
+
+**What PR4b still ships** (all orthogonal to the remote/local axis, all
+retained):
+
+- **Payload caps** — `GET_CACHED_PRODUCTS_MAX_ROWS` (100) and
+  `CATEGORY_PAGE_PRODUCT_ID_CAP` (2,000). These matter *more* on the shared
+  store, where an oversized item is precisely what fails the remote write.
+- **Fail-loud fills** — `getCachedDashboardStats`, `getCachedPlatformAnalytics`
+  and `getCachedCategoryProductCounts` no longer cache a transient failure as
+  absence (empty/null); each consumer already catches outside the cache scope.
+- **Pagination truth** — the exact head-count and the per-request tail window,
+  so valid deep pages past the cap resolve instead of 404ing.
+- **Core-data survivability** (Codex `PRRT_kwDOQZgfis6QjNxX`) — the exact count
+  is now cached as its **own** entry, separate from the ID list. Folding it into
+  the ID read meant a failed COUNT threw, the request-local boundary caught it,
+  and a category whose ID window fetched perfectly rendered an **empty
+  catalog**. Core data must never be discarded because an auxiliary query
+  failed. The boundary now degrades the **totals only**
+  (`totalProductCountExact: false`, totals fall back to the fetched ID-list
+  length) and never pages toward a total it does not have. Because a throwing
+  `'use cache'` function persists no entry, the wrong-but-confident count is
+  never cached and the next request refills it.

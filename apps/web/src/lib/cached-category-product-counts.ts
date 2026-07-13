@@ -64,11 +64,14 @@ export async function getCachedCategoryProductCounts(
   merchantId: string,
   categories: CachedCategoryProductCountCategory[]
 ): Promise<Record<string, number>> {
-  // PR4b: local `'use cache'`, not the framework remote handler. Output Record
-  // is bounded by the #categories argument; no cross-instance need — the
-  // consumer (products-page link modules) already try/catches to empty counts.
-  // The remote SET is the exit-128 hazard, so read locally per-instance.
-  'use cache';
+  // PR4b review round 4: stays `'use cache: remote'` (demotion REVERTED).
+  // These counts are busted by BOTH revalidateProducts() (`products-${id}`)
+  // and revalidateCategories() (`categories-${id}`) — a product added or
+  // removed must change the category count everywhere, not just on the
+  // instance that handled the mutation. Local entries never see the bust.
+  // Still fail-loud (throws below) so a transient error is never cached as
+  // empty counts; the consumer try/catches outside the cache scope.
+  'use cache: remote';
   cacheLife('categories');
   cacheTag(
     'categories',

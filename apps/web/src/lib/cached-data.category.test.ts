@@ -503,6 +503,129 @@ describe('getCachedCategoryPageData category routing and fallback logic', () => 
     });
   });
 
+  it('keeps the fetched catalog when only the supplementary count query fails (PR4b review r4)', async () => {
+    harness.mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'cat-active-123',
+        name: 'Active Category',
+        slug: 'active-category',
+        description: 'Standard active category',
+        image_url: null,
+        is_active: true,
+        seo_heading: null,
+        seo_description: null,
+        seo_features: null,
+        seo_faq: null,
+        parent: null,
+      },
+      error: null,
+    });
+    const productIds = Array.from({ length: 49 }, (_, index) => ({
+      id: `product-${index + 1}`,
+    }));
+    const firstPageWindow = productIds.slice(0, 20);
+    harness.mockListResults.push(
+      { data: [{ id: 'cat-active-123' }], error: null }, // scope resolution
+      { data: productIds, error: null }, // ID window query SUCCEEDS
+      {
+        data: null,
+        error: { code: '57014', message: 'statement timeout' },
+        count: null,
+      }, // supplementary exact head-count query FAILS
+      {
+        data: firstPageWindow.map(({ id }) => ({
+          id,
+          name: `Product ${id}`,
+          slug: id,
+        })),
+        error: null,
+      } // detail chunk for the requested window
+    );
+
+    const getBoundedCategoryPageData = getCachedCategoryPageData as unknown as (
+      merchantId: string,
+      categorySlug: string,
+      storeSlug: string,
+      productOffset: number,
+      productLimit: number
+    ) => ReturnType<typeof getCachedCategoryPageData>;
+    const result = await getBoundedCategoryPageData(
+      'merchant-123',
+      'active-category',
+      'test-store',
+      0,
+      20
+    );
+
+    // The COUNT is SUPPLEMENTARY, the ID list is CORE. A failed count must
+    // degrade the TOTALS only — never discard a catalog that fetched fine.
+    expect(result.products).toHaveLength(20);
+    expect(result).toMatchObject({
+      // Falls back to the successfully-fetched ID-list length, so totalPages
+      // stays derivable instead of collapsing the page to an empty catalog.
+      productCount: 49,
+      productsArePrePaginated: true,
+      productsQueryFailed: false,
+    });
+    // The ID query did NOT fail, so consumers must not fail open / 404.
+    expect(result.productIdsQueryFailed).toBeUndefined();
+  });
+
+  it('serves the whole cached ID list to unbounded consumers when the count query fails (PR4b review r4)', async () => {
+    harness.mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'cat-active-123',
+        name: 'Active Category',
+        slug: 'active-category',
+        description: 'Standard active category',
+        image_url: null,
+        is_active: true,
+        seo_heading: null,
+        seo_description: null,
+        seo_features: null,
+        seo_faq: null,
+        parent: null,
+      },
+      error: null,
+    });
+    const productIds = Array.from({ length: 30 }, (_, index) => ({
+      id: `product-${index + 1}`,
+    }));
+    harness.mockListResults.push(
+      { data: [{ id: 'cat-active-123' }], error: null }, // scope resolution
+      { data: productIds, error: null }, // ID query SUCCEEDS
+      {
+        data: null,
+        error: { code: '57014', message: 'statement timeout' },
+        count: null,
+      }, // supplementary exact head-count query FAILS
+      {
+        data: productIds.map(({ id }) => ({
+          id,
+          name: `Product ${id}`,
+          slug: id,
+        })),
+        error: null,
+      } // single detail chunk (30 < CATEGORY_PAGE_PRODUCT_DETAIL_CHUNK_SIZE)
+    );
+
+    const result = await getCachedCategoryPageData(
+      'merchant-123',
+      'active-category',
+      'test-store'
+    );
+
+    expect(result.products).toHaveLength(30);
+    expect(result).toMatchObject({
+      productCount: 30,
+      productsQueryFailed: false,
+    });
+    expect(result.productIdsQueryFailed).toBeUndefined();
+    // Totals are unknown, so the tail-assembly ranged query must NOT run —
+    // there is no trustworthy count to page toward.
+    expect(harness.mockRange).not.toHaveBeenCalled();
+  });
+
   it('preserves ID slots when an early detail chunk fails and a later chunk succeeds', async () => {
     harness.mockSingle.mockResolvedValueOnce({
       data: {

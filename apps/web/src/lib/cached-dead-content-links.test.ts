@@ -387,12 +387,14 @@ describe('cached-dead-content-links cache directive', () => {
     'utf8'
   );
 
-  it('reads per-request off the local cache handler, not the remote handler (PR4b)', () => {
-    // Keyed on the exact blog+product link set of a page (high-cardinality
-    // keys → poor remote hit-ratio) and already fail-loud (throws so callers
-    // fail open, treating all links as live). Demote to local: no
-    // cross-instance need, and the remote SET is the exit-128 hazard.
-    expect(source).not.toContain("'use cache: remote';");
-    expect(source).toContain("'use cache';");
+  it('stays on the shared remote cache handler so dead-link invalidation reaches every instance (PR4b review r4)', () => {
+    // Demotion REVERTED. Tagged `blog-posts` (busted by
+    // revalidateBlogPosts/revalidateBlogFeed) and `products-${merchantId}`
+    // (busted by revalidateProducts). Dead-link detection must see a product or
+    // post going live — or dying — on EVERY instance; a local entry would keep
+    // an unpublished link marked live (or strike a republished one) until
+    // cacheLife expiry. Still fail-loud (throws so callers fail open).
+    expect(source).toContain("'use cache: remote';");
+    expect(source).not.toContain("'use cache';");
   });
 });

@@ -1118,11 +1118,14 @@ export async function getCachedProducts(
     featured?: boolean;
   }
 ) {
-  // PR4b: local `'use cache'`, not the framework remote handler. The only
-  // consumer is the authed FAQ page (limit 10) — JSON/authed, never crawler
-  // HTML — so there is no cross-instance sharing need, and the unbounded
-  // hydrated payload was a prime exit-128 remote-write hazard.
-  'use cache';
+  // PR4b review round 4: stays `'use cache: remote'` (demotion REVERTED).
+  // `revalidateProducts()` busts `products-${merchantId}` on every product
+  // create/update/delete, so this entry's freshness contract depends on tag
+  // propagation — and a tag bust handled on one instance never clears a LOCAL
+  // entry on the others. The payload cap below (the real exit-128 mitigation)
+  // is retained and matters MORE on the shared store, where an oversized item
+  // is what fails the remote write.
+  'use cache: remote';
   cacheLife('products');
   cacheTag('products', `products-${merchantId}`);
 
@@ -1642,11 +1645,14 @@ export async function getCachedLegacyProductRedirectTarget(
  * Uses 'categories' cacheLife profile (stale 5min, revalidate 1hr, expire 24hr)
  */
 export async function getCachedCategories(merchantId: string) {
-  // PR4b: local `'use cache'`, not the framework remote handler. Bounded
-  // (~57 rows) indexed merchant-scoped read; no cross-instance sharing need.
-  // Already fail-loud (throws below) with a request-local fail-open boundary
-  // (getStorefrontCategories), so a transient error is never cached as empty.
-  'use cache';
+  // PR4b review round 4: stays `'use cache: remote'` (demotion REVERTED).
+  // `revalidateCategories()` busts `categories-${merchantId}` on category
+  // create/update/delete, so storefront navigation freshness depends on that
+  // tag reaching EVERY instance — a local entry elsewhere would keep serving
+  // the retired category nav until `cacheLife` expiry. Still fail-loud (throws
+  // below) with a request-local fail-open boundary (getStorefrontCategories),
+  // so a transient error is never cached as empty.
+  'use cache: remote';
   cacheLife('categories');
   cacheTag('categories', `categories-${merchantId}`);
 
@@ -1764,6 +1770,17 @@ interface CachedCategoryPageProductIdsResult {
    * from a head-count query so pagination totals stay truthful (PR4b review).
    */
   totalProductCount: number;
+  /**
+   * False when the SUPPLEMENTARY exact-count query failed and totalProductCount
+   * fell back to the length of the successfully-fetched ID list.
+   *
+   * The count is supplementary; the ID list is CORE. A failed count must
+   * degrade the TOTALS only — it must never discard a catalog that fetched
+   * fine, which would render an empty category page off an auxiliary failure
+   * (PR4b review round 4). Callers must not page past the cached list on an
+   * inexact count: there is no trustworthy total to page toward.
+   */
+  totalProductCountExact: boolean;
 }
 
 interface CategoryPageProductDetailsResult {
@@ -2118,12 +2135,21 @@ function extractCategoryPageProductIds(data: unknown): string[] {
 }
 
 /**
- * Local-cached ordered product IDs for category/collection pages.
- * IDs are compact and make the product detail fetch snapshot-safe: detail
- * chunks are keyed by stable ID slices, not shifting offset windows. The list
- * is capped (CATEGORY_PAGE_PRODUCT_ID_CAP) so the cache item stays bounded;
- * when it hits the cap, an exact head-count query keeps totalProductCount
- * truthful so pagination past the cap does not 404 (PR4b review fix).
+ * Remote-cached ordered product IDs for category/collection pages — the CORE
+ * catalog read. IDs are compact and make the product detail fetch snapshot-safe:
+ * detail chunks are keyed by stable ID slices, not shifting offset windows. The
+ * list is capped (CATEGORY_PAGE_PRODUCT_ID_CAP) so the cache item stays bounded.
+ *
+ * `'use cache: remote'`, NOT local (PR4b review round 4 — reverted from the
+ * demotion): this entry's freshness contract depends on `revalidateTag`
+ * propagation. `revalidateProducts()` busts `category-page-data` /
+ * `products-${merchantId}` and `revalidateCategories()` busts
+ * `category-page-data` / `categories-${merchantId}` on product and category
+ * create/delete/status/category changes. A tag bust handled on ONE instance
+ * never clears a LOCAL entry on the others, so a demotion would leave other
+ * instances serving stale category membership and counts until `cacheLife`
+ * expiry. See inventory §8 — the shared store is the only thing that makes tag
+ * invalidation cross-instance.
  */
 async function getCachedCategoryPageProductIds({
   merchantId,
@@ -2131,12 +2157,8 @@ async function getCachedCategoryPageProductIds({
 }: {
   merchantId: string;
   scope: CachedCategoryPageProductScope;
-}): Promise<CachedCategoryPageProductIdsResult> {
-  // PR4b: local `'use cache'`, not the framework remote handler. Keyed on an
-  // unbounded (crawler) category slug; already fail-loud with a request-local
-  // boundary (getCategoryPageProductIds). Cross-instance staleness of the
-  // rarely-changing ID list is bounded by the 'storefront-page' window.
-  'use cache';
+}): Promise<string[]> {
+  'use cache: remote';
   cacheLife('storefront-page');
   cacheTag(
     'category-page-data',
@@ -2147,7 +2169,7 @@ async function getCachedCategoryPageProductIds({
   );
 
   if (scope.kind === 'none') {
-    return { productIds: [], productsQueryFailed: false, totalProductCount: 0 };
+    return [];
   }
 
   const supabase = getPublicSupabaseClient();
@@ -2161,33 +2183,62 @@ async function getCachedCategoryPageProductIds({
     throw error;
   }
 
-  const productIds = extractCategoryPageProductIds(data);
+  return extractCategoryPageProductIds(data);
+}
 
-  // The truncated list length can NEVER be trusted as the scope size: besides
-  // our own cap, PostgREST clamps every response to the server's max-rows
-  // (this project does not override it in supabase/config.toml, so the
-  // Supabase managed default of 1,000 applies — BELOW the 2,000 cap), so a
-  // "did we hit the cap?" gate would silently report the clamped length as
-  // the total. Always fetch the exact count (head request — no rows, same
-  // indexed filters) so pagination totals stay truthful under any clamp
-  // (PR4b review round 2).
-  const { count, error: countError } = await buildCategoryPageProductIdsQuery(
+/**
+ * Exact scope size for category/collection pages — SUPPLEMENTARY to the ID list.
+ *
+ * Cached as its OWN entry (not folded into the ID-list read) so a transient
+ * count failure can never empty the catalog: the ID list keeps its own cache
+ * entry and its own fill, and a throw here writes NO entry at all — so the
+ * wrong-but-confident count is never persisted and the very next request
+ * refills it. The request-local boundary (getCategoryPageProductIds) degrades
+ * the TOTALS only (PR4b review round 4).
+ *
+ * The truncated ID-list length can NEVER be trusted as the scope size: besides
+ * our own cap, PostgREST clamps every response to the server's max-rows (this
+ * project does not override it in supabase/config.toml, so the Supabase managed
+ * default of 1,000 applies — BELOW the 2,000 cap), so a "did we hit the cap?"
+ * gate would silently report the clamped length as the total. The count runs
+ * unconditionally as a head request (no rows, same indexed filters).
+ *
+ * Remote-cached for the same invalidation-propagation contract as the ID list.
+ */
+async function getCachedCategoryPageProductTotalCount({
+  merchantId,
+  scope,
+}: {
+  merchantId: string;
+  scope: CachedCategoryPageProductScope;
+}): Promise<number> {
+  'use cache: remote';
+  cacheLife('storefront-page');
+  cacheTag(
+    'category-page-data',
+    'products',
+    'categories',
+    `products-${merchantId}`,
+    `categories-${merchantId}`
+  );
+
+  if (scope.kind === 'none') {
+    return 0;
+  }
+
+  const supabase = getPublicSupabaseClient();
+  const { count, error } = await buildCategoryPageProductIdsQuery(
     supabase,
     merchantId,
     scope,
     { count: 'exact', head: true }
   );
 
-  if (countError) {
-    throw countError;
+  if (error) {
+    throw error;
   }
 
-  const totalProductCount = Math.max(
-    count ?? productIds.length,
-    productIds.length
-  );
-
-  return { productIds, productsQueryFailed: false, totalProductCount };
+  return count ?? 0;
 }
 
 /**
@@ -2281,6 +2332,20 @@ async function fetchAllCategoryPageProductIds({
   return ids;
 }
 
+/**
+ * Request-local boundary over the two cached category reads.
+ *
+ * CORE (ID list) and SUPPLEMENTARY (exact count) fail INDEPENDENTLY:
+ *   - ID query fails      → genuine catalog failure; flag it so consumers fail
+ *                           open (never a "real" empty category).
+ *   - count query fails   → the catalog is INTACT. Keep the fetched IDs and
+ *                           degrade the TOTALS only, falling back to the ID-list
+ *                           length so totalPages stays derivable. Emptying the
+ *                           page because an auxiliary COUNT failed would render
+ *                           an empty catalog / 404 a live category — core data
+ *                           must never be discarded for an auxiliary failure
+ *                           (PR4b review round 4).
+ */
 async function getCategoryPageProductIds({
   merchantId,
   scope,
@@ -2288,11 +2353,41 @@ async function getCategoryPageProductIds({
   merchantId: string;
   scope: CachedCategoryPageProductScope;
 }): Promise<CachedCategoryPageProductIdsResult> {
+  let productIds: string[];
+
   try {
-    return await getCachedCategoryPageProductIds({ merchantId, scope });
+    productIds = await getCachedCategoryPageProductIds({ merchantId, scope });
   } catch (error) {
     console.error('Product ID query failed outside cache:', error);
-    return { productIds: [], productsQueryFailed: true, totalProductCount: 0 };
+    return {
+      productIds: [],
+      productsQueryFailed: true,
+      totalProductCount: 0,
+      totalProductCountExact: false,
+    };
+  }
+
+  try {
+    const exactCount = await getCachedCategoryPageProductTotalCount({
+      merchantId,
+      scope,
+    });
+
+    return {
+      productIds,
+      productsQueryFailed: false,
+      totalProductCount: Math.max(exactCount, productIds.length),
+      totalProductCountExact: true,
+    };
+  } catch (error) {
+    console.error('Product count query failed outside cache:', error);
+
+    return {
+      productIds,
+      productsQueryFailed: false,
+      totalProductCount: productIds.length,
+      totalProductCountExact: false,
+    };
   }
 }
 
@@ -2452,7 +2547,13 @@ async function getCachedCategoryPageProductsUncached({
   let windowQueryFailed = false;
 
   if (!hasBoundedWindow) {
-    if (idResult.totalProductCount > idResult.productIds.length) {
+    if (
+      // An INEXACT count (the supplementary count query failed) gives no
+      // trustworthy total to page toward, so serve the cached list as-is
+      // rather than chasing a fabricated remainder (PR4b review round 4).
+      idResult.totalProductCountExact &&
+      idResult.totalProductCount > idResult.productIds.length
+    ) {
       // Unbounded consumers (price-band page, LLM category markdown) expect
       // the FULL category payload; the cached list is capped/clamped, so the
       // remainder is assembled per-request with the same ordering (PR4b r2).
@@ -2475,6 +2576,9 @@ async function getCachedCategoryPageProductsUncached({
     }
   } else if (
     windowStart + productLimit <= idResult.productIds.length ||
+    // No trustworthy total (count query failed) — do not range past the cached
+    // list toward a total we do not have (PR4b review round 4).
+    !idResult.totalProductCountExact ||
     idResult.totalProductCount <= idResult.productIds.length
   ) {
     // Common case: the cached (possibly capped) ID list fully covers the
@@ -2791,12 +2895,16 @@ function getServiceSupabaseClient() {
  * Uses 'merchant' cacheLife profile (revalidate 60s)
  */
 export async function getCachedDashboardStats(merchantId: string) {
-  // PR4b: local `'use cache'`, not the framework remote handler. Authed
-  // dashboard consumer on a service-role RPC — no cross-instance/SEO need.
-  // Fail loud so a transient RPC error is never persisted as null; the
-  // dashboard action's own try/catch degrades to zero metrics outside the
-  // cache scope. A genuine null summary (no error) still returns null.
-  'use cache';
+  // PR4b review round 4: stays `'use cache: remote'` (demotion REVERTED).
+  // `dashboard-${merchantId}` is busted by revalidateProducts(),
+  // revalidateMerchant() AND revalidateMerchantPublication() — a merchant who
+  // adds a product expects the dashboard to reflect it, and a local entry on
+  // another instance would keep serving pre-mutation metrics until `cacheLife`
+  // expiry. Still fail-loud so a transient RPC error is never persisted as
+  // null; the dashboard action's own try/catch degrades to zero metrics
+  // outside the cache scope. A genuine null summary (no error) still returns
+  // null.
+  'use cache: remote';
   cacheLife('merchant');
   cacheTag('dashboard', `dashboard-${merchantId}`);
 
@@ -2823,12 +2931,14 @@ export async function getCachedPlatformAnalytics(
   startDate: string,
   endDate: string
 ) {
-  // PR4b: local `'use cache'`, not the framework remote handler. Admin-only
-  // consumer keyed on arbitrary date ranges (high key cardinality) on a
-  // service-role aggregate RPC — no cross-instance/SEO need. Fail loud so a
+  // PR4b review round 4: stays `'use cache: remote'` (demotion REVERTED).
+  // The admin "refresh analytics views" route calls revalidateAnalytics(),
+  // which busts the `analytics` tag — an EXPLICIT, user-triggered invalidation
+  // contract. Demoting it to local would leave the refresh button silently
+  // broken for any request served by another instance. Still fail-loud so a
   // transient aggregate error is never cached as null; the admin route's
   // enclosing try/catch returns 500 outside the cache scope.
-  'use cache';
+  'use cache: remote';
   cacheLife('products');
   cacheTag('analytics');
 
