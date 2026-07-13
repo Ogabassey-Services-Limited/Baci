@@ -199,6 +199,28 @@ describe('finalizeOrderGatewayPayment', () => {
     expect(mocks.runPaidOrderSideEffects).toHaveBeenCalledTimes(1);
   });
 
+  it('skips the drain on a pure replay with no outbox history (legacy completion)', async () => {
+    mocks.completeOrderGatewayPayment.mockResolvedValue(
+      completion({
+        already_completed: true,
+        order_already_paid: true,
+        order_updated: false,
+      })
+    );
+    mocks.ensurePaidOrderInventoryConfirmed.mockResolvedValue(undefined);
+
+    const outcome = await finalizeOrderGatewayPayment(
+      baseArgs(buildSupabase({ data: richOrderRow }, { outboxRows: [] }), {
+        wonTransactionFlip: false,
+      })
+    );
+
+    expect(outcome).toMatchObject({ healed: false, kind: 'completed' });
+    // Pre-outbox completions sent email/settlement inline; draining an empty
+    // outbox would duplicate them.
+    expect(mocks.runPaidOrderSideEffects).not.toHaveBeenCalled();
+  });
+
   it('returns order_fetch_failed and persists retry markers so the cron drain can find the order', async () => {
     mocks.completeOrderGatewayPayment.mockResolvedValue(completion());
     mocks.persistPaidOrderSideEffectRetry.mockResolvedValue(undefined);

@@ -2039,6 +2039,7 @@ describe('POST /api/payments/credit-direct/webhook', () => {
       vi.mocked(createServiceClient).mockReturnValue(supabaseMock as never);
 
       const transactionInsert = vi.fn().mockReturnThis();
+      const notifiedMarkerUpdate = vi.fn().mockReturnThis();
       const mockChain = supabaseMock.from('orders');
       let fromCallCount = 0;
       supabaseMock.from.mockImplementation((_table: string) => {
@@ -2074,6 +2075,14 @@ describe('POST /api/payments/credit-direct/webhook', () => {
             .mockResolvedValue({ data: { id: 'healed-tx-1' }, error: null });
           return txInsertChain;
         }
+        if (fromCallCount === 4) {
+          // notification marker write — the crashed first delivery never
+          // dispatched push/email, so the replay does and records it.
+          const markerChain = { ...mockChain };
+          markerChain.update = notifiedMarkerUpdate;
+          markerChain.eq = vi.fn().mockResolvedValue({ error: null });
+          return markerChain;
+        }
         throw new Error(`Unexpected from() call ${fromCallCount}`);
       });
 
@@ -2083,6 +2092,11 @@ describe('POST /api/payments/credit-direct/webhook', () => {
 
       expect(response.status).toBe(200);
       expect(data).toEqual({ received: true, message: 'Already processed' });
+      expect(notifiedMarkerUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          notes: expect.stringContaining('creditDirectNotifiedAt'),
+        })
+      );
       expect(transactionInsert).toHaveBeenCalledWith({
         merchant_id: 'merchant_123',
         order_id: 'order_abc',

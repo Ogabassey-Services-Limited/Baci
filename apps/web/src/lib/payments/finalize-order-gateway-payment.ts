@@ -1,14 +1,15 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
 import { logger } from '@/lib/logger';
 import { completeOrderGatewayPayment } from '@/lib/payments/complete-order-gateway-payment';
 import {
   ensurePaidOrderInventoryConfirmed,
   rollbackOrderStatusAfterInventoryConfirmationFailure,
 } from '@/lib/payments/ensure-paid-order-inventory-confirmed';
+import { fileBlockedOrderPaymentReview } from '@/lib/payments/file-blocked-order-payment-review';
 import { fileInventoryConfirmationFailureReview } from '@/lib/payments/file-inventory-confirmation-review';
-import { handlePaymentForCancelledOrder } from '@/lib/payments/handle-payment-for-cancelled-order';
 import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
+import { schedulePaidOrderNotifications } from '@/lib/payments/notify-paid-order';
+import { orderHasSideEffectRows } from '@/lib/payments/order-has-outbox-rows';
 import { toRichPaidOrder } from '@/lib/payments/paid-order-normalization';
 import { persistPaidOrderSideEffectRetry } from '@/lib/payments/paid-order-retry-persistence';
 import { PAID_ORDER_RICH_SELECT } from '@/lib/payments/paid-order-rich-select';
@@ -83,45 +84,16 @@ export async function finalizeOrderGatewayPayment({
     return { error: completion, kind: 'completion_failed' };
   }
 
-  if (completion.order_cancelled) {
-    await handlePaymentForCancelledOrder({
-      gatewayReference: transaction.gateway_reference ?? reference,
-      order: {
-        cancelled_at: completion.cancelled_at ?? null,
-        id: orderId,
-        shipping_status: completion.shipping_status ?? null,
-      },
-      reason: `Gateway ${gateway} payment captured for an order cancelled before finalization`,
-      transactionId: transaction.id,
-    });
-    return {
-      kind: 'order_cancelled',
-      orderNumber: completion.order_number ?? null,
-    };
-  }
-
-  if (completion.order_skipped_status) {
-    logger.error({
-      message:
-        'Gateway payment completed for an order whose status blocks a paid flip; manual review required',
-      orderId,
-      paymentStatus: completion.order_skipped_status,
-      reference,
-    });
-    // Durable audit trail, mirroring the cancelled-order branch: money was
-    // captured for an order we refuse to resurrect, so ops must see it in
-    // reconciliation_review, not only in logs.
-    await handlePaymentForCancelledOrder({
-      gatewayReference: transaction.gateway_reference ?? reference,
-      issueType: 'payment_received_after_refund',
-      order: { id: orderId },
-      reason: `Gateway ${gateway} payment captured for an order already ${completion.order_skipped_status}`,
-      transactionId: transaction.id,
-    });
-    return {
-      kind: 'order_skipped',
-      paymentStatus: completion.order_skipped_status,
-    };
+  const blockedOutcome = await fileBlockedOrderPaymentReview({
+    completion,
+    gateway,
+    orderId,
+    reference,
+    transactionGatewayReference: transaction.gateway_reference,
+    transactionId: transaction.id,
+  });
+  if (blockedOutcome) {
+    return blockedOutcome;
   }
 
   const healed = Boolean(
@@ -227,40 +199,32 @@ export async function finalizeOrderGatewayPayment({
   });
 
   if (shouldNotify) {
-    scheduleAfter(async () => {
-      const orderAmount = Number(richOrder.total) || 0;
-      const orderNumber =
-        richOrder.order_number || richOrder.id.slice(0, 8).toUpperCase();
-      try {
-        await notifyNewOrder(
-          transaction.merchant_id,
-          richOrder.id,
-          orderNumber,
-          richOrder.customer_name || 'Customer',
-          orderAmount,
-          richOrder.currency || 'NGN'
-        );
-      } catch (pushError) {
-        logger.warn({
-          error: pushError,
-          message: 'New order push notification failed',
-        });
-      }
-      try {
-        await notifyPaymentReceived(
-          transaction.merchant_id,
-          orderAmount,
-          richOrder.currency || 'NGN',
-          orderNumber,
-          richOrder.id
-        );
-      } catch (pushError) {
-        logger.warn({
-          error: pushError,
-          message: 'Payment received push notification failed',
-        });
-      }
+    schedulePaidOrderNotifications({
+      merchantId: transaction.merchant_id,
+      richOrder,
+      scheduleAfter,
     });
+  }
+
+  const isPureReplay =
+    !wonTransactionFlip &&
+    Boolean(completion.order_already_paid) &&
+    !completion.order_updated;
+  if (isPureReplay && !(await orderHasSideEffectRows(supabase, orderId))) {
+    // Legacy completion (pre-outbox verify path or pre-deploy webhook):
+    // email/settlement were sent inline back then, so draining an empty
+    // outbox here would duplicate them.
+    logger.info({
+      message:
+        'Skipping side-effect drain for pure replay with no outbox history',
+      orderId,
+      reference,
+    });
+    return {
+      healed,
+      kind: 'completed',
+      orderNumber: completion.order_number ?? null,
+    };
   }
 
   try {

@@ -39,14 +39,24 @@ export const transaction = {
   platform_fee: 1165.81,
 };
 
-export function buildSupabase(orderResult: {
-  data?: unknown;
-  error?: unknown;
-}) {
+export function buildSupabase(
+  orderResult: {
+    data?: unknown;
+    error?: unknown;
+  },
+  options: { outboxRows?: unknown[] } = {}
+) {
   const single = vi
     .fn()
     .mockResolvedValue({ data: null, error: null, ...orderResult });
-  const eq = vi.fn().mockReturnValue({ single });
+  // The pure-replay guard checks payment_side_effects via
+  // .select().eq().limit(); default to existing outbox history so replay
+  // tests exercise the drain path.
+  const limit = vi.fn().mockResolvedValue({
+    data: options.outboxRows ?? [{ order_id: 'order-1' }],
+    error: null,
+  });
+  const eq = vi.fn().mockReturnValue({ limit, single });
   const select = vi.fn().mockReturnValue({ eq });
   return {
     from: vi.fn().mockReturnValue({ select }),

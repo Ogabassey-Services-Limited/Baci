@@ -490,7 +490,11 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      if (healedTransactionRow) {
+      // Fire the merchant push + customer email when the paid flip's
+      // notification marker is absent — whether the transaction row was
+      // missing (crash before insert) or present (crash after insert but
+      // before notifications), the marker is the evidence of dispatch.
+      if (!parsedNotes.creditDirectNotifiedAt) {
         notifyMerchantOfPaidOrder(
           order,
           (healedMerchantAmount ?? 0) + (healedPlatformFee ?? 0)
@@ -503,6 +507,13 @@ export async function POST(request: NextRequest) {
             error: emailError,
           });
         }
+        await markCreditDirectNotified(supabase, order.id, parsedNotes);
+      } else if (healedTransactionRow) {
+        logger.info({
+          message:
+            'Credit Direct replay healed the transaction row; notifications were already dispatched',
+          orderId: order.id,
+        });
       }
 
       return NextResponse.json({
@@ -921,6 +932,13 @@ export async function POST(request: NextRequest) {
           // Don't fail webhook for email errors
         }
 
+        await markCreditDirectNotified(supabase, order.id, {
+          ...parsedNotes,
+          merchantAmount,
+          merchantPaidAt: payload.timeStamp,
+          platformFee,
+        });
+
         logger.info({
           message: 'Credit Direct merchant payment completed',
           orderId: order.id,
@@ -951,6 +969,35 @@ export async function POST(request: NextRequest) {
       { error: 'Webhook processing failed' },
       { status: 500 }
     );
+  }
+}
+
+// Durable marker: notes.creditDirectNotifiedAt records that the merchant
+// push + customer email for this paid order were dispatched. Replays use it
+// (not transaction existence) to decide whether those side effects are still
+// owed — Credit Direct has no outbox, so this is its idempotency evidence.
+async function markCreditDirectNotified(
+  supabase: SupabaseClient,
+  orderId: string,
+  notes: Record<string, unknown>
+) {
+  const { error } = await supabase
+    .from('orders')
+    .update({
+      notes: JSON.stringify({
+        ...notes,
+        creditDirectNotifiedAt: new Date().toISOString(),
+      }),
+    })
+    .eq('id', orderId);
+  if (error) {
+    // Best effort: a lost marker means a later replay re-sends (at least
+    // once) rather than silently never sending.
+    logger.warn({
+      message: 'Failed to record Credit Direct notification marker',
+      orderId,
+      error,
+    });
   }
 }
 

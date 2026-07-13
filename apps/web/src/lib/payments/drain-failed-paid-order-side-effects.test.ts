@@ -28,7 +28,7 @@ const failedRow = {
 
 function buildSupabase(result: { data?: unknown[]; error?: unknown }) {
   const builder: Record<string, unknown> = {};
-  for (const method of ['select', 'eq', 'not', 'is']) {
+  for (const method of ['select', 'eq', 'not', 'is', 'lt']) {
     builder[method] = vi.fn().mockReturnValue(builder);
   }
   // `.limit()` is the terminal call in the drain's query chain.
@@ -112,6 +112,39 @@ describe('drainFailedPaidOrderSideEffects', () => {
       { orderId: 'order-1', reason: 'unhealable_gateway' },
     ]);
     expect(mocks.finalizeOrderGatewayPayment).not.toHaveBeenCalled();
+  });
+
+  it('drains stale claimed rows a crashed worker left behind', async () => {
+    // First query (failed rows) returns nothing; second (stale claims)
+    // returns the abandoned row.
+    const results = [
+      { data: [], error: null },
+      { data: [failedRow], error: null },
+    ];
+    const from = vi.fn(() => {
+      const builder: Record<string, unknown> = {};
+      for (const method of ['select', 'eq', 'not', 'is', 'lt']) {
+        builder[method] = vi.fn().mockReturnValue(builder);
+      }
+      builder.limit = vi
+        .fn()
+        .mockResolvedValue(results.shift() ?? { data: [], error: null });
+      return builder;
+    });
+    const supabase = { from } as unknown as SupabaseClient;
+    mocks.finalizeOrderGatewayPayment.mockResolvedValue({
+      healed: false,
+      kind: 'completed',
+      orderNumber: 'ORD-1',
+    });
+
+    const summary = await drainFailedPaidOrderSideEffects({
+      scheduleAfter,
+      supabase,
+    });
+
+    expect(summary.drained).toEqual([{ orderId: 'order-1' }]);
+    expect(mocks.finalizeOrderGatewayPayment).toHaveBeenCalledTimes(1);
   });
 
   it('records finalizer failures without aborting the run', async () => {

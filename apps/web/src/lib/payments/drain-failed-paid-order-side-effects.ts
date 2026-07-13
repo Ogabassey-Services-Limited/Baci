@@ -16,6 +16,8 @@ const PERMANENT_STEP_ERRORS = [
 ];
 const HEALABLE_GATEWAYS = new Set(['paystack', 'korapay']);
 const DEFAULT_LIMIT = 10;
+// Comfortably past the claim RPC's 60s takeover window.
+const STALE_CLAIM_MINUTES = 15;
 
 export interface FailedSideEffectDrainSummary {
   drained: Array<{ orderId: string }>;
@@ -53,11 +55,12 @@ export async function drainFailedPaidOrderSideEffects({
     skipped: [],
   };
 
-  const { data: rows, error: lookupError } = await supabase
+  const DRAIN_SELECT =
+    'order_id, transaction_id, transactions!inner(id, order_id, merchant_id, amount, platform_fee, gateway, gateway_reference, gateway_response), orders!inner(id, payment_status, cancelled_at)';
+
+  const { data: failedRows, error: lookupError } = await supabase
     .from('payment_side_effects')
-    .select(
-      'order_id, transaction_id, transactions!inner(id, order_id, merchant_id, amount, platform_fee, gateway, gateway_reference, gateway_response), orders!inner(id, payment_status, cancelled_at)'
-    )
+    .select(DRAIN_SELECT)
     .eq('status', 'failed')
     .not('error', 'in', `(${PERMANENT_STEP_ERRORS.join(',')})`)
     .eq('transactions.status', 'completed')
@@ -69,8 +72,32 @@ export async function drainFailedPaidOrderSideEffects({
     throw new Error(`failed_side_effect_lookup_failed: ${lookupError.message}`);
   }
 
+  // A worker that dies between claim_payment_side_effect and
+  // markCompleted/markFailed leaves the row 'claimed' forever; the claim
+  // RPC's 60s takeover only helps if something re-runs the order. Sweep
+  // stale claims too so a crashed verify/webhook run cannot strand its
+  // email/settlement steps.
+  const staleClaimCutoff = new Date(
+    Date.now() - STALE_CLAIM_MINUTES * 60_000
+  ).toISOString();
+  const { data: staleRows, error: staleLookupError } = await supabase
+    .from('payment_side_effects')
+    .select(DRAIN_SELECT)
+    .eq('status', 'claimed')
+    .lt('claimed_at', staleClaimCutoff)
+    .eq('transactions.status', 'completed')
+    .eq('orders.payment_status', 'paid')
+    .is('orders.cancelled_at', null)
+    .limit(limit * 3);
+
+  if (staleLookupError) {
+    throw new Error(
+      `stale_side_effect_lookup_failed: ${staleLookupError.message}`
+    );
+  }
+
   const byOrder = new Map<string, DrainCandidateRow>();
-  for (const raw of rows ?? []) {
+  for (const raw of [...(failedRows ?? []), ...(staleRows ?? [])]) {
     const row = raw as unknown as DrainCandidateRow;
     if (!byOrder.has(row.order_id)) {
       byOrder.set(row.order_id, row);

@@ -97,6 +97,13 @@ function createMockSupabaseClient() {
         neq: vi.fn().mockReturnThis(),
         single: vi.fn().mockResolvedValue({ data: null, error: null }),
         maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        // The finalizer's pure-replay guard checks payment_side_effects via
+        // .select().eq().limit(); default to "outbox history exists" so
+        // replay tests keep exercising the drain path.
+        limit: vi.fn().mockResolvedValue({
+          data: [{ order_id: 'order-123' }],
+          error: null,
+        }),
       };
       return chain;
     }),
@@ -3165,7 +3172,12 @@ describe('POST /api/payments/webhook', () => {
         }
         return {
           select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
           single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          limit: vi.fn().mockResolvedValue({
+            data: [{ order_id: 'order-123' }],
+            error: null,
+          }),
         } as any;
       });
       // This is a genuine replay of an already fully-processed payment: the
@@ -3323,7 +3335,12 @@ describe('POST /api/payments/webhook', () => {
         }
         return {
           select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
           single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          limit: vi.fn().mockResolvedValue({
+            data: [{ order_id: 'order-123' }],
+            error: null,
+          }),
         } as any;
       });
       // This is a genuine replay of an already fully-processed payment: the
@@ -3474,7 +3491,12 @@ describe('POST /api/payments/webhook', () => {
         }
         return {
           select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
           single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          limit: vi.fn().mockResolvedValue({
+            data: [{ order_id: 'order-123' }],
+            error: null,
+          }),
         } as any;
       });
       vi.mocked(mockServiceClient.rpc).mockImplementation((name: string) => {
