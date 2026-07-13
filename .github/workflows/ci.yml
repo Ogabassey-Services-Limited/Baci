@@ -432,7 +432,10 @@ jobs:
 
   build:
     name: Build
-    needs: [changes, quality, mobile-quality]
+    # Only `changes` outputs are consumed below. Running in parallel with the
+    # quality jobs (instead of after them) halves the critical path of every
+    # PR head: max(test, build) instead of test-then-build.
+    needs: [changes]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
