@@ -165,10 +165,13 @@ export function getScopedPlatformBlogListCacheTag({
 export async function getPlatformBlogPost(
   slug: string
 ): Promise<PlatformBlogPost | null> {
-  // PR4b: local `'use cache'`, not the framework remote handler. Low-traffic
-  // CDN-cacheable HTML; indexed slug read that already fails loud. No
-  // cross-instance need — demote off the remote SET (exit-128 hazard).
-  'use cache';
+  // PR4b review (Codex, PR #3108): stays `'use cache: remote'`. Admin
+  // edit/unpublish/delete/rename flows bust this entry via revalidateTag
+  // (PLATFORM_BLOG_* tags), and tag invalidation only propagates
+  // cross-instance through the SHARED remote store — a local entry on another
+  // instance would keep serving a deleted/renamed post until cacheLife
+  // expiry. Joins the PR4d resilient-adapter migration set (inventory §8).
+  'use cache: remote';
 
   const normalizedSlug = normalizeSlug(slug);
   if (!normalizedSlug) {
@@ -211,10 +214,10 @@ export async function getPlatformBlogListing(
     tag?: string | null;
   } = {}
 ): Promise<PlatformBlogListingResult> {
-  // PR4b: local `'use cache'`, not the framework remote handler. CDN-cacheable
-  // listing HTML; SQL limit capped at MAX_LISTING_LIMIT and already fail-loud.
-  // No cross-instance need — demote off the remote SET (exit-128 hazard).
-  'use cache';
+  // PR4b review (Codex, PR #3108): stays `'use cache: remote'` — same
+  // cross-instance revalidateTag contract as getPlatformBlogPost above.
+  // Joins the PR4d resilient-adapter migration set (inventory §8).
+  'use cache: remote';
 
   const category = normalizeOptionalFilter(options.category);
   const limit = normalizePositiveInt(
@@ -308,10 +311,10 @@ export async function incrementPlatformBlogPostViews(
 export async function getPlatformBlogFeedPosts(): Promise<
   PlatformBlogFeedPost[]
 > {
-  // PR4b: local `'use cache'`, not the framework remote handler. CDN-cacheable
-  // feed.xml; SQL limit capped at PLATFORM_BLOG_FEED_LIMIT (50) and already
-  // fail-loud. No cross-instance need — demote off the remote SET.
-  'use cache';
+  // PR4b review (Codex, PR #3108): stays `'use cache: remote'` — same
+  // cross-instance revalidateTag contract as getPlatformBlogPost above.
+  // Joins the PR4d resilient-adapter migration set (inventory §8).
+  'use cache: remote';
 
   cacheLife('merchant');
   cacheTag(PLATFORM_BLOG_CACHE_TAG, PLATFORM_BLOG_FEED_CACHE_TAG);
@@ -339,10 +342,10 @@ export async function getPlatformBlogFeedPosts(): Promise<
 export async function getPlatformBlogSitemapPosts(): Promise<
   PlatformBlogSitemapPost[]
 > {
-  // PR4b: local `'use cache'`, not the framework remote handler. CDN-cacheable
-  // sitemap; lean slug rows capped at PLATFORM_BLOG_SITEMAP_LIMIT (5000) and
-  // already fail-loud. No cross-instance need — demote off the remote SET.
-  'use cache';
+  // PR4b review (Codex, PR #3108): stays `'use cache: remote'` — same
+  // cross-instance revalidateTag contract as getPlatformBlogPost above.
+  // Joins the PR4d resilient-adapter migration set (inventory §8).
+  'use cache: remote';
 
   cacheLife('merchant');
   cacheTag(PLATFORM_BLOG_CACHE_TAG, PLATFORM_BLOG_SITEMAP_CACHE_TAG);

@@ -48,12 +48,14 @@ export async function getCachedStorefrontProductsBySlugs(
   merchantId: string,
   slugs: readonly string[]
 ): Promise<StorefrontHomeProduct[]> {
-  // PR4b: local `'use cache'`, not the framework remote handler. Small bounded
-  // input (pinned launch slugs) via an indexed `.in('slug')` read; already
-  // fail-loud (throws below). No cross-instance need — demote off the remote
-  // SET (exit-128 hazard) to a per-instance local cache. Still tagged so
-  // revalidateProducts() busts it.
-  'use cache';
+  // PR4b review (Codex, PR #3108): stays `'use cache: remote'`. This reader
+  // feeds the pinned launch carousel, and its freshness contract depends on
+  // revalidateProducts() tag busting reaching EVERY instance — local
+  // 'use cache' entries only see same-instance revalidation, so a demotion
+  // would serve stale pinned products after merchant edits until cacheLife
+  // expiry. Bounded payload + low-cardinality key make it a legitimate KEEP;
+  // it joins the PR4d resilient-adapter migration set (inventory doc §8).
+  'use cache: remote';
   cacheLife('products');
   cacheTag(
     'products',

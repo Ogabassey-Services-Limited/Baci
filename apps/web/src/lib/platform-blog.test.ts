@@ -303,12 +303,16 @@ describe('platform-blog cache directives', () => {
     'utf8'
   );
 
-  it('reads all four platform-blog surfaces off the local cache handler (PR4b)', () => {
-    // Low-traffic, CDN-cacheable HTML/XML surfaces; dataset is 0 published
-    // posts today. All four already fail-loud (throw) and carry SQL limits.
-    // Demote off the remote SET (exit-128 hazard) — no cross-instance need.
-    expect(source).not.toContain("'use cache: remote';");
-    // One local directive per exported reader (post, listing, feed, sitemap).
-    expect(source.match(/'use cache';/g) ?? []).toHaveLength(4);
+  it('keeps all four platform-blog surfaces on the shared remote cache handler (PR4b review)', () => {
+    // Codex review (PR #3108): admin edit/unpublish/delete/rename flows bust
+    // these entries via revalidateTag (PLATFORM_BLOG_* tags in
+    // cache-revalidation.ts). Tag invalidation only propagates cross-instance
+    // through the SHARED remote store — local 'use cache' entries on other
+    // instances would keep serving deleted/renamed posts until cacheLife
+    // expiry. Reverted to remote; joins the PR4d resilient-adapter migration
+    // set (inventory doc §8).
+    // One remote directive per exported reader (post, listing, feed, sitemap).
+    expect(source.match(/'use cache: remote';/g) ?? []).toHaveLength(4);
+    expect(source.match(/'use cache';/g) ?? []).toHaveLength(0);
   });
 });

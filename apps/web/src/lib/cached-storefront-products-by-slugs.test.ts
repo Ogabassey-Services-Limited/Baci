@@ -143,11 +143,14 @@ describe('cached-storefront-products-by-slugs cache directive', () => {
     'utf8'
   );
 
-  it('reads per-request off the local cache handler, not the remote handler (PR4b)', () => {
-    // Small bounded input (pinned launch slugs) via an indexed `.in('slug')`
-    // read; already fail-loud (throws). No cross-instance need — demote off
-    // the remote SET (exit-128 hazard) to a per-instance local cache.
-    expect(source).not.toContain("'use cache: remote';");
-    expect(source).toContain("'use cache';");
+  it('stays on the shared remote cache handler so tag invalidation reaches every instance (PR4b review)', () => {
+    // Codex review (PR #3108): this reader feeds the pinned launch carousel on
+    // the ogabassey home page. Its freshness contract depends on
+    // revalidateProducts() tag busting propagating to ALL instances — local
+    // 'use cache' entries only see same-instance revalidation, so a demotion
+    // serves stale pinned products after merchant edits. Bounded payload +
+    // low-cardinality key = legitimate KEEP; joins the PR4d resilient-adapter
+    // migration set (inventory doc §8).
+    expect(source).toContain("'use cache: remote';");
   });
 });
