@@ -22,10 +22,12 @@
   not sit on the layout render-blocking path.
 */
 /* stylelint-disable scss/at-rule-no-unknown -- Tailwind v4 source discovery directives. */
+@source "./ogabassey/ogabassey-static-home-page-content.tsx";
 @source "../../components/storefront/ogabassey/components/Hero.tsx";
 @source "../../components/storefront/ogabassey/components/hero-mobile-carousel.tsx";
-/* Shared geometry class constants consumed by the permanent carousel. Classes
-   that exist only here must stay discoverable or built CSS silently drops them. */
+/* Shared geometry class constants consumed by the publication-safe fallback
+   and request-gated carousel. Classes that exist only here must stay
+   discoverable or built CSS silently drops them. */
 @source "../../components/storefront/ogabassey/components/hero-mobile-geometry.ts";
 @source "../../components/storefront/ogabassey/components/carousel-progress-fill.tsx";
 @source "../../components/storefront/ogabassey/components/carousel-play-toggle.tsx";
@@ -48,8 +50,8 @@
   loads.
 
   ogabassey-empty-mobile-hero.tsx is the baked mobile geometry used by the
-  permanent Hero for a published empty launch feed. Its light card backgrounds
-  must stay critical so that state paints styled in the first flush.
+  request-gated Hero for a published empty launch feed. Its light card
+  backgrounds must stay critical so that state paints styled when streamed.
 */
 /* stylelint-enable scss/at-rule-no-unknown */
 

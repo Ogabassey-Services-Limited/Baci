@@ -64,7 +64,11 @@ describe('resolveOgabasseyHomeHeroShell', () => {
       [{ id: 'p1' }],
       'https://ogabassey.com'
     );
-    expect(shell).toEqual({ status: 'published', slides: [SLIDE] });
+    expect(shell).toEqual({
+      status: 'published',
+      merchantId: 'merchant-1',
+      slides: [SLIDE],
+    });
   });
 
   it('returns null when the merchant is missing', async () => {
@@ -103,6 +107,7 @@ describe('resolveOgabasseyHomeHeroShell', () => {
 
     await expect(resolveOgabasseyHomeHeroShell()).resolves.toEqual({
       status: 'published',
+      merchantId: 'merchant-1',
       slides: [],
     });
   });

@@ -45,6 +45,7 @@ import { resolveStorefrontBlogPostStatus } from '@/lib/storefront-blog-post-stat
 import { resolveStorefrontCompareHubStatus } from '@/lib/storefront-compare-hub-status';
 import { getStorefrontProductCanonicalRedirectResult } from '@/lib/storefront-product-canonical-redirect';
 import { resolveStorefrontProductSlugResolution } from '@/lib/storefront-product-slug-membership';
+import { getStorefrontPublicationCacheTag } from '@/lib/storefront-publication-cache-tag';
 import { updateSession } from '@/lib/supabase/middleware';
 
 // Root domain - merchants get subdomains like ogabassey.usebaci.com
@@ -355,7 +356,8 @@ function isAuthenticatedInternalRequest(request: NextRequest): boolean {
 // have no Cloudflare purge target.
 function applyStorefrontDocumentCacheHeaders(
   response: NextResponse,
-  kind: StorefrontDocumentCacheKind
+  kind: StorefrontDocumentCacheKind,
+  publicationCacheTag: string | null
 ): void {
   const cacheHeaders = buildStorefrontDocumentCacheHeaders(kind);
   response.headers.set('Cache-Control', cacheHeaders.cacheControl);
@@ -371,6 +373,11 @@ function applyStorefrontDocumentCacheHeaders(
     response.headers.set('CDN-Cache-Control', cacheHeaders.cdnCacheControl);
   } else {
     response.headers.delete('CDN-Cache-Control');
+  }
+  if (kind !== 'non-cacheable' && publicationCacheTag) {
+    response.headers.set('Vercel-Cache-Tag', publicationCacheTag);
+  } else {
+    response.headers.delete('Vercel-Cache-Tag');
   }
 }
 const STOREFRONT_METADATA_CACHE_NON_HTML_EXTENSIONS_REGEX =
@@ -1529,6 +1536,53 @@ function isLocalhost(hostname: string): boolean {
 }
 
 /**
+ * Resolve the stable tenant identity available from the public request shape.
+ * Platform storefronts share a slug tag across root-path, subdomain, and
+ * preview aliases. Custom domains use their hostname so legacy null-slug rows
+ * remain independently evictable without another lookup in the header path.
+ */
+function getStorefrontPublicationResponseCacheTag(
+  pathname: string,
+  hostname: string | undefined
+): string | null {
+  if (!hostname || isLocalhost(hostname)) {
+    return null;
+  }
+
+  const normalizedHostname = normalizeHostname(hostname);
+  if (isPlatformHost(normalizedHostname)) {
+    const slug = safeDecodeSegment(
+      pathname.split('/').filter(Boolean)[0]
+    ).toLowerCase();
+    if (
+      !slug ||
+      !isValidSubdomain(slug) ||
+      RESERVED_SUBDOMAINS.has(slug) ||
+      PLATFORM_ROOT_ROUTE_SEGMENTS.has(slug)
+    ) {
+      return null;
+    }
+
+    return getStorefrontPublicationCacheTag({ kind: 'slug', value: slug });
+  }
+
+  const merchantSubdomain = extractSubdomain(normalizedHostname, ROOT_DOMAIN);
+  if (merchantSubdomain && !RESERVED_SUBDOMAINS.has(merchantSubdomain)) {
+    return getStorefrontPublicationCacheTag({
+      kind: 'slug',
+      value: merchantSubdomain,
+    });
+  }
+
+  return isValidCustomDomain(normalizedHostname)
+    ? getStorefrontPublicationCacheTag({
+        kind: 'hostname',
+        value: normalizedHostname,
+      })
+    : null;
+}
+
+/**
  * Extract subdomain from localhost for development testing
  * e.g., ogabassey.localhost:3000 -> ogabassey
  */
@@ -1875,7 +1929,7 @@ function buildHardStatusStorefrontResponse(
   // Clear every split CDN header LAST: the cache section runs inside
   // applySecurityHeaders and would otherwise mark a product-shaped path
   // cacheable, edge-caching a false 404/410 at the highest-precedence layer.
-  applyStorefrontDocumentCacheHeaders(response, 'non-cacheable');
+  applyStorefrontDocumentCacheHeaders(response, 'non-cacheable', null);
   response.headers.set('Cache-Control', PDP_HTML_CACHE_CONTROL);
   return response;
 }
@@ -4512,14 +4566,17 @@ function applySecurityHeaders(
   // Keep SEO listing subroutes cacheable; they share the 3-segment shape used
   // by category PDPs but do not stream PDP metadata/content slots.
   if (isStorefrontNestedListingPath(pathname, hostname, routeType)) {
+    const hasCacheableMethod =
+      request?.method === 'GET' || request?.method === 'HEAD';
     const hasQuery = request ? request.nextUrl.search.length > 0 : true;
     const hasAuthSessionHint = hasStorefrontAuthSessionHint(request);
 
-    if (hasQuery || hasAuthSessionHint) {
+    if (!hasCacheableMethod || hasQuery || hasAuthSessionHint) {
       response.headers.set(
         'Cache-Control',
         NON_CACHEABLE_STOREFRONT_HTML_CACHE_CONTROL
       );
+      response.headers.delete('Vercel-Cache-Tag');
       if (hasAuthSessionHint) {
         appendVaryHeader(response, 'Cookie');
       }
@@ -4532,6 +4589,15 @@ function applySecurityHeaders(
         ? 's-maxage=1800, stale-while-revalidate=7200'
         : 's-maxage=300, stale-while-revalidate=86400'
     );
+    const publicationCacheTag = getStorefrontPublicationResponseCacheTag(
+      pathname,
+      hostname
+    );
+    if (publicationCacheTag) {
+      response.headers.set('Vercel-Cache-Tag', publicationCacheTag);
+    } else {
+      response.headers.delete('Vercel-Cache-Tag');
+    }
     return response;
   }
 
@@ -4543,9 +4609,12 @@ function applySecurityHeaders(
   if (shouldSetStorefrontDocumentCacheControl(pathname, hostname, routeType)) {
     // Fail safe: if the request is unavailable we cannot confirm the URL is
     // param-free, so treat it as having a query (not cacheable).
+    const hasCacheableMethod =
+      request?.method === 'GET' || request?.method === 'HEAD';
     const hasQuery = request ? request.nextUrl.search.length > 0 : true;
     const hasAuthSessionHint = hasStorefrontAuthSessionHint(request);
     const cacheable =
+      hasCacheableMethod &&
       !hasAuthSessionHint &&
       isCacheablePublicStorefrontDocument(
         pathname,
@@ -4563,7 +4632,11 @@ function applySecurityHeaders(
           : 'cacheable'
         : 'cacheable-vercel-only';
     }
-    applyStorefrontDocumentCacheHeaders(response, cacheKind);
+    applyStorefrontDocumentCacheHeaders(
+      response,
+      cacheKind,
+      getStorefrontPublicationResponseCacheTag(pathname, hostname)
+    );
     if (hasAuthSessionHint) {
       appendVaryHeader(response, 'Cookie');
     }

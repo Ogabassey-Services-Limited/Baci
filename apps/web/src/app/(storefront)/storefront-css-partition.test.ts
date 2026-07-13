@@ -460,9 +460,12 @@ describe('storefront CSS partitioning', () => {
     expect(defaultDetailClient).not.toMatch(/storefront-pdp\.css/);
   });
 
-  it('keeps the permanent Hero and empty-feed geometry in homepage critical CSS', () => {
+  it('keeps the publication fallback, gated Hero and empty-feed geometry in critical CSS', () => {
     const homeCriticalCss = readStorefrontFile('storefront-home-critical.css');
 
+    expect(homeCriticalCss).toMatch(
+      /@source\s+["'][^"']*ogabassey-static-home-page-content\.tsx["']/
+    );
     expect(homeCriticalCss).toMatch(
       /@source\s+["'][^"']*components\/Hero\.tsx["']/
     );

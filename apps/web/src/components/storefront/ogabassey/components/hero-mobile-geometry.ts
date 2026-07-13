@@ -1,10 +1,9 @@
 /**
  * Shared geometry classes for the mobile hero's first frame.
  *
- * Consumed by the permanent carousel rendered in the static PPR artifact.
- * The critical Hero is no longer mirrored by a temporary fallback and then
- * replaced after request-time work; these constants keep its first frame and
- * controls geometry explicit and testable through hydration.
+ * Shared by the product-neutral PPR fallback and the sole carousel rendered
+ * after the request-scoped publication guard. Matching these dimensions keeps
+ * the streamed Hero transition stable without exposing product UI early.
  */
 
 export const HERO_MOBILE_WRAPPER_CLASSES = 'md:hidden mb-4 order-1';
@@ -41,3 +40,7 @@ export const HERO_MOBILE_CONTROL_TRACK_CLASSES = 'h-11 flex-1';
 /** Geometry only — the call sites add their own fill (`bg-store-primary`). */
 export const HERO_MOBILE_PLAY_TOGGLE_SLOT_CLASSES =
   'h-11 min-w-11 rounded-full';
+
+/** Minimum rendered height of the mobile utility card: outer p-2, the 44px
+ * callout + gap, and the 80px option grid. Shared with the PPR fallback. */
+export const HERO_MOBILE_UTILITY_PANEL_MIN_HEIGHT_CLASS = 'min-h-[156px]';

@@ -4,18 +4,31 @@ import {
   getUserAccess,
   hasPermission,
 } from '@/lib/api-auth';
-import { revalidateMerchant } from '@/lib/cache-revalidation';
 import {
   getLaunchPaymentRequirement,
   requiresNigerianKycForLaunch,
 } from '@/lib/checkout/payment-gateway-availability';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { getStorefrontPublicationCacheIdentity } from '@/lib/get-storefront-publication-cache-identity';
+import { evictStorefrontPublicationCaches } from '@/lib/storefront-publication-cache-eviction';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 interface MerchantVerificationStatus {
   nin_verified: boolean;
   bvn_verified: boolean;
   cac_verified: boolean;
+}
+
+function storefrontCacheEvictionFailureResponse(): NextResponse {
+  return NextResponse.json(
+    {
+      error:
+        'Store state changed, but storefront cache eviction could not be confirmed',
+      code: 'STOREFRONT_CACHE_EVICTION_FAILED',
+      retryable: true,
+    },
+    { status: 503 }
+  );
 }
 
 /**
@@ -98,13 +111,21 @@ export async function POST(request: NextRequest) {
     const supabase = auth.supabase;
 
     // Get merchant with required fields for validation
-    const { data: merchant } = await supabase
+    const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
       .select(
-        'id, business_name, country, email, phone, support_email, support_phone, paystack_subaccount_code, bank_code, bank_account_number'
+        'id, business_name, country, email, phone, support_email, support_phone, paystack_subaccount_code, bank_code, bank_account_number, slug'
       )
       .eq('id', access.merchantId)
-      .single();
+      .maybeSingle();
+
+    if (merchantError) {
+      console.error('[Publish API] merchant read failed:', merchantError);
+      return NextResponse.json(
+        { error: 'Failed to load merchant' },
+        { status: 500 }
+      );
+    }
 
     if (!merchant) {
       return NextResponse.json(
@@ -138,6 +159,12 @@ export async function POST(request: NextRequest) {
 
     // Check for required setup items
     const missingItems: string[] = [];
+
+    // Legacy rows can predate the required storefront slug. Publishing without
+    // one would make cache eviction identities incomplete after the mutation.
+    if (!merchant.slug?.trim()) {
+      missingItems.push('Store URL');
+    }
 
     // Identity verification requires at least one of NIN/BVN/CAC to have been
     // *verified* against the upstream identity provider — not merely entered.
@@ -220,6 +247,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Resolve every public alias before the state mutation. A lookup failure
+    // must not be mistaken for an empty identity set and leave cached HTML live.
+    const publicationCacheIdentity =
+      await getStorefrontPublicationCacheIdentity(
+        supabase,
+        merchant.id,
+        merchant.slug
+      );
+
     // All checks passed, publish the store
     const { error: updateError } = await supabase
       .from('merchants')
@@ -237,8 +273,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Invalidate merchant caches so the store becomes visible immediately
-    revalidateMerchant(merchant.id);
+    // Publication transitions must never use stale-while-revalidate: hard-
+    // expire the merchant snapshot, then evict cached public documents.
+    const cacheEvictionResult = await evictStorefrontPublicationCaches(
+      publicationCacheIdentity
+    );
+    if (!cacheEvictionResult.ok) {
+      return storefrontCacheEvictionFailureResponse();
+    }
 
     return NextResponse.json({
       success: true,
@@ -290,11 +332,19 @@ export async function DELETE(request: NextRequest) {
     const supabase = auth.supabase;
 
     // Get merchant
-    const { data: merchant } = await supabase
+    const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
-      .select('id')
+      .select('id, slug')
       .eq('id', access.merchantId)
-      .single();
+      .maybeSingle();
+
+    if (merchantError) {
+      console.error('[Unpublish API] merchant read failed:', merchantError);
+      return NextResponse.json(
+        { error: 'Failed to load merchant' },
+        { status: 500 }
+      );
+    }
 
     if (!merchant) {
       return NextResponse.json(
@@ -302,6 +352,14 @@ export async function DELETE(request: NextRequest) {
         { status: 404 }
       );
     }
+
+    // Capture every current public identity before mutating publication state.
+    const publicationCacheIdentity =
+      await getStorefrontPublicationCacheIdentity(
+        supabase,
+        merchant.id,
+        merchant.slug
+      );
 
     // Unpublish the store
     const { error: updateError } = await supabase
@@ -319,8 +377,14 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Invalidate merchant caches so the store goes offline immediately
-    revalidateMerchant(merchant.id);
+    // Publication transitions must never use stale-while-revalidate: hard-
+    // expire the merchant snapshot, then evict cached public documents.
+    const cacheEvictionResult = await evictStorefrontPublicationCaches(
+      publicationCacheIdentity
+    );
+    if (!cacheEvictionResult.ok) {
+      return storefrontCacheEvictionFailureResponse();
+    }
 
     return NextResponse.json({
       success: true,

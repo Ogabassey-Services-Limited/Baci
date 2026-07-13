@@ -23,6 +23,7 @@ vi.mock('next/dynamic', () => ({
 }));
 
 import { HeroUtilityPanel } from './hero-utility-panel';
+import { HERO_MOBILE_UTILITY_PANEL_MIN_HEIGHT_CLASS } from './hero-mobile-geometry';
 
 describe('HeroUtilityPanel', () => {
   beforeEach(() => {
@@ -69,5 +70,13 @@ describe('HeroUtilityPanel', () => {
     expect(container.firstElementChild).not.toHaveClass(
       '[contain-intrinsic-size:1400px_260px]'
     );
+  });
+
+  it('shares the mobile minimum height with the publication-safe fallback', () => {
+    const { container } = render(<HeroUtilityPanel />);
+
+    expect(
+      container.querySelector('[data-ogabassey-mobile-utility-panel="true"]')
+    ).toHaveClass(HERO_MOBILE_UTILITY_PANEL_MIN_HEIGHT_CLASS);
   });
 });

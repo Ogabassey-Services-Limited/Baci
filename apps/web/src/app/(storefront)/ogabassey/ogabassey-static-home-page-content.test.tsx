@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { HERO_MOBILE_UTILITY_PANEL_MIN_HEIGHT_CLASS } from '@/components/storefront/ogabassey/components/hero-mobile-geometry';
 
 vi.mock('@/components/seo/json-ld', () => ({
   JsonLd: () => <script type="application/ld+json" />,
@@ -11,10 +12,12 @@ const mockDynamicContentSuspends = vi.hoisted(() => ({ value: false }));
 vi.mock('./ogabassey-home-page-content', () => ({
   OgabasseyHomePageContent: ({
     pathPrefix,
-    renderFallbackHeading,
+    shellMerchantId,
+    shellSlides,
   }: {
     pathPrefix: string;
-    renderFallbackHeading: boolean;
+    shellMerchantId: string | null;
+    shellSlides: unknown[] | null;
   }) => {
     if (mockDynamicContentSuspends.value) {
       // Suspend forever so the Suspense fallback actually renders.
@@ -23,8 +26,9 @@ vi.mock('./ogabassey-home-page-content', () => ({
     return (
       <section
         aria-label="Dynamic home content"
-        data-fallback-heading={String(renderFallbackHeading)}
         data-prefix={pathPrefix}
+        data-shell-merchant-id={shellMerchantId ?? 'none'}
+        data-shell-slide-count={shellSlides?.length ?? 'none'}
       />
     );
   },
@@ -74,38 +78,43 @@ describe('OgabasseyStaticHomePageContent', () => {
     mockDynamicContentSuspends.value = false;
     mockResolveHeroShell.mockResolvedValue({
       status: 'published',
+      merchantId: 'merchant-1',
       slides: [SHELL_SLIDE],
     });
   });
 
-  it('renders the cached Hero before streaming request-bound home content', async () => {
+  it('passes cached slides into the request-scoped publication owner', async () => {
     render(await OgabasseyStaticHomePageContent({ pathPrefix: '/ogabassey' }));
 
     expect(
-      screen.getByRole('region', { name: /permanent critical hero/i })
-    ).toHaveAttribute('data-slide-count', '1');
+      screen.queryByRole('region', { name: /permanent critical hero/i })
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole('region', { name: /dynamic home content/i })
-    ).toHaveAttribute('data-fallback-heading', 'false');
-    expect(mockCriticalHero).toHaveBeenCalledWith({ slides: [SHELL_SLIDE] });
+    ).toHaveAttribute('data-shell-slide-count', '1');
+    expect(
+      screen.getByRole('region', { name: /dynamic home content/i })
+    ).toHaveAttribute('data-shell-merchant-id', 'merchant-1');
+    expect(mockCriticalHero).not.toHaveBeenCalled();
     expect(mockResolveHeroShell).toHaveBeenCalledWith();
   });
 
-  it('keeps the permanent Hero and no fallback H1 request when a published feed is empty', async () => {
+  it('passes an empty published feed through the publication owner', async () => {
     mockResolveHeroShell.mockResolvedValue({
       status: 'published',
+      merchantId: 'merchant-1',
       slides: [],
     });
 
     render(await OgabasseyStaticHomePageContent({ pathPrefix: '' }));
 
     expect(
-      screen.getByRole('region', { name: /permanent critical hero/i })
-    ).toHaveAttribute('data-slide-count', '0');
-    expect(mockCriticalHero).toHaveBeenCalledWith({ slides: [] });
+      screen.queryByRole('region', { name: /permanent critical hero/i })
+    ).not.toBeInTheDocument();
+    expect(mockCriticalHero).not.toHaveBeenCalled();
     expect(
       screen.getByRole('region', { name: /dynamic home content/i })
-    ).toHaveAttribute('data-fallback-heading', 'false');
+    ).toHaveAttribute('data-shell-slide-count', '0');
     expect(mockPreloadHeroResources).not.toHaveBeenCalled();
   });
 
@@ -123,14 +132,25 @@ describe('OgabasseyStaticHomePageContent', () => {
     expect(mockPreloadHeroResources).toHaveBeenCalledWith(SHELL_SLIDE.imageUrl);
   });
 
-  it('keeps the same critical Hero visible while request-bound content suspends', async () => {
+  it('shows only publication-safe geometry while the publication owner suspends', async () => {
     mockDynamicContentSuspends.value = true;
 
     render(await OgabasseyStaticHomePageContent({ pathPrefix: '' }));
 
     expect(
-      screen.getByRole('region', { name: /permanent critical hero/i })
-    ).toHaveAttribute('data-slide-count', '1');
+      screen.queryByRole('region', { name: /permanent critical hero/i })
+    ).not.toBeInTheDocument();
+    expect(
+      document.querySelector(
+        '[data-ogabassey-publication-safe-hero-fallback="true"]'
+      )
+    ).toBeInTheDocument();
+    expect(document.querySelector('a, button, img')).not.toBeInTheDocument();
+    expect(
+      document.querySelector(
+        '[data-ogabassey-publication-safe-utility-fallback="true"]'
+      )
+    ).toHaveClass(HERO_MOBILE_UTILITY_PANEL_MIN_HEIGHT_CLASS);
     expect(
       screen.queryByRole('region', { name: /dynamic home content/i })
     ).not.toBeInTheDocument();
@@ -166,6 +186,6 @@ describe('OgabasseyStaticHomePageContent', () => {
     expect(mockPreloadHeroResources).not.toHaveBeenCalled();
     expect(
       screen.getByRole('region', { name: /dynamic home content/i })
-    ).toHaveAttribute('data-fallback-heading', 'true');
+    ).toHaveAttribute('data-shell-slide-count', 'none');
   });
 });

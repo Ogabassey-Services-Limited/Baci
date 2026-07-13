@@ -16,8 +16,24 @@ async function loadPurge() {
   return module.purgeCloudflareUrls;
 }
 
+async function loadConfirmedPurge() {
+  vi.resetModules();
+  const module = await import('./cloudflare-purge');
+  return module.purgeCloudflareUrlsConfirmed;
+}
+
+async function loadConfirmedHostnamePurge() {
+  vi.resetModules();
+  const module = await import('./cloudflare-purge');
+  return module.purgeCloudflareHostnamesConfirmed;
+}
+
 function okResponse(): Response {
-  return { ok: true, status: 200 } as Response;
+  return {
+    ok: true,
+    status: 200,
+    json: vi.fn().mockResolvedValue({ success: true, result: { id: 'zone' } }),
+  } as unknown as Response;
 }
 
 describe('purgeCloudflareUrls', () => {
@@ -208,5 +224,71 @@ describe('purgeCloudflareUrls', () => {
       })
     ).resolves.toBeUndefined();
     expect(warnSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('confirms successful foreground eviction', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(okResponse());
+    const purgeCloudflareUrlsConfirmed = await loadConfirmedPurge();
+
+    await expect(
+      purgeCloudflareUrlsConfirmed(['https://ogabassey.com/'], {
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      })
+    ).resolves.toEqual({ ok: true, reason: 'purged' });
+  });
+
+  it('reports missing configuration instead of confirming eviction', async () => {
+    mockGetCloudflareApiToken.mockReturnValue(undefined);
+    mockGetCloudflareZoneId.mockReturnValue(undefined);
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const purgeCloudflareUrlsConfirmed = await loadConfirmedPurge();
+
+    await expect(
+      purgeCloudflareUrlsConfirmed(['https://ogabassey.com/'])
+    ).resolves.toEqual({ ok: false, reason: 'missing_configuration' });
+  });
+
+  it('reports a failed foreground eviction request', async () => {
+    const fetchImpl = vi.fn().mockRejectedValue(new Error('network down'));
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const purgeCloudflareUrlsConfirmed = await loadConfirmedPurge();
+
+    await expect(
+      purgeCloudflareUrlsConfirmed(['https://ogabassey.com/'], {
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      })
+    ).resolves.toEqual({ ok: false, reason: 'request_failed' });
+  });
+
+  it('rejects a 2xx provider payload whose success flag is false', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: vi.fn().mockResolvedValue({ success: false, errors: [] }),
+    });
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const purgeCloudflareUrlsConfirmed = await loadConfirmedPurge();
+
+    await expect(
+      purgeCloudflareUrlsConfirmed(['https://ogabassey.com/'], {
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      })
+    ).resolves.toEqual({ ok: false, reason: 'provider_rejected' });
+  });
+
+  it('confirms a hostname-wide purge for every storefront alias', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(okResponse());
+    const purgeCloudflareHostnamesConfirmed =
+      await loadConfirmedHostnamePurge();
+
+    await expect(
+      purgeCloudflareHostnamesConfirmed(
+        ['ogabassey.com', 'www.ogabassey.com'],
+        { fetchImpl: fetchImpl as unknown as typeof fetch }
+      )
+    ).resolves.toEqual({ ok: true, reason: 'purged' });
+    expect(
+      JSON.parse(String((fetchImpl.mock.calls[0][1] as RequestInit).body))
+    ).toEqual({ hosts: ['ogabassey.com', 'www.ogabassey.com'] });
   });
 });

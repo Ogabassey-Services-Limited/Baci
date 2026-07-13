@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useState } from 'react';
+import { HERO_MOBILE_UTILITY_PANEL_MIN_HEIGHT_CLASS } from './hero-mobile-geometry';
 
 type UtilityTab = 'airtime' | 'data' | 'tv' | 'power' | 'betting';
 
@@ -93,7 +94,10 @@ export function HeroUtilityPanel() {
   return (
     <div className="w-full bg-white mt-3 md:mt-8 mb-6 border-y border-gray-100 md:py-5">
       <div className="md:hidden px-4">
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-2">
+        <div
+          className={`${HERO_MOBILE_UTILITY_PANEL_MIN_HEIGHT_CLASS} bg-white rounded-3xl shadow-sm border border-gray-100 p-2`}
+          data-ogabassey-mobile-utility-panel="true"
+        >
           <div className="bg-primary/5 rounded-2xl py-3 px-4 mb-4 text-center">
             <span className="text-gray-900 font-medium text-sm">
               We Pay <span className="text-primary font-bold">YOU</span> When You Buy{' '}
