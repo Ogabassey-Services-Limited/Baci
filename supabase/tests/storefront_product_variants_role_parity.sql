@@ -16,6 +16,7 @@ DECLARE
   v_allowed_staff_id uuid := '7f9d0e12-0000-4000-8000-000000000002';
   v_denied_staff_id uuid := '7f9d0e12-0000-4000-8000-000000000003';
   v_customer_id uuid := '7f9d0e12-0000-4000-8000-000000000004';
+  v_platform_admin_id uuid := '7f9d0e12-0000-4000-8000-000000000005';
   v_published_merchant_id uuid := '7f9d0e12-0000-4000-8000-000000000101';
   v_unpublished_merchant_id uuid := '7f9d0e12-0000-4000-8000-000000000102';
   v_second_unpublished_merchant_id uuid := '7f9d0e12-0000-4000-8000-000000000103';
@@ -95,18 +96,22 @@ BEGIN
       now(), now(), now(), '{}'::jsonb, '{}'::jsonb),
     (v_customer_id, '00000000-0000-0000-0000-000000000000',
       'authenticated', 'authenticated', 'variant-customer@example.com', 'test',
-      now(), now(), now(), '{}'::jsonb, '{}'::jsonb);
+      now(), now(), now(), '{}'::jsonb, '{}'::jsonb),
+    (v_platform_admin_id, '00000000-0000-0000-0000-000000000000',
+      'authenticated', 'authenticated', 'variant-platform-admin@example.com',
+      'test', now(), now(), now(), '{}'::jsonb, '{}'::jsonb);
 
   INSERT INTO public.merchants (
-    id, user_id, email, business_name, slug, is_published
+    id, user_id, email, business_name, slug, is_published, is_platform_admin
   ) VALUES
-    (v_published_merchant_id, NULL, 'variant-public@example.com',
-      'Variant Public Fixture', 'variant-public-fixture', true),
+    (v_published_merchant_id, v_platform_admin_id,
+      'variant-platform-admin@example.com', 'Variant Public Fixture',
+      'variant-public-fixture', true, true),
     (v_unpublished_merchant_id, v_owner_id, 'variant-preview@example.com',
-      'Variant Preview Fixture', 'variant-preview-fixture', false),
+      'Variant Preview Fixture', 'variant-preview-fixture', false, false),
     (v_second_unpublished_merchant_id, v_customer_id,
       'variant-preview-two@example.com', 'Variant Preview Fixture Two',
-      'variant-preview-fixture-two', false);
+      'variant-preview-fixture-two', false, false);
 
   INSERT INTO public.staff_members (
     merchant_id, user_id, email, name, role, permissions, status
@@ -220,6 +225,12 @@ SELECT pg_temp.assert_storefront_variant_ids(
   ]
 );
 SELECT pg_temp.assert_storefront_variant_ids(
+  'authenticated', '7f9d0e12-0000-4000-8000-000000000005', ARRAY[
+    '7f9d0e12-0000-4000-8000-000000000301'::uuid,
+    '7f9d0e12-0000-4000-8000-000000000302'::uuid
+  ]
+);
+SELECT pg_temp.assert_storefront_variant_ids(
   'authenticated', '7f9d0e12-0000-4000-8000-000000000001', ARRAY[
     '7f9d0e12-0000-4000-8000-000000000301'::uuid,
     '7f9d0e12-0000-4000-8000-000000000302'::uuid,
@@ -273,17 +284,30 @@ END;
 $mixed_unpublished_bound$;
 
 DO $bound$
+DECLARE
+  v_rejected boolean := false;
 BEGIN
-  IF EXISTS (
-    SELECT 1
+  BEGIN
+    PERFORM 1
     FROM public.get_storefront_product_variants(
       pg_catalog.array_fill(
         '7f9d0e12-0000-4000-8000-000000000201'::uuid,
         ARRAY[10001]
       )
-    )
-  ) THEN
-    RAISE EXCEPTION 'storefront variant RPC accepted more than 10000 ids';
+    );
+  EXCEPTION
+    WHEN SQLSTATE '22023' THEN
+      IF SQLERRM NOT LIKE
+        'get_storefront_product_variants supports at most 10000 product IDs%'
+      THEN
+        RAISE;
+      END IF;
+      v_rejected := true;
+  END;
+
+  IF NOT v_rejected THEN
+    RAISE EXCEPTION
+      'storefront variant RPC must reject more than 10000 ids with SQLSTATE 22023';
   END IF;
 END;
 $bound$;
