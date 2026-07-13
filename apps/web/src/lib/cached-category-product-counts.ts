@@ -64,7 +64,11 @@ export async function getCachedCategoryProductCounts(
   merchantId: string,
   categories: CachedCategoryProductCountCategory[]
 ): Promise<Record<string, number>> {
-  'use cache: remote';
+  // PR4b: local `'use cache'`, not the framework remote handler. Output Record
+  // is bounded by the #categories argument; no cross-instance need — the
+  // consumer (products-page link modules) already try/catches to empty counts.
+  // The remote SET is the exit-128 hazard, so read locally per-instance.
+  'use cache';
   cacheLife('categories');
   cacheTag(
     'categories',
@@ -122,8 +126,12 @@ export async function getCachedCategoryProductCounts(
       .range(from, to);
 
     if (error) {
+      // Fail loud: a transient count read must never be persisted as empty
+      // counts. The request-local consumer boundary
+      // (enrichCategoriesWithProductCounts) catches this OUTSIDE the cache scope
+      // and degrades to the category's existing product_count for the request.
       console.error('Error fetching category product counts:', error);
-      return {};
+      throw error;
     }
 
     const pageRows = (data || []) as ProductCategoryCountRow[];

@@ -165,7 +165,10 @@ export function getScopedPlatformBlogListCacheTag({
 export async function getPlatformBlogPost(
   slug: string
 ): Promise<PlatformBlogPost | null> {
-  'use cache: remote';
+  // PR4b: local `'use cache'`, not the framework remote handler. Low-traffic
+  // CDN-cacheable HTML; indexed slug read that already fails loud. No
+  // cross-instance need — demote off the remote SET (exit-128 hazard).
+  'use cache';
 
   const normalizedSlug = normalizeSlug(slug);
   if (!normalizedSlug) {
@@ -208,7 +211,10 @@ export async function getPlatformBlogListing(
     tag?: string | null;
   } = {}
 ): Promise<PlatformBlogListingResult> {
-  'use cache: remote';
+  // PR4b: local `'use cache'`, not the framework remote handler. CDN-cacheable
+  // listing HTML; SQL limit capped at MAX_LISTING_LIMIT and already fail-loud.
+  // No cross-instance need — demote off the remote SET (exit-128 hazard).
+  'use cache';
 
   const category = normalizeOptionalFilter(options.category);
   const limit = normalizePositiveInt(
@@ -302,7 +308,10 @@ export async function incrementPlatformBlogPostViews(
 export async function getPlatformBlogFeedPosts(): Promise<
   PlatformBlogFeedPost[]
 > {
-  'use cache: remote';
+  // PR4b: local `'use cache'`, not the framework remote handler. CDN-cacheable
+  // feed.xml; SQL limit capped at PLATFORM_BLOG_FEED_LIMIT (50) and already
+  // fail-loud. No cross-instance need — demote off the remote SET.
+  'use cache';
 
   cacheLife('merchant');
   cacheTag(PLATFORM_BLOG_CACHE_TAG, PLATFORM_BLOG_FEED_CACHE_TAG);
@@ -330,7 +339,10 @@ export async function getPlatformBlogFeedPosts(): Promise<
 export async function getPlatformBlogSitemapPosts(): Promise<
   PlatformBlogSitemapPost[]
 > {
-  'use cache: remote';
+  // PR4b: local `'use cache'`, not the framework remote handler. CDN-cacheable
+  // sitemap; lean slug rows capped at PLATFORM_BLOG_SITEMAP_LIMIT (5000) and
+  // already fail-loud. No cross-instance need — demote off the remote SET.
+  'use cache';
 
   cacheLife('merchant');
   cacheTag(PLATFORM_BLOG_CACHE_TAG, PLATFORM_BLOG_SITEMAP_CACHE_TAG);

@@ -48,7 +48,12 @@ export async function getCachedStorefrontProductsBySlugs(
   merchantId: string,
   slugs: readonly string[]
 ): Promise<StorefrontHomeProduct[]> {
-  'use cache: remote';
+  // PR4b: local `'use cache'`, not the framework remote handler. Small bounded
+  // input (pinned launch slugs) via an indexed `.in('slug')` read; already
+  // fail-loud (throws below). No cross-instance need — demote off the remote
+  // SET (exit-128 hazard) to a per-instance local cache. Still tagged so
+  // revalidateProducts() busts it.
+  'use cache';
   cacheLife('products');
   cacheTag(
     'products',

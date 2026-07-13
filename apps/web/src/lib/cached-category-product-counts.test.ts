@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildCachedDataTestHarness,
@@ -148,18 +151,38 @@ describe('getCachedCategoryProductCounts', () => {
     expect(harness.mockFrom).not.toHaveBeenCalled();
   });
 
-  it('returns empty counts when the count query fails', async () => {
+  it('throws on a transient count query failure so it is never cached as empty (PR4b)', async () => {
     const consoleSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
     harness.mockListResult.data = null;
-    harness.mockListResult.error = { message: 'DB timeout' };
+    harness.mockListResult.error = { code: '57014', message: 'DB timeout' };
 
-    const result = await getCachedCategoryProductCounts('merchant-1', [
-      { id: 'parent', is_active: true, parent_id: null },
-    ]);
-
-    expect(result).toEqual({});
+    await expect(
+      getCachedCategoryProductCounts('merchant-1', [
+        { id: 'parent', is_active: true, parent_id: null },
+      ])
+    ).rejects.toMatchObject({ code: '57014' });
     expect(consoleSpy).toHaveBeenCalled();
+  });
+});
+
+describe('cached-category-product-counts cache directive', () => {
+  const source = readFileSync(
+    resolve(
+      dirname(fileURLToPath(import.meta.url)),
+      'cached-category-product-counts.ts'
+    ),
+    'utf8'
+  );
+
+  it('reads per-request off the local cache handler, not the remote handler (PR4b)', () => {
+    // Aggregates over paginated products; output Record is bounded by the
+    // #categories argument. No cross-instance need — the consumer already
+    // try/catches to empty counts. Demote off the remote SET (exit-128 hazard);
+    // the fill now fails loud so a transient error is never cached as empty.
+    expect(source).not.toContain("'use cache: remote';");
+    expect(source).toContain("'use cache';");
+    expect(source).toContain('throw error');
   });
 });

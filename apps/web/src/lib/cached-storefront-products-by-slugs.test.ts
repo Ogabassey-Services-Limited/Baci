@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { cacheTag } from 'next/cache';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -128,5 +131,23 @@ describe('getCachedStorefrontProductsBySlugs', () => {
 
     expect(harness.mockFrom).not.toHaveBeenCalled();
     expect(harness.mockIn).not.toHaveBeenCalled();
+  });
+});
+
+describe('cached-storefront-products-by-slugs cache directive', () => {
+  const source = readFileSync(
+    resolve(
+      dirname(fileURLToPath(import.meta.url)),
+      'cached-storefront-products-by-slugs.ts'
+    ),
+    'utf8'
+  );
+
+  it('reads per-request off the local cache handler, not the remote handler (PR4b)', () => {
+    // Small bounded input (pinned launch slugs) via an indexed `.in('slug')`
+    // read; already fail-loud (throws). No cross-instance need — demote off
+    // the remote SET (exit-128 hazard) to a per-instance local cache.
+    expect(source).not.toContain("'use cache: remote';");
+    expect(source).toContain("'use cache';");
   });
 });

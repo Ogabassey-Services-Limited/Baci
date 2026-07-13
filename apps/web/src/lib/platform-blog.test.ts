@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 
@@ -294,5 +297,21 @@ describe('platform-blog query helpers', () => {
         message: 'rpc failed',
       })
     );
+  });
+});
+
+describe('platform-blog cache directives', () => {
+  const source = readFileSync(
+    resolve(dirname(fileURLToPath(import.meta.url)), 'platform-blog.ts'),
+    'utf8'
+  );
+
+  it('reads all four platform-blog surfaces off the local cache handler (PR4b)', () => {
+    // Low-traffic, CDN-cacheable HTML/XML surfaces; dataset is 0 published
+    // posts today. All four already fail-loud (throw) and carry SQL limits.
+    // Demote off the remote SET (exit-128 hazard) — no cross-instance need.
+    expect(source).not.toContain("'use cache: remote';");
+    // One local directive per exported reader (post, listing, feed, sitemap).
+    expect(source.match(/'use cache';/g) ?? []).toHaveLength(4);
   });
 });
