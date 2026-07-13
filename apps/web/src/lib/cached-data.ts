@@ -1082,6 +1082,16 @@ export async function getCachedMerchantById(
 }
 
 /**
+ * Hard cap on the hydrated product rows a single `getCachedProducts` call can
+ * materialize. On origin/main this reader had NO default limit, so a
+ * full-catalog request (ogabassey has ~1,333 active products) hydrated 100s of
+ * rich rows into one cache item. The only consumer is the authed FAQ sample
+ * (limit 10); this cap keeps the (now local) cache payload bounded as catalogs
+ * grow and clamps any oversized explicit limit.
+ */
+const GET_CACHED_PRODUCTS_MAX_ROWS = 100;
+
+/**
  * Cached products for a merchant.
  * Uses 'products' cacheLife profile (stale 5min, revalidate 5min, expire 24hr)
  *
@@ -1100,7 +1110,11 @@ export async function getCachedProducts(
     featured?: boolean;
   }
 ) {
-  'use cache: remote';
+  // PR4b: local `'use cache'`, not the framework remote handler. The only
+  // consumer is the authed FAQ page (limit 10) — JSON/authed, never crawler
+  // HTML — so there is no cross-instance sharing need, and the unbounded
+  // hydrated payload was a prime exit-128 remote-write hazard.
+  'use cache';
   cacheLife('products');
   cacheTag('products', `products-${merchantId}`);
 
@@ -1142,15 +1156,25 @@ export async function getCachedProducts(
     query = query.eq('product_categories.category_id', options.categoryId);
   }
 
-  if (options?.limit) {
-    query = query.limit(options.limit);
+  const cappedLimit = options?.limit
+    ? Math.min(options.limit, GET_CACHED_PRODUCTS_MAX_ROWS)
+    : undefined;
+
+  if (cappedLimit) {
+    query = query.limit(cappedLimit);
   }
 
   if (options?.offset) {
     query = query.range(
       options.offset,
-      options.offset + (options.limit || 20) - 1
+      options.offset + (cappedLimit || 20) - 1
     );
+  }
+
+  // No explicit window: hard-cap the hydrated payload so a full-catalog read
+  // can never be written to the cache as one unbounded item.
+  if (!cappedLimit && !options?.offset) {
+    query = query.limit(GET_CACHED_PRODUCTS_MAX_ROWS);
   }
 
   const { data, error } = await query;
@@ -1610,7 +1634,11 @@ export async function getCachedLegacyProductRedirectTarget(
  * Uses 'categories' cacheLife profile (stale 5min, revalidate 1hr, expire 24hr)
  */
 export async function getCachedCategories(merchantId: string) {
-  'use cache: remote';
+  // PR4b: local `'use cache'`, not the framework remote handler. Bounded
+  // (~57 rows) indexed merchant-scoped read; no cross-instance sharing need.
+  // Already fail-loud (throws below) with a request-local fail-open boundary
+  // (getStorefrontCategories), so a transient error is never cached as empty.
+  'use cache';
   cacheLife('categories');
   cacheTag('categories', `categories-${merchantId}`);
 
@@ -1984,10 +2012,20 @@ async function getCategoryPageShellData(
 }
 
 /**
- * Remote-cached ordered product IDs for category/collection pages.
- * IDs are compact enough for a single shared cache entry and make the product
- * detail fetch snapshot-safe: detail chunks are keyed by stable ID slices, not
- * shifting offset windows.
+ * Deterministic cap on the ordered product-ID list a category/collection page
+ * materializes. On origin/main this reader had NO SQL cap, so a broad category
+ * or collection could return 100s-1000s of UUIDs into one cache item. Each
+ * scope branch orders by `id` last, so the `.limit()` is deterministic; the cap
+ * sits well above the current whole-catalog size (~1,333) while bounding the
+ * (now local) cache payload as catalogs grow.
+ */
+const CATEGORY_PAGE_PRODUCT_ID_CAP = 2000;
+
+/**
+ * Local-cached ordered product IDs for category/collection pages.
+ * IDs are compact and make the product detail fetch snapshot-safe: detail
+ * chunks are keyed by stable ID slices, not shifting offset windows. The list
+ * is capped (CATEGORY_PAGE_PRODUCT_ID_CAP) so the cache item stays bounded.
  */
 async function getCachedCategoryPageProductIds({
   merchantId,
@@ -1996,7 +2034,11 @@ async function getCachedCategoryPageProductIds({
   merchantId: string;
   scope: CachedCategoryPageProductScope;
 }): Promise<CachedCategoryPageProductIdsResult> {
-  'use cache: remote';
+  // PR4b: local `'use cache'`, not the framework remote handler. Keyed on an
+  // unbounded (crawler) category slug; already fail-loud with a request-local
+  // boundary (getCategoryPageProductIds). Cross-instance staleness of the
+  // rarely-changing ID list is bounded by the 'storefront-page' window.
+  'use cache';
   cacheLife('storefront-page');
   cacheTag(
     'category-page-data',
@@ -2045,7 +2087,7 @@ async function getCachedCategoryPageProductIds({
         break;
     }
 
-    const { data, error } = await query;
+    const { data, error } = await query.limit(CATEGORY_PAGE_PRODUCT_ID_CAP);
     productIds = ((data || []) as Array<{ id?: string | null }>)
       .map((product) => product.id)
       .filter((id): id is string => Boolean(id));
@@ -2060,7 +2102,8 @@ async function getCachedCategoryPageProductIds({
       .eq('status', 'active')
       .in('product_categories.category_id', scope.categoryIds)
       .order('created_at', { ascending: false })
-      .order('id', { ascending: true });
+      .order('id', { ascending: true })
+      .limit(CATEGORY_PAGE_PRODUCT_ID_CAP);
 
     productIds = ((data || []) as Array<{ id?: string | null }>)
       .map((product) => product.id)
@@ -2080,7 +2123,8 @@ async function getCachedCategoryPageProductIds({
         `category.ilike.%${sanitizedCategoryName}%,brand.ilike.%${sanitizedCategoryName}%,name.ilike.%${sanitizedCategoryName}%`
       )
       .order('created_at', { ascending: false })
-      .order('id', { ascending: true });
+      .order('id', { ascending: true })
+      .limit(CATEGORY_PAGE_PRODUCT_ID_CAP);
 
     productIds = ((data || []) as Array<{ id?: string | null }>)
       .map((product) => product.id)
@@ -2557,7 +2601,12 @@ function getServiceSupabaseClient() {
  * Uses 'merchant' cacheLife profile (revalidate 60s)
  */
 export async function getCachedDashboardStats(merchantId: string) {
-  'use cache: remote';
+  // PR4b: local `'use cache'`, not the framework remote handler. Authed
+  // dashboard consumer on a service-role RPC — no cross-instance/SEO need.
+  // Fail loud so a transient RPC error is never persisted as null; the
+  // dashboard action's own try/catch degrades to zero metrics outside the
+  // cache scope. A genuine null summary (no error) still returns null.
+  'use cache';
   cacheLife('merchant');
   cacheTag('dashboard', `dashboard-${merchantId}`);
 
@@ -2570,7 +2619,7 @@ export async function getCachedDashboardStats(merchantId: string) {
 
   if (error) {
     console.error('Error fetching cached dashboard stats:', error);
-    return null;
+    throw error;
   }
 
   return stats;
@@ -2584,7 +2633,12 @@ export async function getCachedPlatformAnalytics(
   startDate: string,
   endDate: string
 ) {
-  'use cache: remote';
+  // PR4b: local `'use cache'`, not the framework remote handler. Admin-only
+  // consumer keyed on arbitrary date ranges (high key cardinality) on a
+  // service-role aggregate RPC — no cross-instance/SEO need. Fail loud so a
+  // transient aggregate error is never cached as null; the admin route's
+  // enclosing try/catch returns 500 outside the cache scope.
+  'use cache';
   cacheLife('products');
   cacheTag('analytics');
 
@@ -2600,7 +2654,7 @@ export async function getCachedPlatformAnalytics(
 
   if (summaryError) {
     console.error('Error fetching cached platform analytics:', summaryError);
-    return null;
+    throw summaryError;
   }
 
   return summaryData;

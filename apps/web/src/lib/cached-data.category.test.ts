@@ -202,6 +202,40 @@ describe('getCachedCategoryPageData category routing and fallback logic', () => 
     );
   });
 
+  it('caps the category product-ID list so the local cache item stays bounded (PR4b)', () => {
+    harness.mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'cat-active-123',
+        name: 'Active Category',
+        slug: 'active-category',
+        description: 'Standard active category',
+        image_url: null,
+        is_active: true,
+        seo_heading: null,
+        seo_description: null,
+        seo_features: null,
+        seo_faq: null,
+        parent: null,
+      },
+      error: null,
+    });
+    harness.mockListResults.push(
+      { data: [{ id: 'cat-active-123' }], error: null }, // scope resolution
+      { data: [{ id: 'product-1' }], error: null }, // product-ID query
+      { data: [{ id: 'product-1', name: 'Scoped Product' }], error: null }
+    );
+
+    return getCachedCategoryPageData(
+      'merchant-123',
+      'active-category',
+      'test-store'
+    ).then(() => {
+      // Deterministic cap on the ordered UUID list; a broad category can return
+      // 100s-1000s of IDs and must not grow the cache item unbounded.
+      expect(harness.mockLimit).toHaveBeenCalledWith(2000);
+    });
+  });
+
   it('degrades an ID query failure outside the remote cache without treating it as an empty catalog', async () => {
     harness.mockSingle.mockResolvedValueOnce({
       data: {
