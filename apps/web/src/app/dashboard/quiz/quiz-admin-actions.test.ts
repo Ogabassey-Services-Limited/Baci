@@ -180,6 +180,31 @@ describe('activateQuizEvent', () => {
     expect(result.event.status).toBe('active');
   });
 
+  it('includes the close deadline (endsAt) in the payload when provided', async () => {
+    mockApiPost.mockResolvedValue({
+      event: {
+        id: 'event-1',
+        slug: 'daily-phone-quiz',
+        status: 'active',
+        title: 'Daily Phone Quiz',
+      },
+    });
+
+    const answerKeyReview = {
+      questions: [{ correctOptionId: 'b', position: 1 }],
+    };
+    const endsAt = '2999-01-01T00:00:00.000Z';
+
+    await activateQuizEvent('event-1', answerKeyReview, endsAt);
+
+    expect(mockApiPost).toHaveBeenCalledWith('/api/merchant/quiz/activate', {
+      answerKeyReview,
+      confirmActivation: true,
+      eventId: 'event-1',
+      endsAt,
+    });
+  });
+
   it('propagates server errors from the activation call', async () => {
     mockApiPost.mockRejectedValue(new Error('Failed to open quiz event'));
 

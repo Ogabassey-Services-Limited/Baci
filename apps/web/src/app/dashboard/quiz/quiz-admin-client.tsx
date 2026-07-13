@@ -50,6 +50,7 @@ export function QuizAdminClient({
         : null)
   );
   const [activationError, setActivationError] = useState<string | null>(null);
+  const [closeDeadline, setCloseDeadline] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isActivating, setIsActivating] = useState(false);
 
@@ -114,7 +115,14 @@ export function QuizAdminClient({
     setActivationError(null);
     setIsActivating(true);
 
-    activateQuizEvent(activatingEventId, answerKeyReview)
+    // A prize (ranked) quiz needs a close deadline so the winner-mint cron can
+    // finalize it; omitted -> open-ended. datetime-local is local time, so
+    // normalize to an ISO-8601 UTC instant for the API.
+    const endsAtIso = closeDeadline
+      ? new Date(closeDeadline).toISOString()
+      : undefined;
+
+    activateQuizEvent(activatingEventId, answerKeyReview, endsAtIso)
       .then((data) => {
         setResult((current) =>
           current && current.event.id === activatingEventId
@@ -272,12 +280,27 @@ export function QuizAdminClient({
       ) : null}
 
       {result ? (
-        <QuizAdminResult
-          activationError={activationError}
-          isActivating={isActivating}
-          onActivate={handleActivate}
-          result={result}
-        />
+        <div className="flex flex-col gap-4">
+          <label className="grid gap-2 text-sm font-medium">
+            Close deadline (required for prize quizzes)
+            <input
+              className="rounded-md border bg-background px-3 py-2 text-sm"
+              onChange={(event) => setCloseDeadline(event.target.value)}
+              type="datetime-local"
+              value={closeDeadline}
+            />
+            <span className="text-xs font-normal text-muted-foreground">
+              When the quiz closes and ranked winners are minted. Leave blank
+              for an open-ended quiz; prize quizzes require a deadline.
+            </span>
+          </label>
+          <QuizAdminResult
+            activationError={activationError}
+            isActivating={isActivating}
+            onActivate={handleActivate}
+            result={result}
+          />
+        </div>
       ) : null}
     </div>
   );

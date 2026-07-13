@@ -105,13 +105,17 @@ export async function generateQuizDraft(
 
 export async function activateQuizEvent(
   eventId: string,
-  answerKeyReview: QuizAnswerKeyReview
+  answerKeyReview: QuizAnswerKeyReview,
+  // Optional close deadline (ISO-8601 UTC). Ranked-prize quizzes require one so
+  // the winner-mint cron can finalize them; omitted -> open-ended.
+  endsAt?: string
 ): Promise<MerchantQuizActivationResponse> {
   const parsed = merchantQuizActivationResponseSchema.safeParse(
     await apiPost(QUIZ_ACTIVATE_ENDPOINT, {
       answerKeyReview,
       confirmActivation: true,
       eventId,
+      ...(endsAt ? { endsAt } : {}),
     })
   );
   if (!parsed.success) {
