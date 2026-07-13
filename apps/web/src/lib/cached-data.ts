@@ -2545,6 +2545,63 @@ async function mapWithConcurrency<T, R>(
   return results;
 }
 
+/**
+ * Every way a category product read can come back incomplete.
+ *
+ * This record is the contract's single source of truth: the unbounded guard
+ * below is EXHAUSTIVE over its keys, so adding a new failure leg means adding a
+ * field here — and the guard covers it automatically. That is what stops the
+ * r5 mistake from recurring, where the all-or-nothing rule was wired to only
+ * ONE leg (tail assembly) and the ID-list and detail-chunk legs quietly leaked
+ * truncated catalogues to the unbounded consumers (PR4b review r6).
+ */
+interface CategoryPageProductFailureSignals {
+  /** The core ordered-ID read failed (an outage, NOT an empty category). */
+  productIdsQueryFailed: boolean;
+  /** The requested window failed, or could not be verified as in-range. */
+  productWindowUnusable: boolean;
+  /** Full-catalogue tail assembly failed (unbounded reads only). */
+  catalogueAssemblyFailed: boolean;
+  /** One or more product-detail chunks failed. */
+  productDetailsQueryFailed: boolean;
+}
+
+/**
+ * THE all-or-nothing guard for unbounded category reads.
+ *
+ * Unbounded consumers (price-band page, LLM category markdown) publish the
+ * payload as the COMPLETE catalogue and never inspect the fail-open flags, so
+ * ANY incomplete read must reach them as an explicit, retryable failure rather
+ * than a quietly truncated list. Bounded (paginated) consumers keep the
+ * fail-open flags: a storefront page may degrade gracefully; a feed claiming to
+ * be the whole catalogue may not.
+ *
+ * Iterating the record (rather than testing named fields) is deliberate — a new
+ * leg cannot forget to opt in.
+ */
+function assertUnboundedCatalogueIsComplete(
+  signals: CategoryPageProductFailureSignals,
+  hasBoundedWindow: boolean
+): void {
+  if (hasBoundedWindow) {
+    return;
+  }
+
+  const failedLegs = (
+    Object.keys(signals) as Array<keyof CategoryPageProductFailureSignals>
+  ).filter((leg) => signals[leg]);
+
+  if (failedLegs.length === 0) {
+    return;
+  }
+
+  throw new StorefrontReadUnavailableError({
+    kind: 'database',
+    operation: `category_page_complete_catalogue (${failedLegs.join(', ')})`,
+    retryable: true,
+  });
+}
+
 async function getCachedCategoryPageProductsUncached({
   merchantId,
   productLimit,
@@ -2556,12 +2613,31 @@ async function getCachedCategoryPageProductsUncached({
   productOffset?: number;
   scope: CachedCategoryPageProductScope;
 }): Promise<CachedCategoryPageProductsResult> {
+  const windowStart = productOffset ?? 0;
+  const hasBoundedWindow = typeof productLimit === 'number' && productLimit > 0;
+
+  // Every failure leg records here. The unbounded all-or-nothing guard below is
+  // EXHAUSTIVE over this record, so a new leg is covered the moment it adds a
+  // field — it cannot silently skip the contract (PR4b review r6).
+  const failureSignals: CategoryPageProductFailureSignals = {
+    productIdsQueryFailed: false,
+    productWindowUnusable: false,
+    catalogueAssemblyFailed: false,
+    productDetailsQueryFailed: false,
+  };
+
   const idResult = await getCategoryPageProductIds({
     merchantId,
     scope,
   });
+  failureSignals.productIdsQueryFailed = idResult.productsQueryFailed;
 
   if (idResult.productIds.length === 0) {
+    // A genuinely empty category returns an empty catalogue; a FAILED ID read
+    // must not masquerade as one (an unbounded consumer would publish it as an
+    // empty catalogue and 404 a valid page), so it funnels through the guard.
+    assertUnboundedCatalogueIsComplete(failureSignals, hasBoundedWindow);
+
     return {
       productIdsQueryFailed: idResult.productsQueryFailed,
       productCount: 0,
@@ -2572,14 +2648,7 @@ async function getCachedCategoryPageProductsUncached({
     };
   }
 
-  const windowStart = productOffset ?? 0;
-  const hasBoundedWindow = typeof productLimit === 'number' && productLimit > 0;
   let productWindow: string[];
-  let windowQueryFailed = false;
-  // True when we could not PROVE the requested window is genuinely out of
-  // range. Distinct from a query failure: nothing errored, but the total is
-  // unverified, so an empty window is not evidence of an out-of-range page.
-  let windowUnverified = false;
 
   if (!hasBoundedWindow) {
     // UNBOUNDED read (price-band page, LLM category markdown). These consumers
@@ -2600,13 +2669,10 @@ async function getCachedCategoryPageProductsUncached({
       });
     } catch (error) {
       console.error('Full product ID assembly failed outside cache:', error);
-      // Never degrade to the capped prefix here — that is the "lie to crawlers"
-      // the plan forbids. Fail loudly so the caller fails closed.
-      throw new StorefrontReadUnavailableError({
-        kind: 'database',
-        operation: 'category_page_product_ids_complete',
-        retryable: true,
-      });
+      // Record the leg and let the SINGLE exit guard throw. Degrading to the
+      // capped prefix here would be the "lie to crawlers" the plan forbids.
+      productWindow = idResult.productIds;
+      failureSignals.catalogueAssemblyFailed = true;
     }
   } else if (
     windowStart + productLimit <= idResult.productIds.length ||
@@ -2638,16 +2704,14 @@ async function getCachedCategoryPageProductsUncached({
         // Zero rows + an UNVERIFIED total is not proof of an out-of-range page.
         // Signal uncertainty so the route fails open (200, empty, noindex)
         // instead of emitting a confident 404 on a total we never verified.
-        windowUnverified = true;
+        failureSignals.productWindowUnusable = true;
       }
     } catch (error) {
       console.error('Product ID window query failed outside cache:', error);
       productWindow = [];
-      windowQueryFailed = true;
+      failureSignals.productWindowUnusable = true;
     }
   }
-
-  const windowUnusable = windowQueryFailed || windowUnverified;
 
   const idChunks = Array.from(
     {
@@ -2676,6 +2740,9 @@ async function getCachedCategoryPageProductsUncached({
     (count, chunk) => count + chunk.missingProductCount,
     0
   );
+  failureSignals.productDetailsQueryFailed = detailChunks.some(
+    (chunk) => chunk.productsQueryFailed
+  );
 
   // Exact scope size (head-count-backed past the cap), not the truncated cached
   // list length — keeps totalPages truthful (PR4b review fix). The floor also
@@ -2690,8 +2757,15 @@ async function getCachedCategoryPageProductsUncached({
       ? Math.max(idResult.totalProductCount, windowStart + productWindow.length)
       : idResult.totalProductCount;
 
+  // SINGLE EXIT GUARD for the all-or-nothing contract. Every failure leg above
+  // records into `failureSignals` instead of throwing at its own site, so the
+  // rule lives in exactly ONE place (PR4b review r6).
+  assertUnboundedCatalogueIsComplete(failureSignals, hasBoundedWindow);
+
   return {
-    productIdsQueryFailed: idResult.productsQueryFailed || windowUnusable,
+    productIdsQueryFailed:
+      failureSignals.productIdsQueryFailed ||
+      failureSignals.productWindowUnusable,
     productCount: Math.max(0, paginationCountFloor - missingProductCount),
     productsArePrePaginated: Boolean(productLimit),
     products: productSlots.filter(
@@ -2699,9 +2773,9 @@ async function getCachedCategoryPageProductsUncached({
     ),
     productSlots,
     productsQueryFailed:
-      idResult.productsQueryFailed ||
-      windowUnusable ||
-      detailChunks.some((chunk) => chunk.productsQueryFailed),
+      failureSignals.productIdsQueryFailed ||
+      failureSignals.productWindowUnusable ||
+      failureSignals.productDetailsQueryFailed,
   };
 }
 

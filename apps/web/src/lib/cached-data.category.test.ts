@@ -490,10 +490,24 @@ describe('getCachedCategoryPageData category routing and fallback logic', () => 
       }
     );
 
-    const result = await getCachedCategoryPageData(
+    // BOUNDED read (PR4b review r6): fail-OPEN flags are the PAGINATED contract
+    // — the route uses productIdsQueryFailed to avoid mistaking an outage for a
+    // real empty category. The unbounded path is all-or-nothing and now THROWS
+    // on an ID-query failure instead of publishing an empty catalogue (which
+    // would 404 a valid category); see the parametrized per-leg suite.
+    const getBoundedCategoryPageData = getCachedCategoryPageData as unknown as (
+      merchantId: string,
+      categorySlug: string,
+      storeSlug: string,
+      productOffset: number,
+      productLimit: number
+    ) => ReturnType<typeof getCachedCategoryPageData>;
+    const result = await getBoundedCategoryPageData(
       'merchant-123',
       'active-category',
-      'test-store'
+      'test-store',
+      0,
+      20
     );
 
     expect(result).toMatchObject({
@@ -879,6 +893,135 @@ describe('getCachedCategoryPageData category routing and fallback logic', () => 
     expect(result.productsQueryFailed).toBe(false);
   });
 
+  // STRUCTURAL INVARIANT (PR4b review r6): unbounded reads are all-or-nothing.
+  //
+  // The r5 contract was wired to ONE failure leg (tail assembly), so the ID-list
+  // and detail-chunk legs still leaked truncated catalogues to the unbounded
+  // consumers. The guard now lives at a SINGLE exit point and is exhaustive over
+  // a failure-signal record, so a new leg cannot silently skip it.
+  //
+  // This suite is parametrized per leg on purpose: add a failure leg, add a case
+  // here, and a leg that forgets to funnel through the guard fails the suite.
+  describe('unbounded catalogue reads are all-or-nothing (PR4b review r6)', () => {
+    const activeCategoryRow = () => ({
+      data: {
+        id: 'cat-active-123',
+        name: 'Active Category',
+        slug: 'active-category',
+        description: 'Standard active category',
+        image_url: null,
+        is_active: true,
+        seo_heading: null,
+        seo_description: null,
+        seo_features: null,
+        seo_faq: null,
+        parent: null,
+      },
+      error: null,
+    });
+    const scopeRow = { data: [{ id: 'cat-active-123' }], error: null };
+    const transientError = {
+      data: null,
+      error: { code: '57014', message: 'statement timeout' },
+    };
+    const ids = (count: number, offset = 0) =>
+      Array.from({ length: count }, (_, index) => ({
+        id: `product-${index + 1 + offset}`,
+      }));
+
+    // Each case drives ONE failure leg of the unbounded path.
+    const failureLegs: Array<{
+      leg: string;
+      results: Record<string, unknown>[];
+    }> = [
+      {
+        // Leg: the CORE ordered-ID read fails. Previously collapsed to an empty
+        // ID list → empty catalogue → the LLM route 404s a VALID category,
+        // deindexing it on a transient blip.
+        leg: 'product ID query',
+        results: [scopeRow, transientError],
+      },
+      {
+        // Leg: the exact-count read fails AND the completeness probe fails, so
+        // completeness is unprovable.
+        leg: 'completeness probe',
+        results: [
+          scopeRow,
+          { data: ids(30), error: null },
+          { ...transientError, count: null },
+          transientError,
+        ],
+      },
+      {
+        // Leg: the full-catalogue tail assembly fails past the cached prefix.
+        leg: 'tail assembly',
+        results: [
+          scopeRow,
+          { data: ids(50), error: null },
+          { data: null, error: null, count: 2500 },
+          transientError,
+        ],
+      },
+      {
+        // Leg: a product-DETAIL chunk fails. Previously reduced to a flag while
+        // returning the successfully-loaded chunks → a TRUNCATED catalogue was
+        // published as the complete one.
+        leg: 'product detail chunk',
+        results: [
+          scopeRow,
+          { data: ids(30), error: null },
+          { data: null, error: null, count: 30 },
+          transientError,
+        ],
+      },
+    ];
+
+    it.each(
+      failureLegs
+    )('throws StorefrontReadUnavailableError when the $leg fails', async ({
+      results,
+    }) => {
+      harness.mockSingle.mockResolvedValueOnce(activeCategoryRow());
+      harness.mockListResults.push(...(results as never[]));
+
+      await expect(
+        getCachedCategoryPageData(
+          'merchant-123',
+          'active-category',
+          'test-store'
+        )
+      ).rejects.toBeInstanceOf(StorefrontReadUnavailableError);
+    });
+
+    it.each(
+      failureLegs
+    )('keeps BOUNDED reads failing open (not throwing) when the $leg fails', async ({
+      results,
+    }) => {
+      harness.mockSingle.mockResolvedValueOnce(activeCategoryRow());
+      harness.mockListResults.push(...(results as never[]));
+
+      const getBounded = getCachedCategoryPageData as unknown as (
+        merchantId: string,
+        categorySlug: string,
+        storeSlug: string,
+        productOffset: number,
+        productLimit: number
+      ) => ReturnType<typeof getCachedCategoryPageData>;
+
+      // The paginated storefront page may degrade gracefully; only the
+      // crawler/feed consumers fail closed. A bounded read must never throw.
+      const result = await getBounded(
+        'merchant-123',
+        'active-category',
+        'test-store',
+        0,
+        20
+      );
+      expect(result).toBeDefined();
+    });
+  });
+
   it('preserves ID slots when an early detail chunk fails and a later chunk succeeds', async () => {
     harness.mockSingle.mockResolvedValueOnce({
       data: {
@@ -917,10 +1060,23 @@ describe('getCachedCategoryPageData category routing and fallback logic', () => 
       }
     );
 
-    const result = await getCachedCategoryPageData(
+    // BOUNDED read (PR4b review r6): slot-preserving degradation is the
+    // PAGINATED contract. The unbounded path is all-or-nothing and now throws on
+    // a detail-chunk failure rather than publishing a truncated catalogue —
+    // covered by the parametrized per-leg suite above.
+    const getBoundedCategoryPageData = getCachedCategoryPageData as unknown as (
+      merchantId: string,
+      categorySlug: string,
+      storeSlug: string,
+      productOffset: number,
+      productLimit: number
+    ) => ReturnType<typeof getCachedCategoryPageData>;
+    const result = await getBoundedCategoryPageData(
       'merchant-123',
       'active-category',
-      'test-store'
+      'test-store',
+      0,
+      49
     );
 
     expect(result.productsQueryFailed).toBe(true);
