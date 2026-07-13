@@ -18,8 +18,8 @@ import { deliverAnalyticsEvent } from './analytics-destination-adapter';
 
 const event: DomainEventV1 = {
   data: {
+    delivery_user_data: { fbc: 'fb.1.1.click', ip: '203.0.113.1' },
     event_data: {
-      delivery_user_data: { fbc: 'fb.1.1.click', ip: '203.0.113.1' },
       product_id: 'sku-1',
       product_price: 100,
       quantity: 1,

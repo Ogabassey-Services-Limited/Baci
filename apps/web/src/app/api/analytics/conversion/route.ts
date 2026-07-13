@@ -52,8 +52,8 @@ async function resolveLegacyMerchant(
     if (!error && data?.id) return data.id;
   }
 
-  const slug = origin.match(/^https?:\/\/([^.]+)\./)?.[1];
-  if (!slug) return null;
+  const slug =
+    origin.match(/^https?:\/\/([^.]+)\./)?.[1] ?? DEFAULT_MERCHANT_SLUG;
   const { data, error } = await supabase
     .from('merchants')
     .select('id')

@@ -104,8 +104,10 @@ function fallbackContentItem(
   ];
 }
 
-function userData(data: Record<string, unknown>): ConversionEvent['user_data'] {
-  const value = asRecord(data.delivery_user_data);
+function userData(
+  eventData: DomainEventV1['data']
+): ConversionEvent['user_data'] {
+  const value = asRecord(eventData.delivery_user_data);
   return {
     email: stringValue(value.email),
     external_id: stringValue(value.external_id),
@@ -149,7 +151,7 @@ function toClientConversion(event: DomainEventV1): ConversionEvent {
     merchant_id: event.merchant_id,
     occurred_at: event.occurred_at,
     source: event.producer === 'mobile' ? 'mobile_app' : 'web',
-    user_data: userData(data),
+    user_data: userData(event.data),
   };
 }
 

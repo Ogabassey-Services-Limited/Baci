@@ -149,6 +149,17 @@ describe('POST /api/analytics/conversion', () => {
     );
   });
 
+  it('preserves the native-client merchant fallback while durable enqueue is disabled', async () => {
+    const response = await POST(request({ merchant_id: undefined }));
+
+    expect(response.status).toBe(200);
+    expect(mocks.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchant_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
+      })
+    );
+  });
+
   it('fails closed for unverified body-only merchant selection', async () => {
     mocks.enqueueEnabled = true;
     mocks.resolveContext.mockResolvedValue({

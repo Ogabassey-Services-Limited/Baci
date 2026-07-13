@@ -51,6 +51,24 @@ function conversionContents(input: AnalyticsEventRequest) {
   });
 }
 
+function deliveryData(input: AnalyticsEventRequest, request: NextRequest) {
+  return {
+    email: input.user_data?.em,
+    external_id: input.user_data?.external_id,
+    fbc: input.user_data?.fbc ?? request.cookies.get('_fbc')?.value,
+    fbp: input.user_data?.fbp ?? request.cookies.get('_fbp')?.value,
+    ip:
+      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+      request.headers.get('x-real-ip') ??
+      undefined,
+    phone: input.user_data?.ph,
+    sccid: input.user_data?.sccid ?? request.cookies.get('ScCid')?.value,
+    ttclid: input.user_data?.ttclid,
+    ttp: input.user_data?.ttp ?? request.cookies.get('_ttp')?.value,
+    ua: request.headers.get('user-agent') ?? undefined,
+  };
+}
+
 function storeLegacyEvent(
   supabase: SupabaseClient,
   input: AnalyticsEventRequest,
@@ -114,21 +132,7 @@ function scheduleLegacyFanout(
         event_type: eventType,
         merchant_id: input.merchant_id,
         source: input.source ?? 'web',
-        user_data: {
-          email: input.user_data?.em,
-          external_id: input.user_data?.external_id,
-          fbc: input.user_data?.fbc ?? request.cookies.get('_fbc')?.value,
-          fbp: input.user_data?.fbp ?? request.cookies.get('_fbp')?.value,
-          ip:
-            request.headers.get('x-forwarded-for')?.split(',')[0] ??
-            request.headers.get('x-real-ip') ??
-            undefined,
-          phone: input.user_data?.ph,
-          sccid: input.user_data?.sccid ?? request.cookies.get('ScCid')?.value,
-          ttclid: input.user_data?.ttclid,
-          ttp: input.user_data?.ttp ?? request.cookies.get('_ttp')?.value,
-          ua: request.headers.get('user-agent') ?? undefined,
-        },
+        user_data: deliveryData(input, request),
       });
     } catch (error) {
       logger.error({ error, message: 'CAPI fan-out error after response' });
@@ -204,6 +208,7 @@ export async function POST(request: NextRequest) {
 
       responseEventId = input.event_id ?? `evt_${crypto.randomUUID()}`;
       await recordAnalyticsDomainEvent(supabase, {
+        deliveryData: deliveryData(input, request),
         eventData,
         eventName: toClientAnalyticsDomainEventName(
           eventType,

@@ -125,6 +125,7 @@ describe('sendToAdPlatforms', () => {
         merchant_id: 'merchant-1',
         event_id: 'evt-1',
         event_type: 'add_to_cart',
+        occurred_at: '2026-07-12T12:00:00.000Z',
         user_data: {
           email: 'buyer@example.com',
           ip: '203.0.113.10',
@@ -160,7 +161,8 @@ describe('sendToAdPlatforms', () => {
       'NGN',
       undefined,
       'evt-1',
-      controller.signal
+      controller.signal,
+      1_783_857_600
     );
     expect(mockTikTokAddToCart).toHaveBeenCalledWith(
       'tt-pixel',
@@ -174,6 +176,7 @@ describe('sendToAdPlatforms', () => {
       }),
       expect.objectContaining({
         eventId: 'evt-1',
+        eventTime: '2026-07-12T12:00:00.000Z',
       }),
       controller.signal
     );
@@ -185,7 +188,8 @@ describe('sendToAdPlatforms', () => {
       120_000,
       'NGN',
       'evt-1',
-      controller.signal
+      controller.signal,
+      1_783_857_600
     );
   });
 

@@ -60,13 +60,14 @@ export async function sendSnapchatEvent(
   userData: SnapchatUserData,
   eventData?: SnapchatEventData,
   eventId?: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  eventTime?: number
 ): Promise<{ success: boolean; error?: string }> {
   if (!pixelId || !accessToken) {
     return { success: false, error: 'Missing pixel ID or access token' };
   }
 
-  const timestamp = Math.floor(Date.now() / 1000);
+  const timestamp = eventTime ?? Math.floor(Date.now() / 1000);
   const eventConversionType = eventName === 'PURCHASE' ? 'OFFLINE' : 'WEB';
 
   // Build hashed user data
@@ -143,7 +144,8 @@ export const snapchatCAPI = {
     currency: string,
     productIds: string[],
     eventId?: string,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    eventTime?: number
   ) => {
     return sendSnapchatEvent(
       pixelId,
@@ -158,7 +160,8 @@ export const snapchatCAPI = {
         numberOfItems: productIds.length,
       },
       eventId,
-      signal
+      signal,
+      eventTime
     );
   },
 
@@ -170,7 +173,8 @@ export const snapchatCAPI = {
     currency: string,
     productIds: string[],
     eventId?: string,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    eventTime?: number
   ) => {
     return sendSnapchatEvent(
       pixelId,
@@ -183,7 +187,8 @@ export const snapchatCAPI = {
         itemIds: productIds,
       },
       eventId,
-      signal
+      signal,
+      eventTime
     );
   },
 
@@ -195,7 +200,8 @@ export const snapchatCAPI = {
     price: number,
     currency: string,
     eventId?: string,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    eventTime?: number
   ) => {
     return sendSnapchatEvent(
       pixelId,
@@ -208,7 +214,8 @@ export const snapchatCAPI = {
         itemIds: [productId],
       },
       eventId,
-      signal
+      signal,
+      eventTime
     );
   },
 };

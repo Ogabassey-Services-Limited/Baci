@@ -48,7 +48,12 @@ function request(merchantId = MERCHANT_ID) {
       merchant_id: merchantId,
       page_url: 'https://shop.usebaci.com/products?customer=private',
     }),
-    headers: { 'x-merchant-slug': 'shop' },
+    headers: {
+      cookie: '_fbc=fb.1.click; _fbp=fbp.1; _ttp=ttp.1; ScCid=snap.1',
+      'user-agent': 'Baci test agent',
+      'x-forwarded-for': '203.0.113.1',
+      'x-merchant-slug': 'shop',
+    },
     method: 'POST',
   });
 }
@@ -92,6 +97,14 @@ describe('POST /api/events durable pipeline', () => {
     expect(mocks.record).toHaveBeenCalledWith(
       expect.any(Object),
       expect.objectContaining({
+        deliveryData: expect.objectContaining({
+          fbc: 'fb.1.click',
+          fbp: 'fbp.1',
+          ip: '203.0.113.1',
+          sccid: 'snap.1',
+          ttp: 'ttp.1',
+          ua: 'Baci test agent',
+        }),
         eventName: 'analytics.page_view.v1',
         trustLevel: 'tenant_verified_client',
       })

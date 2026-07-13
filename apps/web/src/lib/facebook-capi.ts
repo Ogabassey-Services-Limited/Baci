@@ -326,7 +326,8 @@ export const facebookCAPI = {
     eventSourceUrl?: string,
     eventId?: string,
     limitedDataUse?: boolean,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    eventTime?: number
   ) => {
     return sendFacebookCAPIEvent(
       pixelId,
@@ -349,7 +350,8 @@ export const facebookCAPI = {
       eventSourceUrl,
       eventId,
       limitedDataUse,
-      signal
+      signal,
+      eventTime
     );
   },
 
@@ -365,7 +367,8 @@ export const facebookCAPI = {
     products: Array<{ id: string; quantity: number }>,
     eventSourceUrl?: string,
     eventId?: string,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    eventTime?: number
   ) => {
     return sendFacebookCAPIEvent(
       pixelId,
@@ -382,7 +385,8 @@ export const facebookCAPI = {
       eventSourceUrl,
       eventId,
       undefined,
-      signal
+      signal,
+      eventTime
     );
   },
 
@@ -399,7 +403,8 @@ export const facebookCAPI = {
     currency: string,
     eventSourceUrl?: string,
     eventId?: string,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    eventTime?: number
   ) => {
     return sendFacebookCAPIEvent(
       pixelId,
@@ -416,7 +421,8 @@ export const facebookCAPI = {
       eventSourceUrl,
       eventId,
       undefined,
-      signal
+      signal,
+      eventTime
     );
   },
 
@@ -434,7 +440,8 @@ export const facebookCAPI = {
     category?: string,
     eventSourceUrl?: string,
     eventId?: string,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    eventTime?: number
   ) => {
     return sendFacebookCAPIEvent(
       pixelId,
@@ -452,7 +459,8 @@ export const facebookCAPI = {
       eventSourceUrl,
       eventId,
       undefined,
-      signal
+      signal,
+      eventTime
     );
   },
 };

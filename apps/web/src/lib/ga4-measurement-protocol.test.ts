@@ -40,4 +40,26 @@ describe('sendGA4Event', () => {
 
     expect(result).toEqual({ error: 'HTTP 503', success: false });
   });
+
+  it('puts a durable event timestamp in the GA4 event parameters', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204 });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await sendGA4Event(
+      'G-TEST',
+      'secret',
+      'purchase',
+      { clientId: 'client-1' },
+      {},
+      false,
+      undefined,
+      1_783_857_600_000_000
+    );
+
+    const payload = JSON.parse(fetchMock.mock.calls[0]?.[1].body as string);
+    expect(payload.events[0]).not.toHaveProperty('timestamp_micros');
+    expect(payload.events[0].params.timestamp_micros).toBe(
+      1_783_857_600_000_000
+    );
+  });
 });

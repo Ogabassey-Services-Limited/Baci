@@ -209,6 +209,13 @@ function targetEnabled(
   return !event.targets || event.targets.includes(target);
 }
 
+function occurredAtSeconds(occurredAt: string | undefined): number | undefined {
+  const timestamp = occurredAt ? Date.parse(occurredAt) : Number.NaN;
+  return Number.isFinite(timestamp) && timestamp > 0
+    ? Math.floor(timestamp / 1_000)
+    : undefined;
+}
+
 async function sendToFacebook(
   config: AnalyticsPlatformConfig,
   event: ConversionEvent,
@@ -236,6 +243,7 @@ async function sendToFacebook(
   const contents = event.custom_data.contents || [];
   const firstContent = contents[0];
   const eventSourceUrl = event.custom_data.url;
+  const eventTime = occurredAtSeconds(event.occurred_at);
 
   switch (fbEventName) {
     case 'Purchase':
@@ -251,7 +259,8 @@ async function sendToFacebook(
           eventSourceUrl,
           event.event_id,
           event.limited_data_use,
-          signal
+          signal,
+          eventTime
         );
       }
       return { success: false, error: 'missing_purchase_data' };
@@ -266,7 +275,8 @@ async function sendToFacebook(
         contents,
         eventSourceUrl,
         event.event_id,
-        signal
+        signal,
+        eventTime
       );
 
     case 'AddToCart':
@@ -281,7 +291,8 @@ async function sendToFacebook(
           currency,
           eventSourceUrl,
           event.event_id,
-          signal
+          signal,
+          eventTime
         );
       }
       return { success: false, error: 'missing_cart_data' };
@@ -299,7 +310,8 @@ async function sendToFacebook(
           undefined,
           eventSourceUrl,
           event.event_id,
-          signal
+          signal,
+          eventTime
         );
       }
       return { success: false, error: 'missing_content_data' };
@@ -322,7 +334,8 @@ async function sendToFacebook(
         eventSourceUrl,
         event.event_id,
         undefined,
-        signal
+        signal,
+        eventTime
       );
 
     case 'AddPaymentInfo':
@@ -346,7 +359,8 @@ async function sendToFacebook(
         eventSourceUrl,
         event.event_id,
         undefined,
-        signal
+        signal,
+        eventTime
       );
 
     default:
@@ -381,6 +395,7 @@ async function sendToTikTok(
   const contents = event.custom_data.contents || [];
   const options = {
     eventId: event.event_id,
+    eventTime: event.occurred_at,
     url: event.custom_data.url,
   };
   const properties = toTikTokProperties(event);
@@ -526,6 +541,7 @@ async function sendToSnapchat(
   const contents = event.custom_data.contents || [];
   const firstContent = contents[0];
   const productIds = contents.map((content) => content.id);
+  const eventTime = occurredAtSeconds(event.occurred_at);
 
   switch (snapEventName) {
     case 'PURCHASE':
@@ -539,7 +555,8 @@ async function sendToSnapchat(
           currency,
           productIds,
           event.event_id,
-          signal
+          signal,
+          eventTime
         );
       }
       return { success: false, error: 'missing_purchase_data' };
@@ -554,7 +571,8 @@ async function sendToSnapchat(
           currency,
           productIds,
           event.event_id,
-          signal
+          signal,
+          eventTime
         );
       }
       return { success: false, error: 'missing_checkout_data' };
@@ -569,7 +587,8 @@ async function sendToSnapchat(
           value,
           currency,
           event.event_id,
-          signal
+          signal,
+          eventTime
         );
       }
       return { success: false, error: 'missing_cart_data' };
@@ -589,7 +608,8 @@ async function sendToSnapchat(
           searchString: event.custom_data.search_string,
         },
         event.event_id,
-        signal
+        signal,
+        eventTime
       );
 
     case 'VIEW_CONTENT':
@@ -608,7 +628,8 @@ async function sendToSnapchat(
           price: value,
         },
         event.event_id,
-        signal
+        signal,
+        eventTime
       );
 
     default:

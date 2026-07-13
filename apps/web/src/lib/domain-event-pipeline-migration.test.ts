@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const directory = resolve(process.cwd(), '../../supabase/migrations');
 const files = [
-  '20260712150000_domain_event_pipeline_tables.sql',
+  '20260712150001_domain_event_pipeline_tables.sql',
   '20260712150050_eventing_internal_schema.sql',
   '20260712150075_domain_event_idempotency_guard.sql',
   '20260712150100_domain_event_enqueue_rpcs.sql',
@@ -101,7 +101,7 @@ describe('durable domain-event migration contract', () => {
   });
 
   it('ships CDC disabled and serializes only allowlisted fields', () => {
-    const tables = sql['20260712150000_domain_event_pipeline_tables.sql'];
+    const tables = sql['20260712150001_domain_event_pipeline_tables.sql'];
     const triggers = sql['20260712150130_domain_event_cdc_triggers.sql'];
     expect(tables).toContain("('catalog.products', false, true)");
     expect(tables).toContain("('commerce.orders', false, true)");
@@ -142,7 +142,7 @@ describe('durable domain-event migration contract', () => {
     expect(sql['20260712150125_event_worker_heartbeats.sql']).toContain(
       'p_status IS NULL OR p_status NOT IN'
     );
-    expect(sql['20260712150000_domain_event_pipeline_tables.sql']).toContain(
+    expect(sql['20260712150001_domain_event_pipeline_tables.sql']).toContain(
       'domain_event_failures_domain_event_id_idx'
     );
   });
