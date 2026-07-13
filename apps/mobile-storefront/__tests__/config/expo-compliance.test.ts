@@ -32,7 +32,7 @@ function findTypeScriptSourceFiles(directory: string): string[] {
   });
 }
 
-describe('SDK 56 compliance', () => {
+describe('Expo compliance', () => {
   it('uses a manual runtime version for bare workflow builds', () => {
     const originalFacebookAppId = process.env.STOREFRONT_FACEBOOK_APP_ID;
     const originalFacebookClientToken =
@@ -94,7 +94,7 @@ describe('SDK 56 compliance', () => {
     expect(configSource).not.toContain('newArchEnabled');
   });
 
-  it('sets SDK 56 iOS deployment target to 16.4', () => {
+  it('sets the supported iOS deployment target to 16.4', () => {
     const configSource = readFileSync(
       path.join(ROOT, 'app.config.ts'),
       'utf-8'
@@ -104,7 +104,7 @@ describe('SDK 56 compliance', () => {
     expect(configSource).not.toContain("deploymentTarget: '15.1'");
   });
 
-  it('configures the SDK 56 splash plugin without a static splash image', () => {
+  it('configures the Expo splash plugin without a static splash image', () => {
     const configSource = readFileSync(
       path.join(ROOT, 'app.config.ts'),
       'utf-8'

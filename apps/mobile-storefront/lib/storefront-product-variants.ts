@@ -3,6 +3,7 @@ import { createLogger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 
 const log = createLogger('StorefrontProductVariants');
+const STOREFRONT_VARIANT_RPC_PAGE_SIZE = 1000;
 
 export interface StorefrontProductVariantRow {
   attributes?: Record<string, string> | null;
@@ -34,30 +35,94 @@ export async function getStorefrontProductVariantsByProductIds(
     return {} as Record<string, StorefrontProductVariantRow[]>;
   }
 
-  const { data, error } = await withSupabaseRetry(
-    async () =>
-      await supabase.rpc('get_storefront_product_variants', {
-        p_product_ids: uniqueProductIds,
-      }),
-    {
-      maxRetries: 3,
-      onRetry: (attempt, err) => {
-        log.warn(`Variant rpc retry ${attempt}: ${err.message}`);
-      },
-    }
-  );
+  const variants: StorefrontProductVariantRow[] = [];
+  let expectedVariantCount: number | null = null;
+  let from = 0;
 
-  if (error) {
-    log.error('Failed to fetch storefront product variants', {
-      error,
-      productIds: uniqueProductIds,
-    });
-    return {} as Record<string, StorefrontProductVariantRow[]>;
+  while (
+    expectedVariantCount === null ||
+    variants.length < expectedVariantCount
+  ) {
+    const { count, data, error } = await withSupabaseRetry(
+      async () =>
+        await supabase
+          .rpc(
+            'get_storefront_product_variants',
+            { p_product_ids: uniqueProductIds },
+            { count: 'exact' }
+          )
+          .order('product_id', { ascending: true })
+          .order('created_at', { ascending: true, nullsFirst: false })
+          .order('id', { ascending: true })
+          .range(from, from + STOREFRONT_VARIANT_RPC_PAGE_SIZE - 1),
+      {
+        maxRetries: 3,
+        onRetry: (attempt, err) => {
+          log.warn(`Variant rpc retry ${attempt}: ${err.message}`);
+        },
+      }
+    );
+
+    if (error) {
+      log.error('Failed to fetch storefront product variants', {
+        error,
+        productIds: uniqueProductIds,
+      });
+      return null;
+    }
+
+    if (
+      typeof count !== 'number' ||
+      !Number.isSafeInteger(count) ||
+      count < 0
+    ) {
+      log.error('Storefront variant rpc did not return an exact row count', {
+        count,
+        from,
+      });
+      return null;
+    }
+
+    if (expectedVariantCount === null) {
+      expectedVariantCount = count;
+    } else if (count !== expectedVariantCount) {
+      log.warn('Storefront variant rpc changed during pagination', {
+        actualCount: count,
+        expectedCount: expectedVariantCount,
+        from,
+      });
+      return null;
+    }
+
+    const page = (data ?? []) as StorefrontProductVariantRow[];
+    if (page.length === 0) {
+      if (variants.length === expectedVariantCount) {
+        break;
+      }
+
+      log.error('Storefront variant rpc returned an incomplete page sequence', {
+        expectedCount: expectedVariantCount,
+        receivedCount: variants.length,
+        from,
+      });
+      return null;
+    }
+
+    variants.push(...page);
+    from += page.length;
+
+    if (variants.length > expectedVariantCount) {
+      log.error('Storefront variant rpc returned more rows than expected', {
+        expectedCount: expectedVariantCount,
+        receivedCount: variants.length,
+      });
+      return null;
+    }
   }
 
   const variantsByProductId: Record<string, StorefrontProductVariantRow[]> = {};
 
-  for (const variant of (data ?? []) as StorefrontProductVariantRow[]) {
+  for (const variant of variants) {
     if (!variantsByProductId[variant.product_id]) {
       variantsByProductId[variant.product_id] = [];
     }
@@ -77,19 +142,18 @@ export async function hydrateProductRowsWithStorefrontVariants<
       .filter((id): id is string => typeof id === 'string')
   );
 
+  if (variantsByProductId === null) {
+    return rows;
+  }
+
   return rows.map((row) => {
     if (typeof row.id !== 'string') {
       return row;
     }
 
-    const hydratedVariants = variantsByProductId[row.id];
-    if (!hydratedVariants || hydratedVariants.length === 0) {
-      return row;
-    }
-
     return {
       ...row,
-      variants: hydratedVariants,
+      variants: variantsByProductId[row.id] ?? [],
     };
   });
 }

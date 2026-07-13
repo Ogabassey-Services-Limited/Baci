@@ -13,6 +13,7 @@ import { useMerchant } from '@/hooks/use-merchant';
 import { resolveProductVariantMetadata } from '@/lib/product-variant-metadata';
 import { ProductRowSchema } from '@/lib/validation';
 import type { Product } from '@/types/product';
+import { isVariantBearingProduct } from './product-variant-state';
 
 function hasVariantAttributeValues(
   variantAttributes: Record<string, string[]> | undefined
@@ -43,7 +44,7 @@ function augmentProduct(item: z.infer<typeof ProductRowSchema>): Product {
   return {
     ...baseProduct,
     colors: variantMetadata.colors ?? baseProduct.colors,
-    has_variants: item.has_variants ?? false,
+    has_variants: isVariantBearingProduct(item),
     color_images: variantMetadata.colorImages ?? baseProduct.color_images,
     images:
       variantMetadata.galleryImages && variantMetadata.galleryImages.length > 0
@@ -83,7 +84,8 @@ export function useProduct(slug: string) {
     },
     enabled: !!slug && !!merchantId,
     staleTime: 1000 * 60 * 5,
-    refetchOnMount: 'always',
+    refetchOnMount: true,
+    initialDataUpdatedAt: 0,
     initialData: () => {
       const productsCaches = queryClient.getQueriesData<{
         pages: ProductsPage[];
@@ -96,7 +98,7 @@ export function useProduct(slug: string) {
       for (const page of allPages) {
         const found = page.products.find((product) => product.slug === slug);
         if (found) {
-          if (found.has_variants) {
+          if (isVariantBearingProduct(found)) {
             return undefined;
           }
 
