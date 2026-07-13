@@ -23,6 +23,7 @@ const files = [
   '20260712150130_domain_event_cdc_triggers.sql',
   '20260712150140_event_pipeline_retention_rpc.sql',
   '20260713120000_event_delivery_replay_and_idempotency_fixes.sql',
+  '20260713222000_platform_event_legacy_idempotency.sql',
 ] as const;
 
 const sql = Object.fromEntries(
@@ -61,6 +62,18 @@ describe('durable domain-event migration contract', () => {
     expect(sql['20260712150075_domain_event_idempotency_guard.sql']).toContain(
       'domain_event_idempotency_conflict'
     );
+  });
+
+  it('uses a full unique platform event key for legacy upserts', () => {
+    const legacyIdempotency =
+      sql['20260713222000_platform_event_legacy_idempotency.sql'];
+    expect(legacyIdempotency).toContain(
+      'DROP INDEX IF EXISTS public.platform_events_type_event_id_uidx'
+    );
+    expect(legacyIdempotency).toContain(
+      'ON public.platform_events (event_type, event_id)'
+    );
+    expect(legacyIdempotency).not.toContain('WHERE event_id IS NOT NULL');
   });
 
   it('locks route identity and archives only in the same routing transaction', () => {

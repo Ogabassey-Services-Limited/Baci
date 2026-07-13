@@ -3,11 +3,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // --- Mock setup ---
 
-const mockInsert = vi.fn();
+const mockUpsert = vi.fn();
 const mockSettingsSingle = vi.fn();
 const mockFrom = vi.fn((table: string) => {
   if (table === 'platform_events') {
-    return { insert: mockInsert };
+    return { upsert: mockUpsert };
   }
   if (table === 'platform_settings') {
     return {
@@ -53,7 +53,7 @@ describe('POST /api/platform/events', () => {
     vi.clearAllMocks();
     delete process.env.EVENT_PIPELINE_ENQUEUE_ENABLED;
     delete process.env.EVENT_PIPELINE_DISABLE_LEGACY_FANOUT;
-    mockInsert.mockResolvedValue({ data: null, error: null });
+    mockUpsert.mockResolvedValue({ data: null, error: null });
     mockSettingsSingle.mockResolvedValue({
       data: {
         google_analytics_id: 'G-TEST',
@@ -97,7 +97,7 @@ describe('POST /api/platform/events', () => {
     );
 
     expect(res.status).toBe(400);
-    expect(mockInsert).not.toHaveBeenCalled();
+    expect(mockUpsert).not.toHaveBeenCalled();
   });
 
   it('inserts the event and returns success for a valid page view', async () => {
@@ -113,12 +113,27 @@ describe('POST /api/platform/events', () => {
 
     expect(res.status).toBe(200);
     expect(body.success).toBe(true);
-    expect(mockInsert).toHaveBeenCalledWith(
+    expect(mockUpsert).toHaveBeenCalledWith(
       expect.objectContaining({
         event_id: 'platform-event-1',
         event_type: 'landing_page_view',
-      })
+      }),
+      { ignoreDuplicates: true, onConflict: 'event_type,event_id' }
     );
+  });
+
+  it('acknowledges an idempotent platform event retry', async () => {
+    const request = {
+      event_id: 'platform-event-retry',
+      event_type: 'landing_page_view',
+    };
+
+    const first = await POST(makeRequest(request));
+    const retry = await POST(makeRequest(request));
+
+    expect(first.status).toBe(200);
+    expect(retry.status).toBe(200);
+    expect(mockUpsert).toHaveBeenCalledTimes(2);
   });
 
   it('forwards the client-passed currency to GA4 and Facebook instead of discarding it', async () => {

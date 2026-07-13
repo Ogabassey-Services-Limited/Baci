@@ -44,18 +44,21 @@ function persistLegacyPlatformEvent(args: {
 }) {
   return getSupabaseAdmin()
     .from('platform_events')
-    .insert({
-      event_data: args.eventData || {},
-      event_id: args.eventId,
-      event_timestamp: args.eventTimestamp,
-      event_type: args.eventType,
-      ip_address: args.ipAddress,
-      merchant_id: args.merchantId || null,
-      page_url: args.pageUrl,
-      referrer: args.referrer,
-      session_id: args.sessionId,
-      user_agent: args.userAgent,
-    });
+    .upsert(
+      {
+        event_data: args.eventData || {},
+        event_id: args.eventId,
+        event_timestamp: args.eventTimestamp,
+        event_type: args.eventType,
+        ip_address: args.ipAddress,
+        merchant_id: args.merchantId || null,
+        page_url: args.pageUrl,
+        referrer: args.referrer,
+        session_id: args.sessionId,
+        user_agent: args.userAgent,
+      },
+      { ignoreDuplicates: true, onConflict: 'event_type,event_id' }
+    );
 }
 
 export async function POST(request: NextRequest) {

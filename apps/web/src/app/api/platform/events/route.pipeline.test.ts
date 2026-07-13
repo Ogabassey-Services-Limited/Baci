@@ -2,12 +2,12 @@ import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  insert: vi.fn(),
   legacyFanoutDisabled: true,
   record: vi.fn(),
+  upsert: vi.fn(),
 }));
 vi.mock('@supabase/supabase-js', () => ({
-  createClient: () => ({ from: () => ({ insert: mocks.insert }) }),
+  createClient: () => ({ from: () => ({ upsert: mocks.upsert }) }),
 }));
 vi.mock('@/lib/events/event-pipeline-config', () => ({
   isEventPipelineEnqueueEnabled: () => true,
@@ -28,7 +28,7 @@ describe('POST /api/platform/events durable pipeline', () => {
   it('falls back to legacy persistence when durable enqueue fails during shadow mode', async () => {
     mocks.legacyFanoutDisabled = false;
     mocks.record.mockRejectedValueOnce(new Error('queue unavailable'));
-    mocks.insert.mockResolvedValueOnce({ error: null });
+    mocks.upsert.mockResolvedValueOnce({ error: null });
 
     const response = await POST(
       new NextRequest('https://usebaci.com/api/platform/events', {
@@ -41,11 +41,12 @@ describe('POST /api/platform/events durable pipeline', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mocks.insert).toHaveBeenCalledWith(
+    expect(mocks.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         event_id: 'platform-event-1',
         event_type: 'landing_page_view',
-      })
+      }),
+      { ignoreDuplicates: true, onConflict: 'event_type,event_id' }
     );
   });
 
@@ -71,6 +72,6 @@ describe('POST /api/platform/events durable pipeline', () => {
         trustLevel: 'anonymous_client',
       })
     );
-    expect(mocks.insert).not.toHaveBeenCalled();
+    expect(mocks.upsert).not.toHaveBeenCalled();
   });
 });
