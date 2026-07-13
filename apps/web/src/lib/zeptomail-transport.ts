@@ -21,6 +21,34 @@ const ZEPTOMAIL_API_BASE_URL = 'https://api.zeptomail.com/v1.1/';
 // so the window can be generous enough for invoice-attachment uploads.
 const ZEPTOMAIL_REQUEST_TIMEOUT_MS = 30_000;
 
+export const ZEPTOMAIL_DELIVERY_OUTCOME_UNKNOWN_CODE =
+  'ZEPTOMAIL_DELIVERY_OUTCOME_UNKNOWN';
+
+class ZeptoMailDeliveryOutcomeUnknownError extends Error {
+  readonly code = ZEPTOMAIL_DELIVERY_OUTCOME_UNKNOWN_CODE;
+}
+
+const DEFINITE_PRE_SEND_NETWORK_CODES = new Set([
+  'EAI_AGAIN',
+  'ECONNREFUSED',
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'ENOTFOUND',
+  'UND_ERR_CONNECT_TIMEOUT',
+]);
+
+function getNetworkErrorCode(error: unknown): string | undefined {
+  if (
+    error !== null &&
+    typeof error === 'object' &&
+    'code' in error &&
+    typeof error.code === 'string'
+  ) {
+    return error.code;
+  }
+  return undefined;
+}
+
 export type ZeptoMailEndpoint =
   | 'email'
   | 'email/template'
@@ -96,7 +124,7 @@ function describeTransportFailure(error: unknown): Error {
     'name' in error &&
     (error as { name?: unknown }).name === 'TimeoutError'
   ) {
-    return new Error(
+    return new ZeptoMailDeliveryOutcomeUnknownError(
       `ZeptoMail request timed out after ${ZEPTOMAIL_REQUEST_TIMEOUT_MS}ms`
     );
   }
@@ -105,9 +133,16 @@ function describeTransportFailure(error: unknown): Error {
     // audit rows record more than a bare "fetch failed".
     const cause = error.cause;
     if (cause instanceof Error && cause.message) {
-      return new Error(`${error.message}: ${cause.message}`);
+      if (
+        DEFINITE_PRE_SEND_NETWORK_CODES.has(getNetworkErrorCode(cause) ?? '')
+      ) {
+        return new Error(`${error.message}: ${cause.message}`);
+      }
+      return new ZeptoMailDeliveryOutcomeUnknownError(
+        `${error.message}: ${cause.message}`
+      );
     }
-    return error;
+    return new ZeptoMailDeliveryOutcomeUnknownError(error.message);
   }
-  return new Error(String(error));
+  return new ZeptoMailDeliveryOutcomeUnknownError(String(error));
 }

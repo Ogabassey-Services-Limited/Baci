@@ -231,7 +231,10 @@ function createSupabaseMock({
       return Promise.resolve({ error: replaceOrderItemsError });
     }
 
-    if (functionName === 'replace_imported_order_items') {
+    if (
+      functionName ===
+      'replace_imported_order_items_suppressing_order_notifications'
+    ) {
       const updatedOrder = updatedOrderFromRpcArgs(args);
 
       return Promise.resolve({
@@ -254,11 +257,15 @@ function createSupabaseMock({
 
 function getReplaceImportedOrderItemsArgs(rpc: ReturnType<typeof vi.fn>) {
   const call = rpc.mock.calls.find(
-    ([functionName]) => functionName === 'replace_imported_order_items'
+    ([functionName]) =>
+      functionName ===
+      'replace_imported_order_items_suppressing_order_notifications'
   );
 
   if (!call) {
-    throw new Error('replace_imported_order_items was not called');
+    throw new Error(
+      'replace_imported_order_items_suppressing_order_notifications was not called'
+    );
   }
 
   return call[1] as {

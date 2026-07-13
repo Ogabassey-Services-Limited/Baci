@@ -58,7 +58,7 @@ export function createOrderDetailsStatusActions({
 }: CreateOrderDetailsStatusActionsParams) {
   const notifyCustomerStatusEmail = async (
     orderId: string,
-    route: 'cancelled' | 'delivered',
+    route: 'cancelled',
     body?: Record<string, string>
   ) => {
     try {
@@ -119,19 +119,18 @@ export function createOrderDetailsStatusActions({
       await updateStatus({ orderId: order.id, status: newStatus });
       setShowStatusModal(false);
 
-      if (newStatus === 'delivered') {
-        void notifyCustomerStatusEmail(order.id, 'delivered');
-      }
-
       if (newStatus === 'cancelled') {
         void notifyCustomerStatusEmail(order.id, 'cancelled', {
           cancelled_by: 'merchant',
         });
       }
 
-      const subMessage = ['delivered', 'cancelled'].includes(newStatus)
-        ? `The customer has been notified via email that their order has been ${newStatus}.`
-        : '';
+      const subMessage =
+        newStatus === 'delivered'
+          ? 'The customer notification has been queued and will not block fulfillment.'
+          : newStatus === 'cancelled'
+            ? `The customer has been notified via email that their order has been ${newStatus}.`
+            : '';
 
       setSuccessModal({
         actionLabel: '',

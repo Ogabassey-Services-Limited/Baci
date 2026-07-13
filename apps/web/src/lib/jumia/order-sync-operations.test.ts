@@ -226,7 +226,7 @@ describe('Jumia order sync operations', () => {
   it('updates an existing order atomically through the item replacement RPC', async () => {
     const supabase = createSupabaseMock(
       {},
-      { replace_order_items: [{ error: null }] }
+      { replace_order_items_suppressing_order_notifications: [{ error: null }] }
     );
     const existingOrder = {
       id: 'existing-order-1',
@@ -243,18 +243,20 @@ describe('Jumia order sync operations', () => {
     );
 
     expect(result).toEqual(existingOrder);
-    expect(supabase.rpc).toHaveBeenCalledWith('replace_order_items', {
-      p_order_id: 'existing-order-1',
-      p_items: expect.arrayContaining([
-        expect.objectContaining({ order_id: 'existing-order-1' }),
-      ]),
-      p_merchant_id: 'merchant-1',
-      p_is_import: true,
-      p_order_patch: expect.objectContaining({
-        external_id: order.id,
-        tracking_token: 'token-before-update',
-      }),
-    });
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'replace_order_items_suppressing_order_notifications',
+      {
+        p_order_id: 'existing-order-1',
+        p_items: expect.arrayContaining([
+          expect.objectContaining({ order_id: 'existing-order-1' }),
+        ]),
+        p_merchant_id: 'merchant-1',
+        p_order_patch: expect.objectContaining({
+          external_id: order.id,
+          tracking_token: 'token-before-update',
+        }),
+      }
+    );
   });
 
   it('builds a synced Jumia cache row for the persisted Baci order', () => {

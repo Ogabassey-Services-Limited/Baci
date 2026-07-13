@@ -213,8 +213,14 @@ export function buildCategoryMarkdown(
   const merchantCurrency = sanitizeMarkdownText(
     resolveMerchantCurrencyConfig(merchant).code
   );
-  const products = data.products
-    .filter(isRawDbProduct)
+  // Only the first MAX_PRODUCTS_IN_CATEGORY_MARKDOWN products are rendered, so
+  // normalize just those — normalizeProduct (image extraction, category lookup,
+  // slug/spec normalization) over the full uncapped category list was wasted
+  // work on this uncached per-request markdown build. The displayed count still
+  // reflects the full eligible set.
+  const eligibleProducts = data.products.filter(isRawDbProduct);
+  const products = eligibleProducts
+    .slice(0, MAX_PRODUCTS_IN_CATEGORY_MARKDOWN)
     .map((product) => normalizeProduct(product));
 
   return [
@@ -225,21 +231,19 @@ export function buildCategoryMarkdown(
     `- Store: ${businessName}`,
     `- Canonical category URL: ${normalizedOrigin}/${categorySlug}`,
     `- Markdown mirror: ${normalizedOrigin}/${categorySlug}/index.html.md`,
-    `- Product count in this view: ${products.length}`,
+    `- Product count in this view: ${eligibleProducts.length}`,
     '',
     '## Products',
-    ...products
-      .slice(0, MAX_PRODUCTS_IN_CATEGORY_MARKDOWN)
-      .flatMap((product) => {
-        const productUrl = buildAgentProductUrl({
-          baseUrl: normalizedOrigin,
-          product,
-        });
+    ...products.flatMap((product) => {
+      const productUrl = buildAgentProductUrl({
+        baseUrl: normalizedOrigin,
+        product,
+      });
 
-        return [
-          `- [${sanitizeMarkdownText(product.name)}](${getProductMarkdownMirrorUrl(productUrl)}): ${product.price} ${merchantCurrency}${product.brand ? `, ${sanitizeMarkdownText(product.brand)}` : ''}`,
-        ];
-      }),
+      return [
+        `- [${sanitizeMarkdownText(product.name)}](${getProductMarkdownMirrorUrl(productUrl)}): ${product.price} ${merchantCurrency}${product.brand ? `, ${sanitizeMarkdownText(product.brand)}` : ''}`,
+      ];
+    }),
     '',
   ].join('\n');
 }

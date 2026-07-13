@@ -135,27 +135,6 @@ export async function completeOrderShipment({
     await updateStatus({ orderId: order.id, status: 'shipped' });
   }
 
-  try {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (session?.access_token) {
-      fetch(`${BASE_URL}/api/orders/${order.id}/shipped`, {
-        body: JSON.stringify({}),
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        method: 'POST',
-      }).catch(() => {
-        // Ignore best-effort shipment notification failures.
-      });
-    }
-  } catch {
-    // Ignore best-effort shipment notification failures.
-  }
-
   queryClient.invalidateQueries({ queryKey: ['order', order.id] });
   queryClient.invalidateQueries({ queryKey: ['orders'] });
   queryClient.invalidateQueries({ queryKey: ['order-counts'] });
@@ -170,7 +149,7 @@ export async function completeOrderShipment({
     actionVariant: canSendToRider ? 'whatsapp' : 'default',
     message:
       mode === 'self_fulfillment'
-        ? 'The order has been marked shipped. Customer notification has been triggered.'
+        ? 'The order has been marked shipped. Customer notification has been queued.'
         : providerLabel
           ? `The order has been booked with ${providerLabel} and marked shipped.`
           : 'The order has been marked shipped.',
@@ -179,7 +158,7 @@ export async function completeOrderShipment({
       ? 'You can now send the delivery details to your dispatch rider on WhatsApp.'
       : mode === 'self_fulfillment'
         ? 'Add a rider number on the order anytime to send delivery details on WhatsApp.'
-        : 'The customer has been notified of the shipment update.',
+        : 'The customer notification has been queued and will not block fulfillment.',
     title: mode === 'self_fulfillment' ? 'Order Shipped' : 'Shipment Booked',
   };
 }
