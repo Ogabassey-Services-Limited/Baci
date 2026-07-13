@@ -207,7 +207,7 @@ export async function POST(request: NextRequest) {
         // Δ-0a: `gateway_fee` is not a column on `transactions`. Juicyway
         // verify webhooks have no fee field either, so settlement passes 0
         // (matches existing semantics).
-        'id, order_id, merchant_id, amount, platform_fee, status, metadata, created_at'
+        'id, order_id, merchant_id, amount, platform_fee, status, metadata, created_at, updated_at'
       )
       .eq('gateway_reference', reference)
       .eq('gateway', 'juicyway')
@@ -242,7 +242,7 @@ export async function POST(request: NextRequest) {
           await supabase
             .from('orders')
             .select(
-              'id, total, ad_tracking, payment_status, shipping_status, cancelled_at'
+              'id, order_number, total, currency, customer_id, customer_name, customer_email, customer_phone, shipping_address, order_items(id, product_id, condition, name, price, quantity, variant_name), ad_tracking, payment_status, shipping_status, cancelled_at'
             )
             .eq('id', transaction.order_id)
             .maybeSingle();
@@ -269,7 +269,16 @@ export async function POST(request: NextRequest) {
         ) {
           const conversionOrder: OrderForConversion = {
             ad_tracking: completedOrder.ad_tracking,
+            currency: completedOrder.currency,
+            customer_email: completedOrder.customer_email,
+            customer_id: completedOrder.customer_id,
+            customer_name: completedOrder.customer_name,
+            customer_phone: completedOrder.customer_phone,
             id: completedOrder.id,
+            occurredAt: transaction.updated_at,
+            order_items: completedOrder.order_items,
+            order_number: completedOrder.order_number,
+            shipping_address: completedOrder.shipping_address,
             total: completedOrder.total ?? transaction.amount,
           };
           await triggerPurchaseConversion(
@@ -278,6 +287,12 @@ export async function POST(request: NextRequest) {
             conversionOrder,
             { deliveryMode: 'enqueue_only' }
           );
+          scheduleLegacyPurchaseConversion({
+            merchantId: transaction.merchant_id,
+            order: conversionOrder,
+            scheduleAfter: (task) => after(task),
+            supabase: createAdminClient(),
+          });
         }
       }
 
@@ -705,6 +720,7 @@ export async function POST(request: NextRequest) {
             customer_name: order.customer_name,
             customer_phone: order.customer_phone,
             id: order.id,
+            occurredAt: data.date,
             order_items: order.order_items,
             order_number: order.order_number,
             total: order.total,

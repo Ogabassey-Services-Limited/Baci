@@ -176,7 +176,7 @@ describe('POST /api/analytics/conversion', () => {
     expect(mocks.send).not.toHaveBeenCalled();
   });
 
-  it('returns 500 when durable persistence fails', async () => {
+  it('uses legacy fanout when durable persistence fails during shadow mode', async () => {
     mocks.enqueueEnabled = true;
     mocks.resolveContext.mockResolvedValue({
       merchantId: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
@@ -188,7 +188,12 @@ describe('POST /api/analytics/conversion', () => {
 
     const response = await POST(request());
 
-    expect(response.status).toBe(500);
-    expect(mocks.send).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(mocks.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event_id: 'event-1',
+        merchant_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
+      })
+    );
   });
 });

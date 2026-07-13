@@ -24,6 +24,7 @@ function storefrontSlugFromHost(
   host: string,
   rootDomain: string
 ): string | null {
+  if (host === `www.${rootDomain}`) return null;
   const rootSuffix = `.${rootDomain}`;
   if (host.endsWith(rootSuffix)) {
     const candidate = host.slice(0, -rootSuffix.length);

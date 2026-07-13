@@ -229,21 +229,31 @@ export async function POST(request: NextRequest) {
     }
 
     if (pipelineContext?.ok) {
-      await recordAnalyticsDomainEvent(getSupabaseAdmin(), {
-        deliveryData: deliveryData(input, request),
-        eventData: toStoredEventData(input),
-        eventName: toClientAnalyticsDomainEventName(
+      try {
+        await recordAnalyticsDomainEvent(getSupabaseAdmin(), {
+          deliveryData: deliveryData(input, request),
+          eventData: toStoredEventData(input),
+          eventName: toClientAnalyticsDomainEventName(
+            eventType,
+            pipelineContext.trustLevel
+          ),
+          eventTimestamp: new Date(input.event_time * 1000).toISOString(),
           eventType,
-          pipelineContext.trustLevel
-        ),
-        eventTimestamp: new Date(input.event_time * 1000).toISOString(),
-        eventType,
-        externalEventId: eventId,
-        merchantId,
-        requestId: request.headers.get('x-request-id') ?? undefined,
-        source: input.event_source,
-        trustLevel: pipelineContext.trustLevel,
-      });
+          externalEventId: eventId,
+          merchantId,
+          requestId: request.headers.get('x-request-id') ?? undefined,
+          source: input.event_source,
+          trustLevel: pipelineContext.trustLevel,
+        });
+      } catch (error) {
+        if (isLegacyAnalyticsFanoutDisabled()) throw error;
+        logger.warn({
+          error,
+          eventId,
+          message: 'Durable conversion enqueue failed; using legacy fanout',
+        });
+        await storeLegacyConversion(merchantId, eventType, eventId, input);
+      }
     } else {
       await storeLegacyConversion(merchantId, eventType, eventId, input);
     }

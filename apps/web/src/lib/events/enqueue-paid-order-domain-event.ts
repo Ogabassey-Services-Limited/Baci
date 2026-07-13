@@ -13,6 +13,7 @@ export async function enqueuePaidOrderDomainEvent(
   input: {
     externalEventId: string;
     merchantId: string;
+    occurredAt?: string;
     orderId: string;
   }
 ) {
@@ -26,7 +27,7 @@ export async function enqueuePaidOrderDomainEvent(
     p_idempotency_key: `paid-order-ad-tracking:${input.orderId}`,
     p_merchant_id: input.merchantId,
     p_metadata: createDomainEventMetadata(),
-    p_occurred_at: new Date().toISOString(),
+    p_occurred_at: input.occurredAt ?? new Date().toISOString(),
     p_producer: 'worker',
     p_source: {},
     p_subject_id: input.orderId,

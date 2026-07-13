@@ -73,6 +73,22 @@ describe('triggerPurchaseConversion pipeline migration', () => {
     expect(mocks.send).not.toHaveBeenCalled();
   });
 
+  it('forwards the paid occurrence time into the durable event', async () => {
+    const paidAt = '2026-07-13T12:34:56.000Z';
+
+    await triggerPurchaseConversion(
+      {} as never,
+      'merchant-1',
+      { ...order, occurredAt: paidAt },
+      { deliveryMode: 'enqueue_only' }
+    );
+
+    expect(mocks.enqueue).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ occurredAt: paidAt })
+    );
+  });
+
   it('retains legacy delivery after enqueue until full cutover is explicit', async () => {
     await triggerPurchaseConversion({} as never, 'merchant-1', order);
 

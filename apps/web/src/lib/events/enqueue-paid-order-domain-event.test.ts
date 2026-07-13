@@ -23,6 +23,7 @@ describe('enqueuePaidOrderDomainEvent', () => {
     await enqueuePaidOrderDomainEvent(supabase, {
       externalEventId: 'purchase_order-1',
       merchantId: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
+      occurredAt: '2026-07-13T12:34:56.000Z',
       orderId: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a236',
     });
 
@@ -32,6 +33,7 @@ describe('enqueuePaidOrderDomainEvent', () => {
         p_event_name: 'analytics.purchase.completed.v1',
         p_idempotency_key:
           'paid-order-ad-tracking:019bbd89-8f5f-7f8c-a4fd-42b5d7e7a236',
+        p_occurred_at: '2026-07-13T12:34:56.000Z',
         p_trust_level: 'server',
       })
     );

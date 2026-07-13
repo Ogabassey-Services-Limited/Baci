@@ -114,6 +114,29 @@ describe('resolveEventIngressContext', () => {
     expect(client.from).not.toHaveBeenCalled();
   });
 
+  it('uses the posted path storefront slug for a www root-domain host', async () => {
+    const client = lookupClient({ id: 'merchant-1' });
+    const result = await resolveEventIngressContext({
+      merchantId: 'merchant-1',
+      pageUrl: 'https://www.usebaci.com/shop/products/phone',
+      request: request(
+        { host: 'www.usebaci.com' },
+        'https://www.usebaci.com/api/events'
+      ),
+      supabase: client as never,
+    });
+
+    expect(result).toMatchObject({
+      merchantId: 'merchant-1',
+      ok: true,
+      trustLevel: 'tenant_verified_client',
+    });
+    const merchantsBuilder = client.from.mock.results[0]?.value as {
+      eq: ReturnType<typeof vi.fn>;
+    };
+    expect(merchantsBuilder.eq).toHaveBeenCalledWith('slug', 'shop');
+  });
+
   it('keeps an unknown tenant host anonymous', async () => {
     const result = await resolveEventIngressContext({
       merchantId: 'merchant-1',

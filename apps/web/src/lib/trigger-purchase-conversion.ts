@@ -36,6 +36,7 @@ export interface OrderForConversion {
   customer_phone?: string | null;
   customer_name?: string | null;
   customer_id?: string | null;
+  occurredAt?: string;
   ad_tracking?: Record<string, unknown> | null;
   order_items?: Array<{
     id?: string | null;
@@ -126,6 +127,7 @@ export async function triggerPurchaseConversion(
       await enqueuePaidOrderDomainEvent(supabase, {
         externalEventId: stableEventId,
         merchantId,
+        occurredAt: order.occurredAt,
         orderId: order.id,
       });
       logger.info({
