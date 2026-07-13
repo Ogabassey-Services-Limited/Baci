@@ -8,11 +8,16 @@ import {
   getOllamaBasicAuth,
 } from '@/env';
 import { buildLlmBearerAuthHeader } from '@/lib/llm-auth';
+import { logger } from '@/lib/logger';
 import { buildOllamaBasicAuthHeader } from '@/lib/ollama-auth';
 import {
   type GemmaQuestionCompletionMessage,
   requestGemmaQuestionCompletion,
 } from '@/lib/quiz/gemma-question-completion';
+import {
+  hasHostedQuizQuestionProvider,
+  runQuizQuestionProviderChain,
+} from '@/lib/quiz/quiz-question-provider-chain';
 import {
   type GeneratedQuizQuestion,
   generatedQuizOptionSchema,
@@ -226,52 +231,107 @@ function getCompletionTokenBudget(input: GenerateQuizQuestionsOptions): number {
   );
 }
 
-function getGemmaQuestionTransportConfig() {
+/**
+ * The SELF-HOSTED transport (our own LLM server, else Ollama). It is now the
+ * FALLBACK: the hosted Cerebras Gemma 4 chain is tried first. Returns null when
+ * neither is configured, so the caller can decide whether that is fatal — it is
+ * only fatal if the hosted chain is also unavailable.
+ */
+function getSelfHostedTransportConfig() {
   const llmServerUrl = getLlmServerUrl();
   if (llmServerUrl) {
     const llmServerBearer = getLlmServerBearer();
     if (!llmServerBearer || !buildLlmBearerAuthHeader(llmServerBearer)) {
-      throw new QuizQuestionGenerationUnavailableError();
+      return null;
     }
     return { llmServerUrl, llmServerBearer, model: getLlmChatModel() };
   }
 
   const ollamaBaseUrl = getOllamaBaseUrl();
   if (!ollamaBaseUrl) {
-    throw new QuizQuestionGenerationUnavailableError();
+    return null;
   }
 
   const ollamaBasicAuth = getOllamaBasicAuth();
   if (ollamaBasicAuth && !buildOllamaBasicAuthHeader(ollamaBasicAuth)) {
-    throw new QuizQuestionGenerationUnavailableError();
+    return null;
   }
 
   return { model: getAiChatModel(), ollamaBaseUrl, ollamaBasicAuth };
 }
 
+const QUIZ_QUESTION_SYSTEM_PROMPT =
+  'You are a quiz question writer for Baci merchants. Return strict JSON with a questions array. Each question needs topic, difficulty, prompt, options, correctOptionId, and explanation. Options must be objects shaped like {"id":"a","label":"Answer"} and correctOptionId must be an option id string.';
+
+/**
+ * Generates quiz questions on Gemma 4.
+ *
+ * Provider order: the HOSTED chain first (Cerebras Gemma 4 → Groq → Gemini →
+ * OpenRouter, shared with the AI copilot), then our SELF-HOSTED Gemma server as
+ * a last resort. Cerebras serves Gemma 4 in well under a second, and this call
+ * blocks the merchant in the dashboard, so it leads.
+ *
+ * Whatever produces the text, the output is validated by the SAME in-code Zod
+ * schema (`parseGeneratedContent` → `generatedQuizQuestionsSchema`), so a
+ * provider that returns off-shape JSON is rejected rather than trusted.
+ */
 export async function generateQuizQuestionsWithGemma(
   input: GenerateQuizQuestionsOptions
 ): Promise<GeneratedQuizQuestion[]> {
-  const transportConfig = getGemmaQuestionTransportConfig();
+  const selfHostedConfig = getSelfHostedTransportConfig();
+  const hasHostedChain = hasHostedQuizQuestionProvider();
+
+  if (!hasHostedChain && !selfHostedConfig) {
+    throw new QuizQuestionGenerationUnavailableError();
+  }
+
   const abortController = new AbortController();
   const timeoutId = setTimeout(() => abortController.abort(), GEMMA_TIMEOUT_MS);
-  const messages: GemmaQuestionCompletionMessage[] = [
-    {
-      role: 'system',
-      content:
-        'You are a quiz question writer for Baci merchants. Return strict JSON with a questions array. Each question needs topic, difficulty, prompt, options, correctOptionId, and explanation. Options must be objects shaped like {"id":"a","label":"Answer"} and correctOptionId must be an option id string.',
-    },
-    {
-      role: 'user',
-      content: buildUserPrompt(input),
-    },
-  ];
+  const userPrompt = buildUserPrompt(input);
+  const maxOutputTokens = getCompletionTokenBudget(input);
 
   try {
+    if (hasHostedChain) {
+      try {
+        const content = await runQuizQuestionProviderChain({
+          system: QUIZ_QUESTION_SYSTEM_PROMPT,
+          prompt: userPrompt,
+          maxOutputTokens,
+          temperature: TEMPERATURE,
+          abortSignal: abortController.signal,
+        });
+        return parseGeneratedContent(content);
+      } catch (error) {
+        // The whole hosted chain failed (or produced JSON the schema rejected).
+        // If we have no self-hosted server to fall back to, this is terminal.
+        // Never swallow the route timeout — retrying against a fired signal
+        // would just burn the merchant's remaining budget.
+        if (!selfHostedConfig || abortController.signal.aborted) {
+          throw error;
+        }
+
+        logger.warn({
+          error,
+          event: 'quiz_question_generation',
+          message:
+            'Hosted Gemma chain failed; falling back to the self-hosted Gemma server',
+        });
+      }
+    }
+
+    if (!selfHostedConfig) {
+      throw new QuizQuestionGenerationUnavailableError();
+    }
+
+    const messages: GemmaQuestionCompletionMessage[] = [
+      { role: 'system', content: QUIZ_QUESTION_SYSTEM_PROMPT },
+      { role: 'user', content: userPrompt },
+    ];
+
     const content = await requestGemmaQuestionCompletion({
-      ...transportConfig,
+      ...selfHostedConfig,
       signal: abortController.signal,
-      maxTokens: getCompletionTokenBudget(input),
+      maxTokens: maxOutputTokens,
       messages,
       temperature: TEMPERATURE,
     });
