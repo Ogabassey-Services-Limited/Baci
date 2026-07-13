@@ -111,4 +111,12 @@ describe('postgres performance snapshot', () => {
       );
     }
   });
+
+  it('groups connection counts by the normalized exported identity', async () => {
+    const sql = await readFile(sqlPath, 'utf8');
+
+    expect(sql).toMatch(
+      /GROUP BY\s+backend_type,\s+coalesce\(state, 'not_applicable'\),\s+coalesce\(nullif\(application_name, ''\), 'unset'\)/i
+    );
+  });
 });

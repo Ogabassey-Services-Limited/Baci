@@ -185,7 +185,10 @@ connection_rows AS (
     coalesce(nullif(application_name, ''), 'unset') AS application_name,
     count(*)::text AS connections
   FROM pg_stat_activity
-  GROUP BY backend_type, state, application_name
+  GROUP BY
+    backend_type,
+    coalesce(state, 'not_applicable'),
+    coalesce(nullif(application_name, ''), 'unset')
 ),
 lock_rows AS (
   SELECT
