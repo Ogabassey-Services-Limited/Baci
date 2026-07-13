@@ -1,13 +1,9 @@
 /**
  * Shared geometry classes for the mobile hero's first frame.
  *
- * Consumed by BOTH the interactive carousel (`hero-mobile-carousel.tsx`) and
- * the static PPR-shell fallback (`ogabassey-home-hero-fallback.tsx`). The
- * fallback must be pixel-identical to the carousel's slide-0 frame so the
- * Suspense swap is visually a no-op — home's field CLS (0.37) came from the
- * generic baked banner being replaced by a differently-shaped product hero.
- * Keeping the classes in one module makes that parity structural: a styling
- * change either moves both surfaces together or fails the parity test.
+ * Shared by the product-neutral PPR fallback and the sole carousel rendered
+ * after the request-scoped publication guard. Matching these dimensions keeps
+ * the streamed Hero transition stable without exposing product UI early.
  */
 
 export const HERO_MOBILE_WRAPPER_CLASSES = 'md:hidden mb-4 order-1';
@@ -44,3 +40,7 @@ export const HERO_MOBILE_CONTROL_TRACK_CLASSES = 'h-11 flex-1';
 /** Geometry only — the call sites add their own fill (`bg-store-primary`). */
 export const HERO_MOBILE_PLAY_TOGGLE_SLOT_CLASSES =
   'h-11 min-w-11 rounded-full';
+
+/** Minimum rendered height of the mobile utility card: outer p-2, the 44px
+ * callout + gap, and the 80px option grid. Shared with the PPR fallback. */
+export const HERO_MOBILE_UTILITY_PANEL_MIN_HEIGHT_CLASS = 'min-h-[156px]';

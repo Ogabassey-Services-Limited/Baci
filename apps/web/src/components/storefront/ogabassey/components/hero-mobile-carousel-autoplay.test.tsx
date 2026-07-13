@@ -103,7 +103,7 @@ describe('HeroMobileCarousel autoplay & gestures', () => {
     ).toHaveAttribute('aria-current', 'true');
   });
 
-  it('auto-advances to the next slide after the interval elapses', () => {
+  it('does not auto-advance until the user explicitly starts rotation', () => {
     vi.useFakeTimers();
     render(<HeroMobileCarousel slides={SLIDES} />);
 
@@ -116,14 +116,68 @@ describe('HeroMobileCarousel autoplay & gestures', () => {
     });
 
     expect(
+      screen.queryByRole('img', { name: 'Itel Power 80' })
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /play auto-rotation/i })
+    );
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+
+    expect(
       screen.getByRole('img', { name: 'Itel Power 80' })
     ).toBeInTheDocument();
+  });
+
+  it('does not create progress animation work until Play is pressed', () => {
+    const animate = vi.fn(() =>
+      ({
+        cancel: vi.fn(),
+        pause: vi.fn(),
+        play: vi.fn(),
+      }) as unknown as Animation
+    );
+    const originalAnimate = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      'animate'
+    );
+    Object.defineProperty(HTMLElement.prototype, 'animate', {
+      configurable: true,
+      value: animate,
+    });
+
+    try {
+      render(<HeroMobileCarousel slides={SLIDES} />);
+
+      expect(animate).not.toHaveBeenCalled();
+
+      fireEvent.click(
+        screen.getByRole('button', { name: /play auto-rotation/i })
+      );
+
+      expect(animate).toHaveBeenCalledTimes(1);
+    } finally {
+      if (originalAnimate) {
+        Object.defineProperty(
+          HTMLElement.prototype,
+          'animate',
+          originalAnimate
+        );
+      } else {
+        Reflect.deleteProperty(HTMLElement.prototype, 'animate');
+      }
+    }
   });
 
   it('resumes auto-advance after a cancelled touch (touchcancel)', () => {
     vi.useFakeTimers();
     render(<HeroMobileCarousel slides={SLIDES} />);
 
+    fireEvent.click(
+      screen.getByRole('button', { name: /play auto-rotation/i })
+    );
     const panel = screen.getByRole('region', { name: panelName });
 
     // A touch pauses autoplay, so the slide does not advance while held.
@@ -150,6 +204,9 @@ describe('HeroMobileCarousel autoplay & gestures', () => {
     vi.useFakeTimers();
     render(<HeroMobileCarousel slides={SLIDES} />);
 
+    fireEvent.click(
+      screen.getByRole('button', { name: /play auto-rotation/i })
+    );
     const link = screen.getByRole('link', {
       name: 'Samsung Galaxy A27 5G — Pre-order now',
     });
@@ -202,12 +259,20 @@ describe('HeroMobileCarousel autoplay & gestures', () => {
     expect(
       screen.queryByRole('button', { name: /auto-rotation/i })
     ).not.toBeInTheDocument();
+    expect(
+      document.querySelector(
+        '[data-ogabassey-carousel-toggle-slot="reserved"]'
+      )
+    ).toHaveClass('h-11', 'min-w-11');
   });
 
   it('stops auto-advance when the persistent pause control is pressed (WCAG 2.2.2)', () => {
     vi.useFakeTimers();
     render(<HeroMobileCarousel slides={SLIDES} />);
 
+    fireEvent.click(
+      screen.getByRole('button', { name: /play auto-rotation/i })
+    );
     fireEvent.click(
       screen.getByRole('button', { name: /pause auto-rotation/i })
     );
@@ -229,6 +294,9 @@ describe('HeroMobileCarousel autoplay & gestures', () => {
     vi.useFakeTimers();
     render(<HeroMobileCarousel slides={SLIDES} />);
 
+    fireEvent.click(
+      screen.getByRole('button', { name: /play auto-rotation/i })
+    );
     const toggle = screen.getByRole('button', { name: /pause auto-rotation/i });
     // The toggle lives outside the carousel panel, so focusing it must NOT
     // trigger the panel's focus-within pause (which would otherwise keep

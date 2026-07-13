@@ -23,6 +23,7 @@ vi.mock('next/dynamic', () => ({
 }));
 
 import { HeroUtilityPanel } from './hero-utility-panel';
+import { HERO_MOBILE_UTILITY_PANEL_MIN_HEIGHT_CLASS } from './hero-mobile-geometry';
 
 describe('HeroUtilityPanel', () => {
   beforeEach(() => {
@@ -44,14 +45,20 @@ describe('HeroUtilityPanel', () => {
     expect(screen.getByTestId('utility-modal')).toHaveTextContent('airtime');
   });
 
-  it('rotates the utility copy before manual selection', () => {
+  it('keeps utility copy stable until the user selects an option', () => {
     render(<HeroUtilityPanel />);
 
     act(() => {
       vi.advanceTimersByTime(2500);
     });
 
+    expect(screen.queryByText(/data!/i)).not.toBeInTheDocument();
+    expect(screen.getAllByText(/airtime!/i)[0]).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole('button', { name: /data/i })[0]);
+
     expect(screen.getAllByText(/data!/i)[0]).toBeInTheDocument();
+    expect(screen.getByTestId('utility-modal')).toHaveTextContent('data');
   });
 
   it('does not use content visibility on the above-fold utility panel', () => {
@@ -63,5 +70,13 @@ describe('HeroUtilityPanel', () => {
     expect(container.firstElementChild).not.toHaveClass(
       '[contain-intrinsic-size:1400px_260px]'
     );
+  });
+
+  it('shares the mobile minimum height with the publication-safe fallback', () => {
+    const { container } = render(<HeroUtilityPanel />);
+
+    expect(
+      container.querySelector('[data-ogabassey-mobile-utility-panel="true"]')
+    ).toHaveClass(HERO_MOBILE_UTILITY_PANEL_MIN_HEIGHT_CLASS);
   });
 });
