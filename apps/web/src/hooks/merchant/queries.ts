@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { redactMerchantFeatureSettingsResponse } from '@/lib/merchant-feature-settings-redaction';
 import { defaultStaffAccess, ownerStaffAccess } from './constants';
 import { redactMerchantSecretsForNonOwner } from './redact-merchant-secrets-for-non-owner';
 import type { MerchantData, StaffAccess, StaffRole } from './types';
@@ -262,7 +263,16 @@ export async function fetchDashboardMerchant(
   // Owner path
   if (isValidMerchant && !ownerError) {
     return {
-      merchant: ownedMerchant,
+      // Even the owner's browser must not receive raw integration credentials
+      // (e.g. Zoho Campaigns access/refresh/client-secret) nested in
+      // feature_settings.custom_settings — mirror the redaction that
+      // /api/merchant/features already applies to every response.
+      merchant: {
+        ...ownedMerchant,
+        feature_settings: redactMerchantFeatureSettingsResponse(
+          ownedMerchant.feature_settings
+        ),
+      },
       staffAccess: { ...ownerStaffAccess },
     };
   }

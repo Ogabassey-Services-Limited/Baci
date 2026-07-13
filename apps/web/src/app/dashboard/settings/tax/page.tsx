@@ -4,12 +4,11 @@ import {
 } from '@baci/shared';
 import { ChevronLeft, Receipt } from 'lucide-react';
 import type { Metadata } from 'next';
-import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { getMerchantForUser } from '@/lib/merchant-server';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { registeredAddressSchema } from '@/schemas/merchant-settings';
 import { TaxSettingsForm } from './tax-settings-form';
 
@@ -25,9 +24,11 @@ export default async function TaxSettingsPage() {
     redirect('/login');
   }
 
-  // Fetch current VAT settings
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+  // Fetch current VAT/registration settings. getMerchantForUser above already
+  // verified the caller owns/staffs merchant.id; this read runs under the
+  // service role so it keeps working after S1 revokes the sensitive
+  // `merchants` column grants from the `authenticated` role.
+  const supabase = createAdminClient();
 
   const { data: merchantData, error: merchantDataError } = await supabase
     .from('merchants')

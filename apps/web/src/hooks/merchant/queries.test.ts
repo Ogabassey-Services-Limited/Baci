@@ -195,6 +195,53 @@ describe('fetchDashboardMerchant', () => {
     expect(result.staffAccess.isStaff).toBe(false);
   });
 
+  it('scrubs nested Zoho integration credentials even for the owner', async () => {
+    const supabase = createMockSupabase({
+      merchants: mockQueryChain({
+        data: {
+          id: 'merchant-1',
+          user_id: 'user-1',
+          business_name: 'Owner Store',
+          slug: 'owner-store',
+          // owner keeps their own top-level secrets; only nested integration
+          // credentials must be stripped from the browser payload
+          bank_account_number: '1234567890',
+          feature_settings: {
+            pay_on_delivery_enabled: true,
+            custom_settings: {
+              zohoCampaigns: {
+                accessToken: 'zoho-access',
+                refreshToken: 'zoho-refresh',
+                clientSecret: 'zoho-secret',
+              },
+            },
+          },
+        },
+        error: null,
+      }),
+      staff_members: mockQueryChain({ data: null, error: null }),
+    });
+
+    const result = await fetchDashboardMerchant(supabase, 'user-1');
+
+    expect(result.staffAccess.isOwner).toBe(true);
+    // owner still sees their own top-level financial data
+    expect(result.merchant?.bank_account_number).toBe('1234567890');
+    // but nested Zoho credentials are scrubbed
+    const zoho = (
+      result.merchant?.feature_settings?.custom_settings as
+        | { zohoCampaigns?: Record<string, unknown> }
+        | undefined
+    )?.zohoCampaigns;
+    expect(zoho?.accessToken).toBeUndefined();
+    expect(zoho?.refreshToken).toBeUndefined();
+    expect(zoho?.clientSecret).toBeUndefined();
+    // non-secret flags preserved
+    expect(result.merchant?.feature_settings?.pay_on_delivery_enabled).toBe(
+      true
+    );
+  });
+
   it('redacts owner-only secrets for a non-owner staff member but keeps the merchant', async () => {
     const supabase = createMockSupabase({
       // Not the owner of any merchant.
