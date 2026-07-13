@@ -166,6 +166,24 @@ export async function resolvePrizeProduct(
   };
 }
 
+/**
+ * True when the event's settings configure a RANKED-prize quiz (ranked_prizes /
+ * ranked_winner_count / grand_prize_amount / cash_prize_amount). Such quizzes are
+ * finalized by the winner-mint cron and therefore require a close deadline.
+ */
+export function isRankedPrizeQuizSettings(settings: unknown): boolean {
+  if (!settings || typeof settings !== 'object') {
+    return false;
+  }
+  const record = settings as Record<string, unknown>;
+  return (
+    'ranked_prizes' in record ||
+    'ranked_winner_count' in record ||
+    'grand_prize_amount' in record ||
+    'cash_prize_amount' in record
+  );
+}
+
 // Opens a merchant-owned DRAFT quiz. Activation is deliberately a separate,
 // confirmed admin action performed AFTER the AI answer key is reviewed, so it
 // never runs implicitly as part of question generation.
@@ -192,6 +210,18 @@ export async function activateMerchantQuizDraft(
   if (
     draft &&
     !hasPersistedAnswerKeyReview((draft as { settings?: unknown }).settings)
+  ) {
+    return null;
+  }
+
+  // Ranked-prize quizzes MUST carry a close deadline: the winner-mint cron only
+  // finalizes a ranked event once ends_at has passed, so activating one with a
+  // null deadline would leave it open and never mint winners. Fail closed.
+  if (
+    !endsAt &&
+    isRankedPrizeQuizSettings(
+      (draft as { settings?: unknown } | null)?.settings
+    )
   ) {
     return null;
   }
