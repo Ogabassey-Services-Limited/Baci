@@ -49,6 +49,17 @@ function isPlaceholderManualBankName(bankName: string): boolean {
   return PLACEHOLDER_MANUAL_BANK_NAMES.has(normalizedBankName);
 }
 
+function revalidateFeaturesAfterSubaccountMutation(merchantId: string): void {
+  try {
+    revalidateFeatures(merchantId);
+  } catch (error) {
+    console.error('Failed to revalidate storefront payment features', {
+      error,
+      merchantId,
+    });
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const auth = await authenticateApiRequest(request);
@@ -222,7 +233,7 @@ export async function POST(request: NextRequest) {
 
       // Paystack capability changed (subaccount cleared) — bust the cached
       // storefront features lookup so checkout stops advertising Paystack.
-      revalidateFeatures(merchantId);
+      revalidateFeaturesAfterSubaccountMutation(merchantId);
 
       return NextResponse.json({
         success: true,
@@ -346,7 +357,7 @@ export async function POST(request: NextRequest) {
 
     // Paystack capability changed (subaccount configured) — bust the cached
     // storefront features lookup so checkout starts advertising Paystack.
-    revalidateFeatures(merchantId);
+    revalidateFeaturesAfterSubaccountMutation(merchantId);
 
     if (shouldPersistAutoPayoutEnabled) {
       const { error: walletInitError } = await auth.supabase.rpc(

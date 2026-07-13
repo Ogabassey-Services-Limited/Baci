@@ -4,10 +4,10 @@ import { getCloudflareApiToken, getCloudflareZoneId } from '@/env';
  * Best-effort Cloudflare edge cache purge for the storefront custom domains.
  *
  * Cloudflare sits in front of the storefront (ogabassey.com → Vercel), so a
- * longer edge TTL only stays correct if we actively evict mutated URLs. This
- * helper is called fire-and-forget from the revalidation path; it MUST NEVER
- * throw or reject in a way that breaks the caller — a purge failure is always
- * survivable because caches self-heal on their `stale-while-revalidate` TTL.
+ * longer edge TTL only stays correct if we actively evict mutated URLs. The
+ * default helper is called fire-and-forget from revalidation paths; it MUST
+ * NEVER throw or reject in a way that breaks those callers. Publication-state
+ * transitions use the confirmed foreground variant exported below.
  *
  * Fail-open contract:
  *   - Missing CLOUDFLARE_API_TOKEN / CLOUDFLARE_ZONE_ID → warn once, no-op.
@@ -47,6 +47,94 @@ export interface PurgeCloudflareUrlsOptions {
   timeoutMs?: number;
 }
 
+export type CloudflarePurgeConfirmation =
+  | { ok: true; reason: 'not_required' | 'purged' }
+  | {
+      ok: false;
+      reason: 'missing_configuration' | 'provider_rejected' | 'request_failed';
+    };
+
+async function executeCloudflarePurge(
+  items: string[],
+  payloadKey: 'files' | 'hosts',
+  options: PurgeCloudflareUrlsOptions
+): Promise<CloudflarePurgeConfirmation> {
+  const uniqueItems = Array.from(
+    new Set(
+      items.filter(
+        (item): item is string => typeof item === 'string' && item.length > 0
+      )
+    )
+  );
+  if (uniqueItems.length === 0) {
+    return { ok: true, reason: 'not_required' };
+  }
+
+  const token = getCloudflareApiToken();
+  const zoneId = getCloudflareZoneId();
+  if (!token || !zoneId) {
+    warnMissingConfigOnce();
+    return { ok: false, reason: 'missing_configuration' };
+  }
+
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const endpoint = `${CLOUDFLARE_PURGE_API_BASE}/${encodeURIComponent(
+    zoneId
+  )}/purge_cache`;
+  const timeoutMs = options.timeoutMs ?? DEFAULT_PURGE_TIMEOUT_MS;
+  let providerRejected = false;
+  let requestFailed = false;
+
+  for (const batch of chunkUrls(uniqueItems, MAX_URLS_PER_BATCH)) {
+    try {
+      const response = await fetchImpl(endpoint, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ [payloadKey]: batch }),
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      if (!response.ok) {
+        requestFailed = true;
+        console.warn(
+          'Cloudflare cache purge returned a non-2xx response; relying on TTL self-heal',
+          { status: response.status, count: batch.length }
+        );
+      } else {
+        const payload = await response.json().catch(() => null);
+        if (
+          !payload ||
+          typeof payload !== 'object' ||
+          !('success' in payload) ||
+          payload.success !== true
+        ) {
+          providerRejected = true;
+          console.warn(
+            'Cloudflare cache purge was not confirmed by the provider payload',
+            { count: batch.length }
+          );
+        }
+      }
+    } catch (error) {
+      requestFailed = true;
+      console.warn(
+        'Cloudflare cache purge request failed; relying on TTL self-heal',
+        { error, count: batch.length }
+      );
+    }
+  }
+
+  if (requestFailed) {
+    return { ok: false, reason: 'request_failed' };
+  }
+  if (providerRejected) {
+    return { ok: false, reason: 'provider_rejected' };
+  }
+  return { ok: true, reason: 'purged' };
+}
+
 /**
  * Purge the given absolute URLs from Cloudflare's edge cache.
  * Silently no-ops on empty input or missing configuration, and swallows all
@@ -56,52 +144,29 @@ export async function purgeCloudflareUrls(
   urls: string[],
   options: PurgeCloudflareUrlsOptions = {}
 ): Promise<void> {
-  const uniqueUrls = Array.from(
-    new Set(
-      urls.filter(
-        (url): url is string => typeof url === 'string' && url.length > 0
-      )
-    )
-  );
-  if (uniqueUrls.length === 0) {
-    return;
-  }
+  await executeCloudflarePurge(urls, 'files', options);
+}
 
-  const token = getCloudflareApiToken();
-  const zoneId = getCloudflareZoneId();
-  if (!token || !zoneId) {
-    warnMissingConfigOnce();
-    return;
-  }
+/**
+ * Foreground variant for availability-boundary mutations. Unlike the normal
+ * fail-open helper, callers receive confirmation and can refuse to claim the
+ * mutation is fully propagated when the external edge eviction did not land.
+ */
+export function purgeCloudflareUrlsConfirmed(
+  urls: string[],
+  options: PurgeCloudflareUrlsOptions = {}
+): Promise<CloudflarePurgeConfirmation> {
+  return executeCloudflarePurge(urls, 'files', options);
+}
 
-  const fetchImpl = options.fetchImpl ?? fetch;
-  const endpoint = `${CLOUDFLARE_PURGE_API_BASE}/${encodeURIComponent(
-    zoneId
-  )}/purge_cache`;
-  const timeoutMs = options.timeoutMs ?? DEFAULT_PURGE_TIMEOUT_MS;
-
-  for (const batch of chunkUrls(uniqueUrls, MAX_URLS_PER_BATCH)) {
-    try {
-      const response = await fetchImpl(endpoint, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ files: batch }),
-        signal: AbortSignal.timeout(timeoutMs),
-      });
-      if (!response.ok) {
-        console.warn(
-          'Cloudflare cache purge returned a non-2xx response; relying on TTL self-heal',
-          { status: response.status, count: batch.length }
-        );
-      }
-    } catch (error) {
-      console.warn(
-        'Cloudflare cache purge request failed; relying on TTL self-heal',
-        { error, count: batch.length }
-      );
-    }
-  }
+/**
+ * Confirmed hostname-wide purge for publication transitions. This evicts every
+ * cached storefront document for each public alias, including category, PDP,
+ * blog, and trust routes that cannot be enumerated safely at mutation time.
+ */
+export function purgeCloudflareHostnamesConfirmed(
+  hostnames: string[],
+  options: PurgeCloudflareUrlsOptions = {}
+): Promise<CloudflarePurgeConfirmation> {
+  return executeCloudflarePurge(hostnames, 'hosts', options);
 }

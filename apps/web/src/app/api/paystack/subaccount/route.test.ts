@@ -343,6 +343,29 @@ describe('POST /api/paystack/subaccount', () => {
     expect(mockRevalidateFeatures).toHaveBeenCalledWith('merchant-456');
   });
 
+  it('returns the saved subaccount when feature cache invalidation fails', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    mockRevalidateFeatures.mockImplementationOnce(() => {
+      throw new Error('cache unavailable');
+    });
+
+    const response = await POST(
+      makeRequest({
+        accountNumber: '1234567890',
+        bankCode: '044',
+        businessName: 'Baci Store',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      success: true,
+      accountName: 'Jane Doe',
+      subaccountCode: 'ACCT_new123',
+    });
+    expect(mockMerchantUpdateEq).toHaveBeenCalled();
+  });
+
   it('saves manual invoice bank details for India without calling Paystack', async () => {
     mockMerchantSingle.mockResolvedValueOnce({
       data: {
@@ -385,6 +408,40 @@ describe('POST /api/paystack/subaccount', () => {
     // Clearing the subaccount must also bust the cached features lookup so
     // checkout stops advertising Paystack.
     expect(mockRevalidateFeatures).toHaveBeenCalledWith('merchant-456');
+  });
+
+  it('returns saved manual bank details when feature cache invalidation fails', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    mockRevalidateFeatures.mockImplementationOnce(() => {
+      throw new Error('cache unavailable');
+    });
+    mockMerchantSingle.mockResolvedValueOnce({
+      data: {
+        paystack_subaccount_code: null,
+        business_name: 'Yodha Shopping',
+        country: 'IN',
+        email: 'yodhashopping@gmail.com',
+        phone: null,
+      },
+      error: null,
+    });
+
+    const response = await POST(
+      makeRequest({
+        accountNumber: 'IN-123456789012',
+        bankName: 'HDFC Bank',
+        accountName: 'Yodha Shopping',
+        businessName: 'Yodha Shopping',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      success: true,
+      accountName: 'Yodha Shopping',
+      subaccountCode: null,
+    });
+    expect(mockMerchantUpdateEq).toHaveBeenCalled();
   });
 
   it('rejects placeholder manual invoice bank names for India', async () => {

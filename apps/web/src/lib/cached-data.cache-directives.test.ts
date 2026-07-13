@@ -154,6 +154,29 @@ describe('cached-data cache directives', () => {
       expect(source, functionName).toContain('cacheTag(');
     }
   });
+
+  it('keeps the unbounded-key canonical redirect preflight off the remote cache handler (PR4a)', () => {
+    // Keyed on arbitrary crawler product slugs (unbounded remote keys); origin
+    // is an indexed slug/id .maybeSingle() (<15ms). Already fail-loud. The
+    // remote SET is the exit-128 write hazard, so it must be local.
+    const source = getFunctionSource('getCachedProductCanonicalRedirectTarget');
+    expect(source).toContain("'use cache';");
+    expect(source).not.toContain("'use cache: remote';");
+    expect(source).toContain("cacheLife('products');");
+    expect(source).toContain('cacheTag(');
+  });
+
+  it('keeps fast merchant-by-id lookups off the remote cache handler and fail-loud (PR4a)', () => {
+    // Primary-key .single() (<5ms), ~75 keys, tiny row, no cross-instance need.
+    // Fail-loud: a transient read must throw (never cache null-as-absence);
+    // only a genuine PGRST116 "no rows" returns null. Both repair-notification
+    // consumers already `.catch(() => null)`, so the throw degrades safely.
+    const source = getFunctionSource('getCachedMerchantById');
+    expect(source).toContain("'use cache';");
+    expect(source).not.toContain("'use cache: remote';");
+    expect(source).toContain('isPostgrestNoRowsError');
+    expect(source).toContain('throw error');
+  });
 });
 
 describe('next.config cacheLife profiles', () => {

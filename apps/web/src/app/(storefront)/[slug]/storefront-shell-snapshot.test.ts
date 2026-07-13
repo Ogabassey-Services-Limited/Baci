@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getRootDomain } from '@/env';
-import { getCachedNavigationCategories } from '@/lib/cached-categories';
+import { getStorefrontNavigationCategories } from '@/lib/cached-categories';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 
 vi.mock('@/env', () => ({
@@ -8,7 +8,7 @@ vi.mock('@/env', () => ({
 }));
 
 vi.mock('@/lib/cached-categories', () => ({
-  getCachedNavigationCategories: vi.fn(),
+  getStorefrontNavigationCategories: vi.fn(),
 }));
 
 vi.mock('@/lib/cached-data', () => ({
@@ -58,7 +58,7 @@ const { getStorefrontShellSnapshot, getStorefrontShellSnapshotBase } =
 describe('getStorefrontShellSnapshot', () => {
   beforeEach(() => {
     vi.mocked(getRequestScopedMerchant).mockReset();
-    vi.mocked(getCachedNavigationCategories).mockReset();
+    vi.mocked(getStorefrontNavigationCategories).mockReset();
     mockHeaders.mockReset();
     mockHeaders.mockResolvedValue(new Headers());
     vi.mocked(getRootDomain).mockReturnValue('usebaci.com');
@@ -70,7 +70,7 @@ describe('getStorefrontShellSnapshot', () => {
         ReturnType<typeof getRequestScopedMerchant>
       >
     );
-    vi.mocked(getCachedNavigationCategories).mockResolvedValue([
+    vi.mocked(getStorefrontNavigationCategories).mockResolvedValue([
       { name: 'Phones', slug: 'phones' },
     ]);
 
@@ -100,7 +100,7 @@ describe('getStorefrontShellSnapshot', () => {
         ReturnType<typeof getRequestScopedMerchant>
       >
     );
-    vi.mocked(getCachedNavigationCategories).mockResolvedValue([
+    vi.mocked(getStorefrontNavigationCategories).mockResolvedValue([
       { name: 'Phones', slug: 'phones' },
     ]);
     mockHeaders.mockResolvedValue(new Headers([['x-custom-domain', '1']]));
@@ -120,7 +120,9 @@ describe('getStorefrontShellSnapshot', () => {
         slug: 'ogabassey',
       },
     });
-    expect(getCachedNavigationCategories).toHaveBeenCalledWith('merchant-1');
+    expect(getStorefrontNavigationCategories).toHaveBeenCalledWith(
+      'merchant-1'
+    );
   });
 
   it('does not read request headers when the storefront identifier is already a domain', async () => {
@@ -249,7 +251,7 @@ describe('getStorefrontShellSnapshot', () => {
       routingMode: 'path' as const,
       basePath: '/ogabassey',
     };
-    vi.mocked(getCachedNavigationCategories).mockResolvedValue([
+    vi.mocked(getStorefrontNavigationCategories).mockResolvedValue([
       { name: 'Phones', slug: 'phones' },
     ]);
 
@@ -279,7 +281,7 @@ describe('getStorefrontShellSnapshot', () => {
       routingMode: 'path',
       basePath: '/ogabassey',
     });
-    expect(getCachedNavigationCategories).not.toHaveBeenCalled();
+    expect(getStorefrontNavigationCategories).not.toHaveBeenCalled();
   });
 
   it('redacts secret feature settings before serializing shell merchant data', async () => {

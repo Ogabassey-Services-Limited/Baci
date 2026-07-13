@@ -4,7 +4,7 @@ import type {
   StorefrontShellSnapshot,
   StorefrontShellSnapshotBase,
 } from '@/hooks/merchant/types';
-import { getCachedNavigationCategories } from '@/lib/cached-categories';
+import { getStorefrontNavigationCategories } from '@/lib/cached-categories';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { toTemplateMerchantData } from '@/lib/merchant-template-data';
 import { isDomainIdentifier } from '@/lib/validation';
@@ -91,7 +91,7 @@ export async function getStorefrontShellSnapshot(
     return null;
   }
 
-  const navigationCategories = await getCachedNavigationCategories(
+  const navigationCategories = await getStorefrontNavigationCategories(
     shellSnapshotBase.merchant.id
   );
 
