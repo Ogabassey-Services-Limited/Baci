@@ -37,18 +37,10 @@ vi.mock('@/lib/storefront-product-purge', () => ({
 }));
 
 const mockScheduleProductImageTransformsPrewarm = vi.fn();
-vi.mock('@/lib/schedule-product-image-prewarm', async (importOriginal) => {
-  const actual =
-    await importOriginal<
-      typeof import('@/lib/schedule-product-image-prewarm')
-    >();
-  return {
-    // Keep the real URL extractor; spy only on the scheduling side effect.
-    ...actual,
-    scheduleProductImageTransformsPrewarm: (...args: unknown[]) =>
-      mockScheduleProductImageTransformsPrewarm(...args),
-  };
-});
+vi.mock('@/lib/schedule-product-image-prewarm', () => ({
+  scheduleProductImageTransformsPrewarm: (...args: unknown[]) =>
+    mockScheduleProductImageTransformsPrewarm(...args),
+}));
 
 type MerchantContextMock = {
   merchantId: string;
@@ -697,9 +689,10 @@ describe('POST /api/products', () => {
       expect(res.status).toBe(201);
       // A brand-new product can enter the launch/home hero straight from create,
       // so the create path must warm its image transforms (incl. the home-hero
-      // q70 tier) just like the update path does. validCreateBody has one image.
+      // q70 tier) just like the update path does. The scheduler takes the raw
+      // `images` column value (validCreateBody has one { url } image).
       expect(mockScheduleProductImageTransformsPrewarm).toHaveBeenCalledWith([
-        'https://example.com/image.png',
+        { url: 'https://example.com/image.png' },
       ]);
     });
 
