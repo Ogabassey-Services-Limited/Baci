@@ -1,4 +1,5 @@
 import { type Href, router } from 'expo-router';
+import { sanitizeWalletReturnTo } from '@/lib/sanitize-wallet-return-to';
 
 // Module-scope routing dispatcher for notification taps. Kept out of the hook
 // body so the useEffectEvent wrapper stays thin; behavior is unchanged.
@@ -35,16 +36,25 @@ export function navigateFromPushScreen(
         router.push('/');
       }
       break;
-    case 'wallet':
+    case 'wallet': {
       if (params?.action === 'savings') {
         router.push({
           pathname: '/wallet',
           params: { action: 'savings' },
         });
+        break;
+      }
+      // Wallet-credited taps may carry an onward destination (the interrupted
+      // purchase). Sanitize it here so a malicious returnTo can never redirect
+      // the tap off-app; the wallet screen re-sanitizes as defense-in-depth.
+      const returnTo = sanitizeWalletReturnTo(params?.returnTo);
+      if (returnTo) {
+        router.push({ pathname: '/wallet', params: { returnTo } });
       } else {
         router.push('/wallet');
       }
       break;
+    }
     case 'utility-history':
       router.push(`/utilities/history?type=${params?.type ?? 'power'}` as Href);
       break;

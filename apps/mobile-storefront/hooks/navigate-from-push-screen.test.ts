@@ -66,6 +66,26 @@ describe('navigateFromPushScreen', () => {
     expect(push).toHaveBeenCalledWith('/wallet');
   });
 
+  it('opens the wallet with an onward returnTo for wallet-credited taps', () => {
+    navigateFromPushScreen('wallet', { returnTo: '/checkout' });
+
+    expect(push).toHaveBeenCalledWith({
+      pathname: '/wallet',
+      params: { returnTo: '/checkout' },
+    });
+  });
+
+  it('drops a malicious returnTo and falls back to the bare wallet', () => {
+    for (const returnTo of ['//evil.com', '/../secrets', '%2f%2fevil']) {
+      navigateFromPushScreen('wallet', { returnTo });
+    }
+
+    for (const call of push.mock.calls) {
+      expect(call[0]).toBe('/wallet');
+    }
+    expect(push).toHaveBeenCalledTimes(3);
+  });
+
   it('defaults the utility-history type to power when unspecified', () => {
     navigateFromPushScreen('utility-history');
 

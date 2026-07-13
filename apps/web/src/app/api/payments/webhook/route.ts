@@ -42,6 +42,7 @@ import { logger } from '@/lib/logger';
 import { confirmPaystackDvaByOrderAccount } from '@/lib/payments/confirm-paystack-dva-by-order-account';
 import { confirmPaystackWalletDvaTopUp } from '@/lib/payments/confirm-paystack-wallet-dva-top-up';
 import { finalizeOrderGatewayPayment } from '@/lib/payments/finalize-order-gateway-payment';
+import { notifyWalletCredited } from '@/lib/payments/notify-wallet-credited';
 import { processWalletFundedOrderPayment } from '@/lib/payments/process-wallet-funded-order-payment';
 import { extractVerifiedGatewayFeeNgn } from '@/lib/payments/verified-gateway-fee';
 import {
@@ -312,6 +313,7 @@ async function handleWalletTopUpIfNeeded({
       { status: 400 }
     );
   }
+  const customerId = metadata.customer_id;
 
   const amount = Number(transaction.amount);
   if (!Number.isFinite(amount) || amount <= 0) {
@@ -350,6 +352,36 @@ async function handleWalletTopUpIfNeeded({
     return NextResponse.json(
       { error: 'Failed to credit wallet top-up' },
       { status: 500 }
+    );
+  }
+
+  // Notify the customer of the credit off the response path. `after` runs on the
+  // async runtime so a push can never block or alter the 2xx ack, and gating on
+  // `firstCredit` keeps webhook retries from double-notifying. Known ceiling:
+  // two CONCURRENT first webhooks can both pass the pre-RPC ledger check and
+  // both report firstCredit (the RPC's advisory lock dedups the money, and its
+  // return shape can't distinguish insert from replay without a migration), so
+  // a rare duplicate push is accepted rather than changing a shared payments
+  // RPC for a flag-gated notification.
+  if (walletCredit.firstCredit) {
+    const returnTo =
+      typeof metadata.returnTo === 'string'
+        ? metadata.returnTo
+        : typeof metadata.return_to === 'string'
+          ? metadata.return_to
+          : undefined;
+    after(() =>
+      notifyWalletCredited({
+        amount,
+        customerId,
+        returnTo,
+      }).catch((error: unknown) => {
+        logger.warn({
+          message: 'Wallet-credited push notification failed',
+          error: error instanceof Error ? error.message : error,
+          reference,
+        });
+      })
     );
   }
 

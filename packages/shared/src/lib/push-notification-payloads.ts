@@ -19,11 +19,40 @@ export type StorefrontNotificationNavigationTarget =
   | { screen: 'product'; params: { slug: string } }
   | { screen: 'category'; params: { slug: string } }
   | { screen: 'utility-history'; params: { type: StorefrontUtilityType } }
-  | { screen: 'wallet'; params?: { action: 'savings' } }
+  | { screen: 'wallet'; params?: { action?: 'savings'; returnTo?: string } }
   | { screen: 'unlock-orders' }
   | { screen: 'home' };
 
 type StorefrontUtilityType = 'airtime' | 'data' | 'gaming' | 'power' | 'tv';
+
+export interface WalletCreditedPushPayload extends PushPayload {
+  amount: number;
+  currency: string;
+  returnTo?: string;
+  type: 'wallet_credited';
+}
+
+/**
+ * The wallet-credited push contract shared by the web webhook (producer) and
+ * the mobile navigation handler (consumer). `returnTo` is omitted — not sent
+ * as undefined — when there is no interrupted purchase to resume.
+ */
+export function buildWalletCreditedPushPayload({
+  amount,
+  currency,
+  returnTo,
+}: {
+  amount: number;
+  currency: string;
+  returnTo?: string;
+}): WalletCreditedPushPayload {
+  return {
+    amount,
+    currency,
+    type: 'wallet_credited',
+    ...(returnTo ? { returnTo } : {}),
+  };
+}
 
 function readString(
   payload: PushPayload,
@@ -153,6 +182,15 @@ export function getStorefrontNotificationNavigationTarget(
       return { screen: 'wallet' };
     case 'customer_savings_reminder':
       return { screen: 'wallet', params: { action: 'savings' } };
+    case 'wallet_credited': {
+      // Newer clients deep-link to the wallet and, when the interrupted
+      // purchase supplied one, carry a returnTo for onward navigation. Older
+      // shared bundles lack this case and fall through to `default` (home).
+      const returnTo = readString(payload, 'returnTo', 'return_to');
+      return returnTo
+        ? { screen: 'wallet', params: { returnTo } }
+        : { screen: 'wallet' };
+    }
     case 'carrier_unlock':
       return { screen: 'unlock-orders' };
     case 'vtu_token_ready': {

@@ -202,6 +202,7 @@ const serverSchema = z
     PETROCK_ENABLED_TIERS: optionalTrimmedStringSchema,
     PETROCK_REMEDIATION_ENABLED: defaultFalseBooleanStringSchema,
     USDT_WALLET_ENABLED: defaultFalseBooleanStringSchema,
+    WALLET_CREDIT_PUSH_ENABLED: defaultFalseBooleanStringSchema,
     IMEI_FX_NGN_USD: z.coerce.number().positive().optional(),
     BACI_AGENTIC_ACCESS_TOKEN: z.string().optional(),
     BACI_AGENTIC_ACCESS_TOKEN_PREVIOUS: z.string().optional(),
@@ -600,6 +601,7 @@ const getEnv = () => {
         PETROCK_ENABLED_TIERS: process.env.PETROCK_ENABLED_TIERS,
         PETROCK_REMEDIATION_ENABLED: process.env.PETROCK_REMEDIATION_ENABLED,
         USDT_WALLET_ENABLED: process.env.USDT_WALLET_ENABLED,
+        WALLET_CREDIT_PUSH_ENABLED: process.env.WALLET_CREDIT_PUSH_ENABLED,
         IMEI_FX_NGN_USD: process.env.IMEI_FX_NGN_USD,
         KUDA_BILL_DEBUG: process.env.KUDA_BILL_DEBUG,
         BACI_AGENTIC_ACCESS_TOKEN: process.env.BACI_AGENTIC_ACCESS_TOKEN,
@@ -1116,6 +1118,13 @@ export const isUsdtWalletEnabled = () => {
     trimSecret(process.env.USDT_WALLET_ENABLED)
   );
   return runtimeValue ?? env?.USDT_WALLET_ENABLED ?? false;
+};
+export const isWalletCreditPushEnabled = () => {
+  if (isBrowserRuntime()) return false;
+  const runtimeValue = normalizeEnvBoolean(
+    trimSecret(process.env.WALLET_CREDIT_PUSH_ENABLED)
+  );
+  return runtimeValue ?? env?.WALLET_CREDIT_PUSH_ENABLED ?? false;
 };
 export const getImeiFxNgnUsd = () => {
   if (isBrowserRuntime()) return undefined;

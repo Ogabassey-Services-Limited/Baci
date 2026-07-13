@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildWalletCreditedPushPayload,
   getAdminNotificationNavigationTarget,
   getStorefrontNotificationNavigationTarget,
 } from './push-notification-payloads';
@@ -218,6 +219,60 @@ describe('getStorefrontNotificationNavigationTarget', () => {
     ).toEqual({ screen: 'wallet', params: { action: 'savings' } });
   });
 
+  it('routes wallet_credited payloads to the wallet with an onward returnTo', () => {
+    expect(
+      getStorefrontNotificationNavigationTarget({
+        type: 'wallet_credited',
+        amount: 5000,
+        currency: 'NGN',
+        returnTo: '/checkout',
+      })
+    ).toEqual({ screen: 'wallet', params: { returnTo: '/checkout' } });
+  });
+
+  it('routes wallet_credited payloads using snake_case return_to', () => {
+    expect(
+      getStorefrontNotificationNavigationTarget({
+        type: 'wallet_credited',
+        return_to: '/checkout',
+      })
+    ).toEqual({ screen: 'wallet', params: { returnTo: '/checkout' } });
+  });
+
+  it('routes wallet_credited payloads without a returnTo to the bare wallet', () => {
+    expect(
+      getStorefrontNotificationNavigationTarget({
+        type: 'wallet_credited',
+        amount: 5000,
+      })
+    ).toEqual({ screen: 'wallet' });
+  });
+
+  it('builds a wallet_credited payload that carries an onward returnTo', () => {
+    expect(
+      buildWalletCreditedPushPayload({
+        amount: 5000,
+        currency: 'NGN',
+        returnTo: '/utilities/airtime',
+      })
+    ).toEqual({
+      amount: 5000,
+      currency: 'NGN',
+      returnTo: '/utilities/airtime',
+      type: 'wallet_credited',
+    });
+  });
+
+  it('builds a wallet_credited payload that omits an absent returnTo', () => {
+    expect(
+      buildWalletCreditedPushPayload({ amount: 5000, currency: 'NGN' })
+    ).toEqual({
+      amount: 5000,
+      currency: 'NGN',
+      type: 'wallet_credited',
+    });
+  });
+
   it('routes VTU token-ready payloads to utility history', () => {
     expect(
       getStorefrontNotificationNavigationTarget({
@@ -330,8 +385,8 @@ describe('getAdminNotificationNavigationTarget — edge cases', () => {
   });
 
   it('falls back to the repairs list when a repair payload lacks a repair id', () => {
-    expect(
-      getAdminNotificationNavigationTarget({ type: 'repair' })
-    ).toEqual({ screen: 'repairs' });
+    expect(getAdminNotificationNavigationTarget({ type: 'repair' })).toEqual({
+      screen: 'repairs',
+    });
   });
 });
