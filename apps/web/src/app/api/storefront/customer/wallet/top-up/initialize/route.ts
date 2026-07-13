@@ -1,3 +1,4 @@
+import { sanitizeWalletReturnToPath } from '@baci/shared/lib';
 import { customAlphabet } from 'nanoid';
 import { type NextRequest, NextResponse } from 'next/server';
 import { env } from '@/env';
@@ -164,12 +165,16 @@ export async function POST(request: NextRequest) {
     const protocol = env.NODE_ENV === 'production' ? 'https' : 'http';
     const callbackUrl = `${protocol}://${merchant.slug}.${rootDomain}/checkout/success?reference=${paymentReference}&kind=wallet`;
     const notificationUrl = `${protocol}://${rootDomain}/api/payments/webhook`;
+    // Persisted so the wallet-credited push can deep-link back to the
+    // interrupted purchase; sanitized to a safe internal path (or dropped).
+    const returnTo = sanitizeWalletReturnToPath(parsed.data.returnTo);
     const metadata = {
       customer_email: customerEmail,
       customer_id: customer.id,
       customer_name: customerName,
       merchant_slug: merchant.slug,
       transaction_type: WALLET_TOP_UP_TRANSACTION_TYPE,
+      ...(returnTo ? { return_to: returnTo } : {}),
     };
 
     let authorizationUrl = '';

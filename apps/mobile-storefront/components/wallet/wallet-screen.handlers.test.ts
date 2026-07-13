@@ -152,6 +152,11 @@ describe('wallet-screen.handlers', () => {
     });
 
     expect(setIsFundPending).toHaveBeenNthCalledWith(1, true);
+    // The interrupted-purchase destination rides to the server so the
+    // wallet-credited push can deep-link back.
+    expect(mockInitializeWalletTopUp).toHaveBeenCalledWith(
+      expect.objectContaining({ returnTo: '/checkout' })
+    );
     expect(mockTrackEvent).toHaveBeenCalledWith(
       'wallet_top_up_started',
       expect.objectContaining({ amount: 5000, gateway: 'paystack' })

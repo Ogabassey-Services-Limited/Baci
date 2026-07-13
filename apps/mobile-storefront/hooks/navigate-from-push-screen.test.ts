@@ -66,13 +66,14 @@ describe('navigateFromPushScreen', () => {
     expect(push).toHaveBeenCalledWith('/wallet');
   });
 
-  it('opens the wallet with an onward returnTo for wallet-credited taps', () => {
+  it('lands on the wallet then resumes the interrupted purchase for wallet-credited taps', () => {
     navigateFromPushScreen('wallet', { returnTo: '/checkout' });
 
-    expect(push).toHaveBeenCalledWith({
-      pathname: '/wallet',
-      params: { returnTo: '/checkout' },
-    });
+    // Wallet first (back returns there), destination on top — the tap
+    // actually resumes the flow instead of stranding the customer.
+    expect(push).toHaveBeenNthCalledWith(1, '/wallet');
+    expect(push).toHaveBeenNthCalledWith(2, '/checkout');
+    expect(push).toHaveBeenCalledTimes(2);
   });
 
   it('drops a malicious returnTo and falls back to the bare wallet', () => {

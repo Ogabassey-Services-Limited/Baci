@@ -383,4 +383,45 @@ describe('POST /api/storefront/customer/wallet/top-up/initialize', () => {
       })
     );
   });
+
+  it('persists a sanitized returnTo into transaction metadata for the credit push', async () => {
+    const response = await POST(
+      makeRequest({
+        amount: 2500,
+        gateway: 'paystack',
+        merchantSlug: 'ogabassey',
+        returnTo: '/utilities/airtime?repeatAmount=500',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockTransactionInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          return_to: '/utilities/airtime?repeatAmount=500',
+          transaction_type: 'wallet_topup',
+        }),
+      })
+    );
+  });
+
+  it('drops a malicious returnTo instead of persisting it', async () => {
+    const response = await POST(
+      makeRequest({
+        amount: 2500,
+        gateway: 'paystack',
+        merchantSlug: 'ogabassey',
+        returnTo: '//evil.com',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const insertedMetadata = (
+      mockTransactionInsert.mock.calls.at(-1)?.[0] as {
+        metadata?: Record<string, unknown>;
+      }
+    )?.metadata;
+    expect(insertedMetadata).toBeDefined();
+    expect(insertedMetadata && 'return_to' in insertedMetadata).toBe(false);
+  });
 });

@@ -46,12 +46,13 @@ export function navigateFromPushScreen(
       }
       // Wallet-credited taps may carry an onward destination (the interrupted
       // purchase). Sanitize it here so a malicious returnTo can never redirect
-      // the tap off-app; the wallet screen re-sanitizes as defense-in-depth.
+      // the tap off-app, then land on the wallet FIRST (the credit context)
+      // and immediately resume the destination on top — back returns to the
+      // wallet, matching the "Return to your purchase" promise.
       const returnTo = sanitizeWalletReturnTo(params?.returnTo);
+      router.push('/wallet');
       if (returnTo) {
-        router.push({ pathname: '/wallet', params: { returnTo } });
-      } else {
-        router.push('/wallet');
+        router.push(returnTo);
       }
       break;
     }

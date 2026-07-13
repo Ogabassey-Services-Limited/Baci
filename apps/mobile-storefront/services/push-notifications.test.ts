@@ -260,7 +260,10 @@ describe('registerForPushNotifications', () => {
 
     await registerForPushNotifications();
 
+    // orders, payments, promotions, general — the payments channel must exist
+    // before a wallet-credited push targets it on Android 8+.
     expect(mockCallOrder).toEqual([
+      'setNotificationChannelAsync',
       'setNotificationChannelAsync',
       'setNotificationChannelAsync',
       'setNotificationChannelAsync',

@@ -134,6 +134,14 @@ async function setupAndroidChannels(): Promise<void> {
     lightColor: '#DC2626',
   });
 
+  await Notifications.setNotificationChannelAsync('payments', {
+    name: 'Payments',
+    description: 'Wallet credits and payment updates',
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: '#DC2626',
+  });
+
   await Notifications.setNotificationChannelAsync('promotions', {
     name: 'Deals & Promotions',
     description: 'Special offers and discounts',
