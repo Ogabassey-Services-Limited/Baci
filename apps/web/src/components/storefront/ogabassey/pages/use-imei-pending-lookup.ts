@@ -17,7 +17,7 @@ const PAUSED_POLL_MS = 60 * 1000;
 
 interface ActivePendingImeiLookup extends PendingImeiLookup {
   pollAfterMs: number;
-  storageKey: string;
+  scopeKey: string;
 }
 
 type PendingTerminal =
@@ -40,6 +40,9 @@ export function useImeiPendingLookup({
 }) {
   const resolvedHost =
     host ?? (typeof window === 'undefined' ? '' : window.location.host);
+  const scopeKey = merchantSlug
+    ? `${resolvedHost.toLowerCase()}:${merchantSlug.toLowerCase()}:${customerId ?? 'anonymous'}`
+    : null;
   const storageKey =
     customerId && resolvedHost && merchantSlug
       ? pendingImeiStorageKey(resolvedHost, customerId, merchantSlug)
@@ -56,11 +59,13 @@ export function useImeiPendingLookup({
       return;
     }
     const saved = loadPendingImeiLookup(localStorage, storageKey);
-    setPending(saved ? { ...saved, pollAfterMs: 0, storageKey } : null);
-  }, [storageKey]);
+    setPending(
+      saved && scopeKey ? { ...saved, pollAfterMs: 0, scopeKey } : null
+    );
+  }, [scopeKey, storageKey]);
 
   useEffect(() => {
-    if (!pending || !merchantSlug || pending.storageKey !== storageKey) return;
+    if (!pending || !merchantSlug || pending.scopeKey !== scopeKey) return;
 
     const isStale =
       Date.now() - Date.parse(pending.createdAt) >= MAX_ACTIVE_POLL_MS;
@@ -99,7 +104,7 @@ export function useImeiPendingLookup({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [merchantSlug, pending, storageKey]);
+  }, [merchantSlug, pending, scopeKey, storageKey]);
 
   return {
     clear() {
@@ -121,11 +126,12 @@ export function useImeiPendingLookup({
       pollAfterMs: number;
       tier: ImeiServiceTierKey;
     }) {
+      if (!scopeKey || !merchantSlug) return;
       const next = {
         createdAt: new Date().toISOString(),
         lookupId,
         pollAfterMs,
-        storageKey: storageKey ?? '',
+        scopeKey,
         tier,
       };
       if (storageKey) {
