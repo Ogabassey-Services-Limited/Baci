@@ -1,8 +1,11 @@
 import { createHmac } from 'node:crypto';
-import type { ImeiServiceTierKey } from '@baci/shared/imei';
+import type { ImeiDeviceCategory, ImeiServiceTierKey } from '@baci/shared/imei';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
-import type { ImeiLookupResponseBody } from '@/lib/imei-lookup-fulfillment';
+import type {
+  ImeiLookupErrorBody,
+  ImeiLookupResponseBody,
+} from '@/lib/imei-lookup-fulfillment';
 
 export const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -11,9 +14,12 @@ export type ImeiLookupStatus =
   | 'completed'
   | 'failed_error'
   | 'pending'
+  | 'pending_provider'
+  | 'provider_submitting'
   | 'refunded_error'
   | 'refunded_not_found'
   | 'refund_pending'
+  | 'submission_unknown'
   | 'wallet_rejected';
 
 export interface ImeiLookupRow {
@@ -21,6 +27,7 @@ export interface ImeiLookupRow {
   cached_response: ImeiLookupResponseBody | null;
   cached_status: number | null;
   customer_id: string;
+  device_category?: ImeiDeviceCategory | null;
   id: string;
   imei_hash: string;
   merchant_id: string;
@@ -30,9 +37,30 @@ export interface ImeiLookupRow {
 
 interface LookupContext {
   customerId: string;
+  deviceCategory?: ImeiDeviceCategory;
   imeiHash: string;
   merchantId: string;
   tier: ImeiServiceTierKey;
+}
+
+function isPetrockPendingStatus(status: ImeiLookupStatus) {
+  return (
+    status === 'provider_submitting' ||
+    status === 'pending_provider' ||
+    status === 'submission_unknown'
+  );
+}
+
+function pendingReplay(row: ImeiLookupRow) {
+  return NextResponse.json(
+    {
+      lookupId: row.id,
+      pollAfterMs: 2000,
+      status: 'pending',
+      success: true,
+    },
+    { status: 202 }
+  );
 }
 
 export function errorBody({
@@ -45,12 +73,13 @@ export function errorBody({
   code: string;
   error: string;
   required?: number;
-}): ImeiLookupResponseBody {
+}): ImeiLookupErrorBody {
   return {
     ...(balance !== undefined ? { balance } : {}),
     code,
     error,
     ...(required !== undefined ? { required } : {}),
+    status: 'error',
     success: false,
   };
 }
@@ -100,7 +129,11 @@ export function mapExistingLookup(row: ImeiLookupRow, context: LookupContext) {
     );
   }
 
-  if (row.tier !== context.tier || row.imei_hash !== context.imeiHash) {
+  if (
+    row.tier !== context.tier ||
+    row.imei_hash !== context.imeiHash ||
+    (row.device_category ?? null) !== (context.deviceCategory ?? null)
+  ) {
     return json(
       errorBody({
         code: 'IDEMPOTENCY_CONFLICT',
@@ -120,8 +153,13 @@ export function mapExistingLookup(row: ImeiLookupRow, context: LookupContext) {
     );
   }
 
+  if (isPetrockPendingStatus(row.status)) return pendingReplay(row);
+
   if (row.cached_response && row.cached_status) {
-    return json(row.cached_response, row.cached_status);
+    return json(
+      { ...row.cached_response, lookupId: row.id },
+      row.cached_status
+    );
   }
 
   return json(
@@ -170,8 +208,13 @@ export function mapExistingTerminalLookupWithoutImeiHash(
     );
   }
 
+  if (isPetrockPendingStatus(row.status)) return pendingReplay(row);
+
   if (row.cached_response && row.cached_status) {
-    return json(row.cached_response, row.cached_status);
+    return json(
+      { ...row.cached_response, lookupId: row.id },
+      row.cached_status
+    );
   }
 
   return json(
@@ -190,7 +233,7 @@ export async function findLookupByIdempotencyKey(
   const { data, error } = await supabase
     .from('imei_lookups')
     .select(
-      'id, customer_id, merchant_id, tier, imei_hash, amount_ngn, status, cached_response, cached_status'
+      'id, customer_id, merchant_id, tier, imei_hash, device_category, amount_ngn, status, cached_response, cached_status'
     )
     .eq('idempotency_key', idempotencyKey)
     .maybeSingle();

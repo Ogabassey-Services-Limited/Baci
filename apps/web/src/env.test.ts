@@ -134,6 +134,95 @@ describe('env validation', () => {
     });
   });
 
+  it('loads the fail-closed Petrock provider configuration', async () => {
+    vi.stubEnv(
+      'PETROCK_API_BASE_URL',
+      'https://api.petrock.biz/api/reseller/v1/'
+    );
+    vi.stubEnv('PETROCK_API_TOKEN', ' petrock-token ');
+    vi.stubEnv('PETROCK_ENABLED', 'true');
+    vi.stubEnv('PETROCK_ENABLED_TIERS', 'blacklist, simLock, blacklist');
+    vi.stubEnv('IMEI_DISABLED_TIERS', 'pixel, samsung, pixel');
+    const encryptionKey = Buffer.alloc(32, 7).toString('base64');
+    vi.stubEnv('IMEI_IDENTIFIER_ENCRYPTION_KEY', encryptionKey);
+
+    const {
+      getImeiDisabledTierKeys,
+      getImeiIdentifierEncryptionKey,
+      getPetrockConfig,
+      getPetrockEnabledTierKeys,
+      isPetrockEnabled,
+    } = await loadEnvModule();
+
+    expect(getPetrockConfig()).toEqual({
+      baseUrl: 'https://api.petrock.biz/api/reseller/v1',
+      token: 'petrock-token',
+    });
+    expect(getImeiDisabledTierKeys()).toEqual(['pixel', 'samsung']);
+    expect(getImeiIdentifierEncryptionKey()).toBe(encryptionKey);
+    expect(getPetrockEnabledTierKeys()).toEqual(['blacklist', 'simLock']);
+    expect(isPetrockEnabled()).toBe(true);
+  });
+
+  it('normalizes the documented bare Petrock host to the reseller API root', async () => {
+    vi.stubEnv('PETROCK_API_BASE_URL', 'https://api.petrock.biz/');
+    vi.stubEnv('PETROCK_API_TOKEN', 'petrock-token');
+
+    const { getPetrockConfig } = await loadEnvModule();
+
+    expect(getPetrockConfig()).toEqual({
+      baseUrl: 'https://api.petrock.biz/api/reseller/v1',
+      token: 'petrock-token',
+    });
+  });
+
+  it('keeps Petrock disabled with an empty tier allowlist by default', async () => {
+    delete process.env.PETROCK_API_TOKEN;
+    delete process.env.PETROCK_ENABLED;
+    delete process.env.PETROCK_ENABLED_TIERS;
+
+    const { getPetrockConfig, getPetrockEnabledTierKeys, isPetrockEnabled } =
+      await loadEnvModule();
+
+    expect(getPetrockConfig()).toBeNull();
+    expect(getPetrockEnabledTierKeys()).toEqual([]);
+    expect(isPetrockEnabled()).toBe(false);
+  });
+
+  it('keeps USDT wallet funding dark unless explicitly enabled', async () => {
+    delete process.env.USDT_WALLET_ENABLED;
+    let module = await loadEnvModule();
+    expect(module.isUsdtWalletEnabled()).toBe(false);
+
+    vi.stubEnv('USDT_WALLET_ENABLED', 'true');
+    module = await loadEnvModule();
+    expect(module.isUsdtWalletEnabled()).toBe(true);
+  });
+
+  it('accepts normalized boolean aliases for Petrock and USDT production flags', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('SUPABASE_AGENTIC_JWT_PRIVATE_JWK', validAgenticPrivateJwk);
+    vi.stubEnv('PETROCK_ENABLED', '1');
+    vi.stubEnv('PETROCK_REMEDIATION_ENABLED', 'yes');
+    vi.stubEnv('USDT_WALLET_ENABLED', 'no');
+
+    const module = await loadEnvModule();
+
+    expect(module.isPetrockEnabled()).toBe(true);
+    expect(module.isPetrockRemediationEnabled()).toBe(true);
+    expect(module.isUsdtWalletEnabled()).toBe(false);
+  });
+
+  it('requires an explicit current IMEI FX rate for remediation quotes', async () => {
+    delete process.env.IMEI_FX_NGN_USD;
+    let module = await loadEnvModule();
+    expect(module.getImeiFxNgnUsd()).toBeUndefined();
+
+    vi.stubEnv('IMEI_FX_NGN_USD', '1600');
+    module = await loadEnvModule();
+    expect(module.getImeiFxNgnUsd()).toBe(1600);
+  });
+
   it('rejects production boot when the agentic JWT signing key is malformed', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     vi.stubEnv('NODE_ENV', 'production');

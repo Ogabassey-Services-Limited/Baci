@@ -40,7 +40,7 @@ export const mockSupabase = {
   auth: {
     getUser: vi.fn(),
   },
-  from: vi.fn(() => ({
+  from: vi.fn((_table?: string) => ({
     select: vi.fn().mockReturnThis(),
     insert: vi.fn().mockReturnThis(),
     update: vi.fn().mockReturnThis(),
@@ -70,8 +70,24 @@ export const mockAdminSupabase = {
   rpc: vi.fn().mockResolvedValue({ error: null }),
 };
 
+function resetAdminFromMock() {
+  mockAdminSupabase.from.mockImplementation((table: string) => {
+    if (table !== 'reconciliation_review') {
+      return mockSupabase.from(table) as never;
+    }
+    if (table === 'reconciliation_review') {
+      return { insert: mockReconciliationInsert } as never;
+    }
+    throw new Error(`Unexpected admin table: ${table}`);
+  });
+}
+
+const mockCreateServerClient = vi.hoisted(() => vi.fn());
+export function getMockCreateServerClient() {
+  return mockCreateServerClient;
+}
 vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn(() => mockSupabase),
+  createClient: mockCreateServerClient,
 }));
 
 vi.mock('@/lib/supabase/admin', () => ({
@@ -192,6 +208,17 @@ export async function setupJuicywayWebhookTest(): Promise<
   ReturnType<typeof vi.fn>
 > {
   vi.clearAllMocks();
+  mockCreateServerClient.mockImplementation(() => mockSupabase);
+  resetAdminFromMock();
+  mockSupabase.from.mockImplementation(() => ({
+    delete: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    insert: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    select: vi.fn().mockReturnThis(),
+    single: vi.fn().mockResolvedValue({ data: null, error: null }),
+    update: vi.fn().mockReturnThis(),
+  }));
   process.env.JUICYWAY_BUSINESS_ID = 'test-business-id';
   vi.stubEnv('NODE_ENV', 'test');
 
@@ -276,13 +303,11 @@ export function wireProcessingMocks(
         }),
       };
     }
-    if (table === 'merchants') {
-      return {
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({ data: merchant, error: null }),
-      };
-    }
+    // NOTE: `merchants` is intentionally NOT served by the anon client here.
+    // The webhook reads merchant identity via the service-role client (see
+    // route.ts), so the confirmation-email test below only gets merchant data
+    // through mockAdminSupabase — a regression guard against reverting that
+    // read back to the anon `supabase` client.
     return {
       select: vi.fn().mockReturnThis(),
       update: vi.fn().mockReturnThis(),
@@ -293,6 +318,25 @@ export function wireProcessingMocks(
 
   (mockSupabase as Record<string, unknown>).from = fromMock;
   mockSupabase.rpc = vi.fn().mockResolvedValue({ error: null });
+  // The merchant identity/branding read for the confirmation email now runs
+  // through the service-role client (see route.ts — it must not read merchants
+  // as anon), so the admin mock serves `merchants` in addition to the
+  // service-role-locked `reconciliation_review` insert.
+  (mockAdminSupabase as Record<string, unknown>).from = vi.fn(
+    (table: string) => {
+      if (table === 'merchants') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: merchant, error: null }),
+        };
+      }
+      if (table === 'reconciliation_review') {
+        return { insert: mockReconciliationInsert };
+      }
+      return fromMock(table) as never;
+    }
+  );
   mockAdminSupabase.rpc = vi.fn().mockResolvedValue({ error: null });
   return state;
 }

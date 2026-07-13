@@ -44,9 +44,7 @@ export function useImeiDeviceNavigation(onDeviceChange: () => void) {
     pagerRef.current?.setPage(index);
   };
 
-  const handlePageSelected = (event: {
-    nativeEvent: { position: number };
-  }) => {
+  const handlePageSelected = (event: { nativeEvent: { position: number } }) => {
     const device = DEVICE_ORDER[event.nativeEvent.position];
     if (!device) return;
     setSelectedDevice(device);

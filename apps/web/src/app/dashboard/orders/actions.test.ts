@@ -87,6 +87,8 @@ const mockOrder: {
   shipping_fee: string;
   total: string;
   currency?: string | null;
+  shipping_rate_id?: string | null;
+  shipping_rate_name?: string | null;
   shipping_address: {
     address: string;
     city: string;
@@ -649,6 +651,40 @@ describe('getOrder', () => {
     const order = await getOrder(MERCHANT_ID, 'ORD-001');
 
     expect(order?.currency).toBe('INR');
+  });
+
+  it('selects and maps the merchant shipping rate columns for the detail page', async () => {
+    const { ordersSelect } = mockGetOrderQueries({
+      orderRows: [
+        {
+          ...mockOrder,
+          shipping_rate_id: 'rate-123',
+          shipping_rate_name: 'Express Lagos',
+        },
+      ],
+    });
+
+    const order = await getOrder(MERCHANT_ID, ORDER_ID);
+
+    // The detail query explicitly selects the merchant-rate columns
+    // (never select('*')), so fulfillment can name the rate a shopper bought.
+    expect(ordersSelect).toHaveBeenCalledWith(
+      expect.stringContaining('shipping_rate_id')
+    );
+    expect(ordersSelect).toHaveBeenCalledWith(
+      expect.stringContaining('shipping_rate_name')
+    );
+    expect(order?.shipping_rate_id).toBe('rate-123');
+    expect(order?.shipping_rate_name).toBe('Express Lagos');
+  });
+
+  it('leaves the merchant shipping rate fields undefined for legacy orders', async () => {
+    mockGetOrderQueries();
+
+    const order = await getOrder(MERCHANT_ID, ORDER_ID);
+
+    expect(order?.shipping_rate_id).toBeUndefined();
+    expect(order?.shipping_rate_name).toBeUndefined();
   });
 
   it('formats legacy lowercase customer names for display', async () => {

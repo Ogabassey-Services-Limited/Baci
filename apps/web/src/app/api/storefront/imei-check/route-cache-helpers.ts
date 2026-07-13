@@ -2,6 +2,7 @@ import type { ImeiServiceTierKey } from '@baci/shared/imei';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   hashProviderResponse,
+  type ImeiLookupErrorBody,
   type ImeiLookupResponseBody,
   readCustomerWalletBalance,
   refundImeiWalletPayment,
@@ -60,7 +61,7 @@ export async function refundAndCacheFailure({
   supabaseAdmin,
 }: {
   amount: number;
-  body: ImeiLookupResponseBody;
+  body: ImeiLookupErrorBody;
   customerId: string;
   lookupId: string;
   merchantId: string;
@@ -70,6 +71,7 @@ export async function refundAndCacheFailure({
   status: number;
   supabaseAdmin: AdminSupabaseClient;
 }) {
+  const terminalBody = { ...body, status: 'error' as const };
   try {
     await refundImeiWalletPayment({
       amount,
@@ -130,7 +132,7 @@ export async function refundAndCacheFailure({
 
   try {
     await cacheLookupResponse({
-      body,
+      body: terminalBody,
       lookupId,
       sickwStatus,
       status,
@@ -144,7 +146,7 @@ export async function refundAndCacheFailure({
     });
     try {
       await cacheLookupResponse({
-        body,
+        body: terminalBody,
         lookupId,
         sickwStatus,
         status,
@@ -160,10 +162,10 @@ export async function refundAndCacheFailure({
         }
       );
     }
-    return json(body, status);
+    return json(terminalBody, status);
   }
 
-  return json(body, status);
+  return json(terminalBody, status);
 }
 
 export async function cacheInsufficientBalanceResponse({
@@ -235,9 +237,14 @@ export async function cacheSuccessfulLookup({
   supabaseAdmin: AdminSupabaseClient;
   tier: ImeiServiceTierKey;
 }) {
+  const completeBody = {
+    ...providerResult.body,
+    lookupId,
+    status: 'complete' as const,
+  };
   try {
     await cacheLookupResponse({
-      body: providerResult.body,
+      body: completeBody,
       lookupId,
       responseHash: hashProviderResponse(providerResult.rawResponseText),
       sickwStatus: providerResult.sickwStatus,
@@ -265,7 +272,7 @@ export async function cacheSuccessfulLookup({
       sickw_status: providerResult.sickwStatus,
       tier,
     });
-    return json(providerResult.body, providerResult.status);
+    return json(completeBody, providerResult.status);
   }
   console.info({
     amount,
@@ -277,5 +284,5 @@ export async function cacheSuccessfulLookup({
     sickw_status: providerResult.sickwStatus,
     tier,
   });
-  return json(providerResult.body, providerResult.status);
+  return json(completeBody, providerResult.status);
 }

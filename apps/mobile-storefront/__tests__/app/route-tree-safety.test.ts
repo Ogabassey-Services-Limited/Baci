@@ -44,6 +44,7 @@ const EXPLICIT_STATIC_ROUTES = new Set([
   'utilities/history.tsx',
   'wallet/manage-cards.tsx',
   'wallet/savings/start.tsx',
+  'wallet/usdt.tsx',
 ]);
 
 function collectModuleFiles(currentPath: string): string[] {

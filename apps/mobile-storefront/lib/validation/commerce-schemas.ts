@@ -219,6 +219,12 @@ export const ImeiResultSchema = z.object({
   gsxCoverage: z.string().optional(),
   repairHistory: z.string().optional(),
   replacementHistory: z.string().optional(),
+  esimCompatibility: z.string().optional(),
+  financeStatus: z.string().optional(),
+  knoxEnrollment: z.string().optional(),
+  soldBy: z.string().optional(),
+  wifiMac: z.string().optional(),
+  devicePhoto: z.string().optional(),
   deviceType: z.enum(['apple', 'android', 'other']),
   verdict: z.string().min(1),
   verdictType: z.enum(['safe', 'caution', 'danger']),
@@ -226,8 +232,11 @@ export const ImeiResultSchema = z.object({
 
 export const ImeiCheckApiResponseSchema = z.object({
   success: z.boolean(),
+  status: z.enum(['complete', 'error', 'pending']).optional(),
   data: ImeiResultSchema.optional(),
   error: z.string().optional(),
+  lookupId: z.string().uuid().optional(),
+  pollAfterMs: z.number().int().positive().optional(),
 });
 
 export type ImeiResult = z.infer<typeof ImeiResultSchema>;

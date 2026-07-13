@@ -71,6 +71,11 @@ export interface ResolvePendingCheckoutOrderOptions {
   // Fingerprint hashing normalizes null/undefined uniformly.
   shippingProvider: string | null;
   selectedQuoteId?: string;
+  // Bare merchant rate uuid (`merchant_shipping_rates.id`), forwarded for a
+  // merchant-rate reuse so the reuse route can re-stamp fulfillment metadata
+  // when the original stamp failed (R14-3). Distinct from selectedQuoteId,
+  // which stays omitted for merchant rates (its `mrate_` id is not a uuid).
+  shippingRateId?: string | null;
   fetchImpl?: typeof fetch;
 }
 
@@ -192,6 +197,7 @@ export async function resolvePendingCheckoutOrder({
   paymentMethod,
   shippingProvider,
   selectedQuoteId,
+  shippingRateId,
   fetchImpl = fetch,
 }: ResolvePendingCheckoutOrderOptions): Promise<ResolvePendingCheckoutOrderResult> {
   if (!pendingOrder) {
@@ -254,6 +260,7 @@ export async function resolvePendingCheckoutOrder({
       payment_method: paymentMethod,
       shipping_provider: shippingProvider,
       selected_quote_id: selectedQuoteId || undefined,
+      shipping_rate_id: shippingRateId || undefined,
     }),
   });
 

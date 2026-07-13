@@ -1,22 +1,6 @@
-import {
-  BadgeCheck,
-  Globe,
-  ShieldAlert,
-  Sparkles,
-  type LucideIcon,
-} from 'lucide-react';
-import {
-  IMEI_SERVICE_TIERS,
-  PRIMARY_IMEI_SERVICE_TIERS,
-  type ImeiServiceTierKey,
-} from '@baci/shared/imei';
-
-const TIER_ICONS = {
-  activation: Sparkles,
-  blacklist: ShieldAlert,
-  carrier: Globe,
-  full: BadgeCheck,
-} as const satisfies Record<PrimaryServiceTier, LucideIcon>;
+import { IMEI_SERVICE_TIERS, type ImeiServiceTierKey } from '@baci/shared/imei';
+import { getTierIcon } from './imei-checker-tier-icons';
+import type { LucideIcon } from 'lucide-react';
 
 const currencyFormatter = new Intl.NumberFormat('en-NG', {
   currency: 'NGN',
@@ -24,9 +8,8 @@ const currencyFormatter = new Intl.NumberFormat('en-NG', {
   style: 'currency',
 });
 
-type PrimaryServiceTier = (typeof PRIMARY_IMEI_SERVICE_TIERS)[number];
-
-type PublicServiceTier = {
+export interface DisplayImeiTier {
+  detail: string;
   features: readonly string[];
   icon: LucideIcon;
   id: ImeiServiceTierKey;
@@ -35,14 +18,20 @@ type PublicServiceTier = {
   priceDisplay: string;
   recommended?: boolean;
   tagline: string;
-};
+}
 
-function buildPublicServiceTier(tierKey: PrimaryServiceTier): PublicServiceTier {
+/**
+ * Adapts one shared-catalog tier definition into a display-ready shape for
+ * web. Replaces the old hardcoded 4-key SERVICE_TIERS map — works for any of
+ * the full 29-key catalog, not just the legacy primary tiers.
+ */
+export function getDisplayTier(tierKey: ImeiServiceTierKey): DisplayImeiTier {
   const tier = IMEI_SERVICE_TIERS[tierKey];
 
   return {
+    detail: tier.detail,
     features: tier.features,
-    icon: TIER_ICONS[tierKey],
+    icon: getTierIcon(tierKey),
     id: tierKey,
     name: tier.name,
     price: tier.price,
@@ -51,12 +40,3 @@ function buildPublicServiceTier(tierKey: PrimaryServiceTier): PublicServiceTier 
     tagline: tier.tagline,
   };
 }
-
-export const SERVICE_TIERS = {
-  full: buildPublicServiceTier('full'),
-  activation: buildPublicServiceTier('activation'),
-  blacklist: buildPublicServiceTier('blacklist'),
-  carrier: buildPublicServiceTier('carrier'),
-} as const satisfies Record<PrimaryServiceTier, PublicServiceTier>;
-
-export type ServiceTier = keyof typeof SERVICE_TIERS;

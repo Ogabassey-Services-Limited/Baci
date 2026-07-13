@@ -21,20 +21,28 @@ export type StorefrontMerchantResolveResult =
   | StorefrontMerchantResolveFailure;
 
 export async function resolveStorefrontMerchantFromRequest({
+  fallbackIdentifier,
   request,
   rootDomain,
   notFoundError,
   lookupError,
 }: {
+  fallbackIdentifier?: string | null;
   request: Request;
   rootDomain: string;
   notFoundError: string;
   lookupError: string;
 }): Promise<StorefrontMerchantResolveResult> {
-  const routeIdentifiers = resolveStorefrontRouteIdentifiers({
+  const hostIdentifiers = resolveStorefrontRouteIdentifiers({
     request,
     rootDomain,
   });
+  const routeIdentifiers =
+    hostIdentifiers.length > 0
+      ? hostIdentifiers
+      : fallbackIdentifier
+        ? [fallbackIdentifier]
+        : [];
 
   if (routeIdentifiers.length === 0) {
     return {

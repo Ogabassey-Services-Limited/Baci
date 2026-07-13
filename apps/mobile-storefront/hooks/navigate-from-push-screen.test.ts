@@ -72,6 +72,12 @@ describe('navigateFromPushScreen', () => {
     expect(push).toHaveBeenCalledWith('/utilities/history?type=power');
   });
 
+  it('routes carrier-unlock notifications to unlock orders', () => {
+    navigateFromPushScreen('unlock-orders');
+
+    expect(push).toHaveBeenCalledWith('/unlock-orders');
+  });
+
   it('routes unknown screens to home', () => {
     navigateFromPushScreen('unknown-screen');
 

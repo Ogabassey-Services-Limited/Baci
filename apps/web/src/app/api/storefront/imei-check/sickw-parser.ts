@@ -1,4 +1,7 @@
-import { stripHtmlTags } from '@/lib/sanitize-core';
+import {
+  type ProviderLabelInput,
+  parseProviderLabelMap,
+} from './label-map-parser';
 import type { ImeiCheckResult } from './sickw-parser.types';
 import {
   buildVerdict,
@@ -12,8 +15,6 @@ import {
   hasXiaomiLockIssue,
   hasXiaomiLostIssue,
 } from './sickw-xiaomi-status';
-
-type ProviderInput = string | Record<string, unknown>;
 
 const SCORE_PENALTIES = {
   BLACKLIST: 50,
@@ -40,45 +41,10 @@ const ICLOUD_STATUS_KEYS = [
   'clean lost status',
 ] as const;
 
-function sanitizeProviderValue(value: unknown): string {
-  if (value == null) return '';
-
-  const decoded = String(value)
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&#60;/g, '<')
-    .replace(/&#62;/g, '>')
-    .replace(/&#x3c;/gi, '<')
-    .replace(/&#x3e;/gi, '>');
-
-  return stripHtmlTags(decoded).replace(/[<>]/g, '').trim();
-}
-
 export function parseSickwResponse(
-  input: ProviderInput
+  input: ProviderLabelInput
 ): Partial<ImeiCheckResult> {
-  const data: Record<string, string> = {};
-
-  if (typeof input === 'object' && input !== null) {
-    Object.keys(input).forEach((key) => {
-      data[key.toLowerCase()] = sanitizeProviderValue(input[key]);
-    });
-  } else if (typeof input === 'string') {
-    const normalizedText = input.replace(/<br\s*\/?>/gi, '\n');
-    const lines = normalizedText
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean);
-
-    for (const line of lines) {
-      const colonIndex = line.indexOf(':');
-      if (colonIndex > 0) {
-        const key = line.substring(0, colonIndex).trim().toLowerCase();
-        const value = sanitizeProviderValue(line.substring(colonIndex + 1));
-        data[key] = value;
-      }
-    }
-  }
+  const data = parseProviderLabelMap(input);
 
   const modelNumber =
     data['model number'] || data['model no'] || data.mpn || '';
@@ -145,6 +111,29 @@ export function parseSickwResponse(
     data.replaced ||
     data['replacement history'] ||
     '';
+  const esimCompatibility =
+    data['esim compatibility'] ||
+    data['esim support'] ||
+    data['esim status'] ||
+    data.esim ||
+    '';
+  const financeStatus =
+    data['finance status'] || data['financial status'] || data.finance || '';
+  const knoxEnrollment =
+    data['knox enrollment'] ||
+    data['knox enrollment status'] ||
+    data['knox mobile enrollment'] ||
+    data['kme status'] ||
+    '';
+  const soldBy = data['sold by'] || data['sold to'] || data.seller || '';
+  const wifiMac =
+    data['wifi mac'] ||
+    data['wi-fi mac'] ||
+    data['wifi mac address'] ||
+    data['wi-fi mac address'] ||
+    '';
+  const devicePhoto =
+    data['device photo'] || data['photo url'] || data.photo || '';
   const { miLockStatus, miLostStatus } = getXiaomiStatuses(data, device);
 
   const deviceType = inferDeviceType(device);
@@ -222,6 +211,12 @@ export function parseSickwResponse(
     ...(gsxCoverage && { gsxCoverage }),
     ...(repairHistory && { repairHistory }),
     ...(replacementHistory && { replacementHistory }),
+    ...(esimCompatibility && { esimCompatibility }),
+    ...(financeStatus && { financeStatus }),
+    ...(knoxEnrollment && { knoxEnrollment }),
+    ...(soldBy && { soldBy }),
+    ...(wifiMac && { wifiMac }),
+    ...(devicePhoto && { devicePhoto }),
     deviceType,
     score: Math.max(0, score),
     verdict: verdict.text,

@@ -17,10 +17,24 @@ const SHELL_DELEGATE_MODULES = new Map<
   { modulePath: string; routeJsxPattern: RegExp }
 >([
   [
+    'unlock-orders/index.tsx',
+    {
+      modulePath: '../components/imei-check/unlock-orders-screen.tsx',
+      routeJsxPattern: /<UnlockOrdersScreen(?=[\s/>])/,
+    },
+  ],
+  [
     'wallet/index.tsx',
     {
       modulePath: '../components/wallet/WalletScreenView.tsx',
       routeJsxPattern: /<WalletScreen(?=[\s/>])/,
+    },
+  ],
+  [
+    'wallet/usdt.tsx',
+    {
+      modulePath: '../components/wallet/UsdtWalletFundingScreen.tsx',
+      routeJsxPattern: /<UsdtWalletFundingScreen(?=[\s/>])/,
     },
   ],
 ]);
@@ -67,6 +81,7 @@ const EXPLICIT_STATIC_ROUTES = new Set([
   'utilities/history.tsx',
   'wallet/manage-cards.tsx',
   'wallet/savings/start.tsx',
+  'wallet/usdt.tsx',
 ]);
 
 // Decreasing baseline: every route listed here currently does not render
