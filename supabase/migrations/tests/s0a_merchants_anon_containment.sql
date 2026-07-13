@@ -38,12 +38,17 @@ DECLARE
   ];
   safe_cols    text[] := ARRAY[
     'id','business_name','slug','logo_url','country','is_published',
-    'email','phone','vat_rate','plan_tier','social_media'
+    'email','phone','vat_rate','plan_tier','social_media',
+    -- required by the {public} RLS policies on domains / merchant_feature_settings,
+    -- whose owner-fallback subqueries read merchants.user_id as the CALLER (anon).
+    -- Without it, every anon read of those tables fails 42501.
+    'user_id'
   ];
   -- Option-B bridge columns: granted TODAY, revoked at the 2026-08-24 removal.
   bridge_cols  text[] := ARRAY[
     'bank_account_number','bank_account_name','bank_code','bank_name',
-    'cac_rc_number','tax_identification_number','legal_entity_name'
+    'cac_rc_number','tax_identification_number','legal_entity_name',
+    'email_sender_name','registered_address'
   ];
 BEGIN
   -- 1. No table-wide privileges of any kind for anon.

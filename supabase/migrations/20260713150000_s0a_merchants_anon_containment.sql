@@ -48,6 +48,17 @@ GRANT SELECT (
   -- identity / presentation
   id, business_name, business_type, country, pages,
   logo_url, brand_colors, slug, payout_currency, social_media,
+  -- user_id is NOT read by app code. It is required because the {public} RLS
+  -- policies on public.domains (domains_select_policy) and
+  -- public.merchant_feature_settings (Unified view access for feature settings)
+  -- contain owner-fallback subqueries of the form
+  --   merchant_id IN (SELECT id FROM merchants WHERE user_id = auth.uid())
+  -- Policy expressions are evaluated with the CALLER's privileges, and anon is a
+  -- member of PUBLIC, so those policies run for anon too. Without SELECT on
+  -- user_id, every anon read of domains / merchant_feature_settings fails with
+  -- 42501 (verified empirically). Rewriting those policies to use a SECURITY
+  -- DEFINER owner check is the durable fix and is tracked with the S1 work.
+  user_id,
   site_title, site_tagline, site_description,
   favicon_svg_url, favicon_png_32_url, favicon_png_192_url,
   favicon_apple_touch_url, favicon_uploaded_at,
@@ -66,31 +77,41 @@ GRANT SELECT (
 ) ON public.merchants TO anon;
 
 -- ============================================================================
--- (d) OPTION-B BANK BRIDGE — TEMPORARY, DATED, TRACKED-TO-REMOVAL.
---     These 7 FINANCIAL/BUSINESS-REG columns are granted to anon ONLY so that
---     already-installed mobile storefront binaries (which read the raw table for
---     receipt rendering, pre-#3083) do not throw. Current code reads them via the
---     get_storefront_receipt_merchant_info SECURITY DEFINER RPC and does NOT
---     need this grant.
+-- (d) OPTION-B BRIDGE — TEMPORARY, DATED, TRACKED-TO-REMOVAL.
+--     These 9 FINANCIAL/BUSINESS-REG columns are granted to anon ONLY to keep two
+--     existing anon paths working. Neither SHOULD be reading them as anon; both
+--     must move behind service-role / SECURITY DEFINER before the grant is dropped.
 --
---     REMOVAL GATE — all four must hold before the removal migration ships:
+--     Anon readers keeping this bridge alive:
+--       1. Shipped mobile storefront binaries that read the raw table for receipt
+--          rendering (pre-#3083). Current code uses the
+--          get_storefront_receipt_merchant_info RPC and does NOT need this grant.
+--       2. Guest checkout: POST /api/orders runs on the cookie-bound server client,
+--          which is ANON for a signed-out shopper, and its merchant verification
+--          query (apps/web/src/app/api/orders/route.ts) selects the bank_* columns
+--          plus email_sender_name and registered_address for invoice/receipt data.
+--
+--     REMOVAL GATE — all of the following must hold before the removal migration:
 --       owner:            ogabasseyy
---       removal version:  storefront build carrying get_storefront_receipt_merchant_info
+--       deadline:         2026-08-24
+--       (a) mobile:       storefront build carrying get_storefront_receipt_merchant_info
 --                         (already on main) enforced as the minimum via
 --                         apps/web/src/app/api/mobile/release-policy
---       deadline:         2026-08-24
---       guard:            regression test asserting anon SELECT bank_account_number
+--       (b) guest checkout: switch the POST /api/orders merchant lookup to
+--                         createAdminClient() (same fix as #3063 for the Juicyway
+--                         webhook) so a signed-out shopper never reads merchant bank
+--                         details through the anon key
+--       (c) guard:        regression test asserting anon SELECT bank_account_number
 --                         FROM public.merchants FAILS after removal
---                         (see supabase/migrations/tests/s0a_merchants_anon_containment.sql)
+--                         (supabase/migrations/tests/s0a_merchants_anon_containment.sql)
 --
---     Removal = a follow-up migration dropping exactly these 7 columns from the
---     anon grant once the min-version gate enforces the fixed client. During the
---     bridge these 7 remain anon-readable but ONLY for published stores — a large
---     reduction from today's GRANT ALL + USING(true).
+--     During the bridge these 9 remain anon-readable but ONLY for published stores
+--     — a large reduction from today's GRANT ALL + USING (true).
 -- ----------------------------------------------------------------------------
 GRANT SELECT (
   bank_account_number, bank_account_name, bank_code, bank_name,
-  cac_rc_number, tax_identification_number, legal_entity_name
+  cac_rc_number, tax_identification_number, legal_entity_name,
+  email_sender_name, registered_address
 ) ON public.merchants TO anon;
 
 COMMIT;
