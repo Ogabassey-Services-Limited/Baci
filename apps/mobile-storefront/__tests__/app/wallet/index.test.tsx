@@ -1486,6 +1486,9 @@ describe('WalletScreen', () => {
         customerPhone: '08012345678',
         merchantId: 'merchant-1',
         merchantSlug: 'ogabassey',
+        // Persisted server-side so the wallet-credited push can deep-link
+        // back to the interrupted purchase.
+        returnTo: '/imei-check',
       });
     });
     expect(mockRouterPush).toHaveBeenCalledWith({
