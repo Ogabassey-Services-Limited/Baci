@@ -12,6 +12,10 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import type Colors from '@/constants/Colors';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { useWalletFundPanelAutoCreate } from './use-wallet-fund-panel-auto-create';
+import {
+  WalletFundPhonePrompt,
+  type WalletFundPhoneSubmitResult,
+} from './WalletFundPhonePrompt';
 import { WalletPanelActionButtons } from './WalletPanelActionButtons';
 import { styles as walletStyles } from './wallet.styles';
 import type { WalletDisplayFundingAccount } from './wallet.types';
@@ -35,12 +39,14 @@ interface WalletFundPanelProps {
   fundingAccount: WalletDisplayFundingAccount | null;
   isCreatingFundingAccount: boolean;
   isFundPending: boolean;
+  needsPhone: boolean;
   onChangeFundAmount: (value: string) => void;
   onConfirmFund: () => void;
   // Returns a boolean success flag when awaited (false = creation failed);
   // typed as unknown so a plain `() => void` handler is still accepted.
   onCreateFundingAccount: () => unknown;
   onResetFund: () => void;
+  onSubmitPhone: (phone: string) => Promise<WalletFundPhoneSubmitResult>;
 }
 
 export function WalletFundPanel({
@@ -51,10 +57,12 @@ export function WalletFundPanel({
   fundingAccount,
   isCreatingFundingAccount,
   isFundPending,
+  needsPhone,
   onChangeFundAmount,
   onConfirmFund,
   onCreateFundingAccount,
   onResetFund,
+  onSubmitPhone,
 }: WalletFundPanelProps) {
   // Tracks the "Fund with card instead" toggle. Card entry is ALSO shown
   // whenever a prefilled amount is present (see cardEntryVisible), which
@@ -69,8 +77,13 @@ export function WalletFundPanel({
     onCreateFundingAccount,
   });
 
+  // `needsPhone` is excluded so the card entry does NOT auto-expand while the
+  // phone prompt is showing — card stays behind the "Fund with card" toggle.
   const bankTransferUnavailable =
-    !fundingAccount && !canCreateFundingAccount && !isCreatingFundingAccount;
+    !fundingAccount &&
+    !canCreateFundingAccount &&
+    !isCreatingFundingAccount &&
+    !needsPhone;
   // Reactive to fundAmount so a prefilled amount always reveals card entry,
   // even if it arrives after the panel is already mounted; openedWithPrefill
   // keeps it visible if the customer clears the prefilled input.
@@ -138,6 +151,10 @@ export function WalletFundPanel({
             </Text>
           ) : null}
         </>
+      ) : needsPhone ? (
+        // No account yet and the only blocker is a missing phone — collect it
+        // here (takes priority over the spinner/message branches below).
+        <WalletFundPhonePrompt colors={colors} onSubmit={onSubmitPhone} />
       ) : autoCreateFailed ? (
         <Text
           style={[

@@ -35,10 +35,12 @@ function renderPanel(
     fundingAccount,
     isCreatingFundingAccount: false,
     isFundPending: false,
+    needsPhone: false,
     onChangeFundAmount: jest.fn(),
     onConfirmFund: jest.fn(),
     onCreateFundingAccount: jest.fn(),
     onResetFund: jest.fn(),
+    onSubmitPhone: jest.fn(async () => ({ success: true })),
     ...overrides,
   };
   render(<WalletFundPanel {...props} />);
@@ -103,10 +105,12 @@ describe('WalletFundPanel', () => {
       fundingAccount,
       isCreatingFundingAccount: false,
       isFundPending: false,
+      needsPhone: false,
       onChangeFundAmount: jest.fn(),
       onConfirmFund: jest.fn(),
       onCreateFundingAccount: jest.fn(),
       onResetFund: jest.fn(),
+      onSubmitPhone: jest.fn(async () => ({ success: true })),
     };
     const { rerender } = render(<WalletFundPanel {...baseProps} />);
 
@@ -145,10 +149,12 @@ describe('WalletFundPanel', () => {
       fundingAccount: null,
       isCreatingFundingAccount: false,
       isFundPending: false,
+      needsPhone: false,
       onChangeFundAmount: jest.fn(),
       onConfirmFund: jest.fn(),
       onCreateFundingAccount: jest.fn(),
       onResetFund: jest.fn(),
+      onSubmitPhone: jest.fn(async () => ({ success: true })),
     };
     const { rerender } = render(<WalletFundPanel {...baseProps} />);
 
@@ -172,6 +178,46 @@ describe('WalletFundPanel', () => {
     expect(screen.getByLabelText('Wallet top-up amount')).toBeTruthy();
     await waitFor(() => {
       expect(screen.queryByText(/setting up your account number/i)).toBeNull();
+    });
+  });
+
+  it('shows the phone prompt (not the spinner) when a phone is needed', () => {
+    // needsPhone and canCreateFundingAccount are mutually exclusive: a missing
+    // phone keeps creation blocked until it is collected.
+    const props = renderPanel({
+      canCreateFundingAccount: false,
+      fundingAccount: null,
+      needsPhone: true,
+    });
+
+    // Phone collection replaces the account-setup spinner and never auto-creates.
+    expect(screen.getByLabelText('Phone number')).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Save phone number' })
+    ).toBeTruthy();
+    expect(props.onCreateFundingAccount).not.toHaveBeenCalled();
+    expect(screen.queryByText(/setting up your account number/i)).toBeNull();
+    // Card entry stays collapsed behind the toggle (must not auto-expand).
+    expect(screen.queryByLabelText('Wallet top-up amount')).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Fund with card instead' })
+    ).toBeTruthy();
+  });
+
+  it('persists the phone through onSubmitPhone from the prompt', async () => {
+    const onSubmitPhone = jest.fn(async () => ({ success: true }));
+    renderPanel({
+      canCreateFundingAccount: false,
+      fundingAccount: null,
+      needsPhone: true,
+      onSubmitPhone,
+    });
+
+    fireEvent.changeText(screen.getByLabelText('Phone number'), '08012345678');
+    fireEvent.press(screen.getByRole('button', { name: 'Save phone number' }));
+
+    await waitFor(() => {
+      expect(onSubmitPhone).toHaveBeenCalledWith('08012345678');
     });
   });
 

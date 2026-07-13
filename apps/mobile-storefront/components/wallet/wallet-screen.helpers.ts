@@ -8,6 +8,7 @@ import {
   normalizeRequiredFundingAccountValue,
 } from './derive-wallet-display-data';
 import {
+  CUSTOMER_PHONE_REQUIRED_ERROR_CODE,
   ORDER_ALIAS_CONFLICT_MESSAGE_FRAGMENT,
   WALLET_FUNDING_ACCOUNT_MESSAGES,
 } from './wallet-funding-account.constants';
@@ -49,6 +50,7 @@ interface WalletRedeemResultLike {
 export type WalletCreateFundingAccountOutcome =
   | { accountSummary: string; status: 'success' }
   | { accountSummary?: undefined; status: 'success' }
+  | { status: 'phone-required' }
   | {
       alertMessage: string;
       status: 'error';
@@ -94,6 +96,15 @@ export async function resolveCreateFundingAccountOutcome(
 
     return { status: 'success' };
   } catch (error) {
+    // Stale local state can still show a phone while the server row has none;
+    // surface it so callers can re-collect the number instead of alerting.
+    if (
+      error instanceof Error &&
+      (error as Error & { code?: string }).code ===
+        CUSTOMER_PHONE_REQUIRED_ERROR_CODE
+    ) {
+      return { status: 'phone-required' };
+    }
     const rawMessage = error instanceof Error ? error.message : null;
     const isOrderAliasConflict = Boolean(
       rawMessage?.includes(ORDER_ALIAS_CONFLICT_MESSAGE_FRAGMENT)

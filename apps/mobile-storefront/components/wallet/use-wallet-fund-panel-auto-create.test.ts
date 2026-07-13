@@ -72,6 +72,26 @@ describe('useWalletFundPanelAutoCreate', () => {
     expect(result.current.openedWithPrefill).toBe(true);
   });
 
+  it('auto-creates once when availability flips false→true on an empty-amount open', async () => {
+    // The needsPhone flow mounts the panel empty and ineligible; once the phone
+    // saves, availability flips and the DVA must auto-create exactly once.
+    const { onCreateFundingAccount, rerender, initialProps } = renderAutoCreate({
+      canCreateFundingAccount: false,
+    });
+
+    expect(onCreateFundingAccount).not.toHaveBeenCalled();
+
+    rerender({ ...initialProps, canCreateFundingAccount: true });
+
+    await waitFor(() => {
+      expect(onCreateFundingAccount).toHaveBeenCalledTimes(1);
+    });
+
+    // The attempt latch keeps it from firing again on a further re-render.
+    rerender({ ...initialProps, canCreateFundingAccount: true });
+    expect(onCreateFundingAccount).toHaveBeenCalledTimes(1);
+  });
+
   it('skips creation when an account already exists or creation is unavailable', () => {
     const existing = renderAutoCreate({ hasFundingAccount: true });
     expect(existing.onCreateFundingAccount).not.toHaveBeenCalled();

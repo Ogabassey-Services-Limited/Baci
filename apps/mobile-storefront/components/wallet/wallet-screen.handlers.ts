@@ -44,6 +44,9 @@ interface WalletFundingAccountHandlerParams {
   customerPhone: string;
   isPaymentSettingsError: boolean;
   isPaymentSettingsPending: boolean;
+  // Invoked when the server rejects with CUSTOMER_PHONE_REQUIRED so the caller
+  // can show the phone prompt instead of a dead-end Alert.
+  onPhoneRequired?: () => void;
   walletDvaEnabled: boolean;
 }
 
@@ -74,6 +77,7 @@ export async function createWalletFundingAccount({
   customerPhone,
   isPaymentSettingsError,
   isPaymentSettingsPending,
+  onPhoneRequired,
   walletDvaEnabled,
 }: WalletFundingAccountHandlerParams): Promise<boolean> {
   if (isPaymentSettingsPending) {
@@ -110,6 +114,10 @@ export async function createWalletFundingAccount({
 
   const outcome =
     await resolveCreateFundingAccountOutcome(createFundingAccount);
+  if (outcome.status === 'phone-required') {
+    onPhoneRequired?.();
+    return false;
+  }
   if (outcome.status === 'error') {
     trackError(
       'wallet_funding_account_create_failed',

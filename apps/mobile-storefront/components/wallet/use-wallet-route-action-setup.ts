@@ -9,6 +9,7 @@ interface UseWalletRouteActionSetupParams {
     hasFundingAccount: boolean;
     hasWalletData: boolean;
     isCreating: boolean;
+    needsPhone: boolean;
   };
   customerId: string | undefined;
   routeAction: string | undefined;
@@ -83,12 +84,20 @@ export function useWalletRouteActionSetup({
     hasFundingAccount,
     hasWalletData,
     isCreating,
+    needsPhone,
   } = bankTransfer;
   useEffect(() => {
     if (!pendingBankTransfer || !hasWalletData) {
       return;
     }
     if (hasFundingAccount) {
+      setPendingBankTransfer(false);
+      return;
+    }
+    if (needsPhone) {
+      // Can't auto-create without a phone — open the fund panel so its prompt
+      // collects it, then let the panel's auto-create complete the intent.
+      setShowFundPanel(true);
       setPendingBankTransfer(false);
       return;
     }
@@ -103,6 +112,8 @@ export function useWalletRouteActionSetup({
     hasFundingAccount,
     hasWalletData,
     isCreating,
+    needsPhone,
     pendingBankTransfer,
+    setShowFundPanel,
   ]);
 }

@@ -229,6 +229,18 @@ describe('wallet-screen.helpers', () => {
     });
   });
 
+  it('maps a CUSTOMER_PHONE_REQUIRED rejection to the phone-required outcome', async () => {
+    await expect(
+      resolveCreateFundingAccountOutcome(async () => {
+        const error = new Error('Add a phone number first') as Error & {
+          code?: string;
+        };
+        error.code = 'CUSTOMER_PHONE_REQUIRED';
+        throw error;
+      })
+    ).resolves.toEqual({ status: 'phone-required' });
+  });
+
   it('resolves redeem-point outcomes for invalid, success, and error paths', async () => {
     await expect(
       resolveWalletRedeemPointsOutcome({
