@@ -29,7 +29,7 @@ module.exports = (api) => {
     plugins: [
       // React Compiler must run before other plugins. target '19' matches the
       // installed React 19 and mirrors apps/mobile-admin, which already enables
-      // it on this same Expo SDK 56 / RN 0.85 / React 19 stack.
+      // it on this same Expo / React Native / React 19 stack.
       // `sources` compiles app/source code but SKIPS test files: the compiler
       // injects a useMemoCache (_c) call into every component, which breaks jest
       // mock factories (`jest.mock()` forbids out-of-scope vars like _c) and

@@ -24,6 +24,24 @@ interface CommercialSupportProduct {
   product_key_specs?: Record<string, unknown> | null;
 }
 
+/**
+ * The curated price-band candidate list for a category. It is INVARIANT of the
+ * current product (depends only on categorySlug + products), so callers that
+ * fan buildProductSupportLinks across many products should build it ONCE and
+ * pass it back in via `priceBandCandidates` rather than rebuilding it per
+ * product (the discovery fan-out did this up to 150x).
+ */
+export type PriceBandCandidate = ReturnType<typeof buildPriceBandCandidate>;
+
+export function buildCategoryPriceBandCandidates(
+  categorySlug: string,
+  products: CommercialSupportProduct[]
+): PriceBandCandidate[] {
+  return getCuratedPriceBands(categorySlug).map((band) =>
+    buildPriceBandCandidate({ categorySlug, band, products })
+  );
+}
+
 function findFirstEligibleProductCompare(
   categorySlug: string,
   products: CommercialSupportProduct[]
@@ -60,15 +78,10 @@ function buildFirstEligiblePriceBandLink(input: {
   categorySlug: string;
   products: CommercialSupportProduct[];
 }) {
-  const candidate = getCuratedPriceBands(input.categorySlug)
-    .map((band) =>
-      buildPriceBandCandidate({
-        categorySlug: input.categorySlug,
-        band,
-        products: input.products,
-      })
-    )
-    .find((entry) => entry.isIndexable);
+  const candidate = buildCategoryPriceBandCandidates(
+    input.categorySlug,
+    input.products
+  ).find((entry) => entry.isIndexable);
 
   if (!candidate) {
     return null;
@@ -134,6 +147,11 @@ export function buildProductSupportLinks(input: {
   currentProductPrice: number;
   includeBrandCompareLink?: boolean;
   products: CommercialSupportProduct[];
+  // Optional precomputed (product-invariant) price-band candidates. When a
+  // caller fans this function across many products it should pass one shared
+  // list instead of rebuilding it per product. Omitted callers keep the old
+  // self-computing behavior.
+  priceBandCandidates?: PriceBandCandidate[];
 }): CommercialSupportLink[] {
   const links: CommercialSupportLink[] = [];
   const currentProduct = input.products.find(
@@ -184,22 +202,17 @@ export function buildProductSupportLinks(input: {
     }
   }
 
-  const priceBandCandidate = getCuratedPriceBands(input.categorySlug)
-    .map((band) =>
-      buildPriceBandCandidate({
-        categorySlug: input.categorySlug,
-        band,
-        products: input.products,
-      })
-    )
-    .find(
-      (candidate) =>
-        candidate.isIndexable &&
-        input.currentProductPrice <= candidate.band.ceiling &&
-        (candidate.band.floor
-          ? input.currentProductPrice > candidate.band.floor
-          : true)
-    );
+  const priceBandCandidates =
+    input.priceBandCandidates ??
+    buildCategoryPriceBandCandidates(input.categorySlug, input.products);
+  const priceBandCandidate = priceBandCandidates.find(
+    (candidate) =>
+      candidate.isIndexable &&
+      input.currentProductPrice <= candidate.band.ceiling &&
+      (candidate.band.floor
+        ? input.currentProductPrice > candidate.band.floor
+        : true)
+  );
 
   if (priceBandCandidate) {
     links.push({

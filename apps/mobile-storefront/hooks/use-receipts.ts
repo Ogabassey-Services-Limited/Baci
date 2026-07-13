@@ -247,36 +247,18 @@ export function useMerchantReceiptInfo() {
     queryFn: async () => {
       log.info('Fetching merchant receipt info for:', MERCHANT_SLUG);
 
+      // Bank/tax identity for the invoice payment block is served by the
+      // bounded SECURITY DEFINER RPC (S0-B), not a raw anon `merchants` select.
+      // The RPC returns only the fixed receipt projection for a published
+      // merchant, so anon never reaches bvn/nin/tokens or arbitrary columns and
+      // the raw anon `merchants` grant can be revoked.
       const { data, error } = await withSupabaseRetry(
         async () =>
           await supabase
-            .from('merchants')
-            .select(
-              `
-              business_name,
-              logo_url,
-              email,
-              phone,
-              support_email,
-              support_phone,
-              rider_phone_number,
-              business_address,
-              cac_rc_number,
-              tax_identification_number,
-              legal_entity_name,
-              brand_colors,
-              vat_registration_status,
-              vat_rate,
-              bank_code,
-              bank_account_number,
-              bank_name,
-              bank_account_name,
-              social_media,
-              pages
-            `
-            )
-            .eq('slug', MERCHANT_SLUG)
-            .single(),
+            .rpc('get_storefront_receipt_merchant_info', {
+              p_slug: MERCHANT_SLUG,
+            })
+            .maybeSingle(),
         { maxRetries: 3 }
       );
 

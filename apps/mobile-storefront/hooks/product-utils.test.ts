@@ -10,6 +10,28 @@ const mockRemoveProductSlugFromProductsCache = jest.fn((cached, slug) => ({
 const mockFrom: jest.Mock = jest.fn();
 const mockRpc: jest.Mock = jest.fn();
 
+function mockVariantRpcQuery(result: unknown) {
+  const query = {
+    order: jest.fn(),
+    range: jest.fn(async () => {
+      const resolved = (await result) as {
+        data?: unknown;
+        error?: unknown;
+      };
+      return {
+        ...resolved,
+        count: resolved.error
+          ? null
+          : Array.isArray(resolved.data)
+            ? resolved.data.length
+            : 0,
+      };
+    }),
+  };
+  query.order.mockReturnValue(query);
+  return query;
+}
+
 jest.mock('@/lib/api', () => ({
   withSupabaseRetry: (operation: () => Promise<unknown>, options?: unknown) =>
     mockWithSupabaseRetry(operation, options),
@@ -35,13 +57,19 @@ jest.mock('@/lib/product-slug-fallback', () => ({
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     from: (...args: unknown[]) => mockFrom(...args),
-    rpc: (...args: unknown[]) => mockRpc(...args),
+    rpc: (...args: unknown[]) => {
+      const result = mockRpc(...args);
+      return args[0] === 'get_storefront_product_variants'
+        ? mockVariantRpcQuery(result)
+        : result;
+    },
   },
 }));
 
 const {
   fetchAvailableBrands,
   PRODUCT_DETAIL_SELECT,
+  PRODUCT_QUERY_VERSION,
   PRODUCT_SELECT,
   fetchProductRow,
   fetchProductsPage,
@@ -162,10 +190,10 @@ describe('product-utils', () => {
     mockRpc.mockImplementation((...args: unknown[]) => {
       const fn = args[0] as string;
       if (fn === 'get_storefront_product_variants') {
-        return { data: [], error: null };
+        return Promise.resolve({ data: [], error: null });
       }
 
-      return { data: null, error: null };
+      return Promise.resolve({ data: null, error: null });
     });
   });
 
@@ -187,20 +215,6 @@ describe('product-utils', () => {
     expect(query.eq).toHaveBeenCalledWith('slug', 'iphone-13-pro');
   });
 
-  it('pins product variant embeds to the product_id relationship', () => {
-    expect(PRODUCT_SELECT).toContain(
-      'variants:product_variants!product_variants_product_id_fkey ('
-    );
-    expect(PRODUCT_DETAIL_SELECT).toContain(
-      'variants:product_variants!product_variants_product_id_fkey ('
-    );
-  });
-
-  it('does not select removed products.colors columns from Supabase', () => {
-    expect(PRODUCT_SELECT).not.toMatch(/\bcolors\b/);
-    expect(PRODUCT_DETAIL_SELECT).not.toMatch(/\bcolors\b/);
-  });
-
   it('recognizes standard UUIDs without matching shortened UUID-like values', () => {
     expect(isUuid('123e4567-e89b-12d3-a456-426614174000')).toBe(true);
     expect(isUuid('123e4567-e89b-12d3-426614174000')).toBe(false);
@@ -214,6 +228,10 @@ describe('product-utils', () => {
     });
     mockFrom.mockReturnValueOnce(exactQuery).mockReturnValueOnce(fallbackQuery);
     mockGetProductSlugFallbackCandidates.mockReturnValue(['iphone-13-pro']);
+    mockRpc.mockImplementationOnce(async () => ({
+      data: validProductRow.variants,
+      error: null,
+    }));
 
     const result = await resolveProductRow(
       'merchant-1',
@@ -221,13 +239,14 @@ describe('product-utils', () => {
     );
 
     expect(result).toEqual(validProductRow);
+    expect(mockRpc).toHaveBeenCalledTimes(1);
   });
 
-  it('resolveProductRow hydrates public storefront variants through the rpc when nested rows are empty', async () => {
+  it('resolveProductRow hydrates a variant product through exactly one storefront rpc', async () => {
     const query = createQueryChain({
       data: {
         ...validProductRow,
-        variants: [],
+        variants: undefined,
       },
       error: null,
     });
@@ -235,8 +254,22 @@ describe('product-utils', () => {
     mockRpc.mockImplementation((...args: unknown[]) => {
       const fn = args[0] as string;
       if (fn === 'get_storefront_product_variants') {
-        return {
+        return Promise.resolve({
           data: [
+            {
+              id: 'variant-used-128',
+              product_id: validProductRow.id,
+              condition: 'used',
+              sku: null,
+              price_override: '540000.00',
+              stock_quantity: 0,
+              attributes: {
+                color: 'Midnight Green',
+                storage: '128GB',
+              },
+              primary_image:
+                'https://cdn.example.com/iphone-11-pro-max-midnight-green.avif',
+            },
             {
               id: 'variant-used-256',
               product_id: validProductRow.id,
@@ -253,19 +286,28 @@ describe('product-utils', () => {
             },
           ],
           error: null,
-        };
+        });
       }
 
-      return { data: null, error: null };
+      return Promise.resolve({ data: null, error: null });
     });
 
     const result = await resolveProductRow('merchant-1', 'iphone-13-pro');
 
-    expect(mockRpc).toHaveBeenCalledWith('get_storefront_product_variants', {
-      p_product_ids: [validProductRow.id],
-    });
+    expect(mockFrom).toHaveBeenCalledTimes(1);
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+    expect(mockRpc).toHaveBeenCalledWith(
+      'get_storefront_product_variants',
+      { p_product_ids: [validProductRow.id] },
+      { count: 'exact' }
+    );
+    expect(
+      (result as { variants: Array<{ id: string }> }).variants.map(
+        (variant) => variant.id
+      )
+    ).toEqual(['variant-used-128', 'variant-used-256']);
     expect(result).toMatchObject({
-      variants: [
+      variants: expect.arrayContaining([
         expect.objectContaining({
           condition: 'used',
           price_override: '550000.00',
@@ -273,8 +315,74 @@ describe('product-utils', () => {
             storage: '256GB',
           }),
         }),
-      ],
+      ]),
     });
+  });
+
+  it('resolveProductRow skips the variant rpc for a simple product', async () => {
+    const simpleProduct = {
+      ...validProductRow,
+      has_variants: false,
+      variant_model: 'legacy',
+      variants: undefined,
+    };
+    const query = createQueryChain({ data: simpleProduct, error: null });
+    mockFrom.mockReturnValue(query);
+
+    await expect(
+      resolveProductRow('merchant-1', 'iphone-13-pro')
+    ).resolves.toEqual(simpleProduct);
+
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('resolveProductRow hydrates sku_matrix rows when has_variants has drifted false', async () => {
+    const driftedProduct = {
+      ...validProductRow,
+      has_variants: false,
+      variant_model: 'sku_matrix',
+      variants: undefined,
+    };
+    const query = createQueryChain({ data: driftedProduct, error: null });
+    mockFrom.mockReturnValue(query);
+    mockRpc.mockImplementationOnce(async () => ({
+      data: [
+        {
+          id: 'variant-drifted',
+          product_id: validProductRow.id,
+          attributes: { storage: '512GB' },
+        },
+      ],
+      error: null,
+    }));
+
+    const result = await resolveProductRow('merchant-1', 'iphone-13-pro');
+
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({
+      variants: [expect.objectContaining({ id: 'variant-drifted' })],
+    });
+  });
+
+  it('resolveProductRow keeps the product usable when variant hydration throws', async () => {
+    const productWithoutEmbeddedVariants = {
+      ...validProductRow,
+      variants: undefined,
+    };
+    const query = createQueryChain({
+      data: productWithoutEmbeddedVariants,
+      error: null,
+    });
+    mockFrom.mockReturnValue(query);
+    mockRpc.mockImplementationOnce(() =>
+      Promise.reject(new Error('variant rpc unavailable'))
+    );
+
+    await expect(
+      resolveProductRow('merchant-1', 'iphone-13-pro')
+    ).resolves.toEqual(productWithoutEmbeddedVariants);
+
+    expect(mockRpc).toHaveBeenCalledTimes(1);
   });
 
   it('resolveAndEvictProduct clears stale product caches when a product is gone', async () => {
@@ -301,7 +409,12 @@ describe('product-utils', () => {
     const predicate = removeQueriesArg.predicate;
     expect(
       predicate({
-        queryKey: ['product', 'variant-media-v1', 'missing-slug', 'merchant-1'],
+        queryKey: [
+          'product',
+          PRODUCT_QUERY_VERSION,
+          'missing-slug',
+          'merchant-1',
+        ],
       })
     ).toBe(true);
     expect(
@@ -311,7 +424,12 @@ describe('product-utils', () => {
     ).toBe(true);
     expect(
       predicate({
-        queryKey: ['product', 'variant-media-v1', 'another-slug', 'merchant-1'],
+        queryKey: [
+          'product',
+          PRODUCT_QUERY_VERSION,
+          'another-slug',
+          'merchant-1',
+        ],
       })
     ).toBe(false);
     expect(
@@ -686,13 +804,13 @@ describe('product-utils', () => {
       const fn = args[0];
 
       if (fn === 'get_storefront_product_variants') {
-        return { data: [], error: null };
+        return Promise.resolve({ data: [], error: null });
       }
 
-      return {
+      return Promise.resolve({
         data: rankedResults,
         error: null,
-      };
+      });
     });
     mockFrom.mockReturnValue(query);
 

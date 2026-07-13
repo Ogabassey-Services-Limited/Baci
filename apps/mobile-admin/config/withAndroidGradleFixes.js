@@ -1,5 +1,5 @@
 /**
- * Expo config plugin: Android Gradle fixes for AGP 9.x + RN 0.85
+ * Expo config plugin: Android Gradle fixes for AGP 9.x + React Native
  *
  * Applies after `expo prebuild --clean` so native dirs are always correct:
  * 1. Removes kotlin-gradle-plugin classpath (built into AGP 9.x)
