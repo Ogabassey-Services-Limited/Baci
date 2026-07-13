@@ -50,7 +50,6 @@ export function QuizAdminClient({
         : null)
   );
   const [activationError, setActivationError] = useState<string | null>(null);
-  const [closeDeadline, setCloseDeadline] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isActivating, setIsActivating] = useState(false);
 
@@ -115,14 +114,12 @@ export function QuizAdminClient({
     setActivationError(null);
     setIsActivating(true);
 
-    // A prize (ranked) quiz needs a close deadline so the winner-mint cron can
-    // finalize it; omitted -> open-ended. datetime-local is local time, so
-    // normalize to an ISO-8601 UTC instant for the API.
-    const endsAtIso = closeDeadline
-      ? new Date(closeDeadline).toISOString()
-      : undefined;
-
-    activateQuizEvent(activatingEventId, answerKeyReview, endsAtIso)
+    // No close deadline is sent from here: this form only generates PRODUCT-prize
+    // drafts (see /api/merchant/quiz/generate), and activation deliberately
+    // ignores a deadline on non-ranked events (the winner-mint cron skips them, so
+    // an ends_at would strand the quiz open-but-unstartable). Ranked-prize quizzes
+    // are activated through the API with an explicit endsAt, which is required.
+    activateQuizEvent(activatingEventId, answerKeyReview)
       .then((data) => {
         setResult((current) =>
           current && current.event.id === activatingEventId
@@ -280,27 +277,12 @@ export function QuizAdminClient({
       ) : null}
 
       {result ? (
-        <div className="flex flex-col gap-4">
-          <label className="grid gap-2 text-sm font-medium">
-            Close deadline (required for prize quizzes)
-            <input
-              className="rounded-md border bg-background px-3 py-2 text-sm"
-              onChange={(event) => setCloseDeadline(event.target.value)}
-              type="datetime-local"
-              value={closeDeadline}
-            />
-            <span className="text-xs font-normal text-muted-foreground">
-              When the quiz closes and ranked winners are minted. Leave blank
-              for an open-ended quiz; prize quizzes require a deadline.
-            </span>
-          </label>
-          <QuizAdminResult
-            activationError={activationError}
-            isActivating={isActivating}
-            onActivate={handleActivate}
-            result={result}
-          />
-        </div>
+        <QuizAdminResult
+          activationError={activationError}
+          isActivating={isActivating}
+          onActivate={handleActivate}
+          result={result}
+        />
       ) : null}
     </div>
   );

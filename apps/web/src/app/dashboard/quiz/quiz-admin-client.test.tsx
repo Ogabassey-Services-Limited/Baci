@@ -1,10 +1,4 @@
-import {
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { QuizAdminClient } from './quiz-admin-client';
@@ -145,44 +139,6 @@ describe('QuizAdminClient', () => {
     );
     expect(await screen.findByText('Quiz open')).toBeInTheDocument();
     expect(screen.getByText('Status: active')).toBeInTheDocument();
-  });
-
-  it('sends the close deadline (endsAt) when the admin sets one', async () => {
-    mockApiPost
-      .mockResolvedValueOnce(validGenerationResponse())
-      .mockResolvedValueOnce({
-        event: {
-          id: 'event-1',
-          slug: 'daily-phone-quiz',
-          status: 'active',
-          title: 'Daily Phone Quiz',
-        },
-      });
-    const user = userEvent.setup();
-
-    renderQuizAdminClient();
-
-    await screen.findByLabelText(/prize product/i);
-    await user.click(screen.getByRole('button', { name: /generate draft/i }));
-
-    // datetime-local: set the value directly (segmented input is unreliable to type).
-    const deadlineInput = await screen.findByLabelText(/close deadline/i);
-    fireEvent.change(deadlineInput, { target: { value: '2999-01-01T00:00' } });
-
-    await user.click(
-      screen.getByRole('checkbox', { name: /reviewed every correct answer/i })
-    );
-    await user.click(screen.getByRole('button', { name: /open now/i }));
-
-    await waitFor(() => expect(mockApiPost).toHaveBeenCalledTimes(2));
-    // The local datetime is normalized to an ISO-8601 UTC instant for the API.
-    expect(mockApiPost).toHaveBeenLastCalledWith(
-      '/api/merchant/quiz/activate',
-      expect.objectContaining({
-        endsAt: new Date('2999-01-01T00:00').toISOString(),
-        eventId: 'event-1',
-      })
-    );
   });
 
   it('surfaces an activation error and keeps the quiz as a draft', async () => {
