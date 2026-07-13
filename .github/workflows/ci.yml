@@ -371,7 +371,7 @@ jobs:
 
   quality:
     name: Quality Gate
-    needs: [changes, quality-lint, quality-typecheck, quality-test, quality-misc, silent-revert-guard]
+    needs: [changes, quality-lint, quality-typecheck, quality-test, quality-misc, mobile-quality, silent-revert-guard]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -383,6 +383,7 @@ jobs:
           TYPECHECK_RESULT: ${{ needs['quality-typecheck'].result }}
           TEST_RESULT: ${{ needs['quality-test'].result }}
           MISC_RESULT: ${{ needs['quality-misc'].result }}
+          MOBILE_QUALITY_RESULT: ${{ needs['mobile-quality'].result }}
           SILENT_REVERT_GUARD_RESULT: ${{ needs['silent-revert-guard'].result }}
         run: |
           set -euo pipefail
@@ -392,7 +393,7 @@ jobs:
             exit 1
           fi
 
-          for result in "$LINT_RESULT" "$TYPECHECK_RESULT" "$TEST_RESULT" "$MISC_RESULT" "$SILENT_REVERT_GUARD_RESULT"; do
+          for result in "$LINT_RESULT" "$TYPECHECK_RESULT" "$TEST_RESULT" "$MISC_RESULT" "$MOBILE_QUALITY_RESULT" "$SILENT_REVERT_GUARD_RESULT"; do
             case "$result" in
               success|skipped)
                 ;;
