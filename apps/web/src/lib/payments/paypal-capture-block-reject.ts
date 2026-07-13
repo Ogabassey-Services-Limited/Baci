@@ -8,6 +8,10 @@ import {
   successResponse,
 } from '@/lib/payments/paypal-capture-execute';
 import type { PaypalCaptureOutcome } from '@/lib/payments/paypal-capture-outcome';
+import {
+  isProvenDuplicate,
+  type PaypalSettlerVerdict,
+} from '@/lib/payments/paypal-settler-verdict';
 import type { PayPalOrderDetails } from '@/lib/paypal';
 
 /**
@@ -18,17 +22,23 @@ import type { PayPalOrderDetails } from '@/lib/paypal';
  */
 
 /**
- * F-203: the order was settled by another tender/PayPal order while this stale
- * approval returned. Never capture. If this stale order already captured,
- * auto-refund it and file `captured_after_settlement`. Return idempotent
- * success — the order IS paid, so the buyer proceeds.
+ * F-203: the order was settled by something other than this capture. Never
+ * capture again. Return idempotent success — the order IS paid, so the buyer
+ * proceeds.
+ *
+ * A landed capture is auto-refunded ONLY on positive proof of a different
+ * settler (`other_txn`). When the settler is `unknown` (no marker — e.g. a
+ * pre-migration paid order) we must NOT claw the money back: absence of a marker
+ * is not evidence of duplication, and the capture may well be the payment that
+ * settled this order. Those get a manual-review row instead.
  */
 export async function handleBlockPaidElsewhere(
   ctx: PaypalCaptureContext,
   captured: boolean,
-  remote: PayPalOrderDetails | undefined
+  remote: PayPalOrderDetails | undefined,
+  settlerVerdict: PaypalSettlerVerdict
 ): Promise<NextResponse> {
-  if (captured) {
+  if (captured && isProvenDuplicate(settlerVerdict)) {
     const refund = await refundCapturedPaypalOrder(
       ctx,
       remote,
@@ -43,8 +53,25 @@ export async function handleBlockPaidElsewhere(
       transactionId: ctx.transaction.id,
       metadata: {
         stage: 'captured_after_settlement',
+        settlerVerdict,
         refundSucceeded: refund.success,
         refundError: refund.error ?? null,
+      },
+    });
+  } else if (captured) {
+    // Captured, but we cannot PROVE a different transaction settled the order
+    // (no marker). Refunding could claw back a legitimate payment, so leave the
+    // money alone and escalate to a human.
+    await filePaypalCapturePersistFailureReview({
+      gatewayReference: ctx.paypalOrderId,
+      merchantId: ctx.merchantId,
+      orderId: ctx.orderId,
+      reason:
+        'PayPal capture landed on an already-settled order with no settler marker; needs manual reconciliation (NOT auto-refunded)',
+      transactionId: ctx.transaction.id,
+      metadata: {
+        stage: 'captured_on_settled_order_unknown_settler',
+        settlerVerdict,
       },
     });
   } else {

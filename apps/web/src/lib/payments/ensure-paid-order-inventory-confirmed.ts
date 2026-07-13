@@ -88,6 +88,10 @@ export interface OrderStatusRollbackSnapshot {
   // Optional: webhooks that set amount_paid alongside payment_status must
   // restore it too, or a retried payout validates against a zero residual.
   amount_paid?: number | string | null;
+  // Optional: callers whose paid-CAS also stamped orders.paid_transaction_id
+  // must restore/clear it here, or the settler marker outlives the paid status
+  // it was written with and misattributes a later payment.
+  paid_transaction_id?: string | null;
 }
 
 export async function rollbackOrderStatusAfterInventoryConfirmationFailure(
@@ -103,6 +107,9 @@ export async function rollbackOrderStatusAfterInventoryConfirmationFailure(
       shipping_status: previousStatus.shipping_status,
       ...(previousStatus.amount_paid !== undefined && {
         amount_paid: previousStatus.amount_paid,
+      }),
+      ...(previousStatus.paid_transaction_id !== undefined && {
+        paid_transaction_id: previousStatus.paid_transaction_id,
       }),
     })
     .eq('id', orderId)

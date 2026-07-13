@@ -188,9 +188,43 @@ describe('POST /api/payments/paypal/capture-order (funnel dispatch)', () => {
 
     expect(getOrder).toHaveBeenCalledTimes(1);
     expect(json.dispatched).toBe('block_paid_elsewhere');
+    // No settler marker on the order → `unknown`. It still blocks the capture,
+    // but the verdict must ride along so the handler does NOT auto-refund what
+    // could be a legitimate payment (Codex pass-9 P1).
     expect(handlePaypalCaptureOutcome).toHaveBeenCalledWith(
       expect.anything(),
-      { kind: 'block_paid_elsewhere', captured: true },
+      {
+        kind: 'block_paid_elsewhere',
+        captured: true,
+        settlerVerdict: 'unknown',
+      },
+      expect.objectContaining({ status: 'COMPLETED' })
+    );
+  });
+
+  it('paid by a PROVABLY different txn + captured stale PayPal order → blocks with other_txn (auto-refundable duplicate)', async () => {
+    vi.mocked(loadPaypalCaptureContext).mockResolvedValue(
+      loadOk({
+        orderSnapshot: orderSnapshot({
+          payment_status: 'paid',
+          paid_transaction_id: 'a-different-transaction-id',
+        }),
+      })
+    );
+    vi.mocked(getOrder).mockResolvedValue({
+      success: true,
+      data: { id: PAYPAL_ORDER_ID, status: 'COMPLETED' },
+    } as never);
+
+    await POST(request());
+
+    expect(handlePaypalCaptureOutcome).toHaveBeenCalledWith(
+      expect.anything(),
+      {
+        kind: 'block_paid_elsewhere',
+        captured: true,
+        settlerVerdict: 'other_txn',
+      },
       expect.objectContaining({ status: 'COMPLETED' })
     );
   });

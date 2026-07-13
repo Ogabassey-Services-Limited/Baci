@@ -1,5 +1,7 @@
 import 'server-only';
 
+import type { PaypalSettlerVerdict } from '@/lib/payments/paypal-settler-verdict';
+
 /**
  * The single authoritative PayPal capture-outcome resolver (see
  * docs/payments/paypal-capture-reconciliation-design.md §4a). Pure — no I/O, no
@@ -42,13 +44,11 @@ export interface PaypalCaptureState {
   /** computeOrderResidualAmount recomputed at capture/reconcile time (§2). */
   currentResidual: number;
   /**
-   * True when THIS transaction is the one that settled the order — i.e.
-   * orders.paid_transaction_id (stamped ATOMICALLY by the CAS-winning writer)
-   * equals this txn's id. Because it is written in the same statement as
-   * payment_status='paid', it survives a lost best-effort split/flip write, so
-   * the resolver reliably tells a legitimate settlement (idempotent) from a real
-   * second charge by a different PayPal order (block+refund). §3c row 2. */
-  thisTxnSettledOrder?: boolean;
+   * Who settled this order, per the atomically-stamped
+   * `orders.paid_transaction_id` (see paypal-settler-verdict.ts). THREE states,
+   * not a boolean: `unknown` (no marker) is NOT proof that another txn settled
+   * the order, so it must never trigger an auto-refund. */
+  settlerVerdict: PaypalSettlerVerdict;
   /** Set once a capture response exists (informational; integrity is checked
    * separately by validatePaypalCaptureSet). */
   capturedPresentment?: number;
@@ -59,7 +59,17 @@ export type PaypalCaptureOutcome =
   | { kind: 'capture_then_finalize' }
   | { kind: 'reconcile_completed_unpaid' }
   | { kind: 'already_paid_idempotent' }
-  | { kind: 'block_paid_elsewhere'; captured: boolean }
+  /**
+   * The order was settled by something other than this capture. `settlerVerdict`
+   * decides what the handler may do with a landed capture: `other_txn` is
+   * positive proof of duplication (auto-refund); `unknown` only warrants a
+   * manual review — refunding there could claw back a real payment.
+   */
+  | {
+      kind: 'block_paid_elsewhere';
+      captured: boolean;
+      settlerVerdict: PaypalSettlerVerdict;
+    }
   | { kind: 'reject_underpayment'; captured: boolean }
   | { kind: 'reject_overpayment'; captured: boolean }
   | { kind: 'clamp_cancelled' }
@@ -133,36 +143,34 @@ export function resolvePaypalCaptureOutcome(
     paypalOrderStatus,
     lockedResidual,
     currentResidual,
-    thisTxnSettledOrder,
+    settlerVerdict,
   } = state;
 
   const captured = isCaptured(paypalOrderStatus);
   const paid = orderPaymentStatus === 'paid';
   const cancelled = orderShippingStatus === 'cancelled';
 
-  // 1. This txn already paid the order — the CAS winner ran side effects and
-  //    recorded amount_paid. Idempotent success. (§3c row 1)
-  if (paid && txnStatus === 'completed') {
+  // 1. This txn settled the order — either the marker names it, or the order is
+  //    paid and this txn is completed with no evidence of a different settler.
+  //    Idempotent success. Note the `other_txn` exclusion: a completed txn whose
+  //    order was actually settled by SOMETHING ELSE is a stranded duplicate, and
+  //    must fall through to rule 2 to be refunded — not reported as success.
+  if (paid && settlerVerdict === 'this_txn') {
+    return { kind: 'already_paid_idempotent' };
+  }
+  if (paid && txnStatus === 'completed' && settlerVerdict !== 'other_txn') {
     return { kind: 'already_paid_idempotent' };
   }
 
-  // 1b. This PayPal order legitimately settled the order, but its pending→
-  //     completed flip write was lost (order is paid, this txn still pending,
-  //     yet the settlement split the CAS-winner stamps on the SETTLING txn is
-  //     present on this row). Idempotent — refunding here would claw back a
-  //     real payment. This is what distinguishes a lost-write from a genuine
-  //     duplicate; a duplicate never carries this order's split. (§3c row 2)
-  if (paid && thisTxnSettledOrder) {
-    return { kind: 'already_paid_idempotent' };
-  }
-
-  // 2. The order was settled by ANOTHER path (another PayPal order or another
-  //    tender) while THIS pending txn returned to a stale approval. NEVER
-  //    capture — that is a second, untracked charge (F-203). If this stale
-  //    PayPal order was captured after settlement, the caller auto-refunds it
-  //    and files `captured_after_settlement`.
+  // 2. The order was settled by something other than this capture (another
+  //    PayPal order or another tender) while THIS approval returned. NEVER
+  //    capture — that is a second, untracked charge (F-203). The verdict rides
+  //    along so the handler auto-refunds a landed capture ONLY on positive proof
+  //    of a different settler (`other_txn`); an `unknown` marker is filed for
+  //    manual review instead, because refunding it could claw back a real
+  //    payment.
   if (SETTLED_PAYMENT_STATUSES.has(String(orderPaymentStatus))) {
-    return { kind: 'block_paid_elsewhere', captured };
+    return { kind: 'block_paid_elsewhere', captured, settlerVerdict };
   }
 
   // 3. Cancelled order. A landed capture is clamped + filed for manual refund;
@@ -172,7 +180,7 @@ export function resolvePaypalCaptureOutcome(
   if (cancelled) {
     return captured
       ? { kind: 'clamp_cancelled' }
-      : { kind: 'block_paid_elsewhere', captured: false };
+      : { kind: 'block_paid_elsewhere', captured: false, settlerVerdict };
   }
 
   // 4. Residual freshness (§2). A raised order total (or a removed prepaid

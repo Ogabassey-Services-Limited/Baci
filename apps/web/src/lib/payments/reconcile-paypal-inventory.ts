@@ -55,6 +55,11 @@ export async function handlePaypalReconcileInventoryFailure(
         payment_status: preCaptureStatus.payment_status,
         shipping_status: preCaptureStatus.shipping_status,
         amount_paid: preCaptureStatus.amount_paid ?? 0,
+        // Undo the settler marker too. The CAS stamped it in the same statement
+        // that flipped the order to paid, so leaving it behind on a now-unpaid
+        // order would make a later verify/capture retry treat this stale PayPal
+        // txn as the settler of whatever tender eventually pays the order.
+        paid_transaction_id: null,
       }
     );
   } catch (rollbackError) {

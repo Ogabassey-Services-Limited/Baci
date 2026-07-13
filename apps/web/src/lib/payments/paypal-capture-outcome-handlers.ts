@@ -65,7 +65,12 @@ export async function handlePaypalCaptureOutcome(
       return await settleCompletedPaypalOrder(ctx, remote);
 
     case 'block_paid_elsewhere':
-      return await handleBlockPaidElsewhere(ctx, outcome.captured, remote);
+      return await handleBlockPaidElsewhere(
+        ctx,
+        outcome.captured,
+        remote,
+        outcome.settlerVerdict
+      );
 
     case 'reject_underpayment':
     case 'reject_overpayment':
@@ -132,6 +137,15 @@ async function captureAndReconcilePaypalOrder(
 
   const detectedMode = detectPayPalResponseMode(captureData.links);
   if (detectedMode !== ctx.mode) {
+    // The capture is COMPLETED, so the buyer has already been charged. Refund
+    // before rejecting the checkout — otherwise a mismatched (or link-less,
+    // hence `unknown`) response strands the money in the merchant's PayPal
+    // account for an order we report as failed.
+    const refund = await refundCapturedPaypalOrder(
+      ctx,
+      captureData,
+      'PayPal capture environment did not match the store mode; refunding'
+    );
     await filePaypalCapturePersistFailureReview({
       gatewayReference: ctx.paypalOrderId,
       merchantId: ctx.merchantId,
@@ -143,6 +157,8 @@ async function captureAndReconcilePaypalOrder(
         stage: 'mode_mismatch',
         detectedMode,
         expectedMode: ctx.mode,
+        refundSucceeded: refund.success,
+        refundError: refund.error ?? null,
       },
     });
     return NextResponse.json(

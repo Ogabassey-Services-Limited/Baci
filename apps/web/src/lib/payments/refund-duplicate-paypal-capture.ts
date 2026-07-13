@@ -26,7 +26,7 @@ export async function refundDuplicatePaypalCapture(input: {
   gatewayReference: string | null;
   gatewayResponse: unknown;
   orderNumber: string | null;
-  source: 'verify' | 'reconcile';
+  source: 'verify' | 'reconcile' | 'reconcile_refunded_order';
 }): Promise<NextResponse> {
   const {
     merchantId,

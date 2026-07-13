@@ -379,6 +379,27 @@ export async function POST(request: NextRequest) {
           reused: true,
         });
       }
+      if (reuse.outcome === 'lookup_failed') {
+        // We could not establish whether the stored PayPal order was already
+        // captured. Minting a replacement could double-charge, so fail closed and
+        // let the buyer retry once PayPal is reachable again.
+        logger.warn({
+          message:
+            'PayPal create-order: reusable-order lookup failed; refusing to mint a replacement',
+          merchantId: merchant_id,
+          orderId: order_id,
+          paypalOrderId: reusablePayPalOrderId,
+          reason: reuse.reason,
+        });
+        return NextResponse.json(
+          {
+            error:
+              'Could not verify your existing PayPal checkout. Please try again in a moment.',
+            code: 'PAYPAL_ORDER_LOOKUP_FAILED',
+          },
+          { status: 503 }
+        );
+      }
       if (reuse.outcome === 'already_captured') {
         // F-393: the reuse branch used to 409 WITHOUT finalizing — money was
         // captured at PayPal but the order stayed unpaid + unsettled. Route it

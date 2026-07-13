@@ -223,14 +223,32 @@ export async function reconcilePaypalOrderToPaid(
     }
 
     // The CAS was declined because the order is refunded, not because of a race.
-    // Do NOT re-settle it (that would re-emit the settlement/email/fee); the
-    // captured funds are handled by the refund path. Report a blocked 409.
+    // Do NOT re-settle it (that would re-emit the settlement/email/fee). But
+    // every path into this writer runs AFTER PayPal captured funds, so a stale
+    // capture landing on an already-refunded order would otherwise sit in the
+    // merchant's PayPal account forever. Refund it and file the review rather
+    // than returning a bare 409.
     if (existing?.payment_status === 'refunded') {
       logger.warn({
-        message: 'PayPal reconcile: refused to re-settle a refunded order',
+        message:
+          'PayPal reconcile: capture landed on a refunded order; refunding the stale capture',
         orderId,
         paypalOrderId,
         transactionId,
+      });
+      const { data: refundedTxnRow } = await supabase
+        .from('transactions')
+        .select('gateway_response')
+        .eq('id', transactionId)
+        .maybeSingle();
+      await refundDuplicatePaypalCapture({
+        merchantId,
+        orderId,
+        transactionId,
+        gatewayReference: paypalOrderId,
+        gatewayResponse: refundedTxnRow?.gateway_response ?? null,
+        orderNumber: existing.order_number ?? null,
+        source: 'reconcile_refunded_order',
       });
       return NextResponse.json(
         {

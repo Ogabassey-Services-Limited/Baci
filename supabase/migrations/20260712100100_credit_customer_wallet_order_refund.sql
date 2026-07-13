@@ -34,6 +34,7 @@ DECLARE
   v_new_balance numeric;
   v_transaction_id uuid;
   v_transaction_type text;
+  v_earned_delta numeric;
 BEGIN
   IF p_amount <= 0 THEN
     RAISE EXCEPTION 'credit_customer_wallet amount must be greater than zero'
@@ -95,13 +96,19 @@ BEGIN
     RETURN;
   END IF;
 
+  -- `total_earned` tracks lifetime EARNINGS (cashback/credit). A refund returns
+  -- the customer's own money, so it must credit available_balance WITHOUT
+  -- inflating lifetime earnings — the wallet-balance backfill treats 'refund'
+  -- the same way, and counting it here would drift analytics until a rebuild.
+  v_earned_delta := CASE WHEN v_transaction_type = 'refund' THEN 0 ELSE p_amount END;
+
   INSERT INTO public.customer_wallets (
     customer_id,
     merchant_id,
     available_balance,
     total_earned
   )
-  VALUES (p_customer_id, p_merchant_id, p_amount, p_amount)
+  VALUES (p_customer_id, p_merchant_id, p_amount, v_earned_delta)
   ON CONFLICT (customer_id) DO UPDATE SET
     available_balance =
       public.customer_wallets.available_balance + EXCLUDED.available_balance,

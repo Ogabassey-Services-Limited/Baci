@@ -175,7 +175,13 @@ const CAPTURED_PAYPAL_STATUS = 'COMPLETED';
 export type ReusablePaypalApproval =
   | { outcome: 'reuse'; approveUrl: string }
   | { outcome: 'already_captured' }
-  | { outcome: 'create_fresh' };
+  | { outcome: 'create_fresh' }
+  /**
+   * The stored order's status could not be established (transient PayPal/network/
+   * auth error). We CANNOT prove it was not already captured, so minting a
+   * replacement could double-charge. Fail closed and let the buyer retry.
+   */
+  | { outcome: 'lookup_failed'; reason: string };
 
 /**
  * Inspects a stored, reuse-eligible PayPal order and tells the caller how to
@@ -206,9 +212,22 @@ export async function resolveReusablePaypalApproval(
     mode
   );
   if (!existingOrder.success) {
-    // The lookup failed (e.g. a 404 for an expired order); nothing indicates a
-    // capture, so a replacement order is safe.
-    return { outcome: 'create_fresh' };
+    // FAIL CLOSED. A lookup failure is NOT evidence that the order was never
+    // captured: if the stored order was actually COMPLETED (e.g. a prior capture
+    // whose local write was lost), minting a replacement here hands the buyer a
+    // second approval link and can double-charge them.
+    //
+    // The one safe exception is a definitive 404 — PayPal does not know this
+    // order id at all, so there is no capture of ours behind it and a fresh order
+    // moves no extra money. Every other failure (network, 5xx, auth, schema) is
+    // ambiguous and must block rather than replace.
+    if (existingOrder.code === 'HTTP_404') {
+      return { outcome: 'create_fresh' };
+    }
+    return {
+      outcome: 'lookup_failed',
+      reason: existingOrder.code ?? 'UNKNOWN',
+    };
   }
 
   const status = existingOrder.data.status.trim().toUpperCase();

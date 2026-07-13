@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
 import { filePaypalCapturePersistFailureReview } from '@/lib/payments/file-paypal-capture-persist-failure-review';
 import { validatePaypalCaptureSet } from '@/lib/payments/paypal-capture-validation';
+import { initiatePaypalOrderRefund } from '@/lib/payments/paypal-order-refund';
 import {
   type PaypalReconcilePreCaptureStatus,
   reconcilePaypalOrderToPaid,
@@ -114,6 +115,16 @@ export async function reconcileCompletedPaypalOrderForCreate(
       expectedCurrency
     );
     if (!validation.ok) {
+      // COMPLETED means the buyer's funds are already captured. Refund before
+      // bailing out, or the retry gets blocked while the capture sits unrefunded
+      // in the merchant's PayPal account (same contract as the other post-capture
+      // validation paths).
+      const refund = await initiatePaypalOrderRefund({
+        merchantId,
+        gatewayResponse: remote.data,
+        reason:
+          'PayPal captured but the set failed validation during create-order reconcile; refunding',
+      });
       await filePaypalCapturePersistFailureReview({
         gatewayReference: paypalOrderId,
         merchantId,
@@ -124,6 +135,8 @@ export async function reconcileCompletedPaypalOrderForCreate(
         metadata: {
           stage: 'create_reconcile_validation',
           reason: validation.reason,
+          refundSucceeded: refund.success,
+          refundError: refund.error ?? null,
         },
       });
       return;

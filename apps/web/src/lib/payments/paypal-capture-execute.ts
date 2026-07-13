@@ -12,6 +12,7 @@ import { orderNumberFallback } from '@/lib/payments/load-paypal-capture-context'
 import type { PaypalCaptureState } from '@/lib/payments/paypal-capture-outcome';
 import { validatePaypalCaptureSet } from '@/lib/payments/paypal-capture-validation';
 import { initiatePaypalOrderRefund } from '@/lib/payments/paypal-order-refund';
+import { resolvePaypalSettlerVerdict } from '@/lib/payments/paypal-settler-verdict';
 import {
   type ReconcilePaypalOrderInput,
   reconcilePaypalOrderToPaid,
@@ -59,9 +60,12 @@ export function buildPaypalCaptureState(
     currentResidual: ctx.currentResidual,
     // Authoritative settler signal: the reconcile CAS stamps the settling txn on
     // orders.paid_transaction_id ATOMICALLY, so this holds even if the
-    // best-effort pending→completed flip or split write was lost (§3c row 2).
-    thisTxnSettledOrder:
-      ctx.orderSnapshot.paid_transaction_id === ctx.transaction.id,
+    // best-effort pending→completed flip or split write was lost. A NULL marker
+    // yields `unknown`, which never authorizes an auto-refund (§3c row 2).
+    settlerVerdict: resolvePaypalSettlerVerdict(
+      ctx.orderSnapshot.paid_transaction_id,
+      ctx.transaction.id
+    ),
     presentmentAmount: ctx.presentmentAmount,
   };
 }
@@ -204,11 +208,32 @@ export async function settleCompletedPaypalOrder(
       .eq('id', ctx.transaction.id)
       .eq('status', 'pending');
     if (flipError) {
-      logger.warn({
-        message: 'PayPal reconcile: failed to flip pending txn to completed',
+      // STOP — do not settle. Marking the order paid while this txn stays
+      // `pending` with no persisted capture response would leave the refund and
+      // cancellation paths unable to find a completed PayPal payment (no capture
+      // IDs to refund). Fail loudly and file for reconciliation instead.
+      logger.error({
+        message:
+          'PayPal reconcile: failed to persist the completed capture; refusing to settle',
         error: flipError,
         transactionId: ctx.transaction.id,
       });
+      await filePaypalCapturePersistFailureReview({
+        gatewayReference: ctx.paypalOrderId,
+        merchantId: ctx.merchantId,
+        orderId: ctx.orderId,
+        reason:
+          'PayPal reported COMPLETED but persisting the captured transaction failed; order NOT settled',
+        transactionId: ctx.transaction.id,
+        metadata: { stage: 'reconcile_transaction_persist_failed' },
+      });
+      return NextResponse.json(
+        {
+          error: 'Failed to persist captured payment',
+          code: 'CAPTURE_PERSIST_FAILED',
+        },
+        { status: 500 }
+      );
     }
   }
 

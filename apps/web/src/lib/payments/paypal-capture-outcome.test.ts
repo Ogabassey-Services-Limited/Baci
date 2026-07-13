@@ -15,6 +15,7 @@ function state(overrides: Partial<PaypalCaptureState>): PaypalCaptureState {
     paypalOrderStatus: 'APPROVED',
     lockedResidual: 100,
     currentResidual: 100,
+    settlerVerdict: 'unknown',
     ...overrides,
   };
 }
@@ -94,7 +95,11 @@ describe('resolvePaypalCaptureOutcome — §3 state table', () => {
       resolvePaypalCaptureOutcome(
         state({ orderPaymentStatus: 'paid', paypalOrderStatus: 'APPROVED' })
       )
-    ).toEqual({ kind: 'block_paid_elsewhere', captured: false });
+    ).toEqual({
+      kind: 'block_paid_elsewhere',
+      captured: false,
+      settlerVerdict: 'unknown',
+    });
   });
 
   it('3b: PAID (elsewhere) + COMPLETED stale order → block_paid_elsewhere captured (auto-refund) (F-203)', () => {
@@ -102,7 +107,11 @@ describe('resolvePaypalCaptureOutcome — §3 state table', () => {
       resolvePaypalCaptureOutcome(
         state({ orderPaymentStatus: 'paid', paypalOrderStatus: 'COMPLETED' })
       )
-    ).toEqual({ kind: 'block_paid_elsewhere', captured: true });
+    ).toEqual({
+      kind: 'block_paid_elsewhere',
+      captured: true,
+      settlerVerdict: 'unknown',
+    });
   });
 
   it('3b: PARTIALLY_PAID + APPROVED → block_paid_elsewhere', () => {
@@ -113,7 +122,11 @@ describe('resolvePaypalCaptureOutcome — §3 state table', () => {
           paypalOrderStatus: 'APPROVED',
         })
       )
-    ).toEqual({ kind: 'block_paid_elsewhere', captured: false });
+    ).toEqual({
+      kind: 'block_paid_elsewhere',
+      captured: false,
+      settlerVerdict: 'unknown',
+    });
   });
 
   it('3b: REFUNDED + COMPLETED → block_paid_elsewhere captured', () => {
@@ -124,7 +137,11 @@ describe('resolvePaypalCaptureOutcome — §3 state table', () => {
           paypalOrderStatus: 'COMPLETED',
         })
       )
-    ).toEqual({ kind: 'block_paid_elsewhere', captured: true });
+    ).toEqual({
+      kind: 'block_paid_elsewhere',
+      captured: true,
+      settlerVerdict: 'unknown',
+    });
   });
 
   it('3b: CANCELLED + COMPLETED capture → clamp_cancelled', () => {
@@ -146,7 +163,11 @@ describe('resolvePaypalCaptureOutcome — §3 state table', () => {
           paypalOrderStatus: 'APPROVED',
         })
       )
-    ).toEqual({ kind: 'block_paid_elsewhere', captured: false });
+    ).toEqual({
+      kind: 'block_paid_elsewhere',
+      captured: false,
+      settlerVerdict: 'unknown',
+    });
   });
 
   it('3c: PAID + this txn completed → already_paid_idempotent', () => {
@@ -162,34 +183,76 @@ describe('resolvePaypalCaptureOutcome — §3 state table', () => {
   });
 
   it('3c row 2: PAID + this txn pending but IS the settler (lost flip write) → already_paid_idempotent, NOT refund', () => {
-    // The writer marked the order paid via this PayPal order (split stamped on
-    // this txn) but the pending→completed flip write was lost. A retry must be
-    // idempotent — refunding here would claw back a legitimate payment.
+    // The writer marked the order paid via this PayPal order but the pending→
+    // completed flip write was lost. The atomic marker still names this txn, so a
+    // retry must be idempotent — refunding would claw back a legitimate payment.
     expect(
       resolvePaypalCaptureOutcome(
         state({
           orderPaymentStatus: 'paid',
           txnStatus: 'pending',
           paypalOrderStatus: 'COMPLETED',
-          thisTxnSettledOrder: true,
+          settlerVerdict: 'this_txn',
         })
       )
     ).toEqual({ kind: 'already_paid_idempotent' });
   });
 
-  it('3c row 2: PAID + this txn pending and NOT the settler (genuine duplicate) → block_paid_elsewhere captured', () => {
-    // A DIFFERENT PayPal order settled this one; this txn carries no split, so
-    // its own capture is a real duplicate and must be refunded.
+  it('3c row 2: PAID + a DIFFERENT txn is the proven settler → block_paid_elsewhere captured (auto-refund)', () => {
     expect(
       resolvePaypalCaptureOutcome(
         state({
           orderPaymentStatus: 'paid',
           txnStatus: 'pending',
           paypalOrderStatus: 'COMPLETED',
-          thisTxnSettledOrder: false,
+          settlerVerdict: 'other_txn',
         })
       )
-    ).toEqual({ kind: 'block_paid_elsewhere', captured: true });
+    ).toEqual({
+      kind: 'block_paid_elsewhere',
+      captured: true,
+      settlerVerdict: 'other_txn',
+    });
+  });
+
+  it('pass-9 P1: PAID + this txn COMPLETED but a DIFFERENT txn is the settler → block (stranded duplicate), NOT idempotent success', () => {
+    // Rule 1 must not report success purely because the txn row is completed: if
+    // something else won the paid CAS, this completed capture is a stranded
+    // duplicate that has to be refunded.
+    expect(
+      resolvePaypalCaptureOutcome(
+        state({
+          orderPaymentStatus: 'paid',
+          txnStatus: 'completed',
+          paypalOrderStatus: 'COMPLETED',
+          settlerVerdict: 'other_txn',
+        })
+      )
+    ).toEqual({
+      kind: 'block_paid_elsewhere',
+      captured: true,
+      settlerVerdict: 'other_txn',
+    });
+  });
+
+  it('pass-9 P1: PAID + UNKNOWN settler (no marker) → blocked but verdict stays unknown so the handler never auto-refunds', () => {
+    // A missing marker is NOT proof of duplication (pre-migration paid orders).
+    // The verdict rides along so the handler files a manual review instead of
+    // clawing back what may be a real payment.
+    expect(
+      resolvePaypalCaptureOutcome(
+        state({
+          orderPaymentStatus: 'paid',
+          txnStatus: 'pending',
+          paypalOrderStatus: 'COMPLETED',
+          settlerVerdict: 'unknown',
+        })
+      )
+    ).toEqual({
+      kind: 'block_paid_elsewhere',
+      captured: true,
+      settlerVerdict: 'unknown',
+    });
   });
 
   it('residual within EPSILON is treated as fresh (no false underpayment)', () => {
@@ -214,6 +277,10 @@ describe('resolvePaypalCaptureOutcome — §3 state table', () => {
           paypalOrderStatus: 'COMPLETED',
         })
       )
-    ).toEqual({ kind: 'block_paid_elsewhere', captured: true });
+    ).toEqual({
+      kind: 'block_paid_elsewhere',
+      captured: true,
+      settlerVerdict: 'unknown',
+    });
   });
 });

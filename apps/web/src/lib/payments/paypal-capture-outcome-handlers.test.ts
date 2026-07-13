@@ -247,7 +247,11 @@ describe('handlePaypalCaptureOutcome', () => {
           amount_paid: 0,
         },
       }),
-      { kind: 'block_paid_elsewhere', captured: true },
+      {
+        kind: 'block_paid_elsewhere',
+        captured: true,
+        settlerVerdict: 'other_txn',
+      },
       { id: 'PP-1', status: 'COMPLETED' } as never
     );
     const json = await res.json();
@@ -263,10 +267,50 @@ describe('handlePaypalCaptureOutcome', () => {
     expect(json.idempotent).toBe(true);
   });
 
+  it('pass-9 P1: block_paid_elsewhere captured with UNKNOWN settler → files a manual review and NEVER auto-refunds', async () => {
+    // No settler marker (e.g. a pre-migration paid order) is NOT proof that some
+    // other txn settled the order. Refunding here could claw back a real payment,
+    // so the money is left alone and a human is asked to reconcile.
+    await handlePaypalCaptureOutcome(
+      ctxFixture({
+        orderSnapshot: {
+          id: 'o1',
+          merchant_id: 'm1',
+          total: 130000,
+          currency: 'NGN',
+          customer_email: 'c@e.com',
+          order_number: 'BACI-1',
+          shipping_status: 'pending',
+          payment_status: 'paid',
+          amount_paid: 0,
+        },
+      }),
+      {
+        kind: 'block_paid_elsewhere',
+        captured: true,
+        settlerVerdict: 'unknown',
+      },
+      { id: 'PP-1', status: 'COMPLETED' } as never
+    );
+
+    expect(refundCapturedPaypalOrder).not.toHaveBeenCalled();
+    expect(filePaypalCapturePersistFailureReview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          stage: 'captured_on_settled_order_unknown_settler',
+        }),
+      })
+    );
+  });
+
   it('block_paid_elsewhere not-captured → files a stale-approval review, no refund', async () => {
     await handlePaypalCaptureOutcome(
       ctxFixture(),
-      { kind: 'block_paid_elsewhere', captured: false },
+      {
+        kind: 'block_paid_elsewhere',
+        captured: false,
+        settlerVerdict: 'unknown',
+      },
       undefined
     );
     expect(refundCapturedPaypalOrder).not.toHaveBeenCalled();

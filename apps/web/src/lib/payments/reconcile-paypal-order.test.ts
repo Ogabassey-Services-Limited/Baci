@@ -266,12 +266,16 @@ describe('reconcilePaypalOrderToPaid', () => {
     const res = await reconcilePaypalOrderToPaid(input(client));
 
     expect(res.status).toBe(409);
+    // The rollback must ALSO clear the settler marker the CAS stamped, or it
+    // outlives the paid status and misattributes whatever tender pays the retry
+    // (Codex pass-9 P1).
     expect(
       rollbackOrderStatusAfterInventoryConfirmationFailure
     ).toHaveBeenCalledWith(expect.anything(), MERCHANT_ID, ORDER_ID, {
       payment_status: 'unpaid',
       shipping_status: 'pending',
       amount_paid: 0,
+      paid_transaction_id: null,
     });
     expect(filePaypalCapturePersistFailureReview).toHaveBeenCalled();
     expect(runPaypalCaptureSideEffects).not.toHaveBeenCalled();

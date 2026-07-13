@@ -5,6 +5,10 @@ import { logger } from '@/lib/logger';
 import { ensurePaidOrderInventoryConfirmed } from '@/lib/payments/ensure-paid-order-inventory-confirmed';
 import { finalizeOrderGatewayPayment } from '@/lib/payments/finalize-order-gateway-payment';
 import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
+import {
+  isProvenDuplicate,
+  resolvePaypalSettlerVerdict,
+} from '@/lib/payments/paypal-settler-verdict';
 import { reconcilePaypalOrderToPaid } from '@/lib/payments/reconcile-paypal-order';
 import { refundDuplicatePaypalCapture } from '@/lib/payments/refund-duplicate-paypal-capture';
 import type { GatewayVerificationResult } from '@/lib/payments/types';
@@ -137,19 +141,26 @@ async function verifyPaymentReference(reference: string) {
   // Authoritative settler signal: the reconcile CAS stamps
   // orders.paid_transaction_id with the settling txn ATOMICALLY, so it survives a
   // lost split/metadata write (unlike transactions.metadata.paypal_split, which
-  // is best-effort). A completed PayPal txn whose id is NOT the order's
-  // paid_transaction_id did not settle the order — treating absence of the split
-  // as proof of duplication would refund a real payment (Codex pass-8 P1).
-  const thisTxnSettledOrder =
-    existingOrder?.paid_transaction_id === transaction.id;
+  // is best-effort). THREE states, not two — a NULL marker (a pre-migration paid
+  // order, or a paid path that does not stamp it) is NOT proof that something
+  // else settled the order, so it must never trigger an auto-refund.
+  const settlerVerdict = resolvePaypalSettlerVerdict(
+    existingOrder?.paid_transaction_id,
+    transaction.id
+  );
 
-  // A completed PayPal transaction that did not settle an already-paid order is
-  // a duplicate capture and must be refunded before any idempotent success path.
+  // A completed PayPal txn on an already-paid order that PROVABLY did not settle
+  // it (the marker names a different txn) is a duplicate capture — a stale PayPal
+  // order captured after another tender/PayPal order paid it. The fast path below
+  // would confirm it and strand the funds, so refund it here instead: the /verify
+  // counterpart of the capture route's block_paid_elsewhere. An `unknown` verdict
+  // falls through to the normal path and is never clawed back (Codex pass-9 P1).
   if (
     isPaypalTransaction &&
     transaction.status === 'completed' &&
     existingOrder?.payment_status === 'paid' &&
-    !thisTxnSettledOrder
+    isProvenDuplicate(settlerVerdict) &&
+    transaction.order_id
   ) {
     return refundDuplicatePaypalCapture({
       merchantId: transaction.merchant_id,
