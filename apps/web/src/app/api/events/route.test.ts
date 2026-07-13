@@ -387,6 +387,12 @@ describe('POST /api/events', () => {
             currency: 'USD',
             item_count: 1,
             items: [{ id: '2', quantity: 1 }],
+            custom_data: {
+              order_id: 'order-456',
+              value: 200,
+              currency: 'USD',
+              contents: [{ id: '2', quantity: 1 }],
+            },
           },
         })
       );
