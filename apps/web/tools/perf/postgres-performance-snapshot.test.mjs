@@ -17,6 +17,7 @@ describe('postgres performance snapshot', () => {
     const sql = await readFile(sqlPath, 'utf8');
 
     expect(sql).toMatch(/BEGIN;[\s\S]*SET TRANSACTION READ ONLY;/i);
+    expect(sql).toMatch(/SET LOCAL row_security = off;/i);
     expect(sql).toMatch(/SET LOCAL timezone = 'UTC';/i);
     expect(sql).toMatch(/SET LOCAL DateStyle = 'ISO, MDY';/i);
     expect(sql).toContain('pg_postmaster_start_time()');
@@ -29,10 +30,10 @@ describe('postgres performance snapshot', () => {
     expect(sql).not.toMatch(/pg_stat_statements_reset\s*\(/i);
   });
 
-  it('emits a version 2 capture contract for cron execution identities', async () => {
+  it('emits a version 3 capture contract for cron execution settings', async () => {
     const sql = await readFile(sqlPath, 'utf8');
 
-    expect(sql).toMatch(/'schema_version', 2,/i);
+    expect(sql).toMatch(/'schema_version', 3,/i);
   });
 
   it('fails explicitly before PostgreSQL 18 reaches the PostgreSQL 17 I/O contract', async () => {
@@ -43,6 +44,15 @@ describe('postgres performance snapshot', () => {
     );
     expect(sql).toMatch(/DO \$\$[\s\S]*\nEND;\s*\$\$;/i);
     expect(sql).toMatch(/requires PostgreSQL 17/i);
+  });
+
+  it('requires a capture role that bypasses cron row-level security', async () => {
+    const sql = await readFile(sqlPath, 'utf8');
+
+    expect(sql).toMatch(
+      /FROM pg_roles\s+WHERE rolname = current_user\s+AND \(rolsuper OR rolbypassrls\)/i
+    );
+    expect(sql).toMatch(/requires a superuser or BYPASSRLS capture role/i);
   });
 
   it('captures cumulative counters as text and keeps queryid out of the contract', async () => {
@@ -105,11 +115,13 @@ describe('postgres performance snapshot', () => {
     const sql = await readFile(sqlPath, 'utf8');
 
     expect(sql).toContain("'pg_stat_statements.track_utility'");
+    expect(sql).toContain("'cron.launch_active_jobs'");
+    expect(sql).toContain("'cron.log_run'");
     expect(sql).toContain("'track_counts'");
     expect(sql).toMatch(/statements\.calls > 0\s+OR statements\.plans > 0/i);
     expect(sql).toMatch(/statements\.query NOT IN \(\s*'BEGIN',\s*'ROLLBACK'/i);
     expect(sql).toMatch(
-      /statements\.query !~\*\s+'\^SET LOCAL \(statement_timeout\|lock_timeout\|timezone\|DateStyle\) = \\\$1\$'/i
+      /statements\.query !~\*\s+'\^SET LOCAL \(row_security\|statement_timeout\|lock_timeout\|timezone\|DateStyle\) = \\\$1\$'/i
     );
     expect(sql).toMatch(
       /statements\.query NOT LIKE\s+'%postgres-performance-snapshot\.sql requires PostgreSQL 17%'/i

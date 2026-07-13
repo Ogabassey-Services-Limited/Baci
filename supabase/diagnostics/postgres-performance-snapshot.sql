@@ -11,6 +11,15 @@ BEGIN
       'postgres-performance-snapshot.sql requires PostgreSQL 17; detected %',
       current_setting('server_version');
   END IF;
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_roles
+    WHERE rolname = current_user
+      AND (rolsuper OR rolbypassrls)
+  ) THEN
+    RAISE EXCEPTION
+      'postgres-performance-snapshot.sql requires a superuser or BYPASSRLS capture role';
+  END IF;
   IF EXISTS (
     SELECT 1
     FROM extensions.pg_stat_statements AS statements
@@ -21,6 +30,7 @@ BEGIN
   END IF;
 END;
 $$;
+SET LOCAL row_security = off;
 SET LOCAL statement_timeout = '120s';
 SET LOCAL lock_timeout = '5s';
 SET LOCAL timezone = 'UTC';
@@ -134,13 +144,14 @@ statement_rows AS (
           'BEGIN',
           'ROLLBACK',
           'SET TRANSACTION READ ONLY',
+          'SET LOCAL row_security = off',
           'SET LOCAL statement_timeout = ''120s''',
           'SET LOCAL lock_timeout = ''5s''',
           'SET LOCAL timezone = ''UTC''',
           'SET LOCAL DateStyle = ''ISO, MDY'''
         )
         AND statements.query !~*
-          '^SET LOCAL (statement_timeout|lock_timeout|timezone|DateStyle) = \$1$'
+          '^SET LOCAL (row_security|statement_timeout|lock_timeout|timezone|DateStyle) = \$1$'
         AND statements.query NOT LIKE
           '%postgres-performance-snapshot.sql requires PostgreSQL 17%'
       )
@@ -271,11 +282,13 @@ platform_settings AS (
     'pg_stat_statements.track_planning',
       current_setting('pg_stat_statements.track_planning', true),
     'pg_stat_statements.track_utility',
-      current_setting('pg_stat_statements.track_utility', true)
+      current_setting('pg_stat_statements.track_utility', true),
+    'cron.launch_active_jobs', current_setting('cron.launch_active_jobs'),
+    'cron.log_run', current_setting('cron.log_run')
   ) AS value
 )
 SELECT jsonb_build_object(
-  'schema_version', 2,
+  'schema_version', 3,
   'captured_at', (SELECT captured_at FROM capture),
   'server', jsonb_build_object(
     'database_name', (SELECT database_name FROM capture),

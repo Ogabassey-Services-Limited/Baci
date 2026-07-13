@@ -131,7 +131,7 @@ function lockRow(overrides = {}) {
 
 function snapshot(overrides = {}) {
   const base = {
-    schema_version: 2,
+    schema_version: 3,
     captured_at: START,
     server: {
       database_name: 'postgres',
@@ -185,6 +185,8 @@ function snapshot(overrides = {}) {
       'pg_stat_statements.track': 'all',
       'pg_stat_statements.track_planning': 'on',
       'pg_stat_statements.track_utility': 'on',
+      'cron.launch_active_jobs': 'on',
+      'cron.log_run': 'on',
     },
     extensions: [
       { name: 'pg_cron', version: '1.6' },

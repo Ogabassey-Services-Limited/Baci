@@ -99,4 +99,32 @@ describe('postgres baseline statement deltas', () => {
       /before\.statements\[0\]\.calls must be a non-negative integer string/i
     );
   });
+
+  it.each([
+    ['blank string', ''],
+    ['whitespace', '  '],
+    ['boolean', false],
+    ['numeric value', 10.5],
+    ['negative string', '-1'],
+    ['overflow', '1e309'],
+  ])('rejects a %s statement timing counter', (_kind, totalExecTime) => {
+    expect(() =>
+      createDelta({
+        afterRaw: raw(
+          snapshot({
+            captured_at: END,
+            statements: [statement({ total_exec_time: '110.5' })],
+          })
+        ),
+        beforeRaw: raw(
+          snapshot({
+            statements: [statement({ total_exec_time: totalExecTime })],
+          })
+        ),
+        deployedSha: 'b'.repeat(40),
+      })
+    ).toThrow(
+      /before\.statements\[0\]\.total_exec_time must be a non-negative decimal string/i
+    );
+  });
 });

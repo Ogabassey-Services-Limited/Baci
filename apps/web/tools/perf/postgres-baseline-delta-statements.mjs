@@ -35,6 +35,7 @@ const DECIMAL_COUNTERS = new Set([
   'temp_blk_write_time',
 ]);
 const INTEGER_STRING = /^\d+$/;
+const DECIMAL_STRING = /^(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
 
 function requiredString(statement, field, label) {
   const value = statement?.[field];
@@ -77,9 +78,16 @@ function parseCounter(value, counter, label) {
     throw new Error(`${label}.${counter} is missing`);
   }
   if (DECIMAL_COUNTERS.has(counter)) {
+    if (typeof value !== 'string' || !DECIMAL_STRING.test(value)) {
+      throw new Error(
+        `${label}.${counter} must be a non-negative decimal string`
+      );
+    }
     const parsed = Number(value);
     if (!Number.isFinite(parsed) || parsed < 0) {
-      throw new Error(`${label}.${counter} must be a non-negative number`);
+      throw new Error(
+        `${label}.${counter} must be a non-negative decimal string`
+      );
     }
     return parsed;
   }

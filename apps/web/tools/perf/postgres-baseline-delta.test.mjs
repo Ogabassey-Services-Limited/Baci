@@ -112,24 +112,28 @@ describe('createPostgresBaselineDelta', () => {
     expect(result.database_aggregates.delta.xact_commit).toBe('1');
   });
 
-  it('accepts version 2 snapshots with cron execution targets', () => {
+  it('accepts version 3 snapshots with cron execution settings', () => {
     expect(() =>
       createDelta({
-        afterRaw: raw(snapshot({ captured_at: END, schema_version: 2 })),
-        beforeRaw: raw(snapshot({ schema_version: 2 })),
+        afterRaw: raw(snapshot({ captured_at: END, schema_version: 3 })),
+        beforeRaw: raw(snapshot({ schema_version: 3 })),
         deployedSha: 'b'.repeat(40),
       })
     ).not.toThrow();
   });
 
-  it('requires a fresh version 2 capture pair when version 1 lacks cron targets', () => {
+  it('requires a fresh version 3 capture pair when version 2 lacks cron settings', () => {
+    const before = snapshot({ schema_version: 2 });
+    delete before.settings['cron.launch_active_jobs'];
+    delete before.settings['cron.log_run'];
+
     expect(() =>
       createDelta({
-        afterRaw: raw(snapshot({ captured_at: END, schema_version: 2 })),
-        beforeRaw: raw(snapshot({ schema_version: 1 })),
+        afterRaw: raw(snapshot({ captured_at: END, schema_version: 3 })),
+        beforeRaw: raw(before),
         deployedSha: 'b'.repeat(40),
       })
-    ).toThrow(/schema_version 1.*recapture.*schema_version 2/i);
+    ).toThrow(/schema_version 2.*recapture.*schema_version 3/i);
   });
 
   it('aggregates duplicate normalized shapes without using queryid as the key', () => {

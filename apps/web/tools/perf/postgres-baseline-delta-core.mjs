@@ -53,11 +53,16 @@ function parseSnapshot(raw, label) {
   }
   if (parsed?.schema_version === 1) {
     throw new Error(
-      `${label} snapshot schema_version 1 lacks cron execution targets; recapture both snapshots with schema_version 2`
+      `${label} snapshot schema_version 1 lacks cron execution targets; recapture both snapshots with schema_version 3`
     );
   }
-  if (parsed?.schema_version !== 2) {
-    throw new Error(`${label} snapshot schema_version must be 2`);
+  if (parsed?.schema_version === 2) {
+    throw new Error(
+      `${label} snapshot schema_version 2 lacks cron runtime settings; recapture both snapshots with schema_version 3`
+    );
+  }
+  if (parsed?.schema_version !== 3) {
+    throw new Error(`${label} snapshot schema_version must be 3`);
   }
   return parsed;
 }

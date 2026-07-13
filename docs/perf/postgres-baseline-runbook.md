@@ -106,20 +106,23 @@ Run the complete read-only script in one Supabase SQL editor session:
 
 [`supabase/diagnostics/postgres-performance-snapshot.sql`](../../supabase/diagnostics/postgres-performance-snapshot.sql)
 
-Use a role that can read statement text for every tracked role (a superuser or a
-role with `pg_read_all_stats`). The script rejects a capture that returns the
-PostgreSQL insufficient-privilege placeholder rather than aggregating hidden
-statements under one fingerprint.
+Use a role that can read statement text for every tracked role and bypass cron
+row-level security (a superuser, or a role holding both `pg_read_all_stats` and
+`BYPASSRLS`). The script sets `row_security = off`, so it fails rather than
+silently capturing only the operator's cron jobs; it also rejects a capture that
+returns the PostgreSQL insufficient-privilege placeholder rather than
+aggregating hidden statements under one fingerprint.
 
 Export the single `snapshot` row as JSON without editing it. The delta tool accepts
 either the object itself, `{ "snapshot": ... }`, or the SQL editor's one-row
 `[{ "snapshot": ... }]` form.
 
-The current capture contract is `schema_version: 2`. It adds a private digest of
-each cron job's execution target (database, user, host, and port), so a version 1
-capture cannot form a reset-safe interval with a version 2 capture. Do not edit or
-try to migrate an old export: discard that partial window and recapture a clean
-version 2 pair.
+The current capture contract is `schema_version: 3`. It includes private digests
+of each cron job's execution target (database, user, host, and port) and the cron
+runtime settings that affect workload execution. Version 1 lacks the target
+digest and version 2 lacks the runtime settings, so neither can form a reset-safe
+interval with version 3. Do not edit or try to migrate an old export: discard
+that partial window and recapture a clean version 3 pair.
 
 Name the plaintext files by capture point inside the private directory, for
 example:
@@ -234,7 +237,7 @@ summary when any of these conditions is observed:
   because PostgreSQL 17 has no per-relation reset timestamp to compare;
 - a statement entry has a new or missing `stats_since` boundary, including a
   targeted `pg_stat_statements_reset` that does not alter the global reset time;
-- the extension manifest or cron job identity, schedule, command digest,
+- the extension manifest, cron runtime settings, or cron job identity, schedule, command digest,
   execution-target digest, or active state changes between captures;
 - table or index identities change between snapshots, or their cumulative
   activity counters regress;

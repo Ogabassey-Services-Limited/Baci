@@ -9,6 +9,8 @@ const COLLECTION_SETTING_KEYS = [
   'pg_stat_statements.track',
   'pg_stat_statements.track_planning',
   'pg_stat_statements.track_utility',
+  'cron.launch_active_jobs',
+  'cron.log_run',
 ];
 
 function requireSame(before, after, path, message, allowNull = false) {
