@@ -62,4 +62,18 @@ describe('sendGA4Event', () => {
       1_783_857_600_000_000
     );
   });
+
+  it('serializes an IP override as GA4 request metadata', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204 });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await sendGA4Event('G-TEST', 'secret', 'page_view', {
+      clientId: 'client-1',
+      ipAddress: '203.0.113.1',
+    });
+
+    const payload = JSON.parse(fetchMock.mock.calls[0]?.[1].body as string);
+    expect(payload.ip_override).toBe('203.0.113.1');
+    expect(payload).not.toHaveProperty('user_properties');
+  });
 });

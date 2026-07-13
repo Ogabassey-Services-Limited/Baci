@@ -121,12 +121,8 @@ export async function sendGA4Event(
         },
       },
     ],
-    // User properties can be added here
-    ...(userData.ipAddress && {
-      user_properties: {
-        ip_override: { value: userData.ipAddress },
-      },
-    }),
+    // GA4 treats this as request metadata, not a user property.
+    ...(userData.ipAddress && { ip_override: userData.ipAddress }),
   };
 
   try {
