@@ -1,5 +1,6 @@
 {
   "coderabbit.autoReviewMode": "auto",
   "java.compile.nullAnalysis.mode": "automatic",
-  "java.configuration.updateBuildConfiguration": "automatic"
+  "java.configuration.updateBuildConfiguration": "automatic",
+  "typescript.tsdk": "node_modules/typescript-tsserver/lib"
 }
