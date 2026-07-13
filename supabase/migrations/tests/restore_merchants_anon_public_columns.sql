@@ -19,11 +19,16 @@ DECLARE
   public_col text;
   secret_col text;
   public_cols text[] := ARRAY[
-    'feature_settings','about_page','faq_items','trust_profile','email_logo_url',
-    'multi_currency_enabled','self_fulfillment_enabled','gmc_variants_enabled',
+    -- the complete set granted by 20260713160000 (all 30):
+    'about_page','faq_items','trust_profile','email_logo_url',
+    'hero_images_generated_at','hero_images_regeneration_count','order_prefix',
+    'feature_settings','multi_currency_enabled','self_fulfillment_enabled',
+    'gmc_variants_enabled','offline_conversions_enabled','tax_exempt',
     'google_analytics_id','facebook_pixel_id','tiktok_pixel_id',
-    'snapchat_pixel_id','twitter_pixel_id','email_domain','state_code',
-    'endpoint_id','firs_business_id','order_prefix','kyc_status'
+    'snapchat_pixel_id','twitter_pixel_id',
+    'email_domain','email_domain_verified','lga_code','state_code',
+    'endpoint_id','endpoint_scheme_id','firs_business_id','firs_service_id',
+    'created_at','plan_started_at','signup_source','kyc_status'
   ];
   secret_cols text[] := ARRAY[
     'bvn','nin','cac_number',
