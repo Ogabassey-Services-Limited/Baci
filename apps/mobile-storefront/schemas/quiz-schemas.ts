@@ -1,4 +1,3 @@
-import { EXAM_PASS_POINTS_COST } from '@baci/shared/constants';
 import { z } from 'zod';
 
 /** Supabase timestamptz values are ISO strings with a timezone offset. */
@@ -46,7 +45,10 @@ export const quizEventsResponseSchema = z.object({
 export const quizAttemptSchema = z.object({
   attemptId: z.string().min(1),
   eventId: z.string().min(1),
-  examPassPointsSpent: z.literal(EXAM_PASS_POINTS_COST),
+  // Entry is free, so this is 0. Deliberately NOT z.literal(EXAM_PASS_POINTS_COST):
+  // a literal would hard-fail any attempt started against a database that still
+  // charges (e.g. an installed app during a deploy window, or an older build).
+  examPassPointsSpent: z.number().int().nonnegative(),
   remainingLoyaltyPoints: z.number().int().nonnegative(),
   question: quizQuestionSchema,
 });

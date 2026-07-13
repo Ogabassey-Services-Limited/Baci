@@ -246,7 +246,10 @@ export const quizEventsResponseSchema = z.object({
 export const quizAttemptResponseSchema = z.object({
   attemptId: quizNonEmptyIdSchema,
   eventId: quizNonEmptyIdSchema,
-  examPassPointsSpent: z.int().positive(),
+  // Entry is free, so this is 0. It stays in the contract (rather than being
+  // dropped) so clients pinned to the old shape keep parsing, and so a stale
+  // database that still charges during a deploy window is also accepted.
+  examPassPointsSpent: z.int().nonnegative(),
   question: quizQuestionResponseSchema,
   remainingLoyaltyPoints: z.int().nonnegative(),
 });

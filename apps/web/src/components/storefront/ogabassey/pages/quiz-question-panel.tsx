@@ -2,7 +2,6 @@
 
 import type { QuizAttemptResponse } from '@/schemas/quiz';
 import { DeferredAdUnit } from '../components/deferred-ad-unit';
-import { formatQuizPointCount } from './format-quiz-point-count';
 import { QuizQuestionAdFallback } from './quiz-question-ad-fallback';
 import { quizPanel, quizPrimaryButton } from './quiz-styles';
 import { useQuizCountdown } from './use-quiz-countdown';
@@ -88,8 +87,7 @@ export function QuizQuestionPanel({
         {getCountdownAnnouncement(remainingSeconds)}
       </span>
       <p className="mt-2 text-xs text-store-background-text/60">
-        {formatQuizPointCount(attempt.examPassPointsSpent)} exam pass used.{' '}
-        {formatQuizPointCount(attempt.remainingLoyaltyPoints)} left.
+        Free entry — no loyalty points used.
       </p>
       <h2 className="mt-5 text-xl font-bold">{attempt.question.prompt}</h2>
       <DeferredAdUnit

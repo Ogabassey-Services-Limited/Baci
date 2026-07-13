@@ -1,7 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 import type { QuizEvent } from '@/services/quiz';
 import {
-  formatPointCount,
   formatTimeRange,
   getEventStartButtonText,
   getQuizErrorMessage,
@@ -40,30 +39,14 @@ describe('QuizScreen utils', () => {
     ).toBe(fallbackMessage);
   });
 
-  it('formats point counts with singular and plural forms', () => {
-    expect(formatPointCount(-1)).toBe('-1 point');
-    expect(formatPointCount(0)).toBe('0 points');
-    expect(formatPointCount(1)).toBe('1 point');
-    expect(formatPointCount(2, 'loyalty point')).toBe('2 loyalty points');
-    expect(formatPointCount(2, 'entry', 'entries')).toBe('2 entries');
+  it('advertises free entry on the start button for an open event', () => {
+    expect(getEventStartButtonText('open', false)).toBe('Start free exam');
   });
 
-  it('formats start button text for event status', () => {
-    expect(getEventStartButtonText('open', false, 1)).toBe(
-      'Use 1 point to start'
-    );
-    expect(getEventStartButtonText('open', false, 0)).toBe(
-      'Use 0 points to start'
-    );
-    expect(getEventStartButtonText('open', false, 2)).toBe(
-      'Use 2 points to start'
-    );
-    expect(getEventStartButtonText('open', false, -1)).toBe(
-      'Use -1 point to start'
-    );
-    expect(getEventStartButtonText('open', true, 1)).toBe('Starting...');
-    expect(getEventStartButtonText('scheduled', false, 1)).toBe('Scheduled');
-    expect(getEventStartButtonText('closed', false, 1)).toBe('Closed');
+  it('formats start button text for the other event states', () => {
+    expect(getEventStartButtonText('open', true)).toBe('Starting...');
+    expect(getEventStartButtonText('scheduled', false)).toBe('Scheduled');
+    expect(getEventStartButtonText('closed', false)).toBe('Closed');
   });
 
   it('normalizes unknown errors to user-facing messages', () => {

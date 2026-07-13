@@ -257,7 +257,11 @@ describe('start quiz attempt route', () => {
     });
   });
 
-  it('returns 409 when the customer does not have an exam pass point', async () => {
+  // Entry is free, so the live start_quiz_attempt can no longer raise QZ011.
+  // The mapping is retained for the deploy window (this build briefly running
+  // against a database that has not applied the free-entry migration yet), so
+  // it still needs to produce a sensible message if it does fire.
+  it('still maps a legacy QZ011 exam-pass error to a 409 during a deploy window', async () => {
     const { rpc } = mockAuthenticatedSupabase({
       rpcResult: {
         data: null,
@@ -271,12 +275,9 @@ describe('start quiz attempt route', () => {
     );
 
     expect(response.status).toBe(409);
-    const pointLabel = `${EXAM_PASS_POINTS_COST} loyalty ${
-      EXAM_PASS_POINTS_COST === 1 ? 'point' : 'points'
-    }`;
     expect(await response.json()).toEqual({
       code: 'QUIZ_EXAM_PASS_REQUIRED',
-      error: `You need ${pointLabel} to start this exam`,
+      error: 'You need loyalty points to start this exam',
     });
     expect(rpc).toHaveBeenCalledWith(
       'start_quiz_attempt',

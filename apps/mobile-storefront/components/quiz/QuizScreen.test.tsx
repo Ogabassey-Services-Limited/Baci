@@ -143,17 +143,15 @@ describe('QuizScreen', () => {
     render(<QuizScreen integrityTier="device" locale="en-US" />);
 
     expect(await screen.findByText('Super Quiz')).toBeTruthy();
+    expect(screen.getByText('Free to enter.')).toBeTruthy();
     expect(
-      screen.getByText('Use 1 loyalty point as your exam pass.')
-    ).toBeTruthy();
-    expect(
-      screen.getByText('Your pass is charged when the exam starts.')
+      screen.getByText('No loyalty points required. No purchase necessary.')
     ).toBeTruthy();
     expect(await screen.findByText('Daily Prize Quiz')).toBeTruthy();
     expect(screen.getByText('N50,000 store credit')).toBeTruthy();
     expect(
       screen.getByRole('button', {
-        name: 'Use 1 point to start Daily Prize Quiz',
+        name: 'Start free exam Daily Prize Quiz',
       })
     ).toBeTruthy();
   });
@@ -184,7 +182,7 @@ describe('QuizScreen', () => {
 
     fireEvent.press(
       await screen.findByRole('button', {
-        name: 'Use 1 point to start Daily Prize Quiz',
+        name: 'Start free exam Daily Prize Quiz',
       })
     );
 
@@ -202,7 +200,7 @@ describe('QuizScreen', () => {
     expect(await screen.findByText('What is 2 + 2?')).toBeTruthy();
     expect(screen.getByText('Time left: 30s')).toBeTruthy();
     expect(
-      screen.getByText('1 point exam pass used. 4 points left.')
+      screen.getByText('Free entry — no loyalty points used.')
     ).toBeTruthy();
   });
 
@@ -213,7 +211,7 @@ describe('QuizScreen', () => {
 
     fireEvent.press(
       await screen.findByRole('button', {
-        name: 'Use 1 point to start Daily Prize Quiz',
+        name: 'Start free exam Daily Prize Quiz',
       })
     );
     fireEvent.press(await screen.findByRole('button', { name: 'Answer 4' }));
@@ -253,7 +251,7 @@ describe('QuizScreen', () => {
 
     fireEvent.press(
       await screen.findByRole('button', {
-        name: 'Use 1 point to start Daily Prize Quiz',
+        name: 'Start free exam Daily Prize Quiz',
       })
     );
     fireEvent.press(await screen.findByRole('button', { name: 'Answer 4' }));
@@ -262,7 +260,7 @@ describe('QuizScreen', () => {
     expect(await screen.findByText('Result')).toBeTruthy();
     expect(
       screen.getByRole('button', {
-        name: 'Use 1 point to start Daily Prize Quiz',
+        name: 'Start free exam Daily Prize Quiz',
       })
     ).toBeTruthy();
   });
@@ -273,14 +271,14 @@ describe('QuizScreen', () => {
 
     fireEvent.press(
       await screen.findByRole('button', {
-        name: 'Use 1 point to start Daily Prize Quiz',
+        name: 'Start free exam Daily Prize Quiz',
       })
     );
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Start failed');
     expect(
       screen.getByRole('button', {
-        name: 'Use 1 point to start Daily Prize Quiz',
+        name: 'Start free exam Daily Prize Quiz',
       })
     ).toBeTruthy();
     expect(startQuizAttempt).toHaveBeenCalledWith({
@@ -295,7 +293,7 @@ describe('QuizScreen', () => {
 
     fireEvent.press(
       await screen.findByRole('button', {
-        name: 'Use 1 point to start Daily Prize Quiz',
+        name: 'Start free exam Daily Prize Quiz',
       })
     );
     fireEvent.press(await screen.findByRole('button', { name: 'Answer 4' }));
@@ -320,7 +318,7 @@ describe('QuizScreen', () => {
 
     fireEvent.press(
       await screen.findByRole('button', {
-        name: 'Use 1 point to start Daily Prize Quiz',
+        name: 'Start free exam Daily Prize Quiz',
       })
     );
 
@@ -352,7 +350,7 @@ describe('QuizScreen', () => {
 
     fireEvent.press(
       await screen.findByRole('button', {
-        name: 'Use 1 point to start Daily Prize Quiz',
+        name: 'Start free exam Daily Prize Quiz',
       })
     );
     fireEvent.press(

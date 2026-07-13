@@ -1,4 +1,3 @@
-import { EXAM_PASS_POINTS_COST } from '@baci/shared/constants';
 import { type NextRequest, NextResponse } from 'next/server';
 import { attachQuizQuestionDeadline } from '@/app/api/quiz/_shared/quiz-question-deadline';
 import {
@@ -43,10 +42,6 @@ function isExamPassRequiredError(error: unknown): boolean {
       : null;
 
   return code === 'QZ011' || message === 'quiz_exam_pass_required';
-}
-
-function formatLoyaltyPointCount(points: number): string {
-  return `${points} loyalty ${points === 1 ? 'point' : 'points'}`;
 }
 
 export async function POST(request: NextRequest) {
@@ -113,11 +108,16 @@ export async function POST(request: NextRequest) {
   });
 
   if (error) {
+    // Entry is free, so start_quiz_attempt can no longer raise QZ011. This is
+    // kept for the deploy window, where this build can briefly run against a
+    // database that has not applied 20260713160000_quiz_free_entry.sql yet.
+    // The message must therefore still read correctly if it ever does fire, so
+    // it no longer interpolates EXAM_PASS_POINTS_COST (which is now 0).
     if (isExamPassRequiredError(error)) {
       return NextResponse.json(
         {
           code: 'QUIZ_EXAM_PASS_REQUIRED',
-          error: `You need ${formatLoyaltyPointCount(EXAM_PASS_POINTS_COST)} to start this exam`,
+          error: 'You need loyalty points to start this exam',
         },
         { status: 409 }
       );

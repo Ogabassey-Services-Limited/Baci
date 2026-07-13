@@ -1,7 +1,6 @@
 import { Pressable, Text, View } from 'react-native';
 import type { QuizAttempt } from '@/services/quiz-types';
 import type { createQuizStyles } from './QuizScreen.styles';
-import { formatPointCount } from './QuizScreen.utils';
 
 type QuizStyles = ReturnType<typeof createQuizStyles>;
 
@@ -66,8 +65,7 @@ export function QuizQuestionCard({
         Time left: {remainingSeconds}s
       </Text>
       <Text style={styles.passReceipt}>
-        {formatPointCount(attempt.examPassPointsSpent)} exam pass used.{' '}
-        {formatPointCount(attempt.remainingLoyaltyPoints)} left.
+        Free entry — no loyalty points used.
       </Text>
       <Text accessibilityRole="header" style={styles.question}>
         {attempt.question.prompt}
