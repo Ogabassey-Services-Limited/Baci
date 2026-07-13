@@ -90,6 +90,17 @@ describe('postgres performance snapshot', () => {
     );
   });
 
+  it('fails the capture when pg_stat_statements hides query text', async () => {
+    const sql = await readFile(sqlPath, 'utf8');
+
+    expect(sql).toMatch(
+      /FROM extensions\.pg_stat_statements AS statements\s+WHERE statements\.query = '<insufficient privilege>'/i
+    );
+    expect(sql).toMatch(
+      /requires pg_read_all_stats or superuser query visibility/i
+    );
+  });
+
   it('captures every statement collection setting and excludes the capture utility commands', async () => {
     const sql = await readFile(sqlPath, 'utf8');
 

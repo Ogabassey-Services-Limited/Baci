@@ -11,6 +11,14 @@ BEGIN
       'postgres-performance-snapshot.sql requires PostgreSQL 17; detected %',
       current_setting('server_version');
   END IF;
+  IF EXISTS (
+    SELECT 1
+    FROM extensions.pg_stat_statements AS statements
+    WHERE statements.query = '<insufficient privilege>'
+  ) THEN
+    RAISE EXCEPTION
+      'postgres-performance-snapshot.sql requires pg_read_all_stats or superuser query visibility';
+  END IF;
 END;
 $$;
 SET LOCAL statement_timeout = '120s';

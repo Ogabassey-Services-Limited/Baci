@@ -106,6 +106,11 @@ Run the complete read-only script in one Supabase SQL editor session:
 
 [`supabase/diagnostics/postgres-performance-snapshot.sql`](../../supabase/diagnostics/postgres-performance-snapshot.sql)
 
+Use a role that can read statement text for every tracked role (a superuser or a
+role with `pg_read_all_stats`). The script rejects a capture that returns the
+PostgreSQL insufficient-privilege placeholder rather than aggregating hidden
+statements under one fingerprint.
+
 Export the single `snapshot` row as JSON without editing it. The delta tool accepts
 either the object itself, `{ "snapshot": ... }`, or the SQL editor's one-row
 `[{ "snapshot": ... }]` form.
