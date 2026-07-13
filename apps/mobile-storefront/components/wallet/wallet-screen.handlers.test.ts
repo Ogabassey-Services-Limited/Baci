@@ -85,6 +85,32 @@ describe('wallet-screen.handlers', () => {
     );
   });
 
+  it('shows the phone prompt instead of alerting on CUSTOMER_PHONE_REQUIRED', async () => {
+    const onPhoneRequired = jest.fn();
+
+    const created = await createWalletFundingAccount({
+      createFundingAccount: async () => {
+        const error = new Error('Add a phone number first') as Error & {
+          code?: string;
+        };
+        error.code = 'CUSTOMER_PHONE_REQUIRED';
+        throw error;
+      },
+      customerPhone: '08012345678',
+      isPaymentSettingsError: false,
+      isPaymentSettingsPending: false,
+      onPhoneRequired,
+      walletDvaEnabled: true,
+    });
+
+    expect(created).toBe(false);
+    expect(onPhoneRequired).toHaveBeenCalledTimes(1);
+    expect(Alert.alert).not.toHaveBeenCalledWith(
+      'Unable to create account number',
+      expect.anything()
+    );
+  });
+
   it('validates top-up amount before starting payment', async () => {
     await fundWallet({
       fundAmount: '50',

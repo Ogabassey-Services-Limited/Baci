@@ -17,6 +17,7 @@ type WalletHeroSectionProps = {
   isCreatingFundingAccount: boolean;
   loyaltyPoints: number;
   loyaltyTier?: string | null;
+  needsPhone: boolean;
   onCreateFundingAccount: () => void;
   onOpenFundPanel: () => void;
   onOpenRedeemPanel: () => void;
@@ -51,6 +52,7 @@ export function WalletHeroSection({
   isCreatingFundingAccount,
   loyaltyPoints,
   loyaltyTier,
+  needsPhone,
   onCreateFundingAccount,
   onOpenFundPanel,
   onOpenRedeemPanel,
@@ -58,8 +60,13 @@ export function WalletHeroSection({
   totalBalance,
 }: WalletHeroSectionProps) {
   const { copyToClipboard, feedback: copyFeedback } = useCopyToClipboard();
+  // When the only blocker is a missing phone the button stays ENABLED and
+  // opens the fund panel, where the phone prompt collects the number.
   const isCreateAccountDisabled =
-    isCreatingFundingAccount || !canCreateFundingAccount;
+    isCreatingFundingAccount || (!canCreateFundingAccount && !needsPhone);
+  const handleCreateAccountPress = needsPhone
+    ? onOpenFundPanel
+    : onCreateFundingAccount;
 
   const handleCopyFundingAccount = async () => {
     if (!fundingAccount) {
@@ -160,7 +167,7 @@ export function WalletHeroSection({
                 ? styles.createAccountButtonDisabled
                 : null,
             ]}
-            onPress={onCreateFundingAccount}
+            onPress={handleCreateAccountPress}
             disabled={isCreateAccountDisabled}
           >
             {isCreatingFundingAccount ? (

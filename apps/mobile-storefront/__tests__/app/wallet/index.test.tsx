@@ -611,11 +611,17 @@ describe('WalletScreen', () => {
     expect(
       screen.getByText('can-create-funding-account:false')
     ).toBeOnTheScreen();
+    // Missing phone is now collected at the point of need, so the static
+    // PHONE_REQUIRED copy is suppressed (the fund panel's phone prompt replaces
+    // it) while creation stays blocked.
     expect(
-      screen.getByText(
+      screen.getByText('create-funding-account-message:')
+    ).toBeOnTheScreen();
+    expect(
+      screen.queryByText(
         'create-funding-account-message:Add a phone number to your profile before creating a wallet account number.'
       )
-    ).toBeOnTheScreen();
+    ).not.toBeOnTheScreen();
 
     fireEvent.press(
       screen.getByRole('button', { name: 'Create Funding Account' })

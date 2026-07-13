@@ -10,6 +10,7 @@ import type { WalletActiveSavingsGoal } from '@/hooks/wallet-query';
 import type { Product } from '@/types/product';
 import { WalletActionsRow } from './WalletActionsRow';
 import { WalletFundPanel } from './WalletFundPanel';
+import type { WalletFundPhoneSubmitResult } from './WalletFundPhonePrompt';
 import { WalletHeroSection } from './WalletHeroSection';
 import { WalletRedeemPanel } from './WalletRedeemPanel';
 import { WalletSavingsDeviceSwapModal } from './WalletSavingsDeviceSwapModal';
@@ -38,6 +39,7 @@ export interface WalletContentProps {
   isRefetching: boolean;
   loyaltyPoints: number;
   loyaltyTier?: string | null;
+  needsPhone: boolean;
   onCreateFundingAccount: () => void;
   onChangeFundAmount: (value: string) => void;
   onChangeRedeemPoints: (value: string) => void;
@@ -59,6 +61,7 @@ export interface WalletContentProps {
   onResetFund: () => void;
   onResetRedeem: () => void;
   onStartSavings: () => void;
+  onSubmitPhone: (phone: string) => Promise<WalletFundPhoneSubmitResult>;
   redeemPoints: string;
   savingsContributionAmount: string;
   savingsBalance: number;
@@ -86,6 +89,7 @@ export function WalletContent({
   isRefetching,
   loyaltyPoints,
   loyaltyTier,
+  needsPhone,
   onCreateFundingAccount,
   onChangeFundAmount,
   onChangeRedeemPoints,
@@ -104,6 +108,7 @@ export function WalletContent({
   onResetFund,
   onResetRedeem,
   onStartSavings,
+  onSubmitPhone,
   redeemPoints,
   savingsContributionAmount,
   savingsBalance,
@@ -171,6 +176,7 @@ export function WalletContent({
           isCreatingFundingAccount={isCreatingFundingAccount}
           loyaltyPoints={loyaltyPoints}
           loyaltyTier={loyaltyTier}
+          needsPhone={needsPhone}
           onCreateFundingAccount={onCreateFundingAccount}
           onOpenFundPanel={onOpenFundPanel}
           onOpenRedeemPanel={onOpenRedeemPanel}
@@ -198,10 +204,12 @@ export function WalletContent({
             fundingAccount={fundingAccount}
             isCreatingFundingAccount={isCreatingFundingAccount}
             isFundPending={isFundPending}
+            needsPhone={needsPhone}
             onChangeFundAmount={onChangeFundAmount}
             onConfirmFund={onConfirmFund}
             onCreateFundingAccount={onCreateFundingAccount}
             onResetFund={onResetFund}
+            onSubmitPhone={onSubmitPhone}
           />
         ) : null}
 

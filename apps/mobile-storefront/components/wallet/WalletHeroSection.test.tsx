@@ -56,6 +56,7 @@ const baseProps = {
   isCreatingFundingAccount: false,
   loyaltyPoints: 2000,
   loyaltyTier: 'silver',
+  needsPhone: false,
   onCreateFundingAccount: jest.fn(),
   onOpenRedeemPanel: jest.fn(),
   onOpenFundPanel: jest.fn(),
@@ -166,6 +167,36 @@ describe('WalletHeroSection', () => {
     expect(
       screen.getByText('Bank transfer account creation is not available yet.')
     ).toBeOnTheScreen();
+    expect(onCreateFundingAccount).not.toHaveBeenCalled();
+  });
+
+  it('enables account creation and opens the fund panel when a phone is needed', () => {
+    const onCreateFundingAccount = jest.fn();
+    const onOpenFundPanel = jest.fn();
+
+    render(
+      <WalletHeroSection
+        {...baseProps}
+        canCreateFundingAccount={false}
+        fundingAccount={null}
+        needsPhone={true}
+        onCreateFundingAccount={onCreateFundingAccount}
+        onOpenFundPanel={onOpenFundPanel}
+      />
+    );
+
+    const createAccountButton = screen.getByRole('button', {
+      name: 'Create account number',
+    });
+
+    expect(createAccountButton.props.accessibilityState).toMatchObject({
+      disabled: false,
+    });
+
+    fireEvent.press(createAccountButton);
+
+    // Opens the panel (phone prompt) instead of firing a doomed create call.
+    expect(onOpenFundPanel).toHaveBeenCalledTimes(1);
     expect(onCreateFundingAccount).not.toHaveBeenCalled();
   });
 
