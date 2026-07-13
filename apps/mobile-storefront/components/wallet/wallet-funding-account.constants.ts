@@ -17,3 +17,12 @@ export const WALLET_FUNDING_ACCOUNT_MESSAGES = {
  */
 export const ORDER_ALIAS_CONFLICT_MESSAGE_FRAGMENT =
   'reserved for an active order payment';
+
+/**
+ * Server error code (HTTP 400) from POST
+ * /api/storefront/customer/wallet/funding-account when the customer row has no
+ * phone. The shared API client attaches it as `error.code`; the mobile outcome
+ * resolver maps it to the phone prompt instead of a dead-end Alert, covering
+ * stale-local-state races where the client still shows a phone.
+ */
+export const CUSTOMER_PHONE_REQUIRED_ERROR_CODE = 'CUSTOMER_PHONE_REQUIRED';

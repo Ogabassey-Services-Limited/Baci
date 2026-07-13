@@ -89,6 +89,7 @@ describe('WalletContent', () => {
     isRedeemPending: false,
     isRefetching: false,
     loyaltyPoints: 2000,
+    needsPhone: false,
     onChangeFundAmount: jest.fn(),
     onCreateFundingAccount: jest.fn(),
     onChangeRedeemPoints: jest.fn(),
@@ -107,6 +108,7 @@ describe('WalletContent', () => {
     onResetFund: jest.fn(),
     onResetRedeem: jest.fn(),
     onStartSavings: jest.fn(),
+    onSubmitPhone: jest.fn(async () => ({ success: true })),
     redeemPoints: '',
     savingsContributionAmount: '',
     savingsBalance: 35000,
@@ -228,6 +230,23 @@ describe('WalletContent', () => {
 
     expect(
       screen.getByText('Add a phone number to create your account number.')
+    ).toBeOnTheScreen();
+  });
+
+  it('shows the phone prompt in the fund panel when a phone is needed', () => {
+    render(
+      <WalletContent
+        {...props}
+        canCreateFundingAccount={false}
+        fundingAccount={null}
+        needsPhone={true}
+        showFundPanel={true}
+      />
+    );
+
+    expect(screen.getByLabelText('Phone number')).toBeOnTheScreen();
+    expect(
+      screen.getByRole('button', { name: 'Save phone number' })
     ).toBeOnTheScreen();
   });
 

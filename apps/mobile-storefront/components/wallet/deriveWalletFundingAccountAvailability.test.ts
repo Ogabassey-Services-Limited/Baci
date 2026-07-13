@@ -20,6 +20,7 @@ describe('deriveWalletFundingAccountAvailability', () => {
       canCreateFundingAccount: true,
       customerPhone: '08012345678',
       isPaymentSettingsPending: false,
+      needsPhone: false,
       walletDvaEnabled: true,
     });
     expect(availability.createFundingAccountUnavailableMessage).toBeUndefined();
@@ -53,7 +54,7 @@ describe('deriveWalletFundingAccountAvailability', () => {
     );
   });
 
-  it('requires DVA to be enabled and a customer phone number to be present', () => {
+  it('requires DVA to be enabled before allowing account creation', () => {
     expect(
       deriveWalletFundingAccountAvailability({
         customerPhone: '08012345678',
@@ -65,15 +66,40 @@ describe('deriveWalletFundingAccountAvailability', () => {
         },
       }).createFundingAccountUnavailableMessage
     ).toBe(WALLET_FUNDING_ACCOUNT_MESSAGES.DVA_DISABLED);
+  });
 
-    expect(
-      deriveWalletFundingAccountAvailability({
-        customerPhone: ' ',
-        isPaymentSettingsError: false,
-        isPaymentSettingsPending: false,
-        paymentSettings: enabledPaymentSettings,
-      }).createFundingAccountUnavailableMessage
-    ).toBe(WALLET_FUNDING_ACCOUNT_MESSAGES.PHONE_REQUIRED);
+  it('flags needsPhone (no static message) when a missing phone is the only blocker', () => {
+    const availability = deriveWalletFundingAccountAvailability({
+      customerPhone: ' ',
+      isPaymentSettingsError: false,
+      isPaymentSettingsPending: false,
+      paymentSettings: enabledPaymentSettings,
+    });
+
+    expect(availability).toMatchObject({
+      canCreateFundingAccount: false,
+      needsPhone: true,
+      walletDvaEnabled: true,
+    });
+    // The phone UI replaces the static PHONE_REQUIRED copy.
+    expect(availability.createFundingAccountUnavailableMessage).toBeUndefined();
+  });
+
+  it('does not flag needsPhone when DVA is disabled even if the phone is also missing', () => {
+    const availability = deriveWalletFundingAccountAvailability({
+      customerPhone: '',
+      isPaymentSettingsError: false,
+      isPaymentSettingsPending: false,
+      paymentSettings: {
+        ...enabledPaymentSettings,
+        wallet_paystack_dva_enabled: false,
+      },
+    });
+
+    expect(availability.needsPhone).toBe(false);
+    expect(availability.createFundingAccountUnavailableMessage).toBe(
+      WALLET_FUNDING_ACCOUNT_MESSAGES.DVA_DISABLED
+    );
   });
 
   it('treats null payment settings as resolved with DVA disabled', () => {

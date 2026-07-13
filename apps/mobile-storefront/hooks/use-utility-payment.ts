@@ -23,7 +23,6 @@ const SUPPORTED_UTILITY_GATEWAYS: UtilityPaymentGateway[] = [
 
 export function useUtilityPayment(amount = 0) {
   const isAuthenticated = useAuthStore((state) => !!state.session);
-  const customerPhone = useAuthStore((state) => state.customer?.phone);
   const [selectedGateway, setSelectedGateway] =
     useState<UtilityPaymentGateway>('paystack');
   const [selectedSavedCardId, setSelectedSavedCardId] = useState<string | null>(
@@ -42,16 +41,14 @@ export function useUtilityPayment(amount = 0) {
   const walletIdempotencyKeyRef = useRef<string | null>(null);
   const paymentSettings = useMerchantPaymentSettings();
   const wallet = useWallet();
-  // The bank-transfer funding nudge deep-links into DVA territory, so only
-  // offer it to signed-in customers of merchants with wallet DVAs enabled,
-  // and only when the customer either already HAS an account number (viewing
-  // needs no phone) or has a usable phone for creation. Otherwise the CTA
-  // routes to a flow that fails with DVA_DISABLED or a phone-required alert.
+  // The bank-transfer funding nudge deep-links into DVA territory, so offer
+  // it to any signed-in customer of a merchant with wallet DVAs enabled. No
+  // phone/funding_account precondition: the wallet funding flow now collects
+  // the customer's phone at the point of need and creates the DVA on the
+  // spot, so a phoneless customer is no longer a dead end.
   const canFundByBankTransfer =
     isAuthenticated &&
-    paymentSettings.data?.wallet_paystack_dva_enabled === true &&
-    (Boolean(wallet.data?.wallet.funding_account) ||
-      Boolean(customerPhone?.trim()));
+    paymentSettings.data?.wallet_paystack_dva_enabled === true;
   const walletBalance = wallet.data?.wallet.balance ?? 0;
   const walletError = wallet.error instanceof Error ? wallet.error : null;
   const walletCanRender =

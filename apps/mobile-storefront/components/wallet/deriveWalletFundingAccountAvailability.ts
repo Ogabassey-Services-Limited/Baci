@@ -13,6 +13,7 @@ export interface WalletFundingAccountAvailability {
   createFundingAccountUnavailableMessage?: string;
   customerPhone: string;
   isPaymentSettingsPending: boolean;
+  needsPhone: boolean;
   walletDvaEnabled: boolean;
 }
 
@@ -26,6 +27,7 @@ export function deriveWalletFundingAccountAvailability({
     paymentSettings?.wallet_paystack_dva_enabled === true;
   const normalizedCustomerPhone = customerPhone?.trim() ?? '';
   let createFundingAccountUnavailableMessage: string | undefined;
+  let needsPhone = false;
 
   if (isPaymentSettingsPending) {
     createFundingAccountUnavailableMessage =
@@ -37,15 +39,20 @@ export function deriveWalletFundingAccountAvailability({
     createFundingAccountUnavailableMessage =
       WALLET_FUNDING_ACCOUNT_MESSAGES.DVA_DISABLED;
   } else if (!normalizedCustomerPhone) {
-    createFundingAccountUnavailableMessage =
-      WALLET_FUNDING_ACCOUNT_MESSAGES.PHONE_REQUIRED;
+    // Missing phone is the ONLY blocker: don't surface a static message —
+    // the fund panel collects the number at the point of need instead.
+    needsPhone = true;
   }
 
   return {
-    canCreateFundingAccount: !createFundingAccountUnavailableMessage,
+    // Still cannot create until the phone is collected; computed independently
+    // of the message so suppressing the PHONE_REQUIRED copy can't flip it true.
+    canCreateFundingAccount:
+      !createFundingAccountUnavailableMessage && !needsPhone,
     createFundingAccountUnavailableMessage,
     customerPhone: normalizedCustomerPhone,
     isPaymentSettingsPending,
+    needsPhone,
     walletDvaEnabled,
   };
 }
