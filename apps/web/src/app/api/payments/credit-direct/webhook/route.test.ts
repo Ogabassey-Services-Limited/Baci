@@ -2098,8 +2098,9 @@ describe('POST /api/payments/credit-direct/webhook', () => {
       });
     });
 
-    it('does not stomp a refunded order back to paid', async () => {
+    it('keeps a refunded order refunded but records and files the disbursed payout', async () => {
       const refundedOrder = { ...mockOrder, payment_status: 'refunded' };
+      const transactionInsert = vi.fn().mockReturnThis();
 
       vi.mocked(parseWebhookPayload).mockReturnValue(merchantPaymentPayload);
 
@@ -2133,6 +2134,36 @@ describe('POST /api/payments/credit-direct/webhook', () => {
             .mockResolvedValue({ data: null, error: null });
           return updateChain;
         }
+        if (fromCallCount === 3) {
+          // Re-read confirming the order is refunded (not concurrently paid).
+          const rereadChain = { ...mockChain };
+          rereadChain.select = vi.fn().mockReturnValue(rereadChain);
+          rereadChain.eq = vi.fn().mockReturnValue(rereadChain);
+          rereadChain.maybeSingle = vi.fn().mockResolvedValue({
+            data: { payment_status: 'refunded' },
+            error: null,
+          });
+          return rereadChain;
+        }
+        if (fromCallCount === 4) {
+          // Existing-transaction lookup inside recordCreditDirectTransaction.
+          const txCheckChain = { ...mockChain };
+          txCheckChain.select = vi.fn().mockReturnValue(txCheckChain);
+          txCheckChain.eq = vi.fn().mockReturnValue(txCheckChain);
+          txCheckChain.single = vi
+            .fn()
+            .mockResolvedValue({ data: null, error: null });
+          return txCheckChain;
+        }
+        if (fromCallCount === 5) {
+          const txInsertChain = { ...mockChain };
+          txInsertChain.insert = transactionInsert;
+          txInsertChain.select = vi.fn().mockReturnValue(txInsertChain);
+          txInsertChain.single = vi
+            .fn()
+            .mockResolvedValue({ data: { id: 'refund-tx-1' }, error: null });
+          return txInsertChain;
+        }
         throw new Error(`Unexpected from() call ${fromCallCount}`);
       });
 
@@ -2140,19 +2171,28 @@ describe('POST /api/payments/credit-direct/webhook', () => {
       const response = await POST(request);
       const data = await response.json();
 
+      // The order stays refunded, but the disbursed money is persisted and
+      // filed for ops review — never a silent ack.
       expect(response.status).toBe(200);
       expect(data).toEqual({
         received: true,
-        warning: 'Order status no longer eligible',
+        message: 'Order was refunded; payment filed for review',
       });
-      expect(logger.warn).toHaveBeenCalledWith({
-        message:
-          'Credit Direct merchant payment update skipped because order status is no longer eligible',
-        orderId: 'order_abc',
-        currentPaymentStatus: 'refunded',
-        transactionId: 'txn_123456789',
-      });
-      expect(supabaseMock.from).not.toHaveBeenCalledWith('transactions');
+      expect(transactionInsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          gateway: 'credit_direct',
+          gateway_reference: 'txn_123456789',
+          order_id: 'order_abc',
+          status: 'completed',
+        })
+      );
+      expect(mockReconciliationInsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          issue_type: 'payment_received_after_refund',
+          order_id: 'order_abc',
+          txn_id: 'refund-tx-1',
+        })
+      );
     });
   });
 

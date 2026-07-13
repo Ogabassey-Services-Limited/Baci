@@ -3508,7 +3508,6 @@ describe('POST /api/payments/webhook', () => {
       // reported success to the gateway.
       expect(response.status).toBe(200);
       expect(data).toEqual({ message: 'Already processed' });
-      expect(orderStateLookup).toHaveBeenCalled();
       expect(mockServiceClient.rpc).toHaveBeenCalledWith(
         'complete_order_gateway_payment',
         expect.objectContaining({
