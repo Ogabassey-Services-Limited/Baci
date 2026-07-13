@@ -1,15 +1,27 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const capture = vi.hoisted(() => vi.fn());
+const posthogMockState = vi.hoisted(() => ({ loaded: true }));
 
 vi.mock('posthog-js', () => ({
-  default: { capture },
+  default: {
+    capture,
+    get __loaded() {
+      return posthogMockState.loaded;
+    },
+  },
 }));
 
-import { captureClientEvent } from './capture-client-event';
+import {
+  captureClientEvent,
+  flushPendingClientEvents,
+} from './capture-client-event';
 
 describe('captureClientEvent', () => {
   beforeEach(() => {
+    // Drain any queue left over from a prior test before resetting the spy.
+    posthogMockState.loaded = true;
+    flushPendingClientEvents();
     capture.mockReset();
   });
 
@@ -68,5 +80,53 @@ describe('captureClientEvent', () => {
         surface: 'wallet_page',
       })
     ).not.toThrow();
+  });
+
+  it('queues events captured before the SDK initializes instead of dropping them', () => {
+    posthogMockState.loaded = false;
+
+    captureClientEvent('wallet_funding_surface_opened', {
+      surface: 'utility_modal',
+    });
+
+    // The SDK would silently discard a pre-init capture — nothing is sent yet.
+    expect(capture).not.toHaveBeenCalled();
+
+    posthogMockState.loaded = true;
+    flushPendingClientEvents();
+
+    expect(capture).toHaveBeenCalledWith('wallet_funding_surface_opened', {
+      app_surface: 'web',
+      surface: 'utility_modal',
+    });
+  });
+
+  it('flushes each queued event once', () => {
+    posthogMockState.loaded = false;
+    captureClientEvent('wallet_funding_surface_opened', {
+      surface: 'wallet_page',
+    });
+
+    posthogMockState.loaded = true;
+    flushPendingClientEvents();
+    flushPendingClientEvents();
+
+    expect(capture).toHaveBeenCalledTimes(1);
+  });
+
+  it('bounds the pre-init queue to the most recent events', () => {
+    posthogMockState.loaded = false;
+    for (let index = 0; index < 25; index += 1) {
+      captureClientEvent('wallet_funding_surface_opened', { index });
+    }
+
+    posthogMockState.loaded = true;
+    flushPendingClientEvents();
+
+    expect(capture).toHaveBeenCalledTimes(20);
+    expect(capture).toHaveBeenLastCalledWith('wallet_funding_surface_opened', {
+      app_surface: 'web',
+      index: 24,
+    });
   });
 });

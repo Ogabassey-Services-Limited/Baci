@@ -1,4 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { captureServerEvent } from '@/lib/posthog/server';
+import { WALLET_FUNDING_TELEMETRY } from '@/lib/posthog/wallet-funding-events';
 
 export const WALLET_TOP_UP_TRANSACTION_TYPE = 'wallet_topup';
 const ALLOWED_WALLET_TOP_UP_GATEWAYS = ['paystack', 'korapay'] as const;
@@ -176,6 +178,23 @@ export async function creditWalletTopUp({
 
   const result = normalizeWalletRpcResult(data);
   const balance = normalizeWalletBalance(result.new_balance);
+
+  // Funnel completion: the RPC path only runs for a first credit (replays
+  // short-circuit on the ledger check above), so retries cannot double-count.
+  // Wallet top-ups are NGN-only today. Fail-open + internally timeout-bounded —
+  // never blocks or fails the money path.
+  await captureServerEvent(
+    WALLET_FUNDING_TELEMETRY.events.transferCredited,
+    {
+      amount,
+      currency: 'NGN',
+      customer_id: customerId,
+      gateway: validatedGateway,
+      gateway_reference: reference,
+      merchant_id: merchantId,
+    },
+    customerId
+  );
 
   return {
     balance,

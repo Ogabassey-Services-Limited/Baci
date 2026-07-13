@@ -25,6 +25,10 @@ describe('WALLET_FUNDING_TELEMETRY', () => {
       orderAliasConflict: 'WALLET_DVA_ORDER_ALIAS_CONFLICT',
       customerPhoneRequired: 'CUSTOMER_PHONE_REQUIRED',
       dvaDisabled: 'WALLET_DVA_DISABLED',
+      gatewayNotConfigured: 'GATEWAY_NOT_CONFIGURED',
+      subaccountConflict: 'WALLET_DVA_SUBACCOUNT_CONFLICT',
+      paystackCustomerError: 'PAYSTACK_CUSTOMER_ERROR',
+      paystackDvaError: 'PAYSTACK_DVA_ERROR',
       network: 'network',
       other: 'other',
     });

@@ -1,5 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mockCaptureServerEvent = vi.hoisted(() => vi.fn());
+
+vi.mock('@/lib/posthog/server', () => ({
+  captureServerEvent: mockCaptureServerEvent,
+}));
+
 import { creditWalletTopUp } from '@/lib/customer-wallet-top-up';
 
 function createWalletCreditSupabaseMock({
@@ -52,6 +59,10 @@ const walletTopUpInput = {
 };
 
 describe('creditWalletTopUp', () => {
+  beforeEach(() => {
+    mockCaptureServerEvent.mockClear();
+  });
+
   it('returns an existing wallet credit without calling the RPC again', async () => {
     const { client, rpc } = createWalletCreditSupabaseMock({
       existingCredit: {
@@ -68,6 +79,8 @@ describe('creditWalletTopUp', () => {
       transactionId: 'wallet-credit-1',
     });
     expect(rpc).not.toHaveBeenCalled();
+    // A replayed credit must not re-emit the funnel-completion event.
+    expect(mockCaptureServerEvent).not.toHaveBeenCalled();
   });
 
   it('credits the wallet through the idempotent RPC when no credit exists', async () => {
@@ -90,6 +103,19 @@ describe('creditWalletTopUp', () => {
       p_source_id: 'payment-tx-1',
       p_source_type: 'wallet_topup',
     });
+    // The fresh-credit path is the funnel-completion point.
+    expect(mockCaptureServerEvent).toHaveBeenCalledWith(
+      'wallet_funding_transfer_credited',
+      {
+        amount: 1500,
+        currency: 'NGN',
+        customer_id: 'customer-1',
+        gateway: 'paystack',
+        gateway_reference: 'WAL-123',
+        merchant_id: 'merchant-1',
+      },
+      'customer-1'
+    );
   });
 
   it('rejects invalid amounts before querying Supabase', async () => {

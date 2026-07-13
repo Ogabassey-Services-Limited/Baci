@@ -1,5 +1,6 @@
 import posthog from 'posthog-js';
 import { markPostHogBrowserInitialized } from '@/lib/posthog/browser-state';
+import { flushPendingClientEvents } from '@/lib/posthog/capture-client-event';
 import { buildPostHogClientConfig } from '@/lib/posthog/client-config';
 import type { PostHogEnv } from '@/lib/posthog/config';
 import { pendingClientExceptionQueue } from '@/lib/posthog/pending-client-exception-queue';
@@ -249,6 +250,7 @@ function markPostHogReadyAndFlush() {
   clearPostHogLoadedStateCheck();
   flushPendingClientExceptions();
   flushPendingPostHogPageviews();
+  flushPendingClientEvents();
 }
 
 function clearPostHogLoadedStateCheck() {

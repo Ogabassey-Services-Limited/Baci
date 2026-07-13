@@ -190,18 +190,9 @@ describe('confirmPaystackWalletDvaTopUp', () => {
         }),
       })
     );
-    expect(mockCaptureServerEvent).toHaveBeenCalledWith(
-      'wallet_funding_transfer_credited',
-      expect.objectContaining({
-        amount: 20000,
-        currency: 'NGN',
-        customer_id: 'customer-1',
-        gateway: 'paystack',
-        gateway_reference: 'PSK_REF_1',
-        merchant_id: 'merchant-1',
-      }),
-      'customer-1'
-    );
+    // The fresh insert is only the PENDING transaction match — the credited
+    // funnel event belongs to creditWalletTopUp, which credits the balance.
+    expect(mockCaptureServerEvent).not.toHaveBeenCalled();
   });
 
   it('files a review and does not credit wallet when an active order DVA aliases the receiver', async () => {
@@ -274,8 +265,8 @@ describe('confirmPaystackWalletDvaTopUp', () => {
       kind: 'match',
       transaction: { id: 'txn-winner' },
     });
-    // Retry re-reads an already-credited transaction — must not re-emit the
-    // funnel-completion event or the credited count would double.
+    // This lib never emits the funnel-completion event on any branch — that
+    // belongs to creditWalletTopUp's fresh-credit path.
     expect(mockCaptureServerEvent).not.toHaveBeenCalled();
   });
 
