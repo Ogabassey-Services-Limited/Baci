@@ -21,6 +21,7 @@ function createWatch(overrides: Partial<WalletCreditWatch> = {}): WalletCreditWa
   return {
     armCheck: jest.fn(),
     creditedAmount: null,
+    reset: jest.fn(),
     returnCtaHref: undefined,
     status: 'idle',
     ...overrides,
@@ -48,6 +49,15 @@ describe('WalletCreditCheckPanel', () => {
     const { toJSON } = renderPanel(createWatch());
 
     expect(toJSON()).toBeNull();
+  });
+
+  it('resets to idle from the credited state so a later transfer can be checked', () => {
+    const reset = jest.fn();
+    renderPanel(createWatch({ status: 'credited', creditedAmount: 2500, reset }));
+
+    fireEvent.press(screen.getByRole('button', { name: 'Done' }));
+
+    expect(reset).toHaveBeenCalledTimes(1);
   });
 
   it('arms the watch when the customer confirms they transferred', () => {

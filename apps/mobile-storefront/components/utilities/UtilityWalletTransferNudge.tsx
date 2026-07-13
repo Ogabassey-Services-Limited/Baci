@@ -45,11 +45,12 @@ export function UtilityWalletTransferNudge({
 }: UtilityWalletTransferNudgeProps) {
   const handlePress = () => {
     if (WALLET_FUNDING_CHECKING_STATE_ENABLED && returnToHref) {
-      const requiredAmount = Math.max(0, Math.ceil(amount));
+      // Deliberately NO requiredAmount here: it would seed the fund panel's
+      // prefill heuristic and, for a no-phone customer, suppress DVA
+      // auto-creation after the phone prompt — stranding a bank-transfer
+      // intent in the card path. The prefilled returnTo form knows the amount.
       router.push(
-        `/wallet?action=bank-transfer&requiredAmount=${requiredAmount}&returnTo=${encodeURIComponent(
-          returnToHref
-        )}`
+        `/wallet?action=bank-transfer&returnTo=${encodeURIComponent(returnToHref)}`
       );
       return;
     }

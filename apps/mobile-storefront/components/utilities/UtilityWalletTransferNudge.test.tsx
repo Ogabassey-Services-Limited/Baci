@@ -54,7 +54,7 @@ describe('UtilityWalletTransferNudge', () => {
     });
   });
 
-  it('round-trips a prefilled returnTo and requiredAmount when the flag is on', () => {
+  it('round-trips a prefilled returnTo when the flag is on', () => {
     mockFlagEnabled = true;
     render(
       <UtilityWalletTransferNudge {...baseProps} returnToHref={RETURN_TO} />
@@ -65,11 +65,11 @@ describe('UtilityWalletTransferNudge', () => {
     );
 
     expect(mockRouterPush).toHaveBeenCalledWith(
-      `/wallet?action=bank-transfer&requiredAmount=1000&returnTo=${encodeURIComponent(RETURN_TO)}`
+      `/wallet?action=bank-transfer&returnTo=${encodeURIComponent(RETURN_TO)}`
     );
   });
 
-  it('rounds the required amount up for the wallet top-up target', () => {
+  it('never sends requiredAmount on the bank-transfer link (it would strand no-phone customers in the card path)', () => {
     mockFlagEnabled = true;
     render(
       <UtilityWalletTransferNudge
@@ -84,9 +84,9 @@ describe('UtilityWalletTransferNudge', () => {
       screen.getByRole('button', { name: 'Pay with Bank Transfer' })
     );
 
-    expect(mockRouterPush).toHaveBeenCalledWith(
-      `/wallet?action=bank-transfer&requiredAmount=1000&returnTo=${encodeURIComponent(RETURN_TO)}`
-    );
+    const pushedUrl = mockRouterPush.mock.calls[0]?.[0];
+    expect(typeof pushedUrl).toBe('string');
+    expect(pushedUrl).not.toContain('requiredAmount');
   });
 
   it('keeps the legacy object push when the flag is off even with a returnTo', () => {

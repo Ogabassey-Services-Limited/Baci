@@ -49,6 +49,7 @@ const baseProps = {
   creditWatch: {
     armCheck: jest.fn(),
     creditedAmount: null,
+    reset: jest.fn(),
     returnCtaHref: undefined,
     status: 'idle' as const,
   },

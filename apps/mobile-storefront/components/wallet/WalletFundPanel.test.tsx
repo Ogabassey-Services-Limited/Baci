@@ -34,6 +34,7 @@ function renderPanel(
     creditWatch: {
       armCheck: jest.fn(),
       creditedAmount: null,
+      reset: jest.fn(),
       returnCtaHref: undefined,
       status: 'idle' as const,
     },
@@ -110,6 +111,7 @@ describe('WalletFundPanel', () => {
       creditWatch: {
         armCheck: jest.fn(),
         creditedAmount: null,
+        reset: jest.fn(),
         returnCtaHref: undefined,
         status: 'idle' as const,
       },
@@ -160,6 +162,7 @@ describe('WalletFundPanel', () => {
       creditWatch: {
         armCheck: jest.fn(),
         creditedAmount: null,
+        reset: jest.fn(),
         returnCtaHref: undefined,
         status: 'idle' as const,
       },

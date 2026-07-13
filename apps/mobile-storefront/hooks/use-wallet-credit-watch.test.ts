@@ -44,6 +44,59 @@ describe('useWalletCreditWatch', () => {
     expect(result.current.returnCtaHref).toBeUndefined();
   });
 
+  it('detects a credit that landed BEFORE the customer tapped (pre-arm snapshot)', () => {
+    const refetch = jest.fn();
+    const { result, rerender } = renderHook(
+      ({ balance }: { balance: number }) =>
+        useWalletCreditWatch({ balance, refetch, returnTo: RETURN_TO }),
+      { initialProps: { balance: 100 } }
+    );
+
+    // The customer transfers from their bank app; realtime credits the wallet
+    // while the app is backgrounded — BEFORE they tap "I've transferred".
+    rerender({ balance: 2600 });
+
+    act(() => {
+      result.current.armCheck();
+    });
+
+    // The idle snapshot (100) survives as the baseline, so the pre-tap credit
+    // reads as an immediate delta instead of timing out.
+    expect(result.current.status).toBe('credited');
+    expect(result.current.creditedAmount).toBe(2500);
+    expect(result.current.returnCtaHref).toBe(RETURN_TO);
+  });
+
+  it('resets to idle and can arm a fresh check for a second transfer', () => {
+    const refetch = jest.fn();
+    const { result, rerender } = renderHook(
+      ({ balance }: { balance: number }) =>
+        useWalletCreditWatch({ balance, refetch }),
+      { initialProps: { balance: 100 } }
+    );
+
+    act(() => {
+      result.current.armCheck();
+    });
+    rerender({ balance: 2600 });
+    expect(result.current.status).toBe('credited');
+
+    act(() => {
+      result.current.reset();
+    });
+    expect(result.current.status).toBe('idle');
+    expect(result.current.creditedAmount).toBeNull();
+
+    // Second cycle measures only from the post-reset balance (2600).
+    act(() => {
+      result.current.armCheck();
+    });
+    expect(result.current.status).toBe('checking');
+    rerender({ balance: 3100 });
+    expect(result.current.status).toBe('credited');
+    expect(result.current.creditedAmount).toBe(500);
+  });
+
   it('refuses to arm while the balance is still loading (no zero baseline)', () => {
     const refetch = jest.fn();
     const { result, rerender } = renderHook(
@@ -130,7 +183,7 @@ describe('useWalletCreditWatch', () => {
     expect(result.current.returnCtaHref).toBeUndefined();
   });
 
-  it('re-arms from a timed-out state against the latest balance', () => {
+  it('surfaces a credit that landed during the timeout window on re-arm', () => {
     const refetch = jest.fn();
     const { result, rerender } = renderHook(
       ({ balance }: { balance: number }) =>
@@ -146,14 +199,24 @@ describe('useWalletCreditWatch', () => {
     });
     expect(result.current.status).toBe('timedOut');
 
-    // A stale higher balance was already on screen; re-arming must baseline to
-    // it so only a NEW credit flips to credited.
+    // The transfer settled late — after the watch already timed out. Tapping
+    // "Check again" must credit immediately against the pre-transfer snapshot
+    // instead of silently absorbing the late credit into a fresh baseline.
     rerender({ balance: 500 });
     act(() => {
       result.current.armCheck();
     });
-    expect(result.current.status).toBe('checking');
+    expect(result.current.status).toBe('credited');
+    expect(result.current.creditedAmount).toBe(400);
 
+    // After acknowledging, the next cycle measures from the new balance.
+    act(() => {
+      result.current.reset();
+    });
+    act(() => {
+      result.current.armCheck();
+    });
+    expect(result.current.status).toBe('checking');
     rerender({ balance: 1500 });
     expect(result.current.status).toBe('credited');
     expect(result.current.creditedAmount).toBe(1000);

@@ -8,6 +8,7 @@ import { getWalletCreditStatusCopy } from './wallet-credit-status.helpers';
 
 const ARM_CHECK_LABEL = "I've transferred — check for it";
 const CHECK_AGAIN_LABEL = 'Check again';
+const DONE_LABEL = 'Done';
 const RETURN_CTA_LABEL = 'Return to your purchase';
 
 interface WalletCreditCheckPanelProps {
@@ -31,7 +32,7 @@ export function WalletCreditCheckPanel({
     return null;
   }
 
-  const { armCheck, creditedAmount, returnCtaHref, status } = watch;
+  const { armCheck, creditedAmount, reset, returnCtaHref, status } = watch;
 
   if (status === 'idle') {
     return (
@@ -77,6 +78,20 @@ export function WalletCreditCheckPanel({
           style={[styles.ctaButton, { backgroundColor: accentColor }]}
         >
           <Text style={styles.ctaButtonText}>{RETURN_CTA_LABEL}</Text>
+        </Pressable>
+      ) : null}
+      {status === 'credited' ? (
+        // Returns the panel to idle so a later transfer from this same mounted
+        // screen can arm a fresh check.
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={DONE_LABEL}
+          onPress={reset}
+          style={[styles.armButton, { borderColor: accentColor }]}
+        >
+          <Text style={[styles.armButtonText, { color: accentColor }]}>
+            {DONE_LABEL}
+          </Text>
         </Pressable>
       ) : null}
       {status === 'timedOut' ? (

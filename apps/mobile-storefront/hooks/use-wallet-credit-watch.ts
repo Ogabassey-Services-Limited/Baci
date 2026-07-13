@@ -14,6 +14,8 @@ export type WalletCreditWatchStatus =
 export interface WalletCreditWatch {
   armCheck: () => void;
   creditedAmount: number | null;
+  /** Returns to idle so a later transfer can be checked from the same mount. */
+  reset: () => void;
   returnCtaHref: WalletReturnHref | undefined;
   status: WalletCreditWatchStatus;
 }
@@ -38,6 +40,13 @@ function isFiniteBalance(balance: number | undefined): balance is number {
  * invalidates the query, the balance prop updates, and this hook sees the
  * delta. A fallback interval pokes `refetch` while realtime is down, and the
  * watch times out (never claiming credited) after `TIMEOUT_MS`.
+ *
+ * Customers usually transfer BEFORE tapping "I've transferred", so the credit
+ * can land (via realtime or a focus refetch) while they are away in their bank
+ * app. The hook therefore snapshots the first balance it sees while idle and
+ * arms against the LOWER of that snapshot and the at-tap balance — a pre-tap
+ * credit then reads as an immediate positive delta instead of being absorbed
+ * into the baseline and timing out.
  */
 export function useWalletCreditWatch({
   balance,
@@ -47,11 +56,22 @@ export function useWalletCreditWatch({
   const [status, setStatus] = useState<WalletCreditWatchStatus>('idle');
   const [creditedAmount, setCreditedAmount] = useState<number | null>(null);
   const baselineRef = useRef<number | null>(null);
+  const idleBaselineRef = useRef<number | null>(null);
   const refetchRef = useRef(refetch);
 
   useEffect(() => {
     refetchRef.current = refetch;
   }, [refetch]);
+
+  // Snapshot the pre-transfer balance: the first finite balance seen while
+  // idle. Render-phase (guarded, converges) to match the detection below.
+  if (
+    status === 'idle' &&
+    idleBaselineRef.current === null &&
+    isFiniteBalance(balance)
+  ) {
+    idleBaselineRef.current = balance;
+  }
 
   // Detect the credit render-phase (mirrors the codebase's "adjust state during
   // render" pattern) so consumers never paint a stale "checking" frame after
@@ -60,8 +80,7 @@ export function useWalletCreditWatch({
   if (
     status === 'checking' &&
     baselineRef.current !== null &&
-    typeof balance === 'number' &&
-    Number.isFinite(balance) &&
+    isFiniteBalance(balance) &&
     balance > baselineRef.current
   ) {
     setCreditedAmount(balance - baselineRef.current);
@@ -88,21 +107,37 @@ export function useWalletCreditWatch({
     if (!WALLET_FUNDING_CHECKING_STATE_ENABLED) {
       return;
     }
+    const atTap = isFiniteBalance(balance) ? balance : null;
+    const idleSnapshot = idleBaselineRef.current;
     // Never arm without a real baseline: arming while the balance is still
     // loading would record 0 and false-positive "credited" (with a bogus
     // amount) the moment the actual balance arrives.
-    if (!isFiniteBalance(balance)) {
+    if (atTap === null && idleSnapshot === null) {
       return;
     }
-    baselineRef.current = balance;
+    // The lower of the two survives a credit that landed before the tap.
+    baselineRef.current =
+      atTap !== null && idleSnapshot !== null
+        ? Math.min(atTap, idleSnapshot)
+        : (atTap ?? idleSnapshot);
     setCreditedAmount(null);
     setStatus('checking');
     void refetchRef.current();
   };
 
+  const reset = () => {
+    baselineRef.current = null;
+    // Re-snapshot at the current balance so the next cycle measures only
+    // transfers made after this acknowledgement was dismissed.
+    idleBaselineRef.current = isFiniteBalance(balance) ? balance : null;
+    setCreditedAmount(null);
+    setStatus('idle');
+  };
+
   return {
     armCheck,
     creditedAmount,
+    reset,
     returnCtaHref: status === 'credited' ? returnTo : undefined,
     status,
   };
