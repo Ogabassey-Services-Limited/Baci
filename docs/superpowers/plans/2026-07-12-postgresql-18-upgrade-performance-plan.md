@@ -1,19 +1,53 @@
 # Baci PostgreSQL 17 to 18 Upgrade and Performance Plan
 
-**Status:** Converged preparation plan; production upgrade is currently blocked
+**Status:** Current evidence-backed PostgreSQL 17 PR stack prepared; PostgreSQL 18 production upgrade is blocked
 **Decision date:** 2026-07-12
 **Live project:** `aivqthbxdshhltbwipbr` (`eu-west-1`)
 **Source baseline:** `origin/main` at `11f2a68f0c3eff7ae4836a16e3b69667c23149d9`
 **Live evidence window:** 2026-07-12 19:03-20:02 UTC (20:03-21:02 WAT), as noted below
 **Scope:** Hosted Supabase PostgreSQL, bundled platform services, Baci web/mobile/API
 database paths, and the performance work unlocked or made easier by PostgreSQL 18
-**Mode:** Plan only. This document authorizes no production mutation or upgrade.
+**Mode:** Plan plus execution status. This document authorizes no production mutation or upgrade.
 
 `origin/main` above is the planning baseline, not a future cutover identifier. The
 execution baseline must be the immutable application deployment commit/release plus
 the exact live migration ledger and schema hashes captured at freeze time. Begin
 implementation in a fresh worktree from then-current `origin/main`; the checkout in
 which this plan was authored is intentionally not treated as current production.
+
+## Implementation status — 2026-07-13
+
+The low-risk PostgreSQL 17 work that can be justified from current repository and
+live-workload evidence is merged or prepared as independent pull requests. “Ready”
+below means committed, pushed, and validated before review; it does not mean the
+change has been merged, deployed, applied to production, or measured in a clean
+post-deployment window.
+
+| Plan area | Delivery | Status |
+| --- | --- | --- |
+| Authenticated mobile-catalog RLS cliff and oversized variant-batch observability | [#3081](https://github.com/ogabasseyy/Baci/pull/3081) | Merged. Catalog variants use the bounded RPC, and batches above 10,000 IDs raise SQLSTATE `22023`. |
+| Reset-safe PostgreSQL baseline and delta harness | [#3089](https://github.com/ogabasseyy/Baci/pull/3089) | Ready. Must merge and capture a clean post-#3081, pre-#3090–#3097 deployment baseline before the remaining performance migrations are applied. |
+| Search-suggestion GIN candidate gate | [#3090](https://github.com/ogabasseyy/Baci/pull/3090) | Ready. |
+| Mobile order-count fanout consolidation | [#3091](https://github.com/ogabasseyy/Baci/pull/3091) | Ready. |
+| Customer-policy Auth InitPlan optimization | [#3092](https://github.com/ogabasseyy/Baci/pull/3092) | Ready. |
+| Mobile dashboard aggregate consolidation | [#3093](https://github.com/ogabasseyy/Baci/pull/3093) | Ready. |
+| First proven duplicate-index removal | [#3094](https://github.com/ogabasseyy/Baci/pull/3094) | Ready. Remaining index and foreign-key candidates require reset-bounded usage and plan evidence. |
+| Website analytics aggregate spill reduction | [#3095](https://github.com/ogabasseyy/Baci/pull/3095) | Ready. |
+| High-call feature-settings policy role scoping | [#3096](https://github.com/ogabasseyy/Baci/pull/3096) | Ready. |
+| Analytics visibility-map/autovacuum tuning | [#3097](https://github.com/ogabasseyy/Baci/pull/3097) | Ready. Requires one authorized low-traffic `VACUUM (ANALYZE, TRUNCATE FALSE)` after the migration is applied. |
+
+No additional production change is currently justified for the blog counter,
+remaining broad product callers, extended statistics, Realtime-versus-polling
+attribution, Auth connection allocation, or the remaining index/foreign-key
+candidates. Those items require the restored-clone experiments or post-`#3089`
+reset-safe deltas specified below; implementing a design before that evidence would
+violate the plan's attribution and safety gates.
+
+The PostgreSQL 18 engine comparison, exact-bundle compatibility work, rehearsal,
+cutover, and PostgreSQL 18-only pilots remain externally blocked until Supabase
+offers this project a GA PostgreSQL 18 target and a matching rehearsal environment.
+Therefore, completing the prepared pull requests completes the currently actionable
+code phase, not the hosted PostgreSQL 18 upgrade or its post-deployment proof.
 
 ## 1. Executive decision
 

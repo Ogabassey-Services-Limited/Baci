@@ -30,22 +30,18 @@ async function run() {
   ]) {
     if (!options.has(required)) throw new Error(`--${required} is required`);
   }
-  const beforeArtifactPath = options.get('before-artifact');
-  const afterArtifactPath = options.get('after-artifact');
-  if (Boolean(beforeArtifactPath) !== Boolean(afterArtifactPath)) {
-    throw new Error(
-      '--before-artifact and --after-artifact must be provided together'
-    );
-  }
+  const [beforeRaw, afterRaw, beforeArtifact, afterArtifact] =
+    await Promise.all([
+      readFile(options.get('before')),
+      readFile(options.get('after')),
+      readFile(options.get('before-artifact')),
+      readFile(options.get('after-artifact')),
+    ]);
   const result = createPostgresBaselineDelta({
-    beforeRaw: await readFile(options.get('before')),
-    afterRaw: await readFile(options.get('after')),
-    beforeArtifact: beforeArtifactPath
-      ? await readFile(beforeArtifactPath)
-      : undefined,
-    afterArtifact: afterArtifactPath
-      ? await readFile(afterArtifactPath)
-      : undefined,
+    beforeRaw,
+    afterRaw,
+    beforeArtifact,
+    afterArtifact,
     deployedSha: options.get('deployed-sha'),
   });
   const output = `${JSON.stringify(result, null, 2)}\n`;
