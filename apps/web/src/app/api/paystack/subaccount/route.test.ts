@@ -9,6 +9,7 @@ const {
   mockGetMerchantForApiRequest,
   mockHasPermission,
   mockResolveAccountNumber,
+  mockRevalidateFeatures,
   mockToUserAccess,
   mockUpdateSubaccount,
 } = vi.hoisted(() => ({
@@ -18,6 +19,7 @@ const {
   mockGetMerchantForApiRequest: vi.fn(),
   mockHasPermission: vi.fn(),
   mockResolveAccountNumber: vi.fn(),
+  mockRevalidateFeatures: vi.fn(),
   mockToUserAccess: vi.fn(),
   mockUpdateSubaccount: vi.fn(),
 }));
@@ -26,6 +28,10 @@ vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) =>
     mockAuthenticateApiRequest(...args),
   hasPermission: (...args: unknown[]) => mockHasPermission(...args),
+}));
+
+vi.mock('@/lib/cache-revalidation', () => ({
+  revalidateFeatures: (...args: unknown[]) => mockRevalidateFeatures(...args),
 }));
 
 vi.mock('@/lib/csrf', () => ({
@@ -332,6 +338,9 @@ describe('POST /api/paystack/subaccount', () => {
     expect(mockWalletUpdate).toHaveBeenCalledWith({
       auto_payout_enabled: true,
     });
+    // Busts the cached storefront-features Paystack lookup so checkout picks up
+    // the newly configured subaccount without waiting for the cache TTL.
+    expect(mockRevalidateFeatures).toHaveBeenCalledWith('merchant-456');
   });
 
   it('saves manual invoice bank details for India without calling Paystack', async () => {
@@ -373,6 +382,9 @@ describe('POST /api/paystack/subaccount', () => {
     });
     expect(mockRpc).not.toHaveBeenCalled();
     expect(mockWalletUpdate).not.toHaveBeenCalled();
+    // Clearing the subaccount must also bust the cached features lookup so
+    // checkout stops advertising Paystack.
+    expect(mockRevalidateFeatures).toHaveBeenCalledWith('merchant-456');
   });
 
   it('rejects placeholder manual invoice bank names for India', async () => {
