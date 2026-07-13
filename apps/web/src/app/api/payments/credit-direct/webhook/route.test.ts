@@ -2027,6 +2027,10 @@ describe('POST /api/payments/credit-direct/webhook', () => {
           creditDirectTransactionId: 'txn_123456789',
           credit_directTransactionId: 'txn_123456789',
           creditDirectSignedAmount: 50000,
+          // Written by the paid flip: notifications were queued but the
+          // dispatch marker never landed — the crash window this replay
+          // heals.
+          creditDirectNotificationsQueued: true,
           merchantPaidAt: '2024-01-15T11:00:00Z',
           platformFee: 1000,
           merchantAmount: 49000,

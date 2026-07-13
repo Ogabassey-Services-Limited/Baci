@@ -19,6 +19,7 @@ export interface WedgedOrderSweepSummary {
   checked: number;
   healed: Array<{ orderId: string; orderNumber: string | null }>;
   detectedUnhealable: Array<{ transactionId: string; gateway: string }>;
+  reviewsFiled: Array<{ transactionId: string; orderId: string }>;
   skipped: Array<{ transactionId: string; reason: string }>;
   failed: Array<{ transactionId: string; reason: string }>;
 }
@@ -32,7 +33,35 @@ type WedgedCandidate = {
   platform_fee: number | null;
   gateway: string;
   gateway_reference: string | null;
+  metadata: Record<string, unknown> | null;
 };
+
+// Terminal sweep outcomes are stamped onto the transaction so the hourly
+// query never recycles them (and unhealable rows cannot starve the batch).
+async function stampWedgeResolution(
+  supabase: SupabaseClient,
+  candidate: WedgedCandidate,
+  resolution: string
+): Promise<void> {
+  const { error } = await supabase
+    .from('transactions')
+    .update({
+      metadata: {
+        ...(candidate.metadata ?? {}),
+        wedge_sweep_resolution: resolution,
+        wedge_sweep_resolved_at: new Date().toISOString(),
+      },
+    })
+    .eq('id', candidate.id);
+  if (error) {
+    // Non-fatal: the row shows up again next hour.
+    logger.warn({
+      error,
+      message: 'Failed to stamp wedge sweep resolution',
+      transactionId: candidate.id,
+    });
+  }
+}
 
 const HEALABLE_GATEWAYS = ['paystack', 'korapay'] as const;
 type HealableGateway = (typeof HEALABLE_GATEWAYS)[number];
@@ -96,22 +125,28 @@ export async function reconcileWedgedGatewayOrders({
     detectedUnhealable: [],
     failed: [],
     healed: [],
+    reviewsFiled: [],
     skipped: [],
   };
 
   const cutoff = new Date(Date.now() - olderThanMinutes * 60_000).toISOString();
 
+  // Cancelled/refunded orders stay in scope: their captured funds need a
+  // reconciliation_review row (the finalizer files it), after which the
+  // transaction is stamped so it never consumes the batch again. The same
+  // stamp retires unhealable-gateway detections and permanent verification
+  // mismatches, so they cannot starve healable candidates out of the limit.
   const { data: candidates, error: lookupError } = await supabase
     .from('transactions')
     .select(
-      'id, order_id, merchant_id, amount, currency, platform_fee, gateway, gateway_reference, orders!inner(id, payment_status, cancelled_at)'
+      'id, order_id, merchant_id, amount, currency, platform_fee, gateway, gateway_reference, metadata, orders!inner(id, payment_status, cancelled_at)'
     )
     .eq('status', 'completed')
     .eq('transaction_type', 'payment')
     .not('order_id', 'is', null)
     .lt('updated_at', cutoff)
-    .is('orders.cancelled_at', null)
-    .not('orders.payment_status', 'in', '(paid,cancelled,refunded)')
+    .neq('orders.payment_status', 'paid')
+    .is('metadata->wedge_sweep_resolution', null)
     .order('updated_at', { ascending: true })
     .limit(limit);
 
@@ -144,6 +179,11 @@ export async function reconcileWedgedGatewayOrders({
           gateway: candidate.gateway,
           transactionId: candidate.id,
         });
+        await stampWedgeResolution(
+          supabase,
+          candidate,
+          'unhealable_gateway_logged'
+        );
         continue;
       }
 
@@ -169,6 +209,7 @@ export async function reconcileWedgedGatewayOrders({
           reason: 'amount_mismatch',
           transactionId: candidate.id,
         });
+        await stampWedgeResolution(supabase, candidate, 'amount_mismatch');
         continue;
       }
       if (
@@ -180,6 +221,7 @@ export async function reconcileWedgedGatewayOrders({
           reason: 'currency_mismatch',
           transactionId: candidate.id,
         });
+        await stampWedgeResolution(supabase, candidate, 'currency_mismatch');
         continue;
       }
 
@@ -214,6 +256,18 @@ export async function reconcileWedgedGatewayOrders({
           orderId: candidate.order_id,
           orderNumber: outcome.orderNumber,
         });
+      } else if (
+        outcome.kind === 'order_cancelled' ||
+        outcome.kind === 'order_skipped'
+      ) {
+        // The finalizer filed the reconciliation_review row for the captured
+        // funds; stamp the transaction so this terminal state is processed
+        // exactly once.
+        summary.reviewsFiled.push({
+          orderId: candidate.order_id,
+          transactionId: candidate.id,
+        });
+        await stampWedgeResolution(supabase, candidate, outcome.kind);
       } else {
         summary.failed.push({
           reason: outcome.kind,

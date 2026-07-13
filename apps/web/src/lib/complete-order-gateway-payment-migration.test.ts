@@ -104,6 +104,18 @@ describe('complete_order_gateway_payment migration', () => {
     );
   });
 
+  it('seeds a drainable outbox row atomically with the order flip', () => {
+    expect(migrationSql).toContain('INSERT INTO public.payment_side_effects');
+    expect(migrationSql).toContain("'rpc_seed_pending_drain'");
+    expect(migrationSql).toContain('ON CONFLICT (order_id, step) DO NOTHING');
+    // The seed must live inside the order-updated branch, after the UPDATE.
+    const flip = migrationSql.indexOf("SET payment_status = 'paid'");
+    const seed = migrationSql.indexOf(
+      'INSERT INTO public.payment_side_effects'
+    );
+    expect(seed).toBeGreaterThan(flip);
+  });
+
   it('extends reconciliation_review issue types with the refunded case', () => {
     expect(migrationSql).toContain('reconciliation_review_issue_type_check');
     expect(migrationSql).toContain("'payment_received_after_refund'");

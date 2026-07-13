@@ -122,6 +122,26 @@ BEGIN
            updated_at = now()
      WHERE id = p_order_id;
     v_order_updated := true;
+
+    -- Seed the paid-order outbox in the SAME transaction as the flip. Every
+    -- order completed through this RPC therefore has outbox history, which
+    -- makes "empty outbox" an exact marker for legacy (pre-outbox inline)
+    -- completions in the finalizer's pure-replay guard, and lets the
+    -- reconcile cron's failed-row drain pick up a caller that crashes before
+    -- its first claim. The claim RPC takes over 'failed' rows, so the normal
+    -- in-request side-effect run immediately supersedes this seed.
+    INSERT INTO public.payment_side_effects (
+      order_id, transaction_id, step, status, claimed_by, error, result
+    ) VALUES (
+      p_order_id,
+      p_transaction_id,
+      'merchant_settlement',
+      'failed',
+      p_actor,
+      'rpc_seed_pending_drain',
+      jsonb_build_object('reason', 'seeded_at_order_flip')
+    )
+    ON CONFLICT (order_id, step) DO NOTHING;
   END IF;
 
   SELECT payment_status, shipping_status, cancelled_at

@@ -30,17 +30,24 @@ const wedgedCandidate = {
 };
 
 function buildSupabase(result: { data?: unknown[]; error?: unknown }) {
-  const builder: Record<string, unknown> = {};
-  for (const method of ['select', 'eq', 'not', 'lt', 'is', 'order']) {
+  const stampUpdate = vi.fn().mockReturnValue({
+    eq: vi.fn().mockResolvedValue({ error: null }),
+  });
+  const builder: Record<string, unknown> = {
+    update: stampUpdate,
+  };
+  for (const method of ['select', 'eq', 'neq', 'not', 'lt', 'is', 'order']) {
     builder[method] = vi.fn().mockReturnValue(builder);
   }
-  // `.limit()` is the terminal call in the sweep's query chain.
+  // `.limit()` is the terminal call in the sweep's candidate query chain;
+  // resolution stamps go through `.update().eq()` on the same builder.
   builder.limit = vi
     .fn()
     .mockResolvedValue({ data: null, error: null, ...result });
   return {
     from: vi.fn().mockReturnValue(builder),
-  } as unknown as SupabaseClient;
+    stampUpdate,
+  } as unknown as SupabaseClient & { stampUpdate: ReturnType<typeof vi.fn> };
 }
 
 const scheduleAfter = (task: () => Promise<void>) => {
@@ -73,6 +80,7 @@ describe('reconcileWedgedGatewayOrders', () => {
       detectedUnhealable: [],
       failed: [],
       healed: [],
+      reviewsFiled: [],
       skipped: [],
     });
   });
@@ -176,6 +184,50 @@ describe('reconcileWedgedGatewayOrders', () => {
       { gateway: 'juicyway', transactionId: 'txn-1' },
     ]);
     expect(mocks.finalizeOrderGatewayPayment).not.toHaveBeenCalled();
+    // Logged once, stamped so it never consumes the hourly batch again.
+    expect(supabase.stampUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          wedge_sweep_resolution: 'unhealable_gateway_logged',
+        }),
+      })
+    );
+  });
+
+  it('files the review and stamps a wedged payment whose order was cancelled', async () => {
+    const cancelledCandidate = {
+      ...wedgedCandidate,
+      orders: {
+        cancelled_at: '2026-07-12T00:00:00Z',
+        id: 'order-1',
+        payment_status: 'cancelled',
+      },
+    };
+    const supabase = buildSupabase({ data: [cancelledCandidate] });
+    mocks.verifyPaystackPayment.mockResolvedValue({
+      data: { amount: 5829060, currency: 'NGN', status: 'success' },
+      success: true,
+    });
+    mocks.finalizeOrderGatewayPayment.mockResolvedValue({
+      kind: 'order_cancelled',
+      orderNumber: 'ORD-1',
+    });
+
+    const summary = await reconcileWedgedGatewayOrders({
+      scheduleAfter,
+      supabase,
+    });
+
+    expect(summary.reviewsFiled).toEqual([
+      { orderId: 'order-1', transactionId: 'txn-1' },
+    ]);
+    expect(supabase.stampUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          wedge_sweep_resolution: 'order_cancelled',
+        }),
+      })
+    );
   });
 
   it('records finalizer failures without aborting the run', async () => {

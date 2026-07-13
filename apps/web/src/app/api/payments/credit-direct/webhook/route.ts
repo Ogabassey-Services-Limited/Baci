@@ -421,104 +421,11 @@ export async function POST(request: NextRequest) {
         transactionId: payload.checkoutTransactionId,
       });
 
-      // Self-heal: the order flip and the transaction insert are two
-      // separate writes (see the merchant-payment branch below). A prior
-      // delivery may have flipped payment_status to 'paid' and then failed
-      // to insert the transaction row (now a 500 so Svix redelivers) — this
-      // replay is that redelivery. The platformFee/merchantAmount notes are
-      // only ever written by that same paid-flip update, so their presence
-      // here means the amount is trustworthy; recompute and reinsert.
-      // Absent (unexpected shape), skip healing rather than guess an amount.
-      const healedPlatformFee = readProductAmount(parsedNotes.platformFee);
-      const healedMerchantAmount = readProductAmount(
-        parsedNotes.merchantAmount
-      );
-      let healedTransactionRow = false;
-      if (healedPlatformFee !== null && healedMerchantAmount !== null) {
-        const healResult = await recordCreditDirectTransaction({
-          amount: healedMerchantAmount + healedPlatformFee,
-          gatewayReference: payload.checkoutTransactionId,
-          gatewayResponse: payload,
-          merchantId: order.merchant_id,
-          merchantAmount: healedMerchantAmount,
-          orderId: order.id,
-          platformFee: healedPlatformFee,
-          supabase,
-        });
-        if (healResult.kind === 'error') {
-          return NextResponse.json(
-            { error: 'Failed to record transaction' },
-            { status: 500 }
-          );
-        }
-        healedTransactionRow = healResult.created;
-      } else {
-        logger.warn({
-          message:
-            'Credit Direct paid-order replay missing recorded fee notes; skipped transaction heal',
-          orderId: order.id,
-          transactionId: payload.checkoutTransactionId,
-        });
-      }
-
-      // The first delivery may have failed AFTER the paid flip but BEFORE
-      // inventory confirmation / notifications (that failure is now a 500,
-      // which is exactly why this redelivery exists) — drain them here.
-      // Inventory confirmation is idempotent; notifications/email fire only
-      // when this replay actually healed a missing transaction row, i.e.
-      // the first delivery demonstrably never reached them.
-      try {
-        await ensurePaidOrderInventoryConfirmed(
-          supabase,
-          order.merchant_id,
-          order.id
-        );
-      } catch (inventoryError) {
-        logger.error({
-          message:
-            'Credit-direct paid-order replay failed to confirm inventory',
-          orderId: order.id,
-          error: inventoryError,
-        });
-        const responsePayload =
-          buildInventoryConfirmationFailurePayload(inventoryError);
-        return NextResponse.json(responsePayload, {
-          status:
-            responsePayload.code === 'serialized_inventory_unavailable'
-              ? 409
-              : 500,
-        });
-      }
-
-      // Fire the merchant push + customer email when the paid flip's
-      // notification marker is absent — whether the transaction row was
-      // missing (crash before insert) or present (crash after insert but
-      // before notifications), the marker is the evidence of dispatch.
-      if (!parsedNotes.creditDirectNotifiedAt) {
-        notifyMerchantOfPaidOrder(
-          order,
-          (healedMerchantAmount ?? 0) + (healedPlatformFee ?? 0)
-        );
-        try {
-          await sendOrderConfirmationEmail(order, payload);
-        } catch (emailError) {
-          logger.warn({
-            message: 'Failed to send confirmation email',
-            error: emailError,
-          });
-        }
-        await markCreditDirectNotified(supabase, order.id, parsedNotes);
-      } else if (healedTransactionRow) {
-        logger.info({
-          message:
-            'Credit Direct replay healed the transaction row; notifications were already dispatched',
-          orderId: order.id,
-        });
-      }
-
-      return NextResponse.json({
-        received: true,
-        message: 'Already processed',
+      return healPaidCreditDirectOrderReplay({
+        order,
+        parsedNotes,
+        payload,
+        supabase,
       });
     }
 
@@ -690,6 +597,7 @@ export async function POST(request: NextRequest) {
             amount_paid: orderTotal,
             notes: JSON.stringify({
               ...parsedNotes,
+              creditDirectNotificationsQueued: true,
               merchantPaidAt: payload.timeStamp,
               platformFee,
               merchantAmount,
@@ -731,7 +639,7 @@ export async function POST(request: NextRequest) {
           const { data: currentOrder, error: currentOrderError } =
             await supabase
               .from('orders')
-              .select('payment_status')
+              .select('payment_status, notes')
               .eq('id', order.id)
               .maybeSingle();
           if (currentOrderError || !currentOrder) {
@@ -745,6 +653,27 @@ export async function POST(request: NextRequest) {
               { error: 'Failed to read order state' },
               { status: 500 }
             );
+          }
+
+          if (currentOrder.payment_status === 'paid') {
+            // A concurrent delivery won the paid flip. It may still have
+            // crashed before its transaction insert / notifications — run
+            // the same replay heal the already-paid short-circuit uses
+            // instead of blindly acking.
+            let winnerNotes: Record<string, unknown>;
+            try {
+              winnerNotes = JSON.parse(
+                (currentOrder.notes as string | null) || '{}'
+              ) as Record<string, unknown>;
+            } catch {
+              winnerNotes = {};
+            }
+            return healPaidCreditDirectOrderReplay({
+              order,
+              parsedNotes: winnerNotes,
+              payload,
+              supabase,
+            });
           }
 
           if (currentOrder.payment_status === 'refunded') {
@@ -934,6 +863,7 @@ export async function POST(request: NextRequest) {
 
         await markCreditDirectNotified(supabase, order.id, {
           ...parsedNotes,
+          creditDirectNotificationsQueued: true,
           merchantAmount,
           merchantPaidAt: payload.timeStamp,
           platformFee,
@@ -970,6 +900,116 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+// Replay heal for an order a prior delivery already flipped to paid: reinsert
+// a missing transaction row (fee notes are the trustworthy amount source),
+// drain inventory confirmation, and dispatch the push/email exactly once —
+// keyed to the creditDirectNotificationsQueued flag written by the paid flip
+// (so legacy pre-flag orders are never re-notified) plus the
+// creditDirectNotifiedAt marker written after dispatch.
+async function healPaidCreditDirectOrderReplay({
+  order,
+  parsedNotes,
+  payload,
+  supabase,
+}: {
+  order: {
+    id: string;
+    merchant_id: string;
+    order_number?: string | null;
+    customer_id?: string | null;
+    customer_email: string;
+    customer_name: string;
+    total: number;
+    amount_paid?: number | string | null;
+  };
+  parsedNotes: Record<string, unknown>;
+  payload: CreditDirectWebhookPayload;
+  supabase: SupabaseClient;
+}): Promise<NextResponse> {
+  const healedPlatformFee = readProductAmount(parsedNotes.platformFee);
+  const healedMerchantAmount = readProductAmount(parsedNotes.merchantAmount);
+  let healedTransactionRow = false;
+  if (healedPlatformFee !== null && healedMerchantAmount !== null) {
+    const healResult = await recordCreditDirectTransaction({
+      amount: healedMerchantAmount + healedPlatformFee,
+      gatewayReference: payload.checkoutTransactionId,
+      gatewayResponse: payload,
+      merchantId: order.merchant_id,
+      merchantAmount: healedMerchantAmount,
+      orderId: order.id,
+      platformFee: healedPlatformFee,
+      supabase,
+    });
+    if (healResult.kind === 'error') {
+      return NextResponse.json(
+        { error: 'Failed to record transaction' },
+        { status: 500 }
+      );
+    }
+    healedTransactionRow = healResult.created;
+  } else {
+    logger.warn({
+      message:
+        'Credit Direct paid-order replay missing recorded fee notes; skipped transaction heal',
+      orderId: order.id,
+      transactionId: payload.checkoutTransactionId,
+    });
+  }
+
+  // The first delivery may have failed AFTER the paid flip but BEFORE
+  // inventory confirmation / notifications — drain them here. Inventory
+  // confirmation is idempotent.
+  try {
+    await ensurePaidOrderInventoryConfirmed(
+      supabase,
+      order.merchant_id,
+      order.id
+    );
+  } catch (inventoryError) {
+    logger.error({
+      message: 'Credit-direct paid-order replay failed to confirm inventory',
+      orderId: order.id,
+      error: inventoryError,
+    });
+    const responsePayload =
+      buildInventoryConfirmationFailurePayload(inventoryError);
+    return NextResponse.json(responsePayload, {
+      status:
+        responsePayload.code === 'serialized_inventory_unavailable' ? 409 : 500,
+    });
+  }
+
+  if (
+    parsedNotes.creditDirectNotificationsQueued === true &&
+    !parsedNotes.creditDirectNotifiedAt
+  ) {
+    notifyMerchantOfPaidOrder(
+      order,
+      (healedMerchantAmount ?? 0) + (healedPlatformFee ?? 0)
+    );
+    try {
+      await sendOrderConfirmationEmail(order, payload);
+    } catch (emailError) {
+      logger.warn({
+        message: 'Failed to send confirmation email',
+        error: emailError,
+      });
+    }
+    await markCreditDirectNotified(supabase, order.id, parsedNotes);
+  } else if (healedTransactionRow) {
+    logger.info({
+      message:
+        'Credit Direct replay healed the transaction row; notifications were already dispatched or predate the dispatch marker',
+      orderId: order.id,
+    });
+  }
+
+  return NextResponse.json({
+    received: true,
+    message: 'Already processed',
+  });
 }
 
 // Durable marker: notes.creditDirectNotifiedAt records that the merchant

@@ -211,9 +211,10 @@ export async function finalizeOrderGatewayPayment({
     Boolean(completion.order_already_paid) &&
     !completion.order_updated;
   if (isPureReplay && !(await orderHasSideEffectRows(supabase, orderId))) {
-    // Legacy completion (pre-outbox verify path or pre-deploy webhook):
-    // email/settlement were sent inline back then, so draining an empty
-    // outbox here would duplicate them.
+    // Exact legacy marker: the atomic RPC seeds an outbox row in the same
+    // transaction as every order flip, so an EMPTY outbox can only mean the
+    // order was completed by the pre-outbox inline path — its email and
+    // settlement already went out, and draining would duplicate them.
     logger.info({
       message:
         'Skipping side-effect drain for pure replay with no outbox history',

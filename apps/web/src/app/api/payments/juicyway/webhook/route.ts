@@ -487,6 +487,35 @@ export async function POST(request: NextRequest) {
     // from 'pending' so a heal never regresses fulfilment progress.
     let orderUpdateFailed = false;
     if (transaction.order_id) {
+      // Advance fulfilment FIRST (only from its initial state, so a heal
+      // never regresses a shipped order). Ordering matters: if this write
+      // fails or the process dies here, the order is still unpaid, so the
+      // redelivery wedge check re-runs the whole sequence — whereas
+      // advancing after the paid flip would leave a paid order stuck at
+      // shipping 'pending' with redeliveries acking 'Already processed'.
+      const { error: shippingAdvanceError } = await supabase
+        .from('orders')
+        .update({
+          shipping_status: 'processing',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', transaction.order_id)
+        .eq('shipping_status', 'pending');
+      if (shippingAdvanceError) {
+        logger.error({
+          error: shippingAdvanceError,
+          message: 'Juicyway paid order shipping advance failed',
+          orderId: transaction.order_id,
+        });
+        return NextResponse.json(
+          {
+            code: 'ORDER_PAYMENT_COMPLETION_FAILED',
+            error: 'Order payment completion failed',
+          },
+          { status: 500 }
+        );
+      }
+
       const response = await supabase
         .from('orders')
         .update({
@@ -501,14 +530,19 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
 
       if (!response.error && !response.data) {
-        // 0 rows: a concurrent delivery won the flip. Everything downstream
-        // belongs to the winner; ack idempotently.
+        // 0 rows: a concurrent delivery won the flip. Juicyway has no outbox,
+        // so we cannot assume the winner survived to run the side effects —
+        // fail closed and let the redelivery either ack (winner finished:
+        // order paid) or heal (winner crashed: order still unpaid).
         logger.info({
           message: 'Juicyway order flip lost the race to a concurrent delivery',
           orderId: transaction.order_id,
           reference,
         });
-        return NextResponse.json({ message: 'Already processed' });
+        return NextResponse.json(
+          { error: 'Concurrent delivery in progress' },
+          { status: 500 }
+        );
       }
 
       const orderError = response.error;
@@ -569,24 +603,6 @@ export async function POST(request: NextRequest) {
           message: 'Payment recorded; order was cancelled, filed for review',
         });
       } else {
-        // Advance fulfilment only from its initial state; a heal redelivery
-        // must not drag a shipped/delivered order back to 'processing'.
-        const { error: shippingAdvanceError } = await supabase
-          .from('orders')
-          .update({
-            shipping_status: 'processing',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', transaction.order_id)
-          .eq('shipping_status', 'pending');
-        if (shippingAdvanceError) {
-          logger.warn({
-            error: shippingAdvanceError,
-            message: 'Juicyway paid order shipping advance failed',
-            orderId: transaction.order_id,
-          });
-        }
-
         try {
           await ensurePaidOrderInventoryConfirmed(
             supabase,
