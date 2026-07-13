@@ -65,7 +65,10 @@ export async function evictStorefrontPublicationCaches(
     });
     return { ok: false, reason: vercelResult.reason, stage: 'vercel' };
   }
-  if (cloudflareHostnames.length > 0 && vercelResult.reason !== 'deleted') {
+  if (
+    cloudflareHostnames.length > 0 &&
+    vercelResult.reason === 'not_required'
+  ) {
     console.error('Storefront publication cache eviction failed', {
       merchantId: identity.merchantId,
       reason: vercelResult.reason,

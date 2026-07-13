@@ -274,7 +274,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Publication transitions must never use stale-while-revalidate: hard-
-    // expire the merchant snapshot, then evict cached public documents.
+    // expire the merchant and features snapshots, then evict cached public
+    // documents through the same confirmed barrier.
     const cacheEvictionResult = await evictStorefrontPublicationCaches(
       publicationCacheIdentity
     );
@@ -378,7 +379,8 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Publication transitions must never use stale-while-revalidate: hard-
-    // expire the merchant snapshot, then evict cached public documents.
+    // expire the merchant and features snapshots, then evict cached public
+    // documents through the same confirmed barrier.
     const cacheEvictionResult = await evictStorefrontPublicationCaches(
       publicationCacheIdentity
     );

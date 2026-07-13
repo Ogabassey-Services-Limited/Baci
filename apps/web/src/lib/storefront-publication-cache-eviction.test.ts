@@ -140,19 +140,16 @@ describe('evictStorefrontPublicationCaches', () => {
     expect(mockPurgeCloudflare).not.toHaveBeenCalled();
   });
 
-  it('does not purge Cloudflare without a confirmed Vercel runtime barrier', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+  it('continues to Cloudflare when the Vercel barrier is not applicable', async () => {
     mockPurgeVercel.mockResolvedValue({
       ok: true,
       reason: 'not_running_on_vercel',
     });
 
     await expect(evictStorefrontPublicationCaches(IDENTITY)).resolves.toEqual({
-      ok: false,
-      reason: 'not_running_on_vercel',
-      stage: 'vercel',
+      ok: true,
     });
-    expect(mockPurgeCloudflare).not.toHaveBeenCalled();
+    expect(mockPurgeCloudflare).toHaveBeenCalledWith(['shop.example.com']);
   });
 
   it('does not purge Cloudflare when Vercel deletion is unconfirmed', async () => {

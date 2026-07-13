@@ -12,6 +12,7 @@ const mockFrom = vi.fn();
 const mockCreateClient = vi.fn();
 const mockLoggerError = vi.fn();
 const mockGetCachedFeatureSettings = vi.fn();
+const mockGetCachedMerchantPaystackSubaccount = vi.fn();
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn(() => Promise.resolve(new Map())),
@@ -24,6 +25,8 @@ vi.mock('@/lib/supabase/server', () => ({
 vi.mock('@/lib/cached-data', () => ({
   getCachedFeatureSettings: (...args: unknown[]) =>
     mockGetCachedFeatureSettings(...args),
+  getCachedMerchantPaystackSubaccountConfigured: (...args: unknown[]) =>
+    mockGetCachedMerchantPaystackSubaccount(...args),
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -50,6 +53,7 @@ describe('GET /api/storefront/features', () => {
     mockCreateClient.mockReset();
     mockLoggerError.mockReset();
     mockGetCachedFeatureSettings.mockReset();
+    mockGetCachedMerchantPaystackSubaccount.mockReset();
 
     mockMerchantEq.mockReturnValue({ single: mockSingle });
     mockMerchantSelect.mockReturnValue({ eq: mockMerchantEq });
@@ -59,13 +63,15 @@ describe('GET /api/storefront/features', () => {
       }
       throw new Error(`Unexpected table: ${table}`);
     });
+    // Paystack subaccount presence (default: not configured)
+    mockGetCachedMerchantPaystackSubaccount.mockResolvedValue(false);
     mockCreateClient.mockReturnValue({ from: mockFrom });
     mockGetCachedFeatureSettings.mockResolvedValue({});
   });
 
-  it('reads the projection via the service-role loader, not the anon table read', async () => {
+  it('resolves the merchant via the RLS anon client and derives paystack from the bounded RPC', async () => {
     mockSingle.mockResolvedValueOnce({
-      data: { id: 'merchant-1', paystack_subaccount_code: null },
+      data: { id: 'merchant-1', country: 'NG', business_type: 'fashion' },
       error: null,
     });
     mockGetCachedFeatureSettings.mockResolvedValueOnce({
@@ -86,13 +92,68 @@ describe('GET /api/storefront/features', () => {
     };
 
     expect(response.status).toBe(200);
+    // Subaccount presence comes from the RPC (default: not configured), not a
+    // raw merchants read — so paystack is disabled here.
     expect(body.paystackEnabled).toBe(false);
     expect(body.klumpEnabled).toBe(false);
     expect(body.klumpMinAmount).toBe(10000);
     expect(body.klumpMaxAmount).toBe(1000000);
     expect(body.reviewsEnabled).toBe(true);
     expect(mockGetCachedFeatureSettings).toHaveBeenCalledWith('merchant-1');
+    // Regression guard: keep this public merchant projection exact and derive
+    // the payment hint via the bounded RPC instead of selecting financial data.
+    expect(mockMerchantSelect).toHaveBeenCalledWith(
+      'id, country, business_type'
+    );
+    expect(mockGetCachedMerchantPaystackSubaccount).toHaveBeenCalledWith(
+      'merchant-1'
+    );
     expect(mockFrom).not.toHaveBeenCalledWith('merchant_feature_settings');
+  });
+
+  it('enables paystack when the bounded RPC reports a configured subaccount', async () => {
+    mockSingle.mockResolvedValueOnce({
+      data: { id: 'merchant-1', country: 'NG', business_type: 'fashion' },
+      error: null,
+    });
+    mockGetCachedFeatureSettings.mockResolvedValueOnce({
+      paystack_enabled: true,
+    });
+    mockGetCachedMerchantPaystackSubaccount.mockResolvedValueOnce(true);
+
+    const response = await GET(
+      buildMerchantRequest(`merchantId=${VALID_MERCHANT_ID}`)
+    );
+    const body = (await response.json()) as { paystackEnabled: boolean };
+
+    expect(response.status).toBe(200);
+    expect(body.paystackEnabled).toBe(true);
+  });
+
+  it('fails closed (200 with Paystack disabled) when the subaccount RPC errors', async () => {
+    mockSingle.mockResolvedValueOnce({
+      data: { id: 'merchant-1', country: 'NG', business_type: 'fashion' },
+      error: null,
+    });
+    // Feature flag ON — proving the RPC error still fails closed.
+    mockGetCachedFeatureSettings.mockResolvedValueOnce({
+      paystack_enabled: true,
+    });
+    mockGetCachedMerchantPaystackSubaccount.mockRejectedValueOnce(
+      new Error('rpc timeout')
+    );
+
+    const response = await GET(
+      buildMerchantRequest(`merchantId=${VALID_MERCHANT_ID}`)
+    );
+    const body = (await response.json()) as { paystackEnabled: boolean };
+
+    expect(response.status).toBe(200);
+    // Fail closed: an unverifiable subaccount must not advertise Paystack, even
+    // with the feature flag enabled (the checkout client defaults to Paystack on
+    // a non-ok response, so a 500 would expose it).
+    expect(body.paystackEnabled).toBe(false);
+    expect(mockLoggerError).toHaveBeenCalled();
   });
 
   it('returns default features with paystack disabled when merchant has no subaccount', async () => {

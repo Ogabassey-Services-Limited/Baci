@@ -1,6 +1,9 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { getCachedFeatureSettings } from '@/lib/cached-data';
+import {
+  getCachedFeatureSettings,
+  getCachedMerchantPaystackSubaccountConfigured,
+} from '@/lib/cached-data';
 import { isPaystackCheckoutAvailable } from '@/lib/checkout/payment-gateway-availability';
 import { logger } from '@/lib/logger';
 import { isRepairsCatalogEnabled } from '@/lib/repairs/repairs-feature';
@@ -147,12 +150,18 @@ export async function GET(request: NextRequest) {
 
     const { merchantId, slug } = parseResult.data;
 
+    // Public route: read via the RLS-enforced anon client (never service role).
+    // Only S0-A-granted, published-safe columns are selected; the raw
+    // paystack_subaccount_code (FINANCIAL, removed from the anon grant by S0-A)
+    // is deliberately NOT read here. Paystack subaccount presence is derived
+    // below via the cached, published-scoped
+    // storefront_merchant_has_paystack_subaccount RPC.
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
     const merchantLookupQuery = supabase
       .from('merchants')
-      .select('id, country, paystack_subaccount_code, business_type');
+      .select('id, country, business_type');
     const merchantLookup = slug
       ? await merchantLookupQuery.eq('slug', slug).single()
       : await merchantLookupQuery.eq('id', merchantId).single();
@@ -185,9 +194,30 @@ export async function GET(request: NextRequest) {
     // returns rows to the owner/staff under the merchant_feature_settings RLS).
     const settings = (await getCachedFeatureSettings(resolvedMerchantId)) ?? {};
 
+    // Derive Paystack subaccount presence via the cached, published-scoped
+    // SECURITY DEFINER RPC (returns only a boolean; the raw code never reaches
+    // this path). Cached per merchant so it stays off the hot request timeline.
+    let paystackSubaccountConfigured = false;
+    try {
+      paystackSubaccountConfigured =
+        await getCachedMerchantPaystackSubaccountConfigured(resolvedMerchantId);
+    } catch (error) {
+      // Fail closed: if the subaccount can't be verified, do NOT advertise
+      // Paystack. Returning a 500 is unsafe — the checkout client keeps its
+      // DEFAULT_PAYMENT_SETTINGS (Paystack enabled) whenever the response is not
+      // ok, which would expose an unverifiable gateway. So log and continue with
+      // Paystack treated as unconfigured (a normal 200 payload with it disabled).
+      logger.error({
+        message: 'Storefront features paystack subaccount lookup failed',
+        error,
+        merchantId,
+        slug,
+      });
+    }
+
     const paystackEnabled = isPaystackCheckoutAvailable({
       country: merchant.country,
-      paystack_subaccount_code: merchant.paystack_subaccount_code,
+      paystack_subaccount_configured: paystackSubaccountConfigured,
       feature_settings: {
         paystack_enabled: asBoolean(settings.paystack_enabled, true),
       },

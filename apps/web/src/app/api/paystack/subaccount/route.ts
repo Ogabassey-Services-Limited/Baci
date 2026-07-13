@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
+import { revalidateFeatures } from '@/lib/cache-revalidation';
 import { isBaciPaystackSettlementCountry } from '@/lib/checkout/payment-gateway-availability';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
@@ -46,6 +47,17 @@ function isPlaceholderManualBankName(bankName: string): boolean {
     .toUpperCase()
     .replace(/[^A-Z0-9]+/g, '');
   return PLACEHOLDER_MANUAL_BANK_NAMES.has(normalizedBankName);
+}
+
+function revalidateFeaturesAfterSubaccountMutation(merchantId: string): void {
+  try {
+    revalidateFeatures(merchantId);
+  } catch (error) {
+    console.error('Failed to revalidate storefront payment features', {
+      error,
+      merchantId,
+    });
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -219,6 +231,10 @@ export async function POST(request: NextRequest) {
         throw manualUpdateError;
       }
 
+      // Paystack capability changed (subaccount cleared) — bust the cached
+      // storefront features lookup so checkout stops advertising Paystack.
+      revalidateFeaturesAfterSubaccountMutation(merchantId);
+
       return NextResponse.json({
         success: true,
         accountName: manualAccountName,
@@ -338,6 +354,10 @@ export async function POST(request: NextRequest) {
     if (updateError) {
       throw updateError;
     }
+
+    // Paystack capability changed (subaccount configured) — bust the cached
+    // storefront features lookup so checkout starts advertising Paystack.
+    revalidateFeaturesAfterSubaccountMutation(merchantId);
 
     if (shouldPersistAutoPayoutEnabled) {
       const { error: walletInitError } = await auth.supabase.rpc(
