@@ -1,7 +1,6 @@
 import Ionicons, {
   type IoniconsIconName,
 } from '@react-native-vector-icons/ionicons';
-import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import type { CheckoutIdentityTheme } from '../colors';
 import { useHapticFeedback } from '../hooks';

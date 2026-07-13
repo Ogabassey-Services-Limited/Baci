@@ -1,5 +1,4 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import React from 'react';
 import { Platform, Text, TouchableOpacity, View } from 'react-native';
 import { GoogleLogo } from '../../../icons/GoogleLogo';
 import type { CheckoutIdentityTheme } from '../colors';

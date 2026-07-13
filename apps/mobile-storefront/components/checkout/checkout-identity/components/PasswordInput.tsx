@@ -8,7 +8,7 @@
  * - Full accessibility support
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Controller } from 'react-hook-form';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import type { CheckoutIdentityTheme } from '../colors';

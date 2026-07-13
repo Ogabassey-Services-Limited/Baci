@@ -1,0 +1,104 @@
+import { jest } from '@jest/globals';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
+
+jest.mock('@/lib/imei-poll-client', () => ({
+  pollImeiLookup: jest.fn(),
+}));
+
+import { pendingImeiStorageKey } from '@/lib/imei-pending-storage';
+import { pollImeiLookup } from '@/lib/imei-poll-client';
+import { useImeiPendingLookup } from './use-imei-pending-lookup';
+
+const mockPollImeiLookup = jest.mocked(pollImeiLookup);
+
+describe('useImeiPendingLookup', () => {
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    await AsyncStorage.clear();
+  });
+
+  it('persists and resolves a pending mobile lookup', async () => {
+    mockPollImeiLookup.mockResolvedValue({
+      kind: 'complete',
+      result: {
+        blacklistStatus: 'Clean',
+        carrier: 'Unlocked',
+        device: 'iPhone',
+        deviceImage: '',
+        deviceType: 'apple',
+        icloud: 'Off',
+        icloudLock: 'Off',
+        imei: '490154203237518',
+        modelNumber: 'A2638',
+        score: 100,
+        simLock: 'Unlocked',
+        status: 'Clean',
+        verdict: 'Safe to buy',
+        verdictType: 'safe',
+      },
+    });
+    const { result } = renderHook(() =>
+      useImeiPendingLookup({
+        accessToken: 'token',
+        apiBaseUrl: 'https://shop.example.com',
+        customerId: 'customer-1',
+        merchantId: 'merchant-1',
+      })
+    );
+
+    await act(async () => {
+      await result.current.start({
+        lookupId: '11111111-1111-4111-8111-111111111111',
+        pollAfterMs: 0,
+        tier: 'blacklist',
+      });
+    });
+
+    await waitFor(() => expect(result.current.terminal?.kind).toBe('complete'));
+    expect(result.current.terminal).toMatchObject({
+      lookupId: '11111111-1111-4111-8111-111111111111',
+    });
+    await expect(
+      AsyncStorage.getItem(pendingImeiStorageKey('merchant-1', 'customer-1'))
+    ).resolves.toBeNull();
+  });
+
+  it('continues low-frequency polling for a stale restored lookup', async () => {
+    jest.useFakeTimers();
+    const key = pendingImeiStorageKey('merchant-1', 'customer-1');
+    await AsyncStorage.setItem(
+      key,
+      JSON.stringify({
+        createdAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+        lookupId: '11111111-1111-4111-8111-111111111111',
+        tier: 'blacklist',
+      })
+    );
+    mockPollImeiLookup.mockResolvedValue({
+      kind: 'pending',
+      pollAfterMs: 5000,
+    });
+    const { result } = renderHook(() =>
+      useImeiPendingLookup({
+        accessToken: 'token',
+        apiBaseUrl: 'https://shop.example.com',
+        customerId: 'customer-1',
+        merchantId: 'merchant-1',
+      })
+    );
+    await act(async () => undefined);
+    expect(result.current.paused).toBe(true);
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(60_000);
+    });
+
+    expect(mockPollImeiLookup).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lookupId: '11111111-1111-4111-8111-111111111111',
+      })
+    );
+    jest.useRealTimers();
+  });
+});

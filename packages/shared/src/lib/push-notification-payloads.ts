@@ -20,6 +20,7 @@ export type StorefrontNotificationNavigationTarget =
   | { screen: 'category'; params: { slug: string } }
   | { screen: 'utility-history'; params: { type: StorefrontUtilityType } }
   | { screen: 'wallet'; params?: { action: 'savings' } }
+  | { screen: 'unlock-orders' }
   | { screen: 'home' };
 
 type StorefrontUtilityType = 'airtime' | 'data' | 'gaming' | 'power' | 'tv';
@@ -152,6 +153,8 @@ export function getStorefrontNotificationNavigationTarget(
       return { screen: 'wallet' };
     case 'customer_savings_reminder':
       return { screen: 'wallet', params: { action: 'savings' } };
+    case 'carrier_unlock':
+      return { screen: 'unlock-orders' };
     case 'vtu_token_ready': {
       const utilityType = readStorefrontUtilityType(
         payload,

@@ -56,6 +56,7 @@ export interface StorefrontWalletFundingAccount {
 
 export interface StorefrontWallet {
   balance: number;
+  balances?: { NGN: number; USDT: number };
   totalEarned: number;
   totalRedeemed: number;
   transactions: StorefrontWalletTransaction[];

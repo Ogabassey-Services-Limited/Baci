@@ -1,5 +1,4 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import React from 'react';
 import { Text, View } from 'react-native';
 import type { CheckoutIdentityTheme } from '../colors';
 import { styles } from '../styles';

@@ -7,14 +7,19 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import * as Crypto from 'expo-crypto';
 import { router, Stack } from 'expo-router';
 import { usePreventRemove } from 'expo-router/react-navigation';
-import { useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useState } from 'react';
 import { Alert, Keyboard, Pressable, View } from 'react-native';
 import { ImeiCheckPager } from '@/components/imei-check/ImeiCheckPager';
 import { ImeiDeviceTabs } from '@/components/imei-check/ImeiDeviceTabs';
 import HeroCard from '@/components/imei-check/imei-check-hero-card';
+import { ImeiCheckPending } from '@/components/imei-check/imei-check-pending';
 import { ImeiCheckResultView } from '@/components/imei-check/imei-check-result-view';
+import { imeiCheckScreenActions } from '@/components/imei-check/imei-check-screen-actions';
 import { resolveImeiCheckFailure } from '@/components/imei-check/resolve-imei-check-failure';
+import { submitImeiCheck } from '@/components/imei-check/submit-imei-check';
 import { useImeiDeviceNavigation } from '@/components/imei-check/use-imei-device-navigation';
+import { useImeiPendingLookup } from '@/components/imei-check/use-imei-pending-lookup';
+import { useImeiRequestIdentity } from '@/components/imei-check/use-imei-request-identity';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -35,26 +40,14 @@ const API_BASE_URL = resolveStorefrontApiBaseUrl(
   process.env.EXPO_PUBLIC_API_URL
 );
 
-const getImeiCheckNetworkErrorMessage = (err: unknown) =>
-  err instanceof Error && err.name === 'AbortError'
-    ? 'Request timed out. Please check your connection and try again.'
-    : 'Network error. Please check your connection and try again.';
-
-const handleTopUpWallet = (amount: number): void => {
-  const requiredAmount = Math.max(0, Math.ceil(amount));
-  router.push(
-    `/wallet?action=fund&requiredAmount=${requiredAmount}&returnTo=/imei-check`
-  );
-};
-
 export default function ImeiCheckerScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<ImeiResult | null>(null);
+  const [resultLookupId, setResultLookupId] = useState<string | null>(null);
   const [resultTier, setResultTier] = useState<ImeiServiceTierKey>('full');
   const [error, setError] = useState<string | null>(null);
-  // Switching device (tab tap or swipe) clears any stale lookup error.
   const {
     deviceOrder,
     handleDeviceTab,
@@ -64,32 +57,48 @@ export default function ImeiCheckerScreen() {
     visitedDevices,
   } = useImeiDeviceNavigation(() => setError(null));
   const session = useAuthStore((state) => state.session);
+  const customerId = useAuthStore((state) => state.customer?.id);
+  const merchantId = useAuthStore((state) => state.merchantId ?? undefined);
   const walletQuery = useWallet();
-  const activeIdempotencyRef = useRef<{
-    imei: string;
-    key: string;
-    tier: ImeiServiceTierKey;
-  } | null>(null);
+  const pendingLookup = useImeiPendingLookup({
+    accessToken: session?.access_token,
+    apiBaseUrl: API_BASE_URL,
+    customerId,
+    merchantId,
+  });
+  const requestIdentity = useImeiRequestIdentity(Crypto.randomUUID);
 
   const walletBalance = walletQuery.data?.wallet.balance ?? 0;
 
-  const getIdempotencyKey = (tier: ImeiServiceTierKey, imei: string) => {
-    const active = activeIdempotencyRef.current;
-    if (active && active.imei === imei && active.tier === tier) {
-      return active.key;
-    }
-    const key = Crypto.randomUUID();
-    activeIdempotencyRef.current = { imei, key, tier };
-    return key;
+  const clearIdempotencyKey = () => {
+    requestIdentity.clear();
   };
 
-  const clearIdempotencyKey = () => {
-    activeIdempotencyRef.current = null;
-  };
+  const handlePendingTerminal = useEffectEvent(
+    (terminal: NonNullable<typeof pendingLookup.terminal>) => {
+      clearIdempotencyKey();
+      setIsLoading(false);
+      if (terminal.kind === 'complete') {
+        setError(null);
+        setResultTier(terminal.tier);
+        setResultLookupId(terminal.lookupId);
+        setResult(terminal.result);
+      } else {
+        setError(terminal.error);
+      }
+      pendingLookup.clearTerminal();
+    }
+  );
+
+  useEffect(() => {
+    if (pendingLookup.terminal) {
+      handlePendingTerminal(pendingLookup.terminal);
+    }
+  }, [pendingLookup.terminal]);
 
   const handleVerify = async (tier: ImeiServiceTierKey, imei: string) => {
     Keyboard.dismiss();
-    if (isLoading) return;
+    if (isLoading || pendingLookup.pending) return;
 
     const serviceTier = IMEI_SERVICE_TIERS[tier];
     if (!isValidDeviceIdentifier(imei, serviceTier.identifier)) {
@@ -117,7 +126,7 @@ export default function ImeiCheckerScreen() {
       return;
     }
     if (walletBalance < serviceTier.price) {
-      handleTopUpWallet(serviceTier.price - walletBalance);
+      imeiCheckScreenActions.fundWallet(serviceTier.price - walletBalance);
       return;
     }
 
@@ -125,28 +134,20 @@ export default function ImeiCheckerScreen() {
     setError(null);
     setResult(null);
 
-    const idempotencyKey = getIdempotencyKey(tier, imei);
+    const idempotencyKey = requestIdentity.get(tier, imei);
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30_000);
 
     const performCheck = async () => {
-      const response = await fetch(
-        `${API_BASE_URL}/api/storefront/imei-check`,
-        {
-          method: 'POST',
-          headers: {
-            ...(session?.access_token
-              ? { Authorization: `Bearer ${session.access_token}` }
-              : {}),
-            'Content-Type': 'application/json',
-            'Idempotency-Key': idempotencyKey,
-          },
-          body: JSON.stringify({ imei, tier }),
-          signal: controller.signal,
-        }
-      );
-
-      const rawData = await response.json();
+      const { rawData, response } = await submitImeiCheck({
+        accessToken: session?.access_token,
+        apiBaseUrl: API_BASE_URL,
+        device: selectedDevice,
+        idempotencyKey,
+        identifier: imei,
+        signal: controller.signal,
+        tier,
+      });
       if (!response.ok || rawData?.error) {
         const outcome = resolveImeiCheckFailure({
           currentTierPrice: serviceTier.price,
@@ -163,7 +164,7 @@ export default function ImeiCheckerScreen() {
           return;
         }
         if (outcome.topUpAmount !== null) {
-          handleTopUpWallet(outcome.topUpAmount);
+          imeiCheckScreenActions.fundWallet(outcome.topUpAmount);
           return;
         }
         if (outcome.shouldRefetchWallet) {
@@ -180,6 +181,18 @@ export default function ImeiCheckerScreen() {
         rawData,
         'IMEI check API'
       );
+      if (
+        validated?.success &&
+        validated.status === 'pending' &&
+        validated.lookupId
+      ) {
+        await pendingLookup.start({
+          lookupId: validated.lookupId,
+          pollAfterMs: validated.pollAfterMs ?? 2_000,
+          tier,
+        });
+        return;
+      }
       if (!validated?.success || !validated.data) {
         clearIdempotencyKey();
         setError('Invalid response from server. Please try again.');
@@ -188,13 +201,14 @@ export default function ImeiCheckerScreen() {
 
       clearIdempotencyKey();
       setResultTier(tier);
+      setResultLookupId(validated.lookupId ?? null);
       setResult(validated.data);
     };
 
     await performCheck()
       .catch((err: unknown) => {
         log.error('IMEI check failed:', err);
-        setError(getImeiCheckNetworkErrorMessage(err));
+        setError(imeiCheckScreenActions.networkErrorMessage(err));
       })
       .finally(() => {
         clearTimeout(timeoutId);
@@ -204,15 +218,12 @@ export default function ImeiCheckerScreen() {
 
   const handleReset = () => {
     clearIdempotencyKey();
+    void pendingLookup.clear();
     setResult(null);
+    setResultLookupId(null);
     setError(null);
   };
 
-  // The result view is a conditional render on this same route, so the native
-  // back-swipe (and Android hardware back) would pop the whole screen and land
-  // on the previous one. While a result is showing, intercept the removal and
-  // return to the checker form instead — mirrors the result header's back
-  // button, which already calls onReset directly.
   usePreventRemove(result !== null, () => {
     handleReset();
   });
@@ -240,8 +251,11 @@ export default function ImeiCheckerScreen() {
 
       {result ? (
         <ImeiCheckResultView
+          accessToken={session?.access_token}
+          apiBaseUrl={API_BASE_URL}
           colors={colors}
           currentTier={IMEI_SERVICE_TIERS[resultTier]}
+          lookupId={resultLookupId}
           result={result}
           onReset={handleReset}
         />
@@ -260,11 +274,14 @@ export default function ImeiCheckerScreen() {
               onSelect={handleDeviceTab}
             />
           </View>
+          {pendingLookup.pending ? (
+            <ImeiCheckPending colors={colors} paused={pendingLookup.paused} />
+          ) : null}
           <ImeiCheckPager
             colors={colors}
             error={error}
             initialPage={deviceOrder.indexOf(selectedDevice)}
-            isLoading={isLoading}
+            isLoading={isLoading || pendingLookup.pending !== null}
             isWalletError={Boolean(walletQuery.isError)}
             isWalletLoading={Boolean(walletQuery.isLoading)}
             pagerRef={pagerRef}
@@ -272,7 +289,7 @@ export default function ImeiCheckerScreen() {
             walletBalance={walletBalance}
             onPageSelected={handlePageSelected}
             onVerify={handleVerify}
-            onTopUpWallet={handleTopUpWallet}
+            onTopUpWallet={imeiCheckScreenActions.fundWallet}
           />
         </AppKeyboardContainer>
       )}

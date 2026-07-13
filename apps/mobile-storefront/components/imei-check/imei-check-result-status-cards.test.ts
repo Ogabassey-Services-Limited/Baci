@@ -187,4 +187,31 @@ describe('getImeiResultStatusCards', () => {
       tint: Colors.dark.success,
     });
   });
+
+  it('renders all six optional Phase 3 result fields', () => {
+    const cards = getImeiResultStatusCards(
+      {
+        ...baseResult,
+        devicePhoto: 'https://cdn.example.com/device.jpg',
+        esimCompatibility: 'Supported',
+        financeStatus: 'Past Due',
+        knoxEnrollment: 'Enrolled',
+        soldBy: 'Example Retailer',
+        wifiMac: 'A1:B2:C3:D4:E5:F6',
+      },
+      Colors.light,
+      ['device']
+    );
+
+    expect(cards.map((card) => card.label)).toEqual(
+      expect.arrayContaining([
+        'eSIM Compatibility',
+        'Finance Status',
+        'Knox Enrollment',
+        'Sold By',
+        'Wi-Fi MAC',
+        'Device Photo',
+      ])
+    );
+  });
 });

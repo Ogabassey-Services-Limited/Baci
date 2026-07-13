@@ -31,6 +31,7 @@ export function useCameraPermission(enabled: boolean) {
     }
   }
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies(attempt): `attempt` is an intentional retrigger — retryPermission() bumps it to force a fresh permission request.
   useEffect(() => {
     if (!enabled) {
       return;

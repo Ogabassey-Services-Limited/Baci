@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { act, renderHook } from '@testing-library/react-native';
 import { useImeiDeviceNavigation } from './use-imei-device-navigation';
 

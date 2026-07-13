@@ -8,7 +8,6 @@
  * - Clean, reusable input component
  */
 
-import React from 'react';
 import { Controller } from 'react-hook-form';
 import { Text, TextInput, View } from 'react-native';
 import type { CheckoutIdentityTheme } from '../colors';

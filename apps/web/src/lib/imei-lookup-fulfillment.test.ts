@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { requestSickwCheck } from './imei-lookup-fulfillment';
+import {
+  redeemImeiWalletAndBeginProviderSubmission,
+  requestSickwCheck,
+} from './imei-lookup-fulfillment';
 
 const LOOKUP_ARGS = {
   apiKey: 'test-key',
@@ -60,6 +63,12 @@ describe('requestSickwCheck', () => {
           'Coverage: AppleCare+ Active',
           'Repair History: 1 repair',
           'Replacement Status: Replaced by Apple',
+          'eSIM Compatibility: Supported',
+          'Finance Status: Clean',
+          'Knox Enrollment: Not Enrolled',
+          'Sold By: Apple Store',
+          'WiFi MAC: AA:BB:CC:DD:EE:FF',
+          'Device Photo: https://example.com/device.jpg',
         ].join('\n'),
         status: 'success',
       })
@@ -76,6 +85,12 @@ describe('requestSickwCheck', () => {
           gsxCoverage: 'AppleCare+ Active',
           repairHistory: '1 repair',
           replacementHistory: 'Replaced by Apple',
+          esimCompatibility: 'Supported',
+          financeStatus: 'Clean',
+          knoxEnrollment: 'Not Enrolled',
+          soldBy: 'Apple Store',
+          wifiMac: 'AA:BB:CC:DD:EE:FF',
+          devicePhoto: 'https://example.com/device.jpg',
         },
         success: true,
       },
@@ -169,5 +184,39 @@ describe('requestSickwCheck', () => {
       refundReason: 'not_found',
       status: 404,
     });
+  });
+});
+
+describe('redeemImeiWalletAndBeginProviderSubmission', () => {
+  it('uses the atomic Petrock debit-and-classify RPC', async () => {
+    const rpc = vi
+      .fn()
+      .mockResolvedValue({ data: [{ success: true }], error: null });
+
+    await redeemImeiWalletAndBeginProviderSubmission({
+      amount: 1500,
+      costUsd: 0.019,
+      customerId: 'customer-1',
+      deviceCategory: 'smartphone',
+      feedbackTokenHash: 'token-hash',
+      identifierCiphertext: 'ciphertext',
+      lookupId: 'lookup-1',
+      merchantId: 'merchant-1',
+      providerAttemptStartedAt: '2026-07-10T12:00:00.000Z',
+      referenceId: 'reference-1',
+      supabaseAdmin: { rpc } as never,
+    });
+
+    expect(rpc).toHaveBeenCalledWith(
+      'redeem_imei_wallet_and_begin_provider_submission',
+      expect.objectContaining({
+        p_cost_usd: 0.019,
+        p_feedback_token_hash: 'token-hash',
+        p_identifier_ciphertext: 'ciphertext',
+        p_lookup_id: 'lookup-1',
+        p_provider: 'petrock',
+        p_reference_id: 'reference-1',
+      })
+    );
   });
 });
