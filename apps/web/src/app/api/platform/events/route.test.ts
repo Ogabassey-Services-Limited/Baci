@@ -103,6 +103,7 @@ describe('POST /api/platform/events', () => {
   it('inserts the event and returns success for a valid page view', async () => {
     const res = await POST(
       makeRequest({
+        event_id: 'platform-event-1',
         event_type: 'landing_page_view',
         page_url: 'https://usebaci.com',
         session_id: 'ps_1',
@@ -113,7 +114,10 @@ describe('POST /api/platform/events', () => {
     expect(res.status).toBe(200);
     expect(body.success).toBe(true);
     expect(mockInsert).toHaveBeenCalledWith(
-      expect.objectContaining({ event_type: 'landing_page_view' })
+      expect.objectContaining({
+        event_id: 'platform-event-1',
+        event_type: 'landing_page_view',
+      })
     );
   });
 

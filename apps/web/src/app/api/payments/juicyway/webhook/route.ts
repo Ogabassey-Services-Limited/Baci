@@ -281,12 +281,20 @@ export async function POST(request: NextRequest) {
             shipping_address: completedOrder.shipping_address,
             total: completedOrder.total ?? transaction.amount,
           };
-          await triggerPurchaseConversion(
+          const conversion = await triggerPurchaseConversion(
             createAdminClient(),
             transaction.merchant_id,
             conversionOrder,
             { deliveryMode: 'enqueue_only' }
           );
+          if (!conversion?.alreadyEnqueued) {
+            scheduleLegacyPurchaseConversion({
+              merchantId: transaction.merchant_id,
+              order: conversionOrder,
+              scheduleAfter: (task) => after(task),
+              supabase: createAdminClient(),
+            });
+          }
         }
       }
 

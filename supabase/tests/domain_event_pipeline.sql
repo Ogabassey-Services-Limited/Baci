@@ -201,8 +201,8 @@ BEGIN
   SELECT * INTO v_claim
   FROM public.claim_event_deliveries_v1(1, 'sql-worker', 60)
   WHERE id = v_delivery_id;
-  IF v_claim.attempt_number <> 2 THEN
-    RAISE EXCEPTION 'replayed delivery did not preserve attempt sequence';
+  IF v_claim.attempt_number <> 1 THEN
+    RAISE EXCEPTION 'replayed delivery did not receive a fresh attempt budget';
   END IF;
   PERFORM public.finish_event_delivery_v1(
     v_delivery_id, v_claim.claim_token, 'delivered', NULL,

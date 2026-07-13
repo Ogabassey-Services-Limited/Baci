@@ -124,6 +124,7 @@ export async function POST(request: NextRequest) {
         .from('platform_events')
         .insert({
           event_data: event_data || {},
+          event_id: eventId,
           event_timestamp: eventTimestamp,
           event_type,
           ip_address: ipAddress,

@@ -113,7 +113,7 @@ export async function triggerPurchaseConversion(
   merchantId: string,
   order: OrderForConversion,
   options: TriggerPurchaseConversionOptions = {}
-): Promise<void> {
+): Promise<{ alreadyEnqueued: boolean } | undefined> {
   const orderNumber = order.order_number || order.id.slice(0, 8).toUpperCase();
   const suppliedEventId = order.ad_tracking?.eventId;
   const stableEventId =
@@ -124,7 +124,7 @@ export async function triggerPurchaseConversion(
   try {
     const deliveryMode = options.deliveryMode ?? 'automatic';
     if (deliveryMode !== 'legacy_only' && isEventPipelineEnqueueEnabled()) {
-      await enqueuePaidOrderDomainEvent(supabase, {
+      const enqueueResult = await enqueuePaidOrderDomainEvent(supabase, {
         externalEventId: stableEventId,
         merchantId,
         occurredAt: order.occurredAt,
@@ -139,7 +139,7 @@ export async function triggerPurchaseConversion(
         deliveryMode === 'enqueue_only' ||
         isLegacyAnalyticsFanoutDisabled()
       ) {
-        return;
+        return { alreadyEnqueued: enqueueResult.already_enqueued };
       }
     } else if (deliveryMode === 'enqueue_only') {
       throw new Error('event_pipeline_enqueue_disabled');
