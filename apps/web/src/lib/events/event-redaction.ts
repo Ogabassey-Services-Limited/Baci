@@ -69,8 +69,20 @@ function redactValue(value: unknown, depth: number): unknown {
   }
   if (!value || typeof value !== 'object') return value;
 
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value.toISOString();
+  }
+  if (value instanceof Set) {
+    return [...value]
+      .slice(0, 200)
+      .map((entry) => redactValue(entry, depth + 1));
+  }
+
   const redacted: Record<string, unknown> = {};
-  for (const [key, entry] of Object.entries(value)) {
+  const entries =
+    value instanceof Map ? value.entries() : Object.entries(value);
+  for (const [key, entry] of entries) {
+    if (typeof key !== 'string') continue;
     if (isForbiddenKey(key)) continue;
     if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
       continue;

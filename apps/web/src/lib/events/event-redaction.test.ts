@@ -52,4 +52,21 @@ describe('redactEventPayload', () => {
     });
     expect(({} as { polluted?: boolean }).polluted).toBeUndefined();
   });
+
+  it('serializes supported non-plain objects without bypassing redaction', () => {
+    expect(
+      redactEventPayload({
+        capturedAt: new Date('2026-07-14T12:00:00.000Z'),
+        labels: new Set(['new', 'sale']),
+        metadata: new Map([
+          ['campaign', 'summer'],
+          ['token', 'private'],
+        ]),
+      })
+    ).toEqual({
+      capturedAt: '2026-07-14T12:00:00.000Z',
+      labels: ['new', 'sale'],
+      metadata: { campaign: 'summer' },
+    });
+  });
 });

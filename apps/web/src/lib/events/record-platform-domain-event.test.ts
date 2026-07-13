@@ -34,4 +34,40 @@ describe('recordPlatformDomainEvent', () => {
       })
     );
   });
+
+  it('rejects when the platform recording RPC fails', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: 'database unavailable' },
+    });
+
+    await expect(
+      recordPlatformDomainEvent({ rpc } as never, {
+        eventData: {},
+        eventName: 'platform.client.observed.v1',
+        eventTimestamp: '2026-07-12T12:00:00.000Z',
+        eventType: 'landing_page_view',
+        externalEventId: 'event-1',
+        trustLevel: 'anonymous_client',
+      })
+    ).rejects.toThrow('durable_platform_enqueue_failed');
+  });
+
+  it('rejects an invalid durable enqueue RPC response', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: [{ domain_event_id: 'not-a-result' }],
+      error: null,
+    });
+
+    await expect(
+      recordPlatformDomainEvent({ rpc } as never, {
+        eventData: {},
+        eventName: 'platform.client.observed.v1',
+        eventTimestamp: '2026-07-12T12:00:00.000Z',
+        eventType: 'landing_page_view',
+        externalEventId: 'event-1',
+        trustLevel: 'anonymous_client',
+      })
+    ).rejects.toThrow('durable_platform_enqueue_invalid');
+  });
 });

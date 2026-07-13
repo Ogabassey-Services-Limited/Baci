@@ -19,8 +19,16 @@ describe('sanitizeEventErrorMessage', () => {
   it('redacts multi-token authorization and cookie values', () => {
     expect(
       sanitizeEventErrorMessage(
-        'authorization: Bearer alpha beta; scope=all, retryable=true'
+        'authorization: Bearer alpha beta; scope=all, cookie: session=secret-cookie; Secure, retryable=true'
       )
-    ).toBe('authorization=[redacted], retryable=true');
+    ).toBe('authorization=[redacted], cookie=[redacted], retryable=true');
+  });
+
+  it('redacts JSON-shaped secret fields', () => {
+    expect(
+      sanitizeEventErrorMessage(
+        '{"token":"private-token","authorization":"Bearer private"}'
+      )
+    ).toBe('{"token"=[redacted],"authorization"=[redacted]}');
   });
 });

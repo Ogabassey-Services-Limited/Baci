@@ -82,6 +82,17 @@ describe('event pipeline configuration', () => {
     expect(isLegacyAnalyticsFanoutDisabled()).toBe(false);
   });
 
+  it('keeps legacy fan-out when an active destination is missing', () => {
+    process.env.EVENT_PIPELINE_DISABLE_LEGACY_FANOUT = 'true';
+    process.env.EVENT_PIPELINE_ENQUEUE_ENABLED = 'true';
+    process.env.EVENT_PIPELINE_DELIVERY_ENABLED = 'true';
+    process.env.EVENT_PIPELINE_ROUTING_MODE = 'active';
+    process.env.EVENT_PIPELINE_ACTIVE_DESTINATIONS = 'facebook,ga4,snapchat';
+    process.env.EVENT_PIPELINE_CANARY_MERCHANT_IDS = '*';
+
+    expect(isLegacyAnalyticsFanoutDisabled()).toBe(false);
+  });
+
   it('fails closed on invalid destinations and scopes active routing to canaries', () => {
     process.env.EVENT_PIPELINE_ACTIVE_DESTINATIONS =
       'facebook,unknown,SNAPCHAT';
@@ -112,5 +123,15 @@ describe('event pipeline configuration', () => {
     expect(getEventIngressMaxReads()).toBe(2);
     process.env.EVENT_PIPELINE_INGRESS_MAX_READS = '100';
     expect(getEventIngressMaxReads()).toBe(20);
+  });
+
+  it('uses defaults for malformed numeric configuration', () => {
+    process.env.EVENT_PIPELINE_MAX_DELIVERY_ATTEMPTS = '12oops';
+    process.env.EVENT_PIPELINE_DELIVERY_CONCURRENCY = '1.5';
+    process.env.EVENT_PIPELINE_INGRESS_MAX_READS = '0x10';
+
+    expect(getEventDeliveryMaxAttempts()).toBe(8);
+    expect(getEventDeliveryConcurrency()).toBe(5);
+    expect(getEventIngressMaxReads()).toBe(5);
   });
 });

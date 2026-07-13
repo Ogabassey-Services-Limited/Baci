@@ -3,6 +3,9 @@ export async function settleWithConcurrency<T>(
   concurrency: number,
   operation: (item: T) => Promise<void>
 ): Promise<PromiseSettledResult<void>[]> {
+  if (!Number.isFinite(concurrency)) {
+    throw new RangeError('concurrency must be finite');
+  }
   const limit = Math.max(1, Math.floor(concurrency));
   const outcomes: PromiseSettledResult<void>[] = [];
 

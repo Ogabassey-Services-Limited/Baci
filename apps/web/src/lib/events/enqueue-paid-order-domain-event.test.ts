@@ -38,4 +38,23 @@ describe('enqueuePaidOrderDomainEvent', () => {
       })
     );
   });
+
+  it('rejects when the enqueue RPC fails', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: 'database unavailable' },
+    });
+    const supabase: Pick<SupabaseClient, 'rpc'> = { rpc } as Pick<
+      SupabaseClient,
+      'rpc'
+    >;
+
+    await expect(
+      enqueuePaidOrderDomainEvent(supabase, {
+        externalEventId: 'purchase_order-1',
+        merchantId: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
+        orderId: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a236',
+      })
+    ).rejects.toThrow('paid_order_event_enqueue_failed');
+  });
 });

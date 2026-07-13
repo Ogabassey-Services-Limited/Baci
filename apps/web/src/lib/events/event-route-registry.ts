@@ -21,6 +21,18 @@ const PUBLIC_CLIENT_TRUST: readonly EventTrustLevel[] = [
 const SERVER_TRUST: readonly EventTrustLevel[] = ['server', 'database'];
 const CLIENT_PRODUCERS: readonly EventProducer[] = ['web', 'mobile'];
 const SERVER_PRODUCERS: readonly EventProducer[] = ['worker', 'database'];
+const SERVER_ROUTE = {
+  allowedProducers: SERVER_PRODUCERS,
+  allowedTrust: SERVER_TRUST,
+} as const;
+const CLIENT_VERIFIED_ROUTE = {
+  allowedProducers: CLIENT_PRODUCERS,
+  allowedTrust: VERIFIED_CLIENT_TRUST,
+} as const;
+const CLIENT_PUBLIC_ROUTE = {
+  allowedProducers: CLIENT_PRODUCERS,
+  allowedTrust: PUBLIC_CLIENT_TRUST,
+} as const;
 const CLIENT_ANALYTICS_OBSERVATION_ONLY = new Set(['place_order', 'purchase']);
 const CLIENT_PLATFORM_OBSERVATION_ONLY = new Set([
   'merchant_first_sale',
@@ -36,88 +48,71 @@ const PUBLIC_PLATFORM_EVENTS = new Set([
 
 const EVENT_ROUTES: Record<string, RouteDefinition> = {
   'analytics.add_payment_info.v1': {
-    allowedProducers: CLIENT_PRODUCERS,
-    allowedTrust: VERIFIED_CLIENT_TRUST,
+    ...CLIENT_VERIFIED_ROUTE,
     destinations: ['facebook', 'tiktok', 'snapchat'],
   },
   'analytics.add_to_cart.v1': {
-    allowedProducers: CLIENT_PRODUCERS,
-    allowedTrust: VERIFIED_CLIENT_TRUST,
+    ...CLIENT_VERIFIED_ROUTE,
     destinations: ['facebook', 'tiktok', 'snapchat'],
   },
   'analytics.add_to_wishlist.v1': {
-    allowedProducers: CLIENT_PRODUCERS,
-    allowedTrust: VERIFIED_CLIENT_TRUST,
+    ...CLIENT_VERIFIED_ROUTE,
     destinations: ['facebook', 'tiktok', 'snapchat'],
   },
   'analytics.begin_checkout.v1': {
-    allowedProducers: CLIENT_PRODUCERS,
-    allowedTrust: VERIFIED_CLIENT_TRUST,
+    ...CLIENT_VERIFIED_ROUTE,
     destinations: ['facebook', 'tiktok', 'snapchat'],
   },
   'analytics.customer_registered.v1': {
-    allowedProducers: CLIENT_PRODUCERS,
-    allowedTrust: VERIFIED_CLIENT_TRUST,
+    ...CLIENT_VERIFIED_ROUTE,
     destinations: ['facebook', 'tiktok', 'snapchat'],
   },
   'analytics.place_order.v1': {
-    allowedProducers: SERVER_PRODUCERS,
-    allowedTrust: SERVER_TRUST,
+    ...SERVER_ROUTE,
     destinations: ['tiktok'],
   },
   'analytics.product_view.v1': {
-    allowedProducers: CLIENT_PRODUCERS,
-    allowedTrust: VERIFIED_CLIENT_TRUST,
+    ...CLIENT_VERIFIED_ROUTE,
     destinations: ['facebook', 'tiktok', 'snapchat'],
   },
   'analytics.purchase.completed.v1': {
-    allowedProducers: SERVER_PRODUCERS,
-    allowedTrust: SERVER_TRUST,
+    ...SERVER_ROUTE,
     destinations: ['facebook', 'tiktok', 'ga4', 'snapchat'],
   },
   'analytics.search.v1': {
-    allowedProducers: CLIENT_PRODUCERS,
-    allowedTrust: VERIFIED_CLIENT_TRUST,
+    ...CLIENT_VERIFIED_ROUTE,
     destinations: ['facebook', 'tiktok', 'snapchat'],
   },
   'platform.landing_page_view.v1': {
-    allowedProducers: CLIENT_PRODUCERS,
-    allowedTrust: PUBLIC_CLIENT_TRUST,
+    ...CLIENT_PUBLIC_ROUTE,
     destinations: ['facebook', 'ga4'],
   },
   'platform.merchant_first_sale.v1': {
-    allowedProducers: SERVER_PRODUCERS,
-    allowedTrust: SERVER_TRUST,
+    ...SERVER_ROUTE,
     destinations: ['facebook', 'ga4'],
   },
   'platform.merchant_signup_completed.v1': {
-    allowedProducers: SERVER_PRODUCERS,
-    allowedTrust: SERVER_TRUST,
+    ...SERVER_ROUTE,
     destinations: ['facebook', 'ga4'],
   },
   'platform.merchant_signup_started.v1': {
-    allowedProducers: CLIENT_PRODUCERS,
-    allowedTrust: PUBLIC_CLIENT_TRUST,
+    ...CLIENT_PUBLIC_ROUTE,
     destinations: ['facebook', 'ga4'],
   },
   'platform.merchant_store_published.v1': {
-    allowedProducers: SERVER_PRODUCERS,
-    allowedTrust: SERVER_TRUST,
+    ...SERVER_ROUTE,
     destinations: ['facebook', 'ga4'],
   },
   'platform.platform_checkout.v1': {
-    allowedProducers: CLIENT_PRODUCERS,
-    allowedTrust: VERIFIED_CLIENT_TRUST,
+    ...CLIENT_VERIFIED_ROUTE,
     destinations: ['ga4'],
   },
   'platform.platform_purchase.v1': {
-    allowedProducers: SERVER_PRODUCERS,
-    allowedTrust: SERVER_TRUST,
+    ...SERVER_ROUTE,
     destinations: ['facebook', 'ga4'],
   },
   'platform.pricing_page_view.v1': {
-    allowedProducers: CLIENT_PRODUCERS,
-    allowedTrust: PUBLIC_CLIENT_TRUST,
+    ...CLIENT_PUBLIC_ROUTE,
     destinations: ['ga4'],
   },
 };

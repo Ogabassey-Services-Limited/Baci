@@ -54,4 +54,17 @@ describe('settleWithConcurrency', () => {
       'fulfilled',
     ]);
   });
+
+  it('rejects non-finite concurrency values', async () => {
+    await expect(
+      settleWithConcurrency([1], Number.NaN, async () => undefined)
+    ).rejects.toThrow('concurrency must be finite');
+    await expect(
+      settleWithConcurrency(
+        [1],
+        Number.POSITIVE_INFINITY,
+        async () => undefined
+      )
+    ).rejects.toThrow('concurrency must be finite');
+  });
 });

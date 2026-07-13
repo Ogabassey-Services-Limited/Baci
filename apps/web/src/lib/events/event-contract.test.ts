@@ -35,4 +35,25 @@ describe('parseDomainEventV1', () => {
       JSON.stringify(parseDomainEventV1({ token: 'do-not-log' }))
     ).not.toContain('do-not-log');
   });
+
+  it('identifies the field that failed validation', () => {
+    const result = parseDomainEventV1({
+      data: {},
+      domain_event_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a234',
+      event_name: 'catalog.product.updated.v1',
+      idempotency_key: 'catalog:product-1:updated',
+      metadata: { environment: 'test' },
+      occurred_at: 'not-a-timestamp',
+      producer: 'database',
+      schema_version: 1,
+      source: {},
+      subject: { id: 'product-1', type: 'product' },
+      trust_level: 'database',
+    });
+
+    expect(result).toMatchObject({
+      issues: expect.arrayContaining([expect.stringContaining('occurred_at')]),
+      success: false,
+    });
+  });
 });

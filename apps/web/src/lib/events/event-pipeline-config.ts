@@ -9,6 +9,19 @@ const EVENT_DESTINATIONS: readonly EventDestination[] = [
   'tiktok',
 ];
 
+function getBoundedInteger(
+  value: string | undefined,
+  fallback: number,
+  minimum: number,
+  maximum: number
+): number {
+  const normalized = value?.trim() ?? '';
+  if (!/^[+-]?\d+$/.test(normalized)) return fallback;
+  const parsed = Number(normalized);
+  if (!Number.isSafeInteger(parsed)) return fallback;
+  return Math.min(Math.max(parsed, minimum), maximum);
+}
+
 export function isEventPipelineEnqueueEnabled(): boolean {
   return process.env.EVENT_PIPELINE_ENQUEUE_ENABLED === 'true';
 }
@@ -63,25 +76,28 @@ export function isUnverifiedEventTelemetryEnabled(): boolean {
 }
 
 export function getEventDeliveryMaxAttempts(): number {
-  const parsed = Number.parseInt(
-    process.env.EVENT_PIPELINE_MAX_DELIVERY_ATTEMPTS ?? '',
-    10
+  return getBoundedInteger(
+    process.env.EVENT_PIPELINE_MAX_DELIVERY_ATTEMPTS,
+    8,
+    1,
+    20
   );
-  return Number.isFinite(parsed) ? Math.min(Math.max(parsed, 1), 20) : 8;
 }
 
 export function getEventDeliveryConcurrency(): number {
-  const parsed = Number.parseInt(
-    process.env.EVENT_PIPELINE_DELIVERY_CONCURRENCY ?? '',
+  return getBoundedInteger(
+    process.env.EVENT_PIPELINE_DELIVERY_CONCURRENCY,
+    5,
+    1,
     10
   );
-  return Number.isFinite(parsed) ? Math.min(Math.max(parsed, 1), 10) : 5;
 }
 
 export function getEventIngressMaxReads(): number {
-  const parsed = Number.parseInt(
-    process.env.EVENT_PIPELINE_INGRESS_MAX_READS ?? '',
-    10
+  return getBoundedInteger(
+    process.env.EVENT_PIPELINE_INGRESS_MAX_READS,
+    5,
+    2,
+    20
   );
-  return Number.isFinite(parsed) ? Math.min(Math.max(parsed, 2), 20) : 5;
 }

@@ -15,7 +15,12 @@ function requiredString(value: unknown) {
 
 function finiteNumber(value: unknown) {
   if (typeof value !== 'number' && typeof value !== 'string') return null;
-  if (typeof value === 'string' && !value.trim()) return null;
+  if (
+    typeof value === 'string' &&
+    !/^[+-]?(?:\d+(?:\.\d+)?|\.\d+)$/.test(value.trim())
+  ) {
+    return null;
+  }
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 }

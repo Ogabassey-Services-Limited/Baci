@@ -1,7 +1,7 @@
 const EMAIL = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
 const LONG_NUMBER = /\+?\d[\d\s().-]{8,}\d/g;
 const SECRET =
-  /\b(authorization|cookie|password|secret|token)\s*[:=]\s*[^,\r\n]+/gi;
+  /(["']?\b(?:authorization|cookie|password|secret|token)\b["']?)\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^,\r\n}\]]+)/gi;
 
 export function sanitizeEventErrorMessage(
   value: string | undefined
