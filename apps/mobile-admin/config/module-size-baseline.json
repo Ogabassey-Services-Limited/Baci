@@ -1,14 +1,5 @@
 {
   "maxLines": 300,
   "roots": ["components", "hooks", "lib", "services", "stores", "utils"],
-  "modules": [
-    {
-      "path": "components/product/VariantInventoryUnitCard.tsx",
-      "lineCount": 304
-    },
-    {
-      "path": "hooks/useNewOrderController.ts",
-      "lineCount": 303
-    }
-  ]
+  "modules": []
 }

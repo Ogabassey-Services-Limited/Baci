@@ -242,8 +242,10 @@
       "includes": [
         "**/*.test.ts",
         "**/*.test.tsx",
+        "**/*.test.js",
         "**/*.spec.ts",
         "**/*.spec.tsx",
+        "**/*.spec.js",
         "**/__tests__/**",
         "**/__mocks__/**",
         "**/jest.setup.ts"

@@ -1,18 +1,14 @@
 import type { OrderSource, PaymentStatus } from '@baci/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
-import type { CountryCode } from 'react-native-country-picker-modal';
 import {
   createEmptyCustomerInfo,
   createEmptyCustomItemDraft,
   createEmptyDeliveryInfo,
-  createEmptyNewCustomerDraft,
 } from '@/components/orders/new-order.defaults';
-import { DEFAULT_COUNTRY_CODE } from '@/components/orders/new-order.shared';
 import type {
   CustomerInfo,
   OrderItem,
-  SelectableCustomer,
   SelectedParentProduct,
 } from '@/components/orders/new-order.types';
 import { useAuth } from '@/hooks/useAuth';
@@ -31,6 +27,7 @@ import {
   getSelectableProductRows,
 } from './useNewOrderControllerActions';
 import type { UseNewOrderControllerOptions } from './useNewOrderControllerOptions';
+import { useNewOrderCustomerDraftState } from './useNewOrderCustomerDraftState';
 import { useNewOrderLookupData } from './useNewOrderLookupData';
 import { useNewOrderUiState } from './useNewOrderUiState';
 import { useNewOrderVatState } from './useNewOrderVatState';
@@ -75,14 +72,14 @@ export function useNewOrderController({
   const [variantReplacementItemId, setVariantReplacementItemId] = useState<
     string | null
   >(null);
-  const [customerSearch, setCustomerSearch] = useState('');
+  const customerDraft = useNewOrderCustomerDraftState();
   const {
     customersData,
     customersQuery,
     productPicker,
     selectedParentProductVariantsQuery,
   } = useNewOrderLookupData({
-    customerSearch,
+    customerSearch: customerDraft.customerSearch,
     productSearch,
     selectedParentProduct,
   });
@@ -101,12 +98,6 @@ export function useNewOrderController({
     isLoading: isLoadingSelectedParentProduct,
     refetch: refetchSelectedParentProduct,
   } = selectedParentProductVariantsQuery;
-  const [isCreatingCustomer, setIsCreatingCustomer] = useState(false);
-  const [newCustomer, setNewCustomer] = useState(createEmptyNewCustomerDraft);
-  const [selectedCountryCode, setSelectedCountryCode] =
-    useState<CountryCode>(DEFAULT_COUNTRY_CODE);
-  const [duplicateCustomer, setDuplicateCustomer] =
-    useState<SelectableCustomer | null>(null);
   const { defaultBranchId } = useOrderBranchSelection({
     enabled: autoSelectDefaultBranch,
     branches,
@@ -152,13 +143,13 @@ export function useNewOrderController({
   const customerActions = createNewOrderCustomerActions({
     createCustomer: createCustomerMutation.mutateAsync,
     merchantId: merchant?.id,
-    newCustomer,
+    newCustomer: customerDraft.newCustomer,
     setCustomer,
-    setCustomerSearch,
-    setDuplicateCustomer,
-    setIsCreatingCustomer,
-    setNewCustomer,
-    setSelectedCountryCode,
+    setCustomerSearch: customerDraft.setCustomerSearch,
+    setDuplicateCustomer: customerDraft.setDuplicateCustomer,
+    setIsCreatingCustomer: customerDraft.setIsCreatingCustomer,
+    setNewCustomer: customerDraft.setNewCustomer,
+    setSelectedCountryCode: customerDraft.setSelectedCountryCode,
     setShowCustomerModal: uiState.setShowCustomerModal,
   });
   const handleSubmit = () =>
@@ -217,21 +208,19 @@ export function useNewOrderController({
   });
 
   return {
+    ...customerDraft,
     colors,
     createCustomerMutation,
     customer,
-    customerSearch,
     customersData,
     customersQuery,
     customItem,
     date,
     deliveryInfo,
     discount,
-    duplicateCustomer,
     fetchMoreProducts,
     filteredProducts,
     hasMoreProducts,
-    isCreatingCustomer,
     isFetchingMoreProducts,
     isLoadingSelectedParentProduct,
     isProductsLoading,
@@ -240,7 +229,6 @@ export function useNewOrderController({
     isSubmitting,
     isVatApplied,
     merchant,
-    newCustomer,
     notes,
     orderItems,
     partialAmount,
@@ -256,20 +244,15 @@ export function useNewOrderController({
     branches,
     selectedChannel,
     selectedBranchId,
-    selectedCountryCode,
     selectedParentProduct,
     selectedParentProductError,
     ...uiState,
     setCustomer,
-    setCustomerSearch,
     setCustomItem,
     setDate,
     setDeliveryInfo,
     setDiscount,
-    setDuplicateCustomer,
-    setIsCreatingCustomer,
     setIsVatApplied,
-    setNewCustomer,
     setNotes,
     setOrderItems,
     setPartialAmount,
@@ -279,7 +262,6 @@ export function useNewOrderController({
     setSameAsCustomer,
     setSelectedChannel,
     setSelectedBranchId,
-    setSelectedCountryCode,
     setSelectedParentProduct,
     setShippingFee,
     setTaxes,
