@@ -263,16 +263,22 @@ fi
 
 # Run CodeRabbit AI code review on uncommitted changes (~5-15s)
 # Fail-open: if CodeRabbit itself crashes (OOM, network, auth), let the stop proceed.
-# Only block when CodeRabbit actually reports code issues (exit 0 with findings).
+# --agent streams JSON events and ends with {"type":"complete",...,"findings":N};
+# block only when that completion event reports findings > 0. (The old
+# --prompt-only flag was removed from the CLI and made every run print an
+# "unknown option" error that false-triggered the block regex.)
 if command -v coderabbit >/dev/null 2>&1; then
-  CR_RESULT=$(coderabbit review --prompt-only -t uncommitted 2>&1) || true
+  CR_RESULT=$(coderabbit review --agent -t uncommitted 2>&1) || true
 
-  # Skip if CodeRabbit errored out (OOM, network failure, auth issues)
-  if echo "$CR_RESULT" | grep -qiE "(REVIEW ERROR|Out of memory|Failed to start|network|unauthorized|ECONNREFUSED)"; then
-    : # CodeRabbit crashed — fail-open, allow stop
-  elif [ -n "$CR_RESULT" ] && echo "$CR_RESULT" | grep -qiE "(critical|high|error|warning|issue)"; then
-    TRIMMED=$(echo "$CR_RESULT" | tail -30)
-    jq -n --arg reason "CodeRabbit found issues in your changes. Review and fix:\n\n$TRIMMED" \
+  # Parse the NDJSON event stream with jq (tolerates key order, whitespace,
+  # and non-JSON warning lines) instead of a key-order-sensitive grep.
+  CR_FINDINGS=$(echo "$CR_RESULT" | jq -Rr 'fromjson? | select(.type == "complete") | .findings // empty' 2>/dev/null | tail -1)
+  if ! [ "$CR_FINDINGS" -ge 0 ] 2>/dev/null; then
+    : # No numeric completion event — CLI error, OOM, network, auth. Fail-open, allow stop.
+  elif [ "$CR_FINDINGS" -gt 0 ]; then
+    TRIMMED=$(echo "$CR_RESULT" | grep '"type":"finding"' | tail -30)
+    [ -n "$TRIMMED" ] || TRIMMED=$(echo "$CR_RESULT" | tail -30)
+    jq -n --arg reason "CodeRabbit found $CR_FINDINGS issue(s) in your changes. Review and fix:\n\n$TRIMMED" \
       '{"decision": "block", "reason": $reason}'
     exit 0
   fi
