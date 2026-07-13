@@ -7,7 +7,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { getMerchantForUser } from '@/lib/merchant-server';
+import { ensurePermission } from '@/lib/merchant-server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { registeredAddressSchema } from '@/schemas/merchant-settings';
 import { TaxSettingsForm } from './tax-settings-form';
@@ -18,16 +18,21 @@ export const metadata: Metadata = {
 };
 
 export default async function TaxSettingsPage() {
-  const { merchant } = await getMerchantForUser();
-
-  if (!merchant) {
-    redirect('/login');
+  // Gate on the settings permission BEFORE the service-role read below. The
+  // admin client bypasses RLS/column grants, so this page must not rely on the
+  // DB to keep a low-privilege staff member (without `settings` access) out of
+  // the tax/legal payload — ensurePermission throws for owner/staff who lack it.
+  let merchant: Awaited<ReturnType<typeof ensurePermission>>['merchant'];
+  try {
+    ({ merchant } = await ensurePermission('settings', 'view'));
+  } catch {
+    redirect('/dashboard');
   }
 
-  // Fetch current VAT/registration settings. getMerchantForUser above already
-  // verified the caller owns/staffs merchant.id; this read runs under the
-  // service role so it keeps working after S1 revokes the sensitive
-  // `merchants` column grants from the `authenticated` role.
+  // Fetch current VAT/registration settings. Permission + merchant ownership are
+  // verified above; this read runs under the service role so it keeps working
+  // after S1 revokes the sensitive `merchants` column grants from the
+  // `authenticated` role.
   const supabase = createAdminClient();
 
   const { data: merchantData, error: merchantDataError } = await supabase
