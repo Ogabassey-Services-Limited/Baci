@@ -1,4 +1,5 @@
 import {
+  buildCategoryPriceBandCandidates,
   buildCategorySupportLinks,
   buildProductSupportLinks,
   type CommercialSupportLink,
@@ -174,6 +175,14 @@ function buildProductScopedSupportLinks(input: CompareDiscoveryInput) {
     requiredProductSlugs: input.requiredProductSlugs,
   });
 
+  // Hoist the product-invariant price-band candidate list: it depends only on
+  // (categorySlug, products) and was previously rebuilt inside every one of the
+  // up-to-150 buildProductSupportLinks calls below. Compute once, reuse.
+  const priceBandCandidates = buildCategoryPriceBandCandidates(
+    input.categorySlug,
+    products
+  );
+
   return products.flatMap((product) =>
     buildProductSupportLinks({
       storeUrl: input.storeUrl,
@@ -182,6 +191,7 @@ function buildProductScopedSupportLinks(input: CompareDiscoveryInput) {
       currentProductPrice: product.price,
       includeBrandCompareLink: false,
       products,
+      priceBandCandidates,
     })
   );
 }
