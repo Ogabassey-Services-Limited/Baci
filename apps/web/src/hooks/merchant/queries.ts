@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { defaultStaffAccess, ownerStaffAccess } from './constants';
+import { redactMerchantSecretsForNonOwner } from './redact-merchant-secrets-for-non-owner';
 import type { MerchantData, StaffAccess, StaffRole } from './types';
 
 type MerchantRow = Omit<MerchantData, 'feature_settings'> & {
@@ -305,7 +306,10 @@ export async function fetchDashboardMerchant(
         }
 
         return {
-          merchant: merchantInfo,
+          // A non-owner staff member must never receive the owner's identity/
+          // financial/marketing secrets, even though the resolving client is
+          // service-role (RLS-bypassing). Owners keep the full projection.
+          merchant: redactMerchantSecretsForNonOwner(merchantInfo),
           staffAccess: {
             isStaff: true,
             isOwner: false,

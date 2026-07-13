@@ -5,6 +5,7 @@ import {
   fetchPrimaryDomain,
   normalizeFeatureSettings,
 } from './queries';
+import { NON_OWNER_REDACTED_FIELDS } from './redact-merchant-secrets-for-non-owner';
 
 // Helper to build a mock Supabase query chain
 function mockQueryChain(resolvedValue: { data: unknown; error: unknown }) {
@@ -192,6 +193,62 @@ describe('fetchDashboardMerchant', () => {
     expect(result.merchant?.bank_name).toBe('HDFC Bank');
     expect(result.staffAccess.isOwner).toBe(true);
     expect(result.staffAccess.isStaff).toBe(false);
+  });
+
+  it('redacts owner-only secrets for a non-owner staff member but keeps the merchant', async () => {
+    const supabase = createMockSupabase({
+      // Not the owner of any merchant.
+      merchants: mockQueryChain({ data: null, error: null }),
+      staff_members: mockQueryChain({
+        data: {
+          id: 'staff-1',
+          role: 'manager',
+          permissions: {},
+          status: 'active',
+          merchant_id: 'merchant-9',
+          merchants: {
+            id: 'merchant-9',
+            user_id: 'owner-user',
+            business_name: 'Staffed Store',
+            slug: 'staffed-store',
+            feature_settings: null,
+            support_email: 'ops@staffed-store.com',
+            // owner-only secrets the staffer must NOT receive:
+            bvn: '12345678901',
+            nin: '98765432109',
+            bank_account_number: '1234567890',
+            bank_account_name: 'Owner',
+            bank_code: '044',
+            bank_name: 'Access',
+            paystack_subaccount_code: 'ACCT_x',
+            stripe_customer_id: 'cus_x',
+            stripe_subscription_id: 'sub_x',
+            facebook_capi_token: 'fb-token',
+            ga4_api_secret: 'ga4-secret',
+            tiktok_access_token: 'tt-token',
+            snapchat_capi_token: 'snap-token',
+            virtual_terminal_code: 'VT-1',
+          },
+        },
+        error: null,
+      }),
+      role_permissions: mockQueryChain({
+        data: { permissions: { orders: { view: true } } },
+        error: null,
+      }),
+    });
+
+    const result = await fetchDashboardMerchant(supabase, 'staff-user');
+
+    expect(result.staffAccess.isStaff).toBe(true);
+    expect(result.staffAccess.isOwner).toBe(false);
+    expect(result.merchant?.id).toBe('merchant-9');
+    // Non-secret operational data is preserved for staff.
+    expect(result.merchant?.support_email).toBe('ops@staffed-store.com');
+    // Every owner-only secret is stripped.
+    for (const field of NON_OWNER_REDACTED_FIELDS) {
+      expect(result.merchant?.[field]).toBeUndefined();
+    }
   });
 
   it('treats owner rows without business details as incomplete', async () => {
