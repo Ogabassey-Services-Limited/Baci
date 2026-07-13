@@ -104,6 +104,9 @@ describe('fetchMerchantBySlug', () => {
     expect(selectArg).not.toContain('snapchat_capi_token');
     expect(selectArg).not.toContain('nin');
     expect(selectArg).not.toContain('bvn');
+    // S0-A: the anon column grant on public.merchants excludes this column, so
+    // re-adding it here would make fetchMerchantBySlug fail closed (42501).
+    expect(selectArg).not.toContain('google_product_sheet_url');
   });
 
   it('returns null when merchant not found', async () => {
