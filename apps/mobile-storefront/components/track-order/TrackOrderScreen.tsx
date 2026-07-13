@@ -5,12 +5,12 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { TrackOrderBottomAction } from './TrackOrderBottomAction';
 import { TrackOrderDetailsContent } from './TrackOrderDetailsContent';
+import { trackOrderScreenStyles as styles } from './TrackOrderScreen.styles';
 import { TrackOrderScreenHeader } from './TrackOrderScreenHeader';
 import {
   TrackOrderErrorState,
   TrackOrderLoadingState,
 } from './TrackOrderScreenState';
-import { trackOrderScreenStyles as styles } from './TrackOrderScreen.styles';
 import { useTrackOrderController } from './use-track-order-controller';
 
 export function TrackOrderScreen() {

@@ -7,7 +7,6 @@
  * - Semantic markup
  */
 
-import React from 'react';
 import { Text, View } from 'react-native';
 import type { CheckoutIdentityTheme } from '../colors';
 import { styles } from '../styles';

@@ -1,7 +1,8 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { SafeImage } from '@/components/ui/SafeImage';
-import Colors, { BRAND } from '@/constants/Colors';
+import type Colors from '@/constants/Colors';
+import { BRAND } from '@/constants/Colors';
 import type { Category } from '@/hooks';
 import { formatPrice, type Product } from '@/types/product';
 import { searchDropdownStyles as styles } from './SearchDropdown.styles';

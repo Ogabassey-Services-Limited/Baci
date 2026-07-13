@@ -10,7 +10,7 @@ describe('BNPL_VIEWPORT_JAVASCRIPT', () => {
     expect(BNPL_VIEWPORT_JAVASCRIPT).not.toContain('maximum-scale');
     expect(BNPL_VIEWPORT_JAVASCRIPT).not.toContain('user-scalable');
     expect(BNPL_VIEWPORT_JAVASCRIPT).toContain(
-      "document.querySelector('meta[name=\"viewport\"]')"
+      'document.querySelector(\'meta[name="viewport"]\')'
     );
   });
 
@@ -31,9 +31,7 @@ describe('BNPL_VIEWPORT_JAVASCRIPT', () => {
   });
 
   it('keeps the iOS input zoom fix scoped to form controls and dynamic content', () => {
-    expect(BNPL_VIEWPORT_JAVASCRIPT).toContain(
-      'input:not([type="button"])'
-    );
+    expect(BNPL_VIEWPORT_JAVASCRIPT).toContain('input:not([type="button"])');
     expect(BNPL_VIEWPORT_JAVASCRIPT).toContain('textarea');
     expect(BNPL_VIEWPORT_JAVASCRIPT).toContain('[contenteditable="true"]');
     expect(BNPL_VIEWPORT_JAVASCRIPT).toContain('new MutationObserver');

@@ -1,11 +1,11 @@
 import NetInfo from '@react-native-community/netinfo';
 import {
   DEFAULT_TIMEOUT,
+  fetchWithTimeout,
   LONG_TIMEOUT,
   NetworkError,
   SHORT_TIMEOUT,
   TimeoutError,
-  fetchWithTimeout,
 } from './fetch-with-timeout';
 import { createLogger } from './logger';
 
@@ -80,7 +80,7 @@ export function calculateBackoffDelay(
   baseDelay: number,
   maxDelay: number
 ): number {
-  const exponentialDelay = baseDelay * Math.pow(2, attempt);
+  const exponentialDelay = baseDelay * 2 ** attempt;
   const jitter = Math.random() * exponentialDelay * 0.25;
   return Math.min(maxDelay, exponentialDelay + jitter);
 }

@@ -83,38 +83,34 @@ describe('AddressAutocomplete regressions', () => {
     expect(screen.queryByLabelText('Loading address suggestions')).toBeNull();
   });
 
-  it(
-    'refreshes the portal when the anchor width changes in place',
-    async () => {
-      fetchMock.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ predictions: [prediction] }),
-        text: async () => '',
-      } as Response);
-      renderField();
-      const input = screen.getByRole('combobox');
-      fireEvent(input, 'focus');
-      fireEvent.changeText(input, 'Allen');
-      await act(async () => {
-        jest.advanceTimersByTime(300);
-        await Promise.resolve();
-        await Promise.resolve();
-      });
-      expect(
-        StyleSheet.flatten(
-          screen.getByLabelText('Address suggestions').props.style
-        ).width
-      ).toBe(343);
+  it('refreshes the portal when the anchor width changes in place', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ predictions: [prediction] }),
+      text: async () => '',
+    } as Response);
+    renderField();
+    const input = screen.getByRole('combobox');
+    fireEvent(input, 'focus');
+    fireEvent.changeText(input, 'Allen');
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(
+      StyleSheet.flatten(
+        screen.getByLabelText('Address suggestions').props.style
+      ).width
+    ).toBe(343);
 
-      measuredWidth = 280;
-      act(() => jest.advanceTimersByTime(120));
+    measuredWidth = 280;
+    act(() => jest.advanceTimersByTime(120));
 
-      expect(
-        StyleSheet.flatten(
-          screen.getByLabelText('Address suggestions').props.style
-        ).width
-      ).toBe(280);
-    },
-    30_000
-  );
+    expect(
+      StyleSheet.flatten(
+        screen.getByLabelText('Address suggestions').props.style
+      ).width
+    ).toBe(280);
+  }, 30_000);
 });

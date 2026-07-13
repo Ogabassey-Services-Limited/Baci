@@ -1,9 +1,9 @@
+import { z } from 'zod';
 import {
   createOrderWalletFundingIntent,
   getOrderWalletFundingIntent,
   WalletFundingIntentValidationError,
 } from '@/lib/order-wallet-funding-intent';
-import { z } from 'zod';
 
 const mockFetchJson = jest.fn();
 const intentId = '11111111-1111-4111-8111-111111111111';

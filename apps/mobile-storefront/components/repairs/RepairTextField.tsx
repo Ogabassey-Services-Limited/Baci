@@ -59,7 +59,9 @@ export function RepairTextField({
         accessibilityLabel={label}
       />
       {error ? (
-        <Text style={[styles.fieldError, { color: colors.error }]}>{error}</Text>
+        <Text style={[styles.fieldError, { color: colors.error }]}>
+          {error}
+        </Text>
       ) : null}
     </View>
   );

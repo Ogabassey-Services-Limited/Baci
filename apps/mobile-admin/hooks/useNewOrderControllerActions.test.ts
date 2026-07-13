@@ -3,11 +3,11 @@ import type {
   OrderItem,
   SelectableOrderProduct,
 } from '@/components/orders/new-order.types';
-import type { Product } from './useProducts';
 import {
   createChangeEditingItemVariantHandler,
   getSelectableProductRows,
 } from './useNewOrderControllerActions';
+import type { Product } from './useProducts';
 
 describe('createChangeEditingItemVariantHandler', () => {
   it('opens the variant picker for the current editable variant line without using the old variant image as a fallback', () => {

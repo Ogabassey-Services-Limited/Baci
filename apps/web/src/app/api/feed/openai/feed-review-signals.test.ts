@@ -115,10 +115,7 @@ describe('hydrateOpenAIFeedProductsWithReviewSignals', () => {
   });
 
   it('marks review signals unknown when review hydration fails', async () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress expected warning
-      () => {}
-    );
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { supabase } = createReviewSupabaseMock([
       {
         data: null,

@@ -100,15 +100,15 @@ ${indent}  echo "warning: ${POSTHOG_DSYM_UPLOAD_WARNING}"
 ${indent}fi`;
   };
 
-  const wrappedScript = ['/bin/sh "$PODS_SCRIPT"', '/bin/sh "$SPM_SCRIPT"'].reduce(
-    (patchedScript, command) => {
-      return patchedScript
-        .split('\n')
-        .map((line) => wrapCommand(line, command))
-        .join('\n');
-    },
-    bestEffortScript
-  );
+  const wrappedScript = [
+    '/bin/sh "$PODS_SCRIPT"',
+    '/bin/sh "$SPM_SCRIPT"',
+  ].reduce((patchedScript, command) => {
+    return patchedScript
+      .split('\n')
+      .map((line) => wrapCommand(line, command))
+      .join('\n');
+  }, bestEffortScript);
 
   return /(?:^|\n)\s*exit 0\s*$/.test(wrappedScript.trimEnd())
     ? wrappedScript

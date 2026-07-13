@@ -22,8 +22,8 @@ export interface OrderReportSummary {
   completedCount: number;
   pendingCount: number;
   processingCount: number;
-  salesByOrigin: Array<[string, GroupedOrderMetric]>;
-  salesByPaymentMethod: Array<[string, GroupedOrderMetric]>;
+  salesByOrigin: [string, GroupedOrderMetric][];
+  salesByPaymentMethod: [string, GroupedOrderMetric][];
   topProduct: TopProductInsight | null;
   totalDiscounts: number;
   totalOrders: number;

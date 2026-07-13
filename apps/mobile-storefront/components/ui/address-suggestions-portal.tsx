@@ -139,9 +139,7 @@ function AddressSuggestionsHost({ store }: { store: SuggestionsStore }) {
   if (maxHeight === 0) {
     return null;
   }
-  const top = placeAbove
-    ? Math.max(0, aboveBottom - maxHeight)
-    : belowTop;
+  const top = placeAbove ? Math.max(0, aboveBottom - maxHeight) : belowTop;
 
   return (
     <View style={[StyleSheet.absoluteFill, { pointerEvents: 'box-none' }]}>

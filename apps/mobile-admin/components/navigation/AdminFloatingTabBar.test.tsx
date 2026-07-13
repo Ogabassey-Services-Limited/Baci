@@ -153,9 +153,7 @@ function getRenderedElementStyle(element: Element) {
 }
 
 function getRenderedChildStyles(testID: string) {
-  return Array.from(
-    screen.getByTestId(testID).querySelectorAll('[data-style]')
-  )
+  return Array.from(screen.getByTestId(testID).querySelectorAll('[data-style]'))
     .map((element) => element.getAttribute('data-style'))
     .filter((styleAttribute): styleAttribute is string =>
       Boolean(styleAttribute)

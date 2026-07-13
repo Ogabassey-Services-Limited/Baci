@@ -1,6 +1,6 @@
-import { Pressable, Modal, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND, RADIUS, SPACING, palette } from '@/constants/Colors';
+import Colors, { BRAND, palette, RADIUS, SPACING } from '@/constants/Colors';
 import type { MobileUpdatePrompt } from './mobile-update-check';
 
 interface MobileUpdateModalProps {
@@ -25,7 +25,9 @@ function getAcceptLabel(prompt: MobileUpdatePrompt) {
   return prompt.kind === 'ota-available' ? 'Update now' : 'Open store';
 }
 
-const ignoreRequiredModalCloseRequest = () => {};
+const ignoreRequiredModalCloseRequest = () => {
+  // No-op: required updates must not be dismissible via the Android back button.
+};
 
 export function MobileUpdateModal({
   onAccept,
@@ -82,7 +84,12 @@ export function MobileUpdateModal({
               onPress={onDismiss}
               style={styles.secondaryButton}
             >
-              <Text style={[styles.secondaryButtonText, { color: colors.textSecondary }]}>
+              <Text
+                style={[
+                  styles.secondaryButtonText,
+                  { color: colors.textSecondary },
+                ]}
+              >
                 Later
               </Text>
             </Pressable>

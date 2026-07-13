@@ -1,4 +1,5 @@
 import type { ConversionData } from './ad-tracking.types';
+import { AD_TRACKING_PLATFORM } from './ad-tracking-runtime';
 import {
   AD_API_URL,
   getCachedMerchantId,
@@ -6,7 +7,6 @@ import {
   getIsTrackingAllowed,
   adTrackingLog as log,
 } from './ad-tracking-state';
-import { AD_TRACKING_PLATFORM } from './ad-tracking-runtime';
 
 const SERVER_CONVERSION_TIMEOUT_MS = 5000;
 

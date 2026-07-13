@@ -23,9 +23,9 @@ describe('resolveStorefrontApiBaseUrl', () => {
     expect(resolveStorefrontApiBaseUrl('http://ogabassey.com')).toBe(
       'http://ogabassey.com'
     );
-    expect(
-      resolveStorefrontApiBaseUrl('https://ogabassey.usebaci.com')
-    ).toBe('https://ogabassey.usebaci.com');
+    expect(resolveStorefrontApiBaseUrl('https://ogabassey.usebaci.com')).toBe(
+      'https://ogabassey.usebaci.com'
+    );
     expect(resolveStorefrontApiBaseUrl('https://ogabassey.com')).toBe(
       'https://ogabassey.com'
     );

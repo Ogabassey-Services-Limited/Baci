@@ -4,10 +4,10 @@ import {
   getProductPickerRowSubtitle,
   getProductPickerRowTitle,
 } from '@/lib/order-product-picker';
-import { MODAL_FLATLIST_PROPS } from './new-order.shared';
-import { styles } from './new-order.styles';
 import type { NewOrderProductSheetController } from './NewOrderProductSheet';
 import { NewOrderProductSheetEmptyState } from './NewOrderProductSheetEmptyState';
+import { MODAL_FLATLIST_PROPS } from './new-order.shared';
+import { styles } from './new-order.styles';
 
 const PRODUCT_PICKER_LIST_BOTTOM_PADDING = 128;
 const PRODUCT_PICKER_ROW_HEIGHT = 64;

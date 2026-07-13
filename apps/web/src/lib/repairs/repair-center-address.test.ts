@@ -116,10 +116,7 @@ describe('getRepairCenterAddress', () => {
   });
 
   it('returns null and logs when the query errors', async () => {
-    const consoleSpy = vi
-      .spyOn(console, 'error')
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress expected test logging
-      .mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     mocks.maybeSingle.mockResolvedValueOnce({
       data: null,
       error: { message: 'boom' },

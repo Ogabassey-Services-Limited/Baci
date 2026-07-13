@@ -18,7 +18,7 @@ export function useAnalyticsOverview(range: AnalyticsDateRange) {
       range.endDate.toISOString(),
       branchScopeKey,
     ],
-    queryFn: async () => {
+    queryFn: () => {
       const params = new URLSearchParams({
         endDate: range.endDate.toISOString(),
         startDate: range.startDate.toISOString(),

@@ -177,7 +177,7 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
   });
 
   const createBranchMutation = useMutation({
-    mutationFn: async ({ name, city }: { name: string; city?: string }) => {
+    mutationFn: ({ name, city }: { name: string; city?: string }) => {
       const normalizedCity = city?.trim() || undefined;
       const validation = CreateBranchSchema.safeParse({
         name,

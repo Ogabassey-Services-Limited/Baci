@@ -333,10 +333,7 @@ describe('getCachedOpenAIFeedData', () => {
   });
 
   it('throws when the feed image manifest query fails', async () => {
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress console.error noise in tests
-      () => {}
-    );
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     manifestResult = {
       data: null,
       error: { message: 'manifest unavailable' },
@@ -517,10 +514,7 @@ describe('getCachedOpenAIFeedData', () => {
   });
 
   it('throws and logs when products query fails', async () => {
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress console.error noise in tests
-      () => {}
-    );
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     productsResult = {
       data: null,
       error: { message: 'connection error' },
@@ -766,10 +760,7 @@ describe('getCachedOpenAIFeedData', () => {
       data: null,
       error: { message: 'reviews unavailable' },
     };
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress console.warn noise in tests
-      () => {}
-    );
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     const { getCachedOpenAIFeedData } = await import('./feed-data');
     const result = await getCachedOpenAIFeedData('merchant-1', true);

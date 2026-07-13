@@ -145,10 +145,7 @@ describe('GET /api/feed/tiktok', () => {
   });
 
   it('returns 500 when the feed data fetch fails', async () => {
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress console.error noise in tests
-      () => {}
-    );
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     mockGetCachedGoogleMerchantFeedData.mockRejectedValue(
       new Error('Database error')
     );

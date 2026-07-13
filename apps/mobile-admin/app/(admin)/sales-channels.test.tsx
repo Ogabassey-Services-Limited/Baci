@@ -24,7 +24,7 @@ vi.mock('react-native', () => {
     Pressable: ({ children, onPress, style }: NativeProps) =>
       React.createElement(
         'button',
-        { ...styleAttribute(style), onClick: onPress },
+        { ...styleAttribute(style), onClick: onPress, type: 'button' },
         children
       ),
     ScrollView: ({ children, style }: NativeProps) =>

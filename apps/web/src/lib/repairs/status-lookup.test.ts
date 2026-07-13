@@ -58,10 +58,7 @@ describe('lookupRepairStatus', () => {
   });
 
   it('returns not found (never throws) when the RPC errors', async () => {
-    const consoleSpy = vi
-      .spyOn(console, 'error')
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress expected test logging
-      .mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const { supabase } = makeSupabase({ data: null, error: { message: 'x' } });
     try {
       expect(await lookupRepairStatus(supabase, 'm-1', 9, 'x@y.com')).toEqual({

@@ -42,13 +42,13 @@ function Host(props: HookParams) {
 
 describe('useIntentScrollIntoView', () => {
   beforeEach(() => {
+    jest.spyOn(global, 'requestAnimationFrame').mockImplementation((cb) => {
+      cb(0);
+      return 0 as unknown as number;
+    });
     jest
-      .spyOn(global, 'requestAnimationFrame')
-      .mockImplementation((cb) => {
-        cb(0);
-        return 0 as unknown as number;
-      });
-    jest.spyOn(global, 'cancelAnimationFrame').mockImplementation(() => undefined);
+      .spyOn(global, 'cancelAnimationFrame')
+      .mockImplementation(() => undefined);
   });
 
   afterEach(() => {

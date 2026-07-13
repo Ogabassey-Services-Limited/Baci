@@ -12,11 +12,11 @@
 import { createClient, processLock } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+import { registerAuthRefreshLifecycle } from './auth/auth-refresh-lifecycle';
 import {
   authSessionStorage,
   getDefaultSupabaseAuthStorageKey,
 } from './auth/auth-session-storage';
-import { registerAuthRefreshLifecycle } from './auth/auth-refresh-lifecycle';
 import { createLogger } from './logger';
 
 const log = createLogger('Supabase');
@@ -47,8 +47,7 @@ const supabasePublishableKey =
 const legacySupabaseAnonKey =
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || expoExtra.supabaseAnonKey || '';
 const supabaseClientKey = supabasePublishableKey || legacySupabaseAnonKey;
-const isUsingLegacyAnonKey =
-  !supabasePublishableKey && !!legacySupabaseAnonKey;
+const isUsingLegacyAnonKey = !supabasePublishableKey && !!legacySupabaseAnonKey;
 
 function getValidSupabaseUrl(url: string): string {
   try {
@@ -160,12 +159,11 @@ const authOptions = isServerRuntime
 /**
  * Supabase client instance with platform-appropriate auth storage
  */
-const supabaseClient =
-  hasSupabaseCredentials
-    ? createClient(validSupabaseUrl, supabaseClientKey, {
-        auth: authOptions,
-      })
-    : createMissingCredentialsClient();
+const supabaseClient = hasSupabaseCredentials
+  ? createClient(validSupabaseUrl, supabaseClientKey, {
+      auth: authOptions,
+    })
+  : createMissingCredentialsClient();
 
 if (hasSupabaseCredentials && !isServerRuntime && isNativeRuntime) {
   registerAuthRefreshLifecycle(supabaseClient.auth);
@@ -221,4 +219,4 @@ export async function signOut() {
   }
 }
 
-export { calculateCommerce, CommerceError } from './commerce-brain';
+export { CommerceError, calculateCommerce } from './commerce-brain';

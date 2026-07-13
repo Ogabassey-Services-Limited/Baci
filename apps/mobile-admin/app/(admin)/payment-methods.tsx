@@ -62,7 +62,7 @@ export default function PaymentMethodsScreen() {
     refetch,
   } = useQuery({
     queryKey: ['payment-settings', merchant?.id],
-    queryFn: async () => {
+    queryFn: () => {
       if (!merchant?.id) throw new Error('Merchant not found');
       return fetchPaymentSettings(merchant.id, paymentSettingsSelectColumns);
     },

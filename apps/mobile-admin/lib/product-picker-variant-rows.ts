@@ -1,4 +1,4 @@
-import type { VariantAttributeValue, VariantAttributes } from '@baci/shared';
+import type { VariantAttributes, VariantAttributeValue } from '@baci/shared';
 import { formatVariantAttributesSummary } from '@/lib/format-variant-attributes';
 
 export type { VariantAttributes } from '@baci/shared';
@@ -120,7 +120,9 @@ function normalizeVariantAttributeValue(
   );
 }
 
-function normalizeVariantAttributeArray(value: unknown[]): VariantAttributes | null {
+function normalizeVariantAttributeArray(
+  value: unknown[]
+): VariantAttributes | null {
   const entries = value.flatMap((entry) => {
     if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
       return [];

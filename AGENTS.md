@@ -229,11 +229,11 @@ pnpm turbo test        # All tests pass
 
 Before shipping or committing, run CodeRabbit AI review:
 ```bash
-coderabbit review --prompt-only -t uncommitted
+coderabbit review --agent -t uncommitted
 ```
 - Fix all critical and high severity issues before committing.
 - CodeRabbit reads your project rules automatically (CLAUDE.md, AGENTS.md).
-- Use `--prompt-only` flag so output is concise and machine-readable.
+- Use the `--agent` flag for structured, machine-readable findings (the old `--prompt-only` flag was removed from the CLI).
 
 
 

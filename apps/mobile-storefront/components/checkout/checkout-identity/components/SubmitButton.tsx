@@ -1,5 +1,4 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import React from 'react';
 import { ActivityIndicator, Text, TouchableOpacity } from 'react-native';
 import { useHaptics } from '@/hooks/use-haptics';
 import type { CheckoutIdentityTheme } from '../colors';

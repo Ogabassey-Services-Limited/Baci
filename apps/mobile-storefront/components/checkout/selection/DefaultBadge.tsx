@@ -11,7 +11,9 @@ interface DefaultBadgeProps {
  * solid red text. Not pressable; not a selection. Used for "Default" and, on
  * delivery, the "Free" pickup price.
  */
-export function DefaultBadge({ label = 'Default' }: DefaultBadgeProps): ReactElement {
+export function DefaultBadge({
+  label = 'Default',
+}: DefaultBadgeProps): ReactElement {
   return (
     <View style={styles.badge}>
       <Text style={styles.text}>{label}</Text>

@@ -184,9 +184,7 @@ describe('PaymentMethodSelector', () => {
     });
     // Below the BNPL floor the whole intent is unavailable; a plain-language
     // hint replaces the marketing subtitle instead of expanding disabled rows.
-    expect(
-      screen.getByText('Available for orders from ₦10,000')
-    ).toBeTruthy();
+    expect(screen.getByText('Available for orders from ₦10,000')).toBeTruthy();
 
     fireEvent.press(intentCard);
 

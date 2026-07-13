@@ -51,7 +51,9 @@ describe('UsernamePrompt', () => {
     fireEvent.changeText(screen.getByLabelText('Username'), '  ogafan  ');
     fireEvent.press(screen.getByRole('button', { name: 'Save username' }));
 
-    expect(await screen.findByRole('button', { name: 'Save username' })).toBeTruthy();
+    expect(
+      await screen.findByRole('button', { name: 'Save username' })
+    ).toBeTruthy();
     expect(mockSetUsername).toHaveBeenCalledWith('ogafan');
     await Promise.resolve();
     expect(onSuccess).toHaveBeenCalledWith('ogafan');
@@ -111,7 +113,7 @@ describe('UsernamePrompt', () => {
     ).toHaveAccessibilityState({ disabled: false });
   });
 
-  it('keeps the user\'s typed value when initialValue is unchanged on re-render', () => {
+  it("keeps the user's typed value when initialValue is unchanged on re-render", () => {
     const { rerender } = render(<UsernamePrompt initialValue="" />);
 
     fireEvent.changeText(screen.getByLabelText('Username'), 'typed_name');

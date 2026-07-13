@@ -9,8 +9,8 @@ import {
 import { render, waitFor } from '@testing-library/react-native';
 import { Platform, Text } from 'react-native';
 import {
-  NavigationBarStyleProvider,
   type NavigationBarButtonStyle,
+  NavigationBarStyleProvider,
   useNavigationBarStyleOverride,
 } from './NavigationBarStyleProvider';
 

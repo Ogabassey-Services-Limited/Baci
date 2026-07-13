@@ -43,7 +43,8 @@ export function createNewOrderTotals({
   shippingFee,
   taxes,
 }: NewOrderTotalsParams) {
-  const normalizedCurrency = normalizeMerchantCurrency(merchantCurrency) || 'NGN';
+  const normalizedCurrency =
+    normalizeMerchantCurrency(merchantCurrency) || 'NGN';
   const orderTotalLocale = getOrderTotalLocale(normalizedCurrency);
 
   const formatPrice = (amount: number) => {

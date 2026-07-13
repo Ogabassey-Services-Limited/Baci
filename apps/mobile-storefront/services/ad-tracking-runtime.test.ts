@@ -179,14 +179,12 @@ describe('ad-tracking runtime initialization', () => {
     const initializeStarted = new Promise<void>((resolve) => {
       signalInitializeStarted = resolve;
     });
-    const initializeTikTok = jest.fn(
-      () => {
-        signalInitializeStarted();
-        return new Promise<boolean>((resolve) => {
-          resolveTikTok = resolve;
-        });
-      }
-    );
+    const initializeTikTok = jest.fn(() => {
+      signalInitializeStarted();
+      return new Promise<boolean>((resolve) => {
+        resolveTikTok = resolve;
+      });
+    });
     mockGetTrackingPermissionStatus.mockResolvedValue({ status: 'granted' });
     setMockExpoConfigExtra({
       apiUrl: 'https://api.test',

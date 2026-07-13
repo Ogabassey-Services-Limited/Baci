@@ -1,5 +1,4 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import type { CheckoutIdentityTheme } from '../colors';
 import { styles } from '../styles';
@@ -9,10 +8,7 @@ interface CreateAccountCardProps {
   theme: CheckoutIdentityTheme;
 }
 
-export function CreateAccountCard({
-  onPress,
-  theme,
-}: CreateAccountCardProps) {
+export function CreateAccountCard({ onPress, theme }: CreateAccountCardProps) {
   return (
     <View
       style={[

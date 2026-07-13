@@ -18,11 +18,11 @@ import {
   type VariantPricingUpdate,
 } from '@/lib/variant-group-pricing';
 import { PriceInput } from './PriceInput';
-import { productVariantsCardStyles as styles } from './product-variants-card.styles';
 import { ProductVariantsCardHeader } from './ProductVariantsCardHeader';
+import { productVariantsCardStyles as styles } from './product-variants-card.styles';
 import { VariantAccordionList } from './VariantAccordionList';
-import { VariantCardActions } from './VariantCardActions';
 import { VariantBuilderSheet } from './VariantBuilderSheet';
+import { VariantCardActions } from './VariantCardActions';
 import { VariantFilterChips } from './VariantFilterChips';
 import { VariantGroupPricingSheet } from './VariantGroupPricingSheet';
 
@@ -87,7 +87,8 @@ export function ProductVariantsCard({
   const [isBuilderVisible, setIsBuilderVisible] = useState(false);
   const [isPricingVisible, setIsPricingVisible] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
-  const [filterSelection, setFilterSelection] = useState<VariantFilterSelection>({});
+  const [filterSelection, setFilterSelection] =
+    useState<VariantFilterSelection>({});
 
   const totalStock = getTotalVariantStock(variants);
   const axes = getVariantAxes(variants);
@@ -102,7 +103,9 @@ export function ProductVariantsCard({
 
   useEffect(() => {
     const nextAxes = getVariantAxes(variants);
-    const nextSelection = canFilterVariants ? pruneVariantFilterSelection(filterSelection, nextAxes) : {};
+    const nextSelection = canFilterVariants
+      ? pruneVariantFilterSelection(filterSelection, nextAxes)
+      : {};
     if (!areVariantFilterSelectionsEqual(filterSelection, nextSelection)) {
       setFilterSelection(nextSelection);
     }
@@ -198,11 +201,7 @@ export function ProductVariantsCard({
           onPress={() => setIsPricingVisible(true)}
           style={[styles.bulkButton, { borderColor: colors.primary }]}
         >
-          <Ionicons
-            color={colors.primary}
-            name="pricetags-outline"
-            size={16}
-          />
+          <Ionicons color={colors.primary} name="pricetags-outline" size={16} />
           <Text style={[styles.bulkButtonText, { color: colors.primary }]}>
             Set prices in bulk
           </Text>

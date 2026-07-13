@@ -48,8 +48,8 @@ export function QuizUsernameGateModal({
         </Pressable>
       </View>
       <Text style={[styles.helperText, { color: colors.textSecondary }]}>
-        Winners are announced by username, not your full name. Set one to
-        start this quiz.
+        Winners are announced by username, not your full name. Set one to start
+        this quiz.
       </Text>
       <UsernamePrompt onSuccess={onSuccess} submitLabel="Continue" />
     </ModalSheet>

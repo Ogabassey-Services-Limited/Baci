@@ -1,7 +1,8 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { FlashList } from '@shopify/flash-list';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
-import Colors, { BRAND, SPACING } from '@/constants/Colors';
+import type Colors from '@/constants/Colors';
+import { BRAND, SPACING } from '@/constants/Colors';
 import type { Product } from '@/types/product';
 import { searchOverlayStyles as styles } from './SearchOverlay.styles';
 

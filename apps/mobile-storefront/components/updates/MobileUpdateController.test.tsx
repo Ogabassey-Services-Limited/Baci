@@ -1,5 +1,17 @@
-import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  jest,
+} from '@jest/globals';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react-native';
 import {
   AppState,
   type AppStateStatus,
@@ -105,20 +117,24 @@ describe('MobileUpdateController', () => {
     mockAppStateListeners.clear();
     mockPathname = '/';
     setPlatformOS('ios');
-    jest.spyOn(AppState, 'addEventListener').mockImplementation(
-      (
-        _event: Parameters<typeof AppState.addEventListener>[0],
-        listener: Parameters<typeof AppState.addEventListener>[1]
-      ) => {
-        mockAppStateListeners.add(listener);
-        return {
-          remove: () => {
-            mockAppStateListeners.delete(listener);
-          },
-        } as ReturnType<typeof AppState.addEventListener>;
-      }
-    );
-    jest.spyOn(Linking, 'openURL').mockImplementation((url) => mockOpenUrl(url));
+    jest
+      .spyOn(AppState, 'addEventListener')
+      .mockImplementation(
+        (
+          _event: Parameters<typeof AppState.addEventListener>[0],
+          listener: Parameters<typeof AppState.addEventListener>[1]
+        ) => {
+          mockAppStateListeners.add(listener);
+          return {
+            remove: () => {
+              mockAppStateListeners.delete(listener);
+            },
+          } as ReturnType<typeof AppState.addEventListener>;
+        }
+      );
+    jest
+      .spyOn(Linking, 'openURL')
+      .mockImplementation((url) => mockOpenUrl(url));
     mockFetchUpdateAsync.mockResolvedValue(undefined);
     mockReloadAsync.mockResolvedValue(undefined);
     mockOpenUrl.mockResolvedValue(undefined);
@@ -211,7 +227,9 @@ describe('MobileUpdateController', () => {
 
     render(<MobileUpdateController />);
 
-    fireEvent.press(await screen.findByRole('button', { name: 'accept update' }));
+    fireEvent.press(
+      await screen.findByRole('button', { name: 'accept update' })
+    );
 
     await waitFor(() => {
       expect(mockFetchUpdateAsync).toHaveBeenCalledTimes(1);
@@ -228,7 +246,9 @@ describe('MobileUpdateController', () => {
 
     render(<MobileUpdateController />);
 
-    fireEvent.press(await screen.findByRole('button', { name: 'accept update' }));
+    fireEvent.press(
+      await screen.findByRole('button', { name: 'accept update' })
+    );
 
     await waitFor(() => {
       expect(mockOpenUrl).toHaveBeenCalledWith(
@@ -276,7 +296,9 @@ describe('MobileUpdateController', () => {
 
     render(<MobileUpdateController />);
 
-    fireEvent.press(await screen.findByRole('button', { name: 'accept update' }));
+    fireEvent.press(
+      await screen.findByRole('button', { name: 'accept update' })
+    );
 
     await waitFor(() => {
       expect(screen.queryByText('prompt:ota-available')).toBeNull();
@@ -293,7 +315,9 @@ describe('MobileUpdateController', () => {
 
     render(<MobileUpdateController />);
 
-    fireEvent.press(await screen.findByRole('button', { name: 'accept update' }));
+    fireEvent.press(
+      await screen.findByRole('button', { name: 'accept update' })
+    );
 
     await waitFor(() => {
       expect(mockOpenUrl).toHaveBeenCalledWith(

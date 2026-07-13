@@ -1,6 +1,6 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Text, View } from 'react-native';
-import Colors from '@/constants/Colors';
+import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
 import { formatPrice } from '@/stores/cart-store';
 import { paymentMethodSelectorStyles as styles } from './styles';
@@ -62,7 +62,10 @@ export function PaymentMethodStatusPanels({
           <View style={styles.installmentTextContainer}>
             {isBNPLEligible ? (
               <Text
-                style={[styles.installmentDesc, { color: colors.textSecondary }]}
+                style={[
+                  styles.installmentDesc,
+                  { color: colors.textSecondary },
+                ]}
               >
                 Interest rates vary. Breakdown shown during Checkout
               </Text>
@@ -154,7 +157,6 @@ export function PaymentMethodStatusPanels({
           </Text>
         </View>
       ) : null}
-
     </>
   );
 }

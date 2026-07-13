@@ -3,8 +3,8 @@ import { Stack } from 'expo-router';
 import { Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AppKeyboardAwareScrollView from '@/components/ui/AppKeyboardAwareScrollView';
-import { LoginScreenContent } from './LoginScreenContent';
 import { loginScreenStyles as styles } from './LoginScreen.styles';
+import { LoginScreenContent } from './LoginScreenContent';
 import { useLoginScreenController } from './useLoginScreenController';
 
 export function LoginScreen() {

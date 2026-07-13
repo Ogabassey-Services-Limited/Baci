@@ -251,7 +251,6 @@ describe('useOrderDetailsController', () => {
     alertSpy.mockRestore();
   });
 
-
   it('alerts when cancellation fails for a non-conflict reason', async () => {
     mockCancelOrder.mockRejectedValue(new Error('network down'));
     const alertMessages: string[] = [];

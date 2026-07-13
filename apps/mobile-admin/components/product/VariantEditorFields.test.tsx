@@ -55,7 +55,11 @@ vi.mock('./VariantAttributesEditor', () => ({
     ) => void;
   }) => (
     <div>
-      <button aria-label="Add attribute" onClick={onAddAttribute} type="button" />
+      <button
+        aria-label="Add attribute"
+        onClick={onAddAttribute}
+        type="button"
+      />
       <button
         aria-label="Remove attribute 1"
         onClick={() => onRemoveAttribute(0)}
@@ -190,15 +194,11 @@ describe('VariantEditorFields', () => {
       screen.getByRole('button', { name: 'Set variant condition' })
     );
     fireEvent.click(screen.getByRole('button', { name: 'Add attribute' }));
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Remove attribute 1' })
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Remove attribute 1' }));
     fireEvent.click(
       screen.getByRole('button', { name: 'Set attribute 1 key' })
     );
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Remove variant 1' })
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Remove variant 1' }));
 
     expect(onUpdate).toHaveBeenCalledWith({ sku: 'SKU-2' });
     expect(onUpdate).toHaveBeenCalledWith({ price: 1250 });

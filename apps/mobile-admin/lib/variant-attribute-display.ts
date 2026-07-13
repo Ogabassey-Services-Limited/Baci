@@ -56,7 +56,8 @@ export interface IndexedVariantAttribute {
 export function isMetaAttributeKey(key: string): boolean {
   const normalized = key.trim().toLowerCase();
   return (
-    META_ATTRIBUTE_KEYS.has(normalized) || META_ATTRIBUTE_SUFFIX.test(normalized)
+    META_ATTRIBUTE_KEYS.has(normalized) ||
+    META_ATTRIBUTE_SUFFIX.test(normalized)
   );
 }
 
@@ -84,7 +85,10 @@ export function getVariantSwatch(
       .trim()
       .toLowerCase()
       .replace(META_ATTRIBUTE_SUFFIX, '');
-    if (isMetaAttributeKey(attribute.key) && COLOR_ATTRIBUTE_KEYS.has(baseKey)) {
+    if (
+      isMetaAttributeKey(attribute.key) &&
+      COLOR_ATTRIBUTE_KEYS.has(baseKey)
+    ) {
       const hex = normalizeHex(attribute.value);
       if (hex) {
         return hex;

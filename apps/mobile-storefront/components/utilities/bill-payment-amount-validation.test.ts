@@ -2,13 +2,13 @@ import { getBillPaymentAmountError } from './bill-payment-amount-validation';
 
 describe('getBillPaymentAmountError', () => {
   it('rejects non-finite amounts', () => {
-    expect(getBillPaymentAmountError(NaN, null)).toBe(
+    expect(getBillPaymentAmountError(Number.NaN, null)).toBe(
       'Please enter a valid amount.'
     );
-    expect(getBillPaymentAmountError(Infinity, null)).toBe(
+    expect(getBillPaymentAmountError(Number.POSITIVE_INFINITY, null)).toBe(
       'Please enter a valid amount.'
     );
-    expect(getBillPaymentAmountError(-Infinity, null)).toBe(
+    expect(getBillPaymentAmountError(Number.NEGATIVE_INFINITY, null)).toBe(
       'Please enter a valid amount.'
     );
   });

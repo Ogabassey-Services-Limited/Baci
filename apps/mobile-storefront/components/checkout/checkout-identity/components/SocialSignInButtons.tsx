@@ -1,10 +1,9 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import React from 'react';
 import { Platform, Text, TouchableOpacity, View } from 'react-native';
 import { GoogleLogo } from '../../../icons/GoogleLogo';
 import type { CheckoutIdentityTheme } from '../colors';
-import type { SocialSignInButtonsProps } from '../types';
 import { styles } from '../styles';
+import type { SocialSignInButtonsProps } from '../types';
 
 interface ThemedSocialSignInButtonsProps extends SocialSignInButtonsProps {
   theme: CheckoutIdentityTheme;

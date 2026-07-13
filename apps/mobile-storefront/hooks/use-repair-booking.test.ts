@@ -50,7 +50,8 @@ describe('useRepairBooking', () => {
   });
 
   it('sets isSubmitting true while the request is in flight', async () => {
-    let resolveFn: (value: { id: string; ticketNumber: number }) => void = () => {};
+    let resolveFn: (value: { id: string; ticketNumber: number }) => void =
+      () => {};
     mocks.mockReturnValueOnce(
       new Promise((resolve) => {
         resolveFn = resolve;

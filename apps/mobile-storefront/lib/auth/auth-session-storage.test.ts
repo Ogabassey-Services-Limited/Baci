@@ -12,12 +12,10 @@ jest.mock('expo-secure-store', () => ({
   setItemAsync: jest.fn(),
 }));
 
-const {
-  authSessionStorage,
-  getDefaultSupabaseAuthStorageKey,
-} = jest.requireActual<typeof import('./auth-session-storage')>(
-  './auth-session-storage'
-);
+const { authSessionStorage, getDefaultSupabaseAuthStorageKey } =
+  jest.requireActual<typeof import('./auth-session-storage')>(
+    './auth-session-storage'
+  );
 const mockSecureStore = jest.requireMock<typeof import('expo-secure-store')>(
   'expo-secure-store'
 ) as jest.Mocked<typeof import('expo-secure-store')>;

@@ -75,9 +75,11 @@ describe('useWalletFundPanelAutoCreate', () => {
   it('auto-creates once when availability flips false→true on an empty-amount open', async () => {
     // The needsPhone flow mounts the panel empty and ineligible; once the phone
     // saves, availability flips and the DVA must auto-create exactly once.
-    const { onCreateFundingAccount, rerender, initialProps } = renderAutoCreate({
-      canCreateFundingAccount: false,
-    });
+    const { onCreateFundingAccount, rerender, initialProps } = renderAutoCreate(
+      {
+        canCreateFundingAccount: false,
+      }
+    );
 
     expect(onCreateFundingAccount).not.toHaveBeenCalled();
 

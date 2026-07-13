@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react-native';
+import type { QuizPrizeClaim } from '@/services/quiz';
 import { useCartStore } from '@/stores/cart-store';
 import type { Product } from '@/types/product';
-import type { QuizPrizeClaim } from '@/services/quiz';
 import { useQuizPrizeClaim } from './use-quiz-prize-claim';
 
 const mockPush = jest.fn();

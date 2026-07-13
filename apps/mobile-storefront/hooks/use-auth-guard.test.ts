@@ -39,8 +39,8 @@ jest.mock('@/stores/auth-store', () => {
   };
 });
 
-import { useAuthGuard, useAuthStatus, useRequireAuth } from './use-auth-guard';
 import { useAuthStore } from '@/stores/auth-store';
+import { useAuthGuard, useAuthStatus, useRequireAuth } from './use-auth-guard';
 
 function makeUser(id: string): User {
   return {

@@ -40,9 +40,7 @@ vi.mock('react-native-safe-area-context', () => ({
 
 vi.mock('react-native', () => ({
   Alert: { alert: vi.fn() },
-  ScrollView: ({ children }: { children?: ReactNode }) => (
-    <div>{children}</div>
-  ),
+  ScrollView: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   StatusBar: () => null,
   StyleSheet: {
     create: (stylesInput: Record<string, unknown>) => stylesInput,

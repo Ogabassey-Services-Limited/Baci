@@ -208,7 +208,11 @@ export default function SetupChecklistScreen() {
           </Text>
         </View>
 
-        <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+        <Ionicons
+          name="chevron-forward"
+          size={20}
+          color={colors.textSecondary}
+        />
       </Pressable>
     );
   };

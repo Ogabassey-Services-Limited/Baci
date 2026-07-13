@@ -25,9 +25,9 @@ describe('customer order status helpers', () => {
   });
 
   it('uses the merchant name in status copy when provided', () => {
-    expect(getCustomerOrderStatusMeta('confirmed', 'Ogabassey').description).toBe(
-      'Ogabassey has confirmed your order and is getting it ready.'
-    );
+    expect(
+      getCustomerOrderStatusMeta('confirmed', 'Ogabassey').description
+    ).toBe('Ogabassey has confirmed your order and is getting it ready.');
     expect(getCustomerOrderStatusMeta('shipped', 'Ogabassey').description).toBe(
       'Your order has left Ogabassey and is heading to you.'
     );

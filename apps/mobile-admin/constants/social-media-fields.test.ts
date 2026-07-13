@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  EMPTY_SOCIAL_MEDIA,
-  SOCIAL_MEDIA_FIELDS,
-} from './social-media-fields';
+import { EMPTY_SOCIAL_MEDIA, SOCIAL_MEDIA_FIELDS } from './social-media-fields';
 
 describe('social media field constants', () => {
   it('provides an empty default for every configured field platform', () => {

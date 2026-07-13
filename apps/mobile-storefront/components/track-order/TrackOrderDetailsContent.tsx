@@ -1,18 +1,18 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { getCustomerOrderStatusMeta } from '@/lib/customer-order-status';
 import { Alert, Image, Linking, Pressable, Text, View } from 'react-native';
+import { TrackOrderTimelineCard } from '@/components/track-order/TrackOrderTimelineCard';
 import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
-import { TrackOrderTimelineCard } from '@/components/track-order/TrackOrderTimelineCard';
+import { getCustomerOrderStatusMeta } from '@/lib/customer-order-status';
 import { TrackOrderContactCard } from './TrackOrderContactCard';
+import { trackOrderScreenStyles as styles } from './TrackOrderScreen.styles';
+import type { TrackOrderData } from './TrackOrderScreen.types';
 import {
   formatTrackOrderDate,
   formatTrackOrderPrice,
   getTrackOrderBadge,
   isValidTrackingUrl,
 } from './track-order.helpers';
-import { trackOrderScreenStyles as styles } from './TrackOrderScreen.styles';
-import type { TrackOrderData } from './TrackOrderScreen.types';
 
 type ColorsScheme = (typeof Colors)['light'];
 

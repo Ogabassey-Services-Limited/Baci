@@ -208,10 +208,7 @@ describe('POST /api/storefront/[slug]/repairs/book', () => {
     mocks.resolveRepairsCatalogMerchant.mockRejectedValueOnce(
       new Error('boom')
     );
-    const consoleSpy = vi
-      .spyOn(console, 'error')
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress expected test logging
-      .mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     try {
       const response = await POST(buildRequest(validBody), {

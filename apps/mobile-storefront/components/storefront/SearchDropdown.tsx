@@ -15,8 +15,8 @@ import Colors, { BRAND, SHADOWS } from '@/constants/Colors';
 import { type Category, useCategories, useProducts } from '@/hooks';
 import { useSearchStorage } from '@/hooks/use-search-storage';
 import type { Product } from '@/types/product';
-import { SearchDropdownList } from './search/SearchDropdownList';
 import { searchDropdownStyles as styles } from './search/SearchDropdown.styles';
+import { SearchDropdownList } from './search/SearchDropdownList';
 import { useSearchDropdownState } from './search/useSearchDropdownState';
 
 const MAX_RESULTS = 6;

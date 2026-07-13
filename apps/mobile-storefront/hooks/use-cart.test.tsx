@@ -70,8 +70,8 @@ describe('useCart stock validation', () => {
 
     const queryClient = new QueryClient({
       defaultOptions: {
-        mutations: { gcTime: Infinity, retry: false },
-        queries: { gcTime: Infinity, retry: false },
+        mutations: { gcTime: Number.POSITIVE_INFINITY, retry: false },
+        queries: { gcTime: Number.POSITIVE_INFINITY, retry: false },
       },
     });
     const wrapper = ({ children }: PropsWithChildren) => (

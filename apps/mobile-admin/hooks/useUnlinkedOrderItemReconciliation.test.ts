@@ -51,6 +51,7 @@ const supabaseMock = vi.hoisted(() => {
       neq: vi.fn(),
       order: vi.fn(),
       select: vi.fn(),
+      // biome-ignore lint/suspicious/noThenProperty: mocks the thenable Supabase query builder chain
       then: (
         resolve: (result: QueryResult) => unknown,
         reject?: (error: unknown) => unknown
@@ -145,6 +146,7 @@ type HookState = {
 };
 
 function getHookState() {
+  // biome-ignore lint/correctness/useHookAtTopLevel: test helper invokes the hook outside a component render; @tanstack/react-query hooks are mocked as plain config-capturing functions above, so no real React hook state is involved
   return useUnlinkedOrderItemReconciliation() as unknown as HookState;
 }
 

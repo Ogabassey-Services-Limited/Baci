@@ -24,7 +24,9 @@ export function ProfileUsernameSection({
 }: ProfileUsernameSectionProps) {
   return (
     <View style={styles.inputGroup}>
-      <Text style={[styles.sectionTitle, { color: colors.text }]}>Username</Text>
+      <Text style={[styles.sectionTitle, { color: colors.text }]}>
+        Username
+      </Text>
       <View
         style={[
           styles.emailContainer,

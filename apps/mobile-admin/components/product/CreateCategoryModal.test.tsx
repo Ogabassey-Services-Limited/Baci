@@ -107,7 +107,9 @@ describe('CreateCategoryModal', () => {
   it('calls onChangeName as the user types a category name', () => {
     const onChangeName = vi.fn();
 
-    render(<CreateCategoryModal {...defaultProps} onChangeName={onChangeName} />);
+    render(
+      <CreateCategoryModal {...defaultProps} onChangeName={onChangeName} />
+    );
 
     fireEvent.change(screen.getByLabelText('Category name'), {
       target: { value: 'Electronics' },
@@ -167,11 +169,7 @@ describe('CreateCategoryModal', () => {
   it('guards keyboard submit with the same disabled rules as the button', () => {
     const onSubmit = vi.fn();
     const { rerender } = render(
-      <CreateCategoryModal
-        {...defaultProps}
-        name="   "
-        onSubmit={onSubmit}
-      />
+      <CreateCategoryModal {...defaultProps} name="   " onSubmit={onSubmit} />
     );
 
     fireEvent.keyDown(screen.getByLabelText('Category name'), {
@@ -193,11 +191,7 @@ describe('CreateCategoryModal', () => {
     expect(onSubmit).not.toHaveBeenCalled();
 
     rerender(
-      <CreateCategoryModal
-        {...defaultProps}
-        name="Shoes"
-        onSubmit={onSubmit}
-      />
+      <CreateCategoryModal {...defaultProps} name="Shoes" onSubmit={onSubmit} />
     );
     fireEvent.keyDown(screen.getByLabelText('Category name'), {
       key: 'Enter',

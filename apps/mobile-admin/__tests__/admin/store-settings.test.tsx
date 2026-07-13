@@ -519,7 +519,6 @@ describe('StoreSettingsScreen', () => {
     expect(mocks.update.mock.calls[0][0]).not.toHaveProperty('phone');
   });
 
-
   it('uses a newly entered phone as support_phone when no public contact exists', async () => {
     mocks.useMerchant.mockReturnValue({
       merchant: {

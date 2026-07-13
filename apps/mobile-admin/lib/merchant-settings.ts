@@ -8,9 +8,7 @@ interface MerchantSettingsResponse {
   merchant: MerchantSettingsRecord;
 }
 
-export async function updateMerchantSettings(
-  payload: MerchantSettingsUpdatePayload
-) {
+export function updateMerchantSettings(payload: MerchantSettingsUpdatePayload) {
   return apiClient<MerchantSettingsResponse>('/api/merchant/settings', {
     method: 'PATCH',
     body: JSON.stringify(payload),

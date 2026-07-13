@@ -44,10 +44,30 @@ function makeVariant(params: {
 
 // 4 variants: 2 colours × 2 storages, all Used. Price varies by storage only.
 const usedPhones = [
-  makeVariant({ color: 'Black', condition: 'used', price: 400, storage: '64GB' }),
-  makeVariant({ color: 'Blue', condition: 'used', price: 400, storage: '64GB' }),
-  makeVariant({ color: 'Black', condition: 'used', price: 450, storage: '128GB' }),
-  makeVariant({ color: 'Blue', condition: 'used', price: 450, storage: '128GB' }),
+  makeVariant({
+    color: 'Black',
+    condition: 'used',
+    price: 400,
+    storage: '64GB',
+  }),
+  makeVariant({
+    color: 'Blue',
+    condition: 'used',
+    price: 400,
+    storage: '64GB',
+  }),
+  makeVariant({
+    color: 'Black',
+    condition: 'used',
+    price: 450,
+    storage: '128GB',
+  }),
+  makeVariant({
+    color: 'Blue',
+    condition: 'used',
+    price: 450,
+    storage: '128GB',
+  }),
 ];
 
 describe('getVariantAxes', () => {
@@ -204,9 +224,9 @@ describe('pruneVariantFilterSelection', () => {
   });
 
   it('treats null and missing selections as equal', () => {
-    expect(
-      areVariantFilterSelectionsEqual({ 'attr:storage': null }, {})
-    ).toBe(true);
+    expect(areVariantFilterSelectionsEqual({ 'attr:storage': null }, {})).toBe(
+      true
+    );
   });
 });
 

@@ -8,14 +8,14 @@
  */
 
 import {
-  persistQueryClientRestore,
-  persistQueryClientSubscribe,
-} from '@tanstack/react-query-persist-client';
-import {
   IsRestoringProvider,
   type Query,
   QueryClientProvider,
 } from '@tanstack/react-query';
+import {
+  persistQueryClientRestore,
+  persistQueryClientSubscribe,
+} from '@tanstack/react-query-persist-client';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { createLogger } from './logger';
