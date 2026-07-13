@@ -6,6 +6,7 @@ interface DispatchBoundarySupabaseClient {
     fn: 'begin_order_notification_outbox_dispatch',
     args: {
       p_event_type: OrderFulfillmentNotificationEventType;
+      p_claim_owner: string;
       p_merchant_id: string;
       p_order_id: string;
       p_outbox_id: string;
@@ -15,6 +16,7 @@ interface DispatchBoundarySupabaseClient {
 
 interface BeginDispatchParams {
   claimId: string;
+  claimOwner: string;
   eventType: OrderFulfillmentNotificationEventType;
   merchantId: string;
   orderId: string;
@@ -23,6 +25,7 @@ interface BeginDispatchParams {
 
 export async function beginOrderNotificationOutboxDispatch({
   claimId,
+  claimOwner,
   eventType,
   merchantId,
   orderId,
@@ -32,6 +35,7 @@ export async function beginOrderNotificationOutboxDispatch({
     const { data, error } = await supabase.rpc(
       'begin_order_notification_outbox_dispatch',
       {
+        p_claim_owner: claimOwner,
         p_event_type: eventType,
         p_merchant_id: merchantId,
         p_order_id: orderId,

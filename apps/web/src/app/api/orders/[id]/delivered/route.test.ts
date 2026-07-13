@@ -126,6 +126,7 @@ function createSupabaseMock(
       if (fn === 'prepare_order_notification_outbox_manual_send') {
         return Promise.resolve({
           data: {
+            claim_owner: 'manual-endpoint:test',
             outbox_id:
               terminalOutboxStatus === 'order_not_found'
                 ? null
@@ -214,6 +215,7 @@ describe('POST /api/orders/[id]/delivered', () => {
     expect(
       (supabase as unknown as { rpc: ReturnType<typeof vi.fn> }).rpc
     ).toHaveBeenCalledWith('complete_order_notification_outbox_manual_result', {
+      p_claim_owner: 'manual-endpoint:test',
       p_event_type: 'order_delivered',
       p_merchant_id: 'merchant-1',
       p_message_id: 'msg-1',

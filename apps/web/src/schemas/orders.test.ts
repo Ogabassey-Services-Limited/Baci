@@ -747,7 +747,6 @@ describe('reuseCheckoutOrderSchema', () => {
   });
 });
 
-
 describe('orderUpdateSchema', () => {
   it('accepts supported status and editable order fields', () => {
     const result = orderUpdateSchema.safeParse({

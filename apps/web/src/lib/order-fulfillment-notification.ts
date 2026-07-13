@@ -12,6 +12,7 @@ import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 
 interface SendOrderFulfillmentNotificationParams {
   beforeProviderDispatch?: () => Promise<void>;
+  resetProviderDispatch?: () => Promise<void>;
   courierName?: string;
   estimatedDelivery?: string;
   eventType: OrderFulfillmentNotificationEventType;
@@ -112,7 +113,9 @@ function isOrderInRequiredShippingStatus(
         shippingStatus
       );
     }
-    return shippingStatus === 'shipped';
+    return (
+      shippingStatus === 'shipped' || shippingStatus === 'out_for_delivery'
+    );
   }
 
   return shippingStatus === 'delivered' || shippingStatus === 'completed';
@@ -241,6 +244,7 @@ export async function sendOrderFulfillmentNotification({
   merchantId,
   mismatchBehavior = 'skip',
   orderId,
+  resetProviderDispatch,
   supabase,
   trackingNumber,
 }: SendOrderFulfillmentNotificationParams): Promise<OrderFulfillmentNotificationResult> {
@@ -297,6 +301,7 @@ export async function sendOrderFulfillmentNotification({
       merchant,
       merchantId,
       order,
+      resetProviderDispatch,
       trackingNumber,
     });
   }
@@ -313,5 +318,6 @@ export async function sendOrderFulfillmentNotification({
     merchant,
     merchantId,
     order,
+    resetProviderDispatch,
   });
 }

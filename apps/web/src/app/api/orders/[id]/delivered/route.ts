@@ -7,6 +7,7 @@ import { checkCsrfProtection } from '@/lib/csrf';
 import { sendOrderFulfillmentNotification } from '@/lib/order-fulfillment-notification';
 import type { OrderFulfillmentNotificationResult } from '@/lib/order-fulfillment-notification-types';
 import { beginOrderNotificationOutboxDispatch } from '@/lib/order-notification-outbox-dispatch';
+import { resetOrderNotificationOutboxDispatch } from '@/lib/order-notification-outbox-dispatch-reset';
 import { completeManualOrderNotificationOutboxEvent } from '@/lib/order-notification-outbox-manual-result';
 import { getManualOrderNotificationOutboxBlockingState } from '@/lib/order-notification-outbox-manual-state';
 import { orderIdParamsSchema } from '@/schemas/orders';
@@ -148,6 +149,16 @@ export async function POST(
         beforeProviderDispatch: () =>
           beginOrderNotificationOutboxDispatch({
             claimId: blockingState.claimId,
+            claimOwner: blockingState.claimOwner,
+            eventType: 'order_delivered',
+            merchantId,
+            orderId: parsedParams.data.id,
+            supabase: authenticatedSupabase,
+          }),
+        resetProviderDispatch: () =>
+          resetOrderNotificationOutboxDispatch({
+            claimId: blockingState.claimId,
+            claimOwner: blockingState.claimOwner,
             eventType: 'order_delivered',
             merchantId,
             orderId: parsedParams.data.id,
@@ -163,6 +174,7 @@ export async function POST(
       try {
         await completeManualOrderNotificationOutboxEvent({
           claimId: blockingState.claimId,
+          claimOwner: blockingState.claimOwner,
           eventType: 'order_delivered',
           merchantId,
           orderId: parsedParams.data.id,
@@ -183,6 +195,7 @@ export async function POST(
 
     await completeManualOrderNotificationOutboxEvent({
       claimId: blockingState.claimId,
+      claimOwner: blockingState.claimOwner,
       eventType: 'order_delivered',
       merchantId,
       orderId: parsedParams.data.id,

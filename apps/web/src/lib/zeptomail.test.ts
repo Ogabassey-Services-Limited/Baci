@@ -476,6 +476,8 @@ describe('zeptomail audit logging', () => {
       return Promise.resolve({ request_id: 'zepto-fellback' });
     });
     const { sendEmail } = await import('./zeptomail');
+    const beforeTransportDispatch = vi.fn().mockResolvedValue(undefined);
+    const resetTransportDispatch = vi.fn().mockResolvedValue(undefined);
 
     const result = await sendEmail({
       to: 'customer@example.com',
@@ -483,9 +485,13 @@ describe('zeptomail audit logging', () => {
       htmlContent: '<p>Hello</p>',
       emailType: 'orders',
       auditContext: { merchantId: 'merchant-1', orderId: 'order-1' },
+      beforeTransportDispatch,
+      resetTransportDispatch,
     });
 
     expect(result).toEqual({ success: true, messageId: 'zepto-fellback' });
+    expect(resetTransportDispatch).toHaveBeenCalledOnce();
+    expect(beforeTransportDispatch).toHaveBeenCalledTimes(2);
     // Both senders were attempted: custom first, then platform fallback.
     expect(sendMailMock.mock.calls.map((c) => c[0]?.from?.address)).toEqual([
       'orders@ogabassey.com',
@@ -510,6 +516,7 @@ describe('zeptomail audit logging', () => {
       })
     );
     const { sendEmail } = await import('./zeptomail');
+    const resetTransportDispatch = vi.fn().mockResolvedValue(undefined);
 
     const result = await sendEmail({
       to: 'customer@example.com',
@@ -517,6 +524,7 @@ describe('zeptomail audit logging', () => {
       htmlContent: '<p>Hello</p>',
       emailType: 'orders',
       auditContext: { merchantId: 'merchant-1', orderId: 'order-1' },
+      resetTransportDispatch,
     });
 
     expect(result).toMatchObject({
@@ -524,6 +532,7 @@ describe('zeptomail audit logging', () => {
       deliveryOutcome: 'unknown',
     });
     expect(sendMailMock).toHaveBeenCalledTimes(1);
+    expect(resetTransportDispatch).not.toHaveBeenCalled();
     expect(sendMailMock.mock.calls[0]?.[0]?.from?.address).toBe(
       'orders@ogabassey.com'
     );

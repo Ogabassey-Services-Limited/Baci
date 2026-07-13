@@ -10,6 +10,7 @@ import { sendShippedNotification } from '@/lib/order-fulfillment-shipped-sender'
 
 interface SendFulfillmentNotificationEmailParams {
   beforeProviderDispatch?: () => Promise<void>;
+  resetProviderDispatch?: () => Promise<void>;
   courierName?: string;
   estimatedDelivery?: string;
   eventType: OrderFulfillmentNotificationEventType;
@@ -29,6 +30,7 @@ export function sendFulfillmentNotificationEmail({
   merchant,
   merchantId,
   order,
+  resetProviderDispatch,
   trackingNumber,
 }: SendFulfillmentNotificationEmailParams): Promise<OrderFulfillmentNotificationResult> {
   if (eventType === 'order_shipped') {
@@ -39,6 +41,7 @@ export function sendFulfillmentNotificationEmail({
       merchant,
       merchantId,
       order,
+      resetProviderDispatch,
       trackingNumber,
     });
   }
@@ -48,5 +51,6 @@ export function sendFulfillmentNotificationEmail({
     merchant,
     merchantId,
     order,
+    resetProviderDispatch,
   });
 }

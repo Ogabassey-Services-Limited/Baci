@@ -10,6 +10,15 @@ DROP FUNCTION IF EXISTS public.complete_order_notification_outbox_manual_result(
   text,
   text
 );
+DROP FUNCTION IF EXISTS public.complete_order_notification_outbox_manual_result(
+  uuid,
+  uuid,
+  text,
+  text,
+  text,
+  text,
+  uuid
+);
 
 CREATE FUNCTION public.complete_order_notification_outbox_manual_result(
   p_order_id uuid,
@@ -18,7 +27,8 @@ CREATE FUNCTION public.complete_order_notification_outbox_manual_result(
   p_status text,
   p_message_id text DEFAULT NULL,
   p_skip_reason text DEFAULT NULL,
-  p_outbox_id uuid DEFAULT NULL
+  p_outbox_id uuid DEFAULT NULL,
+  p_claim_owner text DEFAULT NULL
 )
 RETURNS integer
 LANGUAGE plpgsql
@@ -96,7 +106,7 @@ BEGIN
     FROM latest
     WHERE outbox.id = latest.id
       AND latest.status = 'processing'
-      AND outbox.locked_by = 'manual-endpoint'
+      AND outbox.locked_by = p_claim_owner
     RETURNING outbox.id
   )
   SELECT count(*)::integer
@@ -114,7 +124,8 @@ REVOKE ALL ON FUNCTION public.complete_order_notification_outbox_manual_result(
   text,
   text,
   text,
-  uuid
+  uuid,
+  text
 ) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.complete_order_notification_outbox_manual_result(
   uuid,
@@ -123,7 +134,8 @@ GRANT EXECUTE ON FUNCTION public.complete_order_notification_outbox_manual_resul
   text,
   text,
   text,
-  uuid
+  uuid,
+  text
 ) TO authenticated, service_role;
 
 COMMENT ON FUNCTION public.complete_order_notification_outbox_manual_result(
@@ -133,6 +145,7 @@ COMMENT ON FUNCTION public.complete_order_notification_outbox_manual_result(
   text,
   text,
   text,
-  uuid
+  uuid,
+  text
 ) IS
   'Records a manual fulfillment outcome against only the exact row claimed by the manual endpoint.';

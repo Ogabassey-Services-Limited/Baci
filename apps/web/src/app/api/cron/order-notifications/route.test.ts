@@ -31,8 +31,17 @@ function cronRequest(path = '/api/cron/order-notifications') {
 }
 
 function createUpdateBuilder() {
+  let matchedId = '';
+  const maybeSingle = vi.fn<
+    () => Promise<{ data: { id: string } | null; error: unknown }>
+  >(async () => ({ data: { id: matchedId }, error: null }));
   const builder = {
-    eq: vi.fn().mockResolvedValue({ error: null }),
+    match: vi.fn((values: { id: string }) => {
+      matchedId = values.id;
+      return builder;
+    }),
+    maybeSingle,
+    select: vi.fn(() => builder),
     update: vi.fn(() => builder),
   };
   return builder;
@@ -44,6 +53,7 @@ describe('GET /api/cron/order-notifications', () => {
     mockSupabase.rpc.mockResolvedValue({
       data: [
         {
+          claim_owner: 'web-cron-test',
           attempt_count: 1,
           event_type: 'order_shipped',
           id: 'outbox-1',
@@ -57,6 +67,7 @@ describe('GET /api/cron/order-notifications', () => {
           order_id: 'order-1',
         },
         {
+          claim_owner: 'web-cron-test',
           attempt_count: 1,
           event_type: 'order_delivered',
           id: 'outbox-2',
@@ -182,6 +193,7 @@ describe('GET /api/cron/order-notifications', () => {
 
   it('serializes claimed events for the same order while allowing different orders to proceed', async () => {
     const orderOneShipped = {
+      claim_owner: 'web-cron-test',
       attempt_count: 1,
       event_type: 'order_shipped',
       id: 'outbox-order-1-shipped',
@@ -190,6 +202,7 @@ describe('GET /api/cron/order-notifications', () => {
       order_id: 'order-1',
     };
     const orderOneDelivered = {
+      claim_owner: 'web-cron-test',
       attempt_count: 1,
       event_type: 'order_delivered',
       id: 'outbox-order-1-delivered',
@@ -198,6 +211,7 @@ describe('GET /api/cron/order-notifications', () => {
       order_id: 'order-1',
     };
     const orderTwoShipped = {
+      claim_owner: 'web-cron-test',
       attempt_count: 1,
       event_type: 'order_shipped',
       id: 'outbox-order-2-shipped',
@@ -251,6 +265,7 @@ describe('GET /api/cron/order-notifications', () => {
     mockSupabase.rpc.mockResolvedValue({
       data: [
         {
+          claim_owner: 'web-cron-test',
           attempt_count: 2,
           event_type: 'order_delivered',
           id: 'outbox-3',
@@ -285,6 +300,7 @@ describe('GET /api/cron/order-notifications', () => {
     mockSupabase.rpc.mockResolvedValue({
       data: [
         {
+          claim_owner: 'web-cron-test',
           attempt_count: 1,
           event_type: 'order_delivered',
           id: 'outbox-unknown',
@@ -321,6 +337,7 @@ describe('GET /api/cron/order-notifications', () => {
     mockSupabase.rpc.mockResolvedValue({
       data: [
         {
+          claim_owner: 'web-cron-test',
           attempt_count: 5,
           event_type: 'order_delivered',
           id: 'outbox-4',
@@ -354,13 +371,15 @@ describe('GET /api/cron/order-notifications', () => {
 
   it('records an unknown outcome when the sent marker cannot be persisted', async () => {
     const updateBuilder = createUpdateBuilder();
-    updateBuilder.eq.mockResolvedValueOnce({
+    updateBuilder.maybeSingle.mockResolvedValueOnce({
+      data: null,
       error: { message: 'database unavailable' },
     });
     mockSupabase.from.mockReturnValue(updateBuilder);
     mockSupabase.rpc.mockResolvedValueOnce({
       data: [
         {
+          claim_owner: 'web-cron-test',
           attempt_count: 1,
           event_type: 'order_shipped',
           id: 'outbox-persist-failure',
@@ -390,13 +409,20 @@ describe('GET /api/cron/order-notifications', () => {
 
   it('returns 500 when neither sent nor unknown terminal state can be persisted', async () => {
     const updateBuilder = createUpdateBuilder();
-    updateBuilder.eq
-      .mockResolvedValueOnce({ error: { message: 'sent write failed' } })
-      .mockResolvedValueOnce({ error: { message: 'fallback write failed' } });
+    updateBuilder.maybeSingle
+      .mockResolvedValueOnce({
+        data: null,
+        error: { message: 'sent write failed' },
+      })
+      .mockResolvedValueOnce({
+        data: null,
+        error: { message: 'fallback write failed' },
+      });
     mockSupabase.from.mockReturnValue(updateBuilder);
     mockSupabase.rpc.mockResolvedValueOnce({
       data: [
         {
+          claim_owner: 'web-cron-test',
           attempt_count: 1,
           event_type: 'order_shipped',
           id: 'outbox-double-persist-failure',

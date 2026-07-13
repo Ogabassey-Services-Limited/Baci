@@ -25,6 +25,7 @@ describe('completeManualOrderNotificationOutboxEvent', () => {
 
     await completeManualOrderNotificationOutboxEvent({
       claimId: '10000000-0000-4000-8000-000000000001',
+      claimOwner: 'claim-owner-1',
       eventType: 'order_shipped',
       merchantId: 'merchant-1',
       orderId: 'order-1',
@@ -35,6 +36,7 @@ describe('completeManualOrderNotificationOutboxEvent', () => {
     expect(supabase.rpc).toHaveBeenCalledWith(
       'complete_order_notification_outbox_manual_result',
       {
+        p_claim_owner: 'claim-owner-1',
         p_event_type: 'order_shipped',
         p_merchant_id: 'merchant-1',
         p_message_id: 'msg-1',
@@ -51,6 +53,7 @@ describe('completeManualOrderNotificationOutboxEvent', () => {
 
     await completeManualOrderNotificationOutboxEvent({
       claimId: '10000000-0000-4000-8000-000000000001',
+      claimOwner: 'claim-owner-1',
       eventType: 'order_delivered',
       merchantId: 'merchant-1',
       orderId: 'order-1',
@@ -61,6 +64,7 @@ describe('completeManualOrderNotificationOutboxEvent', () => {
     expect(supabase.rpc).toHaveBeenCalledWith(
       'complete_order_notification_outbox_manual_result',
       {
+        p_claim_owner: 'claim-owner-1',
         p_event_type: 'order_delivered',
         p_merchant_id: 'merchant-1',
         p_message_id: null,
@@ -77,6 +81,7 @@ describe('completeManualOrderNotificationOutboxEvent', () => {
 
     await completeManualOrderNotificationOutboxEvent({
       claimId: '10000000-0000-4000-8000-000000000001',
+      claimOwner: 'claim-owner-1',
       eventType: 'order_shipped',
       merchantId: 'merchant-1',
       orderId: 'order-1',
@@ -98,6 +103,7 @@ describe('completeManualOrderNotificationOutboxEvent', () => {
 
     await completeManualOrderNotificationOutboxEvent({
       claimId: '10000000-0000-4000-8000-000000000001',
+      claimOwner: 'claim-owner-1',
       eventType: 'order_shipped',
       merchantId: 'merchant-1',
       orderId: 'order-1',
@@ -119,6 +125,7 @@ describe('completeManualOrderNotificationOutboxEvent', () => {
 
     await completeManualOrderNotificationOutboxEvent({
       claimId: '10000000-0000-4000-8000-000000000001',
+      claimOwner: 'claim-owner-1',
       eventType: 'order_shipped',
       merchantId: 'merchant-1',
       orderId: 'order-1',
@@ -151,6 +158,7 @@ describe('completeManualOrderNotificationOutboxEvent', () => {
     await expect(
       completeManualOrderNotificationOutboxEvent({
         claimId: '10000000-0000-4000-8000-000000000001',
+        claimOwner: 'claim-owner-1',
         eventType: 'order_shipped',
         merchantId: 'merchant-1',
         orderId: 'order-1',
@@ -187,6 +195,7 @@ describe('completeManualOrderNotificationOutboxEvent', () => {
     await expect(
       completeManualOrderNotificationOutboxEvent({
         claimId: '10000000-0000-4000-8000-000000000001',
+        claimOwner: 'claim-owner-1',
         eventType: 'order_delivered',
         merchantId: 'merchant-1',
         orderId: 'order-1',
@@ -213,6 +222,7 @@ describe('completeManualOrderNotificationOutboxEvent', () => {
     await expect(
       completeManualOrderNotificationOutboxEvent({
         claimId: '10000000-0000-4000-8000-000000000001',
+        claimOwner: 'claim-owner-1',
         eventType: 'order_shipped',
         merchantId: 'merchant-1',
         orderId: 'order-1',

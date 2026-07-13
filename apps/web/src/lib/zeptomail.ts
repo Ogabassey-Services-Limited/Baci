@@ -141,6 +141,7 @@ interface SendEmailParams {
   // one); idempotency lives in the payment_side_effects claim row.
   clientReference?: string;
   beforeTransportDispatch?: () => Promise<void>;
+  resetTransportDispatch?: () => Promise<void>;
 }
 
 interface EmailAttachment {
@@ -394,6 +395,7 @@ export async function sendEmail({
   merchantId,
   clientReference,
   beforeTransportDispatch,
+  resetTransportDispatch,
 }: SendEmailParams): Promise<EmailResult> {
   const sender = await resolveSenderAddress(
     emailType,
@@ -571,6 +573,8 @@ export async function sendEmail({
   // lost to that, so retry once from the platform domain — mirroring the
   // auth-email hook, which also falls back to the platform sender.
   if (sender.isCustomDomain && !deliveryOutcomeUnknown) {
+    await resetTransportDispatch?.();
+    transportDispatchMarked = false;
     const platformSender = getSenderAddress(emailType, fromName);
     console.warn(
       `ZeptoMail custom sender rejected (${lastError.code ?? 'unknown'}); retrying from platform sender`

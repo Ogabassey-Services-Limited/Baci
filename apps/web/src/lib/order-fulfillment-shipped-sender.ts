@@ -20,6 +20,7 @@ import { sendEmail } from '@/lib/zeptomail';
 
 interface SendShippedNotificationParams {
   beforeProviderDispatch?: () => Promise<void>;
+  resetProviderDispatch?: () => Promise<void>;
   courierName?: string;
   estimatedDelivery?: string;
   merchant: MerchantRecord;
@@ -35,6 +36,7 @@ export async function sendShippedNotification({
   merchant,
   merchantId,
   order,
+  resetProviderDispatch,
   trackingNumber,
 }: SendShippedNotificationParams): Promise<OrderFulfillmentNotificationResult> {
   const recipient = resolveOrderNotificationRecipient(order.customer_email);
@@ -95,6 +97,7 @@ export async function sendShippedNotification({
     emailType: 'orders',
     fromName: senderName,
     beforeTransportDispatch: beforeProviderDispatch,
+    resetTransportDispatch: resetProviderDispatch,
     auditContext: {
       merchantId,
       orderId: order.id,

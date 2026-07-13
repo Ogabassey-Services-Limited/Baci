@@ -132,6 +132,7 @@ function createSupabaseMock(
       if (fn === 'prepare_order_notification_outbox_manual_send') {
         return Promise.resolve({
           data: {
+            claim_owner: 'manual-endpoint:test',
             outbox_id: '10000000-0000-4000-8000-000000000001',
             status:
               terminalOutboxStatus === 'skipped' ? null : terminalOutboxStatus,
@@ -222,6 +223,7 @@ describe('POST /api/orders/[id]/shipped', () => {
     expect(
       (supabase as unknown as { rpc: ReturnType<typeof vi.fn> }).rpc
     ).toHaveBeenCalledWith('complete_order_notification_outbox_manual_result', {
+      p_claim_owner: 'manual-endpoint:test',
       p_event_type: 'order_shipped',
       p_merchant_id: 'merchant-1',
       p_message_id: 'msg-1',

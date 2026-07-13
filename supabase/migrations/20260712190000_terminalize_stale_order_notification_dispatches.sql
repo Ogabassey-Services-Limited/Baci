@@ -36,11 +36,19 @@ CREATE TRIGGER order_notification_outbox_reset_dispatch_boundary
   FOR EACH ROW
   EXECUTE FUNCTION public.reset_order_notification_dispatch_boundary();
 
-CREATE OR REPLACE FUNCTION public.begin_order_notification_outbox_dispatch(
+DROP FUNCTION IF EXISTS public.begin_order_notification_outbox_dispatch(
+  uuid,
+  uuid,
+  uuid,
+  text
+);
+
+CREATE FUNCTION public.begin_order_notification_outbox_dispatch(
   p_outbox_id uuid,
   p_order_id uuid,
   p_merchant_id uuid,
-  p_event_type text
+  p_event_type text,
+  p_claim_owner text
 )
 RETURNS integer
 LANGUAGE plpgsql
@@ -87,10 +95,7 @@ BEGIN
     AND outbox.merchant_id = p_merchant_id
     AND outbox.event_type = p_event_type
     AND outbox.status = 'processing'
-    AND (
-      v_auth_role = 'service_role'
-      OR outbox.locked_by = 'manual-endpoint'
-    )
+    AND outbox.locked_by = p_claim_owner
     AND outbox.dispatch_started_at IS NULL;
 
   GET DIAGNOSTICS v_updated_count = ROW_COUNT;
@@ -102,12 +107,14 @@ REVOKE ALL ON FUNCTION public.begin_order_notification_outbox_dispatch(
   uuid,
   uuid,
   uuid,
+  text,
   text
 ) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.begin_order_notification_outbox_dispatch(
   uuid,
   uuid,
   uuid,
+  text,
   text
 ) TO authenticated, service_role;
 
@@ -115,11 +122,84 @@ COMMENT ON FUNCTION public.begin_order_notification_outbox_dispatch(
   uuid,
   uuid,
   uuid,
+  text,
   text
 ) IS
   'Marks the exact claimed fulfillment notification immediately before provider dispatch.';
 
-CREATE OR REPLACE FUNCTION public.claim_order_notification_outbox(
+CREATE OR REPLACE FUNCTION public.reset_order_notification_outbox_dispatch(
+  p_outbox_id uuid,
+  p_order_id uuid,
+  p_merchant_id uuid,
+  p_event_type text,
+  p_claim_owner text
+)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_auth_uid uuid := auth.uid();
+  v_auth_role text := coalesce(auth.role(), '');
+  v_updated_count integer := 0;
+BEGIN
+  IF p_event_type NOT IN ('order_shipped', 'order_delivered') THEN
+    RAISE EXCEPTION 'invalid order notification event type: %', p_event_type
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF v_auth_role IS DISTINCT FROM 'service_role' THEN
+    IF v_auth_uid IS NULL OR NOT (
+      EXISTS (
+        SELECT 1 FROM public.merchants AS merchants
+        WHERE merchants.id = p_merchant_id AND merchants.user_id = v_auth_uid
+      )
+      OR EXISTS (
+        SELECT 1 FROM public.staff_members AS staff_members
+        WHERE staff_members.merchant_id = p_merchant_id
+          AND staff_members.user_id = v_auth_uid
+          AND staff_members.status = 'active'
+      )
+    ) THEN
+      RAISE EXCEPTION 'not authorized to reset order notification dispatch'
+        USING ERRCODE = '42501';
+    END IF;
+  END IF;
+
+  UPDATE public.order_notification_outbox AS outbox
+  SET dispatch_started_at = NULL, updated_at = now()
+  WHERE outbox.id = p_outbox_id
+    AND outbox.order_id = p_order_id
+    AND outbox.merchant_id = p_merchant_id
+    AND outbox.event_type = p_event_type
+    AND outbox.status = 'processing'
+    AND outbox.locked_by = p_claim_owner
+    AND outbox.dispatch_started_at IS NOT NULL;
+
+  GET DIAGNOSTICS v_updated_count = ROW_COUNT;
+  RETURN v_updated_count;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.reset_order_notification_outbox_dispatch(
+  uuid,
+  uuid,
+  uuid,
+  text,
+  text
+) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.reset_order_notification_outbox_dispatch(
+  uuid,
+  uuid,
+  uuid,
+  text,
+  text
+) TO authenticated, service_role;
+
+DROP FUNCTION IF EXISTS public.claim_order_notification_outbox(integer, text);
+
+CREATE FUNCTION public.claim_order_notification_outbox(
   p_batch_size integer DEFAULT 25,
   p_worker_id text DEFAULT NULL
 )
@@ -131,7 +211,8 @@ RETURNS TABLE (
   attempt_count integer,
   max_attempts integer,
   metadata jsonb,
-  event_sequence bigint
+  event_sequence bigint,
+  claim_owner text
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -201,7 +282,8 @@ BEGIN
       outbox.attempt_count,
       outbox.max_attempts,
       outbox.metadata,
-      outbox.event_sequence
+      outbox.event_sequence,
+      outbox.locked_by AS claim_owner
   )
   SELECT
     claimed.id,
@@ -211,7 +293,8 @@ BEGIN
     claimed.attempt_count,
     claimed.max_attempts,
     claimed.metadata,
-    claimed.event_sequence
+    claimed.event_sequence,
+    claimed.claim_owner
   FROM claimed
   ORDER BY claimed.event_sequence ASC;
 END;

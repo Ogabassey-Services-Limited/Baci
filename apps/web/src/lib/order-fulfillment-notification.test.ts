@@ -224,6 +224,20 @@ describe('sendOrderFulfillmentNotification', () => {
     );
   });
 
+  it('allows manual shipped retries while the order is out for delivery', async () => {
+    const result = await sendOrderFulfillmentNotification({
+      eventType: 'order_shipped',
+      merchantId: 'merchant-1',
+      mismatchBehavior: 'invalid_state',
+      orderId: 'order-1',
+      supabase: createSupabaseMock({
+        order: { ...baseOrder, shipping_status: 'out_for_delivery' },
+      }),
+    });
+
+    expect(result).toMatchObject({ status: 'sent', messageId: 'msg-1' });
+  });
+
   it('uses a safe customer-name fallback for legacy nullable orders', async () => {
     const result = await sendOrderFulfillmentNotification({
       eventType: 'order_shipped',

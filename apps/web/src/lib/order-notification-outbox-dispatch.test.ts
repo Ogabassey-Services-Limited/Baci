@@ -11,6 +11,7 @@ import { beginOrderNotificationOutboxDispatch } from './order-notification-outbo
 
 const input = {
   claimId: '10000000-0000-4000-8000-000000000001',
+  claimOwner: 'claim-owner-1',
   eventType: 'order_shipped' as const,
   merchantId: 'merchant-1',
   orderId: 'order-1',
@@ -31,6 +32,7 @@ describe('beginOrderNotificationOutboxDispatch', () => {
     expect(supabase.rpc).toHaveBeenCalledWith(
       'begin_order_notification_outbox_dispatch',
       {
+        p_claim_owner: 'claim-owner-1',
         p_event_type: 'order_shipped',
         p_merchant_id: 'merchant-1',
         p_order_id: 'order-1',

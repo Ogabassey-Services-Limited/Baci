@@ -11,6 +11,7 @@ interface ManualOutboxSupabaseClient {
     fn: 'complete_order_notification_outbox_manual_result',
     args: {
       p_event_type: OrderFulfillmentNotificationEventType;
+      p_claim_owner: string;
       p_merchant_id: string;
       p_message_id: string | null;
       p_order_id: string;
@@ -23,6 +24,7 @@ interface ManualOutboxSupabaseClient {
 
 interface CompleteManualOutboxParams {
   claimId: string;
+  claimOwner: string;
   eventType: OrderFulfillmentNotificationEventType;
   merchantId: string;
   orderId: string;
@@ -32,6 +34,7 @@ interface CompleteManualOutboxParams {
 
 interface PersistManualOutboxParams {
   claimId: string;
+  claimOwner: string;
   eventType: OrderFulfillmentNotificationEventType;
   merchantId: string;
   messageId: string | null;
@@ -65,6 +68,7 @@ function getManualSkipReason(
 
 async function persistManualOutboxResult({
   claimId,
+  claimOwner,
   eventType,
   merchantId,
   messageId,
@@ -77,6 +81,7 @@ async function persistManualOutboxResult({
     const { data, error } = await supabase.rpc(
       'complete_order_notification_outbox_manual_result',
       {
+        p_claim_owner: claimOwner,
         p_event_type: eventType,
         p_merchant_id: merchantId,
         p_message_id: messageId,
@@ -96,6 +101,7 @@ async function persistManualOutboxResult({
 
 export async function completeManualOrderNotificationOutboxEvent({
   claimId,
+  claimOwner,
   eventType,
   merchantId,
   orderId,
@@ -109,6 +115,7 @@ export async function completeManualOrderNotificationOutboxEvent({
     result.status === 'sent' ? (result.messageId ?? null) : null;
   const error = await persistManualOutboxResult({
     claimId,
+    claimOwner,
     eventType,
     merchantId,
     messageId,
@@ -131,6 +138,7 @@ export async function completeManualOrderNotificationOutboxEvent({
     if (status === 'sent') {
       const fallbackError = await persistManualOutboxResult({
         claimId,
+        claimOwner,
         eventType,
         merchantId,
         messageId,

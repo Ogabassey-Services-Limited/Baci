@@ -16,14 +16,25 @@ import {
 } from './order-notification-outbox-worker';
 
 function createSupabase(errors: unknown[]) {
-  const eq = vi.fn();
-  for (const error of errors) eq.mockResolvedValueOnce({ error });
-  const builder = { update: vi.fn(() => builder), eq };
+  const maybeSingle = vi.fn();
+  for (const error of errors) {
+    maybeSingle.mockResolvedValueOnce({
+      data: error ? null : { id: row.id },
+      error,
+    });
+  }
+  const builder = {
+    match: vi.fn(() => builder),
+    maybeSingle,
+    select: vi.fn(() => builder),
+    update: vi.fn(() => builder),
+  };
   return { client: { from: vi.fn(() => builder) }, builder };
 }
 
 const row = {
   attempt_count: 1,
+  claim_owner: 'worker-1',
   event_type: 'order_shipped' as const,
   id: '10000000-0000-4000-8000-000000000001',
   max_attempts: 5,
@@ -194,9 +205,9 @@ describe('order notification outbox worker', () => {
 
   it('normalizes rejected sent-marker writes before applying the safe fallback', async () => {
     const { client, builder } = createSupabase([]);
-    builder.eq
+    builder.maybeSingle
       .mockRejectedValueOnce(new Error('database connection reset'))
-      .mockResolvedValueOnce({ error: null });
+      .mockResolvedValueOnce({ data: { id: row.id }, error: null });
     mockNotificationResult({
       status: 'sent',
       messageId: 'message-1',

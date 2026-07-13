@@ -144,6 +144,7 @@ DECLARE
   v_auth_uid uuid := auth.uid();
   v_auth_role text := coalesce(auth.role(), '');
   v_claimed boolean := false;
+  v_claim_owner text;
   v_outbox_id uuid;
   v_order_shipping_status text;
   v_skip_reason text;
@@ -183,15 +184,6 @@ BEGIN
 
   IF NOT FOUND THEN
     RETURN jsonb_build_object('status', 'order_not_found', 'outbox_id', NULL);
-  END IF;
-
-  IF (p_event_type = 'order_shipped' AND v_order_shipping_status <> 'shipped')
-    OR (
-      p_event_type = 'order_delivered'
-      AND v_order_shipping_status NOT IN ('delivered', 'completed')
-    )
-  THEN
-    RETURN jsonb_build_object('status', 'invalid_state', 'outbox_id', NULL);
   END IF;
 
   SELECT outbox.id, outbox.status, outbox.skip_reason
@@ -236,17 +228,31 @@ BEGIN
     );
   END IF;
 
+  IF (
+    p_event_type = 'order_shipped'
+    AND v_order_shipping_status NOT IN ('shipped', 'out_for_delivery')
+  )
+    OR (
+      p_event_type = 'order_delivered'
+      AND v_order_shipping_status NOT IN ('delivered', 'completed')
+    )
+  THEN
+    RETURN jsonb_build_object('status', 'invalid_state', 'outbox_id', NULL);
+  END IF;
+
   IF v_status IN ('skipped', 'failed') THEN
+    v_claim_owner := 'manual-endpoint:' || gen_random_uuid()::text;
     UPDATE public.order_notification_outbox AS outbox
     SET
       status = 'processing',
       attempt_count = outbox.attempt_count + 1,
       locked_at = now(),
-      locked_by = 'manual-endpoint',
+      locked_by = v_claim_owner,
       updated_at = now()
     WHERE outbox.id = v_outbox_id;
     v_claimed := true;
   ELSE
+    v_claim_owner := 'manual-endpoint:' || gen_random_uuid()::text;
     INSERT INTO public.order_notification_outbox (
       order_id,
       merchant_id,
@@ -265,7 +271,7 @@ BEGIN
       'processing',
       1,
       now(),
-      'manual-endpoint',
+      v_claim_owner,
       NULL,
       jsonb_strip_nulls(jsonb_build_object(
         'source', 'manual_endpoint_claim',
@@ -309,7 +315,8 @@ BEGIN
 
   RETURN jsonb_build_object(
     'status', CASE WHEN v_claimed THEN NULL ELSE v_status END,
-    'outbox_id', v_outbox_id
+    'outbox_id', v_outbox_id,
+    'claim_owner', CASE WHEN v_claimed THEN v_claim_owner ELSE NULL END
   );
 END;
 $$;

@@ -20,6 +20,7 @@ import { sendEmail } from '@/lib/zeptomail';
 
 interface SendDeliveredNotificationParams {
   beforeProviderDispatch?: () => Promise<void>;
+  resetProviderDispatch?: () => Promise<void>;
   featureSettings: FeatureSettingsRecord | null;
   merchant: MerchantRecord;
   merchantId: string;
@@ -32,6 +33,7 @@ export async function sendDeliveredNotification({
   merchant,
   merchantId,
   order,
+  resetProviderDispatch,
 }: SendDeliveredNotificationParams): Promise<OrderFulfillmentNotificationResult> {
   const hasGoogleRating = Boolean(featureSettings?.google_place_id);
   const recipient = resolveOrderNotificationRecipient(order.customer_email);
@@ -70,6 +72,7 @@ export async function sendDeliveredNotification({
     emailType: 'orders',
     fromName: senderName,
     beforeTransportDispatch: beforeProviderDispatch,
+    resetTransportDispatch: resetProviderDispatch,
     auditContext: {
       merchantId,
       orderId: order.id,

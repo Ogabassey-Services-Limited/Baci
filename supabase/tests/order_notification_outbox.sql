@@ -34,6 +34,7 @@ DECLARE
   v_manual_status text;
   v_manual_prepared_status text;
   v_manual_claim_id uuid;
+  v_manual_claim_owner text;
   v_manual_terminal_status text;
   v_manual_updated_count integer;
   v_manual_processing_status text;
@@ -235,8 +236,9 @@ BEGIN
 
   SELECT
     prepared.result->>'status',
-    (prepared.result->>'outbox_id')::uuid
-  INTO v_manual_prepared_status, v_manual_claim_id
+    (prepared.result->>'outbox_id')::uuid,
+    prepared.result->>'claim_owner'
+  INTO v_manual_prepared_status, v_manual_claim_id, v_manual_claim_owner
   FROM (
     SELECT public.prepare_order_notification_outbox_manual_send(
       v_manual_order_id,
@@ -499,8 +501,9 @@ BEGIN
 
   SELECT
     prepared.result->>'status',
-    (prepared.result->>'outbox_id')::uuid
-  INTO v_manual_prepared_status, v_manual_claim_id
+    (prepared.result->>'outbox_id')::uuid,
+    prepared.result->>'claim_owner'
+  INTO v_manual_prepared_status, v_manual_claim_id, v_manual_claim_owner
   FROM (
     SELECT public.prepare_order_notification_outbox_manual_send(
       v_manual_skipped_order_id,
@@ -555,7 +558,8 @@ BEGIN
     'sent',
     'manual-message-after-skip-1',
     NULL,
-    v_manual_claim_id
+    v_manual_claim_id,
+    v_manual_claim_owner
   )
   INTO v_manual_updated_count;
 
@@ -613,8 +617,9 @@ BEGIN
 
   SELECT
     prepared.result->>'status',
-    (prepared.result->>'outbox_id')::uuid
-  INTO v_manual_prepared_status, v_manual_claim_id
+    (prepared.result->>'outbox_id')::uuid,
+    prepared.result->>'claim_owner'
+  INTO v_manual_prepared_status, v_manual_claim_id, v_manual_claim_owner
   FROM (
     SELECT public.prepare_order_notification_outbox_manual_send(
       v_manual_skipped_order_id,
@@ -638,7 +643,8 @@ BEGIN
     'failed',
     NULL,
     'provider unavailable',
-    v_manual_claim_id
+    v_manual_claim_id,
+    v_manual_claim_owner
   )
   INTO v_manual_updated_count;
 
@@ -658,8 +664,9 @@ BEGIN
 
   SELECT
     prepared.result->>'status',
-    (prepared.result->>'outbox_id')::uuid
-  INTO v_manual_prepared_status, v_manual_claim_id
+    (prepared.result->>'outbox_id')::uuid,
+    prepared.result->>'claim_owner'
+  INTO v_manual_prepared_status, v_manual_claim_id, v_manual_claim_owner
   FROM (
     SELECT public.prepare_order_notification_outbox_manual_send(
       v_manual_skipped_order_id,
@@ -683,7 +690,8 @@ BEGIN
     'skipped',
     NULL,
     'test_cleanup',
-    v_manual_claim_id
+    v_manual_claim_id,
+    v_manual_claim_owner
   );
 
   SELECT public.complete_order_notification_outbox_manual_result(
@@ -720,6 +728,8 @@ BEGIN
   IF v_shipped_count <> 1 THEN
     RAISE EXCEPTION 'expected exactly one shipped outbox event, got %', v_shipped_count;
   END IF;
+
+
 
   UPDATE public.order_notification_outbox
   SET
@@ -883,6 +893,48 @@ BEGIN
   END IF;
 
   UPDATE public.order_notification_outbox
+  SET
+    status = 'skipped',
+    skip_reason = 'missing_customer_email',
+    skipped_at = now(),
+    updated_at = now()
+  WHERE order_id = v_direct_out_for_delivery_order_id
+    AND event_type = 'order_shipped';
+
+  SELECT
+    prepared.result->>'status',
+    (prepared.result->>'outbox_id')::uuid,
+    prepared.result->>'claim_owner'
+  INTO v_manual_prepared_status, v_manual_claim_id, v_manual_claim_owner
+  FROM (
+    SELECT public.prepare_order_notification_outbox_manual_send(
+      v_direct_out_for_delivery_order_id,
+      v_merchant_id,
+      'order_shipped',
+      NULL,
+      NULL,
+      NULL
+    ) AS result
+  ) AS prepared;
+
+  IF v_manual_prepared_status IS NOT NULL OR v_manual_claim_owner IS NULL THEN
+    RAISE EXCEPTION 'expected out-for-delivery shipped retry to be claimed, got status %, owner %',
+      v_manual_prepared_status,
+      v_manual_claim_owner;
+  END IF;
+
+  PERFORM public.complete_order_notification_outbox_manual_result(
+    v_direct_out_for_delivery_order_id,
+    v_merchant_id,
+    'order_shipped',
+    'sent',
+    'manual-out-for-delivery-message',
+    NULL,
+    v_manual_claim_id,
+    v_manual_claim_owner
+  );
+
+  UPDATE public.order_notification_outbox
   SET status = 'sent', sent_at = now(), updated_at = now()
   WHERE order_id = v_direct_out_for_delivery_order_id
     AND event_type = 'order_shipped';
@@ -929,12 +981,69 @@ BEGIN
     v_claimed.id,
     v_order_id,
     v_merchant_id,
-    'order_shipped'
+    'order_shipped',
+    'stale-worker'
+  )
+  INTO v_manual_updated_count;
+
+  IF v_manual_updated_count <> 0 THEN
+    RAISE EXCEPTION 'expected stale claim owner to be fenced from dispatch, got % updates',
+      v_manual_updated_count;
+  END IF;
+
+  SELECT public.begin_order_notification_outbox_dispatch(
+    v_claimed.id,
+    v_order_id,
+    v_merchant_id,
+    'order_shipped',
+    v_claimed.claim_owner
   )
   INTO v_manual_updated_count;
 
   IF v_manual_updated_count <> 1 THEN
     RAISE EXCEPTION 'expected exact processing claim to begin dispatch, got % updates',
+      v_manual_updated_count;
+  END IF;
+
+  SELECT public.reset_order_notification_outbox_dispatch(
+    v_claimed.id,
+    v_order_id,
+    v_merchant_id,
+    'order_shipped',
+    'stale-worker'
+  )
+  INTO v_manual_updated_count;
+
+  IF v_manual_updated_count <> 0 THEN
+    RAISE EXCEPTION 'expected stale claim owner to be fenced from dispatch reset, got % updates',
+      v_manual_updated_count;
+  END IF;
+
+  SELECT public.reset_order_notification_outbox_dispatch(
+    v_claimed.id,
+    v_order_id,
+    v_merchant_id,
+    'order_shipped',
+    v_claimed.claim_owner
+  )
+  INTO v_manual_updated_count;
+
+  IF v_manual_updated_count <> 1 THEN
+    RAISE EXCEPTION 'expected exact processing claim to reset dispatch, got % updates',
+      v_manual_updated_count;
+  END IF;
+
+  SELECT public.begin_order_notification_outbox_dispatch(
+    v_claimed.id,
+    v_order_id,
+    v_merchant_id,
+    'order_shipped',
+    v_claimed.claim_owner
+  )
+  INTO v_manual_updated_count;
+
+  IF v_manual_updated_count <> 1 THEN
+    RAISE EXCEPTION 'expected reset processing claim to begin fallback dispatch, got % updates',
       v_manual_updated_count;
   END IF;
 

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { sendOrderFulfillmentNotification } from '@/lib/order-fulfillment-notification';
 import { beginOrderNotificationOutboxDispatch } from '@/lib/order-notification-outbox-dispatch';
+import { resetOrderNotificationOutboxDispatch } from '@/lib/order-notification-outbox-dispatch-reset';
 import type { createServiceClient } from '@/lib/supabase/service';
 
 const RETRY_BASE_DELAY_MS = 5 * 60 * 1000;
@@ -10,6 +11,7 @@ const PROCESS_CONCURRENCY = 5;
 
 export const claimedOrderNotificationOutboxRowSchema = z.object({
   attempt_count: z.number().int().nonnegative(),
+  claim_owner: z.string().min(1),
   event_type: z.enum(['order_shipped', 'order_delivered']),
   event_sequence: z.number().int().positive().optional(),
   id: z.string().min(1),
@@ -67,11 +69,11 @@ function retryDelayMs(attemptCount: number): number {
 
 async function updateOutboxStatus(
   supabase: SupabaseClientLike,
-  id: string,
+  row: ClaimedOrderNotificationOutboxRow,
   values: Record<string, unknown>
 ) {
   try {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('order_notification_outbox')
       .update({
         ...values,
@@ -79,16 +81,22 @@ async function updateOutboxStatus(
         locked_by: null,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', id);
-    if (!error) return;
-    throw error;
+      .match({
+        id: row.id,
+        locked_by: row.claim_owner,
+        status: 'processing',
+      })
+      .select('id')
+      .maybeSingle();
+    if (!error && data?.id === row.id) return;
+    throw error ?? new Error('order notification claim was lost');
   } catch (error) {
     logger.error({
       message: 'Failed to update order notification outbox row',
-      outboxId: id,
+      outboxId: row.id,
       error,
     });
-    throw new OutboxStatusUpdateError(id, { cause: error });
+    throw new OutboxStatusUpdateError(row.id, { cause: error });
   }
 }
 
@@ -102,7 +110,7 @@ async function markSent(
   row: ClaimedOrderNotificationOutboxRow,
   messageId: string | undefined
 ) {
-  await updateOutboxStatus(supabase, row.id, {
+  await updateOutboxStatus(supabase, row, {
     last_error: null,
     metadata: {
       ...(row.metadata ?? {}),
@@ -118,7 +126,7 @@ async function markSkipped(
   row: ClaimedOrderNotificationOutboxRow,
   reason: string
 ) {
-  await updateOutboxStatus(supabase, row.id, {
+  await updateOutboxStatus(supabase, row, {
     last_error: null,
     skip_reason: reason,
     skipped_at: new Date().toISOString(),
@@ -131,7 +139,7 @@ async function markDeliveryOutcomeUnknown(
   row: ClaimedOrderNotificationOutboxRow,
   error: string
 ) {
-  await updateOutboxStatus(supabase, row.id, {
+  await updateOutboxStatus(supabase, row, {
     last_error: error,
     next_attempt_at: null,
     skip_reason: 'delivery_outcome_unknown',
@@ -148,7 +156,7 @@ async function markFailedOrRetry(
 ) {
   if (row.attempt_count >= row.max_attempts) {
     summary.failed += 1;
-    await updateOutboxStatus(supabase, row.id, {
+    await updateOutboxStatus(supabase, row, {
       last_error: error,
       next_attempt_at: null,
       status: 'failed' satisfies OrderNotificationOutboxStatus,
@@ -157,7 +165,7 @@ async function markFailedOrRetry(
   }
 
   summary.retried += 1;
-  await updateOutboxStatus(supabase, row.id, {
+  await updateOutboxStatus(supabase, row, {
     last_error: error,
     next_attempt_at: new Date(
       Date.now() + retryDelayMs(row.attempt_count)
@@ -177,6 +185,16 @@ async function processClaimedRow(
       beforeProviderDispatch: () =>
         beginOrderNotificationOutboxDispatch({
           claimId: row.id,
+          claimOwner: row.claim_owner,
+          eventType: row.event_type,
+          merchantId: row.merchant_id,
+          orderId: row.order_id,
+          supabase,
+        }),
+      resetProviderDispatch: () =>
+        resetOrderNotificationOutboxDispatch({
+          claimId: row.id,
+          claimOwner: row.claim_owner,
           eventType: row.event_type,
           merchantId: row.merchant_id,
           orderId: row.order_id,

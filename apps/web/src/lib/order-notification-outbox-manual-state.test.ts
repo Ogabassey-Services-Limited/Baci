@@ -14,11 +14,12 @@ function createSupabaseMock(data: unknown, error: unknown = null) {
   const responseData =
     typeof data === 'string'
       ? {
+          claim_owner: 'claim-owner-1',
           outbox_id: outboxId,
           status: data === 'skipped' || data === 'failed' ? null : data,
         }
       : data === null
-        ? { outbox_id: outboxId, status: null }
+        ? { claim_owner: 'claim-owner-1', outbox_id: outboxId, status: null }
         : data;
   return {
     rpc: vi.fn().mockResolvedValue({ data: responseData, error }),
@@ -92,6 +93,7 @@ describe('getManualOrderNotificationOutboxBlockingState', () => {
     expect(result).toEqual({
       status: 'clear',
       claimId: '10000000-0000-4000-8000-000000000001',
+      claimOwner: 'claim-owner-1',
     });
   });
 
@@ -170,6 +172,7 @@ describe('getManualOrderNotificationOutboxBlockingState', () => {
     expect(result).toEqual({
       status: 'clear',
       claimId: '10000000-0000-4000-8000-000000000001',
+      claimOwner: 'claim-owner-1',
     });
   });
 
@@ -184,6 +187,7 @@ describe('getManualOrderNotificationOutboxBlockingState', () => {
     expect(result).toEqual({
       status: 'clear',
       claimId: '10000000-0000-4000-8000-000000000001',
+      claimOwner: 'claim-owner-1',
     });
   });
 
