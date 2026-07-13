@@ -100,7 +100,9 @@ describe('WalletScreenView', () => {
       />
     );
 
-    expect(screen.getByText('wallet-balance:125000 spendable:100000')).toBeOnTheScreen();
+    expect(
+      screen.getByText('wallet-balance:125000 spendable:100000')
+    ).toBeOnTheScreen();
     expect(mockStackScreen).toHaveBeenCalledWith({
       options: { title: 'Wallet & Loyalty' },
     });
@@ -155,7 +157,9 @@ describe('WalletScreenView', () => {
       />
     );
 
-    expect(screen.getByText('wallet-balance:125000 spendable:100000')).toBeOnTheScreen();
+    expect(
+      screen.getByText('wallet-balance:125000 spendable:100000')
+    ).toBeOnTheScreen();
     expect(mockStackScreen).not.toHaveBeenCalled();
     expect(mockScreenShell).toHaveBeenCalledWith(
       expect.objectContaining({ edges: ['top'] })

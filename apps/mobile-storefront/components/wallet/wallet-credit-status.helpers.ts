@@ -2,10 +2,7 @@ import type { WalletCreditWatchStatus } from '@/hooks/use-wallet-credit-watch';
 import { formatPrice } from '@/stores/cart-store';
 
 interface WalletCreditStatusCopy {
-  icon:
-    | 'sync-outline'
-    | 'checkmark-circle-outline'
-    | 'refresh-circle-outline';
+  icon: 'sync-outline' | 'checkmark-circle-outline' | 'refresh-circle-outline';
   message: string;
   title: string;
 }

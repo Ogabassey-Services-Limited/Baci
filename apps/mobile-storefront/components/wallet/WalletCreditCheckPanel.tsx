@@ -1,8 +1,14 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { router } from 'expo-router';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { WALLET_FUNDING_CHECKING_STATE_ENABLED } from '@/constants/wallet-funding';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SPACING } from '@/constants/Colors';
+import { WALLET_FUNDING_CHECKING_STATE_ENABLED } from '@/constants/wallet-funding';
 import type { WalletCreditWatch } from '@/hooks/use-wallet-credit-watch';
 import { getWalletCreditStatusCopy } from './wallet-credit-status.helpers';
 

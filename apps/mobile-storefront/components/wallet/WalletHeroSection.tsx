@@ -1,8 +1,8 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
-import type { WalletCreditWatch } from '@/hooks/use-wallet-credit-watch';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
+import type { WalletCreditWatch } from '@/hooks/use-wallet-credit-watch';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import { WalletCreditCheckPanel } from './WalletCreditCheckPanel';
 import { WalletQuickUtilities } from './WalletQuickUtilities';

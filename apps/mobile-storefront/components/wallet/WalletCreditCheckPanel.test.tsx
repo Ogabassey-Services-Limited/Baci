@@ -17,7 +17,9 @@ import type { WalletCreditWatch } from '@/hooks/use-wallet-credit-watch';
 import type { WalletReturnHref } from '@/lib/sanitize-wallet-return-to';
 import { WalletCreditCheckPanel } from './WalletCreditCheckPanel';
 
-function createWatch(overrides: Partial<WalletCreditWatch> = {}): WalletCreditWatch {
+function createWatch(
+  overrides: Partial<WalletCreditWatch> = {}
+): WalletCreditWatch {
   return {
     armCheck: jest.fn(),
     creditedAmount: null,
@@ -53,7 +55,9 @@ describe('WalletCreditCheckPanel', () => {
 
   it('resets to idle from the credited state so a later transfer can be checked', () => {
     const reset = jest.fn();
-    renderPanel(createWatch({ status: 'credited', creditedAmount: 2500, reset }));
+    renderPanel(
+      createWatch({ status: 'credited', creditedAmount: 2500, reset })
+    );
 
     fireEvent.press(screen.getByRole('button', { name: 'Done' }));
 
@@ -64,9 +68,7 @@ describe('WalletCreditCheckPanel', () => {
     const armCheck = jest.fn();
     renderPanel(createWatch({ armCheck }));
 
-    fireEvent.press(
-      screen.getByRole('button', { name: /I've transferred/i })
-    );
+    fireEvent.press(screen.getByRole('button', { name: /I've transferred/i }));
 
     expect(armCheck).toHaveBeenCalledTimes(1);
   });
@@ -78,7 +80,8 @@ describe('WalletCreditCheckPanel', () => {
   });
 
   it('deep-links back to the purchase only when credited with a return href', () => {
-    const returnCtaHref = '/utilities/airtime?repeatAmount=1000' as WalletReturnHref;
+    const returnCtaHref =
+      '/utilities/airtime?repeatAmount=1000' as WalletReturnHref;
     renderPanel(
       createWatch({ status: 'credited', creditedAmount: 2500, returnCtaHref })
     );

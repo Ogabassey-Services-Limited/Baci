@@ -13,7 +13,6 @@ import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import type { WalletCreditWatch } from '@/hooks/use-wallet-credit-watch';
 import { useWalletFundPanelAutoCreate } from './use-wallet-fund-panel-auto-create';
 import { WalletCreditCheckPanel } from './WalletCreditCheckPanel';
-import { styles } from './wallet-fund-panel.styles';
 import {
   WalletFundPhonePrompt,
   type WalletFundPhoneSubmitResult,
@@ -21,6 +20,7 @@ import {
 import { WalletPanelActionButtons } from './WalletPanelActionButtons';
 import { styles as walletStyles } from './wallet.styles';
 import type { WalletDisplayFundingAccount } from './wallet.types';
+import { styles } from './wallet-fund-panel.styles';
 
 type WalletColors = (typeof Colors)['light'];
 

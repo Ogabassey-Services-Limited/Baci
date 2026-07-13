@@ -40,7 +40,9 @@ describe('buildUtilityWalletReturnTo', () => {
   });
 
   it('returns a path without a query when nothing is provided', () => {
-    expect(buildUtilityWalletReturnTo({ type: 'data' })).toBe('/utilities/data');
+    expect(buildUtilityWalletReturnTo({ type: 'data' })).toBe(
+      '/utilities/data'
+    );
   });
 
   it('survives the wallet return-to sanitizer (singly-encoded round-trip)', () => {
