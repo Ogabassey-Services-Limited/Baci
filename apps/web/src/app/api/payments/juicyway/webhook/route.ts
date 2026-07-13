@@ -614,6 +614,31 @@ export async function POST(request: NextRequest) {
           },
           reference
         );
+        // Also drain serialized-inventory confirmation (idempotent): a
+        // winner that crashed right after its flip never reached it.
+        // Email/push cannot be safely replayed here — Juicyway has no outbox
+        // or dispatch marker; migrating it onto the paid-order outbox is the
+        // documented follow-up.
+        try {
+          await ensurePaidOrderInventoryConfirmed(
+            supabase,
+            transaction.merchant_id,
+            transaction.order_id
+          );
+        } catch (inventoryError) {
+          logger.error({
+            error: inventoryError,
+            message:
+              'Juicyway 0-row flip failed to confirm inventory for the paid order',
+            orderId: transaction.order_id,
+          });
+          // Redelivery re-enters this branch: settlement no-ops, inventory
+          // retries.
+          return NextResponse.json(
+            { error: 'Inventory confirmation failed' },
+            { status: 500 }
+          );
+        }
         return NextResponse.json({ message: 'Already processed' });
       }
 

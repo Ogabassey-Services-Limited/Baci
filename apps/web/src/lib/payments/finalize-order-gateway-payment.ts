@@ -213,8 +213,13 @@ export async function finalizeOrderGatewayPayment({
     });
   }
 
+  // A pure replay requires the TRANSACTION to have been completed by an
+  // earlier call too: a fresh capture (verify flipping a pending transaction
+  // for an order that was already paid manually/concurrently) must still
+  // drain, or the captured gateway funds would never settle.
   const isPureReplay =
     !wonTransactionFlip &&
+    Boolean(completion.already_completed) &&
     Boolean(completion.order_already_paid) &&
     !completion.order_updated;
   if (isPureReplay && outboxState !== null && !outboxState.hasRows) {

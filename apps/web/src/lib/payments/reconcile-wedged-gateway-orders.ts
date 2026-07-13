@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
 import { finalizeOrderGatewayPayment } from '@/lib/payments/finalize-order-gateway-payment';
+import { handlePaymentForCancelledOrder } from '@/lib/payments/handle-payment-for-cancelled-order';
 import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
 
 // Sweep for "wedged" gateway order payments: the transaction row is
@@ -216,6 +217,15 @@ export async function reconcileWedgedGatewayOrders({
           reason: 'amount_mismatch',
           transactionId: candidate.id,
         });
+        // A real-money discrepancy must stay visible to ops after the row
+        // retires from the hourly batch.
+        await handlePaymentForCancelledOrder({
+          gatewayReference: candidate.gateway_reference,
+          issueType: 'payment_match_ambiguous',
+          order: { id: candidate.order_id },
+          reason: `Wedge sweep: gateway verified amount ${verification.amount} does not match transaction amount ${expectedAmount} for ${candidate.gateway} reference ${candidate.gateway_reference}`,
+          transactionId: candidate.id,
+        });
         await stampWedgeResolution(supabase, candidate, 'amount_mismatch');
         continue;
       }
@@ -226,6 +236,13 @@ export async function reconcileWedgedGatewayOrders({
       ) {
         summary.skipped.push({
           reason: 'currency_mismatch',
+          transactionId: candidate.id,
+        });
+        await handlePaymentForCancelledOrder({
+          gatewayReference: candidate.gateway_reference,
+          issueType: 'payment_match_ambiguous',
+          order: { id: candidate.order_id },
+          reason: `Wedge sweep: gateway verified currency ${verification.currency} does not match transaction currency ${candidate.currency} for ${candidate.gateway} reference ${candidate.gateway_reference}`,
           transactionId: candidate.id,
         });
         await stampWedgeResolution(supabase, candidate, 'currency_mismatch');
