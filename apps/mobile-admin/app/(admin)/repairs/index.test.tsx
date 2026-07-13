@@ -189,7 +189,9 @@ describe('RepairBookingsScreen', () => {
 
     render(<RepairBookingsScreen />);
 
-    expect(await screen.findByText('No repair bookings yet')).toBeInTheDocument();
+    expect(
+      await screen.findByText('No repair bookings yet')
+    ).toBeInTheDocument();
   });
 
   it('shows a loading indicator while the first page is fetching', () => {

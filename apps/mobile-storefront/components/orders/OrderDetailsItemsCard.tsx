@@ -1,5 +1,5 @@
-import { Image, Text, TouchableOpacity, View } from 'react-native';
 import { formatOrderItemOptionLabel } from '@baci/shared/lib';
+import { Image, Text, TouchableOpacity, View } from 'react-native';
 import type Colors from '@/constants/Colors';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import { orderDetailsScreenStyles as styles } from './OrderDetailsScreen.styles';

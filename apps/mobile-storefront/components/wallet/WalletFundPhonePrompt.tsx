@@ -37,7 +37,9 @@ export function WalletFundPhonePrompt({
   const handleSubmit = async () => {
     const parsed = WalletFundPhoneSchema.safeParse({ phone });
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? 'Valid phone number required');
+      setError(
+        parsed.error.issues[0]?.message ?? 'Valid phone number required'
+      );
       return;
     }
     setError(null);

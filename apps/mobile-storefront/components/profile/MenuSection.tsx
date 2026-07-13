@@ -37,7 +37,9 @@ export function MenuSection({
 }: MenuSectionProps) {
   const handlePress = (item: MenuItem) => {
     if (Platform.OS === 'ios') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {
+        // Haptics failures are non-critical; ignore silently.
+      });
     }
     onItemPress(item);
   };

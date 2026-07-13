@@ -31,6 +31,7 @@ export function useCameraPermission(enabled: boolean) {
     }
   }
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies(attempt): `attempt` is an intentional retrigger — retryPermission() bumps it to force a fresh permission request.
   useEffect(() => {
     if (!enabled) {
       return;
@@ -71,7 +72,8 @@ export function useCameraPermission(enabled: boolean) {
           setStatus(resolveCameraPermissionStatus(permission));
         })
         .catch((error: unknown) => {
-          const message = error instanceof Error ? error.message : String(error);
+          const message =
+            error instanceof Error ? error.message : String(error);
           console.warn('[BNPLCheckout] Camera permission refresh failed', {
             message,
           });

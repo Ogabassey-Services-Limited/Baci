@@ -51,16 +51,16 @@ export function CollapsibleCheckoutCard({
   const isCollapsed = collapsed && canCollapse;
 
   const editAction = isCollapsed ? (
-      <Pressable
-        onPress={onToggle}
-        accessibilityRole="button"
-        accessibilityLabel={`Edit ${title}`}
-        style={styles.editBtn}
-      >
-        <Ionicons name="create-outline" size={16} color={BRAND.primary} />
-        <Text style={[styles.editText, { color: BRAND.primary }]}>Edit</Text>
-      </Pressable>
-    ) : null;
+    <Pressable
+      onPress={onToggle}
+      accessibilityRole="button"
+      accessibilityLabel={`Edit ${title}`}
+      style={styles.editBtn}
+    >
+      <Ionicons name="create-outline" size={16} color={BRAND.primary} />
+      <Text style={[styles.editText, { color: BRAND.primary }]}>Edit</Text>
+    </Pressable>
+  ) : null;
 
   return (
     <CheckoutSectionCard

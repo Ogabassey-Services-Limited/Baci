@@ -36,9 +36,7 @@ export function TaxRegionUnavailableCard({
           </Text>
         </View>
       </View>
-      <Text
-        style={[styles.toggleDescription, { color: colors.textSecondary }]}
-      >
+      <Text style={[styles.toggleDescription, { color: colors.textSecondary }]}>
         Tax settings are currently available for Nigerian merchants only —
         support for your region is coming.
       </Text>

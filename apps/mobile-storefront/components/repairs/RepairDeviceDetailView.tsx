@@ -103,9 +103,7 @@ export function RepairDeviceDetailView({
                   accessibilityRole="button"
                   accessibilityLabel={`Book ${quote.serviceTypeName}`}
                 >
-                  <Text style={styles.primaryButtonText}>
-                    Book this repair
-                  </Text>
+                  <Text style={styles.primaryButtonText}>Book this repair</Text>
                   <Ionicons name="arrow-forward" size={18} color="#FFF" />
                 </Pressable>
               </View>

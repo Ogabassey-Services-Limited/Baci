@@ -1,8 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ComponentProps } from 'react';
 import { StyleSheet } from 'react-native';
-import Colors, { BRAND } from '@/constants/Colors';
 import { sanitizeDescriptionPlainText } from '@/components/storefront/utils/text';
+import Colors, { BRAND } from '@/constants/Colors';
 import type { Product } from '@/types/product';
 import { formatPrice } from '@/types/product';
 import ListProductCard from './ListProductCard';

@@ -13,12 +13,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SocialMediaInput from '@/components/settings/SocialMediaInput';
 import SocialMediaRetryState from '@/components/settings/SocialMediaRetryState';
+import { AppKeyboardContainer } from '@/components/ui/AppKeyboardContainer';
+import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import {
   EMPTY_SOCIAL_MEDIA,
   SOCIAL_MEDIA_FIELDS,
 } from '@/constants/social-media-fields';
-import { AppKeyboardContainer } from '@/components/ui/AppKeyboardContainer';
-import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { type MerchantSocialMedia, useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';

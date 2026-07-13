@@ -1,8 +1,8 @@
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import type { ThemeColors } from '@/constants/theme';
 import { SPACING } from '@/constants/theme';
-import type { Branch } from '@/schemas/branch';
 import type { VariantInventoryStatus } from '@/hooks/variantInventory';
+import type { Branch } from '@/schemas/branch';
 import { CENTRAL_STOCK_BRANCH_ID } from './VariantInventory.constants';
 import { variantInventoryUnitsSheetStyles as styles } from './VariantInventoryUnitsSheet.styles';
 

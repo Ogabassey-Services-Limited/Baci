@@ -1,4 +1,7 @@
-import type { RepairDeviceBrandGroup, RepairDeviceSummary } from '@baci/shared/repairs';
+import type {
+  RepairDeviceBrandGroup,
+  RepairDeviceSummary,
+} from '@baci/shared/repairs';
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { repairsCatalogStyles as styles } from '@/components/repairs/repairs-catalog.styles';

@@ -1,9 +1,8 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import React from 'react';
 import { Text, View } from 'react-native';
 import type { CheckoutIdentityTheme } from '../colors';
-import type { ErrorAlertProps } from '../types';
 import { styles } from '../styles';
+import type { ErrorAlertProps } from '../types';
 
 interface ThemedErrorAlertProps extends ErrorAlertProps {
   theme: CheckoutIdentityTheme;

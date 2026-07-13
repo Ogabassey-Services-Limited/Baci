@@ -211,7 +211,10 @@ export default function TaxScreen() {
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
           >
-            <TaxRegionUnavailableCard colors={colors} shadowStyle={shadows.sm} />
+            <TaxRegionUnavailableCard
+              colors={colors}
+              shadowStyle={shadows.sm}
+            />
           </ScrollView>
         </SafeAreaView>
       </>

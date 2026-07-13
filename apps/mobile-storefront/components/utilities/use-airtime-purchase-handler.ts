@@ -1,6 +1,7 @@
-import { useState, useRef } from 'react';
-import { Alert } from 'react-native';
 import { router } from 'expo-router';
+import { useRef, useState } from 'react';
+import { Alert } from 'react-native';
+import type { useUtilityPayment } from '@/hooks/use-utility-payment';
 import {
   chargeSavedVtuCard,
   chargeWalletForVtu,
@@ -13,14 +14,13 @@ import {
   VtuPaymentStillProcessingError,
   waitForVtuConfirmation,
 } from '@/lib/vtu-checkout';
+import type { Customer } from '@/stores/auth-store.types';
+import type { AirtimeFormProps } from './airtime-form.types';
 import {
   buildAirtimeGatewayParams,
   getAirtimeCustomerName,
   validateAirtimePurchaseInput,
 } from './airtime-form-controller.helpers';
-import type { Customer } from '@/stores/auth-store.types';
-import type { useUtilityPayment } from '@/hooks/use-utility-payment';
-import type { AirtimeFormProps } from './airtime-form.types';
 
 const SAVED_CARD_CONFIRMATION_GATEWAY: VtuConfirmationGateway = 'paystack';
 

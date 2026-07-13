@@ -8,7 +8,7 @@ import type {
 function groupOrders(
   orders: Order[],
   keyGetter: (order: Order) => string
-): Array<[string, GroupedOrderMetric]> {
+): [string, GroupedOrderMetric][] {
   const groups = new Map<string, GroupedOrderMetric>();
 
   for (const order of orders) {

@@ -1,4 +1,4 @@
-import { BRAND, RADIUS, SHADOWS, SPACING, palette } from '@/constants/Colors';
+import { BRAND, palette, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
 
 const cartItemStyles = {
   cartCard: {

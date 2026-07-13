@@ -268,10 +268,7 @@ describe('bookRepairPickup', () => {
   });
 
   it('keeps the reservation locked when Topship booking cannot be confirmed', async () => {
-    const consoleSpy = vi
-      .spyOn(console, 'error')
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress expected test logging
-      .mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     mocks.bookShipment.mockRejectedValueOnce(new Error('wallet empty'));
     const supabase = makeSupabase(happyResponses());
 
@@ -288,10 +285,7 @@ describe('bookRepairPickup', () => {
   });
 
   it('releases the reservation after a confirmed Topship payment rejection', async () => {
-    const consoleSpy = vi
-      .spyOn(console, 'error')
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress expected test logging
-      .mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const operations: string[] = [];
     mocks.bookShipment.mockRejectedValueOnce(
       new ShippingBookingRejectedError('wallet empty')
@@ -377,10 +371,7 @@ describe('bookRepairPickup', () => {
   });
 
   it('returns booking_failed (without booking) when the quote cannot be persisted', async () => {
-    const consoleSpy = vi
-      .spyOn(console, 'error')
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress expected test logging
-      .mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const supabase = makeSupabase(
       happyResponses({
         'repair_pickup_quotes.insert': {
@@ -400,10 +391,7 @@ describe('bookRepairPickup', () => {
   });
 
   it('returns shipment_save_failed when linking the shipment to the repair errors', async () => {
-    const consoleSpy = vi
-      .spyOn(console, 'error')
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress expected test logging
-      .mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const supabase = makeSupabase(
       happyResponses({
         'repairs.update': { data: null, error: { message: 'link boom' } },
@@ -423,10 +411,7 @@ describe('bookRepairPickup', () => {
   });
 
   it('returns shipment_save_failed when the claimed booking cannot be linked', async () => {
-    const consoleSpy = vi
-      .spyOn(console, 'error')
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress expected test logging
-      .mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const supabase = makeSupabase(
       happyResponses({
         'repairs.update': { data: [], error: null },
@@ -447,10 +432,7 @@ describe('bookRepairPickup', () => {
   });
 
   it('returns shipment_save_failed when the shipment row cannot be saved', async () => {
-    const consoleSpy = vi
-      .spyOn(console, 'error')
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress expected test logging
-      .mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const supabase = makeSupabase(
       happyResponses({
         'shipments.insert': { data: null, error: { message: 'boom' } },
@@ -470,10 +452,7 @@ describe('bookRepairPickup', () => {
   });
 
   it('preserves the linked reservation when finalizing a paid shipment fails', async () => {
-    const consoleSpy = vi
-      .spyOn(console, 'error')
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress expected test logging
-      .mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const supabase = makeSupabase(
       happyResponses({
         'shipments.update': { data: null, error: { message: 'finalize boom' } },

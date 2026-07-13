@@ -11,15 +11,15 @@ import {
   Text,
   View,
 } from 'react-native';
-import { formatQuotePrice } from '@/components/repairs/repair-quote-format';
+import { RepairTextField } from '@/components/repairs/RepairTextField';
+import { repairBookingStyles as booking } from '@/components/repairs/repair-booking.styles';
 import {
   buildBookingPayload,
   type RepairBookingFieldErrors,
   type RepairBookingFormState,
   validateBookingForm,
 } from '@/components/repairs/repair-booking-form-model';
-import { RepairTextField } from '@/components/repairs/RepairTextField';
-import { repairBookingStyles as booking } from '@/components/repairs/repair-booking.styles';
+import { formatQuotePrice } from '@/components/repairs/repair-quote-format';
 import { repairsCatalogStyles as styles } from '@/components/repairs/repairs-catalog.styles';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';

@@ -1,7 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, Text, View } from 'react-native';
 import { WalletStatusRow } from '@/components/checkout/WalletStatusRow';
-import Colors from '@/constants/Colors';
+import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
 import { formatPrice } from '@/stores/cart-store';
 import { paymentMethodSelectorStyles as styles } from './styles';
@@ -105,7 +105,9 @@ export function PaymentMethodStoreCreditRows({
               {
                 // Always red so the unused credit calls attention.
                 borderColor: BRAND.primary,
-                backgroundColor: savingsIsActive ? BRAND.primary : 'transparent',
+                backgroundColor: savingsIsActive
+                  ? BRAND.primary
+                  : 'transparent',
                 borderRadius: savingsCoversFully ? 10 : 4,
               },
             ]}

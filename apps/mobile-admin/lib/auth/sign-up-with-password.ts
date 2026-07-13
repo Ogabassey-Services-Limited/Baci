@@ -14,11 +14,7 @@
  * flow silently regresses. See sign-up-with-password.test.ts.
  */
 
-import {
-  isAuthApiError,
-  type Session,
-  type User,
-} from '@supabase/supabase-js';
+import { isAuthApiError, type Session, type User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { trackAuthTelemetry } from '@/services/auth-telemetry';
 
@@ -51,8 +47,7 @@ interface RunPasswordSignUpOptions {
 
 function isRateLimited(message: string, status: number | undefined): boolean {
   return (
-    status === 429 ||
-    /rate limit|for security purposes|too many/i.test(message)
+    status === 429 || /rate limit|for security purposes|too many/i.test(message)
   );
 }
 

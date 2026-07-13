@@ -1,6 +1,6 @@
 import type { OrderItem } from '@/components/orders/new-order.types';
-import { formatProductCondition } from '@/lib/product-condition';
 import { formatVariantAttributesSummary } from '@/lib/format-variant-attributes';
+import { formatProductCondition } from '@/lib/product-condition';
 
 type VariantSummaryItem = Pick<
   OrderItem,

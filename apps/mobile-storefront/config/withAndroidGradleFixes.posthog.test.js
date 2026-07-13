@@ -33,7 +33,9 @@ function readProjectFile(projectRoot, relativePath) {
 }
 
 function writeMinimalAndroidProject(appBuildGradle) {
-  mockPlatformProjectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'baci-gradle-'));
+  mockPlatformProjectRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'baci-gradle-')
+  );
   writeProjectFile(
     mockPlatformProjectRoot,
     'build.gradle',

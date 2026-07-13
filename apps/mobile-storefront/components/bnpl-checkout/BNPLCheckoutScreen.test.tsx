@@ -216,7 +216,6 @@ describe('BNPLCheckoutScreen', () => {
     expect(mockWebViewProps?.allowsMediaCapture).toBe(false);
   });
 
-
   it('shows terminal checkout errors before camera permission states', () => {
     const handleRetry = jest.fn();
     mockCameraPermissionState = {

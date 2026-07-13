@@ -1,5 +1,5 @@
 import {
-  ECOMMERCE_ANALYTICS_EVENTS,
+  type AnalyticsProperties,
   buildCheckoutStartedProperties,
   buildCheckoutStepCompletedProperties,
   buildOrderCompletedProperties,
@@ -7,13 +7,13 @@ import {
   buildProductAddedProperties,
   buildProductListViewedProperties,
   buildProductRemovedProperties,
-  buildProductViewedProperties,
   buildProductsSearchedProperties,
+  buildProductViewedProperties,
   buildWishlistProductProperties,
-  compactAnalyticsProperties,
-  eventForWishlistAction,
-  type AnalyticsProperties,
   type CheckoutStepName,
+  compactAnalyticsProperties,
+  ECOMMERCE_ANALYTICS_EVENTS,
+  eventForWishlistAction,
   type WishlistAction,
 } from '@baci/shared/contracts';
 import { trackEvent } from './analytics-core';

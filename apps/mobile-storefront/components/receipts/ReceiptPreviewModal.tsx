@@ -69,7 +69,10 @@ const shareReceiptPdf = async (
         // fall through to the alert below
       }
     }
-    Alert.alert('Share Failed', 'Could not share the receipt. Please try again.');
+    Alert.alert(
+      'Share Failed',
+      'Could not share the receipt. Please try again.'
+    );
   } finally {
     // Remove the generated temp PDF so repeated shares don't leave cache files.
     if (pdfUri) {
@@ -97,8 +100,7 @@ export function ReceiptPreviewModal({
   const [isSharing, setIsSharing] = useState(false);
   // Default the document label from paid status (preserves the devices/orders
   // invoice flow). Utility callers pass documentType='receipt' explicitly.
-  const resolvedDocumentType =
-    documentType ?? (isPaid ? 'receipt' : 'invoice');
+  const resolvedDocumentType = documentType ?? (isPaid ? 'receipt' : 'invoice');
 
   const handleShare = async () => {
     if (!html || isSharing) return;

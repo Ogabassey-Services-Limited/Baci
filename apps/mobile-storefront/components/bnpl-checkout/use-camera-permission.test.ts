@@ -24,10 +24,7 @@ const requestCameraPermissionsAsyncMock = jest.mocked(
 );
 let appStateChangeHandler: ((state: AppStateStatus) => void) | undefined;
 
-function buildCameraPermissionResponse(
-  granted: boolean,
-  canAskAgain = true
-) {
+function buildCameraPermissionResponse(granted: boolean, canAskAgain = true) {
   return {
     canAskAgain,
     expires: 'never',
@@ -40,12 +37,14 @@ describe('useCameraPermission', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     appStateChangeHandler = undefined;
-    jest.spyOn(AppState, 'addEventListener').mockImplementation(
-      (_eventType, listener) => {
+    jest
+      .spyOn(AppState, 'addEventListener')
+      .mockImplementation((_eventType, listener) => {
         appStateChangeHandler = listener as (state: AppStateStatus) => void;
-        return { remove: jest.fn() } as ReturnType<typeof AppState.addEventListener>;
-      }
-    );
+        return { remove: jest.fn() } as ReturnType<
+          typeof AppState.addEventListener
+        >;
+      });
     getCameraPermissionsAsyncMock.mockResolvedValue(
       buildCameraPermissionResponse(true)
     );
@@ -81,7 +80,6 @@ describe('useCameraPermission', () => {
     await waitFor(() => expect(result.current.status).toBe('denied'));
     expect(result.current.canAskAgain).toBe(false);
   });
-
 
   it('refreshes permanently denied camera permission after returning from settings', async () => {
     requestCameraPermissionsAsyncMock.mockResolvedValueOnce(

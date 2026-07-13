@@ -221,7 +221,9 @@ export default function OrderReportModal({
                     color={colors.textOnPrimary}
                     style={{ marginRight: 8 }}
                   />
-                  <Text style={[styles.buttonText, { color: colors.textOnPrimary }]}>
+                  <Text
+                    style={[styles.buttonText, { color: colors.textOnPrimary }]}
+                  >
                     Download PDF Report
                   </Text>
                 </>

@@ -1,11 +1,10 @@
+import type { ZodType, z } from 'zod';
 import { createStorefrontCustomerApiClient } from '@/lib/storefront-customer-api-client';
 import {
   walletOrderFundingIntentCreateResponseSchema,
   walletOrderFundingIntentPollResponseSchema,
-  walletOrderFundingIntentSchema,
+  type walletOrderFundingIntentSchema,
 } from '@/schemas/order-wallet-funding-intent';
-import type { ZodType } from 'zod';
-import { z } from 'zod';
 
 type WalletOrderFundingApiClient = ReturnType<
   typeof createStorefrontCustomerApiClient

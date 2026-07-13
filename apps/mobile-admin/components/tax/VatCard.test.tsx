@@ -33,6 +33,7 @@ vi.mock('react-native', () => ({
     disabled?: boolean;
     onPress?: () => void;
   }) => (
+    // biome-ignore lint/a11y/useAriaPropsSupportedByRole: role is set dynamically via accessibilityRole (VatCard passes "switch", which supports aria-checked)
     <button
       aria-checked={ariaChecked ?? accessibilityState?.checked}
       aria-disabled={accessibilityState?.disabled}

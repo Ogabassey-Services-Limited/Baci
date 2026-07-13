@@ -1,13 +1,13 @@
 import {
   BASE_RETRY_DELAY,
+  calculateBackoffDelay,
+  checkNetworkConnectivity,
   DEFAULT_MAX_RETRIES,
+  defaultIsRetryable,
   MAX_RETRY_DELAY,
   NetworkError,
   RetryExhaustedError,
   type RetryOptions,
-  calculateBackoffDelay,
-  checkNetworkConnectivity,
-  defaultIsRetryable,
   sleep,
 } from './api-core';
 import { createLogger } from './logger';

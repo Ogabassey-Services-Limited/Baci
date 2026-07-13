@@ -60,8 +60,6 @@ describe('usePaymentMethodAvailability', () => {
     );
   });
 
-
-
   it('returns the available method ids across tabs after enabled and hidden filters', () => {
     const result = usePaymentMethodAvailability({
       enabledMethods: ['invoice', 'payforme', 'klump'],

@@ -8,7 +8,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { createMMKV } from 'react-native-mmkv';
 import { createLogger } from './logger';
-import { getAsyncStorageEntries, removeAsyncStorageItems } from './storage-batch';
+import {
+  getAsyncStorageEntries,
+  removeAsyncStorageItems,
+} from './storage-batch';
 
 const log = createLogger('Storage');
 
@@ -27,6 +30,7 @@ try {
   );
 }
 
+// biome-ignore lint/suspicious/useAwait: async wraps the sync mmkv/array return paths to match the declared Promise<...> signature callers await
 export async function getStorageEntries(
   keys: readonly string[]
 ): Promise<[string, string | null][]> {

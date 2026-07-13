@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { withDangerousMod } = require('@expo/config-plugins');
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 
 /**
  * Validate and resolve a path to ensure it's within the project root
@@ -36,7 +36,7 @@ function safePathJoin(projectRoot, ...segments) {
 const withFirebaseModularHeaders = (config) => {
   return withDangerousMod(config, [
     'ios',
-    async (config) => {
+    (config) => {
       // Use validated path join to prevent path traversal
       // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal
       const podfilePath = safePathJoin(
@@ -106,7 +106,7 @@ const withFirebaseModularHeaders = (config) => {
       if (podfileContent.includes('post_install do |installer|')) {
         podfileContent = podfileContent.replace(
           /post_install do \|installer\|/,
-          'post_install do |installer|' + surgicalPostInstall
+          `post_install do |installer|${surgicalPostInstall}`
         );
       }
 

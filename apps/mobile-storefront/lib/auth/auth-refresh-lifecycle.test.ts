@@ -123,7 +123,8 @@ describe('registerAuthRefreshLifecycle', () => {
       jest.doMock('react-native', () => ({
         AppState: undefined,
       }));
-      const lifecycle = require('./auth-refresh-lifecycle') as typeof import('./auth-refresh-lifecycle');
+      const lifecycle =
+        require('./auth-refresh-lifecycle') as typeof import('./auth-refresh-lifecycle');
       const auth = {
         startAutoRefresh: jest.fn(),
         stopAutoRefresh: jest.fn(),

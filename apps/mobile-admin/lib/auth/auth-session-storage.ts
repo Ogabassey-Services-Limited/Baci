@@ -30,9 +30,7 @@ export function getDefaultSupabaseAuthStorageKey(supabaseUrl: string): string {
   return `sb-${projectRef}-auth-token`;
 }
 
-export function getMigratedSupabaseAuthStorageKey(
-  supabaseUrl: string
-): string {
+export function getMigratedSupabaseAuthStorageKey(supabaseUrl: string): string {
   const projectRef = getSupabaseProjectRef(supabaseUrl);
 
   return `${MIGRATED_SUPABASE_AUTH_STORAGE_KEY_PREFIX}-${projectRef}`;
@@ -49,9 +47,11 @@ export function getActiveAuthStorageKey(params: {
 
 export const authSessionStorage: SupportedStorage = {
   getItem: async (key: string) => storage.getString(key) ?? null,
+  // biome-ignore lint/suspicious/useAwait: SupportedStorage requires a Promise<void>-returning method
   setItem: async (key: string, value: string) => {
     storage.set(key, value);
   },
+  // biome-ignore lint/suspicious/useAwait: SupportedStorage requires a Promise<void>-returning method
   removeItem: async (key: string) => {
     storage.remove(key);
   },

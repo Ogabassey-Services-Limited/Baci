@@ -1,7 +1,7 @@
 import type { User } from '@supabase/supabase-js';
-import { normalizeCheckoutPhone } from './normalize-checkout-phone';
-import { splitFullName } from './auth-helpers';
 import type { Customer } from '../stores/auth-store';
+import { splitFullName } from './auth-helpers';
+import { normalizeCheckoutPhone } from './normalize-checkout-phone';
 
 export interface CheckoutIdentity {
   email: string;

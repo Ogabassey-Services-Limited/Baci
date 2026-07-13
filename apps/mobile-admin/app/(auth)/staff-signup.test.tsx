@@ -169,7 +169,9 @@ describe('StaffSignupScreen', () => {
 
     // A transient network failure must not be shown as "invalid/expired".
     const retry = await screen.findByRole('button', { name: 'Try again' });
-    expect(screen.getByText(/couldn't verify this invitation/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/couldn't verify this invitation/i)
+    ).toBeInTheDocument();
     expect(mocks.signUp).not.toHaveBeenCalled();
 
     // Retrying re-runs the preview RPC.

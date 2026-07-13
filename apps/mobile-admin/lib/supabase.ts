@@ -4,11 +4,11 @@
 
 import { createClient, processLock } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
+import { registerAuthRefreshLifecycle } from './auth/auth-refresh-lifecycle';
 import {
   authSessionStorage,
   getDefaultSupabaseAuthStorageKey,
 } from './auth/auth-session-storage';
-import { registerAuthRefreshLifecycle } from './auth/auth-refresh-lifecycle';
 
 type ExpoExtraConfig = {
   supabaseAnonKey?: string;
@@ -97,12 +97,11 @@ function createMissingCredentialsClient() {
   ) as ReturnType<typeof createClient>;
 }
 
-const supabaseClient =
-  hasSupabaseCredentials
-    ? createClient(validSupabaseUrl, supabaseClientKey, {
-        auth: authOptions,
-      })
-    : createMissingCredentialsClient();
+const supabaseClient = hasSupabaseCredentials
+  ? createClient(validSupabaseUrl, supabaseClientKey, {
+      auth: authOptions,
+    })
+  : createMissingCredentialsClient();
 
 if (hasSupabaseCredentials && !isServerRuntime) {
   registerAuthRefreshLifecycle(supabaseClient.auth);

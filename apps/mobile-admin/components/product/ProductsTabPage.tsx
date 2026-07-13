@@ -11,17 +11,16 @@ import {
 import { CategoryItem } from '@/components/product/CategoryItem';
 import { ProductItem } from '@/components/product/ProductItem';
 import { ProductsListEmpty } from '@/components/product/ProductsListEmpty';
+import { ProductsListShell } from '@/components/product/ProductsListShell';
 import { ProductsStatCards } from '@/components/product/ProductsStatCards';
 import {
   ProductsSubTabs,
   type ProductsTab,
 } from '@/components/product/ProductsSubTabs';
-import { ProductsListShell } from '@/components/product/ProductsListShell';
-import { getProductsEmptyState } from '@/components/product/products-empty-state';
 import type { Category } from '@/components/product/product.shared';
+import { getProductsEmptyState } from '@/components/product/products-empty-state';
 import { TopSellingProductItem } from '@/components/product/TopSellingProductItem';
 import { SPACING } from '@/constants/theme';
-import { useTheme } from '@/hooks/useTheme';
 import {
   type Product,
   type StockFilter,
@@ -29,6 +28,7 @@ import {
   useInventoryStats,
   useProducts,
 } from '@/hooks/useProducts';
+import { useTheme } from '@/hooks/useTheme';
 import {
   type TopSellingProduct,
   useTopSellingProducts,

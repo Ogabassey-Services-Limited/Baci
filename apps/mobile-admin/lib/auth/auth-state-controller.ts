@@ -4,9 +4,9 @@ import {
   getAuthErrorCode,
 } from '@/lib/auth/auth-error-classification';
 import {
+  type AuthStatePatch,
   getClearedAuthState,
   getSessionAuthState,
-  type AuthStatePatch,
 } from '@/lib/auth/commit-auth-state';
 
 type AuthStoreSnapshot = {

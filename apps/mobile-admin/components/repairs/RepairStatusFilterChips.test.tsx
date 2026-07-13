@@ -24,9 +24,7 @@ vi.mock('react-native', () => ({
       {children}
     </button>
   ),
-  ScrollView: ({ children }: { children?: ReactNode }) => (
-    <div>{children}</div>
-  ),
+  ScrollView: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   StyleSheet: { create: <T,>(styles: T) => styles },
   Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
 }));
@@ -43,7 +41,11 @@ const colors = {
 describe('RepairStatusFilterChips', () => {
   it('renders an "All" chip plus every repair status', () => {
     render(
-      <RepairStatusFilterChips colors={colors} onSelect={vi.fn()} selected="all" />
+      <RepairStatusFilterChips
+        colors={colors}
+        onSelect={vi.fn()}
+        selected="all"
+      />
     );
 
     expect(screen.getByText('All')).toBeInTheDocument();
@@ -64,9 +66,10 @@ describe('RepairStatusFilterChips', () => {
       />
     );
 
-    expect(
-      screen.getByRole('button', { name: 'Confirmed' })
-    ).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Confirmed' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
     expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute(
       'aria-pressed',
       'false'
@@ -76,7 +79,11 @@ describe('RepairStatusFilterChips', () => {
   it('calls onSelect with the tapped status', () => {
     const onSelect = vi.fn();
     render(
-      <RepairStatusFilterChips colors={colors} onSelect={onSelect} selected="all" />
+      <RepairStatusFilterChips
+        colors={colors}
+        onSelect={onSelect}
+        selected="all"
+      />
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'In progress' }));

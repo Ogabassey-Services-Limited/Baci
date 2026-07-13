@@ -1,3 +1,11 @@
+import type { AdTrackingUserProperties } from './ad-tracking.types';
+import {
+  clearCachedUserData,
+  getAdTrackingModules,
+  getIsTikTokInitialized,
+  getIsTrackingAllowed,
+  setCachedUserData,
+} from './ad-tracking-state';
 import {
   trackAddToCart as posthogAddToCart,
   identifyUser as posthogIdentify,
@@ -7,14 +15,6 @@ import {
   trackSearch as posthogSearch,
   trackEvent as posthogTrack,
 } from './analytics';
-import {
-  clearCachedUserData,
-  getAdTrackingModules,
-  getIsTikTokInitialized,
-  getIsTrackingAllowed,
-  setCachedUserData,
-} from './ad-tracking-state';
-import type { AdTrackingUserProperties } from './ad-tracking.types';
 
 export {
   posthogAddToCart,
@@ -24,6 +24,7 @@ export {
   posthogTrack,
 };
 
+// biome-ignore lint/suspicious/useAwait: async isolates tracking failures as promise rejections so a broken analytics provider can never crash the caller's user-facing flow (Codex review, #3084)
 export async function identifyUser(
   userId: string,
   properties?: AdTrackingUserProperties
@@ -62,6 +63,7 @@ export async function identifyUser(
   }
 }
 
+// biome-ignore lint/suspicious/useAwait: async isolates tracking failures as promise rejections so a broken analytics provider can never crash the caller's user-facing flow (Codex review, #3084)
 export async function resetUserIdentity(): Promise<void> {
   clearCachedUserData();
   posthogReset();

@@ -11,9 +11,8 @@ import { AppState, type AppStateStatus } from 'react-native';
 import { useHomePermissionPrompt } from './useHomePermissionPrompt';
 
 const mockCanRequestTrackingTransparency = jest.fn<() => boolean>(() => true);
-const mockGetTrackingPermissionStatus = jest.fn<
-  () => Promise<{ status: string }>
->();
+const mockGetTrackingPermissionStatus =
+  jest.fn<() => Promise<{ status: string }>>();
 const mockRequestTrackingPermission = jest.fn<() => Promise<string>>();
 const mockRemoveAppStateListener = jest.fn();
 let mockAppState: AppStateStatus = 'active';

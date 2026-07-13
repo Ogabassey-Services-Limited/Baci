@@ -8,6 +8,7 @@ import { generateEventIdSync, sendClientBackup } from './ad-tracking-runtime';
 import { sendServerConversion } from './ad-tracking-server-conversion';
 import { buildTikTokCommerceEventParams } from './tiktok-commerce-event-data';
 
+// biome-ignore lint/suspicious/useAwait: async isolates tracking failures as promise rejections so a broken analytics provider can never crash the caller's user-facing flow (Codex review, #3084)
 export async function trackProductViewed(
   product: TrackedProduct
 ): Promise<void> {
@@ -53,6 +54,7 @@ export async function trackProductViewed(
   );
 }
 
+// biome-ignore lint/suspicious/useAwait: async isolates tracking failures as promise rejections so a broken analytics provider can never crash the caller's user-facing flow (Codex review, #3084)
 export async function trackAddToCart(
   product: TrackedCartProduct,
   cartTotal?: number
@@ -109,6 +111,7 @@ export async function trackAddToCart(
   );
 }
 
+// biome-ignore lint/suspicious/useAwait: caller (use-checkout-address-state.ts) chains .catch() on this Promise, so the async/Promise<void> signature is required
 export async function trackCheckoutStarted(
   checkout: TrackedCheckout
 ): Promise<void> {

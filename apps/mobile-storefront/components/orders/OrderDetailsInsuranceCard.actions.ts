@@ -79,9 +79,7 @@ export function resolveInsuranceCardActions({
 
   // A claim action is openable only via the path that actually applies: a
   // hosted link needs `onFileClaim`; a missing link needs the fallback route.
-  const canFileClaim = claimActionUrl
-    ? !!onFileClaim
-    : !!onFileClaimFallback;
+  const canFileClaim = claimActionUrl ? !!onFileClaim : !!onFileClaimFallback;
 
   // Inspection requirement is gated on the RAW link presence so a stored but
   // non-normalizable link still blocks claims; the placeholder-pending case

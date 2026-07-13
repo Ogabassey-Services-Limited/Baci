@@ -22,10 +22,13 @@ describe('selectRejectedVoucherLineIds', () => {
 
   it('prunes only the server-identified token, keeping other valid vouchers', () => {
     expect(
-      selectRejectedVoucherLineIds([voucher('v1'), voucher('v2'), plain('n1')], {
-        isRejection: true,
-        rejectedVoucherToken: 'token-v2',
-      })
+      selectRejectedVoucherLineIds(
+        [voucher('v1'), voucher('v2'), plain('n1')],
+        {
+          isRejection: true,
+          rejectedVoucherToken: 'token-v2',
+        }
+      )
     ).toEqual(['v2']);
   });
 

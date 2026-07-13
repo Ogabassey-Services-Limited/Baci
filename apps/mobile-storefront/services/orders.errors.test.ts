@@ -59,9 +59,12 @@ describe('orders.errors', () => {
     });
 
     it('falls back to the raw error when no code is known', () => {
-      expect(loadOrdersErrors().getValidationErrorMessage('Something odd happened', undefined)).toBe(
-        'Something odd happened'
-      );
+      expect(
+        loadOrdersErrors().getValidationErrorMessage(
+          'Something odd happened',
+          undefined
+        )
+      ).toBe('Something odd happened');
     });
   });
 

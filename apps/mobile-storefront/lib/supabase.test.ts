@@ -52,23 +52,17 @@ jest.mock(
   { virtual: true }
 );
 
-jest.mock(
-  './auth/auth-refresh-lifecycle',
-  () => ({
-    registerAuthRefreshLifecycle: mockState.registerAuthRefreshLifecycle,
-  })
-);
+jest.mock('./auth/auth-refresh-lifecycle', () => ({
+  registerAuthRefreshLifecycle: mockState.registerAuthRefreshLifecycle,
+}));
 
-jest.mock(
-  './auth/auth-session-storage',
-  () => ({
-    authSessionStorage: mockState.authSessionStorage,
-    getDefaultSupabaseAuthStorageKey: (supabaseUrl: string) => {
-      const projectRef = new URL(supabaseUrl).hostname.split('.')[0];
-      return `sb-${projectRef}-auth-token`;
-    },
-  })
-);
+jest.mock('./auth/auth-session-storage', () => ({
+  authSessionStorage: mockState.authSessionStorage,
+  getDefaultSupabaseAuthStorageKey: (supabaseUrl: string) => {
+    const projectRef = new URL(supabaseUrl).hostname.split('.')[0];
+    return `sb-${projectRef}-auth-token`;
+  },
+}));
 
 jest.mock('@react-native-community/netinfo', () => ({
   __esModule: true,

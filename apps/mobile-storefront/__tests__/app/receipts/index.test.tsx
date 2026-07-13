@@ -34,7 +34,9 @@ const mockUseReceipts = jest.fn();
 
 jest.mock('expo-router', () => ({
   Redirect: ({ href }: { href: string }) => mockRedirect({ href }),
-  router: { replace: (...args: Parameters<typeof mockReplace>) => mockReplace(...args) },
+  router: {
+    replace: (...args: Parameters<typeof mockReplace>) => mockReplace(...args),
+  },
   useLocalSearchParams: () => mockSearchParams,
 }));
 

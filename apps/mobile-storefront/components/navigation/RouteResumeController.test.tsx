@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { act, render, waitFor } from '@testing-library/react-native';
 import {
+  RouteResumeController,
   resetRouteResumeForTest,
   resetRouteResumeMemoryForTest,
-  RouteResumeController,
 } from './RouteResumeController';
 
 let mockPathname = '/';
@@ -104,28 +104,25 @@ describe('RouteResumeController', () => {
       },
       '/bnpl-checkout?email=shopper%40example.com&gateway=credit_direct&token=secret-token',
     ],
-  ])(
-    'keeps %s resume data in memory without persisting sensitive params',
-    async (_label, pathname, params, expectedHref) => {
-      mockPathname = pathname;
-      mockSearchParams = params;
-      const firstRender = render(<RouteResumeController shouldResume={false} />);
+  ])('keeps %s resume data in memory without persisting sensitive params', async (_label, pathname, params, expectedHref) => {
+    mockPathname = pathname;
+    mockSearchParams = params;
+    const firstRender = render(<RouteResumeController shouldResume={false} />);
 
-      await act(async () => undefined);
+    await act(async () => undefined);
 
-      expect(mockRouteResumeStorage.has('route-resume-state')).toBe(false);
+    expect(mockRouteResumeStorage.has('route-resume-state')).toBe(false);
 
-      firstRender.unmount();
-      mockPathname = '/';
-      mockSearchParams = {};
+    firstRender.unmount();
+    mockPathname = '/';
+    mockSearchParams = {};
 
-      render(<RouteResumeController shouldResume />);
+    render(<RouteResumeController shouldResume />);
 
-      await waitFor(() => {
-        expect(mockReplace).toHaveBeenCalledWith(expectedHref);
-      });
-    }
-  );
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith(expectedHref);
+    });
+  });
 
   it('preserves repeated array search params when restoring', async () => {
     mockPathname = '/cart';

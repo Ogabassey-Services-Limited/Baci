@@ -16,7 +16,7 @@ export function normalizeSocialUrl(
   input: string | undefined,
   platform: SocialPlatform
 ): string | undefined {
-  if (!input || !input.trim()) return undefined;
+  if (!input?.trim()) return undefined;
 
   const cleanInput = input.trim();
 

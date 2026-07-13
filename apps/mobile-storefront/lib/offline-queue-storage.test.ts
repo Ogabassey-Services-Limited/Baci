@@ -1,11 +1,11 @@
 import { jest } from '@jest/globals';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { QueuedMutation } from './offline-queue.types';
 import {
   QUEUE_STORAGE_KEY,
   readPersistedOfflineQueueState,
   writePersistedOfflineQueueState,
 } from './offline-queue-storage';
-import type { QueuedMutation } from './offline-queue.types';
 
 jest.mock('@react-native-async-storage/async-storage', () => ({
   __esModule: true,

@@ -3,8 +3,8 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import type { ExpenseCategory } from '@/components/expenses/expense-categories';
 import { expenseFormStyles } from '@/components/expenses/expense-form.styles';
 import SafeImage from '@/components/ui/SafeImage';
-import { useTheme } from '@/hooks/useTheme';
 import { useCurrency } from '@/hooks/useCurrency';
+import { useTheme } from '@/hooks/useTheme';
 
 const CATEGORY_PLACEHOLDER = 'Select a category';
 

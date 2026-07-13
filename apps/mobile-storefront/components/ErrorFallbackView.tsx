@@ -1,8 +1,8 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';
-import type { ErrorContent } from './error-boundary-content';
 import { errorBoundaryStyles as styles } from './error-boundary.styles';
+import type { ErrorContent } from './error-boundary-content';
 
 type ErrorBoundaryColors = (typeof Colors)['light'];
 

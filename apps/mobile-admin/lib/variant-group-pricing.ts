@@ -134,9 +134,7 @@ export function getAxisRawValue(
     return variant.condition?.trim().toLowerCase() ?? '';
   }
   const record = buildLowercaseAttributeRecord(variant);
-  return (
-    record[axis.attributeKey?.toLowerCase() ?? '']?.toLowerCase() ?? ''
-  );
+  return record[axis.attributeKey?.toLowerCase() ?? '']?.toLowerCase() ?? '';
 }
 
 /**
@@ -253,7 +251,9 @@ export function areVariantFilterSelectionsEqual(
   right: VariantFilterSelection
 ): boolean {
   const activeLeft = Object.entries(left).filter(([, value]) => Boolean(value));
-  const activeRight = Object.entries(right).filter(([, value]) => Boolean(value));
+  const activeRight = Object.entries(right).filter(([, value]) =>
+    Boolean(value)
+  );
   if (activeLeft.length !== activeRight.length) {
     return false;
   }

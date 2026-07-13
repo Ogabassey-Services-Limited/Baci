@@ -1,5 +1,5 @@
 import { Alert } from 'react-native';
-import { triggerHaptic, type HapticType } from '@/hooks/use-haptics';
+import { type HapticType, triggerHaptic } from '@/hooks/use-haptics';
 
 type AppAlertVariant = 'error' | 'info' | 'success' | 'warning';
 

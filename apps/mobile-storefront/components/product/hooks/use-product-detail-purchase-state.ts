@@ -1,8 +1,8 @@
 import { useEffectivePrice } from '@/hooks/use-effective-price';
 import { findMatchingConditionOffer } from '@/lib/product-condition-offers';
 import { normalizeRouteCondition } from '@/lib/product-route/normalize-route-condition';
-import type { ProductCondition } from '@/types/product';
 import { useTrackProductRouteViewed } from '@/services/tiktok-product-route-tracking';
+import type { ProductCondition } from '@/types/product';
 import type { useProductDetailRouteData } from './use-product-detail-route-data';
 
 type RouteData = ReturnType<typeof useProductDetailRouteData>;

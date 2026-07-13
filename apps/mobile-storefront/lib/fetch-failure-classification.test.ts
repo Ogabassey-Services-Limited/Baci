@@ -31,7 +31,7 @@ describe('classifyFetchFailure', () => {
       expect(result.category).toBe('cancelled');
       expect(result.isReportable).toBe(false);
     });
- 
+
     it('reclassifies an abort the caller did not request as retryable network', () => {
       const result = classifyFetchFailure(
         new Error('Fetch request has been canceled'),

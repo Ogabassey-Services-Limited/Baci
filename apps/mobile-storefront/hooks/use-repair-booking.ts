@@ -1,7 +1,7 @@
 import type { RepairBookingResult } from '@baci/shared/repairs';
 import { useState } from 'react';
-import type { RepairBookingRequest } from '@/lib/repair-catalog-schemas';
 import { submitRepairBooking } from '@/lib/repair-catalog-client';
+import type { RepairBookingRequest } from '@/lib/repair-catalog-schemas';
 
 export interface UseRepairBookingResult {
   isSubmitting: boolean;

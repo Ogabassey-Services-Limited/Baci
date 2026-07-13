@@ -3,8 +3,8 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import { AppSheetModal } from '@/components/ui/AppSheetModal';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import { NewOrderEditItemActions } from './NewOrderEditItemActions';
-import { getOrderItemVariantSummary } from './new-order-item-variant-summary';
 import { formatPriceInput, parseDecimalInput } from './new-order.shared';
+import { getOrderItemVariantSummary } from './new-order-item-variant-summary';
 
 interface NewOrderEditItemSheetProps {
   controller: ReturnType<typeof useNewOrderController>;

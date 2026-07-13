@@ -14,8 +14,8 @@ import type {
   SavingsProductChoice,
   StartSavingsColors,
 } from './start-savings.types';
-import { toProductChoice } from './start-savings-controller.utils';
 import type { StartSavingsController } from './start-savings-controller.types';
+import { toProductChoice } from './start-savings-controller.utils';
 
 type StartSavingsProductFieldsProps = {
   colors: StartSavingsColors;
