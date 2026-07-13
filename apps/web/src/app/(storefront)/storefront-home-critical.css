@@ -23,6 +23,7 @@
 */
 /* stylelint-disable scss/at-rule-no-unknown -- Tailwind v4 source discovery directives. */
 @source "./ogabassey/ogabassey-static-home-page-content.tsx";
+@source "./ogabassey/ogabassey-publication-safe-hero-fallback.tsx";
 @source "../../components/storefront/ogabassey/components/Hero.tsx";
 @source "../../components/storefront/ogabassey/components/hero-mobile-carousel.tsx";
 /* Shared geometry class constants consumed by the publication-safe fallback

@@ -467,6 +467,9 @@ describe('storefront CSS partitioning', () => {
       /@source\s+["'][^"']*ogabassey-static-home-page-content\.tsx["']/
     );
     expect(homeCriticalCss).toMatch(
+      /@source\s+["'][^"']*ogabassey-publication-safe-hero-fallback\.tsx["']/
+    );
+    expect(homeCriticalCss).toMatch(
       /@source\s+["'][^"']*components\/Hero\.tsx["']/
     );
     expect(homeCriticalCss).toMatch(
