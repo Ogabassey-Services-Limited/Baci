@@ -315,6 +315,36 @@ describe('payment-gateway-availability', () => {
     ).toBe(true);
   });
 
+  it('does not mark a Kenyan store PayPal-launchable — PayPal cannot present KES (Codex #21)', () => {
+    // KE is a PayPal-receive country, but KES is not a PayPal currency. The launch
+    // gate used to skip the currency check entirely, so a Kenyan store could publish
+    // as "payment ready" on PayPal while its checkout — which DOES check the
+    // currency — could never render the option. Launch must ask what checkout asks.
+    expect(
+      hasLaunchablePaymentMethod({
+        country: 'KE',
+        bank_account_number: null,
+        bank_code: null,
+        paystack_subaccount_code: null,
+        feature_settings: { pay_on_delivery_enabled: false },
+        paypalConnected: true,
+      })
+    ).toBe(false);
+  });
+
+  it('does not mark a Ghanaian store PayPal-launchable — PayPal cannot pay a GH merchant at all', () => {
+    expect(
+      hasLaunchablePaymentMethod({
+        country: 'GH',
+        bank_account_number: null,
+        bank_code: null,
+        paystack_subaccount_code: null,
+        feature_settings: { pay_on_delivery_enabled: false },
+        paypalConnected: true,
+      })
+    ).toBe(false);
+  });
+
   it('does not let a connected PayPal account satisfy the requirement for an NG merchant', () => {
     expect(
       hasLaunchablePaymentMethod({
@@ -331,11 +361,28 @@ describe('payment-gateway-availability', () => {
 
 describe('isPaypalCheckoutAvailable', () => {
   it('returns true only when the precomputed paypalConnected flag is true', () => {
-    expect(isPaypalCheckoutAvailable({ paypalConnected: true })).toBe(true);
-    expect(isPaypalCheckoutAvailable({ paypalConnected: false })).toBe(false);
-    expect(isPaypalCheckoutAvailable({})).toBe(false);
+    // A PayPal-receive country is now a precondition on BOTH surfaces, so these
+    // fixtures carry one.
+    expect(
+      isPaypalCheckoutAvailable({ country: 'GB', paypalConnected: true })
+    ).toBe(true);
+    expect(
+      isPaypalCheckoutAvailable({ country: 'GB', paypalConnected: false })
+    ).toBe(false);
+    expect(isPaypalCheckoutAvailable({ country: 'GB' })).toBe(false);
     expect(isPaypalCheckoutAvailable(null)).toBe(false);
     expect(isPaypalCheckoutAvailable(undefined)).toBe(false);
+  });
+
+  it('refuses a merchant in a country PayPal cannot pay, however they are configured', () => {
+    // PayPal is effectively send-only across most of Africa. Offering it to a
+    // merchant there means they take orders they can never be paid for — worse
+    // than offering nothing. Fails closed on an unknown/missing country too.
+    for (const country of ['NG', 'GH', 'UG', 'XX', null, undefined]) {
+      expect(
+        isPaypalCheckoutAvailable({ country, paypalConnected: true })
+      ).toBe(false);
+    }
   });
 });
 
@@ -359,6 +406,7 @@ describe('isPaypalCheckoutAvailable — storefront currency-aware path', () => {
     expect(
       isPaypalCheckoutAvailable(
         {
+          country: 'IE',
           feature_settings: [
             { custom_settings: { paypal_enabled: true, paypal_mode: 'live' } },
           ],

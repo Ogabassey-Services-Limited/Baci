@@ -1,3 +1,5 @@
+import { getCurrencyForCountry } from '@/lib/currency-utils';
+import { isPaypalMerchantCountry } from '@/lib/payments/paypal-merchant-countries';
 import { PAYPAL_SUPPORTED_CURRENCIES } from '@/lib/paypal/paypal-currency';
 
 export interface CheckoutPaymentMerchant {
@@ -258,6 +260,11 @@ export function isPaypalCheckoutAvailable(
 ): boolean {
   if (!merchant) return false;
 
+  // PayPal cannot pay a merchant outside its receive-capable countries, so it must
+  // never be offered to their customers — no matter how the store is configured.
+  // Applies to BOTH surfaces: the vault-aware launch check and the storefront.
+  if (!isPaypalMerchantCountry(merchant.country)) return false;
+
   if (currency === undefined) {
     return merchant.paypalConnected === true;
   }
@@ -267,16 +274,31 @@ export function isPaypalCheckoutAvailable(
   return isPaypalPresentableCurrency(currency);
 }
 
-// BYOK lanes are scoped to non-NG merchants for now (see the plan's Open
-// Questions §4): an NG merchant's orders are NGN, which is exactly the case
-// that needs an FX workstream this wave deliberately defers. NG merchants
-// stay on Paystack platform rails only, even if `paypalConnected` is
-// (unexpectedly) true for them.
+// PayPal is offered ONLY where PayPal can actually pay the merchant, in a currency
+// PayPal can actually present. Both checks fail closed.
+//
+// This used to be an exclusion gate ("not a Paystack-settlement country"), which
+// meant a merchant in Ghana or Nigeria — where PayPal is effectively send-only and
+// cannot pay them at all — could connect PayPal and publish as "payment ready",
+// then take orders they could never be paid for. It also skipped the currency check
+// entirely on this path, so a Kenyan store priced in KES could be marked launch-ready
+// for a PayPal option its checkout can never render (KES is not a PayPal currency).
+//
+// Launch-readiness must ask the same question the customer's checkout will ask.
 function canUsePaypalForLaunch(
   merchant: CheckoutPaymentMerchant | null | undefined
 ): boolean {
   if (!merchant) return false;
-  if (isBaciPaystackSettlementCountry(merchant.country)) return false;
+  // Can PayPal pay this merchant at all?
+  if (!isPaypalMerchantCountry(merchant.country)) return false;
+  // Can PayPal present this store's prices? (The storefront branch below checks the
+  // ORDER currency; at launch we have only the store's, derived from its country.)
+  if (
+    !isPaypalPresentableCurrency(
+      getCurrencyForCountry(merchant.country ?? null)
+    )
+  )
+    return false;
   return isPaypalCheckoutAvailable(merchant);
 }
 
