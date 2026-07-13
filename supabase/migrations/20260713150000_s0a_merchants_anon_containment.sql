@@ -52,7 +52,7 @@ GRANT SELECT (
   favicon_svg_url, favicon_png_32_url, favicon_png_192_url,
   favicon_apple_touch_url, favicon_uploaded_at,
   hero_image_ids, hero_slides, mobile_hero_slides,
-  template_id, google_product_sheet_url,
+  template_id,
   published_config,
   -- contact PII (already rendered on public storefronts; now published-only)
   email, phone, support_email, support_phone,

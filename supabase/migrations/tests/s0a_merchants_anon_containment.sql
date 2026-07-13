@@ -30,7 +30,11 @@ DECLARE
     'stripe_customer_id','stripe_subscription_id',
     'ga4_api_secret','facebook_capi_token','facebook_capi_access_token',
     'tiktok_access_token','snapchat_capi_token',
-    'firs_public_key','firs_certificate','firs_email','firs_password_encrypted'
+    'firs_public_key','firs_certificate','firs_email','firs_password_encrypted',
+    -- payout routing: no anon reader (features route uses the RPC since #3076)
+    'paystack_subaccount_code',
+    -- dashboard-only: link to the merchant's product data source, never public
+    'google_product_sheet_url'
   ];
   safe_cols    text[] := ARRAY[
     'id','business_name','slug','logo_url','country','is_published',
