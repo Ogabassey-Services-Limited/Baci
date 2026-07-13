@@ -75,6 +75,7 @@ DECLARE
   v_e_inflight uuid := '00000000-0000-4000-8000-0000000fe006';    -- ends_at passed but a 'started' attempt in flight
   v_e_justended uuid := '00000000-0000-4000-8000-0000000fe007';   -- ends_at within the 2-min settle grace
   v_e_stale uuid := '00000000-0000-4000-8000-0000000fe008';       -- >1h-old 'started' attempt must STILL block (no cutoff)
+  v_e_nocashamt uuid := '00000000-0000-4000-8000-0000000fe009';    -- cash prize with NO amount -> awards must be 'pending'
   v_a1 uuid := '00000000-0000-4000-8000-0000000fa011'; -- c1 best
   v_a2 uuid := '00000000-0000-4000-8000-0000000fa012'; -- c1 lower (dedup target)
   v_a3 uuid := '00000000-0000-4000-8000-0000000fa013'; -- c2
@@ -95,6 +96,9 @@ DECLARE
   v_inflight_minted integer;
   v_justended_minted integer;
   v_stale_minted integer;
+  v_nocashamt_minted integer;
+  v_pending_cash integer;
+  v_approved_cash integer;
 BEGIN
   -- Non-NGN payout currency: awards must be stored in it, not hard-coded NGN.
   INSERT INTO public.merchants (id, email, payout_currency) VALUES (v_merchant, 'rank-winners@test.com', 'KES');
@@ -136,7 +140,12 @@ BEGIN
     -- ended 2h ago but a 'started' attempt is 2h old: must STILL block (attempts
     -- have no self-expiry, so we never mint while a valid submit is possible).
     (v_e_stale, v_merchant, 'rw-stale', 'RW Stale Started', 'active', v_now - interval '2 hours', true, 'NLRC-TEST-PERMIT',
-      '{"ranked_winner_count":3,"grand_prize_amount":50000,"cash_prize_amount":10000}'::jsonb);
+      '{"ranked_winner_count":3,"grand_prize_amount":50000,"cash_prize_amount":10000}'::jsonb),
+    -- ranked_winner_count with a grand amount but NO cash_prize_amount: rank 1
+    -- grand is payable (approved); rank 2+ cash have no amount -> must be minted
+    -- 'pending' (unclaimable) so a payout can't be claimed before it exists.
+    (v_e_nocashamt, v_merchant, 'rw-nocashamt', 'RW No Cash Amount', 'completed', v_now - interval '1 hour', true, 'NLRC-TEST-PERMIT',
+      '{"ranked_winner_count":3,"grand_prize_amount":50000}'::jsonb);
 
   INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, attempt_number, integrity_tier, score, started_at, submitted_at) VALUES
     (v_a1, v_e_verified, v_c1, 'submitted', 1, 'basic', 10, v_now - interval '10 min', v_now - interval '8 min'),
@@ -169,6 +178,11 @@ BEGIN
   -- (no time cutoff — attempts never self-expire, so a late submit stays possible).
   INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, attempt_number, integrity_tier, score, started_at, submitted_at) VALUES
     ('00000000-0000-4000-8000-0000000fa022', v_e_stale, v_c1, 'started', 1, 'basic', 0, v_now - interval '2 hours', NULL);
+  -- Two submitted attempts on the NO-CASH-AMOUNT event (rank 1 grand payable,
+  -- rank 2 cash amountless -> must be 'pending').
+  INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, attempt_number, integrity_tier, score, started_at, submitted_at) VALUES
+    ('00000000-0000-4000-8000-0000000fa023', v_e_nocashamt, v_c1, 'submitted', 1, 'basic', 10, v_now - interval '10 min', v_now - interval '8 min'),
+    ('00000000-0000-4000-8000-0000000fa024', v_e_nocashamt, v_c2, 'submitted', 1, 'basic', 8,  v_now - interval '10 min', v_now - interval '8 min');
 
   -- Mint the verified event.
   v_minted := public.mint_quiz_event_ranked_awards(v_e_verified);
@@ -264,6 +278,23 @@ BEGIN
   v_stale_minted := public.mint_quiz_event_ranked_awards(v_e_stale);
   IF v_stale_minted IS DISTINCT FROM 0 THEN
     RAISE EXCEPTION 'Stale (>1h) started attempt must still block minting, got %', v_stale_minted;
+  END IF;
+
+  -- Amountless awards must be minted 'pending' (unclaimable), never 'approved'.
+  v_nocashamt_minted := public.mint_quiz_event_ranked_awards(v_e_nocashamt);
+  IF v_nocashamt_minted IS DISTINCT FROM 2 THEN
+    RAISE EXCEPTION 'No-cash-amount event should mint 2 awards (grand+1 cash), got %', v_nocashamt_minted;
+  END IF;
+  SELECT count(*) INTO v_pending_cash FROM public.quiz_awards
+    WHERE event_id = v_e_nocashamt AND award_type = 'cash' AND status = 'pending' AND amount IS NULL;
+  SELECT count(*) INTO v_approved_cash FROM public.quiz_awards
+    WHERE event_id = v_e_nocashamt AND award_type = 'cash' AND status = 'approved';
+  IF v_pending_cash IS DISTINCT FROM 1 OR v_approved_cash IS DISTINCT FROM 0 THEN
+    RAISE EXCEPTION 'Amountless cash award must be pending/unclaimable (pending=%, approved=%)', v_pending_cash, v_approved_cash;
+  END IF;
+  -- The grand award (payable amount) must still be 'approved'.
+  IF NOT EXISTS (SELECT 1 FROM public.quiz_awards WHERE event_id = v_e_nocashamt AND award_type = 'grand' AND status = 'approved' AND amount = 50000) THEN
+    RAISE EXCEPTION 'Grand award with a valid amount must be approved';
   END IF;
 
   -- Fail-closed compliance gate: finalize_due must skip the unverified event.

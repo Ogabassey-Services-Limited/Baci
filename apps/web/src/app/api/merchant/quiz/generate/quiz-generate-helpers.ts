@@ -172,7 +172,11 @@ export async function resolvePrizeProduct(
 export async function activateMerchantQuizDraft(
   supabase: QuizSupabaseClient,
   eventId: string,
-  merchantId: string
+  merchantId: string,
+  // Optional close deadline. When set, the winner-mint cron finalizes the event
+  // shortly after it passes; when null the quiz is open-ended and only closes on
+  // an explicit 'completed' update.
+  endsAt?: string | null
 ): Promise<QuizDraftEvent | null> {
   const { data: draft, error: draftError } = await supabase
     .from('quiz_events')
@@ -195,7 +199,7 @@ export async function activateMerchantQuizDraft(
   const { data: activated, error: updateError } = await supabase
     .from('quiz_events')
     .update({
-      ends_at: null,
+      ends_at: endsAt ?? null,
       starts_at: new Date().toISOString(),
       status: 'active',
     })

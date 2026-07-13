@@ -255,7 +255,17 @@ BEGIN
       CASE WHEN pp.award_type = 'grand' THEN NULL ELSE r.attempt_id END,
       r.customer_id,
       pp.award_type,
-      'approved',
+      -- Amountless awards (amount unset/malformed/negative/out-of-range below)
+      -- are minted 'pending', NOT 'approved', so claim_quiz_cash_award — which
+      -- requires status='approved' — cannot mark a payout claimed before a
+      -- payable amount exists. Compliance flips them to 'approved' once the
+      -- figure is finalized. Uses the SAME predicate as the amount below so
+      -- 'approved' <=> a non-NULL stored amount.
+      CASE
+        WHEN pp.amount IS NOT NULL AND pp.amount >= 0 AND pp.amount <= 9999999999.99
+          THEN 'approved'
+        ELSE 'pending'
+      END,
       -- unset/negative -> NULL (satisfies the amount>=0 CHECK). Also NULL out an
       -- amount beyond quiz_awards.amount's numeric(12,2) range so an absurd
       -- configured value can't overflow the column and abort the whole insert;

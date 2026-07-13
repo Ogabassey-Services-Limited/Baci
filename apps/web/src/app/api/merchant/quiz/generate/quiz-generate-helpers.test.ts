@@ -256,6 +256,34 @@ describe('activateMerchantQuizDraft', () => {
     expect(harness.selectArg()).toBe('id, slug, status, title');
   });
 
+  it('sets ends_at when an activation deadline is provided', async () => {
+    const harness = buildQuizEventsHarness({
+      data: {
+        id: 'event-1',
+        slug: 'daily-phone-quiz',
+        status: 'active',
+        title: 'Daily Phone Quiz',
+      },
+      error: null,
+    });
+
+    const endsAt = '2999-01-01T00:00:00.000Z';
+    const result = await activateMerchantQuizDraft(
+      harness.supabase,
+      'event-1',
+      'merchant-1',
+      endsAt
+    );
+
+    expect(result).toMatchObject({ id: 'event-1', status: 'active' });
+    // A ranked-prize quiz's close deadline lands on quiz_events.ends_at so the
+    // winner-mint cron can finalize it.
+    expect(harness.updatePayload()).toMatchObject({
+      ends_at: endsAt,
+      status: 'active',
+    });
+  });
+
   it('returns null when the update errors', async () => {
     const harness = buildQuizEventsHarness({
       data: null,
