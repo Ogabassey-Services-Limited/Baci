@@ -52,7 +52,11 @@ export default function RepairBookingsScreen() {
   };
 
   const renderItem = ({ item }: { item: RepairBookingSummary }) => (
-    <RepairBookingListItem booking={item} colors={colors} onPress={openBooking} />
+    <RepairBookingListItem
+      booking={item}
+      colors={colors}
+      onPress={openBooking}
+    />
   );
 
   return (

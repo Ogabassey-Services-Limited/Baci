@@ -77,7 +77,7 @@ export function useBuilderConfig(pageSlug: string = 'home') {
       }
       return failureCount < 3;
     },
-    queryFn: async (): Promise<BuilderApiResponse> => {
+    queryFn: (): Promise<BuilderApiResponse> => {
       const token = session?.access_token;
       if (!token) {
         throw new Error('Not authenticated');
@@ -209,7 +209,7 @@ export function useBuilderConfig(pageSlug: string = 'home') {
   });
 
   // Send a message to the AI
-  async function sendMessage(prompt: string) {
+  function sendMessage(prompt: string) {
     return aiMutation.mutateAsync(prompt);
   }
 

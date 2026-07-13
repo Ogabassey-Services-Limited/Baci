@@ -1,6 +1,6 @@
 import { Alert } from 'react-native';
-import type { CartItem } from '@/stores/cart-store';
 import { isQuizVoucherLine } from '@/lib/cart/quiz-voucher-line';
+import type { CartItem } from '@/stores/cart-store';
 
 /** True when the cart carries a quiz prize (voucher) line. After the mixed-cart
  *  guard has run, a cart with a voucher line is voucher-ONLY. */

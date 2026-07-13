@@ -8,9 +8,7 @@ import { generateEventIdSync, sendClientBackup } from './ad-tracking-runtime';
 import { sendServerConversion } from './ad-tracking-server-conversion';
 import { buildTikTokCommerceEventParams } from './tiktok-commerce-event-data';
 
-export async function trackProductViewed(
-  product: TrackedProduct
-): Promise<void> {
+export function trackProductViewed(product: TrackedProduct): void {
   const eventId = generateEventIdSync();
   const currency = product.currency || 'NGN';
   const tikTokParams = buildTikTokCommerceEventParams({
@@ -53,10 +51,10 @@ export async function trackProductViewed(
   );
 }
 
-export async function trackAddToCart(
+export function trackAddToCart(
   product: TrackedCartProduct,
   cartTotal?: number
-): Promise<void> {
+): void {
   const eventId = generateEventIdSync();
   const currency = product.currency || 'NGN';
   const value = product.price * product.quantity;
@@ -109,6 +107,7 @@ export async function trackAddToCart(
   );
 }
 
+// biome-ignore lint/suspicious/useAwait: caller (use-checkout-address-state.ts) chains .catch() on this Promise, so the async/Promise<void> signature is required
 export async function trackCheckoutStarted(
   checkout: TrackedCheckout
 ): Promise<void> {

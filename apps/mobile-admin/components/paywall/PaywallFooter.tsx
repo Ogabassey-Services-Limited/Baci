@@ -110,7 +110,8 @@ export default function PaywallFooter({
       >
         {packagesUnavailable
           ? "Subscription options couldn't load right now. Check your connection and tap Try again."
-          : selectedPackage && !isPro && (
+          : selectedPackage &&
+            !isPro && (
               <>
                 Subscription auto-renews{' '}
                 {selectedPackage.packageType === 'ANNUAL'

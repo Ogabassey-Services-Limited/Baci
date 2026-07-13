@@ -54,6 +54,7 @@ export async function getBeneficiaries(
 
 let saveLock: Promise<void> = Promise.resolve();
 
+// biome-ignore lint/suspicious/useAwait: async needed so the early `return;` (no key) resolves as Promise<void> per the declared signature
 export async function saveBeneficiary(
   authenticatedCustomerId: string | null | undefined,
   input: Omit<UtilityBeneficiary, 'id' | 'lastUsed'>

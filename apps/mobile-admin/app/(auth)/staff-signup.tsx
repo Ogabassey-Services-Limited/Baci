@@ -269,7 +269,10 @@ export default function StaffSignupScreen() {
               <ActivityIndicator color={colors.textOnPrimary} />
             ) : (
               <Text
-                style={[styles.loginButtonText, { color: colors.textOnPrimary }]}
+                style={[
+                  styles.loginButtonText,
+                  { color: colors.textOnPrimary },
+                ]}
               >
                 {isRetry ? 'Try Again' : 'Create account & join'}
               </Text>

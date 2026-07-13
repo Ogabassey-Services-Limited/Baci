@@ -168,10 +168,7 @@ describe('fetchVerifiedOpenAIImageManifest', () => {
   });
 
   it('logs and throws when the manifest query fails', async () => {
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress expected error log
-      () => {}
-    );
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const { supabase } = createManifestSupabaseMock([
       {
         data: null,

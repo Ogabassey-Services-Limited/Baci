@@ -6,12 +6,12 @@ import type { WebView } from 'react-native-webview';
 import { useToast } from '@/components/ui/Toast';
 import { setClipboardString } from '@/lib/clipboard';
 import { useCartStore } from '@/stores/cart-store';
-import { createPaymentGatewayCompletionHandlers } from './payment-gateway-completion-handlers';
 import { createPaymentGatewayMessageHandler } from './create-payment-gateway-message-handler';
 import {
   isPaymentGateway,
   PAYMENT_GATEWAY_LABELS,
 } from './payment-gateway.helpers';
+import { createPaymentGatewayCompletionHandlers } from './payment-gateway-completion-handlers';
 import {
   getCloseConfirmationMessage,
   parsePaymentGatewayParams,

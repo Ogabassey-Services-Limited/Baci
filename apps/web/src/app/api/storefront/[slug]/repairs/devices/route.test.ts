@@ -91,10 +91,7 @@ describe('GET /api/storefront/[slug]/repairs/devices', () => {
 
   it('returns 500 when the data layer throws', async () => {
     mocks.getRepairDevicesForMerchant.mockRejectedValueOnce(new Error('boom'));
-    const consoleSpy = vi
-      .spyOn(console, 'error')
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress expected test logging
-      .mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     try {
       const response = await GET(buildRequest(), {

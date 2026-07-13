@@ -50,11 +50,14 @@ export function useNewOrderController({
   const queryClient = useQueryClient();
   const createCustomerMutation = useCreateCustomer();
   const [date, setDate] = useState(new Date());
-  const [selectedChannel, setSelectedChannel] =
-    useState<OrderSource | null>(initialSelectedChannel);
+  const [selectedChannel, setSelectedChannel] = useState<OrderSource | null>(
+    initialSelectedChannel
+  );
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('unpaid');
-  const [customer, setCustomer] = useState<CustomerInfo>(createEmptyCustomerInfo);
+  const [customer, setCustomer] = useState<CustomerInfo>(
+    createEmptyCustomerInfo
+  );
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -69,8 +72,9 @@ export function useNewOrderController({
   const [productSearch, setProductSearch] = useState('');
   const [selectedParentProduct, setSelectedParentProduct] =
     useState<SelectedParentProduct>(null);
-  const [variantReplacementItemId, setVariantReplacementItemId] =
-    useState<string | null>(null);
+  const [variantReplacementItemId, setVariantReplacementItemId] = useState<
+    string | null
+  >(null);
   const [customerSearch, setCustomerSearch] = useState('');
   const {
     customersData,

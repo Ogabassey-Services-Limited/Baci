@@ -1,8 +1,8 @@
 import { Alert } from 'react-native';
 import { createLogger } from '../lib/logger';
 import { supabase } from '../lib/supabase';
-import { syncAuthenticatedState } from './auth-store-sync';
 import type { AuthStoreGet, AuthStoreSet } from './auth-store.types';
+import { syncAuthenticatedState } from './auth-store-sync';
 
 const log = createLogger('AuthStore');
 

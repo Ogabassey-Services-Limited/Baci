@@ -59,9 +59,9 @@ describe('getFriendlyQuizErrorMessage', () => {
   });
 
   it('returns the message for a plain Error', () => {
-    expect(
-      getFriendlyQuizErrorMessage(new Error('boom'), 'fallback')
-    ).toBe('boom');
+    expect(getFriendlyQuizErrorMessage(new Error('boom'), 'fallback')).toBe(
+      'boom'
+    );
   });
 
   it('returns the fallback for non-error values', () => {

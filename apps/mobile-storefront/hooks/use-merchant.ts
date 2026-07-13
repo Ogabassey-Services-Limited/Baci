@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import {
   CONSTANT_MERCHANT_ID,
-  MERCHANT_SLUG,
   log,
+  MERCHANT_SLUG,
 } from '@/hooks/product-utils';
 import { withSupabaseRetry } from '@/lib/api';
 import { supabase } from '@/lib/supabase';

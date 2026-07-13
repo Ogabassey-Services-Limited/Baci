@@ -5,11 +5,13 @@ import { CollapsibleCheckoutCard } from './CollapsibleCheckoutCard';
 
 const colors = Colors.dark;
 
-function renderCard(overrides: {
-  collapsed?: boolean;
-  canCollapse?: boolean;
-  onToggle?: () => void;
-} = {}) {
+function renderCard(
+  overrides: {
+    collapsed?: boolean;
+    canCollapse?: boolean;
+    onToggle?: () => void;
+  } = {}
+) {
   render(
     <CollapsibleCheckoutCard
       icon="person-outline"

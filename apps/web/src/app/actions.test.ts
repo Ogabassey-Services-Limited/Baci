@@ -49,10 +49,7 @@ describe('getLandingMetrics', () => {
   });
 
   it('falls back to zeros when the queries reject', async () => {
-    const consoleSpy = vi
-      .spyOn(console, 'error')
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress expected test logging
-      .mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     mocks.select.mockReset();
     mocks.select.mockRejectedValue(new Error('connection refused'));
 

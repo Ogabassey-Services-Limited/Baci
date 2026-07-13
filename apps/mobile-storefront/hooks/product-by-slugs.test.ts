@@ -62,9 +62,7 @@ describe('fetchProductsBySlugs', () => {
   });
 
   it('hydrates rows (incl. has_variants rows) before transforming', async () => {
-    const rows = [
-      { id: 'p1', slug: 'a27', has_variants: true, variants: [] },
-    ];
+    const rows = [{ id: 'p1', slug: 'a27', has_variants: true, variants: [] }];
     mockQueryResult.data = rows;
 
     const result = await fetchProductsBySlugs('merchant-1', ['a27']);
@@ -77,9 +75,9 @@ describe('fetchProductsBySlugs', () => {
     mockQueryResult.data = null;
     mockQueryResult.error = { message: 'boom' };
 
-    await expect(
-      fetchProductsBySlugs('merchant-1', ['a27'])
-    ).rejects.toEqual(expect.objectContaining({ message: 'boom' }));
+    await expect(fetchProductsBySlugs('merchant-1', ['a27'])).rejects.toEqual(
+      expect.objectContaining({ message: 'boom' })
+    );
   });
 
   it('short-circuits to [] for an empty slug list without querying', async () => {

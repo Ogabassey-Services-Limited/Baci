@@ -6,14 +6,20 @@ import * as Haptics from 'expo-haptics';
 import { Stack } from 'expo-router';
 import { usePreventRemove } from 'expo-router/react-navigation';
 import { useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Linking,
+  Pressable,
+  Text,
+  View,
+} from 'react-native';
 import { RepairBookingForm } from '@/components/repairs/RepairBookingForm';
 import { RepairBookingSuccess } from '@/components/repairs/RepairBookingSuccess';
 import { RepairDeviceCatalog } from '@/components/repairs/RepairDeviceCatalog';
 import { RepairDeviceDetailView } from '@/components/repairs/RepairDeviceDetailView';
 import { RepairsFallback } from '@/components/repairs/RepairsFallback';
-import { buildRepairWhatsappUrl } from '@/components/repairs/repairs-content';
 import { repairsCatalogStyles as styles } from '@/components/repairs/repairs-catalog.styles';
+import { buildRepairWhatsappUrl } from '@/components/repairs/repairs-content';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { SUPPORT_WHATSAPP_PHONE } from '@/constants/Support';
@@ -51,7 +57,9 @@ export function RepairsCatalogScreen() {
   const [device, setDevice] = useState<RepairDeviceSummary | null>(null);
   const [quote, setQuote] = useState<RepairQuoteSummary | null>(null);
 
-  const detail = useRepairDeviceDetail(step === 'detail' ? (device?.slug ?? '') : '');
+  const detail = useRepairDeviceDetail(
+    step === 'detail' ? (device?.slug ?? '') : ''
+  );
   const booking = useRepairBooking();
 
   const showSuccess = booking.result !== null;
@@ -144,7 +152,9 @@ export function RepairsCatalogScreen() {
       return (
         <>
           {screen}
-          <View style={[styles.centered, { backgroundColor: colors.background }]}>
+          <View
+            style={[styles.centered, { backgroundColor: colors.background }]}
+          >
             <ActivityIndicator
               size="large"
               color={BRAND.primary}

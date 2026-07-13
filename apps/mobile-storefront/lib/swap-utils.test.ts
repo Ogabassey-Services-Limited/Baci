@@ -1,9 +1,9 @@
+import type { AIAnalysisResult } from '@/lib/validation';
 import {
   buildSwapInquiryMessage,
   buildSwapWhatsappUrl,
   getSwapGradeColor,
 } from './swap-utils';
-import type { AIAnalysisResult } from '@/lib/validation';
 
 const colors = {
   error: '#dc2626',

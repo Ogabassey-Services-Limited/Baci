@@ -103,10 +103,7 @@ describe('platform-blog query helpers', () => {
       error: { message: 'query failed' },
     });
 
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress console.error noise in test
-      () => {}
-    );
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     await expect(getPlatformBlogPost('missing-post')).rejects.toEqual({
       message: 'query failed',

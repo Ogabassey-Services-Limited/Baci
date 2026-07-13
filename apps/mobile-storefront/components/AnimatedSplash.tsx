@@ -1,6 +1,6 @@
+import { Image } from 'expo-image';
 import { type ReactNode, useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Image } from 'expo-image';
 import Animated, {
   cancelAnimation,
   Easing,

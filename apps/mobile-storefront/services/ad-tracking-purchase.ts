@@ -67,9 +67,7 @@ export async function trackPurchase(order: TrackedOrder): Promise<void> {
   log.info(`Purchase tracked: ${order.orderId} - ${order.total} ${currency}`);
 }
 
-export async function trackPaymentInfoAdded(
-  paymentMethod: string
-): Promise<void> {
+export function trackPaymentInfoAdded(paymentMethod: string): void {
   const eventId = generateEventIdSync();
 
   sendServerConversion('ADD_PAYMENT_INFO', eventId, { currency: 'NGN' });
@@ -81,9 +79,7 @@ export async function trackPaymentInfoAdded(
   });
 }
 
-export async function trackAddToWishlist(
-  product: TrackedWishlistProduct
-): Promise<void> {
+export function trackAddToWishlist(product: TrackedWishlistProduct): void {
   const eventId = generateEventIdSync();
   const currency = product.currency || 'NGN';
   const tikTokParams = buildTikTokCommerceEventParams({

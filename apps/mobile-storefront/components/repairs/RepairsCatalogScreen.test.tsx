@@ -29,7 +29,10 @@ const mockBookingState = {
   reset: jest.fn(),
 };
 
-const mockPreventRemoveState: { prevent: boolean; callback: (() => void) | null } = {
+const mockPreventRemoveState: {
+  prevent: boolean;
+  callback: (() => void) | null;
+} = {
   prevent: false,
   callback: null,
 };
@@ -145,7 +148,11 @@ describe('RepairsCatalogScreen', () => {
 
   it('renders the catalogue and drills into a device detail on selection', () => {
     mockDevicesState.groups = [appleGroup];
-    mockDetailState.detail = { device: appleGroup.devices[0], quotes: [quote], product: null };
+    mockDetailState.detail = {
+      device: appleGroup.devices[0],
+      quotes: [quote],
+      product: null,
+    };
 
     render(<RepairsCatalogScreen />);
 
@@ -160,7 +167,11 @@ describe('RepairsCatalogScreen', () => {
 
   it('advances from a quote to the booking form and submits', () => {
     mockDevicesState.groups = [appleGroup];
-    mockDetailState.detail = { device: appleGroup.devices[0], quotes: [quote], product: null };
+    mockDetailState.detail = {
+      device: appleGroup.devices[0],
+      quotes: [quote],
+      product: null,
+    };
 
     render(<RepairsCatalogScreen />);
     fireEvent.press(screen.getByText('iPhone 13'));
@@ -187,7 +198,11 @@ describe('RepairsCatalogScreen', () => {
 
   it('shows the ticket success screen when the booking resolves', () => {
     mockDevicesState.groups = [appleGroup];
-    mockDetailState.detail = { device: appleGroup.devices[0], quotes: [quote], product: null };
+    mockDetailState.detail = {
+      device: appleGroup.devices[0],
+      quotes: [quote],
+      product: null,
+    };
     mockBookingState.result = { id: 'repair-1', ticketNumber: 7788 };
 
     render(<RepairsCatalogScreen />);
@@ -208,7 +223,11 @@ describe('RepairsCatalogScreen', () => {
 
   it('steps back to the catalogue via the back intercept instead of leaving', () => {
     mockDevicesState.groups = [appleGroup];
-    mockDetailState.detail = { device: appleGroup.devices[0], quotes: [quote], product: null };
+    mockDetailState.detail = {
+      device: appleGroup.devices[0],
+      quotes: [quote],
+      product: null,
+    };
 
     render(<RepairsCatalogScreen />);
 

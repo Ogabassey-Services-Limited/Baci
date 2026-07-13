@@ -20,7 +20,6 @@ interface AuthTelemetryEvent {
 }
 
 declare global {
-  // biome-ignore lint/style/noVar: Global variables require var
   var __BACI_AUTH_TELEMETRY__: AuthTelemetryEvent[] | undefined;
 }
 

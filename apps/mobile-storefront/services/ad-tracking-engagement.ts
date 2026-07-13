@@ -7,10 +7,7 @@ import {
 } from './ad-tracking-runtime';
 import { sendServerConversion } from './ad-tracking-server-conversion';
 
-export async function trackSearch(
-  query: string,
-  resultCount: number
-): Promise<void> {
+export function trackSearch(query: string, resultCount: number): void {
   const eventId = generateEventIdSync();
 
   posthogSearch(query, resultCount);
@@ -22,19 +19,21 @@ export async function trackSearch(
   trackTikTokEvent('Search', eventId, { query });
 }
 
-export async function trackAppOpen(): Promise<void> {
+export function trackAppOpen(): void {
   trackFacebookEvent('fb_mobile_activate_app');
 }
 
 export async function trackScreenView(
   _screenName: string,
   _screenClass?: string
-): Promise<void> {}
+): Promise<void> {
+  // Not yet wired to a provider; kept as a stable async no-op call site.
+}
 
-export async function trackSignup(
+export function trackSignup(
   method: string,
   userData?: { email?: string; phone?: string; userId?: string }
-): Promise<void> {
+): void {
   const eventId = generateEventIdSync();
 
   sendServerConversion('SIGN_UP', eventId, {
@@ -54,12 +53,14 @@ export async function trackSignup(
   });
 }
 
-export async function trackLogin(_method: string): Promise<void> {}
+export async function trackLogin(_method: string): Promise<void> {
+  // Not yet wired to a provider; kept as a stable async no-op call site.
+}
 
-export async function trackCustomEvent(
+export function trackCustomEvent(
   eventName: string,
   params?: Record<string, string | number | boolean>
-): Promise<void> {
+): void {
   const eventId = generateEventIdSync();
 
   posthogTrack(eventName, params);

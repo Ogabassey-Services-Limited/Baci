@@ -12,8 +12,8 @@ import type {
   SelectedParentProduct,
 } from '@/components/orders/new-order.types';
 import { normalizeVariantAttributes } from '@/lib/product-picker-variant-rows';
-import type { Product } from './useProducts';
 import type { useNewOrderUiState } from './useNewOrderUiState';
+import type { Product } from './useProducts';
 
 type Setter<T> = Dispatch<SetStateAction<T>>;
 type NewOrderUiState = ReturnType<typeof useNewOrderUiState>;

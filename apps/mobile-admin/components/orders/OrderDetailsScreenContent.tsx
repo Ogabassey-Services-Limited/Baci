@@ -7,8 +7,8 @@ import { OrderAuditTrailCard } from './OrderAuditTrailCard';
 import { OrderDetailsFooterBar } from './OrderDetailsFooterBar';
 import { OrderDetailsHeaderActions } from './OrderDetailsHeaderActions';
 import { OrderDetailsItemsAndPaymentSection } from './OrderDetailsItemsAndPaymentSection';
-import { OrderDetailsScreenModals } from './OrderDetailsScreenModals';
 import { OrderDetailsOverviewSection } from './OrderDetailsOverviewSection';
+import { OrderDetailsScreenModals } from './OrderDetailsScreenModals';
 import { OrderDetailsShippingSection } from './OrderDetailsShippingSection';
 import { shouldHideOrderDetailsContentFromAccessibility } from './order-details-accessibility';
 

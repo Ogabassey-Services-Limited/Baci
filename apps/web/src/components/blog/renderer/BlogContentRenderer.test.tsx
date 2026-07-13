@@ -812,10 +812,7 @@ describe('BlogContentRenderer', () => {
     });
 
     it('does not render an image when src is null', () => {
-      const consoleSpy = vi
-        .spyOn(console, 'warn')
-        // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress console noise
-        .mockImplementation(() => {});
+      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const json = doc({ type: 'image', attrs: { src: null } });
       const { container } = render(<BlogContentRenderer json={json} />);
       expect(container.querySelector('img')).not.toBeInTheDocument();
@@ -829,10 +826,7 @@ describe('BlogContentRenderer', () => {
     });
 
     it('does not render an image for a non-http URL (e.g. data:)', () => {
-      const consoleSpy = vi
-        .spyOn(console, 'warn')
-        // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress console noise
-        .mockImplementation(() => {});
+      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const json = doc({
         type: 'image',
         attrs: { src: 'data:image/png;base64,abc' },
@@ -889,10 +883,7 @@ describe('BlogContentRenderer', () => {
 
   describe('unknown node types', () => {
     it('returns null and emits a console warning', () => {
-      const consoleSpy = vi
-        .spyOn(console, 'warn')
-        // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress console noise
-        .mockImplementation(() => {});
+      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const json = doc({ type: 'customWidget' });
       const { container } = render(<BlogContentRenderer json={json} />);
       // The doc wrapper renders but contains no visible child content.

@@ -51,7 +51,7 @@ describe('OnboardingContext', () => {
   });
 
   it('sets hasSeenOnboarding to true if storage contains "true"', async () => {
-    mockStorage['baci_has_seen_onboarding'] = 'true';
+    mockStorage.baci_has_seen_onboarding = 'true';
 
     const { result } = renderHook(() => useOnboarding(), { wrapper });
 
@@ -83,7 +83,7 @@ describe('OnboardingContext', () => {
   });
 
   it('calls resetOnboarding and updates state & storage', async () => {
-    mockStorage['baci_has_seen_onboarding'] = 'true';
+    mockStorage.baci_has_seen_onboarding = 'true';
 
     const { result } = renderHook(() => useOnboarding(), { wrapper });
 

@@ -48,10 +48,10 @@ describe('getFirstPreviewRow', () => {
 describe('getAcceptErrorMessage', () => {
   it('maps each known terminal error code to a friendly message', () => {
     expect(getAcceptErrorMessage('invite_expired')).toMatch(/expired/i);
-    expect(getAcceptErrorMessage('invite_used')).toMatch(/already been accepted/i);
-    expect(getAcceptErrorMessage('email_mismatch')).toMatch(
-      /different email/i
+    expect(getAcceptErrorMessage('invite_used')).toMatch(
+      /already been accepted/i
     );
+    expect(getAcceptErrorMessage('email_mismatch')).toMatch(/different email/i);
     expect(getAcceptErrorMessage('already_owner')).toMatch(/already own/i);
     expect(getAcceptErrorMessage('owner_cannot_join_as_staff')).toMatch(
       /already own a store/i
@@ -62,9 +62,7 @@ describe('getAcceptErrorMessage', () => {
   });
 
   it('maps invalid_invite and email_required to friendly messages', () => {
-    expect(getAcceptErrorMessage('invalid_invite')).toMatch(
-      /no longer valid/i
-    );
+    expect(getAcceptErrorMessage('invalid_invite')).toMatch(/no longer valid/i);
     expect(getAcceptErrorMessage('email_required')).toMatch(/email address/i);
   });
 

@@ -19,6 +19,7 @@
       "!**/src/app/page.tsx.bak",
       "!**/src/app/globals.css",
       "!**/src/app/(storefront)/storefront-globals.css",
+      "!apps/mobile-storefront/global.css",
       "!**/src/components/storefront/new-template",
       "!**/src/components/storefront/ogabassey",
       "!**/src/components/storefront/ogabassey-v2",
@@ -27,8 +28,6 @@
       "!**/src/app/preview",
       "!**/src/templates",
       "!**/mcp-server",
-      "!**/baci-mobile-storefront",
-      "!**/baci-mobile-admin",
       "!process_*.cjs",
       "!**/public"
     ]
@@ -244,15 +243,20 @@
         "**/*.test.ts",
         "**/*.test.tsx",
         "**/*.spec.ts",
-        "**/*.spec.tsx"
+        "**/*.spec.tsx",
+        "**/__tests__/**",
+        "**/__mocks__/**",
+        "**/jest.setup.ts"
       ],
       "javascript": {
-        "globals": ["vi"]
+        "globals": ["vi", "jest", "__DEV__"]
       },
       "linter": {
         "rules": {
           "suspicious": {
-            "noExplicitAny": "off"
+            "noExplicitAny": "off",
+            "noEmptyBlockStatements": "off",
+            "useAwait": "off"
           }
         }
       }

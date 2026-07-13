@@ -139,7 +139,10 @@ describe('VariantAccordionList', () => {
   it('does not offer apply-to-similar when similar variants already match', () => {
     renderList({
       expandedClientId: 'v1',
-      variants: [buildVariant('v1', 'Black', 1000), buildVariant('v2', 'Blue', 1000)],
+      variants: [
+        buildVariant('v1', 'Black', 1000),
+        buildVariant('v2', 'Blue', 1000),
+      ],
     });
 
     expect(

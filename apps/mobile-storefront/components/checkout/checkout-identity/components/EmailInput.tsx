@@ -9,11 +9,11 @@
  */
 
 import React from 'react';
-import { Text, TextInput, View } from 'react-native';
 import { Controller } from 'react-hook-form';
+import { Text, TextInput, View } from 'react-native';
 import type { CheckoutIdentityTheme } from '../colors';
-import type { EmailInputProps, SignInFormData } from '../types';
 import { styles } from '../styles';
+import type { EmailInputProps, SignInFormData } from '../types';
 
 interface ThemedEmailInputProps extends EmailInputProps {
   theme: CheckoutIdentityTheme;

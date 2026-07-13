@@ -43,10 +43,7 @@ describe('incrementViewCount', () => {
 
   it('logs returned rpc errors without throwing', async () => {
     const error = new Error('rpc failed');
-    const consoleSpy = vi
-      .spyOn(console, 'error')
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress expected test logging
-      .mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     mockRpc.mockResolvedValue({ data: null, error });
     mockCreateClient.mockReturnValue({
@@ -66,10 +63,7 @@ describe('incrementViewCount', () => {
 
   it('swallows thrown rpc errors without throwing', async () => {
     const error = new Error('rpc failed');
-    const consoleSpy = vi
-      .spyOn(console, 'error')
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress expected test logging
-      .mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     mockRpc.mockRejectedValue(error);
     mockCreateClient.mockReturnValue({

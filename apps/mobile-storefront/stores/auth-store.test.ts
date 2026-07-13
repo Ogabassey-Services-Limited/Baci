@@ -1643,23 +1643,20 @@ describe('useAuthStore', () => {
       ['customer_not_found', 'No shopper account found for this store.'],
       ['not_authenticated', 'Please sign in to choose a username.'],
       ['some_unmapped_code', 'Could not set username'],
-    ])(
-      'maps RPC error %s to friendly copy and leaves state unchanged',
-      async (code, message) => {
-        (supabase.rpc as jest.Mock).mockResolvedValue({
-          data: null,
-          error: { message: code },
-        });
+    ])('maps RPC error %s to friendly copy and leaves state unchanged', async (code, message) => {
+      (supabase.rpc as jest.Mock).mockResolvedValue({
+        data: null,
+        error: { message: code },
+      });
 
-        let result!: { success: boolean; error?: string; username?: string };
-        await act(async () => {
-          result = await useAuthStore.getState().setUsername('OgaFan');
-        });
+      let result!: { success: boolean; error?: string; username?: string };
+      await act(async () => {
+        result = await useAuthStore.getState().setUsername('OgaFan');
+      });
 
-        expect(result).toEqual({ success: false, error: message });
-        expect(useAuthStore.getState().customer?.username).toBeUndefined();
-      }
-    );
+      expect(result).toEqual({ success: false, error: message });
+      expect(useAuthStore.getState().customer?.username).toBeUndefined();
+    });
   });
 
   // -------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 import { useShallow } from 'zustand/react/shallow';
-import { formatProductConditionDisplay } from '@/types/product';
 import { useCartStore } from '@/stores/cart-store';
+import { formatProductConditionDisplay } from '@/types/product';
 import type { useProductDetailRouteData } from './use-product-detail-route-data';
 
 type RouteData = ReturnType<typeof useProductDetailRouteData>;

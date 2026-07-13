@@ -22,7 +22,7 @@ vi.mock('@/components/ui/AppDatePickerField', async () => {
     }) => {
       mocks.appDatePickerProps.onConfirm = onConfirm;
       return (
-        <div aria-label="dob-picker-field">
+        <div>
           <Text>picker</Text>
         </div>
       );

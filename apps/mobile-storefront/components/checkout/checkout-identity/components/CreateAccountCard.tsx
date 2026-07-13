@@ -9,10 +9,7 @@ interface CreateAccountCardProps {
   theme: CheckoutIdentityTheme;
 }
 
-export function CreateAccountCard({
-  onPress,
-  theme,
-}: CreateAccountCardProps) {
+export function CreateAccountCard({ onPress, theme }: CreateAccountCardProps) {
   return (
     <View
       style={[

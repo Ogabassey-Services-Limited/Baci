@@ -72,7 +72,10 @@ describe('runPasswordSignUp', () => {
 
   it('passes the full name as user metadata when provided', async () => {
     mocks.signUp.mockResolvedValue({
-      data: { session: { access_token: 't' }, user: { id: 'u', identities: [{}] } },
+      data: {
+        session: { access_token: 't' },
+        user: { id: 'u', identities: [{}] },
+      },
       error: null,
     });
 
@@ -125,7 +128,11 @@ describe('runPasswordSignUp', () => {
   it('returns a friendly message when rate limited', async () => {
     mocks.signUp.mockResolvedValue({
       data: { session: null, user: null },
-      error: { message: 'For security purposes, you can only request this after 55 seconds', status: 429 },
+      error: {
+        message:
+          'For security purposes, you can only request this after 55 seconds',
+        status: 429,
+      },
     });
 
     const result = await runPasswordSignUp(makeOptions());
@@ -141,6 +148,8 @@ describe('runPasswordSignUp', () => {
 
     const result = await runPasswordSignUp(makeOptions());
 
-    expect(result).toEqual({ error: 'Password should be at least 6 characters' });
+    expect(result).toEqual({
+      error: 'Password should be at least 6 characters',
+    });
   });
 });

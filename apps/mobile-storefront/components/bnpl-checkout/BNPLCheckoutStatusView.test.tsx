@@ -1,8 +1,8 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type React from 'react';
-import { BNPLCheckoutStatusView } from './BNPLCheckoutStatusView';
 import Colors from '@/constants/Colors';
+import { BNPLCheckoutStatusView } from './BNPLCheckoutStatusView';
 
 jest.mock('expo-router', () => ({
   Stack: {

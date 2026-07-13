@@ -4,7 +4,10 @@ jest.mock('expo-constants', () => ({
   __esModule: true,
   default: {
     expoConfig: {
-      extra: { apiUrl: 'https://storefront.example.com', merchantSlug: 'ogabassey' },
+      extra: {
+        apiUrl: 'https://storefront.example.com',
+        merchantSlug: 'ogabassey',
+      },
     },
   },
 }));
@@ -30,13 +33,11 @@ describe('fetchRepairDevices', () => {
   });
 
   it('requests the merchant-scoped devices endpoint and returns grouped devices', async () => {
-    jest
-      .mocked(fetch)
-      .mockResolvedValueOnce(
-        jsonResponse(200, {
-          groups: [{ brand: 'Apple', devices: [] }],
-        })
-      );
+    jest.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse(200, {
+        groups: [{ brand: 'Apple', devices: [] }],
+      })
+    );
 
     const groups = await fetchRepairDevices();
 

@@ -4,7 +4,7 @@ import type { BranchScope } from '@/schemas/branch';
 const mocks = vi.hoisted(() => ({
   apiClient: vi.fn(),
   branchScope: { type: 'branch', branchId: 'branch-1' } as BranchScope,
-  queryPromises: [] as Array<Promise<unknown>>,
+  queryPromises: [] as Promise<unknown>[],
   queryState: null as {
     data?: unknown;
     error: Error | null;

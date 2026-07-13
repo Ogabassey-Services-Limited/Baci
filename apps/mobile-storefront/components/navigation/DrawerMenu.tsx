@@ -20,9 +20,10 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { scheduleOnRN } from 'react-native-worklets';
 import { useShallow } from 'zustand/react/shallow';
+import { GadgetPattern } from '@/components/storefront/GadgetPattern';
 import { Logo } from '@/components/ui/Logo';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, SPACING } from '@/constants/Colors';
@@ -32,7 +33,6 @@ import { useDrawerStore } from '@/stores/drawer-store';
 import { getDrawerMenuShadowStyles } from './DrawerMenu.shadows';
 import styles from './DrawerMenu.styles';
 import { DrawerMenuItems } from './DrawerMenuItems';
-import { GadgetPattern } from '@/components/storefront/GadgetPattern';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const DRAWER_WIDTH = Math.min(SCREEN_WIDTH * 0.85, 320);

@@ -1,5 +1,5 @@
-import Ionicons from '@react-native-vector-icons/ionicons';
 import NetInfo, { type NetInfoState } from '@react-native-community/netinfo';
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import Animated, {
@@ -8,8 +8,8 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { scheduleOnRN } from 'react-native-worklets';
 import { palette } from '@/constants/Colors';
 import { getConnectivityBannerShadowStyle } from './ConnectivityBanner.shadows';
 

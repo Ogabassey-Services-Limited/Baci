@@ -49,8 +49,8 @@ export function RepairsFallback() {
         </View>
         <Text style={styles.heroTitle}>Don't Replace It.{'\n'}Repair It.</Text>
         <Text style={styles.heroSubtitle}>
-          Expert repairs with genuine parts. Every device fixed is one less in
-          a landfill — saving you money and the planet.
+          Expert repairs with genuine parts. Every device fixed is one less in a
+          landfill — saving you money and the planet.
         </Text>
         <Pressable
           style={styles.heroButton}
@@ -146,7 +146,9 @@ export function RepairsFallback() {
           <Text style={[styles.freeBannerTitle, { color: colors.text }]}>
             Free Port & Speaker Cleaning
           </Text>
-          <Text style={[styles.freeBannerDesc, { color: colors.textSecondary }]}>
+          <Text
+            style={[styles.freeBannerDesc, { color: colors.textSecondary }]}
+          >
             Often, a "broken" port is just dirty. Visit us for a{' '}
             <Text style={{ fontWeight: '700' }}>free cleaning</Text> — no
             appointment needed.

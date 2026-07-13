@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react-native';
-import { useDataFormBeneficiaryController } from './use-data-form-beneficiary-controller';
 import type { Biller } from '@/hooks/use-vtu-billers';
+import { useDataFormBeneficiaryController } from './use-data-form-beneficiary-controller';
 
 const mockDataPlans: Biller[] = [
   {

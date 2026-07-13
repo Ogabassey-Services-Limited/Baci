@@ -11,12 +11,12 @@ import {
   View,
 } from 'react-native';
 import { FeatureGateScreen } from '@/components/billing/FeatureGateScreen';
+import { connectStyles as styles } from '@/components/domains/connect.styles';
 import {
   API_URL,
   DomainUpgradeRequiredError,
   isUpgradeRequiredResponse,
 } from '@/components/domains/domain-api-helpers';
-import { connectStyles as styles } from '@/components/domains/connect.styles';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
 import { SPACING } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';

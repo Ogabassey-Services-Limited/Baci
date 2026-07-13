@@ -17,10 +17,10 @@ import ReAnimated, {
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CreateCategoryModal } from '@/components/product/CreateCategoryModal';
-import { getCurrencySymbol } from '@/components/product/product.shared';
 import { ProductsSearchActions } from '@/components/product/ProductsSearchActions';
 import type { ProductsTab } from '@/components/product/ProductsSubTabs';
 import { ProductsTabPage } from '@/components/product/ProductsTabPage';
+import { getCurrencySymbol } from '@/components/product/product.shared';
 import { TopTabBar } from '@/components/ui/TopTabBar';
 import { SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useCollapsibleSearchBar } from '@/hooks/useCollapsibleSearchBar';

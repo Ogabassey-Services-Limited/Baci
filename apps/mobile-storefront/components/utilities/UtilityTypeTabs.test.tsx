@@ -67,9 +67,10 @@ describe('UtilityTypeTabs', () => {
     expect(screen.getAllByRole('tab')).toHaveLength(5);
   });
 
-  const themeCases: Array<
-    [colorScheme: UtilityColorScheme, expectedColors: UtilityThemeColors]
-  > = [
+  const themeCases: [
+    colorScheme: UtilityColorScheme,
+    expectedColors: UtilityThemeColors,
+  ][] = [
     ['light', Colors.light],
     ['dark', Colors.dark],
   ];

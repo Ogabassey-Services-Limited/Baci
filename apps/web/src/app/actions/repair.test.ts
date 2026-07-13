@@ -285,10 +285,7 @@ describe('calculateRepairShipping', () => {
   });
 
   it('falls back to a friendly error when quoting fails', async () => {
-    const consoleSpy = vi
-      .spyOn(console, 'error')
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress expected test logging
-      .mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     mocks.getQuotes.mockRejectedValueOnce(new Error('topship down'));
 
     try {

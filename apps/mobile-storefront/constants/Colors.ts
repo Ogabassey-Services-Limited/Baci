@@ -11,8 +11,8 @@
  */
 
 import { Platform } from 'react-native';
-import Colors from './themes';
 import { palette, withAlpha } from './palette';
+import Colors from './themes';
 
 // ============================================
 // DESIGN TOKENS (matching web app structure)

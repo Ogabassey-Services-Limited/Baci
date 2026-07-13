@@ -109,10 +109,12 @@ describe('useQuizStore', () => {
 
     let starterCalled = false;
     await act(async () => {
-      await useQuizStore.getState().startEvent('event-2', 'strong', async () => {
-        starterCalled = true;
-        return { ...attempt, attemptId: 'attempt-2', eventId: 'event-2' };
-      });
+      await useQuizStore
+        .getState()
+        .startEvent('event-2', 'strong', async () => {
+          starterCalled = true;
+          return { ...attempt, attemptId: 'attempt-2', eventId: 'event-2' };
+        });
     });
 
     expect(starterCalled).toBe(false);

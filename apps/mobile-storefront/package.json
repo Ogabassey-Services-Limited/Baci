@@ -18,7 +18,7 @@
     "check:platform-drift": "node ./scripts/check-platform-drift.mjs",
     "check:module-size": "node ./scripts/check-module-size.mjs",
     "check:route-size": "node ./scripts/check-route-size.mjs",
-    "lint": "NODE_OPTIONS='--no-warnings --import tsx' expo lint",
+    "lint": "biome check .",
     "typecheck": "tsc --noEmit",
     "test": "jest --runInBand"
   },

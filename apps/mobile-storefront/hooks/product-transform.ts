@@ -1,3 +1,4 @@
+import { normalizeProductInventory } from '@baci/shared';
 import { createLogger } from '@/lib/logger';
 import { normalizeProductConditionFilterValue } from '@/lib/product-filter-options';
 import {
@@ -12,7 +13,6 @@ import {
   type Product,
   type ProductVariant,
 } from '@/types/product';
-import { normalizeProductInventory } from '@baci/shared';
 import type { Category } from './product-utils.types';
 
 const log = createLogger('Products');

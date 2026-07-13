@@ -55,6 +55,7 @@ const supabaseMock = vi.hoisted(() => {
       chain[method] = passthrough(method);
     }
 
+    // biome-ignore lint/suspicious/noThenProperty: mocks the thenable Supabase query builder chain
     chain.then = (resolve: (value: QueryResult) => unknown) =>
       Promise.resolve(result).then(resolve);
 

@@ -46,5 +46,4 @@ describe('manualPaymentRetrySchema', () => {
       }).success
     ).toBe(false);
   });
-
 });

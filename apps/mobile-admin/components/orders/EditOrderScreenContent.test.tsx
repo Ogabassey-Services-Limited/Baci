@@ -207,7 +207,10 @@ describe('EditOrderScreenContent', () => {
   });
 
   it('renders an error state when the order lookup fails', () => {
-    const controller = createController({ isEditError: true, order: undefined });
+    const controller = createController({
+      isEditError: true,
+      order: undefined,
+    });
 
     render(<EditOrderScreenContent controller={controller} />);
 

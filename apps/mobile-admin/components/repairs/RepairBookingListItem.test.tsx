@@ -95,7 +95,11 @@ describe('RepairBookingListItem', () => {
   it('calls onPress with the booking id when tapped', () => {
     const onPress = vi.fn();
     render(
-      <RepairBookingListItem booking={booking} colors={colors} onPress={onPress} />
+      <RepairBookingListItem
+        booking={booking}
+        colors={colors}
+        onPress={onPress}
+      />
     );
 
     fireEvent.click(screen.getByRole('button'));

@@ -1,5 +1,11 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import { cleanUsername, getUsernameValidationError } from '@/schemas/username';
 import { useAuthStore } from '@/stores/auth-store';
@@ -123,7 +129,9 @@ export function UsernamePrompt({
         }}
         style={[
           styles.submitButton,
-          { backgroundColor: isSubmitDisabled ? colors.border : colors.primary },
+          {
+            backgroundColor: isSubmitDisabled ? colors.border : colors.primary,
+          },
         ]}
       >
         {isSubmitting ? (

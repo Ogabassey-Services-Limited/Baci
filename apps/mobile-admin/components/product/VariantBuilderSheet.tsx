@@ -121,9 +121,7 @@ export function VariantBuilderSheet({
             },
           ]}
         >
-          <Text
-            style={[styles.generateText, { color: colors.textOnPrimary }]}
-          >
+          <Text style={[styles.generateText, { color: colors.textOnPrimary }]}>
             {generateLabel}
           </Text>
         </Pressable>
@@ -217,7 +215,9 @@ export function VariantBuilderSheet({
                   style={[
                     styles.conditionChip,
                     {
-                      backgroundColor: isSelected ? colors.primary : colors.card,
+                      backgroundColor: isSelected
+                        ? colors.primary
+                        : colors.card,
                       borderColor: isSelected ? colors.primary : colors.border,
                     },
                   ]}

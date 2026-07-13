@@ -1,7 +1,7 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { createQuizStyles, type QuizThemeColors } from './QuizScreen.styles';
 import { QuizEventsList } from './QuizEventsList';
+import { createQuizStyles, type QuizThemeColors } from './QuizScreen.styles';
 
 const themeColors: QuizThemeColors = {
   background: '#fff',

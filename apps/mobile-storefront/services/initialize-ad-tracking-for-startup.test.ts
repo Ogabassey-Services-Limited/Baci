@@ -1,4 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  jest,
+} from '@jest/globals';
 
 const mockInitAdTracking = jest.fn<() => Promise<void>>();
 const mockRecordCrashBreadcrumb = jest.fn();

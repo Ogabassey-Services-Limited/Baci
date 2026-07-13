@@ -22,8 +22,12 @@ let pendingOp = Promise.resolve();
 function withStorageLock<T>(fn: () => Promise<T>): Promise<T> {
   const op = pendingOp.then(fn, fn);
   pendingOp = op.then(
-    () => {},
-    () => {}
+    () => {
+      // Keep the lock chain alive regardless of outcome.
+    },
+    () => {
+      // Swallow rejection so the lock chain isn't broken by a failed op.
+    }
   );
   return op;
 }
@@ -77,7 +81,7 @@ export function useTrackAppOpen(): void {
  * Call after a successful order delivery to potentially trigger a review prompt.
  * Triggers after: 1st completed order, 3rd order, or every 10th order thereafter.
  */
-export async function promptReviewAfterDelivery(): Promise<void> {
+export function promptReviewAfterDelivery(): Promise<void> {
   return withStorageLock(async () => {
     try {
       const state = await getReviewState();

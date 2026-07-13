@@ -43,13 +43,9 @@ export function validateBookingForm(
     errors.deviceModel = 'Enter the device model.';
   }
   if (state.issueDescription.trim().length < 10) {
-    errors.issueDescription =
-      'Describe the issue in at least 10 characters.';
+    errors.issueDescription = 'Describe the issue in at least 10 characters.';
   }
-  if (
-    state.serviceType === 'pickup' &&
-    state.pickupAddress.trim().length < 5
-  ) {
+  if (state.serviceType === 'pickup' && state.pickupAddress.trim().length < 5) {
     errors.pickupAddress = 'Enter a valid pickup address.';
   }
 

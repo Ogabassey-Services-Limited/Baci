@@ -5,8 +5,8 @@ import {
   type ThemeColors,
 } from '@/constants/theme';
 import type { VariantInventoryUnit } from '@/hooks/variantInventory';
-import type { Branch } from '@/schemas/branch';
 import { getTranslucentColor } from '@/lib/colors/sanitize-css-color';
+import type { Branch } from '@/schemas/branch';
 import { variantInventoryUnitsSheetStyles as styles } from './VariantInventoryUnitsSheet.styles';
 
 type InventoryStatus = VariantInventoryUnit['status'];
@@ -110,7 +110,9 @@ export function VariantInventoryUnitCard({
                     isSelected && selectedBadgeStyle(colors),
                   ]}
                 >
-                  <Text style={badgeTextStyle(colors, isSelected)}>{status}</Text>
+                  <Text style={badgeTextStyle(colors, isSelected)}>
+                    {status}
+                  </Text>
                 </Pressable>
               );
             })}
@@ -153,7 +155,9 @@ export function VariantInventoryUnitCard({
                       isSelected && selectedBadgeStyle(colors),
                     ]}
                   >
-                    <Text style={badgeTextStyle(colors, isSelected)}>{branch.name}</Text>
+                    <Text style={badgeTextStyle(colors, isSelected)}>
+                      {branch.name}
+                    </Text>
                   </Pressable>
                 );
               })}
@@ -187,7 +191,10 @@ export function VariantInventoryUnitCard({
             accessibilityLabel="Cancel editing unit"
             accessibilityRole="button"
             onPress={onCancelEdit}
-            style={[styles.actionButton, { borderColor: colors.border, borderWidth: 1 }]}
+            style={[
+              styles.actionButton,
+              { borderColor: colors.border, borderWidth: 1 },
+            ]}
           >
             <Text style={{ color: colors.text, fontWeight: '600' }}>
               Cancel

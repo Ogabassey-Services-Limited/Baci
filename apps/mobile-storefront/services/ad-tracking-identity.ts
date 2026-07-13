@@ -1,3 +1,11 @@
+import type { AdTrackingUserProperties } from './ad-tracking.types';
+import {
+  clearCachedUserData,
+  getAdTrackingModules,
+  getIsTikTokInitialized,
+  getIsTrackingAllowed,
+  setCachedUserData,
+} from './ad-tracking-state';
 import {
   trackAddToCart as posthogAddToCart,
   identifyUser as posthogIdentify,
@@ -7,14 +15,6 @@ import {
   trackSearch as posthogSearch,
   trackEvent as posthogTrack,
 } from './analytics';
-import {
-  clearCachedUserData,
-  getAdTrackingModules,
-  getIsTikTokInitialized,
-  getIsTrackingAllowed,
-  setCachedUserData,
-} from './ad-tracking-state';
-import type { AdTrackingUserProperties } from './ad-tracking.types';
 
 export {
   posthogAddToCart,
@@ -24,10 +24,10 @@ export {
   posthogTrack,
 };
 
-export async function identifyUser(
+export function identifyUser(
   userId: string,
   properties?: AdTrackingUserProperties
-): Promise<void> {
+): void {
   setCachedUserData(userId, properties);
   posthogIdentify(userId, {
     email: properties?.email,
@@ -62,7 +62,7 @@ export async function identifyUser(
   }
 }
 
-export async function resetUserIdentity(): Promise<void> {
+export function resetUserIdentity(): void {
   clearCachedUserData();
   posthogReset();
 

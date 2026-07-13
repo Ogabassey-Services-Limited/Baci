@@ -1,6 +1,6 @@
 import {
-  getProductCardImageAttempt,
   getPrimaryProductImage,
+  getProductCardImageAttempt,
   mergeVariantAttributes,
   normalizeProductImages,
   normalizeProductSpecifications,

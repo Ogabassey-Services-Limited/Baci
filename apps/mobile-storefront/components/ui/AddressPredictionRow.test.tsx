@@ -46,9 +46,7 @@ describe('AddressPredictionRow', () => {
       />
     );
 
-    fireEvent.press(
-      screen.getByRole('button', { name: '1 Allen Avenue, ' })
-    );
+    fireEvent.press(screen.getByRole('button', { name: '1 Allen Avenue, ' }));
 
     expect(onSelect).toHaveBeenCalledWith(predictionWithoutSecondaryText);
   });

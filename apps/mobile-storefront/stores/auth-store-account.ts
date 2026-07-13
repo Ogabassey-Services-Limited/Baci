@@ -1,16 +1,16 @@
+import { cleanUsername } from '@/schemas/username';
 import {
-  getDeleteAccountErrorMessage,
   type DeleteAccountResult,
+  getDeleteAccountErrorMessage,
 } from '../lib/account-deletion';
 import { createLogger } from '../lib/logger';
-import { queryClient } from '../lib/query-client';
 import { getStoredPushToken } from '../lib/push-token-storage';
-import { cleanUsername } from '@/schemas/username';
+import { queryClient } from '../lib/query-client';
 import { supabase } from '../lib/supabase';
 import { CustomerRowSchema } from '../lib/validation';
 import { CUSTOMER_SELECT_COLUMNS } from './auth-helpers';
-import { clearLocalAndDeactivatePushToken } from './auth-store-push';
 import type { AuthStoreGet, AuthStoreSet, Customer } from './auth-store.types';
+import { clearLocalAndDeactivatePushToken } from './auth-store-push';
 import { useCartStore } from './cart-store';
 import { useComparisonStore } from './comparison-store';
 import { useQuizStore } from './quiz-store';
