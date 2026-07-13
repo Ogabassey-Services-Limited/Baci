@@ -47,7 +47,7 @@ ALTER POLICY "Anon can view merchants"
 GRANT SELECT (
   -- identity / presentation
   id, business_name, business_type, country, pages,
-  logo_url, brand_colors, slug, payout_currency,
+  logo_url, brand_colors, slug, payout_currency, social_media,
   site_title, site_tagline, site_description,
   favicon_svg_url, favicon_png_32_url, favicon_png_192_url,
   favicon_apple_touch_url, favicon_uploaded_at,

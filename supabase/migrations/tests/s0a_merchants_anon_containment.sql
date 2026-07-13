@@ -34,7 +34,7 @@ DECLARE
   ];
   safe_cols    text[] := ARRAY[
     'id','business_name','slug','logo_url','country','is_published',
-    'email','phone','vat_rate','plan_tier'
+    'email','phone','vat_rate','plan_tier','social_media'
   ];
   -- Option-B bridge columns: granted TODAY, revoked at the 2026-08-24 removal.
   bridge_cols  text[] := ARRAY[
