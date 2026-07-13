@@ -102,6 +102,9 @@ describe('GET /api/merchant/me', () => {
       ADMIN_CLIENT,
       'user-123'
     );
+    // Per-user secret payload must never be cached by a shared cache/CDN.
+    expect(response.headers.get('Cache-Control')).toContain('no-store');
+    expect(response.headers.get('Cache-Control')).toContain('private');
   });
 
   it('attaches the primary custom domain when present', async () => {

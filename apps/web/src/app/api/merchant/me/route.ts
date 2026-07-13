@@ -8,6 +8,14 @@ import { logger } from '@/lib/logger';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
+// This route returns per-user SECRET merchant data (bank/nin/bvn/tokens). It
+// must never be stored by any shared cache/CDN. Reading cookies() already opts
+// the handler into dynamic rendering; this header is explicit defense in depth,
+// matching the repo convention (see api/merchant/features/route.ts).
+const PRIVATE_NO_STORE = {
+  'Cache-Control': 'private, no-store, no-cache, max-age=0, must-revalidate',
+} as const;
+
 /**
  * Current merchant dashboard context (owner or active staff) for the signed-in
  * user.
@@ -36,7 +44,10 @@ export async function GET(_request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json(
+      { error: 'Unauthorized' },
+      { status: 401, headers: PRIVATE_NO_STORE }
+    );
   }
 
   try {
@@ -53,7 +64,10 @@ export async function GET(_request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ merchant, staffAccess });
+    return NextResponse.json(
+      { merchant, staffAccess },
+      { headers: PRIVATE_NO_STORE }
+    );
   } catch (error) {
     logger.error({
       message: 'Failed to resolve current merchant dashboard context',
@@ -61,7 +75,7 @@ export async function GET(_request: NextRequest) {
     });
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { status: 500, headers: PRIVATE_NO_STORE }
     );
   }
 }
