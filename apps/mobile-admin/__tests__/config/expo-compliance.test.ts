@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const ROOT = path.resolve(__dirname, '../..');
 
-describe('SDK 56 compliance', () => {
+describe('Expo compliance', () => {
   it('app.config.ts does not contain an explicit newArchEnabled override', () => {
     const configSource = readFileSync(
       path.join(ROOT, 'app.config.ts'),
@@ -13,7 +13,7 @@ describe('SDK 56 compliance', () => {
     expect(configSource).not.toContain('newArchEnabled');
   });
 
-  it('sets SDK 56 iOS deployment settings to 16.4', () => {
+  it('sets the supported iOS deployment settings to 16.4', () => {
     const configSource = readFileSync(
       path.join(ROOT, 'app.config.ts'),
       'utf-8'
@@ -38,7 +38,7 @@ describe('SDK 56 compliance', () => {
     expect(androidManifestSource).toContain('android:pathPrefix="/invite"');
   });
 
-  it('defaults the admin iOS hardening plugin to the SDK 56 iOS floor', () => {
+  it('defaults the admin iOS hardening plugin to the supported iOS floor', () => {
     const pluginSource = readFileSync(
       path.join(ROOT, 'plugins/with-ios-release-hardening.ts'),
       'utf-8'
