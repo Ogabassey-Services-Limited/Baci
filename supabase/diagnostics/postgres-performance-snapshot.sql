@@ -7,6 +7,7 @@ SET TRANSACTION READ ONLY;
 SET LOCAL statement_timeout = '120s';
 SET LOCAL lock_timeout = '5s';
 SET LOCAL timezone = 'UTC';
+SET LOCAL DateStyle = 'ISO, MDY';
 
 WITH capture AS (
   SELECT

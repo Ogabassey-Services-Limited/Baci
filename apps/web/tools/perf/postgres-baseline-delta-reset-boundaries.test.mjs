@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import fixtures from './postgres-baseline-delta.test-fixtures.mjs';
 import { buildStatementDeltas } from './postgres-baseline-delta-statements.mjs';
 
-const { END, createDelta, raw, snapshot } = fixtures;
+const { END, createDelta, raw, snapshot, statement } = fixtures;
 
 describe('postgres baseline reset boundary validation', () => {
   it.each([
@@ -74,5 +74,30 @@ describe('postgres baseline reset boundary validation', () => {
         deployedSha: 'a'.repeat(40),
       })
     ).toThrow(/boundary is missing/i);
+  });
+
+  it('rejects a disappeared statement as an incomplete interval', () => {
+    const before = snapshot({ statements: [statement()] });
+    const after = snapshot({ captured_at: END, statements: [] });
+
+    expect(() => buildStatementDeltas(before, after)).toThrow(
+      /disappeared; interval cannot produce a complete delta/i
+    );
+  });
+
+  it('rejects deallocation before attempting a partial statement delta', () => {
+    expect(() =>
+      createDelta({
+        afterRaw: raw(
+          snapshot({
+            captured_at: END,
+            statements: [],
+            statistics_boundaries: { statement_dealloc: '8' },
+          })
+        ),
+        beforeRaw: raw(snapshot({ statements: [statement()] })),
+        deployedSha: 'a'.repeat(40),
+      })
+    ).toThrow(/dealloc changed/i);
   });
 });

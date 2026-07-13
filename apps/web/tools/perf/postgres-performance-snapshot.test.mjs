@@ -15,6 +15,8 @@ describe('postgres performance snapshot', () => {
     const sql = await readFile(sqlPath, 'utf8');
 
     expect(sql).toMatch(/BEGIN;[\s\S]*SET TRANSACTION READ ONLY;/i);
+    expect(sql).toMatch(/SET LOCAL timezone = 'UTC';/i);
+    expect(sql).toMatch(/SET LOCAL DateStyle = 'ISO, MDY';/i);
     expect(sql).toContain('pg_postmaster_start_time()');
     expect(sql).toContain('database_stats_reset');
     expect(sql).toContain('statement_stats_reset');

@@ -215,7 +215,9 @@ export function buildStatementDeltas(before, after) {
 
   for (const key of beforeByShape.keys()) {
     if (!afterByShape.has(key)) {
-      throw new Error(`statement ${key} disappeared without a dealloc change`);
+      throw new Error(
+        `statement ${key} disappeared; interval cannot produce a complete delta`
+      );
     }
   }
 
