@@ -1,3 +1,4 @@
+import { redactMerchantFeatureSettingsResponse } from '@/lib/merchant-feature-settings-redaction';
 import type { MerchantData } from './types';
 
 /**
@@ -24,6 +25,9 @@ export const NON_OWNER_REDACTED_FIELDS = [
   'tiktok_access_token',
   'snapchat_capi_token',
   'virtual_terminal_code',
+  // owner's private Google product-import sheet URL (classified secret; kept off
+  // the anon grant) — must not reach non-owner staff either
+  'google_product_sheet_url',
   // owner identity / registration + KYC state — no non-owner staff need
   'legal_entity_name',
   'registered_address',
@@ -66,7 +70,11 @@ export function redactMerchantSecretsForNonOwner(
     for (const key of NON_OWNER_REDACTED_FEATURE_SETTINGS_KEYS) {
       featureSettings[key] = undefined;
     }
-    redacted.feature_settings = featureSettings;
+    // Also scrub deeply-nested custom_settings credentials (e.g. Zoho Campaigns
+    // accessToken/refreshToken/clientSecret) with the canonical redactor shared
+    // with /api/merchant/features, so the two paths can't drift.
+    redacted.feature_settings =
+      redactMerchantFeatureSettingsResponse(featureSettings);
   }
 
   return redacted;

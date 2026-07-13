@@ -31,6 +31,7 @@ function merchantWithSecrets(): MerchantData {
     tax_identification_number: 'TIN-1',
     cac_rc_number: 'RC-1',
     kyc_status: 'verified',
+    google_product_sheet_url: 'https://docs.google.com/spreadsheets/private',
     feature_settings: {
       // boolean flags staff legitimately need
       pay_on_delivery_enabled: true,
@@ -40,6 +41,14 @@ function merchantWithSecrets(): MerchantData {
       tiktok_access_token: 'nested-tt',
       snapchat_capi_token: 'nested-snap',
       credit_direct_public_key: 'nested-cd-key',
+      // deeply-nested integration credentials (Zoho Campaigns)
+      custom_settings: {
+        zohoCampaigns: {
+          accessToken: 'zoho-access',
+          refreshToken: 'zoho-refresh',
+          clientSecret: 'zoho-secret',
+        },
+      },
     },
   } as unknown as MerchantData;
 }
@@ -77,6 +86,19 @@ describe('redactMerchantSecretsForNonOwner', () => {
     redactMerchantSecretsForNonOwner(original);
 
     expect(original.feature_settings?.facebook_capi_token).toBe('nested-fb');
+  });
+
+  it('scrubs deeply-nested custom_settings integration credentials', () => {
+    const redacted = redactMerchantSecretsForNonOwner(merchantWithSecrets());
+    const zoho = (
+      redacted.feature_settings?.custom_settings as
+        | { zohoCampaigns?: Record<string, unknown> }
+        | undefined
+    )?.zohoCampaigns;
+
+    expect(zoho?.accessToken).toBeUndefined();
+    expect(zoho?.refreshToken).toBeUndefined();
+    expect(zoho?.clientSecret).toBeUndefined();
   });
 
   it('does not mutate the input', () => {
