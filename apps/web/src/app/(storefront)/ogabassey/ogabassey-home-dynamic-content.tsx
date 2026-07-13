@@ -7,7 +7,7 @@ import { JsonLd } from '@/components/seo/json-ld';
 import { OGABASSEY_HOME_SCHEMA_PRODUCT_LIMIT } from '@/components/storefront/ogabassey/config/products';
 import { createOgabasseyHomeProductFeed } from '@/components/storefront/ogabassey/home-product-feed';
 import { OgabasseyHomePage } from '@/components/storefront/ogabassey/pages/home';
-import { getCachedNavigationCategories } from '@/lib/cached-categories';
+import { getStorefrontNavigationCategories } from '@/lib/cached-categories';
 import {
   getCachedStorefrontHomeProducts,
   type getRequestScopedMerchant,
@@ -110,7 +110,7 @@ export async function OgabasseyHomeDynamicContent({
     // OgaBassey surfaces the most recently updated devices first (smartphones
     // are still pinned to the front downstream via prioritizeSmartphoneProducts).
     getCachedStorefrontHomeProducts(merchant.id, 'recent'),
-    getCachedNavigationCategories(merchant.id),
+    getStorefrontNavigationCategories(merchant.id),
     // Used for JSON-LD coverage only. The visible hero has its own streamed
     // boundary so LCP discovery is not gated on product-grid/category queries.
     // loadOgabasseyLaunchProducts is best-effort (never rejects), so a launch

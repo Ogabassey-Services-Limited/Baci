@@ -1024,7 +1024,11 @@ export const getRequestScopedBlogPost = cache(
 export async function getCachedMerchantById(
   merchantId: string
 ): Promise<CachedMerchant | null> {
-  'use cache: remote';
+  // PR4a: local `'use cache'`, not the framework remote handler. Primary-key
+  // .single() (<5ms), ~75 keys, tiny row — no cross-instance sharing need, and
+  // the remote SET is the exit-128 write hazard. Consumed only by background
+  // repair notifications, both of which already `.catch(() => null)`.
+  'use cache';
   cacheLife('merchant');
   cacheTag('merchants', `merchant-id-${merchantId}`);
 
@@ -1064,8 +1068,14 @@ export async function getCachedMerchantById(
     .single();
 
   if (error) {
+    // A genuine "no rows" is real absence (this merchant id does not exist);
+    // any other error is transient/authoritative and must fail loud so the
+    // cache never persists null-as-absence for a merchant that does exist.
+    if (isPostgrestNoRowsError(error)) {
+      return null;
+    }
     console.error('Error fetching merchant by ID:', error);
-    return null;
+    throw error;
   }
 
   return normalizeCachedMerchantEntity(data);
@@ -1520,7 +1530,13 @@ export async function getCachedProductCanonicalRedirectTarget(
   merchantId: string,
   productSlug: string
 ): Promise<CachedProductCanonicalRedirectTarget | null> {
-  'use cache: remote';
+  // PR4a: local `'use cache'`, not the framework remote handler. The proxy
+  // canonical-redirect preflight is keyed on arbitrary crawler product slugs
+  // (unbounded remote keys); the origin is an indexed slug/id .maybeSingle()
+  // (<15ms) and the read already fails loud, so the shared remote SET only adds
+  // the exit-128 write hazard. The 308-vs-render answer is deterministic per
+  // slug, so a per-instance local cache is behaviourally identical.
+  'use cache';
   cacheLife('products');
   cacheTag(
     'product',
@@ -1649,72 +1665,6 @@ export const getStorefrontCategories = cache(
     }
   }
 );
-
-/**
- * Cached category by slug.
- * Uses 'categories' cacheLife profile (stale 5min, revalidate 1hr, expire 24hr)
- */
-export async function getCachedCategory(
-  merchantId: string,
-  categorySlug: string
-) {
-  'use cache: remote';
-  cacheLife('categories');
-  cacheTag('category', `category-${merchantId}-${categorySlug}`);
-
-  const supabase = getPublicSupabaseClient();
-
-  const { data, error } = await supabase
-    .from('categories')
-    .select(`
-        id,
-        name,
-        slug,
-        description,
-        image_url,
-        parent_id
-      `)
-    .eq('merchant_id', merchantId)
-    .eq('slug', categorySlug)
-    .single();
-
-  if (error) {
-    console.error('Error fetching category:', error);
-    return null;
-  }
-
-  return data;
-}
-
-/**
- * Cached published page config (Puck builder).
- * Uses 'merchant' cacheLife profile (stale 5min, revalidate 60s, expire 1hr)
- */
-export async function getCachedPageConfig(
-  merchantId: string,
-  pageSlug: string = 'home'
-) {
-  'use cache: remote';
-  cacheLife('merchant');
-  cacheTag('page-config', `page-config-${merchantId}-${pageSlug}`);
-
-  const supabase = getPublicSupabaseClient();
-
-  const { data, error } = await supabase
-    .from('page_configs')
-    .select('published_config')
-    .eq('merchant_id', merchantId)
-    .eq('page_slug', pageSlug)
-    .eq('is_published', true)
-    .single();
-
-  if (error) {
-    console.error('Error fetching page config:', error);
-    return null;
-  }
-
-  return data?.published_config;
-}
 
 const CATEGORY_PAGE_PRODUCT_DETAIL_CHUNK_SIZE = 48;
 const CATEGORY_PAGE_PRODUCT_DETAIL_CONCURRENCY = 3;

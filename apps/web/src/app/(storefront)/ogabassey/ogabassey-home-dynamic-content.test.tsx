@@ -56,7 +56,7 @@ vi.mock('@/lib/cached-storefront-products-by-slugs', () => ({
 }));
 
 vi.mock('@/lib/cached-categories', () => ({
-  getCachedNavigationCategories: vi.fn(() =>
+  getStorefrontNavigationCategories: vi.fn(() =>
     Promise.resolve([{ name: 'Smartphones', slug: 'smartphones' }])
   ),
 }));
