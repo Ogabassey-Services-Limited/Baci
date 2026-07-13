@@ -15,6 +15,14 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: vi.fn(() => mockSupabaseClient),
 }));
 
+vi.mock('@/lib/events/event-ingress-capability', () => ({
+  createEventIngressClient: vi.fn(() => mockSupabaseClient),
+}));
+
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: vi.fn(() => mockSupabaseClient),
+}));
+
 vi.mock('next/server', async () => {
   const actual =
     await vi.importActual<typeof import('next/server')>('next/server');

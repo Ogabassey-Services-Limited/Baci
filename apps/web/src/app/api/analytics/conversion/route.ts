@@ -1,12 +1,11 @@
-import {
-  createClient as createSupabaseDirectClient,
-  type SupabaseClient,
-} from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
 import {
   normalizeEventType,
   sendToAdPlatforms,
 } from '@/lib/analytics/send-to-ad-platforms';
+import { conversionEventPayload } from '@/lib/events/conversion-event-payload';
+import { createEventIngressClient } from '@/lib/events/event-ingress-capability';
 import { resolveEventIngressContext } from '@/lib/events/event-ingress-context';
 import {
   isEventPipelineEnqueueEnabled,
@@ -19,6 +18,7 @@ import { readBoundedJsonBody } from '@/lib/events/read-bounded-json-body';
 import { recordAnalyticsDomainEvent } from '@/lib/events/record-analytics-domain-event';
 import { generateEventId } from '@/lib/facebook-capi';
 import { logger } from '@/lib/logger';
+import { createClient as createServerClient } from '@/lib/supabase/server';
 import {
   type ConversionEventRequest,
   conversionEventRequestSchema,
@@ -26,23 +26,11 @@ import {
 
 const MAX_EVENT_BYTES = 64 * 1024;
 const DEFAULT_MERCHANT_SLUG = 'ogabassey';
-let supabaseAdmin: SupabaseClient | null = null;
-
-function getSupabaseAdmin() {
-  if (!supabaseAdmin) {
-    supabaseAdmin = createSupabaseDirectClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
-      process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
-    );
-  }
-  return supabaseAdmin;
-}
-
 async function resolveLegacyMerchant(
+  supabase: SupabaseClient,
   merchantId: string | undefined,
   origin: string
 ): Promise<string | null> {
-  const supabase = getSupabaseAdmin();
   if (merchantId) {
     const { data, error } = await supabase
       .from('merchants')
@@ -62,58 +50,27 @@ async function resolveLegacyMerchant(
   return error ? null : (data?.id ?? null);
 }
 
-function toStoredEventData(input: ConversionEventRequest) {
-  return {
-    currency: input.custom_data.currency ?? 'NGN',
-    item_count: input.custom_data.contents?.length,
-    items: input.custom_data.contents,
-    order_id: input.custom_data.order_id,
-    search_string: input.custom_data.search_string,
-    targets: input.targets,
-    total: input.custom_data.value,
-  };
-}
-
-function deliveryData(input: ConversionEventRequest, request: NextRequest) {
-  return {
-    email: input.user_data.em,
-    external_id: input.user_data.external_id,
-    fbc: input.user_data.fbc,
-    fbp: input.user_data.fbp,
-    ip:
-      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
-      request.headers.get('x-real-ip') ??
-      undefined,
-    phone: input.user_data.ph,
-    sccid: input.user_data.sccid,
-    ttclid: input.user_data.ttclid,
-    ttp: input.user_data.ttp,
-    ua: request.headers.get('user-agent') ?? undefined,
-  };
-}
-
 async function storeLegacyConversion(
+  supabase: SupabaseClient,
   merchantId: string,
   eventType: string,
   eventId: string,
   input: ConversionEventRequest
 ) {
-  const { error } = await getSupabaseAdmin()
-    .from('analytics_events')
-    .upsert(
-      {
-        event_data: toStoredEventData(input),
-        event_id: eventId,
-        event_timestamp: new Date(input.event_time * 1000).toISOString(),
-        event_type: eventType,
-        merchant_id: merchantId,
-        source: input.event_source,
-      },
-      {
-        ignoreDuplicates: true,
-        onConflict: 'merchant_id,event_id,event_type',
-      }
-    );
+  const { error } = await supabase.from('analytics_events').upsert(
+    {
+      event_data: conversionEventPayload.toStoredEventData(input),
+      event_id: eventId,
+      event_timestamp: new Date(input.event_time * 1000).toISOString(),
+      event_type: eventType,
+      merchant_id: merchantId,
+      source: input.event_source,
+    },
+    {
+      ignoreDuplicates: true,
+      onConflict: 'merchant_id,event_id,event_type',
+    }
+  );
   if (error) {
     logger.warn({
       error,
@@ -126,16 +83,23 @@ async function storeLegacyConversion(
 
 async function resolvePipelineMerchant(
   request: NextRequest,
-  merchantId: string | undefined
+  merchantId: string | undefined,
+  supabase: SupabaseClient
 ) {
   if (!merchantId) {
+    const originMerchantId = await resolveLegacyMerchant(
+      supabase,
+      undefined,
+      request.headers.get('origin') ?? ''
+    );
     const requestContext = await resolveEventIngressContext({
+      merchantId: originMerchantId ?? undefined,
       request,
-      supabase: getSupabaseAdmin(),
+      supabase,
     });
     if (requestContext.ok && requestContext.verified) return requestContext;
 
-    const { data, error } = await getSupabaseAdmin()
+    const { data, error } = await supabase
       .from('merchants')
       .select('id')
       .eq('slug', DEFAULT_MERCHANT_SLUG)
@@ -155,7 +119,7 @@ async function resolvePipelineMerchant(
   const context = await resolveEventIngressContext({
     merchantId,
     request,
-    supabase: getSupabaseAdmin(),
+    supabase,
   });
   if (!context.ok) return context;
   if (!context.verified && !isUnverifiedEventTelemetryEnabled()) return null;
@@ -202,8 +166,13 @@ export async function POST(request: NextRequest) {
   const durableEnqueue = isEventPipelineEnqueueEnabled();
 
   try {
+    const contextSupabase = await createServerClient();
     const pipelineContext = durableEnqueue
-      ? await resolvePipelineMerchant(request, input.merchant_id)
+      ? await resolvePipelineMerchant(
+          request,
+          input.merchant_id,
+          contextSupabase
+        )
       : null;
     if (durableEnqueue && !pipelineContext?.ok) {
       return NextResponse.json(
@@ -218,6 +187,7 @@ export async function POST(request: NextRequest) {
     const merchantId = pipelineContext?.ok
       ? pipelineContext.merchantId
       : await resolveLegacyMerchant(
+          contextSupabase,
           input.merchant_id,
           request.headers.get('origin') ?? ''
         );
@@ -229,15 +199,28 @@ export async function POST(request: NextRequest) {
     }
 
     if (pipelineContext?.ok) {
+      const eventTimestamp = new Date(input.event_time * 1000).toISOString();
+      const eventName = toClientAnalyticsDomainEventName(
+        eventType,
+        pipelineContext.trustLevel
+      );
+      const eventSupabase = await createEventIngressClient({
+        eventId,
+        eventName,
+        eventTimestamp,
+        eventType,
+        kind: 'analytics',
+        merchantId,
+        producer: input.event_source === 'mobile_app' ? 'mobile' : 'web',
+        source: input.event_source,
+        trustLevel: pipelineContext.trustLevel,
+      });
       try {
-        await recordAnalyticsDomainEvent(getSupabaseAdmin(), {
-          deliveryData: deliveryData(input, request),
-          eventData: toStoredEventData(input),
-          eventName: toClientAnalyticsDomainEventName(
-            eventType,
-            pipelineContext.trustLevel
-          ),
-          eventTimestamp: new Date(input.event_time * 1000).toISOString(),
+        await recordAnalyticsDomainEvent(eventSupabase, {
+          deliveryData: conversionEventPayload.deliveryData(input, request),
+          eventData: conversionEventPayload.toStoredEventData(input),
+          eventName,
+          eventTimestamp,
           eventType,
           externalEventId: eventId,
           merchantId,
@@ -252,10 +235,33 @@ export async function POST(request: NextRequest) {
           eventId,
           message: 'Durable conversion enqueue failed; using legacy fanout',
         });
-        await storeLegacyConversion(merchantId, eventType, eventId, input);
+        await storeLegacyConversion(
+          eventSupabase,
+          merchantId,
+          eventType,
+          eventId,
+          input
+        );
       }
     } else {
-      await storeLegacyConversion(merchantId, eventType, eventId, input);
+      const eventSupabase = await createEventIngressClient({
+        eventId,
+        eventName: `analytics.${eventType}.legacy.v1`,
+        eventTimestamp: new Date(input.event_time * 1000).toISOString(),
+        eventType,
+        kind: 'analytics',
+        merchantId,
+        producer: input.event_source === 'mobile_app' ? 'mobile' : 'web',
+        source: input.event_source,
+        trustLevel: 'anonymous_client',
+      });
+      await storeLegacyConversion(
+        eventSupabase,
+        merchantId,
+        eventType,
+        eventId,
+        input
+      );
     }
 
     const results = isLegacyAnalyticsFanoutDisabled()
@@ -267,7 +273,7 @@ export async function POST(request: NextRequest) {
           merchant_id: merchantId,
           source: input.event_source,
           targets: input.targets,
-          user_data: deliveryData(input, request),
+          user_data: conversionEventPayload.deliveryData(input, request),
         });
 
     logger.info({

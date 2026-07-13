@@ -14,6 +14,12 @@ const FIXED_EVENT_TIME = 1_784_937_600;
 vi.mock('@supabase/supabase-js', () => ({
   createClient: () => ({ from: mocks.from }),
 }));
+vi.mock('@/lib/events/event-ingress-capability', () => ({
+  createEventIngressClient: () => ({ from: mocks.from }),
+}));
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: () => ({ from: mocks.from }),
+}));
 vi.mock('@/lib/events/event-ingress-context', () => ({
   resolveEventIngressContext: mocks.resolveContext,
 }));
@@ -153,6 +159,52 @@ describe('POST /api/analytics/conversion', () => {
       expect.objectContaining({
         merchantId: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
       })
+    );
+  });
+
+  it('resolves an origin storefront before the default merchant in pipeline mode', async () => {
+    mocks.enqueueEnabled = true;
+    mocks.resolveContext.mockResolvedValue({
+      merchantId: 'origin-merchant-id',
+      ok: true,
+      trustLevel: 'tenant_verified_client',
+      verified: true,
+    });
+    const merchant = {
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: { id: 'origin-merchant-id' },
+        error: null,
+      }),
+      select: vi.fn().mockReturnThis(),
+    };
+    mocks.from.mockImplementation((table: string) =>
+      table === 'analytics_events'
+        ? { upsert: vi.fn().mockResolvedValue({ error: null }) }
+        : merchant
+    );
+
+    const response = await POST(
+      new NextRequest('https://usebaci.com/api/analytics/conversion', {
+        body: JSON.stringify({
+          custom_data: { currency: 'NGN', value: 100 },
+          event_name: 'START_CHECKOUT',
+          event_source: 'web',
+          event_time: FIXED_EVENT_TIME,
+          user_data: {},
+        }),
+        headers: { origin: 'https://origin-store.usebaci.com' },
+        method: 'POST',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.resolveContext).toHaveBeenCalledWith(
+      expect.objectContaining({ merchantId: 'origin-merchant-id' })
+    );
+    expect(mocks.record).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({ merchantId: 'origin-merchant-id' })
     );
   });
 

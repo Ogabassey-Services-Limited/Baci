@@ -1,4 +1,4 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { after, type NextRequest, NextResponse } from 'next/server';
 import {
   isConversionEvent,
@@ -6,6 +6,7 @@ import {
   sendToAdPlatforms,
 } from '@/lib/analytics/send-to-ad-platforms';
 import { buildAnalyticsEventData } from '@/lib/events/build-analytics-event-data';
+import { createEventIngressClient } from '@/lib/events/event-ingress-capability';
 import { resolveEventIngressContext } from '@/lib/events/event-ingress-context';
 import {
   isEventPipelineEnqueueEnabled,
@@ -17,24 +18,13 @@ import { isEventTimestampWithinWindow } from '@/lib/events/event-timestamp-windo
 import { readBoundedJsonBody } from '@/lib/events/read-bounded-json-body';
 import { recordAnalyticsDomainEvent } from '@/lib/events/record-analytics-domain-event';
 import { logger } from '@/lib/logger';
+import { createClient as createServerClient } from '@/lib/supabase/server';
 import {
   type AnalyticsEventRequest,
   analyticsEventRequestSchema,
 } from '@/schemas/analytics-event';
 
 const MAX_EVENT_BYTES = 64 * 1024;
-let supabaseAdmin: SupabaseClient | null = null;
-
-function getSupabaseAdmin() {
-  if (!supabaseAdmin) {
-    supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
-      process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
-    );
-  }
-  return supabaseAdmin;
-}
-
 function conversionContents(input: AnalyticsEventRequest) {
   const items = input.items ?? input.custom_data?.contents ?? [];
   return items.flatMap((item) => {
@@ -186,13 +176,13 @@ export async function POST(request: NextRequest) {
   let responseEventId = input.event_id;
 
   try {
-    const supabase = getSupabaseAdmin();
+    const contextSupabase = await createServerClient();
     if (durableEnqueue) {
       const context = await resolveEventIngressContext({
         merchantId: input.merchant_id,
         pageUrl: input.page_url ?? request.headers.get('referer') ?? undefined,
         request,
-        supabase,
+        supabase: contextSupabase,
       });
       if (!context.ok) {
         return NextResponse.json(
@@ -208,8 +198,22 @@ export async function POST(request: NextRequest) {
       }
 
       responseEventId = input.event_id ?? `evt_${crypto.randomUUID()}`;
+      const eventSupabase = await createEventIngressClient({
+        eventId: responseEventId,
+        eventName: toClientAnalyticsDomainEventName(
+          eventType,
+          context.trustLevel
+        ),
+        eventTimestamp,
+        eventType,
+        kind: 'analytics',
+        merchantId: context.merchantId,
+        producer: input.source === 'mobile_app' ? 'mobile' : 'web',
+        source: input.source ?? 'web',
+        trustLevel: context.trustLevel,
+      });
       try {
-        await recordAnalyticsDomainEvent(supabase, {
+        await recordAnalyticsDomainEvent(eventSupabase, {
           deliveryData: deliveryData(input, request),
           eventData,
           eventName: toClientAnalyticsDomainEventName(
@@ -233,7 +237,7 @@ export async function POST(request: NextRequest) {
             'Durable analytics enqueue failed; preserving the event through the legacy shadow path',
         });
         const { error: legacyError } = await storeLegacyEvent(
-          supabase,
+          eventSupabase,
           { ...input, event_id: responseEventId },
           eventType,
           eventData,
@@ -242,8 +246,19 @@ export async function POST(request: NextRequest) {
         if (legacyError) throw legacyError;
       }
     } else {
+      const eventSupabase = await createEventIngressClient({
+        eventId: responseEventId ?? '',
+        eventName: `analytics.${eventType}.legacy.v1`,
+        eventTimestamp,
+        eventType,
+        kind: 'analytics',
+        merchantId: input.merchant_id,
+        producer: input.source === 'mobile_app' ? 'mobile' : 'web',
+        source: input.source ?? 'web',
+        trustLevel: 'anonymous_client',
+      });
       const { error } = await storeLegacyEvent(
-        supabase,
+        eventSupabase,
         input,
         eventType,
         eventData,

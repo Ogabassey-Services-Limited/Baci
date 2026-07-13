@@ -71,6 +71,7 @@ describe('event pipeline configuration', () => {
       'tiktok',
     ]);
     expect(isEventPipelineCanaryMerchant()).toBe(true);
+    expect(isLegacyAnalyticsFanoutDisabled()).toBe(true);
   });
 
   it('keeps legacy fan-out unless the complete durable path is active', () => {

@@ -1,5 +1,6 @@
-import { createClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
+import { createEventIngressClient } from '@/lib/events/event-ingress-capability';
 import { resolveEventIngressContext } from '@/lib/events/event-ingress-context';
 import {
   isEventPipelineEnqueueEnabled,
@@ -8,6 +9,7 @@ import {
 import { toClientPlatformDomainEventName } from '@/lib/events/event-route-registry';
 import { readBoundedJsonBody } from '@/lib/events/read-bounded-json-body';
 import { recordPlatformDomainEvent } from '@/lib/events/record-platform-domain-event';
+import { createClient as createServerClient } from '@/lib/supabase/server';
 import {
   type PlatformEventRequestInput,
   platformEventRequestSchema,
@@ -17,45 +19,38 @@ import {
   type PlatformEventType,
 } from './platform-event-forwarding';
 
-// Lazy initialization to avoid build-time errors
-function getSupabaseAdmin() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
-    process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
-  );
-}
-
 const MAX_EVENT_BYTES = 64 * 1024;
 
-function persistLegacyPlatformEvent(args: {
-  eventData: PlatformEventRequestInput['event_data'];
-  eventId: string;
-  eventTimestamp: string;
-  eventType: PlatformEventType;
-  ipAddress?: string;
-  merchantId?: string;
-  pageUrl?: string;
-  referrer?: string;
-  sessionId?: string;
-  userAgent?: string;
-}) {
-  return getSupabaseAdmin()
-    .from('platform_events')
-    .upsert(
-      {
-        event_data: args.eventData || {},
-        event_id: args.eventId,
-        event_timestamp: args.eventTimestamp,
-        event_type: args.eventType,
-        ip_address: args.ipAddress,
-        merchant_id: args.merchantId || null,
-        page_url: args.pageUrl,
-        referrer: args.referrer,
-        session_id: args.sessionId,
-        user_agent: args.userAgent,
-      },
-      { ignoreDuplicates: true, onConflict: 'event_type,event_id' }
-    );
+function persistLegacyPlatformEvent(
+  supabase: SupabaseClient,
+  args: {
+    eventData: PlatformEventRequestInput['event_data'];
+    eventId: string;
+    eventTimestamp: string;
+    eventType: PlatformEventType;
+    ipAddress?: string;
+    merchantId?: string;
+    pageUrl?: string;
+    referrer?: string;
+    sessionId?: string;
+    userAgent?: string;
+  }
+) {
+  return supabase.from('platform_events').upsert(
+    {
+      event_data: args.eventData || {},
+      event_id: args.eventId,
+      event_timestamp: args.eventTimestamp,
+      event_type: args.eventType,
+      ip_address: args.ipAddress,
+      merchant_id: args.merchantId || null,
+      page_url: args.pageUrl,
+      referrer: args.referrer,
+      session_id: args.sessionId,
+      user_agent: args.userAgent,
+    },
+    { ignoreDuplicates: true, onConflict: 'event_type,event_id' }
+  );
 }
 
 export async function POST(request: NextRequest) {
@@ -107,7 +102,7 @@ export async function POST(request: NextRequest) {
             merchantId: merchant_id,
             pageUrl: page_url,
             request,
-            supabase: getSupabaseAdmin(),
+            supabase: await createServerClient(),
           })
         : {
             merchantId: '',
@@ -122,14 +117,25 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      const eventName = toClientPlatformDomainEventName(
+        event_type,
+        context.trustLevel
+      );
+      const eventSupabase = await createEventIngressClient({
+        eventId,
+        eventName,
+        eventTimestamp,
+        eventType: event_type,
+        kind: 'platform',
+        merchantId: context.merchantId || undefined,
+        producer: 'web',
+        trustLevel: context.trustLevel,
+      });
       try {
-        await recordPlatformDomainEvent(getSupabaseAdmin(), {
+        await recordPlatformDomainEvent(eventSupabase, {
           eventData: { ...(event_data ?? {}), page_url },
           deliveryData: { ip: ipAddress, ua: userAgent },
-          eventName: toClientPlatformDomainEventName(
-            event_type,
-            context.trustLevel
-          ),
+          eventName,
           eventTimestamp,
           eventType: event_type,
           externalEventId: eventId,
@@ -149,7 +155,7 @@ export async function POST(request: NextRequest) {
                 : 'durable_platform_enqueue_failed',
           };
         } else {
-          const fallback = await persistLegacyPlatformEvent({
+          const fallback = await persistLegacyPlatformEvent(eventSupabase, {
             eventData: event_data,
             eventId,
             eventTimestamp,
@@ -165,7 +171,17 @@ export async function POST(request: NextRequest) {
         }
       }
     } else {
-      const result = await persistLegacyPlatformEvent({
+      const eventSupabase = await createEventIngressClient({
+        eventId,
+        eventName: `platform.${event_type}.legacy.v1`,
+        eventTimestamp,
+        eventType: event_type,
+        kind: 'platform',
+        merchantId: merchant_id,
+        producer: 'web',
+        trustLevel: 'anonymous_client',
+      });
+      const result = await persistLegacyPlatformEvent(eventSupabase, {
         eventData: event_data,
         eventId,
         eventTimestamp,

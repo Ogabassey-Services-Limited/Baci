@@ -25,6 +25,7 @@ const files = [
   '20260713120000_event_delivery_replay_and_idempotency_fixes.sql',
   '20260713222000_platform_event_legacy_idempotency.sql',
   '20260714000100_harden_event_pipeline_admin_filters.sql',
+  '20260714000200_scope_public_event_ingress.sql',
 ] as const;
 
 const sql = Object.fromEntries(
@@ -173,6 +174,17 @@ describe('durable domain-event migration contract', () => {
     );
     expect(sql['20260712150001_domain_event_pipeline_tables.sql']).toContain(
       'domain_event_failures_domain_event_id_idx'
+    );
+  });
+
+  it('allows browser ingress only through a scoped capability', () => {
+    const ingress = sql['20260714000200_scope_public_event_ingress.sql'];
+    expect(ingress).toContain('public.is_event_ingress_capability_v1');
+    expect(ingress).toContain("auth.role() = 'anon'");
+    expect(ingress).toContain('baci_event_ingress_event_id');
+    expect(ingress).toContain('TO anon, service_role');
+    expect(ingress).toContain(
+      'DROP POLICY IF EXISTS "Anyone can insert platform events"'
     );
   });
 });
