@@ -133,6 +133,7 @@ describe('POST /api/payments/juicyway/webhook processing', () => {
     });
     expect(transactionCallCount).toBe(2); // Should have been called twice (fetch + update)
     expect(orderUpdated).toBe(true);
+    expect(webhookTest.getMockCreateServerClient()).not.toHaveBeenCalled();
 
     // Verify settlement RPC was called via the admin (service-role) client.
     // Δ-0a/Δ-0b: gateway_fee is no longer read from the transaction column

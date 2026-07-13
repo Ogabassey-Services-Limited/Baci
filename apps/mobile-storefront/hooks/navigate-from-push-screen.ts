@@ -46,9 +46,10 @@ export function navigateFromPushScreen(
       }
       break;
     case 'utility-history':
-      router.push(
-        `/utilities/history?type=${params?.type ?? 'power'}` as Href
-      );
+      router.push(`/utilities/history?type=${params?.type ?? 'power'}` as Href);
+      break;
+    case 'unlock-orders':
+      router.push('/unlock-orders');
       break;
     default:
       router.push('/');

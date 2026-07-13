@@ -29,6 +29,8 @@ const WEB_CRON_CONFIG = new Map([
     '/api/cron/reconcile-vtu-processing',
     { method: 'GET', timeoutMs: 6 * 60_000 },
   ],
+  ['/api/cron/sync-petrock-catalog', { method: 'GET', timeoutMs: 5 * 60_000 }],
+  ['/api/cron/petrock-reconcile', { method: 'GET', timeoutMs: 5 * 60_000 }],
   [
     '/api/cron/agentic-commerce-health',
     { method: 'GET', timeoutMs: 5 * 60_000 },

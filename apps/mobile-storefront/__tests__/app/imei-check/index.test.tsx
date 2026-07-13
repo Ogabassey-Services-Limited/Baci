@@ -1,4 +1,5 @@
-import { describe, expect, it, jest } from '@jest/globals';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   act,
   fireEvent,
@@ -23,7 +24,7 @@ let mockWalletBalance = 5000;
 let mockWalletIsError = false;
 let mockWalletIsLoading = false;
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
   alertSpy.mockClear();
   mockWalletBalance = 5000;
@@ -33,6 +34,7 @@ beforeEach(() => {
   global.fetch = jest.fn() as typeof fetch;
   mockPreventRemoveState.prevent = false;
   mockPreventRemoveState.callback = null;
+  await AsyncStorage.clear();
 });
 
 jest.mock('expo-router/react-navigation', () => ({
@@ -93,7 +95,11 @@ jest.mock('@/hooks/use-wallet', () => ({
 
 jest.mock('@/stores/auth-store', () => ({
   useAuthStore: (selector: (state: unknown) => unknown) =>
-    selector({ session: { access_token: 'token-123' } }),
+    selector({
+      customer: { id: 'customer-1' },
+      merchantId: 'merchant-1',
+      session: { access_token: 'token-123' },
+    }),
 }));
 
 import ImeiCheckerScreen from '@/app/imei-check';
@@ -115,6 +121,63 @@ describe('ImeiCheckerScreen', () => {
     fireEvent.press(screen.getByText('Non-Active Status PRO'));
 
     expect(screen.getByText('Verify Now - ₦700')).toBeTruthy();
+  });
+
+  it('handles a pending response and polls it to completion', async () => {
+    jest
+      .mocked(fetch)
+      .mockResolvedValueOnce({
+        json: () =>
+          Promise.resolve({
+            lookupId: '11111111-1111-4111-8111-111111111111',
+            pollAfterMs: 1,
+            status: 'pending',
+            success: true,
+          }),
+        ok: true,
+        status: 202,
+      } as Response)
+      .mockResolvedValueOnce({
+        json: () =>
+          Promise.resolve({
+            data: {
+              blacklistStatus: 'Clean',
+              carrier: 'Unlocked',
+              device: 'iPhone 13 Pro',
+              deviceImage: '',
+              deviceType: 'apple',
+              icloud: 'Off',
+              icloudLock: 'Off',
+              imei: '490154203237518',
+              modelNumber: 'A2638',
+              score: 98,
+              simLock: 'Unlocked',
+              status: 'Clean',
+              verdict: 'Safe to buy',
+              verdictType: 'safe',
+            },
+            status: 'complete',
+            success: true,
+          }),
+        ok: true,
+        status: 200,
+      } as Response);
+    render(<ImeiCheckerScreen />);
+
+    fireEvent.changeText(
+      screen.getByPlaceholderText('Enter 15-digit IMEI'),
+      '490154203237518'
+    );
+    fireEvent.press(screen.getByText('Verify Now - ₦1,500'));
+
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    await screen.findByText(/usually under a minute/i);
+    await screen.findByText('iPhone 13 Pro');
+    const firstInit = jest.mocked(fetch).mock.calls[0]?.[1] as RequestInit;
+    expect(JSON.parse(String(firstInit.body))).toMatchObject({
+      clientCapabilities: ['imei-async-v1'],
+      device: 'smartphone',
+    });
   });
 
   it('exposes the full catalog: shows the toggle and Samsung checks', () => {

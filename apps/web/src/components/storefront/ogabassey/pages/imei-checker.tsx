@@ -1,26 +1,24 @@
 'use client';
 
+import {
+  IMEI_SERVICE_TIERS,
+  type ImeiServiceTierDefinition,
+  isValidDeviceIdentifier,
+} from '@baci/shared/imei';
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import { fetchWithCsrf } from '@/lib/api-client';
+import { useOptionalCustomerAuth } from '@/contexts/customer-auth-context';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { OgabasseyImeiEntry } from './imei-checker-entry';
-import { OgabasseyImeiResults } from './imei-results';
-import { SERVICE_TIERS } from './imei-checker-tiers';
+import { performImeiCheck } from './imei-checker-request';
 import type {
   ImeiRequestIdentity,
   ImeiResult,
   ProductSuggestion,
-  ServiceTier,
 } from './imei-checker-types';
-
-const UNRESOLVED_IMEI_RESPONSE_CODES = new Set([
-  'DEBIT_FAILURE_STATE_SAVE_FAILED',
-  'IDEMPOTENT_REQUEST_IN_FLIGHT',
-  'LOOKUP_RESULT_SAVE_FAILED',
-  'REFUND_PENDING',
-  'REFUND_STATE_SAVE_FAILED',
-  'REFUNDED_STATE_SAVE_FAILED',
-]);
+import { OgabasseyImeiResults } from './imei-results';
+import { useImeiPendingLookup } from './use-imei-pending-lookup';
+import { useImeiTierSelection } from './use-imei-tier-selection';
 
 const createFallbackUuid = () => {
   const bytes = new Uint8Array(16);
@@ -77,74 +75,68 @@ async function fetchDeviceSuggestions(
   }
 }
 
-interface ImeiCheckOutcome {
-  result: ImeiResult | null;
-  error: string | null;
-  keepRequestIdentity: boolean;
-}
-
-/**
- * Module-scope request keeps the try/finally clause out of the component body
- * so React Compiler can memoize the checker.
- */
-async function performImeiCheck(
-  imei: string,
-  tier: ServiceTier,
-  idempotencyKey: string
-): Promise<ImeiCheckOutcome> {
-  try {
-    const response = await fetchWithCsrf('/api/storefront/imei-check', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Idempotency-Key': idempotencyKey,
-      },
-      body: JSON.stringify({ imei, tier }),
-    });
-
-    const data: {
-      success?: boolean;
-      error?: string;
-      code?: string;
-      data?: ImeiResult;
-    } = await response.json();
-    const keepRequestIdentity =
-      typeof data?.code === 'string' &&
-      UNRESOLVED_IMEI_RESPONSE_CODES.has(data.code);
-
-    if (!response.ok || !data.success) {
-      return {
-        result: null,
-        error: data.error || 'Unable to check IMEI. Please try again.',
-        keepRequestIdentity,
-      };
-    }
-
-    return { result: data.data ?? null, error: null, keepRequestIdentity };
-  } catch (err) {
-    console.error('IMEI check failed:', err);
-    return {
-      result: null,
-      error: 'Network error. Please check your connection and try again.',
-      keepRequestIdentity: true,
-    };
-  }
-}
-
 export const OgabasseyImeiChecker: React.FC = () => {
-  const [imei, setImei] = useState('');
-  const [selectedTier, setSelectedTier] = useState<ServiceTier>('full');
+  const customerAuth = useOptionalCustomerAuth();
+  const merchantSlug = useMerchantSafe()?.merchant?.slug;
+  const {
+    brand,
+    canToggleServices,
+    currentTier,
+    device,
+    displayedTierKeys,
+    identifier,
+    imei,
+    selectedTier,
+    showAllServices,
+    onChangeImei,
+    onClearImei,
+    onSelectBrand,
+    onSelectDevice,
+    onSelectTier,
+    onToggleServices,
+  } = useImeiTierSelection();
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [needsWalletFunding, setNeedsWalletFunding] = useState(false);
   const [result, setResult] = useState<ImeiResult | null>(null);
-  const [showTierPicker, setShowTierPicker] = useState(false);
+  const [resultLookupId, setResultLookupId] = useState<string | null>(null);
+  // Snapshot of the tier that actually produced `result`, frozen at request
+  // time — the picker's live `currentTier` can change (device/brand/tier
+  // switches stay interactive while a check is in flight) before the
+  // response arrives, and rendering against the live value would mislabel
+  // a completed, paid-for result.
+  const [resultTier, setResultTier] =
+    useState<ImeiServiceTierDefinition | null>(null);
   const [requestIdentity, setRequestIdentity] =
     useState<ImeiRequestIdentity | null>(null);
+  const pendingLookup = useImeiPendingLookup({
+    customerId: customerAuth?.customer?.id,
+    merchantSlug,
+  });
+
+  useEffect(() => {
+    const terminal = pendingLookup.terminal;
+    if (!terminal) return;
+
+    setRequestIdentity(null);
+    setIsLoading(false);
+    if (terminal.kind === 'complete') {
+      setError(null);
+      setResult(terminal.result);
+      setResultLookupId(terminal.lookupId);
+      setResultTier(IMEI_SERVICE_TIERS[terminal.tier]);
+    } else {
+      setError(terminal.error);
+    }
+    pendingLookup.clearTerminal();
+  }, [pendingLookup]);
 
   // Device search autocomplete state
   const [deviceQuery, setDeviceQuery] = useState('');
   const [suggestions, setSuggestions] = useState<ProductSuggestion[]>([]);
-  const [selectedDevice, setSelectedDevice] = useState<ProductSuggestion | null>(null);
+  const [selectedDeviceSuggestion, setSelectedDeviceSuggestion] =
+    useState<ProductSuggestion | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
 
@@ -167,19 +159,25 @@ export const OgabasseyImeiChecker: React.FC = () => {
     return () => clearTimeout(timer);
   }, [deviceQuery]);
 
-  const handleSelectDevice = (device: ProductSuggestion) => {
-    setSelectedDevice(device);
-    setDeviceQuery(device.name);
+  const handleSelectDeviceSuggestion = (suggestion: ProductSuggestion) => {
+    setSelectedDeviceSuggestion(suggestion);
+    setDeviceQuery(suggestion.name);
     setShowSuggestions(false);
   };
 
   const handleCheck = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!imei.trim()) return;
+    if (!isValidDeviceIdentifier(imei, identifier)) return;
+    if (!merchantSlug) {
+      setError('This storefront is unavailable. Refresh and try again.');
+      setNeedsWalletFunding(false);
+      return;
+    }
 
     setIsLoading(true);
     setResult(null);
     setError(null);
+    setNeedsWalletFunding(false);
 
     const normalizedImei = imei.trim();
     const existingIdentityMatches =
@@ -194,6 +192,7 @@ export const OgabasseyImeiChecker: React.FC = () => {
     } catch (err) {
       console.error('IMEI check failed:', err);
       setError('Network error. Please check your connection and try again.');
+      setNeedsWalletFunding(false);
       setIsLoading(false);
       return;
     }
@@ -209,62 +208,88 @@ export const OgabasseyImeiChecker: React.FC = () => {
     const outcome = await performImeiCheck(
       normalizedImei,
       selectedTier,
-      idempotencyKey
+      currentTier.price,
+      idempotencyKey,
+      merchantSlug,
+      device
     );
 
     if (!outcome.keepRequestIdentity) {
       setRequestIdentity(null);
     }
 
-    if (outcome.error !== null) {
+    if (outcome.pending) {
+      pendingLookup.start({
+        lookupId: outcome.pending.lookupId,
+        pollAfterMs: outcome.pending.pollAfterMs,
+        tier: selectedTier,
+      });
+    } else if (outcome.error !== null) {
       setError(outcome.error);
     } else {
       setResult(outcome.result);
+      setResultLookupId(outcome.lookupId);
+      // `currentTier` here is the value closed over at submit time, not the
+      // hook's live value at response time — exactly the snapshot needed.
+      setResultTier(currentTier);
     }
+    setNeedsWalletFunding(outcome.needsWalletFunding);
     setIsLoading(false);
   };
-
-  const currentTier = SERVICE_TIERS[selectedTier];
 
   return (
     <div className="min-h-screen bg-linear-to-b from-gray-50 to-white pb-24 md:pb-12 pt-4 md:pt-8 flex flex-col">
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 w-full flex-1">
         {!result && (
           <OgabasseyImeiEntry
-            currentTier={currentTier}
+            brand={brand}
+            canToggleServices={canToggleServices}
+            device={device}
             deviceQuery={deviceQuery}
+            displayedTierKeys={displayedTierKeys}
             error={error}
+            identifier={identifier}
             imei={imei}
             isLoading={isLoading}
+            isPending={pendingLookup.pending !== null}
+            needsWalletFunding={needsWalletFunding}
             onCheck={handleCheck}
             onDeviceQueryChange={(value) => {
               setDeviceQuery(value);
               setShowSuggestions(true);
-              if (!value) setSelectedDevice(null);
+              if (!value) setSelectedDeviceSuggestion(null);
               if (value.length < 2) setSuggestions([]);
             }}
             onDeviceSearchFocus={() => setShowSuggestions(true)}
-            onImeiChange={setImei}
-            onSelectDevice={handleSelectDevice}
-            onSelectedTierChange={setSelectedTier}
-            onShowTierPickerChange={setShowTierPicker}
+            onImeiChange={onChangeImei}
+            onSelectBrand={onSelectBrand}
+            onSelectDevice={onSelectDevice}
+            onSelectDeviceSuggestion={handleSelectDeviceSuggestion}
+            onSelectTier={onSelectTier}
+            onToggleServices={onToggleServices}
+            pendingPaused={pendingLookup.paused}
             searchLoading={searchLoading}
-            selectedDevice={selectedDevice}
+            selectedDeviceSuggestion={selectedDeviceSuggestion}
             selectedTier={selectedTier}
+            showAllServices={showAllServices}
             showSuggestions={showSuggestions}
-            showTierPicker={showTierPicker}
             suggestions={suggestions}
           />
         )}
 
         <OgabasseyImeiResults
-          currentTierName={currentTier.name}
-          result={result}
+          currentTier={resultTier ?? currentTier}
           onReset={() => {
+            pendingLookup.clear();
             setResult(null);
+            setResultLookupId(null);
+            setResultTier(null);
             setError(null);
-            setImei('');
+            setNeedsWalletFunding(false);
+            onClearImei();
           }}
+          lookupId={resultLookupId}
+          result={result}
         />
       </div>
     </div>
