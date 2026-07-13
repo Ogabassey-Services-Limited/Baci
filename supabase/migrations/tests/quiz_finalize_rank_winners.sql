@@ -2,7 +2,7 @@
 -- REGRESSION TEST: quiz ranked-winner minting + auto-finalize
 --   Validates public.mint_quiz_event_ranked_awards and
 --   public.finalize_due_quiz_events from migration
---   20260713140000_quiz_finalize_rank_winners.sql:
+--   20260713130000_quiz_finalize_rank_winners.sql:
 --     * function security (SECURITY DEFINER + blank search_path) & grants
 --     * CHECK-constraint-correct rows: grand (rank1, attempt_id NULL) and
 --       cash (rank2..N, attempt_id set), best-attempt-per-customer, disqualified
