@@ -104,4 +104,17 @@ describe('product-transform', () => {
     });
     expect(product?.variants?.[0]?.attributes).not.toHaveProperty('preorder');
   });
+
+  it('treats sku_matrix products as variant-bearing when has_variants has drifted false', () => {
+    const product = transformProduct({
+      ...variantProductRow,
+      has_variants: false,
+    });
+
+    expect(product).toMatchObject({
+      has_variants: true,
+      variant_model: 'sku_matrix',
+      variants: [expect.objectContaining({ id: 'variant-blue-256' })],
+    });
+  });
 });
