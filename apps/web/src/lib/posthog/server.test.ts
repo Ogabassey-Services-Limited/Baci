@@ -459,7 +459,9 @@ describe('captureServerEvent', () => {
     try {
       process.env.POSTHOG_PROJECT_TOKEN = 'ph_test';
       postHogMocks.captureImmediate.mockReturnValueOnce(
-        new Promise(() => {}) as never
+        new Promise(() => {
+          // Intentionally never settles — exercises the capture timeout race.
+        }) as never
       );
       const { captureServerEvent } = await import('./server');
 
