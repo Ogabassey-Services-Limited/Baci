@@ -2358,6 +2358,57 @@ export type Database = {
           },
         ];
       };
+      customer_wallet_accounts: {
+        Row: {
+          available_balance: number;
+          created_at: string;
+          currency: string;
+          customer_id: string;
+          id: string;
+          merchant_id: string;
+          total_credited: number;
+          total_debited: number;
+          updated_at: string;
+        };
+        Insert: {
+          available_balance?: number;
+          created_at?: string;
+          currency: string;
+          customer_id: string;
+          id?: string;
+          merchant_id: string;
+          total_credited?: number;
+          total_debited?: number;
+          updated_at?: string;
+        };
+        Update: {
+          available_balance?: number;
+          created_at?: string;
+          currency?: string;
+          customer_id?: string;
+          id?: string;
+          merchant_id?: string;
+          total_credited?: number;
+          total_debited?: number;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'customer_wallet_accounts_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'customers';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'customer_wallet_accounts_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       customer_wallet_payment_accounts: {
         Row: {
           account_name: string;

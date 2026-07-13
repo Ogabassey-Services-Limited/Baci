@@ -8,6 +8,9 @@ const mockUseMerchantSafe = vi.hoisted(() => vi.fn());
 const fundingPanelProps = vi.hoisted(
   () => ({ current: null }) as { current: Record<string, unknown> | null }
 );
+const usdtFundingPanelProps = vi.hoisted(
+  () => ({ current: null }) as { current: Record<string, unknown> | null }
+);
 
 vi.mock('@/contexts/customer-auth-context', () => ({
   useCustomerAuth: mockUseCustomerAuth,
@@ -27,6 +30,12 @@ vi.mock('../components/WalletFundingPanel', () => ({
     return <div data-testid="wallet-funding-panel" />;
   },
 }));
+vi.mock('../components/UsdtWalletFundingPanel', () => ({
+  UsdtWalletFundingPanel: (props: Record<string, unknown>) => {
+    usdtFundingPanelProps.current = props;
+    return <div data-testid="usdt-wallet-funding-panel" />;
+  },
+}));
 
 const fundingAccount = {
   accountName: 'OGB / JOHN DOE',
@@ -39,6 +48,7 @@ describe('OgabasseyV2Wallet', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     fundingPanelProps.current = null;
+    usdtFundingPanelProps.current = null;
     mockUseCustomerAuth.mockReturnValue({
       customer: { id: 'customer-1', phone: '08012345678' },
       isAuthenticated: true,
@@ -59,6 +69,33 @@ describe('OgabasseyV2Wallet', () => {
         }),
       })
     );
+  });
+
+  it('hides USDT funding when the server capability is disabled', async () => {
+    render(<OgabasseyV2Wallet usdtWalletEnabled={false} />);
+
+    await screen.findByText('₦2,500.00');
+    expect(
+      screen.queryByRole('button', { name: /fund usdt/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('usdt-wallet-funding-panel')
+    ).not.toBeInTheDocument();
+  });
+
+  it('passes a redirected funding reference to the USDT panel', async () => {
+    render(
+      <OgabasseyV2Wallet
+        initialShowUsdtFunding
+        initialUsdtReference="wusdt_ref_123456"
+        usdtWalletEnabled
+      />
+    );
+
+    await screen.findByText('₦2,500.00');
+    expect(usdtFundingPanelProps.current).toMatchObject({
+      initialReference: 'wusdt_ref_123456',
+    });
   });
 
   it('renders the fetched wallet balance', async () => {
@@ -102,6 +139,30 @@ describe('OgabasseyV2Wallet', () => {
     ).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /fund wallet/i }));
+
+    expect(screen.getByTestId('wallet-funding-panel')).toBeInTheDocument();
+    expect(fundingPanelProps.current).toMatchObject({
+      account: null,
+      requiresConsent: true,
+    });
+  });
+
+  it('opens the existing funding panel when reached from a funding deep link', async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      json: async () => ({
+        balance: 0,
+        fundingAccount: null,
+        requiresFundingAccountConsent: true,
+        totalEarned: 0,
+        totalRedeemed: 0,
+        transactions: [],
+        walletDvaEnabled: true,
+      }),
+    } as Response);
+
+    render(<OgabasseyV2Wallet initialShowFunding />);
+
+    await screen.findByText('₦0.00');
 
     expect(screen.getByTestId('wallet-funding-panel')).toBeInTheDocument();
     expect(fundingPanelProps.current).toMatchObject({

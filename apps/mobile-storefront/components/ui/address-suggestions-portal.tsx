@@ -144,7 +144,9 @@ function AddressSuggestionsHost({ store }: { store: SuggestionsStore }) {
     : belowTop;
 
   return (
-    <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+    <View
+      style={[StyleSheet.absoluteFill, { pointerEvents: 'box-none' }]}
+    >
       <View
         style={[
           styles.floatingDropdown,

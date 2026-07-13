@@ -1,6 +1,10 @@
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { __resetRateLimitStoreForTesting, checkRateLimit } from './rate-limit';
+import {
+  __resetRateLimitStoreForTesting,
+  checkImeiPollRateLimit,
+  checkRateLimit,
+} from './rate-limit';
 
 // Dedicated coverage for the quiz-specific rate-limit entries added for launch.
 // The broader per-IP identifier / trie behavior is covered in rate-limit.test.tsx.
@@ -46,5 +50,24 @@ describe('quiz route rate limits', () => {
 
     // The four quiz limits (5/10/20) must not leak onto unmatched paths.
     expect([5, 10, 20]).not.toContain(result.limit);
+  });
+
+  it('gives IMEI status polling a separate high-frequency bucket', async () => {
+    const request = new NextRequest(
+      'http://localhost:3000/api/storefront/imei-check/11111111-1111-4111-8111-111111111111'
+    );
+
+    for (let index = 0; index < 120; index += 1) {
+      await expect(checkImeiPollRateLimit(request)).resolves.toMatchObject({
+        allowed: true,
+        limit: 120,
+      });
+    }
+
+    await expect(checkImeiPollRateLimit(request)).resolves.toMatchObject({
+      allowed: false,
+      limit: 120,
+      remaining: 0,
+    });
   });
 });

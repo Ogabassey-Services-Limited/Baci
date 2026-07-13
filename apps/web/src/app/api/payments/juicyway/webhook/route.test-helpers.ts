@@ -40,7 +40,7 @@ export const mockSupabase = {
   auth: {
     getUser: vi.fn(),
   },
-  from: vi.fn(() => ({
+  from: vi.fn((_table?: string) => ({
     select: vi.fn().mockReturnThis(),
     insert: vi.fn().mockReturnThis(),
     update: vi.fn().mockReturnThis(),
@@ -70,8 +70,24 @@ export const mockAdminSupabase = {
   rpc: vi.fn().mockResolvedValue({ error: null }),
 };
 
+function resetAdminFromMock() {
+  mockAdminSupabase.from.mockImplementation((table: string) => {
+    if (table !== 'reconciliation_review') {
+      return mockSupabase.from(table) as never;
+    }
+    if (table === 'reconciliation_review') {
+      return { insert: mockReconciliationInsert } as never;
+    }
+    throw new Error(`Unexpected admin table: ${table}`);
+  });
+}
+
+const mockCreateServerClient = vi.hoisted(() => vi.fn());
+export function getMockCreateServerClient() {
+  return mockCreateServerClient;
+}
 vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn(() => mockSupabase),
+  createClient: mockCreateServerClient,
 }));
 
 vi.mock('@/lib/supabase/admin', () => ({
@@ -192,6 +208,17 @@ export async function setupJuicywayWebhookTest(): Promise<
   ReturnType<typeof vi.fn>
 > {
   vi.clearAllMocks();
+  mockCreateServerClient.mockImplementation(() => mockSupabase);
+  resetAdminFromMock();
+  mockSupabase.from.mockImplementation(() => ({
+    delete: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    insert: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    select: vi.fn().mockReturnThis(),
+    single: vi.fn().mockResolvedValue({ data: null, error: null }),
+    update: vi.fn().mockReturnThis(),
+  }));
   process.env.JUICYWAY_BUSINESS_ID = 'test-business-id';
   vi.stubEnv('NODE_ENV', 'test');
 
@@ -307,7 +334,7 @@ export function wireProcessingMocks(
       if (table === 'reconciliation_review') {
         return { insert: mockReconciliationInsert };
       }
-      throw new Error(`Unexpected admin table: ${table}`);
+      return fromMock(table) as never;
     }
   );
   mockAdminSupabase.rpc = vi.fn().mockResolvedValue({ error: null });

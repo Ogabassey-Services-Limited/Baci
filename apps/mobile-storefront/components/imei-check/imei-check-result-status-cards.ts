@@ -147,6 +147,36 @@ export function getImeiResultStatusCards(
       label: 'Part Number',
       tint: colors.textSecondary,
     }),
+    optionalStatusCard(result.esimCompatibility, {
+      icon: 'radio-outline',
+      label: 'eSIM Compatibility',
+      tint: colors.textSecondary,
+    }),
+    optionalStatusCard(result.financeStatus, {
+      cleanAware: true,
+      icon: 'cash-outline',
+      label: 'Finance Status',
+    }),
+    optionalStatusCard(result.knoxEnrollment, {
+      cleanAware: true,
+      icon: 'shield-checkmark-outline',
+      label: 'Knox Enrollment',
+    }),
+    optionalStatusCard(result.soldBy, {
+      icon: 'business-outline',
+      label: 'Sold By',
+      tint: colors.textSecondary,
+    }),
+    optionalStatusCard(result.wifiMac, {
+      icon: 'wifi-outline',
+      label: 'Wi-Fi MAC',
+      tint: colors.textSecondary,
+    }),
+    optionalStatusCard(result.devicePhoto, {
+      icon: 'image-outline',
+      label: 'Device Photo',
+      tint: colors.textSecondary,
+    }),
   ].filter((card): card is ImeiResultStatusCard => Boolean(card));
 }
 

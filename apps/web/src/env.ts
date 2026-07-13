@@ -48,10 +48,12 @@ type QuizIntegrityTierOverrides = z.infer<
   typeof quizIntegrityTierOverridesSchema
 >;
 
-const defaultFalseBooleanStringSchema = z.preprocess(
-  (value) => (value === undefined ? 'false' : value),
-  booleanStringSchema
-);
+const defaultFalseBooleanStringSchema = z.preprocess((value) => {
+  if (value === undefined) return false;
+  if (typeof value !== 'string') return value;
+
+  return normalizeEnvBoolean(value) ?? value;
+}, z.boolean());
 
 const optionalTrimmedStringSchema = z.preprocess((value) => {
   if (typeof value !== 'string') return value;
@@ -192,6 +194,15 @@ const serverSchema = z
     BACI_GOOGLE_PAY_MERCHANT_ID: z.string().optional(),
     SICKW_API_KEY: optionalTrimmedStringSchema,
     IMEI_HASH_SALT: optionalTrimmedStringSchema,
+    IMEI_DISABLED_TIERS: optionalTrimmedStringSchema,
+    IMEI_IDENTIFIER_ENCRYPTION_KEY: optionalTrimmedStringSchema,
+    PETROCK_API_BASE_URL: optionalTrimmedUrlSchema,
+    PETROCK_API_TOKEN: optionalTrimmedStringSchema,
+    PETROCK_ENABLED: defaultFalseBooleanStringSchema,
+    PETROCK_ENABLED_TIERS: optionalTrimmedStringSchema,
+    PETROCK_REMEDIATION_ENABLED: defaultFalseBooleanStringSchema,
+    USDT_WALLET_ENABLED: defaultFalseBooleanStringSchema,
+    IMEI_FX_NGN_USD: z.coerce.number().positive().optional(),
     BACI_AGENTIC_ACCESS_TOKEN: z.string().optional(),
     BACI_AGENTIC_ACCESS_TOKEN_PREVIOUS: z.string().optional(),
     BACI_AGENTIC_CONFIRMATION_KEY: z.string().optional(),
@@ -578,6 +589,16 @@ const getEnv = () => {
         BACI_GOOGLE_PAY_MERCHANT_ID: process.env.BACI_GOOGLE_PAY_MERCHANT_ID,
         SICKW_API_KEY: process.env.SICKW_API_KEY,
         IMEI_HASH_SALT: process.env.IMEI_HASH_SALT,
+        IMEI_DISABLED_TIERS: process.env.IMEI_DISABLED_TIERS,
+        IMEI_IDENTIFIER_ENCRYPTION_KEY:
+          process.env.IMEI_IDENTIFIER_ENCRYPTION_KEY,
+        PETROCK_API_BASE_URL: process.env.PETROCK_API_BASE_URL,
+        PETROCK_API_TOKEN: process.env.PETROCK_API_TOKEN,
+        PETROCK_ENABLED: process.env.PETROCK_ENABLED,
+        PETROCK_ENABLED_TIERS: process.env.PETROCK_ENABLED_TIERS,
+        PETROCK_REMEDIATION_ENABLED: process.env.PETROCK_REMEDIATION_ENABLED,
+        USDT_WALLET_ENABLED: process.env.USDT_WALLET_ENABLED,
+        IMEI_FX_NGN_USD: process.env.IMEI_FX_NGN_USD,
         KUDA_BILL_DEBUG: process.env.KUDA_BILL_DEBUG,
         BACI_AGENTIC_ACCESS_TOKEN: process.env.BACI_AGENTIC_ACCESS_TOKEN,
         BACI_AGENTIC_ACCESS_TOKEN_PREVIOUS:
@@ -1003,6 +1024,102 @@ export const getImeiHashSalt = () => {
   if (isBrowserRuntime()) return undefined;
   const salt = trimSecret(process.env.IMEI_HASH_SALT ?? env?.IMEI_HASH_SALT);
   return salt || undefined;
+};
+export const getImeiDisabledTierKeys = () => {
+  if (isBrowserRuntime()) return [];
+  const raw = trimSecret(
+    process.env.IMEI_DISABLED_TIERS ?? env?.IMEI_DISABLED_TIERS
+  );
+  if (!raw) return [];
+  return [
+    ...new Set(
+      raw
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean)
+    ),
+  ];
+};
+export const getImeiIdentifierEncryptionKey = () => {
+  if (isBrowserRuntime()) return undefined;
+  const key = trimSecret(
+    process.env.IMEI_IDENTIFIER_ENCRYPTION_KEY ??
+      env?.IMEI_IDENTIFIER_ENCRYPTION_KEY
+  );
+  return key || undefined;
+};
+
+function normalizePetrockBaseUrl(value: string) {
+  const baseUrl = value.replace(/\/+$/, '');
+  try {
+    const parsed = new URL(baseUrl);
+    if (parsed.pathname === '/' && !parsed.search && !parsed.hash) {
+      return `${parsed.origin}/api/reseller/v1`;
+    }
+  } catch {
+    return baseUrl;
+  }
+  return baseUrl;
+}
+
+export const getPetrockConfig = () => {
+  if (isBrowserRuntime()) return null;
+  const token = trimSecret(
+    process.env.PETROCK_API_TOKEN ?? env?.PETROCK_API_TOKEN
+  );
+  if (!token) return null;
+
+  const baseUrl = normalizePetrockBaseUrl(
+    trimSecret(process.env.PETROCK_API_BASE_URL ?? env?.PETROCK_API_BASE_URL) ||
+      'https://api.petrock.biz/api/reseller/v1'
+  );
+  return {
+    baseUrl,
+    token,
+  };
+};
+export const getPetrockEnabledTierKeys = () => {
+  if (isBrowserRuntime()) return [];
+  const raw = trimSecret(
+    process.env.PETROCK_ENABLED_TIERS ?? env?.PETROCK_ENABLED_TIERS
+  );
+  if (!raw) return [];
+
+  return [
+    ...new Set(
+      raw
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean)
+    ),
+  ];
+};
+export const isPetrockEnabled = () => {
+  if (isBrowserRuntime()) return false;
+  const runtimeValue = normalizeEnvBoolean(
+    trimSecret(process.env.PETROCK_ENABLED)
+  );
+  return runtimeValue ?? env?.PETROCK_ENABLED ?? false;
+};
+export const isPetrockRemediationEnabled = () => {
+  if (isBrowserRuntime()) return false;
+  const runtimeValue = normalizeEnvBoolean(
+    trimSecret(process.env.PETROCK_REMEDIATION_ENABLED)
+  );
+  return runtimeValue ?? env?.PETROCK_REMEDIATION_ENABLED ?? false;
+};
+export const isUsdtWalletEnabled = () => {
+  if (isBrowserRuntime()) return false;
+  const runtimeValue = normalizeEnvBoolean(
+    trimSecret(process.env.USDT_WALLET_ENABLED)
+  );
+  return runtimeValue ?? env?.USDT_WALLET_ENABLED ?? false;
+};
+export const getImeiFxNgnUsd = () => {
+  if (isBrowserRuntime()) return undefined;
+  const runtimeValue = Number(process.env.IMEI_FX_NGN_USD);
+  if (Number.isFinite(runtimeValue) && runtimeValue > 0) return runtimeValue;
+  return env?.IMEI_FX_NGN_USD;
 };
 export const getKudaBillDebug = () => {
   if (isBrowserRuntime()) return undefined;

@@ -62,9 +62,15 @@ Some cron work intentionally remains in the web app because it needs web-only ru
 
 - `/api/cron/cleanup-orders`, scheduled daily at 01:00.
 - `/api/ai-jobs/worker`, scheduled daily at 02:00.
+- `/api/cron/sync-petrock-catalog`, scheduled daily at 02:15. It refreshes the
+  service-role-only Petrock IMEI product snapshot and reports low reseller
+  balance without enabling any Petrock tier.
 - `supabase-retention-cleanup`, scheduled daily at 03:20.
 - `/api/cron/process-settlements`, scheduled daily at 05:00.
 - `/api/cron/reconcile-vtu-processing`, scheduled every 5 minutes.
+- `/api/cron/petrock-reconcile`, scheduled every minute. It leases open
+  Petrock IMEI orders, polls by `order_uuid`, and atomically completes or
+  refunds them; stale pre-submit rows are escalated without retry or refund.
 - `/api/cron/wallet-payouts`, scheduled daily at 06:00.
 - `/api/cron/vtu-cashback-summaries`, scheduled monthly on the 1st at 08:30.
 - `/api/cron/publish-scheduled-posts`, scheduled every 15 minutes.

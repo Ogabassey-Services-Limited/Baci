@@ -26,6 +26,12 @@ export interface ImeiCheckResult {
   gsxCoverage?: string;
   repairHistory?: string;
   replacementHistory?: string;
+  esimCompatibility?: string;
+  financeStatus?: string;
+  knoxEnrollment?: string;
+  soldBy?: string;
+  wifiMac?: string;
+  devicePhoto?: string;
   deviceType: 'apple' | 'android' | 'other';
   verdict: string;
   verdictType: 'safe' | 'caution' | 'danger';

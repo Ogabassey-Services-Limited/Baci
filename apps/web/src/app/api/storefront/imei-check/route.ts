@@ -1,26 +1,51 @@
 import {
+  IMEI_IDENTIFIER_BY_DEVICE,
   IMEI_SERVICE_TIERS,
   type ImeiIdentifierType,
+  type ImeiServiceTierKey,
   isValidDeviceIdentifier,
   normalizeDeviceIdentifier,
   PUBLIC_IMEI_SERVICE_TIERS,
+  resolveInputIdentifier,
 } from '@baci/shared/imei';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { NextRequest } from 'next/server';
-import { getImeiHashSalt, getRootDomain, getSickwApiKey } from '@/env';
+import {
+  getImeiDisabledTierKeys,
+  getImeiHashSalt,
+  getImeiIdentifierEncryptionKey,
+  getPetrockConfig,
+  getPetrockEnabledTierKeys,
+  getRootDomain,
+  getSickwApiKey,
+  isPetrockEnabled,
+} from '@/env';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
   isInsufficientWalletBalanceError,
   readCustomerWalletBalance,
   redeemImeiWalletPayment,
-  requestSickwCheck,
   resolveImeiCustomer,
 } from '@/lib/imei-lookup-fulfillment';
+import { createPetrockClient } from '@/lib/imei-providers/petrock/petrock-client';
+import {
+  markPetrockSubmissionUnknown,
+  readPetrockProductSnapshot,
+} from '@/lib/imei-providers/petrock/petrock-lookup-state';
+import { validatePetrockProductSnapshot } from '@/lib/imei-providers/petrock/petrock-preflight';
+import { createPetrockProvider } from '@/lib/imei-providers/petrock/petrock-provider';
+import { createImeiProviderRegistry } from '@/lib/imei-providers/registry';
+import { createSickwProvider } from '@/lib/imei-providers/sickw-provider';
+import { resolveImeiProviderBinding } from '@/lib/imei-providers/tier-bindings';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
 import { resolveStorefrontMerchantFromRequest } from '@/lib/storefront-merchant';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { imeiCheckSchema } from '@/schemas/imei-check';
+import {
+  pendingPetrockResponse,
+  submitPetrockLookup,
+} from './petrock-submission-flow';
 import {
   cacheInsufficientBalanceResponse,
   cacheLookupResponse,
@@ -54,21 +79,13 @@ export async function POST(request: NextRequest) {
     customerId: string;
     id: string;
     merchantId: string;
+    provider: 'petrock' | 'sickw';
   } | null = null;
   let debitSucceeded = false;
   let supabase: SupabaseClient | null = null;
   let supabaseAdmin: ReturnType<typeof createAdminClient> | null = null;
 
   try {
-    const rateLimit = await checkRateLimit(request);
-    if (!rateLimit.allowed) {
-      return createRateLimitResponse(
-        rateLimit.limit,
-        rateLimit.remaining,
-        rateLimit.resetTime
-      );
-    }
-
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user || !auth.supabase) {
       return json(
@@ -77,6 +94,15 @@ export async function POST(request: NextRequest) {
       );
     }
     supabase = auth.supabase;
+
+    const rateLimit = await checkRateLimit(request);
+    if (!rateLimit.allowed) {
+      return createRateLimitResponse(
+        rateLimit.limit,
+        rateLimit.remaining,
+        rateLimit.resetTime
+      );
+    }
 
     const { valid: csrfValid, response: csrfResponse } =
       await checkCsrfProtection(request);
@@ -89,23 +115,6 @@ export async function POST(request: NextRequest) {
         )
       );
     }
-
-    const merchantResolution = await resolveStorefrontMerchantFromRequest({
-      lookupError: 'Failed to validate storefront host',
-      notFoundError: 'IMEI check is only available on storefront hosts',
-      request,
-      rootDomain: getRootDomain() || 'usebaci.com',
-    });
-    if (!merchantResolution.success) {
-      return json(
-        errorBody({
-          code: 'STOREFRONT_NOT_FOUND',
-          error: merchantResolution.error,
-        }),
-        merchantResolution.status
-      );
-    }
-    const merchantId = String(merchantResolution.merchant.id);
 
     const rawIdempotencyKey = request.headers.get('Idempotency-Key') ?? '';
     if (!rawIdempotencyKey || !UUID_PATTERN.test(rawIdempotencyKey)) {
@@ -139,7 +148,27 @@ export async function POST(request: NextRequest) {
         400
       );
     }
+    const merchantResolution = await resolveStorefrontMerchantFromRequest({
+      fallbackIdentifier: bodyParse.data.merchantSlug,
+      lookupError: 'Failed to validate storefront host',
+      notFoundError: 'IMEI check is only available on storefront hosts',
+      request,
+      rootDomain: getRootDomain() || 'usebaci.com',
+    });
+    if (!merchantResolution.success) {
+      return json(
+        errorBody({
+          code: 'STOREFRONT_NOT_FOUND',
+          error: merchantResolution.error,
+        }),
+        merchantResolution.status
+      );
+    }
+    const merchantId = String(merchantResolution.merchant.id);
     const requestedTier = bodyParse.data.tier;
+    const deviceCategory = bodyParse.data.device;
+    const clientSupportsAsync =
+      bodyParse.data.clientCapabilities.includes('imei-async-v1');
     if (!PUBLIC_IMEI_SERVICE_TIER_KEYS.has(requestedTier)) {
       return json(
         errorBody({
@@ -150,7 +179,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const requestedIdentifier = IMEI_SERVICE_TIERS[requestedTier].identifier;
+    const tierIdentifier = IMEI_SERVICE_TIERS[requestedTier].identifier;
+    const requestedIdentifier = deviceCategory
+      ? resolveInputIdentifier(
+          tierIdentifier,
+          IMEI_IDENTIFIER_BY_DEVICE[deviceCategory]
+        )
+      : tierIdentifier;
     // Validate the RAW submitted value first. Normalizing before validating
     // would silently truncate an over-length input (e.g. a 15-char serial
     // sliced to 14) into a spurious "valid" value that then bills a wallet
@@ -188,10 +223,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Provider metadata and IMEI hashes are intentionally hidden from the
+    // authenticated table grant. All lookup replays are therefore read by the
+    // server-only service-role client after customer authentication.
+    supabaseAdmin = createAdminClient();
+
     const hashSalt = getImeiHashSalt();
     if (!hashSalt) {
       const existingLookup = await findLookupByIdempotencyKey(
-        supabase,
+        supabaseAdmin,
         idempotencyKey
       );
       if (existingLookup) {
@@ -215,20 +255,92 @@ export async function POST(request: NextRequest) {
 
     const replayContext = {
       customerId: customer.id,
+      deviceCategory,
       imeiHash,
       merchantId,
       tier: requestedTier,
     };
     const existingLookup = await findLookupByIdempotencyKey(
-      supabase,
+      supabaseAdmin,
       idempotencyKey
     );
     if (existingLookup) {
       return mapExistingLookup(existingLookup, replayContext);
     }
 
+    if (getImeiDisabledTierKeys().includes(requestedTier)) {
+      return json(
+        errorBody({
+          code: 'IMEI_TIER_DISABLED',
+          error: 'Selected IMEI service tier is temporarily unavailable',
+        }),
+        503
+      );
+    }
+
+    const serviceTier = IMEI_SERVICE_TIERS[requestedTier];
+    const binding = resolveImeiProviderBinding({
+      clientSupportsAsync,
+      deviceCategory,
+      petrockEnabled: isPetrockEnabled(),
+      petrockEnabledTiers: new Set(
+        getPetrockEnabledTierKeys() as ImeiServiceTierKey[]
+      ),
+      tier: serviceTier,
+      tierKey: requestedTier,
+    });
+    if (!binding) {
+      return json(
+        errorBody({
+          code: 'IMEI_TIER_NOT_CONFIGURED',
+          error: 'Selected IMEI service tier is not available.',
+        }),
+        503
+      );
+    }
     const sickwApiKey = getSickwApiKey();
-    if (!sickwApiKey) {
+    const sickwProvider = createSickwProvider({ apiKey: sickwApiKey });
+    let petrockProvider: ReturnType<typeof createPetrockProvider> | undefined;
+    let encryptionKey: string | undefined;
+
+    if (binding.provider === 'petrock') {
+      const petrockConfig = getPetrockConfig();
+      encryptionKey = getImeiIdentifierEncryptionKey();
+      if (!petrockConfig || !encryptionKey) {
+        console.error('[IMEI Check] Petrock configuration is incomplete');
+        return json(
+          errorBody({
+            code: 'PETROCK_CONFIG_MISSING',
+            error: 'IMEI lookup is temporarily unavailable',
+          }),
+          503
+        );
+      }
+
+      const snapshot = await readPetrockProductSnapshot({
+        productId: binding.productId,
+        supabaseAdmin,
+      });
+      const preflight = validatePetrockProductSnapshot({
+        binding,
+        now: new Date(),
+        snapshot,
+      });
+      if (!preflight.ok) {
+        console.error('[IMEI Check] Petrock preflight failed', {
+          code: preflight.code,
+          productId: binding.productId,
+          tier: requestedTier,
+        });
+        return json(
+          errorBody({ code: preflight.code, error: preflight.error }),
+          503
+        );
+      }
+      petrockProvider = createPetrockProvider({
+        client: createPetrockClient(petrockConfig),
+      });
+    } else if (!sickwProvider.isConfigured()) {
       console.error('[IMEI Check] SICKW_API_KEY is not configured');
       return json(
         errorBody({
@@ -239,13 +351,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const serviceTier = IMEI_SERVICE_TIERS[requestedTier];
+    const provider = createImeiProviderRegistry({
+      petrock: petrockProvider,
+      sickw: sickwProvider,
+    }).get(binding.provider);
+    if (!provider) {
+      return json(
+        errorBody({
+          code: 'IMEI_PROVIDER_UNAVAILABLE',
+          error: 'IMEI lookup is temporarily unavailable',
+        }),
+        503
+      );
+    }
     const amount = serviceTier.price;
     // H4: imei_lookups is a money/result table. Writes go through the
     // service-role client only; the route is the sole legitimate writer.
     // authenticated INSERT/UPDATE grants are revoked (see migration
     // 20260516120100) so a client cannot forge status/cached_response rows.
-    supabaseAdmin = createAdminClient();
     const { data: insertedLookup, error: insertError } = await supabaseAdmin
       .from('imei_lookups')
       .insert({
@@ -253,6 +376,7 @@ export async function POST(request: NextRequest) {
         customer_id: customer.id,
         idempotency_key: idempotencyKey,
         imei_hash: imeiHash,
+        device_category: deviceCategory ?? null,
         merchant_id: merchantId,
         status: 'pending',
         tier: requestedTier,
@@ -263,7 +387,7 @@ export async function POST(request: NextRequest) {
     if (insertError) {
       if (isUniqueViolation(insertError)) {
         const winningLookup = await findLookupByIdempotencyKey(
-          supabase,
+          supabaseAdmin,
           idempotencyKey
         );
         if (winningLookup) {
@@ -288,6 +412,7 @@ export async function POST(request: NextRequest) {
       customerId: customer.id,
       id: String(insertedLookup.id),
       merchantId,
+      provider: binding.provider,
     };
 
     let preflightBalance: number | undefined;
@@ -303,6 +428,46 @@ export async function POST(request: NextRequest) {
         error: balanceError,
         merchantId,
       });
+    }
+
+    if (binding.provider === 'petrock') {
+      try {
+        return await submitPetrockLookup({
+          amount,
+          binding,
+          checksIncluded: serviceTier.checksIncluded,
+          customerId: customer.id,
+          deviceCategory,
+          encryptionKey: encryptionKey as string,
+          identifier: normalizedImei,
+          lookupId: activeLookup.id,
+          merchantId,
+          onDebitSucceeded: () => {
+            debitSucceeded = true;
+          },
+          origin: request.nextUrl.origin,
+          provider,
+          supabaseAdmin,
+          tierName: serviceTier.name,
+        });
+      } catch (error) {
+        if (
+          !isInsufficientWalletBalanceError(
+            error as { code?: string; message?: string } | null | undefined
+          )
+        ) {
+          throw error;
+        }
+        return await cacheInsufficientBalanceResponse({
+          amount,
+          customerId: customer.id,
+          lookupId: activeLookup.id,
+          merchantId,
+          preflightBalance,
+          supabase,
+          supabaseAdmin,
+        });
+      }
     }
 
     try {
@@ -334,40 +499,51 @@ export async function POST(request: NextRequest) {
     }
 
     const providerStartedAt = Date.now();
-    const providerResult = await requestSickwCheck({
-      apiKey: sickwApiKey,
+    const providerOutcome = await provider.submit({
+      binding,
       checksIncluded: serviceTier.checksIncluded,
-      imei: normalizedImei,
-      serviceId: serviceTier.providerServiceId,
+      feedbackUrl: '',
+      identifier: normalizedImei,
+      referenceId: activeLookup.id,
       tierName: serviceTier.name,
     });
     const providerLatencyMs = Date.now() - providerStartedAt;
 
-    if (providerResult.ok) {
+    if (providerOutcome.kind === 'complete') {
       return await cacheSuccessfulLookup({
         amount,
         customerId: customer.id,
         latencyMs: providerLatencyMs,
         lookupId: activeLookup.id,
         merchantId,
-        providerResult,
+        providerResult: {
+          body: providerOutcome.body,
+          ok: true,
+          rawResponseText: providerOutcome.rawResponseText,
+          sickwStatus: providerOutcome.providerStatus,
+          status: providerOutcome.status,
+        },
         supabaseAdmin,
         tier: requestedTier,
       });
     }
 
+    if (providerOutcome.kind !== 'failure') {
+      throw new Error('Sickw unexpectedly returned a non-terminal outcome');
+    }
+
     return await refundAndCacheFailure({
       amount,
-      body: providerResult.body,
+      body: providerOutcome.body,
       customerId: customer.id,
       lookupId: activeLookup.id,
       merchantId,
       refundSuccessStatus:
-        providerResult.refundReason === 'not_found'
+        providerOutcome.refundReason === 'not_found'
           ? 'refunded_not_found'
           : 'refunded_error',
-      sickwStatus: providerResult.sickwStatus,
-      status: providerResult.status,
+      sickwStatus: providerOutcome.providerStatus,
+      status: providerOutcome.status,
       supabaseAdmin,
     });
   } catch (error) {
@@ -423,6 +599,26 @@ export async function POST(request: NextRequest) {
       }
 
       return json(body, 500);
+    }
+
+    if (
+      debitSucceeded &&
+      activeLookup?.provider === 'petrock' &&
+      supabaseAdmin
+    ) {
+      try {
+        await markPetrockSubmissionUnknown({
+          lookupId: activeLookup.id,
+          providerStatus: 'route_unexpected_error',
+          supabaseAdmin,
+        });
+      } catch (stateError) {
+        console.error(
+          '[IMEI Check] Failed to classify unexpected Petrock error',
+          { lookupId: activeLookup.id, stateError }
+        );
+      }
+      return pendingPetrockResponse(activeLookup.id);
     }
 
     if (debitSucceeded && activeLookup && supabase) {

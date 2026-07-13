@@ -27,6 +27,14 @@ jest.mock('expo-router', () => ({
     ),
   },
 }));
+jest.mock('./imei-remediation-offer', () => ({
+  ImeiRemediationOffer: ({ lookupId }: { lookupId: string }) => {
+    const { Text } = jest.requireActual(
+      'react-native'
+    ) as typeof import('react-native');
+    return <Text>{`Unlock offer for ${lookupId}`}</Text>;
+  },
+}));
 
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children }: { children: unknown }) => children,
@@ -131,6 +139,18 @@ describe('ImeiCheckResultView', () => {
     fireEvent.press(screen.getByText('Check Another Device'));
 
     expect(onReset).toHaveBeenCalledTimes(1);
+  });
+
+  it('mounts server-approved remediation only with lookup context', () => {
+    render(
+      <ImeiCheckResultView
+        {...baseProps}
+        apiBaseUrl="https://shop.example.com"
+        lookupId="11111111-1111-4111-8111-111111111111"
+      />
+    );
+
+    expect(screen.getByText(/unlock offer for 11111111/i)).toBeTruthy();
   });
 
   it('returns to the checker via onReset from the header back button (never pops to home)', () => {

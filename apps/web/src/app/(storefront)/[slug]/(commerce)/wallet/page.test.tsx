@@ -15,7 +15,18 @@ vi.mock('@/lib/validation', () => ({
 }));
 
 vi.mock('@/components/storefront/ogabassey/pages/wallet', () => ({
-  OgabasseyV2Wallet: () => <div data-testid="wallet">Wallet UI</div>,
+  OgabasseyV2Wallet: ({
+    initialShowFunding,
+  }: {
+    initialShowFunding?: boolean;
+  }) => (
+    <div
+      data-initial-show-funding={String(initialShowFunding ?? false)}
+      data-testid="wallet"
+    >
+      Wallet UI
+    </div>
+  ),
 }));
 
 vi.mock('next/headers', () => ({
