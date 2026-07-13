@@ -284,6 +284,67 @@ describe('activateMerchantQuizDraft', () => {
     });
   });
 
+  it('refuses to activate a ranked-prize draft without a close deadline', async () => {
+    const harness = buildQuizEventsHarness(
+      {
+        data: { id: 'event-1', slug: 'rw', status: 'active', title: 'RW' },
+        error: null,
+      },
+      { data: null, error: null },
+      {
+        data: {
+          settings: {
+            answer_key_reviewed: true,
+            answer_key_reviewed_at: '2026-07-08T12:00:00.000Z',
+            ranked_winner_count: 3,
+          },
+        },
+        error: null,
+      }
+    );
+
+    // No deadline for a ranked-prize quiz -> refused (it would never mint).
+    const result = await activateMerchantQuizDraft(
+      harness.supabase,
+      'event-1',
+      'merchant-1'
+    );
+
+    expect(result).toBeNull();
+    expect(harness.updatePayload()).toBeUndefined();
+  });
+
+  it('activates a ranked-prize draft when a deadline is provided', async () => {
+    const harness = buildQuizEventsHarness(
+      {
+        data: { id: 'event-1', slug: 'rw', status: 'active', title: 'RW' },
+        error: null,
+      },
+      { data: null, error: null },
+      {
+        data: {
+          settings: {
+            answer_key_reviewed: true,
+            answer_key_reviewed_at: '2026-07-08T12:00:00.000Z',
+            ranked_winner_count: 3,
+          },
+        },
+        error: null,
+      }
+    );
+
+    const endsAt = '2999-01-01T00:00:00.000Z';
+    const result = await activateMerchantQuizDraft(
+      harness.supabase,
+      'event-1',
+      'merchant-1',
+      endsAt
+    );
+
+    expect(result).toMatchObject({ id: 'event-1', status: 'active' });
+    expect(harness.updatePayload()).toMatchObject({ ends_at: endsAt });
+  });
+
   it('returns null when the update errors', async () => {
     const harness = buildQuizEventsHarness({
       data: null,

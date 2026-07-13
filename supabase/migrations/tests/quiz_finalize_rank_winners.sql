@@ -2,7 +2,7 @@
 -- REGRESSION TEST: quiz ranked-winner minting + auto-finalize
 --   Validates public.mint_quiz_event_ranked_awards and
 --   public.finalize_due_quiz_events from migration
---   20260712150000_quiz_finalize_rank_winners.sql:
+--   20260713130000_quiz_finalize_rank_winners.sql:
 --     * function security (SECURITY DEFINER + blank search_path) & grants
 --     * CHECK-constraint-correct rows: grand (rank1, attempt_id NULL) and
 --       cash (rank2..N, attempt_id set), best-attempt-per-customer, disqualified
@@ -174,10 +174,12 @@ BEGIN
   -- in-flight attempt) should block minting here.
   INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, attempt_number, integrity_tier, score, started_at, submitted_at) VALUES
     ('00000000-0000-4000-8000-0000000fa021', v_e_justended, v_c1, 'submitted', 1, 'basic', 10, v_now - interval '10 min', v_now - interval '30 seconds');
-  -- A 2h-old still-'started' attempt on the STALE event: must still block minting
-  -- (no time cutoff — attempts never self-expire, so a late submit stays possible).
+  -- STALE event: a 2h-old still-'started' attempt (c1, abandoned) plus a valid
+  -- submitted attempt (c2). The abandoned attempt must be forfeited to 'expired'
+  -- and NOT block finalizing; c2 wins.
   INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, attempt_number, integrity_tier, score, started_at, submitted_at) VALUES
-    ('00000000-0000-4000-8000-0000000fa022', v_e_stale, v_c1, 'started', 1, 'basic', 0, v_now - interval '2 hours', NULL);
+    ('00000000-0000-4000-8000-0000000fa022', v_e_stale, v_c1, 'started', 1, 'basic', 0, v_now - interval '2 hours', NULL),
+    ('00000000-0000-4000-8000-0000000fa025', v_e_stale, v_c2, 'submitted', 1, 'basic', 8, v_now - interval '10 min', v_now - interval '8 min');
   -- Two submitted attempts on the NO-CASH-AMOUNT event (rank 1 grand payable,
   -- rank 2 cash amountless -> must be 'pending').
   INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, attempt_number, integrity_tier, score, started_at, submitted_at) VALUES
@@ -273,11 +275,18 @@ BEGIN
     RAISE EXCEPTION 'Event within the settle grace must mint 0 awards, got %', v_justended_minted;
   END IF;
 
-  -- No-cutoff in-flight gate: a >1h-old 'started' attempt must STILL block minting
-  -- (attempts have no self-expiry, so a valid late submission stays possible).
+  -- Attempt expiry (F3): a >1h-old abandoned 'started' attempt is forfeited to
+  -- 'expired' so it no longer blocks; the event finalizes and its submitted
+  -- winner (c2) is minted.
   v_stale_minted := public.mint_quiz_event_ranked_awards(v_e_stale);
-  IF v_stale_minted IS DISTINCT FROM 0 THEN
-    RAISE EXCEPTION 'Stale (>1h) started attempt must still block minting, got %', v_stale_minted;
+  IF v_stale_minted IS DISTINCT FROM 1 THEN
+    RAISE EXCEPTION 'Stale event should expire the abandoned attempt and mint the submitted winner, got %', v_stale_minted;
+  END IF;
+  IF (SELECT status FROM public.quiz_attempts WHERE id = '00000000-0000-4000-8000-0000000fa022') IS DISTINCT FROM 'expired' THEN
+    RAISE EXCEPTION 'Abandoned >1h started attempt must be forfeited to status=expired';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.quiz_awards WHERE event_id = v_e_stale AND award_type = 'grand' AND customer_id = v_c2) THEN
+    RAISE EXCEPTION 'Submitted attempt (c2) must win the grand on the stale event';
   END IF;
 
   -- Amountless awards must be minted 'pending' (unclaimable), never 'approved'.

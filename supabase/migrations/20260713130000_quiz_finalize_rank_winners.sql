@@ -24,6 +24,17 @@
 -- finalize on the amount>=0 CHECK.
 
 -- ---------------------------------------------------------------------------
+-- 0. Add the terminal 'expired' attempt status. The winner-mint forfeits a
+--    'started' attempt older than the max-play window to 'expired' so it stops
+--    blocking finalization and can no longer submit a late score (the answer/
+--    submit RPCs require status='started'). 'expired' is excluded from ranking
+--    just like 'disqualified' (best-attempt selection keeps only submitted/scored).
+-- ---------------------------------------------------------------------------
+ALTER TABLE public.quiz_attempts DROP CONSTRAINT IF EXISTS quiz_attempts_status_check;
+ALTER TABLE public.quiz_attempts ADD CONSTRAINT quiz_attempts_status_check
+  CHECK (status IN ('started', 'submitted', 'scored', 'disqualified', 'expired'));
+
+-- ---------------------------------------------------------------------------
 -- 1. Dedupe grand awards per event (the pre-existing attempt-scoped unique
 --    index only protects cash/store_credit rows, which carry an attempt_id).
 -- ---------------------------------------------------------------------------
@@ -73,7 +84,11 @@ BEGIN
   IF v_settings IS NULL
      OR v_compliance_verified IS NOT TRUE
      OR v_permit_ref IS NULL
-     OR pg_catalog.btrim(v_permit_ref) = '' THEN
+     OR pg_catalog.btrim(v_permit_ref) = ''
+     -- Never mint for a cancelled event, even via a direct service-role call
+     -- (the cron + guarded finalizer already exclude cancelled; keep all minting
+     -- entrypoints consistent).
+     OR v_status = 'cancelled' THEN
     RETURN 0;
   END IF;
 
@@ -82,20 +97,29 @@ BEGIN
   -- payout data for non-Nigerian merchants.
   v_currency := COALESCE(NULLIF(pg_catalog.btrim(v_payout_currency), ''), 'NGN');
 
+  -- Expire abandoned attempts before finalizing. record_quiz_answer accepts a
+  -- 'started' attempt indefinitely, so without a server-side expiry an abandoned
+  -- attempt would (a) block auto-finalization forever and (b) be able to submit a
+  -- score AFTER winners are minted (excluding it from the idempotent-once set).
+  -- Any 'started' attempt older than the 1-hour max-play window (a 10-topic ×
+  -- 5-question × 60s quiz maxes at ~50 min) is forfeited to the terminal
+  -- 'expired' status: it no longer blocks the in-flight check below and can no
+  -- longer be submitted (the answer/submit RPCs require status='started').
+  UPDATE public.quiz_attempts a
+  SET status = 'expired'
+  WHERE a.event_id = p_event_id
+    AND a.status = 'started'
+    AND a.started_at < pg_catalog.now() - interval '1 hour';
+
   -- Only mint for a CLOSED event (mirrors the finalize wrappers). A direct
   -- service-role call must never mint winners while the event is still open —
   -- the leaderboard isn't final until it ends. For an ends_at-based close, defer
-  -- until NO answerable attempt is still in flight: an attempt started just
-  -- before ends_at can legitimately keep playing (per-question timers run past
-  -- ends_at), and because award inserts are idempotent an early mint would freeze
-  -- the winner set and permanently exclude that valid late submission. We block
-  -- on EVERY 'started' attempt (no time cutoff): a money prize must never be
-  -- minted while any player could still submit a valid score, and attempts have
-  -- no self-expiry (record_quiz_answer accepts a 'started' attempt indefinitely).
-  -- An event whose only remaining attempts are abandoned is finalized via the
-  -- explicit 'completed' close (merchant/admin), which bypasses this wait and
-  -- finalizes immediately. (Auto-expiring stale attempts so the cron can also
-  -- auto-finalize such events is tracked in the event-lifecycle follow-up #3075.)
+  -- until no answerable attempt is still in flight: a 'started' attempt WITHIN
+  -- the max-play window can legitimately keep playing (per-question timers run
+  -- past ends_at), so an early mint would freeze the winner set and exclude that
+  -- valid late submission. Attempts past the window were just expired above, so
+  -- they neither block here nor can submit later. A 'completed' event finalizes
+  -- immediately (the explicit close path).
   IF NOT (
     v_status = 'completed'
     OR (
@@ -109,6 +133,7 @@ BEGIN
         SELECT 1 FROM public.quiz_attempts a
         WHERE a.event_id = p_event_id
           AND a.status = 'started'
+          AND a.started_at >= pg_catalog.now() - interval '1 hour'
       )
     )
   ) THEN
@@ -352,6 +377,9 @@ BEGIN
           SELECT 1 FROM public.quiz_attempts a
           WHERE a.event_id = p_event_id
             AND a.status = 'started'
+            -- Only WITHIN-window attempts block; abandoned ones (older than the
+            -- 1-hour max-play window) are forfeited to 'expired' by the minter.
+            AND a.started_at >= pg_catalog.now() - interval '1 hour'
         )
       )
     );
@@ -424,6 +452,10 @@ BEGIN
             SELECT 1 FROM public.quiz_attempts a
             WHERE a.event_id = e.id
               AND a.status = 'started'
+              -- Only WITHIN-window attempts block; abandoned ones (older than the
+              -- 1-hour max-play window) are forfeited to 'expired' by the minter,
+              -- so an event with only abandoned attempts still auto-finalizes.
+              AND a.started_at >= pg_catalog.now() - interval '1 hour'
           )
         )
       )
