@@ -323,16 +323,25 @@ export async function notifyCustomer(
   title: string,
   body: string,
   data?: Record<string, unknown>,
-  channelId: NotificationChannel = 'orders'
+  channelId: NotificationChannel = 'orders',
+  options?: { merchantId?: string }
 ): Promise<NotificationSendResult> {
   const supabase = createAdminClient();
 
-  const { data: tokens, error } = await supabase
+  // Merchant-specific notifications (e.g. wallet credits) must scope to the
+  // tokens registered for that merchant's storefront — a user with tokens
+  // from several merchant builds would otherwise get merchant A's push on
+  // merchant B's app.
+  let tokenQuery = supabase
     .from('push_tokens')
     .select('token, platform')
     .eq('user_id', userId)
     .eq('is_active', true)
     .eq('app_type', 'storefront');
+  if (options?.merchantId) {
+    tokenQuery = tokenQuery.eq('merchant_id', options.merchantId);
+  }
+  const { data: tokens, error } = await tokenQuery;
 
   if (error) {
     console.error('Error fetching customer push tokens:', error);

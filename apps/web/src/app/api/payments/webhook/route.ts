@@ -374,6 +374,7 @@ async function handleWalletTopUpIfNeeded({
       notifyWalletCredited({
         amount,
         customerId,
+        merchantId: transaction.merchant_id,
         returnTo,
       }).catch((error: unknown) => {
         logger.warn({

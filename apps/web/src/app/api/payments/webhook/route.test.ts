@@ -3987,6 +3987,7 @@ describe('POST /api/payments/webhook', () => {
       expect(mockNotifyWalletCredited).toHaveBeenCalledWith({
         amount: 20000,
         customerId: 'customer-1',
+        merchantId: 'merchant-1',
         returnTo: '/checkout',
       });
     });
@@ -4004,6 +4005,7 @@ describe('POST /api/payments/webhook', () => {
       expect(mockNotifyWalletCredited).toHaveBeenCalledWith({
         amount: 20000,
         customerId: 'customer-1',
+        merchantId: 'merchant-1',
         returnTo: '/utilities/airtime',
       });
     });
@@ -4020,6 +4022,7 @@ describe('POST /api/payments/webhook', () => {
       expect(mockNotifyWalletCredited).toHaveBeenCalledWith({
         amount: 20000,
         customerId: 'customer-1',
+        merchantId: 'merchant-1',
         returnTo: undefined,
       });
     });

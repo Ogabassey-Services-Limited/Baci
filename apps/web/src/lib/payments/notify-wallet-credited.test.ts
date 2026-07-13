@@ -57,6 +57,7 @@ describe('notifyWalletCredited', () => {
       amount: 5000,
       currency: 'NGN',
       customerId: 'customer-1',
+      merchantId: 'merchant-1',
     });
 
     expect(mockNotifyCustomer).toHaveBeenCalledWith(
@@ -64,7 +65,8 @@ describe('notifyWalletCredited', () => {
       'Wallet funded',
       'NGN 5000 was added to your wallet.',
       { amount: 5000, currency: 'NGN', type: 'wallet_credited' },
-      'payments'
+      'payments',
+      { merchantId: 'merchant-1' }
     );
   });
 
@@ -77,6 +79,7 @@ describe('notifyWalletCredited', () => {
     await notifyWalletCredited({
       amount: 5000,
       customerId: 'customer-1',
+      merchantId: 'merchant-1',
       returnTo: '/checkout',
     });
 
@@ -90,14 +93,20 @@ describe('notifyWalletCredited', () => {
         returnTo: '/checkout',
         type: 'wallet_credited',
       },
-      'payments'
+      'payments',
+      // Delivery scoped to the crediting merchant's storefront tokens.
+      { merchantId: 'merchant-1' }
     );
   });
 
   it('is a no-op when the wallet credit push flag is disabled', async () => {
     mockIsWalletCreditPushEnabled.mockReturnValue(false);
 
-    await notifyWalletCredited({ amount: 5000, customerId: 'customer-1' });
+    await notifyWalletCredited({
+      amount: 5000,
+      customerId: 'customer-1',
+      merchantId: 'merchant-1',
+    });
 
     expect(mockCreateAdminClient).not.toHaveBeenCalled();
     expect(mockNotifyCustomer).not.toHaveBeenCalled();
@@ -109,7 +118,11 @@ describe('notifyWalletCredited', () => {
       error: null,
     });
 
-    await notifyWalletCredited({ amount: 5000, customerId: 'customer-1' });
+    await notifyWalletCredited({
+      amount: 5000,
+      customerId: 'customer-1',
+      merchantId: 'merchant-1',
+    });
 
     expect(mockNotifyCustomer).not.toHaveBeenCalled();
   });
@@ -117,7 +130,11 @@ describe('notifyWalletCredited', () => {
   it('never pushes when the customer row is missing', async () => {
     setCustomerLookupResult({ data: null, error: null });
 
-    await notifyWalletCredited({ amount: 5000, customerId: 'customer-1' });
+    await notifyWalletCredited({
+      amount: 5000,
+      customerId: 'customer-1',
+      merchantId: 'merchant-1',
+    });
 
     expect(mockNotifyCustomer).not.toHaveBeenCalled();
   });
@@ -128,7 +145,11 @@ describe('notifyWalletCredited', () => {
       error: { message: 'lookup failed' },
     });
 
-    await notifyWalletCredited({ amount: 5000, customerId: 'customer-1' });
+    await notifyWalletCredited({
+      amount: 5000,
+      customerId: 'customer-1',
+      merchantId: 'merchant-1',
+    });
 
     expect(mockNotifyCustomer).not.toHaveBeenCalled();
   });
@@ -139,7 +160,11 @@ describe('notifyWalletCredited', () => {
     });
 
     await expect(
-      notifyWalletCredited({ amount: 5000, customerId: 'customer-1' })
+      notifyWalletCredited({
+        amount: 5000,
+        customerId: 'customer-1',
+        merchantId: 'merchant-1',
+      })
     ).resolves.toBeUndefined();
     expect(mockNotifyCustomer).not.toHaveBeenCalled();
   });

@@ -687,8 +687,32 @@ describe('notifyCustomer', () => {
     expect(mockChain.eq).toHaveBeenCalledWith('user_id', 'user-456');
     expect(mockChain.eq).toHaveBeenCalledWith('is_active', true);
     expect(mockChain.eq).toHaveBeenCalledWith('app_type', 'storefront');
+    expect(mockChain.eq).not.toHaveBeenCalledWith(
+      'merchant_id',
+      expect.anything()
+    );
 
     expect(result).toEqual({ sent: 1, failed: 0, errors: [] });
+  });
+
+  it('scopes token lookup to the merchant when options.merchantId is provided', async () => {
+    const mockChain = createChainableMock([{ token: 'ExponentPushToken[c1]' }]);
+
+    vi.mocked(createAdminClient).mockReturnValue({
+      from: vi.fn().mockReturnValue(mockChain),
+    } as never);
+
+    mockSendPushNotificationsAsync.mockResolvedValueOnce([
+      { status: 'ok', id: 'ticket-c1' },
+    ]);
+
+    await notifyCustomer('user-456', 'Test', 'Body', undefined, 'payments', {
+      merchantId: 'merchant-123',
+    });
+
+    // A wallet credit for merchant A must never push to devices registered
+    // for merchant B's storefront.
+    expect(mockChain.eq).toHaveBeenCalledWith('merchant_id', 'merchant-123');
   });
 
   it('persists title, body, and payload for successful customer sends', async () => {

@@ -124,6 +124,17 @@ export async function registerForPushNotifications(): Promise<string | null> {
   }
 }
 
+/**
+ * Idempotent create-or-update of the Android notification channels. Exposed so
+ * app startup can run it even when a stored push token short-circuits full
+ * registration — otherwise installs that registered before a new channel was
+ * introduced (e.g. `payments`) would never create it and Android 8+ could
+ * drop notifications sent to it.
+ */
+export async function ensureAndroidNotificationChannels(): Promise<void> {
+  await setupAndroidChannels();
+}
+
 async function setupAndroidChannels(): Promise<void> {
   if (!Notifications) return;
   await Notifications.setNotificationChannelAsync('orders', {

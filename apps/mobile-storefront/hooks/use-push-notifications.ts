@@ -14,6 +14,7 @@ import {
 import { trackError } from '@/services/analytics';
 import {
   clearBadge,
+  ensureAndroidNotificationChannels,
   handleNotificationResponse,
   registerForPushNotifications,
   removePushTokenFromServer,
@@ -112,6 +113,13 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     // No `finally` clause here: a try/finally in the component body makes
     // React Compiler bail out, so the loading reset is duplicated in catch.
     try {
+      // Channels must exist even when a stored token short-circuits full
+      // registration below — otherwise installs that registered before a new
+      // channel (e.g. `payments`) was introduced would never create it.
+      if (Platform.OS === 'android') {
+        await ensureAndroidNotificationChannels();
+      }
+
       let token = pushToken;
       if (!token) token = await getStoredPushToken();
       if (!token) token = await registerForPushNotifications();

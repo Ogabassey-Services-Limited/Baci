@@ -30,6 +30,8 @@ let mockNotificationResponseCallback:
   | ((response: Record<string, unknown>) => void)
   | null = null;
 
+const mockEnsureAndroidNotificationChannels = jest.fn<() => Promise<void>>();
+
 // push-token-storage mocks
 const mockGetStoredPushToken = jest.fn<() => Promise<string | null>>();
 const mockStoreLocalPushToken = jest.fn<(token: string) => Promise<void>>();
@@ -63,6 +65,7 @@ jest.mock('expo-notifications', () => ({
 
 jest.mock('@/services/push-notifications', () => ({
   clearBadge: jest.fn(),
+  ensureAndroidNotificationChannels: mockEnsureAndroidNotificationChannels,
   handleNotificationResponse: jest.fn(),
   registerForPushNotifications: mockRegisterForPushNotifications,
   removePushTokenFromServer: mockRemovePushTokenFromServer,
@@ -144,6 +147,36 @@ describe('usePushNotifications', () => {
     expect(result.current.registeredUserId).toBe('user-1');
     expect(result.current.error).toBe(null);
     expect(result.current.pushToken).toBe('ExponentPushToken[fresh]');
+  });
+
+  it('ensures Android channels even when a stored token skips full registration', async () => {
+    const { Platform } = jest.requireActual<typeof import('react-native')>(
+      'react-native'
+    );
+    const originalOS = Platform.OS;
+    Object.defineProperty(Platform, 'OS', {
+      configurable: true,
+      value: 'android',
+    });
+    try {
+      mockGetStoredPushToken.mockResolvedValue('ExponentPushToken[stored]');
+
+      const { result } = renderHook(() => usePushNotifications());
+      await act(async () => {
+        await result.current.register('user-1', 'merchant-1');
+      });
+
+      // The stored token short-circuits registerForPushNotifications (which
+      // owns channel setup), so channels must be ensured independently or
+      // upgraded installs never create newly introduced ones (e.g. payments).
+      expect(mockEnsureAndroidNotificationChannels).toHaveBeenCalled();
+      expect(mockRegisterForPushNotifications).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(Platform, 'OS', {
+        configurable: true,
+        value: originalOS,
+      });
+    }
   });
 
   it('keeps the hook unregistered when token acquisition fails', async () => {

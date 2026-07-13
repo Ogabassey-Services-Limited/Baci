@@ -10,6 +10,8 @@ interface NotifyWalletCreditedInput {
   amount: number;
   currency?: string;
   customerId: string;
+  /** Scopes delivery to this merchant's storefront tokens. */
+  merchantId: string;
   returnTo?: string;
 }
 
@@ -27,6 +29,7 @@ export async function notifyWalletCredited({
   amount,
   currency,
   customerId,
+  merchantId,
   returnTo,
 }: NotifyWalletCreditedInput): Promise<void> {
   if (!isWalletCreditPushEnabled()) {
@@ -75,7 +78,8 @@ export async function notifyWalletCredited({
       'Wallet funded',
       `${formattedAmount} was added to your wallet.`,
       payload,
-      'payments'
+      'payments',
+      { merchantId }
     );
   } catch (error) {
     logger.error({
