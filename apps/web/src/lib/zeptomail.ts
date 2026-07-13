@@ -544,6 +544,10 @@ export async function sendEmail({
           attempt < RETRY_CONFIG.maxRetries &&
           isRetryableError(failure.code)
         ) {
+          if (resetTransportDispatch) {
+            await resetTransportDispatch();
+            transportDispatchMarked = false;
+          }
           const delay = RETRY_CONFIG.baseDelayMs * 2 ** attempt;
           console.warn(
             `ZeptoMail retry ${attempt + 1}/${RETRY_CONFIG.maxRetries} after ${delay}ms: ${failure.message}`

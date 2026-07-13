@@ -26,6 +26,7 @@ DECLARE
   v_direct_out_for_delivery_order_id uuid := '8f0ed783-0000-4000-8000-000000000809';
   v_direct_completed_order_id uuid := '8f0ed783-0000-4000-8000-000000000810';
   v_unstarted_stale_order_id uuid := '8f0ed783-0000-4000-8000-000000000811';
+  v_ordered_retry_order_id uuid := '8f0ed783-0000-4000-8000-000000000813';
   v_shipped_count integer;
   v_delivered_count integer;
   v_repeat_shipped_count integer;
@@ -47,6 +48,7 @@ DECLARE
   v_previous_event_sequence bigint := 0;
   v_reclaimed_count integer;
   v_stale_outbox_id uuid;
+  v_ordered_retry_claims integer;
 BEGIN
   INSERT INTO public.merchants (id, email, business_name, slug)
   VALUES (
@@ -1161,6 +1163,72 @@ BEGIN
       v_processing_status,
       v_attempt_count,
       v_dispatch_started_at;
+  END IF;
+
+  INSERT INTO public.orders (
+    id,
+    merchant_id,
+    order_number,
+    customer_name,
+    customer_email,
+    shipping_status,
+    payment_status,
+    total
+  )
+  VALUES (
+    v_ordered_retry_order_id,
+    v_merchant_id,
+    'OUTBOX-ORDERED-RETRY-001',
+    'Ordered Retry Customer',
+    'ordered-retry@example.com',
+    'processing',
+    'paid',
+    10000
+  );
+
+  UPDATE public.orders
+  SET shipping_status = 'shipped'
+  WHERE id = v_ordered_retry_order_id;
+
+  UPDATE public.orders
+  SET shipping_status = 'delivered'
+  WHERE id = v_ordered_retry_order_id;
+
+  UPDATE public.order_notification_outbox
+  SET next_attempt_at = now() + interval '1 hour'
+  WHERE order_id = v_ordered_retry_order_id
+    AND event_type = 'order_shipped';
+
+  SELECT count(*)::integer
+  INTO v_ordered_retry_claims
+  FROM public.claim_order_notification_outbox(
+    100,
+    'order-outbox-ordering-worker'
+  ) AS claimed
+  WHERE claimed.order_id = v_ordered_retry_order_id;
+
+  IF v_ordered_retry_claims <> 0 THEN
+    RAISE EXCEPTION 'later delivered event must wait behind delayed shipped retry, got % claims',
+      v_ordered_retry_claims;
+  END IF;
+
+  UPDATE public.order_notification_outbox
+  SET status = 'sent', sent_at = now(), updated_at = now()
+  WHERE order_id = v_ordered_retry_order_id
+    AND event_type = 'order_shipped';
+
+  SELECT count(*)::integer
+  INTO v_ordered_retry_claims
+  FROM public.claim_order_notification_outbox(
+    100,
+    'order-outbox-ordering-worker'
+  ) AS claimed
+  WHERE claimed.order_id = v_ordered_retry_order_id
+    AND claimed.event_type = 'order_delivered';
+
+  IF v_ordered_retry_claims <> 1 THEN
+    RAISE EXCEPTION 'delivered event should claim after shipped becomes terminal, got % claims',
+      v_ordered_retry_claims;
   END IF;
 
 END $$;

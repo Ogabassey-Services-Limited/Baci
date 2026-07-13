@@ -261,6 +261,13 @@ BEGIN
     WHERE outbox.status = 'pending'
       AND outbox.attempt_count < outbox.max_attempts
       AND coalesce(outbox.next_attempt_at, now()) <= now()
+      AND NOT EXISTS (
+        SELECT 1
+        FROM public.order_notification_outbox AS earlier
+        WHERE earlier.order_id = outbox.order_id
+          AND earlier.event_sequence < outbox.event_sequence
+          AND earlier.status IN ('pending', 'processing')
+      )
     ORDER BY outbox.event_sequence ASC
     LIMIT v_batch_size
     FOR UPDATE SKIP LOCKED

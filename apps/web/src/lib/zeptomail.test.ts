@@ -295,6 +295,8 @@ describe('zeptomail audit logging', () => {
 
   it('records failed status after all retries are exhausted', async () => {
     vi.useFakeTimers();
+    const beforeTransportDispatch = vi.fn().mockResolvedValue(undefined);
+    const resetTransportDispatch = vi.fn().mockResolvedValue(undefined);
     const retryableError = {
       error: { message: 'Server overloaded', code: 'TM_5001', details: null },
     };
@@ -307,6 +309,8 @@ describe('zeptomail audit logging', () => {
       subject: 'Retry Test',
       htmlContent: '<p>Hello</p>',
       emailType: 'orders',
+      beforeTransportDispatch,
+      resetTransportDispatch,
       auditContext: {
         merchantId: 'merchant-1',
         orderId: 'order-1',
@@ -325,6 +329,8 @@ describe('zeptomail audit logging', () => {
     expect(result.errorCode).toBe('TM_5001');
     // 1 initial + 3 retries = 4 calls
     expect(sendMailMock).toHaveBeenCalledTimes(4);
+    expect(beforeTransportDispatch).toHaveBeenCalledTimes(4);
+    expect(resetTransportDispatch).toHaveBeenCalledTimes(3);
     expect(auditState.inserts).toHaveLength(1);
     expect(auditState.inserts[0]).toMatchObject({
       status: 'pending',
