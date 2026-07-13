@@ -311,7 +311,15 @@ BEGIN
         ELSE NULL
       END,
       v_currency,
-      pg_catalog.now()
+      -- Only stamp approved_at for rows actually minted 'approved'. An amountless
+      -- award is minted 'pending' (compliance approves it later once the payout
+      -- figure is finalized), so stamping approved_at here would make it look
+      -- audit-approved at cron time. Same valid-amount predicate as status/amount.
+      CASE
+        WHEN pp.amount IS NOT NULL AND pp.amount >= 0 AND pp.amount <= 9999999999.99
+          THEN pg_catalog.now()
+        ELSE NULL
+      END
     FROM ranked r
     JOIN prize_plan pp ON pp.rank = r.rnk
     -- The rank set is already bounded by prize_plan (an explicit schedule's own

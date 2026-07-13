@@ -303,16 +303,23 @@ BEGIN
   IF v_nocashamt_minted IS DISTINCT FROM 2 THEN
     RAISE EXCEPTION 'No-cash-amount event should mint 2 awards (grand+1 cash), got %', v_nocashamt_minted;
   END IF;
+  -- A 'pending' (amountless) award must NOT be stamped approved_at — it isn't
+  -- approved yet; compliance approves it once the payout figure is finalized.
   SELECT count(*) INTO v_pending_cash FROM public.quiz_awards
-    WHERE event_id = v_e_nocashamt AND award_type = 'cash' AND status = 'pending' AND amount IS NULL;
+    WHERE event_id = v_e_nocashamt AND award_type = 'cash' AND status = 'pending'
+      AND amount IS NULL AND approved_at IS NULL;
   SELECT count(*) INTO v_approved_cash FROM public.quiz_awards
     WHERE event_id = v_e_nocashamt AND award_type = 'cash' AND status = 'approved';
   IF v_pending_cash IS DISTINCT FROM 1 OR v_approved_cash IS DISTINCT FROM 0 THEN
-    RAISE EXCEPTION 'Amountless cash award must be pending/unclaimable (pending=%, approved=%)', v_pending_cash, v_approved_cash;
+    RAISE EXCEPTION 'Amountless cash award must be pending/unclaimable with a NULL approved_at (pending=%, approved=%)', v_pending_cash, v_approved_cash;
   END IF;
-  -- The grand award (payable amount) must still be 'approved'.
-  IF NOT EXISTS (SELECT 1 FROM public.quiz_awards WHERE event_id = v_e_nocashamt AND award_type = 'grand' AND status = 'approved' AND amount = 50000) THEN
-    RAISE EXCEPTION 'Grand award with a valid amount must be approved';
+  -- The grand award (payable amount) must be 'approved' AND carry approved_at.
+  IF NOT EXISTS (
+    SELECT 1 FROM public.quiz_awards
+    WHERE event_id = v_e_nocashamt AND award_type = 'grand' AND status = 'approved'
+      AND amount = 50000 AND approved_at IS NOT NULL
+  ) THEN
+    RAISE EXCEPTION 'Grand award with a valid amount must be approved and stamped approved_at';
   END IF;
 
   -- Overlong exclusion (F1'): a submission that took >1h is excluded from ranking,

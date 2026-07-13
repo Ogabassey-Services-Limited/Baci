@@ -7,6 +7,12 @@ import {
 import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { createAdminClient } from '@/lib/supabase/admin';
 
+// The finalizer runs a batch RPC that can close up to 100 due events, and the VPS
+// worker gives this endpoint a 5-minute timeout. Match that here so Vercel can't
+// terminate the function mid-batch (default route duration) and make the cron
+// fail/retry while Supabase is still working through a backlog.
+export const maxDuration = 300;
+
 /**
  * GET /api/quiz/finalize
  *

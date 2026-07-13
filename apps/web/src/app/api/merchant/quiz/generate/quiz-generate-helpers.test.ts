@@ -256,7 +256,11 @@ describe('activateMerchantQuizDraft', () => {
     expect(harness.selectArg()).toBe('id, slug, status, title');
   });
 
-  it('sets ends_at when an activation deadline is provided', async () => {
+  it('ignores a deadline on a NON-ranked quiz (the finalizer skips those)', async () => {
+    // The default harness draft has no ranked-prize settings. Persisting ends_at
+    // on such an event would strand it 'active' (surfaced as `open`) while
+    // start_quiz_attempt rejects every start past the deadline — an open quiz
+    // that can never be played.
     const harness = buildQuizEventsHarness({
       data: {
         id: 'event-1',
@@ -267,19 +271,16 @@ describe('activateMerchantQuizDraft', () => {
       error: null,
     });
 
-    const endsAt = '2999-01-01T00:00:00.000Z';
     const result = await activateMerchantQuizDraft(
       harness.supabase,
       'event-1',
       'merchant-1',
-      endsAt
+      '2999-01-01T00:00:00.000Z'
     );
 
     expect(result).toMatchObject({ id: 'event-1', status: 'active' });
-    // A ranked-prize quiz's close deadline lands on quiz_events.ends_at so the
-    // winner-mint cron can finalize it.
     expect(harness.updatePayload()).toMatchObject({
-      ends_at: endsAt,
+      ends_at: null,
       status: 'active',
     });
   });

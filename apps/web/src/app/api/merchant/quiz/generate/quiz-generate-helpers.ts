@@ -214,22 +214,28 @@ export async function activateMerchantQuizDraft(
     return null;
   }
 
+  const isRankedPrize = isRankedPrizeQuizSettings(
+    (draft as { settings?: unknown } | null)?.settings
+  );
+
   // Ranked-prize quizzes MUST carry a close deadline: the winner-mint cron only
   // finalizes a ranked event once ends_at has passed, so activating one with a
   // null deadline would leave it open and never mint winners. Fail closed.
-  if (
-    !endsAt &&
-    isRankedPrizeQuizSettings(
-      (draft as { settings?: unknown } | null)?.settings
-    )
-  ) {
+  if (isRankedPrize && !endsAt) {
     return null;
   }
+
+  // ONLY ranked-prize events get a deadline. The finalizer deliberately skips
+  // non-ranked/product-prize events, so persisting ends_at on one would strand it
+  // 'active' — /api/quiz/events maps active to `open` and the start buttons
+  // enable, while start_quiz_attempt rejects every start past ends_at, showing an
+  // open quiz that can never be played. Ignore endsAt for non-ranked quizzes.
+  const resolvedEndsAt = isRankedPrize ? (endsAt ?? null) : null;
 
   const { data: activated, error: updateError } = await supabase
     .from('quiz_events')
     .update({
-      ends_at: endsAt ?? null,
+      ends_at: resolvedEndsAt,
       starts_at: new Date().toISOString(),
       status: 'active',
     })
