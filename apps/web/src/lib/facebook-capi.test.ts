@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { sendFacebookCAPIEvent } from './facebook-capi';
+import { facebookCAPI, sendFacebookCAPIEvent } from './facebook-capi';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -7,6 +7,68 @@ afterEach(() => {
 });
 
 describe('sendFacebookCAPIEvent', () => {
+  it('enables Limited Data Use for every helper when it is appended after existing arguments', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      json: vi.fn().mockResolvedValue({ events_received: 1 }),
+      ok: true,
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await facebookCAPI.initiateCheckout(
+      'pixel-1',
+      'token-1',
+      {},
+      100,
+      'NGN',
+      [{ id: 'sku-checkout', quantity: 1 }],
+      undefined,
+      'checkout-event',
+      undefined,
+      1_783_857_600,
+      true
+    );
+    await facebookCAPI.addToCart(
+      'pixel-1',
+      'token-1',
+      {},
+      'sku-cart',
+      'Cart product',
+      100,
+      'NGN',
+      undefined,
+      'cart-event',
+      undefined,
+      1_783_857_600,
+      true
+    );
+    await facebookCAPI.viewContent(
+      'pixel-1',
+      'token-1',
+      {},
+      'sku-content',
+      'Content product',
+      100,
+      'NGN',
+      undefined,
+      undefined,
+      'content-event',
+      undefined,
+      1_783_857_600,
+      true
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    for (const [, request] of fetchMock.mock.calls) {
+      const body = JSON.parse((request as RequestInit).body as string);
+      expect(body).toMatchObject({
+        data: [expect.objectContaining({ opt_out: true })],
+        data_processing_options: ['LDU'],
+        data_processing_options_country: 1,
+        data_processing_options_state: 1000,
+      });
+    }
+  });
+
   it('passes the caller abort signal to fetch', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       json: vi.fn().mockResolvedValue({ events_received: 1 }),

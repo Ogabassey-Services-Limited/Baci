@@ -162,7 +162,8 @@ describe('sendToAdPlatforms', () => {
       undefined,
       'evt-1',
       controller.signal,
-      1_783_857_600
+      1_783_857_600,
+      undefined
     );
     expect(mockTikTokAddToCart).toHaveBeenCalledWith(
       'tt-pixel',

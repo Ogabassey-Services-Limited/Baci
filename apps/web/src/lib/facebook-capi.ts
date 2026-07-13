@@ -374,7 +374,8 @@ export const facebookCAPI = {
     eventSourceUrl?: string,
     eventId?: string,
     signal?: AbortSignal,
-    eventTime?: number
+    eventTime?: number,
+    limitedDataUse?: boolean
   ) => {
     return sendFacebookCAPIEvent(
       pixelId,
@@ -390,7 +391,7 @@ export const facebookCAPI = {
       },
       eventSourceUrl,
       eventId,
-      undefined,
+      limitedDataUse,
       signal,
       eventTime
     );
@@ -410,7 +411,8 @@ export const facebookCAPI = {
     eventSourceUrl?: string,
     eventId?: string,
     signal?: AbortSignal,
-    eventTime?: number
+    eventTime?: number,
+    limitedDataUse?: boolean
   ) => {
     return sendFacebookCAPIEvent(
       pixelId,
@@ -426,7 +428,7 @@ export const facebookCAPI = {
       },
       eventSourceUrl,
       eventId,
-      undefined,
+      limitedDataUse,
       signal,
       eventTime
     );
@@ -447,7 +449,8 @@ export const facebookCAPI = {
     eventSourceUrl?: string,
     eventId?: string,
     signal?: AbortSignal,
-    eventTime?: number
+    eventTime?: number,
+    limitedDataUse?: boolean
   ) => {
     return sendFacebookCAPIEvent(
       pixelId,
@@ -464,7 +467,7 @@ export const facebookCAPI = {
       },
       eventSourceUrl,
       eventId,
-      undefined,
+      limitedDataUse,
       signal,
       eventTime
     );

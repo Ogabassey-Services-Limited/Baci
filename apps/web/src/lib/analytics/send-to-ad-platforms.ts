@@ -276,7 +276,8 @@ async function sendToFacebook(
         eventSourceUrl,
         event.event_id,
         signal,
-        eventTime
+        eventTime,
+        event.limited_data_use
       );
 
     case 'AddToCart':
@@ -292,7 +293,8 @@ async function sendToFacebook(
           eventSourceUrl,
           event.event_id,
           signal,
-          eventTime
+          eventTime,
+          event.limited_data_use
         );
       }
       return { success: false, error: 'missing_cart_data' };
@@ -311,7 +313,8 @@ async function sendToFacebook(
           eventSourceUrl,
           event.event_id,
           signal,
-          eventTime
+          eventTime,
+          event.limited_data_use
         );
       }
       return { success: false, error: 'missing_content_data' };
@@ -333,7 +336,7 @@ async function sendToFacebook(
         },
         eventSourceUrl,
         event.event_id,
-        undefined,
+        event.limited_data_use,
         signal,
         eventTime
       );
@@ -358,7 +361,7 @@ async function sendToFacebook(
         },
         eventSourceUrl,
         event.event_id,
-        undefined,
+        event.limited_data_use,
         signal,
         eventTime
       );
