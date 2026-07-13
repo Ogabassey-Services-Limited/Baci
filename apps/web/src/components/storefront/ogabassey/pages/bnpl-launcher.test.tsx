@@ -1144,30 +1144,40 @@ describe('BnplLauncher', () => {
       });
     });
 
-    it('clears a stale popup marker when retrying from the SDK error view', async () => {
-      mockOpenCreditDirectCheckout.mockImplementation(
-        async ({ onPopup, onError }) => {
-          await onPopup('txn-999');
-          onError('SDK failed to open');
-        }
-      );
+    // The whole launch chain is promise-based (no timers), but this file runs
+    // ~30 full renders and CI workers share 4 cores across parallel shards —
+    // under that contention the previous 5s element budget expired three times
+    // in one week (never reproducible locally: 0 failures in 25 clean runs).
+    // Generous budgets keep the assertion signal-driven without flaking; a
+    // real regression still fails in 15s instead of hanging.
+    it(
+      'clears a stale popup marker when retrying from the SDK error view',
+      async () => {
+        mockOpenCreditDirectCheckout.mockImplementation(
+          async ({ onPopup, onError }) => {
+            await onPopup('txn-999');
+            onError('SDK failed to open');
+          }
+        );
 
-      render(<BnplLauncher />);
+        render(<BnplLauncher />);
 
-      expect(
-        await screen.findByRole(
-          'heading',
-          { name: 'Something went wrong' },
-          { timeout: 5000 }
-        )
-      ).toBeInTheDocument();
-      expect(readCreditDirectPopupMarker('order-1')?.transactionId).toBe(
-        'txn-999'
-      );
+        expect(
+          await screen.findByRole(
+            'heading',
+            { name: 'Something went wrong' },
+            { timeout: 15_000 }
+          )
+        ).toBeInTheDocument();
+        expect(readCreditDirectPopupMarker('order-1')?.transactionId).toBe(
+          'txn-999'
+        );
 
-      fireEvent.click(screen.getByRole('button', { name: 'Try Again' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Try Again' }));
 
-      expect(readCreditDirectPopupMarker('order-1')).toBeNull();
-    });
+        expect(readCreditDirectPopupMarker('order-1')).toBeNull();
+      },
+      30_000
+    );
   });
 });
