@@ -10,6 +10,28 @@ const mockRemoveProductSlugFromProductsCache = jest.fn((cached, slug) => ({
 const mockFrom: jest.Mock = jest.fn();
 const mockRpc: jest.Mock = jest.fn();
 
+function mockVariantRpcQuery(result: unknown) {
+  const query = {
+    order: jest.fn(),
+    range: jest.fn(async () => {
+      const resolved = (await result) as {
+        data?: unknown;
+        error?: unknown;
+      };
+      return {
+        ...resolved,
+        count: resolved.error
+          ? null
+          : Array.isArray(resolved.data)
+            ? resolved.data.length
+            : 0,
+      };
+    }),
+  };
+  query.order.mockReturnValue(query);
+  return query;
+}
+
 jest.mock('@/lib/api', () => ({
   withSupabaseRetry: (operation: () => Promise<unknown>, options?: unknown) =>
     mockWithSupabaseRetry(operation, options),
@@ -35,7 +57,12 @@ jest.mock('@/lib/product-slug-fallback', () => ({
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     from: (...args: unknown[]) => mockFrom(...args),
-    rpc: (...args: unknown[]) => mockRpc(...args),
+    rpc: (...args: unknown[]) => {
+      const result = mockRpc(...args);
+      return args[0] === 'get_storefront_product_variants'
+        ? mockVariantRpcQuery(result)
+        : result;
+    },
   },
 }));
 
@@ -269,9 +296,11 @@ describe('product-utils', () => {
 
     expect(mockFrom).toHaveBeenCalledTimes(1);
     expect(mockRpc).toHaveBeenCalledTimes(1);
-    expect(mockRpc).toHaveBeenCalledWith('get_storefront_product_variants', {
-      p_product_ids: [validProductRow.id],
-    });
+    expect(mockRpc).toHaveBeenCalledWith(
+      'get_storefront_product_variants',
+      { p_product_ids: [validProductRow.id] },
+      { count: 'exact' }
+    );
     expect(
       (result as { variants: Array<{ id: string }> }).variants.map(
         (variant) => variant.id

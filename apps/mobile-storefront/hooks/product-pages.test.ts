@@ -11,6 +11,25 @@ interface RpcResult {
   error: unknown;
 }
 
+function mockVariantRpcQuery(result: Promise<RpcResult>) {
+  const rpcQuery = {
+    order: jest.fn(),
+    range: jest.fn(async () => {
+      const resolved = await result;
+      return {
+        ...resolved,
+        count: resolved.error
+          ? null
+          : Array.isArray(resolved.data)
+            ? resolved.data.length
+            : 0,
+      };
+    }),
+  };
+  rpcQuery.order.mockReturnValue(rpcQuery);
+  return rpcQuery;
+}
+
 const queryResult: QueryResult = {
   count: 0,
   data: [],
@@ -61,7 +80,12 @@ jest.mock('@/lib/logger', () => ({
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     from: (...args: unknown[]) => mockFrom(...args),
-    rpc: (...args: unknown[]) => mockRpc(...args),
+    rpc: (...args: unknown[]) => {
+      const result = mockRpc(...args);
+      return args[0] === 'get_storefront_product_variants'
+        ? mockVariantRpcQuery(result)
+        : result;
+    },
   },
 }));
 jest.mock('./product-transform', () => ({
@@ -103,9 +127,11 @@ describe('fetchProductsPage catalog variant hydration', () => {
     });
     expect(query.range).toHaveBeenCalledWith(0, 2);
     expect(mockRpc).toHaveBeenCalledTimes(1);
-    expect(mockRpc).toHaveBeenCalledWith('get_storefront_product_variants', {
-      p_product_ids: ['product-1', 'product-2'],
-    });
+    expect(mockRpc).toHaveBeenCalledWith(
+      'get_storefront_product_variants',
+      { p_product_ids: ['product-1', 'product-2'] },
+      { count: 'exact' }
+    );
     expect(result).toEqual({
       nextOffset: null,
       products: [
