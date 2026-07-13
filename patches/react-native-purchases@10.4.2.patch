@@ -47,7 +47,7 @@
 +        minSdk getExtOrIntegerDefault(['minSdk', 'minSdkVersion'])
 +        targetSdk getExtOrIntegerDefault(['targetSdk', 'targetSdkVersion'])
          versionCode 1
-         versionName '10.2.0'
+         versionName '10.4.2'
      }
 @@ -37,7 +51,7 @@
              minifyEnabled false

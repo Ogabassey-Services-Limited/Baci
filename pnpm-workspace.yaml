@@ -81,7 +81,7 @@ overrides:
   # gradle or runtime fix). The patch only applies to its exact version, so a `pnpm up`
   # that bumped it within range would orphan the patch and risk the native build. Pin to
   # the patched version; to bump one, refresh its patch in the same change.
-  react-native-purchases: "10.2.0"
+  react-native-purchases: "10.4.2"
   "@react-native-google-signin/google-signin": "16.1.2"
   lottie-react-native: "7.3.8"
   novel: "1.0.2"
@@ -288,7 +288,7 @@ patchedDependencies:
   "react-native-mmkv@4.3.1": "patches/react-native-mmkv@4.3.1.patch"
   "react-native-nitro-modules@0.35.9": "patches/react-native-nitro-modules@0.35.9.patch"
   "react-native-phone-number-input@2.1.0": "patches/react-native-phone-number-input@2.1.0.patch"
-  "react-native-purchases@10.2.0": "patches/react-native-purchases@10.2.0.patch"
+  "react-native-purchases@10.4.2": "patches/react-native-purchases@10.4.2.patch"
   "react-native-safe-area-context@5.8.0": "patches/react-native-safe-area-context@5.8.0.patch"
   "react-native-webview@13.16.1": "patches/react-native-webview@13.16.1.patch"
   # Backport of vercel/next.js#94630; fixes PPR resume mismatch digest 1617769459 for htmlLimitedBots under cacheComponents. Remove when a stable Next release contains the fix.
