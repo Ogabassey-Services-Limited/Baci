@@ -129,20 +129,38 @@ async function resolveCaptureGatewayResponse(
  * refunded-but-still-`pending` row is re-fetched by a retry (PayPal reports the
  * order COMPLETED), and `settleCompletedPaypalOrder` — which does not re-run the
  * mode/validation checks that triggered the refund — would flip it to paid.
+ *
+ * The stamp is applied ONLY when the capture is genuinely being reversed
+ * (COMPLETED, or PENDING and therefore on its way back). Stamping it after a
+ * refund PayPal REFUSED would record a reversal that never happened and close the
+ * door on the retry that could still heal the order, while the merchant quietly
+ * keeps the money.
  */
 export async function refundCapturedPaypalOrder(
   ctx: PaypalCaptureContext,
   remote: PayPalOrderDetails | undefined,
   reason: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; pending?: boolean; error?: string }> {
   const gatewayResponse = await resolveCaptureGatewayResponse(ctx, remote);
   const result = await initiatePaypalOrderRefund({
     merchantId: ctx.merchantId,
     gatewayResponse,
     reason,
   });
-  await markPaypalTransactionRefunded(ctx.supabase, ctx.transaction.id, reason);
-  return { success: result.success, error: result.error };
+
+  if (result.success || result.pending) {
+    await markPaypalTransactionRefunded(
+      ctx.supabase,
+      ctx.transaction.id,
+      result.pending ? `${reason} (refund PENDING at PayPal)` : reason
+    );
+  }
+
+  return {
+    success: result.success,
+    pending: result.pending,
+    error: result.error,
+  };
 }
 
 /**

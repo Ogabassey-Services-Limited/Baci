@@ -132,11 +132,17 @@ async function appendOccurrenceToExistingReview(
     transactionId: string | null;
   }
 ): Promise<void> {
+  // The unique index that raised the 23505 is PARTIAL (`WHERE resolved_at IS
+  // NULL`), so only the OPEN row conflicts. Reading without the same predicate
+  // matches resolved historical rows too, `maybeSingle()` errors on the multiple
+  // rows, and the new occurrence is dropped — precisely on the orders with the
+  // most history, which are the ones ops most needs to see.
   const { data: existing, error: readError } = await supabase
     .from('reconciliation_review')
     .select('id, metadata')
     .eq('issue_type', RECONCILIATION_ISSUE_TYPE)
     .eq('order_id', orderId)
+    .is('resolved_at', null)
     .maybeSingle();
 
   if (readError || !existing) {

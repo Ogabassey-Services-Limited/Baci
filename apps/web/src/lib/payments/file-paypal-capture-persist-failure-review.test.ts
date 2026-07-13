@@ -13,6 +13,9 @@ const existingRowMock = vi.hoisted(() =>
 const updateMock = vi.hoisted(() =>
   vi.fn((_payload: Record<string, unknown>) => ({ error: null }))
 );
+const isFilterMock = vi.hoisted(() =>
+  vi.fn((_column: string, _value: unknown) => undefined)
+);
 
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: vi.fn(() => ({
@@ -24,6 +27,12 @@ vi.mock('@/lib/supabase/admin', () => ({
         insert: insertMock,
         select: () => builder,
         eq: () => builder,
+        // The readback must filter on the partial unique index's predicate
+        // (`resolved_at IS NULL`), so the mock has to support `.is()`.
+        is: (column: string, value: unknown) => {
+          isFilterMock(column, value);
+          return builder;
+        },
         maybeSingle: () => Promise.resolve(existingRowMock()),
         update: (payload: Record<string, unknown>) => {
           updateMock(payload);
@@ -113,6 +122,12 @@ describe('filePaypalCapturePersistFailureReview', () => {
       reason: string;
       metadata: { occurrences: Record<string, unknown>[] };
     };
+    // The 23505 comes from a PARTIAL unique index (`WHERE resolved_at IS NULL`),
+    // so the readback must carry the same predicate — otherwise a resolved
+    // historical row joins the result, maybeSingle() errors, and the new
+    // occurrence is dropped exactly on the orders with the most history.
+    expect(isFilterMock).toHaveBeenCalledWith('resolved_at', null);
+
     expect(payload.reason).toBe('Refund of the duplicate capture failed');
     expect(payload.metadata.occurrences).toHaveLength(1);
     expect(payload.metadata.occurrences[0]).toMatchObject({

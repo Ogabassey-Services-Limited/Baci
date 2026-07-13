@@ -27,7 +27,14 @@ export async function refundDuplicatePaypalCapture(input: {
   gatewayReference: string | null;
   gatewayResponse: unknown;
   orderNumber: string | null;
-  source: 'verify' | 'reconcile' | 'reconcile_refunded_order';
+  source:
+    | 'verify'
+    | 'reconcile'
+    | 'reconcile_refunded_order'
+    /** Capture landed on an order the abandoned-checkout cron already cancelled. */
+    | 'reconcile_cancelled_order'
+    /** Capture landed on an order the buyer had already financed with BNPL. */
+    | 'reconcile_bnpl_order';
 }): Promise<NextResponse> {
   const {
     merchantId,
@@ -46,12 +53,16 @@ export async function refundDuplicatePaypalCapture(input: {
   });
 
   // Close the door behind the refund: a still-`completed` row could be picked up
-  // by a later retry and settled against money we just gave back.
-  await markPaypalTransactionRefunded(
-    undefined,
-    transactionId,
-    `duplicate capture refunded on ${source}`
-  );
+  // by a later retry and settled against money we just gave back. Only when the
+  // capture is genuinely being reversed — a refund PayPal REFUSED leaves the funds
+  // with the merchant, and stamping it refunded would both lie and block healing.
+  if (refund.success || refund.pending) {
+    await markPaypalTransactionRefunded(
+      undefined,
+      transactionId,
+      `duplicate capture refunded on ${source}`
+    );
+  }
 
   await filePaypalCapturePersistFailureReview({
     gatewayReference,
@@ -63,7 +74,18 @@ export async function refundDuplicatePaypalCapture(input: {
     metadata: {
       stage: 'captured_after_settlement',
       source,
+      // Only a COMPLETED refund counts as succeeded. A PENDING one is reported on
+      // its own so nobody reads "not succeeded" as "issue another refund" — that
+      // would pay the buyer twice for the same duplicate capture.
       refundSucceeded: refund.success,
+      refundPending: refund.pending ?? false,
+      refundStatuses:
+        refund.captures?.map((capture) => ({
+          captureId: capture.captureId,
+          status: capture.status ?? 'NO_RESPONSE',
+          refundId: capture.refundId ?? null,
+        })) ?? [],
+      needsManualRefund: !refund.success && !refund.pending,
       refundError: refund.error ?? null,
     },
   });

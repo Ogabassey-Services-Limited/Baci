@@ -1,5 +1,9 @@
 import 'server-only';
 
+import {
+  isCancelledPaymentStatus,
+  NON_PAYABLE_PAYMENT_STATUSES,
+} from '@/lib/payments/non-payable-payment-statuses';
 import type { PaypalSettlerVerdict } from '@/lib/payments/paypal-settler-verdict';
 
 /**
@@ -75,12 +79,14 @@ export type PaypalCaptureOutcome =
   | { kind: 'clamp_cancelled' }
   | { kind: 'create_fresh' };
 
-/** Payment statuses that mean the order was already settled by SOME tender. */
-const SETTLED_PAYMENT_STATUSES = new Set([
-  'paid',
-  'partially_paid',
-  'refunded',
-]);
+/**
+ * Payment statuses that mean the order was already settled by SOME tender.
+ *
+ * Imported, never re-declared: a local copy of this list is exactly how
+ * `bnpl_approved` went missing here while create-order had it, letting the
+ * resolver capture PayPal on an order the buyer had already financed.
+ */
+const SETTLED_PAYMENT_STATUSES = NON_PAYABLE_PAYMENT_STATUSES;
 
 const KNOWN_PAYPAL_STATUSES = new Set<PaypalOrderStatus>([
   'CREATED',
@@ -114,6 +120,7 @@ export function needsPaypalStatusLookup(
 ): boolean {
   return (
     SETTLED_PAYMENT_STATUSES.has(String(paymentStatus)) ||
+    isCancelledPaymentStatus(paymentStatus) ||
     shippingStatus === 'cancelled'
   );
 }
@@ -151,7 +158,14 @@ export function resolvePaypalCaptureOutcome(
 
   const captured = isCaptured(paypalOrderStatus);
   const paid = orderPaymentStatus === 'paid';
-  const cancelled = orderShippingStatus === 'cancelled';
+  // Cancellation is HALF-EXPRESSED in this schema: the abandoned-order cron sets
+  // payment_status='cancelled' but leaves shipping_status='pending'. Keying off
+  // shipping alone (as this did) reads an abandoned checkout as live, so a buyer
+  // completing a stale PayPal approval days later would resurrect the order and be
+  // charged for it.
+  const cancelled =
+    orderShippingStatus === 'cancelled' ||
+    isCancelledPaymentStatus(orderPaymentStatus);
 
   // 1. ONLY positive proof that THIS txn settled the order takes the idempotent
   //    fast path. Everything else on a paid order falls through to rule 2.

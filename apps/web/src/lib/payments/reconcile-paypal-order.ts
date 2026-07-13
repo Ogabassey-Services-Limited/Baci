@@ -10,6 +10,7 @@ import {
   isOrderClampedAsCancelled,
 } from '@/lib/payments/handle-payment-for-cancelled-order';
 import { orderNumberFallback } from '@/lib/payments/load-paypal-capture-context';
+import { isCancelledPaymentStatus } from '@/lib/payments/non-payable-payment-statuses';
 import { runPaypalCaptureSideEffects } from '@/lib/payments/paypal-capture-side-effects';
 import { handlePaypalReconcileInventoryFailure } from '@/lib/payments/reconcile-paypal-inventory';
 import { refundDuplicatePaypalCapture } from '@/lib/payments/refund-duplicate-paypal-capture';
@@ -151,6 +152,18 @@ export async function reconcilePaypalOrderToPaid(
     // writer directly; without this guard `.neq(paid)` alone would flip
     // refunded→paid and re-run settlement/email/fee. Handled as a 409 below.
     .neq('payment_status', 'refunded')
+    // Never settle an order the buyer already financed. A BNPL-approved order has
+    // no cash against it, so `.neq(paid)` lets it through — and the lender is
+    // already committed to pay the merchant, so settling a PayPal capture on top
+    // charges the buyer twice for one order. The resolver now blocks this too;
+    // this is the backstop for any writer path that reaches here directly.
+    .neq('payment_status', 'bnpl_approved')
+    // And never resurrect a dead checkout. The abandoned-order cron sets
+    // payment_status='cancelled' while leaving shipping_status='pending', so the
+    // shipping-status guards elsewhere do not see it. Declined here → refunded by
+    // the terminal-status branch below, not stranded.
+    .neq('payment_status', 'cancelled')
+    .neq('payment_status', 'expired')
     .select(ORDER_SELECT)
     .maybeSingle();
 
@@ -254,6 +267,52 @@ export async function reconcilePaypalOrderToPaid(
         {
           error: 'Order was refunded and cannot be re-settled',
           code: 'ORDER_ALREADY_REFUNDED',
+        },
+        { status: 409 }
+      );
+    }
+
+    // The CAS was declined because the order is terminal for a reason other than
+    // refunded: it was cancelled/expired (the abandoned-order cron sets
+    // payment_status='cancelled' while leaving shipping_status='pending', so a
+    // late PayPal approval lands here), or the buyer financed it with BNPL. Money
+    // HAS been captured by the time any path reaches this writer — declining the
+    // CAS without refunding would strand it in the merchant's account against an
+    // order we refuse to settle. Give it back, exactly as the refunded branch does.
+    const terminalStatus = existing?.payment_status;
+    if (
+      isCancelledPaymentStatus(terminalStatus) ||
+      terminalStatus === 'bnpl_approved'
+    ) {
+      logger.warn({
+        message:
+          'PayPal reconcile: capture landed on a terminal order; refunding the stale capture',
+        orderId,
+        paypalOrderId,
+        transactionId,
+        paymentStatus: terminalStatus,
+      });
+      const { data: terminalTxnRow } = await supabase
+        .from('transactions')
+        .select('gateway_response')
+        .eq('id', transactionId)
+        .maybeSingle();
+      await refundDuplicatePaypalCapture({
+        merchantId,
+        orderId,
+        transactionId,
+        gatewayReference: paypalOrderId,
+        gatewayResponse: terminalTxnRow?.gateway_response ?? null,
+        orderNumber: existing?.order_number ?? null,
+        source:
+          terminalStatus === 'bnpl_approved'
+            ? 'reconcile_bnpl_order'
+            : 'reconcile_cancelled_order',
+      });
+      return NextResponse.json(
+        {
+          error: 'Order is no longer payable and cannot be settled',
+          code: 'ORDER_NOT_PAYABLE',
         },
         { status: 409 }
       );

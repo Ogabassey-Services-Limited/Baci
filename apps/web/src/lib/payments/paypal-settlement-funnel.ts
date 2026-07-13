@@ -18,7 +18,12 @@ import {
   getPaypalCheckoutCredentials,
   readPaypalFeatureConfig,
 } from '@/lib/payments/paypal-checkout-credentials';
-import { getOrder, type PayPalOrderDetails } from '@/lib/paypal';
+import {
+  getOrder,
+  type PayPalMode,
+  type PayPalOrderDetails,
+} from '@/lib/paypal';
+import type { PaymentCredentialEnvironment } from './merchant-credentials';
 
 /**
  * THE single entry point for "what should happen to this PayPal capture?".
@@ -135,16 +140,49 @@ export async function runPaypalReconcileFunnel(
     return { ok: false, status: load.status, body: load.body };
   }
 
-  // Resolve the store's PayPal mode here so no reconcile-only caller has to
-  // thread it through (and none can get it wrong).
-  const { data: featureSettings } = await supabase
-    .from('merchant_feature_settings')
-    .select('custom_settings')
-    .eq('merchant_id', merchantId)
-    .maybeSingle();
-  const { mode, environment } = readPaypalFeatureConfig(
-    featureSettings?.custom_settings as Record<string, unknown> | null
-  );
+  // PIN the environment to the mode stamped on the transaction when the PayPal
+  // order was minted — exactly as capture-order does.
+  //
+  // Re-deriving it from the merchant's CURRENT settings is wrong: both entry
+  // points here are reached only AFTER PayPal has taken the money, so a merchant
+  // who has since flipped the dashboard toggle to sandbox (or disconnected) would
+  // make us look for the capture in the wrong vault, return PAYPAL_NOT_CONFIGURED,
+  // and strand live funds against a permanently unpaid order. There is no PayPal
+  // webhook and no cron to heal it.
+  const storedMode = load.metadata?.paypal_mode;
+  let mode: PayPalMode;
+  let environment: PaymentCredentialEnvironment;
+
+  if (storedMode === 'live' || storedMode === 'sandbox') {
+    mode = storedMode;
+    environment = storedMode === 'live' ? 'live' : 'test';
+  } else {
+    // Legacy transaction with no mode stamped at creation. Fall back to the
+    // merchant's current config — but fail CLOSED on a read error rather than
+    // silently defaulting, which would resolve the wrong vault for real money.
+    const { data: featureSettings, error: settingsError } = await supabase
+      .from('merchant_feature_settings')
+      .select('custom_settings')
+      .eq('merchant_id', merchantId)
+      .maybeSingle();
+
+    if (settingsError) {
+      return {
+        ok: false,
+        status: 503,
+        body: {
+          error: 'Could not resolve the PayPal environment for this order',
+          code: 'PAYPAL_MODE_UNRESOLVED',
+        },
+      };
+    }
+
+    const config = readPaypalFeatureConfig(
+      featureSettings?.custom_settings as Record<string, unknown> | null
+    );
+    mode = config.mode;
+    environment = config.environment;
+  }
 
   const credentials = await getPaypalCheckoutCredentials(
     merchantId,

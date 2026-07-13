@@ -12,21 +12,51 @@ import { refund } from '@/lib/paypal';
  * stored credentials — never a platform key.
  */
 
+/**
+ * The state PayPal reports for the refund resource itself.
+ *
+ * A 2xx from PayPal means "I accepted your refund request", NOT "the buyer has
+ * their money back". Only `COMPLETED` means the money moved. `PENDING` is common
+ * in BYOK — refunds draw on the merchant's own PayPal balance, so an unfunded
+ * balance (or an eCheck) leaves the refund in flight — and `CANCELLED`/`FAILED`
+ * mean it never happened.
+ */
+export type PaypalRefundStatus =
+  | 'COMPLETED'
+  | 'PENDING'
+  | 'CANCELLED'
+  | 'FAILED';
+
 /** Per-capture refund result, so partial failures can be surfaced (R-55). */
 export interface PaypalCaptureRefundOutcome {
   captureId: string;
+  /** True ONLY for a COMPLETED refund. A PENDING refund has not returned money. */
   success: boolean;
+  /** PayPal's own status for the refund resource, when it answered at all. */
+  status?: PaypalRefundStatus;
   refundId?: string;
   error?: string;
 }
 
 export interface PaypalOrderRefundResult {
-  /** True only when EVERY completed capture on the order was refunded. */
+  /** True only when EVERY completed capture on the order was refunded COMPLETED. */
   success: boolean;
+  /**
+   * True when at least one refund was accepted by PayPal but is still in flight,
+   * and none outright failed.
+   *
+   * This is deliberately NOT folded into `success: false`: a pending refund must
+   * never be reported to an operator as "refund failed", because the remedy for a
+   * failed refund is to issue another one — and doing that against a refund PayPal
+   * is about to complete pays the buyer twice.
+   */
+  pending?: boolean;
   /** First successful refund id — kept for the single-capture caller contract. */
   refundId?: string;
-  /** All successful refund ids (one per refunded capture). */
+  /** All COMPLETED refund ids (one per refunded capture). */
   refundIds?: string[];
+  /** Accepted-but-not-yet-completed refund ids, for follow-up. */
+  pendingRefundIds?: string[];
   /** Human-readable summary when not every capture refunded. */
   error?: string;
   /** Per-capture breakdown for auditing partial refunds. */
@@ -137,9 +167,7 @@ export async function initiatePaypalOrderRefund(params: {
       { noteToPayer: params.reason, requestId: `refund-${captureId}` }
     );
 
-    if (result.success) {
-      outcomes.push({ captureId, success: true, refundId: result.data.id });
-    } else {
+    if (!result.success) {
       logger.error({
         message: 'PayPal capture refund failed',
         merchantId: params.merchantId,
@@ -147,15 +175,78 @@ export async function initiatePaypalOrderRefund(params: {
         error: result.error,
       });
       outcomes.push({ captureId, success: false, error: result.error });
+      continue;
     }
+
+    // A 2xx only means PayPal ACCEPTED the request. Read the refund resource's
+    // own status: booking a PENDING/FAILED refund as done records a `completed`
+    // refund transaction for money the buyer never got back, and tells the ops
+    // review row not to chase it.
+    const status = result.data.status;
+    if (status === 'COMPLETED') {
+      outcomes.push({
+        captureId,
+        success: true,
+        status,
+        refundId: result.data.id,
+      });
+      continue;
+    }
+
+    if (status === 'PENDING') {
+      // In flight, not failed. Surfaced separately so nobody issues a second
+      // refund against money PayPal is already sending back.
+      logger.warn({
+        message:
+          'PayPal accepted the refund but it is still PENDING — money has not moved yet',
+        merchantId: params.merchantId,
+        captureId,
+        refundId: result.data.id,
+      });
+      outcomes.push({
+        captureId,
+        success: false,
+        status,
+        refundId: result.data.id,
+      });
+      continue;
+    }
+
+    logger.error({
+      message: 'PayPal refused the capture refund',
+      merchantId: params.merchantId,
+      captureId,
+      refundId: result.data.id,
+      status,
+    });
+    outcomes.push({
+      captureId,
+      success: false,
+      status,
+      refundId: result.data.id,
+      error: `PayPal reported the refund as ${status}`,
+    });
   }
 
   const refundIds = outcomes
     .filter((outcome) => outcome.success && !!outcome.refundId)
     .map((outcome) => outcome.refundId as string);
-  const failed = outcomes.filter((outcome) => !outcome.success);
 
-  if (failed.length === 0) {
+  const pendingOutcomes = outcomes.filter(
+    (outcome) => outcome.status === 'PENDING'
+  );
+  const pendingRefundIds = pendingOutcomes
+    .filter((outcome) => !!outcome.refundId)
+    .map((outcome) => outcome.refundId as string);
+
+  // "Not completed" splits two ways, and conflating them is what makes a buyer
+  // get paid twice: a hard failure needs another refund, an in-flight one must
+  // NOT get one.
+  const hardFailed = outcomes.filter(
+    (outcome) => !outcome.success && outcome.status !== 'PENDING'
+  );
+
+  if (hardFailed.length === 0 && pendingOutcomes.length === 0) {
     return {
       success: true,
       refundId: refundIds[0],
@@ -164,16 +255,36 @@ export async function initiatePaypalOrderRefund(params: {
     };
   }
 
-  const failedIds = failed.map((outcome) => outcome.captureId).join(', ');
+  if (hardFailed.length === 0) {
+    // Everything PayPal accepted, but some refunds are still moving. Not a
+    // success (the money is not back yet) and emphatically not a failure.
+    return {
+      success: false,
+      pending: true,
+      refundId: refundIds[0],
+      refundIds,
+      pendingRefundIds,
+      error: `PayPal accepted ${pendingOutcomes.length} of ${outcomes.length} refunds but they are still PENDING — do NOT issue another refund; verify completion at PayPal`,
+      captures: outcomes,
+    };
+  }
+
+  const failedIds = hardFailed.map((outcome) => outcome.captureId).join(', ');
+  const pendingNote =
+    pendingOutcomes.length > 0
+      ? `; ${pendingOutcomes.length} still PENDING (do not re-refund those)`
+      : '';
   const error =
-    refundIds.length > 0
-      ? `Refunded ${refundIds.length} of ${outcomes.length} PayPal captures; failed: ${failedIds}`
-      : (failed[0]?.error ?? 'PayPal refund failed');
+    refundIds.length > 0 || pendingOutcomes.length > 0
+      ? `Refunded ${refundIds.length} of ${outcomes.length} PayPal captures; failed: ${failedIds}${pendingNote}`
+      : (hardFailed[0]?.error ?? 'PayPal refund failed');
 
   return {
     success: false,
     refundId: refundIds[0],
     refundIds,
+    pendingRefundIds:
+      pendingRefundIds.length > 0 ? pendingRefundIds : undefined,
     error,
     captures: outcomes,
   };

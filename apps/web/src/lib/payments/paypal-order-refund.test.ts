@@ -123,7 +123,12 @@ describe('initiatePaypalOrderRefund', () => {
       refundId: 'REFUND-1',
       refundIds: ['REFUND-1'],
       captures: [
-        { captureId: 'CAPTURE-1', success: true, refundId: 'REFUND-1' },
+        {
+          captureId: 'CAPTURE-1',
+          success: true,
+          status: 'COMPLETED',
+          refundId: 'REFUND-1',
+        },
       ],
     });
     expect(getPaypalCheckoutCredentials).toHaveBeenCalledWith(
@@ -208,7 +213,12 @@ describe('initiatePaypalOrderRefund', () => {
     expect(result.error).toContain('CAPTURE-B');
     expect(result.error).toContain('1 of 2');
     expect(result.captures).toEqual([
-      { captureId: 'CAPTURE-A', success: true, refundId: 'REFUND-A' },
+      {
+        captureId: 'CAPTURE-A',
+        success: true,
+        status: 'COMPLETED',
+        refundId: 'REFUND-A',
+      },
       {
         captureId: 'CAPTURE-B',
         success: false,
@@ -283,5 +293,74 @@ describe('initiatePaypalOrderRefund', () => {
     expect(result.success).toBe(false);
     expect(result.error).toBe('Refund request failed: 422');
     expect(result.refundIds).toEqual([]);
+  });
+  describe('refund resource status (Codex pass-11 P1)', () => {
+    it('does NOT report success when PayPal accepts the refund but leaves it PENDING', async () => {
+      // A 2xx means "request accepted", not "money returned". In BYOK the refund
+      // draws on the merchant's OWN PayPal balance, so an unfunded balance leaves
+      // it PENDING. Booking that as done records a completed refund for money the
+      // buyer never got back.
+      vi.mocked(refund).mockResolvedValue({
+        success: true,
+        data: { id: 'REFUND-P', status: 'PENDING' },
+      });
+
+      const result = await initiatePaypalOrderRefund({
+        merchantId: MERCHANT_ID,
+        gatewayResponse: CAPTURE_RESPONSE,
+        reason: 'Order cancelled',
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.pending).toBe(true);
+      expect(result.pendingRefundIds).toEqual(['REFUND-P']);
+      // Crucially it must NOT read as a failure either — the remedy for a failed
+      // refund is to issue another one, and doing that against an in-flight refund
+      // pays the buyer twice.
+      expect(result.error).toMatch(/do NOT issue another refund/i);
+    });
+
+    it.each([
+      'CANCELLED',
+      'FAILED',
+    ] as const)('treats a %s refund as a hard failure, not a success', async (status) => {
+      vi.mocked(refund).mockResolvedValue({
+        success: true,
+        data: { id: 'REFUND-X', status },
+      });
+
+      const result = await initiatePaypalOrderRefund({
+        merchantId: MERCHANT_ID,
+        gatewayResponse: CAPTURE_RESPONSE,
+        reason: 'Order cancelled',
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.pending).toBeFalsy();
+      expect(result.refundIds).toEqual([]);
+      expect(result.error).toContain(status);
+    });
+
+    it('reports the per-capture PayPal status so ops can tell in-flight from failed', async () => {
+      vi.mocked(refund).mockResolvedValue({
+        success: true,
+        data: { id: 'REFUND-P', status: 'PENDING' },
+      });
+
+      const result = await initiatePaypalOrderRefund({
+        merchantId: MERCHANT_ID,
+        gatewayResponse: CAPTURE_RESPONSE,
+        reason: 'Order cancelled',
+      });
+
+      expect(result.captures).toEqual([
+        {
+          captureId: 'CAPTURE-1',
+          success: false,
+          status: 'PENDING',
+          refundId: 'REFUND-P',
+        },
+      ]);
+    });
   });
 });

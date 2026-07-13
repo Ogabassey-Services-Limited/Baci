@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
+import { NON_PAYABLE_PAYMENT_STATUSES } from '@/lib/payments/non-payable-payment-statuses';
 import { computeOrderResidualAmount } from '@/lib/payments/order-residual-amount';
 import {
   getPaypalCheckoutCredentials,
@@ -20,13 +21,6 @@ import { paypalCreateOrderSchema } from '@/schemas/paypal-checkout';
 // part) or is otherwise no longer chargeable. Starting a fresh PayPal checkout
 // for any of these would let a second approval+capture run against money that is
 // already accounted for (F11).
-const NON_PAYABLE_PAYMENT_STATUSES = new Set([
-  'paid',
-  'partially_paid',
-  'bnpl_approved',
-  'refunded',
-]);
-
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();

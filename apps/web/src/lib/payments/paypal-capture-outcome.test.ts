@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  needsPaypalStatusLookup,
   PAYPAL_AMOUNT_EPSILON,
   type PaypalCaptureState,
   resolvePaypalCaptureOutcome,
@@ -303,6 +304,79 @@ describe('resolvePaypalCaptureOutcome — §3 state table', () => {
       kind: 'block_paid_elsewhere',
       captured: true,
       settlerVerdict: 'unknown',
+    });
+  });
+  describe('non-payable payment statuses (Codex pass-11)', () => {
+    it('NEVER captures a BNPL-approved order — the buyer already financed it', () => {
+      // The lender is committed to pay the merchant, so capturing PayPal on top
+      // charges the buyer twice for one order. This resolver kept its own settled
+      // -status list that omitted bnpl_approved while create-order had it.
+      expect(
+        resolvePaypalCaptureOutcome(
+          state({ orderPaymentStatus: 'bnpl_approved' })
+        )
+      ).toEqual({
+        kind: 'block_paid_elsewhere',
+        captured: false,
+        settlerVerdict: 'unknown',
+      });
+    });
+
+    it('forces a live PayPal lookup for a BNPL-approved order instead of capturing optimistically', () => {
+      expect(needsPaypalStatusLookup('bnpl_approved', 'pending')).toBe(true);
+    });
+
+    it('clamps (refunds) a capture that landed on a BNPL-approved order', () => {
+      expect(
+        resolvePaypalCaptureOutcome(
+          state({
+            orderPaymentStatus: 'bnpl_approved',
+            paypalOrderStatus: 'COMPLETED',
+          })
+        )
+      ).toEqual({
+        kind: 'block_paid_elsewhere',
+        captured: true,
+        settlerVerdict: 'unknown',
+      });
+    });
+
+    it.each([
+      'cancelled',
+      'expired',
+    ])('treats payment_status=%s as cancelled even when shipping_status is still pending', (paymentStatus) => {
+      // The abandoned-order cron sets payment_status='cancelled' but leaves
+      // shipping_status='pending' (1,018 such rows in production), so a guard
+      // that reads shipping alone sees a dead checkout as live and lets a late
+      // PayPal approval resurrect it.
+      expect(
+        resolvePaypalCaptureOutcome(
+          state({
+            orderPaymentStatus: paymentStatus,
+            orderShippingStatus: 'pending',
+            paypalOrderStatus: 'COMPLETED',
+          })
+        )
+      ).toEqual({ kind: 'clamp_cancelled' });
+    });
+
+    it('blocks an uncaptured PayPal order on a cron-cancelled (payment_status) order', () => {
+      expect(
+        resolvePaypalCaptureOutcome(
+          state({
+            orderPaymentStatus: 'cancelled',
+            orderShippingStatus: 'pending',
+          })
+        )
+      ).toEqual({
+        kind: 'block_paid_elsewhere',
+        captured: false,
+        settlerVerdict: 'unknown',
+      });
+    });
+
+    it('forces a live lookup for a cron-cancelled order', () => {
+      expect(needsPaypalStatusLookup('cancelled', 'pending')).toBe(true);
     });
   });
 });
