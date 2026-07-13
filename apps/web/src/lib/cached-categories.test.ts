@@ -9,7 +9,7 @@ const mockEq = vi.fn(() => builder);
 const builder = { eq: mockEq, is: mockIs, order: mockOrder };
 const mockSelect = vi.fn(() => builder);
 const mockFrom = vi.fn(() => ({ select: mockSelect }));
-const mockCreateClient = vi.fn(() => ({ from: mockFrom }));
+const mockCreateClient = vi.fn((..._args: unknown[]) => ({ from: mockFrom }));
 
 vi.mock('next/cache', () => ({ cacheLife: vi.fn(), cacheTag: vi.fn() }));
 vi.mock('@/env', () => ({
