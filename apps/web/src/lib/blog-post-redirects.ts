@@ -32,7 +32,11 @@ export async function getBlogPostRedirect(
   identifier: string,
   sourceSlug: string
 ): Promise<BlogPostRedirectTarget | null> {
-  'use cache: remote';
+  // PR4a: local `'use cache'`, not the framework remote handler. Keyed on
+  // arbitrary crawler source slugs (unbounded remote keys) behind two indexed
+  // reads on a 16-row table; already fail-loud (throws below), so the remote
+  // SET buys nothing but the exit-128 write hazard.
+  'use cache';
 
   const normalizedSourceSlug = normalizeBlogSlug(sourceSlug);
   if (!normalizedSourceSlug) {
