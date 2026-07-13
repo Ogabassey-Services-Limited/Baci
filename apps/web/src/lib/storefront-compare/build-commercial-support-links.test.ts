@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildCategoryPriceBandCandidates,
   buildCategorySupportLinks,
   buildProductSupportLinks,
 } from './build-commercial-support-links';
@@ -363,5 +364,59 @@ describe('buildProductSupportLinks', () => {
         }),
       ])
     );
+  });
+
+  it('yields identical links whether priceBandCandidates is precomputed or self-computed', () => {
+    const products = [
+      {
+        slug: 'iphone-17-pro-max',
+        name: 'iPhone 17 Pro Max',
+        brand: 'Apple',
+        price: 495_000,
+        category_slug: 'smartphones',
+        product_key_specs: { chipset: 'A19 Pro', ram_gb: 8, storage_gb: 256 },
+      },
+      {
+        slug: 'samsung-galaxy-z-trifold',
+        name: 'Samsung Galaxy Z TriFold',
+        brand: 'Samsung',
+        price: 480_000,
+        category_slug: 'smartphones',
+        product_key_specs: {
+          chipset: 'Snapdragon 8 Elite',
+          ram_gb: 16,
+          storage_gb: 512,
+        },
+      },
+      {
+        slug: 'iphone-16e',
+        name: 'iPhone 16e',
+        brand: 'Apple',
+        price: 450_000,
+        category_slug: 'smartphones',
+        product_key_specs: { chipset: 'A18', ram_gb: 8, storage_gb: 128 },
+      },
+    ];
+    const base = {
+      storeUrl: 'https://ogabassey.com',
+      categorySlug: 'smartphones',
+      currentProductSlug: 'iphone-17-pro-max',
+      currentProductPrice: 495_000,
+      products,
+    };
+
+    // The hoisted, product-invariant candidate list must produce byte-identical
+    // links to letting buildProductSupportLinks compute them itself — this is
+    // what makes the discovery fan-out's compute-once optimization safe.
+    const precomputed = buildProductSupportLinks({
+      ...base,
+      priceBandCandidates: buildCategoryPriceBandCandidates(
+        'smartphones',
+        products
+      ),
+    });
+    const selfComputed = buildProductSupportLinks(base);
+
+    expect(precomputed).toEqual(selfComputed);
   });
 });
