@@ -68,4 +68,24 @@ describe('supabase retention cleanup worker', () => {
       event_queue_archive_messages_deleted: 6,
     });
   });
+
+  it('rejects when event-pipeline retention cleanup fails', async () => {
+    const supabase = {
+      rpc(name) {
+        if (name === 'cleanup_domain_event_pipeline_v1') {
+          return Promise.resolve({
+            data: null,
+            error: { message: 'event retention unavailable' },
+          });
+        }
+
+        return Promise.resolve({ data: [], error: null });
+      },
+    };
+
+    await assert.rejects(
+      runSupabaseRetentionCleanup({ logger: noopLogger, supabase }),
+      /Event pipeline retention cleanup failed: event retention unavailable/
+    );
+  });
 });
