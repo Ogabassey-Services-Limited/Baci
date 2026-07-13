@@ -220,6 +220,23 @@ describe('cached-data cache directives', () => {
     expect(CACHED_DATA_SOURCE).toContain('const CATEGORY_PAGE_PRODUCT_ID_CAP');
   });
 
+  it('keeps pagination truthful past the capped ID list (PR4b review fix)', () => {
+    // The cap bounds the cached ID list, but totalPages must reflect the EXACT
+    // count or valid pages past the cap 404. When the list hits the cap, an
+    // exact head-count query supplies totalProductCount; windows beyond the
+    // cached list are fetched per-request with the same deterministic ordering.
+    const cachedIdsSource = getFunctionSource(
+      'getCachedCategoryPageProductIds'
+    );
+    expect(cachedIdsSource).toContain('totalProductCount');
+    expect(cachedIdsSource).toContain("count: 'exact'");
+    const aggregateSource = getFunctionSource(
+      'getCachedCategoryPageProductsUncached'
+    );
+    expect(aggregateSource).toContain('totalProductCount');
+    expect(aggregateSource).toContain('fetchCategoryPageProductIdWindow');
+  });
+
   it('demotes the service-role dashboard-stats read to local and fail-loud (PR4b)', () => {
     // get_sales_dashboard_stats RPC on a service-role client; authed dashboard
     // consumer, no cross-instance/SEO need. Demote to local and fail loud so a

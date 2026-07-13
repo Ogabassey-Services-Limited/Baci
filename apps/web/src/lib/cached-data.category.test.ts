@@ -236,6 +236,124 @@ describe('getCachedCategoryPageData category routing and fallback logic', () => 
     });
   });
 
+  it('reports the exact product count when the category exceeds the ID cap (PR4b pagination truth)', async () => {
+    harness.mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'cat-active-123',
+        name: 'Active Category',
+        slug: 'active-category',
+        description: 'Standard active category',
+        image_url: null,
+        is_active: true,
+        seo_heading: null,
+        seo_description: null,
+        seo_features: null,
+        seo_faq: null,
+        parent: null,
+      },
+      error: null,
+    });
+    const cappedIds = Array.from({ length: 2000 }, (_, index) => ({
+      id: `product-${index}`,
+    }));
+    const firstPageWindow = cappedIds.slice(0, 20);
+    harness.mockListResults.push(
+      { data: [{ id: 'cat-active-123' }], error: null }, // scope resolution
+      { data: cappedIds, error: null }, // capped ID query (hits the cap)
+      { data: null, error: null, count: 2500 }, // exact head-count query
+      {
+        data: firstPageWindow.map(({ id }) => ({ id, name: `Product ${id}` })),
+        error: null,
+      } // detail chunk for the requested window
+    );
+
+    const getBoundedCategoryPageData = getCachedCategoryPageData as unknown as (
+      merchantId: string,
+      categorySlug: string,
+      storeSlug: string,
+      productOffset: number,
+      productLimit: number
+    ) => ReturnType<typeof getCachedCategoryPageData>;
+    const result = await getBoundedCategoryPageData(
+      'merchant-123',
+      'active-category',
+      'test-store',
+      0,
+      20
+    );
+
+    // productCount must come from the exact COUNT, not the truncated ID list,
+    // so totalPages stays truthful for categories larger than the cap.
+    expect(result).toMatchObject({
+      productCount: 2500,
+      productsArePrePaginated: true,
+      productsQueryFailed: false,
+    });
+    expect(result.products).toHaveLength(20);
+    // The in-window page is served from the cached ID list — no ranged query.
+    expect(harness.mockRange).not.toHaveBeenCalled();
+  });
+
+  it('serves pages beyond the capped ID window from a direct ranged query, not a 404 (PR4b)', async () => {
+    harness.mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'cat-active-123',
+        name: 'Active Category',
+        slug: 'active-category',
+        description: 'Standard active category',
+        image_url: null,
+        is_active: true,
+        seo_heading: null,
+        seo_description: null,
+        seo_features: null,
+        seo_faq: null,
+        parent: null,
+      },
+      error: null,
+    });
+    const cappedIds = Array.from({ length: 2000 }, (_, index) => ({
+      id: `product-${index}`,
+    }));
+    const tailWindow = Array.from({ length: 20 }, (_, index) => ({
+      id: `product-${2480 + index}`,
+    }));
+    harness.mockListResults.push(
+      { data: [{ id: 'cat-active-123' }], error: null }, // scope resolution
+      { data: cappedIds, error: null }, // capped ID query (hits the cap)
+      { data: null, error: null, count: 2500 }, // exact head-count query
+      { data: tailWindow, error: null }, // direct ranged ID window query
+      {
+        data: tailWindow.map(({ id }) => ({ id, name: `Product ${id}` })),
+        error: null,
+      } // detail chunk for the tail window
+    );
+
+    const getBoundedCategoryPageData = getCachedCategoryPageData as unknown as (
+      merchantId: string,
+      categorySlug: string,
+      storeSlug: string,
+      productOffset: number,
+      productLimit: number
+    ) => ReturnType<typeof getCachedCategoryPageData>;
+    const result = await getBoundedCategoryPageData(
+      'merchant-123',
+      'active-category',
+      'test-store',
+      2480,
+      20
+    );
+
+    // The requested window extends beyond the cached (capped) ID list, so the
+    // window is fetched directly with the same deterministic ordering.
+    expect(harness.mockRange).toHaveBeenCalledWith(2480, 2499);
+    expect(result).toMatchObject({
+      productCount: 2500,
+      productsArePrePaginated: true,
+      productsQueryFailed: false,
+    });
+    expect(result.products).toHaveLength(20);
+  });
+
   it('degrades an ID query failure outside the remote cache without treating it as an empty catalog', async () => {
     harness.mockSingle.mockResolvedValueOnce({
       data: {

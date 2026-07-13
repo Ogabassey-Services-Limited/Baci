@@ -1750,6 +1750,12 @@ interface CachedCategoryPageProductsResult {
 interface CachedCategoryPageProductIdsResult {
   productIds: string[];
   productsQueryFailed: boolean;
+  /**
+   * Exact number of products in scope. Equals productIds.length until the
+   * cached ID list hits CATEGORY_PAGE_PRODUCT_ID_CAP, after which it comes
+   * from a head-count query so pagination totals stay truthful (PR4b review).
+   */
+  totalProductCount: number;
 }
 
 interface CategoryPageProductDetailsResult {
@@ -2021,11 +2027,95 @@ async function getCategoryPageShellData(
  */
 const CATEGORY_PAGE_PRODUCT_ID_CAP = 2000;
 
+type ActiveCategoryPageProductScope = Exclude<
+  CachedCategoryPageProductScope,
+  { kind: 'none' }
+>;
+
+/**
+ * Shared ordered-ID query builder for category/collection pages so the cached
+ * capped list, the exact head-count, and the beyond-cap window fetch all use
+ * identical filters and deterministic ordering (each branch orders by `id`
+ * last, so `.limit()`/`.range()` windows are stable).
+ */
+function buildCategoryPageProductIdsQuery(
+  supabase: ReturnType<typeof getPublicSupabaseClient>,
+  merchantId: string,
+  scope: ActiveCategoryPageProductScope,
+  selectOptions?: { count: 'exact'; head: boolean }
+) {
+  if (scope.kind === 'category') {
+    return supabase
+      .from('products')
+      .select('id, product_categories!inner(category_id)', selectOptions)
+      .eq('merchant_id', merchantId)
+      .eq('status', 'active')
+      .in('product_categories.category_id', scope.categoryIds)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true });
+  }
+
+  if (scope.kind === 'legacy') {
+    // Legacy fallback for category URLs that predate canonical category rows.
+    const sanitizedCategoryName = scope.categoryName.replace(/[,().]/g, '');
+    return supabase
+      .from('products')
+      .select('id', selectOptions)
+      .eq('merchant_id', merchantId)
+      .eq('status', 'active')
+      .or(
+        `category.ilike.%${sanitizedCategoryName}%,brand.ilike.%${sanitizedCategoryName}%,name.ilike.%${sanitizedCategoryName}%`
+      )
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true });
+  }
+
+  let query = supabase
+    .from('products')
+    .select('id', selectOptions)
+    .eq('merchant_id', merchantId)
+    .eq('status', 'active');
+
+  switch (scope.collectionSlug) {
+    case 'new-arrivals':
+      query = query
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: true });
+      break;
+    case 'best-sellers':
+      query = query
+        .order('rating', { ascending: false })
+        .order('id', { ascending: true });
+      break;
+    case 'on-sale':
+      query = query
+        .not('compare_at_price', 'is', null)
+        .order('updated_at', { ascending: false })
+        .order('id', { ascending: true });
+      break;
+    case 'featured':
+      query = query
+        .order('price', { ascending: false })
+        .order('id', { ascending: true });
+      break;
+  }
+
+  return query;
+}
+
+function extractCategoryPageProductIds(data: unknown): string[] {
+  return ((data || []) as Array<{ id?: string | null }>)
+    .map((product) => product.id)
+    .filter((id): id is string => Boolean(id));
+}
+
 /**
  * Local-cached ordered product IDs for category/collection pages.
  * IDs are compact and make the product detail fetch snapshot-safe: detail
  * chunks are keyed by stable ID slices, not shifting offset windows. The list
- * is capped (CATEGORY_PAGE_PRODUCT_ID_CAP) so the cache item stays bounded.
+ * is capped (CATEGORY_PAGE_PRODUCT_ID_CAP) so the cache item stays bounded;
+ * when it hits the cap, an exact head-count query keeps totalProductCount
+ * truthful so pagination past the cap does not 404 (PR4b review fix).
  */
 async function getCachedCategoryPageProductIds({
   merchantId,
@@ -2049,97 +2139,77 @@ async function getCachedCategoryPageProductIds({
   );
 
   if (scope.kind === 'none') {
-    return { productIds: [], productsQueryFailed: false };
+    return { productIds: [], productsQueryFailed: false, totalProductCount: 0 };
   }
 
   const supabase = getPublicSupabaseClient();
-  let productIds: string[] = [];
-  let productsError: unknown = null;
+  const { data, error } = await buildCategoryPageProductIdsQuery(
+    supabase,
+    merchantId,
+    scope
+  ).limit(CATEGORY_PAGE_PRODUCT_ID_CAP);
 
-  if (scope.kind === 'collection') {
-    let query = supabase
-      .from('products')
-      .select('id')
-      .eq('merchant_id', merchantId)
-      .eq('status', 'active');
+  if (error) {
+    throw error;
+  }
 
-    switch (scope.collectionSlug) {
-      case 'new-arrivals':
-        query = query
-          .order('created_at', { ascending: false })
-          .order('id', { ascending: true });
-        break;
-      case 'best-sellers':
-        query = query
-          .order('rating', { ascending: false })
-          .order('id', { ascending: true });
-        break;
-      case 'on-sale':
-        query = query
-          .not('compare_at_price', 'is', null)
-          .order('updated_at', { ascending: false })
-          .order('id', { ascending: true });
-        break;
-      case 'featured':
-        query = query
-          .order('price', { ascending: false })
-          .order('id', { ascending: true });
-        break;
+  const productIds = extractCategoryPageProductIds(data);
+
+  // The ID list is truncated at the cap, so the list length alone would
+  // understate totalPages and 404 valid deep pages. Only when the cap is hit
+  // does an exact count (head request — no rows) supply the real total.
+  let totalProductCount = productIds.length;
+  if (productIds.length === CATEGORY_PAGE_PRODUCT_ID_CAP) {
+    const { count, error: countError } = await buildCategoryPageProductIdsQuery(
+      supabase,
+      merchantId,
+      scope,
+      { count: 'exact', head: true }
+    );
+
+    if (countError) {
+      throw countError;
     }
 
-    const { data, error } = await query.limit(CATEGORY_PAGE_PRODUCT_ID_CAP);
-    productIds = ((data || []) as Array<{ id?: string | null }>)
-      .map((product) => product.id)
-      .filter((id): id is string => Boolean(id));
-    productsError = error;
+    totalProductCount = Math.max(count ?? productIds.length, productIds.length);
   }
 
-  if (scope.kind === 'category') {
-    const { data, error } = await supabase
-      .from('products')
-      .select('id, product_categories!inner(category_id)')
-      .eq('merchant_id', merchantId)
-      .eq('status', 'active')
-      .in('product_categories.category_id', scope.categoryIds)
-      .order('created_at', { ascending: false })
-      .order('id', { ascending: true })
-      .limit(CATEGORY_PAGE_PRODUCT_ID_CAP);
+  return { productIds, productsQueryFailed: false, totalProductCount };
+}
 
-    productIds = ((data || []) as Array<{ id?: string | null }>)
-      .map((product) => product.id)
-      .filter((id): id is string => Boolean(id));
-    productsError = error;
+/**
+ * Per-request ordered ID window for pages past the capped cached ID list.
+ * Rare tail path (only categories larger than CATEGORY_PAGE_PRODUCT_ID_CAP);
+ * uses the same deterministic ordering as the cached list, deliberately
+ * uncached so the bounded cache item stays the common-case fast path.
+ */
+async function fetchCategoryPageProductIdWindow({
+  merchantId,
+  scope,
+  from,
+  to,
+}: {
+  merchantId: string;
+  scope: CachedCategoryPageProductScope;
+  from: number;
+  to: number;
+}): Promise<string[]> {
+  if (scope.kind === 'none') {
+    return [];
   }
 
-  if (scope.kind === 'legacy') {
-    // Legacy fallback for category URLs that predate canonical category rows.
-    const sanitizedCategoryName = scope.categoryName.replace(/[,().]/g, '');
-    const { data, error } = await supabase
-      .from('products')
-      .select('id')
-      .eq('merchant_id', merchantId)
-      .eq('status', 'active')
-      .or(
-        `category.ilike.%${sanitizedCategoryName}%,brand.ilike.%${sanitizedCategoryName}%,name.ilike.%${sanitizedCategoryName}%`
-      )
-      .order('created_at', { ascending: false })
-      .order('id', { ascending: true })
-      .limit(CATEGORY_PAGE_PRODUCT_ID_CAP);
+  const supabase = getPublicSupabaseClient();
+  const { data, error } = await buildCategoryPageProductIdsQuery(
+    supabase,
+    merchantId,
+    scope
+  ).range(from, to);
 
-    productIds = ((data || []) as Array<{ id?: string | null }>)
-      .map((product) => product.id)
-      .filter((id): id is string => Boolean(id));
-    productsError = error;
+  if (error) {
+    throw error;
   }
 
-  if (productsError) {
-    throw productsError;
-  }
-
-  return {
-    productIds,
-    productsQueryFailed: Boolean(productsError),
-  };
+  return extractCategoryPageProductIds(data);
 }
 
 async function getCategoryPageProductIds({
@@ -2153,7 +2223,7 @@ async function getCategoryPageProductIds({
     return await getCachedCategoryPageProductIds({ merchantId, scope });
   } catch (error) {
     console.error('Product ID query failed outside cache:', error);
-    return { productIds: [], productsQueryFailed: true };
+    return { productIds: [], productsQueryFailed: true, totalProductCount: 0 };
   }
 }
 
@@ -2307,13 +2377,41 @@ async function getCachedCategoryPageProductsUncached({
     };
   }
 
-  const productWindow =
-    typeof productLimit === 'number' && productLimit > 0
-      ? idResult.productIds.slice(
-          productOffset ?? 0,
-          (productOffset ?? 0) + productLimit
-        )
-      : idResult.productIds;
+  const windowStart = productOffset ?? 0;
+  const hasBoundedWindow = typeof productLimit === 'number' && productLimit > 0;
+  let productWindow: string[];
+  let windowQueryFailed = false;
+
+  if (!hasBoundedWindow) {
+    productWindow = idResult.productIds;
+  } else if (
+    windowStart + productLimit <= idResult.productIds.length ||
+    idResult.totalProductCount <= idResult.productIds.length
+  ) {
+    // Common case: the cached (possibly capped) ID list fully covers the
+    // requested window, or the list is complete so an out-of-range slice is a
+    // genuinely out-of-range page.
+    productWindow = idResult.productIds.slice(
+      windowStart,
+      windowStart + productLimit
+    );
+  } else {
+    // Tail path (PR4b review fix): the window extends past the capped cached
+    // list while more products exist. Fetch exactly that window per-request so
+    // valid deep pages resolve instead of 404ing off the truncated list.
+    try {
+      productWindow = await fetchCategoryPageProductIdWindow({
+        merchantId,
+        scope,
+        from: windowStart,
+        to: windowStart + productLimit - 1,
+      });
+    } catch (error) {
+      console.error('Product ID window query failed outside cache:', error);
+      productWindow = [];
+      windowQueryFailed = true;
+    }
+  }
 
   const idChunks = Array.from(
     {
@@ -2344,8 +2442,10 @@ async function getCachedCategoryPageProductsUncached({
   );
 
   return {
-    productIdsQueryFailed: idResult.productsQueryFailed,
-    productCount: Math.max(0, idResult.productIds.length - missingProductCount),
+    productIdsQueryFailed: idResult.productsQueryFailed || windowQueryFailed,
+    // Exact scope size (head-count-backed past the cap), not the truncated
+    // cached list length — keeps totalPages truthful (PR4b review fix).
+    productCount: Math.max(0, idResult.totalProductCount - missingProductCount),
     productsArePrePaginated: Boolean(productLimit),
     products: productSlots.filter(
       (product): product is unknown => product !== null
@@ -2353,6 +2453,7 @@ async function getCachedCategoryPageProductsUncached({
     productSlots,
     productsQueryFailed:
       idResult.productsQueryFailed ||
+      windowQueryFailed ||
       detailChunks.some((chunk) => chunk.productsQueryFailed),
   };
 }
