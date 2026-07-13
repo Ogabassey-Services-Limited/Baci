@@ -1,21 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
 import { completeOrderGatewayPayment } from '@/lib/payments/complete-order-gateway-payment';
-import {
-  ensurePaidOrderInventoryConfirmed,
-  rollbackOrderStatusAfterInventoryConfirmationFailure,
-} from '@/lib/payments/ensure-paid-order-inventory-confirmed';
+import { confirmPaidOrderInventoryOrRollback } from '@/lib/payments/confirm-paid-order-inventory';
 import { fileBlockedOrderPaymentReview } from '@/lib/payments/file-blocked-order-payment-review';
-import { fileInventoryConfirmationFailureReview } from '@/lib/payments/file-inventory-confirmation-review';
-import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
 import { schedulePaidOrderNotifications } from '@/lib/payments/notify-paid-order';
 import { getOrderOutboxState } from '@/lib/payments/order-has-outbox-rows';
 import { toRichPaidOrder } from '@/lib/payments/paid-order-normalization';
-import {
-  PAID_ORDER_FETCH_FAILURE_REASON,
-  persistPaidOrderSideEffectRetry,
-} from '@/lib/payments/paid-order-retry-persistence';
+import { persistPaidOrderSideEffectRetry } from '@/lib/payments/paid-order-retry-persistence';
 import { PAID_ORDER_RICH_SELECT } from '@/lib/payments/paid-order-rich-select';
+import { persistPrePushRetryMarkers } from '@/lib/payments/persist-pre-push-retry-markers';
 import { runPaidOrderSideEffects } from '@/lib/payments/run-paid-order-side-effects';
 
 export type FinalizeOrderGatewayPaymentOutcome =
@@ -118,94 +111,57 @@ export async function finalizeOrderGatewayPayment({
     .single();
 
   if (orderFetchError || !order) {
-    // The order IS paid at this point but no side effects have run. Persist
-    // failed outbox rows so the reconcile cron's side-effect drain can find
-    // this order even after gateway redeliveries are exhausted (the wedge
-    // sweep itself only scans NOT-paid orders and would never see it).
+    // Order IS paid, side effects have not run: persist pre-push markers so
+    // the cron drain finds it even after redeliveries are exhausted (the
+    // wedge sweep only scans NOT-paid orders).
     if (wonTransactionFlip || completion.order_updated) {
-      try {
-        await persistPaidOrderSideEffectRetry({
-          error: orderFetchError,
-          orderId,
-          // Pre-push marker: the fetch failed BEFORE notifications were
-          // scheduled, so a replay still owes the merchant their push.
-          reason: PAID_ORDER_FETCH_FAILURE_REASON,
-          reference,
-          supabase,
-          transaction: { id: transaction.id },
-        });
-      } catch (persistError) {
-        logger.error({
-          error: persistError,
-          message:
-            'Failed to persist side-effect retry markers after paid-order fetch failure',
-          orderId,
-        });
-      }
+      await persistPrePushRetryMarkers({
+        error: orderFetchError,
+        logMessage: 'Paid order fetch failed after atomic completion',
+        orderId,
+        reference,
+        supabase,
+        transactionId: transaction.id,
+      });
     }
     return { error: orderFetchError, kind: 'order_fetch_failed' };
   }
 
-  try {
-    await ensurePaidOrderInventoryConfirmed(
-      supabase,
-      transaction.merchant_id,
-      orderId
-    );
-  } catch (inventoryError) {
-    logger.error({
-      error: inventoryError,
-      message: 'Failed to confirm inventory for paid order',
-      orderId,
-    });
-
-    if (completion.order_updated) {
-      try {
-        await rollbackOrderStatusAfterInventoryConfirmationFailure(
-          supabase,
-          transaction.merchant_id,
-          orderId,
-          {
-            payment_status: completion.previous_payment_status ?? 'pending',
-            shipping_status: completion.previous_shipping_status ?? 'pending',
-          }
-        );
-      } catch (rollbackError) {
-        await fileInventoryConfirmationFailureReview({
-          gatewayReference: transaction.gateway_reference ?? reference,
-          merchantId: transaction.merchant_id,
-          metadata: {
-            gateway,
-            inventoryError:
-              inventoryError instanceof Error
-                ? inventoryError.message
-                : inventoryError,
-            rollbackError:
-              rollbackError instanceof Error
-                ? rollbackError.message
-                : rollbackError,
-            source: 'gateway_payment_finalizer_inventory_rollback',
-          },
-          orderId,
-          reason:
-            'Gateway payment reached paid state, but serialized inventory confirmation and status rollback both failed.',
-          transactionId: transaction.id,
-        });
-        return { kind: 'inventory_cleanup_failed' };
-      }
-    }
-
-    const payload = buildInventoryConfirmationFailurePayload(inventoryError);
-    return {
-      kind: 'inventory_failed',
-      payload,
-      status: payload.code === 'serialized_inventory_unavailable' ? 409 : 500,
-    };
+  const inventoryOutcome = await confirmPaidOrderInventoryOrRollback({
+    gateway,
+    merchantId: transaction.merchant_id,
+    orderId,
+    orderWasUpdatedByThisCall: Boolean(completion.order_updated),
+    previousPaymentStatus: completion.previous_payment_status,
+    previousShippingStatus: completion.previous_shipping_status,
+    reference,
+    supabase,
+    transactionGatewayReference: transaction.gateway_reference,
+    transactionId: transaction.id,
+  });
+  if (inventoryOutcome.kind !== 'confirmed') {
+    return inventoryOutcome;
   }
 
-  const richOrder = toRichPaidOrder(order, {
-    merchantId: transaction.merchant_id,
-  });
+  let richOrder: ReturnType<typeof toRichPaidOrder>;
+  try {
+    richOrder = toRichPaidOrder(order, {
+      merchantId: transaction.merchant_id,
+    });
+  } catch (normalizationError) {
+    // Same recovery contract as a failed fetch.
+    if (wonTransactionFlip || completion.order_updated) {
+      await persistPrePushRetryMarkers({
+        error: normalizationError,
+        logMessage: 'Paid order payload failed normalization after completion',
+        orderId,
+        reference,
+        supabase,
+        transactionId: transaction.id,
+      });
+    }
+    return { error: normalizationError, kind: 'order_fetch_failed' };
+  }
 
   if (shouldNotify) {
     schedulePaidOrderNotifications({
@@ -242,6 +198,30 @@ export async function finalizeOrderGatewayPayment({
     };
   }
 
+  // A fresh capture on an order already paid through another channel owes
+  // ONLY the settlement of the newly captured funds — the customer already
+  // received their confirmation for the payment that flipped the order.
+  const settlementOnly =
+    !completion.already_completed &&
+    Boolean(completion.order_already_paid) &&
+    !completion.order_updated;
+
+  // While the outbox holds only FRESH pre-push evidence, the transitioning
+  // caller may still be running: draining now would consume the evidence
+  // and permanently suppress the merchant push. Defer to a later retry.
+  if (!shouldNotify && outboxState?.onlyFreshPrePushEvidence) {
+    logger.info({
+      message: 'Deferring side-effect drain while pre-push evidence is fresh',
+      orderId,
+      reference,
+    });
+    return {
+      healed,
+      kind: 'completed',
+      orderNumber: completion.order_number ?? null,
+    };
+  }
+
   try {
     const sideEffectsResult = await runPaidOrderSideEffects({
       actor,
@@ -250,6 +230,7 @@ export async function finalizeOrderGatewayPayment({
       order: richOrder,
       scheduleAfter,
       settlementGateway: gateway,
+      ...(settlementOnly ? { steps: ['merchant_settlement' as const] } : {}),
       supabase,
       transaction: {
         amount: transaction.amount,

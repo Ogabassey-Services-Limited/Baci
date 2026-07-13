@@ -859,6 +859,16 @@ export async function POST(request: NextRequest) {
         // Send confirmation email
         try {
           await sendOrderConfirmationEmail(order, payload);
+          // Marker only after the email actually dispatched; a failed email
+          // leaves it absent so a replay retries the send. (The push pair is
+          // an after()-task and stays best-effort either way.)
+          await markCreditDirectNotified(supabase, order.id, {
+            ...parsedNotes,
+            creditDirectNotificationsQueued: true,
+            merchantAmount,
+            merchantPaidAt: payload.timeStamp,
+            platformFee,
+          });
         } catch (emailError) {
           logger.warn({
             message: 'Failed to send confirmation email',
@@ -866,14 +876,6 @@ export async function POST(request: NextRequest) {
           });
           // Don't fail webhook for email errors
         }
-
-        await markCreditDirectNotified(supabase, order.id, {
-          ...parsedNotes,
-          creditDirectNotificationsQueued: true,
-          merchantAmount,
-          merchantPaidAt: payload.timeStamp,
-          platformFee,
-        });
 
         logger.info({
           message: 'Credit Direct merchant payment completed',
@@ -997,13 +999,15 @@ async function healPaidCreditDirectOrderReplay({
     );
     try {
       await sendOrderConfirmationEmail(order, payload);
+      // Marker only after the email actually dispatched; a failed email
+      // leaves it absent so the next replay retries the send.
+      await markCreditDirectNotified(supabase, order.id, parsedNotes);
     } catch (emailError) {
       logger.warn({
         message: 'Failed to send confirmation email',
         error: emailError,
       });
     }
-    await markCreditDirectNotified(supabase, order.id, parsedNotes);
   } else if (healedTransactionRow) {
     logger.info({
       message:

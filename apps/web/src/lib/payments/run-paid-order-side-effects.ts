@@ -100,18 +100,31 @@ export async function runPaidOrderSideEffects(
     args.transaction.merchant_id
   );
 
+  const executors: Parameters<
+    typeof applyPaidOrderSideEffects
+  >[0]['executors'] = {
+    ad_tracking_conversion: buildAdTrackingExecutor(args),
+    merchant_settlement: buildSettlementExecutor(args),
+    paid_email: buildEmailExecutor({
+      actor: args.actor,
+      merchantDetails: merchant.data,
+      merchantFetchError: merchant.error,
+      order: args.order,
+    }),
+  };
+  if (args.steps) {
+    for (const step of Object.keys(executors) as Array<
+      keyof typeof executors
+    >) {
+      if (!args.steps.includes(step)) {
+        delete executors[step];
+      }
+    }
+  }
+
   return applyPaidOrderSideEffects({
     actor: args.actor,
-    executors: {
-      ad_tracking_conversion: buildAdTrackingExecutor(args),
-      merchant_settlement: buildSettlementExecutor(args),
-      paid_email: buildEmailExecutor({
-        actor: args.actor,
-        merchantDetails: merchant.data,
-        merchantFetchError: merchant.error,
-        order: args.order,
-      }),
-    },
+    executors,
     gatewayResponse: args.gatewayResponse,
     order: toPaidOrder(args.order),
     supabase: args.supabase,

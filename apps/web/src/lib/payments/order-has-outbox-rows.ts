@@ -16,6 +16,10 @@ export interface OrderOutboxState {
   // transitioning caller — so the (claim-less) push notifications were
   // never sent and are owed.
   onlyUntouchedSeed: boolean;
+  // Same evidence, but still within the overlap window: the transitioning
+  // caller may still be running. Draining now would consume the evidence
+  // and suppress push forever — callers defer instead.
+  onlyFreshPrePushEvidence: boolean;
 }
 
 export async function getOrderOutboxState(
@@ -30,12 +34,16 @@ export async function getOrderOutboxState(
   if (error) {
     // Fail toward draining without re-notifying: claims still dedupe
     // genuinely completed steps.
-    return { hasRows: true, onlyUntouchedSeed: false };
+    return {
+      hasRows: true,
+      onlyFreshPrePushEvidence: false,
+      onlyUntouchedSeed: false,
+    };
   }
   const rows = data ?? [];
   const hasRows = rows.length > 0;
   const seedCutoff = Date.now() - SEED_OVERLAP_WINDOW_MS;
-  const onlyUntouchedSeed =
+  const allPrePushEvidence =
     hasRows &&
     rows.every((row) => {
       if (row.status !== 'failed') {
@@ -47,16 +55,21 @@ export async function getOrderOutboxState(
           : undefined;
       // Pre-push evidence: the RPC's untouched seed, or the markers written
       // when the paid-order fetch failed before push was scheduled.
-      const isPrePushEvidence =
-        row.error === 'rpc_seed_pending_drain' ||
-        resultReason === PAID_ORDER_FETCH_FAILURE_REASON;
-      if (!isPrePushEvidence) {
-        return false;
-      }
       return (
-        typeof row.claimed_at !== 'string' ||
-        new Date(row.claimed_at).getTime() < seedCutoff
+        row.error === 'rpc_seed_pending_drain' ||
+        resultReason === PAID_ORDER_FETCH_FAILURE_REASON
       );
     });
-  return { hasRows, onlyUntouchedSeed };
+  const allAged =
+    allPrePushEvidence &&
+    rows.every(
+      (row) =>
+        typeof row.claimed_at !== 'string' ||
+        new Date(row.claimed_at).getTime() < seedCutoff
+    );
+  return {
+    hasRows,
+    onlyFreshPrePushEvidence: allPrePushEvidence && !allAged,
+    onlyUntouchedSeed: allAged,
+  };
 }
