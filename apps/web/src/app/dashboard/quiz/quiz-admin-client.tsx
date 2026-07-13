@@ -114,6 +114,11 @@ export function QuizAdminClient({
     setActivationError(null);
     setIsActivating(true);
 
+    // No close deadline is sent from here: this form only generates PRODUCT-prize
+    // drafts (see /api/merchant/quiz/generate), and activation deliberately
+    // ignores a deadline on non-ranked events (the winner-mint cron skips them, so
+    // an ends_at would strand the quiz open-but-unstartable). Ranked-prize quizzes
+    // are activated through the API with an explicit endsAt, which is required.
     activateQuizEvent(activatingEventId, answerKeyReview)
       .then((data) => {
         setResult((current) =>

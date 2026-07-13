@@ -44,7 +44,8 @@ export async function POST(request: NextRequest) {
     const alreadyActivatedEvent = await activateMerchantQuizDraft(
       context.supabase,
       parsed.data.eventId,
-      context.merchantId
+      context.merchantId,
+      parsed.data.endsAt ?? null
     );
     if (alreadyActivatedEvent) {
       return NextResponse.json(
@@ -65,7 +66,8 @@ export async function POST(request: NextRequest) {
   const activatedEvent = await activateMerchantQuizDraft(
     context.supabase,
     parsed.data.eventId,
-    context.merchantId
+    context.merchantId,
+    parsed.data.endsAt ?? null
   );
   if (!activatedEvent) {
     return NextResponse.json(
