@@ -117,7 +117,7 @@ describe('reconcileWedgedGatewayOrders', () => {
     ]);
   });
 
-  it('skips a candidate the gateway does not confirm as success', async () => {
+  it('files a review and retires a candidate the gateway verifies as not-success', async () => {
     const supabase = buildSupabase({ data: [wedgedCandidate] });
     mocks.verifyPaystackPayment.mockResolvedValue({
       data: { amount: 5829060, currency: 'NGN', status: 'abandoned' },
@@ -130,9 +130,39 @@ describe('reconcileWedgedGatewayOrders', () => {
     });
 
     expect(summary.skipped).toEqual([
-      { reason: 'paystack_verification_not_success', transactionId: 'txn-1' },
+      { reason: 'gateway_status_not_success', transactionId: 'txn-1' },
     ]);
     expect(mocks.finalizeOrderGatewayPayment).not.toHaveBeenCalled();
+    // Definitive discrepancy: retired from the batch, never silently.
+    expect(supabase.stampUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          wedge_sweep_resolution: 'gateway_verification_negative',
+        }),
+      })
+    );
+  });
+
+  it('keeps retrying a candidate when gateway verification is unavailable', async () => {
+    const supabase = buildSupabase({ data: [wedgedCandidate] });
+    mocks.verifyPaystackPayment.mockResolvedValue({
+      error: 'network down',
+      success: false,
+    });
+
+    const summary = await reconcileWedgedGatewayOrders({
+      scheduleAfter,
+      supabase,
+    });
+
+    expect(summary.skipped).toEqual([
+      {
+        reason: 'paystack_verification_unavailable',
+        transactionId: 'txn-1',
+      },
+    ]);
+    // Transient: no stamp, the next hourly run retries it.
+    expect(supabase.stampUpdate).not.toHaveBeenCalled();
   });
 
   it('skips on gateway/db amount mismatch instead of healing', async () => {

@@ -1,15 +1,15 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
 import { finalizeOrderGatewayPayment } from '@/lib/payments/finalize-order-gateway-payment';
 import { handlePaymentForCancelledOrder } from '@/lib/payments/handle-payment-for-cancelled-order';
-import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
+import {
+  isHealableGateway,
+  verifyGatewayCharge,
+} from '@/lib/payments/verify-gateway-charge';
 
-// Sweep for "wedged" gateway order payments: the transaction row is
-// completed (money confirmed) but the order never flipped to paid — the
-// state the July 2026 incident (ORD-260711-00NT-5) sat in for two days.
-// Heals paystack/korapay after re-verifying with the gateway; other
-// gateways are surfaced loudly for manual reconciliation.
+// Wedged gateway payments (completed transaction, order never flipped —
+// the ORD-260711-00NT-5 state): heal paystack/korapay after re-verifying;
+// every terminal outcome files a review and stamps the row once.
 
 const AMOUNT_TOLERANCE_MAJOR_UNITS = 0.01;
 const DEFAULT_LIMIT = 10;
@@ -37,8 +37,7 @@ type WedgedCandidate = {
   metadata: Record<string, unknown> | null;
 };
 
-// Terminal sweep outcomes are stamped onto the transaction so the hourly
-// query never recycles them (and unhealable rows cannot starve the batch).
+// Terminal outcomes are stamped so the hourly query never recycles them.
 async function stampWedgeResolution(
   supabase: SupabaseClient,
   candidate: WedgedCandidate,
@@ -62,52 +61,6 @@ async function stampWedgeResolution(
       transactionId: candidate.id,
     });
   }
-}
-
-const HEALABLE_GATEWAYS = ['paystack', 'korapay'] as const;
-type HealableGateway = (typeof HEALABLE_GATEWAYS)[number];
-
-function isHealableGateway(gateway: string): gateway is HealableGateway {
-  return (HEALABLE_GATEWAYS as readonly string[]).includes(gateway);
-}
-
-async function verifyGatewayCharge(
-  gateway: HealableGateway,
-  reference: string
-): Promise<
-  | {
-      ok: true;
-      amount: number;
-      currency?: string;
-      response: Record<string, unknown>;
-    }
-  | { ok: false; reason: string }
-> {
-  if (gateway === 'paystack') {
-    const result = await verifyPaystackPayment(reference);
-    if (!result.success || result.data.status !== 'success') {
-      return { ok: false, reason: 'paystack_verification_not_success' };
-    }
-    return {
-      amount: result.data.amount / 100,
-      currency: result.data.currency,
-      ok: true,
-      response: result.data as unknown as Record<string, unknown>,
-    };
-  }
-  if (gateway === 'korapay') {
-    const result = await verifyKorapayPayment(reference);
-    if (!result.success || result.data.status !== 'success') {
-      return { ok: false, reason: 'korapay_verification_not_success' };
-    }
-    return {
-      amount: result.data.amount,
-      currency: result.data.currency,
-      ok: true,
-      response: result.data as unknown as Record<string, unknown>,
-    };
-  }
-  return { ok: false, reason: 'unhealable_gateway' };
 }
 
 export async function reconcileWedgedGatewayOrders({
@@ -187,6 +140,16 @@ export async function reconcileWedgedGatewayOrders({
           gateway: candidate.gateway,
           transactionId: candidate.id,
         });
+        // Durable ops item before the row retires from the hourly batch —
+        // the money is captured but the order never flipped, and the sweep
+        // cannot re-verify this gateway to heal it automatically.
+        await handlePaymentForCancelledOrder({
+          gatewayReference: candidate.gateway_reference,
+          issueType: 'payment_match_ambiguous',
+          order: { id: candidate.order_id },
+          reason: `Wedge sweep: completed ${candidate.gateway} transaction with an unpaid order cannot be auto-verified; manual reconciliation required (reference ${candidate.gateway_reference})`,
+          transactionId: candidate.id,
+        });
         await stampWedgeResolution(
           supabase,
           candidate,
@@ -205,6 +168,25 @@ export async function reconcileWedgedGatewayOrders({
           reason: verification.reason,
           transactionId: candidate.id,
         });
+        if (verification.reason === 'gateway_status_not_success') {
+          // We recorded this transaction as completed, but the gateway now
+          // says the charge did not succeed — a definitive, permanent
+          // discrepancy: file it for ops and retire the row.
+          await handlePaymentForCancelledOrder({
+            gatewayReference: candidate.gateway_reference,
+            issueType: 'payment_match_ambiguous',
+            order: { id: candidate.order_id },
+            reason: `Wedge sweep: ${candidate.gateway} verifies reference ${candidate.gateway_reference} as '${verification.gatewayStatus ?? 'unknown'}' although our transaction is completed`,
+            transactionId: candidate.id,
+          });
+          await stampWedgeResolution(
+            supabase,
+            candidate,
+            'gateway_verification_negative'
+          );
+        }
+        // Transient verification-unavailable failures stay unstamped and
+        // retry on the next run.
         continue;
       }
 
