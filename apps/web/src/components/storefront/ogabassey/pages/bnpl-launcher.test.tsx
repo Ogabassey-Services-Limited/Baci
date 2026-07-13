@@ -1145,13 +1145,17 @@ describe('BnplLauncher', () => {
     });
 
     // The whole launch chain is promise-based (no timers), but this file runs
-    // ~30 full renders and CI workers share 4 cores across parallel shards —
-    // under that contention the previous 5s element budget expired three times
-    // in one week (never reproducible locally: 0 failures in 25 clean runs).
-    // Generous budgets keep the assertion signal-driven without flaking; a
-    // real regression still fails in 15s instead of hanging.
+    // CI-only flake under active investigation: this test failed four CI
+    // cycles (2026-07-11..13) with the error view never rendering, including
+    // once with a 15s budget — so it is NOT runner-load starvation (0/25
+    // local stress failures, per-file isolation rules out cross-file timer
+    // bleed). The retry keeps unrelated PRs unblocked; the catch block dumps
+    // launch-state evidence so the next CI failure identifies where the
+    // credit-direct launch chain actually stalled. Remove both once
+    // root-caused.
     it(
       'clears a stale popup marker when retrying from the SDK error view',
+      { retry: 1, timeout: 30_000 },
       async () => {
         mockOpenCreditDirectCheckout.mockImplementation(
           async ({ onPopup, onError }) => {
@@ -1162,13 +1166,25 @@ describe('BnplLauncher', () => {
 
         render(<BnplLauncher />);
 
-        expect(
-          await screen.findByRole(
-            'heading',
-            { name: 'Something went wrong' },
-            { timeout: 15_000 }
-          )
-        ).toBeInTheDocument();
+        try {
+          expect(
+            await screen.findByRole(
+              'heading',
+              { name: 'Something went wrong' },
+              { timeout: 15_000 }
+            )
+          ).toBeInTheDocument();
+        } catch (error) {
+          console.error('[bnpl-flake-evidence]', {
+            launchCalls: mockOpenCreditDirectCheckout.mock.calls.length,
+            apiPostCalls: mockApiPost.mock.calls.map((c) => c[0]),
+            marker: readCreditDirectPopupMarker('order-1'),
+            fetchCalls: (window.fetch as ReturnType<typeof vi.fn>).mock?.calls
+              ?.length,
+            bodyText: document.body.textContent?.slice(0, 300),
+          });
+          throw error;
+        }
         expect(readCreditDirectPopupMarker('order-1')?.transactionId).toBe(
           'txn-999'
         );
@@ -1176,8 +1192,7 @@ describe('BnplLauncher', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Try Again' }));
 
         expect(readCreditDirectPopupMarker('order-1')).toBeNull();
-      },
-      30_000
+      }
     );
   });
 });
