@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { buildRelationDeltas } from './postgres-baseline-delta-relations.mjs';
+import { createFingerprint } from './postgres-baseline-fingerprint.mjs';
+
+const fingerprint = createFingerprint(
+  Buffer.from('baseline-fingerprint-key-material-32-bytes')
+);
 
 function table(overrides = {}) {
   return {
@@ -73,7 +78,8 @@ describe('buildRelationDeltas', () => {
             total_bytes: '3300',
           }),
         ],
-      })
+      }),
+      fingerprint
     );
 
     expect(result.tables).toMatchObject([
@@ -124,6 +130,8 @@ describe('buildRelationDeltas', () => {
       /index.*disappeared/i,
     ],
   ])('rejects a %s identity change inside a measured interval', (_kind, after, expected) => {
-    expect(() => buildRelationDeltas(snapshot(), after)).toThrow(expected);
+    expect(() => buildRelationDeltas(snapshot(), after, fingerprint)).toThrow(
+      expected
+    );
   });
 });

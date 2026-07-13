@@ -3,6 +3,7 @@ import { buildOperationalDeltas } from './postgres-baseline-delta-operational.mj
 import { buildRelationDeltas } from './postgres-baseline-delta-relations.mjs';
 import { validateIntervalSafety } from './postgres-baseline-delta-safety.mjs';
 import { buildStatementDeltas } from './postgres-baseline-delta-statements.mjs';
+import { createFingerprint } from './postgres-baseline-fingerprint.mjs';
 
 const DATABASE_COUNTERS = [
   'xact_commit',
@@ -149,6 +150,7 @@ export function createPostgresBaselineDelta({
   beforeArtifact,
   beforeRaw,
   deployedSha,
+  fingerprintKey,
 }) {
   if (!/^[a-f0-9]{40}$/i.test(deployedSha ?? '')) {
     throw new Error('deployedSha must be a 40-character Git commit SHA');
@@ -163,6 +165,7 @@ export function createPostgresBaselineDelta({
   }
   if (beforeArtifact.equals(afterArtifact))
     throw new Error('encrypted artifacts must be distinct');
+  const fingerprint = createFingerprint(fingerprintKey);
   const before = parseSnapshot(beforeRaw, 'before');
   const after = parseSnapshot(afterRaw, 'after');
   const start = timestamp(before.captured_at, 'before.captured_at');
@@ -220,9 +223,9 @@ export function createPostgresBaselineDelta({
       delta: walDelta,
       per_day_exact: exactDailyRates(walDelta, durationMilliseconds, new Set()),
     },
-    statement_deltas: buildStatementDeltas(before, after),
-    relation_deltas: buildRelationDeltas(before, after),
-    operational_deltas: buildOperationalDeltas(before, after),
+    statement_deltas: buildStatementDeltas(before, after, fingerprint),
+    relation_deltas: buildRelationDeltas(before, after, fingerprint),
+    operational_deltas: buildOperationalDeltas(before, after, fingerprint),
     client_telemetry: {
       included: false,
       required_for: ['p50', 'p95', 'p99', 'errors', 'timeouts', 'throughput'],

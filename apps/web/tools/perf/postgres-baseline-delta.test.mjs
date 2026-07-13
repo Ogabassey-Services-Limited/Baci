@@ -282,6 +282,18 @@ describe('createPostgresBaselineDelta', () => {
     ).toThrow(/encrypted artifact pair/i);
   });
 
+  it('requires a private HMAC key before it emits pseudonymous identifiers', () => {
+    expect(() =>
+      createPostgresBaselineDelta({
+        afterArtifact: Buffer.from('encrypted-after'),
+        afterRaw: raw(snapshot({ captured_at: END })),
+        beforeArtifact: Buffer.from('encrypted-before'),
+        beforeRaw: raw(snapshot()),
+        deployedSha: 'f'.repeat(40),
+      })
+    ).toThrow(/fingerprint key/i);
+  });
+
   it('marks client percentiles and errors as separately collected evidence', () => {
     const result = createDelta({
       afterRaw: raw(snapshot({ captured_at: END })),

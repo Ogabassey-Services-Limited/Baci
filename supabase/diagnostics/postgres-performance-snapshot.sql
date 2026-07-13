@@ -4,6 +4,15 @@
 
 BEGIN;
 SET TRANSACTION READ ONLY;
+DO $$
+BEGIN
+  IF current_setting('server_version_num')::integer NOT BETWEEN 170000 AND 179999 THEN
+    RAISE EXCEPTION
+      'postgres-performance-snapshot.sql requires PostgreSQL 17; detected %',
+      current_setting('server_version');
+  END IF;
+END
+$$;
 SET LOCAL statement_timeout = '120s';
 SET LOCAL lock_timeout = '5s';
 SET LOCAL timezone = 'UTC';

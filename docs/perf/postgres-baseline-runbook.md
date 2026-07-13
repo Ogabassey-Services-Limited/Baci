@@ -3,6 +3,9 @@
 This runbook creates a reset-safe PostgreSQL 17 evidence window after a database
 performance change. It does not reset production statistics, perform an engine
 upgrade, or manufacture a baseline from cumulative data that spans releases.
+The snapshot intentionally rejects PostgreSQL 18 and later: capture this
+pre-upgrade PostgreSQL 17 window before the platform upgrade, then use a
+separately reviewed PostgreSQL 18 export for post-upgrade evidence.
 
 ## Evidence lanes
 
@@ -64,6 +67,19 @@ storage, use restrictive permissions, and delete plaintext after verification.
 umask 077
 CAPTURE_DIR="$(mktemp -d)"
 DEPLOYED_SHA='<exact-40-character-live-deployment-sha>'
+FINGERPRINT_KEY='/secure/evidence/postgres-baseline-fingerprint-hmac.key'
+```
+
+The fingerprint key is a private binary HMAC key of at least 32 bytes. Create
+it once in approved encrypted storage if it does not already exist, restrict it
+to the evidence operators, and reuse that same key only for summaries that must
+remain correlatable. Never add it to the repository, an artifact manifest, or a
+sanitized summary.
+
+```bash
+# Run only when initializing a new approved comparison key.
+openssl rand -out "$FINGERPRINT_KEY" 32
+chmod 600 "$FINGERPRINT_KEY"
 ```
 
 For each capture, create a platform manifest in that private directory containing:
@@ -149,6 +165,7 @@ node apps/web/tools/perf/postgres-baseline-delta.mjs \
   --before-artifact '/secure/evidence/t-plus-1h-postgres-baseline.tar.age' \
   --after-artifact '/secure/evidence/t-plus-24h-postgres-baseline.tar.age' \
   --deployed-sha "$DEPLOYED_SHA" \
+  --fingerprint-key-file "$FINGERPRINT_KEY" \
   --out '/secure/evidence/postgres-baseline-t1h-t24h-summary.json'
 ```
 
@@ -160,10 +177,11 @@ hashes are audit pointers, not proof that a ciphertext contains a given snapshot
 verify each bundle's contents before deleting plaintext or publishing the summary.
 The summary uses an allowlist and excludes raw query text, role/database names,
 application names, platform secrets, and client telemetry. It retains normalized
-statement-shape fingerprints with plan-only work and shared/local/temporary I/O
-timings; deterministic table/index fingerprints with activity and
-before/after/delta gauges; deterministic I/O, connection, lock, and cron
-context fingerprints with allowlisted deltas or comparisons; exact integer
+statement-shape HMAC-SHA-256 fingerprints with plan-only work and
+shared/local/temporary I/O timings; deterministic table/index HMAC-SHA-256
+fingerprints with activity and before/after/delta gauges; deterministic I/O,
+connection, lock, and cron HMAC-SHA-256 context fingerprints with allowlisted
+deltas or comparisons; exact integer
 deltas as strings; exact per-day integer rates as integer or rational strings;
 approximate per-day timing rates; reset boundaries; server build; and
 encrypted-artifact SHA-256 hashes. Each artifact hash is explicitly labelled
@@ -177,10 +195,10 @@ separate before/after values, never as an interval delta; only cumulative
 database, WAL, statement, relation, and I/O counters support delta math.
 
 Statement fingerprints are derived from normalized statement shape plus stable
-role/database context; engine-generated statement IDs are not read or used as
-comparison keys. A fingerprint is an interval correlation key, not a permanent
-business-operation name. Map it to a reviewed operation label using the encrypted
-raw export, especially for PostgreSQL 17-versus-18 replay.
+role/database context using the private HMAC key; engine-generated statement IDs
+are not read or used as comparison keys. A fingerprint is an interval correlation
+key, not a permanent business-operation name. Map it to a reviewed operation label
+using the encrypted raw export, especially for PostgreSQL 17-versus-18 replay.
 
 ## Automatic rejection conditions
 
@@ -204,6 +222,8 @@ summary when any of these conditions is observed:
 - the statements array, stable statement context, required boundary, or counter
   data is missing or malformed;
 - either encrypted evidence artifact is missing or empty.
+- the private fingerprint HMAC key is missing, not binary data, or shorter than
+  32 bytes.
 
 An unchanged `null` `pg_stat_database.stats_reset` is valid when the postmaster
 start time is also unchanged. A transition from `null` to a timestamp is a reset

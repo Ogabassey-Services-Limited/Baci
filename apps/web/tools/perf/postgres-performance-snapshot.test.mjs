@@ -27,6 +27,15 @@ describe('postgres performance snapshot', () => {
     expect(sql).not.toMatch(/pg_stat_statements_reset\s*\(/i);
   });
 
+  it('fails explicitly before PostgreSQL 18 reaches the PostgreSQL 17 I/O contract', async () => {
+    const sql = await readFile(sqlPath, 'utf8');
+
+    expect(sql).toMatch(
+      /DO \$\$[\s\S]*server_version_num[\s\S]*BETWEEN 170000 AND 179999/i
+    );
+    expect(sql).toMatch(/requires PostgreSQL 17/i);
+  });
+
   it('captures cumulative counters as text and keeps queryid out of the contract', async () => {
     const sql = await readFile(sqlPath, 'utf8');
 

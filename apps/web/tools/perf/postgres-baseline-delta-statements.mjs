@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-
 const COUNTERS = [
   'calls',
   'plans',
@@ -45,7 +43,7 @@ function normalizedQuery(statement, label) {
   return requiredString(statement, 'query', label).trim().replace(/\s+/g, ' ');
 }
 
-function statementFingerprint(statement, label) {
+function statementFingerprint(statement, label, fingerprint) {
   const databaseName = requiredString(statement, 'database_name', label);
   const roleName = requiredString(statement, 'role_name', label);
   if (typeof statement.toplevel !== 'boolean') {
@@ -57,7 +55,7 @@ function statementFingerprint(statement, label) {
     statement.toplevel ? 'top' : 'nested',
     normalizedQuery(statement, label),
   ].join('\u001f');
-  return createHash('sha256').update(shape).digest('hex');
+  return fingerprint(shape);
 }
 
 function parseBoundary(statement, label) {
@@ -107,14 +105,14 @@ function addStatement(group, statement, label) {
   }
 }
 
-function statementGroups(snapshot, label) {
+function statementGroups(snapshot, label, fingerprint) {
   if (!Array.isArray(snapshot.statements)) {
     throw new Error(`${label}.statements must be an array`);
   }
   const groups = new Map();
   snapshot.statements.forEach((statement, index) => {
     const entryLabel = `${label}.statements[${index}]`;
-    const key = statementFingerprint(statement, entryLabel);
+    const key = statementFingerprint(statement, entryLabel, fingerprint);
     const group = groups.get(key) ?? {
       boundaries: [],
       totals: emptyTotals(),
@@ -217,7 +215,10 @@ function resultRow(key, delta) {
   };
 }
 
-export function buildStatementDeltas(before, after) {
+export function buildStatementDeltas(before, after, fingerprint) {
+  if (typeof fingerprint !== 'function') {
+    throw new Error('fingerprint must be a keyed function');
+  }
   const intervalStart =
     typeof before.captured_at === 'string'
       ? Date.parse(before.captured_at)
@@ -229,8 +230,8 @@ export function buildStatementDeltas(before, after) {
   if (!Number.isFinite(intervalStart) || !Number.isFinite(intervalEnd)) {
     throw new Error('captured_at must be an ISO timestamp on both snapshots');
   }
-  const beforeByShape = statementGroups(before, 'before');
-  const afterByShape = statementGroups(after, 'after');
+  const beforeByShape = statementGroups(before, 'before', fingerprint);
+  const afterByShape = statementGroups(after, 'after', fingerprint);
 
   for (const key of beforeByShape.keys()) {
     if (!afterByShape.has(key)) {

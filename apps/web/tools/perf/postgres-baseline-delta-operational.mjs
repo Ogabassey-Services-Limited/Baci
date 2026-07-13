@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-
 const IO_COUNTERS = [
   'reads',
   'writes',
@@ -17,10 +15,6 @@ const IO_TIMINGS = [
   'extend_time',
   'fsync_time',
 ];
-
-function fingerprint(value) {
-  return createHash('sha256').update(value).digest('hex');
-}
 
 function requiredString(value, label) {
   if (typeof value !== 'string' || value.trim() === '') {
@@ -154,7 +148,7 @@ function rollingGauge(before, after, field, beforeLabel, afterLabel) {
   };
 }
 
-function gaugeRows(before, after, field, label, identity) {
+function gaugeRows(before, after, field, label, identity, fingerprint) {
   const beforeRows = keyedRows(before, field, 'before', identity);
   const afterRows = keyedRows(after, field, 'after', identity);
   const keys = new Set([...beforeRows.keys(), ...afterRows.keys()]);
@@ -199,7 +193,10 @@ function cronRuns(snapshot, label) {
   return mapped;
 }
 
-export function buildOperationalDeltas(before, after) {
+export function buildOperationalDeltas(before, after, fingerprint) {
+  if (typeof fingerprint !== 'function') {
+    throw new Error('fingerprint must be a keyed function');
+  }
   const beforeIo = keyedRows(before, 'io', 'before', ioIdentity);
   const afterIo = keyedRows(after, 'io', 'after', ioIdentity);
   const beforeJobs = cronJobs(before, 'before');
@@ -239,9 +236,17 @@ export function buildOperationalDeltas(before, after) {
       after,
       'connections',
       'connections',
-      connectionIdentity
+      connectionIdentity,
+      fingerprint
     ),
-    locks: gaugeRows(before, after, 'locks', 'locks', lockIdentity),
+    locks: gaugeRows(
+      before,
+      after,
+      'locks',
+      'locks',
+      lockIdentity,
+      fingerprint
+    ),
     cron: {
       jobs: {
         active: gauge(

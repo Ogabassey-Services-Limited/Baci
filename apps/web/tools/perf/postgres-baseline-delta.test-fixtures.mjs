@@ -6,6 +6,7 @@ const END = '2026-07-14T08:00:00.000Z';
 const DEFAULT_ARTIFACTS = {
   afterArtifact: Buffer.from('default-age-encrypted-after'),
   beforeArtifact: Buffer.from('default-age-encrypted-before'),
+  fingerprintKey: Buffer.from('baseline-fingerprint-key-material-32-bytes'),
 };
 
 function statement(overrides = {}) {

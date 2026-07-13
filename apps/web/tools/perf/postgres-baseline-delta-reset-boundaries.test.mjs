@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import fixtures from './postgres-baseline-delta.test-fixtures.mjs';
 import { buildStatementDeltas } from './postgres-baseline-delta-statements.mjs';
+import { createFingerprint } from './postgres-baseline-fingerprint.mjs';
 
 const { END, createDelta, raw, snapshot, statement } = fixtures;
+const fingerprint = createFingerprint(
+  Buffer.from('baseline-fingerprint-key-material-32-bytes')
+);
 
 describe('postgres baseline reset boundary validation', () => {
   it.each([
@@ -48,7 +52,7 @@ describe('postgres baseline reset boundary validation', () => {
     const selected = side === 'before' ? before : after;
     selected.captured_at = invalid;
 
-    expect(() => buildStatementDeltas(before, after)).toThrow(
+    expect(() => buildStatementDeltas(before, after, fingerprint)).toThrow(
       /captured_at.*ISO timestamp/i
     );
   });
@@ -80,7 +84,7 @@ describe('postgres baseline reset boundary validation', () => {
     const before = snapshot({ statements: [statement()] });
     const after = snapshot({ captured_at: END, statements: [] });
 
-    expect(() => buildStatementDeltas(before, after)).toThrow(
+    expect(() => buildStatementDeltas(before, after, fingerprint)).toThrow(
       /disappeared; interval cannot produce a complete delta/i
     );
   });

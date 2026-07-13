@@ -6,6 +6,16 @@ import { createPostgresBaselineDelta } from './postgres-baseline-delta-core.mjs'
 
 export { createPostgresBaselineDelta };
 
+const ALLOWED_OPTIONS = new Set([
+  'before',
+  'after',
+  'before-artifact',
+  'after-artifact',
+  'deployed-sha',
+  'fingerprint-key-file',
+  'out',
+]);
+
 function cliOptions(argv) {
   const options = new Map();
   for (let index = 0; index < argv.length; index += 2) {
@@ -14,7 +24,14 @@ function cliOptions(argv) {
     if (!key?.startsWith('--') || value === undefined) {
       throw new Error('arguments must be --name value pairs');
     }
-    options.set(key.slice(2), value);
+    const name = key.slice(2);
+    if (!ALLOWED_OPTIONS.has(name)) {
+      throw new Error(`unknown option: --${name}`);
+    }
+    if (options.has(name)) {
+      throw new Error(`--${name} may only be provided once`);
+    }
+    options.set(name, value);
   }
   return options;
 }
@@ -27,15 +44,17 @@ async function run() {
     'before-artifact',
     'after-artifact',
     'deployed-sha',
+    'fingerprint-key-file',
   ]) {
     if (!options.has(required)) throw new Error(`--${required} is required`);
   }
-  const [beforeRaw, afterRaw, beforeArtifact, afterArtifact] =
+  const [beforeRaw, afterRaw, beforeArtifact, afterArtifact, fingerprintKey] =
     await Promise.all([
       readFile(options.get('before')),
       readFile(options.get('after')),
       readFile(options.get('before-artifact')),
       readFile(options.get('after-artifact')),
+      readFile(options.get('fingerprint-key-file')),
     ]);
   const result = createPostgresBaselineDelta({
     beforeRaw,
@@ -43,6 +62,7 @@ async function run() {
     beforeArtifact,
     afterArtifact,
     deployedSha: options.get('deployed-sha'),
+    fingerprintKey,
   });
   const output = `${JSON.stringify(result, null, 2)}\n`;
   const outputPath = options.get('out');

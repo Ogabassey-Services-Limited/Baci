@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-
 const TABLE_ACTIVITY_COUNTERS = [
   'seq_scan',
   'seq_tup_read',
@@ -23,10 +21,6 @@ const TABLE_GAUGES = [
 ];
 const INDEX_ACTIVITY_COUNTERS = ['idx_scan', 'idx_tup_read', 'idx_tup_fetch'];
 const INDEX_SIZE = ['index_bytes'];
-
-function fingerprint(value) {
-  return createHash('sha256').update(value).digest('hex');
-}
 
 function requiredString(value, label) {
   if (typeof value !== 'string' || value.trim() === '') {
@@ -128,7 +122,10 @@ function gaugeSummary(before, after, fields, beforeLabel, afterLabel) {
   };
 }
 
-export function buildRelationDeltas(before, after) {
+export function buildRelationDeltas(before, after, fingerprint) {
+  if (typeof fingerprint !== 'function') {
+    throw new Error('fingerprint must be a keyed function');
+  }
   const beforeTables = rowsByKey(before, 'tables', 'table', relationKey);
   const afterTables = rowsByKey(after, 'tables', 'table', relationKey);
   const beforeIndexes = rowsByKey(before, 'indexes', 'index', indexKey);
