@@ -187,7 +187,13 @@ export async function getCachedContentLinkRewrites(
   blogSlugs: string[],
   productSlugs: string[]
 ): Promise<StorefrontContentLinkRewrites> {
-  'use cache: remote';
+  // PR4b: local `'use cache'`, not the framework remote handler. Keyed on the
+  // exact blog+product link set of a page (high-cardinality keys → poor remote
+  // hit-ratio); already fail-loud (every lookup throws so the failure is never
+  // cached and callers fail open). The remote SET is pure exit-128 hazard,
+  // while a per-instance local cache still absorbs the multi-query + N-RPC
+  // fanout within a render.
+  'use cache';
   cacheLife('merchant');
   cacheTag(
     'blog-posts',

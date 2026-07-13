@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -324,5 +327,24 @@ describe('getCachedContentLinkRewrites', () => {
     expect(rewrites.productPaths['iphone-13-pro']).toBe(
       '/smartphones/iphone-13-pro'
     );
+  });
+});
+
+describe('cached-content-link-rewrites cache directive', () => {
+  const source = readFileSync(
+    resolve(
+      dirname(fileURLToPath(import.meta.url)),
+      'cached-content-link-rewrites.ts'
+    ),
+    'utf8'
+  );
+
+  it('reads per-request off the local cache handler, not the remote handler (PR4b)', () => {
+    // Keyed on the exact blog+product link set of a page (high-cardinality
+    // keys → poor remote hit-ratio) and already fail-loud (every lookup
+    // throws). The remote SET is pure exit-128 hazard; a local per-instance
+    // cache still absorbs the multi-query + N-RPC fanout within a render.
+    expect(source).not.toContain("'use cache: remote';");
+    expect(source).toContain("'use cache';");
   });
 });

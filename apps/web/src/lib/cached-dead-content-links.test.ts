@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockGetPublicSupabaseClient, mockGetSlugResolution } = vi.hoisted(
@@ -372,5 +375,24 @@ describe('getCachedDeadContentLinkSlugs UUID fail-open', () => {
     );
 
     expect(result.products).toEqual([]);
+  });
+});
+
+describe('cached-dead-content-links cache directive', () => {
+  const source = readFileSync(
+    resolve(
+      dirname(fileURLToPath(import.meta.url)),
+      'cached-dead-content-links.ts'
+    ),
+    'utf8'
+  );
+
+  it('reads per-request off the local cache handler, not the remote handler (PR4b)', () => {
+    // Keyed on the exact blog+product link set of a page (high-cardinality
+    // keys → poor remote hit-ratio) and already fail-loud (throws so callers
+    // fail open, treating all links as live). Demote to local: no
+    // cross-instance need, and the remote SET is the exit-128 hazard.
+    expect(source).not.toContain("'use cache: remote';");
+    expect(source).toContain("'use cache';");
   });
 });
