@@ -270,9 +270,11 @@ fi
 if command -v coderabbit >/dev/null 2>&1; then
   CR_RESULT=$(coderabbit review --agent -t uncommitted 2>&1) || true
 
-  CR_FINDINGS=$(echo "$CR_RESULT" | grep -o '"type":"complete"[^}]*"findings":[0-9]*' | grep -o '"findings":[0-9]*' | cut -d: -f2 | tail -1)
-  if [ -z "$CR_FINDINGS" ]; then
-    : # No completion event — CLI error, OOM, network, auth. Fail-open, allow stop.
+  # Parse the NDJSON event stream with jq (tolerates key order, whitespace,
+  # and non-JSON warning lines) instead of a key-order-sensitive grep.
+  CR_FINDINGS=$(echo "$CR_RESULT" | jq -Rr 'fromjson? | select(.type == "complete") | .findings // empty' 2>/dev/null | tail -1)
+  if ! [ "$CR_FINDINGS" -ge 0 ] 2>/dev/null; then
+    : # No numeric completion event — CLI error, OOM, network, auth. Fail-open, allow stop.
   elif [ "$CR_FINDINGS" -gt 0 ]; then
     TRIMMED=$(echo "$CR_RESULT" | grep '"type":"finding"' | tail -30)
     [ -n "$TRIMMED" ] || TRIMMED=$(echo "$CR_RESULT" | tail -30)
