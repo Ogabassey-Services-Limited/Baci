@@ -85,13 +85,17 @@ BEGIN
   -- Only mint for a CLOSED event (mirrors the finalize wrappers). A direct
   -- service-role call must never mint winners while the event is still open —
   -- the leaderboard isn't final until it ends. For an ends_at-based close, defer
-  -- until no attempt is still in flight: an attempt started just before ends_at
-  -- can legitimately keep playing (per-question timers run past ends_at — up to
-  -- ~50 min for a 10-topic × 5-question × 60s quiz), and because award inserts
-  -- are idempotent an early mint would freeze the winner set and permanently
-  -- exclude that valid late submission. A 'started' attempt older than the
-  -- 1-hour max-play window is treated as abandoned and no longer blocks. A
-  -- 'completed' event was closed explicitly and finalizes immediately.
+  -- until NO answerable attempt is still in flight: an attempt started just
+  -- before ends_at can legitimately keep playing (per-question timers run past
+  -- ends_at), and because award inserts are idempotent an early mint would freeze
+  -- the winner set and permanently exclude that valid late submission. We block
+  -- on EVERY 'started' attempt (no time cutoff): a money prize must never be
+  -- minted while any player could still submit a valid score, and attempts have
+  -- no self-expiry (record_quiz_answer accepts a 'started' attempt indefinitely).
+  -- An event whose only remaining attempts are abandoned is finalized via the
+  -- explicit 'completed' close (merchant/admin), which bypasses this wait and
+  -- finalizes immediately. (Auto-expiring stale attempts so the cron can also
+  -- auto-finalize such events is tracked in the event-lifecycle follow-up #3075.)
   IF NOT (
     v_status = 'completed'
     OR (
@@ -99,14 +103,12 @@ BEGIN
       -- Settle grace: wait 2 min past ends_at so a start_quiz_attempt that passed
       -- its open-event check just before the deadline has COMMITTED its insert and
       -- is visible to the in-flight NOT EXISTS below (READ COMMITTED can't see an
-      -- uncommitted start). This is separate from the max-play window — long
-      -- quizzes are handled by the in-flight gate, not by this grace.
+      -- uncommitted start).
       AND v_ends_at <= pg_catalog.now() - interval '2 minutes'
       AND NOT EXISTS (
         SELECT 1 FROM public.quiz_attempts a
         WHERE a.event_id = p_event_id
           AND a.status = 'started'
-          AND a.started_at >= pg_catalog.now() - interval '1 hour'
       )
     )
   ) THEN
@@ -325,9 +327,10 @@ BEGIN
     -- Never finalize/mint for a cancelled event.
     AND status <> 'cancelled'
     -- Same in-flight gate as the cron: defer an ends_at-based close until no
-    -- attempt is still legitimately in flight (a 'started' attempt within the
-    -- 1-hour max-play window), so a valid late submission isn't excluded from the
-    -- idempotent-once award set. A 'completed' event finalizes immediately.
+    -- attempt is still in flight (ANY 'started' attempt — no time cutoff, since
+    -- attempts have no self-expiry), so a valid late submission isn't excluded
+    -- from the idempotent-once award set. A 'completed' event finalizes
+    -- immediately (the explicit close path for events with abandoned attempts).
     AND (
       status = 'completed'
       OR (
@@ -339,7 +342,6 @@ BEGIN
           SELECT 1 FROM public.quiz_attempts a
           WHERE a.event_id = p_event_id
             AND a.status = 'started'
-            AND a.started_at >= pg_catalog.now() - interval '1 hour'
         )
       )
     );
@@ -391,12 +393,14 @@ BEGIN
       AND e.nlrc_permit_ref IS NOT NULL
       AND pg_catalog.btrim(e.nlrc_permit_ref) <> ''
       AND e.status IN ('active', 'scheduled', 'completed')
-      -- Due when already 'completed' (immediate — no in-flight risk) OR ends_at
-      -- has passed AND no attempt is still legitimately in flight. A player who
-      -- started just before the deadline can keep playing (per-question timers run
-      -- past ends_at, up to ~50 min), so defer until every such 'started' attempt
-      -- has submitted or aged out of the 1-hour max-play window — otherwise a
-      -- valid late submission is excluded from the idempotent-once award set.
+      -- Due when already 'completed' (immediate — the explicit close path) OR
+      -- ends_at has passed AND no answerable attempt is still in flight. A player
+      -- who started just before the deadline can keep playing (per-question timers
+      -- run past ends_at), so defer until EVERY 'started' attempt has submitted —
+      -- no time cutoff, since attempts have no self-expiry, and a money prize must
+      -- never be minted while a valid late submission is still possible. An event
+      -- whose only remaining attempts are abandoned is finalized via the explicit
+      -- 'completed' close (auto-expiry of stale attempts is tracked in #3075).
       -- Keying only on ends_at would also strand a completed event whose ends_at
       -- is null (activation initializes ends_at = null).
       AND (
@@ -410,7 +414,6 @@ BEGIN
             SELECT 1 FROM public.quiz_attempts a
             WHERE a.event_id = e.id
               AND a.status = 'started'
-              AND a.started_at >= pg_catalog.now() - interval '1 hour'
           )
         )
       )

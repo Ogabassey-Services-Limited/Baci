@@ -74,6 +74,7 @@ DECLARE
   v_e_emptyprizes uuid := '00000000-0000-4000-8000-0000000fe005'; -- ranked_prizes=[] must mint nothing
   v_e_inflight uuid := '00000000-0000-4000-8000-0000000fe006';    -- ends_at passed but a 'started' attempt in flight
   v_e_justended uuid := '00000000-0000-4000-8000-0000000fe007';   -- ends_at within the 2-min settle grace
+  v_e_stale uuid := '00000000-0000-4000-8000-0000000fe008';       -- >1h-old 'started' attempt must STILL block (no cutoff)
   v_a1 uuid := '00000000-0000-4000-8000-0000000fa011'; -- c1 best
   v_a2 uuid := '00000000-0000-4000-8000-0000000fa012'; -- c1 lower (dedup target)
   v_a3 uuid := '00000000-0000-4000-8000-0000000fa013'; -- c2
@@ -93,6 +94,7 @@ DECLARE
   v_emptyprizes_minted integer;
   v_inflight_minted integer;
   v_justended_minted integer;
+  v_stale_minted integer;
 BEGIN
   -- Non-NGN payout currency: awards must be stored in it, not hard-coded NGN.
   INSERT INTO public.merchants (id, email, payout_currency) VALUES (v_merchant, 'rank-winners@test.com', 'KES');
@@ -130,6 +132,10 @@ BEGIN
     -- ends_at only 1 min ago (< 2-min settle grace) with NO in-flight attempt:
     -- must NOT mint yet, so a just-committed start can't be excluded by a race.
     (v_e_justended, v_merchant, 'rw-justended', 'RW Just Ended', 'active', v_now - interval '1 minute', true, 'NLRC-TEST-PERMIT',
+      '{"ranked_winner_count":3,"grand_prize_amount":50000,"cash_prize_amount":10000}'::jsonb),
+    -- ended 2h ago but a 'started' attempt is 2h old: must STILL block (attempts
+    -- have no self-expiry, so we never mint while a valid submit is possible).
+    (v_e_stale, v_merchant, 'rw-stale', 'RW Stale Started', 'active', v_now - interval '2 hours', true, 'NLRC-TEST-PERMIT',
       '{"ranked_winner_count":3,"grand_prize_amount":50000,"cash_prize_amount":10000}'::jsonb);
 
   INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, attempt_number, integrity_tier, score, started_at, submitted_at) VALUES
@@ -159,6 +165,10 @@ BEGIN
   -- in-flight attempt) should block minting here.
   INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, attempt_number, integrity_tier, score, started_at, submitted_at) VALUES
     ('00000000-0000-4000-8000-0000000fa021', v_e_justended, v_c1, 'submitted', 1, 'basic', 10, v_now - interval '10 min', v_now - interval '30 seconds');
+  -- A 2h-old still-'started' attempt on the STALE event: must still block minting
+  -- (no time cutoff — attempts never self-expire, so a late submit stays possible).
+  INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, attempt_number, integrity_tier, score, started_at, submitted_at) VALUES
+    ('00000000-0000-4000-8000-0000000fa022', v_e_stale, v_c1, 'started', 1, 'basic', 0, v_now - interval '2 hours', NULL);
 
   -- Mint the verified event.
   v_minted := public.mint_quiz_event_ranked_awards(v_e_verified);
@@ -247,6 +257,13 @@ BEGIN
   v_justended_minted := public.mint_quiz_event_ranked_awards(v_e_justended);
   IF v_justended_minted IS DISTINCT FROM 0 THEN
     RAISE EXCEPTION 'Event within the settle grace must mint 0 awards, got %', v_justended_minted;
+  END IF;
+
+  -- No-cutoff in-flight gate: a >1h-old 'started' attempt must STILL block minting
+  -- (attempts have no self-expiry, so a valid late submission stays possible).
+  v_stale_minted := public.mint_quiz_event_ranked_awards(v_e_stale);
+  IF v_stale_minted IS DISTINCT FROM 0 THEN
+    RAISE EXCEPTION 'Stale (>1h) started attempt must still block minting, got %', v_stale_minted;
   END IF;
 
   -- Fail-closed compliance gate: finalize_due must skip the unverified event.
