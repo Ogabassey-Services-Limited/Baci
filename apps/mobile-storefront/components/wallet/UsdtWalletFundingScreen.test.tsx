@@ -43,6 +43,7 @@ describe('UsdtWalletFundingScreen', () => {
     mockBalance.mockResolvedValue(12.5);
     mockInitialize.mockResolvedValue({
       address: 'TVaultAddress',
+      amount: 65.5,
       kind: 'ready',
       reference: 'wusdt_ref',
     });
@@ -77,6 +78,9 @@ describe('UsdtWalletFundingScreen', () => {
       )
     );
     expect(await screen.findByText('TVaultAddress')).toBeTruthy();
+    expect(
+      screen.getByText('Send exactly 65.50 USDT on TRX')
+    ).toBeTruthy();
   });
 
   it('shows a deposit address returned by a later status poll', async () => {
@@ -84,6 +88,7 @@ describe('UsdtWalletFundingScreen', () => {
     mockBalance.mockResolvedValue(0);
     mockInitialize.mockResolvedValue({
       address: null,
+      amount: 65,
       kind: 'ready',
       reference: 'wusdt_ref',
     });

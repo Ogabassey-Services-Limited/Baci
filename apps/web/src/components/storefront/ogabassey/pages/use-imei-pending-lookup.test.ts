@@ -34,7 +34,11 @@ describe('useImeiPendingLookup', () => {
       });
     });
 
-    const key = pendingImeiStorageKey('shop.example.com', 'customer-1');
+    const key = pendingImeiStorageKey(
+      'shop.example.com',
+      'customer-1',
+      'ogabassey'
+    );
     expect(localStorage.getItem(key)).toContain('lookupId');
     await waitFor(() => expect(result.current.terminal?.kind).toBe('complete'));
     expect(result.current.terminal).toMatchObject({
@@ -45,7 +49,11 @@ describe('useImeiPendingLookup', () => {
   });
 
   it('restores a pending lookup for the same customer', async () => {
-    const key = pendingImeiStorageKey('shop.example.com', 'customer-1');
+    const key = pendingImeiStorageKey(
+      'shop.example.com',
+      'customer-1',
+      'ogabassey'
+    );
     localStorage.setItem(
       key,
       JSON.stringify({
@@ -69,7 +77,11 @@ describe('useImeiPendingLookup', () => {
 
   it('continues low-frequency polling for a stale restored lookup', async () => {
     vi.useFakeTimers();
-    const key = pendingImeiStorageKey('shop.example.com', 'customer-1');
+    const key = pendingImeiStorageKey(
+      'shop.example.com',
+      'customer-1',
+      'ogabassey'
+    );
     localStorage.setItem(
       key,
       JSON.stringify({
@@ -97,6 +109,51 @@ describe('useImeiPendingLookup', () => {
     expect(pollImeiCheck).toHaveBeenCalledWith(
       '11111111-1111-4111-8111-111111111111',
       'ogabassey'
+    );
+    vi.useRealTimers();
+  });
+
+  it('preserves another merchant pending lookup on a shared host', async () => {
+    vi.useFakeTimers();
+    pollImeiCheck.mockResolvedValue({ kind: 'pending', pollAfterMs: 5000 });
+    const merchantAKey = pendingImeiStorageKey(
+      'usebaci.com',
+      'customer-1',
+      'merchant-a'
+    );
+    localStorage.setItem(
+      merchantAKey,
+      JSON.stringify({
+        createdAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+        lookupId: '11111111-1111-4111-8111-111111111111',
+        tier: 'blacklist',
+      })
+    );
+    const { result, rerender } = renderHook(
+      ({ merchantSlug }) =>
+        useImeiPendingLookup({
+          customerId: 'customer-1',
+          host: 'usebaci.com',
+          merchantSlug,
+        }),
+      { initialProps: { merchantSlug: 'merchant-a' } }
+    );
+    await act(async () => undefined);
+    expect(result.current.paused).toBe(true);
+
+    rerender({ merchantSlug: 'merchant-b' });
+    await act(async () => undefined);
+
+    expect(result.current.pending).toBeNull();
+    expect(result.current.paused).toBe(false);
+    expect(result.current.terminal).toBeNull();
+    expect(localStorage.getItem(merchantAKey)).toContain('lookupId');
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    expect(pollImeiCheck).not.toHaveBeenCalledWith(
+      '11111111-1111-4111-8111-111111111111',
+      'merchant-b'
     );
     vi.useRealTimers();
   });

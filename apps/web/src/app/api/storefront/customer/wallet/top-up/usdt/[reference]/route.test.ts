@@ -102,7 +102,7 @@ describe('GET /api/storefront/customer/wallet/top-up/usdt/[reference]', () => {
   });
 
   it('returns a customer-owned deposit status and address', async () => {
-    const response = await GET(request as never, context());
+    const response = await GET(request as unknown as NextRequest, context());
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
@@ -116,6 +116,30 @@ describe('GET /api/storefront/customer/wallet/top-up/usdt/[reference]', () => {
     expect(mocks.resolveMerchant).toHaveBeenCalledWith(
       expect.objectContaining({ fallbackIdentifier: null })
     );
+  });
+
+  it('returns the provider-captured amount customers must send', async () => {
+    mocks.createAdmin.mockReturnValue(
+      admin({
+        amount: 65,
+        currency: 'USDT',
+        gateway_response: {
+          address: { address: 'TVaultAddress', chain: 'TRX' },
+        },
+        id: 'transaction-1',
+        metadata: {
+          customer_id: 'customer-1',
+          juicyway_expected_amount: 6550,
+          transaction_type: 'wallet_usdt_topup',
+        },
+        status: 'pending',
+        updated_at: '2026-07-11T12:00:00.000Z',
+      })
+    );
+
+    const response = await GET(request as unknown as NextRequest, context());
+
+    await expect(response.json()).resolves.toMatchObject({ amount: 65.5 });
   });
 
   it('carries the path-storefront merchant on root-host status polling', async () => {

@@ -61,11 +61,16 @@ export function createUsdtWalletFundingClient({
         );
         const data = record(await response.json());
         if (response.ok && data?.success === true) {
+          const capturedAmount = Number(data.amount);
           return {
             address:
               typeof data.depositAddress === 'string'
                 ? data.depositAddress
                 : null,
+            amount:
+              Number.isFinite(capturedAmount) && capturedAmount > 0
+                ? capturedAmount
+                : input.amount,
             kind: 'ready' as const,
             reference: typeof data.reference === 'string' ? data.reference : '',
           };

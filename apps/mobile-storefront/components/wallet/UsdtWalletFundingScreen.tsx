@@ -122,6 +122,7 @@ export function UsdtWalletFundingScreen({
       return;
     }
     setAddress(result.address);
+    setAmount(String(result.amount));
     setReference(result.reference);
     setStatus('pending');
   };

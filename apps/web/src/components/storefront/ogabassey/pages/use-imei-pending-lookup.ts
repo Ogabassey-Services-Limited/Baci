@@ -1,7 +1,7 @@
 'use client';
 
 import type { ImeiServiceTierKey } from '@baci/shared/imei';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { pollImeiCheck } from './imei-checker-request';
 import type { ImeiResult } from './imei-checker-types';
 import {
@@ -17,6 +17,7 @@ const PAUSED_POLL_MS = 60 * 1000;
 
 interface ActivePendingImeiLookup extends PendingImeiLookup {
   pollAfterMs: number;
+  storageKey: string;
 }
 
 type PendingTerminal =
@@ -40,31 +41,26 @@ export function useImeiPendingLookup({
   const resolvedHost =
     host ?? (typeof window === 'undefined' ? '' : window.location.host);
   const storageKey =
-    customerId && resolvedHost
-      ? pendingImeiStorageKey(resolvedHost, customerId)
+    customerId && resolvedHost && merchantSlug
+      ? pendingImeiStorageKey(resolvedHost, customerId, merchantSlug)
       : null;
-  const previousStorageKey = useRef<string | null>(null);
   const [pending, setPending] = useState<ActivePendingImeiLookup | null>(null);
   const [paused, setPaused] = useState(false);
   const [terminal, setTerminal] = useState<PendingTerminal | null>(null);
 
   useEffect(() => {
-    const previous = previousStorageKey.current;
-    if (previous && previous !== storageKey) {
-      clearPendingImeiLookup(localStorage, previous);
-    }
-    previousStorageKey.current = storageKey;
-
+    setPaused(false);
+    setTerminal(null);
     if (!storageKey) {
       setPending(null);
       return;
     }
     const saved = loadPendingImeiLookup(localStorage, storageKey);
-    setPending(saved ? { ...saved, pollAfterMs: 0 } : null);
+    setPending(saved ? { ...saved, pollAfterMs: 0, storageKey } : null);
   }, [storageKey]);
 
   useEffect(() => {
-    if (!pending || !merchantSlug) return;
+    if (!pending || !merchantSlug || pending.storageKey !== storageKey) return;
 
     const isStale =
       Date.now() - Date.parse(pending.createdAt) >= MAX_ACTIVE_POLL_MS;
@@ -129,9 +125,16 @@ export function useImeiPendingLookup({
         createdAt: new Date().toISOString(),
         lookupId,
         pollAfterMs,
+        storageKey: storageKey ?? '',
         tier,
       };
-      if (storageKey) savePendingImeiLookup(localStorage, storageKey, next);
+      if (storageKey) {
+        savePendingImeiLookup(localStorage, storageKey, {
+          createdAt: next.createdAt,
+          lookupId,
+          tier,
+        });
+      }
       setTerminal(null);
       setPaused(false);
       setPending(next);

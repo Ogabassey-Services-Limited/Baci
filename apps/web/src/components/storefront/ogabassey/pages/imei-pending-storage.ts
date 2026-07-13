@@ -18,8 +18,12 @@ export interface PendingImeiLookup {
   tier: ImeiServiceTierKey;
 }
 
-export function pendingImeiStorageKey(host: string, customerId: string) {
-  return `baci:imei-pending:v1:${host.toLowerCase()}:${customerId}`;
+export function pendingImeiStorageKey(
+  host: string,
+  customerId: string,
+  merchantSlug: string
+) {
+  return `baci:imei-pending:v2:${host.toLowerCase()}:${merchantSlug.toLowerCase()}:${customerId}`;
 }
 
 export function savePendingImeiLookup(

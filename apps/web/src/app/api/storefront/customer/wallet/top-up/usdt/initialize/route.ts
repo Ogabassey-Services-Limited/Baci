@@ -206,7 +206,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       {
-        amount: walletCreditAmount,
+        amount: capturedAmountMinor / 100,
         chain: parsed.data.chain,
         currency: 'USDT',
         depositAddress: address?.address ?? null,

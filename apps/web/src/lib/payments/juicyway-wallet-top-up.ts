@@ -58,7 +58,7 @@ export async function handleJuicywayWalletTopUpIfNeeded({
   const settledCurrency = payment.currency.trim().toUpperCase();
   if (
     !Number.isFinite(settledAmount) ||
-    settledAmount !== expectedAmount ||
+    settledAmount < expectedAmount ||
     settledCurrency !== expectedCurrency
   ) {
     return NextResponse.json(

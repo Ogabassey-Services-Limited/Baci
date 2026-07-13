@@ -140,8 +140,13 @@ export async function GET(
     : status === 'failed'
       ? 'failed'
       : 'pending';
+  const capturedAmountMinor = Number(metadata.juicyway_expected_amount);
+  const displayAmount =
+    Number.isFinite(capturedAmountMinor) && capturedAmountMinor > 0
+      ? capturedAmountMinor / 100
+      : Number(data.amount);
   return NextResponse.json({
-    amount: Number(data.amount),
+    amount: displayAmount,
     chain: deposit?.chain ?? null,
     currency: 'USDT',
     depositAddress: deposit?.address ?? null,

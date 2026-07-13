@@ -56,6 +56,37 @@ describe('UsdtWalletFundingPanel', () => {
     );
   });
 
+  it('shows the provider-captured amount immediately after initialization', async () => {
+    mocks.initialize.mockResolvedValue({
+      amount: 65.5,
+      chain: 'TRX',
+      depositAddress: 'TVaultAddress',
+      kind: 'ready',
+      reference: 'wusdt_ref',
+    });
+    mocks.status.mockReturnValue(new Promise(() => undefined));
+    const user = userEvent.setup();
+    render(
+      <UsdtWalletFundingPanel
+        balance={0}
+        initialAmount={65}
+        merchantSlug="ogabassey"
+        onFunded={vi.fn()}
+      />
+    );
+
+    await user.type(screen.getByLabelText('Address line'), '1 Baci Street');
+    await user.type(screen.getByLabelText('City'), 'Lagos');
+    await user.type(screen.getByLabelText('Postal code'), '100001');
+    await user.click(
+      screen.getByRole('button', { name: /create deposit address/i })
+    );
+
+    expect(
+      await screen.findByText('Send exactly 65.50 USDT on TRX')
+    ).toBeInTheDocument();
+  });
+
   it('resumes status polling from a redirected funding reference', async () => {
     mocks.status.mockResolvedValue({
       amount: 65,

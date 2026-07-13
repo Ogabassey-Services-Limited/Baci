@@ -114,6 +114,7 @@ export function UsdtWalletFundingPanel({
       setError(result.error);
       return;
     }
+    setAmount(String(result.amount));
     setFunding({
       address: result.depositAddress,
       reference: result.reference,

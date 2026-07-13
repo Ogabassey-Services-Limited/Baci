@@ -27,6 +27,7 @@ describe('createUsdtWalletFundingClient', () => {
     const fetchImpl = jest.fn<typeof fetch>().mockResolvedValue({
       json: () =>
         Promise.resolve({
+          amount: 25.5,
           depositAddress: 'TVaultAddress',
           reference: 'wusdt_ref',
           success: true,
@@ -51,7 +52,11 @@ describe('createUsdtWalletFundingClient', () => {
         chain: 'TRX',
         merchantSlug: 'ogabassey',
       })
-    ).resolves.toMatchObject({ address: 'TVaultAddress', kind: 'ready' });
+    ).resolves.toMatchObject({
+      address: 'TVaultAddress',
+      amount: 25.5,
+      kind: 'ready',
+    });
   });
 
   it('returns a deposit address discovered by status polling', async () => {

@@ -7,9 +7,11 @@ import {
 } from './imei-pending-storage';
 
 describe('pending IMEI storage', () => {
-  it('scopes pending lookups to storefront host and customer', () => {
-    expect(pendingImeiStorageKey('shop.example.com', 'customer-1')).toBe(
-      'baci:imei-pending:v1:shop.example.com:customer-1'
+  it('scopes pending lookups to storefront host, merchant, and customer', () => {
+    expect(
+      pendingImeiStorageKey('shop.example.com', 'customer-1', 'OgaBassey')
+    ).toBe(
+      'baci:imei-pending:v2:shop.example.com:ogabassey:customer-1'
     );
   });
 
@@ -20,7 +22,11 @@ describe('pending IMEI storage', () => {
       removeItem: (key: string) => storage.delete(key),
       setItem: (key: string, value: string) => storage.set(key, value),
     };
-    const key = pendingImeiStorageKey('shop.example.com', 'customer-1');
+    const key = pendingImeiStorageKey(
+      'shop.example.com',
+      'customer-1',
+      'ogabassey'
+    );
     const pending = {
       createdAt: '2026-07-10T12:00:00.000Z',
       lookupId: '11111111-1111-4111-8111-111111111111',

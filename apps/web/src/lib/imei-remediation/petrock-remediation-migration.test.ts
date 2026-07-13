@@ -140,6 +140,23 @@ describe('Petrock remediation migrations', () => {
     expect(sql).toContain('transactions_transaction_type_check');
   });
 
+  it('claims eligibility assessments whose provider attempt never started', () => {
+    const sql = migration(
+      '20260713010000_petrock_eligibility_null_attempt_recovery.sql'
+    );
+    expect(sql).toMatch(
+      /o\.status = 'eligibility_pending'[\s\S]*?AND o\.provider_order_id IS NULL/
+    );
+    expect(sql).toContain('o.provider_attempt_started_at IS NULL');
+    expect(sql).toContain("o.updated_at < now() - interval '2 minutes'");
+    expect(sql).toContain(
+      'CREATE INDEX IF NOT EXISTS idx_petrock_orders_reconciliation_claim'
+    );
+    expect(sql).toMatch(
+      /o\.status = 'submitting'[\s\S]*?o\.provider_order_id IS NULL[\s\S]*?o\.provider_attempt_started_at IS NULL[\s\S]*?o\.updated_at < now\(\) - interval '2 minutes'/
+    );
+  });
+
   it('leases, advances, and terminally resolves remediation work atomically', () => {
     const sql = [
       '20260711202300_petrock_remediation_reconciliation_rpcs.sql',

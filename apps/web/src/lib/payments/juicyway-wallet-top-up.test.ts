@@ -80,6 +80,25 @@ describe('handleJuicywayWalletTopUpIfNeeded', () => {
     expect(mocks.credit).not.toHaveBeenCalled();
   });
 
+  it('accepts an overpaid settlement while crediting only the locked wallet amount', async () => {
+    const update = vi.fn().mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    });
+    const supabase = { from: vi.fn(() => ({ update })) } as never;
+
+    const response = await handleJuicywayWalletTopUpIfNeeded({
+      payment: { amount: 2501, currency: 'USDT' },
+      reference: 'WUSDT-1',
+      supabase,
+      transaction: transaction(),
+    });
+
+    expect(response?.status).toBe(200);
+    expect(mocks.credit).toHaveBeenCalledWith(
+      expect.objectContaining({ amount: 25 })
+    );
+  });
+
   it('returns null for an ordinary Juicyway order transaction', async () => {
     const response = await handleJuicywayWalletTopUpIfNeeded({
       payment: { amount: 2500, currency: 'USDT' },

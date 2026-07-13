@@ -1,3 +1,4 @@
+import type { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -120,7 +121,7 @@ describe('POST USDT wallet top-up initialize', () => {
   });
 
   it('creates a direct USDT Juicyway session and returns the deposit address', async () => {
-    const response = await POST(request() as never);
+    const response = await POST(request() as unknown as NextRequest);
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
@@ -150,7 +151,7 @@ describe('POST USDT wallet top-up initialize', () => {
       success: true,
     });
 
-    await POST(request() as never);
+    const response = await POST(request() as unknown as NextRequest);
 
     expect(database.builder.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -160,6 +161,7 @@ describe('POST USDT wallet top-up initialize', () => {
         }),
       })
     );
+    await expect(response.json()).resolves.toMatchObject({ amount: 99.99 });
   });
 
   it('stores wallet funding outside merchant-payment transaction accounting', async () => {
