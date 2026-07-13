@@ -212,8 +212,8 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
           <section className={panel}>
             <h2 className="text-lg font-semibold">Sign in to play</h2>
             <p className="mt-2 text-sm leading-6 text-store-background-text/70">
-              Super Quiz is available to Ogabassey customers with an active
-              account and enough loyalty points for an exam pass.
+              Super Quiz is free to play for anyone with an Ogabassey account.
+              Creating one is free — no purchase necessary.
             </p>
             <Link href={asRoute(loginHref)} className={`mt-4 inline-flex items-center justify-center ${primaryButton}`}>Sign in</Link>
           </section>

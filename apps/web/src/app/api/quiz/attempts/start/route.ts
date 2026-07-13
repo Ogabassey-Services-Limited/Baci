@@ -108,18 +108,31 @@ export async function POST(request: NextRequest) {
   });
 
   if (error) {
-    // Entry is free, so start_quiz_attempt can no longer raise QZ011. This is
-    // kept for the deploy window, where this build can briefly run against a
-    // database that has not applied 20260713160000_quiz_free_entry.sql yet.
-    // The message must therefore still read correctly if it ever does fire, so
-    // it no longer interpolates EXAM_PASS_POINTS_COST (which is now 0).
+    // Entry is free, so start_quiz_attempt can no longer raise QZ011. If it
+    // DOES, this build is talking to a database that has not applied
+    // 20260713180000_quiz_free_entry.sql yet — i.e. the PAID entry RPC is still
+    // live and would charge a loyalty point.
+    //
+    // Fail closed. Do not fall through and do not tell the player to go and get
+    // loyalty points: points are only earned by purchasing, so that message
+    // re-sells the exact purchase gate this feature removed, and any attempt
+    // started here would be charged. Refuse until the migration has landed.
     if (isExamPassRequiredError(error)) {
+      logger.error({
+        error,
+        event: 'start_quiz_attempt',
+        eventId: parsed.data.eventId,
+        message:
+          'QZ011 from start_quiz_attempt: the paid-entry RPC is still live (free-entry migration not applied). Refusing to start a charged attempt.',
+        userId: auth.user.id,
+      });
       return NextResponse.json(
         {
-          code: 'QUIZ_EXAM_PASS_REQUIRED',
-          error: 'You need loyalty points to start this exam',
+          code: 'QUIZ_TEMPORARILY_UNAVAILABLE',
+          error:
+            'Super Quiz is temporarily unavailable. Please try again soon.',
         },
-        { status: 409 }
+        { status: 503 }
       );
     }
 

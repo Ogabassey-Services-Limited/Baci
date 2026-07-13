@@ -64,8 +64,13 @@ export function QuizQuestionCard({
       >
         Time left: {remainingSeconds}s
       </Text>
+      {/* Entry is free, so this normally reports 0. Not hard-coded: an installed
+          build can briefly talk to a database that still charges, and telling
+          that player nothing was taken would misreport their balance. */}
       <Text style={styles.passReceipt}>
-        Free entry — no loyalty points used.
+        {attempt.examPassPointsSpent > 0
+          ? `${attempt.examPassPointsSpent} loyalty ${attempt.examPassPointsSpent === 1 ? 'point' : 'points'} used. ${attempt.remainingLoyaltyPoints} left.`
+          : 'Free entry — no loyalty points used.'}
       </Text>
       <Text accessibilityRole="header" style={styles.question}>
         {attempt.question.prompt}

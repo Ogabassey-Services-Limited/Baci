@@ -86,8 +86,15 @@ export function QuizQuestionPanel({
       <span aria-atomic="true" aria-live="assertive" className="sr-only">
         {getCountdownAnnouncement(remainingSeconds)}
       </span>
+      {/* Entry is free, so this normally reports 0. Do NOT hard-code the free
+          wording: during a deploy window this build can talk to a database that
+          has not applied the free-entry migration yet and still charged a point.
+          Telling that player nothing was taken would be a lie about their
+          balance, so report whatever actually happened. */}
       <p className="mt-2 text-xs text-store-background-text/60">
-        Free entry — no loyalty points used.
+        {attempt.examPassPointsSpent > 0
+          ? `${attempt.examPassPointsSpent} loyalty ${attempt.examPassPointsSpent === 1 ? 'point' : 'points'} used. ${attempt.remainingLoyaltyPoints} left.`
+          : 'Free entry — no loyalty points used.'}
       </p>
       <h2 className="mt-5 text-xl font-bold">{attempt.question.prompt}</h2>
       <DeferredAdUnit

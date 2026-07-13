@@ -323,7 +323,7 @@ describe('quiz migration contracts', () => {
 
   // HISTORICAL. This pins the ORIGINAL Phase-1a migration file, which charged a
   // loyalty point. Migrations are append-only so that file still reads this way,
-  // but it is NOT the live behaviour: 20260713160000_quiz_free_entry.sql made
+  // but it is NOT the live behaviour: 20260713180000_quiz_free_entry.sql made
   // entry free. The live contract is asserted in the free-entry test below.
   it('charged one customer loyalty point in the original Phase-1a migration', () => {
     const startAttemptSql = rpcSql.match(
@@ -379,6 +379,42 @@ describe('quiz migration contracts', () => {
     // stopping a player from farming unlimited attempts now that entry is free.
     expect(latestStartAttemptSql).toMatch(/attempt_limit_reached/i);
     expect(latestStartAttemptSql).toMatch(/ERRCODE\s*=\s*'QZ030'/i);
+  });
+
+  // Free entry is meaningless if PURCHASES still decide who WINS. Both ranking
+  // functions used to break score ties on `COALESCE(loyalty_points, 0) DESC`,
+  // and loyalty points are only ever earned by buying — so a free entrant tied
+  // on score always lost to a bigger spender. Ranking must be skill and speed
+  // only, in BOTH functions, or the leaderboard players watch stops matching the
+  // winners actually minted.
+  it.each([
+    [
+      'mint_quiz_event_ranked_awards',
+      /CREATE OR REPLACE FUNCTION public\.mint_quiz_event_ranked_awards[\s\S]*?\$\$;/i,
+    ],
+    [
+      'get_quiz_leaderboard',
+      /CREATE OR REPLACE FUNCTION public\.get_quiz_leaderboard[\s\S]*?\$\$;/i,
+    ],
+  ])('ranks %s on skill and speed only — never on loyalty points', (_name, pattern) => {
+    const latestSql = quizMigrationFiles
+      .map(({ sql }) => sql.match(pattern)?.[0])
+      .filter((sql): sql is string => Boolean(sql))
+      .at(-1);
+
+    expect(latestSql).toBeDefined();
+
+    // No purchase-derived term may appear in ANY ordering key.
+    expect(latestSql).not.toMatch(/loyalty_points\s*,?\s*0?\)?\s*DESC/i);
+    expect(latestSql).not.toMatch(/COALESCE\([a-z]+\.loyalty_points/i);
+
+    // The deterministic skill/speed keys must still be there, so ties never
+    // resolve arbitrarily (which would make winners non-reproducible).
+    expect(latestSql).toMatch(/score\s+DESC/i);
+    expect(latestSql).toMatch(
+      /EXTRACT\(EPOCH FROM \([a-z_]+\.submitted_at - [a-z_]+\.started_at\)\)[\s\S]*?ASC NULLS LAST/i
+    );
+    expect(latestSql).toMatch(/submitted_at\s+ASC/i);
   });
 
   it('checks finalize-awards attempt ownership before calling the privileged event finalizer', () => {

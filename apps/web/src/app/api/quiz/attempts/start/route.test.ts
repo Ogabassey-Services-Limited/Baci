@@ -257,11 +257,10 @@ describe('start quiz attempt route', () => {
     });
   });
 
-  // Entry is free, so the live start_quiz_attempt can no longer raise QZ011.
-  // The mapping is retained for the deploy window (this build briefly running
-  // against a database that has not applied the free-entry migration yet), so
-  // it still needs to produce a sensible message if it does fire.
-  it('still maps a legacy QZ011 exam-pass error to a 409 during a deploy window', async () => {
+  // Entry is free, so QZ011 can only mean the PAID entry RPC is still live (the
+  // free-entry migration has not applied). Fail closed rather than charging the
+  // player or telling them to go and buy loyalty points.
+  it('fails closed with 503 when the paid-entry RPC is still live (QZ011)', async () => {
     const { rpc } = mockAuthenticatedSupabase({
       rpcResult: {
         data: null,
@@ -274,11 +273,14 @@ describe('start quiz attempt route', () => {
       jsonRequest({ eventId: EVENT_ID, integrityTier: 'device' })
     );
 
-    expect(response.status).toBe(409);
-    expect(await response.json()).toEqual({
-      code: 'QUIZ_EXAM_PASS_REQUIRED',
-      error: 'You need loyalty points to start this exam',
+    expect(response.status).toBe(503);
+    const body = await response.json();
+    expect(body).toEqual({
+      code: 'QUIZ_TEMPORARILY_UNAVAILABLE',
+      error: 'Super Quiz is temporarily unavailable. Please try again soon.',
     });
+    // Must never re-sell the purchase gate that free entry removed.
+    expect(JSON.stringify(body)).not.toMatch(/loyalty/i);
     expect(rpc).toHaveBeenCalledWith(
       'start_quiz_attempt',
       expect.objectContaining({
@@ -287,7 +289,14 @@ describe('start quiz attempt route', () => {
         p_user_id: USER_ID,
       })
     );
-    expect(logger.error).not.toHaveBeenCalled();
+    // This is an operational fault, not a normal user outcome: QZ011 means the
+    // paid-entry RPC is still live in the database. It must be logged loudly.
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'start_quiz_attempt',
+        message: expect.stringContaining('paid-entry RPC is still live'),
+      })
+    );
   });
 
   it('returns a client error when the event is no longer open', async () => {

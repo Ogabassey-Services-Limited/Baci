@@ -58,11 +58,15 @@ const quizEvent: QuizEvent = {
 const createFutureDeadline = (secondsFromNow: number) =>
   new Date(Date.now() + secondsFromNow * 1000).toISOString();
 
-const createQuizAttempt = (): QuizAttempt => ({
+// Entry is free, so a fresh attempt spends nothing. Overridable so the
+// deploy-window case (a stale database that still charged) can be exercised.
+const createQuizAttempt = (
+  overrides: Partial<QuizAttempt> = {}
+): QuizAttempt => ({
   attemptId: 'attempt-1',
   eventId: 'event-1',
-  examPassPointsSpent: 1,
-  remainingLoyaltyPoints: 4,
+  examPassPointsSpent: 0,
+  remainingLoyaltyPoints: 5,
   question: {
     deadlineAt: createFutureDeadline(30),
     id: 'question-1',
@@ -75,6 +79,7 @@ const createQuizAttempt = (): QuizAttempt => ({
     timeLimitSeconds: 30,
     total: 3,
   },
+  ...overrides,
 });
 
 const quizResult: QuizResult = {
@@ -202,6 +207,35 @@ describe('QuizScreen', () => {
     expect(
       screen.getByText('Free entry — no loyalty points used.')
     ).toBeTruthy();
+  });
+
+  // Deploy-window safety: an installed build can briefly talk to a database that
+  // has not applied the free-entry migration and still charged a point. The
+  // receipt must report what actually happened, not a hard-coded "free".
+  it('reports a real charge when a stale database still spent a point', async () => {
+    const startDeferred = createDeferred<QuizAttempt>();
+    jest.mocked(startQuizAttempt).mockReturnValueOnce(startDeferred.promise);
+    render(<QuizScreen integrityTier="device" locale="en-US" />);
+
+    fireEvent.press(
+      await screen.findByRole('button', {
+        name: 'Start free exam Daily Prize Quiz',
+      })
+    );
+
+    await act(async () => {
+      startDeferred.resolve(
+        createQuizAttempt({ examPassPointsSpent: 1, remainingLoyaltyPoints: 4 })
+      );
+      await startDeferred.promise;
+    });
+
+    expect(
+      await screen.findByText('1 loyalty point used. 4 left.')
+    ).toBeTruthy();
+    expect(
+      screen.queryByText('Free entry — no loyalty points used.')
+    ).toBeNull();
   });
 
   it('shows a pending submit state and renders a successful result', async () => {
