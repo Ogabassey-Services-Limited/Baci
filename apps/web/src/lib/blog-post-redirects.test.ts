@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetMerchantSafe = vi.fn();
@@ -199,5 +202,20 @@ describe('getBlogPostRedirect', () => {
     await expect(
       getBlogPostRedirect('ogabassey.com', 'retired-post')
     ).rejects.toThrow('target post query failed');
+  });
+});
+
+describe('getBlogPostRedirect cache directive', () => {
+  const blogRedirectSource = readFileSync(
+    resolve(dirname(fileURLToPath(import.meta.url)), 'blog-post-redirects.ts'),
+    'utf8'
+  );
+
+  it('reads per-request off the local cache handler, not the remote handler', () => {
+    // PR4a: keyed on arbitrary crawler source slugs (unbounded remote keys)
+    // behind two indexed reads on a 16-row table. Already fail-loud, so the
+    // remote write buys nothing but the exit-128 hazard — keep it local.
+    expect(blogRedirectSource).not.toContain("'use cache: remote';");
+    expect(blogRedirectSource).toContain("'use cache';");
   });
 });

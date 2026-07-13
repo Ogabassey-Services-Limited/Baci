@@ -186,6 +186,25 @@ describe('getCachedStorefrontProductSlugResolution', () => {
   });
 });
 
+const slugResolutionSource = readFileSync(
+  resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    'cached-storefront-product-slug-resolution.ts'
+  ),
+  'utf8'
+);
+
+describe('getCachedStorefrontProductSlugResolution cache directive', () => {
+  it('reads per-request off the local cache handler, not the remote handler', () => {
+    // PR4a: this resolver is keyed on arbitrary crawler product slugs
+    // (unbounded remote keys) yet the origin is a ~2ms anon SECURITY DEFINER
+    // RPC. The remote SET path is the exit-128 write hazard the plan targets,
+    // so the directive must be local `'use cache'` (fail-open contract kept).
+    expect(slugResolutionSource).not.toContain("'use cache: remote';");
+    expect(slugResolutionSource).toContain("'use cache';");
+  });
+});
+
 const migrationSql = readFileSync(
   resolve(
     dirname(fileURLToPath(import.meta.url)),
