@@ -438,6 +438,43 @@ describe('captureServerEvent', () => {
     });
   });
 
+  it('forwards a deterministic uuid so ingestion can dedupe concurrent emitters', async () => {
+    process.env.POSTHOG_PROJECT_TOKEN = 'ph_test';
+    postHogMocks.captureImmediate.mockResolvedValueOnce(undefined as never);
+    const { captureServerEvent } = await import('./server');
+
+    await captureServerEvent(
+      'wallet_funding_transfer_credited',
+      { amount: 5000 },
+      'customer-1',
+      'e3f1a6d2-8c47-5b09-9d15-2f6b71c0a884'
+    );
+
+    expect(postHogMocks.captureImmediate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        uuid: 'e3f1a6d2-8c47-5b09-9d15-2f6b71c0a884',
+      })
+    );
+  });
+
+  it('omits the uuid field entirely when none is provided', async () => {
+    process.env.POSTHOG_PROJECT_TOKEN = 'ph_test';
+    postHogMocks.captureImmediate.mockResolvedValueOnce(undefined as never);
+    const { captureServerEvent } = await import('./server');
+
+    await captureServerEvent(
+      'wallet_funding_transfer_credited',
+      { amount: 5000 },
+      'customer-1'
+    );
+
+    const call = postHogMocks.captureImmediate.mock.calls.at(-1)?.[0] as
+      | Record<string, unknown>
+      | undefined;
+    expect(call).toBeDefined();
+    expect(call && 'uuid' in call).toBe(false);
+  });
+
   it('returns false without throwing when the immediate send rejects', async () => {
     process.env.POSTHOG_PROJECT_TOKEN = 'ph_test';
     postHogMocks.captureImmediate.mockRejectedValueOnce(

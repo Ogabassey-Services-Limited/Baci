@@ -105,7 +105,8 @@ const SERVER_EVENT_CAPTURE_TIMEOUT_MS = 3_000;
 export async function captureServerEvent(
   event: string,
   properties: Record<string, unknown>,
-  distinctId: string = SERVER_DISTINCT_ID
+  distinctId: string = SERVER_DISTINCT_ID,
+  uuid?: string
 ): Promise<boolean> {
   const client = getPostHogServerClient();
 
@@ -125,6 +126,9 @@ export async function captureServerEvent(
           app_surface: 'web',
           runtime: 'nodejs',
         }),
+        // A deterministic uuid lets PostHog ingestion dedupe concurrent
+        // emitters of the same logical event.
+        ...(uuid ? { uuid } : {}),
       }),
       new Promise((_resolve, reject) => {
         timeoutHandle = setTimeout(

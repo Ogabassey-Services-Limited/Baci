@@ -1,36 +1,35 @@
-import posthog from 'posthog-js';
-
 const MAX_PENDING_CLIENT_EVENTS = 20;
+
+type ClientEventSink = (
+  event: string,
+  properties: Record<string, unknown>
+) => void;
 
 interface PendingClientEvent {
   event: string;
   properties: Record<string, unknown>;
 }
 
+let sink: ClientEventSink | null = null;
 let pendingClientEvents: PendingClientEvent[] = [];
-
-function isPostHogClientLoaded(): boolean {
-  // Mirrors browser.ts: `posthog-js` flips `__loaded` at the end of `init()`;
-  // captures before that are dropped by the SDK. Re-check this on SDK bumps.
-  return posthog.__loaded === true;
-}
 
 /**
  * Fire-and-forget product-event capture for the browser. The app has no generic
  * capture helper (only `$pageview`/`web_vitals`/exception paths in
- * `lib/posthog/browser.ts`); this wraps `posthog-js` so wallet-funding surfaces
- * can emit custom events without importing the SDK directly.
+ * `lib/posthog/browser.ts`); this lets wallet-funding surfaces emit custom
+ * events WITHOUT importing the SDK — a static `posthog-js` import here would
+ * drag the SDK into every consuming route's initial bundle, defeating the
+ * bootstrap's deliberate lazy dynamic-import of `lib/posthog/browser`.
  *
- * Telemetry must never break a user flow, so every call is wrapped in try/catch.
- * `undefined` property values are dropped (keeps `merchant_slug`/`customer_id`
- * absent rather than reporting `undefined`), and every event is stamped with
- * `app_surface: 'web'` to match the existing pageview capture — stamped after
- * property copying so callers cannot override it.
+ * Until the bootstrap initializes and connects a sink, events queue (bounded);
+ * `browser.ts` connects `posthog.capture` as the sink post-init and drains the
+ * queue, so first-load surface events are neither dropped nor eagerly loaded.
  *
- * The bootstrap defers `posthog.init` until idle/first interaction, so events
- * captured before init are queued (bounded) and delivered when the bootstrap
- * calls `flushPendingClientEvents` — first-load surface events would otherwise
- * be silently discarded by the SDK.
+ * Telemetry must never break a user flow, so every call is wrapped in
+ * try/catch. `undefined` property values are dropped (keeps `merchant_slug`/
+ * `customer_id` absent rather than reporting `undefined`), and every event is
+ * stamped with `app_surface: 'web'` after property copying so callers cannot
+ * override it.
  */
 export function captureClientEvent(
   event: string,
@@ -47,32 +46,34 @@ export function captureClientEvent(
     }
     stamped.app_surface = 'web';
 
-    if (!isPostHogClientLoaded()) {
-      pendingClientEvents = [
-        ...pendingClientEvents,
-        { event, properties: stamped },
-      ].slice(-MAX_PENDING_CLIENT_EVENTS);
+    if (sink) {
+      sink(event, stamped);
       return;
     }
 
-    posthog.capture(event, stamped);
+    pendingClientEvents = [
+      ...pendingClientEvents,
+      { event, properties: stamped },
+    ].slice(-MAX_PENDING_CLIENT_EVENTS);
   } catch {
     // Telemetry is best-effort — never surface capture failures to the user.
   }
 }
 
 /**
- * Delivers events captured before the SDK initialized. Called by the browser
- * bootstrap (`markPostHogReadyAndFlush` in `lib/posthog/browser.ts`) once
- * `init()` completes.
+ * Connects the live delivery path and drains the pre-init queue. Called by the
+ * browser bootstrap (`markPostHogReadyAndFlush` in `lib/posthog/browser.ts`,
+ * itself behind the lazy import boundary) once `posthog.init` completes.
  */
-export function flushPendingClientEvents(): void {
+export function connectClientEventSink(nextSink: ClientEventSink): void {
+  sink = nextSink;
+
   const queued = pendingClientEvents;
   pendingClientEvents = [];
 
   for (const { event, properties } of queued) {
     try {
-      posthog.capture(event, properties);
+      nextSink(event, properties);
     } catch {
       // Best-effort — a failed pre-init event is dropped, not retried.
     }

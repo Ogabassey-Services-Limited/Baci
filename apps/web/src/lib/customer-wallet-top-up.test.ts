@@ -8,6 +8,7 @@ vi.mock('@/lib/posthog/server', () => ({
 }));
 
 import { creditWalletTopUp } from '@/lib/customer-wallet-top-up';
+import { deterministicEventUuid } from '@/lib/posthog/deterministic-event-uuid';
 
 function createWalletCreditSupabaseMock({
   existingCredit,
@@ -103,7 +104,9 @@ describe('creditWalletTopUp', () => {
       p_source_id: 'payment-tx-1',
       p_source_type: 'wallet_topup',
     });
-    // The fresh-credit path is the funnel-completion point.
+    // The fresh-credit path is the funnel-completion point. The uuid derives
+    // from the ledger transaction id the RPC returned, so a concurrent loser
+    // (handed the same id) produces a duplicate PostHog dedupes away.
     expect(mockCaptureServerEvent).toHaveBeenCalledWith(
       'wallet_funding_transfer_credited',
       {
@@ -114,7 +117,8 @@ describe('creditWalletTopUp', () => {
         gateway_reference: 'WAL-123',
         merchant_id: 'merchant-1',
       },
-      'customer-1'
+      'customer-1',
+      deterministicEventUuid('wallet_funding_transfer_credited:wallet-credit-2')
     );
   });
 

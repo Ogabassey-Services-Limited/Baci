@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { deterministicEventUuid } from '@/lib/posthog/deterministic-event-uuid';
 import { captureServerEvent } from '@/lib/posthog/server';
 import { WALLET_FUNDING_TELEMETRY } from '@/lib/posthog/wallet-funding-events';
 
@@ -179,10 +180,12 @@ export async function creditWalletTopUp({
   const result = normalizeWalletRpcResult(data);
   const balance = normalizeWalletBalance(result.new_balance);
 
-  // Funnel completion: the RPC path only runs for a first credit (replays
-  // short-circuit on the ledger check above), so retries cannot double-count.
-  // Wallet top-ups are NGN-only today. Fail-open + internally timeout-bounded —
-  // never blocks or fails the money path.
+  // Funnel completion. Sequential replays short-circuit on the ledger check
+  // above; two CONCURRENT callers (webhook + confirm route) can both reach
+  // here, but the RPC's advisory lock hands the loser the winner's ledger
+  // transaction id — so a uuid derived from it makes PostHog ingestion dedupe
+  // the pair into one event. Wallet top-ups are NGN-only today. Fail-open +
+  // internally timeout-bounded — never blocks or fails the money path.
   await captureServerEvent(
     WALLET_FUNDING_TELEMETRY.events.transferCredited,
     {
@@ -193,7 +196,10 @@ export async function creditWalletTopUp({
       gateway_reference: reference,
       merchant_id: merchantId,
     },
-    customerId
+    customerId,
+    deterministicEventUuid(
+      `${WALLET_FUNDING_TELEMETRY.events.transferCredited}:${result.transaction_id}`
+    )
   );
 
   return {
