@@ -250,7 +250,9 @@ export async function StorefrontContent({
     ? getCachedStorefrontHomeProducts(merchant.id, 'recent')
     : getCachedStorefrontHomeProducts(merchant.id);
 
-  // Parallel data fetching — both use remote cache
+  // Parallel data fetching — products still use the remote cache; navigation
+  // categories read locally per-request (PR4a demoted them off the remote
+  // handler).
   const [products, categories] = await Promise.all([
     productsPromise,
     getStorefrontNavigationCategories(merchant.id),
