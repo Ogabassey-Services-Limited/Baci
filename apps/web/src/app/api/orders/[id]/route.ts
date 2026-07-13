@@ -23,6 +23,7 @@ import {
   isShippingProviderCode,
   OrderShipmentBookingError,
 } from '@/lib/shipping/order-shipment-booking-utils';
+import { orderUpdateSchema } from '@/schemas/orders';
 
 const RELEASEABLE_BOOKING_ERROR_CODES = new Set([
   'ORDER_NOT_FOUND',
@@ -141,12 +142,28 @@ export async function PATCH(
     }
 
     const { id } = await params;
-    const body = await request.json();
-
     // Authenticate request (supports mobile Bearer token + web cookies)
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    let requestBody: unknown;
+    try {
+      requestBody = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: 'Malformed JSON body', code: 'INVALID_REQUEST_BODY' },
+        { status: 400 }
+      );
+    }
+
+    const parsedBody = orderUpdateSchema.safeParse(requestBody);
+    if (!parsedBody.success) {
+      return NextResponse.json(
+        { error: 'Invalid request body', code: 'INVALID_REQUEST_BODY' },
+        { status: 400 }
+      );
     }
 
     // Get merchant ID (supports both owners and staff members)
@@ -177,7 +194,8 @@ export async function PATCH(
     }
 
     // Extract updatable fields
-    const { payment_status, shipping_status, notes, shipping_address } = body;
+    const { payment_status, shipping_status, notes, shipping_address } =
+      parsedBody.data;
 
     // Validate: Cannot move to 'processing' unless paid or is_credit_order
     if (
@@ -249,10 +267,12 @@ export async function PATCH(
       isShippingProviderCode(existingOrder.shipping_provider) &&
       Boolean(existingOrder.selected_quote_id);
 
-    if (
+    const needsPreUpdateInventoryConfirmation =
       isPaidStatusUpdate(updates.payment_status) &&
-      needsProviderShipmentBooking
-    ) {
+      shipping_status !== undefined &&
+      shipping_status !== existingOrder.shipping_status;
+
+    if (needsPreUpdateInventoryConfirmation) {
       const paidStatus = updates.payment_status;
       const { error: paidUpdateError } = await supabase
         .from('orders')
@@ -412,6 +432,43 @@ export async function PATCH(
 
     if (updateError) {
       console.error('Error updating order:', updateError);
+      if (inventoryConfirmedBeforeOrderUpdate) {
+        try {
+          await rollbackOrderStatusAfterInventoryConfirmationFailure(
+            supabase,
+            merchantId,
+            id,
+            {
+              payment_status: existingOrder.payment_status,
+              shipping_status: existingOrder.shipping_status,
+            }
+          );
+        } catch (rollbackError) {
+          logger.error({
+            message:
+              'PATCH orders/[id] failed to rollback paid pre-update after fulfillment update failure',
+            orderId: id,
+            error: rollbackError,
+          });
+          await fileInventoryConfirmationFailureReview({
+            gatewayReference: null,
+            merchantId,
+            metadata: {
+              fulfillmentUpdateError: updateError,
+              rollbackError:
+                rollbackError instanceof Error
+                  ? rollbackError.message
+                  : rollbackError,
+              source:
+                'merchant_fulfillment_update_after_inventory_confirmation',
+            },
+            orderId: id,
+            reason:
+              'Inventory was confirmed after a paid pre-update, but the fulfillment update and paid-status rollback both failed.',
+            transactionId: null,
+          });
+        }
+      }
       return NextResponse.json(
         { error: 'Failed to update order' },
         { status: 500 }

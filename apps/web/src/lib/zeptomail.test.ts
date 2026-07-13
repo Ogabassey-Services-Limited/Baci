@@ -18,6 +18,7 @@ const auditState = {
 // The fetch-based transport replaced the zeptomail SDK; dispatch by endpoint
 // so the per-method assertions below keep receiving the payload as-is.
 vi.mock('@/lib/zeptomail-transport', () => ({
+  ZEPTOMAIL_DELIVERY_OUTCOME_UNKNOWN_CODE: 'ZEPTOMAIL_DELIVERY_OUTCOME_UNKNOWN',
   zeptoMailRequest: (
     endpoint: string,
     payload: Record<string, unknown>,
@@ -151,6 +152,29 @@ describe('zeptomail audit logging', () => {
     });
   });
 
+  it('marks the dispatch boundary after audit setup and immediately before transport', async () => {
+    const beforeTransportDispatch = vi.fn(() => {
+      expect(auditState.inserts).toHaveLength(1);
+      expect(sendMailMock).not.toHaveBeenCalled();
+      return Promise.resolve();
+    });
+    sendMailMock.mockResolvedValue({ request_id: 'boundary-test' });
+    const { sendEmail } = await import('./zeptomail');
+
+    const result = await sendEmail({
+      to: 'customer@example.com',
+      subject: 'Dispatch boundary',
+      htmlContent: '<p>Hello</p>',
+      beforeTransportDispatch,
+    });
+
+    expect(result.success).toBe(true);
+    expect(beforeTransportDispatch).toHaveBeenCalledOnce();
+    expect(beforeTransportDispatch.mock.invocationCallOrder[0]).toBeLessThan(
+      sendMailMock.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY
+    );
+  });
+
   // Δ-64 (A1): forward `clientReference` to ZeptoMail's documented
   // `client_reference` field so the outbox helper has a server-side audit
   // trail showing which sends actually went out (used to bound the
@@ -271,6 +295,8 @@ describe('zeptomail audit logging', () => {
 
   it('records failed status after all retries are exhausted', async () => {
     vi.useFakeTimers();
+    const beforeTransportDispatch = vi.fn().mockResolvedValue(undefined);
+    const resetTransportDispatch = vi.fn().mockResolvedValue(undefined);
     const retryableError = {
       error: { message: 'Server overloaded', code: 'TM_5001', details: null },
     };
@@ -283,6 +309,8 @@ describe('zeptomail audit logging', () => {
       subject: 'Retry Test',
       htmlContent: '<p>Hello</p>',
       emailType: 'orders',
+      beforeTransportDispatch,
+      resetTransportDispatch,
       auditContext: {
         merchantId: 'merchant-1',
         orderId: 'order-1',
@@ -301,6 +329,8 @@ describe('zeptomail audit logging', () => {
     expect(result.errorCode).toBe('TM_5001');
     // 1 initial + 3 retries = 4 calls
     expect(sendMailMock).toHaveBeenCalledTimes(4);
+    expect(beforeTransportDispatch).toHaveBeenCalledTimes(4);
+    expect(resetTransportDispatch).toHaveBeenCalledTimes(3);
     expect(auditState.inserts).toHaveLength(1);
     expect(auditState.inserts[0]).toMatchObject({
       status: 'pending',
@@ -316,6 +346,28 @@ describe('zeptomail audit logging', () => {
         provider_error_message: 'Server overloaded',
       },
     });
+  });
+
+  it('marks transport failures as having an unknown delivery outcome', async () => {
+    const transportError = Object.assign(new Error('socket closed'), {
+      code: 'ZEPTOMAIL_DELIVERY_OUTCOME_UNKNOWN',
+    });
+    sendMailMock.mockRejectedValueOnce(transportError);
+    const { sendEmail } = await import('./zeptomail');
+
+    const result = await sendEmail({
+      to: 'customer@example.com',
+      subject: 'Delivery outcome test',
+      htmlContent: '<p>Hello</p>',
+      emailType: 'orders',
+    });
+
+    expect(result).toMatchObject({
+      success: false,
+      deliveryOutcome: 'unknown',
+      error: 'socket closed',
+    });
+    expect(sendMailMock).toHaveBeenCalledTimes(1);
   });
 
   it('rejects missing runtime batch recipients without writing invalid audit rows', async () => {
@@ -430,6 +482,8 @@ describe('zeptomail audit logging', () => {
       return Promise.resolve({ request_id: 'zepto-fellback' });
     });
     const { sendEmail } = await import('./zeptomail');
+    const beforeTransportDispatch = vi.fn().mockResolvedValue(undefined);
+    const resetTransportDispatch = vi.fn().mockResolvedValue(undefined);
 
     const result = await sendEmail({
       to: 'customer@example.com',
@@ -437,9 +491,13 @@ describe('zeptomail audit logging', () => {
       htmlContent: '<p>Hello</p>',
       emailType: 'orders',
       auditContext: { merchantId: 'merchant-1', orderId: 'order-1' },
+      beforeTransportDispatch,
+      resetTransportDispatch,
     });
 
     expect(result).toEqual({ success: true, messageId: 'zepto-fellback' });
+    expect(resetTransportDispatch).toHaveBeenCalledOnce();
+    expect(beforeTransportDispatch).toHaveBeenCalledTimes(2);
     // Both senders were attempted: custom first, then platform fallback.
     expect(sendMailMock.mock.calls.map((c) => c[0]?.from?.address)).toEqual([
       'orders@ogabassey.com',
@@ -454,6 +512,36 @@ describe('zeptomail audit logging', () => {
         attempt_count: 2,
       },
     });
+  });
+
+  it('does not try a platform fallback after an ambiguous custom-domain send', async () => {
+    getActiveMerchantSendingDomainMock.mockResolvedValue('ogabassey.com');
+    sendMailMock.mockRejectedValueOnce(
+      Object.assign(new Error('socket closed after request write'), {
+        code: 'ZEPTOMAIL_DELIVERY_OUTCOME_UNKNOWN',
+      })
+    );
+    const { sendEmail } = await import('./zeptomail');
+    const resetTransportDispatch = vi.fn().mockResolvedValue(undefined);
+
+    const result = await sendEmail({
+      to: 'customer@example.com',
+      subject: 'Order Confirmation',
+      htmlContent: '<p>Hello</p>',
+      emailType: 'orders',
+      auditContext: { merchantId: 'merchant-1', orderId: 'order-1' },
+      resetTransportDispatch,
+    });
+
+    expect(result).toMatchObject({
+      success: false,
+      deliveryOutcome: 'unknown',
+    });
+    expect(sendMailMock).toHaveBeenCalledTimes(1);
+    expect(resetTransportDispatch).not.toHaveBeenCalled();
+    expect(sendMailMock.mock.calls[0]?.[0]?.from?.address).toBe(
+      'orders@ogabassey.com'
+    );
   });
 
   it('falls back to the platform domain for order mail without a custom domain', async () => {

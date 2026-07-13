@@ -1,7 +1,10 @@
 import { getZeptoMailFromDomain, getZeptoMailToken } from '@/env';
 import { getActiveMerchantSendingDomain } from '@/lib/merchant-sending-domain';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { zeptoMailRequest } from '@/lib/zeptomail-transport';
+import {
+  ZEPTOMAIL_DELIVERY_OUTCOME_UNKNOWN_CODE,
+  zeptoMailRequest,
+} from '@/lib/zeptomail-transport';
 
 /**
  * Resolve the ZeptoMail API token. Called inside each send attempt's
@@ -137,6 +140,8 @@ interface SendEmailParams {
   // duplicate window. Not an idempotency key (ZeptoMail does not support
   // one); idempotency lives in the payment_side_effects claim row.
   clientReference?: string;
+  beforeTransportDispatch?: () => Promise<void>;
+  resetTransportDispatch?: () => Promise<void>;
 }
 
 interface EmailAttachment {
@@ -158,6 +163,7 @@ interface SendEmailWithTemplateParams {
 }
 
 interface EmailResult {
+  deliveryOutcome?: 'unknown';
   success: boolean;
   messageId?: string;
   error?: string;
@@ -218,7 +224,11 @@ interface SendFailure {
  */
 function parseError(error: unknown): SendFailure {
   if (error instanceof Error) {
-    return { message: error.message };
+    const code =
+      'code' in error && typeof error.code === 'string'
+        ? error.code
+        : undefined;
+    return { message: error.message, code };
   }
 
   const zeptoError = error as ZeptoMailError;
@@ -384,6 +394,8 @@ export async function sendEmail({
   auditContext,
   merchantId,
   clientReference,
+  beforeTransportDispatch,
+  resetTransportDispatch,
 }: SendEmailParams): Promise<EmailResult> {
   const sender = await resolveSenderAddress(
     emailType,
@@ -459,6 +471,7 @@ export async function sendEmail({
       auditContext,
     }),
   ]);
+  let transportDispatchMarked = false;
 
   // Run the retry loop for a single From identity. Returns the success result,
   // or the parsed failure when all attempts for this sender were exhausted.
@@ -473,6 +486,11 @@ export async function sendEmail({
     for (let attempt = 0; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
       attemptsMade = attempt + 1;
       try {
+        const token = getRequiredToken();
+        if (!transportDispatchMarked) {
+          await beforeTransportDispatch?.();
+          transportDispatchMarked = true;
+        }
         const response = await zeptoMailRequest(
           'email',
           {
@@ -502,7 +520,7 @@ export async function sendEmail({
               ],
             }),
           },
-          getRequiredToken()
+          token
         );
 
         await updateEmailAttempts(auditIds, {
@@ -526,6 +544,10 @@ export async function sendEmail({
           attempt < RETRY_CONFIG.maxRetries &&
           isRetryableError(failure.code)
         ) {
+          if (resetTransportDispatch) {
+            await resetTransportDispatch();
+            transportDispatchMarked = false;
+          }
           const delay = RETRY_CONFIG.baseDelayMs * 2 ** attempt;
           console.warn(
             `ZeptoMail retry ${attempt + 1}/${RETRY_CONFIG.maxRetries} after ${delay}ms: ${failure.message}`
@@ -545,6 +567,8 @@ export async function sendEmail({
     return primary.ok;
   }
   let lastError = primary.failed;
+  let deliveryOutcomeUnknown =
+    lastError.code === ZEPTOMAIL_DELIVERY_OUTCOME_UNKNOWN_CODE;
   let totalAttempts = primary.attempts;
   let finalSenderAddress = sender.address;
 
@@ -552,7 +576,9 @@ export async function sendEmail({
   // not-yet-verified domain, restricted sender). Order confirmations must not be
   // lost to that, so retry once from the platform domain — mirroring the
   // auth-email hook, which also falls back to the platform sender.
-  if (sender.isCustomDomain) {
+  if (sender.isCustomDomain && !deliveryOutcomeUnknown) {
+    await resetTransportDispatch?.();
+    transportDispatchMarked = false;
     const platformSender = getSenderAddress(emailType, fromName);
     console.warn(
       `ZeptoMail custom sender rejected (${lastError.code ?? 'unknown'}); retrying from platform sender`
@@ -565,6 +591,8 @@ export async function sendEmail({
       return fallback.ok;
     }
     lastError = fallback.failed;
+    deliveryOutcomeUnknown ||=
+      lastError.code === ZEPTOMAIL_DELIVERY_OUTCOME_UNKNOWN_CODE;
     totalAttempts += fallback.attempts;
     finalSenderAddress = platformSender.address;
   }
@@ -580,6 +608,7 @@ export async function sendEmail({
   });
   return {
     success: false,
+    ...(deliveryOutcomeUnknown ? { deliveryOutcome: 'unknown' as const } : {}),
     error: lastError.message || 'Unknown error',
     errorCode: lastError.code,
     errorDetails: lastError.details,

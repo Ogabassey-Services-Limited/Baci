@@ -4,48 +4,73 @@ import {
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
-import {
-  generateOrderDeliveredEmail,
-  generateOrderDeliveredText,
-} from '@/lib/email-templates';
-import { logger } from '@/lib/logger';
-import { resolveOrderNotificationRecipient } from '@/lib/order-notification-recipient';
-import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
-import { sendEmail } from '@/lib/zeptomail';
+import { sendOrderFulfillmentNotification } from '@/lib/order-fulfillment-notification';
+import type { OrderFulfillmentNotificationResult } from '@/lib/order-fulfillment-notification-types';
+import { beginOrderNotificationOutboxDispatch } from '@/lib/order-notification-outbox-dispatch';
+import { resetOrderNotificationOutboxDispatch } from '@/lib/order-notification-outbox-dispatch-reset';
+import { completeManualOrderNotificationOutboxEvent } from '@/lib/order-notification-outbox-manual-result';
+import { getManualOrderNotificationOutboxBlockingState } from '@/lib/order-notification-outbox-manual-state';
 import { orderIdParamsSchema } from '@/schemas/orders';
 
-/** Order item interface for email templates (2026 best practice) */
-interface EmailOrderItem {
-  name: string;
-  quantity: number;
+function responseForResult(result: OrderFulfillmentNotificationResult) {
+  if (result.status === 'sent') {
+    return NextResponse.json({
+      success: true,
+      message: result.message,
+      messageId: result.messageId,
+      hasGoogleRating: result.hasGoogleRating ?? false,
+    });
+  }
+
+  if (result.status === 'skipped') {
+    return NextResponse.json({
+      success: true,
+      message: 'Delivered notification skipped',
+      notificationSkipped: true,
+      reason: result.reason,
+      hasGoogleRating: result.hasGoogleRating ?? false,
+    });
+  }
+
+  if (result.status === 'not_found') {
+    return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+  }
+
+  if (result.status === 'invalid_state') {
+    return NextResponse.json({ error: result.error }, { status: 400 });
+  }
+
+  return NextResponse.json(
+    { error: 'Failed to send email', code: 'NOTIFICATION_SEND_FAILED' },
+    { status: 500 }
+  );
 }
 
 /**
  * POST /api/orders/[id]/delivered
- * Sends the "Order Delivered" email to the customer with optional Google rating CTA
- * Called when merchant marks order as delivered
+ * Backward-compatible manual send endpoint. Normal delivered notifications are
+ * now queued by the order notification outbox when shipping_status changes.
  */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // CSRF protection
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user || !auth.supabase) {
+      return NextResponse.json(
+        { error: auth.error || 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    const authenticatedSupabase = auth.supabase;
+
     const { valid: csrfValid, response: csrfResponse } =
       await checkCsrfProtection(request);
     if (!csrfValid) {
       return (
         csrfResponse ??
         NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
-      );
-    }
-
-    // Authenticate request
-    const auth = await authenticateApiRequest(request);
-    if (auth.error || !auth.user || !auth.supabase) {
-      return NextResponse.json(
-        { error: auth.error || 'Unauthorized' },
-        { status: 401 }
       );
     }
 
@@ -57,10 +82,6 @@ export async function POST(
       );
     }
 
-    const { id } = parsedParams.data;
-    console.log(`[OrderDelivered] Starting for order ${id}`);
-
-    // Get merchant ID
     const merchantId = await getMerchantIdForApiUser(auth.supabase);
     if (!merchantId) {
       return NextResponse.json(
@@ -69,166 +90,125 @@ export async function POST(
       );
     }
 
-    const supabase = auth.supabase;
-
-    // ⚡ Bolt: PERFORMANCE: Execute independent database queries in parallel to prevent waterfall latency
-    const [merchantResult, settingsResult, orderResult] = await Promise.all([
-      // Fetch merchant details
-      supabase
-        .from('merchants')
-        .select(
-          'id, business_name, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number'
-        )
-        .eq('id', merchantId)
-        .single(),
-
-      // Fetch merchant feature settings to get Google Place ID
-      supabase
-        .from('merchant_feature_settings')
-        .select('google_place_id')
-        .eq('merchant_id', merchantId)
-        .single(),
-
-      // Fetch order with items
-      supabase
-        .from('orders')
-        .select(ORDER_WITH_ITEMS_QUERY)
-        .eq('id', id)
-        .eq('merchant_id', merchantId)
-        .single(),
-    ]);
-
-    const { data: merchant, error: merchantError } = merchantResult;
-    if (merchantError || !merchant) {
+    const blockingState = await getManualOrderNotificationOutboxBlockingState({
+      eventType: 'order_delivered',
+      merchantId,
+      orderId: parsedParams.data.id,
+      supabase: auth.supabase,
+    });
+    if (blockingState.status === 'error') {
       return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
-      );
-    }
-
-    const { data: featureSettings, error: settingsError } = settingsResult;
-    if (settingsError) {
-      logger.error({
-        message: 'Failed to fetch merchant feature settings',
-        error: settingsError,
-        merchantId,
-        orderId: id,
-      });
-      return NextResponse.json(
-        { error: 'Failed to load merchant settings' },
+        { error: 'Failed to verify notification state' },
         { status: 500 }
       );
     }
-
-    const { data: order, error: orderError } = orderResult;
-    if (orderError || !order) {
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
-    }
-
-    // Check if order is actually delivered
-    if (order.shipping_status !== 'delivered') {
-      return NextResponse.json(
-        { error: 'Order must be marked as delivered first' },
-        { status: 400 }
-      );
-    }
-
-    const recipient = resolveOrderNotificationRecipient(order.customer_email);
-    if (!recipient.ok) {
-      logger.warn({
-        message:
-          'Skipping delivered email because order has no valid customer email',
-        orderId: order.id,
-        merchantId,
-        customerId: order.customer_id,
-        reason: recipient.reason,
-      });
-
-      return NextResponse.json({
-        success: true,
-        message: 'Delivered notification skipped',
-        notificationSkipped: true,
-        reason: recipient.reason,
-        hasGoogleRating: !!featureSettings?.google_place_id,
+    if (blockingState.status === 'not_found') {
+      return responseForResult({
+        status: 'not_found',
+        error: 'Order not found',
       });
     }
+    if (blockingState.status === 'invalid_state') {
+      return responseForResult({
+        status: 'invalid_state',
+        error: 'Order must be marked as delivered first',
+      });
+    }
+    if (blockingState.status === 'blocked') {
+      switch (blockingState.outboxStatus) {
+        case 'outcome_unknown':
+          return responseForResult({
+            status: 'skipped',
+            reason: 'notification_delivery_outcome_unknown',
+          });
+        case 'sent':
+          return responseForResult({
+            status: 'skipped',
+            reason: 'notification_already_sent',
+          });
+        case 'pending':
+          return responseForResult({
+            status: 'skipped',
+            reason: 'notification_pending',
+          });
+        case 'processing':
+          return responseForResult({
+            status: 'skipped',
+            reason: 'notification_processing',
+          });
+        default: {
+          const exhaustive: never = blockingState.outboxStatus;
+          return exhaustive;
+        }
+      }
+    }
 
-    // Prepare email data
-    const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
-    const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
-
-    const emailItems =
-      order.order_items?.map((item: EmailOrderItem) => ({
-        name: item.name || 'Product',
-        quantity: item.quantity || 1,
-      })) || [];
-
-    const deliveredData = {
-      orderNumber: order.order_number || order.id.slice(0, 8).toUpperCase(),
-      customerName: order.customer_name,
-      items: emailItems,
-      merchantName: merchant.business_name,
-      merchantUrl,
-      supportEmail: merchant.support_email,
-      merchantTin: merchant.tax_identification_number ?? undefined,
-      merchantRcNumber: merchant.cac_rc_number ?? undefined,
-      googlePlaceId: featureSettings?.google_place_id || null,
-    };
-
-    const htmlContent = generateOrderDeliveredEmail(deliveredData);
-    const textContent = generateOrderDeliveredText(deliveredData);
-
-    const replyToEmail =
-      merchant.support_email ||
-      merchant.email ||
-      `support@${merchant.slug}.${rootDomain}`;
-    const senderName = merchant.email_sender_name
-      ? `${merchant.email_sender_name}`
-      : `${merchant.business_name}`;
-
-    // Send email
-    const emailResult = await sendEmail({
-      to: recipient.email,
-      toName: order.customer_name,
-      subject: `Your Order #${deliveredData.orderNumber} Has Been Delivered! 🎉`,
-      htmlContent,
-      textContent,
-      replyTo: replyToEmail,
-      emailType: 'orders',
-      fromName: senderName,
-      auditContext: {
+    let result: OrderFulfillmentNotificationResult;
+    try {
+      result = await sendOrderFulfillmentNotification({
+        beforeProviderDispatch: () =>
+          beginOrderNotificationOutboxDispatch({
+            claimId: blockingState.claimId,
+            claimOwner: blockingState.claimOwner,
+            eventType: 'order_delivered',
+            merchantId,
+            orderId: parsedParams.data.id,
+            supabase: authenticatedSupabase,
+          }),
+        resetProviderDispatch: () =>
+          resetOrderNotificationOutboxDispatch({
+            claimId: blockingState.claimId,
+            claimOwner: blockingState.claimOwner,
+            eventType: 'order_delivered',
+            merchantId,
+            orderId: parsedParams.data.id,
+            supabase: authenticatedSupabase,
+          }),
+        eventType: 'order_delivered',
         merchantId,
-        orderId: order.id,
-        customerId: order.customer_id,
-        metadata: {
-          trigger: 'order_delivered_notification',
-        },
-      },
+        mismatchBehavior: 'invalid_state',
+        orderId: parsedParams.data.id,
+        supabase: auth.supabase,
+      });
+    } catch (error) {
+      try {
+        await completeManualOrderNotificationOutboxEvent({
+          claimId: blockingState.claimId,
+          claimOwner: blockingState.claimOwner,
+          eventType: 'order_delivered',
+          merchantId,
+          orderId: parsedParams.data.id,
+          result: {
+            status: 'failed',
+            error: 'Notification dispatch failed before completion',
+          },
+          supabase: auth.supabase,
+        });
+      } catch (completionError) {
+        console.error(
+          'Failed to release delivered notification manual claim:',
+          completionError
+        );
+      }
+      throw error;
+    }
+
+    await completeManualOrderNotificationOutboxEvent({
+      claimId: blockingState.claimId,
+      claimOwner: blockingState.claimOwner,
+      eventType: 'order_delivered',
+      merchantId,
+      orderId: parsedParams.data.id,
+      result,
+      supabase: auth.supabase,
     });
 
-    if (!emailResult.success) {
-      logger.error({
-        message: 'Failed to send delivered email',
-        error: emailResult.error,
-      });
-      return NextResponse.json(
-        { error: 'Failed to send email', details: emailResult.error },
-        { status: 500 }
-      );
-    }
-
-    console.log(`[OrderDelivered] Email sent for order ${id}`);
-
-    return NextResponse.json({
-      success: true,
-      message: 'Delivered notification sent',
-      messageId: emailResult.messageId,
-      hasGoogleRating: !!featureSettings?.google_place_id,
-    });
+    return responseForResult(result);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Internal Error';
-    console.error('Error in delivered notification:', error);
-    logger.error({ message: 'Error sending delivered email', error });
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error('Failed to send delivered order notification:', error);
+    return NextResponse.json(
+      { error: 'Internal server error', code: 'INTERNAL_ERROR' },
+      { status: 500 }
+    );
   }
 }
