@@ -122,14 +122,18 @@ BEGIN
            updated_at = now()
      WHERE id = p_order_id;
     v_order_updated := true;
+  END IF;
 
-    -- Seed the paid-order outbox in the SAME transaction as the flip. Every
-    -- order completed through this RPC therefore has outbox history, which
-    -- makes "empty outbox" an exact marker for legacy (pre-outbox inline)
-    -- completions in the finalizer's pure-replay guard, and lets the
-    -- reconcile cron's failed-row drain pick up a caller that crashes before
-    -- its first claim. The claim RPC takes over 'failed' rows, so the normal
-    -- in-request side-effect run immediately supersedes this seed.
+  -- Seed the paid-order outbox in the SAME transaction whenever this call
+  -- transitions state: the order flip, or a FRESH transaction capture on an
+  -- order that was already paid through another channel (the captured funds
+  -- still owe a settlement drain). Every completion through this RPC
+  -- therefore has outbox history, making "empty outbox" an exact marker for
+  -- legacy (pre-outbox inline) completions, and letting the reconcile
+  -- cron's failed-row drain pick up a caller that crashes before its first
+  -- claim. The claim RPC takes over 'failed' rows, so the normal in-request
+  -- side-effect run immediately supersedes this seed.
+  IF v_order_updated OR NOT v_already_completed THEN
     INSERT INTO public.payment_side_effects (
       order_id, transaction_id, step, status, claimed_by, error, result
     ) VALUES (
@@ -139,7 +143,7 @@ BEGIN
       'failed',
       p_actor,
       'rpc_seed_pending_drain',
-      jsonb_build_object('reason', 'seeded_at_order_flip')
+      jsonb_build_object('reason', 'seeded_at_completion')
     )
     ON CONFLICT (order_id, step) DO NOTHING;
   END IF;

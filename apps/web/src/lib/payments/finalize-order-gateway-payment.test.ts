@@ -46,9 +46,13 @@ vi.mock('@/lib/expo-push', () => ({
   notifyNewOrder: mocks.notifyNewOrder,
   notifyPaymentReceived: mocks.notifyPaymentReceived,
 }));
-vi.mock('@/lib/payments/paid-order-retry-persistence', () => ({
-  persistPaidOrderSideEffectRetry: mocks.persistPaidOrderSideEffectRetry,
-}));
+vi.mock(
+  '@/lib/payments/paid-order-retry-persistence',
+  async (importOriginal) => ({
+    ...(await importOriginal<object>()),
+    persistPaidOrderSideEffectRetry: mocks.persistPaidOrderSideEffectRetry,
+  })
+);
 vi.mock('@/lib/payments/run-paid-order-side-effects', () => ({
   runPaidOrderSideEffects: mocks.runPaidOrderSideEffects,
 }));

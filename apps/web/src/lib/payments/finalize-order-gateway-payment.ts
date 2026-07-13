@@ -11,7 +11,10 @@ import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/invento
 import { schedulePaidOrderNotifications } from '@/lib/payments/notify-paid-order';
 import { getOrderOutboxState } from '@/lib/payments/order-has-outbox-rows';
 import { toRichPaidOrder } from '@/lib/payments/paid-order-normalization';
-import { persistPaidOrderSideEffectRetry } from '@/lib/payments/paid-order-retry-persistence';
+import {
+  PAID_ORDER_FETCH_FAILURE_REASON,
+  persistPaidOrderSideEffectRetry,
+} from '@/lib/payments/paid-order-retry-persistence';
 import { PAID_ORDER_RICH_SELECT } from '@/lib/payments/paid-order-rich-select';
 import { runPaidOrderSideEffects } from '@/lib/payments/run-paid-order-side-effects';
 
@@ -37,12 +40,10 @@ export interface FinalizeOrderGatewayPaymentTransaction {
   gateway_reference: string | null;
 }
 
-// One engine for "a gateway confirmed this order payment — make our records
-// reflect it". Used by the Paystack/Korapay webhook (first delivery AND the
-// already-processed redelivery heal) and by the reconcile-gateway-paid-orders
-// cron sweep. The order/transaction flip itself is a single atomic RPC; the
-// follow-up steps (inventory, push, side-effects outbox) are individually
-// idempotent, so re-running this whole function for the same payment is safe.
+// One engine for "a gateway confirmed this order payment": webhook (first
+// delivery and redelivery heal), verify, and the reconcile cron all share
+// it. The flip is one atomic RPC; every follow-up step is idempotent, so
+// re-running the whole function for the same payment is safe.
 export async function finalizeOrderGatewayPayment({
   supabase,
   transaction,
@@ -99,11 +100,9 @@ export async function finalizeOrderGatewayPayment({
   const healed = Boolean(
     completion.already_completed && completion.order_updated
   );
-  // Push notifications have no claim-gating (unlike the outbox). They fire
-  // for the caller that transitioned the order (the RPC's advisory lock
-  // makes that exactly one caller), OR when the outbox still holds nothing
-  // but the RPC's untouched seed row — evidence that the transitioning
-  // caller crashed before ever scheduling push, so it was never sent.
+  // Push has no claim-gating: it fires for the one caller that transitioned
+  // the order, or when the outbox holds only pre-push evidence (untouched
+  // seed / fetch-failure markers) proving push was never scheduled.
   const outboxState =
     completion.order_updated || wonTransactionFlip
       ? null
@@ -128,6 +127,9 @@ export async function finalizeOrderGatewayPayment({
         await persistPaidOrderSideEffectRetry({
           error: orderFetchError,
           orderId,
+          // Pre-push marker: the fetch failed BEFORE notifications were
+          // scheduled, so a replay still owes the merchant their push.
+          reason: PAID_ORDER_FETCH_FAILURE_REASON,
           reference,
           supabase,
           transaction: { id: transaction.id },

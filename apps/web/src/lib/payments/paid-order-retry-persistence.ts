@@ -8,6 +8,9 @@ export const PAID_ORDER_RETRY_STEPS = [
 ] as const;
 export const WEBHOOK_SIDE_EFFECT_FAILURE_REASON =
   'webhook_side_effect_runner_failed';
+// Marker written when the paid-order fetch failed BEFORE push notifications
+// were scheduled — replays use it as exact evidence that push is still owed.
+export const PAID_ORDER_FETCH_FAILURE_REASON = 'paid_order_fetch_failed';
 
 const nonEmptyStringSchema = z.string().trim().min(1);
 const paidOrderSideEffectRetrySchema = z.object({
@@ -39,12 +42,14 @@ export function parseRetryInput(input: {
 export async function persistPaidOrderSideEffectRetry({
   error,
   orderId,
+  reason = WEBHOOK_SIDE_EFFECT_FAILURE_REASON,
   reference,
   supabase,
   transaction,
 }: {
   error: unknown;
   orderId: string;
+  reason?: string;
   reference: string;
   supabase: SupabaseClient;
   transaction: { id: string };
@@ -61,7 +66,7 @@ export async function persistPaidOrderSideEffectRetry({
         order_id: parsed.orderId,
         result: {
           gateway_reference: parsed.reference,
-          reason: WEBHOOK_SIDE_EFFECT_FAILURE_REASON,
+          reason,
         },
         status: 'failed',
         step,

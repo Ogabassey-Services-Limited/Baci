@@ -7,9 +7,9 @@ import {
   verifyGatewayCharge,
 } from '@/lib/payments/verify-gateway-charge';
 
-// Wedged gateway payments (completed transaction, order never flipped —
-// the ORD-260711-00NT-5 state): heal paystack/korapay after re-verifying;
-// every terminal outcome files a review and stamps the row once.
+// Wedged gateway payments (completed txn, order never flipped): heal
+// paystack/korapay after re-verifying; terminal outcomes file a review
+// and stamp the row once.
 
 const AMOUNT_TOLERANCE_MAJOR_UNITS = 0.01;
 const DEFAULT_LIMIT = 10;
@@ -85,11 +85,9 @@ export async function reconcileWedgedGatewayOrders({
 
   const cutoff = new Date(Date.now() - olderThanMinutes * 60_000).toISOString();
 
-  // Cancelled/refunded orders stay in scope: their captured funds need a
-  // reconciliation_review row (the finalizer files it), after which the
-  // transaction is stamped so it never consumes the batch again. The same
-  // stamp retires unhealable-gateway detections and permanent verification
-  // mismatches, so they cannot starve healable candidates out of the limit.
+  // Cancelled/refunded orders stay in scope (the finalizer files their
+  // review); every terminal outcome is stamped so it never consumes the
+  // batch again nor starves healable candidates.
   const { data: candidates, error: lookupError } = await supabase
     .from('transactions')
     .select(
@@ -118,8 +116,14 @@ export async function reconcileWedgedGatewayOrders({
           reason: 'missing_gateway_reference',
           transactionId: candidate.id,
         });
-        // Permanent: without a reference there is nothing to verify against,
-        // so retire the row instead of letting it recycle hourly.
+        // Permanent: nothing to verify against. File for ops, then retire.
+        await handlePaymentForCancelledOrder({
+          gatewayReference: null,
+          issueType: 'payment_match_ambiguous',
+          order: { id: candidate.order_id },
+          reason: `Wedge sweep: completed ${candidate.gateway} transaction ${candidate.id} has no gateway reference to verify; manual reconciliation required`,
+          transactionId: candidate.id,
+        });
         await stampWedgeResolution(
           supabase,
           candidate,
@@ -140,9 +144,8 @@ export async function reconcileWedgedGatewayOrders({
           gateway: candidate.gateway,
           transactionId: candidate.id,
         });
-        // Durable ops item before the row retires from the hourly batch —
-        // the money is captured but the order never flipped, and the sweep
-        // cannot re-verify this gateway to heal it automatically.
+        // Durable ops item before the row retires: captured money, unpaid
+        // order, and no way to auto-verify this gateway.
         await handlePaymentForCancelledOrder({
           gatewayReference: candidate.gateway_reference,
           issueType: 'payment_match_ambiguous',
@@ -169,9 +172,7 @@ export async function reconcileWedgedGatewayOrders({
           transactionId: candidate.id,
         });
         if (verification.reason === 'gateway_status_not_success') {
-          // We recorded this transaction as completed, but the gateway now
-          // says the charge did not succeed — a definitive, permanent
-          // discrepancy: file it for ops and retire the row.
+          // Definitive gateway verdict: file for ops and retire the row.
           await handlePaymentForCancelledOrder({
             gatewayReference: candidate.gateway_reference,
             issueType: 'payment_match_ambiguous',
@@ -185,8 +186,7 @@ export async function reconcileWedgedGatewayOrders({
             'gateway_verification_negative'
           );
         }
-        // Transient verification-unavailable failures stay unstamped and
-        // retry on the next run.
+        // Transient verification failures stay unstamped and retry next run.
         continue;
       }
 

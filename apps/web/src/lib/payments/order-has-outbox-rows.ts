@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { PAID_ORDER_FETCH_FAILURE_REASON } from '@/lib/payments/paid-order-retry-persistence';
 
 // The transitioning caller schedules push within moments of the RPC commit;
 // a seed older than this can only mean that caller died first.
@@ -23,7 +24,7 @@ export async function getOrderOutboxState(
 ): Promise<OrderOutboxState> {
   const { data, error } = await supabase
     .from('payment_side_effects')
-    .select('step, status, error, claimed_at')
+    .select('step, status, error, claimed_at, result')
     .eq('order_id', orderId)
     .limit(10);
   if (error) {
@@ -36,12 +37,26 @@ export async function getOrderOutboxState(
   const seedCutoff = Date.now() - SEED_OVERLAP_WINDOW_MS;
   const onlyUntouchedSeed =
     hasRows &&
-    rows.every(
-      (row) =>
-        row.status === 'failed' &&
-        row.error === 'rpc_seed_pending_drain' &&
-        (typeof row.claimed_at !== 'string' ||
-          new Date(row.claimed_at).getTime() < seedCutoff)
-    );
+    rows.every((row) => {
+      if (row.status !== 'failed') {
+        return false;
+      }
+      const resultReason =
+        row.result && typeof row.result === 'object'
+          ? (row.result as Record<string, unknown>).reason
+          : undefined;
+      // Pre-push evidence: the RPC's untouched seed, or the markers written
+      // when the paid-order fetch failed before push was scheduled.
+      const isPrePushEvidence =
+        row.error === 'rpc_seed_pending_drain' ||
+        resultReason === PAID_ORDER_FETCH_FAILURE_REASON;
+      if (!isPrePushEvidence) {
+        return false;
+      }
+      return (
+        typeof row.claimed_at !== 'string' ||
+        new Date(row.claimed_at).getTime() < seedCutoff
+      );
+    });
   return { hasRows, onlyUntouchedSeed };
 }
