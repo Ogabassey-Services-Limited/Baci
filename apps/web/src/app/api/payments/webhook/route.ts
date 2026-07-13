@@ -41,20 +41,11 @@ import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
 import { confirmPaystackDvaByOrderAccount } from '@/lib/payments/confirm-paystack-dva-by-order-account';
 import { confirmPaystackWalletDvaTopUp } from '@/lib/payments/confirm-paystack-wallet-dva-top-up';
-import {
-  ensurePaidOrderInventoryConfirmed,
-  rollbackOrderStatusAfterInventoryConfirmationFailure,
-} from '@/lib/payments/ensure-paid-order-inventory-confirmed';
-import { fileInventoryConfirmationFailureReview } from '@/lib/payments/file-inventory-confirmation-review';
-import {
-  handlePaymentForCancelledOrder,
-  isOrderClampedAsCancelled,
-} from '@/lib/payments/handle-payment-for-cancelled-order';
+import { ensurePaidOrderInventoryConfirmed } from '@/lib/payments/ensure-paid-order-inventory-confirmed';
+import { finalizeOrderGatewayPayment } from '@/lib/payments/finalize-order-gateway-payment';
+import { isOrderClampedAsCancelled } from '@/lib/payments/handle-payment-for-cancelled-order';
 import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
-import { toRichPaidOrder } from '@/lib/payments/paid-order-normalization';
-import { persistPaidOrderSideEffectRetry } from '@/lib/payments/paid-order-retry-persistence';
 import { processWalletFundedOrderPayment } from '@/lib/payments/process-wallet-funded-order-payment';
-import { runPaidOrderSideEffects } from '@/lib/payments/run-paid-order-side-effects';
 import { extractVerifiedGatewayFeeNgn } from '@/lib/payments/verified-gateway-fee';
 import {
   calculatePlatformFee,
@@ -1396,19 +1387,101 @@ export async function POST(request: NextRequest) {
 
       logger.info({ message: 'Transaction already processed', reference });
       if (transaction.order_id) {
-        try {
-          await ensurePaidOrderInventoryConfirmed(
-            supabase,
-            transaction.merchant_id,
-            transaction.order_id
-          );
-        } catch (inventoryError) {
-          const payload =
-            buildInventoryConfirmationFailurePayload(inventoryError);
-          return NextResponse.json(payload, {
-            status:
-              payload.code === 'serialized_inventory_unavailable' ? 409 : 500,
+        // A completed transaction does NOT guarantee the order flip landed:
+        // the July 2026 incident (ORD-260711-00NT-5) wedged exactly here —
+        // the order update crashed after the flip and every redelivery
+        // short-circuited to 200. Re-read the order and heal it while
+        // draining any side effects the crashed attempt never ran.
+        const { data: replayOrder, error: replayOrderError } = await supabase
+          .from('orders')
+          .select('id, payment_status, shipping_status, cancelled_at')
+          .eq('id', transaction.order_id)
+          .maybeSingle();
+
+        if (replayOrderError || !replayOrder) {
+          logger.error({
+            message: 'Order state lookup failed on webhook redelivery',
+            orderId: transaction.order_id,
+            error: replayOrderError,
           });
+          return NextResponse.json(
+            { error: 'Order state lookup failed' },
+            { status: 500 }
+          );
+        }
+
+        const replayPaymentStatus =
+          typeof replayOrder.payment_status === 'string'
+            ? replayOrder.payment_status
+            : '';
+        const orderNeedsFinalizer =
+          !isOrderClampedAsCancelled(replayOrder) &&
+          replayPaymentStatus !== 'cancelled' &&
+          replayPaymentStatus !== 'refunded';
+
+        if (orderNeedsFinalizer) {
+          const finalizeOutcome = await finalizeOrderGatewayPayment({
+            actor: `webhook:${reference}`,
+            gateway,
+            gatewayResponse,
+            orderId: transaction.order_id,
+            reference,
+            scheduleAfter: (task) => after(task),
+            supabase,
+            transaction: {
+              amount: transaction.amount,
+              gateway_reference: transaction.gateway_reference ?? null,
+              id: transaction.id,
+              merchant_id: transaction.merchant_id,
+              order_id: transaction.order_id,
+              platform_fee: transaction.platform_fee,
+            },
+            wonTransactionFlip: false,
+          });
+
+          if (finalizeOutcome.kind === 'inventory_failed') {
+            return NextResponse.json(finalizeOutcome.payload, {
+              status: finalizeOutcome.status,
+            });
+          }
+          if (
+            finalizeOutcome.kind === 'completion_failed' ||
+            finalizeOutcome.kind === 'order_fetch_failed' ||
+            finalizeOutcome.kind === 'inventory_cleanup_failed'
+          ) {
+            logger.error({
+              message: 'Webhook redelivery failed to heal order payment',
+              orderId: transaction.order_id,
+              outcome: finalizeOutcome.kind,
+              reference,
+            });
+            return NextResponse.json(
+              { error: 'Order payment completion failed' },
+              { status: 500 }
+            );
+          }
+          if (finalizeOutcome.kind === 'completed' && finalizeOutcome.healed) {
+            logger.warn({
+              message: 'Webhook redelivery healed a wedged order payment',
+              orderId: transaction.order_id,
+              reference,
+            });
+          }
+        } else {
+          try {
+            await ensurePaidOrderInventoryConfirmed(
+              supabase,
+              transaction.merchant_id,
+              transaction.order_id
+            );
+          } catch (inventoryError) {
+            const payload =
+              buildInventoryConfirmationFailurePayload(inventoryError);
+            return NextResponse.json(payload, {
+              status:
+                payload.code === 'serialized_inventory_unavailable' ? 409 : 500,
+            });
+          }
         }
       }
       if (gateway === 'paystack') {
@@ -2603,39 +2676,37 @@ export async function POST(request: NextRequest) {
 
     // Update order status if order_id exists
     if (transaction.order_id) {
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .update({
-          payment_status: 'paid',
-          shipping_status: 'processing',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', transaction.order_id)
-        .select(
-          // A1: include tax_basis, gift_wrapping_fee, tax_amount,
-          // discount_amount so the outbox helper can run a real
-          // financialConsistency() check on the paid order. Without these,
-          // FIRS / loyalty executors (wired in B3.5) would always see the
-          // order as `tax_basis_unclassified` and short-circuit to failed.
-          'id, merchant_id, order_number, customer_id, total, subtotal, shipping_fee, gift_wrapping_fee, tax_amount, discount_amount, tax_basis, customer_name, customer_email, customer_phone, shipping_address, currency, payment_status, shipping_status, cancelled_at, updated_at, ad_tracking, order_items(id, product_id, condition, name, price, quantity, variant_name)'
-        )
-        .single();
+      const finalizeOutcome = await finalizeOrderGatewayPayment({
+        actor: `webhook:${reference}`,
+        gateway,
+        gatewayResponse,
+        orderId: transaction.order_id,
+        reference,
+        scheduleAfter: (task) => after(task),
+        supabase,
+        transaction: {
+          amount: transaction.amount,
+          gateway_reference: transaction.gateway_reference ?? null,
+          id: transaction.id,
+          merchant_id: transaction.merchant_id,
+          order_id: transaction.order_id,
+          platform_fee: transaction.platform_fee,
+        },
+        wonTransactionFlip: true,
+      });
 
-      if (orderError) {
+      if (finalizeOutcome.kind === 'completion_failed') {
         logger.error({
           message: 'Failed to update order',
           orderId: transaction.order_id,
-          error: orderError,
+          error: finalizeOutcome.error,
         });
-        // Review feedback (#1563 thread #1): the outbox-based settlement
-        // path is gated on a successful order update. Without this
-        // fallback, a transient order-update failure would leave the
-        // merchant uncredited even though the customer paid; webhook
-        // retries short-circuit because the transaction is already
-        // marked completed. Record settlement directly here using
-        // transaction-level data (we don't need the fresh order row).
-        // Idempotency is enforced by the partial UNIQUE index from A0,
-        // so a later replay with a successful order update is a no-op.
+        // Review feedback (#1563 thread #1): merchant credit must not depend
+        // on the order flip. Record settlement now (idempotent upsert on the
+        // A0 partial unique index), then fail the webhook so the gateway
+        // redelivers — the redelivery path re-reads the order and heals the
+        // flip, unlike the historical swallow-to-200 behavior that wedged
+        // ORD-260711-00NT-5.
         try {
           const grossAmount = Number(transaction.amount) || 0;
           const gatewayFee = extractVerifiedGatewayFeeNgn(
@@ -2682,213 +2753,52 @@ export async function POST(request: NextRequest) {
             reference,
           });
         }
-      } else if (isOrderClampedAsCancelled(order)) {
-        // The prevent_cancelled_order_reopen trigger clamped this reopen:
-        // the order is cancelled. Suppress all paid-order side effects
-        // (push, confirmation email, settlement, outbox) and file a
-        // reconciliation row for manual refund. Still ack the gateway.
-        await handlePaymentForCancelledOrder({
-          gatewayReference: transaction.gateway_reference ?? reference,
-          order,
-          reason: `Gateway ${gateway} payment captured for an order cancelled before finalization`,
-          transactionId: transaction.id,
+        return NextResponse.json(
+          {
+            code: 'ORDER_PAYMENT_COMPLETION_FAILED',
+            error: 'Order payment completion failed',
+          },
+          { status: 500 }
+        );
+      }
+
+      if (finalizeOutcome.kind === 'order_fetch_failed') {
+        logger.error({
+          message: 'Paid order fetch failed after atomic completion',
+          orderId: transaction.order_id,
+          error: finalizeOutcome.error,
         });
-      } else {
-        try {
-          await ensurePaidOrderInventoryConfirmed(
-            supabase,
-            transaction.merchant_id,
-            transaction.order_id
-          );
-        } catch (inventoryError) {
-          logger.error({
-            message: 'Webhook failed to confirm inventory for paid order',
-            orderId: transaction.order_id,
-            error: inventoryError,
-          });
+        return NextResponse.json(
+          { code: 'PAID_ORDER_FETCH_FAILED', error: 'Paid order fetch failed' },
+          { status: 500 }
+        );
+      }
 
-          try {
-            await rollbackOrderStatusAfterInventoryConfirmationFailure(
-              supabase,
-              transaction.merchant_id,
-              transaction.order_id,
-              {
-                payment_status: 'pending',
-                shipping_status: 'pending',
-              }
-            );
-          } catch (rollbackError) {
-            await fileInventoryConfirmationFailureReview({
-              gatewayReference: transaction.gateway_reference ?? reference,
-              merchantId: transaction.merchant_id,
-              metadata: {
-                gateway,
-                inventoryError:
-                  inventoryError instanceof Error
-                    ? inventoryError.message
-                    : inventoryError,
-                rollbackError:
-                  rollbackError instanceof Error
-                    ? rollbackError.message
-                    : rollbackError,
-                source: 'gateway_webhook_inventory_confirmation_rollback',
-              },
-              orderId: transaction.order_id,
-              reason:
-                'Gateway webhook reached paid state, but serialized inventory confirmation and status rollback both failed.',
-              transactionId: transaction.id,
-            });
-            return NextResponse.json(
-              {
-                code: 'INVENTORY_CONFIRMATION_CLEANUP_FAILED',
-                error: 'Inventory confirmation cleanup failed',
-              },
-              { status: 500 }
-            );
-          }
+      if (finalizeOutcome.kind === 'inventory_failed') {
+        return NextResponse.json(finalizeOutcome.payload, {
+          status: finalizeOutcome.status,
+        });
+      }
 
-          const payload =
-            buildInventoryConfirmationFailurePayload(inventoryError);
-          return NextResponse.json(payload, {
-            status:
-              payload.code === 'serialized_inventory_unavailable' ? 409 : 500,
-          });
-        }
+      if (finalizeOutcome.kind === 'inventory_cleanup_failed') {
+        return NextResponse.json(
+          {
+            code: 'INVENTORY_CONFIRMATION_CLEANUP_FAILED',
+            error: 'Inventory confirmation cleanup failed',
+          },
+          { status: 500 }
+        );
+      }
 
+      if (finalizeOutcome.kind === 'completed') {
         logger.info({
           message: 'Order updated successfully',
           orderId: transaction.order_id,
         });
-
-        // Send push notification to merchant (non-blocking)
-        after(async () => {
-          const orderAmount = Number.parseFloat(order.total || '0');
-          const orderNumber =
-            order.order_number || order.id.slice(0, 8).toUpperCase();
-
-          try {
-            await notifyNewOrder(
-              transaction.merchant_id,
-              order.id,
-              orderNumber,
-              order.customer_name || 'Customer',
-              orderAmount,
-              order.currency || 'NGN'
-            );
-          } catch (pushError) {
-            logger.warn({
-              message: 'New order push notification failed',
-              error: pushError,
-            });
-          }
-
-          try {
-            await notifyPaymentReceived(
-              transaction.merchant_id,
-              orderAmount,
-              order.currency || 'NGN',
-              orderNumber,
-              order.id
-            );
-            logger.info({
-              message: 'Push notification sent to merchant',
-              merchantId: transaction.merchant_id,
-              orderId: transaction.order_id,
-            });
-          } catch (pushError) {
-            logger.warn({
-              message: 'Payment received push notification failed',
-              error: pushError,
-            });
-          }
-        });
-
-        try {
-          const richOrder = toRichPaidOrder(order, {
-            merchantId: transaction.merchant_id,
-          });
-          const sideEffectsResult = await runPaidOrderSideEffects({
-            supabase,
-            order: richOrder,
-            transaction: {
-              id: transaction.id,
-              order_id: order.id,
-              merchant_id: transaction.merchant_id,
-              gateway_reference: transaction.gateway_reference ?? null,
-              amount: transaction.amount,
-              platform_fee: transaction.platform_fee,
-            },
-            gatewayResponse,
-            externalGatewayReference: reference,
-            actor: `webhook:${reference}`,
-            settlementGateway: gateway,
-            scheduleAfter: (task) => after(task),
-          });
-
-          logger.info({
-            message: 'payment_side_effects executed',
-            orderId: order.id,
-            reference,
-            ranSteps: sideEffectsResult.ranSteps,
-            skippedSteps: sideEffectsResult.skippedSteps,
-            failedSteps: sideEffectsResult.failedSteps,
-            concurrentTakeoverSteps: sideEffectsResult.concurrentTakeoverSteps,
-          });
-        } catch (sideEffectError) {
-          // If runPaidOrderSideEffects fails after payment completion,
-          // persistPaidOrderSideEffectRetry owns follow-up work. When it
-          // succeeds, the webhook response stays successful so the gateway does
-          // not duplicate retries for an already-completed transaction; only a
-          // retryPersistError causes us to rethrow sideEffectError.
-          try {
-            await persistPaidOrderSideEffectRetry({
-              error: sideEffectError,
-              orderId: order.id,
-              reference,
-              supabase,
-              transaction,
-            });
-          } catch (retryPersistError) {
-            logger.error({
-              message:
-                'Failed to persist paid order side-effect retry after payment completion',
-              error:
-                retryPersistError instanceof Error
-                  ? {
-                      message: retryPersistError.message,
-                      stack: retryPersistError.stack,
-                    }
-                  : retryPersistError,
-              sideEffectError:
-                sideEffectError instanceof Error
-                  ? {
-                      message: sideEffectError.message,
-                      stack: sideEffectError.stack,
-                    }
-                  : sideEffectError,
-              merchantId: transaction.merchant_id,
-              orderId: order.id,
-              reference,
-              transactionId: transaction.id,
-            });
-            throw sideEffectError;
-          }
-          logger.error({
-            message: 'Paid order side effects failed after payment completion',
-            error:
-              sideEffectError instanceof Error
-                ? {
-                    message: sideEffectError.message,
-                    stack: sideEffectError.stack,
-                  }
-                : sideEffectError,
-            merchantId: transaction.merchant_id,
-            orderId: order.id,
-            reference,
-            transactionId: transaction.id,
-          });
-        }
       }
+      // 'order_cancelled' and 'order_skipped' fall through to the gateway
+      // ack: the finalizer filed a reconciliation_review row for both, and
+      // the gateway must not retry a payment we have fully recorded.
     }
 
     // Domain purchases must NOT record a merchant settlement: the merchant is

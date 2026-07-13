@@ -60,24 +60,29 @@ export async function handlePaymentForCancelledOrder({
   order,
   reason,
   transactionId,
+  issueType = RECONCILIATION_ISSUE_TYPE,
 }: {
   gatewayReference: string | null;
   order: CancellableOrderRow;
   reason: string;
   transactionId: string | null;
+  // 'payment_received_after_refund' reuses this exact flow for orders that
+  // were refunded (not cancelled) before a late gateway payment landed.
+  issueType?: string;
 }): Promise<void> {
   logger.warn({
     cancelledAt: order.cancelled_at ?? null,
     gatewayReference,
+    issueType,
     message:
-      'Payment finalizer received a payment for a cancelled order; suppressing paid-order side effects and filing reconciliation',
+      'Payment finalizer received a payment for an order that must not reopen; suppressing paid-order side effects and filing reconciliation',
     orderId: order.id,
     transactionId,
   });
 
   const reviewRow = {
     candidates: null,
-    issue_type: RECONCILIATION_ISSUE_TYPE,
+    issue_type: issueType,
     order_id: order.id,
     paystack_ref: gatewayReference,
     reason,

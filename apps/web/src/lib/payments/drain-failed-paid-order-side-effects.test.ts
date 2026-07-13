@@ -1,0 +1,133 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { drainFailedPaidOrderSideEffects } from '@/lib/payments/drain-failed-paid-order-side-effects';
+
+const mocks = vi.hoisted(() => ({
+  finalizeOrderGatewayPayment: vi.fn(),
+}));
+
+vi.mock('@/lib/payments/finalize-order-gateway-payment', () => ({
+  finalizeOrderGatewayPayment: mocks.finalizeOrderGatewayPayment,
+}));
+
+const failedRow = {
+  order_id: 'order-1',
+  transaction_id: 'txn-1',
+  transactions: {
+    amount: '58290.60',
+    gateway: 'paystack',
+    gateway_reference: 'REF-1',
+    gateway_response: { status: 'success' },
+    id: 'txn-1',
+    merchant_id: 'merchant-1',
+    order_id: 'order-1',
+    platform_fee: 1165.81,
+  },
+  orders: { cancelled_at: null, id: 'order-1', payment_status: 'paid' },
+};
+
+function buildSupabase(result: { data?: unknown[]; error?: unknown }) {
+  const builder: Record<string, unknown> = {};
+  for (const method of ['select', 'eq', 'not', 'is']) {
+    builder[method] = vi.fn().mockReturnValue(builder);
+  }
+  // `.limit()` is the terminal call in the drain's query chain.
+  builder.limit = vi
+    .fn()
+    .mockResolvedValue({ data: null, error: null, ...result });
+  return {
+    from: vi.fn().mockReturnValue(builder),
+  } as unknown as SupabaseClient;
+}
+
+const scheduleAfter = (task: () => Promise<void>) => {
+  void task();
+};
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+describe('drainFailedPaidOrderSideEffects', () => {
+  it('throws when the failed-row lookup errors', async () => {
+    const supabase = buildSupabase({ error: { message: 'db down' } });
+
+    await expect(
+      drainFailedPaidOrderSideEffects({ scheduleAfter, supabase })
+    ).rejects.toThrow('failed_side_effect_lookup_failed');
+  });
+
+  it('returns an empty summary when no failed rows exist', async () => {
+    const supabase = buildSupabase({ data: [] });
+
+    const summary = await drainFailedPaidOrderSideEffects({
+      scheduleAfter,
+      supabase,
+    });
+
+    expect(summary).toEqual({ drained: [], failed: [], skipped: [] });
+    expect(mocks.finalizeOrderGatewayPayment).not.toHaveBeenCalled();
+  });
+
+  it('re-runs the finalizer once per order and reports the drain', async () => {
+    const secondStepSameOrder = { ...failedRow };
+    const supabase = buildSupabase({
+      data: [failedRow, secondStepSameOrder],
+    });
+    mocks.finalizeOrderGatewayPayment.mockResolvedValue({
+      healed: false,
+      kind: 'completed',
+      orderNumber: 'ORD-1',
+    });
+
+    const summary = await drainFailedPaidOrderSideEffects({
+      scheduleAfter,
+      supabase,
+    });
+
+    expect(mocks.finalizeOrderGatewayPayment).toHaveBeenCalledTimes(1);
+    expect(mocks.finalizeOrderGatewayPayment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actor: 'cron:reconcile-gateway-paid-orders:drain',
+        orderId: 'order-1',
+        wonTransactionFlip: false,
+      })
+    );
+    expect(summary.drained).toEqual([{ orderId: 'order-1' }]);
+  });
+
+  it('skips gateways the finalizer cannot handle', async () => {
+    const juicywayRow = {
+      ...failedRow,
+      transactions: { ...failedRow.transactions, gateway: 'juicyway' },
+    };
+    const supabase = buildSupabase({ data: [juicywayRow] });
+
+    const summary = await drainFailedPaidOrderSideEffects({
+      scheduleAfter,
+      supabase,
+    });
+
+    expect(summary.skipped).toEqual([
+      { orderId: 'order-1', reason: 'unhealable_gateway' },
+    ]);
+    expect(mocks.finalizeOrderGatewayPayment).not.toHaveBeenCalled();
+  });
+
+  it('records finalizer failures without aborting the run', async () => {
+    const supabase = buildSupabase({ data: [failedRow] });
+    mocks.finalizeOrderGatewayPayment.mockResolvedValue({
+      error: 'x',
+      kind: 'order_fetch_failed',
+    });
+
+    const summary = await drainFailedPaidOrderSideEffects({
+      scheduleAfter,
+      supabase,
+    });
+
+    expect(summary.failed).toEqual([
+      { orderId: 'order-1', reason: 'order_fetch_failed' },
+    ]);
+  });
+});
