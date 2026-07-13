@@ -79,6 +79,67 @@ function isFromJuicywayIP(request: NextRequest): boolean {
   return JUICYWAY_IPS.includes(ip);
 }
 
+// Idempotent merchant settlement for a captured Juicyway order payment.
+// `record_merchant_settlement` upserts on (source_type, source_id,
+// gateway_reference), so the paid-flip winner and any 0-row loser can both
+// call this safely. Locked to service_role — Juicyway calls us anonymously,
+// so this goes through the admin client (trust boundary is the signature
+// verification at the top of the handler).
+async function recordJuicywaySettlement(
+  transaction: {
+    amount: number | string | null;
+    merchant_id: string;
+    order_id: string | null;
+    platform_fee: number | string | null;
+  },
+  reference: string
+): Promise<void> {
+  try {
+    const grossAmount = Number(transaction.amount) || 0;
+    // Δ-0b: Juicyway verify response carries no fee; default to 0 honestly.
+    const gatewayFee = 0;
+    const platformFee = Number(transaction.platform_fee) || grossAmount * 0.015;
+
+    const adminSupabase = createAdminClient();
+    const { error: settlementError } = await adminSupabase.rpc(
+      'record_merchant_settlement',
+      {
+        p_merchant_id: transaction.merchant_id,
+        p_source_type: 'order',
+        p_source_id: transaction.order_id,
+        p_gateway: 'juicyway',
+        p_gateway_reference: reference,
+        p_gross_amount: grossAmount,
+        p_gateway_fee: gatewayFee,
+        p_platform_fee: platformFee,
+        p_description: 'Order payment via Juicyway',
+        // Δ-29 / Δ-59: traceability — Juicyway's gateway-side ref lives
+        // in metadata for downstream reconciliation queries.
+        p_metadata: { juicyway_reference: reference },
+      }
+    );
+
+    if (settlementError) {
+      logger.warn({
+        message: 'Failed to record merchant settlement',
+        error: settlementError,
+        reference,
+      });
+    } else {
+      logger.info({
+        message: 'Merchant settlement recorded (Juicyway)',
+        reference,
+        grossAmount,
+      });
+    }
+  } catch (settlementError) {
+    logger.warn({
+      message: 'Settlement recording error',
+      error: settlementError,
+    });
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Optional: IP whitelist check
@@ -530,19 +591,30 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
 
       if (!response.error && !response.data) {
-        // 0 rows: a concurrent delivery won the flip. Juicyway has no outbox,
-        // so we cannot assume the winner survived to run the side effects —
-        // fail closed and let the redelivery either ack (winner finished:
-        // order paid) or heal (winner crashed: order still unpaid).
-        logger.info({
-          message: 'Juicyway order flip lost the race to a concurrent delivery',
+        // 0 rows: the order is already paid — either a concurrent delivery
+        // won the flip, or the order was paid through another channel before
+        // this delivery. The Juicyway money IS captured (signature + amount
+        // verified above) and the transaction row is completed, so a bare
+        // ack would strand the settlement if the winner died before its own
+        // settlement write. Record it here (idempotent upsert on the
+        // settlement's unique key) and ack terminally — a 500 could never
+        // resolve for the paid-through-another-channel case.
+        logger.warn({
+          message:
+            'Juicyway order flip found the order already paid; recording settlement idempotently',
           orderId: transaction.order_id,
           reference,
         });
-        return NextResponse.json(
-          { error: 'Concurrent delivery in progress' },
-          { status: 500 }
+        await recordJuicywaySettlement(
+          {
+            amount: transaction.amount,
+            merchant_id: transaction.merchant_id,
+            order_id: transaction.order_id,
+            platform_fee: transaction.platform_fee,
+          },
+          reference
         );
+        return NextResponse.json({ message: 'Already processed' });
       }
 
       const orderError = response.error;
@@ -866,58 +938,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Record settlement for merchant wallet tracking
-    try {
-      const grossAmount = Number(transaction.amount) || 0;
-      // Δ-0b: Juicyway verify response carries no fee; default to 0 honestly.
-      const gatewayFee = 0;
-      const platformFee =
-        Number(transaction.platform_fee) || grossAmount * 0.015;
-
-      // `record_merchant_settlement` is locked to service_role per the
-      // 20260428071421 advisor cleanup. Webhook callbacks have no user
-      // session (Juicyway calls us anonymously), so the SSR client runs
-      // as `anon` and would hit a function-permission error. Trust
-      // boundary is signature verification at the top of this handler.
-      // (The IP allowlist is currently audit-only / logging — see line 64.)
-      // Using the admin client here is safe.
-      const adminSupabase = createAdminClient();
-      const { error: settlementError } = await adminSupabase.rpc(
-        'record_merchant_settlement',
-        {
-          p_merchant_id: transaction.merchant_id,
-          p_source_type: 'order',
-          p_source_id: transaction.order_id,
-          p_gateway: 'juicyway',
-          p_gateway_reference: reference,
-          p_gross_amount: grossAmount,
-          p_gateway_fee: gatewayFee,
-          p_platform_fee: platformFee,
-          p_description: 'Order payment via Juicyway',
-          // Δ-29 / Δ-59: traceability — Juicyway's gateway-side ref lives
-          // in metadata for downstream reconciliation queries.
-          p_metadata: { juicyway_reference: reference },
-        }
-      );
-
-      if (settlementError) {
-        logger.warn({
-          message: 'Failed to record merchant settlement',
-          error: settlementError,
-          reference,
-        });
-      } else {
-        logger.info({
-          message: 'Merchant settlement recorded (Juicyway)',
-          reference,
-          grossAmount,
-        });
-      }
-    } catch (settlementError) {
-      logger.warn({
-        message: 'Settlement recording error',
-        error: settlementError,
-      });
-    }
+    await recordJuicywaySettlement(
+      {
+        amount: transaction.amount,
+        merchant_id: transaction.merchant_id,
+        order_id: transaction.order_id,
+        platform_fee: transaction.platform_fee,
+      },
+      reference
+    );
 
     if (durableEnqueueError) {
       throw durableEnqueueError;

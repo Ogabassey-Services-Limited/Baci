@@ -1,22 +1,36 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-// True when the paid-order outbox has ever touched this order. Pure replays
-// (order already paid, nothing updated) must only drain side effects when
-// rows exist: orders completed by the pre-outbox `/api/payments/verify` path
-// sent their email/settlement inline, and draining them would duplicate the
-// customer email.
-export async function orderHasSideEffectRows(
+export interface OrderOutboxState {
+  // Any payment_side_effects rows exist. The atomic RPC seeds one in the
+  // same transaction as every order flip, so `false` exactly identifies
+  // legacy (pre-outbox inline) completions.
+  hasRows: boolean;
+  // Only the RPC's untouched seed row exists: no side-effect run has ever
+  // progressed past the flip, so the (claim-less) push notifications were
+  // never scheduled either.
+  onlyUntouchedSeed: boolean;
+}
+
+export async function getOrderOutboxState(
   supabase: SupabaseClient,
   orderId: string
-): Promise<boolean> {
+): Promise<OrderOutboxState> {
   const { data, error } = await supabase
     .from('payment_side_effects')
-    .select('order_id')
+    .select('step, status, error')
     .eq('order_id', orderId)
-    .limit(1);
+    .limit(10);
   if (error) {
-    // Fail toward draining: claims still dedupe genuinely completed steps.
-    return true;
+    // Fail toward draining without re-notifying: claims still dedupe
+    // genuinely completed steps.
+    return { hasRows: true, onlyUntouchedSeed: false };
   }
-  return (data ?? []).length > 0;
+  const rows = data ?? [];
+  const hasRows = rows.length > 0;
+  const onlyUntouchedSeed =
+    hasRows &&
+    rows.every(
+      (row) => row.status === 'failed' && row.error === 'rpc_seed_pending_drain'
+    );
+  return { hasRows, onlyUntouchedSeed };
 }

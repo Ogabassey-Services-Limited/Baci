@@ -199,6 +199,41 @@ describe('finalizeOrderGatewayPayment', () => {
     expect(mocks.runPaidOrderSideEffects).toHaveBeenCalledTimes(1);
   });
 
+  it('sends the missed push when only the untouched RPC seed row exists', async () => {
+    mocks.completeOrderGatewayPayment.mockResolvedValue(
+      completion({
+        already_completed: true,
+        order_already_paid: true,
+        order_updated: false,
+      })
+    );
+    mocks.ensurePaidOrderInventoryConfirmed.mockResolvedValue(undefined);
+
+    const outcome = await finalizeOrderGatewayPayment(
+      baseArgs(
+        buildSupabase(
+          { data: richOrderRow },
+          {
+            outboxRows: [
+              {
+                error: 'rpc_seed_pending_drain',
+                status: 'failed',
+                step: 'merchant_settlement',
+              },
+            ],
+          }
+        ),
+        { wonTransactionFlip: false }
+      )
+    );
+
+    expect(outcome).toMatchObject({ kind: 'completed' });
+    // The transitioning caller crashed before scheduling push (the seed row
+    // is untouched), so this replay owes the merchant their notifications.
+    expect(mocks.notifyPaymentReceived).toHaveBeenCalled();
+    expect(mocks.runPaidOrderSideEffects).toHaveBeenCalledTimes(1);
+  });
+
   it('skips the drain on a pure replay with no outbox history (legacy completion)', async () => {
     mocks.completeOrderGatewayPayment.mockResolvedValue(
       completion({

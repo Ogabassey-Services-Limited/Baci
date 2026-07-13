@@ -446,7 +446,9 @@ export async function POST(request: NextRequest) {
               }),
             })
             .eq('id', order.id)
-            .in('payment_status', ['pending', 'bnpl_pending'])
+            // 'partially_paid' included for residual BNPL checkouts started
+            // after a deposit payment.
+            .in('payment_status', ['pending', 'partially_paid', 'bnpl_pending'])
             .select('id')
             .maybeSingle();
 
@@ -604,15 +606,19 @@ export async function POST(request: NextRequest) {
             }),
           })
           .eq('id', order.id)
-          // Mirror the customer branch's guard (below, 'pending'/'bnpl_pending')
-          // so a late or redelivered webhook cannot flip an order that has
-          // moved past the pre-paid BNPL states. 'cancelled' stays allowed so
-          // the prevent_cancelled_order_reopen trigger can still clamp the
-          // reopen attempt (handled below); 'refunded' is intentionally
-          // excluded — nothing clamps a refunded order back, so without this
-          // guard a late webhook could stomp it back to 'paid'.
+          // Mirror the customer branch's guard so a late or redelivered
+          // webhook cannot flip an order that has moved past the pre-paid
+          // BNPL states. 'partially_paid' is a legitimate source state: a
+          // Credit Direct RESIDUAL settles the remainder after a manual or
+          // deposit payment (amount_paid above completes the total).
+          // 'cancelled' stays allowed so the prevent_cancelled_order_reopen
+          // trigger can still clamp the reopen attempt (handled below);
+          // 'refunded' is intentionally excluded — nothing clamps a refunded
+          // order back, so without this guard a late webhook could stomp it
+          // back to 'paid'.
           .in('payment_status', [
             'pending',
+            'partially_paid',
             'bnpl_pending',
             'bnpl_approved',
             'cancelled',

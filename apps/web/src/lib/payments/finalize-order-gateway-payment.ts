@@ -9,7 +9,7 @@ import { fileBlockedOrderPaymentReview } from '@/lib/payments/file-blocked-order
 import { fileInventoryConfirmationFailureReview } from '@/lib/payments/file-inventory-confirmation-review';
 import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
 import { schedulePaidOrderNotifications } from '@/lib/payments/notify-paid-order';
-import { orderHasSideEffectRows } from '@/lib/payments/order-has-outbox-rows';
+import { getOrderOutboxState } from '@/lib/payments/order-has-outbox-rows';
 import { toRichPaidOrder } from '@/lib/payments/paid-order-normalization';
 import { persistPaidOrderSideEffectRetry } from '@/lib/payments/paid-order-retry-persistence';
 import { PAID_ORDER_RICH_SELECT } from '@/lib/payments/paid-order-rich-select';
@@ -99,11 +99,18 @@ export async function finalizeOrderGatewayPayment({
   const healed = Boolean(
     completion.already_completed && completion.order_updated
   );
-  // Push notifications have no claim-gating (unlike the outbox), so they are
-  // keyed strictly to the caller that actually transitioned the order — the
-  // RPC's advisory lock guarantees exactly one caller sees order_updated per
-  // transition, even when verify and the webhook race on the same payment.
-  const shouldNotify = Boolean(completion.order_updated);
+  // Push notifications have no claim-gating (unlike the outbox). They fire
+  // for the caller that transitioned the order (the RPC's advisory lock
+  // makes that exactly one caller), OR when the outbox still holds nothing
+  // but the RPC's untouched seed row — evidence that the transitioning
+  // caller crashed before ever scheduling push, so it was never sent.
+  const outboxState =
+    completion.order_updated || wonTransactionFlip
+      ? null
+      : await getOrderOutboxState(supabase, orderId);
+  const shouldNotify =
+    Boolean(completion.order_updated) ||
+    Boolean(outboxState?.onlyUntouchedSeed);
 
   const { data: order, error: orderFetchError } = await supabase
     .from('orders')
@@ -210,7 +217,7 @@ export async function finalizeOrderGatewayPayment({
     !wonTransactionFlip &&
     Boolean(completion.order_already_paid) &&
     !completion.order_updated;
-  if (isPureReplay && !(await orderHasSideEffectRows(supabase, orderId))) {
+  if (isPureReplay && outboxState !== null && !outboxState.hasRows) {
     // Exact legacy marker: the atomic RPC seeds an outbox row in the same
     // transaction as every order flip, so an EMPTY outbox can only mean the
     // order was completed by the pre-outbox inline path — its email and

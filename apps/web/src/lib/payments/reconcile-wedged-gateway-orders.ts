@@ -164,6 +164,13 @@ export async function reconcileWedgedGatewayOrders({
           reason: 'missing_gateway_reference',
           transactionId: candidate.id,
         });
+        // Permanent: without a reference there is nothing to verify against,
+        // so retire the row instead of letting it recycle hourly.
+        await stampWedgeResolution(
+          supabase,
+          candidate,
+          'missing_gateway_reference'
+        );
         continue;
       }
 
