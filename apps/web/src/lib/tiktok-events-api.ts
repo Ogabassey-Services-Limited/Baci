@@ -219,11 +219,17 @@ export async function sendTikTokEvent(
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
+      const errorData = await response.json().catch(() => null);
       console.error('TikTok Events API error:', errorData);
       return {
         success: false,
-        error: errorData.message || 'Unknown error',
+        error:
+          errorData &&
+          typeof errorData === 'object' &&
+          'message' in errorData &&
+          typeof errorData.message === 'string'
+            ? errorData.message
+            : 'Unknown error',
         httpStatus: response.status,
       };
     }

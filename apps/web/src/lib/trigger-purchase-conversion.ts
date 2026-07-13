@@ -59,6 +59,14 @@ export interface TriggerPurchaseConversionOptions {
   failOnInvalidItem?: boolean;
 }
 
+function optionalString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
+function optionalBoolean(value: unknown): boolean | undefined {
+  return typeof value === 'boolean' ? value : undefined;
+}
+
 /**
  * Resolve the currency code for a conversion event. The order's own
  * `currency` column is authoritative when present (set at checkout from the
@@ -225,21 +233,21 @@ export async function triggerPurchaseConversion(
         orderId: order.id,
       }),
       // Ad tracking IDs for attribution
-      fbclid: (adTracking?.fbclid as string) ?? undefined,
-      fbc: (adTracking?.fbc as string) ?? undefined,
-      fbp: (adTracking?.fbp as string) ?? undefined,
-      ttp: (adTracking?.ttp as string) ?? undefined,
-      ttclid: (adTracking?.ttclid as string) ?? undefined,
-      gclid: (adTracking?.gclid as string) ?? undefined,
-      sccid: (adTracking?.sccid as string) ?? undefined,
-      gaClientId: (adTracking?.gaClientId as string) ?? undefined,
+      fbclid: optionalString(adTracking?.fbclid),
+      fbc: optionalString(adTracking?.fbc),
+      fbp: optionalString(adTracking?.fbp),
+      ttp: optionalString(adTracking?.ttp),
+      ttclid: optionalString(adTracking?.ttclid),
+      gclid: optionalString(adTracking?.gclid),
+      sccid: optionalString(adTracking?.sccid),
+      gaClientId: optionalString(adTracking?.gaClientId),
       // Enhanced matching for better Event Match Quality (EMQ)
-      userIp: (adTracking?.userIp as string) ?? undefined,
-      userAgent: (adTracking?.userAgent as string) ?? undefined,
+      userIp: optionalString(adTracking?.userIp),
+      userAgent: optionalString(adTracking?.userAgent),
       // Event deduplication ID
       eventId: stableEventId,
       // Privacy compliance (CCPA/GDPR)
-      limitedDataUse: (adTracking?.limitedDataUse as boolean) ?? undefined,
+      limitedDataUse: optionalBoolean(adTracking?.limitedDataUse),
     };
 
     // Send conversion and log results

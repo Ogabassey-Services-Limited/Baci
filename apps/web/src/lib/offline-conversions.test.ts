@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   facebookPurchase: vi.fn(),
@@ -34,6 +34,10 @@ describe('sendPurchaseConversion', () => {
     mocks.facebookPurchase.mockResolvedValue({ success: true });
     mocks.snapchatPurchase.mockResolvedValue({ success: true });
     mocks.tiktokPurchase.mockResolvedValue({ success: true });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('preserves stored click identity and Limited Data Use for Facebook', async () => {
@@ -80,12 +84,15 @@ describe('sendPurchaseConversion', () => {
     expect(mocks.facebookPurchase).not.toHaveBeenCalled();
   });
 
-  it('falls back to fbclid when the stored fbc value is empty', async () => {
+  it('falls back to fbclid when the stored fbc value is blank', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-13T12:00:00.000Z'));
+
     await sendPurchaseConversion(
       { facebook_capi_token: 'token', facebook_pixel_id: 'pixel' },
       {
         currency: 'NGN',
-        fbc: '',
+        fbc: '   ',
         fbclid: 'click-1',
         items: [{ id: 'sku-1', name: 'Phone', price: 100, quantity: 1 }],
         orderId: 'order-1',
@@ -98,7 +105,7 @@ describe('sendPurchaseConversion', () => {
       'pixel',
       'token',
       expect.objectContaining({
-        fbc: expect.stringMatching(/^fb\.1\.\d+\.click-1$/),
+        fbc: 'fb.1.1783944000000.click-1',
       }),
       'BAC-1',
       100,

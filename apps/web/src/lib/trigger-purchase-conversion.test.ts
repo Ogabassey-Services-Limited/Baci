@@ -133,6 +133,32 @@ describe('triggerPurchaseConversion', () => {
     expect(logger.warn).not.toHaveBeenCalled();
   });
 
+  it('omits malformed ad tracking fields from the conversion payload', async () => {
+    await triggerPurchaseConversion(
+      createSupabaseMock() as never,
+      'merchant-1',
+      {
+        ...validOrder,
+        ad_tracking: {
+          fbc: 42,
+          fbclid: ['click-1'],
+          limitedDataUse: 'true',
+          userIp: { address: '203.0.113.10' },
+        },
+      }
+    );
+
+    expect(mockSendPurchaseConversion).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        fbc: undefined,
+        fbclid: undefined,
+        limitedDataUse: undefined,
+        userIp: undefined,
+      })
+    );
+  });
+
   it('uses the order currency as-is when present', async () => {
     await triggerPurchaseConversion(
       createSupabaseMock() as never,

@@ -172,8 +172,9 @@ async function sendFacebookConversion(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     // Generate fbc from fbclid if we have click ID but no browser ID
+    const storedFbc = orderData.fbc?.trim();
     const fbc =
-      orderData.fbc ||
+      storedFbc ||
       (orderData.fbclid ? generateFbc(orderData.fbclid) : undefined);
 
     const userData: FacebookUserData = {

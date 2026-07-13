@@ -265,4 +265,29 @@ describe('tiktokEventsAPI', () => {
       success: false,
     });
   });
+
+  it('preserves the response status when a provider error is not JSON', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        json: vi.fn().mockRejectedValue(new SyntaxError('Unexpected token <')),
+        ok: false,
+        status: 502,
+      })
+    );
+
+    await expect(
+      tiktokEventsAPI.viewContent(
+        'pixel-1',
+        'token-1',
+        {},
+        { contentId: 'sku-1' }
+      )
+    ).resolves.toEqual({
+      error: 'Unknown error',
+      httpStatus: 502,
+      success: false,
+    });
+  });
 });

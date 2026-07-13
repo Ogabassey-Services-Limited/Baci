@@ -43,6 +43,7 @@ export function buildAnalyticsEventData(
     );
     assignDefined(eventData, 'items', contents);
     assignDefined(eventData, 'total', input.total ?? input.custom_data?.value);
+    if (input.custom_data) eventData.custom_data = input.custom_data;
     return eventData;
   }
 
@@ -64,6 +65,7 @@ export function buildAnalyticsEventData(
       input.item_count ?? contents?.length
     );
     assignDefined(eventData, 'items', contents);
+    if (input.custom_data) eventData.custom_data = input.custom_data;
     return eventData;
   }
 

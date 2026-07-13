@@ -7,6 +7,7 @@ describe('buildAnalyticsEventData', () => {
       buildAnalyticsEventData(
         {
           custom_data: {
+            campaign_variant: 'checkout-b',
             contents: [{ id: 'sku-1', quantity: 1 }],
             currency: 'NGN',
             order_id: 'order-1',
@@ -19,6 +20,13 @@ describe('buildAnalyticsEventData', () => {
       )
     ).toEqual({
       currency: 'NGN',
+      custom_data: {
+        campaign_variant: 'checkout-b',
+        contents: [{ id: 'sku-1', quantity: 1 }],
+        currency: 'NGN',
+        order_id: 'order-1',
+        value: 100,
+      },
       item_count: 1,
       items: [{ id: 'sku-1', quantity: 1 }],
       order_id: 'order-1',
@@ -44,6 +52,7 @@ describe('buildAnalyticsEventData', () => {
       buildAnalyticsEventData(
         {
           custom_data: {
+            campaign_variant: 'cart-b',
             contents: [{ id: 'sku-1', name: 'Phone', price: 100, quantity: 2 }],
             currency: 'NGN',
             value: 200,
@@ -55,6 +64,12 @@ describe('buildAnalyticsEventData', () => {
       )
     ).toEqual({
       currency: 'NGN',
+      custom_data: {
+        campaign_variant: 'cart-b',
+        contents: [{ id: 'sku-1', name: 'Phone', price: 100, quantity: 2 }],
+        currency: 'NGN',
+        value: 200,
+      },
       items: [{ id: 'sku-1', name: 'Phone', price: 100, quantity: 2 }],
       total: 200,
     });

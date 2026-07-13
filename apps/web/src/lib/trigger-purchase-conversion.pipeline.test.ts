@@ -37,9 +37,23 @@ const order = {
   total: 200_000,
 };
 
+const pipelineEnvironmentKeys = [
+  'EVENT_PIPELINE_ENQUEUE_ENABLED',
+  'EVENT_PIPELINE_DELIVERY_ENABLED',
+  'EVENT_PIPELINE_ROUTING_MODE',
+  'EVENT_PIPELINE_DISABLE_LEGACY_FANOUT',
+  'EVENT_PIPELINE_ACTIVE_DESTINATIONS',
+  'EVENT_PIPELINE_CANARY_MERCHANT_IDS',
+] as const;
+
+let originalPipelineEnvironment: Record<string, string | undefined> = {};
+
 describe('triggerPurchaseConversion pipeline migration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    originalPipelineEnvironment = Object.fromEntries(
+      pipelineEnvironmentKeys.map((key) => [key, process.env[key]])
+    );
     process.env.EVENT_PIPELINE_ENQUEUE_ENABLED = 'true';
     delete process.env.EVENT_PIPELINE_DELIVERY_ENABLED;
     delete process.env.EVENT_PIPELINE_ROUTING_MODE;
@@ -55,7 +69,14 @@ describe('triggerPurchaseConversion pipeline migration', () => {
   });
 
   afterEach(() => {
-    delete process.env.EVENT_PIPELINE_ENQUEUE_ENABLED;
+    for (const key of pipelineEnvironmentKeys) {
+      const originalValue = originalPipelineEnvironment[key];
+      if (originalValue === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = originalValue;
+      }
+    }
   });
 
   it('can stop after the durable handoff without loading customer data', async () => {
