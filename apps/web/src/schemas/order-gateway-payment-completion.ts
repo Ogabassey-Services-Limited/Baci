@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 // Result payload of the `complete_order_gateway_payment` RPC
-// (supabase/migrations/20260713130000_complete_order_gateway_payment_atomic.sql).
+// (supabase/migrations/20260713160000_complete_order_gateway_payment_atomic.sql).
 // Parsed at the RPC boundary so route/cron callers never touch raw jsonb.
 export const orderGatewayPaymentCompletionSchema = z.object({
   error_code: z
