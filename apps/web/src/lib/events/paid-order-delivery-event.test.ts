@@ -56,6 +56,7 @@ describe('loadPaidOrderDeliveryEvent', () => {
       event_id: 'browser-event-1',
       limited_data_use: true,
       merchant_id: event.merchant_id,
+      occurred_at: event.occurred_at,
       user_data: {
         email: 'person@example.com',
         fbc: 'fb.1.123.click',

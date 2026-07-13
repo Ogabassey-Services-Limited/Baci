@@ -254,7 +254,7 @@ export async function deliverAnalyticsEvent(
   return {
     errorCode: result
       ? providerErrorCode(result.error)
-      : 'invalid_destination_payload',
+      : 'analytics_config_unavailable',
     errorMessage: result?.error ?? 'Destination adapter produced no result',
     httpStatus: parseStatus(result?.error),
     success: false,

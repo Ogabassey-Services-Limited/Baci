@@ -22,6 +22,7 @@ const files = [
   '20260712150126_event_pipeline_admin_rpcs.sql',
   '20260712150130_domain_event_cdc_triggers.sql',
   '20260712150140_event_pipeline_retention_rpc.sql',
+  '20260713120000_event_delivery_replay_and_idempotency_fixes.sql',
 ] as const;
 
 const sql = Object.fromEntries(
@@ -90,14 +91,24 @@ describe('durable domain-event migration contract', () => {
 
   it('keeps replay payloads immutable and records operator audit rows', () => {
     const replay = sql['20260712150121_event_delivery_replay_rpc.sql'];
+    const replayFix =
+      sql['20260713120000_event_delivery_replay_and_idempotency_fixes.sql'];
     const batch = sql['20260712150122_event_delivery_batch_replay_rpc.sql'];
     expect(replay).toContain('INSERT INTO public.event_delivery_replays');
     expect(replay).not.toMatch(/SET[\s\S]{0,200}payload\s*=/i);
+    expect(replayFix).toContain('attempts = 0');
+    expect(replayFix).toContain('TO authenticated, service_role');
     expect(batch).toContain('NOT BETWEEN 1 AND 100');
     expect(batch).toContain('TO authenticated, service_role');
     expect(sql['20260712150106_ingress_replay_audit.sql']).toContain(
       'FOR INSERT TO postgres'
     );
+  });
+
+  it('ignores volatile delivery context when resolving duplicate events', () => {
+    const idempotencyFix =
+      sql['20260713120000_event_delivery_replay_and_idempotency_fixes.sql'];
+    expect(idempotencyFix).toContain("- 'delivery_user_data'");
   });
 
   it('ships CDC disabled and serializes only allowlisted fields', () => {

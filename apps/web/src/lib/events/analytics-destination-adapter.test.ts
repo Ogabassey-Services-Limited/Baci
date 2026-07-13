@@ -105,4 +105,15 @@ describe('deliverAnalyticsEvent', () => {
       success: false,
     });
   });
+
+  it('retries when the provider helper returns no destination result', async () => {
+    mocks.sendToAdPlatforms.mockResolvedValue({});
+
+    await expect(
+      deliverAnalyticsEvent({} as never, event, 'facebook')
+    ).resolves.toMatchObject({
+      errorCode: 'analytics_config_unavailable',
+      success: false,
+    });
+  });
 });

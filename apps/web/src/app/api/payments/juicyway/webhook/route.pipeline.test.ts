@@ -2,6 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as webhookTest from './route.test-helpers';
 
 const DOMAIN_EVENT_ID = '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a234';
+const mocks = vi.hoisted(() => ({ scheduleLegacy: vi.fn() }));
+
+vi.mock('@/lib/payments/schedule-legacy-purchase-conversion', () => ({
+  scheduleLegacyPurchaseConversion: mocks.scheduleLegacy,
+}));
 
 let mockVerifyWebhookSignature: ReturnType<typeof vi.fn>;
 
@@ -38,6 +43,7 @@ describe('POST /api/payments/juicyway/webhook durable event handoff', () => {
       'record_merchant_settlement',
       expect.objectContaining({ p_source_id: 'order-123' })
     );
+    expect(mocks.scheduleLegacy).not.toHaveBeenCalled();
   }, 20_000);
 
   it('retries an idempotent enqueue for an already-completed paid order', async () => {

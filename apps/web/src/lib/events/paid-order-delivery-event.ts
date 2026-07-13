@@ -95,6 +95,7 @@ export async function loadPaidOrderDeliveryEvent(
       event_type: 'purchase',
       limited_data_use: tracking.limitedDataUse === true,
       merchant_id: event.merchant_id,
+      occurred_at: event.occurred_at,
       source: 'server',
       user_data: {
         email: order.customer_email ?? undefined,

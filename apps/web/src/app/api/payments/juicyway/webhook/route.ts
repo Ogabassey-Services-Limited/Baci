@@ -1,9 +1,5 @@
 import { formatOrderItemDisplayName } from '@baci/shared/lib';
 import { after, type NextRequest, NextResponse } from 'next/server';
-import {
-  fetchAnalyticsPlatformConfig,
-  hasConfiguredAnalyticsPlatform,
-} from '@/lib/analytics/analytics-platform-config';
 import { USDT_WALLET_TOP_UP_TRANSACTION_TYPE } from '@/lib/customer-wallet-account';
 import {
   generateOrderConfirmationEmail,
@@ -25,7 +21,6 @@ import {
 import { handleJuicywayWalletTopUpIfNeeded } from '@/lib/payments/juicyway-wallet-top-up';
 import { scheduleLegacyPurchaseConversion } from '@/lib/payments/schedule-legacy-purchase-conversion';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { createClient } from '@/lib/supabase/server';
 import {
   type OrderForConversion,
   triggerPurchaseConversion,
@@ -722,13 +717,13 @@ export async function POST(request: NextRequest) {
           );
 
           if (durableEnqueue) {
+            await conversion;
             scheduleLegacyPurchaseConversion({
               merchantId: transaction.merchant_id,
               order: conversionOrder,
               scheduleAfter: (task) => after(task),
               supabase: createAdminClient(),
             });
-            await conversion;
           } else {
             void conversion.catch((error) => {
               logger.error({
