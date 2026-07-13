@@ -142,7 +142,7 @@ function AddressSuggestionsHost({ store }: { store: SuggestionsStore }) {
   const top = placeAbove ? Math.max(0, aboveBottom - maxHeight) : belowTop;
 
   return (
-    <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+    <View style={[StyleSheet.absoluteFill, { pointerEvents: 'box-none' }]}>
       <View
         style={[
           styles.floatingDropdown,
