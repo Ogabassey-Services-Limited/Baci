@@ -35,6 +35,7 @@ describe('postgres performance snapshot', () => {
     expect(sql).toMatch(
       /DO \$\$[\s\S]*server_version_num[\s\S]*BETWEEN 170000 AND 179999/i
     );
+    expect(sql).toMatch(/DO \$\$[\s\S]*\nEND;\s*\$\$;/i);
     expect(sql).toMatch(/requires PostgreSQL 17/i);
   });
 

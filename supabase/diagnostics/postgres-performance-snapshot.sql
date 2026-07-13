@@ -11,7 +11,7 @@ BEGIN
       'postgres-performance-snapshot.sql requires PostgreSQL 17; detected %',
       current_setting('server_version');
   END IF;
-END
+END;
 $$;
 SET LOCAL statement_timeout = '120s';
 SET LOCAL lock_timeout = '5s';
