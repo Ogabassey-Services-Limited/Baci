@@ -3,9 +3,10 @@
 import { Check, Clock, Loader2, Package, Truck } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { useCurrency } from '@/hooks/use-currency';
 import { apiPost } from '@/lib/api-client';
+import { formatAmountInCurrency } from '@/lib/resolve-merchant-currency';
 import { normalizeShippingQuoteResponse } from '@/lib/shipping/quote-response';
+import { MERCHANT_PROVIDER_CODE } from '@/lib/shipping/types';
 import { cn } from '@/lib/utils';
 import type { ShippingQuote } from '@/types/shipping-quote';
 
@@ -45,7 +46,6 @@ export function ShippingOptions({
   selectedQuoteId,
   className,
 }: ShippingOptionsProps) {
-  const { formatCurrency } = useCurrency();
   const [quotes, setQuotes] = useState<ShippingQuote[]>([]);
   const [sessionId, setSessionId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
@@ -103,6 +103,7 @@ export function ShippingOptions({
       setError(null);
       lastFetchKey.current = fetchKey;
 
+      const quoteItems = JSON.parse(serializedCartItems) as QuoteItemPayload[];
       apiPost<unknown>('/api/shipping/quotes', {
         merchantId,
         receiver: {
@@ -111,15 +112,31 @@ export function ShippingOptions({
           address: receiverAddress || receiverCity,
           city: receiverCity,
           state: receiverState,
+          // This preview path is gated to Nigerian customers upstream.
           country: 'Nigeria',
           countryCode: 'NG',
         },
-        items: JSON.parse(serializedCartItems) as QuoteItemPayload[],
+        items: quoteItems,
         shipmentType: 'domestic',
+        // Lets free-over / price-tier merchant rates quote at their real price.
+        cart_subtotal: quoteItems.reduce(
+          (sum, item) => sum + item.value * item.quantity,
+          0
+        ),
       })
         .then((response) => {
           const normalized = normalizeShippingQuoteResponse(response);
-          setQuotes(normalized.quotes);
+          // The legacy checkout submit (app/checkout/page.tsx) posts
+          // selected_quote_id + shipping_provider and has no way to thread a
+          // shipping_rate_id, so a selected MERCHANT rate — whose synthetic
+          // `mrate_<uuid>` id is not a shipping_quotes row — would create a
+          // broken order. Until this path adopts the null-provider
+          // shipping_rate_id flow the OgaBassey checkout uses, drop
+          // merchant-configured rates here and keep only carrier quotes.
+          const carrierQuotes = normalized.quotes.filter(
+            (quote) => quote.provider !== MERCHANT_PROVIDER_CODE
+          );
+          setQuotes(carrierQuotes);
           setSessionId(normalized.sessionId);
 
           if (normalized.warnings.length > 0) {
@@ -127,8 +144,8 @@ export function ShippingOptions({
           }
 
           // Auto-select cheapest only on first load
-          if (!hasAutoSelected.current && normalized.quotes.length > 0) {
-            const cheapest = normalized.quotes.reduce((min, q) =>
+          if (!hasAutoSelected.current && carrierQuotes.length > 0) {
+            const cheapest = carrierQuotes.reduce((min, q) =>
               q.price < min.price ? q : min
             );
             onSelectRef.current(cheapest, normalized.sessionId);
@@ -247,7 +264,8 @@ export function ShippingOptions({
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                {/* Provider badge */}
+                {/* Provider badge (carrier quotes only — merchant rates are
+                    filtered out above for the legacy submit path). */}
                 <div className="size-10 rounded-lg bg-muted flex items-center justify-center text-xs font-bold">
                   {getProviderLogo(quote.provider)}
                 </div>
@@ -285,7 +303,7 @@ export function ShippingOptions({
 
               <div className="text-right">
                 <p className="font-bold text-lg">
-                  {formatCurrency(quote.price)}
+                  {formatAmountInCurrency(quote.price, quote.currency)}
                 </p>
                 {quote.pickupIncluded && (
                   <p className="text-xs text-green-600">Free pickup</p>
@@ -309,8 +327,6 @@ export function SelectedShippingDisplay({
   quote: ShippingQuote | null;
   className?: string;
 }) {
-  const { formatCurrency } = useCurrency();
-
   if (!quote) {
     return (
       <Card className={className}>
@@ -343,7 +359,9 @@ export function SelectedShippingDisplay({
             </p>
           </div>
         </div>
-        <p className="font-semibold">{formatCurrency(quote.price)}</p>
+        <p className="font-semibold">
+          {formatAmountInCurrency(quote.price, quote.currency)}
+        </p>
       </CardContent>
     </Card>
   );

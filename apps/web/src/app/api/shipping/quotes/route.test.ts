@@ -95,6 +95,12 @@ function buildSupabaseMock(
       }
       throw new Error(`Unexpected table: ${table}`);
     }),
+    // Merchant-configured rates RPC: no rates by default, so the historical
+    // carrier-only expectations in this suite stay byte-identical.
+    rpc: vi.fn().mockResolvedValue({
+      data: { locations: [], rates: [], zones: [] },
+      error: null,
+    }),
   };
 }
 
@@ -412,6 +418,102 @@ describe('POST /api/shipping/quotes', () => {
     expect(response.status).toBe(200);
     expect(json.quotes).toEqual({ featured: [], all: [] });
     expect(mockGetQuotes).not.toHaveBeenCalled();
+  });
+
+  it('ranks a cheaper merchant rate ahead of a pricier carrier in the merged list', async () => {
+    const zoneId = '44444444-4444-4444-8444-444444444444';
+    const rateId = '55555555-5555-4555-8555-555555555555';
+    const supabase = buildSupabaseMock({ id: 'user-1' }, null, {
+      business_name: 'Merchant Store',
+      business_address: '1 Merchant Road, Lagos',
+      country: 'NG',
+      payout_currency: 'NGN',
+      phone: '08012345678',
+    });
+    // Merchant configured one cheap Lagos rate; the carrier quote is pricier.
+    supabase.rpc = vi.fn().mockResolvedValue({
+      data: {
+        zones: [
+          { id: zoneId, name: 'Lagos', is_rest_of_world: false, active: true },
+        ],
+        locations: [
+          { zone_id: zoneId, country_code: 'NG', subdivision_code: 'NG-LA' },
+        ],
+        rates: [
+          {
+            id: rateId,
+            zone_id: zoneId,
+            name: 'Lagos Standard',
+            kind: 'ship',
+            currency: 'NGN',
+            base_amount: 1000,
+            condition_type: 'always',
+            min_subtotal: null,
+            max_subtotal: null,
+            free_over_amount: null,
+            delivery_min_days: 1,
+            delivery_max_days: 3,
+            pickup_address: null,
+            sort_order: 0,
+            active: true,
+          },
+        ],
+      },
+      error: null,
+    });
+    mockCreateAdminClient.mockReturnValue(supabase);
+    mockCreateServerClient.mockResolvedValue(
+      buildSupabaseMock({ id: 'user-1' })
+    );
+    mockGetQuotes.mockResolvedValue({
+      quotes: {
+        featured: [],
+        all: [
+          {
+            id: 'gigl-quote-1',
+            provider: 'GIGL',
+            serviceTier: 'Standard',
+            carrierName: 'GIG Logistics',
+            displayName: 'GIG Logistics',
+            estimatedDays: 3,
+            price: 5000,
+            currency: 'NGN',
+            pickupIncluded: true,
+            insuranceIncluded: true,
+            expiresAt: new Date(Date.now() + 60_000),
+          },
+        ],
+      },
+      sessionId: 'session-1',
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+    });
+    const { POST } = await import('./route');
+
+    const response = await POST(
+      buildQuoteRequest({
+        shipmentType: 'domestic',
+        supports_merchant_rates: true,
+        receiver: {
+          name: 'Ada Buyer',
+          phone: '08011112222',
+          address: '5 Balogun Street',
+          city: 'Ikeja',
+          state: 'Lagos',
+          country: 'Nigeria',
+          countryCode: 'NG',
+        },
+      })
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    const all = json.quotes.all as Array<{ id: string; price: number }>;
+    expect(all[0]).toMatchObject({ id: `mrate_${rateId}`, price: 1000 });
+    const merchantIndex = all.findIndex((q) => q.id === `mrate_${rateId}`);
+    const carrierIndex = all.findIndex((q) => q.id === 'gigl-quote-1');
+    expect(merchantIndex).toBeGreaterThanOrEqual(0);
+    expect(carrierIndex).toBeGreaterThanOrEqual(0);
+    expect(merchantIndex).toBeLessThan(carrierIndex);
   });
 
   it('still fetches quotes when the payout currency is NGN and the country is NG', async () => {

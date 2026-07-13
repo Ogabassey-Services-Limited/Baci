@@ -145,6 +145,33 @@ export const QuoteRequestSchema = z
     sessionId: z.string().optional(),
     shipmentType: z.enum(['domestic', 'international']).default('domestic'),
     deliveryPreference: z.enum(['door', 'pickup_station']).optional(),
+    /**
+     * Advisory cart subtotal (merchant-currency major units), used only to
+     * evaluate merchant-configured rate conditions at quote time. Client
+     * threading arrives in a later wave, so absence is expected and means:
+     * - `price_tier` rates cannot be evaluated and are EXCLUDED;
+     * - `always`-condition rates are still offered;
+     * - `free_over_amount` is NOT applied (the base amount is charged).
+     * Order creation re-derives the fee from the canonical server-verified
+     * subtotal regardless of this value, so it is never trusted for money.
+     */
+    cart_subtotal: z.number().nonnegative().optional(),
+    /**
+     * Opt-in capability flag: the CALLER promises it can carry a merchant
+     * rate's synthetic `mrate_<uuid>` id back into order creation (as
+     * `shipping_rate_id`). Only clients that set this true receive
+     * merchant-configured rates in the response; when false/absent the route
+     * still resolves the merchant's currency (to correctly gate/suppress the
+     * NGN carriers) but never merges merchant rates into the returned quotes.
+     *
+     * This exists because `/api/shipping/quotes` is shared with the mobile
+     * storefront, which auto-selects the cheapest `quotes.all` entry and
+     * validates its `selected_quote_id` as a UUID before order submit — it
+     * cannot yet send `shipping_rate_id`, so a merchant rate selected there
+     * would break checkout. Legacy web checkout also benefits (defense in
+     * depth) but keeps its own client-side filter.
+     */
+    supports_merchant_rates: z.boolean().optional().default(false),
   })
   .superRefine((data, ctx) => {
     requireCoordinatePair(data.receiver, ctx, ['receiver']);

@@ -114,6 +114,9 @@ function makeSupabase(
         is() {
           return builder;
         },
+        not() {
+          return builder;
+        },
         maybeSingle() {
           return Promise.resolve(responses[`${table}.select`]);
         },
@@ -135,7 +138,7 @@ function happyResponses(overrides: Partial<Responses> = {}): Responses {
     'repairs.select': { data: repairRow, error: null },
     'repairs.update': { data: [{ id: repairId }], error: null },
     'rpc.claim_repair_pickup_booking': {
-      data: [{ claimed: true, shipment_id: null }],
+      data: [{ claimed: true, shipment_id: null, terminal: false }],
       error: null,
     },
     'repair_pickup_quotes.insert': { data: { id: 'pq-1' }, error: null },
@@ -342,6 +345,28 @@ describe('bookRepairPickup', () => {
       reason: 'already_booked',
       canRetryManually: false,
     });
+    expect(mocks.bookShipment).not.toHaveBeenCalled();
+  });
+
+  it('fails closed with terminal_status when the repair goes terminal during the claim', async () => {
+    // Up-front status is non-terminal (repairRow), but the atomic claim reports
+    // the repair reached a terminal status in the meantime (TOCTOU race). No
+    // paid pickup must be booked.
+    const supabase = makeSupabase(
+      happyResponses({
+        'rpc.claim_repair_pickup_booking': {
+          data: [{ claimed: false, shipment_id: null, terminal: true }],
+          error: null,
+        },
+      })
+    );
+
+    const result = await bookRepairPickup(supabase, merchantId, repairId);
+
+    expect(result).toMatchObject({ ok: false, reason: 'terminal_status' });
+    // The quote is fetched before claiming (unlike the up-front terminal check),
+    // but the shipment is never booked.
+    expect(mocks.getProviderQuotes).toHaveBeenCalled();
     expect(mocks.bookShipment).not.toHaveBeenCalled();
   });
 

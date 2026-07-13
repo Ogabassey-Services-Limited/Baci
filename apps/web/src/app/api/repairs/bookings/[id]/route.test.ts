@@ -22,7 +22,7 @@ vi.mock('@/lib/repairs/notify-repair-status-change', () => ({
 
 type Responses = Record<string, { data: unknown; error: unknown }>;
 
-function makeAdmin(responses: Responses) {
+function makeAdmin(responses: Responses, eqCalls: [string, unknown][] = []) {
   return {
     from(table: string) {
       let op = 'select';
@@ -34,11 +34,23 @@ function makeAdmin(responses: Responses) {
           op = 'update';
           return builder;
         },
-        eq() {
+        eq(column: string, value: unknown) {
+          eqCalls.push([column, value]);
+          return builder;
+        },
+        is(column: string, value: unknown) {
+          eqCalls.push([column, value]);
+          return builder;
+        },
+        or(filter: string) {
+          eqCalls.push(['or', filter]);
           return builder;
         },
         maybeSingle() {
-          return Promise.resolve(responses[`${table}.select`]);
+          // Op-aware: reads keep op='select'; a `.update().…maybeSingle()` chain
+          // resolves the update response (the route uses maybeSingle for the
+          // status-guarded write so a 0-row result surfaces as null).
+          return Promise.resolve(responses[`${table}.${op}`]);
         },
         single() {
           return Promise.resolve(responses[`${table}.${op}`]);
@@ -250,6 +262,125 @@ describe('PATCH /api/repairs/bookings/[id]', () => {
     expect(mocks.notifyRepairStatusChange).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'confirmed', ticketNumber: 1042 })
     );
+  });
+
+  it('returns 409 when a concurrent request already changed the status', async () => {
+    // The transition (pending -> confirmed) is valid against the loaded row, but
+    // the status-guarded UPDATE matches no row because another request already
+    // moved the booking out of 'pending'. The stale write must not revive it or
+    // fire a misleading notification.
+    const eqCalls: [string, unknown][] = [];
+    mocks.createClient.mockReturnValue(
+      makeAdmin(
+        {
+          'repairs.select': {
+            data: { ...detailRow, status: 'pending', ticket_number: 1042 },
+            error: null,
+          },
+          'repairs.update': { data: null, error: null },
+        },
+        eqCalls
+      )
+    );
+    const res = await PATCH(req({ status: 'confirmed' }) as never, { params });
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.code).toBe('status_conflict');
+    expect(mocks.notifyRepairStatusChange).not.toHaveBeenCalled();
+    // The optimistic CAS guard must have been applied against the read status;
+    // without it this write would clobber the concurrent transition.
+    expect(eqCalls).toContainEqual(['status', 'pending']);
+  });
+
+  it('refuses a terminal transition while a courier pickup is being booked', async () => {
+    // confirmed -> cancelled is a valid transition, but an ACTIVE pickup lock is
+    // held, so the guarded UPDATE (status CAS + stale-lock `.or(...)`) matches no
+    // row -> 409, and no cancellation notification fires. Closes the
+    // claim/link -> bookShipment race.
+    const eqCalls: [string, unknown][] = [];
+    mocks.createClient.mockReturnValue(
+      makeAdmin(
+        {
+          'repairs.select': {
+            data: { ...detailRow, status: 'confirmed' },
+            error: null,
+          },
+          'repairs.update': { data: null, error: null },
+        },
+        eqCalls
+      )
+    );
+    const res = await PATCH(req({ status: 'cancelled' }) as never, { params });
+    expect(res.status).toBe(409);
+    // The terminal transition was guarded on the pickup lock (stale-aware .or).
+    expect(
+      eqCalls.some(
+        ([k, v]) =>
+          k === 'or' && String(v).includes('pickup_booking_lock_token')
+      )
+    ).toBe(true);
+    expect(mocks.notifyRepairStatusChange).not.toHaveBeenCalled();
+  });
+
+  it('allows a terminal transition once the pickup lock is stale or absent', async () => {
+    // A lock leaked by a failed pre-provider booking (or no lock at all) must not
+    // block cancellation forever. The stale-aware `.or(...)` lets the DB match the
+    // row, so the update applies (200) and the customer is notified.
+    const eqCalls: [string, unknown][] = [];
+    mocks.createClient.mockReturnValue(
+      makeAdmin(
+        {
+          'repairs.select': {
+            data: { ...detailRow, status: 'confirmed' },
+            error: null,
+          },
+          'repairs.update': {
+            data: { ...detailRow, status: 'cancelled' },
+            error: null,
+          },
+          'shipments.select': { data: null, error: null },
+        },
+        eqCalls
+      )
+    );
+    const res = await PATCH(req({ status: 'cancelled' }) as never, { params });
+    expect(res.status).toBe(200);
+    // The stale-aware guard was still applied (the DB, not the route, decides).
+    expect(
+      eqCalls.some(
+        ([k, v]) =>
+          k === 'or' && String(v).includes('pickup_booking_started_at')
+      )
+    ).toBe(true);
+    expect(mocks.notifyRepairStatusChange).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'cancelled' })
+    );
+  });
+
+  it('guards an equal-status resend so it cannot revert a concurrent transition', async () => {
+    // Client re-sends status='pending' (no change) as part of a whole-form save.
+    // If a concurrent request already moved the row to a terminal state, the
+    // guarded write matches no row -> 409, never reverting it.
+    const eqCalls: [string, unknown][] = [];
+    mocks.createClient.mockReturnValue(
+      makeAdmin(
+        {
+          'repairs.select': {
+            data: { ...detailRow, status: 'pending' },
+            error: null,
+          },
+          'repairs.update': { data: null, error: null },
+        },
+        eqCalls
+      )
+    );
+    const res = await PATCH(
+      req({ status: 'pending', admin_notes: 'touch' }) as never,
+      { params }
+    );
+    expect(res.status).toBe(409);
+    expect(eqCalls).toContainEqual(['status', 'pending']);
+    expect(mocks.notifyRepairStatusChange).not.toHaveBeenCalled();
   });
 
   it('updates cost/notes without notifying when status is unchanged', async () => {

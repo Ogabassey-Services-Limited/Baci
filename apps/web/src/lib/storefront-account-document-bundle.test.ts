@@ -65,7 +65,9 @@ describe('buildStorefrontAccountDocumentBundle', () => {
         payment_method: 'card',
         is_credit_order: false,
         tracking_number: 'TRACK-1',
-        shipping_provider: 'GIGL',
+        shipping_provider: 'MERCHANT',
+        shipping_rate_id: 'rate-1',
+        shipping_rate_name: 'Express Delivery',
         notes: 'Leave at the gate',
         invoice_type_code: '380',
         invoice_issue_date: null,
@@ -123,6 +125,8 @@ describe('buildStorefrontAccountDocumentBundle', () => {
     expect(result.order.current_document_kind).toBe('receipt');
     expect(result.order.receipt_eligible).toBe(true);
     expect(result.order.customer_name).toBe('Oga Bassey');
+    expect(result.order.shipping_rate_id).toBe('rate-1');
+    expect(result.order.shipping_rate_name).toBe('Express Delivery');
     expect(result.invoiceData.items[0]?.name).toBe(
       'iPhone 16 (Open Box / Blue / 128GB)'
     );

@@ -1,8 +1,8 @@
-import type { ShippingProviderCode } from '@/lib/shipping/types';
+import type { QuoteProviderCode } from '@/lib/shipping/types';
 
 export interface ShippingQuote {
   id: string;
-  provider: ShippingProviderCode;
+  provider: QuoteProviderCode;
   serviceTier: string;
   carrierName: string;
   displayName: string;
@@ -17,6 +17,9 @@ export interface ShippingQuote {
   isStationPickup?: boolean;
   stationName?: string;
   stationAddress?: string;
+  // Collection directions for a pickup point (e.g. merchant pickup
+  // `pickupAddress.instructions`), surfaced to the shopper before they choose.
+  stationInstructions?: string;
   stationCode?: string;
   providerRateId?: string;
 }

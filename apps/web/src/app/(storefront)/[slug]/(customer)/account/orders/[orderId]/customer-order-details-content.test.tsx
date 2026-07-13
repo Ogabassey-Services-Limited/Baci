@@ -185,6 +185,107 @@ describe('CustomerOrderDetailsContent', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('renders the bought rate name for a merchant-rate order', () => {
+    render(
+      <CustomerOrderDetailsContent
+        order={{
+          ...baseOrder,
+          shipping_provider: 'MERCHANT',
+          shipping_rate_name: 'Express Delivery',
+        }}
+        basePath="/ogabassey"
+        merchantSlug="ogabassey"
+      />
+    );
+
+    expect(screen.getByText('Express Delivery')).toBeInTheDocument();
+    expect(screen.queryByText('MERCHANT')).not.toBeInTheDocument();
+  });
+
+  it('renders the pickup collection address and instructions for a merchant-pickup order', () => {
+    render(
+      <CustomerOrderDetailsContent
+        order={{
+          ...baseOrder,
+          shipping_provider: 'MERCHANT_PICKUP',
+          shipping_rate_name: 'Store Pickup',
+          shipping_pickup_details: {
+            label: 'Ikeja Flagship Store',
+            address: '12 Allen Avenue',
+            city: 'Ikeja',
+            state: 'Lagos',
+            countryCode: 'NG',
+            instructions: 'Ring the bell twice and ask for Ada',
+          },
+        }}
+        basePath="/ogabassey"
+        merchantSlug="ogabassey"
+      />
+    );
+
+    expect(screen.getByText('Ikeja Flagship Store')).toBeInTheDocument();
+    expect(
+      screen.getByText('12 Allen Avenue, Ikeja, Lagos')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Ring the bell twice and ask for Ada')
+    ).toBeInTheDocument();
+  });
+
+  it('renders no pickup location block when the snapshot is null', () => {
+    render(
+      <CustomerOrderDetailsContent
+        order={{
+          ...baseOrder,
+          shipping_provider: 'MERCHANT_PICKUP',
+          shipping_rate_name: 'Store Pickup',
+          shipping_pickup_details: null,
+        }}
+        basePath="/ogabassey"
+        merchantSlug="ogabassey"
+      />
+    );
+
+    expect(screen.queryByText(/pickup location/i)).not.toBeInTheDocument();
+  });
+
+  it('does not render a pickup location block for a non-pickup order carrying a stray snapshot', () => {
+    render(
+      <CustomerOrderDetailsContent
+        order={{
+          ...baseOrder,
+          shipping_provider: 'MERCHANT',
+          shipping_rate_name: 'Express Delivery',
+          shipping_pickup_details: {
+            label: 'Should Not Show',
+            address: '99 Hidden Road',
+          },
+        }}
+        basePath="/ogabassey"
+        merchantSlug="ogabassey"
+      />
+    );
+
+    expect(screen.queryByText('Should Not Show')).not.toBeInTheDocument();
+    expect(screen.queryByText('99 Hidden Road')).not.toBeInTheDocument();
+  });
+
+  it('falls back to the provider label when the rate name is absent', () => {
+    render(
+      <CustomerOrderDetailsContent
+        order={{
+          ...baseOrder,
+          shipping_provider: 'GIGL',
+          shipping_rate_name: undefined,
+        }}
+        basePath="/ogabassey"
+        merchantSlug="ogabassey"
+      />
+    );
+
+    expect(screen.getByText('GIGL')).toBeInTheDocument();
+  });
+
   it('shows review and return actions once the order is delivered', () => {
     render(
       <CustomerOrderDetailsContent
