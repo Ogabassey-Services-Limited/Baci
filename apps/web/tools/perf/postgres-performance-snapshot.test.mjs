@@ -45,6 +45,14 @@ describe('postgres performance snapshot', () => {
     expect(sql).not.toMatch(/\bqueryid\b/i);
   });
 
+  it('retains NULL statement text so the delta validator can reject incomplete context', async () => {
+    const sql = await readFile(sqlPath, 'utf8');
+
+    expect(sql).toMatch(
+      /statements\.query\s+IS NULL\s+OR\s+statements\.query NOT ILIKE '%extensions\.pg_stat_statements%'/i
+    );
+  });
+
   it('captures the P0 database surfaces without persisting advisor commands', async () => {
     const sql = await readFile(sqlPath, 'utf8');
 

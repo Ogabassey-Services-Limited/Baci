@@ -100,7 +100,10 @@ statement_rows AS (
   ) AS database_role ON true
   WHERE database_role.datname = current_database()
     AND statements.calls > 0
-    AND statements.query NOT ILIKE '%extensions.pg_stat_statements%'
+    AND (
+      statements.query IS NULL
+      OR statements.query NOT ILIKE '%extensions.pg_stat_statements%'
+    )
 ),
 table_rows AS (
   SELECT

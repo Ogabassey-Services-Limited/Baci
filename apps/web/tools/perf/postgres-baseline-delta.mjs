@@ -54,7 +54,10 @@ async function run() {
   await writeFile(outputPath, output, { flag: 'wx' });
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
   run().catch((error) => {
     console.error(error instanceof Error ? error.message : error);
     process.exitCode = 1;

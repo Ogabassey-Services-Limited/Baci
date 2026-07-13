@@ -100,4 +100,21 @@ describe('postgres baseline reset boundary validation', () => {
       })
     ).toThrow(/dealloc changed/i);
   });
+
+  it.each([
+    ['track_io_timing', 'off'],
+    ['track_wal_io_timing', 'on'],
+    ['pg_stat_statements.track', 'top'],
+    ['pg_stat_statements.track_planning', 'off'],
+  ])('rejects an interval with changed %s', (setting, value) => {
+    expect(() =>
+      createDelta({
+        afterRaw: raw(
+          snapshot({ captured_at: END, settings: { [setting]: value } })
+        ),
+        beforeRaw: raw(snapshot()),
+        deployedSha: 'a'.repeat(40),
+      })
+    ).toThrow(/collection settings change/i);
+  });
 });

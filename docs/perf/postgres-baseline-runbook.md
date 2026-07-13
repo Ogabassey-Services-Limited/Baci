@@ -160,10 +160,12 @@ hashes are audit pointers, not proof that a ciphertext contains a given snapshot
 verify each bundle's contents before deleting plaintext or publishing the summary.
 The summary uses an allowlist and excludes raw query text, role/database names,
 application names, platform secrets, and client telemetry. It retains normalized
-statement-shape fingerprints, exact integer deltas as strings, exact per-day
-integer rates as integer or rational strings, approximate per-day timing rates,
-reset boundaries, server build, and encrypted-artifact SHA-256 hashes. Each
-artifact hash is explicitly labelled `source: encrypted_artifact`.
+statement-shape fingerprints; deterministic table/index fingerprints with
+reset-bounded activity and before/after/delta gauges; exact integer deltas as
+strings; exact per-day integer rates as integer or rational strings; approximate
+per-day timing rates; reset boundaries; server build; and encrypted-artifact
+SHA-256 hashes. Each artifact hash is explicitly labelled
+`source: encrypted_artifact`.
 
 Statement fingerprints are derived from normalized statement shape plus stable
 role/database context; engine-generated statement IDs are not read or used as
@@ -184,6 +186,10 @@ summary when any of these conditions is observed:
 - a previously captured statement disappears;
 - a statement entry has a new or missing `stats_since` boundary, including a
   targeted `pg_stat_statements_reset` that does not alter the global reset time;
+- table or index identities change between snapshots, or their cumulative
+  activity counters regress;
+- any collection-affecting setting changes, including `track_io_timing`,
+  `track_wal_io_timing`, or the captured `pg_stat_statements` settings;
 - any compared cumulative database, WAL, or statement counter regresses;
 - the statements array, stable statement context, required boundary, or counter
   data is missing or malformed;

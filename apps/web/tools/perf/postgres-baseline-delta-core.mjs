@@ -1,4 +1,6 @@
 import { createHash } from 'node:crypto';
+import { buildRelationDeltas } from './postgres-baseline-delta-relations.mjs';
+import { validateIntervalSafety } from './postgres-baseline-delta-safety.mjs';
 import { buildStatementDeltas } from './postgres-baseline-delta-statements.mjs';
 
 const DATABASE_COUNTERS = [
@@ -60,21 +62,6 @@ function timestamp(value, label) {
     throw new Error(`${label} must be an ISO timestamp`);
   }
   return milliseconds;
-}
-function requireSame(before, after, path, message, allowNull = false) {
-  const left = path.reduce((value, key) => value?.[key], before);
-  const right = path.reduce((value, key) => value?.[key], after);
-  if (
-    left === undefined ||
-    right === undefined ||
-    (!allowNull && (left === null || right === null))
-  ) {
-    throw new Error(`${message} boundary is missing`);
-  }
-  if (left !== right && String(left) !== String(right)) {
-    throw new Error(message);
-  }
-  return left === null ? null : String(left);
 }
 function decimal(value, label) {
   const parsed = Number(value);
@@ -182,63 +169,7 @@ export function createPostgresBaselineDelta({
   if (end <= start)
     throw new Error('after snapshot must be later than before snapshot');
   const durationMilliseconds = end - start;
-  requireSame(
-    before,
-    after,
-    ['server', 'database_name'],
-    'interval crosses a database identity change'
-  );
-  const postmasterStartedAt = requireSame(
-    before,
-    after,
-    ['server', 'postmaster_started_at'],
-    'interval crosses a server restart'
-  );
-  const serverVersion = requireSame(
-    before,
-    after,
-    ['server', 'server_version_num'],
-    'interval crosses a server version change'
-  );
-  const serverBuild = requireSame(
-    before,
-    after,
-    ['server', 'server_build'],
-    'interval crosses a server build change'
-  );
-  const boundaries = {
-    database_stats_reset: requireSame(
-      before,
-      after,
-      ['statistics_boundaries', 'database_stats_reset'],
-      'interval crosses a database statistics reset',
-      true
-    ),
-    statement_stats_reset: requireSame(
-      before,
-      after,
-      ['statistics_boundaries', 'statement_stats_reset'],
-      'interval crosses a statement statistics reset'
-    ),
-    statement_dealloc: requireSame(
-      before,
-      after,
-      ['statistics_boundaries', 'statement_dealloc'],
-      'pg_stat_statements dealloc changed during interval'
-    ),
-    io_stats_reset: requireSame(
-      before,
-      after,
-      ['statistics_boundaries', 'io_stats_reset'],
-      'interval crosses an I/O statistics reset'
-    ),
-    wal_stats_reset: requireSame(
-      before,
-      after,
-      ['statistics_boundaries', 'wal_stats_reset'],
-      'interval crosses a WAL statistics reset'
-    ),
-  };
+  const resetSafety = validateIntervalSafety(before, after);
   const databaseDelta = deltaSet(
     before.database,
     after.database,
@@ -263,10 +194,7 @@ export function createPostgresBaselineDelta({
     },
     reset_safety: {
       accepted: true,
-      postmaster_started_at: postmasterStartedAt,
-      server_build: serverBuild,
-      server_version_num: serverVersion,
-      ...boundaries,
+      ...resetSafety,
     },
     raw_exports: {
       before: {
@@ -292,6 +220,7 @@ export function createPostgresBaselineDelta({
       per_day_exact: exactDailyRates(walDelta, durationMilliseconds, new Set()),
     },
     statement_deltas: buildStatementDeltas(before, after),
+    relation_deltas: buildRelationDeltas(before, after),
     client_telemetry: {
       included: false,
       required_for: ['p50', 'p95', 'p99', 'errors', 'timeouts', 'throughput'],

@@ -76,12 +76,19 @@ describe('createPostgresBaselineDelta', () => {
         wal_bytes: '512',
       }),
     ]);
+    expect(result.relation_deltas.indexes[0]).toMatchObject({
+      index_fingerprint: expect.stringMatching(/^[a-f0-9]{64}$/),
+      relation_fingerprint: expect.stringMatching(/^[a-f0-9]{64}$/),
+    });
+    expect(result.relation_deltas.tables[0]).toMatchObject({
+      relation_fingerprint: expect.stringMatching(/^[a-f0-9]{64}$/),
+    });
     expect(result.raw_exports).toEqual({
       after: { sha256: sha256(afterEncrypted), source: 'encrypted_artifact' },
       before: { sha256: sha256(beforeEncrypted), source: 'encrypted_artifact' },
     });
     expect(JSON.stringify(result)).not.toMatch(
-      /merchant_id|authenticated|queryid|999999|must-not-persist|database_name/
+      /merchant_id|authenticated|queryid|999999|must-not-persist|database_name|products|public/
     );
   });
 
