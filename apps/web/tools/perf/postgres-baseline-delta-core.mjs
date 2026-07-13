@@ -33,6 +33,7 @@ const WAL_COUNTERS = [
   'wal_bytes',
   'wal_buffers_full',
 ];
+const INTEGER_STRING = /^\d+$/;
 function parseSnapshot(raw, label) {
   let parsed;
   try {
@@ -50,8 +51,13 @@ function parseSnapshot(raw, label) {
   } else if (parsed?.snapshot) {
     parsed = parsed.snapshot;
   }
-  if (parsed?.schema_version !== 1) {
-    throw new Error(`${label} snapshot schema_version must be 1`);
+  if (parsed?.schema_version === 1) {
+    throw new Error(
+      `${label} snapshot schema_version 1 lacks cron execution targets; recapture both snapshots with schema_version 2`
+    );
+  }
+  if (parsed?.schema_version !== 2) {
+    throw new Error(`${label} snapshot schema_version must be 2`);
   }
   return parsed;
 }
@@ -72,20 +78,20 @@ function decimal(value, label) {
   }
   return parsed;
 }
+function integer(value, label) {
+  if (typeof value !== 'string' || !INTEGER_STRING.test(value)) {
+    throw new Error(`${label} must be an integer string`);
+  }
+  return BigInt(value);
+}
 function counterDelta(before, after, label, isDecimal = false) {
   if (isDecimal) {
     const delta = decimal(after, label) - decimal(before, label);
     if (delta < -Number.EPSILON) throw new Error(`${label} regressed`);
     return Number(Math.max(0, delta).toFixed(6));
   }
-  let left;
-  let right;
-  try {
-    left = BigInt(before);
-    right = BigInt(after);
-  } catch (error) {
-    throw new Error(`${label} must be an integer string`, { cause: error });
-  }
+  const left = integer(before, label);
+  const right = integer(after, label);
   if (right < left) throw new Error(`${label} regressed`);
   return (right - left).toString();
 }

@@ -31,13 +31,22 @@ function jobRows(snapshot, label) {
       row?.command_digest,
       `${entry}.command_digest`
     );
+    const targetDigest = requiredString(
+      row?.target_digest,
+      `${entry}.target_digest`
+    );
     if (!/^[a-f0-9]{32}$/i.test(commandDigest)) {
       throw new Error(`${entry}.command_digest must be an MD5 digest`);
+    }
+    if (!/^[a-f0-9]{32}$/i.test(targetDigest)) {
+      throw new Error(`${entry}.target_digest must be an MD5 digest`);
     }
     if (typeof row?.active !== 'boolean') {
       throw new Error(`${entry}.active must be a boolean`);
     }
-    const identity = [jobid, schedule, commandDigest].join('\u001f');
+    const identity = [jobid, schedule, commandDigest, targetDigest].join(
+      '\u001f'
+    );
     if (identities.has(identity)) {
       throw new Error(`${label}.cron.job_identities contains a duplicate job`);
     }

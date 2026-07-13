@@ -29,6 +29,12 @@ describe('postgres performance snapshot', () => {
     expect(sql).not.toMatch(/pg_stat_statements_reset\s*\(/i);
   });
 
+  it('emits a version 2 capture contract for cron execution identities', async () => {
+    const sql = await readFile(sqlPath, 'utf8');
+
+    expect(sql).toMatch(/'schema_version', 2,/i);
+  });
+
   it('fails explicitly before PostgreSQL 18 reaches the PostgreSQL 17 I/O contract', async () => {
     const sql = await readFile(sqlPath, 'utf8');
 
@@ -117,6 +123,9 @@ describe('postgres performance snapshot', () => {
     expect(sql).toMatch(/relid::text AS relid/i);
     expect(sql).toMatch(/indexrelid::text AS indexrelid/i);
     expect(sql).toMatch(/md5\(command\) AS command_digest/i);
+    expect(sql).toMatch(
+      /md5\(\s*jsonb_build_array\(database, username, nodename, nodeport\)::text\s*\) AS target_digest/i
+    );
     expect(sql).not.toMatch(/\bcommand\s+AS\s+command\b/i);
   });
 

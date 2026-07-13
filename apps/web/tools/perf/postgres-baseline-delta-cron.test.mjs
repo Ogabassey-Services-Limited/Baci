@@ -6,6 +6,7 @@ const job = {
   command_digest: '4c9b0d8ce51124b8f0c74da2fbe6c352',
   jobid: '1',
   schedule: '0 * * * *',
+  target_digest: '09f7e02f1290be211da707a266f153b3',
 };
 
 function snapshot(jobIdentities = [job]) {
@@ -45,6 +46,10 @@ describe('validateCronJobIdentities', () => {
       { ...job, command_digest: '7ca21a0ac03d399a6f6db0a272271930' },
     ],
     ['replaced', { ...job, jobid: '2' }],
+    [
+      'moved to another execution target',
+      { ...job, target_digest: '81dc9bdb52d04dc20036dbd8313ed055' },
+    ],
   ])('rejects a %s cron workload change', (_kind, changed) => {
     expect(() =>
       validateCronJobIdentities(snapshot(), snapshot([changed]))

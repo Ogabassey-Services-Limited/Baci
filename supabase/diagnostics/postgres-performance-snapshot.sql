@@ -230,7 +230,10 @@ cron_job_rows AS (
     jobid::text AS jobid,
     schedule,
     active,
-    md5(command) AS command_digest
+    md5(command) AS command_digest,
+    md5(
+      jsonb_build_array(database, username, nodename, nodeport)::text
+    ) AS target_digest
   FROM cron.job
 ),
 cron_runs AS (
@@ -264,7 +267,7 @@ platform_settings AS (
   ) AS value
 )
 SELECT jsonb_build_object(
-  'schema_version', 1,
+  'schema_version', 2,
   'captured_at', (SELECT captured_at FROM capture),
   'server', jsonb_build_object(
     'database_name', (SELECT database_name FROM capture),

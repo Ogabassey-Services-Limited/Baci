@@ -112,6 +112,26 @@ describe('createPostgresBaselineDelta', () => {
     expect(result.database_aggregates.delta.xact_commit).toBe('1');
   });
 
+  it('accepts version 2 snapshots with cron execution targets', () => {
+    expect(() =>
+      createDelta({
+        afterRaw: raw(snapshot({ captured_at: END, schema_version: 2 })),
+        beforeRaw: raw(snapshot({ schema_version: 2 })),
+        deployedSha: 'b'.repeat(40),
+      })
+    ).not.toThrow();
+  });
+
+  it('requires a fresh version 2 capture pair when version 1 lacks cron targets', () => {
+    expect(() =>
+      createDelta({
+        afterRaw: raw(snapshot({ captured_at: END, schema_version: 2 })),
+        beforeRaw: raw(snapshot({ schema_version: 1 })),
+        deployedSha: 'b'.repeat(40),
+      })
+    ).toThrow(/schema_version 1.*recapture.*schema_version 2/i);
+  });
+
   it('aggregates duplicate normalized shapes without using queryid as the key', () => {
     const beforeStatements = [
       statement(),
@@ -243,6 +263,23 @@ describe('createPostgresBaselineDelta', () => {
         deployedSha: 'd'.repeat(40),
       })
     ).toThrow(/xact_commit.*regressed/i);
+  });
+
+  it.each([
+    ['blank database counter', { database: { xact_commit: '' } }],
+    ['boolean WAL counter', { wal: { wal_records: false } }],
+    [
+      'unsafe numeric counter',
+      { database: { temp_bytes: Number.MAX_SAFE_INTEGER + 1 } },
+    ],
+  ])('rejects a %s before calculating aggregate deltas', (_label, before) => {
+    expect(() =>
+      createDelta({
+        afterRaw: raw(snapshot({ captured_at: END })),
+        beforeRaw: raw(snapshot(before)),
+        deployedSha: 'd'.repeat(40),
+      })
+    ).toThrow(/must be an integer string/i);
   });
 
   it('rejects invalid deployment identifiers and non-forward intervals', () => {

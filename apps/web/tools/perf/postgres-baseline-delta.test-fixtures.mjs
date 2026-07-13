@@ -131,7 +131,7 @@ function lockRow(overrides = {}) {
 
 function snapshot(overrides = {}) {
   const base = {
-    schema_version: 1,
+    schema_version: 2,
     captured_at: START,
     server: {
       database_name: 'postgres',
@@ -204,12 +204,14 @@ function snapshot(overrides = {}) {
           command_digest: '4c9b0d8ce51124b8f0c74da2fbe6c352',
           jobid: '1',
           schedule: '0 * * * *',
+          target_digest: '09f7e02f1290be211da707a266f153b3',
         },
         {
           active: false,
           command_digest: '5ca21a0ac03d399a6f6db0a272271930',
           jobid: '2',
           schedule: '30 * * * *',
+          target_digest: '20f35e630daf44dbfa4c3f68f5399d8c',
         },
       ],
       runs_last_24h: [{ runs: '3', status: 'succeeded' }],
