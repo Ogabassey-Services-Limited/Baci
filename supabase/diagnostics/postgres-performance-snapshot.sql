@@ -118,6 +118,8 @@ statement_rows AS (
           'SET LOCAL timezone = ''UTC''',
           'SET LOCAL DateStyle = ''ISO, MDY'''
         )
+        AND statements.query !~*
+          '^SET LOCAL (statement_timeout|lock_timeout|timezone|DateStyle) = \$1$'
       )
     )
 ),
@@ -163,6 +165,7 @@ io_rows AS (
     backend_type,
     object,
     context,
+    coalesce(op_bytes, 0)::text AS op_bytes,
     coalesce(reads, 0)::text AS reads,
     coalesce(read_time, 0)::text AS read_time,
     coalesce(writes, 0)::text AS writes,
@@ -225,6 +228,7 @@ platform_settings AS (
     'shared_buffers', current_setting('shared_buffers'),
     'work_mem', current_setting('work_mem'),
     'track_io_timing', current_setting('track_io_timing'),
+    'track_counts', current_setting('track_counts'),
     'track_wal_io_timing', current_setting('track_wal_io_timing'),
     'pg_stat_statements.max', current_setting('pg_stat_statements.max', true),
     'pg_stat_statements.track', current_setting('pg_stat_statements.track', true),

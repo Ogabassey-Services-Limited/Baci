@@ -52,6 +52,7 @@ describe('postgres baseline operational deltas', () => {
       io: [
         {
           context_fingerprint: expect.stringMatching(/^[a-f0-9]{64}$/),
+          op_bytes: '8192',
           counters: expect.objectContaining({ reads: '3', writes: '4' }),
           timings_ms: expect.objectContaining({ fsync_time: 2, read_time: 2 }),
         },
@@ -81,5 +82,20 @@ describe('postgres baseline operational deltas', () => {
         deployedSha: 'f'.repeat(40),
       })
     ).toThrow(/after\.io\[0\]\.reads regressed/i);
+  });
+
+  it('rejects an I/O operation-size change inside a stable context', () => {
+    expect(() =>
+      createDelta({
+        afterRaw: raw(
+          snapshot({
+            captured_at: END,
+            io: [ioRow({ op_bytes: '4096', reads: '13' })],
+          })
+        ),
+        beforeRaw: raw(snapshot()),
+        deployedSha: 'f'.repeat(40),
+      })
+    ).toThrow(/after\.io\[0\]\.op_bytes changed/i);
   });
 });

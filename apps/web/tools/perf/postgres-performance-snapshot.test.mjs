@@ -64,8 +64,12 @@ describe('postgres performance snapshot', () => {
     const sql = await readFile(sqlPath, 'utf8');
 
     expect(sql).toContain("'pg_stat_statements.track_utility'");
+    expect(sql).toContain("'track_counts'");
     expect(sql).toMatch(/statements\.calls > 0\s+OR statements\.plans > 0/i);
     expect(sql).toMatch(/statements\.query NOT IN \(\s*'BEGIN',\s*'ROLLBACK'/i);
+    expect(sql).toMatch(
+      /statements\.query !~\*\s+'\^SET LOCAL \(statement_timeout\|lock_timeout\|timezone\|DateStyle\) = \\\$1\$'/i
+    );
   });
 
   it('captures the P0 database surfaces without persisting advisor commands', async () => {
@@ -105,6 +109,7 @@ describe('postgres performance snapshot', () => {
       'writeback_time',
       'extend_time',
       'fsync_time',
+      'op_bytes',
     ]) {
       expect(sql).toMatch(
         new RegExp(`coalesce\\(${field}, 0\\)::text AS ${field}`, 'i')

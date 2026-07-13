@@ -169,6 +169,9 @@ approximate per-day timing rates; reset boundaries; server build; and
 encrypted-artifact SHA-256 hashes. Each artifact hash is explicitly labelled
 `source: encrypted_artifact`.
 
+Each I/O context retains its stable `op_bytes` operation size alongside its
+counter deltas, so byte-volume calculations remain auditable.
+
 Cron run status counts are rolling 24-hour window gauges. They are published as
 separate before/after values, never as an interval delta; only cumulative
 database, WAL, statement, relation, and I/O counters support delta math.

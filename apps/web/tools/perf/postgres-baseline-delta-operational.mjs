@@ -119,6 +119,13 @@ function exactCounterDeltas(before, after, fields, beforeLabel, afterLabel) {
   );
 }
 
+function stableInteger(before, after, field, beforeLabel, afterLabel) {
+  const left = integer(before[field], `${beforeLabel}.${field}`);
+  const right = integer(after[field], `${afterLabel}.${field}`);
+  if (left !== right) throw new Error(`${afterLabel}.${field} changed`);
+  return left.toString();
+}
+
 function timingDeltas(before, after, beforeLabel, afterLabel) {
   return Object.fromEntries(
     IO_TIMINGS.map((field) => {
@@ -205,6 +212,13 @@ export function buildOperationalDeltas(before, after) {
     io: stablePairs(beforeIo, afterIo, 'I/O').map(
       ({ key, before: beforeEntry, after: afterEntry }) => ({
         context_fingerprint: fingerprint(key),
+        op_bytes: stableInteger(
+          beforeEntry.row,
+          afterEntry.row,
+          'op_bytes',
+          beforeEntry.rowLabel,
+          afterEntry.rowLabel
+        ),
         counters: exactCounterDeltas(
           beforeEntry.row,
           afterEntry.row,

@@ -3,6 +3,7 @@ const COLLECTION_SETTING_KEYS = [
   'shared_buffers',
   'work_mem',
   'track_io_timing',
+  'track_counts',
   'track_wal_io_timing',
   'pg_stat_statements.max',
   'pg_stat_statements.track',

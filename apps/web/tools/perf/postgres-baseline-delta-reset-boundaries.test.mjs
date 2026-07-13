@@ -103,6 +103,7 @@ describe('postgres baseline reset boundary validation', () => {
 
   it.each([
     ['track_io_timing', 'off'],
+    ['track_counts', 'off'],
     ['track_wal_io_timing', 'on'],
     ['pg_stat_statements.track', 'top'],
     ['pg_stat_statements.track_planning', 'off'],

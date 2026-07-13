@@ -85,6 +85,7 @@ function ioRow(overrides = {}) {
   return {
     backend_type: 'client backend',
     object: 'relation',
+    op_bytes: '8192',
     context: 'normal',
     reads: '10',
     read_time: '1.5',
@@ -173,6 +174,7 @@ function snapshot(overrides = {}) {
       shared_buffers: '256MB',
       work_mem: '4MB',
       track_io_timing: 'on',
+      track_counts: 'on',
       track_wal_io_timing: 'off',
       'pg_stat_statements.max': '5000',
       'pg_stat_statements.track': 'all',
