@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
+import { revalidateFeatures } from '@/lib/cache-revalidation';
 import { isBaciPaystackSettlementCountry } from '@/lib/checkout/payment-gateway-availability';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
@@ -219,6 +220,10 @@ export async function POST(request: NextRequest) {
         throw manualUpdateError;
       }
 
+      // Paystack capability changed (subaccount cleared) — bust the cached
+      // storefront features lookup so checkout stops advertising Paystack.
+      revalidateFeatures(merchantId);
+
       return NextResponse.json({
         success: true,
         accountName: manualAccountName,
@@ -338,6 +343,10 @@ export async function POST(request: NextRequest) {
     if (updateError) {
       throw updateError;
     }
+
+    // Paystack capability changed (subaccount configured) — bust the cached
+    // storefront features lookup so checkout starts advertising Paystack.
+    revalidateFeatures(merchantId);
 
     if (shouldPersistAutoPayoutEnabled) {
       const { error: walletInitError } = await auth.supabase.rpc(
