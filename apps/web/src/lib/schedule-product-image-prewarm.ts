@@ -11,8 +11,11 @@ import { getPrimaryProductImage } from '@/lib/product-image';
  * because the row shape returned by the Supabase select-string types varies by
  * branch (not every product row assignment is typed with an `images` field
  * even though it is always present at runtime by the time this is called).
+ *
+ * Private — an implementation detail of the scheduler below, which is this
+ * file's single public export (repo rule: one primary export per file).
  */
-export function extractProductImageUrls(images: unknown): string[] {
+function extractProductImageUrls(images: unknown): string[] {
   if (!Array.isArray(images)) {
     return [];
   }
@@ -30,8 +33,10 @@ export function extractProductImageUrls(images: unknown): string[] {
 
 /**
  * Pre-warm Cloudflare's image-transform cache for a product's images after a
- * write (create OR update). Fire-and-forget: mirrors `schedulePurgeCloudflareUrls`
- * in `lib/cache-revalidation.ts` — uses `after()` when a request context exists
+ * write (create OR update). Accepts the raw `images` column value (any of the
+ * string/`{ url }` shapes Supabase returns) and extracts the URLs internally.
+ * Fire-and-forget: mirrors `schedulePurgeCloudflareUrls` in
+ * `lib/cache-revalidation.ts` — uses `after()` when a request context exists
  * so the prewarm keeps running past the response flush, and falls back to a
  * detached promise otherwise (tests / non-request contexts).
  * `prewarmOgabasseyImageTransforms` never throws, so this never affects the
@@ -48,9 +53,8 @@ export function extractProductImageUrls(images: unknown): string[] {
  * that enters the launch/home hero never pays the cold q70 transform on its
  * first storefront request.
  */
-export function scheduleProductImageTransformsPrewarm(
-  imagePaths: string[]
-): void {
+export function scheduleProductImageTransformsPrewarm(images: unknown): void {
+  const imagePaths = extractProductImageUrls(images);
   if (imagePaths.length === 0) {
     return;
   }

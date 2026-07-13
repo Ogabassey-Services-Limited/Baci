@@ -126,13 +126,15 @@ export async function upsertCanonicalOrder(
 
   if (existing) {
     const orderItems = buildOrderItems(existing.id, items);
-    const { error } = await supabase.rpc('replace_order_items', {
-      p_order_id: existing.id,
-      p_items: orderItems,
-      p_merchant_id: integration.merchant_id,
-      p_is_import: true,
-      p_order_patch: payload,
-    });
+    const { error } = await supabase.rpc(
+      'replace_order_items_suppressing_order_notifications',
+      {
+        p_order_id: existing.id,
+        p_items: orderItems,
+        p_merchant_id: integration.merchant_id,
+        p_order_patch: payload,
+      }
+    );
     if (error) {
       throw new Error(`Failed to update Baci order: ${error.message}`);
     }

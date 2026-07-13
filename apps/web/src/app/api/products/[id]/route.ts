@@ -33,10 +33,7 @@ import type { Product, ProductVariant } from '@/lib/products';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { sanitizeText } from '@/lib/sanitize-core';
 import { sanitizeSchemaMarkup } from '@/lib/sanitize-json-ld';
-import {
-  extractProductImageUrls,
-  scheduleProductImageTransformsPrewarm,
-} from '@/lib/schedule-product-image-prewarm';
+import { scheduleProductImageTransformsPrewarm } from '@/lib/schedule-product-image-prewarm';
 import {
   generateMetaDescription,
   generateProductSchema,
@@ -972,7 +969,7 @@ export async function PUT(
     // every PUT is wasted outbound fan-out.
     if (updates.images !== undefined) {
       scheduleProductImageTransformsPrewarm(
-        extractProductImageUrls((updatedProduct as { images?: unknown }).images)
+        (updatedProduct as { images?: unknown }).images
       );
     }
 

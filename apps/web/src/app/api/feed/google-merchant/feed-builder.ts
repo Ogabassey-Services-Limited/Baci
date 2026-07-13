@@ -225,9 +225,19 @@ function dedupeManifestEntries(entries: FeedImageManifestEntry[]) {
   return deduped;
 }
 
+// The variant→visual-key map is invariant of the `variant` being resolved
+// (it depends only on the product's variant set), so build it ONCE per product
+// and pass it in — rebuilding it inside getVariantManifestEntries per variant
+// was O(variants^2) per product on the uncached GMC/TikTok feed XML build.
+function buildVariantVisualKeys(variants: FeedVariant[]) {
+  return new Map(
+    variants.map((candidate) => [candidate.id, getVariantVisualKey(candidate)])
+  );
+}
+
 function getVariantManifestEntries(
   manifestEntries: FeedImageManifestEntry[],
-  variants: FeedVariant[],
+  variantVisualKeys: ReturnType<typeof buildVariantVisualKeys>,
   variant: FeedVariant
 ) {
   const exactEntries = manifestEntries.filter(
@@ -243,9 +253,6 @@ function getVariantManifestEntries(
     return [];
   }
 
-  const variantVisualKeys = new Map(
-    variants.map((candidate) => [candidate.id, getVariantVisualKey(candidate)])
-  );
   const sameVisualEntries = manifestEntries.filter(
     (entry) =>
       entry.variant_id &&
@@ -261,13 +268,13 @@ function resolveVariantFeedImages(args: {
   manifestEntries: FeedImageManifestEntry[];
   productLevelImages: ResolvedFeedImages | null;
   variant: FeedVariant;
-  variants: FeedVariant[];
+  variantVisualKeys: ReturnType<typeof buildVariantVisualKeys>;
 }) {
   return (
     resolveFeedImages(
       getVariantManifestEntries(
         args.manifestEntries,
-        args.variants,
+        args.variantVisualKeys,
         args.variant
       )
     ) ?? args.productLevelImages
@@ -573,13 +580,18 @@ export function generateGoogleMerchantFeed(
         });
 
         if (eligibleVariants.length > 0) {
+          // Build the variant→visual-key map ONCE per product; it's invariant
+          // across the eligibleVariants below (was rebuilt per variant).
+          const variantVisualKeys = buildVariantVisualKeys(
+            product.variants || []
+          );
           return eligibleVariants
             .map((variant) => {
               const variantImages = resolveVariantFeedImages({
                 manifestEntries,
                 productLevelImages,
                 variant,
-                variants: product.variants || [],
+                variantVisualKeys,
               });
               if (!variantImages) return null;
 

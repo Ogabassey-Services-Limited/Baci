@@ -73,7 +73,7 @@ describe('createOrderDetailsStatusActions', () => {
     expect(setShowPaymentOptionModal).toHaveBeenCalledWith(true);
   });
 
-  it('updates status and records success feedback for delivered orders', async () => {
+  it('updates status and queues outbox-backed customer email for delivered orders', async () => {
     const setSuccessModal = vi.fn();
     const updateStatus = vi.fn().mockResolvedValue(undefined);
     const actions = createOrderDetailsStatusActions({
@@ -110,10 +110,13 @@ describe('createOrderDetailsStatusActions', () => {
     });
     expect(setSuccessModal).toHaveBeenCalledWith(
       expect.objectContaining({
+        subMessage:
+          'The customer notification has been queued and will not block fulfillment.',
         title: 'Order Delivered! 🎉',
         visible: true,
       })
     );
+    expect(mocks.fetch).not.toHaveBeenCalled();
     expect(Alert.alert).not.toHaveBeenCalled();
   });
 
