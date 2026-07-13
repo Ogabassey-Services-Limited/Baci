@@ -1,5 +1,4 @@
-import { describe, expect, it, jest } from '@jest/globals';
-import { Platform } from 'react-native';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 const mockSetNotificationChannelAsync =
   jest.fn<(channelId: string, channel: unknown) => Promise<null>>();
@@ -11,43 +10,27 @@ jest.mock('expo-notifications', () => ({
 
 import { ensureAndroidNotificationChannels } from './push-notification-channels';
 
-function withPlatformOS(os: string, run: () => Promise<void>): Promise<void> {
-  const originalOS = Platform.OS;
-  Object.defineProperty(Platform, 'OS', { configurable: true, value: os });
-  return run().finally(() => {
-    Object.defineProperty(Platform, 'OS', {
-      configurable: true,
-      value: originalOS,
-    });
-  });
-}
-
 describe('ensureAndroidNotificationChannels', () => {
-  it('creates all four channels including payments on Android', async () => {
-    await withPlatformOS('android', async () => {
-      mockSetNotificationChannelAsync.mockClear();
-
-      await ensureAndroidNotificationChannels();
-
-      const channelIds = mockSetNotificationChannelAsync.mock.calls.map(
-        (call) => call[0]
-      );
-      expect(channelIds).toEqual([
-        'orders',
-        'payments',
-        'promotions',
-        'general',
-      ]);
-    });
+  beforeEach(() => {
+    mockSetNotificationChannelAsync.mockClear();
   });
 
-  it('is a no-op off Android', async () => {
-    await withPlatformOS('ios', async () => {
-      mockSetNotificationChannelAsync.mockClear();
+  it('creates all four channels including payments', async () => {
+    await ensureAndroidNotificationChannels();
 
-      await ensureAndroidNotificationChannels();
+    // The payments channel must exist before a wallet-credited push targets
+    // it on Android 8+. (Platform gating lives at the call sites; the expo
+    // API is a no-op off Android.)
+    const channelIds = mockSetNotificationChannelAsync.mock.calls.map(
+      (call) => call[0]
+    );
+    expect(channelIds).toEqual(['orders', 'payments', 'promotions', 'general']);
+  });
 
-      expect(mockSetNotificationChannelAsync).not.toHaveBeenCalled();
-    });
+  it('is idempotent across repeated calls', async () => {
+    await ensureAndroidNotificationChannels();
+    await ensureAndroidNotificationChannels();
+
+    expect(mockSetNotificationChannelAsync).toHaveBeenCalledTimes(8);
   });
 });

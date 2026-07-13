@@ -1,4 +1,3 @@
-import { Platform } from 'react-native';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('PushNotificationChannels');
@@ -9,10 +8,11 @@ const log = createLogger('PushNotificationChannels');
  * short-circuits full registration — otherwise installs that registered before
  * a new channel was introduced (e.g. `payments`) would never create it and
  * Android 8+ could drop notifications sent to it.
+ *
+ * No Platform gate here (platform-drift budget): callers guard on Android,
+ * and `setNotificationChannelAsync` is a documented no-op off Android anyway.
  */
 export async function ensureAndroidNotificationChannels(): Promise<void> {
-  if (Platform.OS !== 'android') return;
-
   let Notifications: typeof import('expo-notifications') | null = null;
   try {
     Notifications = await import('expo-notifications');
