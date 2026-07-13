@@ -290,7 +290,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        shard: [1, 2, 3, 4, 5, 6]
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -299,7 +299,7 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/pnpm-install-cached
       - name: Run web vitest shard
-        run: pnpm --filter @baci/web exec vitest run --shard=${{ matrix.shard }}/3
+        run: pnpm --filter @baci/web exec vitest run --shard=${{ matrix.shard }}/6
 
   quality-misc:
     name: Quality Gate - Misc
