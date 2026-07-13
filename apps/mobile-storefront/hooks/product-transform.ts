@@ -14,6 +14,7 @@ import {
   type ProductVariant,
 } from '@/types/product';
 import type { Category } from './product-utils.types';
+import { isVariantBearingProduct } from './product-variant-state';
 
 const log = createLogger('Products');
 
@@ -223,7 +224,7 @@ export function transformProduct(item: unknown): Product | null {
     stock_quantity: inventory.stock_quantity,
     colors: variantMetadata.colors,
     color_images: variantMetadata.colorImages,
-    has_variants: product.has_variants ?? false,
+    has_variants: isVariantBearingProduct(product),
     variant_model:
       product.variant_model === 'sku_matrix' ? 'sku_matrix' : 'legacy',
     available_conditions:

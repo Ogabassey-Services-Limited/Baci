@@ -1,19 +1,18 @@
 import { createLogger } from '@/lib/logger';
 import { hydrateProductRowsWithStorefrontVariants } from '@/lib/storefront-product-variants';
+import { isVariantBearingProduct } from './product-variant-state';
 
 const log = createLogger('ProductHydration');
 
 export interface HydratableProductRow extends Record<string, unknown> {
   has_variants?: unknown;
   id?: unknown;
+  variant_model?: unknown;
   variants?: unknown;
 }
 
 export function needsVariantHydration(row: HydratableProductRow): boolean {
-  return (
-    row.has_variants === true &&
-    (!Array.isArray(row.variants) || row.variants.length === 0)
-  );
+  return isVariantBearingProduct(row);
 }
 
 export async function hydrateRowsNeedingStorefrontVariants(
@@ -29,7 +28,7 @@ export async function hydrateRowsNeedingStorefrontVariants(
     hydratedRows =
       await hydrateProductRowsWithStorefrontVariants(rowsToHydrate);
   } catch (error) {
-    log.warn('Failed to hydrate storefront variants; using embedded rows', {
+    log.warn('Failed to hydrate storefront variants; using original rows', {
       error,
     });
     return rows;

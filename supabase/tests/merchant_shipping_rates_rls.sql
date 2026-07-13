@@ -17,7 +17,7 @@
 --         subdivision may still layer.
 --     (h) settings EDITORS can read the rows they edit: each SELECT policy
 --         admits 'settings' -> 'view' OR 'settings' -> 'edit'
---         (20260710210000). Asserted by policy shape (pg_policy) because
+--         (20260713120007). Asserted by policy shape (pg_policy) because
 --         check_staff_permission matches EXACT actions, so an edit-only role
 --         that passed ensurePermission('settings','edit') would otherwise get
 --         zero rows from the pre-write SELECTs. Modelling a JWT-authenticated
@@ -27,15 +27,15 @@
 --     (i) the rest-of-world fallback bucket cannot be deleted through a direct
 --         delete (the DB guard trigger rejects it), a normal bucket still
 --         deletes, and a store-deletion cascade still cleans the fallback up
---         (20260710220000).
+--         (20260713120008).
 --     (j) the rest-of-world fallback bucket cannot be neutralized through an
 --         UPDATE: unsetting is_rest_of_world or active is rejected by the guard
 --         trigger, renaming it still succeeds, and a NON-fallback bucket may
---         still be deactivated freely (20260710230100).
+--         still be deactivated freely (20260713120010).
 --     (k) the rest-of-world fallback bucket cannot carry explicit location rows:
 --         a direct INSERT of a location whose parent bucket is is_rest_of_world
 --         is rejected by the guard trigger, while a location on a normal
---         (non-fallback) bucket still inserts (20260710240000).
+--         (non-fallback) bucket still inserts (20260713120011).
 --
 -- USAGE:
 --   psql $DATABASE_URL -f supabase/tests/merchant_shipping_rates_rls.sql
@@ -588,7 +588,7 @@ $$;
 -- ---------------------------------------------------------------------------
 -- (h) Each shipping-settings SELECT policy admits 'settings' -> 'view' OR
 -- 'settings' -> 'edit', so an edit-only staff role can read the rows it is
--- about to write (20260710210000). Proven by policy shape: the USING
+-- about to write (20260713120007). Proven by policy shape: the USING
 -- expression must reference check_staff_permission, the settings resource, and
 -- BOTH the view and edit actions.
 -- ---------------------------------------------------------------------------

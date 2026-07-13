@@ -223,6 +223,8 @@ jest.mock('@/hooks/product-utils', () => {
           typeof item.has_condition_offers === 'boolean'
             ? item.has_condition_offers
             : false,
+        variant_model:
+          item.variant_model === 'sku_matrix' ? 'sku_matrix' : 'legacy',
         offers: Array.isArray(item.offers) ? item.offers : undefined,
         in_stock:
           typeof item.stock_quantity === 'number'
@@ -438,6 +440,29 @@ describe('useProduct', () => {
     });
   });
 
+  it('normalizes a drifted sku_matrix row as variant-bearing', async () => {
+    mockResolveAndEvictProduct.mockResolvedValue({
+      ...validProductRow,
+      has_variants: false,
+      variant_model: 'sku_matrix',
+    });
+    const queryClient = createQueryClient();
+
+    const { result } = renderHook(() => useProduct('iphone-13-pro'), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    await waitFor(() => {
+      expect(result.current.product).not.toBeNull();
+    });
+
+    expect(result.current.product).toMatchObject({
+      has_variants: true,
+      variant_model: 'sku_matrix',
+      variants: [expect.objectContaining({ id: 'variant-128gb' })],
+    });
+  });
+
   it('merges live variant-only axes into variant_attributes for the product page selector', async () => {
     mockResolveAndEvictProduct.mockResolvedValue({
       ...validProductRow,
@@ -501,7 +526,7 @@ describe('useProduct', () => {
     });
   });
 
-  it('hydrates from any matching cached products query key', () => {
+  it('shows a simple catalog preview immediately but still fetches full detail', async () => {
     const queryClient = createQueryClient();
     const cachedProduct: Product = {
       id: 'cached-1',
@@ -516,13 +541,56 @@ describe('useProduct', () => {
     queryClient.setQueryData(['products', 'merchant-1', { search: 'pixel' }], {
       pages: [{ products: [cachedProduct], nextOffset: null, total: 1 }],
     });
-    mockResolveAndEvictProduct.mockResolvedValue(validProductRow);
+    mockResolveAndEvictProduct.mockResolvedValue({
+      ...validProductRow,
+      slug: 'pixel-8',
+      name: 'Detailed Pixel 8',
+    });
 
     const { result } = renderHook(() => useProduct('pixel-8'), {
       wrapper: createWrapper(queryClient),
     });
 
     expect(result.current.product?.id).toBe('cached-1');
+
+    await waitFor(() => {
+      expect(mockResolveAndEvictProduct).toHaveBeenCalledTimes(1);
+    });
+    await waitFor(() => {
+      expect(result.current.product).toMatchObject({
+        id: validProductRow.id,
+        slug: 'pixel-8',
+        name: 'Detailed Pixel 8',
+      });
+    });
+  });
+
+  it('reuses a fresh prefetched product when the detail screen mounts', async () => {
+    mockResolveAndEvictProduct.mockResolvedValue(validProductRow);
+    const queryClient = createQueryClient();
+    const wrapper = createWrapper(queryClient);
+
+    const prefetchHook = renderHook(() => usePrefetchProduct(), { wrapper });
+
+    await act(async () => {
+      await prefetchHook.result.current('iphone-13-pro');
+    });
+    expect(mockResolveAndEvictProduct).toHaveBeenCalledTimes(1);
+    prefetchHook.unmount();
+
+    const productHook = renderHook(() => useProduct('iphone-13-pro'), {
+      wrapper,
+    });
+
+    expect(productHook.result.current.product).toMatchObject({
+      id: validProductRow.id,
+      slug: validProductRow.slug,
+    });
+    await waitFor(() => {
+      expect(productHook.result.current.isLoading).toBe(false);
+    });
+
+    expect(mockResolveAndEvictProduct).toHaveBeenCalledTimes(1);
   });
 
   it('bypasses cached initial data for variant products and waits for the detail fetch', async () => {
@@ -577,6 +645,47 @@ describe('useProduct', () => {
         attributes: { storage: '128GB' },
       }),
     ]);
+  });
+
+  it('bypasses cached preview data for drifted sku_matrix products', async () => {
+    const queryClient = createQueryClient();
+    const cachedProduct: Product = {
+      id: 'cached-drifted',
+      name: 'Cached Drifted Product',
+      slug: 'cached-drifted',
+      price: 1000,
+      image: 'https://cdn.example.com/cached-drifted.jpg',
+      images: ['https://cdn.example.com/cached-drifted.jpg'],
+      has_variants: false,
+      variant_model: 'sku_matrix',
+      variants: [],
+    };
+
+    queryClient.setQueryData(
+      ['products', 'merchant-1', { search: 'cached-drifted' }],
+      {
+        pages: [{ products: [cachedProduct], nextOffset: null, total: 1 }],
+      }
+    );
+    mockResolveAndEvictProduct.mockResolvedValue({
+      ...validProductRow,
+      slug: 'cached-drifted',
+      has_variants: false,
+      variant_model: 'sku_matrix',
+    });
+
+    const { result } = renderHook(() => useProduct('cached-drifted'), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    expect(result.current.product).toBeNull();
+    await waitFor(() => {
+      expect(result.current.product).toMatchObject({
+        slug: 'cached-drifted',
+        has_variants: true,
+        variant_model: 'sku_matrix',
+      });
+    });
   });
 
   it('returns validation errors for malformed product rows', async () => {
