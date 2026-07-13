@@ -88,7 +88,7 @@ describe('OgabasseyStaticHomePageContent', () => {
       screen.getByRole('region', { name: /dynamic home content/i })
     ).toHaveAttribute('data-fallback-heading', 'false');
     expect(mockCriticalHero).toHaveBeenCalledWith({ slides: [SHELL_SLIDE] });
-    expect(mockResolveHeroShell).toHaveBeenCalledWith('/ogabassey');
+    expect(mockResolveHeroShell).toHaveBeenCalledWith();
   });
 
   it('keeps the permanent Hero and no fallback H1 request when a published feed is empty', async () => {

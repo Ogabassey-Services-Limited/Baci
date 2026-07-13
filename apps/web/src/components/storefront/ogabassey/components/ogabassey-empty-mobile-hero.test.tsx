@@ -25,13 +25,14 @@ describe('OgabasseyEmptyMobileHero', () => {
     expect(img?.getAttribute('height')).toBe('540');
   });
 
-  it('keeps truthful product-agnostic copy without a fake CTA or stock claim', () => {
+  it('keeps merchant-neutral copy without a fake CTA or stock claim', () => {
     const { container } = render(<OgabasseyEmptyMobileHero />);
 
-    expect(container.textContent).toContain('OgaBassey');
+    expect(container.textContent).toContain("Discover what's next");
     expect(container.textContent).toContain(
       'Explore phones, laptops, gaming and more.'
     );
+    expect(container.textContent).not.toMatch(/ogabassey/i);
     expect(container.textContent).not.toMatch(/in stock|shop now/i);
     expect(container.querySelector('a, button')).toBeNull();
   });

@@ -4,6 +4,7 @@ import { unstable_rethrow } from 'next/navigation';
 import { buildLaunchSlides } from '@/components/storefront/ogabassey/components/build-launch-slides';
 import type { LaunchProductSlide } from '@/components/storefront/ogabassey/components/LaunchCarousel';
 import { getCachedMerchant } from '@/lib/cached-data';
+import { buildStoreUrl } from '@/lib/store-url';
 import { loadOgabasseyLaunchProducts } from './ogabassey-home-launch-products';
 
 const OGABASSEY_MERCHANT_SLUG = 'ogabassey';
@@ -30,9 +31,7 @@ export type OgabasseyHomeHeroShellResult =
   | OgabasseyHomeHeroShell
   | OgabasseyHomeHeroUnpublishedShell;
 
-async function resolveShellSlides(
-  pathPrefix: string
-): Promise<OgabasseyHomeHeroShellResult | null> {
+async function resolveShellSlides(): Promise<OgabasseyHomeHeroShellResult | null> {
   const merchant = await getCachedMerchant(OGABASSEY_MERCHANT_SLUG);
   if (!merchant?.id) {
     return null;
@@ -52,7 +51,12 @@ async function resolveShellSlides(
     merchant.id,
     resolveMerchantCurrencyConfig(merchant)
   );
-  const slides = buildLaunchSlides(products, pathPrefix);
+  // This static shell is shared by the canonical domain, custom/subdomain
+  // aliases, and the platform's /ogabassey path. A request-relative prefix
+  // cannot be correct for all of those origins without pulling headers() onto
+  // the critical path. Canonical absolute PDP links are origin-independent and
+  // remain correct before hydration in every alias context.
+  const slides = buildLaunchSlides(products, buildStoreUrl(merchant));
   return { status: 'published', slides };
 }
 
@@ -70,15 +74,13 @@ async function resolveShellSlides(
  * shopping UI while request-bound content continues independently. A cold
  * cache miss or transient query failure must never take down the page.
  */
-export async function resolveOgabasseyHomeHeroShell(
-  pathPrefix: string
-): Promise<OgabasseyHomeHeroShellResult | null> {
+export async function resolveOgabasseyHomeHeroShell(): Promise<OgabasseyHomeHeroShellResult | null> {
   let budgetTimer: ReturnType<typeof setTimeout> | undefined;
   try {
     const budget = new Promise<null>((resolve) => {
       budgetTimer = setTimeout(() => resolve(null), SHELL_LOOKUP_BUDGET_MS);
     });
-    return await Promise.race([resolveShellSlides(pathPrefix), budget]);
+    return await Promise.race([resolveShellSlides(), budget]);
   } catch (error) {
     unstable_rethrow(error);
     console.error('Failed to resolve home hero shell slides', { error });

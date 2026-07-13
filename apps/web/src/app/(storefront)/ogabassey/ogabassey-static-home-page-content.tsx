@@ -13,9 +13,9 @@ import { OgabasseyHomePageContent } from './ogabassey-home-page-content';
 import { OgabasseyHomeStyleLoader } from './ogabassey-home-style-loader';
 
 interface OgabasseyStaticHomePageContentProps {
-  /** Static per-route path prefix for storefront links: '' for the apex domain
-   *  (ogabassey.com), '/ogabassey' for the path-based route. Passed as a
-   *  constant from each route's page so the hero needs no per-request headers. */
+  /** Static per-route prefix for request-streamed storefront links: '' for the
+   *  apex domain and '/ogabassey' for the path route. The permanent Hero uses
+   *  canonical absolute PDP links so it needs no per-request headers. */
   pathPrefix: string;
 }
 
@@ -44,7 +44,7 @@ export async function OgabasseyStaticHomePageContent({
   // emitted in the static artifact and hydrated in place, so request-time
   // content can never replace the LCP node. Unknown/unpublished state omits
   // the shopping surface rather than leaking a Shop Now shell before guards.
-  const heroShell = await resolveOgabasseyHomeHeroShell(pathPrefix);
+  const heroShell = await resolveOgabasseyHomeHeroShell();
   const shellSlides =
     heroShell?.status === 'published' ? heroShell.slides : null;
   if (shellSlides?.[0]) {

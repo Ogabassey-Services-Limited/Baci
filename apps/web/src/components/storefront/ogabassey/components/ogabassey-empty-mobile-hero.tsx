@@ -30,7 +30,7 @@ export function OgabasseyEmptyMobileHero() {
           <div className="relative z-10 flex h-full items-center px-6 py-5">
             <div className="w-[46%] pr-2 text-store-secondary-text">
               <h2 className="mb-2 font-sans text-2xl font-extrabold leading-tight drop-shadow-xs">
-                OgaBassey
+                Discover what's next
               </h2>
               <p className="text-[11px] font-medium leading-relaxed opacity-90">
                 Explore phones, laptops, gaming and more.
