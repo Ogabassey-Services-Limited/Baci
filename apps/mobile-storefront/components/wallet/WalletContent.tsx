@@ -6,7 +6,9 @@ import AppKeyboardAwareScrollView from '@/components/ui/AppKeyboardAwareScrollVi
 import type Colors from '@/constants/Colors';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useProducts } from '@/hooks/use-products';
+import { useWalletCreditWatch } from '@/hooks/use-wallet-credit-watch';
 import type { WalletActiveSavingsGoal } from '@/hooks/wallet-query';
+import type { WalletReturnHref } from '@/lib/sanitize-wallet-return-to';
 import type { Product } from '@/types/product';
 import { WalletActionsRow } from './WalletActionsRow';
 import { WalletFundPanel } from './WalletFundPanel';
@@ -32,6 +34,8 @@ export interface WalletContentProps {
   earningsBalance: number;
   fundAmount: string;
   fundingAccount: WalletDisplayFundingAccount | null;
+  /** Sanitized deep-link for the post-credit "Return to your purchase" CTA. */
+  fundReturnTo?: WalletReturnHref;
   isAddingSavingsContribution: boolean;
   isCreatingFundingAccount: boolean;
   isFundPending: boolean;
@@ -69,6 +73,8 @@ export interface WalletContentProps {
   showQuickSave: boolean;
   showFundPanel: boolean;
   showRedeemPanel: boolean;
+  /** Spendable balance (`wallet.balance`) the credit watch diffs against. */
+  spendableBalance: number;
   totalBalance: number;
   transactions: WalletTransaction[];
 }
@@ -82,6 +88,7 @@ export function WalletContent({
   earningsBalance,
   fundAmount,
   fundingAccount,
+  fundReturnTo,
   isAddingSavingsContribution,
   isCreatingFundingAccount,
   isFundPending,
@@ -116,9 +123,15 @@ export function WalletContent({
   showQuickSave,
   showFundPanel,
   showRedeemPanel,
+  spendableBalance,
   totalBalance,
   transactions,
 }: WalletContentProps) {
+  const creditWatch = useWalletCreditWatch({
+    balance: spendableBalance,
+    refetch: onRefresh,
+    returnTo: fundReturnTo,
+  });
   const [showSavingsDeviceSwap, setShowSavingsDeviceSwap] = useState(false);
   const [savingsDeviceSearch, setSavingsDeviceSearch] = useState('');
   const [isChangingSavingsDevice, setIsChangingSavingsDevice] = useState(false);
@@ -171,6 +184,7 @@ export function WalletContent({
           createFundingAccountUnavailableMessage={
             createFundingAccountUnavailableMessage
           }
+          creditWatch={showFundPanel ? undefined : creditWatch}
           earningsBalance={earningsBalance}
           fundingAccount={fundingAccount}
           isCreatingFundingAccount={isCreatingFundingAccount}
@@ -200,6 +214,7 @@ export function WalletContent({
             createFundingAccountUnavailableMessage={
               createFundingAccountUnavailableMessage
             }
+            creditWatch={creditWatch}
             fundAmount={fundAmount}
             fundingAccount={fundingAccount}
             isCreatingFundingAccount={isCreatingFundingAccount}

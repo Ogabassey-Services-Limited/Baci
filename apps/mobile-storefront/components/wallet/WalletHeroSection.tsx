@@ -1,8 +1,10 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
+import type { WalletCreditWatch } from '@/hooks/use-wallet-credit-watch';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
+import { WalletCreditCheckPanel } from './WalletCreditCheckPanel';
 import { WalletQuickUtilities } from './WalletQuickUtilities';
 import { WALLET_COLORS } from './wallet.colors';
 import { styles } from './wallet.styles';
@@ -12,6 +14,9 @@ type WalletHeroSectionProps = {
   canCreateFundingAccount: boolean;
   createFundingAccountUnavailableMessage?: string;
   accentColor: string;
+  /** Omitted while the fund panel is open — it owns the single interactive
+   * credit-check affordance then, so the hero must not mount a duplicate. */
+  creditWatch?: WalletCreditWatch;
   earningsBalance: number;
   fundingAccount: WalletDisplayFundingAccount | null;
   isCreatingFundingAccount: boolean;
@@ -47,6 +52,7 @@ export function WalletHeroSection({
   accentColor,
   canCreateFundingAccount,
   createFundingAccountUnavailableMessage,
+  creditWatch,
   earningsBalance,
   fundingAccount,
   isCreatingFundingAccount,
@@ -152,6 +158,13 @@ export function WalletHeroSection({
             <Text accessibilityRole="text" style={styles.copyFeedbackText}>
               {copyFeedback}
             </Text>
+          ) : null}
+          {creditWatch ? (
+            <WalletCreditCheckPanel
+              accentColor={accentColor}
+              textColor={WALLET_COLORS.white}
+              watch={creditWatch}
+            />
           ) : null}
         </>
       ) : (

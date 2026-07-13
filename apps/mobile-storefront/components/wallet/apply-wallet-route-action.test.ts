@@ -63,7 +63,26 @@ describe('applyWalletRouteAction', () => {
     expect(setters.setFundReturnTo).toHaveBeenCalledWith(undefined);
   });
 
-  it('closes every panel and clears stale fund params for bank-transfer actions', () => {
+  it('closes every panel and preserves the returnTo for bank-transfer actions', () => {
+    applyWalletRouteAction({
+      routeAction: 'bank-transfer',
+      routeRequiredAmount: '',
+      walletReturnTo: '/utilities/airtime?repeatAmount=1000',
+      ...setters,
+    });
+
+    expect(setters.setShowFundPanel).toHaveBeenCalledWith(false);
+    expect(setters.setShowRedeemPanel).toHaveBeenCalledWith(false);
+    expect(setters.setShowSavingsProgressModal).toHaveBeenCalledWith(false);
+    expect(setters.setFundAmount).toHaveBeenCalledWith('');
+    // The incoming returnTo must survive so the post-credit CTA can deep-link
+    // back to the purchase (parity with the fund/savings branches).
+    expect(setters.setFundReturnTo).toHaveBeenCalledWith(
+      '/utilities/airtime?repeatAmount=1000'
+    );
+  });
+
+  it('clears the returnTo for bank-transfer actions when none is supplied', () => {
     applyWalletRouteAction({
       routeAction: 'bank-transfer',
       routeRequiredAmount: '',
@@ -71,12 +90,7 @@ describe('applyWalletRouteAction', () => {
       ...setters,
     });
 
-    expect(setters.setShowFundPanel).toHaveBeenCalledWith(false);
-    expect(setters.setShowRedeemPanel).toHaveBeenCalledWith(false);
-    expect(setters.setShowSavingsProgressModal).toHaveBeenCalledWith(false);
-    // A prior action=fund URL's requiredAmount/returnTo must not leak into a
-    // later manually-opened Add Money panel.
-    expect(setters.setFundAmount).toHaveBeenCalledWith('');
+    // No stale returnTo may leak into a later manually-opened Add Money panel.
     expect(setters.setFundReturnTo).toHaveBeenCalledWith(undefined);
   });
 

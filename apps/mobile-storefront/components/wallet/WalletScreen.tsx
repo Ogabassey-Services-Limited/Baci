@@ -244,6 +244,7 @@ export function WalletScreen({
         createFundingAccountUnavailableMessage,
         earningsBalance,
         fundAmount,
+        fundReturnTo,
         fundingAccount,
         isAddingSavingsContribution,
         isCreatingFundingAccount: createFundingAccountMutation.isPending,
@@ -287,6 +288,7 @@ export function WalletScreen({
         showQuickSave,
         showFundPanel,
         showRedeemPanel,
+        spendableBalance: walletData.balance,
         totalBalance,
         transactions,
       }}

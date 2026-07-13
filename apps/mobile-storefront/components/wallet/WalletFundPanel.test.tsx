@@ -31,6 +31,12 @@ function renderPanel(
   const props = {
     canCreateFundingAccount: true,
     colors: Colors.light,
+    creditWatch: {
+      armCheck: jest.fn(),
+      creditedAmount: null,
+      returnCtaHref: undefined,
+      status: 'idle' as const,
+    },
     fundAmount: '',
     fundingAccount,
     isCreatingFundingAccount: false,
@@ -101,6 +107,12 @@ describe('WalletFundPanel', () => {
     const baseProps = {
       canCreateFundingAccount: true,
       colors: Colors.light,
+      creditWatch: {
+        armCheck: jest.fn(),
+        creditedAmount: null,
+        returnCtaHref: undefined,
+        status: 'idle' as const,
+      },
       fundAmount: '',
       fundingAccount,
       isCreatingFundingAccount: false,
@@ -145,6 +157,12 @@ describe('WalletFundPanel', () => {
     const baseProps = {
       canCreateFundingAccount: true,
       colors: Colors.light,
+      creditWatch: {
+        armCheck: jest.fn(),
+        creditedAmount: null,
+        returnCtaHref: undefined,
+        status: 'idle' as const,
+      },
       fundAmount: '1000',
       fundingAccount: null,
       isCreatingFundingAccount: false,

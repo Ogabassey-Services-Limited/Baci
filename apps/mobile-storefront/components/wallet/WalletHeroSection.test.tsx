@@ -46,6 +46,12 @@ const mockSetClipboardString = jest.mocked(setClipboardString);
 const baseProps = {
   accentColor: '#2563EB',
   canCreateFundingAccount: true,
+  creditWatch: {
+    armCheck: jest.fn(),
+    creditedAmount: null,
+    returnCtaHref: undefined,
+    status: 'idle' as const,
+  },
   earningsBalance: 125000,
   fundingAccount: {
     accountName: 'Ogabassey/Jane Doe',

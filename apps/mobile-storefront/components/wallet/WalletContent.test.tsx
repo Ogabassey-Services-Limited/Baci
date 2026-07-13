@@ -54,6 +54,17 @@ jest.mock('expo-image', () => ({
   Image: () => null,
 }));
 
+// Default off (production state); individual tests flip it on to exercise the
+// credit-check affordance.
+let mockCheckingStateEnabled = false;
+
+jest.mock('@/constants/wallet-funding', () => ({
+  get WALLET_FUNDING_CHECKING_STATE_ENABLED() {
+    return mockCheckingStateEnabled;
+  },
+  WALLET_FUNDING_POLLING: { INTERVAL_MS: 5000, TIMEOUT_MS: 120000 },
+}));
+
 const mockSetClipboardString = jest.mocked(setClipboardString);
 
 describe('WalletContent', () => {
@@ -116,6 +127,7 @@ describe('WalletContent', () => {
     showQuickSave: true,
     showRedeemPanel: false,
     showSavingsProgress: false,
+    spendableBalance: 125000,
     totalBalance: 160000,
     transactions: [
       {
@@ -130,7 +142,34 @@ describe('WalletContent', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockCheckingStateEnabled = false;
     mockSetClipboardString.mockResolvedValue(true);
+  });
+
+  it('mounts a single credit-check affordance while the fund panel is open', () => {
+    mockCheckingStateEnabled = true;
+
+    render(<WalletContent {...props} showFundPanel={true} />);
+
+    // The fund panel owns the interactive affordance; the hero must not mount
+    // a duplicate alongside it.
+    expect(
+      screen.getAllByRole('button', {
+        name: "I've transferred — check for it",
+      })
+    ).toHaveLength(1);
+  });
+
+  it('shows the hero credit-check affordance when the fund panel is closed', () => {
+    mockCheckingStateEnabled = true;
+
+    render(<WalletContent {...props} showFundPanel={false} />);
+
+    expect(
+      screen.getAllByRole('button', {
+        name: "I've transferred — check for it",
+      })
+    ).toHaveLength(1);
   });
 
   it('renders earnings, savings, loyalty points, and primary actions', () => {
