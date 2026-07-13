@@ -9,6 +9,7 @@ import {
   type CachedDataTestHarness,
   resetMockCreateClient,
 } from '@/lib/cached-data.test-utils';
+import { StorefrontReadUnavailableError } from '@/lib/storefront-read-result';
 
 vi.mock('@/env', () => ({
   getSupabaseUrl: vi.fn(() => 'https://test.supabase.co'),
@@ -571,7 +572,16 @@ describe('getCachedCategoryPageData category routing and fallback logic', () => 
     expect(result.productIdsQueryFailed).toBeUndefined();
   });
 
-  it('serves the whole cached ID list to unbounded consumers when the count query fails (PR4b review r4)', async () => {
+  // NOTE: the round-4 test "serves the whole cached ID list to unbounded
+  // consumers when the count query fails" was RETIRED in round 5. It asserted
+  // that NO ranged query runs when the count is unverified — but serving the
+  // cached prefix as though it were the whole catalogue is precisely the
+  // partial-payload lie Codex flagged (PRRT_kwDOQZgfis6Qj8vl). Unbounded reads
+  // now probe past the list to PROVE completeness, so its scenario is
+  // superseded by "serves the cached list to unbounded consumers when it is
+  // provably complete despite an unverified count" below.
+
+  it('probes the requested deep-page range when the count is unverified, instead of 404ing it (PR4b review r5)', async () => {
     harness.mockSingle.mockResolvedValueOnce({
       data: {
         id: 'cat-active-123',
@@ -588,25 +598,275 @@ describe('getCachedCategoryPageData category routing and fallback logic', () => 
       },
       error: null,
     });
-    const productIds = Array.from({ length: 30 }, (_, index) => ({
+    // Cached list is clamped to 50; the real category is much larger.
+    const cachedIds = Array.from({ length: 50 }, (_, index) => ({
       id: `product-${index + 1}`,
+    }));
+    const probedWindow = Array.from({ length: 20 }, (_, index) => ({
+      id: `product-${index + 61}`,
     }));
     harness.mockListResults.push(
       { data: [{ id: 'cat-active-123' }], error: null }, // scope resolution
-      { data: productIds, error: null }, // ID query SUCCEEDS
+      { data: cachedIds, error: null }, // ID query SUCCEEDS (clamped to 50)
       {
         data: null,
         error: { code: '57014', message: 'statement timeout' },
         count: null,
-      }, // supplementary exact head-count query FAILS
+      }, // count query FAILS → totals unverified
+      { data: probedWindow, error: null }, // .range(60,79) probe → rows EXIST
       {
-        data: productIds.map(({ id }) => ({
-          id,
-          name: `Product ${id}`,
-          slug: id,
-        })),
+        data: probedWindow.map(({ id }) => ({ id, name: `Product ${id}` })),
         error: null,
-      } // single detail chunk (30 < CATEGORY_PAGE_PRODUCT_DETAIL_CHUNK_SIZE)
+      } // detail chunk
+    );
+
+    const getBoundedCategoryPageData = getCachedCategoryPageData as unknown as (
+      merchantId: string,
+      categorySlug: string,
+      storeSlug: string,
+      productOffset: number,
+      productLimit: number
+    ) => ReturnType<typeof getCachedCategoryPageData>;
+    const result = await getBoundedCategoryPageData(
+      'merchant-123',
+      'active-category',
+      'test-store',
+      60,
+      20
+    );
+
+    // The page is VALID: the probe proved rows exist at this offset. An
+    // unverified total must never turn a real deep page into a hard 404.
+    expect(harness.mockRange).toHaveBeenCalledWith(60, 79);
+    expect(result.products).toHaveLength(20);
+    // The pagination floor must cover the served window (offset + rows), or the
+    // route computes currentPage > totalPages and 404s the page we just served.
+    expect(result.productCount).toBeGreaterThanOrEqual(80);
+    expect(result.productIdsQueryFailed).toBeUndefined();
+  });
+
+  it('never emits a confident 404 when the count is unverified and the probe finds no rows (PR4b review r5)', async () => {
+    harness.mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'cat-active-123',
+        name: 'Active Category',
+        slug: 'active-category',
+        description: 'Standard active category',
+        image_url: null,
+        is_active: true,
+        seo_heading: null,
+        seo_description: null,
+        seo_features: null,
+        seo_faq: null,
+        parent: null,
+      },
+      error: null,
+    });
+    const cachedIds = Array.from({ length: 50 }, (_, index) => ({
+      id: `product-${index + 1}`,
+    }));
+    harness.mockListResults.push(
+      { data: [{ id: 'cat-active-123' }], error: null },
+      { data: cachedIds, error: null },
+      {
+        data: null,
+        error: { code: '57014', message: 'statement timeout' },
+        count: null,
+      }, // count FAILS → totals unverified
+      { data: [], error: null } // probe finds no rows — but we CANNOT prove out-of-range
+    );
+
+    const getBoundedCategoryPageData = getCachedCategoryPageData as unknown as (
+      merchantId: string,
+      categorySlug: string,
+      storeSlug: string,
+      productOffset: number,
+      productLimit: number
+    ) => ReturnType<typeof getCachedCategoryPageData>;
+    const result = await getBoundedCategoryPageData(
+      'merchant-123',
+      'active-category',
+      'test-store',
+      60,
+      20
+    );
+
+    // Zero rows + an UNVERIFIED total is not proof the page is out of range.
+    // Signal uncertainty via the existing fail-open flag so the route renders a
+    // 200 (noindex) instead of a hard 404 on an unverified total.
+    expect(result.productIdsQueryFailed).toBe(true);
+    expect(result.products).toEqual([]);
+  });
+
+  it('still reports a genuinely out-of-range page when the count is exact (PR4b review r5)', async () => {
+    harness.mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'cat-active-123',
+        name: 'Active Category',
+        slug: 'active-category',
+        description: 'Standard active category',
+        image_url: null,
+        is_active: true,
+        seo_heading: null,
+        seo_description: null,
+        seo_features: null,
+        seo_faq: null,
+        parent: null,
+      },
+      error: null,
+    });
+    const cachedIds = Array.from({ length: 50 }, (_, index) => ({
+      id: `product-${index + 1}`,
+    }));
+    harness.mockListResults.push(
+      { data: [{ id: 'cat-active-123' }], error: null },
+      { data: cachedIds, error: null },
+      { data: null, error: null, count: 50 } // EXACT count — list is complete
+    );
+
+    const getBoundedCategoryPageData = getCachedCategoryPageData as unknown as (
+      merchantId: string,
+      categorySlug: string,
+      storeSlug: string,
+      productOffset: number,
+      productLimit: number
+    ) => ReturnType<typeof getCachedCategoryPageData>;
+    const result = await getBoundedCategoryPageData(
+      'merchant-123',
+      'active-category',
+      'test-store',
+      60,
+      20
+    );
+
+    // The total is PROVEN (50) and the offset is past it — a real 404. No probe
+    // needed, and the fail-open flag must stay off so the route can 404.
+    expect(harness.mockRange).not.toHaveBeenCalled();
+    expect(result.products).toEqual([]);
+    expect(result.productCount).toBe(50);
+    expect(result.productIdsQueryFailed).toBeUndefined();
+  });
+
+  // Unbounded consumers (price-band page, LLM category markdown) publish the
+  // payload as the COMPLETE catalogue and do not check productsQueryFailed, so
+  // they must receive the whole catalogue or an explicit failure — never a
+  // truncated prefix passed off as the full inventory (PR4b review r5).
+  const buildActiveCategoryRow = () => ({
+    data: {
+      id: 'cat-active-123',
+      name: 'Active Category',
+      slug: 'active-category',
+      description: 'Standard active category',
+      image_url: null,
+      is_active: true,
+      seo_heading: null,
+      seo_description: null,
+      seo_features: null,
+      seo_faq: null,
+      parent: null,
+    },
+    error: null,
+  });
+
+  it('throws rather than serving a truncated catalogue when the unbounded tail assembly fails (PR4b review r5)', async () => {
+    harness.mockSingle.mockResolvedValueOnce(buildActiveCategoryRow());
+    const cachedIds = Array.from({ length: 50 }, (_, index) => ({
+      id: `product-${index + 1}`,
+    }));
+    harness.mockListResults.push(
+      { data: [{ id: 'cat-active-123' }], error: null },
+      { data: cachedIds, error: null }, // clamped prefix
+      { data: null, error: null, count: 2500 }, // EXACT count — 2450 more exist
+      {
+        data: null,
+        error: { code: '57014', message: 'statement timeout' },
+      } // tail assembly window FAILS
+    );
+
+    // Must NOT resolve with the 50-item prefix — that would publish an
+    // incomplete price-band / markdown inventory as if it were the catalogue.
+    await expect(
+      getCachedCategoryPageData('merchant-123', 'active-category', 'test-store')
+    ).rejects.toBeInstanceOf(StorefrontReadUnavailableError);
+  });
+
+  it('throws when the unbounded tail probe fails and the count is unverified (PR4b review r5)', async () => {
+    harness.mockSingle.mockResolvedValueOnce(buildActiveCategoryRow());
+    const cachedIds = Array.from({ length: 30 }, (_, index) => ({
+      id: `product-${index + 1}`,
+    }));
+    harness.mockListResults.push(
+      { data: [{ id: 'cat-active-123' }], error: null },
+      { data: cachedIds, error: null },
+      {
+        data: null,
+        error: { code: '57014', message: 'statement timeout' },
+        count: null,
+      }, // count FAILS
+      {
+        data: null,
+        error: { code: '57014', message: 'statement timeout' },
+      } // completeness probe ALSO fails → completeness unprovable
+    );
+
+    await expect(
+      getCachedCategoryPageData('merchant-123', 'active-category', 'test-store')
+    ).rejects.toBeInstanceOf(StorefrontReadUnavailableError);
+  });
+
+  it('recovers the COMPLETE catalogue by paging when the count is unverified (PR4b review r5)', async () => {
+    harness.mockSingle.mockResolvedValueOnce(buildActiveCategoryRow());
+    const cachedIds = Array.from({ length: 30 }, (_, index) => ({
+      id: `product-${index + 1}`,
+    }));
+    const tail = Array.from({ length: 10 }, (_, index) => ({
+      id: `product-${index + 31}`,
+    }));
+    const completeIds = [...cachedIds, ...tail];
+    harness.mockListResults.push(
+      { data: [{ id: 'cat-active-123' }], error: null },
+      { data: cachedIds, error: null },
+      {
+        data: null,
+        error: { code: '57014', message: 'statement timeout' },
+        count: null,
+      }, // count FAILS → no total to page toward
+      { data: tail, error: null }, // short window → proves exhaustion
+      {
+        data: completeIds.map(({ id }) => ({ id, name: `Product ${id}` })),
+        error: null,
+      } // single detail chunk (40 <= CATEGORY_PAGE_PRODUCT_DETAIL_CHUNK_SIZE)
+    );
+
+    const result = await getCachedCategoryPageData(
+      'merchant-123',
+      'active-category',
+      'test-store'
+    );
+
+    // Paging to exhaustion recovers the full catalogue even with no count.
+    expect(result.products).toHaveLength(40);
+    expect(result.productsQueryFailed).toBe(false);
+  });
+
+  it('serves the cached list to unbounded consumers when it is provably complete despite an unverified count (PR4b review r5)', async () => {
+    harness.mockSingle.mockResolvedValueOnce(buildActiveCategoryRow());
+    const cachedIds = Array.from({ length: 30 }, (_, index) => ({
+      id: `product-${index + 1}`,
+    }));
+    harness.mockListResults.push(
+      { data: [{ id: 'cat-active-123' }], error: null },
+      { data: cachedIds, error: null },
+      {
+        data: null,
+        error: { code: '57014', message: 'statement timeout' },
+        count: null,
+      }, // count FAILS
+      { data: [], error: null }, // probe past the list finds nothing → PROVABLY complete
+      {
+        data: cachedIds.map(({ id }) => ({ id, name: `Product ${id}` })),
+        error: null,
+      }
     );
 
     const result = await getCachedCategoryPageData(
@@ -616,14 +876,7 @@ describe('getCachedCategoryPageData category routing and fallback logic', () => 
     );
 
     expect(result.products).toHaveLength(30);
-    expect(result).toMatchObject({
-      productCount: 30,
-      productsQueryFailed: false,
-    });
-    expect(result.productIdsQueryFailed).toBeUndefined();
-    // Totals are unknown, so the tail-assembly ranged query must NOT run —
-    // there is no trustworthy count to page toward.
-    expect(harness.mockRange).not.toHaveBeenCalled();
+    expect(result.productsQueryFailed).toBe(false);
   });
 
   it('preserves ID slots when an early detail chunk fails and a later chunk succeeds', async () => {

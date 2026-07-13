@@ -26,6 +26,27 @@ export function notFoundMarkdownResponse(message: string): Response {
   });
 }
 
+/**
+ * Transient-unavailability response for markdown endpoints (PR4b review r5).
+ *
+ * A read that cannot produce the COMPLETE payload must never be reported as a
+ * 404: telling a crawler or LLM ingester that a valid category does not exist
+ * deindexes it on a transient database blip. 503 is the retryable signal, and
+ * it is explicitly `no-store` so neither the CDN nor a client caches the
+ * failure.
+ */
+export function unavailableMarkdownResponse(message: string): Response {
+  return new Response(message, {
+    status: 503,
+    headers: {
+      'Content-Type': 'text/markdown; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'Retry-After': '60',
+      'X-Robots-Tag': 'noindex, noarchive',
+    },
+  });
+}
+
 export {
   buildBlogIndexMarkdown,
   buildBlogPostMarkdown,

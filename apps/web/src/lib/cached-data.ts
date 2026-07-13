@@ -2284,12 +2284,25 @@ async function fetchCategoryPageProductIdWindow({
 const CATEGORY_PAGE_PRODUCT_ID_ASSEMBLY_PAGE_SIZE = 1000;
 
 /**
+ * Hard bound on assembly windows. At the 1,000-row page size this covers 64k
+ * products — far above any real catalogue (ogabassey is ~1,333). If we somehow
+ * exceed it we CANNOT prove the list is complete, so assembly throws rather
+ * than hand an unbounded consumer a partial catalogue.
+ */
+const CATEGORY_PAGE_PRODUCT_ID_ASSEMBLY_MAX_WINDOWS = 64;
+
+/**
  * Assembles the COMPLETE ordered product-ID list for unbounded (no-limit)
- * consumers — price-band pages and LLM category markdown expect the full
- * category payload (PR4b review round 2). The cached item stays capped; only
- * the remainder past the cached list is paged in per-request with the same
- * deterministic ordering. The loop is bounded: `from` strictly advances every
- * iteration and an empty window terminates it (count drift safety).
+ * consumers — price-band pages and LLM category markdown publish the payload as
+ * the whole catalogue, so a truncated prefix is a LIE to crawlers and caches.
+ * This function therefore returns the complete list or THROWS; it never returns
+ * a partial one (PR4b review round 5).
+ *
+ * `totalProductCount` is null when the supplementary count query failed. With a
+ * known total we page until we reach it; with an unknown total we page until
+ * the list is EXHAUSTED (an empty or short window), which proves completeness
+ * without needing a count at all. Either way `from` strictly advances, so the
+ * loop terminates.
  */
 async function fetchAllCategoryPageProductIds({
   merchantId,
@@ -2300,13 +2313,23 @@ async function fetchAllCategoryPageProductIds({
   merchantId: string;
   scope: CachedCategoryPageProductScope;
   seedIds: string[];
-  totalProductCount: number;
+  /** null when the exact count is unavailable — page to exhaustion instead. */
+  totalProductCount: number | null;
 }): Promise<string[]> {
   const ids = [...seedIds];
   const seen = new Set(ids);
   let from = ids.length;
 
-  while (ids.length < totalProductCount) {
+  for (
+    let windowIndex = 0;
+    windowIndex < CATEGORY_PAGE_PRODUCT_ID_ASSEMBLY_MAX_WINDOWS;
+    windowIndex += 1
+  ) {
+    if (totalProductCount !== null && ids.length >= totalProductCount) {
+      // Known total reached — the list is complete.
+      return ids;
+    }
+
     const window = await fetchCategoryPageProductIdWindow({
       merchantId,
       scope,
@@ -2315,9 +2338,10 @@ async function fetchAllCategoryPageProductIds({
     });
 
     if (window.length === 0) {
-      // The cached count over-reported the live rows (drift between the
-      // cached fill and now) — stop rather than loop.
-      break;
+      // Exhausted. With a known total this is count drift (the cached count
+      // over-reported the live rows); with an unknown total it PROVES the list
+      // we already hold is the complete catalogue.
+      return ids;
     }
 
     from += window.length;
@@ -2327,9 +2351,16 @@ async function fetchAllCategoryPageProductIds({
         ids.push(id);
       }
     }
+
+    if (window.length < CATEGORY_PAGE_PRODUCT_ID_ASSEMBLY_PAGE_SIZE) {
+      // A short window is the end of the list — complete.
+      return ids;
+    }
   }
 
-  return ids;
+  throw new Error(
+    `Category product ID assembly exceeded ${CATEGORY_PAGE_PRODUCT_ID_ASSEMBLY_MAX_WINDOWS} windows`
+  );
 }
 
 /**
@@ -2545,53 +2576,56 @@ async function getCachedCategoryPageProductsUncached({
   const hasBoundedWindow = typeof productLimit === 'number' && productLimit > 0;
   let productWindow: string[];
   let windowQueryFailed = false;
+  // True when we could not PROVE the requested window is genuinely out of
+  // range. Distinct from a query failure: nothing errored, but the total is
+  // unverified, so an empty window is not evidence of an out-of-range page.
+  let windowUnverified = false;
 
   if (!hasBoundedWindow) {
-    if (
-      // An INEXACT count (the supplementary count query failed) gives no
-      // trustworthy total to page toward, so serve the cached list as-is
-      // rather than chasing a fabricated remainder (PR4b review round 4).
-      idResult.totalProductCountExact &&
-      idResult.totalProductCount > idResult.productIds.length
-    ) {
-      // Unbounded consumers (price-band page, LLM category markdown) expect
-      // the FULL category payload; the cached list is capped/clamped, so the
-      // remainder is assembled per-request with the same ordering (PR4b r2).
-      try {
-        productWindow = await fetchAllCategoryPageProductIds({
-          merchantId,
-          scope,
-          seedIds: idResult.productIds,
-          totalProductCount: idResult.totalProductCount,
-        });
-      } catch (error) {
-        console.error('Full product ID assembly failed outside cache:', error);
-        // Degrade to the capped cached list and flag the failure so
-        // consumers fail open instead of misreading a partial catalog.
-        productWindow = idResult.productIds;
-        windowQueryFailed = true;
-      }
-    } else {
-      productWindow = idResult.productIds;
+    // UNBOUNDED read (price-band page, LLM category markdown). These consumers
+    // publish the payload as the COMPLETE catalogue and do not check
+    // productsQueryFailed, so a truncated prefix would ship an incomplete
+    // inventory to crawlers and caches. This path is therefore ALL-OR-NOTHING:
+    // the complete catalogue, or an explicit typed failure (PR4b review r5).
+    try {
+      productWindow = await fetchAllCategoryPageProductIds({
+        merchantId,
+        scope,
+        seedIds: idResult.productIds,
+        // null → no trustworthy total; assembly pages to exhaustion instead,
+        // which proves completeness without a count.
+        totalProductCount: idResult.totalProductCountExact
+          ? idResult.totalProductCount
+          : null,
+      });
+    } catch (error) {
+      console.error('Full product ID assembly failed outside cache:', error);
+      // Never degrade to the capped prefix here — that is the "lie to crawlers"
+      // the plan forbids. Fail loudly so the caller fails closed.
+      throw new StorefrontReadUnavailableError({
+        kind: 'database',
+        operation: 'category_page_product_ids_complete',
+        retryable: true,
+      });
     }
   } else if (
     windowStart + productLimit <= idResult.productIds.length ||
-    // No trustworthy total (count query failed) — do not range past the cached
-    // list toward a total we do not have (PR4b review round 4).
-    !idResult.totalProductCountExact ||
-    idResult.totalProductCount <= idResult.productIds.length
+    (idResult.totalProductCountExact &&
+      idResult.totalProductCount <= idResult.productIds.length)
   ) {
     // Common case: the cached (possibly capped) ID list fully covers the
-    // requested window, or the list is complete so an out-of-range slice is a
-    // genuinely out-of-range page.
+    // requested window, or the total is PROVEN and the list is complete — so an
+    // out-of-range slice is a genuinely out-of-range page and the route may 404.
     productWindow = idResult.productIds.slice(
       windowStart,
       windowStart + productLimit
     );
   } else {
-    // Tail path (PR4b review fix): the window extends past the capped cached
-    // list while more products exist. Fetch exactly that window per-request so
-    // valid deep pages resolve instead of 404ing off the truncated list.
+    // The window extends past the cached list and we cannot show it is out of
+    // range — either more products provably exist, or the total is unverified.
+    // PROBE the requested range directly. Probing regardless of count certainty
+    // is what stops a transient count failure from 404ing a valid deep page
+    // (PR4b review r5).
     try {
       productWindow = await fetchCategoryPageProductIdWindow({
         merchantId,
@@ -2599,12 +2633,21 @@ async function getCachedCategoryPageProductsUncached({
         from: windowStart,
         to: windowStart + productLimit - 1,
       });
+
+      if (productWindow.length === 0 && !idResult.totalProductCountExact) {
+        // Zero rows + an UNVERIFIED total is not proof of an out-of-range page.
+        // Signal uncertainty so the route fails open (200, empty, noindex)
+        // instead of emitting a confident 404 on a total we never verified.
+        windowUnverified = true;
+      }
     } catch (error) {
       console.error('Product ID window query failed outside cache:', error);
       productWindow = [];
       windowQueryFailed = true;
     }
   }
+
+  const windowUnusable = windowQueryFailed || windowUnverified;
 
   const idChunks = Array.from(
     {
@@ -2634,11 +2677,22 @@ async function getCachedCategoryPageProductsUncached({
     0
   );
 
+  // Exact scope size (head-count-backed past the cap), not the truncated cached
+  // list length — keeps totalPages truthful (PR4b review fix). The floor also
+  // covers the window we actually served: when the count is unverified, the
+  // cached list length alone would put totalPages BELOW the page we just
+  // returned rows for, and the route would 404 it (PR4b review r5).
+  // The floor only covers rows we ACTUALLY served: an empty window must not
+  // inflate the total (that would invent pages), which is why this mirrors the
+  // `itemCount > 0` guard in getEstimatedPaginationCountFloor.
+  const paginationCountFloor =
+    productWindow.length > 0
+      ? Math.max(idResult.totalProductCount, windowStart + productWindow.length)
+      : idResult.totalProductCount;
+
   return {
-    productIdsQueryFailed: idResult.productsQueryFailed || windowQueryFailed,
-    // Exact scope size (head-count-backed past the cap), not the truncated
-    // cached list length — keeps totalPages truthful (PR4b review fix).
-    productCount: Math.max(0, idResult.totalProductCount - missingProductCount),
+    productIdsQueryFailed: idResult.productsQueryFailed || windowUnusable,
+    productCount: Math.max(0, paginationCountFloor - missingProductCount),
     productsArePrePaginated: Boolean(productLimit),
     products: productSlots.filter(
       (product): product is unknown => product !== null
@@ -2646,7 +2700,7 @@ async function getCachedCategoryPageProductsUncached({
     productSlots,
     productsQueryFailed:
       idResult.productsQueryFailed ||
-      windowQueryFailed ||
+      windowUnusable ||
       detailChunks.some((chunk) => chunk.productsQueryFailed),
   };
 }
