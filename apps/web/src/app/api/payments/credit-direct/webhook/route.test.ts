@@ -1798,6 +1798,362 @@ describe('POST /api/payments/credit-direct/webhook', () => {
         existingTxId: 'existing_tx_123',
       });
     });
+
+    it('returns 500 when the existing-transaction lookup fails with a real error', async () => {
+      vi.mocked(parseWebhookPayload).mockReturnValue(merchantPaymentPayload);
+
+      const supabaseMock = createMockSupabaseClient();
+      vi.mocked(createServiceClient).mockReturnValue(supabaseMock as never);
+
+      const mockChain = supabaseMock.from('orders');
+      let fromCallCount = 0;
+      supabaseMock.from.mockImplementation((_table: string) => {
+        fromCallCount++;
+        if (fromCallCount === 1) {
+          // order lookup
+          const orderLookupChain = { ...mockChain };
+          orderLookupChain.select = vi.fn().mockReturnValue(orderLookupChain);
+          orderLookupChain.eq = vi.fn().mockReturnValue(orderLookupChain);
+          orderLookupChain.ilike = vi.fn().mockResolvedValue({
+            data: [mockOrder],
+            error: null,
+          });
+          return orderLookupChain;
+        }
+        if (fromCallCount === 2) {
+          // order update (active row)
+          const updateChain = { ...mockChain };
+          updateChain.update = vi.fn().mockReturnValue(updateChain);
+          updateChain.eq = vi.fn().mockReturnValue(updateChain);
+          updateChain.in = vi.fn().mockReturnValue(updateChain);
+          updateChain.select = vi.fn().mockReturnValue(updateChain);
+          updateChain.maybeSingle = vi.fn().mockResolvedValue({
+            data: {
+              id: 'order_abc',
+              shipping_status: 'processing',
+              cancelled_at: null,
+            },
+            error: null,
+          });
+          return updateChain;
+        }
+        if (fromCallCount === 3) {
+          // existing-transaction lookup: a transient read failure, NOT the
+          // PostgREST no-rows error, must not fall through to the insert path
+          const txCheckChain = { ...mockChain };
+          txCheckChain.select = vi.fn().mockReturnValue(txCheckChain);
+          txCheckChain.eq = vi.fn().mockReturnValue(txCheckChain);
+          txCheckChain.single = vi.fn().mockResolvedValue({
+            data: null,
+            error: { code: '57014', message: 'statement timeout' },
+          });
+          return txCheckChain;
+        }
+        throw new Error(`Unexpected from() call ${fromCallCount}`);
+      });
+
+      const request = createMockRequest(merchantPaymentPayload);
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(data).toEqual({ error: 'Failed to record transaction' });
+      expect(logger.error).toHaveBeenCalledWith({
+        message: 'Failed to look up existing Credit Direct transaction',
+        error: { code: '57014', message: 'statement timeout' },
+        orderId: 'order_abc',
+        transactionId: 'txn_123456789',
+      });
+    });
+
+    it('returns 500 when the transaction insert fails with a non-unique-violation error', async () => {
+      vi.mocked(parseWebhookPayload).mockReturnValue(merchantPaymentPayload);
+
+      const supabaseMock = createMockSupabaseClient();
+      vi.mocked(createServiceClient).mockReturnValue(supabaseMock as never);
+
+      const mockChain = supabaseMock.from('orders');
+      let fromCallCount = 0;
+      supabaseMock.from.mockImplementation((_table: string) => {
+        fromCallCount++;
+        if (fromCallCount === 1) {
+          const orderLookupChain = { ...mockChain };
+          orderLookupChain.select = vi.fn().mockReturnValue(orderLookupChain);
+          orderLookupChain.eq = vi.fn().mockReturnValue(orderLookupChain);
+          orderLookupChain.ilike = vi.fn().mockResolvedValue({
+            data: [mockOrder],
+            error: null,
+          });
+          return orderLookupChain;
+        }
+        if (fromCallCount === 2) {
+          const updateChain = { ...mockChain };
+          updateChain.update = vi.fn().mockReturnValue(updateChain);
+          updateChain.eq = vi.fn().mockReturnValue(updateChain);
+          updateChain.in = vi.fn().mockReturnValue(updateChain);
+          updateChain.select = vi.fn().mockReturnValue(updateChain);
+          updateChain.maybeSingle = vi.fn().mockResolvedValue({
+            data: {
+              id: 'order_abc',
+              shipping_status: 'processing',
+              cancelled_at: null,
+            },
+            error: null,
+          });
+          return updateChain;
+        }
+        if (fromCallCount === 3) {
+          const txCheckChain = { ...mockChain };
+          txCheckChain.select = vi.fn().mockReturnValue(txCheckChain);
+          txCheckChain.eq = vi.fn().mockReturnValue(txCheckChain);
+          txCheckChain.single = vi
+            .fn()
+            .mockResolvedValue({ data: null, error: null });
+          return txCheckChain;
+        }
+        if (fromCallCount === 4) {
+          const txInsertChain = { ...mockChain };
+          txInsertChain.insert = vi.fn().mockReturnValue(txInsertChain);
+          txInsertChain.select = vi.fn().mockReturnValue(txInsertChain);
+          txInsertChain.single = vi.fn().mockResolvedValue({
+            data: null,
+            error: { code: 'ETIMEDOUT', message: 'connection lost' },
+          });
+          return txInsertChain;
+        }
+        throw new Error(`Unexpected from() call ${fromCallCount}`);
+      });
+
+      const request = createMockRequest(merchantPaymentPayload);
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(data).toEqual({ error: 'Failed to record transaction' });
+      expect(logger.error).toHaveBeenCalledWith({
+        message: 'Failed to create transaction record',
+        error: { code: 'ETIMEDOUT', message: 'connection lost' },
+        orderId: 'order_abc',
+        transactionId: 'txn_123456789',
+      });
+    });
+
+    it('treats a unique-violation on transaction insert as success (concurrent delivery already recorded it)', async () => {
+      vi.mocked(parseWebhookPayload).mockReturnValue(merchantPaymentPayload);
+
+      const supabaseMock = createMockSupabaseClient();
+      vi.mocked(createServiceClient).mockReturnValue(supabaseMock as never);
+
+      const mockChain = supabaseMock.from('orders');
+      let fromCallCount = 0;
+      supabaseMock.from.mockImplementation((_table: string) => {
+        fromCallCount++;
+        if (fromCallCount === 1) {
+          const orderLookupChain = { ...mockChain };
+          orderLookupChain.select = vi.fn().mockReturnValue(orderLookupChain);
+          orderLookupChain.eq = vi.fn().mockReturnValue(orderLookupChain);
+          orderLookupChain.ilike = vi.fn().mockResolvedValue({
+            data: [mockOrder],
+            error: null,
+          });
+          return orderLookupChain;
+        }
+        if (fromCallCount === 2) {
+          const updateChain = { ...mockChain };
+          updateChain.update = vi.fn().mockReturnValue(updateChain);
+          updateChain.eq = vi.fn().mockReturnValue(updateChain);
+          updateChain.in = vi.fn().mockReturnValue(updateChain);
+          updateChain.select = vi.fn().mockReturnValue(updateChain);
+          updateChain.maybeSingle = vi.fn().mockResolvedValue({
+            data: {
+              id: 'order_abc',
+              shipping_status: 'processing',
+              cancelled_at: null,
+            },
+            error: null,
+          });
+          return updateChain;
+        }
+        if (fromCallCount === 3) {
+          const txCheckChain = { ...mockChain };
+          txCheckChain.select = vi.fn().mockReturnValue(txCheckChain);
+          txCheckChain.eq = vi.fn().mockReturnValue(txCheckChain);
+          txCheckChain.single = vi
+            .fn()
+            .mockResolvedValue({ data: null, error: null });
+          return txCheckChain;
+        }
+        if (fromCallCount === 4) {
+          const txInsertChain = { ...mockChain };
+          txInsertChain.insert = vi.fn().mockReturnValue(txInsertChain);
+          txInsertChain.select = vi.fn().mockReturnValue(txInsertChain);
+          txInsertChain.single = vi.fn().mockResolvedValue({
+            data: null,
+            error: { code: '23505', message: 'duplicate key value' },
+          });
+          return txInsertChain;
+        }
+        return mockChain;
+      });
+
+      const request = createMockRequest(merchantPaymentPayload);
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toEqual({ received: true });
+      expect(logger.info).toHaveBeenCalledWith({
+        message:
+          'Credit Direct transaction insert raced a concurrent delivery (unique violation)',
+        orderId: 'order_abc',
+        transactionId: 'txn_123456789',
+      });
+      expect(logger.info).toHaveBeenCalledWith({
+        message: 'Credit Direct merchant payment completed',
+        orderId: 'order_abc',
+        transactionId: 'txn_123456789',
+        amount: 50000,
+        platformFee: 1000,
+        merchantAmount: 49000,
+      });
+    });
+
+    it('heals the missing transaction row when replaying an already-paid order with recorded fee notes', async () => {
+      const paidOrderWithFeeNotes = {
+        ...mockOrder,
+        payment_status: 'paid',
+        notes: JSON.stringify({
+          creditDirectSessionId: 'session_123456789',
+          creditDirectTransactionId: 'txn_123456789',
+          credit_directTransactionId: 'txn_123456789',
+          creditDirectSignedAmount: 50000,
+          merchantPaidAt: '2024-01-15T11:00:00Z',
+          platformFee: 1000,
+          merchantAmount: 49000,
+        }),
+      };
+
+      vi.mocked(parseWebhookPayload).mockReturnValue(merchantPaymentPayload);
+
+      const supabaseMock = createMockSupabaseClient();
+      vi.mocked(createServiceClient).mockReturnValue(supabaseMock as never);
+
+      const transactionInsert = vi.fn().mockReturnThis();
+      const mockChain = supabaseMock.from('orders');
+      let fromCallCount = 0;
+      supabaseMock.from.mockImplementation((_table: string) => {
+        fromCallCount++;
+        if (fromCallCount === 1) {
+          // order lookup — already paid from a prior delivery
+          const orderLookupChain = { ...mockChain };
+          orderLookupChain.select = vi.fn().mockReturnValue(orderLookupChain);
+          orderLookupChain.eq = vi.fn().mockReturnValue(orderLookupChain);
+          orderLookupChain.ilike = vi.fn().mockResolvedValue({
+            data: [paidOrderWithFeeNotes],
+            error: null,
+          });
+          return orderLookupChain;
+        }
+        if (fromCallCount === 2) {
+          // healing lookup — the prior delivery's insert never landed
+          const txCheckChain = { ...mockChain };
+          txCheckChain.select = vi.fn().mockReturnValue(txCheckChain);
+          txCheckChain.eq = vi.fn().mockReturnValue(txCheckChain);
+          txCheckChain.single = vi
+            .fn()
+            .mockResolvedValue({ data: null, error: null });
+          return txCheckChain;
+        }
+        if (fromCallCount === 3) {
+          // healing insert
+          const txInsertChain = { ...mockChain };
+          txInsertChain.insert = transactionInsert;
+          txInsertChain.select = vi.fn().mockReturnValue(txInsertChain);
+          txInsertChain.single = vi
+            .fn()
+            .mockResolvedValue({ data: { id: 'healed-tx-1' }, error: null });
+          return txInsertChain;
+        }
+        throw new Error(`Unexpected from() call ${fromCallCount}`);
+      });
+
+      const request = createMockRequest(merchantPaymentPayload);
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toEqual({ received: true, message: 'Already processed' });
+      expect(transactionInsert).toHaveBeenCalledWith({
+        merchant_id: 'merchant_123',
+        order_id: 'order_abc',
+        transaction_type: 'payment',
+        amount: 50000,
+        currency: 'NGN',
+        status: 'completed',
+        gateway: 'credit_direct',
+        gateway_reference: 'txn_123456789',
+        gateway_response: merchantPaymentPayload,
+        platform_fee: 1000,
+        merchant_amount: 49000,
+      });
+    });
+
+    it('does not stomp a refunded order back to paid', async () => {
+      const refundedOrder = { ...mockOrder, payment_status: 'refunded' };
+
+      vi.mocked(parseWebhookPayload).mockReturnValue(merchantPaymentPayload);
+
+      const supabaseMock = createMockSupabaseClient();
+      vi.mocked(createServiceClient).mockReturnValue(supabaseMock as never);
+
+      const mockChain = supabaseMock.from('orders');
+      let fromCallCount = 0;
+      supabaseMock.from.mockImplementation((_table: string) => {
+        fromCallCount++;
+        if (fromCallCount === 1) {
+          const orderLookupChain = { ...mockChain };
+          orderLookupChain.select = vi.fn().mockReturnValue(orderLookupChain);
+          orderLookupChain.eq = vi.fn().mockReturnValue(orderLookupChain);
+          orderLookupChain.ilike = vi.fn().mockResolvedValue({
+            data: [refundedOrder],
+            error: null,
+          });
+          return orderLookupChain;
+        }
+        if (fromCallCount === 2) {
+          // The .in(payment_status) guard excludes 'refunded', so the update
+          // matches 0 rows — simulated here via a null maybeSingle() result.
+          const updateChain = { ...mockChain };
+          updateChain.update = vi.fn().mockReturnValue(updateChain);
+          updateChain.eq = vi.fn().mockReturnValue(updateChain);
+          updateChain.in = vi.fn().mockReturnValue(updateChain);
+          updateChain.select = vi.fn().mockReturnValue(updateChain);
+          updateChain.maybeSingle = vi
+            .fn()
+            .mockResolvedValue({ data: null, error: null });
+          return updateChain;
+        }
+        throw new Error(`Unexpected from() call ${fromCallCount}`);
+      });
+
+      const request = createMockRequest(merchantPaymentPayload);
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toEqual({
+        received: true,
+        warning: 'Order status no longer eligible',
+      });
+      expect(logger.warn).toHaveBeenCalledWith({
+        message:
+          'Credit Direct merchant payment update skipped because order status is no longer eligible',
+        orderId: 'order_abc',
+        currentPaymentStatus: 'refunded',
+        transactionId: 'txn_123456789',
+      });
+      expect(supabaseMock.from).not.toHaveBeenCalledWith('transactions');
+    });
   });
 
   describe('Unknown Event Types', () => {

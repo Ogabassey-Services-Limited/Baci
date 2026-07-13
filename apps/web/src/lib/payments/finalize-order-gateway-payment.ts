@@ -127,7 +127,11 @@ export async function finalizeOrderGatewayPayment({
   const healed = Boolean(
     completion.already_completed && completion.order_updated
   );
-  const shouldNotify = wonTransactionFlip || Boolean(completion.order_updated);
+  // Push notifications have no claim-gating (unlike the outbox), so they are
+  // keyed strictly to the caller that actually transitioned the order — the
+  // RPC's advisory lock guarantees exactly one caller sees order_updated per
+  // transition, even when verify and the webhook race on the same payment.
+  const shouldNotify = Boolean(completion.order_updated);
 
   const { data: order, error: orderFetchError } = await supabase
     .from('orders')

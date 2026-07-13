@@ -89,11 +89,16 @@ describe('POST /api/payments/juicyway/webhook processing', () => {
         return {
           update: vi.fn(() => {
             orderUpdated = true;
-            return {
-              eq: vi.fn().mockReturnThis(),
-              select: vi.fn().mockReturnThis(),
+            const chain: Record<string, unknown> = {
+              maybeSingle: vi
+                .fn()
+                .mockResolvedValue({ data: order, error: null }),
               single: vi.fn().mockResolvedValue({ data: order, error: null }),
             };
+            chain.eq = vi.fn().mockReturnValue(chain);
+            chain.neq = vi.fn().mockReturnValue(chain);
+            chain.select = vi.fn().mockReturnValue(chain);
+            return chain;
           }),
         };
       }

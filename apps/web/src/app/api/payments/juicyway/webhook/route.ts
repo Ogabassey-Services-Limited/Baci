@@ -235,8 +235,13 @@ export async function POST(request: NextRequest) {
 
     const supabase = adminSupabase;
 
-    // Check if already processed (idempotency)
+    // Check if already processed (idempotency). A completed transaction does
+    // NOT guarantee the order flip landed — the ORD-260711-00NT-5 wedge
+    // class: the order update failed after the flip and every redelivery
+    // acked 200 forever. Re-read the order and fall through to heal it when
+    // it is still unpaid.
     if (transaction.status === 'completed') {
+      let healWedgedOrder = false;
       if (transaction.order_id) {
         const { data: completedOrder, error: completedOrderError } =
           await supabase
@@ -297,11 +302,31 @@ export async function POST(request: NextRequest) {
             scheduleAfter: (task) => after(task),
             supabase: createAdminClient(),
           });
+        } else {
+          const completedOrderStatus = completedOrder?.payment_status;
+          healWedgedOrder = Boolean(
+            completedOrder &&
+              completedOrderStatus !== 'paid' &&
+              completedOrderStatus !== 'cancelled' &&
+              completedOrderStatus !== 'refunded'
+          );
         }
       }
 
-      logger.info({ message: 'Transaction already processed', reference });
-      return NextResponse.json({ message: 'Already processed' });
+      if (!healWedgedOrder) {
+        logger.info({ message: 'Transaction already processed', reference });
+        return NextResponse.json({ message: 'Already processed' });
+      }
+
+      // Fall through: the transaction UPDATE below re-completes idempotently,
+      // the order UPDATE flips the wedged order to paid, and the paid-order
+      // side effects (email/push/conversion) run for the first time. The
+      // settlement upsert is idempotent on its unique key.
+      logger.warn({
+        message: 'Juicyway redelivery healing a wedged order payment',
+        orderId: transaction.order_id,
+        reference,
+      });
     }
 
     // Validate the settled amount against what we expected at session creation.
@@ -439,21 +464,39 @@ export async function POST(request: NextRequest) {
     }
 
     let durableEnqueueError: unknown = null;
+    let durableEnqueueError: unknown = null;
 
-    // Update order status if order_id exists
+    // Update order status if order_id exists. The .neq('payment_status',
+    // 'paid') CAS makes concurrent deliveries (or heal redeliveries racing
+    // each other) resolve to exactly one winner — only the winner runs the
+    // non-outbox side effects below (email/push/conversion have no claim
+    // gating on this route). shipping_status is advanced separately and only
+    // from 'pending' so a heal never regresses fulfilment progress.
+    let orderUpdateFailed = false;
     if (transaction.order_id) {
       const response = await supabase
         .from('orders')
         .update({
           payment_status: 'paid',
-          shipping_status: 'processing',
           updated_at: new Date().toISOString(),
         })
         .eq('id', transaction.order_id)
+        .neq('payment_status', 'paid')
         .select(
           'id, order_number, merchant_id, customer_id, total, subtotal, shipping_fee, customer_name, customer_email, customer_phone, shipping_address, currency, payment_status, shipping_status, cancelled_at, updated_at, ad_tracking, order_items(id, product_id, condition, name, price, quantity, variant_name)'
         )
-        .single();
+        .maybeSingle();
+
+      if (!response.error && !response.data) {
+        // 0 rows: a concurrent delivery won the flip. Everything downstream
+        // belongs to the winner; ack idempotently.
+        logger.info({
+          message: 'Juicyway order flip lost the race to a concurrent delivery',
+          orderId: transaction.order_id,
+          reference,
+        });
+        return NextResponse.json({ message: 'Already processed' });
+      }
 
       const orderError = response.error;
       const order = response.data as {
@@ -490,6 +533,7 @@ export async function POST(request: NextRequest) {
       } | null;
 
       if (orderError || !order) {
+        orderUpdateFailed = true;
         logger.error({
           message: 'Failed to update order',
           orderId: transaction.order_id,
@@ -512,6 +556,24 @@ export async function POST(request: NextRequest) {
           message: 'Payment recorded; order was cancelled, filed for review',
         });
       } else {
+        // Advance fulfilment only from its initial state; a heal redelivery
+        // must not drag a shipped/delivered order back to 'processing'.
+        const { error: shippingAdvanceError } = await supabase
+          .from('orders')
+          .update({
+            shipping_status: 'processing',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', transaction.order_id)
+          .eq('shipping_status', 'pending');
+        if (shippingAdvanceError) {
+          logger.warn({
+            error: shippingAdvanceError,
+            message: 'Juicyway paid order shipping advance failed',
+            orderId: transaction.order_id,
+          });
+        }
+
         try {
           await ensurePaidOrderInventoryConfirmed(
             supabase,
@@ -830,6 +892,21 @@ export async function POST(request: NextRequest) {
 
     if (durableEnqueueError) {
       throw durableEnqueueError;
+    }
+
+    if (orderUpdateFailed) {
+      // Settlement above is recorded (idempotent upsert) so the merchant is
+      // not left uncredited, but the order is NOT paid — fail closed so the
+      // sender redelivers and the redelivery heals via the wedge check at
+      // the top of this handler. The old swallow-to-200 here is what made
+      // this wedge class permanent.
+      return NextResponse.json(
+        {
+          code: 'ORDER_PAYMENT_COMPLETION_FAILED',
+          error: 'Order payment completion failed',
+        },
+        { status: 500 }
+      );
     }
 
     logger.info({

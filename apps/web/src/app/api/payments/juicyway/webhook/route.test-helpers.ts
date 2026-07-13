@@ -295,11 +295,19 @@ export function wireProcessingMocks(
       return {
         update: vi.fn(() => {
           state.orderUpdated = true;
-          return {
-            eq: vi.fn().mockReturnThis(),
-            select: vi.fn().mockReturnThis(),
+          // Serves both the paid flip (.eq().neq().select().maybeSingle())
+          // and the shipping advance (.eq().eq(), awaited directly — a plain
+          // object awaits to itself and the route only reads `error`).
+          const chain: Record<string, unknown> = {
+            maybeSingle: vi
+              .fn()
+              .mockResolvedValue({ data: order, error: null }),
             single: vi.fn().mockResolvedValue({ data: order, error: null }),
           };
+          chain.eq = vi.fn().mockReturnValue(chain);
+          chain.neq = vi.fn().mockReturnValue(chain);
+          chain.select = vi.fn().mockReturnValue(chain);
+          return chain;
         }),
       };
     }

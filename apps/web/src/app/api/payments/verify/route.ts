@@ -1,35 +1,14 @@
-import { formatOrderItemDisplayName } from '@baci/shared/lib';
 import { after, type NextRequest, NextResponse } from 'next/server';
 import { checkCsrfProtection } from '@/lib/csrf';
-import {
-  generateOrderConfirmationEmail,
-  generateOrderConfirmationText,
-} from '@/lib/email-templates';
-import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
 import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
-import {
-  ensurePaidOrderInventoryConfirmed,
-  rollbackOrderStatusAfterInventoryConfirmationFailure,
-} from '@/lib/payments/ensure-paid-order-inventory-confirmed';
-import { fileInventoryConfirmationFailureReview } from '@/lib/payments/file-inventory-confirmation-review';
-import {
-  handlePaymentForCancelledOrder,
-  isOrderClampedAsCancelled,
-} from '@/lib/payments/handle-payment-for-cancelled-order';
+import { ensurePaidOrderInventoryConfirmed } from '@/lib/payments/ensure-paid-order-inventory-confirmed';
+import { finalizeOrderGatewayPayment } from '@/lib/payments/finalize-order-gateway-payment';
 import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
 import type { GatewayVerificationResult } from '@/lib/payments/types';
-import { extractVerifiedGatewayFeeNgn } from '@/lib/payments/verified-gateway-fee';
 import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
 import { createServiceClient } from '@/lib/supabase/service';
-import { sendEmail } from '@/lib/zeptomail';
 import { referenceSchema, verifyPaymentBodySchema } from '@/schemas/payments';
-
-type ShippingAddress = {
-  address?: string;
-  city?: string;
-  state?: string;
-};
 
 function getVerifiedAmount(
   gateway: string,
@@ -237,74 +216,57 @@ async function verifyPaymentReference(reference: string) {
     }
   }
 
-  const { data: updatedTxn, error: updateTxnError } = await supabase
-    .from('transactions')
-    .update({
-      status: 'completed',
-      gateway_response: verification.gatewayResponse,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', transaction.id)
-    .neq('status', 'completed')
-    .select('id')
-    .maybeSingle();
-
-  if (updateTxnError) {
-    logger.error({
-      message: 'Payment verify route failed to update transaction',
+  if (!transaction.order_id) {
+    // Wallet top-ups and other non-order references have their own
+    // verification flows. Flipping the transaction here would make the
+    // gateway webhook short-circuit on the completed row without ever
+    // running that flow's crediting logic — refuse instead of finalizing.
+    logger.warn({
+      message: 'Payment verify called for a transaction without an order',
       reference: parsedReference.data,
-      error: updateTxnError,
     });
     return NextResponse.json(
-      { error: 'Failed to finalize transaction' },
-      { status: 500 }
+      { error: 'Transaction is not an order payment' },
+      { status: 409 }
     );
   }
 
-  // If updatedTxn is null, another request already claimed this transaction.
-  // Only proceed with order reconciliation if we won the race (or if the
-  // transaction was already completed but the order still needs reconciliation,
-  // which is the fall-through case from the short-circuit check above).
-  const shouldReconcileOrder =
-    updatedTxn !== null || transaction.status === 'completed';
+  // Shared finalizer with the gateway webhook and the reconcile cron: the
+  // transaction flip + order flip commit atomically inside the
+  // complete_order_gateway_payment RPC, and receipt email / settlement /
+  // ad tracking run through the claim-gated outbox — so whichever of verify
+  // and the webhook wins the race, every side effect runs exactly once.
+  // `transaction.gateway` is narrowed by verifyGatewayPayment above, which
+  // rejects everything except paystack/korapay.
+  const finalizeOutcome = await finalizeOrderGatewayPayment({
+    actor: `verify:${parsedReference.data}`,
+    gateway: transaction.gateway as 'paystack' | 'korapay',
+    gatewayResponse: verification.gatewayResponse,
+    orderId: transaction.order_id,
+    reference: parsedReference.data,
+    scheduleAfter: (task) => after(task),
+    supabase,
+    transaction: {
+      amount: transaction.amount,
+      gateway_reference: transaction.gateway_reference ?? null,
+      id: transaction.id,
+      merchant_id: transaction.merchant_id,
+      order_id: transaction.order_id,
+      platform_fee: transaction.platform_fee,
+    },
+    wonTransactionFlip: false,
+  });
 
-  if (!shouldReconcileOrder) {
-    // Another request won the race — return success without double-updating the order
-    return NextResponse.json({
-      success: true,
-      status: 'success',
-      orderNumber:
-        existingOrder?.order_number ||
-        transaction.gateway_reference.slice(0, 8).toUpperCase(),
-    });
-  }
-
-  const { data: order, error: orderError } = transaction.order_id
-    ? await supabase
-        .from('orders')
-        .update({
-          payment_status: 'paid',
-          // Only advance to 'processing' from 'pending' — avoid regressing orders
-          // that the merchant already moved to 'shipped' or 'delivered'.
-          ...((!existingOrder ||
-            existingOrder.shipping_status === 'pending') && {
-            shipping_status: 'processing',
-          }),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', transaction.order_id)
-        .select(
-          'id, order_number, customer_id, total, subtotal, shipping_fee, customer_name, customer_email, customer_phone, shipping_address, currency, shipping_status, cancelled_at, order_items(name, condition, quantity, price, variant_name)'
-        )
-        .single()
-    : { data: null, error: null };
-
-  if (orderError || !order) {
+  if (
+    finalizeOutcome.kind === 'completion_failed' ||
+    finalizeOutcome.kind === 'order_fetch_failed'
+  ) {
     logger.error({
-      message: 'Payment verify route failed to update order',
-      reference: parsedReference.data,
+      error: finalizeOutcome.error,
+      message: 'Payment verify route failed to finalize order payment',
       orderId: transaction.order_id,
-      error: orderError,
+      outcome: finalizeOutcome.kind,
+      reference: parsedReference.data,
     });
     return NextResponse.json(
       { error: 'Failed to finalize order' },
@@ -312,311 +274,34 @@ async function verifyPaymentReference(reference: string) {
     );
   }
 
-  // The prevent_cancelled_order_reopen trigger clamps a reopen of a cancelled
-  // order: the returned row still reads shipping_status 'cancelled'. Suppress
-  // all paid-order side effects (push, confirmation email, settlement) and file
-  // a reconciliation row for manual refund. Still return success to the caller.
-  if (isOrderClampedAsCancelled(order)) {
-    await handlePaymentForCancelledOrder({
-      gatewayReference: transaction.gateway_reference ?? parsedReference.data,
-      order,
-      reason: `Gateway ${transaction.gateway} payment verified for an order cancelled before finalization`,
-      transactionId: transaction.id,
-    });
-
-    return NextResponse.json({
-      success: true,
-      status: 'success',
-      orderNumber:
-        order.order_number ||
-        transaction.gateway_reference.slice(0, 8).toUpperCase(),
+  if (finalizeOutcome.kind === 'inventory_failed') {
+    return NextResponse.json(finalizeOutcome.payload, {
+      status: finalizeOutcome.status,
     });
   }
 
-  if (transaction.order_id) {
-    try {
-      await ensurePaidOrderInventoryConfirmed(
-        supabase,
-        transaction.merchant_id,
-        transaction.order_id
-      );
-    } catch (inventoryError) {
-      logger.error({
-        message: 'Payment verify route failed to confirm inventory',
-        reference: parsedReference.data,
-        orderId: transaction.order_id,
-        error: inventoryError,
-      });
-
-      try {
-        await rollbackOrderStatusAfterInventoryConfirmationFailure(
-          supabase,
-          transaction.merchant_id,
-          transaction.order_id,
-          {
-            payment_status: existingOrder?.payment_status ?? null,
-            shipping_status: existingOrder?.shipping_status ?? null,
-          }
-        );
-      } catch (rollbackError) {
-        await fileInventoryConfirmationFailureReview({
-          gatewayReference:
-            transaction.gateway_reference ?? parsedReference.data,
-          merchantId: transaction.merchant_id,
-          metadata: {
-            inventoryError:
-              inventoryError instanceof Error
-                ? inventoryError.message
-                : inventoryError,
-            rollbackError:
-              rollbackError instanceof Error
-                ? rollbackError.message
-                : rollbackError,
-            source: 'payment_verify_inventory_confirmation_rollback',
-          },
-          orderId: transaction.order_id,
-          reason:
-            'Payment verification reached paid state, but serialized inventory confirmation and status rollback both failed.',
-          transactionId: transaction.id,
-        });
-        return NextResponse.json(
-          {
-            code: 'INVENTORY_CONFIRMATION_CLEANUP_FAILED',
-            error: 'Inventory confirmation cleanup failed',
-          },
-          { status: 500 }
-        );
-      }
-
-      const payload = buildInventoryConfirmationFailurePayload(inventoryError);
-      return NextResponse.json(payload, {
-        status: payload.code === 'serialized_inventory_unavailable' ? 409 : 500,
-      });
-    }
+  if (finalizeOutcome.kind === 'inventory_cleanup_failed') {
+    return NextResponse.json(
+      {
+        code: 'INVENTORY_CONFIRMATION_CLEANUP_FAILED',
+        error: 'Inventory confirmation cleanup failed',
+      },
+      { status: 500 }
+    );
   }
 
-  if (updatedTxn) {
-    after(async () => {
-      try {
-        await notifyNewOrder(
-          transaction.merchant_id,
-          order.id,
-          order.order_number || order.id.slice(0, 8).toUpperCase(),
-          order.customer_name || 'Customer',
-          Number(order.total) || 0,
-          order.currency || 'NGN'
-        );
-      } catch (error) {
-        logger.warn({
-          message: 'Payment verify route failed to send new order push',
-          error,
-          orderId: order.id,
-        });
-      }
-
-      try {
-        await notifyPaymentReceived(
-          transaction.merchant_id,
-          Number(order.total) || 0,
-          order.currency || 'NGN',
-          order.order_number || order.id.slice(0, 8).toUpperCase(),
-          order.id
-        );
-      } catch (error) {
-        logger.warn({
-          message: 'Payment verify route failed to send payment push',
-          error,
-          orderId: order.id,
-        });
-      }
-
-      try {
-        const { data: merchant } = await supabase
-          .from('merchants')
-          .select(
-            'business_name, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number'
-          )
-          .eq('id', transaction.merchant_id)
-          .single();
-
-        if (merchant && order.customer_email) {
-          const rootDomain =
-            process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
-          const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
-          const shippingAddress = (order.shipping_address ||
-            {}) as ShippingAddress;
-
-          const emailItems = (order.order_items || []).map(
-            (item: {
-              condition?: string | null;
-              name?: string;
-              quantity?: number;
-              price?: number;
-              variant_name?: string | null;
-            }) => ({
-              name: formatOrderItemDisplayName({
-                baseName: item.name || 'Product',
-                condition: item.condition,
-                variantName: item.variant_name,
-              }),
-              quantity: item.quantity || 1,
-              price: item.price || 0,
-            })
-          );
-
-          const htmlContent = generateOrderConfirmationEmail({
-            orderNumber:
-              order.order_number || order.id.slice(0, 8).toUpperCase(),
-            customerName: order.customer_name,
-            items: emailItems,
-            subtotal: Number(order.subtotal || 0),
-            shippingFee: Number(order.shipping_fee || 0),
-            total: Number(order.total || 0),
-            currency: order.currency || 'NGN',
-            shippingAddress: {
-              address: shippingAddress.address || '',
-              city: shippingAddress.city || '',
-              state: shippingAddress.state || '',
-              phone: order.customer_phone || '',
-            },
-            merchantName: merchant.business_name,
-            merchantUrl,
-            merchantTin: merchant.tax_identification_number ?? undefined,
-            merchantRcNumber: merchant.cac_rc_number ?? undefined,
-          });
-
-          const textContent = generateOrderConfirmationText({
-            orderNumber:
-              order.order_number || order.id.slice(0, 8).toUpperCase(),
-            customerName: order.customer_name,
-            items: emailItems,
-            subtotal: Number(order.subtotal || 0),
-            shippingFee: Number(order.shipping_fee || 0),
-            total: Number(order.total || 0),
-            currency: order.currency || 'NGN',
-            shippingAddress: {
-              address: shippingAddress.address || '',
-              city: shippingAddress.city || '',
-              state: shippingAddress.state || '',
-              phone: order.customer_phone || '',
-            },
-            merchantName: merchant.business_name,
-            merchantUrl,
-            merchantTin: merchant.tax_identification_number ?? undefined,
-            merchantRcNumber: merchant.cac_rc_number ?? undefined,
-          });
-
-          const replyToEmail =
-            merchant.support_email ||
-            merchant.email ||
-            `support@${merchant.slug}.${rootDomain}`;
-          const senderName = merchant.email_sender_name
-            ? `${merchant.email_sender_name} Orders`
-            : merchant.business_name
-              ? `${merchant.business_name} Orders`
-              : undefined;
-
-          await sendEmail({
-            to: order.customer_email,
-            toName: order.customer_name,
-            subject: `Order Confirmation - #${order.order_number || order.id.slice(0, 8).toUpperCase()}`,
-            htmlContent,
-            textContent,
-            replyTo: replyToEmail,
-            emailType: 'orders',
-            fromName: senderName,
-            auditContext: {
-              merchantId: transaction.merchant_id,
-              orderId: order.id,
-              customerId: order.customer_id,
-              metadata: {
-                trigger: 'payment_verify_confirmation',
-                gateway: transaction.gateway,
-              },
-            },
-          });
-        }
-      } catch (error) {
-        logger.warn({
-          message:
-            'Payment verify route failed to send order confirmation email',
-          error,
-          orderId: order.id,
-        });
-      }
-
-      try {
-        // Δ-0b: use the verified gateway response for the fee, not 0.
-        const gatewayFee = extractVerifiedGatewayFeeNgn(
-          transaction.gateway as 'paystack' | 'korapay',
-          verification.gatewayResponse
-        );
-        const gatewaySideRef =
-          typeof verification.gatewayResponse?.reference === 'string'
-            ? verification.gatewayResponse.reference
-            : null;
-        // Review feedback (high): `transaction.gateway_reference` is
-        // nullable. If null, passing it to ON CONFLICT bypasses the
-        // partial unique index (`WHERE gateway_reference IS NOT NULL`),
-        // silently disabling the idempotency guard. Fall back to the
-        // verified URL parameter so the settlement key is always populated.
-        const settlementKey =
-          transaction.gateway_reference ?? parsedReference.data;
-        // Review feedback: dynamic metadata key per gateway, not hardcoded
-        // 'paystack_reference'. The verify endpoint serves all gateways.
-        const metadataKey = `${transaction.gateway}_reference`;
-        const { error: settlementError } = await supabase.rpc(
-          'record_merchant_settlement',
-          {
-            p_merchant_id: transaction.merchant_id,
-            p_source_type: 'order',
-            p_source_id: order.id,
-            p_gateway: transaction.gateway,
-            // Δ-22 invariant: settlement key is our BAC-*
-            // (transactions.gateway_reference). The gateway-side ref
-            // lives in p_metadata only.
-            p_gateway_reference: settlementKey,
-            p_gross_amount: Number(transaction.amount) || 0,
-            p_gateway_fee: gatewayFee,
-            p_platform_fee: Number(transaction.platform_fee) || 0,
-            p_description: `Order payment via ${transaction.gateway}`,
-            // Δ-29: traceability for the gateway-side ref + verified fee.
-            p_metadata: {
-              ...(gatewaySideRef ? { [metadataKey]: gatewaySideRef } : {}),
-              verified_gateway_fee: gatewayFee,
-            },
-          }
-        );
-        // Review feedback: surface RPC errors instead of silently
-        // swallowing. Settlement is supplementary (don't fail the verify
-        // response) but log with full context for ops triage.
-        if (settlementError) {
-          logger.warn({
-            message:
-              'Payment verify route: record_merchant_settlement returned error',
-            error: settlementError,
-            merchantId: transaction.merchant_id,
-            orderId: order.id,
-            paystackReference: gatewaySideRef,
-            gatewayFee,
-          });
-        }
-      } catch (error) {
-        logger.warn({
-          message: 'Payment verify route failed to record settlement',
-          error,
-          orderId: order.id,
-        });
-      }
-    });
-  }
+  // 'completed', 'order_cancelled' (reconciliation review filed inside the
+  // finalizer) and 'order_skipped' (refunded — review filed too) all report
+  // success to the caller: their payment was captured and recorded.
+  const finalOrderNumber =
+    ('orderNumber' in finalizeOutcome ? finalizeOutcome.orderNumber : null) ||
+    existingOrder?.order_number ||
+    transaction.gateway_reference.slice(0, 8).toUpperCase();
 
   return NextResponse.json({
     success: true,
     status: 'success',
-    orderNumber:
-      order.order_number ||
-      transaction.gateway_reference.slice(0, 8).toUpperCase(),
+    orderNumber: finalOrderNumber,
   });
 }
 

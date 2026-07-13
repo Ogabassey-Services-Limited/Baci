@@ -21,6 +21,7 @@ import {
 import { logger } from '@/lib/logger';
 import {
   ensurePaidOrderInventoryConfirmed,
+  type OrderStatusRollbackSnapshot,
   rollbackOrderStatusAfterInventoryConfirmationFailure,
 } from '@/lib/payments/ensure-paid-order-inventory-confirmed';
 import { fileInventoryConfirmationFailureReview } from '@/lib/payments/file-inventory-confirmation-review';
@@ -287,6 +288,25 @@ export async function POST(request: NextRequest) {
 
   let order: KlumpUpdatedOrder | null = null;
   if (transaction.order_id) {
+    // Snapshot the order's pre-update status so a later inventory-confirmation
+    // failure can roll it back to what it actually was (e.g. 'bnpl_pending'),
+    // not a hardcoded 'pending' that would stomp any other prior state.
+    const { data: preUpdateOrderStatus, error: preUpdateStatusError } =
+      await supabase
+        .from('orders')
+        .select('payment_status, shipping_status')
+        .eq('id', transaction.order_id)
+        .maybeSingle<OrderStatusRollbackSnapshot>();
+    if (preUpdateStatusError) {
+      // Non-fatal: fall back to the legacy safe defaults below rather than
+      // rolling back with NULLs (both columns are NOT NULL).
+      logger.warn({
+        error: preUpdateStatusError,
+        message: 'Klump pre-update order status snapshot failed',
+        orderId: transaction.order_id,
+      });
+    }
+
     const { data: updatedOrder, error: orderError } = await updateKlumpOrder({
       orderId: transaction.order_id,
       supabase,
@@ -365,8 +385,10 @@ export async function POST(request: NextRequest) {
               transaction.merchant_id,
               order.id,
               {
-                payment_status: 'pending',
-                shipping_status: 'pending',
+                payment_status:
+                  preUpdateOrderStatus?.payment_status ?? 'pending',
+                shipping_status:
+                  preUpdateOrderStatus?.shipping_status ?? 'pending',
               }
             );
           } catch (rollbackError) {
