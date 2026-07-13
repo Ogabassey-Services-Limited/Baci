@@ -6,13 +6,15 @@ const UUID_V5_PATTERN =
 
 describe('deterministicEventUuid', () => {
   it('produces a valid RFC 4122 v5 uuid', () => {
-    expect(deterministicEventUuid('wallet_funding_transfer_credited:tx-1')).toMatch(
-      UUID_V5_PATTERN
-    );
+    expect(
+      deterministicEventUuid('wallet_funding_transfer_credited:tx-1')
+    ).toMatch(UUID_V5_PATTERN);
   });
 
   it('is stable for the same name so concurrent emitters dedupe', () => {
-    const first = deterministicEventUuid('wallet_funding_transfer_credited:tx-1');
+    const first = deterministicEventUuid(
+      'wallet_funding_transfer_credited:tx-1'
+    );
     const second = deterministicEventUuid(
       'wallet_funding_transfer_credited:tx-1'
     );

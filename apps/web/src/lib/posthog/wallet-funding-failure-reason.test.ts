@@ -25,12 +25,12 @@ describe('resolveWalletFundingFailureReason', () => {
     expect(resolveWalletFundingFailureReason(code)).toBe('other');
   });
 
-  it.each(['network', 'other'])(
-    'never treats the synthetic bucket %s as a server code pass-through source',
-    (bucket) => {
-      // They resolve to `other` when arriving as an API code — the caller sets
-      // `network` itself for transport failures.
-      expect(resolveWalletFundingFailureReason(bucket)).toBe('other');
-    }
-  );
+  it.each([
+    'network',
+    'other',
+  ])('never treats the synthetic bucket %s as a server code pass-through source', (bucket) => {
+    // They resolve to `other` when arriving as an API code — the caller sets
+    // `network` itself for transport failures.
+    expect(resolveWalletFundingFailureReason(bucket)).toBe('other');
+  });
 });

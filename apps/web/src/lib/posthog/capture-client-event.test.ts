@@ -123,12 +123,9 @@ describe('captureClientEvent', () => {
 
   it('keeps draining the rest of the queue when one delivery fails', async () => {
     const { captureClientEvent, connectClientEventSink } = await loadModule();
-    const sink = vi
-      .fn()
-      .mockImplementationOnce(() => {
-        throw new Error('first delivery failed');
-      })
-      .mockImplementation(() => {});
+    const sink = vi.fn().mockImplementationOnce(() => {
+      throw new Error('first delivery failed');
+    });
 
     captureClientEvent('wallet_funding_surface_opened', { index: 0 });
     captureClientEvent('wallet_funding_surface_opened', { index: 1 });
