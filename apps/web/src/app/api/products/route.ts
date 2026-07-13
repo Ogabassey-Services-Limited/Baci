@@ -25,10 +25,7 @@ import type { Product } from '@/lib/products';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { sanitizeSchemaMarkup } from '@/lib/sanitize-json-ld';
-import {
-  extractProductImageUrls,
-  scheduleProductImageTransformsPrewarm,
-} from '@/lib/schedule-product-image-prewarm';
+import { scheduleProductImageTransformsPrewarm } from '@/lib/schedule-product-image-prewarm';
 import {
   generateMetaDescription,
   generateProductSchema,
@@ -739,9 +736,7 @@ export async function POST(request: NextRequest) {
     // but a product can reach the hero straight from create (published at
     // create, or a later status-only publish that never rewrites images), so
     // the create path must warm too. Fire-and-forget; never throws.
-    scheduleProductImageTransformsPrewarm(
-      extractProductImageUrls(resolvedImages)
-    );
+    scheduleProductImageTransformsPrewarm(resolvedImages);
 
     return NextResponse.json({ product }, { status: 201 });
   } catch (error) {

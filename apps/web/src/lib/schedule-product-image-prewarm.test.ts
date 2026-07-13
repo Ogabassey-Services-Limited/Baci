@@ -1,9 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { HOME_HERO_IMAGE_WIDTH_QUALITY_PAIRS } from '@/lib/ogabassey-image-prewarm-pairs';
-import {
-  extractProductImageUrls,
-  scheduleProductImageTransformsPrewarm,
-} from '@/lib/schedule-product-image-prewarm';
+import { scheduleProductImageTransformsPrewarm } from '@/lib/schedule-product-image-prewarm';
 
 // Run the after() callback synchronously so the fire-and-forget prewarm is
 // observable in the test (mirrors the real request-context behaviour).
@@ -21,42 +18,29 @@ vi.mock('@/lib/ogabassey-image-prewarm', () => ({
 const PRIMARY = 'https://cdn.ogabassey.com/products/phone.avif';
 const SECOND = 'https://cdn.ogabassey.com/products/phone-back.avif';
 
-describe('extractProductImageUrls', () => {
-  it('returns every non-empty url from string and object image shapes', () => {
-    expect(
-      extractProductImageUrls([PRIMARY, { url: SECOND }, 'https://x/c.avif'])
-    ).toEqual([PRIMARY, SECOND, 'https://x/c.avif']);
-  });
-
-  it('drops empty, missing, and non-string urls, and non-arrays', () => {
-    expect(
-      extractProductImageUrls([
-        { url: '' },
-        { notUrl: 'x' },
-        null,
-        42,
-        { url: PRIMARY },
-      ])
-    ).toEqual([PRIMARY]);
-    expect(extractProductImageUrls(undefined)).toEqual([]);
-    expect(extractProductImageUrls('nope')).toEqual([]);
-  });
-});
-
 describe('scheduleProductImageTransformsPrewarm', () => {
   beforeEach(() => {
     mockPrewarm.mockClear();
   });
 
-  it('does not schedule any prewarm for an empty image list', () => {
+  it('schedules no prewarm when the raw images yield no valid urls', () => {
     scheduleProductImageTransformsPrewarm([]);
+    scheduleProductImageTransformsPrewarm(undefined);
+    scheduleProductImageTransformsPrewarm('not-an-array');
+    scheduleProductImageTransformsPrewarm([{ url: '' }, { notUrl: 'x' }, null]);
     expect(mockPrewarm).not.toHaveBeenCalled();
   });
 
-  it('warms the default matrix for every image and the q70 tier for the primary only', () => {
-    scheduleProductImageTransformsPrewarm([PRIMARY, SECOND]);
+  it('extracts urls from mixed string/object shapes, warming the default matrix for every image and the q70 tier for the primary only', () => {
+    // Raw `images` column shape: a { url } object, a bare string, and an empty
+    // entry that must be dropped by the internal extraction.
+    scheduleProductImageTransformsPrewarm([
+      { url: PRIMARY },
+      SECOND,
+      { url: '' },
+    ]);
 
-    // Default product matrix (PDP hero + listing card) for EVERY image.
+    // Default product matrix (PDP hero + listing card) for EVERY valid image.
     expect(mockPrewarm).toHaveBeenCalledWith([PRIMARY, SECOND]);
     // Dedicated home-hero q70 warm — PRIMARY image only, its own invocation.
     expect(mockPrewarm).toHaveBeenCalledWith([PRIMARY], {
