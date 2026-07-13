@@ -5,6 +5,7 @@ function table(overrides = {}) {
   return {
     schema_name: 'public',
     table_name: 'orders',
+    relid: '100',
     seq_scan: '10',
     seq_tup_read: '20',
     idx_scan: '30',
@@ -31,6 +32,8 @@ function index(overrides = {}) {
     schema_name: 'public',
     table_name: 'orders',
     index_name: 'idx_orders_merchant_id',
+    relid: '100',
+    indexrelid: '200',
     idx_scan: '20',
     idx_tup_read: '30',
     idx_tup_fetch: '40',
@@ -110,6 +113,16 @@ describe('buildRelationDeltas', () => {
   it.each([
     ['table', snapshot({ tables: [] }), /table.*disappeared/i],
     ['index', snapshot({ indexes: [] }), /index.*disappeared/i],
+    [
+      'recreated table',
+      snapshot({ tables: [table({ relid: '101' })] }),
+      /table.*disappeared/i,
+    ],
+    [
+      'recreated index',
+      snapshot({ indexes: [index({ indexrelid: '201' })] }),
+      /index.*disappeared/i,
+    ],
   ])('rejects a %s identity change inside a measured interval', (_kind, after, expected) => {
     expect(() => buildRelationDeltas(snapshot(), after)).toThrow(expected);
   });

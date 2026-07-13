@@ -140,6 +140,13 @@ function gauge(before, after, field, beforeLabel, afterLabel) {
   };
 }
 
+function rollingGauge(before, after, field, beforeLabel, afterLabel) {
+  return {
+    before: integer(before[field], `${beforeLabel}.${field}`).toString(),
+    after: integer(after[field], `${afterLabel}.${field}`).toString(),
+  };
+}
+
 function gaugeRows(before, after, field, label, identity) {
   const beforeRows = keyedRows(before, field, 'before', identity);
   const afterRows = keyedRows(after, field, 'after', identity);
@@ -243,7 +250,7 @@ export function buildOperationalDeltas(before, after) {
         const afterEntry = afterRuns.get(key);
         return {
           context_fingerprint: fingerprint(key),
-          runs: gauge(
+          runs: rollingGauge(
             beforeEntry?.row ?? { runs: '0' },
             afterEntry?.row ?? { runs: '0' },
             'runs',

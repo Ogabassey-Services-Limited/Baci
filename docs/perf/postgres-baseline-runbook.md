@@ -169,6 +169,10 @@ approximate per-day timing rates; reset boundaries; server build; and
 encrypted-artifact SHA-256 hashes. Each artifact hash is explicitly labelled
 `source: encrypted_artifact`.
 
+Cron run status counts are rolling 24-hour window gauges. They are published as
+separate before/after values, never as an interval delta; only cumulative
+database, WAL, statement, relation, and I/O counters support delta math.
+
 Statement fingerprints are derived from normalized statement shape plus stable
 role/database context; engine-generated statement IDs are not read or used as
 comparison keys. A fingerprint is an interval correlation key, not a permanent

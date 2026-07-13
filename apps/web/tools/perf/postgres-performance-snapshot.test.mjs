@@ -83,6 +83,32 @@ describe('postgres performance snapshot', () => {
     ]) {
       expect(sql).toContain(surface);
     }
+    expect(sql).toMatch(/relid::text AS relid/i);
+    expect(sql).toMatch(/indexrelid::text AS indexrelid/i);
     expect(sql).not.toMatch(/cron\.job[^\n]*command/i);
+  });
+
+  it('normalizes nullable pg_stat_io cells before the strict delta parser reads them', async () => {
+    const sql = await readFile(sqlPath, 'utf8');
+
+    for (const field of [
+      'reads',
+      'writes',
+      'writebacks',
+      'extends',
+      'hits',
+      'evictions',
+      'reuses',
+      'fsyncs',
+      'read_time',
+      'write_time',
+      'writeback_time',
+      'extend_time',
+      'fsync_time',
+    ]) {
+      expect(sql).toMatch(
+        new RegExp(`coalesce\\(${field}, 0\\)::text AS ${field}`, 'i')
+      );
+    }
   });
 });

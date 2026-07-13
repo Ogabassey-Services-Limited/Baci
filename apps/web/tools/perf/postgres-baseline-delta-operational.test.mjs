@@ -5,7 +5,7 @@ const { END, connectionRow, createDelta, ioRow, lockRow, raw, snapshot } =
   fixtures;
 
 describe('postgres baseline operational deltas', () => {
-  it('emits anonymous I/O, connection, lock, and cron comparisons', () => {
+  it('emits anonymous I/O, connection, lock deltas, and cron rolling gauges', () => {
     const result = createDelta({
       afterRaw: raw(
         snapshot({
@@ -45,7 +45,7 @@ describe('postgres baseline operational deltas', () => {
         runs_last_24h: [
           {
             context_fingerprint: expect.stringMatching(/^[a-f0-9]{64}$/),
-            runs: { after: '5', before: '3', delta: '2' },
+            runs: { after: '5', before: '3' },
           },
         ],
       },
@@ -66,6 +66,9 @@ describe('postgres baseline operational deltas', () => {
     expect(JSON.stringify(result.operational_deltas)).not.toMatch(
       /client backend|checkout-worker|relation|AccessShareLock|succeeded/i
     );
+    expect(
+      result.operational_deltas.cron.runs_last_24h[0].runs
+    ).not.toHaveProperty('delta');
   });
 
   it('rejects I/O counter regressions despite a reset-safe global boundary', () => {

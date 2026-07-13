@@ -49,6 +49,7 @@ function integer(value, label) {
 
 function relationKey(row, label) {
   return [
+    requiredString(row?.relid, `${label}.relid`),
     requiredString(row?.schema_name, `${label}.schema_name`),
     requiredString(row?.table_name, `${label}.table_name`),
   ].join('\u001f');
@@ -57,6 +58,7 @@ function relationKey(row, label) {
 function indexKey(row, label) {
   return [
     relationKey(row, label),
+    requiredString(row?.indexrelid, `${label}.indexrelid`),
     requiredString(row?.index_name, `${label}.index_name`),
   ].join('\u001f');
 }

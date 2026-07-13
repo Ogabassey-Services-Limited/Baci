@@ -42,6 +42,7 @@ function statement(overrides = {}) {
 
 function table(overrides = {}) {
   return {
+    relid: '100',
     schema_name: 'public',
     table_name: 'products',
     seq_scan: '10',
@@ -67,6 +68,8 @@ function table(overrides = {}) {
 
 function index(overrides = {}) {
   return {
+    relid: '100',
+    indexrelid: '200',
     schema_name: 'public',
     table_name: 'products',
     index_name: 'products_pkey',

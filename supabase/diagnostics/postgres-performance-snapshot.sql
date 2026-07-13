@@ -123,6 +123,7 @@ statement_rows AS (
 ),
 table_rows AS (
   SELECT
+    relid::text AS relid,
     schemaname AS schema_name,
     relname AS table_name,
     seq_scan::text AS seq_scan,
@@ -146,6 +147,8 @@ table_rows AS (
 ),
 index_rows AS (
   SELECT
+    relid::text AS relid,
+    indexrelid::text AS indexrelid,
     schemaname AS schema_name,
     relname AS table_name,
     indexrelname AS index_name,
@@ -160,19 +163,19 @@ io_rows AS (
     backend_type,
     object,
     context,
-    reads::text AS reads,
-    read_time::text AS read_time,
-    writes::text AS writes,
-    write_time::text AS write_time,
-    writebacks::text AS writebacks,
-    writeback_time::text AS writeback_time,
-    extends::text AS extends,
-    extend_time::text AS extend_time,
-    hits::text AS hits,
-    evictions::text AS evictions,
-    reuses::text AS reuses,
-    fsyncs::text AS fsyncs,
-    fsync_time::text AS fsync_time
+    coalesce(reads, 0)::text AS reads,
+    coalesce(read_time, 0)::text AS read_time,
+    coalesce(writes, 0)::text AS writes,
+    coalesce(write_time, 0)::text AS write_time,
+    coalesce(writebacks, 0)::text AS writebacks,
+    coalesce(writeback_time, 0)::text AS writeback_time,
+    coalesce(extends, 0)::text AS extends,
+    coalesce(extend_time, 0)::text AS extend_time,
+    coalesce(hits, 0)::text AS hits,
+    coalesce(evictions, 0)::text AS evictions,
+    coalesce(reuses, 0)::text AS reuses,
+    coalesce(fsyncs, 0)::text AS fsyncs,
+    coalesce(fsync_time, 0)::text AS fsync_time
   FROM pg_stat_io
 ),
 connection_rows AS (
