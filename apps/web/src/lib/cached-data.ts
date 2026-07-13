@@ -1092,6 +1092,14 @@ export async function getCachedMerchantById(
 const GET_CACHED_PRODUCTS_MAX_ROWS = 100;
 
 /**
+ * Window size for an offset-only call (`offset` without `limit`). Carried over
+ * from the pre-existing `range(offset, offset + 20 - 1)` behaviour on
+ * origin/main — kept as its own constant because it is a paging default, not a
+ * payload bound, so it must not drift with GET_CACHED_PRODUCTS_MAX_ROWS.
+ */
+const GET_CACHED_PRODUCTS_OFFSET_WINDOW = 20;
+
+/**
  * Cached products for a merchant.
  * Uses 'products' cacheLife profile (stale 5min, revalidate 5min, expire 24hr)
  *
@@ -1167,7 +1175,7 @@ export async function getCachedProducts(
   if (options?.offset) {
     query = query.range(
       options.offset,
-      options.offset + (cappedLimit || 20) - 1
+      options.offset + (cappedLimit ?? GET_CACHED_PRODUCTS_OFFSET_WINDOW) - 1
     );
   }
 
