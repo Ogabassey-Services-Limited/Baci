@@ -38,4 +38,25 @@ describe('buildAnalyticsEventData', () => {
       )
     ).toEqual({ custom_data: { campaign_variant: 'b' } });
   });
+
+  it('preserves mobile product conversion contents from custom data', () => {
+    expect(
+      buildAnalyticsEventData(
+        {
+          custom_data: {
+            contents: [{ id: 'sku-1', name: 'Phone', price: 100, quantity: 2 }],
+            currency: 'NGN',
+            value: 200,
+          },
+          event_type: 'add_to_cart',
+          merchant_id: 'merchant-1',
+        },
+        'add_to_cart'
+      )
+    ).toEqual({
+      currency: 'NGN',
+      items: [{ id: 'sku-1', name: 'Phone', price: 100, quantity: 2 }],
+      total: 200,
+    });
+  });
 });

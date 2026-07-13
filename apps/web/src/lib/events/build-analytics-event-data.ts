@@ -26,12 +26,23 @@ export function buildAnalyticsEventData(
       'add_to_wishlist',
     ].includes(eventType)
   ) {
+    const contents = input.items ?? input.custom_data?.contents;
     assignDefined(eventData, 'product_id', input.product_id);
     assignDefined(eventData, 'product_name', input.product_name);
     assignDefined(eventData, 'product_category', input.product_category);
-    assignDefined(eventData, 'product_price', input.product_price);
+    assignDefined(
+      eventData,
+      'product_price',
+      input.product_price ?? input.custom_data?.price
+    );
     assignDefined(eventData, 'quantity', input.quantity);
-    assignDefined(eventData, 'currency', input.currency);
+    assignDefined(
+      eventData,
+      'currency',
+      input.currency ?? input.custom_data?.currency
+    );
+    assignDefined(eventData, 'items', contents);
+    assignDefined(eventData, 'total', input.total ?? input.custom_data?.value);
     return eventData;
   }
 

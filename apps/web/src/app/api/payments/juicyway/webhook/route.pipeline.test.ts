@@ -46,7 +46,7 @@ describe('POST /api/payments/juicyway/webhook durable event handoff', () => {
     expect(mocks.scheduleLegacy).not.toHaveBeenCalled();
   }, 20_000);
 
-  it('retries an idempotent enqueue for an already-completed paid order', async () => {
+  it('reschedules the idempotent legacy fanout for an already-completed paid order', async () => {
     mockVerifyWebhookSignature.mockResolvedValue(true);
     const fromMock = vi.fn((table: string) => {
       if (table === 'transactions') {
@@ -112,7 +112,13 @@ describe('POST /api/payments/juicyway/webhook durable event handoff', () => {
         p_idempotency_key: 'paid-order-ad-tracking:order-123',
       })
     );
-    expect(mocks.scheduleLegacy).not.toHaveBeenCalled();
+    expect(mocks.scheduleLegacy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchantId: 'merchant-123',
+        order: expect.objectContaining({ id: 'order-123', total: '10000' }),
+        scheduleAfter: expect.any(Function),
+      })
+    );
   });
 
   it('schedules legacy fanout when a completed retry recovers a failed durable enqueue', async () => {

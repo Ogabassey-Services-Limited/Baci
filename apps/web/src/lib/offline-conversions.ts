@@ -267,7 +267,8 @@ async function sendTikTokConversion(
         name: item.name,
         price: item.price,
         quantity: item.quantity,
-      }))
+      })),
+      { eventId: orderData.eventId }
     );
 
     if (result.success) {
@@ -351,7 +352,8 @@ async function sendSnapchatConversion(
       orderData.orderNumber,
       orderData.total,
       orderData.currency,
-      orderData.items.map((item) => item.id)
+      orderData.items.map((item) => item.id),
+      orderData.eventId
     );
 
     if (result.success) {

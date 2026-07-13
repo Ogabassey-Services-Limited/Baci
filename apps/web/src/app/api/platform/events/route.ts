@@ -30,6 +30,34 @@ const MAX_EVENT_BYTES = 64 * 1024;
 
 export type PlatformEventType = PlatformEventRequestInput['event_type'];
 
+function persistLegacyPlatformEvent(args: {
+  eventData: PlatformEventRequestInput['event_data'];
+  eventId: string;
+  eventTimestamp: string;
+  eventType: PlatformEventType;
+  ipAddress?: string;
+  merchantId?: string;
+  pageUrl?: string;
+  referrer?: string;
+  sessionId?: string;
+  userAgent?: string;
+}) {
+  return getSupabaseAdmin()
+    .from('platform_events')
+    .insert({
+      event_data: args.eventData || {},
+      event_id: args.eventId,
+      event_timestamp: args.eventTimestamp,
+      event_type: args.eventType,
+      ip_address: args.ipAddress,
+      merchant_id: args.merchantId || null,
+      page_url: args.pageUrl,
+      referrer: args.referrer,
+      session_id: args.sessionId,
+      user_agent: args.userAgent,
+    });
+}
+
 export async function POST(request: NextRequest) {
   try {
     const bodyResult = await readBoundedJsonBody(request, MAX_EVENT_BYTES);
@@ -112,28 +140,42 @@ export async function POST(request: NextRequest) {
           trustLevel: context.trustLevel,
         });
       } catch (enqueueError) {
-        error = {
-          message:
-            enqueueError instanceof Error
-              ? enqueueError.message
-              : 'durable_platform_enqueue_failed',
-        };
+        if (isLegacyAnalyticsFanoutDisabled()) {
+          error = {
+            message:
+              enqueueError instanceof Error
+                ? enqueueError.message
+                : 'durable_platform_enqueue_failed',
+          };
+        } else {
+          const fallback = await persistLegacyPlatformEvent({
+            eventData: event_data,
+            eventId,
+            eventTimestamp,
+            eventType: event_type,
+            ipAddress,
+            merchantId: merchant_id,
+            pageUrl: page_url,
+            referrer,
+            sessionId: session_id,
+            userAgent,
+          });
+          error = fallback.error;
+        }
       }
     } else {
-      const result = await getSupabaseAdmin()
-        .from('platform_events')
-        .insert({
-          event_data: event_data || {},
-          event_id: eventId,
-          event_timestamp: eventTimestamp,
-          event_type,
-          ip_address: ipAddress,
-          merchant_id: merchant_id || null,
-          page_url,
-          referrer,
-          session_id,
-          user_agent: userAgent,
-        });
+      const result = await persistLegacyPlatformEvent({
+        eventData: event_data,
+        eventId,
+        eventTimestamp,
+        eventType: event_type,
+        ipAddress,
+        merchantId: merchant_id,
+        pageUrl: page_url,
+        referrer,
+        sessionId: session_id,
+        userAgent,
+      });
       error = result.error;
     }
 

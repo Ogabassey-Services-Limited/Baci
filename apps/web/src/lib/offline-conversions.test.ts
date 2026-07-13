@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ facebookPurchase: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  facebookPurchase: vi.fn(),
+  snapchatPurchase: vi.fn(),
+  tiktokPurchase: vi.fn(),
+}));
 
 vi.mock('./facebook-capi', () => ({
   facebookCAPI: {
@@ -11,8 +15,16 @@ vi.mock('./ga4-measurement-protocol', () => ({
   ga4MeasurementProtocol: {},
   generateClientId: vi.fn(),
 }));
-vi.mock('./snapchat-capi', () => ({ snapchatCAPI: {} }));
-vi.mock('./tiktok-events-api', () => ({ tiktokEventsAPI: {} }));
+vi.mock('./snapchat-capi', () => ({
+  snapchatCAPI: {
+    purchase: (...args: unknown[]) => mocks.snapchatPurchase(...args),
+  },
+}));
+vi.mock('./tiktok-events-api', () => ({
+  tiktokEventsAPI: {
+    purchase: (...args: unknown[]) => mocks.tiktokPurchase(...args),
+  },
+}));
 
 import { sendPurchaseConversion } from './offline-conversions';
 
@@ -20,6 +32,8 @@ describe('sendPurchaseConversion', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.facebookPurchase.mockResolvedValue({ success: true });
+    mocks.snapchatPurchase.mockResolvedValue({ success: true });
+    mocks.tiktokPurchase.mockResolvedValue({ success: true });
   });
 
   it('preserves stored click identity and Limited Data Use for Facebook', async () => {
@@ -93,6 +107,46 @@ describe('sendPurchaseConversion', () => {
       undefined,
       undefined,
       undefined
+    );
+  });
+
+  it('passes the stable purchase event ID to legacy TikTok and Snapchat sends', async () => {
+    await sendPurchaseConversion(
+      {
+        snapchat_capi_token: 'snap-token',
+        snapchat_pixel_id: 'snap-pixel',
+        tiktok_access_token: 'tiktok-token',
+        tiktok_pixel_id: 'tiktok-pixel',
+      },
+      {
+        currency: 'NGN',
+        eventId: 'purchase_order-1',
+        items: [{ id: 'sku-1', name: 'Phone', price: 100, quantity: 1 }],
+        orderId: 'order-1',
+        orderNumber: 'BAC-1',
+        total: 100,
+      }
+    );
+
+    expect(mocks.tiktokPurchase).toHaveBeenCalledWith(
+      'tiktok-pixel',
+      'tiktok-token',
+      expect.any(Object),
+      'BAC-1',
+      100,
+      'NGN',
+      expect.any(Array),
+      { eventId: 'purchase_order-1' }
+    );
+    expect(mocks.snapchatPurchase).toHaveBeenCalledWith(
+      'snap-pixel',
+      'snap-token',
+      expect.any(Object),
+      'BAC-1',
+      100,
+      'NGN',
+      ['sku-1'],
+      'purchase_order-1'
     );
   });
 });

@@ -1,13 +1,17 @@
 import { NextRequest } from 'next/server';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ insert: vi.fn(), record: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  insert: vi.fn(),
+  legacyFanoutDisabled: true,
+  record: vi.fn(),
+}));
 vi.mock('@supabase/supabase-js', () => ({
   createClient: () => ({ from: () => ({ insert: mocks.insert }) }),
 }));
 vi.mock('@/lib/events/event-pipeline-config', () => ({
   isEventPipelineEnqueueEnabled: () => true,
-  isLegacyAnalyticsFanoutDisabled: () => true,
+  isLegacyAnalyticsFanoutDisabled: () => mocks.legacyFanoutDisabled,
 }));
 vi.mock('@/lib/events/record-platform-domain-event', () => ({
   recordPlatformDomainEvent: mocks.record,
@@ -16,6 +20,35 @@ vi.mock('@/lib/events/record-platform-domain-event', () => ({
 import { POST } from './route';
 
 describe('POST /api/platform/events durable pipeline', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.legacyFanoutDisabled = true;
+  });
+
+  it('falls back to legacy persistence when durable enqueue fails during shadow mode', async () => {
+    mocks.legacyFanoutDisabled = false;
+    mocks.record.mockRejectedValueOnce(new Error('queue unavailable'));
+    mocks.insert.mockResolvedValueOnce({ error: null });
+
+    const response = await POST(
+      new NextRequest('https://usebaci.com/api/platform/events', {
+        body: JSON.stringify({
+          event_id: 'platform-event-1',
+          event_type: 'landing_page_view',
+        }),
+        method: 'POST',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event_id: 'platform-event-1',
+        event_type: 'landing_page_view',
+      })
+    );
+  });
+
   it('routes allowlisted low-risk public telemetry without elevating trust', async () => {
     mocks.record.mockResolvedValue({ queue_message_id: 1 });
     const response = await POST(

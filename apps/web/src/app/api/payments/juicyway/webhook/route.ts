@@ -281,20 +281,22 @@ export async function POST(request: NextRequest) {
             shipping_address: completedOrder.shipping_address,
             total: completedOrder.total ?? transaction.amount,
           };
-          const conversion = await triggerPurchaseConversion(
+          await triggerPurchaseConversion(
             createAdminClient(),
             transaction.merchant_id,
             conversionOrder,
             { deliveryMode: 'enqueue_only' }
           );
-          if (!conversion?.alreadyEnqueued) {
-            scheduleLegacyPurchaseConversion({
-              merchantId: transaction.merchant_id,
-              order: conversionOrder,
-              scheduleAfter: (task) => after(task),
-              supabase: createAdminClient(),
-            });
-          }
+          // The prior response may have ended after durable enqueue but
+          // before `after()` ran. Re-schedule on every idempotent webhook
+          // retry while shadow fanout is enabled; legacy provider sends use
+          // the stable order event ID (or GA4 transaction ID) for dedupe.
+          scheduleLegacyPurchaseConversion({
+            merchantId: transaction.merchant_id,
+            order: conversionOrder,
+            scheduleAfter: (task) => after(task),
+            supabase: createAdminClient(),
+          });
         }
       }
 
