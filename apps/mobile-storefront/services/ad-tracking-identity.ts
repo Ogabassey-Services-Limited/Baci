@@ -24,10 +24,11 @@ export {
   posthogTrack,
 };
 
-export function identifyUser(
+// biome-ignore lint/suspicious/useAwait: async isolates tracking failures as promise rejections so a broken analytics provider can never crash the caller's user-facing flow (Codex review, #3084)
+export async function identifyUser(
   userId: string,
   properties?: AdTrackingUserProperties
-): void {
+): Promise<void> {
   setCachedUserData(userId, properties);
   posthogIdentify(userId, {
     email: properties?.email,
@@ -62,7 +63,8 @@ export function identifyUser(
   }
 }
 
-export function resetUserIdentity(): void {
+// biome-ignore lint/suspicious/useAwait: async isolates tracking failures as promise rejections so a broken analytics provider can never crash the caller's user-facing flow (Codex review, #3084)
+export async function resetUserIdentity(): Promise<void> {
   clearCachedUserData();
   posthogReset();
 

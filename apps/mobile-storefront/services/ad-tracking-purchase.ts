@@ -67,7 +67,10 @@ export async function trackPurchase(order: TrackedOrder): Promise<void> {
   log.info(`Purchase tracked: ${order.orderId} - ${order.total} ${currency}`);
 }
 
-export function trackPaymentInfoAdded(paymentMethod: string): void {
+// biome-ignore lint/suspicious/useAwait: async isolates tracking failures as promise rejections so a broken analytics provider can never crash the caller's user-facing flow (Codex review, #3084)
+export async function trackPaymentInfoAdded(
+  paymentMethod: string
+): Promise<void> {
   const eventId = generateEventIdSync();
 
   sendServerConversion('ADD_PAYMENT_INFO', eventId, { currency: 'NGN' });
@@ -79,7 +82,10 @@ export function trackPaymentInfoAdded(paymentMethod: string): void {
   });
 }
 
-export function trackAddToWishlist(product: TrackedWishlistProduct): void {
+// biome-ignore lint/suspicious/useAwait: async isolates tracking failures as promise rejections so a broken analytics provider can never crash the caller's user-facing flow (Codex review, #3084)
+export async function trackAddToWishlist(
+  product: TrackedWishlistProduct
+): Promise<void> {
   const eventId = generateEventIdSync();
   const currency = product.currency || 'NGN';
   const tikTokParams = buildTikTokCommerceEventParams({

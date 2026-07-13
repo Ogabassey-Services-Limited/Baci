@@ -8,7 +8,10 @@ import { generateEventIdSync, sendClientBackup } from './ad-tracking-runtime';
 import { sendServerConversion } from './ad-tracking-server-conversion';
 import { buildTikTokCommerceEventParams } from './tiktok-commerce-event-data';
 
-export function trackProductViewed(product: TrackedProduct): void {
+// biome-ignore lint/suspicious/useAwait: async isolates tracking failures as promise rejections so a broken analytics provider can never crash the caller's user-facing flow (Codex review, #3084)
+export async function trackProductViewed(
+  product: TrackedProduct
+): Promise<void> {
   const eventId = generateEventIdSync();
   const currency = product.currency || 'NGN';
   const tikTokParams = buildTikTokCommerceEventParams({
@@ -51,10 +54,11 @@ export function trackProductViewed(product: TrackedProduct): void {
   );
 }
 
-export function trackAddToCart(
+// biome-ignore lint/suspicious/useAwait: async isolates tracking failures as promise rejections so a broken analytics provider can never crash the caller's user-facing flow (Codex review, #3084)
+export async function trackAddToCart(
   product: TrackedCartProduct,
   cartTotal?: number
-): void {
+): Promise<void> {
   const eventId = generateEventIdSync();
   const currency = product.currency || 'NGN';
   const value = product.price * product.quantity;
