@@ -10,6 +10,7 @@ const enqueueResultSchema = z.strictObject({
 });
 
 type AnalyticsDomainEventInput = {
+  deliveryData?: Record<string, unknown>;
   eventData: Record<string, unknown>;
   eventName: string;
   eventTimestamp: string;
@@ -30,6 +31,7 @@ export async function recordAnalyticsDomainEvent(
     'record_analytics_domain_event_v1',
     {
       p_domain_event_data: redactEventPayload(input.eventData),
+      p_delivery_data: input.deliveryData ?? {},
       p_event_data: input.eventData,
       p_event_name: input.eventName,
       p_event_timestamp: input.eventTimestamp,

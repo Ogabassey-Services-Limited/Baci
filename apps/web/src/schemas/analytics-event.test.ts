@@ -4,6 +4,17 @@ import { analyticsEventRequestSchema } from './analytics-event';
 const MERCHANT_ID = '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235';
 
 describe('analyticsEventRequestSchema', () => {
+  it('normalizes an empty pre-order checkout ID instead of rejecting the event', () => {
+    const parsed = analyticsEventRequestSchema.safeParse({
+      event_type: 'begin_checkout',
+      merchant_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
+      order_id: '',
+    });
+
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.order_id).toBeUndefined();
+  });
+
   it('accepts the bounded storefront event shape', () => {
     expect(
       analyticsEventRequestSchema.safeParse({

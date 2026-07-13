@@ -95,8 +95,56 @@ describe('POST /api/analytics/conversion', () => {
     expect(mocks.record).toHaveBeenCalledWith(
       expect.any(Object),
       expect.objectContaining({
+        deliveryData: expect.any(Object),
+        eventData: expect.objectContaining({ search_string: undefined }),
         eventName: 'analytics.begin_checkout.v1',
         externalEventId: 'event-1',
+      })
+    );
+  });
+
+  it('accepts an empty pre-order checkout ID and persists requested targets', async () => {
+    mocks.enqueueEnabled = true;
+    mocks.resolveContext.mockResolvedValue({
+      merchantId: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
+      ok: true,
+      trustLevel: 'tenant_verified_client',
+      verified: true,
+    });
+
+    const response = await POST(
+      request({
+        custom_data: { order_id: '', value: 100 },
+        targets: ['facebook'],
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.record).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        eventData: expect.objectContaining({
+          order_id: undefined,
+          targets: ['facebook'],
+        }),
+      })
+    );
+  });
+
+  it('preserves the native-client merchant fallback when tenant identity is absent', async () => {
+    mocks.enqueueEnabled = true;
+    mocks.resolveContext.mockResolvedValue({
+      merchantId: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
+      ok: false,
+    });
+
+    const response = await POST(request({ merchant_id: undefined }));
+
+    expect(response.status).toBe(200);
+    expect(mocks.record).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        merchantId: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
       })
     );
   });

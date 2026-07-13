@@ -28,6 +28,7 @@ export interface ConversionEvent {
   merchant_id: string;
   event_type: string; // DB-style: 'purchase', 'begin_checkout', etc.
   event_id: string;
+  occurred_at?: string;
   limited_data_use?: boolean;
   user_data: {
     email?: string;

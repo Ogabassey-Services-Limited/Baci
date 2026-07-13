@@ -89,7 +89,8 @@ export async function sendGA4Event(
   userData: GA4UserData,
   params?: GA4EventParams,
   debug: boolean = false,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  eventTimestampMicros?: number
 ): Promise<{ success: boolean; error?: string; debugInfo?: unknown }> {
   if (!measurementId || !apiSecret) {
     return { success: false, error: 'Missing measurement ID or API secret' };
@@ -108,6 +109,7 @@ export async function sendGA4Event(
     events: [
       {
         name: eventName,
+        ...(eventTimestampMicros && { timestamp_micros: eventTimestampMicros }),
         params: {
           ...(params || {}),
           // Add session info if available

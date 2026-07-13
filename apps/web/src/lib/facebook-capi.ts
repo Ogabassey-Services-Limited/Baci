@@ -209,7 +209,8 @@ export async function sendFacebookCAPIEvent(
   eventSourceUrl?: string,
   eventId?: string,
   limitedDataUse?: boolean,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  eventTime?: number
 ): Promise<{ success: boolean; response?: CAPIResponse; error?: string }> {
   if (!pixelId || !accessToken) {
     return { success: false, error: 'Missing pixel ID or access token' };
@@ -217,7 +218,7 @@ export async function sendFacebookCAPIEvent(
 
   const event: FacebookEvent = {
     event_name: eventName,
-    event_time: Math.floor(Date.now() / 1000),
+    event_time: eventTime ?? Math.floor(Date.now() / 1000),
     event_id: eventId || generateEventId(),
     event_source_url: eventSourceUrl,
     action_source: 'website',

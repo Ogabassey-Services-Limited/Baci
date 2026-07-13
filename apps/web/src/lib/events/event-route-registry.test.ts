@@ -33,6 +33,14 @@ describe('resolveEventRoute', () => {
     });
   });
 
+  it('honours explicit delivery targets in durable event data', () => {
+    expect(
+      resolveEventRoute(
+        event({ data: { event_data: { targets: ['facebook', 'google'] } } })
+      )
+    ).toEqual({ destinations: ['facebook'], kind: 'route' });
+  });
+
   it('rejects anonymous purchase claims', () => {
     expect(
       resolveEventRoute(

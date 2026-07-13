@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { resolveEventIngressContext } from './event-ingress-context';
 
-function request(headers: Record<string, string>) {
-  return { headers: new Headers(headers) };
+function request(headers: Record<string, string>, url?: string) {
+  return { headers: new Headers(headers), url };
 }
 
 function lookupClient(
@@ -66,6 +66,23 @@ describe('resolveEventIngressContext', () => {
       merchantId: 'merchant-1',
       request: request({ host: 'www.shop.example' }),
       supabase: lookupClient({ merchant_id: 'merchant-1' }) as never,
+    });
+
+    expect(result).toMatchObject({
+      merchantId: 'merchant-1',
+      ok: true,
+      trustLevel: 'tenant_verified_client',
+    });
+  });
+
+  it('derives and verifies a storefront slug from a root-domain path', async () => {
+    const result = await resolveEventIngressContext({
+      merchantId: 'merchant-1',
+      request: request(
+        { host: 'usebaci.com' },
+        'https://usebaci.com/shop/api/analytics/conversion'
+      ),
+      supabase: lookupClient({ id: 'merchant-1' }) as never,
     });
 
     expect(result).toMatchObject({

@@ -89,6 +89,37 @@ function contentItems(
   });
 }
 
+function fallbackContentItem(
+  data: Record<string, unknown>
+): ConversionEvent['custom_data']['contents'] {
+  const id = stringValue(data.product_id);
+  if (!id) return undefined;
+  return [
+    {
+      id,
+      name: stringValue(data.product_name),
+      price: numberValue(data.product_price) ?? numberValue(data.price),
+      quantity: numberValue(data.quantity) ?? 1,
+    },
+  ];
+}
+
+function userData(data: Record<string, unknown>): ConversionEvent['user_data'] {
+  const value = asRecord(data.delivery_user_data);
+  return {
+    email: stringValue(value.email),
+    external_id: stringValue(value.external_id),
+    fbc: stringValue(value.fbc),
+    fbp: stringValue(value.fbp),
+    ip: stringValue(value.ip),
+    phone: stringValue(value.phone),
+    sccid: stringValue(value.sccid),
+    ttclid: stringValue(value.ttclid),
+    ttp: stringValue(value.ttp),
+    ua: stringValue(value.ua),
+  };
+}
+
 function toClientConversion(event: DomainEventV1): ConversionEvent {
   if (!event.merchant_id || !event.external_event_id) {
     throw new Error('missing_immutable_data');
@@ -101,11 +132,12 @@ function toClientConversion(event: DomainEventV1): ConversionEvent {
     custom_data: {
       content_name: stringValue(data.product_name),
       content_type: 'product',
-      contents: contentItems(data.items),
+      contents: contentItems(data.items) ?? fallbackContentItem(data),
       currency: stringValue(data.currency) ?? 'NGN',
       order_id: stringValue(data.order_id),
       price: numberValue(data.product_price) ?? numberValue(data.price),
-      search_string: stringValue(data.search_term),
+      search_string:
+        stringValue(data.search_term) ?? stringValue(data.search_string),
       url: stringValue(data.page_url),
       value:
         numberValue(data.total) ??
@@ -115,8 +147,9 @@ function toClientConversion(event: DomainEventV1): ConversionEvent {
     event_id: event.external_event_id,
     event_type: eventType,
     merchant_id: event.merchant_id,
+    occurred_at: event.occurred_at,
     source: event.producer === 'mobile' ? 'mobile_app' : 'web',
-    user_data: {},
+    user_data: userData(data),
   };
 }
 

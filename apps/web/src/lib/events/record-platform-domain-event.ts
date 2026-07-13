@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { createDomainEventMetadata } from './event-metadata';
-import { redactEventPayload } from './event-redaction';
+import { redactEventPayload, sanitizeEventUrl } from './event-redaction';
 
 const enqueueResultSchema = z.strictObject({
   already_enqueued: z.boolean(),
@@ -10,6 +10,7 @@ const enqueueResultSchema = z.strictObject({
 });
 
 type PlatformDomainEventInput = {
+  deliveryData?: Record<string, unknown>;
   eventData: Record<string, unknown>;
   eventName: string;
   eventTimestamp: string;
@@ -31,15 +32,16 @@ export async function recordPlatformDomainEvent(
     'record_platform_domain_event_v1',
     {
       p_event_data: redactEventPayload(input.eventData),
+      p_delivery_data: input.deliveryData ?? {},
       p_event_name: input.eventName,
       p_event_timestamp: input.eventTimestamp,
       p_event_type: input.eventType,
       p_external_event_id: input.externalEventId,
       p_merchant_id: input.merchantId ?? null,
       p_metadata: createDomainEventMetadata(input.requestId),
-      p_page_url: input.pageUrl ?? null,
+      p_page_url: input.pageUrl ? sanitizeEventUrl(input.pageUrl) : null,
       p_producer: 'web',
-      p_referrer: input.referrer ?? null,
+      p_referrer: input.referrer ? sanitizeEventUrl(input.referrer) : null,
       p_session_id: input.sessionId ?? null,
       p_trust_level: input.trustLevel,
     }

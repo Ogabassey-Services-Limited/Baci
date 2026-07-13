@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 type HeaderReader = {
   headers: { get(name: string): string | null };
+  url?: string;
 };
 
 export type EventIngressContext =
@@ -83,12 +84,30 @@ async function resolveDomain(
   return data?.merchant_id ?? null;
 }
 
+function storefrontSlugFromPath(
+  requestUrl: string | undefined,
+  host: string,
+  rootDomain: string
+): string | null {
+  if (!requestUrl || (host !== rootDomain && host !== `www.${rootDomain}`)) {
+    return null;
+  }
+  try {
+    const [segment] = new URL(requestUrl).pathname.split('/').filter(Boolean);
+    return segment && /^[a-z0-9][a-z0-9-]{0,99}$/i.test(segment)
+      ? segment
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function resolveEventIngressContext({
   merchantId,
   request,
   supabase,
 }: {
-  merchantId: string;
+  merchantId?: string;
   request: HeaderReader;
   supabase: SupabaseClient;
 }): Promise<EventIngressContext> {
@@ -96,7 +115,9 @@ export async function resolveEventIngressContext({
   const rootDomain = normalizeHost(
     process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com'
   );
-  const slug = storefrontSlugFromHost(host, rootDomain);
+  const slug =
+    storefrontSlugFromHost(host, rootDomain) ??
+    storefrontSlugFromPath(request.url, host, rootDomain);
   const domain = customDomainFromHost(host, rootDomain);
 
   let resolvedMerchantId: string | null | undefined = null;
@@ -104,12 +125,16 @@ export async function resolveEventIngressContext({
     resolvedMerchantId = await resolveSlug(supabase, slug);
   } else if (domain) {
     resolvedMerchantId = await resolveDomain(supabase, domain);
+    // Some merchants store `www.example.com` rather than the apex domain.
+    if (!resolvedMerchantId && host.startsWith('www.')) {
+      resolvedMerchantId = await resolveDomain(supabase, host);
+    }
   }
 
   if (resolvedMerchantId === undefined) {
     return { code: 'merchant_context_error', ok: false };
   }
-  if (resolvedMerchantId && resolvedMerchantId !== merchantId) {
+  if (resolvedMerchantId && merchantId && resolvedMerchantId !== merchantId) {
     return { code: 'merchant_mismatch', ok: false };
   }
   if (resolvedMerchantId) {
@@ -121,6 +146,9 @@ export async function resolveEventIngressContext({
     };
   }
 
+  if (!merchantId) {
+    return { code: 'merchant_mismatch', ok: false };
+  }
   return {
     merchantId,
     ok: true,

@@ -67,7 +67,8 @@ describe('deliverPlatformEvent', () => {
       expect.any(Object),
       expect.objectContaining({ event_id: 'event-1' }),
       false,
-      controller.signal
+      controller.signal,
+      1783857600000000
     );
   });
 
@@ -91,7 +92,10 @@ describe('deliverPlatformEvent', () => {
       }) as never,
       {
         ...event,
-        data: { event_data: { currency: 'NGN', value: 100 } },
+        data: {
+          delivery_user_data: { ip: '203.0.113.1', ua: 'Baci test' },
+          event_data: { currency: 'NGN', value: 100 },
+        },
         event_name: 'platform.merchant_first_sale.v1',
       },
       'facebook',
@@ -103,12 +107,13 @@ describe('deliverPlatformEvent', () => {
       'pixel',
       'token',
       'Purchase',
-      {},
+      { clientIpAddress: '203.0.113.1', clientUserAgent: 'Baci test' },
       { currency: 'NGN', value: 100 },
       undefined,
       'event-1',
       undefined,
-      controller.signal
+      controller.signal,
+      1783857600
     );
   });
 

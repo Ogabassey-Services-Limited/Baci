@@ -25,6 +25,7 @@ import {
 } from '@/schemas/conversion-event';
 
 const MAX_EVENT_BYTES = 64 * 1024;
+const DEFAULT_MERCHANT_SLUG = 'ogabassey';
 let supabaseAdmin: SupabaseClient | null = null;
 
 function getSupabaseAdmin() {
@@ -67,7 +68,27 @@ function toStoredEventData(input: ConversionEventRequest) {
     item_count: input.custom_data.contents?.length,
     items: input.custom_data.contents,
     order_id: input.custom_data.order_id,
+    search_string: input.custom_data.search_string,
+    targets: input.targets,
     total: input.custom_data.value,
+  };
+}
+
+function deliveryData(input: ConversionEventRequest, request: NextRequest) {
+  return {
+    email: input.user_data.em,
+    external_id: input.user_data.external_id,
+    fbc: input.user_data.fbc,
+    fbp: input.user_data.fbp,
+    ip:
+      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+      request.headers.get('x-real-ip') ??
+      undefined,
+    phone: input.user_data.ph,
+    sccid: input.user_data.sccid,
+    ttclid: input.user_data.ttclid,
+    ttp: input.user_data.ttp,
+    ua: request.headers.get('user-agent') ?? undefined,
   };
 }
 
@@ -107,7 +128,30 @@ async function resolvePipelineMerchant(
   request: NextRequest,
   merchantId: string | undefined
 ) {
-  if (!merchantId) return null;
+  if (!merchantId) {
+    const requestContext = await resolveEventIngressContext({
+      request,
+      supabase: getSupabaseAdmin(),
+    });
+    if (requestContext.ok && requestContext.verified) return requestContext;
+
+    const { data, error } = await getSupabaseAdmin()
+      .from('merchants')
+      .select('id')
+      .eq('slug', DEFAULT_MERCHANT_SLUG)
+      .maybeSingle();
+    if (error || !data?.id) return null;
+    // Preserve the pre-pipeline mobile-client default while all clients are
+    // migrated to send tenant identity. This endpoint historically routed
+    // such requests to this merchant, so treating it as unverified would
+    // silently drop conversions after enabling the queue.
+    return {
+      merchantId: data.id,
+      ok: true as const,
+      trustLevel: 'tenant_verified_client' as const,
+      verified: true,
+    };
+  }
   const context = await resolveEventIngressContext({
     merchantId,
     request,
@@ -186,6 +230,7 @@ export async function POST(request: NextRequest) {
 
     if (pipelineContext?.ok) {
       await recordAnalyticsDomainEvent(getSupabaseAdmin(), {
+        deliveryData: deliveryData(input, request),
         eventData: toStoredEventData(input),
         eventName: toClientAnalyticsDomainEventName(
           eventType,
@@ -212,21 +257,7 @@ export async function POST(request: NextRequest) {
           merchant_id: merchantId,
           source: input.event_source,
           targets: input.targets,
-          user_data: {
-            email: input.user_data.em,
-            external_id: input.user_data.external_id,
-            fbc: input.user_data.fbc,
-            fbp: input.user_data.fbp,
-            ip:
-              request.headers.get('x-forwarded-for')?.split(',')[0] ??
-              request.headers.get('x-real-ip') ??
-              undefined,
-            phone: input.user_data.ph,
-            sccid: input.user_data.sccid,
-            ttclid: input.user_data.ttclid,
-            ttp: input.user_data.ttp,
-            ua: request.headers.get('user-agent') ?? undefined,
-          },
+          user_data: deliveryData(input, request),
         });
 
     logger.info({

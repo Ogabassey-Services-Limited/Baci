@@ -108,6 +108,7 @@ export async function deliverPlatformEvent(
   }
 
   const eventData = record(event.data.event_data);
+  const deliveryData = record(event.data.delivery_user_data);
   const value = numberValue(eventData.value);
   const currency = stringValue(eventData.currency) ?? 'NGN';
   const pageUrl = stringValue(event.data.page_url);
@@ -126,7 +127,11 @@ export async function deliverPlatformEvent(
       settings.google_analytics_id as string,
       settings.ga4_api_secret as string,
       eventName,
-      { clientId: createStableAnalyticsClientId(eventId) },
+      {
+        clientId: createStableAnalyticsClientId(eventId),
+        ipAddress: stringValue(deliveryData.ip),
+        userAgent: stringValue(deliveryData.ua),
+      },
       {
         currency,
         event_id: eventId,
@@ -134,7 +139,8 @@ export async function deliverPlatformEvent(
         value,
       },
       false,
-      signal
+      signal,
+      Date.parse(event.occurred_at) * 1_000
     );
     return result.success
       ? { success: true, terminalOutcome: 'delivered' }
@@ -153,12 +159,16 @@ export async function deliverPlatformEvent(
     settings.facebook_pixel_id as string,
     settings.facebook_capi_token as string,
     eventName,
-    {},
+    {
+      clientIpAddress: stringValue(deliveryData.ip),
+      clientUserAgent: stringValue(deliveryData.ua),
+    },
     value === undefined ? undefined : { currency, value },
     pageUrl,
     eventId,
     undefined,
-    signal
+    signal,
+    Math.floor(Date.parse(event.occurred_at) / 1_000)
   );
   return result.success
     ? { success: true, terminalOutcome: 'delivered' }

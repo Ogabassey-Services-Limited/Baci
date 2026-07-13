@@ -20,6 +20,8 @@ describe('recordPlatformDomainEvent', () => {
       eventTimestamp: '2026-07-12T12:00:00.000Z',
       eventType: 'landing_page_view',
       externalEventId: 'event-1',
+      pageUrl: 'https://usebaci.com/?token=secret',
+      referrer: 'https://example.com/?email=person@example.com',
       trustLevel: 'anonymous_client',
     });
 
@@ -27,6 +29,8 @@ describe('recordPlatformDomainEvent', () => {
       'record_platform_domain_event_v1',
       expect.objectContaining({
         p_event_data: { page_url: 'https://usebaci.com/' },
+        p_page_url: 'https://usebaci.com/',
+        p_referrer: 'https://example.com/',
       })
     );
   });

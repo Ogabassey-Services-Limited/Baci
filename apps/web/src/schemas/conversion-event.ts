@@ -29,7 +29,13 @@ const conversionCustomDataSchema = z.strictObject({
     .trim()
     .regex(/^[A-Za-z]{3}$/)
     .optional(),
-  order_id: z.string().min(1).max(200).optional(),
+  // Checkout can occur before an order exists. Normalize the legacy empty
+  // sentinel away instead of rejecting an otherwise valid conversion event.
+  order_id: z
+    .string()
+    .max(200)
+    .transform((value) => value.trim() || undefined)
+    .optional(),
   price: z.number().nonnegative().finite().optional(),
   search_string: z.string().max(500).optional(),
   url: z.url().max(2_000).optional(),

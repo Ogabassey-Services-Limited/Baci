@@ -44,7 +44,11 @@ const analyticsCustomDataSchema = z
       .trim()
       .regex(/^[A-Za-z]{3}$/)
       .optional(),
-    order_id: z.string().min(1).max(200).optional(),
+    order_id: z
+      .string()
+      .max(200)
+      .transform((value) => value.trim() || undefined)
+      .optional(),
     price: z.number().nonnegative().finite().optional(),
     search_string: z.string().max(500).optional(),
     url: z.url().max(2_000).optional(),
@@ -97,7 +101,11 @@ export const analyticsEventRequestSchema = z
     item_count: z.number().int().nonnegative().max(10_000).optional(),
     items: z.array(analyticsItemSchema).max(200).optional(),
     merchant_id: z.uuid(),
-    order_id: z.string().min(1).max(200).optional(),
+    order_id: z
+      .string()
+      .max(200)
+      .transform((value) => value.trim() || undefined)
+      .optional(),
     page_url: z.url().max(2_000).optional(),
     product_category: z.string().max(300).optional(),
     product_id: z.string().min(1).max(200).optional(),

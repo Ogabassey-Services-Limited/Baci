@@ -18,7 +18,13 @@ import { deliverAnalyticsEvent } from './analytics-destination-adapter';
 
 const event: DomainEventV1 = {
   data: {
-    event_data: { product_id: 'sku-1', product_price: 100, quantity: 1 },
+    event_data: {
+      delivery_user_data: { fbc: 'fb.1.1.click', ip: '203.0.113.1' },
+      product_id: 'sku-1',
+      product_price: 100,
+      quantity: 1,
+      search_string: 'phone',
+    },
     event_type: 'add_to_cart',
     source: 'web',
   },
@@ -62,7 +68,18 @@ describe('deliverAnalyticsEvent', () => {
       deliverAnalyticsEvent({} as never, event, 'facebook', controller.signal)
     ).resolves.toEqual({ success: true, terminalOutcome: 'delivered' });
     expect(mocks.sendToAdPlatforms).toHaveBeenCalledWith(
-      expect.objectContaining({ event_id: 'event-1', targets: ['facebook'] }),
+      expect.objectContaining({
+        custom_data: expect.objectContaining({
+          contents: [
+            expect.objectContaining({ id: 'sku-1', price: 100, quantity: 1 }),
+          ],
+          search_string: 'phone',
+        }),
+        event_id: 'event-1',
+        occurred_at: '2026-07-12T12:00:00.000Z',
+        targets: ['facebook'],
+        user_data: { fbc: 'fb.1.1.click', ip: '203.0.113.1' },
+      }),
       { signal: controller.signal }
     );
   });

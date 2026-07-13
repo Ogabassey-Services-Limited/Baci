@@ -181,7 +181,28 @@ export function resolveEventRoute(event: DomainEventV1): EventRouteResolution {
       kind: 'dead_letter',
     };
   }
-  return { destinations: [...definition.destinations], kind: 'route' };
+  const eventData =
+    event.data.event_data && typeof event.data.event_data === 'object'
+      ? (event.data.event_data as Record<string, unknown>)
+      : undefined;
+  const rawTargets = eventData?.targets;
+  const requestedTargets = Array.isArray(rawTargets)
+    ? rawTargets
+        .filter((target): target is string => typeof target === 'string')
+        .map((target) => (target === 'google' ? 'ga4' : target))
+    : undefined;
+  const destinations = requestedTargets
+    ? definition.destinations.filter((destination) =>
+        requestedTargets.includes(destination)
+      )
+    : [...definition.destinations];
+  return destinations.length > 0
+    ? { destinations, kind: 'route' }
+    : { destinations: [], kind: 'no_route' };
+}
+
+export function requiresLegacyPlatformFanout(eventType: string): boolean {
+  return CLIENT_PLATFORM_OBSERVATION_ONLY.has(eventType);
 }
 
 export function toAnalyticsDomainEventName(eventType: string): string {

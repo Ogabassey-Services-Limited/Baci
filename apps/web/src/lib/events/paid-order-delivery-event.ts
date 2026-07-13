@@ -1,6 +1,7 @@
 import type { DomainEventV1 } from '@baci/shared/contracts';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+import { generateFbc } from '@/lib/ad-tracking-cookies';
 import type { ConversionEvent } from '@/lib/analytics/send-to-ad-platforms';
 
 const orderItemSchema = z.object({
@@ -98,7 +99,11 @@ export async function loadPaidOrderDeliveryEvent(
       user_data: {
         email: order.customer_email ?? undefined,
         external_id: order.customer_id ?? undefined,
-        fbc: optionalString(tracking.fbc),
+        fbc:
+          optionalString(tracking.fbc) ??
+          (optionalString(tracking.fbclid)
+            ? generateFbc(optionalString(tracking.fbclid) as string)
+            : undefined),
         fbp: optionalString(tracking.fbp),
         ip: optionalString(tracking.userIp),
         phone: order.customer_phone ?? undefined,

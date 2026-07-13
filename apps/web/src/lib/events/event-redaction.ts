@@ -49,7 +49,7 @@ function isForbiddenKey(key: string): boolean {
   );
 }
 
-function sanitizeUrl(value: string): string {
+export function sanitizeEventUrl(value: string): string {
   try {
     const url = new URL(value);
     url.username = '';
@@ -79,7 +79,7 @@ function redactValue(value: unknown, depth: number): unknown {
     redacted[key] =
       typeof entry === 'string' &&
       /(^|_)(url|referrer)(_|$)/.test(normalizedKey)
-        ? sanitizeUrl(entry)
+        ? sanitizeEventUrl(entry)
         : redactValue(entry, depth + 1);
   }
   return redacted;
