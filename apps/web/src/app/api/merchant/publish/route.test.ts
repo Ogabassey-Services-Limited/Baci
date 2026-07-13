@@ -24,9 +24,11 @@ vi.mock('@/lib/api-auth', () => ({
 
 // Mock cache revalidation
 const mockRevalidateMerchant = vi.fn();
+const mockRevalidateFeatures = vi.fn();
 
 vi.mock('@/lib/cache-revalidation', () => ({
   revalidateMerchant: (...args: unknown[]) => mockRevalidateMerchant(...args),
+  revalidateFeatures: (...args: unknown[]) => mockRevalidateFeatures(...args),
 }));
 
 // Mock Supabase
@@ -372,6 +374,7 @@ describe('POST /api/merchant/publish', () => {
       expect(res.status).toBe(200);
       expect(json.success).toBe(true);
       expect(mockRevalidateMerchant).toHaveBeenCalledWith(MERCHANT_ID);
+      expect(mockRevalidateFeatures).toHaveBeenCalledWith(MERCHANT_ID);
     });
 
     it('returns 500 when payment settings cannot be loaded', async () => {
@@ -391,6 +394,7 @@ describe('POST /api/merchant/publish', () => {
       expect(res.status).toBe(500);
       expect(json.error).toBe('Failed to load payment settings');
       expect(mockRevalidateMerchant).not.toHaveBeenCalled();
+      expect(mockRevalidateFeatures).not.toHaveBeenCalled();
     });
   });
 
@@ -640,6 +644,10 @@ describe('POST /api/merchant/publish', () => {
       expect(json.success).toBe(true);
       expect(json.message).toBe('Store published successfully');
       expect(mockRevalidateMerchant).toHaveBeenCalledWith(MERCHANT_ID);
+      // Publishing flips the is_published-scoped Paystack capability, so the
+      // cached storefront features lookup must be busted too — otherwise the
+      // newly live store serves a stale "Paystack unavailable".
+      expect(mockRevalidateFeatures).toHaveBeenCalledWith(MERCHANT_ID);
     });
 
     it('succeeds when products are available', async () => {
@@ -763,6 +771,7 @@ describe('DELETE /api/merchant/publish', () => {
       expect(json.success).toBe(true);
       expect(json.message).toBe('Store unpublished successfully');
       expect(mockRevalidateMerchant).toHaveBeenCalledWith(MERCHANT_ID);
+      expect(mockRevalidateFeatures).toHaveBeenCalledWith(MERCHANT_ID);
     });
   });
 

@@ -256,6 +256,96 @@ describe('activateMerchantQuizDraft', () => {
     expect(harness.selectArg()).toBe('id, slug, status, title');
   });
 
+  it('ignores a deadline on a NON-ranked quiz (the finalizer skips those)', async () => {
+    // The default harness draft has no ranked-prize settings. Persisting ends_at
+    // on such an event would strand it 'active' (surfaced as `open`) while
+    // start_quiz_attempt rejects every start past the deadline — an open quiz
+    // that can never be played.
+    const harness = buildQuizEventsHarness({
+      data: {
+        id: 'event-1',
+        slug: 'daily-phone-quiz',
+        status: 'active',
+        title: 'Daily Phone Quiz',
+      },
+      error: null,
+    });
+
+    const result = await activateMerchantQuizDraft(
+      harness.supabase,
+      'event-1',
+      'merchant-1',
+      '2999-01-01T00:00:00.000Z'
+    );
+
+    expect(result).toMatchObject({ id: 'event-1', status: 'active' });
+    expect(harness.updatePayload()).toMatchObject({
+      ends_at: null,
+      status: 'active',
+    });
+  });
+
+  it('refuses to activate a ranked-prize draft without a close deadline', async () => {
+    const harness = buildQuizEventsHarness(
+      {
+        data: { id: 'event-1', slug: 'rw', status: 'active', title: 'RW' },
+        error: null,
+      },
+      { data: null, error: null },
+      {
+        data: {
+          settings: {
+            answer_key_reviewed: true,
+            answer_key_reviewed_at: '2026-07-08T12:00:00.000Z',
+            ranked_winner_count: 3,
+          },
+        },
+        error: null,
+      }
+    );
+
+    // No deadline for a ranked-prize quiz -> refused (it would never mint).
+    const result = await activateMerchantQuizDraft(
+      harness.supabase,
+      'event-1',
+      'merchant-1'
+    );
+
+    expect(result).toBeNull();
+    expect(harness.updatePayload()).toBeUndefined();
+  });
+
+  it('activates a ranked-prize draft when a deadline is provided', async () => {
+    const harness = buildQuizEventsHarness(
+      {
+        data: { id: 'event-1', slug: 'rw', status: 'active', title: 'RW' },
+        error: null,
+      },
+      { data: null, error: null },
+      {
+        data: {
+          settings: {
+            answer_key_reviewed: true,
+            answer_key_reviewed_at: '2026-07-08T12:00:00.000Z',
+            ranked_winner_count: 3,
+          },
+        },
+        error: null,
+      }
+    );
+
+    const endsAt = '2999-01-01T00:00:00.000Z';
+    const result = await activateMerchantQuizDraft(
+      harness.supabase,
+      'event-1',
+      'merchant-1',
+      endsAt
+    );
+
+    expect(result).toMatchObject({ id: 'event-1', status: 'active' });
+    expect(harness.updatePayload()).toMatchObject({ ends_at: endsAt });
+  });
+
   it('returns null when the update errors', async () => {
     const harness = buildQuizEventsHarness({
       data: null,

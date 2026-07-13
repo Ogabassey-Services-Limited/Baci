@@ -15044,6 +15044,10 @@ export type Database = {
         };
         Returns: Json;
       };
+      storefront_merchant_has_paystack_subaccount: {
+        Args: { p_merchant_id: string };
+        Returns: boolean;
+      };
       submit_quiz_answer: {
         Args: {
           p_answer: string;

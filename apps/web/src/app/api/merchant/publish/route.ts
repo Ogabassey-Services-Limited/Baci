@@ -4,7 +4,10 @@ import {
   getUserAccess,
   hasPermission,
 } from '@/lib/api-auth';
-import { revalidateMerchant } from '@/lib/cache-revalidation';
+import {
+  revalidateFeatures,
+  revalidateMerchant,
+} from '@/lib/cache-revalidation';
 import {
   getLaunchPaymentRequirement,
   requiresNigerianKycForLaunch,
@@ -239,6 +242,11 @@ export async function POST(request: NextRequest) {
 
     // Invalidate merchant caches so the store becomes visible immediately
     revalidateMerchant(merchant.id);
+    // Storefront payment capability is derived from is_published (the
+    // storefront_merchant_has_paystack_subaccount RPC only reports a subaccount
+    // for a published merchant), so publishing flips it. Bust the features cache
+    // or the live store would keep serving the pre-publish "Paystack off" value.
+    revalidateFeatures(merchant.id);
 
     return NextResponse.json({
       success: true,
@@ -321,6 +329,8 @@ export async function DELETE(request: NextRequest) {
 
     // Invalidate merchant caches so the store goes offline immediately
     revalidateMerchant(merchant.id);
+    // Unpublishing also flips the is_published-scoped payment capability.
+    revalidateFeatures(merchant.id);
 
     return NextResponse.json({
       success: true,

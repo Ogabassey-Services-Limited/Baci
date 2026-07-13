@@ -78,6 +78,16 @@ export const merchantQuizActivationRequestSchema = z.object({
       .max(50),
   }),
   confirmActivation: z.literal(true),
+  // Optional close deadline. Ranked-prize quizzes need an end for the winner-mint
+  // cron to finalize them (a quiz with no ends_at is open-ended and only closes
+  // on an explicit 'completed' update). Must be a future ISO-8601 UTC instant.
+  endsAt: z
+    .string()
+    .datetime({ message: 'endsAt must be an ISO 8601 UTC datetime' })
+    .refine((value) => new Date(value).getTime() > Date.now(), {
+      message: 'endsAt must be in the future',
+    })
+    .optional(),
   eventId: quizUuidSchema,
 });
 
