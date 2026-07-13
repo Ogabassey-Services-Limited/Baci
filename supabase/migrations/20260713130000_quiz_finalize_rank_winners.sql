@@ -241,6 +241,16 @@ BEGIN
     WHERE a.event_id = p_event_id
       AND a.status IN ('submitted', 'scored')
       AND a.submitted_at IS NOT NULL
+      -- Exclude OVERLONG submissions from ranking: an attempt that took longer
+      -- than the 1-hour max-play window (a 10-topic × 5-question × 60s quiz maxes
+      -- at ~50 min) exceeded the fair play window — the player idled well past the
+      -- per-question timers. This mirrors the abandoned-attempt expiry, which
+      -- forfeits never-submitted overlong attempts, so a late-but-submitted attempt
+      -- can't win either. A NULL started_at (should not occur) is admitted.
+      AND (
+        a.started_at IS NULL
+        OR a.submitted_at - a.started_at <= interval '1 hour'
+      )
     ORDER BY
       a.customer_id,
       a.score DESC,

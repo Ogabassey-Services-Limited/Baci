@@ -76,6 +76,7 @@ DECLARE
   v_e_justended uuid := '00000000-0000-4000-8000-0000000fe007';   -- ends_at within the 2-min settle grace
   v_e_stale uuid := '00000000-0000-4000-8000-0000000fe008';       -- >1h-old 'started' attempt must STILL block (no cutoff)
   v_e_nocashamt uuid := '00000000-0000-4000-8000-0000000fe009';    -- cash prize with NO amount -> awards must be 'pending'
+  v_e_overlong uuid := '00000000-0000-4000-8000-0000000fe010';     -- >1h submission must be excluded from ranking
   v_a1 uuid := '00000000-0000-4000-8000-0000000fa011'; -- c1 best
   v_a2 uuid := '00000000-0000-4000-8000-0000000fa012'; -- c1 lower (dedup target)
   v_a3 uuid := '00000000-0000-4000-8000-0000000fa013'; -- c2
@@ -99,6 +100,7 @@ DECLARE
   v_nocashamt_minted integer;
   v_pending_cash integer;
   v_approved_cash integer;
+  v_overlong_minted integer;
 BEGIN
   -- Non-NGN payout currency: awards must be stored in it, not hard-coded NGN.
   INSERT INTO public.merchants (id, email, payout_currency) VALUES (v_merchant, 'rank-winners@test.com', 'KES');
@@ -145,7 +147,11 @@ BEGIN
     -- grand is payable (approved); rank 2+ cash have no amount -> must be minted
     -- 'pending' (unclaimable) so a payout can't be claimed before it exists.
     (v_e_nocashamt, v_merchant, 'rw-nocashamt', 'RW No Cash Amount', 'completed', v_now - interval '1 hour', true, 'NLRC-TEST-PERMIT',
-      '{"ranked_winner_count":3,"grand_prize_amount":50000}'::jsonb);
+      '{"ranked_winner_count":3,"grand_prize_amount":50000}'::jsonb),
+    -- OVERLONG event: its only submission took >1h and must be excluded from
+    -- ranking (nobody eligible -> mints nothing).
+    (v_e_overlong, v_merchant, 'rw-overlong', 'RW Overlong', 'completed', v_now - interval '1 hour', true, 'NLRC-TEST-PERMIT',
+      '{"ranked_winner_count":3,"grand_prize_amount":50000,"cash_prize_amount":10000}'::jsonb);
 
   INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, attempt_number, integrity_tier, score, started_at, submitted_at) VALUES
     (v_a1, v_e_verified, v_c1, 'submitted', 1, 'basic', 10, v_now - interval '10 min', v_now - interval '8 min'),
@@ -185,6 +191,9 @@ BEGIN
   INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, attempt_number, integrity_tier, score, started_at, submitted_at) VALUES
     ('00000000-0000-4000-8000-0000000fa023', v_e_nocashamt, v_c1, 'submitted', 1, 'basic', 10, v_now - interval '10 min', v_now - interval '8 min'),
     ('00000000-0000-4000-8000-0000000fa024', v_e_nocashamt, v_c2, 'submitted', 1, 'basic', 8,  v_now - interval '10 min', v_now - interval '8 min');
+  -- An OVERLONG submission (started 3h ago, submitted 1h ago -> 2h duration).
+  INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, attempt_number, integrity_tier, score, started_at, submitted_at) VALUES
+    ('00000000-0000-4000-8000-0000000fa026', v_e_overlong, v_c1, 'submitted', 1, 'basic', 10, v_now - interval '3 hours', v_now - interval '1 hour');
 
   -- Mint the verified event.
   v_minted := public.mint_quiz_event_ranked_awards(v_e_verified);
@@ -304,6 +313,13 @@ BEGIN
   -- The grand award (payable amount) must still be 'approved'.
   IF NOT EXISTS (SELECT 1 FROM public.quiz_awards WHERE event_id = v_e_nocashamt AND award_type = 'grand' AND status = 'approved' AND amount = 50000) THEN
     RAISE EXCEPTION 'Grand award with a valid amount must be approved';
+  END IF;
+
+  -- Overlong exclusion (F1'): a submission that took >1h is excluded from ranking,
+  -- so an event whose only submission is overlong mints nothing.
+  v_overlong_minted := public.mint_quiz_event_ranked_awards(v_e_overlong);
+  IF v_overlong_minted IS DISTINCT FROM 0 THEN
+    RAISE EXCEPTION 'Overlong (>1h) submission must be excluded from ranking, got %', v_overlong_minted;
   END IF;
 
   -- Fail-closed compliance gate: finalize_due must skip the unverified event.
