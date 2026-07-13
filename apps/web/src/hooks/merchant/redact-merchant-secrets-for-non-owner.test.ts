@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  NON_OWNER_REDACTED_FEATURE_SETTINGS_KEYS,
   NON_OWNER_REDACTED_FIELDS,
   redactMerchantSecretsForNonOwner,
 } from './redact-merchant-secrets-for-non-owner';
@@ -25,7 +26,22 @@ function merchantWithSecrets(): MerchantData {
     tiktok_access_token: 'tt-token',
     snapchat_capi_token: 'snap-token',
     virtual_terminal_code: 'VT-1',
-  } as MerchantData;
+    legal_entity_name: 'Owner Ltd',
+    registered_address: { street: '1 Main', city: 'Lagos' },
+    tax_identification_number: 'TIN-1',
+    cac_rc_number: 'RC-1',
+    kyc_status: 'verified',
+    feature_settings: {
+      // boolean flags staff legitimately need
+      pay_on_delivery_enabled: true,
+      // nested marketing/payment credentials that must be scrubbed
+      facebook_capi_token: 'nested-fb',
+      ga4_api_secret: 'nested-ga4',
+      tiktok_access_token: 'nested-tt',
+      snapchat_capi_token: 'nested-snap',
+      credit_direct_public_key: 'nested-cd-key',
+    },
+  } as unknown as MerchantData;
 }
 
 describe('redactMerchantSecretsForNonOwner', () => {
@@ -44,6 +60,23 @@ describe('redactMerchantSecretsForNonOwner', () => {
     expect(redacted.business_name).toBe('Store');
     expect(redacted.slug).toBe('store');
     expect(redacted.support_email).toBe('support@example.com');
+  });
+
+  it('scrubs nested feature_settings credentials but keeps the flags', () => {
+    const redacted = redactMerchantSecretsForNonOwner(merchantWithSecrets());
+
+    for (const key of NON_OWNER_REDACTED_FEATURE_SETTINGS_KEYS) {
+      expect(redacted.feature_settings?.[key]).toBeUndefined();
+    }
+    // boolean feature flags staff need are preserved
+    expect(redacted.feature_settings?.pay_on_delivery_enabled).toBe(true);
+  });
+
+  it('does not mutate the input feature_settings', () => {
+    const original = merchantWithSecrets();
+    redactMerchantSecretsForNonOwner(original);
+
+    expect(original.feature_settings?.facebook_capi_token).toBe('nested-fb');
   });
 
   it('does not mutate the input', () => {
