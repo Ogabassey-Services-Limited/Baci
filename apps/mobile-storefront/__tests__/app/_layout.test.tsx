@@ -132,8 +132,7 @@ jest.mock('@/services/analytics', () => ({
 }));
 
 jest.mock('@/services/initialize-ad-tracking-for-startup', () => ({
-  initializeAdTrackingForStartup: () =>
-    mockInitializeAdTrackingForStartup(),
+  initializeAdTrackingForStartup: () => mockInitializeAdTrackingForStartup(),
 }));
 
 jest.mock('@/services/orders', () => ({
@@ -216,9 +215,7 @@ describe('RootLayout storage boot gate', () => {
     await waitFor(() => {
       expect(mockInitializeAdTrackingForStartup).toHaveBeenCalledTimes(1);
     });
-    expect(
-      screen.queryByRole('text', { name: 'Store navigation' })
-    ).toBeNull();
+    expect(screen.queryByRole('text', { name: 'Store navigation' })).toBeNull();
 
     await act(async () => {
       resolveAdTracking();

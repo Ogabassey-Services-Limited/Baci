@@ -1,23 +1,16 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, Text, TextInput, View } from 'react-native';
-import {
-  DEFAULT_TRANSLUCENT_PRIMARY,
-  type ThemeColors,
-} from '@/constants/theme';
+import type { ThemeColors } from '@/constants/theme';
 import type { VariantInventoryUnit } from '@/hooks/variantInventory';
-import type { Branch } from '@/schemas/branch';
 import { getTranslucentColor } from '@/lib/colors/sanitize-css-color';
+import type { Branch } from '@/schemas/branch';
+import {
+  badgeTextStyle,
+  type InventoryStatus,
+  inventoryStatuses,
+  selectedBadgeStyle,
+} from './VariantInventoryUnitCard.helpers';
 import { variantInventoryUnitsSheetStyles as styles } from './VariantInventoryUnitsSheet.styles';
-
-type InventoryStatus = VariantInventoryUnit['status'];
-
-const inventoryStatuses: readonly InventoryStatus[] = [
-  'available',
-  'reserved',
-  'sold',
-  'returned',
-  'defective',
-];
 
 interface VariantInventoryUnitCardProps {
   branches: Branch[];
@@ -34,28 +27,6 @@ interface VariantInventoryUnitCardProps {
   onEditStatusChange: (status: InventoryStatus) => void;
   onSaveEdit: (unit: VariantInventoryUnit) => void;
   unit: VariantInventoryUnit;
-}
-
-function selectedBadgeStyle(colors: ThemeColors) {
-  return {
-    backgroundColor: getTranslucentColor(
-      colors.primary,
-      DEFAULT_TRANSLUCENT_PRIMARY,
-      0.08
-    ),
-    borderColor: colors.primary,
-  };
-}
-
-function badgeTextStyle(
-  colors: ThemeColors,
-  isSelected: boolean
-): { color: string; fontSize: number; fontWeight: '600' } {
-  return {
-    color: isSelected ? colors.primary : colors.text,
-    fontSize: 11,
-    fontWeight: '600',
-  };
 }
 
 export function VariantInventoryUnitCard({
@@ -110,7 +81,9 @@ export function VariantInventoryUnitCard({
                     isSelected && selectedBadgeStyle(colors),
                   ]}
                 >
-                  <Text style={badgeTextStyle(colors, isSelected)}>{status}</Text>
+                  <Text style={badgeTextStyle(colors, isSelected)}>
+                    {status}
+                  </Text>
                 </Pressable>
               );
             })}
@@ -153,7 +126,9 @@ export function VariantInventoryUnitCard({
                       isSelected && selectedBadgeStyle(colors),
                     ]}
                   >
-                    <Text style={badgeTextStyle(colors, isSelected)}>{branch.name}</Text>
+                    <Text style={badgeTextStyle(colors, isSelected)}>
+                      {branch.name}
+                    </Text>
                   </Pressable>
                 );
               })}
@@ -187,7 +162,10 @@ export function VariantInventoryUnitCard({
             accessibilityLabel="Cancel editing unit"
             accessibilityRole="button"
             onPress={onCancelEdit}
-            style={[styles.actionButton, { borderColor: colors.border, borderWidth: 1 }]}
+            style={[
+              styles.actionButton,
+              { borderColor: colors.border, borderWidth: 1 },
+            ]}
           >
             <Text style={{ color: colors.text, fontWeight: '600' }}>
               Cancel

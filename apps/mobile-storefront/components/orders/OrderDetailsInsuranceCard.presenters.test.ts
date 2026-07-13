@@ -1,9 +1,9 @@
 import { describe, expect, it } from '@jest/globals';
-import { INSURANCE_COLORS } from './OrderDetailsInsuranceCard.styles';
 import {
   resolveDisplayClaimLabel,
   resolvePolicyStatusColors,
 } from './OrderDetailsInsuranceCard.presenters';
+import { INSURANCE_COLORS } from './OrderDetailsInsuranceCard.styles';
 
 describe('resolvePolicyStatusColors', () => {
   it('maps active and pending to their palettes', () => {
@@ -14,7 +14,9 @@ describe('resolvePolicyStatusColors', () => {
   });
 
   it('routes terminal/unknown states to the neutral inactive palette', () => {
-    expect(resolvePolicyStatusColors('expired')).toBe(INSURANCE_COLORS.inactive);
+    expect(resolvePolicyStatusColors('expired')).toBe(
+      INSURANCE_COLORS.inactive
+    );
     expect(resolvePolicyStatusColors('cancelled')).toBe(
       INSURANCE_COLORS.inactive
     );

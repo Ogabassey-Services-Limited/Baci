@@ -94,7 +94,12 @@ const booking: RepairBookingDetail = {
 
 const baseProps = {
   adminNotesInput: '',
-  allowedNextStatuses: ['confirmed', 'in_progress', 'rejected', 'cancelled'] as const,
+  allowedNextStatuses: [
+    'confirmed',
+    'in_progress',
+    'rejected',
+    'cancelled',
+  ] as const,
   booking,
   colors,
   estimatedCostInput: '',

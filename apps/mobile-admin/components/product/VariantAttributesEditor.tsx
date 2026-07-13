@@ -1,13 +1,13 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { RADIUS, SPACING, type ThemeColors } from '@/constants/theme';
+import type { VariantAttributeFormValue } from '@/lib/product-variant-form';
 import {
   getPairedMetaAttributeIndexes,
   getVariantSwatch,
   isColorAttributeKey,
   partitionVariantAttributes,
 } from '@/lib/variant-attribute-display';
-import type { VariantAttributeFormValue } from '@/lib/product-variant-form';
 import { VARIANT_OPTION_NAME_SUGGESTIONS } from './variant-builder.helpers';
 
 interface VariantAttributesEditorProps {

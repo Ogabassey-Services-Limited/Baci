@@ -155,7 +155,6 @@ export function getCustomerOrderStatusKey(
     case 'processing':
     case 'confirmed':
       return 'confirmed';
-    case 'pending':
     default:
       return 'placed';
   }

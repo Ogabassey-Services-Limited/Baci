@@ -26,7 +26,8 @@ describe('PickerRow', () => {
 
   it('truncates long labels to preserve the fixed row layout used by getItemLayout', () => {
     const onSelect = jest.fn();
-    const longCityName = 'A very long Lagos city name that would otherwise wrap';
+    const longCityName =
+      'A very long Lagos city name that would otherwise wrap';
 
     render(
       <PickerRow

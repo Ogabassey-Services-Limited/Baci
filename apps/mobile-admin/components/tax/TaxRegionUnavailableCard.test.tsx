@@ -39,7 +39,9 @@ describe('TaxRegionUnavailableCard', () => {
   } satisfies TaxCardShadow;
 
   it('explains that tax settings are Nigeria-only without rendering a form', () => {
-    render(<TaxRegionUnavailableCard colors={colors} shadowStyle={shadowStyle} />);
+    render(
+      <TaxRegionUnavailableCard colors={colors} shadowStyle={shadowStyle} />
+    );
 
     expect(screen.getByText('Tax settings unavailable')).toBeInTheDocument();
     expect(

@@ -7,13 +7,13 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { GoogleLogo } from '@/components/icons/GoogleLogo';
 import { loginStepStyles as styles } from '@/components/auth/LoginStep.styles';
+import { GoogleLogo } from '@/components/icons/GoogleLogo';
 import {
   PRIVACY_POLICY_URL,
   TERMS_OF_SERVICE_URL,
 } from '@/components/settings/constants';
-import Colors from '@/constants/Colors';
+import type Colors from '@/constants/Colors';
 import { TextContentTypes } from '@/hooks/use-keyboard';
 
 export type LoginAuthMethod = 'otp' | 'password';

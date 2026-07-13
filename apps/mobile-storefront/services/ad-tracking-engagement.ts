@@ -7,6 +7,7 @@ import {
 } from './ad-tracking-runtime';
 import { sendServerConversion } from './ad-tracking-server-conversion';
 
+// biome-ignore lint/suspicious/useAwait: async isolates tracking failures as promise rejections so a broken analytics provider can never crash the caller's user-facing flow (Codex review, #3084)
 export async function trackSearch(
   query: string,
   resultCount: number
@@ -22,6 +23,7 @@ export async function trackSearch(
   trackTikTokEvent('Search', eventId, { query });
 }
 
+// biome-ignore lint/suspicious/useAwait: async isolates tracking failures as promise rejections so a broken analytics provider can never crash the caller's user-facing flow (Codex review, #3084)
 export async function trackAppOpen(): Promise<void> {
   trackFacebookEvent('fb_mobile_activate_app');
 }
@@ -29,8 +31,11 @@ export async function trackAppOpen(): Promise<void> {
 export async function trackScreenView(
   _screenName: string,
   _screenClass?: string
-): Promise<void> {}
+): Promise<void> {
+  // Not yet wired to a provider; kept as a stable async no-op call site.
+}
 
+// biome-ignore lint/suspicious/useAwait: async isolates tracking failures as promise rejections so a broken analytics provider can never crash the caller's user-facing flow (Codex review, #3084)
 export async function trackSignup(
   method: string,
   userData?: { email?: string; phone?: string; userId?: string }
@@ -54,8 +59,11 @@ export async function trackSignup(
   });
 }
 
-export async function trackLogin(_method: string): Promise<void> {}
+export async function trackLogin(_method: string): Promise<void> {
+  // Not yet wired to a provider; kept as a stable async no-op call site.
+}
 
+// biome-ignore lint/suspicious/useAwait: async isolates tracking failures as promise rejections so a broken analytics provider can never crash the caller's user-facing flow (Codex review, #3084)
 export async function trackCustomEvent(
   eventName: string,
   params?: Record<string, string | number | boolean>

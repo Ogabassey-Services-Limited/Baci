@@ -8,7 +8,7 @@
 module.exports = {
   dependencies: {
     'react-native-reanimated': {
-      root: require('path').dirname(
+      root: require('node:path').dirname(
         require.resolve('react-native-reanimated/package.json')
       ),
     },

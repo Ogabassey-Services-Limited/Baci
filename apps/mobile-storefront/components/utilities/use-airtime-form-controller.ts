@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { type LayoutChangeEvent, type ScrollView } from 'react-native';
+import type { LayoutChangeEvent, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SPACING } from '@/constants/Colors';
 import { NETWORK_PROVIDERS } from '@/constants/network-providers';
@@ -14,8 +14,8 @@ import {
   scrollToAirtimePaymentSection,
 } from './airtime-form-controller.helpers';
 import { getUtilityFooterOffset } from './get-utility-footer-offset';
-import { formatUtilityAmountInput } from './utility-amount-format';
 import { useAirtimePurchaseHandler } from './use-airtime-purchase-handler';
+import { formatUtilityAmountInput } from './utility-amount-format';
 
 const FOOTER_HEIGHT = 120;
 const FOOTER_ERROR_BUFFER = 36;

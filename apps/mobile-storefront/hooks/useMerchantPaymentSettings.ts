@@ -105,7 +105,7 @@ export function useMerchantPaymentSettings() {
 export function getMerchantTaxRate(
   settings: PaymentSettings | undefined | null
 ): number {
-  if (!settings || settings.vat_registration_status !== 'registered') {
+  if (settings?.vat_registration_status !== 'registered') {
     return 0;
   }
   return (settings.vat_rate ?? resolveFallbackVatRate()) / 100;

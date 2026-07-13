@@ -27,7 +27,6 @@ export function matchesOrderListFilter(
       return status === 'delivered';
     case 'closed':
       return status === 'cancelled' || status === 'returned';
-    case 'all':
     default:
       return true;
   }

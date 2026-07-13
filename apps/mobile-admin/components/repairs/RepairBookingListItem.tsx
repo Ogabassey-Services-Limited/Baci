@@ -2,8 +2,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ThemeColors } from '@/constants/theme';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { formatRepairBookingDate } from '@/lib/repairs/format-repair-booking-date';
-import { formatCurrency } from '@/utils/format';
 import type { RepairBookingSummary } from '@/types/repair-booking';
+import { formatCurrency } from '@/utils/format';
 import { RepairStatusBadge } from './RepairStatusBadge';
 
 interface RepairBookingListItemProps {

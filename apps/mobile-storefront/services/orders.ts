@@ -15,8 +15,8 @@ import {
 import { buildOrderPayload } from './orders.payload';
 import { parseOrderResponse } from './orders.response';
 import {
-  CreateOrderRequestSchema,
   type CreateOrderRequest,
+  CreateOrderRequestSchema,
   type OrderItem,
   type OrderResponse,
 } from './orders.schemas';

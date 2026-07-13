@@ -21,7 +21,7 @@
     "android:launch": "bash ./scripts/launch-android-dev-client.sh",
     "check:platform-drift": "node ./scripts/check-platform-drift.mjs",
     "check:module-size": "node ./scripts/check-module-size.mjs",
-    "lint": "expo lint",
+    "lint": "biome check .",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

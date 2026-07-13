@@ -266,8 +266,6 @@ describe('VariantOptionGroupEditor', () => {
       />
     );
 
-    expect(
-      screen.getByLabelText('Add value to Option 3')
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText('Add value to Option 3')).toBeInTheDocument();
   });
 });

@@ -89,7 +89,7 @@ export function getFullyPaidStoreCreditPaymentMethod(
 export function buildWalletOrderFields(
   selection: WalletSelection | undefined
 ): { use_wallet_credit: true; wallet_amount: number } | Record<string, never> {
-  if (!selection || selection.use !== true || !(selection.amount > 0)) {
+  if (selection?.use !== true || !(selection.amount > 0)) {
     return {};
   }
   return {
@@ -110,8 +110,7 @@ export function buildSavingsOrderFields(
   const goalId = selection?.goalId;
   const trimmedGoalId = typeof goalId === 'string' ? goalId.trim() : '';
   if (
-    !selection ||
-    selection.use !== true ||
+    selection?.use !== true ||
     trimmedGoalId.length === 0 ||
     !(selection.amount > 0)
   ) {

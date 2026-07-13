@@ -105,26 +105,24 @@ export function useNetworkState(): UseNetworkStateResult {
         }
 
         wasOffline.current = false;
-      } else {
+      } else if (!offlineDebounceRef.current) {
         // Going OFFLINE — debounce before showing the banner.
         // This filters out brief NetInfo blips on iOS Simulator and
         // during wifi↔cellular handoffs.
-        if (!offlineDebounceRef.current) {
-          offlineDebounceRef.current = setTimeout(() => {
-            offlineDebounceRef.current = null;
-            wasOffline.current = true;
-            setState({
-              isConnected,
-              isInternetReachable,
-              connectionType: netState.type,
-              isOnline: false,
-              wasRecentlyReconnected: false,
-            });
-            if (__DEV__) {
-              console.log('[Network] Device confirmed offline');
-            }
-          }, OFFLINE_DEBOUNCE_MS);
-        }
+        offlineDebounceRef.current = setTimeout(() => {
+          offlineDebounceRef.current = null;
+          wasOffline.current = true;
+          setState({
+            isConnected,
+            isInternetReachable,
+            connectionType: netState.type,
+            isOnline: false,
+            wasRecentlyReconnected: false,
+          });
+          if (__DEV__) {
+            console.log('[Network] Device confirmed offline');
+          }
+        }, OFFLINE_DEBOUNCE_MS);
       }
     };
 

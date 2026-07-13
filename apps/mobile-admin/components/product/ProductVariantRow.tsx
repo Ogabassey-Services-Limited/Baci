@@ -3,11 +3,11 @@ import { Pressable, Text, View } from 'react-native';
 import { VariantEditorFields } from '@/components/product/VariantEditorFields';
 import type { ThemeColors } from '@/constants/theme';
 import type { EditableProductCondition } from '@/lib/product-condition';
-import { getVariantSwatch } from '@/lib/variant-attribute-display';
 import type {
   EditableProductVariant,
   VariantAttributeFormValue,
 } from '@/lib/product-variant-form';
+import { getVariantSwatch } from '@/lib/variant-attribute-display';
 import {
   getVariantSummaryLabel,
   getVariantSummaryMeta,

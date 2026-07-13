@@ -195,9 +195,7 @@ fi
 `,
     });
 
-    expect(
-      dsymScript.match(/PostHog dSYM upload failed/g)
-    ).toHaveLength(1);
+    expect(dsymScript.match(/PostHog dSYM upload failed/g)).toHaveLength(1);
   });
 
   it('wraps the SPM dSYM upload path when only the Pods path was already wrapped', () => {
@@ -219,9 +217,7 @@ fi
 
     expect(dsymScript).toContain('if ! /bin/sh "$PODS_SCRIPT"; then');
     expect(dsymScript).toContain('if ! /bin/sh "$SPM_SCRIPT"; then');
-    expect(
-      dsymScript.match(/PostHog dSYM upload failed/g)
-    ).toHaveLength(2);
+    expect(dsymScript.match(/PostHog dSYM upload failed/g)).toHaveLength(2);
   });
 
   it('does not double-wrap indented Xcode dSYM upload guards', () => {
@@ -244,9 +240,7 @@ fi
     });
 
     expect(dsymScript).not.toContain('if ! if !');
-    expect(
-      dsymScript.match(/PostHog dSYM upload failed/g)
-    ).toHaveLength(2);
+    expect(dsymScript.match(/PostHog dSYM upload failed/g)).toHaveLength(2);
   });
 
   it('looks up the generated dSYM upload phase by Xcode comment and type', () => {

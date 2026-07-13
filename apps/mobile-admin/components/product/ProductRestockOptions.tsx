@@ -3,8 +3,8 @@ import {
   DEFAULT_TRANSLUCENT_PRIMARY,
   type ThemeColors,
 } from '@/constants/theme';
-import type { Branch } from '@/schemas/branch';
 import { getTranslucentColor } from '@/lib/colors/sanitize-css-color';
+import type { Branch } from '@/schemas/branch';
 import { productRestockSheetStyles as styles } from './ProductRestockSheet.styles';
 import {
   type RestockIdentifierMode,

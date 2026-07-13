@@ -41,9 +41,10 @@ describe('buildOrderPaymentBreakdown', () => {
 
     expect(breakdown.showVat).toBe(true);
     // Subtotal shrinks so subtotal + shipping + VAT still equals the total.
-    expect(
-      breakdown.displaySubtotal + 25000 + breakdown.taxAmount
-    ).toBeCloseTo(total, 2);
+    expect(breakdown.displaySubtotal + 25000 + breakdown.taxAmount).toBeCloseTo(
+      total,
+      2
+    );
   });
 
   it('hides the VAT row when no tax was charged', () => {
@@ -83,9 +84,10 @@ describe('buildOrderPaymentBreakdown', () => {
 
     expect(breakdown.showVat).toBe(true);
     expect(breakdown.vatLabel).toBe('VAT');
-    expect(
-      breakdown.displaySubtotal + 25000 + breakdown.taxAmount
-    ).toBeCloseTo(total, 2);
+    expect(breakdown.displaySubtotal + 25000 + breakdown.taxAmount).toBeCloseTo(
+      total,
+      2
+    );
   });
 
   it('balances inclusive VAT lines when the current merchant rate changed', () => {
@@ -102,9 +104,10 @@ describe('buildOrderPaymentBreakdown', () => {
 
     expect(breakdown.showVat).toBe(true);
     expect(breakdown.vatLabel).toBe('VAT (10%)');
-    expect(
-      breakdown.displaySubtotal + 25000 + breakdown.taxAmount
-    ).toBeCloseTo(total, 2);
+    expect(breakdown.displaySubtotal + 25000 + breakdown.taxAmount).toBeCloseTo(
+      total,
+      2
+    );
   });
 
   it('balances backfilled inclusive VAT lines with a discount and shipping', () => {

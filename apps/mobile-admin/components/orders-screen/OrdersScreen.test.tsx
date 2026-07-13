@@ -216,9 +216,7 @@ describe('OrdersScreen', () => {
 
   it("falls back to the merchant's current payout currency when a row has no stamped currency", () => {
     merchantState.payoutCurrency = 'INR';
-    ordersListState.orders = [
-      { ...mockOrder, currency: '', total: 15_000 },
-    ];
+    ordersListState.orders = [{ ...mockOrder, currency: '', total: 15_000 }];
 
     render(<OrdersScreen />);
 

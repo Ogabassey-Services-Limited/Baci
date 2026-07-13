@@ -41,8 +41,7 @@ export default function RepairBookingDetailScreen() {
   });
   const bookingId = routeResult.success ? routeResult.data.id : undefined;
 
-  const { data, error, isLoading, refetch } =
-    useRepairBookingDetail(bookingId);
+  const { data, error, isLoading, refetch } = useRepairBookingDetail(bookingId);
   const booking = data?.booking;
   const updateMutation = useUpdateRepairBooking();
 

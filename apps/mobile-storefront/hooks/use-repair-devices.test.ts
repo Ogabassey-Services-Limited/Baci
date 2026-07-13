@@ -5,9 +5,7 @@ const mocks = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 
 jest.mock('@/lib/repair-catalog-client', () => ({
   fetchRepairDevices: (...args: unknown[]) => mocks(...args),
-  RepairCatalogUnavailableError: class RepairCatalogUnavailableError extends (
-    Error
-  ) {},
+  RepairCatalogUnavailableError: class RepairCatalogUnavailableError extends Error {},
 }));
 
 import { useRepairDevices } from './use-repair-devices';
@@ -86,9 +84,6 @@ describe('useRepairDevices', () => {
     });
 
     await waitFor(() => expect(mocks).toHaveBeenCalledTimes(2));
-    expect(mocks).toHaveBeenLastCalledWith(
-      'iphone',
-      expect.anything()
-    );
+    expect(mocks).toHaveBeenLastCalledWith('iphone', expect.anything());
   });
 });

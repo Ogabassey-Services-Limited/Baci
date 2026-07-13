@@ -140,10 +140,7 @@ describe('GET /api/blog/posts', () => {
       new Error('increment failed')
     );
 
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress console.error noise in test
-      () => {}
-    );
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const response = await GET(
       new NextRequest(
         'http://localhost/api/blog/posts?slug=view-error&trackView=1'

@@ -365,12 +365,14 @@ describe('BuyDomainScreen', () => {
     mocks.getSession.mockResolvedValue({
       data: { session: { access_token: 'tok' } },
     });
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({ error: 'Failed to initialize payment gateway' }),
-        { status: 500, headers: { 'content-type': 'application/json' } }
-      )
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({ error: 'Failed to initialize payment gateway' }),
+          { status: 500, headers: { 'content-type': 'application/json' } }
+        )
+      );
     vi.stubGlobal('fetch', fetchMock);
 
     try {

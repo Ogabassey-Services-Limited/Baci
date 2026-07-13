@@ -13,7 +13,10 @@ vi.mock('@react-native-vector-icons/ionicons', async () => {
 describe('ProductsListEmpty', () => {
   it('renders the icon and title', () => {
     const { container } = render(
-      <ProductsListEmpty icon="calculator-outline" title="Start managing stock" />
+      <ProductsListEmpty
+        icon="calculator-outline"
+        title="Start managing stock"
+      />
     );
 
     expect(screen.getByText('Start managing stock')).toBeTruthy();
@@ -38,7 +41,10 @@ describe('ProductsListEmpty', () => {
 
   it('omits the description when not provided', () => {
     render(
-      <ProductsListEmpty icon="calculator-outline" title="Start managing stock" />
+      <ProductsListEmpty
+        icon="calculator-outline"
+        title="Start managing stock"
+      />
     );
 
     expect(screen.queryByText(/Track inventory/)).toBeNull();

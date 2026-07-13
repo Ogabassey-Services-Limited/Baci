@@ -586,7 +586,6 @@ describe('BlogPostBody', () => {
       );
       const consoleErrorSpy = vi
         .spyOn(console, 'error')
-        // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress expected error log noise
         .mockImplementation(() => {});
 
       render(

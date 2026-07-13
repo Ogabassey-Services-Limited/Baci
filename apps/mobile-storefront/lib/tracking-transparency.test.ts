@@ -57,10 +57,8 @@ describe('tracking transparency wrapper', () => {
       requestTrackingPermissionsAsync,
     }));
 
-    const {
-      getTrackingPermissionStatus,
-      requestTrackingPermissionStatus,
-    } = await import('./tracking-transparency');
+    const { getTrackingPermissionStatus, requestTrackingPermissionStatus } =
+      await import('./tracking-transparency');
 
     await expect(getTrackingPermissionStatus()).resolves.toEqual({
       status: 'granted',
@@ -77,10 +75,8 @@ describe('tracking transparency wrapper', () => {
       getTrackingPermissionsAsync,
     }));
 
-    const {
-      getTrackingPermissionStatus,
-      requestTrackingPermissionStatus,
-    } = await import('./tracking-transparency');
+    const { getTrackingPermissionStatus, requestTrackingPermissionStatus } =
+      await import('./tracking-transparency');
 
     await expect(getTrackingPermissionStatus()).resolves.toEqual({
       status: 'granted',

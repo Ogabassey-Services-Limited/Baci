@@ -78,9 +78,7 @@ describe('UsdtWalletFundingScreen', () => {
       )
     );
     expect(await screen.findByText('TVaultAddress')).toBeTruthy();
-    expect(
-      screen.getByText('Send exactly 65.50 USDT on TRX')
-    ).toBeTruthy();
+    expect(screen.getByText('Send exactly 65.50 USDT on TRX')).toBeTruthy();
   });
 
   it('shows a deposit address returned by a later status poll', async () => {

@@ -1,15 +1,15 @@
 import NetInfo from '@react-native-community/netinfo';
 import * as Crypto from 'expo-crypto';
 import { createLogger } from './logger';
-import {
-  readPersistedOfflineQueueState,
-  writePersistedOfflineQueueState,
-} from './offline-queue-storage';
 import type {
   MutationType,
   OfflineQueueState,
   QueuedMutation,
 } from './offline-queue.types';
+import {
+  readPersistedOfflineQueueState,
+  writePersistedOfflineQueueState,
+} from './offline-queue-storage';
 
 const log = createLogger('OfflineQueue');
 
@@ -239,7 +239,9 @@ class OfflineQueueManager {
 
   private notifyListeners(): void {
     const state = this.getState();
-    this.listeners.forEach((listener) => listener(state));
+    this.listeners.forEach((listener) => {
+      listener(state);
+    });
   }
 }
 

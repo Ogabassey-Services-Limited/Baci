@@ -123,14 +123,15 @@ describe('sendServerConversion', () => {
   it('aborts timed-out requests without throwing', async () => {
     jest.useFakeTimers();
     mockGetIsTrackingAllowed.mockReturnValue(true);
-    mockFetch.mockImplementationOnce((_input, init) =>
-      new Promise((_resolve, reject) => {
-        init?.signal?.addEventListener('abort', () => {
-          const error = new Error('The operation was aborted');
-          error.name = 'AbortError';
-          reject(error);
-        });
-      })
+    mockFetch.mockImplementationOnce(
+      (_input, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => {
+            const error = new Error('The operation was aborted');
+            error.name = 'AbortError';
+            reject(error);
+          });
+        })
     );
     const { sendServerConversion } = await import(
       './ad-tracking-server-conversion'

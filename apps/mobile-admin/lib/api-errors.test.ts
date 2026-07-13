@@ -68,7 +68,9 @@ describe('api errors', () => {
     });
 
     it('does not treat unrelated errors as connectivity failures', () => {
-      expect(isConnectivityError(new Error('Something else broke'))).toBe(false);
+      expect(isConnectivityError(new Error('Something else broke'))).toBe(
+        false
+      );
       expect(isConnectivityError('nope')).toBe(false);
       expect(isConnectivityError(null)).toBe(false);
     });

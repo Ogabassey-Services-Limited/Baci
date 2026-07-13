@@ -26,7 +26,7 @@ export function useUnlinkedOrderItemReconciliation() {
   } = useQuery({
     enabled: Boolean(merchant?.id),
     queryKey: ['unlinked-order-items', merchant?.id],
-    queryFn: async () => {
+    queryFn: () => {
       if (!merchant?.id) {
         throw new Error('Merchant context is not ready');
       }

@@ -120,10 +120,7 @@ describe('notifyRepairStatusChange', () => {
   });
 
   it('does not push (but still emails) when the customer lookup errors', async () => {
-    const consoleSpy = vi
-      .spyOn(console, 'error')
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress expected test logging
-      .mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     mocks.maybeSingle.mockResolvedValueOnce({
       data: null,
       error: { message: 'db down' },
@@ -139,10 +136,7 @@ describe('notifyRepairStatusChange', () => {
   });
 
   it('never throws when the email send fails', async () => {
-    const consoleSpy = vi
-      .spyOn(console, 'error')
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress expected test logging
-      .mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     mocks.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
     mocks.sendEmail.mockRejectedValueOnce(new Error('smtp down'));
 
@@ -154,10 +148,7 @@ describe('notifyRepairStatusChange', () => {
   });
 
   it('never throws when the push send fails', async () => {
-    const consoleSpy = vi
-      .spyOn(console, 'error')
-      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress expected test logging
-      .mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     mocks.maybeSingle.mockResolvedValueOnce({
       data: { user_id: 'user-1' },
       error: null,

@@ -20,9 +20,9 @@ describe('repairBookingRouteParamsSchema', () => {
   });
 
   it('fails when id is not a valid UUID', () => {
-    expect(
-      repairBookingRouteParamsSchema.safeParse({ id: '' }).success
-    ).toBe(false);
+    expect(repairBookingRouteParamsSchema.safeParse({ id: '' }).success).toBe(
+      false
+    );
     expect(
       repairBookingRouteParamsSchema.safeParse({ id: 'ticket-123' }).success
     ).toBe(false);

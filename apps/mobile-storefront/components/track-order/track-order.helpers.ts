@@ -1,8 +1,8 @@
-import {
-  getCustomerOrderStatusKey,
-  type CustomerOrderStatusKey,
-} from '@/lib/customer-order-status';
 import { BRAND } from '@/constants/Colors';
+import {
+  type CustomerOrderStatusKey,
+  getCustomerOrderStatusKey,
+} from '@/lib/customer-order-status';
 
 export function formatTrackOrderPrice(
   amount: number,

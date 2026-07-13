@@ -3,6 +3,7 @@ import { formatVariantAttributesSummary } from '@/lib/format-variant-attributes'
 import { formatProductCondition } from '@/lib/product-condition';
 import type { EditableProductVariant } from '@/lib/product-variant-form';
 import { isMetaAttributeKey } from '@/lib/variant-attribute-display';
+
 export { getCurrencySymbol } from './product.shared';
 
 export function getVariantSummaryLabel(

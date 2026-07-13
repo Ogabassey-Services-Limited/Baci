@@ -31,10 +31,7 @@ describe('useUpdateRepairBooking', () => {
     });
 
     const mutation = useUpdateRepairBooking() as unknown as {
-      mutationFn: (vars: {
-        id: string;
-        status?: string;
-      }) => Promise<unknown>;
+      mutationFn: (vars: { id: string; status?: string }) => Promise<unknown>;
     };
 
     await mutation.mutationFn({ id: 'booking-1', status: 'confirmed' });
@@ -87,10 +84,7 @@ describe('useUpdateRepairBooking', () => {
       ) => void;
     };
 
-    mutation.onSuccess(
-      { booking: { id: 'booking-1' } },
-      { id: 'booking-1' }
-    );
+    mutation.onSuccess({ booking: { id: 'booking-1' } }, { id: 'booking-1' });
 
     expect(mocks.setQueryData).toHaveBeenCalledWith(
       ['repair-booking', 'booking-1'],

@@ -55,7 +55,10 @@ describe('RepairDeviceDetailView', () => {
 
   it('renders the device name, quote, and "From" price', () => {
     render(
-      <RepairDeviceDetailView detail={detailWithQuotes} onBookQuote={onBookQuote} />
+      <RepairDeviceDetailView
+        detail={detailWithQuotes}
+        onBookQuote={onBookQuote}
+      />
     );
 
     expect(screen.getByText('iPhone 13')).toBeTruthy();
@@ -81,7 +84,10 @@ describe('RepairDeviceDetailView', () => {
 
   it('calls onBookQuote with the selected quote when its CTA is pressed', () => {
     render(
-      <RepairDeviceDetailView detail={detailWithQuotes} onBookQuote={onBookQuote} />
+      <RepairDeviceDetailView
+        detail={detailWithQuotes}
+        onBookQuote={onBookQuote}
+      />
     );
 
     fireEvent.press(screen.getByLabelText('Book Screen Replacement'));

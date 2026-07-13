@@ -165,9 +165,7 @@ describe('VariantBuilderSheet', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'set-name-0' }));
     fireEvent.click(screen.getByRole('button', { name: 'add-value-0' }));
-    fireEvent.click(
-      screen.getByRole('button', { name: 'add-second-value-0' })
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'add-second-value-0' }));
 
     const generateButton = screen.getByRole('button', {
       name: 'Generate 2 variants',
@@ -219,13 +217,11 @@ describe('VariantBuilderSheet', () => {
       />
     );
 
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Add another option' })
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Add another option' }));
 
-    expect(
-      screen.getAllByRole('button', { name: /^set-name-/ })
-    ).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: /^set-name-/ })).toHaveLength(
+      2
+    );
     expect(onGenerate).not.toHaveBeenCalled();
   });
 

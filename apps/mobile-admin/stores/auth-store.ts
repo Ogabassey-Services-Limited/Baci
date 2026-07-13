@@ -12,8 +12,8 @@ import {
   classifyAuthError,
   getAuthErrorCode,
 } from '@/lib/auth/auth-error-classification';
-import { createAuthStateController } from '@/lib/auth/auth-state-controller';
 import { removeAuthStorageKeys } from '@/lib/auth/auth-session-storage';
+import { createAuthStateController } from '@/lib/auth/auth-state-controller';
 import {
   type PasswordSignUpResult,
   runPasswordSignUp,
@@ -171,7 +171,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         setState: (state) => set(state),
       }),
 
-    signInWithGoogle: async () => {
+    signInWithGoogle: () => {
       return runSocialSignIn('google', {
         getCurrentUserId: () => get().user?.id,
         nativeSignIn: async () => {
@@ -185,7 +185,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
       });
     },
 
-    signInWithApple: async () => {
+    signInWithApple: () => {
       return runSocialSignIn('apple', {
         getCurrentUserId: () => get().user?.id,
         nativeSignIn: async () => {
@@ -211,7 +211,10 @@ export const useAuthStore = create<AuthStore>((set, get) => {
       try {
         await resetUserStores();
       } catch (error) {
-        console.warn('[AuthStore] resetUserStores failed during sign-out', error);
+        console.warn(
+          '[AuthStore] resetUserStores failed during sign-out',
+          error
+        );
       }
 
       let signOutError: unknown = null;

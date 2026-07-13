@@ -17,7 +17,7 @@ interface StartWalletFundedBankTransferCheckoutParams {
   trackingToken?: string | null;
 }
 
-export async function startWalletFundedBankTransferCheckout({
+export function startWalletFundedBankTransferCheckout({
   isOrderInFlight,
   orderId,
   orderNumber,

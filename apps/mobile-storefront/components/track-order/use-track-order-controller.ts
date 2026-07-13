@@ -1,10 +1,10 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
+import type { TrackOrderData } from './TrackOrderScreen.types';
 import {
   TRACK_ORDER_API_BASE_URL,
   TRACK_ORDER_MERCHANT_SLUG,
 } from './track-order.config';
-import type { TrackOrderData } from './TrackOrderScreen.types';
 
 type TrackOrderState = {
   data: TrackOrderData | null;
@@ -68,8 +68,7 @@ export function useTrackOrderController() {
       controller.abort();
     }, 20_000);
 
-    const isStale = () =>
-      cancelled || latestTokenRef.current !== trackingToken;
+    const isStale = () => cancelled || latestTokenRef.current !== trackingToken;
 
     fetchTrackedOrder(trackingToken, controller.signal)
       .then((nextData) => {

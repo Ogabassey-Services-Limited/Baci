@@ -1,5 +1,5 @@
-import { describe, expect, it, jest } from '@jest/globals';
 import { createContext, Script } from 'node:vm';
+import { describe, expect, it, jest } from '@jest/globals';
 import { PAYMENT_CLIPBOARD_BRIDGE } from '@/constants/payment-clipboard-bridge';
 
 function escapeRegex(value: string) {
@@ -293,8 +293,6 @@ describe('PAYMENT_CLIPBOARD_BRIDGE', () => {
           observedTargets.push({ options, target });
         }
       );
-
-      constructor(_callback: () => void) {}
     }
     const windowMock = {
       MutationObserver: WindowMutationObserverMock,

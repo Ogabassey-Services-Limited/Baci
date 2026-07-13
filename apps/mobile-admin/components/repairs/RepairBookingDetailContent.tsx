@@ -2,8 +2,8 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import type { ThemeColors } from '@/constants/theme';
 import { formatRepairBookingDate } from '@/lib/repairs/format-repair-booking-date';
 import { getRepairStatusLabel } from '@/lib/repairs/repair-status';
-import { formatCurrency } from '@/utils/format';
 import type { RepairBookingDetail, RepairStatus } from '@/types/repair-booking';
+import { formatCurrency } from '@/utils/format';
 import { repairBookingDetailStyles as styles } from './RepairBookingDetailContent.styles';
 import { RepairStatusBadge } from './RepairStatusBadge';
 

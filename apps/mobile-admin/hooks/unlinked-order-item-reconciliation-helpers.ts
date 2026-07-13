@@ -80,7 +80,7 @@ export async function fetchCandidatePagesInBatches(
   searchTerms: string[],
   merchantId: string
 ) {
-  const pages: Array<AdminProductSearchPage<ProductCandidateRow>> = [];
+  const pages: AdminProductSearchPage<ProductCandidateRow>[] = [];
 
   for (
     let index = 0;

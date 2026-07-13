@@ -90,7 +90,7 @@ export function useCart() {
     },
 
     // Optimistic update - runs immediately before mutationFn
-    onMutate: async (item) => {
+    onMutate: (item) => {
       // Generate a temporary ID for potential rollback
       const rollbackId = `${item.product_id}-${item.variant_id || 'default'}-${Date.now()}`;
 
@@ -143,12 +143,13 @@ export function useCart() {
    * Remove from cart with optimistic update
    */
   const removeFromCartMutation = useMutation({
+    // biome-ignore lint/suspicious/useAwait: react-query's MutationFunction type requires a Promise-returning function
     mutationFn: async (id: string) => {
       // No backend validation needed for removal
       return { id };
     },
 
-    onMutate: async (id) => {
+    onMutate: (id) => {
       // Read fresh from store to avoid stale closure
       const freshItems = useCartStore.getState().items;
       const previousItems = [...freshItems];
@@ -194,7 +195,7 @@ export function useCart() {
       return { id, quantity, stockCheck };
     },
 
-    onMutate: async ({ id, quantity }) => {
+    onMutate: ({ id, quantity }) => {
       // Read fresh from store to avoid stale closure
       const previousItems = [...useCartStore.getState().items];
 

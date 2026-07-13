@@ -141,9 +141,9 @@ export type AuthStateChangeCallback = (
 ) => void;
 
 export function getAuthStateChangeCallback(): AuthStateChangeCallback {
-  const calls = mocks.onAuthStateChange.mock.calls as unknown as Array<
-    [AuthStateChangeCallback]
-  >;
+  const calls = mocks.onAuthStateChange.mock.calls as unknown as [
+    AuthStateChangeCallback,
+  ][];
   const callback = calls.at(-1)?.[0];
 
   expect(callback).toBeDefined();

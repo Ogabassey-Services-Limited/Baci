@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
 import { describe, expect, it, jest } from '@jest/globals';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import { Modal } from 'react-native';
 import { MobileUpdateModal } from './MobileUpdateModal';
 
@@ -61,7 +61,9 @@ describe('MobileUpdateModal', () => {
       />
     );
 
-    expect(screen.getByText('Install the latest app to continue.')).toBeTruthy();
+    expect(
+      screen.getByText('Install the latest app to continue.')
+    ).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Open store' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Later' })).toBeNull();
   });

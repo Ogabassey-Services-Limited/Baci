@@ -67,6 +67,7 @@ export async function trackPurchase(order: TrackedOrder): Promise<void> {
   log.info(`Purchase tracked: ${order.orderId} - ${order.total} ${currency}`);
 }
 
+// biome-ignore lint/suspicious/useAwait: async isolates tracking failures as promise rejections so a broken analytics provider can never crash the caller's user-facing flow (Codex review, #3084)
 export async function trackPaymentInfoAdded(
   paymentMethod: string
 ): Promise<void> {
@@ -81,6 +82,7 @@ export async function trackPaymentInfoAdded(
   });
 }
 
+// biome-ignore lint/suspicious/useAwait: async isolates tracking failures as promise rejections so a broken analytics provider can never crash the caller's user-facing flow (Codex review, #3084)
 export async function trackAddToWishlist(
   product: TrackedWishlistProduct
 ): Promise<void> {

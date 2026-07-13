@@ -1,5 +1,5 @@
-import { describe, expect, it } from '@jest/globals';
 import type { RepairQuoteSummary } from '@baci/shared/repairs';
+import { describe, expect, it } from '@jest/globals';
 import {
   formatQuotePrice,
   formatRepairNaira,

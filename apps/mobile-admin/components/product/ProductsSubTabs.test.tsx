@@ -26,9 +26,7 @@ describe('ProductsSubTabs', () => {
     ).toBeTruthy();
     expect(screen.getByRole('tab', { name: 'Categories (2)' })).toBeTruthy();
     expect(screen.getByRole('tab', { name: 'Low Stock (3)' })).toBeTruthy();
-    expect(
-      screen.getByRole('tab', { name: 'Out of Stock (1)' })
-    ).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Out of Stock (1)' })).toBeTruthy();
     expect(screen.getByRole('tab', { name: 'Top Selling' })).toBeTruthy();
   });
 
@@ -96,9 +94,7 @@ describe('ProductsSubTabs', () => {
       />
     );
 
-    fireEvent.click(
-      screen.getByRole('tab', { name: 'Items (5)' })
-    );
+    fireEvent.click(screen.getByRole('tab', { name: 'Items (5)' }));
 
     expect(onSelect).toHaveBeenCalledWith('all');
   });

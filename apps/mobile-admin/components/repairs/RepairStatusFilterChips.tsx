@@ -1,9 +1,9 @@
 import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import type { ThemeColors } from '@/constants/theme';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import type { RepairBookingsStatusFilter } from '@/hooks/useRepairBookings';
 import { getRepairStatusLabel } from '@/lib/repairs/repair-status';
 import { REPAIR_STATUSES } from '@/types/repair-booking';
-import type { RepairBookingsStatusFilter } from '@/hooks/useRepairBookings';
 
 interface RepairStatusFilterChipsProps {
   colors: ThemeColors;

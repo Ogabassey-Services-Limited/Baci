@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
 import { jest } from '@jest/globals';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import { BRAND } from '@/constants/Colors';
 import { CheckoutDeliveryDefaultCheckbox } from './CheckoutDeliveryDefaultCheckbox';
 
