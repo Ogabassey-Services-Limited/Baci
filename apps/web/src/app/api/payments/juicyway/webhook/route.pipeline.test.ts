@@ -112,12 +112,6 @@ describe('POST /api/payments/juicyway/webhook durable event handoff', () => {
         p_idempotency_key: 'paid-order-ad-tracking:order-123',
       })
     );
-    expect(mocks.scheduleLegacy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        merchantId: 'merchant-123',
-        order: expect.objectContaining({ id: 'order-123', total: '10000' }),
-        scheduleAfter: expect.any(Function),
-      })
-    );
+    expect(mocks.scheduleLegacy).not.toHaveBeenCalled();
   });
 });

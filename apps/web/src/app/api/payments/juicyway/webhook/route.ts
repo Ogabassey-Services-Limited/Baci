@@ -287,12 +287,6 @@ export async function POST(request: NextRequest) {
             conversionOrder,
             { deliveryMode: 'enqueue_only' }
           );
-          scheduleLegacyPurchaseConversion({
-            merchantId: transaction.merchant_id,
-            order: conversionOrder,
-            scheduleAfter: (task) => after(task),
-            supabase: createAdminClient(),
-          });
         }
       }
 

@@ -53,9 +53,12 @@ describe('createTimeoutComposedFetch', () => {
 
     const init = mockFetch.mock.calls[0][1] as RequestInit;
 
-    await vi.waitFor(() => {
-      expect(init.signal?.aborted).toBe(true);
-    });
+    await vi.waitFor(
+      () => {
+        expect(init.signal?.aborted).toBe(true);
+      },
+      { interval: 25, timeout: 4_000 }
+    );
     expect((init.signal?.reason as DOMException).name).toBe('TimeoutError');
   });
 

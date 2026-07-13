@@ -208,21 +208,39 @@ export async function POST(request: NextRequest) {
       }
 
       responseEventId = input.event_id ?? `evt_${crypto.randomUUID()}`;
-      await recordAnalyticsDomainEvent(supabase, {
-        deliveryData: deliveryData(input, request),
-        eventData,
-        eventName: toClientAnalyticsDomainEventName(
+      try {
+        await recordAnalyticsDomainEvent(supabase, {
+          deliveryData: deliveryData(input, request),
+          eventData,
+          eventName: toClientAnalyticsDomainEventName(
+            eventType,
+            context.trustLevel
+          ),
+          eventTimestamp,
           eventType,
-          context.trustLevel
-        ),
-        eventTimestamp,
-        eventType,
-        externalEventId: responseEventId,
-        merchantId: context.merchantId,
-        requestId: request.headers.get('x-request-id') ?? undefined,
-        source: input.source ?? 'web',
-        trustLevel: context.trustLevel,
-      });
+          externalEventId: responseEventId,
+          merchantId: context.merchantId,
+          requestId: request.headers.get('x-request-id') ?? undefined,
+          source: input.source ?? 'web',
+          trustLevel: context.trustLevel,
+        });
+      } catch (error) {
+        if (isLegacyAnalyticsFanoutDisabled()) throw error;
+
+        logger.warn({
+          error,
+          message:
+            'Durable analytics enqueue failed; preserving the event through the legacy shadow path',
+        });
+        const { error: legacyError } = await storeLegacyEvent(
+          supabase,
+          { ...input, event_id: responseEventId },
+          eventType,
+          eventData,
+          eventTimestamp
+        );
+        if (legacyError) throw legacyError;
+      }
     } else {
       const { error } = await storeLegacyEvent(
         supabase,

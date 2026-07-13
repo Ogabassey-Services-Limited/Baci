@@ -2,31 +2,35 @@ import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
+  after: vi.fn(),
   insert: vi.fn(),
+  isConversionEvent: vi.fn(),
+  isLegacyFanoutDisabled: vi.fn(),
   record: vi.fn(),
   resolveContext: vi.fn(),
   rpc: vi.fn(),
+  upsert: vi.fn(),
 }));
 
 vi.mock('@supabase/supabase-js', () => ({
   createClient: () => ({
-    from: () => ({ insert: mocks.insert }),
+    from: () => ({ insert: mocks.insert, upsert: mocks.upsert }),
     rpc: mocks.rpc,
   }),
 }));
 vi.mock('next/server', async () => {
   const actual =
     await vi.importActual<typeof import('next/server')>('next/server');
-  return { ...actual, after: vi.fn() };
+  return { ...actual, after: mocks.after };
 });
 vi.mock('@/lib/analytics/send-to-ad-platforms', () => ({
-  isConversionEvent: () => false,
+  isConversionEvent: mocks.isConversionEvent,
   normalizeEventType: (name: string) => name,
   sendToAdPlatforms: vi.fn(),
 }));
 vi.mock('@/lib/events/event-pipeline-config', () => ({
   isEventPipelineEnqueueEnabled: () => true,
-  isLegacyAnalyticsFanoutDisabled: () => false,
+  isLegacyAnalyticsFanoutDisabled: mocks.isLegacyFanoutDisabled,
   isUnverifiedEventTelemetryEnabled: () => false,
 }));
 vi.mock('@/lib/events/event-ingress-context', () => ({
@@ -61,6 +65,10 @@ function request(merchantId = MERCHANT_ID) {
 describe('POST /api/events durable pipeline', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.insert.mockResolvedValue({ error: null });
+    mocks.upsert.mockResolvedValue({ error: null });
+    mocks.isConversionEvent.mockReturnValue(false);
+    mocks.isLegacyFanoutDisabled.mockReturnValue(false);
     mocks.record.mockResolvedValue({ queue_message_id: 1 });
   });
 
@@ -127,5 +135,25 @@ describe('POST /api/events durable pipeline', () => {
 
     expect(response.status).toBe(403);
     expect(mocks.record).not.toHaveBeenCalled();
+  });
+
+  it('uses legacy persistence and fanout when durable enqueue fails in shadow mode', async () => {
+    mocks.isConversionEvent.mockReturnValue(true);
+    mocks.record.mockRejectedValue(new Error('queue unavailable'));
+    mocks.resolveContext.mockResolvedValue({
+      merchantId: MERCHANT_ID,
+      ok: true,
+      trustLevel: 'tenant_verified_client',
+      verified: true,
+    });
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(200);
+    expect(mocks.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ merchant_id: MERCHANT_ID }),
+      expect.any(Object)
+    );
+    expect(mocks.after).toHaveBeenCalledTimes(1);
   });
 });
