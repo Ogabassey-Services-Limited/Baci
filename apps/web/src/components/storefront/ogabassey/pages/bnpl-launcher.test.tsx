@@ -1145,54 +1145,36 @@ describe('BnplLauncher', () => {
     });
 
     // The whole launch chain is promise-based (no timers), but this file runs
-    // CI-only flake under active investigation: this test failed four CI
-    // cycles (2026-07-11..13) with the error view never rendering, including
-    // once with a 15s budget — so it is NOT runner-load starvation (0/25
-    // local stress failures, per-file isolation rules out cross-file timer
-    // bleed). The retry keeps unrelated PRs unblocked; the catch block dumps
-    // launch-state evidence so the next CI failure identifies where the
-    // credit-direct launch chain actually stalled. Remove both once
-    // root-caused.
-    it(
-      'clears a stale popup marker when retrying from the SDK error view',
-      { retry: 1, timeout: 30_000 },
-      async () => {
-        mockOpenCreditDirectCheckout.mockImplementation(
-          async ({ onPopup, onError }) => {
-            await onPopup('txn-999');
-            onError('SDK failed to open');
-          }
-        );
-
-        render(<BnplLauncher />);
-
-        try {
-          expect(
-            await screen.findByRole(
-              'heading',
-              { name: 'Something went wrong' },
-              { timeout: 15_000 }
-            )
-          ).toBeInTheDocument();
-        } catch (error) {
-          console.error('[bnpl-flake-evidence]', {
-            launchCalls: mockOpenCreditDirectCheckout.mock.calls.length,
-            apiPostCalls: mockApiPost.mock.calls.map((c) => c[0]),
-            marker: readCreditDirectPopupMarker('order-1'),
-            fetchCalls: (window.fetch as ReturnType<typeof vi.fn>).mock?.calls
-              ?.length,
-            bodyText: document.body.textContent?.slice(0, 300),
-          });
-          throw error;
+    // Regression test for the marker-adoption/error race: onPopup stores the
+    // popup marker just before onError fires, and a re-run of the launcher
+    // effect used to adopt that marker and replace the error/retry view with
+    // the payment-verification view (customer stuck "confirming" a popup that
+    // never opened). The launcher now treats the error state as terminal
+    // until the user retries, so the error heading must always win here.
+    it('clears a stale popup marker when retrying from the SDK error view', async () => {
+      mockOpenCreditDirectCheckout.mockImplementation(
+        async ({ onPopup, onError }) => {
+          await onPopup('txn-999');
+          onError('SDK failed to open');
         }
-        expect(readCreditDirectPopupMarker('order-1')?.transactionId).toBe(
-          'txn-999'
-        );
+      );
 
-        fireEvent.click(screen.getByRole('button', { name: 'Try Again' }));
+      render(<BnplLauncher />);
 
-        expect(readCreditDirectPopupMarker('order-1')).toBeNull();
-      }
-    );
+      expect(
+        await screen.findByRole(
+          'heading',
+          { name: 'Something went wrong' },
+          { timeout: 5000 }
+        )
+      ).toBeInTheDocument();
+      expect(readCreditDirectPopupMarker('order-1')?.transactionId).toBe(
+        'txn-999'
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Try Again' }));
+
+      expect(readCreditDirectPopupMarker('order-1')).toBeNull();
+    });
   });
 });

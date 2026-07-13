@@ -702,6 +702,15 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
     }, [gateway, klumpCallback, orderId]);
 
     useEffect(() => {
+        // Error state is terminal until the user explicitly retries: without
+        // this guard, a re-run of this effect (its deps include per-render
+        // snapshots) could adopt the popup marker that onPopup stored just
+        // before onError fired, silently replacing the error/retry view with
+        // the "confirming your payment" verification flow for a popup that
+        // never opened. Retry clears the marker and resets status itself.
+        if (status === 'error') {
+            return;
+        }
         if (gateway === 'credit_direct' && !klumpCallback) {
             if (creditDirectPopupMarker) {
                 return;
@@ -746,6 +755,7 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
         klumpReference,
         klumpTransactionId,
         router,
+        status,
         trackingToken,
         creditDirectPopupMarker,
     ]);
