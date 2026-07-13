@@ -23,7 +23,6 @@ const PUBLIC_MERCHANT_SELECT = `
   country,
   payout_currency,
   pages,
-  google_product_sheet_url,
   slug,
   published_config,
   favicon_svg_url,
