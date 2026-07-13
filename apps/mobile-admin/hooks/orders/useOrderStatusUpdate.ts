@@ -22,8 +22,7 @@ interface OrderStatusVariables {
 
 async function updateOrderStatus(
   orderId: string,
-  status: ShippingStatus,
-  merchantId: string
+  status: ShippingStatus
 ): Promise<Order> {
   const url = `${BASE_URL}/api/orders/${orderId}`;
 
@@ -37,7 +36,6 @@ async function updateOrderStatus(
       url,
       {
         body: JSON.stringify({
-          merchant_id: merchantId,
           shipping_status: status,
         }),
         headers: {
@@ -107,7 +105,7 @@ export function useUpdateOrderStatus() {
         throw new Error('Merchant ID is required');
       }
 
-      return updateOrderStatus(orderId, status, merchant.id);
+      return updateOrderStatus(orderId, status);
     },
     mutationKey: ['updateOrderStatus'],
     onError: (_err, _vars, context) => {

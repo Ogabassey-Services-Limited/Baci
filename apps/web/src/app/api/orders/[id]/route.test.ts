@@ -179,6 +179,7 @@ function createSupabaseMock(
 
   return {
     supabase: supabase as unknown as SupabaseClient,
+    orderUpdateBuilder,
     ordersUpdate,
   };
 }
@@ -219,6 +220,46 @@ describe('PATCH /api/orders/[id]', () => {
       status: 'claimed',
       lockToken: 'lock-1',
     });
+  });
+
+  it('rejects an invalid status before reading or updating the order', async () => {
+    const { supabase } = createSupabaseMock(
+      {
+        id: 'order-1',
+        order_number: 'BACI-001',
+        shipping_status: 'pending',
+        payment_status: 'paid',
+        is_credit_order: false,
+        customer_id: null,
+        selected_quote_id: null,
+        shipping_provider: null,
+        tracking_number: null,
+        shipment_id: null,
+      },
+      {
+        id: 'order-1',
+        shipping_status: 'pending',
+        shipping_provider: null,
+        tracking_number: null,
+      }
+    );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+
+    const response = await PATCH(
+      createPatchRequest({ shipping_status: 'teleported' }),
+      { params: Promise.resolve({ id: 'order-1' }) }
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'INVALID_REQUEST_BODY',
+    });
+    expect(supabase.from).not.toHaveBeenCalled();
+    expect(ensurePaidOrderInventoryConfirmed).not.toHaveBeenCalled();
   });
 
   it('queues the activation reminder when an order is marked completed', async () => {
@@ -490,6 +531,117 @@ describe('PATCH /api/orders/[id]', () => {
       shipping_status: 'shipped',
       tracking_number: 'TRACK-1',
     });
+  });
+
+  it('confirms paid non-provider status changes before committing fulfillment', async () => {
+    const existingOrder: ExistingOrder = {
+      id: 'order-1',
+      order_number: 'BACI-001',
+      shipping_status: 'processing',
+      payment_status: 'pending',
+      is_credit_order: false,
+      customer_id: null,
+      selected_quote_id: null,
+      shipping_provider: null,
+      tracking_number: null,
+      shipment_id: null,
+    };
+    const updatedOrder: UpdatedOrder = {
+      id: 'order-1',
+      shipping_status: 'shipped',
+      shipping_provider: null,
+      tracking_number: null,
+    };
+    const { supabase, ordersUpdate } = createSupabaseMock(
+      existingOrder,
+      updatedOrder
+    );
+
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+
+    const response = await PATCH(
+      createPatchRequest({
+        payment_status: 'paid',
+        shipping_status: 'shipped',
+      }),
+      { params: Promise.resolve({ id: 'order-1' }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(ordersUpdate).toHaveBeenNthCalledWith(1, {
+      payment_status: 'paid',
+    });
+    expect(
+      vi.mocked(ensurePaidOrderInventoryConfirmed).mock.invocationCallOrder[0]
+    ).toBeLessThan(ordersUpdate.mock.invocationCallOrder[1] ?? 0);
+    expect(ordersUpdate).toHaveBeenNthCalledWith(2, {
+      shipping_status: 'shipped',
+    });
+  });
+
+  it('files reconciliation review when the paid pre-update rollback also fails', async () => {
+    const existingOrder: ExistingOrder = {
+      id: 'order-1',
+      order_number: 'BACI-001',
+      shipping_status: 'processing',
+      payment_status: 'pending',
+      is_credit_order: false,
+      customer_id: null,
+      selected_quote_id: null,
+      shipping_provider: null,
+      tracking_number: null,
+      shipment_id: null,
+    };
+    const { supabase, orderUpdateBuilder } = createSupabaseMock(existingOrder, {
+      id: 'order-1',
+      shipping_status: 'shipped',
+      shipping_provider: null,
+      tracking_number: null,
+    });
+    orderUpdateBuilder.single
+      .mockResolvedValueOnce({ data: { id: 'order-1' }, error: null })
+      .mockResolvedValueOnce({
+        data: null,
+        error: { message: 'fulfillment update failed' },
+      });
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+    vi.mocked(
+      rollbackOrderStatusAfterInventoryConfirmationFailure
+    ).mockRejectedValueOnce(new Error('rollback failed'));
+
+    const response = await PATCH(
+      createPatchRequest({
+        payment_status: 'paid',
+        shipping_status: 'shipped',
+      }),
+      { params: Promise.resolve({ id: 'order-1' }) }
+    );
+
+    expect(response.status).toBe(500);
+    expect(
+      rollbackOrderStatusAfterInventoryConfirmationFailure
+    ).toHaveBeenCalledWith(supabase, 'merchant-1', 'order-1', {
+      payment_status: 'pending',
+      shipping_status: 'processing',
+    });
+    expect(fileInventoryConfirmationFailureReview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchantId: 'merchant-1',
+        metadata: expect.objectContaining({
+          rollbackError: 'rollback failed',
+          source: 'merchant_fulfillment_update_after_inventory_confirmation',
+        }),
+        orderId: 'order-1',
+      })
+    );
   });
 
   it('does not book a paid provider shipment when serialized inventory is unavailable', async () => {

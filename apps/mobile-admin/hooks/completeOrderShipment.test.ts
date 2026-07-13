@@ -171,6 +171,12 @@ describe('completeOrderShipment', () => {
       queryKey: ['dashboard-stats'],
     });
     expect(result.title).toBe('Order Shipped');
+    expect(result.message).toContain('notification has been queued');
+    expect(mocks.fetch).toHaveBeenCalledTimes(1);
+    expect(mocks.fetch).toHaveBeenCalledWith(
+      'https://example.com/api/shipping/self-fulfill',
+      expect.any(Object)
+    );
     // With a rider phone, the success modal offers the "Send to Rider" action.
     expect(result.showAction).toBe(true);
     expect(result.actionLabel).toBe('Send Order Details to Rider');

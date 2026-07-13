@@ -36,6 +36,7 @@ const WEB_CRON_CONFIG = new Map([
     { method: 'GET', timeoutMs: 5 * 60_000 },
   ],
   ['/api/cron/wallet-payouts', { method: 'GET', timeoutMs: 5 * 60_000 }],
+  ['/api/cron/order-notifications', { method: 'GET', timeoutMs: 5 * 60_000 }],
   ['/api/inventory/push-alerts', { method: 'GET', timeoutMs: 10 * 60_000 }],
   [
     '/api/cron/storefront-update-nudge',
@@ -81,15 +82,26 @@ function buildWebCronRequest({ baseUrl, path }) {
   if (!baseUrl) {
     throw new Error('BACI_WEB_BASE_URL is required');
   }
-  const webCronConfig = getWebCronConfig(path);
+  if (
+    typeof path !== 'string' ||
+    !path.startsWith('/') ||
+    path.startsWith('//')
+  ) {
+    throw new Error('Web cron path must be a root-relative path');
+  }
 
-  const url = new URL(path, baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`);
-  if (url.protocol !== 'https:') {
+  const base = new URL(baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`);
+  if (base.protocol !== 'https:') {
     throw new Error('BACI_WEB_BASE_URL must use https');
   }
-  if (url.username || url.password) {
+  if (base.username || base.password) {
     throw new Error('BACI_WEB_BASE_URL must not contain credentials');
   }
+  const url = new URL(path, base);
+  if (url.origin !== base.origin) {
+    throw new Error('Web cron path must resolve within BACI_WEB_BASE_URL');
+  }
+  const webCronConfig = getWebCronConfig(url.pathname);
 
   return { url: url.toString(), webCronConfig };
 }

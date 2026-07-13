@@ -274,7 +274,7 @@ describe('syncJumiaOrdersForActiveIntegrations', () => {
         orders: [existingCanonicalQuery, updateOrderQuery],
       },
       {
-        replace_order_items: [{ error: null }],
+        replace_order_items_suppressing_order_notifications: [{ error: null }],
       }
     );
 
