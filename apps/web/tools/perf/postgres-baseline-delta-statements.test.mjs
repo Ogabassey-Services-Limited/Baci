@@ -76,4 +76,27 @@ describe('postgres baseline statement deltas', () => {
 
     expect(result.statement_deltas).toHaveLength(51);
   });
+
+  it.each([
+    ['blank string', '', '10'],
+    ['boolean', false, '10'],
+    ['unsafe number', Number.MAX_SAFE_INTEGER + 1, '9007199254740993'],
+  ])('rejects a %s statement integer counter', (_kind, beforeCalls, afterCalls) => {
+    expect(() =>
+      createDelta({
+        afterRaw: raw(
+          snapshot({
+            captured_at: END,
+            statements: [statement({ calls: afterCalls })],
+          })
+        ),
+        beforeRaw: raw(
+          snapshot({ statements: [statement({ calls: beforeCalls })] })
+        ),
+        deployedSha: 'b'.repeat(40),
+      })
+    ).toThrow(
+      /before\.statements\[0\]\.calls must be a non-negative integer string/i
+    );
+  });
 });

@@ -34,6 +34,7 @@ const DECIMAL_COUNTERS = new Set([
   'temp_blk_read_time',
   'temp_blk_write_time',
 ]);
+const INTEGER_STRING = /^\d+$/;
 
 function requiredString(statement, field, label) {
   const value = statement?.[field];
@@ -81,6 +82,11 @@ function parseCounter(value, counter, label) {
       throw new Error(`${label}.${counter} must be a non-negative number`);
     }
     return parsed;
+  }
+  if (typeof value !== 'string' || !INTEGER_STRING.test(value)) {
+    throw new Error(
+      `${label}.${counter} must be a non-negative integer string`
+    );
   }
   try {
     const parsed = BigInt(value);
