@@ -290,9 +290,12 @@ describe('/api/merchant/payment-credentials', () => {
       'live',
       SECRET_KEY
     );
+    // Scoped to the environment that was actually validated — stamping the other
+    // one would mark never-checked live keys as good (Codex pass-10 P2).
     expect(touchMerchantCredentialValidated).toHaveBeenCalledWith(
       MERCHANT_ID,
-      'paypal'
+      'paypal',
+      expect.stringMatching(/^(test|live)$/)
     );
     expect(body.configured).toBe(true);
     expect(JSON.stringify(body)).not.toContain(CLIENT_ID);
@@ -445,7 +448,8 @@ describe('/api/merchant/payment-credentials', () => {
     expect(deleteMerchantCredentials).not.toHaveBeenCalled();
     expect(touchMerchantCredentialValidated).toHaveBeenCalledWith(
       MERCHANT_ID,
-      'paypal'
+      'paypal',
+      expect.stringMatching(/^(test|live)$/)
     );
   });
 });

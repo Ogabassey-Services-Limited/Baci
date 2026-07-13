@@ -65,11 +65,17 @@ export async function filePaypalCapturePersistFailureReview({
     }
 
     if (error.code === POSTGRES_UNIQUE_VIOLATION) {
-      logger.info({
+      // The unique index is (issue_type, order_id), but this helper files MANY
+      // distinct problems (duplicate capture, failed refund, mode mismatch, stale
+      // amount…) across different transactions of the same order. Treating every
+      // 23505 as a retry no-op therefore DROPS the second, different problem from
+      // the ops queue. Append it to the existing row instead, so nothing is lost.
+      await appendOccurrenceToExistingReview(supabase, {
         gatewayReference,
-        message:
-          'paypal_capture_persist_failed reconciliation already filed (expected retry no-op)',
+        merchantId,
+        metadata,
         orderId,
+        reason,
         transactionId,
       });
       return;
@@ -88,6 +94,98 @@ export async function filePaypalCapturePersistFailureReview({
       gatewayReference,
       message:
         'Failed to file PayPal capture-persist reconciliation review (threw)',
+      orderId,
+      transactionId,
+    });
+  }
+}
+
+/**
+ * Folds a NEW distinct problem into the order's existing open review row.
+ *
+ * The `(issue_type, order_id)` unique index means only one row per order can
+ * exist for this issue type, but the same order can hit several genuinely
+ * different problems (a duplicate capture, then a refund that failed, then a mode
+ * mismatch) — possibly on different transactions. Suppressing those as retries
+ * would quietly shrink the ops queue to the first event, so each subsequent one is
+ * appended to `metadata.occurrences` and the row's `reason` is refreshed to the
+ * latest.
+ *
+ * Best-effort and non-throwing: the money is already captured, and the caller's
+ * error response matters more than this bookkeeping.
+ */
+async function appendOccurrenceToExistingReview(
+  supabase: ReturnType<typeof createAdminClient>,
+  {
+    gatewayReference,
+    merchantId,
+    metadata,
+    orderId,
+    reason,
+    transactionId,
+  }: {
+    gatewayReference: string | null;
+    merchantId: string;
+    metadata?: Record<string, unknown>;
+    orderId: string;
+    reason: string;
+    transactionId: string | null;
+  }
+): Promise<void> {
+  const { data: existing, error: readError } = await supabase
+    .from('reconciliation_review')
+    .select('id, metadata')
+    .eq('issue_type', RECONCILIATION_ISSUE_TYPE)
+    .eq('order_id', orderId)
+    .maybeSingle();
+
+  if (readError || !existing) {
+    logger.error({
+      error: readError,
+      gatewayReference,
+      message:
+        'PayPal review row conflicted but could not be read back to append the new occurrence',
+      orderId,
+      transactionId,
+    });
+    return;
+  }
+
+  const existingMetadata =
+    (existing.metadata as Record<string, unknown> | null) ?? {};
+  const occurrences = Array.isArray(existingMetadata.occurrences)
+    ? (existingMetadata.occurrences as unknown[])
+    : [];
+
+  const { error: updateError } = await supabase
+    .from('reconciliation_review')
+    .update({
+      reason,
+      paystack_ref: gatewayReference,
+      txn_id: transactionId,
+      metadata: {
+        ...existingMetadata,
+        occurrences: [
+          ...occurrences,
+          {
+            ...(metadata ?? {}),
+            reason,
+            merchant_id: merchantId,
+            txn_id: transactionId,
+            gateway_reference: gatewayReference,
+            at: new Date().toISOString(),
+          },
+        ],
+      },
+    })
+    .eq('id', existing.id);
+
+  if (updateError) {
+    logger.error({
+      error: updateError,
+      gatewayReference,
+      message:
+        'Failed to append a new PayPal reconciliation occurrence to the existing review row',
       orderId,
       transactionId,
     });

@@ -224,7 +224,9 @@ export async function POST(request: NextRequest) {
       }
       throw writeError;
     }
-    await touchMerchantCredentialValidated(merchantId, provider);
+    // Only the environment we actually validated may be stamped — see
+    // touchMerchantCredentialValidated.
+    await touchMerchantCredentialValidated(merchantId, provider, environment);
 
     const rows = await getMerchantPaymentCredentialMeta(merchantId, provider);
     return jsonNoStore(toStatusResponse(rows));

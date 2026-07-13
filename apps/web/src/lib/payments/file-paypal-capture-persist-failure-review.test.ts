@@ -5,6 +5,14 @@ import { filePaypalCapturePersistFailureReview } from './file-paypal-capture-per
 vi.mock('server-only', () => ({}));
 
 const insertMock = vi.hoisted(() => vi.fn());
+// The 23505 path reads the existing row back and appends the new occurrence to
+// it, so the mock has to support select/update as well as insert.
+const existingRowMock = vi.hoisted(() =>
+  vi.fn(() => ({ data: null, error: null }) as Record<string, unknown>)
+);
+const updateMock = vi.hoisted(() =>
+  vi.fn((_payload: Record<string, unknown>) => ({ error: null }))
+);
 
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: vi.fn(() => ({
@@ -12,7 +20,17 @@ vi.mock('@/lib/supabase/admin', () => ({
       if (table !== 'reconciliation_review') {
         throw new Error(`Unexpected table: ${table}`);
       }
-      return { insert: insertMock };
+      const builder: Record<string, unknown> = {
+        insert: insertMock,
+        select: () => builder,
+        eq: () => builder,
+        maybeSingle: () => Promise.resolve(existingRowMock()),
+        update: (payload: Record<string, unknown>) => {
+          updateMock(payload);
+          return builder;
+        },
+      };
+      return builder;
     }),
   })),
 }));
@@ -69,16 +87,56 @@ describe('filePaypalCapturePersistFailureReview', () => {
     );
   });
 
-  it('treats a duplicate open review as a no-op', async () => {
+  it('appends a DISTINCT later problem to the order’s open review instead of dropping it (Codex pass-10 P2)', async () => {
+    // The unique index is (issue_type, order_id), but this helper files many
+    // different problems for the same order (duplicate capture, then a refund that
+    // failed…). Treating every 23505 as a retry no-op silently shrank the ops
+    // queue to the first event.
     insertMock.mockResolvedValue({ error: { code: '23505' } });
+    existingRowMock.mockReturnValue({
+      data: {
+        id: 'review-1',
+        metadata: { stage: 'captured_after_settlement' },
+      },
+      error: null,
+    });
+
+    await expect(
+      filePaypalCapturePersistFailureReview({
+        ...baseArgs,
+        reason: 'Refund of the duplicate capture failed',
+        metadata: { stage: 'duplicate_refund_failed' },
+      })
+    ).resolves.toBeUndefined();
+
+    const payload = updateMock.mock.calls[0][0] as unknown as {
+      reason: string;
+      metadata: { occurrences: Record<string, unknown>[] };
+    };
+    expect(payload.reason).toBe('Refund of the duplicate capture failed');
+    expect(payload.metadata.occurrences).toHaveLength(1);
+    expect(payload.metadata.occurrences[0]).toMatchObject({
+      stage: 'duplicate_refund_failed',
+      txn_id: 'txn-1',
+    });
+    // The original problem is preserved alongside the new one.
+    expect(payload.metadata).toMatchObject({
+      stage: 'captured_after_settlement',
+    });
+  });
+
+  it('logs when a conflicting review row cannot be read back to append to', async () => {
+    insertMock.mockResolvedValue({ error: { code: '23505' } });
+    existingRowMock.mockReturnValue({ data: null, error: null });
 
     await expect(
       filePaypalCapturePersistFailureReview(baseArgs)
     ).resolves.toBeUndefined();
-    expect(logger.info).toHaveBeenCalledWith(
+
+    expect(logger.error).toHaveBeenCalledWith(
       expect.objectContaining({
         message:
-          'paypal_capture_persist_failed reconciliation already filed (expected retry no-op)',
+          'PayPal review row conflicted but could not be read back to append the new occurrence',
       })
     );
   });

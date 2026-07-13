@@ -197,12 +197,18 @@ export async function markMerchantCredentialInvalid(
 }
 
 /**
- * Records a successful provider validation for every stored role under a
- * provider and clears any prior validation error.
+ * Records a successful provider validation for the stored roles of ONE
+ * environment and clears any prior validation error.
+ *
+ * Environment-scoped deliberately: the provider check only ever exercises the
+ * credentials that were just submitted, so stamping the other environment too
+ * would mark never-validated live keys as good and let readiness/publish launch
+ * PayPal on credentials that fail at a real customer checkout.
  */
 export async function touchMerchantCredentialValidated(
   merchantId: string,
-  provider: PaymentProvider
+  provider: PaymentProvider,
+  environment: PaymentCredentialEnvironment
 ): Promise<void> {
   const supabase = createAdminClient();
   const { error } = await supabase.rpc(
@@ -210,6 +216,7 @@ export async function touchMerchantCredentialValidated(
     {
       p_merchant_id: merchantId,
       p_provider: provider,
+      p_environment: environment,
     }
   );
 
