@@ -109,6 +109,9 @@ describe('quiz identity and device cap migration', () => {
       /UPDATE public\.quiz_attempt_devices[\s\S]*?SET allowed = false/i
     );
     expect(internalBindFunction).toMatch(
+      /DELETE FROM public\.quiz_attempt_questions[\s\S]*?WHERE attempt_id = p_attempt_id/i
+    );
+    expect(internalBindFunction).toMatch(
       /UPDATE public\.quiz_attempts[\s\S]*?status = 'disqualified'[\s\S]*?RETURN false;/i
     );
     expect(internalBindFunction).not.toMatch(

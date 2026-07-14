@@ -508,6 +508,7 @@ describe('start quiz attempt route', () => {
 
     expect(response.status).toBe(200);
     expect(resolveQuizDevice).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledWith('quiz_device_cap_ready');
     expect(rpc).toHaveBeenCalledWith(
       'start_quiz_attempt',
       expect.objectContaining({ p_event_id: EVENT_ID })

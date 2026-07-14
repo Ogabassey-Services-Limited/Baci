@@ -101,6 +101,30 @@ VALUES (
   '{"max_attempts":1}'::jsonb
 );
 
+INSERT INTO public.quiz_question_slots (id, event_id, slot_index)
+VALUES (
+  '00000000-0000-4000-8000-00000000d501',
+  '00000000-0000-4000-8000-00000000d301',
+  1
+);
+
+INSERT INTO public.quiz_question_variants (
+  id,
+  slot_id,
+  variant_key,
+  prompt,
+  options,
+  answer_key_hash
+)
+VALUES (
+  '00000000-0000-4000-8000-00000000d601',
+  '00000000-0000-4000-8000-00000000d501',
+  'device-cap-fixture',
+  'Fixture question?',
+  '[{"id":"A","label":"A"}]'::jsonb,
+  pg_catalog.repeat('f', 64)
+);
+
 INSERT INTO public.quiz_attempts (
   id,
   event_id,
@@ -142,6 +166,21 @@ VALUES (
   'started',
   1,
   'device'
+);
+
+INSERT INTO public.quiz_attempt_questions (
+  id,
+  attempt_id,
+  slot_id,
+  variant_id,
+  position
+)
+VALUES (
+  '00000000-0000-4000-8000-00000000d701',
+  '00000000-0000-4000-8000-00000000d402',
+  '00000000-0000-4000-8000-00000000d501',
+  '00000000-0000-4000-8000-00000000d601',
+  1
 );
 
 DO $$
@@ -321,6 +360,14 @@ BEGIN
       AND device_hash = pg_catalog.repeat('a', 64)
   ) <> 2 THEN
     RAISE EXCEPTION 'accepted and rejected attempts must both retain bindings';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM public.quiz_attempt_questions
+    WHERE attempt_id = '00000000-0000-4000-8000-00000000d402'
+  ) THEN
+    RAISE EXCEPTION 'rejected attempt retained readable question assignments';
   END IF;
 END;
 $$;

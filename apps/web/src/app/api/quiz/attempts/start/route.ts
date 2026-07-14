@@ -136,21 +136,19 @@ export async function POST(request: NextRequest) {
     return response;
   };
 
-  if (device.deviceHash) {
-    const { data: deviceCapReady, error: deviceCapReadyError } =
-      await auth.supabase.rpc('quiz_device_cap_ready');
-    if (deviceCapReadyError || deviceCapReady !== true) {
-      logger.error({
-        error: deviceCapReadyError,
-        event: 'quiz_device_cap_readiness',
-        eventId: parsed.data.eventId,
-        message: 'Device-cap database marker is unavailable',
-        userId: auth.user.id,
-      });
-      return withDeviceCookie(
-        NextResponse.json(QUIZ_UNAVAILABLE_RESPONSE, { status: 503 })
-      );
-    }
+  const { data: deviceCapReady, error: deviceCapReadyError } =
+    await auth.supabase.rpc('quiz_device_cap_ready');
+  if (deviceCapReadyError || deviceCapReady !== true) {
+    logger.error({
+      error: deviceCapReadyError,
+      event: 'quiz_device_cap_readiness',
+      eventId: parsed.data.eventId,
+      message: 'Device-cap database marker is unavailable',
+      userId: auth.user.id,
+    });
+    return withDeviceCookie(
+      NextResponse.json(QUIZ_UNAVAILABLE_RESPONSE, { status: 503 })
+    );
   }
 
   const { proof, response: proofResponse } = createRouteProof({

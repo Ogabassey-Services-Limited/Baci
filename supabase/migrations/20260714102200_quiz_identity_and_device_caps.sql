@@ -339,6 +339,13 @@ BEGIN
     SET allowed = false
     WHERE attempt_id = p_attempt_id;
 
+    -- The attempt remains as an auditable rejected decision, but its assigned
+    -- questions must not remain readable through ownership-based RLS policies.
+    -- Answers cascade from these rows if the function is ever called later in
+    -- an attempt lifecycle.
+    DELETE FROM public.quiz_attempt_questions
+    WHERE attempt_id = p_attempt_id;
+
     RETURN false;
   END IF;
 
