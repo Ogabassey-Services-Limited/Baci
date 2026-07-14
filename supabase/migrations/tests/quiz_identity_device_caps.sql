@@ -224,7 +224,11 @@ BEGIN
     PERFORM public.bind_quiz_attempt_device(
       '00000000-0000-4000-8000-00000000d401',
       'invalid-hash',
-      '{}'::jsonb
+      pg_temp.quiz_device_proof(
+        '00000000-0000-4000-8000-00000000d401',
+        'invalid-hash',
+        v_user_one
+      )
     );
     RAISE EXCEPTION 'invalid device hash unexpectedly succeeded';
   EXCEPTION WHEN SQLSTATE 'QZ042' THEN
@@ -245,7 +249,33 @@ BEGIN
     RAISE EXCEPTION 'over-cap device attempt must be rejected';
   END IF;
 
+  v_accepted := public.bind_quiz_attempt_device(
+    '00000000-0000-4000-8000-00000000d402',
+    v_device_hash,
+    pg_temp.quiz_device_proof(
+      '00000000-0000-4000-8000-00000000d402',
+      v_device_hash,
+      v_user_two
+    )
+  );
+  IF v_accepted IS DISTINCT FROM false THEN
+    RAISE EXCEPTION 'replayed rejected binding must remain rejected';
+  END IF;
+
   PERFORM pg_catalog.set_config('request.jwt.claim.sub', v_user_one::text, true);
+  v_accepted := public.bind_quiz_attempt_device(
+    '00000000-0000-4000-8000-00000000d401',
+    v_device_hash,
+    pg_temp.quiz_device_proof(
+      '00000000-0000-4000-8000-00000000d401',
+      v_device_hash,
+      v_user_one
+    )
+  );
+  IF v_accepted IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'replayed accepted binding must remain accepted';
+  END IF;
+
   BEGIN
     PERFORM public.bind_quiz_attempt_device(
       '00000000-0000-4000-8000-00000000d402',

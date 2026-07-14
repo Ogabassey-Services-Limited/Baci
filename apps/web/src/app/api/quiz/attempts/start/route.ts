@@ -125,10 +125,22 @@ export async function POST(request: NextRequest) {
   // Resolve the device before starting so the database can create the attempt
   // and enforce the cross-account device cap in one transaction. No attempt is
   // visible to answer routes before this decision commits.
-  const device = resolveQuizDevice(
-    request,
-    auth.authMethod === 'bearer' ? parsed.data.deviceFingerprint : undefined
-  );
+  let device: ReturnType<typeof resolveQuizDevice> = { deviceHash: null };
+  try {
+    device = resolveQuizDevice(
+      request,
+      auth.authMethod === 'bearer' ? parsed.data.deviceFingerprint : undefined
+    );
+  } catch (error) {
+    logger.error({
+      error,
+      event: 'quiz_device_resolution',
+      eventId: parsed.data.eventId,
+      message:
+        'Device identification failed; continuing without device binding',
+      userId: auth.user.id,
+    });
+  }
 
   const withDeviceCookie = (response: NextResponse): NextResponse => {
     if (device.cookieToSet) {

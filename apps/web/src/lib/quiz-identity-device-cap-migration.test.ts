@@ -80,6 +80,16 @@ describe('quiz identity and device cap migration', () => {
     expect(internalBindFunction).toMatch(
       /SELECT d\.device_hash[\s\S]*?v_bound_device_hash[\s\S]*?IS DISTINCT FROM p_device_hash/i
     );
+    expect(migrationSql).toMatch(/allowed boolean NOT NULL DEFAULT true/i);
+    expect(internalBindFunction).toMatch(
+      /GET DIAGNOSTICS v_binding_rows = ROW_COUNT/i
+    );
+    expect(internalBindFunction).toMatch(
+      /IF v_binding_rows = 0 THEN[\s\S]*?RETURN COALESCE\(v_existing_allowed, false\)/i
+    );
+    expect(internalBindFunction).toMatch(
+      /UPDATE public\.quiz_attempt_devices[\s\S]*?SET allowed = false/i
+    );
     expect(internalBindFunction).toMatch(
       /UPDATE public\.quiz_attempts[\s\S]*?status = 'disqualified'[\s\S]*?RETURN false;/i
     );

@@ -181,8 +181,14 @@ CREATE TABLE IF NOT EXISTS public.quiz_attempt_devices (
   -- SHA-256 hex. Never store a raw device identifier: this is a stable
   -- cross-account correlator and therefore sensitive.
   device_hash text NOT NULL CHECK (device_hash ~ '^[0-9a-f]{64}$'),
+  -- Persist the first cap decision so an idempotent replay cannot reclassify an
+  -- earlier accepted attempt after later attempts increase the device count.
+  allowed boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT pg_catalog.now()
 );
+
+ALTER TABLE public.quiz_attempt_devices
+  ADD COLUMN IF NOT EXISTS allowed boolean NOT NULL DEFAULT true;
 
 CREATE INDEX IF NOT EXISTS idx_quiz_attempt_devices_event_hash
   ON public.quiz_attempt_devices (event_id, device_hash);
@@ -243,6 +249,8 @@ DECLARE
   v_bound_device_hash text;
   v_max_attempts integer;
   v_device_attempts integer;
+  v_binding_rows integer;
+  v_existing_allowed boolean;
 BEGIN
   IF p_device_hash !~ '^[0-9a-f]{64}$' THEN
     RAISE EXCEPTION 'quiz_device_hash_invalid' USING ERRCODE = 'QZ042';
@@ -278,14 +286,19 @@ BEGIN
   INSERT INTO public.quiz_attempt_devices (attempt_id, event_id, device_hash)
   VALUES (p_attempt_id, v_event_id, p_device_hash)
   ON CONFLICT (attempt_id) DO NOTHING;
+  GET DIAGNOSTICS v_binding_rows = ROW_COUNT;
 
-  SELECT d.device_hash
-  INTO v_bound_device_hash
+  SELECT d.device_hash, d.allowed
+  INTO v_bound_device_hash, v_existing_allowed
   FROM public.quiz_attempt_devices d
   WHERE d.attempt_id = p_attempt_id;
 
   IF v_bound_device_hash IS DISTINCT FROM p_device_hash THEN
     RAISE EXCEPTION 'quiz_device_binding_conflict' USING ERRCODE = 'QZ043';
+  END IF;
+
+  IF v_binding_rows = 0 THEN
+    RETURN COALESCE(v_existing_allowed, false);
   END IF;
 
   v_max_attempts := COALESCE(public.quiz_event_max_attempts(v_event_id), 3);
@@ -303,6 +316,10 @@ BEGIN
     UPDATE public.quiz_attempts
     SET status = 'disqualified'
     WHERE id = p_attempt_id;
+
+    UPDATE public.quiz_attempt_devices
+    SET allowed = false
+    WHERE attempt_id = p_attempt_id;
 
     RETURN false;
   END IF;

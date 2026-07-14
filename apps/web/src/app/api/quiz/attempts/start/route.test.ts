@@ -496,6 +496,35 @@ describe('start quiz attempt route', () => {
     );
   });
 
+  it('starts without device binding when device resolution throws', async () => {
+    const { rpc } = mockAuthenticatedSupabase();
+    vi.mocked(resolveQuizDevice).mockImplementation(() => {
+      throw new Error('randomness unavailable');
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      jsonRequest({ eventId: EVENT_ID, integrityTier: 'device' })
+    );
+
+    expect(response.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith(
+      'start_quiz_attempt',
+      expect.objectContaining({ p_event_id: EVENT_ID })
+    );
+    expect(rpc).not.toHaveBeenCalledWith(
+      'start_quiz_attempt_with_device',
+      expect.anything()
+    );
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'quiz_device_resolution',
+        message:
+          'Device identification failed; continuing without device binding',
+      })
+    );
+  });
+
   it('uses the shared bearer parser for lowercase mobile authorization', async () => {
     mockAuthenticatedSupabase();
     const fingerprint = 'd'.repeat(64);

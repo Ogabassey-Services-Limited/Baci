@@ -15063,6 +15063,17 @@ export type Database = {
         };
         Returns: boolean;
       };
+      start_quiz_attempt_with_device: {
+        Args: {
+          p_device_hash: string;
+          p_device_route_proof: Json;
+          p_event_id: string;
+          p_integrity_tier: string;
+          p_start_route_proof: Json;
+          p_user_id: string;
+        };
+        Returns: Json;
+      };
       quiz_free_entry_ready: { Args: never; Returns: boolean };
       start_quiz_attempt: {
         Args: {
