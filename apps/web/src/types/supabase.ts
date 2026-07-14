@@ -13689,6 +13689,10 @@ export type Database = {
         };
         Returns: Json;
       };
+      get_mobile_admin_order_counts: {
+        Args: { p_branch_id?: string; p_merchant_id: string };
+        Returns: Json;
+      };
       get_mobile_admin_revenue_chart: {
         Args: { p_branch_id?: string; p_buckets: Json; p_merchant_id: string };
         Returns: Json;
