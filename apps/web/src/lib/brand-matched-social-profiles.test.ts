@@ -52,6 +52,19 @@ describe('filterBrandMatchedSocialProfiles', () => {
     ).toEqual([]);
   });
 
+  it('matches the profile identity when a copied URL includes a section path', () => {
+    expect(
+      filterBrandMatchedSocialProfiles('Ogabassey', [
+        'https://www.youtube.com/@ogabassey/videos',
+        'https://www.linkedin.com/company/ogabasseyy/posts',
+        'https://notlinkedin.com/company/ogabassey/posts',
+      ])
+    ).toEqual([
+      'https://www.youtube.com/@ogabassey/videos',
+      'https://www.linkedin.com/company/ogabasseyy/posts',
+    ]);
+  });
+
   it('keeps exact profiles for short brand names and acronyms', () => {
     expect(
       filterBrandMatchedSocialProfiles('MTN', ['https://twitter.com/MTN'])
@@ -59,6 +72,12 @@ describe('filterBrandMatchedSocialProfiles', () => {
     expect(
       filterBrandMatchedSocialProfiles('KFC', ['https://instagram.com/kfc'])
     ).toEqual(['https://instagram.com/kfc']);
+    expect(
+      filterBrandMatchedSocialProfiles('LG', ['https://instagram.com/lg'])
+    ).toEqual(['https://instagram.com/lg']);
+    expect(
+      filterBrandMatchedSocialProfiles('HP', ['https://www.youtube.com/@hp'])
+    ).toEqual(['https://www.youtube.com/@hp']);
   });
 
   it('matches the core brand when the business name has a generic suffix', () => {
@@ -67,6 +86,16 @@ describe('filterBrandMatchedSocialProfiles', () => {
         'https://www.youtube.com/@ogabassey',
       ])
     ).toEqual(['https://www.youtube.com/@ogabassey']);
+    expect(
+      filterBrandMatchedSocialProfiles('Acme LLC', [
+        'https://instagram.com/acme',
+      ])
+    ).toEqual(['https://instagram.com/acme']);
+    expect(
+      filterBrandMatchedSocialProfiles('Acme PLC', [
+        'https://www.linkedin.com/company/acme',
+      ])
+    ).toEqual(['https://www.linkedin.com/company/acme']);
   });
 
   it('rejects malformed URLs and deduplicates accepted profiles', () => {

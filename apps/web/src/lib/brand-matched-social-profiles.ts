@@ -1,14 +1,19 @@
 const GENERIC_BUSINESS_NAME_TOKENS = new Set([
   'co',
   'company',
+  'corp',
+  'corporation',
   'enterprise',
   'enterprises',
   'inc',
+  'incorporated',
   'limited',
+  'llc',
   'ltd',
   'ng',
   'nigeria',
   'official',
+  'plc',
   'shop',
   'store',
   'technologies',
@@ -30,10 +35,17 @@ function merchantIdentityCandidates(businessName: string): string[] {
     .join('');
   return [
     ...new Set(
-      [fullIdentity, coreIdentity].filter((value) => value.length >= 3)
+      [fullIdentity, coreIdentity].filter((value) => value.length > 0)
     ),
   ];
 }
+
+const LINKEDIN_PROFILE_PATH_PREFIXES = new Set([
+  'company',
+  'in',
+  'school',
+  'showcase',
+]);
 
 function profileIdentity(urlValue: string): string | null {
   try {
@@ -42,7 +54,15 @@ function profileIdentity(urlValue: string): string | null {
       return null;
     }
     const pathSegments = url.pathname.split('/').filter(Boolean);
-    const profileSegment = pathSegments.at(-1);
+    const hostname = url.hostname.toLowerCase();
+    const isLinkedIn =
+      hostname === 'linkedin.com' || hostname.endsWith('.linkedin.com');
+    const profileSegment =
+      isLinkedIn &&
+      pathSegments[0] &&
+      LINKEDIN_PROFILE_PATH_PREFIXES.has(pathSegments[0].toLowerCase())
+        ? pathSegments[1]
+        : pathSegments[0];
     return profileSegment
       ? compactIdentity(decodeURIComponent(profileSegment))
       : null;
