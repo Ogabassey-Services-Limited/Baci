@@ -39,7 +39,7 @@ export function scheduleWalletFundedCreditNotification({
     return;
   }
 
-  scheduleAfter(async () => {
+  const task = async () => {
     // Atomic post-finalizer claim: concurrent webhooks can both enter the RPC
     // before either sees the intent's updated last-reference fields. Only the
     // UPDATE that still sees no marker may schedule this transfer's push.
@@ -80,5 +80,20 @@ export function scheduleWalletFundedCreditNotification({
         message: 'Wallet-funded order credit push notification failed',
       });
     }
-  });
+  };
+
+  try {
+    scheduleAfter(task);
+  } catch (error) {
+    logger.warn({
+      error: error instanceof Error ? error.message : error,
+      gatewayReference,
+      message: 'Wallet-funded order credit push notification failed',
+    });
+    // If the post-response scheduler itself is unavailable, start the same
+    // idempotent task directly. The durable DB claim remains the retry guard,
+    // and the task owns all async failures, so the committed payment response
+    // is still never converted into a 500.
+    void task();
+  }
 }

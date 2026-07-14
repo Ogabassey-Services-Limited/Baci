@@ -12,6 +12,7 @@ describe('sanitizeResumableWalletReturnTo', () => {
     '/utilities/power',
     '/utilities/gaming',
     '/utilities/airtime?repeatAmount=500&repeatPhoneNumber=08031234567',
+    '/utilities/power?repeatCustomerAddress=Flat%20%234',
   ])('accepts the resumable destination %s', (path) => {
     expect(sanitizeResumableWalletReturnTo(path)).toBe(path);
   });

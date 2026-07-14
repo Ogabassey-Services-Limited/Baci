@@ -171,12 +171,15 @@ export async function POST(request: NextRequest) {
     // redirector such as `/auth/callback?returnTo=//evil.com` can never reach
     // transaction metadata — and therefore never reach a push deep link.
     const returnTo = sanitizeResumableWalletReturnTo(parsed.data.returnTo);
-    const metadata = {
+    const gatewayMetadata = {
       customer_email: customerEmail,
       customer_id: customer.id,
       customer_name: customerName,
       merchant_slug: merchant.slug,
       transaction_type: WALLET_TOP_UP_TRANSACTION_TYPE,
+    };
+    const metadata = {
+      ...gatewayMetadata,
       ...(returnTo ? { return_to: returnTo } : {}),
     };
 
@@ -219,7 +222,7 @@ export async function POST(request: NextRequest) {
           amount: Math.round(parsed.data.amount * 100),
           callback_url: callbackUrl,
           email: customerEmail,
-          metadata,
+          metadata: gatewayMetadata,
           phone: parsed.data.customerPhone || customer.phone || undefined,
           reference: paymentReference,
           ...(merchant.paystack_subaccount_code && {
@@ -239,7 +242,7 @@ export async function POST(request: NextRequest) {
             name: customerName,
           },
           merchant_bears_cost: true,
-          metadata,
+          metadata: gatewayMetadata,
           notification_url: notificationUrl,
           redirect_url: callbackUrl,
           reference: paymentReference,

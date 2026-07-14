@@ -403,6 +403,17 @@ describe('POST /api/storefront/customer/wallet/top-up/initialize', () => {
         }),
       })
     );
+    expect(mockInitializePaystackTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: {
+          customer_email: 'customer@example.com',
+          customer_id: 'customer-1',
+          customer_name: 'Ada Lovelace',
+          merchant_slug: 'ogabassey',
+          transaction_type: 'wallet_topup',
+        },
+      })
+    );
   });
 
   it.each([

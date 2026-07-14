@@ -7,6 +7,21 @@ import { useAuthStore } from '@/stores/auth-store';
  */
 const AUTH_HYDRATION_TIMEOUT_MS = 8000;
 
+function hasSettledCustomerIdentity(
+  state: ReturnType<typeof useAuthStore.getState>
+): boolean {
+  if (!state.isInitialized) {
+    return false;
+  }
+  if (state.user) {
+    return state.customer?.user_id === state.user.id;
+  }
+  if (!state.customer) {
+    return true;
+  }
+  return state.customer.user_id === null;
+}
+
 /**
  * The customer signed in RIGHT NOW, awaiting auth hydration if needed.
  *
@@ -22,7 +37,7 @@ const AUTH_HYDRATION_TIMEOUT_MS = 8000;
  */
 export function resolveActiveCustomerId(): Promise<string | undefined> {
   const state = useAuthStore.getState();
-  if (state.isInitialized && (!state.user || state.customer)) {
+  if (hasSettledCustomerIdentity(state)) {
     return Promise.resolve(state.customer?.id);
   }
 
@@ -45,7 +60,7 @@ export function resolveActiveCustomerId(): Promise<string | undefined> {
     }, AUTH_HYDRATION_TIMEOUT_MS);
 
     unsubscribe = useAuthStore.subscribe((next) => {
-      if (next.isInitialized && (!next.user || next.customer)) {
+      if (hasSettledCustomerIdentity(next)) {
         settle(next.customer?.id);
       }
     });
@@ -53,7 +68,7 @@ export function resolveActiveCustomerId(): Promise<string | undefined> {
     // Re-check after subscribing: initialisation can land between the eager
     // read above and the subscription, and that update would never be observed.
     const current = useAuthStore.getState();
-    if (current.isInitialized && (!current.user || current.customer)) {
+    if (hasSettledCustomerIdentity(current)) {
       settle(current.customer?.id);
     }
   });

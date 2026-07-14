@@ -151,12 +151,11 @@ export function useWalletRouteActionSetup({
   // the lib, which could race the real write): a shared device or an account
   // switch inside the TTL must never let a new customer's DVA credit resume the
   // previous customer's interrupted purchase.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new route nonce intentionally restamps the same destination.
   useEffect(() => {
     if (
       !customerId ||
-      (!walletReturnTo &&
-        routeAction !== 'fund' &&
-        routeAction !== 'bank-transfer')
+      (routeAction !== 'fund' && routeAction !== 'bank-transfer')
     ) {
       return;
     }
@@ -168,7 +167,7 @@ export function useWalletRouteActionSetup({
     }).catch((error: unknown) => {
       log.warn('Wallet funding intent write rejected.', { error });
     });
-  }, [customerId, routeAction, walletReturnTo]);
+  }, [customerId, routeAction, routeIntentId, walletReturnTo]);
 
   const {
     canCreateFundingAccount,

@@ -68,8 +68,7 @@ export function sanitizeResumableWalletReturnTo(
   if (
     NESTED_REDIRECT_PARAM_PATTERN.test(safePath) ||
     NESTED_REDIRECT_PARAM_PATTERN.test(decoded) ||
-    safePath.includes('#') ||
-    decoded.includes('#')
+    safePath.includes('#')
   ) {
     return undefined;
   }

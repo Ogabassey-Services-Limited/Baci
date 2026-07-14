@@ -38,6 +38,7 @@ export type MerchantRow = z.infer<typeof MerchantRowSchema>;
 
 export const CustomerRowSchema = z.object({
   id: z.uuid(),
+  user_id: z.uuid().nullable().optional(),
   email: z.email(),
   first_name: z.string().nullable().optional(),
   last_name: z.string().nullable().optional(),

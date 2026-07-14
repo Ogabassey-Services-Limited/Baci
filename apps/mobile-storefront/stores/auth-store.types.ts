@@ -3,6 +3,7 @@ import type { DeleteAccountResult } from '../lib/account-deletion';
 
 export interface Customer {
   id: string;
+  user_id?: string | null;
   email: string;
   first_name?: string;
   last_name?: string;

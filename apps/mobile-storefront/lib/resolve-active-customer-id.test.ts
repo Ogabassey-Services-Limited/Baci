@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 type AuthSnapshot = {
-  customer: { id: string } | null;
+  customer: { id: string; user_id?: string | null } | null;
   isInitialized: boolean;
   user: { id: string } | null;
 };
@@ -45,7 +45,7 @@ describe('resolveActiveCustomerId', () => {
 
   it('returns the customer id immediately when auth is already initialised', async () => {
     mockAuth.state = {
-      customer: { id: 'customer-1' },
+      customer: { id: 'customer-1', user_id: 'user-1' },
       isInitialized: true,
       user: { id: 'user-1' },
     };
@@ -59,11 +59,40 @@ describe('resolveActiveCustomerId', () => {
     await expect(resolveActiveCustomerId()).resolves.toBeUndefined();
   });
 
+  it('accepts an unlinked customer when no auth user exists', async () => {
+    mockAuth.state = {
+      customer: { id: 'guest-customer', user_id: null },
+      isInitialized: true,
+      user: null,
+    };
+
+    await expect(resolveActiveCustomerId()).resolves.toBe('guest-customer');
+  });
+
+  it('fails closed when a signed-out customer omits its ownership field', async () => {
+    mockAuth.state = {
+      customer: { id: 'unknown-owner' },
+      isInitialized: true,
+      user: null,
+    };
+
+    const pending = resolveActiveCustomerId();
+    let settled = false;
+    void pending.then(() => {
+      settled = true;
+    });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
+    emit({ customer: null, isInitialized: true, user: null });
+    await expect(pending).resolves.toBeUndefined();
+  });
+
   it('waits for hydration on a cold start from a notification tap', async () => {
     const pending = resolveActiveCustomerId();
 
     emit({
-      customer: { id: 'customer-2' },
+      customer: { id: 'customer-2', user_id: 'user-2' },
       isInitialized: true,
       user: { id: 'user-2' },
     });
@@ -86,12 +115,12 @@ describe('resolveActiveCustomerId', () => {
     const pending = resolveActiveCustomerId();
 
     emit({
-      customer: { id: 'customer-3' },
+      customer: { id: 'customer-3', user_id: 'user-3' },
       isInitialized: true,
       user: { id: 'user-3' },
     });
     emit({
-      customer: { id: 'customer-4' },
+      customer: { id: 'customer-4', user_id: 'user-4' },
       isInitialized: true,
       user: { id: 'user-4' },
     });
@@ -109,11 +138,47 @@ describe('resolveActiveCustomerId', () => {
     const pending = resolveActiveCustomerId();
 
     emit({
-      customer: { id: 'customer-5' },
+      customer: { id: 'customer-5', user_id: 'user-5' },
       isInitialized: true,
       user: { id: 'user-5' },
     });
 
     await expect(pending).resolves.toBe('customer-5');
+  });
+
+  it('waits through an account switch until the customer matches the new user', async () => {
+    mockAuth.state = {
+      customer: { id: 'customer-a', user_id: 'user-a' },
+      isInitialized: true,
+      user: { id: 'user-b' },
+    };
+
+    const pending = resolveActiveCustomerId();
+    emit({
+      customer: { id: 'customer-b', user_id: 'user-b' },
+      isInitialized: true,
+      user: { id: 'user-b' },
+    });
+
+    await expect(pending).resolves.toBe('customer-b');
+  });
+
+  it('waits for a linked customer to clear after sign-out', async () => {
+    mockAuth.state = {
+      customer: { id: 'customer-a', user_id: 'user-a' },
+      isInitialized: true,
+      user: null,
+    };
+
+    const pending = resolveActiveCustomerId();
+    let settled = false;
+    void pending.then(() => {
+      settled = true;
+    });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
+    emit({ customer: null, isInitialized: true, user: null });
+    await expect(pending).resolves.toBeUndefined();
   });
 });

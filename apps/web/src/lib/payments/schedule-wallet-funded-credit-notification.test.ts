@@ -96,6 +96,24 @@ describe('scheduleWalletFundedCreditNotification', () => {
     );
   });
 
+  it('falls back to the idempotent task after a synchronous scheduling failure', async () => {
+    expect(() =>
+      scheduleWalletFundedCreditNotification({
+        ...baseArgs,
+        fundedAmount: 20_000,
+        scheduleAfter: () => {
+          throw new Error('scheduler unavailable');
+        },
+      })
+    ).not.toThrow();
+    expect(mockWarn).toHaveBeenCalledWith(
+      expect.objectContaining({ error: 'scheduler unavailable' })
+    );
+    await vi.waitFor(() =>
+      expect(mockNotifyWalletCredited).toHaveBeenCalledTimes(1)
+    );
+  });
+
   it('does not schedule when another webhook already claimed the transfer', async () => {
     const tasks: Array<() => Promise<void>> = [];
     mockClaimWalletCreditPush.mockResolvedValueOnce({

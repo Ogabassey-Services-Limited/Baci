@@ -152,6 +152,49 @@ describe('useWalletRouteActionSetup', () => {
     await waitFor(() => expect(storeIntent).not.toHaveBeenCalled());
   });
 
+  it('does not arm an intent from returnTo on a non-funding wallet route', async () => {
+    renderHook(() =>
+      useWalletRouteActionSetup(
+        buildParams({ routeAction: 'savings', walletReturnTo: '/checkout' })
+      )
+    );
+
+    await act(async () => {});
+    expect(storeIntent).not.toHaveBeenCalled();
+  });
+
+  it('restamps the stored destination when a new funding nonce arrives', async () => {
+    const { rerender } = renderHook(
+      (props: ReturnType<typeof buildParams>) =>
+        useWalletRouteActionSetup(props),
+      {
+        initialProps: buildParams({
+          routeIntentId: 'intent-1',
+          walletReturnTo: '/checkout',
+        }),
+      }
+    );
+    await waitFor(() => expect(storeIntent).toHaveBeenCalledTimes(1));
+
+    rerender(
+      buildParams({
+        routeIntentId: 'intent-2',
+        walletReturnTo: '/checkout',
+      })
+    );
+
+    await waitFor(() => expect(storeIntent).toHaveBeenCalledTimes(2));
+    expect(storeIntent).toHaveBeenNthCalledWith(1, {
+      customerId: 'customer-1',
+      returnTo: '/checkout',
+    });
+    expect(storeIntent).toHaveBeenNthCalledWith(2, {
+      customerId: 'customer-1',
+      returnTo: '/checkout',
+    });
+    expect(mockStartSession).toHaveBeenLastCalledWith('customer-1', 'intent-2');
+  });
+
   it('waits for the customer before recording an intent, then records it scoped to them', async () => {
     // An unattributable intent must never be written: it could otherwise be
     // consumed by whoever is signed in when the credit lands.
