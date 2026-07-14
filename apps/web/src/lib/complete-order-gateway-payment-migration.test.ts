@@ -104,6 +104,11 @@ describe('complete_order_gateway_payment migration', () => {
     );
   });
 
+  it('preserves reconciliation issue types added by earlier migrations', () => {
+    expect(migrationSql).toContain("'merchant_settlement_failed'");
+    expect(migrationSql).toContain("'gateway_payment_wedge_requires_review'");
+  });
+
   it('seeds a drainable outbox row for the order flip only', () => {
     expect(migrationSql).toContain('INSERT INTO public.payment_side_effects');
     expect(migrationSql).toContain("'rpc_seed_pending_drain'");

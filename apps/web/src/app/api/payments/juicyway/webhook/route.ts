@@ -670,6 +670,26 @@ export async function POST(request: NextRequest) {
           });
         }
 
+        if (terminalOrder.payment_status !== 'paid') {
+          const reviewFiled = await handlePaymentForCancelledOrder({
+            gatewayReference: reference,
+            issueType: 'gateway_payment_wedge_requires_review',
+            order: terminalOrder,
+            reason: `Juicyway payment captured for an order in blocked payment status ${terminalOrder.payment_status}`,
+            transactionId: transaction.id,
+          });
+          if (!reviewFiled) {
+            return NextResponse.json(
+              { error: 'Payment reconciliation review unavailable' },
+              { status: 500 }
+            );
+          }
+          return NextResponse.json({
+            message: 'Payment recorded; blocked order filed for review',
+            success: true,
+          });
+        }
+
         // 0 rows: the order is already paid — either a concurrent delivery
         // won the flip, or the order was paid through another channel before
         // this delivery. The Juicyway money IS captured (signature + amount

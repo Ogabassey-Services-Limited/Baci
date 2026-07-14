@@ -126,6 +126,20 @@ export async function drainFailedPaidOrderSideEffects({
         continue;
       }
       if (!txn.gateway_reference) {
+        await retireTerminalSideEffectDrain({
+          orderId,
+          reason:
+            'Paid-order side-effect drain found a completed transaction with no gateway reference; manual reconciliation required',
+          resolution: 'missing_gateway_reference',
+          supabase,
+          transaction: {
+            gateway,
+            gateway_reference: null,
+            id: txn.id,
+            metadata: txn.metadata,
+            order_id: orderId,
+          },
+        });
         summary.skipped.push({ orderId, reason: 'missing_gateway_reference' });
         continue;
       }

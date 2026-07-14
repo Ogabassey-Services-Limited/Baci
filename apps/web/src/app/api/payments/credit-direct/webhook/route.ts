@@ -978,6 +978,20 @@ async function healPaidCreditDirectOrderReplay({
       orderId: order.id,
       transactionId: payload.checkoutTransactionId,
     });
+    const reviewFiled = await handlePaymentForCancelledOrder({
+      gatewayReference: payload.checkoutTransactionId,
+      issueType: 'gateway_payment_wedge_requires_review',
+      order: { id: order.id },
+      reason:
+        'Credit Direct captured funds for an already-paid order, but legacy order notes lack the fee split required to reconstruct the transaction safely.',
+      transactionId: payload.checkoutTransactionId,
+    });
+    if (!reviewFiled) {
+      return NextResponse.json(
+        { error: 'Payment reconciliation review unavailable' },
+        { status: 500 }
+      );
+    }
   }
 
   // The first delivery may have failed AFTER the paid flip but BEFORE

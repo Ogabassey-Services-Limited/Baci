@@ -130,6 +130,34 @@ describe('drainFailedPaidOrderSideEffects', () => {
     expect(mocks.finalizeOrderGatewayPayment).not.toHaveBeenCalled();
   });
 
+  it('retires completed transactions without a gateway reference', async () => {
+    const missingReferenceRow = {
+      ...failedRow,
+      transactions: {
+        ...failedRow.transactions,
+        gateway_reference: null,
+        metadata: null,
+      },
+    };
+    const supabase = buildSupabase({ data: [missingReferenceRow] });
+    mocks.retireTerminalSideEffectDrain.mockResolvedValue(true);
+
+    const summary = await drainFailedPaidOrderSideEffects({
+      scheduleAfter,
+      supabase,
+    });
+
+    expect(mocks.retireTerminalSideEffectDrain).toHaveBeenCalledWith(
+      expect.objectContaining({
+        resolution: 'missing_gateway_reference',
+        transaction: expect.objectContaining({ gateway_reference: null }),
+      })
+    );
+    expect(summary.skipped).toEqual([
+      { orderId: 'order-1', reason: 'missing_gateway_reference' },
+    ]);
+  });
+
   it('drains stale claimed rows a crashed worker left behind', async () => {
     // First query (failed rows) returns nothing; second (stale claims)
     // returns the abandoned row.

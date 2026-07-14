@@ -272,7 +272,7 @@ async function verifyPaymentReference(reference: string) {
       order_id: transaction.order_id,
       platform_fee: transaction.platform_fee,
     },
-    wonTransactionFlip: false,
+    wonTransactionFlip: transaction.status !== 'completed',
   });
 
   if (

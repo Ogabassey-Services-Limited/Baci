@@ -1731,6 +1731,13 @@ describe('POST /api/payments/credit-direct/webhook', () => {
         orderId: 'order_abc',
         transactionId: 'txn_123456789',
       });
+      expect(mockReconciliationInsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          issue_type: 'gateway_payment_wedge_requires_review',
+          order_id: 'order_abc',
+          txn_id: 'txn_123456789',
+        })
+      );
     });
 
     it('is idempotent when transaction already exists', async () => {

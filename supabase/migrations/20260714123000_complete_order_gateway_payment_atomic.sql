@@ -192,7 +192,9 @@ ALTER TABLE public.reconciliation_review
     'wallet_order_funding_finalize_failed',
     'payment_received_after_cancellation',
     'payment_received_after_refund',
-    'serialized_inventory_confirmation_failed'
+    'serialized_inventory_confirmation_failed',
+    'merchant_settlement_failed',
+    'gateway_payment_wedge_requires_review'
   )) NOT VALID;
 
 ALTER TABLE public.reconciliation_review
