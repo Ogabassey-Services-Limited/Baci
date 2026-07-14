@@ -11,6 +11,7 @@ const {
   mockGenerateCollectionPageSchema,
   mockGenerateFAQSchema,
   mockGetCachedCategoryPageData,
+  mockGetCachedCategoryPageGraphicsOptions,
   mockGetCachedProductSemanticInventory,
   mockGetMerchantByIdentifier,
   mockGetPublishedClusterPosts,
@@ -27,6 +28,7 @@ const {
   mockGenerateCollectionPageSchema: vi.fn(() => ({})),
   mockGenerateFAQSchema: vi.fn(() => ({})),
   mockGetCachedCategoryPageData: vi.fn(),
+  mockGetCachedCategoryPageGraphicsOptions: vi.fn(),
   mockGetCachedProductSemanticInventory: vi.fn(),
   mockGetMerchantByIdentifier: vi.fn(),
   mockGetPublishedClusterPosts: vi.fn(),
@@ -49,12 +51,16 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/components/storefront/ogabassey/pages/category-page', () => ({
   CategoryPage: ({
     currentPage,
+    graphicsOptions,
     productsArePrePaginated,
+    selectedGraphics,
     totalProductCount,
     products,
   }: {
     currentPage?: number;
+    graphicsOptions?: string[];
     productsArePrePaginated?: boolean;
+    selectedGraphics?: string[];
     totalProductCount?: number;
     products?: Array<{ id: string; name: string; price: string }>;
   }) => (
@@ -63,6 +69,12 @@ vi.mock('@/components/storefront/ogabassey/pages/category-page', () => ({
       {currentPage ? <div>Page: {currentPage}</div> : null}
       {totalProductCount ? <div>Total: {totalProductCount}</div> : null}
       {productsArePrePaginated ? <div>Prepaginated</div> : null}
+      {graphicsOptions?.map((graphics) => (
+        <div key={`graphics-option-${graphics}`}>Option: {graphics}</div>
+      ))}
+      {selectedGraphics?.map((graphics) => (
+        <div key={`selected-graphics-${graphics}`}>Selected: {graphics}</div>
+      ))}
       {products?.map((product) => (
         <div key={product.id}>
           {product.name}: {product.price}
@@ -111,6 +123,8 @@ vi.mock('./category-page-deferred-compare-links', () => ({
 vi.mock('@/lib/cached-data', () => ({
   getCachedCategoryPageData: (...args: unknown[]) =>
     mockGetCachedCategoryPageData(...args),
+  getCachedCategoryPageGraphicsOptions: (...args: unknown[]) =>
+    mockGetCachedCategoryPageGraphicsOptions(...args),
   getMerchantByIdentifier: (...args: unknown[]) =>
     mockGetMerchantByIdentifier(...args),
 }));
@@ -181,6 +195,7 @@ describe('CategoryPageContent', () => {
       category: null,
       products: [{ id: 'product-1' }],
     });
+    mockGetCachedCategoryPageGraphicsOptions.mockResolvedValue([]);
     mockResolveCategoryPageName.mockReturnValue('Phones');
     mockNormalizeCategoryPageProducts.mockReturnValue([
       {
@@ -275,6 +290,51 @@ describe('CategoryPageContent', () => {
     expect(mockGenerateCollectionPageSchema).toHaveBeenCalledWith(
       expect.objectContaining({ currency: 'KES' })
     );
+  });
+
+  it('uses full-category graphics facets to run a server-paginated graphics query', async () => {
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      id: 'merchant-1',
+      business_name: 'Demo Store',
+      slug: 'demo-store',
+      country: 'NG',
+      payout_currency: 'NGN',
+    });
+    mockGetCachedCategoryPageGraphicsOptions.mockResolvedValue([
+      'Integrated Graphics',
+      'NVIDIA RTX 4070',
+    ]);
+    mockGetCachedCategoryPageData.mockResolvedValue({
+      isCollection: true,
+      category: null,
+      productCount: 40,
+      productsArePrePaginated: true,
+      products: [{ id: 'product-1' }],
+    });
+
+    const ui = await CategoryPageContent({
+      params: Promise.resolve({
+        slug: 'demo-store',
+        category: 'gaming-laptops',
+      }),
+      searchParams: Promise.resolve({
+        graphics: 'NVIDIA RTX 4070',
+        page: '1',
+      }),
+    });
+
+    render(ui);
+
+    expect(mockGetCachedCategoryPageData).toHaveBeenLastCalledWith(
+      'merchant-1',
+      'gaming-laptops',
+      'demo-store',
+      0,
+      20,
+      { graphics: ['NVIDIA RTX 4070'] }
+    );
+    expect(screen.getByText('Option: NVIDIA RTX 4070')).toBeInTheDocument();
+    expect(screen.getByText('Selected: NVIDIA RTX 4070')).toBeInTheDocument();
   });
 
   it('loads bounded guide candidates with the supported category context', async () => {

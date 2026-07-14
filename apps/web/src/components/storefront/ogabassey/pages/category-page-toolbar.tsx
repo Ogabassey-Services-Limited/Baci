@@ -10,7 +10,7 @@ interface CategoryPageToolbarProps {
   paginationProductCount: number;
   viewMode: 'grid' | 'list';
   onViewModeChange: (mode: 'grid' | 'list') => void;
-  canUseClientFilters: boolean;
+  canShowFilters: boolean;
   onOpenMobileFilter: () => void;
 }
 
@@ -25,7 +25,7 @@ export function CategoryPageToolbar({
   paginationProductCount,
   viewMode,
   onViewModeChange,
-  canUseClientFilters,
+  canShowFilters,
   onOpenMobileFilter,
 }: CategoryPageToolbarProps) {
   return (
@@ -72,7 +72,7 @@ export function CategoryPageToolbar({
             </button>
           </div>
 
-          {canUseClientFilters && (
+          {canShowFilters && (
             <button
               type="button"
               onClick={onOpenMobileFilter}
