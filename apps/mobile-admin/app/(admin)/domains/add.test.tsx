@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import AddDomainScreen from './add';
 
 const mocks = vi.hoisted(() => ({
+  domainPurchaseEnabled: true,
   router: {
     push: vi.fn(),
   },
@@ -44,6 +45,10 @@ vi.mock('@/components/billing/FeatureGateScreen', () => ({
   FeatureGateScreen: ({ children }: { children?: ReactNode }) => children,
 }));
 
+vi.mock('@/config/domain-purchase-availability', () => ({
+  isDomainPurchaseEnabled: () => mocks.domainPurchaseEnabled,
+}));
+
 vi.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({
     colors: {
@@ -61,6 +66,7 @@ vi.mock('@/hooks/useTheme', () => ({
 describe('AddDomainScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.domainPurchaseEnabled = true;
   });
 
   it('renders both domain setup choices', () => {
@@ -79,5 +85,21 @@ describe('AddDomainScreen', () => {
     );
 
     expect(mocks.router.push).toHaveBeenCalledWith('/domains/buy');
+  });
+
+  it('hides domain purchasing on Android while keeping connection available', () => {
+    mocks.domainPurchaseEnabled = false;
+
+    render(<AddDomainScreen />);
+
+    expect(screen.getByText('Connect your existing domain')).toBeTruthy();
+    expect(screen.queryByText('Get a custom domain')).toBeNull();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /Connect to a domain/i })
+    );
+
+    expect(mocks.router.push).toHaveBeenCalledWith('/domains/connect');
+    expect(mocks.router.push).not.toHaveBeenCalledWith('/domains/buy');
   });
 });

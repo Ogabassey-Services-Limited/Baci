@@ -6,12 +6,14 @@ import BuyDomainScreen from './buy';
 
 const mocks = vi.hoisted(() => ({
   alert: vi.fn(),
+  domainPurchaseEnabled: true,
   getSession: vi.fn(),
   performDomainSearch: vi.fn(),
   push: vi.fn(),
 }));
 
 vi.mock('expo-router', () => ({
+  Redirect: ({ href }: { href: string }) => <div>Redirect to {href}</div>,
   useRouter: () => ({ push: mocks.push }),
 }));
 
@@ -137,6 +139,10 @@ vi.mock('@/components/domains/perform-domain-search', () => ({
     mocks.performDomainSearch(query, context),
 }));
 
+vi.mock('@/config/domain-purchase-availability', () => ({
+  isDomainPurchaseEnabled: () => mocks.domainPurchaseEnabled,
+}));
+
 vi.mock('@/components/ui/AppFormScreen', () => ({
   AppFormScreen: ({ children }: { children?: ReactNode }) => (
     <section aria-label="buy-domain-form">{children}</section>
@@ -197,6 +203,7 @@ async function renderWithResult() {
 describe('BuyDomainScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.domainPurchaseEnabled = true;
   });
 
   it('renders the domain search field inside the form shell', () => {
@@ -206,6 +213,18 @@ describe('BuyDomainScreen', () => {
     expect(
       screen.getByPlaceholderText('Search domain (e.g. mybrand.com)')
     ).toBeTruthy();
+  });
+
+  it('redirects Android to domain connection before purchase hooks mount', () => {
+    mocks.domainPurchaseEnabled = false;
+
+    render(<BuyDomainScreen />);
+
+    expect(screen.getByText('Redirect to /domains/connect')).toBeTruthy();
+    expect(screen.queryByLabelText('buy-domain-form')).toBeNull();
+    expect(screen.queryByLabelText('Search domain')).toBeNull();
+    expect(mocks.performDomainSearch).not.toHaveBeenCalled();
+    expect(mocks.getSession).not.toHaveBeenCalled();
   });
 
   it('validates that searches include a domain suffix', () => {
