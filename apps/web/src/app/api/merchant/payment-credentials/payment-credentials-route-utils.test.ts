@@ -1,5 +1,7 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
 import type { MerchantPaymentCredentialMetaRow } from '@/lib/payments/merchant-credentials';
+import * as routeUtils from './payment-credentials-route-utils';
 import {
   jsonNoStore,
   toPayPalMode,
@@ -69,5 +71,47 @@ describe('payment credentials route utilities', () => {
     expect(response.headers.get('Cache-Control')).toBe(
       'private, no-store, no-cache, max-age=0, must-revalidate'
     );
+  });
+
+  it('detects PayPal payments that still depend on the current live credentials for refunds', async () => {
+    const hasRefundablePaypalPayments = (
+      routeUtils as unknown as {
+        hasRefundablePaypalPayments?: (
+          client: SupabaseClient,
+          merchantId: string
+        ) => Promise<boolean>;
+      }
+    ).hasRefundablePaypalPayments;
+    expect(typeof hasRefundablePaypalPayments).toBe('function');
+
+    const filters: Record<string, unknown> = {};
+    const query: Record<string, unknown> = {
+      select: () => query,
+      eq: (column: string, value: unknown) => {
+        filters[column] = value;
+        return query;
+      },
+      in: (column: string, value: unknown) => {
+        filters[column] = value;
+        return query;
+      },
+      gte: (column: string, value: unknown) => {
+        filters[`gte:${column}`] = value;
+        return query;
+      },
+      limit: () => Promise.resolve({ data: [{ id: 'txn-1' }], error: null }),
+    };
+    const client = { from: () => query } as unknown as SupabaseClient;
+
+    await expect(
+      hasRefundablePaypalPayments?.(client, 'merchant-1')
+    ).resolves.toBe(true);
+    expect(filters).toMatchObject({
+      merchant_id: 'merchant-1',
+      gateway: 'paypal',
+      transaction_type: 'payment',
+      status: ['completed', 'refund_pending'],
+    });
+    expect(filters['gte:created_at']).toEqual(expect.any(String));
   });
 });

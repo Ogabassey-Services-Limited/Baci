@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as paypal from '@/lib/paypal';
+import { getPaypalCheckoutCredentials } from './paypal-checkout-credentials';
+import * as paypalSweep from './paypal-reconciliation-sweep';
 import { sweepStrandedPaypalCaptures } from './paypal-reconciliation-sweep';
 import { runPaypalReconcileFunnel } from './paypal-settlement-funnel';
 
@@ -13,6 +16,14 @@ vi.mock('@/lib/payments/paypal-settlement-funnel', () => ({
   runPaypalReconcileFunnel: vi.fn(),
 }));
 
+vi.mock('@/lib/payments/paypal-checkout-credentials', () => ({
+  getPaypalCheckoutCredentials: vi.fn(),
+}));
+
+vi.mock('@/lib/paypal', () => ({
+  getRefund: vi.fn(),
+}));
+
 const ROW = {
   id: 'txn-1',
   merchant_id: 'm-1',
@@ -23,8 +34,13 @@ const ROW = {
 /** Chainable mock capturing the filters the sweep applies. */
 function makeSupabase(result: { data?: unknown; error?: unknown }) {
   const filters: Record<string, unknown> = {};
+  const updates: Record<string, unknown>[] = [];
   const builder: Record<string, unknown> = {
     select: () => builder,
+    update: (payload: Record<string, unknown>) => {
+      updates.push(payload);
+      return builder;
+    },
     eq: (col: string, val: unknown) => {
       filters[col] = val;
       return builder;
@@ -43,7 +59,36 @@ function makeSupabase(result: { data?: unknown; error?: unknown }) {
   return {
     client: { from: () => builder } as never,
     filters,
+    updates,
   };
+}
+
+function makeRefundSupabase(row: Record<string, unknown>) {
+  const updates: Record<string, unknown>[] = [];
+  const query = {
+    select: vi.fn(() => query),
+    eq: vi.fn(() => query),
+    not: vi.fn(() => query),
+    lt: vi.fn(() => query),
+    order: vi.fn(() => query),
+    limit: vi.fn(() => Promise.resolve({ data: [row], error: null })),
+  };
+  const update = {
+    update: vi.fn((payload: Record<string, unknown>) => {
+      updates.push(payload);
+      return update;
+    }),
+    eq: vi.fn(() => update),
+    // biome-ignore lint/suspicious/noThenProperty: intentional Supabase query-builder thenable
+    then: (
+      resolve: (value: unknown) => unknown,
+      reject: (reason: unknown) => unknown
+    ) => Promise.resolve({ error: null }).then(resolve, reject),
+  };
+  const client = {
+    from: vi.fn().mockReturnValueOnce(query).mockReturnValueOnce(update),
+  } as never;
+  return { client, updates };
 }
 
 beforeEach(() => {
@@ -72,7 +117,7 @@ describe('sweepStrandedPaypalCaptures', () => {
   });
 
   it('leaves a genuinely abandoned checkout alone (PayPal never captured)', async () => {
-    const { client } = makeSupabase({ data: [ROW], error: null });
+    const { client, updates } = makeSupabase({ data: [ROW], error: null });
     vi.mocked(runPaypalReconcileFunnel).mockResolvedValue({
       ok: true,
       response: NextResponse.json(
@@ -87,6 +132,9 @@ describe('sweepStrandedPaypalCaptures', () => {
     const result = await sweepStrandedPaypalCaptures(client);
 
     expect(result).toMatchObject({ scanned: 1, settled: 0, notCaptured: 1 });
+    expect(updates).toEqual([
+      expect.objectContaining({ updated_at: expect.any(String) }),
+    ]);
   });
 
   it('only ever looks at PayPal PAYMENT rows that are still pending', async () => {
@@ -99,7 +147,7 @@ describe('sweepStrandedPaypalCaptures', () => {
     expect(filters.gateway).toBe('paypal');
     expect(filters.transaction_type).toBe('payment');
     expect(filters.status).toBe('pending');
-    expect(filters['lt:created_at']).toBeTruthy(); // only settled-down rows
+    expect(filters['lt:updated_at']).toBeTruthy(); // rotates checked rows fairly
   });
 
   it('one broken row does not stop the rest of the sweep', async () => {
@@ -125,5 +173,53 @@ describe('sweepStrandedPaypalCaptures', () => {
     await expect(sweepStrandedPaypalCaptures(client)).rejects.toThrow(
       'paypal_sweep_query_failed'
     );
+  });
+});
+
+describe('sweepPendingPaypalRefunds', () => {
+  it('polls stored refund ids and advances the transaction when every refund completes', async () => {
+    const getRefund = (
+      paypal as unknown as { getRefund: ReturnType<typeof vi.fn> }
+    ).getRefund;
+    const sweepPendingPaypalRefunds = (
+      paypalSweep as unknown as {
+        sweepPendingPaypalRefunds?: (client: never) => Promise<{
+          completed: number;
+        }>;
+      }
+    ).sweepPendingPaypalRefunds;
+    expect(typeof sweepPendingPaypalRefunds).toBe('function');
+
+    vi.mocked(getPaypalCheckoutCredentials).mockResolvedValue({
+      clientId: 'cid',
+      secretKey: 'secret',
+    });
+    getRefund.mockResolvedValue({
+      success: true,
+      data: { id: 'REFUND-P', status: 'COMPLETED' },
+    });
+    const { client, updates } = makeRefundSupabase({
+      id: 'txn-1',
+      merchant_id: 'm-1',
+      order_id: 'o-1',
+      gateway_reference: 'PP-1',
+      metadata: {
+        existing: true,
+        paypal_pending_refund_ids: ['REFUND-P'],
+      },
+    });
+
+    const result = await sweepPendingPaypalRefunds?.(client);
+
+    expect(getRefund).toHaveBeenCalledWith('cid', 'secret', 'REFUND-P', 'live');
+    expect(updates).toEqual([
+      expect.objectContaining({
+        status: 'refunded',
+        metadata: expect.objectContaining({
+          paypal_completed_refund_ids: ['REFUND-P'],
+        }),
+      }),
+    ]);
+    expect(result?.completed).toBe(1);
   });
 });

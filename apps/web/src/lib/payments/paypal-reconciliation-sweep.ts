@@ -2,7 +2,9 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
+import { getPaypalCheckoutCredentials } from '@/lib/payments/paypal-checkout-credentials';
 import { runPaypalReconcileFunnel } from '@/lib/payments/paypal-settlement-funnel';
+import { getRefund } from '@/lib/paypal';
 
 /**
  * The safety net behind every PayPal write path.
@@ -70,8 +72,10 @@ export async function sweepStrandedPaypalCaptures(
     .eq('transaction_type', 'payment')
     .eq('status', 'pending')
     .not('gateway_reference', 'is', null)
-    .lt('created_at', strandedBefore)
-    .order('created_at', { ascending: true })
+    // updated_at is the sweep cursor: checked rows are touched below so an
+    // abandoned oldest page cannot starve newer captures forever.
+    .lt('updated_at', strandedBefore)
+    .order('updated_at', { ascending: true })
     .limit(MAX_ROWS_PER_RUN);
 
   if (error) {
@@ -116,6 +120,18 @@ export async function sweepStrandedPaypalCaptures(
         // PayPal never took the money. Nothing to recover — the buyer simply did
         // not finish, and this row is a normal abandoned checkout.
         result.notCaptured += 1;
+        const { error: touchError } = await supabase
+          .from('transactions')
+          .update({ updated_at: new Date().toISOString() })
+          .eq('id', row.id)
+          .eq('status', 'pending');
+        if (touchError) {
+          logger.error({
+            message: 'PayPal sweep: could not rotate an abandoned checkout',
+            error: touchError,
+            transactionId: row.id,
+          });
+        }
         continue;
       }
 
@@ -153,5 +169,117 @@ export async function sweepStrandedPaypalCaptures(
     });
   }
 
+  return result;
+}
+
+export interface PaypalRefundSweepResult {
+  scanned: number;
+  completed: number;
+  stillPending: number;
+  failed: number;
+  truncated: boolean;
+}
+
+interface PendingPaypalRefundTransaction {
+  id: string;
+  merchant_id: string;
+  order_id: string;
+  gateway_reference: string | null;
+  metadata: Record<string, unknown> | null;
+}
+
+/** Polls accepted-but-incomplete refunds until PayPal reports a terminal state. */
+export async function sweepPendingPaypalRefunds(
+  supabase: SupabaseClient
+): Promise<PaypalRefundSweepResult> {
+  const retryBefore = new Date(
+    Date.now() - STRANDED_AFTER_MINUTES * 60 * 1000
+  ).toISOString();
+  const { data, error } = await supabase
+    .from('transactions')
+    .select('id, merchant_id, order_id, gateway_reference, metadata')
+    .eq('gateway', 'paypal')
+    .eq('transaction_type', 'payment')
+    .eq('status', 'refund_pending')
+    .lt('updated_at', retryBefore)
+    .order('updated_at', { ascending: true })
+    .limit(MAX_ROWS_PER_RUN);
+
+  if (error) throw new Error('paypal_refund_sweep_query_failed');
+  const rows = (data ?? []) as PendingPaypalRefundTransaction[];
+  const result: PaypalRefundSweepResult = {
+    scanned: rows.length,
+    completed: 0,
+    stillPending: 0,
+    failed: 0,
+    truncated: rows.length === MAX_ROWS_PER_RUN,
+  };
+  const credentialCache = new Map<
+    string,
+    Awaited<ReturnType<typeof getPaypalCheckoutCredentials>>
+  >();
+
+  for (const row of rows) {
+    const ids = Array.isArray(row.metadata?.paypal_pending_refund_ids)
+      ? row.metadata.paypal_pending_refund_ids.filter(
+          (id): id is string => typeof id === 'string' && id.length > 0
+        )
+      : [];
+    let credentials = credentialCache.get(row.merchant_id);
+    if (credentials === undefined) {
+      credentials = await getPaypalCheckoutCredentials(row.merchant_id, 'live');
+      credentialCache.set(row.merchant_id, credentials);
+    }
+
+    let failed = ids.length === 0 || !credentials;
+    let stillPending = false;
+    const completedIds: string[] = [];
+    if (credentials) {
+      for (const refundId of ids) {
+        const lookup = await getRefund(
+          credentials.clientId,
+          credentials.secretKey,
+          refundId,
+          'live'
+        );
+        if (
+          !lookup.success ||
+          ['CANCELLED', 'FAILED'].includes(lookup.data.status)
+        ) {
+          failed = true;
+          continue;
+        }
+        if (lookup.data.status === 'PENDING') stillPending = true;
+        if (lookup.data.status === 'COMPLETED') completedIds.push(refundId);
+      }
+    }
+
+    const checkedAt = new Date().toISOString();
+    if (failed || stillPending) {
+      await supabase
+        .from('transactions')
+        .update({ updated_at: checkedAt })
+        .eq('id', row.id)
+        .eq('status', 'refund_pending');
+      if (failed) result.failed += 1;
+      else result.stillPending += 1;
+      continue;
+    }
+
+    const metadata = { ...(row.metadata ?? {}) };
+    delete metadata.paypal_pending_refund_ids;
+    metadata.paypal_completed_refund_ids = completedIds;
+    const { error: updateError } = await supabase
+      .from('transactions')
+      .update({ status: 'refunded', metadata, updated_at: checkedAt })
+      .eq('id', row.id)
+      .eq('status', 'refund_pending');
+    if (updateError) result.failed += 1;
+    else result.completed += 1;
+  }
+
+  if (result.failed > 0) {
+    logger.warn({ message: 'paypal_refund_sweep_failed_rows', ...result });
+  }
   return result;
 }

@@ -351,7 +351,8 @@ export async function reconcilePaypalOrderToPaid(
     const terminalStatus = existing?.payment_status;
     if (
       isCancelledPaymentStatus(terminalStatus) ||
-      terminalStatus === 'bnpl_approved'
+      terminalStatus === 'bnpl_approved' ||
+      terminalStatus === 'partially_paid'
     ) {
       logger.warn({
         message:
@@ -376,7 +377,9 @@ export async function reconcilePaypalOrderToPaid(
         source:
           terminalStatus === 'bnpl_approved'
             ? 'reconcile_bnpl_order'
-            : 'reconcile_cancelled_order',
+            : terminalStatus === 'partially_paid'
+              ? 'reconcile_partially_paid_order'
+              : 'reconcile_cancelled_order',
       });
       return NextResponse.json(
         {

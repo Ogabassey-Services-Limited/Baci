@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getCronSecret } from '@/env';
+import * as paypalSweep from '@/lib/payments/paypal-reconciliation-sweep';
 import { sweepStrandedPaypalCaptures } from '@/lib/payments/paypal-reconciliation-sweep';
 import { GET } from './route';
 
@@ -18,6 +19,7 @@ vi.mock('@/lib/supabase/admin', () => ({
 
 vi.mock('@/lib/payments/paypal-reconciliation-sweep', () => ({
   sweepStrandedPaypalCaptures: vi.fn(),
+  sweepPendingPaypalRefunds: vi.fn(),
 }));
 
 const SECRET = 'cron-secret';
@@ -38,6 +40,17 @@ beforeEach(() => {
     failed: 0,
     truncated: false,
   });
+  (
+    paypalSweep as unknown as {
+      sweepPendingPaypalRefunds: ReturnType<typeof vi.fn>;
+    }
+  ).sweepPendingPaypalRefunds.mockResolvedValue({
+    scanned: 1,
+    completed: 1,
+    stillPending: 0,
+    failed: 0,
+    truncated: false,
+  });
 });
 
 describe('GET /api/cron/paypal-reconciliation', () => {
@@ -47,6 +60,14 @@ describe('GET /api/cron/paypal-reconciliation', () => {
 
     expect(response.status).toBe(200);
     expect(body).toMatchObject({ ok: true, scanned: 3, settled: 1 });
+    expect(body.refunds).toMatchObject({ scanned: 1, completed: 1 });
+    expect(
+      (
+        paypalSweep as unknown as {
+          sweepPendingPaypalRefunds: ReturnType<typeof vi.fn>;
+        }
+      ).sweepPendingPaypalRefunds
+    ).toHaveBeenCalledTimes(1);
   });
 
   it('returns 401 without the cron secret — this endpoint settles real money', async () => {

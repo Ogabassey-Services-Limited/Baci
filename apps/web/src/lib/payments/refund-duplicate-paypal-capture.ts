@@ -34,7 +34,9 @@ export async function refundDuplicatePaypalCapture(input: {
     /** Capture landed on an order the abandoned-checkout cron already cancelled. */
     | 'reconcile_cancelled_order'
     /** Capture landed on an order the buyer had already financed with BNPL. */
-    | 'reconcile_bnpl_order';
+    | 'reconcile_bnpl_order'
+    /** Another tender partially settled the order before the PayPal paid CAS. */
+    | 'reconcile_partially_paid_order';
 }): Promise<NextResponse> {
   const {
     merchantId,
@@ -61,7 +63,12 @@ export async function refundDuplicatePaypalCapture(input: {
       undefined,
       transactionId,
       `duplicate capture refunded on ${source}`,
-      { pending: refund.pending }
+      {
+        pending: refund.pending,
+        ...(refund.pendingRefundIds?.length
+          ? { pendingRefundIds: refund.pendingRefundIds }
+          : {}),
+      }
     );
   }
 

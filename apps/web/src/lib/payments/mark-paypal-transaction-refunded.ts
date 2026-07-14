@@ -26,7 +26,7 @@ export async function markPaypalTransactionRefunded(
   supabase: SupabaseClient | undefined,
   transactionId: string,
   reason: string,
-  options?: { pending?: boolean }
+  options?: { pending?: boolean; pendingRefundIds?: string[] }
 ): Promise<void> {
   const client = supabase ?? createServiceClient();
 
@@ -40,10 +40,37 @@ export async function markPaypalTransactionRefunded(
   const status = options?.pending ? 'refund_pending' : 'refunded';
 
   try {
+    let metadata: Record<string, unknown> | undefined;
+    if (options?.pending && options.pendingRefundIds?.length) {
+      const { data, error: metadataError } = await client
+        .from('transactions')
+        .select('metadata')
+        .eq('id', transactionId)
+        .maybeSingle();
+
+      if (metadataError) {
+        logger.error({
+          message:
+            'PayPal refund: could not preserve metadata while recording pending refund ids',
+          error: metadataError,
+          transactionId,
+          reason,
+        });
+      } else {
+        const existingMetadata =
+          (data?.metadata as Record<string, unknown> | null) ?? {};
+        metadata = {
+          ...existingMetadata,
+          paypal_pending_refund_ids: options.pendingRefundIds,
+        };
+      }
+    }
+
     const { error } = await client
       .from('transactions')
       .update({
         status,
+        ...(metadata ? { metadata } : {}),
         updated_at: new Date().toISOString(),
       })
       .eq('id', transactionId)

@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import type {
   MerchantPaymentCredentialMetaRow,
@@ -56,4 +57,34 @@ export function toPayPalMode(
   environment: PaymentCredentialEnvironment
 ): PayPalMode {
   return environment === 'live' ? 'live' : 'sandbox';
+}
+
+/**
+ * PayPal refunds remain available for 180 days. Completed payments and refunds
+ * still in flight therefore depend on the live app credentials that created
+ * them; callers use this guard before replacing or deleting those credentials.
+ */
+export async function hasRefundablePaypalPayments(
+  supabase: SupabaseClient,
+  merchantId: string
+): Promise<boolean> {
+  const refundableSince = new Date(
+    Date.now() - 180 * 24 * 60 * 60 * 1000
+  ).toISOString();
+  const { data, error } = await supabase
+    .from('transactions')
+    .select('id')
+    .eq('merchant_id', merchantId)
+    .eq('gateway', 'paypal')
+    .eq('transaction_type', 'payment')
+    .in('status', ['completed', 'refund_pending'])
+    .gte('created_at', refundableSince)
+    .limit(1);
+
+  if (error) {
+    throw new Error(
+      `Failed to check refundable PayPal payments: ${error.message}`
+    );
+  }
+  return (data?.length ?? 0) > 0;
 }

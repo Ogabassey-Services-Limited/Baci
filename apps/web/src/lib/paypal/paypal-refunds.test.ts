@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as paypalRefunds from './paypal-refunds';
 import { refund } from './paypal-refunds';
 
 const OAUTH_RESPONSE = {
@@ -162,5 +163,43 @@ describe('refund', () => {
       expect(result.code).toBe('NETWORK_ERROR');
       expect(result.error).toBe('ETIMEDOUT');
     }
+  });
+
+  it('reads a refund resource so pending refunds can be reconciled to completion', async () => {
+    const getRefund = (
+      paypalRefunds as unknown as {
+        getRefund?: (
+          clientId: string,
+          secretKey: string,
+          refundId: string,
+          mode: 'sandbox' | 'live'
+        ) => Promise<unknown>;
+      }
+    ).getRefund;
+    expect(typeof getRefund).toBe('function');
+
+    const mockFetch = vi
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce(OAUTH_RESPONSE)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'REFUND-P', status: 'COMPLETED' }),
+      } as Response);
+
+    const result = await getRefund?.(
+      'client123',
+      'secret123',
+      'REFUND-P',
+      'live'
+    );
+
+    expect(result).toEqual({
+      success: true,
+      data: { id: 'REFUND-P', status: 'COMPLETED' },
+    });
+    expect(mockFetch.mock.calls.at(-1)?.[0]).toBe(
+      'https://api-m.paypal.com/v2/payments/refunds/REFUND-P'
+    );
+    expect(mockFetch.mock.calls.at(-1)?.[1]).toMatchObject({ method: 'GET' });
   });
 });

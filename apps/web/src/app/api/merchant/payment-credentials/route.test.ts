@@ -16,6 +16,7 @@ import {
   setMerchantPaymentCredential,
   touchMerchantCredentialValidated,
 } from '@/lib/payments/merchant-credentials';
+import { getPaypalClientId } from '@/lib/payments/paypal-checkout-credentials';
 import { getAccessToken } from '@/lib/paypal';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { DELETE, GET, POST } from './route';
@@ -47,6 +48,10 @@ vi.mock('@/lib/payments/merchant-credentials', () => ({
   getMerchantPaymentCredentialMeta: vi.fn(),
   setMerchantPaymentCredential: vi.fn(),
   touchMerchantCredentialValidated: vi.fn(),
+}));
+
+vi.mock('@/lib/payments/paypal-checkout-credentials', () => ({
+  getPaypalClientId: vi.fn(),
 }));
 
 vi.mock('@/lib/paypal', () => ({
@@ -119,7 +124,8 @@ function makeFeatureSettingsSupabase(
   customSettings: Record<string, unknown> = {
     paypal_enabled: true,
     paypal_mode: 'live',
-  }
+  },
+  options: { hasRefundablePaypalPayments?: boolean } = {}
 ) {
   let mode: 'read' | 'update' = 'read';
   let updatePayload: Record<string, unknown> | null = null;
@@ -144,8 +150,21 @@ function makeFeatureSettingsSupabase(
     ),
   };
 
+  const transactionsQuery: Record<string, unknown> = {};
+  for (const method of ['select', 'eq', 'in', 'gte']) {
+    transactionsQuery[method] = vi.fn(() => transactionsQuery);
+  }
+  transactionsQuery.limit = vi.fn(() =>
+    Promise.resolve({
+      data: options.hasRefundablePaypalPayments ? [{ id: 'txn-1' }] : [],
+      error: null,
+    })
+  );
+
   return {
-    from: vi.fn(() => query),
+    from: vi.fn((table: string) =>
+      table === 'transactions' ? transactionsQuery : query
+    ),
     getUpdatePayload: () => updatePayload,
   };
 }
@@ -176,6 +195,7 @@ describe('/api/merchant/payment-credentials', () => {
       success: true,
       data: 'paypal-access-token',
     });
+    vi.mocked(getPaypalClientId).mockResolvedValue(null);
     vi.mocked(setMerchantPaymentCredential).mockResolvedValue('credential-id');
     vi.mocked(touchMerchantCredentialValidated).mockResolvedValue(undefined);
     vi.mocked(deleteMerchantCredentials).mockResolvedValue(undefined);
@@ -302,6 +322,25 @@ describe('/api/merchant/payment-credentials', () => {
     expect(JSON.stringify(body)).not.toContain(SECRET_KEY);
   });
 
+  it('blocks replacing the live PayPal app while captured payments remain refundable', async () => {
+    vi.mocked(getPaypalClientId).mockResolvedValue('old-paypal-client-id');
+    const callerClient = makeFeatureSettingsSupabase(undefined, {
+      hasRefundablePaypalPayments: true,
+    });
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: { id: USER_ID },
+      error: null,
+      supabase: callerClient,
+    } as never);
+
+    const response = await POST(saveRequest());
+    const body = await responseJson(response);
+
+    expect(response.status).toBe(409);
+    expect(body.code).toBe('paypal_refundable_payments_exist');
+    expect(setMerchantPaymentCredential).not.toHaveBeenCalled();
+  });
+
   it('returns a write-only GET status for callers with settings.view', async () => {
     const response = await GET(createRequest('GET'));
     const body = await responseJson(response);
@@ -342,6 +381,26 @@ describe('/api/merchant/payment-credentials', () => {
       custom_settings: { paypal_enabled: false, paypal_mode: 'live' },
     });
     expect(body).toEqual({ configured: false, roles: [] });
+  });
+
+  it('blocks disconnect while captured PayPal payments still require these credentials for refunds', async () => {
+    const callerClient = makeFeatureSettingsSupabase(undefined, {
+      hasRefundablePaypalPayments: true,
+    });
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: { id: USER_ID },
+      error: null,
+      supabase: callerClient,
+    } as never);
+
+    const response = await DELETE(
+      createRequest('DELETE', { provider: 'paypal' })
+    );
+    const body = await responseJson(response);
+
+    expect(response.status).toBe(409);
+    expect(body.code).toBe('paypal_refundable_payments_exist');
+    expect(deleteMerchantCredentials).not.toHaveBeenCalled();
   });
 
   it('clears paypal_enabled for a staff caller through the service-role client instead of the RLS-owner-scoped client', async () => {

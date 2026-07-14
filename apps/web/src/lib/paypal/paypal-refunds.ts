@@ -114,3 +114,65 @@ export async function refund(
     return { success: false, error: errorMsg, code: 'NETWORK_ERROR' };
   }
 }
+
+/**
+ * Reads a PayPal refund resource (`GET /v2/payments/refunds/{id}`). Pending
+ * refunds are not terminal: the reconciliation cron uses this endpoint until
+ * PayPal reports COMPLETED, CANCELLED, or FAILED.
+ */
+export async function getRefund(
+  clientId: string,
+  secretKey: string,
+  refundId: string,
+  mode: PayPalMode = 'sandbox'
+): Promise<PayPalResult<PayPalRefundResponse>> {
+  const tokenResult = await getAccessToken(clientId, secretKey, mode);
+  if (!tokenResult.success) {
+    return tokenResult;
+  }
+
+  try {
+    const response = await fetch(
+      `${getPayPalBaseUrl(mode)}/v2/payments/refunds/${refundId}`,
+      {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${tokenResult.data}` },
+      }
+    );
+    const body = await response.json();
+
+    if (!response.ok) {
+      logger.error({
+        message: 'PayPal refund lookup failed',
+        refundId,
+        status: response.status,
+        error: body.message || JSON.stringify(body),
+      });
+      return {
+        success: false,
+        error:
+          body.message || `Refund status request failed: ${response.status}`,
+        code: `HTTP_${response.status}`,
+      };
+    }
+
+    const parsed = PayPalRefundResponseSchema.safeParse(body);
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: 'Invalid PayPal refund response format',
+        code: 'SCHEMA_MISMATCH',
+      };
+    }
+
+    return { success: true, data: parsed.data };
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Network error';
+    logger.error({
+      message: 'PayPal refund lookup network error',
+      refundId,
+      error: errorMsg,
+    });
+    return { success: false, error: errorMsg, code: 'NETWORK_ERROR' };
+  }
+}

@@ -2,7 +2,10 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { getCronSecret } from '@/env';
 import { hasValidCronSecret } from '@/lib/cron-secret-auth';
 import { logger } from '@/lib/logger';
-import { sweepStrandedPaypalCaptures } from '@/lib/payments/paypal-reconciliation-sweep';
+import {
+  sweepPendingPaypalRefunds,
+  sweepStrandedPaypalCaptures,
+} from '@/lib/payments/paypal-reconciliation-sweep';
 import { createClient as createServiceClient } from '@/lib/supabase/admin';
 
 /**
@@ -37,8 +40,9 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = createServiceClient();
     const result = await sweepStrandedPaypalCaptures(supabase);
+    const refunds = await sweepPendingPaypalRefunds(supabase);
 
-    return NextResponse.json({ ok: true, ...result });
+    return NextResponse.json({ ok: true, ...result, refunds });
   } catch (error) {
     logger.error({
       message: 'paypal_reconciliation_cron_failed',

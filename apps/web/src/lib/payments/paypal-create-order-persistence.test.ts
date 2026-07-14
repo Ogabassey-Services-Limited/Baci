@@ -112,6 +112,7 @@ describe('persistPaypalPendingTransaction', () => {
         gateway_reference: 'PP-NEW',
         amount: 65000,
         merchant_amount: 65000,
+        currency: 'NGN',
         metadata: expect.objectContaining({
           customer_email: 'customer@example.com',
           paypal_presentment_amount: 50,

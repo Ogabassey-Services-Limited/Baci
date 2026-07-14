@@ -28,6 +28,7 @@ function makeSupabase(result: { error?: unknown } = {}) {
   } = {};
 
   const builder: Record<string, unknown> = {
+    select: () => builder,
     update: (payload: Record<string, unknown>) => {
       captured.update = payload;
       return builder;
@@ -40,6 +41,8 @@ function makeSupabase(result: { error?: unknown } = {}) {
       captured.inStatuses = values;
       return Promise.resolve({ error: result.error ?? null });
     },
+    maybeSingle: () =>
+      Promise.resolve({ data: { metadata: { existing: true } }, error: null }),
   };
 
   return {
@@ -103,6 +106,29 @@ describe('markPaypalTransactionRefunded', () => {
 
     expect(captured.update).toMatchObject({ status: 'refund_pending' });
     expect(DB_ALLOWED_TRANSACTION_STATUSES).toContain(captured.update?.status);
+  });
+
+  it('persists pending PayPal refund ids so the reconciliation cron can poll them', async () => {
+    const { client, captured } = makeSupabase();
+    const markWithRefundIds = markPaypalTransactionRefunded as unknown as (
+      supabase: SupabaseClient,
+      transactionId: string,
+      reason: string,
+      options: { pending: boolean; pendingRefundIds: string[] }
+    ) => Promise<void>;
+
+    await markWithRefundIds(client, TXN_ID, 'refund pending', {
+      pending: true,
+      pendingRefundIds: ['REFUND-P'],
+    });
+
+    expect(captured.update).toMatchObject({
+      status: 'refund_pending',
+      metadata: {
+        existing: true,
+        paypal_pending_refund_ids: ['REFUND-P'],
+      },
+    });
   });
 
   it('only advances a pending/completed row — never walks a terminal row backwards', async () => {

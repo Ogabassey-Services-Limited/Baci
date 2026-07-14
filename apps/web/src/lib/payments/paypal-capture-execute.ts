@@ -140,7 +140,12 @@ export async function refundCapturedPaypalOrder(
   ctx: PaypalCaptureContext,
   remote: PayPalOrderDetails | undefined,
   reason: string
-): Promise<{ success: boolean; pending?: boolean; error?: string }> {
+): Promise<{
+  success: boolean;
+  pending?: boolean;
+  pendingRefundIds?: string[];
+  error?: string;
+}> {
   const gatewayResponse = await resolveCaptureGatewayResponse(ctx, remote);
   const result = await initiatePaypalOrderRefund({
     merchantId: ctx.merchantId,
@@ -153,13 +158,19 @@ export async function refundCapturedPaypalOrder(
       ctx.supabase,
       ctx.transaction.id,
       result.pending ? `${reason} (refund PENDING at PayPal)` : reason,
-      { pending: result.pending }
+      {
+        pending: result.pending,
+        ...(result.pendingRefundIds?.length
+          ? { pendingRefundIds: result.pendingRefundIds }
+          : {}),
+      }
     );
   }
 
   return {
     success: result.success,
     pending: result.pending,
+    pendingRefundIds: result.pendingRefundIds,
     error: result.error,
   };
 }

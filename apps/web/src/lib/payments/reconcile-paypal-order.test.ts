@@ -335,6 +335,39 @@ describe('reconcilePaypalOrderToPaid', () => {
     expect(filePaypalCapturePersistFailureReview).not.toHaveBeenCalled();
   });
 
+  it('refunds a captured PayPal payment when the paid CAS loses to a partially-paid order', async () => {
+    vi.mocked(refundDuplicatePaypalCapture).mockResolvedValue(
+      NextResponse.json(
+        { error: 'Order is no longer payable', code: 'ORDER_NOT_PAYABLE' },
+        { status: 409 }
+      )
+    );
+    const { client } = makeSupabase([
+      { data: null, error: null }, // paid CAS matched nothing
+      {
+        data: {
+          payment_status: 'partially_paid',
+          order_number: 'BACI-1002',
+          paid_transaction_id: null,
+        },
+        error: null,
+      },
+      { data: { gateway_response: { capture: 'x' } }, error: null },
+    ]);
+
+    const response = await reconcilePaypalOrderToPaid(input(client));
+
+    expect(response.status).toBe(409);
+    expect(refundDuplicatePaypalCapture).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId: ORDER_ID,
+        transactionId: TXN_ID,
+        source: 'reconcile_partially_paid_order',
+      })
+    );
+    expect(runPaypalCaptureSideEffects).not.toHaveBeenCalled();
+  });
+
   it('DB error on CAS update files review and returns 500', async () => {
     const { client } = makeSupabase([
       { data: null, error: { message: 'boom' } }, // CAS update errors

@@ -17,7 +17,7 @@ export {
 } from './paypal-endpoints';
 export { detectPayPalResponseMode } from './paypal-mode-guard';
 export { captureOrder, createOrder, getOrder } from './paypal-orders';
-export { refund } from './paypal-refunds';
+export { getRefund, refund } from './paypal-refunds';
 export type {
   PayPalCaptureResponse,
   PayPalCreateOrderOptions,

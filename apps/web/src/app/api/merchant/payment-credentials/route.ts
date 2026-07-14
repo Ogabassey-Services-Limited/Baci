@@ -19,6 +19,7 @@ import {
   setMerchantPaymentCredential,
   touchMerchantCredentialValidated,
 } from '@/lib/payments/merchant-credentials';
+import { getPaypalClientId } from '@/lib/payments/paypal-checkout-credentials';
 import { disablePaypalFeatureFlag } from '@/lib/payments/paypal-feature-flag';
 import { getAccessToken } from '@/lib/paypal';
 import {
@@ -27,17 +28,22 @@ import {
   paymentCredentialProviderSchema,
 } from '@/schemas/merchant-payment-credentials';
 import {
+  hasRefundablePaypalPayments,
   jsonNoStore,
   toPayPalMode,
   toStatusResponse,
   withNoStore,
 } from './payment-credentials-route-utils';
 
-// Authorization boundary for the BYOK credential vault. The vault RPCs do no
-// caller authorization, so every handler must check merchant-staff access before
-// touching credentials. Responses are write-only status views only.
+// Vault RPCs do no caller authorization: every handler checks merchant access.
+// Responses expose write-only status views, never credential values.
 
 const VALIDATION_RATE_LIMIT = { requests: 5, windowMs: 60_000 } as const;
+const PAYPAL_REFUND_WINDOW_BLOCK = {
+  error:
+    'This PayPal connection still has payments within the refund window. Keep the current PayPal app connected.',
+  code: 'paypal_refundable_payments_exist',
+} as const;
 
 type GuardResult =
   | { ok: true; supabase: SupabaseClient; userId: string; access: UserAccess }
@@ -178,12 +184,20 @@ export async function POST(request: NextRequest) {
     }
 
     const { merchantId } = guarded.access;
-    // Persist the pair atomically-in-effect (S-245): write client_id, then
-    // secret_key. If the secret_key write fails, the client_id write already
-    // landed, so roll the WHOLE pair back — checkout otherwise resolves one role
-    // and 401s on the missing/rotated other, silently failing every payment.
-    // Fail-closed: no credentials beats a mismatched half-pair. The rollback
-    // delete is best-effort so the original write error surfaces as the 500.
+
+    if (provider === 'paypal' && environment === 'live') {
+      const currentClientId = await getPaypalClientId(merchantId, environment);
+      if (
+        currentClientId &&
+        currentClientId !== clientId &&
+        (await hasRefundablePaypalPayments(guarded.supabase, merchantId))
+      ) {
+        return jsonNoStore(PAYPAL_REFUND_WINDOW_BLOCK, { status: 409 });
+      }
+    }
+
+    // Write client_id then secret_key; roll both back if the second write fails
+    // so checkout never observes a mismatched half-pair (S-245).
     await setMerchantPaymentCredential(
       merchantId,
       provider,
@@ -224,8 +238,7 @@ export async function POST(request: NextRequest) {
       }
       throw writeError;
     }
-    // Only the environment we actually validated may be stamped — see
-    // touchMerchantCredentialValidated.
+    // Stamp only the environment actually validated.
     await touchMerchantCredentialValidated(merchantId, provider, environment);
 
     const rows = await getMerchantPaymentCredentialMeta(merchantId, provider);
@@ -260,6 +273,13 @@ export async function DELETE(request: NextRequest) {
 
     const { merchantId } = guarded.access;
     const { provider } = parsed.data;
+
+    if (
+      provider === 'paypal' &&
+      (await hasRefundablePaypalPayments(guarded.supabase, merchantId))
+    ) {
+      return jsonNoStore(PAYPAL_REFUND_WINDOW_BLOCK, { status: 409 });
+    }
 
     await deleteMerchantCredentials(merchantId, provider);
     if (provider === 'paypal') {

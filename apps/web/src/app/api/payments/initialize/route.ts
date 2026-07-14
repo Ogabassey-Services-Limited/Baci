@@ -1348,7 +1348,7 @@ export async function POST(request: NextRequest) {
     // cannot settle when no gateway was explicitly forced.
     if (
       gateway === 'korapay' &&
-      !isKorapaySettlementCurrencyMatch(merchant.country, validCurrency)
+      !isKorapaySettlementCurrencyMatch(merchant.country, chargeCurrency)
     ) {
       return createErrorResponse(
         'Korapay is not available for this store in this currency',

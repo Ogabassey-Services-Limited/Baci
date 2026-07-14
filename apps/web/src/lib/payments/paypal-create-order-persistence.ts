@@ -83,6 +83,10 @@ export async function persistPaypalPendingTransaction(
         gateway_reference: params.paypalOrderId,
         amount: params.amount,
         merchant_amount: params.amount,
+        // Keep the transaction's canonical order currency aligned with the
+        // replacement PayPal order. Capture reconciliation compares these
+        // values and must not inherit the superseded attempt's currency.
+        currency: params.currency,
         metadata: {
           ...existingMetadata,
           ...presentmentMetadata,
