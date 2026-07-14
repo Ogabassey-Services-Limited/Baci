@@ -104,7 +104,15 @@ BEGIN
   END IF;
 
   -- Read-only: entry is free, so the balance is reported but never charged.
-  SELECT COALESCE(c.loyalty_points, 0) INTO v_remaining_loyalty_points
+  --
+  -- Clamped at 0. Nothing in the schema stops customers.loyalty_points from
+  -- going negative (there is no CHECK constraint), and both the web and mobile
+  -- start-response schemas require remainingLoyaltyPoints to be nonnegative. An
+  -- imported/adjusted row with a negative balance would otherwise make the
+  -- client REJECT an otherwise successful start — while the attempt it created
+  -- still counted against the player's cap. Report the floor instead.
+  SELECT GREATEST(COALESCE(c.loyalty_points, 0), 0)
+  INTO v_remaining_loyalty_points
   FROM public.customers c
   WHERE c.id = v_customer_id;
 
