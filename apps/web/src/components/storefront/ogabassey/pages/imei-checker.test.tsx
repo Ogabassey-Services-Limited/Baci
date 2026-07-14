@@ -665,9 +665,11 @@ describe('OgabasseyImeiChecker', () => {
     fireEvent.click(screen.getByRole('button', { name: /verify now/i }));
 
     await screen.findByText('iPhone 15 Pro');
-    // Focus must land somewhere inside the new result, not on <body>.
-    expect(document.activeElement).not.toBe(document.body);
-    expect(document.activeElement).toHaveAttribute('tabindex', '-1');
+    // Focus runs in the result component's effect, after the new report mounts.
+    await waitFor(() => {
+      expect(document.activeElement).not.toBe(document.body);
+      expect(document.activeElement).toHaveAttribute('tabindex', '-1');
+    });
     expect(screen.getByRole('status')).toHaveTextContent(
       /full report report ready/i
     );
@@ -676,9 +678,11 @@ describe('OgabasseyImeiChecker', () => {
       screen.getByRole('button', { name: /check another device/i })
     );
 
-    // Focus must land back inside the remounted entry form, not on <body>.
-    expect(document.activeElement).not.toBe(document.body);
-    expect(document.activeElement).toHaveAttribute('tabindex', '-1');
+    // Focus runs in the remounted entry form's effect, after the result unmounts.
+    await waitFor(() => {
+      expect(document.activeElement).not.toBe(document.body);
+      expect(document.activeElement).toHaveAttribute('tabindex', '-1');
+    });
     expect(
       screen.getByRole('textbox', { name: /search for a device name/i })
     ).toBeInTheDocument();

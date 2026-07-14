@@ -11,6 +11,12 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@supabase/supabase-js', () => ({
   createClient: () => ({ from: mocks.from }),
 }));
+vi.mock('@/lib/events/event-ingress-capability', () => ({
+  createEventIngressClient: () => ({ from: mocks.from }),
+}));
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: () => ({ from: mocks.from }),
+}));
 vi.mock('@/lib/events/event-pipeline-config', () => ({
   isEventPipelineEnqueueEnabled: () => true,
   isLegacyAnalyticsFanoutDisabled: () => mocks.legacyFanoutDisabled,

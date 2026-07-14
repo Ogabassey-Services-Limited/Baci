@@ -18,6 +18,18 @@ vi.mock('@supabase/supabase-js', () => ({
     rpc: mocks.rpc,
   }),
 }));
+vi.mock('@/lib/events/event-ingress-capability', () => ({
+  createEventIngressClient: () => ({
+    from: () => ({ insert: mocks.insert, upsert: mocks.upsert }),
+    rpc: mocks.rpc,
+  }),
+}));
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: () => ({
+    from: () => ({ insert: mocks.insert, upsert: mocks.upsert }),
+    rpc: mocks.rpc,
+  }),
+}));
 vi.mock('next/server', async () => {
   const actual =
     await vi.importActual<typeof import('next/server')>('next/server');
