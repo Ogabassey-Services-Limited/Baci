@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { applyWalletRouteAction } from '@/components/wallet/apply-wallet-route-action';
 import { createLogger } from '@/lib/logger';
 import type { WalletReturnHref } from '@/lib/sanitize-wallet-return-to';
+import { storeWalletFundingIntent } from '@/lib/wallet-funding-intent';
 import { startWalletFundingSession } from '@/lib/wallet-funding-session';
 
 const log = createLogger('WalletRouteActionSetup');
@@ -135,6 +136,15 @@ export function useWalletRouteActionSetup({
       isActive = false;
     };
   }, [customerId, fundingSessionKey, routeIntentId]);
+
+  // Bank-transfer top-ups have no client initialize call, so persist the
+  // onward destination locally for the eventual wallet-credit push tap.
+  useEffect(() => {
+    if (!walletReturnTo) {
+      return;
+    }
+    void storeWalletFundingIntent(walletReturnTo);
+  }, [walletReturnTo]);
 
   const {
     canCreateFundingAccount,

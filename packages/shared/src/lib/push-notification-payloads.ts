@@ -19,7 +19,21 @@ export type StorefrontNotificationNavigationTarget =
   | { screen: 'product'; params: { slug: string } }
   | { screen: 'category'; params: { slug: string } }
   | { screen: 'utility-history'; params: { type: StorefrontUtilityType } }
-  | { screen: 'wallet'; params?: { action?: 'savings'; returnTo?: string } }
+  | {
+      screen: 'wallet';
+      params?: {
+        action?: 'savings';
+        /**
+         * Marks a target that came from an actual wallet CREDIT, as opposed to
+         * the other pushes that also land on the wallet (savings reminder, VTU
+         * cashback summary). Derived from the payload type on the client, so it
+         * costs no wire-format change. Only a credit may consume the locally
+         * stored funding intent — see `navigate-from-push-screen`.
+         */
+        credited?: 'true';
+        returnTo?: string;
+      };
+    }
   | { screen: 'unlock-orders' }
   | { screen: 'home' };
 
@@ -186,10 +200,15 @@ export function getStorefrontNotificationNavigationTarget(
       // Newer clients deep-link to the wallet and, when the interrupted
       // purchase supplied one, carry a returnTo for onward navigation. Older
       // shared bundles lack this case and fall through to `default` (home).
+      // `credited` is always set so the tap handler can tell a real credit apart
+      // from the other wallet-bound pushes (`vtu_cashback_monthly_summary` and
+      // `customer_savings_reminder`), which must NOT consume the pending funding
+      // intent — doing so would both misfire a navigation and burn the intent
+      // before the actual credit arrives.
       const returnTo = readString(payload, 'returnTo', 'return_to');
       return returnTo
-        ? { screen: 'wallet', params: { returnTo } }
-        : { screen: 'wallet' };
+        ? { screen: 'wallet', params: { credited: 'true', returnTo } }
+        : { screen: 'wallet', params: { credited: 'true' } };
     }
     case 'carrier_unlock':
       return { screen: 'unlock-orders' };

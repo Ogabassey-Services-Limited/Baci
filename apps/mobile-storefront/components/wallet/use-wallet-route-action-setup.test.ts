@@ -1,7 +1,12 @@
-import { act, renderHook } from '@testing-library/react-native';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { useWalletRouteActionSetup } from '@/components/wallet/use-wallet-route-action-setup';
+import type { WalletReturnHref } from '@/lib/sanitize-wallet-return-to';
+import { storeWalletFundingIntent } from '@/lib/wallet-funding-intent';
 import { startWalletFundingSession } from '@/lib/wallet-funding-session';
 
+jest.mock('@/lib/wallet-funding-intent', () => ({
+  storeWalletFundingIntent: jest.fn(),
+}));
 jest.mock('@/lib/wallet-funding-session', () => ({
   startWalletFundingSession: jest.fn(async () => null),
 }));
@@ -10,6 +15,7 @@ jest.mock('@/lib/logger', () => ({
 }));
 
 const mockStartSession = jest.mocked(startWalletFundingSession);
+const storeIntent = jest.mocked(storeWalletFundingIntent);
 
 const noopSetters = {
   setFundAmount: jest.fn(),
@@ -30,6 +36,7 @@ function buildParams(
     needsPhone: boolean;
     routeAction: string | undefined;
     routeIntentId: string | undefined;
+    walletReturnTo: WalletReturnHref | undefined;
   }> = {}
 ) {
   const {
@@ -42,6 +49,7 @@ function buildParams(
     needsPhone = false,
     routeAction = 'bank-transfer',
     routeIntentId = 'intent-1',
+    walletReturnTo = undefined,
   } = overrides;
 
   return {
@@ -57,7 +65,7 @@ function buildParams(
     routeAction,
     routeIntentId,
     routeRequiredAmount: '',
-    walletReturnTo: undefined,
+    walletReturnTo,
     ...noopSetters,
   };
 }
@@ -71,6 +79,28 @@ describe('useWalletRouteActionSetup', () => {
     mockStartSession.mockImplementation(
       () => new Promise<null>(() => undefined)
     );
+  });
+
+  it('records a resumable destination for a later wallet-credit push', async () => {
+    renderHook(() =>
+      useWalletRouteActionSetup(
+        buildParams({
+          walletReturnTo: '/utilities/power?repeatAmount=2000',
+        })
+      )
+    );
+
+    await waitFor(() =>
+      expect(storeIntent).toHaveBeenCalledWith(
+        '/utilities/power?repeatAmount=2000'
+      )
+    );
+  });
+
+  it('does not record an intent without an onward destination', async () => {
+    renderHook(() => useWalletRouteActionSetup(buildParams()));
+
+    await waitFor(() => expect(storeIntent).not.toHaveBeenCalled());
   });
 
   it('creates the funding account once for action=bank-transfer when none exists', () => {

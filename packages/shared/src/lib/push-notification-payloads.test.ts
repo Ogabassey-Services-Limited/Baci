@@ -227,7 +227,10 @@ describe('getStorefrontNotificationNavigationTarget', () => {
         currency: 'NGN',
         returnTo: '/checkout',
       })
-    ).toEqual({ screen: 'wallet', params: { returnTo: '/checkout' } });
+    ).toEqual({
+      screen: 'wallet',
+      params: { credited: 'true', returnTo: '/checkout' },
+    });
   });
 
   it('routes wallet_credited payloads using snake_case return_to', () => {
@@ -236,16 +239,35 @@ describe('getStorefrontNotificationNavigationTarget', () => {
         type: 'wallet_credited',
         return_to: '/checkout',
       })
-    ).toEqual({ screen: 'wallet', params: { returnTo: '/checkout' } });
+    ).toEqual({
+      screen: 'wallet',
+      params: { credited: 'true', returnTo: '/checkout' },
+    });
   });
 
-  it('routes wallet_credited payloads without a returnTo to the bare wallet', () => {
+  it('routes wallet_credited payloads without a returnTo to the bare wallet, still marked as a credit', () => {
     expect(
       getStorefrontNotificationNavigationTarget({
         type: 'wallet_credited',
         amount: 5000,
       })
+    ).toEqual({ screen: 'wallet', params: { credited: 'true' } });
+  });
+
+  it('does NOT mark the other wallet-bound pushes as credits', () => {
+    // These land on the wallet too. Without the `credited` marker they are
+    // indistinguishable from a returnTo-less credit, and the storefront tap
+    // handler would consume the single-use funding intent for them.
+    expect(
+      getStorefrontNotificationNavigationTarget({
+        type: 'vtu_cashback_monthly_summary',
+      })
     ).toEqual({ screen: 'wallet' });
+    expect(
+      getStorefrontNotificationNavigationTarget({
+        type: 'customer_savings_reminder',
+      })
+    ).toEqual({ screen: 'wallet', params: { action: 'savings' } });
   });
 
   it('builds a wallet_credited payload that carries an onward returnTo', () => {

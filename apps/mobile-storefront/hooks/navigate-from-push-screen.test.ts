@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { router } from 'expo-router';
+import {
+  clearWalletFundingIntent,
+  consumeWalletFundingIntent,
+} from '@/lib/wallet-funding-intent';
 import { navigateFromPushScreen } from './navigate-from-push-screen';
 
 jest.mock('expo-router', () => ({
@@ -8,11 +12,28 @@ jest.mock('expo-router', () => ({
   },
 }));
 
+jest.mock('@/lib/wallet-funding-intent', () => ({
+  clearWalletFundingIntent: jest.fn(),
+  consumeWalletFundingIntent: jest.fn(),
+}));
+
 const push = router.push as jest.MockedFunction<typeof router.push>;
+const consumeIntent = consumeWalletFundingIntent as jest.MockedFunction<
+  typeof consumeWalletFundingIntent
+>;
+const clearIntent = clearWalletFundingIntent as jest.MockedFunction<
+  typeof clearWalletFundingIntent
+>;
+
+/** Lets the fire-and-forget storage read inside the wallet branch settle. */
+const flushIntentRead = () =>
+  new Promise<void>((resolve) => setImmediate(resolve));
 
 describe('navigateFromPushScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    consumeIntent.mockResolvedValue(undefined);
+    clearIntent.mockResolvedValue(undefined);
   });
 
   it('routes to a specific order when an id is provided', () => {
@@ -67,7 +88,10 @@ describe('navigateFromPushScreen', () => {
   });
 
   it('lands on the wallet then resumes the interrupted purchase for wallet-credited taps', () => {
-    navigateFromPushScreen('wallet', { returnTo: '/checkout' });
+    navigateFromPushScreen('wallet', {
+      credited: 'true',
+      returnTo: '/checkout',
+    });
 
     // Wallet first (back returns there), destination on top — the tap
     // actually resumes the flow instead of stranding the customer.
@@ -78,6 +102,7 @@ describe('navigateFromPushScreen', () => {
 
   it('resumes an allowlisted utility flow with its repeat params', () => {
     navigateFromPushScreen('wallet', {
+      credited: 'true',
       returnTo: '/utilities/airtime?repeatAmount=500',
     });
 
@@ -107,13 +132,86 @@ describe('navigateFromPushScreen', () => {
       '/utilities/crypto',
     ];
     for (const returnTo of maliciousReturnTos) {
-      navigateFromPushScreen('wallet', { returnTo });
+      navigateFromPushScreen('wallet', { credited: 'true', returnTo });
     }
 
     for (const call of push.mock.calls) {
       expect(call[0]).toBe('/wallet');
     }
     expect(push).toHaveBeenCalledTimes(maliciousReturnTos.length);
+  });
+
+  it('resumes the locally stored funding intent when the credit carries no returnTo', async () => {
+    // Bank-transfer/DVA credits: the transaction is created by the webhook, so
+    // it can never carry a returnTo. The intent recorded when the customer
+    // opened the funding surface is the only surviving destination.
+    consumeIntent.mockResolvedValue('/utilities/power?repeatAmount=2000');
+
+    navigateFromPushScreen('wallet', { credited: 'true' });
+    await flushIntentRead();
+
+    expect(push).toHaveBeenNthCalledWith(1, '/wallet');
+    expect(push).toHaveBeenNthCalledWith(
+      2,
+      '/utilities/power?repeatAmount=2000'
+    );
+    expect(push).toHaveBeenCalledTimes(2);
+  });
+
+  it('stays on the wallet when no funding intent is stored', async () => {
+    navigateFromPushScreen('wallet', { credited: 'true' });
+    await flushIntentRead();
+
+    expect(push).toHaveBeenCalledTimes(1);
+    expect(push).toHaveBeenCalledWith('/wallet');
+  });
+
+  it('falls back to the stored intent when the payload returnTo is rejected', async () => {
+    consumeIntent.mockResolvedValue('/checkout');
+
+    navigateFromPushScreen('wallet', {
+      credited: 'true',
+      returnTo: '//evil.com',
+    });
+    await flushIntentRead();
+
+    expect(push).toHaveBeenNthCalledWith(1, '/wallet');
+    expect(push).toHaveBeenNthCalledWith(2, '/checkout');
+  });
+
+  it('clears the stored intent when the payload carries a valid returnTo', async () => {
+    navigateFromPushScreen('wallet', {
+      credited: 'true',
+      returnTo: '/checkout',
+    });
+    await flushIntentRead();
+
+    expect(clearIntent).toHaveBeenCalledTimes(1);
+    expect(consumeIntent).not.toHaveBeenCalled();
+  });
+
+  it('does not touch the funding intent for savings taps', async () => {
+    navigateFromPushScreen('wallet', { action: 'savings' });
+    await flushIntentRead();
+
+    expect(consumeIntent).not.toHaveBeenCalled();
+    expect(clearIntent).not.toHaveBeenCalled();
+  });
+
+  it('does not consume the funding intent for a non-credit wallet push', async () => {
+    // Regression: `vtu_cashback_monthly_summary` also targets the wallet with no
+    // params, which made it indistinguishable from a returnTo-less credit. It
+    // used to consume the single-use intent — misfiring a navigation AND burning
+    // the intent, so the real credit that followed resumed nothing.
+    consumeIntent.mockResolvedValue('/checkout');
+
+    navigateFromPushScreen('wallet', {});
+    await flushIntentRead();
+
+    expect(consumeIntent).not.toHaveBeenCalled();
+    expect(clearIntent).not.toHaveBeenCalled();
+    expect(push).toHaveBeenCalledTimes(1);
+    expect(push).toHaveBeenCalledWith('/wallet');
   });
 
   it('defaults the utility-history type to power when unspecified', () => {

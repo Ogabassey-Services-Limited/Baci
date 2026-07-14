@@ -1,5 +1,25 @@
 import { type Href, router } from 'expo-router';
 import { sanitizeResumableWalletReturnTo } from '@/lib/resumable-wallet-return-to';
+import {
+  clearWalletFundingIntent,
+  consumeWalletFundingIntent,
+} from '@/lib/wallet-funding-intent';
+
+/**
+ * Fallback for wallet credits that carry no `returnTo`: DVA / bank-transfer
+ * top-ups have no client `initialize` call (the DVA is a standing account
+ * number, and the transaction row is created by the webhook itself), so their
+ * metadata can never hold the onward destination the way a card top-up's does.
+ * The intent recorded locally when the customer opened the funding surface is
+ * single-use, TTL-bounded and re-validated against the same strict resumable
+ * allowlist before it is navigated to.
+ */
+async function resumeStoredWalletFundingIntent() {
+  const storedReturnTo = await consumeWalletFundingIntent();
+  if (storedReturnTo) {
+    router.push(storedReturnTo);
+  }
+}
 
 // Module-scope routing dispatcher for notification taps. Kept out of the hook
 // body so the useEffectEvent wrapper stays thin; behavior is unchanged.
@@ -55,9 +75,26 @@ export function navigateFromPushScreen(
       // purchase" promise.
       const returnTo = sanitizeResumableWalletReturnTo(params?.returnTo);
       router.push('/wallet');
-      if (returnTo) {
-        router.push(returnTo);
+
+      // ONLY an actual credit may touch the pending funding intent. Other pushes
+      // also land on the wallet (`vtu_cashback_monthly_summary`), and they are
+      // otherwise indistinguishable from a returnTo-less credit — consuming the
+      // intent for one of those would both misfire a navigation and burn the
+      // single-use intent before the real credit lands.
+      if (params?.credited !== 'true') {
+        break;
       }
+
+      if (returnTo) {
+        // The payload's destination wins; the locally recorded intent is now
+        // superseded, so drop it rather than leave it armed for a later credit.
+        void clearWalletFundingIntent();
+        router.push(returnTo);
+        break;
+      }
+      // No usable destination in the payload (bank-transfer/DVA credits never
+      // carry one) — resume the locally recorded funding intent, if any.
+      void resumeStoredWalletFundingIntent();
       break;
     }
     case 'utility-history':
