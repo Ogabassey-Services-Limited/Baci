@@ -167,8 +167,9 @@ export async function POST(request: NextRequest) {
   }
 
   // Defense in depth: the readiness marker and free-entry function are installed
-  // atomically, so this should be unreachable. Refuse any drifted response
-  // without using a service-role client from this user-facing route.
+  // atomically, so this should be unreachable. The RPC mutation has committed,
+  // therefore report the real receipt instead of returning a retryable failure
+  // that would hide the consumed attempt and any unexpected charge.
   const staleCharge = readStalePaidStartCharge(data);
   if (staleCharge) {
     logger.error({
@@ -180,8 +181,6 @@ export async function POST(request: NextRequest) {
       pointsSpent: staleCharge.pointsSpent,
       userId: auth.user.id,
     });
-
-    return NextResponse.json(QUIZ_UNAVAILABLE_RESPONSE, { status: 503 });
   }
 
   const deadlineResult = await attachQuizQuestionDeadline(auth.supabase, data);

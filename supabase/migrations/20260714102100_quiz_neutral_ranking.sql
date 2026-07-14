@@ -15,7 +15,6 @@
 -- Redefines both ranking functions with the loyalty tiebreaker removed. The
 -- remaining order is skill and speed only, and is still fully deterministic:
 --     score DESC, completion time ASC, submitted_at ASC, attempt id ASC
--- (the leaderboard additionally keeps disqualified attempts last).
 --
 -- Both functions MUST be changed together: 20260713140000 documents that the
 -- minter ranks with EXACTLY the same key order as get_quiz_leaderboard, so the
@@ -228,11 +227,14 @@ BEGIN
       -- can't win either. A NULL started_at (should not occur) is admitted.
       AND (
         a.started_at IS NULL
-        OR a.submitted_at - a.started_at <= interval '1 hour'
+        OR (
+          a.submitted_at - a.started_at >= interval '0 seconds'
+          AND a.submitted_at - a.started_at <= interval '1 hour'
+        )
       )
     ORDER BY
       a.customer_id,
-      a.score DESC,
+      a.score DESC NULLS LAST,
       EXTRACT(EPOCH FROM (a.submitted_at - a.started_at)) ASC NULLS LAST,
       a.submitted_at ASC,
       a.id ASC
@@ -243,7 +245,7 @@ BEGIN
       ba.customer_id,
       pg_catalog.row_number() OVER (
         ORDER BY
-          ba.score DESC,
+          ba.score DESC NULLS LAST,
           EXTRACT(EPOCH FROM (ba.submitted_at - ba.started_at)) ASC NULLS LAST,
           ba.submitted_at ASC,
           ba.attempt_id ASC
@@ -352,11 +354,38 @@ BEGIN
   END IF;
 
   RETURN QUERY
+  WITH best_attempts AS (
+    -- Keep this candidate set identical to the award minter: one best clean,
+    -- within-window attempt per customer.
+    SELECT DISTINCT ON (qa.customer_id)
+      qa.id,
+      qa.customer_id,
+      qa.score,
+      qa.started_at,
+      qa.submitted_at,
+      qa.status
+    FROM public.quiz_attempts qa
+    WHERE qa.event_id = p_event_id
+      AND qa.status IN ('submitted', 'scored')
+      AND qa.submitted_at IS NOT NULL
+      AND (
+        qa.started_at IS NULL
+        OR (
+          qa.submitted_at - qa.started_at >= interval '0 seconds'
+          AND qa.submitted_at - qa.started_at <= interval '1 hour'
+        )
+      )
+    ORDER BY
+      qa.customer_id,
+      qa.score DESC NULLS LAST,
+      EXTRACT(EPOCH FROM (qa.submitted_at - qa.started_at)) ASC NULLS LAST,
+      qa.submitted_at ASC,
+      qa.id ASC
+  )
   SELECT
     ROW_NUMBER() OVER (
       ORDER BY
-        (a.status = 'disqualified') ASC,
-        a.score DESC,
+        a.score DESC NULLS LAST,
         EXTRACT(EPOCH FROM (a.submitted_at - a.started_at))::double precision ASC NULLS LAST,
         a.submitted_at ASC,
         a.id ASC
@@ -376,10 +405,9 @@ BEGIN
     EXTRACT(EPOCH FROM (a.submitted_at - a.started_at))::double precision AS total_time_seconds,
     a.submitted_at,
     a.status
-  FROM public.quiz_attempts a
+  FROM best_attempts a
   JOIN public.customers c ON c.id = a.customer_id
-  WHERE a.event_id = p_event_id
-    AND a.status IN ('submitted', 'scored', 'disqualified');
+  ;
 END;
 $$;
 
@@ -394,4 +422,4 @@ GRANT EXECUTE ON FUNCTION public.get_quiz_leaderboard(uuid) TO authenticated, se
 
 -- Restated without the loyalty tiebreaker (the old comment still advertised
 -- "higher loyalty points", which is no longer true).
-COMMENT ON FUNCTION public.get_quiz_leaderboard(uuid) IS 'Retrieves the quiz leaderboard ordered by: clean attempts first, highest correct answers, fastest completion time, earlier submission time, then attempt id (deterministic). Ranking is skill and speed only — loyalty points are neither projected (wallet-like PII) nor used as a tiebreaker, so purchases never affect standing. Caller must be a customer of the event''s merchant (QZ031 otherwise). Displays the customer-chosen username when set, falling back to the full name for legacy attempts without one.';
+COMMENT ON FUNCTION public.get_quiz_leaderboard(uuid) IS 'Retrieves each customer''s best clean, within-window attempt ordered by highest correct answers, fastest completion time, earlier submission time, then attempt id (deterministic). The candidate set and ordering match award minting. Ranking is skill and speed only — loyalty points are neither projected nor used as a tiebreaker. Caller must be a customer of the event''s merchant (QZ031 otherwise).';

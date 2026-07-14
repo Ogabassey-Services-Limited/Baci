@@ -1,3 +1,4 @@
+import { QUIZ_FREE_ENTRY_MODE } from '@baci/shared/constants';
 import { z } from 'zod';
 
 /** Supabase timestamptz values are ISO strings with a timezone offset. */
@@ -31,6 +32,7 @@ export const quizEventSchema = z.object({
 });
 
 export const quizEventsResponseSchema = z.object({
+  entryMode: z.literal(QUIZ_FREE_ENTRY_MODE),
   events: z.array(quizEventSchema),
   pagination: z
     .object({

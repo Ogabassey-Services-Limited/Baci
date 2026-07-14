@@ -372,7 +372,7 @@ describe('start quiz attempt route', () => {
   // when the player held FEWER points than the cost. A player who held a point
   // was charged and the RPC SUCCEEDED — so the free-entry build would silently
   // spend a loyalty point for exactly the players it promised not to charge.
-  it('fails closed when a drifted start reports a nonzero exam pass charge', async () => {
+  it('returns the committed receipt when a drifted start reports a charge', async () => {
     const { rpc } = mockAuthenticatedSupabase({
       rpcResult: {
         data: {
@@ -390,14 +390,14 @@ describe('start quiz attempt route', () => {
       jsonRequest({ eventId: EVENT_ID, integrityTier: 'device' })
     );
 
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(200);
     const body = await response.json();
     expect(body).toEqual({
-      code: 'QUIZ_TEMPORARILY_UNAVAILABLE',
-      error: 'Super Quiz is temporarily unavailable. Please try again soon.',
+      attemptId: 'attempt-1',
+      eventId: EVENT_ID,
+      examPassPointsSpent: 1,
+      remainingLoyaltyPoints: 4,
     });
-    // Must never re-sell the purchase gate that free entry removed.
-    expect(JSON.stringify(body)).not.toMatch(/loyalty/i);
     expect(rpc).toHaveBeenCalled();
     expect(logger.error).toHaveBeenCalledWith(
       expect.objectContaining({

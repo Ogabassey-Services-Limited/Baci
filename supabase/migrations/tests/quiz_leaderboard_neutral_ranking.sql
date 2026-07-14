@@ -80,8 +80,11 @@ DECLARE
   v_now timestamptz := pg_catalog.now();
   v_rank_1_cid uuid;
   v_rank_2_cid uuid;
+  v_rank_2_attempt_id uuid;
+  v_rank_2_score integer;
   v_rank_3_cid uuid;
   v_rank_4_cid uuid;
+  v_row_count integer;
   -- auth.uid() for an authorized viewer (a customer of the event's merchant)
   v_viewer_uid uuid := '00000000-0000-4000-8000-0000000000f1';
   v_unauthorized_raised boolean := false;
@@ -139,6 +142,19 @@ BEGIN
   VALUES ('00000000-0000-4000-8000-000000000a14', v_event_id, v_customer_d, 'disqualified', 9, v_now - interval '5 minutes', v_now - interval '3 minutes')
   RETURNING id INTO v_attempt_d;
 
+  -- A lower second attempt for Customer A must not occupy another leaderboard row.
+  INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, score, started_at, submitted_at)
+  VALUES ('00000000-0000-4000-8000-000000000a15', v_event_id, v_customer_a, 'submitted', 7, v_now - interval '4 minutes', v_now - interval '3 minutes');
+
+  -- NULL scores sort first under PostgreSQL's default DESC ordering. They must
+  -- remain behind scored attempts when choosing one attempt per customer.
+  INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, score, started_at, submitted_at)
+  VALUES ('00000000-0000-4000-8000-000000000a16', v_event_id, v_customer_a, 'submitted', NULL, v_now - interval '4 minutes', v_now - interval '3 minutes');
+
+  -- A negative duration is invalid even though it is technically under one hour.
+  INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, score, started_at, submitted_at)
+  VALUES ('00000000-0000-4000-8000-000000000a17', v_event_id, v_customer_a, 'submitted', 10, v_now - interval '2 minutes', v_now - interval '3 minutes');
+
   -- Authorize the caller as Customer A (a customer of the event's merchant).
   -- Set both GUCs so auth.uid() resolves regardless of the installed implementation
   -- (older: request.jwt.claim.sub; newer: request.jwt.claims->>'sub').
@@ -147,9 +163,13 @@ BEGIN
 
   -- Run leaderboard function and assert sorting order
   SELECT customer_id INTO v_rank_1_cid FROM public.get_quiz_leaderboard(v_event_id) WHERE rank = 1;
-  SELECT customer_id INTO v_rank_2_cid FROM public.get_quiz_leaderboard(v_event_id) WHERE rank = 2;
+  SELECT customer_id, attempt_id, score
+  INTO v_rank_2_cid, v_rank_2_attempt_id, v_rank_2_score
+  FROM public.get_quiz_leaderboard(v_event_id)
+  WHERE rank = 2;
   SELECT customer_id INTO v_rank_3_cid FROM public.get_quiz_leaderboard(v_event_id) WHERE rank = 3;
   SELECT customer_id INTO v_rank_4_cid FROM public.get_quiz_leaderboard(v_event_id) WHERE rank = 4;
+  SELECT pg_catalog.count(*)::integer INTO v_row_count FROM public.get_quiz_leaderboard(v_event_id);
 
   IF v_rank_1_cid IS DISTINCT FROM v_customer_c THEN
     RAISE EXCEPTION 'Rank 1 must be Customer C (highest clean score 9). Found customer: %', v_rank_1_cid;
@@ -164,12 +184,16 @@ BEGIN
     RAISE EXCEPTION 'Rank 2 must be Customer A (Score 8, tied completion time, lower loyalty points 500, lower attempt id). Loyalty points must not buy rank. Found customer: %', v_rank_2_cid;
   END IF;
 
+  IF v_rank_2_attempt_id IS DISTINCT FROM v_attempt_a OR v_rank_2_score IS DISTINCT FROM 8 THEN
+    RAISE EXCEPTION 'Customer A leaderboard row must use the best score-8 attempt %, found attempt % with score %', v_attempt_a, v_rank_2_attempt_id, v_rank_2_score;
+  END IF;
+
   IF v_rank_3_cid IS DISTINCT FROM v_customer_b THEN
     RAISE EXCEPTION 'Rank 3 must be Customer B (Score 8, tied completion time, HIGHER loyalty points 1000, higher attempt id). Loyalty points must not buy rank. Found customer: %', v_rank_3_cid;
   END IF;
 
-  IF v_rank_4_cid IS DISTINCT FROM v_customer_d THEN
-    RAISE EXCEPTION 'Rank 4 must be Customer D (disqualified attempt, ranked last despite score 9). Found customer: %', v_rank_4_cid;
+  IF v_rank_4_cid IS NOT NULL OR v_row_count <> 3 THEN
+    RAISE EXCEPTION 'Leaderboard must expose exactly one clean best attempt per customer; found % rows and rank 4 customer %', v_row_count, v_rank_4_cid;
   END IF;
 
   -- 5. Authorization guard: a caller who is NOT a customer of the merchant is rejected (QZ031).

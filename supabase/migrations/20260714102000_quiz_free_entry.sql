@@ -74,6 +74,7 @@ BEGIN
   FROM public.customers c
   JOIN public.quiz_events e ON e.id = p_event_id AND e.merchant_id = c.merchant_id
   WHERE c.user_id = p_user_id
+    AND c.deleted_at IS NULL
   ORDER BY c.created_at DESC, c.id DESC
   LIMIT 1;
 

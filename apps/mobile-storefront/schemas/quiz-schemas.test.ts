@@ -73,7 +73,13 @@ describe('quiz response schemas', () => {
     expect(quizOptionSchema.parse(validOption)).toEqual(validOption);
     expect(quizQuestionSchema.parse(validQuestion)).toEqual(validQuestion);
     expect(quizEventSchema.parse(validEvent)).toEqual(validEvent);
-    expect(quizEventsResponseSchema.parse({ events: [validEvent] })).toEqual({
+    expect(
+      quizEventsResponseSchema.parse({
+        entryMode: 'free-v1',
+        events: [validEvent],
+      })
+    ).toEqual({
+      entryMode: 'free-v1',
       events: [validEvent],
     });
     expect(quizAttemptSchema.parse(validAttempt)).toEqual(validAttempt);
@@ -112,6 +118,12 @@ describe('quiz response schemas', () => {
     for (const [result, path] of invalidFields) {
       expectInvalidIssue(result, [...path]);
     }
+  });
+
+  it('rejects event lists from a backend without free-entry support', () => {
+    expect(
+      quizEventsResponseSchema.safeParse({ events: [validEvent] }).success
+    ).toBe(false);
   });
 
   it('enforces question array and numeric boundaries', () => {

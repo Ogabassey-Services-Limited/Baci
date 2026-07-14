@@ -374,6 +374,7 @@ describe('quiz migration contracts', () => {
     // The customer gate STAYS: a customers row is created by free signup, so it
     // gates on "registered on this store", not on having purchased anything.
     expect(latestStartAttemptSql).toMatch(/quiz_customer_not_found/i);
+    expect(latestStartAttemptSql).toMatch(/c\.deleted_at\s+IS\s+NULL/i);
     expect(latestStartAttemptSql).toMatch(
       /JOIN\s+public\.quiz_events\s+e\s+ON\s+e\.id\s*=\s*p_event_id\s+AND\s+e\.merchant_id\s*=\s*c\.merchant_id/i
     );
@@ -437,6 +438,32 @@ describe('quiz migration contracts', () => {
       /EXTRACT\(EPOCH FROM \([a-z_]+\.submitted_at - [a-z_]+\.started_at\)\)[\s\S]*?ASC NULLS LAST/i
     );
     expect(latestSql).toMatch(/submitted_at\s+ASC/i);
+  });
+
+  it('uses the award candidate set for the public leaderboard', () => {
+    const leaderboardSql = quizMigrationFiles
+      .map(
+        ({ sql }) =>
+          sql.match(
+            /CREATE OR REPLACE FUNCTION public\.get_quiz_leaderboard[\s\S]*?\$\$;/i
+          )?.[0]
+      )
+      .filter((sql): sql is string => Boolean(sql))
+      .at(-1);
+
+    expect(leaderboardSql).toBeDefined();
+    expect(leaderboardSql).toMatch(/SELECT DISTINCT ON \(qa\.customer_id\)/i);
+    expect(leaderboardSql).toMatch(/qa\.status IN \('submitted', 'scored'\)/i);
+    expect(leaderboardSql).toMatch(
+      /qa\.submitted_at - qa\.started_at <= interval '1 hour'/i
+    );
+    expect(leaderboardSql).toMatch(
+      /qa\.submitted_at - qa\.started_at >= interval '0 seconds'/i
+    );
+    expect(leaderboardSql).toMatch(
+      /ORDER BY\s+qa\.customer_id,\s+qa\.score DESC NULLS LAST,\s+EXTRACT\(EPOCH FROM \(qa\.submitted_at - qa\.started_at\)\) ASC NULLS LAST,\s+qa\.submitted_at ASC,\s+qa\.id ASC/i
+    );
+    expect(leaderboardSql).not.toMatch(/'disqualified'/i);
   });
 
   it('checks finalize-awards attempt ownership before calling the privileged event finalizer', () => {
