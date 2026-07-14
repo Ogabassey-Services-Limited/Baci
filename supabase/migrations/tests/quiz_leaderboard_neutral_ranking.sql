@@ -1,10 +1,17 @@
 -- =============================================
--- REGRESSION TEST: quiz Leaderboard Loyalty Tiebreaker
+-- REGRESSION TEST: quiz Leaderboard Neutral Ranking
 --   Validates the leaderboard ranking, sorting hierarchy, RLS/grants,
 --   the authorization guard (QZ031), and that loyalty_points is NOT projected.
 --
+--   Ranking must be NEUTRAL: loyalty points are only ever earned by purchasing,
+--   so a loyalty-points tiebreaker let players BUY a better prize rank. It was
+--   removed in 20260713190000_quiz_neutral_ranking.sql. This test now pins the
+--   inverse of what it originally asserted: on a full tie, the player with MORE
+--   loyalty points must NOT outrank the player with fewer. Ties fall through to
+--   the neutral, non-purchasable attempt id.
+--
 -- USAGE:
---   psql $DATABASE_URL -f supabase/migrations/tests/quiz_leaderboard_loyalty_tiebreaker.sql
+--   psql $DATABASE_URL -f supabase/migrations/tests/quiz_leaderboard_neutral_ranking.sql
 -- =============================================
 
 BEGIN;
@@ -113,7 +120,11 @@ BEGIN
   VALUES ('00000000-0000-4000-8000-000000000a11', v_event_id, v_customer_a, 'submitted', 8, v_now - interval '10 minutes', v_now - interval '8 minutes')
   RETURNING id INTO v_attempt_a;
 
-  -- Attempt B: Score 8, clean, started 10m ago, submitted 8m ago (completion: 2m = 120s). Tied score & time with A, but higher loyalty points (1000 vs 500)
+  -- Attempt B: Score 8, clean, started 10m ago, submitted 8m ago (completion: 2m = 120s).
+  -- Fully tied with A on score, completion time and submitted_at. B's customer holds
+  -- DOUBLE A's loyalty points (1000 vs 500), which under the old purchase-based
+  -- tiebreaker put B ahead. It must no longer buy B a better rank: the tie falls
+  -- through to attempt id, and B's id (...a12) sorts after A's (...a11).
   INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, score, started_at, submitted_at)
   VALUES ('00000000-0000-4000-8000-000000000a12', v_event_id, v_customer_b, 'submitted', 8, v_now - interval '10 minutes', v_now - interval '8 minutes')
   RETURNING id INTO v_attempt_b;
@@ -144,12 +155,17 @@ BEGIN
     RAISE EXCEPTION 'Rank 1 must be Customer C (highest clean score 9). Found customer: %', v_rank_1_cid;
   END IF;
 
-  IF v_rank_2_cid IS DISTINCT FROM v_customer_b THEN
-    RAISE EXCEPTION 'Rank 2 must be Customer B (Score 8, tied completion time, higher loyalty points 1000). Found customer: %', v_rank_2_cid;
+  -- Ranks 2 and 3 are the neutral-ranking guard. A and B are tied on every
+  -- legitimate signal (score, completion time, submitted_at). B holds twice A's
+  -- loyalty points. Buying points must NOT buy rank, so the tie resolves on the
+  -- neutral attempt id and A (...a11) comes before B (...a12) — the exact
+  -- opposite of the removed loyalty tiebreaker.
+  IF v_rank_2_cid IS DISTINCT FROM v_customer_a THEN
+    RAISE EXCEPTION 'Rank 2 must be Customer A (Score 8, tied completion time, lower loyalty points 500, lower attempt id). Loyalty points must not buy rank. Found customer: %', v_rank_2_cid;
   END IF;
 
-  IF v_rank_3_cid IS DISTINCT FROM v_customer_a THEN
-    RAISE EXCEPTION 'Rank 3 must be Customer A (Score 8, tied completion time, lower loyalty points 500). Found customer: %', v_rank_3_cid;
+  IF v_rank_3_cid IS DISTINCT FROM v_customer_b THEN
+    RAISE EXCEPTION 'Rank 3 must be Customer B (Score 8, tied completion time, HIGHER loyalty points 1000, higher attempt id). Loyalty points must not buy rank. Found customer: %', v_rank_3_cid;
   END IF;
 
   IF v_rank_4_cid IS DISTINCT FROM v_customer_d THEN

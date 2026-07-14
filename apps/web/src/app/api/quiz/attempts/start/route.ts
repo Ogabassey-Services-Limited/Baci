@@ -17,10 +17,17 @@ import {
   requireQuizUser,
   rpcErrorResponse,
 } from '@/app/api/quiz/_shared/route-helpers';
+import { readStalePaidStartCharge } from '@/app/api/quiz/_shared/stale-paid-start-charge';
+import { voidStalePaidQuizStart } from '@/app/api/quiz/_shared/void-stale-paid-quiz-start';
 import { getQuizPhaseEnv } from '@/env';
 import { getBearerTokenFromRequest } from '@/lib/api-auth';
 import { logger } from '@/lib/logger';
 import { startQuizAttemptSchema } from '@/schemas/quiz';
+
+const QUIZ_UNAVAILABLE_RESPONSE = {
+  code: 'QUIZ_TEMPORARILY_UNAVAILABLE',
+  error: 'Super Quiz is temporarily unavailable. Please try again soon.',
+} as const;
 
 function isBearerAuthenticated(request: NextRequest): boolean {
   // Use the SAME bearer detection as the auth (getBearerTokenFromRequest) and
@@ -126,14 +133,7 @@ export async function POST(request: NextRequest) {
           'QZ011 from start_quiz_attempt: the paid-entry RPC is still live (free-entry migration not applied). Refusing to start a charged attempt.',
         userId: auth.user.id,
       });
-      return NextResponse.json(
-        {
-          code: 'QUIZ_TEMPORARILY_UNAVAILABLE',
-          error:
-            'Super Quiz is temporarily unavailable. Please try again soon.',
-        },
-        { status: 503 }
-      );
+      return NextResponse.json(QUIZ_UNAVAILABLE_RESPONSE, { status: 503 });
     }
 
     const clientErrorResponse = quizRpcClientErrorResponse(error);
@@ -147,6 +147,31 @@ export async function POST(request: NextRequest) {
       userId: auth.user.id,
     });
     return rpcErrorResponse();
+  }
+
+  // A QZ011 guard alone does NOT cover a stale paid RPC. The old
+  // start_quiz_attempt raised QZ011 only when the player held fewer points than
+  // the cost — players who DID hold a point were charged and the call
+  // SUCCEEDED. So a *successful* start that reports a nonzero
+  // examPassPointsSpent is the paid RPC silently debiting exactly the players
+  // free entry is meant to protect. Undo the charge and fail closed.
+  const staleCharge = readStalePaidStartCharge(data);
+  if (staleCharge) {
+    const compensation = await voidStalePaidQuizStart(staleCharge);
+
+    logger.error({
+      attemptId: staleCharge.attemptId,
+      event: 'start_quiz_attempt',
+      eventId: parsed.data.eventId,
+      message:
+        'start_quiz_attempt returned a nonzero examPassPointsSpent: the paid-entry RPC is still live (free-entry migration not applied). Charge refunded and attempt voided; refusing to serve a charged attempt.',
+      pointsSpent: staleCharge.pointsSpent,
+      refunded: compensation.refunded,
+      userId: auth.user.id,
+      voided: compensation.voided,
+    });
+
+    return NextResponse.json(QUIZ_UNAVAILABLE_RESPONSE, { status: 503 });
   }
 
   const deadlineResult = await attachQuizQuestionDeadline(auth.supabase, data);

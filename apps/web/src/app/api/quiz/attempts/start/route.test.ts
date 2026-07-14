@@ -1,6 +1,7 @@
 import { EXAM_PASS_POINTS_COST } from '@baci/shared/constants';
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { voidStalePaidQuizStart } from '@/app/api/quiz/_shared/void-stale-paid-quiz-start';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
@@ -31,6 +32,12 @@ vi.mock('@/lib/logger', () => ({
     info: vi.fn(),
     warn: vi.fn(),
   },
+}));
+
+vi.mock('@/app/api/quiz/_shared/void-stale-paid-quiz-start', () => ({
+  voidStalePaidQuizStart: vi.fn(() =>
+    Promise.resolve({ refunded: true, voided: true })
+  ),
 }));
 
 const EVENT_ID = '11111111-1111-4111-8111-111111111111';
@@ -297,6 +304,75 @@ describe('start quiz attempt route', () => {
         message: expect.stringContaining('paid-entry RPC is still live'),
       })
     );
+  });
+
+  // The QZ011 guard above does NOT cover this: the old RPC raised QZ011 only
+  // when the player held FEWER points than the cost. A player who held a point
+  // was charged and the RPC SUCCEEDED — so the free-entry build would silently
+  // spend a loyalty point for exactly the players it promised not to charge.
+  it('refunds and fails closed when a successful start reports a nonzero exam pass charge', async () => {
+    const { rpc } = mockAuthenticatedSupabase({
+      rpcResult: {
+        data: {
+          attemptId: 'attempt-1',
+          eventId: EVENT_ID,
+          examPassPointsSpent: 1,
+          remainingLoyaltyPoints: 4,
+        },
+        error: null,
+      },
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      jsonRequest({ eventId: EVENT_ID, integrityTier: 'device' })
+    );
+
+    expect(response.status).toBe(503);
+    const body = await response.json();
+    expect(body).toEqual({
+      code: 'QUIZ_TEMPORARILY_UNAVAILABLE',
+      error: 'Super Quiz is temporarily unavailable. Please try again soon.',
+    });
+    // Must never re-sell the purchase gate that free entry removed.
+    expect(JSON.stringify(body)).not.toMatch(/loyalty/i);
+    expect(rpc).toHaveBeenCalled();
+    // The point the stale RPC debited must be given back and the attempt voided,
+    // so the refused start does not also burn one of the player's attempts.
+    expect(voidStalePaidQuizStart).toHaveBeenCalledWith({
+      attemptId: 'attempt-1',
+      pointsSpent: 1,
+    });
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'start_quiz_attempt',
+        message: expect.stringContaining('paid-entry RPC is still live'),
+        pointsSpent: 1,
+      })
+    );
+  });
+
+  it('serves the attempt normally when entry was free', async () => {
+    mockAuthenticatedSupabase({
+      rpcResult: {
+        data: {
+          attemptId: 'attempt-1',
+          eventId: EVENT_ID,
+          examPassPointsSpent: 0,
+          remainingLoyaltyPoints: 4,
+          question: { id: 'q1', index: 1, total: 5 },
+        },
+        error: null,
+      },
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      jsonRequest({ eventId: EVENT_ID, integrityTier: 'device' })
+    );
+
+    expect(response.status).toBe(200);
+    expect(voidStalePaidQuizStart).not.toHaveBeenCalled();
   });
 
   it('returns a client error when the event is no longer open', async () => {
