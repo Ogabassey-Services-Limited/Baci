@@ -1419,7 +1419,10 @@ export async function POST(request: NextRequest) {
         if (
           finalizeOutcome.kind === 'completion_failed' ||
           finalizeOutcome.kind === 'order_fetch_failed' ||
-          finalizeOutcome.kind === 'inventory_cleanup_failed'
+          finalizeOutcome.kind === 'inventory_cleanup_failed' ||
+          // Captured money on an order that must not reopen, with no ops
+          // trail: never ack, or the gateway stops redelivering.
+          finalizeOutcome.kind === 'review_failed'
         ) {
           logger.error({
             message: 'Webhook redelivery failed to heal order payment',

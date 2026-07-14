@@ -11,6 +11,9 @@ export const WEBHOOK_SIDE_EFFECT_FAILURE_REASON =
 // Marker written when the paid-order fetch failed BEFORE push notifications
 // were scheduled — replays use it as exact evidence that push is still owed.
 export const PAID_ORDER_FETCH_FAILURE_REASON = 'paid_order_fetch_failed';
+// Marker for a capture that landed on an order paid elsewhere and owed only
+// settlement. Never evidence that THIS transaction paid the order.
+export const SETTLEMENT_ONLY_FAILURE_REASON = 'settlement_only_capture_failed';
 
 const nonEmptyStringSchema = z.string().trim().min(1);
 const paidOrderSideEffectRetrySchema = z.object({

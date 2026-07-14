@@ -6,7 +6,10 @@ import { fileBlockedOrderPaymentReview } from '@/lib/payments/file-blocked-order
 import { schedulePaidOrderNotifications } from '@/lib/payments/notify-paid-order';
 import { getOrderOutboxState } from '@/lib/payments/order-has-outbox-rows';
 import { toRichPaidOrder } from '@/lib/payments/paid-order-normalization';
-import { persistPaidOrderSideEffectRetry } from '@/lib/payments/paid-order-retry-persistence';
+import {
+  persistPaidOrderSideEffectRetry,
+  SETTLEMENT_ONLY_FAILURE_REASON,
+} from '@/lib/payments/paid-order-retry-persistence';
 import { PAID_ORDER_RICH_SELECT } from '@/lib/payments/paid-order-rich-select';
 import { persistPrePushRetryMarkers } from '@/lib/payments/persist-pre-push-retry-markers';
 import { runPaidOrderSideEffects } from '@/lib/payments/run-paid-order-side-effects';
@@ -103,10 +106,12 @@ export async function finalizeOrderGatewayPayment({
   // The outbox seed carries the id of the transaction that PAID the order.
   // If this transaction is not that payer, its capture landed on an order
   // already paid elsewhere and owes settlement only.
-  const outboxState =
-    completion.order_updated || wonTransactionFlip
-      ? null
-      : await getOrderOutboxState(supabase, orderId);
+  // Load whenever this call did NOT transition the order — including the
+  // webhook's own first delivery, whose capture can still land on an order
+  // that another channel already paid.
+  const outboxState = completion.order_updated
+    ? null
+    : await getOrderOutboxState(supabase, orderId);
   const capturedOnAlreadyPaidOrder =
     Boolean(completion.order_already_paid) &&
     !completion.order_updated &&
@@ -257,10 +262,13 @@ export async function finalizeOrderGatewayPayment({
     await persistPaidOrderSideEffectRetry({
       error: sideEffectError,
       orderId: richOrder.id,
-      reference,
       ...(capturedOnAlreadyPaidOrder
-        ? { steps: ['merchant_settlement' as const] }
+        ? {
+            reason: SETTLEMENT_ONLY_FAILURE_REASON,
+            steps: ['merchant_settlement' as const],
+          }
         : {}),
+      reference,
       supabase,
       transaction: { id: transaction.id },
     });

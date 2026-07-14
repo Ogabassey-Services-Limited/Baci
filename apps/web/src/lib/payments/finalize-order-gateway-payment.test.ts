@@ -316,6 +316,34 @@ describe('finalizeOrderGatewayPayment', () => {
     expect(mocks.notifyPaymentReceived).not.toHaveBeenCalled();
   });
 
+  it('settles only when the webhook itself captures onto an already-paid order', async () => {
+    mocks.completeOrderGatewayPayment.mockResolvedValue(
+      completion({
+        already_completed: true,
+        order_already_paid: true,
+        order_updated: false,
+      })
+    );
+    mocks.ensurePaidOrderInventoryConfirmed.mockResolvedValue(undefined);
+
+    const outcome = await finalizeOrderGatewayPayment(
+      baseArgs(
+        buildSupabase(
+          { data: richOrderRow },
+          { outboxRows: [{ order_id: 'order-1', transaction_id: 'txn-other' }] }
+        ),
+        // The webhook won the outer CAS on THIS transaction, but another
+        // channel had already paid the order.
+        { wonTransactionFlip: true }
+      )
+    );
+
+    expect(outcome).toMatchObject({ kind: 'completed' });
+    expect(mocks.settleCapturedOrderPayment).toHaveBeenCalledTimes(1);
+    expect(mocks.runPaidOrderSideEffects).not.toHaveBeenCalled();
+    expect(mocks.notifyPaymentReceived).not.toHaveBeenCalled();
+  });
+
   it('returns order_fetch_failed and persists retry markers so the cron drain can find the order', async () => {
     mocks.completeOrderGatewayPayment.mockResolvedValue(completion());
     mocks.persistPaidOrderSideEffectRetry.mockResolvedValue(undefined);

@@ -1,5 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { PAID_ORDER_FETCH_FAILURE_REASON } from '@/lib/payments/paid-order-retry-persistence';
+import {
+  PAID_ORDER_FETCH_FAILURE_REASON,
+  SETTLEMENT_ONLY_FAILURE_REASON,
+} from '@/lib/payments/paid-order-retry-persistence';
 
 // The transitioning caller schedules push within moments of the RPC commit;
 // a seed older than this can only mean that caller died first.
@@ -73,9 +76,18 @@ export async function getOrderOutboxState(
         typeof row.claimed_at !== 'string' ||
         new Date(row.claimed_at).getTime() < seedCutoff
     );
-  const payerRow = rows.find(
-    (row) => typeof row.transaction_id === 'string' && row.transaction_id
-  );
+  // A settlement-only retry marker carries the capturing transaction, which
+  // is precisely NOT the payer — exclude it.
+  const payerRow = rows.find((row) => {
+    if (typeof row.transaction_id !== 'string' || !row.transaction_id) {
+      return false;
+    }
+    const resultReason =
+      row.result && typeof row.result === 'object'
+        ? (row.result as Record<string, unknown>).reason
+        : undefined;
+    return resultReason !== SETTLEMENT_ONLY_FAILURE_REASON;
+  });
   return {
     hasRows,
     onlyFreshPrePushEvidence: allPrePushEvidence && !allAged,

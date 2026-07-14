@@ -702,7 +702,7 @@ export async function POST(request: NextRequest) {
                 { status: 500 }
               );
             }
-            await handlePaymentForCancelledOrder({
+            const refundReviewFiled = await handlePaymentForCancelledOrder({
               gatewayReference: payload.checkoutTransactionId,
               issueType: 'payment_received_after_refund',
               order: { id: order.id },
@@ -710,6 +710,14 @@ export async function POST(request: NextRequest) {
                 'Credit Direct merchant payout captured for an order already refunded',
               transactionId: refundedTxResult.transactionId,
             });
+            if (!refundReviewFiled) {
+              // Captured payout with no durable ops row: fail closed so Svix
+              // redelivers and the review is retried.
+              return NextResponse.json(
+                { error: 'Payment reconciliation review unavailable' },
+                { status: 500 }
+              );
+            }
             return NextResponse.json({
               received: true,
               message: 'Order was refunded; payment filed for review',

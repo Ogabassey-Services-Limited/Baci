@@ -93,7 +93,7 @@ async function recordJuicywaySettlement(
     platform_fee: number | string | null;
   },
   reference: string
-): Promise<void> {
+): Promise<boolean> {
   try {
     const grossAmount = Number(transaction.amount) || 0;
     // Δ-0b: Juicyway verify response carries no fee; default to 0 honestly.
@@ -125,18 +125,20 @@ async function recordJuicywaySettlement(
         error: settlementError,
         reference,
       });
-    } else {
-      logger.info({
-        message: 'Merchant settlement recorded (Juicyway)',
-        reference,
-        grossAmount,
-      });
+      return false;
     }
+    logger.info({
+      message: 'Merchant settlement recorded (Juicyway)',
+      reference,
+      grossAmount,
+    });
+    return true;
   } catch (settlementError) {
     logger.warn({
       message: 'Settlement recording error',
       error: settlementError,
     });
+    return false;
   }
 }
 
@@ -605,7 +607,7 @@ export async function POST(request: NextRequest) {
           orderId: transaction.order_id,
           reference,
         });
-        await recordJuicywaySettlement(
+        const settled = await recordJuicywaySettlement(
           {
             amount: transaction.amount,
             merchant_id: transaction.merchant_id,
@@ -614,6 +616,14 @@ export async function POST(request: NextRequest) {
           },
           reference
         );
+        if (!settled) {
+          // This branch IS the recovery path for these captured funds:
+          // acking without the settlement would strand them.
+          return NextResponse.json(
+            { error: 'Merchant settlement unavailable' },
+            { status: 500 }
+          );
+        }
         // Also drain serialized-inventory confirmation (idempotent): a
         // winner that crashed right after its flip never reached it.
         // Email/push cannot be safely replayed here — Juicyway has no outbox
