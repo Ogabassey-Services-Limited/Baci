@@ -1,5 +1,6 @@
 // @ts-check
 
+import { retryWithBackoff } from './remote-cache-retry.mjs';
 import {
   CacheBackendTimeoutError,
   withTimeout,
@@ -33,6 +34,8 @@ import {
  * @property {boolean} disabled
  * @property {number} backendTimeoutMs
  * @property {number} cooldownMs Breaker cooldown — how long a circuit stays open.
+ * @property {number} droppedBustDistrustMs Distrust TTL after a DROPPED invalidation.
+ * @property {import('./remote-cache-retry.mjs').RetryOptions} [retryOptions]
  *
  * @typedef {object} TagPipeline
  * @property {() => Promise<void>} refreshTags
@@ -100,6 +103,8 @@ export function createTagPipeline(options) {
     disabled,
     backendTimeoutMs,
     cooldownMs,
+    droppedBustDistrustMs,
+    retryOptions,
   } = options;
 
   return {
@@ -193,35 +198,80 @@ export function createTagPipeline(options) {
       }
     },
 
+    /**
+     * Deliberately NOT circuit-broken and NOT gated by the kill switch:
+     * invalidation is correctness, not throughput, and every site on this handler
+     * depends on `revalidateTag` reaching the shared store (inventory §8). Volume
+     * is negligible (admin mutations).
+     *
+     * It is the one operation that gets a RETRY, because it is the one whose
+     * failure is DURABLE. A failed read self-heals — the route recomputes and the
+     * next request tries again. A failed bust does not: the shared store keeps
+     * serving the pre-mutation entry to every instance until its own
+     * `cacheLife.revalidate` window lapses. From `next.config.ts` that is 60s for
+     * `merchant`, 300s for `products`, and **3600s for `categories`** — so one
+     * transient blip while a merchant edits a category can mean an HOUR of stale
+     * storefront. Degrading trust bounds what *we* serve for a few seconds; it
+     * does nothing about what the shared store hands everyone else.
+     */
     async updateTags(tags, durations) {
-      // Deliberately NOT circuit-broken and NOT gated by the kill switch:
-      // invalidation is correctness, not throughput, and every site on this
-      // handler depends on `revalidateTag` reaching the shared store
-      // (inventory §8). Volume is negligible (admin mutations).
-      try {
-        await withTimeout(
-          () =>
-            durations
-              ? backend.updateTags(tags, durations)
-              : backend.updateTags(tags),
-          backendTimeoutMs,
-          'update_tags'
+      const result = await retryWithBackoff(
+        () =>
+          withTimeout(
+            () =>
+              durations
+                ? backend.updateTags(tags, durations)
+                : backend.updateTags(tags),
+            backendTimeoutMs,
+            'update_tags'
+          ),
+        retryOptions
+      );
+
+      if (result.outcome !== 'dropped') {
+        // `success` (first try) vs `retry_success` (a blip we REPAIRED) are kept
+        // apart on purpose: the second is the metric that tells us how often the
+        // durable gap would have bitten without this retry.
+        telemetry.record(
+          'update_tags',
+          result.outcome === 'success' ? 'success' : 'retry_success'
         );
-        telemetry.record('update_tags', 'success');
         trust.restore('update_tags');
-      } catch (error) {
-        telemetry.record('update_tags', classify(error));
-        // A dropped bust means the shared store still holds the PRE-MUTATION
-        // entry and nothing else will tell us so. Under Invariant A the tag
-        // state is now unverifiable: degrade, so reads go to the origin instead
-        // of confidently serving data we just failed to invalidate.
-        trust.degrade('update_tags');
-        // It still must not reject: Next awaits this in `executeRevalidates()`
-        // at the end of a request that has already succeeded.
-        logger.error(
-          `[resilient-remote-cache] updateTags FAILED — invalidation dropped for ${tags.length} tag(s); reads degraded to origin, and stale entries persist until their revalidate window lapses: ${describeError(error)}`
-        );
+
+        if (result.outcome === 'retry_success') {
+          logger.warn(
+            `[resilient-remote-cache] updateTags recovered after ${result.attempts} attempts for ${tags.length} tag(s) — invalidation landed, no staleness`
+          );
+        }
+        return;
       }
+
+      // Budget exhausted: this is now a genuinely DROPPED invalidation.
+      telemetry.record('update_tags', 'dropped');
+      // Under Invariant A the tag state is unverifiable: degrade, so reads go to
+      // the origin instead of confidently serving data we failed to invalidate.
+      //
+      // The TTL is REASON-SCOPED and much longer than the 5s default backstop.
+      // That default is sized for a transient read-path blip which the next
+      // request re-probes away; a dropped bust is nothing like it. The stale
+      // entry survives in the shared store for the whole cacheLife revalidate
+      // window (up to 1h for `categories`), so a 5s distrust would have us
+      // cheerfully serving that stale entry 5 seconds later.
+      //
+      // HONEST LIMIT: this only stops THIS instance serving it. Other instances
+      // never saw the failed bust, have no distrust, and will read the same stale
+      // entry out of the shared store. It trades staleness for origin load on one
+      // instance — a legitimate mitigation (the census says the origin can take
+      // it), NOT a cure. Only a durable outbox closes the cross-instance gap.
+      // Keep this separate from the transient `update_tags` reason. A later
+      // successful invalidation proves only that its own tags landed; it cannot
+      // repair an earlier dropped bust for different tags.
+      trust.degrade('dropped_update_tags', droppedBustDistrustMs);
+      // It still must not reject: Next awaits this in `executeRevalidates()` at
+      // the end of a request that has ALREADY succeeded.
+      logger.error(
+        `[resilient-remote-cache] updateTags DROPPED after ${result.attempts} attempts for ${tags.length} tag(s); reads degraded to origin, but the SHARED STORE still holds the pre-mutation entry until its cacheLife revalidate window lapses (categories: up to 1h): ${describeError(result.error)}`
+      );
     },
   };
 }

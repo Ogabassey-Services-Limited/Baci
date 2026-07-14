@@ -38,7 +38,7 @@
  * 3. **Reason.** A recovered leg stops contributing distrust even while another
  *    leg is still broken.
  *
- * @typedef {'refresh_tags' | 'get_expiration' | 'update_tags'} CacheTrustReason
+ * @typedef {'refresh_tags' | 'get_expiration' | 'update_tags' | 'dropped_update_tags'} CacheTrustReason
  *
  * @typedef {object} CacheTrustOptions
  * @property {number} distrustMs Backstop only — see above.
@@ -66,6 +66,39 @@
  * feedback loop this plan exists to break (§4.1).
  */
 export const DEFAULT_DISTRUST_MS = 5_000;
+
+/**
+ * 1 hour — the distrust TTL for a DROPPED INVALIDATION specifically.
+ *
+ * The 5s backstop above is sized for a transient READ-path blip, which the next
+ * request re-probes away. A dropped bust is a different animal: the shared store
+ * keeps the pre-mutation entry for its whole `cacheLife.revalidate` window, and
+ * from `next.config.ts` those are:
+ *
+ *   | profile    | revalidate |
+ *   |------------|------------|
+ *   | merchant   | 60s        |
+ *   | products   | 300s       |
+ *   | categories | **3600s**  |  ← a FULL HOUR
+ *
+ * A 5s distrust would therefore have us cheerfully re-serving that stale entry
+ * five seconds later. This TTL matches the worst-case window, so for as long as
+ * the stale entry can exist, this instance reads from the origin instead.
+ *
+ * ⚠️ MITIGATION, NOT A CURE — and the distinction matters:
+ *
+ *  - it only stops THIS instance serving the stale entry. Other instances never
+ *    saw the failed bust, carry no distrust, and will read the same stale entry
+ *    straight out of the shared store;
+ *  - it trades staleness for ORIGIN LOAD. The PR-4 census says the origin can
+ *    absorb that (PDP: 0 of the remote sites on the happy path; category: 4;
+ *    home: 8 — all bounded, indexed, sub-50ms reads), which is what makes this a
+ *    legitimate trade rather than a reckless one.
+ *
+ * Only a durable outbox (persist the failed bust, retry until the shared store
+ * confirms it) closes the cross-instance gap.
+ */
+export const DEFAULT_DROPPED_BUST_DISTRUST_MS = 3_600_000;
 
 /**
  * @param {CacheTrustOptions} options

@@ -2,7 +2,10 @@
 
 import { DEFAULT_MAX_ITEM_BYTES } from './remote-cache-entry-buffer.mjs';
 import { DEFAULT_BACKEND_TIMEOUT_MS } from './remote-cache-timeout.mjs';
-import { DEFAULT_DISTRUST_MS } from './remote-cache-trust.mjs';
+import {
+  DEFAULT_DISTRUST_MS,
+  DEFAULT_DROPPED_BUST_DISTRUST_MS,
+} from './remote-cache-trust.mjs';
 import {
   createResilientRemoteCacheHandler,
   RESILIENT_REMOTE_CACHE_BRAND,
@@ -224,6 +227,13 @@ const handler = createResilientRemoteCacheHandler({
   // cache blip into a sustained origin read storm. Recovery is normally the next
   // request's refreshTags() probe, not this timer.
   distrustMs: readIntEnv('BACI_REMOTE_CACHE_DISTRUST_MS', DEFAULT_DISTRUST_MS),
+  // A dropped invalidation is DURABLE — the stale entry survives in the shared
+  // store for its whole cacheLife window (categories: 1h). A 5s distrust would
+  // have us serving it again almost immediately.
+  droppedBustDistrustMs: readIntEnv(
+    'BACI_REMOTE_CACHE_DROPPED_BUST_DISTRUST_MS',
+    DEFAULT_DROPPED_BUST_DISTRUST_MS
+  ),
   // Invariant B: a cache that hangs must lose to the origin, not stall it.
   backendTimeoutMs: readIntEnv(
     'BACI_REMOTE_CACHE_TIMEOUT_MS',

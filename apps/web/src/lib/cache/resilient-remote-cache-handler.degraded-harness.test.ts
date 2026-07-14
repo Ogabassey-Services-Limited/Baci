@@ -133,6 +133,10 @@ describe('remote cache degraded-subsystem harness', () => {
       });
     });
 
+    /* -------------------------------------------------------------- */
+    /*  Dropped invalidations — the DURABLE failure                     */
+    /* -------------------------------------------------------------- */
+
     it('a tag bust racing an in-flight set() is honoured, not bypassed (PRRT_kwDOQZgfis6Qmv0x)', async () => {
       // The store is invalidated mid-write, so it no longer holds the entry.
       //

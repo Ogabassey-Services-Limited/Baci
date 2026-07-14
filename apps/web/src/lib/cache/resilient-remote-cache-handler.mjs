@@ -13,6 +13,7 @@ import { DEFAULT_BACKEND_TIMEOUT_MS } from './remote-cache-timeout.mjs';
 import {
   createCacheTrust,
   DEFAULT_DISTRUST_MS,
+  DEFAULT_DROPPED_BUST_DISTRUST_MS,
 } from './remote-cache-trust.mjs';
 import { createWritePipeline } from './remote-cache-write-pipeline.mjs';
 
@@ -69,6 +70,12 @@ import { createWritePipeline } from './remote-cache-write-pipeline.mjs';
  * @property {number} [cooldownMs] Breaker cooldown — protects a sick BACKEND.
  * @property {number} [distrustMs] Trust backstop — protects CORRECTNESS. Kept
  *   separate and much shorter, because distrust pushes load onto the ORIGIN.
+ * @property {number} [droppedBustDistrustMs] Distrust TTL after a DROPPED
+ *   invalidation. Much longer: the stale entry survives in the shared store for
+ *   its whole cacheLife revalidate window (up to 1h), so a 5s window would have
+ *   us serving it again almost immediately.
+ * @property {import('./remote-cache-retry.mjs').RetryOptions} [retryOptions]
+ *   Bounded retry for dropped invalidations (tests inject a fake clock).
  * @property {number} [backendTimeoutMs]
  * @property {number} [flushIntervalMs]
  * @property {boolean} [disabled] Kill switch: degrade to miss-only.
@@ -98,6 +105,8 @@ export function createResilientRemoteCacheHandler(options) {
     failureThreshold = DEFAULT_FAILURE_THRESHOLD,
     cooldownMs = DEFAULT_COOLDOWN_MS,
     distrustMs = DEFAULT_DISTRUST_MS,
+    droppedBustDistrustMs = DEFAULT_DROPPED_BUST_DISTRUST_MS,
+    retryOptions,
     backendTimeoutMs = DEFAULT_BACKEND_TIMEOUT_MS,
     flushIntervalMs,
     disabled = false,
@@ -147,6 +156,8 @@ export function createResilientRemoteCacheHandler(options) {
     disabled,
     backendTimeoutMs,
     cooldownMs,
+    droppedBustDistrustMs,
+    retryOptions,
   });
 
   /** @type {ResilientRemoteCacheHandler} */
