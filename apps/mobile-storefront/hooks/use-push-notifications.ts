@@ -251,11 +251,24 @@ export function usePushNotifications(): UsePushNotificationsReturn {
       effectiveMerchantId &&
       registeredUserId !== user.id
     ) {
-      savePushTokenToServer(pushToken, user.id, effectiveMerchantId).then(
-        (saved) => {
-          setRegisteredUserId(saved ? user.id : null);
+      void (async () => {
+        if (Platform.OS === 'android') {
+          try {
+            await ensureAndroidNotificationChannels();
+          } catch (channelError) {
+            log.warn(
+              'Failed to ensure Android channels for stored push token:',
+              channelError
+            );
+          }
         }
-      );
+        const saved = await savePushTokenToServer(
+          pushToken,
+          user.id,
+          effectiveMerchantId
+        );
+        setRegisteredUserId(saved ? user.id : null);
+      })();
     }
   }, [merchantId, pushToken, registeredUserId, user?.id]);
 

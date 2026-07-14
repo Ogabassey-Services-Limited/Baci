@@ -181,6 +181,37 @@ describe('usePushNotifications', () => {
     }
   });
 
+  it('ensures Android channels on passive stored-token startup', async () => {
+    const { Platform } =
+      jest.requireActual<typeof import('react-native')>('react-native');
+    const originalOS = Platform.OS;
+    Object.defineProperty(Platform, 'OS', {
+      configurable: true,
+      value: 'android',
+    });
+    try {
+      mockGetStoredPushToken.mockResolvedValue('ExponentPushToken[stored]');
+
+      const { result } = renderHook(() => usePushNotifications());
+
+      await waitFor(() =>
+        expect(mockSavePushTokenToServer).toHaveBeenCalledWith(
+          'ExponentPushToken[stored]',
+          'user-1',
+          'merchant-1'
+        )
+      );
+      await waitFor(() => expect(result.current.isRegistered).toBe(true));
+      expect(mockEnsureAndroidNotificationChannels).toHaveBeenCalled();
+      expect(mockRegisterForPushNotifications).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(Platform, 'OS', {
+        configurable: true,
+        value: originalOS,
+      });
+    }
+  });
+
   it('keeps the hook unregistered when token acquisition fails', async () => {
     mockRegisterForPushNotifications.mockResolvedValue(null);
 

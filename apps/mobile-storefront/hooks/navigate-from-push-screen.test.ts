@@ -125,7 +125,7 @@ describe('navigateFromPushScreen', () => {
     expect(push).toHaveBeenCalledTimes(2);
   });
 
-  it('drops a malicious returnTo and falls back to the bare wallet', () => {
+  it('drops a malicious returnTo and falls back to the bare wallet', async () => {
     const maliciousReturnTos = [
       '//evil.com',
       '/../secrets',
@@ -145,6 +145,7 @@ describe('navigateFromPushScreen', () => {
     for (const returnTo of maliciousReturnTos) {
       navigateFromPushScreen('wallet', { credited: 'true', returnTo });
     }
+    await flushIntentRead();
 
     for (const call of push.mock.calls) {
       expect(call[0]).toBe('/wallet');
@@ -167,6 +168,27 @@ describe('navigateFromPushScreen', () => {
       '/utilities/power?repeatAmount=2000'
     );
     expect(push).toHaveBeenCalledTimes(2);
+  });
+
+  it('consumes a returnTo-less credit intent before opening the bare wallet', async () => {
+    let resolveIntent: ((value: '/checkout') => void) | undefined;
+    consumeIntent.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveIntent = resolve;
+        })
+    );
+
+    navigateFromPushScreen('wallet', { credited: 'true' });
+    await flushIntentRead();
+
+    expect(push).not.toHaveBeenCalled();
+
+    resolveIntent?.('/checkout');
+    await flushIntentRead();
+
+    expect(push).toHaveBeenNthCalledWith(1, '/wallet');
+    expect(push).toHaveBeenNthCalledWith(2, '/checkout');
   });
 
   it('stays on the wallet when no funding intent is stored', async () => {

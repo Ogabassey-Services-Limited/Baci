@@ -205,6 +205,30 @@ describe('processWalletFundedOrderPayment', () => {
     expect(scheduleAfter).not.toHaveBeenCalled();
   });
 
+  it('claims a concurrent transfer notification only once after finalization', async () => {
+    const supabase = createSupabase();
+    const tasks: Array<() => Promise<void>> = [];
+    const input = {
+      gatewayReference: 'PSK_REF_CONCURRENT',
+      gatewayResponse: { paid_at: '2026-05-26T12:05:00.000Z' },
+      scheduleAfter: (task: () => Promise<void>) => tasks.push(task),
+      supabase: supabase as never,
+      transaction: {
+        ...transaction,
+        id: 'txn-funding-concurrent',
+      },
+    };
+
+    await Promise.all([
+      processWalletFundedOrderPayment(input),
+      processWalletFundedOrderPayment(input),
+    ]);
+
+    expect(tasks).toHaveLength(2);
+    await Promise.all(tasks.map((task) => task()));
+    expect(mockNotifyWalletCredited).toHaveBeenCalledTimes(1);
+  });
+
   it('does not schedule a wallet-credit push when the finalizer never runs', async () => {
     mockFindActiveWalletFundingIntentForTransfer.mockResolvedValue({
       kind: 'none',

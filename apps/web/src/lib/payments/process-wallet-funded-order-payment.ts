@@ -432,6 +432,9 @@ export async function processWalletFundedOrderPayment({
       merchantId: match.intent.merchantId,
       orderId: finalizer.order_id ?? match.intent.orderId,
       scheduleAfter,
+      supabase,
+      transactionId: transaction.id,
+      transactionMetadata: metadata,
     });
   }
   if (finalizer.order_paid === true && !finalizer.order_id) {

@@ -4,6 +4,7 @@ import {
   SavingsAuthorizationStillProcessingError,
   waitForSavingsAuthorizationConfirmation,
 } from '@/lib/customer-savings';
+import { clearWalletFundingIntent } from '@/lib/wallet-funding-intent';
 import {
   WalletTopUpStillProcessingError,
   waitForWalletTopUpConfirmation,
@@ -68,6 +69,7 @@ export function beginWalletTopUpCompletion({
       if (!refs.isMountedRef.current) {
         return;
       }
+      await clearWalletFundingIntent();
       await queryClient.invalidateQueries({ queryKey: WALLET_QUERY_KEY });
       if (!refs.isMountedRef.current) {
         return;

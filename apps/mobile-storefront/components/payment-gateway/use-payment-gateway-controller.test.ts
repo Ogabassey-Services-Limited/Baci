@@ -11,6 +11,7 @@ import {
   VtuPaymentStillProcessingError,
   waitForVtuConfirmation,
 } from '@/lib/vtu-checkout';
+import { clearWalletFundingIntent } from '@/lib/wallet-funding-intent';
 import {
   WalletTopUpStillProcessingError,
   waitForWalletTopUpConfirmation,
@@ -45,6 +46,10 @@ jest.mock('@/components/ui/Toast', () => ({
 
 jest.mock('@/lib/clipboard', () => ({
   setClipboardString: jest.fn(() => Promise.resolve(true)),
+}));
+
+jest.mock('@/lib/wallet-funding-intent', () => ({
+  clearWalletFundingIntent: jest.fn(),
 }));
 
 jest.mock('@/lib/customer-savings', () => ({
@@ -102,6 +107,7 @@ const mockWaitForWalletTopUpConfirmation = jest.mocked(
 const mockWaitForSavingsAuthorizationConfirmation = jest.mocked(
   waitForSavingsAuthorizationConfirmation
 );
+const mockClearWalletFundingIntent = jest.mocked(clearWalletFundingIntent);
 
 const orderParams = {
   amount: '1000',
@@ -173,6 +179,7 @@ describe('usePaymentGatewayController', () => {
         balance: 7500,
       },
     });
+    mockClearWalletFundingIntent.mockResolvedValue(undefined);
     mockWaitForSavingsAuthorizationConfirmation.mockResolvedValue({
       reference: 'SAV-AUTH-123',
       savedPaymentMethodId: 'card-1',
@@ -453,6 +460,10 @@ describe('usePaymentGatewayController', () => {
         reference: 'WAL-123',
       })
     );
+    await waitFor(() =>
+      expect(mockClearWalletFundingIntent).toHaveBeenCalledTimes(1)
+    );
+    expect(result.current.errorMessage).toBeNull();
     await waitFor(() => expect(result.current.status).toBe('success'));
     expect(mockInvalidateQueries).toHaveBeenCalledWith({
       queryKey: ['wallet'],
@@ -478,6 +489,8 @@ describe('usePaymentGatewayController', () => {
     });
 
     await waitFor(() => expect(result.current.status).toBe('success'));
+
+    expect(mockClearWalletFundingIntent).toHaveBeenCalledTimes(1);
 
     act(() => {
       jest.runOnlyPendingTimers();

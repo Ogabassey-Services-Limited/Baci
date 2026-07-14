@@ -23,9 +23,13 @@ import {
 async function resumeStoredWalletFundingIntent() {
   const customerId = await resolveActiveCustomerId();
   if (!customerId) {
+    router.push('/wallet');
     return;
   }
   const storedReturnTo = await consumeWalletFundingIntent(customerId);
+  // Consume first: mounting a bare wallet route clears stale intent state.
+  // Only navigate after the single-use record is safely read and removed.
+  router.push('/wallet');
   if (storedReturnTo) {
     router.push(storedReturnTo);
   }
@@ -84,7 +88,6 @@ export function navigateFromPushScreen(
       // top — back returns to the wallet, matching the "Return to your
       // purchase" promise.
       const returnTo = sanitizeResumableWalletReturnTo(params?.returnTo);
-      router.push('/wallet');
 
       // ONLY an actual credit may touch the pending funding intent. Other pushes
       // also land on the wallet (`vtu_cashback_monthly_summary`), and they are
@@ -92,6 +95,7 @@ export function navigateFromPushScreen(
       // intent for one of those would both misfire a navigation and burn the
       // single-use intent before the real credit lands.
       if (params?.credited !== 'true') {
+        router.push('/wallet');
         break;
       }
 
@@ -99,6 +103,7 @@ export function navigateFromPushScreen(
         // The payload's destination wins; the locally recorded intent is now
         // superseded, so drop it rather than leave it armed for a later credit.
         void clearWalletFundingIntent();
+        router.push('/wallet');
         router.push(returnTo);
         break;
       }
@@ -110,6 +115,7 @@ export function navigateFromPushScreen(
           'Failed to resume wallet funding intent:',
           error
         );
+        router.push('/wallet');
       });
       break;
     }
