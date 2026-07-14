@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
 import { finalizeOrderGatewayPayment } from '@/lib/payments/finalize-order-gateway-payment';
+import { REPLAYABLE_PAID_ORDER_SIDE_EFFECT_STEPS } from '@/lib/payments/replayable-paid-order-side-effect-steps';
+import { retireTerminalSideEffectDrain } from '@/lib/payments/retire-terminal-side-effect-drain';
 import {
   type HealableGateway,
   verifyGatewayCharge,
@@ -17,6 +19,7 @@ import {
 const PERMANENT_STEP_ERRORS = [
   'wired_in_b3_5',
   'financial_totals_inconsistent',
+  'gateway_verification_terminal',
 ];
 const HEALABLE_GATEWAYS = new Set(['paystack', 'korapay']);
 const DEFAULT_LIMIT = 10;
@@ -41,6 +44,7 @@ type DrainCandidateRow = {
     gateway: string;
     gateway_reference: string | null;
     gateway_response: Record<string, unknown> | null;
+    metadata: Record<string, unknown> | null;
   };
 };
 
@@ -60,13 +64,14 @@ export async function drainFailedPaidOrderSideEffects({
   };
 
   const DRAIN_SELECT =
-    'order_id, transaction_id, transactions!inner(id, order_id, merchant_id, amount, platform_fee, gateway, gateway_reference, gateway_response), orders!inner(id, payment_status, cancelled_at)';
+    'order_id, transaction_id, transactions!inner(id, order_id, merchant_id, amount, platform_fee, gateway, gateway_reference, gateway_response, metadata), orders!inner(id, payment_status, cancelled_at)';
 
   const { data: failedRows, error: lookupError } = await supabase
     .from('payment_side_effects')
     .select(DRAIN_SELECT)
     .eq('status', 'failed')
     .not('error', 'in', `(${PERMANENT_STEP_ERRORS.join(',')})`)
+    .in('step', [...REPLAYABLE_PAID_ORDER_SIDE_EFFECT_STEPS])
     .eq('transactions.status', 'completed')
     .eq('orders.payment_status', 'paid')
     .is('orders.cancelled_at', null)
@@ -89,6 +94,7 @@ export async function drainFailedPaidOrderSideEffects({
     .select(DRAIN_SELECT)
     .eq('status', 'claimed')
     .lt('claimed_at', staleClaimCutoff)
+    .in('step', [...REPLAYABLE_PAID_ORDER_SIDE_EFFECT_STEPS])
     .eq('transactions.status', 'completed')
     .eq('orders.payment_status', 'paid')
     .is('orders.cancelled_at', null)
@@ -131,6 +137,30 @@ export async function drainFailedPaidOrderSideEffects({
           txn.gateway_reference
         );
         if (!verification.ok) {
+          if (
+            verification.reason === 'gateway_status_not_success' ||
+            verification.reason === 'gateway_reference_invalid'
+          ) {
+            await retireTerminalSideEffectDrain({
+              orderId,
+              reason:
+                verification.reason === 'gateway_reference_invalid'
+                  ? `Paid-order side-effect drain: ${gateway} rejects reference ${txn.gateway_reference} as invalid/unknown although the transaction is completed`
+                  : `Paid-order side-effect drain: ${gateway} verifies reference ${txn.gateway_reference} as '${verification.gatewayStatus ?? 'unknown'}' although the transaction is completed`,
+              resolution:
+                verification.reason === 'gateway_reference_invalid'
+                  ? 'gateway_reference_invalid'
+                  : 'gateway_verification_negative',
+              supabase,
+              transaction: {
+                gateway,
+                gateway_reference: txn.gateway_reference,
+                id: txn.id,
+                metadata: txn.metadata,
+                order_id: orderId,
+              },
+            });
+          }
           summary.skipped.push({ orderId, reason: verification.reason });
           continue;
         }

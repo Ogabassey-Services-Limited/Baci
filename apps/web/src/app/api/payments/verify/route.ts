@@ -2,7 +2,9 @@ import { after, type NextRequest, NextResponse } from 'next/server';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
+import { ensurePaidOrderInventoryConfirmed } from '@/lib/payments/ensure-paid-order-inventory-confirmed';
 import { finalizeOrderGatewayPayment } from '@/lib/payments/finalize-order-gateway-payment';
+import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
 import type { GatewayVerificationResult } from '@/lib/payments/types';
 import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -127,6 +129,25 @@ async function verifyPaymentReference(reference: string) {
     transaction.status === 'completed' &&
     existingOrder?.payment_status === 'paid';
   if (isJuicywayLocallyFinalizedOrderPayment) {
+    try {
+      await ensurePaidOrderInventoryConfirmed(
+        supabase,
+        transaction.merchant_id,
+        transaction.order_id
+      );
+    } catch (inventoryError) {
+      logger.error({
+        error: inventoryError,
+        message:
+          'Completed Juicyway payment inventory confirmation failed during verification',
+        orderId: transaction.order_id,
+        reference: parsedReference.data,
+      });
+      const payload = buildInventoryConfirmationFailurePayload(inventoryError);
+      return NextResponse.json(payload, {
+        status: payload.code === 'serialized_inventory_unavailable' ? 409 : 500,
+      });
+    }
     return NextResponse.json({
       success: true,
       status: 'success',

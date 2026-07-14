@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 const migrationSql = readFileSync(
   resolve(
     process.cwd(),
-    '../../supabase/migrations/20260713160000_complete_order_gateway_payment_atomic.sql'
+    '../../supabase/migrations/20260714123000_complete_order_gateway_payment_atomic.sql'
   ),
   'utf8'
 );

@@ -120,12 +120,14 @@ function buildSupabase({
     unknown
   > | null,
   completion,
+  inventoryConfirmationError = null,
 }: {
   transactionStatus?: string;
   existingOrderStatus?: string;
   gateway?: string;
   gatewayResponse?: Record<string, unknown> | null;
   completion: Record<string, unknown> | null;
+  inventoryConfirmationError?: unknown;
 }) {
   const normalizedCompletion =
     completion && !('error_code' in completion)
@@ -152,7 +154,13 @@ function buildSupabase({
         : name === 'claim_payment_side_effect'
           ? { current_status: 'claimed', we_won: true }
           : null;
-    const result = { data, error: null };
+    const result = {
+      data,
+      error:
+        name === 'confirm_order_inventory_reservations'
+          ? inventoryConfirmationError
+          : null,
+    };
     return Object.assign(Promise.resolve(result), {
       single: () => Promise.resolve(result),
     });
@@ -425,6 +433,28 @@ describe('POST /api/payments/verify — finalizer outcomes', () => {
       success: true,
     });
     expect(mockVerifyPaystack).not.toHaveBeenCalled();
-    expect(supabase.rpc).not.toHaveBeenCalled();
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'confirm_order_inventory_reservations',
+      { p_merchant_id: 'merchant-1', p_order_id: 'order-1' }
+    );
+  });
+
+  it('fails closed when completed Juicyway inventory confirmation fails', async () => {
+    const supabase = buildSupabase({
+      completion: null,
+      existingOrderStatus: 'paid',
+      gateway: 'juicyway',
+      inventoryConfirmationError: { message: 'db unavailable' },
+      transactionStatus: 'completed',
+    });
+    mockCreateServiceClient.mockReturnValue(supabase);
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      code: 'INVENTORY_CONFIRMATION_FAILED',
+      error: 'Inventory confirmation failed',
+    });
   });
 });

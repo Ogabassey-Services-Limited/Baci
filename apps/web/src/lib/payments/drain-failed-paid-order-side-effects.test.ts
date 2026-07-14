@@ -4,6 +4,7 @@ import { drainFailedPaidOrderSideEffects } from '@/lib/payments/drain-failed-pai
 
 const mocks = vi.hoisted(() => ({
   finalizeOrderGatewayPayment: vi.fn(),
+  retireTerminalSideEffectDrain: vi.fn(),
   verifyGatewayCharge: vi.fn(),
 }));
 
@@ -12,6 +13,9 @@ vi.mock('@/lib/payments/finalize-order-gateway-payment', () => ({
 }));
 vi.mock('@/lib/payments/verify-gateway-charge', () => ({
   verifyGatewayCharge: mocks.verifyGatewayCharge,
+}));
+vi.mock('@/lib/payments/retire-terminal-side-effect-drain', () => ({
+  retireTerminalSideEffectDrain: mocks.retireTerminalSideEffectDrain,
 }));
 
 const failedRow = {
@@ -32,7 +36,7 @@ const failedRow = {
 
 function buildSupabase(result: { data?: unknown[]; error?: unknown }) {
   const builder: Record<string, unknown> = {};
-  for (const method of ['select', 'eq', 'not', 'is', 'lt']) {
+  for (const method of ['select', 'eq', 'not', 'is', 'lt', 'in']) {
     builder[method] = vi.fn().mockReturnValue(builder);
   }
   // `.limit()` is the terminal call in the drain's query chain.
@@ -98,6 +102,14 @@ describe('drainFailedPaidOrderSideEffects', () => {
       })
     );
     expect(summary.drained).toEqual([{ orderId: 'order-1' }]);
+    const firstQuery = vi.mocked(supabase.from).mock.results[0]?.value as {
+      in: ReturnType<typeof vi.fn>;
+    };
+    expect(firstQuery.in).toHaveBeenCalledWith('step', [
+      'paid_email',
+      'ad_tracking_conversion',
+      'merchant_settlement',
+    ]);
   });
 
   it('skips gateways the finalizer cannot handle', async () => {
@@ -127,7 +139,7 @@ describe('drainFailedPaidOrderSideEffects', () => {
     ];
     const from = vi.fn(() => {
       const builder: Record<string, unknown> = {};
-      for (const method of ['select', 'eq', 'not', 'is', 'lt']) {
+      for (const method of ['select', 'eq', 'not', 'is', 'lt', 'in']) {
         builder[method] = vi.fn().mockReturnValue(builder);
       }
       builder.limit = vi
@@ -220,5 +232,39 @@ describe('drainFailedPaidOrderSideEffects', () => {
       { orderId: 'order-1', reason: 'paystack_verification_unavailable' },
     ]);
     expect(mocks.finalizeOrderGatewayPayment).not.toHaveBeenCalled();
+  });
+
+  it('retires terminal verification failures with a durable review', async () => {
+    const missingEvidenceRow = {
+      ...failedRow,
+      transactions: {
+        ...failedRow.transactions,
+        gateway_response: null,
+        metadata: null,
+      },
+    };
+    const supabase = buildSupabase({ data: [missingEvidenceRow] });
+    mocks.verifyGatewayCharge.mockResolvedValue({
+      gatewayStatus: 'failed',
+      ok: false,
+      reason: 'gateway_status_not_success',
+    });
+    mocks.retireTerminalSideEffectDrain.mockResolvedValue(true);
+
+    const summary = await drainFailedPaidOrderSideEffects({
+      scheduleAfter,
+      supabase,
+    });
+
+    expect(mocks.retireTerminalSideEffectDrain).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId: 'order-1',
+        resolution: 'gateway_verification_negative',
+        transaction: expect.objectContaining({ id: 'txn-1' }),
+      })
+    );
+    expect(summary.skipped).toEqual([
+      { orderId: 'order-1', reason: 'gateway_status_not_success' },
+    ]);
   });
 });

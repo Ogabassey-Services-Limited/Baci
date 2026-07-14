@@ -110,11 +110,13 @@ export async function finalizeOrderGatewayPayment({
   const capturedOnAlreadyPaidOrder =
     Boolean(completion.order_already_paid) &&
     !completion.order_updated &&
-    Boolean(outboxState?.hasRows) &&
-    outboxState?.payerTransactionId !== transaction.id;
+    (wonTransactionFlip ||
+      (Boolean(outboxState?.hasRows) &&
+        outboxState?.payerTransactionId !== transaction.id));
   const legacyPaidReplay =
     Boolean(completion.order_already_paid) &&
     !completion.order_updated &&
+    !wonTransactionFlip &&
     outboxState?.hasRows === false;
 
   const shouldNotify =

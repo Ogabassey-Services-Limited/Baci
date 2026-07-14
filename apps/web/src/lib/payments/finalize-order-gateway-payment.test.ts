@@ -298,6 +298,29 @@ describe('finalizeOrderGatewayPayment', () => {
     expect(mocks.runPaidOrderSideEffects).not.toHaveBeenCalled();
   });
 
+  it('settles a fresh capture on a legacy paid order with no outbox history', async () => {
+    mocks.completeOrderGatewayPayment.mockResolvedValue(
+      completion({
+        already_completed: true,
+        order_already_paid: true,
+        order_updated: false,
+      })
+    );
+    mocks.ensurePaidOrderInventoryConfirmed.mockResolvedValue(undefined);
+
+    const outcome = await finalizeOrderGatewayPayment(
+      baseArgs(buildSupabase({ data: richOrderRow }, { outboxRows: [] }), {
+        wonTransactionFlip: true,
+      })
+    );
+
+    expect(outcome).toMatchObject({ kind: 'completed' });
+    expect(mocks.ensurePaidOrderInventoryConfirmed).not.toHaveBeenCalled();
+    expect(mocks.settleCapturedOrderPayment).toHaveBeenCalledTimes(1);
+    expect(mocks.runPaidOrderSideEffects).not.toHaveBeenCalled();
+    expect(mocks.notifyPaymentReceived).not.toHaveBeenCalled();
+  });
+
   it('settles only (no email/push) when the order was paid by another transaction', async () => {
     mocks.completeOrderGatewayPayment.mockResolvedValue(
       completion({
