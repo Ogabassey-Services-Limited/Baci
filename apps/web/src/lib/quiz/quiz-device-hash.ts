@@ -1,6 +1,7 @@
 import { createHmac, randomBytes } from 'node:crypto';
 import type { NextRequest } from 'next/server';
 import { getQuizDeviceHashPepper, isProduction } from '@/env';
+import { logger } from '@/lib/logger';
 
 /**
  * Resolves the device identity used by the per-device attempt cap (QZ041).
@@ -47,7 +48,12 @@ function hashDeviceIdentity(rawIdentity: string): string | null {
   let pepper: string | undefined;
   try {
     pepper = getQuizDeviceHashPepper();
-  } catch {
+  } catch (error) {
+    logger.error({
+      error,
+      event: 'quiz_device_cap_degraded',
+      message: 'Quiz device hash pepper lookup failed',
+    });
     return null;
   }
 
@@ -55,6 +61,10 @@ function hashDeviceIdentity(rawIdentity: string): string | null {
   // unpeppered client value would be worse than storing nothing. The player
   // still plays — the per-customer and email-identity caps still bound them.
   if (!pepper) {
+    logger.warn({
+      event: 'quiz_device_cap_degraded',
+      message: 'Quiz device hash pepper is unavailable',
+    });
     return null;
   }
 

@@ -4,12 +4,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockGetQuizDeviceHashPepper = vi.hoisted(() => vi.fn());
 const mockGetQuizRpcServerSecret = vi.hoisted(() => vi.fn());
 const mockIsProduction = vi.hoisted(() => vi.fn());
+const mockLogger = vi.hoisted(() => ({
+  error: vi.fn(),
+  warn: vi.fn(),
+}));
 
 vi.mock('@/env', () => ({
   getQuizDeviceHashPepper: mockGetQuizDeviceHashPepper,
   getQuizRpcServerSecret: mockGetQuizRpcServerSecret,
   isProduction: mockIsProduction,
 }));
+
+vi.mock('@/lib/logger', () => ({ logger: mockLogger }));
 
 const SHA256_HEX = /^[0-9a-f]{64}$/;
 const NATIVE_FINGERPRINT = 'a'.repeat(64);
@@ -143,6 +149,10 @@ describe('resolveQuizDevice', () => {
     // Null means "do not device-cap this attempt" — the player still plays, and
     // the per-customer and email-identity caps still bound them.
     expect(deviceHash).toBeNull();
+    expect(mockLogger.warn).toHaveBeenCalledWith({
+      event: 'quiz_device_cap_degraded',
+      message: 'Quiz device hash pepper is unavailable',
+    });
   });
 
   it('fails soft when the device pepper getter rejects the runtime', async () => {
@@ -154,5 +164,10 @@ describe('resolveQuizDevice', () => {
     expect(
       resolveQuizDevice(requestWithCookie(), NATIVE_FINGERPRINT).deviceHash
     ).toBeNull();
+    expect(mockLogger.error).toHaveBeenCalledWith({
+      error: expect.any(Error),
+      event: 'quiz_device_cap_degraded',
+      message: 'Quiz device hash pepper lookup failed',
+    });
   });
 });

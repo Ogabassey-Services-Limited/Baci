@@ -72,6 +72,20 @@ VALUES
     '00000000-0000-4000-8000-00000000d202',
     'Device Player Two',
     'player.two@example.com'
+  ),
+  (
+    '00000000-0000-4000-8000-00000000d103',
+    '00000000-0000-4000-8000-00000000d001',
+    '00000000-0000-4000-8000-00000000d203',
+    'Identity Player One',
+    'identity.player+one@gmail.com'
+  ),
+  (
+    '00000000-0000-4000-8000-00000000d104',
+    '00000000-0000-4000-8000-00000000d001',
+    '00000000-0000-4000-8000-00000000d204',
+    'Identity Player Two',
+    'identityplayer@gmail.com'
   );
 
 INSERT INTO public.quiz_events (id, merchant_id, slug, title, status, settings)
@@ -109,6 +123,49 @@ VALUES
     1,
     'device'
   );
+
+INSERT INTO public.quiz_attempts (
+  id,
+  event_id,
+  customer_id,
+  status,
+  attempt_number,
+  integrity_tier
+)
+VALUES (
+  '00000000-0000-4000-8000-00000000d403',
+  '00000000-0000-4000-8000-00000000d301',
+  '00000000-0000-4000-8000-00000000d103',
+  'started',
+  1,
+  'device'
+);
+
+DO $$
+BEGIN
+  BEGIN
+    INSERT INTO public.quiz_attempts (
+      id,
+      event_id,
+      customer_id,
+      status,
+      attempt_number,
+      integrity_tier
+    )
+    VALUES (
+      '00000000-0000-4000-8000-00000000d404',
+      '00000000-0000-4000-8000-00000000d301',
+      '00000000-0000-4000-8000-00000000d104',
+      'started',
+      1,
+      'device'
+    );
+    RAISE EXCEPTION 'normalized email identity cap unexpectedly allowed a second attempt';
+  EXCEPTION WHEN SQLSTATE 'QZ040' THEN
+    NULL;
+  END;
+END;
+$$;
 
 SET LOCAL ROLE authenticated;
 

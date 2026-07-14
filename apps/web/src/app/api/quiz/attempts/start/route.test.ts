@@ -516,6 +516,33 @@ describe('start quiz attempt route', () => {
     });
   });
 
+  it('returns the successful start when device binding fails unexpectedly', async () => {
+    mockAuthenticatedSupabase({
+      bindResult: {
+        data: null,
+        error: { code: 'XX000', message: 'unexpected bind failure' },
+      },
+    });
+    vi.mocked(resolveQuizDevice).mockReturnValue({
+      cookieToSet: undefined,
+      deviceHash: 'c'.repeat(64),
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      jsonRequest({ eventId: EVENT_ID, integrityTier: 'device' })
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ attemptId: 'attempt-1' });
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'bind_quiz_attempt_device',
+        message: 'Failed to bind quiz attempt to a device; continuing',
+      })
+    );
+  });
+
   it('returns a client error when the event is no longer open', async () => {
     const { rpc } = mockAuthenticatedSupabase({
       rpcResult: {

@@ -95,6 +95,12 @@ describe('quiz identity and device cap migration', () => {
     expect(identityDeviceTestSql).toContain("'started'");
   });
 
+  it('exercises the normalized email identity cap in the SQL fixture', () => {
+    expect(identityDeviceTestSql).toContain('identity.player+one@gmail.com');
+    expect(identityDeviceTestSql).toContain('identityplayer@gmail.com');
+    expect(identityDeviceTestSql).toMatch(/EXCEPTION WHEN SQLSTATE 'QZ040'/i);
+  });
+
   it('keeps the neutral-ranking fixture above the identity attempt count', () => {
     expect(leaderboardTestSql).toMatch(
       /INSERT INTO public\.quiz_events \(id, merchant_id, slug, title, status, settings\)[\s\S]*?'\{"max_attempts":10\}'::jsonb/i
