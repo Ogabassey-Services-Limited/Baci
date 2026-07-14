@@ -3,7 +3,7 @@
  *
  * Entry is free, so `start_quiz_attempt` must always return
  * `examPassPointsSpent: 0`. A positive value can only come from a database that
- * has not applied `20260713180000_quiz_free_entry.sql` — the old RPC is still
+ * has not applied `20260714102000_quiz_free_entry.sql` — the old RPC is still
  * live and has just DEBITED the player a loyalty point.
  *
  * This is not a theoretical window. The QZ011 error guard alone does not cover

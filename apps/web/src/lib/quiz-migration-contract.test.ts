@@ -323,7 +323,7 @@ describe('quiz migration contracts', () => {
 
   // HISTORICAL. This pins the ORIGINAL Phase-1a migration file, which charged a
   // loyalty point. Migrations are append-only so that file still reads this way,
-  // but it is NOT the live behaviour: 20260713180000_quiz_free_entry.sql made
+  // but it is NOT the live behaviour: 20260714102000_quiz_free_entry.sql made
   // entry free. The live contract is asserted in the free-entry test below.
   it('charged one customer loyalty point in the original Phase-1a migration', () => {
     const startAttemptSql = rpcSql.match(
@@ -367,6 +367,9 @@ describe('quiz migration contracts', () => {
     expect(latestStartAttemptSql).not.toMatch(
       /SET\s+loyalty_points\s*=\s*COALESCE\(c\.loyalty_points,\s*0\)\s*-/i
     );
+    expect(latestStartAttemptSql).toMatch(
+      /quiz_route_proof_valid\(p_route_proof,\s*'start_quiz_attempt_free_v1'/i
+    );
 
     // The customer gate STAYS: a customers row is created by free signup, so it
     // gates on "registered on this store", not on having purchased anything.
@@ -379,6 +382,16 @@ describe('quiz migration contracts', () => {
     // stopping a player from farming unlimited attempts now that entry is free.
     expect(latestStartAttemptSql).toMatch(/attempt_limit_reached/i);
     expect(latestStartAttemptSql).toMatch(/ERRCODE\s*=\s*'QZ030'/i);
+
+    // The API checks this marker before invoking start_quiz_attempt. Because the
+    // marker and free-entry function share one migration transaction, a
+    // code-before-database deploy fails before it can call the stale paid RPC.
+    expect(allQuizMigrationSql).toMatch(
+      /CREATE OR REPLACE FUNCTION public\.quiz_free_entry_ready\(\)[\s\S]*?SELECT true;/i
+    );
+    expect(allQuizMigrationSql).toMatch(
+      /GRANT EXECUTE ON FUNCTION public\.quiz_free_entry_ready\(\) TO authenticated, service_role;/i
+    );
   });
 
   // Free entry is meaningless if PURCHASES still decide who WINS. Both ranking

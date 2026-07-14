@@ -1,7 +1,7 @@
 -- Remove loyalty points from quiz WINNER RANKING (companion to 20260713160000).
 --
 -- WHY
--- 20260713180000_quiz_free_entry.sql stopped CHARGING a loyalty point to enter,
+-- 20260714102000_quiz_free_entry.sql stopped CHARGING a loyalty point to enter,
 -- but both ranking functions still broke score ties with
 -- `COALESCE(c.loyalty_points, 0) DESC`. Loyalty points are only ever earned by
 -- purchasing, so the prize was still allocated by how much a player had SPENT: a
@@ -331,7 +331,7 @@ AS $$
 BEGIN
   -- Authorization (preserved from #2965): caller must be a customer of the
   -- event's merchant. loyalty_points is a wallet-like balance: it is neither
-  -- projected NOR used as a tiebreaker (see 20260713190000 — ranking by it would
+  -- projected NOR used as a tiebreaker (see 20260714102100 — ranking by it would
   -- rank players by how much they have purchased).
   --
   -- `c.deleted_at IS NULL` excludes soft-deleted customer rows so a shopper who

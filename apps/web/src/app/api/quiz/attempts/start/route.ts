@@ -1,3 +1,4 @@
+import { QUIZ_FREE_ENTRY_RPC_ACTION } from '@baci/shared/constants';
 import { type NextRequest, NextResponse } from 'next/server';
 import { attachQuizQuestionDeadline } from '@/app/api/quiz/_shared/quiz-question-deadline';
 import {
@@ -18,7 +19,6 @@ import {
   rpcErrorResponse,
 } from '@/app/api/quiz/_shared/route-helpers';
 import { readStalePaidStartCharge } from '@/app/api/quiz/_shared/stale-paid-start-charge';
-import { voidStalePaidQuizStart } from '@/app/api/quiz/_shared/void-stale-paid-quiz-start';
 import { getQuizPhaseEnv } from '@/env';
 import { getBearerTokenFromRequest } from '@/lib/api-auth';
 import { logger } from '@/lib/logger';
@@ -95,8 +95,25 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // This marker is created in the same migration transaction as the free-entry
+  // start RPC. If code deploys before the database migration, the probe fails
+  // before the stale paid-entry RPC can charge or create an attempt.
+  const { data: freeEntryReady, error: freeEntryReadyError } =
+    await auth.supabase.rpc('quiz_free_entry_ready');
+  if (freeEntryReadyError || freeEntryReady !== true) {
+    logger.error({
+      error: freeEntryReadyError,
+      event: 'quiz_free_entry_readiness',
+      eventId: parsed.data.eventId,
+      message:
+        'Free-entry database marker is unavailable. Refusing to call start_quiz_attempt.',
+      userId: auth.user.id,
+    });
+    return NextResponse.json(QUIZ_UNAVAILABLE_RESPONSE, { status: 503 });
+  }
+
   const { proof, response: proofResponse } = createRouteProof({
-    action: 'start_quiz_attempt',
+    action: QUIZ_FREE_ENTRY_RPC_ACTION,
     payload: {
       event_id: parsed.data.eventId,
       integrity_tier: parsed.data.integrityTier,
@@ -117,7 +134,7 @@ export async function POST(request: NextRequest) {
   if (error) {
     // Entry is free, so start_quiz_attempt can no longer raise QZ011. If it
     // DOES, this build is talking to a database that has not applied
-    // 20260713180000_quiz_free_entry.sql yet — i.e. the PAID entry RPC is still
+    // 20260714102000_quiz_free_entry.sql yet — i.e. the PAID entry RPC is still
     // live and would charge a loyalty point.
     //
     // Fail closed. Do not fall through and do not tell the player to go and get
@@ -149,26 +166,19 @@ export async function POST(request: NextRequest) {
     return rpcErrorResponse();
   }
 
-  // A QZ011 guard alone does NOT cover a stale paid RPC. The old
-  // start_quiz_attempt raised QZ011 only when the player held fewer points than
-  // the cost — players who DID hold a point were charged and the call
-  // SUCCEEDED. So a *successful* start that reports a nonzero
-  // examPassPointsSpent is the paid RPC silently debiting exactly the players
-  // free entry is meant to protect. Undo the charge and fail closed.
+  // Defense in depth: the readiness marker and free-entry function are installed
+  // atomically, so this should be unreachable. Refuse any drifted response
+  // without using a service-role client from this user-facing route.
   const staleCharge = readStalePaidStartCharge(data);
   if (staleCharge) {
-    const compensation = await voidStalePaidQuizStart(staleCharge);
-
     logger.error({
       attemptId: staleCharge.attemptId,
       event: 'start_quiz_attempt',
       eventId: parsed.data.eventId,
       message:
-        'start_quiz_attempt returned a nonzero examPassPointsSpent: the paid-entry RPC is still live (free-entry migration not applied). Charge refunded and attempt voided; refusing to serve a charged attempt.',
+        'start_quiz_attempt returned a nonzero examPassPointsSpent despite the free-entry readiness marker. Refusing the drifted response.',
       pointsSpent: staleCharge.pointsSpent,
-      refunded: compensation.refunded,
       userId: auth.user.id,
-      voided: compensation.voided,
     });
 
     return NextResponse.json(QUIZ_UNAVAILABLE_RESPONSE, { status: 503 });

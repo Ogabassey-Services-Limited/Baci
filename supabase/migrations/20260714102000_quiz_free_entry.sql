@@ -24,6 +24,21 @@
 --
 -- Idempotent: CREATE OR REPLACE FUNCTION.
 
+-- The API probes this marker before calling start_quiz_attempt. Both functions
+-- are installed in the same migration transaction, so code deployed before the
+-- database update fails closed without invoking the stale paid-entry function.
+CREATE OR REPLACE FUNCTION public.quiz_free_entry_ready()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SET search_path = ''
+AS $$
+  SELECT true;
+$$;
+
+REVOKE ALL ON FUNCTION public.quiz_free_entry_ready() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.quiz_free_entry_ready() TO authenticated, service_role;
+
 CREATE OR REPLACE FUNCTION public.start_quiz_attempt(
   p_event_id uuid,
   p_integrity_tier text,
@@ -48,7 +63,10 @@ DECLARE
   v_remaining_loyalty_points integer;
   v_total_questions integer;
 BEGIN
-  IF NOT public.quiz_route_proof_valid(p_route_proof, 'start_quiz_attempt', p_event_id::text, p_user_id) THEN
+  -- Version the signed action as well as the client body. If this migration
+  -- deploys before the new route, an old server proof is rejected before any
+  -- attempt is inserted; if code deploys first, quiz_free_entry_ready blocks it.
+  IF NOT public.quiz_route_proof_valid(p_route_proof, 'start_quiz_attempt_free_v1', p_event_id::text, p_user_id) THEN
     RAISE EXCEPTION 'quiz route proof required' USING ERRCODE = 'QZ010';
   END IF;
 

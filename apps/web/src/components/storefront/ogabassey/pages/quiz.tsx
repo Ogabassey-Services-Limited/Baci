@@ -1,5 +1,6 @@
 'use client';
 
+import { QUIZ_FREE_ENTRY_MODE } from '@baci/shared/constants';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
@@ -48,6 +49,7 @@ async function fetchQuizEvents(merchantSlug: string) {
 async function startQuizAttempt(eventId: string) {
   const parsed = quizAttemptResponseSchema.safeParse(
     await apiPost<unknown>('/api/quiz/attempts/start', {
+      entryMode: QUIZ_FREE_ENTRY_MODE,
       eventId,
       integrityTier: QUIZ_INTEGRITY_TIER,
     })

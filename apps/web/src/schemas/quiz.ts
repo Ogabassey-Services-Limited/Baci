@@ -1,3 +1,4 @@
+import { QUIZ_FREE_ENTRY_MODE } from '@baci/shared/constants';
 import { z } from 'zod';
 
 const quizUuidSchema = z.uuid();
@@ -27,6 +28,7 @@ export const quizEventsQuerySchema = z
   });
 
 export const startQuizAttemptSchema = z.object({
+  entryMode: z.literal(QUIZ_FREE_ENTRY_MODE),
   eventId: quizUuidSchema,
   integrityTier: quizIntegrityTierSchema,
 });

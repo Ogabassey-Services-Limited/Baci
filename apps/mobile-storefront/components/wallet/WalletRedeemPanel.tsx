@@ -79,8 +79,8 @@ export function WalletRedeemPanel({
           such promise makes the quiz purchase-gated (consideration) and, with
           prizes at stake, a regulated promotional competition with no
           free-entry defence. Entry is free and ranking is neutral — see
-          supabase/migrations/20260713180000_quiz_free_entry.sql and
-          20260713190000_quiz_neutral_ranking.sql.
+          supabase/migrations/20260714102000_quiz_free_entry.sql and
+          20260714102100_quiz_neutral_ranking.sql.
         */}
         <View style={styles.infoRow}>
           <Text style={styles.infoEmoji}>🏆</Text>

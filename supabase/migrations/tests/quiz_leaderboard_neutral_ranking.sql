@@ -5,7 +5,7 @@
 --
 --   Ranking must be NEUTRAL: loyalty points are only ever earned by purchasing,
 --   so a loyalty-points tiebreaker let players BUY a better prize rank. It was
---   removed in 20260713190000_quiz_neutral_ranking.sql. This test now pins the
+--   removed in 20260714102100_quiz_neutral_ranking.sql. This test now pins the
 --   inverse of what it originally asserted: on a full tie, the player with MORE
 --   loyalty points must NOT outrank the player with fewer. Ties fall through to
 --   the neutral, non-purchasable attempt id.

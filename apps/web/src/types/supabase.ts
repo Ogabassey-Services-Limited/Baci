@@ -15039,6 +15039,7 @@ export type Database = {
           relevance: number;
         }[];
       };
+      quiz_free_entry_ready: { Args: never; Returns: boolean };
       start_quiz_attempt: {
         Args: {
           p_event_id: string;

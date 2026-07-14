@@ -106,7 +106,11 @@ describe('quiz service attempt lifecycle', () => {
       1,
       'https://example.com/api/quiz/attempts/start',
       expect.objectContaining({
-        body: JSON.stringify({ eventId: 'event-1', integrityTier: 'basic' }),
+        body: JSON.stringify({
+          entryMode: 'free-v1',
+          eventId: 'event-1',
+          integrityTier: 'basic',
+        }),
         headers: expect.objectContaining({
           Authorization: 'Bearer token-123',
         }),
