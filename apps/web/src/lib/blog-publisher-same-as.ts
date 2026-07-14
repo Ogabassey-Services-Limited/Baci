@@ -1,3 +1,4 @@
+import { filterBrandMatchedSocialProfiles } from '@/lib/brand-matched-social-profiles';
 import { normalizeSocialUrl } from '@/lib/social';
 
 const BLOG_PUBLISHER_SOCIAL_PLATFORMS = [
@@ -22,7 +23,8 @@ function isBlogPublisherSocialPlatform(
 }
 
 export function buildBlogPublisherSameAs(
-  socialMedia: Record<string, unknown> | null | undefined
+  socialMedia: Record<string, unknown> | null | undefined,
+  businessName?: string
 ): string[] {
   if (!socialMedia) {
     return [];
@@ -41,5 +43,7 @@ export function buildBlogPublisherSameAs(
     }
   }
 
-  return [...sameAs];
+  return businessName
+    ? filterBrandMatchedSocialProfiles(businessName, sameAs)
+    : [...sameAs];
 }

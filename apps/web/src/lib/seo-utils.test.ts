@@ -1268,6 +1268,45 @@ describe('getCanonicalStorefrontFilterSearchParams', () => {
 });
 
 describe('generateOrganizationSchema', () => {
+  it('keeps controlled use-brand profiles for the platform organization', () => {
+    const schema = generateOrganizationSchema({
+      name: 'Baci',
+      url: 'https://baci.app',
+      country: 'NG',
+      socialMedia: {
+        instagram: 'usebaci',
+        linkedin: 'usebaci',
+        twitter: 'usebaci',
+      },
+    });
+
+    expect(schema.sameAs).toEqual([
+      'https://instagram.com/usebaci',
+      'https://twitter.com/usebaci',
+      'https://linkedin.com/company/usebaci',
+    ]);
+  });
+
+  it('omits sameAs profiles whose handles do not match the organization brand', () => {
+    const schema = generateOrganizationSchema({
+      name: 'Ogabassey',
+      url: 'https://ogabassey.com',
+      country: 'NG',
+      socialMedia: {
+        youtube: 'ogabassey',
+        linkedin: 'ogabasseyy',
+        instagram: 'ywzhqv',
+        twitter: 'sxgtow',
+        facebook: 'odvkrk',
+      },
+    });
+
+    expect(schema.sameAs).toEqual([
+      'https://linkedin.com/company/ogabasseyy',
+      'https://youtube.com/@ogabassey',
+    ]);
+  });
+
   it('adds normalized sameAs, contactPoint, foundingDate, and return policy from the trust profile', () => {
     const schema = generateOrganizationSchema({
       name: 'Test Store',

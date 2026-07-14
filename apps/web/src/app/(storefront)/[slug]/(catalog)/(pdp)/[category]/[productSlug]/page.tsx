@@ -36,6 +36,7 @@ import {
 } from '@/components/storefront/ogabassey/variant-attributes';
 import { OGABASSEY_DOMAIN, OGABASSEY_MERCHANT_ID } from '@/config/ogabassey';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
+import { getBrandMatchedTwitterHandle } from '@/lib/brand-matched-twitter-handle';
 import {
   type CachedLegacyProductRedirectTarget,
   type CachedMerchant,
@@ -1058,6 +1059,10 @@ function buildCategoryProductMetadata({
   const socialMedia = merchant?.social_media as
     | Record<string, string>
     | undefined;
+  const twitterHandle = getBrandMatchedTwitterHandle(
+    merchantDisplayName,
+    socialMedia?.twitter
+  );
 
   return {
     title: metadataTitle,
@@ -1080,13 +1085,9 @@ function buildCategoryProductMetadata({
       title: metadataTitleText,
       description: seoDescription,
       images: socialMetadata.twitterImages,
-      ...(socialMedia?.twitter && {
-        site: socialMedia.twitter.startsWith('@')
-          ? socialMedia.twitter
-          : `@${socialMedia.twitter}`,
-        creator: socialMedia.twitter.startsWith('@')
-          ? socialMedia.twitter
-          : `@${socialMedia.twitter}`,
+      ...(twitterHandle && {
+        site: twitterHandle,
+        creator: twitterHandle,
       }),
     },
     other: mergeStorefrontSmartAppBannerOther(storeSlug, socialMetadata.other),

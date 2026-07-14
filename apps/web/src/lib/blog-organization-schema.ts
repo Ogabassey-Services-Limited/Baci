@@ -25,7 +25,10 @@ export function buildBlogOrganizationSchema(
     '@id': buildBlogOrganizationId(baseUrl),
   };
 
-  const sameAs = buildBlogPublisherSameAs(merchant.social_media);
+  const sameAs = buildBlogPublisherSameAs(
+    merchant.social_media,
+    merchant.business_name
+  );
   if (sameAs.length > 0) {
     schema.sameAs = sameAs;
   }

@@ -9,6 +9,7 @@ import {
   OGABASSEY_URL,
 } from '@/config/ogabassey';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
+import { getBrandMatchedTwitterHandle } from '@/lib/brand-matched-twitter-handle';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { generateMetaDescription } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
@@ -183,6 +184,10 @@ export async function generateMetadata({
   const baseUrl = buildStoreUrl(merchant);
 
   const socialMedia = merchant.social_media as Record<string, string> | null;
+  const twitterHandle = getBrandMatchedTwitterHandle(
+    merchant.business_name,
+    socialMedia?.twitter
+  );
 
   return {
     metadataBase: new URL(baseUrl),
@@ -209,10 +214,8 @@ export async function generateMetadata({
       title: title,
       description: description,
       ...(merchant.logo_url && { images: [merchant.logo_url] }),
-      ...(socialMedia?.twitter && {
-        site: socialMedia.twitter.startsWith('@')
-          ? socialMedia.twitter
-          : `@${socialMedia.twitter}`,
+      ...(twitterHandle && {
+        site: twitterHandle,
       }),
     },
     // Dynamic Favicon Support
