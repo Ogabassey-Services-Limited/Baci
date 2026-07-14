@@ -228,6 +228,9 @@ interface BnplLaunchParams {
     router: ReturnType<typeof useRouter>;
     setStatus: (status: 'loading' | 'processing' | 'error') => void;
     setErrorMessage: (message: string | null) => void;
+    setCreditDirectPopupMarker: (
+        marker: CreditDirectPopupMarker | null
+    ) => void;
 }
 
 // Hoisted to module scope: the throw-inside-try/catch statements and dynamic
@@ -252,6 +255,7 @@ async function launchBnplPayment({
     router,
     setStatus,
     setErrorMessage,
+    setCreditDirectPopupMarker,
 }: BnplLaunchParams) {
     try {
         if (!orderId || !gateway) {
@@ -444,6 +448,7 @@ async function launchBnplPayment({
                 },
                 onError: (error) => {
                     clearCreditDirectPopupMarker(order.id);
+                    setCreditDirectPopupMarker(null);
                     clearPaymentLaunch(paymentLaunchKeyRef);
                     console.error('Credit Direct Error:', error);
                     setStatus('error');
@@ -760,6 +765,7 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
             router,
             setStatus,
             setErrorMessage,
+            setCreditDirectPopupMarker,
         });
     }, [
         orderId,

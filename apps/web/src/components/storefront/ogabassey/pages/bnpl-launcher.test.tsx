@@ -1149,22 +1149,37 @@ describe('BnplLauncher', () => {
       });
     });
 
-    // The whole launch chain is promise-based (no timers), but this file runs
     // Regression test for the marker-adoption/error race: onPopup stores the
-    // popup marker just before onError fires, and a re-run of the launcher
-    // effect used to adopt that marker and replace the error/retry view with
-    // the payment-verification view (customer stuck "confirming" a popup that
-    // never opened). The launcher now treats the error state as terminal
-    // until the user retries, so the error heading must always win here.
+    // popup marker, then a bfcache restore adopts it into React state before
+    // onError fires. The error/retry view must replace payment verification.
     it('clears a stale popup marker when the SDK reports an error', async () => {
-      mockOpenCreditDirectCheckout.mockImplementation(
-        async ({ onPopup, onError }) => {
-          await onPopup('txn-999');
-          onError('SDK failed to open');
-        }
-      );
+      let onPopup: ((transactionId: string) => Promise<void>) | undefined;
+      let onError: ((error: string) => void) | undefined;
+      mockOpenCreditDirectCheckout.mockImplementation((options) => {
+        onPopup = options.onPopup;
+        onError = options.onError;
+        return Promise.resolve();
+      });
 
       render(<BnplLauncher />);
+
+      await waitFor(() => {
+        expect(mockOpenCreditDirectCheckout).toHaveBeenCalledOnce();
+      });
+      await act(async () => {
+        await onPopup?.('txn-999');
+      });
+      const pageShowEvent = new Event('pageshow');
+      Object.defineProperty(pageShowEvent, 'persisted', { value: true });
+      act(() => window.dispatchEvent(pageShowEvent));
+
+      expect(
+        await screen.findByRole('heading', {
+          name: 'Confirming your payment',
+        })
+      ).toBeInTheDocument();
+
+      act(() => onError?.('SDK failed to open'));
 
       expect(
         await screen.findByRole(
