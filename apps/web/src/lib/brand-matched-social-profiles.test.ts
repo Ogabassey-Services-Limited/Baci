@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { filterBrandMatchedSocialProfiles } from './brand-matched-social-profiles';
+import { filterBrandMatchedSocialProfiles } from '@/lib/brand-matched-social-profiles';
 
 describe('filterBrandMatchedSocialProfiles', () => {
   it('keeps profiles whose visible identity matches the merchant brand', () => {

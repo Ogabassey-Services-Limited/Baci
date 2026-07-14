@@ -13,8 +13,8 @@ import type {
   ReturnMethodEnumeration,
   WithContext,
 } from 'schema-dts';
+import { filterBrandMatchedSocialProfiles } from '@/lib/brand-matched-social-profiles';
 import type { JsonLdStructuredData } from '@/lib/json-ld-types';
-import { filterBrandMatchedSocialProfiles } from './brand-matched-social-profiles';
 import {
   type CheckoutPaymentMerchant,
   isBankTransferCheckoutAvailable,

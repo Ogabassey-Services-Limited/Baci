@@ -24,7 +24,9 @@ function extractTwitterHandle(value: string): string | null {
         return null;
       }
       const pathSegments = url.pathname.split('/').filter(Boolean);
-      return pathSegments.length === 1 ? (pathSegments[0] ?? null) : null;
+      const segment =
+        pathSegments.length === 1 ? (pathSegments[0] ?? null) : null;
+      return segment?.startsWith('@') ? segment.slice(1) : segment;
     } catch {
       return null;
     }

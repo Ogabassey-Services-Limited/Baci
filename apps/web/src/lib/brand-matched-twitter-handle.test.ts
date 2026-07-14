@@ -27,6 +27,9 @@ describe('getBrandMatchedTwitterHandle', () => {
     expect(
       getBrandMatchedTwitterHandle('Test Store', 'https://www.x.com/teststore')
     ).toBe('@teststore');
+    expect(
+      getBrandMatchedTwitterHandle('Test Store', 'https://x.com/@teststore')
+    ).toBe('@teststore');
   });
 
   it('rejects malformed handle values', () => {
