@@ -138,6 +138,25 @@ describe('quiz question provider chain', () => {
     expect(generateTextMock).toHaveBeenCalledTimes(2);
   });
 
+  it('lets the final reliable provider use the remaining route budget', async () => {
+    const routeController = new AbortController();
+    generateTextMock
+      .mockRejectedValueOnce(new Error('cerebras down'))
+      .mockResolvedValueOnce({ text: '{"questions":[]}' });
+
+    const { runQuizQuestionProviderChain } = await import(
+      './quiz-question-provider-chain'
+    );
+
+    await runQuizQuestionProviderChain(
+      runOptions({ abortSignal: routeController.signal })
+    );
+
+    expect(generateTextMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ abortSignal: routeController.signal })
+    );
+  });
+
   it('throws the last error when every provider fails', async () => {
     generateTextMock
       .mockRejectedValueOnce(new Error('cerebras down'))

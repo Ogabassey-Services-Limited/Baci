@@ -341,6 +341,21 @@ describe('generateQuizQuestionsWithGemma', () => {
       expect(mockFetch).not.toHaveBeenCalled();
     });
 
+    it('does not evaluate a broken self-hosted model before the hosted chain succeeds', async () => {
+      mockGetLlmChatModel.mockImplementation(() => {
+        throw new Error('invalid legacy LLM_CHAT_MODEL');
+      });
+      mockRunProviderChain.mockImplementationOnce(
+        ({ parseContent }: { parseContent: (content: string) => unknown }) =>
+          Promise.resolve(parseContent(QUIZ_JSON))
+      );
+
+      await expect(generateQuizQuestionsWithGemma(input)).resolves.toHaveLength(
+        1
+      );
+      expect(mockGetLlmChatModel).not.toHaveBeenCalled();
+    });
+
     it('falls back to the self-hosted Gemma server when the whole hosted chain fails', async () => {
       mockRunProviderChain.mockRejectedValue(new Error('all providers down'));
       const mockFetch = vi.fn().mockResolvedValue({

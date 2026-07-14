@@ -90,13 +90,23 @@ export async function runQuizQuestionProviderChain<TResult>({
   }
 
   let lastError: unknown;
+  let lastReliableIndex = providerChain.length - 1;
+  while (
+    lastReliableIndex > 0 &&
+    providerChain[lastReliableIndex]?.opportunistic
+  ) {
+    lastReliableIndex--;
+  }
 
-  for (const provider of providerChain) {
+  for (const [index, provider] of providerChain.entries()) {
     try {
-      const attemptSignal = AbortSignal.any([
-        abortSignal,
-        AbortSignal.timeout(PROVIDER_ATTEMPT_TIMEOUT_MS),
-      ]);
+      const attemptSignal =
+        index >= lastReliableIndex
+          ? abortSignal
+          : AbortSignal.any([
+              abortSignal,
+              AbortSignal.timeout(PROVIDER_ATTEMPT_TIMEOUT_MS),
+            ]);
       const { text } = await generateText({
         model: provider.model,
         system,
