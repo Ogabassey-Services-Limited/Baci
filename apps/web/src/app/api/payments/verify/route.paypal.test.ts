@@ -79,6 +79,12 @@ vi.mock('@/lib/payments/paypal-settlement-funnel', () => ({
   runPaypalReconcileFunnel: (...args: unknown[]) => mockRunFunnel(...args),
 }));
 
+const mockFinalizeOrderGatewayPayment = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/payments/finalize-order-gateway-payment', () => ({
+  finalizeOrderGatewayPayment: (...args: unknown[]) =>
+    mockFinalizeOrderGatewayPayment(...args),
+}));
+
 vi.mock('@/lib/payments/refund-duplicate-paypal-capture', () => ({
   refundDuplicatePaypalCapture: (...args: unknown[]) =>
     mockRefundDuplicate(...args),
@@ -211,6 +217,11 @@ function buildSupabase({
 describe('POST /api/payments/verify — paypal branch', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockFinalizeOrderGatewayPayment.mockResolvedValue({
+      healed: false,
+      kind: 'completed',
+      orderNumber: 'ORD-KP1',
+    });
   });
 
   it('delegates a COMPLETED PayPal transaction to the single settlement funnel', async () => {
@@ -375,20 +386,13 @@ describe('POST /api/payments/verify — paypal branch', () => {
 
     expect(response.status).toBe(200);
     expect(mockVerifyKorapay).toHaveBeenCalled();
-    // The real platform fee (125) reaches the platform-rail settlement RPC —
-    // it is NOT zeroed, and the paypal-only direct-to-merchant fork never runs.
-    await vi.waitFor(() =>
-      expect(supabase.rpc).toHaveBeenCalledWith(
-        'record_merchant_settlement',
-        expect.objectContaining({
-          p_gateway: 'korapay',
-          p_platform_fee: 125,
-        })
-      )
-    );
-    expect(supabase.rpc).not.toHaveBeenCalledWith(
-      'record_merchant_settlement_v2',
-      expect.anything()
+    // The real platform fee (125) reaches the shared platform-rail finalizer —
+    // it is NOT zeroed by the PayPal-only direct-to-merchant path.
+    expect(mockFinalizeOrderGatewayPayment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        gateway: 'korapay',
+        transaction: expect.objectContaining({ platform_fee: 125 }),
+      })
     );
   });
 });
