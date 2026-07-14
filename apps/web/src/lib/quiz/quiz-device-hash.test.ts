@@ -1,10 +1,12 @@
 import type { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const mockGetQuizDeviceHashPepper = vi.hoisted(() => vi.fn());
 const mockGetQuizRpcServerSecret = vi.hoisted(() => vi.fn());
 const mockIsProduction = vi.hoisted(() => vi.fn());
 
 vi.mock('@/env', () => ({
+  getQuizDeviceHashPepper: mockGetQuizDeviceHashPepper,
   getQuizRpcServerSecret: mockGetQuizRpcServerSecret,
   isProduction: mockIsProduction,
 }));
@@ -24,7 +26,8 @@ function requestWithCookie(value?: string): NextRequest {
 describe('resolveQuizDevice', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetQuizRpcServerSecret.mockReturnValue('quiz-server-secret');
+    mockGetQuizDeviceHashPepper.mockReturnValue('quiz-device-pepper');
+    mockGetQuizRpcServerSecret.mockReturnValue('rpc-secret-v1');
     mockIsProduction.mockReturnValue(false);
   });
 
@@ -53,6 +56,23 @@ describe('resolveQuizDevice', () => {
 
     expect(first.deviceHash).toBe(same.deviceHash);
     expect(first.deviceHash).not.toBe(other.deviceHash);
+  });
+
+  it('stays stable when the RPC proof secret rotates', async () => {
+    const { resolveQuizDevice } = await import('./quiz-device-hash');
+
+    const beforeRotation = resolveQuizDevice(
+      requestWithCookie(),
+      NATIVE_FINGERPRINT
+    );
+    mockGetQuizRpcServerSecret.mockReturnValue('rpc-secret-v2');
+    const afterRotation = resolveQuizDevice(
+      requestWithCookie(),
+      NATIVE_FINGERPRINT
+    );
+
+    expect(afterRotation.deviceHash).toBe(beforeRotation.deviceHash);
+    expect(mockGetQuizRpcServerSecret).not.toHaveBeenCalled();
   });
 
   it('mints an httpOnly cookie for a web client that has none', async () => {
@@ -111,8 +131,8 @@ describe('resolveQuizDevice', () => {
     expect(resolveQuizDevice(bare).deviceHash).toMatch(SHA256_HEX);
   });
 
-  it('fails soft when the server secret is absent rather than storing an unpeppered value', async () => {
-    mockGetQuizRpcServerSecret.mockReturnValue(undefined);
+  it('fails soft when the device pepper is absent rather than storing an unpeppered value', async () => {
+    mockGetQuizDeviceHashPepper.mockReturnValue(undefined);
     const { resolveQuizDevice } = await import('./quiz-device-hash');
 
     const { deviceHash } = resolveQuizDevice(
@@ -125,8 +145,8 @@ describe('resolveQuizDevice', () => {
     expect(deviceHash).toBeNull();
   });
 
-  it('fails soft when the server secret getter rejects the runtime', async () => {
-    mockGetQuizRpcServerSecret.mockImplementation(() => {
+  it('fails soft when the device pepper getter rejects the runtime', async () => {
+    mockGetQuizDeviceHashPepper.mockImplementation(() => {
       throw new Error('server-only secret');
     });
     const { resolveQuizDevice } = await import('./quiz-device-hash');

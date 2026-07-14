@@ -1,6 +1,6 @@
 import { createHmac, randomBytes } from 'node:crypto';
 import type { NextRequest } from 'next/server';
-import { getQuizRpcServerSecret, isProduction } from '@/env';
+import { getQuizDeviceHashPepper, isProduction } from '@/env';
 
 /**
  * Resolves the device identity used by the per-device attempt cap (QZ041).
@@ -11,7 +11,7 @@ import { getQuizRpcServerSecret, isProduction } from '@/env';
  *     in an httpOnly cookie. The value is server-chosen, so a page script cannot
  *     pick it; clearing cookies costs the abuser a fresh browser profile.
  *
- * Whatever the source, the stored value is HMAC'd with the server secret before
+ * Whatever the source, the stored value is HMAC'd with a stable pepper before
  * it ever reaches the database. Two reasons:
  *   1. The raw fingerprint is client-supplied. Peppering means an attacker
  *      cannot precompute or collide with another player's stored hash.
@@ -44,21 +44,21 @@ export interface ResolvedQuizDevice {
 }
 
 function hashDeviceIdentity(rawIdentity: string): string | null {
-  let secret: string | undefined;
+  let pepper: string | undefined;
   try {
-    secret = getQuizRpcServerSecret();
+    pepper = getQuizDeviceHashPepper();
   } catch {
     return null;
   }
 
-  // Fail SOFT, not closed: without the secret we cannot pepper, and storing an
+  // Fail SOFT, not closed: without the pepper we cannot hash, and storing an
   // unpeppered client value would be worse than storing nothing. The player
   // still plays — the per-customer and email-identity caps still bound them.
-  if (!secret) {
+  if (!pepper) {
     return null;
   }
 
-  return createHmac('sha256', secret).update(rawIdentity).digest('hex');
+  return createHmac('sha256', pepper).update(rawIdentity).digest('hex');
 }
 
 export function resolveQuizDevice(

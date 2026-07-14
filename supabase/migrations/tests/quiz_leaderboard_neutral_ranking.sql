@@ -113,8 +113,8 @@ BEGIN
   RETURNING id INTO v_customer_d;
 
   -- Create a mock active quiz event
-  INSERT INTO public.quiz_events (id, merchant_id, slug, title, status)
-  VALUES ('00000000-0000-4000-8000-000000000e01', v_merchant_id, 'super-quiz', 'Super Quiz', 'active')
+  INSERT INTO public.quiz_events (id, merchant_id, slug, title, status, settings)
+  VALUES ('00000000-0000-4000-8000-000000000e01', v_merchant_id, 'super-quiz', 'Super Quiz', 'active', '{"max_attempts":10}'::jsonb)
   RETURNING id INTO v_event_id;
 
   -- Create quiz attempts

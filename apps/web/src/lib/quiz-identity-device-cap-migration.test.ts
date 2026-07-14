@@ -11,6 +11,20 @@ const migrationSql = readFileSync(
   ),
   'utf8'
 );
+const identityDeviceTestSql = readFileSync(
+  resolve(
+    currentDirectory,
+    '../../../../supabase/migrations/tests/quiz_identity_device_caps.sql'
+  ),
+  'utf8'
+);
+const leaderboardTestSql = readFileSync(
+  resolve(
+    currentDirectory,
+    '../../../../supabase/migrations/tests/quiz_leaderboard_neutral_ranking.sql'
+  ),
+  'utf8'
+);
 
 describe('quiz identity and device cap migration', () => {
   it('canonicalizes googlemail aliases to gmail identities', () => {
@@ -53,6 +67,12 @@ describe('quiz identity and device cap migration', () => {
       /quiz_route_proof_valid[\s\S]*?'bind_quiz_attempt_device_v1'/i
     );
     expect(bindFunction).toMatch(
+      /quiz_route_proof_valid\(\s*p_route_proof,\s*'bind_quiz_attempt_device_v1',\s*p_attempt_id::text \|\| ':' \|\| p_device_hash,\s*v_user_id\s*\)/i
+    );
+    expect(bindFunction).not.toMatch(
+      /quiz_route_proof_valid\([\s\S]*?pg_catalog\.jsonb_build_object/i
+    );
+    expect(bindFunction).toMatch(
       /SELECT d\.device_hash[\s\S]*?v_bound_device_hash[\s\S]*?IS DISTINCT FROM p_device_hash/i
     );
     expect(bindFunction).toMatch(
@@ -67,6 +87,17 @@ describe('quiz identity and device cap migration', () => {
     );
     expect(migrationSql).not.toMatch(
       /GRANT EXECUTE ON FUNCTION public\.bind_quiz_attempt_device[^;]*service_role/i
+    );
+  });
+
+  it('uses valid attempt statuses in the SQL regression fixture', () => {
+    expect(identityDeviceTestSql).not.toContain("'in_progress'");
+    expect(identityDeviceTestSql).toContain("'started'");
+  });
+
+  it('keeps the neutral-ranking fixture above the identity attempt count', () => {
+    expect(leaderboardTestSql).toMatch(
+      /INSERT INTO public\.quiz_events \(id, merchant_id, slug, title, status, settings\)[\s\S]*?'\{"max_attempts":10\}'::jsonb/i
     );
   });
 });

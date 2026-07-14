@@ -78,6 +78,10 @@ const recoveryCodePepperSchema = optionalTrimmedStringSchema.refine(
   (value) => value === undefined || value.length >= 32,
   { message: 'RECOVERY_CODE_PEPPER must be at least 32 characters' }
 );
+const quizDeviceHashPepperSchema = optionalTrimmedStringSchema.refine(
+  (value) => value === undefined || value.length >= 32,
+  { message: 'QUIZ_DEVICE_HASH_PEPPER must be at least 32 characters' }
+);
 
 const ENV_VALUE_LINE_BREAK_PATTERN = /\\n|\r?\n|\r/g;
 
@@ -328,6 +332,7 @@ const serverSchema = z
     QUIZ_PHASE: z.enum(['1a', 'production']).default('1a'),
     QUIZ_PRODUCTION_APPROVED: quizProductionApprovedSchema,
     QUIZ_RPC_SERVER_SECRET: optionalTrimmedStringSchema,
+    QUIZ_DEVICE_HASH_PEPPER: quizDeviceHashPepperSchema,
     QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON: quizIntegrityTierOverridesSchema,
 
     // Push Notifications
@@ -423,6 +428,16 @@ const serverSchema = z
         message:
           'QUIZ_RPC_SERVER_SECRET is required when QUIZ_PHASE is production',
         path: ['QUIZ_RPC_SERVER_SECRET'],
+      });
+    }
+  })
+  .superRefine((value, ctx) => {
+    if (value.QUIZ_PHASE === 'production' && !value.QUIZ_DEVICE_HASH_PEPPER) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'QUIZ_DEVICE_HASH_PEPPER is required when QUIZ_PHASE is production',
+        path: ['QUIZ_DEVICE_HASH_PEPPER'],
       });
     }
   })
@@ -699,6 +714,7 @@ const getEnv = () => {
         QUIZ_PHASE: process.env.QUIZ_PHASE,
         QUIZ_PRODUCTION_APPROVED: process.env.QUIZ_PRODUCTION_APPROVED,
         QUIZ_RPC_SERVER_SECRET: process.env.QUIZ_RPC_SERVER_SECRET,
+        QUIZ_DEVICE_HASH_PEPPER: process.env.QUIZ_DEVICE_HASH_PEPPER,
         QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON:
           process.env.QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON,
         EXPO_ACCESS_TOKEN: process.env.EXPO_ACCESS_TOKEN,
@@ -1166,6 +1182,15 @@ export const getQuizRpcServerSecret = () => {
     env?.QUIZ_RPC_SERVER_SECRET
   );
   return secret || undefined;
+};
+export const getQuizDeviceHashPepper = () => {
+  if (isBrowserRuntime())
+    throw new Error('QUIZ_DEVICE_HASH_PEPPER cannot be accessed on the client');
+  const pepper = getRuntimeEnvValue(
+    process.env.QUIZ_DEVICE_HASH_PEPPER,
+    env?.QUIZ_DEVICE_HASH_PEPPER
+  );
+  return pepper || undefined;
 };
 export const getQuizIntegrityTierOverridesJson = () => {
   if (isBrowserRuntime())

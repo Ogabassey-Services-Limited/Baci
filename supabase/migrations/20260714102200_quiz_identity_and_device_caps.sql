@@ -234,12 +234,7 @@ BEGIN
     p_route_proof,
     'bind_quiz_attempt_device_v1',
     p_attempt_id::text || ':' || p_device_hash,
-    v_user_id,
-    pg_catalog.jsonb_build_object(
-      'attempt_id', p_attempt_id,
-      'device_hash', p_device_hash,
-      'user_id', v_user_id
-    )
+    v_user_id
   ) THEN
     RAISE EXCEPTION 'quiz route proof required' USING ERRCODE = 'QZ010';
   END IF;

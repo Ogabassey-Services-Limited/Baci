@@ -1094,6 +1094,7 @@ describe('env quiz validation', () => {
     vi.stubEnv('QUIZ_PHASE', 'production');
     vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
     vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'quiz-secret');
+    vi.stubEnv('QUIZ_DEVICE_HASH_PEPPER', 'p'.repeat(32));
 
     const { env } = await loadEnvModule();
 
@@ -1106,6 +1107,7 @@ describe('env quiz validation', () => {
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('SUPABASE_JWT_SECRET', 'jwt-secret');
     vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_DEVICE_HASH_PEPPER', 'p'.repeat(32));
     delete process.env.QUIZ_RPC_SERVER_SECRET;
 
     await expect(loadEnvModule()).rejects.toThrow(
@@ -1113,8 +1115,33 @@ describe('env quiz validation', () => {
     );
   });
 
+  it('requires a stable device hash pepper when QUIZ_PHASE is production', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('SUPABASE_JWT_SECRET', 'jwt-secret');
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'quiz-secret');
+    delete process.env.QUIZ_DEVICE_HASH_PEPPER;
+
+    await expect(loadEnvModule()).rejects.toThrow(
+      /QUIZ_DEVICE_HASH_PEPPER is required when QUIZ_PHASE is production/
+    );
+  });
+
+  it('rejects a weak device hash pepper', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('SUPABASE_JWT_SECRET', 'jwt-secret');
+    vi.stubEnv('QUIZ_DEVICE_HASH_PEPPER', 'too-short');
+
+    await expect(loadEnvModule()).rejects.toThrow(
+      /QUIZ_DEVICE_HASH_PEPPER must be at least 32 characters/
+    );
+  });
+
   it('declares and trims quiz runtime secret configuration', async () => {
     vi.stubEnv('QUIZ_RPC_SERVER_SECRET', '  quiz-secret  ');
+    vi.stubEnv('QUIZ_DEVICE_HASH_PEPPER', `  ${'p'.repeat(32)}  `);
     vi.stubEnv(
       'QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON',
       '  {"ios":"strong"}  '
@@ -1123,6 +1150,7 @@ describe('env quiz validation', () => {
     const { env } = await loadEnvModule();
 
     expect(env.QUIZ_RPC_SERVER_SECRET).toBe('quiz-secret');
+    expect(env.QUIZ_DEVICE_HASH_PEPPER).toBe('p'.repeat(32));
     expect(env.QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON).toEqual({
       ios: 'strong',
     });
@@ -1132,9 +1160,11 @@ describe('env quiz validation', () => {
     vi.stubEnv('QUIZ_PHASE', 'production');
     vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
     vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'runtime-secret');
+    vi.stubEnv('QUIZ_DEVICE_HASH_PEPPER', 'p'.repeat(32));
 
     const {
       getQuizIntegrityTierOverridesJson,
+      getQuizDeviceHashPepper,
       getQuizPhaseEnv,
       getQuizProductionApprovedEnv,
       getQuizRpcServerSecret,
@@ -1145,10 +1175,12 @@ describe('env quiz validation', () => {
 
     vi.stubEnv('QUIZ_PRODUCTION_APPROVED', '0');
     vi.stubEnv('QUIZ_RPC_SERVER_SECRET', '  runtime-secret  ');
+    vi.stubEnv('QUIZ_DEVICE_HASH_PEPPER', `  ${'q'.repeat(32)}  `);
     vi.stubEnv('QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON', ' {"ios":"strong"} ');
 
     expect(getQuizProductionApprovedEnv()).toBe(false);
     expect(getQuizRpcServerSecret()).toBe('runtime-secret');
+    expect(getQuizDeviceHashPepper()).toBe('q'.repeat(32));
     expect(getQuizIntegrityTierOverridesJson()).toEqual({ ios: 'strong' });
   });
 
