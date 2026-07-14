@@ -15,6 +15,11 @@ jest.mock('expo-router', () => ({
   router: { push: (route: unknown) => mockRouterPush(route) },
 }));
 
+let mockNextUuid = 0;
+jest.mock('expo-crypto', () => ({
+  randomUUID: () => `intent-${++mockNextUuid}`,
+}));
+
 import { UtilityWalletTransferNudge } from '@/components/utilities/UtilityWalletTransferNudge';
 import Colors from '@/constants/Colors';
 
@@ -34,6 +39,7 @@ const baseProps = {
 describe('UtilityWalletTransferNudge', () => {
   beforeEach(() => {
     mockFlagEnabled = false;
+    mockNextUuid = 0;
     jest.clearAllMocks();
   });
 
@@ -65,8 +71,31 @@ describe('UtilityWalletTransferNudge', () => {
     );
 
     expect(mockRouterPush).toHaveBeenCalledWith(
-      `/wallet?action=bank-transfer&returnTo=${encodeURIComponent(RETURN_TO)}`
+      `/wallet?action=bank-transfer&intent=intent-1&returnTo=${encodeURIComponent(RETURN_TO)}`
     );
+  });
+
+  it('mints a FRESH intent nonce per tap so a second attempt restamps the funding session', () => {
+    // Regression (codex #1): route params alone cannot tell a genuine second
+    // bank-transfer attempt from a remount of the first — both replay the same
+    // action/returnTo. Without a per-tap nonce the second attempt inherits the
+    // first attempt's session anchor, and a credit from the FIRST attempt reads
+    // as "new" for the second: money that arrived earlier announced as this
+    // transfer's. Each tap must therefore carry its own intent identity.
+    mockFlagEnabled = true;
+    render(
+      <UtilityWalletTransferNudge {...baseProps} returnToHref={RETURN_TO} />
+    );
+    const cta = screen.getByRole('button', { name: 'Pay with Bank Transfer' });
+
+    fireEvent.press(cta);
+    fireEvent.press(cta);
+
+    const first = String(mockRouterPush.mock.calls[0]?.[0]);
+    const second = String(mockRouterPush.mock.calls[1]?.[0]);
+    expect(first).toContain('intent=intent-1');
+    expect(second).toContain('intent=intent-2');
+    expect(first).not.toBe(second);
   });
 
   it('never sends requiredAmount on the bank-transfer link (it would strand no-phone customers in the card path)', () => {

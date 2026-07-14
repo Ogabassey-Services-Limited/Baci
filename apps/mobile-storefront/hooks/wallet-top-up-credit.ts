@@ -1,3 +1,5 @@
+import type { WalletLedgerPosition } from '@/lib/wallet-funding-session';
+
 /**
  * Ledger provenance written by `credit_customer_wallet(p_source_type => …)`
  * for every wallet funding credit — card, USDT, and (the flow this powers)
@@ -19,13 +21,12 @@ export interface WalletTopUpCandidate {
 /**
  * A ledger row that passed validation. `createdAt` is non-nullable by
  * construction: a row whose `created_at` cannot be parsed never becomes a
- * `WalletTopUpCredit`, so every comparison downstream is between two timestamps
- * we actually trust.
+ * `WalletTopUpCredit`, so every comparison downstream is between two SERVER
+ * timestamps we actually trust. It is a `WalletLedgerPosition` (+ the amount to
+ * announce), so a credit can be persisted as the funding session's anchor.
  */
-export interface WalletTopUpCredit {
+export interface WalletTopUpCredit extends WalletLedgerPosition {
   amount: number;
-  createdAt: number;
-  id: string;
 }
 
 function isTopUpCredit(transaction: WalletTopUpCandidate): boolean {
@@ -46,9 +47,20 @@ function toCreatedAt(value: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function findLatest(
-  transactions: readonly WalletTopUpCandidate[] | undefined,
-  cutoffMs: number | null
+/**
+ * Newest wallet top-up credit in the transaction list, or `null` when the list
+ * is unavailable (still loading) or holds no top-up with a usable timestamp.
+ * Rows whose `created_at` cannot be parsed are skipped rather than kept — an
+ * unusable timestamp cannot prove a credit landed, and keeping one would also
+ * mask a genuinely newer row behind it. The list is not trusted to be sorted;
+ * ties keep the first match, which is the server's `created_at desc` order.
+ *
+ * This is BOTH the head the watch compares against and the value it persists as
+ * the funding session's anchor — there is no timestamp-cutoff variant, because a
+ * device clock must never select which ledger rows count as "already there".
+ */
+export function findLatestWalletTopUpCredit(
+  transactions: readonly WalletTopUpCandidate[] | undefined
 ): WalletTopUpCredit | null {
   if (!transactions) {
     return null;
@@ -63,9 +75,6 @@ function findLatest(
     if (createdAt === null) {
       continue;
     }
-    if (cutoffMs !== null && createdAt > cutoffMs) {
-      continue;
-    }
     if (latest === null || createdAt > latest.createdAt) {
       latest = {
         amount: transaction.amount,
@@ -76,37 +85,6 @@ function findLatest(
   }
 
   return latest;
-}
-
-/**
- * Newest wallet top-up credit in the transaction list, or `null` when the list
- * is unavailable (still loading) or holds no top-up with a usable timestamp.
- * Rows whose `created_at` cannot be parsed are skipped rather than kept — an
- * unusable timestamp cannot prove a credit landed, and keeping one would also
- * mask a genuinely newer row behind it. The list is not trusted to be sorted;
- * ties keep the first match, which is the server's `created_at desc` order.
- */
-export function findLatestWalletTopUpCredit(
-  transactions: readonly WalletTopUpCandidate[] | undefined
-): WalletTopUpCredit | null {
-  return findLatest(transactions, null);
-}
-
-/**
- * Newest top-up credit that already existed AT OR BEFORE `cutoffMs` — the
- * baseline anchored on when the customer began their bank transfer, so a credit
- * that landed while the app was backgrounded (or killed, with the wallet screen
- * remounting afterwards) still reads as new.
- *
- * A non-finite cutoff degrades to the plain ledger head rather than to "no
- * baseline": fail CLOSED — a bad cutoff must never widen the "new" window and
- * manufacture a credit the customer never received.
- */
-export function findLatestWalletTopUpCreditAtOrBefore(
-  transactions: readonly WalletTopUpCandidate[] | undefined,
-  cutoffMs: number
-): WalletTopUpCredit | null {
-  return findLatest(transactions, Number.isFinite(cutoffMs) ? cutoffMs : null);
 }
 
 /**
@@ -124,7 +102,7 @@ export function findLatestWalletTopUpCreditAtOrBefore(
  */
 export function isNewWalletTopUpCredit(
   latest: WalletTopUpCredit,
-  baseline: WalletTopUpCredit | null
+  baseline: WalletLedgerPosition | null
 ): boolean {
   if (baseline === null) {
     return true;

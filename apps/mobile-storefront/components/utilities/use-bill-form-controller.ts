@@ -173,11 +173,14 @@ export function useBillFormController({
 
   // Prefilled deep-link so a wallet top-up round-trips the customer back to a
   // ready-to-pay bill form (they still re-tap Pay — never auto-submitted).
+  // `isVerified` is the form's real verified state (`canShowPayment`), NOT
+  // "we have a customer name": billers may verify with no name at all.
   const walletReturnToHref = buildBillFormWalletReturnTo({
     billItemIdentifier: selectedBillItemIdentifier,
     customerAddress: verifiedCustomerAddress,
     customerIdentifier: normalizedCustomerId,
     customerName: verifiedCustomerName,
+    isVerified: canShowPayment,
     numericAmount,
     selectedBiller,
     type,

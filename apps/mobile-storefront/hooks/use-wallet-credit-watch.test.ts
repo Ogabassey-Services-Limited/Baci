@@ -7,6 +7,10 @@ import {
   jest,
 } from '@jest/globals';
 import { act, renderHook } from '@testing-library/react-native';
+import type {
+  WalletFundingSession,
+  WalletLedgerPosition,
+} from '@/lib/wallet-funding-session';
 
 let mockFlagEnabled = true;
 
@@ -18,17 +22,24 @@ jest.mock('@/constants/wallet-funding', () => ({
 }));
 
 const mockReadSession =
+  jest.fn<(customerId: string) => Promise<WalletFundingSession | null>>();
+const mockAnchorSession =
   jest.fn<
-    (customerId: string) => Promise<{
-      customerId: string;
-      startedAt: number;
-    } | null>
+    (
+      session: WalletFundingSession,
+      position: WalletLedgerPosition | null
+    ) => Promise<WalletFundingSession | null>
   >();
 const mockClearSession = jest.fn<(customerId: string) => Promise<void>>();
 
 // Indirection so the factory (hoisted above these consts) resolves the spies
-// lazily, at call time.
+// lazily, at call time. The real `resolve-wallet-credit-baseline` runs on top of
+// these, so the anchor capture is exercised end to end.
 jest.mock('@/lib/wallet-funding-session', () => ({
+  anchorWalletFundingSession: (
+    session: WalletFundingSession,
+    position: WalletLedgerPosition | null
+  ) => mockAnchorSession(session, position),
   clearWalletFundingSession: (customerId: string) =>
     mockClearSession(customerId),
   readWalletFundingSession: (customerId: string) => mockReadSession(customerId),
@@ -52,6 +63,13 @@ function topUp(
     id,
     source_type: 'wallet_topup',
     type: 'credit',
+  };
+}
+
+function positionOf(transaction: WalletTopUpCandidate): WalletLedgerPosition {
+  return {
+    createdAt: Date.parse(transaction.created_at),
+    id: transaction.id,
   };
 }
 
@@ -79,8 +97,10 @@ describe('useWalletCreditWatch', () => {
   beforeEach(() => {
     mockFlagEnabled = true;
     mockReadSession.mockReset();
+    mockAnchorSession.mockReset();
     mockClearSession.mockReset();
     mockReadSession.mockResolvedValue(null);
+    mockAnchorSession.mockResolvedValue(null);
     mockClearSession.mockResolvedValue(undefined);
     jest.useFakeTimers();
   });
@@ -361,7 +381,32 @@ describe('useWalletCreditWatch', () => {
 
 describe('useWalletCreditWatch with a persisted funding session', () => {
   const CUSTOMER_ID = 'cus-1';
-  const SESSION_STARTED_AT = Date.parse('2026-07-13T08:55:00.000Z');
+  const OTHER_CUSTOMER_ID = 'cus-2';
+  const INTENT_ID = 'intent-1';
+  // Device wall-clock. It is only ever used for the session TTL; it must never
+  // decide which ledger rows count as "already there".
+  const DEVICE_STARTED_AT = Date.parse('2026-07-13T08:55:00.000Z');
+  // A card top-up writes the SAME `source_type = 'wallet_topup'` as a bank
+  // transfer — the reason a time window alone cannot be trusted.
+  const CARD_TOP_UP = topUp('tx-card', 9000, '2026-07-13T09:30:00.000Z');
+
+  function session(
+    overrides: Partial<WalletFundingSession> = {}
+  ): WalletFundingSession {
+    return {
+      anchor: null,
+      customerId: CUSTOMER_ID,
+      intentId: INTENT_ID,
+      isAnchored: false,
+      startedAt: DEVICE_STARTED_AT,
+      ...overrides,
+    };
+  }
+
+  /** A session already pinned to the ledger row that was head at intent time. */
+  function anchoredAt(transaction: WalletTopUpCandidate): WalletFundingSession {
+    return session({ anchor: positionOf(transaction), isAnchored: true });
+  }
 
   type SessionProps = {
     transactions: readonly WalletTopUpCandidate[] | undefined;
@@ -381,7 +426,7 @@ describe('useWalletCreditWatch with a persisted funding session', () => {
         }),
       { initialProps: { transactions } as SessionProps }
     );
-    // Flush the async session read before the first snapshot is taken.
+    // Flush the async baseline resolution before the first arm.
     await act(async () => {});
     return view;
   };
@@ -389,7 +434,9 @@ describe('useWalletCreditWatch with a persisted funding session', () => {
   beforeEach(() => {
     mockFlagEnabled = true;
     mockReadSession.mockReset();
+    mockAnchorSession.mockReset();
     mockClearSession.mockReset();
+    mockAnchorSession.mockResolvedValue(null);
     mockClearSession.mockResolvedValue(undefined);
     jest.useFakeTimers();
   });
@@ -399,65 +446,164 @@ describe('useWalletCreditWatch with a persisted funding session', () => {
     jest.useRealTimers();
   });
 
+  it('does not read or anchor the ledger before the route session write settles', async () => {
+    mockReadSession.mockResolvedValue(null);
+    const refetch = jest.fn();
+    const { result, rerender } = renderHook(
+      ({ canResolveBaseline }: { canResolveBaseline: boolean }) =>
+        useWalletCreditWatch({
+          canResolveBaseline,
+          customerId: CUSTOMER_ID,
+          refetch,
+          transactions: [OLD_TOP_UP],
+        }),
+      { initialProps: { canResolveBaseline: false } }
+    );
+
+    await act(async () => {});
+    expect(mockReadSession).not.toHaveBeenCalled();
+
+    act(() => {
+      result.current.armCheck();
+    });
+    expect(result.current.status).toBe('idle');
+
+    rerender({ canResolveBaseline: true });
+    await act(async () => {});
+    expect(mockReadSession).toHaveBeenCalledWith(CUSTOMER_ID);
+
+    act(() => {
+      result.current.armCheck();
+    });
+    expect(result.current.status).toBe('checking');
+  });
+
+  it('resolves a fresh baseline when the route gate cycles true → false → true', async () => {
+    mockReadSession.mockResolvedValueOnce(anchoredAt(OLD_TOP_UP));
+    const refetch = jest.fn();
+    type GateProps = {
+      canResolveBaseline: boolean;
+      transactions: readonly WalletTopUpCandidate[];
+    };
+    const { result, rerender } = renderHook(
+      ({ canResolveBaseline, transactions }: GateProps) =>
+        useWalletCreditWatch({
+          canResolveBaseline,
+          customerId: CUSTOMER_ID,
+          refetch,
+          transactions,
+        }),
+      {
+        initialProps: {
+          canResolveBaseline: true,
+          transactions: [NEW_TOP_UP, OLD_TOP_UP],
+        } as GateProps,
+      }
+    );
+    await act(async () => {});
+
+    // A new route intent starts. Its persisted session uses the current ledger
+    // head (tx-new), so reopening the gate must not retain tx-old.
+    mockReadSession.mockResolvedValueOnce(anchoredAt(NEW_TOP_UP));
+    rerender({
+      canResolveBaseline: false,
+      transactions: [NEW_TOP_UP, OLD_TOP_UP],
+    });
+    rerender({
+      canResolveBaseline: true,
+      transactions: [NEW_TOP_UP, OLD_TOP_UP],
+    });
+    await act(async () => {});
+
+    expect(mockReadSession).toHaveBeenCalledTimes(2);
+    act(() => {
+      result.current.armCheck();
+    });
+    expect(result.current.status).toBe('checking');
+
+    rerender({
+      canResolveBaseline: true,
+      transactions: [LATER_TOP_UP, NEW_TOP_UP, OLD_TOP_UP],
+    });
+    expect(result.current.status).toBe('credited');
+    expect(result.current.creditedAmount).toBe(500);
+  });
+
+  it('anchors the session on the ledger head when the customer arrives with intent', async () => {
+    // The gap between arrival and this first ledger load is milliseconds, and
+    // strictly before any account number can be on screen — nothing can have
+    // landed inside it.
+    const arriving = session();
+    mockReadSession.mockResolvedValue(arriving);
+    mockAnchorSession.mockResolvedValue(anchoredAt(OLD_TOP_UP));
+
+    const { result, rerender } = await renderWatch([OLD_TOP_UP]);
+
+    expect(mockAnchorSession).toHaveBeenCalledWith(
+      arriving,
+      positionOf(OLD_TOP_UP)
+    );
+
+    act(() => {
+      result.current.armCheck();
+    });
+    rerender({ transactions: [NEW_TOP_UP, OLD_TOP_UP] });
+    expect(result.current.status).toBe('credited');
+    expect(result.current.creditedAmount).toBe(2500);
+  });
+
   it('credits a transfer that landed while the app was killed and the screen remounted', async () => {
     // The customer started a bank transfer, left for their bank app, and the
     // wallet screen remounted only AFTER the credit was already in the ledger.
-    mockReadSession.mockResolvedValue({
-      customerId: CUSTOMER_ID,
-      startedAt: SESSION_STARTED_AT,
-    });
+    // The persisted anchor is the row that was head at intent time (tx-old).
+    mockReadSession.mockResolvedValue(anchoredAt(OLD_TOP_UP));
     const { result } = await renderWatch([NEW_TOP_UP, OLD_TOP_UP]);
 
     act(() => {
       result.current.armCheck();
     });
 
-    // Baselined on the session start (not on first render), so the top-up that
-    // landed after it is still a NEW credit.
+    // Baselined on the stored ledger position (not on the current head), so the
+    // top-up that landed after it is still a NEW credit.
     expect(result.current.status).toBe('credited');
     expect(result.current.creditedAmount).toBe(2500);
     expect(result.current.returnCtaHref).toBe(RETURN_TO);
+    // The stored anchor is never overwritten by the (now newer) head.
+    expect(mockAnchorSession).not.toHaveBeenCalled();
   });
 
-  it('credits when auth hydrates (undefined→id) after the ledger already rendered', async () => {
-    // Cold start after an app kill: the persisted react-query cache can hand the
-    // wallet ledger to a first committed render while the auth store is still
-    // hydrating (customerId undefined). The snapshot taken then has no session
-    // anchor, so it MUST be retaken once the customer — and their session —
-    // resolve, otherwise the landed credit is baselined away.
-    mockReadSession.mockResolvedValue({
-      customerId: CUSTOMER_ID,
-      startedAt: SESSION_STARTED_AT,
-    });
-    const refetch = jest.fn();
-    type HydratingProps = { customerId: string | undefined };
-    const { result, rerender } = renderHook(
-      ({ customerId }: HydratingProps) =>
-        useWalletCreditWatch({
-          customerId,
-          refetch,
-          returnTo: RETURN_TO,
-          transactions: [NEW_TOP_UP, OLD_TOP_UP],
-        }),
-      { initialProps: { customerId: undefined } as HydratingProps }
+  it('does not credit a pre-intent top-up when the DEVICE CLOCK runs behind the server', async () => {
+    // Regression (codex "anchor funding sessions to server time"): `startedAt` is
+    // a device reading. A phone whose clock is an hour slow stamps the intent
+    // BEFORE a top-up that already existed, and a wall-clock comparison would
+    // then announce that old top-up as a fresh credit. The ledger-position anchor
+    // makes the device clock irrelevant: tx-new was already the head at intent,
+    // so it is baseline, not news.
+    mockReadSession.mockResolvedValue(
+      session({
+        anchor: positionOf(NEW_TOP_UP),
+        isAnchored: true,
+        startedAt: Date.parse('2026-07-13T07:55:00.000Z'),
+      })
     );
-    await act(async () => {});
+    const { result, rerender } = await renderWatch([NEW_TOP_UP, OLD_TOP_UP]);
 
-    rerender({ customerId: CUSTOMER_ID });
-    await act(async () => {});
     act(() => {
       result.current.armCheck();
     });
 
+    expect(result.current.status).toBe('checking');
+    expect(result.current.creditedAmount).toBeNull();
+
+    // Only a row strictly newer than the anchored one (server time vs server
+    // time) credits.
+    rerender({ transactions: [LATER_TOP_UP, NEW_TOP_UP, OLD_TOP_UP] });
     expect(result.current.status).toBe('credited');
-    expect(result.current.creditedAmount).toBe(2500);
+    expect(result.current.creditedAmount).toBe(500);
   });
 
   it('clears the session once the credit has been shown', async () => {
-    mockReadSession.mockResolvedValue({
-      customerId: CUSTOMER_ID,
-      startedAt: SESSION_STARTED_AT,
-    });
+    mockReadSession.mockResolvedValue(anchoredAt(OLD_TOP_UP));
     const { result } = await renderWatch([NEW_TOP_UP, OLD_TOP_UP]);
 
     await act(async () => {
@@ -469,12 +615,9 @@ describe('useWalletCreditWatch with a persisted funding session', () => {
     expect(mockClearSession).toHaveBeenCalledWith(CUSTOMER_ID);
   });
 
-  it('does not credit a top-up that predates the session start', async () => {
-    // Session started AFTER the last top-up: nothing new has landed yet.
-    mockReadSession.mockResolvedValue({
-      customerId: CUSTOMER_ID,
-      startedAt: Date.parse('2026-07-13T09:30:00.000Z'),
-    });
+  it('does not credit a top-up that predates the intent', async () => {
+    // Anchored on the ledger head as it was at intent: nothing new has landed.
+    mockReadSession.mockResolvedValue(anchoredAt(NEW_TOP_UP));
     const { result } = await renderWatch([NEW_TOP_UP, OLD_TOP_UP]);
 
     act(() => {
@@ -485,11 +628,8 @@ describe('useWalletCreditWatch with a persisted funding session', () => {
     expect(result.current.creditedAmount).toBeNull();
   });
 
-  it('ignores cashback that landed after the session start', async () => {
-    mockReadSession.mockResolvedValue({
-      customerId: CUSTOMER_ID,
-      startedAt: Date.parse('2026-07-13T08:00:00.000Z'),
-    });
+  it('ignores cashback and reversals that land after the intent', async () => {
+    mockReadSession.mockResolvedValue(anchoredAt(OLD_TOP_UP));
     const { result } = await renderWatch([
       REVERSAL_CREDIT,
       CASHBACK,
@@ -503,7 +643,21 @@ describe('useWalletCreditWatch with a persisted funding session', () => {
     expect(result.current.status).toBe('checking');
   });
 
-  it('falls back to the row snapshot when the marker is missing, expired or another customer’s', async () => {
+  it('ignores a top-up whose timestamp cannot be parsed', async () => {
+    mockReadSession.mockResolvedValue(anchoredAt(OLD_TOP_UP));
+    const { result, rerender } = await renderWatch([OLD_TOP_UP]);
+
+    act(() => {
+      result.current.armCheck();
+    });
+    rerender({
+      transactions: [topUp('tx-unparseable', 3000, 'not-a-date'), OLD_TOP_UP],
+    });
+
+    expect(result.current.status).toBe('checking');
+  });
+
+  it('falls back to the ledger head when the marker is missing, expired or another customer’s', async () => {
     // readWalletFundingSession returns null for all three cases.
     mockReadSession.mockResolvedValue(null);
     const { result } = await renderWatch([NEW_TOP_UP, OLD_TOP_UP]);
@@ -532,7 +686,7 @@ describe('useWalletCreditWatch with a persisted funding session', () => {
     expect(result.current.creditedAmount).toBe(500);
   });
 
-  it('refuses to arm before the session read resolves', async () => {
+  it('refuses to arm before the baseline resolves', async () => {
     let resolveSession: (value: null) => void = () => undefined;
     mockReadSession.mockReturnValue(
       new Promise<null>((resolve) => {
@@ -563,12 +717,202 @@ describe('useWalletCreditWatch with a persisted funding session', () => {
     expect(result.current.status).toBe('checking');
   });
 
+  it('credits when auth hydrates (undefined→id) after the ledger already rendered', async () => {
+    // Cold start after an app kill: the persisted react-query cache can hand the
+    // wallet ledger to a first committed render while the auth store is still
+    // hydrating (customerId undefined). The baseline taken then has no session
+    // anchor, so it MUST be re-resolved once the customer — and their session —
+    // resolve, otherwise the landed credit is baselined away.
+    mockReadSession.mockResolvedValue(anchoredAt(OLD_TOP_UP));
+    const refetch = jest.fn();
+    type HydratingProps = { customerId: string | undefined };
+    const { result, rerender } = renderHook(
+      ({ customerId }: HydratingProps) =>
+        useWalletCreditWatch({
+          customerId,
+          refetch,
+          returnTo: RETURN_TO,
+          transactions: [NEW_TOP_UP, OLD_TOP_UP],
+        }),
+      { initialProps: { customerId: undefined } as HydratingProps }
+    );
+    await act(async () => {});
+
+    rerender({ customerId: CUSTOMER_ID });
+    await act(async () => {});
+    act(() => {
+      result.current.armCheck();
+    });
+
+    expect(result.current.status).toBe('credited');
+    expect(result.current.creditedAmount).toBe(2500);
+  });
+
+  it('mints NO session when the credit is acknowledged, so a later card top-up cannot be announced as a transfer', async () => {
+    // Regression (the proven false-credit vector): `reset()` used to re-anchor a
+    // fresh 2-hour session at the moment of the "Done" tap — a moment of NO
+    // funding intent. A card top-up writes the same `source_type='wallet_topup'`
+    // and would sit strictly after that anchor, so a routine remount plus a tap
+    // of "I've transferred" announced "Wallet credited ₦9,000" for money that was
+    // never transferred.
+    mockReadSession.mockResolvedValue(anchoredAt(OLD_TOP_UP));
+    const { result } = await renderWatch([NEW_TOP_UP, OLD_TOP_UP]);
+
+    await act(async () => {
+      result.current.armCheck();
+    });
+    expect(result.current.status).toBe('credited');
+    expect(mockClearSession).toHaveBeenCalledWith(CUSTOMER_ID);
+
+    // The credit retired the marker, so the re-resolution after "Done" reads
+    // nothing back.
+    mockReadSession.mockResolvedValue(null);
+    mockAnchorSession.mockClear();
+    await act(async () => {
+      result.current.reset();
+    });
+    await act(async () => {});
+
+    // Nothing is written back: acknowledging a credit expresses no new intent.
+    expect(mockAnchorSession).not.toHaveBeenCalled();
+
+    // The customer then tops up with a CARD, and the wallet screen remounts (a
+    // tab switch is enough). With the session retired, the remount baselines on
+    // the ledger head — which now includes the card top-up.
+    const remounted = await renderWatch([CARD_TOP_UP, NEW_TOP_UP, OLD_TOP_UP]);
+
+    act(() => {
+      remounted.result.current.armCheck();
+    });
+
+    // A timeout is the correct outcome here; announcing a credit is not.
+    expect(remounted.result.current.status).toBe('checking');
+    expect(remounted.result.current.creditedAmount).toBeNull();
+    act(() => {
+      jest.advanceTimersByTime(WALLET_FUNDING_POLLING.TIMEOUT_MS);
+    });
+    expect(remounted.result.current.status).toBe('timedOut');
+  });
+
+  it('still detects a second transfer made from the same mounted screen after a credit', async () => {
+    // The cost of refusing to re-anchor: detection survives only while this
+    // screen stays mounted. That path must keep working.
+    mockReadSession.mockResolvedValue(anchoredAt(OLD_TOP_UP));
+    const { result, rerender } = await renderWatch([NEW_TOP_UP, OLD_TOP_UP]);
+
+    await act(async () => {
+      result.current.armCheck();
+    });
+    expect(result.current.status).toBe('credited');
+
+    mockReadSession.mockResolvedValue(null);
+    await act(async () => {
+      result.current.reset();
+    });
+    await act(async () => {});
+
+    await act(async () => {
+      result.current.armCheck();
+    });
+    // The acknowledged credit is part of the new baseline — never announced twice.
+    expect(result.current.status).toBe('checking');
+    expect(result.current.creditedAmount).toBeNull();
+
+    rerender({ transactions: [LATER_TOP_UP, NEW_TOP_UP, OLD_TOP_UP] });
+    expect(result.current.status).toBe('credited');
+    expect(result.current.creditedAmount).toBe(500);
+  });
+
+  it('fully resets the watch when the customer switches mid-check', async () => {
+    // Regression (codex #3): re-resolving only the session anchor left `status`,
+    // `creditedAmount` and the ledger baselines belonging to the PREVIOUS
+    // customer. The next render then compared the new customer's ledger against
+    // the old customer's baseline — crediting the wrong account and leaking the
+    // other customer's amount.
+    mockReadSession.mockResolvedValue(null);
+    const refetch = jest.fn();
+    type SwitchProps = {
+      customerId: string;
+      transactions: readonly WalletTopUpCandidate[];
+    };
+    const { result, rerender } = renderHook(
+      ({ customerId, transactions }: SwitchProps) =>
+        useWalletCreditWatch({
+          customerId,
+          refetch,
+          returnTo: RETURN_TO,
+          transactions,
+        }),
+      {
+        initialProps: {
+          customerId: CUSTOMER_ID,
+          transactions: [OLD_TOP_UP],
+        } as SwitchProps,
+      }
+    );
+    await act(async () => {});
+
+    act(() => {
+      result.current.armCheck();
+    });
+    expect(result.current.status).toBe('checking');
+
+    // A different customer signs in on the same device. Their ledger carries a
+    // top-up that is newer than the FIRST customer's baseline.
+    rerender({
+      customerId: OTHER_CUSTOMER_ID,
+      transactions: [NEW_TOP_UP, OLD_TOP_UP],
+    });
+
+    expect(result.current.status).toBe('idle');
+    expect(result.current.creditedAmount).toBeNull();
+    expect(result.current.returnCtaHref).toBeUndefined();
+    // The previous customer's watch must not retire the NEW customer's session.
+    expect(mockClearSession).not.toHaveBeenCalledWith(OTHER_CUSTOMER_ID);
+
+    // The new customer re-arms from THEIR own ledger head, so their pre-existing
+    // top-up is baseline, not a credit.
+    await act(async () => {});
+    act(() => {
+      result.current.armCheck();
+    });
+    expect(result.current.status).toBe('checking');
+    expect(result.current.creditedAmount).toBeNull();
+  });
+
+  it('clears a shown credit amount and CTA when the customer switches', async () => {
+    // The leak half of the same bug: an amount (and a return CTA) belonging to
+    // the previous customer must never survive into the next customer's session.
+    mockReadSession.mockResolvedValue(anchoredAt(OLD_TOP_UP));
+    const { result, rerender } = renderHook(
+      ({ customerId }: { customerId: string }) =>
+        useWalletCreditWatch({
+          customerId,
+          refetch: jest.fn(),
+          returnTo: RETURN_TO,
+          transactions: [NEW_TOP_UP, OLD_TOP_UP],
+        }),
+      { initialProps: { customerId: CUSTOMER_ID } }
+    );
+    await act(async () => {});
+
+    await act(async () => {
+      result.current.armCheck();
+    });
+    expect(result.current.status).toBe('credited');
+    expect(result.current.creditedAmount).toBe(2500);
+
+    mockReadSession.mockResolvedValue(null);
+    rerender({ customerId: OTHER_CUSTOMER_ID });
+
+    expect(result.current.status).toBe('idle');
+    expect(result.current.creditedAmount).toBeNull();
+    expect(result.current.returnCtaHref).toBeUndefined();
+  });
+
   it('is a no-op when the dark-launch flag is off even with a live session', async () => {
     mockFlagEnabled = false;
-    mockReadSession.mockResolvedValue({
-      customerId: CUSTOMER_ID,
-      startedAt: SESSION_STARTED_AT,
-    });
+    mockReadSession.mockResolvedValue(anchoredAt(OLD_TOP_UP));
     const { result } = await renderWatch([NEW_TOP_UP, OLD_TOP_UP]);
 
     act(() => {
@@ -577,5 +921,23 @@ describe('useWalletCreditWatch with a persisted funding session', () => {
 
     expect(result.current.status).toBe('idle');
     expect(result.current.returnCtaHref).toBeUndefined();
+  });
+
+  it('DOES announce a card top-up that lands inside a genuine transfer window (known residual)', async () => {
+    // Honest documentation of the residual: `wallet_topup` is written for card
+    // funding too, so a card top-up completed after a real bank-transfer intent
+    // is announced as "credited". The wallet WAS funded and the return CTA is
+    // valid — but the copy is imprecise. Discriminating the two needs a
+    // server-side provenance field on the ledger row.
+    mockReadSession.mockResolvedValue(anchoredAt(OLD_TOP_UP));
+    const { result, rerender } = await renderWatch([OLD_TOP_UP]);
+
+    act(() => {
+      result.current.armCheck();
+    });
+    rerender({ transactions: [CARD_TOP_UP, OLD_TOP_UP] });
+
+    expect(result.current.status).toBe('credited');
+    expect(result.current.creditedAmount).toBe(9000);
   });
 });

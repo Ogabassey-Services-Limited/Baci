@@ -28,6 +28,8 @@ type WalletColors = (typeof Colors)['light'];
 export interface WalletContentProps {
   activeSavingsGoal: WalletActiveSavingsGoal | null;
   canCreateFundingAccount: boolean;
+  /** False while the route's persisted funding session is still being written. */
+  canResolveCreditBaseline?: boolean;
   colors: WalletColors;
   contentContainerStyle: StyleProp<ViewStyle>;
   createFundingAccountUnavailableMessage?: string;
@@ -83,6 +85,7 @@ export interface WalletContentProps {
 export function WalletContent({
   activeSavingsGoal,
   canCreateFundingAccount,
+  canResolveCreditBaseline,
   colors,
   contentContainerStyle,
   createFundingAccountUnavailableMessage,
@@ -129,6 +132,7 @@ export function WalletContent({
   transactions,
 }: WalletContentProps) {
   const creditWatch = useWalletCreditWatch({
+    canResolveBaseline: canResolveCreditBaseline,
     customerId,
     refetch: onRefresh,
     returnTo: fundReturnTo,
