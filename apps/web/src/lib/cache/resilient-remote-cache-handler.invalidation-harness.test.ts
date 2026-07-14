@@ -103,6 +103,98 @@ describe('remote cache harness — dropped invalidations', () => {
     expect(exitSpy).not.toHaveBeenCalled();
   });
 
+  it('keeps reads untrusted while a transient bust waits to retry', async () => {
+    let releaseRetry: () => void = () => {};
+    let signalRetryStarted: () => void = () => {};
+    const retryStarted = new Promise<void>((resolve) => {
+      signalRetryStarted = resolve;
+    });
+    const backend = backendServingStale();
+    (backend.updateTags as ReturnType<typeof vi.fn>)
+      .mockRejectedValueOnce(new Error('503'))
+      .mockResolvedValue(undefined);
+    const handler = createResilientRemoteCacheHandler({
+      backend,
+      logger: { log: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      retryOptions: {
+        attempts: 2,
+        sleep: async () => {
+          signalRetryStarted();
+          await new Promise<void>((resolve) => {
+            releaseRetry = resolve;
+          });
+        },
+      },
+    });
+
+    const updating = handler.updateTags(['categories-m1']);
+    await retryStarted;
+    await expect(handler.get('key-1', [])).resolves.toBeUndefined();
+    expect(backend.get).not.toHaveBeenCalled();
+
+    releaseRetry();
+    await updating;
+    await expect(handler.get('key-1', [])).resolves.toBeDefined();
+  });
+
+  it('does not let another successful bust clear an in-flight repair', async () => {
+    let releaseRetry: () => void = () => {};
+    let signalRetryStarted: () => void = () => {};
+    const retryStarted = new Promise<void>((resolve) => {
+      signalRetryStarted = resolve;
+    });
+    const backend = backendServingStale();
+    (backend.updateTags as ReturnType<typeof vi.fn>).mockImplementation(
+      async (tags: string[]) => {
+        if (tags.includes('categories-m1')) {
+          throw new Error('503');
+        }
+      }
+    );
+    const handler = createResilientRemoteCacheHandler({
+      backend,
+      logger: { log: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      retryOptions: {
+        attempts: 2,
+        sleep: async () => {
+          signalRetryStarted();
+          await new Promise<void>((resolve) => {
+            releaseRetry = resolve;
+          });
+        },
+      },
+    });
+
+    const repairing = handler.updateTags(['categories-m1']);
+    await retryStarted;
+    await handler.updateTags(['products-m2']);
+
+    await expect(handler.get('key-1', [])).resolves.toBeUndefined();
+    expect(backend.get).not.toHaveBeenCalled();
+    releaseRetry();
+    await repairing;
+  });
+
+  it('keeps expiration distrust through the breaker cooldown', async () => {
+    let current = 0;
+    const backend = backendServingStale();
+    (backend.getExpiration as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error('503')
+    );
+    const handler = createResilientRemoteCacheHandler({
+      backend,
+      logger: { log: vi.fn(), warn: vi.fn(), error: vi.fn() },
+      failureThreshold: 1,
+      cooldownMs: 30_000,
+      now: () => current,
+    });
+
+    await handler.getExpiration(['products-m1']);
+    current = 6_000;
+    await expect(handler.get('key-1', [])).resolves.toBeUndefined();
+    expect(backend.get).not.toHaveBeenCalled();
+  });
+
   it('SUSTAINED failure is a recorded DROP: reads degrade to origin, no unhandled rejection, no exit', async () => {
     const backend = backendServingStale();
     (backend.updateTags as ReturnType<typeof vi.fn>).mockRejectedValue(

@@ -118,6 +118,7 @@ export function createReadPipeline(options) {
       if (!pendingSettled) {
         // The store may still contain the pre-write value. A deadline is a
         // synchronisation failure, so fail closed to an origin recomputation.
+        breaker.releaseProbe();
         return undefined;
       }
 
@@ -125,6 +126,7 @@ export function createReadPipeline(options) {
       // concurrent updateTags failure). Re-check immediately before touching
       // the store so this chokepoint remains true across the async boundary.
       if (!trust.isTrusted()) {
+        breaker.releaseProbe();
         telemetry.record('get', 'skip_untrusted');
         return undefined;
       }
@@ -196,6 +198,15 @@ export function createReadPipeline(options) {
         logger.warn(
           `[resilient-remote-cache] cached entry stream failed, treating as miss: ${describeError(buffered.error)}`
         );
+        return undefined;
+      }
+
+      // Freshness trust can degrade while backend.get() or stream buffering is
+      // suspended. The backend answered successfully, so close any half-open
+      // probe, but do not serve an entry whose tag state is no longer knowable.
+      if (!trust.isTrusted()) {
+        breaker.recordSuccess();
+        telemetry.record('get', 'skip_untrusted');
         return undefined;
       }
 

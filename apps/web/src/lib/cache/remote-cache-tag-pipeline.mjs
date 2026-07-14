@@ -106,6 +106,7 @@ export function createTagPipeline(options) {
     droppedBustDistrustMs,
     retryOptions,
   } = options;
+  let invalidationRepairsPending = 0;
 
   return {
     async refreshTags() {
@@ -190,7 +191,13 @@ export function createTagPipeline(options) {
       } catch (error) {
         breaker.recordFailure();
         telemetry.record('get_expiration', classify(error));
-        trust.degrade('get_expiration');
+        // Once this failure opens (or re-opens) the circuit there will be no
+        // recovery probe for a full cooldown. Keep distrust alive for that same
+        // window so get() cannot resume fetching entries that Next will discard.
+        trust.degrade(
+          'get_expiration',
+          breaker.getState() === 'open' ? cooldownMs : undefined
+        );
         logger.warn(
           `[resilient-remote-cache] getExpiration failed, discarding entry: ${describeError(error)}`
         );
@@ -215,18 +222,27 @@ export function createTagPipeline(options) {
      * does nothing about what the shared store hands everyone else.
      */
     async updateTags(tags, durations) {
-      const result = await retryWithBackoff(
-        () =>
-          withTimeout(
+      let repairPending = false;
+      const result = await retryWithBackoff(async () => {
+        try {
+          await withTimeout(
             () =>
               durations
                 ? backend.updateTags(tags, durations)
                 : backend.updateTags(tags),
             backendTimeoutMs,
             'update_tags'
-          ),
-        retryOptions
-      );
+          );
+        } catch (error) {
+          // Reads must miss throughout retry backoff while the bust is unlanded.
+          if (!repairPending) {
+            repairPending = true;
+            invalidationRepairsPending += 1;
+          }
+          trust.degrade('update_tags');
+          throw error;
+        }
+      }, retryOptions);
 
       if (result.outcome !== 'dropped') {
         // `success` (first try) vs `retry_success` (a blip we REPAIRED) are kept
@@ -236,7 +252,10 @@ export function createTagPipeline(options) {
           'update_tags',
           result.outcome === 'success' ? 'success' : 'retry_success'
         );
-        trust.restore('update_tags');
+        if (repairPending) invalidationRepairsPending -= 1;
+        if (invalidationRepairsPending === 0) {
+          trust.restore('update_tags');
+        }
 
         if (result.outcome === 'retry_success') {
           logger.warn(
@@ -267,6 +286,10 @@ export function createTagPipeline(options) {
       // successful invalidation proves only that its own tags landed; it cannot
       // repair an earlier dropped bust for different tags.
       trust.degrade('dropped_update_tags', droppedBustDistrustMs);
+      if (repairPending) invalidationRepairsPending -= 1;
+      if (invalidationRepairsPending === 0) {
+        trust.restore('update_tags');
+      }
       // It still must not reject: Next awaits this in `executeRevalidates()` at
       // the end of a request that has ALREADY succeeded.
       logger.error(
