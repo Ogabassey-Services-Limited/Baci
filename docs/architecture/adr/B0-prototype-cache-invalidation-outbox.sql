@@ -7,7 +7,8 @@
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS public.cache_invalidation_outbox (
-  merchant_id          uuid        NOT NULL REFERENCES public.merchants(id) ON DELETE CASCADE,
+  merchant_id          uuid        NOT NULL, -- immutable tenant/tombstone key used by the PK and purge targets
+  merchant_ref         uuid        REFERENCES public.merchants(id) ON DELETE SET NULL,
   target_kind          text        NOT NULL
     CHECK (target_kind IN (
       'product_cache', 'category_listing', 'storefront_document',
@@ -28,6 +29,7 @@ CREATE TABLE IF NOT EXISTS public.cache_invalidation_outbox (
   payload              jsonb       NOT NULL DEFAULT '{}'::jsonb, -- delivery metadata for this target
   created_at           timestamptz NOT NULL DEFAULT now(),
   updated_at           timestamptz NOT NULL DEFAULT now(),
+  CHECK (merchant_ref IS NULL OR merchant_ref = merchant_id),
   PRIMARY KEY (merchant_id, target_kind, target_id)
 );
 
@@ -59,8 +61,8 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path TO ''
 AS $$
 BEGIN
   INSERT INTO public.cache_invalidation_outbox
-    (merchant_id, target_kind, target_id, generation, status, payload)
-  VALUES (p_merchant_id, p_target_kind, p_target_id, 1, 'pending', COALESCE(p_payload, '{}'::jsonb))
+    (merchant_id, merchant_ref, target_kind, target_id, generation, status, payload)
+  VALUES (p_merchant_id, p_merchant_id, p_target_kind, p_target_id, 1, 'pending', COALESCE(p_payload, '{}'::jsonb))
   ON CONFLICT (merchant_id, target_kind, target_id) DO UPDATE
     SET generation = public.cache_invalidation_outbox.generation + 1,
         status     = 'pending',

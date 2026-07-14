@@ -1,6 +1,6 @@
 ## S0/S1 Census — anon/shared-client reads of `merchants` in `apps/mobile-storefront`
 
-Original census read against `origin/main` @ `c8108a052dfccfb0c99f4c5e6cac96a56dad9587`; revalidated after rebase at `origin/main@19d03df854`. Current code now reads receipt identity through `get_storefront_receipt_merchant_info`; pre-#3083 mobile binaries still require the temporary raw-table compatibility bridge documented below.
+Original census read against `origin/main` @ `c8108a052dfccfb0c99f4c5e6cac96a56dad9587`; revalidated after rebase at `origin/main@1ba7562b64`. Current code now reads receipt identity through `get_storefront_receipt_merchant_info`; pre-#3083 mobile binaries still require the temporary raw-table compatibility bridge documented below.
 
 Exhaustive grep (`.from('merchants')` + any merchants RPC) across `apps/mobile-storefront` returns **exactly 3 call sites**. No other `.from("merchants")`/`` `merchants` ``/schema-qualified variants exist. Only one merchants-adjacent RPC exists in the app (`get_storefront_payment_settings`) and it is a `SECURITY DEFINER` function with a fixed non-sensitive return shape (no raw table grant involved) — listed for completeness but out of scope for the anon-projection question since it isn't a raw `merchants` select.
 

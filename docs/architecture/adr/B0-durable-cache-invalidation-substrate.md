@@ -36,7 +36,8 @@ New table `public.cache_invalidation_outbox`, one row per invalidation target, g
 
 | column | purpose |
 |---|---|
-| `merchant_id uuid` + `target_kind text` + `target_id text` | **PK** = one concrete invalidation target (`target_kind` ∈ product_cache / category_listing / storefront_document / sitemap / merchant_feed …; `target_id` = the exact tag/path/URL key). `merchant_id` references `merchants(id) ON DELETE CASCADE`. A rename/domain move enqueues separate old and new targets, so later coalescing cannot discard an earlier stale path. |
+| `merchant_id uuid` + `target_kind text` + `target_id text` | **PK** = one concrete invalidation target (`target_kind` ∈ product_cache / category_listing / storefront_document / sitemap / merchant_feed …; `target_id` = the exact tag/path/URL key). `merchant_id` is the immutable tenant/tombstone key. A rename/domain move enqueues separate old and new targets, so later coalescing cannot discard an earlier stale path. |
+| `merchant_ref uuid` | Insert-time FK to `merchants(id)` with `ON DELETE SET NULL` and a check that a non-null ref equals `merchant_id`. It rejects invalid merchant IDs while preserving the immutable tenant key and queued storefront/sitemap/feed purge work after merchant deletion. |
 | `generation bigint` | bumped on every enqueue; the "latest mutation" marker |
 | `status text` (`pending`/`claimed`/`completed`/`failed`/`dead_letter`) | drain state; `dead_letter` is excluded from claims and requires operator action |
 | `claim_token uuid`, `claimed_generation bigint`, `claimed_by text`, `claimed_at timestamptz` | lease |

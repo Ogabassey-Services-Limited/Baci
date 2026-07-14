@@ -13,7 +13,7 @@ The static-params file's own comment is the governing SEO fact for this whole ma
 
 > *"only params enumerated here get a PPR shell with the resolved `<title>` baked into `<head>`; non-enumerated params render with streamed metadata forever (the PPR resume forces streaming regardless of `htmlLimitedBots`), which raw-HTML crawlers read as a missing/wrong title (Semrush 2026-07-10: bare-'Ogabassey' duplicate titles)."*
 
-**Corollary that decides every row below:** a route can only bake a correct crawlable `<head>` if its `generateMetadata` for the indexable (canonical) URL is a pure function of **path params**. The moment `generateMetadata` `await`s `searchParams` or `headers()`, metadata goes dynamic/streamed and the shell win evaporates. So "MAKE SHELL-RESOLVABLE" here always means: *bake the page-1 / no-facet / no-query canonical shell from path params, and let deep/faceted/query variants stay dynamic.*
+**Corollary that decides every row below:** a route can only bake a correct crawlable `<head>` if its `generateMetadata` for the indexable (canonical) URL is a pure function of **path params**. The moment `generateMetadata` `await`s `searchParams` or `headers()`, metadata goes dynamic/streamed and the shell win evaporates. A single route cannot inspect whether query parameters are present only for some requests without making that route's metadata request-time. "MAKE SHELL-RESOLVABLE" therefore requires either dropping the query-dependent metadata behavior explicitly or splitting it onto a different signed-off route surface.
 
 ---
 
@@ -23,12 +23,12 @@ The static-params file's own comment is the governing SEO fact for this whole ma
 |---|-------|--------------|--------------|------------|-------------------------------|
 | 1 | `(listing)/[category]/compare/page.tsx` | `searchParams` (noindex gate) — **plus `notFound()`** ~:132, and body `headers()`+308 | yes (canonical hub) | **KEEP DYNAMIC** (NO-GO) | n/a |
 | 2 | `(pdp)/products/[productSlug]/page.tsx` (flat PDP) | `searchParams` (variant safety-net) + DB legacy lookup | **no** — redirect surface, always noindex | **EXCLUDE FROM A1** (NO-GO, keep dynamic) | n/a |
-| 3 | `(listing)/[category]/page.tsx` | `searchParams` (page + facets) | yes (page-1 canonical) | **MAKE SHELL-RESOLVABLE — base case** (GO, partial) | `getCachedCategories(OGABASSEY_MERCHANT_ID)` → active slugs |
-| 4 | `(listing)/products/page.tsx` | `searchParams` (page + facets) | yes (page-1 canonical) | **MAKE SHELL-RESOLVABLE — base case** (GO, partial) | `[{ slug: OGABASSEY_DOMAIN }]` (single) |
+| 3 | `(listing)/[category]/page.tsx` | `searchParams` (page + facets) | yes (page-1 canonical) | **KEEP DYNAMIC** (NO-GO under current query-param metadata contract) | n/a |
+| 4 | `(listing)/products/page.tsx` | `searchParams` (page + facets) | yes (page-1 canonical) | **KEEP DYNAMIC** (NO-GO under current query-param metadata contract) | n/a |
 | 5 | `(listing)/compare/page.tsx` (global hub) | `searchParams` (noindex gate only) | yes (fixed `/compare` canonical) | **MAKE SHELL-RESOLVABLE** (GO) | `[{ slug: OGABASSEY_DOMAIN }]` (single) |
 | 6 | `(listing)/search/page.tsx` | `searchParams` (`q`) + `headers()` | **no** — always `noindex` | **KEEP DYNAMIC + noindex** (NO-GO, confirmed) | n/a |
 
-Net: **2 clear GO (rows 3, 4 partial; row 5 full), 3 NO-GO (rows 1, 2, 6), row 5 GO.** Concretely: 3 routes to prerender (rows 3, 4, 5), 3 to leave dynamic (rows 1, 2, 6).
+Net: **1 GO (row 5) and 5 NO-GO (rows 1–4 and 6).** Concretely: only the global compare hub accepts an explicit query-variant metadata tradeoff and is approved to prerender; the other five routes stay dynamic.
 
 ---
 
@@ -81,16 +81,11 @@ Revisit shell-resolvability only with a separate, signed-off surface split that 
 
 ## Route 4 — `(listing)/products/page.tsx` (all-products listing)
 
-**Verdict: MAKE SHELL-RESOLVABLE — base case only (GO, partial).** Same pagination/facet answer as Route 3: **stay query-param + self-canonical.**
+**Verdict: KEEP DYNAMIC while query-param pagination/facets retain request-specific metadata (NO-GO for a baked shell).** Same pagination/facet answer as Route 3: **stay query-param + self-canonical.**
 
 Structurally identical to Route 3 minus the dynamic category segment: `generateMetadata` awaits `searchParams` for `?page=N` (self-canonical via `buildStorefrontPageHref`) and facet robots (`getIndexableRobotsMetadata(resolvedSearchParams)`), so page-1 (`/products`, the indexable canonical) currently streams metadata.
 
-**Concrete replacement:**
-- **Base shell (`/products`, page 1, no facets):** compute canonical (`${baseUrl}/products`), title (`Products` / `buildStorefrontMetadataTitle`), and `robots: getIndexableRobotsMetadata()` from **path params only** → baked.
-- **Pagination/facets:** unchanged `?page`/`?filter` self-canonical + facet-noindex, request-time behind `connection()`, dynamic. No rel-canonical-to-root, no path-segment pagination.
-- **Out-of-range page / soft-404** (`buildProductsNotFoundMetadata`): stays request-time; only reached with `?page=N` present, which is a dynamic request anyway.
-
-**`generateStaticParams` source:** a **single** entry `[{ slug: OGABASSEY_DOMAIN }]` — the path is static (`/products`); only the `[slug]` (merchant) segment needs enumerating to pin OgaBassey's prerender. (No placeholder gymnastics needed since it is a constant list of one.)
+**Decision:** preserve the current self-canonical `?page=N`, facet `noindex`, and out-of-range soft-404 metadata by continuing to read `searchParams` at request time. As with Route 3, do not add `generateStaticParams` while claiming the base `<head>` is baked under the same route contract. Revisit only through a separate surface split that removes query-dependent metadata from `/products`, or through an explicit SEO decision to drop that behavior.
 
 ---
 
@@ -126,7 +121,7 @@ The remaining request-time input is the anti-thin-page `hasCompareSections` gate
 
 ## Cross-cutting implementation notes
 
-- **Single-tenant prerender is the established convention.** Every existing storefront `generateStaticParams` (PDP, blog) enumerates **OgaBassey only** via `OGABASSEY_DOMAIN` / `OGABASSEY_MERCHANT_ID` from `@/config/ogabassey`. Rows 3–5 should follow suit; other tenants keep rendering on demand via `dynamicParams = true`.
-- **`dynamicParams = true` is mandatory** on rows 3–5 to preserve on-demand rendering (and the existing soft-404 / empty-hub guards) for non-enumerated params. Without it, non-OgaBassey stores 404.
-- **cacheComponents ≥1-param rule:** rows 3 (and 5 if you want the empty-hub fallback) should mirror `product-static-params.ts`'s placeholder-param + fail-open-on-query-error shape so a build-time query failure degrades to a valid placeholder shell instead of failing the build.
-- **The refactor gate for rows 3 & 4 is real work, not a flag flip:** their `generateMetadata` must stop `await`ing `searchParams` on the base (indexable) path. Extract a param-only base-metadata builder; apply pagination/facet deltas only for the dynamic (query-present) requests. If `searchParams` is awaited unconditionally, the shell stays streamed and the SEO win does not materialize.
+- **Single-tenant prerender is the established convention.** The approved Route 5 implementation enumerates **OgaBassey only** via `OGABASSEY_DOMAIN` from `@/config/ogabassey`; other tenants keep rendering on demand via `dynamicParams = true`.
+- **`dynamicParams = true` is mandatory** on Route 5 to preserve on-demand rendering and the existing empty-hub guard for non-enumerated params. Without it, non-OgaBassey stores 404.
+- **cacheComponents ≥1-param rule:** Route 5 should mirror the established placeholder-param + fail-open-on-query-error shape if its empty-hub fallback needs build-time data, so a query failure degrades to a valid placeholder shell instead of failing the build.
+- **Rows 3 and 4 have no current refactor opener.** A param-only helper does not make the route static if `generateMetadata` still reads `searchParams` for other requests. Their query metadata must move to a separate route contract or be explicitly retired before either verdict changes.

@@ -1,6 +1,6 @@
 ## S1 Census — `apps/mobile-admin` direct `merchants` table access
 
-Original census read against `origin/main@c8108a052d`; revalidated after rebase at `origin/main@19d03df854`. Read-only; no migrations were applied.
+Original census read against `origin/main@c8108a052d`; revalidated after rebase at `origin/main@1ba7562b64`. Read-only; no migrations were applied.
 
 Method: `git grep -n "from('merchants')"` and `"from(\"merchants\")"` plus `.rpc('` across `apps/mobile-admin`. **7 direct `.from('merchants')` call sites found — 5 reads, 2 writes** (analytics-config.tsx has one of each). No `INSERT`/`DELETE` on `merchants` from mobile-admin. Two RPCs touch merchant data but are already permission-scoped (see notes below the table).
 
