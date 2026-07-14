@@ -41,7 +41,7 @@ describe('sendGA4Event', () => {
     expect(result).toEqual({ error: 'HTTP 503', success: false });
   });
 
-  it('puts a durable event timestamp in the GA4 event parameters', async () => {
+  it('puts a durable event timestamp on the GA4 event envelope', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204 });
     vi.stubGlobal('fetch', fetchMock);
 
@@ -57,10 +57,8 @@ describe('sendGA4Event', () => {
     );
 
     const payload = JSON.parse(fetchMock.mock.calls[0]?.[1].body as string);
-    expect(payload.events[0]).not.toHaveProperty('timestamp_micros');
-    expect(payload.events[0].params.timestamp_micros).toBe(
-      1_783_857_600_000_000
-    );
+    expect(payload.events[0].timestamp_micros).toBe(1_783_857_600_000_000);
+    expect(payload.events[0].params).not.toHaveProperty('timestamp_micros');
   });
 
   it('serializes an IP override as GA4 request metadata', async () => {

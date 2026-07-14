@@ -40,6 +40,7 @@ describe('loadPaidOrderDeliveryEvent', () => {
         currency: 'NGN',
         customer_email: 'person@example.com',
         customer_id: 'customer-1',
+        customer_name: 'Ada Lovelace',
         customer_phone: '+2348000000000',
         id: 'order-1',
         order_items: [
@@ -47,6 +48,12 @@ describe('loadPaidOrderDeliveryEvent', () => {
         ],
         order_number: 'BAC-1',
         payment_status: 'paid',
+        shipping_address: {
+          city: 'Lagos',
+          country: 'NG',
+          postal_code: '100001',
+          state: 'Lagos',
+        },
         total: 100,
       }) as never,
       event
@@ -59,8 +66,14 @@ describe('loadPaidOrderDeliveryEvent', () => {
       occurred_at: event.occurred_at,
       user_data: {
         email: 'person@example.com',
+        city: 'Lagos',
+        country: 'NG',
         fbc: 'fb.1.123.click',
+        first_name: 'Ada',
+        last_name: 'Lovelace',
+        state: 'Lagos',
         ttclid: 'tt-click-1',
+        zip_code: '100001',
       },
     });
     expect(result.gaClientId).toBe('123.456');

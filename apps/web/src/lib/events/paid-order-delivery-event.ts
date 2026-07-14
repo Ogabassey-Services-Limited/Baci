@@ -17,11 +17,13 @@ const paidOrderSchema = z.object({
   currency: z.string().nullable().optional(),
   customer_email: z.string().nullable().optional(),
   customer_id: z.string().nullable().optional(),
+  customer_name: z.string().nullable().optional(),
   customer_phone: z.string().nullable().optional(),
   id: z.string(),
   order_items: z.array(orderItemSchema).nullable().optional(),
   order_number: z.string().nullable().optional(),
   payment_status: z.string(),
+  shipping_address: z.record(z.string(), z.unknown()).nullable().optional(),
   total: z.union([z.number(), z.string()]),
 });
 
@@ -47,7 +49,7 @@ export async function loadPaidOrderDeliveryEvent(
   const { data, error } = await supabase
     .from('orders')
     .select(
-      'id, merchant_id, order_number, payment_status, total, currency, customer_email, customer_phone, customer_id, ad_tracking, order_items(id, product_id, name, price, quantity)'
+      'id, merchant_id, order_number, payment_status, total, currency, customer_email, customer_phone, customer_name, customer_id, shipping_address, ad_tracking, order_items(id, product_id, name, price, quantity)'
     )
     .eq('id', orderId)
     .eq('merchant_id', event.merchant_id)
@@ -82,6 +84,9 @@ export async function loadPaidOrderDeliveryEvent(
 
   const eventId = event.external_event_id ?? event.domain_event_id;
   const orderNumber = order.order_number ?? order.id.slice(0, 8).toUpperCase();
+  const [firstName, ...lastNameParts] =
+    optionalString(order.customer_name)?.split(/\s+/) ?? [];
+  const shippingAddress = order.shipping_address ?? {};
   return {
     conversion: {
       custom_data: {
@@ -98,6 +103,8 @@ export async function loadPaidOrderDeliveryEvent(
       occurred_at: event.occurred_at,
       source: 'server',
       user_data: {
+        city: optionalString(shippingAddress.city),
+        country: optionalString(shippingAddress.country),
         email: order.customer_email ?? undefined,
         external_id: order.customer_id ?? undefined,
         fbc:
@@ -106,12 +113,19 @@ export async function loadPaidOrderDeliveryEvent(
             ? generateFbc(optionalString(tracking.fbclid) as string)
             : undefined),
         fbp: optionalString(tracking.fbp),
+        first_name: firstName,
         ip: optionalString(tracking.userIp),
+        last_name:
+          lastNameParts.length > 0 ? lastNameParts.join(' ') : undefined,
         phone: order.customer_phone ?? undefined,
         sccid: optionalString(tracking.sccid),
+        state: optionalString(shippingAddress.state),
         ttclid: optionalString(tracking.ttclid),
         ttp: optionalString(tracking.ttp),
         ua: optionalString(tracking.userAgent),
+        zip_code:
+          optionalString(shippingAddress.zip) ??
+          optionalString(shippingAddress.postal_code),
       },
     },
     gaClientId: optionalString(tracking.gaClientId),

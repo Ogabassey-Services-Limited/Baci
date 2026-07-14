@@ -31,7 +31,11 @@ export interface ConversionEvent {
   occurred_at?: string;
   limited_data_use?: boolean;
   user_data: {
+    city?: string;
+    country?: string;
     email?: string;
+    first_name?: string;
+    last_name?: string;
     phone?: string;
     external_id?: string;
     ip?: string;
@@ -41,6 +45,8 @@ export interface ConversionEvent {
     ttclid?: string;
     ttp?: string;
     sccid?: string;
+    state?: string;
+    zip_code?: string;
   };
   custom_data: {
     order_id?: string;
@@ -227,13 +233,19 @@ async function sendToFacebook(
   }
 
   const fbUserData = {
+    city: event.user_data.city,
+    country: event.user_data.country,
     email: event.user_data.email,
+    firstName: event.user_data.first_name,
+    lastName: event.user_data.last_name,
     phone: event.user_data.phone,
     externalId: event.user_data.external_id,
     clientIpAddress: event.user_data.ip,
     clientUserAgent: event.user_data.ua,
     fbc: event.user_data.fbc,
     fbp: event.user_data.fbp,
+    state: event.user_data.state,
+    zipCode: event.user_data.zip_code,
   };
 
   const pixelId = config.facebook_pixel_id;

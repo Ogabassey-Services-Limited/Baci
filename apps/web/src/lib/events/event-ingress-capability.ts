@@ -1,10 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { SignJWT } from 'jose';
-import {
-  getSupabaseAnonKey,
-  getSupabaseJwtSecret,
-  getSupabaseUrl,
-} from '@/env';
+import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
+import { signScopedSupabaseJwt } from '@/lib/supabase/scoped-jwt';
 
 type EventIngressCapabilityInput = {
   eventId: string;
@@ -26,10 +22,10 @@ function eventTimestampMs(timestamp: string): string {
   return String(milliseconds);
 }
 
-function createEventIngressToken(
-  input: EventIngressCapabilityInput
-): Promise<string> {
-  return new SignJWT({
+function createEventIngressToken(input: EventIngressCapabilityInput): string {
+  const issuedAt = Math.floor(Date.now() / 1_000);
+  return signScopedSupabaseJwt({
+    aud: 'authenticated',
     baci_event_ingress_event_id: input.eventId,
     baci_event_ingress_event_name: input.eventName,
     baci_event_ingress_event_timestamp_ms: eventTimestampMs(
@@ -41,20 +37,17 @@ function createEventIngressToken(
     baci_event_ingress_producer: input.producer,
     baci_event_ingress_source: input.source ?? '',
     baci_event_ingress_trust_level: input.trustLevel,
+    exp: issuedAt + 60,
+    iat: issuedAt,
+    jti: crypto.randomUUID(),
     role: 'anon',
-  })
-    .setAudience('authenticated')
-    .setExpirationTime('60s')
-    .setIssuedAt()
-    .setJti(crypto.randomUUID())
-    .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
-    .sign(new TextEncoder().encode(getSupabaseJwtSecret()));
+  });
 }
 
-export async function createEventIngressClient(
+export function createEventIngressClient(
   input: EventIngressCapabilityInput
-): Promise<SupabaseClient> {
-  const accessToken = await createEventIngressToken(input);
+): SupabaseClient {
+  const accessToken = createEventIngressToken(input);
   return createClient(getSupabaseUrl(), getSupabaseAnonKey(), {
     accessToken: async () => accessToken,
     auth: {

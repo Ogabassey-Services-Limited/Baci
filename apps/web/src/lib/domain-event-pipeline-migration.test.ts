@@ -26,12 +26,15 @@ const files = [
   '20260713222000_platform_event_legacy_idempotency.sql',
   '20260714000100_harden_event_pipeline_admin_filters.sql',
   '20260714000200_scope_public_event_ingress.sql',
+  '20260714000300_allow_tenant_verified_event_ingress_fallback.sql',
 ] as const;
 
 const sql = Object.fromEntries(
   files.map((file) => [file, readFileSync(resolve(directory, file), 'utf8')])
 );
 const allSql = Object.values(sql).join('\n');
+const ingressFallbackSql =
+  sql['20260714000300_allow_tenant_verified_event_ingress_fallback.sql'];
 
 describe('durable domain-event migration contract', () => {
   it('keeps every migration within the repository modularity ceiling', () => {
@@ -185,6 +188,17 @@ describe('durable domain-event migration contract', () => {
     expect(ingress).toContain('TO anon, service_role');
     expect(ingress).toContain(
       'DROP POLICY IF EXISTS "Anyone can insert platform events"'
+    );
+  });
+
+  it('allows both supported trust levels through the capability-bound fallback policies', () => {
+    expect(ingressFallbackSql).toContain("'anonymous_client'");
+    expect(ingressFallbackSql).toContain("'tenant_verified_client'");
+    expect(ingressFallbackSql).toContain(
+      '"Event ingress capability inserts analytics events"'
+    );
+    expect(ingressFallbackSql).toContain(
+      '"Event ingress capability inserts platform events"'
     );
   });
 });

@@ -109,11 +109,11 @@ export async function sendGA4Event(
     events: [
       {
         name: eventName,
+        ...(eventTimestampMicros !== undefined && {
+          timestamp_micros: eventTimestampMicros,
+        }),
         params: {
           ...(params || {}),
-          ...(eventTimestampMicros && {
-            timestamp_micros: eventTimestampMicros,
-          }),
           // Add session info if available
           ...(userData.sessionId && { session_id: userData.sessionId }),
           // Engagement time is required for most events
