@@ -4,20 +4,40 @@ import {
   bufferCacheEntry,
   createEntryFromChunks,
 } from './remote-cache-entry-buffer.mjs';
+import {
+  CacheBackendTimeoutError,
+  withTimeout,
+} from './remote-cache-timeout.mjs';
 
 /**
  * The cache WRITE path — the one that kills processes.
  *
  * Next fires `set()` and pushes the promise onto `pendingRevalidateWrites`,
  * awaiting it only after the response is already on the wire. Every failure mode
- * on this path (a rejected pending entry, a stream that errors, an oversized
- * payload, a 502/503 from the backend) must therefore terminate in a RESOLVED
- * promise. See `resilient-remote-cache-handler.mjs` for the full §4.4 rationale.
+ * on this path must therefore terminate in a RESOLVED promise:
  *
- * It also owns the in-flight coordination Next's contract requires: "If a `get`
- * for the same cache key is called before the pending entry is complete, the
- * cache handler must wait for the `set` operation to finish, before returning
- * the entry, instead of returning undefined."
+ *  - a rejected pending entry (failed render),
+ *  - a value stream that errors mid-flight,
+ *  - an oversized payload,
+ *  - a 502/503 from the backend, and — crucially —
+ *  - a backend that simply HANGS. A hang never reaches `catch`/`finally`, so
+ *    without a deadline the promise Next awaits stays unresolved forever, the
+ *    write circuit never opens, and the pending record is never cleaned. Every
+ *    backend call is raced with a timeout (Invariant B) and a timeout counts as
+ *    a breaker failure.
+ *
+ * ## The pending map is a SYNCHRONISATION POINT, never a cache
+ *
+ * Next's contract: "If a `get` for the same cache key is called before the
+ * pending entry is complete, the cache handler must wait for the `set` operation
+ * to finish, before returning the entry, instead of returning undefined."
+ *
+ * We satisfy the *wait* but deliberately do NOT serve the buffered entry.
+ * Serving it would bypass the shared store's tag/expiration checks entirely: an
+ * admin mutation can revalidate the tag while the write is in flight, and we
+ * would hand back the pre-mutation value having checked nothing. Instead we wait
+ * (bounded) for the write to settle and let the caller re-read the store — the
+ * only thing that can honour a tag bust. That is Invariant A on the write path.
  *
  * @typedef {import('./remote-cache-types.mjs').CacheEntry} CacheEntry
  * @typedef {import('./remote-cache-types.mjs').CacheHandler} CacheHandler
@@ -34,24 +54,13 @@ import {
  * @property {TelemetryLogger} logger
  * @property {number} maxItemBytes
  * @property {boolean} disabled
+ * @property {number} backendTimeoutMs
  * @property {() => number} [now]
- * @property {number} [maxPendingAgeMs]
  *
  * @typedef {object} WritePipeline
  * @property {(cacheKey: string, pendingEntry: Promise<CacheEntry>) => Promise<void>} write
- * @property {(cacheKey: string) => Promise<CacheEntry | undefined>} readPending
+ * @property {(cacheKey: string) => Promise<void>} awaitPending
  */
-
-/**
- * How long a still-settling write may be served from the in-memory buffer.
- *
- * The buffer exists only to satisfy Next's set/get contract for the brief window
- * while a write lands. If the shared write HANGS, the key would otherwise never
- * leave the map and every later get() would be served from memory — bypassing
- * expiration and tag checks, so a hung write could shadow an invalidation
- * indefinitely. Past this age we stop serving it and fall through to the store.
- */
-export const DEFAULT_MAX_PENDING_AGE_MS = 5_000;
 
 /**
  * @param {unknown} error
@@ -66,13 +75,19 @@ function describeError(error) {
  * @returns {WritePipeline}
  */
 export function createWritePipeline(options) {
-  const { backend, breaker, telemetry, logger, maxItemBytes, disabled } =
-    options;
+  const {
+    backend,
+    breaker,
+    telemetry,
+    logger,
+    maxItemBytes,
+    disabled,
+    backendTimeoutMs,
+  } = options;
   const now = options.now ?? Date.now;
-  const maxPendingAgeMs = options.maxPendingAgeMs ?? DEFAULT_MAX_PENDING_AGE_MS;
 
   /**
-   * @typedef {{ buffering: Promise<BufferedEntry | undefined>, startedAt: number }} PendingWrite
+   * @typedef {{ done: Promise<void>, startedAt: number }} PendingWrite
    * @type {Map<string, PendingWrite>}
    */
   const pendingWrites = new Map();
@@ -105,47 +120,71 @@ export function createWritePipeline(options) {
     return { entry: result.entry, chunks: result.chunks };
   }
 
-  return {
-    async write(cacheKey, pendingEntry) {
-      const buffering = bufferAndGate(pendingEntry);
-      /** @type {PendingWrite} */
-      const record = { buffering, startedAt: now() };
-      pendingWrites.set(cacheKey, record);
+  /**
+   * @param {string} cacheKey
+   * @param {Promise<CacheEntry>} pendingEntry
+   * @returns {Promise<void>} Never rejects.
+   */
+  async function performWrite(cacheKey, pendingEntry) {
+    const buffered = await bufferAndGate(pendingEntry);
+    if (!buffered) return;
 
-      try {
-        const buffered = await buffering;
-        if (!buffered) return;
+    if (disabled) {
+      telemetry.record('set', 'skip_disabled');
+      return;
+    }
 
-        if (disabled) {
-          telemetry.record('set', 'skip_disabled');
-          return;
-        }
+    if (!breaker.shouldAttempt()) {
+      telemetry.record('set', 'skip_circuit_open');
+      return;
+    }
 
-        if (!breaker.shouldAttempt()) {
-          telemetry.record('set', 'skip_circuit_open');
-          return;
-        }
-
-        try {
-          await backend.set(
+    try {
+      await withTimeout(
+        () =>
+          backend.set(
             cacheKey,
             Promise.resolve(
               createEntryFromChunks(buffered.entry, buffered.chunks)
             )
-          );
-          breaker.recordSuccess();
-          telemetry.record('set', 'write');
-        } catch (error) {
-          breaker.recordFailure();
-          telemetry.record('set', 'failure');
-          // ⚠️ THE FIX. This `catch` is the whole point of the adapter: the
-          // promise Next awaits AFTER the response was sent now RESOLVES
-          // instead of becoming an unhandled rejection + exit 128.
-          logger.warn(
-            `[resilient-remote-cache] set failed, dropping write: ${describeError(error)}`
-          );
-        }
+          ),
+        backendTimeoutMs,
+        'set'
+      );
+      breaker.recordSuccess();
+      telemetry.record('set', 'write');
+    } catch (error) {
+      // ⚠️ THE FIX. The promise Next awaits AFTER the response was sent now
+      // RESOLVES instead of becoming an unhandled rejection + exit 128. A
+      // TIMEOUT lands here too, so a HUNG backend also opens the circuit rather
+      // than wedging the write forever.
+      breaker.recordFailure();
+      telemetry.record(
+        'set',
+        error instanceof CacheBackendTimeoutError ? 'timeout' : 'failure'
+      );
+      logger.warn(
+        `[resilient-remote-cache] set failed, dropping write: ${describeError(error)}`
+      );
+    }
+  }
+
+  return {
+    async write(cacheKey, pendingEntry) {
+      /** @type {() => void} */
+      let settle = () => undefined;
+      /** @type {Promise<void>} */
+      const done = new Promise((resolve) => {
+        settle = () => resolve();
+      });
+      /** @type {PendingWrite} */
+      const record = { done, startedAt: now() };
+      pendingWrites.set(cacheKey, record);
+
+      try {
+        await performWrite(cacheKey, pendingEntry);
       } finally {
+        settle();
         // Identity-guarded: a newer write for the same key must not be evicted
         // by an older one settling late.
         if (pendingWrites.get(cacheKey) === record) {
@@ -154,31 +193,21 @@ export function createWritePipeline(options) {
       }
     },
 
-    /**
-     * Serves a `get()` whose key has a still-settling `set()`. Returns a FRESH
-     * stream (the caller may not consume the buffered chunks).
-     *
-     * Age-bounded: a write that hangs must not shadow the shared store — and
-     * therefore an invalidation — forever. See DEFAULT_MAX_PENDING_AGE_MS.
-     */
-    async readPending(cacheKey) {
+    async awaitPending(cacheKey) {
       const record = pendingWrites.get(cacheKey);
-      if (!record) return undefined;
+      if (!record) return;
 
-      if (now() - record.startedAt >= maxPendingAgeMs) {
-        // Stop shadowing: drop it and let the caller consult the shared store,
-        // which is the only thing that can honour a tag bust.
+      try {
+        // `performWrite` is already deadline-bounded, so `done` settles. This
+        // race additionally guards a pending ENTRY (i.e. a render) that never
+        // resolves — a hung write must not wedge every later read of that key.
+        await withTimeout(() => record.done, backendTimeoutMs, 'await_pending');
+      } catch {
+        telemetry.record('set', 'timeout');
         if (pendingWrites.get(cacheKey) === record) {
           pendingWrites.delete(cacheKey);
         }
-        telemetry.record('get', 'skip_stale_pending');
-        return undefined;
       }
-
-      const buffered = await record.buffering;
-      if (!buffered) return undefined;
-
-      return createEntryFromChunks(buffered.entry, buffered.chunks);
     },
   };
 }

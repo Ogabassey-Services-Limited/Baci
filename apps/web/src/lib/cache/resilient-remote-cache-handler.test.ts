@@ -90,7 +90,7 @@ describe('createResilientRemoteCacheHandler', () => {
   describe('get()', () => {
     it('passes a healthy hit through from the shared backend', async () => {
       const backend = makeBackend({
-        get: vi.fn().mockResolvedValue(makeEntry('hit-body')),
+        get: vi.fn().mockImplementation(async () => makeEntry('hit-body')),
       });
       const handler = createResilientRemoteCacheHandler({ backend, logger });
 
@@ -347,7 +347,7 @@ describe('createResilientRemoteCacheHandler', () => {
       const backend = makeBackend({
         get: vi
           .fn<Backend['get']>()
-          .mockResolvedValue(makeEntry('still-served')),
+          .mockImplementation(async () => makeEntry('still-served')),
         set: vi
           .fn<Backend['set']>()
           .mockRejectedValue(new Error('502 Bad Gateway')),
@@ -377,7 +377,9 @@ describe('createResilientRemoteCacheHandler', () => {
 
     it('keeps READS flowing while the write circuit is open', async () => {
       const backend = makeBackend({
-        get: vi.fn<Backend['get']>().mockResolvedValue(makeEntry('read-ok')),
+        get: vi
+          .fn<Backend['get']>()
+          .mockImplementation(async () => makeEntry('read-ok')),
         set: vi
           .fn<Backend['set']>()
           .mockRejectedValue(new Error('502 Bad Gateway')),
@@ -442,7 +444,7 @@ describe('createResilientRemoteCacheHandler', () => {
 
       // Backend heals; cooldown elapses; the probe goes through and closes it.
       current = 30_000;
-      backend.get.mockResolvedValue(makeEntry('healed'));
+      backend.get.mockImplementation(async () => makeEntry('healed'));
 
       const probed = await handler.get('k3', []);
       expect(probed).toBeDefined();
@@ -505,7 +507,7 @@ describe('createResilientRemoteCacheHandler', () => {
       });
     });
 
-    it('resolves as a no-op when refreshTags fails', async () => {
+    it('resolves (never rejects) when refreshTags fails', async () => {
       const backend = makeBackend({
         refreshTags: vi.fn().mockRejectedValue(new Error('503')),
       });
@@ -514,33 +516,46 @@ describe('createResilientRemoteCacheHandler', () => {
       await expect(handler.refreshTags()).resolves.toBeUndefined();
     });
 
-    it('reports Infinity when getExpiration fails, never 0', async () => {
+    /**
+     * Codex `PRRT_kwDOQZgfis6Qmv0o` (round 2). Next awaits refreshTags BEFORE
+     * cacheHandler.get() (use-cache-wrapper.js ~1277), so a stale tag manifest
+     * would be used by the very next read — which could then hand back a
+     * PRE-INVALIDATION entry. A failure must degrade reads to the origin.
+     */
+    it('degrades reads to the origin when refreshTags fails', async () => {
       const backend = makeBackend({
-        getExpiration: vi.fn().mockRejectedValue(new Error('503')),
+        get: vi
+          .fn()
+          .mockImplementation(async () => makeEntry('pre-invalidation')),
+        refreshTags: vi.fn().mockRejectedValue(new Error('503')),
       });
-      const handler = createResilientRemoteCacheHandler({ backend, logger });
+      const handler = createResilientRemoteCacheHandler({
+        backend,
+        logger,
+        now: () => 0,
+      });
 
-      // Returning 0 would mean "these tags were never revalidated", letting a
-      // busted entry be served as fresh.
-      await expect(handler.getExpiration(['products-m1'])).resolves.toBe(
-        Number.POSITIVE_INFINITY
-      );
+      await handler.refreshTags();
+
+      await expect(handler.get('key-1', [])).resolves.toBeUndefined();
+      expect(backend.get).not.toHaveBeenCalled();
+      expect(handler.getTelemetrySnapshot()).toMatchObject({
+        'get.skip_untrusted': 1,
+      });
     });
 
     /**
-     * Codex `PRRT_kwDOQZgfis6QmUoe`.
-     *
-     * Infinity tells Next "skip my implicit-tag timestamp check — the handler
-     * will validate soft tags inside get() instead". We cannot honour that
-     * promise: the underlying shared store returns a real timestamp and its
-     * get() does not re-check soft tags. So if the expiration lookup failed and
-     * we then served a backend hit, an entry invalidated via implicit
-     * route/path tags could be served STALE. When expiration is untrustworthy,
-     * the only safe read is no read.
+     * Codex `PRRT_kwDOQZgfis6Qmv0r` (round 2) supersedes the earlier `Infinity`
+     * answer. `getExpiration` is awaited AFTER `get()`, so Infinity ("implicit
+     * tags are not expired") would have applied to the entry Next had ALREADY
+     * taken from us. A FINITE `now` makes Next discard it. Full reasoning and
+     * the Next source excerpt live in `remote-cache-freshness.test.ts`.
      */
     it('forces a MISS on subsequent reads when the expiration lookup failed', async () => {
       const backend = makeBackend({
-        get: vi.fn().mockResolvedValue(makeEntry('possibly-stale')),
+        get: vi
+          .fn()
+          .mockImplementation(async () => makeEntry('possibly-stale')),
         getExpiration: vi.fn().mockRejectedValue(new Error('503')),
       });
       const handler = createResilientRemoteCacheHandler({
@@ -555,13 +570,13 @@ describe('createResilientRemoteCacheHandler', () => {
       // It must not even ask the store — the answer could not be validated.
       expect(backend.get).not.toHaveBeenCalled();
       expect(handler.getTelemetrySnapshot()).toMatchObject({
-        'get.skip_expiration_untrusted': 1,
+        'get.skip_untrusted': 1,
       });
     });
 
     it('resumes reading once a getExpiration call succeeds again', async () => {
       const backend = makeBackend({
-        get: vi.fn().mockResolvedValue(makeEntry('fresh')),
+        get: vi.fn().mockImplementation(async () => makeEntry('fresh')),
         getExpiration: vi
           .fn()
           .mockRejectedValueOnce(new Error('503'))
@@ -587,7 +602,7 @@ describe('createResilientRemoteCacheHandler', () => {
     it('re-trusts expiration after the distrust window lapses', async () => {
       let current = 0;
       const backend = makeBackend({
-        get: vi.fn().mockResolvedValue(makeEntry('fresh')),
+        get: vi.fn().mockImplementation(async () => makeEntry('fresh')),
         getExpiration: vi.fn().mockRejectedValue(new Error('503')),
       });
       const handler = createResilientRemoteCacheHandler({
@@ -612,7 +627,16 @@ describe('createResilientRemoteCacheHandler', () => {
   /* ---------------------------------------------------------------- */
 
   describe('pending writes', () => {
-    it('serves a concurrent get() for a key whose set() is still in flight', async () => {
+    /**
+     * Codex `PRRT_kwDOQZgfis6Qmv0x` (round 2) REVERSED the earlier behaviour
+     * here. We used to serve the in-flight write's buffer directly — which
+     * bypassed the tag/expiration check entirely, so a tag bust racing the write
+     * would be ignored and the pre-mutation value served. We now satisfy the
+     * *wait* half of Next's contract and then re-read the shared store, which is
+     * the only thing that can honour an invalidation. See
+     * `remote-cache-freshness.test.ts` for the full scenario.
+     */
+    it('waits for the in-flight write, then reads the STORE rather than the buffer', async () => {
       let releaseBackendSet: () => void = () => {};
       const backend = makeBackend({
         set: vi.fn().mockImplementation(
@@ -621,25 +645,28 @@ describe('createResilientRemoteCacheHandler', () => {
               releaseBackendSet = resolve;
             })
         ),
+        get: vi.fn().mockImplementation(async () => makeEntry('from-store')),
       });
-      const handler = createResilientRemoteCacheHandler({ backend, logger });
+      const handler = createResilientRemoteCacheHandler({
+        backend,
+        logger,
+        backendTimeoutMs: 200,
+      });
 
       const setPromise = handler.set(
         'key-1',
         Promise.resolve(makeEntry('in-flight'))
       );
-      // Next: "If a get for the same cache key is called before the pending
-      // entry is complete, the cache handler must wait for the set operation to
-      // finish, before returning the entry, instead of returning undefined."
-      const entry = await handler.get('key-1', []);
-
-      expect(entry).toBeDefined();
-      await expect(new Response(entry?.value).text()).resolves.toBe(
-        'in-flight'
-      );
-      expect(backend.get).not.toHaveBeenCalled();
-
+      const reading = handler.get('key-1', []);
       releaseBackendSet();
+      const entry = await reading;
+
+      // The value comes from the store (tag-checked), not the unchecked buffer.
+      expect(backend.get).toHaveBeenCalledWith('key-1', []);
+      await expect(new Response(entry?.value).text()).resolves.toBe(
+        'from-store'
+      );
+
       await setPromise;
     });
   });

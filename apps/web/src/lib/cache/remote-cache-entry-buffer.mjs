@@ -91,7 +91,17 @@ export async function bufferCacheEntry(
     };
   }
 
-  const reader = entry.value.getReader();
+  /** @type {ReadableStreamDefaultReader<Uint8Array>} */
+  let reader;
+  try {
+    // `getReader()` throws SYNCHRONOUSLY on an already-locked or already-consumed
+    // stream. That must never escape to the caller — this function's whole
+    // contract is that failure is a VALUE, not a throw.
+    reader = entry.value.getReader();
+  } catch (error) {
+    return { status: 'stream_error', error };
+  }
+
   /** @type {Uint8Array[]} */
   const chunks = [];
   let bytes = 0;

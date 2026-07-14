@@ -73,7 +73,11 @@ describe('createWritePipeline', () => {
   });
 
   function makePipeline(
-    overrides: { maxItemBytes?: number; disabled?: boolean } = {}
+    overrides: {
+      maxItemBytes?: number;
+      disabled?: boolean;
+      backendTimeoutMs?: number;
+    } = {}
   ) {
     return createWritePipeline({
       backend,
@@ -82,8 +86,8 @@ describe('createWritePipeline', () => {
       logger,
       maxItemBytes: overrides.maxItemBytes ?? 1_048_576,
       disabled: overrides.disabled ?? false,
+      backendTimeoutMs: overrides.backendTimeoutMs ?? 200,
       now: () => 0,
-      maxPendingAgeMs: 5_000,
     });
   }
 
@@ -134,19 +138,23 @@ describe('createWritePipeline', () => {
     expect(backend.set).not.toHaveBeenCalled();
   });
 
-  describe('readPending', () => {
-    it('returns undefined for a key with no in-flight write', async () => {
+  describe('awaitPending (synchronisation point, NOT a cache)', () => {
+    it('returns immediately for a key with no in-flight write', async () => {
       const pipeline = makePipeline();
 
-      await expect(pipeline.readPending('key-1')).resolves.toBeUndefined();
+      await expect(pipeline.awaitPending('key-1')).resolves.toBeUndefined();
     });
 
-    it('serves an in-flight write to a concurrent reader', async () => {
+    it('waits for an in-flight write to settle before returning', async () => {
       let release: () => void = () => {};
+      let settled = false;
       backend.set.mockImplementation(
         () =>
           new Promise<void>((resolve) => {
-            release = resolve;
+            release = () => {
+              settled = true;
+              resolve();
+            };
           })
       );
       const pipeline = makePipeline();
@@ -155,68 +163,58 @@ describe('createWritePipeline', () => {
         'key-1',
         Promise.resolve(makeEntry('inflight'))
       );
-      const served = await pipeline.readPending('key-1');
+      // Let the entry buffer and the backend write actually start.
+      await new Promise((resolve) => setImmediate(resolve));
 
-      expect(served).toBeDefined();
-      await expect(new Response(served?.value).text()).resolves.toBe(
-        'inflight'
-      );
+      const waiting = pipeline.awaitPending('key-1').then(() => {
+        // Next's contract: the handler must WAIT for the set to finish.
+        expect(settled).toBe(true);
+      });
 
       release();
+      await waiting;
       await writing;
-    });
-
-    it('stops serving once the write has settled', async () => {
-      const pipeline = makePipeline();
-
-      await pipeline.write('key-1', Promise.resolve(makeEntry()));
-
-      await expect(pipeline.readPending('key-1')).resolves.toBeUndefined();
     });
 
     /**
-     * Codex `PRRT_kwDOQZgfis6QmUof`.
-     *
-     * The pending buffer exists to satisfy Next's set/get contract for the brief
-     * window while a write settles. But if the shared write HANGS, the key never
-     * leaves the map, and every later get() is served from that in-memory buffer
-     * — bypassing expiration and tag checks entirely. A hung write must not be
-     * able to shadow an invalidation indefinitely.
+     * Codex `PRRT_kwDOQZgfis6Qmv0v` (round 2). A HUNG set() never reaches
+     * catch/finally, so without a deadline the pending record would never be
+     * cleaned and every later read of that key would wedge behind it.
      */
-    it('stops serving a hung write from the pending buffer once it goes stale', async () => {
-      let current = 0;
-      // A write that never settles.
+    it('does not wait forever on a hung write', async () => {
       backend.set.mockImplementation(() => new Promise<void>(() => {}));
+      const pipeline = makePipeline({ backendTimeoutMs: 25 });
+
+      void pipeline.write('key-1', Promise.resolve(makeEntry('hung')));
+
+      // Bounded: it resolves rather than hanging with the write.
+      await expect(pipeline.awaitPending('key-1')).resolves.toBeUndefined();
+    });
+
+    it('resolves the write itself even when the backend hangs, and counts a failure', async () => {
+      backend.set.mockImplementation(() => new Promise<void>(() => {}));
+      const breaker = createCircuitBreaker({
+        failureThreshold: 1,
+        now: () => 0,
+      });
       const pipeline = createWritePipeline({
         backend,
-        breaker: createCircuitBreaker({ now: () => current }),
-        telemetry: createCacheTelemetry({ logger, now: () => current }),
+        breaker,
+        telemetry: createCacheTelemetry({ logger, now: () => 0 }),
         logger,
         maxItemBytes: 1_048_576,
         disabled: false,
-        now: () => current,
-        maxPendingAgeMs: 5_000,
+        backendTimeoutMs: 25,
+        now: () => 0,
       });
 
-      void pipeline.write('key-1', Promise.resolve(makeEntry('shadowed')));
+      // The promise Next awaits after the response must still settle.
+      await expect(
+        pipeline.write('key-1', Promise.resolve(makeEntry()))
+      ).resolves.toBeUndefined();
 
-      // Inside the window the contract still holds.
-      await expect(pipeline.readPending('key-1')).resolves.toBeDefined();
-
-      // Past it, the buffer must no longer shadow the shared store.
-      current = 5_000;
-      await expect(pipeline.readPending('key-1')).resolves.toBeUndefined();
-    });
-
-    it('does not serve an entry that was rejected for being oversized', async () => {
-      const pipeline = makePipeline({ maxItemBytes: 4 });
-
-      const writing = pipeline.write(
-        'key-1',
-        Promise.resolve(makeEntry('far too large'))
-      );
-      await expect(pipeline.readPending('key-1')).resolves.toBeUndefined();
-      await writing;
+      // ...and the timeout must count as a breaker failure, so the circuit opens.
+      expect(breaker.getState()).toBe('open');
     });
   });
 });

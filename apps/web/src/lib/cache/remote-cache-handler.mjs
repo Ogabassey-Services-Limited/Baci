@@ -1,6 +1,7 @@
 // @ts-check
 
 import { DEFAULT_MAX_ITEM_BYTES } from './remote-cache-entry-buffer.mjs';
+import { DEFAULT_BACKEND_TIMEOUT_MS } from './remote-cache-timeout.mjs';
 import {
   createResilientRemoteCacheHandler,
   RESILIENT_REMOTE_CACHE_BRAND,
@@ -217,6 +218,11 @@ const handler = createResilientRemoteCacheHandler({
   maxItemBytes,
   failureThreshold: readIntEnv('BACI_REMOTE_CACHE_FAILURE_THRESHOLD', 5),
   cooldownMs: readIntEnv('BACI_REMOTE_CACHE_COOLDOWN_MS', 30_000),
+  // Invariant B: a cache that hangs must lose to the origin, not stall it.
+  backendTimeoutMs: readIntEnv(
+    'BACI_REMOTE_CACHE_TIMEOUT_MS',
+    DEFAULT_BACKEND_TIMEOUT_MS
+  ),
   disabled,
 });
 
