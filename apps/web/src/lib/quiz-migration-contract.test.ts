@@ -383,6 +383,15 @@ describe('quiz migration contracts', () => {
     expect(latestStartAttemptSql).toMatch(/attempt_limit_reached/i);
     expect(latestStartAttemptSql).toMatch(/ERRCODE\s*=\s*'QZ030'/i);
 
+    const lockIndex = latestStartAttemptSql?.indexOf('pg_advisory_xact_lock');
+    const availabilityIndex = latestStartAttemptSql?.indexOf(
+      "e.status = 'active'"
+    );
+    expect(lockIndex).toBeGreaterThanOrEqual(0);
+    expect(availabilityIndex).toBeGreaterThanOrEqual(0);
+    expect(lockIndex).toBeLessThan(availabilityIndex ?? -1);
+    expect(latestStartAttemptSql).toMatch(/pg_catalog\.clock_timestamp\(\)/i);
+
     // The API checks this marker before invoking start_quiz_attempt. Because the
     // marker and free-entry function share one migration transaction, a
     // code-before-database deploy fails before it can call the stale paid RPC.

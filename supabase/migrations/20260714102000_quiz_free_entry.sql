@@ -81,20 +81,22 @@ BEGIN
     RAISE EXCEPTION 'quiz_customer_not_found' USING ERRCODE = 'QZ001';
   END IF;
 
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    ('x' || pg_catalog.substr(pg_catalog.md5(p_event_id::text || ':' || v_customer_id::text), 1, 16))::bit(64)::bigint
+  );
+
+  -- Recheck after acquiring the lock with wall-clock time. A queued start must
+  -- not become playable if the event closes while it waits for another start.
   IF NOT EXISTS (
     SELECT 1
     FROM public.quiz_events e
     WHERE e.id = p_event_id
       AND e.status = 'active'
-      AND (e.starts_at IS NULL OR e.starts_at <= pg_catalog.now())
-      AND (e.ends_at IS NULL OR e.ends_at > pg_catalog.now())
+      AND (e.starts_at IS NULL OR e.starts_at <= pg_catalog.clock_timestamp())
+      AND (e.ends_at IS NULL OR e.ends_at > pg_catalog.clock_timestamp())
   ) THEN
     RAISE EXCEPTION 'quiz_event_not_open' USING ERRCODE = 'QZ002';
   END IF;
-
-  PERFORM pg_catalog.pg_advisory_xact_lock(
-    ('x' || pg_catalog.substr(pg_catalog.md5(p_event_id::text || ':' || v_customer_id::text), 1, 16))::bit(64)::bigint
-  );
 
   -- FIX 4: server-side attempt cap (race-safe under the advisory lock above).
   -- Default to 3 attempts unless the event configures a positive integer override.
