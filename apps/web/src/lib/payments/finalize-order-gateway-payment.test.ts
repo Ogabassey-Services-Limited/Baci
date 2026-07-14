@@ -9,6 +9,7 @@ import {
 
 const mocks = vi.hoisted(() => ({
   completeOrderGatewayPayment: vi.fn(),
+  settleCapturedOrderPayment: vi.fn(),
   ensurePaidOrderInventoryConfirmed: vi.fn(),
   fileInventoryConfirmationFailureReview: vi.fn(),
   handlePaymentForCancelledOrder: vi.fn(),
@@ -56,9 +57,15 @@ vi.mock(
 vi.mock('@/lib/payments/run-paid-order-side-effects', () => ({
   runPaidOrderSideEffects: mocks.runPaidOrderSideEffects,
 }));
+vi.mock('@/lib/payments/settle-captured-order-payment', () => ({
+  settleCapturedOrderPayment: mocks.settleCapturedOrderPayment,
+}));
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Reviews file durably by default; a false return means the ops row could
+  // not be written, which callers must treat as a retryable failure.
+  mocks.handlePaymentForCancelledOrder.mockResolvedValue(true);
   mocks.runPaidOrderSideEffects.mockResolvedValue({
     concurrentTakeoverSteps: [],
     failedSteps: [],
@@ -131,6 +138,25 @@ describe('finalizeOrderGatewayPayment', () => {
         order: { id: 'order-1' },
       })
     );
+    expect(mocks.runPaidOrderSideEffects).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when a blocked-order review cannot be filed', async () => {
+    mocks.completeOrderGatewayPayment.mockResolvedValue(
+      completion({
+        cancelled_at: '2026-07-01T00:00:00Z',
+        order_cancelled: true,
+        order_updated: false,
+      })
+    );
+    mocks.handlePaymentForCancelledOrder.mockResolvedValue(false);
+
+    const outcome = await finalizeOrderGatewayPayment(
+      baseArgs(buildSupabase({}))
+    );
+
+    // No durable ops row: the caller must retry, never retire this payment.
+    expect(outcome).toEqual({ kind: 'review_failed' });
     expect(mocks.runPaidOrderSideEffects).not.toHaveBeenCalled();
   });
 
@@ -223,6 +249,7 @@ describe('finalizeOrderGatewayPayment', () => {
                 error: 'rpc_seed_pending_drain',
                 status: 'failed',
                 step: 'merchant_settlement',
+                transaction_id: 'txn-1',
               },
             ],
           }
@@ -258,6 +285,35 @@ describe('finalizeOrderGatewayPayment', () => {
     // Pre-outbox completions sent email/settlement inline; draining an empty
     // outbox would duplicate them.
     expect(mocks.runPaidOrderSideEffects).not.toHaveBeenCalled();
+  });
+
+  it('settles only (no email/push) when the order was paid by another transaction', async () => {
+    mocks.completeOrderGatewayPayment.mockResolvedValue(
+      completion({
+        already_completed: false,
+        order_already_paid: true,
+        order_updated: false,
+      })
+    );
+    mocks.ensurePaidOrderInventoryConfirmed.mockResolvedValue(undefined);
+
+    const outcome = await finalizeOrderGatewayPayment(
+      baseArgs(
+        buildSupabase(
+          { data: richOrderRow },
+          // Outbox belongs to a DIFFERENT (paying) transaction.
+          { outboxRows: [{ order_id: 'order-1', transaction_id: 'txn-other' }] }
+        ),
+        { wonTransactionFlip: false }
+      )
+    );
+
+    expect(outcome).toMatchObject({ kind: 'completed' });
+    // The customer was already confirmed for the paying transaction: these
+    // captured funds owe settlement only, outside the order-scoped outbox.
+    expect(mocks.settleCapturedOrderPayment).toHaveBeenCalledTimes(1);
+    expect(mocks.runPaidOrderSideEffects).not.toHaveBeenCalled();
+    expect(mocks.notifyPaymentReceived).not.toHaveBeenCalled();
   });
 
   it('returns order_fetch_failed and persists retry markers so the cron drain can find the order', async () => {

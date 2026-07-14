@@ -23,6 +23,9 @@ export type FinalizeOrderGatewayPaymentOutcome =
       status: number;
     }
   | { kind: 'inventory_cleanup_failed' }
+  // Payment must not reopen the order, but its ops review could not be
+  // filed: callers fail closed so it is retried, never retired silently.
+  | { kind: 'review_failed' }
   | { kind: 'completed'; healed: boolean; orderNumber: string | null };
 
 export interface FinalizeOrderGatewayPaymentTransaction {
@@ -97,13 +100,21 @@ export async function finalizeOrderGatewayPayment({
   // Push has no claim-gating: it fires for the caller that transitioned the
   // order, or when the outbox holds only pre-push evidence (untouched seed /
   // fetch-failure markers) proving push was never scheduled.
+  // The outbox seed carries the id of the transaction that PAID the order.
+  // If this transaction is not that payer, its capture landed on an order
+  // already paid elsewhere and owes settlement only.
   const outboxState =
     completion.order_updated || wonTransactionFlip
       ? null
       : await getOrderOutboxState(supabase, orderId);
+  const capturedOnAlreadyPaidOrder =
+    Boolean(completion.order_already_paid) &&
+    !completion.order_updated &&
+    outboxState?.payerTransactionId !== transaction.id;
+
   const shouldNotify =
     Boolean(completion.order_updated) ||
-    Boolean(outboxState?.onlyUntouchedSeed);
+    (!capturedOnAlreadyPaidOrder && Boolean(outboxState?.onlyUntouchedSeed));
 
   const { data: order, error: orderFetchError } = await supabase
     .from('orders')
@@ -176,37 +187,6 @@ export async function finalizeOrderGatewayPayment({
   // earlier call too: a fresh capture (verify flipping a pending transaction
   // for an order that was already paid manually/concurrently) must still
   // drain, or the captured gateway funds would never settle.
-  // This call captured the funds: it flipped the transaction inside the RPC,
-  // or (webhook first delivery) in the outer CAS just before it.
-  const freshCapture = wonTransactionFlip || !completion.already_completed;
-  const isPureReplay =
-    !freshCapture &&
-    Boolean(completion.order_already_paid) &&
-    !completion.order_updated;
-  if (isPureReplay && outboxState !== null && !outboxState.hasRows) {
-    // Exact legacy marker: the atomic RPC seeds an outbox row in the same
-    // transaction as every order flip, so an EMPTY outbox can only mean the
-    // order was completed by the pre-outbox inline path — its email and
-    // settlement already went out, and draining would duplicate them.
-    logger.info({
-      message:
-        'Skipping side-effect drain for pure replay with no outbox history',
-      orderId,
-      reference,
-    });
-    return {
-      healed,
-      kind: 'completed',
-      orderNumber: completion.order_number ?? null,
-    };
-  }
-
-  // A fresh capture on an already-paid order owes ONLY settlement: the
-  // customer was already confirmed for the payment that flipped the order.
-  const settlementOnly =
-    freshCapture &&
-    Boolean(completion.order_already_paid) &&
-    !completion.order_updated;
 
   // Fresh pre-push evidence means the transitioning caller may still be
   // running: draining now would consume it and suppress push forever.
@@ -242,7 +222,7 @@ export async function finalizeOrderGatewayPayment({
   };
 
   try {
-    if (settlementOnly) {
+    if (capturedOnAlreadyPaidOrder) {
       // Bypass the outbox: it is keyed on (order_id, step), so the earlier
       // payment's completed merchant_settlement row would make this claim
       // lose and these captured funds would never settle. The settlement RPC
@@ -271,12 +251,16 @@ export async function finalizeOrderGatewayPayment({
       skippedSteps: sideEffectsResult.skippedSteps,
     });
   } catch (sideEffectError) {
-    // Mirror of the webhook's historical semantics: persist a retry marker;
-    // only rethrow when even that persistence fails.
+    // Persist a retry marker for the cron drain. A capture that only owed
+    // settlement marks ONLY that step: replaying the paid email / ad
+    // tracking would duplicate them for an already-confirmed order.
     await persistPaidOrderSideEffectRetry({
       error: sideEffectError,
       orderId: richOrder.id,
       reference,
+      ...(capturedOnAlreadyPaidOrder
+        ? { steps: ['merchant_settlement' as const] }
+        : {}),
       supabase,
       transaction: { id: transaction.id },
     });

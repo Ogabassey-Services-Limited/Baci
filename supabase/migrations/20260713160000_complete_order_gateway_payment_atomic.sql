@@ -124,16 +124,14 @@ BEGIN
     v_order_updated := true;
   END IF;
 
-  -- Seed the paid-order outbox in the SAME transaction whenever this call
-  -- transitions state: the order flip, or a FRESH transaction capture on an
-  -- order that was already paid through another channel (the captured funds
-  -- still owe a settlement drain). Every completion through this RPC
-  -- therefore has outbox history, making "empty outbox" an exact marker for
-  -- legacy (pre-outbox inline) completions, and letting the reconcile
-  -- cron's failed-row drain pick up a caller that crashes before its first
-  -- claim. The claim RPC takes over 'failed' rows, so the normal in-request
-  -- side-effect run immediately supersedes this seed.
-  IF v_order_updated OR NOT v_already_completed THEN
+  -- Seed the paid-order outbox in the SAME transaction as the ORDER FLIP.
+  -- The seed carries this transaction id, which is what tells a later replay
+  -- that THIS transaction is the one that paid the order (and therefore owes
+  -- the full side-effect set), and it lets the reconcile cron's failed-row
+  -- drain pick up a payer that crashes before its first claim. Captures that
+  -- land on an order already paid elsewhere are deliberately NOT seeded: they
+  -- settle directly, outside this order-scoped outbox.
+  IF v_order_updated THEN
     INSERT INTO public.payment_side_effects (
       order_id, transaction_id, step, status, claimed_by, error, result
     ) VALUES (

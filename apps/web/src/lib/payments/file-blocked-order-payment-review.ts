@@ -4,7 +4,12 @@ import type { OrderGatewayPaymentCompletion } from '@/schemas/order-gateway-paym
 
 export type BlockedOrderPaymentOutcome =
   | { kind: 'order_cancelled'; orderNumber: string | null }
-  | { kind: 'order_skipped'; paymentStatus: string | null };
+  | { kind: 'order_skipped'; paymentStatus: string | null }
+  // The captured payment must not reopen the order, but its ops review row
+  // could not be filed. Callers must NOT treat this as terminal: webhooks
+  // fail closed so the gateway redelivers, and the cron leaves the payment
+  // in the batch instead of retiring it with no trail.
+  | { kind: 'review_failed' };
 
 // Files the durable reconciliation_review row for a gateway payment that
 // landed on an order the finalizer refuses to flip (cancelled or refunded).
@@ -25,7 +30,7 @@ export async function fileBlockedOrderPaymentReview({
   transactionId: string;
 }): Promise<BlockedOrderPaymentOutcome | null> {
   if (completion.order_cancelled) {
-    await handlePaymentForCancelledOrder({
+    const filed = await handlePaymentForCancelledOrder({
       gatewayReference: transactionGatewayReference ?? reference,
       order: {
         cancelled_at: completion.cancelled_at ?? null,
@@ -35,6 +40,9 @@ export async function fileBlockedOrderPaymentReview({
       reason: `Gateway ${gateway} payment captured for an order cancelled before finalization`,
       transactionId,
     });
+    if (!filed) {
+      return { kind: 'review_failed' };
+    }
     return {
       kind: 'order_cancelled',
       orderNumber: completion.order_number ?? null,
@@ -52,13 +60,16 @@ export async function fileBlockedOrderPaymentReview({
     // Durable audit trail, mirroring the cancelled branch: money was captured
     // for an order we refuse to resurrect, so ops must see it in
     // reconciliation_review, not only in logs.
-    await handlePaymentForCancelledOrder({
+    const filed = await handlePaymentForCancelledOrder({
       gatewayReference: transactionGatewayReference ?? reference,
       issueType: 'payment_received_after_refund',
       order: { id: orderId },
       reason: `Gateway ${gateway} payment captured for an order already ${completion.order_skipped_status}`,
       transactionId,
     });
+    if (!filed) {
+      return { kind: 'review_failed' };
+    }
     return {
       kind: 'order_skipped',
       paymentStatus: completion.order_skipped_status,

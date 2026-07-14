@@ -101,7 +101,7 @@ function createMockSupabaseClient() {
         // .select().eq().limit(); default to "outbox history exists" so
         // replay tests keep exercising the drain path.
         limit: vi.fn().mockResolvedValue({
-          data: [{ order_id: 'order-123' }],
+          data: [{ order_id: 'order-123', transaction_id: 'txn-123' }],
           error: null,
         }),
       };
@@ -3175,7 +3175,7 @@ describe('POST /api/payments/webhook', () => {
           eq: vi.fn().mockReturnThis(),
           single: vi.fn().mockResolvedValue({ data: null, error: null }),
           limit: vi.fn().mockResolvedValue({
-            data: [{ order_id: 'order-123' }],
+            data: [{ order_id: 'order-123', transaction_id: 'txn-123' }],
             error: null,
           }),
         } as any;
@@ -3338,7 +3338,7 @@ describe('POST /api/payments/webhook', () => {
           eq: vi.fn().mockReturnThis(),
           single: vi.fn().mockResolvedValue({ data: null, error: null }),
           limit: vi.fn().mockResolvedValue({
-            data: [{ order_id: 'order-123' }],
+            data: [{ order_id: 'order-123', transaction_id: 'txn-123' }],
             error: null,
           }),
         } as any;
@@ -3494,7 +3494,7 @@ describe('POST /api/payments/webhook', () => {
           eq: vi.fn().mockReturnThis(),
           single: vi.fn().mockResolvedValue({ data: null, error: null }),
           limit: vi.fn().mockResolvedValue({
-            data: [{ order_id: 'order-123' }],
+            data: [{ order_id: 'order-123', transaction_id: 'txn-123' }],
             error: null,
           }),
         } as any;

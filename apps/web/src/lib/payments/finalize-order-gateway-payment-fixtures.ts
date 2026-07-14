@@ -52,8 +52,13 @@ export function buildSupabase(
   // The pure-replay guard checks payment_side_effects via
   // .select().eq().limit(); default to existing outbox history so replay
   // tests exercise the drain path.
+  // Rows carry the PAYER transaction id: the finalizer uses it to tell a
+  // replay of the paying transaction from a capture that landed on an order
+  // already paid elsewhere.
   const limit = vi.fn().mockResolvedValue({
-    data: options.outboxRows ?? [{ order_id: 'order-1' }],
+    data: options.outboxRows ?? [
+      { order_id: 'order-1', transaction_id: 'txn-1' },
+    ],
     error: null,
   });
   const eq = vi.fn().mockReturnValue({ limit, single });

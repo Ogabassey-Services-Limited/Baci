@@ -2720,6 +2720,20 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      if (finalizeOutcome.kind === 'review_failed') {
+        // Captured money that must not reopen the order, with no ops trail:
+        // fail closed so the gateway redelivers and the review is retried.
+        logger.error({
+          message: 'Failed to file the reconciliation review for a payment',
+          orderId: transaction.order_id,
+          reference,
+        });
+        return NextResponse.json(
+          { error: 'Payment reconciliation review unavailable' },
+          { status: 500 }
+        );
+      }
+
       if (finalizeOutcome.kind === 'order_fetch_failed') {
         logger.error({
           message: 'Paid order fetch failed after atomic completion',

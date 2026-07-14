@@ -20,6 +20,11 @@ export interface OrderOutboxState {
   // caller may still be running. Draining now would consume the evidence
   // and suppress push forever — callers defer instead.
   onlyFreshPrePushEvidence: boolean;
+  // The transaction that PAID the order: the RPC seeds the outbox with it
+  // inside the order flip, and every side-effect claim carries it. A caller
+  // whose transaction differs captured funds on an order paid elsewhere.
+  // Null for legacy (pre-outbox) completions, which have no rows at all.
+  payerTransactionId: string | null;
 }
 
 export async function getOrderOutboxState(
@@ -28,7 +33,7 @@ export async function getOrderOutboxState(
 ): Promise<OrderOutboxState> {
   const { data, error } = await supabase
     .from('payment_side_effects')
-    .select('step, status, error, claimed_at, result')
+    .select('step, status, error, claimed_at, result, transaction_id')
     .eq('order_id', orderId)
     .limit(10);
   if (error) {
@@ -38,6 +43,7 @@ export async function getOrderOutboxState(
       hasRows: true,
       onlyFreshPrePushEvidence: false,
       onlyUntouchedSeed: false,
+      payerTransactionId: null,
     };
   }
   const rows = data ?? [];
@@ -67,9 +73,13 @@ export async function getOrderOutboxState(
         typeof row.claimed_at !== 'string' ||
         new Date(row.claimed_at).getTime() < seedCutoff
     );
+  const payerRow = rows.find(
+    (row) => typeof row.transaction_id === 'string' && row.transaction_id
+  );
   return {
     hasRows,
     onlyFreshPrePushEvidence: allPrePushEvidence && !allAged,
     onlyUntouchedSeed: allAged,
+    payerTransactionId: (payerRow?.transaction_id as string | null) ?? null,
   };
 }

@@ -104,13 +104,14 @@ describe('complete_order_gateway_payment migration', () => {
     );
   });
 
-  it('seeds a drainable outbox row on every state transition', () => {
+  it('seeds a drainable outbox row for the order flip only', () => {
     expect(migrationSql).toContain('INSERT INTO public.payment_side_effects');
     expect(migrationSql).toContain("'rpc_seed_pending_drain'");
     expect(migrationSql).toContain('ON CONFLICT (order_id, step) DO NOTHING');
-    // The seed fires for the order flip AND for a fresh transaction capture
-    // on an already-paid order (that money still owes a settlement drain).
-    expect(migrationSql).toContain(
+    // Captures on an already-paid order settle directly, outside this
+    // order-scoped outbox, so they must NOT leave a seed behind.
+    expect(migrationSql).toContain('IF v_order_updated THEN');
+    expect(migrationSql).not.toContain(
       'IF v_order_updated OR NOT v_already_completed THEN'
     );
     const flip = migrationSql.indexOf("SET payment_status = 'paid'");

@@ -8,6 +8,20 @@ export function isHealableGateway(gateway: string): gateway is HealableGateway {
   return (HEALABLE_GATEWAYS as readonly string[]).includes(gateway);
 }
 
+// Gateway client failures that can never succeed on a retry: a malformed or
+// unknown reference. Everything else (network, 5xx, config) is transient.
+const DEFINITIVE_FAILURE_CODES = new Set([
+  'VALIDATION_ERROR',
+  'NOT_FOUND',
+  'TRANSACTION_NOT_FOUND',
+]);
+
+function classifyFailure(code: string | undefined, gateway: string) {
+  return code && DEFINITIVE_FAILURE_CODES.has(code)
+    ? { ok: false as const, reason: 'gateway_reference_invalid' }
+    : { ok: false as const, reason: `${gateway}_verification_unavailable` };
+}
+
 export type GatewayChargeVerification =
   | {
       ok: true;
@@ -28,8 +42,7 @@ export async function verifyGatewayCharge(
   if (gateway === 'paystack') {
     const result = await verifyPaystackPayment(reference);
     if (!result.success) {
-      // API/network failure: transient — retry next run, never stamp.
-      return { ok: false, reason: 'paystack_verification_unavailable' };
+      return classifyFailure(result.code, 'paystack');
     }
     if (result.data.status !== 'success') {
       // Definitive gateway verdict on a transaction we recorded as
@@ -50,7 +63,7 @@ export async function verifyGatewayCharge(
   if (gateway === 'korapay') {
     const result = await verifyKorapayPayment(reference);
     if (!result.success) {
-      return { ok: false, reason: 'korapay_verification_unavailable' };
+      return classifyFailure(result.code, 'korapay');
     }
     if (result.data.status !== 'success') {
       return {

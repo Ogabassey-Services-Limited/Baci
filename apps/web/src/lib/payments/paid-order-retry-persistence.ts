@@ -44,6 +44,7 @@ export async function persistPaidOrderSideEffectRetry({
   orderId,
   reason = WEBHOOK_SIDE_EFFECT_FAILURE_REASON,
   reference,
+  steps = PAID_ORDER_RETRY_STEPS,
   supabase,
   transaction,
 }: {
@@ -51,6 +52,9 @@ export async function persistPaidOrderSideEffectRetry({
   orderId: string;
   reason?: string;
   reference: string;
+  // Subset for a capture that only owed settlement — replaying the customer
+  // email / ad tracking for an order already confirmed would duplicate them.
+  steps?: readonly (typeof PAID_ORDER_RETRY_STEPS)[number][];
   supabase: SupabaseClient;
   transaction: { id: string };
 }) {
@@ -60,7 +64,7 @@ export async function persistPaidOrderSideEffectRetry({
   const { error: retryError } = await supabase
     .from('payment_side_effects')
     .upsert(
-      PAID_ORDER_RETRY_STEPS.map((step) => ({
+      steps.map((step) => ({
         claimed_by: `webhook:${parsed.reference}`,
         error: message,
         order_id: parsed.orderId,

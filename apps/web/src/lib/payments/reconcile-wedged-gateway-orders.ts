@@ -144,6 +144,14 @@ export async function reconcileWedgedGatewayOrders({
             resolution: 'gateway_verification_negative',
             supabase,
           });
+        } else if (verification.reason === 'gateway_reference_invalid') {
+          // The gateway rejects the reference outright — no retry can fix it.
+          await retireWedgeWithReview({
+            candidate,
+            reason: `Wedge sweep: ${candidate.gateway} rejects reference ${candidate.gateway_reference} as invalid/unknown although our transaction is completed`,
+            resolution: 'gateway_reference_invalid',
+            supabase,
+          });
         }
         // Transient verification failures stay unstamped and retry next run.
         continue;
