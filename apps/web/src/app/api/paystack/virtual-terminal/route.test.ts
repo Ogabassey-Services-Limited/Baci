@@ -151,6 +151,30 @@ describe('POST /api/paystack/virtual-terminal', () => {
     expect(res.status).toBe(400);
   });
 
+  it('rejects a cross-merchant staff assignment before creating a Paystack terminal', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u-1' } } });
+    const assignmentChain: Record<string, unknown> = {};
+    assignmentChain.select = vi.fn().mockReturnValue(assignmentChain);
+    assignmentChain.eq = vi.fn().mockReturnValue(assignmentChain);
+    assignmentChain.maybeSingle = vi
+      .fn()
+      .mockResolvedValue({ data: null, error: null });
+    mockFrom.mockReturnValue(assignmentChain);
+
+    const res = await POST(
+      createPostRequest({
+        name: 'Sales Terminal',
+        staffId: '11111111-1111-4111-8111-111111111111',
+      })
+    );
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({
+      error: 'Staff member does not belong to this merchant',
+    });
+    expect(createVirtualTerminal).not.toHaveBeenCalled();
+  });
+
   it('creates terminal successfully', async () => {
     mockGetUser.mockResolvedValue({
       data: { user: { id: 'u-1' } },

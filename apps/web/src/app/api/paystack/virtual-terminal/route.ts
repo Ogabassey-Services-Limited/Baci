@@ -1,10 +1,3 @@
-/**
- * Virtual Terminal API Routes
- *
- * Manages Paystack Virtual Terminals for WhatsApp payment notifications.
- * Supports multiple terminals per merchant for staff/branch tracking.
- */
-
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
@@ -18,10 +11,7 @@ import { logger } from '@/lib/logger';
 import { createVirtualTerminal } from '@/lib/paystack';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-
-// =============================================================================
-// Validation Schemas
-// =============================================================================
+import { validateTerminalAssignments } from './validate-terminal-assignments';
 
 const CreateTerminalSchema = z.object({
   name: z.string().min(2, 'Account name must be at least 2 characters'),
@@ -103,6 +93,19 @@ export async function POST(request: NextRequest) {
 
     const { name, staffId, branchId, destinations } = parseResult.data;
 
+    const adminSupabase = createAdminClient();
+    const assignmentValidation = await validateTerminalAssignments(
+      adminSupabase,
+      merchantId,
+      { branchId, staffId }
+    );
+    if (assignmentValidation.error) {
+      return NextResponse.json(
+        { error: assignmentValidation.error },
+        { status: assignmentValidation.status }
+      );
+    }
+
     // Create terminal via Paystack API
     const result = await createVirtualTerminal(
       name || `${businessName} Account`,
@@ -119,7 +122,6 @@ export async function POST(request: NextRequest) {
     );
 
     // Save terminal to virtual_terminals table
-    const adminSupabase = createAdminClient();
     const { data: savedTerminal, error: insertError } = await adminSupabase
       .from('virtual_terminals')
       .insert({
