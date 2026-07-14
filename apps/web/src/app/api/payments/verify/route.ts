@@ -259,10 +259,16 @@ async function verifyPaymentReference(reference: string) {
 
   if (
     finalizeOutcome.kind === 'completion_failed' ||
-    finalizeOutcome.kind === 'order_fetch_failed'
+    finalizeOutcome.kind === 'order_fetch_failed' ||
+    // Captured money that must not reopen the order, with no ops trail:
+    // fail closed so the caller retries rather than reporting success.
+    finalizeOutcome.kind === 'review_failed'
   ) {
     logger.error({
-      error: finalizeOutcome.error,
+      error:
+        'error' in finalizeOutcome
+          ? finalizeOutcome.error
+          : finalizeOutcome.kind,
       message: 'Payment verify route failed to finalize order payment',
       orderId: transaction.order_id,
       outcome: finalizeOutcome.kind,
