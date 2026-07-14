@@ -18,6 +18,7 @@ vi.mock('@/lib/supabase/admin', () => ({
 import { claimWalletCreditPush } from './claim-wallet-credit-push';
 
 const input = {
+  claimToken: 'claim-token-1',
   reference: 'WAL-123',
   transactionId: 'transaction-1',
 };
@@ -33,7 +34,8 @@ describe('claimWalletCreditPush', () => {
     await expect(claimWalletCreditPush(input)).resolves.toEqual({
       status: 'claimed',
     });
-    expect(mockRpc).toHaveBeenCalledWith('claim_wallet_credit_push', {
+    expect(mockRpc).toHaveBeenCalledWith('claim_wallet_credit_push_v2', {
+      p_claim_token: 'claim-token-1',
       p_transaction_id: 'transaction-1',
     });
   });

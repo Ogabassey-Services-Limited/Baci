@@ -12671,6 +12671,14 @@ export type Database = {
         Args: { p_transaction_id: string };
         Returns: boolean;
       };
+      claim_wallet_credit_push_v2: {
+        Args: { p_claim_token: string; p_transaction_id: string };
+        Returns: boolean;
+      };
+      release_wallet_credit_push: {
+        Args: { p_claim_token: string; p_transaction_id: string };
+        Returns: boolean;
+      };
       can_access_order: {
         Args: { p_customer_id: string; p_merchant_id: string };
         Returns: boolean;

@@ -190,9 +190,16 @@ const mockReconciliationInsert = vi.hoisted(() =>
 const mockClaimWalletCreditPush = vi.hoisted(() =>
   vi.fn().mockResolvedValue({ status: 'claimed' })
 );
+const mockReleaseWalletCreditPush = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({ status: 'released' })
+);
 vi.mock('@/lib/payments/claim-wallet-credit-push', () => ({
   claimWalletCreditPush: (...args: unknown[]) =>
     mockClaimWalletCreditPush(...args),
+}));
+vi.mock('@/lib/payments/release-wallet-credit-push', () => ({
+  releaseWalletCreditPush: (...args: unknown[]) =>
+    mockReleaseWalletCreditPush(...args),
 }));
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: vi.fn(() => ({
@@ -476,7 +483,7 @@ describe('POST /api/payments/webhook', () => {
       reference: 'REF123',
       transactionId: 'wallet-credit-1',
     });
-    mockNotifyWalletCredited.mockResolvedValue(undefined);
+    mockNotifyWalletCredited.mockResolvedValue({ status: 'sent' });
     mockHandlePaystackSavingsWebhookTransaction.mockResolvedValue(null);
     mockGetPaystackDvaReceiverAccountNumber.mockReturnValue(null);
     mockMarkAgenticPaystackDvaSessionPaid.mockResolvedValue({
@@ -4074,6 +4081,9 @@ describe('POST /api/payments/webhook', () => {
         firstCredit: false,
         reference: 'REF123',
         transactionId: 'wallet-credit-1',
+      });
+      mockClaimWalletCreditPush.mockResolvedValueOnce({
+        status: 'already_claimed',
       });
       const request = await buildWalletTopUpWebhookRequest();
 

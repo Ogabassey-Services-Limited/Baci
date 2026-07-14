@@ -1,15 +1,16 @@
+import { randomUUID } from 'node:crypto';
 import { sanitizeResumableWalletReturnTo } from '@baci/shared/lib';
 import { logger } from '@/lib/logger';
-import { claimWalletCreditPush } from '@/lib/payments/claim-wallet-credit-push';
 import { notifyWalletCredited } from '@/lib/payments/notify-wallet-credited';
 import type { ScheduleAfter } from '@/lib/payments/paid-order-side-effect-types';
+import { runClaimedWalletCreditPush } from '@/lib/payments/run-claimed-wallet-credit-push';
 
 interface ScheduleWalletTopUpCreditNotificationArgs {
   /** Amount credited to the wallet by `creditWalletTopUp`. */
   amount: number;
   currency?: string;
   customerId: string;
-  /** `creditWalletTopUp().firstCredit` — the notification's idempotency key. */
+  /** Whether this caller took the first ledger credit; retained for caller parity. */
   firstCredit: boolean;
   /** Scopes push delivery to this merchant's storefront tokens. */
   merchantId: string;
@@ -41,17 +42,12 @@ export function scheduleWalletTopUpCreditNotification({
   amount,
   currency,
   customerId,
-  firstCredit,
   merchantId,
   metadata,
   reference,
   scheduleAfter,
   transactionId,
 }: ScheduleWalletTopUpCreditNotificationArgs): void {
-  if (!firstCredit) {
-    return;
-  }
-
   if (!(Number.isFinite(amount) && amount > 0)) {
     return;
   }
@@ -62,6 +58,7 @@ export function scheduleWalletTopUpCreditNotification({
   const returnTo =
     sanitizeResumableWalletReturnTo(metadata.returnTo) ??
     sanitizeResumableWalletReturnTo(metadata.return_to);
+  const claimToken = randomUUID();
 
   const logFailure = (error: unknown) => {
     logger.warn({
@@ -73,36 +70,20 @@ export function scheduleWalletTopUpCreditNotification({
 
   try {
     scheduleAfter(async () => {
-      try {
-        let claim = await claimWalletCreditPush({
-          reference,
-          transactionId,
-        });
-        if (claim.status === 'error') {
-          claim = await claimWalletCreditPush({ reference, transactionId });
-        }
-        if (claim.status === 'error') {
-          logFailure(
-            new Error(
-              `Wallet-credit push claim failed after retry: ${claim.error}`
-            )
-          );
-          return;
-        }
-        if (claim.status === 'already_claimed') {
-          return;
-        }
-
-        await notifyWalletCredited({
-          amount,
-          currency,
-          customerId,
-          merchantId,
-          returnTo,
-        });
-      } catch (error: unknown) {
-        logFailure(error);
-      }
+      await runClaimedWalletCreditPush({
+        claimToken,
+        notify: () =>
+          notifyWalletCredited({
+            amount,
+            currency,
+            customerId,
+            merchantId,
+            returnTo,
+          }),
+        onFailure: logFailure,
+        reference,
+        transactionId,
+      });
     });
   } catch (error: unknown) {
     logFailure(error);

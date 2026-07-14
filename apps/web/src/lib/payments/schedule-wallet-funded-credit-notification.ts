@@ -1,7 +1,8 @@
+import { randomUUID } from 'node:crypto';
 import { logger } from '@/lib/logger';
-import { claimWalletCreditPush } from '@/lib/payments/claim-wallet-credit-push';
 import { notifyWalletCredited } from '@/lib/payments/notify-wallet-credited';
 import type { ScheduleAfter } from '@/lib/payments/paid-order-side-effect-types';
+import { runClaimedWalletCreditPush } from '@/lib/payments/run-claimed-wallet-credit-push';
 
 interface ScheduleWalletFundedCreditNotificationArgs {
   /** Amount actually credited to the wallet by finalize_wallet_funded_order. */
@@ -43,43 +44,26 @@ export function scheduleWalletFundedCreditNotification({
     // Atomic post-finalizer claim: concurrent webhooks can both enter the RPC
     // before either sees the intent's updated last-reference fields. Only the
     // UPDATE that still sees no marker may schedule this transfer's push.
-    try {
-      let claim = await claimWalletCreditPush({
-        reference: gatewayReference,
-        transactionId,
-      });
-      if (claim.status === 'error') {
-        claim = await claimWalletCreditPush({
-          reference: gatewayReference,
-          transactionId,
-        });
-      }
-      if (claim.status === 'error') {
+    await runClaimedWalletCreditPush({
+      claimToken: randomUUID(),
+      notify: () =>
+        notifyWalletCredited({
+          amount: fundedAmount,
+          currency,
+          customerId,
+          merchantId,
+          returnTo: `/orders/${orderId}`,
+        }),
+      onFailure: (error) => {
         logger.warn({
-          error: claim.error,
+          error: error instanceof Error ? error.message : error,
           gatewayReference,
-          message: 'Wallet-funded credit push claim failed after retry',
+          message: 'Wallet-funded order credit push notification failed',
         });
-        return;
-      }
-      if (claim.status === 'already_claimed') {
-        return;
-      }
-
-      await notifyWalletCredited({
-        amount: fundedAmount,
-        currency,
-        customerId,
-        merchantId,
-        returnTo: `/orders/${orderId}`,
-      });
-    } catch (error) {
-      logger.warn({
-        error: error instanceof Error ? error.message : error,
-        gatewayReference,
-        message: 'Wallet-funded order credit push notification failed',
-      });
-    }
+      },
+      reference: gatewayReference,
+      transactionId,
+    });
   };
 
   try {

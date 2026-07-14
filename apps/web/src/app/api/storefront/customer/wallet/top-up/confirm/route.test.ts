@@ -9,6 +9,9 @@ const mockNotifyWalletCredited = vi.fn();
 const mockClaimWalletCreditPush = vi.hoisted(() =>
   vi.fn().mockResolvedValue({ status: 'claimed' })
 );
+const mockReleaseWalletCreditPush = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({ status: 'released' })
+);
 const mockFrom = vi.fn();
 
 // `after` runs the scheduled push immediately here so the assertions can see it;
@@ -32,6 +35,11 @@ vi.mock('@/lib/payments/notify-wallet-credited', () => ({
 vi.mock('@/lib/payments/claim-wallet-credit-push', () => ({
   claimWalletCreditPush: (...args: unknown[]) =>
     mockClaimWalletCreditPush(...args),
+}));
+
+vi.mock('@/lib/payments/release-wallet-credit-push', () => ({
+  releaseWalletCreditPush: (...args: unknown[]) =>
+    mockReleaseWalletCreditPush(...args),
 }));
 
 vi.mock('@/lib/api-auth', () => ({
@@ -119,7 +127,7 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
       reference: 'WAL-123',
       transactionId: 'wallet-tx-1',
     });
-    mockNotifyWalletCredited.mockResolvedValue(undefined);
+    mockNotifyWalletCredited.mockResolvedValue({ status: 'sent' });
     mockFrom.mockImplementation((table: string) => {
       if (table === 'merchants') {
         return {
@@ -772,6 +780,9 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
         firstCredit: false,
         reference: 'WAL-123',
         transactionId: 'wallet-tx-1',
+      });
+      mockClaimWalletCreditPush.mockResolvedValueOnce({
+        status: 'already_claimed',
       });
 
       const response = await confirmRequest();

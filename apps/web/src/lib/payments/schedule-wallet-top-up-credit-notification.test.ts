@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockNotifyWalletCredited = vi.fn();
 const mockWarn = vi.fn();
 const mockClaimWalletCreditPush = vi.fn();
+const mockReleaseWalletCreditPush = vi.fn();
 
 vi.mock('@/lib/payments/notify-wallet-credited', () => ({
   notifyWalletCredited: (...args: unknown[]) =>
@@ -20,6 +21,11 @@ vi.mock('@/lib/logger', () => ({
 vi.mock('@/lib/payments/claim-wallet-credit-push', () => ({
   claimWalletCreditPush: (...args: unknown[]) =>
     mockClaimWalletCreditPush(...args),
+}));
+
+vi.mock('@/lib/payments/release-wallet-credit-push', () => ({
+  releaseWalletCreditPush: (...args: unknown[]) =>
+    mockReleaseWalletCreditPush(...args),
 }));
 
 import { scheduleWalletTopUpCreditNotification } from './schedule-wallet-top-up-credit-notification';
@@ -43,8 +49,9 @@ const baseArgs = {
 describe('scheduleWalletTopUpCreditNotification', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockNotifyWalletCredited.mockResolvedValue(undefined);
+    mockNotifyWalletCredited.mockResolvedValue({ status: 'sent' });
     mockClaimWalletCreditPush.mockResolvedValue({ status: 'claimed' });
+    mockReleaseWalletCreditPush.mockResolvedValue({ status: 'released' });
   });
 
   it('schedules a merchant-scoped push when the caller took the first credit', async () => {
@@ -70,8 +77,11 @@ describe('scheduleWalletTopUpCreditNotification', () => {
     });
   });
 
-  it('does not schedule anything when the credit was an idempotent replay', () => {
-    const { scheduleAfter } = makeScheduleAfter();
+  it('does not send when an idempotent replay finds a completed claim', async () => {
+    const { scheduleAfter, tasks } = makeScheduleAfter();
+    mockClaimWalletCreditPush.mockResolvedValueOnce({
+      status: 'already_claimed',
+    });
 
     scheduleWalletTopUpCreditNotification({
       ...baseArgs,
@@ -79,8 +89,9 @@ describe('scheduleWalletTopUpCreditNotification', () => {
       metadata: { return_to: '/checkout' },
       scheduleAfter,
     });
+    await Promise.all(tasks.map((task) => task()));
 
-    expect(scheduleAfter).not.toHaveBeenCalled();
+    expect(scheduleAfter).toHaveBeenCalledTimes(1);
     expect(mockNotifyWalletCredited).not.toHaveBeenCalled();
   });
 
@@ -194,6 +205,89 @@ describe('scheduleWalletTopUpCreditNotification', () => {
     ).resolves.toBeDefined();
     expect(mockWarn).toHaveBeenCalledWith(
       expect.objectContaining({ error: 'expo down', reference: 'WAL-123' })
+    );
+  });
+
+  it('releases a failed delivery claim so an idempotent replay can retry', async () => {
+    const first = makeScheduleAfter();
+    mockNotifyWalletCredited
+      .mockResolvedValueOnce({ status: 'retryable_error' })
+      .mockResolvedValueOnce({ status: 'sent' });
+
+    scheduleWalletTopUpCreditNotification({
+      ...baseArgs,
+      firstCredit: true,
+      metadata: {},
+      scheduleAfter: first.scheduleAfter,
+    });
+    await Promise.all(first.tasks.map((task) => task()));
+
+    expect(mockReleaseWalletCreditPush).toHaveBeenCalledWith({
+      claimToken: expect.any(String),
+      reference: 'WAL-123',
+      transactionId: 'transaction-1',
+    });
+    expect(mockClaimWalletCreditPush.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        claimToken: mockReleaseWalletCreditPush.mock.calls[0]?.[0].claimToken,
+      })
+    );
+    expect(mockReleaseWalletCreditPush).toHaveBeenCalledTimes(1);
+
+    const replay = makeScheduleAfter();
+    scheduleWalletTopUpCreditNotification({
+      ...baseArgs,
+      firstCredit: false,
+      metadata: {},
+      scheduleAfter: replay.scheduleAfter,
+    });
+    await Promise.all(replay.tasks.map((task) => task()));
+
+    expect(mockNotifyWalletCredited).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries a transient claim-release error once', async () => {
+    const { scheduleAfter, tasks } = makeScheduleAfter();
+    mockNotifyWalletCredited.mockResolvedValueOnce({
+      status: 'retryable_error',
+    });
+    mockReleaseWalletCreditPush
+      .mockResolvedValueOnce({ error: 'connection reset', status: 'error' })
+      .mockResolvedValueOnce({ status: 'released' });
+
+    scheduleWalletTopUpCreditNotification({
+      ...baseArgs,
+      firstCredit: true,
+      metadata: {},
+      scheduleAfter,
+    });
+    await Promise.all(tasks.map((task) => task()));
+
+    expect(mockReleaseWalletCreditPush).toHaveBeenCalledTimes(2);
+    expect(mockWarn).not.toHaveBeenCalled();
+  });
+
+  it('logs a claim-release failure when notification delivery throws', async () => {
+    const { scheduleAfter, tasks } = makeScheduleAfter();
+    mockNotifyWalletCredited.mockRejectedValueOnce(new Error('sender crashed'));
+    mockReleaseWalletCreditPush.mockResolvedValue({
+      error: 'database unavailable',
+      status: 'error',
+    });
+
+    scheduleWalletTopUpCreditNotification({
+      ...baseArgs,
+      firstCredit: true,
+      metadata: {},
+      scheduleAfter,
+    });
+    await Promise.all(tasks.map((task) => task()));
+
+    expect(mockReleaseWalletCreditPush).toHaveBeenCalledTimes(2);
+    expect(mockWarn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.stringContaining('release failed after retry'),
+      })
     );
   });
 

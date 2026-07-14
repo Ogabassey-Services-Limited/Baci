@@ -1,12 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockNotifyWalletCredited = vi.fn<(...args: unknown[]) => Promise<void>>();
+const mockNotifyWalletCredited = vi.fn();
 const mockWarn = vi.fn();
 const mockClaimWalletCreditPush = vi.hoisted(() => vi.fn());
+const mockReleaseWalletCreditPush = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/payments/claim-wallet-credit-push', () => ({
   claimWalletCreditPush: (...args: unknown[]) =>
     mockClaimWalletCreditPush(...args),
+}));
+
+vi.mock('@/lib/payments/release-wallet-credit-push', () => ({
+  releaseWalletCreditPush: (...args: unknown[]) =>
+    mockReleaseWalletCreditPush(...args),
 }));
 
 vi.mock('@/lib/payments/notify-wallet-credited', () => ({
@@ -36,8 +42,9 @@ const baseArgs = {
 describe('scheduleWalletFundedCreditNotification', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockNotifyWalletCredited.mockResolvedValue(undefined);
+    mockNotifyWalletCredited.mockResolvedValue({ status: 'sent' });
     mockClaimWalletCreditPush.mockResolvedValue({ status: 'claimed' });
+    mockReleaseWalletCreditPush.mockResolvedValue({ status: 'released' });
   });
 
   it('schedules a merchant-scoped wallet credit push for the funded amount', async () => {

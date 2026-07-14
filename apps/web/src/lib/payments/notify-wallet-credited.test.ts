@@ -53,7 +53,7 @@ describe('notifyWalletCredited', () => {
       error: null,
     });
 
-    await notifyWalletCredited({
+    const result = await notifyWalletCredited({
       amount: 5000,
       currency: 'NGN',
       customerId: 'customer-1',
@@ -70,6 +70,7 @@ describe('notifyWalletCredited', () => {
     );
     expect(chain.eq).toHaveBeenCalledWith('id', 'customer-1');
     expect(chain.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
+    expect(result).toEqual({ status: 'sent' });
   });
 
   it('forwards a returnTo when provided so taps resume the interrupted purchase', async () => {
@@ -104,7 +105,7 @@ describe('notifyWalletCredited', () => {
   it('is a no-op when the wallet credit push flag is disabled', async () => {
     mockIsWalletCreditPushEnabled.mockReturnValue(false);
 
-    await notifyWalletCredited({
+    const result = await notifyWalletCredited({
       amount: 5000,
       customerId: 'customer-1',
       merchantId: 'merchant-1',
@@ -112,6 +113,7 @@ describe('notifyWalletCredited', () => {
 
     expect(mockCreateAdminClient).not.toHaveBeenCalled();
     expect(mockNotifyCustomer).not.toHaveBeenCalled();
+    expect(result).toEqual({ status: 'not_applicable' });
   });
 
   it('never pushes when the customer has no linked user_id (guest)', async () => {
@@ -147,13 +149,100 @@ describe('notifyWalletCredited', () => {
       error: { message: 'lookup failed' },
     });
 
-    await notifyWalletCredited({
+    const result = await notifyWalletCredited({
       amount: 5000,
       customerId: 'customer-1',
       merchantId: 'merchant-1',
     });
 
     expect(mockNotifyCustomer).not.toHaveBeenCalled();
+    expect(result).toEqual({ status: 'retryable_error' });
+  });
+
+  it('reports a failed recorded send as retryable', async () => {
+    setCustomerLookupResult({
+      data: { user_id: 'user-1' },
+      error: null,
+    });
+    mockNotifyCustomer.mockResolvedValue({
+      sent: 0,
+      failed: 1,
+      errors: ['expo unavailable'],
+    });
+
+    const result = await notifyWalletCredited({
+      amount: 5000,
+      customerId: 'customer-1',
+      merchantId: 'merchant-1',
+    });
+
+    expect(result).toEqual({ status: 'retryable_error' });
+  });
+
+  it('treats a failed ticket count as retryable even without error text', async () => {
+    setCustomerLookupResult({
+      data: { user_id: 'user-1' },
+      error: null,
+    });
+    mockNotifyCustomer.mockResolvedValue({ sent: 0, failed: 1, errors: [] });
+
+    const result = await notifyWalletCredited({
+      amount: 5000,
+      customerId: 'customer-1',
+      merchantId: 'merchant-1',
+    });
+
+    expect(result).toEqual({ status: 'retryable_error' });
+  });
+
+  it('retains a confirmed send when another token delivery fails', async () => {
+    setCustomerLookupResult({
+      data: { user_id: 'user-1' },
+      error: null,
+    });
+    mockNotifyCustomer.mockResolvedValue({ sent: 1, failed: 1, errors: [] });
+
+    const result = await notifyWalletCredited({
+      amount: 5000,
+      customerId: 'customer-1',
+      merchantId: 'merchant-1',
+    });
+
+    expect(result).toEqual({ status: 'sent' });
+  });
+
+  it('does not retry when there were no eligible push tokens', async () => {
+    setCustomerLookupResult({
+      data: { user_id: 'user-1' },
+      error: null,
+    });
+    mockNotifyCustomer.mockResolvedValue({ sent: 0, failed: 0, errors: [] });
+
+    const result = await notifyWalletCredited({
+      amount: 5000,
+      customerId: 'customer-1',
+      merchantId: 'merchant-1',
+    });
+
+    expect(result).toEqual({ status: 'not_applicable' });
+  });
+
+  it('does not retry when the sender throws after delivery may have started', async () => {
+    setCustomerLookupResult({
+      data: { user_id: 'user-1' },
+      error: null,
+    });
+    mockNotifyCustomer.mockRejectedValue(
+      new Error('ticket persistence unavailable')
+    );
+
+    const result = await notifyWalletCredited({
+      amount: 5000,
+      customerId: 'customer-1',
+      merchantId: 'merchant-1',
+    });
+
+    expect(result).toEqual({ status: 'delivery_unknown' });
   });
 
   it('swallows unexpected errors so the caller is never affected', async () => {
@@ -167,7 +256,7 @@ describe('notifyWalletCredited', () => {
         customerId: 'customer-1',
         merchantId: 'merchant-1',
       })
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({ status: 'retryable_error' });
     expect(mockNotifyCustomer).not.toHaveBeenCalled();
   });
 });

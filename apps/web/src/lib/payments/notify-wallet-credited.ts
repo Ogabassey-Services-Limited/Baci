@@ -15,6 +15,12 @@ interface NotifyWalletCreditedInput {
   returnTo?: string;
 }
 
+export type NotifyWalletCreditedResult =
+  | { status: 'delivery_unknown' }
+  | { status: 'not_applicable' }
+  | { status: 'retryable_error' }
+  | { status: 'sent' };
+
 /**
  * Push-notify a customer that their wallet was credited (async DVA funding).
  *
@@ -31,12 +37,13 @@ export async function notifyWalletCredited({
   customerId,
   merchantId,
   returnTo,
-}: NotifyWalletCreditedInput): Promise<void> {
+}: NotifyWalletCreditedInput): Promise<NotifyWalletCreditedResult> {
   if (!isWalletCreditPushEnabled()) {
-    return;
+    return { status: 'not_applicable' };
   }
 
   const resolvedCurrency = currency ?? DEFAULT_WALLET_CURRENCY;
+  let deliveryStarted = false;
 
   try {
     const supabase = createAdminClient();
@@ -53,7 +60,7 @@ export async function notifyWalletCredited({
         customerId,
         error: error.message,
       });
-      return;
+      return { status: 'retryable_error' };
     }
 
     const userId =
@@ -62,7 +69,7 @@ export async function notifyWalletCredited({
         : null;
     if (!userId) {
       // Guest or unlinked customer — no storefront account to notify.
-      return;
+      return { status: 'not_applicable' };
     }
 
     const formattedAmount = formatCurrency(amount, resolvedCurrency);
@@ -74,7 +81,8 @@ export async function notifyWalletCredited({
       returnTo,
     });
 
-    await notifyCustomer(
+    deliveryStarted = true;
+    const result = await notifyCustomer(
       userId,
       'Wallet funded',
       `${formattedAmount} was added to your wallet.`,
@@ -82,11 +90,29 @@ export async function notifyWalletCredited({
       'payments',
       { merchantId }
     );
+    if (result.sent > 0) {
+      if (result.failed > 0 || result.errors.length > 0) {
+        logger.error({
+          message: 'Wallet credit push partially failed',
+          customerId,
+          failed: result.failed,
+          errors: result.errors,
+        });
+      }
+      return { status: 'sent' };
+    }
+    if (result.failed > 0 || result.errors.length > 0) {
+      return { status: 'retryable_error' };
+    }
+    return { status: 'not_applicable' };
   } catch (error) {
     logger.error({
       message: 'Wallet credit push notification failed',
       customerId,
       error: error instanceof Error ? error.message : error,
     });
+    return deliveryStarted
+      ? { status: 'delivery_unknown' }
+      : { status: 'retryable_error' };
   }
 }

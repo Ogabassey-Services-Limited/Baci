@@ -165,6 +165,7 @@ export function createAccountActions(set: AuthStoreSet, get: AuthStoreGet) {
         set({
           customer: {
             id: updateValidation.data.id,
+            user_id: updateValidation.data.user_id,
             email: updateValidation.data.email,
             first_name: updateValidation.data.first_name ?? undefined,
             last_name: updateValidation.data.last_name ?? undefined,
