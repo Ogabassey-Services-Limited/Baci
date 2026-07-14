@@ -206,6 +206,9 @@ export async function confirmPaystackWalletDvaTopUp({
     throw error;
   }
 
+  // No telemetry here: this insert is only the PENDING transaction match. The
+  // wallet is actually credited later by `creditWalletTopUp`, which emits
+  // `wallet_funding_transfer_credited` on its fresh-credit path.
   return {
     kind: 'match',
     transaction: normalizeAgenticPaystackDvaTransaction(data),

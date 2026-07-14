@@ -5,6 +5,13 @@ import { Copy, Landmark, Loader2, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from '@/hooks/use-toast';
 import { fetchWithCsrf } from '@/lib/api-client';
+import { captureClientEvent } from '@/lib/posthog/capture-client-event';
+import {
+  WALLET_FUNDING_TELEMETRY,
+  type WalletFundingFailureReason,
+  type WalletFundingSurface,
+} from '@/lib/posthog/wallet-funding-events';
+import { resolveWalletFundingFailureReason } from '@/lib/posthog/wallet-funding-failure-reason';
 import { WALLET_FUNDING_COPY } from './wallet-funding-copy';
 
 interface WalletFundingPanelProps {
@@ -15,15 +22,23 @@ interface WalletFundingPanelProps {
    * that action IS the customer's consent.
    */
   autoCreate?: boolean;
+  /** Signed-in customer id, stamped on funnel events to join client/server legs. */
+  customerId?: string;
   merchantSlug: string | undefined;
   onAccountCreated: (account: StorefrontWalletFundingAccount) => void;
   onRefreshBalance?: () => void;
   requiresConsent: boolean;
+  /** Which surface rendered the panel — drives the `surface` funnel property. */
+  surface: WalletFundingSurface;
 }
 
 type CreateAccountResult =
   | { kind: 'created'; account: StorefrontWalletFundingAccount }
-  | { kind: 'error'; message: string };
+  | {
+      kind: 'error';
+      message: string;
+      reason: WalletFundingFailureReason;
+    };
 
 // Module-scope helper keeps async try/catch out of the component body so
 // React Compiler can memoize WalletFundingPanel.
@@ -40,12 +55,14 @@ const requestFundingAccount = async (
     );
     const data = await response.json();
     if (!response.ok || !data.account) {
+      const reason = resolveWalletFundingFailureReason(data.code);
       // The customer's Paystack NUBAN is inside an active order-payment
       // reservation window (max ~90 min) — actionable, not a hard failure.
       if (data.code === 'WALLET_DVA_ORDER_ALIAS_CONFLICT') {
         return {
           kind: 'error',
           message: WALLET_FUNDING_COPY.orderPaymentInProgress,
+          reason,
         };
       }
       return {
@@ -54,34 +71,78 @@ const requestFundingAccount = async (
           typeof data.error === 'string'
             ? data.error
             : WALLET_FUNDING_COPY.unavailable,
+        reason,
       };
     }
     return { kind: 'created', account: data.account };
   } catch {
-    return { kind: 'error', message: WALLET_FUNDING_COPY.unavailable };
+    return {
+      kind: 'error',
+      message: WALLET_FUNDING_COPY.unavailable,
+      reason: WALLET_FUNDING_TELEMETRY.reasons.network,
+    };
   }
 };
 
 export function WalletFundingPanel({
   account,
   autoCreate = false,
+  customerId,
   merchantSlug,
   onAccountCreated,
   onRefreshBalance,
   requiresConsent,
+  surface,
 }: WalletFundingPanelProps) {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [autoCreateAttempted, setAutoCreateAttempted] = useState(false);
+  const [surfaceReported, setSurfaceReported] = useState(false);
+
+  // Fire the funnel-entry event once, but only after the merchant context has
+  // resolved — firing on a pre-merchant mount would lose the attribution.
+  // Guarded by state (rather than a dependency array) to match the auto-create
+  // effect below.
+  useEffect(() => {
+    if (surfaceReported || !merchantSlug) {
+      return;
+    }
+    setSurfaceReported(true);
+    captureClientEvent(WALLET_FUNDING_TELEMETRY.events.surfaceOpened, {
+      surface,
+      auto_create: autoCreate,
+      has_existing_account: Boolean(account),
+      merchant_slug: merchantSlug,
+      customer_id: customerId,
+    });
+  });
 
   const handleCreate = async () => {
     if (!merchantSlug || creating) return;
+    captureClientEvent(WALLET_FUNDING_TELEMETRY.events.createAttempted, {
+      surface,
+      auto_create: autoCreate,
+      merchant_slug: merchantSlug,
+      customer_id: customerId,
+    });
     setCreating(true);
     setError(null);
     const result = await requestFundingAccount(merchantSlug);
     if (result.kind === 'created') {
+      captureClientEvent(WALLET_FUNDING_TELEMETRY.events.accountCreated, {
+        surface,
+        provider: result.account.provider,
+        merchant_slug: merchantSlug,
+        customer_id: customerId,
+      });
       onAccountCreated(result.account);
     } else {
+      captureClientEvent(WALLET_FUNDING_TELEMETRY.events.createFailed, {
+        surface,
+        reason: result.reason,
+        merchant_slug: merchantSlug,
+        customer_id: customerId,
+      });
       setError(result.message);
     }
     setCreating(false);

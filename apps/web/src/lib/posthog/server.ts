@@ -91,6 +91,68 @@ function normalizeCapturedError(
   return normalizedError;
 }
 
+/**
+ * Fire-and-forget server-side product-event capture. Unlike
+ * `captureServerException` (exception-only) this sends a named event with a
+ * customer-keyed `distinctId`. It stamps `app_surface: 'web'`/`runtime: 'nodejs'`
+ * and scrubs properties, then awaits an immediate flush so the event survives a
+ * short-lived serverless invocation. The await is bounded by an internal
+ * timeout and it is fail-open — it never throws — so it can be awaited safely
+ * inside a payment/webhook path without delaying callers indefinitely.
+ *
+ * `uuid` and `timestamp` are the two halves of PostHog's ingestion dedupe key:
+ * it drops a duplicate only when uuid + event name + distinct id + timestamp
+ * all match. Callers that can race (e.g. a webhook and a confirm route emitting
+ * the same logical event) must therefore supply BOTH a deterministic uuid and a
+ * stable timestamp derived from shared persisted state — a uuid alone still
+ * lets the SDK stamp a fresh per-call timestamp and both events survive.
+ */
+const SERVER_EVENT_CAPTURE_TIMEOUT_MS = 3_000;
+
+export async function captureServerEvent(
+  event: string,
+  properties: Record<string, unknown>,
+  distinctId: string = SERVER_DISTINCT_ID,
+  uuid?: string,
+  timestamp?: Date
+): Promise<boolean> {
+  const client = getPostHogServerClient();
+
+  if (!client) {
+    return false;
+  }
+
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    await Promise.race([
+      client.captureImmediate({
+        distinctId,
+        event,
+        properties: sanitizePostHogProperties({
+          ...properties,
+          app_surface: 'web',
+          runtime: 'nodejs',
+        }),
+        ...(uuid ? { uuid } : {}),
+        ...(timestamp ? { timestamp } : {}),
+      }),
+      new Promise((_resolve, reject) => {
+        timeoutHandle = setTimeout(
+          () => reject(new Error('captureServerEvent timed out')),
+          SERVER_EVENT_CAPTURE_TIMEOUT_MS
+        );
+      }),
+    ]);
+
+    return true;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timeoutHandle);
+  }
+}
+
 export async function captureServerException(
   error: unknown,
   properties?: Record<string, unknown>,

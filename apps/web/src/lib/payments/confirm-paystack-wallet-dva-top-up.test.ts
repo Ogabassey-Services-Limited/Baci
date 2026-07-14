@@ -5,10 +5,15 @@ import { confirmPaystackWalletDvaTopUp } from '@/lib/payments/confirm-paystack-w
 const mockFindCustomerWalletPaymentAccountByReceiver = vi.hoisted(() =>
   vi.fn()
 );
+const mockCaptureServerEvent = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/customer-wallet-payment-accounts', () => ({
   findCustomerWalletPaymentAccountByReceiver: (...args: unknown[]) =>
     mockFindCustomerWalletPaymentAccountByReceiver(...args),
+}));
+
+vi.mock('@/lib/posthog/server', () => ({
+  captureServerEvent: mockCaptureServerEvent,
 }));
 
 const walletAccount = {
@@ -185,6 +190,9 @@ describe('confirmPaystackWalletDvaTopUp', () => {
         }),
       })
     );
+    // The fresh insert is only the PENDING transaction match — the credited
+    // funnel event belongs to creditWalletTopUp, which credits the balance.
+    expect(mockCaptureServerEvent).not.toHaveBeenCalled();
   });
 
   it('files a review and does not credit wallet when an active order DVA aliases the receiver', async () => {
@@ -224,6 +232,7 @@ describe('confirmPaystackWalletDvaTopUp', () => {
         paystack_ref: 'PSK_REF_1',
       })
     );
+    expect(mockCaptureServerEvent).not.toHaveBeenCalled();
   });
 
   it('re-reads the existing transaction when the gateway reference wins concurrently', async () => {
@@ -256,6 +265,9 @@ describe('confirmPaystackWalletDvaTopUp', () => {
       kind: 'match',
       transaction: { id: 'txn-winner' },
     });
+    // This lib never emits the funnel-completion event on any branch — that
+    // belongs to creditWalletTopUp's fresh-credit path.
+    expect(mockCaptureServerEvent).not.toHaveBeenCalled();
   });
 
   it('throws non-unique transaction insert errors', async () => {

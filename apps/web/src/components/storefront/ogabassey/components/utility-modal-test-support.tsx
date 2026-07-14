@@ -4,16 +4,22 @@ import { fetchWithCsrf } from '@/lib/api-client';
 
 const {
   mockAirtimeSubmitAmount,
+  mockCaptureClientEvent,
   mockFetchWithCsrf,
   mockRedirectToPaymentCheckout,
   mockUseCustomerAuth,
   mockUseWallet,
 } = vi.hoisted(() => ({
   mockAirtimeSubmitAmount: { current: 100 },
+  mockCaptureClientEvent: vi.fn(),
   mockFetchWithCsrf: vi.fn(),
   mockRedirectToPaymentCheckout: vi.fn(),
   mockUseCustomerAuth: vi.fn(),
   mockUseWallet: vi.fn(),
+}));
+
+vi.mock('@/lib/posthog/capture-client-event', () => ({
+  captureClientEvent: mockCaptureClientEvent,
 }));
 
 vi.mock('@/env', () => ({
@@ -136,6 +142,7 @@ const mockOnClose = vi.fn();
 
 export const utilityModalTestHarness = {
   amount: mockAirtimeSubmitAmount,
+  captureEvent: mockCaptureClientEvent,
   checkoutFetch: vi.mocked(fetchWithCsrf),
   createJsonResponse,
   onClose: mockOnClose,
@@ -148,6 +155,7 @@ export const utilityModalTestHarness = {
     this.toast.mockClear();
     this.checkoutFetch.mockReset();
     mockRedirectToPaymentCheckout.mockReset();
+    mockCaptureClientEvent.mockReset();
     mockAirtimeSubmitAmount.current = 100;
     mockUseCustomerAuth.mockReturnValue({
       customer: {

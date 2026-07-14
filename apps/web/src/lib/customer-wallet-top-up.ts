@@ -1,4 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { deterministicEventUuid } from '@/lib/posthog/deterministic-event-uuid';
+import { captureServerEvent } from '@/lib/posthog/server';
+import { WALLET_FUNDING_TELEMETRY } from '@/lib/posthog/wallet-funding-events';
 
 export const WALLET_TOP_UP_TRANSACTION_TYPE = 'wallet_topup';
 const ALLOWED_WALLET_TOP_UP_GATEWAYS = ['paystack', 'korapay'] as const;
@@ -132,6 +135,46 @@ async function findExistingWalletTopUpCredit({
   };
 }
 
+/**
+ * Reads the ledger row's `created_at` so racing emitters can stamp the SAME
+ * PostHog timestamp. The `credit_customer_wallet` advisory lock hands the loser
+ * the winner's ledger row, so both callers resolve `result.transaction_id` to
+ * one row and therefore one `created_at` — which, paired with the deterministic
+ * uuid, completes PostHog's dedupe key (uuid + event + distinct id + timestamp).
+ *
+ * Fail-open: the wallet has already been credited by the time we get here, so a
+ * failed/missing lookup must never throw. We return `undefined` and still
+ * capture the event (SDK-stamped timestamp) rather than drop it — a possible
+ * duplicate is strictly better than a missing funnel completion or a broken
+ * money path.
+ */
+async function findWalletCreditTimestamp(
+  supabase: SupabaseClient,
+  ledgerTransactionId: string
+): Promise<Date | undefined> {
+  try {
+    const { data, error } = await supabase
+      .from('customer_wallet_transactions')
+      .select('created_at')
+      .eq('id', ledgerTransactionId)
+      .maybeSingle();
+
+    if (error || !data) {
+      return undefined;
+    }
+
+    const createdAt = (data as { created_at?: unknown }).created_at;
+    if (typeof createdAt !== 'string') {
+      return undefined;
+    }
+
+    const timestamp = new Date(createdAt);
+    return Number.isNaN(timestamp.getTime()) ? undefined : timestamp;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function creditWalletTopUp({
   amount,
   customerId,
@@ -176,6 +219,37 @@ export async function creditWalletTopUp({
 
   const result = normalizeWalletRpcResult(data);
   const balance = normalizeWalletBalance(result.new_balance);
+
+  // Funnel completion. Sequential replays short-circuit on the ledger check
+  // above; two CONCURRENT callers (webhook + confirm route) can both reach
+  // here, but the RPC's advisory lock hands the loser the winner's ledger
+  // transaction id. Both the uuid AND the timestamp are derived from that
+  // shared row, which is what PostHog's dedupe key requires (uuid + event +
+  // distinct id + timestamp) — a uuid alone would leave the SDK to stamp two
+  // different timestamps and both events would count. Wallet top-ups are
+  // NGN-only today. Fail-open + internally timeout-bounded — never blocks or
+  // fails the money path.
+  const creditedAt = await findWalletCreditTimestamp(
+    supabase,
+    result.transaction_id
+  );
+
+  await captureServerEvent(
+    WALLET_FUNDING_TELEMETRY.events.transferCredited,
+    {
+      amount,
+      currency: 'NGN',
+      customer_id: customerId,
+      gateway: validatedGateway,
+      gateway_reference: reference,
+      merchant_id: merchantId,
+    },
+    customerId,
+    deterministicEventUuid(
+      `${WALLET_FUNDING_TELEMETRY.events.transferCredited}:${result.transaction_id}`
+    ),
+    creditedAt
+  );
 
   return {
     balance,

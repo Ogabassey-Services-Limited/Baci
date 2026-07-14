@@ -79,6 +79,42 @@ describe('UtilityModal', () => {
     expect(screen.getByRole('radio', { name: /pay with card/i })).toBeInTheDocument();
   });
 
+  it('reports the payment method when the customer selects card', () => {
+    renderOpenModal();
+
+    fireEvent.click(screen.getByRole('radio', { name: /pay with card/i }));
+
+    expect(harness.captureEvent).toHaveBeenCalledTimes(1);
+    expect(harness.captureEvent).toHaveBeenCalledWith(
+      'utility_payment_method_selected',
+      expect.objectContaining({
+        method: 'card',
+        can_use_wallet: true,
+        wallet_balance: 500,
+        merchant_slug: 'ogabassey',
+        customer_id: 'customer-1',
+      })
+    );
+  });
+
+  it('reports the payment method when the customer selects wallet', () => {
+    renderOpenModal();
+
+    fireEvent.click(screen.getByRole('radio', { name: /pay with wallet/i }));
+
+    expect(harness.captureEvent).toHaveBeenCalledTimes(1);
+    expect(harness.captureEvent).toHaveBeenCalledWith(
+      'utility_payment_method_selected',
+      expect.objectContaining({
+        method: 'wallet',
+        can_use_wallet: true,
+        wallet_balance: 500,
+        merchant_slug: 'ogabassey',
+        customer_id: 'customer-1',
+      })
+    );
+  });
+
   it('closes when the close button is selected', () => {
     renderOpenModal();
 

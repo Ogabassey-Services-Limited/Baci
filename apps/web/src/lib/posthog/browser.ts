@@ -1,5 +1,6 @@
 import posthog from 'posthog-js';
 import { markPostHogBrowserInitialized } from '@/lib/posthog/browser-state';
+import { connectClientEventSink } from '@/lib/posthog/capture-client-event';
 import { buildPostHogClientConfig } from '@/lib/posthog/client-config';
 import type { PostHogEnv } from '@/lib/posthog/config';
 import { pendingClientExceptionQueue } from '@/lib/posthog/pending-client-exception-queue';
@@ -249,6 +250,11 @@ function markPostHogReadyAndFlush() {
   clearPostHogLoadedStateCheck();
   flushPendingClientExceptions();
   flushPendingPostHogPageviews();
+  // Product events (wallet funding funnel etc.) captured before init queue in
+  // the capture helper — connect the live sink and drain them.
+  connectClientEventSink((event, properties) => {
+    posthog.capture(event, properties);
+  });
 }
 
 function clearPostHogLoadedStateCheck() {

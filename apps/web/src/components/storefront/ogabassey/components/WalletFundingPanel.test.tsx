@@ -2,9 +2,11 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { WalletFundingPanel } from './WalletFundingPanel';
+import { walletFundingAccount as account } from './wallet-funding-panel-test-fixtures';
 
 const mockFetchWithCsrf = vi.hoisted(() => vi.fn());
 const mockToast = vi.hoisted(() => vi.fn());
+const mockCaptureClientEvent = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/api-client', () => ({
   fetchWithCsrf: mockFetchWithCsrf,
@@ -14,12 +16,9 @@ vi.mock('@/hooks/use-toast', () => ({
   toast: mockToast,
 }));
 
-const account = {
-  accountName: 'OGB / JOHN DOE',
-  accountNumber: '9012345678',
-  bankName: 'Wema Bank',
-  provider: 'paystack',
-};
+vi.mock('@/lib/posthog/capture-client-event', () => ({
+  captureClientEvent: mockCaptureClientEvent,
+}));
 
 describe('WalletFundingPanel', () => {
   beforeEach(() => {
@@ -31,6 +30,7 @@ describe('WalletFundingPanel', () => {
       <WalletFundingPanel
         account={account}
         merchantSlug="ogabassey"
+        surface="utility_modal"
         onAccountCreated={vi.fn()}
         requiresConsent={false}
       />
@@ -52,6 +52,7 @@ describe('WalletFundingPanel', () => {
       <WalletFundingPanel
         account={account}
         merchantSlug="ogabassey"
+        surface="utility_modal"
         onAccountCreated={vi.fn()}
         requiresConsent={false}
       />
@@ -75,6 +76,7 @@ describe('WalletFundingPanel', () => {
       <WalletFundingPanel
         account={account}
         merchantSlug="ogabassey"
+        surface="utility_modal"
         onAccountCreated={vi.fn()}
         onRefreshBalance={onRefreshBalance}
         requiresConsent={false}
@@ -100,6 +102,7 @@ describe('WalletFundingPanel', () => {
       <WalletFundingPanel
         account={null}
         merchantSlug="ogabassey"
+        surface="utility_modal"
         onAccountCreated={onAccountCreated}
         requiresConsent={true}
       />
@@ -133,6 +136,7 @@ describe('WalletFundingPanel', () => {
         account={null}
         autoCreate
         merchantSlug="ogabassey"
+        surface="utility_modal"
         onAccountCreated={onAccountCreated}
         requiresConsent={true}
       />
@@ -150,6 +154,7 @@ describe('WalletFundingPanel', () => {
         account={account}
         autoCreate
         merchantSlug="ogabassey"
+        surface="utility_modal"
         onAccountCreated={vi.fn()}
         requiresConsent={false}
       />
@@ -172,6 +177,7 @@ describe('WalletFundingPanel', () => {
       <WalletFundingPanel
         account={null}
         merchantSlug="ogabassey"
+        surface="utility_modal"
         onAccountCreated={vi.fn()}
         requiresConsent={true}
       />
@@ -203,6 +209,7 @@ describe('WalletFundingPanel', () => {
       <WalletFundingPanel
         account={null}
         merchantSlug="ogabassey"
+        surface="utility_modal"
         onAccountCreated={vi.fn()}
         requiresConsent={true}
       />
@@ -222,6 +229,7 @@ describe('WalletFundingPanel', () => {
       <WalletFundingPanel
         account={null}
         merchantSlug="ogabassey"
+        surface="utility_modal"
         onAccountCreated={vi.fn()}
         requiresConsent={false}
       />
