@@ -407,6 +407,25 @@ BEGIN
       <= '2026-07-14 22:00:00+00'::timestamptz THEN
     RAISE EXCEPTION 'Phase-1a stub-finalized event must receive a current finalization stamp';
   END IF;
+
+  -- Recovery is one-shot: the refreshed stamp must prevent a second cron run
+  -- from minting or queueing work for the same legacy event.
+  PERFORM public.finalize_due_quiz_events();
+  IF (
+    SELECT count(*)
+    FROM public.quiz_awards
+    WHERE event_id = v_e_stub
+      AND customer_id = v_c1
+  ) IS DISTINCT FROM 1 THEN
+    RAISE EXCEPTION 'Phase-1a recovery must not mint duplicate ranked awards';
+  END IF;
+  IF (
+    SELECT count(*)
+    FROM public.leaderboard_refresh_log
+    WHERE event_id = v_e_stub
+  ) IS DISTINCT FROM 1 THEN
+    RAISE EXCEPTION 'Phase-1a recovery must not queue duplicate leaderboard refreshes';
+  END IF;
 END;
 $$ LANGUAGE plpgsql;
 
