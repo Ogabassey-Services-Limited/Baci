@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -324,5 +327,27 @@ describe('getCachedContentLinkRewrites', () => {
     expect(rewrites.productPaths['iphone-13-pro']).toBe(
       '/smartphones/iphone-13-pro'
     );
+  });
+});
+
+describe('cached-content-link-rewrites cache directive', () => {
+  const source = readFileSync(
+    resolve(
+      dirname(fileURLToPath(import.meta.url)),
+      'cached-content-link-rewrites.ts'
+    ),
+    'utf8'
+  );
+
+  it('stays on the shared remote cache handler so rewrite invalidation reaches every instance (PR4b review r4)', () => {
+    // Demotion REVERTED. Tagged `blog-posts`, `product-legacy-redirect`,
+    // `products-${id}` and `categories-${id}` — every one is busted by a live
+    // revalidator (revalidateBlogPosts/revalidateBlogFeed, revalidateProducts,
+    // revalidateCategories). Link rewriting is precisely the contract that must
+    // propagate: after a product is archived or a blog slug renamed, an
+    // instance holding a LOCAL entry would keep rewriting links to a dead
+    // target. Still fail-loud (every lookup throws).
+    expect(source).toContain("'use cache: remote';");
+    expect(source).not.toContain("'use cache';");
   });
 });

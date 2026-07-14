@@ -64,6 +64,13 @@ export async function getCachedCategoryProductCounts(
   merchantId: string,
   categories: CachedCategoryProductCountCategory[]
 ): Promise<Record<string, number>> {
+  // PR4b review round 4: stays `'use cache: remote'` (demotion REVERTED).
+  // These counts are busted by BOTH revalidateProducts() (`products-${id}`)
+  // and revalidateCategories() (`categories-${id}`) — a product added or
+  // removed must change the category count everywhere, not just on the
+  // instance that handled the mutation. Local entries never see the bust.
+  // Still fail-loud (throws below) so a transient error is never cached as
+  // empty counts; the consumer try/catches outside the cache scope.
   'use cache: remote';
   cacheLife('categories');
   cacheTag(
@@ -122,8 +129,12 @@ export async function getCachedCategoryProductCounts(
       .range(from, to);
 
     if (error) {
+      // Fail loud: a transient count read must never be persisted as empty
+      // counts. The request-local consumer boundary
+      // (enrichCategoriesWithProductCounts) catches this OUTSIDE the cache scope
+      // and degrades to the category's existing product_count for the request.
       console.error('Error fetching category product counts:', error);
-      return {};
+      throw error;
     }
 
     const pageRows = (data || []) as ProductCategoryCountRow[];

@@ -177,6 +177,125 @@ describe('cached-data cache directives', () => {
     expect(source).toContain('isPostgrestNoRowsError');
     expect(source).toContain('throw error');
   });
+
+  it('caps the hydrated products payload and keeps it on the shared store (PR4b review r4)', () => {
+    // Demotion REVERTED: `revalidateProducts()` busts `products-${merchantId}`
+    // on every product create/update/delete, so this entry's freshness depends
+    // on tag propagation — which only the SHARED store delivers cross-instance.
+    // The row cap (the real exit-128 mitigation) is retained and matters MORE
+    // on remote, where an oversized item is what fails the write.
+    const source = getFunctionSource('getCachedProducts');
+    expect(source).toContain("'use cache: remote';");
+    expect(source).toContain("cacheLife('products');");
+    expect(source).toContain('cacheTag(');
+    expect(source).toContain('GET_CACHED_PRODUCTS_MAX_ROWS');
+    expect(CACHED_DATA_SOURCE).toContain('const GET_CACHED_PRODUCTS_MAX_ROWS');
+  });
+
+  it('keeps the categories read on the shared store so nav invalidation propagates (PR4b review r4)', () => {
+    // Demotion REVERTED: `revalidateCategories()` busts
+    // `categories-${merchantId}`; a local entry on another instance would keep
+    // serving retired storefront navigation until cacheLife expiry.
+    const source = getFunctionSource('getCachedCategories');
+    expect(source).toContain("'use cache: remote';");
+    expect(source).toContain("cacheLife('categories');");
+    expect(source).toContain('cacheTag(');
+    expect(source).toContain('throw error');
+  });
+
+  it('keeps category-page product IDs on the shared store and caps the list (PR4b review r4)', () => {
+    // Demotion REVERTED (Codex PRRT_kwDOQZgfis6QjNxf): the category-page-data /
+    // products-${id} / categories-${id} tags are all busted by
+    // revalidateProducts() and revalidateCategories(), so category membership
+    // and counts MUST invalidate on every instance. The deterministic ID cap
+    // stays (each scope branch orders by id last) to bound the cache item.
+    const source = getFunctionSource('getCachedCategoryPageProductIds');
+    expect(source).toContain("'use cache: remote';");
+    expect(source).toContain("cacheLife('storefront-page');");
+    expect(source).toContain('cacheTag(');
+    expect(source).toContain('CATEGORY_PAGE_PRODUCT_ID_CAP');
+    expect(source).toContain('.limit(CATEGORY_PAGE_PRODUCT_ID_CAP)');
+    expect(CACHED_DATA_SOURCE).toContain('const CATEGORY_PAGE_PRODUCT_ID_CAP');
+  });
+
+  it('caches the exact count as its OWN entry so a count failure cannot empty the catalog (PR4b review r4)', () => {
+    // Codex PRRT_kwDOQZgfis6QjNxX: folding the supplementary head-count into
+    // the ID-list read meant a failed COUNT threw, the request-local boundary
+    // caught it, and a category with a perfectly good ID window rendered an
+    // EMPTY catalog. Core data must never be discarded because an auxiliary
+    // query failed. The count now owns its own cached entry (a throw persists
+    // NO entry, so the wrong count is never cached and the next request
+    // refills), and the boundary degrades the TOTALS only.
+    const idsSource = getFunctionSource('getCachedCategoryPageProductIds');
+    const countSource = getFunctionSource(
+      'getCachedCategoryPageProductTotalCount'
+    );
+    const boundarySource = getFunctionSource('getCategoryPageProductIds');
+
+    // The ID list is CORE: it must not carry the count query at all.
+    expect(idsSource).not.toContain("count: 'exact'");
+
+    // The count is SUPPLEMENTARY, separately cached, and shares the ID list's
+    // invalidation contract (so it must also be remote).
+    expect(countSource).toContain("'use cache: remote';");
+    expect(countSource).toContain("count: 'exact'");
+    // No cap-equality gate in front of the count (max-rows clamp trap).
+    expect(countSource).not.toContain('=== CATEGORY_PAGE_PRODUCT_ID_CAP');
+
+    // The boundary keeps the IDs and degrades only the totals on count failure.
+    expect(boundarySource).toContain('totalProductCountExact: false');
+    expect(boundarySource).toContain('totalProductCount: productIds.length');
+  });
+
+  it('keeps pagination truthful past the capped ID list (PR4b review fix)', () => {
+    // The cap bounds the cached ID list, but totalPages must reflect the EXACT
+    // count or valid pages past the cap 404. The exact head-count query must
+    // run UNCONDITIONALLY: PostgREST max-rows (managed default 1,000 — not
+    // overridden in supabase/config.toml) clamps responses BELOW the 2,000
+    // cap, so any "did we hit the cap?" gate silently reports the clamped
+    // length as the total. Windows beyond the cached list are fetched
+    // per-request with the same deterministic ordering, and no-limit
+    // consumers get the FULL ID list assembled per-request.
+    const countSource = getFunctionSource(
+      'getCachedCategoryPageProductTotalCount'
+    );
+    expect(countSource).toContain("count: 'exact'");
+    const aggregateSource = getFunctionSource(
+      'getCachedCategoryPageProductsUncached'
+    );
+    expect(aggregateSource).toContain('totalProductCount');
+    expect(aggregateSource).toContain('fetchCategoryPageProductIdWindow');
+    // Unbounded (no-limit) consumers assemble the complete ID list.
+    expect(aggregateSource).toContain('fetchAllCategoryPageProductIds');
+    // ...but NEVER page toward a total that the count query failed to produce.
+    expect(aggregateSource).toContain('totalProductCountExact');
+  });
+
+  it('keeps dashboard stats on the shared store and fail-loud (PR4b review r4)', () => {
+    // Demotion REVERTED: `dashboard-${merchantId}` is busted by
+    // revalidateProducts(), revalidateMerchant() AND
+    // revalidateMerchantPublication(). A merchant who adds a product expects
+    // the dashboard to reflect it on whichever instance serves them. Still
+    // fail-loud so a transient RPC error is never persisted as null.
+    const source = getFunctionSource('getCachedDashboardStats');
+    expect(source).toContain("'use cache: remote';");
+    expect(source).toContain("cacheLife('merchant');");
+    expect(source).toContain('cacheTag(');
+    expect(source).toContain('throw error');
+  });
+
+  it('keeps platform analytics on the shared store and fail-loud (PR4b review r4)', () => {
+    // Demotion REVERTED: the admin "refresh analytics views" route calls
+    // revalidateAnalytics(), busting the `analytics` tag — an explicit,
+    // user-triggered invalidation contract. A local entry would leave the
+    // refresh button silently broken on every other instance. Still fail-loud
+    // so a transient aggregate error is never cached as null.
+    const source = getFunctionSource('getCachedPlatformAnalytics');
+    expect(source).toContain("'use cache: remote';");
+    expect(source).toContain("cacheLife('products');");
+    expect(source).toContain('cacheTag(');
+    expect(source).toContain('throw summaryError');
+  });
 });
 
 describe('next.config cacheLife profiles', () => {

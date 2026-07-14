@@ -5,6 +5,8 @@ import { merchantFeatureSettingsDefaults } from '@/lib/merchant-feature-settings
 interface MockListResult {
   data: unknown;
   error: unknown;
+  /** For `{ count: 'exact', head: true }` queries (PR4b pagination truth). */
+  count?: number | null;
 }
 
 interface MockQueryBuilder {

@@ -16,15 +16,21 @@ import {
   buildStorefrontHomeMarkdown,
   markdownResponse,
   notFoundMarkdownResponse,
+  unavailableMarkdownResponse,
 } from '@/lib/llms-markdown';
 import {
   filterPublicBlogCategories,
   filterPublicBlogPosts,
 } from '@/lib/public-blog-content-quality';
+import { StorefrontReadUnavailableError } from '@/lib/storefront-read-result';
 import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
 
 function notFound() {
   return notFoundMarkdownResponse('# Not Found\n');
+}
+
+function unavailable() {
+  return unavailableMarkdownResponse('# Temporarily Unavailable\n');
 }
 
 /**
@@ -49,6 +55,17 @@ export async function GET(
   try {
     return await handleLlmRequest(request, context);
   } catch (err) {
+    // A storefront read that could not produce the COMPLETE payload must fail
+    // CLOSED as retryable, never as a 404 (PR4b review r5). The blanket catch
+    // below used to convert every throw into "Not Found", which would tell
+    // crawlers and LLM ingesters that a perfectly valid category does not
+    // exist — deindexing it on a transient database blip. Serving a partial
+    // catalogue would be worse still, so the read throws and we answer 503.
+    if (err instanceof StorefrontReadUnavailableError) {
+      console.error('[LLM API] Storefront read unavailable', err.failure);
+      return unavailable();
+    }
+
     console.error('[LLM API] Unhandled error', err);
     return notFound();
   }

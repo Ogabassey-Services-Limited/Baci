@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { StorefrontReadUnavailableError } from '@/lib/storefront-read-result';
 
 /* ------------------------------------------------------------------ */
 /*  Hoisted mock fns                                                   */
@@ -19,6 +20,7 @@ const buildStorefrontFaqMarkdown = vi.fn();
 const buildStorefrontHomeMarkdown = vi.fn();
 const markdownResponse = vi.fn();
 const notFoundMarkdownResponse = vi.fn();
+const unavailableMarkdownResponse = vi.fn();
 
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier,
@@ -39,6 +41,7 @@ vi.mock('@/lib/llms-markdown', () => ({
   buildStorefrontHomeMarkdown,
   markdownResponse,
   notFoundMarkdownResponse,
+  unavailableMarkdownResponse,
 }));
 
 /* ------------------------------------------------------------------ */
@@ -87,6 +90,13 @@ describe('GET /api/llm/[...segments]', () => {
       (body: string) =>
         new Response(body, {
           status: 404,
+          headers: { 'content-type': 'text/markdown; charset=utf-8' },
+        })
+    );
+    unavailableMarkdownResponse.mockImplementation(
+      (body: string) =>
+        new Response(body, {
+          status: 503,
           headers: { 'content-type': 'text/markdown; charset=utf-8' },
         })
     );
@@ -413,6 +423,33 @@ describe('GET /api/llm/[...segments]', () => {
 
   /* ------ 2 segments: category (default) ------ */
   describe('category page (2 segments)', () => {
+    it('returns 503 (not 404) when the category catalogue is unavailable (PR4b review r5)', async () => {
+      // An unbounded category read now fails CLOSED rather than publishing a
+      // truncated catalogue. The route's blanket catch used to convert ANY
+      // throw into a 404 — which would tell crawlers/LLM ingesters that a
+      // perfectly valid category does not exist, deindexing it on a transient
+      // database blip. It must surface a retryable 503 instead.
+      getMerchantByIdentifier.mockResolvedValue({ ...baseMerchant });
+      getCachedCategoryPageData.mockRejectedValue(
+        new StorefrontReadUnavailableError({
+          kind: 'database',
+          operation: 'category_page_product_ids_complete',
+          retryable: true,
+        })
+      );
+
+      const { GET } = await import('./route');
+      const response = await GET(
+        makeRequest('/api/llm/ogabassey/phones'),
+        makeParams(['ogabassey', 'phones'])
+      );
+
+      expect(response.status).toBe(503);
+      expect(notFoundMarkdownResponse).not.toHaveBeenCalled();
+      // And it must never publish a partial catalogue as markdown.
+      expect(buildCategoryMarkdown).not.toHaveBeenCalled();
+    });
+
     it('returns category markdown when products exist', async () => {
       const merchant = { ...baseMerchant };
       getMerchantByIdentifier.mockResolvedValue(merchant);

@@ -751,6 +751,11 @@ describe('cached-data product query projections', () => {
     harness.mockQueryExecution
       .mockImplementationOnce(() => Promise.resolve(harness.mockListResult))
       .mockImplementationOnce(() => Promise.resolve(productIdsResult))
+      // Exact head-count query (PR4b pagination truth) — matches the ID list,
+      // so the catalogue is provably complete and no tail assembly runs.
+      .mockImplementationOnce(() =>
+        Promise.resolve({ data: null, error: null, count: 2 })
+      )
       .mockImplementationOnce(() => Promise.resolve(productQueryResult));
 
     const result = await getCachedCategoryPageData(
@@ -764,7 +769,10 @@ describe('cached-data product query projections', () => {
       ['cat-smartphones', 'cat-iphone']
     );
     expect(harness.mockEq).toHaveBeenCalledWith('is_active', true);
-    expect(harness.mockLimit).not.toHaveBeenCalled();
+    // The ordered ID list is capped (CATEGORY_PAGE_PRODUCT_ID_CAP) so the cache
+    // item stays bounded; each scope branch orders by `id` last, so the limit is
+    // deterministic. This assertion previously pinned the UNCAPPED read.
+    expect(harness.mockLimit).toHaveBeenCalledWith(2000);
     const selectArg = String(harness.mockSelect.mock.calls.at(-1)?.[0]);
     expect(selectArg).toContain('product_key_specs (');
     expect(selectArg).not.toMatch(/,\s*product_key_specs\s*,/);
@@ -832,6 +840,9 @@ describe('cached-data product query projections', () => {
         data: legacyProductIds,
         error: null,
       })
+      // Exact head-count query (PR4b pagination truth) — matches the ID list,
+      // so the catalogue is provably complete and no tail assembly runs.
+      .mockResolvedValueOnce({ data: null, error: null, count: 1 })
       .mockResolvedValueOnce({
         data: legacyProducts,
         error: null,
@@ -887,6 +898,11 @@ describe('cached-data product query projections', () => {
           data: [],
           error: null,
         })
+      )
+      // Exact head-count query (PR4b pagination truth) — runs unconditionally,
+      // even for an empty scope.
+      .mockImplementationOnce(() =>
+        Promise.resolve({ data: null, error: null, count: 0 })
       );
 
     const result = await getCachedCategoryPageData(
@@ -899,7 +915,10 @@ describe('cached-data product query projections', () => {
     expect(harness.mockOr).toHaveBeenCalledWith(
       'id.eq.cat-empty,parent_id.eq.cat-empty'
     );
-    expect(harness.mockQueryExecution).toHaveBeenCalledTimes(2);
+    // Scope resolution + ID query + exact head-count. No detail query: the ID
+    // list is empty, so there is nothing to hydrate — and crucially no loose
+    // fallback search runs for an active canonical category.
+    expect(harness.mockQueryExecution).toHaveBeenCalledTimes(3);
     expect(result.products).toEqual([]);
   });
 
