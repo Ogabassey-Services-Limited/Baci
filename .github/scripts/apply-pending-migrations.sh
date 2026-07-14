@@ -30,17 +30,19 @@
 
 set -euo pipefail
 
-: "${SUPABASE_ACCESS_TOKEN:?SUPABASE_ACCESS_TOKEN is required}"
-: "${SUPABASE_PROJECT_REF:?SUPABASE_PROJECT_REF is required}"
-
-readonly API="https://api.supabase.com/v1/projects/${SUPABASE_PROJECT_REF}/database/query"
-readonly AUTH_HEADER="Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}"
-
 migrations_dir="$(cd "$(dirname "$0")/../.." && pwd)/supabase/migrations"
 if [ ! -d "$migrations_dir" ]; then
   echo "::error::supabase/migrations directory not found at $migrations_dir"
   exit 1
 fi
+
+bash "$(dirname "$0")/check-migration-versions.sh" "$migrations_dir"
+
+: "${SUPABASE_ACCESS_TOKEN:?SUPABASE_ACCESS_TOKEN is required}"
+: "${SUPABASE_PROJECT_REF:?SUPABASE_PROJECT_REF is required}"
+
+readonly API="https://api.supabase.com/v1/projects/${SUPABASE_PROJECT_REF}/database/query"
+readonly AUTH_HEADER="Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}"
 
 api_query() {
   curl --fail --silent --show-error \

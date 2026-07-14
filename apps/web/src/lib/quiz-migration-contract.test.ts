@@ -27,6 +27,13 @@ const voucherOrderFinalizerSql = readFileSync(
   ),
   'utf8'
 );
+const eventLifecycleSql = readFileSync(
+  resolve(
+    migrationsDirectory,
+    '20260714220000_quiz_event_lifecycle_followup.sql'
+  ),
+  'utf8'
+);
 const regressionSql = readFileSync(
   resolve(migrationsDirectory, 'tests/quiz_phase1a_foundation.sql'),
   'utf8'
@@ -482,6 +489,24 @@ describe('quiz migration contracts', () => {
     expect(finalizeAwardsSql).toMatch(/quiz_attempt_not_found/i);
     expect(finalizeAwardsSql?.indexOf('JOIN public.customers c')).toBeLessThan(
       finalizeAwardsSql?.indexOf('public.finalize_quiz_event_awards') ?? -1
+    );
+  });
+
+  it('closes due product-prize events without entering the ranked award path', () => {
+    expect(eventLifecycleSql).toMatch(
+      /settings\s*\?\s*'prize_product_id'[\s\S]*status\s+IN\s*\('active',\s*'scheduled'\)[\s\S]*ends_at\s*<=\s*pg_catalog\.now\(\)\s*-\s*interval\s*'2 minutes'/i
+    );
+    expect(eventLifecycleSql).toMatch(
+      /UPDATE\s+public\.quiz_events[\s\S]*SET\s+status\s*=\s*'completed'[\s\S]*WHERE\s+id\s*=\s*v_product_event_id/i
+    );
+  });
+
+  it('reprocesses only pre-fix ranked finalization stamps with no awards', () => {
+    expect(eventLifecycleSql).toMatch(
+      /award_finalized_at\s*<\s*'2026-07-14 22:00:00\+00'::timestamptz[\s\S]*NOT\s+EXISTS\s*\([\s\S]*FROM\s+public\.quiz_awards/i
+    );
+    expect(eventLifecycleSql).toMatch(
+      /SET\s+award_finalized_at\s*=\s*pg_catalog\.now\(\)[\s\S]*PERFORM\s+public\.mint_quiz_event_ranked_awards\(v_ranked_event_id\)/i
     );
   });
 

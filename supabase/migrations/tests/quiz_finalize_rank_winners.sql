@@ -77,6 +77,8 @@ DECLARE
   v_e_stale uuid := '00000000-0000-4000-8000-0000000fe008';       -- >1h-old 'started' attempt must STILL block (no cutoff)
   v_e_nocashamt uuid := '00000000-0000-4000-8000-0000000fe009';    -- cash prize with NO amount -> awards must be 'pending'
   v_e_overlong uuid := '00000000-0000-4000-8000-0000000fe010';     -- >1h submission must be excluded from ranking
+  v_e_product uuid := '00000000-0000-4000-8000-0000000fe011';      -- due product-prize event must close without ranked minting
+  v_e_stub uuid := '00000000-0000-4000-8000-0000000fe012';         -- Phase-1a stamp with no ranked awards must be retried once
   v_a1 uuid := '00000000-0000-4000-8000-0000000fa011'; -- c1 best
   v_a2 uuid := '00000000-0000-4000-8000-0000000fa012'; -- c1 lower (dedup target)
   v_a3 uuid := '00000000-0000-4000-8000-0000000fa013'; -- c2
@@ -151,7 +153,15 @@ BEGIN
     -- OVERLONG event: its only submission took >1h and must be excluded from
     -- ranking (nobody eligible -> mints nothing).
     (v_e_overlong, v_merchant, 'rw-overlong', 'RW Overlong', 'completed', v_now - interval '1 hour', true, 'NLRC-TEST-PERMIT',
-      '{"ranked_winner_count":3,"grand_prize_amount":50000,"cash_prize_amount":10000}'::jsonb);
+      '{"ranked_winner_count":3,"grand_prize_amount":50000,"cash_prize_amount":10000}'::jsonb),
+    (v_e_product, v_merchant, 'rw-product', 'RW Product', 'active', v_now - interval '1 hour', false, NULL,
+      '{"prize_product_id":"00000000-0000-4000-8000-0000000fd001","prize_name":"QA product","time_limit_seconds":30}'::jsonb),
+    (v_e_stub, v_merchant, 'rw-stub', 'RW Stub Finalized', 'completed', v_now - interval '2 hours', true, 'NLRC-TEST-PERMIT',
+      '{"ranked_winner_count":1,"grand_prize_amount":50000}'::jsonb);
+
+  UPDATE public.quiz_events
+  SET award_finalized_at = '2026-07-01 00:00:00+00'::timestamptz
+  WHERE id = v_e_stub;
 
   INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, attempt_number, integrity_tier, score, started_at, submitted_at) VALUES
     (v_a1, v_e_verified, v_c1, 'submitted', 1, 'basic', 10, v_now - interval '10 min', v_now - interval '8 min'),
@@ -194,6 +204,8 @@ BEGIN
   -- An OVERLONG submission (started 3h ago, submitted 1h ago -> 2h duration).
   INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, attempt_number, integrity_tier, score, started_at, submitted_at) VALUES
     ('00000000-0000-4000-8000-0000000fa026', v_e_overlong, v_c1, 'submitted', 1, 'basic', 10, v_now - interval '3 hours', v_now - interval '1 hour');
+  INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, attempt_number, integrity_tier, score, started_at, submitted_at) VALUES
+    ('00000000-0000-4000-8000-0000000fa027', v_e_stub, v_c1, 'submitted', 1, 'basic', 10, v_now - interval '10 min', v_now - interval '8 min');
 
   -- Mint the verified event.
   v_minted := public.mint_quiz_event_ranked_awards(v_e_verified);
@@ -373,6 +385,27 @@ BEGIN
   END IF;
   IF (SELECT count(*) FROM public.quiz_awards WHERE event_id = v_e_inflight) IS DISTINCT FROM 0 THEN
     RAISE EXCEPTION 'In-flight event must have zero awards after finalize_due';
+  END IF;
+
+  IF (SELECT status FROM public.quiz_events WHERE id = v_e_product) IS DISTINCT FROM 'completed' THEN
+    RAISE EXCEPTION 'Due product-prize event must be closed by finalize_due_quiz_events';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.quiz_awards WHERE event_id = v_e_product) THEN
+    RAISE EXCEPTION 'Product-prize closure must not mint ranked awards';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.quiz_awards
+    WHERE event_id = v_e_stub
+      AND customer_id = v_c1
+      AND award_type = 'grand'
+  ) THEN
+    RAISE EXCEPTION 'Phase-1a stub-finalized event must mint its ranked winner';
+  END IF;
+  IF (SELECT award_finalized_at FROM public.quiz_events WHERE id = v_e_stub)
+      <= '2026-07-14 22:00:00+00'::timestamptz THEN
+    RAISE EXCEPTION 'Phase-1a stub-finalized event must receive a current finalization stamp';
   END IF;
 END;
 $$ LANGUAGE plpgsql;

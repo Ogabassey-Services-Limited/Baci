@@ -314,6 +314,10 @@ jobs:
           filter: blob:none
           persist-credentials: false
       - uses: ./.github/actions/pnpm-install-cached
+      - name: Test Migration Version Guard
+        run: bash .github/scripts/check-migration-versions.test.sh
+      - name: Verify Migration Versions
+        run: bash .github/scripts/check-migration-versions.sh
       - name: Run CI Test Planner Unit Tests
         if: needs.changes.outputs.web == 'true'
         run: node --test .github/scripts/resolve-ci-test-plan.test.mjs .github/scripts/resolve-ci-test-plan-config.test.mjs
