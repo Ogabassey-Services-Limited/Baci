@@ -152,13 +152,18 @@ export function useWalletRouteActionSetup({
   // switch inside the TTL must never let a new customer's DVA credit resume the
   // previous customer's interrupted purchase.
   useEffect(() => {
-    if (!customerId) {
+    if (
+      !customerId ||
+      (!walletReturnTo &&
+        routeAction !== 'fund' &&
+        routeAction !== 'bank-transfer')
+    ) {
       return;
     }
-    // The helper clears a previous record when returnTo is absent. Reopening
-    // the wallet without a destination must disarm an abandoned old flow.
+    // An explicit funding surface without a destination disarms an abandoned
+    // old flow. Unrelated wallet opens must preserve an in-flight DVA intent.
     void storeWalletFundingIntent({ customerId, returnTo: walletReturnTo });
-  }, [customerId, walletReturnTo]);
+  }, [customerId, routeAction, walletReturnTo]);
 
   const {
     canCreateFundingAccount,

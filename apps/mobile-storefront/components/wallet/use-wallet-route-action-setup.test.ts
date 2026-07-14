@@ -124,6 +124,17 @@ describe('useWalletRouteActionSetup', () => {
     );
   });
 
+  it.each([
+    undefined,
+    'savings',
+  ])('preserves an armed funding intent for an unrelated %s wallet open', async (routeAction) => {
+    renderHook(() =>
+      useWalletRouteActionSetup({ ...buildParams(), routeAction })
+    );
+
+    await waitFor(() => expect(storeIntent).not.toHaveBeenCalled());
+  });
+
   it('waits for the customer before recording an intent, then records it scoped to them', async () => {
     // An unattributable intent must never be written: it could otherwise be
     // consumed by whoever is signed in when the credit lands.
