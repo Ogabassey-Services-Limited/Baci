@@ -53,6 +53,38 @@ describe('recordPlatformDomainEvent', () => {
     ).rejects.toThrow('durable_platform_enqueue_failed');
   });
 
+  it('records trusted worker events through the same atomic RPC', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: [
+        {
+          already_enqueued: false,
+          domain_event_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a234',
+          queue_message_id: 9,
+        },
+      ],
+      error: null,
+    });
+
+    await recordPlatformDomainEvent({ rpc } as never, {
+      eventData: {},
+      eventName: 'platform.merchant_signup_completed.v1',
+      eventTimestamp: '2026-07-12T12:00:00.000Z',
+      eventType: 'merchant_signup_completed',
+      externalEventId: 'merchant_signup_completed:merchant-1',
+      merchantId: 'merchant-1',
+      producer: 'worker',
+      trustLevel: 'server',
+    });
+
+    expect(rpc).toHaveBeenCalledWith(
+      'record_platform_domain_event_v1',
+      expect.objectContaining({
+        p_producer: 'worker',
+        p_trust_level: 'server',
+      })
+    );
+  });
+
   it('rejects an invalid durable enqueue RPC response', async () => {
     const rpc = vi.fn().mockResolvedValue({
       data: [{ domain_event_id: 'not-a-result' }],

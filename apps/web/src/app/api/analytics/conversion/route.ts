@@ -98,6 +98,14 @@ async function resolvePipelineMerchant(
       supabase,
     });
     if (requestContext.ok && requestContext.verified) return requestContext;
+    if (originMerchantId) {
+      return {
+        merchantId: originMerchantId,
+        ok: true as const,
+        trustLevel: 'tenant_verified_client' as const,
+        verified: true,
+      };
+    }
 
     const { data, error } = await supabase
       .from('merchants')

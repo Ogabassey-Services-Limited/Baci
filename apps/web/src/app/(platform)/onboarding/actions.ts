@@ -15,6 +15,8 @@ import { triggerAiStorefrontWorker } from '@/lib/ai-storefront/trigger-storefron
 import { getCountryByCode } from '@/lib/countries';
 import { sendWelcomeEmail } from '@/lib/email';
 import { ensureActionRateLimit } from '@/lib/ensure-action-rate-limit';
+import { isEventPipelineEnqueueEnabled } from '@/lib/events/event-pipeline-config';
+import { recordPlatformDomainEvent } from '@/lib/events/record-platform-domain-event';
 import { logger } from '@/lib/logger';
 import { normalizeBusinessName } from '@/lib/normalize-business-name';
 import type { createAdminClient as createAdminClientFactory } from '@/lib/supabase/admin';
@@ -487,6 +489,27 @@ export async function submitOnboarding(
         error: e,
       });
       throw e;
+    }
+
+    if (isEventPipelineEnqueueEnabled()) {
+      try {
+        await recordPlatformDomainEvent(adminSupabase, {
+          eventData: { business_name: businessName },
+          eventName: 'platform.merchant_signup_completed.v1',
+          eventTimestamp: new Date().toISOString(),
+          eventType: 'merchant_signup_completed',
+          externalEventId: `merchant_signup_completed:${merchant.id}`,
+          merchantId: merchant.id,
+          producer: 'worker',
+          trustLevel: 'server',
+        });
+      } catch (error) {
+        logger.error({
+          message: 'Merchant signup completion enqueue failed',
+          merchantId: merchant.id,
+          error,
+        });
+      }
     }
 
     // Assign Hero Images

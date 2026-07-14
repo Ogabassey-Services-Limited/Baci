@@ -18,10 +18,11 @@ type PlatformDomainEventInput = {
   externalEventId: string;
   merchantId?: string;
   pageUrl?: string;
+  producer?: 'web' | 'worker';
   referrer?: string;
   requestId?: string;
   sessionId?: string;
-  trustLevel: 'anonymous_client' | 'tenant_verified_client';
+  trustLevel: 'anonymous_client' | 'server' | 'tenant_verified_client';
 };
 
 export async function recordPlatformDomainEvent(
@@ -40,7 +41,7 @@ export async function recordPlatformDomainEvent(
       p_merchant_id: input.merchantId ?? null,
       p_metadata: createDomainEventMetadata(input.requestId),
       p_page_url: input.pageUrl ? sanitizeEventUrl(input.pageUrl) : null,
-      p_producer: 'web',
+      p_producer: input.producer ?? 'web',
       p_referrer: input.referrer ? sanitizeEventUrl(input.referrer) : null,
       p_session_id: input.sessionId ?? null,
       p_trust_level: input.trustLevel,

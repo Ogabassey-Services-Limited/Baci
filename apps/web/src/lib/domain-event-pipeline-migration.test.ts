@@ -27,6 +27,7 @@ const files = [
   '20260714000100_harden_event_pipeline_admin_filters.sql',
   '20260714000200_scope_public_event_ingress.sql',
   '20260714000300_allow_tenant_verified_event_ingress_fallback.sql',
+  '20260714000400_drop_legacy_event_ingress_rpc_overloads.sql',
 ] as const;
 
 const sql = Object.fromEntries(
@@ -199,6 +200,23 @@ describe('durable domain-event migration contract', () => {
     );
     expect(ingressFallbackSql).toContain(
       '"Event ingress capability inserts platform events"'
+    );
+  });
+
+  it('removes event-ingress RPC overloads that bypass delivery context', () => {
+    const overloadCleanup =
+      sql['20260714000400_drop_legacy_event_ingress_rpc_overloads.sql'];
+    expect(overloadCleanup).toContain(
+      'DROP FUNCTION IF EXISTS public.record_analytics_domain_event_v1'
+    );
+    expect(overloadCleanup).toContain(
+      'uuid, text, text, jsonb, jsonb, text, text, text, text, timestamptz, jsonb'
+    );
+    expect(overloadCleanup).toContain(
+      'DROP FUNCTION IF EXISTS public.record_platform_domain_event_v1'
+    );
+    expect(overloadCleanup).toContain(
+      'text, text, jsonb, text, uuid, text, text, text, text, text, timestamptz, jsonb'
     );
   });
 });

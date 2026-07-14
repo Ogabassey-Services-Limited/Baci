@@ -167,8 +167,8 @@ describe('POST /api/analytics/conversion', () => {
     mocks.resolveContext.mockResolvedValue({
       merchantId: 'origin-merchant-id',
       ok: true,
-      trustLevel: 'tenant_verified_client',
-      verified: true,
+      trustLevel: 'anonymous_client',
+      verified: false,
     });
     const merchant = {
       eq: vi.fn().mockReturnThis(),
@@ -204,7 +204,10 @@ describe('POST /api/analytics/conversion', () => {
     );
     expect(mocks.record).toHaveBeenCalledWith(
       expect.any(Object),
-      expect.objectContaining({ merchantId: 'origin-merchant-id' })
+      expect.objectContaining({
+        merchantId: 'origin-merchant-id',
+        trustLevel: 'tenant_verified_client',
+      })
     );
   });
 

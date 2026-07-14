@@ -33,6 +33,11 @@ const {
   mockIsProduction: vi.fn(),
   mockTriggerAiStorefrontWorker: vi.fn(),
 }));
+const { mockIsEventPipelineEnqueueEnabled, mockRecordPlatformDomainEvent } =
+  vi.hoisted(() => ({
+    mockIsEventPipelineEnqueueEnabled: vi.fn(),
+    mockRecordPlatformDomainEvent: vi.fn(),
+  }));
 
 const mockGetUser = vi.fn();
 const mockSignInWithPassword = vi.fn();
@@ -84,6 +89,14 @@ vi.mock('@/lib/supabase/admin', () => ({
 
 vi.mock('@/lib/ensure-action-rate-limit', () => ({
   ensureActionRateLimit: mockEnsureActionRateLimit,
+}));
+
+vi.mock('@/lib/events/event-pipeline-config', () => ({
+  isEventPipelineEnqueueEnabled: mockIsEventPipelineEnqueueEnabled,
+}));
+
+vi.mock('@/lib/events/record-platform-domain-event', () => ({
+  recordPlatformDomainEvent: mockRecordPlatformDomainEvent,
 }));
 
 vi.mock('@/env', () => ({
@@ -183,6 +196,12 @@ describe('submitOnboarding', () => {
     mockGetOllamaStorefrontModel.mockReturnValue('gemma4:e4b');
     mockGetRootDomain.mockReturnValue('usebaci.com');
     mockIsAiStorefrontGenerationEnabled.mockReturnValue(false);
+    mockIsEventPipelineEnqueueEnabled.mockReturnValue(false);
+    mockRecordPlatformDomainEvent.mockResolvedValue({
+      already_enqueued: false,
+      domain_event_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a234',
+      queue_message_id: 9,
+    });
     mockIsProduction.mockReturnValue(false);
     mockTriggerAiStorefrontWorker.mockResolvedValue({
       triggered: true,
@@ -297,6 +316,28 @@ describe('submitOnboarding', () => {
         country: 'NG',
         email: 'merchant@example.com',
         payout_currency: 'NGN',
+      })
+    );
+  });
+
+  it('durably records signup completion from the trusted server producer', async () => {
+    mockIsEventPipelineEnqueueEnabled.mockReturnValue(true);
+    mockAdminMaybeSingle
+      .mockResolvedValueOnce({ data: null, error: null })
+      .mockResolvedValueOnce({ data: null, error: null });
+    setupChainedMock({ id: 'merchant-1', slug: 'teststore' });
+
+    const result = await submitOnboarding(prevState, makeFormData(validFields));
+
+    expect(result.success).toBe(true);
+    expect(mockRecordPlatformDomainEvent).toHaveBeenCalledWith(
+      mockAdminClient,
+      expect.objectContaining({
+        eventName: 'platform.merchant_signup_completed.v1',
+        externalEventId: 'merchant_signup_completed:merchant-1',
+        merchantId: 'merchant-1',
+        producer: 'worker',
+        trustLevel: 'server',
       })
     );
   });
