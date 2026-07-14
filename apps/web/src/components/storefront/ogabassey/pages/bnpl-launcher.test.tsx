@@ -9,6 +9,7 @@ import {
 import { CHECKOUT_PENDING_ORDER_STORAGE_KEY } from './checkout/pending-checkout-order';
 
 const mockPush = vi.fn();
+const mockRouter = { push: mockPush };
 const mockSearchParams = vi.fn();
 const mockOpenCreditDirectCheckout = vi.fn();
 const mockOpenCredPalCheckout = vi.fn();
@@ -22,7 +23,7 @@ interface TestReactNativeWebViewWindow extends Window {
 }
 
 vi.mock('next/navigation', () => ({
-  useRouter: vi.fn(() => ({ push: mockPush })),
+  useRouter: vi.fn(() => mockRouter),
   useSearchParams: vi.fn(() => mockSearchParams()),
 }));
 
@@ -102,7 +103,7 @@ describe('BnplLauncher', () => {
     vi.unstubAllGlobals();
   });
 
-  it('loads BNPL order details with merchant slug and tracking token', async () => {
+  it('loads BNPL order details once across launcher status transitions', async () => {
     render(<BnplLauncher />);
 
     await waitFor(() => {
@@ -110,6 +111,10 @@ describe('BnplLauncher', () => {
         '/api/storefront/orders/order-1?merchant_slug=test-store&token=tok-123'
       );
     });
+    await waitFor(() => {
+      expect(mockOpenCreditDirectCheckout).toHaveBeenCalledOnce();
+    });
+    expect(fetch).toHaveBeenCalledOnce();
   });
 
   it('includes a persisted customer email alongside the tracking token when available', async () => {
@@ -1144,15 +1149,37 @@ describe('BnplLauncher', () => {
       });
     });
 
-    it('clears a stale popup marker when retrying from the SDK error view', async () => {
-      mockOpenCreditDirectCheckout.mockImplementation(
-        async ({ onPopup, onError }) => {
-          await onPopup('txn-999');
-          onError('SDK failed to open');
-        }
-      );
+    // Regression test for the marker-adoption/error race: onPopup stores the
+    // popup marker, then a bfcache restore adopts it into React state before
+    // onError fires. The error/retry view must replace payment verification.
+    it('clears a stale popup marker when the SDK reports an error', async () => {
+      let onPopup: ((transactionId: string) => Promise<void>) | undefined;
+      let onError: ((error: string) => void) | undefined;
+      mockOpenCreditDirectCheckout.mockImplementation((options) => {
+        onPopup = options.onPopup;
+        onError = options.onError;
+        return Promise.resolve();
+      });
 
       render(<BnplLauncher />);
+
+      await waitFor(() => {
+        expect(mockOpenCreditDirectCheckout).toHaveBeenCalledOnce();
+      });
+      await act(async () => {
+        await onPopup?.('txn-999');
+      });
+      const pageShowEvent = new Event('pageshow');
+      Object.defineProperty(pageShowEvent, 'persisted', { value: true });
+      act(() => window.dispatchEvent(pageShowEvent));
+
+      expect(
+        await screen.findByRole('heading', {
+          name: 'Confirming your payment',
+        })
+      ).toBeInTheDocument();
+
+      act(() => onError?.('SDK failed to open'));
 
       expect(
         await screen.findByRole(
@@ -1161,13 +1188,42 @@ describe('BnplLauncher', () => {
           { timeout: 5000 }
         )
       ).toBeInTheDocument();
-      expect(readCreditDirectPopupMarker('order-1')?.transactionId).toBe(
-        'txn-999'
-      );
+      expect(readCreditDirectPopupMarker('order-1')).toBeNull();
 
       fireEvent.click(screen.getByRole('button', { name: 'Try Again' }));
 
       expect(readCreditDirectPopupMarker('order-1')).toBeNull();
+    });
+
+    it('launches a new order after the previous launcher URL errors', async () => {
+      mockOpenCreditDirectCheckout.mockImplementationOnce(({ onError }) => {
+        onError('SDK failed to open');
+        return Promise.resolve();
+      });
+      mockOpenCreditDirectCheckout.mockResolvedValueOnce(undefined);
+
+      const { rerender } = render(<BnplLauncher />);
+
+      expect(
+        await screen.findByRole('heading', { name: 'Something went wrong' })
+      ).toBeInTheDocument();
+
+      mockSearchParams.mockReturnValue(
+        new URLSearchParams({
+          orderId: 'order-2',
+          gateway: 'credit_direct',
+          merchant_slug: 'test-store',
+          trackingToken: 'tok-456',
+        })
+      );
+      rerender(<BnplLauncher />);
+
+      await waitFor(() => {
+        expect(fetch).toHaveBeenCalledWith(
+          '/api/storefront/orders/order-2?merchant_slug=test-store&token=tok-456'
+        );
+      });
+      expect(mockOpenCreditDirectCheckout).toHaveBeenCalledTimes(2);
     });
   });
 });
