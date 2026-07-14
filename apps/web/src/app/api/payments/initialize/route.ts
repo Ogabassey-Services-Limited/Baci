@@ -454,7 +454,10 @@ async function initializeJuicyway(
   reference: string,
   merchantId: string
 ): Promise<PaymentResult> {
-  const fees = calculateKorapayFee(data.amount);
+  // Fee in the currency Korapay is actually charged in — the NGN ₦2,050 cap must
+  // never be applied to a KES/GHS/ZAR amount (it would cap the fee at 2050 of that
+  // currency and silently under-accrue the platform's share).
+  const fees = calculateKorapayFee(data.amount, data.currency as Currency);
   const { firstName, lastName } = parseCustomerName(data.customer_name);
   const amountInMinor = Math.round(data.amount * 100);
 
@@ -973,7 +976,10 @@ async function initializeKorapay(
   notificationUrl: string,
   merchantId: string
 ): Promise<PaymentResult> {
-  const fees = calculateKorapayFee(data.amount);
+  // Fee in the currency Korapay is actually charged in — the NGN ₦2,050 cap must
+  // never be applied to a KES/GHS/ZAR amount (it would cap the fee at 2050 of that
+  // currency and silently under-accrue the platform's share).
+  const fees = calculateKorapayFee(data.amount, data.currency as Currency);
 
   const korapayData = await initializeKorapayPayment({
     amount: data.amount,

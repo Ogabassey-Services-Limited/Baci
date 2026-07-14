@@ -215,3 +215,27 @@ describe('default options', () => {
     });
   });
 });
+
+describe('Korapay fee currency (Codex #39)', () => {
+  it('does NOT apply the NGN ₦2,050 cap to a KES charge', () => {
+    // Korapay settles KES/GHS/ZAR/XAF/XOF, and the initialize route charges in the
+    // order's currency — but the fee helper hardcoded NGN, so the naira cap was
+    // applied as a bare 2050 in the foreign currency. On a KES 500,000 order the
+    // platform accrued KES 2,050 instead of KES 10,000 and silently ate the rest.
+    const kes = korapayFee(500_000, 'KES');
+
+    expect(kes.platformFee).toBe(10_000); // 2%, uncapped
+    expect(kes.merchantAmount).toBe(490_000);
+  });
+
+  it('still caps NGN at ₦2,050 — the historical behaviour is unchanged', () => {
+    const ngn = korapayFee(500_000, 'NGN');
+
+    expect(ngn.platformFee).toBe(2_050);
+    expect(ngn.merchantAmount).toBe(497_950);
+  });
+
+  it('defaults to NGN when no currency is supplied (back-compat)', () => {
+    expect(korapayFee(500_000)).toEqual(korapayFee(500_000, 'NGN'));
+  });
+});

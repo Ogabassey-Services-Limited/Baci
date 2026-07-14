@@ -613,16 +613,27 @@ export async function createVirtualBankAccount(
 
 /**
  * Calculate platform fee and merchant amount (amounts in major currency units).
- * Platform takes 2% (honouring the `PLATFORM_FEE_PERCENTAGE` env override),
- * capped at ₦2,050. Delegates to the shared platform-fee module.
+ * Platform takes 2% (honouring the `PLATFORM_FEE_PERCENTAGE` env override), capped
+ * at ₦2,050 **for NGN only** — every other currency is percentage-only, per the
+ * shared platform-fee module.
+ *
+ * The currency is a REQUIRED input, not an assumption. This used to hardcode
+ * `'NGN'` while Korapay itself is charged in the order's currency (KES/GHS/ZAR/
+ * XAF/XOF are all supported settlement currencies), so the ₦2,050 cap was applied
+ * as a bare `2050` in the foreign currency: a KES 500,000 order accrued KES 2,050
+ * instead of KES 10,000, and the platform silently lost the difference on every
+ * large non-NGN sale.
  */
-export function calculatePlatformFee(amount: number): {
+export function calculatePlatformFee(
+  amount: number,
+  currency: Currency = 'NGN'
+): {
   platformFee: number;
   merchantAmount: number;
   total: number;
 } {
   return computePlatformFee(amount, {
-    currency: 'NGN',
+    currency,
     unit: 'major',
     rounding: 'cents',
     honorEnvPercentageOverride: true,
