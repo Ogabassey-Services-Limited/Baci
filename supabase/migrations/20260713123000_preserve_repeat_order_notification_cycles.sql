@@ -16,20 +16,39 @@ ALTER TABLE public.orders
 ALTER TABLE public.order_notification_outbox
   ADD COLUMN IF NOT EXISTS fulfillment_cycle_id uuid;
 
--- Historical terminal rows represent completed attempts and therefore receive
--- distinct legacy identities. The one active row per event type is attached to
--- the order's current cycle before the old active-only index is retired.
+-- Start every historical row with a distinct legacy identity. The latest event
+-- of each type is then attached to the current order cycle unless the order is
+-- already in a terminal reset state. This keeps sent de-duplication intact for
+-- current shipments while isolating pre-migration work from a future re-ship.
 UPDATE public.order_notification_outbox
 SET fulfillment_cycle_id = gen_random_uuid()
-WHERE fulfillment_cycle_id IS NULL
-  AND status NOT IN ('pending', 'processing');
+WHERE fulfillment_cycle_id IS NULL;
 
+WITH current_cycle_rows AS (
+  SELECT ranked.id, ranked.fulfillment_notification_cycle_id
+  FROM (
+    SELECT
+      outbox.id,
+      orders.fulfillment_notification_cycle_id,
+      row_number() OVER (
+        PARTITION BY outbox.order_id, outbox.event_type
+        ORDER BY outbox.event_sequence DESC, outbox.id DESC
+      ) AS cycle_rank
+    FROM public.order_notification_outbox AS outbox
+    JOIN public.orders AS orders ON orders.id = outbox.order_id
+    WHERE orders.shipping_status NOT IN (
+      'returned',
+      'failed',
+      'cancelled',
+      'canceled'
+    )
+  ) AS ranked
+  WHERE ranked.cycle_rank = 1
+)
 UPDATE public.order_notification_outbox AS outbox
-SET fulfillment_cycle_id = orders.fulfillment_notification_cycle_id
-FROM public.orders AS orders
-WHERE outbox.order_id = orders.id
-  AND outbox.fulfillment_cycle_id IS NULL
-  AND outbox.status IN ('pending', 'processing');
+SET fulfillment_cycle_id = current_cycle_rows.fulfillment_notification_cycle_id
+FROM current_cycle_rows
+WHERE outbox.id = current_cycle_rows.id;
 
 -- Rows created by the pre-cycle trigger did not carry a shipment snapshot.
 -- Backfill active work before multiple cycles are allowed to coexist. Existing
@@ -138,7 +157,25 @@ BEGIN
       'fulfillment_tracking_token', NEW.tracking_token
     )
   )
-  ON CONFLICT (order_id, event_type, fulfillment_cycle_id) DO NOTHING;
+  ON CONFLICT (order_id, event_type, fulfillment_cycle_id) DO UPDATE
+  SET
+    status = 'pending',
+    attempt_count = 0,
+    next_attempt_at = now(),
+    locked_at = NULL,
+    locked_by = NULL,
+    last_error = NULL,
+    skip_reason = NULL,
+    skipped_at = NULL,
+    dispatch_started_at = NULL,
+    metadata = order_notification_outbox.metadata || EXCLUDED.metadata,
+    updated_at = now()
+  WHERE order_notification_outbox.status = 'failed'
+    OR (
+      order_notification_outbox.status = 'skipped'
+      AND order_notification_outbox.skip_reason
+        IS DISTINCT FROM 'delivery_outcome_unknown'
+    );
 
   RETURN NEW;
 END;

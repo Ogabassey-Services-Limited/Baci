@@ -236,6 +236,62 @@ BEGIN
       v_manual_active_count;
   END IF;
 
+  PERFORM set_config(
+    'baci.order_notification_outbox.suppress_enqueue',
+    'true',
+    true
+  );
+  UPDATE public.orders
+  SET
+    shipping_provider = 'MANUAL-SNAPSHOT',
+    tracking_number = 'MANUAL-SNAPSHOT-TRACK',
+    tracking_token = 'manual-snapshot-token',
+    shipping_status = 'shipped'
+  WHERE id = v_manual_invalid_order_id;
+  PERFORM set_config(
+    'baci.order_notification_outbox.suppress_enqueue',
+    'false',
+    true
+  );
+
+  SELECT
+    (prepared.result->>'outbox_id')::uuid,
+    prepared.result->>'claim_owner',
+    prepared.result->'metadata'
+  INTO v_manual_claim_id, v_manual_claim_owner, v_manual_prepared_metadata
+  FROM (
+    SELECT public.prepare_order_notification_outbox_manual_send(
+      v_manual_invalid_order_id,
+      v_merchant_id,
+      'order_shipped',
+      NULL,
+      NULL,
+      NULL
+    ) AS result
+  ) AS prepared;
+
+  IF v_manual_prepared_metadata->>'fulfillment_courier_name'
+      IS DISTINCT FROM 'MANUAL-SNAPSHOT'
+    OR v_manual_prepared_metadata->>'fulfillment_tracking_number'
+      IS DISTINCT FROM 'MANUAL-SNAPSHOT-TRACK'
+    OR v_manual_prepared_metadata->>'fulfillment_tracking_token'
+      IS DISTINCT FROM 'manual-snapshot-token'
+  THEN
+    RAISE EXCEPTION 'expected a manual-created outbox row to snapshot current fulfillment details, got %',
+      v_manual_prepared_metadata;
+  END IF;
+
+  PERFORM public.complete_order_notification_outbox_manual_result(
+    v_manual_invalid_order_id,
+    v_merchant_id,
+    'order_shipped',
+    'skipped',
+    NULL,
+    'test_cleanup',
+    v_manual_claim_id,
+    v_manual_claim_owner
+  );
+
   UPDATE public.orders
   SET shipping_status = 'shipped'
   WHERE id = v_manual_order_id;
@@ -855,6 +911,16 @@ BEGIN
       v_manual_metadata;
   END IF;
 
+  UPDATE public.order_notification_outbox
+  SET
+    status = 'skipped',
+    skip_reason = 'order_not_in_required_status',
+    skipped_at = now(),
+    next_attempt_at = NULL,
+    updated_at = now()
+  WHERE order_id = v_correction_order_id
+    AND event_type = 'order_shipped';
+
   UPDATE public.orders
   SET shipping_status = 'processing'
   WHERE id = v_correction_order_id;
@@ -872,6 +938,17 @@ BEGIN
   IF v_shipped_count <> 1 THEN
     RAISE EXCEPTION 'expected shipped -> processing -> shipped correction to preserve one shipment cycle, got %',
       v_shipped_count;
+  END IF;
+
+  SELECT status
+  INTO v_processing_status
+  FROM public.order_notification_outbox
+  WHERE order_id = v_correction_order_id
+    AND event_type = 'order_shipped';
+
+  IF v_processing_status IS DISTINCT FROM 'pending' THEN
+    RAISE EXCEPTION 'expected a retryable same-cycle skipped event to reopen as pending, got %',
+      v_processing_status;
   END IF;
 
   UPDATE public.order_notification_outbox

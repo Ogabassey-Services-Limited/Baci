@@ -21,7 +21,10 @@ DECLARE
   v_fulfillment_cycle_id uuid;
   v_metadata jsonb;
   v_outbox_id uuid;
+  v_order_courier_name text;
   v_order_shipping_status text;
+  v_order_tracking_number text;
+  v_order_tracking_token text;
   v_skip_reason text;
   v_status text;
 BEGIN
@@ -53,8 +56,16 @@ BEGIN
 
   SELECT
     orders.shipping_status,
-    orders.fulfillment_notification_cycle_id
-  INTO v_order_shipping_status, v_fulfillment_cycle_id
+    orders.fulfillment_notification_cycle_id,
+    orders.shipping_provider,
+    orders.tracking_number,
+    orders.tracking_token
+  INTO
+    v_order_shipping_status,
+    v_fulfillment_cycle_id,
+    v_order_courier_name,
+    v_order_tracking_number,
+    v_order_tracking_token
   FROM public.orders AS orders
   WHERE orders.id = p_order_id
     AND orders.merchant_id = p_merchant_id
@@ -158,7 +169,11 @@ BEGIN
       now(),
       v_claim_owner,
       NULL,
-      jsonb_strip_nulls(jsonb_build_object(
+      jsonb_build_object(
+        'fulfillment_courier_name', v_order_courier_name,
+        'fulfillment_tracking_number', v_order_tracking_number,
+        'fulfillment_tracking_token', v_order_tracking_token
+      ) || jsonb_strip_nulls(jsonb_build_object(
         'source', 'manual_endpoint_claim',
         'manual_tracking_number', nullif(btrim(p_tracking_number), ''),
         'manual_courier_name', nullif(btrim(p_courier_name), ''),
