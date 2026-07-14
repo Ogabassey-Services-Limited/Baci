@@ -2,6 +2,7 @@
 
 import { DEFAULT_MAX_ITEM_BYTES } from './remote-cache-entry-buffer.mjs';
 import { DEFAULT_BACKEND_TIMEOUT_MS } from './remote-cache-timeout.mjs';
+import { DEFAULT_DISTRUST_MS } from './remote-cache-trust.mjs';
 import {
   createResilientRemoteCacheHandler,
   RESILIENT_REMOTE_CACHE_BRAND,
@@ -218,6 +219,11 @@ const handler = createResilientRemoteCacheHandler({
   maxItemBytes,
   failureThreshold: readIntEnv('BACI_REMOTE_CACHE_FAILURE_THRESHOLD', 5),
   cooldownMs: readIntEnv('BACI_REMOTE_CACHE_COOLDOWN_MS', 30_000),
+  // Kept SHORT and separate from the breaker cooldown: distrust protects
+  // correctness by pushing reads to the ORIGIN, so a long window would turn a
+  // cache blip into a sustained origin read storm. Recovery is normally the next
+  // request's refreshTags() probe, not this timer.
+  distrustMs: readIntEnv('BACI_REMOTE_CACHE_DISTRUST_MS', DEFAULT_DISTRUST_MS),
   // Invariant B: a cache that hangs must lose to the origin, not stall it.
   backendTimeoutMs: readIntEnv(
     'BACI_REMOTE_CACHE_TIMEOUT_MS',

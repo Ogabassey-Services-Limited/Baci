@@ -1,6 +1,9 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { createCacheTrust } from './remote-cache-trust.mjs';
+import {
+  createCacheTrust,
+  DEFAULT_DISTRUST_MS,
+} from './remote-cache-trust.mjs';
 
 /**
  * INVARIANT A's state. Freshness is a property of the SUBSYSTEM, not of an
@@ -18,6 +21,33 @@ describe('createCacheTrust', () => {
       },
     };
   }
+
+  /**
+   * The blast-radius dial. Distrust pushes reads onto the ORIGIN, so a long
+   * window turns a momentary cache blip into a sustained origin read storm — the
+   * Supabase-pooler feedback loop from plan §4.1. It must stay far below the
+   * breaker cooldown (30s), which is the OPPOSITE dial (shielding a sick backend
+   * FROM load).
+   */
+  it('defaults to a short backstop, well under the breaker cooldown', () => {
+    expect(DEFAULT_DISTRUST_MS).toBe(5_000);
+    expect(DEFAULT_DISTRUST_MS).toBeLessThan(30_000);
+  });
+
+  it('recovers on the next successful probe rather than waiting out the window', () => {
+    const clock = makeClock();
+    const trust = createCacheTrust({ distrustMs: 5_000, now: clock.now });
+
+    trust.degrade('refresh_tags');
+    expect(trust.isTrusted()).toBe(false);
+
+    // Next re-invokes refreshTags() before EVERY request, so under traffic the
+    // recovery path is the very next request — not the timer.
+    clock.advance(10);
+    trust.restore('refresh_tags');
+
+    expect(trust.isTrusted()).toBe(true);
+  });
 
   it('starts trusted', () => {
     const trust = createCacheTrust({

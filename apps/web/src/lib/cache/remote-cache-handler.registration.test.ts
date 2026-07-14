@@ -151,6 +151,30 @@ describe('real Next registration path', () => {
     expect(getCacheHandler('remote')).toBe(ours);
   });
 
+  /**
+   * BLAST-RADIUS SCOPE. Our adapter — and therefore its trust/distrust state and
+   * its circuit breakers — is registered for the `'remote'` kind ONLY. Next
+   * resolves a handler per kind (`getCacheHandler(kind)`), and plain
+   * `'use cache'` compiles to kind `'default'`, which stays on a DIFFERENT
+   * handler instance we never wrap or gate.
+   *
+   * So a remote-cache distrust window can only ever push the 19 shared-store
+   * sites to the origin. Every local `'use cache'` entry (merchant lookup, PDP
+   * details, category shell, slug resolution, …) keeps serving from its own
+   * handler. This is what bounds a cache blip from becoming a full-origin storm.
+   */
+  it('is registered for the remote kind ONLY — the default kind keeps its own handler', async () => {
+    const remote = makeBackend();
+    const fallback = makeBackend();
+
+    const ours = await registerLikeNext(remote, fallback);
+
+    expect(getCacheHandler('remote')).toBe(ours);
+    // Local `'use cache'` is untouched by anything this adapter does.
+    expect(getCacheHandler('default')).toBe(fallback);
+    expect(getCacheHandler('default')).not.toBe(ours);
+  });
+
   it('sends each invalidation to the shared backend exactly ONCE (no double-send)', async () => {
     const remote = makeBackend();
     const fallback = makeBackend();

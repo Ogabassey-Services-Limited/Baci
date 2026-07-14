@@ -15,14 +15,33 @@
  * the subsystem, not of the individual call, so it needs subsystem-level state.
  *
  * Each degradation reason is tracked and expires independently, so the leg that
- * broke can clear its own distrust when it recovers, while a still-broken leg
- * keeps reads honest. Expiry is time-bounded so a leg that is never called again
- * cannot disable the cache forever.
+ * broke clears its own distrust the moment it recovers, while a still-broken leg
+ * keeps reads honest.
+ *
+ * ## Blast radius — deliberately bounded on three axes
+ *
+ * 1. **Kind.** This trust state belongs to the `'remote'` cache handler ONLY.
+ *    Next resolves handlers per kind (`getCacheHandler(kind)`), and plain
+ *    `'use cache'` (kind `'default'`) is served by a DIFFERENT handler instance
+ *    that we neither wrap nor gate. So distrust can never disable the local
+ *    caches — only the shared-store sites.
+ *
+ * 2. **Time.** `distrustMs` is a BACKSTOP, not the expected recovery path.
+ *    Next calls `refreshTags()` at the start of every request ("always before
+ *    starting a new request"), so under any real traffic the very next request
+ *    re-probes the failed leg and `restore()` clears the distrust immediately.
+ *    The timer only covers the pathological case where the leg is never retried
+ *    (an idle instance, or the read circuit skipping it) — hence a SHORT default
+ *    rather than a long blind cooldown. A cache blip must not become a sustained
+ *    origin read storm (the feedback loop in plan §4.1 is what we are avoiding).
+ *
+ * 3. **Reason.** A recovered leg stops contributing distrust even while another
+ *    leg is still broken.
  *
  * @typedef {'refresh_tags' | 'get_expiration'} CacheTrustReason
  *
  * @typedef {object} CacheTrustOptions
- * @property {number} distrustMs How long one degradation keeps reads honest.
+ * @property {number} distrustMs Backstop only — see above.
  * @property {() => number} [now]
  *
  * @typedef {object} CacheTrust
@@ -32,11 +51,28 @@
  */
 
 /**
+ * 5 seconds.
+ *
+ * This is a BACKSTOP, not the recovery mechanism — recovery is `restore()` on
+ * the failed leg's next success, which under traffic happens on the very next
+ * request (Next re-invokes `refreshTags()` before each one). The window only has
+ * to bridge the gap until that retry.
+ *
+ * It is deliberately far shorter than the breaker cooldown (30s) and decoupled
+ * from it: the breaker is protecting a SICK BACKEND from load, whereas distrust
+ * is protecting CORRECTNESS, and it pushes load onto the ORIGIN. Those want
+ * opposite dials. A long distrust window would turn a momentary tags-service
+ * blip into a sustained full-origin read storm — precisely the Supabase-pooler
+ * feedback loop this plan exists to break (§4.1).
+ */
+export const DEFAULT_DISTRUST_MS = 5_000;
+
+/**
  * @param {CacheTrustOptions} options
  * @returns {CacheTrust}
  */
 export function createCacheTrust(options) {
-  const { distrustMs } = options;
+  const distrustMs = options.distrustMs ?? DEFAULT_DISTRUST_MS;
   const now = options.now ?? Date.now;
 
   /** Reason -> timestamp until which that reason keeps the cache untrusted. */

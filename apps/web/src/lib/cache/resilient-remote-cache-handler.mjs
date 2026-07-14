@@ -13,7 +13,10 @@ import {
   DEFAULT_BACKEND_TIMEOUT_MS,
   withTimeout,
 } from './remote-cache-timeout.mjs';
-import { createCacheTrust } from './remote-cache-trust.mjs';
+import {
+  createCacheTrust,
+  DEFAULT_DISTRUST_MS,
+} from './remote-cache-trust.mjs';
 import { createWritePipeline } from './remote-cache-write-pipeline.mjs';
 
 /**
@@ -66,7 +69,9 @@ import { createWritePipeline } from './remote-cache-write-pipeline.mjs';
  * @property {TelemetryLogger} [logger]
  * @property {number} [maxItemBytes]
  * @property {number} [failureThreshold]
- * @property {number} [cooldownMs]
+ * @property {number} [cooldownMs] Breaker cooldown — protects a sick BACKEND.
+ * @property {number} [distrustMs] Trust backstop — protects CORRECTNESS. Kept
+ *   separate and much shorter, because distrust pushes load onto the ORIGIN.
  * @property {number} [backendTimeoutMs]
  * @property {number} [flushIntervalMs]
  * @property {boolean} [disabled] Kill switch: degrade to miss-only.
@@ -103,6 +108,7 @@ export function createResilientRemoteCacheHandler(options) {
     maxItemBytes = DEFAULT_MAX_ITEM_BYTES,
     failureThreshold = DEFAULT_FAILURE_THRESHOLD,
     cooldownMs = DEFAULT_COOLDOWN_MS,
+    distrustMs = DEFAULT_DISTRUST_MS,
     backendTimeoutMs = DEFAULT_BACKEND_TIMEOUT_MS,
     flushIntervalMs,
     disabled = false,
@@ -128,7 +134,9 @@ export function createResilientRemoteCacheHandler(options) {
   });
 
   const telemetry = createCacheTelemetry({ logger, flushIntervalMs, now });
-  const trust = createCacheTrust({ distrustMs: cooldownMs, now });
+  // NOT cooldownMs: the breaker shields a sick backend from load, while distrust
+  // shifts load onto the origin. Opposite dials — see DEFAULT_DISTRUST_MS.
+  const trust = createCacheTrust({ distrustMs, now });
 
   const writes = createWritePipeline({
     backend,
