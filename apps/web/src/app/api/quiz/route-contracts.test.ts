@@ -39,7 +39,9 @@ function mockAuthenticatedSupabase({
 } = {}) {
   const rpc = vi.fn((name: string) =>
     Promise.resolve(
-      name === 'quiz_free_entry_ready' ? { data: true, error: null } : rpcResult
+      name === 'quiz_free_entry_ready' || name === 'quiz_device_cap_ready'
+        ? { data: true, error: null }
+        : rpcResult
     )
   );
   const queryBuilder = {
