@@ -14,6 +14,7 @@ vi.mock('@/lib/payments/release-wallet-credit-push', () => ({
 import { runClaimedWalletCreditPush } from './run-claimed-wallet-credit-push';
 
 const baseArgs = {
+  allowInitialClaim: true,
   claimToken: 'claim-token-1',
   onFailure: vi.fn(),
   reference: 'WAL-123',
@@ -33,7 +34,10 @@ describe('runClaimedWalletCreditPush', () => {
     await runClaimedWalletCreditPush({ ...baseArgs, notify });
 
     expect(mockClaim).toHaveBeenCalledWith(
-      expect.objectContaining({ claimToken: 'claim-token-1' })
+      expect.objectContaining({
+        allowInitialClaim: true,
+        claimToken: 'claim-token-1',
+      })
     );
     expect(notify).toHaveBeenCalledTimes(1);
   });

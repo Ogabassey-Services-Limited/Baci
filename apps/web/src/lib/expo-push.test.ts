@@ -725,6 +725,43 @@ describe('notifyCustomer', () => {
     );
   });
 
+  it('signals delivery start only when eligible tokens reach the Expo sender', async () => {
+    const mockChain = createChainableMock([{ token: 'ExponentPushToken[c1]' }]);
+    const onDeliveryStart = vi.fn();
+
+    vi.mocked(createAdminClient).mockReturnValue({
+      from: vi.fn().mockReturnValue(mockChain),
+    } as never);
+    mockSendPushNotificationsAsync.mockResolvedValueOnce([
+      { status: 'ok', id: 'ticket-c1' },
+    ]);
+
+    await notifyCustomer('user-456', 'Test', 'Body', undefined, 'payments', {
+      onDeliveryStart,
+    });
+
+    expect(onDeliveryStart).toHaveBeenCalledTimes(1);
+    expect(onDeliveryStart).toHaveBeenCalledBefore(
+      mockSendPushNotificationsAsync
+    );
+  });
+
+  it('does not signal delivery start when there are no eligible tokens', async () => {
+    const mockChain = createChainableMock([]);
+    const onDeliveryStart = vi.fn();
+
+    vi.mocked(createAdminClient).mockReturnValue({
+      from: vi.fn().mockReturnValue(mockChain),
+    } as never);
+
+    await notifyCustomer('user-456', 'Test', 'Body', undefined, 'payments', {
+      onDeliveryStart,
+    });
+
+    expect(onDeliveryStart).not.toHaveBeenCalled();
+    expect(mockSendPushNotificationsAsync).not.toHaveBeenCalled();
+  });
+
   it('persists title, body, and payload for successful customer sends', async () => {
     const selectChain = createChainableMock([
       { token: 'ExponentPushToken[c1]' },

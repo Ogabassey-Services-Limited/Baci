@@ -2,6 +2,7 @@ import { logger } from '@/lib/logger';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 interface ClaimWalletCreditPushInput {
+  allowInitialClaim: boolean;
   claimToken: string;
   reference: string;
   transactionId: string;
@@ -14,6 +15,7 @@ export type WalletCreditPushClaimResult =
 
 /** Atomically claims the one wallet-credit push associated with a transaction. */
 export async function claimWalletCreditPush({
+  allowInitialClaim,
   claimToken,
   reference,
   transactionId,
@@ -21,6 +23,7 @@ export async function claimWalletCreditPush({
   try {
     const supabase = createAdminClient();
     const { data, error } = await supabase.rpc('claim_wallet_credit_push_v2', {
+      p_allow_initial_claim: allowInitialClaim,
       p_claim_token: claimToken,
       p_transaction_id: transactionId,
     });

@@ -66,7 +66,10 @@ describe('notifyWalletCredited', () => {
       'NGN 5000 was added to your wallet.',
       { amount: 5000, currency: 'NGN', type: 'wallet_credited' },
       'payments',
-      { merchantId: 'merchant-1' }
+      {
+        merchantId: 'merchant-1',
+        onDeliveryStart: expect.any(Function),
+      }
     );
     expect(chain.eq).toHaveBeenCalledWith('id', 'customer-1');
     expect(chain.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
@@ -98,7 +101,10 @@ describe('notifyWalletCredited', () => {
       },
       'payments',
       // Delivery scoped to the crediting merchant's storefront tokens.
-      { merchantId: 'merchant-1' }
+      {
+        merchantId: 'merchant-1',
+        onDeliveryStart: expect.any(Function),
+      }
     );
   });
 
@@ -179,6 +185,26 @@ describe('notifyWalletCredited', () => {
     expect(result).toEqual({ status: 'retryable_error' });
   });
 
+  it('keeps the claim when Expo delivery started but returned only failures', async () => {
+    setCustomerLookupResult({
+      data: { user_id: 'user-1' },
+      error: null,
+    });
+    mockNotifyCustomer.mockImplementation(async (...args: unknown[]) => {
+      const options = args[5] as { onDeliveryStart?: () => void };
+      options.onDeliveryStart?.();
+      return { sent: 0, failed: 1, errors: ['network timeout'] };
+    });
+
+    const result = await notifyWalletCredited({
+      amount: 5000,
+      customerId: 'customer-1',
+      merchantId: 'merchant-1',
+    });
+
+    expect(result).toEqual({ status: 'delivery_unknown' });
+  });
+
   it('treats a failed ticket count as retryable even without error text', async () => {
     setCustomerLookupResult({
       data: { user_id: 'user-1' },
@@ -232,9 +258,11 @@ describe('notifyWalletCredited', () => {
       data: { user_id: 'user-1' },
       error: null,
     });
-    mockNotifyCustomer.mockRejectedValue(
-      new Error('ticket persistence unavailable')
-    );
+    mockNotifyCustomer.mockImplementation(async (...args: unknown[]) => {
+      const options = args[5] as { onDeliveryStart?: () => void };
+      options.onDeliveryStart?.();
+      throw new Error('ticket persistence unavailable');
+    });
 
     const result = await notifyWalletCredited({
       amount: 5000,
@@ -243,6 +271,22 @@ describe('notifyWalletCredited', () => {
     });
 
     expect(result).toEqual({ status: 'delivery_unknown' });
+  });
+
+  it('retries when the sender throws before Expo delivery starts', async () => {
+    setCustomerLookupResult({
+      data: { user_id: 'user-1' },
+      error: null,
+    });
+    mockNotifyCustomer.mockRejectedValue(new Error('token lookup unavailable'));
+
+    const result = await notifyWalletCredited({
+      amount: 5000,
+      customerId: 'customer-1',
+      merchantId: 'merchant-1',
+    });
+
+    expect(result).toEqual({ status: 'retryable_error' });
   });
 
   it('swallows unexpected errors so the caller is never affected', async () => {

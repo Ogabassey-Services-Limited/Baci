@@ -81,14 +81,18 @@ export async function notifyWalletCredited({
       returnTo,
     });
 
-    deliveryStarted = true;
     const result = await notifyCustomer(
       userId,
       'Wallet funded',
       `${formattedAmount} was added to your wallet.`,
       payload,
       'payments',
-      { merchantId }
+      {
+        merchantId,
+        onDeliveryStart: () => {
+          deliveryStarted = true;
+        },
+      }
     );
     if (result.sent > 0) {
       if (result.failed > 0 || result.errors.length > 0) {
@@ -102,7 +106,9 @@ export async function notifyWalletCredited({
       return { status: 'sent' };
     }
     if (result.failed > 0 || result.errors.length > 0) {
-      return { status: 'retryable_error' };
+      return deliveryStarted
+        ? { status: 'delivery_unknown' }
+        : { status: 'retryable_error' };
     }
     return { status: 'not_applicable' };
   } catch (error) {

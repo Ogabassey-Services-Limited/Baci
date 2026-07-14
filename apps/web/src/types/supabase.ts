@@ -12672,7 +12672,11 @@ export type Database = {
         Returns: boolean;
       };
       claim_wallet_credit_push_v2: {
-        Args: { p_claim_token: string; p_transaction_id: string };
+        Args: {
+          p_allow_initial_claim: boolean;
+          p_claim_token: string;
+          p_transaction_id: string;
+        };
         Returns: boolean;
       };
       release_wallet_credit_push: {

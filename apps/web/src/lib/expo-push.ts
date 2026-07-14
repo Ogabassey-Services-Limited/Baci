@@ -324,7 +324,7 @@ export async function notifyCustomer(
   body: string,
   data?: Record<string, unknown>,
   channelId: NotificationChannel = 'orders',
-  options?: { merchantId?: string }
+  options?: { merchantId?: string; onDeliveryStart?: () => void }
 ): Promise<NotificationSendResult> {
   const supabase = createAdminClient();
 
@@ -392,6 +392,7 @@ export async function notifyCustomer(
 
   let result: NotificationSendResult;
   try {
+    options?.onDeliveryStart?.();
     const tickets = await sendPushNotifications(messages);
 
     result = await processTickets(tickets, tokens, supabase, {

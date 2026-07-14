@@ -31,6 +31,7 @@ vi.mock('@/lib/logger', () => ({
 import { scheduleWalletFundedCreditNotification } from '@/lib/payments/schedule-wallet-funded-credit-notification';
 
 const baseArgs = {
+  allowInitialClaim: true,
   currency: 'NGN',
   customerId: 'customer-1',
   gatewayReference: 'PSK_REF_1',
@@ -65,6 +66,26 @@ describe('scheduleWalletFundedCreditNotification', () => {
       merchantId: 'merchant-1',
       returnTo: '/orders/11111111-1111-4111-8111-111111111111',
     });
+    expect(mockClaimWalletCreditPush).toHaveBeenCalledWith(
+      expect.objectContaining({ allowInitialClaim: true })
+    );
+  });
+
+  it('allows a finalized-transfer replay to claim only a retryable marker', async () => {
+    const tasks: Array<() => Promise<void>> = [];
+
+    scheduleWalletFundedCreditNotification({
+      ...baseArgs,
+      allowInitialClaim: false,
+      fundedAmount: 20_000,
+      scheduleAfter: (task) => tasks.push(task),
+    });
+
+    await tasks[0]?.();
+    expect(mockClaimWalletCreditPush).toHaveBeenCalledWith(
+      expect.objectContaining({ allowInitialClaim: false })
+    );
+    expect(mockNotifyWalletCredited).toHaveBeenCalledTimes(1);
   });
 
   it.each([

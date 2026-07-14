@@ -10,7 +10,7 @@ interface ScheduleWalletTopUpCreditNotificationArgs {
   amount: number;
   currency?: string;
   customerId: string;
-  /** Whether this caller took the first ledger credit; retained for caller parity. */
+  /** Allows the first ledger-credit winner to create the initial push claim. */
   firstCredit: boolean;
   /** Scopes push delivery to this merchant's storefront tokens. */
   merchantId: string;
@@ -24,14 +24,14 @@ interface ScheduleWalletTopUpCreditNotificationArgs {
 
 /**
  * Push-notify a wallet TOP-UP credit, from whichever caller actually takes the
- * first credit.
+ * first credit, or from a later replay carrying a durable retry marker.
  *
  * Two routes can credit the same top-up: the payment webhook and the client
  * confirm route (`/api/storefront/customer/wallet/top-up/confirm`, reached via
  * `waitForWalletTopUpConfirmation` on the card path). They race, and
- * Sequential replays are rejected by `firstCredit`. Concurrent callers can
- * both pass the pre-RPC ledger check, so the deferred task also claims a marker
- * on the transaction atomically; only the winner sends the push.
+ * Sequential replays cannot create an initial claim. A confirmed pre-delivery
+ * failure releases the claim with a durable retry marker, which permits only a
+ * later retry—not arbitrary historical transactions—to claim again.
  *
  * Additive and fire-and-forget: it only ever schedules work through the
  * caller's `after(...)` injector and swallows its own errors, so it cannot
@@ -42,6 +42,7 @@ export function scheduleWalletTopUpCreditNotification({
   amount,
   currency,
   customerId,
+  firstCredit,
   merchantId,
   metadata,
   reference,
@@ -71,6 +72,7 @@ export function scheduleWalletTopUpCreditNotification({
   try {
     scheduleAfter(async () => {
       await runClaimedWalletCreditPush({
+        allowInitialClaim: firstCredit,
         claimToken,
         notify: () =>
           notifyWalletCredited({

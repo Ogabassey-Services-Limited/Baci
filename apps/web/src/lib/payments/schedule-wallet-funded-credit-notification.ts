@@ -5,6 +5,8 @@ import type { ScheduleAfter } from '@/lib/payments/paid-order-side-effect-types'
 import { runClaimedWalletCreditPush } from '@/lib/payments/run-claimed-wallet-credit-push';
 
 interface ScheduleWalletFundedCreditNotificationArgs {
+  /** Allows a fresh transfer to create its initial claim; replays require a retry marker. */
+  allowInitialClaim: boolean;
   /** Amount actually credited to the wallet by finalize_wallet_funded_order. */
   fundedAmount: number;
   currency: string;
@@ -22,11 +24,14 @@ interface ScheduleWalletFundedCreditNotificationArgs {
  * and is immediately debited to pay the order, so the generic wallet top-up
  * notification block in the webhook is never reached for this flow.
  *
- * The caller gates this helper on a fresh finalization. Additive and
- * fire-and-forget: scheduled through the caller's `after(...)` injector and
- * swallowing its own errors, so it can never alter the webhook response.
+ * Fresh finalizations may create an initial claim; sequential webhook replays
+ * can claim only a durable retry marker left by a confirmed pre-delivery
+ * failure. Additive and fire-and-forget: scheduled through the caller's
+ * `after(...)` injector and swallowing its own errors, so it can never alter
+ * the webhook response.
  */
 export function scheduleWalletFundedCreditNotification({
+  allowInitialClaim,
   currency,
   customerId,
   fundedAmount,
@@ -45,6 +50,7 @@ export function scheduleWalletFundedCreditNotification({
     // before either sees the intent's updated last-reference fields. Only the
     // UPDATE that still sees no marker may schedule this transfer's push.
     await runClaimedWalletCreditPush({
+      allowInitialClaim,
       claimToken: randomUUID(),
       notify: () =>
         notifyWalletCredited({

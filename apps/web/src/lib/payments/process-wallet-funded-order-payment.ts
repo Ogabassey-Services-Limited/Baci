@@ -418,23 +418,26 @@ export async function processWalletFundedOrderPayment({
     orderPaid: finalizer.order_paid === true,
   });
   // The matcher can deliberately return the prior intent on webhook replay.
-  // Gate the push on provider identifiers that predated this RPC, and notify
-  // `credited_amount` (this transfer), never cumulative `funded_amount`.
-  // Scheduled off the response path — see
+  // Provider identifiers that predated this RPC distinguish a fresh transfer
+  // from a replay. Fresh transfers may create the initial push claim; replays
+  // can consume only a durable retry marker. Notify `credited_amount` for a
+  // fresh transfer and the transaction amount for its replay, never cumulative
+  // `funded_amount`. Scheduled off the response path — see
   // schedule-wallet-funded-credit-notification.ts. Additive: no control flow,
   // status code, or idempotency below is affected.
-  if (!transferAlreadyFinalized) {
-    scheduleWalletFundedCreditNotification({
-      currency: getCurrency(gatewayResponse),
-      customerId: match.intent.customerId,
-      fundedAmount: normalizeFinalizerAmount(finalizer.credited_amount, amount),
-      gatewayReference,
-      merchantId: match.intent.merchantId,
-      orderId: finalizer.order_id ?? match.intent.orderId,
-      scheduleAfter,
-      transactionId: transaction.id,
-    });
-  }
+  scheduleWalletFundedCreditNotification({
+    allowInitialClaim: !transferAlreadyFinalized,
+    currency: getCurrency(gatewayResponse),
+    customerId: match.intent.customerId,
+    fundedAmount: transferAlreadyFinalized
+      ? amount
+      : normalizeFinalizerAmount(finalizer.credited_amount, amount),
+    gatewayReference,
+    merchantId: match.intent.merchantId,
+    orderId: finalizer.order_id ?? match.intent.orderId,
+    scheduleAfter,
+    transactionId: transaction.id,
+  });
   if (finalizer.order_paid === true && !finalizer.order_id) {
     logger.warn({
       customerId: match.intent.customerId,

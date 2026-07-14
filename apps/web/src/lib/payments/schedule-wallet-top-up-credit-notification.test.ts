@@ -67,6 +67,9 @@ describe('scheduleWalletTopUpCreditNotification', () => {
     await Promise.all(tasks.map((task) => task()));
 
     expect(scheduleAfter).toHaveBeenCalledTimes(1);
+    expect(mockClaimWalletCreditPush).toHaveBeenCalledWith(
+      expect.objectContaining({ allowInitialClaim: true })
+    );
     expect(mockNotifyWalletCredited).toHaveBeenCalledTimes(1);
     expect(mockNotifyWalletCredited).toHaveBeenCalledWith({
       amount: 2500,
@@ -92,6 +95,9 @@ describe('scheduleWalletTopUpCreditNotification', () => {
     await Promise.all(tasks.map((task) => task()));
 
     expect(scheduleAfter).toHaveBeenCalledTimes(1);
+    expect(mockClaimWalletCreditPush).toHaveBeenCalledWith(
+      expect.objectContaining({ allowInitialClaim: false })
+    );
     expect(mockNotifyWalletCredited).not.toHaveBeenCalled();
   });
 

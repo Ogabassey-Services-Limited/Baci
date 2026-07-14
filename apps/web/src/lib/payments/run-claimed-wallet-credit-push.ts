@@ -3,6 +3,7 @@ import type { NotifyWalletCreditedResult } from '@/lib/payments/notify-wallet-cr
 import { releaseWalletCreditPush } from '@/lib/payments/release-wallet-credit-push';
 
 interface RunClaimedWalletCreditPushArgs {
+  allowInitialClaim: boolean;
   claimToken: string;
   notify: () => Promise<NotifyWalletCreditedResult>;
   onFailure: (error: unknown) => void;
@@ -12,6 +13,7 @@ interface RunClaimedWalletCreditPushArgs {
 
 /** Runs one wallet-credit push behind an atomic, retry-aware delivery claim. */
 export async function runClaimedWalletCreditPush({
+  allowInitialClaim,
   claimToken,
   notify,
   onFailure,
@@ -19,12 +21,18 @@ export async function runClaimedWalletCreditPush({
   transactionId,
 }: RunClaimedWalletCreditPushArgs): Promise<void> {
   let ownsClaim = false;
-  const claimArgs = { claimToken, reference, transactionId };
+  const claimArgs = {
+    allowInitialClaim,
+    claimToken,
+    reference,
+    transactionId,
+  };
+  const releaseArgs = { claimToken, reference, transactionId };
   const releaseClaim = async (): Promise<void> => {
     try {
-      let release = await releaseWalletCreditPush(claimArgs);
+      let release = await releaseWalletCreditPush(releaseArgs);
       if (release.status === 'error') {
-        release = await releaseWalletCreditPush(claimArgs);
+        release = await releaseWalletCreditPush(releaseArgs);
       }
       if (release.status === 'error') {
         // No independent durable store exists for this pre-send failure. If
