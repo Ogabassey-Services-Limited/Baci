@@ -268,6 +268,20 @@ const QUIZ_RPC_CLIENT_ERRORS: Record<
     error: "You've reached the maximum number of attempts for this quiz.",
     status: 409,
   },
+  // Anti multi-accounting. Both caps count across ACCOUNTS, so the message must
+  // not imply the player can simply sign up again — that is exactly what these
+  // prevent. Deliberately vague about WHICH signal matched: naming it would tell
+  // an abuser precisely what to rotate next.
+  QZ040: {
+    code: 'QUIZ_ATTEMPT_LIMIT_REACHED',
+    error: "You've reached the maximum number of attempts for this quiz.",
+    status: 409,
+  },
+  QZ041: {
+    code: 'QUIZ_ATTEMPT_LIMIT_REACHED',
+    error: "You've reached the maximum number of attempts for this quiz.",
+    status: 409,
+  },
   QZ031: {
     code: 'QUIZ_LEADERBOARD_NOT_AUTHORIZED',
     error: 'You are not authorized to view this leaderboard',

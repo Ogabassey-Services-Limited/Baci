@@ -10,6 +10,7 @@ import {
 import { useShallow } from 'zustand/react/shallow';
 import coinsImage from '@/assets/quiz/png/Coins.png';
 import { useTheme } from '@/hooks/useTheme';
+import { getQuizDeviceFingerprint } from '@/lib/get-quiz-device-fingerprint';
 import { createLogger } from '@/lib/logger';
 import {
   fetchQuizEvents,
@@ -97,9 +98,14 @@ export function QuizScreen({
 
   const handleStart = async (eventId: string) => {
     try {
-      await startEvent(eventId, integrityTier, () =>
-        startQuizAttempt({ eventId, integrityTier })
-      );
+      await startEvent(eventId, integrityTier, async () => {
+        // Resolve inside the starter so startEvent enters its synchronous
+        // in-flight state before this best-effort native lookup can yield.
+        const deviceFingerprint = await getQuizDeviceFingerprint().catch(
+          () => null
+        );
+        return startQuizAttempt({ deviceFingerprint, eventId, integrityTier });
+      });
     } catch (error) {
       log.warn('Failed to start quiz attempt', error);
       setError(getQuizErrorMessage(error, QUIZ_COPY.actionFailed));

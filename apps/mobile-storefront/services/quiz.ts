@@ -246,6 +246,7 @@ export async function fetchQuizEvents(
 
 export function startQuizAttempt({
   baseUrl,
+  deviceFingerprint,
   eventId,
   integrityTier,
 }: StartQuizAttemptInput): Promise<QuizAttempt> {
@@ -257,6 +258,7 @@ export function startQuizAttempt({
         entryMode: QUIZ_FREE_ENTRY_MODE,
         eventId,
         integrityTier,
+        ...(deviceFingerprint ? { deviceFingerprint } : {}),
       }),
     },
     quizAttemptSchema,

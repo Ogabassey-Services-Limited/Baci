@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
+import { resolveQuizDevice } from '@/lib/quiz/quiz-device-hash';
 import { createClient } from '@/lib/supabase/server';
 
 vi.mock('@/lib/api-auth', () => ({
@@ -34,6 +35,10 @@ vi.mock('@/lib/logger', () => ({
     info: vi.fn(),
     warn: vi.fn(),
   },
+}));
+
+vi.mock('@/lib/quiz/quiz-device-hash', () => ({
+  resolveQuizDevice: vi.fn(),
 }));
 
 const EVENT_ID = '11111111-1111-4111-8111-111111111111';
@@ -113,12 +118,14 @@ function mockAuthenticatedSupabase({
     error: null,
   },
   readinessResult = { data: true, error: null },
+  bindResult = { data: true, error: null },
   user = { id: USER_ID },
 }: {
   eventGuardResult?: { data: unknown; error: unknown };
   customerAgeResult?: { data: unknown; error: unknown };
   rpcResult?: { data: unknown; error: unknown };
   readinessResult?: { data: unknown; error: unknown };
+  bindResult?: { data: unknown; error: unknown };
   user?: { id: string } | null;
 } = {}) {
   const eventGuardBuilder = {
@@ -138,11 +145,12 @@ function mockAuthenticatedSupabase({
     if (table === 'customers') return customerAgeBuilder;
     return eventGuardBuilder;
   });
-  const rpc = vi.fn((name: string) =>
-    Promise.resolve(
-      name === 'quiz_free_entry_ready' ? readinessResult : rpcResult
-    )
-  );
+  const rpc = vi.fn((name: string) => {
+    if (name === 'quiz_free_entry_ready')
+      return Promise.resolve(readinessResult);
+    if (name === 'bind_quiz_attempt_device') return Promise.resolve(bindResult);
+    return Promise.resolve(rpcResult);
+  });
   const supabase = {
     auth: {
       getUser: vi.fn().mockResolvedValue({
@@ -169,6 +177,10 @@ describe('start quiz attempt route', () => {
     vi.clearAllMocks();
     process.env.QUIZ_RPC_SERVER_SECRET = 'test-secret';
     vi.mocked(checkCsrfProtection).mockResolvedValue({ valid: true });
+    vi.mocked(resolveQuizDevice).mockReturnValue({
+      cookieToSet: undefined,
+      deviceHash: null,
+    });
   });
 
   afterEach(() => {
@@ -428,6 +440,80 @@ describe('start quiz attempt route', () => {
     );
 
     expect(response.status).toBe(200);
+  });
+
+  it('ignores a client-supplied fingerprint for cookie-authenticated web starts', async () => {
+    mockAuthenticatedSupabase();
+
+    const { POST } = await import('./route');
+    await POST(
+      jsonRequest({
+        deviceFingerprint: 'a'.repeat(64),
+        eventId: EVENT_ID,
+        integrityTier: 'device',
+      })
+    );
+
+    expect(resolveQuizDevice).toHaveBeenCalledWith(
+      expect.any(NextRequest),
+      undefined
+    );
+  });
+
+  it('uses a validated fingerprint for bearer-authenticated mobile starts', async () => {
+    mockAuthenticatedSupabase();
+    const fingerprint = 'a'.repeat(64);
+
+    const { POST } = await import('./route');
+    await POST(
+      bearerRequest({
+        deviceFingerprint: fingerprint,
+        eventId: EVENT_ID,
+        integrityTier: 'device',
+      })
+    );
+
+    expect(resolveQuizDevice).toHaveBeenCalledWith(
+      expect.any(NextRequest),
+      fingerprint
+    );
+  });
+
+  it('returns the device limit response after persisting an over-cap attempt', async () => {
+    const { rpc } = mockAuthenticatedSupabase({
+      bindResult: { data: false, error: null },
+    });
+    vi.mocked(resolveQuizDevice).mockReturnValue({
+      cookieToSet: {
+        maxAge: 31_536_000,
+        name: 'baci_qdid',
+        value: 'device-cookie',
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: true,
+        path: '/',
+      },
+      deviceHash: 'b'.repeat(64),
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      jsonRequest({ eventId: EVENT_ID, integrityTier: 'device' })
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      code: 'QUIZ_ATTEMPT_LIMIT_REACHED',
+      error: "You've reached the maximum number of attempts for this quiz.",
+    });
+    expect(response.headers.get('set-cookie')).toContain(
+      'baci_qdid=device-cookie'
+    );
+    expect(rpc).toHaveBeenCalledWith('bind_quiz_attempt_device', {
+      p_attempt_id: 'attempt-1',
+      p_device_hash: 'b'.repeat(64),
+      p_user_id: USER_ID,
+    });
   });
 
   it('returns a client error when the event is no longer open', async () => {

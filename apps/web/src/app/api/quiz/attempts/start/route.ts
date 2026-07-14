@@ -22,6 +22,7 @@ import { readStalePaidStartCharge } from '@/app/api/quiz/_shared/stale-paid-star
 import { getQuizPhaseEnv } from '@/env';
 import { getBearerTokenFromRequest } from '@/lib/api-auth';
 import { logger } from '@/lib/logger';
+import { resolveQuizDevice } from '@/lib/quiz/quiz-device-hash';
 import { startQuizAttemptSchema } from '@/schemas/quiz';
 
 const QUIZ_UNAVAILABLE_RESPONSE = {
@@ -36,7 +37,7 @@ function isBearerAuthenticated(request: NextRequest): boolean {
   // here would let a request that authenticated as bearer (e.g. lowercase
   // `authorization: bearer <token>`) slip past the username gate and create a
   // leaderboard-bound attempt without a username, defeating the invariant.
-  return getBearerTokenFromRequest(request) !== null;
+  return Boolean(request.headers && getBearerTokenFromRequest(request));
 }
 
 function isExamPassRequiredError(error: unknown): boolean {
@@ -183,8 +184,68 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const deadlineResult = await attachQuizQuestionDeadline(auth.supabase, data);
-  if (deadlineResult.response) return deadlineResult.response;
+  // Anti multi-accounting: bind this attempt to a device so attempts from one
+  // device share a budget no matter which account started them (QZ041).
+  const device = resolveQuizDevice(
+    request,
+    isBearerAuthenticated(request) ? parsed.data.deviceFingerprint : undefined
+  );
 
-  return NextResponse.json(deadlineResult.data);
+  // The cookie MUST ride on every response below, including the limit error. If
+  // a rejected start dropped the freshly minted cookie, the abuser would get a
+  // brand-new device identity on every request and the cap would never
+  // accumulate — the control would be worthless.
+  const withDeviceCookie = (response: NextResponse): NextResponse => {
+    if (device.cookieToSet) {
+      response.cookies.set(device.cookieToSet);
+    }
+    return response;
+  };
+
+  const attemptId =
+    data && typeof data === 'object' && 'attemptId' in data
+      ? (data as { attemptId?: unknown }).attemptId
+      : undefined;
+
+  if (typeof attemptId === 'string' && device.deviceHash) {
+    const { data: deviceAllowed, error: bindError } = await auth.supabase.rpc(
+      'bind_quiz_attempt_device',
+      {
+        p_attempt_id: attemptId,
+        p_device_hash: device.deviceHash,
+        p_user_id: auth.user.id,
+      }
+    );
+
+    if (bindError) {
+      const bindClientError = quizRpcClientErrorResponse(bindError);
+      if (bindClientError) return withDeviceCookie(bindClientError);
+
+      // Anything else is an abuse-control fault, NOT a correctness one. Never
+      // block a legitimate player because the binding failed — log it and let
+      // them play. The per-customer (QZ030) and email-identity (QZ040) caps
+      // still bound them.
+      logger.error({
+        error: bindError,
+        event: 'bind_quiz_attempt_device',
+        eventId: parsed.data.eventId,
+        message: 'Failed to bind quiz attempt to a device; continuing',
+        userId: auth.user.id,
+      });
+    }
+    if (deviceAllowed === false) {
+      const deviceLimitResponse = quizRpcClientErrorResponse({
+        code: 'QZ041',
+        message: 'quiz_device_attempt_limit',
+      });
+      if (deviceLimitResponse) return withDeviceCookie(deviceLimitResponse);
+    }
+  }
+
+  const deadlineResult = await attachQuizQuestionDeadline(auth.supabase, data);
+  if (deadlineResult.response) {
+    return withDeviceCookie(deadlineResult.response);
+  }
+
+  return withDeviceCookie(NextResponse.json(deadlineResult.data));
 }

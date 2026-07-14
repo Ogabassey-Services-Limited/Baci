@@ -15055,6 +15055,14 @@ export type Database = {
           relevance: number;
         }[];
       };
+      bind_quiz_attempt_device: {
+        Args: {
+          p_attempt_id: string;
+          p_device_hash: string;
+          p_user_id: string;
+        };
+        Returns: boolean;
+      };
       quiz_free_entry_ready: { Args: never; Returns: boolean };
       start_quiz_attempt: {
         Args: {

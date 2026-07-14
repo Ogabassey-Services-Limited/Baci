@@ -7,6 +7,7 @@ import {
   waitFor,
 } from '@testing-library/react-native';
 import { QuizScreen } from '@/components/quiz/QuizScreen';
+import { getQuizDeviceFingerprint } from '@/lib/get-quiz-device-fingerprint';
 import type { QuizAttempt, QuizEvent, QuizResult } from '@/services/quiz';
 import {
   fetchQuizEvents,
@@ -99,6 +100,12 @@ function createDeferred<T>() {
   });
   return { promise, reject, resolve };
 }
+
+// Anti multi-accounting: QuizScreen sends a device fingerprint so the server can
+// share one attempt budget across every account started from this device.
+jest.mock('@/lib/get-quiz-device-fingerprint', () => ({
+  getQuizDeviceFingerprint: jest.fn(async () => 'a'.repeat(64)),
+}));
 
 jest.mock('@/services/quiz', () => ({
   fetchQuizEvents: jest.fn(),
@@ -193,6 +200,7 @@ describe('QuizScreen', () => {
 
     expect(await screen.findByText('Starting...')).toBeTruthy();
     expect(startQuizAttempt).toHaveBeenCalledWith({
+      deviceFingerprint: 'a'.repeat(64),
       eventId: 'event-1',
       integrityTier: 'device',
     });
@@ -207,6 +215,36 @@ describe('QuizScreen', () => {
     expect(
       screen.getByText('Free entry — no loyalty points used.')
     ).toBeTruthy();
+  });
+
+  it('enters the pending state before device fingerprint lookup resolves', async () => {
+    const fingerprintDeferred = createDeferred<string>();
+    jest
+      .mocked(getQuizDeviceFingerprint)
+      .mockReturnValueOnce(fingerprintDeferred.promise);
+    render(<QuizScreen integrityTier="device" locale="en-US" />);
+
+    fireEvent.press(
+      await screen.findByRole('button', {
+        name: 'Start free exam Daily Prize Quiz',
+      })
+    );
+
+    expect(await screen.findByText('Starting...')).toBeTruthy();
+    expect(startQuizAttempt).not.toHaveBeenCalled();
+
+    await act(async () => {
+      fingerprintDeferred.resolve('c'.repeat(64));
+      await fingerprintDeferred.promise;
+    });
+
+    await waitFor(() =>
+      expect(startQuizAttempt).toHaveBeenCalledWith({
+        deviceFingerprint: 'c'.repeat(64),
+        eventId: 'event-1',
+        integrityTier: 'device',
+      })
+    );
   });
 
   // Deploy-window safety: an installed build can briefly talk to a database that
@@ -316,6 +354,7 @@ describe('QuizScreen', () => {
       })
     ).toBeTruthy();
     expect(startQuizAttempt).toHaveBeenCalledWith({
+      deviceFingerprint: 'a'.repeat(64),
       eventId: 'event-1',
       integrityTier: 'device',
     });
@@ -371,6 +410,7 @@ describe('QuizScreen', () => {
     });
     await waitFor(() => {
       expect(startQuizAttempt).toHaveBeenCalledWith({
+        deviceFingerprint: 'a'.repeat(64),
         eventId: 'event-1',
         integrityTier: 'device',
       });

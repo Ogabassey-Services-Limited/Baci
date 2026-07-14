@@ -1,0 +1,279 @@
+-- Anti multi-accounting for prize quizzes: cap attempts per PERSON, not per account.
+--
+-- THE PROBLEM
+-- Storefront signup verifies an EMAIL one-time code (auth.users.phone_confirmed_at
+-- is 0 across the entire production database — nobody has a verified phone). An
+-- email address is free and unlimited, so an extra account costs an attacker
+-- nothing. Entry is now free and the attempt cap (QZ030) is per CUSTOMER, so one
+-- person can register N accounts and take N x max_attempts runs at the prize.
+-- Winners are ranked on score then speed, so more attempts is strictly better.
+--
+-- A short event window helps (a human cannot juggle many logins inside five
+-- minutes) but does not stop a script that pre-registers accounts and fires
+-- attempts in parallel.
+--
+-- WHAT THIS DOES — two caps that count across ACCOUNTS, not within one:
+--   1. Email-identity cap (QZ040): `oga+1@gmail.com`, `oga+2@gmail.com` and
+--      `o.g.a@gmail.com` all normalise to the same identity and therefore SHARE
+--      one attempt budget. Kills alias farms, which are the cheapest abuse.
+--   2. Device cap (QZ041): attempts from the same device share one budget, no
+--      matter which account they were started from.
+--
+-- HONEST LIMITS. Neither closes the hole. A determined script with disposable
+-- domains and a fresh device id still gets through. These raise the cost of
+-- abuse; only a scarce verified identity (e.g. SMS) would bound attempts per
+-- human. That is a deliberate product decision, recorded here so nobody later
+-- mistakes this for airtight.
+--
+-- Both caps reuse the SAME per-event budget as QZ030 (quiz_events.settings
+-- ->> 'max_attempts', default 3), so the cap means "3 attempts per person"
+-- rather than "3 per account".
+--
+-- IMPLEMENTATION NOTE. The email cap is a TRIGGER, not a change to
+-- start_quiz_attempt. That function is being redefined concurrently (free
+-- entry), and two migrations redefining the same function would have the later
+-- one silently clobber the earlier. A trigger composes with any future body.
+
+-- ---------------------------------------------------------------------------
+-- 1. Email normalisation. Gmail ignores dots and everything after a '+', and
+--    every other major provider ignores '+' tags, so these all reach one inbox.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.quiz_normalize_email(p_email text)
+RETURNS text
+LANGUAGE plpgsql
+IMMUTABLE
+SET search_path = ''
+AS $$
+DECLARE
+  v_email text;
+  v_local text;
+  v_domain text;
+BEGIN
+  v_email := pg_catalog.lower(pg_catalog.btrim(COALESCE(p_email, '')));
+
+  IF v_email = '' OR pg_catalog.position('@' IN v_email) = 0 THEN
+    RETURN NULL;
+  END IF;
+
+  v_local := pg_catalog.split_part(v_email, '@', 1);
+  v_domain := pg_catalog.split_part(v_email, '@', 2);
+
+  IF v_local = '' OR v_domain = '' THEN
+    RETURN NULL;
+  END IF;
+
+  -- Strip the "+tag" suffix (delivered to the same inbox everywhere).
+  v_local := pg_catalog.split_part(v_local, '+', 1);
+
+  -- Google treats googlemail.com as an alias of gmail.com.
+  IF v_domain = 'googlemail.com' THEN
+    v_domain := 'gmail.com';
+  END IF;
+
+  -- Gmail additionally ignores dots in the local part.
+  IF v_domain = 'gmail.com' THEN
+    v_local := pg_catalog.replace(v_local, '.', '');
+  END IF;
+
+  IF v_local = '' THEN
+    RETURN NULL;
+  END IF;
+
+  RETURN v_local || '@' || v_domain;
+END;
+$$;
+
+COMMENT ON FUNCTION public.quiz_normalize_email(text) IS 'Collapses email aliases that reach the same inbox (+tags everywhere, dots on gmail) so alias farms share one quiz attempt budget. Returns NULL for anything unusable.';
+
+-- ---------------------------------------------------------------------------
+-- 2. Per-event attempt budget, shared with QZ030 so the cap counts PEOPLE.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.quiz_event_max_attempts(p_event_id uuid)
+RETURNS integer
+LANGUAGE sql
+STABLE
+SET search_path = ''
+AS $$
+  SELECT
+    CASE
+      -- Cast via numeric first: a digit-only string above int range would
+      -- overflow ::integer and abort the caller. Bound it, then cast.
+      WHEN e.settings->>'max_attempts' ~ '^[0-9]+$'
+        AND (e.settings->>'max_attempts')::numeric BETWEEN 1 AND 2147483647
+        THEN (e.settings->>'max_attempts')::integer
+      ELSE 3
+    END
+  FROM public.quiz_events e
+  WHERE e.id = p_event_id;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- 3. Email-identity cap (QZ040). Counts every attempt at this event started by
+--    ANY customer of the same merchant whose email normalises to the same
+--    identity — so aliases of one inbox share a single budget.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.quiz_enforce_identity_attempt_cap()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_identity text;
+  v_merchant_id uuid;
+  v_max_attempts integer;
+  v_identity_attempts integer;
+BEGIN
+  SELECT public.quiz_normalize_email(c.email), c.merchant_id
+  INTO v_identity, v_merchant_id
+  FROM public.customers c
+  WHERE c.id = NEW.customer_id;
+
+  -- No usable email (e.g. a guest-checkout row): nothing to dedupe on. The
+  -- per-customer cap (QZ030) and the device cap still apply.
+  IF v_identity IS NULL OR v_merchant_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  -- Serialize every alias of this identity within the event. Without this,
+  -- parallel accounts can all observe the same pre-insert count.
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    ('x' || pg_catalog.substr(
+      pg_catalog.md5(
+        NEW.event_id::text || ':' || v_merchant_id::text || ':' || v_identity
+      ),
+      1,
+      16
+    ))::bit(64)::bigint
+  );
+
+  v_max_attempts := COALESCE(public.quiz_event_max_attempts(NEW.event_id), 3);
+
+  SELECT pg_catalog.count(*)::integer
+  INTO v_identity_attempts
+  FROM public.quiz_attempts a
+  JOIN public.customers c ON c.id = a.customer_id
+  WHERE a.event_id = NEW.event_id
+    AND c.merchant_id = v_merchant_id
+    AND public.quiz_normalize_email(c.email) = v_identity;
+
+  IF COALESCE(v_identity_attempts, 0) >= v_max_attempts THEN
+    RAISE EXCEPTION 'quiz_identity_attempt_limit'
+      USING ERRCODE = 'QZ040';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS quiz_attempts_enforce_identity_cap ON public.quiz_attempts;
+CREATE TRIGGER quiz_attempts_enforce_identity_cap
+  BEFORE INSERT ON public.quiz_attempts
+  FOR EACH ROW
+  EXECUTE FUNCTION public.quiz_enforce_identity_attempt_cap();
+
+-- ---------------------------------------------------------------------------
+-- 4. Device binding. One row per attempt, so attempts from one device share a
+--    budget regardless of which account started them.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.quiz_attempt_devices (
+  attempt_id uuid PRIMARY KEY REFERENCES public.quiz_attempts(id) ON DELETE CASCADE,
+  event_id uuid NOT NULL REFERENCES public.quiz_events(id) ON DELETE CASCADE,
+  -- SHA-256 hex. Never store a raw device identifier: this is a stable
+  -- cross-account correlator and therefore sensitive.
+  device_hash text NOT NULL CHECK (device_hash ~ '^[0-9a-f]{64}$'),
+  created_at timestamptz NOT NULL DEFAULT pg_catalog.now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_quiz_attempt_devices_event_hash
+  ON public.quiz_attempt_devices (event_id, device_hash);
+
+ALTER TABLE public.quiz_attempt_devices ENABLE ROW LEVEL SECURITY;
+
+-- No policies: the device map is an abuse-control artefact. It correlates
+-- accounts to one another, so no client may read it. Writes go exclusively
+-- through bind_quiz_attempt_device below; service_role bypasses RLS for ops.
+REVOKE ALL ON TABLE public.quiz_attempt_devices FROM PUBLIC, anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 5. Bind an attempt to a device and enforce the device cap (QZ041).
+--    Atomic: the count and the disqualification happen in one transaction, so
+--    two concurrent starts from one device cannot both slip past the cap.
+-- ---------------------------------------------------------------------------
+-- The function was introduced on this unmerged branch with a void return type.
+-- Drop that preview-only shape so environments that applied it can converge.
+DROP FUNCTION IF EXISTS public.bind_quiz_attempt_device(uuid, text, uuid);
+
+CREATE FUNCTION public.bind_quiz_attempt_device(
+  p_attempt_id uuid,
+  p_device_hash text,
+  p_user_id uuid
+)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_event_id uuid;
+  v_max_attempts integer;
+  v_device_attempts integer;
+BEGIN
+  IF p_device_hash !~ '^[0-9a-f]{64}$' THEN
+    RAISE EXCEPTION 'quiz_device_hash_invalid' USING ERRCODE = 'QZ042';
+  END IF;
+
+  -- Authorization: the attempt must belong to a live customer of this user.
+  -- Without this an authenticated shopper could bind (and so disqualify)
+  -- somebody else's attempt.
+  SELECT a.event_id
+  INTO v_event_id
+  FROM public.quiz_attempts a
+  JOIN public.customers c ON c.id = a.customer_id
+  WHERE a.id = p_attempt_id
+    AND c.user_id = p_user_id
+    AND c.deleted_at IS NULL;
+
+  IF v_event_id IS NULL THEN
+    RAISE EXCEPTION 'quiz_attempt_not_found' USING ERRCODE = 'QZ004';
+  END IF;
+
+  -- Serialize concurrent starts from the SAME device on the SAME event, so the
+  -- count below cannot race.
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    ('x' || pg_catalog.substr(
+      pg_catalog.md5(v_event_id::text || ':' || p_device_hash), 1, 16
+    ))::bit(64)::bigint
+  );
+
+  INSERT INTO public.quiz_attempt_devices (attempt_id, event_id, device_hash)
+  VALUES (p_attempt_id, v_event_id, p_device_hash)
+  ON CONFLICT (attempt_id) DO NOTHING;
+
+  v_max_attempts := COALESCE(public.quiz_event_max_attempts(v_event_id), 3);
+
+  SELECT pg_catalog.count(*)::integer
+  INTO v_device_attempts
+  FROM public.quiz_attempt_devices d
+  WHERE d.event_id = v_event_id
+    AND d.device_hash = p_device_hash;
+
+  IF COALESCE(v_device_attempts, 0) > v_max_attempts THEN
+    -- The attempt already exists (start_quiz_attempt created it), so forfeit it
+    -- rather than leaving a playable over-cap attempt behind. 'disqualified' is
+    -- excluded from ranking and from award minting.
+    UPDATE public.quiz_attempts
+    SET status = 'disqualified'
+    WHERE id = p_attempt_id;
+
+    RETURN false;
+  END IF;
+
+  RETURN true;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.bind_quiz_attempt_device(uuid, text, uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.bind_quiz_attempt_device(uuid, text, uuid) TO authenticated, service_role;
+
+COMMENT ON FUNCTION public.bind_quiz_attempt_device(uuid, text, uuid) IS 'Binds a quiz attempt to a hashed device id and enforces the per-device attempt cap (QZ041), disqualifying the over-cap attempt. Attempts from one device share a budget regardless of which account started them.';
