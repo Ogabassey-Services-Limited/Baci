@@ -55,13 +55,10 @@ export const DEFAULT_RETRY_BASE_MS = 250;
  * @returns {Promise<void>}
  */
 function defaultSleep(ms) {
-  return new Promise((resolve) => {
-    const timer = setTimeout(resolve, ms);
-    // Never hold a serverless function open for a retry timer.
-    if (typeof timer === 'object' && typeof timer.unref === 'function') {
-      timer.unref();
-    }
-  });
+  // This promise is part of the invalidation operation itself. Its timer must
+  // remain referenced; otherwise Node may exit before the awaited retry fires,
+  // silently dropping the tag bust this helper exists to preserve.
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**

@@ -156,7 +156,7 @@ describe('createWritePipeline', () => {
     it('returns immediately for a key with no in-flight write', async () => {
       const pipeline = makePipeline();
 
-      await expect(pipeline.awaitPending('key-1')).resolves.toBeUndefined();
+      await expect(pipeline.awaitPending('key-1')).resolves.toBe(true);
     });
 
     it('waits for an in-flight write to settle before returning', async () => {
@@ -202,7 +202,7 @@ describe('createWritePipeline', () => {
       void pipeline.write('key-1', Promise.resolve(makeEntry('hung')));
 
       // Bounded: it resolves rather than hanging with the write.
-      await expect(pipeline.awaitPending('key-1')).resolves.toBeUndefined();
+      await expect(pipeline.awaitPending('key-1')).resolves.toBe(false);
     });
 
     it('resolves the write itself even when the backend hangs, and counts a failure', async () => {

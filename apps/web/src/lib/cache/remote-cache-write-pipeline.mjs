@@ -84,7 +84,8 @@ import {
  *
  * @typedef {object} WritePipeline
  * @property {(cacheKey: string, pendingEntry: Promise<CacheEntry>) => Promise<void>} write
- * @property {(cacheKey: string) => Promise<void>} awaitPending
+ * @property {(cacheKey: string) => Promise<boolean>} awaitPending Whether the
+ * pending write settled before the deadline. A false result requires a miss.
  */
 
 /**
@@ -264,18 +265,20 @@ export function createWritePipeline(options) {
 
     async awaitPending(cacheKey) {
       const record = pendingWrites.get(cacheKey);
-      if (!record) return;
+      if (!record) return true;
 
       try {
         // `performWrite` is already deadline-bounded, so `done` settles. This
         // race additionally guards a pending ENTRY (i.e. a render) that never
         // resolves — a hung write must not wedge every later read of that key.
         await withTimeout(() => record.done, backendTimeoutMs, 'await_pending');
+        return true;
       } catch {
         telemetry.record('set', 'timeout');
         if (pendingWrites.get(cacheKey) === record) {
           pendingWrites.delete(cacheKey);
         }
+        return false;
       }
     },
   };

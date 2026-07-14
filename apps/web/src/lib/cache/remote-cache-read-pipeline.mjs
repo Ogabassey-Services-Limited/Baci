@@ -114,7 +114,20 @@ export function createReadPipeline(options) {
       // Next's contract: wait for an in-flight write to the same key. We wait,
       // then re-read the STORE — we never serve the write's in-memory buffer,
       // which has been checked against no tag manifest at all.
-      await writes.awaitPending(cacheKey);
+      const pendingSettled = await writes.awaitPending(cacheKey);
+      if (!pendingSettled) {
+        // The store may still contain the pre-write value. A deadline is a
+        // synchronisation failure, so fail closed to an origin recomputation.
+        return undefined;
+      }
+
+      // Trust can degrade while the await above is suspended (for example, a
+      // concurrent updateTags failure). Re-check immediately before touching
+      // the store so this chokepoint remains true across the async boundary.
+      if (!trust.isTrusted()) {
+        telemetry.record('get', 'skip_untrusted');
+        return undefined;
+      }
 
       /** @type {CacheEntry | undefined} */
       let entry;

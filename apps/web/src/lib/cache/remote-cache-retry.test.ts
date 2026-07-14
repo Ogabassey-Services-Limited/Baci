@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_RETRY_ATTEMPTS,
   DEFAULT_RETRY_BASE_MS,
@@ -22,6 +22,10 @@ import {
  * jittered retries repair it within seconds — which is why this exists.
  */
 describe('retryWithBackoff', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('returns immediately when the first attempt succeeds', async () => {
     const operation = vi.fn().mockResolvedValue(undefined);
 
@@ -107,6 +111,33 @@ describe('retryWithBackoff', () => {
 
     // Three instances, three different first-retry delays.
     expect(observed.size).toBe(3);
+  });
+
+  it('keeps the default retry timer referenced until the retry runs', async () => {
+    let releaseTimer: (() => void) | undefined;
+    const unref = vi.fn();
+    vi.spyOn(globalThis, 'setTimeout').mockImplementation(((
+      callback: () => void
+    ) => {
+      releaseTimer = callback;
+      return { unref } as unknown as NodeJS.Timeout;
+    }) as typeof setTimeout);
+    const operation = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('503'))
+      .mockResolvedValue(undefined);
+
+    const retrying = retryWithBackoff(operation, {
+      attempts: 2,
+      baseMs: 1,
+      random: () => 1,
+    });
+    await vi.waitFor(() => expect(releaseTimer).toBeDefined());
+    releaseTimer?.();
+    await retrying;
+
+    expect(unref).not.toHaveBeenCalled();
+    expect(operation).toHaveBeenCalledTimes(2);
   });
 
   it('keeps the total budget bounded — it must never block the response for long', async () => {

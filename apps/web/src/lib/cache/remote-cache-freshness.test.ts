@@ -189,11 +189,16 @@ describe('freshness semantics against the real Next contract', () => {
       // tag/expiration check entirely. Next's own default waits for the pending
       // set and then consults the tag manifest — so we must consult the store.
       let releaseWrite: () => void = () => {};
+      let signalWriteStarted: () => void = () => {};
+      const writeStarted = new Promise<void>((resolve) => {
+        signalWriteStarted = resolve;
+      });
       const backend = makeBackend();
       backend.set.mockImplementation(
         () =>
           new Promise<void>((resolve) => {
             releaseWrite = resolve;
+            signalWriteStarted();
           })
       );
       // The store, post-invalidation, no longer has the entry.
@@ -209,6 +214,7 @@ describe('freshness semantics against the real Next contract', () => {
         'key-1',
         Promise.resolve(makeEntry('pre-mutation'))
       );
+      await writeStarted;
       // Concurrent read for the same key.
       const readPromise = handler.get('key-1', ['products-m1']);
       releaseWrite();
@@ -273,9 +279,11 @@ describe('freshness semantics against the real Next contract', () => {
 
       void handler.set('key-1', Promise.resolve(makeEntry()));
 
-      // A hung write must not wedge every subsequent read of that key.
+      // A hung write must not wedge every subsequent read of that key, and the
+      // read must not fetch a potentially pre-write value from the store.
       const entry = await handler.get('key-1', []);
-      expect(entry).toBeDefined();
+      expect(entry).toBeUndefined();
+      expect(backend.get).not.toHaveBeenCalled();
     });
   });
 });
