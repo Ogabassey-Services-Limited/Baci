@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS public.cache_invalidation_outbox (
   completed_generation bigint,
   completed_at         timestamptz,
   attempts             int         NOT NULL DEFAULT 0,
+  next_attempt_at      timestamptz NOT NULL DEFAULT now(),
   last_error           text,
   payload              jsonb       NOT NULL DEFAULT '{}'::jsonb, -- delivery metadata for this target
   created_at           timestamptz NOT NULL DEFAULT now(),
@@ -35,7 +36,7 @@ CREATE TABLE IF NOT EXISTS public.cache_invalidation_outbox (
 
 -- The drainer's queue query: only rows that still need work.
 CREATE INDEX IF NOT EXISTS cache_invalidation_outbox_open_idx
-  ON public.cache_invalidation_outbox (status, claimed_at)
+  ON public.cache_invalidation_outbox (status, next_attempt_at, claimed_at)
   WHERE status NOT IN ('completed', 'dead_letter');
 
 ALTER TABLE public.cache_invalidation_outbox ENABLE ROW LEVEL SECURITY;
@@ -72,6 +73,7 @@ BEGIN
         claimed_by = NULL,
         claimed_at = NULL,
         attempts = 0,
+        next_attempt_at = now(),
         last_error = NULL,
         updated_at = now();
 END;
@@ -120,7 +122,7 @@ BEGIN
      AND o.attempts < p_max_attempts
      AND (
           o.status = 'pending'
-       OR o.status = 'failed'
+       OR (o.status = 'failed' AND o.next_attempt_at <= now())
        OR (o.status = 'claimed' AND o.claimed_at < now() - make_interval(secs => p_lease_seconds))
      );
   RETURN QUERY
@@ -157,11 +159,12 @@ BEGIN
 END;
 $$;
 
--- FAIL — token/generation checked. Retryable failures become immediately
--- claimable; the attempt that reaches the threshold is parked for alerting.
+-- FAIL — token/generation checked. Retryable failures become claimable only
+-- after their delay; the attempt that reaches the threshold is parked for alerting.
 CREATE OR REPLACE FUNCTION public.fail_cache_invalidation(
   p_merchant_id uuid, p_target_kind text, p_target_id text,
-  p_claim_token uuid, p_last_error text, p_max_attempts int DEFAULT 8
+  p_claim_token uuid, p_last_error text, p_max_attempts int DEFAULT 8,
+  p_retry_after_seconds int DEFAULT 30
 ) RETURNS boolean
 LANGUAGE plpgsql SECURITY DEFINER SET search_path TO ''
 AS $$
@@ -170,8 +173,8 @@ BEGIN
   IF auth.role() IS DISTINCT FROM 'service_role' THEN
     RAISE EXCEPTION 'forbidden: fail_cache_invalidation is service-role only';
   END IF;
-  IF p_max_attempts <= 0 THEN
-    RAISE EXCEPTION 'max attempts must be positive';
+  IF p_max_attempts <= 0 OR p_retry_after_seconds < 0 THEN
+    RAISE EXCEPTION 'max attempts must be positive and retry delay cannot be negative';
   END IF;
   UPDATE public.cache_invalidation_outbox o
      SET status = CASE
@@ -179,6 +182,7 @@ BEGIN
                     ELSE 'failed'
                   END,
          last_error = left(COALESCE(p_last_error, 'unknown delivery failure'), 4000),
+         next_attempt_at = now() + make_interval(secs => p_retry_after_seconds),
          claim_token = NULL,
          claimed_generation = NULL,
          claimed_by = NULL,
@@ -199,11 +203,11 @@ REVOKE ALL ON FUNCTION
   public.enqueue_cache_invalidation(uuid, text, text, jsonb),
   public.claim_cache_invalidation(uuid, text, text, uuid, text, int, int),
   public.complete_cache_invalidation(uuid, text, text, uuid),
-  public.fail_cache_invalidation(uuid, text, text, uuid, text, int)
+  public.fail_cache_invalidation(uuid, text, text, uuid, text, int, int)
   FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION
   public.claim_cache_invalidation(uuid, text, text, uuid, text, int, int),
   public.complete_cache_invalidation(uuid, text, text, uuid),
-  public.fail_cache_invalidation(uuid, text, text, uuid, text, int)
+  public.fail_cache_invalidation(uuid, text, text, uuid, text, int, int)
   TO service_role;
 -- enqueue is invoked by other SECURITY DEFINER mutation RPCs/triggers, not granted to a client role.

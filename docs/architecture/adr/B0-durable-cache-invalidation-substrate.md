@@ -1,7 +1,7 @@
 # ADR B0 — Durable cache-invalidation substrate & drainer runtime
 
 **Status:** proposed (design adopted 2026-07-11; implementation gated behind the workaround-retirement-plan non-security gate) · **Owner sign-off required for:** the VPS deploy step (crontab + `deploy.sh`) and the drain-latency SLA.
-**Context source:** `docs/architecture/discovery/B0-drainer-runtime-brief.md`. **Verified vs** `origin/main@cff335b0fd`.
+**Context source:** `docs/architecture/discovery/B0-drainer-runtime-brief.md`. **Revalidated vs** `origin/main@1ba7562b64`.
 
 ## Context
 
@@ -41,20 +41,20 @@ New table `public.cache_invalidation_outbox`, one row per invalidation target, g
 | `generation bigint` | bumped on every enqueue; the "latest mutation" marker |
 | `status text` (`pending`/`claimed`/`completed`/`failed`/`dead_letter`) | drain state; `dead_letter` is excluded from claims and requires operator action |
 | `claim_token uuid`, `claimed_generation bigint`, `claimed_by text`, `claimed_at timestamptz` | lease |
-| `completed_generation bigint`, `completed_at`, `attempts int`, `last_error text` | terminal/retry state |
+| `completed_generation bigint`, `completed_at`, `attempts int`, `next_attempt_at timestamptz`, `last_error text` | terminal/retry state and the earliest time a failed row may be reclaimed |
 | `payload jsonb` | delivery metadata for this concrete target; never the sole storage for additional stale paths |
 
-- **Open-work index:** `... (status, claimed_at) WHERE status NOT IN ('completed','dead_letter')` — the drainer's queue query.
+- **Open-work index:** `... (status, next_attempt_at, claimed_at) WHERE status NOT IN ('completed','dead_letter')` — the drainer's queue query.
 - **Enqueue** (in-mutation): `INSERT … generation=1, status='pending' ON CONFLICT (merchant_id,target_kind,target_id) DO UPDATE SET generation = outbox.generation + 1, status = 'pending', attempts = 0, payload = EXCLUDED.payload` — re-queues even a completed/dead-letter row. Enqueue one row per concrete target (for A→B→C, retain A, B, and C target rows). The helper is `SECURITY DEFINER` but ungranted to client roles and is invoked only by trusted definer mutation RPCs/triggers; it must not reject an outer authenticated JWT by checking `auth.role()`.
-- **Claim** (`SECURITY DEFINER`, `service_role`-only + null-safe `auth.role() IS DISTINCT FROM 'service_role'` guard, mirroring `claim_payment_side_effect`): take a `pending`/`failed`/stale-`claimed` (> lease) row only while `attempts < max_attempts`, set `claimed_generation = generation`, `status='claimed'`, `claim_token`, `claimed_at=now()`, `attempts += 1`; return `we_won`. If a worker crashes on the threshold attempt, the next claim call parks the expired lease as `dead_letter` instead of leaving it stranded as `claimed`.
+- **Claim** (`SECURITY DEFINER`, `service_role`-only + null-safe `auth.role() IS DISTINCT FROM 'service_role'` guard, mirroring `claim_payment_side_effect`): take a `pending`, due `failed` (`next_attempt_at <= now()`), or stale-`claimed` (> lease) row only while `attempts < max_attempts`, set `claimed_generation = generation`, `status='claimed'`, `claim_token`, `claimed_at=now()`, `attempts += 1`; return `we_won`. If a worker crashes on the threshold attempt, the next claim call parks the expired lease as `dead_letter` instead of leaving it stranded as `claimed`.
 - **Complete:** `UPDATE … SET status='completed', completed_generation=claimed_generation WHERE claim_token=? AND generation = claimed_generation` — **if `generation` advanced during the drain, the row is NOT marked complete and re-drains** (generation-aware idempotency). Re-purging a tag/URL is idempotent, so a mid-lease crash after purging but before completing is harmless.
-- **Fail:** a service-role-only, null-safe `fail_cache_invalidation` transition requires the matching claim token and generation, records `last_error`, and moves the row to `failed` (immediately claimable) or `dead_letter` once `attempts >= max_attempts`.
+- **Fail:** a service-role-only, null-safe `fail_cache_invalidation` transition requires the matching claim token and generation, records `last_error`, and moves the row to `failed` with `next_attempt_at = now() + retry_delay` or `dead_letter` once `attempts >= max_attempts`. The drainer passes `max(parsed Retry-After, exponential backoff + jitter)` for provider throttles; ordinary retryable errors use the bounded default delay, so one loop cannot burn the retry budget immediately.
 - **Lease = 30s** (sub-second drains; comfortably > worst-case Next-invalidate + Cloudflare batch; shorter than payment's 60s since there's no email/settlement latency).
 - **ACL:** RLS enabled; `REVOKE ALL FROM PUBLIC, anon, authenticated`; `GRANT` to `service_role`; explicit `service_role_all` policy — identical lockdown to `payment_side_effects`.
 
 ### D4 — Drain route (`POST /api/cron/drain-invalidations`, `CRON_SECRET`-gated)
 
-Loop while it can claim a row (bounded by `maxDuration`/batch): claim → **stage 1** `revalidateTag`/`revalidatePath` the target's Next tags → **stage 2** purge Cloudflare URLs via a **new strict primitive** that returns structured per-batch outcomes (missing config / timeout / non-2xx / `200 + success:false` / partial failure / `429`+`Retry-After` are all retryable and never marked complete — replacing today's swallow-everything `purgeCloudflareUrls(): Promise<void>`, which is kept only as the legacy fail-open wrapper) → complete (generation-checked). On delivery error the drainer calls the token-checked failure transition immediately; it records `last_error`, makes retryable rows claimable without waiting for lease expiry, and parks the threshold attempt as `dead_letter` for alerting.
+Loop while it can claim a row (bounded by `maxDuration`/batch): claim → **stage 1** `revalidateTag`/`revalidatePath` the target's Next tags → **stage 2** purge Cloudflare URLs via a **new strict primitive** that returns structured per-batch outcomes (missing config / timeout / non-2xx / `200 + success:false` / partial failure / `429`+`Retry-After` are all retryable and never marked complete — replacing today's swallow-everything `purgeCloudflareUrls(): Promise<void>`, which is kept only as the legacy fail-open wrapper) → complete (generation-checked). On delivery error the drainer calls the token-checked failure transition immediately; it records `last_error`, schedules `next_attempt_at` from bounded exponential backoff plus jitter (and never earlier than `Retry-After`), and parks the threshold attempt as `dead_letter` for alerting.
 
 ### D5 — Deploy discipline
 
@@ -67,6 +67,6 @@ The crontab line + `WEB_CRON_CONFIG` entry + `deploy.sh` block + `docs/ops/vps-w
 
 ## B0 exit checklist (before durable B1/B2 implementation)
 - [ ] This ADR signed (owner: drain-latency SLA + VPS deploy discipline).
-- [ ] Prototype migration `cache_invalidation_outbox` + claim/enqueue/complete RPCs (draft: `supabase/migrations/…_cache_invalidation_outbox.sql`).
-- [ ] Timed prototype demonstrating: claim → simulated crash → recover after lease expiry → Next invalidation → mocked Cloudflare call → generation-checked completion.
+- [ ] Prototype migration `cache_invalidation_outbox` + enqueue/claim/complete/fail RPCs (draft: `supabase/migrations/…_cache_invalidation_outbox.sql`).
+- [ ] Timed prototype demonstrating: claim → simulated crash → recover after lease expiry; retry failure → not reclaimable before `next_attempt_at` → reclaim after the delay; Next invalidation → mocked Cloudflare call → generation-checked completion.
 - [ ] Owner confirms VPS deploy step (crontab + `deploy.sh` + runbook in one PR).
