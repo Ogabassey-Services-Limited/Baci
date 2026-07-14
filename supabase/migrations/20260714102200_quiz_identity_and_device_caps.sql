@@ -203,11 +203,13 @@ REVOKE ALL ON TABLE public.quiz_attempt_devices FROM PUBLIC, anon, authenticated
 -- Drop that preview-only shape so environments that applied it can converge.
 DROP FUNCTION IF EXISTS public.bind_quiz_attempt_device(uuid, text, uuid);
 DROP FUNCTION IF EXISTS public.bind_quiz_attempt_device(uuid, text);
+DROP FUNCTION IF EXISTS public.bind_quiz_attempt_device(uuid, text, jsonb);
+DROP FUNCTION IF EXISTS public.quiz_bind_attempt_device_internal(uuid, text, uuid);
 
-CREATE FUNCTION public.bind_quiz_attempt_device(
+CREATE FUNCTION public.quiz_bind_attempt_device_internal(
   p_attempt_id uuid,
   p_device_hash text,
-  p_route_proof jsonb DEFAULT '{}'::jsonb
+  p_user_id uuid
 )
 RETURNS boolean
 LANGUAGE plpgsql
@@ -216,7 +218,6 @@ SET search_path = ''
 AS $$
 DECLARE
   v_event_id uuid;
-  v_user_id uuid;
   v_bound_device_hash text;
   v_max_attempts integer;
   v_device_attempts integer;
@@ -225,18 +226,8 @@ BEGIN
     RAISE EXCEPTION 'quiz_device_hash_invalid' USING ERRCODE = 'QZ042';
   END IF;
 
-  v_user_id := auth.uid();
-  IF v_user_id IS NULL THEN
+  IF p_user_id IS NULL THEN
     RAISE EXCEPTION 'quiz_attempt_not_found' USING ERRCODE = 'QZ004';
-  END IF;
-
-  IF NOT public.quiz_route_proof_valid(
-    p_route_proof,
-    'bind_quiz_attempt_device_v1',
-    p_attempt_id::text || ':' || p_device_hash,
-    v_user_id
-  ) THEN
-    RAISE EXCEPTION 'quiz route proof required' USING ERRCODE = 'QZ010';
   END IF;
 
   -- Authorization: the attempt must belong to a live customer of this user.
@@ -247,7 +238,7 @@ BEGIN
   FROM public.quiz_attempts a
   JOIN public.customers c ON c.id = a.customer_id
   WHERE a.id = p_attempt_id
-    AND c.user_id = v_user_id
+    AND c.user_id = p_user_id
     AND c.deleted_at IS NULL;
 
   IF v_event_id IS NULL THEN
@@ -298,7 +289,129 @@ BEGIN
 END;
 $$;
 
+REVOKE ALL ON FUNCTION public.quiz_bind_attempt_device_internal(uuid, text, uuid)
+  FROM PUBLIC, anon, authenticated, service_role;
+
+CREATE FUNCTION public.bind_quiz_attempt_device(
+  p_attempt_id uuid,
+  p_device_hash text,
+  p_route_proof jsonb DEFAULT '{}'::jsonb
+)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_user_id uuid;
+BEGIN
+  v_user_id := auth.uid();
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'quiz_attempt_not_found' USING ERRCODE = 'QZ004';
+  END IF;
+
+  IF NOT public.quiz_route_proof_valid(
+    p_route_proof,
+    'bind_quiz_attempt_device_v1',
+    p_attempt_id::text || ':' || p_device_hash,
+    v_user_id
+  ) THEN
+    RAISE EXCEPTION 'quiz route proof required' USING ERRCODE = 'QZ010';
+  END IF;
+
+  RETURN public.quiz_bind_attempt_device_internal(
+    p_attempt_id,
+    p_device_hash,
+    v_user_id
+  );
+END;
+$$;
+
 REVOKE ALL ON FUNCTION public.bind_quiz_attempt_device(uuid, text, jsonb) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.bind_quiz_attempt_device(uuid, text, jsonb) TO authenticated;
 
 COMMENT ON FUNCTION public.bind_quiz_attempt_device(uuid, text, jsonb) IS 'Binds a quiz attempt to a server-attested hashed device id and enforces the per-device attempt cap (QZ041), disqualifying the over-cap attempt. Attempts from one device share a budget regardless of which account started them.';
+
+-- Start and bind in one database transaction. The attempt and its questions do
+-- not become visible through RLS until the device-cap decision has committed,
+-- closing the race where an answer could overwrite a concurrent disqualification.
+DROP FUNCTION IF EXISTS public.start_quiz_attempt_with_device(uuid, text, text, jsonb, jsonb, uuid);
+
+CREATE FUNCTION public.start_quiz_attempt_with_device(
+  p_event_id uuid,
+  p_integrity_tier text,
+  p_device_hash text,
+  p_start_route_proof jsonb,
+  p_device_route_proof jsonb,
+  p_user_id uuid
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_start_data jsonb;
+  v_attempt_id uuid;
+  v_auth_user_id uuid;
+  v_device_allowed boolean := true;
+  v_device_binding_failed boolean := false;
+BEGIN
+  v_auth_user_id := auth.uid();
+  IF v_auth_user_id IS NULL OR v_auth_user_id IS DISTINCT FROM p_user_id THEN
+    RAISE EXCEPTION 'quiz_attempt_not_found' USING ERRCODE = 'QZ004';
+  END IF;
+
+  -- Bind the device parameter to a separate server proof before creating the
+  -- attempt. Authenticated clients cannot choose another hash while replaying a
+  -- proof intended for this event and device.
+  IF NOT public.quiz_route_proof_valid(
+    p_device_route_proof,
+    'start_quiz_attempt_with_device_v1',
+    p_event_id::text || ':' || p_device_hash,
+    p_user_id
+  ) THEN
+    RAISE EXCEPTION 'quiz route proof required' USING ERRCODE = 'QZ010';
+  END IF;
+
+  v_start_data := public.start_quiz_attempt(
+    p_event_id,
+    p_integrity_tier,
+    p_start_route_proof,
+    p_user_id
+  );
+  v_attempt_id := NULLIF(v_start_data->>'attemptId', '')::uuid;
+
+  -- A binding infrastructure fault must not block a legitimate player. The
+  -- exception block is a subtransaction: partial binding changes roll back,
+  -- while the successfully created attempt remains available and is bounded by
+  -- the per-customer and normalized-email caps.
+  BEGIN
+    v_device_allowed := public.quiz_bind_attempt_device_internal(
+      v_attempt_id,
+      p_device_hash,
+      p_user_id
+    );
+  EXCEPTION
+    WHEN SQLSTATE '55P03' -- lock_not_available
+      OR SQLSTATE '57014' -- query_canceled / statement timeout
+      OR SQLSTATE '40001' -- serialization_failure
+      OR SQLSTATE '40P01' -- deadlock_detected
+    THEN
+    v_device_allowed := true;
+    v_device_binding_failed := true;
+  END;
+
+  RETURN v_start_data || pg_catalog.jsonb_build_object(
+    'deviceAllowed', v_device_allowed,
+    'deviceBindingFailed', v_device_binding_failed
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.start_quiz_attempt_with_device(uuid, text, text, jsonb, jsonb, uuid)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.start_quiz_attempt_with_device(uuid, text, text, jsonb, jsonb, uuid)
+  TO authenticated;
+
+COMMENT ON FUNCTION public.start_quiz_attempt_with_device(uuid, text, text, jsonb, jsonb, uuid) IS 'Atomically starts a free quiz attempt and enforces the cross-account device cap before the attempt becomes visible. Binding infrastructure errors fail soft and are surfaced to the server for logging.';

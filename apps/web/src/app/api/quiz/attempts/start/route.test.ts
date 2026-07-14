@@ -19,6 +19,8 @@ vi.mock('@/lib/api-auth', () => ({
     const match = header.match(/^\s*bearer\s+(.+?)\s*$/i);
     return match?.[1]?.trim() || null;
   },
+  hasBearerAuthScheme: (request: Request) =>
+    /^\s*bearer(?:\s|$)/i.test(request.headers.get('Authorization') ?? ''),
 }));
 
 vi.mock('@/lib/csrf', () => ({
@@ -149,6 +151,21 @@ function mockAuthenticatedSupabase({
     if (name === 'quiz_free_entry_ready')
       return Promise.resolve(readinessResult);
     if (name === 'bind_quiz_attempt_device') return Promise.resolve(bindResult);
+    if (name === 'start_quiz_attempt_with_device') {
+      if (rpcResult.error) return Promise.resolve(rpcResult);
+      const startData =
+        rpcResult.data && typeof rpcResult.data === 'object'
+          ? rpcResult.data
+          : {};
+      return Promise.resolve({
+        data: {
+          ...startData,
+          deviceAllowed: bindResult.error ? true : bindResult.data,
+          deviceBindingFailed: Boolean(bindResult.error),
+        },
+        error: null,
+      });
+    }
     return Promise.resolve(rpcResult);
   });
   const supabase = {
@@ -479,6 +496,25 @@ describe('start quiz attempt route', () => {
     );
   });
 
+  it('uses the shared bearer parser for lowercase mobile authorization', async () => {
+    mockAuthenticatedSupabase();
+    const fingerprint = 'd'.repeat(64);
+
+    const { POST } = await import('./route');
+    await POST(
+      lowercaseBearerRequest({
+        deviceFingerprint: fingerprint,
+        eventId: EVENT_ID,
+        integrityTier: 'device',
+      })
+    );
+
+    expect(resolveQuizDevice).toHaveBeenCalledWith(
+      expect.any(NextRequest),
+      fingerprint
+    );
+  });
+
   it('returns the device limit response after persisting an over-cap attempt', async () => {
     const { rpc } = mockAuthenticatedSupabase({
       bindResult: { data: false, error: null },
@@ -509,10 +545,13 @@ describe('start quiz attempt route', () => {
     expect(response.headers.get('set-cookie')).toContain(
       'baci_qdid=device-cookie'
     );
-    expect(rpc).toHaveBeenCalledWith('bind_quiz_attempt_device', {
-      p_attempt_id: 'attempt-1',
+    expect(rpc).toHaveBeenCalledWith('start_quiz_attempt_with_device', {
       p_device_hash: 'b'.repeat(64),
-      p_route_proof: expect.any(Object),
+      p_device_route_proof: expect.any(Object),
+      p_event_id: EVENT_ID,
+      p_integrity_tier: 'device',
+      p_start_route_proof: expect.any(Object),
+      p_user_id: USER_ID,
     });
   });
 
@@ -537,8 +576,8 @@ describe('start quiz attempt route', () => {
     expect(await response.json()).toMatchObject({ attemptId: 'attempt-1' });
     expect(logger.error).toHaveBeenCalledWith(
       expect.objectContaining({
-        event: 'bind_quiz_attempt_device',
-        message: 'Failed to bind quiz attempt to a device; continuing',
+        event: 'start_quiz_attempt_with_device',
+        message: 'Device-cap binding failed inside quiz start; continuing',
       })
     );
   });

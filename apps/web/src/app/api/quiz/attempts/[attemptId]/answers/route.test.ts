@@ -7,6 +7,12 @@ import { createClient } from '@/lib/supabase/server';
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: vi.fn(),
+  getBearerTokenFromRequest: (request: Request) => {
+    const header = request.headers.get('Authorization') ?? '';
+    return header.match(/^\s*bearer\s+(.+?)\s*$/i)?.[1]?.trim() || null;
+  },
+  hasBearerAuthScheme: (request: Request) =>
+    /^\s*bearer(?:\s|$)/i.test(request.headers.get('Authorization') ?? ''),
 }));
 
 vi.mock('@/lib/csrf', () => ({

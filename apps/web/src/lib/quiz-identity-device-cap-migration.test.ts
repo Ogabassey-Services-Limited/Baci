@@ -58,8 +58,12 @@ describe('quiz identity and device cap migration', () => {
     const bindFunction = migrationSql.match(
       /CREATE FUNCTION public\.bind_quiz_attempt_device[\s\S]*?\$\$;/i
     )?.[0];
+    const internalBindFunction = migrationSql.match(
+      /CREATE FUNCTION public\.quiz_bind_attempt_device_internal[\s\S]*?\$\$;/i
+    )?.[0];
 
     expect(bindFunction).toBeDefined();
+    expect(internalBindFunction).toBeDefined();
     expect(bindFunction).toMatch(/RETURNS boolean/i);
     expect(bindFunction).toMatch(/v_user_id := auth\.uid\(\)/i);
     expect(bindFunction).not.toMatch(/p_user_id uuid/i);
@@ -72,21 +76,68 @@ describe('quiz identity and device cap migration', () => {
     expect(bindFunction).not.toMatch(
       /quiz_route_proof_valid\([\s\S]*?pg_catalog\.jsonb_build_object/i
     );
-    expect(bindFunction).toMatch(
+    expect(bindFunction).toMatch(/quiz_bind_attempt_device_internal/i);
+    expect(internalBindFunction).toMatch(
       /SELECT d\.device_hash[\s\S]*?v_bound_device_hash[\s\S]*?IS DISTINCT FROM p_device_hash/i
     );
-    expect(bindFunction).toMatch(
+    expect(internalBindFunction).toMatch(
       /UPDATE public\.quiz_attempts[\s\S]*?status = 'disqualified'[\s\S]*?RETURN false;/i
     );
-    expect(bindFunction).not.toMatch(
+    expect(internalBindFunction).not.toMatch(
       /RAISE EXCEPTION 'quiz_device_attempt_limit'/i
     );
-    expect(bindFunction).toMatch(/RETURN true;/i);
+    expect(internalBindFunction).toMatch(/RETURN true;/i);
+    expect(migrationSql).toMatch(
+      /DROP FUNCTION IF EXISTS public\.bind_quiz_attempt_device\(uuid, text, jsonb\)/i
+    );
     expect(migrationSql).toMatch(
       /GRANT EXECUTE ON FUNCTION public\.bind_quiz_attempt_device\(uuid, text, jsonb\) TO authenticated;/i
     );
     expect(migrationSql).not.toMatch(
       /GRANT EXECUTE ON FUNCTION public\.bind_quiz_attempt_device[^;]*service_role/i
+    );
+  });
+
+  it('starts and device-binds in one transaction before returning data', () => {
+    const atomicStartFunction = migrationSql.match(
+      /CREATE FUNCTION public\.start_quiz_attempt_with_device[\s\S]*?\$\$;/i
+    )?.[0];
+
+    expect(atomicStartFunction).toBeDefined();
+    const dropIndex = migrationSql.indexOf(
+      'DROP FUNCTION IF EXISTS public.start_quiz_attempt_with_device(uuid, text, text, jsonb, jsonb, uuid)'
+    );
+    const createIndex = migrationSql.indexOf(
+      'CREATE FUNCTION public.start_quiz_attempt_with_device('
+    );
+    expect(dropIndex).toBeGreaterThanOrEqual(0);
+    expect(dropIndex).toBeLessThan(createIndex);
+    expect(atomicStartFunction).toMatch(
+      /quiz_route_proof_valid[\s\S]*?'start_quiz_attempt_with_device_v1'/i
+    );
+    expect(atomicStartFunction).toMatch(/v_auth_user_id := auth\.uid\(\)/i);
+    expect(atomicStartFunction).toMatch(
+      /v_auth_user_id IS NULL OR v_auth_user_id IS DISTINCT FROM p_user_id/i
+    );
+    expect(atomicStartFunction).toMatch(/public\.start_quiz_attempt\(/i);
+    expect(atomicStartFunction).toMatch(
+      /public\.quiz_bind_attempt_device_internal\(/i
+    );
+    expect(
+      atomicStartFunction?.indexOf('public.start_quiz_attempt(')
+    ).toBeLessThan(
+      atomicStartFunction?.indexOf(
+        'public.quiz_bind_attempt_device_internal('
+      ) ?? -1
+    );
+    expect(atomicStartFunction).not.toMatch(/\bWHEN\s+OTHERS\b/i);
+    expect(atomicStartFunction).toMatch(/SQLSTATE '55P03'/i);
+    expect(atomicStartFunction).toMatch(/SQLSTATE '57014'/i);
+    expect(atomicStartFunction).toMatch(/SQLSTATE '40001'/i);
+    expect(atomicStartFunction).toMatch(/SQLSTATE '40P01'/i);
+    expect(atomicStartFunction).toMatch(/'deviceBindingFailed'/i);
+    expect(migrationSql).toMatch(
+      /GRANT EXECUTE ON FUNCTION public\.start_quiz_attempt_with_device[\s\S]*?TO authenticated;/i
     );
   });
 
