@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const postHogMocks = vi.hoisted(() => ({
   captureExceptionImmediate: vi.fn(),
-  captureImmediate: vi.fn(),
   postHogConstructor: vi.fn(),
 }));
 
@@ -14,7 +13,6 @@ vi.mock('posthog-node', () => ({
     postHogMocks.postHogConstructor(token, options);
     return {
       captureExceptionImmediate: postHogMocks.captureExceptionImmediate,
-      captureImmediate: postHogMocks.captureImmediate,
     };
   }),
 }));
@@ -42,7 +40,6 @@ describe('PostHog server exceptions', () => {
   beforeEach(() => {
     vi.resetModules();
     postHogMocks.captureExceptionImmediate.mockReset();
-    postHogMocks.captureImmediate.mockReset();
     postHogMocks.postHogConstructor.mockReset();
     delete process.env.POSTHOG_PROJECT_TOKEN;
     delete process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
@@ -371,148 +368,5 @@ describe('PostHog server exceptions', () => {
     await expect(captureServerException(new Error('boom'))).resolves.toBe(
       false
     );
-  });
-});
-
-describe('captureServerEvent', () => {
-  const originalProjectToken = process.env.POSTHOG_PROJECT_TOKEN;
-
-  beforeEach(() => {
-    vi.resetModules();
-    postHogMocks.captureImmediate.mockReset();
-    postHogMocks.postHogConstructor.mockReset();
-    delete process.env.POSTHOG_PROJECT_TOKEN;
-  });
-
-  afterEach(() => {
-    restoreEnv('POSTHOG_PROJECT_TOKEN', originalProjectToken);
-  });
-
-  it('does not capture when the server client is unconfigured', async () => {
-    const { captureServerEvent } = await import('./server');
-
-    await expect(
-      captureServerEvent(
-        'wallet_funding_transfer_credited',
-        { amount: 5000 },
-        'customer-1'
-      )
-    ).resolves.toBe(false);
-    expect(postHogMocks.postHogConstructor).not.toHaveBeenCalled();
-    expect(postHogMocks.captureImmediate).not.toHaveBeenCalled();
-  });
-
-  it('captures the event with the customer distinct id and sanitized properties', async () => {
-    process.env.POSTHOG_PROJECT_TOKEN = 'ph_test';
-    postHogMocks.captureImmediate.mockResolvedValueOnce(undefined as never);
-    const { captureServerEvent } = await import('./server');
-
-    await expect(
-      captureServerEvent(
-        'wallet_funding_transfer_credited',
-        {
-          amount: 5000,
-          currency: 'NGN',
-          customer_id: 'customer-1',
-          gateway: 'paystack',
-          gateway_reference: 'PSK_REF_1',
-          merchant_id: 'merchant-1',
-        },
-        'customer-1'
-      )
-    ).resolves.toBe(true);
-
-    expect(postHogMocks.captureImmediate).toHaveBeenCalledWith({
-      distinctId: 'customer-1',
-      event: 'wallet_funding_transfer_credited',
-      properties: expect.objectContaining({
-        app_surface: 'web',
-        runtime: 'nodejs',
-        amount: 5000,
-        currency: 'NGN',
-        customer_id: 'customer-1',
-        gateway: 'paystack',
-        gateway_reference: 'PSK_REF_1',
-        merchant_id: 'merchant-1',
-      }),
-    });
-  });
-
-  it('forwards a deterministic uuid so ingestion can dedupe concurrent emitters', async () => {
-    process.env.POSTHOG_PROJECT_TOKEN = 'ph_test';
-    postHogMocks.captureImmediate.mockResolvedValueOnce(undefined as never);
-    const { captureServerEvent } = await import('./server');
-
-    await captureServerEvent(
-      'wallet_funding_transfer_credited',
-      { amount: 5000 },
-      'customer-1',
-      'e3f1a6d2-8c47-5b09-9d15-2f6b71c0a884'
-    );
-
-    expect(postHogMocks.captureImmediate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        uuid: 'e3f1a6d2-8c47-5b09-9d15-2f6b71c0a884',
-      })
-    );
-  });
-
-  it('omits the uuid field entirely when none is provided', async () => {
-    process.env.POSTHOG_PROJECT_TOKEN = 'ph_test';
-    postHogMocks.captureImmediate.mockResolvedValueOnce(undefined as never);
-    const { captureServerEvent } = await import('./server');
-
-    await captureServerEvent(
-      'wallet_funding_transfer_credited',
-      { amount: 5000 },
-      'customer-1'
-    );
-
-    const call = postHogMocks.captureImmediate.mock.calls.at(-1)?.[0] as
-      | Record<string, unknown>
-      | undefined;
-    expect(call).toBeDefined();
-    expect(call && 'uuid' in call).toBe(false);
-  });
-
-  it('returns false without throwing when the immediate send rejects', async () => {
-    process.env.POSTHOG_PROJECT_TOKEN = 'ph_test';
-    postHogMocks.captureImmediate.mockRejectedValueOnce(
-      new Error('network down') as never
-    );
-    const { captureServerEvent } = await import('./server');
-
-    await expect(
-      captureServerEvent(
-        'wallet_funding_transfer_credited',
-        { amount: 5000 },
-        'customer-1'
-      )
-    ).resolves.toBe(false);
-  });
-
-  it('returns false when the immediate send exceeds the capture timeout', async () => {
-    vi.useFakeTimers();
-    try {
-      process.env.POSTHOG_PROJECT_TOKEN = 'ph_test';
-      postHogMocks.captureImmediate.mockReturnValueOnce(
-        new Promise(() => {
-          // Intentionally never settles — exercises the capture timeout race.
-        }) as never
-      );
-      const { captureServerEvent } = await import('./server');
-
-      const result = captureServerEvent(
-        'wallet_funding_transfer_credited',
-        { amount: 5000 },
-        'customer-1'
-      );
-
-      await vi.advanceTimersByTimeAsync(3_000);
-
-      await expect(result).resolves.toBe(false);
-    } finally {
-      vi.useRealTimers();
-    }
   });
 });

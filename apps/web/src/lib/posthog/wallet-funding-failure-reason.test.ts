@@ -2,14 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { resolveWalletFundingFailureReason } from './wallet-funding-failure-reason';
 
 describe('resolveWalletFundingFailureReason', () => {
+  // Every `CustomerWalletPaymentAccountErrorCode` member, plus the route-level
+  // WALLET_DVA_DISABLED rejection.
   it.each([
-    'WALLET_DVA_ORDER_ALIAS_CONFLICT',
     'CUSTOMER_PHONE_REQUIRED',
-    'WALLET_DVA_DISABLED',
     'GATEWAY_NOT_CONFIGURED',
-    'WALLET_DVA_SUBACCOUNT_CONFLICT',
     'PAYSTACK_CUSTOMER_ERROR',
     'PAYSTACK_DVA_ERROR',
+    'WALLET_DVA_ORDER_ALIAS_CONFLICT',
+    'WALLET_DVA_RECEIVER_CONFLICT',
+    'WALLET_DVA_STORAGE_ERROR',
+    'WALLET_DVA_SUBACCOUNT_CONFLICT',
+    'WALLET_DVA_DISABLED',
   ])('passes through the known server code %s', (code) => {
     expect(resolveWalletFundingFailureReason(code)).toBe(code);
   });

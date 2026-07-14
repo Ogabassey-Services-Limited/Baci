@@ -1,3 +1,5 @@
+import type { CustomerWalletPaymentAccountErrorCode } from '@/lib/customer-wallet-payment-account-types';
+
 /**
  * Snake_case PostHog event vocabulary for the web wallet bank-transfer (Paystack
  * DVA) funding funnel. Names mirror the mobile-storefront wallet events (e.g.
@@ -20,13 +22,20 @@ export const WALLET_FUNDING_TELEMETRY = {
     walletPage: 'wallet_page',
   },
   reasons: {
-    orderAliasConflict: 'WALLET_DVA_ORDER_ALIAS_CONFLICT',
+    // Every member of `CustomerWalletPaymentAccountErrorCode`
+    // (@/lib/customer-wallet-payment-account-types) …
     customerPhoneRequired: 'CUSTOMER_PHONE_REQUIRED',
-    dvaDisabled: 'WALLET_DVA_DISABLED',
     gatewayNotConfigured: 'GATEWAY_NOT_CONFIGURED',
-    subaccountConflict: 'WALLET_DVA_SUBACCOUNT_CONFLICT',
     paystackCustomerError: 'PAYSTACK_CUSTOMER_ERROR',
     paystackDvaError: 'PAYSTACK_DVA_ERROR',
+    orderAliasConflict: 'WALLET_DVA_ORDER_ALIAS_CONFLICT',
+    receiverConflict: 'WALLET_DVA_RECEIVER_CONFLICT',
+    storageError: 'WALLET_DVA_STORAGE_ERROR',
+    subaccountConflict: 'WALLET_DVA_SUBACCOUNT_CONFLICT',
+    // … plus the feature-flag rejection the funding-account route returns
+    // directly (not thrown as a CustomerWalletPaymentAccountError).
+    dvaDisabled: 'WALLET_DVA_DISABLED',
+    // Synthetic telemetry buckets with no API counterpart.
     network: 'network',
     other: 'other',
   },
@@ -37,3 +46,16 @@ export type WalletFundingSurface =
 
 export type WalletFundingFailureReason =
   (typeof WALLET_FUNDING_TELEMETRY.reasons)[keyof typeof WALLET_FUNDING_TELEMETRY.reasons];
+
+/**
+ * Compile-time drift guard (type-only, no runtime cost). Adding a member to
+ * `CustomerWalletPaymentAccountErrorCode` without a matching `reasons` entry
+ * above makes the default type argument violate its `never` constraint, which
+ * fails `tsc` — so a new API failure code can never silently land in `other`.
+ */
+type _AssertEveryApiCodeHasAReason<
+  _Uncovered extends never = Exclude<
+    CustomerWalletPaymentAccountErrorCode,
+    WalletFundingFailureReason
+  >,
+> = true;

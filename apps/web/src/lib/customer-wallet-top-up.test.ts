@@ -10,14 +10,20 @@ vi.mock('@/lib/posthog/server', () => ({
 import { creditWalletTopUp } from '@/lib/customer-wallet-top-up';
 import { deterministicEventUuid } from '@/lib/posthog/deterministic-event-uuid';
 
+const LEDGER_CREATED_AT = '2026-07-13T09:15:30.500Z';
+
 function createWalletCreditSupabaseMock({
   existingCredit,
+  ledgerRow = { created_at: LEDGER_CREATED_AT },
+  ledgerRowError,
   rpcResult,
 }: {
   existingCredit: {
     balance_after: number | string;
     id: string;
   } | null;
+  ledgerRow?: Record<string, unknown> | null;
+  ledgerRowError?: Error;
   rpcResult?: unknown;
 }) {
   const query: Record<string, unknown> = {};
@@ -25,10 +31,15 @@ function createWalletCreditSupabaseMock({
   const eq = vi.fn(() => query);
   const order = vi.fn(() => query);
   const limit = vi.fn(() => query);
-  const maybeSingle = vi.fn().mockResolvedValue({
-    data: existingCredit,
-    error: null,
-  });
+  // Call 1 = the existing-credit idempotency lookup.
+  // Call 2 = the ledger `created_at` read that stamps the telemetry timestamp.
+  const maybeSingle = vi
+    .fn()
+    .mockResolvedValueOnce({ data: existingCredit, error: null })
+    .mockResolvedValue({
+      data: ledgerRowError ? null : ledgerRow,
+      error: ledgerRowError ?? null,
+    });
   Object.assign(query, { eq, limit, maybeSingle, order, select });
 
   const rpc = vi.fn().mockResolvedValue({
@@ -104,9 +115,10 @@ describe('creditWalletTopUp', () => {
       p_source_id: 'payment-tx-1',
       p_source_type: 'wallet_topup',
     });
-    // The fresh-credit path is the funnel-completion point. The uuid derives
-    // from the ledger transaction id the RPC returned, so a concurrent loser
-    // (handed the same id) produces a duplicate PostHog dedupes away.
+    // The fresh-credit path is the funnel-completion point. BOTH the uuid and
+    // the timestamp derive from the ledger row the RPC returned, so a
+    // concurrent loser (handed the same row under the advisory lock) produces a
+    // byte-identical dedupe key that PostHog collapses into one event.
     expect(mockCaptureServerEvent).toHaveBeenCalledWith(
       'wallet_funding_transfer_credited',
       {
@@ -118,7 +130,40 @@ describe('creditWalletTopUp', () => {
         merchant_id: 'merchant-1',
       },
       'customer-1',
-      deterministicEventUuid('wallet_funding_transfer_credited:wallet-credit-2')
+      deterministicEventUuid(
+        'wallet_funding_transfer_credited:wallet-credit-2'
+      ),
+      new Date(LEDGER_CREATED_AT)
+    );
+  });
+
+  it.each([
+    ['the created_at lookup errors', { ledgerRowError: new Error('pg down') }],
+    ['the ledger row is missing', { ledgerRow: null }],
+    ['the created_at value is unusable', { ledgerRow: { created_at: 'nope' } }],
+  ])('still captures the credited event without a timestamp when %s', async (_label, overrides) => {
+    const { client } = createWalletCreditSupabaseMock({
+      existingCredit: null,
+      ...overrides,
+    });
+
+    // Fail-open: the wallet is already credited, so a timestamp lookup
+    // failure must never drop the event or break the money path.
+    await expect(
+      creditWalletTopUp({ ...walletTopUpInput, supabase: client })
+    ).resolves.toEqual({
+      balance: 2250,
+      reference: 'WAL-123',
+      transactionId: 'wallet-credit-2',
+    });
+    expect(mockCaptureServerEvent).toHaveBeenCalledWith(
+      'wallet_funding_transfer_credited',
+      expect.any(Object),
+      'customer-1',
+      deterministicEventUuid(
+        'wallet_funding_transfer_credited:wallet-credit-2'
+      ),
+      undefined
     );
   });
 
