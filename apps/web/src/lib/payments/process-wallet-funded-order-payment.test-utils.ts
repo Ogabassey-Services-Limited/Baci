@@ -143,6 +143,7 @@ export function createWalletFundedOrderPaymentSupabase({
     }),
     rpc: vi.fn(async () => ({
       data: {
+        credited_amount: 20_000,
         debited_amount: 20_000,
         excess_amount: 0,
         funded_amount: 20_000,

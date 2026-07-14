@@ -145,7 +145,64 @@ describe('processWalletFundedOrderPayment', () => {
       currency: 'NGN',
       customerId: 'customer-1',
       merchantId: 'merchant-1',
+      returnTo: '/orders/order-1',
     });
+  });
+
+  it('notifies only the current transfer amount when funding is cumulative', async () => {
+    const supabase = createSupabase();
+    supabase.rpc.mockResolvedValue({
+      data: {
+        credited_amount: 10_000,
+        debited_amount: 20_000,
+        excess_amount: 0,
+        funded_amount: 15_000,
+        order_id: 'order-1',
+        order_paid: false,
+        order_payment_transaction_id: null,
+        wallet_credit_transaction_id: 'wallet-credit-2',
+        wallet_debit_transaction_id: null,
+      },
+      error: null,
+    } as never);
+    const tasks: Array<() => Promise<void>> = [];
+
+    await processWalletFundedOrderPayment({
+      gatewayReference: 'PSK_REF_2',
+      gatewayResponse: { paid_at: '2026-05-26T12:10:00.000Z' },
+      scheduleAfter: (task) => tasks.push(task),
+      supabase: supabase as never,
+      transaction: { ...transaction, amount: 10_000, id: 'txn-funding-2' },
+    });
+
+    await tasks[0]?.();
+    expect(mockNotifyWalletCredited).toHaveBeenCalledWith(
+      expect.objectContaining({ amount: 10_000 })
+    );
+  });
+
+  it('does not notify again when the matched transfer was already finalized', async () => {
+    mockFindActiveWalletFundingIntentForTransfer.mockResolvedValue({
+      intent: {
+        ...intent,
+        fundedAmount: 20_000,
+        lastGatewayReference: 'PSK_REF_1',
+        lastTransactionId: 'txn-funding-1',
+        status: 'completed',
+      },
+      kind: 'match',
+    });
+    const scheduleAfter = vi.fn();
+
+    await processWalletFundedOrderPayment({
+      gatewayReference: 'PSK_REF_1',
+      gatewayResponse: { paid_at: '2026-05-26T12:05:00.000Z' },
+      scheduleAfter,
+      supabase: createSupabase() as never,
+      transaction,
+    });
+
+    expect(scheduleAfter).not.toHaveBeenCalled();
   });
 
   it('does not schedule a wallet-credit push when the finalizer never runs', async () => {

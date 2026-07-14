@@ -152,9 +152,11 @@ export function useWalletRouteActionSetup({
   // switch inside the TTL must never let a new customer's DVA credit resume the
   // previous customer's interrupted purchase.
   useEffect(() => {
-    if (!(walletReturnTo && customerId)) {
+    if (!customerId) {
       return;
     }
+    // The helper clears a previous record when returnTo is absent. Reopening
+    // the wallet without a destination must disarm an abandoned old flow.
     void storeWalletFundingIntent({ customerId, returnTo: walletReturnTo });
   }, [customerId, walletReturnTo]);
 

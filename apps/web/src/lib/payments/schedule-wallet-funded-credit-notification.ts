@@ -9,6 +9,7 @@ interface ScheduleWalletFundedCreditNotificationArgs {
   customerId: string;
   gatewayReference: string;
   merchantId: string;
+  orderId: string;
   scheduleAfter: ScheduleAfter;
 }
 
@@ -18,14 +19,9 @@ interface ScheduleWalletFundedCreditNotificationArgs {
  * and is immediately debited to pay the order, so the generic wallet top-up
  * notification block in the webhook is never reached for this flow.
  *
- * First-credit gating: `finalize_wallet_funded_order` only runs for an ACTIVE
- * funding intent, and it marks the intent completed. A webhook retry therefore
- * finds no active intent (`findActiveWalletFundingIntentForTransfer` →
- * `{ kind: 'none' }`) and never reaches this call, so a successful finalizer
- * result IS the one-and-only credit for that transfer. Additive and
+ * The caller gates this helper on a fresh finalization. Additive and
  * fire-and-forget: scheduled through the caller's `after(...)` injector and
- * swallowing its own errors, so it can never alter the webhook's control flow,
- * status code, or idempotency.
+ * swallowing its own errors, so it can never alter the webhook response.
  */
 export function scheduleWalletFundedCreditNotification({
   currency,
@@ -33,6 +29,7 @@ export function scheduleWalletFundedCreditNotification({
   fundedAmount,
   gatewayReference,
   merchantId,
+  orderId,
   scheduleAfter,
 }: ScheduleWalletFundedCreditNotificationArgs): void {
   if (!(Number.isFinite(fundedAmount) && fundedAmount > 0)) {
@@ -45,6 +42,7 @@ export function scheduleWalletFundedCreditNotification({
       currency,
       customerId,
       merchantId,
+      returnTo: `/orders/${orderId}`,
     }).catch((error: unknown) => {
       logger.warn({
         message: 'Wallet-funded order credit push notification failed',

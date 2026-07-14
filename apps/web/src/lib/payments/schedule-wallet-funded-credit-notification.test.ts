@@ -23,6 +23,7 @@ const baseArgs = {
   customerId: 'customer-1',
   gatewayReference: 'PSK_REF_1',
   merchantId: 'merchant-1',
+  orderId: '11111111-1111-4111-8111-111111111111',
 };
 
 describe('scheduleWalletFundedCreditNotification', () => {
@@ -47,6 +48,7 @@ describe('scheduleWalletFundedCreditNotification', () => {
       currency: 'NGN',
       customerId: 'customer-1',
       merchantId: 'merchant-1',
+      returnTo: '/orders/11111111-1111-4111-8111-111111111111',
     });
   });
 

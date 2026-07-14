@@ -113,10 +113,15 @@ describe('useWalletRouteActionSetup', () => {
     );
   });
 
-  it('records nothing when the wallet is opened without a returnTo', async () => {
+  it('clears a stale intent when the wallet is opened without a returnTo', async () => {
     renderHook(() => useWalletRouteActionSetup(buildParams()));
 
-    await waitFor(() => expect(storeIntent).not.toHaveBeenCalled());
+    await waitFor(() =>
+      expect(storeIntent).toHaveBeenCalledWith({
+        customerId: 'customer-1',
+        returnTo: undefined,
+      })
+    );
   });
 
   it('waits for the customer before recording an intent, then records it scoped to them', async () => {

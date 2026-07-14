@@ -1,4 +1,5 @@
 import { type Href, router } from 'expo-router';
+import { logger } from '@/lib/logger';
 import { resolveActiveCustomerId } from '@/lib/resolve-active-customer-id';
 import { sanitizeResumableWalletReturnTo } from '@/lib/resumable-wallet-return-to';
 import {
@@ -21,6 +22,9 @@ import {
  */
 async function resumeStoredWalletFundingIntent() {
   const customerId = await resolveActiveCustomerId();
+  if (!customerId) {
+    return;
+  }
   const storedReturnTo = await consumeWalletFundingIntent(customerId);
   if (storedReturnTo) {
     router.push(storedReturnTo);
@@ -100,7 +104,13 @@ export function navigateFromPushScreen(
       }
       // No usable destination in the payload (bank-transfer/DVA credits never
       // carry one) — resume the locally recorded funding intent, if any.
-      void resumeStoredWalletFundingIntent();
+      resumeStoredWalletFundingIntent().catch((error) => {
+        logger.warn(
+          'PushNavigation',
+          'Failed to resume wallet funding intent:',
+          error
+        );
+      });
       break;
     }
     case 'utility-history':

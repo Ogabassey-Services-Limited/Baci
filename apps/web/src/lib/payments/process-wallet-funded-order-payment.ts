@@ -50,6 +50,7 @@ interface WalletFundingTransaction {
 }
 
 interface FinalizerResult {
+  credited_amount?: number | string | null;
   debited_amount?: number | string | null;
   excess_amount?: number | string | null;
   funded_amount?: number | string | null;
@@ -87,6 +88,7 @@ export function buildFinalizeWalletParams({
 }
 
 const finalizerResultSchema = z.looseObject({
+  credited_amount: z.union([z.number(), z.string()]).nullable().optional(),
   debited_amount: z.union([z.number(), z.string()]).nullable().optional(),
   excess_amount: z.union([z.number(), z.string()]).nullable().optional(),
   funded_amount: z.union([z.number(), z.string()]).nullable().optional(),
@@ -402,6 +404,9 @@ export async function processWalletFundedOrderPayment({
   }
 
   const finalizer = normalizeFinalizerResult(data);
+  const transferAlreadyFinalized =
+    match.intent.lastGatewayReference === gatewayReference ||
+    match.intent.lastTransactionId === transaction.id;
   logger.info({
     customerId: match.intent.customerId,
     fundedAmount: finalizer.funded_amount ?? amount,
@@ -412,19 +417,23 @@ export async function processWalletFundedOrderPayment({
     orderId: finalizer.order_id ?? match.intent.orderId,
     orderPaid: finalizer.order_paid === true,
   });
-  // The finalizer has committed the wallet credit for this transfer (and only
-  // an active intent can reach it, so this is the first and only credit).
+  // The matcher can deliberately return the prior intent on webhook replay.
+  // Gate the push on provider identifiers that predated this RPC, and notify
+  // `credited_amount` (this transfer), never cumulative `funded_amount`.
   // Scheduled off the response path — see
   // schedule-wallet-funded-credit-notification.ts. Additive: no control flow,
   // status code, or idempotency below is affected.
-  scheduleWalletFundedCreditNotification({
-    currency: getCurrency(gatewayResponse),
-    customerId: match.intent.customerId,
-    fundedAmount: normalizeFinalizerAmount(finalizer.funded_amount, amount),
-    gatewayReference,
-    merchantId: match.intent.merchantId,
-    scheduleAfter,
-  });
+  if (!transferAlreadyFinalized) {
+    scheduleWalletFundedCreditNotification({
+      currency: getCurrency(gatewayResponse),
+      customerId: match.intent.customerId,
+      fundedAmount: normalizeFinalizerAmount(finalizer.credited_amount, amount),
+      gatewayReference,
+      merchantId: match.intent.merchantId,
+      orderId: finalizer.order_id ?? match.intent.orderId,
+      scheduleAfter,
+    });
+  }
   if (finalizer.order_paid === true && !finalizer.order_id) {
     logger.warn({
       customerId: match.intent.customerId,

@@ -11,6 +11,8 @@ const RESUMABLE_UTILITY_TYPES = new Set([
   'gaming',
 ]);
 const UTILITY_PATHNAME_PATTERN = /^\/utilities\/([a-z]+)$/;
+const ORDER_PATHNAME_PATTERN =
+  /^\/orders\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 /**
  * Any query/fragment parameter that a downstream screen could itself follow
  * (e.g. `/auth/callback?returnTo=//evil.com`), which would turn an accepted
@@ -20,7 +22,10 @@ const NESTED_REDIRECT_PARAM_PATTERN =
   /[?&#](?:returnto|return_to|redirect|redirect_uri|redirect_to|next|url|continue)=/i;
 
 function isResumablePathname(pathname: string): boolean {
-  if (RESUMABLE_STATIC_PATHNAMES.has(pathname)) {
+  if (
+    RESUMABLE_STATIC_PATHNAMES.has(pathname) ||
+    ORDER_PATHNAME_PATTERN.test(pathname)
+  ) {
     return true;
   }
   const utilityType = UTILITY_PATHNAME_PATTERN.exec(pathname)?.[1];
@@ -37,7 +42,8 @@ function isResumablePathname(pathname: string): boolean {
  * valid internal path yet hands control to an attacker-chosen destination. So
  * this predicate additionally requires the destination to be one of the three
  * genuinely resumable purchase flows (`/checkout`, `/imei-check`,
- * `/utilities/<airtime|data|tv|power|gaming>`) and rejects any value carrying a
+ * `/utilities/<airtime|data|tv|power|gaming>`, or a UUID-scoped order detail)
+ * and rejects any value carrying a
  * nested redirect parameter, checked on both the raw and the once-decoded form.
  *
  * Applied on the server persist path (wallet top-up initialize) so a hostile

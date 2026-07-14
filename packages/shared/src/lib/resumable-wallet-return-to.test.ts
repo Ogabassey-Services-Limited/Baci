@@ -5,6 +5,7 @@ describe('sanitizeResumableWalletReturnTo', () => {
   it.each([
     '/checkout',
     '/imei-check',
+    '/orders/11111111-1111-4111-8111-111111111111',
     '/utilities/airtime',
     '/utilities/data',
     '/utilities/tv',

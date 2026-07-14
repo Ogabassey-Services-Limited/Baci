@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { router } from 'expo-router';
+import { logger } from '@/lib/logger';
 import { resolveActiveCustomerId } from '@/lib/resolve-active-customer-id';
 import {
   clearWalletFundingIntent,
@@ -40,6 +41,7 @@ const flushIntentRead = () =>
 describe('navigateFromPushScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(logger, 'warn').mockImplementation(() => undefined);
     consumeIntent.mockResolvedValue(undefined);
     clearIntent.mockResolvedValue(undefined);
     resolveCustomerId.mockResolvedValue('customer-1');
@@ -214,15 +216,28 @@ describe('navigateFromPushScreen', () => {
     expect(push).toHaveBeenCalledWith('/wallet');
   });
 
-  it('resolves the active customer before reading the intent, even when signed out', async () => {
+  it('does not consume the intent when no active customer can be resolved', async () => {
     resolveCustomerId.mockResolvedValue(undefined);
     consumeIntent.mockResolvedValue(undefined);
 
     navigateFromPushScreen('wallet', { credited: 'true' });
     await flushIntentRead();
 
-    expect(consumeIntent).toHaveBeenCalledWith(undefined);
+    expect(consumeIntent).not.toHaveBeenCalled();
     expect(push).toHaveBeenCalledTimes(1);
+  });
+
+  it('handles an unexpected resume failure without an unhandled rejection', async () => {
+    resolveCustomerId.mockRejectedValue(new Error('auth unavailable'));
+
+    navigateFromPushScreen('wallet', { credited: 'true' });
+    await flushIntentRead();
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      'PushNavigation',
+      'Failed to resume wallet funding intent:',
+      expect.any(Error)
+    );
   });
 
   it('does not touch the funding intent for savings taps', async () => {
