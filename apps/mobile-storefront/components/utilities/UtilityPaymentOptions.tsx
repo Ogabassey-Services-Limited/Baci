@@ -9,6 +9,7 @@ import { PaymentMethodSelector } from '@/components/checkout/PaymentMethodSelect
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, SPACING } from '@/constants/Colors';
 import type { UtilityPaymentGateway } from '@/hooks/use-utility-payment';
+import type { WalletReturnHref } from '@/lib/sanitize-wallet-return-to';
 import type { SavedVtuCard } from '@/lib/vtu-checkout';
 import type { WalletSelection } from '@/lib/wallet-payment-helpers';
 import { UtilityPaystackTrustBadge } from './UtilityPaystackTrustBadge';
@@ -22,6 +23,13 @@ interface UtilityPaymentOptionsProps {
   isLoadingCards: boolean;
   onSelectGateway: (gateway: UtilityPaymentGateway) => void;
   onSelectSavedCard: (cardId: string) => void;
+  /**
+   * Prefilled utility deep-link the wallet returns the customer to after a
+   * bank-transfer top-up; forwarded to the funding nudge. REQUIRED so a new
+   * utility form cannot silently ship a nudge that strands the customer in the
+   * wallet with no way back to the purchase they were funding.
+   */
+  returnToHref: WalletReturnHref;
   selectedGateway: UtilityPaymentGateway;
   selectedSavedCardId: string | null;
   supportedGateways: UtilityPaymentGateway[];
@@ -46,6 +54,7 @@ export function UtilityPaymentOptions({
   isLoadingCards,
   onSelectGateway,
   onSelectSavedCard,
+  returnToHref,
   selectedGateway,
   selectedSavedCardId,
   supportedGateways,
@@ -85,6 +94,7 @@ export function UtilityPaymentOptions({
         canFundByBankTransfer={canFundByBankTransfer}
         colors={colors}
         hasWalletToggle={Boolean(onWalletToggle)}
+        returnToHref={returnToHref}
         walletBalance={walletBalance}
         walletError={walletError}
         walletIsLoading={walletIsLoading}

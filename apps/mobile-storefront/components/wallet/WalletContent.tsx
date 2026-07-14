@@ -6,7 +6,9 @@ import AppKeyboardAwareScrollView from '@/components/ui/AppKeyboardAwareScrollVi
 import type Colors from '@/constants/Colors';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useProducts } from '@/hooks/use-products';
+import { useWalletCreditWatch } from '@/hooks/use-wallet-credit-watch';
 import type { WalletActiveSavingsGoal } from '@/hooks/wallet-query';
+import type { WalletReturnHref } from '@/lib/sanitize-wallet-return-to';
 import type { Product } from '@/types/product';
 import { WalletActionsRow } from './WalletActionsRow';
 import { WalletFundPanel } from './WalletFundPanel';
@@ -26,12 +28,18 @@ type WalletColors = (typeof Colors)['light'];
 export interface WalletContentProps {
   activeSavingsGoal: WalletActiveSavingsGoal | null;
   canCreateFundingAccount: boolean;
+  /** False while the route's persisted funding session is still being written. */
+  canResolveCreditBaseline?: boolean;
   colors: WalletColors;
   contentContainerStyle: StyleProp<ViewStyle>;
   createFundingAccountUnavailableMessage?: string;
+  /** Scopes the persisted bank-transfer funding session the credit watch reads. */
+  customerId?: string;
   earningsBalance: number;
   fundAmount: string;
   fundingAccount: WalletDisplayFundingAccount | null;
+  /** Sanitized deep-link for the post-credit "Return to your purchase" CTA. */
+  fundReturnTo?: WalletReturnHref;
   isAddingSavingsContribution: boolean;
   isCreatingFundingAccount: boolean;
   isFundPending: boolean;
@@ -70,18 +78,22 @@ export interface WalletContentProps {
   showFundPanel: boolean;
   showRedeemPanel: boolean;
   totalBalance: number;
+  /** Wallet ledger; the credit watch reads bank-transfer top-ups off it. */
   transactions: WalletTransaction[];
 }
 
 export function WalletContent({
   activeSavingsGoal,
   canCreateFundingAccount,
+  canResolveCreditBaseline,
   colors,
   contentContainerStyle,
   createFundingAccountUnavailableMessage,
+  customerId,
   earningsBalance,
   fundAmount,
   fundingAccount,
+  fundReturnTo,
   isAddingSavingsContribution,
   isCreatingFundingAccount,
   isFundPending,
@@ -119,6 +131,13 @@ export function WalletContent({
   totalBalance,
   transactions,
 }: WalletContentProps) {
+  const creditWatch = useWalletCreditWatch({
+    canResolveBaseline: canResolveCreditBaseline,
+    customerId,
+    refetch: onRefresh,
+    returnTo: fundReturnTo,
+    transactions,
+  });
   const [showSavingsDeviceSwap, setShowSavingsDeviceSwap] = useState(false);
   const [savingsDeviceSearch, setSavingsDeviceSearch] = useState('');
   const [isChangingSavingsDevice, setIsChangingSavingsDevice] = useState(false);
@@ -171,6 +190,7 @@ export function WalletContent({
           createFundingAccountUnavailableMessage={
             createFundingAccountUnavailableMessage
           }
+          creditWatch={showFundPanel ? undefined : creditWatch}
           earningsBalance={earningsBalance}
           fundingAccount={fundingAccount}
           isCreatingFundingAccount={isCreatingFundingAccount}
@@ -200,6 +220,7 @@ export function WalletContent({
             createFundingAccountUnavailableMessage={
               createFundingAccountUnavailableMessage
             }
+            creditWatch={creditWatch}
             fundAmount={fundAmount}
             fundingAccount={fundingAccount}
             isCreatingFundingAccount={isCreatingFundingAccount}

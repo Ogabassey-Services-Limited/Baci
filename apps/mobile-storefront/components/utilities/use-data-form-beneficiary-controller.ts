@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Biller } from '@/hooks/use-vtu-billers';
 import { detectNetwork } from '@/lib/network-utils';
 import type { UtilityRepeatRecipient } from '@/lib/utility-repeat';
+import { buildUtilityWalletReturnTo } from './build-utility-wallet-return-to';
 import { inferProviderFromDataBillerName } from './data-form.helpers';
 
 interface UseDataFormBeneficiaryControllerProps {
@@ -107,7 +108,18 @@ export function useDataFormBeneficiaryController({
     isBeneficiarySelected ||
     (phoneNumber.length >= 5 && matchingRecipients.length === 0);
 
+  // Prefilled deep-link so a wallet top-up round-trips the customer back to a
+  // ready-to-buy data form (they still re-tap Buy — never auto-submitted).
+  const walletReturnToHref = buildUtilityWalletReturnTo({
+    amount: planAmount,
+    dataPlanCode: selectedPlan,
+    networkProvider: selectedProvider,
+    phoneNumber,
+    type: 'data',
+  });
+
   return {
+    walletReturnToHref,
     phoneNumber,
     setPhoneNumber,
     selectedProvider,

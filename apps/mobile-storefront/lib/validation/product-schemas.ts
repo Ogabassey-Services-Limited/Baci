@@ -233,6 +233,8 @@ export const TransactionRowSchema = z.object({
   amount: z.number(),
   description: z.string().nullable().optional(),
   created_at: z.string(),
+  /** `wallet_topup` (funding) vs `vtu_transaction` (cashback), `order_reversal`… */
+  source_type: z.string().nullable().optional(),
 });
 
 export type TransactionRow = z.infer<typeof TransactionRowSchema>;

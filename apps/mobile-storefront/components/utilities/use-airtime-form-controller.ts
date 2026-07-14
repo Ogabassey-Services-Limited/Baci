@@ -13,6 +13,7 @@ import {
   sanitizePhoneDigits,
   scrollToAirtimePaymentSection,
 } from './airtime-form-controller.helpers';
+import { buildUtilityWalletReturnTo } from './build-utility-wallet-return-to';
 import { getUtilityFooterOffset } from './get-utility-footer-offset';
 import { useAirtimePurchaseHandler } from './use-airtime-purchase-handler';
 import { formatUtilityAmountInput } from './utility-amount-format';
@@ -88,6 +89,15 @@ export function useAirtimeFormController(props: AirtimeFormProps) {
     });
   };
 
+  // Prefilled deep-link so a wallet top-up round-trips the customer back to a
+  // ready-to-buy airtime form (they still re-tap Buy — never auto-submitted).
+  const walletReturnToHref = buildUtilityWalletReturnTo({
+    amount: numericAmount,
+    networkProvider: selectedProvider,
+    phoneNumber,
+    type: 'airtime',
+  });
+
   return {
     amount,
     footerBottomOffset: getUtilityFooterOffset({
@@ -115,6 +125,7 @@ export function useAirtimeFormController(props: AirtimeFormProps) {
     scrollViewRef,
     selectedProvider,
     selectedProviderConfig,
+    walletReturnToHref,
     setAmount: updateAmount,
     setIsNetworkPickerExpanded,
     isBeneficiarySelected,

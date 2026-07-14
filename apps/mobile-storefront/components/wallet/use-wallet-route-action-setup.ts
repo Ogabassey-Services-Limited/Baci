@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react';
 import { applyWalletRouteAction } from '@/components/wallet/apply-wallet-route-action';
+import { createLogger } from '@/lib/logger';
 import type { WalletReturnHref } from '@/lib/sanitize-wallet-return-to';
+import { startWalletFundingSession } from '@/lib/wallet-funding-session';
+
+const log = createLogger('WalletRouteActionSetup');
 
 interface UseWalletRouteActionSetupParams {
   bankTransfer: {
@@ -13,6 +17,12 @@ interface UseWalletRouteActionSetupParams {
   };
   customerId: string | undefined;
   routeAction: string | undefined;
+  /**
+   * Per-navigation nonce from `/wallet?action=bank-transfer&intent=…`. Identifies
+   * WHICH bank-transfer attempt this is, so a remount of the same attempt keeps
+   * its funding-session anchor while a genuinely new attempt restamps it.
+   */
+  routeIntentId: string | undefined;
   routeRequiredAmount: string;
   setFundAmount: (value: string) => void;
   setFundReturnTo: (value: WalletReturnHref | undefined) => void;
@@ -34,6 +44,7 @@ export function useWalletRouteActionSetup({
   bankTransfer,
   customerId,
   routeAction,
+  routeIntentId,
   routeRequiredAmount,
   setFundAmount,
   setFundReturnTo,
@@ -43,6 +54,13 @@ export function useWalletRouteActionSetup({
   walletReturnTo,
 }: UseWalletRouteActionSetupParams) {
   const isBankTransferAction = routeAction === 'bank-transfer';
+  const fundingSessionKey =
+    isBankTransferAction && customerId
+      ? `${customerId}|${routeIntentId ?? ''}`
+      : null;
+  const [resolvedFundingSessionKey, setResolvedFundingSessionKey] = useState<
+    string | null
+  >(fundingSessionKey === null ? null : '');
   const [pendingBankTransfer, setPendingBankTransfer] =
     useState(isBankTransferAction);
   // customerId is deliberately NOT in this key: async auth hydration flips it
@@ -77,6 +95,46 @@ export function useWalletRouteActionSetup({
       setPendingBankTransfer(true);
     }
   }
+
+  // Landing on `/wallet?action=bank-transfer` IS the moment the customer
+  // expressed bank-transfer funding intent — the earliest point at which we know
+  // it, and strictly before any account number can be shown (the DVA is created
+  // below), so no transfer can have happened yet. Persist it: the credit watch
+  // baselines its ledger snapshot on this timestamp, which must survive the
+  // customer leaving for their bank app and the screen remounting (or the app
+  // being killed) with the credit already in the ledger.
+  //
+  // `routeIntentId` is what makes re-running safe AND correct: a remount replays
+  // the same nonce (anchor preserved — the credit that landed while they were
+  // away is still detectable), while a genuinely new attempt arrives with a new
+  // nonce (anchor restamped — a credit from the previous, unacknowledged attempt
+  // cannot be re-announced as this one's).
+  useEffect(() => {
+    if (!fundingSessionKey || !customerId) {
+      return;
+    }
+    let isActive = true;
+    void startWalletFundingSession(customerId, routeIntentId)
+      .then(() => {
+        if (isActive) {
+          setResolvedFundingSessionKey(fundingSessionKey);
+        }
+      })
+      .catch((error: unknown) => {
+        // The storage helper normally converts failures to `null`. An actual
+        // rejection is unexpected, so keep the readiness gate closed: reading
+        // the ledger without the intended session could baseline away a credit.
+        log.warn(
+          'Wallet funding session write rejected; baseline stays gated.',
+          {
+            error,
+          }
+        );
+      });
+    return () => {
+      isActive = false;
+    };
+  }, [customerId, fundingSessionKey, routeIntentId]);
 
   const {
     canCreateFundingAccount,
@@ -116,4 +174,15 @@ export function useWalletRouteActionSetup({
     pendingBankTransfer,
     setShowFundPanel,
   ]);
+
+  // The child credit-watch effect must not read/anchor the ledger until this
+  // route's session write has settled. Child passive effects can run before a
+  // parent's passive effect on mount; without this gate the watch can observe
+  // "no session", baseline the current ledger, and then have the parent write
+  // an unanchored marker. A remount after the transfer would anchor that marker
+  // on the newly landed credit and swallow it.
+  return (
+    fundingSessionKey === null ||
+    resolvedFundingSessionKey === fundingSessionKey
+  );
 }

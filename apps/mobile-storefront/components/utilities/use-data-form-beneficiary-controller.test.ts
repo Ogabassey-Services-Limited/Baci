@@ -90,4 +90,30 @@ describe('useDataFormBeneficiaryController', () => {
     expect(result.current.isBeneficiarySelected).toBe(true);
     expect(onSelectRecentRecipient).toHaveBeenCalledWith(mockRecentRecipient);
   });
+
+  it('derives a prefilled wallet return-to href for the current data purchase', () => {
+    const { result } = renderHook(() =>
+      useDataFormBeneficiaryController({
+        initialPhoneNumber: '08031234567',
+        initialPlan: 'MTN-1GB-MONTHLY',
+        parsedInitialAmount: 1000,
+        dataPlans: mockDataPlans,
+      })
+    );
+
+    expect(result.current.walletReturnToHref).toBe(
+      '/utilities/data?repeatAmount=1000&repeatPhoneNumber=08031234567&repeatNetworkProvider=mtn&repeatDataPlanCode=MTN-1GB-MONTHLY'
+    );
+  });
+
+  it('omits empty fields from the wallet return-to href on an untouched form', () => {
+    const { result } = renderHook(() =>
+      useDataFormBeneficiaryController({
+        parsedInitialAmount: 0,
+        dataPlans: mockDataPlans,
+      })
+    );
+
+    expect(result.current.walletReturnToHref).toBe('/utilities/data');
+  });
 });

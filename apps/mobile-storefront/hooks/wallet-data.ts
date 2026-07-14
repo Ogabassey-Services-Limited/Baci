@@ -248,7 +248,7 @@ export async function fetchWalletData(
   if (walletResult.data?.id) {
     const txResult = await supabase
       .from('customer_wallet_transactions')
-      .select('id, type, amount, description, created_at')
+      .select('id, type, amount, description, created_at, source_type')
       .eq('wallet_id', walletResult.data.id)
       .eq('merchant_id', merchantId)
       .order('created_at', { ascending: false })

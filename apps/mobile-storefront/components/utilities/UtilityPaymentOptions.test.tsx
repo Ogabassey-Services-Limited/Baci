@@ -1,6 +1,7 @@
 import { jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { UtilityPaymentOptions } from '@/components/utilities/UtilityPaymentOptions';
+import type { WalletReturnHref } from '@/lib/sanitize-wallet-return-to';
 import type { SavedVtuCard } from '@/lib/vtu-checkout';
 
 const mockOnSelectGateway = jest.fn();
@@ -79,6 +80,8 @@ jest.mock('@/components/checkout/PaymentMethodSelector', () => ({
   },
 }));
 
+const RETURN_TO_HREF = '/utilities/tv?repeatAmount=1000' as WalletReturnHref;
+
 describe('UtilityPaymentOptions', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -92,6 +95,7 @@ describe('UtilityPaymentOptions', () => {
         isLoadingCards={false}
         onSelectGateway={mockOnSelectGateway}
         onSelectSavedCard={mockOnSelectSavedCard}
+        returnToHref={RETURN_TO_HREF}
         selectedGateway="paystack"
         selectedSavedCardId={null}
         supportedGateways={['paystack', 'korapay']}
@@ -112,6 +116,7 @@ describe('UtilityPaymentOptions', () => {
         isLoadingCards={false}
         onSelectGateway={mockOnSelectGateway}
         onSelectSavedCard={mockOnSelectSavedCard}
+        returnToHref={RETURN_TO_HREF}
         selectedGateway="paystack"
         selectedSavedCardId="card-1"
         supportedGateways={['paystack', 'korapay']}
@@ -144,6 +149,7 @@ describe('UtilityPaymentOptions', () => {
         isLoadingCards={false}
         onSelectGateway={mockOnSelectGateway}
         onSelectSavedCard={mockOnSelectSavedCard}
+        returnToHref={RETURN_TO_HREF}
         selectedGateway="paystack"
         selectedSavedCardId="card-1"
         supportedGateways={['paystack', 'korapay']}
@@ -178,6 +184,7 @@ describe('UtilityPaymentOptions', () => {
         isLoadingCards={false}
         onSelectGateway={mockOnSelectGateway}
         onSelectSavedCard={mockOnSelectSavedCard}
+        returnToHref={RETURN_TO_HREF}
         selectedGateway="paystack"
         selectedSavedCardId="card-1"
         supportedGateways={['paystack', 'korapay']}
@@ -207,6 +214,7 @@ describe('UtilityPaymentOptions', () => {
         isLoadingCards={false}
         onSelectGateway={mockOnSelectGateway}
         onSelectSavedCard={mockOnSelectSavedCard}
+        returnToHref={RETURN_TO_HREF}
         selectedGateway="paystack"
         selectedSavedCardId={null}
         supportedGateways={['paystack', 'korapay']}
@@ -225,6 +233,7 @@ describe('UtilityPaymentOptions', () => {
         isLoadingCards={false}
         onSelectGateway={mockOnSelectGateway}
         onSelectSavedCard={mockOnSelectSavedCard}
+        returnToHref={RETURN_TO_HREF}
         selectedGateway="paystack"
         selectedSavedCardId={null}
         supportedGateways={['paystack', 'korapay']}
@@ -248,6 +257,7 @@ describe('UtilityPaymentOptions', () => {
         isLoadingCards={false}
         onSelectGateway={mockOnSelectGateway}
         onSelectSavedCard={mockOnSelectSavedCard}
+        returnToHref={RETURN_TO_HREF}
         selectedGateway="paystack"
         selectedSavedCardId={null}
         supportedGateways={['paystack', 'korapay']}
@@ -270,6 +280,7 @@ describe('UtilityPaymentOptions', () => {
         isLoadingCards={false}
         onSelectGateway={mockOnSelectGateway}
         onSelectSavedCard={mockOnSelectSavedCard}
+        returnToHref={RETURN_TO_HREF}
         selectedGateway="paystack"
         selectedSavedCardId={null}
         supportedGateways={['paystack', 'korapay']}
@@ -298,6 +309,7 @@ describe('UtilityPaymentOptions', () => {
         isLoadingCards={false}
         onSelectGateway={mockOnSelectGateway}
         onSelectSavedCard={mockOnSelectSavedCard}
+        returnToHref={RETURN_TO_HREF}
         selectedGateway="paystack"
         selectedSavedCardId={null}
         supportedGateways={['paystack', 'korapay']}
@@ -328,6 +340,7 @@ describe('UtilityPaymentOptions', () => {
         isLoadingCards={false}
         onSelectGateway={mockOnSelectGateway}
         onSelectSavedCard={mockOnSelectSavedCard}
+        returnToHref={RETURN_TO_HREF}
         selectedGateway="paystack"
         selectedSavedCardId={null}
         supportedGateways={['paystack', 'korapay']}
