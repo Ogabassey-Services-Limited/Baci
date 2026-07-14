@@ -140,6 +140,26 @@ const nextConfig: NextConfig = {
   // avoids rendering streamed metadata for normal browser requests.
   htmlLimitedBots: STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX,
 
+  // Application-owned remote cache handler (PR 4 — remote cache isolation and
+  // failure safety).
+  //
+  // Every `'use cache: remote'` site previously rode Next's DEFAULT remote
+  // handler, whose failed `set()` becomes an unhandled rejection and kills the
+  // process with `exit 128` AFTER the HTTP 200 has already been sent
+  // (vercel/next.js#94751). This adapter WRAPS the platform's shared store — it
+  // does not replace it, because every remaining site has a live `revalidateTag`
+  // contract that only propagates cross-instance through the shared store.
+  //
+  // Contract: failed get() => miss; failed set() => resolves quietly; oversized
+  // items refused; circuit breaker on a sick backend; bounded-label telemetry.
+  //
+  // Must stay a Node-resolvable `.mjs`: Next `require.resolve()`s this path at
+  // build-trace time and imports it via `pathToFileURL()` at runtime, so it is
+  // never passed through the bundler and cannot be TypeScript.
+  cacheHandlers: {
+    remote: path.resolve(__dirname, 'src/lib/cache/remote-cache-handler.mjs'),
+  },
+
   // Custom cache profiles for 'use cache' + cacheLife()
   cacheLife: {
     // Merchant data: revalidate every 60s, serve stale up to 5min, expire after 1hr
