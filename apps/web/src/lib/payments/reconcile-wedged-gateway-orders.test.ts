@@ -4,6 +4,7 @@ import { reconcileWedgedGatewayOrders } from '@/lib/payments/reconcile-wedged-ga
 
 const mocks = vi.hoisted(() => ({
   finalizeOrderGatewayPayment: vi.fn(),
+  handlePaymentForCancelledOrder: vi.fn(),
   verifyKorapayPayment: vi.fn(),
   verifyPaystackPayment: vi.fn(),
 }));
@@ -17,6 +18,13 @@ vi.mock('@/lib/korapay', () => ({
 vi.mock('@/lib/payments/finalize-order-gateway-payment', () => ({
   finalizeOrderGatewayPayment: mocks.finalizeOrderGatewayPayment,
 }));
+vi.mock(
+  '@/lib/payments/handle-payment-for-cancelled-order',
+  async (importOriginal) => ({
+    ...(await importOriginal<object>()),
+    handlePaymentForCancelledOrder: mocks.handlePaymentForCancelledOrder,
+  })
+);
 
 const wedgedCandidate = {
   amount: '58290.60',
@@ -56,6 +64,8 @@ const scheduleAfter = (task: () => Promise<void>) => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Reviews file durably by default; the stamp is gated on this.
+  mocks.handlePaymentForCancelledOrder.mockResolvedValue(true);
 });
 
 describe('reconcileWedgedGatewayOrders', () => {
@@ -258,6 +268,18 @@ describe('reconcileWedgedGatewayOrders', () => {
         }),
       })
     );
+  });
+
+  it('does not retire a wedged row when its review cannot be filed', async () => {
+    const supabase = buildSupabase({
+      data: [{ ...wedgedCandidate, gateway: 'juicyway' }],
+    });
+    mocks.handlePaymentForCancelledOrder.mockResolvedValue(false);
+
+    await reconcileWedgedGatewayOrders({ scheduleAfter, supabase });
+
+    // Without a durable ops row the payment must stay visible to the sweep.
+    expect(supabase.stampUpdate).not.toHaveBeenCalled();
   });
 
   it('records finalizer failures without aborting the run', async () => {

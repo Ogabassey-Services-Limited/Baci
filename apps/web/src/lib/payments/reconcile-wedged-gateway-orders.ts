@@ -1,7 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
 import { finalizeOrderGatewayPayment } from '@/lib/payments/finalize-order-gateway-payment';
-import { handlePaymentForCancelledOrder } from '@/lib/payments/handle-payment-for-cancelled-order';
+import {
+  retireWedgeWithReview,
+  stampWedgeResolution,
+} from '@/lib/payments/retire-wedge-with-review';
 import {
   isHealableGateway,
   verifyGatewayCharge,
@@ -36,32 +39,6 @@ type WedgedCandidate = {
   gateway_reference: string | null;
   metadata: Record<string, unknown> | null;
 };
-
-// Terminal outcomes are stamped so the hourly query never recycles them.
-async function stampWedgeResolution(
-  supabase: SupabaseClient,
-  candidate: WedgedCandidate,
-  resolution: string
-): Promise<void> {
-  const { error } = await supabase
-    .from('transactions')
-    .update({
-      metadata: {
-        ...(candidate.metadata ?? {}),
-        wedge_sweep_resolution: resolution,
-        wedge_sweep_resolved_at: new Date().toISOString(),
-      },
-    })
-    .eq('id', candidate.id);
-  if (error) {
-    // Non-fatal: the row shows up again next hour.
-    logger.warn({
-      error,
-      message: 'Failed to stamp wedge sweep resolution',
-      transactionId: candidate.id,
-    });
-  }
-}
 
 export async function reconcileWedgedGatewayOrders({
   supabase,
@@ -117,18 +94,12 @@ export async function reconcileWedgedGatewayOrders({
           transactionId: candidate.id,
         });
         // Permanent: nothing to verify against. File for ops, then retire.
-        await handlePaymentForCancelledOrder({
-          gatewayReference: null,
-          issueType: 'payment_match_ambiguous',
-          order: { id: candidate.order_id },
-          reason: `Wedge sweep: completed ${candidate.gateway} transaction ${candidate.id} has no gateway reference to verify; manual reconciliation required`,
-          transactionId: candidate.id,
-        });
-        await stampWedgeResolution(
-          supabase,
+        await retireWedgeWithReview({
           candidate,
-          'missing_gateway_reference'
-        );
+          reason: `Wedge sweep: completed ${candidate.gateway} transaction ${candidate.id} has no gateway reference to verify; manual reconciliation required`,
+          resolution: 'missing_gateway_reference',
+          supabase,
+        });
         continue;
       }
 
@@ -146,18 +117,12 @@ export async function reconcileWedgedGatewayOrders({
         });
         // Durable ops item before the row retires: captured money, unpaid
         // order, and no way to auto-verify this gateway.
-        await handlePaymentForCancelledOrder({
-          gatewayReference: candidate.gateway_reference,
-          issueType: 'payment_match_ambiguous',
-          order: { id: candidate.order_id },
-          reason: `Wedge sweep: completed ${candidate.gateway} transaction with an unpaid order cannot be auto-verified; manual reconciliation required (reference ${candidate.gateway_reference})`,
-          transactionId: candidate.id,
-        });
-        await stampWedgeResolution(
-          supabase,
+        await retireWedgeWithReview({
           candidate,
-          'unhealable_gateway_logged'
-        );
+          reason: `Wedge sweep: completed ${candidate.gateway} transaction with an unpaid order cannot be auto-verified; manual reconciliation required (reference ${candidate.gateway_reference})`,
+          resolution: 'unhealable_gateway_logged',
+          supabase,
+        });
         continue;
       }
 
@@ -173,18 +138,12 @@ export async function reconcileWedgedGatewayOrders({
         });
         if (verification.reason === 'gateway_status_not_success') {
           // Definitive gateway verdict: file for ops and retire the row.
-          await handlePaymentForCancelledOrder({
-            gatewayReference: candidate.gateway_reference,
-            issueType: 'payment_match_ambiguous',
-            order: { id: candidate.order_id },
-            reason: `Wedge sweep: ${candidate.gateway} verifies reference ${candidate.gateway_reference} as '${verification.gatewayStatus ?? 'unknown'}' although our transaction is completed`,
-            transactionId: candidate.id,
-          });
-          await stampWedgeResolution(
-            supabase,
+          await retireWedgeWithReview({
             candidate,
-            'gateway_verification_negative'
-          );
+            reason: `Wedge sweep: ${candidate.gateway} verifies reference ${candidate.gateway_reference} as '${verification.gatewayStatus ?? 'unknown'}' although our transaction is completed`,
+            resolution: 'gateway_verification_negative',
+            supabase,
+          });
         }
         // Transient verification failures stay unstamped and retry next run.
         continue;
@@ -201,14 +160,12 @@ export async function reconcileWedgedGatewayOrders({
         });
         // A real-money discrepancy must stay visible to ops after the row
         // retires from the hourly batch.
-        await handlePaymentForCancelledOrder({
-          gatewayReference: candidate.gateway_reference,
-          issueType: 'payment_match_ambiguous',
-          order: { id: candidate.order_id },
+        await retireWedgeWithReview({
+          candidate,
           reason: `Wedge sweep: gateway verified amount ${verification.amount} does not match transaction amount ${expectedAmount} for ${candidate.gateway} reference ${candidate.gateway_reference}`,
-          transactionId: candidate.id,
+          resolution: 'amount_mismatch',
+          supabase,
         });
-        await stampWedgeResolution(supabase, candidate, 'amount_mismatch');
         continue;
       }
       if (
@@ -220,14 +177,12 @@ export async function reconcileWedgedGatewayOrders({
           reason: 'currency_mismatch',
           transactionId: candidate.id,
         });
-        await handlePaymentForCancelledOrder({
-          gatewayReference: candidate.gateway_reference,
-          issueType: 'payment_match_ambiguous',
-          order: { id: candidate.order_id },
+        await retireWedgeWithReview({
+          candidate,
           reason: `Wedge sweep: gateway verified currency ${verification.currency} does not match transaction currency ${candidate.currency} for ${candidate.gateway} reference ${candidate.gateway_reference}`,
-          transactionId: candidate.id,
+          resolution: 'currency_mismatch',
+          supabase,
         });
-        await stampWedgeResolution(supabase, candidate, 'currency_mismatch');
         continue;
       }
 

@@ -10,6 +10,7 @@ import { persistPaidOrderSideEffectRetry } from '@/lib/payments/paid-order-retry
 import { PAID_ORDER_RICH_SELECT } from '@/lib/payments/paid-order-rich-select';
 import { persistPrePushRetryMarkers } from '@/lib/payments/persist-pre-push-retry-markers';
 import { runPaidOrderSideEffects } from '@/lib/payments/run-paid-order-side-effects';
+import { settleCapturedOrderPayment } from '@/lib/payments/settle-captured-order-payment';
 
 export type FinalizeOrderGatewayPaymentOutcome =
   | { kind: 'completion_failed'; error: unknown }
@@ -93,9 +94,9 @@ export async function finalizeOrderGatewayPayment({
   const healed = Boolean(
     completion.already_completed && completion.order_updated
   );
-  // Push has no claim-gating: it fires for the one caller that transitioned
-  // the order, or when the outbox holds only pre-push evidence (untouched
-  // seed / fetch-failure markers) proving push was never scheduled.
+  // Push has no claim-gating: it fires for the caller that transitioned the
+  // order, or when the outbox holds only pre-push evidence (untouched seed /
+  // fetch-failure markers) proving push was never scheduled.
   const outboxState =
     completion.order_updated || wonTransactionFlip
       ? null
@@ -175,9 +176,11 @@ export async function finalizeOrderGatewayPayment({
   // earlier call too: a fresh capture (verify flipping a pending transaction
   // for an order that was already paid manually/concurrently) must still
   // drain, or the captured gateway funds would never settle.
+  // This call captured the funds: it flipped the transaction inside the RPC,
+  // or (webhook first delivery) in the outer CAS just before it.
+  const freshCapture = wonTransactionFlip || !completion.already_completed;
   const isPureReplay =
-    !wonTransactionFlip &&
-    Boolean(completion.already_completed) &&
+    !freshCapture &&
     Boolean(completion.order_already_paid) &&
     !completion.order_updated;
   if (isPureReplay && outboxState !== null && !outboxState.hasRows) {
@@ -198,17 +201,15 @@ export async function finalizeOrderGatewayPayment({
     };
   }
 
-  // A fresh capture on an order already paid through another channel owes
-  // ONLY the settlement of the newly captured funds — the customer already
-  // received their confirmation for the payment that flipped the order.
+  // A fresh capture on an already-paid order owes ONLY settlement: the
+  // customer was already confirmed for the payment that flipped the order.
   const settlementOnly =
-    !completion.already_completed &&
+    freshCapture &&
     Boolean(completion.order_already_paid) &&
     !completion.order_updated;
 
-  // While the outbox holds only FRESH pre-push evidence, the transitioning
-  // caller may still be running: draining now would consume the evidence
-  // and permanently suppress the merchant push. Defer to a later retry.
+  // Fresh pre-push evidence means the transitioning caller may still be
+  // running: draining now would consume it and suppress push forever.
   if (!shouldNotify && outboxState?.onlyFreshPrePushEvidence) {
     logger.info({
       message: 'Deferring side-effect drain while pre-push evidence is fresh',
@@ -222,25 +223,44 @@ export async function finalizeOrderGatewayPayment({
     };
   }
 
+  const sideEffectArgs = {
+    actor,
+    externalGatewayReference: reference,
+    gatewayResponse,
+    order: richOrder,
+    scheduleAfter,
+    settlementGateway: gateway,
+    supabase,
+    transaction: {
+      amount: transaction.amount,
+      gateway_reference: transaction.gateway_reference ?? null,
+      id: transaction.id,
+      merchant_id: transaction.merchant_id,
+      order_id: richOrder.id,
+      platform_fee: transaction.platform_fee,
+    },
+  };
+
   try {
-    const sideEffectsResult = await runPaidOrderSideEffects({
-      actor,
-      externalGatewayReference: reference,
-      gatewayResponse,
-      order: richOrder,
-      scheduleAfter,
-      settlementGateway: gateway,
-      ...(settlementOnly ? { steps: ['merchant_settlement' as const] } : {}),
-      supabase,
-      transaction: {
-        amount: transaction.amount,
-        gateway_reference: transaction.gateway_reference ?? null,
-        id: transaction.id,
-        merchant_id: transaction.merchant_id,
-        order_id: richOrder.id,
-        platform_fee: transaction.platform_fee,
-      },
-    });
+    if (settlementOnly) {
+      // Bypass the outbox: it is keyed on (order_id, step), so the earlier
+      // payment's completed merchant_settlement row would make this claim
+      // lose and these captured funds would never settle. The settlement RPC
+      // is idempotent on this transaction's own gateway_reference.
+      await settleCapturedOrderPayment(sideEffectArgs);
+      logger.info({
+        message: 'Settled a gateway capture on an order already paid elsewhere',
+        orderId: richOrder.id,
+        reference,
+      });
+      return {
+        healed,
+        kind: 'completed',
+        orderNumber: completion.order_number ?? null,
+      };
+    }
+
+    const sideEffectsResult = await runPaidOrderSideEffects(sideEffectArgs);
     logger.info({
       concurrentTakeoverSteps: sideEffectsResult.concurrentTakeoverSteps,
       failedSteps: sideEffectsResult.failedSteps,

@@ -38,7 +38,7 @@ const SIDE_EFFECT_PAYMENT_STATUSES = new Set<RichPaidOrder['payment_status']>([
   'pending',
 ]);
 
-function toPaidOrder(order: RichPaidOrder): PaidOrder {
+export function toPaidOrder(order: RichPaidOrder): PaidOrder {
   if (!SIDE_EFFECT_PAYMENT_STATUSES.has(order.payment_status)) {
     throw new Error(
       `Paid order side effects cannot run for ${order.payment_status} orders`
@@ -100,31 +100,18 @@ export async function runPaidOrderSideEffects(
     args.transaction.merchant_id
   );
 
-  const executors: Parameters<
-    typeof applyPaidOrderSideEffects
-  >[0]['executors'] = {
-    ad_tracking_conversion: buildAdTrackingExecutor(args),
-    merchant_settlement: buildSettlementExecutor(args),
-    paid_email: buildEmailExecutor({
-      actor: args.actor,
-      merchantDetails: merchant.data,
-      merchantFetchError: merchant.error,
-      order: args.order,
-    }),
-  };
-  if (args.steps) {
-    for (const step of Object.keys(executors) as Array<
-      keyof typeof executors
-    >) {
-      if (!args.steps.includes(step)) {
-        delete executors[step];
-      }
-    }
-  }
-
   return applyPaidOrderSideEffects({
     actor: args.actor,
-    executors,
+    executors: {
+      ad_tracking_conversion: buildAdTrackingExecutor(args),
+      merchant_settlement: buildSettlementExecutor(args),
+      paid_email: buildEmailExecutor({
+        actor: args.actor,
+        merchantDetails: merchant.data,
+        merchantFetchError: merchant.error,
+        order: args.order,
+      }),
+    },
     gatewayResponse: args.gatewayResponse,
     order: toPaidOrder(args.order),
     supabase: args.supabase,

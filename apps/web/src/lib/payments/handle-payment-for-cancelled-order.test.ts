@@ -132,7 +132,7 @@ describe('handlePaymentForCancelledOrder', () => {
         reason: 'setup failure',
         transactionId: 'txn-1',
       })
-    ).resolves.toBeUndefined();
+    ).resolves.toBe(false);
 
     expect(logger.error).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -155,7 +155,7 @@ describe('handlePaymentForCancelledOrder', () => {
         reason: 'failure path',
         transactionId: null,
       })
-    ).resolves.toBeUndefined();
+    ).resolves.toBe(false);
 
     expect(logger.error).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -1,7 +1,4 @@
-import type {
-  PaidTransaction,
-  SideEffectStep,
-} from '@/lib/payments/apply-paid-order-side-effects';
+import type { PaidTransaction } from '@/lib/payments/apply-paid-order-side-effects';
 import type { createServiceClient } from '@/lib/supabase/service';
 
 export type ServiceRoleClient = ReturnType<typeof createServiceClient>;
@@ -62,10 +59,6 @@ export type PaidOrderSideEffectTransaction = PaidTransaction & {
 export type ScheduleAfter = (task: () => Promise<void>) => void;
 
 export interface RunPaidOrderSideEffectsArgs {
-  // Optional allowlist: restrict which outbox steps this run may execute.
-  // Used for fresh captures on orders already paid through another channel,
-  // where only the settlement of the newly captured funds is owed.
-  steps?: SideEffectStep[];
   actor: string;
   allocatedGatewayFeeNgn?: number;
   externalGatewayReference: string;
