@@ -5,7 +5,10 @@ import {
   fetchPrimaryDomain,
   normalizeFeatureSettings,
 } from './queries';
-import { NON_OWNER_REDACTED_FIELDS } from './redact-merchant-secrets-for-non-owner';
+import {
+  NON_OWNER_ALWAYS_REDACTED_FIELDS,
+  NON_OWNER_PAYMENT_FIELDS,
+} from './redact-merchant-secrets-for-non-owner';
 
 // Helper to build a mock Supabase query chain
 function mockQueryChain(resolvedValue: { data: unknown; error: unknown }) {
@@ -292,10 +295,15 @@ describe('fetchDashboardMerchant', () => {
     expect(result.merchant?.id).toBe('merchant-9');
     // Non-secret operational data is preserved for staff.
     expect(result.merchant?.support_email).toBe('ops@staffed-store.com');
-    // Every owner-only secret is stripped.
-    for (const field of NON_OWNER_REDACTED_FIELDS) {
+    // This staffer has only `orders` access, so every always-secret AND the
+    // permission-gated payout fields are stripped.
+    for (const field of [
+      ...NON_OWNER_ALWAYS_REDACTED_FIELDS,
+      ...NON_OWNER_PAYMENT_FIELDS,
+    ]) {
       expect(result.merchant?.[field]).toBeUndefined();
     }
+    expect(result.merchant?.google_product_sheet_url).toBeUndefined();
   });
 
   it('treats owner rows without business details as incomplete', async () => {

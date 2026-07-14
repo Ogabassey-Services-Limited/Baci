@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  NON_OWNER_ALWAYS_REDACTED_FIELDS,
+  NON_OWNER_PAYMENT_FIELDS,
   NON_OWNER_REDACTED_FEATURE_SETTINGS_KEYS,
-  NON_OWNER_REDACTED_FIELDS,
   redactMerchantSecretsForNonOwner,
 } from './redact-merchant-secrets-for-non-owner';
-import type { MerchantData } from './types';
+import type { MerchantData, StaffAccess } from './types';
 
 function merchantWithSecrets(): MerchantData {
   return {
@@ -33,16 +34,14 @@ function merchantWithSecrets(): MerchantData {
     kyc_status: 'verified',
     google_product_sheet_url: 'https://docs.google.com/spreadsheets/private',
     feature_settings: {
-      // boolean flags staff legitimately need
       pay_on_delivery_enabled: true,
-      // nested marketing/payment credentials that must be scrubbed
       facebook_capi_token: 'nested-fb',
       ga4_api_secret: 'nested-ga4',
       tiktok_access_token: 'nested-tt',
       snapchat_capi_token: 'nested-snap',
       credit_direct_public_key: 'nested-cd-key',
-      // deeply-nested integration credentials (Zoho Campaigns)
       custom_settings: {
+        google_merchant_id: 'GMC-1',
         zohoCampaigns: {
           accessToken: 'zoho-access',
           refreshToken: 'zoho-refresh',
@@ -53,68 +52,98 @@ function merchantWithSecrets(): MerchantData {
   } as unknown as MerchantData;
 }
 
-describe('redactMerchantSecretsForNonOwner', () => {
-  it('strips every owner-only secret field', () => {
-    const redacted = redactMerchantSecretsForNonOwner(merchantWithSecrets());
+function staff(permissions: StaffAccess['permissions']): StaffAccess {
+  return { isStaff: true, isOwner: false, role: 'manager', permissions };
+}
 
-    for (const field of NON_OWNER_REDACTED_FIELDS) {
+describe('redactMerchantSecretsForNonOwner', () => {
+  it('always strips identity/billing/marketing secrets regardless of permission', () => {
+    const redacted = redactMerchantSecretsForNonOwner(
+      merchantWithSecrets(),
+      staff({ '*': { '*': true } }) // even a full wildcard staffer
+    );
+
+    for (const field of NON_OWNER_ALWAYS_REDACTED_FIELDS) {
       expect(redacted[field]).toBeUndefined();
     }
   });
 
-  it('preserves non-secret fields', () => {
-    const redacted = redactMerchantSecretsForNonOwner(merchantWithSecrets());
+  it('strips payout fields for staff WITHOUT settings access', () => {
+    const redacted = redactMerchantSecretsForNonOwner(
+      merchantWithSecrets(),
+      staff({ orders: { view: true } })
+    );
 
-    expect(redacted.id).toBe('merchant-1');
-    expect(redacted.business_name).toBe('Store');
-    expect(redacted.slug).toBe('store');
-    expect(redacted.support_email).toBe('support@example.com');
+    for (const field of NON_OWNER_PAYMENT_FIELDS) {
+      expect(redacted[field]).toBeUndefined();
+    }
   });
 
-  it('scrubs nested feature_settings credentials but keeps the flags', () => {
-    const redacted = redactMerchantSecretsForNonOwner(merchantWithSecrets());
+  it('keeps payout fields for staff WITH settings access (payment settings page)', () => {
+    const redacted = redactMerchantSecretsForNonOwner(
+      merchantWithSecrets(),
+      staff({ settings: { view: true } })
+    );
+
+    expect(redacted.paystack_subaccount_code).toBe('ACCT_x');
+    expect(redacted.bank_account_number).toBe('1234567890');
+    expect(redacted.bank_code).toBe('044');
+  });
+
+  it('honors settings wildcard grants for payout fields', () => {
+    const redacted = redactMerchantSecretsForNonOwner(
+      merchantWithSecrets(),
+      staff({ settings: { '*': true } })
+    );
+    expect(redacted.paystack_subaccount_code).toBe('ACCT_x');
+  });
+
+  it('gates google_product_sheet_url on products access', () => {
+    const withoutProducts = redactMerchantSecretsForNonOwner(
+      merchantWithSecrets(),
+      staff({ settings: { view: true } })
+    );
+    expect(withoutProducts.google_product_sheet_url).toBeUndefined();
+
+    const withProducts = redactMerchantSecretsForNonOwner(
+      merchantWithSecrets(),
+      staff({ products: { view: true } })
+    );
+    expect(withProducts.google_product_sheet_url).toBe(
+      'https://docs.google.com/spreadsheets/private'
+    );
+  });
+
+  it('scrubs nested feature_settings credentials and drops custom_settings', () => {
+    const redacted = redactMerchantSecretsForNonOwner(
+      merchantWithSecrets(),
+      staff({ settings: { view: true } })
+    );
 
     for (const key of NON_OWNER_REDACTED_FEATURE_SETTINGS_KEYS) {
       expect(redacted.feature_settings?.[key]).toBeUndefined();
     }
-    // boolean feature flags staff need are preserved
+    expect(redacted.feature_settings?.custom_settings).toBeUndefined();
+    // non-secret flags preserved
     expect(redacted.feature_settings?.pay_on_delivery_enabled).toBe(true);
   });
 
-  it('does not mutate the input feature_settings', () => {
-    const original = merchantWithSecrets();
-    redactMerchantSecretsForNonOwner(original);
-
-    expect(original.feature_settings?.facebook_capi_token).toBe('nested-fb');
-  });
-
-  it('scrubs deeply-nested custom_settings integration credentials', () => {
-    const redacted = redactMerchantSecretsForNonOwner(merchantWithSecrets());
-    const zoho = (
-      redacted.feature_settings?.custom_settings as
-        | { zohoCampaigns?: Record<string, unknown> }
-        | undefined
-    )?.zohoCampaigns;
-
-    expect(zoho?.accessToken).toBeUndefined();
-    expect(zoho?.refreshToken).toBeUndefined();
-    expect(zoho?.clientSecret).toBeUndefined();
+  it('preserves non-secret presentation fields', () => {
+    const redacted = redactMerchantSecretsForNonOwner(
+      merchantWithSecrets(),
+      staff({})
+    );
+    expect(redacted.id).toBe('merchant-1');
+    expect(redacted.business_name).toBe('Store');
+    expect(redacted.support_email).toBe('support@example.com');
   });
 
   it('does not mutate the input', () => {
     const original = merchantWithSecrets();
-    redactMerchantSecretsForNonOwner(original);
+    redactMerchantSecretsForNonOwner(original, staff({}));
 
     expect(original.bvn).toBe('12345678901');
     expect(original.bank_account_number).toBe('1234567890');
-  });
-
-  it('serializes with no secret keys over JSON', () => {
-    const redacted = redactMerchantSecretsForNonOwner(merchantWithSecrets());
-    const roundTripped = JSON.parse(JSON.stringify(redacted));
-
-    for (const field of NON_OWNER_REDACTED_FIELDS) {
-      expect(field in roundTripped).toBe(false);
-    }
+    expect(original.feature_settings?.custom_settings).toBeDefined();
   });
 });

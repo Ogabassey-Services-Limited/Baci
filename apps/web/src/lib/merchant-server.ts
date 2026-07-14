@@ -160,14 +160,19 @@ export async function ensurePermission(
     return { merchant, staffAccess };
   }
 
-  // Check full_access permission
-  if (staffAccess.permissions?.full_access?.all) {
-    return { merchant, staffAccess };
-  }
+  // Honor the same grant shapes as hasPermission (api-auth.ts), so a
+  // wildcard-granted staffer ('*':'*', '*':action, resource:'*') is not wrongly
+  // denied. Also keep the legacy full_access.all / resource.all conventions.
+  const permissions = staffAccess.permissions ?? {};
+  const authorized =
+    permissions.full_access?.all === true ||
+    permissions['*']?.['*'] === true ||
+    permissions['*']?.[action] === true ||
+    permissions[resource]?.['*'] === true ||
+    permissions[resource]?.[action] === true ||
+    permissions[resource]?.all === true;
 
-  // Check specific permission
-  const resourcePermissions = staffAccess.permissions?.[resource];
-  if (!resourcePermissions?.[action] && !resourcePermissions?.all) {
+  if (!authorized) {
     throw new MerchantPermissionDeniedError(resource, action);
   }
 

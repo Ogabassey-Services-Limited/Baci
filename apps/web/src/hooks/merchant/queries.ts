@@ -315,17 +315,20 @@ export async function fetchDashboardMerchant(
           };
         }
 
+        const staffAccess: StaffAccess = {
+          isStaff: true,
+          isOwner: false,
+          role: staffMember.role as StaffRole,
+          permissions: mergedPermissions,
+        };
+
         return {
           // A non-owner staff member must never receive the owner's identity/
-          // financial/marketing secrets, even though the resolving client is
-          // service-role (RLS-bypassing). Owners keep the full projection.
-          merchant: redactMerchantSecretsForNonOwner(merchantInfo),
-          staffAccess: {
-            isStaff: true,
-            isOwner: false,
-            role: staffMember.role as StaffRole,
-            permissions: mergedPermissions,
-          },
+          // billing/marketing secrets, even though the resolving client is
+          // service-role (RLS-bypassing). Payout + product-import fields are
+          // kept only for staff whose permissions grant the consuming page.
+          merchant: redactMerchantSecretsForNonOwner(merchantInfo, staffAccess),
+          staffAccess,
         };
       }
     }

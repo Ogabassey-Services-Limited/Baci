@@ -205,6 +205,51 @@ describe('merchant-server', () => {
     expect(isMerchantPermissionRedirectError(rejection)).toBe(true);
   });
 
+  it('honors wildcard permission grants (settings:*) in ensurePermission', async () => {
+    mocks.getUser.mockResolvedValue({
+      data: { user: { id: 'user-1', email: 'staff@example.com' } },
+      error: null,
+    });
+    mocks.fetchDashboardMerchant.mockResolvedValue({
+      merchant: { id: 'merchant-1', business_name: 'S', slug: 's' },
+      staffAccess: {
+        isStaff: true,
+        isOwner: false,
+        role: 'manager',
+        permissions: { settings: { '*': true } },
+      },
+    });
+    mocks.fetchPrimaryDomain.mockResolvedValue(null);
+
+    const { ensurePermission } = await loadModule();
+
+    // settings:'*' must satisfy settings:view (previously denied).
+    const { merchant } = await ensurePermission('settings', 'view');
+    expect(merchant.id).toBe('merchant-1');
+  });
+
+  it('honors the global wildcard grant (*:*) in ensurePermission', async () => {
+    mocks.getUser.mockResolvedValue({
+      data: { user: { id: 'user-1', email: 'staff@example.com' } },
+      error: null,
+    });
+    mocks.fetchDashboardMerchant.mockResolvedValue({
+      merchant: { id: 'merchant-1', business_name: 'S', slug: 's' },
+      staffAccess: {
+        isStaff: true,
+        isOwner: false,
+        role: 'manager',
+        permissions: { '*': { '*': true } },
+      },
+    });
+    mocks.fetchPrimaryDomain.mockResolvedValue(null);
+
+    const { ensurePermission } = await loadModule();
+
+    const { merchant } = await ensurePermission('marketing', 'edit');
+    expect(merchant.id).toBe('merchant-1');
+  });
+
   it('marks the lookup as errored when the rich merchant query fails', async () => {
     const user = { id: 'user-1', email: 'owner@example.com' };
 
