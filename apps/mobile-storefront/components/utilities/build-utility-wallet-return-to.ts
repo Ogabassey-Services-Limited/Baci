@@ -1,4 +1,5 @@
 import type { WalletReturnHref } from '@/lib/sanitize-wallet-return-to';
+import { NigerianPhoneSchema } from '@/lib/validation/auth-schemas';
 import type { ValidUtilityType } from './utility-purchase.types';
 
 interface BuildUtilityWalletReturnToArgs {
@@ -17,6 +18,18 @@ interface BuildUtilityWalletReturnToArgs {
 
 function isNonEmpty(value: string | null | undefined): value is string {
   return typeof value === 'string' && value.trim().length > 0;
+}
+
+/**
+ * The href is built from a form the customer is still typing into, so the phone
+ * can be a partial value. `RouteRepeatParamsSchema` pipes `repeatPhoneNumber`
+ * through `NigerianPhoneSchema` and `safeParse`s the repeat params as ONE
+ * object, so an unparseable phone throws away every other repeat param too and
+ * the "Return to your purchase" CTA lands on an empty form. Omit the phone
+ * unless it round-trips, so the amount/provider/plan still prefill.
+ */
+function isRoundTrippablePhone(value: string): boolean {
+  return NigerianPhoneSchema.safeParse(value).success;
 }
 
 /**
@@ -47,7 +60,7 @@ export function buildUtilityWalletReturnTo({
   if (typeof amount === 'number' && Number.isFinite(amount) && amount > 0) {
     push('repeatAmount', String(amount));
   }
-  if (isNonEmpty(phoneNumber)) {
+  if (isNonEmpty(phoneNumber) && isRoundTrippablePhone(phoneNumber.trim())) {
     push('repeatPhoneNumber', phoneNumber.trim());
   }
   if (isNonEmpty(networkProvider)) {

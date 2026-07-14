@@ -25,10 +25,11 @@ interface UtilityPaymentOptionsProps {
   onSelectSavedCard: (cardId: string) => void;
   /**
    * Prefilled utility deep-link the wallet returns the customer to after a
-   * bank-transfer top-up; forwarded to the funding nudge. Omit to keep the
-   * legacy nudge behaviour (opens the wallet with no return route).
+   * bank-transfer top-up; forwarded to the funding nudge. REQUIRED so a new
+   * utility form cannot silently ship a nudge that strands the customer in the
+   * wallet with no way back to the purchase they were funding.
    */
-  returnToHref?: WalletReturnHref;
+  returnToHref: WalletReturnHref;
   selectedGateway: UtilityPaymentGateway;
   selectedSavedCardId: string | null;
   supportedGateways: UtilityPaymentGateway[];

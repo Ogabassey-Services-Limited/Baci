@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Alert, type LayoutChangeEvent, type ScrollView } from 'react-native';
+import type { LayoutChangeEvent, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SPACING } from '@/constants/Colors';
 import { useKeyboard } from '@/hooks/use-keyboard';
@@ -12,13 +12,13 @@ import {
   BILL_FORM_FOOTER_ERROR_BUFFER,
   BILL_FORM_FOOTER_HEIGHT,
   BILL_TYPE_MAP,
-  IDENTIFIER_LABELS,
 } from './bill-form.constants';
 import { parseUtilityAmount } from './bill-form.helpers';
 import type { BillFormProps } from './bill-form.types';
 import type { BillFormController } from './bill-form-controller.types';
-import { createBillFormVerifyPayload } from './bill-form-verify-payload';
+import { buildBillFormWalletReturnTo } from './build-bill-form-wallet-return-to';
 import { createBillFormPurchaseHandler } from './create-bill-form-purchase-handler';
+import { createBillFormVerifyHandler } from './create-bill-form-verify-handler';
 import { createBillFormVerifySuccessHandler } from './create-bill-form-verify-success-handler';
 import { getUtilityFooterOffset } from './get-utility-footer-offset';
 import {
@@ -156,33 +156,32 @@ export function useBillFormController({
     setVerifiedValidationReference,
   });
 
-  const handleVerify = () => {
-    dismissKeyboard();
-    if (
-      !selectedBiller ||
-      !selectedBillItemIdentifier ||
-      !normalizedCustomerId ||
-      !isBillItemSelectionComplete
-    ) {
-      const steps = ['select a provider'];
-      if (requiresBillItemSelection) {
-        steps.push('complete the available options');
-      }
-      steps.push(`enter your ${IDENTIFIER_LABELS[type].toLowerCase()}`);
-      Alert.alert('Missing Information', `Please ${steps.join(', ')}.`);
-      return;
-    }
-    pendingVerificationKeyRef.current = currentVerificationKey;
-    verify.mutate(
-      createBillFormVerifyPayload({
-        customerIdentifier: normalizedCustomerId,
-        selectedBiller,
-        selectedBillItem,
-        selectedBillItemIdentifier,
-      }),
-      { onSuccess: handleVerifySuccess }
-    );
-  };
+  const handleVerify = createBillFormVerifyHandler({
+    dismissKeyboard,
+    isBillItemSelectionComplete,
+    normalizedCustomerId,
+    onVerifySuccess: handleVerifySuccess,
+    pendingVerificationKeyRef,
+    requiresBillItemSelection,
+    selectedBiller,
+    selectedBillItem,
+    selectedBillItemIdentifier,
+    type,
+    verificationKey: currentVerificationKey,
+    verify,
+  });
+
+  // Prefilled deep-link so a wallet top-up round-trips the customer back to a
+  // ready-to-pay bill form (they still re-tap Pay — never auto-submitted).
+  const walletReturnToHref = buildBillFormWalletReturnTo({
+    billItemIdentifier: selectedBillItemIdentifier,
+    customerAddress: verifiedCustomerAddress,
+    customerIdentifier: normalizedCustomerId,
+    customerName: verifiedCustomerName,
+    numericAmount,
+    selectedBiller,
+    type,
+  });
 
   const handleSelectBeneficiary = (beneficiary: UtilityBeneficiary) => {
     setCustomerId(beneficiary.customerId);
@@ -290,6 +289,7 @@ export function useBillFormController({
       resetVerification();
     },
     verify,
+    walletReturnToHref,
     insets,
   };
 }

@@ -288,7 +288,6 @@ export function WalletScreen({
         showQuickSave,
         showFundPanel,
         showRedeemPanel,
-        spendableBalance: walletData.balance,
         totalBalance,
         transactions,
       }}

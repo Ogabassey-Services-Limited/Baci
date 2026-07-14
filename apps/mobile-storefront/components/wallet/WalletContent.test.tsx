@@ -127,7 +127,6 @@ describe('WalletContent', () => {
     showQuickSave: true,
     showRedeemPanel: false,
     showSavingsProgress: false,
-    spendableBalance: 125000,
     totalBalance: 160000,
     transactions: [
       {

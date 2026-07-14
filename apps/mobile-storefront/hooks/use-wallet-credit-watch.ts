@@ -4,6 +4,12 @@ import {
   WALLET_FUNDING_POLLING,
 } from '@/constants/wallet-funding';
 import type { WalletReturnHref } from '@/lib/sanitize-wallet-return-to';
+import {
+  findLatestWalletTopUpCredit,
+  isNewWalletTopUpCredit,
+  type WalletTopUpCandidate,
+  type WalletTopUpCredit,
+} from './wallet-top-up-credit';
 
 export type WalletCreditWatchStatus =
   | 'idle'
@@ -21,70 +27,68 @@ export interface WalletCreditWatch {
 }
 
 interface UseWalletCreditWatchArgs {
-  /** Spendable wallet balance (`wallet.balance`), not `total_balance`. */
-  balance: number | undefined;
   /** Fallback poke used while realtime is down; reuse the wallet refetch. */
   refetch: () => unknown;
   /** Sanitized destination for the "Return to your purchase" CTA. */
   returnTo?: WalletReturnHref;
-}
-
-function isFiniteBalance(balance: number | undefined): balance is number {
-  return typeof balance === 'number' && Number.isFinite(balance);
+  /** Wallet ledger rows (`useWallet().data.transactions`); undefined = loading. */
+  transactions: readonly WalletTopUpCandidate[] | undefined;
 }
 
 /**
- * Watches the existing `useWallet` query for a credit after the customer
- * signals "I've transferred". It intentionally does NOT open a Supabase channel
- * — the wallet hook already owns one; when a credit lands, that channel
- * invalidates the query, the balance prop updates, and this hook sees the
- * delta. A fallback interval pokes `refetch` while realtime is down, and the
- * watch times out (never claiming credited) after `TIMEOUT_MS`.
+ * Watches the existing `useWallet` query for a wallet TOP-UP credit after the
+ * customer signals "I've transferred". It intentionally does NOT open a
+ * Supabase channel — the wallet hook already owns one; when a credit lands,
+ * that channel invalidates the query, the transaction list updates, and this
+ * hook sees the new row. A fallback interval pokes `refetch` while realtime is
+ * down, and the watch times out (never claiming credited) after `TIMEOUT_MS`.
  *
- * Customers usually transfer BEFORE tapping "I've transferred", so the credit
- * can land (via realtime or a focus refetch) while they are away in their bank
- * app. The hook therefore snapshots the first balance it sees while idle and
- * arms against the LOWER of that snapshot and the at-tap balance — a pre-tap
- * credit then reads as an immediate positive delta instead of being absorbed
- * into the baseline and timing out.
+ * Detection is ledger-based, not balance-delta-based, for two reasons:
+ *   1. Customers usually transfer BEFORE tapping "I've transferred", so the
+ *      credit can land while they are away in their bank app. The hook
+ *      snapshots the newest top-up row seen while idle and arms against it, so
+ *      a pre-tap credit reads as an immediate hit instead of timing out.
+ *   2. A balance snapshot cannot tell a bank transfer from cashback, a refund,
+ *      an order reversal, or a savings move — all of which raise the spendable
+ *      balance and would false-positive "Wallet credited". Only rows with
+ *      `source_type = 'wallet_topup'` are funding credits, and the credited
+ *      amount is read straight off that row.
  */
 export function useWalletCreditWatch({
-  balance,
   refetch,
   returnTo,
+  transactions,
 }: UseWalletCreditWatchArgs): WalletCreditWatch {
   const [status, setStatus] = useState<WalletCreditWatchStatus>('idle');
   const [creditedAmount, setCreditedAmount] = useState<number | null>(null);
-  const baselineRef = useRef<number | null>(null);
-  const idleBaselineRef = useRef<number | null>(null);
+  const baselineRef = useRef<WalletTopUpCredit | null>(null);
+  const idleBaselineRef = useRef<WalletTopUpCredit | null>(null);
+  const hasIdleBaselineRef = useRef(false);
   const refetchRef = useRef(refetch);
 
   useEffect(() => {
     refetchRef.current = refetch;
   }, [refetch]);
 
-  // Snapshot the pre-transfer balance: the first finite balance seen while
-  // idle. Render-phase (guarded, converges) to match the detection below.
-  if (
-    status === 'idle' &&
-    idleBaselineRef.current === null &&
-    isFiniteBalance(balance)
-  ) {
-    idleBaselineRef.current = balance;
+  // Snapshot the pre-transfer ledger position: the newest top-up credit that
+  // already existed while idle. Render-phase (guarded, converges) to match the
+  // detection below. `undefined` transactions mean the query is still loading —
+  // snapshotting then would treat the customer's existing top-up history as new.
+  if (status === 'idle' && !hasIdleBaselineRef.current && transactions) {
+    hasIdleBaselineRef.current = true;
+    idleBaselineRef.current = findLatestWalletTopUpCredit(transactions);
   }
 
   // Detect the credit render-phase (mirrors the codebase's "adjust state during
-  // render" pattern) so consumers never paint a stale "checking" frame after
-  // the balance has already grown. Converges: the guard only fires while
+  // render" pattern) so consumers never paint a stale "checking" frame after the
+  // credit has already landed. Converges: the guard only fires while
   // status === 'checking', and it immediately transitions out of it.
-  if (
-    status === 'checking' &&
-    baselineRef.current !== null &&
-    isFiniteBalance(balance) &&
-    balance > baselineRef.current
-  ) {
-    setCreditedAmount(balance - baselineRef.current);
-    setStatus('credited');
+  if (status === 'checking') {
+    const latest = findLatestWalletTopUpCredit(transactions);
+    if (latest && isNewWalletTopUpCredit(latest, baselineRef.current)) {
+      setCreditedAmount(latest.amount);
+      setStatus('credited');
+    }
   }
 
   useEffect(() => {
@@ -107,19 +111,13 @@ export function useWalletCreditWatch({
     if (!WALLET_FUNDING_CHECKING_STATE_ENABLED) {
       return;
     }
-    const atTap = isFiniteBalance(balance) ? balance : null;
-    const idleSnapshot = idleBaselineRef.current;
-    // Never arm without a real baseline: arming while the balance is still
-    // loading would record 0 and false-positive "credited" (with a bogus
-    // amount) the moment the actual balance arrives.
-    if (atTap === null && idleSnapshot === null) {
+    // Never arm without a loaded ledger: arming while the wallet query is still
+    // loading would baseline against "no top-ups ever" and false-positive on the
+    // customer's pre-existing top-up history the moment it arrives.
+    if (!hasIdleBaselineRef.current) {
       return;
     }
-    // The lower of the two survives a credit that landed before the tap.
-    baselineRef.current =
-      atTap !== null && idleSnapshot !== null
-        ? Math.min(atTap, idleSnapshot)
-        : (atTap ?? idleSnapshot);
+    baselineRef.current = idleBaselineRef.current;
     setCreditedAmount(null);
     setStatus('checking');
     void refetchRef.current();
@@ -127,9 +125,10 @@ export function useWalletCreditWatch({
 
   const reset = () => {
     baselineRef.current = null;
-    // Re-snapshot at the current balance so the next cycle measures only
-    // transfers made after this acknowledgement was dismissed.
-    idleBaselineRef.current = isFiniteBalance(balance) ? balance : null;
+    // Re-snapshot on the next idle render so the following cycle only reports
+    // top-ups made after this acknowledgement was dismissed.
+    hasIdleBaselineRef.current = false;
+    idleBaselineRef.current = null;
     setCreditedAmount(null);
     setStatus('idle');
   };

@@ -1,6 +1,21 @@
 import { describe, expect, it } from '@jest/globals';
 import { sanitizeWalletReturnTo } from '@/lib/sanitize-wallet-return-to';
+import { RouteRepeatParamsSchema } from '@/schemas/utility-purchase';
 import { buildUtilityWalletReturnTo } from './build-utility-wallet-return-to';
+
+/** Mirrors how `/utilities/[type]` reads the query back off the deep-link. */
+function toRepeatParams(href: string): Record<string, string> {
+  const query = href.split('?')[1] ?? '';
+  if (query === '') {
+    return {};
+  }
+  return Object.fromEntries(
+    query.split('&').map((pair) => {
+      const [key, value] = pair.split('=');
+      return [key, decodeURIComponent(value ?? '')];
+    })
+  );
+}
 
 describe('buildUtilityWalletReturnTo', () => {
   it('builds an airtime deep-link with amount, phone and network in a stable order', () => {
@@ -67,5 +82,37 @@ describe('buildUtilityWalletReturnTo', () => {
     expect(href).toBe(
       '/utilities/power?repeatCustomerIdentifier=1234567890&repeatVerified=1'
     );
+  });
+
+  it('omits a half-typed phone so the other repeat params still round-trip', () => {
+    const href = buildUtilityWalletReturnTo({
+      amount: 1000,
+      networkProvider: 'MTN',
+      phoneNumber: '0801',
+      type: 'airtime',
+    });
+
+    expect(href).toBe(
+      '/utilities/airtime?repeatAmount=1000&repeatNetworkProvider=MTN'
+    );
+    expect(
+      RouteRepeatParamsSchema.safeParse(toRepeatParams(href)).success
+    ).toBe(true);
+  });
+
+  it('keeps every repeat param parseable by the route schema (valid phone)', () => {
+    const href = buildUtilityWalletReturnTo({
+      amount: 1500,
+      dataPlanCode: 'PLAN_1GB',
+      networkProvider: 'mtn',
+      phoneNumber: '08012345678',
+      type: 'data',
+    });
+
+    const result = RouteRepeatParamsSchema.safeParse(toRepeatParams(href));
+
+    expect(result.success).toBe(true);
+    expect(result.success && result.data.repeatPhoneNumber).toBe('08012345678');
+    expect(result.success && result.data.repeatAmount).toBe(1500);
   });
 });

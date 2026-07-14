@@ -85,7 +85,6 @@ function createProps(): WalletContentProps {
     showQuickSave: true,
     showRedeemPanel: false,
     showSavingsProgress: false,
-    spendableBalance: 125000,
     totalBalance: 225000,
     transactions: [],
   };

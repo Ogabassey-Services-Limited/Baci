@@ -32,12 +32,10 @@ jest.mock('@/components/storefront/StorefrontScreenShell', () => ({
 }));
 
 jest.mock('./WalletContent', () => ({
-  WalletContent: ({ spendableBalance, totalBalance }: WalletContentProps) => {
+  WalletContent: ({ totalBalance }: WalletContentProps) => {
     const { Text } =
       jest.requireActual<typeof import('react-native')>('react-native');
-    return (
-      <Text>{`wallet-balance:${totalBalance} spendable:${spendableBalance}`}</Text>
-    );
+    return <Text>{`wallet-balance:${totalBalance}`}</Text>;
   },
 }));
 
@@ -82,7 +80,6 @@ describe('WalletScreenView', () => {
     showQuickSave: true,
     showFundPanel: false,
     showRedeemPanel: false,
-    spendableBalance: 100000,
     totalBalance: 125000,
     transactions: [],
   };
@@ -100,9 +97,7 @@ describe('WalletScreenView', () => {
       />
     );
 
-    expect(
-      screen.getByText('wallet-balance:125000 spendable:100000')
-    ).toBeOnTheScreen();
+    expect(screen.getByText('wallet-balance:125000')).toBeOnTheScreen();
     expect(mockStackScreen).toHaveBeenCalledWith({
       options: { title: 'Wallet & Loyalty' },
     });
@@ -157,9 +152,7 @@ describe('WalletScreenView', () => {
       />
     );
 
-    expect(
-      screen.getByText('wallet-balance:125000 spendable:100000')
-    ).toBeOnTheScreen();
+    expect(screen.getByText('wallet-balance:125000')).toBeOnTheScreen();
     expect(mockStackScreen).not.toHaveBeenCalled();
     expect(mockScreenShell).toHaveBeenCalledWith(
       expect.objectContaining({ edges: ['top'] })

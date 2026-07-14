@@ -73,9 +73,8 @@ export interface WalletContentProps {
   showQuickSave: boolean;
   showFundPanel: boolean;
   showRedeemPanel: boolean;
-  /** Spendable balance (`wallet.balance`) the credit watch diffs against. */
-  spendableBalance: number;
   totalBalance: number;
+  /** Wallet ledger; the credit watch reads bank-transfer top-ups off it. */
   transactions: WalletTransaction[];
 }
 
@@ -123,14 +122,13 @@ export function WalletContent({
   showQuickSave,
   showFundPanel,
   showRedeemPanel,
-  spendableBalance,
   totalBalance,
   transactions,
 }: WalletContentProps) {
   const creditWatch = useWalletCreditWatch({
-    balance: spendableBalance,
     refetch: onRefresh,
     returnTo: fundReturnTo,
+    transactions,
   });
   const [showSavingsDeviceSwap, setShowSavingsDeviceSwap] = useState(false);
   const [savingsDeviceSearch, setSavingsDeviceSearch] = useState('');
