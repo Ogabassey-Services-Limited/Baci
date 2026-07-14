@@ -1419,7 +1419,7 @@ export const CheckoutPage: React.FC = () => {
   usePaypalReturn({
     merchantId: merchant?.id,
     getHref,
-    routerPush: (url: string) => router.push(url),
+    routerPush: (url: string) => router.push(asRoute(url)),
     clearCart,
     clearCheckoutSession,
     setIsProcessing,
