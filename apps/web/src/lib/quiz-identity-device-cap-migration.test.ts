@@ -71,7 +71,7 @@ describe('quiz identity and device cap migration', () => {
       /quiz_route_proof_valid[\s\S]*?'bind_quiz_attempt_device_v1'/i
     );
     expect(bindFunction).toMatch(
-      /quiz_route_proof_valid\(\s*p_route_proof,\s*'bind_quiz_attempt_device_v1',\s*p_attempt_id::text \|\| ':' \|\| p_device_hash,\s*v_user_id\s*\)/i
+      /quiz_route_proof_valid\(\s*p_route_proof,\s*'bind_quiz_attempt_device_v1',\s*public\.quiz_device_proof_subject\(p_attempt_id, p_device_hash\),\s*v_user_id\s*\)/i
     );
     expect(bindFunction).not.toMatch(
       /quiz_route_proof_valid\([\s\S]*?pg_catalog\.jsonb_build_object/i
@@ -115,6 +115,9 @@ describe('quiz identity and device cap migration', () => {
     expect(atomicStartFunction).toMatch(
       /quiz_route_proof_valid[\s\S]*?'start_quiz_attempt_with_device_v1'/i
     );
+    expect(atomicStartFunction).toMatch(
+      /public\.quiz_device_proof_subject\(p_event_id, p_device_hash\)/i
+    );
     expect(atomicStartFunction).toMatch(/v_auth_user_id := auth\.uid\(\)/i);
     expect(atomicStartFunction).toMatch(
       /v_auth_user_id IS NULL OR v_auth_user_id IS DISTINCT FROM p_user_id/i
@@ -138,6 +141,22 @@ describe('quiz identity and device cap migration', () => {
     expect(atomicStartFunction).toMatch(/'deviceBindingFailed'/i);
     expect(migrationSql).toMatch(
       /GRANT EXECUTE ON FUNCTION public\.start_quiz_attempt_with_device[\s\S]*?TO authenticated;/i
+    );
+  });
+
+  it('keeps raw device hashes out of proof validation subjects', () => {
+    const subjectFunction = migrationSql.match(
+      /CREATE OR REPLACE FUNCTION public\.quiz_device_proof_subject[\s\S]*?\$\$;/i
+    )?.[0];
+
+    expect(subjectFunction).toBeDefined();
+    expect(subjectFunction).toMatch(/extensions\.digest/i);
+    expect(subjectFunction).toMatch(/'sha256'/i);
+    expect(migrationSql).not.toMatch(
+      /quiz_route_proof_valid\([\s\S]*?p_(?:attempt|event)_id::text \|\| ':' \|\| p_device_hash/i
+    );
+    expect(identityDeviceTestSql).toMatch(
+      /public\.quiz_device_proof_subject\(\s*p_attempt_id,\s*p_device_hash\s*\)/i
     );
   });
 

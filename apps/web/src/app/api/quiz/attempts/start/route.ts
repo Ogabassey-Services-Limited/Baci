@@ -25,6 +25,7 @@ import { readStalePaidStartCharge } from '@/app/api/quiz/_shared/stale-paid-star
 import { getQuizPhaseEnv } from '@/env';
 import { logger } from '@/lib/logger';
 import { resolveQuizDevice } from '@/lib/quiz/quiz-device-hash';
+import { buildQuizDeviceProofSubject } from '@/lib/quiz/quiz-device-proof-subject';
 import { startQuizAttemptSchema } from '@/schemas/quiz';
 
 const QUIZ_UNAVAILABLE_RESPONSE = {
@@ -157,7 +158,10 @@ export async function POST(request: NextRequest) {
         event_id: parsed.data.eventId,
         user_id: auth.user.id,
       },
-      subjectId: `${parsed.data.eventId}:${device.deviceHash}`,
+      subjectId: buildQuizDeviceProofSubject(
+        parsed.data.eventId,
+        device.deviceHash
+      ),
       userId: auth.user.id,
     });
     if (proofResult.response) {

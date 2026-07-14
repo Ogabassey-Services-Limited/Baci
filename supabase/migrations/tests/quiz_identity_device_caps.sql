@@ -25,7 +25,10 @@ DECLARE
   );
   v_payload_hash constant text := pg_catalog.repeat('0', 64);
   v_scope constant text := 'quiz_phase1a';
-  v_subject_id text := p_attempt_id::text || ':' || p_device_hash;
+  v_subject_id text := public.quiz_device_proof_subject(
+    p_attempt_id,
+    p_device_hash
+  );
   v_version constant text := 'quiz-rpc-proof:v1';
   v_canonical text;
 BEGIN

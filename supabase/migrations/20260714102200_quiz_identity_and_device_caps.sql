@@ -194,6 +194,28 @@ ALTER TABLE public.quiz_attempt_devices ENABLE ROW LEVEL SECURITY;
 -- through the server-attested bind_quiz_attempt_device RPC below.
 REVOKE ALL ON TABLE public.quiz_attempt_devices FROM PUBLIC, anon, authenticated;
 
+-- Proof validation failures are retained in a generic diagnostics table. Use a
+-- one-way, scope-bound digest there instead of copying the stable device hash
+-- outside this locked-down map. Node derives the identical value before signing.
+CREATE OR REPLACE FUNCTION public.quiz_device_proof_subject(
+  p_scope_id uuid,
+  p_device_hash text
+)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+STRICT
+SET search_path = ''
+AS $$
+  SELECT 'device:' || pg_catalog.encode(
+    extensions.digest(p_scope_id::text || ':' || p_device_hash, 'sha256'),
+    'hex'
+  );
+$$;
+
+REVOKE ALL ON FUNCTION public.quiz_device_proof_subject(uuid, text)
+  FROM PUBLIC, anon, authenticated, service_role;
+
 -- ---------------------------------------------------------------------------
 -- 5. Bind an attempt to a device and enforce the device cap (QZ041).
 --    Atomic: the count and the disqualification happen in one transaction, so
@@ -313,7 +335,7 @@ BEGIN
   IF NOT public.quiz_route_proof_valid(
     p_route_proof,
     'bind_quiz_attempt_device_v1',
-    p_attempt_id::text || ':' || p_device_hash,
+    public.quiz_device_proof_subject(p_attempt_id, p_device_hash),
     v_user_id
   ) THEN
     RAISE EXCEPTION 'quiz route proof required' USING ERRCODE = 'QZ010';
@@ -368,7 +390,7 @@ BEGIN
   IF NOT public.quiz_route_proof_valid(
     p_device_route_proof,
     'start_quiz_attempt_with_device_v1',
-    p_event_id::text || ':' || p_device_hash,
+    public.quiz_device_proof_subject(p_event_id, p_device_hash),
     p_user_id
   ) THEN
     RAISE EXCEPTION 'quiz route proof required' USING ERRCODE = 'QZ010';
