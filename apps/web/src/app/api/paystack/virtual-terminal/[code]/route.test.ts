@@ -17,11 +17,13 @@ const {
   mockFrom,
   mockGetMerchantForApiRequest,
   mockGetUser,
+  mockRpc,
   mockSupabase,
   mockUpdateVirtualTerminal,
 } = vi.hoisted(() => {
   const mockFrom = vi.fn();
   const mockGetUser = vi.fn();
+  const mockRpc = vi.fn();
 
   return {
     mockDeactivateVirtualTerminal: vi.fn(),
@@ -29,9 +31,11 @@ const {
     mockFrom,
     mockGetMerchantForApiRequest: vi.fn(),
     mockGetUser,
+    mockRpc,
     mockSupabase: {
       auth: { getUser: mockGetUser },
       from: mockFrom,
+      rpc: mockRpc,
     },
     mockUpdateVirtualTerminal: vi.fn(),
   };
@@ -43,6 +47,10 @@ vi.mock('next/headers', () => ({
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => mockSupabase),
+}));
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => ({ rpc: mockRpc })),
 }));
 
 vi.mock('@/lib/api-auth', () => ({
@@ -156,5 +164,133 @@ describe('/api/paystack/virtual-terminal/[code]', () => {
       error: 'Database error verifying terminal ownership',
     });
     expect(mockDeactivateVirtualTerminal).not.toHaveBeenCalled();
+  });
+
+  it('syncs Paystack account details through the constrained RPC after rename', async () => {
+    const terminalLookup = createMerchantLookup(null);
+    terminalLookup.maybeSingle.mockResolvedValue({
+      data: { id: 'terminal-1' },
+      error: null,
+    });
+    mockFrom.mockReturnValue(terminalLookup);
+    mockUpdateVirtualTerminal.mockResolvedValue({
+      data: {
+        code: TERMINAL_CODE,
+        paymentMethods: [
+          {
+            account_name: 'Test Store',
+            account_number: '1234567890',
+            bank: 'Test Bank',
+            type: 'dedicated_nuban',
+          },
+        ],
+      },
+      success: true,
+    });
+    mockRpc.mockResolvedValue({ data: 'terminal-1', error: null });
+
+    const response = await PUT(
+      createRequest('PUT', { name: 'Sales Terminal' }),
+      createParams()
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockRpc).toHaveBeenCalledWith('sync_virtual_terminal_local', {
+      p_account_name: 'Test Store',
+      p_account_number: '1234567890',
+      p_active: null,
+      p_bank: 'Test Bank',
+      p_code: TERMINAL_CODE,
+      p_merchant_id: MERCHANT_ID,
+      p_name: 'Sales Terminal',
+    });
+  });
+
+  it('preserves provider-confirmed account details during staff sync', async () => {
+    const terminalLookup = createMerchantLookup(null);
+    terminalLookup.maybeSingle.mockResolvedValue({
+      data: { id: 'terminal-1' },
+      error: null,
+    });
+    mockFrom.mockReturnValue(terminalLookup);
+    mockGetMerchantForApiRequest.mockResolvedValue({
+      merchantId: MERCHANT_ID,
+      staffAccess: {
+        isOwner: false,
+        isStaff: true,
+        role: 'manager',
+        permissions: { integrations: { manage: true } },
+      },
+    });
+    mockUpdateVirtualTerminal.mockResolvedValue({
+      data: {
+        code: TERMINAL_CODE,
+        paymentMethods: [
+          {
+            account_name: 'Test Store',
+            account_number: '1234567890',
+            bank: 'Test Bank',
+            type: 'dedicated_nuban',
+          },
+        ],
+      },
+      success: true,
+    });
+    mockRpc.mockResolvedValue({ data: 'terminal-1', error: null });
+
+    const response = await PUT(
+      createRequest('PUT', { name: 'Sales Terminal' }),
+      createParams()
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockRpc).toHaveBeenCalledWith('sync_virtual_terminal_local', {
+      p_account_name: 'Test Store',
+      p_account_number: '1234567890',
+      p_active: null,
+      p_bank: 'Test Bank',
+      p_code: TERMINAL_CODE,
+      p_merchant_id: MERCHANT_ID,
+      p_name: 'Sales Terminal',
+    });
+  });
+
+  it('syncs a rename when the Paystack response omits paymentMethods', async () => {
+    const terminalLookup = createMerchantLookup(null);
+    terminalLookup.maybeSingle.mockResolvedValue({
+      data: { id: 'terminal-1' },
+      error: null,
+    });
+    mockFrom.mockReturnValue(terminalLookup);
+    mockGetMerchantForApiRequest.mockResolvedValue({
+      merchantId: MERCHANT_ID,
+      staffAccess: {
+        isOwner: true,
+        isStaff: false,
+        role: null,
+        permissions: { integrations: { manage: true } },
+      },
+    });
+    mockUpdateVirtualTerminal.mockResolvedValue({
+      data: { code: TERMINAL_CODE },
+      success: true,
+    });
+    mockRpc.mockResolvedValue({ data: 'terminal-1', error: null });
+
+    const response = await PUT(
+      createRequest('PUT', { name: 'Sales Terminal' }),
+      createParams()
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockRpc).toHaveBeenCalledWith('sync_virtual_terminal_local', {
+      p_account_name: null,
+      p_account_number: null,
+      p_active: null,
+      p_bank: null,
+      p_code: TERMINAL_CODE,
+      p_merchant_id: MERCHANT_ID,
+      p_name: 'Sales Terminal',
+    });
   });
 });

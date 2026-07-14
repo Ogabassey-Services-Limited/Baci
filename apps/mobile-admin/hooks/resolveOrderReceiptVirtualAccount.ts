@@ -181,7 +181,9 @@ export async function resolveOrderReceiptVirtualAccount({
 
         if (response.ok) {
           const payload = parseVirtualTerminalResponse(await response.json());
-          const terminal = payload?.terminals?.find((entry) => entry.active);
+          const terminal = payload?.terminals?.find(
+            (entry) => entry.active && entry.account_number?.trim()
+          );
 
           if (terminal?.account_number) {
             virtualAccount = resolveAccountCandidate(terminal);

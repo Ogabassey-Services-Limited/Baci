@@ -1,10 +1,3 @@
-/**
- * Virtual Terminal API Routes
- *
- * Manages Paystack Virtual Terminals for WhatsApp payment notifications.
- * Supports multiple terminals per merchant for staff/branch tracking.
- */
-
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
@@ -14,12 +7,11 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
+import { logger } from '@/lib/logger';
 import { createVirtualTerminal } from '@/lib/paystack';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-
-// =============================================================================
-// Validation Schemas
-// =============================================================================
+import { validateTerminalAssignments } from './validate-terminal-assignments';
 
 const CreateTerminalSchema = z.object({
   name: z.string().min(2, 'Account name must be at least 2 characters'),
@@ -101,6 +93,19 @@ export async function POST(request: NextRequest) {
 
     const { name, staffId, branchId, destinations } = parseResult.data;
 
+    const adminSupabase = createAdminClient();
+    const assignmentValidation = await validateTerminalAssignments(
+      adminSupabase,
+      merchantId,
+      { branchId, staffId }
+    );
+    if (assignmentValidation.error) {
+      return NextResponse.json(
+        { error: assignmentValidation.error },
+        { status: assignmentValidation.status }
+      );
+    }
+
     // Create terminal via Paystack API
     const result = await createVirtualTerminal(
       name || `${businessName} Account`,
@@ -117,7 +122,7 @@ export async function POST(request: NextRequest) {
     );
 
     // Save terminal to virtual_terminals table
-    const { data: savedTerminal, error: insertError } = await supabase
+    const { data: savedTerminal, error: insertError } = await adminSupabase
       .from('virtual_terminals')
       .insert({
         merchant_id: merchantId,
@@ -148,21 +153,46 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Also update legacy column for backwards compatibility
-    const { data: existingLegacy } = await supabase
+    // Also update legacy column for backwards compatibility.
+    const { data: existingLegacy, error: existingLegacyError } = await supabase
       .from('merchants')
       .select('virtual_terminal_code')
       .eq('id', merchantId)
       .single();
 
-    if (!existingLegacy?.virtual_terminal_code) {
-      await supabase
+    let legacySyncWarning:
+      | 'legacy_fetch_failed'
+      | 'legacy_update_failed'
+      | null = null;
+    if (existingLegacyError) {
+      logger.error({
+        message: 'Failed to fetch merchant legacy virtual terminal code',
+        error: existingLegacyError,
+        merchantId,
+        paystackCode: result.data.code,
+      });
+      legacySyncWarning = 'legacy_fetch_failed';
+    } else if (!existingLegacy?.virtual_terminal_code) {
+      const { data: updatedLegacy, error: updateLegacyError } = await supabase
         .from('merchants')
         .update({ virtual_terminal_code: result.data.code })
-        .eq('id', merchantId);
+        .eq('id', merchantId)
+        .select('id')
+        .maybeSingle();
+
+      if (updateLegacyError || !updatedLegacy?.id) {
+        logger.error({
+          message: 'Failed to update merchant legacy virtual terminal code',
+          error: updateLegacyError ?? 'merchant_not_updated',
+          merchantId,
+          paystackCode: result.data.code,
+        });
+        legacySyncWarning = 'legacy_update_failed';
+      }
     }
 
     return NextResponse.json({
+      ...(legacySyncWarning ? { legacySyncWarning } : {}),
       success: true,
       terminal: {
         id: savedTerminal?.id,
@@ -217,8 +247,7 @@ export async function GET(request: NextRequest) {
 
     const merchantId = merchantContext.merchantId;
 
-    // Get all terminals for this merchant
-    const { data: terminals } = await supabase
+    const { data: terminals, error: terminalsError } = await supabase
       .from('virtual_terminals')
       .select(`
         id,
@@ -233,11 +262,23 @@ export async function GET(request: NextRequest) {
         staff_id,
         staff_members (
           id,
-          full_name
+          full_name:name
         )
       `)
       .eq('merchant_id', merchantId)
       .order('created_at', { ascending: false });
+
+    if (terminalsError) {
+      logger.error({
+        message: 'Failed to list virtual terminals',
+        error: terminalsError,
+        merchantId,
+      });
+      return NextResponse.json(
+        { error: 'Failed to list Virtual Terminals' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,

@@ -212,17 +212,24 @@ export async function inviteStaffMember(rawData: InviteStaffData) {
             (m) => m.type === 'dedicated_nuban'
           );
 
-          await supabase.from('virtual_terminals').insert({
-            merchant_id: merchant.id,
-            staff_id: newStaff.id,
-            code: vtResult.data.code,
-            name: accountName,
-            account_number: nubanMethod?.account_number || null,
-            account_name: nubanMethod?.account_name || null,
-            bank: nubanMethod?.bank || null,
-            payment_link: `https://paystack.com/vt/${vtResult.data.code}`,
-            active: true,
-          });
+          const adminSupabase = createAdminClient();
+          const { error: terminalInsertError } = await adminSupabase
+            .from('virtual_terminals')
+            .insert({
+              merchant_id: merchant.id,
+              staff_id: newStaff.id,
+              code: vtResult.data.code,
+              name: accountName,
+              account_number: nubanMethod?.account_number || null,
+              account_name: nubanMethod?.account_name || null,
+              bank: nubanMethod?.bank || null,
+              payment_link: `https://paystack.com/vt/${vtResult.data.code}`,
+              active: true,
+            });
+
+          if (terminalInsertError) {
+            throw new Error('Failed to save auto-created staff account');
+          }
 
           // Also update legacy column for backwards compatibility if needed
           await supabase

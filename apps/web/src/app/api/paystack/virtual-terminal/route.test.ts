@@ -18,6 +18,10 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => mockSupabase),
 }));
 
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => mockSupabase),
+}));
+
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) =>
     mockAuthenticateApiRequest(...args),
@@ -147,6 +151,30 @@ describe('POST /api/paystack/virtual-terminal', () => {
     expect(res.status).toBe(400);
   });
 
+  it('rejects a cross-merchant staff assignment before creating a Paystack terminal', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u-1' } } });
+    const assignmentChain: Record<string, unknown> = {};
+    assignmentChain.select = vi.fn().mockReturnValue(assignmentChain);
+    assignmentChain.eq = vi.fn().mockReturnValue(assignmentChain);
+    assignmentChain.maybeSingle = vi
+      .fn()
+      .mockResolvedValue({ data: null, error: null });
+    mockFrom.mockReturnValue(assignmentChain);
+
+    const res = await POST(
+      createPostRequest({
+        name: 'Sales Terminal',
+        staffId: '11111111-1111-4111-8111-111111111111',
+      })
+    );
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({
+      error: 'Staff member does not belong to this merchant',
+    });
+    expect(createVirtualTerminal).not.toHaveBeenCalled();
+  });
+
   it('creates terminal successfully', async () => {
     mockGetUser.mockResolvedValue({
       data: { user: { id: 'u-1' } },
@@ -160,9 +188,15 @@ describe('POST /api/paystack/virtual-terminal', () => {
         }),
       }),
     });
-    const updateMock = vi.fn().mockReturnValue({
-      eq: vi.fn().mockResolvedValue({ error: null }),
-    });
+    const legacyUpdateChain = {
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: { id: 'm-1' },
+        error: null,
+      }),
+      select: vi.fn().mockReturnThis(),
+    };
+    const updateMock = vi.fn().mockReturnValue(legacyUpdateChain);
 
     mockFrom.mockImplementation((table: string) => {
       if (table === 'merchants') {
@@ -281,6 +315,22 @@ describe('GET /api/paystack/virtual-terminal', () => {
       data: { user: { id: 'u-1' } },
     });
 
+    const terminalSelect = vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        order: vi.fn().mockResolvedValue({
+          data: [
+            {
+              id: 't-1',
+              code: 'VT_001',
+              name: 'Main Terminal',
+              active: true,
+            },
+          ],
+          error: null,
+        }),
+      }),
+    });
+
     mockFrom.mockImplementation((table: string) => {
       if (table === 'merchants') {
         return {
@@ -300,21 +350,7 @@ describe('GET /api/paystack/virtual-terminal', () => {
       }
       if (table === 'virtual_terminals') {
         return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              order: vi.fn().mockResolvedValue({
-                data: [
-                  {
-                    id: 't-1',
-                    code: 'VT_001',
-                    name: 'Main Terminal',
-                    active: true,
-                  },
-                ],
-                error: null,
-              }),
-            }),
-          }),
+          select: terminalSelect,
         };
       }
       return {
@@ -331,5 +367,8 @@ describe('GET /api/paystack/virtual-terminal', () => {
     expect(body.success).toBe(true);
     expect(body.terminals).toHaveLength(1);
     expect(body.terminals[0].code).toBe('VT_001');
+    expect(terminalSelect).toHaveBeenCalledWith(
+      expect.stringContaining('full_name:name')
+    );
   });
 });
