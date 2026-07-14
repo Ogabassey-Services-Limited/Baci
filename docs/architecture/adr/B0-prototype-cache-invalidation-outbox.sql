@@ -99,6 +99,10 @@ BEGIN
   UPDATE public.cache_invalidation_outbox o
      SET status = 'dead_letter',
          last_error = COALESCE(o.last_error, 'claim lease expired at retry threshold'),
+         claim_token = NULL,
+         claimed_generation = NULL,
+         claimed_by = NULL,
+         claimed_at = NULL,
          updated_at = now()
    WHERE o.merchant_id = p_merchant_id
      AND o.target_kind = p_target_kind
@@ -152,6 +156,7 @@ BEGIN
          completed_at         = now(),
          updated_at           = now()
    WHERE o.merchant_id = p_merchant_id AND o.target_kind = p_target_kind AND o.target_id = p_target_id
+     AND o.status = 'claimed'
      AND o.claim_token = p_claim_token
      AND o.generation  = o.claimed_generation   -- no newer mutation arrived mid-drain
   RETURNING true INTO v_done;

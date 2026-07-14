@@ -214,9 +214,9 @@ export const CATEGORY_LISTING_HUB_SEGMENTS: ReadonlySet<string> = /* has2Segment
 
 ---
 
-## 7. Private-route collision test list for B3
+## 7. Reserved-route collision test list for B3
 
-B3 must lock in that **private / reserved first segments are never edge-cached and never hijacked by a product or category that happens to share the name.** Test against both URL shapes: custom domain `https://ogabassey.com/{path}` and slug-prefixed `https://{ROOT_DOMAIN}/ogabassey/{path}` (proxy handles both via `isSlugPrefixedStorefrontRequest`). The existing `proxy.test.ts` (`origin/main` ~line 3019) already covers a subset — B3 extends it to the full private set plus the two collision directions.
+B3 must lock in that **every reserved first segment is excluded from the category allowlist and cannot be hijacked by a product or category that happens to share the name.** Generate the collision cases from the exhaustive typed artifact rather than maintaining a four-name sample: each `reserved: true` record must be exercised under both URL shapes, custom domain `https://ogabassey.com/{path}` and slug-prefixed `https://{ROOT_DOMAIN}/ogabassey/{path}` (proxy handles both via `isSlugPrefixedStorefrontRequest`). Assert the record's declared class and cache headers. The existing `proxy.test.ts` (`origin/main` ~line 3019) covers only a subset; B3 extends it to every reserved record plus the two collision directions.
 
 **A. Private first-segment → must be `private, no-store, max-age=0, must-revalidate`, `Vercel-CDN-Cache-Control`=null, `CDN-Cache-Control`=null** (single- and multi-segment):
 - `/cart`, `/checkout`, `/checkout/bnpl`, `/checkout/crypto`, `/checkout/success`
@@ -237,7 +237,9 @@ B3 must lock in that **private / reserved first segments are never edge-cached a
 - `/account/orders`, `/receipts`, `/wallet`, `/checkout` — each with each auth-hint variant.
 
 **D. Collision — merchant names a PRODUCT/CATEGORY the same as a reserved segment (the actual C0/B3 hazard):**
-- `/cart`, `/checkout`, `/account`, `/receipts` when a category or product with that literal slug exists → must resolve to the **private route**, NOT a PDP/category; assert no-store, no 308/404 hijack from the product-slug preflight.
+- **Private set (exhaustive first-segment cases):** `/cart`, `/checkout`, `/order-success`, `/track-order`, `/wallet`, `/wishlist`, `/account`, `/my-account`, `/delete-account`, `/receipts`, `/member-status`, `/quiz`, and `/reviews` when a category or product with that literal slug exists → must resolve to the **private route**, NOT a PDP/category; assert no-store, no 308/404 hijack from the product-slug preflight.
+- **Public-no-store / redirect-only set (exhaustive first-segment cases):** `/search`, `/compare`, `/imei-check`, `/repairs`, `/repair`, `/swap`, `/pages`, and `/product` when a category or product with that literal slug exists → must resolve to the declared app route, never the dynamic category/PDP; assert no-store for public-no-store records and redirect-only behavior for `product`.
+- **All other reserved records:** table-drive the same collision case from every remaining `reserved: true` artifact entry (including public-cacheable app routes such as `blog`, `products`, and `about`) and assert the declared app-route class. This makes adding a reserved segment without a collision case fail the derivation/invariant suite.
 - **Inverse (must NOT be over-reserved):** a *product* whose slug equals a reserved name, sitting under a real category, must stay a **cacheable PDP** — reservation is FIRST-segment only:
   - `/smartphones/checkout`, `/smartphones/account`, `/laptops/wallet` → `public-cacheable-pdp` headers (`public, max-age=0, must-revalidate` + split CDN), **not** no-store. This is the highest-value regression guard: it proves the private set doesn't leak into 2nd-segment product-slug space.
 - `/{category}/compare` and `/{category}/best-under/{band}` where `{category}` collides with a reserved name are possible today because category creation slugifies names without a reserved-segment denylist. Include `/checkout/compare`, `/receipts/compare`, `/checkout/best-under/500000`, and equivalent custom-domain/slug-prefixed cases; these nested hub shapes must classify as `public-cacheable-listing` rather than inheriting the private class of the same first segment's single-level app route. Also assert `/smartphones/compare` stays `public-cacheable-listing` (`s-maxage=300`) and is not treated as a PDP.
@@ -258,5 +260,5 @@ B3 must lock in that **private / reserved first segments are never edge-cached a
 - `/Users/mac/Baci-app/apps/web/src/proxy.test.ts` — existing cache-behavior tables (~2930–3095) B3 extends.
 - `/Users/mac/Baci-app/apps/mobile-admin/scripts/expo-router-app-tree.test.ts` — fs-tree-walk drift-test precedent to mirror.
 - `/Users/mac/Baci-app/apps/web/package.json` — `verify:quiz-assets` / `tsx src/scripts/*` script precedent for the generator + `--check`.
-- `/Users/mac/Baci-app/.github/workflows/ci.yml` — `quality-test` runs `turbo test`; the Vitest drift test rides it with no new wiring.
+- `/Users/mac/Baci-app/.github/workflows/ci.yml` — `quality-test` uses targeted `vitest run --changed` modes and `quality-test-web` runs the complete web suite only for `full-affected`; add `verify:route-classification` to an always-run web verification step instead of relying on Vitest selection.
 - **Proposed new:** `apps/web/src/config/storefront-route-classification.generated.ts` (artifact), `apps/web/src/config/storefront-route-classification.derive.ts` (shared pure derivation), `apps/web/src/scripts/generate-storefront-route-classification.ts` (generator + `--check`), `apps/web/src/app/(storefront)/route-class-overrides.ts` (co-located override manifest), `apps/web/src/config/storefront-route-classification.generated.test.ts` (drift + invariants).
