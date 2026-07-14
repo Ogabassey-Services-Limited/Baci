@@ -378,6 +378,65 @@ describe('finalizeOrderGatewayPayment', () => {
     expect(mocks.persistPaidOrderSideEffectRetry).not.toHaveBeenCalled();
   });
 
+  it('files settlement-only recovery outside the order outbox when its order fetch fails', async () => {
+    mocks.completeOrderGatewayPayment.mockResolvedValue(
+      completion({
+        already_completed: true,
+        order_already_paid: true,
+        order_updated: false,
+      })
+    );
+
+    const outcome = await finalizeOrderGatewayPayment(
+      baseArgs(
+        buildSupabase(
+          { error: { message: 'network' } },
+          { outboxRows: [{ order_id: 'order-1', transaction_id: 'txn-other' }] }
+        ),
+        { wonTransactionFlip: true }
+      )
+    );
+
+    expect(outcome.kind).toBe('order_fetch_failed');
+    expect(mocks.handlePaymentForCancelledOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        issueType: 'merchant_settlement_failed',
+        order: { id: 'order-1' },
+      })
+    );
+    expect(mocks.persistPaidOrderSideEffectRetry).not.toHaveBeenCalled();
+  });
+
+  it('files settlement-only recovery outside the order outbox when normalization fails', async () => {
+    mocks.completeOrderGatewayPayment.mockResolvedValue(
+      completion({
+        already_completed: true,
+        order_already_paid: true,
+        order_updated: false,
+      })
+    );
+    mocks.ensurePaidOrderInventoryConfirmed.mockResolvedValue(undefined);
+
+    const outcome = await finalizeOrderGatewayPayment(
+      baseArgs(
+        buildSupabase(
+          { data: { ...richOrderRow, total: 'not-a-number' } },
+          { outboxRows: [{ order_id: 'order-1', transaction_id: 'txn-other' }] }
+        ),
+        { wonTransactionFlip: true }
+      )
+    );
+
+    expect(outcome.kind).toBe('order_fetch_failed');
+    expect(mocks.handlePaymentForCancelledOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        issueType: 'merchant_settlement_failed',
+        order: { id: 'order-1' },
+      })
+    );
+    expect(mocks.persistPaidOrderSideEffectRetry).not.toHaveBeenCalled();
+  });
+
   it('rolls back to the RPC-reported previous statuses on inventory failure', async () => {
     mocks.completeOrderGatewayPayment.mockResolvedValue(
       completion({ previous_payment_status: 'partially_paid' })
@@ -457,5 +516,39 @@ describe('finalizeOrderGatewayPayment', () => {
     expect(mocks.persistPaidOrderSideEffectRetry).toHaveBeenCalledWith(
       expect.objectContaining({ orderId: 'order-1', reference: 'REF' })
     );
+  });
+
+  it('files a durable review without overwriting the order outbox when settlement-only work fails', async () => {
+    mocks.completeOrderGatewayPayment.mockResolvedValue(
+      completion({
+        already_completed: true,
+        order_already_paid: true,
+        order_updated: false,
+      })
+    );
+    mocks.ensurePaidOrderInventoryConfirmed.mockResolvedValue(undefined);
+    mocks.settleCapturedOrderPayment.mockRejectedValue(
+      new Error('settlement unavailable')
+    );
+
+    const outcome = await finalizeOrderGatewayPayment(
+      baseArgs(
+        buildSupabase(
+          { data: richOrderRow },
+          { outboxRows: [{ order_id: 'order-1', transaction_id: 'txn-other' }] }
+        ),
+        { wonTransactionFlip: true }
+      )
+    );
+
+    expect(outcome.kind).toBe('completion_failed');
+    expect(mocks.handlePaymentForCancelledOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        issueType: 'merchant_settlement_failed',
+        order: { id: 'order-1' },
+        transactionId: 'txn-1',
+      })
+    );
+    expect(mocks.persistPaidOrderSideEffectRetry).not.toHaveBeenCalled();
   });
 });

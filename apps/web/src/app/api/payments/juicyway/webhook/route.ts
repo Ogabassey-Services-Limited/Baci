@@ -540,7 +540,6 @@ export async function POST(request: NextRequest) {
     }
 
     let durableEnqueueError: unknown = null;
-    let durableEnqueueError: unknown = null;
 
     // Update order status if order_id exists. The .neq('payment_status',
     // 'paid') CAS makes concurrent deliveries (or heal redeliveries racing

@@ -14,6 +14,8 @@ const DEFINITIVE_FAILURE_CODES = new Set([
   'VALIDATION_ERROR',
   'NOT_FOUND',
   'TRANSACTION_NOT_FOUND',
+  'HTTP_400',
+  'HTTP_404',
 ]);
 
 function classifyFailure(code: string | undefined, gateway: string) {

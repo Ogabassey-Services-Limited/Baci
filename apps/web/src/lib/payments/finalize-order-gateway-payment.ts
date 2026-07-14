@@ -3,13 +3,11 @@ import { logger } from '@/lib/logger';
 import { completeOrderGatewayPayment } from '@/lib/payments/complete-order-gateway-payment';
 import { confirmPaidOrderInventoryOrRollback } from '@/lib/payments/confirm-paid-order-inventory';
 import { fileBlockedOrderPaymentReview } from '@/lib/payments/file-blocked-order-payment-review';
+import { fileSettlementCaptureFailureReview } from '@/lib/payments/file-settlement-capture-failure-review';
 import { schedulePaidOrderNotifications } from '@/lib/payments/notify-paid-order';
 import { getOrderOutboxState } from '@/lib/payments/order-has-outbox-rows';
 import { toRichPaidOrder } from '@/lib/payments/paid-order-normalization';
-import {
-  persistPaidOrderSideEffectRetry,
-  SETTLEMENT_ONLY_FAILURE_REASON,
-} from '@/lib/payments/paid-order-retry-persistence';
+import { persistPaidOrderSideEffectRetry } from '@/lib/payments/paid-order-retry-persistence';
 import { PAID_ORDER_RICH_SELECT } from '@/lib/payments/paid-order-rich-select';
 import { persistPrePushRetryMarkers } from '@/lib/payments/persist-pre-push-retry-markers';
 import { runPaidOrderSideEffects } from '@/lib/payments/run-paid-order-side-effects';
@@ -40,10 +38,6 @@ export interface FinalizeOrderGatewayPaymentTransaction {
   gateway_reference: string | null;
 }
 
-// One engine for "a gateway confirmed this order payment": webhook (first
-// delivery and redelivery heal), verify, and the reconcile cron all share
-// it. The flip is one atomic RPC; every follow-up step is idempotent, so
-// re-running the whole function for the same payment is safe.
 export async function finalizeOrderGatewayPayment({
   supabase,
   transaction,
@@ -100,15 +94,6 @@ export async function finalizeOrderGatewayPayment({
   const healed = Boolean(
     completion.already_completed && completion.order_updated
   );
-  // Push has no claim-gating: it fires for the caller that transitioned the
-  // order, or when the outbox holds only pre-push evidence (untouched seed /
-  // fetch-failure markers) proving push was never scheduled.
-  // The outbox seed carries the id of the transaction that PAID the order.
-  // If this transaction is not that payer, its capture landed on an order
-  // already paid elsewhere and owes settlement only.
-  // Load whenever this call did NOT transition the order — including the
-  // webhook's own first delivery, whose capture can still land on an order
-  // that another channel already paid.
   const outboxState = completion.order_updated
     ? null
     : await getOrderOutboxState(supabase, orderId);
@@ -131,7 +116,15 @@ export async function finalizeOrderGatewayPayment({
     // Order IS paid, side effects have not run: persist pre-push markers so
     // the cron drain finds it even after redeliveries are exhausted (the
     // wedge sweep only scans NOT-paid orders).
-    if (wonTransactionFlip || completion.order_updated) {
+    if (capturedOnAlreadyPaidOrder) {
+      await fileSettlementCaptureFailureReview({
+        error: orderFetchError,
+        gateway,
+        orderId,
+        reference: transaction.gateway_reference ?? reference,
+        transactionId: transaction.id,
+      });
+    } else if (wonTransactionFlip || completion.order_updated) {
       await persistPrePushRetryMarkers({
         error: orderFetchError,
         logMessage: 'Paid order fetch failed after atomic completion',
@@ -167,7 +160,15 @@ export async function finalizeOrderGatewayPayment({
     });
   } catch (normalizationError) {
     // Same recovery contract as a failed fetch.
-    if (wonTransactionFlip || completion.order_updated) {
+    if (capturedOnAlreadyPaidOrder) {
+      await fileSettlementCaptureFailureReview({
+        error: normalizationError,
+        gateway,
+        orderId,
+        reference: transaction.gateway_reference ?? reference,
+        transactionId: transaction.id,
+      });
+    } else if (wonTransactionFlip || completion.order_updated) {
       await persistPrePushRetryMarkers({
         error: normalizationError,
         logMessage: 'Paid order payload failed normalization after completion',
@@ -188,13 +189,6 @@ export async function finalizeOrderGatewayPayment({
     });
   }
 
-  // A pure replay requires the TRANSACTION to have been completed by an
-  // earlier call too: a fresh capture (verify flipping a pending transaction
-  // for an order that was already paid manually/concurrently) must still
-  // drain, or the captured gateway funds would never settle.
-
-  // Fresh pre-push evidence means the transitioning caller may still be
-  // running: draining now would consume it and suppress push forever.
   if (!shouldNotify && outboxState?.onlyFreshPrePushEvidence) {
     logger.info({
       message: 'Deferring side-effect drain while pre-push evidence is fresh',
@@ -228,10 +222,6 @@ export async function finalizeOrderGatewayPayment({
 
   try {
     if (capturedOnAlreadyPaidOrder) {
-      // Bypass the outbox: it is keyed on (order_id, step), so the earlier
-      // payment's completed merchant_settlement row would make this claim
-      // lose and these captured funds would never settle. The settlement RPC
-      // is idempotent on this transaction's own gateway_reference.
       await settleCapturedOrderPayment(sideEffectArgs);
       logger.info({
         message: 'Settled a gateway capture on an order already paid elsewhere',
@@ -256,18 +246,27 @@ export async function finalizeOrderGatewayPayment({
       skippedSteps: sideEffectsResult.skippedSteps,
     });
   } catch (sideEffectError) {
-    // Persist a retry marker for the cron drain. A capture that only owed
-    // settlement marks ONLY that step: replaying the paid email / ad
-    // tracking would duplicate them for an already-confirmed order.
+    if (capturedOnAlreadyPaidOrder) {
+      await fileSettlementCaptureFailureReview({
+        error: sideEffectError,
+        gateway,
+        orderId: richOrder.id,
+        reference: transaction.gateway_reference ?? reference,
+        transactionId: transaction.id,
+      });
+      logger.error({
+        error: sideEffectError,
+        message: 'Settlement-only capture failed and was filed for review',
+        orderId: richOrder.id,
+        reference,
+        transactionId: transaction.id,
+      });
+      return { error: sideEffectError, kind: 'completion_failed' };
+    }
+
     await persistPaidOrderSideEffectRetry({
       error: sideEffectError,
       orderId: richOrder.id,
-      ...(capturedOnAlreadyPaidOrder
-        ? {
-            reason: SETTLEMENT_ONLY_FAILURE_REASON,
-            steps: ['merchant_settlement' as const],
-          }
-        : {}),
       reference,
       supabase,
       transaction: { id: transaction.id },
