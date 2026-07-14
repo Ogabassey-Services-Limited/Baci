@@ -1,8 +1,13 @@
 import { NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
+import {
+  createAdminClient,
+  type createClient as createAdminClientFactory,
+} from '@/lib/supabase/admin';
 import type { createClient } from '@/lib/supabase/server';
 
 type VirtualTerminalSupabaseClient = ReturnType<typeof createClient>;
+type VirtualTerminalAdminClient = ReturnType<typeof createAdminClientFactory>;
 
 type TerminalPatch =
   | {
@@ -40,41 +45,20 @@ export async function verifyTerminalOwnership(
 
   if (terminalRecord?.id) return null;
 
-  const { data: merchantRecord, error: merchantError } = await supabase
-    .from('merchants')
-    .select('virtual_terminal_code')
-    .eq('id', merchantId)
-    .maybeSingle();
-
-  if (merchantError) {
-    logger.error({
-      message: 'Database error fetching merchant record',
-      error: merchantError,
-    });
-    return NextResponse.json(
-      { error: 'Database error verifying terminal ownership' },
-      { status: 500 }
-    );
-  }
-
-  if (!merchantRecord || merchantRecord.virtual_terminal_code !== code) {
-    return NextResponse.json(
-      { error: 'Terminal not found or not authorized' },
-      { status: 404 }
-    );
-  }
-
-  return null;
+  return NextResponse.json(
+    { error: 'Terminal not found or not authorized' },
+    { status: 404 }
+  );
 }
 
 export async function syncTerminalRecord(
-  supabase: VirtualTerminalSupabaseClient,
   merchantId: string,
   code: string,
-  patch: TerminalPatch
+  patch: TerminalPatch,
+  adminSupabase: VirtualTerminalAdminClient = createAdminClient()
 ): Promise<NextResponse | null> {
   const isNamePatch = 'name' in patch;
-  const { data: syncedTerminalId, error: syncError } = await supabase.rpc(
+  const { data: syncedTerminalId, error: syncError } = await adminSupabase.rpc(
     'sync_virtual_terminal_local',
     {
       p_account_name: isNamePatch ? (patch.accountName ?? null) : null,

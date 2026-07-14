@@ -16,6 +16,7 @@ import {
 } from '@/lib/get-merchant-for-api-request';
 import { logger } from '@/lib/logger';
 import { createVirtualTerminal } from '@/lib/paystack';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
 // =============================================================================
@@ -118,7 +119,8 @@ export async function POST(request: NextRequest) {
     );
 
     // Save terminal to virtual_terminals table
-    const { data: savedTerminal, error: insertError } = await supabase
+    const adminSupabase = createAdminClient();
+    const { data: savedTerminal, error: insertError } = await adminSupabase
       .from('virtual_terminals')
       .insert({
         merchant_id: merchantId,
@@ -258,7 +260,7 @@ export async function GET(request: NextRequest) {
         staff_id,
         staff_members (
           id,
-          full_name
+          full_name:name
         )
       `)
       .eq('merchant_id', merchantId)

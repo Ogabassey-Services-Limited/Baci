@@ -17,6 +17,10 @@ vi.mock('@/lib/supabase/server', () => ({
   })),
 }));
 
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => ({ from: mockFrom })),
+}));
+
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: vi.fn(),
   hasPermission: vi.fn(() => true),

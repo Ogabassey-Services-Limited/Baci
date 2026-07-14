@@ -18,6 +18,10 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => mockSupabase),
 }));
 
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => mockSupabase),
+}));
+
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) =>
     mockAuthenticateApiRequest(...args),
@@ -287,6 +291,22 @@ describe('GET /api/paystack/virtual-terminal', () => {
       data: { user: { id: 'u-1' } },
     });
 
+    const terminalSelect = vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        order: vi.fn().mockResolvedValue({
+          data: [
+            {
+              id: 't-1',
+              code: 'VT_001',
+              name: 'Main Terminal',
+              active: true,
+            },
+          ],
+          error: null,
+        }),
+      }),
+    });
+
     mockFrom.mockImplementation((table: string) => {
       if (table === 'merchants') {
         return {
@@ -306,21 +326,7 @@ describe('GET /api/paystack/virtual-terminal', () => {
       }
       if (table === 'virtual_terminals') {
         return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              order: vi.fn().mockResolvedValue({
-                data: [
-                  {
-                    id: 't-1',
-                    code: 'VT_001',
-                    name: 'Main Terminal',
-                    active: true,
-                  },
-                ],
-                error: null,
-              }),
-            }),
-          }),
+          select: terminalSelect,
         };
       }
       return {
@@ -337,5 +343,8 @@ describe('GET /api/paystack/virtual-terminal', () => {
     expect(body.success).toBe(true);
     expect(body.terminals).toHaveLength(1);
     expect(body.terminals[0].code).toBe('VT_001');
+    expect(terminalSelect).toHaveBeenCalledWith(
+      expect.stringContaining('full_name:name')
+    );
   });
 });

@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const migrationPath = resolve(
   __dirname,
-  '../../../../../../../supabase/migrations/20260713203000_allow_staff_manage_virtual_terminals.sql'
+  '../../../../../../../supabase/migrations/20260714121500_lock_down_virtual_terminal_sync.sql'
 );
 
 function normalizeSql(sql: string) {
@@ -12,7 +12,7 @@ function normalizeSql(sql: string) {
 }
 
 describe('virtual terminal constrained sync migration', () => {
-  it('uses an authorized atomic RPC without broadening table policies', () => {
+  it('keeps ownership and provider sync off authenticated clients', () => {
     expect(existsSync(migrationPath)).toBe(true);
     if (!existsSync(migrationPath)) return;
 
@@ -21,26 +21,34 @@ describe('virtual terminal constrained sync migration', () => {
     expect(migrationSql).toContain(
       'CREATE OR REPLACE FUNCTION public.sync_virtual_terminal_local('
     );
-    expect(migrationSql).toContain('SECURITY DEFINER SET search_path =');
+    expect(migrationSql).toContain('SECURITY INVOKER SET search_path =');
     expect(migrationSql).toContain(
-      "public.check_staff_permission( v_user_id, p_merchant_id, 'integrations', 'manage' )"
-    );
-    expect(migrationSql).toContain("v_staff_permissions -> '*' ->> '*'");
-    expect(migrationSql).toContain(
-      "v_staff_permissions -> 'integrations' ->> '*'"
+      'DROP POLICY IF EXISTS "Merchants can create terminals"'
     );
     expect(migrationSql).toContain(
-      'Delegated staff cannot synchronize account details'
+      'DROP POLICY IF EXISTS "Merchants can update own terminals"'
     );
-    expect(migrationSql).toContain('AND virtual_terminal_code = p_code');
+    expect(migrationSql).toContain(
+      'DROP POLICY IF EXISTS "Merchants can delete own terminals"'
+    );
+    expect(migrationSql).toContain(
+      'REVOKE INSERT, UPDATE, DELETE ON public.virtual_terminals FROM anon, authenticated'
+    );
+    expect(migrationSql).toContain(') FROM PUBLIC, anon, authenticated');
+    expect(migrationSql).toContain(') TO service_role');
+    expect(migrationSql).toContain(
+      "merchants.virtual_terminal_code ~ '^VT_[A-Za-z0-9]+$'"
+    );
     expect(migrationSql).toContain(
       "account_number = COALESCE( NULLIF(btrim(p_account_number), ''), account_number )"
     );
-    expect(migrationSql).toContain('ON CONFLICT (code) DO UPDATE');
+    expect(migrationSql).toContain('active = COALESCE(p_active, active)');
+    expect(migrationSql).toContain('AND p_account_number IS NULL');
+    expect(migrationSql).toContain('AND p_account_name IS NULL');
+    expect(migrationSql).toContain('AND p_bank IS NULL');
     expect(migrationSql).toContain(
-      'WHERE public.virtual_terminals.merchant_id = p_merchant_id'
+      "RAISE EXCEPTION 'Trusted virtual terminal mapping not found'"
     );
-    expect(migrationSql).toContain('COALESCE(p_active, true)');
-    expect(migrationSql).not.toContain('ALTER POLICY');
+    expect(migrationSql).not.toContain('check_staff_permission');
   });
 });

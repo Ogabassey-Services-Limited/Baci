@@ -37,38 +37,10 @@ describe('virtual terminal local sync helpers', () => {
     expect(terminalChain.eq).toHaveBeenCalledWith('code', 'VT_123');
   });
 
-  it('falls back to the legacy merchant virtual_terminal_code', async () => {
+  it('does not trust a writable legacy merchant virtual_terminal_code', async () => {
     const terminalChain = createChain({ data: null, error: null });
-    const merchantChain = createChain({
-      data: { virtual_terminal_code: 'VT_123' },
-      error: null,
-    });
     const supabase = {
-      from: vi
-        .fn()
-        .mockReturnValueOnce(terminalChain)
-        .mockReturnValueOnce(merchantChain),
-    };
-
-    await expect(
-      verifyTerminalOwnership(supabase as never, 'merchant-1', 'VT_123')
-    ).resolves.toBeNull();
-
-    expect(supabase.from).toHaveBeenNthCalledWith(1, 'virtual_terminals');
-    expect(supabase.from).toHaveBeenNthCalledWith(2, 'merchants');
-  });
-
-  it('returns 404 when neither modern nor legacy ownership matches', async () => {
-    const terminalChain = createChain({ data: null, error: null });
-    const merchantChain = createChain({
-      data: { virtual_terminal_code: 'VT_OTHER' },
-      error: null,
-    });
-    const supabase = {
-      from: vi
-        .fn()
-        .mockReturnValueOnce(terminalChain)
-        .mockReturnValueOnce(merchantChain),
+      from: vi.fn(() => terminalChain),
     };
 
     const response = await verifyTerminalOwnership(
@@ -81,6 +53,7 @@ describe('virtual terminal local sync helpers', () => {
     await expect(response?.json()).resolves.toEqual({
       error: 'Terminal not found or not authorized',
     });
+    expect(supabase.from).toHaveBeenCalledTimes(1);
   });
 
   it('returns a 500 response when modern ownership lookup fails', async () => {
@@ -102,32 +75,7 @@ describe('virtual terminal local sync helpers', () => {
     });
   });
 
-  it('returns a 500 response when legacy ownership lookup fails', async () => {
-    const terminalChain = createChain({ data: null, error: null });
-    const merchantChain = createChain({
-      data: null,
-      error: { message: 'boom' },
-    });
-    const supabase = {
-      from: vi
-        .fn()
-        .mockReturnValueOnce(terminalChain)
-        .mockReturnValueOnce(merchantChain),
-    };
-
-    const response = await verifyTerminalOwnership(
-      supabase as never,
-      'merchant-1',
-      'VT_123'
-    );
-
-    expect(response?.status).toBe(500);
-    await expect(response?.json()).resolves.toEqual({
-      error: 'Database error verifying terminal ownership',
-    });
-  });
-
-  it('backfills a missing virtual terminal row after a Paystack update succeeds', async () => {
+  it('syncs a provider-confirmed rename through the server-only RPC', async () => {
     const rpc = vi.fn().mockResolvedValue({
       data: 'terminal-1',
       error: null,
@@ -137,12 +85,17 @@ describe('virtual terminal local sync helpers', () => {
     };
 
     await expect(
-      syncTerminalRecord(supabase as never, 'merchant-1', 'VT_123', {
-        accountName: 'Test Store',
-        accountNumber: '1234567890',
-        bank: 'Test Bank',
-        name: 'Sales Terminal',
-      })
+      syncTerminalRecord(
+        'merchant-1',
+        'VT_123',
+        {
+          accountName: 'Test Store',
+          accountNumber: '1234567890',
+          bank: 'Test Bank',
+          name: 'Sales Terminal',
+        },
+        supabase as never
+      )
     ).resolves.toBeNull();
 
     expect(rpc).toHaveBeenCalledWith('sync_virtual_terminal_local', {
@@ -164,9 +117,12 @@ describe('virtual terminal local sync helpers', () => {
     const supabase = { rpc };
 
     await expect(
-      syncTerminalRecord(supabase as never, 'merchant-1', 'VT_123', {
-        active: false,
-      })
+      syncTerminalRecord(
+        'merchant-1',
+        'VT_123',
+        { active: false },
+        supabase as never
+      )
     ).resolves.toBeNull();
 
     expect(rpc).toHaveBeenCalledWith('sync_virtual_terminal_local', {
@@ -188,10 +144,10 @@ describe('virtual terminal local sync helpers', () => {
     const supabase = { rpc };
 
     const response = await syncTerminalRecord(
-      supabase as never,
       'merchant-1',
       'VT_123',
-      { name: 'Sales Terminal' }
+      { name: 'Sales Terminal' },
+      supabase as never
     );
 
     expect(response?.status).toBe(500);
@@ -208,10 +164,10 @@ describe('virtual terminal local sync helpers', () => {
     const supabase = { rpc };
 
     const response = await syncTerminalRecord(
-      supabase as never,
       'merchant-1',
       'VT_123',
-      { active: false }
+      { active: false },
+      supabase as never
     );
 
     expect(response?.status).toBe(500);

@@ -49,6 +49,10 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => mockSupabase),
 }));
 
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => ({ rpc: mockRpc })),
+}));
+
 vi.mock('@/lib/api-auth', () => ({
   hasPermission: vi.fn(() => true),
 }));
@@ -202,7 +206,7 @@ describe('/api/paystack/virtual-terminal/[code]', () => {
     });
   });
 
-  it('does not let staff submit provider account details to the sync RPC', async () => {
+  it('preserves provider-confirmed account details during staff sync', async () => {
     const terminalLookup = createMerchantLookup(null);
     terminalLookup.maybeSingle.mockResolvedValue({
       data: { id: 'terminal-1' },
@@ -241,10 +245,10 @@ describe('/api/paystack/virtual-terminal/[code]', () => {
 
     expect(response.status).toBe(200);
     expect(mockRpc).toHaveBeenCalledWith('sync_virtual_terminal_local', {
-      p_account_name: null,
-      p_account_number: null,
+      p_account_name: 'Test Store',
+      p_account_number: '1234567890',
       p_active: null,
-      p_bank: null,
+      p_bank: 'Test Bank',
       p_code: TERMINAL_CODE,
       p_merchant_id: MERCHANT_ID,
       p_name: 'Sales Terminal',
