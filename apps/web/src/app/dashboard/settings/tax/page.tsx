@@ -1,7 +1,4 @@
-import {
-  MERCHANT_TAX_SETTINGS_COLUMNS,
-  type RegisteredAddress,
-} from '@baci/shared';
+import type { RegisteredAddress } from '@baci/shared';
 import { ChevronLeft, Receipt } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -11,7 +8,6 @@ import {
   ensurePermission,
   isMerchantPermissionRedirectError,
 } from '@/lib/merchant-server';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { registeredAddressSchema } from '@/schemas/merchant-settings';
 import { TaxSettingsForm } from './tax-settings-form';
 
@@ -45,34 +41,20 @@ export default async function TaxSettingsPage() {
     }
   }
 
-  // Fetch current VAT/registration settings. Permission + merchant ownership are
-  // verified above; this read runs under the service role so it keeps working
-  // after S1 revokes the sensitive `merchants` column grants from the
-  // `authenticated` role.
-  const supabase = createAdminClient();
-
-  const { data: merchantData, error: merchantDataError } = await supabase
-    .from('merchants')
-    .select(MERCHANT_TAX_SETTINGS_COLUMNS)
-    .eq('id', merchant.id)
-    .single();
-
-  if (merchantDataError) {
-    console.error('Failed to load merchant tax settings:', merchantDataError);
-    throw new Error('Unable to load merchant data');
-  }
-
-  const vatEnabled = merchantData?.vat_registration_status === 'registered';
-  const vatRate = merchantData?.vat_rate ?? 7.5;
-  const taxId = merchantData?.tax_identification_number ?? '';
-  const legalEntityName = merchantData?.legal_entity_name ?? '';
+  // ensurePermission resolves its merchant through the caller-bound dashboard
+  // RPC, whose settings projection contains these tax/legal fields. Do not add
+  // a service-role read to this user-facing page.
+  const vatEnabled = merchant.vat_registration_status === 'registered';
+  const vatRate = merchant.vat_rate ?? 7.5;
+  const taxId = merchant.tax_identification_number ?? '';
+  const legalEntityName = merchant.legal_entity_name ?? '';
   const parsedAddress = registeredAddressSchema.safeParse(
-    merchantData?.registered_address
+    merchant.registered_address
   );
-  if (!parsedAddress.success && merchantData?.registered_address != null) {
+  if (!parsedAddress.success && merchant.registered_address != null) {
     console.error('Invalid merchant registered address payload:', {
       merchantId: merchant.id,
-      address: merchantData.registered_address,
+      address: merchant.registered_address,
       error: parsedAddress.error,
     });
   }
@@ -85,7 +67,7 @@ export default async function TaxSettingsPage() {
     state: addr?.state ?? '',
     postal_code: addr?.postal_code ?? '',
   };
-  const stateCode = (merchantData?.state_code as string) ?? '';
+  const stateCode = merchant.state_code ?? '';
 
   return (
     <div className="grid gap-6">

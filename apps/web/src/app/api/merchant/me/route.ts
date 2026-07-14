@@ -1,9 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import {
-  fetchDashboardMerchant,
-  fetchPrimaryDomain,
-} from '@/hooks/merchant/queries';
+import { fetchDashboardMerchantContext } from '@/hooks/merchant/fetch-dashboard-merchant-context';
 import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
 
@@ -28,10 +25,9 @@ const PRIVATE_NO_STORE = {
  * let ANY signed-in user read ANY merchant's secrets. This route moves the
  * own-row read behind a server boundary so S1 can revoke those column grants.
  *
- * Security: authentication and reads use the cookie-bound client, while
- * `fetchDashboardMerchant` additionally enforces `WHERE user_id =
- * <session user.id>` / active-staff scoping. A later column-ACL change must use
- * a caller-bound RPC rather than introducing a service-role client here.
+ * Security: authentication and the bounded RPC use the cookie-bound client.
+ * The SECURITY DEFINER function pins owner/staff scope to auth.uid(), accepts
+ * no caller-supplied identifiers, and returns an explicit projection.
  */
 export async function GET(_request: NextRequest) {
   const cookieStore = await cookies();
@@ -50,16 +46,11 @@ export async function GET(_request: NextRequest) {
   }
 
   try {
-    const { merchant, staffAccess } = await fetchDashboardMerchant(
-      supabase,
-      user.id
-    );
+    const { merchant, primaryDomain, staffAccess } =
+      await fetchDashboardMerchantContext(supabase);
 
-    if (merchant?.id) {
-      const domain = await fetchPrimaryDomain(supabase, merchant.id);
-      if (domain) {
-        merchant.custom_domain = domain;
-      }
+    if (merchant && primaryDomain) {
+      merchant.custom_domain = primaryDomain;
     }
 
     return NextResponse.json(

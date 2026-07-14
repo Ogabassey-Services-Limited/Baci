@@ -1,12 +1,8 @@
 import type { User } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { cache } from 'react';
-import {
-  fetchDashboardMerchant,
-  fetchPrimaryDomain,
-  type MerchantData,
-  type StaffAccess,
-} from '@/hooks/merchant';
+import type { MerchantData, StaffAccess } from '@/hooks/merchant';
+import { fetchDashboardMerchantContext } from '@/hooks/merchant/fetch-dashboard-merchant-context';
 import { permissionGrantsAccess } from '@/lib/permission-grant';
 import { createClient } from '@/lib/supabase/server';
 
@@ -94,21 +90,18 @@ export const getMerchantForUser = cache(
     }
 
     try {
-      // Keep this user-facing read on the authenticated, cookie-bound client.
-      // fetchDashboardMerchant additionally scopes its owner/staff lookups to
-      // the verified session user id.
-      const { merchant: merchantData, staffAccess: access } =
-        await fetchDashboardMerchant(supabase, user.id);
+      // The caller-bound SECURITY DEFINER RPC pins lookup scope to auth.uid()
+      // and returns only the explicit dashboard projection. This keeps SSR
+      // working after authenticated column grants are tightened without using
+      // a service-role client in a user-facing request.
+      const {
+        merchant: merchantData,
+        primaryDomain,
+        staffAccess: access,
+      } = await fetchDashboardMerchantContext(supabase);
 
-      // If we found a merchant, fetch their primary domain
-      if (merchantData) {
-        const primaryDomain = await fetchPrimaryDomain(
-          supabase,
-          merchantData.id
-        );
-        if (primaryDomain) {
-          merchantData.custom_domain = primaryDomain;
-        }
+      if (merchantData && primaryDomain) {
+        merchantData.custom_domain = primaryDomain;
       }
 
       return {

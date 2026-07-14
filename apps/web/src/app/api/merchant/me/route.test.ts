@@ -3,8 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   getUser: vi.fn(),
   createServerClient: vi.fn(),
-  fetchDashboardMerchant: vi.fn(),
-  fetchPrimaryDomain: vi.fn(),
+  fetchDashboardMerchantContext: vi.fn(),
 }));
 
 vi.mock('next/headers', () => ({
@@ -15,10 +14,9 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: () => mocks.createServerClient(),
 }));
 
-vi.mock('@/hooks/merchant/queries', () => ({
-  fetchDashboardMerchant: (...args: unknown[]) =>
-    mocks.fetchDashboardMerchant(...args),
-  fetchPrimaryDomain: (...args: unknown[]) => mocks.fetchPrimaryDomain(...args),
+vi.mock('@/hooks/merchant/fetch-dashboard-merchant-context', () => ({
+  fetchDashboardMerchantContext: (...args: unknown[]) =>
+    mocks.fetchDashboardMerchantContext(...args),
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -51,11 +49,11 @@ describe('GET /api/merchant/me', () => {
       data: { user: { id: 'user-123' } },
       error: null,
     });
-    mocks.fetchDashboardMerchant.mockResolvedValue({
+    mocks.fetchDashboardMerchantContext.mockResolvedValue({
       merchant: { id: 'merchant-1', business_name: 'Baci Store' },
+      primaryDomain: null,
       staffAccess: ownerStaffAccess,
     });
-    mocks.fetchPrimaryDomain.mockResolvedValue(null);
   });
 
   it('returns 401 when the request is unauthenticated', async () => {
@@ -71,7 +69,7 @@ describe('GET /api/merchant/me', () => {
     // The no-store/private cache invariant must hold on error paths too.
     expect(response.headers.get('Cache-Control')).toContain('no-store');
     expect(response.headers.get('Cache-Control')).toContain('private');
-    expect(mocks.fetchDashboardMerchant).not.toHaveBeenCalled();
+    expect(mocks.fetchDashboardMerchantContext).not.toHaveBeenCalled();
   });
 
   it('returns 401 when getUser reports an auth error', async () => {
@@ -83,7 +81,7 @@ describe('GET /api/merchant/me', () => {
     const response = await GET(makeRequest());
 
     expect(response.status).toBe(401);
-    expect(mocks.fetchDashboardMerchant).not.toHaveBeenCalled();
+    expect(mocks.fetchDashboardMerchantContext).not.toHaveBeenCalled();
   });
 
   it('resolves the owner merchant via the authenticated server client scoped to the session user', async () => {
@@ -94,10 +92,9 @@ describe('GET /api/merchant/me', () => {
       merchant: { id: 'merchant-1', business_name: 'Baci Store' },
       staffAccess: ownerStaffAccess,
     });
-    // Ownership is enforced by passing the SESSION user id, never client input.
-    expect(mocks.fetchDashboardMerchant).toHaveBeenCalledWith(
-      SERVER_CLIENT,
-      'user-123'
+    // The RPC receives the authenticated client and no caller-supplied scope.
+    expect(mocks.fetchDashboardMerchantContext).toHaveBeenCalledWith(
+      SERVER_CLIENT
     );
     // Per-user secret payload must never be cached by a shared cache/CDN.
     expect(response.headers.get('Cache-Control')).toContain('no-store');
@@ -105,16 +102,16 @@ describe('GET /api/merchant/me', () => {
   });
 
   it('attaches the primary custom domain when present', async () => {
-    mocks.fetchPrimaryDomain.mockResolvedValueOnce('shop.example.com');
+    mocks.fetchDashboardMerchantContext.mockResolvedValueOnce({
+      merchant: { id: 'merchant-1', business_name: 'Baci Store' },
+      primaryDomain: 'shop.example.com',
+      staffAccess: ownerStaffAccess,
+    });
 
     const response = await GET(makeRequest());
     const body = await response.json();
 
     expect(body.merchant.custom_domain).toBe('shop.example.com');
-    expect(mocks.fetchPrimaryDomain).toHaveBeenCalledWith(
-      SERVER_CLIENT,
-      'merchant-1'
-    );
   });
 
   it('returns the staff access payload for an active staff member', async () => {
@@ -124,8 +121,9 @@ describe('GET /api/merchant/me', () => {
       role: 'manager',
       permissions: { settings: { view: true } },
     };
-    mocks.fetchDashboardMerchant.mockResolvedValueOnce({
+    mocks.fetchDashboardMerchantContext.mockResolvedValueOnce({
       merchant: { id: 'merchant-9' },
+      primaryDomain: null,
       staffAccess,
     });
 
@@ -137,20 +135,27 @@ describe('GET /api/merchant/me', () => {
   });
 
   it('returns a null merchant (not an error) when the user has no dashboard merchant', async () => {
-    mocks.fetchDashboardMerchant.mockResolvedValueOnce({
+    mocks.fetchDashboardMerchantContext.mockResolvedValueOnce({
       merchant: null,
-      staffAccess: { isStaff: false, isOwner: false, role: null },
+      primaryDomain: null,
+      staffAccess: {
+        isStaff: false,
+        isOwner: false,
+        role: null,
+        permissions: {},
+      },
     });
 
     const response = await GET(makeRequest());
 
     expect(response.status).toBe(200);
     expect((await response.json()).merchant).toBeNull();
-    expect(mocks.fetchPrimaryDomain).not.toHaveBeenCalled();
   });
 
   it('returns 500 when the dashboard lookup throws', async () => {
-    mocks.fetchDashboardMerchant.mockRejectedValueOnce(new Error('db down'));
+    mocks.fetchDashboardMerchantContext.mockRejectedValueOnce(
+      new Error('db down')
+    );
 
     const response = await GET(makeRequest());
 

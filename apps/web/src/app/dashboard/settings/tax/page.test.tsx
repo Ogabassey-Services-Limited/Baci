@@ -6,9 +6,6 @@ const mocks = vi.hoisted(() => ({
   ensurePermission: vi.fn(),
   isMerchantPermissionRedirectError: vi.fn(),
   redirect: vi.fn(),
-  select: vi.fn(),
-  eq: vi.fn(),
-  single: vi.fn(),
 }));
 
 vi.mock('@/lib/merchant-server', () => ({
@@ -30,12 +27,6 @@ vi.mock('next/link', () => ({
       {children}
     </a>
   ),
-}));
-
-vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: () => ({
-    from: () => ({ select: mocks.select }),
-  }),
 }));
 
 vi.mock('./tax-settings-form', () => ({
@@ -64,31 +55,27 @@ describe('TaxSettingsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.ensurePermission.mockResolvedValue({
-      merchant: { id: 'merchant-1' },
+      merchant: { id: 'merchant-1', ...merchantData },
     });
     mocks.isMerchantPermissionRedirectError.mockReturnValue(false);
-    mocks.select.mockReturnValue({ eq: mocks.eq });
-    mocks.eq.mockReturnValue({ single: mocks.single });
-    mocks.single.mockResolvedValue({ data: merchantData, error: null });
     mocks.redirect.mockImplementation(() => {
       throw new Error('NEXT_REDIRECT');
     });
   });
 
-  it('uses settings view access and loads tax data through the admin client', async () => {
+  it('uses settings view access and loads tax data from the bounded context', async () => {
     render(await TaxSettingsPage());
 
     expect(mocks.ensurePermission).toHaveBeenCalledWith('settings', 'view');
     expect(mocks.ensurePermission).toHaveBeenCalledTimes(1);
-    expect(mocks.eq).toHaveBeenCalledWith('id', 'merchant-1');
     expect(screen.getByTestId('tax-settings-form')).toHaveTextContent('TIN-1');
   });
 
   it('accepts settings edit access when view is denied', async () => {
     const denied = new Error('view denied');
-    mocks.ensurePermission
-      .mockRejectedValueOnce(denied)
-      .mockResolvedValueOnce({ merchant: { id: 'merchant-1' } });
+    mocks.ensurePermission.mockRejectedValueOnce(denied).mockResolvedValueOnce({
+      merchant: { id: 'merchant-1', ...merchantData },
+    });
     mocks.isMerchantPermissionRedirectError.mockImplementation(
       (error) => error === denied
     );
