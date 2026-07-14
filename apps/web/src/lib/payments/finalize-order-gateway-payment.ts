@@ -97,10 +97,19 @@ export async function finalizeOrderGatewayPayment({
   const outboxState = completion.order_updated
     ? null
     : await getOrderOutboxState(supabase, orderId);
+  if (
+    completion.order_already_paid &&
+    !completion.order_updated &&
+    outboxState?.lookupFailed
+  ) {
+    return {
+      error: new Error('payment_side_effects_lookup_failed'),
+      kind: 'completion_failed',
+    };
+  }
   const capturedOnAlreadyPaidOrder =
     Boolean(completion.order_already_paid) &&
     !completion.order_updated &&
-    !outboxState?.lookupFailed &&
     outboxState?.payerTransactionId !== transaction.id;
 
   const shouldNotify =

@@ -80,7 +80,7 @@ async function verifyPaymentReference(reference: string) {
   const { data: transaction, error: transactionError } = await supabase
     .from('transactions')
     .select(
-      'id, order_id, merchant_id, amount, currency, status, gateway, gateway_reference, platform_fee'
+      'id, order_id, merchant_id, amount, currency, status, gateway, gateway_reference, gateway_response, platform_fee'
     )
     .eq('gateway_reference', parsedReference.data)
     .maybeSingle();
@@ -120,10 +120,29 @@ async function verifyPaymentReference(reference: string) {
     );
   }
 
-  const verification = await verifyGatewayPayment(
-    transaction.gateway,
-    parsedReference.data
-  );
+  const isSupportedOrderGateway =
+    transaction.gateway === 'paystack' || transaction.gateway === 'korapay';
+  const isLocallyFinalizedOrderPayment =
+    isSupportedOrderGateway &&
+    transaction.status === 'completed' &&
+    existingOrder?.payment_status === 'paid';
+  const storedGatewayResponse = transaction.gateway_response;
+  const localGatewayEvidence =
+    storedGatewayResponse &&
+    typeof storedGatewayResponse === 'object' &&
+    !Array.isArray(storedGatewayResponse)
+      ? (storedGatewayResponse as Record<string, unknown>)
+      : {
+          source: 'locally_completed_order_payment',
+          status: 'success',
+        };
+  const verification: GatewayVerificationResult = isLocallyFinalizedOrderPayment
+    ? {
+        gatewayResponse: localGatewayEvidence,
+        status: 'success',
+        success: true,
+      }
+    : await verifyGatewayPayment(transaction.gateway, parsedReference.data);
 
   if (!verification.success) {
     logger.warn({

@@ -143,6 +143,7 @@ function buildSupabase({
             currency: 'NGN',
             gateway: 'paystack',
             gateway_reference: REFERENCE,
+            gateway_response: { fees: 123, status: 'success' },
             id: 'txn-1',
             merchant_id: 'merchant-1',
             order_id: 'order-1',
@@ -326,12 +327,19 @@ describe('POST /api/payments/verify — finalizer outcomes', () => {
       transactionStatus: 'completed',
     });
     mockCreateServiceClient.mockReturnValue(supabase);
+    mockVerifyPaystack.mockRejectedValue(
+      new Error('gateway verification unavailable')
+    );
 
     const response = await POST(createRequest());
 
     expect(response.status).toBe(200);
-    expect(mockVerifyPaystack).toHaveBeenCalledWith(REFERENCE);
-    expect(mockRunPaidOrderSideEffects).toHaveBeenCalled();
+    expect(mockVerifyPaystack).not.toHaveBeenCalled();
+    expect(mockRunPaidOrderSideEffects).toHaveBeenCalledWith(
+      expect.objectContaining({
+        gatewayResponse: { fees: 123, status: 'success' },
+      })
+    );
     expect(supabase.rpc).toHaveBeenCalledWith(
       'complete_order_gateway_payment',
       expect.objectContaining({ p_transaction_id: 'txn-1' })

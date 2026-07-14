@@ -387,7 +387,7 @@ describe('finalizeOrderGatewayPayment', () => {
     expect(mocks.ensurePaidOrderInventoryConfirmed).not.toHaveBeenCalled();
   });
 
-  it('does not classify a replay as settlement-only when the outbox lookup fails', async () => {
+  it('fails closed when an already-paid capture cannot inspect the payer outbox', async () => {
     mocks.completeOrderGatewayPayment.mockResolvedValue(
       completion({
         already_completed: true,
@@ -407,8 +407,8 @@ describe('finalizeOrderGatewayPayment', () => {
       )
     );
 
-    expect(outcome).toMatchObject({ kind: 'completed' });
-    expect(mocks.runPaidOrderSideEffects).toHaveBeenCalledTimes(1);
+    expect(outcome).toMatchObject({ kind: 'completion_failed' });
+    expect(mocks.runPaidOrderSideEffects).not.toHaveBeenCalled();
     expect(mocks.settleCapturedOrderPayment).not.toHaveBeenCalled();
   });
 
