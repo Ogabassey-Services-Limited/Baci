@@ -46,16 +46,9 @@ function toCreatedAt(value: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-/**
- * Newest wallet top-up credit in the transaction list, or `null` when the list
- * is unavailable (still loading) or holds no top-up with a usable timestamp.
- * Rows whose `created_at` cannot be parsed are skipped rather than kept — an
- * unusable timestamp cannot prove a credit landed, and keeping one would also
- * mask a genuinely newer row behind it. The list is not trusted to be sorted;
- * ties keep the first match, which is the server's `created_at desc` order.
- */
-export function findLatestWalletTopUpCredit(
-  transactions: readonly WalletTopUpCandidate[] | undefined
+function findLatest(
+  transactions: readonly WalletTopUpCandidate[] | undefined,
+  cutoffMs: number | null
 ): WalletTopUpCredit | null {
   if (!transactions) {
     return null;
@@ -70,6 +63,9 @@ export function findLatestWalletTopUpCredit(
     if (createdAt === null) {
       continue;
     }
+    if (cutoffMs !== null && createdAt > cutoffMs) {
+      continue;
+    }
     if (latest === null || createdAt > latest.createdAt) {
       latest = {
         amount: transaction.amount,
@@ -80,6 +76,37 @@ export function findLatestWalletTopUpCredit(
   }
 
   return latest;
+}
+
+/**
+ * Newest wallet top-up credit in the transaction list, or `null` when the list
+ * is unavailable (still loading) or holds no top-up with a usable timestamp.
+ * Rows whose `created_at` cannot be parsed are skipped rather than kept — an
+ * unusable timestamp cannot prove a credit landed, and keeping one would also
+ * mask a genuinely newer row behind it. The list is not trusted to be sorted;
+ * ties keep the first match, which is the server's `created_at desc` order.
+ */
+export function findLatestWalletTopUpCredit(
+  transactions: readonly WalletTopUpCandidate[] | undefined
+): WalletTopUpCredit | null {
+  return findLatest(transactions, null);
+}
+
+/**
+ * Newest top-up credit that already existed AT OR BEFORE `cutoffMs` — the
+ * baseline anchored on when the customer began their bank transfer, so a credit
+ * that landed while the app was backgrounded (or killed, with the wallet screen
+ * remounting afterwards) still reads as new.
+ *
+ * A non-finite cutoff degrades to the plain ledger head rather than to "no
+ * baseline": fail CLOSED — a bad cutoff must never widen the "new" window and
+ * manufacture a credit the customer never received.
+ */
+export function findLatestWalletTopUpCreditAtOrBefore(
+  transactions: readonly WalletTopUpCandidate[] | undefined,
+  cutoffMs: number
+): WalletTopUpCredit | null {
+  return findLatest(transactions, Number.isFinite(cutoffMs) ? cutoffMs : null);
 }
 
 /**

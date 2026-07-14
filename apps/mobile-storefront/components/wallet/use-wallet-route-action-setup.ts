@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { applyWalletRouteAction } from '@/components/wallet/apply-wallet-route-action';
 import type { WalletReturnHref } from '@/lib/sanitize-wallet-return-to';
+import { startWalletFundingSession } from '@/lib/wallet-funding-session';
 
 interface UseWalletRouteActionSetupParams {
   bankTransfer: {
@@ -77,6 +78,22 @@ export function useWalletRouteActionSetup({
       setPendingBankTransfer(true);
     }
   }
+
+  // Landing on `/wallet?action=bank-transfer` IS the moment the customer
+  // expressed bank-transfer funding intent — the earliest point at which we know
+  // it, and strictly before any account number can be shown (the DVA is created
+  // below), so no transfer can have happened yet. Persist it: the credit watch
+  // baselines its ledger snapshot on this timestamp, which must survive the
+  // customer leaving for their bank app and the screen remounting (or the app
+  // being killed) with the credit already in the ledger. Re-running on remount is
+  // safe — `startWalletFundingSession` preserves an existing unexpired session
+  // rather than restamping it.
+  useEffect(() => {
+    if (!isBankTransferAction || !customerId) {
+      return;
+    }
+    void startWalletFundingSession(customerId);
+  }, [customerId, isBankTransferAction]);
 
   const {
     canCreateFundingAccount,

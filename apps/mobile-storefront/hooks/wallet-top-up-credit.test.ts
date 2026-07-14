@@ -1,6 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 import {
   findLatestWalletTopUpCredit,
+  findLatestWalletTopUpCreditAtOrBefore,
   isNewWalletTopUpCredit,
   type WalletTopUpCandidate,
 } from './wallet-top-up-credit';
@@ -173,5 +174,49 @@ describe('isNewWalletTopUpCredit', () => {
         baseline
       )
     ).toBe(true);
+  });
+});
+
+describe('findLatestWalletTopUpCreditAtOrBefore', () => {
+  const CUTOFF = Date.parse('2026-07-13T10:00:00.000Z');
+  const BEFORE = topUp('tx-before', 1000, '2026-07-13T09:00:00.000Z');
+  const AT_CUTOFF = topUp('tx-at', 1500, '2026-07-13T10:00:00.000Z');
+  const AFTER = topUp('tx-after', 2500, '2026-07-13T10:30:00.000Z');
+
+  it('ignores top-ups that landed after the cutoff', () => {
+    const latest = findLatestWalletTopUpCreditAtOrBefore(
+      [AFTER, BEFORE],
+      CUTOFF
+    );
+
+    expect(latest?.id).toBe('tx-before');
+  });
+
+  it('keeps a top-up that landed exactly at the cutoff (fails closed)', () => {
+    const latest = findLatestWalletTopUpCreditAtOrBefore(
+      [AFTER, AT_CUTOFF, BEFORE],
+      CUTOFF
+    );
+
+    expect(latest?.id).toBe('tx-at');
+  });
+
+  it('returns null when every top-up is newer than the cutoff', () => {
+    expect(findLatestWalletTopUpCreditAtOrBefore([AFTER], CUTOFF)).toBeNull();
+  });
+
+  it('returns null while the ledger is still loading', () => {
+    expect(findLatestWalletTopUpCreditAtOrBefore(undefined, CUTOFF)).toBeNull();
+  });
+
+  it('falls back to the ledger head when the cutoff is unusable', () => {
+    // Fail CLOSED: a bad cutoff must never widen the "new" window, so the
+    // newest existing top-up still becomes the baseline.
+    const latest = findLatestWalletTopUpCreditAtOrBefore(
+      [AFTER, BEFORE],
+      Number.NaN
+    );
+
+    expect(latest?.id).toBe('tx-after');
   });
 });

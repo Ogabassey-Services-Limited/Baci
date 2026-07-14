@@ -242,6 +242,7 @@ export function WalletScreen({
         canCreateFundingAccount,
         contentContainerStyle: scrollContentStyle,
         createFundingAccountUnavailableMessage,
+        customerId: customer?.id,
         earningsBalance,
         fundAmount,
         fundReturnTo,

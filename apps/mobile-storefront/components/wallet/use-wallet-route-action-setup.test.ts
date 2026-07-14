@@ -1,5 +1,12 @@
 import { renderHook } from '@testing-library/react-native';
 import { useWalletRouteActionSetup } from '@/components/wallet/use-wallet-route-action-setup';
+import { startWalletFundingSession } from '@/lib/wallet-funding-session';
+
+jest.mock('@/lib/wallet-funding-session', () => ({
+  startWalletFundingSession: jest.fn(async () => null),
+}));
+
+const mockStartSession = jest.mocked(startWalletFundingSession);
 
 const noopSetters = {
   setFundAmount: jest.fn(),
@@ -177,6 +184,43 @@ describe('useWalletRouteActionSetup', () => {
     rerender(buildParams({ createFundingAccount, customerId: 'customer-2' }));
 
     expect(createFundingAccount).toHaveBeenCalledTimes(2);
+  });
+
+  it('starts a persisted funding session on arrival with bank-transfer intent', () => {
+    // The session anchors the credit watch's baseline; it must be written at
+    // the moment of intent so it survives the customer leaving for their bank
+    // app and the screen remounting after the credit already landed.
+    renderHook(() => useWalletRouteActionSetup(buildParams()));
+
+    expect(mockStartSession).toHaveBeenCalledWith('customer-1');
+  });
+
+  it('does not start a funding session for other route actions or without a customer', () => {
+    renderHook(() =>
+      useWalletRouteActionSetup(buildParams({ routeAction: 'fund' }))
+    );
+    expect(mockStartSession).not.toHaveBeenCalled();
+
+    // Auth not hydrated yet: no customer to scope the marker to.
+    renderHook(() =>
+      useWalletRouteActionSetup({
+        ...buildParams(),
+        customerId: undefined,
+      })
+    );
+    expect(mockStartSession).not.toHaveBeenCalled();
+  });
+
+  it('starts the new customer’s session when the account switches on a bank-transfer route', () => {
+    const { rerender } = renderHook(
+      (props: ReturnType<typeof buildParams>) =>
+        useWalletRouteActionSetup(props),
+      { initialProps: buildParams({ customerId: 'customer-1' }) }
+    );
+
+    rerender(buildParams({ customerId: 'customer-2' }));
+
+    expect(mockStartSession).toHaveBeenCalledWith('customer-2');
   });
 
   it('does not disturb a fund route when the customer hydrates async (undefined→id)', () => {

@@ -17,6 +17,23 @@ jest.mock('@/constants/wallet-funding', () => ({
   WALLET_FUNDING_POLLING: { INTERVAL_MS: 5000, TIMEOUT_MS: 120000 },
 }));
 
+const mockReadSession =
+  jest.fn<
+    (customerId: string) => Promise<{
+      customerId: string;
+      startedAt: number;
+    } | null>
+  >();
+const mockClearSession = jest.fn<(customerId: string) => Promise<void>>();
+
+// Indirection so the factory (hoisted above these consts) resolves the spies
+// lazily, at call time.
+jest.mock('@/lib/wallet-funding-session', () => ({
+  clearWalletFundingSession: (customerId: string) =>
+    mockClearSession(customerId),
+  readWalletFundingSession: (customerId: string) => mockReadSession(customerId),
+}));
+
 import { WALLET_FUNDING_POLLING } from '@/constants/wallet-funding';
 import type { WalletReturnHref } from '@/lib/sanitize-wallet-return-to';
 import { useWalletCreditWatch } from './use-wallet-credit-watch';
@@ -61,6 +78,10 @@ type Props = { transactions: readonly WalletTopUpCandidate[] | undefined };
 describe('useWalletCreditWatch', () => {
   beforeEach(() => {
     mockFlagEnabled = true;
+    mockReadSession.mockReset();
+    mockClearSession.mockReset();
+    mockReadSession.mockResolvedValue(null);
+    mockClearSession.mockResolvedValue(undefined);
     jest.useFakeTimers();
   });
 
@@ -335,5 +356,226 @@ describe('useWalletCreditWatch', () => {
       ],
     });
     expect(result.current.status).toBe('checking');
+  });
+});
+
+describe('useWalletCreditWatch with a persisted funding session', () => {
+  const CUSTOMER_ID = 'cus-1';
+  const SESSION_STARTED_AT = Date.parse('2026-07-13T08:55:00.000Z');
+
+  type SessionProps = {
+    transactions: readonly WalletTopUpCandidate[] | undefined;
+  };
+
+  const renderWatch = async (
+    transactions: readonly WalletTopUpCandidate[] | undefined
+  ) => {
+    const refetch = jest.fn();
+    const view = renderHook(
+      ({ transactions: rows }: SessionProps) =>
+        useWalletCreditWatch({
+          customerId: CUSTOMER_ID,
+          refetch,
+          returnTo: RETURN_TO,
+          transactions: rows,
+        }),
+      { initialProps: { transactions } as SessionProps }
+    );
+    // Flush the async session read before the first snapshot is taken.
+    await act(async () => {});
+    return view;
+  };
+
+  beforeEach(() => {
+    mockFlagEnabled = true;
+    mockReadSession.mockReset();
+    mockClearSession.mockReset();
+    mockClearSession.mockResolvedValue(undefined);
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.clearAllTimers();
+    jest.useRealTimers();
+  });
+
+  it('credits a transfer that landed while the app was killed and the screen remounted', async () => {
+    // The customer started a bank transfer, left for their bank app, and the
+    // wallet screen remounted only AFTER the credit was already in the ledger.
+    mockReadSession.mockResolvedValue({
+      customerId: CUSTOMER_ID,
+      startedAt: SESSION_STARTED_AT,
+    });
+    const { result } = await renderWatch([NEW_TOP_UP, OLD_TOP_UP]);
+
+    act(() => {
+      result.current.armCheck();
+    });
+
+    // Baselined on the session start (not on first render), so the top-up that
+    // landed after it is still a NEW credit.
+    expect(result.current.status).toBe('credited');
+    expect(result.current.creditedAmount).toBe(2500);
+    expect(result.current.returnCtaHref).toBe(RETURN_TO);
+  });
+
+  it('credits when auth hydrates (undefined→id) after the ledger already rendered', async () => {
+    // Cold start after an app kill: the persisted react-query cache can hand the
+    // wallet ledger to a first committed render while the auth store is still
+    // hydrating (customerId undefined). The snapshot taken then has no session
+    // anchor, so it MUST be retaken once the customer — and their session —
+    // resolve, otherwise the landed credit is baselined away.
+    mockReadSession.mockResolvedValue({
+      customerId: CUSTOMER_ID,
+      startedAt: SESSION_STARTED_AT,
+    });
+    const refetch = jest.fn();
+    type HydratingProps = { customerId: string | undefined };
+    const { result, rerender } = renderHook(
+      ({ customerId }: HydratingProps) =>
+        useWalletCreditWatch({
+          customerId,
+          refetch,
+          returnTo: RETURN_TO,
+          transactions: [NEW_TOP_UP, OLD_TOP_UP],
+        }),
+      { initialProps: { customerId: undefined } as HydratingProps }
+    );
+    await act(async () => {});
+
+    rerender({ customerId: CUSTOMER_ID });
+    await act(async () => {});
+    act(() => {
+      result.current.armCheck();
+    });
+
+    expect(result.current.status).toBe('credited');
+    expect(result.current.creditedAmount).toBe(2500);
+  });
+
+  it('clears the session once the credit has been shown', async () => {
+    mockReadSession.mockResolvedValue({
+      customerId: CUSTOMER_ID,
+      startedAt: SESSION_STARTED_AT,
+    });
+    const { result } = await renderWatch([NEW_TOP_UP, OLD_TOP_UP]);
+
+    await act(async () => {
+      result.current.armCheck();
+    });
+
+    // Otherwise a later remount would re-baseline before the same top-up and
+    // announce it a second time.
+    expect(mockClearSession).toHaveBeenCalledWith(CUSTOMER_ID);
+  });
+
+  it('does not credit a top-up that predates the session start', async () => {
+    // Session started AFTER the last top-up: nothing new has landed yet.
+    mockReadSession.mockResolvedValue({
+      customerId: CUSTOMER_ID,
+      startedAt: Date.parse('2026-07-13T09:30:00.000Z'),
+    });
+    const { result } = await renderWatch([NEW_TOP_UP, OLD_TOP_UP]);
+
+    act(() => {
+      result.current.armCheck();
+    });
+
+    expect(result.current.status).toBe('checking');
+    expect(result.current.creditedAmount).toBeNull();
+  });
+
+  it('ignores cashback that landed after the session start', async () => {
+    mockReadSession.mockResolvedValue({
+      customerId: CUSTOMER_ID,
+      startedAt: Date.parse('2026-07-13T08:00:00.000Z'),
+    });
+    const { result } = await renderWatch([
+      REVERSAL_CREDIT,
+      CASHBACK,
+      OLD_TOP_UP,
+    ]);
+
+    act(() => {
+      result.current.armCheck();
+    });
+
+    expect(result.current.status).toBe('checking');
+  });
+
+  it('falls back to the row snapshot when the marker is missing, expired or another customer’s', async () => {
+    // readWalletFundingSession returns null for all three cases.
+    mockReadSession.mockResolvedValue(null);
+    const { result } = await renderWatch([NEW_TOP_UP, OLD_TOP_UP]);
+
+    act(() => {
+      result.current.armCheck();
+    });
+
+    // No anchor: the ledger head becomes the baseline, so nothing is claimed.
+    expect(result.current.status).toBe('checking');
+    expect(result.current.creditedAmount).toBeNull();
+  });
+
+  it('is fail-open and never false-credits when the session read rejects', async () => {
+    mockReadSession.mockRejectedValue(new Error('storage unavailable'));
+    const { result, rerender } = await renderWatch([NEW_TOP_UP, OLD_TOP_UP]);
+
+    act(() => {
+      result.current.armCheck();
+    });
+    expect(result.current.status).toBe('checking');
+
+    // The watch still works — a genuinely new top-up is detected.
+    rerender({ transactions: [LATER_TOP_UP, NEW_TOP_UP, OLD_TOP_UP] });
+    expect(result.current.status).toBe('credited');
+    expect(result.current.creditedAmount).toBe(500);
+  });
+
+  it('refuses to arm before the session read resolves', async () => {
+    let resolveSession: (value: null) => void = () => undefined;
+    mockReadSession.mockReturnValue(
+      new Promise<null>((resolve) => {
+        resolveSession = resolve;
+      })
+    );
+    const refetch = jest.fn();
+    const { result } = renderHook(() =>
+      useWalletCreditWatch({
+        customerId: CUSTOMER_ID,
+        refetch,
+        transactions: [OLD_TOP_UP],
+      })
+    );
+
+    act(() => {
+      result.current.armCheck();
+    });
+    expect(result.current.status).toBe('idle');
+    expect(refetch).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveSession(null);
+    });
+    act(() => {
+      result.current.armCheck();
+    });
+    expect(result.current.status).toBe('checking');
+  });
+
+  it('is a no-op when the dark-launch flag is off even with a live session', async () => {
+    mockFlagEnabled = false;
+    mockReadSession.mockResolvedValue({
+      customerId: CUSTOMER_ID,
+      startedAt: SESSION_STARTED_AT,
+    });
+    const { result } = await renderWatch([NEW_TOP_UP, OLD_TOP_UP]);
+
+    act(() => {
+      result.current.armCheck();
+    });
+
+    expect(result.current.status).toBe('idle');
+    expect(result.current.returnCtaHref).toBeUndefined();
   });
 });

@@ -31,6 +31,8 @@ export interface WalletContentProps {
   colors: WalletColors;
   contentContainerStyle: StyleProp<ViewStyle>;
   createFundingAccountUnavailableMessage?: string;
+  /** Scopes the persisted bank-transfer funding session the credit watch reads. */
+  customerId?: string;
   earningsBalance: number;
   fundAmount: string;
   fundingAccount: WalletDisplayFundingAccount | null;
@@ -84,6 +86,7 @@ export function WalletContent({
   colors,
   contentContainerStyle,
   createFundingAccountUnavailableMessage,
+  customerId,
   earningsBalance,
   fundAmount,
   fundingAccount,
@@ -126,6 +129,7 @@ export function WalletContent({
   transactions,
 }: WalletContentProps) {
   const creditWatch = useWalletCreditWatch({
+    customerId,
     refetch: onRefresh,
     returnTo: fundReturnTo,
     transactions,
