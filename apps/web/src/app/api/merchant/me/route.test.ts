@@ -73,6 +73,9 @@ describe('GET /api/merchant/me', () => {
 
     expect(response.status).toBe(401);
     expect(await response.json()).toEqual({ error: 'Unauthorized' });
+    // The no-store/private cache invariant must hold on error paths too.
+    expect(response.headers.get('Cache-Control')).toContain('no-store');
+    expect(response.headers.get('Cache-Control')).toContain('private');
     expect(mocks.fetchDashboardMerchant).not.toHaveBeenCalled();
     expect(mocks.createAdminClient).not.toHaveBeenCalled();
   });
@@ -159,5 +162,7 @@ describe('GET /api/merchant/me', () => {
 
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({ error: 'Internal server error' });
+    expect(response.headers.get('Cache-Control')).toContain('no-store');
+    expect(response.headers.get('Cache-Control')).toContain('private');
   });
 });

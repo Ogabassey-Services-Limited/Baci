@@ -7,7 +7,10 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { ensurePermission } from '@/lib/merchant-server';
+import {
+  ensurePermission,
+  isMerchantPermissionRedirectError,
+} from '@/lib/merchant-server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { registeredAddressSchema } from '@/schemas/merchant-settings';
 import { TaxSettingsForm } from './tax-settings-form';
@@ -25,8 +28,13 @@ export default async function TaxSettingsPage() {
   let merchant: Awaited<ReturnType<typeof ensurePermission>>['merchant'];
   try {
     ({ merchant } = await ensurePermission('settings', 'view'));
-  } catch {
-    redirect('/dashboard');
+  } catch (error) {
+    // Only known auth/permission failures redirect; unexpected errors (auth
+    // service outage, bugs) must surface, not silently bounce to /dashboard.
+    if (isMerchantPermissionRedirectError(error)) {
+      redirect('/dashboard');
+    }
+    throw error;
   }
 
   // Fetch current VAT/registration settings. Permission + merchant ownership are

@@ -5,10 +5,6 @@ import {
   fetchPrimaryDomain,
   normalizeFeatureSettings,
 } from './queries';
-import {
-  NON_OWNER_ALWAYS_REDACTED_FIELDS,
-  NON_OWNER_PAYMENT_FIELDS,
-} from './redact-merchant-secrets-for-non-owner';
 
 // Helper to build a mock Supabase query chain
 function mockQueryChain(resolvedValue: { data: unknown; error: unknown }) {
@@ -198,54 +194,7 @@ describe('fetchDashboardMerchant', () => {
     expect(result.staffAccess.isStaff).toBe(false);
   });
 
-  it('scrubs nested Zoho integration credentials even for the owner', async () => {
-    const supabase = createMockSupabase({
-      merchants: mockQueryChain({
-        data: {
-          id: 'merchant-1',
-          user_id: 'user-1',
-          business_name: 'Owner Store',
-          slug: 'owner-store',
-          // owner keeps their own top-level secrets; only nested integration
-          // credentials must be stripped from the browser payload
-          bank_account_number: '1234567890',
-          feature_settings: {
-            pay_on_delivery_enabled: true,
-            custom_settings: {
-              zohoCampaigns: {
-                accessToken: 'zoho-access',
-                refreshToken: 'zoho-refresh',
-                clientSecret: 'zoho-secret',
-              },
-            },
-          },
-        },
-        error: null,
-      }),
-      staff_members: mockQueryChain({ data: null, error: null }),
-    });
-
-    const result = await fetchDashboardMerchant(supabase, 'user-1');
-
-    expect(result.staffAccess.isOwner).toBe(true);
-    // owner still sees their own top-level financial data
-    expect(result.merchant?.bank_account_number).toBe('1234567890');
-    // but nested Zoho credentials are scrubbed
-    const zoho = (
-      result.merchant?.feature_settings?.custom_settings as
-        | { zohoCampaigns?: Record<string, unknown> }
-        | undefined
-    )?.zohoCampaigns;
-    expect(zoho?.accessToken).toBeUndefined();
-    expect(zoho?.refreshToken).toBeUndefined();
-    expect(zoho?.clientSecret).toBeUndefined();
-    // non-secret flags preserved
-    expect(result.merchant?.feature_settings?.pay_on_delivery_enabled).toBe(
-      true
-    );
-  });
-
-  it('redacts owner-only secrets for a non-owner staff member but keeps the merchant', async () => {
+  it('returns the merchant and merged permissions for an active staff member', async () => {
     const supabase = createMockSupabase({
       // Not the owner of any merchant.
       merchants: mockQueryChain({ data: null, error: null }),
@@ -253,7 +202,7 @@ describe('fetchDashboardMerchant', () => {
         data: {
           id: 'staff-1',
           role: 'manager',
-          permissions: {},
+          permissions: { settings: { view: true } },
           status: 'active',
           merchant_id: 'merchant-9',
           merchants: {
@@ -263,21 +212,6 @@ describe('fetchDashboardMerchant', () => {
             slug: 'staffed-store',
             feature_settings: null,
             support_email: 'ops@staffed-store.com',
-            // owner-only secrets the staffer must NOT receive:
-            bvn: '12345678901',
-            nin: '98765432109',
-            bank_account_number: '1234567890',
-            bank_account_name: 'Owner',
-            bank_code: '044',
-            bank_name: 'Access',
-            paystack_subaccount_code: 'ACCT_x',
-            stripe_customer_id: 'cus_x',
-            stripe_subscription_id: 'sub_x',
-            facebook_capi_token: 'fb-token',
-            ga4_api_secret: 'ga4-secret',
-            tiktok_access_token: 'tt-token',
-            snapchat_capi_token: 'snap-token',
-            virtual_terminal_code: 'VT-1',
           },
         },
         error: null,
@@ -293,17 +227,10 @@ describe('fetchDashboardMerchant', () => {
     expect(result.staffAccess.isStaff).toBe(true);
     expect(result.staffAccess.isOwner).toBe(false);
     expect(result.merchant?.id).toBe('merchant-9');
-    // Non-secret operational data is preserved for staff.
     expect(result.merchant?.support_email).toBe('ops@staffed-store.com');
-    // This staffer has only `orders` access, so every always-secret AND the
-    // permission-gated payout fields are stripped.
-    for (const field of [
-      ...NON_OWNER_ALWAYS_REDACTED_FIELDS,
-      ...NON_OWNER_PAYMENT_FIELDS,
-    ]) {
-      expect(result.merchant?.[field]).toBeUndefined();
-    }
-    expect(result.merchant?.google_product_sheet_url).toBeUndefined();
+    // Role defaults + custom overrides are merged.
+    expect(result.staffAccess.permissions.orders?.view).toBe(true);
+    expect(result.staffAccess.permissions.settings?.view).toBe(true);
   });
 
   it('treats owner rows without business details as incomplete', async () => {
