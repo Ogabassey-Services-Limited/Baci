@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { after, type NextRequest, NextResponse } from 'next/server';
 import {
   type CreditDirectWebhookPayload,
@@ -62,6 +63,111 @@ function formatCreditDirectProductAmount(value: unknown) {
   }
 
   return escapeHtmlText(amount.toLocaleString());
+}
+
+const POSTGRES_UNIQUE_VIOLATION = '23505';
+const SUPABASE_NO_ROWS_RETURNED = 'PGRST116';
+
+type RecordCreditDirectTransactionResult =
+  | { kind: 'error' }
+  | { kind: 'recorded'; transactionId: string | null; created: boolean };
+
+/**
+ * Looks up the transaction row for a Credit Direct gateway reference and
+ * inserts it if missing. Idempotent: a pre-existing row (found either by the
+ * lookup or via a 23505 unique-violation race with a concurrent delivery) is
+ * treated as success without a duplicate write. Shared by the merchant
+ * payment handler and the already-paid replay self-heal path so both record
+ * the disbursed money the same way.
+ */
+async function recordCreditDirectTransaction({
+  amount,
+  gatewayReference,
+  gatewayResponse,
+  merchantId,
+  merchantAmount,
+  orderId,
+  platformFee,
+  supabase,
+}: {
+  amount: number;
+  gatewayReference: string;
+  gatewayResponse: CreditDirectWebhookPayload;
+  merchantId: string;
+  merchantAmount: number;
+  orderId: string;
+  platformFee: number;
+  supabase: SupabaseClient;
+}): Promise<RecordCreditDirectTransactionResult> {
+  const { data: existingTx, error: existingTxError } = await supabase
+    .from('transactions')
+    .select('id')
+    .eq('gateway_reference', gatewayReference)
+    .eq('gateway', 'credit_direct')
+    .single();
+
+  if (existingTxError && existingTxError.code !== SUPABASE_NO_ROWS_RETURNED) {
+    logger.error({
+      message: 'Failed to look up existing Credit Direct transaction',
+      error: existingTxError,
+      orderId,
+      transactionId: gatewayReference,
+    });
+    return { kind: 'error' };
+  }
+
+  if (existingTx) {
+    logger.info({
+      message: 'Credit Direct transaction already processed (idempotent)',
+      transactionId: gatewayReference,
+      existingTxId: existingTx.id,
+    });
+    return { created: false, kind: 'recorded', transactionId: existingTx.id };
+  }
+
+  const { data: insertedTx, error: txError } = await supabase
+    .from('transactions')
+    .insert({
+      merchant_id: merchantId,
+      order_id: orderId,
+      transaction_type: 'payment',
+      amount,
+      currency: 'NGN',
+      status: 'completed',
+      gateway: 'credit_direct',
+      gateway_reference: gatewayReference,
+      gateway_response: gatewayResponse,
+      platform_fee: platformFee,
+      merchant_amount: merchantAmount,
+    })
+    .select('id')
+    .single();
+
+  if (txError) {
+    if (txError.code === POSTGRES_UNIQUE_VIOLATION) {
+      logger.info({
+        message:
+          'Credit Direct transaction insert raced a concurrent delivery (unique violation)',
+        orderId,
+        transactionId: gatewayReference,
+      });
+      return { created: false, kind: 'recorded', transactionId: null };
+    }
+
+    logger.error({
+      message: 'Failed to create transaction record',
+      error: txError,
+      orderId,
+      transactionId: gatewayReference,
+    });
+    return { kind: 'error' };
+  }
+
+  return {
+    created: true,
+    kind: 'recorded',
+    transactionId: insertedTx?.id ?? null,
+  };
 }
 
 /**
@@ -314,9 +420,12 @@ export async function POST(request: NextRequest) {
         orderId: order.id,
         transactionId: payload.checkoutTransactionId,
       });
-      return NextResponse.json({
-        received: true,
-        message: 'Already processed',
+
+      return healPaidCreditDirectOrderReplay({
+        order,
+        parsedNotes,
+        payload,
+        supabase,
       });
     }
 
@@ -337,7 +446,9 @@ export async function POST(request: NextRequest) {
               }),
             })
             .eq('id', order.id)
-            .in('payment_status', ['pending', 'bnpl_pending'])
+            // 'partially_paid' included for residual BNPL checkouts started
+            // after a deposit payment.
+            .in('payment_status', ['pending', 'partially_paid', 'bnpl_pending'])
             .select('id')
             .maybeSingle();
 
@@ -488,12 +599,30 @@ export async function POST(request: NextRequest) {
             amount_paid: orderTotal,
             notes: JSON.stringify({
               ...parsedNotes,
+              creditDirectNotificationsQueued: true,
               merchantPaidAt: payload.timeStamp,
               platformFee,
               merchantAmount,
             }),
           })
           .eq('id', order.id)
+          // Mirror the customer branch's guard so a late or redelivered
+          // webhook cannot flip an order that has moved past the pre-paid
+          // BNPL states. 'partially_paid' is a legitimate source state: a
+          // Credit Direct RESIDUAL settles the remainder after a manual or
+          // deposit payment (amount_paid above completes the total).
+          // 'cancelled' stays allowed so the prevent_cancelled_order_reopen
+          // trigger can still clamp the reopen attempt (handled below);
+          // 'refunded' is intentionally excluded — nothing clamps a refunded
+          // order back, so without this guard a late webhook could stomp it
+          // back to 'paid'.
+          .in('payment_status', [
+            'pending',
+            'partially_paid',
+            'bnpl_pending',
+            'bnpl_approved',
+            'cancelled',
+          ])
           .select('id, payment_status, shipping_status, cancelled_at')
           .maybeSingle();
 
@@ -508,54 +637,128 @@ export async function POST(request: NextRequest) {
           );
         }
 
+        if (!updatedOrder) {
+          // 0 rows: the order left the eligible states between our read and
+          // this update. Re-read to tell a concurrent paid flip (idempotent
+          // replay) apart from a refunded order — Credit Direct disbursed
+          // real money either way, so both need a durable record.
+          const { data: currentOrder, error: currentOrderError } =
+            await supabase
+              .from('orders')
+              .select('payment_status, notes')
+              .eq('id', order.id)
+              .maybeSingle();
+          if (currentOrderError || !currentOrder) {
+            logger.error({
+              message:
+                'Credit Direct merchant payment could not re-read order state after ineligible update',
+              orderId: order.id,
+              error: currentOrderError,
+            });
+            return NextResponse.json(
+              { error: 'Failed to read order state' },
+              { status: 500 }
+            );
+          }
+
+          if (currentOrder.payment_status === 'paid') {
+            // A concurrent delivery won the paid flip. It may still have
+            // crashed before its transaction insert / notifications — run
+            // the same replay heal the already-paid short-circuit uses
+            // instead of blindly acking.
+            let winnerNotes: Record<string, unknown>;
+            try {
+              winnerNotes = JSON.parse(
+                (currentOrder.notes as string | null) || '{}'
+              ) as Record<string, unknown>;
+            } catch {
+              winnerNotes = {};
+            }
+            return healPaidCreditDirectOrderReplay({
+              order,
+              parsedNotes: winnerNotes,
+              payload,
+              supabase,
+            });
+          }
+
+          if (currentOrder.payment_status === 'refunded') {
+            // Persist the disbursed money and file it for ops review — a
+            // bare 200 here would leave captured funds with no durable
+            // trail (Codex P1).
+            const refundedTxResult = await recordCreditDirectTransaction({
+              amount: totalAmount,
+              gatewayReference: payload.checkoutTransactionId,
+              gatewayResponse: payload,
+              merchantId: order.merchant_id,
+              merchantAmount,
+              orderId: order.id,
+              platformFee,
+              supabase,
+            });
+            if (refundedTxResult.kind === 'error') {
+              return NextResponse.json(
+                { error: 'Failed to record transaction' },
+                { status: 500 }
+              );
+            }
+            const refundReviewFiled = await handlePaymentForCancelledOrder({
+              gatewayReference: payload.checkoutTransactionId,
+              issueType: 'payment_received_after_refund',
+              order: { id: order.id },
+              reason:
+                'Credit Direct merchant payout captured for an order already refunded',
+              transactionId: refundedTxResult.transactionId,
+            });
+            if (!refundReviewFiled) {
+              // Captured payout with no durable ops row: fail closed so Svix
+              // redelivers and the review is retried.
+              return NextResponse.json(
+                { error: 'Payment reconciliation review unavailable' },
+                { status: 500 }
+              );
+            }
+            return NextResponse.json({
+              received: true,
+              message: 'Order was refunded; payment filed for review',
+            });
+          }
+
+          logger.warn({
+            message:
+              'Credit Direct merchant payment update skipped because order status is no longer eligible',
+            orderId: order.id,
+            currentPaymentStatus: currentOrder.payment_status,
+            transactionId: payload.checkoutTransactionId,
+          });
+          return NextResponse.json({
+            received: true,
+            warning: 'Order status no longer eligible',
+          });
+        }
+
         // Record the captured Credit Direct money first (idempotent), so the
         // disbursed BNPL funds are persisted whether or not the order was
         // cancelled before this webhook landed.
-        let recordedTransactionId: string | null = null;
-        const { data: existingTx } = await supabase
-          .from('transactions')
-          .select('id')
-          .eq('gateway_reference', payload.checkoutTransactionId)
-          .eq('gateway', 'credit_direct')
-          .single();
+        const txResult = await recordCreditDirectTransaction({
+          amount: totalAmount,
+          gatewayReference: payload.checkoutTransactionId,
+          gatewayResponse: payload,
+          merchantId: order.merchant_id,
+          merchantAmount,
+          orderId: order.id,
+          platformFee,
+          supabase,
+        });
 
-        if (existingTx) {
-          recordedTransactionId = existingTx.id;
-          logger.info({
-            message: 'Credit Direct transaction already processed (idempotent)',
-            transactionId: payload.checkoutTransactionId,
-            existingTxId: existingTx.id,
-          });
-        } else {
-          // Create transaction record
-          const { data: insertedTx, error: txError } = await supabase
-            .from('transactions')
-            .insert({
-              merchant_id: order.merchant_id,
-              order_id: order.id,
-              transaction_type: 'payment',
-              amount: totalAmount,
-              currency: 'NGN',
-              status: 'completed',
-              gateway: 'credit_direct',
-              gateway_reference: payload.checkoutTransactionId,
-              gateway_response: payload,
-              platform_fee: platformFee,
-              merchant_amount: merchantAmount,
-            })
-            .select('id')
-            .single();
-
-          if (txError) {
-            logger.error({
-              message: 'Failed to create transaction record',
-              error: txError,
-            });
-            // Don't fail the webhook - order is already updated
-          } else {
-            recordedTransactionId = insertedTx?.id ?? null;
-          }
+        if (txResult.kind === 'error') {
+          return NextResponse.json(
+            { error: 'Failed to record transaction' },
+            { status: 500 }
+          );
         }
+
+        const recordedTransactionId = txResult.transactionId;
 
         // The prevent_cancelled_order_reopen trigger clamped this reopen:
         // suppress the push + confirmation email and file a reconciliation row
@@ -577,13 +780,19 @@ export async function POST(request: NextRequest) {
             });
           }
 
-          await handlePaymentForCancelledOrder({
+          const cancellationReviewFiled = await handlePaymentForCancelledOrder({
             gatewayReference: payload.checkoutTransactionId,
             order: updatedOrder,
             reason:
               'Credit Direct payment captured for an order cancelled before finalization',
             transactionId: recordedTransactionId,
           });
+          if (!cancellationReviewFiled) {
+            return NextResponse.json(
+              { error: 'Payment reconciliation review unavailable' },
+              { status: 500 }
+            );
+          }
 
           return NextResponse.json({
             received: true,
@@ -659,44 +868,21 @@ export async function POST(request: NextRequest) {
         }
 
         // Notify merchant of new order and payment (non-blocking)
-        after(async () => {
-          const orderNum =
-            order.order_number || order.id.slice(0, 8).toUpperCase();
-
-          try {
-            await notifyNewOrder(
-              order.merchant_id,
-              order.id,
-              orderNum,
-              order.customer_name || 'Customer',
-              totalAmount
-            );
-          } catch (err) {
-            logger.error({
-              message: 'New order push notification failed',
-              error: err,
-            });
-          }
-
-          try {
-            await notifyPaymentReceived(
-              order.merchant_id,
-              totalAmount,
-              'NGN',
-              orderNum,
-              order.id
-            );
-          } catch (err) {
-            logger.error({
-              message: 'Payment received push notification failed',
-              error: err,
-            });
-          }
-        });
+        notifyMerchantOfPaidOrder(order, totalAmount);
 
         // Send confirmation email
         try {
           await sendOrderConfirmationEmail(order, payload);
+          // Marker only after the email actually dispatched; a failed email
+          // leaves it absent so a replay retries the send. (The push pair is
+          // an after()-task and stays best-effort either way.)
+          await markCreditDirectNotified(supabase, order.id, {
+            ...parsedNotes,
+            creditDirectNotificationsQueued: true,
+            merchantAmount,
+            merchantPaidAt: payload.timeStamp,
+            platformFee,
+          });
         } catch (emailError) {
           logger.warn({
             message: 'Failed to send confirmation email',
@@ -736,6 +922,207 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+// Replay heal for an order a prior delivery already flipped to paid: reinsert
+// a missing transaction row (fee notes are the trustworthy amount source),
+// drain inventory confirmation, and dispatch the push/email exactly once —
+// keyed to the creditDirectNotificationsQueued flag written by the paid flip
+// (so legacy pre-flag orders are never re-notified) plus the
+// creditDirectNotifiedAt marker written after dispatch.
+async function healPaidCreditDirectOrderReplay({
+  order,
+  parsedNotes,
+  payload,
+  supabase,
+}: {
+  order: {
+    id: string;
+    merchant_id: string;
+    order_number?: string | null;
+    customer_id?: string | null;
+    customer_email: string;
+    customer_name: string;
+    total: number;
+    amount_paid?: number | string | null;
+  };
+  parsedNotes: Record<string, unknown>;
+  payload: CreditDirectWebhookPayload;
+  supabase: SupabaseClient;
+}): Promise<NextResponse> {
+  const healedPlatformFee = readProductAmount(parsedNotes.platformFee);
+  const healedMerchantAmount = readProductAmount(parsedNotes.merchantAmount);
+  let healedTransactionRow = false;
+  if (healedPlatformFee !== null && healedMerchantAmount !== null) {
+    const healResult = await recordCreditDirectTransaction({
+      amount: healedMerchantAmount + healedPlatformFee,
+      gatewayReference: payload.checkoutTransactionId,
+      gatewayResponse: payload,
+      merchantId: order.merchant_id,
+      merchantAmount: healedMerchantAmount,
+      orderId: order.id,
+      platformFee: healedPlatformFee,
+      supabase,
+    });
+    if (healResult.kind === 'error') {
+      return NextResponse.json(
+        { error: 'Failed to record transaction' },
+        { status: 500 }
+      );
+    }
+    healedTransactionRow = healResult.created;
+  } else {
+    logger.warn({
+      message:
+        'Credit Direct paid-order replay missing recorded fee notes; skipped transaction heal',
+      orderId: order.id,
+      transactionId: payload.checkoutTransactionId,
+    });
+    const reviewFiled = await handlePaymentForCancelledOrder({
+      gatewayReference: payload.checkoutTransactionId,
+      issueType: 'gateway_payment_wedge_requires_review',
+      order: { id: order.id },
+      reason:
+        'Credit Direct captured funds for an already-paid order, but legacy order notes lack the fee split required to reconstruct the transaction safely.',
+      transactionId: payload.checkoutTransactionId,
+    });
+    if (!reviewFiled) {
+      return NextResponse.json(
+        { error: 'Payment reconciliation review unavailable' },
+        { status: 500 }
+      );
+    }
+  }
+
+  // The first delivery may have failed AFTER the paid flip but BEFORE
+  // inventory confirmation / notifications — drain them here. Inventory
+  // confirmation is idempotent.
+  try {
+    await ensurePaidOrderInventoryConfirmed(
+      supabase,
+      order.merchant_id,
+      order.id
+    );
+  } catch (inventoryError) {
+    logger.error({
+      message: 'Credit-direct paid-order replay failed to confirm inventory',
+      orderId: order.id,
+      error: inventoryError,
+    });
+    const responsePayload =
+      buildInventoryConfirmationFailurePayload(inventoryError);
+    return NextResponse.json(responsePayload, {
+      status:
+        responsePayload.code === 'serialized_inventory_unavailable' ? 409 : 500,
+    });
+  }
+
+  if (
+    parsedNotes.creditDirectNotificationsQueued === true &&
+    !parsedNotes.creditDirectNotifiedAt
+  ) {
+    notifyMerchantOfPaidOrder(
+      order,
+      (healedMerchantAmount ?? 0) + (healedPlatformFee ?? 0)
+    );
+    try {
+      await sendOrderConfirmationEmail(order, payload);
+      // Marker only after the email actually dispatched; a failed email
+      // leaves it absent so the next replay retries the send.
+      await markCreditDirectNotified(supabase, order.id, parsedNotes);
+    } catch (emailError) {
+      logger.warn({
+        message: 'Failed to send confirmation email',
+        error: emailError,
+      });
+    }
+  } else if (healedTransactionRow) {
+    logger.info({
+      message:
+        'Credit Direct replay healed the transaction row; notifications were already dispatched or predate the dispatch marker',
+      orderId: order.id,
+    });
+  }
+
+  return NextResponse.json({
+    received: true,
+    message: 'Already processed',
+  });
+}
+
+// Durable marker: notes.creditDirectNotifiedAt records that the merchant
+// push + customer email for this paid order were dispatched. Replays use it
+// (not transaction existence) to decide whether those side effects are still
+// owed — Credit Direct has no outbox, so this is its idempotency evidence.
+async function markCreditDirectNotified(
+  supabase: SupabaseClient,
+  orderId: string,
+  notes: Record<string, unknown>
+) {
+  const { error } = await supabase
+    .from('orders')
+    .update({
+      notes: JSON.stringify({
+        ...notes,
+        creditDirectNotifiedAt: new Date().toISOString(),
+      }),
+    })
+    .eq('id', orderId);
+  if (error) {
+    // Best effort: a lost marker means a later replay re-sends (at least
+    // once) rather than silently never sending.
+    logger.warn({
+      message: 'Failed to record Credit Direct notification marker',
+      orderId,
+      error,
+    });
+  }
+}
+
+// Non-blocking merchant push pair for a paid Credit Direct order; shared by
+// the merchant-payment branch and the paid-order replay heal.
+function notifyMerchantOfPaidOrder(
+  order: {
+    id: string;
+    merchant_id: string;
+    order_number?: string | null;
+    customer_name?: string | null;
+  },
+  totalAmount: number
+) {
+  after(async () => {
+    const orderNum = order.order_number || order.id.slice(0, 8).toUpperCase();
+
+    try {
+      await notifyNewOrder(
+        order.merchant_id,
+        order.id,
+        orderNum,
+        order.customer_name || 'Customer',
+        totalAmount
+      );
+    } catch (err) {
+      logger.error({
+        message: 'New order push notification failed',
+        error: err,
+      });
+    }
+
+    try {
+      await notifyPaymentReceived(
+        order.merchant_id,
+        totalAmount,
+        'NGN',
+        orderNum,
+        order.id
+      );
+    } catch (err) {
+      logger.error({
+        message: 'Payment received push notification failed',
+        error: err,
+      });
+    }
+  });
 }
 
 /**

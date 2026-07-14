@@ -38,7 +38,7 @@ const SIDE_EFFECT_PAYMENT_STATUSES = new Set<RichPaidOrder['payment_status']>([
   'pending',
 ]);
 
-function toPaidOrder(order: RichPaidOrder): PaidOrder {
+export function toPaidOrder(order: RichPaidOrder): PaidOrder {
   if (!SIDE_EFFECT_PAYMENT_STATUSES.has(order.payment_status)) {
     throw new Error(
       `Paid order side effects cannot run for ${order.payment_status} orders`

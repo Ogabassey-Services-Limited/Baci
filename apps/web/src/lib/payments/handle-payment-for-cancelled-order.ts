@@ -60,24 +60,33 @@ export async function handlePaymentForCancelledOrder({
   order,
   reason,
   transactionId,
+  issueType = RECONCILIATION_ISSUE_TYPE,
 }: {
   gatewayReference: string | null;
   order: CancellableOrderRow;
   reason: string;
   transactionId: string | null;
-}): Promise<void> {
+  // 'payment_received_after_refund' reuses this exact flow for orders that
+  // were refunded (not cancelled) before a late gateway payment landed.
+  issueType?: string;
+  // Resolves true when the reconciliation row is durably filed (inserted or
+  // already present). Never throws: webhook callers must still ack. Callers
+  // that RETIRE the payment from future reconciliation (the cron sweep's
+  // terminal stamp) must gate on this.
+}): Promise<boolean> {
   logger.warn({
     cancelledAt: order.cancelled_at ?? null,
     gatewayReference,
+    issueType,
     message:
-      'Payment finalizer received a payment for a cancelled order; suppressing paid-order side effects and filing reconciliation',
+      'Payment finalizer received a payment for an order that must not reopen; suppressing paid-order side effects and filing reconciliation',
     orderId: order.id,
     transactionId,
   });
 
   const reviewRow = {
     candidates: null,
-    issue_type: RECONCILIATION_ISSUE_TYPE,
+    issue_type: issueType,
     order_id: order.id,
     paystack_ref: gatewayReference,
     reason,
@@ -91,7 +100,7 @@ export async function handlePaymentForCancelledOrder({
       .insert(reviewRow);
 
     if (!error) {
-      return;
+      return true;
     }
 
     const isDuplicate =
@@ -103,7 +112,7 @@ export async function handlePaymentForCancelledOrder({
           'payment_received_after_cancellation reconciliation already filed (expected retry no-op)',
         orderId: order.id,
       });
-      return;
+      return true;
     }
 
     logger.error({
@@ -126,4 +135,5 @@ export async function handlePaymentForCancelledOrder({
       transactionId,
     });
   }
+  return false;
 }
