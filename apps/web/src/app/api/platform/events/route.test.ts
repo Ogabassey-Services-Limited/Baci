@@ -30,6 +30,10 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => ({ from: mockFrom })),
 }));
 
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => ({ from: mockFrom })),
+}));
+
 const mockSendGA4Event = vi.fn();
 vi.mock('@/lib/ga4-measurement-protocol', () => ({
   sendGA4Event: (...args: unknown[]) => mockSendGA4Event(...args),
