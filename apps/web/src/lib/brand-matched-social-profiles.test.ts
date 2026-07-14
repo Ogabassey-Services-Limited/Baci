@@ -80,6 +80,20 @@ describe('filterBrandMatchedSocialProfiles', () => {
     ).toEqual(['https://www.youtube.com/@hp']);
   });
 
+  it('keeps profiles with the controlled use-brand prefix', () => {
+    expect(
+      filterBrandMatchedSocialProfiles('Baci', [
+        'https://instagram.com/usebaci',
+        'https://twitter.com/usebaci',
+        'https://linkedin.com/company/usebaci',
+      ])
+    ).toEqual([
+      'https://instagram.com/usebaci',
+      'https://twitter.com/usebaci',
+      'https://linkedin.com/company/usebaci',
+    ]);
+  });
+
   it('matches the core brand when the business name has a generic suffix', () => {
     expect(
       filterBrandMatchedSocialProfiles('Ogabassey Nigeria Limited', [

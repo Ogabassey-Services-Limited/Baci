@@ -72,6 +72,7 @@ function profileIdentity(urlValue: string): string | null {
 }
 
 const PROFILE_IDENTITY_AFFIXES = ['ng', 'nigeria', 'official'] as const;
+const PROFILE_IDENTITY_PREFIXES = ['use'] as const;
 
 function profileMatchesBrandIdentity(
   profile: string,
@@ -93,10 +94,15 @@ function profileMatchesBrandIdentity(
     }
   }
 
-  return PROFILE_IDENTITY_AFFIXES.some(
-    (affix) =>
-      profile === `${brandIdentity}${affix}` ||
-      profile === `${affix}${brandIdentity}`
+  return (
+    PROFILE_IDENTITY_AFFIXES.some(
+      (affix) =>
+        profile === `${brandIdentity}${affix}` ||
+        profile === `${affix}${brandIdentity}`
+    ) ||
+    PROFILE_IDENTITY_PREFIXES.some(
+      (prefix) => profile === `${prefix}${brandIdentity}`
+    )
   );
 }
 
