@@ -3,19 +3,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuthSafe } from '@/contexts/auth-context';
 import { logger } from '@/lib/logger';
+import { permissionGrantsAccess } from '@/lib/permission-grant';
 import { createClient } from '@/lib/supabase/client';
 import { defaultStaffAccess } from './constants';
+import { fetchDashboardMerchantViaApi } from './fetch-dashboard-merchant-via-api';
 import { MerchantContext } from './merchant-context';
 import {
   assertNoIdentityFields,
   pickGenericWritable,
 } from './merchant-writable-fields';
 import { getDemoMerchant } from './mock-data';
-import {
-  fetchDashboardMerchant,
-  fetchMerchantBySlug,
-  fetchPrimaryDomain,
-} from './queries';
+import { fetchMerchantBySlug, fetchPrimaryDomain } from './queries';
 import type {
   MerchantContextType,
   MerchantData,
@@ -63,8 +61,6 @@ async function loadMerchantBySlug({
 }
 
 interface LoadDashboardArgs {
-  supabase: SupabaseClient;
-  userId: string;
   isCancelled: () => boolean;
   setMerchant: (merchant: MerchantData | null) => void;
   setStaffAccess: (access: StaffAccess) => void;
@@ -72,26 +68,20 @@ interface LoadDashboardArgs {
 }
 
 async function loadDashboardMerchant({
-  supabase,
-  userId,
   isCancelled,
   setMerchant,
   setStaffAccess,
   setLoading,
 }: LoadDashboardArgs): Promise<void> {
   try {
-    const result = await fetchDashboardMerchant(supabase, userId);
+    // Reads the own-merchant context (incl. sensitive columns + primary domain)
+    // through the /api/merchant/me server boundary rather than the browser's
+    // authenticated Supabase client — see fetch-dashboard-merchant-via-api.ts.
+    const result = await fetchDashboardMerchantViaApi();
     if (isCancelled()) return;
 
-    if (result.merchant?.id) {
-      const domain = await fetchPrimaryDomain(supabase, result.merchant.id);
-      if (!isCancelled() && domain) result.merchant.custom_domain = domain;
-    }
-
-    if (!isCancelled()) {
-      setMerchant(result.merchant);
-      setStaffAccess(result.staffAccess);
-    }
+    setMerchant(result.merchant);
+    setStaffAccess(result.staffAccess);
   } catch (error) {
     logger.error({
       message: `Failed to load merchant data. Error: ${(error as Error).message}`,
@@ -194,7 +184,8 @@ export const MerchantProvider = ({
   // ---- DATA LOADING ----
   // CASE 1: initialMerchant provided → no fetch (dashboard + storefront with SSR data)
   // CASE 2: slug provided, no initialMerchant → demo check or fetchMerchantBySlug
-  // CASE 3: no slug, no initialMerchant → wait for auth, then fetchDashboardMerchant
+  // CASE 3: no slug, no initialMerchant → wait for auth, then load the dashboard
+  // merchant via the /api/merchant/me server boundary
 
   useEffect(() => {
     // CASE 1: Server-provided data — trust it, skip fetch
@@ -230,8 +221,6 @@ export const MerchantProvider = ({
     let cancelled = false;
 
     void loadDashboardMerchant({
-      supabase: supabaseRef.current,
-      userId: user.id,
       isCancelled: () => cancelled,
       setMerchant,
       setStaffAccess,
@@ -267,15 +256,8 @@ export const MerchantProvider = ({
         })
         .finally(() => setLoading(false));
     } else if (user) {
-      fetchDashboardMerchant(supabaseRef.current, user.id)
-        .then(async (result) => {
-          if (result.merchant?.id) {
-            const domain = await fetchPrimaryDomain(
-              supabaseRef.current,
-              result.merchant.id
-            );
-            if (domain) result.merchant.custom_domain = domain;
-          }
+      fetchDashboardMerchantViaApi()
+        .then((result) => {
           setMerchant(result.merchant);
           setStaffAccess(result.staffAccess);
         })
@@ -300,7 +282,10 @@ export const MerchantProvider = ({
       throw new Error(errorMsg);
     }
 
-    if (staffAccess.isStaff && !staffAccess.permissions.settings?.edit) {
+    if (
+      staffAccess.isStaff &&
+      !permissionGrantsAccess(staffAccess.permissions, 'settings', 'edit')
+    ) {
       const errorMsg = "You don't have permission to update store settings.";
       logger.error({ message: errorMsg });
       throw new Error(errorMsg);
@@ -358,10 +343,8 @@ export const MerchantProvider = ({
 
   const hasPermission = (resource: string, action: string): boolean => {
     if (staffAccess.isOwner) return true;
-    if (staffAccess.isStaff) {
-      return staffAccess.permissions[resource]?.[action] === true;
-    }
-    return false;
+    if (!staffAccess.isStaff) return false;
+    return permissionGrantsAccess(staffAccess.permissions, resource, action);
   };
 
   const value: MerchantContextType = {
