@@ -5,7 +5,6 @@ import {
   fetchPrimaryDomain,
 } from '@/hooks/merchant/queries';
 import { logger } from '@/lib/logger';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
 // This route returns per-user SECRET merchant data (bank/nin/bvn/tokens). It
@@ -29,10 +28,10 @@ const PRIVATE_NO_STORE = {
  * let ANY signed-in user read ANY merchant's secrets. This route moves the
  * own-row read behind a server boundary so S1 can revoke those column grants.
  *
- * Security: authentication is verified first via the cookie-bound client. The
- * service-role read runs ONLY after that gate, and ownership is enforced by
- * `fetchDashboardMerchant`'s `WHERE user_id = <session user.id>` / active-staff
- * lookup — the caller can never resolve a merchant they do not own or staff.
+ * Security: authentication and reads use the cookie-bound client, while
+ * `fetchDashboardMerchant` additionally enforces `WHERE user_id =
+ * <session user.id>` / active-staff scoping. A later column-ACL change must use
+ * a caller-bound RPC rather than introducing a service-role client here.
  */
 export async function GET(_request: NextRequest) {
   const cookieStore = await cookies();
@@ -51,14 +50,13 @@ export async function GET(_request: NextRequest) {
   }
 
   try {
-    const admin = createAdminClient();
     const { merchant, staffAccess } = await fetchDashboardMerchant(
-      admin,
+      supabase,
       user.id
     );
 
     if (merchant?.id) {
-      const domain = await fetchPrimaryDomain(admin, merchant.id);
+      const domain = await fetchPrimaryDomain(supabase, merchant.id);
       if (domain) {
         merchant.custom_domain = domain;
       }

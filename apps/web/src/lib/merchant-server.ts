@@ -8,7 +8,6 @@ import {
   type StaffAccess,
 } from '@/hooks/merchant';
 import { permissionGrantsAccess } from '@/lib/permission-grant';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
 const defaultStaffAccess: StaffAccess = {
@@ -95,18 +94,18 @@ export const getMerchantForUser = cache(
     }
 
     try {
-      // Auth was verified above with the cookie-bound client. The own-merchant
-      // read runs under the service role because S1 revokes the sensitive
-      // `merchants` column grants from the `authenticated` role; ownership is
-      // still enforced by the `user_id = user.id` scoping inside
-      // fetchDashboardMerchant.
-      const admin = createAdminClient();
+      // Keep this user-facing read on the authenticated, cookie-bound client.
+      // fetchDashboardMerchant additionally scopes its owner/staff lookups to
+      // the verified session user id.
       const { merchant: merchantData, staffAccess: access } =
-        await fetchDashboardMerchant(admin, user.id);
+        await fetchDashboardMerchant(supabase, user.id);
 
       // If we found a merchant, fetch their primary domain
       if (merchantData) {
-        const primaryDomain = await fetchPrimaryDomain(admin, merchantData.id);
+        const primaryDomain = await fetchPrimaryDomain(
+          supabase,
+          merchantData.id
+        );
         if (primaryDomain) {
           merchantData.custom_domain = primaryDomain;
         }

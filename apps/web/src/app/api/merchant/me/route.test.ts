@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   getUser: vi.fn(),
   createServerClient: vi.fn(),
-  createAdminClient: vi.fn(),
   fetchDashboardMerchant: vi.fn(),
   fetchPrimaryDomain: vi.fn(),
 }));
@@ -14,10 +13,6 @@ vi.mock('next/headers', () => ({
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: () => mocks.createServerClient(),
-}));
-
-vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: () => mocks.createAdminClient(),
 }));
 
 vi.mock('@/hooks/merchant/queries', () => ({
@@ -32,7 +27,10 @@ vi.mock('@/lib/logger', () => ({
 
 import { GET } from './route';
 
-const ADMIN_CLIENT = { tag: 'admin' };
+const SERVER_CLIENT = {
+  auth: { getUser: mocks.getUser },
+  tag: 'authenticated-server-client',
+};
 
 function makeRequest(): Parameters<typeof GET>[0] {
   return {} as unknown as Parameters<typeof GET>[0];
@@ -48,10 +46,7 @@ const ownerStaffAccess = {
 describe('GET /api/merchant/me', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.createServerClient.mockReturnValue({
-      auth: { getUser: mocks.getUser },
-    });
-    mocks.createAdminClient.mockReturnValue(ADMIN_CLIENT);
+    mocks.createServerClient.mockReturnValue(SERVER_CLIENT);
     mocks.getUser.mockResolvedValue({
       data: { user: { id: 'user-123' } },
       error: null,
@@ -77,7 +72,6 @@ describe('GET /api/merchant/me', () => {
     expect(response.headers.get('Cache-Control')).toContain('no-store');
     expect(response.headers.get('Cache-Control')).toContain('private');
     expect(mocks.fetchDashboardMerchant).not.toHaveBeenCalled();
-    expect(mocks.createAdminClient).not.toHaveBeenCalled();
   });
 
   it('returns 401 when getUser reports an auth error', async () => {
@@ -92,7 +86,7 @@ describe('GET /api/merchant/me', () => {
     expect(mocks.fetchDashboardMerchant).not.toHaveBeenCalled();
   });
 
-  it('resolves the owner merchant via the service-role client scoped to the session user', async () => {
+  it('resolves the owner merchant via the authenticated server client scoped to the session user', async () => {
     const response = await GET(makeRequest());
 
     expect(response.status).toBe(200);
@@ -102,7 +96,7 @@ describe('GET /api/merchant/me', () => {
     });
     // Ownership is enforced by passing the SESSION user id, never client input.
     expect(mocks.fetchDashboardMerchant).toHaveBeenCalledWith(
-      ADMIN_CLIENT,
+      SERVER_CLIENT,
       'user-123'
     );
     // Per-user secret payload must never be cached by a shared cache/CDN.
@@ -118,7 +112,7 @@ describe('GET /api/merchant/me', () => {
 
     expect(body.merchant.custom_domain).toBe('shop.example.com');
     expect(mocks.fetchPrimaryDomain).toHaveBeenCalledWith(
-      ADMIN_CLIENT,
+      SERVER_CLIENT,
       'merchant-1'
     );
   });

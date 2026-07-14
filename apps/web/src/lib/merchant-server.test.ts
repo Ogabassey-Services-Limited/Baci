@@ -24,13 +24,6 @@ vi.mock('@/lib/supabase/server', () => ({
   })),
 }));
 
-// The own-merchant read runs under the service role (S1), so the admin client
-// factory must be mocked; fetchDashboardMerchant itself is mocked above, so the
-// returned object is only a placeholder passed through to it.
-vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: vi.fn(() => ({ tag: 'admin' })),
-}));
-
 function loadModule() {
   vi.resetModules();
   return import('./merchant-server');
