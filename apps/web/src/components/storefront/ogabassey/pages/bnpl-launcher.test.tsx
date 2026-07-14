@@ -1181,5 +1181,36 @@ describe('BnplLauncher', () => {
 
       expect(readCreditDirectPopupMarker('order-1')).toBeNull();
     });
+
+    it('launches a new order after the previous launcher URL errors', async () => {
+      mockOpenCreditDirectCheckout.mockImplementationOnce(({ onError }) => {
+        onError('SDK failed to open');
+        return Promise.resolve();
+      });
+      mockOpenCreditDirectCheckout.mockResolvedValueOnce(undefined);
+
+      const { rerender } = render(<BnplLauncher />);
+
+      expect(
+        await screen.findByRole('heading', { name: 'Something went wrong' })
+      ).toBeInTheDocument();
+
+      mockSearchParams.mockReturnValue(
+        new URLSearchParams({
+          orderId: 'order-2',
+          gateway: 'credit_direct',
+          merchant_slug: 'test-store',
+          trackingToken: 'tok-456',
+        })
+      );
+      rerender(<BnplLauncher />);
+
+      await waitFor(() => {
+        expect(fetch).toHaveBeenCalledWith(
+          '/api/storefront/orders/order-2?merchant_slug=test-store&token=tok-456'
+        );
+      });
+      expect(mockOpenCreditDirectCheckout).toHaveBeenCalledTimes(2);
+    });
   });
 });

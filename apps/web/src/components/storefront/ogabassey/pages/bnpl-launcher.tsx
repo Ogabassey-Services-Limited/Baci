@@ -666,6 +666,7 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
     );
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const paymentLaunchKeyRef = useRef<string | null>(null);
+    const lastLaunchRequestKeyRef = useRef<string | null>(null);
     const klumpSuccessRedirectRef = useRef(false);
     const [creditDirectPopupMarker, setCreditDirectPopupMarker] =
         useState<CreditDirectPopupMarker | null>(null);
@@ -677,6 +678,21 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
                 : marker
         );
     };
+
+    const launchRequestKey = JSON.stringify([
+        orderId,
+        gateway,
+        klumpCallback,
+        klumpReference,
+        klumpTransactionId,
+        trackingToken,
+        lookupEmail,
+        lookupPhone,
+        lookupCustomerName,
+        merchantSlugParam,
+        merchantContext?.merchant?.slug ?? null,
+        merchantSlug,
+    ]);
 
     // The Credit Direct popup can replace this document (mobile WebView) or
     // restore it from the back/forward cache. Both paths must resume as a
@@ -702,15 +718,17 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
     }, [gateway, klumpCallback, orderId]);
 
     useEffect(() => {
-        // Error state is terminal until the user explicitly retries: without
-        // this guard, a re-run of this effect (its deps include per-render
-        // snapshots) could adopt the popup marker that onPopup stored just
-        // before onError fired, silently replacing the error/retry view with
-        // the "confirming your payment" verification flow for a popup that
-        // never opened. Retry clears the marker and resets status itself.
-        if (status === 'error') {
+        // An error is terminal only for the launch request that produced it.
+        // This prevents a same-request re-run from adopting a marker written
+        // immediately before onError, while a new URL or explicit retry gets
+        // a new request key and can launch without requiring a page reload.
+        if (
+            status === 'error' &&
+            lastLaunchRequestKeyRef.current === launchRequestKey
+        ) {
             return;
         }
+        lastLaunchRequestKeyRef.current = launchRequestKey;
         if (gateway === 'credit_direct' && !klumpCallback) {
             if (creditDirectPopupMarker) {
                 return;
@@ -757,6 +775,7 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
         router,
         trackingToken,
         creditDirectPopupMarker,
+        launchRequestKey,
     ]);
 
     const creditDirectVerification = useCreditDirectVerification({
