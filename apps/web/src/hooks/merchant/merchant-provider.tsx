@@ -341,10 +341,19 @@ export const MerchantProvider = ({
 
   const hasPermission = (resource: string, action: string): boolean => {
     if (staffAccess.isOwner) return true;
-    if (staffAccess.isStaff) {
-      return staffAccess.permissions[resource]?.[action] === true;
-    }
-    return false;
+    if (!staffAccess.isStaff) return false;
+    // Mirror the wildcard grant shapes honored by hasPermission (api-auth.ts)
+    // and ensurePermission (merchant-server.ts) so nav visibility matches what
+    // the server authorizes — a wildcard-granted staffer must not see sections
+    // hidden while the pages are reachable by URL.
+    const permissions = staffAccess.permissions;
+    return (
+      permissions.full_access?.all === true ||
+      permissions['*']?.['*'] === true ||
+      permissions['*']?.[action] === true ||
+      permissions[resource]?.['*'] === true ||
+      permissions[resource]?.[action] === true
+    );
   };
 
   const value: MerchantContextType = {
