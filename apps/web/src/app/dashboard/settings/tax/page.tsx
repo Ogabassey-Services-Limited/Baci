@@ -24,17 +24,25 @@ export default async function TaxSettingsPage() {
   // Gate on the settings permission BEFORE the service-role read below. The
   // admin client bypasses RLS/column grants, so this page must not rely on the
   // DB to keep a low-privilege staff member (without `settings` access) out of
-  // the tax/legal payload — ensurePermission throws for owner/staff who lack it.
+  // the tax/legal payload. Accept a settings VIEWER or EDITOR: `edit` does not
+  // imply `view` in this app, and the tax form persists via /api/merchant/settings
+  // which authorizes `settings.edit`, so an editor must be able to reach it.
   let merchant: Awaited<ReturnType<typeof ensurePermission>>['merchant'];
   try {
     ({ merchant } = await ensurePermission('settings', 'view'));
-  } catch (error) {
-    // Only known auth/permission failures redirect; unexpected errors (auth
-    // service outage, bugs) must surface, not silently bounce to /dashboard.
-    if (isMerchantPermissionRedirectError(error)) {
-      redirect('/dashboard');
+  } catch (viewError) {
+    if (!isMerchantPermissionRedirectError(viewError)) {
+      // Unexpected errors (auth service outage, bugs) must surface.
+      throw viewError;
     }
-    throw error;
+    try {
+      ({ merchant } = await ensurePermission('settings', 'edit'));
+    } catch (editError) {
+      if (isMerchantPermissionRedirectError(editError)) {
+        redirect('/dashboard');
+      }
+      throw editError;
+    }
   }
 
   // Fetch current VAT/registration settings. Permission + merchant ownership are
