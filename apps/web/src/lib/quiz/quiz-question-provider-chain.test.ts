@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const generateTextMock = vi.hoisted(() => vi.fn());
 const getCopilotTextProviderChainMock = vi.hoisted(() => vi.fn());
@@ -21,6 +21,7 @@ function runOptions(overrides: Partial<{ abortSignal: AbortSignal }> = {}) {
     maxOutputTokens: 2400,
     temperature: 0.35,
     abortSignal: new AbortController().signal,
+    parseContent: (content: string) => content,
     ...overrides,
   };
 }
@@ -28,7 +29,13 @@ function runOptions(overrides: Partial<{ abortSignal: AbortSignal }> = {}) {
 describe('quiz question provider chain', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv('CEREBRAS_API_KEY', 'cerebras-key');
     getCopilotTextProviderChainMock.mockReturnValue([CEREBRAS, GROQ]);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
   });
 
   it('generates on Cerebras Gemma 4 first and does not call any fallback', async () => {
@@ -47,6 +54,7 @@ describe('quiz question provider chain', () => {
         system: 'system prompt',
         prompt: 'user prompt',
         maxOutputTokens: 2400,
+        maxRetries: 0,
         temperature: 0.35,
       })
     );
@@ -81,6 +89,52 @@ describe('quiz question provider chain', () => {
     await expect(runQuizQuestionProviderChain(runOptions())).resolves.toBe(
       '{"questions":[]}'
     );
+    expect(generateTextMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('falls through when a provider returns content that fails validation', async () => {
+    generateTextMock
+      .mockResolvedValueOnce({ text: 'not json' })
+      .mockResolvedValueOnce({ text: '{"questions":[]}' });
+
+    const { runQuizQuestionProviderChain } = await import(
+      './quiz-question-provider-chain'
+    );
+
+    await expect(
+      runQuizQuestionProviderChain({
+        ...runOptions(),
+        parseContent: (content) => JSON.parse(content) as unknown,
+      })
+    ).resolves.toEqual({ questions: [] });
+    expect(generateTextMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('bounds each provider attempt and continues after its timeout', async () => {
+    const attemptController = new AbortController();
+    const timeoutSpy = vi
+      .spyOn(AbortSignal, 'timeout')
+      .mockReturnValue(attemptController.signal);
+    generateTextMock
+      .mockImplementationOnce(
+        ({ abortSignal }: { abortSignal: AbortSignal }) =>
+          new Promise((_, reject) => {
+            abortSignal.addEventListener('abort', () => {
+              reject(new DOMException('timed out', 'TimeoutError'));
+            });
+            attemptController.abort();
+          })
+      )
+      .mockResolvedValueOnce({ text: '{"questions":[]}' });
+
+    const { runQuizQuestionProviderChain } = await import(
+      './quiz-question-provider-chain'
+    );
+
+    await expect(runQuizQuestionProviderChain(runOptions())).resolves.toBe(
+      '{"questions":[]}'
+    );
+    expect(timeoutSpy).toHaveBeenCalledWith(12_000);
     expect(generateTextMock).toHaveBeenCalledTimes(2);
   });
 
@@ -133,5 +187,51 @@ describe('quiz question provider chain', () => {
       runQuizQuestionProviderChain(runOptions())
     ).rejects.toBeInstanceOf(QuizQuestionProviderChainUnavailableError);
     expect(generateTextMock).not.toHaveBeenCalled();
+  });
+
+  it('does not count unconditional Google models without a Google API key', async () => {
+    vi.stubEnv('CEREBRAS_API_KEY', '');
+    getCopilotTextProviderChainMock.mockReturnValue([
+      { name: 'google:gemini-2.5-flash', model: 'google-model' },
+    ]);
+
+    const {
+      hasHostedQuizQuestionProvider,
+      runQuizQuestionProviderChain,
+      QuizQuestionProviderChainUnavailableError,
+    } = await import('./quiz-question-provider-chain');
+
+    expect(hasHostedQuizQuestionProvider()).toBe(false);
+    await expect(
+      runQuizQuestionProviderChain(runOptions())
+    ).rejects.toBeInstanceOf(QuizQuestionProviderChainUnavailableError);
+    expect(generateTextMock).not.toHaveBeenCalled();
+  });
+
+  it('logs only safe provider error fields', async () => {
+    const providerError = Object.assign(new Error('upstream failed'), {
+      requestBodyValues: { prompt: 'merchant secret prompt' },
+      statusCode: 429,
+    });
+    generateTextMock.mockRejectedValue(providerError);
+
+    const { logger } = await import('@/lib/logger');
+    const { runQuizQuestionProviderChain } = await import(
+      './quiz-question-provider-chain'
+    );
+
+    await expect(runQuizQuestionProviderChain(runOptions())).rejects.toThrow(
+      'upstream failed'
+    );
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        errorMessage: 'upstream failed',
+        errorName: 'Error',
+        statusCode: 429,
+      })
+    );
+    expect(logger.warn).not.toHaveBeenCalledWith(
+      expect.objectContaining({ error: providerError })
+    );
   });
 });

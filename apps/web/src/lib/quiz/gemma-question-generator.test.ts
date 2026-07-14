@@ -317,7 +317,10 @@ describe('generateQuizQuestionsWithGemma', () => {
     it('generates on the hosted chain and never touches the self-hosted server', async () => {
       const mockFetch = vi.fn();
       vi.stubGlobal('fetch', mockFetch);
-      mockRunProviderChain.mockResolvedValue(QUIZ_JSON);
+      mockRunProviderChain.mockImplementationOnce(
+        ({ parseContent }: { parseContent: (content: string) => unknown }) =>
+          Promise.resolve(parseContent(QUIZ_JSON))
+      );
 
       const questions = await generateQuizQuestionsWithGemma(input);
 
@@ -331,6 +334,7 @@ describe('generateQuizQuestionsWithGemma', () => {
           temperature: 0.35,
           maxOutputTokens: expect.any(Number),
           abortSignal: expect.any(AbortSignal),
+          parseContent: expect.any(Function),
         })
       );
       // The hosted chain succeeded, so the self-hosted VPS must not be called.

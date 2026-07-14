@@ -34,19 +34,56 @@ export interface RunQuizQuestionProviderChainOptions {
   abortSignal: AbortSignal;
 }
 
-/** True when at least one hosted provider (e.g. Cerebras) has an API key set. */
-export function hasHostedQuizQuestionProvider(): boolean {
-  return getCopilotTextProviderChain().length > 0;
+const PROVIDER_ATTEMPT_TIMEOUT_MS = 12_000;
+
+function hasGoogleProviderCredentials(): boolean {
+  return Boolean(
+    process.env.GOOGLE_GENAI_API_KEY?.trim() ||
+      process.env.GEMINI_API_KEY?.trim() ||
+      process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim()
+  );
 }
 
-export async function runQuizQuestionProviderChain({
+function getConfiguredProviderChain() {
+  return getCopilotTextProviderChain().filter(
+    (provider) =>
+      !provider.name.startsWith('google:') || hasGoogleProviderCredentials()
+  );
+}
+
+function getSafeErrorFields(error: unknown) {
+  const statusCode =
+    typeof error === 'object' &&
+    error !== null &&
+    'statusCode' in error &&
+    typeof error.statusCode === 'number'
+      ? error.statusCode
+      : undefined;
+
+  return {
+    errorMessage:
+      error instanceof Error ? error.message.slice(0, 300) : 'Unknown error',
+    errorName: error instanceof Error ? error.name : 'UnknownError',
+    statusCode,
+  };
+}
+
+/** True when at least one hosted provider (e.g. Cerebras) has an API key set. */
+export function hasHostedQuizQuestionProvider(): boolean {
+  return getConfiguredProviderChain().length > 0;
+}
+
+export async function runQuizQuestionProviderChain<TResult>({
   system,
   prompt,
   maxOutputTokens,
   temperature,
   abortSignal,
-}: RunQuizQuestionProviderChainOptions): Promise<string> {
-  const providerChain = getCopilotTextProviderChain();
+  parseContent,
+}: RunQuizQuestionProviderChainOptions & {
+  parseContent: (content: string) => TResult;
+}): Promise<TResult> {
+  const providerChain = getConfiguredProviderChain();
 
   if (providerChain.length === 0) {
     throw new QuizQuestionProviderChainUnavailableError();
@@ -56,18 +93,23 @@ export async function runQuizQuestionProviderChain({
 
   for (const provider of providerChain) {
     try {
+      const attemptSignal = AbortSignal.any([
+        abortSignal,
+        AbortSignal.timeout(PROVIDER_ATTEMPT_TIMEOUT_MS),
+      ]);
       const { text } = await generateText({
         model: provider.model,
         system,
         prompt,
-        abortSignal,
+        abortSignal: attemptSignal,
         maxOutputTokens,
+        maxRetries: 0,
         temperature,
       });
 
       const content = text?.trim();
       if (content) {
-        return content;
+        return parseContent(content);
       }
 
       // An empty completion is a provider failure, not a merchant error — fall
@@ -87,7 +129,7 @@ export async function runQuizQuestionProviderChain({
 
       lastError = error;
       logger.warn({
-        error,
+        ...getSafeErrorFields(error),
         event: 'quiz_question_generation',
         message: 'Quiz question provider failed; falling through to the next',
         provider: provider.name,

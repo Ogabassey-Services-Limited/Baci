@@ -299,8 +299,9 @@ export async function generateQuizQuestionsWithGemma(
           maxOutputTokens,
           temperature: TEMPERATURE,
           abortSignal: abortController.signal,
+          parseContent: parseGeneratedContent,
         });
-        return parseGeneratedContent(content);
+        return content;
       } catch (error) {
         // The whole hosted chain failed (or produced JSON the schema rejected).
         // If we have no self-hosted server to fall back to, this is terminal.
@@ -311,7 +312,6 @@ export async function generateQuizQuestionsWithGemma(
         }
 
         logger.warn({
-          error,
           event: 'quiz_question_generation',
           message:
             'Hosted Gemma chain failed; falling back to the self-hosted Gemma server',
