@@ -780,13 +780,19 @@ export async function POST(request: NextRequest) {
             });
           }
 
-          await handlePaymentForCancelledOrder({
+          const cancellationReviewFiled = await handlePaymentForCancelledOrder({
             gatewayReference: payload.checkoutTransactionId,
             order: updatedOrder,
             reason:
               'Credit Direct payment captured for an order cancelled before finalization',
             transactionId: recordedTransactionId,
           });
+          if (!cancellationReviewFiled) {
+            return NextResponse.json(
+              { error: 'Payment reconciliation review unavailable' },
+              { status: 500 }
+            );
+          }
 
           return NextResponse.json({
             received: true,

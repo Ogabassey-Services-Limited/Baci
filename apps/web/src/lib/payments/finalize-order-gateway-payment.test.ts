@@ -309,6 +309,7 @@ describe('finalizeOrderGatewayPayment', () => {
     );
 
     expect(outcome).toMatchObject({ kind: 'completed' });
+    expect(mocks.ensurePaidOrderInventoryConfirmed).not.toHaveBeenCalled();
     // The customer was already confirmed for the paying transaction: these
     // captured funds owe settlement only, outside the order-scoped outbox.
     expect(mocks.settleCapturedOrderPayment).toHaveBeenCalledTimes(1);
@@ -339,9 +340,45 @@ describe('finalizeOrderGatewayPayment', () => {
     );
 
     expect(outcome).toMatchObject({ kind: 'completed' });
+    expect(mocks.ensurePaidOrderInventoryConfirmed).not.toHaveBeenCalled();
     expect(mocks.settleCapturedOrderPayment).toHaveBeenCalledTimes(1);
     expect(mocks.runPaidOrderSideEffects).not.toHaveBeenCalled();
     expect(mocks.notifyPaymentReceived).not.toHaveBeenCalled();
+  });
+
+  it('settles a capture even when the paying transaction has fresh pre-push evidence', async () => {
+    mocks.completeOrderGatewayPayment.mockResolvedValue(
+      completion({
+        already_completed: true,
+        order_already_paid: true,
+        order_updated: false,
+      })
+    );
+
+    const outcome = await finalizeOrderGatewayPayment(
+      baseArgs(
+        buildSupabase(
+          { data: richOrderRow },
+          {
+            outboxRows: [
+              {
+                claimed_at: new Date().toISOString(),
+                error: 'rpc_seed_pending_drain',
+                result: null,
+                status: 'failed',
+                step: 'merchant_settlement',
+                transaction_id: 'txn-other',
+              },
+            ],
+          }
+        ),
+        { wonTransactionFlip: true }
+      )
+    );
+
+    expect(outcome).toMatchObject({ kind: 'completed' });
+    expect(mocks.settleCapturedOrderPayment).toHaveBeenCalledTimes(1);
+    expect(mocks.ensurePaidOrderInventoryConfirmed).not.toHaveBeenCalled();
   });
 
   it('returns order_fetch_failed and persists retry markers so the cron drain can find the order', async () => {

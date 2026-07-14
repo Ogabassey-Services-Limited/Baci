@@ -137,22 +137,6 @@ export async function finalizeOrderGatewayPayment({
     return { error: orderFetchError, kind: 'order_fetch_failed' };
   }
 
-  const inventoryOutcome = await confirmPaidOrderInventoryOrRollback({
-    gateway,
-    merchantId: transaction.merchant_id,
-    orderId,
-    orderWasUpdatedByThisCall: Boolean(completion.order_updated),
-    previousPaymentStatus: completion.previous_payment_status,
-    previousShippingStatus: completion.previous_shipping_status,
-    reference,
-    supabase,
-    transactionGatewayReference: transaction.gateway_reference,
-    transactionId: transaction.id,
-  });
-  if (inventoryOutcome.kind !== 'confirmed') {
-    return inventoryOutcome;
-  }
-
   let richOrder: ReturnType<typeof toRichPaidOrder>;
   try {
     richOrder = toRichPaidOrder(order, {
@@ -181,6 +165,24 @@ export async function finalizeOrderGatewayPayment({
     return { error: normalizationError, kind: 'order_fetch_failed' };
   }
 
+  if (!capturedOnAlreadyPaidOrder) {
+    const inventoryOutcome = await confirmPaidOrderInventoryOrRollback({
+      gateway,
+      merchantId: transaction.merchant_id,
+      orderId,
+      orderWasUpdatedByThisCall: Boolean(completion.order_updated),
+      previousPaymentStatus: completion.previous_payment_status,
+      previousShippingStatus: completion.previous_shipping_status,
+      reference,
+      supabase,
+      transactionGatewayReference: transaction.gateway_reference,
+      transactionId: transaction.id,
+    });
+    if (inventoryOutcome.kind !== 'confirmed') {
+      return inventoryOutcome;
+    }
+  }
+
   if (shouldNotify) {
     schedulePaidOrderNotifications({
       merchantId: transaction.merchant_id,
@@ -189,7 +191,11 @@ export async function finalizeOrderGatewayPayment({
     });
   }
 
-  if (!shouldNotify && outboxState?.onlyFreshPrePushEvidence) {
+  if (
+    !capturedOnAlreadyPaidOrder &&
+    !shouldNotify &&
+    outboxState?.onlyFreshPrePushEvidence
+  ) {
     logger.info({
       message: 'Deferring side-effect drain while pre-push evidence is fresh',
       orderId,

@@ -337,13 +337,19 @@ export async function POST(request: NextRequest) {
         const completedOrderIsCancelled =
           isOrderClampedAsCancelled(completedOrder);
         if (completedOrderIsCancelled) {
-          await handlePaymentForCancelledOrder({
+          const reviewFiled = await handlePaymentForCancelledOrder({
             gatewayReference: reference,
             order: completedOrder ?? { id: transaction.order_id },
             reason:
               'Juicyway completed-transaction retry observed a cancelled order',
             transactionId: transaction.id,
           });
+          if (!reviewFiled) {
+            return NextResponse.json(
+              { error: 'Payment reconciliation review unavailable' },
+              { status: 500 }
+            );
+          }
         } else if (
           isEventPipelineEnqueueEnabled() &&
           completedOrder?.payment_status === 'paid'
@@ -696,13 +702,19 @@ export async function POST(request: NextRequest) {
         // The prevent_cancelled_order_reopen trigger clamped this reopen:
         // suppress all paid-order side effects (email, push, conversions,
         // settlement) and file a reconciliation row. Ack the gateway.
-        await handlePaymentForCancelledOrder({
+        const reviewFiled = await handlePaymentForCancelledOrder({
           gatewayReference: reference,
           order,
           reason:
             'Juicyway payment captured for an order cancelled before finalization',
           transactionId: transaction.id,
         });
+        if (!reviewFiled) {
+          return NextResponse.json(
+            { error: 'Payment reconciliation review unavailable' },
+            { status: 500 }
+          );
+        }
 
         return NextResponse.json({
           success: true,

@@ -327,13 +327,16 @@ export async function POST(request: NextRequest) {
     // settlement + merchant notification and file a reconciliation row. Ack
     // Klump with a 200 so it does not retry into a loop.
     if (updatedOrder && isOrderClampedAsCancelled(updatedOrder)) {
-      await handlePaymentForCancelledOrder({
+      const reviewFiled = await handlePaymentForCancelledOrder({
         gatewayReference: referenceResult.data,
         order: updatedOrder,
         reason:
           'Klump payment captured for an order cancelled before finalization',
         transactionId: transaction.id,
       });
+      if (!reviewFiled) {
+        return errorResponse('Payment reconciliation review unavailable', 500);
+      }
 
       return NextResponse.json({
         message:
