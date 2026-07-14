@@ -27,6 +27,15 @@ const leaderboardTestSql = readFileSync(
 );
 
 describe('quiz identity and device cap migration', () => {
+  it('installs an authenticated device-cap readiness marker', () => {
+    expect(migrationSql).toMatch(
+      /CREATE OR REPLACE FUNCTION public\.quiz_device_cap_ready\(\)/i
+    );
+    expect(migrationSql).toMatch(
+      /GRANT EXECUTE ON FUNCTION public\.quiz_device_cap_ready\(\) TO authenticated, service_role/i
+    );
+  });
+
   it('canonicalizes googlemail aliases to gmail identities', () => {
     expect(migrationSql).toMatch(
       /IF v_domain = 'googlemail\.com' THEN\s+v_domain := 'gmail\.com'/i
@@ -165,8 +174,11 @@ describe('quiz identity and device cap migration', () => {
     expect(migrationSql).not.toMatch(
       /quiz_route_proof_valid\([\s\S]*?p_(?:attempt|event)_id::text \|\| ':' \|\| p_device_hash/i
     );
+    expect(identityDeviceTestSql).not.toMatch(
+      /public\.quiz_device_proof_subject/i
+    );
     expect(identityDeviceTestSql).toMatch(
-      /public\.quiz_device_proof_subject\(\s*p_attempt_id,\s*p_device_hash\s*\)/i
+      /extensions\.digest\(p_attempt_id::text \|\| ':' \|\| p_device_hash, 'sha256'\)/i
     );
   });
 

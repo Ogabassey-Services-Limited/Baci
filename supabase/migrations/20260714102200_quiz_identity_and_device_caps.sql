@@ -34,6 +34,21 @@
 -- entry), and two migrations redefining the same function would have the later
 -- one silently clobber the earlier. A trigger composes with any future body.
 
+-- The API probes this marker before calling the device-aware start RPC. The
+-- marker and RPC are installed in the same migration transaction, so a
+-- code-before-database deployment fails closed instead of calling a missing RPC.
+CREATE OR REPLACE FUNCTION public.quiz_device_cap_ready()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SET search_path = ''
+AS $$
+  SELECT true;
+$$;
+
+REVOKE ALL ON FUNCTION public.quiz_device_cap_ready() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.quiz_device_cap_ready() TO authenticated, service_role;
+
 -- ---------------------------------------------------------------------------
 -- 1. Email normalisation. Gmail ignores dots and everything after a '+'. Only
 --    providers explicitly covered below have aliases collapsed.

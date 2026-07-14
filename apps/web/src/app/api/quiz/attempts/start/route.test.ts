@@ -150,6 +150,8 @@ function mockAuthenticatedSupabase({
   const rpc = vi.fn((name: string) => {
     if (name === 'quiz_free_entry_ready')
       return Promise.resolve(readinessResult);
+    if (name === 'quiz_device_cap_ready')
+      return Promise.resolve({ data: true, error: null });
     if (name === 'bind_quiz_attempt_device') return Promise.resolve(bindResult);
     if (name === 'start_quiz_attempt_with_device') {
       if (rpcResult.error) return Promise.resolve(rpcResult);
@@ -496,6 +498,22 @@ describe('start quiz attempt route', () => {
     );
   });
 
+  it('does not mint a web device cookie for bearer starts without a fingerprint', async () => {
+    const { rpc } = mockAuthenticatedSupabase();
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      bearerRequest({ eventId: EVENT_ID, integrityTier: 'device' })
+    );
+
+    expect(response.status).toBe(200);
+    expect(resolveQuizDevice).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledWith(
+      'start_quiz_attempt',
+      expect.objectContaining({ p_event_id: EVENT_ID })
+    );
+  });
+
   it('starts without device binding when device resolution throws', async () => {
     const { rpc } = mockAuthenticatedSupabase();
     vi.mocked(resolveQuizDevice).mockImplementation(() => {
@@ -582,6 +600,41 @@ describe('start quiz attempt route', () => {
       p_start_route_proof: expect.any(Object),
       p_user_id: USER_ID,
     });
+  });
+
+  it('fails closed before device start when the device-cap migration is unavailable', async () => {
+    const { rpc } = mockAuthenticatedSupabase();
+    rpc.mockImplementation((name: string) => {
+      if (name === 'quiz_free_entry_ready') {
+        return Promise.resolve({ data: true, error: null });
+      }
+      if (name === 'quiz_device_cap_ready') {
+        return Promise.resolve({
+          data: null,
+          error: { message: 'function quiz_device_cap_ready does not exist' },
+        });
+      }
+      return Promise.resolve({ data: null, error: null });
+    });
+    vi.mocked(resolveQuizDevice).mockReturnValue({
+      cookieToSet: undefined,
+      deviceHash: 'b'.repeat(64),
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      jsonRequest({ eventId: EVENT_ID, integrityTier: 'device' })
+    );
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      code: 'QUIZ_TEMPORARILY_UNAVAILABLE',
+      error: 'Super Quiz is temporarily unavailable. Please try again soon.',
+    });
+    expect(rpc).not.toHaveBeenCalledWith(
+      'start_quiz_attempt_with_device',
+      expect.anything()
+    );
   });
 
   it('returns the successful start when device binding fails unexpectedly', async () => {

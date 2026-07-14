@@ -3,6 +3,7 @@ import {
   QUIZ_FREE_ENTRY_RPC_ACTION,
 } from '@baci/shared/constants';
 import { type NextRequest, NextResponse } from 'next/server';
+import { interpretQuizDeviceStartOutcome } from '@/app/api/quiz/_shared/quiz-device-start-outcome';
 import { attachQuizQuestionDeadline } from '@/app/api/quiz/_shared/quiz-question-deadline';
 import {
   createRouteProof,
@@ -43,22 +44,6 @@ function isExamPassRequiredError(error: unknown): boolean {
       : null;
 
   return code === 'QZ011' || message === 'quiz_exam_pass_required';
-}
-
-function interpretDeviceStartOutcome(data: unknown, hasDeviceHash: boolean) {
-  if (!hasDeviceHash || !data || typeof data !== 'object') {
-    return {
-      deviceAllowed: undefined,
-      deviceBindingFailed: undefined,
-      startData: data,
-    };
-  }
-
-  const { deviceAllowed, deviceBindingFailed, ...startData } = data as Record<
-    string,
-    unknown
-  >;
-  return { deviceAllowed, deviceBindingFailed, startData };
 }
 
 export async function POST(request: NextRequest) {
@@ -127,10 +112,12 @@ export async function POST(request: NextRequest) {
   // visible to answer routes before this decision commits.
   let device: ReturnType<typeof resolveQuizDevice> = { deviceHash: null };
   try {
-    device = resolveQuizDevice(
-      request,
-      auth.authMethod === 'bearer' ? parsed.data.deviceFingerprint : undefined
-    );
+    if (auth.authMethod !== 'bearer' || parsed.data.deviceFingerprint) {
+      device = resolveQuizDevice(
+        request,
+        auth.authMethod === 'bearer' ? parsed.data.deviceFingerprint : undefined
+      );
+    }
   } catch (error) {
     logger.error({
       error,
@@ -140,6 +127,21 @@ export async function POST(request: NextRequest) {
         'Device identification failed; continuing without device binding',
       userId: auth.user.id,
     });
+  }
+
+  if (device.deviceHash) {
+    const { data: deviceCapReady, error: deviceCapReadyError } =
+      await auth.supabase.rpc('quiz_device_cap_ready');
+    if (deviceCapReadyError || deviceCapReady !== true) {
+      logger.error({
+        error: deviceCapReadyError,
+        event: 'quiz_device_cap_readiness',
+        eventId: parsed.data.eventId,
+        message: 'Device-cap database marker is unavailable',
+        userId: auth.user.id,
+      });
+      return NextResponse.json(QUIZ_UNAVAILABLE_RESPONSE, { status: 503 });
+    }
   }
 
   const withDeviceCookie = (response: NextResponse): NextResponse => {
@@ -236,7 +238,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { deviceAllowed, deviceBindingFailed, startData } =
-    interpretDeviceStartOutcome(data, Boolean(device.deviceHash));
+    interpretQuizDeviceStartOutcome(data, Boolean(device.deviceHash));
 
   if (deviceBindingFailed === true) {
     logger.error({

@@ -15063,6 +15063,7 @@ export type Database = {
         };
         Returns: boolean;
       };
+      quiz_device_cap_ready: { Args: never; Returns: boolean };
       start_quiz_attempt_with_device: {
         Args: {
           p_device_hash: string;
