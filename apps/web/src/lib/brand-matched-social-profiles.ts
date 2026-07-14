@@ -23,12 +23,15 @@ function merchantIdentityCandidates(businessName: string): string[] {
   const words = businessName
     .toLowerCase()
     .split(/[^a-z0-9]+/)
-    .filter(
-      (word) => word.length >= 4 && !GENERIC_BUSINESS_NAME_TOKENS.has(word)
-    );
+    .filter(Boolean);
   const fullIdentity = compactIdentity(businessName);
+  const coreIdentity = words
+    .filter((word) => !GENERIC_BUSINESS_NAME_TOKENS.has(word))
+    .join('');
   return [
-    ...new Set([fullIdentity, ...words].filter((value) => value.length >= 4)),
+    ...new Set(
+      [fullIdentity, coreIdentity].filter((value) => value.length >= 3)
+    ),
   ];
 }
 
@@ -38,10 +41,39 @@ function profileIdentity(urlValue: string): string | null {
     if (url.protocol !== 'https:' && url.protocol !== 'http:') {
       return null;
     }
-    return compactIdentity(decodeURIComponent(url.pathname));
+    const pathSegments = url.pathname.split('/').filter(Boolean);
+    const profileSegment = pathSegments.at(-1);
+    return profileSegment
+      ? compactIdentity(decodeURIComponent(profileSegment))
+      : null;
   } catch {
     return null;
   }
+}
+
+const PROFILE_IDENTITY_AFFIXES = ['ng', 'nigeria', 'official'] as const;
+
+function profileMatchesBrandIdentity(
+  profile: string,
+  brandIdentity: string
+): boolean {
+  if (profile === brandIdentity) {
+    return true;
+  }
+
+  if (
+    brandIdentity.length >= 5 &&
+    profile.length === brandIdentity.length + 1 &&
+    profile.startsWith(brandIdentity)
+  ) {
+    return true;
+  }
+
+  return PROFILE_IDENTITY_AFFIXES.some(
+    (affix) =>
+      profile === `${brandIdentity}${affix}` ||
+      profile === `${affix}${brandIdentity}`
+  );
 }
 
 export function filterBrandMatchedSocialProfiles(
@@ -59,7 +91,9 @@ export function filterBrandMatchedSocialProfiles(
     const identity = profileIdentity(normalized);
     if (
       identity &&
-      brandIdentities.some((brandIdentity) => identity.includes(brandIdentity))
+      brandIdentities.some((brandIdentity) =>
+        profileMatchesBrandIdentity(identity, brandIdentity)
+      )
     ) {
       accepted.add(normalized);
     }

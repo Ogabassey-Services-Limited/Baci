@@ -34,4 +34,20 @@ describe('getBrandMatchedTwitterHandle', () => {
       getBrandMatchedTwitterHandle('Test Store', 'not a handle')
     ).toBeUndefined();
   });
+
+  it('rejects reserved Twitter and X routes instead of treating them as handles', () => {
+    expect(
+      getBrandMatchedTwitterHandle('Home', 'https://x.com/home')
+    ).toBeUndefined();
+    expect(
+      getBrandMatchedTwitterHandle('Explore', 'https://twitter.com/explore')
+    ).toBeUndefined();
+    expect(getBrandMatchedTwitterHandle('Home', '@home')).toBeUndefined();
+    expect(
+      getBrandMatchedTwitterHandle(
+        'Ogabassey',
+        'https://x.com/ogabassey/status/12345'
+      )
+    ).toBeUndefined();
+  });
 });

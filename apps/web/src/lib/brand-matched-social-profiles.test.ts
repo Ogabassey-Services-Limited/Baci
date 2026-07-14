@@ -26,6 +26,31 @@ describe('filterBrandMatchedSocialProfiles', () => {
     ).toEqual([]);
   });
 
+  it('does not accept a profile that matches only a business descriptor', () => {
+    expect(
+      filterBrandMatchedSocialProfiles('Ada Fashion', [
+        'https://twitter.com/fashiondaily',
+      ])
+    ).toEqual([]);
+  });
+
+  it('keeps exact profiles for short brand names and acronyms', () => {
+    expect(
+      filterBrandMatchedSocialProfiles('MTN', ['https://twitter.com/MTN'])
+    ).toEqual(['https://twitter.com/MTN']);
+    expect(
+      filterBrandMatchedSocialProfiles('KFC', ['https://instagram.com/kfc'])
+    ).toEqual(['https://instagram.com/kfc']);
+  });
+
+  it('matches the core brand when the business name has a generic suffix', () => {
+    expect(
+      filterBrandMatchedSocialProfiles('Ogabassey Nigeria Limited', [
+        'https://www.youtube.com/@ogabassey',
+      ])
+    ).toEqual(['https://www.youtube.com/@ogabassey']);
+  });
+
   it('rejects malformed URLs and deduplicates accepted profiles', () => {
     expect(
       filterBrandMatchedSocialProfiles('Test Store', [

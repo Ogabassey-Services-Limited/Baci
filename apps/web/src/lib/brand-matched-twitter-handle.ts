@@ -1,4 +1,5 @@
 import { filterBrandMatchedSocialProfiles } from './brand-matched-social-profiles';
+import { isValidTwitterProfileHandle } from './twitter-profile-handle';
 
 function extractTwitterHandle(value: string): string | null {
   const trimmed = value.trim();
@@ -11,11 +12,19 @@ function extractTwitterHandle(value: string): string | null {
       const url = new URL(trimmed);
       const host = url.hostname.toLowerCase();
       if (
-        !['twitter.com', 'www.twitter.com', 'x.com', 'www.x.com'].includes(host)
+        ![
+          'mobile.twitter.com',
+          'mobile.x.com',
+          'twitter.com',
+          'www.twitter.com',
+          'www.x.com',
+          'x.com',
+        ].includes(host)
       ) {
         return null;
       }
-      return url.pathname.split('/').filter(Boolean)[0] ?? null;
+      const pathSegments = url.pathname.split('/').filter(Boolean);
+      return pathSegments.length === 1 ? (pathSegments[0] ?? null) : null;
     } catch {
       return null;
     }
@@ -33,7 +42,7 @@ export function getBrandMatchedTwitterHandle(
   }
 
   const handle = extractTwitterHandle(value);
-  if (!handle || !/^[a-zA-Z0-9_]{1,15}$/.test(handle)) {
+  if (!handle || !isValidTwitterProfileHandle(handle)) {
     return undefined;
   }
 
