@@ -1,4 +1,4 @@
-import { sanitizeWalletReturnToPath } from '@baci/shared/lib';
+import { sanitizeResumableWalletReturnTo } from '@baci/shared/lib';
 import { customAlphabet } from 'nanoid';
 import { type NextRequest, NextResponse } from 'next/server';
 import { env } from '@/env';
@@ -166,8 +166,11 @@ export async function POST(request: NextRequest) {
     const callbackUrl = `${protocol}://${merchant.slug}.${rootDomain}/checkout/success?reference=${paymentReference}&kind=wallet`;
     const notificationUrl = `${protocol}://${rootDomain}/api/payments/webhook`;
     // Persisted so the wallet-credited push can deep-link back to the
-    // interrupted purchase; sanitized to a safe internal path (or dropped).
-    const returnTo = sanitizeWalletReturnToPath(parsed.data.returnTo);
+    // interrupted purchase. Restricted to the strict resumable-destination
+    // allowlist (checkout / imei-check / utilities/<type>) so an internal
+    // redirector such as `/auth/callback?returnTo=//evil.com` can never reach
+    // transaction metadata — and therefore never reach a push deep link.
+    const returnTo = sanitizeResumableWalletReturnTo(parsed.data.returnTo);
     const metadata = {
       customer_email: customerEmail,
       customer_id: customer.id,

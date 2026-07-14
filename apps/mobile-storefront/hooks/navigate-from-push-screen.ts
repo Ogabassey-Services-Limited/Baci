@@ -1,5 +1,5 @@
 import { type Href, router } from 'expo-router';
-import { sanitizeWalletReturnTo } from '@/lib/sanitize-wallet-return-to';
+import { sanitizeResumableWalletReturnTo } from '@/lib/resumable-wallet-return-to';
 
 // Module-scope routing dispatcher for notification taps. Kept out of the hook
 // body so the useEffectEvent wrapper stays thin; behavior is unchanged.
@@ -45,11 +45,15 @@ export function navigateFromPushScreen(
         break;
       }
       // Wallet-credited taps may carry an onward destination (the interrupted
-      // purchase). Sanitize it here so a malicious returnTo can never redirect
-      // the tap off-app, then land on the wallet FIRST (the credit context)
-      // and immediately resume the destination on top — back returns to the
-      // wallet, matching the "Return to your purchase" promise.
-      const returnTo = sanitizeWalletReturnTo(params?.returnTo);
+      // purchase). A generic "is internal path" check is NOT enough here: an
+      // internal redirector such as `/auth/callback?returnTo=//evil.com` is an
+      // internal path yet forwards control to an attacker-chosen destination.
+      // So this uses the strict resumable-destination allowlist (checkout,
+      // imei-check, utilities/<type>) shared with the server persist path. Land
+      // on the wallet FIRST (the credit context) and resume the destination on
+      // top — back returns to the wallet, matching the "Return to your
+      // purchase" promise.
+      const returnTo = sanitizeResumableWalletReturnTo(params?.returnTo);
       router.push('/wallet');
       if (returnTo) {
         router.push(returnTo);

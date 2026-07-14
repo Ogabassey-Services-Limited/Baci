@@ -405,13 +405,23 @@ describe('POST /api/storefront/customer/wallet/top-up/initialize', () => {
     );
   });
 
-  it('drops a malicious returnTo instead of persisting it', async () => {
+  it.each([
+    ['protocol-relative', '//evil.com'],
+    // Open-redirect chain: an internal redirector that forwards its own returnTo.
+    ['auth redirector chain', '/auth/callback?returnTo=//evil.com'],
+    [
+      'auth redirector with absolute nested value',
+      '/auth/callback?returnTo=https://evil.com',
+    ],
+    ['nested redirect param', '/checkout?redirect=//evil.com'],
+    ['non-resumable route', '/settings'],
+  ])('drops a malicious returnTo (%s) instead of persisting it', async (_label, returnTo) => {
     const response = await POST(
       makeRequest({
         amount: 2500,
         gateway: 'paystack',
         merchantSlug: 'ogabassey',
-        returnTo: '//evil.com',
+        returnTo,
       })
     );
 

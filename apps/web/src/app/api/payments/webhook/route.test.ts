@@ -154,6 +154,17 @@ function createMockSupabaseClient() {
 mockSupabaseClient = createMockSupabaseClient();
 mockServiceClient = createMockSupabaseClient();
 
+/** The query-chain shape `mockServiceClient.from` is typed to return. */
+type MockedQueryChain = ReturnType<typeof mockServiceClient.from>;
+
+/**
+ * Narrows a partial query-chain stub to the mocked `from` return type without
+ * `any`: the stub only implements the chain methods the code under test calls.
+ */
+function asMockedQueryChain(chain: Record<string, unknown>): MockedQueryChain {
+  return chain as unknown as MockedQueryChain;
+}
+
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn((cookieStore?: any) => {
     // Support both signatures: createClient() and createClient(cookieStore)
@@ -3950,7 +3961,7 @@ describe('POST /api/payments/webhook', () => {
       });
       vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
         if (table === 'transactions') {
-          return {
+          return asMockedQueryChain({
             eq: vi.fn().mockReturnThis(),
             select: vi.fn().mockReturnThis(),
             single: vi.fn().mockResolvedValue({
@@ -3962,13 +3973,13 @@ describe('POST /api/payments/webhook', () => {
               },
             }),
             update: transactionUpdate,
-          } as any;
+          });
         }
-        return {
+        return asMockedQueryChain({
           eq: vi.fn().mockReturnThis(),
           select: vi.fn().mockReturnThis(),
           single: vi.fn().mockResolvedValue({ data: null, error: null }),
-        } as any;
+        });
       });
 
       return request;
@@ -4013,6 +4024,29 @@ describe('POST /api/payments/webhook', () => {
     it('passes undefined returnTo when metadata carries no return destination', async () => {
       const request = await buildWalletTopUpWebhookRequest({
         customer_id: 'customer-1',
+        transaction_type: 'wallet_topup',
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(mockNotifyWalletCredited).toHaveBeenCalledWith({
+        amount: 20000,
+        customerId: 'customer-1',
+        merchantId: 'merchant-1',
+        returnTo: undefined,
+      });
+    });
+
+    it.each([
+      ['auth redirector chain', '/auth/callback?returnTo=//evil.com'],
+      ['nested redirect param', '/checkout?redirect=//evil.com'],
+      ['protocol-relative', '//evil.com'],
+      ['non-resumable route', '/settings'],
+    ])('drops a hostile metadata returnTo (%s) before it reaches the push payload', async (_label, returnTo) => {
+      const request = await buildWalletTopUpWebhookRequest({
+        customer_id: 'customer-1',
+        return_to: returnTo,
         transaction_type: 'wallet_topup',
       });
 

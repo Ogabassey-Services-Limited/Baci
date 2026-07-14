@@ -47,6 +47,14 @@ vi.mock('@/lib/payments/run-paid-order-side-effects', () => ({
     mockRunPaidOrderSideEffects(...args),
 }));
 
+const mockNotifyWalletCredited = vi.fn<(...args: unknown[]) => Promise<void>>(
+  async () => undefined
+);
+vi.mock('@/lib/payments/notify-wallet-credited', () => ({
+  notifyWalletCredited: (...args: unknown[]) =>
+    mockNotifyWalletCredited(...args),
+}));
+
 vi.mock('@/lib/payments/verified-gateway-fee', () => ({
   extractVerifiedGatewayFeeNgn: (...args: unknown[]) =>
     mockExtractVerifiedGatewayFeeNgn(...args),
@@ -117,6 +125,47 @@ describe('processWalletFundedOrderPayment', () => {
         settlementGateway: 'paystack',
       })
     );
+  });
+
+  it('schedules a wallet-credit push for the credit the finalizer just committed', async () => {
+    const tasks: Array<() => Promise<void>> = [];
+
+    await processWalletFundedOrderPayment({
+      gatewayReference: 'PSK_REF_1',
+      gatewayResponse: { fees: 30_000, paid_at: '2026-05-26T12:05:00.000Z' },
+      scheduleAfter: (task) => tasks.push(task),
+      supabase: createSupabase() as never,
+      transaction,
+    });
+
+    expect(tasks).toHaveLength(1);
+    await tasks[0]?.();
+    expect(mockNotifyWalletCredited).toHaveBeenCalledWith({
+      amount: 20_000,
+      currency: 'NGN',
+      customerId: 'customer-1',
+      merchantId: 'merchant-1',
+    });
+  });
+
+  it('does not schedule a wallet-credit push when the finalizer never runs', async () => {
+    mockFindActiveWalletFundingIntentForTransfer.mockResolvedValue({
+      kind: 'none',
+    });
+    const scheduleAfter = vi.fn();
+
+    const result = await processWalletFundedOrderPayment({
+      gatewayReference: 'PSK_REF_1',
+      gatewayResponse: { paid_at: '2026-05-26T12:05:00.000Z' },
+      scheduleAfter,
+      supabase: createSupabase() as never,
+      transaction,
+    });
+
+    // Webhook retries find no active intent, so the credit push cannot double-fire.
+    expect(result).toEqual({ kind: 'none' });
+    expect(scheduleAfter).not.toHaveBeenCalled();
+    expect(mockNotifyWalletCredited).not.toHaveBeenCalled();
   });
 
   it('builds finalizer RPC params with ISO paid time and gateway currency', () => {

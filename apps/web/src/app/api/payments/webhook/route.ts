@@ -1,4 +1,5 @@
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
+import { sanitizeResumableWalletReturnTo } from '@baci/shared/lib';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
@@ -364,12 +365,12 @@ async function handleWalletTopUpIfNeeded({
   // a rare duplicate push is accepted rather than changing a shared payments
   // RPC for a flag-gated notification.
   if (walletCredit.firstCredit) {
+    // Re-validated on read (not just on persist): gateway-supplied metadata is
+    // echoed back to us, so the deep-link destination is re-checked against the
+    // resumable allowlist before it can ever reach a push payload.
     const returnTo =
-      typeof metadata.returnTo === 'string'
-        ? metadata.returnTo
-        : typeof metadata.return_to === 'string'
-          ? metadata.return_to
-          : undefined;
+      sanitizeResumableWalletReturnTo(metadata.returnTo) ??
+      sanitizeResumableWalletReturnTo(metadata.return_to);
     after(() =>
       notifyWalletCredited({
         amount,

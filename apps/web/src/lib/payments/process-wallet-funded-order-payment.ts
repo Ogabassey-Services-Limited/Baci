@@ -18,6 +18,7 @@ import {
   fetchOrderPaymentTransactionByOrder,
 } from '@/lib/payments/order-wallet-funding-queries';
 import type { ScheduleAfter } from '@/lib/payments/paid-order-side-effect-types';
+import { scheduleWalletFundedCreditNotification } from '@/lib/payments/schedule-wallet-funded-credit-notification';
 import { extractVerifiedGatewayFeeNgn } from '@/lib/payments/verified-gateway-fee';
 import { runWalletFundedPaidOrderSideEffects } from '@/lib/payments/wallet-funded-order-side-effects';
 
@@ -410,6 +411,19 @@ export async function processWalletFundedOrderPayment({
     message: 'Wallet-funded order finalizer completed',
     orderId: finalizer.order_id ?? match.intent.orderId,
     orderPaid: finalizer.order_paid === true,
+  });
+  // The finalizer has committed the wallet credit for this transfer (and only
+  // an active intent can reach it, so this is the first and only credit).
+  // Scheduled off the response path — see
+  // schedule-wallet-funded-credit-notification.ts. Additive: no control flow,
+  // status code, or idempotency below is affected.
+  scheduleWalletFundedCreditNotification({
+    currency: getCurrency(gatewayResponse),
+    customerId: match.intent.customerId,
+    fundedAmount: normalizeFinalizerAmount(finalizer.funded_amount, amount),
+    gatewayReference,
+    merchantId: match.intent.merchantId,
+    scheduleAfter,
   });
   if (finalizer.order_paid === true && !finalizer.order_id) {
     logger.warn({

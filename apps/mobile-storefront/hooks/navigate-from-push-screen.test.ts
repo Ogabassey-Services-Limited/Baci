@@ -76,15 +76,44 @@ describe('navigateFromPushScreen', () => {
     expect(push).toHaveBeenCalledTimes(2);
   });
 
+  it('resumes an allowlisted utility flow with its repeat params', () => {
+    navigateFromPushScreen('wallet', {
+      returnTo: '/utilities/airtime?repeatAmount=500',
+    });
+
+    expect(push).toHaveBeenNthCalledWith(1, '/wallet');
+    expect(push).toHaveBeenNthCalledWith(
+      2,
+      '/utilities/airtime?repeatAmount=500'
+    );
+    expect(push).toHaveBeenCalledTimes(2);
+  });
+
   it('drops a malicious returnTo and falls back to the bare wallet', () => {
-    for (const returnTo of ['//evil.com', '/../secrets', '%2f%2fevil']) {
+    const maliciousReturnTos = [
+      '//evil.com',
+      '/../secrets',
+      '%2f%2fevil',
+      // Open-redirect chain: an internal redirector that would forward the tap
+      // to an attacker destination via its own returnTo.
+      '/auth/callback?returnTo=//evil.com',
+      '/auth/callback?returnTo=https://evil.com',
+      // Nested redirect params on an otherwise allowlisted destination.
+      '/checkout?redirect=//evil.com',
+      '/checkout?next=/auth/callback',
+      '/checkout%3FreturnTo=%2F%2Fevil.com',
+      // Non-resumable internal routes are not push destinations at all.
+      '/settings',
+      '/utilities/crypto',
+    ];
+    for (const returnTo of maliciousReturnTos) {
       navigateFromPushScreen('wallet', { returnTo });
     }
 
     for (const call of push.mock.calls) {
       expect(call[0]).toBe('/wallet');
     }
-    expect(push).toHaveBeenCalledTimes(3);
+    expect(push).toHaveBeenCalledTimes(maliciousReturnTos.length);
   });
 
   it('defaults the utility-history type to power when unspecified', () => {
