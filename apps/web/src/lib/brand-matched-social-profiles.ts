@@ -61,11 +61,7 @@ function profileMatchesBrandIdentity(
     return true;
   }
 
-  if (
-    brandIdentity.length >= 5 &&
-    profile.length === brandIdentity.length + 1 &&
-    profile.startsWith(brandIdentity)
-  ) {
+  if (brandIdentity.length >= 5 && profile.startsWith(brandIdentity)) {
     return true;
   }
 

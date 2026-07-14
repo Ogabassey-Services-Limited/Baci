@@ -7,10 +7,12 @@ describe('filterBrandMatchedSocialProfiles', () => {
       filterBrandMatchedSocialProfiles('Ogabassey', [
         'https://www.youtube.com/@ogabassey',
         'https://www.linkedin.com/company/ogabasseyy',
+        'https://facebook.com/ogabasseyyy',
       ])
     ).toEqual([
       'https://www.youtube.com/@ogabassey',
       'https://www.linkedin.com/company/ogabasseyy',
+      'https://facebook.com/ogabasseyyy',
     ]);
   });
 
