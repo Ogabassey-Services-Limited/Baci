@@ -155,6 +155,7 @@ describe('creditWalletTopUp', () => {
       creditWalletTopUp({ ...walletTopUpInput, supabase: client })
     ).resolves.toEqual({
       balance: 2250,
+      firstCredit: true,
       reference: 'WAL-123',
       transactionId: 'wallet-credit-2',
     });
