@@ -1,6 +1,6 @@
 # C0 — Route-Classification Feasibility Brief
 
-**Goal:** give `proxy.ts` a machine-readable public-cacheable / public-no-store / private route classification from a *supported* source, with no runtime `.next` manifest reads. Read from `origin/main` (`c8108a052d`).
+**Goal:** give `proxy.ts` a machine-readable public-cacheable / public-no-store / private route classification from a *supported* source, with no runtime `.next` manifest reads. Original read at `origin/main@c8108a052d`; revalidated at `origin/main@6758e4db3f`.
 
 **Bottom line: feasible and low-risk.** `proxy.ts` already imports plain typed constants from `@/config/*` (e.g. `@/config/storefront-cache`), which Next bundles into the middleware at build time. A build-time-generated typed `.ts` artifact under `src/config/` is therefore importable identically — zero runtime manifest read, edge/Node-runtime-agnostic as long as the artifact is a pure constant module. The route tree is small (74 storefront `page.tsx`/`route.ts`), and the monorepo already has a filesystem-tree-walking drift test precedent (`apps/web`… no — `apps/mobile-admin/scripts/expo-router-app-tree.test.ts`) that a storefront drift test can mirror.
 
@@ -189,6 +189,7 @@ export const RESERVED_STOREFRONT_SEGMENTS: ReadonlySet<string> = /* filter reser
 export const CACHEABLE_PUBLIC_STOREFRONT_FIRST_SEGMENTS: ReadonlySet<string> = /* … */;
 export const NON_CACHEABLE_STOREFRONT_FIRST_SEGMENTS: ReadonlySet<string> = /* … */;
 export const STOREFRONT_ROUTE_FIRST_SEGMENTS: ReadonlySet<string> = /* all names */;
+export const STOREFRONT_METADATA_CACHE_NON_SEO_SEGMENTS: ReadonlySet<string> = /* visibility === 'private' */;
 export const NESTED_PRODUCT_SUBROUTE_EXCLUSIONS: ReadonlySet<string> = /* subroute names */;
 export const CATEGORY_LISTING_HUB_SEGMENTS: ReadonlySet<string> = /* has2SegmentRoute */;
 ```
@@ -206,7 +207,7 @@ export const CATEGORY_LISTING_HUB_SEGMENTS: ReadonlySet<string> = /* has2Segment
 2. Walk `app/(storefront)/[slug]/**` at test time (fs), re-derive the artifact in memory.
 3. `expect(reDerived).toEqual(committed)` — fails if a route was added/removed/moved without regenerating. Error message: "run `tsx src/scripts/generate-storefront-route-classification.ts`".
 4. **Completeness assertion:** every discovered leaf route maps to exactly one first-segment record and the override manifest has no stale keys (an override for a segment that no longer exists → fail). This closes the "new route added, nobody classified it" hole — a brand-new `(commerce)/refund/` folder fails CI until classified.
-5. **Invariant assertions** (independent of the tree, catch bad overrides): no `private` segment is also in any cacheable-view Set; every `private` segment has `visibility:'private'`; `public-cacheable-*` implies `visibility:'public'`.
+5. **Invariant assertions** (independent of the tree, catch bad overrides): no `private` segment is also in any cacheable-view Set; every `private` segment has `visibility:'private'`; `public-cacheable-*` implies `visibility:'public'`; and `STOREFRONT_METADATA_CACHE_NON_SEO_SEGMENTS` exactly equals the segments with `visibility:'private'`. Replace the current hand-maintained proxy set with this derived view in C0 so metadata-cache partitioning cannot drift from route privacy.
 
 **Secondary:** retain the colocated Vitest derivation/invariant suite for focused local diagnostics, but do not treat targeted Vitest as the freshness gate. `forceRerunTriggers` is an acceptable alternative only if route-tree and manifest changes are exhaustively included and tested; the explicit generator check is the simpler contract.
 
@@ -242,7 +243,7 @@ B3 must lock in that **every reserved first segment is excluded from the categor
 - **All other reserved records:** table-drive the same collision case from every remaining `reserved: true` artifact entry (including public-cacheable app routes such as `blog`, `products`, and `about`) and assert the declared app-route class. This makes adding a reserved segment without a collision case fail the derivation/invariant suite.
 - **Inverse (must NOT be over-reserved):** a *product* whose slug equals a reserved name, sitting under a real category, must stay a **cacheable PDP** — reservation is FIRST-segment only:
   - `/smartphones/checkout`, `/smartphones/account`, `/laptops/wallet` → `public-cacheable-pdp` headers (`public, max-age=0, must-revalidate` + split CDN), **not** no-store. This is the highest-value regression guard: it proves the private set doesn't leak into 2nd-segment product-slug space.
-- `/{category}/compare` and `/{category}/best-under/{band}` where `{category}` collides with a reserved name are possible today because category creation slugifies names without a reserved-segment denylist. Include `/checkout/compare`, `/receipts/compare`, `/checkout/best-under/500000`, and equivalent custom-domain/slug-prefixed cases; these nested hub shapes must classify as `public-cacheable-listing` rather than inheriting the private class of the same first segment's single-level app route. Also assert `/smartphones/compare` stays `public-cacheable-listing` (`s-maxage=300`) and is not treated as a PDP.
+- Nested listing recognition must apply **only after the category root passes the reserved-segment check**. Include `/checkout/compare`, `/receipts/compare`, `/checkout/best-under/500000`, and equivalent custom-domain/slug-prefixed cases; they must never classify as `public-cacheable-listing` even if a legacy category row has that slug. Fail closed to the reserved first segment's no-store/private disposition (or the route's eventual 404) and do not attach cacheable CDN headers. Also assert non-reserved `/smartphones/compare` and `/smartphones/best-under/500000` stay `public-cacheable-listing` (`s-maxage=300`) and are not treated as PDPs.
 
 **E. Retired-slug strip must not break live private/app routes** (a store once slugged `auth`/`feeds`/`account` on its custom domain):
 - `custom.example/auth/confirm`, `custom.example/feeds/google`, `custom.example/account/orders` → route survives (no prefix strip to `/confirm` etc.).

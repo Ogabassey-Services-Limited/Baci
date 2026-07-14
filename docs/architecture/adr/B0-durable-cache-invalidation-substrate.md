@@ -1,7 +1,7 @@
 # ADR B0 — Durable cache-invalidation substrate & drainer runtime
 
 **Status:** proposed (design adopted 2026-07-11; implementation gated behind the workaround-retirement-plan non-security gate) · **Owner sign-off required for:** the VPS deploy step (crontab + `deploy.sh`) and the drain-latency SLA.
-**Context source:** `docs/architecture/discovery/B0-drainer-runtime-brief.md`. **Revalidated vs** `origin/main@1ba7562b64`.
+**Context source:** `docs/architecture/discovery/B0-drainer-runtime-brief.md`. **Revalidated vs** `origin/main@6758e4db3f`.
 
 ## Context
 

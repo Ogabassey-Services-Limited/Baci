@@ -1,6 +1,6 @@
 # A1 Per-Route Decision Matrix — Storefront Catalog Prerender
 
-**Scope:** Read-only analysis of `origin/main` @ `c8108a052dfccfb0c99f4c5e6cac96a56dad9587`. For each of the 6 catalog routes: GO/NO-GO for a prerendered (`generateStaticParams`) PPR shell, the concrete replacement for the request-time behavior it would lose, and the `generateStaticParams` source.
+**Scope:** Read-only analysis originally captured at `origin/main@c8108a052d` and revalidated at `origin/main@6758e4db3f`. For each of the 6 catalog routes: GO/NO-GO for a prerendered (`generateStaticParams`) PPR shell, the concrete replacement for the request-time behavior it would lose, and the `generateStaticParams` source.
 
 ## The load-bearing precedent this matrix is calibrated against
 
@@ -25,10 +25,10 @@ The static-params file's own comment is the governing SEO fact for this whole ma
 | 2 | `(pdp)/products/[productSlug]/page.tsx` (flat PDP) | `searchParams` (variant safety-net) + DB legacy lookup | **no** — redirect surface, always noindex | **EXCLUDE FROM A1** (NO-GO, keep dynamic) | n/a |
 | 3 | `(listing)/[category]/page.tsx` | `searchParams` (page + facets) | yes (page-1 canonical) | **KEEP DYNAMIC** (NO-GO under current query-param metadata contract) | n/a |
 | 4 | `(listing)/products/page.tsx` | `searchParams` (page + facets) | yes (page-1 canonical) | **KEEP DYNAMIC** (NO-GO under current query-param metadata contract) | n/a |
-| 5 | `(listing)/compare/page.tsx` (global hub) | `searchParams` (noindex gate only) | yes (fixed `/compare` canonical) | **MAKE SHELL-RESOLVABLE** (GO) | `[{ slug: OGABASSEY_DOMAIN }]` (single) |
+| 5 | `(listing)/compare/page.tsx` (global hub) | `searchParams` (noindex gate) + active-`compare` category fallback into query-dependent category metadata | yes (fixed `/compare` canonical) | **BLOCKED / KEEP DYNAMIC** until the fallback is removed or made param-only; then conditional GO | n/a until prerequisite; afterward `[{ slug: OGABASSEY_DOMAIN }]` |
 | 6 | `(listing)/search/page.tsx` | `searchParams` (`q`) + `headers()` | **no** — always `noindex` | **KEEP DYNAMIC + noindex** (NO-GO, confirmed) | n/a |
 
-Net: **1 GO (row 5) and 5 NO-GO (rows 1–4 and 6).** Concretely: only the global compare hub accepts an explicit query-variant metadata tradeoff and is approved to prerender; the other five routes stay dynamic.
+Net: **0 immediate GO, 1 blocked conditional GO (row 5), and 5 NO-GO (rows 1–4 and 6).** The global compare hub is the only promising shell, but it stays dynamic until its active-`compare` category fallback no longer delegates to query-dependent category metadata.
 
 ---
 
@@ -91,9 +91,11 @@ Structurally identical to Route 3 minus the dynamic category segment: `generateM
 
 ## Route 5 — `(listing)/compare/page.tsx` (global compare hub)
 
-**Verdict: MAKE SHELL-RESOLVABLE (GO — full base shell).**
+**Verdict: BLOCKED / KEEP DYNAMIC under the current fallback; conditional GO after the prerequisite below.**
 
-This is the strongest GO of the group: **no pagination**, and the canonical is a **fixed** `${storeUrl}/compare`. `generateMetadata` only touches `searchParams` for the `hasCompareHubSearchParams` **noindex-on-query-variants** gate, plus an inventory-derived `hasCompareSections` gate. (It also delegates to the category-metadata path when an active "compare" category exists — that delegation stays intact behind the same fallback.)
+The native global hub has **no pagination**, and its canonical is a fixed `${storeUrl}/compare`. However, current `generateMetadata` first detects an active category whose slug is `compare` and delegates to `generateCategoryMetadata(buildCompareCategoryPageProps(slug, searchParams))`. That category metadata awaits pagination/facet query parameters and is a Route 3 NO-GO. Keeping this fallback while adding static params would leave the active-`compare` category scenario with streamed metadata, contradicting the claimed baked head.
+
+**Prerequisite before GO:** enforce the C0/B3 reserved-root contract for `compare`, migrate/rename any legacy active `compare` category, and remove the category fallback from this global app route. Alternatively, replace the fallback with a reviewed param-only metadata path that preserves its canonical/robots requirements without awaiting `searchParams`. Until one of those changes lands with regression tests, do not add `generateStaticParams` here.
 
 **Canonical/robots rule without `searchParams`:** because the canonical is *always* `/compare`, any `?foo=bar` variant is a non-canonical URL that Google consolidates to the canonical on its own — the request-time `noindex` gate is belt-and-suspenders, not load-bearing. So the baked shell can safely be:
 
@@ -103,7 +105,7 @@ This is the strongest GO of the group: **no pagination**, and the canonical is a
 
 The remaining request-time input is the anti-thin-page `hasCompareSections` gate (`noindex` when the hub is empty). For the enumerated OgaBassey shell this can bake `index,follow` on the assumption the hub is non-empty (OgaBassey's compare epic guarantees sections); if you want the empty-hub guard preserved, set `dynamicParams = true` so any *other* merchant / empty state renders on demand with the existing gate. The body is already `connection()` + `Suspense`, so it needs no change.
 
-**`generateStaticParams` source:** `[{ slug: OGABASSEY_DOMAIN }]` (single).
+**Conditional `generateStaticParams` source after the prerequisite:** `[{ slug: OGABASSEY_DOMAIN }]` (single).
 
 ---
 
@@ -121,7 +123,7 @@ The remaining request-time input is the anti-thin-page `hasCompareSections` gate
 
 ## Cross-cutting implementation notes
 
-- **Single-tenant prerender is the established convention.** The approved Route 5 implementation enumerates **OgaBassey only** via `OGABASSEY_DOMAIN` from `@/config/ogabassey`; other tenants keep rendering on demand via `dynamicParams = true`.
-- **`dynamicParams = true` is mandatory** on Route 5 to preserve on-demand rendering and the existing empty-hub guard for non-enumerated params. Without it, non-OgaBassey stores 404.
-- **cacheComponents ≥1-param rule:** Route 5 should mirror the established placeholder-param + fail-open-on-query-error shape if its empty-hub fallback needs build-time data, so a query failure degrades to a valid placeholder shell instead of failing the build.
+- **Single-tenant prerender is the established convention.** If Route 5's prerequisite is completed, enumerate **OgaBassey only** via `OGABASSEY_DOMAIN` from `@/config/ogabassey`; other tenants keep rendering on demand via `dynamicParams = true`.
+- **`dynamicParams = true` is mandatory** for that conditional Route 5 implementation to preserve on-demand rendering and the existing empty-hub guard for non-enumerated params. Without it, non-OgaBassey stores 404.
+- **cacheComponents ≥1-param rule:** after the prerequisite, Route 5 should mirror the established placeholder-param + fail-open-on-query-error shape if its empty-hub fallback needs build-time data, so a query failure degrades to a valid placeholder shell instead of failing the build.
 - **Rows 3 and 4 have no current refactor opener.** A param-only helper does not make the route static if `generateMetadata` still reads `searchParams` for other requests. Their query metadata must move to a separate route contract or be explicitly retired before either verdict changes.

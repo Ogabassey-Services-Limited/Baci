@@ -1,6 +1,6 @@
 # S1 all-runtime direct-access census — `merchants` table — WEB half (`apps/web/src`)
 
-Original census source: `origin/main@c8108a052d`; revalidated after rebase at `origin/main@1ba7562b64`. READ-ONLY. Every non-test `.from('merchants')` occurrence plus merchants-reading/-writing RPCs. Subsumes the S0 anon-web read set.
+Original census source: `origin/main@c8108a052d`; revalidated after rebase at `origin/main@6758e4db3f`. READ-ONLY. Every non-test `.from('merchants')` occurrence plus merchants-reading/-writing RPCs. Subsumes the S0 anon-web read set.
 
 ## Client-factory → runtime-role legend
 
