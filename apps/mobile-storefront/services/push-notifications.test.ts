@@ -12,6 +12,9 @@ const mockLogger = {
 };
 let mockPlatformOS: 'android' | 'ios' = 'ios';
 const mockCallOrder: string[] = [];
+const mockSetNotificationChannelAsync = jest.fn(async (channelId: string) => {
+  mockCallOrder.push(`setNotificationChannelAsync:${channelId}`);
+});
 
 jest.mock('@baci/shared/lib', () => ({
   getStorefrontNotificationNavigationTarget: jest.fn(),
@@ -41,9 +44,7 @@ jest.mock('expo-notifications', () => ({
     mockCallOrder.push('scheduleNotificationAsync');
     return `notification:${JSON.stringify(request)}`;
   }),
-  setNotificationChannelAsync: jest.fn(async () => {
-    mockCallOrder.push('setNotificationChannelAsync');
-  }),
+  setNotificationChannelAsync: mockSetNotificationChannelAsync,
   setNotificationHandler: jest.fn(),
   AndroidImportance: { DEFAULT: 'default', HIGH: 'high' },
   SchedulableTriggerInputTypes: { TIME_INTERVAL: 'timeInterval' },
@@ -257,17 +258,37 @@ describe('registerForPushNotifications', () => {
 
   it('creates Android notification channels before requesting an Expo push token', async () => {
     mockPlatformOS = 'android';
+    const settleChannels: Array<() => void> = [];
+    mockSetNotificationChannelAsync.mockImplementation(async (channelId) => {
+      mockCallOrder.push(`setNotificationChannelAsync:${channelId}`);
+      return await new Promise<void>((resolve) => {
+        settleChannels.push(resolve);
+      });
+    });
 
-    await registerForPushNotifications();
+    const registration = registerForPushNotifications();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(mockSetNotificationChannelAsync).toHaveBeenCalledTimes(4);
+    expect(mockCallOrder).not.toContain('getExpoPushTokenAsync');
+
+    settleChannels.forEach((resolve) => {
+      resolve();
+    });
+    await registration;
 
     // orders, payments, promotions, general — the payments channel must exist
     // before a wallet-credited push targets it on Android 8+.
     expect(mockCallOrder).toEqual([
-      'setNotificationChannelAsync',
-      'setNotificationChannelAsync',
-      'setNotificationChannelAsync',
-      'setNotificationChannelAsync',
+      'setNotificationChannelAsync:orders',
+      'setNotificationChannelAsync:payments',
+      'setNotificationChannelAsync:promotions',
+      'setNotificationChannelAsync:general',
       'getExpoPushTokenAsync',
     ]);
+    expect(mockSetNotificationChannelAsync).toHaveBeenCalledWith(
+      'payments',
+      expect.objectContaining({ name: 'Payments' })
+    );
   });
 });

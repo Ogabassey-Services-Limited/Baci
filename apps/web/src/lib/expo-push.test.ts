@@ -713,6 +713,16 @@ describe('notifyCustomer', () => {
     // A wallet credit for merchant A must never push to devices registered
     // for merchant B's storefront.
     expect(mockChain.eq).toHaveBeenCalledWith('merchant_id', 'merchant-123');
+    expect(mockChain.insert).toHaveBeenNthCalledWith(
+      1,
+      expect.arrayContaining([
+        expect.objectContaining({ merchant_id: 'merchant-123' }),
+      ])
+    );
+    expect(mockChain.insert).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ merchant_id: 'merchant-123' })
+    );
   });
 
   it('persists title, body, and payload for successful customer sends', async () => {

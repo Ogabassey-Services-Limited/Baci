@@ -23,7 +23,9 @@ const {
   WALLET_FUNDING_INTENT_STORAGE_KEY,
   WALLET_FUNDING_INTENT_TTL_MS,
   clearWalletFundingIntent,
+  clearWalletFundingIntentIfUnchanged,
   consumeWalletFundingIntent,
+  readWalletFundingIntentSnapshot,
   storeWalletFundingIntent,
 } =
   require('./wallet-funding-intent') as typeof import('./wallet-funding-intent');
@@ -120,6 +122,21 @@ describe('wallet-funding-intent', () => {
       expect(mockRemoveItem).toHaveBeenCalledWith(
         WALLET_FUNDING_INTENT_STORAGE_KEY
       );
+    });
+
+    it('does not return an intent when the single-use clear fails', async () => {
+      mockGetItem.mockResolvedValue(
+        JSON.stringify({
+          customerId: CUSTOMER_ID,
+          returnTo: '/checkout',
+          savedAt: NOW - 1000,
+        })
+      );
+      mockRemoveItem.mockRejectedValueOnce(new Error('storage unavailable'));
+
+      await expect(
+        consumeWalletFundingIntent(CUSTOMER_ID)
+      ).resolves.toBeUndefined();
     });
 
     it('returns undefined when nothing is stored', async () => {
@@ -280,7 +297,37 @@ describe('wallet-funding-intent', () => {
     it('swallows storage failures', async () => {
       mockRemoveItem.mockRejectedValue(new Error('nope'));
 
-      await expect(clearWalletFundingIntent()).resolves.toBeUndefined();
+      await expect(clearWalletFundingIntent()).resolves.toBe(false);
+    });
+  });
+
+  describe('conditional intent cleanup', () => {
+    it('preserves a newer intent when an older payment completes later', async () => {
+      mockGetItem
+        .mockResolvedValueOnce('old-intent')
+        .mockResolvedValueOnce('new-intent');
+
+      const snapshot = await readWalletFundingIntentSnapshot();
+      await expect(clearWalletFundingIntentIfUnchanged(snapshot)).resolves.toBe(
+        false
+      );
+
+      expect(mockRemoveItem).not.toHaveBeenCalled();
+    });
+
+    it('clears the exact intent observed before confirmation', async () => {
+      mockGetItem
+        .mockResolvedValueOnce('same-intent')
+        .mockResolvedValueOnce('same-intent');
+
+      const snapshot = await readWalletFundingIntentSnapshot();
+      await expect(clearWalletFundingIntentIfUnchanged(snapshot)).resolves.toBe(
+        true
+      );
+
+      expect(mockRemoveItem).toHaveBeenCalledWith(
+        WALLET_FUNDING_INTENT_STORAGE_KEY
+      );
     });
   });
 });

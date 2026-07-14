@@ -31,6 +31,8 @@ describe('sanitizeWalletReturnToPath', () => {
     ['encoded backslash', '%5c%5cevil.com'],
     ['relative', 'utilities/airtime'],
     ['fragment', '/checkout#/../secrets'],
+    ['encoded query delimiter in the path', '/checkout%3Fmode=resume'],
+    ['encoded fragment delimiter in the path', '/checkout%23resume'],
     ['nested returnTo param', '/checkout?returnTo=//evil.com'],
     ['nested redirect param', '/checkout?redirect=%2F%2Fevil.com'],
     ['nested next param', '/checkout?next=/auth/callback'],

@@ -370,6 +370,7 @@ async function handleWalletTopUpIfNeeded({
     metadata,
     reference,
     scheduleAfter: after,
+    transactionId: transaction.id,
   });
 
   return NextResponse.json({

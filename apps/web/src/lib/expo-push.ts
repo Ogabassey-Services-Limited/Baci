@@ -347,6 +347,7 @@ export async function notifyCustomer(
     console.error('Error fetching customer push tokens:', error);
     const result = { sent: 0, failed: 0, errors: [error.message] };
     await recordPushAttempt(supabase, {
+      merchantId: options?.merchantId,
       userId,
       appType: 'storefront',
       channel: channelId,
@@ -363,6 +364,7 @@ export async function notifyCustomer(
   if (!tokens || tokens.length === 0) {
     const result = { sent: 0, failed: 0, errors: [] };
     await recordPushAttempt(supabase, {
+      merchantId: options?.merchantId,
       userId,
       appType: 'storefront',
       channel: channelId,
@@ -393,6 +395,7 @@ export async function notifyCustomer(
     const tickets = await sendPushNotifications(messages);
 
     result = await processTickets(tickets, tokens, supabase, {
+      merchantId: options?.merchantId,
       userId,
       appType: 'storefront',
       channel: channelId,
@@ -409,6 +412,7 @@ export async function notifyCustomer(
   }
 
   await recordPushAttempt(supabase, {
+    merchantId: options?.merchantId,
     userId,
     appType: 'storefront',
     channel: channelId,

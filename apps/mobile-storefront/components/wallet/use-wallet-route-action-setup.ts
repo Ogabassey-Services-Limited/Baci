@@ -116,8 +116,8 @@ export function useWalletRouteActionSetup({
     }
     let isActive = true;
     void startWalletFundingSession(customerId, routeIntentId)
-      .then(() => {
-        if (isActive) {
+      .then((session) => {
+        if (session && isActive) {
           setResolvedFundingSessionKey(fundingSessionKey);
         }
       })
@@ -162,7 +162,12 @@ export function useWalletRouteActionSetup({
     }
     // An explicit funding surface without a destination disarms an abandoned
     // old flow. Unrelated wallet opens must preserve an in-flight DVA intent.
-    void storeWalletFundingIntent({ customerId, returnTo: walletReturnTo });
+    void storeWalletFundingIntent({
+      customerId,
+      returnTo: walletReturnTo,
+    }).catch((error: unknown) => {
+      log.warn('Wallet funding intent write rejected.', { error });
+    });
   }, [customerId, routeAction, walletReturnTo]);
 
   const {

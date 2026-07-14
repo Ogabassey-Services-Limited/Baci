@@ -187,6 +187,13 @@ vi.mock('@/lib/supabase/service', () => ({
 const mockReconciliationInsert = vi.hoisted(() =>
   vi.fn().mockResolvedValue({ data: null, error: null })
 );
+const mockClaimWalletCreditPush = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({ status: 'claimed' })
+);
+vi.mock('@/lib/payments/claim-wallet-credit-push', () => ({
+  claimWalletCreditPush: (...args: unknown[]) =>
+    mockClaimWalletCreditPush(...args),
+}));
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: vi.fn(() => ({
     from: vi.fn((table: string) => {

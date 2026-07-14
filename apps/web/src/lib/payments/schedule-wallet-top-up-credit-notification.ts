@@ -1,5 +1,6 @@
 import { sanitizeResumableWalletReturnTo } from '@baci/shared/lib';
 import { logger } from '@/lib/logger';
+import { claimWalletCreditPush } from '@/lib/payments/claim-wallet-credit-push';
 import { notifyWalletCredited } from '@/lib/payments/notify-wallet-credited';
 import type { ScheduleAfter } from '@/lib/payments/paid-order-side-effect-types';
 
@@ -16,6 +17,8 @@ interface ScheduleWalletTopUpCreditNotificationArgs {
   metadata: Record<string, unknown>;
   reference: string;
   scheduleAfter: ScheduleAfter;
+  /** Transaction row used for the atomic one-time notification claim. */
+  transactionId: string;
 }
 
 /**
@@ -25,15 +28,9 @@ interface ScheduleWalletTopUpCreditNotificationArgs {
  * Two routes can credit the same top-up: the payment webhook and the client
  * confirm route (`/api/storefront/customer/wallet/top-up/confirm`, reached via
  * `waitForWalletTopUpConfirmation` on the card path). They race, and
- * `creditWalletTopUp` is idempotent — only the winner sees `firstCredit: true`.
- * Gating the push on `firstCredit` therefore both guarantees the customer is
- * notified regardless of who wins AND that they are notified exactly once: the
- * loser's replay reports `firstCredit: false` and schedules nothing.
- *
- * Known ceiling (unchanged): two CONCURRENT first credits can both pass the
- * pre-RPC ledger check and both report `firstCredit`, so a rare duplicate push
- * is accepted rather than changing a shared payments RPC for a flag-gated
- * notification.
+ * Sequential replays are rejected by `firstCredit`. Concurrent callers can
+ * both pass the pre-RPC ledger check, so the deferred task also claims a marker
+ * on the transaction atomically; only the winner sends the push.
  *
  * Additive and fire-and-forget: it only ever schedules work through the
  * caller's `after(...)` injector and swallows its own errors, so it cannot
@@ -49,6 +46,7 @@ export function scheduleWalletTopUpCreditNotification({
   metadata,
   reference,
   scheduleAfter,
+  transactionId,
 }: ScheduleWalletTopUpCreditNotificationArgs): void {
   if (!firstCredit) {
     return;
@@ -65,19 +63,48 @@ export function scheduleWalletTopUpCreditNotification({
     sanitizeResumableWalletReturnTo(metadata.returnTo) ??
     sanitizeResumableWalletReturnTo(metadata.return_to);
 
-  scheduleAfter(() =>
-    notifyWalletCredited({
-      amount,
-      currency,
-      customerId,
-      merchantId,
-      returnTo,
-    }).catch((error: unknown) => {
-      logger.warn({
-        message: 'Wallet-credited push notification failed',
-        error: error instanceof Error ? error.message : error,
-        reference,
-      });
-    })
-  );
+  const logFailure = (error: unknown) => {
+    logger.warn({
+      message: 'Wallet-credited push notification failed',
+      error: error instanceof Error ? error.message : error,
+      reference,
+    });
+  };
+
+  try {
+    scheduleAfter(async () => {
+      try {
+        let claim = await claimWalletCreditPush({
+          reference,
+          transactionId,
+        });
+        if (claim.status === 'error') {
+          claim = await claimWalletCreditPush({ reference, transactionId });
+        }
+        if (claim.status === 'error') {
+          logFailure(
+            new Error(
+              `Wallet-credit push claim failed after retry: ${claim.error}`
+            )
+          );
+          return;
+        }
+        if (claim.status === 'already_claimed') {
+          return;
+        }
+
+        await notifyWalletCredited({
+          amount,
+          currency,
+          customerId,
+          merchantId,
+          returnTo,
+        });
+      } catch (error: unknown) {
+        logFailure(error);
+      }
+    });
+  } catch (error: unknown) {
+    logFailure(error);
+  }
 }

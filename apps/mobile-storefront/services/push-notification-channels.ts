@@ -22,31 +22,57 @@ export async function ensureAndroidNotificationChannels(): Promise<void> {
   }
   if (!Notifications) return;
 
-  await Notifications.setNotificationChannelAsync('orders', {
-    name: 'Order Updates',
-    description: 'Notifications about your order status',
-    importance: Notifications.AndroidImportance.HIGH,
-    vibrationPattern: [0, 250, 250, 250],
-    lightColor: '#DC2626',
-  });
+  const channels = [
+    {
+      id: 'orders',
+      config: {
+        name: 'Order Updates',
+        description: 'Notifications about your order status',
+        importance: Notifications.AndroidImportance.HIGH,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#DC2626',
+      },
+    },
+    {
+      id: 'payments',
+      config: {
+        name: 'Payments',
+        description: 'Wallet credits and payment updates',
+        importance: Notifications.AndroidImportance.HIGH,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#DC2626',
+      },
+    },
+    {
+      id: 'promotions',
+      config: {
+        name: 'Deals & Promotions',
+        description: 'Special offers and discounts',
+        importance: Notifications.AndroidImportance.DEFAULT,
+      },
+    },
+    {
+      id: 'general',
+      config: {
+        name: 'General',
+        description: 'General notifications',
+        importance: Notifications.AndroidImportance.DEFAULT,
+      },
+    },
+  ];
 
-  await Notifications.setNotificationChannelAsync('payments', {
-    name: 'Payments',
-    description: 'Wallet credits and payment updates',
-    importance: Notifications.AndroidImportance.HIGH,
-    vibrationPattern: [0, 250, 250, 250],
-    lightColor: '#DC2626',
-  });
+  const results = await Promise.allSettled(
+    channels.map(({ config, id }) =>
+      Notifications.setNotificationChannelAsync(id, config)
+    )
+  );
 
-  await Notifications.setNotificationChannelAsync('promotions', {
-    name: 'Deals & Promotions',
-    description: 'Special offers and discounts',
-    importance: Notifications.AndroidImportance.DEFAULT,
-  });
-
-  await Notifications.setNotificationChannelAsync('general', {
-    name: 'General',
-    description: 'General notifications',
-    importance: Notifications.AndroidImportance.DEFAULT,
+  results.forEach((result, index) => {
+    if (result.status === 'rejected') {
+      log.warn('Android notification channel registration failed.', {
+        channel: channels[index]?.id,
+        error: result.reason,
+      });
+    }
   });
 }

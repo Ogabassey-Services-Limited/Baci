@@ -31,6 +31,16 @@ export const WALLET_FUNDING_INTENT_STORAGE_KEY =
 
 /** Matches the route-resume TTL: beyond this the "interrupted purchase" is stale. */
 export const WALLET_FUNDING_INTENT_TTL_MS = 30 * 60 * 1000;
+let fundingIntentOperation = Promise.resolve();
+
+function runFundingIntentOperation<T>(operation: () => Promise<T>): Promise<T> {
+  const result = fundingIntentOperation.then(operation);
+  fundingIntentOperation = result.then(
+    () => undefined,
+    () => undefined
+  );
+  return result;
+}
 
 interface PersistedWalletFundingIntent {
   /** The customer the intent belongs to; only they may consume it. */
@@ -48,12 +58,46 @@ interface StoreWalletFundingIntentInput {
 // never break funding or a notification tap. The worst case is landing on
 // `/wallet`, which is exactly the pre-existing behaviour.
 
-export async function clearWalletFundingIntent(): Promise<void> {
-  try {
-    await asyncStorage.removeItem(WALLET_FUNDING_INTENT_STORAGE_KEY);
-  } catch {
-    // Fail-open
-  }
+export function clearWalletFundingIntent(): Promise<boolean> {
+  return runFundingIntentOperation(async () => {
+    try {
+      await asyncStorage.removeItem(WALLET_FUNDING_INTENT_STORAGE_KEY);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+}
+
+export function readWalletFundingIntentSnapshot(): Promise<string | null> {
+  return runFundingIntentOperation(async () => {
+    try {
+      return await asyncStorage.getItem(WALLET_FUNDING_INTENT_STORAGE_KEY);
+    } catch {
+      return null;
+    }
+  });
+}
+
+export function clearWalletFundingIntentIfUnchanged(
+  snapshot: string | null
+): Promise<boolean> {
+  return runFundingIntentOperation(async () => {
+    try {
+      const current = await asyncStorage.getItem(
+        WALLET_FUNDING_INTENT_STORAGE_KEY
+      );
+      if (current !== snapshot) {
+        return false;
+      }
+      if (current !== null) {
+        await asyncStorage.removeItem(WALLET_FUNDING_INTENT_STORAGE_KEY);
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  });
 }
 
 /**
@@ -74,13 +118,15 @@ export async function storeWalletFundingIntent({
   }
 
   try {
-    await asyncStorage.setItem(
-      WALLET_FUNDING_INTENT_STORAGE_KEY,
-      JSON.stringify({
-        customerId,
-        returnTo,
-        savedAt: Date.now(),
-      } satisfies PersistedWalletFundingIntent)
+    await runFundingIntentOperation(() =>
+      asyncStorage.setItem(
+        WALLET_FUNDING_INTENT_STORAGE_KEY,
+        JSON.stringify({
+          customerId,
+          returnTo,
+          savedAt: Date.now(),
+        } satisfies PersistedWalletFundingIntent)
+      )
     );
   } catch {
     // Fail-open
@@ -103,16 +149,17 @@ export async function storeWalletFundingIntent({
 export async function consumeWalletFundingIntent(
   customerId: string | undefined
 ): Promise<WalletReturnHref | undefined> {
-  let raw: string | null = null;
-  try {
-    raw = await asyncStorage.getItem(WALLET_FUNDING_INTENT_STORAGE_KEY);
-  } catch {
-    return undefined;
-  }
-
-  // Cleared unconditionally: an unparseable or expired record must not survive
-  // to be retried against a later credit.
-  await clearWalletFundingIntent();
+  const raw = await runFundingIntentOperation(async () => {
+    try {
+      const current = await asyncStorage.getItem(
+        WALLET_FUNDING_INTENT_STORAGE_KEY
+      );
+      await asyncStorage.removeItem(WALLET_FUNDING_INTENT_STORAGE_KEY);
+      return current;
+    } catch {
+      return null;
+    }
+  });
 
   if (!raw) {
     return undefined;

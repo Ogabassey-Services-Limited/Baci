@@ -10,8 +10,9 @@ jest.mock('@/lib/wallet-funding-intent', () => ({
 jest.mock('@/lib/wallet-funding-session', () => ({
   startWalletFundingSession: jest.fn(async () => null),
 }));
+const mockWarn = jest.fn();
 jest.mock('@/lib/logger', () => ({
-  createLogger: () => ({ warn: jest.fn() }),
+  createLogger: () => ({ warn: (...args: unknown[]) => mockWarn(...args) }),
 }));
 
 const mockStartSession = jest.mocked(startWalletFundingSession);
@@ -73,6 +74,7 @@ function buildParams(
 describe('useWalletRouteActionSetup', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    storeIntent.mockResolvedValue(undefined);
     // Most tests assert route behavior synchronously and do not need the
     // session-ready transition. Keep the default write pending so it cannot
     // produce an unrelated post-assertion state update outside `act`.
@@ -95,6 +97,21 @@ describe('useWalletRouteActionSetup', () => {
         customerId: 'customer-1',
         returnTo: '/utilities/power?repeatAmount=2000',
       })
+    );
+  });
+
+  it('handles a rejected intent write without an unhandled rejection', async () => {
+    storeIntent.mockRejectedValueOnce(new Error('storage unavailable'));
+
+    renderHook(() =>
+      useWalletRouteActionSetup(buildParams({ walletReturnTo: '/checkout' }))
+    );
+
+    await waitFor(() =>
+      expect(mockWarn).toHaveBeenCalledWith(
+        'Wallet funding intent write rejected.',
+        expect.objectContaining({ error: expect.any(Error) })
+      )
     );
   });
 
@@ -310,7 +327,14 @@ describe('useWalletRouteActionSetup', () => {
     mockStartSession.mockImplementationOnce(
       () =>
         new Promise((resolve) => {
-          settle = () => resolve(null);
+          settle = () =>
+            resolve({
+              anchor: null,
+              customerId: 'customer-1',
+              intentId: 'intent-1',
+              isAnchored: false,
+              startedAt: 1,
+            });
         })
     );
 
@@ -325,6 +349,18 @@ describe('useWalletRouteActionSetup', () => {
     });
 
     expect(result.current).toBe(true);
+  });
+
+  it('keeps credit-baseline resolution gated when the session write returns null', async () => {
+    mockStartSession.mockResolvedValueOnce(null);
+
+    const { result } = renderHook(() =>
+      useWalletRouteActionSetup(buildParams())
+    );
+
+    expect(result.current).toBe(false);
+    await act(async () => {});
+    expect(result.current).toBe(false);
   });
 
   it('keeps the readiness gate closed when the session write rejects', async () => {

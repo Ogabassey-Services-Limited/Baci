@@ -44,6 +44,7 @@ export async function notifyWalletCredited({
       .from('customers')
       .select('user_id')
       .eq('id', customerId)
+      .eq('merchant_id', merchantId)
       .maybeSingle();
 
     if (error) {

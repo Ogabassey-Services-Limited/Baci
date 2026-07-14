@@ -1,5 +1,5 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
+import { claimWalletCreditPush } from '@/lib/payments/claim-wallet-credit-push';
 import { notifyWalletCredited } from '@/lib/payments/notify-wallet-credited';
 import type { ScheduleAfter } from '@/lib/payments/paid-order-side-effect-types';
 
@@ -12,9 +12,7 @@ interface ScheduleWalletFundedCreditNotificationArgs {
   merchantId: string;
   orderId: string;
   scheduleAfter: ScheduleAfter;
-  supabase: SupabaseClient;
   transactionId: string;
-  transactionMetadata: Record<string, unknown>;
 }
 
 /**
@@ -35,9 +33,7 @@ export function scheduleWalletFundedCreditNotification({
   merchantId,
   orderId,
   scheduleAfter,
-  supabase,
   transactionId,
-  transactionMetadata,
 }: ScheduleWalletFundedCreditNotificationArgs): void {
   if (!(Number.isFinite(fundedAmount) && fundedAmount > 0)) {
     return;
@@ -48,27 +44,25 @@ export function scheduleWalletFundedCreditNotification({
     // before either sees the intent's updated last-reference fields. Only the
     // UPDATE that still sees no marker may schedule this transfer's push.
     try {
-      const { data: claim, error: claimError } = await supabase
-        .from('transactions')
-        .update({
-          metadata: {
-            ...transactionMetadata,
-            wallet_credit_push_scheduled_at: new Date().toISOString(),
-          },
-        })
-        .eq('id', transactionId)
-        .is('metadata->>wallet_credit_push_scheduled_at', null)
-        .select('id')
-        .maybeSingle<{ id: string }>();
-
-      if (claimError || !claim) {
-        if (claimError) {
-          logger.warn({
-            error: claimError.message,
-            gatewayReference,
-            message: 'Wallet-funded credit push claim failed',
-          });
-        }
+      let claim = await claimWalletCreditPush({
+        reference: gatewayReference,
+        transactionId,
+      });
+      if (claim.status === 'error') {
+        claim = await claimWalletCreditPush({
+          reference: gatewayReference,
+          transactionId,
+        });
+      }
+      if (claim.status === 'error') {
+        logger.warn({
+          error: claim.error,
+          gatewayReference,
+          message: 'Wallet-funded credit push claim failed after retry',
+        });
+        return;
+      }
+      if (claim.status === 'already_claimed') {
         return;
       }
 

@@ -12667,6 +12667,10 @@ export type Database = {
         Args: { p_gateway: string; p_payment_date?: string };
         Returns: string;
       };
+      claim_wallet_credit_push: {
+        Args: { p_transaction_id: string };
+        Returns: boolean;
+      };
       can_access_order: {
         Args: { p_customer_id: string; p_merchant_id: string };
         Returns: boolean;

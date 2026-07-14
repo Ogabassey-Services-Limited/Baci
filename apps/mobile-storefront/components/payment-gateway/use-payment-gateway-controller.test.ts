@@ -11,7 +11,10 @@ import {
   VtuPaymentStillProcessingError,
   waitForVtuConfirmation,
 } from '@/lib/vtu-checkout';
-import { clearWalletFundingIntent } from '@/lib/wallet-funding-intent';
+import {
+  clearWalletFundingIntentIfUnchanged,
+  readWalletFundingIntentSnapshot,
+} from '@/lib/wallet-funding-intent';
 import {
   WalletTopUpStillProcessingError,
   waitForWalletTopUpConfirmation,
@@ -49,7 +52,8 @@ jest.mock('@/lib/clipboard', () => ({
 }));
 
 jest.mock('@/lib/wallet-funding-intent', () => ({
-  clearWalletFundingIntent: jest.fn(),
+  clearWalletFundingIntentIfUnchanged: jest.fn(),
+  readWalletFundingIntentSnapshot: jest.fn(),
 }));
 
 jest.mock('@/lib/customer-savings', () => ({
@@ -107,7 +111,12 @@ const mockWaitForWalletTopUpConfirmation = jest.mocked(
 const mockWaitForSavingsAuthorizationConfirmation = jest.mocked(
   waitForSavingsAuthorizationConfirmation
 );
-const mockClearWalletFundingIntent = jest.mocked(clearWalletFundingIntent);
+const mockClearWalletFundingIntent = jest.mocked(
+  clearWalletFundingIntentIfUnchanged
+);
+const mockReadWalletFundingIntentSnapshot = jest.mocked(
+  readWalletFundingIntentSnapshot
+);
 
 const orderParams = {
   amount: '1000',
@@ -179,7 +188,8 @@ describe('usePaymentGatewayController', () => {
         balance: 7500,
       },
     });
-    mockClearWalletFundingIntent.mockResolvedValue(undefined);
+    mockClearWalletFundingIntent.mockResolvedValue(true);
+    mockReadWalletFundingIntentSnapshot.mockResolvedValue('intent-snapshot-1');
     mockWaitForSavingsAuthorizationConfirmation.mockResolvedValue({
       reference: 'SAV-AUTH-123',
       savedPaymentMethodId: 'card-1',
@@ -463,6 +473,9 @@ describe('usePaymentGatewayController', () => {
     await waitFor(() =>
       expect(mockClearWalletFundingIntent).toHaveBeenCalledTimes(1)
     );
+    expect(mockClearWalletFundingIntent).toHaveBeenCalledWith(
+      'intent-snapshot-1'
+    );
     expect(result.current.errorMessage).toBeNull();
     await waitFor(() => expect(result.current.status).toBe('success'));
     expect(mockInvalidateQueries).toHaveBeenCalledWith({
@@ -497,6 +510,55 @@ describe('usePaymentGatewayController', () => {
     });
 
     expect(router.replace).toHaveBeenCalledWith('/imei-check');
+  });
+
+  it('keeps a confirmed wallet top-up successful when intent cleanup fails', async () => {
+    jest.useFakeTimers({ advanceTimers: true });
+    mockSearchParams = { ...walletParams };
+    mockClearWalletFundingIntent.mockResolvedValueOnce(false);
+    const { result } = renderHook(() => usePaymentGatewayController());
+
+    act(() => {
+      result.current.handleNavigationChange(
+        navigation('https://usebaci.com/checkout/success?reference=WAL-123')
+      );
+    });
+
+    await waitFor(() => expect(result.current.status).toBe('success'));
+    expect(result.current.errorMessage).toBeNull();
+  });
+
+  it('clears the funding intent after confirmation even when the screen unmounts', async () => {
+    mockSearchParams = { ...walletParams };
+    const confirmation =
+      deferred<Awaited<ReturnType<typeof waitForWalletTopUpConfirmation>>>();
+    mockWaitForWalletTopUpConfirmation.mockImplementationOnce(
+      () => confirmation.promise
+    );
+    const { result, unmount } = renderHook(() => usePaymentGatewayController());
+
+    act(() => {
+      result.current.handleNavigationChange(
+        navigation('https://usebaci.com/checkout/success?reference=WAL-123')
+      );
+    });
+    await waitFor(() =>
+      expect(mockWaitForWalletTopUpConfirmation).toHaveBeenCalledTimes(1)
+    );
+    unmount();
+
+    await act(async () => {
+      confirmation.resolve({
+        amount: 2500,
+        reference: 'WAL-123',
+        status: 'successful',
+        success: true,
+        wallet: { balance: 7500 },
+      });
+      await confirmation.promise;
+    });
+
+    expect(mockClearWalletFundingIntent).toHaveBeenCalledTimes(1);
   });
 
   it('confirms savings card authorization before returning to Start Savings', async () => {

@@ -2,6 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockNotifyWalletCredited = vi.fn<(...args: unknown[]) => Promise<void>>();
 const mockWarn = vi.fn();
+const mockClaimWalletCreditPush = vi.hoisted(() => vi.fn());
+
+vi.mock('@/lib/payments/claim-wallet-credit-push', () => ({
+  claimWalletCreditPush: (...args: unknown[]) =>
+    mockClaimWalletCreditPush(...args),
+}));
 
 vi.mock('@/lib/payments/notify-wallet-credited', () => ({
   notifyWalletCredited: (...args: unknown[]) =>
@@ -25,27 +31,13 @@ const baseArgs = {
   merchantId: 'merchant-1',
   orderId: '11111111-1111-4111-8111-111111111111',
   transactionId: 'transaction-1',
-  transactionMetadata: { transaction_type: 'wallet_topup' },
 };
-
-function createClaimingSupabase(claimed = true) {
-  const query = {
-    eq: vi.fn(() => query),
-    is: vi.fn(() => query),
-    maybeSingle: vi.fn(async () => ({
-      data: claimed ? { id: 'transaction-1' } : null,
-      error: null,
-    })),
-    select: vi.fn(() => query),
-    update: vi.fn(() => query),
-  };
-  return { from: vi.fn(() => query) };
-}
 
 describe('scheduleWalletFundedCreditNotification', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockNotifyWalletCredited.mockResolvedValue(undefined);
+    mockClaimWalletCreditPush.mockResolvedValue({ status: 'claimed' });
   });
 
   it('schedules a merchant-scoped wallet credit push for the funded amount', async () => {
@@ -55,7 +47,6 @@ describe('scheduleWalletFundedCreditNotification', () => {
       ...baseArgs,
       fundedAmount: 20_000,
       scheduleAfter: (task) => tasks.push(task),
-      supabase: createClaimingSupabase() as never,
     });
 
     expect(tasks).toHaveLength(1);
@@ -80,7 +71,6 @@ describe('scheduleWalletFundedCreditNotification', () => {
       ...baseArgs,
       fundedAmount,
       scheduleAfter,
-      supabase: createClaimingSupabase() as never,
     });
 
     expect(scheduleAfter).not.toHaveBeenCalled();
@@ -95,7 +85,6 @@ describe('scheduleWalletFundedCreditNotification', () => {
       ...baseArgs,
       fundedAmount: 20_000,
       scheduleAfter: (task) => tasks.push(task),
-      supabase: createClaimingSupabase() as never,
     });
 
     await expect(tasks[0]?.()).resolves.toBeUndefined();
@@ -109,15 +98,34 @@ describe('scheduleWalletFundedCreditNotification', () => {
 
   it('does not schedule when another webhook already claimed the transfer', async () => {
     const tasks: Array<() => Promise<void>> = [];
+    mockClaimWalletCreditPush.mockResolvedValueOnce({
+      status: 'already_claimed',
+    });
 
     scheduleWalletFundedCreditNotification({
       ...baseArgs,
       fundedAmount: 20_000,
       scheduleAfter: (task) => tasks.push(task),
-      supabase: createClaimingSupabase(false) as never,
     });
 
     await tasks[0]?.();
     expect(mockNotifyWalletCredited).not.toHaveBeenCalled();
+  });
+
+  it('retries a transient claim error before sending', async () => {
+    const tasks: Array<() => Promise<void>> = [];
+    mockClaimWalletCreditPush
+      .mockResolvedValueOnce({ error: 'connection reset', status: 'error' })
+      .mockResolvedValueOnce({ status: 'claimed' });
+
+    scheduleWalletFundedCreditNotification({
+      ...baseArgs,
+      fundedAmount: 20_000,
+      scheduleAfter: (task) => tasks.push(task),
+    });
+
+    await tasks[0]?.();
+    expect(mockClaimWalletCreditPush).toHaveBeenCalledTimes(2);
+    expect(mockNotifyWalletCredited).toHaveBeenCalledTimes(1);
   });
 });

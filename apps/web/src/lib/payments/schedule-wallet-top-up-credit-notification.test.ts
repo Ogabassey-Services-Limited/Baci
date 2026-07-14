@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockNotifyWalletCredited = vi.fn();
 const mockWarn = vi.fn();
+const mockClaimWalletCreditPush = vi.fn();
 
 vi.mock('@/lib/payments/notify-wallet-credited', () => ({
   notifyWalletCredited: (...args: unknown[]) =>
@@ -14,6 +15,11 @@ vi.mock('@/lib/logger', () => ({
     info: vi.fn(),
     warn: (...args: unknown[]) => mockWarn(...args),
   },
+}));
+
+vi.mock('@/lib/payments/claim-wallet-credit-push', () => ({
+  claimWalletCreditPush: (...args: unknown[]) =>
+    mockClaimWalletCreditPush(...args),
 }));
 
 import { scheduleWalletTopUpCreditNotification } from './schedule-wallet-top-up-credit-notification';
@@ -31,12 +37,14 @@ const baseArgs = {
   customerId: 'customer-1',
   merchantId: 'merchant-1',
   reference: 'WAL-123',
+  transactionId: 'transaction-1',
 };
 
 describe('scheduleWalletTopUpCreditNotification', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockNotifyWalletCredited.mockResolvedValue(undefined);
+    mockClaimWalletCreditPush.mockResolvedValue({ status: 'claimed' });
   });
 
   it('schedules a merchant-scoped push when the caller took the first credit', async () => {
@@ -74,6 +82,47 @@ describe('scheduleWalletTopUpCreditNotification', () => {
 
     expect(scheduleAfter).not.toHaveBeenCalled();
     expect(mockNotifyWalletCredited).not.toHaveBeenCalled();
+  });
+
+  it('claims a concurrent top-up notification only once', async () => {
+    const { scheduleAfter, tasks } = makeScheduleAfter();
+    mockClaimWalletCreditPush
+      .mockResolvedValueOnce({ status: 'claimed' })
+      .mockResolvedValueOnce({ status: 'already_claimed' });
+
+    scheduleWalletTopUpCreditNotification({
+      ...baseArgs,
+      firstCredit: true,
+      metadata: {},
+      scheduleAfter,
+    });
+    scheduleWalletTopUpCreditNotification({
+      ...baseArgs,
+      firstCredit: true,
+      metadata: {},
+      scheduleAfter,
+    });
+    await Promise.all(tasks.map((task) => task()));
+
+    expect(mockNotifyWalletCredited).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries a transient claim error before sending', async () => {
+    const { scheduleAfter, tasks } = makeScheduleAfter();
+    mockClaimWalletCreditPush
+      .mockResolvedValueOnce({ error: 'connection reset', status: 'error' })
+      .mockResolvedValueOnce({ status: 'claimed' });
+
+    scheduleWalletTopUpCreditNotification({
+      ...baseArgs,
+      firstCredit: true,
+      metadata: {},
+      scheduleAfter,
+    });
+    await Promise.all(tasks.map((task) => task()));
+
+    expect(mockClaimWalletCreditPush).toHaveBeenCalledTimes(2);
+    expect(mockNotifyWalletCredited).toHaveBeenCalledTimes(1);
   });
 
   it('prefers the camelCase metadata key and accepts utility destinations', async () => {
@@ -145,6 +194,27 @@ describe('scheduleWalletTopUpCreditNotification', () => {
     ).resolves.toBeDefined();
     expect(mockWarn).toHaveBeenCalledWith(
       expect.objectContaining({ error: 'expo down', reference: 'WAL-123' })
+    );
+  });
+
+  it('swallows a synchronous schedule registration failure', () => {
+    const scheduleAfter = vi.fn(() => {
+      throw new Error('scheduler unavailable');
+    });
+
+    expect(() =>
+      scheduleWalletTopUpCreditNotification({
+        ...baseArgs,
+        firstCredit: true,
+        metadata: {},
+        scheduleAfter,
+      })
+    ).not.toThrow();
+    expect(mockWarn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: 'scheduler unavailable',
+        reference: 'WAL-123',
+      })
     );
   });
 });

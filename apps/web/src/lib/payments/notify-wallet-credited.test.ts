@@ -48,7 +48,7 @@ describe('notifyWalletCredited', () => {
   });
 
   it('pushes to the resolved customer on the payments channel', async () => {
-    setCustomerLookupResult({
+    const { chain } = setCustomerLookupResult({
       data: { user_id: 'user-1' },
       error: null,
     });
@@ -68,6 +68,8 @@ describe('notifyWalletCredited', () => {
       'payments',
       { merchantId: 'merchant-1' }
     );
+    expect(chain.eq).toHaveBeenCalledWith('id', 'customer-1');
+    expect(chain.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
   });
 
   it('forwards a returnTo when provided so taps resume the interrupted purchase', async () => {

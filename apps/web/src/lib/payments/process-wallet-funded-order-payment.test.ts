@@ -8,6 +8,12 @@ const mockRunPaidOrderSideEffects = vi.fn<(...args: unknown[]) => unknown>();
 const mockExtractVerifiedGatewayFeeNgn = vi.fn<(...args: unknown[]) => number>(
   () => 300
 );
+const mockClaimWalletCreditPush = vi.fn();
+
+vi.mock('@/lib/payments/claim-wallet-credit-push', () => ({
+  claimWalletCreditPush: (...args: unknown[]) =>
+    mockClaimWalletCreditPush(...args),
+}));
 
 // handlePaymentForCancelledOrder files the reconciliation row through a
 // service-role admin client (reconciliation_review is RLS-locked to
@@ -79,6 +85,7 @@ describe('processWalletFundedOrderPayment', () => {
       kind: 'match',
     });
     mockRunPaidOrderSideEffects.mockResolvedValue({ failedSteps: [] });
+    mockClaimWalletCreditPush.mockResolvedValue({ status: 'claimed' });
   });
 
   it('returns none for non-wallet-top-up transactions so plain order processing can continue', async () => {
@@ -225,6 +232,9 @@ describe('processWalletFundedOrderPayment', () => {
     ]);
 
     expect(tasks).toHaveLength(2);
+    mockClaimWalletCreditPush
+      .mockResolvedValueOnce({ status: 'claimed' })
+      .mockResolvedValueOnce({ status: 'already_claimed' });
     await Promise.all(tasks.map((task) => task()));
     expect(mockNotifyWalletCredited).toHaveBeenCalledTimes(1);
   });

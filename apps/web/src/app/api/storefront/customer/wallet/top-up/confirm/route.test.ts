@@ -6,6 +6,9 @@ const mockResolveVtuCustomer = vi.fn();
 const mockVerifyPaystackTransaction = vi.fn();
 const mockCreditWalletTopUp = vi.fn();
 const mockNotifyWalletCredited = vi.fn();
+const mockClaimWalletCreditPush = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({ status: 'claimed' })
+);
 const mockFrom = vi.fn();
 
 // `after` runs the scheduled push immediately here so the assertions can see it;
@@ -24,6 +27,11 @@ vi.mock('next/server', async () => {
 vi.mock('@/lib/payments/notify-wallet-credited', () => ({
   notifyWalletCredited: (...args: unknown[]) =>
     mockNotifyWalletCredited(...args),
+}));
+
+vi.mock('@/lib/payments/claim-wallet-credit-push', () => ({
+  claimWalletCreditPush: (...args: unknown[]) =>
+    mockClaimWalletCreditPush(...args),
 }));
 
 vi.mock('@/lib/api-auth', () => ({

@@ -176,6 +176,7 @@ export async function POST(request: NextRequest) {
         metadata,
         reference: parsed.data.reference,
         scheduleAfter: after,
+        transactionId: transaction.id,
       });
 
       return NextResponse.json({
@@ -339,6 +340,7 @@ export async function POST(request: NextRequest) {
       metadata,
       reference: parsed.data.reference,
       scheduleAfter: after,
+      transactionId: transaction.id,
     });
 
     return NextResponse.json({

@@ -44,6 +44,8 @@ function isSafePath(path: string): boolean {
     decoded.startsWith('/') &&
     !decoded.startsWith('//') &&
     !decoded.includes('\\') &&
+    !decoded.includes('?') &&
+    !decoded.includes('#') &&
     !decoded.includes('/../') &&
     !decoded.includes('/./') &&
     !decoded.endsWith('/..') &&

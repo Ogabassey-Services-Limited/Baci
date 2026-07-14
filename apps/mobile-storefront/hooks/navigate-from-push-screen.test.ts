@@ -43,7 +43,7 @@ describe('navigateFromPushScreen', () => {
     jest.clearAllMocks();
     jest.spyOn(logger, 'warn').mockImplementation(() => undefined);
     consumeIntent.mockResolvedValue(undefined);
-    clearIntent.mockResolvedValue(undefined);
+    clearIntent.mockResolvedValue(true);
     resolveCustomerId.mockResolvedValue('customer-1');
   });
 
@@ -260,6 +260,8 @@ describe('navigateFromPushScreen', () => {
       'Failed to resume wallet funding intent:',
       expect.any(Error)
     );
+    expect(push).toHaveBeenCalledTimes(1);
+    expect(push).toHaveBeenCalledWith('/wallet');
   });
 
   it('does not touch the funding intent for savings taps', async () => {
