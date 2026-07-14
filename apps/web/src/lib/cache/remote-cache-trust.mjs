@@ -46,7 +46,7 @@
  *
  * @typedef {object} CacheTrust
  * @property {() => boolean} isTrusted
- * @property {(reason: CacheTrustReason) => void} degrade
+ * @property {(reason: CacheTrustReason, ttlMs?: number) => void} degrade
  * @property {(reason: CacheTrustReason) => void} restore
  */
 
@@ -92,8 +92,16 @@ export function createCacheTrust(options) {
       return true;
     },
 
-    degrade(reason) {
-      distrustedUntil.set(reason, now() + distrustMs);
+    /**
+     * `ttlMs` overrides the default backstop. It exists for the CIRCUIT-OPEN
+     * case: while a leg's circuit is open we are not probing that leg at all, so
+     * the short "until the next successful retry" window is the wrong shape —
+     * there will BE no retry until the cooldown elapses. Distrust must outlive
+     * the circuit, or it lapses mid-outage and reads start fetching entries that
+     * will be discarded anyway.
+     */
+    degrade(reason, ttlMs) {
+      distrustedUntil.set(reason, now() + (ttlMs ?? distrustMs));
     },
 
     /** The leg recovered — it no longer has anything to say about freshness. */

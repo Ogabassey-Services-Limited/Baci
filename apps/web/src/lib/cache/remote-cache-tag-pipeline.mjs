@@ -32,6 +32,7 @@ import {
  * @property {TelemetryLogger} logger
  * @property {boolean} disabled
  * @property {number} backendTimeoutMs
+ * @property {number} cooldownMs Breaker cooldown — how long a circuit stays open.
  *
  * @typedef {object} TagPipeline
  * @property {() => Promise<void>} refreshTags
@@ -98,6 +99,7 @@ export function createTagPipeline(options) {
     logger,
     disabled,
     backendTimeoutMs,
+    cooldownMs,
   } = options;
 
   return {
@@ -115,7 +117,11 @@ export function createTagPipeline(options) {
         // miss-only here. Skipping must therefore degrade trust, or a healthy
         // `get` would serve entries against a manifest we stopped maintaining.
         telemetry.record('refresh_tags', 'skip_circuit_open');
-        trust.degrade('refresh_tags');
+        // Distrust must OUTLIVE the circuit: while it is open we are not probing
+        // this leg, so the short "until the next retry" backstop would lapse
+        // mid-outage and reads would resume against a manifest we stopped
+        // maintaining.
+        trust.degrade('refresh_tags', cooldownMs);
         return;
       }
 
@@ -152,12 +158,17 @@ export function createTagPipeline(options) {
       if (!breaker.shouldAttempt()) {
         telemetry.record('get_expiration', 'skip_circuit_open');
         // We are NOT checking expiration, so freshness is unverifiable — exactly
-        // as if the check had failed. Without degrading trust the read pipeline
-        // would still go to the backend for an entry Next is about to discard on
-        // the strength of the UNVERIFIABLE_EXPIRATION we return below: pointless
-        // load on a backend we already believe is sick. Degrade, so reads go
-        // straight to the origin (same rule as a skipped refreshTags).
-        trust.degrade('get_expiration');
+        // as if the check had failed. Without this, the read pipeline would still
+        // go to the backend for an entry Next is about to discard on the strength
+        // of the UNVERIFIABLE_EXPIRATION we return below: pointless load on a
+        // backend we already believe is sick.
+        //
+        // The distrust must last as long as the CIRCUIT, not the short default
+        // backstop. Next calls get() BEFORE getExpiration(), so if the 5s window
+        // lapsed while the 30s cooldown was still running, the next request's
+        // get() would fetch and buffer an entry that getExpiration was about to
+        // have discarded anyway — once per window, throughout the outage.
+        trust.degrade('get_expiration', cooldownMs);
         return UNVERIFIABLE_EXPIRATION;
       }
 

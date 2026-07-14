@@ -96,6 +96,15 @@ function describeError(error) {
 }
 
 /**
+ * Marks a framework promise as handled. We are deliberately dropping the write,
+ * so a later rejection is irrelevant — but it must never surface as an unhandled
+ * rejection after the response has been sent.
+ *
+ * @returns {undefined}
+ */
+const swallowRejection = () => undefined;
+
+/**
  * @param {WritePipelineOptions} options
  * @returns {WritePipeline}
  */
@@ -171,6 +180,17 @@ export function createWritePipeline(options) {
    * @returns {Promise<void>} Never rejects.
    */
   async function performWrite(cacheKey, pendingEntry) {
+    // ⚠️ ATTACH A HANDLER BEFORE ANY EARLY RETURN.
+    //
+    // `pendingEntry` is the framework's promise. The cheap gates below can skip
+    // the write without ever awaiting it — and if the render LATER rejects, that
+    // promise has no handler attached, so Node raises an unhandled rejection
+    // AFTER the response has already been sent. That is precisely the exit-128
+    // process-kill this adapter exists to contain, reintroduced through the back
+    // door by the skip paths. `bufferAndGate` attaches its own handler on the
+    // paths that do await it; this covers every path that does not.
+    Promise.resolve(pendingEntry).catch(swallowRejection);
+
     // CHEAP GATES FIRST. Draining and size-gating the entry is the expensive
     // part; doing it before checking whether we are even allowed to write meant
     // that during an outage (circuit open) — or with the kill switch on — every

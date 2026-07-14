@@ -146,6 +146,7 @@ export function createResilientRemoteCacheHandler(options) {
     logger,
     disabled,
     backendTimeoutMs,
+    cooldownMs,
   });
 
   /** @type {ResilientRemoteCacheHandler} */

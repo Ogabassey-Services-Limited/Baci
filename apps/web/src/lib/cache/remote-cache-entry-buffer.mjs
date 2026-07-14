@@ -47,12 +47,25 @@ import {
 export const DEFAULT_MAX_ITEM_BYTES = 1_048_576;
 
 /**
- * Cancelling a reader is best-effort: we have already decided to discard this
- * entry, so a failure to cancel changes nothing and must never surface.
+ * Cancels a reader FIRE-AND-FORGET.
  *
- * @returns {undefined}
+ * Deliberately NOT awaited. We have already decided to discard this entry, so a
+ * failed cancel changes nothing — but a stalled backend's cancellation hook can
+ * itself block on that same sick backend. Awaiting it would put an UNBOUNDED
+ * wait on the very timeout path that exists to escape the stall, so `get()` and
+ * `set()` could still wedge despite `BACI_REMOTE_CACHE_TIMEOUT_MS`. We must not
+ * hand the deadline back to the thing that already missed it.
+ *
+ * @param {ReadableStreamDefaultReader<Uint8Array>} reader
+ * @returns {void}
  */
-const ignoreCancelFailure = () => undefined;
+function cancelQuietly(reader) {
+  try {
+    void reader.cancel().catch(() => undefined);
+  } catch {
+    // `cancel()` can also throw synchronously on an already-errored stream.
+  }
+}
 
 /**
  * Rebuilds a `CacheEntry` around a fresh stream over already-buffered chunks.
@@ -161,7 +174,7 @@ export async function bufferCacheEntry(
       bytes += value.byteLength;
       if (bytes > maxBytes) {
         // Stop early: never drain a producer we have already decided to drop.
-        await reader.cancel().catch(ignoreCancelFailure);
+        cancelQuietly(reader);
         return { status: 'oversized', bytes };
       }
       chunks.push(value);
@@ -169,7 +182,7 @@ export async function bufferCacheEntry(
   } catch (error) {
     // A stream that errors — or stalls — mid-flight leaves us with partial data.
     // Discard it: a truncated cache entry is worse than no cache entry.
-    await reader.cancel().catch(ignoreCancelFailure);
+    cancelQuietly(reader);
     return { status: classify(error), error };
   }
 
