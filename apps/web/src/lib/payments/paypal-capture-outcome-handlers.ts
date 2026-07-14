@@ -118,6 +118,29 @@ async function captureAndReconcilePaypalOrder(
     if (captureResult.code === 'HTTP_422') {
       return reResolveAfterCaptureConflict(ctx);
     }
+
+    // We asked PayPal to take the money and did not get a clean answer back. A
+    // network error, a timeout or an unparseable response is NOT evidence that the
+    // capture did not happen — the request may have reached PayPal and succeeded
+    // while the response died on the way home. Previously this returned a bare 500:
+    // the transaction stayed `pending`, no review was filed, /verify short-circuits
+    // pending PayPal rows without a live lookup, and there is no webhook and no
+    // cron. The buyer's money could sit captured at the merchant with nothing in
+    // the system aware of it. File it for reconciliation.
+    await filePaypalCapturePersistFailureReview({
+      gatewayReference: ctx.paypalOrderId,
+      merchantId: ctx.merchantId,
+      orderId: ctx.orderId,
+      reason:
+        'PayPal capture returned no definitive answer; the capture may have succeeded and needs reconciliation',
+      transactionId: ctx.transaction.id,
+      metadata: {
+        stage: 'capture_indeterminate',
+        code: captureResult.code ?? 'UNKNOWN',
+        error: captureResult.error ?? null,
+      },
+    });
+
     return NextResponse.json(
       { error: captureResult.error, code: captureResult.code },
       { status: 500 }
@@ -126,6 +149,10 @@ async function captureAndReconcilePaypalOrder(
 
   const captureData = captureResult.data;
   if (captureData.status !== 'COMPLETED') {
+    // The ORDER is not completed, so PayPal did not take the money — no review
+    // needed. (An order that IS completed while an individual capture inside it is
+    // still PENDING is caught downstream by `validatePaypalCaptureSet`, which
+    // rejects any non-COMPLETED capture and refunds.)
     return NextResponse.json(
       {
         error: `Payment not completed. Status: ${captureData.status}`,

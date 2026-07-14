@@ -52,6 +52,24 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
+/**
+ * The status values `transactions_status_check` actually permits (see migration
+ * 20260714090000). Writing anything outside this set fails the CHECK constraint —
+ * and because this stamp is best-effort, that failure is logged and SWALLOWED,
+ * leaving a refunded capture that still looks settleable. That is exactly the bug
+ * this module exists to prevent, and mocked Supabase cannot catch it, so the
+ * allowed set is asserted here explicitly.
+ */
+const DB_ALLOWED_TRANSACTION_STATUSES = new Set([
+  'pending',
+  'processing',
+  'completed',
+  'failed',
+  'cancelled',
+  'refunded',
+  'refund_pending',
+]);
+
 describe('markPaypalTransactionRefunded', () => {
   it('stamps the refunded transaction so no later path can settle against it', async () => {
     const { client, captured } = makeSupabase();
@@ -60,6 +78,31 @@ describe('markPaypalTransactionRefunded', () => {
 
     expect(captured.update).toMatchObject({ status: 'refunded' });
     expect(captured.eqId).toBe(TXN_ID);
+  });
+
+  it('writes a status the DB CHECK constraint actually permits', async () => {
+    const { client, captured } = makeSupabase();
+
+    await markPaypalTransactionRefunded(client, TXN_ID, 'duplicate capture');
+
+    expect(DB_ALLOWED_TRANSACTION_STATUSES).toContain(captured.update?.status);
+  });
+
+  it('records an ACCEPTED-but-incomplete refund as refund_pending, not refunded', async () => {
+    // The buyer does not have the money yet. Calling it `refunded` would be a lie
+    // the sweeper could never detect; leaving it `completed` would let a retry
+    // settle the order against money that is on its way back.
+    const { client, captured } = makeSupabase();
+
+    await markPaypalTransactionRefunded(
+      client,
+      TXN_ID,
+      'duplicate capture (refund PENDING at PayPal)',
+      { pending: true }
+    );
+
+    expect(captured.update).toMatchObject({ status: 'refund_pending' });
+    expect(DB_ALLOWED_TRANSACTION_STATUSES).toContain(captured.update?.status);
   });
 
   it('only advances a pending/completed row — never walks a terminal row backwards', async () => {

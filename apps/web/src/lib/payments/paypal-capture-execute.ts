@@ -152,7 +152,8 @@ export async function refundCapturedPaypalOrder(
     await markPaypalTransactionRefunded(
       ctx.supabase,
       ctx.transaction.id,
-      result.pending ? `${reason} (refund PENDING at PayPal)` : reason
+      result.pending ? `${reason} (refund PENDING at PayPal)` : reason,
+      { pending: result.pending }
     );
   }
 

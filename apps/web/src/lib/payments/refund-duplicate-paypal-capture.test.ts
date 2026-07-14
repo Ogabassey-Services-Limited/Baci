@@ -81,7 +81,9 @@ describe('refundDuplicatePaypalCapture', () => {
     expect(markPaypalTransactionRefunded).toHaveBeenCalledWith(
       undefined,
       BASE.transactionId,
-      expect.stringContaining('verify')
+      expect.stringContaining('verify'),
+      // A COMPLETED refund is terminal; a PENDING one is recorded differently.
+      { pending: undefined }
     );
   });
 

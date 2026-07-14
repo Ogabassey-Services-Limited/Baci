@@ -45,13 +45,31 @@ async function resolvePaypalSplit(
   merchantId: string,
   orderId: string,
   txnMetadata: unknown
-): Promise<ResolvedSplit> {
-  const { data: orderRow } = await supabase
+): Promise<ResolvedSplit | { failed: true; reason: string }> {
+  // FAIL CLOSED on both reads. These errors used to be dropped
+  // (`const { data } = await ...`), which made a transient DB failure
+  // indistinguishable from a legitimate empty result — and the two have opposite
+  // meanings for money:
+  //
+  //   • savings lookup fails → savingsAmountUsed silently becomes 0 → the customer
+  //     is under-credited to their wallet by EXACTLY their savings, the redemption
+  //     rows are never reversed, and the refund still reports success.
+  //   • order lookup fails → orderTotal becomes 0 → the computed split is 0/0 and
+  //     NOTHING is refunded, also reported as success.
+  //
+  // A refund that quietly returns the wrong amount is worse than one that fails
+  // loudly, so the caller aborts and the order stays refundable.
+  const { data: orderRow, error: orderError } = await supabase
     .from('orders')
     .select('total, wallet_amount_used, customer_id')
     .eq('id', orderId)
     .eq('merchant_id', merchantId)
     .maybeSingle();
+
+  if (orderError || !orderRow) {
+    return { failed: true, reason: 'order_lookup_failed' };
+  }
+
   const orderTotal = Number(orderRow?.total) || 0;
   const walletAmountUsed = Math.max(
     Number(orderRow?.wallet_amount_used) || 0,
@@ -59,11 +77,16 @@ async function resolvePaypalSplit(
   );
   const customerId = (orderRow?.customer_id as string | null) ?? null;
 
-  const { data: savingsRows } = await supabase
+  const { data: savingsRows, error: savingsError } = await supabase
     .from('customer_savings_redemptions')
     .select('amount')
     .eq('order_id', orderId)
     .eq('merchant_id', merchantId);
+
+  if (savingsError) {
+    return { failed: true, reason: 'savings_lookup_failed' };
+  }
+
   const savingsAmountUsed = Array.isArray(savingsRows)
     ? savingsRows.reduce(
         (sum, row) => sum + (Math.max(Number(row?.amount) || 0, 0) || 0),
@@ -146,12 +169,37 @@ export async function refundPaypalOrder(input: {
   const { supabase, merchantId, order, transaction, reason } = input;
   const currency = order.currency || 'NGN';
 
-  const split = await resolvePaypalSplit(
+  const resolvedSplit = await resolvePaypalSplit(
     supabase,
     merchantId,
     order.id,
     transaction.metadata
   );
+
+  if ('failed' in resolvedSplit) {
+    // We do not know how the order was actually paid, so we cannot know what to
+    // give back. Refund NOTHING rather than the wrong amount — the money is still
+    // safely at PayPal and the cancellation can be retried once the DB recovers.
+    logger.error({
+      message:
+        'PayPal refund aborted: could not resolve the wallet/savings/PayPal split',
+      merchantId,
+      orderId: order.id,
+      reason: resolvedSplit.reason,
+    });
+    return {
+      success: false,
+      error:
+        'Could not determine how this order was paid; no refund was issued. Please retry.',
+      paypalRefunded: 0,
+      prepaidRestored: 0,
+      totalRefunded: 0,
+      paypalRefundIds: [],
+      savingsRestored: false,
+    };
+  }
+
+  const split = resolvedSplit;
 
   // 1. PayPal residual leg — full refund per capture, presentment currency.
   const paypalRefund = await initiatePaypalOrderRefund({

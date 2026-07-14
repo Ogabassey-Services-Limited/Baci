@@ -60,7 +60,8 @@ export async function refundDuplicatePaypalCapture(input: {
     await markPaypalTransactionRefunded(
       undefined,
       transactionId,
-      `duplicate capture refunded on ${source}`
+      `duplicate capture refunded on ${source}`,
+      { pending: refund.pending }
     );
   }
 

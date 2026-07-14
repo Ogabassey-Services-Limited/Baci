@@ -5,19 +5,36 @@
   "installCommand": "pnpm install --frozen-lockfile --prefer-offline",
   "framework": "nextjs",
   "ignoreCommand": "exit 0",
-  "regions": ["dub1"],
+  "regions": [
+    "dub1"
+  ],
   "crons": [
-    { "path": "/api/cron/web-vitals-health", "schedule": "0 4 * * *" },
+    {
+      "path": "/api/cron/web-vitals-health",
+      "schedule": "0 4 * * *"
+    },
     {
       "path": "/api/cron/reconcile-gateway-paid-orders",
       "schedule": "20 * * * *"
+    },
+    {
+      "path": "/api/cron/paypal-reconciliation",
+      "schedule": "*/10 * * * *"
     }
   ],
   "functions": {
-    "src/app/api/ai-jobs/worker/route.ts": { "memory": 1024 },
-    "src/app/api/ai/grade-device/route.ts": { "memory": 1024 },
-    "src/app/api/feed/google-merchant/route.ts": { "memory": 512 },
-    "src/app/api/orders/[id]/invoice/route.ts": { "memory": 256 },
+    "src/app/api/ai-jobs/worker/route.ts": {
+      "memory": 1024
+    },
+    "src/app/api/ai/grade-device/route.ts": {
+      "memory": 1024
+    },
+    "src/app/api/feed/google-merchant/route.ts": {
+      "memory": 512
+    },
+    "src/app/api/orders/[id]/invoice/route.ts": {
+      "memory": 256
+    },
     "src/app/api/storefront/account/orders/[id]/invoice/route.ts": {
       "memory": 256
     },

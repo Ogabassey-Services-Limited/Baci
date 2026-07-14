@@ -25,14 +25,25 @@ import { createServiceClient } from '@/lib/supabase/service';
 export async function markPaypalTransactionRefunded(
   supabase: SupabaseClient | undefined,
   transactionId: string,
-  reason: string
+  reason: string,
+  options?: { pending?: boolean }
 ): Promise<void> {
   const client = supabase ?? createServiceClient();
+
+  // `refund_pending` when PayPal accepted the refund but has not completed it —
+  // common in BYOK, where the refund draws on the merchant's OWN PayPal balance, so
+  // an unfunded balance leaves it in flight. Recording that as a completed refund
+  // would be a lie the sweeper could never detect; recording it as `pending`/
+  // `completed` would leave the capture settleable. Both new states sit outside the
+  // ('pending','completed') set the capture-context loader admits, so neither can be
+  // settled against, and `refund_pending` stays queryable for re-polling.
+  const status = options?.pending ? 'refund_pending' : 'refunded';
+
   try {
     const { error } = await client
       .from('transactions')
       .update({
-        status: 'refunded',
+        status,
         updated_at: new Date().toISOString(),
       })
       .eq('id', transactionId)
@@ -44,6 +55,7 @@ export async function markPaypalTransactionRefunded(
         message:
           'PayPal refund: failed to mark the refunded capture terminal; it may still look settleable',
         error,
+        status,
         transactionId,
         reason,
       });
