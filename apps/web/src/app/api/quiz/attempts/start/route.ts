@@ -1,4 +1,4 @@
-import { EXAM_PASS_POINTS_COST } from '@baci/shared/constants';
+import { QUIZ_FREE_ENTRY_RPC_ACTION } from '@baci/shared/constants';
 import { type NextRequest, NextResponse } from 'next/server';
 import { attachQuizQuestionDeadline } from '@/app/api/quiz/_shared/quiz-question-deadline';
 import {
@@ -18,10 +18,16 @@ import {
   requireQuizUser,
   rpcErrorResponse,
 } from '@/app/api/quiz/_shared/route-helpers';
+import { readStalePaidStartCharge } from '@/app/api/quiz/_shared/stale-paid-start-charge';
 import { getQuizPhaseEnv } from '@/env';
 import { getBearerTokenFromRequest } from '@/lib/api-auth';
 import { logger } from '@/lib/logger';
 import { startQuizAttemptSchema } from '@/schemas/quiz';
+
+const QUIZ_UNAVAILABLE_RESPONSE = {
+  code: 'QUIZ_TEMPORARILY_UNAVAILABLE',
+  error: 'Super Quiz is temporarily unavailable. Please try again soon.',
+} as const;
 
 function isBearerAuthenticated(request: NextRequest): boolean {
   // Use the SAME bearer detection as the auth (getBearerTokenFromRequest) and
@@ -43,10 +49,6 @@ function isExamPassRequiredError(error: unknown): boolean {
       : null;
 
   return code === 'QZ011' || message === 'quiz_exam_pass_required';
-}
-
-function formatLoyaltyPointCount(points: number): string {
-  return `${points} loyalty ${points === 1 ? 'point' : 'points'}`;
 }
 
 export async function POST(request: NextRequest) {
@@ -93,8 +95,25 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // This marker is created in the same migration transaction as the free-entry
+  // start RPC. If code deploys before the database migration, the probe fails
+  // before the stale paid-entry RPC can charge or create an attempt.
+  const { data: freeEntryReady, error: freeEntryReadyError } =
+    await auth.supabase.rpc('quiz_free_entry_ready');
+  if (freeEntryReadyError || freeEntryReady !== true) {
+    logger.error({
+      error: freeEntryReadyError,
+      event: 'quiz_free_entry_readiness',
+      eventId: parsed.data.eventId,
+      message:
+        'Free-entry database marker is unavailable. Refusing to call start_quiz_attempt.',
+      userId: auth.user.id,
+    });
+    return NextResponse.json(QUIZ_UNAVAILABLE_RESPONSE, { status: 503 });
+  }
+
   const { proof, response: proofResponse } = createRouteProof({
-    action: 'start_quiz_attempt',
+    action: QUIZ_FREE_ENTRY_RPC_ACTION,
     payload: {
       event_id: parsed.data.eventId,
       integrity_tier: parsed.data.integrityTier,
@@ -113,14 +132,25 @@ export async function POST(request: NextRequest) {
   });
 
   if (error) {
+    // Entry is free, so start_quiz_attempt can no longer raise QZ011. If it
+    // DOES, this build is talking to a database that has not applied
+    // 20260714102000_quiz_free_entry.sql yet — i.e. the PAID entry RPC is still
+    // live and would charge a loyalty point.
+    //
+    // Fail closed. Do not fall through and do not tell the player to go and get
+    // loyalty points: points are only earned by purchasing, so that message
+    // re-sells the exact purchase gate this feature removed, and any attempt
+    // started here would be charged. Refuse until the migration has landed.
     if (isExamPassRequiredError(error)) {
-      return NextResponse.json(
-        {
-          code: 'QUIZ_EXAM_PASS_REQUIRED',
-          error: `You need ${formatLoyaltyPointCount(EXAM_PASS_POINTS_COST)} to start this exam`,
-        },
-        { status: 409 }
-      );
+      logger.error({
+        error,
+        event: 'start_quiz_attempt',
+        eventId: parsed.data.eventId,
+        message:
+          'QZ011 from start_quiz_attempt: the paid-entry RPC is still live (free-entry migration not applied). Refusing to start a charged attempt.',
+        userId: auth.user.id,
+      });
+      return NextResponse.json(QUIZ_UNAVAILABLE_RESPONSE, { status: 503 });
     }
 
     const clientErrorResponse = quizRpcClientErrorResponse(error);
@@ -134,6 +164,23 @@ export async function POST(request: NextRequest) {
       userId: auth.user.id,
     });
     return rpcErrorResponse();
+  }
+
+  // Defense in depth: the readiness marker and free-entry function are installed
+  // atomically, so this should be unreachable. The RPC mutation has committed,
+  // therefore report the real receipt instead of returning a retryable failure
+  // that would hide the consumed attempt and any unexpected charge.
+  const staleCharge = readStalePaidStartCharge(data);
+  if (staleCharge) {
+    logger.error({
+      attemptId: staleCharge.attemptId,
+      event: 'start_quiz_attempt',
+      eventId: parsed.data.eventId,
+      message:
+        'start_quiz_attempt returned a nonzero examPassPointsSpent despite the free-entry readiness marker. Refusing the drifted response.',
+      pointsSpent: staleCharge.pointsSpent,
+      userId: auth.user.id,
+    });
   }
 
   const deadlineResult = await attachQuizQuestionDeadline(auth.supabase, data);

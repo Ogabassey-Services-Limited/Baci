@@ -321,7 +321,11 @@ describe('quiz migration contracts', () => {
     ).toHaveLength(3);
   });
 
-  it('requires and spends one customer loyalty point before starting an exam attempt', () => {
+  // HISTORICAL. This pins the ORIGINAL Phase-1a migration file, which charged a
+  // loyalty point. Migrations are append-only so that file still reads this way,
+  // but it is NOT the live behaviour: 20260714102000_quiz_free_entry.sql made
+  // entry free. The live contract is asserted in the free-entry test below.
+  it('charged one customer loyalty point in the original Phase-1a migration', () => {
     const startAttemptSql = rpcSql.match(
       /CREATE OR REPLACE FUNCTION public\.start_quiz_attempt[\s\S]*?\$\$;/i
     )?.[0];
@@ -331,23 +335,135 @@ describe('quiz migration contracts', () => {
       /JOIN\s+public\.quiz_events\s+e\s+ON\s+e\.id\s*=\s*p_event_id\s+AND\s+e\.merchant_id\s*=\s*c\.merchant_id/i
     );
     expect(startAttemptSql).toMatch(/v_exam_pass_cost\s+integer\s*:=\s*1/i);
-    expect(startAttemptSql).toMatch(
-      /SELECT\s+COALESCE\(c\.loyalty_points,\s*0\)[\s\S]*FROM\s+public\.customers\s+c[\s\S]*FOR\s+UPDATE/i
-    );
     expect(startAttemptSql).toMatch(/quiz_exam_pass_required/i);
     expect(startAttemptSql).toMatch(/ERRCODE\s*=\s*'QZ011'/i);
     expect(startAttemptSql).toMatch(
-      /UPDATE\s+public\.customers\s+c[\s\S]*SET\s+loyalty_points\s*=\s*COALESCE\(c\.loyalty_points,\s*0\)\s*-\s*v_exam_pass_cost/i
-    );
-    expect(startAttemptSql).toMatch(
-      /'examPassPointsSpent',\s*v_exam_pass_cost/i
-    );
-    expect(startAttemptSql).toMatch(
       /'remainingLoyaltyPoints',\s*v_remaining_loyalty_points/i
     );
-    expect(startAttemptSql?.indexOf('UPDATE public.customers c')).toBeLessThan(
-      startAttemptSql?.indexOf('INSERT INTO public.quiz_attempts') ?? -1
+  });
+
+  it('makes quiz entry free: the latest start_quiz_attempt never charges loyalty points', () => {
+    // The LIVE definition is whichever quiz migration defines start_quiz_attempt
+    // last (filename order == apply order), so this keeps asserting the truth
+    // even if a later migration redefines the function again.
+    const latestStartAttemptSql = quizMigrationFiles
+      .map(
+        ({ sql }) =>
+          sql.match(
+            /CREATE OR REPLACE FUNCTION public\.start_quiz_attempt[\s\S]*?\$\$;/i
+          )?.[0]
+      )
+      .filter((sql): sql is string => Boolean(sql))
+      .at(-1);
+
+    expect(latestStartAttemptSql).toBeDefined();
+
+    // Entry is free, and no code path may deduct points.
+    expect(latestStartAttemptSql).toMatch(
+      /v_exam_pass_cost\s+constant\s+integer\s*:=\s*0/i
     );
+    expect(latestStartAttemptSql).not.toMatch(/quiz_exam_pass_required/i);
+    expect(latestStartAttemptSql).not.toMatch(/ERRCODE\s*=\s*'QZ011'/i);
+    expect(latestStartAttemptSql).not.toMatch(
+      /SET\s+loyalty_points\s*=\s*COALESCE\(c\.loyalty_points,\s*0\)\s*-/i
+    );
+    expect(latestStartAttemptSql).toMatch(
+      /quiz_route_proof_valid\(p_route_proof,\s*'start_quiz_attempt_free_v1'/i
+    );
+
+    // The customer gate STAYS: a customers row is created by free signup, so it
+    // gates on "registered on this store", not on having purchased anything.
+    expect(latestStartAttemptSql).toMatch(/quiz_customer_not_found/i);
+    expect(latestStartAttemptSql).toMatch(/c\.deleted_at\s+IS\s+NULL/i);
+    expect(latestStartAttemptSql).toMatch(
+      /JOIN\s+public\.quiz_events\s+e\s+ON\s+e\.id\s*=\s*p_event_id\s+AND\s+e\.merchant_id\s*=\s*c\.merchant_id/i
+    );
+
+    // The attempt cap must survive the rewrite — it is the only thing left
+    // stopping a player from farming unlimited attempts now that entry is free.
+    expect(latestStartAttemptSql).toMatch(/attempt_limit_reached/i);
+    expect(latestStartAttemptSql).toMatch(/ERRCODE\s*=\s*'QZ030'/i);
+
+    const lockIndex = latestStartAttemptSql?.indexOf('pg_advisory_xact_lock');
+    const availabilityIndex = latestStartAttemptSql?.indexOf(
+      "e.status = 'active'"
+    );
+    expect(lockIndex).toBeGreaterThanOrEqual(0);
+    expect(availabilityIndex).toBeGreaterThanOrEqual(0);
+    expect(lockIndex).toBeLessThan(availabilityIndex ?? -1);
+    expect(latestStartAttemptSql).toMatch(/pg_catalog\.clock_timestamp\(\)/i);
+
+    // The API checks this marker before invoking start_quiz_attempt. Because the
+    // marker and free-entry function share one migration transaction, a
+    // code-before-database deploy fails before it can call the stale paid RPC.
+    expect(allQuizMigrationSql).toMatch(
+      /CREATE OR REPLACE FUNCTION public\.quiz_free_entry_ready\(\)[\s\S]*?SELECT true;/i
+    );
+    expect(allQuizMigrationSql).toMatch(
+      /GRANT EXECUTE ON FUNCTION public\.quiz_free_entry_ready\(\) TO authenticated, service_role;/i
+    );
+  });
+
+  // Free entry is meaningless if PURCHASES still decide who WINS. Both ranking
+  // functions used to break score ties on `COALESCE(loyalty_points, 0) DESC`,
+  // and loyalty points are only ever earned by buying — so a free entrant tied
+  // on score always lost to a bigger spender. Ranking must be skill and speed
+  // only, in BOTH functions, or the leaderboard players watch stops matching the
+  // winners actually minted.
+  it.each([
+    [
+      'mint_quiz_event_ranked_awards',
+      /CREATE OR REPLACE FUNCTION public\.mint_quiz_event_ranked_awards[\s\S]*?\$\$;/i,
+    ],
+    [
+      'get_quiz_leaderboard',
+      /CREATE OR REPLACE FUNCTION public\.get_quiz_leaderboard[\s\S]*?\$\$;/i,
+    ],
+  ])('ranks %s on skill and speed only — never on loyalty points', (_name, pattern) => {
+    const latestSql = quizMigrationFiles
+      .map(({ sql }) => sql.match(pattern)?.[0])
+      .filter((sql): sql is string => Boolean(sql))
+      .at(-1);
+
+    expect(latestSql).toBeDefined();
+
+    // No purchase-derived term may appear in ANY ordering key.
+    expect(latestSql).not.toMatch(/loyalty_points\s*,?\s*0?\)?\s*DESC/i);
+    expect(latestSql).not.toMatch(/COALESCE\([a-z]+\.loyalty_points/i);
+
+    // The deterministic skill/speed keys must still be there, so ties never
+    // resolve arbitrarily (which would make winners non-reproducible).
+    expect(latestSql).toMatch(/score\s+DESC/i);
+    expect(latestSql).toMatch(
+      /EXTRACT\(EPOCH FROM \([a-z_]+\.submitted_at - [a-z_]+\.started_at\)\)[\s\S]*?ASC NULLS LAST/i
+    );
+    expect(latestSql).toMatch(/submitted_at\s+ASC/i);
+  });
+
+  it('uses the award candidate set for the public leaderboard', () => {
+    const leaderboardSql = quizMigrationFiles
+      .map(
+        ({ sql }) =>
+          sql.match(
+            /CREATE OR REPLACE FUNCTION public\.get_quiz_leaderboard[\s\S]*?\$\$;/i
+          )?.[0]
+      )
+      .filter((sql): sql is string => Boolean(sql))
+      .at(-1);
+
+    expect(leaderboardSql).toBeDefined();
+    expect(leaderboardSql).toMatch(/SELECT DISTINCT ON \(qa\.customer_id\)/i);
+    expect(leaderboardSql).toMatch(/qa\.status IN \('submitted', 'scored'\)/i);
+    expect(leaderboardSql).toMatch(
+      /qa\.submitted_at - qa\.started_at <= interval '1 hour'/i
+    );
+    expect(leaderboardSql).toMatch(
+      /qa\.submitted_at - qa\.started_at >= interval '0 seconds'/i
+    );
+    expect(leaderboardSql).toMatch(
+      /ORDER BY\s+qa\.customer_id,\s+qa\.score DESC NULLS LAST,\s+EXTRACT\(EPOCH FROM \(qa\.submitted_at - qa\.started_at\)\) ASC NULLS LAST,\s+qa\.submitted_at ASC,\s+qa\.id ASC/i
+    );
+    expect(leaderboardSql).not.toMatch(/'disqualified'/i);
   });
 
   it('checks finalize-awards attempt ownership before calling the privileged event finalizer', () => {

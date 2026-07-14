@@ -1,3 +1,4 @@
+import { QUIZ_FREE_ENTRY_MODE } from '@baci/shared/constants';
 import { z } from 'zod';
 
 const quizUuidSchema = z.uuid();
@@ -27,6 +28,7 @@ export const quizEventsQuerySchema = z
   });
 
 export const startQuizAttemptSchema = z.object({
+  entryMode: z.literal(QUIZ_FREE_ENTRY_MODE),
   eventId: quizUuidSchema,
   integrityTier: quizIntegrityTierSchema,
 });
@@ -246,7 +248,10 @@ export const quizEventsResponseSchema = z.object({
 export const quizAttemptResponseSchema = z.object({
   attemptId: quizNonEmptyIdSchema,
   eventId: quizNonEmptyIdSchema,
-  examPassPointsSpent: z.int().positive(),
+  // Entry is free, so this is 0. It stays in the contract (rather than being
+  // dropped) so clients pinned to the old shape keep parsing, and so a stale
+  // database that still charges during a deploy window is also accepted.
+  examPassPointsSpent: z.int().nonnegative(),
   question: quizQuestionResponseSchema,
   remainingLoyaltyPoints: z.int().nonnegative(),
 });

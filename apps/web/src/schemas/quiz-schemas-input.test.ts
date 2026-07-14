@@ -1,3 +1,4 @@
+import { QUIZ_FREE_ENTRY_MODE } from '@baci/shared/constants';
 import { describe, expect, it } from 'vitest';
 import {
   claimQuizCashAwardSchema,
@@ -20,44 +21,72 @@ describe('quiz route input schemas', () => {
   it('validates start attempt payloads', () => {
     expect(
       startQuizAttemptSchema.parse({
+        entryMode: QUIZ_FREE_ENTRY_MODE,
         eventId: EVENT_ID,
         integrityTier: 'basic',
       })
     ).toEqual({
+      entryMode: QUIZ_FREE_ENTRY_MODE,
       eventId: EVENT_ID,
       integrityTier: 'basic',
     });
 
     expect(
       startQuizAttemptSchema.parse({
+        entryMode: QUIZ_FREE_ENTRY_MODE,
         eventId: EVENT_ID,
         integrityTier: 'device',
       })
     ).toEqual({
+      entryMode: QUIZ_FREE_ENTRY_MODE,
       eventId: EVENT_ID,
       integrityTier: 'device',
     });
 
     expect(
       startQuizAttemptSchema.parse({
+        entryMode: QUIZ_FREE_ENTRY_MODE,
         eventId: EVENT_ID,
         integrityTier: 'strong',
       })
     ).toEqual({
+      entryMode: QUIZ_FREE_ENTRY_MODE,
       eventId: EVENT_ID,
       integrityTier: 'strong',
     });
 
     expect(() =>
-      startQuizAttemptSchema.parse({ eventId: 'bad', integrityTier: 'basic' })
+      startQuizAttemptSchema.parse({
+        entryMode: QUIZ_FREE_ENTRY_MODE,
+        eventId: 'bad',
+        integrityTier: 'basic',
+      })
     ).toThrow();
     expect(() =>
-      startQuizAttemptSchema.parse({ eventId: EVENT_ID, integrityTier: 'gold' })
+      startQuizAttemptSchema.parse({
+        entryMode: QUIZ_FREE_ENTRY_MODE,
+        eventId: EVENT_ID,
+        integrityTier: 'gold',
+      })
     ).toThrow();
     expect(() =>
-      startQuizAttemptSchema.parse({ integrityTier: 'basic' })
+      startQuizAttemptSchema.parse({
+        entryMode: QUIZ_FREE_ENTRY_MODE,
+        integrityTier: 'basic',
+      })
     ).toThrow();
-    expect(() => startQuizAttemptSchema.parse({ eventId: EVENT_ID })).toThrow();
+    expect(() =>
+      startQuizAttemptSchema.parse({
+        entryMode: QUIZ_FREE_ENTRY_MODE,
+        eventId: EVENT_ID,
+      })
+    ).toThrow();
+    expect(() =>
+      startQuizAttemptSchema.parse({
+        eventId: EVENT_ID,
+        integrityTier: 'basic',
+      })
+    ).toThrow();
   });
 
   it('validates submit answer payloads without accepting unknown tiers', () => {

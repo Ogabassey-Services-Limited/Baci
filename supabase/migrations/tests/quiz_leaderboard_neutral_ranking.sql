@@ -1,10 +1,17 @@
 -- =============================================
--- REGRESSION TEST: quiz Leaderboard Loyalty Tiebreaker
+-- REGRESSION TEST: quiz Leaderboard Neutral Ranking
 --   Validates the leaderboard ranking, sorting hierarchy, RLS/grants,
 --   the authorization guard (QZ031), and that loyalty_points is NOT projected.
 --
+--   Ranking must be NEUTRAL: loyalty points are only ever earned by purchasing,
+--   so a loyalty-points tiebreaker let players BUY a better prize rank. It was
+--   removed in 20260714102100_quiz_neutral_ranking.sql. This test now pins the
+--   inverse of what it originally asserted: on a full tie, the player with MORE
+--   loyalty points must NOT outrank the player with fewer. Ties fall through to
+--   the neutral, non-purchasable attempt id.
+--
 -- USAGE:
---   psql $DATABASE_URL -f supabase/migrations/tests/quiz_leaderboard_loyalty_tiebreaker.sql
+--   psql $DATABASE_URL -f supabase/migrations/tests/quiz_leaderboard_neutral_ranking.sql
 -- =============================================
 
 BEGIN;
@@ -73,8 +80,11 @@ DECLARE
   v_now timestamptz := pg_catalog.now();
   v_rank_1_cid uuid;
   v_rank_2_cid uuid;
+  v_rank_2_attempt_id uuid;
+  v_rank_2_score integer;
   v_rank_3_cid uuid;
   v_rank_4_cid uuid;
+  v_row_count integer;
   -- auth.uid() for an authorized viewer (a customer of the event's merchant)
   v_viewer_uid uuid := '00000000-0000-4000-8000-0000000000f1';
   v_unauthorized_raised boolean := false;
@@ -113,7 +123,11 @@ BEGIN
   VALUES ('00000000-0000-4000-8000-000000000a11', v_event_id, v_customer_a, 'submitted', 8, v_now - interval '10 minutes', v_now - interval '8 minutes')
   RETURNING id INTO v_attempt_a;
 
-  -- Attempt B: Score 8, clean, started 10m ago, submitted 8m ago (completion: 2m = 120s). Tied score & time with A, but higher loyalty points (1000 vs 500)
+  -- Attempt B: Score 8, clean, started 10m ago, submitted 8m ago (completion: 2m = 120s).
+  -- Fully tied with A on score, completion time and submitted_at. B's customer holds
+  -- DOUBLE A's loyalty points (1000 vs 500), which under the old purchase-based
+  -- tiebreaker put B ahead. It must no longer buy B a better rank: the tie falls
+  -- through to attempt id, and B's id (...a12) sorts after A's (...a11).
   INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, score, started_at, submitted_at)
   VALUES ('00000000-0000-4000-8000-000000000a12', v_event_id, v_customer_b, 'submitted', 8, v_now - interval '10 minutes', v_now - interval '8 minutes')
   RETURNING id INTO v_attempt_b;
@@ -128,6 +142,19 @@ BEGIN
   VALUES ('00000000-0000-4000-8000-000000000a14', v_event_id, v_customer_d, 'disqualified', 9, v_now - interval '5 minutes', v_now - interval '3 minutes')
   RETURNING id INTO v_attempt_d;
 
+  -- A lower second attempt for Customer A must not occupy another leaderboard row.
+  INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, score, started_at, submitted_at)
+  VALUES ('00000000-0000-4000-8000-000000000a15', v_event_id, v_customer_a, 'submitted', 7, v_now - interval '4 minutes', v_now - interval '3 minutes');
+
+  -- NULL scores sort first under PostgreSQL's default DESC ordering. They must
+  -- remain behind scored attempts when choosing one attempt per customer.
+  INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, score, started_at, submitted_at)
+  VALUES ('00000000-0000-4000-8000-000000000a16', v_event_id, v_customer_a, 'submitted', NULL, v_now - interval '4 minutes', v_now - interval '3 minutes');
+
+  -- A negative duration is invalid even though it is technically under one hour.
+  INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, score, started_at, submitted_at)
+  VALUES ('00000000-0000-4000-8000-000000000a17', v_event_id, v_customer_a, 'submitted', 10, v_now - interval '2 minutes', v_now - interval '3 minutes');
+
   -- Authorize the caller as Customer A (a customer of the event's merchant).
   -- Set both GUCs so auth.uid() resolves regardless of the installed implementation
   -- (older: request.jwt.claim.sub; newer: request.jwt.claims->>'sub').
@@ -136,24 +163,37 @@ BEGIN
 
   -- Run leaderboard function and assert sorting order
   SELECT customer_id INTO v_rank_1_cid FROM public.get_quiz_leaderboard(v_event_id) WHERE rank = 1;
-  SELECT customer_id INTO v_rank_2_cid FROM public.get_quiz_leaderboard(v_event_id) WHERE rank = 2;
+  SELECT customer_id, attempt_id, score
+  INTO v_rank_2_cid, v_rank_2_attempt_id, v_rank_2_score
+  FROM public.get_quiz_leaderboard(v_event_id)
+  WHERE rank = 2;
   SELECT customer_id INTO v_rank_3_cid FROM public.get_quiz_leaderboard(v_event_id) WHERE rank = 3;
   SELECT customer_id INTO v_rank_4_cid FROM public.get_quiz_leaderboard(v_event_id) WHERE rank = 4;
+  SELECT pg_catalog.count(*)::integer INTO v_row_count FROM public.get_quiz_leaderboard(v_event_id);
 
   IF v_rank_1_cid IS DISTINCT FROM v_customer_c THEN
     RAISE EXCEPTION 'Rank 1 must be Customer C (highest clean score 9). Found customer: %', v_rank_1_cid;
   END IF;
 
-  IF v_rank_2_cid IS DISTINCT FROM v_customer_b THEN
-    RAISE EXCEPTION 'Rank 2 must be Customer B (Score 8, tied completion time, higher loyalty points 1000). Found customer: %', v_rank_2_cid;
+  -- Ranks 2 and 3 are the neutral-ranking guard. A and B are tied on every
+  -- legitimate signal (score, completion time, submitted_at). B holds twice A's
+  -- loyalty points. Buying points must NOT buy rank, so the tie resolves on the
+  -- neutral attempt id and A (...a11) comes before B (...a12) — the exact
+  -- opposite of the removed loyalty tiebreaker.
+  IF v_rank_2_cid IS DISTINCT FROM v_customer_a THEN
+    RAISE EXCEPTION 'Rank 2 must be Customer A (Score 8, tied completion time, lower loyalty points 500, lower attempt id). Loyalty points must not buy rank. Found customer: %', v_rank_2_cid;
   END IF;
 
-  IF v_rank_3_cid IS DISTINCT FROM v_customer_a THEN
-    RAISE EXCEPTION 'Rank 3 must be Customer A (Score 8, tied completion time, lower loyalty points 500). Found customer: %', v_rank_3_cid;
+  IF v_rank_2_attempt_id IS DISTINCT FROM v_attempt_a OR v_rank_2_score IS DISTINCT FROM 8 THEN
+    RAISE EXCEPTION 'Customer A leaderboard row must use the best score-8 attempt %, found attempt % with score %', v_attempt_a, v_rank_2_attempt_id, v_rank_2_score;
   END IF;
 
-  IF v_rank_4_cid IS DISTINCT FROM v_customer_d THEN
-    RAISE EXCEPTION 'Rank 4 must be Customer D (disqualified attempt, ranked last despite score 9). Found customer: %', v_rank_4_cid;
+  IF v_rank_3_cid IS DISTINCT FROM v_customer_b THEN
+    RAISE EXCEPTION 'Rank 3 must be Customer B (Score 8, tied completion time, HIGHER loyalty points 1000, higher attempt id). Loyalty points must not buy rank. Found customer: %', v_rank_3_cid;
+  END IF;
+
+  IF v_rank_4_cid IS NOT NULL OR v_row_count <> 3 THEN
+    RAISE EXCEPTION 'Leaderboard must expose exactly one clean best attempt per customer; found % rows and rank 4 customer %', v_row_count, v_rank_4_cid;
   END IF;
 
   -- 5. Authorization guard: a caller who is NOT a customer of the merchant is rejected (QZ031).

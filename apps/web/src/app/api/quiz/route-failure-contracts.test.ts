@@ -1,3 +1,4 @@
+import { QUIZ_FREE_ENTRY_MODE } from '@baci/shared/constants';
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { checkCsrfProtection } from '@/lib/csrf';
@@ -56,7 +57,11 @@ function mockSupabase({
   selectResult?: { data: unknown; error: unknown };
   user?: { id: string } | null;
 } = {}) {
-  const rpc = vi.fn().mockResolvedValue(rpcResult);
+  const rpc = vi.fn((name: string) =>
+    Promise.resolve(
+      name === 'quiz_free_entry_ready' ? { data: true, error: null } : rpcResult
+    )
+  );
   const queryBuilder = {
     eq: vi.fn(() => queryBuilder),
     limit: vi.fn(() => queryBuilder),
@@ -98,6 +103,7 @@ function routeCases(): RouteCase[] {
     {
       loadRoute: () => import('./attempts/start/route'),
       request: jsonRequest('http://localhost/api/quiz/attempts/start', {
+        entryMode: QUIZ_FREE_ENTRY_MODE,
         eventId: EVENT_ID,
         integrityTier: 'device',
       }),

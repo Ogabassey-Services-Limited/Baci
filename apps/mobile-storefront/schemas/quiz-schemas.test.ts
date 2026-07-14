@@ -73,7 +73,13 @@ describe('quiz response schemas', () => {
     expect(quizOptionSchema.parse(validOption)).toEqual(validOption);
     expect(quizQuestionSchema.parse(validQuestion)).toEqual(validQuestion);
     expect(quizEventSchema.parse(validEvent)).toEqual(validEvent);
-    expect(quizEventsResponseSchema.parse({ events: [validEvent] })).toEqual({
+    expect(
+      quizEventsResponseSchema.parse({
+        entryMode: 'free-v1',
+        events: [validEvent],
+      })
+    ).toEqual({
+      entryMode: 'free-v1',
       events: [validEvent],
     });
     expect(quizAttemptSchema.parse(validAttempt)).toEqual(validAttempt);
@@ -114,6 +120,12 @@ describe('quiz response schemas', () => {
     }
   });
 
+  it('rejects event lists from a backend without free-entry support', () => {
+    expect(
+      quizEventsResponseSchema.safeParse({ events: [validEvent] }).success
+    ).toBe(false);
+  });
+
   it('enforces question array and numeric boundaries', () => {
     const invalidFields = [
       [
@@ -147,9 +159,12 @@ describe('quiz response schemas', () => {
         ['correctAnswers'],
       ],
       [
+        // Entry is free, so this is 0 and any non-negative int is accepted (a
+        // stale database mid-deploy may still report 1). Only a negative charge
+        // is nonsense.
         quizAttemptSchema.safeParse({
           ...validAttempt,
-          examPassPointsSpent: 2,
+          examPassPointsSpent: -1,
         }),
         ['examPassPointsSpent'],
       ],
