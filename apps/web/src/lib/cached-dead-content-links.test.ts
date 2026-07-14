@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockGetPublicSupabaseClient, mockGetSlugResolution } = vi.hoisted(
@@ -372,5 +375,26 @@ describe('getCachedDeadContentLinkSlugs UUID fail-open', () => {
     );
 
     expect(result.products).toEqual([]);
+  });
+});
+
+describe('cached-dead-content-links cache directive', () => {
+  const source = readFileSync(
+    resolve(
+      dirname(fileURLToPath(import.meta.url)),
+      'cached-dead-content-links.ts'
+    ),
+    'utf8'
+  );
+
+  it('stays on the shared remote cache handler so dead-link invalidation reaches every instance (PR4b review r4)', () => {
+    // Demotion REVERTED. Tagged `blog-posts` (busted by
+    // revalidateBlogPosts/revalidateBlogFeed) and `products-${merchantId}`
+    // (busted by revalidateProducts). Dead-link detection must see a product or
+    // post going live — or dying — on EVERY instance; a local entry would keep
+    // an unpublished link marked live (or strike a republished one) until
+    // cacheLife expiry. Still fail-loud (throws so callers fail open).
+    expect(source).toContain("'use cache: remote';");
+    expect(source).not.toContain("'use cache';");
   });
 });

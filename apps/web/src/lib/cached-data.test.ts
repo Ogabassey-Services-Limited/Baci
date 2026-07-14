@@ -28,11 +28,13 @@ vi.mock('@supabase/supabase-js', () => ({
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import {
   getCachedCategories,
+  getCachedDashboardStats,
   getCachedFeatureSettings,
   getCachedMerchant,
   getCachedMerchantByDomain,
   getCachedMerchantById,
   getCachedMerchantPaystackSubaccountConfigured,
+  getCachedPlatformAnalytics,
   getCachedProductRatingStats,
   getCachedProductReviews,
   getCachedProducts,
@@ -897,6 +899,130 @@ describe('getCachedProducts', () => {
       code: '57014',
       message: 'statement timeout',
     });
+  });
+
+  it('hard-caps the payload when no limit/offset is provided (PR4b)', async () => {
+    harness.mockListResult.data = [];
+    harness.mockListResult.error = null;
+    harness.mockRpc.mockResolvedValueOnce({ data: [], error: null });
+
+    await getCachedProducts('merchant-1');
+
+    // A full-catalog read (ogabassey ~1,333 active) must not write an unbounded
+    // hydrated array into the (now local) cache item.
+    expect(harness.mockLimit).toHaveBeenCalledWith(100);
+  });
+
+  it('clamps an oversized explicit limit to the row cap (PR4b)', async () => {
+    harness.mockListResult.data = [];
+    harness.mockListResult.error = null;
+    harness.mockRpc.mockResolvedValueOnce({ data: [], error: null });
+
+    await getCachedProducts('merchant-1', { limit: 5000 });
+
+    expect(harness.mockLimit).toHaveBeenCalledWith(100);
+    expect(harness.mockLimit).not.toHaveBeenCalledWith(5000);
+  });
+
+  it('passes a small explicit limit through unchanged (PR4b)', async () => {
+    harness.mockListResult.data = [];
+    harness.mockListResult.error = null;
+    harness.mockRpc.mockResolvedValueOnce({ data: [], error: null });
+
+    await getCachedProducts('merchant-1', { limit: 10 });
+
+    expect(harness.mockLimit).toHaveBeenCalledWith(10);
+  });
+});
+
+describe('getCachedDashboardStats', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    harness = buildCachedDataTestHarness();
+    mockCreateClient.mockReturnValue({
+      from: harness.mockFrom,
+      rpc: harness.mockRpc,
+      auth: { getUser: vi.fn() },
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the RPC stats on success', async () => {
+    harness.mockRpc.mockResolvedValueOnce({
+      data: { revenue: 100, orders: 3 },
+      error: null,
+    });
+
+    await expect(getCachedDashboardStats('merchant-1')).resolves.toEqual({
+      revenue: 100,
+      orders: 3,
+    });
+  });
+
+  it('throws on a transient RPC error so it is never cached as absence (PR4b)', async () => {
+    const consoleSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    harness.mockRpc.mockResolvedValueOnce({
+      data: null,
+      error: { code: '57014', message: 'statement timeout' },
+    });
+
+    await expect(getCachedDashboardStats('merchant-1')).rejects.toMatchObject({
+      code: '57014',
+    });
+    expect(consoleSpy).toHaveBeenCalled();
+  });
+
+  it('returns null when the RPC yields no stats without an error', async () => {
+    harness.mockRpc.mockResolvedValueOnce({ data: null, error: null });
+
+    await expect(getCachedDashboardStats('merchant-1')).resolves.toBeNull();
+  });
+});
+
+describe('getCachedPlatformAnalytics', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    harness = buildCachedDataTestHarness();
+    mockCreateClient.mockReturnValue({
+      from: harness.mockFrom,
+      rpc: harness.mockRpc,
+      auth: { getUser: vi.fn() },
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the aggregate summary on success', async () => {
+    harness.mockRpc.mockResolvedValueOnce({
+      data: { totalGmv: 5000 },
+      error: null,
+    });
+
+    await expect(
+      getCachedPlatformAnalytics('2026-07-01', '2026-07-13')
+    ).resolves.toEqual({ totalGmv: 5000 });
+  });
+
+  it('throws on a transient RPC error so it is never cached as absence (PR4b)', async () => {
+    const consoleSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    harness.mockRpc.mockResolvedValueOnce({
+      data: null,
+      error: { code: '57014', message: 'statement timeout' },
+    });
+
+    await expect(
+      getCachedPlatformAnalytics('2026-07-01', '2026-07-13')
+    ).rejects.toMatchObject({ code: '57014' });
+    expect(consoleSpy).toHaveBeenCalled();
   });
 });
 

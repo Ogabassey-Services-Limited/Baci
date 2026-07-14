@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { StorefrontReadUnavailableError } from '@/lib/storefront-read-result';
 import { loadPriceBandPage } from './load-price-band-page';
 
 const mockGetMerchantByIdentifier = vi.fn();
@@ -121,6 +122,29 @@ describe('loadPriceBandPage', () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
+  });
+
+  it('fails closed when the category catalogue is unavailable, rather than publishing a partial band (PR4b review r5)', async () => {
+    // The unbounded category read is all-or-nothing: it throws rather than hand
+    // back a truncated prefix. This page must NOT swallow that into a null
+    // (which the route turns into a 404, deindexing a valid band page) and must
+    // NOT emit a price-band model built from an incomplete inventory. Letting
+    // the typed error propagate is the fail-closed contract.
+    mockGetCachedCategoryPageData.mockRejectedValue(
+      new StorefrontReadUnavailableError({
+        kind: 'database',
+        operation: 'category_page_product_ids_complete',
+        retryable: true,
+      })
+    );
+
+    await expect(
+      loadPriceBandPage({
+        merchantSlug: 'ogabassey',
+        categorySlug: 'smartphones',
+        priceBandSlug: 'under-1m',
+      })
+    ).rejects.toBeInstanceOf(StorefrontReadUnavailableError);
   });
 
   it('returns a canonical model for an eligible curated band', async () => {

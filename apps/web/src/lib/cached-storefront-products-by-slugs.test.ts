@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { cacheTag } from 'next/cache';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -128,5 +131,26 @@ describe('getCachedStorefrontProductsBySlugs', () => {
 
     expect(harness.mockFrom).not.toHaveBeenCalled();
     expect(harness.mockIn).not.toHaveBeenCalled();
+  });
+});
+
+describe('cached-storefront-products-by-slugs cache directive', () => {
+  const source = readFileSync(
+    resolve(
+      dirname(fileURLToPath(import.meta.url)),
+      'cached-storefront-products-by-slugs.ts'
+    ),
+    'utf8'
+  );
+
+  it('stays on the shared remote cache handler so tag invalidation reaches every instance (PR4b review)', () => {
+    // Codex review (PR #3108): this reader feeds the pinned launch carousel on
+    // the ogabassey home page. Its freshness contract depends on
+    // revalidateProducts() tag busting propagating to ALL instances — local
+    // 'use cache' entries only see same-instance revalidation, so a demotion
+    // serves stale pinned products after merchant edits. Bounded payload +
+    // low-cardinality key = legitimate KEEP; joins the PR4d resilient-adapter
+    // migration set (inventory doc §8).
+    expect(source).toContain("'use cache: remote';");
   });
 });

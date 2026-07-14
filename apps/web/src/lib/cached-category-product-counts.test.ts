@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildCachedDataTestHarness,
@@ -148,18 +151,40 @@ describe('getCachedCategoryProductCounts', () => {
     expect(harness.mockFrom).not.toHaveBeenCalled();
   });
 
-  it('returns empty counts when the count query fails', async () => {
+  it('throws on a transient count query failure so it is never cached as empty (PR4b)', async () => {
     const consoleSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
     harness.mockListResult.data = null;
-    harness.mockListResult.error = { message: 'DB timeout' };
+    harness.mockListResult.error = { code: '57014', message: 'DB timeout' };
 
-    const result = await getCachedCategoryProductCounts('merchant-1', [
-      { id: 'parent', is_active: true, parent_id: null },
-    ]);
-
-    expect(result).toEqual({});
+    await expect(
+      getCachedCategoryProductCounts('merchant-1', [
+        { id: 'parent', is_active: true, parent_id: null },
+      ])
+    ).rejects.toMatchObject({ code: '57014' });
     expect(consoleSpy).toHaveBeenCalled();
+  });
+});
+
+describe('cached-category-product-counts cache directive', () => {
+  const source = readFileSync(
+    resolve(
+      dirname(fileURLToPath(import.meta.url)),
+      'cached-category-product-counts.ts'
+    ),
+    'utf8'
+  );
+
+  it('stays on the shared remote cache handler so count invalidation reaches every instance (PR4b review r4)', () => {
+    // Demotion REVERTED. These counts are tagged `products-${id}` AND
+    // `categories-${id}`, both busted by live revalidators (revalidateProducts,
+    // revalidateCategories). A product added or removed must change the
+    // category count on EVERY instance — a local entry never sees the bust and
+    // would serve a stale count until cacheLife expiry. The fill still fails
+    // loud so a transient error is never cached as empty counts.
+    expect(source).toContain("'use cache: remote';");
+    expect(source).not.toContain("'use cache';");
+    expect(source).toContain('throw error');
   });
 });

@@ -165,6 +165,12 @@ export function getScopedPlatformBlogListCacheTag({
 export async function getPlatformBlogPost(
   slug: string
 ): Promise<PlatformBlogPost | null> {
+  // PR4b review (Codex, PR #3108): stays `'use cache: remote'`. Admin
+  // edit/unpublish/delete/rename flows bust this entry via revalidateTag
+  // (PLATFORM_BLOG_* tags), and tag invalidation only propagates
+  // cross-instance through the SHARED remote store — a local entry on another
+  // instance would keep serving a deleted/renamed post until cacheLife
+  // expiry. Joins the PR4d resilient-adapter migration set (inventory §8).
   'use cache: remote';
 
   const normalizedSlug = normalizeSlug(slug);
@@ -208,6 +214,9 @@ export async function getPlatformBlogListing(
     tag?: string | null;
   } = {}
 ): Promise<PlatformBlogListingResult> {
+  // PR4b review (Codex, PR #3108): stays `'use cache: remote'` — same
+  // cross-instance revalidateTag contract as getPlatformBlogPost above.
+  // Joins the PR4d resilient-adapter migration set (inventory §8).
   'use cache: remote';
 
   const category = normalizeOptionalFilter(options.category);
@@ -302,6 +311,9 @@ export async function incrementPlatformBlogPostViews(
 export async function getPlatformBlogFeedPosts(): Promise<
   PlatformBlogFeedPost[]
 > {
+  // PR4b review (Codex, PR #3108): stays `'use cache: remote'` — same
+  // cross-instance revalidateTag contract as getPlatformBlogPost above.
+  // Joins the PR4d resilient-adapter migration set (inventory §8).
   'use cache: remote';
 
   cacheLife('merchant');
@@ -330,6 +342,9 @@ export async function getPlatformBlogFeedPosts(): Promise<
 export async function getPlatformBlogSitemapPosts(): Promise<
   PlatformBlogSitemapPost[]
 > {
+  // PR4b review (Codex, PR #3108): stays `'use cache: remote'` — same
+  // cross-instance revalidateTag contract as getPlatformBlogPost above.
+  // Joins the PR4d resilient-adapter migration set (inventory §8).
   'use cache: remote';
 
   cacheLife('merchant');

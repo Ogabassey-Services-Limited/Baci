@@ -9,7 +9,32 @@ import {
   buildProductMarkdown,
   buildStorefrontFaqMarkdown,
   buildStorefrontHomeMarkdown,
+  notFoundMarkdownResponse,
+  unavailableMarkdownResponse,
 } from './llms-markdown';
+
+describe('markdown failure responses', () => {
+  it('serves a retryable 503 WITHOUT noindex so a transient blip cannot deindex the URL (PR4b review r6)', () => {
+    const response = unavailableMarkdownResponse('# Temporarily Unavailable\n');
+
+    expect(response.status).toBe(503);
+    // The whole point of a retryable 503 is "come back later". A crawler or LLM
+    // ingester that honours X-Robots-Tag: noindex would DROP the URL during the
+    // outage — defeating the 503 entirely. noindex belongs only on genuinely
+    // degraded 200s, never on a 5xx that means "retry".
+    expect(response.headers.get('X-Robots-Tag')).not.toMatch(/noindex/i);
+    // Never cache the failure, and tell the crawler when to come back.
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(response.headers.get('Retry-After')).toBe('60');
+  });
+
+  it('keeps noindex on a genuine 404 (not a retryable failure)', () => {
+    const response = notFoundMarkdownResponse('# Not Found\n');
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get('X-Robots-Tag')).toMatch(/noindex/i);
+  });
+});
 
 const merchant: CachedMerchant = {
   id: 'merchant-1',
