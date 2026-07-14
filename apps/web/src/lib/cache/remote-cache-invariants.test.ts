@@ -111,8 +111,7 @@ function makeHandler(backend: Backend) {
     cooldownMs: 30_000,
   });
 }
-
-describe('cache invariants', () => {
+describe('INVARIANT A — degrade toward the origin', () => {
   let unhandled: unknown[];
   let onUnhandled: (reason: unknown) => void;
 
@@ -132,7 +131,6 @@ describe('cache invariants', () => {
     }
   }
 
-  /* ================================================================ */
   /*  INVARIANT A — every degraded leg forces a MISS                   */
   /* ================================================================ */
 
@@ -187,6 +185,33 @@ describe('cache invariants', () => {
       finding: 'Invariant A',
       degrade: (b) => b.get.mockRejectedValue(new Error('502')),
     },
+    {
+      name: 'the entry stream STALLS mid-body',
+      finding: 'PRRT_kwDOQZgfis6QnKUQ (Invariant B hole)',
+      degrade: (b) => {
+        b.get.mockImplementation(async () => ({
+          value: new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(encoder.encode('first chunk'));
+              // ...and then nothing, ever. A stall, not an error.
+            },
+          }),
+          tags: ['products-m1'],
+          stale: 300,
+          timestamp: 1_000,
+          expire: 86_400,
+          revalidate: 300,
+        }));
+      },
+    },
+    {
+      name: 'updateTags() fails, dropping an invalidation',
+      finding: 'PRRT_kwDOQZgfis6Qne4q',
+      degrade: (b) => b.updateTags.mockRejectedValue(new Error('503')),
+      // A dropped bust means the store still holds the PRE-MUTATION entry, and
+      // nothing else will tell us. Reads must not stay confident.
+      provoke: (h) => h.updateTags(['products-m1']),
+    },
   ];
 
   describe.each(degradationLegs)('INVARIANT A: when $name ($finding)', ({
@@ -234,75 +259,4 @@ describe('cache invariants', () => {
   });
 
   /* ================================================================ */
-  /*  INVARIANT B — every backend call is time-bounded                 */
-  /* ================================================================ */
-
-  const backendLegs: {
-    name: string;
-    call: (h: ReturnType<typeof makeHandler>) => Promise<unknown>;
-    hangs: (b: Backend) => void;
-  }[] = [
-    {
-      name: 'get',
-      call: (h) => h.get('k', []),
-      hangs: (b) => b.get.mockImplementation(hang),
-    },
-    {
-      name: 'set',
-      call: (h) => h.set('k', Promise.resolve(makeEntry())),
-      hangs: (b) => b.set.mockImplementation(hang),
-    },
-    {
-      name: 'refreshTags',
-      call: (h) => h.refreshTags(),
-      hangs: (b) => b.refreshTags.mockImplementation(hang),
-    },
-    {
-      name: 'getExpiration',
-      call: (h) => h.getExpiration(['t']),
-      hangs: (b) => b.getExpiration.mockImplementation(hang),
-    },
-    {
-      name: 'updateTags',
-      call: (h) => h.updateTags(['t']),
-      hangs: (b) => b.updateTags.mockImplementation(hang),
-    },
-  ];
-
-  describe.each(backendLegs)('INVARIANT B: $name()', ({ call, hangs }) => {
-    it('settles rather than hanging when the backend never responds', async () => {
-      const backend = healthyBackend();
-      hangs(backend);
-      const handler = makeHandler(backend);
-
-      // If this leg is unbounded the test times out — which is the point.
-      await expect(call(handler)).resolves.not.toThrow();
-      await flush();
-
-      expect(unhandled).toEqual([]);
-    });
-  });
-
-  /* ================================================================ */
-  /*  A hung set() must still open the WRITE circuit (finding 4)       */
-  /* ================================================================ */
-
-  it('opens the write circuit when set() HANGS (not just when it rejects)', async () => {
-    const backend = healthyBackend();
-    backend.set.mockImplementation(hang);
-    const handler = makeHandler(backend);
-
-    // Each of these must resolve (bounded), and each timeout is a breaker failure.
-    await handler.set('k1', Promise.resolve(makeEntry()));
-    await handler.set('k2', Promise.resolve(makeEntry()));
-    await handler.set('k3', Promise.resolve(makeEntry()));
-    expect(backend.set).toHaveBeenCalledTimes(3);
-
-    // Circuit is now open: a hung backend is no longer written to at all.
-    await handler.set('k4', Promise.resolve(makeEntry()));
-    expect(backend.set).toHaveBeenCalledTimes(3);
-
-    await flush();
-    expect(unhandled).toEqual([]);
-  });
 });

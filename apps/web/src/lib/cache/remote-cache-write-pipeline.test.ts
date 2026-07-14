@@ -130,6 +130,20 @@ describe('createWritePipeline', () => {
     expect(backend.set).not.toHaveBeenCalled();
   });
 
+  /**
+   * CodeRabbit: a `pendingEntry` that never settles — the RENDER hanging, as
+   * opposed to the backend hanging. `bufferAndGate`'s `await pendingEntry` had no
+   * deadline, so the promise Next awaits after the response would never resolve.
+   */
+  it('resolves when the pendingEntry (the render) never settles', async () => {
+    const pipeline = makePipeline({ backendTimeoutMs: 25 });
+
+    await expect(
+      pipeline.write('key-1', new Promise<CacheEntryLike>(() => {}))
+    ).resolves.toBeUndefined();
+    expect(backend.set).not.toHaveBeenCalled();
+  });
+
   it('does not touch the backend when disabled', async () => {
     const pipeline = makePipeline({ disabled: true });
 

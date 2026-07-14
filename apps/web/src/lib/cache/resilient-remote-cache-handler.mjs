@@ -1,18 +1,15 @@
 // @ts-check
 
+import { createCacheBreakers } from './remote-cache-breakers.mjs';
 import {
-  createCircuitBreaker,
   DEFAULT_COOLDOWN_MS,
   DEFAULT_FAILURE_THRESHOLD,
 } from './remote-cache-circuit-breaker.mjs';
 import { DEFAULT_MAX_ITEM_BYTES } from './remote-cache-entry-buffer.mjs';
 import { createReadPipeline } from './remote-cache-read-pipeline.mjs';
+import { createTagPipeline } from './remote-cache-tag-pipeline.mjs';
 import { createCacheTelemetry } from './remote-cache-telemetry.mjs';
-import {
-  CacheBackendTimeoutError,
-  DEFAULT_BACKEND_TIMEOUT_MS,
-  withTimeout,
-} from './remote-cache-timeout.mjs';
+import { DEFAULT_BACKEND_TIMEOUT_MS } from './remote-cache-timeout.mjs';
 import {
   createCacheTrust,
   DEFAULT_DISTRUST_MS,
@@ -90,14 +87,6 @@ export const RESILIENT_REMOTE_CACHE_BRAND = Symbol.for(
 );
 
 /**
- * @param {unknown} error
- * @returns {string}
- */
-function describeError(error) {
-  return error instanceof Error ? error.message : String(error);
-}
-
-/**
  * @param {ResilientRemoteCacheOptions} options
  * @returns {ResilientRemoteCacheHandler}
  */
@@ -115,23 +104,11 @@ export function createResilientRemoteCacheHandler(options) {
     now,
   } = options;
 
-  const clock = now ?? Date.now;
-
-  // READS and WRITES get INDEPENDENT breakers. The production outage this
-  // handler exists for is write-only: `set()` 502s while `get()` still serves.
-  // With one shared breaker every successful read reset the consecutive-failure
-  // count, so the circuit never opened and we kept hammering a backend that
-  // could not accept writes.
-  const readBreaker = createCircuitBreaker({
-    failureThreshold,
-    cooldownMs,
-    now,
-  });
-  const writeBreaker = createCircuitBreaker({
-    failureThreshold,
-    cooldownMs,
-    now,
-  });
+  // PER-LEG breakers. Failure accounting has to be per-operation, because that
+  // is the granularity at which a backend actually fails: a healthy leg's
+  // successes must never reset a sick leg's failure count. See
+  // `remote-cache-breakers.mjs` for the two bugs that taught us this.
+  const breakers = createCacheBreakers({ failureThreshold, cooldownMs, now });
 
   const telemetry = createCacheTelemetry({ logger, flushIntervalMs, now });
   // NOT cooldownMs: the breaker shields a sick backend from load, while distrust
@@ -140,7 +117,7 @@ export function createResilientRemoteCacheHandler(options) {
 
   const writes = createWritePipeline({
     backend,
-    breaker: writeBreaker,
+    breaker: breakers('set'),
     telemetry,
     logger,
     maxItemBytes,
@@ -151,12 +128,22 @@ export function createResilientRemoteCacheHandler(options) {
 
   const reads = createReadPipeline({
     backend,
-    breaker: readBreaker,
+    breakers,
     trust,
     telemetry,
     logger,
     writes,
     maxItemBytes,
+    disabled,
+    backendTimeoutMs,
+  });
+
+  const tags = createTagPipeline({
+    backend,
+    breakers,
+    trust,
+    telemetry,
+    logger,
     disabled,
     backendTimeoutMs,
   });
@@ -176,119 +163,15 @@ export function createResilientRemoteCacheHandler(options) {
     },
 
     async refreshTags() {
-      if (disabled) {
-        telemetry.record('refresh_tags', 'skip_disabled');
-        return;
-      }
-
-      if (!readBreaker.shouldAttempt()) {
-        // Reads are already miss-only while the circuit is open, so there is
-        // nothing left to protect.
-        telemetry.record('refresh_tags', 'skip_circuit_open');
-        return;
-      }
-
-      try {
-        await withTimeout(
-          () => backend.refreshTags(),
-          backendTimeoutMs,
-          'refresh_tags'
-        );
-        readBreaker.recordSuccess();
-        telemetry.record('refresh_tags', 'success');
-        trust.restore('refresh_tags');
-      } catch (error) {
-        readBreaker.recordFailure();
-        telemetry.record(
-          'refresh_tags',
-          error instanceof CacheBackendTimeoutError ? 'timeout' : 'failure'
-        );
-        // Next awaits refreshTags BEFORE cacheHandler.get() (verified in
-        // use-cache-wrapper.js ~1277). So a failure here means this instance's
-        // tag manifest may be stale for the very read that follows — it could
-        // hand back a PRE-INVALIDATION entry. Degrade: reads go to the origin.
-        trust.degrade('refresh_tags');
-        logger.warn(
-          `[resilient-remote-cache] refreshTags failed, reads degraded to origin: ${describeError(error)}`
-        );
-      }
+      await tags.refreshTags();
     },
 
-    async getExpiration(tags) {
-      if (disabled || !readBreaker.shouldAttempt()) {
-        telemetry.record(
-          'get_expiration',
-          disabled ? 'skip_disabled' : 'skip_circuit_open'
-        );
-        return clock();
-      }
-
-      try {
-        const expiration = await withTimeout(
-          () => backend.getExpiration(tags),
-          backendTimeoutMs,
-          'get_expiration'
-        );
-        readBreaker.recordSuccess();
-        telemetry.record('get_expiration', 'success');
-        trust.restore('get_expiration');
-        return expiration;
-      } catch (error) {
-        readBreaker.recordFailure();
-        telemetry.record(
-          'get_expiration',
-          error instanceof CacheBackendTimeoutError ? 'timeout' : 'failure'
-        );
-        trust.degrade('get_expiration');
-        logger.warn(
-          `[resilient-remote-cache] getExpiration failed, discarding entry: ${describeError(error)}`
-        );
-
-        // Next awaits this AFTER cacheHandler.get() and only when an entry
-        // exists (use-cache-wrapper.js ~1301-1320), so degrading trust only
-        // protects LATER reads — the CURRENT entry is already in Next's hands.
-        //
-        // Returning Infinity would leave `implicitTagsExpiration` at 0, i.e.
-        // "the implicit tags are not expired", and that entry would be served.
-        // But `implicitTagsExpiration` is consumed by exactly one comparison:
-        //
-        //     if (entry.timestamp <= implicitTagsExpiration) return true;  // discard
-        //
-        // so returning a FINITE `now` says "every implicit tag was revalidated
-        // as of this moment" and Next discards the entry it just took from us.
-        // That is how the CURRENT read is forced to miss.
-        return clock();
-      }
+    async getExpiration(softTags) {
+      return await tags.getExpiration(softTags);
     },
 
-    async updateTags(tags, durations) {
-      // Deliberately NOT gated on the breaker or the kill switch: invalidation
-      // is correctness, not throughput, and every site on this handler depends
-      // on `revalidateTag` reaching the shared store (inventory §8). Volume is
-      // negligible (admin mutations), so there is no backend to protect here.
-      try {
-        await withTimeout(
-          () =>
-            durations
-              ? backend.updateTags(tags, durations)
-              : backend.updateTags(tags),
-          backendTimeoutMs,
-          'update_tags'
-        );
-        telemetry.record('update_tags', 'success');
-      } catch (error) {
-        telemetry.record(
-          'update_tags',
-          error instanceof CacheBackendTimeoutError ? 'timeout' : 'failure'
-        );
-        // A dropped invalidation means stale data survives until its cacheLife
-        // `revalidate` window lapses — a real freshness bug, so log it LOUDLY.
-        // It still must not reject: Next awaits this in `executeRevalidates()`
-        // at the end of a request that has already succeeded.
-        logger.error(
-          `[resilient-remote-cache] updateTags FAILED — invalidation dropped for ${tags.length} tag(s); stale entries persist until their revalidate window lapses: ${describeError(error)}`
-        );
-      }
+    async updateTags(softTags, durations) {
+      await tags.updateTags(softTags, durations);
     },
 
     getTelemetrySnapshot() {

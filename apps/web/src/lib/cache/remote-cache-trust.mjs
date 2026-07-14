@@ -38,7 +38,7 @@
  * 3. **Reason.** A recovered leg stops contributing distrust even while another
  *    leg is still broken.
  *
- * @typedef {'refresh_tags' | 'get_expiration'} CacheTrustReason
+ * @typedef {'refresh_tags' | 'get_expiration' | 'update_tags'} CacheTrustReason
  *
  * @typedef {object} CacheTrustOptions
  * @property {number} distrustMs Backstop only — see above.

@@ -134,6 +134,53 @@ describe('bufferCacheEntry', () => {
     expect(result.status).toBe('stream_error');
   });
 
+  /**
+   * Codex round 3 (`PRRT_kwDOQZgfis6QnKUQ` / `…Qne4k`) — the hole in Invariant B.
+   * `reader.read()` was awaited with NO deadline, outside every withTimeout
+   * guard. A body stream that STALLS (rather than erroring) would hang the
+   * storefront request forever: get() never settles, the breaker never learns,
+   * and the same helper runs before backend.set() so writes wedge too.
+   */
+  it('times out a STALLED stream instead of hanging forever', async () => {
+    const stalled = {
+      value: new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(encoder.encode('first chunk'));
+          // ...and then nothing, ever.
+        },
+      }),
+      tags: [],
+      stale: 300,
+      timestamp: 1_000,
+      expire: 86_400,
+      revalidate: 300,
+    };
+
+    const result = await bufferCacheEntry(stalled, 1024, 25);
+
+    expect(result.status).toBe('timeout');
+  });
+
+  it('times out a pending entry that never settles (a hung render)', async () => {
+    const result = await bufferCacheEntry(
+      new Promise(() => {}) as never,
+      1024,
+      25
+    );
+
+    expect(result.status).toBe('timeout');
+  });
+
+  it('reports a stream error for a resolved entry with no value stream', async () => {
+    // CodeRabbit coverage gap: a malformed entry must be a VALUE, not a throw.
+    const result = await bufferCacheEntry(
+      { tags: [], stale: 1, timestamp: 1, expire: 1, revalidate: 1 } as never,
+      1024
+    );
+
+    expect(result.status).toBe('stream_error');
+  });
+
   it('never rejects even when the pending entry itself is a rejected promise', async () => {
     // The framework hands `set()` a *pending* entry; a render failure rejects it.
     await expect(

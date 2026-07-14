@@ -99,9 +99,16 @@ export function createWritePipeline(options) {
    * @returns {Promise<BufferedEntry | undefined>}
    */
   async function bufferAndGate(pendingEntry) {
-    const result = await bufferCacheEntry(pendingEntry, maxItemBytes);
+    const result = await bufferCacheEntry(
+      pendingEntry,
+      maxItemBytes,
+      backendTimeoutMs
+    );
 
     if (result.status === 'oversized') {
+      // We were admitted by the breaker but never reached the backend — hand the
+      // probe slot back rather than judging the backend on our own payload.
+      breaker.releaseProbe();
       telemetry.record('set', 'skip_oversized');
       logger.warn(
         `[resilient-remote-cache] refusing oversized entry: ${result.bytes} bytes > ${maxItemBytes} limit`
@@ -109,8 +116,14 @@ export function createWritePipeline(options) {
       return undefined;
     }
 
-    if (result.status === 'stream_error') {
-      telemetry.record('set', 'failure');
+    if (result.status === 'timeout' || result.status === 'stream_error') {
+      // A stalled render/stream must not wedge the write path either — the same
+      // helper runs before every backend.set().
+      breaker.recordFailure();
+      telemetry.record(
+        'set',
+        result.status === 'timeout' ? 'timeout' : 'failure'
+      );
       logger.warn(
         `[resilient-remote-cache] entry stream failed, skipping write: ${describeError(result.error)}`
       );
@@ -126,9 +139,10 @@ export function createWritePipeline(options) {
    * @returns {Promise<void>} Never rejects.
    */
   async function performWrite(cacheKey, pendingEntry) {
-    const buffered = await bufferAndGate(pendingEntry);
-    if (!buffered) return;
-
+    // CHEAP GATES FIRST. Draining and size-gating the entry is the expensive
+    // part; doing it before checking whether we are even allowed to write meant
+    // that during an outage (circuit open) — or with the kill switch on — every
+    // write still paid the full buffer + size-gate cost for nothing.
     if (disabled) {
       telemetry.record('set', 'skip_disabled');
       return;
@@ -138,6 +152,9 @@ export function createWritePipeline(options) {
       telemetry.record('set', 'skip_circuit_open');
       return;
     }
+
+    const buffered = await bufferAndGate(pendingEntry);
+    if (!buffered) return;
 
     try {
       await withTimeout(

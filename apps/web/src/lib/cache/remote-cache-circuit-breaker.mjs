@@ -30,6 +30,7 @@
  * @property {() => boolean} shouldAttempt True when the caller may touch the backend.
  * @property {() => void} recordSuccess
  * @property {() => void} recordFailure
+ * @property {() => void} releaseProbe Abandon an admitted probe without judging the backend.
  * @property {() => CircuitState} getState
  */
 
@@ -79,6 +80,19 @@ export function createCircuitBreaker(options = {}) {
     recordSuccess() {
       state = 'closed';
       consecutiveFailures = 0;
+      probeInFlight = false;
+    },
+
+    /**
+     * The caller was admitted but never actually reached the backend (e.g. the
+     * payload was rejected locally before the call). Give the probe slot back
+     * WITHOUT judging the backend either way — recording a success would reset
+     * the failure count during a real outage, and recording a failure would
+     * blame the backend for something it never saw. Without this, a half-open
+     * probe that aborts locally leaves `probeInFlight` set forever and the
+     * breaker can never close again.
+     */
+    releaseProbe() {
       probeInFlight = false;
     },
 

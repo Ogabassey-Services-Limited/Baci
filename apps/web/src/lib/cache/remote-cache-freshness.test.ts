@@ -86,16 +86,41 @@ describe('freshness semantics against the real Next contract', () => {
 
       const expiration = await handler.getExpiration(['products-m1']);
 
-      // Infinity would mean "implicit tags are not expired" and the ALREADY
-      // RETURNED entry would be served stale. A finite `now` means "every implicit
-      // tag was revalidated as of now", so `entry.timestamp <= implicitTagsExpiration`
-      // holds for any pre-existing entry and Next discards it.
+      // Must be < Infinity, or Next's `if (expiration < Infinity)` filter drops
+      // it, implicitTagsExpiration stays 0 ("implicit tags not expired"), and
+      // the ALREADY RETURNED entry is served stale.
       expect(Number.isFinite(expiration)).toBe(true);
-      expect(expiration).toBe(5_000);
+      expect(expiration).toBe(Number.MAX_SAFE_INTEGER);
 
       // Sanity-check the discard arithmetic Next will perform.
       const entry = makeEntry('stale', 1_000);
       expect(entry.timestamp <= expiration).toBe(true);
+    });
+
+    /**
+     * Codex round 3 (`PRRT_kwDOQZgfis6QnKUU`). The comparison is
+     * `entry.timestamp <= implicitTagsExpiration`, so a LARGER value discards
+     * MORE. Returning `Date.now()` looked right but let a FUTURE-dated entry
+     * survive — clock skew between instances, or a backend-supplied timestamp —
+     * which is precisely the pre-invalidation entry we meant to drop.
+     */
+    it('discards even a FUTURE-dated entry when expiration is unverifiable', async () => {
+      const backend = makeBackend();
+      backend.getExpiration.mockRejectedValue(new Error('503'));
+      const localNow = 5_000;
+      const handler = createResilientRemoteCacheHandler({
+        backend,
+        logger,
+        now: () => localNow,
+      });
+
+      const expiration = await handler.getExpiration(['products-m1']);
+
+      // An entry written by an instance whose clock runs ahead of ours.
+      const skewed = makeEntry('pre-invalidation', localNow + 60_000);
+      expect(skewed.timestamp).toBeGreaterThan(localNow);
+      // Under the old `clock()` answer this survived. It must not.
+      expect(skewed.timestamp <= expiration).toBe(true);
     });
 
     it('passes the real expiration through when the backend answers', async () => {
