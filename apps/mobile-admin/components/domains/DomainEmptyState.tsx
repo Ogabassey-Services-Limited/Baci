@@ -4,7 +4,7 @@ import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 
 interface DomainEmptyStateProps {
-  onBuyDomain: () => void;
+  onBuyDomain?: () => void;
   onConnectDomain: () => void;
 }
 
@@ -38,26 +38,30 @@ export function DomainEmptyState({
           look more professional to customers.
         </Text>
 
-        <Pressable
-          style={({ pressed }) => [
-            styles.buyButton,
-            shadows.md,
-            { backgroundColor: colors.primary },
-            pressed && { opacity: 0.7 },
-          ]}
-          onPress={onBuyDomain}
-          accessibilityRole="button"
-          accessibilityLabel="Get a custom domain"
-        >
-          <Text style={[styles.buyButtonText, { color: colors.textOnPrimary }]}>
-            Get a Custom Domain
-          </Text>
-          <Ionicons
-            name="arrow-forward"
-            size={18}
-            color={colors.textOnPrimary}
-          />
-        </Pressable>
+        {onBuyDomain ? (
+          <Pressable
+            style={({ pressed }) => [
+              styles.buyButton,
+              shadows.md,
+              { backgroundColor: colors.primary },
+              pressed && { opacity: 0.7 },
+            ]}
+            onPress={onBuyDomain}
+            accessibilityRole="button"
+            accessibilityLabel="Get a custom domain"
+          >
+            <Text
+              style={[styles.buyButtonText, { color: colors.textOnPrimary }]}
+            >
+              Get a Custom Domain
+            </Text>
+            <Ionicons
+              name="arrow-forward"
+              size={18}
+              color={colors.textOnPrimary}
+            />
+          </Pressable>
+        ) : null}
 
         <Pressable
           style={({ pressed }) => [
