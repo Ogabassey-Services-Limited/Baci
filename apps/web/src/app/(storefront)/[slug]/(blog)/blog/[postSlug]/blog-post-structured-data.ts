@@ -117,7 +117,10 @@ export function buildBlogPostStructuredData({
         name: merchant.business_name,
         logo: merchant.logo_url || `${baseUrl}/logo.png`,
         url: baseUrl,
-        sameAs: buildBlogPublisherSameAs(merchant.social_media),
+        sameAs: buildBlogPublisherSameAs(
+          merchant.social_media,
+          merchant.business_name
+        ),
       },
       wordCount: post.word_count ?? undefined,
       keywords: post.keywords ?? undefined,

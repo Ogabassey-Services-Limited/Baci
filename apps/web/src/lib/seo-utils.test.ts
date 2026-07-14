@@ -1268,6 +1268,26 @@ describe('getCanonicalStorefrontFilterSearchParams', () => {
 });
 
 describe('generateOrganizationSchema', () => {
+  it('omits sameAs profiles whose handles do not match the organization brand', () => {
+    const schema = generateOrganizationSchema({
+      name: 'Ogabassey',
+      url: 'https://ogabassey.com',
+      country: 'NG',
+      socialMedia: {
+        youtube: 'ogabassey',
+        linkedin: 'ogabasseyy',
+        instagram: 'ywzhqv',
+        twitter: 'sxgtow',
+        facebook: 'odvkrk',
+      },
+    });
+
+    expect(schema.sameAs).toEqual([
+      'https://linkedin.com/company/ogabasseyy',
+      'https://youtube.com/@ogabassey',
+    ]);
+  });
+
   it('adds normalized sameAs, contactPoint, foundingDate, and return policy from the trust profile', () => {
     const schema = generateOrganizationSchema({
       name: 'Test Store',
