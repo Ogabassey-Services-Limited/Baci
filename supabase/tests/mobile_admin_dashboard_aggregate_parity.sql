@@ -91,6 +91,8 @@ BEGIN
     ('9b0d0e12-0000-4000-8000-000000000313', v_merchant, v_branch_a,
       'DASH-CHART-END', '2026-07-10 00:00+00',
       'delivered', 'paid', 40, 'NGN'),
+    ('9b0d0e12-0000-4000-8000-000000000314', v_merchant, v_branch_a,
+      'DASH-NULL-CREATED', NULL, 'pending', 'paid', 0, 'NGN'),
     ('9b0d0e12-0000-4000-8000-000000000309', v_other_merchant,
       v_other_branch, 'DASH-OTHER', '2026-07-02 01:00+00',
       'pending', 'paid', 999, 'NGN');
@@ -151,7 +153,7 @@ SELECT pg_temp.assert_jsonb(
     '2026-07-01 00:00+00', '2026-06-01 00:00+00',
     '2026-07-01 00:00+00', NULL
   ),
-  '{"avgOrderValue":154,"newCustomers":1,"orders":7,"pendingOrders":4,"previousPeriodRevenue":70,"revenue":1080,"totalCustomers":2,"totalItems":22,"visits":2}'::jsonb
+  '{"avgOrderValue":154,"newCustomers":1,"orders":7,"pendingOrders":5,"previousPeriodRevenue":70,"revenue":1080,"totalCustomers":2,"totalItems":22,"visits":2}'::jsonb
 );
 
 SELECT pg_temp.assert_jsonb(
@@ -162,7 +164,7 @@ SELECT pg_temp.assert_jsonb(
     '2026-07-01 00:00+00',
     '9b0d0e12-0000-4000-8000-000000000201'
   ),
-  '{"avgOrderValue":76,"newCustomers":1,"orders":5,"pendingOrders":3,"previousPeriodRevenue":70,"revenue":380,"totalCustomers":2,"totalItems":13,"visits":2}'::jsonb
+  '{"avgOrderValue":76,"newCustomers":1,"orders":5,"pendingOrders":4,"previousPeriodRevenue":70,"revenue":380,"totalCustomers":2,"totalItems":13,"visits":2}'::jsonb
 );
 
 SELECT pg_temp.assert_jsonb(
@@ -203,7 +205,7 @@ SELECT pg_temp.assert_jsonb(
     '9b0d0e12-0000-4000-8000-000000000101',
     NULL, NULL, NULL, NULL
   ),
-  '{"avgOrderValue":118,"newCustomers":2,"orders":10,"pendingOrders":4,"previousPeriodRevenue":0,"revenue":1175,"totalCustomers":2,"totalItems":31,"visits":3}'::jsonb
+  '{"avgOrderValue":107,"newCustomers":2,"orders":11,"pendingOrders":5,"previousPeriodRevenue":0,"revenue":1175,"totalCustomers":2,"totalItems":31,"visits":3}'::jsonb
 );
 
 DO $guards$

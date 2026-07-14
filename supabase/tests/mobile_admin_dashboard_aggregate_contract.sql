@@ -126,7 +126,7 @@ BEGIN
         'FROM[[:space:]]+public[.]orders',
         'gi'
       )
-    ) IS DISTINCT FROM 6::bigint
+    ) IS DISTINCT FROM 10::bigint
     OR (
       SELECT COUNT(*)
       FROM pg_catalog.regexp_matches(
@@ -138,6 +138,30 @@ BEGIN
   THEN
     RAISE EXCEPTION
       'dashboard stats RPC scan shape is not the bounded consolidation';
+  END IF;
+
+  IF v_stats_definition !~* 'v_order_start_at[[:space:]]+timestamptz'
+    OR v_stats_definition !~* 'LEAST\([[:space:]]*p_start_at,[[:space:]]*p_previous_start_at[[:space:]]*\)'
+    OR v_stats_definition ~* 'COUNT\(\*\)[[:space:]]+FILTER[[:space:]]*\([[:space:]]*WHERE[[:space:]]+o[.]shipping_status'
+    OR (
+      SELECT COUNT(*)
+      FROM pg_catalog.regexp_matches(
+        v_stats_definition,
+        'SELECT[[:space:]]+COUNT\(\*\)[[:space:]]+INTO[[:space:]]+v_pending_orders',
+        'gi'
+      )
+    ) IS DISTINCT FROM 2::bigint
+    OR (
+      SELECT COUNT(*)
+      FROM pg_catalog.regexp_matches(
+        v_stats_definition,
+        'AND[[:space:]]+o[.]created_at[[:space:]]*>=[[:space:]]*v_order_start_at',
+        'gi'
+      )
+    ) IS DISTINCT FROM 2::bigint
+  THEN
+    RAISE EXCEPTION
+      'dashboard order aggregate is not date-bounded before aggregation';
   END IF;
 
   IF v_stats_definition !~* 'event_type[[:space:]]*=[[:space:]]*''page_view'''

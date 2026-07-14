@@ -59,6 +59,33 @@ WHERE o.merchant_id = $1
   AND o.payment_status = 'paid'
   AND o.created_at >= $2;
 
+PREPARE dashboard_stats_all_plan(
+  uuid, timestamp with time zone, timestamp with time zone,
+  timestamp with time zone
+) AS
+SELECT COALESCE(SUM(COALESCE(o.total, 0)), 0)
+FROM pg_temp.dashboard_orders_plan AS o
+WHERE o.merchant_id = $1
+  AND o.payment_status = 'paid'
+  AND o.created_at >= CASE
+    WHEN $3 IS NOT NULL AND $4 IS NOT NULL THEN LEAST($2, $3)
+    ELSE $2
+  END;
+
+PREPARE dashboard_stats_branch_plan(
+  uuid, uuid, timestamp with time zone, timestamp with time zone,
+  timestamp with time zone
+) AS
+SELECT COALESCE(SUM(COALESCE(o.total, 0)), 0)
+FROM pg_temp.dashboard_orders_plan AS o
+WHERE o.merchant_id = $1
+  AND o.branch_id = $2
+  AND o.payment_status = 'paid'
+  AND o.created_at >= CASE
+    WHEN $4 IS NOT NULL AND $5 IS NOT NULL THEN LEAST($3, $4)
+    ELSE $3
+  END;
+
 PREPARE dashboard_items_branch_plan(
   uuid, uuid, timestamp with time zone
 ) AS
@@ -160,6 +187,18 @@ SELECT pg_temp.assert_prepared_index(
 );
 
 SELECT pg_temp.assert_prepared_index(
+  'dashboard_stats_all_plan',
+  'EXECUTE dashboard_stats_all_plan(''9b0d0e12-0000-4000-8000-000000000101'', ''2026-02-01 00:00+00'', ''2026-01-01 00:00+00'', ''2026-02-01 00:00+00'')',
+  'dashboard_orders_paid_merchant_created_plan_idx', '$2', '$3'
+);
+
+SELECT pg_temp.assert_prepared_index(
+  'dashboard_stats_branch_plan',
+  'EXECUTE dashboard_stats_branch_plan(''9b0d0e12-0000-4000-8000-000000000101'', ''9b0d0e12-0000-4000-8000-000000000201'', ''2026-02-01 00:00+00'', ''2026-01-01 00:00+00'', ''2026-02-01 00:00+00'')',
+  'dashboard_orders_paid_merchant_created_plan_idx', '$3', '$4'
+);
+
+SELECT pg_temp.assert_prepared_index(
   'dashboard_visits_plan',
   'EXECUTE dashboard_visits_plan(''9b0d0e12-0000-4000-8000-000000000101'', ''2026-07-01 00:00+00'')',
   'dashboard_analytics_events_created_plan_idx', '$2'
@@ -179,6 +218,8 @@ SELECT pg_temp.assert_prepared_index(
 
 DEALLOCATE dashboard_items_all_plan;
 DEALLOCATE dashboard_items_branch_plan;
+DEALLOCATE dashboard_stats_all_plan;
+DEALLOCATE dashboard_stats_branch_plan;
 DEALLOCATE dashboard_visits_plan;
 DEALLOCATE dashboard_chart_branch_plan;
 DEALLOCATE dashboard_chart_all_plan;

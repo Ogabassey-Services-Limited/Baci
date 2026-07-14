@@ -37,6 +37,8 @@ DECLARE
   v_avg_order_value numeric := 0;
   v_caller_role text := COALESCE((SELECT auth.role()), '');
   v_new_customers bigint := 0;
+  v_order_start_at timestamptz := CASE
+    WHEN p_start_at IS NOT NULL AND p_previous_start_at IS NOT NULL AND p_previous_end_at IS NOT NULL THEN LEAST(p_start_at, p_previous_start_at) ELSE p_start_at END;
   v_orders bigint := 0;
   v_pending_orders bigint := 0;
   v_previous_revenue numeric := 0;
@@ -49,31 +51,29 @@ BEGIN
     RAISE EXCEPTION 'merchant_id_required' USING ERRCODE = '22023';
   END IF;
 
-  IF v_caller_role <> 'service_role'
-    AND NOT public.has_merchant_access(p_merchant_id) THEN
+  IF v_caller_role <> 'service_role' AND NOT public.has_merchant_access(p_merchant_id) THEN
     RAISE EXCEPTION 'insufficient_privilege' USING ERRCODE = '42501';
   END IF;
-
   IF p_branch_id IS NULL THEN
-    SELECT
-      COUNT(*) FILTER (
-        WHERE p_start_at IS NULL OR o.created_at >= p_start_at
-      ),
-      COUNT(*) FILTER (WHERE o.shipping_status = 'pending'),
-      COALESCE(SUM(COALESCE(o.total, 0)) FILTER (
-        WHERE p_previous_start_at IS NOT NULL
-          AND p_previous_end_at IS NOT NULL
-          AND o.created_at >= p_previous_start_at
-          AND o.created_at < p_previous_end_at
-      ), 0),
-      COALESCE(SUM(COALESCE(o.total, 0)) FILTER (
-        WHERE p_start_at IS NULL OR o.created_at >= p_start_at
-      ), 0)
-    INTO v_orders, v_pending_orders, v_previous_revenue, v_revenue
-    FROM public.orders AS o
-    WHERE o.merchant_id = p_merchant_id
-      AND o.payment_status = 'paid';
-
+    SELECT COUNT(*) INTO v_pending_orders FROM public.orders AS o
+    WHERE o.merchant_id = p_merchant_id AND o.payment_status = 'paid'
+      AND o.shipping_status = 'pending';
+    IF p_start_at IS NULL THEN
+      SELECT COUNT(*),
+        COALESCE(SUM(COALESCE(o.total, 0)) FILTER (WHERE p_previous_start_at IS NOT NULL AND p_previous_end_at IS NOT NULL AND o.created_at >= p_previous_start_at AND o.created_at < p_previous_end_at), 0),
+        COALESCE(SUM(COALESCE(o.total, 0)), 0)
+      INTO v_orders, v_previous_revenue, v_revenue
+      FROM public.orders AS o
+      WHERE o.merchant_id = p_merchant_id AND o.payment_status = 'paid';
+    ELSE
+      SELECT COUNT(*) FILTER (WHERE o.created_at >= p_start_at),
+        COALESCE(SUM(COALESCE(o.total, 0)) FILTER (WHERE p_previous_start_at IS NOT NULL AND p_previous_end_at IS NOT NULL AND o.created_at >= p_previous_start_at AND o.created_at < p_previous_end_at), 0),
+        COALESCE(SUM(COALESCE(o.total, 0)) FILTER (WHERE o.created_at >= p_start_at), 0)
+      INTO v_orders, v_previous_revenue, v_revenue
+      FROM public.orders AS o
+      WHERE o.merchant_id = p_merchant_id AND o.payment_status = 'paid'
+        AND o.created_at >= v_order_start_at;
+    END IF;
     IF p_start_at IS NULL THEN
       SELECT COALESCE(SUM(COALESCE(oi.quantity, 1)), 0)
       INTO v_total_items
@@ -91,26 +91,28 @@ BEGIN
         AND o.created_at >= p_start_at;
     END IF;
   ELSE
-    SELECT
-      COUNT(*) FILTER (
-        WHERE p_start_at IS NULL OR o.created_at >= p_start_at
-      ),
-      COUNT(*) FILTER (WHERE o.shipping_status = 'pending'),
-      COALESCE(SUM(COALESCE(o.total, 0)) FILTER (
-        WHERE p_previous_start_at IS NOT NULL
-          AND p_previous_end_at IS NOT NULL
-          AND o.created_at >= p_previous_start_at
-          AND o.created_at < p_previous_end_at
-      ), 0),
-      COALESCE(SUM(COALESCE(o.total, 0)) FILTER (
-        WHERE p_start_at IS NULL OR o.created_at >= p_start_at
-      ), 0)
-    INTO v_orders, v_pending_orders, v_previous_revenue, v_revenue
-    FROM public.orders AS o
-    WHERE o.merchant_id = p_merchant_id
-      AND o.branch_id = p_branch_id
-      AND o.payment_status = 'paid';
-
+    SELECT COUNT(*) INTO v_pending_orders FROM public.orders AS o
+    WHERE o.merchant_id = p_merchant_id AND o.branch_id = p_branch_id
+      AND o.payment_status = 'paid'
+      AND o.shipping_status = 'pending';
+    IF p_start_at IS NULL THEN
+      SELECT COUNT(*),
+        COALESCE(SUM(COALESCE(o.total, 0)) FILTER (WHERE p_previous_start_at IS NOT NULL AND p_previous_end_at IS NOT NULL AND o.created_at >= p_previous_start_at AND o.created_at < p_previous_end_at), 0),
+        COALESCE(SUM(COALESCE(o.total, 0)), 0)
+      INTO v_orders, v_previous_revenue, v_revenue
+      FROM public.orders AS o
+      WHERE o.merchant_id = p_merchant_id AND o.branch_id = p_branch_id
+        AND o.payment_status = 'paid';
+    ELSE
+      SELECT COUNT(*) FILTER (WHERE o.created_at >= p_start_at),
+        COALESCE(SUM(COALESCE(o.total, 0)) FILTER (WHERE p_previous_start_at IS NOT NULL AND p_previous_end_at IS NOT NULL AND o.created_at >= p_previous_start_at AND o.created_at < p_previous_end_at), 0),
+        COALESCE(SUM(COALESCE(o.total, 0)) FILTER (WHERE o.created_at >= p_start_at), 0)
+      INTO v_orders, v_previous_revenue, v_revenue
+      FROM public.orders AS o
+      WHERE o.merchant_id = p_merchant_id AND o.branch_id = p_branch_id
+        AND o.payment_status = 'paid'
+        AND o.created_at >= v_order_start_at;
+    END IF;
     IF p_start_at IS NULL THEN
       SELECT COALESCE(SUM(COALESCE(oi.quantity, 1)), 0)
       INTO v_total_items
@@ -130,7 +132,6 @@ BEGIN
         AND o.created_at >= p_start_at;
     END IF;
   END IF;
-
   SELECT
     COUNT(*) FILTER (
       WHERE p_start_at IS NULL OR c.created_at >= p_start_at
