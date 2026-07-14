@@ -755,7 +755,6 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
         klumpReference,
         klumpTransactionId,
         router,
-        status,
         trackingToken,
         creditDirectPopupMarker,
     ]);

@@ -9,6 +9,7 @@ import {
 import { CHECKOUT_PENDING_ORDER_STORAGE_KEY } from './checkout/pending-checkout-order';
 
 const mockPush = vi.fn();
+const mockRouter = { push: mockPush };
 const mockSearchParams = vi.fn();
 const mockOpenCreditDirectCheckout = vi.fn();
 const mockOpenCredPalCheckout = vi.fn();
@@ -22,7 +23,7 @@ interface TestReactNativeWebViewWindow extends Window {
 }
 
 vi.mock('next/navigation', () => ({
-  useRouter: vi.fn(() => ({ push: mockPush })),
+  useRouter: vi.fn(() => mockRouter),
   useSearchParams: vi.fn(() => mockSearchParams()),
 }));
 
@@ -102,7 +103,7 @@ describe('BnplLauncher', () => {
     vi.unstubAllGlobals();
   });
 
-  it('loads BNPL order details with merchant slug and tracking token', async () => {
+  it('loads BNPL order details once across launcher status transitions', async () => {
     render(<BnplLauncher />);
 
     await waitFor(() => {
@@ -110,6 +111,10 @@ describe('BnplLauncher', () => {
         '/api/storefront/orders/order-1?merchant_slug=test-store&token=tok-123'
       );
     });
+    await waitFor(() => {
+      expect(mockOpenCreditDirectCheckout).toHaveBeenCalledOnce();
+    });
+    expect(fetch).toHaveBeenCalledOnce();
   });
 
   it('includes a persisted customer email alongside the tracking token when available', async () => {
