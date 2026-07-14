@@ -40,6 +40,7 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 vi.mock('@/lib/quiz/quiz-device-hash', () => ({
+  QUIZ_DEVICE_COOKIE: 'baci_qdid',
   resolveQuizDevice: vi.fn(),
 }));
 
@@ -512,6 +513,28 @@ describe('start quiz attempt route', () => {
     expect(rpc).toHaveBeenCalledWith(
       'start_quiz_attempt',
       expect.objectContaining({ p_event_id: EVENT_ID })
+    );
+  });
+
+  it('reuses an existing web device cookie for bearer starts without a fingerprint', async () => {
+    const { rpc } = mockAuthenticatedSupabase();
+    const request = bearerRequest({
+      eventId: EVENT_ID,
+      integrityTier: 'device',
+    });
+    request.cookies.set('baci_qdid', 'existing-device-cookie');
+    vi.mocked(resolveQuizDevice).mockReturnValue({
+      deviceHash: 'b'.repeat(64),
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(request);
+
+    expect(response.status).toBe(200);
+    expect(resolveQuizDevice).toHaveBeenCalledWith(request, undefined);
+    expect(rpc).toHaveBeenCalledWith(
+      'start_quiz_attempt_with_device',
+      expect.objectContaining({ p_device_hash: 'b'.repeat(64) })
     );
   });
 

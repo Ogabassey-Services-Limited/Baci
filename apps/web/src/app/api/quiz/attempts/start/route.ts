@@ -25,7 +25,10 @@ import {
 import { readStalePaidStartCharge } from '@/app/api/quiz/_shared/stale-paid-start-charge';
 import { getQuizPhaseEnv } from '@/env';
 import { logger } from '@/lib/logger';
-import { resolveQuizDevice } from '@/lib/quiz/quiz-device-hash';
+import {
+  QUIZ_DEVICE_COOKIE,
+  resolveQuizDevice,
+} from '@/lib/quiz/quiz-device-hash';
 import { buildQuizDeviceProofSubject } from '@/lib/quiz/quiz-device-proof-subject';
 import { startQuizAttemptSchema } from '@/schemas/quiz';
 
@@ -112,7 +115,14 @@ export async function POST(request: NextRequest) {
   // visible to answer routes before this decision commits.
   let device: ReturnType<typeof resolveQuizDevice> = { deviceHash: null };
   try {
-    if (auth.authMethod !== 'bearer' || parsed.data.deviceFingerprint) {
+    const hasExistingWebDevice = Boolean(
+      request.cookies?.get(QUIZ_DEVICE_COOKIE)?.value?.trim()
+    );
+    if (
+      auth.authMethod !== 'bearer' ||
+      parsed.data.deviceFingerprint ||
+      hasExistingWebDevice
+    ) {
       device = resolveQuizDevice(
         request,
         auth.authMethod === 'bearer' ? parsed.data.deviceFingerprint : undefined
