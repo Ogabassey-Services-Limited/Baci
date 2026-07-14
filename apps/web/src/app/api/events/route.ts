@@ -176,8 +176,8 @@ export async function POST(request: NextRequest) {
   let responseEventId = input.event_id;
 
   try {
-    const contextSupabase = await createServerClient();
     if (durableEnqueue) {
+      const contextSupabase = await createServerClient();
       const context = await resolveEventIngressContext({
         merchantId: input.merchant_id,
         pageUrl: input.page_url ?? request.headers.get('referer') ?? undefined,

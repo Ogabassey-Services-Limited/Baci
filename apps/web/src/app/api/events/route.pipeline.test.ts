@@ -3,9 +3,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   after: vi.fn(),
+  createServerClient: vi.fn(),
   insert: vi.fn(),
   isConversionEvent: vi.fn(),
   isLegacyFanoutDisabled: vi.fn(),
+  isPipelineEnabled: vi.fn(),
   record: vi.fn(),
   resolveContext: vi.fn(),
   rpc: vi.fn(),
@@ -25,10 +27,7 @@ vi.mock('@/lib/events/event-ingress-capability', () => ({
   }),
 }));
 vi.mock('@/lib/supabase/server', () => ({
-  createClient: () => ({
-    from: () => ({ insert: mocks.insert, upsert: mocks.upsert }),
-    rpc: mocks.rpc,
-  }),
+  createClient: mocks.createServerClient,
 }));
 vi.mock('next/server', async () => {
   const actual =
@@ -41,7 +40,7 @@ vi.mock('@/lib/analytics/send-to-ad-platforms', () => ({
   sendToAdPlatforms: vi.fn(),
 }));
 vi.mock('@/lib/events/event-pipeline-config', () => ({
-  isEventPipelineEnqueueEnabled: () => true,
+  isEventPipelineEnqueueEnabled: mocks.isPipelineEnabled,
   isLegacyAnalyticsFanoutDisabled: mocks.isLegacyFanoutDisabled,
   isUnverifiedEventTelemetryEnabled: () => false,
 }));
@@ -81,7 +80,12 @@ describe('POST /api/events durable pipeline', () => {
     mocks.upsert.mockResolvedValue({ error: null });
     mocks.isConversionEvent.mockReturnValue(false);
     mocks.isLegacyFanoutDisabled.mockReturnValue(false);
+    mocks.isPipelineEnabled.mockReturnValue(true);
     mocks.record.mockResolvedValue({ queue_message_id: 1 });
+    mocks.createServerClient.mockResolvedValue({
+      from: () => ({ insert: mocks.insert, upsert: mocks.upsert }),
+      rpc: mocks.rpc,
+    });
   });
 
   it('returns only after the atomic analytics and queue RPC succeeds', async () => {
@@ -167,5 +171,14 @@ describe('POST /api/events durable pipeline', () => {
       expect.any(Object)
     );
     expect(mocks.after).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not create a request-context client for the legacy path', async () => {
+    mocks.isPipelineEnabled.mockReturnValue(false);
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(200);
+    expect(mocks.createServerClient).not.toHaveBeenCalled();
   });
 });

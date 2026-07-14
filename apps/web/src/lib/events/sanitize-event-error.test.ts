@@ -31,4 +31,14 @@ describe('sanitizeEventErrorMessage', () => {
       )
     ).toBe('{"token"=[redacted],"authorization"=[redacted]}');
   });
+
+  it('redacts compound credential field names', () => {
+    expect(
+      sanitizeEventErrorMessage(
+        '{"access_token":"private-access","client_secret":"private-secret","refresh_token":"private-refresh"}'
+      )
+    ).toBe(
+      '{"access_token"=[redacted],"client_secret"=[redacted],"refresh_token"=[redacted]}'
+    );
+  });
 });

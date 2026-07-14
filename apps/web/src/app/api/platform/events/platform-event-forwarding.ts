@@ -1,5 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
 import type { NextRequest } from 'next/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import type { PlatformEventRequestInput } from '@/schemas/platform-event';
 
 const DEFAULT_PLATFORM_CURRENCY = 'NGN';
@@ -14,13 +14,6 @@ type PlatformEventForwardingInput = {
   request: NextRequest;
 };
 
-function getSupabaseAdmin() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
-    process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
-  );
-}
-
 export async function forwardToPlatformAnalytics({
   eventData,
   eventId,
@@ -28,13 +21,17 @@ export async function forwardToPlatformAnalytics({
   pageUrl,
   request,
 }: PlatformEventForwardingInput) {
-  const { data: settings } = await getSupabaseAdmin()
+  const { data: settings, error: settingsError } = await createAdminClient()
     .from('platform_settings')
     .select(
       'google_analytics_id, ga4_api_secret, facebook_pixel_id, facebook_capi_token'
     )
     .single();
 
+  if (settingsError) {
+    console.warn('Failed to load platform analytics settings:', settingsError);
+    return;
+  }
   if (!settings) return;
 
   const ga4EventMap: Record<PlatformEventType, string> = {

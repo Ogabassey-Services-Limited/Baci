@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { sanitizeEventErrorMessage } from '@/lib/events/sanitize-event-error';
 
 /**
  * TikTok Events API (Server-Side)
@@ -220,7 +221,10 @@ export async function sendTikTokEvent(
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => null);
-      console.error('TikTok Events API error:', errorData);
+      console.error(
+        'TikTok Events API error:',
+        sanitizeEventErrorMessage(JSON.stringify(errorData))
+      );
       return {
         success: false,
         error:
@@ -236,10 +240,15 @@ export async function sendTikTokEvent(
 
     return { success: true };
   } catch (error) {
-    console.error('TikTok Events API request failed:', error);
+    const errorMessage =
+      error instanceof Error ? error.message : 'Network error';
+    console.error(
+      'TikTok Events API request failed:',
+      sanitizeEventErrorMessage(errorMessage)
+    );
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error',
+      error: errorMessage,
     };
   }
 }

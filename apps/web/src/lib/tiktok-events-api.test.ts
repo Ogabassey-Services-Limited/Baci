@@ -242,11 +242,16 @@ describe('tiktokEventsAPI', () => {
   });
 
   it('returns a provider rejection without throwing', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
-        json: vi.fn().mockResolvedValue({ message: 'invalid access token' }),
+        json: vi.fn().mockResolvedValue({
+          access_token: 'private-token',
+          message: 'invalid access token',
+        }),
         ok: false,
         status: 401,
       })
@@ -264,6 +269,10 @@ describe('tiktokEventsAPI', () => {
       httpStatus: 401,
       success: false,
     });
+    expect(consoleError).toHaveBeenCalledWith(
+      'TikTok Events API error:',
+      '{"access_token"=[redacted],"message":"invalid access token"}'
+    );
   });
 
   it('preserves the response status when a provider error is not JSON', async () => {
