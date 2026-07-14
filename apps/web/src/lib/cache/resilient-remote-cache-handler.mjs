@@ -68,13 +68,10 @@ import { createWritePipeline } from './remote-cache-write-pipeline.mjs';
  */
 
 /**
- * Brands every handler this factory produces.
- *
- * Next installs us *into* the same handler map we read our backend from, so the
- * entry module must be able to recognise one of our own adapters and refuse to
- * delegate to it. Without this, a re-imported module would wrap the previous
- * instance and recurse forever. `Symbol.for` keeps the brand stable across
- * module instances (registry-based, not identity-based).
+ * Brands every handler this factory produces, so the entry module can recognise
+ * one of our own adapters and refuse to delegate to it (a re-imported module
+ * would otherwise wrap the previous instance and recurse forever). `Symbol.for`
+ * keeps the brand stable across module instances.
  */
 export const RESILIENT_REMOTE_CACHE_BRAND = Symbol.for(
   'baci.resilient-remote-cache'
@@ -105,16 +102,51 @@ export function createResilientRemoteCacheHandler(options) {
     now,
   } = options;
 
-  const breaker = createCircuitBreaker({ failureThreshold, cooldownMs, now });
+  const clock = now ?? Date.now;
+
+  // READS and WRITES get INDEPENDENT breakers.
+  //
+  // The production outage this handler exists for is write-only: `set()` 502s
+  // while `get()` still serves hits. With one shared breaker, every successful
+  // read reset the consecutive-failure count, so the circuit never opened and we
+  // kept hammering a backend that could not accept writes. Independent
+  // accounting lets the write path open while reads keep flowing.
+  const readBreaker = createCircuitBreaker({
+    failureThreshold,
+    cooldownMs,
+    now,
+  });
+  const writeBreaker = createCircuitBreaker({
+    failureThreshold,
+    cooldownMs,
+    now,
+  });
   const telemetry = createCacheTelemetry({ logger, flushIntervalMs, now });
   const writes = createWritePipeline({
     backend,
-    breaker,
+    breaker: writeBreaker,
     telemetry,
     logger,
     maxItemBytes,
     disabled,
+    now,
   });
+
+  /**
+   * Until when the store's expiration answers are untrustworthy.
+   *
+   * When `getExpiration()` fails we tell Next `Infinity`, which means "skip your
+   * implicit-tag timestamp check — the handler validates soft tags inside
+   * `get()` instead". We cannot actually honour that: the shared store returns a
+   * real timestamp and its `get()` does not re-check soft tags. So serving a
+   * backend hit after a failed expiration lookup could return an entry that was
+   * invalidated via implicit route/path tags. While expiration is untrusted the
+   * only safe read is NO read — we force a miss and let the origin recompute.
+   *
+   * Time-bounded so a permanent latch cannot disable the cache forever if
+   * `getExpiration` is never called again.
+   */
+  let expirationUntrustedUntil = 0;
 
   /** @type {ResilientRemoteCacheHandler} */
   const handler = {
@@ -134,18 +166,25 @@ export function createResilientRemoteCacheHandler(options) {
         return undefined;
       }
 
-      if (!breaker.shouldAttempt()) {
+      // The store's expiration answers are currently untrustworthy, so a hit
+      // could be an entry that was already invalidated. Force a miss.
+      if (clock() < expirationUntrustedUntil) {
+        telemetry.record('get', 'skip_expiration_untrusted');
+        return undefined;
+      }
+
+      if (!readBreaker.shouldAttempt()) {
         telemetry.record('get', 'skip_circuit_open');
         return undefined;
       }
 
       try {
         const entry = await backend.get(cacheKey, softTags);
-        breaker.recordSuccess();
+        readBreaker.recordSuccess();
         telemetry.record('get', entry ? 'hit' : 'miss');
         return entry;
       } catch (error) {
-        breaker.recordFailure();
+        readBreaker.recordFailure();
         telemetry.record('get', 'failure');
         // A read failure is a MISS, never a throw: the route recomputes.
         logger.warn(
@@ -167,17 +206,17 @@ export function createResilientRemoteCacheHandler(options) {
         return;
       }
 
-      if (!breaker.shouldAttempt()) {
+      if (!readBreaker.shouldAttempt()) {
         telemetry.record('refresh_tags', 'skip_circuit_open');
         return;
       }
 
       try {
         await backend.refreshTags();
-        breaker.recordSuccess();
+        readBreaker.recordSuccess();
         telemetry.record('refresh_tags', 'success');
       } catch (error) {
-        breaker.recordFailure();
+        readBreaker.recordFailure();
         telemetry.record('refresh_tags', 'failure');
         logger.warn(
           `[resilient-remote-cache] refreshTags failed: ${describeError(error)}`
@@ -186,31 +225,35 @@ export function createResilientRemoteCacheHandler(options) {
     },
 
     async getExpiration(tags) {
-      if (disabled || !breaker.shouldAttempt()) {
+      if (disabled || !readBreaker.shouldAttempt()) {
         telemetry.record(
           'get_expiration',
           disabled ? 'skip_disabled' : 'skip_circuit_open'
         );
-        // Infinity = "check the soft tags in get() instead" (Next's contract).
-        // get() is miss-only in this state, so entries are recomputed, never
-        // served stale.
+        // In both states get() is already miss-only, so nothing can be served
+        // stale on the strength of this answer.
         return Number.POSITIVE_INFINITY;
       }
 
       try {
         const expiration = await backend.getExpiration(tags);
-        breaker.recordSuccess();
+        readBreaker.recordSuccess();
         telemetry.record('get_expiration', 'success');
+        // The store answered: its expiration data is trustworthy again.
+        expirationUntrustedUntil = 0;
         return expiration;
       } catch (error) {
-        breaker.recordFailure();
+        readBreaker.recordFailure();
         telemetry.record('get_expiration', 'failure');
         logger.warn(
           `[resilient-remote-cache] getExpiration failed: ${describeError(error)}`
         );
-        // Fail toward freshness. Returning 0 would mean "these tags were never
-        // revalidated", letting a busted entry be served as fresh; Infinity
-        // defers the decision to get(), which degrades to a miss.
+        // We could not learn whether these tags were revalidated. Returning 0
+        // ("never revalidated") would let a busted entry be served as fresh, and
+        // Infinity alone is a promise we cannot keep — the shared store's get()
+        // does not re-check soft tags. So ALSO force reads to miss until the
+        // expiration lookup works again (bounded by the cooldown window).
+        expirationUntrustedUntil = clock() + cooldownMs;
         return Number.POSITIVE_INFINITY;
       }
     },

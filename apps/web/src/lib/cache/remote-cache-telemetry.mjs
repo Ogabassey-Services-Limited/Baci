@@ -15,7 +15,7 @@
  * `remote-cache-handler.mjs`).
  *
  * @typedef {'get' | 'set' | 'refresh_tags' | 'get_expiration' | 'update_tags' | 'unknown'} CacheTelemetryOperation
- * @typedef {'hit' | 'miss' | 'write' | 'skip_oversized' | 'skip_circuit_open' | 'skip_disabled' | 'failure' | 'success' | 'unknown'} CacheTelemetryOutcome
+ * @typedef {'hit' | 'miss' | 'write' | 'skip_oversized' | 'skip_circuit_open' | 'skip_disabled' | 'skip_expiration_untrusted' | 'skip_stale_pending' | 'failure' | 'success' | 'unknown'} CacheTelemetryOutcome
  *
  * @typedef {object} TelemetryLogger
  * @property {(message: string) => void} log
@@ -50,6 +50,8 @@ export const CACHE_TELEMETRY_OUTCOMES = Object.freeze([
   'skip_oversized',
   'skip_circuit_open',
   'skip_disabled',
+  'skip_expiration_untrusted',
+  'skip_stale_pending',
   'failure',
   'success',
 ]);

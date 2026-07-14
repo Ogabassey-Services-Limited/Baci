@@ -82,6 +82,8 @@ describe('createWritePipeline', () => {
       logger,
       maxItemBytes: overrides.maxItemBytes ?? 1_048_576,
       disabled: overrides.disabled ?? false,
+      now: () => 0,
+      maxPendingAgeMs: 5_000,
     });
   }
 
@@ -169,6 +171,40 @@ describe('createWritePipeline', () => {
 
       await pipeline.write('key-1', Promise.resolve(makeEntry()));
 
+      await expect(pipeline.readPending('key-1')).resolves.toBeUndefined();
+    });
+
+    /**
+     * Codex `PRRT_kwDOQZgfis6QmUof`.
+     *
+     * The pending buffer exists to satisfy Next's set/get contract for the brief
+     * window while a write settles. But if the shared write HANGS, the key never
+     * leaves the map, and every later get() is served from that in-memory buffer
+     * — bypassing expiration and tag checks entirely. A hung write must not be
+     * able to shadow an invalidation indefinitely.
+     */
+    it('stops serving a hung write from the pending buffer once it goes stale', async () => {
+      let current = 0;
+      // A write that never settles.
+      backend.set.mockImplementation(() => new Promise<void>(() => {}));
+      const pipeline = createWritePipeline({
+        backend,
+        breaker: createCircuitBreaker({ now: () => current }),
+        telemetry: createCacheTelemetry({ logger, now: () => current }),
+        logger,
+        maxItemBytes: 1_048_576,
+        disabled: false,
+        now: () => current,
+        maxPendingAgeMs: 5_000,
+      });
+
+      void pipeline.write('key-1', Promise.resolve(makeEntry('shadowed')));
+
+      // Inside the window the contract still holds.
+      await expect(pipeline.readPending('key-1')).resolves.toBeDefined();
+
+      // Past it, the buffer must no longer shadow the shared store.
+      current = 5_000;
       await expect(pipeline.readPending('key-1')).resolves.toBeUndefined();
     });
 

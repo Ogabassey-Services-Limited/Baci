@@ -334,6 +334,92 @@ describe('createResilientRemoteCacheHandler', () => {
       expect(backend.set).toHaveBeenCalledTimes(2);
     });
 
+    /**
+     * Codex `PRRT_kwDOQZgfis6QmUok` — the exact outage this handler exists for.
+     *
+     * A remote-cache WRITE outage (`set()` 502s while `get()` still serves) is
+     * the production scenario from plan §4.4. With one breaker shared between
+     * reads and writes, every successful read called `recordSuccess()` and reset
+     * the consecutive-failure count, so the circuit NEVER opened and we kept
+     * hammering a backend that could not accept writes.
+     */
+    it('opens the WRITE circuit during a write-only outage even while reads keep succeeding', async () => {
+      const backend = makeBackend({
+        get: vi
+          .fn<Backend['get']>()
+          .mockResolvedValue(makeEntry('still-served')),
+        set: vi
+          .fn<Backend['set']>()
+          .mockRejectedValue(new Error('502 Bad Gateway')),
+      });
+      const handler = createResilientRemoteCacheHandler({
+        backend,
+        logger,
+        failureThreshold: 3,
+        cooldownMs: 30_000,
+        now: () => 0,
+      });
+
+      // Interleave reads and writes, exactly as a live route does.
+      for (let i = 0; i < 3; i += 1) {
+        await handler.get(`k${i}`, []);
+        await handler.set(`k${i}`, Promise.resolve(makeEntry()));
+      }
+      expect(backend.set).toHaveBeenCalledTimes(3);
+
+      // The write circuit must now be open despite the interleaved read successes.
+      await handler.set('k4', Promise.resolve(makeEntry()));
+      expect(backend.set).toHaveBeenCalledTimes(3);
+      expect(handler.getTelemetrySnapshot()).toMatchObject({
+        'set.skip_circuit_open': 1,
+      });
+    });
+
+    it('keeps READS flowing while the write circuit is open', async () => {
+      const backend = makeBackend({
+        get: vi.fn<Backend['get']>().mockResolvedValue(makeEntry('read-ok')),
+        set: vi
+          .fn<Backend['set']>()
+          .mockRejectedValue(new Error('502 Bad Gateway')),
+      });
+      const handler = createResilientRemoteCacheHandler({
+        backend,
+        logger,
+        failureThreshold: 2,
+        cooldownMs: 30_000,
+        now: () => 0,
+      });
+
+      await handler.set('k1', Promise.resolve(makeEntry()));
+      await handler.set('k2', Promise.resolve(makeEntry()));
+
+      // Write path is open; the read path must be untouched — a write outage
+      // must not throw away a perfectly healthy cache read.
+      const entry = await handler.get('k3', []);
+      expect(entry).toBeDefined();
+      await expect(new Response(entry?.value).text()).resolves.toBe('read-ok');
+    });
+
+    it('does not open the write circuit because of read failures', async () => {
+      const backend = makeBackend({
+        get: vi.fn<Backend['get']>().mockRejectedValue(new Error('503')),
+      });
+      const handler = createResilientRemoteCacheHandler({
+        backend,
+        logger,
+        failureThreshold: 2,
+        cooldownMs: 30_000,
+        now: () => 0,
+      });
+
+      await handler.get('k1', []);
+      await handler.get('k2', []);
+
+      // Reads are circuit-broken, but writes are a separate concern.
+      await handler.set('k3', Promise.resolve(makeEntry()));
+      expect(backend.set).toHaveBeenCalledTimes(1);
+    });
+
     it('probes again after the cooldown and recovers when the backend heals', async () => {
       let current = 0;
       const backend = makeBackend({
@@ -428,18 +514,96 @@ describe('createResilientRemoteCacheHandler', () => {
       await expect(handler.refreshTags()).resolves.toBeUndefined();
     });
 
-    it('defers expiration to get() when getExpiration fails, so a stale entry cannot be served as fresh', async () => {
+    it('reports Infinity when getExpiration fails, never 0', async () => {
       const backend = makeBackend({
         getExpiration: vi.fn().mockRejectedValue(new Error('503')),
       });
       const handler = createResilientRemoteCacheHandler({ backend, logger });
 
-      // Per Next's contract, Infinity means "pass the soft tags into get()
-      // instead". Returning 0 ("never revalidated") would let a busted entry be
-      // served as fresh; Infinity degrades to a miss and a recompute.
+      // Returning 0 would mean "these tags were never revalidated", letting a
+      // busted entry be served as fresh.
       await expect(handler.getExpiration(['products-m1'])).resolves.toBe(
         Number.POSITIVE_INFINITY
       );
+    });
+
+    /**
+     * Codex `PRRT_kwDOQZgfis6QmUoe`.
+     *
+     * Infinity tells Next "skip my implicit-tag timestamp check — the handler
+     * will validate soft tags inside get() instead". We cannot honour that
+     * promise: the underlying shared store returns a real timestamp and its
+     * get() does not re-check soft tags. So if the expiration lookup failed and
+     * we then served a backend hit, an entry invalidated via implicit
+     * route/path tags could be served STALE. When expiration is untrustworthy,
+     * the only safe read is no read.
+     */
+    it('forces a MISS on subsequent reads when the expiration lookup failed', async () => {
+      const backend = makeBackend({
+        get: vi.fn().mockResolvedValue(makeEntry('possibly-stale')),
+        getExpiration: vi.fn().mockRejectedValue(new Error('503')),
+      });
+      const handler = createResilientRemoteCacheHandler({
+        backend,
+        logger,
+        now: () => 0,
+      });
+
+      await handler.getExpiration(['products-m1']);
+
+      await expect(handler.get('key-1', [])).resolves.toBeUndefined();
+      // It must not even ask the store — the answer could not be validated.
+      expect(backend.get).not.toHaveBeenCalled();
+      expect(handler.getTelemetrySnapshot()).toMatchObject({
+        'get.skip_expiration_untrusted': 1,
+      });
+    });
+
+    it('resumes reading once a getExpiration call succeeds again', async () => {
+      const backend = makeBackend({
+        get: vi.fn().mockResolvedValue(makeEntry('fresh')),
+        getExpiration: vi
+          .fn()
+          .mockRejectedValueOnce(new Error('503'))
+          .mockResolvedValue(0),
+      });
+      const handler = createResilientRemoteCacheHandler({
+        backend,
+        logger,
+        now: () => 0,
+      });
+
+      await handler.getExpiration(['products-m1']);
+      await expect(handler.get('key-1', [])).resolves.toBeUndefined();
+
+      // The tags service recovers; trust is restored and reads resume.
+      await handler.getExpiration(['products-m1']);
+      const entry = await handler.get('key-1', []);
+
+      expect(entry).toBeDefined();
+      await expect(new Response(entry?.value).text()).resolves.toBe('fresh');
+    });
+
+    it('re-trusts expiration after the distrust window lapses', async () => {
+      let current = 0;
+      const backend = makeBackend({
+        get: vi.fn().mockResolvedValue(makeEntry('fresh')),
+        getExpiration: vi.fn().mockRejectedValue(new Error('503')),
+      });
+      const handler = createResilientRemoteCacheHandler({
+        backend,
+        logger,
+        cooldownMs: 30_000,
+        now: () => current,
+      });
+
+      await handler.getExpiration(['products-m1']);
+      await expect(handler.get('key-1', [])).resolves.toBeUndefined();
+
+      // Bound the blast radius: a permanent latch would disable the cache
+      // forever if getExpiration were never called again.
+      current = 30_000;
+      await expect(handler.get('key-1', [])).resolves.toBeDefined();
     });
   });
 

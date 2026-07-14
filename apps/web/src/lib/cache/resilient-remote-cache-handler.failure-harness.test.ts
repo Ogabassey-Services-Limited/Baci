@@ -283,6 +283,88 @@ describe('remote cache failure harness', () => {
   });
 
   /* ---------------------------------------------------------------- */
+  /*  Write-only outage — the ACTUAL production shape (§4.4)           */
+  /* ---------------------------------------------------------------- */
+
+  describe('write-only outage (set() 502s while get() still serves)', () => {
+    function makeWriteOnlyOutageBackend(): CacheHandlerLike {
+      return {
+        get: vi.fn().mockResolvedValue(undefined), // healthy: serves misses
+        set: vi.fn().mockRejectedValue(new Error('502 Bad Gateway')),
+        refreshTags: vi.fn().mockResolvedValue(undefined),
+        getExpiration: vi.fn().mockResolvedValue(0),
+        updateTags: vi.fn().mockResolvedValue(undefined),
+      };
+    }
+
+    it('serves every request correctly and never exits, across a sustained outage', async () => {
+      const backend = makeWriteOnlyOutageBackend();
+      const handler = createResilientRemoteCacheHandler({
+        backend,
+        logger: { log: vi.fn(), warn: vi.fn(), error: vi.fn() },
+        failureThreshold: 3,
+        cooldownMs: 30_000,
+        now: () => 0,
+      });
+      const pendingRevalidateWrites: Promise<void>[] = [];
+
+      for (let i = 0; i < 20; i += 1) {
+        const response = await renderRouteThroughCache(
+          handler,
+          `products/product-${i}`,
+          ['products-m1'],
+          async () => PRODUCT,
+          pendingRevalidateWrites
+        );
+        expect(response.status).toBe(200);
+        expect(response.body).toEqual(PRODUCT);
+      }
+
+      await expect(Promise.all(pendingRevalidateWrites)).resolves.toBeDefined();
+      await flushEventLoop();
+
+      expect(unhandled).toEqual([]);
+      expect(exitSpy).not.toHaveBeenCalled();
+    });
+
+    it('opens the WRITE circuit while READS keep flowing to the backend', async () => {
+      const backend = makeWriteOnlyOutageBackend();
+      const handler = createResilientRemoteCacheHandler({
+        backend,
+        logger: { log: vi.fn(), warn: vi.fn(), error: vi.fn() },
+        failureThreshold: 3,
+        cooldownMs: 30_000,
+        now: () => 0,
+      });
+      const pendingRevalidateWrites: Promise<void>[] = [];
+
+      for (let i = 0; i < 20; i += 1) {
+        await renderRouteThroughCache(
+          handler,
+          `products/product-${i}`,
+          ['products-m1'],
+          async () => PRODUCT,
+          pendingRevalidateWrites
+        );
+      }
+      await Promise.all(pendingRevalidateWrites);
+
+      // Writes: capped by the breaker. With a single shared breaker, the
+      // interleaved read successes reset the failure count and all 20 writes
+      // hammered the dead backend.
+      expect(
+        (backend.set as ReturnType<typeof vi.fn>).mock.calls.length
+      ).toBeLessThanOrEqual(3);
+
+      // Reads: entirely unaffected — a write outage must not throw away a
+      // healthy cache read path.
+      expect((backend.get as ReturnType<typeof vi.fn>).mock.calls.length).toBe(
+        20
+      );
+    });
+  });
+
+  /* ---------------------------------------------------------------- */
   /*  The bug being fixed — proof the harness has teeth                */
   /* ---------------------------------------------------------------- */
 

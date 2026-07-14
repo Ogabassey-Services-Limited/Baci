@@ -29,16 +29,29 @@ import {
  *
  * @typedef {object} WritePipelineOptions
  * @property {CacheHandler} backend
- * @property {CircuitBreaker} breaker
+ * @property {CircuitBreaker} breaker Write-path breaker (independent of reads).
  * @property {CacheTelemetry} telemetry
  * @property {TelemetryLogger} logger
  * @property {number} maxItemBytes
  * @property {boolean} disabled
+ * @property {() => number} [now]
+ * @property {number} [maxPendingAgeMs]
  *
  * @typedef {object} WritePipeline
  * @property {(cacheKey: string, pendingEntry: Promise<CacheEntry>) => Promise<void>} write
  * @property {(cacheKey: string) => Promise<CacheEntry | undefined>} readPending
  */
+
+/**
+ * How long a still-settling write may be served from the in-memory buffer.
+ *
+ * The buffer exists only to satisfy Next's set/get contract for the brief window
+ * while a write lands. If the shared write HANGS, the key would otherwise never
+ * leave the map and every later get() would be served from memory — bypassing
+ * expiration and tag checks, so a hung write could shadow an invalidation
+ * indefinitely. Past this age we stop serving it and fall through to the store.
+ */
+export const DEFAULT_MAX_PENDING_AGE_MS = 5_000;
 
 /**
  * @param {unknown} error
@@ -55,8 +68,13 @@ function describeError(error) {
 export function createWritePipeline(options) {
   const { backend, breaker, telemetry, logger, maxItemBytes, disabled } =
     options;
+  const now = options.now ?? Date.now;
+  const maxPendingAgeMs = options.maxPendingAgeMs ?? DEFAULT_MAX_PENDING_AGE_MS;
 
-  /** @type {Map<string, Promise<BufferedEntry | undefined>>} */
+  /**
+   * @typedef {{ buffering: Promise<BufferedEntry | undefined>, startedAt: number }} PendingWrite
+   * @type {Map<string, PendingWrite>}
+   */
   const pendingWrites = new Map();
 
   /**
@@ -90,7 +108,9 @@ export function createWritePipeline(options) {
   return {
     async write(cacheKey, pendingEntry) {
       const buffering = bufferAndGate(pendingEntry);
-      pendingWrites.set(cacheKey, buffering);
+      /** @type {PendingWrite} */
+      const record = { buffering, startedAt: now() };
+      pendingWrites.set(cacheKey, record);
 
       try {
         const buffered = await buffering;
@@ -126,19 +146,36 @@ export function createWritePipeline(options) {
           );
         }
       } finally {
-        pendingWrites.delete(cacheKey);
+        // Identity-guarded: a newer write for the same key must not be evicted
+        // by an older one settling late.
+        if (pendingWrites.get(cacheKey) === record) {
+          pendingWrites.delete(cacheKey);
+        }
       }
     },
 
     /**
      * Serves a `get()` whose key has a still-settling `set()`. Returns a FRESH
      * stream (the caller may not consume the buffered chunks).
+     *
+     * Age-bounded: a write that hangs must not shadow the shared store — and
+     * therefore an invalidation — forever. See DEFAULT_MAX_PENDING_AGE_MS.
      */
     async readPending(cacheKey) {
-      const buffering = pendingWrites.get(cacheKey);
-      if (!buffering) return undefined;
+      const record = pendingWrites.get(cacheKey);
+      if (!record) return undefined;
 
-      const buffered = await buffering;
+      if (now() - record.startedAt >= maxPendingAgeMs) {
+        // Stop shadowing: drop it and let the caller consult the shared store,
+        // which is the only thing that can honour a tag bust.
+        if (pendingWrites.get(cacheKey) === record) {
+          pendingWrites.delete(cacheKey);
+        }
+        telemetry.record('get', 'skip_stale_pending');
+        return undefined;
+      }
+
+      const buffered = await record.buffering;
       if (!buffered) return undefined;
 
       return createEntryFromChunks(buffered.entry, buffered.chunks);

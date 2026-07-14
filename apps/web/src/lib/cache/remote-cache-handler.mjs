@@ -39,6 +39,7 @@ import {
 
 const HANDLERS_SYMBOL = Symbol.for('@next/cache-handlers');
 const HANDLERS_MAP_SYMBOL = Symbol.for('@next/cache-handlers-map');
+const HANDLERS_SET_SYMBOL = Symbol.for('@next/cache-handlers-set');
 
 /**
  * A backend that caches nothing. Used only when no shared store can be
@@ -123,6 +124,51 @@ function resolveSharedBackend() {
 }
 
 /**
+ * Removes the handler we wrap from Next's handler SET.
+ *
+ * WHY THIS IS LOAD-BEARING (Next 16.2.9, `use-cache/handlers.js`):
+ *
+ *     function setCacheHandler(kind, cacheHandler) {
+ *       reference[handlersMapSymbol].set(kind, cacheHandler);  // replaces by kind
+ *       reference[handlersSetSymbol].add(cacheHandler);        // ADDS — never removes
+ *     }
+ *
+ * The SET is seeded `new Set(map.values())` during `initializeCacheHandlers`, so
+ * registering us leaves the INCUMBENT remote handler in it as well.
+ * `revalidation-utils.js#revalidateTags` iterates that SET via
+ * `getCacheHandlers()` and calls `updateTags` on EVERY member under
+ * `await Promise.all(...)`. Left alone, that means:
+ *
+ *   1. every `revalidateTag` is sent to the shared backend TWICE (once by us,
+ *      once by the raw incumbent), and
+ *   2. the raw incumbent's rejection never passes through our catch — so the
+ *      exit-128 process-killer this adapter exists to fix would still be live on
+ *      the invalidation path.
+ *
+ * Evicting the wrapped instance is safe: our `updateTags` delegates to it, so it
+ * still receives every bust — exactly once. Any OTHER handler in the set (e.g.
+ * the distinct 'default'-kind handler) is untouched. And if Next mapped BOTH
+ * kinds to one instance, that instance is still busted once through us, because
+ * `updateTags` is instance-level, not kind-level.
+ *
+ * (`refreshTags` and `getExpiration` iterate the MAP via
+ * `getCacheHandlerEntries()`, which IS keyed by kind and therefore already
+ * replaced. Only the SET needs fixing.)
+ *
+ * @param {CacheHandler} wrapped
+ * @returns {void}
+ */
+function evictWrappedBackendFromHandlerSet(wrapped) {
+  const globals = /** @type {Record<symbol, unknown>} */ (
+    /** @type {unknown} */ (globalThis)
+  );
+  const handlerSet = globals[HANDLERS_SET_SYMBOL];
+  if (handlerSet instanceof Set) {
+    handlerSet.delete(wrapped);
+  }
+}
+
+/**
  * @param {string} name
  * @param {number} fallback
  * @returns {number}
@@ -173,5 +219,9 @@ const handler = createResilientRemoteCacheHandler({
   cooldownMs: readIntEnv('BACI_REMOTE_CACHE_COOLDOWN_MS', 30_000),
   disabled,
 });
+
+// Next adds us to the handler SET immediately after importing this module; the
+// incumbent we now wrap must not remain in it, or Next would call it RAW.
+evictWrappedBackendFromHandlerSet(backend);
 
 export default handler;
