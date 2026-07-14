@@ -68,7 +68,8 @@ BEGIN
     ('9b0d0e12-0000-4000-8000-000000000302', v_merchant, v_branch_a,
       'DASH-002', '2026-07-02 02:00+00', 'delivered', 'paid', 200, 'USD'),
     ('9b0d0e12-0000-4000-8000-000000000303', v_merchant, v_branch_a,
-      'DASH-UNPAID', '2026-07-02 03:00+00', 'pending', 'unpaid', 900, 'NGN'),
+      'DASH-POD-PENDING', '2026-07-02 03:00+00',
+      'pending', 'pending', 900, 'NGN'),
     ('9b0d0e12-0000-4000-8000-000000000304', v_merchant, v_branch_a,
       'DASH-PREVIOUS', '2026-06-15 01:00+00', 'cancelled', 'paid', 50, 'NGN'),
     ('9b0d0e12-0000-4000-8000-000000000305', v_merchant, v_branch_a,
@@ -144,8 +145,8 @@ SELECT pg_catalog.set_config(
   'request.jwt.claim.sub', '9b0d0e12-0000-4000-8000-000000000001', true
 );
 
--- pendingOrders is an all-time, branch-scoped count of paid orders whose
--- shipping status is pending; the supplied period bounds intentionally do not apply.
+-- pendingOrders preserves the original all-time, branch-scoped shipping
+-- backlog regardless of payment status; period bounds intentionally do not apply.
 SELECT pg_temp.assert_jsonb(
   'all-branch dashboard stats',
   public.get_mobile_admin_dashboard_stats(
@@ -153,7 +154,7 @@ SELECT pg_temp.assert_jsonb(
     '2026-07-01 00:00+00', '2026-06-01 00:00+00',
     '2026-07-01 00:00+00', NULL
   ),
-  '{"avgOrderValue":154,"newCustomers":1,"orders":7,"pendingOrders":5,"previousPeriodRevenue":70,"revenue":1080,"totalCustomers":2,"totalItems":22,"visits":2}'::jsonb
+  '{"avgOrderValue":154,"newCustomers":1,"orders":7,"pendingOrders":7,"previousPeriodRevenue":70,"revenue":1080,"totalCustomers":2,"totalItems":22,"visits":2}'::jsonb
 );
 
 SELECT pg_temp.assert_jsonb(
@@ -164,7 +165,7 @@ SELECT pg_temp.assert_jsonb(
     '2026-07-01 00:00+00',
     '9b0d0e12-0000-4000-8000-000000000201'
   ),
-  '{"avgOrderValue":76,"newCustomers":1,"orders":5,"pendingOrders":4,"previousPeriodRevenue":70,"revenue":380,"totalCustomers":2,"totalItems":13,"visits":2}'::jsonb
+  '{"avgOrderValue":76,"newCustomers":1,"orders":5,"pendingOrders":6,"previousPeriodRevenue":70,"revenue":380,"totalCustomers":2,"totalItems":13,"visits":2}'::jsonb
 );
 
 SELECT pg_temp.assert_jsonb(
@@ -198,14 +199,14 @@ SELECT pg_temp.assert_jsonb(
 SELECT pg_catalog.set_config(
   'request.jwt.claim.sub', '9b0d0e12-0000-4000-8000-000000000002', true
 );
--- The all-time call preserves the same paid/pending-shipping snapshot semantics.
+-- The all-time call preserves the same payment-independent pending backlog.
 SELECT pg_temp.assert_jsonb(
   'active-staff all-time dashboard stats',
   public.get_mobile_admin_dashboard_stats(
     '9b0d0e12-0000-4000-8000-000000000101',
     NULL, NULL, NULL, NULL
   ),
-  '{"avgOrderValue":107,"newCustomers":2,"orders":11,"pendingOrders":5,"previousPeriodRevenue":0,"revenue":1175,"totalCustomers":2,"totalItems":31,"visits":3}'::jsonb
+  '{"avgOrderValue":107,"newCustomers":2,"orders":11,"pendingOrders":7,"previousPeriodRevenue":0,"revenue":1175,"totalCustomers":2,"totalItems":31,"visits":3}'::jsonb
 );
 
 DO $guards$

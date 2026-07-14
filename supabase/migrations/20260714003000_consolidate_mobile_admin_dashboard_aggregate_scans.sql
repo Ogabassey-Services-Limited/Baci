@@ -56,7 +56,7 @@ BEGIN
   END IF;
   IF p_branch_id IS NULL THEN
     SELECT COUNT(*) INTO v_pending_orders FROM public.orders AS o
-    WHERE o.merchant_id = p_merchant_id AND o.payment_status = 'paid'
+    WHERE o.merchant_id = p_merchant_id
       AND o.shipping_status = 'pending';
     IF p_start_at IS NULL THEN
       SELECT COUNT(*),
@@ -93,7 +93,6 @@ BEGIN
   ELSE
     SELECT COUNT(*) INTO v_pending_orders FROM public.orders AS o
     WHERE o.merchant_id = p_merchant_id AND o.branch_id = p_branch_id
-      AND o.payment_status = 'paid'
       AND o.shipping_status = 'pending';
     IF p_start_at IS NULL THEN
       SELECT COUNT(*),

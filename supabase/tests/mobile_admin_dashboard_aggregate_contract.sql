@@ -143,6 +143,7 @@ BEGIN
   IF v_stats_definition !~* 'v_order_start_at[[:space:]]+timestamptz'
     OR v_stats_definition !~* 'LEAST\([[:space:]]*p_start_at,[[:space:]]*p_previous_start_at[[:space:]]*\)'
     OR v_stats_definition ~* 'COUNT\(\*\)[[:space:]]+FILTER[[:space:]]*\([[:space:]]*WHERE[[:space:]]+o[.]shipping_status'
+    OR v_stats_definition ~* 'SELECT[[:space:]]+COUNT\(\*\)[[:space:]]+INTO[[:space:]]+v_pending_orders[^;]*payment_status'
     OR (
       SELECT COUNT(*)
       FROM pg_catalog.regexp_matches(
