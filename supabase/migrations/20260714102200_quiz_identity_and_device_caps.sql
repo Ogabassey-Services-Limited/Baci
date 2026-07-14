@@ -66,7 +66,10 @@ DECLARE
 BEGIN
   v_email := pg_catalog.lower(pg_catalog.btrim(COALESCE(p_email, '')));
 
-  IF v_email = '' OR pg_catalog.position('@' IN v_email) = 0 THEN
+  IF v_email = ''
+    OR pg_catalog.length(v_email)
+      - pg_catalog.length(pg_catalog.replace(v_email, '@', '')) <> 1
+  THEN
     RETURN NULL;
   END IF;
 

@@ -617,7 +617,15 @@ describe('start quiz attempt route', () => {
       return Promise.resolve({ data: null, error: null });
     });
     vi.mocked(resolveQuizDevice).mockReturnValue({
-      cookieToSet: undefined,
+      cookieToSet: {
+        maxAge: 31_536_000,
+        name: 'baci_qdid',
+        value: 'readiness-device-cookie',
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: true,
+        path: '/',
+      },
       deviceHash: 'b'.repeat(64),
     });
 
@@ -631,6 +639,9 @@ describe('start quiz attempt route', () => {
       code: 'QUIZ_TEMPORARILY_UNAVAILABLE',
       error: 'Super Quiz is temporarily unavailable. Please try again soon.',
     });
+    expect(response.headers.get('set-cookie')).toContain(
+      'baci_qdid=readiness-device-cookie'
+    );
     expect(rpc).not.toHaveBeenCalledWith(
       'start_quiz_attempt_with_device',
       expect.anything()

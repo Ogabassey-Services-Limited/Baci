@@ -146,6 +146,14 @@ VALUES (
 
 DO $$
 BEGIN
+  IF public.quiz_normalize_email('victim@gmail.com@invalid') IS NOT NULL THEN
+    RAISE EXCEPTION 'multi-separator email unexpectedly normalized';
+  END IF;
+END;
+$$;
+
+DO $$
+BEGIN
   BEGIN
     INSERT INTO public.quiz_attempts (
       id,

@@ -46,8 +46,17 @@ describe('quiz identity and device cap migration', () => {
   });
 
   it('does not collapse plus signs for unconfigured email providers', () => {
-    expect(migrationSql).not.toMatch(
-      /v_local := pg_catalog\.split_part\(v_local, '\+', 1\);\s+-- Google treats/i
+    expect(
+      migrationSql.match(/pg_catalog\.split_part\(v_local, '\+', 1\)/gi)
+    ).toHaveLength(1);
+  });
+
+  it('rejects email identities with multiple separators', () => {
+    expect(migrationSql).toMatch(
+      /pg_catalog\.length\(v_email\)[\s\S]*?pg_catalog\.replace\(v_email, '@', ''\)[\s\S]*?<> 1/i
+    );
+    expect(identityDeviceTestSql).toContain(
+      "quiz_normalize_email('victim@gmail.com@invalid')"
     );
   });
 
@@ -171,6 +180,9 @@ describe('quiz identity and device cap migration', () => {
     expect(subjectFunction).toBeDefined();
     expect(subjectFunction).toMatch(/extensions\.digest/i);
     expect(subjectFunction).toMatch(/'sha256'/i);
+    expect(subjectFunction).toMatch(
+      /p_scope_id::text \|\| ':' \|\| p_device_hash/i
+    );
     expect(migrationSql).not.toMatch(
       /quiz_route_proof_valid\([\s\S]*?p_(?:attempt|event)_id::text \|\| ':' \|\| p_device_hash/i
     );

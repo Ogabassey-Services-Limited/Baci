@@ -7,7 +7,9 @@ describe('buildQuizDeviceProofSubject', () => {
     const deviceHash = 'a'.repeat(64);
     const subject = buildQuizDeviceProofSubject(scopeId, deviceHash);
 
-    expect(subject).toMatch(/^device:[0-9a-f]{64}$/);
+    expect(subject).toBe(
+      'device:fcc0562339f8981e647102f5f70222b3574f1c202c4d34feb3c26225ebf400eb'
+    );
     expect(subject).not.toContain(scopeId);
     expect(subject).not.toContain(deviceHash);
   });

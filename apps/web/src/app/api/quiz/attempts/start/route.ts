@@ -129,6 +129,13 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  const withDeviceCookie = (response: NextResponse): NextResponse => {
+    if (device.cookieToSet) {
+      response.cookies.set(device.cookieToSet);
+    }
+    return response;
+  };
+
   if (device.deviceHash) {
     const { data: deviceCapReady, error: deviceCapReadyError } =
       await auth.supabase.rpc('quiz_device_cap_ready');
@@ -140,16 +147,11 @@ export async function POST(request: NextRequest) {
         message: 'Device-cap database marker is unavailable',
         userId: auth.user.id,
       });
-      return NextResponse.json(QUIZ_UNAVAILABLE_RESPONSE, { status: 503 });
+      return withDeviceCookie(
+        NextResponse.json(QUIZ_UNAVAILABLE_RESPONSE, { status: 503 })
+      );
     }
   }
-
-  const withDeviceCookie = (response: NextResponse): NextResponse => {
-    if (device.cookieToSet) {
-      response.cookies.set(device.cookieToSet);
-    }
-    return response;
-  };
 
   const { proof, response: proofResponse } = createRouteProof({
     action: QUIZ_FREE_ENTRY_RPC_ACTION,
