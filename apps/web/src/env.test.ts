@@ -90,6 +90,16 @@ describe('env validation', () => {
     await expect(loadEnvModule()).resolves.toBeDefined();
   });
 
+  it('allows the event pipeline worker profile without agentic signing material', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('GITHUB_ACTIONS', 'false');
+    vi.stubEnv('BACI_WORKER_PROFILE', 'event-pipeline');
+    delete process.env.SUPABASE_JWT_SECRET;
+    delete process.env.SUPABASE_AGENTIC_JWT_PRIVATE_JWK;
+
+    await expect(loadEnvModule()).resolves.toBeDefined();
+  });
+
   it('rejects spoofed GitHub Actions builds without GitHub run context', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     vi.stubEnv('NODE_ENV', 'production');

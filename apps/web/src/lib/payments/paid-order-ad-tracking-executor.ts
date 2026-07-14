@@ -1,3 +1,4 @@
+import { isEventPipelineEnqueueEnabled } from '@/lib/events/event-pipeline-config';
 import { logger } from '@/lib/logger';
 import type { StepExecutor } from '@/lib/payments/apply-paid-order-side-effects';
 import type {
@@ -6,6 +7,7 @@ import type {
   ScheduleAfter,
   ServiceRoleClient,
 } from '@/lib/payments/paid-order-side-effect-types';
+import { scheduleLegacyPurchaseConversion } from '@/lib/payments/schedule-legacy-purchase-conversion';
 import {
   type OrderForConversion,
   triggerPurchaseConversion,
@@ -44,13 +46,30 @@ export function buildAdTrackingExecutor(args: {
   supabase: ServiceRoleClient;
   transaction: PaidOrderSideEffectTransaction;
 }): StepExecutor {
-  return () => {
+  return async () => {
+    const conversionOrder = toOrderForConversion(args.order);
+    if (isEventPipelineEnqueueEnabled()) {
+      await triggerPurchaseConversion(
+        args.supabase,
+        args.transaction.merchant_id,
+        conversionOrder,
+        { deliveryMode: 'enqueue_only' }
+      );
+      const legacyScheduled = scheduleLegacyPurchaseConversion({
+        merchantId: args.transaction.merchant_id,
+        order: conversionOrder,
+        scheduleAfter: args.scheduleAfter,
+        supabase: args.supabase,
+      });
+      return { legacy_scheduled: legacyScheduled, queued: true };
+    }
+
     args.scheduleAfter(async () => {
       try {
         await triggerPurchaseConversion(
           args.supabase,
           args.transaction.merchant_id,
-          toOrderForConversion(args.order)
+          conversionOrder
         );
       } catch (error) {
         logger.error({
@@ -60,6 +79,6 @@ export function buildAdTrackingExecutor(args: {
         });
       }
     });
-    return Promise.resolve({ scheduled: true });
+    return { scheduled: true };
   };
 }

@@ -28,6 +28,7 @@ function getSentBody(fetchMock: ReturnType<typeof mockOkFetch>) {
 describe('tiktokEventsAPI', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it('sends Purchase with payload-helper commerce and customer fields', async () => {
@@ -218,6 +219,84 @@ describe('tiktokEventsAPI', () => {
       properties: {
         search_string: 'iphone',
       },
+    });
+  });
+
+  it('passes the caller abort signal to fetch', async () => {
+    const fetchMock = mockOkFetch();
+    const controller = new AbortController();
+
+    await tiktokEventsAPI.viewContent(
+      'pixel-1',
+      'token-1',
+      {},
+      { contentId: 'sku-1' },
+      { eventId: 'event-1' },
+      controller.signal
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ signal: controller.signal })
+    );
+  });
+
+  it('returns a provider rejection without throwing', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        json: vi.fn().mockResolvedValue({
+          access_token: 'private-token',
+          message: 'invalid access token',
+        }),
+        ok: false,
+        status: 401,
+      })
+    );
+
+    const result = await tiktokEventsAPI.viewContent(
+      'pixel-1',
+      'token-1',
+      {},
+      { contentId: 'sku-1' }
+    );
+
+    expect(result).toEqual({
+      error: 'invalid access token',
+      httpStatus: 401,
+      success: false,
+    });
+    expect(consoleError).toHaveBeenCalledWith(
+      'TikTok Events API error:',
+      '{"access_token"=[redacted],"message":"invalid access token"}'
+    );
+  });
+
+  it('preserves the response status when a provider error is not JSON', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        json: vi.fn().mockRejectedValue(new SyntaxError('Unexpected token <')),
+        ok: false,
+        status: 502,
+      })
+    );
+
+    await expect(
+      tiktokEventsAPI.viewContent(
+        'pixel-1',
+        'token-1',
+        {},
+        { contentId: 'sku-1' }
+      )
+    ).resolves.toEqual({
+      error: 'Unknown error',
+      httpStatus: 502,
+      success: false,
     });
   });
 });

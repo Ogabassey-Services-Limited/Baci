@@ -15,29 +15,35 @@ export const platformEventTypeSchema = z.enum([
   'platform_purchase',
 ]);
 
-/**
- * `event_data` is a free-form payload whose shape varies by event type, but a
- * handful of fields are read directly by the route (purchase value/currency,
- * page URL). Validate those specifically — a 3-letter ISO 4217 code for
- * `currency` — while allowing other event-specific fields to pass through.
- */
-export const platformEventDataSchema = z.looseObject({
-  value: z.number().nonnegative().optional(),
+/** Public platform telemetry accepts only non-sensitive, documented facts. */
+export const platformEventDataSchema = z.strictObject({
+  business_name: z.string().trim().min(1).max(200).optional(),
+  business_type: z.string().trim().min(1).max(100).optional(),
   currency: z
     .string()
     .trim()
     .regex(/^[A-Za-z]{3}$/, 'currency must be a 3-letter ISO 4217 code')
     .transform((value) => value.toUpperCase())
     .optional(),
+  order_id: z.string().trim().min(1).max(200).optional(),
+  store_slug: z
+    .string()
+    .trim()
+    .min(1)
+    .max(100)
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/i)
+    .optional(),
+  value: z.number().finite().nonnegative().optional(),
 });
 
-export const platformEventRequestSchema = z.object({
+export const platformEventRequestSchema = z.strictObject({
+  event_id: z.string().min(1).max(500).optional(),
   event_type: platformEventTypeSchema,
   event_data: platformEventDataSchema.optional(),
-  merchant_id: z.string().optional(),
-  session_id: z.string().optional(),
-  page_url: z.string().optional(),
-  referrer: z.string().optional(),
+  merchant_id: z.uuid().optional(),
+  session_id: z.string().min(1).max(100).optional(),
+  page_url: z.url().max(2_000).optional(),
+  referrer: z.url().max(2_000).optional(),
 });
 
 export type PlatformEventRequestInput = z.infer<

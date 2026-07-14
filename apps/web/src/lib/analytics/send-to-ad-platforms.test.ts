@@ -4,6 +4,7 @@ const {
   mockCreateClient,
   mockFacebookAddToCart,
   mockFacebookEvent,
+  mockFacebookPurchase,
   mockLoggerInfo,
   mockLoggerWarn,
   mockSnapchatAddToCart,
@@ -14,6 +15,7 @@ const {
   mockCreateClient: vi.fn(),
   mockFacebookAddToCart: vi.fn(),
   mockFacebookEvent: vi.fn(),
+  mockFacebookPurchase: vi.fn(),
   mockLoggerInfo: vi.fn(),
   mockLoggerWarn: vi.fn(),
   mockSnapchatAddToCart: vi.fn(),
@@ -29,6 +31,7 @@ vi.mock('@supabase/supabase-js', () => ({
 vi.mock('@/lib/facebook-capi', () => ({
   facebookCAPI: {
     addToCart: (...args: unknown[]) => mockFacebookAddToCart(...args),
+    purchase: (...args: unknown[]) => mockFacebookPurchase(...args),
   },
   sendFacebookCAPIEvent: (...args: unknown[]) => mockFacebookEvent(...args),
 }));
@@ -112,6 +115,7 @@ describe('sendToAdPlatforms', () => {
     mockCreateClient.mockReturnValue({ from });
     mockFacebookAddToCart.mockResolvedValue({ success: true });
     mockFacebookEvent.mockResolvedValue({ success: true });
+    mockFacebookPurchase.mockResolvedValue({ success: true });
     mockSnapchatAddToCart.mockResolvedValue({ success: true });
     mockSnapchatEvent.mockResolvedValue({ success: true });
     mockTikTokAddToCart.mockResolvedValue({ success: true });
@@ -119,30 +123,35 @@ describe('sendToAdPlatforms', () => {
   });
 
   it('uses merchant feature settings credentials for every configured platform', async () => {
-    await sendToAdPlatforms({
-      merchant_id: 'merchant-1',
-      event_id: 'evt-1',
-      event_type: 'add_to_cart',
-      user_data: {
-        email: 'buyer@example.com',
-        ip: '203.0.113.10',
-        phone: '+2348012345678',
-        ua: 'Unit Test Agent',
+    const controller = new AbortController();
+    await sendToAdPlatforms(
+      {
+        merchant_id: 'merchant-1',
+        event_id: 'evt-1',
+        event_type: 'add_to_cart',
+        occurred_at: '2026-07-12T12:00:00.000Z',
+        user_data: {
+          email: 'buyer@example.com',
+          ip: '203.0.113.10',
+          phone: '+2348012345678',
+          ua: 'Unit Test Agent',
+        },
+        custom_data: {
+          contents: [
+            {
+              id: 'sku-1',
+              name: 'iPhone 15',
+              price: 120_000,
+              quantity: 1,
+            },
+          ],
+          currency: 'NGN',
+          value: 120_000,
+        },
+        source: 'mobile_app',
       },
-      custom_data: {
-        contents: [
-          {
-            id: 'sku-1',
-            name: 'iPhone 15',
-            price: 120_000,
-            quantity: 1,
-          },
-        ],
-        currency: 'NGN',
-        value: 120_000,
-      },
-      source: 'mobile_app',
-    });
+      { signal: controller.signal }
+    );
 
     expect(from).toHaveBeenCalledWith('merchants');
     expect(from).toHaveBeenCalledWith('merchant_feature_settings');
@@ -155,7 +164,10 @@ describe('sendToAdPlatforms', () => {
       120_000,
       'NGN',
       undefined,
-      'evt-1'
+      'evt-1',
+      controller.signal,
+      1_783_857_600,
+      undefined
     );
     expect(mockTikTokAddToCart).toHaveBeenCalledWith(
       'tt-pixel',
@@ -169,7 +181,9 @@ describe('sendToAdPlatforms', () => {
       }),
       expect.objectContaining({
         eventId: 'evt-1',
-      })
+        eventTime: '2026-07-12T12:00:00.000Z',
+      }),
+      controller.signal
     );
     expect(mockSnapchatAddToCart).toHaveBeenCalledWith(
       'snap-pixel',
@@ -178,7 +192,9 @@ describe('sendToAdPlatforms', () => {
       'sku-1',
       120_000,
       'NGN',
-      'evt-1'
+      'evt-1',
+      controller.signal,
+      1_783_857_600
     );
   });
 
@@ -204,9 +220,56 @@ describe('sendToAdPlatforms', () => {
       {
         eventId: 'evt-search',
         url: 'https://ogabassey.com/search?q=iphone',
-      }
+      },
+      undefined
     );
     expect(mockFacebookAddToCart).not.toHaveBeenCalled();
     expect(mockSnapchatAddToCart).not.toHaveBeenCalled();
+  });
+
+  it('passes durable purchase identity fields to Facebook enhanced matching', async () => {
+    await sendToAdPlatforms({
+      custom_data: {
+        contents: [{ id: 'sku-1', name: 'Phone', price: 100, quantity: 1 }],
+        currency: 'NGN',
+        order_id: 'BAC-1',
+        value: 100,
+      },
+      event_id: 'evt-purchase',
+      event_type: 'purchase',
+      merchant_id: 'merchant-1',
+      source: 'server',
+      targets: ['facebook'],
+      user_data: {
+        city: 'Lagos',
+        country: 'NG',
+        first_name: 'Ada',
+        last_name: 'Lovelace',
+        state: 'Lagos',
+        zip_code: '100001',
+      },
+    });
+
+    expect(mockFacebookPurchase).toHaveBeenCalledWith(
+      'fb-pixel',
+      'fb-token',
+      expect.objectContaining({
+        city: 'Lagos',
+        country: 'NG',
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        state: 'Lagos',
+        zipCode: '100001',
+      }),
+      'BAC-1',
+      100,
+      'NGN',
+      expect.any(Array),
+      undefined,
+      'evt-purchase',
+      undefined,
+      undefined,
+      undefined
+    );
   });
 });

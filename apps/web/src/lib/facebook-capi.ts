@@ -17,6 +17,7 @@ import crypto from 'node:crypto';
 
 const FB_API_VERSION = 'v21.0';
 const FB_GRAPH_API = 'https://graph.facebook.com';
+const PROVIDER_REQUEST_TIMEOUT_MS = 10_000;
 
 // Event names supported by Facebook CAPI
 export type FacebookEventName =
@@ -207,15 +208,22 @@ export async function sendFacebookCAPIEvent(
   customData?: FacebookCustomData,
   eventSourceUrl?: string,
   eventId?: string,
-  limitedDataUse?: boolean
-): Promise<{ success: boolean; response?: CAPIResponse; error?: string }> {
+  limitedDataUse?: boolean,
+  signal?: AbortSignal,
+  eventTime?: number
+): Promise<{
+  success: boolean;
+  response?: CAPIResponse;
+  error?: string;
+  httpStatus?: number;
+}> {
   if (!pixelId || !accessToken) {
     return { success: false, error: 'Missing pixel ID or access token' };
   }
 
   const event: FacebookEvent = {
     event_name: eventName,
-    event_time: Math.floor(Date.now() / 1000),
+    event_time: eventTime ?? Math.floor(Date.now() / 1000),
     event_id: eventId || generateEventId(),
     event_source_url: eventSourceUrl,
     action_source: 'website',
@@ -259,6 +267,7 @@ export async function sendFacebookCAPIEvent(
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(requestBody),
+        signal: signal ?? AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MS),
       }
     );
 
@@ -278,6 +287,7 @@ export async function sendFacebookCAPIEvent(
       return {
         success: false,
         error: errorData.error?.message || 'Unknown error',
+        httpStatus: response.status,
       };
     }
 
@@ -321,7 +331,9 @@ export const facebookCAPI = {
     }>,
     eventSourceUrl?: string,
     eventId?: string,
-    limitedDataUse?: boolean
+    limitedDataUse?: boolean,
+    signal?: AbortSignal,
+    eventTime?: number
   ) => {
     return sendFacebookCAPIEvent(
       pixelId,
@@ -343,7 +355,9 @@ export const facebookCAPI = {
       },
       eventSourceUrl,
       eventId,
-      limitedDataUse
+      limitedDataUse,
+      signal,
+      eventTime
     );
   },
 
@@ -358,7 +372,10 @@ export const facebookCAPI = {
     currency: string,
     products: Array<{ id: string; quantity: number }>,
     eventSourceUrl?: string,
-    eventId?: string
+    eventId?: string,
+    signal?: AbortSignal,
+    eventTime?: number,
+    limitedDataUse?: boolean
   ) => {
     return sendFacebookCAPIEvent(
       pixelId,
@@ -373,7 +390,10 @@ export const facebookCAPI = {
         numItems: products.reduce((sum, p) => sum + p.quantity, 0),
       },
       eventSourceUrl,
-      eventId
+      eventId,
+      limitedDataUse,
+      signal,
+      eventTime
     );
   },
 
@@ -389,7 +409,10 @@ export const facebookCAPI = {
     value: number,
     currency: string,
     eventSourceUrl?: string,
-    eventId?: string
+    eventId?: string,
+    signal?: AbortSignal,
+    eventTime?: number,
+    limitedDataUse?: boolean
   ) => {
     return sendFacebookCAPIEvent(
       pixelId,
@@ -404,7 +427,10 @@ export const facebookCAPI = {
         contentIds: [productId],
       },
       eventSourceUrl,
-      eventId
+      eventId,
+      limitedDataUse,
+      signal,
+      eventTime
     );
   },
 
@@ -421,7 +447,10 @@ export const facebookCAPI = {
     currency: string,
     category?: string,
     eventSourceUrl?: string,
-    eventId?: string
+    eventId?: string,
+    signal?: AbortSignal,
+    eventTime?: number,
+    limitedDataUse?: boolean
   ) => {
     return sendFacebookCAPIEvent(
       pixelId,
@@ -437,7 +466,10 @@ export const facebookCAPI = {
         contentIds: [productId],
       },
       eventSourceUrl,
-      eventId
+      eventId,
+      limitedDataUse,
+      signal,
+      eventTime
     );
   },
 };

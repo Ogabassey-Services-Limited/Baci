@@ -10,6 +10,7 @@ import crypto from 'node:crypto';
  */
 
 const SNAP_CAPI_URL = 'https://tr.snapchat.com/v2/conversion';
+const PROVIDER_REQUEST_TIMEOUT_MS = 10_000;
 
 export type SnapchatEventName =
   | 'PAGE_VIEW'
@@ -58,13 +59,15 @@ export async function sendSnapchatEvent(
   eventName: SnapchatEventName,
   userData: SnapchatUserData,
   eventData?: SnapchatEventData,
-  eventId?: string
-): Promise<{ success: boolean; error?: string }> {
+  eventId?: string,
+  signal?: AbortSignal,
+  eventTime?: number
+): Promise<{ success: boolean; error?: string; httpStatus?: number }> {
   if (!pixelId || !accessToken) {
     return { success: false, error: 'Missing pixel ID or access token' };
   }
 
-  const timestamp = Math.floor(Date.now() / 1000);
+  const timestamp = eventTime ?? Math.floor(Date.now() / 1000);
   const eventConversionType = eventName === 'PURCHASE' ? 'OFFLINE' : 'WEB';
 
   // Build hashed user data
@@ -109,12 +112,13 @@ export async function sendSnapchatEvent(
         Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify(payload),
+      signal: signal ?? AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MS),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Snapchat CAPI error:', errorText);
-      return { success: false, error: errorText };
+      return { success: false, error: errorText, httpStatus: response.status };
     }
 
     return { success: true };
@@ -139,7 +143,9 @@ export const snapchatCAPI = {
     value: number,
     currency: string,
     productIds: string[],
-    eventId?: string
+    eventId?: string,
+    signal?: AbortSignal,
+    eventTime?: number
   ) => {
     return sendSnapchatEvent(
       pixelId,
@@ -153,7 +159,9 @@ export const snapchatCAPI = {
         itemIds: productIds,
         numberOfItems: productIds.length,
       },
-      eventId
+      eventId,
+      signal,
+      eventTime
     );
   },
 
@@ -164,7 +172,9 @@ export const snapchatCAPI = {
     value: number,
     currency: string,
     productIds: string[],
-    eventId?: string
+    eventId?: string,
+    signal?: AbortSignal,
+    eventTime?: number
   ) => {
     return sendSnapchatEvent(
       pixelId,
@@ -176,7 +186,9 @@ export const snapchatCAPI = {
         currency,
         itemIds: productIds,
       },
-      eventId
+      eventId,
+      signal,
+      eventTime
     );
   },
 
@@ -187,7 +199,9 @@ export const snapchatCAPI = {
     productId: string,
     price: number,
     currency: string,
-    eventId?: string
+    eventId?: string,
+    signal?: AbortSignal,
+    eventTime?: number
   ) => {
     return sendSnapchatEvent(
       pixelId,
@@ -199,7 +213,9 @@ export const snapchatCAPI = {
         currency,
         itemIds: [productId],
       },
-      eventId
+      eventId,
+      signal,
+      eventTime
     );
   },
 };

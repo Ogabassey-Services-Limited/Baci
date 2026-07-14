@@ -3,11 +3,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // --- Mock setup ---
 
-const mockInsert = vi.fn();
+const mockUpsert = vi.fn();
 const mockSettingsSingle = vi.fn();
 const mockFrom = vi.fn((table: string) => {
   if (table === 'platform_events') {
-    return { insert: mockInsert };
+    return { upsert: mockUpsert };
   }
   if (table === 'platform_settings') {
     return {
@@ -20,6 +20,18 @@ const mockFrom = vi.fn((table: string) => {
 
 vi.mock('@supabase/supabase-js', () => ({
   createClient: vi.fn(() => ({ from: mockFrom })),
+}));
+
+vi.mock('@/lib/events/event-ingress-capability', () => ({
+  createEventIngressClient: vi.fn(() => ({ from: mockFrom })),
+}));
+
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: vi.fn(() => ({ from: mockFrom })),
+}));
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => ({ from: mockFrom })),
 }));
 
 const mockSendGA4Event = vi.fn();
@@ -36,6 +48,8 @@ vi.mock('@/lib/facebook-capi', () => ({
 
 import { POST } from './route';
 
+const MERCHANT_ID = '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235';
+
 // --- Helpers ---
 
 function makeRequest(body: Record<string, unknown>): NextRequest {
@@ -49,7 +63,9 @@ function makeRequest(body: Record<string, unknown>): NextRequest {
 describe('POST /api/platform/events', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockInsert.mockResolvedValue({ data: null, error: null });
+    delete process.env.EVENT_PIPELINE_ENQUEUE_ENABLED;
+    delete process.env.EVENT_PIPELINE_DISABLE_LEGACY_FANOUT;
+    mockUpsert.mockResolvedValue({ data: null, error: null });
     mockSettingsSingle.mockResolvedValue({
       data: {
         google_analytics_id: 'G-TEST',
@@ -71,22 +87,35 @@ describe('POST /api/platform/events', () => {
     expect(body.error).toBe('Invalid input');
   });
 
+  it('returns 400 for invalid JSON', async () => {
+    const res = await POST(
+      new NextRequest('http://localhost/api/platform/events', {
+        body: '{',
+        method: 'POST',
+      })
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: 'Invalid JSON' });
+  });
+
   it('returns 400 for a malformed currency code', async () => {
     const res = await POST(
       makeRequest({
         event_type: 'platform_purchase',
-        merchant_id: 'merchant-1',
+        merchant_id: MERCHANT_ID,
         event_data: { value: 1000, currency: 'NAIRA' },
       })
     );
 
     expect(res.status).toBe(400);
-    expect(mockInsert).not.toHaveBeenCalled();
+    expect(mockUpsert).not.toHaveBeenCalled();
   });
 
   it('inserts the event and returns success for a valid page view', async () => {
     const res = await POST(
       makeRequest({
+        event_id: 'platform-event-1',
         event_type: 'landing_page_view',
         page_url: 'https://usebaci.com',
         session_id: 'ps_1',
@@ -96,16 +125,34 @@ describe('POST /api/platform/events', () => {
 
     expect(res.status).toBe(200);
     expect(body.success).toBe(true);
-    expect(mockInsert).toHaveBeenCalledWith(
-      expect.objectContaining({ event_type: 'landing_page_view' })
+    expect(mockUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event_id: 'platform-event-1',
+        event_type: 'landing_page_view',
+      }),
+      { ignoreDuplicates: true, onConflict: 'event_type,event_id' }
     );
+  });
+
+  it('acknowledges an idempotent platform event retry', async () => {
+    const request = {
+      event_id: 'platform-event-retry',
+      event_type: 'landing_page_view',
+    };
+
+    const first = await POST(makeRequest(request));
+    const retry = await POST(makeRequest(request));
+
+    expect(first.status).toBe(200);
+    expect(retry.status).toBe(200);
+    expect(mockUpsert).toHaveBeenCalledTimes(2);
   });
 
   it('forwards the client-passed currency to GA4 and Facebook instead of discarding it', async () => {
     await POST(
       makeRequest({
         event_type: 'platform_purchase',
-        merchant_id: 'merchant-1',
+        merchant_id: MERCHANT_ID,
         event_data: { value: 15_000, currency: 'ghs', order_id: 'order-1' },
       })
     );
@@ -128,7 +175,8 @@ describe('POST /api/platform/events', () => {
       'Purchase',
       expect.any(Object),
       expect.objectContaining({ value: 15_000, currency: 'GHS' }),
-      undefined
+      undefined,
+      expect.stringMatching(/^platform_/)
     );
   });
 
@@ -136,7 +184,7 @@ describe('POST /api/platform/events', () => {
     await POST(
       makeRequest({
         event_type: 'platform_purchase',
-        merchant_id: 'merchant-1',
+        merchant_id: MERCHANT_ID,
         event_data: { value: 5000 },
       })
     );

@@ -385,7 +385,9 @@ async function prepareCheckout(
     sessionStorage.setItem('lastOrder', JSON.stringify(orderData));
     notifyLastOrderSnapshotChanged();
 
-    // Track platform-level purchase (for platform owner's analytics)
+    // Preserve the legacy fanout while the server-side durable producer owns
+    // delivery after cutover. In durable mode this client claim is stored as
+    // observation-only telemetry and cannot create provider deliveries.
     trackPlatformPurchase(
       input.merchantId,
       order.total as number,

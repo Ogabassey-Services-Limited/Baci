@@ -11,12 +11,19 @@ import type {
 } from '@/lib/payments/paid-order-side-effect-types';
 
 const mocks = vi.hoisted(() => ({
+  enqueueEnabled: false,
+  legacyDisabled: false,
   loggerError: vi.fn(),
   triggerPurchaseConversion: vi.fn(),
 }));
 
 vi.mock('@/lib/logger', () => ({
   logger: { error: mocks.loggerError },
+}));
+
+vi.mock('@/lib/events/event-pipeline-config', () => ({
+  isEventPipelineEnqueueEnabled: () => mocks.enqueueEnabled,
+  isLegacyAnalyticsFanoutDisabled: () => mocks.legacyDisabled,
 }));
 
 vi.mock('@/lib/trigger-purchase-conversion', () => ({
@@ -124,7 +131,84 @@ describe('toOrderForConversion', () => {
 describe('buildAdTrackingExecutor', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.enqueueEnabled = false;
+    mocks.legacyDisabled = false;
     mocks.triggerPurchaseConversion.mockResolvedValue(undefined);
+  });
+
+  it('waits for durable enqueue before completing the side-effect step', async () => {
+    mocks.enqueueEnabled = true;
+    mocks.legacyDisabled = true;
+    const scheduleAfter = vi.fn();
+
+    await expect(
+      buildAdTrackingExecutor({
+        order: richOrder,
+        scheduleAfter,
+        supabase: {} as ServiceRoleClient,
+        transaction,
+      })(stepContext)
+    ).resolves.toEqual({ legacy_scheduled: false, queued: true });
+
+    expect(scheduleAfter).not.toHaveBeenCalled();
+    expect(mocks.triggerPurchaseConversion).toHaveBeenCalledTimes(1);
+    expect(mocks.triggerPurchaseConversion).toHaveBeenCalledWith(
+      expect.anything(),
+      'merchant-1',
+      expect.anything(),
+      { deliveryMode: 'enqueue_only' }
+    );
+  });
+
+  it('retains detached legacy delivery until the full cutover gate closes', async () => {
+    mocks.enqueueEnabled = true;
+    const scheduleAfter = vi.fn((task: () => Promise<void>) => task());
+
+    await expect(
+      buildAdTrackingExecutor({
+        order: richOrder,
+        scheduleAfter,
+        supabase: {} as ServiceRoleClient,
+        transaction,
+      })(stepContext)
+    ).resolves.toEqual({ legacy_scheduled: true, queued: true });
+
+    expect(scheduleAfter).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => {
+      expect(mocks.triggerPurchaseConversion).toHaveBeenCalledTimes(2);
+    });
+    expect(mocks.triggerPurchaseConversion).toHaveBeenLastCalledWith(
+      expect.anything(),
+      'merchant-1',
+      expect.anything(),
+      { deliveryMode: 'legacy_only' }
+    );
+  });
+
+  it('logs a detached legacy fallback failure after durable enqueue succeeds', async () => {
+    mocks.enqueueEnabled = true;
+    mocks.triggerPurchaseConversion
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('legacy failed'));
+    let scheduled: Promise<void> | undefined;
+    const scheduleAfter = vi.fn((task: () => Promise<void>) => {
+      scheduled = task();
+    });
+
+    await buildAdTrackingExecutor({
+      order: richOrder,
+      scheduleAfter,
+      supabase: {} as ServiceRoleClient,
+      transaction,
+    })(stepContext);
+    await scheduled;
+
+    expect(mocks.loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Legacy ad tracking failed during pipeline migration',
+        orderId: 'order-1',
+      })
+    );
   });
 
   it('schedules conversion tracking after the response path', async () => {

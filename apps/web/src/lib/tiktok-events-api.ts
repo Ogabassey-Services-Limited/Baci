@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { sanitizeEventErrorMessage } from '@/lib/events/sanitize-event-error';
 
 /**
  * TikTok Events API (Server-Side)
@@ -11,6 +12,7 @@ import crypto from 'node:crypto';
 
 const TIKTOK_API_URL =
   'https://business-api.tiktok.com/open_api/v1.3/event/track/';
+const PROVIDER_REQUEST_TIMEOUT_MS = 10_000;
 
 export type TikTokEventName =
   | 'ViewContent'
@@ -143,8 +145,9 @@ export async function sendTikTokEvent(
   userData: TikTokUserData,
   properties?: TikTokEventProperties,
   eventOptions?: TikTokEventOptions | string,
-  testEventCode?: string
-): Promise<{ success: boolean; error?: string }> {
+  testEventCode?: string,
+  signal?: AbortSignal
+): Promise<{ success: boolean; error?: string; httpStatus?: number }> {
   if (!pixelId || !accessToken) {
     return { success: false, error: 'Missing pixel ID or access token' };
   }
@@ -213,20 +216,39 @@ export async function sendTikTokEvent(
           ? { test_event_code: options.testEventCode }
           : {}),
       }),
+      signal: signal ?? AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MS),
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      console.error('TikTok Events API error:', errorData);
-      return { success: false, error: errorData.message || 'Unknown error' };
+      const errorData = await response.json().catch(() => null);
+      console.error(
+        'TikTok Events API error:',
+        sanitizeEventErrorMessage(JSON.stringify(errorData))
+      );
+      return {
+        success: false,
+        error:
+          errorData &&
+          typeof errorData === 'object' &&
+          'message' in errorData &&
+          typeof errorData.message === 'string'
+            ? errorData.message
+            : 'Unknown error',
+        httpStatus: response.status,
+      };
     }
 
     return { success: true };
   } catch (error) {
-    console.error('TikTok Events API request failed:', error);
+    const errorMessage =
+      error instanceof Error ? error.message : 'Network error';
+    console.error(
+      'TikTok Events API request failed:',
+      sanitizeEventErrorMessage(errorMessage)
+    );
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error',
+      error: errorMessage,
     };
   }
 }
@@ -248,7 +270,8 @@ export const tiktokEventsAPI = {
       price: number;
       quantity: number;
     }>,
-    options?: TikTokEventOptions
+    options?: TikTokEventOptions,
+    signal?: AbortSignal
   ) => {
     const contents = products.map((p) => ({
       content_id: p.id,
@@ -274,7 +297,9 @@ export const tiktokEventsAPI = {
         contentIds: products.map((p) => p.id),
         contents,
       },
-      options
+      options,
+      undefined,
+      signal
     );
   },
 
@@ -285,7 +310,8 @@ export const tiktokEventsAPI = {
     valueOrProperties: number | TikTokEventProperties,
     currencyOrOptions?: string | TikTokEventOptions,
     productIds?: string[],
-    options?: TikTokEventOptions
+    options?: TikTokEventOptions,
+    signal?: AbortSignal
   ) => {
     const properties =
       typeof valueOrProperties === 'number'
@@ -307,7 +333,9 @@ export const tiktokEventsAPI = {
       'InitiateCheckout',
       userData,
       properties,
-      finalOptions
+      finalOptions,
+      undefined,
+      signal
     );
   },
 
@@ -316,7 +344,8 @@ export const tiktokEventsAPI = {
     accessToken: string,
     userData: TikTokUserData,
     properties: TikTokEventProperties,
-    options?: TikTokEventOptions
+    options?: TikTokEventOptions,
+    signal?: AbortSignal
   ) => {
     return sendTikTokEvent(
       pixelId,
@@ -324,7 +353,9 @@ export const tiktokEventsAPI = {
       'ViewContent',
       userData,
       withFirstContent(properties),
-      options
+      options,
+      undefined,
+      signal
     );
   },
 
@@ -333,7 +364,8 @@ export const tiktokEventsAPI = {
     accessToken: string,
     userData: TikTokUserData,
     properties: TikTokEventProperties,
-    options?: TikTokEventOptions
+    options?: TikTokEventOptions,
+    signal?: AbortSignal
   ) => {
     return sendTikTokEvent(
       pixelId,
@@ -341,7 +373,9 @@ export const tiktokEventsAPI = {
       'AddToCart',
       userData,
       withFirstContent(properties),
-      options
+      options,
+      undefined,
+      signal
     );
   },
 
@@ -350,7 +384,8 @@ export const tiktokEventsAPI = {
     accessToken: string,
     userData: TikTokUserData,
     properties: TikTokEventProperties,
-    options?: TikTokEventOptions
+    options?: TikTokEventOptions,
+    signal?: AbortSignal
   ) => {
     return sendTikTokEvent(
       pixelId,
@@ -358,7 +393,9 @@ export const tiktokEventsAPI = {
       'AddToWishlist',
       userData,
       withFirstContent(properties),
-      options
+      options,
+      undefined,
+      signal
     );
   },
 
@@ -367,7 +404,8 @@ export const tiktokEventsAPI = {
     accessToken: string,
     userData: TikTokUserData,
     properties: TikTokEventProperties = {},
-    options?: TikTokEventOptions
+    options?: TikTokEventOptions,
+    signal?: AbortSignal
   ) => {
     return sendTikTokEvent(
       pixelId,
@@ -375,7 +413,9 @@ export const tiktokEventsAPI = {
       'AddPaymentInfo',
       userData,
       withFirstContent(properties),
-      options
+      options,
+      undefined,
+      signal
     );
   },
 
@@ -384,7 +424,8 @@ export const tiktokEventsAPI = {
     accessToken: string,
     userData: TikTokUserData,
     properties: TikTokEventProperties,
-    options?: TikTokEventOptions
+    options?: TikTokEventOptions,
+    signal?: AbortSignal
   ) => {
     return sendTikTokEvent(
       pixelId,
@@ -392,7 +433,9 @@ export const tiktokEventsAPI = {
       'PlaceAnOrder',
       userData,
       withFirstContent(properties),
-      options
+      options,
+      undefined,
+      signal
     );
   },
 
@@ -401,7 +444,8 @@ export const tiktokEventsAPI = {
     accessToken: string,
     userData: TikTokUserData,
     properties: TikTokEventProperties = {},
-    options?: TikTokEventOptions
+    options?: TikTokEventOptions,
+    signal?: AbortSignal
   ) => {
     return sendTikTokEvent(
       pixelId,
@@ -409,7 +453,9 @@ export const tiktokEventsAPI = {
       'CompleteRegistration',
       userData,
       properties,
-      options
+      options,
+      undefined,
+      signal
     );
   },
 
@@ -418,7 +464,8 @@ export const tiktokEventsAPI = {
     accessToken: string,
     userData: TikTokUserData,
     searchString: string,
-    options?: TikTokEventOptions
+    options?: TikTokEventOptions,
+    signal?: AbortSignal
   ) => {
     return sendTikTokEvent(
       pixelId,
@@ -429,7 +476,9 @@ export const tiktokEventsAPI = {
         searchString,
         url: options?.url,
       },
-      options
+      options,
+      undefined,
+      signal
     );
   },
 };

@@ -15,6 +15,14 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: vi.fn(() => mockSupabaseClient),
 }));
 
+vi.mock('@/lib/events/event-ingress-capability', () => ({
+  createEventIngressClient: vi.fn(() => mockSupabaseClient),
+}));
+
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: vi.fn(() => mockSupabaseClient),
+}));
+
 vi.mock('next/server', async () => {
   const actual =
     await vi.importActual<typeof import('next/server')>('next/server');
@@ -82,6 +90,8 @@ describe('POST /api/events', () => {
     // Set required env vars
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
+    delete process.env.EVENT_PIPELINE_ENQUEUE_ENABLED;
+    delete process.env.EVENT_PIPELINE_DISABLE_LEGACY_FANOUT;
   });
 
   describe('Validation', () => {
@@ -123,7 +133,9 @@ describe('POST /api/events', () => {
       // Arrange
       const request = new NextRequest('http://localhost:3000/api/events', {
         method: 'POST',
-        body: JSON.stringify({ merchant_id: 'merchant-123' }),
+        body: JSON.stringify({
+          merchant_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
+        }),
       });
 
       // Act
@@ -135,18 +147,38 @@ describe('POST /api/events', () => {
         error: 'Missing required fields: event_type and merchant_id',
       });
     });
+
+    it('returns the stable invalid-input error contract for schema failures', async () => {
+      const request = new NextRequest('http://localhost:3000/api/events', {
+        method: 'POST',
+        body: JSON.stringify({
+          event_type: 'page_view',
+          merchant_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
+          page_url: 'not-a-url',
+        }),
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        code: 'invalid_input',
+        error: 'Invalid input',
+      });
+    });
   });
 
   describe('Event insertion', () => {
     it('successfully inserts event without event_id', async () => {
       // Arrange
+      const timestamp = new Date().toISOString();
       const request = new NextRequest('http://localhost:3000/api/events', {
         method: 'POST',
         body: JSON.stringify({
           event_type: 'page_view',
-          merchant_id: 'merchant-123',
+          merchant_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
           page_url: 'https://example.com',
-          timestamp: '2026-02-10T12:00:00Z',
+          timestamp,
         }),
       });
 
@@ -158,13 +190,13 @@ describe('POST /api/events', () => {
       expect(response.body).toEqual({ success: true, event_id: undefined });
       expect(mockFrom).toHaveBeenCalledWith('analytics_events');
       expect(mockInsert).toHaveBeenCalledWith({
-        merchant_id: 'merchant-123',
+        merchant_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
         event_type: 'page_view',
         event_data: {
           page_url: 'https://example.com',
         },
         source: 'web',
-        event_timestamp: '2026-02-10T12:00:00Z',
+        event_timestamp: timestamp,
       });
     });
 
@@ -174,7 +206,7 @@ describe('POST /api/events', () => {
         method: 'POST',
         body: JSON.stringify({
           event_type: 'purchase',
-          merchant_id: 'merchant-123',
+          merchant_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
           event_id: 'evt-12345',
           order_id: 'order-789',
           total: 100,
@@ -191,7 +223,7 @@ describe('POST /api/events', () => {
       expect(mockFrom).toHaveBeenCalledWith('analytics_events');
       expect(mockUpsert).toHaveBeenCalledWith(
         {
-          merchant_id: 'merchant-123',
+          merchant_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
           event_type: 'purchase',
           event_data: {
             order_id: 'order-789',
@@ -217,7 +249,7 @@ describe('POST /api/events', () => {
         method: 'POST',
         body: JSON.stringify({
           event_name: 'START_CHECKOUT',
-          merchant_id: 'merchant-123',
+          merchant_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
           order_id: 'order-123',
           total: 50,
         }),
@@ -241,7 +273,7 @@ describe('POST /api/events', () => {
         method: 'POST',
         body: JSON.stringify({
           event_name: 'purchase',
-          merchant_id: 'merchant-123',
+          merchant_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
         }),
       });
 
@@ -265,7 +297,7 @@ describe('POST /api/events', () => {
         method: 'POST',
         body: JSON.stringify({
           event_type: 'product_view',
-          merchant_id: 'merchant-123',
+          merchant_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
           product_id: 'prod-456',
           product_name: 'Test Product',
           product_category: 'Electronics',
@@ -303,7 +335,7 @@ describe('POST /api/events', () => {
         method: 'POST',
         body: JSON.stringify({
           event_type: 'purchase',
-          merchant_id: 'merchant-123',
+          merchant_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
           order_id: 'order-123',
           total: 150,
           subtotal: 130,
@@ -341,7 +373,7 @@ describe('POST /api/events', () => {
         method: 'POST',
         body: JSON.stringify({
           event_type: 'purchase',
-          merchant_id: 'merchant-123',
+          merchant_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
           custom_data: {
             order_id: 'order-456',
             value: 200,
@@ -363,6 +395,12 @@ describe('POST /api/events', () => {
             currency: 'USD',
             item_count: 1,
             items: [{ id: '2', quantity: 1 }],
+            custom_data: {
+              order_id: 'order-456',
+              value: 200,
+              currency: 'USD',
+              contents: [{ id: '2', quantity: 1 }],
+            },
           },
         })
       );
@@ -374,7 +412,7 @@ describe('POST /api/events', () => {
         method: 'POST',
         body: JSON.stringify({
           event_type: 'search',
-          merchant_id: 'merchant-123',
+          merchant_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
           search_term: 'laptop',
           results_count: 25,
         }),
@@ -400,7 +438,7 @@ describe('POST /api/events', () => {
         method: 'POST',
         body: JSON.stringify({
           event_type: 'product_view',
-          merchant_id: 'merchant-123',
+          merchant_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
           product_id: 'prod-789',
           // Other fields intentionally omitted to test undefined removal
         }),
@@ -424,7 +462,7 @@ describe('POST /api/events', () => {
         method: 'POST',
         body: JSON.stringify({
           event_type: 'page_view',
-          merchant_id: 'merchant-123',
+          merchant_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
           page_url: 'https://store.example.com/products',
           referrer: 'https://google.com',
         }),
@@ -450,7 +488,7 @@ describe('POST /api/events', () => {
         method: 'POST',
         body: JSON.stringify({
           event_type: 'custom_event',
-          merchant_id: 'merchant-123',
+          merchant_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
           custom_data: {
             custom_field: 'value',
             another_field: 123,
@@ -486,7 +524,7 @@ describe('POST /api/events', () => {
         method: 'POST',
         body: JSON.stringify({
           event_type: 'page_view',
-          merchant_id: 'merchant-123',
+          merchant_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
         }),
       });
 
@@ -508,7 +546,7 @@ describe('POST /api/events', () => {
         method: 'POST',
         body: JSON.stringify({
           event_type: 'purchase',
-          merchant_id: 'merchant-123',
+          merchant_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
           event_id: 'evt-error',
         }),
       });
@@ -521,7 +559,7 @@ describe('POST /api/events', () => {
       expect(response.body).toEqual({ error: 'Failed to store event' });
     });
 
-    it('returns 500 on JSON parsing error', async () => {
+    it('returns 400 on JSON parsing error', async () => {
       // Arrange
       const request = new NextRequest('http://localhost:3000/api/events', {
         method: 'POST',
@@ -532,8 +570,8 @@ describe('POST /api/events', () => {
       const response = await POST(request);
 
       // Assert
-      expect(response.status).toBe(500);
-      expect(response.body).toEqual({ error: 'Internal server error' });
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ error: 'Invalid JSON' });
     });
   });
 
@@ -544,7 +582,7 @@ describe('POST /api/events', () => {
         method: 'POST',
         body: JSON.stringify({
           event_type: 'purchase',
-          merchant_id: 'merchant-123',
+          merchant_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
           event_id: 'evt-conv-123',
           order_id: 'order-456',
           total: 250,
@@ -569,7 +607,7 @@ describe('POST /api/events', () => {
       expect(isConversionEvent).toHaveBeenCalledWith('purchase');
       expect(after).toHaveBeenCalled();
       expect(sendToAdPlatforms).toHaveBeenCalledWith({
-        merchant_id: 'merchant-123',
+        merchant_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
         event_type: 'purchase',
         event_id: 'evt-conv-123',
         user_data: expect.objectContaining({
@@ -597,7 +635,7 @@ describe('POST /api/events', () => {
         method: 'POST',
         body: JSON.stringify({
           event_type: 'page_view',
-          merchant_id: 'merchant-123',
+          merchant_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
         }),
       });
 
@@ -615,7 +653,7 @@ describe('POST /api/events', () => {
         method: 'POST',
         body: JSON.stringify({
           event_type: 'add_to_cart',
-          merchant_id: 'merchant-123',
+          merchant_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
           product_id: 'prod-123',
         }),
       });
@@ -637,7 +675,7 @@ describe('POST /api/events', () => {
         method: 'POST',
         body: JSON.stringify({
           event_type: 'purchase',
-          merchant_id: 'merchant-123',
+          merchant_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
         }),
         headers: {
           'x-real-ip': '203.0.113.5',
@@ -669,7 +707,7 @@ describe('POST /api/events', () => {
         method: 'POST',
         body: JSON.stringify({
           event_type: 'purchase',
-          merchant_id: 'merchant-123',
+          merchant_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
         }),
       });
 
@@ -689,7 +727,7 @@ describe('POST /api/events', () => {
         method: 'POST',
         body: JSON.stringify({
           event_type: 'page_view',
-          merchant_id: 'merchant-123',
+          merchant_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
           source: 'mobile_app',
         }),
       });
@@ -711,7 +749,7 @@ describe('POST /api/events', () => {
         method: 'POST',
         body: JSON.stringify({
           event_type: 'page_view',
-          merchant_id: 'merchant-123',
+          merchant_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
         }),
       });
 
@@ -728,12 +766,12 @@ describe('POST /api/events', () => {
 
     it('uses provided timestamp', async () => {
       // Arrange
-      const customTimestamp = '2026-02-10T08:30:00Z';
+      const customTimestamp = new Date().toISOString();
       const request = new NextRequest('http://localhost:3000/api/events', {
         method: 'POST',
         body: JSON.stringify({
           event_type: 'page_view',
-          merchant_id: 'merchant-123',
+          merchant_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
           timestamp: customTimestamp,
         }),
       });
@@ -755,7 +793,7 @@ describe('POST /api/events', () => {
         method: 'POST',
         body: JSON.stringify({
           event_type: 'page_view',
-          merchant_id: 'merchant-123',
+          merchant_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
         }),
       });
 
