@@ -63,7 +63,7 @@ export const OgabasseyFooter: React.FC<FooterProps> = ({ storeSlug, logo }) => {
                 <Instagram size={20} />
               </a>
               <a
-                href="https://facebook.com/ogabasseyy"
+                href="https://www.facebook.com/ogabasseyyy"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-gray-400 hover:text-white transition-colors"
@@ -81,16 +81,16 @@ export const OgabasseyFooter: React.FC<FooterProps> = ({ storeSlug, logo }) => {
                 <Music size={20} />
               </a>
               <a
-                href="https://twitter.com/ogabasseyy"
+                href="https://x.com/ogabasseyy"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-gray-400 hover:text-white transition-colors"
-                aria-label="Twitter"
+                aria-label="X (formerly Twitter)"
               >
                 <Twitter size={20} />
               </a>
               <a
-                href="https://youtube.com/@ogabasseyy"
+                href="https://www.youtube.com/@ogabassey"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-gray-400 hover:text-white transition-colors"
@@ -99,7 +99,7 @@ export const OgabasseyFooter: React.FC<FooterProps> = ({ storeSlug, logo }) => {
                 <Youtube size={20} />
               </a>
               <a
-                href="https://ng.linkedin.com/company/ogabasseyy?trk=public_post_feed-actor-name"
+                href="https://www.linkedin.com/company/ogabasseyy/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-gray-400 hover:text-white transition-colors"

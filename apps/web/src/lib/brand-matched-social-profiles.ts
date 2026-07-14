@@ -62,7 +62,15 @@ function profileMatchesBrandIdentity(
   }
 
   if (brandIdentity.length >= 5 && profile.startsWith(brandIdentity)) {
-    return true;
+    const suffix = profile.slice(brandIdentity.length);
+    const finalBrandCharacter = brandIdentity.at(-1);
+    if (
+      suffix.length <= 2 &&
+      finalBrandCharacter &&
+      [...suffix].every((character) => character === finalBrandCharacter)
+    ) {
+      return true;
+    }
   }
 
   return PROFILE_IDENTITY_AFFIXES.some(

@@ -5,14 +5,22 @@ describe('filterBrandMatchedSocialProfiles', () => {
   it('keeps profiles whose visible identity matches the merchant brand', () => {
     expect(
       filterBrandMatchedSocialProfiles('Ogabassey', [
+        'https://instagram.com/ogabasseyy',
+        'https://www.facebook.com/ogabasseyyy',
+        'https://x.com/ogabasseyy',
+        'https://www.snapchat.com/@ogabassey',
+        'https://www.tiktok.com/@ogabasseyy',
         'https://www.youtube.com/@ogabassey',
         'https://www.linkedin.com/company/ogabasseyy',
-        'https://facebook.com/ogabasseyyy',
       ])
     ).toEqual([
+      'https://instagram.com/ogabasseyy',
+      'https://www.facebook.com/ogabasseyyy',
+      'https://x.com/ogabasseyy',
+      'https://www.snapchat.com/@ogabassey',
+      'https://www.tiktok.com/@ogabasseyy',
       'https://www.youtube.com/@ogabassey',
       'https://www.linkedin.com/company/ogabasseyy',
-      'https://facebook.com/ogabasseyyy',
     ]);
   });
 
@@ -32,6 +40,14 @@ describe('filterBrandMatchedSocialProfiles', () => {
     expect(
       filterBrandMatchedSocialProfiles('Ada Fashion', [
         'https://twitter.com/fashiondaily',
+      ])
+    ).toEqual([]);
+  });
+
+  it('does not accept an arbitrary suffix after a full brand identity', () => {
+    expect(
+      filterBrandMatchedSocialProfiles('Ogabassey', [
+        'https://instagram.com/ogabasseyfraud',
       ])
     ).toEqual([]);
   });
