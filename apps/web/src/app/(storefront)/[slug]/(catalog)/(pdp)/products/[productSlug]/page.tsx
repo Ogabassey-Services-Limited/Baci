@@ -5,6 +5,7 @@ import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { ProductDetailRouteLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import { StorefrontRouteNotFound } from '@/app/(storefront)/[slug]/storefront-route-not-found';
+import { getBrandMatchedTwitterHandle } from '@/lib/brand-matched-twitter-handle';
 import { getCachedLegacyProductRedirectTarget } from '@/lib/cached-data';
 import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import {
@@ -140,6 +141,10 @@ export async function generateMetadata(
   const socialMedia = merchant.social_media as
     | Record<string, string>
     | undefined;
+  const twitterHandle = getBrandMatchedTwitterHandle(
+    merchantDisplayName,
+    socialMedia?.twitter
+  );
   return {
     title: metadataTitle,
     description: seoDescription,
@@ -161,13 +166,9 @@ export async function generateMetadata(
       title: metadataTitleText,
       description: seoDescription,
       images: socialMetadata.twitterImages,
-      ...(socialMedia?.twitter && {
-        site: socialMedia.twitter.startsWith('@')
-          ? socialMedia.twitter
-          : `@${socialMedia.twitter}`,
-        creator: socialMedia.twitter.startsWith('@')
-          ? socialMedia.twitter
-          : `@${socialMedia.twitter}`,
+      ...(twitterHandle && {
+        site: twitterHandle,
+        creator: twitterHandle,
       }),
     },
     other: mergeStorefrontSmartAppBannerOther(slug, socialMetadata.other),

@@ -1,0 +1,44 @@
+import { filterBrandMatchedSocialProfiles } from './brand-matched-social-profiles';
+
+function extractTwitterHandle(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    try {
+      const url = new URL(trimmed);
+      const host = url.hostname.toLowerCase();
+      if (
+        !['twitter.com', 'www.twitter.com', 'x.com', 'www.x.com'].includes(host)
+      ) {
+        return null;
+      }
+      return url.pathname.split('/').filter(Boolean)[0] ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  return trimmed.startsWith('@') ? trimmed.slice(1) : trimmed;
+}
+
+export function getBrandMatchedTwitterHandle(
+  businessName: string,
+  value: string | null | undefined
+): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const handle = extractTwitterHandle(value);
+  if (!handle || !/^[a-zA-Z0-9_]{1,15}$/.test(handle)) {
+    return undefined;
+  }
+
+  const profileUrl = `https://x.com/${handle}`;
+  return filterBrandMatchedSocialProfiles(businessName, [profileUrl]).length > 0
+    ? `@${handle}`
+    : undefined;
+}
