@@ -8,7 +8,7 @@ and `created_at`. The existing
 path, but index-only scans still visit the heap when recently inserted pages
 have not been marked all-visible.
 
-Migration `20260713142000_tune_analytics_events_visibility_vacuum.sql` lowers
+Migration `20260714011000_tune_analytics_events_visibility_vacuum.sql` lowers
 the table-local autovacuum triggers so visibility-map maintenance happens more
 often. It does not change query results, retention, RLS, writers, or the
 dashboard RPC. In particular, page-view semantics remain:
