@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
+import { clearPaymentSideEffectSeed } from '@/lib/payments/clear-payment-side-effect-seed';
 import {
   ensurePaidOrderInventoryConfirmed,
   rollbackOrderStatusAfterInventoryConfirmationFailure,
@@ -82,6 +83,36 @@ export async function confirmPaidOrderInventoryOrRollback({
           orderId,
           reason:
             'Gateway payment reached paid state, but serialized inventory confirmation and status rollback both failed.',
+          transactionId,
+        });
+        return { kind: 'inventory_cleanup_failed' };
+      }
+
+      try {
+        await clearPaymentSideEffectSeed({
+          orderId,
+          supabase,
+          transactionId,
+        });
+      } catch (seedCleanupError) {
+        await fileInventoryConfirmationFailureReview({
+          gatewayReference: transactionGatewayReference ?? reference,
+          merchantId,
+          metadata: {
+            gateway,
+            inventoryError:
+              inventoryError instanceof Error
+                ? inventoryError.message
+                : inventoryError,
+            seedCleanupError:
+              seedCleanupError instanceof Error
+                ? seedCleanupError.message
+                : seedCleanupError,
+            source: 'gateway_payment_finalizer_seed_cleanup',
+          },
+          orderId,
+          reason:
+            'Gateway payment inventory confirmation failed and the order rollback succeeded, but its outbox seed could not be cleared.',
           transactionId,
         });
         return { kind: 'inventory_cleanup_failed' };

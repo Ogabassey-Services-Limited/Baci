@@ -28,7 +28,7 @@ export async function retireWedgeWithReview({
 }): Promise<boolean> {
   const filed = await handlePaymentForCancelledOrder({
     gatewayReference: candidate.gateway_reference,
-    issueType: 'payment_match_ambiguous',
+    issueType: 'gateway_payment_wedge_requires_review',
     order: { id: candidate.order_id },
     reason,
     transactionId: candidate.id,

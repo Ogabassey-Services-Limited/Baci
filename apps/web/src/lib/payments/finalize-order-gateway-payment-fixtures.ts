@@ -63,8 +63,11 @@ export function buildSupabase(
   });
   const eq = vi.fn().mockReturnValue({ limit, single });
   const select = vi.fn().mockReturnValue({ eq });
+  const deleteChain: Record<string, unknown> = { error: null };
+  deleteChain.eq = vi.fn(() => deleteChain);
+  deleteChain.delete = vi.fn(() => deleteChain);
   return {
-    from: vi.fn().mockReturnValue({ select }),
+    from: vi.fn().mockReturnValue({ ...deleteChain, select }),
   } as unknown as SupabaseClient;
 }
 

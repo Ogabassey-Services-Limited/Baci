@@ -9,6 +9,7 @@ import {
 
 const mocks = vi.hoisted(() => ({
   completeOrderGatewayPayment: vi.fn(),
+  clearPaymentSideEffectSeed: vi.fn(),
   settleCapturedOrderPayment: vi.fn(),
   ensurePaidOrderInventoryConfirmed: vi.fn(),
   fileInventoryConfirmationFailureReview: vi.fn(),
@@ -18,6 +19,10 @@ const mocks = vi.hoisted(() => ({
   persistPaidOrderSideEffectRetry: vi.fn(),
   rollbackOrderStatusAfterInventoryConfirmationFailure: vi.fn(),
   runPaidOrderSideEffects: vi.fn(),
+}));
+
+vi.mock('@/lib/payments/clear-payment-side-effect-seed', () => ({
+  clearPaymentSideEffectSeed: mocks.clearPaymentSideEffectSeed,
 }));
 
 vi.mock(
@@ -63,6 +68,7 @@ vi.mock('@/lib/payments/settle-captured-order-payment', () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.clearPaymentSideEffectSeed.mockResolvedValue(undefined);
   // Reviews file durably by default; a false return means the ops row could
   // not be written, which callers must treat as a retryable failure.
   mocks.handlePaymentForCancelledOrder.mockResolvedValue(true);
@@ -537,6 +543,33 @@ describe('finalizeOrderGatewayPayment', () => {
 
     expect(outcome.kind).toBe('inventory_cleanup_failed');
     expect(mocks.fileInventoryConfirmationFailureReview).toHaveBeenCalled();
+  });
+
+  it('files a distinct review when rollback succeeds but seed cleanup fails', async () => {
+    mocks.completeOrderGatewayPayment.mockResolvedValue(completion());
+    mocks.ensurePaidOrderInventoryConfirmed.mockRejectedValue(
+      new Error('inventory down')
+    );
+    mocks.rollbackOrderStatusAfterInventoryConfirmationFailure.mockResolvedValue(
+      undefined
+    );
+    mocks.clearPaymentSideEffectSeed.mockRejectedValue(
+      new Error('seed cleanup down')
+    );
+
+    const outcome = await finalizeOrderGatewayPayment(
+      baseArgs(buildSupabase({ data: richOrderRow }))
+    );
+
+    expect(outcome.kind).toBe('inventory_cleanup_failed');
+    expect(mocks.fileInventoryConfirmationFailureReview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          seedCleanupError: 'seed cleanup down',
+          source: 'gateway_payment_finalizer_seed_cleanup',
+        }),
+      })
+    );
   });
 
   it('persists a retry marker instead of failing when side effects throw', async () => {

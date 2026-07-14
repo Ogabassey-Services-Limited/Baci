@@ -2,9 +2,7 @@ import { after, type NextRequest, NextResponse } from 'next/server';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
-import { ensurePaidOrderInventoryConfirmed } from '@/lib/payments/ensure-paid-order-inventory-confirmed';
 import { finalizeOrderGatewayPayment } from '@/lib/payments/finalize-order-gateway-payment';
-import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
 import type { GatewayVerificationResult } from '@/lib/payments/types';
 import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -106,35 +104,6 @@ async function verifyPaymentReference(reference: string) {
         .eq('id', transaction.order_id)
         .maybeSingle()
     : { data: null };
-
-  // If the transaction is already completed AND the order is fully reconciled,
-  // return early. If the webhook marked the transaction completed but crashed
-  // before updating the order, we must fall through to reconcile the order.
-  if (
-    transaction.status === 'completed' &&
-    existingOrder?.payment_status === 'paid'
-  ) {
-    try {
-      await ensurePaidOrderInventoryConfirmed(
-        supabase,
-        transaction.merchant_id,
-        transaction.order_id
-      );
-    } catch (inventoryError) {
-      const payload = buildInventoryConfirmationFailurePayload(inventoryError);
-      return NextResponse.json(payload, {
-        status: payload.code === 'serialized_inventory_unavailable' ? 409 : 500,
-      });
-    }
-
-    return NextResponse.json({
-      success: true,
-      status: 'success',
-      orderNumber:
-        existingOrder?.order_number ||
-        transaction.gateway_reference.slice(0, 8).toUpperCase(),
-    });
-  }
 
   if (!transaction.order_id) {
     // Wallet top-ups and other non-order references have their own

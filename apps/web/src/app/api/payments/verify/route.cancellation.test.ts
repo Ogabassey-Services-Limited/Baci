@@ -172,6 +172,22 @@ function buildSupabase({
         single: vi.fn().mockResolvedValue({ data: richOrderRow, error: null }),
       };
     }
+    if (table === 'payment_side_effects') {
+      return {
+        eq: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockResolvedValue({
+          data: [
+            {
+              error: 'side_effect_failed',
+              status: 'failed',
+              transaction_id: 'txn-1',
+            },
+          ],
+          error: null,
+        }),
+        select: vi.fn().mockReturnThis(),
+      };
+    }
     throw new Error(`Unexpected table ${table}`);
   });
 
@@ -290,5 +306,35 @@ describe('POST /api/payments/verify — finalizer outcomes', () => {
     expect(mockVerifyPaystack).toHaveBeenCalledWith(REFERENCE);
     expect(mockNotifyNewOrder).toHaveBeenCalled();
     expect(mockRunPaidOrderSideEffects).toHaveBeenCalled();
+  });
+
+  it('drains the outbox for a completed transaction whose order is already paid', async () => {
+    const supabase = buildSupabase({
+      completion: {
+        already_completed: true,
+        cancelled_at: null,
+        order_already_paid: true,
+        order_cancelled: false,
+        order_number: 'ORD-1',
+        order_updated: false,
+        payment_status: 'paid',
+        previous_payment_status: 'paid',
+        previous_shipping_status: 'processing',
+        shipping_status: 'processing',
+      },
+      existingOrderStatus: 'paid',
+      transactionStatus: 'completed',
+    });
+    mockCreateServiceClient.mockReturnValue(supabase);
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(200);
+    expect(mockVerifyPaystack).toHaveBeenCalledWith(REFERENCE);
+    expect(mockRunPaidOrderSideEffects).toHaveBeenCalled();
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'complete_order_gateway_payment',
+      expect.objectContaining({ p_transaction_id: 'txn-1' })
+    );
   });
 });
