@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuthSafe } from '@/contexts/auth-context';
 import { logger } from '@/lib/logger';
+import { permissionGrantsAccess } from '@/lib/permission-grant';
 import { createClient } from '@/lib/supabase/client';
 import { defaultStaffAccess } from './constants';
 import { fetchDashboardMerchantViaApi } from './fetch-dashboard-merchant-via-api';
@@ -79,10 +80,8 @@ async function loadDashboardMerchant({
     const result = await fetchDashboardMerchantViaApi();
     if (isCancelled()) return;
 
-    if (!isCancelled()) {
-      setMerchant(result.merchant);
-      setStaffAccess(result.staffAccess);
-    }
+    setMerchant(result.merchant);
+    setStaffAccess(result.staffAccess);
   } catch (error) {
     logger.error({
       message: `Failed to load merchant data. Error: ${(error as Error).message}`,
@@ -283,7 +282,10 @@ export const MerchantProvider = ({
       throw new Error(errorMsg);
     }
 
-    if (staffAccess.isStaff && !staffAccess.permissions.settings?.edit) {
+    if (
+      staffAccess.isStaff &&
+      !permissionGrantsAccess(staffAccess.permissions, 'settings', 'edit')
+    ) {
       const errorMsg = "You don't have permission to update store settings.";
       logger.error({ message: errorMsg });
       throw new Error(errorMsg);
@@ -342,18 +344,7 @@ export const MerchantProvider = ({
   const hasPermission = (resource: string, action: string): boolean => {
     if (staffAccess.isOwner) return true;
     if (!staffAccess.isStaff) return false;
-    // Mirror the wildcard grant shapes honored by hasPermission (api-auth.ts)
-    // and ensurePermission (merchant-server.ts) so nav visibility matches what
-    // the server authorizes — a wildcard-granted staffer must not see sections
-    // hidden while the pages are reachable by URL.
-    const permissions = staffAccess.permissions;
-    return (
-      permissions.full_access?.all === true ||
-      permissions['*']?.['*'] === true ||
-      permissions['*']?.[action] === true ||
-      permissions[resource]?.['*'] === true ||
-      permissions[resource]?.[action] === true
-    );
+    return permissionGrantsAccess(staffAccess.permissions, resource, action);
   };
 
   const value: MerchantContextType = {

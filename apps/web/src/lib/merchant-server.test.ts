@@ -272,6 +272,28 @@ describe('merchant-server', () => {
     expect(merchant.id).toBe('merchant-1');
   });
 
+  it('honors the legacy resource-level all grant in ensurePermission', async () => {
+    mocks.getUser.mockResolvedValue({
+      data: { user: { id: 'user-1', email: 'staff@example.com' } },
+      error: null,
+    });
+    mocks.fetchDashboardMerchant.mockResolvedValue({
+      merchant: { id: 'merchant-1', business_name: 'S', slug: 's' },
+      staffAccess: {
+        isStaff: true,
+        isOwner: false,
+        role: 'manager',
+        permissions: { settings: { all: true } },
+      },
+    });
+    mocks.fetchPrimaryDomain.mockResolvedValue(null);
+
+    const { ensurePermission } = await loadModule();
+
+    const { merchant } = await ensurePermission('settings', 'edit');
+    expect(merchant.id).toBe('merchant-1');
+  });
+
   it('marks the lookup as errored when the rich merchant query fails', async () => {
     const user = { id: 'user-1', email: 'owner@example.com' };
 

@@ -7,6 +7,7 @@ import {
   type MerchantData,
   type StaffAccess,
 } from '@/hooks/merchant';
+import { permissionGrantsAccess } from '@/lib/permission-grant';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
@@ -160,19 +161,7 @@ export async function ensurePermission(
     return { merchant, staffAccess };
   }
 
-  // Honor the same grant shapes as hasPermission (api-auth.ts), so a
-  // wildcard-granted staffer ('*':'*', '*':action, resource:'*') is not wrongly
-  // denied. Also keep the legacy full_access.all / resource.all conventions.
-  const permissions = staffAccess.permissions ?? {};
-  const authorized =
-    permissions.full_access?.all === true ||
-    permissions['*']?.['*'] === true ||
-    permissions['*']?.[action] === true ||
-    permissions[resource]?.['*'] === true ||
-    permissions[resource]?.[action] === true ||
-    permissions[resource]?.all === true;
-
-  if (!authorized) {
+  if (!permissionGrantsAccess(staffAccess.permissions, resource, action)) {
     throw new MerchantPermissionDeniedError(resource, action);
   }
 
