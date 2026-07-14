@@ -52,7 +52,7 @@ function stringValue(value: unknown): string | undefined {
   return typeof value === 'string' && value ? value : undefined;
 }
 
-function failureDetails(error: string | undefined) {
+function failureDetails(error: string | undefined, httpStatus?: number) {
   const statusMatch = error?.match(/(?:HTTP|status)\s*(\d{3})/i);
   const normalized = error?.toLowerCase() ?? '';
   return {
@@ -62,7 +62,8 @@ function failureDetails(error: string | undefined) {
       ? 'invalid_destination_credentials'
       : 'provider_rejected',
     errorMessage: error,
-    httpStatus: statusMatch?.[1] ? Number(statusMatch[1]) : undefined,
+    httpStatus:
+      httpStatus ?? (statusMatch?.[1] ? Number(statusMatch[1]) : undefined),
     success: false as const,
   };
 }
@@ -162,6 +163,7 @@ export async function deliverPlatformEvent(
     {
       clientIpAddress: stringValue(deliveryData.ip),
       clientUserAgent: stringValue(deliveryData.ua),
+      email: stringValue(deliveryData.email),
     },
     value === undefined ? undefined : { currency, value },
     pageUrl,
@@ -172,5 +174,5 @@ export async function deliverPlatformEvent(
   );
   return result.success
     ? { success: true, terminalOutcome: 'delivered' }
-    : failureDetails(result.error);
+    : failureDetails(result.error, result.httpStatus);
 }

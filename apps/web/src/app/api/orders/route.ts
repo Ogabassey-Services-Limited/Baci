@@ -36,6 +36,7 @@ import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
 } from '@/lib/email-templates';
+import { recordPlatformOrderCreatedEvent } from '@/lib/events/record-platform-order-created-event';
 import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
 import { hasPriceNegotiationEntitlement } from '@/lib/feature-flags';
 import { formatVariantAttributesLabel } from '@/lib/format-variant-attributes-label';
@@ -3653,6 +3654,21 @@ export async function POST(request: NextRequest) {
             payment_method: 'quiz_voucher',
           }
         : { ...order, currency: orderCurrency };
+
+    await recordPlatformOrderCreatedEvent({
+      currency: orderCurrency,
+      customerEmail: customer_email,
+      eventTimestamp:
+        typeof order.created_at === 'string'
+          ? order.created_at
+          : new Date().toISOString(),
+      ipAddress: clientIp,
+      merchantId: merchant_id,
+      orderId: order.id,
+      orderNumber: orderNum,
+      userAgent: clientUserAgent,
+      value: orderTotal,
+    });
 
     const responseBody = {
       order: responseOrder,

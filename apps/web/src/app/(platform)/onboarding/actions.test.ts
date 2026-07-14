@@ -333,6 +333,7 @@ describe('submitOnboarding', () => {
     expect(mockRecordPlatformDomainEvent).toHaveBeenCalledWith(
       mockAdminClient,
       expect.objectContaining({
+        deliveryData: { email: 'merchant@example.com' },
         eventName: 'platform.merchant_signup_completed.v1',
         externalEventId: 'merchant_signup_completed:merchant-1',
         merchantId: 'merchant-1',

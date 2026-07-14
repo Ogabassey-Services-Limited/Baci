@@ -137,4 +137,48 @@ describe('deliverPlatformEvent', () => {
       success: false,
     });
   });
+
+  it('preserves Facebook status and stable match data', async () => {
+    mocks.sendFacebook.mockResolvedValue({
+      error: 'Invalid parameter',
+      httpStatus: 400,
+      success: false,
+    });
+
+    const result = await deliverPlatformEvent(
+      client({
+        facebook_capi_token: 'token',
+        facebook_pixel_id: 'pixel',
+        ga4_api_secret: null,
+        google_analytics_id: null,
+      }) as never,
+      {
+        ...event,
+        data: {
+          delivery_user_data: { email: 'merchant@example.com' },
+          event_data: {},
+        },
+        event_name: 'platform.merchant_signup_completed.v1',
+      },
+      'facebook'
+    );
+
+    expect(mocks.sendFacebook).toHaveBeenCalledWith(
+      'pixel',
+      'token',
+      'CompleteRegistration',
+      expect.objectContaining({ email: 'merchant@example.com' }),
+      undefined,
+      undefined,
+      'event-1',
+      undefined,
+      undefined,
+      1783857600
+    );
+    expect(result).toMatchObject({
+      errorCode: 'provider_rejected',
+      httpStatus: 400,
+      success: false,
+    });
+  });
 });

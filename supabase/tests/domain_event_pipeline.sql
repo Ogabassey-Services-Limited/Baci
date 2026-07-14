@@ -56,6 +56,7 @@ BEGIN
   FROM public.record_analytics_domain_event_v1(
     v_merchant_id, 'add_to_cart', 'analytics.add_to_cart.v1',
     '{"cart_value":100}'::jsonb, '{"cart_value":100}'::jsonb,
+    '{}'::jsonb,
     'analytics-external-1', 'web', 'web', 'tenant_verified_client', now(),
     '{"environment":"test"}'::jsonb
   );
@@ -63,6 +64,7 @@ BEGIN
   FROM public.record_analytics_domain_event_v1(
     v_merchant_id, 'add_to_cart', 'analytics.add_to_cart.v1',
     '{"cart_value":100}'::jsonb, '{"cart_value":100}'::jsonb,
+    '{}'::jsonb,
     'analytics-external-1', 'web', 'web', 'tenant_verified_client', now(),
     '{"environment":"test"}'::jsonb
   );
@@ -78,12 +80,14 @@ BEGIN
   SELECT * INTO v_platform_first
   FROM public.record_platform_domain_event_v1(
     'landing_page_view', 'platform.landing_page_view.v1', '{}'::jsonb,
+    '{}'::jsonb,
     'platform-external-1', NULL, 'session-1', 'https://usebaci.com/', NULL,
     'web', 'anonymous_client', now(), '{"environment":"test"}'::jsonb
   );
   SELECT * INTO v_platform_second
   FROM public.record_platform_domain_event_v1(
     'landing_page_view', 'platform.landing_page_view.v1', '{}'::jsonb,
+    '{}'::jsonb,
     'platform-external-1', NULL, 'session-1', 'https://usebaci.com/', NULL,
     'web', 'anonymous_client', now(), '{"environment":"test"}'::jsonb
   );

@@ -494,6 +494,7 @@ export async function submitOnboarding(
     if (isEventPipelineEnqueueEnabled()) {
       try {
         await recordPlatformDomainEvent(adminSupabase, {
+          deliveryData: { email },
           eventData: { business_name: businessName },
           eventName: 'platform.merchant_signup_completed.v1',
           eventTimestamp: new Date().toISOString(),
