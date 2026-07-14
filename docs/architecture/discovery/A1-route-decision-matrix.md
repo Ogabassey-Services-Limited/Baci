@@ -65,7 +65,7 @@ Net: **2 clear GO (rows 3, 4 partial; row 5 full), 3 NO-GO (rows 1, 2, 6), row 5
 
 ## Route 3 — `(listing)/[category]/page.tsx` (category listing)
 
-**Verdict: MAKE SHELL-RESOLVABLE — base case only (GO, partial).**
+**Verdict: KEEP DYNAMIC while query-param pagination/facets retain request-specific metadata (NO-GO for a baked shell).**
 
 **Pagination question → answer: STAY query-param + self-canonical. Do NOT rel-canonical-to-root; do NOT switch to path-segment pagination.**
 
@@ -73,12 +73,9 @@ Today this page is dynamic (`connection()` + `Suspense`) and `generateMetadata` 
 
 Note the canonical model is already correct and should be preserved: `buildStorefrontPageHref` makes each `?page=N` **self-canonical** (page N → page N, page 1 → clean URL). This is the modern Google model (rel=prev/next is deprecated); collapsing page 2 → root would de-index deep products. So the pagination answer is *stay query-param + self-referential canonical*, not rel-canonical-to-root, and not a `/category/page/2` path-segment rewrite (a large routing change that buys nothing since deep pages don't need baked shells).
 
-**Concrete replacement for the request-time behavior:**
-- **Base shell (page 1, no facets):** refactor `generateMetadata` so the base canonical (`${baseUrl}/${category}`), title (`buildStorefrontMetadataTitle`), and `robots: getIndexableRobotsMetadata()` are computed from **`params` only** and baked into the prerendered `<head>` for each enumerated category.
-- **Paginated / faceted variants:** keep the `?page=N` self-canonical and facet-`noindex` logic, computed at **request time behind `connection()`**. Those requests render dynamically (streamed metadata) — acceptable because page>1 pages are self-canonical deep pages reached via internal links, and multi-facet URLs are already `noindex`.
-- **Unknown-category soft-404 + degraded-inventory noindex** (`buildCategoryNotFoundMetadata`, `productsQueryFailed` branch): preserved for **non-enumerated params** by setting `dynamicParams = true` — unknown/typo categories fall through to on-demand render and keep the existing soft-404 metadata. (Minor accepted risk, matching the PDP precedent: a transient products-query failure on an *enumerated* category serves the baked `index,follow` shell rather than the request-time noindex; it self-heals on revalidate.)
+**Decision:** preserve the current self-canonical `?page=N`, facet `noindex`, unknown-category soft-404, and degraded-inventory metadata by continuing to read `searchParams` at request time. [Current Next.js page docs](https://nextjs.org/docs/app/api-reference/file-conventions/page) define `searchParams` as request-time data that opts the page into dynamic rendering, and the [metadata contract](https://nextjs.org/docs/app/api-reference/functions/generate-metadata) resolves `generateMetadata` as part of rendering; the same route cannot promise a baked base `<head>` while also branching its metadata on query parameters. Do not add `generateStaticParams` and describe the base case as prerendered under this contract.
 
-**`generateStaticParams` source:** `getCachedCategories(OGABASSEY_MERCHANT_ID)` filtered to `is_active !== false`, mapped to `{ slug: OGABASSEY_DOMAIN, category }`, mirroring `product-static-params.ts` (single placeholder param + fail-open on query error), with `dynamicParams = true`.
+Revisit shell-resolvability only with a separate, signed-off surface split that removes request-time metadata from the canonical category route (for example, path-based pagination/facet routes with their own metadata contract). Until then, preserving canonical/robots correctness wins over the shell optimization.
 
 ---
 

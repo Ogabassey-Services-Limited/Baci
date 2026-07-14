@@ -117,7 +117,7 @@ Nested subroutes (`NESTED_PRODUCT_SUBROUTE_EXCLUSIONS`, `CATEGORY_LISTING_HUB_SE
 
 - **Generator** (new): `apps/web/src/scripts/generate-storefront-route-classification.ts` (run via `tsx`, matching the existing `verify:*`/`process:*` script convention in `apps/web/package.json`). It:
   1. Walks `apps/web/src/app/(storefront)/[slug]/**` with `node:fs` (same technique as `apps/mobile-admin/scripts/expo-router-app-tree.test.ts`), collecting `page.tsx`/`route.ts` leaf paths.
-  2. Extracts `(group)` and first real path segment for each, applies **group defaults**: `(commerce)`/`(customer)` → `private`; `(home)`/`(blog)`/`(content)` → `public-cacheable-document`; `(pdp)` → `public-cacheable-pdp`; `(listing)` → `public-cacheable-document`; `(utility)` → `public-no-store`.
+  2. Extracts `(group)` and first real path segment for each, applies **group defaults**: `(commerce)`/`(customer)` → `private`; `(home)`/`(blog)`/`(content)` → `public-cacheable-document`; `(pdp)` → `public-cacheable-pdp`; `(listing)` → `public-cacheable-document`; `(utility)` → `public-no-store`. Dynamic catalog roots such as `(listing)/[category]` and `(pdp)/[category]/[productSlug]` are emitted as explicit wildcard catalog patterns, never as a literal `[category]` first-segment record; unknown first segments continue through the tenant category/PDP overlay.
   3. Applies **explicit overrides** from a single co-located source-of-truth file, `apps/web/src/app/(storefront)/route-class-overrides.ts` (lives next to the routes, reviewed in the same PR as any route change): `{ 'product': 'redirect-only', 'search': 'public-no-store', 'compare': 'public-no-store', 'pages': 'public-no-store', 'member-status': 'private', 'quiz': 'private', 'reviews': 'private', 'imei-check': 'public-no-store' }`. Small, explicit, greppable.
   4. Emits the typed constant module (Section 5) plus the derived Sets, with a `// GENERATED … do not edit` banner and runs Biome format on it.
 - **`proxy.ts` import:** replace the eight hand-written `new Set([...])` literals with imports from `@/config/storefront-route-classification.generated`. This is the *same* import shape as the existing `@/config/storefront-cache` import at `proxy.ts:19`, so no runtime/bundling change — Next inlines the constants into the compiled middleware. No `.next` read, no fs at request time.
@@ -145,6 +145,7 @@ export interface StorefrontFirstSegment {
   readonly visibility: StorefrontRouteVisibility;
   readonly reserved: boolean;
   readonly acceptsNestedSubroute: boolean;
+  readonly nestedClass?: StorefrontRouteClass;
   readonly group: string;
 }
 
@@ -153,7 +154,7 @@ export const STOREFRONT_FIRST_SEGMENTS = [
   { segment: 'cart',          class: 'private',                  visibility: 'private', reserved: true,  acceptsNestedSubroute: false, group: '(commerce)' },
   { segment: 'checkout',      class: 'private',                  visibility: 'private', reserved: true,  acceptsNestedSubroute: true,  group: '(commerce)' },
   { segment: 'blog',          class: 'public-cacheable-document', visibility: 'public', reserved: true,  acceptsNestedSubroute: true,  group: '(blog)' },
-  { segment: 'products',      class: 'public-cacheable-document', visibility: 'public', reserved: true,  acceptsNestedSubroute: true,  group: '(catalog)/(listing)+(pdp)' },
+  { segment: 'products',      class: 'public-cacheable-document', visibility: 'public', reserved: true,  acceptsNestedSubroute: true, nestedClass: 'public-cacheable-pdp', group: '(catalog)/(listing)+(pdp)' },
   { segment: 'search',        class: 'public-no-store',          visibility: 'public',  reserved: true,  acceptsNestedSubroute: false, group: '(catalog)/(listing)' },
   { segment: 'compare',       class: 'public-no-store',          visibility: 'public',  reserved: true,  acceptsNestedSubroute: false, group: '(catalog)/(listing)' },
   { segment: 'product',       class: 'redirect-only',            visibility: 'public',  reserved: true,  acceptsNestedSubroute: true,  group: '(catalog)/(pdp)' },
@@ -161,6 +162,12 @@ export const STOREFRONT_FIRST_SEGMENTS = [
   { segment: 'about',         class: 'public-cacheable-document', visibility: 'public', reserved: true,  acceptsNestedSubroute: false, group: '(content)' },
   // …every first segment enumerated exhaustively…
 ] as const satisfies readonly StorefrontFirstSegment[];
+
+// Dynamic route leaves are patterns, not reserved literal first segments.
+export const STOREFRONT_DYNAMIC_CATALOG_PATTERNS = [
+  { pattern: '/[category]', class: 'public-cacheable-listing' },
+  { pattern: '/[category]/[productSlug]', class: 'public-cacheable-pdp' },
+] as const;
 
 export const STOREFRONT_FIRST_SEGMENT_BY_NAME =
   new Map(STOREFRONT_FIRST_SEGMENTS.map(s => [s.segment, s]));
@@ -192,7 +199,7 @@ export const CATEGORY_LISTING_HUB_SEGMENTS: ReadonlySet<string> = /* has2Segment
 
 ## 6. CI drift-check approach
 
-**Primary: a colocated Vitest drift test that rides the existing `pnpm turbo test` gate** — no new CI workflow wiring (CI already runs `turbo test`; see `.github/workflows/ci.yml` `quality-test`).
+**Primary: generator `--check` in an always-run web verification step.** The current PR test planner uses `vitest run --changed "$TURBO_SCM_BASE"`; [Vitest's current CLI contract](https://vitest.dev/guide/cli) filters the test-file set under `--changed`, so a newly added route does not reliably select an otherwise unchanged drift test. Wire `verify:route-classification` into CI independently of targeted Vitest selection whenever web route/config inputs change (or include its inputs in an explicit always-run verify job). The command derives to memory/temp output and diffs the committed artifact.
 
 `apps/web/src/config/storefront-route-classification.generated.test.ts`:
 1. Import the **pure derivation function** the generator uses (extract `deriveStorefrontRouteClassification()` into a shared, testable module so the generator and the test call the identical logic).
@@ -201,7 +208,7 @@ export const CATEGORY_LISTING_HUB_SEGMENTS: ReadonlySet<string> = /* has2Segment
 4. **Completeness assertion:** every discovered leaf route maps to exactly one first-segment record and the override manifest has no stale keys (an override for a segment that no longer exists → fail). This closes the "new route added, nobody classified it" hole — a brand-new `(commerce)/refund/` folder fails CI until classified.
 5. **Invariant assertions** (independent of the tree, catch bad overrides): no `private` segment is also in any cacheable-view Set; every `private` segment has `visibility:'private'`; `public-cacheable-*` implies `visibility:'public'`.
 
-**Secondary (optional): `--check` mode** on the generator wired into `test:ci` as `verify:route-classification` (mirrors the existing `verify:quiz-assets` pattern in `apps/web/package.json`), which regenerates to a temp buffer and diffs against the committed file — belt-and-suspenders for environments that skip Vitest. The Vitest test is sufficient on its own.
+**Secondary:** retain the colocated Vitest derivation/invariant suite for focused local diagnostics, but do not treat targeted Vitest as the freshness gate. `forceRerunTriggers` is an acceptable alternative only if route-tree and manifest changes are exhaustively included and tested; the explicit generator check is the simpler contract.
 
 **Reconciliation guard:** add an assertion that `PLATFORM_ROOT_ROUTE_SEGMENTS` ∩ storefront-private segments stay consistent (both list `cart`, `checkout`, `account`, etc.), so the root-domain and storefront classifications don't silently diverge.
 
@@ -220,10 +227,10 @@ B3 must lock in that **private / reserved first segments are never edge-cached a
 - `/my-account`, `/my-account/profile`
 - `/delete-account`
 - `/receipts`, `/receipts/claim/tok-123`, `/receipts/abc-123`
-- `/member-status`, `/quiz`, `/reviews`, `/imei-check`
+- `/member-status`, `/quiz`, `/reviews`
 
 **B. Public-no-store (must stay no-store, but assert `Vary: Cookie` is NOT added when there's no auth hint — distinct from private):**
-- `/search`, `/compare` (top-level), `/repairs`, `/repairs/iphone-15`, `/repair`, `/repair/status`, `/swap`, `/pages/about`, `/pages/rewards`
+- `/search`, `/compare` (top-level), `/imei-check`, `/repairs`, `/repairs/iphone-15`, `/repair`, `/repair/status`, `/swap`, `/pages/about`, `/pages/rewards`
 - `/product/samsung-galaxy-z-fold-4` (redirect-only legacy singular)
 
 **C. Auth-session hint on a private path → still no-store AND `Vary: Cookie`** (cookie `sb-…-auth-token`, header `x-supabase-auth-token`, `authorization: Bearer …`):
@@ -233,7 +240,7 @@ B3 must lock in that **private / reserved first segments are never edge-cached a
 - `/cart`, `/checkout`, `/account`, `/receipts` when a category or product with that literal slug exists → must resolve to the **private route**, NOT a PDP/category; assert no-store, no 308/404 hijack from the product-slug preflight.
 - **Inverse (must NOT be over-reserved):** a *product* whose slug equals a reserved name, sitting under a real category, must stay a **cacheable PDP** — reservation is FIRST-segment only:
   - `/smartphones/checkout`, `/smartphones/account`, `/laptops/wallet` → `public-cacheable-pdp` headers (`public, max-age=0, must-revalidate` + split CDN), **not** no-store. This is the highest-value regression guard: it proves the private set doesn't leak into 2nd-segment product-slug space.
-- `/{category}/compare` and `/{category}/best-under/{band}` where `{category}` collides with a reserved name is impossible (categories can't be named reserved segments) — but assert `/smartphones/compare` stays `public-cacheable-listing` (`s-maxage=300`) and is not treated as a PDP.
+- `/{category}/compare` and `/{category}/best-under/{band}` where `{category}` collides with a reserved name are possible today because category creation slugifies names without a reserved-segment denylist. Include `/checkout/compare`, `/receipts/compare`, `/checkout/best-under/500000`, and equivalent custom-domain/slug-prefixed cases; these nested hub shapes must classify as `public-cacheable-listing` rather than inheriting the private class of the same first segment's single-level app route. Also assert `/smartphones/compare` stays `public-cacheable-listing` (`s-maxage=300`) and is not treated as a PDP.
 
 **E. Retired-slug strip must not break live private/app routes** (a store once slugged `auth`/`feeds`/`account` on its custom domain):
 - `custom.example/auth/confirm`, `custom.example/feeds/google`, `custom.example/account/orders` → route survives (no prefix strip to `/confirm` etc.).

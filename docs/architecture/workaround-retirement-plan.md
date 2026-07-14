@@ -18,9 +18,9 @@ Ordered by (stakes × inverse-effort). The security items are one queue and come
 
 ---
 
-## Security lane (implementation first; design-only A1/C0/B0 may proceed after S2-I)
+## Security lane (implementation first; design-only A1/C0/B0 may proceed while the S2-I+S2-P bundle and S0/S1 advance)
 
-### S0 — `merchants` anon containment bridge + mandatory-version retirement (after S2-I)
+### S0 — `merchants` anon containment bridge + mandatory-version retirement
 
 - **Boundary is the DB grant, not the app.** One public-looking projection is an **inline column list inside `getCachedMerchantById`** (`cached-data.ts:1188`) — *not* a constant and not a security boundary; anon can currently select any column directly. **⚠️ Corrected by the S0/S1 census (2026-07-11): `getCachedMerchantById` is NO LONGER unused** — the repairs work added two anon-runtime callers (`lib/repair-notifications.ts:176`, `lib/repairs/notify-repair-status-change.ts:94`) that read its projection (incl. `paystack_subaccount_code`). So it must be **inventoried as a live anon read** and either migrated to the snapshot RPC or its needed columns kept in the S0-A grant — do not treat it as removable. Full inventory: `docs/architecture/discovery/web-merchants-census.md`.
 - **⚠️ `REVOKE ALL`, not `REVOKE SELECT` (rev-4 catch).** Live anon holds more than SELECT — `INSERT/UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER` are all granted table-wide; RLS does not make those a sound boundary. Fix is `REVOKE ALL ON TABLE public.merchants FROM anon;` then a **minimal column-level `GRANT SELECT (<cols>)`** only. Live currently has no column ACLs (`pg_attribute.attacl` is empty), but S0 will create them; later `REVOKE ALL ON TABLE` does **not** remove column grants, so the retirement migration must explicitly revoke every compatibility column privilege too. (S1 applies the same table + column ACL discipline to `authenticated`.)
@@ -72,7 +72,7 @@ Ordered by (stakes × inverse-effort). The security items are one queue and come
 
 ## Workstream A — Finish the metadata architecture (the direct sibling of #3028)
 
-### A1 — Per-route decision matrix (there is NO safe implementation opener; design may run after S2-I)
+### A1 — Per-route decision matrix (there is NO safe implementation opener; design may run in parallel with the security lane)
 
 **Corrected inventory: 6 catalog routes in this retirement scope** (the blog family already has a static-tenant `searchParams`-free carve-out — `(blog)/blog/page.tsx:12-38`). **Every one of the 6 uses request-time behavior in `generateMetadata` that must have an explicit replacement before it can be made shell-resolvable** — none is a free quick win. For any route approved for prerendering, add a bounded `generateStaticParams` contract sourced from the same static-tenant/catalog authority as the existing nested PDP implementation; define parameter cardinality/build-time limits and preserve a deliberate dynamic fallback. Routes explicitly kept dynamic (likely search and the flat redirect PDP) do **not** add static params merely to satisfy this inventory.
 
@@ -183,10 +183,7 @@ AI billing enable (~$0.10/M) · Supabase compute bump · Reanimated #9866 · Jum
 ## Execution order (rev-20)
 
 ```
-PR 1 — S2-I ONLY (smallest unblocked P0): disable Credit Direct + revoke function EXECUTE from
-       PUBLIC/anon/authenticated → direct-RPC and sign-route regression proof. Do not re-enable.
-
-SECURITY IMPLEMENTATION LANE (after PR 1; S0/S1 may coordinate/parallelize):
+SECURITY IMPLEMENTATION LANE (S0/S1 and the bundled S2 work may coordinate/parallelize):
   S0-A checked-in anon compatibility matrix + published-row policy + exact time-bounded bridge columns
     → S0-B receipt/bank server boundary + mobile releases + mandatory gate before guest/auth queries
     → remove anon bank/contact column ACLs (S0 complete)
@@ -195,14 +192,16 @@ SECURITY IMPLEMENTATION LANE (after PR 1; S0/S1 may coordinate/parallelize):
     → dashboard/private RPCs + all web DML/API/server readers
     → coordinated mobile releases/min-version gate
     → clean authenticated relation + column ACLs/policies (S1 complete)
-  S2-P may run in parallel, but is required only before Credit Direct re-enable; otherwise keep S2-I closed.
+  S2-I + S2-P ship as one owner-approved bundle: disable/revoke and install the guest-safe permanent
+    boundary atomically; do not ship S2-I alone and do not re-enable before the permanent path passes.
 
-PARALLEL DESIGN/INVESTIGATION ONLY after PR 1 (no implementation merge yet):
+PARALLEL DESIGN/INVESTIGATION ONLY while the security lane is open (no non-security implementation merge yet):
   B0 drainer-runtime ADR + timed crash/recovery prototype
   A1 decision matrix; C0 semantic-route feasibility; A3 vendor escalation
 
-NON-SECURITY IMPLEMENTATION GATE opens only when S0-B + S1 are complete and S2 remains contained
-or S2-P is complete:
+NON-SECURITY IMPLEMENTATION GATE opens only when S0-B and S1 are complete AND either (a) Credit
+Direct remains disabled with public execution revoked, or (b) the bundled S2-I + S2-P permanent
+capability is complete:
   B1-lite first: authenticated category Route Handler → existing Next revalidation + best-effort CF purge
   D cleanup/filler PRs
   B0 selected substrate implementation → B1-durable → B2 complete producer coverage/telemetry
@@ -211,7 +210,7 @@ or S2-P is complete:
   A route implementation only for signed-off A1 decisions; A2 still requires full-body bot strategy
 ```
 
-**Smallest first PR:** S2-I alone. It has no census, mobile-release, or worker dependency and closes the live public mutation surface. **A1 design may run alongside S0/S1 after S2-I; A1 code may not merge until the single non-security implementation gate opens.** B1-lite is the first shippable cache improvement after that gate and does not wait for B0. Durable B1/B2 remain blocked on B0; B3 remains blocked on C0/C.
+**Security sequencing:** honor the 2026-07-11 owner decision: S2-I never ships alone; fold its disable/revoke migration and regression proof into the S2-P permanent-capability PR. **A1 design may run alongside S0/S1 and the S2 bundle; A1 code may not merge until the single non-security implementation gate opens.** B1-lite is the first shippable cache improvement after that gate and does not wait for B0. Durable B1/B2 remain blocked on B0; B3 remains blocked on C0/C.
 
 ## Verification standard (every edge/metadata item)
 

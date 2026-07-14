@@ -7,7 +7,7 @@
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS public.cache_invalidation_outbox (
-  merchant_id          uuid        NOT NULL,
+  merchant_id          uuid        NOT NULL REFERENCES public.merchants(id) ON DELETE CASCADE,
   target_kind          text        NOT NULL
     CHECK (target_kind IN (
       'product_cache', 'category_listing', 'storefront_document',
@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS public.cache_invalidation_outbox (
   target_id            text        NOT NULL,           -- slug / id / path key
   generation           bigint      NOT NULL DEFAULT 1, -- bumped on every enqueue
   status               text        NOT NULL DEFAULT 'pending'
-    CHECK (status IN ('pending', 'claimed', 'completed', 'failed')),
+    CHECK (status IN ('pending', 'claimed', 'completed', 'failed', 'dead_letter')),
   claim_token          uuid,
   claimed_generation   bigint,
   claimed_by           text,
@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS public.cache_invalidation_outbox (
   completed_at         timestamptz,
   attempts             int         NOT NULL DEFAULT 0,
   last_error           text,
-  payload              jsonb       NOT NULL DEFAULT '{}'::jsonb, -- old/new slugs, paths, hostnames
+  payload              jsonb       NOT NULL DEFAULT '{}'::jsonb, -- delivery metadata for this target
   created_at           timestamptz NOT NULL DEFAULT now(),
   updated_at           timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (merchant_id, target_kind, target_id)
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS public.cache_invalidation_outbox (
 -- The drainer's queue query: only rows that still need work.
 CREATE INDEX IF NOT EXISTS cache_invalidation_outbox_open_idx
   ON public.cache_invalidation_outbox (status, claimed_at)
-  WHERE status <> 'completed';
+  WHERE status NOT IN ('completed', 'dead_letter');
 
 ALTER TABLE public.cache_invalidation_outbox ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.cache_invalidation_outbox FROM PUBLIC, anon, authenticated;
@@ -44,18 +44,20 @@ CREATE POLICY cache_invalidation_outbox_service_all
   USING (true) WITH CHECK (true);
 
 -- ENQUEUE — call INSIDE the same transaction as the covered mutation (RPC or trigger).
--- Re-queues even a completed target (generation-aware: a later mutation is never
--- suppressed by an earlier completed purge).
+-- Enqueue one row per concrete invalidation target. A rename A -> B followed by
+-- B -> C therefore enqueues A, B, and C as separate target_id values; replacing
+-- payload metadata for one target cannot discard another stale path.
+--
+-- This helper is intentionally UNGRANTED. Trusted SECURITY DEFINER mutation RPCs
+-- and table triggers execute it as their definer/owner, including when the outer
+-- request JWT role is authenticated. Do not gate it on auth.role(): that remains
+-- the invoker's JWT role inside a definer call and would roll back valid mutations.
 CREATE OR REPLACE FUNCTION public.enqueue_cache_invalidation(
   p_merchant_id uuid, p_target_kind text, p_target_id text, p_payload jsonb DEFAULT '{}'::jsonb
 ) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path TO ''
 AS $$
 BEGIN
-  IF auth.role() NOT IN ('service_role', 'postgres') THEN
-    -- Callable only from service-role RPCs / triggers that run as definer; never from clients.
-    RAISE EXCEPTION 'forbidden: enqueue_cache_invalidation is service-role only';
-  END IF;
   INSERT INTO public.cache_invalidation_outbox
     (merchant_id, target_kind, target_id, generation, status, payload)
   VALUES (p_merchant_id, p_target_kind, p_target_id, 1, 'pending', COALESCE(p_payload, '{}'::jsonb))
@@ -63,6 +65,12 @@ BEGIN
     SET generation = public.cache_invalidation_outbox.generation + 1,
         status     = 'pending',
         payload    = COALESCE(EXCLUDED.payload, '{}'::jsonb),
+        claim_token = NULL,
+        claimed_generation = NULL,
+        claimed_by = NULL,
+        claimed_at = NULL,
+        attempts = 0,
+        last_error = NULL,
         updated_at = now();
 END;
 $$;
@@ -70,14 +78,32 @@ $$;
 -- CLAIM — service-role only; takes one pending/failed/stale-claimed row with a lease.
 CREATE OR REPLACE FUNCTION public.claim_cache_invalidation(
   p_merchant_id uuid, p_target_kind text, p_target_id text,
-  p_claim_token uuid, p_claimed_by text, p_lease_seconds int DEFAULT 30
+  p_claim_token uuid, p_claimed_by text, p_lease_seconds int DEFAULT 30,
+  p_max_attempts int DEFAULT 8
 ) RETURNS TABLE(we_won boolean, claimed_generation bigint)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path TO ''
 AS $$
 BEGIN
-  IF auth.role() <> 'service_role' THEN
+  IF auth.role() IS DISTINCT FROM 'service_role' THEN
     RAISE EXCEPTION 'forbidden: claim_cache_invalidation is service-role only';
   END IF;
+  IF p_lease_seconds <= 0 OR p_max_attempts <= 0 THEN
+    RAISE EXCEPTION 'lease seconds and max attempts must be positive';
+  END IF;
+  -- A worker may crash on the threshold attempt before it can call FAIL. Once
+  -- that lease expires, park the row here instead of leaving it claimed forever.
+  UPDATE public.cache_invalidation_outbox o
+     SET status = 'dead_letter',
+         last_error = COALESCE(o.last_error, 'claim lease expired at retry threshold'),
+         updated_at = now()
+   WHERE o.merchant_id = p_merchant_id
+     AND o.target_kind = p_target_kind
+     AND o.target_id = p_target_id
+     AND o.attempts >= p_max_attempts
+     AND (
+          o.status = 'failed'
+       OR (o.status = 'claimed' AND o.claimed_at < now() - make_interval(secs => p_lease_seconds))
+     );
   UPDATE public.cache_invalidation_outbox o
      SET status             = 'claimed',
          claim_token        = p_claim_token,
@@ -89,6 +115,7 @@ BEGIN
    WHERE o.merchant_id = p_merchant_id
      AND o.target_kind = p_target_kind
      AND o.target_id   = p_target_id
+     AND o.attempts < p_max_attempts
      AND (
           o.status = 'pending'
        OR o.status = 'failed'
@@ -112,7 +139,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path TO ''
 AS $$
 DECLARE v_done boolean;
 BEGIN
-  IF auth.role() <> 'service_role' THEN
+  IF auth.role() IS DISTINCT FROM 'service_role' THEN
     RAISE EXCEPTION 'forbidden: complete_cache_invalidation is service-role only';
   END IF;
   UPDATE public.cache_invalidation_outbox o
@@ -128,13 +155,53 @@ BEGIN
 END;
 $$;
 
+-- FAIL — token/generation checked. Retryable failures become immediately
+-- claimable; the attempt that reaches the threshold is parked for alerting.
+CREATE OR REPLACE FUNCTION public.fail_cache_invalidation(
+  p_merchant_id uuid, p_target_kind text, p_target_id text,
+  p_claim_token uuid, p_last_error text, p_max_attempts int DEFAULT 8
+) RETURNS boolean
+LANGUAGE plpgsql SECURITY DEFINER SET search_path TO ''
+AS $$
+DECLARE v_failed boolean;
+BEGIN
+  IF auth.role() IS DISTINCT FROM 'service_role' THEN
+    RAISE EXCEPTION 'forbidden: fail_cache_invalidation is service-role only';
+  END IF;
+  IF p_max_attempts <= 0 THEN
+    RAISE EXCEPTION 'max attempts must be positive';
+  END IF;
+  UPDATE public.cache_invalidation_outbox o
+     SET status = CASE
+                    WHEN o.attempts >= p_max_attempts THEN 'dead_letter'
+                    ELSE 'failed'
+                  END,
+         last_error = left(COALESCE(p_last_error, 'unknown delivery failure'), 4000),
+         claim_token = NULL,
+         claimed_generation = NULL,
+         claimed_by = NULL,
+         claimed_at = NULL,
+         updated_at = now()
+   WHERE o.merchant_id = p_merchant_id
+     AND o.target_kind = p_target_kind
+     AND o.target_id = p_target_id
+     AND o.status = 'claimed'
+     AND o.claim_token = p_claim_token
+     AND o.generation = o.claimed_generation
+  RETURNING true INTO v_failed;
+  RETURN COALESCE(v_failed, false);
+END;
+$$;
+
 REVOKE ALL ON FUNCTION
   public.enqueue_cache_invalidation(uuid, text, text, jsonb),
-  public.claim_cache_invalidation(uuid, text, text, uuid, text, int),
-  public.complete_cache_invalidation(uuid, text, text, uuid)
-  FROM PUBLIC, anon, authenticated;
+  public.claim_cache_invalidation(uuid, text, text, uuid, text, int, int),
+  public.complete_cache_invalidation(uuid, text, text, uuid),
+  public.fail_cache_invalidation(uuid, text, text, uuid, text, int)
+  FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION
-  public.claim_cache_invalidation(uuid, text, text, uuid, text, int),
-  public.complete_cache_invalidation(uuid, text, text, uuid)
+  public.claim_cache_invalidation(uuid, text, text, uuid, text, int, int),
+  public.complete_cache_invalidation(uuid, text, text, uuid),
+  public.fail_cache_invalidation(uuid, text, text, uuid, text, int)
   TO service_role;
 -- enqueue is invoked by other SECURITY DEFINER mutation RPCs/triggers, not granted to a client role.

@@ -149,10 +149,11 @@ Switches every consumer of the omitted `plan_tier`/`paystack_subaccount_code` to
 | `components/storefront/ogabassey/components/CartSidebar.tsx` | **DIVERGENCE** | `hasPriceNegotiationEntitlement(merchant?.plan_tier, merchant?.slug)` → `hasStorefrontPriceNegotiation(merchant)` |
 | `components/storefront/ogabassey/pages/cart-page.tsx` | **DIVERGENCE** | same |
 | `components/storefront/ogabassey/pages/checkout-page.tsx` | **DIVERGENCE** | same |
+| `hooks/use-merchant-features.tsx` | **DIVERGENCE** | derive storefront feature access from the typed public capability/`price_negotiation_enabled` contract instead of defaulting missing snapshot `plan_tier` to `free` (or block PR-7 until this hook is migrated); remove the two-slug premium fallback only after parity proof |
 | `components/storefront/ogabassey/pages/checkout/components/PaymentStep.tsx` | **DIVERGENCE** | merchant prop type gains `paystack_subaccount_configured?` |
 | `lib/checkout/payment-gateway-availability.ts` | **DIVERGENCE** | `isPaystackCheckoutAvailable`: `Boolean(paystack_subaccount_code?.trim())` → `... || paystack_subaccount_configured === true` (raw code no longer crosses the anon boundary) |
 
-**Colocated tests:** `storefront-price-negotiation.test.ts` (new), `CartSidebar.test.tsx`, `cart-page.test.tsx`, `checkout/payment-gateway-availability.test.ts`. (No test files exist for `checkout-page.tsx`, `PaymentStep.tsx`, `merchant-template-data.ts`, `hooks/merchant/types.ts` in this diff.)
+**Colocated tests:** `storefront-price-negotiation.test.ts` (new), `use-merchant-features.test.tsx`, `CartSidebar.test.tsx`, `cart-page.test.tsx`, `checkout/payment-gateway-availability.test.ts`. (No test files exist for `checkout-page.tsx`, `PaymentStep.tsx`, `merchant-template-data.ts`, `hooks/merchant/types.ts` in this diff.)
 **Verification (mandatory):** live parity that a snapshot-sourced storefront merchant still shows negotiation UI and Paystack availability exactly as with raw fields, for both a negotiation-enabled and a disabled merchant; confirm private negotiation/order APIs (`api/orders/route.ts`, still on `hasPriceNegotiationEntitlement`) remain authoritative and unchanged.
 
 ---

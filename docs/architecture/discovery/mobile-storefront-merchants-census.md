@@ -1,6 +1,6 @@
 ## S0/S1 Census — anon/shared-client reads of `merchants` in `apps/mobile-storefront`
 
-Read against `origin/main` @ `c8108a052dfccfb0c99f4c5e6cac96a56dad9587` (fetched `origin/main`, read-only — no edits/migrations run).
+Original census read against `origin/main` @ `c8108a052dfccfb0c99f4c5e6cac96a56dad9587`; revalidated after rebase at `origin/main@19d03df854`. Current code now reads receipt identity through `get_storefront_receipt_merchant_info`; pre-#3083 mobile binaries still require the temporary raw-table compatibility bridge documented below.
 
 Exhaustive grep (`.from('merchants')` + any merchants RPC) across `apps/mobile-storefront` returns **exactly 3 call sites**. No other `.from("merchants")`/`` `merchants` ``/schema-qualified variants exist. Only one merchants-adjacent RPC exists in the app (`get_storefront_payment_settings`) and it is a `SECURITY DEFINER` function with a fixed non-sensitive return shape (no raw table grant involved) — listed for completeness but out of scope for the anon-projection question since it isn't a raw `merchants` select.
 
@@ -28,35 +28,25 @@ This is a full-row, all-column grant to `anon` (matches the existing memory find
 
 ---
 
-### S0-A — "exact legacy projection" (anon-safe, keep on the direct anon `merchants` grant)
+### S0-A — exact legacy projection (two-phase compatibility bridge)
 
-This is the union of every column the current shipped code actually reads via anon, **excluding** the bank/receipt fields:
+Before the S0-B mobile release is mandatory, PostgREST must be able to authorize the **entire** projection requested by a pre-#3083 `useMerchantReceiptInfo()` binary. PostgreSQL rejects a select when any requested column lacks `SELECT`; therefore the first compatibility grant is the union below, not only the bootstrap columns:
 
 ```
-id
-slug
-business_name
-social_media
-email            (merchant's own public business email — not customer PII)
-phone            (merchant's own public business phone)
-business_address
-hero_image_ids
+id, slug, business_name, logo_url, social_media,
+email, phone, support_email, support_phone, rider_phone_number,
+business_address, hero_image_ids, brand_colors, pages,
+vat_registration_status, vat_rate,
+cac_rc_number, tax_identification_number, legal_entity_name,
+bank_code, bank_account_number, bank_name, bank_account_name
 ```
-(from `use-merchant.ts:30`, the storefront-bootstrap read used on the home tab and product/category/checkout hooks)
+(union of the storefront-bootstrap, receipt, and boot reads; row access is published-merchants-only)
 
-Plus the single-column boot read:
-```
-id                (from auth-store-initialize.ts:53 — merchant-slug → id resolution)
-```
-
-Union set for S0-A anon compatibility grant:
-```
-id, slug, business_name, social_media, email, phone, business_address, hero_image_ids
-```
+Current `20260713150000_s0a_merchants_anon_containment.sql` implements this as a permanent published-store presentation/contact grant plus a dated nine-column financial/business-registration bridge. The bridge remains until the mobile minimum-version gate excludes pre-#3083 binaries and the guest-order lookup no longer uses the anon client; only then may the financial/business-registration columns be revoked. This sequencing prevents receipt/invoice regressions while bounding the residual exposure in time.
 
 ### S0-B — must-migrate to an authorization-scoped server boundary (bank/receipt fields)
 
-From `use-receipts.ts:253` (`useMerchantReceiptInfo`), the following must move off the direct anon `merchants` select onto something equivalent to the `get_storefront_payment_settings` `SECURITY DEFINER` RPC pattern (scoped to an authenticated customer with an order/receipt to justify the read, not a bare anon `USING (true)` row):
+The current `use-receipts.ts` implementation has moved the fixed receipt projection off the raw table and onto `get_storefront_receipt_merchant_info`. The following financial fields remain in the temporary compatibility grant solely for older binaries and must be removed after the mandatory-version gate:
 
 ```
 bank_code
@@ -65,16 +55,16 @@ bank_name
 bank_account_name
 ```
 
-Recommend bundling in the same S0-B move (adjacent-sensitive, same query, same file/line) even though not in the task's strict sensitive list:
+The same removal wave includes the adjacent business-registration fields:
 ```
 cac_rc_number
 tax_identification_number
 legal_entity_name
 ```
 
-The remaining columns in that same `useMerchantReceiptInfo` select (`business_name, logo_url, email, phone, support_email, support_phone, rider_phone_number, business_address, brand_colors, vat_registration_status, vat_rate, social_media, pages`) are non-sensitive merchant-branding/contact/tax-rate fields and can stay anon-readable (they overlap heavily with the S0-A set already).
+The remaining receipt projection (`business_name, logo_url, email, phone, support_email, support_phone, rider_phone_number, business_address, brand_colors, vat_registration_status, vat_rate, social_media, pages`) is intentionally public merchant presentation/contact data for published stores and remains in the bounded projection.
 
-**Important caveat surfaced by this census**: even after migrating the bank fields off the raw table select, `useMerchantReceiptInfo()` today fires unconditionally (no `enabled` gate) from three surfaces — `ReceiptsScreen` (before its own `<Redirect>` for unauthenticated users), `UtilitiesReceiptsView.tsx`, and `use-order-details-controller.ts` (`orders/[id]`, whose own `requiresSignIn` check does not gate this hook). Any S0-B replacement RPC/endpoint should itself enforce an authenticated+authorized caller (not just move the columns behind a function while still calling it unconditionally from these signed-out-reachable code paths), or these call sites should be updated to add an `enabled: isAuthenticated` guard.
+**Boundary note:** the replacement RPC is intentionally a fixed published-store projection rather than an arbitrary definer read. If bank details later become customer/order-private instead of public receipt configuration, add an authenticated order-scoped boundary before narrowing the RPC; do not silently remove columns while supported clients still request them.
 
 ### Files read (all via `git show origin/main:<path>`, read-only)
 - `/Users/mac/Baci-app/apps/mobile-storefront/hooks/use-merchant.ts`
