@@ -443,6 +443,7 @@ async function launchBnplPayment({
                     }, 0);
                 },
                 onError: (error) => {
+                    clearCreditDirectPopupMarker(order.id);
                     clearPaymentLaunch(paymentLaunchKeyRef);
                     console.error('Credit Direct Error:', error);
                     setStatus('error');

@@ -1156,7 +1156,7 @@ describe('BnplLauncher', () => {
     // the payment-verification view (customer stuck "confirming" a popup that
     // never opened). The launcher now treats the error state as terminal
     // until the user retries, so the error heading must always win here.
-    it('clears a stale popup marker when retrying from the SDK error view', async () => {
+    it('clears a stale popup marker when the SDK reports an error', async () => {
       mockOpenCreditDirectCheckout.mockImplementation(
         async ({ onPopup, onError }) => {
           await onPopup('txn-999');
@@ -1173,9 +1173,7 @@ describe('BnplLauncher', () => {
           { timeout: 5000 }
         )
       ).toBeInTheDocument();
-      expect(readCreditDirectPopupMarker('order-1')?.transactionId).toBe(
-        'txn-999'
-      );
+      expect(readCreditDirectPopupMarker('order-1')).toBeNull();
 
       fireEvent.click(screen.getByRole('button', { name: 'Try Again' }));
 
