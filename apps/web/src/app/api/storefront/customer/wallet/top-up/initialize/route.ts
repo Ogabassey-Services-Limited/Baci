@@ -1,3 +1,4 @@
+import { sanitizeResumableWalletReturnTo } from '@baci/shared/lib';
 import { customAlphabet } from 'nanoid';
 import { type NextRequest, NextResponse } from 'next/server';
 import { env } from '@/env';
@@ -164,12 +165,22 @@ export async function POST(request: NextRequest) {
     const protocol = env.NODE_ENV === 'production' ? 'https' : 'http';
     const callbackUrl = `${protocol}://${merchant.slug}.${rootDomain}/checkout/success?reference=${paymentReference}&kind=wallet`;
     const notificationUrl = `${protocol}://${rootDomain}/api/payments/webhook`;
-    const metadata = {
+    // Persisted so the wallet-credited push can deep-link back to the
+    // interrupted purchase. Restricted to the strict resumable-destination
+    // allowlist (checkout / imei-check / utilities/<type>) so an internal
+    // redirector such as `/auth/callback?returnTo=//evil.com` can never reach
+    // transaction metadata — and therefore never reach a push deep link.
+    const returnTo = sanitizeResumableWalletReturnTo(parsed.data.returnTo);
+    const gatewayMetadata = {
       customer_email: customerEmail,
       customer_id: customer.id,
       customer_name: customerName,
       merchant_slug: merchant.slug,
       transaction_type: WALLET_TOP_UP_TRANSACTION_TYPE,
+    };
+    const metadata = {
+      ...gatewayMetadata,
+      ...(returnTo ? { return_to: returnTo } : {}),
     };
 
     let authorizationUrl = '';
@@ -211,7 +222,7 @@ export async function POST(request: NextRequest) {
           amount: Math.round(parsed.data.amount * 100),
           callback_url: callbackUrl,
           email: customerEmail,
-          metadata,
+          metadata: gatewayMetadata,
           phone: parsed.data.customerPhone || customer.phone || undefined,
           reference: paymentReference,
           ...(merchant.paystack_subaccount_code && {
@@ -231,7 +242,7 @@ export async function POST(request: NextRequest) {
             name: customerName,
           },
           merchant_bears_cost: true,
-          metadata,
+          metadata: gatewayMetadata,
           notification_url: notificationUrl,
           redirect_url: callbackUrl,
           reference: paymentReference,

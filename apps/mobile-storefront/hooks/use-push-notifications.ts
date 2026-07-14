@@ -12,6 +12,7 @@ import {
   storeLocalPushToken,
 } from '@/lib/push-token-storage';
 import { trackError } from '@/services/analytics';
+import { ensureAndroidNotificationChannels } from '@/services/push-notification-channels';
 import {
   clearBadge,
   handleNotificationResponse,
@@ -112,6 +113,13 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     // No `finally` clause here: a try/finally in the component body makes
     // React Compiler bail out, so the loading reset is duplicated in catch.
     try {
+      // Channels must exist even when a stored token short-circuits full
+      // registration below — otherwise installs that registered before a new
+      // channel (e.g. `payments`) was introduced would never create it.
+      if (Platform.OS === 'android') {
+        await ensureAndroidNotificationChannels();
+      }
+
       let token = pushToken;
       if (!token) token = await getStoredPushToken();
       if (!token) token = await registerForPushNotifications();
@@ -243,11 +251,24 @@ export function usePushNotifications(): UsePushNotificationsReturn {
       effectiveMerchantId &&
       registeredUserId !== user.id
     ) {
-      savePushTokenToServer(pushToken, user.id, effectiveMerchantId).then(
-        (saved) => {
-          setRegisteredUserId(saved ? user.id : null);
+      void (async () => {
+        if (Platform.OS === 'android') {
+          try {
+            await ensureAndroidNotificationChannels();
+          } catch (channelError) {
+            log.warn(
+              'Failed to ensure Android channels for stored push token:',
+              channelError
+            );
+          }
         }
-      );
+        const saved = await savePushTokenToServer(
+          pushToken,
+          user.id,
+          effectiveMerchantId
+        );
+        setRegisteredUserId(saved ? user.id : null);
+      })();
     }
   }, [merchantId, pushToken, registeredUserId, user?.id]);
 

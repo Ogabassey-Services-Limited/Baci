@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { applyWalletRouteAction } from '@/components/wallet/apply-wallet-route-action';
 import { createLogger } from '@/lib/logger';
 import type { WalletReturnHref } from '@/lib/sanitize-wallet-return-to';
+import { storeWalletFundingIntent } from '@/lib/wallet-funding-intent';
 import { startWalletFundingSession } from '@/lib/wallet-funding-session';
 
 const log = createLogger('WalletRouteActionSetup');
@@ -115,8 +116,8 @@ export function useWalletRouteActionSetup({
     }
     let isActive = true;
     void startWalletFundingSession(customerId, routeIntentId)
-      .then(() => {
-        if (isActive) {
+      .then((session) => {
+        if (session && isActive) {
           setResolvedFundingSessionKey(fundingSessionKey);
         }
       })
@@ -135,6 +136,38 @@ export function useWalletRouteActionSetup({
       isActive = false;
     };
   }, [customerId, fundingSessionKey, routeIntentId]);
+
+  // Record the onward destination the moment the customer reaches the funding
+  // surface with one. The CARD path also persists it server-side (via
+  // `/wallet/top-up/initialize`), but a BANK-TRANSFER top-up has no client
+  // initialize call at all — the DVA is a standing account number and the
+  // transaction is created by the webhook — so this local, single-use,
+  // TTL-bounded intent is the only place the destination can survive an async
+  // transfer. Read back (and cleared) by the wallet-credited push tap when the
+  // payload has no `returnTo`. Non-resumable values are rejected on write.
+  //
+  // Scoped to the signed-in customer, and deliberately NOT written while the
+  // customer is still hydrating (an unattributable intent would be cleared by
+  // the lib, which could race the real write): a shared device or an account
+  // switch inside the TTL must never let a new customer's DVA credit resume the
+  // previous customer's interrupted purchase.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new route nonce intentionally restamps the same destination.
+  useEffect(() => {
+    if (
+      !customerId ||
+      (routeAction !== 'fund' && routeAction !== 'bank-transfer')
+    ) {
+      return;
+    }
+    // An explicit funding surface without a destination disarms an abandoned
+    // old flow. Unrelated wallet opens must preserve an in-flight DVA intent.
+    void storeWalletFundingIntent({
+      customerId,
+      returnTo: walletReturnTo,
+    }).catch((error: unknown) => {
+      log.warn('Wallet funding intent write rejected.', { error });
+    });
+  }, [customerId, routeAction, routeIntentId, walletReturnTo]);
 
   const {
     canCreateFundingAccount,

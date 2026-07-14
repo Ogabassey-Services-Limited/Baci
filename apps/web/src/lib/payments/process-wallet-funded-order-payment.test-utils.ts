@@ -102,11 +102,32 @@ export function createWalletFundedOrderPaymentSupabase({
       error: orderTransactionError,
     };
   });
+  const claimedNotificationTransactions = new Set<string>();
+  let notificationClaimTransactionId = '';
+  const notificationClaimQuery = {
+    eq: vi.fn((_column: string, value: string) => {
+      notificationClaimTransactionId = value;
+      return notificationClaimQuery;
+    }),
+    is: vi.fn(() => notificationClaimQuery),
+    maybeSingle: vi.fn(() => {
+      if (claimedNotificationTransactions.has(notificationClaimTransactionId)) {
+        return { data: null, error: null };
+      }
+      claimedNotificationTransactions.add(notificationClaimTransactionId);
+      return {
+        data: { id: notificationClaimTransactionId },
+        error: null,
+      };
+    }),
+    select: vi.fn(() => notificationClaimQuery),
+  };
   const orderTransactionQuery = {
     eq: vi.fn(() => orderTransactionQuery),
     maybeSingle: orderTransactionSingle,
     select: vi.fn().mockReturnThis(),
     single: orderTransactionSingle,
+    update: vi.fn(() => notificationClaimQuery),
   };
   const paymentRows = [
     {
@@ -143,6 +164,7 @@ export function createWalletFundedOrderPaymentSupabase({
     }),
     rpc: vi.fn(async () => ({
       data: {
+        credited_amount: 20_000,
         debited_amount: 20_000,
         excess_amount: 0,
         funded_amount: 20_000,

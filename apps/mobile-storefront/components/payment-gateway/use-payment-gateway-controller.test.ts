@@ -12,6 +12,10 @@ import {
   waitForVtuConfirmation,
 } from '@/lib/vtu-checkout';
 import {
+  clearWalletFundingIntentIfUnchanged,
+  readWalletFundingIntentSnapshot,
+} from '@/lib/wallet-funding-intent';
+import {
   WalletTopUpStillProcessingError,
   waitForWalletTopUpConfirmation,
 } from '@/lib/wallet-top-up';
@@ -45,6 +49,11 @@ jest.mock('@/components/ui/Toast', () => ({
 
 jest.mock('@/lib/clipboard', () => ({
   setClipboardString: jest.fn(() => Promise.resolve(true)),
+}));
+
+jest.mock('@/lib/wallet-funding-intent', () => ({
+  clearWalletFundingIntentIfUnchanged: jest.fn(),
+  readWalletFundingIntentSnapshot: jest.fn(),
 }));
 
 jest.mock('@/lib/customer-savings', () => ({
@@ -101,6 +110,12 @@ const mockWaitForWalletTopUpConfirmation = jest.mocked(
 );
 const mockWaitForSavingsAuthorizationConfirmation = jest.mocked(
   waitForSavingsAuthorizationConfirmation
+);
+const mockClearWalletFundingIntent = jest.mocked(
+  clearWalletFundingIntentIfUnchanged
+);
+const mockReadWalletFundingIntentSnapshot = jest.mocked(
+  readWalletFundingIntentSnapshot
 );
 
 const orderParams = {
@@ -173,6 +188,8 @@ describe('usePaymentGatewayController', () => {
         balance: 7500,
       },
     });
+    mockClearWalletFundingIntent.mockResolvedValue(true);
+    mockReadWalletFundingIntentSnapshot.mockResolvedValue('intent-snapshot-1');
     mockWaitForSavingsAuthorizationConfirmation.mockResolvedValue({
       reference: 'SAV-AUTH-123',
       savedPaymentMethodId: 'card-1',
@@ -453,6 +470,13 @@ describe('usePaymentGatewayController', () => {
         reference: 'WAL-123',
       })
     );
+    await waitFor(() =>
+      expect(mockClearWalletFundingIntent).toHaveBeenCalledTimes(1)
+    );
+    expect(mockClearWalletFundingIntent).toHaveBeenCalledWith(
+      'intent-snapshot-1'
+    );
+    expect(result.current.errorMessage).toBeNull();
     await waitFor(() => expect(result.current.status).toBe('success'));
     expect(mockInvalidateQueries).toHaveBeenCalledWith({
       queryKey: ['wallet'],
@@ -479,11 +503,62 @@ describe('usePaymentGatewayController', () => {
 
     await waitFor(() => expect(result.current.status).toBe('success'));
 
+    expect(mockClearWalletFundingIntent).toHaveBeenCalledTimes(1);
+
     act(() => {
       jest.runOnlyPendingTimers();
     });
 
     expect(router.replace).toHaveBeenCalledWith('/imei-check');
+  });
+
+  it('keeps a confirmed wallet top-up successful when intent cleanup fails', async () => {
+    jest.useFakeTimers({ advanceTimers: true });
+    mockSearchParams = { ...walletParams };
+    mockClearWalletFundingIntent.mockResolvedValueOnce(false);
+    const { result } = renderHook(() => usePaymentGatewayController());
+
+    act(() => {
+      result.current.handleNavigationChange(
+        navigation('https://usebaci.com/checkout/success?reference=WAL-123')
+      );
+    });
+
+    await waitFor(() => expect(result.current.status).toBe('success'));
+    expect(result.current.errorMessage).toBeNull();
+  });
+
+  it('clears the funding intent after confirmation even when the screen unmounts', async () => {
+    mockSearchParams = { ...walletParams };
+    const confirmation =
+      deferred<Awaited<ReturnType<typeof waitForWalletTopUpConfirmation>>>();
+    mockWaitForWalletTopUpConfirmation.mockImplementationOnce(
+      () => confirmation.promise
+    );
+    const { result, unmount } = renderHook(() => usePaymentGatewayController());
+
+    act(() => {
+      result.current.handleNavigationChange(
+        navigation('https://usebaci.com/checkout/success?reference=WAL-123')
+      );
+    });
+    await waitFor(() =>
+      expect(mockWaitForWalletTopUpConfirmation).toHaveBeenCalledTimes(1)
+    );
+    unmount();
+
+    await act(async () => {
+      confirmation.resolve({
+        amount: 2500,
+        reference: 'WAL-123',
+        status: 'successful',
+        success: true,
+        wallet: { balance: 7500 },
+      });
+      await confirmation.promise;
+    });
+
+    expect(mockClearWalletFundingIntent).toHaveBeenCalledTimes(1);
   });
 
   it('confirms savings card authorization before returning to Start Savings', async () => {

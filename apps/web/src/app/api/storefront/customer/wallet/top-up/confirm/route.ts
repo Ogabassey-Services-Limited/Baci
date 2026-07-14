@@ -1,5 +1,5 @@
 import type { PostgrestSingleResponse } from '@supabase/supabase-js';
-import { type NextRequest, NextResponse } from 'next/server';
+import { after, type NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
@@ -7,6 +7,7 @@ import {
   WALLET_TOP_UP_TRANSACTION_TYPE,
 } from '@/lib/customer-wallet-top-up';
 import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
+import { scheduleWalletTopUpCreditNotification } from '@/lib/payments/schedule-wallet-top-up-credit-notification';
 import { verifyTransaction as verifyPaystackTransaction } from '@/lib/paystack';
 import { resolveWalletTopUpMerchant } from '@/lib/resolve-wallet-top-up-merchant';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -31,6 +32,11 @@ function getVerifiedCurrency(payload: Record<string, unknown>) {
 
 function isWalletTopUpGateway(value: unknown): value is 'paystack' | 'korapay' {
   return value === 'paystack' || value === 'korapay';
+}
+
+/** Currency for the credit push; `undefined` falls back to the wallet default. */
+function transactionCurrencyOf(value: unknown): string | undefined {
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
 
 // Merchant resolution uses id-first, slug-fallback via
@@ -154,6 +160,22 @@ export async function POST(request: NextRequest) {
         merchantId: merchant.id,
         reference: parsed.data.reference,
         supabase,
+        transactionId: transaction.id,
+      });
+
+      // This branch is a retry of an already-completed transaction, but the
+      // wallet credit itself may still be outstanding (webhook marked the
+      // transaction completed, credit failed/never ran). If THIS call is the
+      // one that lands the credit, it is the caller that must notify.
+      scheduleWalletTopUpCreditNotification({
+        amount: Number(transaction.amount),
+        currency: transactionCurrencyOf(transaction.currency),
+        customerId: customer.id,
+        firstCredit: walletCredit.firstCredit,
+        merchantId: merchant.id,
+        metadata,
+        reference: parsed.data.reference,
+        scheduleAfter: after,
         transactionId: transaction.id,
       });
 
@@ -300,6 +322,24 @@ export async function POST(request: NextRequest) {
       merchantId: merchant.id,
       reference: parsed.data.reference,
       supabase,
+      transactionId: transaction.id,
+    });
+
+    // The card top-up path normally reaches THIS route (via
+    // `waitForWalletTopUpConfirmation`) before the gateway webhook lands. The
+    // credit is idempotent, so gating on `firstCredit` means the caller that
+    // actually credited the wallet is the one that notifies — and the loser of
+    // the race (`firstCredit: false`) stays silent. Scheduled through `after`,
+    // so it cannot delay or change this response.
+    scheduleWalletTopUpCreditNotification({
+      amount: Number(transaction.amount),
+      currency: transactionCurrencyOf(transaction.currency),
+      customerId: customer.id,
+      firstCredit: walletCredit.firstCredit,
+      merchantId: merchant.id,
+      metadata,
+      reference: parsed.data.reference,
+      scheduleAfter: after,
       transactionId: transaction.id,
     });
 

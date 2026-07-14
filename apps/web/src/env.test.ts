@@ -209,6 +209,37 @@ describe('env validation', () => {
     expect(module.isUsdtWalletEnabled()).toBe(true);
   });
 
+  it('keeps wallet-credit push notifications dark unless explicitly enabled', async () => {
+    delete process.env.WALLET_CREDIT_PUSH_ENABLED;
+    let module = await loadEnvModule();
+    expect(module.isWalletCreditPushEnabled()).toBe(false);
+
+    vi.stubEnv('WALLET_CREDIT_PUSH_ENABLED', 'true');
+    module = await loadEnvModule();
+    expect(module.isWalletCreditPushEnabled()).toBe(true);
+  });
+
+  it('honours a runtime override of the wallet-credit push flag', async () => {
+    delete process.env.WALLET_CREDIT_PUSH_ENABLED;
+    const module = await loadEnvModule();
+
+    // Validated env said false; a later runtime value wins on the next read.
+    vi.stubEnv('WALLET_CREDIT_PUSH_ENABLED', '1');
+    expect(module.isWalletCreditPushEnabled()).toBe(true);
+
+    vi.stubEnv('WALLET_CREDIT_PUSH_ENABLED', 'no');
+    expect(module.isWalletCreditPushEnabled()).toBe(false);
+  });
+
+  it('reports the wallet-credit push flag as disabled on the client runtime', async () => {
+    vi.stubEnv('WALLET_CREDIT_PUSH_ENABLED', 'true');
+    const module = await loadEnvModule();
+
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubGlobal('window', {} as unknown as Window & typeof globalThis);
+    expect(module.isWalletCreditPushEnabled()).toBe(false);
+  });
+
   it('accepts normalized boolean aliases for Petrock and USDT production flags', async () => {
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('SUPABASE_AGENTIC_JWT_PRIVATE_JWK', validAgenticPrivateJwk);

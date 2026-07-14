@@ -43,6 +43,7 @@ import { confirmPaystackDvaByOrderAccount } from '@/lib/payments/confirm-paystac
 import { confirmPaystackWalletDvaTopUp } from '@/lib/payments/confirm-paystack-wallet-dva-top-up';
 import { finalizeOrderGatewayPayment } from '@/lib/payments/finalize-order-gateway-payment';
 import { processWalletFundedOrderPayment } from '@/lib/payments/process-wallet-funded-order-payment';
+import { scheduleWalletTopUpCreditNotification } from '@/lib/payments/schedule-wallet-top-up-credit-notification';
 import { extractVerifiedGatewayFeeNgn } from '@/lib/payments/verified-gateway-fee';
 import {
   calculatePlatformFee,
@@ -312,6 +313,7 @@ async function handleWalletTopUpIfNeeded({
       { status: 400 }
     );
   }
+  const customerId = metadata.customer_id;
 
   const amount = Number(transaction.amount);
   if (!Number.isFinite(amount) || amount <= 0) {
@@ -352,6 +354,23 @@ async function handleWalletTopUpIfNeeded({
       { status: 500 }
     );
   }
+
+  // Notify the customer of the credit off the response path. `after` runs on the
+  // async runtime so a push can never block or alter the 2xx ack, and gating on
+  // `firstCredit` keeps webhook retries from double-notifying. The same helper
+  // runs in the wallet top-up CONFIRM route, so whichever of the two racing
+  // callers actually takes the first credit is the one that notifies — exactly
+  // one push either way.
+  scheduleWalletTopUpCreditNotification({
+    amount,
+    customerId,
+    firstCredit: walletCredit.firstCredit,
+    merchantId: transaction.merchant_id,
+    metadata,
+    reference,
+    scheduleAfter: after,
+    transactionId: transaction.id,
+  });
 
   return NextResponse.json({
     message: 'Wallet top-up credited',

@@ -162,6 +162,9 @@ export async function fundWallet({
       customerPhone: customer?.phone,
       merchantId: activeMerchantId,
       merchantSlug: activeMerchantSlug,
+      // Persisted server-side so the wallet-credited push can deep-link the
+      // customer back to the interrupted purchase.
+      returnTo: walletReturnTo,
     });
     trackEvent('wallet_top_up_started', {
       amount,

@@ -18,6 +18,7 @@ import {
   fetchOrderPaymentTransactionByOrder,
 } from '@/lib/payments/order-wallet-funding-queries';
 import type { ScheduleAfter } from '@/lib/payments/paid-order-side-effect-types';
+import { scheduleWalletFundedCreditNotification } from '@/lib/payments/schedule-wallet-funded-credit-notification';
 import { extractVerifiedGatewayFeeNgn } from '@/lib/payments/verified-gateway-fee';
 import { runWalletFundedPaidOrderSideEffects } from '@/lib/payments/wallet-funded-order-side-effects';
 
@@ -49,6 +50,7 @@ interface WalletFundingTransaction {
 }
 
 interface FinalizerResult {
+  credited_amount?: number | string | null;
   debited_amount?: number | string | null;
   excess_amount?: number | string | null;
   funded_amount?: number | string | null;
@@ -86,6 +88,7 @@ export function buildFinalizeWalletParams({
 }
 
 const finalizerResultSchema = z.looseObject({
+  credited_amount: z.union([z.number(), z.string()]).nullable().optional(),
   debited_amount: z.union([z.number(), z.string()]).nullable().optional(),
   excess_amount: z.union([z.number(), z.string()]).nullable().optional(),
   funded_amount: z.union([z.number(), z.string()]).nullable().optional(),
@@ -401,6 +404,9 @@ export async function processWalletFundedOrderPayment({
   }
 
   const finalizer = normalizeFinalizerResult(data);
+  const transferAlreadyFinalized =
+    match.intent.lastGatewayReference === gatewayReference ||
+    match.intent.lastTransactionId === transaction.id;
   logger.info({
     customerId: match.intent.customerId,
     fundedAmount: finalizer.funded_amount ?? amount,
@@ -411,6 +417,24 @@ export async function processWalletFundedOrderPayment({
     orderId: finalizer.order_id ?? match.intent.orderId,
     orderPaid: finalizer.order_paid === true,
   });
+  // The matcher can deliberately return the prior intent on webhook replay.
+  // Gate the push on provider identifiers that predated this RPC, and notify
+  // `credited_amount` (this transfer), never cumulative `funded_amount`.
+  // Scheduled off the response path — see
+  // schedule-wallet-funded-credit-notification.ts. Additive: no control flow,
+  // status code, or idempotency below is affected.
+  if (!transferAlreadyFinalized) {
+    scheduleWalletFundedCreditNotification({
+      currency: getCurrency(gatewayResponse),
+      customerId: match.intent.customerId,
+      fundedAmount: normalizeFinalizerAmount(finalizer.credited_amount, amount),
+      gatewayReference,
+      merchantId: match.intent.merchantId,
+      orderId: finalizer.order_id ?? match.intent.orderId,
+      scheduleAfter,
+      transactionId: transaction.id,
+    });
+  }
   if (finalizer.order_paid === true && !finalizer.order_id) {
     logger.warn({
       customerId: match.intent.customerId,
