@@ -35,6 +35,16 @@ export interface RunQuizQuestionProviderChainOptions {
 }
 
 const PROVIDER_ATTEMPT_TIMEOUT_MS = 12_000;
+const HOSTED_CHAIN_TIMEOUT_MS = 60_000;
+
+export function createHostedQuizQuestionProviderSignal(
+  routeSignal: AbortSignal
+): AbortSignal {
+  return AbortSignal.any([
+    routeSignal,
+    AbortSignal.timeout(HOSTED_CHAIN_TIMEOUT_MS),
+  ]);
+}
 
 function hasGoogleProviderCredentials(): boolean {
   return Boolean(

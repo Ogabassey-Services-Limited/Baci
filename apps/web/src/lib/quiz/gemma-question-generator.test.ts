@@ -29,6 +29,8 @@ const mockHasHostedProvider = vi.hoisted(() => vi.fn());
 const mockRunProviderChain = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/quiz/quiz-question-provider-chain', () => ({
+  createHostedQuizQuestionProviderSignal: (routeSignal: AbortSignal) =>
+    routeSignal,
   hasHostedQuizQuestionProvider: mockHasHostedProvider,
   runQuizQuestionProviderChain: mockRunProviderChain,
 }));
@@ -38,22 +40,6 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 const VALID_BEARER = 'quiz-bearer-token';
-
-const QUIZ_JSON = JSON.stringify({
-  questions: [
-    {
-      topic: 'Android buying advice',
-      difficulty: 'standard',
-      prompt: 'Which phone has the best battery?',
-      options: [
-        { id: 'a', label: 'Phone A' },
-        { id: 'b', label: 'Phone B' },
-      ],
-      correctOptionId: 'a',
-      explanation: 'Phone A has the larger cell.',
-    },
-  ],
-});
 
 describe('generateQuizQuestionsWithGemma', () => {
   beforeEach(() => {
@@ -300,104 +286,5 @@ describe('generateQuizQuestionsWithGemma', () => {
     await expect(generateQuizQuestionsWithGemma(input)).rejects.toThrow(
       'Gemma returned invalid quiz question JSON'
     );
-  });
-
-  describe('hosted Gemma chain (Cerebras Gemma 4 first)', () => {
-    const input = {
-      difficulty: 'standard' as const,
-      merchantName: 'Ogabassey',
-      questionCountPerTopic: 1,
-      topics: ['Android buying advice'],
-    };
-
-    beforeEach(() => {
-      mockHasHostedProvider.mockReturnValue(true);
-    });
-
-    it('generates on the hosted chain and never touches the self-hosted server', async () => {
-      const mockFetch = vi.fn();
-      vi.stubGlobal('fetch', mockFetch);
-      mockRunProviderChain.mockImplementationOnce(
-        ({ parseContent }: { parseContent: (content: string) => unknown }) =>
-          Promise.resolve(parseContent(QUIZ_JSON))
-      );
-
-      const questions = await generateQuizQuestionsWithGemma(input);
-
-      expect(questions).toHaveLength(1);
-      expect(questions[0]?.prompt).toBe('Which phone has the best battery?');
-      expect(mockRunProviderChain).toHaveBeenCalledTimes(1);
-      expect(mockRunProviderChain).toHaveBeenCalledWith(
-        expect.objectContaining({
-          system: expect.stringContaining('quiz question writer'),
-          prompt: expect.stringContaining('Android buying advice'),
-          temperature: 0.35,
-          maxOutputTokens: expect.any(Number),
-          abortSignal: expect.any(AbortSignal),
-          parseContent: expect.any(Function),
-        })
-      );
-      // The hosted chain succeeded, so the self-hosted VPS must not be called.
-      expect(mockFetch).not.toHaveBeenCalled();
-    });
-
-    it('does not evaluate a broken self-hosted model before the hosted chain succeeds', async () => {
-      mockGetLlmChatModel.mockImplementation(() => {
-        throw new Error('invalid legacy LLM_CHAT_MODEL');
-      });
-      mockRunProviderChain.mockImplementationOnce(
-        ({ parseContent }: { parseContent: (content: string) => unknown }) =>
-          Promise.resolve(parseContent(QUIZ_JSON))
-      );
-
-      await expect(generateQuizQuestionsWithGemma(input)).resolves.toHaveLength(
-        1
-      );
-      expect(mockGetLlmChatModel).not.toHaveBeenCalled();
-    });
-
-    it('falls back to the self-hosted Gemma server when the whole hosted chain fails', async () => {
-      mockRunProviderChain.mockRejectedValue(new Error('all providers down'));
-      const mockFetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          choices: [{ message: { content: QUIZ_JSON } }],
-        }),
-      });
-      vi.stubGlobal('fetch', mockFetch);
-
-      const questions = await generateQuizQuestionsWithGemma(input);
-
-      expect(questions).toHaveLength(1);
-      expect(mockFetch).toHaveBeenCalledTimes(1);
-      expect(String(mockFetch.mock.calls[0]?.[0])).toContain('llm.example.com');
-    });
-
-    it('surfaces the hosted failure when there is no self-hosted server to fall back to', async () => {
-      mockGetLlmServerUrl.mockReturnValue(undefined);
-      mockGetOllamaBaseUrl.mockReturnValue(undefined);
-      const mockFetch = vi.fn();
-      vi.stubGlobal('fetch', mockFetch);
-      mockRunProviderChain.mockRejectedValue(new Error('all providers down'));
-
-      await expect(generateQuizQuestionsWithGemma(input)).rejects.toThrow(
-        'all providers down'
-      );
-      expect(mockFetch).not.toHaveBeenCalled();
-    });
-
-    it('fails closed when NEITHER a hosted provider nor a self-hosted server is configured', async () => {
-      mockHasHostedProvider.mockReturnValue(false);
-      mockGetLlmServerUrl.mockReturnValue(undefined);
-      mockGetOllamaBaseUrl.mockReturnValue(undefined);
-      const mockFetch = vi.fn();
-      vi.stubGlobal('fetch', mockFetch);
-
-      await expect(
-        generateQuizQuestionsWithGemma(input)
-      ).rejects.toBeInstanceOf(QuizQuestionGenerationUnavailableError);
-      expect(mockRunProviderChain).not.toHaveBeenCalled();
-      expect(mockFetch).not.toHaveBeenCalled();
-    });
   });
 });

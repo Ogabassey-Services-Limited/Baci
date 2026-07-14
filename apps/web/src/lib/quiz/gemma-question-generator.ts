@@ -21,6 +21,7 @@ import {
   QUIZ_QUESTION_SYSTEM_PROMPT,
 } from '@/lib/quiz/gemma-question-prompt';
 import {
+  createHostedQuizQuestionProviderSignal,
   hasHostedQuizQuestionProvider,
   runQuizQuestionProviderChain,
 } from '@/lib/quiz/quiz-question-provider-chain';
@@ -210,9 +211,7 @@ function getSelfHostedTransportConfig() {
  *
  * Provider order: the HOSTED chain first (Cerebras Gemma 4 → Groq → Gemini →
  * OpenRouter, shared with the AI copilot), then our SELF-HOSTED Gemma server as
- * a last resort. Cerebras serves Gemma 4 in well under a second, and this call
- * blocks the merchant in the dashboard, so it leads.
- *
+ * a last resort.
  * Whatever produces the text, the output is validated by the SAME in-code Zod
  * schema (`parseGeneratedContent` → `generatedQuizQuestionsSchema`), so a
  * provider that returns off-shape JSON is rejected rather than trusted.
@@ -243,7 +242,9 @@ export async function generateQuizQuestionsWithGemma(
           prompt: userPrompt,
           maxOutputTokens,
           temperature: TEMPERATURE,
-          abortSignal: abortController.signal,
+          abortSignal: createHostedQuizQuestionProviderSignal(
+            abortController.signal
+          ),
           parseContent: parseGeneratedContent,
         });
         return content;

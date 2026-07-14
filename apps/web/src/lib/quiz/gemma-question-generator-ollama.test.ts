@@ -7,6 +7,8 @@ const mockGetLlmChatModel = vi.fn();
 const mockGetAiChatModel = vi.fn();
 const mockGetOllamaBaseUrl = vi.fn();
 const mockGetOllamaBasicAuth = vi.fn();
+const mockHasHostedProvider = vi.hoisted(() => vi.fn());
+const mockRunProviderChain = vi.hoisted(() => vi.fn());
 
 vi.mock('@/env', () => ({
   getAiChatModel: () => mockGetAiChatModel(),
@@ -15,6 +17,13 @@ vi.mock('@/env', () => ({
   getLlmServerUrl: () => mockGetLlmServerUrl(),
   getOllamaBaseUrl: () => mockGetOllamaBaseUrl(),
   getOllamaBasicAuth: () => mockGetOllamaBasicAuth(),
+}));
+
+vi.mock('@/lib/quiz/quiz-question-provider-chain', () => ({
+  createHostedQuizQuestionProviderSignal: (routeSignal: AbortSignal) =>
+    routeSignal,
+  hasHostedQuizQuestionProvider: mockHasHostedProvider,
+  runQuizQuestionProviderChain: mockRunProviderChain,
 }));
 
 describe('generateQuizQuestionsWithGemma Ollama fallback', () => {
@@ -26,6 +35,7 @@ describe('generateQuizQuestionsWithGemma Ollama fallback', () => {
     mockGetAiChatModel.mockReturnValue('gemma4:e2b');
     mockGetOllamaBaseUrl.mockReturnValue(undefined);
     mockGetOllamaBasicAuth.mockReturnValue(undefined);
+    mockHasHostedProvider.mockReturnValue(false);
   });
 
   afterEach(() => {
