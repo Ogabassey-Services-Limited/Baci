@@ -91,16 +91,68 @@ describe('useWalletRouteActionSetup', () => {
     );
 
     await waitFor(() =>
-      expect(storeIntent).toHaveBeenCalledWith(
-        '/utilities/power?repeatAmount=2000'
-      )
+      expect(storeIntent).toHaveBeenCalledWith({
+        customerId: 'customer-1',
+        returnTo: '/utilities/power?repeatAmount=2000',
+      })
     );
   });
 
-  it('does not record an intent without an onward destination', async () => {
+  it('records the funding intent for the card fund surface too (the customer may still transfer)', async () => {
+    renderHook(() =>
+      useWalletRouteActionSetup(
+        buildParams({ routeAction: 'fund', walletReturnTo: '/imei-check' })
+      )
+    );
+
+    await waitFor(() =>
+      expect(storeIntent).toHaveBeenCalledWith({
+        customerId: 'customer-1',
+        returnTo: '/imei-check',
+      })
+    );
+  });
+
+  it('records nothing when the wallet is opened without a returnTo', async () => {
     renderHook(() => useWalletRouteActionSetup(buildParams()));
 
     await waitFor(() => expect(storeIntent).not.toHaveBeenCalled());
+  });
+
+  it('waits for the customer before recording an intent, then records it scoped to them', async () => {
+    // An unattributable intent must never be written: it could otherwise be
+    // consumed by whoever is signed in when the credit lands.
+    type SetupParams = Parameters<typeof useWalletRouteActionSetup>[0];
+    const hydratingParams: SetupParams = {
+      ...buildParams({
+        routeAction: 'bank-transfer',
+        walletReturnTo: '/checkout',
+      }),
+      // Explicit: buildParams' default would otherwise supply a customer id.
+      customerId: undefined,
+    };
+
+    const { rerender } = renderHook(
+      (props: SetupParams) => useWalletRouteActionSetup(props),
+      { initialProps: hydratingParams }
+    );
+
+    await waitFor(() => expect(storeIntent).not.toHaveBeenCalled());
+
+    rerender(
+      buildParams({
+        customerId: 'customer-9',
+        routeAction: 'bank-transfer',
+        walletReturnTo: '/checkout',
+      })
+    );
+
+    await waitFor(() =>
+      expect(storeIntent).toHaveBeenCalledWith({
+        customerId: 'customer-9',
+        returnTo: '/checkout',
+      })
+    );
   });
 
   it('creates the funding account once for action=bank-transfer when none exists', () => {

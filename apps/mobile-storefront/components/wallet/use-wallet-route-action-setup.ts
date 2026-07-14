@@ -137,14 +137,26 @@ export function useWalletRouteActionSetup({
     };
   }, [customerId, fundingSessionKey, routeIntentId]);
 
-  // Bank-transfer top-ups have no client initialize call, so persist the
-  // onward destination locally for the eventual wallet-credit push tap.
+  // Record the onward destination the moment the customer reaches the funding
+  // surface with one. The CARD path also persists it server-side (via
+  // `/wallet/top-up/initialize`), but a BANK-TRANSFER top-up has no client
+  // initialize call at all — the DVA is a standing account number and the
+  // transaction is created by the webhook — so this local, single-use,
+  // TTL-bounded intent is the only place the destination can survive an async
+  // transfer. Read back (and cleared) by the wallet-credited push tap when the
+  // payload has no `returnTo`. Non-resumable values are rejected on write.
+  //
+  // Scoped to the signed-in customer, and deliberately NOT written while the
+  // customer is still hydrating (an unattributable intent would be cleared by
+  // the lib, which could race the real write): a shared device or an account
+  // switch inside the TTL must never let a new customer's DVA credit resume the
+  // previous customer's interrupted purchase.
   useEffect(() => {
-    if (!walletReturnTo) {
+    if (!(walletReturnTo && customerId)) {
       return;
     }
-    void storeWalletFundingIntent(walletReturnTo);
-  }, [walletReturnTo]);
+    void storeWalletFundingIntent({ customerId, returnTo: walletReturnTo });
+  }, [customerId, walletReturnTo]);
 
   const {
     canCreateFundingAccount,

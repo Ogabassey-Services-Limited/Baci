@@ -21,8 +21,10 @@ import { asyncStorage } from '@/lib/storage';
  * — a credit landing on a different device simply opens `/wallet`.
  *
  * SAFETY: the value is validated against the strict resumable allowlist on
- * BOTH write and read, is single-use (removed the moment it is read), and
- * expires, so a stale intent cannot hijack a much later, unrelated credit.
+ * BOTH write and read, is single-use (removed the moment it is read), expires,
+ * and is SCOPED TO THE CUSTOMER who created it — a shared device or an account
+ * switch inside the TTL must never let one customer's credit resume another
+ * customer's interrupted purchase.
  */
 export const WALLET_FUNDING_INTENT_STORAGE_KEY =
   '@baci_storefront_wallet_funding_intent';
@@ -31,8 +33,15 @@ export const WALLET_FUNDING_INTENT_STORAGE_KEY =
 export const WALLET_FUNDING_INTENT_TTL_MS = 30 * 60 * 1000;
 
 interface PersistedWalletFundingIntent {
+  /** The customer the intent belongs to; only they may consume it. */
+  customerId: string;
   returnTo: string;
   savedAt: number;
+}
+
+interface StoreWalletFundingIntentInput {
+  customerId: string | undefined;
+  returnTo: unknown;
 }
 
 // All helpers are fail-open, like push-token-storage: a storage failure must
@@ -48,13 +57,18 @@ export async function clearWalletFundingIntent(): Promise<void> {
 }
 
 /**
- * Records the destination to resume after the wallet is funded. A value that
- * fails the strict allowlist is never stored — and clears any previous intent,
- * so a hostile or non-resumable navigation cannot leave an older intent armed.
+ * Records the destination to resume after the wallet is funded, owned by the
+ * customer who opened the funding surface. A value that fails the strict
+ * allowlist — or that has no known owner — is never stored, and clears any
+ * previous intent, so a hostile, non-resumable or unattributable navigation
+ * cannot leave an older (possibly another customer's) intent armed.
  */
-export async function storeWalletFundingIntent(value: unknown): Promise<void> {
+export async function storeWalletFundingIntent({
+  customerId,
+  returnTo: value,
+}: StoreWalletFundingIntentInput): Promise<void> {
   const returnTo = sanitizeResumableWalletReturnTo(value);
-  if (!returnTo) {
+  if (!(returnTo && customerId)) {
     await clearWalletFundingIntent();
     return;
   }
@@ -63,6 +77,7 @@ export async function storeWalletFundingIntent(value: unknown): Promise<void> {
     await asyncStorage.setItem(
       WALLET_FUNDING_INTENT_STORAGE_KEY,
       JSON.stringify({
+        customerId,
         returnTo,
         savedAt: Date.now(),
       } satisfies PersistedWalletFundingIntent)
@@ -73,15 +88,21 @@ export async function storeWalletFundingIntent(value: unknown): Promise<void> {
 }
 
 /**
- * Reads and CLEARS the pending intent (single-use). Returns it only if it is
- * still within the TTL and still passes the strict resumable allowlist — the
- * stored value is re-validated on read so an allowlist tightening, or anything
- * that wrote to this key out of band, cannot produce a navigation the current
- * policy would reject.
+ * Reads and CLEARS the pending intent (single-use). Returns it only if it
+ * belongs to `customerId` (the customer signed in RIGHT NOW), is still within
+ * the TTL, and still passes the strict resumable allowlist — the stored value
+ * is re-validated on read so an allowlist tightening, or anything that wrote to
+ * this key out of band, cannot produce a navigation the current policy would
+ * reject.
+ *
+ * A foreign, ownerless or expired record is CLEARED rather than left armed: on
+ * a shared device the previous customer's intent must die at the first credit
+ * that looks at it, not linger for the rest of the TTL. Pass the resolved
+ * customer id — `undefined` (signed out, or not resolvable) consumes nothing.
  */
-export async function consumeWalletFundingIntent(): Promise<
-  WalletReturnHref | undefined
-> {
+export async function consumeWalletFundingIntent(
+  customerId: string | undefined
+): Promise<WalletReturnHref | undefined> {
   let raw: string | null = null;
   try {
     raw = await asyncStorage.getItem(WALLET_FUNDING_INTENT_STORAGE_KEY);
@@ -101,6 +122,16 @@ export async function consumeWalletFundingIntent(): Promise<
   try {
     parsed = JSON.parse(raw) as Partial<PersistedWalletFundingIntent>;
   } catch {
+    return undefined;
+  }
+
+  // Ownership first: a record written by (or for) anyone other than the
+  // currently signed-in customer is never resumable, whatever else it says.
+  if (
+    !customerId ||
+    typeof parsed.customerId !== 'string' ||
+    parsed.customerId !== customerId
+  ) {
     return undefined;
   }
 

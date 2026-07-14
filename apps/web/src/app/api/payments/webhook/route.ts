@@ -1,5 +1,4 @@
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
-import { sanitizeResumableWalletReturnTo } from '@baci/shared/lib';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
@@ -43,8 +42,9 @@ import { logger } from '@/lib/logger';
 import { confirmPaystackDvaByOrderAccount } from '@/lib/payments/confirm-paystack-dva-by-order-account';
 import { confirmPaystackWalletDvaTopUp } from '@/lib/payments/confirm-paystack-wallet-dva-top-up';
 import { finalizeOrderGatewayPayment } from '@/lib/payments/finalize-order-gateway-payment';
-import { notifyWalletCredited } from '@/lib/payments/notify-wallet-credited';
 import { processWalletFundedOrderPayment } from '@/lib/payments/process-wallet-funded-order-payment';
+import { runPaidOrderSideEffects } from '@/lib/payments/run-paid-order-side-effects';
+import { scheduleWalletTopUpCreditNotification } from '@/lib/payments/schedule-wallet-top-up-credit-notification';
 import { extractVerifiedGatewayFeeNgn } from '@/lib/payments/verified-gateway-fee';
 import {
   calculatePlatformFee,
@@ -358,34 +358,19 @@ async function handleWalletTopUpIfNeeded({
 
   // Notify the customer of the credit off the response path. `after` runs on the
   // async runtime so a push can never block or alter the 2xx ack, and gating on
-  // `firstCredit` keeps webhook retries from double-notifying. Known ceiling:
-  // two CONCURRENT first webhooks can both pass the pre-RPC ledger check and
-  // both report firstCredit (the RPC's advisory lock dedups the money, and its
-  // return shape can't distinguish insert from replay without a migration), so
-  // a rare duplicate push is accepted rather than changing a shared payments
-  // RPC for a flag-gated notification.
-  if (walletCredit.firstCredit) {
-    // Re-validated on read (not just on persist): gateway-supplied metadata is
-    // echoed back to us, so the deep-link destination is re-checked against the
-    // resumable allowlist before it can ever reach a push payload.
-    const returnTo =
-      sanitizeResumableWalletReturnTo(metadata.returnTo) ??
-      sanitizeResumableWalletReturnTo(metadata.return_to);
-    after(() =>
-      notifyWalletCredited({
-        amount,
-        customerId,
-        merchantId: transaction.merchant_id,
-        returnTo,
-      }).catch((error: unknown) => {
-        logger.warn({
-          message: 'Wallet-credited push notification failed',
-          error: error instanceof Error ? error.message : error,
-          reference,
-        });
-      })
-    );
-  }
+  // `firstCredit` keeps webhook retries from double-notifying. The same helper
+  // runs in the wallet top-up CONFIRM route, so whichever of the two racing
+  // callers actually takes the first credit is the one that notifies — exactly
+  // one push either way.
+  scheduleWalletTopUpCreditNotification({
+    amount,
+    customerId,
+    firstCredit: walletCredit.firstCredit,
+    merchantId: transaction.merchant_id,
+    metadata,
+    reference,
+    scheduleAfter: after,
+  });
 
   return NextResponse.json({
     message: 'Wallet top-up credited',

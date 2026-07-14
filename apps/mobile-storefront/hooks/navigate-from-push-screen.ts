@@ -1,4 +1,5 @@
 import { type Href, router } from 'expo-router';
+import { resolveActiveCustomerId } from '@/lib/resolve-active-customer-id';
 import { sanitizeResumableWalletReturnTo } from '@/lib/resumable-wallet-return-to';
 import {
   clearWalletFundingIntent,
@@ -11,11 +12,16 @@ import {
  * number, and the transaction row is created by the webhook itself), so their
  * metadata can never hold the onward destination the way a card top-up's does.
  * The intent recorded locally when the customer opened the funding surface is
- * single-use, TTL-bounded and re-validated against the same strict resumable
- * allowlist before it is navigated to.
+ * single-use, TTL-bounded, owned by ONE customer, and re-validated against the
+ * same strict resumable allowlist before it is navigated to.
+ *
+ * The owner check is why the active customer is resolved (awaiting auth
+ * hydration) before the read: a credit for customer B must never resume — and
+ * must not leave armed — an intent that customer A left on a shared device.
  */
 async function resumeStoredWalletFundingIntent() {
-  const storedReturnTo = await consumeWalletFundingIntent();
+  const customerId = await resolveActiveCustomerId();
+  const storedReturnTo = await consumeWalletFundingIntent(customerId);
   if (storedReturnTo) {
     router.push(storedReturnTo);
   }

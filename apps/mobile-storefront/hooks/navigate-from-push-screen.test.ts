@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { router } from 'expo-router';
+import { resolveActiveCustomerId } from '@/lib/resolve-active-customer-id';
 import {
   clearWalletFundingIntent,
   consumeWalletFundingIntent,
@@ -17,12 +18,19 @@ jest.mock('@/lib/wallet-funding-intent', () => ({
   consumeWalletFundingIntent: jest.fn(),
 }));
 
+jest.mock('@/lib/resolve-active-customer-id', () => ({
+  resolveActiveCustomerId: jest.fn(),
+}));
+
 const push = router.push as jest.MockedFunction<typeof router.push>;
 const consumeIntent = consumeWalletFundingIntent as jest.MockedFunction<
   typeof consumeWalletFundingIntent
 >;
 const clearIntent = clearWalletFundingIntent as jest.MockedFunction<
   typeof clearWalletFundingIntent
+>;
+const resolveCustomerId = resolveActiveCustomerId as jest.MockedFunction<
+  typeof resolveActiveCustomerId
 >;
 
 /** Lets the fire-and-forget storage read inside the wallet branch settle. */
@@ -34,6 +42,7 @@ describe('navigateFromPushScreen', () => {
     jest.clearAllMocks();
     consumeIntent.mockResolvedValue(undefined);
     clearIntent.mockResolvedValue(undefined);
+    resolveCustomerId.mockResolvedValue('customer-1');
   });
 
   it('routes to a specific order when an id is provided', () => {
@@ -188,6 +197,32 @@ describe('navigateFromPushScreen', () => {
 
     expect(clearIntent).toHaveBeenCalledTimes(1);
     expect(consumeIntent).not.toHaveBeenCalled();
+  });
+
+  it('scopes the intent read to the customer signed in at tap time', async () => {
+    // Shared device / account switch: the credit belongs to whoever is signed
+    // in now, so the intent lookup is keyed by that customer and a previous
+    // customer's leftover intent can never be resumed.
+    resolveCustomerId.mockResolvedValue('customer-2');
+    consumeIntent.mockResolvedValue(undefined);
+
+    navigateFromPushScreen('wallet', { credited: 'true' });
+    await flushIntentRead();
+
+    expect(consumeIntent).toHaveBeenCalledWith('customer-2');
+    expect(push).toHaveBeenCalledTimes(1);
+    expect(push).toHaveBeenCalledWith('/wallet');
+  });
+
+  it('resolves the active customer before reading the intent, even when signed out', async () => {
+    resolveCustomerId.mockResolvedValue(undefined);
+    consumeIntent.mockResolvedValue(undefined);
+
+    navigateFromPushScreen('wallet', { credited: 'true' });
+    await flushIntentRead();
+
+    expect(consumeIntent).toHaveBeenCalledWith(undefined);
+    expect(push).toHaveBeenCalledTimes(1);
   });
 
   it('does not touch the funding intent for savings taps', async () => {
