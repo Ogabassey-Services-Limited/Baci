@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   EXAM_PASS_POINTS_COST,
+  QUIZ_DEVICE_BIND_RPC_ACTION,
   QUIZ_FREE_ENTRY_MODE,
   QUIZ_FREE_ENTRY_RPC_ACTION,
 } from './quiz';
@@ -15,5 +16,6 @@ describe('quiz constants', () => {
   it('pins the free-entry client protocol marker', () => {
     expect(QUIZ_FREE_ENTRY_MODE).toBe('free-v1');
     expect(QUIZ_FREE_ENTRY_RPC_ACTION).toBe('start_quiz_attempt_free_v1');
+    expect(QUIZ_DEVICE_BIND_RPC_ACTION).toBe('bind_quiz_attempt_device_v1');
   });
 });

@@ -1,4 +1,7 @@
-import { QUIZ_FREE_ENTRY_RPC_ACTION } from '@baci/shared/constants';
+import {
+  QUIZ_DEVICE_BIND_RPC_ACTION,
+  QUIZ_FREE_ENTRY_RPC_ACTION,
+} from '@baci/shared/constants';
 import { type NextRequest, NextResponse } from 'next/server';
 import { attachQuizQuestionDeadline } from '@/app/api/quiz/_shared/quiz-question-deadline';
 import {
@@ -208,12 +211,24 @@ export async function POST(request: NextRequest) {
       : undefined;
 
   if (typeof attemptId === 'string' && device.deviceHash) {
+    const { proof: bindProof, response: bindProofResponse } = createRouteProof({
+      action: QUIZ_DEVICE_BIND_RPC_ACTION,
+      payload: {
+        attempt_id: attemptId,
+        device_hash: device.deviceHash,
+        user_id: auth.user.id,
+      },
+      subjectId: `${attemptId}:${device.deviceHash}`,
+      userId: auth.user.id,
+    });
+    if (bindProofResponse) return withDeviceCookie(bindProofResponse);
+
     const { data: deviceAllowed, error: bindError } = await auth.supabase.rpc(
       'bind_quiz_attempt_device',
       {
         p_attempt_id: attemptId,
         p_device_hash: device.deviceHash,
-        p_user_id: auth.user.id,
+        p_route_proof: bindProof,
       }
     );
 

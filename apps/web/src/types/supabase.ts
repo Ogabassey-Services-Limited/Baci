@@ -15059,7 +15059,7 @@ export type Database = {
         Args: {
           p_attempt_id: string;
           p_device_hash: string;
-          p_user_id: string;
+          p_route_proof?: Json;
         };
         Returns: boolean;
       };

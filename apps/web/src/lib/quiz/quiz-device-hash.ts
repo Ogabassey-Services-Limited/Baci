@@ -1,6 +1,6 @@
 import { createHmac, randomBytes } from 'node:crypto';
 import type { NextRequest } from 'next/server';
-import { getQuizRpcServerSecret } from '@/env';
+import { getQuizRpcServerSecret, isProduction } from '@/env';
 
 /**
  * Resolves the device identity used by the per-device attempt cap (QZ041).
@@ -44,7 +44,12 @@ export interface ResolvedQuizDevice {
 }
 
 function hashDeviceIdentity(rawIdentity: string): string | null {
-  const secret = getQuizRpcServerSecret();
+  let secret: string | undefined;
+  try {
+    secret = getQuizRpcServerSecret();
+  } catch {
+    return null;
+  }
 
   // Fail SOFT, not closed: without the secret we cannot pepper, and storing an
   // unpeppered client value would be worse than storing nothing. The player
@@ -83,7 +88,7 @@ export function resolveQuizDevice(
       value: minted,
       httpOnly: true,
       sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
+      secure: isProduction(),
       path: '/',
       maxAge: QUIZ_DEVICE_COOKIE_MAX_AGE_SECONDS,
     },

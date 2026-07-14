@@ -2,9 +2,11 @@ import type { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetQuizRpcServerSecret = vi.hoisted(() => vi.fn());
+const mockIsProduction = vi.hoisted(() => vi.fn());
 
 vi.mock('@/env', () => ({
   getQuizRpcServerSecret: mockGetQuizRpcServerSecret,
+  isProduction: mockIsProduction,
 }));
 
 const SHA256_HEX = /^[0-9a-f]{64}$/;
@@ -23,6 +25,7 @@ describe('resolveQuizDevice', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetQuizRpcServerSecret.mockReturnValue('quiz-server-secret');
+    mockIsProduction.mockReturnValue(false);
   });
 
   it('peppers the mobile fingerprint instead of storing what the client sent', async () => {
@@ -63,9 +66,19 @@ describe('resolveQuizDevice', () => {
       httpOnly: true,
       sameSite: 'lax',
       path: '/',
+      secure: false,
     });
     // Server-chosen, so a page script cannot pick its own device identity.
     expect(cookieToSet?.value).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('marks the web device cookie secure in production', async () => {
+    mockIsProduction.mockReturnValue(true);
+    const { resolveQuizDevice } = await import('./quiz-device-hash');
+
+    const { cookieToSet } = resolveQuizDevice(requestWithCookie());
+
+    expect(cookieToSet?.secure).toBe(true);
   });
 
   it('reuses an existing web cookie so the device budget accumulates', async () => {
@@ -110,5 +123,16 @@ describe('resolveQuizDevice', () => {
     // Null means "do not device-cap this attempt" — the player still plays, and
     // the per-customer and email-identity caps still bound them.
     expect(deviceHash).toBeNull();
+  });
+
+  it('fails soft when the server secret getter rejects the runtime', async () => {
+    mockGetQuizRpcServerSecret.mockImplementation(() => {
+      throw new Error('server-only secret');
+    });
+    const { resolveQuizDevice } = await import('./quiz-device-hash');
+
+    expect(
+      resolveQuizDevice(requestWithCookie(), NATIVE_FINGERPRINT).deviceHash
+    ).toBeNull();
   });
 });

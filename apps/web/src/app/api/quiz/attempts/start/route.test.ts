@@ -512,7 +512,7 @@ describe('start quiz attempt route', () => {
     expect(rpc).toHaveBeenCalledWith('bind_quiz_attempt_device', {
       p_attempt_id: 'attempt-1',
       p_device_hash: 'b'.repeat(64),
-      p_user_id: USER_ID,
+      p_route_proof: expect.any(Object),
     });
   });
 

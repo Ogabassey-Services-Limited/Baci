@@ -35,8 +35,8 @@
 -- one silently clobber the earlier. A trigger composes with any future body.
 
 -- ---------------------------------------------------------------------------
--- 1. Email normalisation. Gmail ignores dots and everything after a '+', and
---    every other major provider ignores '+' tags, so these all reach one inbox.
+-- 1. Email normalisation. Gmail ignores dots and everything after a '+'. Only
+--    providers explicitly covered below have aliases collapsed.
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.quiz_normalize_email(p_email text)
 RETURNS text
@@ -62,16 +62,15 @@ BEGIN
     RETURN NULL;
   END IF;
 
-  -- Strip the "+tag" suffix (delivered to the same inbox everywhere).
-  v_local := pg_catalog.split_part(v_local, '+', 1);
-
   -- Google treats googlemail.com as an alias of gmail.com.
   IF v_domain = 'googlemail.com' THEN
     v_domain := 'gmail.com';
   END IF;
 
-  -- Gmail additionally ignores dots in the local part.
+  -- Only collapse aliases for explicitly supported providers. Treating '+' as
+  -- universal can merge distinct mailboxes on domains that allow it literally.
   IF v_domain = 'gmail.com' THEN
+    v_local := pg_catalog.split_part(v_local, '+', 1);
     v_local := pg_catalog.replace(v_local, '.', '');
   END IF;
 
@@ -83,7 +82,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION public.quiz_normalize_email(text) IS 'Collapses email aliases that reach the same inbox (+tags everywhere, dots on gmail) so alias farms share one quiz attempt budget. Returns NULL for anything unusable.';
+COMMENT ON FUNCTION public.quiz_normalize_email(text) IS 'Collapses explicitly supported email aliases that reach the same inbox (Gmail plus tags and dots) so alias farms share one quiz attempt budget. Returns NULL for anything unusable.';
 
 -- ---------------------------------------------------------------------------
 -- 2. Per-event attempt budget, shared with QZ030 so the cap counts PEOPLE.
@@ -192,7 +191,7 @@ ALTER TABLE public.quiz_attempt_devices ENABLE ROW LEVEL SECURITY;
 
 -- No policies: the device map is an abuse-control artefact. It correlates
 -- accounts to one another, so no client may read it. Writes go exclusively
--- through bind_quiz_attempt_device below; service_role bypasses RLS for ops.
+-- through the server-attested bind_quiz_attempt_device RPC below.
 REVOKE ALL ON TABLE public.quiz_attempt_devices FROM PUBLIC, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
@@ -203,11 +202,12 @@ REVOKE ALL ON TABLE public.quiz_attempt_devices FROM PUBLIC, anon, authenticated
 -- The function was introduced on this unmerged branch with a void return type.
 -- Drop that preview-only shape so environments that applied it can converge.
 DROP FUNCTION IF EXISTS public.bind_quiz_attempt_device(uuid, text, uuid);
+DROP FUNCTION IF EXISTS public.bind_quiz_attempt_device(uuid, text);
 
 CREATE FUNCTION public.bind_quiz_attempt_device(
   p_attempt_id uuid,
   p_device_hash text,
-  p_user_id uuid
+  p_route_proof jsonb DEFAULT '{}'::jsonb
 )
 RETURNS boolean
 LANGUAGE plpgsql
@@ -216,11 +216,32 @@ SET search_path = ''
 AS $$
 DECLARE
   v_event_id uuid;
+  v_user_id uuid;
+  v_bound_device_hash text;
   v_max_attempts integer;
   v_device_attempts integer;
 BEGIN
   IF p_device_hash !~ '^[0-9a-f]{64}$' THEN
     RAISE EXCEPTION 'quiz_device_hash_invalid' USING ERRCODE = 'QZ042';
+  END IF;
+
+  v_user_id := auth.uid();
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'quiz_attempt_not_found' USING ERRCODE = 'QZ004';
+  END IF;
+
+  IF NOT public.quiz_route_proof_valid(
+    p_route_proof,
+    'bind_quiz_attempt_device_v1',
+    p_attempt_id::text || ':' || p_device_hash,
+    v_user_id,
+    pg_catalog.jsonb_build_object(
+      'attempt_id', p_attempt_id,
+      'device_hash', p_device_hash,
+      'user_id', v_user_id
+    )
+  ) THEN
+    RAISE EXCEPTION 'quiz route proof required' USING ERRCODE = 'QZ010';
   END IF;
 
   -- Authorization: the attempt must belong to a live customer of this user.
@@ -231,7 +252,7 @@ BEGIN
   FROM public.quiz_attempts a
   JOIN public.customers c ON c.id = a.customer_id
   WHERE a.id = p_attempt_id
-    AND c.user_id = p_user_id
+    AND c.user_id = v_user_id
     AND c.deleted_at IS NULL;
 
   IF v_event_id IS NULL THEN
@@ -250,13 +271,22 @@ BEGIN
   VALUES (p_attempt_id, v_event_id, p_device_hash)
   ON CONFLICT (attempt_id) DO NOTHING;
 
+  SELECT d.device_hash
+  INTO v_bound_device_hash
+  FROM public.quiz_attempt_devices d
+  WHERE d.attempt_id = p_attempt_id;
+
+  IF v_bound_device_hash IS DISTINCT FROM p_device_hash THEN
+    RAISE EXCEPTION 'quiz_device_binding_conflict' USING ERRCODE = 'QZ043';
+  END IF;
+
   v_max_attempts := COALESCE(public.quiz_event_max_attempts(v_event_id), 3);
 
   SELECT pg_catalog.count(*)::integer
   INTO v_device_attempts
   FROM public.quiz_attempt_devices d
   WHERE d.event_id = v_event_id
-    AND d.device_hash = p_device_hash;
+    AND d.device_hash = v_bound_device_hash;
 
   IF COALESCE(v_device_attempts, 0) > v_max_attempts THEN
     -- The attempt already exists (start_quiz_attempt created it), so forfeit it
@@ -273,7 +303,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.bind_quiz_attempt_device(uuid, text, uuid) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.bind_quiz_attempt_device(uuid, text, uuid) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public.bind_quiz_attempt_device(uuid, text, jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.bind_quiz_attempt_device(uuid, text, jsonb) TO authenticated;
 
-COMMENT ON FUNCTION public.bind_quiz_attempt_device(uuid, text, uuid) IS 'Binds a quiz attempt to a hashed device id and enforces the per-device attempt cap (QZ041), disqualifying the over-cap attempt. Attempts from one device share a budget regardless of which account started them.';
+COMMENT ON FUNCTION public.bind_quiz_attempt_device(uuid, text, jsonb) IS 'Binds a quiz attempt to a server-attested hashed device id and enforces the per-device attempt cap (QZ041), disqualifying the over-cap attempt. Attempts from one device share a budget regardless of which account started them.';
