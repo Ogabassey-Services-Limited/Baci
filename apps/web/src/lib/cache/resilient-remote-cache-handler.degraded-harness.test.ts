@@ -135,13 +135,24 @@ describe('remote cache degraded-subsystem harness', () => {
 
     it('a tag bust racing an in-flight set() is honoured, not bypassed (PRRT_kwDOQZgfis6Qmv0x)', async () => {
       // The store is invalidated mid-write, so it no longer holds the entry.
-      let releaseWrite: () => void = () => {};
+      //
+      // START BARRIER: `handler.set()` yields while it buffers the entry, so
+      // without this the tag bust could fire BEFORE the backend write is
+      // actually in flight — and the test would pass without ever racing the
+      // thing it claims to race.
+      let releaseWrite!: () => void;
+      let signalWriteStarted!: () => void;
+      const writeStarted = new Promise<void>((resolve) => {
+        signalWriteStarted = resolve;
+      });
+
       const backend: CacheHandlerLike = {
         get: vi.fn().mockResolvedValue(undefined),
         set: vi.fn().mockImplementation(
           () =>
             new Promise<void>((resolve) => {
               releaseWrite = resolve;
+              signalWriteStarted();
             })
         ),
         refreshTags: vi.fn().mockResolvedValue(undefined),
@@ -158,6 +169,10 @@ describe('remote cache degraded-subsystem harness', () => {
           Promise.resolve(encodeEntry(STALE, ['products-m1']))
         )
       );
+      // ...wait until that write is genuinely blocked inside the backend...
+      await writeStarted;
+      expect(backend.set).toHaveBeenCalledTimes(1);
+
       // ...an admin mutation busts the tag...
       await handler.updateTags(['products-m1']);
       // ...and request B reads the same key while that write is still settling.

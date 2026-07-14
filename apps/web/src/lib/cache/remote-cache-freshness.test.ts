@@ -123,6 +123,44 @@ describe('freshness semantics against the real Next contract', () => {
       expect(skewed.timestamp <= expiration).toBe(true);
     });
 
+    /**
+     * CodeRabbit `PRRT_kwDOQZgfis6QoB_y`. When the get_expiration circuit is OPEN
+     * we skip the check entirely — so freshness is unverifiable, exactly as if
+     * the check had failed. Without degrading trust the read pipeline would still
+     * go to the backend for an entry Next is about to discard on the strength of
+     * the UNVERIFIABLE_EXPIRATION we return: pointless load on a backend we
+     * already believe is sick.
+     */
+    it('degrades trust when the expiration circuit is OPEN, so reads skip the backend entirely', async () => {
+      const backend = makeBackend();
+      backend.getExpiration.mockRejectedValue(new Error('503'));
+      backend.get.mockImplementation(async () =>
+        makeEntry('would-be-discarded')
+      );
+      const handler = createResilientRemoteCacheHandler({
+        backend,
+        logger,
+        failureThreshold: 1,
+        cooldownMs: 30_000,
+        now: () => 0,
+      });
+
+      // Trip the get_expiration circuit.
+      await handler.getExpiration(['products-m1']);
+      expect(backend.getExpiration).toHaveBeenCalledTimes(1);
+
+      // Now OPEN: the check is skipped...
+      await expect(handler.getExpiration(['products-m1'])).resolves.toBe(
+        Number.MAX_SAFE_INTEGER
+      );
+      expect(backend.getExpiration).toHaveBeenCalledTimes(1);
+
+      // ...and the read must not bother the backend for an entry that would be
+      // discarded anyway.
+      await expect(handler.get('key-1', [])).resolves.toBeUndefined();
+      expect(backend.get).not.toHaveBeenCalled();
+    });
+
     it('passes the real expiration through when the backend answers', async () => {
       const backend = makeBackend();
       backend.getExpiration.mockResolvedValue(1_234);

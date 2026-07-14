@@ -144,11 +144,20 @@ export function createTagPipeline(options) {
     async getExpiration(tags) {
       const breaker = breakers('get_expiration');
 
-      if (disabled || !breaker.shouldAttempt()) {
-        telemetry.record(
-          'get_expiration',
-          disabled ? 'skip_disabled' : 'skip_circuit_open'
-        );
+      if (disabled) {
+        telemetry.record('get_expiration', 'skip_disabled');
+        return UNVERIFIABLE_EXPIRATION;
+      }
+
+      if (!breaker.shouldAttempt()) {
+        telemetry.record('get_expiration', 'skip_circuit_open');
+        // We are NOT checking expiration, so freshness is unverifiable — exactly
+        // as if the check had failed. Without degrading trust the read pipeline
+        // would still go to the backend for an entry Next is about to discard on
+        // the strength of the UNVERIFIABLE_EXPIRATION we return below: pointless
+        // load on a backend we already believe is sick. Degrade, so reads go
+        // straight to the origin (same rule as a skipped refreshTags).
+        trust.degrade('get_expiration');
         return UNVERIFIABLE_EXPIRATION;
       }
 

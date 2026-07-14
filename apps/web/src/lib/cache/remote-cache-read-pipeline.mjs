@@ -156,9 +156,9 @@ export function createReadPipeline(options) {
       );
 
       if (buffered.status === 'oversized') {
-        // Nothing above the cap should exist (we refuse to write them), so this
-        // is a legacy/foreign entry. The BACKEND behaved; the entry did not — so
-        // this is a miss, not a breaker failure.
+        // LOCAL fault (our own size policy): nothing above the cap should exist,
+        // so this is a legacy/foreign entry. The BACKEND behaved perfectly — it
+        // answered — so this is a miss, never a breaker failure.
         breaker.recordSuccess();
         telemetry.record('get', 'skip_oversized');
         logger.warn(
@@ -168,6 +168,13 @@ export function createReadPipeline(options) {
       }
 
       if (buffered.status === 'timeout' || buffered.status === 'stream_error') {
+        // BACKEND fault — and this is the mirror image of the write path, where
+        // the identical helper is a LOCAL fault. The difference is who OWNS the
+        // stream: here it came out of `backend.get()`, so a stalled or truncated
+        // body is the backend failing. On the write path the stream is the
+        // framework's RSC render output, so an identical failure is NOT the
+        // backend's fault and must not open its circuit. A breaker may only ever
+        // count faults of the thing it protects.
         breaker.recordFailure();
         telemetry.record(
           'get',

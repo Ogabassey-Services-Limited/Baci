@@ -15,7 +15,7 @@
  * `remote-cache-handler.mjs`).
  *
  * @typedef {'get' | 'set' | 'refresh_tags' | 'get_expiration' | 'update_tags' | 'unknown'} CacheTelemetryOperation
- * @typedef {'hit' | 'miss' | 'write' | 'timeout' | 'skip_oversized' | 'skip_circuit_open' | 'skip_disabled' | 'skip_untrusted' | 'skip_stream_error' | 'failure' | 'success' | 'unknown'} CacheTelemetryOutcome
+ * @typedef {'hit' | 'miss' | 'write' | 'timeout' | 'skip_oversized' | 'skip_circuit_open' | 'skip_disabled' | 'skip_untrusted' | 'skip_stream_error' | 'skip_render_timeout' | 'skip_render_error' | 'failure' | 'success' | 'unknown'} CacheTelemetryOutcome
  *
  * @typedef {object} TelemetryLogger
  * @property {(message: string) => void} log
@@ -53,6 +53,12 @@ export const CACHE_TELEMETRY_OUTCOMES = Object.freeze([
   'skip_disabled',
   'skip_untrusted',
   'skip_stream_error',
+  // LOCAL (framework) faults on the write path — deliberately distinct from
+  // `timeout`/`failure`, which mean the BACKEND failed. Keeping them apart is
+  // what makes a render regression visible as a render regression rather than
+  // masquerading as a cache-backend outage.
+  'skip_render_timeout',
+  'skip_render_error',
   'failure',
   'success',
 ]);

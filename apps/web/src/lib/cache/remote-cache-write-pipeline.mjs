@@ -26,6 +26,31 @@ import {
  *    backend call is raced with a timeout (Invariant B) and a timeout counts as
  *    a breaker failure.
  *
+ * ## FAULT ATTRIBUTION — a breaker may only count faults of the thing it protects
+ *
+ * The write breaker exists to protect the cache BACKEND from being hammered
+ * while it is sick. It must therefore count **only** faults of the backend
+ * interaction — `backend.set()` rejecting or timing out.
+ *
+ * Two things it must NOT count, because they are LOCAL faults:
+ *
+ *  - **The `pendingEntry` stream.** That stream is the FRAMEWORK's — it is the
+ *    RSC render output Next hands us. If it stalls or errors, a React render is
+ *    slow or crashed. The cache backend may be perfectly healthy. Charging that
+ *    to the write breaker would let an unrelated render bug OPEN the circuit and
+ *    disable caching platform-wide — the resilience layer amplifying the very
+ *    kind of failure it exists to contain.
+ *  - **Our own size policy.** An oversized entry is us refusing to write; the
+ *    backend never saw it.
+ *
+ * Both skip the write quietly and `releaseProbe()` (giving back a half-open slot
+ * without judging the backend either way).
+ *
+ * The mirror image holds on the READ path, and it points the other way: there,
+ * the entry stream comes *from* `backend.get()`, so a stalled or truncated body
+ * IS a backend fault and DOES count. Same rule, opposite conclusion — because the
+ * owner of the stream is different.
+ *
  * ## The pending map is a SYNCHRONISATION POINT, never a cache
  *
  * Next's contract: "If a `get` for the same cache key is called before the
@@ -106,8 +131,7 @@ export function createWritePipeline(options) {
     );
 
     if (result.status === 'oversized') {
-      // We were admitted by the breaker but never reached the backend — hand the
-      // probe slot back rather than judging the backend on our own payload.
+      // LOCAL fault (our own size policy) — see the attribution rule above.
       breaker.releaseProbe();
       telemetry.record('set', 'skip_oversized');
       logger.warn(
@@ -117,15 +141,23 @@ export function createWritePipeline(options) {
     }
 
     if (result.status === 'timeout' || result.status === 'stream_error') {
-      // A stalled render/stream must not wedge the write path either — the same
-      // helper runs before every backend.set().
-      breaker.recordFailure();
+      // LOCAL fault. `pendingEntry` is the FRAMEWORK's stream — the RSC render
+      // output handed to us by Next — so a stall or error here is a slow or
+      // crashed React render, NOT a sick cache backend. Charging it to the write
+      // breaker would let an unrelated render bug OPEN the circuit and disable
+      // caching platform-wide while the backend was perfectly healthy: the
+      // resilience layer amplifying a failure it was supposed to contain.
+      //
+      // Skip the write quietly and hand back any probe we were admitted with.
+      breaker.releaseProbe();
       telemetry.record(
         'set',
-        result.status === 'timeout' ? 'timeout' : 'failure'
+        result.status === 'timeout'
+          ? 'skip_render_timeout'
+          : 'skip_render_error'
       );
       logger.warn(
-        `[resilient-remote-cache] entry stream failed, skipping write: ${describeError(result.error)}`
+        `[resilient-remote-cache] render stream failed, skipping write (NOT a backend fault): ${describeError(result.error)}`
       );
       return undefined;
     }

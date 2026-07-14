@@ -202,12 +202,23 @@ describe('createResilientRemoteCacheHandler — tags, pending writes, kill switc
      * `remote-cache-freshness.test.ts` for the full scenario.
      */
     it('waits for the in-flight write, then reads the STORE rather than the buffer', async () => {
-      let releaseBackendSet: () => void = () => {};
+      // START BARRIER. `handler.set()` yields while it buffers the entry, so the
+      // backend's `set` resolver does not exist yet when the test resumes.
+      // Calling a no-op `releaseBackendSet` would leave the write blocked, the
+      // read would fall through the awaitPending TIMEOUT path, and the test would
+      // pass while asserting nothing about the successful-write path it names.
+      let releaseBackendSet!: () => void;
+      let signalSetStarted!: () => void;
+      const setStarted = new Promise<void>((resolve) => {
+        signalSetStarted = resolve;
+      });
+
       const backend = makeBackend({
         set: vi.fn().mockImplementation(
           () =>
             new Promise<void>((resolve) => {
               releaseBackendSet = resolve;
+              signalSetStarted();
             })
         ),
         get: vi.fn().mockImplementation(async () => makeEntry('from-store')),
@@ -222,9 +233,14 @@ describe('createResilientRemoteCacheHandler — tags, pending writes, kill switc
         'key-1',
         Promise.resolve(makeEntry('in-flight'))
       );
+      // The backend write is now genuinely in flight and blocked.
+      await setStarted;
+      expect(backend.set).toHaveBeenCalledTimes(1);
+
       const reading = handler.get('key-1', []);
       releaseBackendSet();
       const entry = await reading;
+      await setPromise;
 
       // The value comes from the store (tag-checked), not the unchecked buffer.
       expect(backend.get).toHaveBeenCalledWith('key-1', []);
@@ -232,7 +248,9 @@ describe('createResilientRemoteCacheHandler — tags, pending writes, kill switc
         'from-store'
       );
 
-      await setPromise;
+      // ...and we got here via the SUCCESSFUL-write path, not the timeout path.
+      expect(handler.getTelemetrySnapshot()).toMatchObject({ 'set.write': 1 });
+      expect(handler.getTelemetrySnapshot()['set.timeout']).toBeUndefined();
     });
   });
 

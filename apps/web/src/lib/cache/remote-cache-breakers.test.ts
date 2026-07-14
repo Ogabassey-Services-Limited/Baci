@@ -107,6 +107,156 @@ describe('per-leg circuit breakers', () => {
     expect(backend.refreshTags).toHaveBeenCalledTimes(1);
   });
 
+  /* ---------------------------------------------------------------- */
+  /*  FAULT ATTRIBUTION — a breaker only counts faults of what it protects */
+  /* ---------------------------------------------------------------- */
+
+  describe('fault attribution', () => {
+    function makeHandler(
+      backend: Parameters<
+        typeof createResilientRemoteCacheHandler
+      >[0]['backend']
+    ) {
+      return createResilientRemoteCacheHandler({
+        backend,
+        logger: { log: vi.fn(), warn: vi.fn(), error: vi.fn() },
+        failureThreshold: 2,
+        cooldownMs: 30_000,
+        backendTimeoutMs: 25,
+        now: () => 0,
+      });
+    }
+
+    function healthyBackend() {
+      return {
+        get: vi.fn().mockResolvedValue(undefined),
+        set: vi.fn().mockResolvedValue(undefined),
+        refreshTags: vi.fn().mockResolvedValue(undefined),
+        getExpiration: vi.fn().mockResolvedValue(0),
+        updateTags: vi.fn().mockResolvedValue(undefined),
+      };
+    }
+
+    /** A pendingEntry whose stream stalls — i.e. a SLOW REACT RENDER. */
+    function stalledRenderEntry() {
+      return Promise.resolve({
+        value: new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(encoder.encode('partial render'));
+            // ...and then nothing. The render never finishes.
+          },
+        }),
+        tags: ['products-m1'],
+        stale: 300,
+        timestamp: 1_000,
+        expire: 86_400,
+        revalidate: 300,
+      });
+    }
+
+    /** A pendingEntry whose stream errors — i.e. a CRASHED REACT RENDER. */
+    function crashedRenderEntry() {
+      return Promise.resolve({
+        value: new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(encoder.encode('partial render'));
+            controller.error(new Error('render threw'));
+          },
+        }),
+        tags: ['products-m1'],
+        stale: 300,
+        timestamp: 1_000,
+        expire: 86_400,
+        revalidate: 300,
+      });
+    }
+
+    it('a STALLED RSC render must NOT open the write circuit (the backend is healthy)', async () => {
+      const backend = healthyBackend();
+      const handler = makeHandler(backend);
+
+      // Enough render stalls to trip the breaker, if they were (wrongly) counted.
+      for (let i = 0; i < 5; i += 1) {
+        await handler.set(`k${i}`, stalledRenderEntry());
+      }
+
+      // The backend never even saw these writes — it must not be blamed. A slow
+      // render must never be able to disable caching platform-wide.
+      expect(backend.set).not.toHaveBeenCalled();
+
+      // Proof the circuit is still CLOSED: a healthy write still goes through.
+      await handler.set('healthy', Promise.resolve(makeEntry('ok')));
+      expect(backend.set).toHaveBeenCalledTimes(1);
+    });
+
+    it('a CRASHED RSC render must NOT open the write circuit either', async () => {
+      const backend = healthyBackend();
+      const handler = makeHandler(backend);
+
+      for (let i = 0; i < 5; i += 1) {
+        await handler.set(`k${i}`, crashedRenderEntry());
+      }
+      expect(backend.set).not.toHaveBeenCalled();
+
+      await handler.set('healthy', Promise.resolve(makeEntry('ok')));
+      expect(backend.set).toHaveBeenCalledTimes(1);
+    });
+
+    it('but a failing BACKEND write DOES open the write circuit', async () => {
+      const backend = healthyBackend();
+      backend.set.mockRejectedValue(new Error('502 Bad Gateway'));
+      const handler = makeHandler(backend);
+
+      await handler.set('k1', Promise.resolve(makeEntry('ok')));
+      await handler.set('k2', Promise.resolve(makeEntry('ok')));
+      expect(backend.set).toHaveBeenCalledTimes(2);
+
+      // Circuit open — the sick backend is spared.
+      await handler.set('k3', Promise.resolve(makeEntry('ok')));
+      expect(backend.set).toHaveBeenCalledTimes(2);
+    });
+
+    it('and a HANGING backend write DOES open the write circuit', async () => {
+      const backend = healthyBackend();
+      backend.set.mockImplementation(() => new Promise<void>(() => {}));
+      const handler = makeHandler(backend);
+
+      await handler.set('k1', Promise.resolve(makeEntry('ok')));
+      await handler.set('k2', Promise.resolve(makeEntry('ok')));
+      expect(backend.set).toHaveBeenCalledTimes(2);
+
+      await handler.set('k3', Promise.resolve(makeEntry('ok')));
+      expect(backend.set).toHaveBeenCalledTimes(2);
+    });
+
+    it('a broken entry stream FROM THE BACKEND does open the READ circuit', async () => {
+      // The mirror image: on the read path the stream is the backend's, so an
+      // identical failure IS its fault.
+      const backend = healthyBackend();
+      backend.get.mockImplementation(async () => ({
+        value: new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(encoder.encode('partial'));
+            controller.error(new Error('connection reset'));
+          },
+        }),
+        tags: ['products-m1'],
+        stale: 300,
+        timestamp: 1_000,
+        expire: 86_400,
+        revalidate: 300,
+      }));
+      const handler = makeHandler(backend);
+
+      await handler.get('k1', []);
+      await handler.get('k2', []);
+      expect(backend.get).toHaveBeenCalledTimes(2);
+
+      await expect(handler.get('k3', [])).resolves.toBeUndefined();
+      expect(backend.get).toHaveBeenCalledTimes(2);
+    });
+  });
+
   /**
    * A half-open probe that is admitted but aborts LOCALLY (the payload is
    * rejected before we ever call the backend) must hand the probe slot back —
