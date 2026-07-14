@@ -103,6 +103,7 @@ describe('quiz API route contracts', () => {
       return Promise.resolve({ data: { user: { id: USER_ID } }, error: null });
     });
     const request = {
+      headers: new Headers(),
       json: vi.fn(() => {
         order.push('json');
         return Promise.resolve({
