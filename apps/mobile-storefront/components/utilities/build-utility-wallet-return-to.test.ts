@@ -115,4 +115,32 @@ describe('buildUtilityWalletReturnTo', () => {
     expect(result.success && result.data.repeatPhoneNumber).toBe('08012345678');
     expect(result.success && result.data.repeatAmount).toBe(1500);
   });
+
+  it('survives the sanitizer when a bill field contains a slash', () => {
+    const href = buildUtilityWalletReturnTo({
+      amount: 5000,
+      billerName: 'DSTV/GOTV',
+      customerAddress: 'Flat 1/2, Adeola Odeku',
+      customerIdentifier: '1234567890',
+      type: 'tv',
+    });
+
+    expect(sanitizeWalletReturnTo(href)).toBe(href);
+    expect(toRepeatParams(href).repeatCustomerAddress).toBe(
+      'Flat 1/2, Adeola Odeku'
+    );
+    expect(toRepeatParams(href).repeatBillerName).toBe('DSTV/GOTV');
+  });
+
+  it('survives the sanitizer when a bill field contains a backslash', () => {
+    const href = buildUtilityWalletReturnTo({
+      amount: 5000,
+      customerAddress: 'Block A\\Flat 3',
+      customerIdentifier: '1234567890',
+      type: 'power',
+    });
+
+    expect(sanitizeWalletReturnTo(href)).toBe(href);
+    expect(toRepeatParams(href).repeatCustomerAddress).toBe('Block A\\Flat 3');
+  });
 });

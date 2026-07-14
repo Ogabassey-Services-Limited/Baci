@@ -74,14 +74,36 @@ describe('findLatestWalletTopUpCredit', () => {
     expect(findLatestWalletTopUpCredit(transactions)?.id).toBe('tx-good');
   });
 
-  it('keeps the first match when created_at is unparseable', () => {
-    const transactions = [topUp('tx-broken', 300, 'not-a-date')];
+  it('returns null when every top-up has an unparseable created_at', () => {
+    const transactions = [
+      topUp('tx-broken', 300, 'not-a-date'),
+      topUp('tx-empty', 400, ''),
+    ];
+
+    expect(findLatestWalletTopUpCredit(transactions)).toBeNull();
+  });
+
+  it('ignores an unparseable row and still returns a later valid top-up', () => {
+    const transactions = [
+      topUp('tx-broken', 300, 'not-a-date'),
+      topUp('tx-good', 2500, '2026-07-13T09:00:00.000Z'),
+    ];
 
     expect(findLatestWalletTopUpCredit(transactions)).toEqual({
-      amount: 300,
-      createdAt: null,
-      id: 'tx-broken',
+      amount: 2500,
+      createdAt: Date.parse('2026-07-13T09:00:00.000Z'),
+      id: 'tx-good',
     });
+  });
+
+  it('does not let an unparseable first row mask a valid newer top-up', () => {
+    const transactions = [
+      topUp('tx-broken', 999_999, 'not-a-date'),
+      topUp('tx-old', 1000, '2026-07-01T09:00:00.000Z'),
+      topUp('tx-new', 2500, '2026-07-13T09:00:00.000Z'),
+    ];
+
+    expect(findLatestWalletTopUpCredit(transactions)?.id).toBe('tx-new');
   });
 });
 
@@ -131,10 +153,23 @@ describe('isNewWalletTopUpCredit', () => {
     ).toBe(false);
   });
 
-  it('falls back to id inequality when a timestamp is unparseable', () => {
+  it('does not treat a same-instant row with a different id as new', () => {
     expect(
       isNewWalletTopUpCredit(
-        { amount: 2500, createdAt: null, id: 'tx-new' },
+        { amount: 2500, createdAt: baseline.createdAt, id: 'tx-different' },
+        baseline
+      )
+    ).toBe(false);
+  });
+
+  it('treats a row one millisecond newer than the baseline as new', () => {
+    expect(
+      isNewWalletTopUpCredit(
+        {
+          amount: 2500,
+          createdAt: baseline.createdAt + 1,
+          id: 'tx-different',
+        },
         baseline
       )
     ).toBe(true);

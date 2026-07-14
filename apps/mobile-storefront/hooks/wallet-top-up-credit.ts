@@ -16,9 +16,15 @@ export interface WalletTopUpCandidate {
   type: string;
 }
 
+/**
+ * A ledger row that passed validation. `createdAt` is non-nullable by
+ * construction: a row whose `created_at` cannot be parsed never becomes a
+ * `WalletTopUpCredit`, so every comparison downstream is between two timestamps
+ * we actually trust.
+ */
 export interface WalletTopUpCredit {
   amount: number;
-  createdAt: number | null;
+  createdAt: number;
   id: string;
 }
 
@@ -30,6 +36,11 @@ function isTopUpCredit(transaction: WalletTopUpCandidate): boolean {
   );
 }
 
+/**
+ * Fails closed: an unparseable `created_at` yields `null`, and the caller drops
+ * the row entirely. Silently keeping such a row would let it be compared by id
+ * alone and reported as a fresh credit that may never have landed.
+ */
 function toCreatedAt(value: string): number | null {
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) ? parsed : null;
@@ -37,9 +48,11 @@ function toCreatedAt(value: string): number | null {
 
 /**
  * Newest wallet top-up credit in the transaction list, or `null` when the list
- * is unavailable (still loading) or holds no top-up. The list is not trusted to
- * be sorted; ties keep the first match, which is the server's `created_at desc`
- * order.
+ * is unavailable (still loading) or holds no top-up with a usable timestamp.
+ * Rows whose `created_at` cannot be parsed are skipped rather than kept — an
+ * unusable timestamp cannot prove a credit landed, and keeping one would also
+ * mask a genuinely newer row behind it. The list is not trusted to be sorted;
+ * ties keep the first match, which is the server's `created_at desc` order.
  */
 export function findLatestWalletTopUpCredit(
   transactions: readonly WalletTopUpCandidate[] | undefined
@@ -53,18 +66,16 @@ export function findLatestWalletTopUpCredit(
     if (!isTopUpCredit(transaction)) {
       continue;
     }
-    const candidate: WalletTopUpCredit = {
-      amount: transaction.amount,
-      createdAt: toCreatedAt(transaction.created_at),
-      id: transaction.id,
-    };
-    if (
-      latest === null ||
-      (candidate.createdAt !== null &&
-        latest.createdAt !== null &&
-        candidate.createdAt > latest.createdAt)
-    ) {
-      latest = candidate;
+    const createdAt = toCreatedAt(transaction.created_at);
+    if (createdAt === null) {
+      continue;
+    }
+    if (latest === null || createdAt > latest.createdAt) {
+      latest = {
+        amount: transaction.amount,
+        createdAt,
+        id: transaction.id,
+      };
     }
   }
 
@@ -72,10 +83,17 @@ export function findLatestWalletTopUpCredit(
 }
 
 /**
- * True when `latest` is a top-up the customer has not already been shown —
- * i.e. a different ledger row than the pre-transfer baseline, not older than
+ * True when `latest` is a top-up the customer has not already been shown — i.e.
+ * a different ledger row than the pre-transfer baseline AND strictly newer than
  * it. A `null` baseline means "no top-up existed when the panel opened", so any
  * top-up is new.
+ *
+ * Newness is decided on validated timestamps only. A differing id is never
+ * treated as proof of chronological newness: ids are opaque, so a same-instant
+ * row with a different id must NOT be claimed as a fresh credit. Missing a
+ * same-millisecond credit only costs a timeout ("we couldn't confirm it yet"),
+ * while falsely claiming a credit tells a customer money arrived when it did
+ * not — the one outcome this feature must never produce.
  */
 export function isNewWalletTopUpCredit(
   latest: WalletTopUpCredit,
@@ -87,8 +105,5 @@ export function isNewWalletTopUpCredit(
   if (latest.id === baseline.id) {
     return false;
   }
-  if (latest.createdAt === null || baseline.createdAt === null) {
-    return true;
-  }
-  return latest.createdAt >= baseline.createdAt;
+  return latest.createdAt > baseline.createdAt;
 }

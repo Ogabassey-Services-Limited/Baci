@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   WALLET_FUNDING_CHECKING_STATE_ENABLED,
   WALLET_FUNDING_POLLING,
@@ -71,18 +71,28 @@ export function useWalletCreditWatch({
   }, [refetch]);
 
   // Snapshot the pre-transfer ledger position: the newest top-up credit that
-  // already existed while idle. Render-phase (guarded, converges) to match the
-  // detection below. `undefined` transactions mean the query is still loading —
-  // snapshotting then would treat the customer's existing top-up history as new.
-  if (status === 'idle' && !hasIdleBaselineRef.current && transactions) {
+  // already existed while idle. This MUST NOT run during render. Unlike the
+  // status transition below (pure state adjustment — React discards it with the
+  // render that produced it), a ref write survives an abandoned concurrent
+  // render: a render that never commits could latch `hasIdleBaselineRef` against
+  // a ledger the customer never saw, and `armCheck` would then baseline against
+  // that phantom snapshot. A layout effect only runs for a COMMITTED render, so
+  // the baseline always matches ledger state that actually reached the screen.
+  // `undefined` transactions mean the query is still loading — snapshotting then
+  // would treat the customer's existing top-up history as new.
+  useLayoutEffect(() => {
+    if (status !== 'idle' || hasIdleBaselineRef.current || !transactions) {
+      return;
+    }
     hasIdleBaselineRef.current = true;
     idleBaselineRef.current = findLatestWalletTopUpCredit(transactions);
-  }
+  }, [status, transactions]);
 
   // Detect the credit render-phase (mirrors the codebase's "adjust state during
   // render" pattern) so consumers never paint a stale "checking" frame after the
   // credit has already landed. Converges: the guard only fires while
-  // status === 'checking', and it immediately transitions out of it.
+  // status === 'checking', and it immediately transitions out of it. This block
+  // is pure — it writes no refs, so an abandoned render leaves nothing behind.
   if (status === 'checking') {
     const latest = findLatestWalletTopUpCredit(transactions);
     if (latest && isNewWalletTopUpCredit(latest, baselineRef.current)) {
