@@ -100,6 +100,7 @@ export async function finalizeOrderGatewayPayment({
   const capturedOnAlreadyPaidOrder =
     Boolean(completion.order_already_paid) &&
     !completion.order_updated &&
+    !outboxState?.lookupFailed &&
     outboxState?.payerTransactionId !== transaction.id;
 
   const shouldNotify =

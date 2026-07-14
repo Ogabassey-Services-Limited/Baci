@@ -1,3 +1,5 @@
+-- disable-transaction
+
 ALTER TABLE public.reconciliation_review
   DROP CONSTRAINT IF EXISTS reconciliation_review_issue_type_check;
 
@@ -40,4 +42,3 @@ DROP INDEX CONCURRENTLY IF EXISTS public.reconciliation_review_open_by_order_idx
 
 ALTER INDEX public.reconciliation_review_open_by_order_idx_next
   RENAME TO reconciliation_review_open_by_order_idx;
--- disable-transaction

@@ -9,6 +9,7 @@ import {
 const SEED_OVERLAP_WINDOW_MS = 60_000;
 
 export interface OrderOutboxState {
+  lookupFailed: boolean;
   // Any payment_side_effects rows exist. The atomic RPC seeds one in the
   // same transaction as every order flip, so `false` exactly identifies
   // legacy (pre-outbox inline) completions.
@@ -44,6 +45,7 @@ export async function getOrderOutboxState(
     // genuinely completed steps.
     return {
       hasRows: true,
+      lookupFailed: true,
       onlyFreshPrePushEvidence: false,
       onlyUntouchedSeed: false,
       payerTransactionId: null,
@@ -90,6 +92,7 @@ export async function getOrderOutboxState(
   });
   return {
     hasRows,
+    lookupFailed: false,
     onlyFreshPrePushEvidence: allPrePushEvidence && !allAged,
     onlyUntouchedSeed: allAged,
     payerTransactionId: (payerRow?.transaction_id as string | null) ?? null,

@@ -12,6 +12,7 @@ import {
   verifyWebhookSignature,
 } from '@/lib/juicyway';
 import { logger } from '@/lib/logger';
+import { enqueueJuicywayOrderConversion } from '@/lib/payments/enqueue-juicyway-order-conversion';
 import { ensurePaidOrderInventoryConfirmed } from '@/lib/payments/ensure-paid-order-inventory-confirmed';
 import { fileInventoryConfirmationFailureReview } from '@/lib/payments/file-inventory-confirmation-review';
 import {
@@ -631,9 +632,9 @@ export async function POST(request: NextRequest) {
         }
         // Also drain serialized-inventory confirmation (idempotent): a
         // winner that crashed right after its flip never reached it.
-        // Email/push cannot be safely replayed here — Juicyway has no outbox
-        // or dispatch marker; migrating it onto the paid-order outbox is the
-        // documented follow-up.
+        // Email/push cannot be safely replayed here because Juicyway has no
+        // dispatch marker. The durable conversion pipeline is idempotent, so
+        // it is recovered below after inventory is confirmed.
         try {
           await ensurePaidOrderInventoryConfirmed(
             supabase,
@@ -653,6 +654,32 @@ export async function POST(request: NextRequest) {
             { error: 'Inventory confirmation failed' },
             { status: 500 }
           );
+        }
+        if (isEventPipelineEnqueueEnabled()) {
+          const { data: conversionOrderRow, error: conversionOrderError } =
+            await supabase
+              .from('orders')
+              .select(
+                'id, order_number, total, currency, customer_id, customer_name, customer_email, customer_phone, shipping_address, order_items(id, product_id, condition, name, price, quantity, variant_name), ad_tracking'
+              )
+              .eq('id', transaction.order_id)
+              .single();
+          if (conversionOrderError || !conversionOrderRow) {
+            return NextResponse.json(
+              { error: 'Order conversion lookup failed' },
+              { status: 500 }
+            );
+          }
+          await enqueueJuicywayOrderConversion({
+            merchantId: transaction.merchant_id,
+            order: {
+              ...conversionOrderRow,
+              occurredAt: transaction.updated_at,
+              total: conversionOrderRow.total ?? transaction.amount,
+            } as OrderForConversion,
+            scheduleAfter: (task) => after(task),
+            supabase: createAdminClient(),
+          });
         }
         return NextResponse.json({ message: 'Already processed' });
       }

@@ -387,6 +387,31 @@ describe('finalizeOrderGatewayPayment', () => {
     expect(mocks.ensurePaidOrderInventoryConfirmed).not.toHaveBeenCalled();
   });
 
+  it('does not classify a replay as settlement-only when the outbox lookup fails', async () => {
+    mocks.completeOrderGatewayPayment.mockResolvedValue(
+      completion({
+        already_completed: true,
+        order_already_paid: true,
+        order_updated: false,
+      })
+    );
+    mocks.ensurePaidOrderInventoryConfirmed.mockResolvedValue(undefined);
+
+    const outcome = await finalizeOrderGatewayPayment(
+      baseArgs(
+        buildSupabase(
+          { data: richOrderRow },
+          { outboxError: { message: 'outbox unavailable' } }
+        ),
+        { wonTransactionFlip: false }
+      )
+    );
+
+    expect(outcome).toMatchObject({ kind: 'completed' });
+    expect(mocks.runPaidOrderSideEffects).toHaveBeenCalledTimes(1);
+    expect(mocks.settleCapturedOrderPayment).not.toHaveBeenCalled();
+  });
+
   it('returns order_fetch_failed and persists retry markers so the cron drain can find the order', async () => {
     mocks.completeOrderGatewayPayment.mockResolvedValue(completion());
     mocks.persistPaidOrderSideEffectRetry.mockResolvedValue(undefined);

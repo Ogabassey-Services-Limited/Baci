@@ -5270,6 +5270,36 @@ describe('POST /api/payments/webhook', () => {
           } as never;
         }
 
+        if (table === 'payment_side_effects') {
+          const expectedFilters: [string, string][] = [
+            ['order_id', 'order-123'],
+            ['transaction_id', 'txn-123'],
+            ['status', 'failed'],
+            ['error', 'rpc_seed_pending_drain'],
+          ];
+          let eqCallCount = 0;
+          const query = {
+            delete: vi.fn(() => query),
+            eq: vi.fn((column: string, value: string) => {
+              const expectedFilter = expectedFilters[eqCallCount];
+              if (
+                !expectedFilter ||
+                column !== expectedFilter[0] ||
+                value !== expectedFilter[1]
+              ) {
+                throw new Error(
+                  `Unexpected payment_side_effects filter: ${column}=${value}`
+                );
+              }
+              eqCallCount++;
+              return eqCallCount === expectedFilters.length
+                ? Promise.resolve({ error: null })
+                : query;
+            }),
+          };
+          return query as never;
+        }
+
         return {
           select: vi.fn().mockReturnThis(),
           insert: vi.fn().mockReturnThis(),

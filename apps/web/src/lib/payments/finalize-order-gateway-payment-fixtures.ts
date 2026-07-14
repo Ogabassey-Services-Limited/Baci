@@ -44,7 +44,7 @@ export function buildSupabase(
     data?: unknown;
     error?: unknown;
   },
-  options: { outboxRows?: unknown[] } = {}
+  options: { outboxError?: unknown; outboxRows?: unknown[] } = {}
 ) {
   const single = vi
     .fn()
@@ -56,10 +56,12 @@ export function buildSupabase(
   // replay of the paying transaction from a capture that landed on an order
   // already paid elsewhere.
   const limit = vi.fn().mockResolvedValue({
-    data: options.outboxRows ?? [
-      { order_id: 'order-1', transaction_id: 'txn-1' },
-    ],
-    error: null,
+    data: options.outboxError
+      ? null
+      : (options.outboxRows ?? [
+          { order_id: 'order-1', transaction_id: 'txn-1' },
+        ]),
+    error: options.outboxError ?? null,
   });
   const eq = vi.fn().mockReturnValue({ limit, single });
   const select = vi.fn().mockReturnValue({ eq });
