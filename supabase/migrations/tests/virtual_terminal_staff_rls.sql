@@ -24,7 +24,12 @@ BEGIN
     OR function_definition !~ 'virtual_terminal_code = p_code'
     OR function_definition !~ 'ON CONFLICT \(code\) DO UPDATE'
     OR function_definition !~ 'virtual_terminals.merchant_id = p_merchant_id'
-    OR function_definition !~ 'p_account_number.+IS NOT NULL'
+    OR function_definition !~ 'v_staff_permissions.+integrations.+\*'
+    OR function_definition !~ 'NOT v_is_owner.+p_account_number IS NOT NULL'
+    OR function_definition !~ 'account_number = COALESCE\(.+NULLIF\(btrim\(p_account_number\).+account_number'
+    OR function_definition !~ 'account_name = COALESCE\(.+NULLIF\(btrim\(p_account_name\).+account_name'
+    OR function_definition !~ 'bank = COALESCE\(.+NULLIF\(btrim\(p_bank\).+bank'
+    OR function_definition !~ 'COALESCE\(p_active, true\)'
   THEN
     RAISE EXCEPTION 'constrained virtual terminal sync RPC has unexpected definition: %', function_definition;
   END IF;

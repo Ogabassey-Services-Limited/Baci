@@ -19,22 +19,51 @@ AS $$
 DECLARE
   v_terminal_id uuid;
   v_user_id uuid := (SELECT auth.uid());
+  v_is_owner boolean := false;
+  v_staff_permissions jsonb;
 BEGIN
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.merchants
+    WHERE id = p_merchant_id
+      AND user_id = v_user_id
+  ) INTO v_is_owner;
+
+  SELECT public.get_staff_permissions(sm.id)
+  INTO v_staff_permissions
+  FROM public.staff_members AS sm
+  WHERE sm.merchant_id = p_merchant_id
+    AND sm.user_id = v_user_id
+    AND sm.status = 'active';
+
   IF v_user_id IS NULL OR NOT (
-    EXISTS (
-      SELECT 1
-      FROM public.merchants
-      WHERE id = p_merchant_id
-        AND user_id = v_user_id
-    )
+    v_is_owner
     OR public.check_staff_permission(
       v_user_id,
       p_merchant_id,
       'integrations',
       'manage'
     )
+    OR COALESCE((v_staff_permissions -> '*' ->> '*')::boolean, false)
+    OR COALESCE((v_staff_permissions -> '*' ->> 'manage')::boolean, false)
+    OR COALESCE(
+      (v_staff_permissions -> 'integrations' ->> '*')::boolean,
+      false
+    )
   ) THEN
     RAISE EXCEPTION 'Not authorized to sync this virtual terminal'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- Merchant owners already own these rows under RLS. Delegated staff cannot
+  -- synchronize account details because direct RPC callers could forge data
+  -- that was not returned by Paystack.
+  IF NOT v_is_owner AND (
+    p_account_number IS NOT NULL
+    OR p_account_name IS NOT NULL
+    OR p_bank IS NOT NULL
+  ) THEN
+    RAISE EXCEPTION 'Delegated staff cannot synchronize account details'
       USING ERRCODE = '42501';
   END IF;
 
@@ -64,6 +93,15 @@ BEGIN
   SET
     name = COALESCE(btrim(p_name), name),
     active = COALESCE(p_active, active),
+    account_number = COALESCE(
+      NULLIF(btrim(p_account_number), ''),
+      account_number
+    ),
+    account_name = COALESCE(
+      NULLIF(btrim(p_account_name), ''),
+      account_name
+    ),
+    bank = COALESCE(NULLIF(btrim(p_bank), ''), bank),
     updated_at = now()
   WHERE merchant_id = p_merchant_id
     AND code = p_code
@@ -103,24 +141,21 @@ BEGIN
     NULLIF(btrim(p_account_name), ''),
     NULLIF(btrim(p_bank), ''),
     'https://paystack.com/vt/' || p_code,
-    CASE
-      WHEN p_active IS FALSE THEN false
-      ELSE NULLIF(btrim(p_account_number), '') IS NOT NULL
-    END
+    COALESCE(p_active, true)
   )
   ON CONFLICT (code) DO UPDATE
   SET
     name = COALESCE(btrim(p_name), public.virtual_terminals.name),
     active = COALESCE(p_active, public.virtual_terminals.active),
     account_number = COALESCE(
-      public.virtual_terminals.account_number,
-      EXCLUDED.account_number
+      EXCLUDED.account_number,
+      public.virtual_terminals.account_number
     ),
     account_name = COALESCE(
-      public.virtual_terminals.account_name,
-      EXCLUDED.account_name
+      EXCLUDED.account_name,
+      public.virtual_terminals.account_name
     ),
-    bank = COALESCE(public.virtual_terminals.bank, EXCLUDED.bank),
+    bank = COALESCE(EXCLUDED.bank, public.virtual_terminals.bank),
     updated_at = now()
   WHERE public.virtual_terminals.merchant_id = p_merchant_id
   RETURNING id INTO v_terminal_id;

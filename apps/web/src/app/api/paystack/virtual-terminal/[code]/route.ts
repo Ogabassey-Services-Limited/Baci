@@ -155,13 +155,17 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: result.error }, { status: 400 });
     }
 
-    const nubanMethod = result.data.paymentMethods.find(
+    const nubanMethod = result.data.paymentMethods?.find(
       (method) => method.type === 'dedicated_nuban'
     );
     const syncError = await syncTerminalRecord(supabase, merchantId, code, {
-      accountName: nubanMethod?.account_name,
-      accountNumber: nubanMethod?.account_number,
-      bank: nubanMethod?.bank,
+      ...(access.isOwner
+        ? {
+            accountName: nubanMethod?.account_name,
+            accountNumber: nubanMethod?.account_number,
+            bank: nubanMethod?.bank,
+          }
+        : {}),
       name,
     });
     if (syncError) return syncError;

@@ -201,4 +201,92 @@ describe('/api/paystack/virtual-terminal/[code]', () => {
       p_name: 'Sales Terminal',
     });
   });
+
+  it('does not let staff submit provider account details to the sync RPC', async () => {
+    const terminalLookup = createMerchantLookup(null);
+    terminalLookup.maybeSingle.mockResolvedValue({
+      data: { id: 'terminal-1' },
+      error: null,
+    });
+    mockFrom.mockReturnValue(terminalLookup);
+    mockGetMerchantForApiRequest.mockResolvedValue({
+      merchantId: MERCHANT_ID,
+      staffAccess: {
+        isOwner: false,
+        isStaff: true,
+        role: 'manager',
+        permissions: { integrations: { manage: true } },
+      },
+    });
+    mockUpdateVirtualTerminal.mockResolvedValue({
+      data: {
+        code: TERMINAL_CODE,
+        paymentMethods: [
+          {
+            account_name: 'Test Store',
+            account_number: '1234567890',
+            bank: 'Test Bank',
+            type: 'dedicated_nuban',
+          },
+        ],
+      },
+      success: true,
+    });
+    mockRpc.mockResolvedValue({ data: 'terminal-1', error: null });
+
+    const response = await PUT(
+      createRequest('PUT', { name: 'Sales Terminal' }),
+      createParams()
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockRpc).toHaveBeenCalledWith('sync_virtual_terminal_local', {
+      p_account_name: null,
+      p_account_number: null,
+      p_active: null,
+      p_bank: null,
+      p_code: TERMINAL_CODE,
+      p_merchant_id: MERCHANT_ID,
+      p_name: 'Sales Terminal',
+    });
+  });
+
+  it('syncs a rename when the Paystack response omits paymentMethods', async () => {
+    const terminalLookup = createMerchantLookup(null);
+    terminalLookup.maybeSingle.mockResolvedValue({
+      data: { id: 'terminal-1' },
+      error: null,
+    });
+    mockFrom.mockReturnValue(terminalLookup);
+    mockGetMerchantForApiRequest.mockResolvedValue({
+      merchantId: MERCHANT_ID,
+      staffAccess: {
+        isOwner: true,
+        isStaff: false,
+        role: null,
+        permissions: { integrations: { manage: true } },
+      },
+    });
+    mockUpdateVirtualTerminal.mockResolvedValue({
+      data: { code: TERMINAL_CODE },
+      success: true,
+    });
+    mockRpc.mockResolvedValue({ data: 'terminal-1', error: null });
+
+    const response = await PUT(
+      createRequest('PUT', { name: 'Sales Terminal' }),
+      createParams()
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockRpc).toHaveBeenCalledWith('sync_virtual_terminal_local', {
+      p_account_name: null,
+      p_account_number: null,
+      p_active: null,
+      p_bank: null,
+      p_code: TERMINAL_CODE,
+      p_merchant_id: MERCHANT_ID,
+      p_name: 'Sales Terminal',
+    });
+  });
 });

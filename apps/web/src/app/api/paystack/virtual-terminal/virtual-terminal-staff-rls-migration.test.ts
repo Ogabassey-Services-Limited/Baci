@@ -25,14 +25,22 @@ describe('virtual terminal constrained sync migration', () => {
     expect(migrationSql).toContain(
       "public.check_staff_permission( v_user_id, p_merchant_id, 'integrations', 'manage' )"
     );
+    expect(migrationSql).toContain("v_staff_permissions -> '*' ->> '*'");
+    expect(migrationSql).toContain(
+      "v_staff_permissions -> 'integrations' ->> '*'"
+    );
+    expect(migrationSql).toContain(
+      'Delegated staff cannot synchronize account details'
+    );
     expect(migrationSql).toContain('AND virtual_terminal_code = p_code');
+    expect(migrationSql).toContain(
+      "account_number = COALESCE( NULLIF(btrim(p_account_number), ''), account_number )"
+    );
     expect(migrationSql).toContain('ON CONFLICT (code) DO UPDATE');
     expect(migrationSql).toContain(
       'WHERE public.virtual_terminals.merchant_id = p_merchant_id'
     );
-    expect(migrationSql).toContain(
-      "ELSE NULLIF(btrim(p_account_number), '') IS NOT NULL"
-    );
+    expect(migrationSql).toContain('COALESCE(p_active, true)');
     expect(migrationSql).not.toContain('ALTER POLICY');
   });
 });
