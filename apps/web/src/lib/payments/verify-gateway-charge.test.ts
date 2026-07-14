@@ -86,4 +86,36 @@ describe('verifyGatewayCharge', () => {
       }
     );
   });
+
+  it.each([
+    { amount: undefined, currency: 'NGN' },
+    { amount: Number.NaN, currency: 'NGN' },
+    { amount: 12_345, currency: undefined },
+  ])('rejects incomplete Paystack success evidence: %j', async (data) => {
+    mocks.verifyPaystackPayment.mockResolvedValue({
+      data: { ...data, status: 'success' },
+      success: true,
+    });
+
+    await expect(
+      verifyGatewayCharge('paystack', 'partial-ref')
+    ).resolves.toEqual({
+      ok: false,
+      reason: 'paystack_verification_invalid_payload',
+    });
+  });
+
+  it('rejects incomplete Korapay success evidence', async () => {
+    mocks.verifyKorapayPayment.mockResolvedValue({
+      data: { amount: 1000, status: 'success' },
+      success: true,
+    });
+
+    await expect(
+      verifyGatewayCharge('korapay', 'partial-ref')
+    ).resolves.toEqual({
+      ok: false,
+      reason: 'korapay_verification_invalid_payload',
+    });
+  });
 });

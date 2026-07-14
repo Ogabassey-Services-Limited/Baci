@@ -43,4 +43,43 @@ describe('getOrderOutboxState', () => {
       payerTransactionId: 'txn-1',
     });
   });
+
+  it('identifies an aged untouched seed as owed pre-push work', async () => {
+    const state = await getOrderOutboxState(
+      buildSupabase({
+        data: [
+          {
+            claimed_at: '2020-01-01T00:00:00.000Z',
+            error: 'rpc_seed_pending_drain',
+            result: { reason: 'seeded_at_completion' },
+            status: 'failed',
+            transaction_id: 'txn-1',
+          },
+        ],
+        error: null,
+      }) as never,
+      'order-1'
+    );
+
+    expect(state).toMatchObject({
+      hasRows: true,
+      onlyFreshPrePushEvidence: false,
+      onlyUntouchedSeed: true,
+      payerTransactionId: 'txn-1',
+    });
+  });
+
+  it('reports no rows without inferring an untouched seed', async () => {
+    const state = await getOrderOutboxState(
+      buildSupabase({ data: [], error: null }) as never,
+      'order-1'
+    );
+
+    expect(state).toMatchObject({
+      hasRows: false,
+      onlyFreshPrePushEvidence: false,
+      onlyUntouchedSeed: false,
+      payerTransactionId: null,
+    });
+  });
 });

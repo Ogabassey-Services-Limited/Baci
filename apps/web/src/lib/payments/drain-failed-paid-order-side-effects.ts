@@ -1,6 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
 import { finalizeOrderGatewayPayment } from '@/lib/payments/finalize-order-gateway-payment';
+import {
+  type HealableGateway,
+  verifyGatewayCharge,
+} from '@/lib/payments/verify-gateway-charge';
 
 // Second half of the reconcile cron: orders that ARE paid but whose outbox
 // side effects (receipt email, settlement, ad tracking) recorded a failure —
@@ -120,10 +124,23 @@ export async function drainFailedPaidOrderSideEffects({
         continue;
       }
 
+      let gatewayResponse = txn.gateway_response;
+      if (!gatewayResponse) {
+        const verification = await verifyGatewayCharge(
+          gateway as HealableGateway,
+          txn.gateway_reference
+        );
+        if (!verification.ok) {
+          summary.skipped.push({ orderId, reason: verification.reason });
+          continue;
+        }
+        gatewayResponse = verification.response;
+      }
+
       const outcome = await finalizeOrderGatewayPayment({
         actor: 'cron:reconcile-gateway-paid-orders:drain',
         gateway: gateway as 'paystack' | 'korapay',
-        gatewayResponse: txn.gateway_response ?? {},
+        gatewayResponse,
         orderId,
         reference: txn.gateway_reference,
         scheduleAfter,

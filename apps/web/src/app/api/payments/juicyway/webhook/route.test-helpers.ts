@@ -46,6 +46,7 @@ export const mockSupabase = {
     update: vi.fn().mockReturnThis(),
     delete: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
     single: vi.fn(),
     maybeSingle: vi.fn(),
   })),
@@ -213,6 +214,7 @@ export async function setupJuicywayWebhookTest(): Promise<
   mockSupabase.from.mockImplementation(() => ({
     delete: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
     insert: vi.fn().mockReturnThis(),
     maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
     select: vi.fn().mockReturnThis(),
@@ -306,6 +308,7 @@ export function wireProcessingMocks(
           };
           chain.eq = vi.fn().mockReturnValue(chain);
           chain.neq = vi.fn().mockReturnValue(chain);
+          chain.in = vi.fn().mockReturnValue(chain);
           chain.select = vi.fn().mockReturnValue(chain);
           return chain;
         }),

@@ -126,6 +126,7 @@ function createMockSupabaseClient() {
         data = { we_won: true, current_status: 'claimed' };
       } else if (name === 'complete_order_gateway_payment') {
         data = {
+          actor: null,
           already_completed: false,
           order_already_paid: false,
           order_updated: true,
@@ -406,6 +407,7 @@ function setupSuccessfulTransactionMocks(
       data = { we_won: true, current_status: 'claimed' };
     } else if (name === 'complete_order_gateway_payment') {
       data = {
+        actor: null,
         already_completed: false,
         order_already_paid: false,
         order_updated: true,
@@ -3186,10 +3188,12 @@ describe('POST /api/payments/webhook', () => {
         const data =
           name === 'complete_order_gateway_payment'
             ? {
+                actor: null,
                 already_completed: true,
                 order_already_paid: true,
                 order_updated: false,
                 order_cancelled: false,
+                order_skipped_status: null,
                 previous_payment_status: 'paid',
                 previous_shipping_status: 'processing',
                 payment_status: 'paid',
@@ -3349,10 +3353,12 @@ describe('POST /api/payments/webhook', () => {
         const data =
           name === 'complete_order_gateway_payment'
             ? {
+                actor: null,
                 already_completed: true,
                 order_already_paid: true,
                 order_updated: false,
                 order_cancelled: false,
+                order_skipped_status: null,
                 previous_payment_status: 'paid',
                 previous_shipping_status: 'processing',
                 payment_status: 'paid',
@@ -3503,14 +3509,17 @@ describe('POST /api/payments/webhook', () => {
         const data =
           name === 'complete_order_gateway_payment'
             ? {
+                actor: null,
                 already_completed: true,
                 order_already_paid: false,
                 order_updated: true,
                 order_cancelled: false,
+                order_skipped_status: null,
                 previous_payment_status: 'pending',
                 previous_shipping_status: 'pending',
                 payment_status: 'paid',
                 shipping_status: 'processing',
+                cancelled_at: null,
                 order_number: 'ORD-260711-00NT-5',
               }
             : name === 'claim_payment_side_effect'
@@ -5135,10 +5144,12 @@ describe('POST /api/payments/webhook', () => {
           data = { we_won: true, current_status: 'claimed' };
         } else if (name === 'complete_order_gateway_payment') {
           data = {
+            actor: null,
             already_completed: false,
             order_already_paid: false,
             order_updated: true,
             order_cancelled: false,
+            order_skipped_status: null,
             previous_payment_status: 'pending',
             previous_shipping_status: 'pending',
             payment_status: 'paid',
@@ -5334,10 +5345,12 @@ describe('POST /api/payments/webhook', () => {
         if (name === 'complete_order_gateway_payment') {
           const result = {
             data: {
+              actor: null,
               already_completed: false,
               order_already_paid: false,
               order_updated: true,
               order_cancelled: false,
+              order_skipped_status: null,
               previous_payment_status: 'pending',
               previous_shipping_status: 'pending',
               payment_status: 'paid',
@@ -5451,10 +5464,12 @@ describe('POST /api/payments/webhook', () => {
         const data =
           name === 'complete_order_gateway_payment'
             ? {
+                actor: null,
                 already_completed: false,
                 order_already_paid: false,
                 order_updated: false,
                 order_cancelled: true,
+                order_skipped_status: null,
                 previous_payment_status: 'unpaid',
                 previous_shipping_status: 'cancelled',
                 payment_status: 'unpaid',

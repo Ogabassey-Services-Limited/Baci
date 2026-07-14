@@ -4,10 +4,14 @@ import { drainFailedPaidOrderSideEffects } from '@/lib/payments/drain-failed-pai
 
 const mocks = vi.hoisted(() => ({
   finalizeOrderGatewayPayment: vi.fn(),
+  verifyGatewayCharge: vi.fn(),
 }));
 
 vi.mock('@/lib/payments/finalize-order-gateway-payment', () => ({
   finalizeOrderGatewayPayment: mocks.finalizeOrderGatewayPayment,
+}));
+vi.mock('@/lib/payments/verify-gateway-charge', () => ({
+  verifyGatewayCharge: mocks.verifyGatewayCharge,
 }));
 
 const failedRow = {
@@ -162,5 +166,59 @@ describe('drainFailedPaidOrderSideEffects', () => {
     expect(summary.failed).toEqual([
       { orderId: 'order-1', reason: 'order_fetch_failed' },
     ]);
+  });
+
+  it('re-verifies a completed payment before draining without stored gateway evidence', async () => {
+    const missingEvidenceRow = {
+      ...failedRow,
+      transactions: { ...failedRow.transactions, gateway_response: null },
+    };
+    const supabase = buildSupabase({ data: [missingEvidenceRow] });
+    mocks.verifyGatewayCharge.mockResolvedValue({
+      amount: 58290.6,
+      currency: 'NGN',
+      ok: true,
+      response: { fees: 123, status: 'success' },
+    });
+    mocks.finalizeOrderGatewayPayment.mockResolvedValue({
+      healed: false,
+      kind: 'completed',
+      orderNumber: 'ORD-1',
+    });
+
+    const summary = await drainFailedPaidOrderSideEffects({
+      scheduleAfter,
+      supabase,
+    });
+
+    expect(mocks.verifyGatewayCharge).toHaveBeenCalledWith('paystack', 'REF-1');
+    expect(mocks.finalizeOrderGatewayPayment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        gatewayResponse: { fees: 123, status: 'success' },
+      })
+    );
+    expect(summary.drained).toEqual([{ orderId: 'order-1' }]);
+  });
+
+  it('skips a drain when missing gateway evidence cannot be re-verified', async () => {
+    const missingEvidenceRow = {
+      ...failedRow,
+      transactions: { ...failedRow.transactions, gateway_response: null },
+    };
+    const supabase = buildSupabase({ data: [missingEvidenceRow] });
+    mocks.verifyGatewayCharge.mockResolvedValue({
+      ok: false,
+      reason: 'paystack_verification_unavailable',
+    });
+
+    const summary = await drainFailedPaidOrderSideEffects({
+      scheduleAfter,
+      supabase,
+    });
+
+    expect(summary.skipped).toEqual([
+      { orderId: 'order-1', reason: 'paystack_verification_unavailable' },
+    ]);
+    expect(mocks.finalizeOrderGatewayPayment).not.toHaveBeenCalled();
   });
 });

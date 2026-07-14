@@ -97,6 +97,7 @@ describe('POST /api/payments/juicyway/webhook processing', () => {
             };
             chain.eq = vi.fn().mockReturnValue(chain);
             chain.neq = vi.fn().mockReturnValue(chain);
+            chain.in = vi.fn().mockReturnValue(chain);
             chain.select = vi.fn().mockReturnValue(chain);
             return chain;
           }),

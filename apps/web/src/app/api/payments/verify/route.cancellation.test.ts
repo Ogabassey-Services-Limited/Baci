@@ -114,16 +114,41 @@ const richOrderRow = {
 function buildSupabase({
   transactionStatus = 'pending',
   existingOrderStatus = 'unpaid',
+  gateway = 'paystack',
+  gatewayResponse = { fees: 123, status: 'success' } as Record<
+    string,
+    unknown
+  > | null,
   completion,
 }: {
   transactionStatus?: string;
   existingOrderStatus?: string;
+  gateway?: string;
+  gatewayResponse?: Record<string, unknown> | null;
   completion: Record<string, unknown> | null;
 }) {
+  const normalizedCompletion =
+    completion && !('error_code' in completion)
+      ? {
+          actor: 'verify:BAC-VERIFY-1',
+          already_completed: false,
+          cancelled_at: null,
+          order_already_paid: false,
+          order_cancelled: false,
+          order_number: 'ORD-1',
+          order_skipped_status: null,
+          order_updated: false,
+          payment_status: existingOrderStatus,
+          previous_payment_status: existingOrderStatus,
+          previous_shipping_status: 'pending',
+          shipping_status: 'processing',
+          ...completion,
+        }
+      : completion;
   const rpc = vi.fn((name: string) => {
     const data =
       name === 'complete_order_gateway_payment'
-        ? completion
+        ? normalizedCompletion
         : name === 'claim_payment_side_effect'
           ? { current_status: 'claimed', we_won: true }
           : null;
@@ -141,9 +166,9 @@ function buildSupabase({
           data: {
             amount: 1000,
             currency: 'NGN',
-            gateway: 'paystack',
+            gateway,
             gateway_reference: REFERENCE,
-            gateway_response: { fees: 123, status: 'success' },
+            gateway_response: gatewayResponse,
             id: 'txn-1',
             merchant_id: 'merchant-1',
             order_id: 'order-1',
@@ -344,5 +369,62 @@ describe('POST /api/payments/verify — finalizer outcomes', () => {
       'complete_order_gateway_payment',
       expect.objectContaining({ p_transaction_id: 'txn-1' })
     );
+  });
+
+  it('re-verifies Paystack before draining a locally paid order without stored gateway evidence', async () => {
+    const supabase = buildSupabase({
+      completion: {
+        already_completed: true,
+        cancelled_at: null,
+        order_already_paid: true,
+        order_cancelled: false,
+        order_number: 'ORD-1',
+        order_updated: false,
+        payment_status: 'paid',
+        previous_payment_status: 'paid',
+        previous_shipping_status: 'processing',
+        shipping_status: 'processing',
+      },
+      existingOrderStatus: 'paid',
+      gatewayResponse: null,
+      transactionStatus: 'completed',
+    });
+    mockCreateServiceClient.mockReturnValue(supabase);
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(200);
+    expect(mockVerifyPaystack).toHaveBeenCalledWith(REFERENCE);
+    expect(mockRunPaidOrderSideEffects).toHaveBeenCalledWith(
+      expect.objectContaining({
+        gatewayResponse: {
+          amount: 100_000,
+          currency: 'NGN',
+          status: 'success',
+        },
+      })
+    );
+  });
+
+  it('returns local success for a completed Juicyway payment', async () => {
+    const supabase = buildSupabase({
+      completion: null,
+      existingOrderStatus: 'paid',
+      gateway: 'juicyway',
+      transactionStatus: 'completed',
+    });
+    mockCreateServiceClient.mockReturnValue(supabase);
+
+    const response = await POST(createRequest());
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data).toEqual({
+      orderNumber: 'ORD-1',
+      status: 'success',
+      success: true,
+    });
+    expect(mockVerifyPaystack).not.toHaveBeenCalled();
+    expect(supabase.rpc).not.toHaveBeenCalled();
   });
 });

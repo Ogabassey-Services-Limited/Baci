@@ -193,4 +193,7 @@ ALTER TABLE public.reconciliation_review
     'payment_received_after_cancellation',
     'payment_received_after_refund',
     'serialized_inventory_confirmation_failed'
-  ));
+  )) NOT VALID;
+
+ALTER TABLE public.reconciliation_review
+  VALIDATE CONSTRAINT reconciliation_review_issue_type_check;

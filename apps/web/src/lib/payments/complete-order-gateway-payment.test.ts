@@ -12,8 +12,23 @@ function buildSupabaseMock(rpcResult: {
 }
 
 describe('completeOrderGatewayPayment', () => {
+  const completionPayload = {
+    actor: 'cron:reconcile-gateway-paid-orders',
+    already_completed: true,
+    cancelled_at: null,
+    order_already_paid: false,
+    order_cancelled: false,
+    order_number: 'ORD-1',
+    order_skipped_status: null,
+    order_updated: true,
+    payment_status: 'paid',
+    previous_payment_status: 'pending',
+    previous_shipping_status: 'pending',
+    shipping_status: 'processing',
+  };
+
   it('invokes the atomic RPC with the exact parameter names', async () => {
-    const supabase = buildSupabaseMock({ data: { order_updated: true } });
+    const supabase = buildSupabaseMock({ data: completionPayload });
 
     await completeOrderGatewayPayment({
       actor: 'webhook:BAC-REF',
@@ -36,13 +51,7 @@ describe('completeOrderGatewayPayment', () => {
 
   it('returns the parsed completion on success', async () => {
     const supabase = buildSupabaseMock({
-      data: {
-        already_completed: true,
-        order_already_paid: false,
-        order_cancelled: false,
-        order_updated: true,
-        previous_payment_status: 'pending',
-      },
+      data: completionPayload,
     });
 
     const result = await completeOrderGatewayPayment({
@@ -87,6 +96,18 @@ describe('completeOrderGatewayPayment', () => {
       gatewayResponse: null,
       orderId: 'order-1',
       supabase,
+      transactionId: 'txn-1',
+    });
+
+    expect(result.ok).toBe(false);
+  });
+
+  it('fails closed when the RPC returns an empty object', async () => {
+    const result = await completeOrderGatewayPayment({
+      actor: 'webhook:BAC-REF',
+      gatewayResponse: null,
+      orderId: 'order-1',
+      supabase: buildSupabaseMock({ data: {} }),
       transactionId: 'txn-1',
     });
 

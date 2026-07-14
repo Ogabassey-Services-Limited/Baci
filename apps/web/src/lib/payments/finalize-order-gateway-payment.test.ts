@@ -288,6 +288,11 @@ describe('finalizeOrderGatewayPayment', () => {
     );
 
     expect(outcome).toMatchObject({ healed: false, kind: 'completed' });
+    expect(mocks.ensurePaidOrderInventoryConfirmed).toHaveBeenCalledWith(
+      expect.anything(),
+      'merchant-1',
+      'order-1'
+    );
     // Pre-outbox completions sent email/settlement inline; draining an empty
     // outbox would duplicate them.
     expect(mocks.runPaidOrderSideEffects).not.toHaveBeenCalled();

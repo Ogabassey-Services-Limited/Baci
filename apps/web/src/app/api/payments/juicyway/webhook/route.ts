@@ -42,6 +42,12 @@ const JUICYWAY_IPS = [
   '52.51.85.69',
   '52.210.159.41',
 ];
+const ELIGIBLE_ORDER_PAYMENT_STATUSES = [
+  'failed',
+  'partially_paid',
+  'pending',
+  'unpaid',
+];
 
 // First release that persists Juicyway settlement amount/currency metadata on
 // transaction creation. Older in-flight sessions were already signed by
@@ -96,10 +102,19 @@ async function recordJuicywaySettlement(
   reference: string
 ): Promise<boolean> {
   try {
-    const grossAmount = Number(transaction.amount) || 0;
+    const grossAmount = Number(transaction.amount);
+    if (!Number.isFinite(grossAmount) || grossAmount <= 0) {
+      throw new Error('Invalid Juicyway settlement gross amount');
+    }
     // Δ-0b: Juicyway verify response carries no fee; default to 0 honestly.
     const gatewayFee = 0;
-    const platformFee = Number(transaction.platform_fee) || grossAmount * 0.015;
+    const platformFee =
+      transaction.platform_fee == null
+        ? grossAmount * 0.015
+        : Number(transaction.platform_fee);
+    if (!Number.isFinite(platformFee) || platformFee < 0) {
+      throw new Error('Invalid Juicyway settlement platform fee');
+    }
 
     const adminSupabase = createAdminClient();
     const { error: settlementError } = await adminSupabase.rpc(
@@ -351,6 +366,21 @@ export async function POST(request: NextRequest) {
               { status: 500 }
             );
           }
+        } else if (completedOrder?.payment_status === 'refunded') {
+          const reviewFiled = await handlePaymentForCancelledOrder({
+            gatewayReference: reference,
+            issueType: 'payment_received_after_refund',
+            order: completedOrder,
+            reason:
+              'Juicyway completed-transaction retry observed a refunded order',
+            transactionId: transaction.id,
+          });
+          if (!reviewFiled) {
+            return NextResponse.json(
+              { error: 'Payment reconciliation review unavailable' },
+              { status: 500 }
+            );
+          }
         } else if (
           isEventPipelineEnqueueEnabled() &&
           completedOrder?.payment_status === 'paid'
@@ -569,7 +599,8 @@ export async function POST(request: NextRequest) {
           updated_at: new Date().toISOString(),
         })
         .eq('id', transaction.order_id)
-        .eq('shipping_status', 'pending');
+        .eq('shipping_status', 'pending')
+        .in('payment_status', ELIGIBLE_ORDER_PAYMENT_STATUSES);
       if (shippingAdvanceError) {
         logger.error({
           error: shippingAdvanceError,
@@ -592,13 +623,53 @@ export async function POST(request: NextRequest) {
           updated_at: new Date().toISOString(),
         })
         .eq('id', transaction.order_id)
-        .neq('payment_status', 'paid')
+        .in('payment_status', ELIGIBLE_ORDER_PAYMENT_STATUSES)
         .select(
           'id, order_number, merchant_id, customer_id, total, subtotal, shipping_fee, customer_name, customer_email, customer_phone, shipping_address, currency, payment_status, shipping_status, cancelled_at, updated_at, ad_tracking, order_items(id, product_id, condition, name, price, quantity, variant_name)'
         )
         .maybeSingle();
 
       if (!response.error && !response.data) {
+        const { data: terminalOrder, error: terminalOrderError } =
+          await supabase
+            .from('orders')
+            .select(
+              'id, payment_status, shipping_status, cancelled_at, order_number'
+            )
+            .eq('id', transaction.order_id)
+            .maybeSingle();
+        if (terminalOrderError || !terminalOrder) {
+          return NextResponse.json(
+            { error: 'Order state lookup failed' },
+            { status: 500 }
+          );
+        }
+        const terminalIssueType =
+          terminalOrder.payment_status === 'refunded'
+            ? 'payment_received_after_refund'
+            : isOrderClampedAsCancelled(terminalOrder)
+              ? 'payment_received_after_cancellation'
+              : null;
+        if (terminalIssueType) {
+          const reviewFiled = await handlePaymentForCancelledOrder({
+            gatewayReference: reference,
+            issueType: terminalIssueType,
+            order: terminalOrder,
+            reason: `Juicyway payment captured for terminal order status ${terminalOrder.payment_status}`,
+            transactionId: transaction.id,
+          });
+          if (!reviewFiled) {
+            return NextResponse.json(
+              { error: 'Payment reconciliation review unavailable' },
+              { status: 500 }
+            );
+          }
+          return NextResponse.json({
+            message: 'Payment recorded; terminal order filed for review',
+            success: true,
+          });
+        }
+
         // 0 rows: the order is already paid — either a concurrent delivery
         // won the flip, or the order was paid through another channel before
         // this delivery. The Juicyway money IS captured (signature + amount
@@ -1011,7 +1082,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Record settlement for merchant wallet tracking
-    await recordJuicywaySettlement(
+    const settlementRecorded = await recordJuicywaySettlement(
       {
         amount: transaction.amount,
         merchant_id: transaction.merchant_id,
@@ -1020,6 +1091,12 @@ export async function POST(request: NextRequest) {
       },
       reference
     );
+    if (!settlementRecorded) {
+      return NextResponse.json(
+        { error: 'Merchant settlement unavailable' },
+        { status: 500 }
+      );
+    }
 
     if (durableEnqueueError) {
       throw durableEnqueueError;

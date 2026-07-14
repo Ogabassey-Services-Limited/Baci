@@ -24,6 +24,19 @@ function classifyFailure(code: string | undefined, gateway: string) {
     : { ok: false as const, reason: `${gateway}_verification_unavailable` };
 }
 
+function hasValidChargeEvidence(
+  amount: unknown,
+  currency: unknown
+): amount is number {
+  return (
+    typeof amount === 'number' &&
+    Number.isFinite(amount) &&
+    amount > 0 &&
+    typeof currency === 'string' &&
+    currency.trim().length > 0
+  );
+}
+
 export type GatewayChargeVerification =
   | {
       ok: true;
@@ -55,6 +68,9 @@ export async function verifyGatewayCharge(
         reason: 'gateway_status_not_success',
       };
     }
+    if (!hasValidChargeEvidence(result.data.amount, result.data.currency)) {
+      return { ok: false, reason: 'paystack_verification_invalid_payload' };
+    }
     return {
       amount: result.data.amount / 100,
       currency: result.data.currency,
@@ -73,6 +89,9 @@ export async function verifyGatewayCharge(
         ok: false,
         reason: 'gateway_status_not_success',
       };
+    }
+    if (!hasValidChargeEvidence(result.data.amount, result.data.currency)) {
+      return { ok: false, reason: 'korapay_verification_invalid_payload' };
     }
     return {
       amount: result.data.amount,

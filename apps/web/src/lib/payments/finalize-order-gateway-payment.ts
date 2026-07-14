@@ -110,7 +110,12 @@ export async function finalizeOrderGatewayPayment({
   const capturedOnAlreadyPaidOrder =
     Boolean(completion.order_already_paid) &&
     !completion.order_updated &&
+    Boolean(outboxState?.hasRows) &&
     outboxState?.payerTransactionId !== transaction.id;
+  const legacyPaidReplay =
+    Boolean(completion.order_already_paid) &&
+    !completion.order_updated &&
+    outboxState?.hasRows === false;
 
   const shouldNotify =
     Boolean(completion.order_updated) ||
@@ -191,6 +196,17 @@ export async function finalizeOrderGatewayPayment({
     if (inventoryOutcome.kind !== 'confirmed') {
       return inventoryOutcome;
     }
+  }
+
+  // Pre-outbox completions may still owe serialized inventory confirmation,
+  // but their email and settlement ran inline. Confirm inventory, then stop
+  // before the modern side-effect drain to avoid duplicating those effects.
+  if (legacyPaidReplay) {
+    return {
+      healed,
+      kind: 'completed',
+      orderNumber: completion.order_number ?? null,
+    };
   }
 
   if (shouldNotify) {

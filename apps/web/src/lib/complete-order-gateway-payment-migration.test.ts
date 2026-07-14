@@ -125,6 +125,10 @@ describe('complete_order_gateway_payment migration', () => {
     expect(migrationSql).toContain('reconciliation_review_issue_type_check');
     expect(migrationSql).toContain("'payment_received_after_refund'");
     expect(migrationSql).toContain("'payment_received_after_cancellation'");
+    expect(migrationSql).toMatch(/\)\)\s+NOT VALID;/);
+    expect(migrationSql).toContain(
+      'VALIDATE CONSTRAINT reconciliation_review_issue_type_check'
+    );
   });
 
   it('reports previous and post-update order state for rollback callers', () => {

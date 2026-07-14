@@ -33,6 +33,12 @@ describe('orderGatewayPaymentCompletionSchema', () => {
       order_updated: true,
       payment_status: 'paid',
       previous_payment_status: 'pending',
+      actor: 'cron:reconcile-gateway-paid-orders',
+      cancelled_at: null,
+      order_number: 'ORD-1',
+      order_skipped_status: null,
+      previous_shipping_status: 'pending',
+      shipping_status: 'processing',
     });
 
     expect(result.success).toBe(true);
@@ -71,5 +77,15 @@ describe('orderGatewayPaymentCompletionSchema', () => {
     });
 
     expect(result.success).toBe(false);
+  });
+
+  it.each([
+    {},
+    { already_completed: true },
+    { order_updated: true },
+  ])('rejects an incomplete success payload: %j', (payload) => {
+    expect(orderGatewayPaymentCompletionSchema.safeParse(payload).success).toBe(
+      false
+    );
   });
 });

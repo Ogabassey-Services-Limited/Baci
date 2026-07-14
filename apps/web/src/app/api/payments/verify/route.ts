@@ -122,23 +122,32 @@ async function verifyPaymentReference(reference: string) {
 
   const isSupportedOrderGateway =
     transaction.gateway === 'paystack' || transaction.gateway === 'korapay';
+  const isJuicywayLocallyFinalizedOrderPayment =
+    transaction.gateway === 'juicyway' &&
+    transaction.status === 'completed' &&
+    existingOrder?.payment_status === 'paid';
+  if (isJuicywayLocallyFinalizedOrderPayment) {
+    return NextResponse.json({
+      success: true,
+      status: 'success',
+      orderNumber:
+        existingOrder.order_number ||
+        transaction.gateway_reference.slice(0, 8).toUpperCase(),
+    });
+  }
+  const storedGatewayResponse = transaction.gateway_response;
+  const hasStoredGatewayResponse =
+    storedGatewayResponse !== null &&
+    typeof storedGatewayResponse === 'object' &&
+    !Array.isArray(storedGatewayResponse);
   const isLocallyFinalizedOrderPayment =
     isSupportedOrderGateway &&
     transaction.status === 'completed' &&
-    existingOrder?.payment_status === 'paid';
-  const storedGatewayResponse = transaction.gateway_response;
-  const localGatewayEvidence =
-    storedGatewayResponse &&
-    typeof storedGatewayResponse === 'object' &&
-    !Array.isArray(storedGatewayResponse)
-      ? (storedGatewayResponse as Record<string, unknown>)
-      : {
-          source: 'locally_completed_order_payment',
-          status: 'success',
-        };
+    existingOrder?.payment_status === 'paid' &&
+    hasStoredGatewayResponse;
   const verification: GatewayVerificationResult = isLocallyFinalizedOrderPayment
     ? {
-        gatewayResponse: localGatewayEvidence,
+        gatewayResponse: storedGatewayResponse as Record<string, unknown>,
         status: 'success',
         success: true,
       }
