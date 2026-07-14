@@ -113,7 +113,8 @@ function createSupabaseMock(
     | 'processing'
     | 'outcome_unknown'
     | 'invalid_state'
-    | null = null
+    | null = null,
+  outboxMetadata?: Record<string, unknown>
 ) {
   const merchantBuilder = createSelectBuilder({ data: merchant, error: null });
   const orderBuilder = createSelectBuilder({ data: order, error: null });
@@ -133,6 +134,7 @@ function createSupabaseMock(
         return Promise.resolve({
           data: {
             claim_owner: 'manual-endpoint:test',
+            metadata: outboxMetadata,
             outbox_id: '10000000-0000-4000-8000-000000000001',
             status:
               terminalOutboxStatus === 'skipped' ? null : terminalOutboxStatus,
@@ -232,6 +234,33 @@ describe('POST /api/orders/[id]/shipped', () => {
       p_skip_reason: null,
       p_status: 'sent',
     });
+  });
+
+  it('uses the claimed outbox cycle snapshot for a manual retry', async () => {
+    const supabase = createSupabaseMock(shippedOrder, 'skipped', {
+      fulfillment_courier_name: 'GIGL-CYCLE-1',
+      fulfillment_tracking_number: 'CYCLE-TRACK-1',
+      fulfillment_tracking_token: 'cycle-token-1',
+    });
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+
+    const response = await POST(createRequest(), {
+      params: Promise.resolve({ id: orderId }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(generateOrderShippedEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        courierName: 'GIGL-CYCLE-1',
+        trackingNumber: 'CYCLE-TRACK-1',
+        trackingUrl:
+          'https://test-store.usebaci.com/track-order?token=cycle-token-1',
+      })
+    );
   });
 
   it('skips manual shipped email when the outbox already sent it', async () => {

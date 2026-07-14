@@ -21,12 +21,12 @@ import { sendEmail } from '@/lib/zeptomail';
 interface SendShippedNotificationParams {
   beforeProviderDispatch?: () => Promise<void>;
   resetProviderDispatch?: () => Promise<void>;
-  courierName?: string;
+  courierName?: string | null;
   estimatedDelivery?: string;
   merchant: MerchantRecord;
   merchantId: string;
   order: FulfillmentOrderRecord;
-  trackingNumber?: string;
+  trackingNumber?: string | null;
 }
 
 export async function sendShippedNotification({
@@ -55,9 +55,13 @@ export async function sendShippedNotification({
   const { merchantUrl, replyToEmail, rootDomain } =
     buildMerchantEmailContext(merchant);
   const resolvedTrackingNumber =
-    trackingNumber || order.tracking_number || undefined;
+    trackingNumber === undefined
+      ? order.tracking_number || undefined
+      : trackingNumber || undefined;
   const resolvedCourierName =
-    courierName || order.shipping_provider || undefined;
+    courierName === undefined
+      ? order.shipping_provider || undefined
+      : courierName || undefined;
   const shippedData = {
     orderNumber: getFulfillmentOrderNumber(order),
     customerName: order.customer_name,

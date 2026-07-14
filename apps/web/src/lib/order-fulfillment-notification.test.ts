@@ -131,6 +131,28 @@ describe('sendOrderFulfillmentNotification', () => {
     );
   });
 
+  it('renders an immutable outbox shipment snapshot instead of newer order tracking data', async () => {
+    const result = await sendOrderFulfillmentNotification({
+      courierName: 'GIGL-CYCLE-1',
+      eventType: 'order_shipped',
+      merchantId: 'merchant-1',
+      orderId: 'order-1',
+      supabase: createSupabaseMock(),
+      trackingNumber: 'CYCLE-TRACK-1',
+      trackingToken: 'cycle-token-1',
+    });
+
+    expect(result).toMatchObject({ status: 'sent' });
+    expect(generateOrderShippedEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        courierName: 'GIGL-CYCLE-1',
+        trackingNumber: 'CYCLE-TRACK-1',
+        trackingUrl:
+          'https://test-store.usebaci.com/track-order?token=cycle-token-1',
+      })
+    );
+  });
+
   it('skips legacy shipped orders without a valid customer email', async () => {
     const result = await sendOrderFulfillmentNotification({
       eventType: 'order_shipped',
