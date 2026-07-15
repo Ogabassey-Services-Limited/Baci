@@ -149,25 +149,38 @@ export async function sendPushNotifications(
   const chunks = _getExpo().chunkPushNotifications(validMessages);
   const sdkTickets: ExpoPushTicket[] = [];
   let deliveryStarted = false;
+  const markDeliveryStarted = (): void => {
+    if (deliveryStarted) return;
+    options?.onDeliveryStart?.();
+    deliveryStarted = true;
+  };
 
   for (const chunk of chunks) {
     try {
-      if (!deliveryStarted) {
-        options?.onDeliveryStart?.();
-        deliveryStarted = true;
-      }
       const chunkTickets = await _getExpo().sendPushNotificationsAsync(chunk);
+      if (chunkTickets.some((ticket) => ticket.status === 'ok')) {
+        markDeliveryStarted();
+      }
       sdkTickets.push(...chunkTickets);
     } catch (error) {
       if (isMixedProjectPushError(error)) {
         console.warn(
           '[expo-push] Mixed-project token batch detected, retrying chunk per message'
         );
-        const fallbackTickets = await sendChunkIndividually(chunk);
+        const fallbackTickets = await sendChunkIndividually(
+          chunk,
+          markDeliveryStarted
+        );
+        if (fallbackTickets.some((ticket) => ticket.status === 'ok')) {
+          markDeliveryStarted();
+        }
         sdkTickets.push(...fallbackTickets);
         continue;
       }
 
+      // The request reached the SDK but threw without tickets, so Expo may
+      // have accepted it even though the outcome is unknowable locally.
+      markDeliveryStarted();
       // Synthesize error tickets for the failed chunk
       for (const _ of chunk) {
         sdkTickets.push({
@@ -201,7 +214,8 @@ function isMixedProjectPushError(error: unknown): boolean {
 }
 
 async function sendChunkIndividually(
-  chunk: ExpoPushMessage[]
+  chunk: ExpoPushMessage[],
+  onDeliveryUnknown: () => void
 ): Promise<ExpoPushTicket[]> {
   const tickets: ExpoPushTicket[] = [];
 
@@ -210,6 +224,7 @@ async function sendChunkIndividually(
       const [ticket] = await _getExpo().sendPushNotificationsAsync([message]);
       tickets.push(ticket);
     } catch (error) {
+      onDeliveryUnknown();
       tickets.push({
         status: 'error',
         message: error instanceof Error ? error.message : 'Unknown error',
