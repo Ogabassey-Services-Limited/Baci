@@ -22,14 +22,16 @@ const mockRegisterPushNotifications = jest.fn();
 const mockPrefetchStartupStorefrontData = jest.fn<() => Promise<void>>();
 const mockActivateDueSavingsReminderNotification = jest.fn();
 const mockInitializeAdTrackingForStartup = jest.fn<() => Promise<void>>();
+const mockUseAppTrackingTransparency = jest.fn();
 const mockRootLayoutNavMount = jest.fn();
 const mockRootLayoutNavUnmount = jest.fn();
+let mockTrackingAuthorizationSettled = true;
 const mockAuthState = {
   cleanup: mockCleanup,
   initialize: mockInitializeAuth,
   isInitialized: true,
-  merchantId: null,
-  user: null,
+  merchantId: null as string | null,
+  user: null as { id: string } | null,
 };
 
 jest.mock('../../global.css', () => ({}));
@@ -110,6 +112,15 @@ jest.mock('@/hooks/use-push-notifications', () => ({
   }),
 }));
 
+jest.mock('@/hooks/use-app-tracking-transparency', () => ({
+  useAppTrackingTransparency: (options: { enabled: boolean }) => {
+    mockUseAppTrackingTransparency(options);
+    return {
+      isTrackingAuthorizationSettled: mockTrackingAuthorizationSettled,
+    };
+  },
+}));
+
 jest.mock('@/lib/offline-queue', () => ({
   offlineQueue: {
     destroy: jest.fn(),
@@ -164,6 +175,10 @@ describe('RootLayout storage boot gate', () => {
     mockInitializeAuth.mockResolvedValue(undefined);
     mockInitializeAdTrackingForStartup.mockResolvedValue(undefined);
     mockPrefetchStartupStorefrontData.mockResolvedValue(undefined);
+    mockTrackingAuthorizationSettled = true;
+    mockAuthState.isInitialized = true;
+    mockAuthState.merchantId = null;
+    mockAuthState.user = null;
   });
 
   afterEach(() => {
@@ -250,6 +265,82 @@ describe('RootLayout storage boot gate', () => {
     );
     expect(mockRootLayoutNavMount).toHaveBeenCalledTimes(1);
     expect(mockRootLayoutNavUnmount).not.toHaveBeenCalled();
+  });
+
+  it('enables the root ATT coordinator only after storefront UI is visible', async () => {
+    mockInitializeStorage.mockResolvedValue(undefined);
+
+    render(<RootLayout />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('text', { name: 'Store navigation' })
+      ).toBeOnTheScreen();
+    });
+    expect(mockUseAppTrackingTransparency).toHaveBeenLastCalledWith({
+      enabled: false,
+    });
+
+    fireEvent.press(screen.getByTestId('animated-splash'));
+
+    await waitFor(() => {
+      expect(mockUseAppTrackingTransparency).toHaveBeenLastCalledWith({
+        enabled: true,
+      });
+    });
+  });
+
+  it('waits for ATT to settle before starting push registration', async () => {
+    mockInitializeStorage.mockResolvedValue(undefined);
+    mockTrackingAuthorizationSettled = false;
+    mockAuthState.user = { id: 'review-user' };
+    mockAuthState.merchantId = 'merchant-id';
+    const view = render(<RootLayout />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('text', { name: 'Store navigation' })
+      ).toBeOnTheScreen();
+    });
+    fireEvent.press(screen.getByTestId('animated-splash'));
+    await waitFor(() => {
+      expect(mockUseAppTrackingTransparency).toHaveBeenLastCalledWith({
+        enabled: true,
+      });
+    });
+    expect(mockRegisterPushNotifications).not.toHaveBeenCalled();
+
+    mockTrackingAuthorizationSettled = true;
+    view.rerender(<RootLayout />);
+
+    await waitFor(() => {
+      expect(mockRegisterPushNotifications).toHaveBeenCalledWith(
+        'review-user',
+        'merchant-id'
+      );
+    });
+  });
+
+  it('waits for ATT to settle before activating a due savings reminder', async () => {
+    mockInitializeStorage.mockResolvedValue(undefined);
+    mockTrackingAuthorizationSettled = false;
+    const view = render(<RootLayout />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('text', { name: 'Store navigation' })
+      ).toBeOnTheScreen();
+    });
+    expect(mockActivateDueSavingsReminderNotification).not.toHaveBeenCalled();
+
+    mockTrackingAuthorizationSettled = true;
+    view.rerender(<RootLayout />);
+
+    await waitFor(() => {
+      expect(mockActivateDueSavingsReminderNotification).toHaveBeenCalledTimes(
+        1
+      );
+    });
   });
 
   it('does not replay the animated splash after a completed boot remount', async () => {

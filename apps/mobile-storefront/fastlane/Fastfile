@@ -6,6 +6,10 @@ WORKSPACE = "ios/Ogabassey.xcworkspace"
 SCHEME = "Ogabassey"
 BUNDLE_ID = "com.ogabassey.app"
 OUTPUT_DIR = File.expand_path("../build", __dir__)
+DEFAULT_ATT_REVIEW_NOTES = <<~NOTES.freeze
+  App Tracking Transparency review path:
+  On a fresh install, launch the app and wait for the animated startup splash to finish. The native ATT prompt appears automatically on the first visible storefront screen; no login or navigation is required. If this device has reviewed an earlier build, delete the app before reinstalling because iOS preserves the previous one-time ATT decision across updates. Advertising SDK initialization and advertising conversion tracking remain disabled unless the user selects Allow.
+NOTES
 
 def ensure_required_env!(keys)
   missing = keys.select { |key| ENV[key].to_s.strip.empty? }
@@ -143,12 +147,19 @@ platform :ios do
 
     release_notes_text = ENV["IOS_RELEASE_NOTES"].to_s.strip
     release_notes_text = "Bug fixes and performance improvements." if release_notes_text.empty?
+    review_notes_text = ENV["IOS_REVIEW_NOTES"].to_s.strip
+    review_notes_text = DEFAULT_ATT_REVIEW_NOTES if review_notes_text.empty?
 
     deliver_opts = {
       api_key: api_key,
       skip_binary_upload: true,
-      skip_metadata: true,
+      # Upload only the explicit review information below. No localized
+      # metadata files are present, and screenshots remain disabled.
+      skip_metadata: false,
       skip_screenshots: true,
+      app_review_information: {
+        notes: review_notes_text
+      },
       submit_for_review: true,
       automatic_release: true,
       force: true,

@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AnimatedSplash } from '@/components/AnimatedSplash';
 import { ErrorFallback } from '@/components/ErrorBoundary';
 import { RootLayoutNav } from '@/components/navigation/RootLayoutNav';
+import { useAppTrackingTransparency } from '@/hooks/use-app-tracking-transparency';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 import {
   installCrashDiagnostics,
@@ -103,6 +104,9 @@ export default function RootLayout() {
   const [isStorageReady, setIsStorageReady] = useState(
     () => bootstrapState.isStorageReady
   );
+  const { isTrackingAuthorizationSettled } = useAppTrackingTransparency({
+    enabled: !showSplash && isInitialized && isStorageReady,
+  });
   const isPushRegisteredForCurrentUser = Boolean(
     storeUser?.id && isPushRegistered && registeredUserId === storeUser.id
   );
@@ -120,10 +124,10 @@ export default function RootLayout() {
   }, [isInitialized]);
 
   useEffect(() => {
-    if (isInitialized && isStorageReady) {
+    if (isInitialized && isStorageReady && isTrackingAuthorizationSettled) {
       void activateDueSavingsReminderNotification();
     }
-  }, [isInitialized, isStorageReady]);
+  }, [isInitialized, isStorageReady, isTrackingAuthorizationSettled]);
 
   useEffect(() => {
     let isMounted = true;
@@ -221,6 +225,7 @@ export default function RootLayout() {
 
     if (
       isInitialized &&
+      isTrackingAuthorizationSettled &&
       storeUser?.id &&
       !isPushRegisteredForCurrentUser &&
       !isPushLoading &&
@@ -240,6 +245,7 @@ export default function RootLayout() {
     isInitialized,
     isPushRegisteredForCurrentUser,
     isPushLoading,
+    isTrackingAuthorizationSettled,
     registerPushNotifications,
     storeUser?.id,
     storeMerchantId,

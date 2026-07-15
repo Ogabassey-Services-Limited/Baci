@@ -226,6 +226,94 @@ function validateXcodeProject(projectSource) {
   return failures;
 }
 
+function extractIndentedBlock(source, declarationPattern, closingToken) {
+  const lines = source.split('\n');
+  const startIndex = lines.findIndex((line) => declarationPattern.test(line));
+  if (startIndex === -1) return null;
+
+  const indentation = lines[startIndex].match(/^\s*/)?.[0] ?? '';
+  const closingLine = `${indentation}${closingToken}`;
+  const endOffset = lines
+    .slice(startIndex + 1)
+    .findIndex((line) => line.trimEnd() === closingLine);
+  if (endOffset === -1) return null;
+
+  return lines.slice(startIndex, startIndex + endOffset + 2).join('\n');
+}
+
+function validateFastfile(fastfileSource) {
+  const failures = [];
+  const submitLane = extractIndentedBlock(
+    fastfileSource,
+    /^\s*lane\s+:submit\s+do\s*$/,
+    'end'
+  );
+  if (!submitLane) {
+    return ['Fastfile: missing submit lane'];
+  }
+
+  const deliverOptions = extractIndentedBlock(
+    submitLane,
+    /^\s*deliver_opts\s*=\s*\{\s*$/,
+    '}'
+  );
+  if (!deliverOptions) {
+    return ['Fastfile: submit lane is missing deliver_opts'];
+  }
+
+  if (!deliverOptions.includes('add_id_info_uses_idfa: true')) {
+    failures.push('Fastfile: add_id_info_uses_idfa must remain true');
+  }
+  if (!deliverOptions.includes('add_id_info_tracks_action: true')) {
+    failures.push('Fastfile: add_id_info_tracks_action must remain true');
+  }
+  if (!deliverOptions.includes('add_id_info_tracks_install: true')) {
+    failures.push('Fastfile: add_id_info_tracks_install must remain true');
+  }
+  if (!deliverOptions.includes('add_id_info_limits_tracking: true')) {
+    failures.push('Fastfile: add_id_info_limits_tracking must remain true');
+  }
+  if (
+    !submitLane.includes(
+      'review_notes_text = ENV["IOS_REVIEW_NOTES"].to_s.strip'
+    )
+  ) {
+    failures.push('Fastfile: missing IOS_REVIEW_NOTES override');
+  }
+  if (
+    !/^DEFAULT_ATT_REVIEW_NOTES\s*=\s*<<~[A-Z_]+\.freeze\s*$/m.test(
+      fastfileSource
+    )
+  ) {
+    failures.push('Fastfile: missing default ATT App Review instructions');
+  }
+  if (
+    !submitLane.includes(
+      'review_notes_text = DEFAULT_ATT_REVIEW_NOTES if review_notes_text.empty?'
+    )
+  ) {
+    failures.push(
+      'Fastfile: submit lane must default empty IOS_REVIEW_NOTES to DEFAULT_ATT_REVIEW_NOTES'
+    );
+  }
+  if (
+    !/app_review_information:\s*\{\s*notes:\s*review_notes_text\s*\}/m.test(
+      deliverOptions
+    )
+  ) {
+    failures.push(
+      'Fastfile: submit deliver_opts must include ATT app_review_information.notes'
+    );
+  }
+  if (!deliverOptions.includes('skip_metadata: false')) {
+    failures.push(
+      'Fastfile: skip_metadata must be false so App Review notes are uploaded'
+    );
+  }
+
+  return failures;
+}
+
 function main() {
   let options;
   try {
@@ -248,16 +336,19 @@ function main() {
     'Ogabassey.xcodeproj',
     'project.pbxproj'
   );
+  const fastfilePath = path.join(projectRoot, 'fastlane', 'Fastfile');
 
   let appConfigDeclarations;
   let infoPlist;
   let xcodeProjectSource;
+  let fastfileSource;
   try {
     appConfigDeclarations = extractAppConfigAdDeclarations(
       readRequiredFile(appConfigPath)
     );
     infoPlist = plist.parse(readRequiredFile(infoPlistPath));
     xcodeProjectSource = readRequiredFile(xcodeProjectPath);
+    fastfileSource = readRequiredFile(fastfilePath);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`[ad-tracking-native-config] ${message}`);
@@ -268,6 +359,7 @@ function main() {
   const failures = [
     ...validateInfoPlist(infoPlist, appConfigDeclarations),
     ...validateXcodeProject(xcodeProjectSource),
+    ...validateFastfile(fastfileSource),
   ];
 
   if (failures.length === 0) {

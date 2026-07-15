@@ -285,6 +285,7 @@ jobs:
           SUBMIT_BUILD_NUMBER: ${{ steps.version.outputs.build_number }}
           SUBMIT_APP_VERSION: ${{ env.IOS_APP_VERSION }}
           IOS_RELEASE_NOTES: ${{ vars.IOS_STOREFRONT_RELEASE_NOTES }}
+          IOS_REVIEW_NOTES: ${{ vars.IOS_STOREFRONT_REVIEW_NOTES }}
         run: bundle exec fastlane ios submit
 
       - name: Clean up secrets
