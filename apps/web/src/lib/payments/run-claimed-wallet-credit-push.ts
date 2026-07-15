@@ -28,7 +28,6 @@ export async function runClaimedWalletCreditPush({
   transactionId,
   waitForClaimRelease: waitForRelease = waitForClaimRelease,
 }: RunClaimedWalletCreditPushArgs): Promise<void> {
-  let ownsClaim = false;
   const claimArgs = {
     allowInitialClaim,
     claimToken,
@@ -62,7 +61,6 @@ export async function runClaimedWalletCreditPush({
         );
         return;
       }
-      ownsClaim = false;
     } catch (error: unknown) {
       onFailure(error);
     }
@@ -100,16 +98,14 @@ export async function runClaimedWalletCreditPush({
         return;
       }
     }
-    ownsClaim = true;
-
     const delivery = await notify();
     if (delivery.status === 'retryable_error') {
       await releaseClaim();
     }
   } catch (error: unknown) {
-    if (ownsClaim) {
-      await releaseClaim();
-    }
+    // notify() classifies known pre-delivery failures as retryable_error.
+    // An unexpected rejection has an ambiguous delivery outcome, so retaining
+    // the claim is safer than releasing it and risking a duplicate push.
     onFailure(error);
   }
 }

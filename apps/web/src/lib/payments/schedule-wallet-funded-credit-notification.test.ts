@@ -143,19 +143,26 @@ describe('scheduleWalletFundedCreditNotification', () => {
   });
 
   it('does not schedule when another webhook already claimed the transfer', async () => {
-    const tasks: Array<() => Promise<void>> = [];
-    mockClaimWalletCreditPush.mockResolvedValue({
-      status: 'already_claimed',
-    });
+    vi.useFakeTimers();
+    try {
+      const tasks: Array<() => Promise<void>> = [];
+      mockClaimWalletCreditPush.mockResolvedValue({
+        status: 'already_claimed',
+      });
 
-    scheduleWalletFundedCreditNotification({
-      ...baseArgs,
-      fundedAmount: 20_000,
-      scheduleAfter: (task) => tasks.push(task),
-    });
+      scheduleWalletFundedCreditNotification({
+        ...baseArgs,
+        fundedAmount: 20_000,
+        scheduleAfter: (task) => tasks.push(task),
+      });
 
-    await tasks[0]?.();
-    expect(mockNotifyWalletCredited).not.toHaveBeenCalled();
+      const task = tasks[0]?.();
+      await vi.runAllTimersAsync();
+      await task;
+      expect(mockNotifyWalletCredited).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('retries a transient claim error before sending', async () => {

@@ -81,24 +81,31 @@ describe('scheduleWalletTopUpCreditNotification', () => {
   });
 
   it('does not send when an idempotent replay finds a completed claim', async () => {
-    const { scheduleAfter, tasks } = makeScheduleAfter();
-    mockClaimWalletCreditPush.mockResolvedValue({
-      status: 'already_claimed',
-    });
+    vi.useFakeTimers();
+    try {
+      const { scheduleAfter, tasks } = makeScheduleAfter();
+      mockClaimWalletCreditPush.mockResolvedValue({
+        status: 'already_claimed',
+      });
 
-    scheduleWalletTopUpCreditNotification({
-      ...baseArgs,
-      firstCredit: false,
-      metadata: { return_to: '/checkout' },
-      scheduleAfter,
-    });
-    await Promise.all(tasks.map((task) => task()));
+      scheduleWalletTopUpCreditNotification({
+        ...baseArgs,
+        firstCredit: false,
+        metadata: { return_to: '/checkout' },
+        scheduleAfter,
+      });
+      const runningTasks = tasks.map((task) => task());
+      await vi.runAllTimersAsync();
+      await Promise.all(runningTasks);
 
-    expect(scheduleAfter).toHaveBeenCalledTimes(1);
-    expect(mockClaimWalletCreditPush).toHaveBeenCalledWith(
-      expect.objectContaining({ allowInitialClaim: false })
-    );
-    expect(mockNotifyWalletCredited).not.toHaveBeenCalled();
+      expect(scheduleAfter).toHaveBeenCalledTimes(1);
+      expect(mockClaimWalletCreditPush).toHaveBeenCalledWith(
+        expect.objectContaining({ allowInitialClaim: false })
+      );
+      expect(mockNotifyWalletCredited).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('claims a concurrent top-up notification only once', async () => {
@@ -280,7 +287,7 @@ describe('scheduleWalletTopUpCreditNotification', () => {
     expect(mockWarn).not.toHaveBeenCalled();
   });
 
-  it('logs a claim-release failure when notification delivery throws', async () => {
+  it('retains the claim when notification delivery throws ambiguously', async () => {
     const { scheduleAfter, tasks } = makeScheduleAfter();
     mockNotifyWalletCredited.mockRejectedValueOnce(new Error('sender crashed'));
     mockReleaseWalletCreditPush.mockResolvedValue({
@@ -296,10 +303,10 @@ describe('scheduleWalletTopUpCreditNotification', () => {
     });
     await Promise.all(tasks.map((task) => task()));
 
-    expect(mockReleaseWalletCreditPush).toHaveBeenCalledTimes(2);
+    expect(mockReleaseWalletCreditPush).not.toHaveBeenCalled();
     expect(mockWarn).toHaveBeenCalledWith(
       expect.objectContaining({
-        error: expect.stringContaining('release failed after retry'),
+        error: 'sender crashed',
       })
     );
   });

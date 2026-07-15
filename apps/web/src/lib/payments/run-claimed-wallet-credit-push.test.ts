@@ -138,7 +138,7 @@ describe('runClaimedWalletCreditPush', () => {
     );
   });
 
-  it('releases the claim and reports an unexpected notification error', async () => {
+  it('retains the claim and reports an unexpected notification error', async () => {
     const error = new Error('sender crashed');
 
     await runClaimedWalletCreditPush({
@@ -146,7 +146,7 @@ describe('runClaimedWalletCreditPush', () => {
       notify: vi.fn().mockRejectedValue(error),
     });
 
-    expect(mockRelease).toHaveBeenCalledTimes(1);
+    expect(mockRelease).not.toHaveBeenCalled();
     expect(baseArgs.onFailure).toHaveBeenCalledWith(error);
   });
 });

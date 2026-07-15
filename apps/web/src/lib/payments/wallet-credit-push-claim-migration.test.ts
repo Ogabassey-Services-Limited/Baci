@@ -47,6 +47,21 @@ describe('wallet credit push claim migration', () => {
       'REVOKE ALL ON FUNCTION public.claim_wallet_credit_push_v2(uuid, text, boolean) FROM PUBLIC;'
     );
     expect(migrationSql).toContain(
+      'REVOKE ALL ON FUNCTION public.claim_wallet_credit_push_v2(uuid, text, boolean) FROM anon;'
+    );
+    expect(migrationSql).toContain(
+      'REVOKE ALL ON FUNCTION public.claim_wallet_credit_push_v2(uuid, text, boolean) FROM authenticated;'
+    );
+    expect(migrationSql).toContain(
+      'GRANT EXECUTE ON FUNCTION public.claim_wallet_credit_push_v2(uuid, text, boolean) TO service_role;'
+    );
+    expect(migrationSql).toContain(
+      'REVOKE ALL ON FUNCTION public.release_wallet_credit_push(uuid, text) FROM PUBLIC;'
+    );
+    expect(migrationSql).toContain(
+      'REVOKE ALL ON FUNCTION public.release_wallet_credit_push(uuid, text) FROM anon;'
+    );
+    expect(migrationSql).toContain(
       'REVOKE ALL ON FUNCTION public.release_wallet_credit_push(uuid, text) FROM authenticated;'
     );
     expect(migrationSql).toContain(
