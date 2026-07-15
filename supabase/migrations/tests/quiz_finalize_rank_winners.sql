@@ -354,6 +354,7 @@ BEGIN
   END IF;
 
   -- Fail-closed compliance gate: finalize_due must skip the unverified event.
+  PERFORM public.close_due_product_quiz_events();
   PERFORM public.finalize_due_quiz_events();
 
   SELECT count(*) INTO v_unverified_awards FROM public.quiz_awards WHERE event_id = v_e_unverified;
@@ -400,7 +401,7 @@ BEGIN
   END IF;
 
   IF (SELECT status FROM public.quiz_events WHERE id = v_e_product) IS DISTINCT FROM 'completed' THEN
-    RAISE EXCEPTION 'Due product-prize event must be closed by finalize_due_quiz_events';
+    RAISE EXCEPTION 'Due product-prize event must be closed by close_due_product_quiz_events';
   END IF;
   IF EXISTS (SELECT 1 FROM public.quiz_awards WHERE event_id = v_e_product) THEN
     RAISE EXCEPTION 'Product-prize closure must not mint ranked awards';

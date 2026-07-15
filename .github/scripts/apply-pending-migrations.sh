@@ -86,10 +86,14 @@ build_register_migration_query() {
      + "ARRAY[]::text[]);"'
 }
 
-historical_collision_repair_version() {
+historical_collision_repair_spec() {
   case "$1" in
-    20260615120000) printf '%s\n' '20260616205500' ;;
-    20260713130000) printf '%s\n' '20260713140000' ;;
+    20260615120000)
+      printf '%s\t%s\n' '20260616205500' 'return_registered_push_token_id'
+      ;;
+    20260713130000)
+      printf '%s\t%s\n' '20260713140000' 'quiz_finalize_rank_winners_reapply'
+      ;;
     *) return 1 ;;
   esac
 }
@@ -138,22 +142,25 @@ for file in "${sorted_files[@]}"; do
 
   recorded_name="$(awk -F '\t' -v version="$version" '$1 == version { print $2; exit }' <<<"$applied_migrations")"
   if [ -n "$recorded_name" ]; then
-    if repair_version="$(historical_collision_repair_version "$version")"; then
+    if repair_spec="$(historical_collision_repair_spec "$version")"; then
+      IFS=$'\t' read -r repair_version repair_name <<<"$repair_spec"
       if ! historical_collision_name_is_valid "$version" "$recorded_name" || \
         ! historical_collision_name_is_valid "$version" "$name"; then
         echo "::error::Historical collision $version has an unexpected recorded/current name pair: $recorded_name / $name" >&2
         exit 1
       fi
 
-      repair_is_applied="$(awk -F '\t' -v version="$repair_version" '$1 == version { print $1; exit }' <<<"$applied_migrations")"
-      shopt -s nullglob
-      repair_files=("$migrations_dir/${repair_version}_"*.sql)
-      shopt -u nullglob
-      if [ -z "$repair_is_applied" ] && [ "${#repair_files[@]}" -eq 0 ]; then
-        echo "::error::Historical collision $version requires repair migration $repair_version" >&2
+      repair_recorded_name="$(awk -F '\t' -v version="$repair_version" '$1 == version { print $2; exit }' <<<"$applied_migrations")"
+      if [ -n "$repair_recorded_name" ]; then
+        if [ "$repair_recorded_name" != "$repair_name" ]; then
+          echo "::error::Repair migration $repair_version is recorded as '$repair_recorded_name', not '$repair_name'" >&2
+          exit 1
+        fi
+      elif [ ! -f "$migrations_dir/${repair_version}_${repair_name}.sql" ]; then
+        echo "::error::Historical collision $version requires repair migration ${repair_version}_${repair_name}.sql" >&2
         exit 1
       fi
-      echo "::warning::Historical collision $version is reconciled by repair migration $repair_version (recorded name: $recorded_name)"
+      echo "::warning::Historical collision $version is reconciled by repair migration ${repair_version}_${repair_name}.sql (recorded name: $recorded_name)"
     elif [ "$recorded_name" != "$name" ]; then
       echo "::error::Migration $version is recorded as '$recorded_name', not current file '$name'" >&2
       exit 1

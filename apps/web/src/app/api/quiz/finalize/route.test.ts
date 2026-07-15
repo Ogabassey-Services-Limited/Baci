@@ -113,15 +113,15 @@ describe('GET /api/quiz/finalize', () => {
     expect(mockRpc).not.toHaveBeenCalledWith('finalize_due_quiz_events');
   });
 
-  it('calls finalize_due_quiz_events and returns the finalized count', async () => {
+  it('reports product closure separately from ranked finalization', async () => {
     mockRpc
-      .mockResolvedValueOnce({ data: 2, error: null })
+      .mockResolvedValueOnce({ data: 100, error: null })
       .mockResolvedValueOnce({ data: 4, error: null });
 
     const response = await GET(createCronRequest('Bearer test-cron-secret'));
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ closed: 2, finalized: 4 });
+    expect(await response.json()).toEqual({ closed: 100, finalized: 4 });
     expect(mockRpc).toHaveBeenNthCalledWith(1, 'close_due_product_quiz_events');
     expect(mockRpc).toHaveBeenNthCalledWith(2, 'finalize_due_quiz_events');
   });

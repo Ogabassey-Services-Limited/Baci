@@ -509,13 +509,16 @@ describe('quiz migration contracts', () => {
       /refresh_reason\s*=\s*'phase1a_award_finalize_stub'[\s\S]*NOT\s+EXISTS\s*\([\s\S]*FROM\s+public\.quiz_awards/i
     );
     expect(eventLifecycleSql).not.toMatch(
-      /award_finalized_at\s*<\s*'2026-07-14 22:00:00\+00'/i
+      /award_finalized_at\s*(?:<|<=|>|>=)\s*'[^']+'/i
     );
     expect(eventLifecycleSql).toMatch(
       /refresh_reason\s*=\s*'cron_award_finalize_rank_winners'/i
     );
     expect(eventLifecycleSql).toMatch(
       /SET\s+award_finalized_at\s*=\s*pg_catalog\.now\(\)[\s\S]*PERFORM\s+public\.mint_quiz_event_ranked_awards\(v_ranked_event_id\)/i
+    );
+    expect(eventLifecycleSql).not.toMatch(
+      /v_count\s+integer\s*:=\s*public\.close_due_product_quiz_events\(\)/i
     );
   });
 

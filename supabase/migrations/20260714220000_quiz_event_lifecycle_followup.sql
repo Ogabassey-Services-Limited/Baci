@@ -79,7 +79,7 @@ SET search_path = ''
 AS $$
 DECLARE
   v_ranked_event_id uuid;
-  v_count integer := public.close_due_product_quiz_events();
+  v_count integer := 0;
 BEGIN
   FOR v_ranked_event_id IN
     SELECT e.id
@@ -192,7 +192,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.finalize_due_quiz_events() IS
-  'Service-role cron entrypoint: closes due product-prize events without ranked minting; finalizes due compliant ranked events; and retries Phase-1a stub stamps that have no awards. Concurrency-safe and idempotent.';
+  'Service-role ranked-award entrypoint: finalizes due compliant ranked events and retries Phase-1a stub stamps that have no awards. Concurrency-safe and idempotent; product-prize closure is reported separately by close_due_product_quiz_events.';
 
 REVOKE ALL ON FUNCTION public.finalize_due_quiz_events() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.finalize_due_quiz_events() TO service_role;

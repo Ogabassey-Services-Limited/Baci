@@ -83,4 +83,39 @@ if PATH="$fake_bin:$PATH" \
 fi
 grep -q "recorded as 'recorded', not current file 'current'" "$fixture_root/renamed-output.log"
 
+wrong_local_dir="$fixture_root/wrong-local-repair"
+make_collision_fixture "$wrong_local_dir"
+mv \
+  "$wrong_local_dir/20260713140000_quiz_finalize_rank_winners_reapply.sql" \
+  "$wrong_local_dir/20260713140000_unrelated.sql"
+wrong_local_log="$fixture_root/wrong-local-repair-queries.log"
+if PATH="$fake_bin:$PATH" \
+  MIGRATIONS_DIR="$wrong_local_dir" \
+  SUPABASE_ACCESS_TOKEN=test \
+  SUPABASE_PROJECT_REF=test \
+  FAKE_QUERY_LOG="$wrong_local_log" \
+  FAKE_INITIAL_RESPONSE='[{"version":"20260713130000","name":"add_storefront_paystack_subaccount_configured_rpc"}]' \
+  bash "$applier" >"$fixture_root/wrong-local-repair-output.log" 2>&1; then
+  echo 'Expected an incorrectly named local repair migration to fail closed' >&2
+  exit 1
+fi
+grep -q 'requires repair migration 20260713140000_quiz_finalize_rank_winners_reapply.sql' \
+  "$fixture_root/wrong-local-repair-output.log"
+
+wrong_remote_dir="$fixture_root/wrong-remote-repair"
+make_collision_fixture "$wrong_remote_dir"
+wrong_remote_log="$fixture_root/wrong-remote-repair-queries.log"
+if PATH="$fake_bin:$PATH" \
+  MIGRATIONS_DIR="$wrong_remote_dir" \
+  SUPABASE_ACCESS_TOKEN=test \
+  SUPABASE_PROJECT_REF=test \
+  FAKE_QUERY_LOG="$wrong_remote_log" \
+  FAKE_INITIAL_RESPONSE='[{"version":"20260713130000","name":"add_storefront_paystack_subaccount_configured_rpc"},{"version":"20260713140000","name":"unrelated"}]' \
+  bash "$applier" >"$fixture_root/wrong-remote-repair-output.log" 2>&1; then
+  echo 'Expected an incorrectly named remote repair migration to fail closed' >&2
+  exit 1
+fi
+grep -q "Repair migration 20260713140000 is recorded as 'unrelated'" \
+  "$fixture_root/wrong-remote-repair-output.log"
+
 echo 'Migration applier collision tests passed'
