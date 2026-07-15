@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockClaim = vi.fn();
 const mockRelease = vi.fn();
+const mockWaitForClaimRelease = vi.fn(async () => undefined);
 
 vi.mock('@/lib/payments/claim-wallet-credit-push', () => ({
   claimWalletCreditPush: (...args: unknown[]) => mockClaim(...args),
@@ -19,6 +20,7 @@ const baseArgs = {
   onFailure: vi.fn(),
   reference: 'WAL-123',
   transactionId: 'transaction-1',
+  waitForClaimRelease: mockWaitForClaimRelease,
 };
 
 describe('runClaimedWalletCreditPush', () => {
@@ -61,6 +63,22 @@ describe('runClaimedWalletCreditPush', () => {
     await runClaimedWalletCreditPush({ ...baseArgs, notify });
 
     expect(notify).not.toHaveBeenCalled();
+  });
+
+  it('rechecks only for a retry marker after the winning worker releases', async () => {
+    mockClaim
+      .mockResolvedValueOnce({ status: 'already_claimed' })
+      .mockResolvedValueOnce({ status: 'claimed' });
+    const notify = vi.fn().mockResolvedValue({ status: 'sent' });
+
+    await runClaimedWalletCreditPush({ ...baseArgs, notify });
+
+    expect(mockWaitForClaimRelease).toHaveBeenCalledTimes(1);
+    expect(mockClaim).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ allowInitialClaim: false })
+    );
+    expect(notify).toHaveBeenCalledTimes(1);
   });
 
   it('retries transient claim and release errors once', async () => {

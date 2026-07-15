@@ -762,6 +762,29 @@ describe('notifyCustomer', () => {
     expect(mockSendPushNotificationsAsync).not.toHaveBeenCalled();
   });
 
+  it('does not signal delivery start when every stored token is malformed', async () => {
+    const mockChain = createChainableMock([{ token: 'not-an-expo-token' }]);
+    const onDeliveryStart = vi.fn();
+
+    vi.mocked(createAdminClient).mockReturnValue({
+      from: vi.fn().mockReturnValue(mockChain),
+    } as never);
+
+    const result = await notifyCustomer(
+      'user-456',
+      'Test',
+      'Body',
+      undefined,
+      'payments',
+      { onDeliveryStart }
+    );
+
+    expect(onDeliveryStart).not.toHaveBeenCalled();
+    expect(mockSendPushNotificationsAsync).not.toHaveBeenCalled();
+    expect(result.sent).toBe(0);
+    expect(result.failed).toBe(1);
+  });
+
   it('persists title, body, and payload for successful customer sends', async () => {
     const selectChain = createChainableMock([
       { token: 'ExponentPushToken[c1]' },

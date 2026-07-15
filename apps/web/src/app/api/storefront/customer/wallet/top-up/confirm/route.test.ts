@@ -108,6 +108,7 @@ const defaultTransaction = {
 describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockClaimWalletCreditPush.mockResolvedValue({ status: 'claimed' });
     mockAuthenticateApiRequest.mockResolvedValue({
       error: null,
       supabase: {},
@@ -763,7 +764,9 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
       const response = await confirmRequest();
 
       expect(response.status).toBe(200);
-      expect(mockNotifyWalletCredited).toHaveBeenCalledTimes(1);
+      await vi.waitFor(() =>
+        expect(mockNotifyWalletCredited).toHaveBeenCalledTimes(1)
+      );
       expect(mockNotifyWalletCredited).toHaveBeenCalledWith({
         amount: 2500,
         currency: 'NGN',
@@ -774,6 +777,7 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
     });
 
     it('stays silent when the webhook won the race and already took the credit', async () => {
+      vi.useFakeTimers();
       mockTransaction({ ...defaultTransaction, status: 'completed' });
       mockCreditWalletTopUp.mockResolvedValue({
         balance: 7500,
@@ -781,15 +785,20 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
         reference: 'WAL-123',
         transactionId: 'wallet-tx-1',
       });
-      mockClaimWalletCreditPush.mockResolvedValueOnce({
+      mockClaimWalletCreditPush.mockResolvedValue({
         status: 'already_claimed',
       });
 
-      const response = await confirmRequest();
+      try {
+        const response = await confirmRequest();
+        await vi.runAllTimersAsync();
 
-      expect(response.status).toBe(200);
-      expect(mockCreditWalletTopUp).toHaveBeenCalledTimes(1);
-      expect(mockNotifyWalletCredited).not.toHaveBeenCalled();
+        expect(response.status).toBe(200);
+        expect(mockCreditWalletTopUp).toHaveBeenCalledTimes(1);
+        expect(mockNotifyWalletCredited).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it('notifies from the already-completed branch when that retry lands the credit', async () => {
@@ -811,7 +820,9 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
       const response = await confirmRequest();
 
       expect(response.status).toBe(200);
-      expect(mockNotifyWalletCredited).toHaveBeenCalledTimes(1);
+      await vi.waitFor(() =>
+        expect(mockNotifyWalletCredited).toHaveBeenCalledTimes(1)
+      );
       expect(mockNotifyWalletCredited).toHaveBeenCalledWith(
         expect.objectContaining({ returnTo: '/utilities/airtime' })
       );
@@ -835,8 +846,10 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
       const response = await confirmRequest();
 
       expect(response.status).toBe(200);
-      expect(mockNotifyWalletCredited).toHaveBeenCalledWith(
-        expect.objectContaining({ returnTo: undefined })
+      await vi.waitFor(() =>
+        expect(mockNotifyWalletCredited).toHaveBeenCalledWith(
+          expect.objectContaining({ returnTo: undefined })
+        )
       );
     });
 

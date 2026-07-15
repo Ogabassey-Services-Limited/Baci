@@ -461,6 +461,7 @@ function setupSuccessfulTransactionMocks(
 describe('POST /api/payments/webhook', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockClaimWalletCreditPush.mockResolvedValue({ status: 'claimed' });
     // Reset the mock clients
     mockServiceClient = createMockSupabaseClient();
     mockSupabaseClient = createMockSupabaseClient();
@@ -4076,21 +4077,26 @@ describe('POST /api/payments/webhook', () => {
     });
 
     it('suppresses the wallet-credited push on idempotent webhook replays', async () => {
+      vi.useFakeTimers();
       mockCreditWalletTopUp.mockResolvedValueOnce({
         balance: 20000,
         firstCredit: false,
         reference: 'REF123',
         transactionId: 'wallet-credit-1',
       });
-      mockClaimWalletCreditPush.mockResolvedValueOnce({
+      mockClaimWalletCreditPush.mockResolvedValue({
         status: 'already_claimed',
       });
-      const request = await buildWalletTopUpWebhookRequest();
+      try {
+        const request = await buildWalletTopUpWebhookRequest();
+        const response = await POST(request);
+        await vi.runAllTimersAsync();
 
-      const response = await POST(request);
-
-      expect(response.status).toBe(200);
-      expect(mockNotifyWalletCredited).not.toHaveBeenCalled();
+        expect(response.status).toBe(200);
+        expect(mockNotifyWalletCredited).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it('acknowledges the webhook even when the scheduled push rejects', async () => {

@@ -111,7 +111,8 @@ export async function sendPushNotification(
  * - Returns a ticket per original message (invalid tokens get synthetic error tickets)
  */
 export async function sendPushNotifications(
-  messages: ExpoPushMessage[]
+  messages: ExpoPushMessage[],
+  options?: { onDeliveryStart?: () => void }
 ): Promise<ExpoPushTicket[]> {
   if (messages.length === 0) return [];
 
@@ -147,9 +148,14 @@ export async function sendPushNotifications(
   // Chunk and send
   const chunks = _getExpo().chunkPushNotifications(validMessages);
   const sdkTickets: ExpoPushTicket[] = [];
+  let deliveryStarted = false;
 
   for (const chunk of chunks) {
     try {
+      if (!deliveryStarted) {
+        options?.onDeliveryStart?.();
+        deliveryStarted = true;
+      }
       const chunkTickets = await _getExpo().sendPushNotificationsAsync(chunk);
       sdkTickets.push(...chunkTickets);
     } catch (error) {
@@ -392,8 +398,9 @@ export async function notifyCustomer(
 
   let result: NotificationSendResult;
   try {
-    options?.onDeliveryStart?.();
-    const tickets = await sendPushNotifications(messages);
+    const tickets = await sendPushNotifications(messages, {
+      onDeliveryStart: options?.onDeliveryStart,
+    });
 
     result = await processTickets(tickets, tokens, supabase, {
       merchantId: options?.merchantId,

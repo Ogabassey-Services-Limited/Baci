@@ -2,6 +2,12 @@ import { claimWalletCreditPush } from '@/lib/payments/claim-wallet-credit-push';
 import type { NotifyWalletCreditedResult } from '@/lib/payments/notify-wallet-credited';
 import { releaseWalletCreditPush } from '@/lib/payments/release-wallet-credit-push';
 
+const CLAIM_RELEASE_RECHECK_DELAYS_MS = [100, 500, 1500] as const;
+
+function waitForClaimRelease(delayMs: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, delayMs));
+}
+
 interface RunClaimedWalletCreditPushArgs {
   allowInitialClaim: boolean;
   claimToken: string;
@@ -9,6 +15,7 @@ interface RunClaimedWalletCreditPushArgs {
   onFailure: (error: unknown) => void;
   reference: string;
   transactionId: string;
+  waitForClaimRelease?: (delayMs: number) => Promise<void>;
 }
 
 /** Runs one wallet-credit push behind an atomic, retry-aware delivery claim. */
@@ -19,6 +26,7 @@ export async function runClaimedWalletCreditPush({
   onFailure,
   reference,
   transactionId,
+  waitForClaimRelease: waitForRelease = waitForClaimRelease,
 }: RunClaimedWalletCreditPushArgs): Promise<void> {
   let ownsClaim = false;
   const claimArgs = {
@@ -28,6 +36,15 @@ export async function runClaimedWalletCreditPush({
     transactionId,
   };
   const releaseArgs = { claimToken, reference, transactionId };
+  const claimWithRetry = async (
+    args: typeof claimArgs
+  ): Promise<Awaited<ReturnType<typeof claimWalletCreditPush>>> => {
+    let claim = await claimWalletCreditPush(args);
+    if (claim.status === 'error') {
+      claim = await claimWalletCreditPush(args);
+    }
+    return claim;
+  };
   const releaseClaim = async (): Promise<void> => {
     try {
       let release = await releaseWalletCreditPush(releaseArgs);
@@ -52,10 +69,7 @@ export async function runClaimedWalletCreditPush({
   };
 
   try {
-    let claim = await claimWalletCreditPush(claimArgs);
-    if (claim.status === 'error') {
-      claim = await claimWalletCreditPush(claimArgs);
-    }
+    let claim = await claimWithRetry(claimArgs);
     if (claim.status === 'error') {
       onFailure(
         new Error(`Wallet-credit push claim failed after retry: ${claim.error}`)
@@ -63,7 +77,28 @@ export async function runClaimedWalletCreditPush({
       return;
     }
     if (claim.status === 'already_claimed') {
-      return;
+      const retryOnlyClaimArgs = {
+        ...claimArgs,
+        allowInitialClaim: false,
+      };
+      for (const delayMs of CLAIM_RELEASE_RECHECK_DELAYS_MS) {
+        await waitForRelease(delayMs);
+        claim = await claimWithRetry(retryOnlyClaimArgs);
+        if (claim.status === 'error') {
+          onFailure(
+            new Error(
+              `Wallet-credit push retry claim failed after retry: ${claim.error}`
+            )
+          );
+          return;
+        }
+        if (claim.status === 'claimed') {
+          break;
+        }
+      }
+      if (claim.status === 'already_claimed') {
+        return;
+      }
     }
     ownsClaim = true;
 

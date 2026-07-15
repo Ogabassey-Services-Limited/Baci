@@ -200,7 +200,7 @@ describe('processWalletFundedOrderPayment', () => {
       kind: 'match',
     });
     const tasks: Array<() => Promise<void>> = [];
-    mockClaimWalletCreditPush.mockResolvedValueOnce({
+    mockClaimWalletCreditPush.mockResolvedValue({
       status: 'already_claimed',
     });
 
@@ -240,9 +240,16 @@ describe('processWalletFundedOrderPayment', () => {
     ]);
 
     expect(tasks).toHaveLength(2);
-    mockClaimWalletCreditPush
-      .mockResolvedValueOnce({ status: 'claimed' })
-      .mockResolvedValueOnce({ status: 'already_claimed' });
+    let initialClaimed = false;
+    mockClaimWalletCreditPush.mockImplementation(
+      async ({ allowInitialClaim }: { allowInitialClaim: boolean }) => {
+        if (allowInitialClaim && !initialClaimed) {
+          initialClaimed = true;
+          return { status: 'claimed' };
+        }
+        return { status: 'already_claimed' };
+      }
+    );
     await Promise.all(tasks.map((task) => task()));
     expect(mockNotifyWalletCredited).toHaveBeenCalledTimes(1);
   });

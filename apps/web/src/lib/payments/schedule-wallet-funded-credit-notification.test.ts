@@ -144,7 +144,7 @@ describe('scheduleWalletFundedCreditNotification', () => {
 
   it('does not schedule when another webhook already claimed the transfer', async () => {
     const tasks: Array<() => Promise<void>> = [];
-    mockClaimWalletCreditPush.mockResolvedValueOnce({
+    mockClaimWalletCreditPush.mockResolvedValue({
       status: 'already_claimed',
     });
 

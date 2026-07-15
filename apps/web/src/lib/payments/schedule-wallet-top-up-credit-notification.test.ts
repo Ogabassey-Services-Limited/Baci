@@ -82,7 +82,7 @@ describe('scheduleWalletTopUpCreditNotification', () => {
 
   it('does not send when an idempotent replay finds a completed claim', async () => {
     const { scheduleAfter, tasks } = makeScheduleAfter();
-    mockClaimWalletCreditPush.mockResolvedValueOnce({
+    mockClaimWalletCreditPush.mockResolvedValue({
       status: 'already_claimed',
     });
 
@@ -103,9 +103,16 @@ describe('scheduleWalletTopUpCreditNotification', () => {
 
   it('claims a concurrent top-up notification only once', async () => {
     const { scheduleAfter, tasks } = makeScheduleAfter();
-    mockClaimWalletCreditPush
-      .mockResolvedValueOnce({ status: 'claimed' })
-      .mockResolvedValueOnce({ status: 'already_claimed' });
+    let initialClaimed = false;
+    mockClaimWalletCreditPush.mockImplementation(
+      async ({ allowInitialClaim }: { allowInitialClaim: boolean }) => {
+        if (allowInitialClaim && !initialClaimed) {
+          initialClaimed = true;
+          return { status: 'claimed' };
+        }
+        return { status: 'already_claimed' };
+      }
+    );
 
     scheduleWalletTopUpCreditNotification({
       ...baseArgs,
