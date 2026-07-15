@@ -51,6 +51,15 @@ function runNativeAdConfigCheck(projectRoot = PROJECT_ROOT) {
   });
 }
 
+function replaceRequired(
+  source: string,
+  target: string | RegExp,
+  replacement: string
+) {
+  expect(source).toMatch(target);
+  return source.replace(target, replacement);
+}
+
 describe('check-ad-tracking-native-config', () => {
   it('keeps the committed iOS ad-tracking plist in sync with app config', () => {
     const result = runNativeAdConfigCheck();
@@ -121,8 +130,9 @@ describe('check-ad-tracking-native-config', () => {
     try {
       copyRequiredProjectFiles(tempRoot);
       const fastfilePath = path.join(tempRoot, 'fastlane', 'Fastfile');
-      const fastfile = readFileSync(fastfilePath, 'utf8').replace(
-        /\s*app_review_information:\s*\{\s*notes:\s*review_notes_text\s*\},?/,
+      const fastfile = replaceRequired(
+        readFileSync(fastfilePath, 'utf8'),
+        'update_app_review_notes!(review_notes_text, app_version: app_version)',
         ''
       );
       writeFileSync(fastfilePath, fastfile);
@@ -131,7 +141,7 @@ describe('check-ad-tracking-native-config', () => {
 
       expect(result.status).toBe(1);
       expect(result.stderr).toContain(
-        'Fastfile: submit deliver_opts must include ATT app_review_information.notes'
+        'Fastfile: submit lane must upload ATT App Review notes'
       );
     } finally {
       rmSync(tempRoot, { force: true, recursive: true });
@@ -145,7 +155,8 @@ describe('check-ad-tracking-native-config', () => {
     try {
       copyRequiredProjectFiles(tempRoot);
       const fastfilePath = path.join(tempRoot, 'fastlane', 'Fastfile');
-      const fastfile = readFileSync(fastfilePath, 'utf8').replace(
+      const fastfile = replaceRequired(
+        readFileSync(fastfilePath, 'utf8'),
         'add_id_info_uses_idfa: true',
         'add_id_info_uses_idfa: false'
       );
@@ -169,7 +180,8 @@ describe('check-ad-tracking-native-config', () => {
     try {
       copyRequiredProjectFiles(tempRoot);
       const fastfilePath = path.join(tempRoot, 'fastlane', 'Fastfile');
-      const fastfile = readFileSync(fastfilePath, 'utf8').replace(
+      const fastfile = replaceRequired(
+        readFileSync(fastfilePath, 'utf8'),
         'review_notes_text = DEFAULT_ATT_REVIEW_NOTES if review_notes_text.empty?',
         ''
       );
@@ -186,21 +198,23 @@ describe('check-ad-tracking-native-config', () => {
     }
   });
 
-  it('rejects App Review information placed outside submit deliver options', () => {
+  it('rejects App Review notes updated outside the submit lane', () => {
     const tempRoot = mkdtempSync(
       path.join(os.tmpdir(), 'baci-ad-tracking-config-')
     );
     try {
       copyRequiredProjectFiles(tempRoot);
       const fastfilePath = path.join(tempRoot, 'fastlane', 'Fastfile');
-      const reviewInformation = `app_review_information: {
-        notes: review_notes_text
-      },`;
-      const fastfile = readFileSync(fastfilePath, 'utf8')
-        .replace(reviewInformation, '')
+      const reviewInformation =
+        'update_app_review_notes!(review_notes_text, app_version: app_version)';
+      const fastfile = replaceRequired(
+        readFileSync(fastfilePath, 'utf8'),
+        reviewInformation,
+        ''
+      )
         .replace(
           'lane :submit do',
-          `decoy_review_information = { ${reviewInformation} }\n  lane :submit do`
+          `${reviewInformation}\n  lane :submit do`
         );
       writeFileSync(fastfilePath, fastfile);
 
@@ -208,8 +222,63 @@ describe('check-ad-tracking-native-config', () => {
 
       expect(result.status).toBe(1);
       expect(result.stderr).toContain(
-        'Fastfile: submit deliver_opts must include ATT app_review_information.notes'
+        'Fastfile: submit lane must upload ATT App Review notes'
       );
+    } finally {
+      rmSync(tempRoot, { force: true, recursive: true });
+    }
+  });
+
+  it('rejects metadata upload that could delete App Review attachments', () => {
+    const tempRoot = mkdtempSync(
+      path.join(os.tmpdir(), 'baci-ad-tracking-config-')
+    );
+    try {
+      copyRequiredProjectFiles(tempRoot);
+      const fastfilePath = path.join(tempRoot, 'fastlane', 'Fastfile');
+      const fastfile = replaceRequired(
+        readFileSync(fastfilePath, 'utf8'),
+        'skip_metadata: true',
+        'skip_metadata: false'
+      );
+      writeFileSync(fastfilePath, fastfile);
+
+      const result = runNativeAdConfigCheck(tempRoot);
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain(
+        'skip_metadata must remain true so review-note updates preserve attachments'
+      );
+    } finally {
+      rmSync(tempRoot, { force: true, recursive: true });
+    }
+  });
+
+  it.each([
+    {
+      expected: 'submit lane must upload ATT App Review notes',
+      target: 'update_app_review_notes!(review_notes_text, app_version: app_version)',
+    },
+    {
+      expected: 'skip_metadata must remain true',
+      target: 'skip_metadata: true',
+    },
+  ])('rejects required Fastfile configuration left only in a comment', ({ target, expected }) => {
+    const tempRoot = mkdtempSync(path.join(os.tmpdir(), 'baci-ad-tracking-config-'));
+    try {
+      copyRequiredProjectFiles(tempRoot);
+      const fastfilePath = path.join(tempRoot, 'fastlane', 'Fastfile');
+      const fastfile = replaceRequired(
+        readFileSync(fastfilePath, 'utf8'),
+        target,
+        `# ${target}`
+      );
+      writeFileSync(fastfilePath, fastfile);
+
+      const result = runNativeAdConfigCheck(tempRoot);
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain(expected);
     } finally {
       rmSync(tempRoot, { force: true, recursive: true });
     }

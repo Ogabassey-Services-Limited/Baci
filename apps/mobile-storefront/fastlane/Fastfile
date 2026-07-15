@@ -40,6 +40,38 @@ def asc_api_key
   )
 end
 
+def update_app_review_notes!(notes, app_version:)
+  UI.user_error!("App Review notes must not exceed 4000 bytes") if notes.bytesize > 4000
+
+  app = Spaceship::ConnectAPI::App.find(BUNDLE_ID)
+  UI.user_error!("Could not find App Store Connect app #{BUNDLE_ID}") unless app
+
+  version = app.get_edit_app_store_version(
+    platform: Spaceship::ConnectAPI::Platform::IOS
+  )
+  UI.user_error!("Could not find an editable iOS App Store version") unless version
+  if !app_version.empty? && version.version_string != app_version
+    UI.user_error!(
+      "Editable App Store version is #{version.version_string}, not requested #{app_version}"
+    )
+  end
+
+  review_detail = version.fetch_app_store_review_detail
+  UI.user_error!("Configure App Review contact information in App Store Connect first") unless review_detail
+  missing_contact_fields = {
+    "first name" => review_detail.contact_first_name,
+    "last name" => review_detail.contact_last_name,
+    "phone" => review_detail.contact_phone,
+    "email" => review_detail.contact_email
+  }.select { |_name, value| value.to_s.strip.empty? }.keys
+  unless missing_contact_fields.empty?
+    UI.user_error!("Missing App Review contact fields: #{missing_contact_fields.join(', ')}")
+  end
+
+  UI.message("Updating App Review notes without replacing existing attachments")
+  review_detail.update(attributes: { notes: notes })
+end
+
 def upload_ipa_with_altool!(ipa_path, wait_for_processing:)
   absolute_ipa_path = File.expand_path(ipa_path)
   UI.user_error!("Expected IPA does not exist: #{absolute_ipa_path}") unless File.file?(absolute_ipa_path)
@@ -153,13 +185,10 @@ platform :ios do
     deliver_opts = {
       api_key: api_key,
       skip_binary_upload: true,
-      # Upload only the explicit review information below. No localized
-      # metadata files are present, and screenshots remain disabled.
-      skip_metadata: false,
+      # Review notes are updated directly above so deliver's metadata path
+      # cannot delete an existing App Review attachment.
+      skip_metadata: true,
       skip_screenshots: true,
-      app_review_information: {
-        notes: review_notes_text
-      },
       submit_for_review: true,
       automatic_release: true,
       force: true,
@@ -190,6 +219,8 @@ platform :ios do
         "Setting only one creates ambiguity about which version to attach the changelog to."
       )
     end
+
+    update_app_review_notes!(review_notes_text, app_version: app_version)
 
     deliver_opts[:build_number] = build_number unless build_number.empty?
     deliver_opts[:app_version] = app_version unless app_version.empty?
