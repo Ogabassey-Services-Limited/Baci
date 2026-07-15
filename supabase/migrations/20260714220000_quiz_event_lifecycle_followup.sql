@@ -5,11 +5,11 @@
 -- an event that start_quiz_attempt already rejects as expired.
 --
 -- Before ranked minting shipped, the Phase-1a finalizer could stamp
--- award_finalized_at without creating quiz_awards. Re-admit only stamps older
--- than this fix, and only when no award exists. Re-stamping with now() makes the
--- recovery one-shot even when an event has no eligible winner.
+-- award_finalized_at without creating quiz_awards. Recover rows carrying the
+-- durable Phase-1a stub log, and mark the recovery with the ranked cron refresh
+-- log so it remains one-shot even when an event has no eligible winner.
 
-CREATE OR REPLACE FUNCTION public.finalize_due_quiz_events()
+CREATE OR REPLACE FUNCTION public.close_due_product_quiz_events()
 RETURNS integer
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -17,7 +17,6 @@ SET search_path = ''
 AS $$
 DECLARE
   v_product_event_id uuid;
-  v_ranked_event_id uuid;
   v_count integer := 0;
 BEGIN
   FOR v_product_event_id IN
@@ -62,17 +61,49 @@ BEGIN
     END IF;
   END LOOP;
 
+  RETURN v_count;
+END;
+$$;
+
+COMMENT ON FUNCTION public.close_due_product_quiz_events() IS
+  'Service-role lifecycle entrypoint: closes due product-prize events without entering ranked award minting.';
+
+REVOKE ALL ON FUNCTION public.close_due_product_quiz_events() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.close_due_product_quiz_events() TO service_role;
+
+CREATE OR REPLACE FUNCTION public.finalize_due_quiz_events()
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_ranked_event_id uuid;
+  v_count integer := public.close_due_product_quiz_events();
+BEGIN
   FOR v_ranked_event_id IN
     SELECT e.id
     FROM public.quiz_events e
     WHERE (
         e.award_finalized_at IS NULL
         OR (
-          e.award_finalized_at < '2026-07-14 22:00:00+00'::timestamptz
+          e.award_finalized_at IS NOT NULL
+          AND EXISTS (
+            SELECT 1
+            FROM public.leaderboard_refresh_log stub_log
+            WHERE stub_log.event_id = e.id
+              AND stub_log.refresh_reason = 'phase1a_award_finalize_stub'
+          )
           AND NOT EXISTS (
             SELECT 1
             FROM public.quiz_awards legacy_award
             WHERE legacy_award.event_id = e.id
+          )
+          AND NOT EXISTS (
+            SELECT 1
+            FROM public.leaderboard_refresh_log recovery_log
+            WHERE recovery_log.event_id = e.id
+              AND recovery_log.refresh_reason = 'cron_award_finalize_rank_winners'
           )
         )
       )
@@ -115,11 +146,23 @@ BEGIN
       AND (
         e.award_finalized_at IS NULL
         OR (
-          e.award_finalized_at < '2026-07-14 22:00:00+00'::timestamptz
+          e.award_finalized_at IS NOT NULL
+          AND EXISTS (
+            SELECT 1
+            FROM public.leaderboard_refresh_log stub_log
+            WHERE stub_log.event_id = e.id
+              AND stub_log.refresh_reason = 'phase1a_award_finalize_stub'
+          )
           AND NOT EXISTS (
             SELECT 1
             FROM public.quiz_awards legacy_award
             WHERE legacy_award.event_id = e.id
+          )
+          AND NOT EXISTS (
+            SELECT 1
+            FROM public.leaderboard_refresh_log recovery_log
+            WHERE recovery_log.event_id = e.id
+              AND recovery_log.refresh_reason = 'cron_award_finalize_rank_winners'
           )
         )
       );
@@ -149,7 +192,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.finalize_due_quiz_events() IS
-  'Service-role cron entrypoint: closes due product-prize events without ranked minting; finalizes due compliant ranked events; and retries pre-2026-07-14 Phase-1a stamps that have no awards. Concurrency-safe and idempotent.';
+  'Service-role cron entrypoint: closes due product-prize events without ranked minting; finalizes due compliant ranked events; and retries Phase-1a stub stamps that have no awards. Concurrency-safe and idempotent.';
 
 REVOKE ALL ON FUNCTION public.finalize_due_quiz_events() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.finalize_due_quiz_events() TO service_role;

@@ -8,8 +8,9 @@
 #
 # For each .sql file in supabase/migrations/ in filename order, the script:
 #   1. Extracts the version (timestamp prefix) and name from the filename.
-#   2. Skips the file if the version is already in
-#      supabase_migrations.schema_migrations.
+#   2. Skips the file if the version+recorded name is already reconciled in
+#      supabase_migrations.schema_migrations. Two known historical collisions
+#      are accepted only when their later repair migration is present.
 #   3. Otherwise sends a single Management API request that runs the
 #      migration SQL AND registers a row in schema_migrations. Normal migrations
 #      are wrapped in one explicit BEGIN/COMMIT transaction, so the SQL and its
@@ -30,7 +31,7 @@
 
 set -euo pipefail
 
-migrations_dir="$(cd "$(dirname "$0")/../.." && pwd)/supabase/migrations"
+migrations_dir="${MIGRATIONS_DIR:-$(cd "$(dirname "$0")/../.." && pwd)/supabase/migrations}"
 if [ ! -d "$migrations_dir" ]; then
   echo "::error::supabase/migrations directory not found at $migrations_dir"
   exit 1
@@ -72,155 +73,7 @@ api_query_payload() {
 }
 
 split_sql_statements() {
-  node - "$1" <<'NODE'
-const fs = require('node:fs');
-
-const sql = fs.readFileSync(process.argv[2], 'utf8');
-const statements = [];
-let start = 0;
-let i = 0;
-let singleQuote = false;
-let escapeStringQuote = false;
-let doubleQuote = false;
-let lineComment = false;
-let blockCommentDepth = 0;
-let dollarQuoteTag = null;
-
-const isDollarTagCharacter = (char) => /[A-Za-z0-9_]/.test(char);
-const isIdentifierCharacter = (char) => /[A-Za-z0-9_$]/.test(char);
-const isEscapeStringPrefix = (quoteIndex) => {
-  const previous = sql[quoteIndex - 1];
-  if (previous !== 'E' && previous !== 'e') {
-    return false;
-  }
-
-  const beforePrevious = sql[quoteIndex - 2];
-  return !beforePrevious || !isIdentifierCharacter(beforePrevious);
-};
-
-while (i < sql.length) {
-  const char = sql[i];
-  const next = sql[i + 1];
-
-  if (lineComment) {
-    if (char === '\n') {
-      lineComment = false;
-    }
-    i += 1;
-    continue;
-  }
-
-  if (blockCommentDepth > 0) {
-    if (char === '/' && next === '*') {
-      blockCommentDepth += 1;
-      i += 2;
-      continue;
-    }
-    if (char === '*' && next === '/') {
-      blockCommentDepth -= 1;
-      i += 2;
-      continue;
-    }
-    i += 1;
-    continue;
-  }
-
-  if (dollarQuoteTag) {
-    if (sql.startsWith(dollarQuoteTag, i)) {
-      i += dollarQuoteTag.length;
-      dollarQuoteTag = null;
-      continue;
-    }
-    i += 1;
-    continue;
-  }
-
-  if (singleQuote) {
-    if (escapeStringQuote && char === '\\') {
-      i += 2;
-      continue;
-    }
-    if (char === "'" && next === "'") {
-      i += 2;
-      continue;
-    }
-    if (char === "'") {
-      singleQuote = false;
-      escapeStringQuote = false;
-    }
-    i += 1;
-    continue;
-  }
-
-  if (doubleQuote) {
-    if (char === '"' && next === '"') {
-      i += 2;
-      continue;
-    }
-    if (char === '"') {
-      doubleQuote = false;
-    }
-    i += 1;
-    continue;
-  }
-
-  if (char === '-' && next === '-') {
-    lineComment = true;
-    i += 2;
-    continue;
-  }
-
-  if (char === '/' && next === '*') {
-    blockCommentDepth = 1;
-    i += 2;
-    continue;
-  }
-
-  if (char === "'") {
-    singleQuote = true;
-    escapeStringQuote = isEscapeStringPrefix(i);
-    i += 1;
-    continue;
-  }
-
-  if (char === '"') {
-    doubleQuote = true;
-    i += 1;
-    continue;
-  }
-
-  if (char === '$') {
-    let end = i + 1;
-    while (end < sql.length && isDollarTagCharacter(sql[end])) {
-      end += 1;
-    }
-    if (sql[end] === '$') {
-      dollarQuoteTag = sql.slice(i, end + 1);
-      i = end + 1;
-      continue;
-    }
-  }
-
-  if (char === ';') {
-    const statement = sql.slice(start, i + 1).trim();
-    if (statement.replace(/--.*$/gm, '').trim()) {
-      statements.push(statement);
-    }
-    start = i + 1;
-  }
-
-  i += 1;
-}
-
-const trailing = sql.slice(start).trim();
-if (trailing.replace(/--.*$/gm, '').trim()) {
-  statements.push(trailing);
-}
-
-for (const statement of statements) {
-  console.log(JSON.stringify(statement));
-}
-NODE
+  node "$(dirname "$0")/split-sql-statements.mjs" "$1"
 }
 
 build_register_migration_query() {
@@ -233,11 +86,33 @@ build_register_migration_query() {
      + "ARRAY[]::text[]);"'
 }
 
-applied_versions_body="$(jq -n '{query: "SELECT version FROM supabase_migrations.schema_migrations ORDER BY version"}')"
-applied_versions_response="$(api_query <<<"$applied_versions_body")"
-applied_versions="$(jq -r '.[].version' <<<"$applied_versions_response")"
+historical_collision_repair_version() {
+  case "$1" in
+    20260615120000) printf '%s\n' '20260616205500' ;;
+    20260713130000) printf '%s\n' '20260713140000' ;;
+    *) return 1 ;;
+  esac
+}
 
-applied_count_remote=$(printf '%s' "$applied_versions" | grep -c . || true)
+historical_collision_name_is_valid() {
+  case "$1:$2" in
+    20260615120000:customer_order_cancellation | \
+    20260615120000:register_push_token_rpc | \
+    20260713130000:add_storefront_paystack_subaccount_configured_rpc | \
+    20260713130000:quiz_finalize_rank_winners)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+applied_versions_body="$(jq -n '{query: "SELECT version, name FROM supabase_migrations.schema_migrations ORDER BY version"}')"
+applied_versions_response="$(api_query <<<"$applied_versions_body")"
+applied_migrations="$(jq -r '.[] | [.version, .name] | @tsv' <<<"$applied_versions_response")"
+
+applied_count_remote=$(printf '%s' "$applied_migrations" | grep -c . || true)
 echo "Applied versions on remote: ${applied_count_remote}"
 
 shopt -s nullglob
@@ -249,7 +124,9 @@ if [ "${#files[@]}" -eq 0 ]; then
   exit 0
 fi
 
-mapfile -t sorted_files < <(printf '%s\n' "${files[@]}" | sort)
+# Bash expands globs in lexical order, which is the migration timestamp order.
+# Avoid mapfile so the deployment preflight is also testable with macOS Bash.
+sorted_files=("${files[@]}")
 
 applied_count=0
 skipped_count=0
@@ -259,7 +136,28 @@ for file in "${sorted_files[@]}"; do
   version="${base%%_*}"
   name="${base#*_}"
 
-  if printf '%s\n' "$applied_versions" | grep -qx "$version"; then
+  recorded_name="$(awk -F '\t' -v version="$version" '$1 == version { print $2; exit }' <<<"$applied_migrations")"
+  if [ -n "$recorded_name" ]; then
+    if repair_version="$(historical_collision_repair_version "$version")"; then
+      if ! historical_collision_name_is_valid "$version" "$recorded_name" || \
+        ! historical_collision_name_is_valid "$version" "$name"; then
+        echo "::error::Historical collision $version has an unexpected recorded/current name pair: $recorded_name / $name" >&2
+        exit 1
+      fi
+
+      repair_is_applied="$(awk -F '\t' -v version="$repair_version" '$1 == version { print $1; exit }' <<<"$applied_migrations")"
+      shopt -s nullglob
+      repair_files=("$migrations_dir/${repair_version}_"*.sql)
+      shopt -u nullglob
+      if [ -z "$repair_is_applied" ] && [ "${#repair_files[@]}" -eq 0 ]; then
+        echo "::error::Historical collision $version requires repair migration $repair_version" >&2
+        exit 1
+      fi
+      echo "::warning::Historical collision $version is reconciled by repair migration $repair_version (recorded name: $recorded_name)"
+    elif [ "$recorded_name" != "$name" ]; then
+      echo "::error::Migration $version is recorded as '$recorded_name', not current file '$name'" >&2
+      exit 1
+    fi
     echo "✓ already applied: $version  ${name}"
     skipped_count=$((skipped_count + 1))
     continue
@@ -290,6 +188,7 @@ for file in "${sorted_files[@]}"; do
       '{query: $query}')"
     api_query_payload "$body"
     echo "✓ applied:         $version  ${name}"
+    applied_migrations="${applied_migrations}${applied_migrations:+$'\n'}${version}"$'\t'"${name}"
     applied_count=$((applied_count + 1))
     continue
   fi
@@ -342,6 +241,7 @@ SET LOCAL lock_timeout = '30s';
 
   api_query_payload "$body"
   echo "✓ applied:         $version  ${name}"
+  applied_migrations="${applied_migrations}${applied_migrations:+$'\n'}${version}"$'\t'"${name}"
   applied_count=$((applied_count + 1))
 done
 

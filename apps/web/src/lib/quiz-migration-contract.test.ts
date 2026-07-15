@@ -494,6 +494,9 @@ describe('quiz migration contracts', () => {
 
   it('closes due product-prize events without entering the ranked award path', () => {
     expect(eventLifecycleSql).toMatch(
+      /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.close_due_product_quiz_events\(\)/i
+    );
+    expect(eventLifecycleSql).toMatch(
       /settings\s*\?\s*'prize_product_id'[\s\S]*status\s+IN\s*\('active',\s*'scheduled'\)[\s\S]*ends_at\s*<=\s*pg_catalog\.now\(\)\s*-\s*interval\s*'2 minutes'/i
     );
     expect(eventLifecycleSql).toMatch(
@@ -501,9 +504,15 @@ describe('quiz migration contracts', () => {
     );
   });
 
-  it('reprocesses only pre-fix ranked finalization stamps with no awards', () => {
+  it('reprocesses only Phase-1a stub finalizations with no awards', () => {
     expect(eventLifecycleSql).toMatch(
-      /award_finalized_at\s*<\s*'2026-07-14 22:00:00\+00'::timestamptz[\s\S]*NOT\s+EXISTS\s*\([\s\S]*FROM\s+public\.quiz_awards/i
+      /refresh_reason\s*=\s*'phase1a_award_finalize_stub'[\s\S]*NOT\s+EXISTS\s*\([\s\S]*FROM\s+public\.quiz_awards/i
+    );
+    expect(eventLifecycleSql).not.toMatch(
+      /award_finalized_at\s*<\s*'2026-07-14 22:00:00\+00'/i
+    );
+    expect(eventLifecycleSql).toMatch(
+      /refresh_reason\s*=\s*'cron_award_finalize_rank_winners'/i
     );
     expect(eventLifecycleSql).toMatch(
       /SET\s+award_finalized_at\s*=\s*pg_catalog\.now\(\)[\s\S]*PERFORM\s+public\.mint_quiz_event_ranked_awards\(v_ranked_event_id\)/i

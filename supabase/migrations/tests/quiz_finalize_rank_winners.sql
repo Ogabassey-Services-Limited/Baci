@@ -163,6 +163,18 @@ BEGIN
   SET award_finalized_at = '2026-07-01 00:00:00+00'::timestamptz
   WHERE id = v_e_stub;
 
+  INSERT INTO public.leaderboard_refresh_log (
+    event_id,
+    refresh_reason,
+    status,
+    details
+  ) VALUES (
+    v_e_stub,
+    'phase1a_award_finalize_stub',
+    'queued',
+    '{"proof_id":"legacy-test-proof"}'::jsonb
+  );
+
   INSERT INTO public.quiz_attempts (id, event_id, customer_id, status, attempt_number, integrity_tier, score, started_at, submitted_at) VALUES
     (v_a1, v_e_verified, v_c1, 'submitted', 1, 'basic', 10, v_now - interval '10 min', v_now - interval '8 min'),
     (v_a2, v_e_verified, v_c1, 'submitted', 2, 'basic', 5,  v_now - interval '7 min',  v_now - interval '6 min'),
@@ -423,6 +435,7 @@ BEGIN
     SELECT count(*)
     FROM public.leaderboard_refresh_log
     WHERE event_id = v_e_stub
+      AND refresh_reason = 'cron_award_finalize_rank_winners'
   ) IS DISTINCT FROM 1 THEN
     RAISE EXCEPTION 'Phase-1a recovery must not queue duplicate leaderboard refreshes';
   END IF;

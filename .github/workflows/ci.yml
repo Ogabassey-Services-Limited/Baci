@@ -97,6 +97,12 @@ jobs:
             # is untouched; keep them in the web quality-gate filter.
             quiz_db:
               - 'supabase/migrations/**'
+              - '.github/scripts/apply-pending-migrations.sh'
+              - '.github/scripts/apply-pending-migrations.test.sh'
+              - '.github/scripts/split-sql-statements.mjs'
+              - '.github/scripts/split-sql-statements.test.mjs'
+              - '.github/scripts/check-migration-versions.sh'
+              - '.github/scripts/check-migration-versions.test.sh'
             web:
               - 'apps/web/**'
               - 'apps/mobile-storefront/assets/quiz/**'
@@ -316,6 +322,10 @@ jobs:
       - uses: ./.github/actions/pnpm-install-cached
       - name: Test Migration Version Guard
         run: bash .github/scripts/check-migration-versions.test.sh
+      - name: Test Migration Applier Collision Handling
+        run: >-
+          bash .github/scripts/apply-pending-migrations.test.sh &&
+          node --test .github/scripts/split-sql-statements.test.mjs
       - name: Verify Migration Versions
         run: bash .github/scripts/check-migration-versions.sh
       - name: Run CI Test Planner Unit Tests
