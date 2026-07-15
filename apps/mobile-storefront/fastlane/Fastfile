@@ -220,14 +220,15 @@ platform :ios do
       )
     end
 
-    update_app_review_notes!(review_notes_text, app_version: app_version)
-
     deliver_opts[:build_number] = build_number unless build_number.empty?
     deliver_opts[:app_version] = app_version unless app_version.empty?
 
     changelog_opts = { api_key: api_key, changelog: release_notes_text }
     changelog_opts[:version] = app_version unless app_version.empty?
     set_changelog(changelog_opts)
+
+    # set_changelog creates or renames the editable App Store version first.
+    update_app_review_notes!(review_notes_text, app_version: app_version)
 
     deliver(deliver_opts)
   end

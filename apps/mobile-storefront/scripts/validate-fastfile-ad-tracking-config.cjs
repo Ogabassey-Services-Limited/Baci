@@ -96,12 +96,14 @@ function validateFastfileAdTrackingConfig(fastfileSource) {
     /^\s*review_notes_text\s*=\s*DEFAULT_ATT_REVIEW_NOTES\s+if\s+review_notes_text\.empty\?\s*$/m;
   const updateNotesPattern =
     /^\s*update_app_review_notes!\(review_notes_text,\s*app_version:\s*app_version\)\s*$/m;
+  const setChangelogPattern = /^\s*set_changelog\(changelog_opts\)\s*$/m;
   const deliverPattern = /^\s*deliver\(deliver_opts\)\s*$/m;
   const assignmentPositions = matchPositions(
     submitLane,
     reviewNotesAssignmentPattern
   );
   const fallbackPositions = matchPositions(submitLane, reviewNotesFallbackPattern);
+  const setChangelogPositions = matchPositions(submitLane, setChangelogPattern);
   const updateNotesPositions = matchPositions(submitLane, updateNotesPattern);
   const deliverPositions = matchPositions(submitLane, deliverPattern);
 
@@ -119,6 +121,9 @@ function validateFastfileAdTrackingConfig(fastfileSource) {
   if (updateNotesPositions.length !== 1) {
     failures.push('Fastfile: submit lane must upload ATT App Review notes');
   }
+  if (setChangelogPositions.length !== 1) {
+    failures.push('Fastfile: submit lane must prepare the App Store version exactly once');
+  }
   if (deliverPositions.length !== 1) {
     failures.push('Fastfile: submit lane must call deliver exactly once');
   }
@@ -133,17 +138,19 @@ function validateFastfileAdTrackingConfig(fastfileSource) {
     [
       assignmentPositions,
       fallbackPositions,
+      setChangelogPositions,
       updateNotesPositions,
       deliverPositions,
     ].every((positions) => positions.length === 1) &&
     !(
       assignmentPositions[0] < fallbackPositions[0] &&
-      fallbackPositions[0] < updateNotesPositions[0] &&
+      fallbackPositions[0] < setChangelogPositions[0] &&
+      setChangelogPositions[0] < updateNotesPositions[0] &&
       updateNotesPositions[0] < deliverPositions[0]
     )
   ) {
     failures.push(
-      'Fastfile: ATT review-note setup must precede update and deliver'
+      'Fastfile: ATT review-note setup and App Store version preparation must precede update and deliver'
     );
   }
   if (!hasExactlyOneTrueOption(deliverOptions, 'skip_metadata')) {

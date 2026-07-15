@@ -16,6 +16,7 @@ lane :submit do
     add_id_info_tracks_install: true,
     add_id_info_limits_tracking: true
   }
+  set_changelog(changelog_opts)
   update_app_review_notes!(review_notes_text, app_version: app_version)
   deliver(deliver_opts)
 end`;
@@ -54,6 +55,19 @@ describe('validateFastfileAdTrackingConfig', () => {
     );
   });
 
+  it('rejects App Review notes updated before the App Store version is prepared', () => {
+    const updateCall =
+      '  update_app_review_notes!(review_notes_text, app_version: app_version)';
+    const source = VALID_FASTFILE.replace(`${updateCall}\n`, '').replace(
+      '  set_changelog(changelog_opts)',
+      `${updateCall}\n  set_changelog(changelog_opts)`
+    );
+
+    expect(validateFastfileAdTrackingConfig(source)).toContain(
+      'Fastfile: ATT review-note setup and App Store version preparation must precede update and deliver'
+    );
+  });
+
   it.each([
     '  review_notes_text = ENV["IOS_REVIEW_NOTES"].to_s.strip',
     '  update_app_review_notes!(review_notes_text, app_version: app_version)',
@@ -76,7 +90,7 @@ describe('validateFastfileAdTrackingConfig', () => {
     );
 
     expect(validateFastfileAdTrackingConfig(source)).toContain(
-      'Fastfile: ATT review-note setup must precede update and deliver'
+      'Fastfile: ATT review-note setup and App Store version preparation must precede update and deliver'
     );
   });
 
