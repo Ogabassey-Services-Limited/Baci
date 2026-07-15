@@ -27,14 +27,9 @@ import { type CreateOrderRequest, createOrder } from '@/services/orders';
 import { activateDueSavingsReminderNotification } from '@/services/savings-reminder-notifications';
 import { useAuthStore } from '@/stores/auth-store';
 
-// Custom error boundary with network error handling
-export function ErrorBoundary({
-  error,
-  retry,
-}: {
-  error: Error;
-  retry: () => void;
-}) {
+type ErrorBoundaryProps = { error: Error; retry: () => void };
+
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   return <ErrorFallback error={error} retry={retry} />;
 }
 
