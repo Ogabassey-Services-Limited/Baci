@@ -1,11 +1,12 @@
-import { getCurrencyForCountry } from '@/lib/currency-utils';
 import { isPaypalMerchantCountry } from '@/lib/payments/paypal-merchant-countries';
 import { PAYPAL_SUPPORTED_CURRENCIES } from '@/lib/paypal/paypal-currency';
+import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 
 export interface CheckoutPaymentMerchant {
   bank_account_number?: string | null;
   bank_code?: string | null;
   country?: string | null;
+  payout_currency?: string | null;
   paystack_subaccount_code?: string | null;
   /**
    * Derived capability hint from the public merchant snapshot. The raw
@@ -292,11 +293,9 @@ function canUsePaypalForLaunch(
   // Can PayPal pay this merchant at all?
   if (!isPaypalMerchantCountry(merchant.country)) return false;
   // Can PayPal present this store's prices? (The storefront branch below checks the
-  // ORDER currency; at launch we have only the store's, derived from its country.)
+  // ORDER currency; at launch we use the merchant's canonical payout currency.)
   if (
-    !isPaypalPresentableCurrency(
-      getCurrencyForCountry(merchant.country ?? null)
-    )
+    !isPaypalPresentableCurrency(resolveMerchantCurrencyConfig(merchant).code)
   )
     return false;
   return isPaypalCheckoutAvailable(merchant);

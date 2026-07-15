@@ -5,94 +5,59 @@ import { logger } from '@/lib/logger';
 import { createServiceClient } from '@/lib/supabase/service';
 
 /**
- * Makes a refunded PayPal capture NON-SETTLEABLE.
+ * Makes a refunded PayPal capture non-settleable through a locked database
+ * transition. The RPC merges pending-refund metadata and changes status in one
+ * transaction, so concurrent writers cannot lose reconciliation state.
  *
- * Refunding the money is only half the job: if the transaction row stays
- * `pending`/`completed`, a later retry can pick the SAME PayPal order back up,
- * see it COMPLETED at PayPal, and settle the order against a capture we already
- * gave back — charging the merchant for money they no longer hold.
- *
- * `loadPaypalCaptureContext` only admits `pending` and `completed` transactions,
- * so stamping `refunded` here is what closes every settle path at the door
- * (capture route, /verify, create-order reconcile) rather than relying on each
- * one to remember the check.
- *
- * Best-effort by design: the refund itself already succeeded, so a failure to
- * stamp must not throw away that outcome — but it IS loud, because a refunded
- * capture that still looks settleable is exactly the state we are trying to
- * eliminate.
+ * Best-effort by design: the PayPal refund already succeeded or was accepted,
+ * so a failed local audit must be surfaced without submitting another refund.
+ * Returns true when the audit transition did not update exactly one row.
  */
 export async function markPaypalTransactionRefunded(
-  supabase: SupabaseClient | undefined,
+  serviceClient: SupabaseClient | undefined,
   transactionId: string,
   reason: string,
-  options?: { pending?: boolean; pendingRefundIds?: string[] }
-): Promise<void> {
-  const client = supabase ?? createServiceClient();
-
-  // `refund_pending` when PayPal accepted the refund but has not completed it —
-  // common in BYOK, where the refund draws on the merchant's OWN PayPal balance, so
-  // an unfunded balance leaves it in flight. Recording that as a completed refund
-  // would be a lie the sweeper could never detect; recording it as `pending`/
-  // `completed` would leave the capture settleable. Both new states sit outside the
-  // ('pending','completed') set the capture-context loader admits, so neither can be
-  // settled against, and `refund_pending` stays queryable for re-polling.
+  options?: {
+    pending?: boolean;
+    pendingRefundIds?: string[];
+    restorePrepaidOnReconcile?: boolean;
+  }
+): Promise<boolean> {
   const status = options?.pending ? 'refund_pending' : 'refunded';
+  const client = serviceClient ?? createServiceClient();
 
   try {
-    let metadata: Record<string, unknown> | undefined;
-    if (options?.pending && options.pendingRefundIds?.length) {
-      const { data, error: metadataError } = await client
-        .from('transactions')
-        .select('metadata')
-        .eq('id', transactionId)
-        .maybeSingle();
-
-      if (metadataError) {
-        logger.error({
-          message:
-            'PayPal refund: could not preserve metadata while recording pending refund ids',
-          error: metadataError,
-          transactionId,
-          reason,
-        });
-      } else {
-        const existingMetadata =
-          (data?.metadata as Record<string, unknown> | null) ?? {};
-        metadata = {
-          ...existingMetadata,
-          paypal_pending_refund_ids: options.pendingRefundIds,
-        };
+    const { data, error } = await client.rpc(
+      'mark_paypal_transaction_refunded',
+      {
+        p_transaction_id: transactionId,
+        p_status: status,
+        p_pending_refund_ids: options?.pendingRefundIds ?? [],
+        p_restore_prepaid_on_reconcile:
+          options?.restorePrepaidOnReconcile ?? false,
       }
-    }
+    );
 
-    const { error } = await client
-      .from('transactions')
-      .update({
-        status,
-        ...(metadata ? { metadata } : {}),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', transactionId)
-      // Never walk a terminal row backwards.
-      .in('status', ['pending', 'completed']);
-
-    if (error) {
+    if (error || data !== true) {
       logger.error({
         message:
-          'PayPal refund: failed to mark the refunded capture terminal; it may still look settleable',
-        error,
+          'PayPal refund: atomic terminal transaction audit did not update one row',
+        errorCode: error?.code,
         status,
         transactionId,
         reason,
       });
+      return true;
     }
+
+    return false;
   } catch (error) {
     logger.error({
-      message: 'PayPal refund: marking the refunded capture terminal threw',
+      message: 'PayPal refund: atomic terminal transaction audit threw',
       error,
       transactionId,
       reason,
     });
+    return true;
   }
 }

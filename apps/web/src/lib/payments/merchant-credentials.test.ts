@@ -23,7 +23,6 @@ import {
   getMerchantPaymentCredentialMeta,
   markMerchantCredentialInvalid,
   setMerchantPaymentCredential,
-  touchMerchantCredentialValidated,
 } from './merchant-credentials';
 
 const MERCHANT_ID = 'merchant-1';
@@ -333,47 +332,6 @@ describe('markMerchantCredentialInvalid', () => {
       )
     ).rejects.toThrow(
       /mark_merchant_payment_credential_invalid failed: mark invalid boom/
-    );
-  });
-});
-
-describe('touchMerchantCredentialValidated', () => {
-  afterEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('stamps ONLY the environment that was validated, never the other one', async () => {
-    // Arrange — validating sandbox must not mark never-checked live keys as good
-    // (readiness/publish would then launch PayPal on credentials that fail at a
-    // real customer checkout).
-    mockRpc.mockResolvedValueOnce({ data: null, error: null });
-
-    // Act
-    await touchMerchantCredentialValidated(MERCHANT_ID, 'paypal', 'test');
-
-    // Assert
-    expect(mockRpc).toHaveBeenCalledWith(
-      'touch_merchant_payment_credential_validated',
-      {
-        p_merchant_id: MERCHANT_ID,
-        p_provider: 'paypal',
-        p_environment: 'test',
-      }
-    );
-  });
-
-  it('throws when the rpc errors', async () => {
-    // Arrange
-    mockRpc.mockResolvedValueOnce({
-      data: null,
-      error: { message: 'touch boom' },
-    });
-
-    // Act & Assert
-    await expect(
-      touchMerchantCredentialValidated(MERCHANT_ID, 'paypal', 'live')
-    ).rejects.toThrow(
-      /touch_merchant_payment_credential_validated failed: touch boom/
     );
   });
 });

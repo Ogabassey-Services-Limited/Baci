@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { markPaypalTransactionRefunded } from '@/lib/payments/mark-paypal-transaction-refunded';
 import { initiateRefund as initiatePaystackRefund } from '@/lib/paystack';
 import {
   processOrderCancellationRefund,
@@ -15,6 +16,10 @@ vi.mock('@/lib/paystack', () => ({
 
 vi.mock('@/lib/payments/refund-paypal-order', () => ({
   refundPaypalOrder: vi.fn(),
+}));
+
+vi.mock('@/lib/payments/mark-paypal-transaction-refunded', () => ({
+  markPaypalTransactionRefunded: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -56,6 +61,7 @@ function buildSupabase(opts: { transaction?: unknown; insertError?: unknown }) {
 describe('processOrderCancellationRefund', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(markPaypalTransactionRefunded).mockResolvedValue(false);
     vi.mocked(initiatePaystackRefund).mockResolvedValue({
       success: true,
       data: { id: 987 },
@@ -138,6 +144,7 @@ describe('processOrderCancellationRefund', () => {
   it('routes a paid PayPal order through the mixed-tender splitter and reports the true total (F-74)', async () => {
     const supabase = buildSupabase({
       transaction: {
+        id: 'txn-paypal-1',
         gateway: 'paypal',
         gateway_reference: 'PP-ORD-1',
         gateway_response: { purchase_units: [] },
@@ -172,6 +179,12 @@ describe('processOrderCancellationRefund', () => {
         reason: 'Order cancelled',
       })
     );
+    expect(markPaypalTransactionRefunded).toHaveBeenCalledWith(
+      undefined,
+      'txn-paypal-1',
+      'order cancellation refund completed',
+      { pending: false }
+    );
     // The splitter records its own per-channel audit rows; the caller does not.
     expect(supabase._insert).not.toHaveBeenCalled();
   });
@@ -188,6 +201,7 @@ describe('processOrderCancellationRefund', () => {
     });
     const supabase = buildSupabase({
       transaction: {
+        id: 'txn-paypal-1',
         gateway: 'paypal',
         gateway_reference: 'PP-ORD-1',
         gateway_response: {},
@@ -206,6 +220,48 @@ describe('processOrderCancellationRefund', () => {
       amount: 0,
       error: 'PayPal capture reference not found for this order',
     });
+    expect(markPaypalTransactionRefunded).not.toHaveBeenCalled();
+  });
+
+  it('records an accepted PayPal cancellation refund as refund_pending with its refund ids', async () => {
+    vi.mocked(refundPaypalOrder).mockResolvedValue({
+      success: false,
+      refundPending: true,
+      pendingRefundIds: ['REFUND-P'],
+      paypalRefunded: 0,
+      prepaidRestored: 15000,
+      totalRefunded: 15000,
+      paypalRefundIds: [],
+      savingsRestored: true,
+      error: 'PayPal refund is pending',
+    });
+    const supabase = buildSupabase({
+      transaction: {
+        id: 'txn-paypal-1',
+        gateway: 'paypal',
+        gateway_reference: 'PP-ORD-1',
+        gateway_response: { purchase_units: [] },
+        metadata: {},
+      },
+    });
+
+    const result = await processOrderCancellationRefund(
+      supabase as unknown as SupabaseClient,
+      ORDER,
+      undefined
+    );
+
+    expect(result.success).toBe(false);
+    expect(markPaypalTransactionRefunded).toHaveBeenCalledWith(
+      undefined,
+      'txn-paypal-1',
+      'order cancellation refund pending',
+      {
+        pending: true,
+        pendingRefundIds: ['REFUND-P'],
+        restorePrepaidOnReconcile: true,
+      }
+    );
   });
 
   it('flags auditRecordFailed when a Paystack refund succeeds but the audit insert fails', async () => {

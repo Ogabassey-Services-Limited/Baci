@@ -13,14 +13,12 @@ import {
 } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
-  deleteMerchantCredential,
   deleteMerchantCredentials,
   getMerchantPaymentCredentialMeta,
-  setMerchantPaymentCredential,
-  touchMerchantCredentialValidated,
 } from '@/lib/payments/merchant-credentials';
 import { getPaypalClientId } from '@/lib/payments/paypal-checkout-credentials';
 import { disablePaypalFeatureFlag } from '@/lib/payments/paypal-feature-flag';
+import { replaceMerchantPaymentCredentialPair } from '@/lib/payments/replace-merchant-payment-credential-pair';
 import { getAccessToken } from '@/lib/paypal';
 import {
   merchantPaymentCredentialsDeleteSchema,
@@ -196,50 +194,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Write client_id then secret_key; roll both back if the second write fails
-    // so checkout never observes a mismatched half-pair (S-245).
-    await setMerchantPaymentCredential(
+    await replaceMerchantPaymentCredentialPair({
       merchantId,
       provider,
-      'client_id',
       environment,
-      clientId
-    );
-    try {
-      await setMerchantPaymentCredential(
-        merchantId,
-        provider,
-        'secret_key',
-        environment,
-        secretKey
-      );
-    } catch (writeError) {
-      // Roll back ONLY the two roles just written at THIS environment
-      // (payment-credentials:204). The provider-wide delete would nuke an
-      // unrelated LIVE pair when a sandbox save half-failed.
-      try {
-        await deleteMerchantCredential(
-          merchantId,
-          provider,
-          'client_id',
-          environment
-        );
-        await deleteMerchantCredential(
-          merchantId,
-          provider,
-          'secret_key',
-          environment
-        );
-      } catch (rollbackError) {
-        console.error(
-          'payment-credentials: failed to roll back half-saved credential pair:',
-          rollbackError
-        );
-      }
-      throw writeError;
-    }
-    // Stamp only the environment actually validated.
-    await touchMerchantCredentialValidated(merchantId, provider, environment);
+      clientId,
+      secretKey,
+    });
 
     const rows = await getMerchantPaymentCredentialMeta(merchantId, provider);
     return jsonNoStore(toStatusResponse(rows));

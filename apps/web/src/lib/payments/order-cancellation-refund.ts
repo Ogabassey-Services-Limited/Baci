@@ -2,6 +2,7 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
+import { markPaypalTransactionRefunded } from '@/lib/payments/mark-paypal-transaction-refunded';
 import { refundPaypalOrder } from '@/lib/payments/refund-paypal-order';
 import { initiateRefund as initiatePaystackRefund } from '@/lib/paystack';
 
@@ -37,6 +38,7 @@ export interface RefundableOrder {
 }
 
 interface CancellationPaymentTransaction {
+  id: string;
   gateway: string;
   gateway_reference: string | null;
   gateway_response: unknown;
@@ -150,7 +152,7 @@ export async function processOrderCancellationRefund(
 
   const { data: transaction } = await supabase
     .from('transactions')
-    .select('gateway, gateway_reference, gateway_response, metadata')
+    .select('id, gateway, gateway_reference, gateway_response, metadata')
     .eq('order_id', order.id)
     .eq('transaction_type', 'payment')
     .eq('status', 'completed')
@@ -191,12 +193,43 @@ export async function processOrderCancellationRefund(
       },
       reason,
     });
+
+    let auditRecordFailed = false;
+    if (split.success || split.refundPending) {
+      const pending = split.refundPending === true;
+      try {
+        auditRecordFailed = await markPaypalTransactionRefunded(
+          undefined,
+          transaction.id,
+          pending
+            ? 'order cancellation refund pending'
+            : 'order cancellation refund completed',
+          {
+            pending,
+            ...(pending ? { restorePrepaidOnReconcile: true } : {}),
+            ...(pending && split.pendingRefundIds?.length
+              ? { pendingRefundIds: split.pendingRefundIds }
+              : {}),
+          }
+        );
+      } catch (error) {
+        auditRecordFailed = true;
+        logger.error({
+          message:
+            'PayPal cancellation refund succeeded but the terminal transaction audit rejected',
+          error,
+          orderId: order.id,
+          transactionId: transaction.id,
+        });
+      }
+    }
     return {
       attempted: true,
       success: split.success,
       amount: split.totalRefunded,
       refundId: split.paypalRefundIds[0],
       error: split.error,
+      ...(auditRecordFailed ? { auditRecordFailed: true } : {}),
     };
   }
 

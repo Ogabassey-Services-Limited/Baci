@@ -66,12 +66,18 @@ const PAYPAL_MERCHANT_COUNTRIES: ReadonlySet<string> = new Set([
   'CY',
   'MT',
 
-  // PayPal pays out here, but the local currency (ZAR/KES) is NOT a PayPal
-  // currency — these merchants clear the gate only by pricing in a presentable
-  // currency. Listed so the country check does not become the thing that blocks a
-  // merchant PayPal is perfectly willing to pay.
+  // PayPal pays out here, but these local currencies are not supported by the
+  // checkout currency gate. These merchants clear the gate only by pricing in a
+  // presentable currency, so the country check does not block a merchant PayPal
+  // is willing to pay.
   'ZA',
   'KE',
+  'BW',
+  'LS',
+  'MU',
+  'MA',
+  'MZ',
+  'SN',
 ]);
 
 /**

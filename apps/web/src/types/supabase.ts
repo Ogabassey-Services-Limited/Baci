@@ -13750,6 +13750,7 @@ export type Database = {
         Args: { p_email: string; p_order_id: string };
         Returns: {
           currency: string;
+          merchant_country: string;
           merchant_id: string;
           payment_status: string;
           shipping_status: string;
@@ -14222,6 +14223,15 @@ export type Database = {
           p_shipping_address?: Json;
         };
         Returns: Json;
+      };
+      mark_paypal_transaction_refunded: {
+        Args: {
+          p_pending_refund_ids?: string[];
+          p_restore_prepaid_on_reconcile?: boolean;
+          p_status: string;
+          p_transaction_id: string;
+        };
+        Returns: boolean;
       };
       mark_transaction_order_item_custom: {
         Args: { p_merchant_id: string; p_order_item_id: string };

@@ -175,6 +175,82 @@ describe('refundPaypalOrder (mixed-tender split)', () => {
     expect(result.error).toContain('PayPal capture reference not found');
   });
 
+  it('surfaces an accepted pending refund only after the prepaid leg is complete', async () => {
+    vi.mocked(initiatePaypalOrderRefund).mockResolvedValue({
+      success: false,
+      pending: true,
+      pendingRefundIds: ['RF-PENDING'],
+      error: 'PayPal refund is pending',
+    });
+    const { client } = buildSupabase({
+      order: {
+        total: 130000,
+        wallet_amount_used: 15000,
+        customer_id: 'cust-1',
+      },
+    });
+
+    const result = await refundPaypalOrder({
+      supabase: client,
+      merchantId: MERCHANT_ID,
+      order: ORDER,
+      transaction: {
+        gateway_response: {},
+        metadata: {
+          paypal_split: { paypalResidualPaid: 50000, prepaidPaid: 15000 },
+        },
+      },
+      reason: 'Order cancelled',
+    });
+
+    expect(result).toMatchObject({
+      success: false,
+      refundPending: true,
+      pendingRefundIds: ['RF-PENDING'],
+      prepaidRestored: 15000,
+    });
+  });
+
+  it('surfaces a pending PayPal refund while prepaid restoration still needs retrying', async () => {
+    vi.mocked(initiatePaypalOrderRefund).mockResolvedValue({
+      success: false,
+      pending: true,
+      pendingRefundIds: ['RF-PENDING'],
+      error: 'PayPal refund is pending',
+    });
+    vi.mocked(restorePrepaidTender).mockResolvedValue({
+      restored: 0,
+      savingsRestored: false,
+    });
+    const { client } = buildSupabase({
+      order: {
+        total: 130000,
+        wallet_amount_used: 15000,
+        customer_id: 'cust-1',
+      },
+    });
+
+    const result = await refundPaypalOrder({
+      supabase: client,
+      merchantId: MERCHANT_ID,
+      order: ORDER,
+      transaction: {
+        gateway_response: {},
+        metadata: {
+          paypal_split: { paypalResidualPaid: 50000, prepaidPaid: 15000 },
+        },
+      },
+      reason: 'Order cancelled',
+    });
+
+    expect(result).toMatchObject({
+      success: false,
+      refundPending: true,
+      pendingRefundIds: ['RF-PENDING'],
+      prepaidRestored: 0,
+    });
+  });
+
   it('reports failure when the prepaid leg cannot be fully restored', async () => {
     vi.mocked(restorePrepaidTender).mockResolvedValue({
       restored: 0,

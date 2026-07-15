@@ -70,7 +70,9 @@ function buildSupabaseMock({
     currency: 'NGN',
     tracking_token: 'track-123',
     shipping_status: 'pending',
+    merchant_country: 'US',
   } as Record<string, unknown>,
+  snapshotError = null as unknown,
   custom = { paypal_enabled: true, paypal_mode: 'live' } as Record<
     string,
     unknown
@@ -82,6 +84,7 @@ function buildSupabaseMock({
   completedTxn = null as Record<string, unknown> | null,
   // The `orders.amount_paid` read the F-263 reconcile makes before finalizing.
   orderRow = null as Record<string, unknown> | null,
+  merchantCountry = 'US' as string | null,
   createTxnResult = { data: 'txn-uuid', error: null } as {
     data: unknown;
     error: unknown;
@@ -92,7 +95,10 @@ function buildSupabaseMock({
   const mock = {
     rpc: vi.fn((name: string) => {
       if (name === 'get_order_payment_snapshot') {
-        return Promise.resolve({ data: [snapshot], error: null });
+        return Promise.resolve({
+          data: [{ ...snapshot, merchant_country: merchantCountry }],
+          error: snapshotError,
+        });
       }
       if (name === 'create_payment_transaction') {
         return Promise.resolve(createTxnResult);
@@ -219,6 +225,124 @@ describe('POST /api/payments/paypal/create-order', () => {
     const response = await POST(createRequest());
     expect(response.status).toBe(409);
     expect((await response.json()).code).toBe('ORDER_NOT_PAYABLE');
+    expect(getDecryptedMerchantCredential).not.toHaveBeenCalled();
+    expect(createOrder).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 PAYPAL_COUNTRY_UNSUPPORTED for a merchant PayPal cannot pay', async () => {
+    const supabase = buildSupabaseMock({ merchantCountry: 'NG' });
+    vi.mocked(createAdminClient).mockReturnValue(supabase as never);
+    mockVaultOk();
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).code).toBe('PAYPAL_COUNTRY_UNSUPPORTED');
+    expect(getDecryptedMerchantCredential).not.toHaveBeenCalled();
+    expect(createOrder).not.toHaveBeenCalled();
+    expect(supabase.from).not.toHaveBeenCalledWith('merchants');
+  });
+
+  it('reconciles a completed capture before rejecting a now-unsupported merchant country', async () => {
+    const supabase = buildSupabaseMock({
+      merchantCountry: 'NG',
+      completedTxn: {
+        id: 'txn-completed',
+        amount: 130000,
+        gateway_reference: 'PP-DONE',
+      },
+      orderRow: { amount_paid: 0 },
+    });
+    vi.mocked(createAdminClient).mockReturnValue(supabase as never);
+    mockVaultOk();
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(409);
+    expect((await response.json()).code).toBe('ORDER_ALREADY_CAPTURED');
+    expect(reconcileCompletedPaypalOrderForCreate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ paypalOrderId: 'PP-DONE' })
+    );
+    expect(getDecryptedMerchantCredential).not.toHaveBeenCalled();
+    expect(createOrder).not.toHaveBeenCalled();
+  });
+
+  it('reconciles a captured pending PayPal order before rejecting a now-unsupported merchant country', async () => {
+    const supabase = buildSupabaseMock({
+      merchantCountry: 'NG',
+      existingTxn: {
+        gateway_reference: 'PP-PENDING-ROW-CAPTURED',
+        metadata: {
+          paypal_presentment_amount: 100,
+          paypal_presentment_currency: 'USD',
+        },
+      },
+    });
+    vi.mocked(createAdminClient).mockReturnValue(supabase as never);
+    mockVaultOk();
+    vi.mocked(getOrder).mockResolvedValue({
+      success: true,
+      data: {
+        id: 'PP-PENDING-ROW-CAPTURED',
+        status: 'COMPLETED',
+        links: [],
+      },
+    });
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(409);
+    expect((await response.json()).code).toBe('ORDER_ALREADY_CAPTURED');
+    expect(reconcileCompletedPaypalOrderForCreate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        paypalOrderId: 'PP-PENDING-ROW-CAPTURED',
+      })
+    );
+    expect(createOrder).not.toHaveBeenCalled();
+  });
+
+  it('rejects an uncaptured pending PayPal order when the merchant country is unsupported', async () => {
+    vi.mocked(createAdminClient).mockReturnValue(
+      buildSupabaseMock({
+        merchantCountry: 'NG',
+        existingTxn: {
+          gateway_reference: 'PP-STILL-OPEN',
+          metadata: {
+            paypal_presentment_amount: 100,
+            paypal_presentment_currency: 'USD',
+          },
+        },
+      }) as never
+    );
+    mockVaultOk();
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).code).toBe('PAYPAL_COUNTRY_UNSUPPORTED');
+    expect(getOrder).toHaveBeenCalledWith(
+      'mock-client-id',
+      'mock-secret-key',
+      'PP-STILL-OPEN',
+      'live'
+    );
+    expect(createOrder).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 before vault or PayPal access when merchant-country lookup fails', async () => {
+    vi.mocked(createAdminClient).mockReturnValue(
+      buildSupabaseMock({
+        snapshotError: { message: 'database unavailable' },
+      }) as never
+    );
+    mockVaultOk();
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(500);
+    expect((await response.json()).code).toBe('DATABASE_ERROR');
     expect(getDecryptedMerchantCredential).not.toHaveBeenCalled();
     expect(createOrder).not.toHaveBeenCalled();
   });
@@ -478,6 +602,37 @@ describe('POST /api/payments/paypal/create-order', () => {
 
     // F8: the BYOK fee-accrual row is written on capture, never at init.
     expect(supabase.insert).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    null,
+    '   ',
+  ])('uses the platform NGN fallback when a legacy order has currency %p', async (currency) => {
+    const supabase = buildSupabaseMock({
+      snapshot: {
+        merchant_id: MERCHANT_ID,
+        total: 130000,
+        currency,
+        tracking_token: 'track-123',
+        shipping_status: 'pending',
+      },
+    });
+    vi.mocked(createAdminClient).mockReturnValue(supabase as never);
+    mockVaultOk();
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(200);
+    expect(getFreshNgnPerUsdt).toHaveBeenCalled();
+    expect(createOrder).toHaveBeenCalledWith(
+      'mock-client-id',
+      'mock-secret-key',
+      100,
+      'USD',
+      'track-123',
+      'live',
+      { returnUrl: undefined, cancelUrl: undefined }
+    );
   });
 
   it('charges only the residual for a mixed-tender (wallet/savings) order', async () => {

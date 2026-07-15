@@ -86,7 +86,7 @@ describe('refundCapturedPaypalOrder', () => {
     );
 
     expect(markPaypalTransactionRefunded).toHaveBeenCalledWith(
-      expect.anything(),
+      undefined,
       'txn-1',
       expect.stringContaining('PENDING'),
       { pending: true, pendingRefundIds: ['REFUND-P'] }

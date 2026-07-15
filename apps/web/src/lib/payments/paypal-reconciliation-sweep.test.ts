@@ -5,6 +5,7 @@ import { getPaypalCheckoutCredentials } from './paypal-checkout-credentials';
 import * as paypalSweep from './paypal-reconciliation-sweep';
 import { sweepStrandedPaypalCaptures } from './paypal-reconciliation-sweep';
 import { runPaypalReconcileFunnel } from './paypal-settlement-funnel';
+import { retryPendingPaypalRefundPrepaidRecovery } from './retry-pending-paypal-refund-prepaid-recovery';
 
 vi.mock('server-only', () => ({}));
 
@@ -18,6 +19,10 @@ vi.mock('@/lib/payments/paypal-settlement-funnel', () => ({
 
 vi.mock('@/lib/payments/paypal-checkout-credentials', () => ({
   getPaypalCheckoutCredentials: vi.fn(),
+}));
+
+vi.mock('@/lib/payments/retry-pending-paypal-refund-prepaid-recovery', () => ({
+  retryPendingPaypalRefundPrepaidRecovery: vi.fn(),
 }));
 
 vi.mock('@/lib/paypal', () => ({
@@ -198,6 +203,7 @@ describe('sweepPendingPaypalRefunds', () => {
       success: true,
       data: { id: 'REFUND-P', status: 'COMPLETED' },
     });
+    vi.mocked(retryPendingPaypalRefundPrepaidRecovery).mockResolvedValue(true);
     const { client, updates } = makeRefundSupabase({
       id: 'txn-1',
       merchant_id: 'm-1',
@@ -206,12 +212,23 @@ describe('sweepPendingPaypalRefunds', () => {
       metadata: {
         existing: true,
         paypal_pending_refund_ids: ['REFUND-P'],
+        paypal_restore_prepaid_on_refund_reconcile: true,
       },
     });
 
     const result = await sweepPendingPaypalRefunds?.(client);
 
     expect(getRefund).toHaveBeenCalledWith('cid', 'secret', 'REFUND-P', 'live');
+    expect(retryPendingPaypalRefundPrepaidRecovery).toHaveBeenCalledWith(
+      client,
+      {
+        merchantId: 'm-1',
+        orderId: 'o-1',
+        transactionId: 'txn-1',
+        transactionMetadata: expect.objectContaining({ existing: true }),
+        checkedAt: expect.any(String),
+      }
+    );
     expect(updates).toEqual([
       expect.objectContaining({
         status: 'refunded',
@@ -221,5 +238,35 @@ describe('sweepPendingPaypalRefunds', () => {
       }),
     ]);
     expect(result?.completed).toBe(1);
+  });
+
+  it('keeps the transaction pending when prepaid recovery still fails', async () => {
+    const getRefund = vi.mocked(paypal.getRefund);
+    vi.mocked(getPaypalCheckoutCredentials).mockResolvedValue({
+      clientId: 'cid',
+      secretKey: 'secret',
+    });
+    getRefund.mockResolvedValue({
+      success: true,
+      data: { id: 'REFUND-P', status: 'COMPLETED' },
+    });
+    vi.mocked(retryPendingPaypalRefundPrepaidRecovery).mockResolvedValue(false);
+    const { client, updates } = makeRefundSupabase({
+      id: 'txn-1',
+      merchant_id: 'm-1',
+      order_id: 'o-1',
+      gateway_reference: 'PP-1',
+      metadata: {
+        paypal_pending_refund_ids: ['REFUND-P'],
+        paypal_restore_prepaid_on_refund_reconcile: true,
+      },
+    });
+
+    const result = await paypalSweep.sweepPendingPaypalRefunds(client);
+
+    expect(result).toMatchObject({ completed: 0, failed: 1 });
+    expect(updates).not.toContainEqual(
+      expect.objectContaining({ status: 'refunded' })
+    );
   });
 });

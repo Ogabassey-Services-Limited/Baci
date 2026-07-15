@@ -23,12 +23,20 @@ describe('isPaypalMerchantCountry', () => {
     expect(isPaypalMerchantCountry(country)).toBe(false);
   });
 
-  it('allows ZA and KE — PayPal does pay out there', () => {
+  it.each([
+    'ZA',
+    'KE',
+    'BW',
+    'LS',
+    'MU',
+    'MA',
+    'MZ',
+    'SN',
+  ])('allows %s — PayPal does pay out there', (country) => {
     // Their currencies (ZAR/KES) are not PayPal currencies, but that is the
     // CURRENCY gate's job. Blocking them by country would refuse a merchant PayPal
     // is perfectly willing to pay, if they price in USD.
-    expect(isPaypalMerchantCountry('ZA')).toBe(true);
-    expect(isPaypalMerchantCountry('KE')).toBe(true);
+    expect(isPaypalMerchantCountry(country)).toBe(true);
   });
 
   it('fails closed on a missing or unknown country', () => {

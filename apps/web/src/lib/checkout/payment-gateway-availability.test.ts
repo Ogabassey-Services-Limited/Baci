@@ -332,6 +332,20 @@ describe('payment-gateway-availability', () => {
     ).toBe(false);
   });
 
+  it('marks a Kenyan store priced in its USD payout currency PayPal-launchable', () => {
+    expect(
+      hasLaunchablePaymentMethod({
+        country: 'KE',
+        payout_currency: 'USD',
+        bank_account_number: null,
+        bank_code: null,
+        paystack_subaccount_code: null,
+        feature_settings: { pay_on_delivery_enabled: false },
+        paypalConnected: true,
+      })
+    ).toBe(true);
+  });
+
   it('does not mark a Ghanaian store PayPal-launchable — PayPal cannot pay a GH merchant at all', () => {
     expect(
       hasLaunchablePaymentMethod({

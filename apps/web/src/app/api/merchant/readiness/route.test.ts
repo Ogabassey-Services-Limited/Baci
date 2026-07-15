@@ -41,6 +41,7 @@ function merchantRow() {
     business_address: '12 Allen Avenue',
     business_name: 'Bassey Phones',
     country: 'NG',
+    payout_currency: 'NGN',
     email: 'owner@example.com',
     facebook_pixel_id: null,
     google_analytics_id: null,

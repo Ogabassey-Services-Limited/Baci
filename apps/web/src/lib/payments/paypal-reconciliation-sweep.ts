@@ -4,18 +4,14 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
 import { getPaypalCheckoutCredentials } from '@/lib/payments/paypal-checkout-credentials';
 import { runPaypalReconcileFunnel } from '@/lib/payments/paypal-settlement-funnel';
+import { retryPendingPaypalRefundPrepaidRecovery } from '@/lib/payments/retry-pending-paypal-refund-prepaid-recovery';
 import { getRefund } from '@/lib/paypal';
 
 /**
  * The safety net behind every PayPal write path.
  *
- * PayPal BYOK has NO webhook here and, until now, no cron. That is the single
- * structural reason the bugs in this integration were unrecoverable rather than
- * merely annoying: money moves at PayPal, our follow-up write fails, and nothing
- * ever comes back to look. Every fix so far has hardened the request path — but the
- * request path is exactly what is gone when the process dies mid-capture. PayPal's
- * own webhooks are unreliable enough that their guidance is to reconcile by polling
- * regardless, so a sweeper is the correct primitive, not a workaround.
+ * PayPal BYOK has no webhook here, so a failed follow-up write needs a polling
+ * recovery path rather than relying on the original request to survive.
  *
  * It reuses the ONE settlement funnel rather than re-deriving anything:
  * `runPaypalReconcileFunnel` runs with `intent: 'reconcile_only'`, which cannot
@@ -266,8 +262,26 @@ export async function sweepPendingPaypalRefunds(
       continue;
     }
 
+    if (row.metadata?.paypal_restore_prepaid_on_refund_reconcile === true) {
+      const prepaidRestored = await retryPendingPaypalRefundPrepaidRecovery(
+        supabase,
+        {
+          merchantId: row.merchant_id,
+          orderId: row.order_id,
+          transactionId: row.id,
+          transactionMetadata: row.metadata,
+          checkedAt,
+        }
+      );
+      if (!prepaidRestored) {
+        result.failed += 1;
+        continue;
+      }
+    }
+
     const metadata = { ...(row.metadata ?? {}) };
     delete metadata.paypal_pending_refund_ids;
+    delete metadata.paypal_restore_prepaid_on_refund_reconcile;
     metadata.paypal_completed_refund_ids = completedIds;
     const { error: updateError } = await supabase
       .from('transactions')

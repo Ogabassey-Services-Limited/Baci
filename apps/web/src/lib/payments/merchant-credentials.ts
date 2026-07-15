@@ -1,11 +1,10 @@
 // Server-only access layer for the BYOK payment credential vault (see
 // docs/payments/byok-payment-providers-plan.md Phase 0.2). The vault table
 // (`private.merchant_payment_credentials`) is not exposed over PostgREST, so
-// every read or write goes through one of the six SECURITY DEFINER RPCs
-// created in supabase/migrations/20260708093415_merchant_payment_credentials.sql
-// — all granted to service_role only. This module is the single place those
-// RPCs get called from; callers never touch ciphertext or the admin client
-// directly.
+// every read or write goes through service-only SECURITY DEFINER RPCs. This
+// module owns the remaining single-role RPCs;
+// the colocated replace-merchant-payment-credential-pair module owns the only
+// atomic pair RPC. Callers never touch ciphertext directly.
 //
 // AUTHORIZATION WARNING: every function below calls `createAdminClient()`
 // (service_role). The RPCs themselves perform NO caller authorization —
@@ -194,33 +193,6 @@ export async function markMerchantCredentialInvalid(
   );
 
   assertNoRpcError(error, 'mark_merchant_payment_credential_invalid');
-}
-
-/**
- * Records a successful provider validation for the stored roles of ONE
- * environment and clears any prior validation error.
- *
- * Environment-scoped deliberately: the provider check only ever exercises the
- * credentials that were just submitted, so stamping the other environment too
- * would mark never-validated live keys as good and let readiness/publish launch
- * PayPal on credentials that fail at a real customer checkout.
- */
-export async function touchMerchantCredentialValidated(
-  merchantId: string,
-  provider: PaymentProvider,
-  environment: PaymentCredentialEnvironment
-): Promise<void> {
-  const supabase = createAdminClient();
-  const { error } = await supabase.rpc(
-    'touch_merchant_payment_credential_validated',
-    {
-      p_merchant_id: merchantId,
-      p_provider: provider,
-      p_environment: environment,
-    }
-  );
-
-  assertNoRpcError(error, 'touch_merchant_payment_credential_validated');
 }
 
 /**

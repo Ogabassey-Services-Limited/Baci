@@ -14,13 +14,43 @@ import {
   validateSameOriginUrl,
 } from '@/lib/payments/paypal-create-order-helpers';
 import { createAndPersistPaypalOrder } from '@/lib/payments/paypal-create-order-persistence';
+import { isPaypalMerchantCountry } from '@/lib/payments/paypal-merchant-countries';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { paypalCreateOrderSchema } from '@/schemas/paypal-checkout';
+
+function merchantCountryLookupFailure(error: unknown, merchantId: string) {
+  logger.error({
+    message: 'Failed to inspect merchant country for PayPal checkout',
+    error,
+    merchantId,
+  });
+  return NextResponse.json(
+    {
+      error: 'Failed to inspect merchant payment eligibility',
+      code: 'DATABASE_ERROR',
+    },
+    { status: 500 }
+  );
+}
+
+function unsupportedPaypalCountry() {
+  return NextResponse.json(
+    {
+      error: 'PayPal is not available for merchants in this country',
+      code: 'PAYPAL_COUNTRY_UNSUPPORTED',
+    },
+    { status: 400 }
+  );
+}
 
 // Payment statuses that mean an order has already been settled (fully or in
 // part) or is otherwise no longer chargeable. Starting a fresh PayPal checkout
 // for any of these would let a second approval+capture run against money that is
 // already accounted for (F11).
+//
+// CSRF is enforced before this handler by proxy.ts for every state-changing
+// /api request using same-origin validation. This guest storefront endpoint
+// intentionally does not add the authenticated double-submit-cookie guard.
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -60,7 +90,11 @@ export async function POST(request: NextRequest) {
 
     const orderSnapshot = Array.isArray(snapshotRows) ? snapshotRows[0] : null;
 
-    if (snapshotError || !orderSnapshot) {
+    if (snapshotError) {
+      return merchantCountryLookupFailure(snapshotError, merchant_id);
+    }
+
+    if (!orderSnapshot) {
       return NextResponse.json(
         {
           error: 'Order not found or customer details mismatch',
@@ -172,6 +206,37 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const { data: existingTransaction, error: existingTransactionError } =
+      await supabase
+        .from('transactions')
+        .select('gateway_reference, metadata')
+        .eq('order_id', order_id)
+        .eq('merchant_id', merchant_id)
+        .eq('gateway', 'paypal')
+        .eq('status', 'pending')
+        .maybeSingle();
+
+    if (existingTransactionError) {
+      logger.error({
+        message: 'Failed to check existing PayPal transaction',
+        error: existingTransactionError,
+      });
+      return NextResponse.json(
+        {
+          error: 'Failed to inspect transaction state',
+          code: 'DATABASE_ERROR',
+        },
+        { status: 500 }
+      );
+    }
+
+    const storedPaypalOrderId = existingTransaction?.gateway_reference ?? null;
+    const merchantCountry = orderSnapshot.merchant_country;
+
+    if (!storedPaypalOrderId && !isPaypalMerchantCountry(merchantCountry)) {
+      return unsupportedPaypalCountry();
+    }
+
     // Non-secret PayPal config stays in merchant_feature_settings (Phase 2.2).
     const { data: featureSettings, error: featuresError } = await supabase
       .from('merchant_feature_settings')
@@ -232,6 +297,65 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    let reusableApprovalUrl: string | undefined;
+    if (storedPaypalOrderId) {
+      const reuse = await resolveReusablePaypalApproval(
+        credentials,
+        storedPaypalOrderId,
+        mode
+      );
+
+      if (reuse.outcome === 'already_captured') {
+        // Money is already at the merchant. Route it through the SAME settlement
+        // funnel as the capture route BEFORE applying NEW-checkout eligibility.
+        await reconcileCompletedPaypalOrderForCreate(supabase, {
+          merchantId: merchant_id,
+          orderId: order_id,
+          paypalOrderId: storedPaypalOrderId,
+        });
+
+        return NextResponse.json(
+          {
+            error:
+              'This order has already been captured by PayPal and is being finalized',
+            code: 'ORDER_ALREADY_CAPTURED',
+          },
+          { status: 409 }
+        );
+      }
+
+      if (reuse.outcome === 'lookup_failed') {
+        // We could not establish whether the stored PayPal order was already
+        // captured. Minting a replacement could double-charge, so fail closed.
+        logger.warn({
+          message:
+            'PayPal create-order: stored-order lookup failed; refusing to mint a replacement',
+          merchantId: merchant_id,
+          orderId: order_id,
+          paypalOrderId: storedPaypalOrderId,
+          reason: reuse.reason,
+        });
+        return NextResponse.json(
+          {
+            error:
+              'Could not verify your existing PayPal checkout. Please try again in a moment.',
+            code: 'PAYPAL_ORDER_LOOKUP_FAILED',
+          },
+          { status: 503 }
+        );
+      }
+
+      if (reuse.outcome === 'reuse') {
+        reusableApprovalUrl = reuse.approveUrl;
+      }
+    }
+
+    // A stored order's capture state has now been reconciled or proven safe.
+    // Only NEW/reused approvals are subject to current country eligibility.
+    if (!isPaypalMerchantCountry(merchantCountry)) {
+      return unsupportedPaypalCountry();
+    }
+
     const trackingToken =
       typeof orderSnapshot.tracking_token === 'string'
         ? orderSnapshot.tracking_token
@@ -239,8 +363,8 @@ export async function POST(request: NextRequest) {
 
     const orderCurrency =
       typeof orderSnapshot.currency === 'string'
-        ? orderSnapshot.currency.trim().toUpperCase()
-        : 'USD';
+        ? orderSnapshot.currency.trim().toUpperCase() || 'NGN'
+        : 'NGN';
 
     // Charge only the outstanding balance: wallet credit + redeemed savings are
     // settled Baci-side, so PayPal presents the residual (not the full total) or
@@ -303,30 +427,6 @@ export async function POST(request: NextRequest) {
     }
     const { presentmentAmount, presentmentCurrency, fxRate } = presentment;
 
-    const { data: existingTransaction, error: existingTransactionError } =
-      await supabase
-        .from('transactions')
-        .select('gateway_reference, metadata')
-        .eq('order_id', order_id)
-        .eq('merchant_id', merchant_id)
-        .eq('gateway', 'paypal')
-        .eq('status', 'pending')
-        .maybeSingle();
-
-    if (existingTransactionError) {
-      logger.error({
-        message: 'Failed to check existing PayPal transaction',
-        error: existingTransactionError,
-      });
-      return NextResponse.json(
-        {
-          error: 'Failed to inspect transaction state',
-          code: 'DATABASE_ERROR',
-        },
-        { status: 500 }
-      );
-    }
-
     // EVERY stored PayPal order must be checked against PayPal before we mint a
     // replacement — not just a re-usable one.
     //
@@ -344,73 +444,21 @@ export async function POST(request: NextRequest) {
     //
     // Whether we may reuse the order is a separate, later question from whether it
     // already took the buyer's money.
-    const storedPaypalOrderId = existingTransaction?.gateway_reference ?? null;
     const reusablePayPalOrderId = getReusablePayPalOrderId(
       existingTransaction,
       presentmentAmount,
       presentmentCurrency
     );
 
-    if (storedPaypalOrderId) {
-      const reuse = await resolveReusablePaypalApproval(
-        credentials,
-        storedPaypalOrderId,
-        mode
-      );
-
-      if (reuse.outcome === 'already_captured') {
-        // Money is already at the merchant. Route it through the SAME settlement
-        // funnel as the capture route BEFORE blocking the retry, so it inherits
-        // residual freshness and post-capture refunds (F-393).
-        await reconcileCompletedPaypalOrderForCreate(supabase, {
-          merchantId: merchant_id,
-          orderId: order_id,
-          paypalOrderId: storedPaypalOrderId,
-        });
-
-        return NextResponse.json(
-          {
-            error:
-              'This order has already been captured by PayPal and is being finalized',
-            code: 'ORDER_ALREADY_CAPTURED',
-          },
-          { status: 409 }
-        );
-      }
-
-      if (reuse.outcome === 'lookup_failed') {
-        // We could not establish whether the stored PayPal order was already
-        // captured. Minting a replacement could double-charge, so fail closed and
-        // let the buyer retry once PayPal is reachable again.
-        logger.warn({
-          message:
-            'PayPal create-order: stored-order lookup failed; refusing to mint a replacement',
-          merchantId: merchant_id,
-          orderId: order_id,
-          paypalOrderId: storedPaypalOrderId,
-          reason: reuse.reason,
-        });
-        return NextResponse.json(
-          {
-            error:
-              'Could not verify your existing PayPal checkout. Please try again in a moment.',
-            code: 'PAYPAL_ORDER_LOOKUP_FAILED',
-          },
-          { status: 503 }
-        );
-      }
-
-      // Still capturable and NOT captured. Hand back the same approval link only
-      // when the price has not moved (F3/F-158); otherwise fall through to mint a
-      // correctly-priced replacement, which is safe now that we know this order
-      // never took the buyer's money.
-      if (reuse.outcome === 'reuse' && reusablePayPalOrderId) {
-        return NextResponse.json({
-          id: reusablePayPalOrderId,
-          approveUrl: reuse.approveUrl,
-          reused: true,
-        });
-      }
+    // Still capturable and NOT captured. Hand back the same approval link only
+    // when the price has not moved (F3/F-158); otherwise mint a correctly-priced
+    // replacement, now that the earlier lookup proved no capture occurred.
+    if (reusableApprovalUrl && reusablePayPalOrderId) {
+      return NextResponse.json({
+        id: reusablePayPalOrderId,
+        approveUrl: reusableApprovalUrl,
+        reused: true,
+      });
     }
 
     const created = await createAndPersistPaypalOrder(supabase, {

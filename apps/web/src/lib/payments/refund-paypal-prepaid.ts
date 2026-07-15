@@ -11,10 +11,10 @@ import { logger } from '@/lib/logger';
  * Baci-side tender that PayPal never held, so the refund is exact instead of
  * refunding only the PayPal residual while wallet/savings stays consumed (F-74).
  *
- * There is no savings-reversal RPC in the schema, so the full prepaid amount is
- * returned to the customer wallet via `credit_customer_wallet` and the savings
- * redemption row is stamped reversed for audit. Idempotent by order: a prior
- * wallet-refund audit row short-circuits a second credit.
+ * The full prepaid amount is returned to the customer wallet via
+ * `credit_customer_wallet`, then a service-only atomic RPC stamps the savings
+ * redemption row reversed for audit. Idempotent by order: a prior wallet-refund
+ * audit row short-circuits a second credit.
  */
 export interface PrepaidRestoreResult {
   restored: number;
@@ -62,10 +62,17 @@ export async function restorePrepaidTender(
     .limit(1)
     .maybeSingle();
   if (existing) {
+    const savingsRestored = await restoreSavingsAudit(
+      supabase,
+      merchantId,
+      orderId,
+      savingsAmountUsed,
+      input.reason
+    );
     return {
       restored: prepaidPaid,
       walletCreditId: existing.id as string,
-      savingsRestored: savingsAmountUsed <= 0,
+      savingsRestored,
     };
   }
 
@@ -105,23 +112,39 @@ export async function restorePrepaidTender(
       ? (credit as { transaction_id?: string }).transaction_id
       : undefined;
 
-  let savingsRestored = savingsAmountUsed <= 0;
-  if (savingsAmountUsed > 0) {
-    savingsRestored = await markSavingsRedemptionsReversed(
-      supabase,
-      merchantId,
-      orderId,
-      input.reason
-    );
-  }
+  const savingsRestored = await restoreSavingsAudit(
+    supabase,
+    merchantId,
+    orderId,
+    savingsAmountUsed,
+    input.reason
+  );
 
   return { restored: prepaidPaid, walletCreditId, savingsRestored };
 }
 
+async function restoreSavingsAudit(
+  supabase: SupabaseClient,
+  merchantId: string,
+  orderId: string,
+  savingsAmountUsed: number,
+  reason: string
+): Promise<boolean> {
+  if (savingsAmountUsed <= 0) {
+    return true;
+  }
+  return await markSavingsRedemptionsReversed(
+    supabase,
+    merchantId,
+    orderId,
+    reason
+  );
+}
+
 /**
- * Stamps the order's savings redemption row(s) reversed in metadata so an audit
- * can distinguish restored savings from live redemptions. Best-effort — the
- * money was already returned to the wallet above.
+ * Atomically stamps the order's savings redemption row reversed. Concurrent
+ * retries can update only an unreversed row, so the first audit time/reason is
+ * preserved. Best-effort — the money was already returned to the wallet above.
  */
 async function markSavingsRedemptionsReversed(
   supabase: SupabaseClient,
@@ -129,40 +152,22 @@ async function markSavingsRedemptionsReversed(
   orderId: string,
   reason: string
 ): Promise<boolean> {
-  const { data: rows, error } = await supabase
-    .from('customer_savings_redemptions')
-    .select('id, metadata')
-    .eq('order_id', orderId)
-    .eq('merchant_id', merchantId);
-
-  if (error || !Array.isArray(rows) || rows.length === 0) {
-    return !error;
-  }
-
-  let allOk = true;
-  for (const row of rows) {
-    const existingMetadata =
-      row && typeof row === 'object' && row.metadata
-        ? (row.metadata as Record<string, unknown>)
-        : {};
-    const { error: updateError } = await supabase
-      .from('customer_savings_redemptions')
-      .update({
-        metadata: {
-          ...existingMetadata,
-          reversed_at: new Date().toISOString(),
-          reversed_reason: reason,
-        },
-      })
-      .eq('id', (row as { id: string }).id);
-    if (updateError) {
-      allOk = false;
-      logger.error({
-        message: 'PayPal refund: failed to mark savings redemption reversed',
-        error: updateError,
-        orderId,
-      });
+  const { error } = await supabase.rpc(
+    'mark_customer_savings_redemptions_reversed',
+    {
+      p_merchant_id: merchantId,
+      p_order_id: orderId,
+      p_reason: reason,
     }
+  );
+
+  if (error) {
+    logger.error({
+      message: 'PayPal refund: failed to mark savings redemption reversed',
+      error,
+      orderId,
+    });
+    return false;
   }
-  return allOk;
+  return true;
 }

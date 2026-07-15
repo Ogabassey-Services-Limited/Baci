@@ -127,6 +127,8 @@ AS $$
         )
         || pg_catalog.jsonb_build_object(
           'custom_settings',
+          -- Keep this explicit key list synchronized with the app-layer
+          -- pickPublicCustomSettings allowlist whenever a public key is added.
           pg_catalog.jsonb_strip_nulls(
             pg_catalog.jsonb_build_object(
               'google_merchant_id',

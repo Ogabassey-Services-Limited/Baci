@@ -262,6 +262,8 @@ export interface PaypalRefundSplitResult {
   prepaidRestored: number;     // wallet + savings returned
   totalRefunded: number;       // paypalRefunded + prepaidRestored
   paypalRefundIds: string[];
+  pendingRefundIds?: string[];
+  refundPending?: boolean;
   walletCreditId?: string;
   savingsRestored: boolean;
   error?: string;
@@ -275,17 +277,29 @@ export async function refundPaypalOrder(input: {
    (fallback: recompute from order total + wallet_amount_used + savings if absent, so
    pre-existing orders still split correctly).
 2. **PayPal leg** — `initiatePaypalOrderRefund` (unchanged: full refund per capture,
-   presentment ccy) → `paypalRefunded = paypalResidualPaid` on success.
-3. **Prepaid leg** — restore `walletAmountUsed` to the customer wallet and mark the
+   presentment ccy) → `paypalRefunded = paypalResidualPaid` on success. An accepted but
+   incomplete refund stores its PayPal refund ids and moves the payment transaction to
+   `refund_pending`, which is non-settleable and safe to poll without resubmitting. The
+   status transition and reconciliation-metadata merge run in one locked database RPC;
+   zero affected rows are surfaced as an audit failure instead of being treated as success.
+3. **Prepaid leg** — restore `walletAmountUsed` to the customer wallet through the
+   order-idempotent credit RPC and atomically stamp matching
    `customer_savings_redemptions` rows reversed → `prepaidRestored`.
 4. Record refund audit rows **per channel** (`transactions.transaction_type='refund'`, one
    `gateway='paypal'` for the residual, one `gateway='wallet'`/`'savings'` for the prepaid),
    each with its own amount — never one row claiming `amount_paid` refunded via PayPal.
-5. Report `totalRefunded` and the split to the caller; the cancellation email/report renders
+5. For cancellation refunds that remain pending, store a prepaid-recovery marker. The refund
+   sweep retries the idempotent wallet/savings restoration after PayPal completes and only
+   then advances `refund_pending → refunded`; a failed prepaid retry stays recoverable.
+6. Report `totalRefunded` and the split to the caller; the cancellation email/report renders
    the true split. **(Closes F-74 end-to-end.)**
 
 The caller (`processOrderCancellationRefund`) stops reporting `amount = amount_paid` refunded
 via one gateway; it reports `outcome.totalRefunded` with the split.
+
+The guest create-order route gets merchant country from the email-bound
+`get_order_payment_snapshot` RPC. It does not issue an unrestricted service-role read against
+`merchants`; the snapshot exposes only the existing order payment fields plus country.
 
 ---
 
@@ -297,11 +311,11 @@ via one gateway; it reports `outcome.totalRefunded` with the split.
 | **F-194** | `load-paypal-capture-context.ts:194` — amount check rejects only overcharge; a raised order total lets an underpayment through | §2 residual-freshness compares `lockedResidual` vs `currentResidual`; §4a rule 4 emits `reject_underpayment` before capture (and refund+review if already captured). Replaces the one-sided `txn.amount > total` check. |
 | **F-101** | `verify/route.ts:101` — PayPal completed-but-unpaid reconcile: `.neq('status','completed')` ⇒ `updatedTxn=null` ⇒ `if(updatedTxn)` skips settlement + side effects, order marked paid with no direct settlement | verify's PayPal branch delegates to `reconcilePaypalOrderToPaid` (§4b) instead of the generic order-update path. Settlement + notify + email run via `after()` on every path, gated by the CAS claim, not by `updatedTxn`. The generic `.neq/if(updatedTxn)` logic no longer governs PayPal. |
 | **F-182** | `finalize-paypal-capture-order.ts:182` — serialized-inventory 409 leaves order `paid`; refresh sees paid, success though inventory unconfirmed | §4b step 4: the serialized-unavailable branch now performs the **same rollback** (payment_status + shipping_status + amount_paid → pre-capture) as the transient branch, then files review + returns 409. A refresh sees unpaid and retries cleanly. |
-| **F-74** | `order-cancellation-refund.ts:74` — mixed tender: refunds only PayPal residual but reports full `amount_paid` refunded; wallet/savings stays consumed | §2 persists `paypal_split`; §4c `refundPaypalOrder` refunds the PayPal residual **and** restores wallet/savings, records per-channel audit rows, and reports the true `{paypalRefunded, prepaidRestored, totalRefunded}` split for audit + email. |
+| **F-74** | `order-cancellation-refund.ts:74` — mixed tender: refunds only PayPal residual but reports full `amount_paid` refunded; wallet/savings stays consumed | §2 persists `paypal_split`; §4c `refundPaypalOrder` refunds the PayPal residual **and** restores wallet/savings, records per-channel audit rows, and reports the true `{paypalRefunded, prepaidRestored, totalRefunded}` split for audit + email. Accepted asynchronous refunds are terminalized only after the sweep also completes any marked prepaid recovery. |
 | **F-138** | `paypal-capture-side-effects.ts:138` — confirmation email omits currency; template defaults to NGN | §4b step 5 / side-effects: `emailConfirmation` templatePayload passes `currency: order.currency ?? 'USD'` (mirrors verify/route.ts:494), and `notify()` uses `order.currency` consistently. `order.currency` is already selected in the finalize `.select`. |
 | **credentials:162** | `paypal-checkout-credentials.ts:162` — mid-checkout 401 handler calls `disablePaypalFeatureFlag(merchantId)`, disabling the merchant's **entire** PayPal (all environments, all customers) on a single, possibly transient, OAuth 401 | **Classification: [P3] availability / blast-radius, orthogonal to the reconcile funnel.** Fix: keep `markMerchantCredentialInvalid` (checkout already fails closed on a null/invalid vault credential, so the credential mark alone stops charges), and **remove the global `disablePaypalFeatureFlag` from the runtime checkout 401 path** — leave feature-flag lifecycle to the settings/disconnect route (which owns it with proper auth). This mirrors the payment-credentials scope lesson: never take a global destructive action from a single runtime failure. Credential-invalidation stays outside the funnel. |
 | **create-order:393** | `create-order/route.ts:393` — reuse `already_captured` branch returns 409 **without** finalizing; the completed-txn guard at :160 does finalize. Money captured at PayPal, order left unpaid + unsettled | **Classification: [P1] correctness / stuck-payment.** Fix: the `already_captured` branch routes through the **same** `reconcile_completed_unpaid` path as the completed-txn guard — fetch the PayPal order, `validatePaypalCaptureSet`, persist `gateway_response` + flip txn, call `reconcilePaypalOrderToPaid`, **then** 409. Both create-order guards become one call site (§6). |
-| **payment-credentials:204** | rollback `deleteMerchantCredentials(merchantId, provider)` deletes ALL PayPal creds for the provider, not just the failed environment/roles; a transient sandbox-save failure nukes an unrelated LIVE pair | Scope the rollback to the **failed environment + the two roles just written**: delete only `(provider, environment, 'client_id')` and `(provider, environment, 'secret_key')`. Introduce/​use an environment-scoped delete (`deleteMerchantCredential(merchantId, provider, role, environment)`) instead of the provider-wide delete. Live checkout is untouched by a sandbox-save failure. |
+| **payment-credentials:204** | rollback `deleteMerchantCredentials(merchantId, provider)` deletes ALL PayPal creds for the provider, not just the failed environment/roles; a transient sandbox-save failure nukes an unrelated LIVE pair | Replace the app-level two-write/rollback sequence with the service-only `replace_merchant_payment_credential_pair` RPC. It serializes a merchant/provider/environment pair under an advisory transaction lock and commits both encrypted roles or neither, so concurrent saves cannot interleave and an unrelated environment is untouched. |
 | **use-paypal-return:49** | `use-paypal-return.ts:49` — `setIsProcessing(true)` before `await` re-renders; inline `getHref`/`routerPush` change identity → effect cleanup sets `active=false`, a successful capture is ignored, customer stranded on checkout | Decouple the capture effect from unstable caller callbacks: hold `getHref`, `routerPush`, `clearCart`, `clearCheckoutSession`, `setIsProcessing` in refs updated each render, and narrow the effect deps to `[merchantId]` (the flow is already single-shot via `handledRef`). The cleanup no longer runs on every parent re-render, so `active` stays true through the in-flight capture. Equivalent: track `active` in a ref keyed to true unmount, not to dependency-change cleanup. |
 
 ---
@@ -346,8 +360,9 @@ and records per-channel audit rows. Paystack/Korapay branches unchanged. **(F-74
 **`paypal-checkout-credentials.ts`** → remove `disablePaypalFeatureFlag` from
 `markPaypalCredentialInvalid` (runtime path); keep credential-mark only. **(credentials:162)**
 
-**`merchant/payment-credentials/route.ts`** → scope the save-rollback to the failed
-environment + two roles. **(payment-credentials:204)**
+**`merchant/payment-credentials/route.ts`** → replace both encrypted roles through one
+service-only, pair-locked database RPC; there is no app-level partial-write rollback.
+**(payment-credentials:204)**
 
 **`use-paypal-return.ts`** → refs for callbacks + narrowed deps. **(use-paypal-return:49)**
 
@@ -357,9 +372,9 @@ environment + two roles. **(payment-credentials:204)**
 
 - **PayPal `void` API** for BLOCK-PE on an APPROVED-but-uncaptured stale order must exist in
   `@/lib/paypal`; if not, fall back to filing a review row (never silently proceed).
-- **Wallet/savings restore** (refund prepaid leg) needs the inverse of the redemption RPCs;
-  confirm `credit_customer_wallet` + a savings-reversal RPC exist and are idempotent by
-  refund reference before wiring.
+- **Wallet/savings restore** uses `credit_customer_wallet` (order-idempotent) plus the
+  service-only conditional `mark_customer_savings_redemptions_reversed` RPC. Keep both
+  contracts and the pending-refund recovery marker covered by migration and retry tests.
 - `reconcile_completed_unpaid` fetching the PayPal order adds a live call on the create-order
   and verify reconcile paths; acceptable (cold path) but must be time-bounded.
 - Backfill: pre-existing paid PayPal orders lack `paypal_split` metadata — the §4c fallback

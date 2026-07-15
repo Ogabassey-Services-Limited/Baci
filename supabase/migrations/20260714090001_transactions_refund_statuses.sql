@@ -38,13 +38,10 @@ ALTER TABLE public.transactions
         'refund_pending'::text
       ]
     )
-  );
+  ) NOT VALID;
 
--- Lets the reconciliation sweeper find refunds still in flight without scanning the
--- table. Partial: the interesting set is tiny and short-lived.
-CREATE INDEX IF NOT EXISTS transactions_refund_pending_idx
-  ON public.transactions (updated_at)
-  WHERE status = 'refund_pending';
+ALTER TABLE public.transactions
+  VALIDATE CONSTRAINT transactions_status_check;
 
 COMMENT ON CONSTRAINT transactions_status_check ON public.transactions IS
   'Includes refunded/refund_pending so a returned capture is non-settleable. refund_pending means PayPal accepted the refund but has not completed it — re-poll, never re-refund.';

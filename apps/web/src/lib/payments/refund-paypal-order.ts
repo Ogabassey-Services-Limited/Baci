@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
 import { initiatePaypalOrderRefund } from '@/lib/payments/paypal-order-refund';
 import { restorePrepaidTender } from '@/lib/payments/refund-paypal-prepaid';
+import { resolvePaypalSplit } from '@/lib/payments/resolve-paypal-split';
 
 /**
  * The single mixed-tender PayPal refund splitter (see
@@ -23,101 +24,11 @@ export interface PaypalRefundSplitResult {
   prepaidRestored: number;
   totalRefunded: number;
   paypalRefundIds: string[];
+  pendingRefundIds?: string[];
+  refundPending?: boolean;
   walletCreditId?: string;
   savingsRestored: boolean;
   error?: string;
-}
-
-interface ResolvedSplit {
-  paypalResidualPaid: number;
-  prepaidPaid: number;
-  savingsAmountUsed: number;
-  customerId: string | null;
-}
-
-function finiteOrNull(value: unknown): number | null {
-  const n = typeof value === 'number' ? value : Number(value);
-  return Number.isFinite(n) ? n : null;
-}
-
-async function resolvePaypalSplit(
-  supabase: SupabaseClient,
-  merchantId: string,
-  orderId: string,
-  txnMetadata: unknown
-): Promise<ResolvedSplit | { failed: true; reason: string }> {
-  // FAIL CLOSED on both reads. These errors used to be dropped
-  // (`const { data } = await ...`), which made a transient DB failure
-  // indistinguishable from a legitimate empty result — and the two have opposite
-  // meanings for money:
-  //
-  //   • savings lookup fails → savingsAmountUsed silently becomes 0 → the customer
-  //     is under-credited to their wallet by EXACTLY their savings, the redemption
-  //     rows are never reversed, and the refund still reports success.
-  //   • order lookup fails → orderTotal becomes 0 → the computed split is 0/0 and
-  //     NOTHING is refunded, also reported as success.
-  //
-  // A refund that quietly returns the wrong amount is worse than one that fails
-  // loudly, so the caller aborts and the order stays refundable.
-  const { data: orderRow, error: orderError } = await supabase
-    .from('orders')
-    .select('total, wallet_amount_used, customer_id')
-    .eq('id', orderId)
-    .eq('merchant_id', merchantId)
-    .maybeSingle();
-
-  if (orderError || !orderRow) {
-    return { failed: true, reason: 'order_lookup_failed' };
-  }
-
-  const orderTotal = Number(orderRow?.total) || 0;
-  const walletAmountUsed = Math.max(
-    Number(orderRow?.wallet_amount_used) || 0,
-    0
-  );
-  const customerId = (orderRow?.customer_id as string | null) ?? null;
-
-  const { data: savingsRows, error: savingsError } = await supabase
-    .from('customer_savings_redemptions')
-    .select('amount')
-    .eq('order_id', orderId)
-    .eq('merchant_id', merchantId);
-
-  if (savingsError) {
-    return { failed: true, reason: 'savings_lookup_failed' };
-  }
-
-  const savingsAmountUsed = Array.isArray(savingsRows)
-    ? savingsRows.reduce(
-        (sum, row) => sum + (Math.max(Number(row?.amount) || 0, 0) || 0),
-        0
-      )
-    : 0;
-
-  const metadata = (txnMetadata as Record<string, unknown> | null) ?? {};
-  const storedSplit = metadata.paypal_split as
-    | { paypalResidualPaid?: unknown; prepaidPaid?: unknown }
-    | undefined;
-  const storedResidual = finiteOrNull(storedSplit?.paypalResidualPaid);
-  const storedPrepaid = finiteOrNull(storedSplit?.prepaidPaid);
-
-  if (storedResidual !== null && storedPrepaid !== null) {
-    return {
-      paypalResidualPaid: storedResidual,
-      prepaidPaid: storedPrepaid,
-      savingsAmountUsed,
-      customerId,
-    };
-  }
-
-  // Fallback for orders finalized before paypal_split existed.
-  const prepaidPaid = walletAmountUsed + savingsAmountUsed;
-  return {
-    paypalResidualPaid: Math.max(orderTotal - prepaidPaid, 0),
-    prepaidPaid,
-    savingsAmountUsed,
-    customerId,
-  };
 }
 
 async function recordRefundAuditRow(
@@ -250,6 +161,11 @@ export async function refundPaypalOrder(input: {
     split.prepaidPaid <= 0 ||
     (prepaid.restored >= split.prepaidPaid && prepaid.savingsRestored);
   const success = paypalRefund.success && prepaidComplete;
+  // This flag describes the PayPal leg, independently of the prepaid leg. Once
+  // PayPal accepts an asynchronous refund, callers must terminalize the capture
+  // as refund_pending even when wallet/savings restoration still needs a retry;
+  // otherwise a cancellation retry can submit the same PayPal refund again.
+  const refundPending = paypalRefund.pending === true;
 
   const errorParts: string[] = [];
   if (!paypalRefund.success) {
@@ -265,6 +181,8 @@ export async function refundPaypalOrder(input: {
     prepaidRestored: prepaid.restored,
     totalRefunded,
     paypalRefundIds,
+    pendingRefundIds: paypalRefund.pendingRefundIds,
+    refundPending,
     walletCreditId: prepaid.walletCreditId,
     savingsRestored: prepaid.savingsRestored,
     error: errorParts.length > 0 ? errorParts.join('; ') : undefined,

@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
     const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
       .select(
-        'id, business_name, country, email, phone, support_email, support_phone, paystack_subaccount_code, bank_code, bank_account_number, slug'
+        'id, business_name, country, payout_currency, email, phone, support_email, support_phone, paystack_subaccount_code, bank_code, bank_account_number, slug'
       )
       .eq('id', access.merchantId)
       .maybeSingle();

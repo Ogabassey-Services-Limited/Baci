@@ -9,14 +9,12 @@ import {
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
-  deleteMerchantCredential,
   deleteMerchantCredentials,
   getMerchantPaymentCredentialMeta,
   type MerchantPaymentCredentialMetaRow,
-  setMerchantPaymentCredential,
-  touchMerchantCredentialValidated,
 } from '@/lib/payments/merchant-credentials';
 import { getPaypalClientId } from '@/lib/payments/paypal-checkout-credentials';
+import { replaceMerchantPaymentCredentialPair } from '@/lib/payments/replace-merchant-payment-credential-pair';
 import { getAccessToken } from '@/lib/paypal';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { DELETE, GET, POST } from './route';
@@ -44,10 +42,11 @@ vi.mock('@/lib/cache-revalidation', () => ({
 
 vi.mock('@/lib/payments/merchant-credentials', () => ({
   deleteMerchantCredentials: vi.fn(),
-  deleteMerchantCredential: vi.fn(),
   getMerchantPaymentCredentialMeta: vi.fn(),
-  setMerchantPaymentCredential: vi.fn(),
-  touchMerchantCredentialValidated: vi.fn(),
+}));
+
+vi.mock('@/lib/payments/replace-merchant-payment-credential-pair', () => ({
+  replaceMerchantPaymentCredentialPair: vi.fn(),
 }));
 
 vi.mock('@/lib/payments/paypal-checkout-credentials', () => ({
@@ -196,8 +195,9 @@ describe('/api/merchant/payment-credentials', () => {
       data: 'paypal-access-token',
     });
     vi.mocked(getPaypalClientId).mockResolvedValue(null);
-    vi.mocked(setMerchantPaymentCredential).mockResolvedValue('credential-id');
-    vi.mocked(touchMerchantCredentialValidated).mockResolvedValue(undefined);
+    vi.mocked(replaceMerchantPaymentCredentialPair).mockResolvedValue(
+      undefined
+    );
     vi.mocked(deleteMerchantCredentials).mockResolvedValue(undefined);
     vi.mocked(getMerchantPaymentCredentialMeta).mockResolvedValue([
       credentialRow('client_id'),
@@ -220,7 +220,7 @@ describe('/api/merchant/payment-credentials', () => {
     expect(response.status).toBe(401);
     expect(checkCsrfProtection).not.toHaveBeenCalled();
     expect(checkRateLimit).not.toHaveBeenCalled();
-    expect(setMerchantPaymentCredential).not.toHaveBeenCalled();
+    expect(replaceMerchantPaymentCredentialPair).not.toHaveBeenCalled();
   });
 
   it('returns 403 for callers without settings.edit and never validates provider credentials', async () => {
@@ -232,7 +232,7 @@ describe('/api/merchant/payment-credentials', () => {
     expect(hasPermission).toHaveBeenCalledWith(access, 'settings', 'edit');
     expect(checkRateLimit).not.toHaveBeenCalled();
     expect(getAccessToken).not.toHaveBeenCalled();
-    expect(setMerchantPaymentCredential).not.toHaveBeenCalled();
+    expect(replaceMerchantPaymentCredentialPair).not.toHaveBeenCalled();
   });
 
   it('returns the CSRF rejection before rate limiting or vault writes', async () => {
@@ -251,7 +251,7 @@ describe('/api/merchant/payment-credentials', () => {
       error: 'CSRF validation failed',
     });
     expect(checkRateLimit).not.toHaveBeenCalled();
-    expect(setMerchantPaymentCredential).not.toHaveBeenCalled();
+    expect(replaceMerchantPaymentCredentialPair).not.toHaveBeenCalled();
   });
 
   it('returns 429 when validate-on-save is rate limited', async () => {
@@ -266,7 +266,7 @@ describe('/api/merchant/payment-credentials', () => {
     expect(response.status).toBe(429);
     expect((await responseJson(response)).code).toBe('rate_limited');
     expect(getAccessToken).not.toHaveBeenCalled();
-    expect(setMerchantPaymentCredential).not.toHaveBeenCalled();
+    expect(replaceMerchantPaymentCredentialPair).not.toHaveBeenCalled();
   });
 
   it('rejects invalid PayPal credentials without storing submitted secrets', async () => {
@@ -282,7 +282,7 @@ describe('/api/merchant/payment-credentials', () => {
     expect(response.status).toBe(400);
     expect(body.code).toBe('invalid_provider_credentials');
     expect(JSON.stringify(body)).not.toContain(SECRET_KEY);
-    expect(setMerchantPaymentCredential).not.toHaveBeenCalled();
+    expect(replaceMerchantPaymentCredentialPair).not.toHaveBeenCalled();
   });
 
   it('validates, stores both PayPal credentials, and returns only redacted status', async () => {
@@ -296,27 +296,13 @@ describe('/api/merchant/payment-credentials', () => {
 
     expect(response.status).toBe(200);
     expect(getAccessToken).toHaveBeenCalledWith(CLIENT_ID, SECRET_KEY, 'live');
-    expect(setMerchantPaymentCredential).toHaveBeenCalledWith(
-      MERCHANT_ID,
-      'paypal',
-      'client_id',
-      'live',
-      CLIENT_ID
-    );
-    expect(setMerchantPaymentCredential).toHaveBeenCalledWith(
-      MERCHANT_ID,
-      'paypal',
-      'secret_key',
-      'live',
-      SECRET_KEY
-    );
-    // Scoped to the environment that was actually validated — stamping the other
-    // one would mark never-checked live keys as good (Codex pass-10 P2).
-    expect(touchMerchantCredentialValidated).toHaveBeenCalledWith(
-      MERCHANT_ID,
-      'paypal',
-      expect.stringMatching(/^(test|live)$/)
-    );
+    expect(replaceMerchantPaymentCredentialPair).toHaveBeenCalledWith({
+      merchantId: MERCHANT_ID,
+      provider: 'paypal',
+      environment: 'live',
+      clientId: CLIENT_ID,
+      secretKey: SECRET_KEY,
+    });
     expect(body.configured).toBe(true);
     expect(JSON.stringify(body)).not.toContain(CLIENT_ID);
     expect(JSON.stringify(body)).not.toContain(SECRET_KEY);
@@ -338,7 +324,7 @@ describe('/api/merchant/payment-credentials', () => {
 
     expect(response.status).toBe(409);
     expect(body.code).toBe('paypal_refundable_payments_exist');
-    expect(setMerchantPaymentCredential).not.toHaveBeenCalled();
+    expect(replaceMerchantPaymentCredentialPair).not.toHaveBeenCalled();
   });
 
   it('returns a write-only GET status for callers with settings.view', async () => {
@@ -469,46 +455,22 @@ describe('/api/merchant/payment-credentials', () => {
     expect(customSettings).not.toHaveProperty('paypalClientSecret');
   });
 
-  it('rolls back ONLY the failed environment/roles and errors when the second write fails (S-245 + payment-credentials:204)', async () => {
-    // client_id write lands, secret_key write fails → we must never persist a
-    // half-saved pair. The rollback is scoped to the two roles at THIS
-    // environment, never the provider-wide delete that would nuke an unrelated
-    // LIVE pair (payment-credentials:204).
-    vi.mocked(setMerchantPaymentCredential)
-      .mockResolvedValueOnce('client-id-credential')
-      .mockRejectedValueOnce(new Error('vault write failed'));
+  it('errors without rollback when the atomic pair write fails', async () => {
+    vi.mocked(replaceMerchantPaymentCredentialPair).mockRejectedValue(
+      new Error('atomic vault write failed')
+    );
 
     const response = await POST(saveRequest());
 
     expect(response.status).toBe(500);
-    expect(deleteMerchantCredential).toHaveBeenCalledWith(
-      MERCHANT_ID,
-      'paypal',
-      'client_id',
-      'live'
-    );
-    expect(deleteMerchantCredential).toHaveBeenCalledWith(
-      MERCHANT_ID,
-      'paypal',
-      'secret_key',
-      'live'
-    );
-    // The provider-wide delete must NOT run for a single failed save.
     expect(deleteMerchantCredentials).not.toHaveBeenCalled();
-    // A half-pair must never be marked validated.
-    expect(touchMerchantCredentialValidated).not.toHaveBeenCalled();
   });
 
-  it('does not roll back or error when both credential writes succeed', async () => {
+  it('does not roll back or error when the atomic credential write succeeds', async () => {
     const response = await POST(saveRequest());
 
     expect(response.status).toBe(200);
-    expect(setMerchantPaymentCredential).toHaveBeenCalledTimes(2);
+    expect(replaceMerchantPaymentCredentialPair).toHaveBeenCalledTimes(1);
     expect(deleteMerchantCredentials).not.toHaveBeenCalled();
-    expect(touchMerchantCredentialValidated).toHaveBeenCalledWith(
-      MERCHANT_ID,
-      'paypal',
-      expect.stringMatching(/^(test|live)$/)
-    );
   });
 });

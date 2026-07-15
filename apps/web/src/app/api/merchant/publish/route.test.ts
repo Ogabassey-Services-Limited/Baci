@@ -182,6 +182,7 @@ function setupMerchantData(data: Record<string, unknown> | null) {
           id: MERCHANT_ID,
           business_name: 'Test Store',
           country: 'NG',
+          payout_currency: 'NGN',
           email: 'owner@example.com',
           phone: null,
           support_email: 'test@example.com',
