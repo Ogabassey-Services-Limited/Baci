@@ -67,6 +67,50 @@ if PATH="$fake_bin:$PATH" \
 fi
 grep -q 'unexpected recorded/current name pair' "$fixture_root/invalid-output.log"
 
+historical_alias_dir="$fixture_root/historical-alias"
+mkdir -p "$historical_alias_dir"
+printf '%s\n' "SELECT 'current';" \
+  >"$historical_alias_dir/20260604132853_fix_create_storefront_order_customer_returning_id_ambiguity.sql"
+historical_alias_log="$fixture_root/historical-alias-queries.log"
+historical_alias_output="$fixture_root/historical-alias-output.log"
+PATH="$fake_bin:$PATH" \
+  MIGRATIONS_DIR="$historical_alias_dir" \
+  SUPABASE_ACCESS_TOKEN=test \
+  SUPABASE_PROJECT_REF=test \
+  FAKE_QUERY_LOG="$historical_alias_log" \
+  FAKE_INITIAL_RESPONSE='[{"version":"20260604132853","name":"fix_storefront_order_customer_returning_id_ambiguity"}]' \
+  bash "$applier" >"$historical_alias_output"
+
+grep -q \
+  "historical name alias 20260604132853 is reconciled: fix_storefront_order_customer_returning_id_ambiguity -> fix_create_storefront_order_customer_returning_id_ambiguity" \
+  "$historical_alias_output"
+grep -q \
+  'already applied: 20260604132853  fix_create_storefront_order_customer_returning_id_ambiguity' \
+  "$historical_alias_output"
+if grep -q 'INSERT INTO supabase_migrations.schema_migrations' "$historical_alias_log"; then
+  echo 'Expected an approved historical name alias to remain already applied' >&2
+  exit 1
+fi
+
+wrong_historical_alias_log="$fixture_root/wrong-historical-alias-queries.log"
+if PATH="$fake_bin:$PATH" \
+  MIGRATIONS_DIR="$historical_alias_dir" \
+  SUPABASE_ACCESS_TOKEN=test \
+  SUPABASE_PROJECT_REF=test \
+  FAKE_QUERY_LOG="$wrong_historical_alias_log" \
+  FAKE_INITIAL_RESPONSE='[{"version":"20260604132853","name":"unexpected"}]' \
+  bash "$applier" >"$fixture_root/wrong-historical-alias-output.log" 2>&1; then
+  echo 'Expected an unexpected name for the historical alias version to fail closed' >&2
+  exit 1
+fi
+grep -q \
+  "recorded as 'unexpected', not current file 'fix_create_storefront_order_customer_returning_id_ambiguity'" \
+  "$fixture_root/wrong-historical-alias-output.log"
+if grep -q 'INSERT INTO supabase_migrations.schema_migrations' "$wrong_historical_alias_log"; then
+  echo 'Rejected historical aliases must not write migration state' >&2
+  exit 1
+fi
+
 renamed_dir="$fixture_root/renamed"
 mkdir -p "$renamed_dir"
 printf '%s\n' "SELECT 'current';" >"$renamed_dir/20260101000000_current.sql"
