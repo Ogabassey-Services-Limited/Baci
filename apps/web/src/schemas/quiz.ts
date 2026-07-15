@@ -27,8 +27,19 @@ export const quizEventsQuerySchema = z
     error: 'provide either merchantId or merchantSlug, not both',
   });
 
+/**
+ * A hashed device identifier (SHA-256 hex). Mobile derives it from the native
+ * install id; web derives it server-side from an httpOnly cookie. Optional
+ * because a client that cannot produce one must still be able to play — the
+ * per-customer and email-identity caps still apply to it.
+ */
+export const quizDeviceFingerprintSchema = z
+  .string()
+  .regex(/^[0-9a-f]{64}$/, 'Device fingerprint must be a SHA-256 hex digest');
+
 export const startQuizAttemptSchema = z.object({
   entryMode: z.literal(QUIZ_FREE_ENTRY_MODE),
+  deviceFingerprint: quizDeviceFingerprintSchema.optional(),
   eventId: quizUuidSchema,
   integrityTier: quizIntegrityTierSchema,
 });

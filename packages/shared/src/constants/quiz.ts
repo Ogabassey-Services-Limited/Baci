@@ -21,3 +21,11 @@ export const QUIZ_FREE_ENTRY_MODE = 'free-v1' as const;
 
 /** Signed RPC action used by the free-entry server route. */
 export const QUIZ_FREE_ENTRY_RPC_ACTION = 'start_quiz_attempt_free_v1' as const;
+
+/** Signed server action required before an attempt can be bound to a device. */
+export const QUIZ_DEVICE_BIND_RPC_ACTION =
+  'bind_quiz_attempt_device_v1' as const;
+
+/** Signed server action for an atomic quiz start plus device-cap decision. */
+export const QUIZ_DEVICE_START_RPC_ACTION =
+  'start_quiz_attempt_with_device_v1' as const;
