@@ -40,6 +40,22 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const supabase = createAdminClient();
+  const { data: closed, error: closureError } = await supabase.rpc(
+    'close_due_product_quiz_events'
+  );
+
+  if (closureError) {
+    console.error('Quiz product closure failed:', closureError.message);
+    return NextResponse.json(
+      {
+        error: 'Quiz product closure failed',
+        code: 'QUIZ_PRODUCT_CLOSURE_FAILED',
+      },
+      { status: 500 }
+    );
+  }
+
   // Operational production-approval gate: never mint real prizes until QUIZ_PHASE
   // is 'production' AND operations has signed off (QUIZ_PRODUCTION_APPROVED).
   // The RPC also fails closed per-event on compliance_verified, but that is the
@@ -47,12 +63,12 @@ export async function GET(request: NextRequest) {
   // so the cron stays green while prizes are still 1a/unapproved.
   if (getQuizPhaseEnv() !== 'production' || !getQuizProductionApprovedEnv()) {
     return NextResponse.json({
+      closed: closed ?? 0,
       finalized: 0,
       skipped: 'production_not_approved',
     });
   }
 
-  const supabase = createAdminClient();
   const { data, error } = await supabase.rpc('finalize_due_quiz_events');
 
   if (error) {
@@ -63,5 +79,5 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  return NextResponse.json({ finalized: data ?? 0 });
+  return NextResponse.json({ closed: closed ?? 0, finalized: data ?? 0 });
 }
