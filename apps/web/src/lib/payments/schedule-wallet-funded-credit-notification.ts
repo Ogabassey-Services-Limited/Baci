@@ -1,9 +1,12 @@
+import { randomUUID } from 'node:crypto';
 import { logger } from '@/lib/logger';
-import { claimWalletCreditPush } from '@/lib/payments/claim-wallet-credit-push';
 import { notifyWalletCredited } from '@/lib/payments/notify-wallet-credited';
 import type { ScheduleAfter } from '@/lib/payments/paid-order-side-effect-types';
+import { runClaimedWalletCreditPush } from '@/lib/payments/run-claimed-wallet-credit-push';
 
 interface ScheduleWalletFundedCreditNotificationArgs {
+  /** Allows a fresh transfer to create its initial claim; replays require a retry marker. */
+  allowInitialClaim: boolean;
   /** Amount actually credited to the wallet by finalize_wallet_funded_order. */
   fundedAmount: number;
   currency: string;
@@ -21,11 +24,14 @@ interface ScheduleWalletFundedCreditNotificationArgs {
  * and is immediately debited to pay the order, so the generic wallet top-up
  * notification block in the webhook is never reached for this flow.
  *
- * The caller gates this helper on a fresh finalization. Additive and
- * fire-and-forget: scheduled through the caller's `after(...)` injector and
- * swallowing its own errors, so it can never alter the webhook response.
+ * Fresh finalizations may create an initial claim; sequential webhook replays
+ * can claim only a durable retry marker left by a confirmed pre-delivery
+ * failure. Additive and fire-and-forget: scheduled through the caller's
+ * `after(...)` injector and swallowing its own errors, so it can never alter
+ * the webhook response.
  */
 export function scheduleWalletFundedCreditNotification({
+  allowInitialClaim,
   currency,
   customerId,
   fundedAmount,
@@ -43,43 +49,27 @@ export function scheduleWalletFundedCreditNotification({
     // Atomic post-finalizer claim: concurrent webhooks can both enter the RPC
     // before either sees the intent's updated last-reference fields. Only the
     // UPDATE that still sees no marker may schedule this transfer's push.
-    try {
-      let claim = await claimWalletCreditPush({
-        reference: gatewayReference,
-        transactionId,
-      });
-      if (claim.status === 'error') {
-        claim = await claimWalletCreditPush({
-          reference: gatewayReference,
-          transactionId,
-        });
-      }
-      if (claim.status === 'error') {
+    await runClaimedWalletCreditPush({
+      allowInitialClaim,
+      claimToken: randomUUID(),
+      notify: () =>
+        notifyWalletCredited({
+          amount: fundedAmount,
+          currency,
+          customerId,
+          merchantId,
+          returnTo: `/orders/${orderId}`,
+        }),
+      onFailure: (error) => {
         logger.warn({
-          error: claim.error,
+          error: error instanceof Error ? error.message : error,
           gatewayReference,
-          message: 'Wallet-funded credit push claim failed after retry',
+          message: 'Wallet-funded order credit push notification failed',
         });
-        return;
-      }
-      if (claim.status === 'already_claimed') {
-        return;
-      }
-
-      await notifyWalletCredited({
-        amount: fundedAmount,
-        currency,
-        customerId,
-        merchantId,
-        returnTo: `/orders/${orderId}`,
-      });
-    } catch (error) {
-      logger.warn({
-        error: error instanceof Error ? error.message : error,
-        gatewayReference,
-        message: 'Wallet-funded order credit push notification failed',
-      });
-    }
+      },
+      reference: gatewayReference,
+      transactionId,
+    });
   };
 
   try {

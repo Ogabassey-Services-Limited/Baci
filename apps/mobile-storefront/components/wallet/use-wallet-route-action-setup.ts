@@ -116,8 +116,8 @@ export function useWalletRouteActionSetup({
     }
     let isActive = true;
     void startWalletFundingSession(customerId, routeIntentId)
-      .then((session) => {
-        if (session && isActive) {
+      .then(() => {
+        if (isActive) {
           setResolvedFundingSessionKey(fundingSessionKey);
         }
       })

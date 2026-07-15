@@ -1,12 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockNotifyWalletCredited = vi.fn<(...args: unknown[]) => Promise<void>>();
+const mockNotifyWalletCredited = vi.fn();
 const mockWarn = vi.fn();
 const mockClaimWalletCreditPush = vi.hoisted(() => vi.fn());
+const mockReleaseWalletCreditPush = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/payments/claim-wallet-credit-push', () => ({
   claimWalletCreditPush: (...args: unknown[]) =>
     mockClaimWalletCreditPush(...args),
+}));
+
+vi.mock('@/lib/payments/release-wallet-credit-push', () => ({
+  releaseWalletCreditPush: (...args: unknown[]) =>
+    mockReleaseWalletCreditPush(...args),
 }));
 
 vi.mock('@/lib/payments/notify-wallet-credited', () => ({
@@ -25,6 +31,7 @@ vi.mock('@/lib/logger', () => ({
 import { scheduleWalletFundedCreditNotification } from '@/lib/payments/schedule-wallet-funded-credit-notification';
 
 const baseArgs = {
+  allowInitialClaim: true,
   currency: 'NGN',
   customerId: 'customer-1',
   gatewayReference: 'PSK_REF_1',
@@ -36,8 +43,9 @@ const baseArgs = {
 describe('scheduleWalletFundedCreditNotification', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockNotifyWalletCredited.mockResolvedValue(undefined);
+    mockNotifyWalletCredited.mockResolvedValue({ status: 'sent' });
     mockClaimWalletCreditPush.mockResolvedValue({ status: 'claimed' });
+    mockReleaseWalletCreditPush.mockResolvedValue({ status: 'released' });
   });
 
   it('schedules a merchant-scoped wallet credit push for the funded amount', async () => {
@@ -58,6 +66,26 @@ describe('scheduleWalletFundedCreditNotification', () => {
       merchantId: 'merchant-1',
       returnTo: '/orders/11111111-1111-4111-8111-111111111111',
     });
+    expect(mockClaimWalletCreditPush).toHaveBeenCalledWith(
+      expect.objectContaining({ allowInitialClaim: true })
+    );
+  });
+
+  it('allows a finalized-transfer replay to claim only a retryable marker', async () => {
+    const tasks: Array<() => Promise<void>> = [];
+
+    scheduleWalletFundedCreditNotification({
+      ...baseArgs,
+      allowInitialClaim: false,
+      fundedAmount: 20_000,
+      scheduleAfter: (task) => tasks.push(task),
+    });
+
+    await tasks[0]?.();
+    expect(mockClaimWalletCreditPush).toHaveBeenCalledWith(
+      expect.objectContaining({ allowInitialClaim: false })
+    );
+    expect(mockNotifyWalletCredited).toHaveBeenCalledTimes(1);
   });
 
   it.each([
@@ -115,19 +143,26 @@ describe('scheduleWalletFundedCreditNotification', () => {
   });
 
   it('does not schedule when another webhook already claimed the transfer', async () => {
-    const tasks: Array<() => Promise<void>> = [];
-    mockClaimWalletCreditPush.mockResolvedValueOnce({
-      status: 'already_claimed',
-    });
+    vi.useFakeTimers();
+    try {
+      const tasks: Array<() => Promise<void>> = [];
+      mockClaimWalletCreditPush.mockResolvedValue({
+        status: 'already_claimed',
+      });
 
-    scheduleWalletFundedCreditNotification({
-      ...baseArgs,
-      fundedAmount: 20_000,
-      scheduleAfter: (task) => tasks.push(task),
-    });
+      scheduleWalletFundedCreditNotification({
+        ...baseArgs,
+        fundedAmount: 20_000,
+        scheduleAfter: (task) => tasks.push(task),
+      });
 
-    await tasks[0]?.();
-    expect(mockNotifyWalletCredited).not.toHaveBeenCalled();
+      const task = tasks[0]?.();
+      await vi.runAllTimersAsync();
+      await task;
+      expect(mockNotifyWalletCredited).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('retries a transient claim error before sending', async () => {

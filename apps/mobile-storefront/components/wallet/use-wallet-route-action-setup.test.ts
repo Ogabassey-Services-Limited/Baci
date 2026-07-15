@@ -394,7 +394,7 @@ describe('useWalletRouteActionSetup', () => {
     expect(result.current).toBe(true);
   });
 
-  it('keeps credit-baseline resolution gated when the session write returns null', async () => {
+  it('allows a ledger baseline fallback when session storage is unavailable', async () => {
     mockStartSession.mockResolvedValueOnce(null);
 
     const { result } = renderHook(() =>
@@ -403,7 +403,7 @@ describe('useWalletRouteActionSetup', () => {
 
     expect(result.current).toBe(false);
     await act(async () => {});
-    expect(result.current).toBe(false);
+    expect(result.current).toBe(true);
   });
 
   it('keeps the readiness gate closed when the session write rejects', async () => {

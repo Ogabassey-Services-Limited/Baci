@@ -53,9 +53,9 @@ vi.mock('@/lib/payments/run-paid-order-side-effects', () => ({
     mockRunPaidOrderSideEffects(...args),
 }));
 
-const mockNotifyWalletCredited = vi.fn<(...args: unknown[]) => Promise<void>>(
-  async () => undefined
-);
+const mockNotifyWalletCredited = vi.fn<
+  (...args: unknown[]) => Promise<{ status: 'sent' }>
+>(async () => ({ status: 'sent' }));
 vi.mock('@/lib/payments/notify-wallet-credited', () => ({
   notifyWalletCredited: (...args: unknown[]) =>
     mockNotifyWalletCredited(...args),
@@ -160,7 +160,7 @@ describe('processWalletFundedOrderPayment', () => {
     const supabase = createSupabase();
     supabase.rpc.mockResolvedValue({
       data: {
-        credited_amount: 10_000,
+        credited_amount: 8_000,
         debited_amount: 20_000,
         excess_amount: 0,
         funded_amount: 15_000,
@@ -184,32 +184,90 @@ describe('processWalletFundedOrderPayment', () => {
 
     await tasks[0]?.();
     expect(mockNotifyWalletCredited).toHaveBeenCalledWith(
-      expect.objectContaining({ amount: 10_000 })
+      expect.objectContaining({ amount: 8_000 })
     );
   });
 
-  it('does not notify again when the matched transfer was already finalized', async () => {
+  it('uses the raw transaction amount when retrying a finalized transfer notification', async () => {
     mockFindActiveWalletFundingIntentForTransfer.mockResolvedValue({
       intent: {
         ...intent,
-        fundedAmount: 20_000,
-        lastGatewayReference: 'PSK_REF_1',
-        lastTransactionId: 'txn-funding-1',
+        lastGatewayReference: 'PSK_REF_REPLAY',
         status: 'completed',
       },
       kind: 'match',
     });
-    const scheduleAfter = vi.fn();
+    const supabase = createSupabase();
+    supabase.rpc.mockResolvedValue({
+      data: {
+        credited_amount: 8_000,
+        debited_amount: 20_000,
+        excess_amount: 0,
+        funded_amount: 28_000,
+        order_id: 'order-1',
+        order_paid: false,
+        order_payment_transaction_id: null,
+        wallet_credit_transaction_id: 'wallet-credit-replay',
+        wallet_debit_transaction_id: null,
+      },
+      error: null,
+    } as never);
+    const tasks: Array<() => Promise<void>> = [];
 
     await processWalletFundedOrderPayment({
-      gatewayReference: 'PSK_REF_1',
-      gatewayResponse: { paid_at: '2026-05-26T12:05:00.000Z' },
-      scheduleAfter,
-      supabase: createSupabase() as never,
-      transaction,
+      gatewayReference: 'PSK_REF_REPLAY',
+      gatewayResponse: { paid_at: '2026-05-26T12:15:00.000Z' },
+      scheduleAfter: (task) => tasks.push(task),
+      supabase: supabase as never,
+      transaction: { ...transaction, amount: 20_000 },
     });
 
-    expect(scheduleAfter).not.toHaveBeenCalled();
+    await tasks[0]?.();
+    expect(mockNotifyWalletCredited).toHaveBeenCalledWith(
+      expect.objectContaining({ amount: 20_000 })
+    );
+    expect(mockClaimWalletCreditPush).toHaveBeenCalledWith(
+      expect.objectContaining({ allowInitialClaim: false })
+    );
+  });
+
+  it('only retries the push marker when the matched transfer was already finalized', async () => {
+    vi.useFakeTimers();
+    try {
+      mockFindActiveWalletFundingIntentForTransfer.mockResolvedValue({
+        intent: {
+          ...intent,
+          fundedAmount: 20_000,
+          lastGatewayReference: 'PSK_REF_1',
+          lastTransactionId: 'txn-funding-1',
+          status: 'completed',
+        },
+        kind: 'match',
+      });
+      const tasks: Array<() => Promise<void>> = [];
+      mockClaimWalletCreditPush.mockResolvedValue({
+        status: 'already_claimed',
+      });
+
+      await processWalletFundedOrderPayment({
+        gatewayReference: 'PSK_REF_1',
+        gatewayResponse: { paid_at: '2026-05-26T12:05:00.000Z' },
+        scheduleAfter: (task) => tasks.push(task),
+        supabase: createSupabase() as never,
+        transaction,
+      });
+
+      expect(tasks).toHaveLength(1);
+      const task = tasks[0]?.();
+      await vi.runAllTimersAsync();
+      await task;
+      expect(mockClaimWalletCreditPush).toHaveBeenCalledWith(
+        expect.objectContaining({ allowInitialClaim: false })
+      );
+      expect(mockNotifyWalletCredited).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('claims a concurrent transfer notification only once after finalization', async () => {
@@ -232,9 +290,16 @@ describe('processWalletFundedOrderPayment', () => {
     ]);
 
     expect(tasks).toHaveLength(2);
-    mockClaimWalletCreditPush
-      .mockResolvedValueOnce({ status: 'claimed' })
-      .mockResolvedValueOnce({ status: 'already_claimed' });
+    let initialClaimed = false;
+    mockClaimWalletCreditPush.mockImplementation(
+      async ({ allowInitialClaim }: { allowInitialClaim: boolean }) => {
+        if (allowInitialClaim && !initialClaimed) {
+          initialClaimed = true;
+          return { status: 'claimed' };
+        }
+        return { status: 'already_claimed' };
+      }
+    );
     await Promise.all(tasks.map((task) => task()));
     expect(mockNotifyWalletCredited).toHaveBeenCalledTimes(1);
   });

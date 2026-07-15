@@ -725,6 +725,116 @@ describe('notifyCustomer', () => {
     );
   });
 
+  it('signals delivery start after Expo accepts an eligible token', async () => {
+    const mockChain = createChainableMock([{ token: 'ExponentPushToken[c1]' }]);
+    const onDeliveryStart = vi.fn();
+
+    vi.mocked(createAdminClient).mockReturnValue({
+      from: vi.fn().mockReturnValue(mockChain),
+    } as never);
+    mockSendPushNotificationsAsync.mockResolvedValueOnce([
+      { status: 'ok', id: 'ticket-c1' },
+    ]);
+
+    await notifyCustomer('user-456', 'Test', 'Body', undefined, 'payments', {
+      onDeliveryStart,
+    });
+
+    expect(onDeliveryStart).toHaveBeenCalledTimes(1);
+    expect(mockSendPushNotificationsAsync).toHaveBeenCalledBefore(
+      onDeliveryStart
+    );
+  });
+
+  it('does not signal delivery start when Expo rejects every ticket', async () => {
+    const mockChain = createChainableMock([{ token: 'ExponentPushToken[c1]' }]);
+    const onDeliveryStart = vi.fn();
+
+    vi.mocked(createAdminClient).mockReturnValue({
+      from: vi.fn().mockReturnValue(mockChain),
+    } as never);
+    mockSendPushNotificationsAsync.mockResolvedValueOnce([
+      {
+        status: 'error',
+        message: 'Invalid credentials',
+        details: { error: 'InvalidCredentials' },
+      },
+    ]);
+
+    const result = await notifyCustomer(
+      'user-456',
+      'Test',
+      'Body',
+      undefined,
+      'payments',
+      { onDeliveryStart }
+    );
+
+    expect(onDeliveryStart).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      sent: 0,
+      failed: 1,
+      errors: ['InvalidCredentials (1 failed): Invalid credentials'],
+    });
+  });
+
+  it('signals delivery start when an Expo request has an unknown outcome', async () => {
+    const mockChain = createChainableMock([{ token: 'ExponentPushToken[c1]' }]);
+    const onDeliveryStart = vi.fn();
+
+    vi.mocked(createAdminClient).mockReturnValue({
+      from: vi.fn().mockReturnValue(mockChain),
+    } as never);
+    mockSendPushNotificationsAsync.mockRejectedValueOnce(
+      new Error('network timeout')
+    );
+
+    await notifyCustomer('user-456', 'Test', 'Body', undefined, 'payments', {
+      onDeliveryStart,
+    });
+
+    expect(onDeliveryStart).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not signal delivery start when there are no eligible tokens', async () => {
+    const mockChain = createChainableMock([]);
+    const onDeliveryStart = vi.fn();
+
+    vi.mocked(createAdminClient).mockReturnValue({
+      from: vi.fn().mockReturnValue(mockChain),
+    } as never);
+
+    await notifyCustomer('user-456', 'Test', 'Body', undefined, 'payments', {
+      onDeliveryStart,
+    });
+
+    expect(onDeliveryStart).not.toHaveBeenCalled();
+    expect(mockSendPushNotificationsAsync).not.toHaveBeenCalled();
+  });
+
+  it('does not signal delivery start when every stored token is malformed', async () => {
+    const mockChain = createChainableMock([{ token: 'not-an-expo-token' }]);
+    const onDeliveryStart = vi.fn();
+
+    vi.mocked(createAdminClient).mockReturnValue({
+      from: vi.fn().mockReturnValue(mockChain),
+    } as never);
+
+    const result = await notifyCustomer(
+      'user-456',
+      'Test',
+      'Body',
+      undefined,
+      'payments',
+      { onDeliveryStart }
+    );
+
+    expect(onDeliveryStart).not.toHaveBeenCalled();
+    expect(mockSendPushNotificationsAsync).not.toHaveBeenCalled();
+    expect(result.sent).toBe(0);
+    expect(result.failed).toBe(1);
+  });
+
   it('persists title, body, and payload for successful customer sends', async () => {
     const selectChain = createChainableMock([
       { token: 'ExponentPushToken[c1]' },

@@ -111,7 +111,8 @@ export async function sendPushNotification(
  * - Returns a ticket per original message (invalid tokens get synthetic error tickets)
  */
 export async function sendPushNotifications(
-  messages: ExpoPushMessage[]
+  messages: ExpoPushMessage[],
+  options?: { onDeliveryStart?: () => void }
 ): Promise<ExpoPushTicket[]> {
   if (messages.length === 0) return [];
 
@@ -147,21 +148,39 @@ export async function sendPushNotifications(
   // Chunk and send
   const chunks = _getExpo().chunkPushNotifications(validMessages);
   const sdkTickets: ExpoPushTicket[] = [];
+  let deliveryStarted = false;
+  const markDeliveryStarted = (): void => {
+    if (deliveryStarted) return;
+    options?.onDeliveryStart?.();
+    deliveryStarted = true;
+  };
 
   for (const chunk of chunks) {
     try {
       const chunkTickets = await _getExpo().sendPushNotificationsAsync(chunk);
+      if (chunkTickets.some((ticket) => ticket.status === 'ok')) {
+        markDeliveryStarted();
+      }
       sdkTickets.push(...chunkTickets);
     } catch (error) {
       if (isMixedProjectPushError(error)) {
         console.warn(
           '[expo-push] Mixed-project token batch detected, retrying chunk per message'
         );
-        const fallbackTickets = await sendChunkIndividually(chunk);
+        const fallbackTickets = await sendChunkIndividually(
+          chunk,
+          markDeliveryStarted
+        );
+        if (fallbackTickets.some((ticket) => ticket.status === 'ok')) {
+          markDeliveryStarted();
+        }
         sdkTickets.push(...fallbackTickets);
         continue;
       }
 
+      // The request reached the SDK but threw without tickets, so Expo may
+      // have accepted it even though the outcome is unknowable locally.
+      markDeliveryStarted();
       // Synthesize error tickets for the failed chunk
       for (const _ of chunk) {
         sdkTickets.push({
@@ -195,7 +214,8 @@ function isMixedProjectPushError(error: unknown): boolean {
 }
 
 async function sendChunkIndividually(
-  chunk: ExpoPushMessage[]
+  chunk: ExpoPushMessage[],
+  onDeliveryUnknown: () => void
 ): Promise<ExpoPushTicket[]> {
   const tickets: ExpoPushTicket[] = [];
 
@@ -204,6 +224,7 @@ async function sendChunkIndividually(
       const [ticket] = await _getExpo().sendPushNotificationsAsync([message]);
       tickets.push(ticket);
     } catch (error) {
+      onDeliveryUnknown();
       tickets.push({
         status: 'error',
         message: error instanceof Error ? error.message : 'Unknown error',
@@ -324,7 +345,7 @@ export async function notifyCustomer(
   body: string,
   data?: Record<string, unknown>,
   channelId: NotificationChannel = 'orders',
-  options?: { merchantId?: string }
+  options?: { merchantId?: string; onDeliveryStart?: () => void }
 ): Promise<NotificationSendResult> {
   const supabase = createAdminClient();
 
@@ -392,7 +413,9 @@ export async function notifyCustomer(
 
   let result: NotificationSendResult;
   try {
-    const tickets = await sendPushNotifications(messages);
+    const tickets = await sendPushNotifications(messages, {
+      onDeliveryStart: options?.onDeliveryStart,
+    });
 
     result = await processTickets(tickets, tokens, supabase, {
       merchantId: options?.merchantId,

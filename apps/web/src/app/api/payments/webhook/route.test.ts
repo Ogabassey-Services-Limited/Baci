@@ -190,9 +190,16 @@ const mockReconciliationInsert = vi.hoisted(() =>
 const mockClaimWalletCreditPush = vi.hoisted(() =>
   vi.fn().mockResolvedValue({ status: 'claimed' })
 );
+const mockReleaseWalletCreditPush = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({ status: 'released' })
+);
 vi.mock('@/lib/payments/claim-wallet-credit-push', () => ({
   claimWalletCreditPush: (...args: unknown[]) =>
     mockClaimWalletCreditPush(...args),
+}));
+vi.mock('@/lib/payments/release-wallet-credit-push', () => ({
+  releaseWalletCreditPush: (...args: unknown[]) =>
+    mockReleaseWalletCreditPush(...args),
 }));
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: vi.fn(() => ({
@@ -454,6 +461,7 @@ function setupSuccessfulTransactionMocks(
 describe('POST /api/payments/webhook', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockClaimWalletCreditPush.mockResolvedValue({ status: 'claimed' });
     // Reset the mock clients
     mockServiceClient = createMockSupabaseClient();
     mockSupabaseClient = createMockSupabaseClient();
@@ -476,7 +484,7 @@ describe('POST /api/payments/webhook', () => {
       reference: 'REF123',
       transactionId: 'wallet-credit-1',
     });
-    mockNotifyWalletCredited.mockResolvedValue(undefined);
+    mockNotifyWalletCredited.mockResolvedValue({ status: 'sent' });
     mockHandlePaystackSavingsWebhookTransaction.mockResolvedValue(null);
     mockGetPaystackDvaReceiverAccountNumber.mockReturnValue(null);
     mockMarkAgenticPaystackDvaSessionPaid.mockResolvedValue({
@@ -4069,18 +4077,26 @@ describe('POST /api/payments/webhook', () => {
     });
 
     it('suppresses the wallet-credited push on idempotent webhook replays', async () => {
+      vi.useFakeTimers();
       mockCreditWalletTopUp.mockResolvedValueOnce({
         balance: 20000,
         firstCredit: false,
         reference: 'REF123',
         transactionId: 'wallet-credit-1',
       });
-      const request = await buildWalletTopUpWebhookRequest();
+      mockClaimWalletCreditPush.mockResolvedValue({
+        status: 'already_claimed',
+      });
+      try {
+        const request = await buildWalletTopUpWebhookRequest();
+        const response = await POST(request);
+        await vi.runAllTimersAsync();
 
-      const response = await POST(request);
-
-      expect(response.status).toBe(200);
-      expect(mockNotifyWalletCredited).not.toHaveBeenCalled();
+        expect(response.status).toBe(200);
+        expect(mockNotifyWalletCredited).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it('acknowledges the webhook even when the scheduled push rejects', async () => {
