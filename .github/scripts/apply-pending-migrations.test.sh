@@ -118,4 +118,20 @@ fi
 grep -q "Repair migration 20260713140000 is recorded as 'unrelated'" \
   "$fixture_root/wrong-remote-repair-output.log"
 
+unrepaired_sibling_dir="$fixture_root/unrepaired-sibling"
+make_collision_fixture "$unrepaired_sibling_dir"
+unrepaired_sibling_log="$fixture_root/unrepaired-sibling-queries.log"
+if PATH="$fake_bin:$PATH" \
+  MIGRATIONS_DIR="$unrepaired_sibling_dir" \
+  SUPABASE_ACCESS_TOKEN=test \
+  SUPABASE_PROJECT_REF=test \
+  FAKE_QUERY_LOG="$unrepaired_sibling_log" \
+  FAKE_INITIAL_RESPONSE='[{"version":"20260713130000","name":"quiz_finalize_rank_winners"},{"version":"20260713140000","name":"quiz_finalize_rank_winners_reapply"}]' \
+  bash "$applier" >"$fixture_root/unrepaired-sibling-output.log" 2>&1; then
+  echo 'Expected a recorded collision sibling without a complementary repair to fail closed' >&2
+  exit 1
+fi
+grep -q "recorded 'quiz_finalize_rank_winners', whose missing sibling has no repair migration" \
+  "$fixture_root/unrepaired-sibling-output.log"
+
 echo 'Migration applier collision tests passed'

@@ -87,13 +87,20 @@ build_register_migration_query() {
 }
 
 historical_collision_repair_spec() {
-  case "$1" in
-    20260615120000)
+  case "$1:$2" in
+    20260615120000:customer_order_cancellation)
       printf '%s\t%s\n' '20260616205500' 'return_registered_push_token_id'
       ;;
-    20260713130000)
+    20260713130000:add_storefront_paystack_subaccount_configured_rpc)
       printf '%s\t%s\n' '20260713140000' 'quiz_finalize_rank_winners_reapply'
       ;;
+    *) return 1 ;;
+  esac
+}
+
+historical_collision_version_is_known() {
+  case "$1" in
+    20260615120000 | 20260713130000) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -142,13 +149,18 @@ for file in "${sorted_files[@]}"; do
 
   recorded_name="$(awk -F '\t' -v version="$version" '$1 == version { print $2; exit }' <<<"$applied_migrations")"
   if [ -n "$recorded_name" ]; then
-    if repair_spec="$(historical_collision_repair_spec "$version")"; then
-      IFS=$'\t' read -r repair_version repair_name <<<"$repair_spec"
+    if historical_collision_version_is_known "$version"; then
       if ! historical_collision_name_is_valid "$version" "$recorded_name" || \
         ! historical_collision_name_is_valid "$version" "$name"; then
         echo "::error::Historical collision $version has an unexpected recorded/current name pair: $recorded_name / $name" >&2
         exit 1
       fi
+
+      if ! repair_spec="$(historical_collision_repair_spec "$version" "$recorded_name")"; then
+        echo "::error::Historical collision $version recorded '$recorded_name', whose missing sibling has no repair migration" >&2
+        exit 1
+      fi
+      IFS=$'\t' read -r repair_version repair_name <<<"$repair_spec"
 
       repair_recorded_name="$(awk -F '\t' -v version="$repair_version" '$1 == version { print $2; exit }' <<<"$applied_migrations")"
       if [ -n "$repair_recorded_name" ]; then
