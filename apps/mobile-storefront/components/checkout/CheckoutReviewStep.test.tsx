@@ -73,10 +73,10 @@ describe('CheckoutReviewStep', () => {
     render(
       <CheckoutReviewStep
         {...baseProps}
-        address={{
-          ...baseProps.address,
+        merchantPickupLocation={{
           address: '2 Olaide Tomori St, Ikeja, Lagos',
           city: 'Ikeja',
+          label: 'OgaBassey Office',
           state: 'Lagos',
         }}
         deliveryMethod="pickup_station"
@@ -92,6 +92,18 @@ describe('CheckoutReviewStep', () => {
     ).toBeOnTheScreen();
     expect(screen.getByText('Generate Invoice')).toBeOnTheScreen();
     expect(screen.queryByText(/VAT/)).toBeNull();
+  });
+
+  it('falls back to the checkout address when merchant pickup data is absent', () => {
+    render(
+      <CheckoutReviewStep
+        {...baseProps}
+        deliveryMethod="pickup_station"
+        selectedQuote={undefined}
+      />
+    );
+
+    expect(screen.getByText('10 Admiralty Way')).toBeOnTheScreen();
   });
 
   it('shows a clear fallback when no payment method is selected', () => {

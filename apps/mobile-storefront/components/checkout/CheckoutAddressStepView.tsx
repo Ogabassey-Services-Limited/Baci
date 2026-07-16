@@ -76,7 +76,6 @@ export function CheckoutAddressStepView({
     providerPickupQuotes,
     stationPickupQuote,
     usesMerchantPickup,
-    usesProviderPickup,
   } = getCheckoutAddressShippingOptions({
     deliveryMethod,
     selectedQuote,
@@ -86,9 +85,7 @@ export function CheckoutAddressStepView({
     watchedState,
   });
   const shouldShowShippingQuotes =
-    (deliveryMethod === 'door' ||
-      deliveryMethod === 'airport' ||
-      usesProviderPickup) &&
+    (deliveryMethod === 'door' || deliveryMethod === 'airport') &&
     Boolean(watchedState && watchedCity);
   return (
     <ScrollView
@@ -213,15 +210,11 @@ export function CheckoutAddressStepView({
               isDark={isDark}
               isLoadingQuotes={isLoadingQuotes}
               shippingQuotes={
-                usesProviderPickup
-                  ? providerPickupQuotes
-                  : deliveryMethod === 'airport'
-                    ? [localAirportQuote, ...airShippingQuotes]
-                    : doorShippingQuotes
+                deliveryMethod === 'airport'
+                  ? [localAirportQuote, ...airShippingQuotes]
+                  : doorShippingQuotes
               }
-              stationPickupQuote={
-                usesProviderPickup ? undefined : stationPickupQuote
-              }
+              stationPickupQuote={stationPickupQuote}
               selectedQuoteId={effectiveSelectedQuoteId}
               onSelectQuote={onSelectQuote}
               onRetryQuotes={onRetryQuotes}

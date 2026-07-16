@@ -12,6 +12,7 @@ import {
   getDeliveryMethodLabel,
   getDeliveryMethodReviewDetail,
 } from './checkout-step-helpers';
+import type { MerchantPickupLocation } from './merchant-pickup-location';
 import type { PaymentMethodType } from './PaymentMethodSelector';
 import type { DeliveryMethod, ShippingQuote } from './types';
 
@@ -31,12 +32,13 @@ const PAYMENT_METHOD_LABELS: Record<PaymentMethodType, string> = {
 function getReviewAddressText(
   address: ShippingAddressInput,
   deliveryMethod: DeliveryMethod,
+  merchantPickupLocation?: MerchantPickupLocation,
   selectedQuote?: ShippingQuote
 ) {
   if (deliveryMethod === 'pickup_station') {
     return isProviderStationPickupQuote(selectedQuote)
       ? getPickupStationAddressText(selectedQuote, '\n')
-      : address.address;
+      : merchantPickupLocation?.address || address.address;
   }
 
   if (deliveryMethod === 'airport') {
@@ -57,6 +59,7 @@ type CheckoutReviewStepProps = {
   formContentPaddingBottom: number;
   isDark: boolean;
   items: CartItem[];
+  merchantPickupLocation?: MerchantPickupLocation;
   onEditAddress: () => void;
   onEditPayment: () => void;
   selectedPayment: PaymentMethodType | null;
@@ -76,6 +79,7 @@ export function CheckoutReviewStep({
   formContentPaddingBottom,
   isDark,
   items,
+  merchantPickupLocation,
   onEditAddress,
   onEditPayment,
   selectedPayment,
@@ -151,7 +155,12 @@ export function CheckoutReviewStep({
           {address.phone}
         </Text>
         <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
-          {getReviewAddressText(address, deliveryMethod, selectedQuote)}
+          {getReviewAddressText(
+            address,
+            deliveryMethod,
+            merchantPickupLocation,
+            selectedQuote
+          )}
         </Text>
       </View>
 

@@ -165,6 +165,7 @@ export function CheckoutStepContent({
       formContentPaddingBottom={formContentPaddingBottom}
       isDark={isDark}
       items={items}
+      merchantPickupLocation={merchantPickupLocation}
       onEditAddress={() => setStep('address')}
       onEditPayment={() => setStep('payment')}
       selectedPayment={paymentController.selectedPayment}

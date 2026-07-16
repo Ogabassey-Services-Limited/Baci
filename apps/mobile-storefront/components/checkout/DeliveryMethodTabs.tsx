@@ -33,6 +33,11 @@ export interface DeliveryMethodOption {
   isProviderPickup: boolean;
 }
 
+export const DELIVERY_METHOD_RAIL_LAYOUT = {
+  borderWidth: 2,
+  innerPadding: 12,
+} as const;
+
 interface DeliveryMethodTabsProps {
   colors: ColorsScheme;
   isDark: boolean;
@@ -51,14 +56,12 @@ export function DeliveryMethodTabs({
   const [railWidth, setRailWidth] = useState(0);
   const visibleOptionCount = Math.min(Math.max(options.length, 1), 3);
   const segmentGap = SPACING.sm;
-  const railInnerPadding = 12;
-  const railBorderWidth = 2;
   const segmentWidth =
     railWidth > 0
       ? Math.floor(
           (railWidth -
-            railInnerPadding -
-            railBorderWidth -
+            DELIVERY_METHOD_RAIL_LAYOUT.innerPadding -
+            DELIVERY_METHOD_RAIL_LAYOUT.borderWidth -
             segmentGap * (visibleOptionCount - 1)) /
             visibleOptionCount
         )
@@ -182,9 +185,9 @@ export function DeliveryMethodTabs({
 const styles = StyleSheet.create({
   segmentRail: {
     borderRadius: RADIUS.xl,
-    borderWidth: 1,
+    borderWidth: DELIVERY_METHOD_RAIL_LAYOUT.borderWidth / 2,
     marginBottom: SPACING.sm,
-    padding: 6,
+    padding: DELIVERY_METHOD_RAIL_LAYOUT.innerPadding / 2,
   },
   segmentScroller: { gap: SPACING.sm },
   segmentScrollerFull: { flexGrow: 1 },

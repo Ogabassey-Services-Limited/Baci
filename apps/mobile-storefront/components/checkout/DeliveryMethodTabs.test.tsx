@@ -3,8 +3,12 @@ import FontAwesome from '@react-native-vector-icons/fontawesome';
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
+import { SPACING } from '@/constants/Colors';
 import type { DeliveryMethodOption } from './DeliveryMethodTabs';
-import { DeliveryMethodTabs } from './DeliveryMethodTabs';
+import {
+  DELIVERY_METHOD_RAIL_LAYOUT,
+  DeliveryMethodTabs,
+} from './DeliveryMethodTabs';
 
 const mockColors = {
   background: '#0A0A0A',
@@ -149,6 +153,15 @@ describe('DeliveryMethodTabs', () => {
   });
 
   it('keeps two delivery segments inside the bordered rail width', () => {
+    const railWidth = 50 * SPACING.sm;
+    const segmentGap = SPACING.sm;
+    const availableSegmentWidth =
+      railWidth -
+      DELIVERY_METHOD_RAIL_LAYOUT.innerPadding -
+      DELIVERY_METHOD_RAIL_LAYOUT.borderWidth;
+    const expectedSegmentWidth = Math.floor(
+      (availableSegmentWidth - segmentGap) / options.length
+    );
     render(
       <DeliveryMethodTabs
         colors={mockColors}
@@ -162,7 +175,7 @@ describe('DeliveryMethodTabs', () => {
     fireEvent(
       screen.UNSAFE_getByProps({ accessibilityRole: 'radiogroup' }),
       'layout',
-      { nativeEvent: { layout: { width: 400 } } }
+      { nativeEvent: { layout: { width: railWidth } } }
     );
 
     const widths = screen.getAllByRole('radio').map((option) => {
@@ -175,10 +188,12 @@ describe('DeliveryMethodTabs', () => {
       return 0;
     });
 
-    expect(widths).toEqual([189, 189]);
+    expect(widths).toEqual(
+      Array.from({ length: options.length }, () => expectedSegmentWidth)
+    );
     expect(
-      widths.reduce((sum, width) => sum + width, 0) + 8
-    ).toBeLessThanOrEqual(386);
+      widths.reduce((sum, width) => sum + width, 0) + segmentGap
+    ).toBeLessThanOrEqual(availableSegmentWidth);
   });
 
   it('selects the tapped delivery method', () => {

@@ -45,6 +45,26 @@ describe('getCheckoutAddressShippingOptions', () => {
     });
   });
 
+  it('uses provider pickup quotes for non-Lagos station delivery', () => {
+    const input = {
+      deliveryMethod: 'pickup_station' as const,
+      selectedQuote: stationQuote,
+      selectedQuoteId: 'station',
+      shippingQuotes: [doorQuote, stationQuote],
+      watchedCity: 'Port Harcourt',
+      watchedState: 'Rivers',
+    };
+
+    const options = getCheckoutAddressShippingOptions(input);
+
+    expect(options).toMatchObject({
+      providerPickupQuotes: [stationQuote],
+      stationPickupQuote: stationQuote,
+      usesMerchantPickup: false,
+      usesProviderPickup: true,
+    });
+  });
+
   it('uses the local airport quote when no GoFaster quote is selected', () => {
     const options = getCheckoutAddressShippingOptions({
       deliveryMethod: 'airport',
