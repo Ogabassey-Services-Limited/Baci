@@ -1,35 +1,37 @@
+diff --git a/ReactAndroid/build.gradle.kts b/ReactAndroid/build.gradle.kts
+index 99e05410f8c1b86f90d3907cb163d04db9cf0f59..d6d4f7c9542127a1d0d2e68e18a57490f78a2e03 100644
+--- a/ReactAndroid/build.gradle.kts
++++ b/ReactAndroid/build.gradle.kts
+@@ -719,7 +719,7 @@ dependencies {
+
+   // It's up to the consumer to decide if hermes or other engines should be included or not.
+   // Therefore hermes-engine is a compileOnly dependencies.
+-  compileOnly(project(":packages:react-native:ReactAndroid:hermes-engine"))
++  compileOnly("com.facebook.hermes:hermes-android:250829098.0.14")
+
+   testImplementation(libs.junit)
+   testImplementation(libs.assertj)
 diff --git a/ReactAndroid/src/main/java/com/facebook/react/modules/statusbar/StatusBarModule.kt b/ReactAndroid/src/main/java/com/facebook/react/modules/statusbar/StatusBarModule.kt
-index 97725bfcb7d20525999a38b357399b25a962bb67..f7d68caf652759d7a98a9fe285b648e1dc4eaaa4 100644
+index 97725bfcb7d20525999a38b357399b25a962bb67..c917e00386e706e9820f5637117eac976dcd5a10 100644
 --- a/ReactAndroid/src/main/java/com/facebook/react/modules/statusbar/StatusBarModule.kt
 +++ b/ReactAndroid/src/main/java/com/facebook/react/modules/statusbar/StatusBarModule.kt
-@@ -7,16 +7,12 @@
+@@ -9,6 +9,7 @@ package com.facebook.react.modules.statusbar
 
- package com.facebook.react.modules.statusbar
-
--import android.animation.ArgbEvaluator
--import android.animation.ValueAnimator
+ import android.animation.ArgbEvaluator
+ import android.animation.ValueAnimator
++import android.os.Build
  import android.view.Window
--import android.view.WindowManager
+ import android.view.WindowManager
  import androidx.core.view.ViewCompat
- import androidx.core.view.WindowCompat
- import androidx.core.view.WindowInsetsCompat
- import com.facebook.common.logging.FLog
- import com.facebook.fbreact.specs.NativeStatusBarManagerAndroidSpec
--import com.facebook.react.bridge.GuardedRunnable
- import com.facebook.react.bridge.NativeModule
- import com.facebook.react.bridge.ReactApplicationContext
- import com.facebook.react.bridge.UiThreadUtil
-@@ -25,9 +21,7 @@ import com.facebook.react.interfaces.ExtraWindowEventListener
+@@ -25,7 +26,6 @@ import com.facebook.react.interfaces.ExtraWindowEventListener
  import com.facebook.react.module.annotations.ReactModule
  import com.facebook.react.uimanager.DisplayMetricsHolder.getStatusBarHeightPx
  import com.facebook.react.uimanager.PixelUtil
 -import com.facebook.react.views.view.isEdgeToEdgeFeatureFlagOn
  import com.facebook.react.views.view.setStatusBarStyle
--import com.facebook.react.views.view.setStatusBarTranslucency
+ import com.facebook.react.views.view.setStatusBarTranslucency
  import com.facebook.react.views.view.setStatusBarVisibility
- import java.util.Collections
- import java.util.WeakHashMap
-@@ -64,81 +58,22 @@ internal class StatusBarModule(reactContext: ReactApplicationContext?) :
+@@ -64,21 +64,28 @@ internal class StatusBarModule(reactContext: ReactApplicationContext?) :
      extraWindows.remove(window)
    }
 
@@ -40,25 +42,35 @@ index 97725bfcb7d20525999a38b357399b25a962bb67..f7d68caf652759d7a98a9fe285b648e1
 -        currentActivity?.window?.statusBarColor?.let { color ->
 -          String.format("#%06X", 0xFFFFFF and color)
 -        } ?: "black"
++    val defaultBackgroundColor =
++        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) {
++          currentActivity?.window?.getStatusBarColorCompat()?.let { color ->
++            String.format("#%06X", 0xFFFFFF and color)
++          } ?: "black"
++        } else {
++          "#00000000"
++        }
++
      return mapOf(
          HEIGHT_KEY to PixelUtil.toDIPFromPixel(getStatusBarHeightPx(currentActivity).toFloat()),
 -        DEFAULT_BACKGROUND_COLOR_KEY to statusBarColor,
-+        DEFAULT_BACKGROUND_COLOR_KEY to "#00000000",
++        DEFAULT_BACKGROUND_COLOR_KEY to defaultBackgroundColor,
      )
    }
 
 -  @Suppress("DEPRECATION")
-+  @Suppress("UNUSED_PARAMETER")
    override fun setColor(colorDouble: Double, animated: Boolean) {
--    val color = colorDouble.toInt()
--    val activity = reactApplicationContext.getCurrentActivity()
--    if (activity == null) {
--      FLog.w(
--          ReactConstants.TAG,
--          "StatusBarModule: Ignored status bar change, current activity is null.",
--      )
--      return
--    }
++    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
++      return
++    }
++
+     val color = colorDouble.toInt()
+     val activity = reactApplicationContext.getCurrentActivity()
+     if (activity == null) {
+@@ -88,28 +95,22 @@ internal class StatusBarModule(reactContext: ReactApplicationContext?) :
+       )
+       return
+     }
 -    if (isEdgeToEdgeFeatureFlagOn) {
 -      FLog.w(
 -          ReactConstants.TAG,
@@ -66,38 +78,44 @@ index 97725bfcb7d20525999a38b357399b25a962bb67..f7d68caf652759d7a98a9fe285b648e1
 -      )
 -      return
 -    }
--    UiThreadUtil.runOnUiThread(
--        object : GuardedRunnable(reactApplicationContext) {
--          override fun runGuarded() {
--            val window = activity.window ?: return
--            window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
--            if (animated) {
++
+     UiThreadUtil.runOnUiThread(
+         object : GuardedRunnable(reactApplicationContext) {
+           override fun runGuarded() {
+             val window = activity.window ?: return
+             window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+             if (animated) {
 -              val curColor = window.statusBarColor
 -              val colorAnimation = ValueAnimator.ofObject(ArgbEvaluator(), curColor, color)
--              colorAnimation.addUpdateListener { animator ->
++              val currentColor = window.getStatusBarColorCompat() ?: return
++              val colorAnimation = ValueAnimator.ofObject(ArgbEvaluator(), currentColor, color)
+               colorAnimation.addUpdateListener { animator ->
 -                activity.window?.statusBarColor = (animator.animatedValue as Int)
--              }
--              colorAnimation.setDuration(300).startDelay = 0
--              colorAnimation.start()
--            } else {
++                activity.window?.setStatusBarColorCompat(animator.animatedValue as Int)
+               }
+               colorAnimation.setDuration(300).startDelay = 0
+               colorAnimation.start()
+             } else {
 -              window.statusBarColor = color
--            }
--          }
--        }
--    )
-+    // Android 15+ edge-to-edge ignores status-bar background colors.
++              window.setStatusBarColorCompat(color)
+             }
+           }
+         }
+@@ -117,6 +118,10 @@ internal class StatusBarModule(reactContext: ReactApplicationContext?) :
    }
 
-+  @Suppress("UNUSED_PARAMETER")
    override fun setTranslucent(translucent: Boolean) {
--    val activity = reactApplicationContext.getCurrentActivity()
--    if (activity == null) {
--      FLog.w(
--          ReactConstants.TAG,
--          "StatusBarModule: Ignored status bar change, current activity is null.",
--      )
--      return
--    }
++    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
++      return
++    }
++
+     val activity = reactApplicationContext.getCurrentActivity()
+     if (activity == null) {
+       FLog.w(
+@@ -125,13 +130,7 @@ internal class StatusBarModule(reactContext: ReactApplicationContext?) :
+       )
+       return
+     }
 -    if (isEdgeToEdgeFeatureFlagOn) {
 -      FLog.w(
 -          ReactConstants.TAG,
@@ -105,17 +123,34 @@ index 97725bfcb7d20525999a38b357399b25a962bb67..f7d68caf652759d7a98a9fe285b648e1
 -      )
 -      return
 -    }
--    UiThreadUtil.runOnUiThread(
--        object : GuardedRunnable(reactApplicationContext) {
--          override fun runGuarded() {
--            activity.window?.setStatusBarTranslucency(translucent)
--          }
--        }
--    )
-+    // Android 15+ edge-to-edge owns system-bar translucency.
++
+     UiThreadUtil.runOnUiThread(
+         object : GuardedRunnable(reactApplicationContext) {
+           override fun runGuarded() {
+@@ -178,3 +177,23 @@ internal class StatusBarModule(reactContext: ReactApplicationContext?) :
+     private val extraWindows = Collections.newSetFromMap<Window>(WeakHashMap())
    }
-
-   override fun setHidden(hidden: Boolean) {
+ }
++
++private val getStatusBarColorMethod = Window::class.java.getMethod("getStatusBarColor")
++private val setStatusBarColorMethod =
++    Window::class.java.getMethod("setStatusBarColor", Integer.TYPE)
++
++private fun Window.getStatusBarColorCompat(): Int? =
++    try {
++      getStatusBarColorMethod.invoke(this) as? Int
++    } catch (error: ReflectiveOperationException) {
++      FLog.w(ReactConstants.TAG, "StatusBarModule: Unable to read legacy status bar color.", error)
++      null
++    }
++
++private fun Window.setStatusBarColorCompat(color: Int) {
++  try {
++    setStatusBarColorMethod.invoke(this, color)
++  } catch (error: ReflectiveOperationException) {
++    FLog.w(ReactConstants.TAG, "StatusBarModule: Unable to set legacy status bar color.", error)
++  }
++}
 diff --git a/ReactAndroid/src/main/java/com/facebook/react/views/view/WindowUtil.kt b/ReactAndroid/src/main/java/com/facebook/react/views/view/WindowUtil.kt
 index 400860cc17abfc0d2ef5a9a9a6dfe1170f6f2c79..ece2ff6c035f054c674dab9532469c88017a5f14 100644
 --- a/ReactAndroid/src/main/java/com/facebook/react/views/view/WindowUtil.kt
@@ -208,7 +243,7 @@ index 400860cc17abfc0d2ef5a9a9a6dfe1170f6f2c79..ece2ff6c035f054c674dab9532469c88
      val attributes = intArrayOf(android.R.attr.enforceNavigationBarContrast)
      val typedArray = context.theme.obtainStyledAttributes(attributes)
 
-@@ -192,18 +156,12 @@ internal fun Window.enableEdgeToEdge() {
+@@ -192,17 +156,11 @@ internal fun Window.enableEdgeToEdge() {
      val isAppearanceLightNavigationBars =
          Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !isDarkMode
 
@@ -228,17 +263,3 @@ index 400860cc17abfc0d2ef5a9a9a6dfe1170f6f2c79..ece2ff6c035f054c674dab9532469c88
 +        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
    }
  }
-
-diff --git a/ReactAndroid/build.gradle.kts b/ReactAndroid/build.gradle.kts
-index be15834ee2f77f3da321a7bcc69a6c59af437cf4..e48d3ac6cbe6400491ad0015a43a3dde782285ea 100644
---- a/ReactAndroid/build.gradle.kts
-+++ b/ReactAndroid/build.gradle.kts
-@@ -719,7 +719,7 @@ dependencies {
-
-   // It's up to the consumer to decide if hermes or other engines should be included or not.
-   // Therefore hermes-engine is a compileOnly dependencies.
--  compileOnly(project(":packages:react-native:ReactAndroid:hermes-engine"))
-+  compileOnly("com.facebook.hermes:hermes-android:250829098.0.14")
-
-   testImplementation(libs.junit)
-   testImplementation(libs.assertj)

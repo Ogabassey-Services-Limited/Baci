@@ -42,12 +42,31 @@ describe('mobile admin Android edge-to-edge dependency guard', () => {
     );
   });
 
-  it('removes deprecated status-bar color APIs from React Native bytecode inputs', () => {
+  it('keeps deprecated status-bar color APIs out of React Native bytecode inputs', () => {
     const statusBarModule = readReactNativeSource(
       'modules/statusbar/StatusBarModule.kt'
     );
 
     expect(statusBarModule).not.toContain('statusBarColor');
+  });
+
+  it('preserves StatusBar color and translucency behavior below Android 15', () => {
+    const statusBarModule = readReactNativeSource(
+      'modules/statusbar/StatusBarModule.kt'
+    );
+
+    expect(statusBarModule).toContain(
+      'Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM'
+    );
+    expect(statusBarModule).toContain('} ?: "black"');
+    expect(statusBarModule).toContain('getStatusBarColorCompat()');
+    expect(statusBarModule).toContain(
+      'setStatusBarColorCompat(animator.animatedValue as Int)'
+    );
+    expect(statusBarModule).toContain('setStatusBarColorCompat(color)');
+    expect(statusBarModule).toContain(
+      'activity.window?.setStatusBarTranslucency(translucent)'
+    );
   });
 
   it('removes deprecated system-bar colors and cutout modes from WindowUtil', () => {
