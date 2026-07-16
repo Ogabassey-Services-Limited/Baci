@@ -1,87 +1,21 @@
-import type { Control, FieldErrors } from 'react-hook-form';
 import { ScrollView, Text, View } from 'react-native';
 import { CheckoutContactCard } from '@/components/checkout/CheckoutContactCard';
 import { CheckoutDeliveryCard } from '@/components/checkout/CheckoutDeliveryCard';
-import type { CheckoutDeliveryCardProps } from '@/components/checkout/CheckoutDeliveryCard.types';
 import { CheckoutFormField } from '@/components/checkout/CheckoutFormField';
-import {
-  getPickupStationMode,
-  getStationPickupQuote,
-  isProviderStationPickupQuote,
-} from '@/components/checkout/checkout-station-pickup';
 import {
   AIRPORT_DELIVERY_ESTIMATE,
   AIRPORT_DELIVERY_FEE,
-  AIRPORT_QUOTE_ID,
   getDeliveryMethodSummary,
-  isGiglGoFasterQuote,
   LAGOS_ROAD_DELIVERY_ESTIMATE,
 } from '@/components/checkout/checkout-step-helpers';
 import { DeliveryMethodCard } from '@/components/checkout/DeliveryMethodCard';
 import { DeliveryNotesCard } from '@/components/checkout/DeliveryNotesCard';
 import { PickupLocationOptions } from '@/components/checkout/PickupLocationOptions';
 import { ShippingQuotesCard } from '@/components/checkout/ShippingQuotesCard';
-import type Colors from '@/constants/Colors';
-import type { SavedAddress } from '@/lib/checkout-saved-address';
-import type { ShippingAddressInput } from '@/lib/validation';
+import type { CheckoutAddressStepViewProps } from './CheckoutAddressStepView.types';
 import { checkoutScreenViewStyles as styles } from './CheckoutScreenView.styles';
-import {
-  MERCHANT_PICKUP_QUOTE_ID,
-  type MerchantPickupLocation,
-} from './merchant-pickup-location';
-import type { DeliveryMethod, ShippingQuote } from './types';
-
-type ColorsScheme = (typeof Colors)['light'];
-
-interface CheckoutAddressStepViewProps {
-  accountPassword: string;
-  colors: ColorsScheme;
-  contactSummary: string;
-  control: Control<ShippingAddressInput>;
-  currentDeliverySummary: string;
-  defaultSavedAddress: SavedAddress | null;
-  deliveryMethod: DeliveryMethod;
-  errors: FieldErrors<ShippingAddressInput>;
-  formContentPaddingBottom: number;
-  hasContactIdentity: boolean;
-  hasSavedAddresses: boolean;
-  isAddingNewAddress: boolean;
-  isAuthenticated: boolean;
-  isContactCollapsed: boolean;
-  isDark: boolean;
-  isDeliveryCollapsed: boolean;
-  isLoadingCities: boolean;
-  isLoadingLocations: boolean;
-  isLoadingQuotes: boolean;
-  isLoadingSavedAddresses: boolean;
-  merchantPickupLocation?: MerchantPickupLocation;
-  onAddressSelected: CheckoutDeliveryCardProps['onAddressSelected'];
-  onAddressTextChanged: CheckoutDeliveryCardProps['onAddressTextChanged'];
-  onChangeAccountPassword: (value: string) => void;
-  onOpenCityPicker: () => void;
-  onOpenNewAddressEditor: () => void;
-  onOpenStatePicker: () => void;
-  onRetryQuotes: () => void;
-  onSelectDeliveryMethod: (method: DeliveryMethod) => void;
-  onSelectQuote: (quoteId: string) => void;
-  onToggleContactCollapsed: () => void;
-  onToggleDeliveryCollapsed: () => void;
-  onToggleSaveAsDefaultAddress: () => void;
-  onToggleSaveDetails: () => void;
-  onUseSavedAddress: CheckoutDeliveryCardProps['onUseSavedAddress'];
-  phone: string;
-  saveAsDefaultAddress: boolean;
-  saveDetails: boolean;
-  savedAddresses: SavedAddress[];
-  selectedQuote: ShippingQuote | undefined;
-  selectedQuoteId: string;
-  selectedSavedAddress: SavedAddress | null;
-  selectedSavedAddressId: string | null;
-  shippingQuotes: ShippingQuote[];
-  watchedCity: string;
-  watchedEmail: string;
-  watchedState: string;
-}
+import { getCheckoutAddressShippingOptions } from './checkout-address-shipping-options';
+import { MERCHANT_PICKUP_QUOTE_ID } from './merchant-pickup-location';
 
 export function CheckoutAddressStepView({
   accountPassword,
@@ -132,44 +66,30 @@ export function CheckoutAddressStepView({
   watchedEmail,
   watchedState,
 }: CheckoutAddressStepViewProps) {
-  const stationPickupQuote = getStationPickupQuote(shippingQuotes);
-  const doorSelectedQuote =
-    selectedQuote != null && !isProviderStationPickupQuote(selectedQuote)
-      ? selectedQuote
-      : undefined;
-  const doorShippingQuotes = shippingQuotes.filter(
-    (quote) =>
-      !isProviderStationPickupQuote(quote) && !isGiglGoFasterQuote(quote)
-  );
-  const airShippingQuotes = shippingQuotes.filter(isGiglGoFasterQuote);
-  const providerPickupQuotes = shippingQuotes.filter(
-    isProviderStationPickupQuote
-  );
   const canChooseDeliveryMethod = Boolean(watchedState && watchedCity);
-  const { usesMerchantPickup, usesProviderPickup } = getPickupStationMode({
-    city: watchedCity,
-    deliveryMethod,
-    state: watchedState,
+  const {
+    airShippingQuotes,
+    doorSelectedQuote,
+    doorShippingQuotes,
+    effectiveSelectedQuoteId,
+    localAirportQuote,
+    providerPickupQuotes,
     stationPickupQuote,
+    usesMerchantPickup,
+    usesProviderPickup,
+  } = getCheckoutAddressShippingOptions({
+    deliveryMethod,
+    selectedQuote,
+    selectedQuoteId,
+    shippingQuotes,
+    watchedCity,
+    watchedState,
   });
   const shouldShowShippingQuotes =
     (deliveryMethod === 'door' ||
       deliveryMethod === 'airport' ||
       usesProviderPickup) &&
     Boolean(watchedState && watchedCity);
-  const airportLocation = watchedCity.trim() || watchedState.trim();
-  const localAirportQuote: ShippingQuote = {
-    carrierName: 'By Air',
-    deliveryRange: AIRPORT_DELIVERY_ESTIMATE,
-    displayName: `${airportLocation ? `${airportLocation} ` : ''}Airport Delivery`,
-    id: AIRPORT_QUOTE_ID,
-    price: AIRPORT_DELIVERY_FEE,
-  };
-  const effectiveSelectedQuoteId =
-    deliveryMethod === 'airport' && !isGiglGoFasterQuote(selectedQuote)
-      ? AIRPORT_QUOTE_ID
-      : selectedQuoteId;
-
   return (
     <ScrollView
       style={styles.formContainer}

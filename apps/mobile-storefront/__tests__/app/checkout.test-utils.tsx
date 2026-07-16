@@ -24,7 +24,14 @@ export const mockUseMerchantPaymentSettings = jest.fn<
 >(() => ({ data: mockPaymentSettings }));
 export const mockUseMerchant = jest.fn(() => ({
   data: {
+    business_address: 'No. 5 Example Plaza, Ikeja, Lagos',
+    business_name: 'OgaBassey',
     id: 'merchant-ogabassey',
+    registered_address: {
+      city: 'Ikeja',
+      state: 'Lagos',
+      street: 'No. 5 Example Plaza',
+    },
   },
 }));
 export const mockCryptoRandomUUID = jest.fn();
@@ -382,7 +389,14 @@ export function setupCheckoutTest() {
   });
   mockUseMerchant.mockReturnValue({
     data: {
+      business_address: 'No. 5 Example Plaza, Ikeja, Lagos',
+      business_name: 'OgaBassey',
       id: 'merchant-ogabassey',
+      registered_address: {
+        city: 'Ikeja',
+        state: 'Lagos',
+        street: 'No. 5 Example Plaza',
+      },
     },
   });
   mockCreateOrder.mockResolvedValue({
