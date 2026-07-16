@@ -148,7 +148,11 @@ export async function initAdTracking(): Promise<void> {
 }
 
 export async function requestTrackingPermission(): Promise<string> {
-  if (Platform.OS !== 'ios') return 'granted';
+  if (Platform.OS !== 'ios') {
+    setIsTrackingAllowed(true);
+    setIsInitialized(true);
+    return 'granted';
+  }
 
   try {
     const wasTrackingAllowed = getIsTrackingAllowed();
@@ -168,6 +172,8 @@ export async function requestTrackingPermission(): Promise<string> {
     setIsTrackingAllowed(false);
     log.error('ATT request error:', error);
     return 'denied';
+  } finally {
+    setIsInitialized(true);
   }
 }
 
