@@ -10,6 +10,10 @@ if (process.env.NODE_ENV !== 'test') {
 import type { TikTokBusinessPlugin } from '@baci/tiktok-business';
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
+const { createExpoPlugins } =
+  require('./config/expo-plugins.ts') as typeof import('./config/expo-plugins');
+const { resolveUpdateChannel } =
+  require('./config/resolve-update-channel.ts') as typeof import('./config/resolve-update-channel');
 const {
   DEFAULT_STOREFRONT_TIKTOK_IOS_APP_STORE_ID,
   DEFAULT_STOREFRONT_TIKTOK_IOS_TIKTOK_APP_ID,
@@ -23,7 +27,6 @@ const parsedAndroidVersionCode =
   rawAndroidVersionCode === undefined
     ? undefined
     : Number(rawAndroidVersionCode);
-
 let androidVersionCode: number | undefined;
 const appVersion = '2.0.0';
 const androidRuntimeVersion = `${appVersion}-android-sdk57`;
@@ -113,19 +116,7 @@ const posthogHost =
   process.env.EXPO_PUBLIC_POSTHOG_HOST?.trim() || 'https://eu.i.posthog.com';
 const merchantDomain =
   process.env.EXPO_PUBLIC_MERCHANT_DOMAIN?.trim() || 'ogabassey.com';
-const updateChannelCandidates = new Set([
-  'development',
-  'preview',
-  'production',
-]);
-const rawUpdateChannel =
-  process.env.EXPO_UPDATE_CHANNEL?.trim() ||
-  process.env.EXPO_PUBLIC_ENV?.trim() ||
-  process.env.EAS_BUILD_PROFILE?.trim() ||
-  'production';
-const updateChannel = updateChannelCandidates.has(rawUpdateChannel)
-  ? rawUpdateChannel
-  : 'production';
+const updateChannel = resolveUpdateChannel(process.env);
 
 const isRequiredEnv =
   process.env.CI === 'true' ||
@@ -262,78 +253,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       },
     ],
   },
-  plugins: [
-    'expo-router',
-    [
-      'expo-splash-screen',
-      {
-        backgroundColor: '#000000',
-      },
-    ],
-    [
-      'expo-navigation-bar',
-      {
-        enforceContrast: false,
-        hidden: false,
-        style: 'dark',
-      },
-    ],
-    'expo-font',
-    'expo-image',
-    'expo-secure-store',
-    'expo-sharing',
-    'expo-tracking-transparency',
-    'expo-web-browser',
-    '@react-native-vector-icons/ionicons',
-    '@react-native-vector-icons/fontawesome',
-    '@react-native-vector-icons/feather',
-    [
-      'expo-notifications',
-      {
-        icon: './assets/images/icon.png',
-        color: '#000000',
-        defaultChannel: 'orders',
-      },
-    ],
-    [
-      'expo-camera',
-      {
-        cameraPermission:
-          'Allow the app to access your camera for QR scans and checkout identity verification.',
-      },
-    ],
-    [
-      'expo-build-properties',
-      {
-        android: {
-          compileSdkVersion: 36,
-          targetSdkVersion: 36,
-          buildToolsVersion: '36.0.0',
-        },
-        ios: {
-          deploymentTarget: '16.4',
-          useFrameworks: 'static',
-        },
-      },
-    ],
-    ...(tiktokBusinessPlugin ? [tiktokBusinessPlugin] : []),
-    './config/withFirebaseModularHeaders.js',
-    './config/withObjCLinkerFlag.js',
-    './config/withNoSplashImage.js',
-    './config/withAdaptiveAndroidManifest.js',
-    './config/withAndroidSystemBars.js',
-    './config/withAndroidGradleFixes.js',
-    [
-      'posthog-react-native/expo',
-      {
-        uploadNativeSymbols: true,
-      },
-    ],
-    './config/withPostHogXcodeCliPath.js',
-    'expo-localization',
-    'expo-apple-authentication',
-    ...(facebookSdkPlugin ? [facebookSdkPlugin] : []),
-  ],
+  plugins: createExpoPlugins({
+    facebookSdkPlugin,
+    tiktokBusinessPlugin,
+  }),
   web: {
     bundler: 'metro',
     output: 'static',
