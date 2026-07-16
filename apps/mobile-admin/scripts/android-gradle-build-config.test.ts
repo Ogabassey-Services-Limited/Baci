@@ -50,6 +50,20 @@ describe('mobile admin Android Gradle build config', () => {
     expect(appBuildGradle).toContain('targetSdkVersion rootProject.ext.targetSdkVersion');
   });
 
+  it('enables R8 code and resource optimization for release prebuilds', () => {
+    const gradleProperties = readFileSync(
+      path.join(appsRoot, 'mobile-admin/android/gradle.properties'),
+      'utf8'
+    );
+
+    expect(gradleProperties).toContain(
+      'android.enableMinifyInReleaseBuilds=true'
+    );
+    expect(gradleProperties).toContain(
+      'android.enableShrinkResourcesInReleaseBuilds=true'
+    );
+  });
+
   it('forces new-architecture autolinking to wait for library codegen artifacts', () => {
     const appBuildGradle = readFileSync(
       path.join(appsRoot, 'mobile-admin/android/app/build.gradle'),

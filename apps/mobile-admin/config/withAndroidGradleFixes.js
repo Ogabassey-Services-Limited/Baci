@@ -1,13 +1,3 @@
-/**
- * Expo config plugin: Android Gradle fixes for AGP 9.x + React Native
- *
- * Applies after `expo prebuild --clean` so native dirs are always correct:
- * 1. Removes kotlin-gradle-plugin classpath (built into AGP 9.x)
- * 2. Keeps apply plugin "org.jetbrains.kotlin.android" while android.builtInKotlin=false
- * 3. Changes proguard-android.txt → proguard-android-optimize.txt (AGP 9.x requirement)
- * 4. Bumps Gradle wrapper to 9.3.1 (minimum for AGP 9.x)
- * 5. Adds async-storage local maven repo
- */
 const { withDangerousMod } = require('@expo/config-plugins');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -21,6 +11,12 @@ const {
   fixProguardOptimize,
   removeKotlinGradlePlugin,
 } = require('../../../.github/scripts/expoAndroidGradleFixes');
+const ensurePatchedReactNativeBuild = require('./ensurePatchedReactNativeBuild');
+
+const MATERIAL_COMPONENTS_DEPENDENCY =
+  'implementation("com.google.android.material:material:1.14.0")';
+const GOOGLE_CODE_SCANNER_ACTIVITY =
+  'com.google.mlkit.vision.codescanner.internal.GmsBarcodeScanningDelegateActivity';
 
 function ensureAdminCodegenOrdering(content) {
   if (content.includes('generateAutolinkingNewArchitectureFiles')) {
@@ -65,6 +61,19 @@ function ensureWorkletsPickFirst(content) {
   );
 }
 
+function ensureMaterialComponentsDependency(content) {
+  if (content.includes(MATERIAL_COMPONENTS_DEPENDENCY)) {
+    return content;
+  }
+
+  return assertReplaceOrThrow(
+    content,
+    /dependencies\s*\{\s*\n/m,
+    (match) => `${match}    ${MATERIAL_COMPONENTS_DEPENDENCY}\n`,
+    'Material Components 1.14 dependency injection'
+  );
+}
+
 function ensureKotlinAndroidPlugin(content) {
   if (content.includes('org.jetbrains.kotlin.android')) {
     return content;
@@ -75,6 +84,31 @@ function ensureKotlinAndroidPlugin(content) {
     /(apply plugin:\s*(["'])com\.android\.application\2\s*\n)/,
     '$1apply plugin: "org.jetbrains.kotlin.android"\n',
     'kotlin.android plugin retention'
+  );
+}
+
+function ensureGoogleCodeScannerOrientationIsUnrestricted(content) {
+  const activityOverride = `<activity android:name="${GOOGLE_CODE_SCANNER_ACTIVITY}" tools:remove="android:screenOrientation" />`;
+
+  if (content.includes(activityOverride)) {
+    return content;
+  }
+
+  let updated = content;
+  if (!updated.includes('xmlns:tools=')) {
+    updated = assertReplaceOrThrow(
+      updated,
+      /<manifest\b/,
+      '<manifest xmlns:tools="http://schemas.android.com/tools"',
+      'Android tools namespace injection'
+    );
+  }
+
+  return assertReplaceOrThrow(
+    updated,
+    /\n\s*<\/application>/m,
+    `\n        ${activityOverride}\n    </application>`,
+    'Google code scanner orientation override injection'
   );
 }
 
@@ -139,10 +173,22 @@ function ensureDebugManifestsFirebaseAutoInitDisabled(platformProjectRoot) {
 }
 
 function withAndroidGradleFixes(config) {
-  // Fix root build.gradle
   const updatedConfig = withDangerousMod(config, [
     'android',
     (cfg) => {
+      const settingsGradle = path.join(
+        cfg.modRequest.platformProjectRoot,
+        'settings.gradle'
+      );
+
+      if (fs.existsSync(settingsGradle)) {
+        const content = fs.readFileSync(settingsGradle, 'utf-8');
+        fs.writeFileSync(
+          settingsGradle,
+          ensurePatchedReactNativeBuild(content)
+        );
+      }
+
       const rootBuildGradle = path.join(
         cfg.modRequest.platformProjectRoot,
         'build.gradle'
@@ -151,13 +197,11 @@ function withAndroidGradleFixes(config) {
       if (fs.existsSync(rootBuildGradle)) {
         let content = fs.readFileSync(rootBuildGradle, 'utf-8');
 
-        // Remove kotlin-gradle-plugin classpath
         content = removeKotlinGradlePlugin(
           content,
           'kotlin-gradle-plugin classpath removal'
         );
 
-        // Add async-storage local maven repo if not present
         const asyncStorageRepo =
           'maven { url "$rootDir/../../../node_modules/@react-native-async-storage/async-storage/android/local_repo" }';
         content = addAsyncStorageRepo(
@@ -169,7 +213,6 @@ function withAndroidGradleFixes(config) {
         fs.writeFileSync(rootBuildGradle, content);
       }
 
-      // Fix app/build.gradle
       const appBuildGradle = path.join(
         cfg.modRequest.platformProjectRoot,
         'app',
@@ -183,17 +226,32 @@ function withAndroidGradleFixes(config) {
         // android.builtInKotlin=false means AGP will not compile Kotlin by itself.
         content = ensureKotlinAndroidPlugin(content);
 
-        // Fix proguard file name
         content = fixProguardOptimize(content, 'proguard optimize rewrite');
 
         content = ensureAdminCodegenOrdering(content);
         content = ensureReleaseSigning(content);
         content = ensureWorkletsPickFirst(content);
+        content = ensureMaterialComponentsDependency(content);
 
         fs.writeFileSync(appBuildGradle, content);
       }
 
-      // Fix Gradle wrapper version
+      const mainManifest = path.join(
+        cfg.modRequest.platformProjectRoot,
+        'app',
+        'src',
+        'main',
+        'AndroidManifest.xml'
+      );
+
+      if (fs.existsSync(mainManifest)) {
+        const content = fs.readFileSync(mainManifest, 'utf-8');
+        fs.writeFileSync(
+          mainManifest,
+          ensureGoogleCodeScannerOrientationIsUnrestricted(content)
+        );
+      }
+
       const gradleProperties = path.join(
         cfg.modRequest.platformProjectRoot,
         'gradle.properties'
@@ -213,7 +271,6 @@ function withAndroidGradleFixes(config) {
         fs.writeFileSync(gradleProperties, content);
       }
 
-      // Fix Gradle wrapper version
       const wrapperProps = path.join(
         cfg.modRequest.platformProjectRoot,
         'gradle',
