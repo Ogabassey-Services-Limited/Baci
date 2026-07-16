@@ -68,7 +68,7 @@ jobs:
           working-directory: ${{ env.WORKING_DIR }}
 
       - name: Disable Node type stripping
-        run: echo "NODE_OPTIONS=--no-strip-types" >> "$GITHUB_ENV"
+        run: echo "NODE_OPTIONS=--no-experimental-strip-types" >> "$GITHUB_ENV"
 
       - name: Install JS dependencies
         env:

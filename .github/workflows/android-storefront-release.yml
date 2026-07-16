@@ -32,7 +32,7 @@ permissions:
 env:
   JAVA_VERSION: "21"
   NODE_VERSION: "24"
-  ANDROID_NODE_OPTIONS: "--no-strip-types --max-old-space-size=2048"
+  ANDROID_NODE_OPTIONS: "--no-experimental-strip-types --max-old-space-size=2048"
   ANDROID_GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8" -Dkotlin.daemon.jvm.options=-Xmx1024m'
   PNPM_STORE_DIR: ${{ github.workspace }}/.pnpm-store
   WORKING_DIR: apps/mobile-storefront
@@ -247,7 +247,9 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: storefront-app-release-${{ github.sha }}
-          path: ${{ env.WORKING_DIR }}/android/app/build/outputs/bundle/release/app-release.aab
+          path: |
+            ${{ env.WORKING_DIR }}/android/app/build/outputs/bundle/release/app-release.aab
+            ${{ env.WORKING_DIR }}/android/app/build/outputs/mapping/release/mapping.txt
           retention-days: 7
 
       - name: Guard Google Play upload against stale main builds
@@ -277,6 +279,7 @@ jobs:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.ogabassey.store
           releaseFiles: ${{ env.WORKING_DIR }}/android/app/build/outputs/bundle/release/app-release.aab
+          mappingFile: ${{ env.WORKING_DIR }}/android/app/build/outputs/mapping/release/mapping.txt
           tracks: production
           status: completed
 
