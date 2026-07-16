@@ -5,6 +5,7 @@ import type { CheckoutStep } from '@/components/checkout/CheckoutStepper';
 import type Colors from '@/constants/Colors';
 import { getMerchantTaxRate } from '@/hooks/useMerchantPaymentSettings';
 import type { CartItem } from '@/stores/cart-store';
+import type { MerchantPickupLocation } from './merchant-pickup-location';
 import type { CheckoutAddressState } from './use-checkout-address-state';
 import type { CheckoutPaymentController } from './use-checkout-payment-controller';
 
@@ -18,6 +19,7 @@ interface CheckoutStepContentProps {
   isAuthenticated: boolean;
   isDark: boolean;
   items: CartItem[];
+  merchantPickupLocation?: MerchantPickupLocation;
   paymentController: CheckoutPaymentController;
   setStep: (step: CheckoutStep) => void;
   step: CheckoutStep;
@@ -32,6 +34,7 @@ export function CheckoutStepContent({
   isAuthenticated,
   isDark,
   items,
+  merchantPickupLocation,
   paymentController,
   setStep,
   step,
@@ -62,6 +65,7 @@ export function CheckoutStepContent({
         isLoadingSavedAddresses={
           addressState.savedAddresses.isLoadingSavedAddresses
         }
+        merchantPickupLocation={merchantPickupLocation}
         onAddressSelected={addressState.shipping.handleDeliveryAddressSelect}
         onAddressTextChanged={
           addressState.shipping.handleDeliveryAddressTextChange

@@ -7,7 +7,6 @@ import type {
   PaymentMethodType,
   PaymentTab,
 } from '@/components/checkout/PaymentMethodSelector';
-import { PICKUP_STATION_ADDRESS_LINES } from '@/components/checkout/pickup-station.constants';
 import type {
   DeliveryMethod,
   ShippingQuote,
@@ -16,9 +15,9 @@ import type {
 
 export const AIRPORT_DELIVERY_FEE = 25000;
 export const AIRPORT_QUOTE_ID = 'airport-delivery';
+export const AIRPORT_DELIVERY_ESTIMATE = 'Within 1–48 hours';
+export const LAGOS_ROAD_DELIVERY_ESTIMATE = 'Within 1–24 hours';
 const DEFAULT_CARRIER = 'Topship';
-const AIRPORT_DELIVERY_ESTIMATE =
-  'Delivery to your doorstep • Est Delivery within 24-48 working hours';
 
 export function getPaymentTabForMethod(method: PaymentMethodType): PaymentTab {
   if (
@@ -75,16 +74,17 @@ export function getDeliveryMethodLabel(
 
 export function getDeliveryMethodSummary(
   deliveryMethod: DeliveryMethod,
-  selectedQuote: ShippingQuote | undefined
+  selectedQuote: ShippingQuote | undefined,
+  deliveryState?: string | null
 ): string {
   if (deliveryMethod === 'airport') {
-    return AIRPORT_DELIVERY_ESTIMATE;
+    return `Delivery to your doorstep • ${AIRPORT_DELIVERY_ESTIMATE}`;
   }
 
   if (deliveryMethod === 'pickup_station') {
     return isProviderStationPickupQuote(selectedQuote)
       ? getPickupStationAddressText(selectedQuote)
-      : PICKUP_STATION_ADDRESS_LINES.join(', ');
+      : 'Merchant office pickup';
   }
 
   const doorQuote = isRoadDeliveryQuote(selectedQuote)
@@ -92,6 +92,9 @@ export function getDeliveryMethodSummary(
     : undefined;
   const carrier =
     doorQuote?.carrierName || doorQuote?.provider || DEFAULT_CARRIER;
+  if (deliveryState?.trim().toLowerCase() === 'lagos') {
+    return `${carrier} • ${LAGOS_ROAD_DELIVERY_ESTIMATE}`;
+  }
   const eta =
     doorQuote?.deliveryRange ||
     (doorQuote?.estimatedDays

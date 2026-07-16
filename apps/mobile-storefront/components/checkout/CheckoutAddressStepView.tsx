@@ -10,18 +10,25 @@ import {
   isProviderStationPickupQuote,
 } from '@/components/checkout/checkout-station-pickup';
 import {
+  AIRPORT_DELIVERY_ESTIMATE,
   AIRPORT_DELIVERY_FEE,
   AIRPORT_QUOTE_ID,
   getDeliveryMethodSummary,
   isGiglGoFasterQuote,
+  LAGOS_ROAD_DELIVERY_ESTIMATE,
 } from '@/components/checkout/checkout-step-helpers';
 import { DeliveryMethodCard } from '@/components/checkout/DeliveryMethodCard';
 import { DeliveryNotesCard } from '@/components/checkout/DeliveryNotesCard';
+import { PickupLocationOptions } from '@/components/checkout/PickupLocationOptions';
 import { ShippingQuotesCard } from '@/components/checkout/ShippingQuotesCard';
 import type Colors from '@/constants/Colors';
 import type { SavedAddress } from '@/lib/checkout-saved-address';
 import type { ShippingAddressInput } from '@/lib/validation';
 import { checkoutScreenViewStyles as styles } from './CheckoutScreenView.styles';
+import {
+  MERCHANT_PICKUP_QUOTE_ID,
+  type MerchantPickupLocation,
+} from './merchant-pickup-location';
 import type { DeliveryMethod, ShippingQuote } from './types';
 
 type ColorsScheme = (typeof Colors)['light'];
@@ -47,6 +54,7 @@ interface CheckoutAddressStepViewProps {
   isLoadingLocations: boolean;
   isLoadingQuotes: boolean;
   isLoadingSavedAddresses: boolean;
+  merchantPickupLocation?: MerchantPickupLocation;
   onAddressSelected: CheckoutDeliveryCardProps['onAddressSelected'];
   onAddressTextChanged: CheckoutDeliveryCardProps['onAddressTextChanged'];
   onChangeAccountPassword: (value: string) => void;
@@ -96,6 +104,7 @@ export function CheckoutAddressStepView({
   isLoadingLocations,
   isLoadingQuotes,
   isLoadingSavedAddresses,
+  merchantPickupLocation,
   onAddressSelected,
   onAddressTextChanged,
   onChangeAccountPassword,
@@ -137,7 +146,7 @@ export function CheckoutAddressStepView({
     isProviderStationPickupQuote
   );
   const canChooseDeliveryMethod = Boolean(watchedState && watchedCity);
-  const { usesProviderPickup } = getPickupStationMode({
+  const { usesMerchantPickup, usesProviderPickup } = getPickupStationMode({
     city: watchedCity,
     deliveryMethod,
     state: watchedState,
@@ -151,7 +160,7 @@ export function CheckoutAddressStepView({
   const airportLocation = watchedCity.trim() || watchedState.trim();
   const localAirportQuote: ShippingQuote = {
     carrierName: 'By Air',
-    deliveryRange: '24-48 working hours',
+    deliveryRange: AIRPORT_DELIVERY_ESTIMATE,
     displayName: `${airportLocation ? `${airportLocation} ` : ''}Airport Delivery`,
     id: AIRPORT_QUOTE_ID,
     price: AIRPORT_DELIVERY_FEE,
@@ -241,16 +250,46 @@ export function CheckoutAddressStepView({
           deliveryState={watchedState}
           doorSubtitle={
             doorSelectedQuote != null
-              ? getDeliveryMethodSummary('door', doorSelectedQuote)
+              ? getDeliveryMethodSummary(
+                  'door',
+                  doorSelectedQuote,
+                  watchedState
+                )
               : 'Rates loaded after you enter your address'
           }
           airportFee={AIRPORT_DELIVERY_FEE}
           pickupStationQuote={stationPickupQuote}
+          merchantPickupLocation={merchantPickupLocation}
         >
-          {shouldShowShippingQuotes ? (
+          {deliveryMethod === 'pickup_station' ? (
+            <PickupLocationOptions
+              colors={colors}
+              isDark={isDark}
+              isLoading={isLoadingQuotes}
+              merchantLocation={
+                usesMerchantPickup ? merchantPickupLocation : undefined
+              }
+              onRetry={onRetryQuotes}
+              onSelect={onSelectQuote}
+              providerQuotes={providerPickupQuotes}
+              selectedQuoteId={
+                selectedQuoteId ||
+                (usesMerchantPickup && merchantPickupLocation
+                  ? MERCHANT_PICKUP_QUOTE_ID
+                  : '')
+              }
+            />
+          ) : shouldShowShippingQuotes ? (
             <ShippingQuotesCard
               embedded
               colors={colors}
+              estimateOverride={
+                deliveryMethod === 'airport'
+                  ? AIRPORT_DELIVERY_ESTIMATE
+                  : watchedState.trim().toLowerCase() === 'lagos'
+                    ? LAGOS_ROAD_DELIVERY_ESTIMATE
+                    : undefined
+              }
               isDark={isDark}
               isLoadingQuotes={isLoadingQuotes}
               shippingQuotes={

@@ -11,11 +11,7 @@ import {
   getPickupStationAddressLines,
   isProviderStationPickupQuote,
 } from '@/components/checkout/checkout-station-pickup';
-import {
-  PICKUP_STATION_ADDRESS_LINES,
-  PICKUP_STATION_CITY,
-  PICKUP_STATION_STATE,
-} from '@/components/checkout/pickup-station.constants';
+import type { MerchantPickupLocation } from '@/components/checkout/merchant-pickup-location';
 import type { ShippingAddressInput } from '@/lib/validation';
 import { trackCheckoutStep } from '@/services/analytics';
 import { trackCheckoutRoutePaymentInfo } from '@/services/tiktok-checkout-route-tracking';
@@ -26,6 +22,7 @@ import {
 
 interface UseCheckoutStepActionsParams extends UseCheckoutSubmitParams {
   handleSubmit: UseFormHandleSubmit<ShippingAddressInput>;
+  merchantPickupLocation?: MerchantPickupLocation;
   resetPaymentSelection: () => void;
   setIsContactCollapsed: Dispatch<SetStateAction<boolean>>;
   setIsDeliveryCollapsed: Dispatch<SetStateAction<boolean>>;
@@ -35,6 +32,7 @@ interface UseCheckoutStepActionsParams extends UseCheckoutSubmitParams {
 
 export function useCheckoutStepActions({
   handleSubmit,
+  merchantPickupLocation,
   resetPaymentSelection,
   selectedPayment,
   setIsContactCollapsed,
@@ -110,12 +108,26 @@ export function useCheckoutStepActions({
           );
           return;
         } else {
-          // Merchant's own free Lagos pickup counter.
-          setValue('address', PICKUP_STATION_ADDRESS_LINES.join(', '), {
+          if (!merchantPickupLocation) {
+            Alert.alert(
+              'Pickup Unavailable',
+              'The merchant office address is not available right now. Choose a GIG Logistics centre or try again.'
+            );
+            return;
+          }
+          setValue('address', merchantPickupLocation.address, {
             shouldValidate: true,
           });
-          setValue('city', PICKUP_STATION_CITY, { shouldValidate: true });
-          setValue('state', PICKUP_STATION_STATE, { shouldValidate: true });
+          if (merchantPickupLocation.city) {
+            setValue('city', merchantPickupLocation.city, {
+              shouldValidate: true,
+            });
+          }
+          if (merchantPickupLocation.state) {
+            setValue('state', merchantPickupLocation.state, {
+              shouldValidate: true,
+            });
+          }
         }
       }
       handleSubmit(onAddressSubmit, handleAddressValidationError)();

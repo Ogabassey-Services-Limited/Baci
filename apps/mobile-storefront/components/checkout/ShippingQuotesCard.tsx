@@ -18,6 +18,7 @@ type ColorsScheme = (typeof Colors)['light'];
 
 interface ShippingQuotesCardProps {
   colors: ColorsScheme;
+  estimateOverride?: string | null;
   isDark: boolean;
   embedded?: boolean;
   isLoadingQuotes: boolean;
@@ -30,6 +31,7 @@ interface ShippingQuotesCardProps {
 
 export function ShippingQuotesCard({
   colors,
+  estimateOverride,
   isDark,
   embedded = false,
   isLoadingQuotes,
@@ -100,6 +102,7 @@ export function ShippingQuotesCard({
               <ShippingQuoteRow
                 key={String(quote.id)}
                 colors={colors}
+                estimateOverride={estimateOverride}
                 isSelected={String(quote.id) === String(selectedQuoteId)}
                 onSelect={onSelectQuote}
                 quote={quote}

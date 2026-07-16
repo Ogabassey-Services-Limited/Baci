@@ -49,7 +49,9 @@ describe('CheckoutReviewStep', () => {
     render(<CheckoutReviewStep {...baseProps} />);
 
     expect(screen.getByText('Review Order')).toBeOnTheScreen();
-    expect(screen.getByText('Express delivery • 1-2 days')).toBeOnTheScreen();
+    expect(
+      screen.getByText('Express delivery • Within 1–24 hours')
+    ).toBeOnTheScreen();
     expect(screen.getByText('Card Payment (Paystack)')).toBeOnTheScreen();
     expect(screen.getByText('VAT (7.5%)')).toBeOnTheScreen();
     expect(screen.getByText('₦512,750')).toHaveStyle({
@@ -71,6 +73,12 @@ describe('CheckoutReviewStep', () => {
     render(
       <CheckoutReviewStep
         {...baseProps}
+        address={{
+          ...baseProps.address,
+          address: '2 Olaide Tomori St, Ikeja, Lagos',
+          city: 'Ikeja',
+          state: 'Lagos',
+        }}
         deliveryMethod="pickup_station"
         selectedPayment="invoice"
         selectedQuote={undefined}
@@ -80,7 +88,7 @@ describe('CheckoutReviewStep', () => {
     );
 
     expect(
-      screen.getByText(/2 Olaide Tomori Street Ikeja Lagos/)
+      screen.getByText('2 Olaide Tomori St, Ikeja, Lagos')
     ).toBeOnTheScreen();
     expect(screen.getByText('Generate Invoice')).toBeOnTheScreen();
     expect(screen.queryByText(/VAT/)).toBeNull();
@@ -119,7 +127,7 @@ describe('CheckoutReviewStep', () => {
 
     expect(screen.getByText('Pickup Stations (GIGL)')).toBeOnTheScreen();
     expect(
-      screen.getByText('GIG Logistics - Pickup at PORT HARCOURT • 1-2 days')
+      screen.getByText('GIG Logistics - Pickup at PORT HARCOURT')
     ).toBeOnTheScreen();
     expect(
       screen.getByText('PORT HARCOURT\nGIGL Aba Road, Port Harcourt')
@@ -137,7 +145,7 @@ describe('CheckoutReviewStep', () => {
 
     expect(screen.getByText('Airport Delivery')).toBeOnTheScreen();
     expect(
-      screen.getByText('Delivery to your doorstep • Est. 24–48 working hours')
+      screen.getByText('Delivery to your doorstep • Within 1–48 hours')
     ).toBeOnTheScreen();
     expect(
       screen.getByText('10 Admiralty Way\nLagos, Lagos')

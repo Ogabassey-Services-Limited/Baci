@@ -1,5 +1,4 @@
 import { describe, expect, it } from '@jest/globals';
-import { PICKUP_STATION_ADDRESS_LINES } from '@/components/checkout/pickup-station.constants';
 import type { ShippingQuote } from '@/components/checkout/types';
 import {
   AIRPORT_DELIVERY_FEE,
@@ -83,10 +82,13 @@ describe('checkout-step-helpers', () => {
 
   it('returns delivery summaries by method and quote data', () => {
     expect(getDeliveryMethodSummary('airport', baseQuote)).toBe(
-      'Delivery to your doorstep • Est Delivery within 24-48 working hours'
+      'Delivery to your doorstep • Within 1–48 hours'
+    );
+    expect(getDeliveryMethodSummary('door', baseQuote, 'Lagos')).toBe(
+      'Topship Express • Within 1–24 hours'
     );
     expect(getDeliveryMethodSummary('pickup_station', baseQuote)).toBe(
-      PICKUP_STATION_ADDRESS_LINES.join(', ')
+      'Merchant office pickup'
     );
     expect(getDeliveryMethodSummary('pickup_station', stationPickupQuote)).toBe(
       'PORT HARCOURT, GIGL Aba Road, Port Harcourt'

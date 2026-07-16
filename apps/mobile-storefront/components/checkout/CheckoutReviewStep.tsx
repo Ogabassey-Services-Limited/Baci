@@ -8,9 +8,12 @@ import {
   getPickupStationAddressText,
   isProviderStationPickupQuote,
 } from './checkout-station-pickup';
-import { getDeliveryMethodLabel } from './checkout-step-helpers';
+import {
+  AIRPORT_DELIVERY_ESTIMATE,
+  getDeliveryMethodLabel,
+  LAGOS_ROAD_DELIVERY_ESTIMATE,
+} from './checkout-step-helpers';
 import type { PaymentMethodType } from './PaymentMethodSelector';
-import { PICKUP_STATION_ADDRESS_LINES } from './pickup-station.constants';
 import type { DeliveryMethod, ShippingQuote } from './types';
 
 const PAYMENT_METHOD_LABELS: Record<PaymentMethodType, string> = {
@@ -34,7 +37,7 @@ function getReviewAddressText(
   if (deliveryMethod === 'pickup_station') {
     return isProviderStationPickupQuote(selectedQuote)
       ? getPickupStationAddressText(selectedQuote, '\n')
-      : PICKUP_STATION_ADDRESS_LINES.join('\n');
+      : address.address;
   }
 
   if (deliveryMethod === 'airport') {
@@ -129,14 +132,18 @@ export function CheckoutReviewStep({
           isProviderStationPickupQuote(selectedQuote)) ? (
           <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
             {selectedQuote.displayName}
-            {selectedQuote.deliveryRange || selectedQuote.estimatedDays
-              ? ` • ${selectedQuote.deliveryRange ?? `${selectedQuote.estimatedDays} days`}`
+            {deliveryMethod === 'door'
+              ? address.state.trim().toLowerCase() === 'lagos'
+                ? ` • ${LAGOS_ROAD_DELIVERY_ESTIMATE}`
+                : selectedQuote.deliveryRange || selectedQuote.estimatedDays
+                  ? ` • ${selectedQuote.deliveryRange || `${selectedQuote.estimatedDays} days`}`
+                  : null
               : null}
           </Text>
         ) : null}
         {deliveryMethod === 'airport' ? (
           <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
-            {'Delivery to your doorstep \u2022 Est. 24\u201348 working hours'}
+            {`Delivery to your doorstep \u2022 ${AIRPORT_DELIVERY_ESTIMATE}`}
           </Text>
         ) : null}
       </View>

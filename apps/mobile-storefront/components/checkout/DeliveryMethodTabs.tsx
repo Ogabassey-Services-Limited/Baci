@@ -1,3 +1,6 @@
+import FontAwesome, {
+  type FontAwesomeIconName,
+} from '@react-native-vector-icons/fontawesome';
 import type { IoniconsIconName } from '@react-native-vector-icons/ionicons';
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useState } from 'react';
@@ -23,7 +26,9 @@ export interface DeliveryMethodOption {
   title: string;
   subtitle: string;
   helperText: string;
-  icon: IoniconsIconName;
+  icon:
+    | { family: 'fontawesome'; name: FontAwesomeIconName }
+    | { family: 'ionicons'; name: IoniconsIconName };
   pickupStationQuote?: ShippingQuote;
   isProviderPickup: boolean;
 }
@@ -47,11 +52,13 @@ export function DeliveryMethodTabs({
   const visibleOptionCount = Math.min(Math.max(options.length, 1), 3);
   const segmentGap = SPACING.sm;
   const railInnerPadding = 12;
+  const railBorderWidth = 2;
   const segmentWidth =
     railWidth > 0
       ? Math.floor(
           (railWidth -
             railInnerPadding -
+            railBorderWidth -
             segmentGap * (visibleOptionCount - 1)) /
             visibleOptionCount
         )
@@ -110,10 +117,9 @@ export function DeliveryMethodTabs({
                 accessibilityRole="radio"
                 accessibilityLabel={`Select ${option.title}`}
                 accessibilityState={{ checked: isSelected }}
-                style={({ pressed }) => [
+                style={[
                   styles.segmentPressable,
                   useStackedLayout && styles.segmentPressableStacked,
-                  pressed && styles.segmentPressed,
                 ]}
               >
                 <View
@@ -132,18 +138,37 @@ export function DeliveryMethodTabs({
                       },
                     ]}
                   >
-                    <Ionicons name={option.icon} size={18} color={iconColor} />
+                    {option.icon.family === 'fontawesome' ? (
+                      <FontAwesome
+                        name={option.icon.name}
+                        size={20}
+                        color={iconColor}
+                      />
+                    ) : (
+                      <Ionicons
+                        name={option.icon.name}
+                        size={20}
+                        color={iconColor}
+                      />
+                    )}
                   </View>
-                  <Text
-                    numberOfLines={useStackedLayout ? 2 : 1}
+                  <View
                     style={[
-                      styles.segmentTitle,
-                      useStackedLayout && styles.segmentTitleStacked,
-                      { color: isSelected ? BRAND.primary : colors.text },
+                      styles.segmentTitleFrame,
+                      useStackedLayout && styles.segmentTitleFrameStacked,
                     ]}
                   >
-                    {option.title}
-                  </Text>
+                    <Text
+                      numberOfLines={useStackedLayout ? 2 : 1}
+                      style={[
+                        styles.segmentTitle,
+                        useStackedLayout && styles.segmentTitleStacked,
+                        { color: isSelected ? BRAND.primary : colors.text },
+                      ]}
+                    >
+                      {option.title}
+                    </Text>
+                  </View>
                 </View>
               </Pressable>
             </View>
@@ -169,10 +194,15 @@ const styles = StyleSheet.create({
     minHeight: 66,
     overflow: 'hidden',
   },
-  segmentStacked: { minHeight: 88 },
-  segmentPressable: { flex: 1, justifyContent: 'center', padding: 9 },
+  segmentStacked: { minHeight: 96 },
+  segmentPressable: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+    padding: 9,
+    width: '100%',
+  },
   segmentPressableStacked: { paddingHorizontal: 6, paddingVertical: 9 },
-  segmentPressed: { opacity: 0.72 },
   segmentContent: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -180,18 +210,28 @@ const styles = StyleSheet.create({
   },
   segmentContentStacked: {
     flexDirection: 'column',
-    gap: 6,
+    gap: 8,
     justifyContent: 'center',
+    width: '100%',
   },
   segmentIcon: {
     alignItems: 'center',
     borderRadius: RADIUS.md,
-    height: 32,
+    height: 36,
     justifyContent: 'center',
-    width: 31,
+    width: 36,
+  },
+  segmentTitleFrame: {
+    flex: 1,
+    justifyContent: 'center',
+    minWidth: 0,
+  },
+  segmentTitleFrameStacked: {
+    flex: 0,
+    height: 32,
+    width: '100%',
   },
   segmentTitle: {
-    flex: 1,
     flexShrink: 1,
     fontSize: 12,
     fontWeight: '800',
@@ -199,7 +239,6 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   segmentTitleStacked: {
-    flex: 0,
     lineHeight: 16,
     textAlign: 'center',
     width: '100%',

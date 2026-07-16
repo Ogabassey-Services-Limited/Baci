@@ -222,7 +222,7 @@ describe('useCheckoutShipping provider pickup stations', () => {
     );
   });
 
-  it('never selects the paid provider station quote for free Lagos pickup', async () => {
+  it('keeps the merchant office selected while loading paid Lagos GIG stations', async () => {
     // Lagos shows FREE merchant pickup; even when the quotes response includes a
     // provider station quote, tapping pickup must not silently switch to the
     // paid provider fee/fulfillment the card never offered.
@@ -271,9 +271,25 @@ describe('useCheckoutShipping provider pickup stations', () => {
     });
 
     expect(result.current.deliveryMethod).toBe('pickup_station');
-    expect(result.current.selectedQuoteId).toBe('');
+    await waitFor(() =>
+      expect(mockFetchShippingQuotes).toHaveBeenLastCalledWith(
+        expect.objectContaining({ deliveryPreference: 'pickup_station' })
+      )
+    );
+    expect(result.current.selectedQuoteId).toBe('merchant-office-pickup');
     expect(result.current.selectedQuote).toBeUndefined();
     expect(result.current.deliveryFee).toBe(0);
+    expect(result.current.shippingQuotes).toEqual([
+      expect.objectContaining({ id: 'door-quote' }),
+      expect.objectContaining({ id: 'station-quote' }),
+    ]);
+
+    act(() => {
+      result.current.setSelectedQuoteId('station-quote');
+    });
+
+    expect(result.current.selectedQuote?.provider).toBe('GIGL');
+    expect(result.current.deliveryFee).toBe(9493);
   });
 
   it('returns to the door quote when switching back to door delivery', async () => {

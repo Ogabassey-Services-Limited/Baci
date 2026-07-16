@@ -4,6 +4,7 @@ import {
   getPickupStationAddressText,
   getPickupStationLabel,
   getPickupStationMode,
+  getShippingQuoteMode,
   getStationPickupQuote,
   isProviderStationPickupQuote,
 } from './checkout-station-pickup';
@@ -46,7 +47,7 @@ describe('checkout station pickup helpers', () => {
       'PORT HARCOURT',
       'GIGL Aba Road, Port Harcourt',
     ]);
-    expect(getPickupStationAddressLines()).toContain('Taiyelolu Towers');
+    expect(getPickupStationAddressLines()).toEqual([]);
   });
 
   it('handles partial and missing provider station address data', () => {
@@ -73,9 +74,7 @@ describe('checkout station pickup helpers', () => {
   });
 
   it('joins merchant and provider station address text', () => {
-    expect(getPickupStationAddressText(undefined)).toContain(
-      'Taiyelolu Towers'
-    );
+    expect(getPickupStationAddressText(undefined)).toBe('');
     expect(getPickupStationAddressText(stationQuote)).toBe(
       'PORT HARCOURT, GIGL Aba Road, Port Harcourt'
     );
@@ -107,6 +106,26 @@ describe('checkout station pickup helpers', () => {
       canUsePickupStation: true,
       usesMerchantPickup: false,
       usesProviderPickup: true,
+    });
+  });
+
+  it('resolves the active quote preference and context for pickup delivery', () => {
+    expect(
+      getShippingQuoteMode({
+        city: 'Ikeja',
+        deliveryMethod: 'pickup_station',
+        resolvedPreference: 'pickup_station',
+        resolvedQuoteKey: 'Lagos|Ikeja',
+        shippingQuoteContextKey: 'Lagos|Ikeja',
+        shippingQuotes: [stationQuote],
+        state: 'Lagos',
+      })
+    ).toMatchObject({
+      currentQuotePreference: 'pickup_station',
+      isCurrentQuoteContext: true,
+      stationPickupQuote: stationQuote,
+      usesDoorQuotes: false,
+      usesPickupQuotes: true,
     });
   });
 

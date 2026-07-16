@@ -108,6 +108,34 @@ function getPreferredQuoteIdForPreference(
   );
 }
 
+function normalizePickupLocation(value: string): string {
+  return (
+    value
+      .toLowerCase()
+      .match(/[a-z0-9]+/g)
+      ?.join(' ') ?? ''
+  );
+}
+
+function filterPickupQuotesByCity(
+  quotes: ShippingQuote[],
+  city: string,
+  state: string
+): ShippingQuote[] {
+  const normalizedCity = normalizePickupLocation(city);
+  const normalizedState = normalizePickupLocation(state);
+  if (!normalizedCity || normalizedCity === normalizedState) return quotes;
+
+  const cityPhrase = ` ${normalizedCity} `;
+  const cityMatches = quotes.filter((quote) => {
+    const stationLocation = normalizePickupLocation(
+      `${quote.stationName ?? ''} ${quote.stationAddress ?? ''} ${quote.displayName}`
+    );
+    return ` ${stationLocation} `.includes(cityPhrase);
+  });
+  return cityMatches.length > 0 ? cityMatches : quotes;
+}
+
 export const fetchShippingQuotes = async ({
   apiUrl,
   state,
@@ -180,10 +208,14 @@ export const fetchShippingQuotes = async ({
       const data: QuoteResponse & { warnings?: string[] } =
         await response.json();
       const quotes = normalizeShippingQuotes(data.quotes?.all || []);
-      const selectableQuotes =
+      const stationPickupQuotes =
         deliveryPreference === 'pickup_station'
           ? quotes.filter((quote) => quote.isStationPickup === true)
           : quotes;
+      const selectableQuotes =
+        deliveryPreference === 'pickup_station'
+          ? filterPickupQuotesByCity(stationPickupQuotes, city, state)
+          : stationPickupQuotes;
       setShippingQuotes(selectableQuotes);
       setResolvedShippingQuoteContextKey(quoteContextKey);
       setSelectedQuoteId(

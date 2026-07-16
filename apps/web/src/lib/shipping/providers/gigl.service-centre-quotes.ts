@@ -17,7 +17,8 @@ interface ServiceCentreQuoteParams {
   baseQuote: ShippingQuote;
   generateQuoteId: () => string;
   log?: GiglQuoteIo['log'];
-  receiver: Pick<ShippingAddress, 'latitude' | 'longitude'>;
+  receiver: Pick<ShippingAddress, 'latitude' | 'longitude'> &
+    Partial<Pick<ShippingAddress, 'city' | 'state'>>;
   receiverStation: GiglStation;
   fetchServiceCentres?: () => Promise<GiglServiceCentre[]>;
   serviceCentres?: GiglServiceCentre[];
@@ -55,12 +56,39 @@ function hasFiniteCoordinates(
   );
 }
 
+function normalizeLocation(value: string): string {
+  return (
+    value
+      .toLowerCase()
+      .match(/[a-z0-9]+/g)
+      ?.join(' ') ?? ''
+  );
+}
+
+function filterCentresByReceiverCity(
+  serviceCentres: GiglServiceCentre[],
+  receiver: ServiceCentreQuoteParams['receiver']
+): GiglServiceCentre[] {
+  const city = normalizeLocation(receiver.city ?? '');
+  const state = normalizeLocation(receiver.state ?? '');
+  if (!city || city === state) return serviceCentres;
+
+  const cityPhrase = ` ${city} `;
+  const cityMatches = serviceCentres.filter((centre) => {
+    const centreLocation = normalizeLocation(
+      `${centre.ServiceCentreName} ${centre.Address}`
+    );
+    return ` ${centreLocation} `.includes(cityPhrase);
+  });
+  return cityMatches.length > 0 ? cityMatches : serviceCentres;
+}
+
 function selectServiceCentres(
   serviceCentres: GiglServiceCentre[],
   receiver: ServiceCentreQuoteParams['receiver']
 ): GiglServiceCentre[] {
   const hasCoordinates = hasFiniteCoordinates(receiver);
-  return [...serviceCentres]
+  return [...filterCentresByReceiverCity(serviceCentres, receiver)]
     .sort((left, right) => {
       if (hasCoordinates) {
         const leftDistance = distanceKm(

@@ -13,6 +13,7 @@ import type {
 } from '@/components/checkout/types';
 import type { PlaceDetails } from '@/components/ui/AddressAutocomplete';
 import type { ShippingAddressInput } from '@/lib/validation';
+import { MERCHANT_PICKUP_QUOTE_ID } from './merchant-pickup-location';
 import type { SavedDoorAddress } from './use-checkout-shipping.types';
 
 interface CreateCheckoutShippingHandlersParams {
@@ -152,14 +153,12 @@ export function createCheckoutShippingHandlers({
         setSelectedQuoteId('');
       }
       if (method === 'pickup_station') {
-        // Only select the provider station quote when the card actually offered
-        // provider-backed pickup (non-Lagos). In Lagos the card shows FREE
-        // merchant pickup, so selecting the paid station quote would silently
-        // switch the fee + fulfillment to a station the customer never chose.
         setSelectedQuoteId(
-          stationPickupQuote && !isPickupEligible(watchedState)
-            ? String(stationPickupQuote.id)
-            : ''
+          isPickupEligible(watchedState)
+            ? MERCHANT_PICKUP_QUOTE_ID
+            : stationPickupQuote
+              ? String(stationPickupQuote.id)
+              : ''
         );
       } else if (method === 'airport') {
         const selectedQuote = shippingQuotes.find(
