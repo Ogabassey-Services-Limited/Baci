@@ -1,8 +1,10 @@
-import { isPickupEligible } from '@baci/shared';
 import type { RefObject } from 'react';
 import type { UseFormSetValue } from 'react-hook-form';
 import { normalizeStateName } from '@/components/checkout/checkout-shipping.helpers';
-import { isProviderStationPickupQuote } from '@/components/checkout/checkout-station-pickup';
+import {
+  getDefaultPickupQuoteId,
+  isProviderStationPickupQuote,
+} from '@/components/checkout/checkout-station-pickup';
 import {
   AIRPORT_QUOTE_ID,
   isGiglGoFasterQuote,
@@ -13,7 +15,6 @@ import type {
 } from '@/components/checkout/types';
 import type { PlaceDetails } from '@/components/ui/AddressAutocomplete';
 import type { ShippingAddressInput } from '@/lib/validation';
-import { MERCHANT_PICKUP_QUOTE_ID } from './merchant-pickup-location';
 import type { SavedDoorAddress } from './use-checkout-shipping.types';
 
 interface CreateCheckoutShippingHandlersParams {
@@ -154,11 +155,10 @@ export function createCheckoutShippingHandlers({
       }
       if (method === 'pickup_station') {
         setSelectedQuoteId(
-          isPickupEligible(watchedState)
-            ? MERCHANT_PICKUP_QUOTE_ID
-            : stationPickupQuote
-              ? String(stationPickupQuote.id)
-              : ''
+          getDefaultPickupQuoteId(
+            watchedState,
+            stationPickupQuote ? String(stationPickupQuote.id) : ''
+          )
         );
       } else if (method === 'airport') {
         const selectedQuote = shippingQuotes.find(

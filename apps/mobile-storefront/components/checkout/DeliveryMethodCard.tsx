@@ -81,7 +81,8 @@ export function DeliveryMethodCard({
   const providerPickupQuote = usesMerchantPickup
     ? undefined
     : pickupStationQuote;
-  const canRequestProviderPickup = Boolean(deliveryState?.trim());
+  const canRequestProviderPickup =
+    Boolean(deliveryState?.trim()) && !isPickupEligible(deliveryState);
   if (usesMerchantPickup || providerPickupQuote || canRequestProviderPickup) {
     const hasProviderQuote = isProviderStationPickupQuote(providerPickupQuote);
     options.push({

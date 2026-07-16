@@ -1,10 +1,13 @@
-import { isAirportDeliveryEligible, isPickupEligible } from '@baci/shared';
+import { isAirportDeliveryEligible } from '@baci/shared';
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import {
   fetchShippingQuotes,
   resolveGoogleCitySuggestionAction,
 } from '@/components/checkout/checkout-shipping.helpers';
-import { getShippingQuoteMode } from '@/components/checkout/checkout-station-pickup';
+import {
+  getDefaultPickupQuoteId,
+  getShippingQuoteMode,
+} from '@/components/checkout/checkout-station-pickup';
 import {
   findSelectedQuote,
   getDeliveryMethodFee,
@@ -22,7 +25,6 @@ import {
   loadShippingCities,
   loadShippingStates,
 } from './checkout-shipping-loaders';
-import { MERCHANT_PICKUP_QUOTE_ID } from './merchant-pickup-location';
 import type {
   SavedDoorAddress,
   UseCheckoutShippingParams,
@@ -122,12 +124,8 @@ export function useCheckoutShipping({
       deliveryPreference,
       setIsLoadingQuotes,
       setSelectedQuoteId: (quoteId) => {
-        if (
-          deliveryPreference === 'pickup_station' &&
-          isPickupEligible(watchedState) &&
-          shouldResetSelection
-        ) {
-          setSelectedQuoteId(MERCHANT_PICKUP_QUOTE_ID);
+        if (deliveryPreference === 'pickup_station' && shouldResetSelection) {
+          setSelectedQuoteId(getDefaultPickupQuoteId(watchedState, quoteId));
           return;
         }
         setSelectedQuoteId(quoteId);

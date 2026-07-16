@@ -253,10 +253,6 @@ describe('DeliveryMethodCard', () => {
     );
 
     expect(screen.queryByText('Free pickup')).toBeNull();
-    expect(
-      screen.getByText(
-        'Select to load available GIGL pickup stations for this area.'
-      )
-    ).toBeTruthy();
+    expect(screen.queryByText('Pickup Station')).toBeNull();
   });
 });

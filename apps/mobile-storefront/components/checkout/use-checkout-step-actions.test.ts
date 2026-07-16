@@ -107,16 +107,12 @@ describe('useCheckoutStepActions — address continue', () => {
       '2 Olaide Tomori St, Ikeja, Lagos',
       { shouldValidate: true }
     );
-    expect(setValue).not.toHaveBeenCalledWith(
-      'city',
-      expect.anything(),
-      expect.anything()
-    );
-    expect(setValue).not.toHaveBeenCalledWith(
-      'state',
-      expect.anything(),
-      expect.anything()
-    );
+    expect(setValue).toHaveBeenCalledWith('city', 'Ikeja', {
+      shouldValidate: true,
+    });
+    expect(setValue).toHaveBeenCalledWith('state', 'Lagos', {
+      shouldValidate: true,
+    });
   });
 
   it('blocks merchant pickup when the fetched office location is incomplete', () => {

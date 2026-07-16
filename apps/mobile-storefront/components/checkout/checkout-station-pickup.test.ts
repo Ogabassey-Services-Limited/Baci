@@ -1,5 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 import {
+  getDefaultPickupQuoteId,
   getPickupStationAddressLines,
   getPickupStationAddressText,
   getPickupStationLabel,
@@ -35,6 +36,16 @@ describe('checkout station pickup helpers', () => {
         stationQuote,
       ])
     ).toBe(stationQuote);
+  });
+
+  it('selects merchant pickup in Lagos and provider pickup elsewhere', () => {
+    expect(getDefaultPickupQuoteId('Lagos', 'station-quote')).toBe(
+      'merchant-office-pickup'
+    );
+    expect(getDefaultPickupQuoteId('Rivers', 'station-quote')).toBe(
+      'station-quote'
+    );
+    expect(getDefaultPickupQuoteId('Rivers')).toBe('');
   });
 
   it('labels merchant and provider pickup stations separately', () => {
@@ -145,6 +156,28 @@ describe('checkout station pickup helpers', () => {
       isCurrentQuoteContext: false,
       stationPickupQuote: undefined,
       usesPickupQuotes: true,
+    });
+  });
+
+  it.each([
+    'door',
+    'airport',
+  ] as const)('uses door quotes for %s delivery', (deliveryMethod) => {
+    expect(
+      getShippingQuoteMode({
+        city: 'Port Harcourt',
+        deliveryMethod,
+        resolvedPreference: 'door',
+        resolvedQuoteKey: 'Rivers|Port Harcourt',
+        shippingQuoteContextKey: 'Rivers|Port Harcourt',
+        shippingQuotes: [stationQuote],
+        state: 'Rivers',
+      })
+    ).toMatchObject({
+      currentQuotePreference: 'door',
+      isCurrentQuoteContext: true,
+      usesDoorQuotes: true,
+      usesPickupQuotes: false,
     });
   });
 

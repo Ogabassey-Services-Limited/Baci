@@ -1,4 +1,5 @@
 import { isPickupEligible } from '@baci/shared';
+import { MERCHANT_PICKUP_QUOTE_ID } from './merchant-pickup-location';
 import type { DeliveryMethod, ShippingQuote } from './types';
 
 export type ProviderStationPickupQuote = ShippingQuote & {
@@ -15,6 +16,15 @@ export function getStationPickupQuote(
   quotes: ShippingQuote[]
 ): ShippingQuote | undefined {
   return quotes.find(isProviderStationPickupQuote);
+}
+
+export function getDefaultPickupQuoteId(
+  state: string,
+  providerPickupQuoteId = ''
+): string {
+  return isPickupEligible(state)
+    ? MERCHANT_PICKUP_QUOTE_ID
+    : providerPickupQuoteId;
 }
 
 export function getPickupStationLabel(quote?: ShippingQuote): string {

@@ -22,7 +22,7 @@ export interface Merchant {
 
 export function useMerchant() {
   return useQuery<Merchant>({
-    queryKey: ['merchant_id', MERCHANT_SLUG],
+    queryKey: ['merchant_id', MERCHANT_SLUG, 'pickup-address-v2'],
     queryFn: async () => {
       log.info('Resolving ID for slug:', MERCHANT_SLUG);
 
