@@ -1,4 +1,7 @@
-import { resolveLocationStateLabel } from '@baci/shared/lib';
+import {
+  filterByLocationPhrase,
+  resolveLocationStateLabel,
+} from '@baci/shared/lib';
 import { CONFIG } from '@/lib/config';
 import {
   getPreferredShippingQuoteId,
@@ -108,32 +111,18 @@ function getPreferredQuoteIdForPreference(
   );
 }
 
-function normalizePickupLocation(value: string): string {
-  return (
-    value
-      .toLowerCase()
-      .match(/[a-z0-9]+/g)
-      ?.join(' ') ?? ''
-  );
-}
-
 function filterPickupQuotesByCity(
   quotes: ShippingQuote[],
   city: string,
   state: string
 ): ShippingQuote[] {
-  const normalizedCity = normalizePickupLocation(city);
-  const normalizedState = normalizePickupLocation(state);
-  if (!normalizedCity || normalizedCity === normalizedState) return quotes;
-
-  const cityPhrase = ` ${normalizedCity} `;
-  const cityMatches = quotes.filter((quote) => {
-    const stationLocation = normalizePickupLocation(
+  return filterByLocationPhrase(
+    quotes,
+    city,
+    state,
+    (quote) =>
       `${quote.stationName ?? ''} ${quote.stationAddress ?? ''} ${quote.displayName}`
-    );
-    return ` ${stationLocation} `.includes(cityPhrase);
-  });
-  return cityMatches.length > 0 ? cityMatches : quotes;
+  );
 }
 
 export const fetchShippingQuotes = async ({

@@ -17,6 +17,7 @@ export const AIRPORT_DELIVERY_FEE = 25000;
 export const AIRPORT_QUOTE_ID = 'airport-delivery';
 export const AIRPORT_DELIVERY_ESTIMATE = 'Within 1–48 hours';
 export const LAGOS_ROAD_DELIVERY_ESTIMATE = 'Within 1–24 hours';
+export const MERCHANT_OFFICE_PICKUP_LABEL = 'Merchant office pickup';
 const DEFAULT_CARRIER = 'Topship';
 
 export function getPaymentTabForMethod(method: PaymentMethodType): PaymentTab {
@@ -84,7 +85,7 @@ export function getDeliveryMethodSummary(
   if (deliveryMethod === 'pickup_station') {
     return isProviderStationPickupQuote(selectedQuote)
       ? getPickupStationAddressText(selectedQuote)
-      : 'Merchant office pickup';
+      : MERCHANT_OFFICE_PICKUP_LABEL;
   }
 
   const doorQuote = isRoadDeliveryQuote(selectedQuote)
@@ -102,6 +103,34 @@ export function getDeliveryMethodSummary(
       : 'Delivery estimate shown after selection');
 
   return `${carrier} • ${eta}`;
+}
+
+export function getDeliveryMethodReviewDetail(
+  deliveryMethod: DeliveryMethod,
+  selectedQuote: ShippingQuote | undefined,
+  deliveryState?: string | null
+): string | undefined {
+  if (deliveryMethod === 'airport') {
+    return `Delivery to your doorstep • ${AIRPORT_DELIVERY_ESTIMATE}`;
+  }
+
+  if (deliveryMethod === 'pickup_station') {
+    return isProviderStationPickupQuote(selectedQuote)
+      ? selectedQuote.displayName
+      : undefined;
+  }
+
+  if (!isRoadDeliveryQuote(selectedQuote)) return undefined;
+
+  const eta =
+    deliveryState?.trim().toLowerCase() === 'lagos'
+      ? LAGOS_ROAD_DELIVERY_ESTIMATE
+      : selectedQuote.deliveryRange ||
+        (selectedQuote.estimatedDays
+          ? `${selectedQuote.estimatedDays} days`
+          : 'Delivery estimate shown after selection');
+
+  return `${selectedQuote.displayName} • ${eta}`;
 }
 
 export function getShippingProviderForMethod(

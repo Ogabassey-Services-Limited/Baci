@@ -1,3 +1,4 @@
+import { filterByLocationPhrase } from '@baci/shared/lib';
 import type { ShippingAddress, ShippingQuote } from '../types';
 import {
   buildGiglProviderRateId,
@@ -56,31 +57,16 @@ function hasFiniteCoordinates(
   );
 }
 
-function normalizeLocation(value: string): string {
-  return (
-    value
-      .toLowerCase()
-      .match(/[a-z0-9]+/g)
-      ?.join(' ') ?? ''
-  );
-}
-
 function filterCentresByReceiverCity(
   serviceCentres: GiglServiceCentre[],
   receiver: ServiceCentreQuoteParams['receiver']
 ): GiglServiceCentre[] {
-  const city = normalizeLocation(receiver.city ?? '');
-  const state = normalizeLocation(receiver.state ?? '');
-  if (!city || city === state) return serviceCentres;
-
-  const cityPhrase = ` ${city} `;
-  const cityMatches = serviceCentres.filter((centre) => {
-    const centreLocation = normalizeLocation(
-      `${centre.ServiceCentreName} ${centre.Address}`
-    );
-    return ` ${centreLocation} `.includes(cityPhrase);
-  });
-  return cityMatches.length > 0 ? cityMatches : serviceCentres;
+  return filterByLocationPhrase(
+    serviceCentres,
+    receiver.city ?? '',
+    receiver.state ?? '',
+    (centre) => `${centre.ServiceCentreName} ${centre.Address}`
+  );
 }
 
 function selectServiceCentres(

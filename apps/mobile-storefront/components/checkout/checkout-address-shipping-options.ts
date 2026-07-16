@@ -30,7 +30,9 @@ export function getCheckoutAddressShippingOptions({
 }: CheckoutAddressShippingOptionsParams) {
   const stationPickupQuote = getStationPickupQuote(shippingQuotes);
   const doorSelectedQuote =
-    selectedQuote != null && !isProviderStationPickupQuote(selectedQuote)
+    selectedQuote != null &&
+    !isProviderStationPickupQuote(selectedQuote) &&
+    !isGiglGoFasterQuote(selectedQuote)
       ? selectedQuote
       : undefined;
   const doorShippingQuotes = shippingQuotes.filter(

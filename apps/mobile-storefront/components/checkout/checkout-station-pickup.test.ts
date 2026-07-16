@@ -129,6 +129,25 @@ describe('checkout station pickup helpers', () => {
     });
   });
 
+  it('does not expose a station quote from a stale quote context', () => {
+    expect(
+      getShippingQuoteMode({
+        city: 'Ikeja',
+        deliveryMethod: 'pickup_station',
+        resolvedPreference: 'pickup_station',
+        resolvedQuoteKey: 'Lagos|Lekki',
+        shippingQuoteContextKey: 'Lagos|Ikeja',
+        shippingQuotes: [stationQuote],
+        state: 'Lagos',
+      })
+    ).toMatchObject({
+      currentQuotePreference: 'pickup_station',
+      isCurrentQuoteContext: false,
+      stationPickupQuote: undefined,
+      usesPickupQuotes: true,
+    });
+  });
+
   it('does not activate pickup behavior for door delivery', () => {
     expect(
       getPickupStationMode({

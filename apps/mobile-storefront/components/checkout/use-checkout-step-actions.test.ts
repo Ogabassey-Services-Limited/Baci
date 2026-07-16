@@ -107,16 +107,20 @@ describe('useCheckoutStepActions — address continue', () => {
       '2 Olaide Tomori St, Ikeja, Lagos',
       { shouldValidate: true }
     );
-    expect(setValue).toHaveBeenCalledWith('city', 'Ikeja', {
-      shouldValidate: true,
-    });
-    expect(setValue).toHaveBeenCalledWith('state', 'Lagos', {
-      shouldValidate: true,
-    });
+    expect(setValue).not.toHaveBeenCalledWith(
+      'city',
+      expect.anything(),
+      expect.anything()
+    );
+    expect(setValue).not.toHaveBeenCalledWith(
+      'state',
+      expect.anything(),
+      expect.anything()
+    );
   });
 
   it('blocks merchant pickup when the fetched office location is incomplete', () => {
-    const alertSpy = jest.spyOn(Alert, 'alert');
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
     const { result, setValue, submitHandler } = renderStepActions({
       merchantPickupLocation: undefined,
       selectedQuote: undefined,
@@ -130,10 +134,11 @@ describe('useCheckoutStepActions — address continue', () => {
     );
     expect(setValue).not.toHaveBeenCalled();
     expect(submitHandler).not.toHaveBeenCalled();
+    alertSpy.mockRestore();
   });
 
   it('blocks non-Lagos provider pickup until a station quote is selected', () => {
-    const alertSpy = jest.spyOn(Alert, 'alert');
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
     const { result, setValue, submitHandler } = renderStepActions({
       requiresShippingQuote: true,
       selectedQuote: undefined,
@@ -156,6 +161,7 @@ describe('useCheckoutStepActions — address continue', () => {
       expect.anything()
     );
     expect(submitHandler).not.toHaveBeenCalled();
+    alertSpy.mockRestore();
   });
 });
 

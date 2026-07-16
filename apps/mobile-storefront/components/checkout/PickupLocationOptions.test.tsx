@@ -88,4 +88,40 @@ describe('PickupLocationOptions', () => {
     );
     expect(onSelect).toHaveBeenCalledWith(MERCHANT_PICKUP_QUOTE_ID);
   });
+
+  it('shows progress while nearby GIG centres are loading', () => {
+    render(
+      <PickupLocationOptions
+        colors={colors}
+        isDark
+        isLoading
+        onRetry={jest.fn()}
+        onSelect={jest.fn()}
+        providerQuotes={[]}
+        selectedQuoteId=""
+      />
+    );
+
+    expect(
+      screen.getByText('Checking nearby GIG Logistics centres…')
+    ).toBeTruthy();
+  });
+
+  it('allows retrying when no pickup options are available', () => {
+    const onRetry = jest.fn();
+    render(
+      <PickupLocationOptions
+        colors={colors}
+        isDark
+        isLoading={false}
+        onRetry={onRetry}
+        onSelect={jest.fn()}
+        providerQuotes={[]}
+        selectedQuoteId=""
+      />
+    );
+
+    fireEvent.press(screen.getByRole('button'));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
 });

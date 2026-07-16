@@ -5,6 +5,7 @@ import {
   findSelectedQuote,
   getDeliveryMethodFee,
   getDeliveryMethodLabel,
+  getDeliveryMethodReviewDetail,
   getDeliveryMethodSummary,
   getPaymentTabForMethod,
   getQuotePreference,
@@ -122,6 +123,28 @@ describe('checkout-step-helpers', () => {
     expect(getDeliveryMethodSummary('door', undefined)).toBe(
       'Topship • Delivery estimate shown after selection'
     );
+  });
+
+  it('formats delivery details for the checkout review', () => {
+    expect(getDeliveryMethodReviewDetail('airport', undefined)).toBe(
+      'Delivery to your doorstep • Within 1–48 hours'
+    );
+    expect(getDeliveryMethodReviewDetail('door', baseQuote, 'Lagos')).toBe(
+      'Topship Express • Within 1–24 hours'
+    );
+    expect(
+      getDeliveryMethodReviewDetail('door', {
+        ...baseQuote,
+        deliveryRange: undefined,
+        estimatedDays: undefined,
+      })
+    ).toBe('Topship Express • Delivery estimate shown after selection');
+    expect(
+      getDeliveryMethodReviewDetail('pickup_station', stationPickupQuote)
+    ).toBe(stationPickupQuote.displayName);
+    expect(
+      getDeliveryMethodReviewDetail('pickup_station', undefined)
+    ).toBeUndefined();
   });
 
   it('returns the shipping provider for each delivery method', () => {

@@ -60,4 +60,17 @@ describe('getCheckoutAddressShippingOptions', () => {
       'Ikeja Airport Delivery'
     );
   });
+
+  it('does not expose a GoFaster selection as the selected door quote', () => {
+    expect(
+      getCheckoutAddressShippingOptions({
+        deliveryMethod: 'airport',
+        selectedQuote: airQuote,
+        selectedQuoteId: 'air',
+        shippingQuotes: [doorQuote, airQuote],
+        watchedCity: 'Ikeja',
+        watchedState: 'Lagos',
+      }).doorSelectedQuote
+    ).toBeUndefined();
+  });
 });

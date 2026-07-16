@@ -118,16 +118,6 @@ export function useCheckoutStepActions({
           setValue('address', merchantPickupLocation.address, {
             shouldValidate: true,
           });
-          if (merchantPickupLocation.city) {
-            setValue('city', merchantPickupLocation.city, {
-              shouldValidate: true,
-            });
-          }
-          if (merchantPickupLocation.state) {
-            setValue('state', merchantPickupLocation.state, {
-              shouldValidate: true,
-            });
-          }
         }
       }
       handleSubmit(onAddressSubmit, handleAddressValidationError)();

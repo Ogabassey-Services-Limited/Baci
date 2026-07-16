@@ -9,9 +9,8 @@ import {
   isProviderStationPickupQuote,
 } from './checkout-station-pickup';
 import {
-  AIRPORT_DELIVERY_ESTIMATE,
   getDeliveryMethodLabel,
-  LAGOS_ROAD_DELIVERY_ESTIMATE,
+  getDeliveryMethodReviewDetail,
 } from './checkout-step-helpers';
 import type { PaymentMethodType } from './PaymentMethodSelector';
 import type { DeliveryMethod, ShippingQuote } from './types';
@@ -91,6 +90,11 @@ export function CheckoutReviewStep({
     borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
     ...SHADOWS.sm,
   };
+  const deliveryMethodDetail = getDeliveryMethodReviewDetail(
+    deliveryMethod,
+    selectedQuote,
+    address.state
+  );
 
   return (
     <ScrollView
@@ -127,23 +131,9 @@ export function CheckoutReviewStep({
         <Text style={[styles.reviewTextStrong, { color: colors.text }]}>
           {getDeliveryMethodLabel(deliveryMethod, selectedQuote)}
         </Text>
-        {selectedQuote &&
-        (deliveryMethod === 'door' ||
-          isProviderStationPickupQuote(selectedQuote)) ? (
+        {deliveryMethodDetail ? (
           <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
-            {selectedQuote.displayName}
-            {deliveryMethod === 'door'
-              ? address.state.trim().toLowerCase() === 'lagos'
-                ? ` • ${LAGOS_ROAD_DELIVERY_ESTIMATE}`
-                : selectedQuote.deliveryRange || selectedQuote.estimatedDays
-                  ? ` • ${selectedQuote.deliveryRange || `${selectedQuote.estimatedDays} days`}`
-                  : null
-              : null}
-          </Text>
-        ) : null}
-        {deliveryMethod === 'airport' ? (
-          <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
-            {`Delivery to your doorstep \u2022 ${AIRPORT_DELIVERY_ESTIMATE}`}
+            {deliveryMethodDetail}
           </Text>
         ) : null}
       </View>

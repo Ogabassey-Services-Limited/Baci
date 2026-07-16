@@ -100,6 +100,26 @@ describe('CheckoutReviewStep', () => {
     expect(screen.getByText('Payment method not selected')).toBeOnTheScreen();
   });
 
+  it('shows an estimate fallback when a road quote has no ETA', () => {
+    render(
+      <CheckoutReviewStep
+        {...baseProps}
+        address={{ ...baseProps.address, state: 'Rivers' }}
+        selectedQuote={{
+          displayName: 'Standard delivery',
+          id: 'quote-without-eta',
+          price: 5000,
+        }}
+      />
+    );
+
+    expect(
+      screen.getByText(
+        'Standard delivery • Delivery estimate shown after selection'
+      )
+    ).toBeOnTheScreen();
+  });
+
   it('renders GIGL pickup station quote and station address on review', () => {
     render(
       <CheckoutReviewStep
