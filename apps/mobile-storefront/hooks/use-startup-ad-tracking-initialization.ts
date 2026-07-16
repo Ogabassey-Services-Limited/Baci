@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { initializeAdTrackingForStartup } from '@/services/initialize-ad-tracking-for-startup';
 
 interface UseStartupAdTrackingInitializationOptions {
@@ -13,6 +13,8 @@ export function useStartupAdTrackingInitialization({
   isTrackingAuthorizationSettled,
 }: UseStartupAdTrackingInitializationOptions) {
   const hasInitializedAdTrackingRef = useRef(false);
+  const [isStartupAdTrackingReady, setIsStartupAdTrackingReady] =
+    useState(false);
 
   useEffect(() => {
     if (
@@ -25,6 +27,18 @@ export function useStartupAdTrackingInitialization({
     }
 
     hasInitializedAdTrackingRef.current = true;
-    void initializeAdTrackingForStartup();
+    let isMounted = true;
+
+    void initializeAdTrackingForStartup().finally(() => {
+      if (isMounted) {
+        setIsStartupAdTrackingReady(true);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
   }, [isInitialized, isStorageReady, isTrackingAuthorizationSettled]);
+
+  return { isStartupAdTrackingReady };
 }

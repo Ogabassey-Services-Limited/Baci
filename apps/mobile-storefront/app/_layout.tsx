@@ -122,7 +122,7 @@ export default function RootLayout() {
     }
   }, [isInitialized, isStorageReady, isTrackingAuthorizationSettled]);
 
-  useStartupAdTrackingInitialization({
+  const { isStartupAdTrackingReady } = useStartupAdTrackingInitialization({
     isInitialized,
     isStorageReady,
     isTrackingAuthorizationSettled,
@@ -290,6 +290,7 @@ export default function RootLayout() {
     >
       {isStorageReady ? (
         <RootLayoutNav
+          adTrackingReady={isStartupAdTrackingReady}
           persistenceEnabled={!showSplash}
           shouldResumeNavigation={hasCompletedInitialBoot}
         />

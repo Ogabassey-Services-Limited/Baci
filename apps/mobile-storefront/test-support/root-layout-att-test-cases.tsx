@@ -40,9 +40,7 @@ export function registerRootLayoutAttTests({
     const view = render(<RootLayout />);
 
     await waitFor(() => {
-      expect(
-        screen.getByRole('text', { name: 'Store navigation' })
-      ).toBeOnTheScreen();
+      expect(initializeStorage).toHaveBeenCalledTimes(1);
     });
     fireEvent.press(screen.getByTestId('animated-splash'));
     await waitFor(() => {
@@ -58,16 +56,19 @@ export function registerRootLayoutAttTests({
     await waitFor(() => {
       expect(initializeAdTrackingForStartup).toHaveBeenCalledTimes(1);
     });
-  });
-
-  it('enables the root ATT coordinator only after storefront UI is visible', async () => {
-    initializeStorage.mockResolvedValue(undefined);
-    render(<RootLayout />);
-
     await waitFor(() => {
       expect(
         screen.getByRole('text', { name: 'Store navigation' })
       ).toBeOnTheScreen();
+    });
+  });
+
+  it('enables the root ATT coordinator only after the startup splash finishes', async () => {
+    initializeStorage.mockResolvedValue(undefined);
+    render(<RootLayout />);
+
+    await waitFor(() => {
+      expect(initializeStorage).toHaveBeenCalledTimes(1);
     });
     expect(useAppTrackingTransparency).toHaveBeenLastCalledWith({
       enabled: false,
@@ -90,9 +91,7 @@ export function registerRootLayoutAttTests({
     const view = render(<RootLayout />);
 
     await waitFor(() => {
-      expect(
-        screen.getByRole('text', { name: 'Store navigation' })
-      ).toBeOnTheScreen();
+      expect(initializeStorage).toHaveBeenCalledTimes(1);
     });
     fireEvent.press(screen.getByTestId('animated-splash'));
     await waitFor(() => {
@@ -119,9 +118,7 @@ export function registerRootLayoutAttTests({
     const view = render(<RootLayout />);
 
     await waitFor(() => {
-      expect(
-        screen.getByRole('text', { name: 'Store navigation' })
-      ).toBeOnTheScreen();
+      expect(initializeStorage).toHaveBeenCalledTimes(1);
     });
     expect(activateDueSavingsReminderNotification).not.toHaveBeenCalled();
 

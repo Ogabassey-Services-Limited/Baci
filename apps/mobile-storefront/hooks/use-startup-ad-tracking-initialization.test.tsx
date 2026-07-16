@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { renderHook } from '@testing-library/react-native';
+import { renderHook, waitFor } from '@testing-library/react-native';
 import { useStartupAdTrackingInitialization } from './use-startup-ad-tracking-initialization';
 
-const mockInitializeAdTrackingForStartup = jest.fn();
+const mockInitializeAdTrackingForStartup = jest.fn<() => Promise<void>>();
 
 jest.mock('@/services/initialize-ad-tracking-for-startup', () => ({
   initializeAdTrackingForStartup: () => mockInitializeAdTrackingForStartup(),
@@ -17,10 +17,14 @@ interface StartupAdTrackingProps {
 describe('useStartupAdTrackingInitialization', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockInitializeAdTrackingForStartup.mockResolvedValue(undefined);
   });
 
-  it('waits for app initialization, storage, and ATT settlement', () => {
-    const { rerender } = renderHook<void, StartupAdTrackingProps>(
+  it('waits for app initialization, storage, and ATT settlement', async () => {
+    const { rerender } = renderHook<
+      ReturnType<typeof useStartupAdTrackingInitialization>,
+      StartupAdTrackingProps
+    >(
       ({ isInitialized, isStorageReady, isTrackingAuthorizationSettled }) =>
         useStartupAdTrackingInitialization({
           isInitialized,
@@ -50,10 +54,12 @@ describe('useStartupAdTrackingInitialization', () => {
       isStorageReady: true,
       isTrackingAuthorizationSettled: true,
     });
-    expect(mockInitializeAdTrackingForStartup).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(mockInitializeAdTrackingForStartup).toHaveBeenCalledTimes(1);
+    });
   });
 
-  it('starts ad tracking only once after the gate opens', () => {
+  it('starts ad tracking only once after the gate opens', async () => {
     const props = {
       isInitialized: true,
       isStorageReady: true,
@@ -66,6 +72,24 @@ describe('useStartupAdTrackingInitialization', () => {
 
     rerender(props);
 
-    expect(mockInitializeAdTrackingForStartup).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(mockInitializeAdTrackingForStartup).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('reports startup readiness after initialization finishes', async () => {
+    const { result } = renderHook(() =>
+      useStartupAdTrackingInitialization({
+        isInitialized: true,
+        isStorageReady: true,
+        isTrackingAuthorizationSettled: true,
+      })
+    );
+
+    expect(result.current.isStartupAdTrackingReady).toBe(false);
+
+    await waitFor(() => {
+      expect(result.current.isStartupAdTrackingReady).toBe(true);
+    });
   });
 });
