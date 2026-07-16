@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it, jest } from '@jest/globals';
@@ -103,6 +104,67 @@ describe('Expo compliance', () => {
       'utf-8'
     );
     expect(configSource).not.toContain('newArchEnabled');
+  });
+
+  it('loads nested app config helpers when Node type stripping is disabled', () => {
+    const configSource = readFileSync(
+      path.join(ROOT, 'app.config.ts'),
+      'utf-8'
+    );
+    const helperPaths = [
+      ...configSource.matchAll(
+        /require\('(\.\/config\/(?:expo-plugins|resolve-update-channel)[^']*)'\)/g
+      ),
+    ].map((match) => match[1]);
+
+    expect(helperPaths).toHaveLength(2);
+
+    const result = spawnSync(
+      process.execPath,
+      [
+        '--no-experimental-strip-types',
+        '-e',
+        `for (const helperPath of ${JSON.stringify(helperPaths)}) require(helperPath);`,
+      ],
+      {
+        cwd: ROOT,
+        encoding: 'utf8',
+      }
+    );
+
+    expect(result.stderr).toBe('');
+    expect(result.status).toBe(0);
+  });
+
+  it('uploads the R8 mapping file with Android production releases', () => {
+    const workflowSource = readFileSync(
+      path.resolve(
+        ROOT,
+        '../../.github/workflows/android-storefront-release.yml'
+      ),
+      'utf-8'
+    );
+
+    expect(workflowSource).toMatch(
+      /mappingFile: \$\{\{ env\.WORKING_DIR \}\}\/android\/app\/build\/outputs\/mapping\/release\/mapping\.txt/
+    );
+  });
+
+  it('uses the supported Node 24 flag to disable type stripping in release workflows', () => {
+    const workflowPaths = [
+      '../../.github/workflows/android-storefront-release.yml',
+      '../../.github/workflows/ios-storefront-release.yml',
+    ];
+
+    for (const workflowPath of workflowPaths) {
+      const workflowSource = readFileSync(
+        path.resolve(ROOT, workflowPath),
+        'utf-8'
+      );
+
+      expect(workflowSource).toContain('--no-experimental-strip-types');
+      expect(workflowSource).not.toMatch(/--no-strip-types(?:\s|")/);
+    }
   });
 
   it('sets the supported iOS deployment target to 16.4', () => {

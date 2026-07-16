@@ -1,17 +1,4 @@
-import type { TikTokBusinessPlugin } from '@baci/tiktok-business';
-import type { ExpoConfig } from 'expo/config';
-
-type ExpoPlugin = NonNullable<ExpoConfig['plugins']>[number];
-
-interface ExpoPluginsOptions {
-  facebookSdkPlugin: ExpoPlugin | null;
-  tiktokBusinessPlugin: TikTokBusinessPlugin | null;
-}
-
-export function createExpoPlugins({
-  facebookSdkPlugin,
-  tiktokBusinessPlugin,
-}: ExpoPluginsOptions): NonNullable<ExpoConfig['plugins']> {
+function createExpoPlugins({ facebookSdkPlugin, tiktokBusinessPlugin }) {
   return [
     'expo-router',
     [
@@ -87,3 +74,5 @@ export function createExpoPlugins({
     ...(facebookSdkPlugin ? [facebookSdkPlugin] : []),
   ];
 }
+
+module.exports = { createExpoPlugins };

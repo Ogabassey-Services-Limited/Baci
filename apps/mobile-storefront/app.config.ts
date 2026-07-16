@@ -11,9 +11,9 @@ import type { TikTokBusinessPlugin } from '@baci/tiktok-business';
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
 const { createExpoPlugins } =
-  require('./config/expo-plugins.ts') as typeof import('./config/expo-plugins');
+  require('./config/expo-plugins.js') as typeof import('./config/expo-plugins');
 const { resolveUpdateChannel } =
-  require('./config/resolve-update-channel.ts') as typeof import('./config/resolve-update-channel');
+  require('./config/resolve-update-channel.js') as typeof import('./config/resolve-update-channel');
 const {
   DEFAULT_STOREFRONT_TIKTOK_IOS_APP_STORE_ID,
   DEFAULT_STOREFRONT_TIKTOK_IOS_TIKTOK_APP_ID,
