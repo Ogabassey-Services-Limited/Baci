@@ -1,3 +1,4 @@
+import type { RegisteredAddress } from '@baci/shared/contracts';
 import { useQuery } from '@tanstack/react-query';
 import {
   CONSTANT_MERCHANT_ID,
@@ -15,12 +16,13 @@ export interface Merchant {
   email?: string;
   phone?: string;
   business_address?: string;
+  registered_address?: RegisteredAddress | null;
   hero_image_ids?: string[];
 }
 
 export function useMerchant() {
   return useQuery<Merchant>({
-    queryKey: ['merchant_id', MERCHANT_SLUG],
+    queryKey: ['merchant_id', MERCHANT_SLUG, 'pickup-address-v2'],
     queryFn: async () => {
       log.info('Resolving ID for slug:', MERCHANT_SLUG);
 
@@ -29,7 +31,7 @@ export function useMerchant() {
           await supabase
             .from('merchants')
             .select(
-              'id, slug, business_name, social_media, email, phone, business_address, hero_image_ids'
+              'id, slug, business_name, social_media, email, phone, business_address, registered_address, hero_image_ids'
             )
             .eq('slug', MERCHANT_SLUG)
             .single(),

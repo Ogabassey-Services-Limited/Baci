@@ -7,7 +7,6 @@ import type {
   PaymentMethodType,
   PaymentTab,
 } from '@/components/checkout/PaymentMethodSelector';
-import { PICKUP_STATION_ADDRESS_LINES } from '@/components/checkout/pickup-station.constants';
 import type {
   DeliveryMethod,
   ShippingQuote,
@@ -16,9 +15,10 @@ import type {
 
 export const AIRPORT_DELIVERY_FEE = 25000;
 export const AIRPORT_QUOTE_ID = 'airport-delivery';
+export const AIRPORT_DELIVERY_ESTIMATE = 'Within 1–48 hours';
+export const LAGOS_ROAD_DELIVERY_ESTIMATE = 'Within 1–24 hours';
+export const MERCHANT_OFFICE_PICKUP_LABEL = 'Merchant office pickup';
 const DEFAULT_CARRIER = 'Topship';
-const AIRPORT_DELIVERY_ESTIMATE =
-  'Delivery to your doorstep • Est Delivery within 24-48 working hours';
 
 export function getPaymentTabForMethod(method: PaymentMethodType): PaymentTab {
   if (
@@ -75,16 +75,17 @@ export function getDeliveryMethodLabel(
 
 export function getDeliveryMethodSummary(
   deliveryMethod: DeliveryMethod,
-  selectedQuote: ShippingQuote | undefined
+  selectedQuote: ShippingQuote | undefined,
+  deliveryState?: string | null
 ): string {
   if (deliveryMethod === 'airport') {
-    return AIRPORT_DELIVERY_ESTIMATE;
+    return `Delivery to your doorstep • ${AIRPORT_DELIVERY_ESTIMATE}`;
   }
 
   if (deliveryMethod === 'pickup_station') {
     return isProviderStationPickupQuote(selectedQuote)
       ? getPickupStationAddressText(selectedQuote)
-      : PICKUP_STATION_ADDRESS_LINES.join(', ');
+      : MERCHANT_OFFICE_PICKUP_LABEL;
   }
 
   const doorQuote = isRoadDeliveryQuote(selectedQuote)
@@ -92,6 +93,9 @@ export function getDeliveryMethodSummary(
     : undefined;
   const carrier =
     doorQuote?.carrierName || doorQuote?.provider || DEFAULT_CARRIER;
+  if (deliveryState?.trim().toLowerCase() === 'lagos') {
+    return `${carrier} • ${LAGOS_ROAD_DELIVERY_ESTIMATE}`;
+  }
   const eta =
     doorQuote?.deliveryRange ||
     (doorQuote?.estimatedDays
@@ -99,6 +103,34 @@ export function getDeliveryMethodSummary(
       : 'Delivery estimate shown after selection');
 
   return `${carrier} • ${eta}`;
+}
+
+export function getDeliveryMethodReviewDetail(
+  deliveryMethod: DeliveryMethod,
+  selectedQuote: ShippingQuote | undefined,
+  deliveryState?: string | null
+): string | undefined {
+  if (deliveryMethod === 'airport') {
+    return `Delivery to your doorstep • ${AIRPORT_DELIVERY_ESTIMATE}`;
+  }
+
+  if (deliveryMethod === 'pickup_station') {
+    return isProviderStationPickupQuote(selectedQuote)
+      ? selectedQuote.displayName
+      : undefined;
+  }
+
+  if (!isRoadDeliveryQuote(selectedQuote)) return undefined;
+
+  const eta =
+    deliveryState?.trim().toLowerCase() === 'lagos'
+      ? LAGOS_ROAD_DELIVERY_ESTIMATE
+      : selectedQuote.deliveryRange ||
+        (selectedQuote.estimatedDays
+          ? `${selectedQuote.estimatedDays} days`
+          : 'Delivery estimate shown after selection');
+
+  return `${selectedQuote.displayName} • ${eta}`;
 }
 
 export function getShippingProviderForMethod(
@@ -157,6 +189,7 @@ export function requiresQuote(
   return (
     deliveryMethod === 'door' ||
     usesProviderPickup ||
+    isProviderStationPickupQuote(selectedQuote) ||
     (deliveryMethod === 'airport' && isGiglGoFasterQuote(selectedQuote))
   );
 }

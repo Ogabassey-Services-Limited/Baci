@@ -20,6 +20,7 @@ import { AddressSuggestionsProvider } from '@/components/ui/address-suggestions-
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { useAuthStatus } from '@/hooks/use-auth-guard';
+import { useMerchant } from '@/hooks/use-merchant';
 import type { MobileCheckoutIdempotencyState } from '@/lib/checkout-order-idempotency';
 import { useCartStore } from '@/stores/cart-store';
 import { CheckoutLocationPickerOverlays } from './CheckoutLocationPickerOverlays';
@@ -30,6 +31,7 @@ import {
   CHECKOUT_MERCHANT_SLUG,
 } from './checkout-screen.constants';
 import { type AppliedDiscount, DiscountCodeInput } from './DiscountCodeInput';
+import { getMerchantPickupLocation } from './merchant-pickup-location';
 import { useCheckoutAddressState } from './use-checkout-address-state';
 import { useCheckoutCryptoPayment } from './use-checkout-crypto-payment';
 import { useCheckoutCtaAnimation } from './use-checkout-cta-animation';
@@ -51,6 +53,8 @@ export function CheckoutScreenView() {
     }))
   );
   const { customer, isAuthenticated, user } = useAuthStatus();
+  const { data: merchant } = useMerchant();
+  const merchantPickupLocation = getMerchantPickupLocation(merchant);
 
   const [step, setStep] = React.useState<CheckoutStep>('address');
   const [isProcessing, setIsProcessing] = React.useState(false);
@@ -158,6 +162,7 @@ export function CheckoutScreenView() {
     isOrderInFlight,
     isProcessing,
     mobileCheckoutIdempotencyRef,
+    merchantPickupLocation,
     orderTotals,
     paymentSettings,
     paymentTab,
@@ -217,6 +222,7 @@ export function CheckoutScreenView() {
             isAuthenticated={isAuthenticated}
             isDark={isDark}
             items={items}
+            merchantPickupLocation={merchantPickupLocation}
             paymentController={paymentController}
             setStep={setStep}
             step={step}

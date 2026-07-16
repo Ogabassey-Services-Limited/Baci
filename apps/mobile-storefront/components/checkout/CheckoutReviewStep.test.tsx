@@ -49,7 +49,9 @@ describe('CheckoutReviewStep', () => {
     render(<CheckoutReviewStep {...baseProps} />);
 
     expect(screen.getByText('Review Order')).toBeOnTheScreen();
-    expect(screen.getByText('Express delivery • 1-2 days')).toBeOnTheScreen();
+    expect(
+      screen.getByText('Express delivery • Within 1–24 hours')
+    ).toBeOnTheScreen();
     expect(screen.getByText('Card Payment (Paystack)')).toBeOnTheScreen();
     expect(screen.getByText('VAT (7.5%)')).toBeOnTheScreen();
     expect(screen.getByText('₦512,750')).toHaveStyle({
@@ -71,6 +73,12 @@ describe('CheckoutReviewStep', () => {
     render(
       <CheckoutReviewStep
         {...baseProps}
+        merchantPickupLocation={{
+          address: '2 Olaide Tomori St, Ikeja, Lagos',
+          city: 'Ikeja',
+          label: 'OgaBassey Office',
+          state: 'Lagos',
+        }}
         deliveryMethod="pickup_station"
         selectedPayment="invoice"
         selectedQuote={undefined}
@@ -80,16 +88,48 @@ describe('CheckoutReviewStep', () => {
     );
 
     expect(
-      screen.getByText(/2 Olaide Tomori Street Ikeja Lagos/)
+      screen.getByText('2 Olaide Tomori St, Ikeja, Lagos')
     ).toBeOnTheScreen();
     expect(screen.getByText('Generate Invoice')).toBeOnTheScreen();
     expect(screen.queryByText(/VAT/)).toBeNull();
+  });
+
+  it('falls back to the checkout address when merchant pickup data is absent', () => {
+    render(
+      <CheckoutReviewStep
+        {...baseProps}
+        deliveryMethod="pickup_station"
+        selectedQuote={undefined}
+      />
+    );
+
+    expect(screen.getByText('10 Admiralty Way')).toBeOnTheScreen();
   });
 
   it('shows a clear fallback when no payment method is selected', () => {
     render(<CheckoutReviewStep {...baseProps} selectedPayment={null} />);
 
     expect(screen.getByText('Payment method not selected')).toBeOnTheScreen();
+  });
+
+  it('shows an estimate fallback when a road quote has no ETA', () => {
+    render(
+      <CheckoutReviewStep
+        {...baseProps}
+        address={{ ...baseProps.address, state: 'Rivers' }}
+        selectedQuote={{
+          displayName: 'Standard delivery',
+          id: 'quote-without-eta',
+          price: 5000,
+        }}
+      />
+    );
+
+    expect(
+      screen.getByText(
+        'Standard delivery • Delivery estimate shown after selection'
+      )
+    ).toBeOnTheScreen();
   });
 
   it('renders GIGL pickup station quote and station address on review', () => {
@@ -119,7 +159,7 @@ describe('CheckoutReviewStep', () => {
 
     expect(screen.getByText('Pickup Stations (GIGL)')).toBeOnTheScreen();
     expect(
-      screen.getByText('GIG Logistics - Pickup at PORT HARCOURT • 1-2 days')
+      screen.getByText('GIG Logistics - Pickup at PORT HARCOURT')
     ).toBeOnTheScreen();
     expect(
       screen.getByText('PORT HARCOURT\nGIGL Aba Road, Port Harcourt')
@@ -137,7 +177,7 @@ describe('CheckoutReviewStep', () => {
 
     expect(screen.getByText('Airport Delivery')).toBeOnTheScreen();
     expect(
-      screen.getByText('Delivery to your doorstep • Est. 24–48 working hours')
+      screen.getByText('Delivery to your doorstep • Within 1–48 hours')
     ).toBeOnTheScreen();
     expect(
       screen.getByText('10 Admiralty Way\nLagos, Lagos')

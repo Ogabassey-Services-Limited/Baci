@@ -1,4 +1,7 @@
-import { resolveLocationStateLabel } from '@baci/shared/lib';
+import {
+  filterByLocationPhrase,
+  resolveLocationStateLabel,
+} from '@baci/shared/lib';
 import { CONFIG } from '@/lib/config';
 import {
   getPreferredShippingQuoteId,
@@ -108,6 +111,20 @@ function getPreferredQuoteIdForPreference(
   );
 }
 
+function filterPickupQuotesByCity(
+  quotes: ShippingQuote[],
+  city: string,
+  state: string
+): ShippingQuote[] {
+  return filterByLocationPhrase(
+    quotes,
+    city,
+    state,
+    (quote) =>
+      `${quote.stationName ?? ''} ${quote.stationAddress ?? ''} ${quote.displayName}`
+  );
+}
+
 export const fetchShippingQuotes = async ({
   apiUrl,
   state,
@@ -180,10 +197,14 @@ export const fetchShippingQuotes = async ({
       const data: QuoteResponse & { warnings?: string[] } =
         await response.json();
       const quotes = normalizeShippingQuotes(data.quotes?.all || []);
-      const selectableQuotes =
+      const stationPickupQuotes =
         deliveryPreference === 'pickup_station'
           ? quotes.filter((quote) => quote.isStationPickup === true)
           : quotes;
+      const selectableQuotes =
+        deliveryPreference === 'pickup_station'
+          ? filterPickupQuotesByCity(stationPickupQuotes, city, state)
+          : stationPickupQuotes;
       setShippingQuotes(selectableQuotes);
       setResolvedShippingQuoteContextKey(quoteContextKey);
       setSelectedQuoteId(

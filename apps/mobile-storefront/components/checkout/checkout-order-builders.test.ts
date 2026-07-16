@@ -5,11 +5,6 @@ import {
   buildCheckoutOrderRequest,
   createCheckoutSnapshot,
 } from './checkout-order-builders';
-import {
-  PICKUP_STATION_ADDRESS_LINES,
-  PICKUP_STATION_CITY,
-  PICKUP_STATION_STATE,
-} from './pickup-station.constants';
 
 const address = {
   email: 'ada@example.com',
@@ -340,11 +335,7 @@ describe('checkout order builders', () => {
 
     expect(request.selected_quote_id).toBeUndefined();
     expect(request.shipping_provider).toBeUndefined();
-    expect(request.shipping_address.address).toBe(
-      PICKUP_STATION_ADDRESS_LINES.join(', ')
-    );
-    expect(request.shipping_address.city).toBe(PICKUP_STATION_CITY);
-    expect(request.shipping_address.state).toBe(PICKUP_STATION_STATE);
+    expect(request.shipping_address).toEqual(address);
   });
 
   it('forwards quiz voucher fields end-to-end from the cart line to the API payload', () => {

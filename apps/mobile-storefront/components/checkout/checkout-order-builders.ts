@@ -3,11 +3,6 @@ import {
   isProviderStationPickupQuote,
 } from '@/components/checkout/checkout-station-pickup';
 import { isGiglGoFasterQuote } from '@/components/checkout/checkout-step-helpers';
-import {
-  PICKUP_STATION_ADDRESS_LINES,
-  PICKUP_STATION_CITY,
-  PICKUP_STATION_STATE,
-} from '@/components/checkout/pickup-station.constants';
 import type {
   DeliveryMethod,
   ShippingQuote,
@@ -87,12 +82,7 @@ export function buildOrderShippingAddress(
       };
     }
 
-    return {
-      ...address,
-      address: PICKUP_STATION_ADDRESS_LINES.join(', '),
-      city: PICKUP_STATION_CITY,
-      state: PICKUP_STATION_STATE,
-    };
+    return address;
   }
 
   if (deliveryMethod === 'airport') {

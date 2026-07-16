@@ -8,9 +8,12 @@ import {
   getPickupStationAddressText,
   isProviderStationPickupQuote,
 } from './checkout-station-pickup';
-import { getDeliveryMethodLabel } from './checkout-step-helpers';
+import {
+  getDeliveryMethodLabel,
+  getDeliveryMethodReviewDetail,
+} from './checkout-step-helpers';
+import type { MerchantPickupLocation } from './merchant-pickup-location';
 import type { PaymentMethodType } from './PaymentMethodSelector';
-import { PICKUP_STATION_ADDRESS_LINES } from './pickup-station.constants';
 import type { DeliveryMethod, ShippingQuote } from './types';
 
 const PAYMENT_METHOD_LABELS: Record<PaymentMethodType, string> = {
@@ -29,12 +32,13 @@ const PAYMENT_METHOD_LABELS: Record<PaymentMethodType, string> = {
 function getReviewAddressText(
   address: ShippingAddressInput,
   deliveryMethod: DeliveryMethod,
+  merchantPickupLocation?: MerchantPickupLocation,
   selectedQuote?: ShippingQuote
 ) {
   if (deliveryMethod === 'pickup_station') {
     return isProviderStationPickupQuote(selectedQuote)
       ? getPickupStationAddressText(selectedQuote, '\n')
-      : PICKUP_STATION_ADDRESS_LINES.join('\n');
+      : merchantPickupLocation?.address || address.address;
   }
 
   if (deliveryMethod === 'airport') {
@@ -55,6 +59,7 @@ type CheckoutReviewStepProps = {
   formContentPaddingBottom: number;
   isDark: boolean;
   items: CartItem[];
+  merchantPickupLocation?: MerchantPickupLocation;
   onEditAddress: () => void;
   onEditPayment: () => void;
   selectedPayment: PaymentMethodType | null;
@@ -74,6 +79,7 @@ export function CheckoutReviewStep({
   formContentPaddingBottom,
   isDark,
   items,
+  merchantPickupLocation,
   onEditAddress,
   onEditPayment,
   selectedPayment,
@@ -88,6 +94,11 @@ export function CheckoutReviewStep({
     borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
     ...SHADOWS.sm,
   };
+  const deliveryMethodDetail = getDeliveryMethodReviewDetail(
+    deliveryMethod,
+    selectedQuote,
+    address.state
+  );
 
   return (
     <ScrollView
@@ -124,19 +135,9 @@ export function CheckoutReviewStep({
         <Text style={[styles.reviewTextStrong, { color: colors.text }]}>
           {getDeliveryMethodLabel(deliveryMethod, selectedQuote)}
         </Text>
-        {selectedQuote &&
-        (deliveryMethod === 'door' ||
-          isProviderStationPickupQuote(selectedQuote)) ? (
+        {deliveryMethodDetail ? (
           <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
-            {selectedQuote.displayName}
-            {selectedQuote.deliveryRange || selectedQuote.estimatedDays
-              ? ` • ${selectedQuote.deliveryRange ?? `${selectedQuote.estimatedDays} days`}`
-              : null}
-          </Text>
-        ) : null}
-        {deliveryMethod === 'airport' ? (
-          <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
-            {'Delivery to your doorstep \u2022 Est. 24\u201348 working hours'}
+            {deliveryMethodDetail}
           </Text>
         ) : null}
       </View>
@@ -154,7 +155,12 @@ export function CheckoutReviewStep({
           {address.phone}
         </Text>
         <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
-          {getReviewAddressText(address, deliveryMethod, selectedQuote)}
+          {getReviewAddressText(
+            address,
+            deliveryMethod,
+            merchantPickupLocation,
+            selectedQuote
+          )}
         </Text>
       </View>
 
