@@ -279,6 +279,7 @@ describe('useCheckoutShipping provider pickup stations', () => {
     expect(result.current.selectedQuoteId).toBe('merchant-office-pickup');
     expect(result.current.selectedQuote).toBeUndefined();
     expect(result.current.deliveryFee).toBe(0);
+    expect(result.current.requiresShippingQuote).toBe(false);
     expect(result.current.shippingQuotes).toEqual([
       expect.objectContaining({ id: 'door-quote' }),
       expect.objectContaining({ id: 'station-quote' }),
@@ -290,6 +291,7 @@ describe('useCheckoutShipping provider pickup stations', () => {
 
     expect(result.current.selectedQuote?.provider).toBe('GIGL');
     expect(result.current.deliveryFee).toBe(9493);
+    expect(result.current.requiresShippingQuote).toBe(true);
   });
 
   it('returns to the door quote when switching back to door delivery', async () => {

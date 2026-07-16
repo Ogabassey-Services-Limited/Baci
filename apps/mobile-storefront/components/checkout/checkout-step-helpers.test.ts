@@ -193,5 +193,17 @@ describe('checkout-step-helpers', () => {
     expect(requiresQuote('airport', goFasterQuote, false)).toBe(true);
     expect(requiresQuote('airport', undefined, false)).toBe(false);
     expect(requiresQuote('door', undefined, false)).toBe(true);
+    expect(
+      requiresQuote(
+        'pickup_station',
+        {
+          displayName: 'GIG Logistics - Pickup at IKEJA',
+          id: 'station-quote',
+          isStationPickup: true,
+          price: 9493,
+        },
+        false
+      )
+    ).toBe(true);
   });
 });

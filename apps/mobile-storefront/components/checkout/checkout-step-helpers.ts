@@ -189,6 +189,7 @@ export function requiresQuote(
   return (
     deliveryMethod === 'door' ||
     usesProviderPickup ||
+    isProviderStationPickupQuote(selectedQuote) ||
     (deliveryMethod === 'airport' && isGiglGoFasterQuote(selectedQuote))
   );
 }
