@@ -14,6 +14,7 @@ import { ErrorFallback } from '@/components/ErrorBoundary';
 import { RootLayoutNav } from '@/components/navigation/RootLayoutNav';
 import { useAppTrackingTransparency } from '@/hooks/use-app-tracking-transparency';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
+import { useStartupAdTrackingInitialization } from '@/hooks/use-startup-ad-tracking-initialization';
 import {
   installCrashDiagnostics,
   recordCrashBreadcrumb,
@@ -22,7 +23,6 @@ import { offlineQueue } from '@/lib/offline-queue';
 import { prefetchStartupStorefrontData } from '@/lib/startup-storefront-prefetch';
 import { DEFAULT_SYNC_STORAGE_KEYS, initializeStorage } from '@/lib/storage';
 import { initAnalytics } from '@/services/analytics';
-import { initializeAdTrackingForStartup } from '@/services/initialize-ad-tracking-for-startup';
 import { type CreateOrderRequest, createOrder } from '@/services/orders';
 import { activateDueSavingsReminderNotification } from '@/services/savings-reminder-notifications';
 import { useAuthStore } from '@/stores/auth-store';
@@ -84,8 +84,6 @@ export default function RootLayout() {
     isLoading: isPushLoading,
   } = usePushNotifications();
   const initPromiseRef = useRef<Promise<void> | null>(null);
-  // Track push registration attempts per userId. Allows up to 3 retries
-  // (e.g. permissions granted after first attempt) before giving up.
   const pushAttemptsRef = useRef<{ userId: string | null; count: number }>({
     userId: null,
     count: 0,
@@ -124,6 +122,12 @@ export default function RootLayout() {
     }
   }, [isInitialized, isStorageReady, isTrackingAuthorizationSettled]);
 
+  useStartupAdTrackingInitialization({
+    isInitialized,
+    isStorageReady,
+    isTrackingAuthorizationSettled,
+  });
+
   useEffect(() => {
     let isMounted = true;
     const markStorageReady = () => {
@@ -139,7 +143,6 @@ export default function RootLayout() {
       recordCrashBreadcrumb('root_layout:startup_prefetch_scheduled');
 
       await initializeStorage(DEFAULT_SYNC_STORAGE_KEYS);
-      await initializeAdTrackingForStartup();
       markStorageReady();
       recordCrashBreadcrumb('root_layout:storage_ready', {
         storageKeyCount: DEFAULT_SYNC_STORAGE_KEYS.length,
@@ -193,7 +196,6 @@ export default function RootLayout() {
     setHasCompletedInitialBoot(true);
   }
 
-  // Persist boot completion to module state (external system) for remounts.
   useEffect(() => {
     if (hasCompletedInitialBoot) {
       bootstrapState.hasCompletedInitialBoot = true;
