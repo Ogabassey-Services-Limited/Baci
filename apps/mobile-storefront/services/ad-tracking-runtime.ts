@@ -67,7 +67,19 @@ export function generateEventIdSync(): string {
   return `${timestamp}_${random}`;
 }
 
-async function initializeAuthorizedAdTracking(): Promise<void> {
+function hasRequiredAuthorizedAdTrackingModules(
+  modules: ReturnType<typeof getAdTrackingModules>
+): boolean {
+  if (FB_APP_ID && FB_CLIENT_TOKEN && !modules.FBSettings) {
+    return false;
+  }
+  if (IS_TIKTOK_BUSINESS_CONFIGURED && !modules.TikTokBusiness) {
+    return false;
+  }
+  return true;
+}
+
+async function initializeAuthorizedAdTracking(): Promise<boolean> {
   let modules = getAdTrackingModules();
   if (
     Platform.OS !== 'web' &&
@@ -75,6 +87,11 @@ async function initializeAuthorizedAdTracking(): Promise<void> {
   ) {
     await loadNativeModules();
     modules = getAdTrackingModules();
+  }
+
+  if (!hasRequiredAuthorizedAdTrackingModules(modules)) {
+    log.warn('Authorized ad SDK modules unavailable after load');
+    return false;
   }
 
   if (Platform.OS === 'ios') {
@@ -112,10 +129,14 @@ async function initializeAuthorizedAdTracking(): Promise<void> {
       log.warn('TikTok SDK initialization failed:', error);
     }
   }
+
+  return true;
 }
 
 export async function initAdTracking(): Promise<void> {
   if (getIsInitialized()) return;
+
+  let didInitializeRuntime = false;
 
   try {
     try {
@@ -132,10 +153,13 @@ export async function initAdTracking(): Promise<void> {
 
     if (getIsTrackingAllowed()) {
       try {
-        await initializeAuthorizedAdTracking();
+        didInitializeRuntime = await initializeAuthorizedAdTracking();
       } catch (error) {
+        didInitializeRuntime = false;
         log.error('Authorized ad SDK initialization error:', error);
       }
+    } else {
+      didInitializeRuntime = true;
     }
 
     log.info(
@@ -143,12 +167,16 @@ export async function initAdTracking(): Promise<void> {
       getIsTrackingAllowed()
     );
   } finally {
-    setIsInitialized(true);
+    setIsInitialized(didInitializeRuntime);
   }
 }
 
 export async function requestTrackingPermission(): Promise<string> {
-  if (Platform.OS !== 'ios') return 'granted';
+  if (Platform.OS !== 'ios') {
+    setIsTrackingAllowed(true);
+    setIsInitialized(true);
+    return 'granted';
+  }
 
   try {
     const wasTrackingAllowed = getIsTrackingAllowed();
@@ -157,15 +185,21 @@ export async function requestTrackingPermission(): Promise<string> {
 
     if (getIsTrackingAllowed() && !wasTrackingAllowed) {
       try {
-        await initializeAuthorizedAdTracking();
+        const didInitializeAuthorizedTracking =
+          await initializeAuthorizedAdTracking();
+        setIsInitialized(didInitializeAuthorizedTracking);
       } catch (error) {
+        setIsInitialized(false);
         log.error('Authorized ad SDK initialization error:', error);
       }
+    } else {
+      setIsInitialized(true);
     }
 
     return status;
   } catch (error) {
     setIsTrackingAllowed(false);
+    setIsInitialized(false);
     log.error('ATT request error:', error);
     return 'denied';
   }

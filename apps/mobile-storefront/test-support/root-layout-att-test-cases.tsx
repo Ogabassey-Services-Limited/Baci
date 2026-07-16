@@ -1,6 +1,5 @@
 import { expect, it } from '@jest/globals';
 import {
-  act,
   fireEvent,
   render,
   screen,
@@ -35,27 +34,28 @@ export function registerRootLayoutAttTests({
   useAppTrackingTransparency,
   setTrackingAuthorizationSettled,
 }: AttTestDependencies) {
-  it('waits for ATT initialization before mounting navigation', async () => {
-    let resolveAdTracking: (() => void) | undefined;
+  it('waits for ATT settlement before starting ad tracking', async () => {
     initializeStorage.mockResolvedValue(undefined);
-    initializeAdTrackingForStartup.mockReturnValue(
-      new Promise<void>((resolve) => {
-        resolveAdTracking = resolve;
-      })
-    );
+    setTrackingAuthorizationSettled(false);
+    const view = render(<RootLayout />);
 
-    render(<RootLayout />);
+    await waitFor(() => {
+      expect(initializeStorage).toHaveBeenCalledTimes(1);
+    });
+    fireEvent.press(screen.getByTestId('animated-splash'));
+    await waitFor(() => {
+      expect(useAppTrackingTransparency).toHaveBeenLastCalledWith({
+        enabled: true,
+      });
+    });
+    expect(initializeAdTrackingForStartup).not.toHaveBeenCalled();
+
+    setTrackingAuthorizationSettled(true);
+    view.rerender(<RootLayout />);
 
     await waitFor(() => {
       expect(initializeAdTrackingForStartup).toHaveBeenCalledTimes(1);
     });
-    expect(screen.queryByRole('text', { name: 'Store navigation' })).toBeNull();
-
-    await act(async () => {
-      resolveAdTracking?.();
-      await Promise.resolve();
-    });
-
     await waitFor(() => {
       expect(
         screen.getByRole('text', { name: 'Store navigation' })
@@ -63,14 +63,12 @@ export function registerRootLayoutAttTests({
     });
   });
 
-  it('enables the root ATT coordinator only after storefront UI is visible', async () => {
+  it('enables the root ATT coordinator only after the startup splash finishes', async () => {
     initializeStorage.mockResolvedValue(undefined);
     render(<RootLayout />);
 
     await waitFor(() => {
-      expect(
-        screen.getByRole('text', { name: 'Store navigation' })
-      ).toBeOnTheScreen();
+      expect(initializeStorage).toHaveBeenCalledTimes(1);
     });
     expect(useAppTrackingTransparency).toHaveBeenLastCalledWith({
       enabled: false,
@@ -93,9 +91,7 @@ export function registerRootLayoutAttTests({
     const view = render(<RootLayout />);
 
     await waitFor(() => {
-      expect(
-        screen.getByRole('text', { name: 'Store navigation' })
-      ).toBeOnTheScreen();
+      expect(initializeStorage).toHaveBeenCalledTimes(1);
     });
     fireEvent.press(screen.getByTestId('animated-splash'));
     await waitFor(() => {
@@ -122,9 +118,7 @@ export function registerRootLayoutAttTests({
     const view = render(<RootLayout />);
 
     await waitFor(() => {
-      expect(
-        screen.getByRole('text', { name: 'Store navigation' })
-      ).toBeOnTheScreen();
+      expect(initializeStorage).toHaveBeenCalledTimes(1);
     });
     expect(activateDueSavingsReminderNotification).not.toHaveBeenCalled();
 
