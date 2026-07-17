@@ -275,6 +275,32 @@ describe('StaffInviteScreen', () => {
     expect(mocks.rpc).toHaveBeenCalledTimes(1);
   });
 
+  it('retries the preview RPC after a transient failure', async () => {
+    mocks.auth.isAuthenticated = true;
+    mocks.auth.user = { email: 'staff@example.com', id: 'user-1' };
+    mocks.rpc
+      .mockResolvedValueOnce({
+        data: null,
+        error: { message: 'Network request failed' },
+      })
+      .mockResolvedValueOnce({
+        data: null,
+        error: { message: 'Network request failed again' },
+      });
+
+    const { findByRole } = render(<StaffInviteScreen />);
+
+    const retryButton = await findByRole('button', {
+      name: 'Try Again',
+    });
+    retryButton.click();
+
+    await waitFor(() => {
+      expect(mocks.rpc).toHaveBeenCalledTimes(2);
+    });
+    expect(mocks.clearPendingStaffInviteToken).not.toHaveBeenCalled();
+  });
+
   it('offers a Cancel escape hatch on a transient failure that clears the token', async () => {
     mocks.auth.isAuthenticated = true;
     mocks.auth.user = { email: 'staff@example.com', id: 'user-1' };

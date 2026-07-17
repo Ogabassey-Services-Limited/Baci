@@ -5,6 +5,7 @@ import type { ThemeColors } from '@/constants/theme';
 import type { EditableProductVariant } from '@/lib/product-variant-form';
 import {
   buildVariantPricingGroups,
+  getAxisRawValue,
   getDefaultPricingAxisIds,
   getVariantAxes,
   type VariantPricingUpdate,
@@ -41,11 +42,25 @@ export function VariantGroupPricingSheet({
     () => defaultAxisIds
   );
   const [drafts, setDrafts] = useState<Record<string, GroupDraft>>({});
-  const axisSignature = axes
-    .map((axis) => `${axis.id}:${axis.values.join(',')}`)
-    .join('|');
-  const defaultAxisSignature = defaultAxisIds.join('|');
+  const canonicalAxes = axes
+    .map((axis) => [axis.id, [...axis.values].sort()] as const)
+    .sort(([leftId], [rightId]) => leftId.localeCompare(rightId));
+  const canonicalVariants = variants
+    .map((variant) => [
+      variant.id ?? variant.client_id,
+      axes
+        .map((axis) => [axis.id, getAxisRawValue(variant, axis)] as const)
+        .sort(([leftId], [rightId]) => leftId.localeCompare(rightId)),
+    ])
+    .map((record) => JSON.stringify(record))
+    .sort();
+  const variantSetSignature = JSON.stringify({
+    axes: canonicalAxes,
+    variants: canonicalVariants,
+  });
+  const defaultAxisSignature = [...defaultAxisIds].sort().join('|');
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: variantSetSignature resets stale drafts when visible variant membership changes without changing default axes.
   useEffect(() => {
     if (visible) {
       setSelectedAxisIds(
@@ -53,7 +68,7 @@ export function VariantGroupPricingSheet({
       );
       setDrafts({});
     }
-  }, [axisSignature, defaultAxisSignature, visible]);
+  }, [variantSetSignature, defaultAxisSignature, visible]);
 
   const selectedAxes = axes.filter((axis) => selectedAxisIds.includes(axis.id));
   const groups = buildVariantPricingGroups(variants, selectedAxes);

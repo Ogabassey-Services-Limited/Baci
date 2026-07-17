@@ -225,7 +225,7 @@ describe('NewOrderEditItemSheet', () => {
 
     render(<NewOrderEditItemSheet controller={controller} />);
 
-    fireEvent.click(screen.getByText('Remove').closest('button')!);
+    fireEvent.click(screen.getByRole('button', { name: 'Remove edited item' }));
 
     expect(setOrderItems).toHaveBeenCalledTimes(1);
     const updater = setOrderItems.mock.calls[0][0] as (
@@ -249,7 +249,7 @@ describe('NewOrderEditItemSheet', () => {
 
     render(<NewOrderEditItemSheet controller={controller} />);
 
-    fireEvent.click(screen.getByText('Save').closest('button')!);
+    fireEvent.click(screen.getByRole('button', { name: 'Save edited item' }));
 
     const updater = setOrderItems.mock.calls[0][0] as (
       items: Array<{

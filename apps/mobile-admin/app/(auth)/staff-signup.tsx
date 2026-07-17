@@ -53,6 +53,7 @@ export default function StaffSignupScreen() {
 
   // Verify the invite and lock the email to the invited address. Only a
   // confirmed, still-valid invitation enables account creation.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: retryNonce intentionally starts a fresh verification attempt.
   useEffect(() => {
     let cancelled = false;
     if (!token) {
