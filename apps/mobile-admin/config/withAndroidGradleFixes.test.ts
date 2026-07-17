@@ -215,6 +215,9 @@ describe('withAndroidGradleFixes Kotlin compilation guard', () => {
     );
     expect(appBuildGradle).toContain("pickFirsts += ['**/libworklets.so']");
     expect(gradleProperties).toContain('android.builtInKotlin=false');
+    expect(gradleProperties).toContain(
+      'android.r8.optimizedResourceShrinking=true'
+    );
     expect(gradleProperties).toContain('-XX:MaxMetaspaceSize=1024m');
   });
 

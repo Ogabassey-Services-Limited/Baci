@@ -62,6 +62,9 @@ describe('mobile admin Android Gradle build config', () => {
     expect(gradleProperties).toContain(
       'android.enableShrinkResourcesInReleaseBuilds=true'
     );
+    expect(gradleProperties).toContain(
+      'android.r8.optimizedResourceShrinking=true'
+    );
   });
 
   it('forces new-architecture autolinking to wait for library codegen artifacts', () => {
