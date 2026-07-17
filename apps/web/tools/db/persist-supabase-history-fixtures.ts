@@ -4,6 +4,7 @@ import type { ReplayOutput } from './replay-repository-root';
 export type SupabaseHistoryFixturePersistenceMode =
   | 'create'
   | 'refresh-effects'
+  | 'refresh-post-deploy'
   | 'verify';
 
 function outputExists(output: ReplayOutput): Promise<boolean> {
@@ -39,6 +40,39 @@ export async function persistSupabaseHistoryFixtures(options: {
     await assertOutput(options.linkedOutput, options.linkedBody);
     await options.effectsOutput.read();
     await options.effectsOutput.replace(options.effectsBody, { mode: 0o600 });
+    return;
+  }
+  if (options.mode === 'refresh-post-deploy') {
+    const [linkedBefore, effectsBefore] = await Promise.all([
+      options.linkedOutput.read('utf8'),
+      options.effectsOutput.read('utf8'),
+    ]);
+    if (typeof linkedBefore !== 'string' || typeof effectsBefore !== 'string') {
+      throw new Error('Captured replay fixture read failed');
+    }
+    await options.linkedOutput.replace(options.linkedBody, { mode: 0o600 });
+    try {
+      await options.effectsOutput.replace(options.effectsBody, { mode: 0o600 });
+    } catch (replaceFailure) {
+      const rollbackFailures: unknown[] = [];
+      try {
+        await options.effectsOutput.replace(effectsBefore, { mode: 0o600 });
+      } catch (rollbackFailure) {
+        rollbackFailures.push(rollbackFailure);
+      }
+      try {
+        await options.linkedOutput.replace(linkedBefore, { mode: 0o600 });
+      } catch (rollbackFailure) {
+        rollbackFailures.push(rollbackFailure);
+      }
+      if (rollbackFailures.length > 0) {
+        throw new AggregateError(
+          [replaceFailure, ...rollbackFailures],
+          'Captured replay fixture rollback failed'
+        );
+      }
+      throw replaceFailure;
+    }
     return;
   }
   if (

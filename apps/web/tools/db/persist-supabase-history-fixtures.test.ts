@@ -143,4 +143,56 @@ describe('persistSupabaseHistoryFixtures', () => {
     expect(effectsOutput.read).not.toHaveBeenCalled();
     expect(effectsOutput.replace).not.toHaveBeenCalled();
   });
+
+  it('restores both prior fixtures when the effects replacement fails', async () => {
+    const linkedOutput = await output('linked.json', 'old-linked');
+    const effectsOutput = await output('effects.json', 'old-effects');
+    const replaceFailure = new Error('effects replacement failed');
+    effectsOutput.replace.mockRejectedValueOnce(replaceFailure);
+
+    await expect(
+      persistSupabaseHistoryFixtures({
+        effectsBody: 'new-effects',
+        effectsOutput,
+        linkedBody: 'new-linked',
+        linkedOutput,
+        mode: 'refresh-post-deploy',
+      })
+    ).rejects.toBe(replaceFailure);
+    expect(effectsOutput.replace).toHaveBeenNthCalledWith(2, 'old-effects', {
+      mode: 0o600,
+    });
+    expect(linkedOutput.replace).toHaveBeenNthCalledWith(2, 'old-linked', {
+      mode: 0o600,
+    });
+  });
+
+  it('aggregates replacement and every dual-restore failure', async () => {
+    const linkedOutput = await output('linked.json', 'old-linked');
+    const effectsOutput = await output('effects.json', 'old-effects');
+    const replaceFailure = new Error('effects replacement failed');
+    const effectsRollbackFailure = new Error('effects rollback failed');
+    const linkedRollbackFailure = new Error('linked rollback failed');
+    effectsOutput.replace
+      .mockRejectedValueOnce(replaceFailure)
+      .mockRejectedValueOnce(effectsRollbackFailure);
+    linkedOutput.replace
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(linkedRollbackFailure);
+
+    await expect(
+      persistSupabaseHistoryFixtures({
+        effectsBody: 'new-effects',
+        effectsOutput,
+        linkedBody: 'new-linked',
+        linkedOutput,
+        mode: 'refresh-post-deploy',
+      })
+    ).rejects.toMatchObject({
+      errors: [replaceFailure, effectsRollbackFailure, linkedRollbackFailure],
+      message: 'Captured replay fixture rollback failed',
+    });
+    expect(effectsOutput.replace).toHaveBeenCalledTimes(2);
+    expect(linkedOutput.replace).toHaveBeenCalledTimes(2);
+  });
 });

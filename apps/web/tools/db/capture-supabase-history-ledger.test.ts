@@ -19,9 +19,17 @@ const roots: string[] = [];
 const effectQuery = 'SELECT 1;\n';
 const effectSha = createHash('sha256').update(effectQuery).digest('hex');
 function version(index: number): string {
-  return index === 439
-    ? '20260714225500'
-    : `202607${String(index).padStart(8, '0')}`;
+  if (index === 440) return '20260714225501';
+  if (index === 441) return '20260714225502';
+  if (index === 442) return '20260714225503';
+  if (index === 439) return '20260714225500';
+  return `202607${String(index).padStart(8, '0')}`;
+}
+function migrationName(index: number): string {
+  if (index === 440) return 'reconcile_order_fulfillment_timestamps';
+  if (index === 441) return 'reconcile_domain_event_duplicate_jsonb_operator';
+  if (index === 442) return 'reconcile_customer_order_cancellation_reason';
+  return `migration_${index}`;
 }
 function inventorySha256(rows: readonly { name: string; version: string }[]) {
   return createHash('sha256')
@@ -80,8 +88,8 @@ function effectResult(): CaptureEffectResult {
   };
 }
 function fixtureData() {
-  const ledgerRows = Array.from({ length: 439 }, (_, index) => ({
-    name: `migration_${index + 1}`,
+  const ledgerRows = Array.from({ length: 442 }, (_, index) => ({
+    name: migrationName(index + 1),
     version: version(index + 1),
   }));
   const localPaths = ledgerRows.slice(0, 422).flatMap((row, index) => {
@@ -161,7 +169,7 @@ describe('captureSupabaseHistoryLedger', () => {
     );
     expect(result).toEqual({
       effectSha256: effectResult().effectSha256,
-      linkedRowCount: 439,
+      linkedRowCount: 442,
     });
     expect(queries).toEqual([
       'SELECT version,name FROM supabase_migrations.schema_migrations ORDER BY version',

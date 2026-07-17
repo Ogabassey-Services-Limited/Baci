@@ -43,8 +43,8 @@ function validFixture() {
   return {
     schemaVersion: 1,
     sanitizerVersion: 'github-actions-migration-semantic-lines-v1',
-    sources: Array.from({ length: 26 }, (_, index) =>
-      source(index + 1, index < 24 ? 'primary' : 'corroboration')
+    sources: Array.from({ length: 27 }, (_, index) =>
+      source(index + 1, index < 25 ? 'primary' : 'corroboration')
     ),
   };
 }
@@ -73,10 +73,10 @@ function rehash(item: {
 }
 
 describe('githubMigrationSemanticLinesSchema', () => {
-  it('accepts exactly 24 primary and two corroboration structured sources', () => {
+  it('accepts exactly 25 primary and two corroboration structured sources', () => {
     expect(
       githubMigrationSemanticLinesSchema.parse(validFixture()).sources
-    ).toHaveLength(26);
+    ).toHaveLength(27);
   });
 
   it('rejects missing, duplicate, and misclassified sources', () => {
@@ -207,7 +207,7 @@ describe('githubMigrationSemanticLinesSchema', () => {
     ]);
     const boundSchema = githubMigrationSemanticLinesSchemaForSources(bindings);
 
-    expect(boundSchema.parse(fixture).sources).toHaveLength(26);
+    expect(boundSchema.parse(fixture).sources).toHaveLength(27);
 
     const wrongSource = structuredClone(fixture);
     wrongSource.sources[0].deploymentRunId = 1;
@@ -219,7 +219,7 @@ describe('githubMigrationSemanticLinesSchema', () => {
 
     const wrongKinds = structuredClone(fixture);
     wrongKinds.sources[0].kind = 'corroboration';
-    wrongKinds.sources[24].kind = 'primary';
+    wrongKinds.sources[25].kind = 'primary';
     expect(() => boundSchema.parse(wrongKinds)).toThrow();
 
     const wrongLine = structuredClone(fixture);

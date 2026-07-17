@@ -21,7 +21,7 @@ describe('buildVerifiedReplaySourceHashes', () => {
     const provenance = await loadProvenance();
     const hashes = buildVerifiedReplaySourceHashes(provenance);
 
-    expect(hashes.size).toBe(60);
+    expect(hashes.size).toBe(61);
     expect(
       hashes.get(
         'supabase/migrations/20260712150001_domain_event_pipeline_tables.sql'
@@ -68,6 +68,67 @@ describe('buildVerifiedReplaySourceHashes', () => {
 
     expect(() => buildVerifiedReplaySourceHashes(provenance)).toThrow(
       /binding|mapping|source hash/i
+    );
+  });
+
+  it('rejects a repair applied name that differs from its canonical path', async () => {
+    const provenance = await loadProvenance();
+    const repair = provenance.exceptionalRecords.find(
+      ({ repositoryOwnerPath }) =>
+        repositoryOwnerPath === supabaseHistoryReplayManifest.repair.path
+    );
+    if (!repair) throw new Error('Expected the applied repair record');
+    (repair.applied as { name: string }).name = 'wrong_repair';
+
+    expect(() => buildVerifiedReplaySourceHashes(provenance)).toThrow(
+      /migration identity/i
+    );
+  });
+
+  it('rejects a repair linked name that differs from its canonical ledger row', async () => {
+    const provenance = await loadProvenance();
+    const repair = provenance.exceptionalRecords.find(
+      ({ repositoryOwnerPath }) =>
+        repositoryOwnerPath === supabaseHistoryReplayManifest.repair.path
+    );
+    if (!repair || !('linkedName' in repair)) {
+      throw new Error('Expected the linked repair record');
+    }
+    (repair as { linkedName: string }).linkedName = 'wrong_linked_repair';
+
+    expect(() => buildVerifiedReplaySourceHashes(provenance)).toThrow(
+      /migration identity/i
+    );
+  });
+
+  it('rejects a linked record applied name that differs from its canonical path', async () => {
+    const provenance = await loadProvenance();
+    const linked = provenance.exceptionalRecords.find(
+      (record) =>
+        'linkedVersion' in record && record.mappingRule === 'canonical'
+    );
+    if (!linked) throw new Error('Expected a linked record');
+    linked.applied.name = 'wrong_linked_record';
+
+    expect(() => buildVerifiedReplaySourceHashes(provenance)).toThrow(
+      /migration identity/i
+    );
+  });
+
+  it('rejects a linked record name that differs from its canonical ledger row', async () => {
+    const provenance = await loadProvenance();
+    const linked = provenance.exceptionalRecords.find(
+      (record) =>
+        'linkedVersion' in record &&
+        record.mappingRule === 'superseded-final-state'
+    );
+    if (!linked || !('linkedName' in linked)) {
+      throw new Error('Expected a superseded linked record');
+    }
+    linked.linkedName = 'wrong_linked_record';
+
+    expect(() => buildVerifiedReplaySourceHashes(provenance)).toThrow(
+      /migration identity/i
     );
   });
 
@@ -134,6 +195,33 @@ describe('buildVerifiedReplaySourceHashes', () => {
 
     expect(() => buildVerifiedReplaySourceHashes(provenance)).toThrow(
       /relation cross-reference/i
+    );
+  });
+
+  it('rejects a pipeline job group without exact primary evidence', async () => {
+    const provenance = await loadProvenance();
+    const pipelineGroup = provenance.replayConstraints.jobGroups.find(
+      (group) => 'pipelineRecords' in group
+    );
+    if (!pipelineGroup) throw new Error('Expected a pipeline job group');
+    pipelineGroup.deploymentRunId = 999;
+    pipelineGroup.databaseJobId = 999;
+
+    expect(() => buildVerifiedReplaySourceHashes(provenance)).toThrow(
+      /job-group primary evidence binding/i
+    );
+  });
+
+  it('rejects primary evidence without an exact job group', async () => {
+    const provenance = await loadProvenance();
+    const pipelineIndex = provenance.replayConstraints.jobGroups.findIndex(
+      (group) => 'pipelineRecords' in group
+    );
+    if (pipelineIndex === -1) throw new Error('Expected a pipeline job group');
+    provenance.replayConstraints.jobGroups.splice(pipelineIndex, 1);
+
+    expect(() => buildVerifiedReplaySourceHashes(provenance)).toThrow(
+      /job-group primary evidence binding/i
     );
   });
 });

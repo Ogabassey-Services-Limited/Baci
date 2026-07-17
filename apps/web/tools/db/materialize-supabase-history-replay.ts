@@ -188,7 +188,7 @@ function productionEffectSources(
     const before = blockByPath.get(beforePath);
     const after = blockByPath.get(afterPath);
     if (!before || !after) throw new Error('unknown replay source');
-    if (before === after) return;
+    if (before === after) throw new Error('self-referential replay edge');
     const destinations = edges.get(before) ?? new Set<string>();
     destinations.add(after);
     edges.set(before, destinations);

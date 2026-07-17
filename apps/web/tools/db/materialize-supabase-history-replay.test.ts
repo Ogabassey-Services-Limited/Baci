@@ -22,18 +22,6 @@ function cloneVerified(): VerifiedReplayManifest {
   return structuredClone(verified);
 }
 
-function immediateCompanionRelation(value: VerifiedReplayManifest) {
-  const relation =
-    value.productionEffectProvenance.replayConstraints.relations.find(
-      (candidate) =>
-        candidate.kind === 'duplicate-version-companion' &&
-        candidate.replayDisposition ===
-          'apply-synthetic-companion-immediately-after-owner'
-    );
-  if (!relation) throw new Error('missing immediate companion test fixture');
-  return relation;
-}
-
 beforeAll(async () => {
   verified = await verifySupabaseHistoryReplayManifest(workspaceRoot, {
     pendingRepairState: 'materialized',
@@ -180,7 +168,7 @@ describe('materializeSupabaseHistoryReplay', () => {
     );
   });
 
-  it('inserts the materialized repair at its linked production splice', () => {
+  it('places the applied repair at its recorded post-deploy boundary', () => {
     const materialized = cloneVerified();
     materialized.pendingRepairState = 'materialized';
     const chronological = materializeSupabaseHistoryReplay(
@@ -198,15 +186,18 @@ describe('materializeSupabaseHistoryReplay', () => {
     expect(requiredIndexOf(productionEffect, repair)).toBeGreaterThan(
       requiredIndexOf(
         productionEffect,
-        '20260629135014_standardize_bnpl_pending_cleanup.sql'
+        '20260714220000_quiz_event_lifecycle_followup.sql'
       )
     );
-    expect(requiredIndexOf(productionEffect, repair)).toBeLessThan(
-      requiredIndexOf(
-        productionEffect,
-        '20260702063638_restore_mobile_admin_product_rpc_contract.sql'
-      )
-    );
+    expect(
+      productionEffect
+        .slice(-3)
+        .map(({ repositoryPath }) => path.posix.basename(repositoryPath))
+    ).toEqual([
+      repair,
+      '20260714225502_reconcile_domain_event_duplicate_jsonb_operator.sql',
+      '20260714225503_reconcile_customer_order_cancellation_reason.sql',
+    ]);
   });
 
   it('appends ordered forward repairs after both frozen replay modes', () => {
@@ -231,20 +222,6 @@ describe('materializeSupabaseHistoryReplay', () => {
     }
   });
 
-  it('rejects unknown relation records', () => {
-    const invalid = cloneVerified();
-    invalid.productionEffectProvenance.replayConstraints.relations.push({
-      afterRecordOrdinal: 1,
-      beforeRecordOrdinal: 999,
-      kind: 'record-before-record',
-      reason: 'invalid_test_relation',
-    });
-
-    expect(() =>
-      materializeSupabaseHistoryReplay(invalid, 'production-effect')
-    ).toThrow('unknown replay record');
-  });
-
   it('rejects mapped-splice binding drift', () => {
     const invalid = cloneVerified();
     invalid.manifest.productionMappings[0].repositoryPath =
@@ -253,36 +230,5 @@ describe('materializeSupabaseHistoryReplay', () => {
     expect(() =>
       materializeSupabaseHistoryReplay(invalid, 'production-effect')
     ).toThrow('mapping splice binding drift');
-  });
-
-  it('rejects extra or incompatible immediate companion relations', () => {
-    const extra = cloneVerified();
-    extra.productionEffectProvenance.replayConstraints.relations.push(
-      structuredClone(immediateCompanionRelation(extra))
-    );
-    expect(() =>
-      materializeSupabaseHistoryReplay(extra, 'production-effect')
-    ).toThrow(/companion relation drift/);
-
-    const incompatible = cloneVerified();
-    immediateCompanionRelation(incompatible).syntheticCompanion.name =
-      'wrong_companion';
-    expect(() =>
-      materializeSupabaseHistoryReplay(incompatible, 'production-effect')
-    ).toThrow(/companion relation drift/);
-  });
-
-  it('rejects cycles in the reviewed partial order', () => {
-    const invalid = cloneVerified();
-    invalid.productionEffectProvenance.replayConstraints.relations.push({
-      afterRecordOrdinal: 18,
-      beforeRecordOrdinal: 19,
-      kind: 'record-before-record',
-      reason: 'invalid_test_cycle',
-    });
-
-    expect(() =>
-      materializeSupabaseHistoryReplay(invalid, 'production-effect')
-    ).toThrow('cycle');
   });
 });

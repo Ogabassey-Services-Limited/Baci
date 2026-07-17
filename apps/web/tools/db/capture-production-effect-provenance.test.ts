@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { canonicalReplayFixtureJson } from './canonical-replay-fixture-json';
 import { captureProductionEffectProvenance } from './capture-production-effect-provenance';
 import { extractGithubMigrationSemanticLines } from './extract-github-migration-semantic-lines';
+import type { ForwardRepairDeploymentReceipt } from './schemas/forward-repair-deployment-receipt-schema';
 import {
   type ProductionEffectProvenance,
   productionEffectProvenanceSchema,
@@ -16,7 +17,6 @@ const fixturePath = path.resolve(
   import.meta.dirname,
   'fixtures/production-effect-provenance.json'
 );
-
 type CapturedJob = {
   repository: string;
   deploymentRunId: number;
@@ -25,26 +25,29 @@ type CapturedJob = {
   conclusion: 'success' | 'failure';
   rawLog: string;
 };
-
 async function temporaryRoot() {
   const root = await mkdtemp(path.join(tmpdir(), 'baci-provenance-capture-'));
   roots.push(root);
   return root;
 }
-
-function key(runId: number, jobId: number) {
-  return `${runId}:${jobId}`;
-}
-
+const key = (runId: number, jobId: number) => `${runId}:${jobId}`;
 function appliedLine(version: string, name: string) {
   return `✓ applied:         ${version}  ${name}\n`;
 }
-
 async function syntheticCapture() {
   const provenance = productionEffectProvenanceSchema.parse(
     JSON.parse(await readFile(fixturePath, 'utf8'))
   );
   const jobs = new Map<string, CapturedJob>();
+  const forwardReceipt = JSON.parse(
+    await readFile(
+      path.resolve(
+        import.meta.dirname,
+        'fixtures/forward-repair-deployment-receipt.json'
+      ),
+      'utf8'
+    )
+  ) as ForwardRepairDeploymentReceipt;
   const records = new Map(
     provenance.exceptionalRecords.map((record) => [
       record.recordOrdinal,
@@ -57,7 +60,6 @@ async function syntheticCapture() {
       group,
     ])
   );
-
   for (const source of provenance.evidenceSources) {
     const group = groups.get(key(source.deploymentRunId, source.databaseJobId));
     if (!group) throw new Error('Missing synthetic job group');
@@ -78,6 +80,11 @@ async function syntheticCapture() {
         if (!record?.applied) throw new Error('Missing synthetic record');
         entries[included.logOrdinal - 1] = record.applied;
       }
+      if (group.coverage === 'complete-deployment-repair-log-group') {
+        for (const repair of forwardReceipt.repairs) {
+          entries[repair.logOrdinal - 1] = repair.migration;
+        }
+      }
     }
     let rawLog = entries
       .map((entry) => appliedLine(entry.version, entry.name))
@@ -86,6 +93,12 @@ async function syntheticCapture() {
       rawLog += `Migrations summary: ${entries.length} applied, 0 skipped.\n`;
     }
     const extracted = extractGithubMigrationSemanticLines(rawLog, source);
+    if (group.coverage === 'complete-deployment-repair-log-group') {
+      Object.assign(forwardReceipt.deployment, {
+        sanitizedJobLogSha256: extracted.sanitizedJobLogSha256,
+        summary: { applied: entries.length, skipped: 0 },
+      });
+    }
     source.sanitizedJobLogSha256 = extracted.sanitizedJobLogSha256;
     for (const record of provenance.exceptionalRecords) {
       if (
@@ -105,7 +118,6 @@ async function syntheticCapture() {
       rawLog,
     });
   }
-
   for (const source of provenance.evidenceSources) {
     if (!source.corroboration) continue;
     const record = provenance.exceptionalRecords.find(
@@ -152,15 +164,16 @@ async function syntheticCapture() {
   const canonical = canonicalReplayFixtureJson(provenance);
   return {
     provenance,
+    forwardReceipt,
     provenanceSha256: createHash('sha256').update(canonical).digest('hex'),
     jobs,
   };
 }
-
 function dependencies(capture: Awaited<ReturnType<typeof syntheticCapture>>) {
   return {
     loadProvenance: async () => ({
       provenance: capture.provenance,
+      forwardRepairDeploymentReceipt: capture.forwardReceipt,
       sha256: capture.provenanceSha256,
     }),
     readJob: async (source: {
@@ -175,15 +188,13 @@ function dependencies(capture: Awaited<ReturnType<typeof syntheticCapture>>) {
     },
   };
 }
-
 afterEach(async () => {
   await Promise.all(
     roots.splice(0).map((root) => rm(root, { force: true, recursive: true }))
   );
 });
-
 describe('captureProductionEffectProvenance', () => {
-  it('creates one canonical structured 26-source fixture with no raw log text', async () => {
+  it('creates one canonical structured 27-source fixture with no raw log text', async () => {
     const root = await temporaryRoot();
     const capture = await syntheticCapture();
     const result = await captureProductionEffectProvenance(
@@ -198,12 +209,11 @@ describe('captureProductionEffectProvenance', () => {
       'utf8'
     );
 
-    expect(result.sourceCount).toBe(26);
-    expect(JSON.parse(bytes).sources).toHaveLength(26);
+    expect(result.sourceCount).toBe(27);
+    expect(JSON.parse(bytes).sources).toHaveLength(27);
     expect(bytes).not.toContain('Migrations summary: 1 applied');
     expect(bytes).toBe(canonicalReplayFixtureJson(JSON.parse(bytes)));
   });
-
   it('verifies an existing fixture without rewriting it', async () => {
     const root = await temporaryRoot();
     const capture = await syntheticCapture();
@@ -222,7 +232,6 @@ describe('captureProductionEffectProvenance', () => {
       before
     );
   });
-
   it('fails closed on existing create output and escaped output paths', async () => {
     const root = await temporaryRoot();
     const capture = await syntheticCapture();
@@ -244,7 +253,6 @@ describe('captureProductionEffectProvenance', () => {
       )
     ).rejects.toThrow(/output path/i);
   });
-
   it('rejects metadata and semantic evidence drift without echoing raw logs', async () => {
     const root = await temporaryRoot();
     const capture = await syntheticCapture();
@@ -263,7 +271,6 @@ describe('captureProductionEffectProvenance', () => {
     expect(message).toMatch(/metadata/i);
     expect(message).not.toContain('Bearer');
   });
-
   it('rejects a validly hashed log that does not contain the bound record', async () => {
     const root = await temporaryRoot();
     const capture = await syntheticCapture();
@@ -281,6 +288,7 @@ describe('captureProductionEffectProvenance', () => {
         {
           ...dependencies(capture),
           loadProvenance: async () => ({
+            forwardRepairDeploymentReceipt: capture.forwardReceipt,
             provenance,
             sha256: createHash('sha256').update(canonical).digest('hex'),
           }),

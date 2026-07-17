@@ -61,11 +61,11 @@ afterEach(async () => {
 describe('verifySupabaseHistoryReplayReceipts', () => {
   it('returns only exact schema-validated canonical receipt data', async () => {
     const result = await verifySupabaseHistoryReplayReceipts(WORKSPACE_ROOT);
-    expect(result.productionEffectProvenance.evidenceSources).toHaveLength(24);
+    expect(result.productionEffectProvenance.evidenceSources).toHaveLength(25);
     expect(result.productionEffectProvenance.exceptionalRecords).toHaveLength(
       31
     );
-    expect(result.expectedSourceHashes.size).toBe(60);
+    expect(result.expectedSourceHashes.size).toBe(61);
     expect(
       result.expectedSourceHashes.get(
         'supabase/migrations/20260714225502_reconcile_domain_event_duplicate_jsonb_operator.sql'

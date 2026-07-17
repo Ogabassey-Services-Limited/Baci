@@ -145,9 +145,10 @@ async function verifyCurrentSources(
         : {}),
     });
   }
-  const forwardPaths = new Set(
-    manifest.forwardRepairs.map(({ path: repairPath }) => repairPath)
-  );
+  const forwardPaths = new Set([
+    manifest.repair.path,
+    ...manifest.forwardRepairs.map(({ path: repairPath }) => repairPath),
+  ]);
   for (const repositoryPath of expectedHashes.keys()) {
     if (
       !registryPaths.includes(repositoryPath) &&
@@ -270,6 +271,7 @@ export async function verifySupabaseHistoryReplayManifest(
   await verifyTransform(root);
   return {
     bootstrapSources,
+    forwardRepairDeploymentReceipt: receipts.forwardRepairDeploymentReceipt,
     manifest,
     migrationNameAliasDeployRepair: receipts.migrationNameAliasDeployRepair,
     pendingRepairState: options.pendingRepairState,

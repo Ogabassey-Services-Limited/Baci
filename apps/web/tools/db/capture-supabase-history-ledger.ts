@@ -9,6 +9,7 @@ import { persistSupabaseHistoryFixtures } from './persist-supabase-history-fixtu
 import { readGitObjectBytes } from './read-git-object-bytes';
 import { readSupabaseHistoryEffects } from './read-supabase-history-effects';
 import { replayRepository } from './replay-repository-root';
+import { resolveSupabaseHistoryFixturePersistenceMode } from './resolve-supabase-history-fixture-persistence-mode';
 import { replayCommandRuntime } from './run-replay-command';
 import { linkedMigrationLedgerSchema } from './schemas/linked-migration-ledger-schema';
 import {
@@ -16,13 +17,12 @@ import {
   productionHistoryEffectsSchema,
 } from './schemas/production-history-effects-schema';
 import { supabaseHistoryEffectQueryContract } from './supabase-history-effect-query-contract';
+import { supabaseHistoryPostDeployReceipt } from './supabase-history-post-deploy-receipt';
 import { supabaseHistoryReplayManifest as manifest } from './supabase-history-replay-manifest';
 import type { ReplayCommand } from './supabase-history-replay-types';
 
 const LEDGER_QUERY =
   'SELECT version,name FROM supabase_migrations.schema_migrations ORDER BY version';
-const LINKED_INVENTORY_SHA256 =
-  'fb3b8a2299e2980b0c5d5fb5312cf610de2afaf5499949adabc8f97353a56725';
 const MAX_MANAGEMENT_BYTES = 8 * 1024 * 1024;
 const MIGRATION_PATH = /^supabase\/migrations\/(\d{14})_([a-z0-9_]+)\.sql$/;
 type SafeEffectResult = {
@@ -50,6 +50,7 @@ type CaptureOptions = {
   effectsFixtureOutput?: string;
   linkedFixtureOutput?: string;
   refreshEffectsFixture?: boolean;
+  refreshPostDeploy?: boolean;
   verifyOnly?: boolean;
   workspaceRoot: string;
 };
@@ -138,9 +139,7 @@ export async function captureSupabaseHistoryLedger(
   options: CaptureOptions,
   dependencies: CaptureDependencies = {}
 ): Promise<{ effectSha256: string; linkedRowCount: number }> {
-  if (options.verifyOnly && options.refreshEffectsFixture) {
-    throw new Error('Capture fixture mode is invalid');
-  }
+  const persistenceMode = resolveSupabaseHistoryFixturePersistenceMode(options);
   const root = await realpath(path.resolve(options.workspaceRoot));
   const linkedOutput = await replayRepository.output(
     root,
@@ -189,12 +188,14 @@ export async function captureSupabaseHistoryLedger(
     throw new Error('Linked migration inventory query failed');
   }
   if (
-    linkedRows.length !== 439 ||
-    linkedRows.at(-1)?.version !== '20260714225500' ||
+    linkedRows.length !== supabaseHistoryPostDeployReceipt.linkedRowCount ||
+    linkedRows.at(-1)?.version !==
+      supabaseHistoryPostDeployReceipt.linkedTailVersion ||
     sha256(
       linkedRows.map(({ version, name }) => `${version}\t${name}\n`).join('')
     ) !==
-      (dependencies.expectedLinkedInventorySha256 ?? LINKED_INVENTORY_SHA256) ||
+      (dependencies.expectedLinkedInventorySha256 ??
+        supabaseHistoryPostDeployReceipt.linkedInventorySha256) ||
     linkedRows.some(
       (row, index) =>
         !/^\d{14}$/.test(row.version) ||
@@ -217,10 +218,11 @@ export async function captureSupabaseHistoryLedger(
   const localsByVersion = Map.groupBy(localRows, ({ version }) => version);
   const linkedFixture = linkedMigrationLedgerSchema.parse({
     baseSha: manifest.baseSha,
-    linkedRowCount: 439,
-    linkedTailVersion: '20260714225500',
-    localFileCount: 424,
-    localUniqueVersionCount: 422,
+    linkedRowCount: supabaseHistoryPostDeployReceipt.linkedRowCount,
+    linkedTailVersion: supabaseHistoryPostDeployReceipt.linkedTailVersion,
+    localFileCount: supabaseHistoryPostDeployReceipt.localFileCount,
+    localUniqueVersionCount:
+      supabaseHistoryPostDeployReceipt.localUniqueVersionCount,
     rows: linkedRows.map((row) => {
       const locals = localsByVersion.get(row.version) ?? [];
       return {
@@ -242,7 +244,10 @@ export async function captureSupabaseHistoryLedger(
     digestVector: effectResult.digestVector,
     effectSha256: effectResult.effectSha256,
     effects: effectResult.effects,
-    ledger: { rowCount: 439, tailVersion: '20260714225500' },
+    ledger: {
+      rowCount: supabaseHistoryPostDeployReceipt.linkedRowCount,
+      tailVersion: supabaseHistoryPostDeployReceipt.linkedTailVersion,
+    },
     schemaVersion: 2,
     scope: {
       componentCount: 76,
@@ -260,11 +265,7 @@ export async function captureSupabaseHistoryLedger(
     effectsOutput,
     linkedBody: canonicalReplayFixtureJson(linkedFixture),
     linkedOutput,
-    mode: options.refreshEffectsFixture
-      ? 'refresh-effects'
-      : options.verifyOnly
-        ? 'verify'
-        : 'create',
+    mode: persistenceMode,
   });
   return {
     effectSha256: effectResult.effectSha256,

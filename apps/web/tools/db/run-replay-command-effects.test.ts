@@ -70,7 +70,7 @@ function productionFixture() {
       digestVector: digests.digestVector,
       effectSha256: digests.effectSha256,
       effects: summarizeSupabaseHistoryEffects(components),
-      ledger: { rowCount: 439, tailVersion: '20260714225500' },
+      ledger: { rowCount: 442, tailVersion: '20260714225503' },
       schemaVersion: 2,
       scope: {
         componentCount: 76,

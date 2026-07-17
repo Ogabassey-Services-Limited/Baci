@@ -28,6 +28,26 @@ const mappingRules = {
   'superseded-final-state': true,
 } satisfies Record<ProductionReplayMapping['rule'], true>;
 
+const productionNames: Record<string, string> = {
+  '20260623190041': 'enable_realtime_negotiation_requests',
+  '20260624211416': 'merchant_email_domains',
+  '20260625173604': 'public_read_storefront_feature_settings',
+  '20260626131520': 'fix_search_products_condition_filter',
+  '20260629154903': 'add_order_fulfillment_timestamps',
+  '20260630123511': 'fix_mobile_admin_product_phantom_columns',
+  '20260701080400': 'order_item_unit_costs_supplier_analytics',
+  '20260701123945': 'supplier_purchase_analytics_branch_scope',
+  '20260706202930': 'add_storefront_preflight_rpcs',
+  '20260706210329': 'allow_page_config_history_insert',
+  '20260707064146': 'add_blog_listing_preflight_rpc',
+  '20260708072653': 'create_domain_purchase_transaction_rpc',
+  '20260708072825': 'fix_domain_purchase_rpc_merchant_derivation',
+  '20260708075932': 'lock_domain_purchase_rpc_service_role',
+  '20260708102643': 'optimize_storefront_cached_merchant_and_variant_wrappers',
+  '20260708220832': 'drop_authenticated_domain_purchase_rpc',
+  '20260713200830': 'split_platform_blog_anon_read_policy',
+};
+
 function isMappingRule(
   value: string
 ): value is ProductionReplayMapping['rule'] {
@@ -41,9 +61,13 @@ function parseProductionMappings(rows: string): ProductionReplayMapping[] {
     .map((row) => {
       const [productionVersion, filename, sha256, rule, ...extra] =
         row.split('\t');
+      const filenameMatch = filename?.match(/^(\d{14})_([a-z0-9_]+)\.sql$/);
+      const linkedName = productionNames[productionVersion ?? ''];
       if (
         !productionVersion ||
+        !linkedName ||
         !filename ||
+        !filenameMatch ||
         !sha256 ||
         !rule ||
         extra.length > 0 ||
@@ -52,6 +76,9 @@ function parseProductionMappings(rows: string): ProductionReplayMapping[] {
         throw new Error('Invalid production replay mapping row');
       }
       return {
+        appliedName: filenameMatch[2] as string,
+        appliedVersion: filenameMatch[1] as string,
+        linkedName,
         productionVersion,
         repositoryPath: migration(filename),
         rule,
@@ -188,15 +215,40 @@ export const supabaseHistoryReplayManifest = {
         '6c5f9ca9ed75b63e241f25e1dddfab9b2d7da1bab7cb91694b92a1d9548d7a71',
     },
   ],
+  forwardRepairReceipt: {
+    path: 'apps/web/tools/db/fixtures/forward-repair-deployment-receipt.json',
+    schemaVersion: 1,
+    sha256: '8258b2098f1086a60e166935edf5313f2601977979d4eb1cb31c8ca41ef94e8c',
+  },
+  linkedLedgerFixture: {
+    linkedRowCount: 442,
+    linkedTailVersion: '20260714225503',
+    localFileCount: 424,
+    localUniqueVersionCount: 422,
+    path: 'apps/web/tools/db/fixtures/linked-migration-ledger.json',
+    schemaVersion: 1,
+    sha256: '0d8b54ecdae67d99da4e806276310e80992bda73ee94efaaf7a91fd16c3d8885',
+  },
   pipelineSources: parseFrozenSources(PIPELINE_SOURCES),
   productionMappings: parseProductionMappings(PRODUCTION_MAPPINGS),
+  productionEffectsFixture: {
+    effectSha256:
+      '71cba5629959c75352726e26cafcbfec8de99b1b52d10e6ad70fd85f07e4d253',
+    ledgerRowCount: 442,
+    ledgerTailVersion: '20260714225503',
+    path: 'apps/web/tools/db/fixtures/production-history-effects.json',
+    querySha256:
+      '2b555af09c8a9cb7e8026b028c014b304de146a9f50a2c2f2a896a6626dfacbc',
+    schemaVersion: 2,
+    sha256: 'bc1e37a53410d8dbeead2f3929a6e47149589ba68806fca88a359e0b9c7411c1',
+  },
   provenance: {
-    evidenceSourceCount: 24,
+    evidenceSourceCount: 25,
     exceptionalRecordCount: 31,
     path: 'apps/web/tools/db/fixtures/production-effect-provenance.json',
-    relationCount: 8,
-    schemaVersion: 4,
-    sha256: '2e1be70f5cb3c2fdc049605343ea6d93b617493962920debaf5493668e4f03b0',
+    relationCount: 9,
+    schemaVersion: 5,
+    sha256: '1f1e4e3112a0010dbed91a25a8185d38fcfd4cf56d2d2b60ca76306bbbb100e1',
   },
   repair: {
     body: 'ALTER TABLE public.orders\n  ADD COLUMN IF NOT EXISTS shipped_at timestamptz,\n  ADD COLUMN IF NOT EXISTS delivered_at timestamptz;\n',
@@ -204,6 +256,11 @@ export const supabaseHistoryReplayManifest = {
       '20260714225501_reconcile_order_fulfillment_timestamps.sql'
     ),
     sha256: '1f6b9c1e12afbbab4e32a697230cebbe196fb9d43daf340caba1eb309370a361',
+  },
+  semanticFixture: {
+    path: 'apps/web/tools/db/fixtures/github-migration-semantic-lines.json',
+    sha256: '1d550b33b8f681cdd2f1751279e6d93c1110457834d8743969aa6047d7e33eca',
+    sourceCount: 27,
   },
   transforms: [
     {

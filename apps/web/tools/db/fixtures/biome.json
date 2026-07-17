@@ -6,6 +6,7 @@
     {
       "includes": [
         "production-effect-provenance.json",
+        "forward-repair-deployment-receipt.json",
         "migration-name-alias-deploy-repair.json",
         "github-migration-semantic-lines.json",
         "linked-migration-ledger.json",

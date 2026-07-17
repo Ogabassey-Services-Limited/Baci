@@ -229,15 +229,15 @@ describe('supabaseHistoryReplayManifest', () => {
     expect(actual).toBe(PIPELINE_HASHES);
   });
 
-  it('binds the provenance, alias receipt, and pending repair', () => {
+  it('binds the provenance, alias receipt, and applied repair source', () => {
     expect(supabaseHistoryReplayManifest.provenance).toEqual({
-      evidenceSourceCount: 24,
+      evidenceSourceCount: 25,
       exceptionalRecordCount: 31,
       path: 'apps/web/tools/db/fixtures/production-effect-provenance.json',
-      relationCount: 8,
-      schemaVersion: 4,
+      relationCount: 9,
+      schemaVersion: 5,
       sha256:
-        '2e1be70f5cb3c2fdc049605343ea6d93b617493962920debaf5493668e4f03b0',
+        '1f1e4e3112a0010dbed91a25a8185d38fcfd4cf56d2d2b60ca76306bbbb100e1',
     });
     expect(supabaseHistoryReplayManifest.aliasReceipt).toEqual({
       path: 'apps/web/tools/db/fixtures/migration-name-alias-deploy-repair.json',

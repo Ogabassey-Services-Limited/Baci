@@ -4,10 +4,19 @@ import { linkedMigrationLedgerSchema } from './linked-migration-ledger-schema';
 const sha256 = 'b'.repeat(64);
 
 function validFixture() {
-  const rows = Array.from({ length: 439 }, (_, index) => {
+  const rows = Array.from({ length: 442 }, (_, index) => {
+    const ordinal = index + 1;
+    const versions = [
+      '20260714225500',
+      '20260714225501',
+      '20260714225502',
+      '20260714225503',
+    ];
     const version =
-      index === 438 ? '20260714225500' : String(index + 1).padStart(14, '0');
-    const name = `migration_${index + 1}`;
+      ordinal >= 439
+        ? (versions[ordinal - 439] as string)
+        : String(ordinal).padStart(14, '0');
+    const name = `migration_${ordinal}`;
     const localPaths =
       index < 422 ? [`supabase/migrations/${version}_${name}.sql`] : [];
     if (index < 2) {
@@ -23,8 +32,8 @@ function validFixture() {
   return {
     schemaVersion: 1,
     baseSha: '9e3d1b14b1931a5e441fc23f0e5417c188056e47',
-    linkedRowCount: 439,
-    linkedTailVersion: '20260714225500',
+    linkedRowCount: 442,
+    linkedTailVersion: '20260714225503',
     localFileCount: 424,
     localUniqueVersionCount: 422,
     rows,
@@ -34,7 +43,7 @@ function validFixture() {
 describe('linkedMigrationLedgerSchema', () => {
   it('accepts the exact frozen row, file, unique-version, and tail counts', () => {
     expect(linkedMigrationLedgerSchema.parse(validFixture()).rows).toHaveLength(
-      439
+      442
     );
   });
 
@@ -44,7 +53,7 @@ describe('linkedMigrationLedgerSchema', () => {
     expect(() => linkedMigrationLedgerSchema.parse(countDrift)).toThrow();
 
     const tailDrift = validFixture();
-    tailDrift.rows[438].version = '20260714225459';
+    tailDrift.rows[441].version = '20260714225459';
     expect(() => linkedMigrationLedgerSchema.parse(tailDrift)).toThrow();
   });
 

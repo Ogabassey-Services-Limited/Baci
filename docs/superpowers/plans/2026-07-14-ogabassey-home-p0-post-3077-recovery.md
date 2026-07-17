@@ -1,5 +1,15 @@
 # OgaBassey Home P0 Post-#3077 Recovery Implementation Plan
 
+> **Active post-recovery receipt (2026-07-17):** [PR #3131](https://github.com/ogabasseyy/Baci/pull/3131), exact head `71f262a8254bf0087cb8f630e82b421feb7dfc0f`, merged as `bb55d407e01b719a9014c87fb8a8253861b7005d`. [Deployment run `29561460438`](https://github.com/ogabasseyy/Baci/actions/runs/29561460438) completed successfully for that exact merge; database job `87824630957` and production deploy job `87824674429` both completed successfully. The migration semantic digest is `400990a8ee41f6550b609795b02c6e8090d9c056941ab488d5cee0a2fdfc8af1`; log ordinals `1`, `2`, and `3` applied `20260714225501_reconcile_order_fulfillment_timestamps`, `20260714225502_reconcile_domain_event_duplicate_jsonb_operator`, and `20260714225503_reconcile_customer_order_cancellation_reason`, respectively, with summary `3 applied, 424 skipped`.
+>
+> The deployed repository registry contains `427` top-level migration files, `425` unique versions, and tail `20260714225503_reconcile_customer_order_cancellation_reason.sql`. The refreshed linked ledger contains `442` rows with tail `20260714225503`. Schema-v5 production provenance contains `25` primary evidence sources, `31` exceptional records, and `9` replay relations; record `31` now binds the exact applied `25501` evidence. The canonical forward-repair deployment receipt contains exactly two entries, for `25502` and `25503`; neither repair is a historical production-only mapping or an exceptional record.
+>
+> Exact refreshed fixture SHA-256 values are: linked ledger `0d8b54ecdae67d99da4e806276310e80992bda73ee94efaaf7a91fd16c3d8885`; production effects `bc1e37a53410d8dbeead2f3929a6e47149589ba68806fca88a359e0b9c7411c1`; production provenance `1f1e4e3112a0010dbed91a25a8185d38fcfd4cf56d2d2b60ca76306bbbb100e1`; forward-repair deployment receipt `8258b2098f1086a60e166935edf5313f2601977979d4eb1cb31c8ca41ef94e8c`; and semantic-lines fixture `1d550b33b8f681cdd2f1751279e6d93c1110457834d8743969aa6047d7e33eca`. The chronological receipt SHA-256 is `bd49803cad805fb80c626347652153941dfd98243a4babe6244cb68f9aa89f21`; the production-effect receipt SHA-256 is `225f0c4018a816eec6d10096104a564d34f737cf42b993a4672cd29238de3fef`.
+>
+> Both receipts used comparison mode `enforce`, required the byte-unchanged historical cancellation proof, converged with zero changed components, and equal the read-only production effect SHA-256 `71cba5629959c75352726e26cafcbfec8de99b1b52d10e6ad70fd85f07e4d253`. The required old-proof transition is `6155b28720d0f4a8a20746aa1a2365e631249e940fa7339e0e19b66c28fa1e62` to `b21dc2134c1aa3df7aed6c8b7a57173b1fed910a04730f901e56622862503556`. Exact deployed main was merged normally into this recovery branch at local merge `1d5dbc073e13c96ee7bbc118f00bdf0b49ccd26e`. The normative V4 contract and the immutable historical cancellation-proof fixture remain byte-identical.
+
+> **Historical block scope:** The pre-recovery implementation receipt, frozen-input list, and execution gate below are retained verbatim as audit evidence. They were superseded as active execution controls by the post-recovery receipt and active gate above and below; their historical hashes, failed-deployment facts, and counts must not be rewritten as current values.
+
 > **Implementation receipt (2026-07-16, refreshed after #3130):** The immutable migration/replay base remains `9e3d1b14b1931a5e441fc23f0e5417c188056e47`. Integration mains from #3123, #3124, #3125, #3128, and #3130 are merged normally at `e9234b8dfb`, `47b1a538be`, `2e396ebb54`, `afa9861f3c`, and `9e36bd690e`; current `origin/main` is `2a0dfadb45f03070dd1c294e81902851268fbbb4`, and the branch is ten commits ahead and zero behind. #3130 changes only mobile-admin, workspace, patch, and lockfile paths, outside the frozen P0 database scope. Deployment run `29530977388` completed with database job `87730933200` and changes job `87730933194` successful, but production deploy job `87731008611` failed during `Build for Vercel`; it is not a coherent application release. CI run `29530977474` completed successfully, including lint, typecheck, all test shards, Build, and the aggregate Quality Gate. Tasks 1 through 3 remain committed. Rereview proved that the schema-wide effect hash makes the old Task 4 unsafe and that two real production function repairs require an intermediate exact-head recovery release. Execute [2026-07-16-ogabassey-p0-effect-boundary-recovery.md](2026-07-16-ogabassey-p0-effect-boundary-recovery.md) before any further database mutation. The immutable replay fixtures, migration-base receipts, and normative V4 contract remain bound to their original SHAs.
 
 > **Parallel H0 preparation receipt:** See [2026-07-16-ogabassey-h0-parallel-readiness-receipt.md](2026-07-16-ogabassey-h0-parallel-readiness-receipt.md). It records completed read-only discovery for lane `H0-PREP-READINESS-2026-07-16`. Do not repeat that inventory unless its invalidation conditions apply, and do not mistake it for H0-RUNNER, H0, or H0-MEASURE implementation.
@@ -11,6 +21,8 @@
 > **Frozen inputs:** `CONTRACT_SHA256=3503ca9613b6a511b2e37fb3d35b48830d19e8559e7e3c5df136487fce9efdca`, `BASE_SHA=9e3d1b14b1931a5e441fc23f0e5417c188056e47`, `PRIOR_MAIN_SHA=cfa062a09bcb737c09e4171730615364afff6e68`, `CURRENT_MAIN_SHA=2a0dfadb45f03070dd1c294e81902851268fbbb4`, `PHASE=P0`, `PRODUCTION_EFFECT_PROVENANCE_SHA256=2e1be70f5cb3c2fdc049605343ea6d93b617493962920debaf5493668e4f03b0`, `PRODUCTION_EXCEPTIONAL_RECORD_COUNT=31`, `MIGRATION_BASE_DB_JOB_TERMINAL=success`, `MIGRATION_BASE_DEPLOYMENT_TERMINAL=skipped_path_filtered`, `CURRENT_MAIN_DB_JOB_TERMINAL=success`, `CURRENT_MAIN_DEPLOYMENT_TERMINAL=failure`, `LAST_PROVEN_APP_RELEASE_SHA=cfa062a09bcb737c09e4171730615364afff6e68`, `MIGRATION_TREE_SHA256=757b9caab5d1d9ff22a3a2fbea35ce54448598031222b0d5fbe8a7eba9195983`, `P0_FROZEN_SCOPE_SHA256=93167527d7f3ebcea35deae2ac16a522902c6b4e6d0433f742a7f0fe0056dc05`.
 >
 > **Execution gate:** Before each remaining task and before push, fail unless the contract and checked provenance bytes remain exact; `origin/main` still equals `CURRENT_MAIN_SHA`; that SHA is an ancestor of `HEAD` after the fifth completed normal integration merge; run `29530977388` still records successful database/changes jobs and the production deploy failure honestly; and CI run `29530977474` is refreshed to its real terminal state before any push rather than prematurely called green. The old Task 4 and fixed final graph are superseded. Continue only through the exact-effect-boundary recovery plan until an intermediate repair release deploys and the regenerated v3 effect fixture proves three-way equality.
+
+> **Active execution gate:** Before each remaining source task and before any commit or push, require the normative V4 contract and immutable old-cancellation-proof fixture to remain byte-identical; require recovery merge `bb55d407e01b719a9014c87fb8a8253861b7005d` to be an ancestor of `HEAD`; require the branch to be zero commits behind the current `origin/main` after normal integration; require the refreshed fixture and receipt bytes to match every SHA-256 in the active receipt; require registry counts `427`/`425`, linked receipt `442`/tail `20260714225503`, exactly `31` exceptional records, and exactly two separate forward-repair receipt entries; and require both proof-required `enforce` receipts to remain equal to production effect `71cba5629959c75352726e26cafcbfec8de99b1b52d10e6ad70fd85f07e4d253`. Task 4 is complete through the superseding recovery. Resume source implementation at Task 5. Task 9's exact graph, head, and ahead/behind assertions remain derived and must be regenerated from actual history when Task 9 is reached.
 
 **Goal:** Recover the merged #3077 durable-event substrate into a replay-proven, generated-type-safe, modular, CI-covered baseline so H0 attribution can proceed without inheriting migration or worker uncertainty. P0 itself makes no storefront or Core Web Vitals change.
 
@@ -74,6 +86,14 @@
 - #3117, #3121, and #3120 are merged into the frozen migration base and are production-history evidence, not open-lane fixtures. P0 imports none of their feature code beyond the normal base merge. The refreshed open migration lanes are #2686 at `67585ec88f22a18c518fd5d349a097e2ed1f60ff` (empty), #2928 at `269be3a0ad3c35b21f2317588367a7ea93f09901` (empty), #2958 at `3666b70b6ec7ead109910cdf5816392eca0d0b9e` (empty), and #3024 at `f160108c09ebd2d2367b3ae612a7aa9349febd97` (the seventeen frozen rows). Regenerate only if one of those lanes merges or its migration path/blob/collision set changes; unrelated head advancement is observational.
 
 ## Frozen Production-Effect Provenance
+
+> **Historical pre-repair snapshot:** This section records the immutable
+> pre-recovery provenance state at the frozen replay base. Its `439`-row
+> ledger, schema-v4 hash, 24-source count, and pending `25501` description are
+> audit history, not assertions about the refreshed post-deployment fixture.
+> The active schema-v5 bindings and current counts are recorded in the
+> post-recovery receipt above; the historical statements below remain
+> unchanged.
 
 The final canonical receipt is `apps/web/tools/db/fixtures/production-effect-provenance.json`, exact SHA-256 `2e1be70f5cb3c2fdc049605343ea6d93b617493962920debaf5493668e4f03b0`, schema version `4`, migration base `9e3d1b14b1931a5e441fc23f0e5417c188056e47`, coverage `partial-order-effect-replay`, linked receipt `439` rows/tail `20260714225500`, `24` primary evidence sources, and `31` exceptional records. It does not claim or encode the unknowable total historical order of all linked migrations. The deterministic production-effect replay starts with the current-tree chronological registry and applies only the receipt's exact exceptional splices and `replayConstraints` partial order before effect comparison.
 
@@ -1409,15 +1429,23 @@ Expected: the exact Node/pnpm/tsc/tsx/Supabase/psql pins, unit tests, and DB-onl
 
 ---
 
-### Task 4: Add the frozen append-only fulfillment repair and prove both replay effects
+### Task 4: Add the frozen append-only fulfillment repair and prove both replay effects — complete via superseding recovery
 
-> **Superseded execution boundary for Tasks 4-9:** Do not execute the steps below against the
-> schema-wide `baci-owned-effects-v2` snapshot. First complete
-> [2026-07-16-ogabassey-p0-effect-boundary-recovery.md](2026-07-16-ogabassey-p0-effect-boundary-recovery.md).
-> These tasks become executable again only after the intermediate repair
-> release deploys, production is recaptured under `baci-p0-effects-v3`, and the
-> receipt, commands, base SHA, and final graph are regenerated with actual
-> deployment counts and hashes.
+> - [x] **Task-level completion through superseding recovery:** PR #3131 and
+>   its post-deployment continuation replaced this rejected
+>   `baci-owned-effects-v2` procedure. The refreshed v3 production fixture,
+>   exact applied `25501` evidence, separate two-entry forward-repair receipt,
+>   required immutable cancellation proof, and both `enforce` replay receipts
+>   are the authoritative Task 4 result. See
+>   [2026-07-16-ogabassey-p0-effect-boundary-recovery.md](2026-07-16-ogabassey-p0-effect-boundary-recovery.md).
+
+#### Superseded historical procedure — do not execute
+
+The files, commands, expectations, and unchecked substeps below are retained
+unchanged as audit history. They were not executed as written against
+`baci-owned-effects-v2`, must not be rerun, and must not be individually marked
+complete. Their task-level outcome is supplied exclusively by the recovery
+receipt above.
 
 **Files:**
 - Create: `supabase/migrations/20260714225501_reconcile_order_fulfillment_timestamps.sql`
@@ -1610,6 +1638,12 @@ git commit -m "fix: reconcile Supabase migration history effects"
 ---
 
 ### Task 5: Close the generated database boundary and remove all 64 `as never` escapes
+
+> **Active continuation point (2026-07-17):** Begin source implementation
+> here. Task 4 is satisfied only by the superseding recovery receipts. Tasks 5
+> through 8 are active. Task 9's fixed commit graph, exact head, and
+> ahead/behind assertions remain derived and must be regenerated from the
+> eventual actual history before Task 9 executes.
 
 **Files:**
 - Create: `apps/web/src/lib/events/event-pipeline-database.ts`
