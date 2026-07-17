@@ -14,6 +14,7 @@ SELECT set_config('request.jwt.claim.role', 'anon', true);
 DO $grant_assertions$
 DECLARE
   actual_public_cols text[];
+  actual_anon_select_policies text[];
   expected_public_cols text[] := ARRAY[
     'about_page','bank_account_name','bank_account_number','bank_code',
     'bank_name','brand_colors','business_address','business_name',
@@ -80,6 +81,28 @@ BEGIN
     WHERE has_column_privilege('anon', 'public.merchants', secret.column_name, 'SELECT')
   ) THEN
     RAISE EXCEPTION 'anon can SELECT a named secret/private merchant column';
+  END IF;
+
+  SELECT array_agg(
+    policy.policyname || '|' || policy.permissive || '|' ||
+      pg_get_expr(catalog.polqual, catalog.polrelid)
+    ORDER BY policy.policyname
+  )
+  INTO actual_anon_select_policies
+  FROM pg_policies AS policy
+  JOIN pg_policy AS catalog
+    ON catalog.polrelid = 'public.merchants'::regclass
+    AND catalog.polname = policy.policyname
+  WHERE policy.schemaname = 'public'
+    AND policy.tablename = 'merchants'
+    AND policy.cmd IN ('SELECT', 'ALL')
+    AND policy.roles && ARRAY['anon', 'public']::name[];
+
+  IF actual_anon_select_policies IS DISTINCT FROM ARRAY[
+    'Anon can view merchants|PERMISSIVE|(is_published IS TRUE)'
+  ]::text[] THEN
+    RAISE EXCEPTION 'effective anon merchant SELECT policy mismatch: %',
+      actual_anon_select_policies;
   END IF;
 END
 $grant_assertions$;
@@ -153,6 +176,9 @@ DECLARE
   published_visibility_count bigint;
   unpublished_visibility_count bigint;
 BEGIN
+  IF cardinality(expected_feature_setting_keys) <> 62 THEN
+    RAISE EXCEPTION 'public snapshot feature manifest must contain 62 keys';
+  END IF;
   SELECT count(*) INTO published_visibility_count
   FROM public.merchants
   WHERE id = '7a7a7a7a-0000-4000-8000-000000000001';

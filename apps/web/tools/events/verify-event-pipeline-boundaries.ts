@@ -5,35 +5,31 @@ import { extname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
 import {
-  eventPipelineBindingInitializer as bindingInitializer,
+  authorityFindings,
+  bindingInitializer,
+  collectProductionImportClosure,
   eventPipelineBoundaryManifest,
-  findEventPipelineFromCall as findFromCall,
-  eventPipelineMemberName as memberName,
-  eventPipelineProjectionColumns as projectionColumns,
-  eventPipelineRpcCallable as rpcCallable,
-  eventPipelineStaticText as staticText,
+  findFromCall,
+  memberName,
+  projectionColumns,
+  rpcCallable,
+  staticText,
 } from '../../src/lib/events/event-pipeline-boundary-manifest';
-import {
-  EVENT_PIPELINE_ALLOWED_CALLERS,
-  validateEventPipelineSelection,
-} from '../../src/lib/events/event-pipeline-database';
+import { validateEventPipelineSelection } from '../../src/lib/events/event-pipeline-database';
 
 function repoRoot(): string {
   return execFileSync('git', ['rev-parse', '--show-toplevel'], {
     encoding: 'utf8',
   }).trim();
 }
-
 function gitLines(root: string, args: readonly string[]): string[] {
   return execFileSync('git', [...args], { cwd: root, encoding: 'utf8' })
     .split('\n')
     .filter(Boolean);
 }
-
 function typescriptPath(path: string): boolean {
   return extname(path) === '.ts' || extname(path) === '.tsx';
 }
-
 export function collectGovernedPaths() {
   const root = repoRoot();
   const fixturePath = resolve(
@@ -44,6 +40,16 @@ export function collectGovernedPaths() {
     .trimEnd()
     .split('\n');
   const fixturePaths = fixtureRecords.map((line) => line.split('\t')[1] ?? '');
+  const sources = new Map(
+    sourcePaths(root).map((path) => [
+      path,
+      readFileSync(resolve(root, path), 'utf8'),
+    ])
+  );
+  const productionClosure = collectProductionImportClosure(
+    eventPipelineBoundaryManifest.productionRoots,
+    sources
+  );
   const dynamicPaths = [
     ...gitLines(root, ['diff', '--name-only', 'origin/main...HEAD']),
     ...gitLines(root, ['diff', '--cached', '--name-only']),
@@ -54,12 +60,15 @@ export function collectGovernedPaths() {
     fixtureRecordCount: fixtureRecords.length,
     seedPaths: fixturePaths.filter(typescriptPath),
     paths: [
-      ...new Set([...fixturePaths, ...dynamicPaths].filter(typescriptPath)),
+      ...new Set(
+        [...productionClosure, ...dynamicPaths].filter(typescriptPath)
+      ),
     ]
       .filter((path) => !path.endsWith('/supabase/.temp/cli-latest'))
       .sort(),
   };
 }
+export { collectProductionImportClosure };
 
 function sourcePaths(root: string): string[] {
   return [
@@ -74,16 +83,6 @@ function sourcePaths(root: string): string[] {
     ]),
   ].filter((path, index, paths) => paths.indexOf(path) === index);
 }
-
-function eventPipelineSource(path: string): boolean {
-  return (
-    path.includes('/lib/events/') ||
-    path.includes('/event-pipeline/') ||
-    path.endsWith('/process-domain-events.ts') ||
-    path.endsWith('/process-event-deliveries.ts')
-  );
-}
-
 function queryCall(
   call: ts.CallExpression,
   sourceFile: ts.SourceFile
@@ -120,16 +119,19 @@ function queryCall(
   }
   return resolve(call.expression);
 }
-
+function containsAssertion(node: ts.Node): boolean {
+  let found = ts.isAsExpression(node) || ts.isTypeAssertionExpression(node);
+  if (!found)
+    ts.forEachChild(node, (child) => (found ||= containsAssertion(child)));
+  return found;
+}
 export function analyzeRpcSource(
   path: string,
   source: string,
-  enforceClassification = eventPipelineSource(path)
+  enforceClassification = true,
+  enforceEscapes = enforceClassification
 ): string[] {
   const findings: string[] = [];
-  if (enforceClassification && source.includes(['as', 'never'].join(' '))) {
-    findings.push(`${path}: forbidden never assertion`);
-  }
   const runtimeNames = new Set([
     ...eventPipelineBoundaryManifest.functions.typescriptApplication,
     ...eventPipelineBoundaryManifest.functions.vpsCleanup,
@@ -146,12 +148,30 @@ export function analyzeRpcSource(
     true,
     path.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS
   );
+  const production =
+    enforceClassification &&
+    !path.endsWith('.test.ts') &&
+    !path.endsWith('.test.tsx');
+  if (production) findings.push(...authorityFindings(path, sourceFile));
   function visit(node: ts.Node) {
+    if (
+      enforceEscapes &&
+      (ts.isAsExpression(node) || ts.isTypeAssertionExpression(node)) &&
+      node.type.kind === ts.SyntaxKind.NeverKeyword
+    )
+      findings.push(`${path}: forbidden never assertion`);
     if (
       ts.isCallExpression(node) &&
       rpcCallable(node.expression, sourceFile, node)
     ) {
       const name = staticText(node.arguments[0], sourceFile, node);
+      if (
+        (enforceClassification || (name && governedNames.has(name))) &&
+        (containsAssertion(node) ||
+          ts.isAsExpression(node.parent) ||
+          ts.isTypeAssertionExpression(node.parent))
+      )
+        findings.push(`${path}: forbidden asserted RPC boundary`);
       if (!name && enforceClassification)
         findings.push(`${path}: unresolved indirect RPC name`);
       else if (name && !governedNames.has(name) && enforceClassification)
@@ -161,38 +181,50 @@ export function analyzeRpcSource(
       else if (
         name &&
         runtimeNames.has(name) &&
-        !(EVENT_PIPELINE_ALLOWED_CALLERS[name] ?? []).includes(path)
+        !Object.entries(eventPipelineBoundaryManifest.callers).some(
+          ([caller, names]) =>
+            caller === path && names.some((candidate) => candidate === name)
+        )
       )
         findings.push(`${path}: unauthorized direct RPC ${name}`);
     }
-    if (enforceClassification && ts.isCallExpression(node)) {
+    if (production && ts.isCallExpression(node)) {
       const query = queryCall(node, sourceFile);
       const operation = query?.operation;
       const fromCall = query?.fromCall;
       const table = staticText(fromCall?.arguments[0], sourceFile, node);
       if (
         operation &&
-        ['delete', 'insert', 'select', 'update', 'upsert'].includes(
-          operation
-        ) &&
-        table &&
-        table in eventPipelineBoundaryManifest.operations
+        ['delete', 'insert', 'select', 'update', 'upsert'].includes(operation)
       ) {
-        const allowedOperations = eventPipelineBoundaryManifest.operations[
-          table as keyof typeof eventPipelineBoundaryManifest.operations
-        ] as readonly string[];
-        if (!allowedOperations.includes(operation))
-          findings.push(`${path}: unauthorized ${operation} on ${table}`);
-        if (operation === 'select') {
-          const selection = staticText(node.arguments[0], sourceFile, node);
-          if (selection)
-            validateEventPipelineSelection(
-              path,
-              table,
-              selection,
-              findings,
-              projectionColumns
-            );
+        if (!table)
+          findings.push(`${path}: unresolved table operation ${operation}`);
+        else if (!(table in eventPipelineBoundaryManifest.operations))
+          findings.push(
+            `${path}: unmanifested operation ${operation} on ${table}`
+          );
+        else {
+          const allowedOperations = eventPipelineBoundaryManifest.operations[
+            table as keyof typeof eventPipelineBoundaryManifest.operations
+          ] as readonly string[];
+          if (!allowedOperations.includes(operation))
+            findings.push(`${path}: unauthorized ${operation} on ${table}`);
+          if (operation === 'select') {
+            const selection = staticText(node.arguments[0], sourceFile, node);
+            if (!selection) {
+              if (
+                !(path in eventPipelineBoundaryManifest.frozenProjectionFiles)
+              )
+                findings.push(`${path}: unresolved ${table} projection`);
+            } else
+              validateEventPipelineSelection(
+                path,
+                table,
+                selection,
+                findings,
+                (name) => projectionColumns(path, name)
+              );
+          }
         }
       }
     }
@@ -201,7 +233,6 @@ export function analyzeRpcSource(
   visit(sourceFile);
   return findings;
 }
-
 export function frozenRouteHashFinding(
   path: string,
   source: string | Buffer,
@@ -212,47 +243,35 @@ export function frozenRouteHashFinding(
     ? undefined
     : `${path}: frozen route hash ${actualHash}`;
 }
-
 export function verifyEventPipelineBoundaries(): string[] {
   const root = repoRoot();
   const findings: string[] = [];
   const governed = collectGovernedPaths();
-  const seedPaths = new Set(governed.seedPaths);
   if (governed.fixtureRecordCount !== 154) {
     findings.push(
       `fixture: expected 154 records, found ${governed.fixtureRecordCount}`
     );
   }
-
-  for (const path of governed.paths) {
-    if (!seedPaths.has(path) && !eventPipelineSource(path)) continue;
-    if (
-      !seedPaths.has(path) &&
-      (path.endsWith('.test.ts') || path.endsWith('.test.tsx'))
-    )
-      continue;
-    const absolute = resolve(root, path);
-    if (!existsSync(absolute)) continue;
-    const source = readFileSync(absolute, 'utf8');
-    if (source.includes(['as', 'never'].join(' ')))
-      findings.push(`${path}: forbidden never assertion`);
-  }
-
-  for (const [path, expectedHash] of Object.entries(
-    eventPipelineBoundaryManifest.frozenRoutes
-  )) {
+  const frozenFiles = {
+    ...eventPipelineBoundaryManifest.frozenProjectionFiles,
+    ...eventPipelineBoundaryManifest.frozenRoutes,
+  };
+  for (const [path, expectedHash] of Object.entries(frozenFiles)) {
     const source = readFileSync(resolve(root, path));
     const finding = frozenRouteHashFinding(path, source, expectedHash);
     if (finding) findings.push(finding);
   }
-
+  const governedPaths = new Set(governed.paths);
+  const seedPaths = new Set(governed.seedPaths);
   for (const path of sourcePaths(root)) {
-    if (path.endsWith('.test.ts') || path.endsWith('.test.tsx')) continue;
     const source = readFileSync(resolve(root, path), 'utf8');
-    if (!eventPipelineSource(path) && !source.includes('rpc')) continue;
-    findings.push(...analyzeRpcSource(path, source));
+    const enforceClassification = governedPaths.has(path);
+    const enforceEscapes = enforceClassification || seedPaths.has(path);
+    if (!enforceEscapes && !source.includes('rpc')) continue;
+    findings.push(
+      ...analyzeRpcSource(path, source, enforceClassification, enforceEscapes)
+    );
   }
-
   const cleanupWrapper = resolve(
     root,
     'vps-workers/jobs/supabase-retention-cleanup.mjs'
@@ -267,7 +286,6 @@ export function verifyEventPipelineBoundaries(): string[] {
   }
   return findings.sort();
 }
-
 const invokedPath = process.argv[1]
   ? pathToFileURL(resolve(process.argv[1])).href
   : '';

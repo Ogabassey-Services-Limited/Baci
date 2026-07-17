@@ -86,7 +86,12 @@ describe('event pipeline authority manifest', () => {
     expect(sql).toContain('expected_published_merchant_keys text[]');
     expect(sql).toContain('expected_feature_setting_keys text[]');
     expect(sql).toContain('pg_get_functiondef');
+    expect(sql).toContain('FROM pg_policies');
+    expect(sql).toContain('pg_get_expr');
+    expect(sql).toContain('is_published IS TRUE');
     expect(sql).toContain('effective anon merchant RLS is not published-only');
+    expect(sql).toContain('repairs_catalog_enabled');
+    expect(sql).toContain('cardinality(expected_feature_setting_keys) <> 62');
     expect(sql).toContain('2026-08-24');
   });
 });
