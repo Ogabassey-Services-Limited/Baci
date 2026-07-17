@@ -55,6 +55,14 @@ describe('mobile admin Android Gradle build config', () => {
       path.join(appsRoot, 'mobile-admin/android/gradle.properties'),
       'utf8'
     );
+    const proguardRules = readFileSync(
+      path.join(appsRoot, 'mobile-admin/android/app/proguard-rules.pro'),
+      'utf8'
+    );
+    const revenueCatPatch = readFileSync(
+      path.join(appsRoot, '../patches/react-native-purchases@10.4.2.patch'),
+      'utf8'
+    );
 
     expect(gradleProperties).toContain(
       'android.enableMinifyInReleaseBuilds=true'
@@ -64,6 +72,14 @@ describe('mobile admin Android Gradle build config', () => {
     );
     expect(gradleProperties).toContain(
       'android.r8.optimizedResourceShrinking=true'
+    );
+    expect(proguardRules).toMatch(/^-repackageclasses$/m);
+    expect(proguardRules).toMatch(
+      /^-keep,allowshrinking,allowobfuscation,allowoptimization class com\.amazon\.\*\* \{ \*; \}$/m
+    );
+    expect(revenueCatPatch).toContain("module: 'purchases-store-amazon'");
+    expect(revenueCatPatch).toContain(
+      "implementation 'com.amazon.device:amazon-appstore-sdk:3.0.5'"
     );
   });
 

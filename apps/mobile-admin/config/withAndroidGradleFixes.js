@@ -4,8 +4,11 @@ const path = require('node:path');
 const {
   addAsyncStorageRepo,
   assertReplaceOrThrow,
+  ensureAmazonSdkOptimizationScope,
+  ensureGoogleCodeScannerOrientationIsUnrestricted,
   ensureGradleProperty,
   ensureMergedJvmArgs,
+  ensureR8ClassRepackaging,
   ensureGradleWrapperVersion,
   ensureReleaseSigning,
   fixProguardOptimize,
@@ -15,8 +18,6 @@ const ensurePatchedReactNativeBuild = require('./ensurePatchedReactNativeBuild')
 
 const MATERIAL_COMPONENTS_DEPENDENCY =
   'implementation("com.google.android.material:material:1.14.0")';
-const GOOGLE_CODE_SCANNER_ACTIVITY =
-  'com.google.mlkit.vision.codescanner.internal.GmsBarcodeScanningDelegateActivity';
 
 function ensureAdminCodegenOrdering(content) {
   if (content.includes('generateAutolinkingNewArchitectureFiles')) {
@@ -84,31 +85,6 @@ function ensureKotlinAndroidPlugin(content) {
     /(apply plugin:\s*(["'])com\.android\.application\2\s*\n)/,
     '$1apply plugin: "org.jetbrains.kotlin.android"\n',
     'kotlin.android plugin retention'
-  );
-}
-
-function ensureGoogleCodeScannerOrientationIsUnrestricted(content) {
-  const activityOverride = `<activity android:name="${GOOGLE_CODE_SCANNER_ACTIVITY}" tools:remove="android:screenOrientation" />`;
-
-  if (content.includes(activityOverride)) {
-    return content;
-  }
-
-  let updated = content;
-  if (!updated.includes('xmlns:tools=')) {
-    updated = assertReplaceOrThrow(
-      updated,
-      /<manifest\b/,
-      '<manifest xmlns:tools="http://schemas.android.com/tools"',
-      'Android tools namespace injection'
-    );
-  }
-
-  return assertReplaceOrThrow(
-    updated,
-    /\n\s*<\/application>/m,
-    `\n        ${activityOverride}\n    </application>`,
-    'Google code scanner orientation override injection'
   );
 }
 
@@ -234,6 +210,20 @@ function withAndroidGradleFixes(config) {
         content = ensureMaterialComponentsDependency(content);
 
         fs.writeFileSync(appBuildGradle, content);
+      }
+
+      const proguardRules = path.join(
+        cfg.modRequest.platformProjectRoot,
+        'app',
+        'proguard-rules.pro'
+      );
+
+      if (fs.existsSync(proguardRules)) {
+        const content = fs.readFileSync(proguardRules, 'utf-8');
+        fs.writeFileSync(
+          proguardRules,
+          ensureR8ClassRepackaging(ensureAmazonSdkOptimizationScope(content))
+        );
       }
 
       const mainManifest = path.join(

@@ -1,10 +1,88 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
+  ensureAmazonSdkOptimizationScope,
+  ensureGoogleCodeScannerOrientationIsUnrestricted,
   ensureGradleProperty,
   ensureMergedJvmArgs,
+  ensureR8ClassRepackaging,
   fixProguardOptimize,
 } = require('./expoAndroidGradleFixes.js');
+
+test('ensureAmazonSdkOptimizationScope: adds scoped rules without disabling app optimization', () => {
+  const initial = '# Project rules\n';
+  const once = ensureAmazonSdkOptimizationScope(initial);
+  const twice = ensureAmazonSdkOptimizationScope(once);
+
+  assert.equal(twice, once);
+  assert.match(
+    once,
+    /^-keep,allowshrinking,allowobfuscation,allowoptimization class com\.amazon\.\*\* \{ \*; \}$/m
+  );
+  assert.match(once, /^-dontwarn com\.amazon\.\*\*$/m);
+  assert.match(once, /^-keepattributes \*Annotation\*$/m);
+  assert.doesNotMatch(once, /^-dontoptimize$/m);
+});
+
+test('ensureAmazonSdkOptimizationScope: upgrades the legacy scoped keep rule', () => {
+  const initial =
+    '-keep,allowshrinking,allowobfuscation class com.amazon.** { *; }\n';
+  const result = ensureAmazonSdkOptimizationScope(initial);
+
+  assert.match(
+    result,
+    /^-keep,allowshrinking,allowobfuscation,allowoptimization class com\.amazon\.\*\* \{ \*; \}$/m
+  );
+  assert.doesNotMatch(
+    result,
+    /^-keep,allowshrinking,allowobfuscation class com\.amazon\.\*\* \{ \*; \}$/m
+  );
+});
+
+test('ensureR8ClassRepackaging: appends one idempotent R8 rule', () => {
+  const initial = '# Project rules\n';
+  const once = ensureR8ClassRepackaging(initial);
+  const twice = ensureR8ClassRepackaging(once);
+
+  assert.equal(twice, once);
+  assert.equal(once.match(/^-repackageclasses$/gm)?.length, 1);
+});
+
+test('ensureGoogleCodeScannerOrientationIsUnrestricted: adds an idempotent manifest override', () => {
+  const initial = '<manifest><application>\n</application></manifest>';
+  const once = ensureGoogleCodeScannerOrientationIsUnrestricted(initial);
+  const twice = ensureGoogleCodeScannerOrientationIsUnrestricted(once);
+
+  assert.equal(twice, once);
+  assert.match(once, /xmlns:tools="http:\/\/schemas\.android\.com\/tools"/);
+  assert.match(
+    once,
+    /android:name="com\.google\.mlkit\.vision\.codescanner\.internal\.GmsBarcodeScanningDelegateActivity"/
+  );
+  assert.match(once, /tools:remove="android:screenOrientation"/);
+});
+
+test('ensureGoogleCodeScannerOrientationIsUnrestricted: preserves a whitespace-formatted tools namespace', () => {
+  const initial =
+    '<manifest xmlns:tools = "http://schemas.android.com/tools"><application>\n</application></manifest>';
+  const result = ensureGoogleCodeScannerOrientationIsUnrestricted(initial);
+
+  assert.equal(result.match(/xmlns:tools/g)?.length, 1);
+  assert.match(result, /tools:remove="android:screenOrientation"/);
+});
+
+test('ensureGoogleCodeScannerOrientationIsUnrestricted: adds the namespace to the manifest when only a child declares it', () => {
+  const initial =
+    '<manifest><application xmlns:tools="http://schemas.android.com/tools">\n</application></manifest>';
+  const result = ensureGoogleCodeScannerOrientationIsUnrestricted(initial);
+  const openingManifest = result.match(/<manifest\b[^>]*>/)?.[0];
+
+  assert.match(
+    openingManifest ?? '',
+    /xmlns:tools="http:\/\/schemas\.android\.com\/tools"/
+  );
+  assert.match(result, /tools:remove="android:screenOrientation"/);
+});
 
 test('ensureGradleProperty: overwrites existing property', () => {
   const content = 'some.key=old_value\nanother.key=val';
