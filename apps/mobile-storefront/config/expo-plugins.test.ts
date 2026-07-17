@@ -3,7 +3,7 @@ import type { ExpoConfig } from 'expo/config';
 import { createExpoPlugins } from './expo-plugins';
 
 describe('createExpoPlugins', () => {
-  it('enables full R8 optimization for Android release builds', () => {
+  it('configures minification, resource shrinking, and class repackaging for Android release builds', () => {
     const plugins = createExpoPlugins({
       facebookSdkPlugin: null,
       tiktokBusinessPlugin: null,
