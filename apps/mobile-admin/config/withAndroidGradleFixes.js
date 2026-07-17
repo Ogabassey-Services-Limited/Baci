@@ -264,6 +264,11 @@ function withAndroidGradleFixes(config) {
           'android.builtInKotlin',
           'false'
         );
+        content = ensureGradleProperty(
+          content,
+          'android.r8.optimizedResourceShrinking',
+          'true'
+        );
         content = ensureMergedJvmArgs(content, [
           '-Xmx2048m',
           '-XX:MaxMetaspaceSize=1024m',
