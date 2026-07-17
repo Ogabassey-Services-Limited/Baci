@@ -3,7 +3,7 @@ import type { ExpoConfig } from 'expo/config';
 import { createExpoPlugins } from './expo-plugins';
 
 describe('createExpoPlugins', () => {
-  it('enables R8 minification and resource shrinking for Android release builds', () => {
+  it('configures minification, resource shrinking, and class repackaging for Android release builds', () => {
     const plugins = createExpoPlugins({
       facebookSdkPlugin: null,
       tiktokBusinessPlugin: null,
@@ -17,6 +17,7 @@ describe('createExpoPlugins', () => {
       android: {
         enableMinifyInReleaseBuilds: true,
         enableShrinkResourcesInReleaseBuilds: true,
+        extraProguardRules: expect.stringContaining('-repackageclasses'),
       },
     });
   });

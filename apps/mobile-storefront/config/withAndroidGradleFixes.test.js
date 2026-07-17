@@ -193,6 +193,9 @@ android {
     expect(stringsXml).toContain('app_name');
 
     expect(gradleProperties).toContain('android.builtInKotlin=false');
+    expect(gradleProperties).toContain(
+      'android.r8.optimizedResourceShrinking=true'
+    );
     expect(wrapperProperties).toContain('gradle-9.3.1-bin.zip');
     expect(wrapperProperties).toContain('distributionSha256Sum=');
   });
