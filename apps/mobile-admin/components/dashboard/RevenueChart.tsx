@@ -1,15 +1,11 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import type { RevenueDataPoint } from '@/hooks/dashboard-stats.types';
 import { useTheme } from '@/hooks/useTheme';
 
-interface DataPoint {
-  label: string;
-  value: number;
-}
-
 interface RevenueChartProps {
-  data: DataPoint[];
+  data: RevenueDataPoint[];
   title?: string;
   period?: string;
   totalRevenue?: string;
@@ -88,10 +84,10 @@ export function RevenueChart({
 
         {/* Bars */}
         <View style={styles.barsContainer}>
-          {data.map((point, index) => {
+          {data.map((point) => {
             const barHeight = maxValue > 0 ? (point.value / maxValue) * 100 : 0;
             return (
-              <View key={index} style={styles.barWrapper}>
+              <View key={point.id} style={styles.barWrapper}>
                 <View style={styles.barArea}>
                   <View
                     style={[
