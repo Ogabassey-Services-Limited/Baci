@@ -1,10 +1,10 @@
 import type { DomainEventV1 } from '@baci/shared/contracts';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   type FacebookEventName,
   sendFacebookCAPIEvent,
 } from '@/lib/facebook-capi';
 import { sendGA4Event } from '@/lib/ga4-measurement-protocol';
+import type { ServiceRoleClient } from '@/lib/supabase/service';
 import type { EventDestinationResult } from './event-destination';
 import type { EventDestination } from './event-route-registry';
 import { createStableAnalyticsClientId } from './stable-analytics-client-id';
@@ -69,7 +69,7 @@ function failureDetails(error: string | undefined, httpStatus?: number) {
 }
 
 export async function deliverPlatformEvent(
-  supabase: SupabaseClient,
+  supabase: ServiceRoleClient,
   event: DomainEventV1,
   destination: EventDestination,
   signal?: AbortSignal

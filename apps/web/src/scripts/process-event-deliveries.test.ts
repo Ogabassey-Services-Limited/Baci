@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createEventPipelineServiceRoleTestClient } from '@/lib/events/event-pipeline-service-role-test-client';
 
 const mocks = vi.hoisted(() => ({ deliver: vi.fn() }));
 vi.mock('@/lib/events/deliver-domain-event', () => ({
@@ -9,6 +10,20 @@ import {
   getEventDeliveryClaimBatchSize,
   processClaimedEventDelivery,
 } from './process-event-deliveries';
+
+function client(rpc: ReturnType<typeof vi.fn>) {
+  return createEventPipelineServiceRoleTestClient(
+    vi.fn<typeof globalThis.fetch>(async (input, init) => {
+      const result = await rpc(
+        new URL(String(input)).pathname.split('/').at(-1),
+        JSON.parse(String(init?.body ?? '{}'))
+      );
+      return result.error
+        ? Response.json(result.error, { status: 500 })
+        : Response.json(result.data);
+    })
+  );
+}
 
 const delivery = {
   attempt_number: 1,
@@ -44,7 +59,7 @@ describe('processClaimedEventDelivery', () => {
       terminalOutcome: 'delivered',
     });
 
-    await processClaimedEventDelivery({ rpc } as never, delivery, 8);
+    await processClaimedEventDelivery(client(rpc), delivery, 8);
 
     expect(rpc).toHaveBeenCalledWith(
       'finish_event_delivery_v1',
@@ -64,7 +79,7 @@ describe('processClaimedEventDelivery', () => {
       success: false,
     });
 
-    await processClaimedEventDelivery({ rpc } as never, delivery, 8);
+    await processClaimedEventDelivery(client(rpc), delivery, 8);
 
     expect(rpc).toHaveBeenCalledWith(
       'finish_event_delivery_v1',
@@ -76,7 +91,7 @@ describe('processClaimedEventDelivery', () => {
     const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
 
     await processClaimedEventDelivery(
-      { rpc } as never,
+      client(rpc),
       { ...delivery, domain_event_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a299' },
       8
     );

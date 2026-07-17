@@ -36,4 +36,11 @@ describe('supabase admin client factory', () => {
     );
     expect(mockCreateClient).toHaveBeenCalledTimes(2);
   });
+
+  it('provides the opt-in generated event-pipeline client on both aliases', () => {
+    expect(createClient('event-pipeline')).toEqual({ kind: 'admin-client' });
+    expect(createAdminClient('event-pipeline')).toEqual({
+      kind: 'admin-client',
+    });
+  });
 });

@@ -62,6 +62,7 @@ describe('GET /api/admin/event-pipeline/dead-letters', () => {
     );
 
     expect(response.status).toBe(200);
+    expect(mocks.createClient).toHaveBeenCalledWith('event-pipeline');
     expect(rpc).toHaveBeenCalledWith(
       'list_event_pipeline_ingress_failures_v1',
       expect.any(Object)

@@ -8,24 +8,25 @@ import {
   eventPipelineListResultSchema,
   eventPipelineOperationsSchema,
 } from '@/schemas/event-dead-letter';
+import type { Database } from '@/types/supabase';
 
 function queryInput(request: NextRequest) {
   return Object.fromEntries(request.nextUrl.searchParams.entries());
 }
 
 async function listIngress(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   query: EventDeadLetterQuery
 ) {
   const { data, error } = await supabase.rpc(
     'list_event_pipeline_ingress_failures_v1',
     {
-      p_error_code: query.error_code ?? null,
-      p_from: query.from ?? null,
+      p_error_code: query.error_code ?? undefined,
+      p_from: query.from ?? undefined,
       p_limit: query.limit,
-      p_merchant_id: query.merchant_id ?? null,
+      p_merchant_id: query.merchant_id ?? undefined,
       p_offset: query.offset,
-      p_to: query.to ?? null,
+      p_to: query.to ?? undefined,
     }
   );
   if (error)
@@ -36,21 +37,21 @@ async function listIngress(
 }
 
 async function listDeliveries(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   query: EventDeadLetterQuery,
   status: 'dead_letter' | 'delivery_unknown'
 ) {
   const { data, error } = await supabase.rpc(
     'list_event_pipeline_deliveries_v1',
     {
-      p_destination: query.destination ?? null,
-      p_error_code: query.error_code ?? null,
-      p_from: query.from ?? null,
+      p_destination: query.destination ?? undefined,
+      p_error_code: query.error_code ?? undefined,
+      p_from: query.from ?? undefined,
       p_limit: query.limit,
-      p_merchant_id: query.merchant_id ?? null,
+      p_merchant_id: query.merchant_id ?? undefined,
       p_offset: query.offset,
       p_status: status,
-      p_to: query.to ?? null,
+      p_to: query.to ?? undefined,
     }
   );
   if (error)
@@ -60,7 +61,7 @@ async function listDeliveries(
   return parsed.data;
 }
 
-async function operationalState(supabase: SupabaseClient) {
+async function operationalState(supabase: SupabaseClient<Database>) {
   const { data, error } = await supabase.rpc(
     'get_event_pipeline_operations_v1'
   );
@@ -91,7 +92,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const query = parsed.data;
-    const supabase = await createClient();
+    const supabase = await createClient('event-pipeline');
     const [ingress, deliveries, unknown, operations] = await Promise.all([
       query.kind === 'all' || query.kind === 'ingress'
         ? listIngress(supabase, query)

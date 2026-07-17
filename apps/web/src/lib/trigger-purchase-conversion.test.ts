@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createEventPipelineTestClient } from '@/lib/events/event-pipeline-test-client';
 
 const mockSendPurchaseConversion = vi.fn();
 const mockLogConversionResults = vi.fn();
@@ -39,17 +40,17 @@ const analyticsConfig = {
   tiktok_pixel_id: null,
 };
 
+const validItem = {
+  name: 'iPhone 15',
+  price: '200000',
+  product_id: 'product-1',
+  quantity: 1,
+};
+
 const validOrder: OrderForConversion = {
   currency: 'NGN',
   id: 'order-1',
-  order_items: [
-    {
-      name: 'iPhone 15',
-      price: '200000',
-      product_id: 'product-1',
-      quantity: 1,
-    },
-  ],
+  order_items: [validItem],
   order_number: 'BAC-1',
   total: 200_000,
 };
@@ -68,35 +69,22 @@ function createSupabaseMock({
     payout_currency?: string | null;
   } | null;
 } = {}) {
-  return {
-    from: vi.fn((table: string) => {
+  return createEventPipelineTestClient(
+    vi.fn<typeof globalThis.fetch>(async (input) => {
+      const url = new URL(String(input));
+      const table = url.pathname.split('/').at(-1);
       if (table === 'merchant_feature_settings') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          maybeSingle: vi.fn(async () => ({ data: featureData, error: null })),
-        };
+        return Response.json(featureData);
       }
-
-      // Both the analytics config lookup and the currency fallback lookup
-      // query the `merchants` table; disambiguate by requested columns.
-      return {
-        select: vi.fn((columns: string) => {
-          const isCurrencyLookup = columns.includes('payout_currency');
-          return {
-            eq: vi.fn().mockReturnThis(),
-            maybeSingle: vi.fn(async () =>
-              isCurrencyLookup
-                ? { data: merchantCurrencyData, error: null }
-                : { data, error }
-            ),
-          };
-        }),
-        eq: vi.fn().mockReturnThis(),
-        maybeSingle: vi.fn(async () => ({ data, error })),
-      };
-    }),
-  };
+      const selected = url.searchParams.get('select') ?? '';
+      if (selected.includes('payout_currency')) {
+        return Response.json(merchantCurrencyData);
+      }
+      return error
+        ? Response.json(error, { status: 500 })
+        : Response.json(data);
+    })
+  );
 }
 
 describe('triggerPurchaseConversion', () => {
@@ -110,11 +98,10 @@ describe('triggerPurchaseConversion', () => {
 
   it('sends a successful conversion for valid order items', async () => {
     await triggerPurchaseConversion(
-      createSupabaseMock() as never,
+      createSupabaseMock(),
       'merchant-1',
       validOrder
     );
-
     expect(mockSendPurchaseConversion).toHaveBeenCalledWith(
       expect.any(Object),
       expect.objectContaining({
@@ -134,20 +121,15 @@ describe('triggerPurchaseConversion', () => {
   });
 
   it('omits malformed ad tracking fields from the conversion payload', async () => {
-    await triggerPurchaseConversion(
-      createSupabaseMock() as never,
-      'merchant-1',
-      {
-        ...validOrder,
-        ad_tracking: {
-          fbc: 42,
-          fbclid: ['click-1'],
-          limitedDataUse: 'true',
-          userIp: { address: '203.0.113.10' },
-        },
-      }
-    );
-
+    await triggerPurchaseConversion(createSupabaseMock(), 'merchant-1', {
+      ...validOrder,
+      ad_tracking: {
+        fbc: 42,
+        fbclid: ['click-1'],
+        limitedDataUse: 'true',
+        userIp: { address: '203.0.113.10' },
+      },
+    });
     expect(mockSendPurchaseConversion).toHaveBeenCalledWith(
       expect.any(Object),
       expect.objectContaining({
@@ -159,73 +141,43 @@ describe('triggerPurchaseConversion', () => {
     );
   });
 
-  it('uses the order currency as-is when present', async () => {
+  it.each([
+    ['uses the order currency as-is', 'GHS', null, 'GHS'],
+    [
+      'falls back to merchant currency',
+      null,
+      { country: 'GH', payout_currency: 'GHS' },
+      'GHS',
+    ],
+    ['falls back to platform currency', undefined, null, 'NGN'],
+  ])('%s', async (_name, currency, merchantCurrencyData, expectedCurrency) => {
     await triggerPurchaseConversion(
-      createSupabaseMock() as never,
+      createSupabaseMock({ merchantCurrencyData }),
       'merchant-1',
-      { ...validOrder, currency: 'GHS' }
+      { ...validOrder, currency }
     );
-
     expect(mockSendPurchaseConversion).toHaveBeenCalledWith(
       expect.any(Object),
-      expect.objectContaining({ currency: 'GHS' })
-    );
-  });
-
-  it('falls back to the merchant-resolved currency when the order has none', async () => {
-    await triggerPurchaseConversion(
-      createSupabaseMock({
-        merchantCurrencyData: { country: 'GH', payout_currency: 'GHS' },
-      }) as never,
-      'merchant-1',
-      { ...validOrder, currency: null }
-    );
-
-    expect(mockSendPurchaseConversion).toHaveBeenCalledWith(
-      expect.any(Object),
-      expect.objectContaining({ currency: 'GHS' })
-    );
-  });
-
-  it('falls back to the platform default currency when the order and merchant lookup have none', async () => {
-    await triggerPurchaseConversion(
-      createSupabaseMock({ merchantCurrencyData: null }) as never,
-      'merchant-1',
-      { ...validOrder, currency: undefined }
-    );
-
-    expect(mockSendPurchaseConversion).toHaveBeenCalledWith(
-      expect.any(Object),
-      expect.objectContaining({ currency: 'NGN' })
+      expect.objectContaining({ currency: expectedCurrency })
     );
   });
 
   it('omits invalid order items and logs the skipped fields', async () => {
-    await triggerPurchaseConversion(
-      createSupabaseMock() as never,
-      'merchant-1',
-      {
-        currency: 'NGN',
-        id: 'order-1',
-        order_items: [
-          {
-            name: 'iPhone 15',
-            price: '200000',
-            product_id: 'product-1',
-            quantity: 1,
-          },
-          {
-            name: '',
-            price: 'not-a-number',
-            product_id: null,
-            quantity: 0,
-          },
-        ],
-        order_number: 'BAC-1',
-        total: 200_000,
-      }
-    );
-
+    await triggerPurchaseConversion(createSupabaseMock(), 'merchant-1', {
+      currency: 'NGN',
+      id: 'order-1',
+      order_items: [
+        validItem,
+        {
+          name: '',
+          price: 'not-a-number',
+          product_id: null,
+          quantity: 0,
+        },
+      ],
+      order_number: 'BAC-1',
+      total: 200_000,
+    });
     expect(mockSendPurchaseConversion).toHaveBeenCalledWith(
       expect.any(Object),
       expect.objectContaining({
@@ -250,22 +202,17 @@ describe('triggerPurchaseConversion', () => {
   });
 
   it('treats null money values as invalid order item data', async () => {
-    await triggerPurchaseConversion(
-      createSupabaseMock() as never,
-      'merchant-1',
-      {
-        ...validOrder,
-        order_items: [
-          {
-            name: 'Missing price',
-            price: null,
-            product_id: 'product-1',
-            quantity: 1,
-          },
-        ],
-      }
-    );
-
+    await triggerPurchaseConversion(createSupabaseMock(), 'merchant-1', {
+      ...validOrder,
+      order_items: [
+        {
+          name: 'Missing price',
+          price: null,
+          product_id: 'product-1',
+          quantity: 1,
+        },
+      ],
+    });
     expect(mockSendPurchaseConversion).toHaveBeenCalledWith(
       expect.any(Object),
       expect.objectContaining({ items: [] })
@@ -281,7 +228,7 @@ describe('triggerPurchaseConversion', () => {
   it('throws on invalid order items when strict validation is enabled', async () => {
     await expect(
       triggerPurchaseConversion(
-        createSupabaseMock() as never,
+        createSupabaseMock(),
         'merchant-1',
         {
           ...validOrder,
@@ -290,7 +237,6 @@ describe('triggerPurchaseConversion', () => {
         { failOnInvalidItem: true }
       )
     ).rejects.toThrow('Invalid order item for conversion tracking');
-
     expect(logger.error).toHaveBeenCalledWith(
       expect.objectContaining({
         invalidFields: ['product_id', 'name', 'price', 'quantity'],
@@ -300,37 +246,20 @@ describe('triggerPurchaseConversion', () => {
     expect(mockSendPurchaseConversion).not.toHaveBeenCalled();
   });
 
-  it('does not send conversions when offline conversions are disabled', async () => {
+  it.each([
+    { ...analyticsConfig, offline_conversions_enabled: false },
+    {
+      ...analyticsConfig,
+      facebook_capi_token: 'locked-token',
+      facebook_pixel_id: 'locked-pixel',
+      plan_tier: 'free',
+    },
+  ])('does not send conversions for disabled config %#', async (data) => {
     await triggerPurchaseConversion(
-      createSupabaseMock({
-        data: { ...analyticsConfig, offline_conversions_enabled: false },
-      }) as never,
+      createSupabaseMock({ data }),
       'merchant-1',
       validOrder
     );
-
-    expect(mockSendPurchaseConversion).not.toHaveBeenCalled();
-    expect(logger.info).toHaveBeenCalledWith(
-      expect.objectContaining({
-        message: 'Offline conversions disabled by merchant',
-      })
-    );
-  });
-
-  it('does not send conversions when growth integrations are locked', async () => {
-    await triggerPurchaseConversion(
-      createSupabaseMock({
-        data: {
-          ...analyticsConfig,
-          plan_tier: 'free',
-          facebook_capi_token: 'locked-token',
-          facebook_pixel_id: 'locked-pixel',
-        },
-      }) as never,
-      'merchant-1',
-      validOrder
-    );
-
     expect(mockSendPurchaseConversion).not.toHaveBeenCalled();
     expect(logger.info).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -341,11 +270,10 @@ describe('triggerPurchaseConversion', () => {
 
   it('logs and returns when analytics configuration cannot be loaded', async () => {
     await triggerPurchaseConversion(
-      createSupabaseMock({ error: { message: 'db failed' } }) as never,
+      createSupabaseMock({ error: { message: 'db failed' } }),
       'merchant-1',
       validOrder
     );
-
     expect(mockSendPurchaseConversion).not.toHaveBeenCalled();
     expect(logger.warn).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -357,15 +285,9 @@ describe('triggerPurchaseConversion', () => {
   it('logs and rethrows conversion sender failures', async () => {
     const error = new Error('capi failed');
     mockSendPurchaseConversion.mockRejectedValueOnce(error);
-
     await expect(
-      triggerPurchaseConversion(
-        createSupabaseMock() as never,
-        'merchant-1',
-        validOrder
-      )
+      triggerPurchaseConversion(createSupabaseMock(), 'merchant-1', validOrder)
     ).rejects.toThrow(error);
-
     expect(logger.error).toHaveBeenCalledWith(
       expect.objectContaining({
         error,

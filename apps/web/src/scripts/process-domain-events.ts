@@ -1,7 +1,6 @@
 import 'dotenv/config';
 import { hostname } from 'node:os';
 import { pathToFileURL } from 'node:url';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { parseDomainEventV1 } from '@/lib/events/event-contract';
 import {
@@ -12,7 +11,10 @@ import {
 } from '@/lib/events/event-pipeline-config';
 import { resolveEventRoute } from '@/lib/events/event-route-registry';
 import { shouldRecordWorkerSuccess } from '@/lib/events/worker-heartbeat-throttle';
-import { createServiceClient } from '@/lib/supabase/service';
+import {
+  createServiceClient,
+  type ServiceRoleClient,
+} from '@/lib/supabase/service';
 
 const WORKER_ERROR_BACKOFF_MS = 5_000;
 
@@ -27,7 +29,7 @@ const queueMessageSchema = z.strictObject({
 type QueueMessage = z.infer<typeof queueMessageSchema>;
 
 async function heartbeat(
-  supabase: SupabaseClient,
+  supabase: ServiceRoleClient,
   workerId: string,
   status: 'failed' | 'started' | 'succeeded',
   processedCount = 0,
@@ -57,7 +59,7 @@ function potentialDomainEventId(message: unknown): string | null {
 }
 
 async function deadLetterIngress(
-  supabase: SupabaseClient,
+  supabase: ServiceRoleClient,
   queued: QueueMessage,
   code: string,
   message: string,
@@ -75,7 +77,7 @@ async function deadLetterIngress(
 }
 
 export async function processDomainEventMessage(
-  supabase: SupabaseClient,
+  supabase: ServiceRoleClient,
   queued: QueueMessage,
   shadow: boolean,
   maxReads = getEventIngressMaxReads()
@@ -134,7 +136,7 @@ export async function processDomainEventMessage(
 }
 
 export async function processDomainEventBatch(
-  supabase: SupabaseClient,
+  supabase: ServiceRoleClient,
   batch: QueueMessage[],
   shadow: boolean,
   shouldStop: () => boolean = () => false
@@ -155,7 +157,7 @@ export async function processDomainEventBatch(
   return { failed, processed };
 }
 
-async function readBatch(supabase: SupabaseClient): Promise<QueueMessage[]> {
+async function readBatch(supabase: ServiceRoleClient): Promise<QueueMessage[]> {
   const { data, error } = await supabase.rpc('read_domain_events_v1', {
     p_batch_size: 100,
     p_max_poll_seconds: 5,
@@ -178,7 +180,7 @@ export async function runDomainEventWorker(options: { once?: boolean } = {}) {
     return;
   }
 
-  const supabase = createServiceClient();
+  const supabase = createServiceClient('event-pipeline');
   const workerId = `${hostname()}:${process.pid}`;
   let stopping = false;
   process.once('SIGINT', () => {

@@ -1,5 +1,6 @@
 import type { DomainEventV1 } from '@baci/shared/contracts';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createEventPipelineServiceRoleTestClient } from './event-pipeline-service-role-test-client';
 
 const mocks = vi.hoisted(() => ({
   fetchConfig: vi.fn(),
@@ -25,6 +26,11 @@ vi.mock('./paid-order-delivery-event', () => ({
 }));
 
 import { deliverAnalyticsEvent } from './analytics-destination-adapter';
+
+const serviceClient = () =>
+  createEventPipelineServiceRoleTestClient(
+    vi.fn<typeof globalThis.fetch>(async () => Response.json([]))
+  );
 
 const event: DomainEventV1 = {
   data: {
@@ -75,7 +81,12 @@ describe('deliverAnalyticsEvent', () => {
     });
 
     await expect(
-      deliverAnalyticsEvent({} as never, event, 'facebook', controller.signal)
+      deliverAnalyticsEvent(
+        serviceClient(),
+        event,
+        'facebook',
+        controller.signal
+      )
     ).resolves.toEqual({ success: true, terminalOutcome: 'delivered' });
     expect(mocks.sendToAdPlatforms).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -96,7 +107,7 @@ describe('deliverAnalyticsEvent', () => {
 
   it('records an unconfigured destination as a terminal skip', async () => {
     await expect(
-      deliverAnalyticsEvent({} as never, event, 'tiktok')
+      deliverAnalyticsEvent(serviceClient(), event, 'tiktok')
     ).resolves.toEqual({
       providerResponseId: 'not_configured',
       success: true,
@@ -109,7 +120,7 @@ describe('deliverAnalyticsEvent', () => {
     mocks.fetchConfig.mockResolvedValue(null);
 
     await expect(
-      deliverAnalyticsEvent({} as never, event, 'facebook')
+      deliverAnalyticsEvent(serviceClient(), event, 'facebook')
     ).resolves.toMatchObject({
       errorCode: 'analytics_config_unavailable',
       success: false,
@@ -120,7 +131,7 @@ describe('deliverAnalyticsEvent', () => {
     mocks.sendToAdPlatforms.mockResolvedValue({});
 
     await expect(
-      deliverAnalyticsEvent({} as never, event, 'facebook')
+      deliverAnalyticsEvent(serviceClient(), event, 'facebook')
     ).resolves.toMatchObject({
       errorCode: 'analytics_config_unavailable',
       success: false,
@@ -137,7 +148,7 @@ describe('deliverAnalyticsEvent', () => {
     });
 
     await expect(
-      deliverAnalyticsEvent({} as never, event, 'facebook')
+      deliverAnalyticsEvent(serviceClient(), event, 'facebook')
     ).resolves.toMatchObject({
       errorCode: 'provider_rejected',
       httpStatus: 400,
@@ -183,7 +194,7 @@ describe('deliverAnalyticsEvent', () => {
     mocks.sendGA4Event.mockResolvedValue({ success: true });
 
     await expect(
-      deliverAnalyticsEvent({} as never, paidEvent, 'ga4')
+      deliverAnalyticsEvent(serviceClient(), paidEvent, 'ga4')
     ).resolves.toEqual({ success: true, terminalOutcome: 'delivered' });
 
     expect(mocks.sendGA4Event).toHaveBeenCalledWith(

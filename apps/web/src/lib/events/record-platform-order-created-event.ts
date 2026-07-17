@@ -21,7 +21,7 @@ export async function recordPlatformOrderCreatedEvent(
   if (!isEventPipelineEnqueueEnabled()) return;
 
   try {
-    await recordPlatformDomainEvent(createAdminClient(), {
+    await recordPlatformDomainEvent(createAdminClient('event-pipeline'), {
       deliveryData: {
         email: input.customerEmail,
         ip: input.ipAddress,

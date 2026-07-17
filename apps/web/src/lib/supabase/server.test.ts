@@ -60,4 +60,14 @@ describe('server supabase createClient', () => {
       })
     );
   });
+
+  it('provides opt-in typed event-pipeline overloads without changing legacy calls', async () => {
+    mockCookies.mockResolvedValue(cookieStore);
+
+    await createClient('event-pipeline');
+    createClient(cookieStore, 'event-pipeline');
+
+    expect(mockCreateServerClient).toHaveBeenCalledTimes(2);
+    expect(mockCookies).toHaveBeenCalledOnce();
+  });
 });
