@@ -1,0 +1,17 @@
+{
+  "root": false,
+  "extends": "//",
+  "files": { "maxSize": 2097152 },
+  "overrides": [
+    {
+      "includes": [
+        "production-effect-provenance.json",
+        "migration-name-alias-deploy-repair.json",
+        "github-migration-semantic-lines.json",
+        "linked-migration-ledger.json",
+        "production-history-effects.json"
+      ],
+      "formatter": { "enabled": false }
+    }
+  ]
+}
