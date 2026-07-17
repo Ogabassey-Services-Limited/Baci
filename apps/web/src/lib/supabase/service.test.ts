@@ -2,6 +2,14 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Database } from '@/types/supabase';
 
+type Equal<Left, Right> =
+  (<Value>() => Value extends Left ? 1 : 2) extends <
+    Value,
+  >() => Value extends Right ? 1 : 2
+    ? true
+    : false;
+type Expect<Value extends true> = Value;
+
 const { mockCreateClient } = vi.hoisted(() => ({
   mockCreateClient: vi.fn((_url: string, _key: string, _options: unknown) => ({
     kind: 'service-client',
@@ -18,14 +26,19 @@ vi.mock('@/env', () => ({
 
 import { createServiceClient, type ServiceRoleClient } from './service';
 
+// biome-ignore format: compile-only overload exactness proof.
+type ServiceReturnIsLegacy = Expect<Equal<ReturnType<typeof createServiceClient>, SupabaseClient>>;
 function compileServiceFactoryTypes() {
-  const legacy: SupabaseClient = createServiceClient();
+  const exactReturn: ServiceReturnIsLegacy = true;
+  const returnType: ReturnType<typeof createServiceClient> =
+    createServiceClient();
+  const legacy: SupabaseClient = returnType;
   const sentinel: ServiceRoleClient = createServiceClient('event-pipeline');
   const typed: SupabaseClient<Database> = sentinel;
   const ordinary = {} as SupabaseClient<Database>;
   // @ts-expect-error An ordinary typed client cannot acquire service authority.
   const forbidden: ServiceRoleClient = ordinary;
-  void [legacy, typed, forbidden];
+  void [exactReturn, legacy, typed, forbidden];
 }
 void compileServiceFactoryTypes;
 

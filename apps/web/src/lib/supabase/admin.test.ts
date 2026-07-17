@@ -2,6 +2,14 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Database } from '@/types/supabase';
 
+type Equal<Left, Right> =
+  (<Value>() => Value extends Left ? 1 : 2) extends <
+    Value,
+  >() => Value extends Right ? 1 : 2
+    ? true
+    : false;
+type Expect<Value extends true> = Value;
+
 const { mockCreateClient } = vi.hoisted(() => ({
   mockCreateClient: vi.fn(),
 }));
@@ -17,13 +25,28 @@ vi.mock('@/env', () => ({
 
 import { createAdminClient, createClient } from './admin';
 
+// biome-ignore format: compile-only overload exactness proofs.
+type AdminReturnIsLegacy = Expect<Equal<ReturnType<typeof createClient>, SupabaseClient>>;
+// biome-ignore format: compile-only alias exactness proof.
+type AdminAliasReturnIsLegacy = Expect<Equal<ReturnType<typeof createAdminClient>, SupabaseClient>>;
 function compileAdminFactoryTypes() {
-  const legacy: SupabaseClient = createClient();
-  const legacyAlias: SupabaseClient = createAdminClient();
+  const exactReturn: AdminReturnIsLegacy = true;
+  const exactAliasReturn: AdminAliasReturnIsLegacy = true;
+  const primaryReturn: ReturnType<typeof createClient> = createClient();
+  const aliasReturn: ReturnType<typeof createAdminClient> = createAdminClient();
+  const legacy: SupabaseClient = primaryReturn;
+  const legacyAlias: SupabaseClient = aliasReturn;
   const sentinel: SupabaseClient<Database> = createClient('event-pipeline');
   const sentinelAlias: SupabaseClient<Database> =
     createAdminClient('event-pipeline');
-  void [legacy, legacyAlias, sentinel, sentinelAlias];
+  void [
+    exactReturn,
+    exactAliasReturn,
+    legacy,
+    legacyAlias,
+    sentinel,
+    sentinelAlias,
+  ];
 }
 void compileAdminFactoryTypes;
 

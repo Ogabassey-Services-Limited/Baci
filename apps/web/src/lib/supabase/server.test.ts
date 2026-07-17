@@ -3,6 +3,14 @@ import type { ReadonlyRequestCookies } from 'next/dist/server/web/spec-extension
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Database } from '@/types/supabase';
 
+type Equal<Left, Right> =
+  (<Value>() => Value extends Left ? 1 : 2) extends <
+    Value,
+  >() => Value extends Right ? 1 : 2
+    ? true
+    : false;
+type Expect<Value extends true> = Value;
+
 const mockCreateServerClient = vi.fn((..._args: unknown[]) => ({
   auth: { getUser: vi.fn() },
 }));
@@ -23,17 +31,29 @@ vi.mock('@/env', () => ({
 
 import { createClient } from './server';
 
+// biome-ignore format: compile-only last-overload exactness proof.
+type ServerReturnIsLegacy = Expect<Equal<ReturnType<typeof createClient>, SupabaseClient>>;
 function compileServerFactoryTypes() {
+  const exactReturn: ServerReturnIsLegacy = true;
   const cookieStore = {} as ReadonlyRequestCookies;
-  const legacyNoArg: Promise<SupabaseClient> = createClient();
-  const legacyCookie: SupabaseClient = createClient(cookieStore);
+  const legacyNoArg: Promise<ReturnType<typeof createClient>> = createClient();
+  const legacyCookie: ReturnType<typeof createClient> =
+    createClient(cookieStore);
+  const noArgCompatibility: Promise<SupabaseClient> = legacyNoArg;
+  const cookieCompatibility: SupabaseClient = legacyCookie;
   const sentinelNoArg: Promise<SupabaseClient<Database>> =
     createClient('event-pipeline');
   const sentinelCookie: SupabaseClient<Database> = createClient(
     cookieStore,
     'event-pipeline'
   );
-  void [legacyNoArg, legacyCookie, sentinelNoArg, sentinelCookie];
+  void [
+    exactReturn,
+    noArgCompatibility,
+    cookieCompatibility,
+    sentinelNoArg,
+    sentinelCookie,
+  ];
 }
 void compileServerFactoryTypes;
 

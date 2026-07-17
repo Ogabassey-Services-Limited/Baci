@@ -58,6 +58,38 @@ describe('event pipeline generated database boundary', () => {
     expect(wrapper).not.toMatch(/\bas\s+(?:never|unknown|object)\b/);
   });
 
+  it('pins explicit factory ReturnType compatibility proofs', () => {
+    const proofs = [
+      [
+        'service.test.ts',
+        [
+          'Expect<Equal<ReturnType<typeof createServiceClient>, SupabaseClient>>',
+        ],
+      ],
+      [
+        'server.test.ts',
+        [
+          'Promise<ReturnType<typeof createClient>>',
+          'Expect<Equal<ReturnType<typeof createClient>, SupabaseClient>>',
+        ],
+      ],
+      [
+        'admin.test.ts',
+        [
+          'Expect<Equal<ReturnType<typeof createClient>, SupabaseClient>>',
+          'Expect<Equal<ReturnType<typeof createAdminClient>, SupabaseClient>>',
+        ],
+      ],
+    ] as const;
+    for (const [file, contracts] of proofs) {
+      const source = readFileSync(
+        resolve(process.cwd(), `src/lib/supabase/${file}`),
+        'utf8'
+      );
+      for (const contract of contracts) expect(source).toContain(contract);
+    }
+  });
+
   it('binds all nineteen public functions to executable catalog effects', async () => {
     expect(existsSync(modulePath), 'typed database boundary is missing').toBe(
       true

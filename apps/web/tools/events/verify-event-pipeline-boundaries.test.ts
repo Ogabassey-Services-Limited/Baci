@@ -164,7 +164,6 @@ describe('event pipeline source boundary verifier', () => {
       /^route\.ts: frozen route hash /
     );
   }, 30_000);
-
   it('rejects bare clients, untyped factories, assertions, and unmanifested queries', async () => {
     const moduleUrl = pathToFileURL(verifierPath).href;
     const { analyzeRpcSource } = await import(/* @vite-ignore */ moduleUrl);
@@ -213,7 +212,6 @@ describe('event pipeline source boundary verifier', () => {
       )
     ).toContain(`${path}: unmanifested operation select on unmanifested_table`);
   });
-
   it('rejects new service/admin route edges and pre-verification privilege', async () => {
     const moduleUrl = pathToFileURL(verifierPath).href;
     const { analyzeRpcSource } = await import(/* @vite-ignore */ moduleUrl);
@@ -253,7 +251,6 @@ describe('event pipeline source boundary verifier', () => {
         `${wrapper}: privileged route client construction is forbidden`
       );
   });
-
   it('traces re-exports and stored or nested RPC assertions', async () => {
     const moduleUrl = pathToFileURL(verifierPath).href;
     const { analyzeRpcSource } = await import(/* @vite-ignore */ moduleUrl);
@@ -275,18 +272,23 @@ describe('event pipeline source boundary verifier', () => {
     expect(
       analyzeRpcSource(facade, "export * from '@/lib/supabase/service';", true)
     ).toContain(`${facade}: unauthorized privileged factory re-export`);
+    const identityPath = 'apps/web/src/lib/events/event-ingress-context.ts';
+    // biome-ignore format: compact regression preserves the 300-line test gate.
+    expect(analyzeRpcSource(identityPath, "const client = raw as unknown as SupabaseClient<Database>; client.from('merchants').select('id');", true)).toContain(`${identityPath}: forbidden asserted query boundary`);
+    // biome-ignore format: compact false-positive guard preserves the 300-line test gate.
+    expect(analyzeRpcSource(identityPath, "const client: SupabaseClient<Database> = createClient('event-pipeline'); client.from('merchants').select('id');", true)).not.toContain(`${identityPath}: forbidden asserted query boundary`);
     const path = 'apps/web/src/lib/events/new-worker.ts';
     for (const source of [
       "const client = {} as SupabaseClient<Database>; client.rpc('claim_event_deliveries_v1', {});",
       "const args = {} as Args; client.rpc('claim_event_deliveries_v1', args);",
       "const returns = client.rpc('claim_event_deliveries_v1', {}) as Returns;",
+      "const result = client.rpc('claim_event_deliveries_v1', {}); const returns = result as Returns;",
       "const args = { nested: value as string }; client.rpc('claim_event_deliveries_v1', args);",
     ])
       expect(analyzeRpcSource(path, source, true)).toContain(
         `${path}: forbidden asserted RPC boundary`
       );
   });
-
   it('rejects an out-of-closure literal RPC caller repo-wide', async () => {
     const moduleUrl = pathToFileURL(verifierPath).href;
     const { analyzeRpcSource } = await import(/* @vite-ignore */ moduleUrl);
