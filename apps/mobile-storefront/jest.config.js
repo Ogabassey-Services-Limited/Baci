@@ -1,3 +1,5 @@
+const path = require('node:path');
+
 const reactPath = require.resolve('react');
 const reactDomPath = require.resolve('react-dom');
 const reactJsxRuntimePath = require.resolve('react/jsx-runtime');
@@ -6,6 +8,12 @@ const reactTestRendererPath = require.resolve('react-test-renderer');
 // jest-expo's browser export condition resolves uuid to its untransformed
 // esm-browser build; pin it to the CJS entry Node resolves.
 const uuidPath = require.resolve('uuid');
+const expoPath = require.resolve('expo');
+const expoRoot = path.dirname(require.resolve('expo/package.json'));
+const expoModulesCorePath = require.resolve('expo-modules-core');
+const expoModulesCoreRoot = path.dirname(
+  require.resolve('expo-modules-core/package.json')
+);
 
 /** @type {import('jest').Config} */
 const config = {
@@ -19,8 +27,10 @@ const config = {
   // processes. The handles are idle and only surface once suites are green, so
   // forcing exit is always safe here.
   forceExit: true,
+  // jest-expo 57.0.2 loads TypeScript sources from Expo packages nested under
+  // its own pnpm node_modules tree, so that nested Expo subtree must be compiled.
   transformIgnorePatterns: [
-    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|@react-native-vector-icons/.*)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@shopify/flash-list|@supabase/.*|react-native-worklets|zustand|nativewind)',
+    'node_modules/(?!(\\.pnpm|jest-expo/node_modules/(expo(nent)?|@expo(nent)?/.*)|((jest-)?react-native|@react-native(-community)?|@react-native-vector-icons/.*)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@shopify/flash-list|@supabase/.*|react-native-worklets|zustand|nativewind))',
   ],
   // setupFiles runs before the jest-expo preset setup (before test code scope)
   setupFiles: ['<rootDir>/__mocks__/expo-winter-setup.js'],
@@ -38,6 +48,13 @@ const config = {
     // Prevent expo winter runtime from loading native-only modules in Jest
     'expo/src/winter/ImportMetaRegistry':
       '<rootDir>/__mocks__/expo-import-meta-registry.js',
+    // pnpm keeps peer-resolved Expo copies under packages such as jest-expo and
+    // expo-image. Jest must use one copy so the preset's native-module mocks are
+    // visible to app imports such as expo-crypto.
+    '^expo$': expoPath,
+    '^expo/(.*)$': `${expoRoot}/$1`,
+    '^expo-modules-core$': expoModulesCorePath,
+    '^expo-modules-core/(.*)$': `${expoModulesCoreRoot}/$1`,
     '@ungap/structured-clone': '<rootDir>/__mocks__/structured-clone.js',
     '^nativewind/jsx-dev-runtime$':
       '<rootDir>/__mocks__/react-native-css-interop.js',
