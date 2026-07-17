@@ -36,7 +36,7 @@ export function StatePickerModal({
         <FlatList
           // getItemLayout stride = stateItem height (64) + marginBottom (SPACING.xs=4).
           // Margin is excluded from RN height, so length must include it or scroll offset drifts.
-          getItemLayout={(data, index) => ({
+          getItemLayout={(_data, index) => ({
             length: 68,
             offset: 68 * index,
             index,

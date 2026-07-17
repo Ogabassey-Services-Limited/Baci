@@ -61,6 +61,24 @@ vi.mock('react-native', () => ({
 }));
 
 describe('DateRangePickerCalendarPanel', () => {
+  it('renders weekday headers in Sunday-to-Saturday order', () => {
+    render(
+      <DateRangePickerCalendarPanel
+        onApply={vi.fn()}
+        onSelectDay={vi.fn()}
+        onViewNextMonth={vi.fn()}
+        onViewPreviousMonth={vi.fn()}
+        selection={{ end: null, start: null }}
+        viewDate={new Date('2026-05-12T00:00:00.000Z')}
+      />
+    );
+
+    expect(screen.getAllByText(/^[SMTWF]$/)).toHaveLength(7);
+    expect(
+      screen.getAllByText(/^[SMTWF]$/).map((weekday) => weekday.textContent)
+    ).toEqual(['S', 'M', 'T', 'W', 'T', 'F', 'S']);
+  });
+
   it('shows the selected range preview and applies the completed range', () => {
     const onApply = vi.fn();
 
