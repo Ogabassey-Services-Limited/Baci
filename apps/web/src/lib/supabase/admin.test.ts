@@ -1,4 +1,6 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Database } from '@/types/supabase';
 
 const { mockCreateClient } = vi.hoisted(() => ({
   mockCreateClient: vi.fn(),
@@ -14,6 +16,16 @@ vi.mock('@/env', () => ({
 }));
 
 import { createAdminClient, createClient } from './admin';
+
+function compileAdminFactoryTypes() {
+  const legacy: SupabaseClient = createClient();
+  const legacyAlias: SupabaseClient = createAdminClient();
+  const sentinel: SupabaseClient<Database> = createClient('event-pipeline');
+  const sentinelAlias: SupabaseClient<Database> =
+    createAdminClient('event-pipeline');
+  void [legacy, legacyAlias, sentinel, sentinelAlias];
+}
+void compileAdminFactoryTypes;
 
 describe('supabase admin client factory', () => {
   beforeEach(() => {

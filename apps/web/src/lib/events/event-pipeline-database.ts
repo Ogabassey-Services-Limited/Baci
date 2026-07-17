@@ -151,6 +151,7 @@ const runtimeCallers = {
 } as const;
 export const EVENT_PIPELINE_BOUNDARY = {
   allFunctions: EVENT_PIPELINE_FUNCTION_NAMES,
+  adjacentFunctions: ['cleanup_database_retention'],
   authority: {
     adminImporters: [
       'apps/web/src/app/(platform)/onboarding/actions.ts',
@@ -171,7 +172,8 @@ export const EVENT_PIPELINE_BOUNDARY = {
       'apps/web/src/lib/supabase/server.ts',
       'apps/web/src/lib/supabase/service.ts',
     ],
-    legacySdkImporters: ['apps/web/src/lib/analytics/send-to-ad-platforms.ts'],
+    // biome-ignore format: compact compatibility allowlist preserves the 300-line contract gate.
+    legacySdkImporters: ['apps/web/src/lib/analytics/send-to-ad-platforms.ts', 'vps-workers/jobs/supabase-retention-cleanup.mjs'],
     serverImporters: [
       ...Object.keys(frozenRoutes),
       'apps/web/src/app/(platform)/onboarding/actions.ts',

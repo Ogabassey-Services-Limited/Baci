@@ -1,5 +1,7 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ReadonlyRequestCookies } from 'next/dist/server/web/spec-extension/adapters/request-cookies';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Database } from '@/types/supabase';
 
 const mockCreateServerClient = vi.fn((..._args: unknown[]) => ({
   auth: { getUser: vi.fn() },
@@ -20,6 +22,20 @@ vi.mock('@/env', () => ({
 }));
 
 import { createClient } from './server';
+
+function compileServerFactoryTypes() {
+  const cookieStore = {} as ReadonlyRequestCookies;
+  const legacyNoArg: Promise<SupabaseClient> = createClient();
+  const legacyCookie: SupabaseClient = createClient(cookieStore);
+  const sentinelNoArg: Promise<SupabaseClient<Database>> =
+    createClient('event-pipeline');
+  const sentinelCookie: SupabaseClient<Database> = createClient(
+    cookieStore,
+    'event-pipeline'
+  );
+  void [legacyNoArg, legacyCookie, sentinelNoArg, sentinelCookie];
+}
+void compileServerFactoryTypes;
 
 describe('server supabase createClient', () => {
   const cookieStore = {

@@ -1,4 +1,6 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Database } from '@/types/supabase';
 
 const { mockCreateClient } = vi.hoisted(() => ({
   mockCreateClient: vi.fn((_url: string, _key: string, _options: unknown) => ({
@@ -14,7 +16,18 @@ vi.mock('@/env', () => ({
   getSupabaseUrl: () => 'https://example.supabase.co',
 }));
 
-import { createServiceClient } from './service';
+import { createServiceClient, type ServiceRoleClient } from './service';
+
+function compileServiceFactoryTypes() {
+  const legacy: SupabaseClient = createServiceClient();
+  const sentinel: ServiceRoleClient = createServiceClient('event-pipeline');
+  const typed: SupabaseClient<Database> = sentinel;
+  const ordinary = {} as SupabaseClient<Database>;
+  // @ts-expect-error An ordinary typed client cannot acquire service authority.
+  const forbidden: ServiceRoleClient = ordinary;
+  void [legacy, typed, forbidden];
+}
+void compileServiceFactoryTypes;
 
 describe('service Supabase client factory', () => {
   beforeEach(() => {

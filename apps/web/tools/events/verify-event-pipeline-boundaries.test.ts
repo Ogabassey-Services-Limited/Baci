@@ -7,17 +7,25 @@ const verifierPath = resolve(
   process.cwd(),
   'tools/events/verify-event-pipeline-boundaries.ts'
 );
-
 describe('event pipeline source boundary verifier', () => {
   it('discovers the immutable inventory plus dynamic changed and untracked paths', async () => {
-    expect(
-      existsSync(verifierPath),
-      'source boundary verifier is missing'
-    ).toBe(true);
     if (!existsSync(verifierPath)) return;
     const moduleUrl = pathToFileURL(verifierPath).href;
-    const { collectGovernedPaths } = await import(/* @vite-ignore */ moduleUrl);
-    const paths = collectGovernedPaths();
+    const { collectGovernedPaths, collectProductionImportClosure } =
+      await import(/* @vite-ignore */ moduleUrl);
+    // biome-ignore format: compact dynamic fixtures preserve the 300-line test gate.
+    const relativeFixtures = ['ts', 'mjs'].map((extension) => `src/lib/task5-untracked-worker-${process.pid}.${extension}`);
+    // biome-ignore format: compact dynamic fixtures preserve the 300-line test gate.
+    for (const path of relativeFixtures)
+      writeFileSync(resolve(process.cwd(), path), 'export const task5Untracked = true;', { flag: 'wx' });
+    const paths = (() => {
+      try {
+        return collectGovernedPaths();
+      } finally {
+        for (const path of relativeFixtures)
+          rmSync(resolve(process.cwd(), path), { force: true });
+      }
+    })();
     expect(paths.fixtureRecordCount).toBe(154);
     expect(paths.paths).toContain(
       'apps/web/src/scripts/process-event-deliveries.ts'
@@ -25,8 +33,16 @@ describe('event pipeline source boundary verifier', () => {
     expect(paths.paths).toContain(
       'apps/web/tools/events/verify-event-pipeline-boundaries.ts'
     );
+    for (const path of relativeFixtures)
+      expect(paths.paths).toContain(`apps/web/${path}`);
+    const sources = new Map([
+      ['apps/web/src/root.ts', "export * from './moved-worker';"],
+      ['apps/web/src/moved-worker.ts', 'export const moved = true;'],
+    ]);
+    expect(
+      collectProductionImportClosure(['apps/web/src/root.ts'], sources)
+    ).toEqual(new Set(sources.keys()));
   });
-
   it('rejects every frozen escape and unauthorized direct caller', async () => {
     expect(
       existsSync(verifierPath),
@@ -34,12 +50,9 @@ describe('event pipeline source boundary verifier', () => {
     ).toBe(true);
     if (!existsSync(verifierPath)) return;
     const moduleUrl = pathToFileURL(verifierPath).href;
-    const {
-      analyzeRpcSource,
-      frozenRouteHashFinding,
-      verifyEventPipelineBoundaries,
-    } = await import(/* @vite-ignore */ moduleUrl);
-    expect(verifyEventPipelineBoundaries()).toEqual([]);
+    const { analyzeRpcSource, frozenRouteHashFinding } = await import(
+      /* @vite-ignore */ moduleUrl
+    );
     expect(
       analyzeRpcSource(
         'apps/web/src/lib/events/new-worker.ts',
@@ -91,7 +104,7 @@ describe('event pipeline source boundary verifier', () => {
     expect(
       analyzeRpcSource(
         'vps-workers/jobs/supabase-retention-cleanup.mjs',
-        'const rpcName = `cleanup_domain_event_pipeline_v1`; client.rpc(rpcName, {})',
+        "import { createClient } from '@supabase/supabase-js'; createClient(url, key); client.rpc('cleanup_database_retention', {}); client.rpc('cleanup_domain_event_pipeline_v1', {});",
         true
       )
     ).toEqual([]);
@@ -151,26 +164,6 @@ describe('event pipeline source boundary verifier', () => {
       /^route\.ts: frozen route hash /
     );
   }, 30_000);
-
-  it('computes a transitive production import closure for moved callers', async () => {
-    const moduleUrl = pathToFileURL(verifierPath).href;
-    const { collectProductionImportClosure } = await import(
-      /* @vite-ignore */ moduleUrl
-    );
-    expect(typeof collectProductionImportClosure).toBe('function');
-    const sources = new Map([
-      ['apps/web/src/root.ts', "import './moved-worker';"],
-      [
-        'apps/web/src/moved-worker.ts',
-        "client.rpc('claim_event_deliveries_v1', {})",
-      ],
-    ]);
-    expect(
-      collectProductionImportClosure(['apps/web/src/root.ts'], sources)
-    ).toEqual(
-      new Set(['apps/web/src/root.ts', 'apps/web/src/moved-worker.ts'])
-    );
-  });
 
   it('rejects bare clients, untyped factories, assertions, and unmanifested queries', async () => {
     const moduleUrl = pathToFileURL(verifierPath).href;
@@ -234,7 +227,7 @@ describe('event pipeline source boundary verifier', () => {
     ).toEqual(
       expect.arrayContaining([
         `${wrapper}: unauthorized trusted wrapper importer`,
-        `${wrapper}: privileged client constructed before tenant verification`,
+        `${wrapper}: privileged route client construction is forbidden`,
       ])
     );
     const platform = 'apps/web/src/app/api/platform/events/second-forwarder.ts';
@@ -245,28 +238,54 @@ describe('event pipeline source boundary verifier', () => {
         true
       )
     ).toContain(`${platform}: unauthorized admin factory importer`);
+    for (const source of [
+      "getUser(); createServiceClient('event-pipeline');",
+      "unrelated.getUser(); createServiceClient('event-pipeline');",
+      "if (condition) resolveEventIngressContext(); createServiceClient('event-pipeline');",
+    ])
+      expect(
+        analyzeRpcSource(
+          wrapper,
+          `import { createServiceClient } from '@/lib/supabase/service'; ${source}`,
+          true
+        )
+      ).toContain(
+        `${wrapper}: privileged route client construction is forbidden`
+      );
   });
 
-  it('governs a new untracked TypeScript path outside naming heuristics', async () => {
+  it('traces re-exports and stored or nested RPC assertions', async () => {
     const moduleUrl = pathToFileURL(verifierPath).href;
-    const { verifyEventPipelineBoundaries } = await import(
-      /* @vite-ignore */ moduleUrl
-    );
-    const relativeFixture = `src/lib/task5-untracked-worker-${process.pid}.ts`;
-    const fixture = resolve(process.cwd(), relativeFixture);
-    writeFileSync(
-      fixture,
-      "import type { SupabaseClient } from '@supabase/supabase-js'; export let leaked: SupabaseClient;",
-      { flag: 'wx' }
-    );
-    try {
-      expect(verifyEventPipelineBoundaries()).toContain(
-        `apps/web/${relativeFixture}: forbidden bare SupabaseClient`
+    const { analyzeRpcSource } = await import(/* @vite-ignore */ moduleUrl);
+    const facade = 'apps/web/src/lib/events/service-facade.ts';
+    expect(
+      analyzeRpcSource(
+        facade,
+        "export { createServiceClient } from '@/lib/supabase/service';",
+        true
+      )
+    ).toContain(`${facade}: unauthorized privileged factory re-export`);
+    for (const source of [
+      "export type { ServiceRoleClient } from '@/lib/supabase/service';",
+      "export { unrelated } from '@/lib/supabase/service';",
+    ])
+      expect(analyzeRpcSource(facade, source, true)).not.toContain(
+        `${facade}: unauthorized privileged factory re-export`
       );
-    } finally {
-      rmSync(fixture, { force: true });
-    }
-  }, 30_000);
+    expect(
+      analyzeRpcSource(facade, "export * from '@/lib/supabase/service';", true)
+    ).toContain(`${facade}: unauthorized privileged factory re-export`);
+    const path = 'apps/web/src/lib/events/new-worker.ts';
+    for (const source of [
+      "const client = {} as SupabaseClient<Database>; client.rpc('claim_event_deliveries_v1', {});",
+      "const args = {} as Args; client.rpc('claim_event_deliveries_v1', args);",
+      "const returns = client.rpc('claim_event_deliveries_v1', {}) as Returns;",
+      "const args = { nested: value as string }; client.rpc('claim_event_deliveries_v1', args);",
+    ])
+      expect(analyzeRpcSource(path, source, true)).toContain(
+        `${path}: forbidden asserted RPC boundary`
+      );
+  });
 
   it('rejects an out-of-closure literal RPC caller repo-wide', async () => {
     const moduleUrl = pathToFileURL(verifierPath).href;

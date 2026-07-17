@@ -198,6 +198,16 @@ export function authorityFindings(
   const listed = (paths: readonly string[]) => paths.includes(path);
   const add = (message: string) => findings.push(`${path}: ${message}`);
   for (const statement of sourceFile.statements) {
+    const reexport = ts.isExportDeclaration(statement) ? statement : undefined;
+    // biome-ignore format: compact AST guard preserves the 300-line module gate.
+    const reexportKind = reexport?.moduleSpecifier && ts.isStringLiteral(reexport.moduleSpecifier) ? factoryModules[reexport.moduleSpecifier.text] : undefined;
+    if (reexportKind === 'admin' || reexportKind === 'service') {
+      const clause = reexport?.exportClause;
+      // biome-ignore format: compact AST guard preserves the 300-line module gate.
+      const privileged = !reexport?.isTypeOnly && (!clause || ts.isNamespaceExport(clause) || clause.elements.some((element) => !element.isTypeOnly && factoryExports[reexportKind].includes(element.propertyName?.text ?? element.name.text)));
+      if (privileged) add('unauthorized privileged factory re-export');
+      continue;
+    }
     if (
       !ts.isImportDeclaration(statement) ||
       !ts.isStringLiteral(statement.moduleSpecifier)
@@ -232,15 +242,7 @@ export function authorityFindings(
     if (importedKinds.has(kind) && !listed(importers))
       add(`unauthorized ${kind} factory importer`);
   const exemptFactory = listed(authority.factoryModules);
-  let verifiedAt = Number.POSITIVE_INFINITY;
   function visit(node: ts.Node) {
-    if (
-      ts.isCallExpression(node) &&
-      (ts.isIdentifier(node.expression)
-        ? node.expression.text === 'resolveEventIngressContext'
-        : memberName(node.expression) === 'getUser')
-    )
-      verifiedAt = Math.min(verifiedAt, node.getStart(sourceFile));
     // biome-ignore format: compact AST guard must stay within the 300-line module gate.
     const bareClient = ts.isTypeReferenceNode(node) && ts.isIdentifier(node.typeName) ? node.typeName.text : ts.isTypeReferenceNode(node) && ts.isQualifiedName(node.typeName) && ts.isIdentifier(node.typeName.left) && node.typeName.right.text === 'SupabaseClient' ? node.typeName.left.text : undefined;
     if (
@@ -282,11 +284,10 @@ export function authorityFindings(
         if (sentinelRequired && !sentinel)
           add(`${kind} factory requires event-pipeline sentinel`);
         if (
-          kind === 'service' &&
-          path.includes('/app/api/') &&
-          verifiedAt >= node.getStart(sourceFile)
+          (kind === 'service' || kind === 'admin') &&
+          path.includes('/app/api/')
         )
-          add('privileged client constructed before tenant verification');
+          add('privileged route client construction is forbidden');
       }
     }
     // biome-ignore format: compact AST guard must stay within the 300-line module gate.

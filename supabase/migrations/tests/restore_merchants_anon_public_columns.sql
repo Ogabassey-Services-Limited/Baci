@@ -8,6 +8,56 @@ BEGIN ISOLATION LEVEL REPEATABLE READ;
 SET LOCAL ROLE service_role;
 SELECT set_config('request.jwt.claim.role', 'service_role', true);
 
+DO $event_pipeline_contracts$
+DECLARE
+  actual text[];
+  names constant text[] := ARRAY[
+    'claim_event_deliveries_v1','cleanup_domain_event_pipeline_v1','dead_letter_ingress_event_v1',
+    'enqueue_domain_event_v1','finish_event_delivery_v1','get_domain_event_queue_metrics_v1',
+    'get_event_pipeline_operations_v1','is_event_ingress_capability_v1','list_event_pipeline_deliveries_v1',
+    'list_event_pipeline_ingress_failures_v1','read_domain_events_v1','record_analytics_domain_event_v1',
+    'record_event_worker_heartbeat_v1','record_platform_domain_event_v1','replay_event_deliveries_batch_v1',
+    'replay_event_delivery_v1','replay_ingress_dead_letter_v1','route_domain_event_v1',
+    'select_event_pipeline_replay_ids_v1'
+  ];
+BEGIN
+  SELECT array_agg(
+    proc.proname || '(' || pg_get_function_identity_arguments(proc.oid) || ')'
+    ORDER BY proc.proname
+  ) INTO actual
+  FROM pg_proc AS proc
+  JOIN pg_namespace AS namespace ON namespace.oid = proc.pronamespace
+  WHERE namespace.nspname = 'public' AND proc.proname = ANY(names);
+  IF actual IS DISTINCT FROM ARRAY[
+    'claim_event_deliveries_v1(p_batch_size integer, p_worker_id text, p_lease_seconds integer)',
+    'cleanup_domain_event_pipeline_v1(p_delivered_attempt_retention interval, p_queue_archive_retention interval)',
+    'dead_letter_ingress_event_v1(p_queue_message_id bigint, p_domain_event_id uuid, p_original_envelope jsonb, p_failure_code text, p_failure_message text, p_parser_version integer)',
+    'enqueue_domain_event_v1(p_producer text, p_trust_level text, p_idempotency_key text, p_external_event_id text, p_event_name text, p_subject_type text, p_subject_id text, p_merchant_id uuid, p_source jsonb, p_data jsonb, p_metadata jsonb, p_occurred_at timestamp with time zone, p_changed_fields text[], p_correlation_id text, p_causation_id uuid)',
+    'finish_event_delivery_v1(p_delivery_id uuid, p_claim_token uuid, p_outcome text, p_available_at timestamp with time zone, p_error_code text, p_error_message text, p_http_status integer, p_provider_response_id text)',
+    'get_domain_event_queue_metrics_v1()','get_event_pipeline_operations_v1()',
+    'is_event_ingress_capability_v1(p_kind text, p_merchant_id uuid, p_event_type text, p_event_name text, p_event_id text, p_event_timestamp timestamp with time zone, p_producer text, p_source text, p_trust_level text)',
+    'list_event_pipeline_deliveries_v1(p_status text, p_limit integer, p_offset integer, p_destination text, p_error_code text, p_merchant_id uuid, p_from timestamp with time zone, p_to timestamp with time zone)',
+    'list_event_pipeline_ingress_failures_v1(p_limit integer, p_offset integer, p_error_code text, p_merchant_id uuid, p_from timestamp with time zone, p_to timestamp with time zone)',
+    'read_domain_events_v1(p_visibility_timeout_seconds integer, p_batch_size integer, p_max_poll_seconds integer)',
+    'record_analytics_domain_event_v1(p_merchant_id uuid, p_event_type text, p_event_name text, p_event_data jsonb, p_domain_event_data jsonb, p_delivery_data jsonb, p_external_event_id text, p_source text, p_producer text, p_trust_level text, p_event_timestamp timestamp with time zone, p_metadata jsonb)',
+    'record_event_worker_heartbeat_v1(p_worker_name text, p_worker_id text, p_status text, p_processed_count integer, p_error_code text)',
+    'record_platform_domain_event_v1(p_event_type text, p_event_name text, p_event_data jsonb, p_delivery_data jsonb, p_external_event_id text, p_merchant_id uuid, p_session_id text, p_page_url text, p_referrer text, p_producer text, p_trust_level text, p_event_timestamp timestamp with time zone, p_metadata jsonb)',
+    'replay_event_deliveries_batch_v1(p_delivery_ids uuid[], p_replayed_by uuid, p_replay_reason text)',
+    'replay_event_delivery_v1(p_delivery_id uuid, p_replayed_by uuid, p_replay_reason text)',
+    'replay_ingress_dead_letter_v1(p_failure_id uuid, p_replayed_by uuid, p_replay_reason text)',
+    'route_domain_event_v1(p_queue_message_id bigint, p_domain_event_id uuid, p_destinations text[], p_shadow boolean, p_active_destinations text[])',
+    'select_event_pipeline_replay_ids_v1(p_status text, p_destination text, p_error_code text, p_merchant_id uuid, p_from timestamp with time zone, p_to timestamp with time zone)'
+  ]::text[] THEN
+    RAISE EXCEPTION 'event pipeline function identity drift: %', actual;
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM pg_proc AS proc JOIN pg_namespace AS namespace ON namespace.oid = proc.pronamespace
+    WHERE namespace.nspname = 'public' AND proc.proname = ANY(names)
+      AND NOT (COALESCE(proc.proconfig, ARRAY[]::text[]) && ARRAY['search_path=','search_path=""'])
+  ) THEN RAISE EXCEPTION 'event pipeline function search_path drift'; END IF;
+END
+$event_pipeline_contracts$;
+
 SET LOCAL ROLE anon;
 SELECT set_config('request.jwt.claim.role', 'anon', true);
 
