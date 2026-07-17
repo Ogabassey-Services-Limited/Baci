@@ -1,0 +1,5 @@
+-- replay-only-transform
+-- original-sha256: 2b1ebac0ab9514d5b6c91e0ebf4543e3470b9fa71b0a80ab0746c9cccc9a4c41
+-- output-sha256: 6f6444120e4cefe5febaba935ea70e7a304bf2d330702afc838d4ab70a77b9d8
+-- search: pg_catalog.extract(epoch FROM (pg_catalog.now() - v_issued_at))
+-- replacement: extract(epoch FROM (pg_catalog.now() - v_issued_at))

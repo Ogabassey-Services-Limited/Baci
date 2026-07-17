@@ -1,0 +1,26 @@
+type ReplaySqlStage = {
+  kind: 'migration' | 'sql-check';
+  ordinal: number;
+  sqlPath: string;
+};
+
+export async function applySupabaseReplaySql(
+  apply: (sqlPath: string) => Promise<unknown>,
+  stage: ReplaySqlStage
+): Promise<void> {
+  try {
+    await apply(stage.sqlPath);
+  } catch (error) {
+    const label =
+      stage.kind === 'migration' ? 'migration application' : 'SQL check';
+    const failure =
+      error instanceof Error
+        ? /^[A-Za-z0-9._-]+ failed: (non-zero-exit|spawn-error|stderr-limit|stdin-limit|stdout-limit|timeout)$/.exec(
+            error.message
+          )?.[1]
+        : undefined;
+    throw new Error(
+      `Replay ${label} failed at ordinal ${stage.ordinal}: ${failure ?? 'unknown'}`
+    );
+  }
+}

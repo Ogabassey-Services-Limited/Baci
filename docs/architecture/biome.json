@@ -1,0 +1,13 @@
+{
+  "root": false,
+  "extends": "//",
+  "overrides": [
+    {
+      "includes": [
+        "durable-event-pipeline-p0-chronological-receipt.json",
+        "durable-event-pipeline-p0-production-effect-receipt.json"
+      ],
+      "formatter": { "enabled": false }
+    }
+  ]
+}
