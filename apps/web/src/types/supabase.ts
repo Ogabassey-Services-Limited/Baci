@@ -7,11 +7,6 @@ export type Json =
   | Json[];
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: '13.0.5';
-  };
   public: {
     Tables: {
       agentic_cart_sessions: {
@@ -698,33 +693,24 @@ export type Database = {
           created_at: string;
           id: string;
           merchant_id: string;
-          metadata: Json;
-          reason: string | null;
           source_slug: string;
           target_post_id: string;
-          target_slug: string;
           updated_at: string;
         };
         Insert: {
           created_at?: string;
           id?: string;
           merchant_id: string;
-          metadata?: Json;
-          reason?: string | null;
           source_slug: string;
           target_post_id: string;
-          target_slug: string;
           updated_at?: string;
         };
         Update: {
           created_at?: string;
           id?: string;
           merchant_id?: string;
-          metadata?: Json;
-          reason?: string | null;
           source_slug?: string;
           target_post_id?: string;
-          target_slug?: string;
           updated_at?: string;
         };
         Relationships: [
@@ -887,27 +873,6 @@ export type Database = {
             referencedColumns: ['merchant_id'];
           },
         ];
-      };
-      blog_posts_content_backup_20260704: {
-        Row: {
-          backed_up_at: string | null;
-          content: string | null;
-          id: string | null;
-          slug: string | null;
-        };
-        Insert: {
-          backed_up_at?: string | null;
-          content?: string | null;
-          id?: string | null;
-          slug?: string | null;
-        };
-        Update: {
-          backed_up_at?: string | null;
-          content?: string | null;
-          id?: string | null;
-          slug?: string | null;
-        };
-        Relationships: [];
       };
       branches: {
         Row: {
@@ -2358,6 +2323,111 @@ export type Database = {
           },
         ];
       };
+      customer_wallet_account_transactions: {
+        Row: {
+          account_id: string;
+          amount: number;
+          balance_after: number;
+          created_at: string;
+          currency: string;
+          customer_id: string;
+          description: string | null;
+          id: string;
+          merchant_id: string;
+          metadata: Json;
+          source_id: string;
+          source_type: string;
+          type: string;
+        };
+        Insert: {
+          account_id: string;
+          amount: number;
+          balance_after: number;
+          created_at?: string;
+          currency: string;
+          customer_id: string;
+          description?: string | null;
+          id?: string;
+          merchant_id: string;
+          metadata?: Json;
+          source_id: string;
+          source_type: string;
+          type: string;
+        };
+        Update: {
+          account_id?: string;
+          amount?: number;
+          balance_after?: number;
+          created_at?: string;
+          currency?: string;
+          customer_id?: string;
+          description?: string | null;
+          id?: string;
+          merchant_id?: string;
+          metadata?: Json;
+          source_id?: string;
+          source_type?: string;
+          type?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'customer_wallet_account_transactions_account_id_fkey';
+            columns: ['account_id'];
+            isOneToOne: false;
+            referencedRelation: 'customer_wallet_accounts';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'customer_wallet_account_transactions_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'customer_insights';
+            referencedColumns: ['customer_id'];
+          },
+          {
+            foreignKeyName: 'customer_wallet_account_transactions_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'customers';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'customer_wallet_account_transactions_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'priority_winback_customers';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'customer_wallet_account_transactions_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'secure_customer_insights';
+            referencedColumns: ['customer_id'];
+          },
+          {
+            foreignKeyName: 'customer_wallet_account_transactions_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchant_health';
+            referencedColumns: ['merchant_id'];
+          },
+          {
+            foreignKeyName: 'customer_wallet_account_transactions_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchants';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'customer_wallet_account_transactions_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'top_merchants';
+            referencedColumns: ['merchant_id'];
+          },
+        ];
+      };
       customer_wallet_accounts: {
         Row: {
           available_balance: number;
@@ -2397,8 +2467,36 @@ export type Database = {
             foreignKeyName: 'customer_wallet_accounts_customer_id_fkey';
             columns: ['customer_id'];
             isOneToOne: false;
+            referencedRelation: 'customer_insights';
+            referencedColumns: ['customer_id'];
+          },
+          {
+            foreignKeyName: 'customer_wallet_accounts_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
             referencedRelation: 'customers';
             referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'customer_wallet_accounts_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'priority_winback_customers';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'customer_wallet_accounts_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'secure_customer_insights';
+            referencedColumns: ['customer_id'];
+          },
+          {
+            foreignKeyName: 'customer_wallet_accounts_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchant_health';
+            referencedColumns: ['merchant_id'];
           },
           {
             foreignKeyName: 'customer_wallet_accounts_merchant_id_fkey';
@@ -2406,6 +2504,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: 'merchants';
             referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'customer_wallet_accounts_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'top_merchants';
+            referencedColumns: ['merchant_id'];
           },
         ];
       };
@@ -2976,6 +3081,181 @@ export type Database = {
           },
         ];
       };
+      domain_event_failure_replays: {
+        Row: {
+          created_at: string;
+          failure_id: string;
+          id: number;
+          queue_message_id: number;
+          replay_number: number;
+          replay_reason: string;
+          replayed_by: string;
+        };
+        Insert: {
+          created_at?: string;
+          failure_id: string;
+          id?: never;
+          queue_message_id: number;
+          replay_number: number;
+          replay_reason: string;
+          replayed_by: string;
+        };
+        Update: {
+          created_at?: string;
+          failure_id?: string;
+          id?: never;
+          queue_message_id?: number;
+          replay_number?: number;
+          replay_reason?: string;
+          replayed_by?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'domain_event_failure_replays_failure_id_fkey';
+            columns: ['failure_id'];
+            isOneToOne: false;
+            referencedRelation: 'domain_event_failures';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      domain_event_failures: {
+        Row: {
+          domain_event_id: string | null;
+          event_name: string | null;
+          failure_code: string;
+          failure_message: string;
+          first_failed_at: string;
+          id: string;
+          last_failed_at: string;
+          merchant_id: string | null;
+          original_envelope: Json;
+          parser_version: number | null;
+          queue_message_id: number;
+          replay_count: number;
+          replay_reason: string | null;
+          replayed_at: string | null;
+          replayed_by: string | null;
+        };
+        Insert: {
+          domain_event_id?: string | null;
+          event_name?: string | null;
+          failure_code: string;
+          failure_message: string;
+          first_failed_at?: string;
+          id?: string;
+          last_failed_at?: string;
+          merchant_id?: string | null;
+          original_envelope: Json;
+          parser_version?: number | null;
+          queue_message_id: number;
+          replay_count?: number;
+          replay_reason?: string | null;
+          replayed_at?: string | null;
+          replayed_by?: string | null;
+        };
+        Update: {
+          domain_event_id?: string | null;
+          event_name?: string | null;
+          failure_code?: string;
+          failure_message?: string;
+          first_failed_at?: string;
+          id?: string;
+          last_failed_at?: string;
+          merchant_id?: string | null;
+          original_envelope?: Json;
+          parser_version?: number | null;
+          queue_message_id?: number;
+          replay_count?: number;
+          replay_reason?: string | null;
+          replayed_at?: string | null;
+          replayed_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'domain_event_failures_domain_event_id_fkey';
+            columns: ['domain_event_id'];
+            isOneToOne: false;
+            referencedRelation: 'domain_event_ledger';
+            referencedColumns: ['domain_event_id'];
+          },
+        ];
+      };
+      domain_event_ledger: {
+        Row: {
+          created_at: string;
+          domain_event_id: string;
+          envelope: Json;
+          event_name: string;
+          external_event_id: string | null;
+          idempotency_key: string;
+          merchant_id: string | null;
+          producer: string;
+          queue_message_id: number | null;
+          routed_at: string | null;
+          schema_version: number;
+          status: string;
+          subject_id: string;
+          subject_type: string;
+          trust_level: string;
+        };
+        Insert: {
+          created_at?: string;
+          domain_event_id?: string;
+          envelope: Json;
+          event_name: string;
+          external_event_id?: string | null;
+          idempotency_key: string;
+          merchant_id?: string | null;
+          producer: string;
+          queue_message_id?: number | null;
+          routed_at?: string | null;
+          schema_version?: number;
+          status?: string;
+          subject_id: string;
+          subject_type: string;
+          trust_level: string;
+        };
+        Update: {
+          created_at?: string;
+          domain_event_id?: string;
+          envelope?: Json;
+          event_name?: string;
+          external_event_id?: string | null;
+          idempotency_key?: string;
+          merchant_id?: string | null;
+          producer?: string;
+          queue_message_id?: number | null;
+          routed_at?: string | null;
+          schema_version?: number;
+          status?: string;
+          subject_id?: string;
+          subject_type?: string;
+          trust_level?: string;
+        };
+        Relationships: [];
+      };
+      domain_event_producer_config: {
+        Row: {
+          enabled: boolean;
+          producer_key: string;
+          shadow_only: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          enabled?: boolean;
+          producer_key: string;
+          shadow_only?: boolean;
+          updated_at?: string;
+        };
+        Update: {
+          enabled?: boolean;
+          producer_key?: string;
+          shadow_only?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       domains: {
         Row: {
           created_at: string | null;
@@ -3190,6 +3470,219 @@ export type Database = {
           },
         ];
       };
+      event_deliveries: {
+        Row: {
+          attempts: number;
+          available_at: string;
+          claim_token: string | null;
+          claimed_at: string | null;
+          claimed_by: string | null;
+          created_at: string;
+          dead_lettered_at: string | null;
+          delivered_at: string | null;
+          destination: string;
+          domain_event_id: string;
+          id: string;
+          last_error_code: string | null;
+          last_error_message: string | null;
+          last_http_status: number | null;
+          last_replay_reason: string | null;
+          last_replayed_at: string | null;
+          last_replayed_by: string | null;
+          payload: Json;
+          provider_response_id: string | null;
+          replay_attempts: number;
+          replay_count: number;
+          shadowed_at: string | null;
+          skipped_at: string | null;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          attempts?: number;
+          available_at?: string;
+          claim_token?: string | null;
+          claimed_at?: string | null;
+          claimed_by?: string | null;
+          created_at?: string;
+          dead_lettered_at?: string | null;
+          delivered_at?: string | null;
+          destination: string;
+          domain_event_id: string;
+          id?: string;
+          last_error_code?: string | null;
+          last_error_message?: string | null;
+          last_http_status?: number | null;
+          last_replay_reason?: string | null;
+          last_replayed_at?: string | null;
+          last_replayed_by?: string | null;
+          payload: Json;
+          provider_response_id?: string | null;
+          replay_attempts?: number;
+          replay_count?: number;
+          shadowed_at?: string | null;
+          skipped_at?: string | null;
+          status?: string;
+          updated_at?: string;
+        };
+        Update: {
+          attempts?: number;
+          available_at?: string;
+          claim_token?: string | null;
+          claimed_at?: string | null;
+          claimed_by?: string | null;
+          created_at?: string;
+          dead_lettered_at?: string | null;
+          delivered_at?: string | null;
+          destination?: string;
+          domain_event_id?: string;
+          id?: string;
+          last_error_code?: string | null;
+          last_error_message?: string | null;
+          last_http_status?: number | null;
+          last_replay_reason?: string | null;
+          last_replayed_at?: string | null;
+          last_replayed_by?: string | null;
+          payload?: Json;
+          provider_response_id?: string | null;
+          replay_attempts?: number;
+          replay_count?: number;
+          shadowed_at?: string | null;
+          skipped_at?: string | null;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'event_deliveries_domain_event_id_fkey';
+            columns: ['domain_event_id'];
+            isOneToOne: false;
+            referencedRelation: 'domain_event_ledger';
+            referencedColumns: ['domain_event_id'];
+          },
+        ];
+      };
+      event_delivery_attempts: {
+        Row: {
+          attempt_number: number;
+          created_at: string;
+          delivery_id: string;
+          duration_ms: number;
+          error_code: string | null;
+          error_message: string | null;
+          finished_at: string;
+          http_status: number | null;
+          id: number;
+          outcome: string;
+          started_at: string;
+          worker_id: string;
+        };
+        Insert: {
+          attempt_number: number;
+          created_at?: string;
+          delivery_id: string;
+          duration_ms: number;
+          error_code?: string | null;
+          error_message?: string | null;
+          finished_at?: string;
+          http_status?: number | null;
+          id?: never;
+          outcome: string;
+          started_at: string;
+          worker_id: string;
+        };
+        Update: {
+          attempt_number?: number;
+          created_at?: string;
+          delivery_id?: string;
+          duration_ms?: number;
+          error_code?: string | null;
+          error_message?: string | null;
+          finished_at?: string;
+          http_status?: number | null;
+          id?: never;
+          outcome?: string;
+          started_at?: string;
+          worker_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'event_delivery_attempts_delivery_id_fkey';
+            columns: ['delivery_id'];
+            isOneToOne: false;
+            referencedRelation: 'event_deliveries';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      event_delivery_replays: {
+        Row: {
+          created_at: string;
+          delivery_id: string;
+          id: number;
+          replay_number: number;
+          replay_reason: string;
+          replayed_by: string;
+        };
+        Insert: {
+          created_at?: string;
+          delivery_id: string;
+          id?: never;
+          replay_number: number;
+          replay_reason: string;
+          replayed_by: string;
+        };
+        Update: {
+          created_at?: string;
+          delivery_id?: string;
+          id?: never;
+          replay_number?: number;
+          replay_reason?: string;
+          replayed_by?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'event_delivery_replays_delivery_id_fkey';
+            columns: ['delivery_id'];
+            isOneToOne: false;
+            referencedRelation: 'event_deliveries';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      event_pipeline_worker_heartbeats: {
+        Row: {
+          last_error_at: string | null;
+          last_error_code: string | null;
+          last_started_at: string | null;
+          last_succeeded_at: string | null;
+          processed_count: number;
+          updated_at: string;
+          worker_id: string;
+          worker_name: string;
+        };
+        Insert: {
+          last_error_at?: string | null;
+          last_error_code?: string | null;
+          last_started_at?: string | null;
+          last_succeeded_at?: string | null;
+          processed_count?: number;
+          updated_at?: string;
+          worker_id: string;
+          worker_name: string;
+        };
+        Update: {
+          last_error_at?: string | null;
+          last_error_code?: string | null;
+          last_started_at?: string | null;
+          last_succeeded_at?: string | null;
+          processed_count?: number;
+          updated_at?: string;
+          worker_id?: string;
+          worker_name?: string;
+        };
+        Relationships: [];
+      };
       expenses: {
         Row: {
           amount: number;
@@ -3382,12 +3875,25 @@ export type Database = {
           amount_ngn: number;
           cached_response: Json | null;
           cached_status: number | null;
+          cost_usd: number | null;
           created_at: string;
           customer_id: string;
+          device_category: string | null;
+          feedback_token_hash: string | null;
           id: string;
           idempotency_key: string;
+          identifier_ciphertext: string | null;
           imei_hash: string;
           merchant_id: string;
+          next_poll_at: string | null;
+          provider: string | null;
+          provider_attempt_started_at: string | null;
+          provider_order_id: string | null;
+          provider_status: string | null;
+          reconcile_attempts: number;
+          reconcile_lease_token: string | null;
+          reconcile_lease_until: string | null;
+          reference_id: string | null;
           response_hash: string | null;
           sickw_status: string | null;
           status: string;
@@ -3398,12 +3904,25 @@ export type Database = {
           amount_ngn: number;
           cached_response?: Json | null;
           cached_status?: number | null;
+          cost_usd?: number | null;
           created_at?: string;
           customer_id: string;
+          device_category?: string | null;
+          feedback_token_hash?: string | null;
           id?: string;
           idempotency_key: string;
+          identifier_ciphertext?: string | null;
           imei_hash: string;
           merchant_id: string;
+          next_poll_at?: string | null;
+          provider?: string | null;
+          provider_attempt_started_at?: string | null;
+          provider_order_id?: string | null;
+          provider_status?: string | null;
+          reconcile_attempts?: number;
+          reconcile_lease_token?: string | null;
+          reconcile_lease_until?: string | null;
+          reference_id?: string | null;
           response_hash?: string | null;
           sickw_status?: string | null;
           status: string;
@@ -3414,12 +3933,25 @@ export type Database = {
           amount_ngn?: number;
           cached_response?: Json | null;
           cached_status?: number | null;
+          cost_usd?: number | null;
           created_at?: string;
           customer_id?: string;
+          device_category?: string | null;
+          feedback_token_hash?: string | null;
           id?: string;
           idempotency_key?: string;
+          identifier_ciphertext?: string | null;
           imei_hash?: string;
           merchant_id?: string;
+          next_poll_at?: string | null;
+          provider?: string | null;
+          provider_attempt_started_at?: string | null;
+          provider_order_id?: string | null;
+          provider_status?: string | null;
+          reconcile_attempts?: number;
+          reconcile_lease_token?: string | null;
+          reconcile_lease_until?: string | null;
+          reference_id?: string | null;
           response_hash?: string | null;
           sickw_status?: string | null;
           status?: string;
@@ -3477,6 +4009,63 @@ export type Database = {
             referencedColumns: ['merchant_id'];
           },
         ];
+      };
+      imei_provider_products: {
+        Row: {
+          active: boolean;
+          category_id: string | null;
+          category_name: string | null;
+          created_at: string;
+          currency: string;
+          input_fields: Json;
+          name: string;
+          order_field_name: string | null;
+          price_usd: number | null;
+          product_id: string;
+          provider: string;
+          raw_product: Json;
+          synced_at: string;
+          turnaround: string | null;
+          type: string;
+          updated_at: string;
+        };
+        Insert: {
+          active?: boolean;
+          category_id?: string | null;
+          category_name?: string | null;
+          created_at?: string;
+          currency?: string;
+          input_fields?: Json;
+          name: string;
+          order_field_name?: string | null;
+          price_usd?: number | null;
+          product_id: string;
+          provider: string;
+          raw_product: Json;
+          synced_at?: string;
+          turnaround?: string | null;
+          type: string;
+          updated_at?: string;
+        };
+        Update: {
+          active?: boolean;
+          category_id?: string | null;
+          category_name?: string | null;
+          created_at?: string;
+          currency?: string;
+          input_fields?: Json;
+          name?: string;
+          order_field_name?: string | null;
+          price_usd?: number | null;
+          product_id?: string;
+          provider?: string;
+          raw_product?: Json;
+          synced_at?: string;
+          turnaround?: string | null;
+          type?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
       };
       import_job_rows: {
         Row: {
@@ -4370,6 +4959,87 @@ export type Database = {
           },
         ];
       };
+      manual_payment_side_effects: {
+        Row: {
+          attempts: number;
+          claim_token: string;
+          claimed_at: string;
+          claimed_by: string;
+          completed_at: string | null;
+          dedupe_id: string;
+          error: string | null;
+          merchant_id: string;
+          order_id: string;
+          status: string;
+          step: string;
+          transaction_id: string;
+        };
+        Insert: {
+          attempts?: number;
+          claim_token: string;
+          claimed_at?: string;
+          claimed_by: string;
+          completed_at?: string | null;
+          dedupe_id: string;
+          error?: string | null;
+          merchant_id: string;
+          order_id: string;
+          status: string;
+          step: string;
+          transaction_id: string;
+        };
+        Update: {
+          attempts?: number;
+          claim_token?: string;
+          claimed_at?: string;
+          claimed_by?: string;
+          completed_at?: string | null;
+          dedupe_id?: string;
+          error?: string | null;
+          merchant_id?: string;
+          order_id?: string;
+          status?: string;
+          step?: string;
+          transaction_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'manual_payment_side_effects_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchant_health';
+            referencedColumns: ['merchant_id'];
+          },
+          {
+            foreignKeyName: 'manual_payment_side_effects_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchants';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'manual_payment_side_effects_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'top_merchants';
+            referencedColumns: ['merchant_id'];
+          },
+          {
+            foreignKeyName: 'manual_payment_side_effects_order_id_fkey';
+            columns: ['order_id'];
+            isOneToOne: false;
+            referencedRelation: 'orders';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'manual_payment_side_effects_transaction_id_fkey';
+            columns: ['transaction_id'];
+            isOneToOne: false;
+            referencedRelation: 'transactions';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       marketplace_integrations: {
         Row: {
           access_token: string | null;
@@ -4829,6 +5499,8 @@ export type Database = {
           preferred_international_gateway: string | null;
           preferred_local_gateway: string | null;
           privacy_page_enabled: boolean | null;
+          repair_settings: Json | null;
+          repairs_catalog_enabled: boolean | null;
           reviews_enabled: boolean | null;
           rewards_page_enabled: boolean | null;
           shipping_insurance_enabled: boolean | null;
@@ -4910,6 +5582,8 @@ export type Database = {
           preferred_international_gateway?: string | null;
           preferred_local_gateway?: string | null;
           privacy_page_enabled?: boolean | null;
+          repair_settings?: Json | null;
+          repairs_catalog_enabled?: boolean | null;
           reviews_enabled?: boolean | null;
           rewards_page_enabled?: boolean | null;
           shipping_insurance_enabled?: boolean | null;
@@ -4991,6 +5665,8 @@ export type Database = {
           preferred_international_gateway?: string | null;
           preferred_local_gateway?: string | null;
           privacy_page_enabled?: boolean | null;
+          repair_settings?: Json | null;
+          repairs_catalog_enabled?: boolean | null;
           reviews_enabled?: boolean | null;
           rewards_page_enabled?: boolean | null;
           shipping_insurance_enabled?: boolean | null;
@@ -5242,6 +5918,185 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: 'merchant_wallets';
             referencedColumns: ['id'];
+          },
+        ];
+      };
+      merchant_shipping_rates: {
+        Row: {
+          active: boolean;
+          base_amount: number;
+          condition_type: string;
+          created_at: string;
+          currency: string;
+          delivery_max_days: number | null;
+          delivery_min_days: number | null;
+          free_over_amount: number | null;
+          id: string;
+          kind: string;
+          max_subtotal: number | null;
+          merchant_id: string;
+          min_subtotal: number | null;
+          name: string;
+          pickup_address: Json | null;
+          sort_order: number;
+          updated_at: string;
+          zone_id: string;
+        };
+        Insert: {
+          active?: boolean;
+          base_amount?: number;
+          condition_type?: string;
+          created_at?: string;
+          currency: string;
+          delivery_max_days?: number | null;
+          delivery_min_days?: number | null;
+          free_over_amount?: number | null;
+          id?: string;
+          kind?: string;
+          max_subtotal?: number | null;
+          merchant_id: string;
+          min_subtotal?: number | null;
+          name: string;
+          pickup_address?: Json | null;
+          sort_order?: number;
+          updated_at?: string;
+          zone_id: string;
+        };
+        Update: {
+          active?: boolean;
+          base_amount?: number;
+          condition_type?: string;
+          created_at?: string;
+          currency?: string;
+          delivery_max_days?: number | null;
+          delivery_min_days?: number | null;
+          free_over_amount?: number | null;
+          id?: string;
+          kind?: string;
+          max_subtotal?: number | null;
+          merchant_id?: string;
+          min_subtotal?: number | null;
+          name?: string;
+          pickup_address?: Json | null;
+          sort_order?: number;
+          updated_at?: string;
+          zone_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'merchant_shipping_rates_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchant_health';
+            referencedColumns: ['merchant_id'];
+          },
+          {
+            foreignKeyName: 'merchant_shipping_rates_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchants';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'merchant_shipping_rates_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'top_merchants';
+            referencedColumns: ['merchant_id'];
+          },
+          {
+            foreignKeyName: 'merchant_shipping_rates_zone_merchant_fkey';
+            columns: ['zone_id', 'merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchant_shipping_zones';
+            referencedColumns: ['id', 'merchant_id'];
+          },
+        ];
+      };
+      merchant_shipping_zone_locations: {
+        Row: {
+          country_code: string;
+          created_at: string;
+          id: string;
+          merchant_id: string;
+          subdivision_code: string | null;
+          zone_id: string;
+        };
+        Insert: {
+          country_code: string;
+          created_at?: string;
+          id?: string;
+          merchant_id: string;
+          subdivision_code?: string | null;
+          zone_id: string;
+        };
+        Update: {
+          country_code?: string;
+          created_at?: string;
+          id?: string;
+          merchant_id?: string;
+          subdivision_code?: string | null;
+          zone_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'merchant_shipping_zone_locations_zone_merchant_fkey';
+            columns: ['zone_id', 'merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchant_shipping_zones';
+            referencedColumns: ['id', 'merchant_id'];
+          },
+        ];
+      };
+      merchant_shipping_zones: {
+        Row: {
+          active: boolean;
+          created_at: string;
+          id: string;
+          is_rest_of_world: boolean;
+          merchant_id: string;
+          name: string;
+          updated_at: string;
+        };
+        Insert: {
+          active?: boolean;
+          created_at?: string;
+          id?: string;
+          is_rest_of_world?: boolean;
+          merchant_id: string;
+          name: string;
+          updated_at?: string;
+        };
+        Update: {
+          active?: boolean;
+          created_at?: string;
+          id?: string;
+          is_rest_of_world?: boolean;
+          merchant_id?: string;
+          name?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'merchant_shipping_zones_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchant_health';
+            referencedColumns: ['merchant_id'];
+          },
+          {
+            foreignKeyName: 'merchant_shipping_zones_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchants';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'merchant_shipping_zones_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'top_merchants';
+            referencedColumns: ['merchant_id'];
           },
         ];
       };
@@ -6580,6 +7435,104 @@ export type Database = {
           },
         ];
       };
+      order_notification_outbox: {
+        Row: {
+          attempt_count: number;
+          created_at: string;
+          dispatch_started_at: string | null;
+          event_sequence: number;
+          event_type: string;
+          fulfillment_cycle_id: string;
+          id: string;
+          last_error: string | null;
+          locked_at: string | null;
+          locked_by: string | null;
+          max_attempts: number;
+          merchant_id: string;
+          metadata: Json;
+          next_attempt_at: string | null;
+          order_id: string;
+          sent_at: string | null;
+          skip_reason: string | null;
+          skipped_at: string | null;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          attempt_count?: number;
+          created_at?: string;
+          dispatch_started_at?: string | null;
+          event_sequence?: number;
+          event_type: string;
+          fulfillment_cycle_id: string;
+          id?: string;
+          last_error?: string | null;
+          locked_at?: string | null;
+          locked_by?: string | null;
+          max_attempts?: number;
+          merchant_id: string;
+          metadata?: Json;
+          next_attempt_at?: string | null;
+          order_id: string;
+          sent_at?: string | null;
+          skip_reason?: string | null;
+          skipped_at?: string | null;
+          status?: string;
+          updated_at?: string;
+        };
+        Update: {
+          attempt_count?: number;
+          created_at?: string;
+          dispatch_started_at?: string | null;
+          event_sequence?: number;
+          event_type?: string;
+          fulfillment_cycle_id?: string;
+          id?: string;
+          last_error?: string | null;
+          locked_at?: string | null;
+          locked_by?: string | null;
+          max_attempts?: number;
+          merchant_id?: string;
+          metadata?: Json;
+          next_attempt_at?: string | null;
+          order_id?: string;
+          sent_at?: string | null;
+          skip_reason?: string | null;
+          skipped_at?: string | null;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'order_notification_outbox_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchant_health';
+            referencedColumns: ['merchant_id'];
+          },
+          {
+            foreignKeyName: 'order_notification_outbox_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchants';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'order_notification_outbox_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'top_merchants';
+            referencedColumns: ['merchant_id'];
+          },
+          {
+            foreignKeyName: 'order_notification_outbox_order_id_fkey';
+            columns: ['order_id'];
+            isOneToOne: false;
+            referencedRelation: 'orders';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       order_payment_accounts: {
         Row: {
           account_name: string;
@@ -7028,6 +7981,7 @@ export type Database = {
           firs_submission_status: string | null;
           firs_submitted_at: string | null;
           fulfillment_details: Json | null;
+          fulfillment_notification_cycle_id: string;
           fulfillment_type: string | null;
           gift_wrapping_fee: number;
           id: string;
@@ -7044,7 +7998,6 @@ export type Database = {
           order_number: string;
           original_currency: string | null;
           original_total: number | null;
-          paid_at: string | null;
           payment_due_date: string | null;
           payment_method: string | null;
           payment_status: string;
@@ -7061,7 +8014,10 @@ export type Database = {
           shipped_at: string | null;
           shipping_address: Json | null;
           shipping_fee: number | null;
+          shipping_pickup_details: Json | null;
           shipping_provider: string | null;
+          shipping_rate_id: string | null;
+          shipping_rate_name: string | null;
           shipping_status: string;
           source: string | null;
           subtotal: number | null;
@@ -7107,6 +8063,7 @@ export type Database = {
           firs_submission_status?: string | null;
           firs_submitted_at?: string | null;
           fulfillment_details?: Json | null;
+          fulfillment_notification_cycle_id?: string;
           fulfillment_type?: string | null;
           gift_wrapping_fee?: number;
           id?: string;
@@ -7123,7 +8080,6 @@ export type Database = {
           order_number: string;
           original_currency?: string | null;
           original_total?: number | null;
-          paid_at?: string | null;
           payment_due_date?: string | null;
           payment_method?: string | null;
           payment_status?: string;
@@ -7140,7 +8096,10 @@ export type Database = {
           shipped_at?: string | null;
           shipping_address?: Json | null;
           shipping_fee?: number | null;
+          shipping_pickup_details?: Json | null;
           shipping_provider?: string | null;
+          shipping_rate_id?: string | null;
+          shipping_rate_name?: string | null;
           shipping_status?: string;
           source?: string | null;
           subtotal?: number | null;
@@ -7186,6 +8145,7 @@ export type Database = {
           firs_submission_status?: string | null;
           firs_submitted_at?: string | null;
           fulfillment_details?: Json | null;
+          fulfillment_notification_cycle_id?: string;
           fulfillment_type?: string | null;
           gift_wrapping_fee?: number;
           id?: string;
@@ -7202,7 +8162,6 @@ export type Database = {
           order_number?: string;
           original_currency?: string | null;
           original_total?: number | null;
-          paid_at?: string | null;
           payment_due_date?: string | null;
           payment_method?: string | null;
           payment_status?: string;
@@ -7219,7 +8178,10 @@ export type Database = {
           shipped_at?: string | null;
           shipping_address?: Json | null;
           shipping_fee?: number | null;
+          shipping_pickup_details?: Json | null;
           shipping_provider?: string | null;
+          shipping_rate_id?: string | null;
+          shipping_rate_name?: string | null;
           shipping_status?: string;
           source?: string | null;
           subtotal?: number | null;
@@ -7326,6 +8288,13 @@ export type Database = {
             columns: ['shipment_id'];
             isOneToOne: false;
             referencedRelation: 'shipments';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'orders_shipping_rate_id_fkey';
+            columns: ['shipping_rate_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchant_shipping_rates';
             referencedColumns: ['id'];
           },
           {
@@ -7718,10 +8687,415 @@ export type Database = {
           },
         ];
       };
+      petrock_feedback_events: {
+        Row: {
+          body_bytes: number;
+          body_keys: string[];
+          body_sha256: string;
+          content_type: string | null;
+          id: string;
+          lookup_id: string;
+          query_keys: string[];
+          received_at: string;
+        };
+        Insert: {
+          body_bytes: number;
+          body_keys?: string[];
+          body_sha256: string;
+          content_type?: string | null;
+          id?: string;
+          lookup_id: string;
+          query_keys?: string[];
+          received_at?: string;
+        };
+        Update: {
+          body_bytes?: number;
+          body_keys?: string[];
+          body_sha256?: string;
+          content_type?: string | null;
+          id?: string;
+          lookup_id?: string;
+          query_keys?: string[];
+          received_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'petrock_feedback_events_lookup_id_fkey';
+            columns: ['lookup_id'];
+            isOneToOne: false;
+            referencedRelation: 'imei_lookup_customer_status';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'petrock_feedback_events_lookup_id_fkey';
+            columns: ['lookup_id'];
+            isOneToOne: false;
+            referencedRelation: 'imei_lookups';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      petrock_order_events: {
+        Row: {
+          actor: string;
+          created_at: string;
+          event_type: string;
+          from_status: string | null;
+          id: string;
+          metadata: Json;
+          order_id: string;
+          to_status: string | null;
+        };
+        Insert: {
+          actor?: string;
+          created_at?: string;
+          event_type: string;
+          from_status?: string | null;
+          id?: string;
+          metadata?: Json;
+          order_id: string;
+          to_status?: string | null;
+        };
+        Update: {
+          actor?: string;
+          created_at?: string;
+          event_type?: string;
+          from_status?: string | null;
+          id?: string;
+          metadata?: Json;
+          order_id?: string;
+          to_status?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'petrock_order_events_order_id_fkey';
+            columns: ['order_id'];
+            isOneToOne: false;
+            referencedRelation: 'petrock_order_customer_status';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'petrock_order_events_order_id_fkey';
+            columns: ['order_id'];
+            isOneToOne: false;
+            referencedRelation: 'petrock_orders';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      petrock_orders: {
+        Row: {
+          amount_ngn: number | null;
+          amount_usdt: number | null;
+          carrier: string | null;
+          completed_at: string | null;
+          cost_usd: number | null;
+          created_at: string;
+          customer_id: string;
+          customer_message: string | null;
+          device_model: string | null;
+          eligibility_checks_completed: string[];
+          eligibility_evidence: Json;
+          eligibility_next_check: string | null;
+          email_notification_claim_token: string | null;
+          email_notification_claim_until: string | null;
+          email_notified_at: string | null;
+          failure_reason: string | null;
+          feedback_token_hash: string | null;
+          fx_rate_used: number | null;
+          id: string;
+          identifier_ciphertext: string | null;
+          identifier_hash: string;
+          in_app_notified_at: string | null;
+          merchant_id: string;
+          next_poll_at: string | null;
+          paid_at: string | null;
+          payment_currency: string | null;
+          provider_attempt_started_at: string | null;
+          provider_order_id: string | null;
+          provider_reference_id: string | null;
+          provider_status: string | null;
+          push_notification_claim_token: string | null;
+          push_notification_claim_until: string | null;
+          push_notified_at: string | null;
+          reconcile_attempts: number;
+          reconcile_lease_token: string | null;
+          reconcile_lease_until: string | null;
+          refund_policy: string | null;
+          refunded_at: string | null;
+          remediation_product_id: string | null;
+          source_lookup_id: string;
+          status: string;
+          status_segment: string | null;
+          submitted_at: string | null;
+          success_rate: number | null;
+          turnaround: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          amount_ngn?: number | null;
+          amount_usdt?: number | null;
+          carrier?: string | null;
+          completed_at?: string | null;
+          cost_usd?: number | null;
+          created_at?: string;
+          customer_id: string;
+          customer_message?: string | null;
+          device_model?: string | null;
+          eligibility_checks_completed?: string[];
+          eligibility_evidence?: Json;
+          eligibility_next_check?: string | null;
+          email_notification_claim_token?: string | null;
+          email_notification_claim_until?: string | null;
+          email_notified_at?: string | null;
+          failure_reason?: string | null;
+          feedback_token_hash?: string | null;
+          fx_rate_used?: number | null;
+          id?: string;
+          identifier_ciphertext?: string | null;
+          identifier_hash: string;
+          in_app_notified_at?: string | null;
+          merchant_id: string;
+          next_poll_at?: string | null;
+          paid_at?: string | null;
+          payment_currency?: string | null;
+          provider_attempt_started_at?: string | null;
+          provider_order_id?: string | null;
+          provider_reference_id?: string | null;
+          provider_status?: string | null;
+          push_notification_claim_token?: string | null;
+          push_notification_claim_until?: string | null;
+          push_notified_at?: string | null;
+          reconcile_attempts?: number;
+          reconcile_lease_token?: string | null;
+          reconcile_lease_until?: string | null;
+          refund_policy?: string | null;
+          refunded_at?: string | null;
+          remediation_product_id?: string | null;
+          source_lookup_id: string;
+          status?: string;
+          status_segment?: string | null;
+          submitted_at?: string | null;
+          success_rate?: number | null;
+          turnaround?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          amount_ngn?: number | null;
+          amount_usdt?: number | null;
+          carrier?: string | null;
+          completed_at?: string | null;
+          cost_usd?: number | null;
+          created_at?: string;
+          customer_id?: string;
+          customer_message?: string | null;
+          device_model?: string | null;
+          eligibility_checks_completed?: string[];
+          eligibility_evidence?: Json;
+          eligibility_next_check?: string | null;
+          email_notification_claim_token?: string | null;
+          email_notification_claim_until?: string | null;
+          email_notified_at?: string | null;
+          failure_reason?: string | null;
+          feedback_token_hash?: string | null;
+          fx_rate_used?: number | null;
+          id?: string;
+          identifier_ciphertext?: string | null;
+          identifier_hash?: string;
+          in_app_notified_at?: string | null;
+          merchant_id?: string;
+          next_poll_at?: string | null;
+          paid_at?: string | null;
+          payment_currency?: string | null;
+          provider_attempt_started_at?: string | null;
+          provider_order_id?: string | null;
+          provider_reference_id?: string | null;
+          provider_status?: string | null;
+          push_notification_claim_token?: string | null;
+          push_notification_claim_until?: string | null;
+          push_notified_at?: string | null;
+          reconcile_attempts?: number;
+          reconcile_lease_token?: string | null;
+          reconcile_lease_until?: string | null;
+          refund_policy?: string | null;
+          refunded_at?: string | null;
+          remediation_product_id?: string | null;
+          source_lookup_id?: string;
+          status?: string;
+          status_segment?: string | null;
+          submitted_at?: string | null;
+          success_rate?: number | null;
+          turnaround?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'petrock_orders_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'customer_insights';
+            referencedColumns: ['customer_id'];
+          },
+          {
+            foreignKeyName: 'petrock_orders_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'customers';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'petrock_orders_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'priority_winback_customers';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'petrock_orders_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'secure_customer_insights';
+            referencedColumns: ['customer_id'];
+          },
+          {
+            foreignKeyName: 'petrock_orders_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchant_health';
+            referencedColumns: ['merchant_id'];
+          },
+          {
+            foreignKeyName: 'petrock_orders_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchants';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'petrock_orders_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'top_merchants';
+            referencedColumns: ['merchant_id'];
+          },
+          {
+            foreignKeyName: 'petrock_orders_remediation_product_id_fkey';
+            columns: ['remediation_product_id'];
+            isOneToOne: false;
+            referencedRelation: 'petrock_remediation_products';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'petrock_orders_source_lookup_id_fkey';
+            columns: ['source_lookup_id'];
+            isOneToOne: false;
+            referencedRelation: 'imei_lookup_customer_status';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'petrock_orders_source_lookup_id_fkey';
+            columns: ['source_lookup_id'];
+            isOneToOne: false;
+            referencedRelation: 'imei_lookups';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      petrock_remediation_products: {
+        Row: {
+          carrier: string | null;
+          catalog_synced_at: string | null;
+          category_id: string | null;
+          cost_usd: number | null;
+          created_at: string;
+          excluded_reason: string | null;
+          fixture_verified: boolean;
+          id: string;
+          is_active: boolean;
+          launch_carrier: boolean;
+          manual_disabled: boolean;
+          model_scope: Json;
+          order_field_name: string | null;
+          parser_version: number;
+          price_ngn: number | null;
+          price_usdt: number | null;
+          provider_product_id: string;
+          raw_name: string;
+          refund_policy: string;
+          region: string | null;
+          review_status: string;
+          reviewed_at: string | null;
+          reviewed_by: string | null;
+          status_segment: string;
+          success_rate: number | null;
+          turnaround: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          carrier?: string | null;
+          catalog_synced_at?: string | null;
+          category_id?: string | null;
+          cost_usd?: number | null;
+          created_at?: string;
+          excluded_reason?: string | null;
+          fixture_verified?: boolean;
+          id?: string;
+          is_active?: boolean;
+          launch_carrier?: boolean;
+          manual_disabled?: boolean;
+          model_scope?: Json;
+          order_field_name?: string | null;
+          parser_version?: number;
+          price_ngn?: number | null;
+          price_usdt?: number | null;
+          provider_product_id: string;
+          raw_name: string;
+          refund_policy: string;
+          region?: string | null;
+          review_status?: string;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          status_segment?: string;
+          success_rate?: number | null;
+          turnaround?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          carrier?: string | null;
+          catalog_synced_at?: string | null;
+          category_id?: string | null;
+          cost_usd?: number | null;
+          created_at?: string;
+          excluded_reason?: string | null;
+          fixture_verified?: boolean;
+          id?: string;
+          is_active?: boolean;
+          launch_carrier?: boolean;
+          manual_disabled?: boolean;
+          model_scope?: Json;
+          order_field_name?: string | null;
+          parser_version?: number;
+          price_ngn?: number | null;
+          price_usdt?: number | null;
+          provider_product_id?: string;
+          raw_name?: string;
+          refund_policy?: string;
+          region?: string | null;
+          review_status?: string;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          status_segment?: string;
+          success_rate?: number | null;
+          turnaround?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       platform_events: {
         Row: {
           created_at: string | null;
           event_data: Json | null;
+          event_id: string | null;
           event_timestamp: string | null;
           event_type: string;
           id: string;
@@ -7736,6 +9110,7 @@ export type Database = {
         Insert: {
           created_at?: string | null;
           event_data?: Json | null;
+          event_id?: string | null;
           event_timestamp?: string | null;
           event_type: string;
           id?: string;
@@ -7750,6 +9125,7 @@ export type Database = {
         Update: {
           created_at?: string | null;
           event_data?: Json | null;
+          event_id?: string | null;
           event_timestamp?: string | null;
           event_type?: string;
           id?: string;
@@ -8774,7 +10150,6 @@ export type Database = {
         Row: {
           available_conditions: string[];
           average_rating: number;
-          barcode: string | null;
           brand: string | null;
           brand_id: string | null;
           canonical_url: string | null;
@@ -8854,7 +10229,6 @@ export type Database = {
         Insert: {
           available_conditions?: string[];
           average_rating?: number;
-          barcode?: string | null;
           brand?: string | null;
           brand_id?: string | null;
           canonical_url?: string | null;
@@ -8934,7 +10308,6 @@ export type Database = {
         Update: {
           available_conditions?: string[];
           average_rating?: number;
-          barcode?: string | null;
           brand?: string | null;
           brand_id?: string | null;
           canonical_url?: string | null;
@@ -9398,6 +10771,45 @@ export type Database = {
             columns: ['attempt_question_id'];
             isOneToOne: true;
             referencedRelation: 'quiz_attempt_questions';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      quiz_attempt_devices: {
+        Row: {
+          allowed: boolean;
+          attempt_id: string;
+          created_at: string;
+          device_hash: string;
+          event_id: string;
+        };
+        Insert: {
+          allowed?: boolean;
+          attempt_id: string;
+          created_at?: string;
+          device_hash: string;
+          event_id: string;
+        };
+        Update: {
+          allowed?: boolean;
+          attempt_id?: string;
+          created_at?: string;
+          device_hash?: string;
+          event_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'quiz_attempt_devices_attempt_id_fkey';
+            columns: ['attempt_id'];
+            isOneToOne: true;
+            referencedRelation: 'quiz_attempts';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'quiz_attempt_devices_event_id_fkey';
+            columns: ['event_id'];
+            isOneToOne: false;
+            referencedRelation: 'quiz_events';
             referencedColumns: ['id'];
           },
         ];
@@ -10402,6 +11814,335 @@ export type Database = {
           },
         ];
       };
+      repair_devices: {
+        Row: {
+          aliases: string[];
+          brand: string;
+          created_at: string;
+          device_type: string | null;
+          id: string;
+          image_url: string | null;
+          is_active: boolean;
+          merchant_id: string;
+          model: string;
+          product_id: string | null;
+          slug: string;
+          sort_order: number;
+          updated_at: string;
+        };
+        Insert: {
+          aliases?: string[];
+          brand: string;
+          created_at?: string;
+          device_type?: string | null;
+          id?: string;
+          image_url?: string | null;
+          is_active?: boolean;
+          merchant_id: string;
+          model: string;
+          product_id?: string | null;
+          slug: string;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Update: {
+          aliases?: string[];
+          brand?: string;
+          created_at?: string;
+          device_type?: string | null;
+          id?: string;
+          image_url?: string | null;
+          is_active?: boolean;
+          merchant_id?: string;
+          model?: string;
+          product_id?: string | null;
+          slug?: string;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'repair_devices_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchant_health';
+            referencedColumns: ['merchant_id'];
+          },
+          {
+            foreignKeyName: 'repair_devices_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchants';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'repair_devices_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'top_merchants';
+            referencedColumns: ['merchant_id'];
+          },
+          {
+            foreignKeyName: 'repair_devices_product_fk';
+            columns: ['product_id', 'merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'low_stock_products';
+            referencedColumns: ['id', 'merchant_id'];
+          },
+          {
+            foreignKeyName: 'repair_devices_product_fk';
+            columns: ['product_id', 'merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'product_performance';
+            referencedColumns: ['product_id', 'merchant_id'];
+          },
+          {
+            foreignKeyName: 'repair_devices_product_fk';
+            columns: ['product_id', 'merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'products';
+            referencedColumns: ['id', 'merchant_id'];
+          },
+          {
+            foreignKeyName: 'repair_devices_product_fk';
+            columns: ['product_id', 'merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'secure_product_performance';
+            referencedColumns: ['product_id', 'merchant_id'];
+          },
+        ];
+      };
+      repair_pickup_quotes: {
+        Row: {
+          carrier_name: string | null;
+          charge: number;
+          created_at: string;
+          currency: string;
+          estimated_days: number | null;
+          expires_at: string;
+          id: string;
+          merchant_id: string;
+          provider: string;
+          provider_metadata: Json | null;
+          provider_rate_id: string | null;
+          quote_request: Json;
+          repair_id: string;
+          service_tier: string | null;
+          updated_at: string;
+          used: boolean;
+        };
+        Insert: {
+          carrier_name?: string | null;
+          charge: number;
+          created_at?: string;
+          currency?: string;
+          estimated_days?: number | null;
+          expires_at: string;
+          id?: string;
+          merchant_id: string;
+          provider?: string;
+          provider_metadata?: Json | null;
+          provider_rate_id?: string | null;
+          quote_request: Json;
+          repair_id: string;
+          service_tier?: string | null;
+          updated_at?: string;
+          used?: boolean;
+        };
+        Update: {
+          carrier_name?: string | null;
+          charge?: number;
+          created_at?: string;
+          currency?: string;
+          estimated_days?: number | null;
+          expires_at?: string;
+          id?: string;
+          merchant_id?: string;
+          provider?: string;
+          provider_metadata?: Json | null;
+          provider_rate_id?: string | null;
+          quote_request?: Json;
+          repair_id?: string;
+          service_tier?: string | null;
+          updated_at?: string;
+          used?: boolean;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'repair_pickup_quotes_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchant_health';
+            referencedColumns: ['merchant_id'];
+          },
+          {
+            foreignKeyName: 'repair_pickup_quotes_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchants';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'repair_pickup_quotes_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'top_merchants';
+            referencedColumns: ['merchant_id'];
+          },
+          {
+            foreignKeyName: 'repair_pickup_quotes_repair_fk';
+            columns: ['repair_id', 'merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'repairs';
+            referencedColumns: ['id', 'merchant_id'];
+          },
+        ];
+      };
+      repair_quotes: {
+        Row: {
+          created_at: string;
+          description: string | null;
+          device_id: string;
+          id: string;
+          internal_notes: string | null;
+          is_active: boolean;
+          is_from_price: boolean;
+          merchant_id: string;
+          part_quality: string | null;
+          price: number;
+          service_type_id: string;
+          turnaround: string | null;
+          updated_at: string;
+          warranty_days: number | null;
+        };
+        Insert: {
+          created_at?: string;
+          description?: string | null;
+          device_id: string;
+          id?: string;
+          internal_notes?: string | null;
+          is_active?: boolean;
+          is_from_price?: boolean;
+          merchant_id: string;
+          part_quality?: string | null;
+          price: number;
+          service_type_id: string;
+          turnaround?: string | null;
+          updated_at?: string;
+          warranty_days?: number | null;
+        };
+        Update: {
+          created_at?: string;
+          description?: string | null;
+          device_id?: string;
+          id?: string;
+          internal_notes?: string | null;
+          is_active?: boolean;
+          is_from_price?: boolean;
+          merchant_id?: string;
+          part_quality?: string | null;
+          price?: number;
+          service_type_id?: string;
+          turnaround?: string | null;
+          updated_at?: string;
+          warranty_days?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'repair_quotes_device_fk';
+            columns: ['device_id', 'merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'repair_devices';
+            referencedColumns: ['id', 'merchant_id'];
+          },
+          {
+            foreignKeyName: 'repair_quotes_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchant_health';
+            referencedColumns: ['merchant_id'];
+          },
+          {
+            foreignKeyName: 'repair_quotes_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchants';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'repair_quotes_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'top_merchants';
+            referencedColumns: ['merchant_id'];
+          },
+          {
+            foreignKeyName: 'repair_quotes_service_type_fk';
+            columns: ['service_type_id', 'merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'repair_service_types';
+            referencedColumns: ['id', 'merchant_id'];
+          },
+        ];
+      };
+      repair_service_types: {
+        Row: {
+          created_at: string;
+          description: string | null;
+          id: string;
+          is_active: boolean;
+          merchant_id: string;
+          name: string;
+          slug: string;
+          sort_order: number;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          is_active?: boolean;
+          merchant_id: string;
+          name: string;
+          slug: string;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          is_active?: boolean;
+          merchant_id?: string;
+          name?: string;
+          slug?: string;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'repair_service_types_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchant_health';
+            referencedColumns: ['merchant_id'];
+          },
+          {
+            foreignKeyName: 'repair_service_types_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchants';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'repair_service_types_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'top_merchants';
+            referencedColumns: ['merchant_id'];
+          },
+        ];
+      };
       repairs: {
         Row: {
           admin_notes: string | null;
@@ -10409,6 +12150,7 @@ export type Database = {
           customer_email: string;
           customer_name: string;
           customer_phone: string;
+          device_id: string | null;
           device_model: string;
           device_type: string;
           estimated_cost: number | null;
@@ -10416,8 +12158,14 @@ export type Database = {
           issue_description: string;
           merchant_id: string;
           pickup_address: string | null;
+          pickup_booking_lock_token: string | null;
+          pickup_booking_started_at: string | null;
           preferred_date: string | null;
+          quote_id: string | null;
+          quoted_price: number | null;
+          repair_type_label: string | null;
           service_type: string;
+          shipment_id: string | null;
           status: Database['public']['Enums']['repair_status'];
           ticket_number: number;
           updated_at: string;
@@ -10428,6 +12176,7 @@ export type Database = {
           customer_email: string;
           customer_name: string;
           customer_phone: string;
+          device_id?: string | null;
           device_model: string;
           device_type: string;
           estimated_cost?: number | null;
@@ -10435,8 +12184,14 @@ export type Database = {
           issue_description: string;
           merchant_id: string;
           pickup_address?: string | null;
+          pickup_booking_lock_token?: string | null;
+          pickup_booking_started_at?: string | null;
           preferred_date?: string | null;
+          quote_id?: string | null;
+          quoted_price?: number | null;
+          repair_type_label?: string | null;
           service_type?: string;
+          shipment_id?: string | null;
           status?: Database['public']['Enums']['repair_status'];
           ticket_number?: number;
           updated_at?: string;
@@ -10447,6 +12202,7 @@ export type Database = {
           customer_email?: string;
           customer_name?: string;
           customer_phone?: string;
+          device_id?: string | null;
           device_model?: string;
           device_type?: string;
           estimated_cost?: number | null;
@@ -10454,13 +12210,26 @@ export type Database = {
           issue_description?: string;
           merchant_id?: string;
           pickup_address?: string | null;
+          pickup_booking_lock_token?: string | null;
+          pickup_booking_started_at?: string | null;
           preferred_date?: string | null;
+          quote_id?: string | null;
+          quoted_price?: number | null;
+          repair_type_label?: string | null;
           service_type?: string;
+          shipment_id?: string | null;
           status?: Database['public']['Enums']['repair_status'];
           ticket_number?: number;
           updated_at?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: 'repairs_device_fk';
+            columns: ['device_id', 'merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'repair_devices';
+            referencedColumns: ['id', 'merchant_id'];
+          },
           {
             foreignKeyName: 'repairs_merchant_id_fkey';
             columns: ['merchant_id'];
@@ -10481,6 +12250,20 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: 'top_merchants';
             referencedColumns: ['merchant_id'];
+          },
+          {
+            foreignKeyName: 'repairs_quote_fk';
+            columns: ['quote_id', 'merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'repair_quotes';
+            referencedColumns: ['id', 'merchant_id'];
+          },
+          {
+            foreignKeyName: 'repairs_shipment_fk';
+            columns: ['shipment_id', 'merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'shipments';
+            referencedColumns: ['id', 'merchant_id'];
           },
         ];
       };
@@ -10977,7 +12760,7 @@ export type Database = {
           label_url: string | null;
           last_tracked_at: string | null;
           merchant_id: string;
-          order_id: string;
+          order_id: string | null;
           pickup_scheduled_at: string | null;
           price: number | null;
           provider: string;
@@ -11009,7 +12792,7 @@ export type Database = {
           label_url?: string | null;
           last_tracked_at?: string | null;
           merchant_id: string;
-          order_id: string;
+          order_id?: string | null;
           pickup_scheduled_at?: string | null;
           price?: number | null;
           provider: string;
@@ -11041,7 +12824,7 @@ export type Database = {
           label_url?: string | null;
           last_tracked_at?: string | null;
           merchant_id?: string;
-          order_id?: string;
+          order_id?: string | null;
           pickup_scheduled_at?: string | null;
           price?: number | null;
           provider?: string;
@@ -11088,6 +12871,54 @@ export type Database = {
             referencedColumns: ['id'];
           },
         ];
+      };
+      shipping_provider_service_centres: {
+        Row: {
+          address: string | null;
+          is_active: boolean;
+          location: unknown;
+          provider: string;
+          service_centre_code: string | null;
+          service_centre_id: number;
+          service_centre_name: string;
+          source_synced_at: string;
+          station_code: string | null;
+          station_id: number;
+          station_name: string;
+          sync_generation: string;
+          updated_at: string;
+        };
+        Insert: {
+          address?: string | null;
+          is_active?: boolean;
+          location?: unknown;
+          provider: string;
+          service_centre_code?: string | null;
+          service_centre_id: number;
+          service_centre_name: string;
+          source_synced_at: string;
+          station_code?: string | null;
+          station_id: number;
+          station_name: string;
+          sync_generation: string;
+          updated_at?: string;
+        };
+        Update: {
+          address?: string | null;
+          is_active?: boolean;
+          location?: unknown;
+          provider?: string;
+          service_centre_code?: string | null;
+          service_centre_id?: number;
+          service_centre_name?: string;
+          source_synced_at?: string;
+          station_code?: string | null;
+          station_id?: number;
+          station_name?: string;
+          sync_generation?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
       };
       shipping_quotes: {
         Row: {
@@ -12088,6 +13919,95 @@ export type Database = {
           },
         ];
       };
+      imei_lookup_customer_status: {
+        Row: {
+          amount_ngn: number | null;
+          cached_response: Json | null;
+          cached_status: number | null;
+          created_at: string | null;
+          customer_id: string | null;
+          id: string | null;
+          merchant_id: string | null;
+          status: string | null;
+          tier: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          amount_ngn?: number | null;
+          cached_response?: Json | null;
+          cached_status?: number | null;
+          created_at?: string | null;
+          customer_id?: string | null;
+          id?: string | null;
+          merchant_id?: string | null;
+          status?: string | null;
+          tier?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          amount_ngn?: number | null;
+          cached_response?: Json | null;
+          cached_status?: number | null;
+          created_at?: string | null;
+          customer_id?: string | null;
+          id?: string | null;
+          merchant_id?: string | null;
+          status?: string | null;
+          tier?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'imei_lookups_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'customer_insights';
+            referencedColumns: ['customer_id'];
+          },
+          {
+            foreignKeyName: 'imei_lookups_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'customers';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'imei_lookups_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'priority_winback_customers';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'imei_lookups_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'secure_customer_insights';
+            referencedColumns: ['customer_id'];
+          },
+          {
+            foreignKeyName: 'imei_lookups_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchant_health';
+            referencedColumns: ['merchant_id'];
+          },
+          {
+            foreignKeyName: 'imei_lookups_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchants';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'imei_lookups_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'top_merchants';
+            referencedColumns: ['merchant_id'];
+          },
+        ];
+      };
       index_recommendations: {
         Row: {
           idx_scan: number | null;
@@ -12150,6 +14070,96 @@ export type Database = {
           total_orders: number | null;
         };
         Relationships: [];
+      };
+      petrock_order_customer_status: {
+        Row: {
+          amount_ngn: number | null;
+          amount_usdt: number | null;
+          carrier: string | null;
+          completed_at: string | null;
+          created_at: string | null;
+          customer_id: string | null;
+          customer_message: string | null;
+          device_model: string | null;
+          id: string | null;
+          merchant_id: string | null;
+          paid_at: string | null;
+          payment_currency: string | null;
+          refund_policy: string | null;
+          refunded_at: string | null;
+          source_lookup_id: string | null;
+          status: string | null;
+          status_segment: string | null;
+          submitted_at: string | null;
+          success_rate: number | null;
+          turnaround: string | null;
+          updated_at: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'petrock_orders_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'customer_insights';
+            referencedColumns: ['customer_id'];
+          },
+          {
+            foreignKeyName: 'petrock_orders_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'customers';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'petrock_orders_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'priority_winback_customers';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'petrock_orders_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'secure_customer_insights';
+            referencedColumns: ['customer_id'];
+          },
+          {
+            foreignKeyName: 'petrock_orders_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchant_health';
+            referencedColumns: ['merchant_id'];
+          },
+          {
+            foreignKeyName: 'petrock_orders_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchants';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'petrock_orders_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'top_merchants';
+            referencedColumns: ['merchant_id'];
+          },
+          {
+            foreignKeyName: 'petrock_orders_source_lookup_id_fkey';
+            columns: ['source_lookup_id'];
+            isOneToOne: false;
+            referencedRelation: 'imei_lookup_customer_status';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'petrock_orders_source_lookup_id_fkey';
+            columns: ['source_lookup_id'];
+            isOneToOne: false;
+            referencedRelation: 'imei_lookups';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       platform_daily_summary: {
         Row: {
@@ -12523,6 +14533,15 @@ export type Database = {
         Args: { p_code_set_id: string; p_user_id: string };
         Returns: boolean;
       };
+      advance_petrock_eligibility_evidence: {
+        Args: {
+          p_check_kind: string;
+          p_evidence: Json;
+          p_order_id: string;
+          p_provider_status: string;
+        };
+        Returns: boolean;
+      };
       allocate_customer_savings_contribution: {
         Args: {
           p_amount: number;
@@ -12616,6 +14635,41 @@ export type Database = {
         };
         Returns: string;
       };
+      begin_order_notification_outbox_dispatch: {
+        Args: {
+          p_claim_owner: string;
+          p_event_type: string;
+          p_merchant_id: string;
+          p_order_id: string;
+          p_outbox_id: string;
+        };
+        Returns: number;
+      };
+      begin_petrock_eligibility_check: {
+        Args: {
+          p_check_kind: string;
+          p_feedback_token_hash: string;
+          p_order_id: string;
+          p_reference_id: string;
+        };
+        Returns: boolean;
+      };
+      begin_petrock_remediation_submission: {
+        Args: {
+          p_feedback_token_hash: string;
+          p_order_id: string;
+          p_reference_id: string;
+        };
+        Returns: boolean;
+      };
+      bind_quiz_attempt_device: {
+        Args: {
+          p_attempt_id: string;
+          p_device_hash: string;
+          p_route_proof?: Json;
+        };
+        Returns: boolean;
+      };
       build_product_variant_key: {
         Args: { p_attributes: Json; p_condition: string };
         Returns: string;
@@ -12666,22 +14720,6 @@ export type Database = {
       calculate_settlement_date: {
         Args: { p_gateway: string; p_payment_date?: string };
         Returns: string;
-      };
-      claim_wallet_credit_push: {
-        Args: { p_transaction_id: string };
-        Returns: boolean;
-      };
-      claim_wallet_credit_push_v2: {
-        Args: {
-          p_allow_initial_claim: boolean;
-          p_claim_token: string;
-          p_transaction_id: string;
-        };
-        Returns: boolean;
-      };
-      release_wallet_credit_push: {
-        Args: { p_claim_token: string; p_transaction_id: string };
-        Returns: boolean;
       };
       can_access_order: {
         Args: { p_customer_id: string; p_merchant_id: string };
@@ -12753,18 +14791,6 @@ export type Database = {
         };
         Returns: boolean;
       };
-      sync_virtual_terminal_local: {
-        Args: {
-          p_account_name?: string | null;
-          p_account_number?: string | null;
-          p_active?: boolean | null;
-          p_bank?: string | null;
-          p_code: string;
-          p_merchant_id: string;
-          p_name?: string | null;
-        };
-        Returns: string;
-      };
       claim_customer_on_phone_auth: {
         Args: {
           p_first_name?: string;
@@ -12774,6 +14800,35 @@ export type Database = {
           p_user_id: string;
         };
         Returns: string;
+      };
+      claim_event_deliveries_v1: {
+        Args: {
+          p_batch_size: number;
+          p_lease_seconds?: number;
+          p_worker_id: string;
+        };
+        Returns: {
+          attempt_number: number;
+          claim_token: string;
+          claimed_at: string;
+          destination: string;
+          domain_event_id: string;
+          id: string;
+          payload: Json;
+        }[];
+      };
+      claim_manual_payment_side_effect: {
+        Args: {
+          p_claim_token: string;
+          p_claimed_by: string;
+          p_order_id: string;
+          p_step: string;
+          p_transaction_id: string;
+        };
+        Returns: {
+          current_status: string;
+          we_won: boolean;
+        }[];
       };
       claim_merchant_auth_recovery_code: {
         Args: {
@@ -12785,6 +14840,20 @@ export type Database = {
           p_user_id: string;
         };
         Returns: boolean;
+      };
+      claim_order_notification_outbox: {
+        Args: { p_batch_size?: number; p_worker_id?: string };
+        Returns: {
+          attempt_count: number;
+          claim_owner: string;
+          event_sequence: number;
+          event_type: string;
+          id: string;
+          max_attempts: number;
+          merchant_id: string;
+          metadata: Json;
+          order_id: string;
+        }[];
       };
       claim_order_shipment_booking: {
         Args: {
@@ -12825,6 +14894,113 @@ export type Database = {
         };
         Returns: Json;
       };
+      claim_petrock_imei_lookup_poll: {
+        Args: {
+          p_customer_id: string;
+          p_lease_seconds?: number;
+          p_lease_token: string;
+          p_lookup_id: string;
+          p_merchant_id: string;
+        };
+        Returns: {
+          id: string;
+          identifier_ciphertext: string;
+          lease_token: string;
+          provider_order_id: string;
+          status: string;
+          tier: string;
+        }[];
+      };
+      claim_petrock_imei_lookups: {
+        Args: {
+          p_lease_seconds?: number;
+          p_lease_token?: string;
+          p_limit?: number;
+        };
+        Returns: {
+          amount_ngn: number;
+          customer_id: string;
+          id: string;
+          identifier_ciphertext: string;
+          lease_token: string;
+          merchant_id: string;
+          provider_attempt_started_at: string;
+          provider_order_id: string;
+          reconcile_attempts: number;
+          status: string;
+          tier: string;
+        }[];
+      };
+      claim_petrock_remediation_notification: {
+        Args: {
+          p_channel: string;
+          p_claim_token: string;
+          p_lease_seconds?: number;
+          p_order_id: string;
+        };
+        Returns: boolean;
+      };
+      claim_petrock_remediation_orders: {
+        Args: {
+          p_lease_seconds?: number;
+          p_lease_token: string;
+          p_limit?: number;
+        };
+        Returns: {
+          amount_ngn: number | null;
+          amount_usdt: number | null;
+          carrier: string | null;
+          completed_at: string | null;
+          cost_usd: number | null;
+          created_at: string;
+          customer_id: string;
+          customer_message: string | null;
+          device_model: string | null;
+          eligibility_checks_completed: string[];
+          eligibility_evidence: Json;
+          eligibility_next_check: string | null;
+          email_notification_claim_token: string | null;
+          email_notification_claim_until: string | null;
+          email_notified_at: string | null;
+          failure_reason: string | null;
+          feedback_token_hash: string | null;
+          fx_rate_used: number | null;
+          id: string;
+          identifier_ciphertext: string | null;
+          identifier_hash: string;
+          in_app_notified_at: string | null;
+          merchant_id: string;
+          next_poll_at: string | null;
+          paid_at: string | null;
+          payment_currency: string | null;
+          provider_attempt_started_at: string | null;
+          provider_order_id: string | null;
+          provider_reference_id: string | null;
+          provider_status: string | null;
+          push_notification_claim_token: string | null;
+          push_notification_claim_until: string | null;
+          push_notified_at: string | null;
+          reconcile_attempts: number;
+          reconcile_lease_token: string | null;
+          reconcile_lease_until: string | null;
+          refund_policy: string | null;
+          refunded_at: string | null;
+          remediation_product_id: string | null;
+          source_lookup_id: string;
+          status: string;
+          status_segment: string | null;
+          submitted_at: string | null;
+          success_rate: number | null;
+          turnaround: string | null;
+          updated_at: string;
+        }[];
+        SetofOptions: {
+          from: '*';
+          to: 'petrock_orders';
+          isOneToOne: false;
+          isSetofReturn: true;
+        };
+      };
       claim_quiz_award_cash: {
         Args: {
           p_award_id: string;
@@ -12848,6 +15024,19 @@ export type Database = {
       claim_quiz_grand_prize: {
         Args: { p_event_id: string; p_server_proof?: Json; p_user_id?: string };
         Returns: Json;
+      };
+      claim_repair_pickup_booking: {
+        Args: {
+          p_lock_timeout_seconds?: number;
+          p_lock_token: string;
+          p_merchant_id: string;
+          p_repair_id: string;
+        };
+        Returns: {
+          claimed: boolean;
+          shipment_id: string;
+          terminal: boolean;
+        }[];
       };
       claim_variant_inventory_units_for_order_item: {
         Args: {
@@ -12879,6 +15068,18 @@ export type Database = {
         Args: { p_transaction_id: string };
         Returns: Json;
       };
+      claim_wallet_credit_push: {
+        Args: { p_transaction_id: string };
+        Returns: boolean;
+      };
+      claim_wallet_credit_push_v2: {
+        Args: {
+          p_allow_initial_claim: boolean;
+          p_claim_token: string;
+          p_transaction_id: string;
+        };
+        Returns: boolean;
+      };
       cleanup_database_retention: {
         Args: {
           p_analytics_low_value_retention?: string;
@@ -12891,6 +15092,16 @@ export type Database = {
           pg_net_responses_deleted: number;
         }[];
       };
+      cleanup_domain_event_pipeline_v1: {
+        Args: {
+          p_delivered_attempt_retention?: string;
+          p_queue_archive_retention?: string;
+        };
+        Returns: {
+          delivery_attempts_deleted: number;
+          queue_archive_messages_deleted: number;
+        }[];
+      };
       cleanup_expired_notifications: { Args: never; Returns: undefined };
       cleanup_expired_shipping_quotes: { Args: never; Returns: undefined };
       cleanup_old_oauth_handoff_tickets: { Args: never; Returns: undefined };
@@ -12901,6 +15112,10 @@ export type Database = {
         Returns: undefined;
       };
       cleanup_stale_push_tokens: { Args: never; Returns: number };
+      clear_petrock_remediation_notification: {
+        Args: { p_channel: string; p_claim_token: string; p_order_id: string };
+        Returns: boolean;
+      };
       clear_vtu_customer_email_notification_attempt: {
         Args: {
           p_attempt_key: string;
@@ -12909,9 +15124,32 @@ export type Database = {
         };
         Returns: Json;
       };
+      close_due_product_quiz_events: { Args: never; Returns: number };
       compact_product_search_text: {
         Args: { search_text: string };
         Returns: string;
+      };
+      complete_order_gateway_payment: {
+        Args: {
+          p_actor?: string;
+          p_gateway_response?: Json;
+          p_order_id: string;
+          p_transaction_id: string;
+        };
+        Returns: Json;
+      };
+      complete_order_notification_outbox_manual_result: {
+        Args: {
+          p_claim_owner?: string;
+          p_event_type: string;
+          p_merchant_id: string;
+          p_message_id?: string;
+          p_order_id: string;
+          p_outbox_id?: string;
+          p_skip_reason?: string;
+          p_status: string;
+        };
+        Returns: number;
       };
       complete_order_shipment_with_inventory: {
         Args: {
@@ -12921,6 +15159,10 @@ export type Database = {
           p_shipping_update?: Json;
         };
         Returns: Json;
+      };
+      complete_petrock_remediation_notification: {
+        Args: { p_channel: string; p_claim_token: string; p_order_id: string };
+        Returns: boolean;
       };
       complete_wallet_withdrawal: {
         Args: {
@@ -13095,6 +15337,26 @@ export type Database = {
       create_recovery_code_set: {
         Args: { p_code_hashes: string[]; p_user_id: string };
         Returns: string;
+      };
+      create_repair_booking: {
+        Args: {
+          p_customer_email: string;
+          p_customer_name: string;
+          p_customer_phone: string;
+          p_device_id?: string;
+          p_device_model: string;
+          p_device_type: string;
+          p_issue_description: string;
+          p_merchant_id: string;
+          p_pickup_address?: string;
+          p_preferred_date?: string;
+          p_quote_id?: string;
+          p_service_type?: string;
+        };
+        Returns: {
+          id: string;
+          ticket_number: number;
+        }[];
       };
       create_storefront_order: {
         Args: {
@@ -13318,6 +15580,23 @@ export type Database = {
           transaction_id: string;
         }[];
       };
+      credit_customer_wallet_account: {
+        Args: {
+          p_amount: number;
+          p_currency: string;
+          p_customer_id: string;
+          p_description?: string;
+          p_merchant_id: string;
+          p_source_id: string;
+          p_source_type: string;
+        };
+        Returns: {
+          currency: string;
+          new_balance: number;
+          success: boolean;
+          transaction_id: string;
+        }[];
+      };
       credit_merchant_wallet: {
         Args: {
           p_amount: number;
@@ -13361,6 +15640,17 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      dead_letter_ingress_event_v1: {
+        Args: {
+          p_domain_event_id: string;
+          p_failure_code: string;
+          p_failure_message: string;
+          p_original_envelope: Json;
+          p_parser_version?: number;
+          p_queue_message_id: number;
+        };
+        Returns: string;
+      };
       debit_merchant_wallet: {
         Args: {
           p_amount: number;
@@ -13398,6 +15688,30 @@ export type Database = {
         Returns: Json;
       };
       encode_base32_crockford: { Args: { num: number }; Returns: string };
+      enqueue_domain_event_v1: {
+        Args: {
+          p_causation_id?: string;
+          p_changed_fields?: string[];
+          p_correlation_id?: string;
+          p_data: Json;
+          p_event_name: string;
+          p_external_event_id: string;
+          p_idempotency_key: string;
+          p_merchant_id: string;
+          p_metadata: Json;
+          p_occurred_at?: string;
+          p_producer: string;
+          p_source: Json;
+          p_subject_id: string;
+          p_subject_type: string;
+          p_trust_level: string;
+        };
+        Returns: {
+          already_enqueued: boolean;
+          domain_event_id: string;
+          queue_message_id: number;
+        }[];
+      };
       expire_order_wallet_funding_intents: {
         Args: {
           p_customer_id?: string;
@@ -13425,6 +15739,14 @@ export type Database = {
         };
         Returns: boolean;
       };
+      fail_petrock_remediation_before_acceptance: {
+        Args: {
+          p_customer_message: string;
+          p_order_id: string;
+          p_reason: string;
+        };
+        Returns: boolean;
+      };
       file_wallet_order_funding_ambiguous_review: {
         Args: {
           p_gateway_reference: string;
@@ -13432,6 +15754,29 @@ export type Database = {
           p_reason?: string;
         };
         Returns: undefined;
+      };
+      finalize_due_quiz_events: { Args: never; Returns: number };
+      finalize_petrock_imei_lookup: {
+        Args: {
+          p_cached_response: Json;
+          p_cached_status: number;
+          p_lease_token?: string;
+          p_lookup_id: string;
+          p_provider_status: string;
+          p_response_hash?: string;
+          p_terminal_status: string;
+        };
+        Returns: boolean;
+      };
+      finalize_petrock_remediation_order: {
+        Args: {
+          p_customer_message: string;
+          p_failure_reason?: string;
+          p_order_id: string;
+          p_provider_status: string;
+          p_success: boolean;
+        };
+        Returns: boolean;
       };
       finalize_quiz_awards: {
         Args: {
@@ -13449,6 +15794,10 @@ export type Database = {
           p_route_proof?: Json;
         };
         Returns: number;
+      };
+      finalize_quiz_voucher_order_payment: {
+        Args: { p_award_id: string; p_order_id: string };
+        Returns: boolean;
       };
       finalize_store_credit_order_payment: {
         Args: {
@@ -13484,6 +15833,27 @@ export type Database = {
         Args: { p_amount: number; p_order_id: string };
         Returns: boolean;
       };
+      find_nearest_shipping_service_centres: {
+        Args: {
+          p_latitude: number;
+          p_limit?: number;
+          p_longitude: number;
+          p_provider: string;
+        };
+        Returns: {
+          address: string;
+          distance_metres: number;
+          latitude: number;
+          longitude: number;
+          service_centre_code: string;
+          service_centre_id: number;
+          service_centre_name: string;
+          source_synced_at: string;
+          station_code: string;
+          station_id: number;
+          station_name: string;
+        }[];
+      };
       find_product_search_suggestion_v2: {
         Args: {
           merchant_id_param: string;
@@ -13493,7 +15863,7 @@ export type Database = {
         Returns: {
           similarity_score: number;
           suggested_term: string;
-        }[];
+        };
       };
       find_spelling_suggestion: {
         Args: {
@@ -13505,6 +15875,29 @@ export type Database = {
           similarity_score: number;
           suggested_term: string;
         }[];
+      };
+      finish_event_delivery_v1: {
+        Args: {
+          p_available_at?: string;
+          p_claim_token: string;
+          p_delivery_id: string;
+          p_error_code?: string;
+          p_error_message?: string;
+          p_http_status?: number;
+          p_outcome: string;
+          p_provider_response_id?: string;
+        };
+        Returns: boolean;
+      };
+      finish_manual_payment_side_effect: {
+        Args: {
+          p_claim_token: string;
+          p_error: string;
+          p_status: string;
+          p_step: string;
+          p_transaction_id: string;
+        };
+        Returns: boolean;
       };
       format_merchant_address: { Args: { p_address: Json }; Returns: string };
       format_order_item_variant_name: {
@@ -13628,10 +16021,21 @@ export type Database = {
         Args: { p_customer_id: string; p_merchant_id: string };
         Returns: boolean;
       };
+      get_domain_event_queue_metrics_v1: {
+        Args: never;
+        Returns: {
+          measured_at: string;
+          newest_message_age_seconds: number;
+          oldest_message_age_seconds: number;
+          queue_length: number;
+          total_messages: number;
+        }[];
+      };
       get_effective_inventory_tracking_policy: {
         Args: { p_product_policy: string; p_variant_policy: string };
         Returns: string;
       };
+      get_event_pipeline_operations_v1: { Args: never; Returns: Json };
       get_feed_product_variants: {
         Args: { p_merchant_id: string; p_product_ids: string[] };
         Returns: {
@@ -13744,6 +16148,14 @@ export type Database = {
       };
       get_or_create_merchant_wallet: {
         Args: { p_merchant_id: string };
+        Returns: string;
+      };
+      get_order_notification_outbox_manual_terminal_status: {
+        Args: {
+          p_event_type: string;
+          p_merchant_id: string;
+          p_order_id: string;
+        };
         Returns: string;
       };
       get_order_payment_snapshot: {
@@ -13895,6 +16307,24 @@ export type Database = {
           status: string;
         }[];
       };
+      get_repair_status: {
+        Args: {
+          p_email: string;
+          p_merchant_id: string;
+          p_ticket_number: number;
+        };
+        Returns: {
+          created_at: string;
+          device_model: string;
+          device_type: string;
+          repair_type_label: string;
+          service_type: string;
+          status: Database['public']['Enums']['repair_status'];
+          ticket_number: number;
+          tracking_number: string;
+          updated_at: string;
+        }[];
+      };
       get_sales_by_channel: {
         Args: {
           p_end_date: string;
@@ -14037,6 +16467,17 @@ export type Database = {
           wallet_paystack_dva_enabled: boolean;
         }[];
       };
+      get_storefront_pdp_core_v2: {
+        Args: {
+          p_branch_id?: string;
+          p_merchant_id: string;
+          p_product_slug: string;
+        };
+        Returns: {
+          product_data: Json;
+          resolution_status: string;
+        }[];
+      };
       get_storefront_pdp_preflight: {
         Args: { p_identifier: string; p_product_slug: string };
         Returns: {
@@ -14053,6 +16494,25 @@ export type Database = {
           storefront_status: string;
         }[];
       };
+      get_storefront_pdp_semantic_enrichment_v1: {
+        Args: {
+          p_category_slug: string;
+          p_cluster_guide_limit?: number;
+          p_cluster_rules: Json;
+          p_include_guides?: boolean;
+          p_inventory_limit?: number;
+          p_merchant_id: string;
+          p_product_guide_limit?: number;
+          p_product_id: string;
+          p_search_query: string;
+        };
+        Returns: {
+          cluster_guide_data: Json;
+          inventory_data: Json;
+          product_guide_data: Json;
+          resolution_status: string;
+        };
+      };
       get_storefront_product_variants: {
         Args: { p_product_ids: string[] };
         Returns: {
@@ -14068,6 +16528,35 @@ export type Database = {
           stock_quantity: number;
           updated_at: string;
         }[];
+      };
+      get_storefront_receipt_merchant_info: {
+        Args: { p_slug: string };
+        Returns: {
+          bank_account_name: string;
+          bank_account_number: string;
+          bank_code: string;
+          bank_name: string;
+          brand_colors: Json;
+          business_address: string;
+          business_name: string;
+          cac_rc_number: string;
+          email: string;
+          legal_entity_name: string;
+          logo_url: string;
+          pages: Json;
+          phone: string;
+          rider_phone_number: string;
+          social_media: Json;
+          support_email: string;
+          support_phone: string;
+          tax_identification_number: string;
+          vat_rate: number;
+          vat_registration_status: string;
+        }[];
+      };
+      get_storefront_shipping_rates: {
+        Args: { p_merchant_id: string };
+        Returns: Json;
       };
       get_storefront_vtu_settings: {
         Args: { p_merchant_id: string };
@@ -14149,6 +16638,14 @@ export type Database = {
           wallet_id: string;
         }[];
       };
+      get_website_performance_event_summary: {
+        Args: {
+          p_end_date: string;
+          p_merchant_id: string;
+          p_start_date: string;
+        };
+        Returns: Json;
+      };
       has_merchant_access: {
         Args: { p_merchant_id: string };
         Returns: boolean;
@@ -14172,6 +16669,20 @@ export type Database = {
         Args: { p_merchant_id: string; p_username: string };
         Returns: boolean;
       };
+      is_event_ingress_capability_v1: {
+        Args: {
+          p_event_id: string;
+          p_event_name: string;
+          p_event_timestamp: string;
+          p_event_type: string;
+          p_kind: string;
+          p_merchant_id: string;
+          p_producer: string;
+          p_source: string;
+          p_trust_level: string;
+        };
+        Returns: boolean;
+      };
       is_reserved_merchant_slug: { Args: { p_slug: string }; Returns: boolean };
       is_staff_of_merchant: {
         Args: { p_merchant_id: string };
@@ -14190,6 +16701,30 @@ export type Database = {
           p_variant_id: string;
         };
         Returns: undefined;
+      };
+      list_event_pipeline_deliveries_v1: {
+        Args: {
+          p_destination?: string;
+          p_error_code?: string;
+          p_from?: string;
+          p_limit?: number;
+          p_merchant_id?: string;
+          p_offset?: number;
+          p_status: string;
+          p_to?: string;
+        };
+        Returns: Json;
+      };
+      list_event_pipeline_ingress_failures_v1: {
+        Args: {
+          p_error_code?: string;
+          p_from?: string;
+          p_limit?: number;
+          p_merchant_id?: string;
+          p_offset?: number;
+          p_to?: string;
+        };
+        Returns: Json;
       };
       list_variant_inventory_units: {
         Args: {
@@ -14223,6 +16758,23 @@ export type Database = {
         };
         Returns: Json;
       };
+      mark_petrock_imei_submission_unknown: {
+        Args: {
+          p_lease_token?: string;
+          p_lookup_id: string;
+          p_order_id?: string;
+          p_provider_status: string;
+        };
+        Returns: boolean;
+      };
+      mark_petrock_remediation_submission_unknown: {
+        Args: {
+          p_order_id: string;
+          p_provider_order_id?: string;
+          p_reason: string;
+        };
+        Returns: boolean;
+      };
       mark_transaction_order_item_custom: {
         Args: { p_merchant_id: string; p_order_item_id: string };
         Returns: undefined;
@@ -14253,6 +16805,10 @@ export type Database = {
           title: string;
         }[];
       };
+      mint_quiz_event_ranked_awards: {
+        Args: { p_event_id: string };
+        Returns: number;
+      };
       normalize_inventory_identifier: {
         Args: { p_value: string };
         Returns: string;
@@ -14276,6 +16832,85 @@ export type Database = {
           goal_status: string;
           success: boolean;
         }[];
+      };
+      petrock_model_scope_matches: {
+        Args: { p_device_model: string; p_model_scope: Json };
+        Returns: boolean;
+      };
+      prepare_order_notification_outbox_manual_send: {
+        Args: {
+          p_courier_name?: string;
+          p_estimated_delivery?: string;
+          p_event_type: string;
+          p_merchant_id: string;
+          p_order_id: string;
+          p_tracking_number?: string;
+        };
+        Returns: Json;
+      };
+      prepare_petrock_remediation_order: {
+        Args: {
+          p_customer_id: string;
+          p_fx_rate: number;
+          p_merchant_id: string;
+          p_order_id: string;
+          p_payment_currency: string;
+          p_product_id: string;
+        };
+        Returns: {
+          amount_ngn: number | null;
+          amount_usdt: number | null;
+          carrier: string | null;
+          completed_at: string | null;
+          cost_usd: number | null;
+          created_at: string;
+          customer_id: string;
+          customer_message: string | null;
+          device_model: string | null;
+          eligibility_checks_completed: string[];
+          eligibility_evidence: Json;
+          eligibility_next_check: string | null;
+          email_notification_claim_token: string | null;
+          email_notification_claim_until: string | null;
+          email_notified_at: string | null;
+          failure_reason: string | null;
+          feedback_token_hash: string | null;
+          fx_rate_used: number | null;
+          id: string;
+          identifier_ciphertext: string | null;
+          identifier_hash: string;
+          in_app_notified_at: string | null;
+          merchant_id: string;
+          next_poll_at: string | null;
+          paid_at: string | null;
+          payment_currency: string | null;
+          provider_attempt_started_at: string | null;
+          provider_order_id: string | null;
+          provider_reference_id: string | null;
+          provider_status: string | null;
+          push_notification_claim_token: string | null;
+          push_notification_claim_until: string | null;
+          push_notified_at: string | null;
+          reconcile_attempts: number;
+          reconcile_lease_token: string | null;
+          reconcile_lease_until: string | null;
+          refund_policy: string | null;
+          refunded_at: string | null;
+          remediation_product_id: string | null;
+          source_lookup_id: string;
+          status: string;
+          status_segment: string | null;
+          submitted_at: string | null;
+          success_rate: number | null;
+          turnaround: string | null;
+          updated_at: string;
+        }[];
+        SetofOptions: {
+          from: '*';
+          to: 'petrock_orders';
+          isOneToOne: false;
+          isSetofReturn: true;
+        };
       };
       prepare_storefront_order_for_checkout: {
         Args: {
@@ -14371,10 +17006,28 @@ export type Database = {
         Args: { p_answer: string; p_answer_key_hash: string };
         Returns: boolean;
       };
+      quiz_bind_attempt_device_internal: {
+        Args: {
+          p_attempt_id: string;
+          p_device_hash: string;
+          p_user_id: string;
+        };
+        Returns: boolean;
+      };
       quiz_compare_signatures: {
         Args: { p_left: string; p_right: string };
         Returns: boolean;
       };
+      quiz_device_cap_ready: { Args: never; Returns: boolean };
+      quiz_device_proof_subject: {
+        Args: { p_device_hash: string; p_scope_id: string };
+        Returns: string;
+      };
+      quiz_event_max_attempts: {
+        Args: { p_event_id: string };
+        Returns: number;
+      };
+      quiz_free_entry_ready: { Args: never; Returns: boolean };
       quiz_log_route_proof_failure: {
         Args: { p_reason: string; p_route_proof: Json };
         Returns: boolean;
@@ -14383,6 +17036,7 @@ export type Database = {
         Args: { p_answer: string };
         Returns: string;
       };
+      quiz_normalize_email: { Args: { p_email: string }; Returns: string };
       quiz_route_proof_valid:
         | { Args: { p_route_proof: Json }; Returns: boolean }
         | {
@@ -14395,6 +17049,20 @@ export type Database = {
             Returns: boolean;
           };
       quiz_rpc_server_secret_configured: { Args: never; Returns: boolean };
+      read_domain_events_v1: {
+        Args: {
+          p_batch_size?: number;
+          p_max_poll_seconds?: number;
+          p_visibility_timeout_seconds?: number;
+        };
+        Returns: {
+          enqueued_at: string;
+          message: Json;
+          msg_id: number;
+          read_ct: number;
+          visible_at: string;
+        }[];
+      };
       rebuild_sku_matrix_product_projection: {
         Args: { p_product_id: string };
         Returns: undefined;
@@ -14402,6 +17070,27 @@ export type Database = {
       rebuild_sku_matrix_products: {
         Args: { p_product_ids: string[] };
         Returns: undefined;
+      };
+      record_analytics_domain_event_v1: {
+        Args: {
+          p_delivery_data: Json;
+          p_domain_event_data: Json;
+          p_event_data: Json;
+          p_event_name: string;
+          p_event_timestamp: string;
+          p_event_type: string;
+          p_external_event_id: string;
+          p_merchant_id: string;
+          p_metadata?: Json;
+          p_producer: string;
+          p_source: string;
+          p_trust_level: string;
+        };
+        Returns: {
+          already_enqueued: boolean;
+          domain_event_id: string;
+          queue_message_id: number;
+        }[];
       };
       record_bvn_verification: {
         Args: {
@@ -14422,6 +17111,16 @@ export type Database = {
         };
         Returns: undefined;
       };
+      record_event_worker_heartbeat_v1: {
+        Args: {
+          p_error_code?: string;
+          p_processed_count?: number;
+          p_status: string;
+          p_worker_id: string;
+          p_worker_name: string;
+        };
+        Returns: undefined;
+      };
       record_external_order_inventory_units: {
         Args: {
           p_merchant_id: string;
@@ -14431,6 +17130,15 @@ export type Database = {
           p_units: Json;
         };
         Returns: Json;
+      };
+      record_juicyway_usdt_deposit_address: {
+        Args: {
+          p_address: Json;
+          p_provider_status: string;
+          p_session_id: string;
+          p_transaction_id: string;
+        };
+        Returns: boolean;
       };
       record_klump_transaction_id: {
         Args: {
@@ -14449,11 +17157,16 @@ export type Database = {
           p_currency: string;
           p_description: string;
           p_gateway_reference: string;
+          p_idempotency_key: string;
           p_merchant_id: string;
-          p_metadata?: Json;
+          p_metadata: Json;
           p_order_id: string;
         };
         Returns: Json;
+      };
+      record_merchant_quiz_answer_key_review: {
+        Args: { p_event_id: string; p_merchant_id: string; p_reviewed: Json };
+        Returns: boolean;
       };
       record_merchant_settlement: {
         Args: {
@@ -14479,6 +17192,47 @@ export type Database = {
           p_nin: string;
         };
         Returns: undefined;
+      };
+      record_petrock_imei_submission: {
+        Args: {
+          p_lease_token?: string;
+          p_lookup_id: string;
+          p_next_poll_at: string;
+          p_order_id: string;
+          p_provider_status: string;
+        };
+        Returns: boolean;
+      };
+      record_petrock_remediation_submission: {
+        Args: {
+          p_next_poll_at: string;
+          p_order_id: string;
+          p_provider_order_id: string;
+          p_provider_status: string;
+        };
+        Returns: boolean;
+      };
+      record_platform_domain_event_v1: {
+        Args: {
+          p_delivery_data: Json;
+          p_event_data: Json;
+          p_event_name: string;
+          p_event_timestamp: string;
+          p_event_type: string;
+          p_external_event_id: string;
+          p_merchant_id: string;
+          p_metadata?: Json;
+          p_page_url: string;
+          p_producer: string;
+          p_referrer: string;
+          p_session_id: string;
+          p_trust_level: string;
+        };
+        Returns: {
+          already_enqueued: boolean;
+          domain_event_id: string;
+          queue_message_id: number;
+        }[];
       };
       record_quiz_answer: {
         Args: {
@@ -14549,6 +17303,27 @@ export type Database = {
           transaction_id: string;
         }[];
       };
+      redeem_imei_wallet_and_begin_provider_submission: {
+        Args: {
+          p_amount: number;
+          p_cost_usd: number;
+          p_customer_id: string;
+          p_description?: string;
+          p_device_category?: string;
+          p_feedback_token_hash: string;
+          p_identifier_ciphertext: string;
+          p_lookup_id: string;
+          p_merchant_id: string;
+          p_provider: string;
+          p_provider_attempt_started_at: string;
+          p_reference_id: string;
+        };
+        Returns: {
+          new_balance: number;
+          success: boolean;
+          transaction_id: string;
+        }[];
+      };
       redeem_imei_wallet_payment: {
         Args: {
           p_amount: number;
@@ -14563,26 +17338,25 @@ export type Database = {
           transaction_id: string;
         }[];
       };
-      redeem_loyalty_points:
-        | {
-            Args: {
-              p_customer_id: string;
-              p_merchant_id: string;
-              p_points: number;
-              p_wallet_credit: number;
-            };
-            Returns: Json;
-          }
-        | {
-            Args: {
-              p_customer_id: string;
-              p_merchant_id: string;
-              p_points: number;
-              p_redemption_id: string;
-              p_wallet_credit: number;
-            };
-            Returns: Json;
-          };
+      redeem_loyalty_points: {
+        Args: {
+          p_customer_id: string;
+          p_merchant_id: string;
+          p_points: number;
+          p_redemption_id: string;
+          p_wallet_credit: number;
+        };
+        Returns: Json;
+      };
+      redeem_loyalty_points_legacy_rejected: {
+        Args: {
+          p_customer_id: string;
+          p_merchant_id: string;
+          p_points: number;
+          p_wallet_credit: number;
+        };
+        Returns: Json;
+      };
       redeem_points: {
         Args: {
           p_customer_id: string;
@@ -14648,6 +17422,18 @@ export type Database = {
           transaction_id: string;
         }[];
       };
+      redeem_wallet_for_remediation: {
+        Args: {
+          p_customer_id: string;
+          p_merchant_id: string;
+          p_order_id: string;
+        };
+        Returns: {
+          currency: string;
+          new_balance: number;
+          success: boolean;
+        }[];
+      };
       refresh_analytics_views: { Args: never; Returns: undefined };
       refresh_customer_segments: {
         Args: { p_merchant_id: string };
@@ -14686,6 +17472,10 @@ export type Database = {
           transaction_id: string;
         }[];
       };
+      refund_wallet_for_remediation: {
+        Args: { p_order_id: string; p_reason?: string };
+        Returns: boolean;
+      };
       register_push_token: {
         Args: {
           p_app_type?: string;
@@ -14713,11 +17503,36 @@ export type Database = {
         };
         Returns: Json;
       };
+      release_wallet_credit_push: {
+        Args: { p_claim_token: string; p_transaction_id: string };
+        Returns: boolean;
+      };
       rename_merchant_slug: {
         Args: { p_merchant_id: string; p_new_slug: string };
         Returns: Json;
       };
+      repairs_catalog_publicly_enabled: {
+        Args: { p_merchant_id: string };
+        Returns: boolean;
+      };
       replace_imported_order_items: {
+        Args: {
+          p_expected_updated_at: string;
+          p_items: Json;
+          p_merchant_id: string;
+          p_order_id: string;
+          p_order_patch: Json;
+        };
+        Returns: {
+          external_id: string;
+          fulfillment_details: Json;
+          id: string;
+          shipping_address: Json;
+          tracking_token: string;
+          updated_at: string;
+        }[];
+      };
+      replace_imported_order_items_suppressing_order_notifications: {
         Args: {
           p_expected_updated_at: string;
           p_items: Json;
@@ -14744,6 +17559,80 @@ export type Database = {
         };
         Returns: undefined;
       };
+      replace_order_items_suppressing_order_notifications: {
+        Args: {
+          p_items: Json;
+          p_merchant_id: string;
+          p_order_id: string;
+          p_order_patch?: Json;
+        };
+        Returns: undefined;
+      };
+      replace_shipping_provider_service_centres: {
+        Args: {
+          p_centres: Json;
+          p_generation: string;
+          p_provider: string;
+          p_synced_at: string;
+        };
+        Returns: number;
+      };
+      replay_event_deliveries_batch_v1: {
+        Args: {
+          p_delivery_ids: string[];
+          p_replay_reason: string;
+          p_replayed_by: string;
+        };
+        Returns: number;
+      };
+      replay_event_delivery_v1: {
+        Args: {
+          p_delivery_id: string;
+          p_replay_reason: string;
+          p_replayed_by: string;
+        };
+        Returns: boolean;
+      };
+      replay_ingress_dead_letter_v1: {
+        Args: {
+          p_failure_id: string;
+          p_replay_reason: string;
+          p_replayed_by: string;
+        };
+        Returns: number;
+      };
+      reschedule_petrock_imei_lookup_poll: {
+        Args: {
+          p_lease_token: string;
+          p_lookup_id: string;
+          p_next_poll_at: string;
+          p_provider_status: string;
+        };
+        Returns: boolean;
+      };
+      reschedule_petrock_remediation_order: {
+        Args: {
+          p_lease_token: string;
+          p_next_poll_at: string;
+          p_order_id: string;
+          p_provider_status: string;
+        };
+        Returns: boolean;
+      };
+      reset_order_notification_outbox_dispatch: {
+        Args: {
+          p_claim_owner: string;
+          p_event_type: string;
+          p_merchant_id: string;
+          p_order_id: string;
+          p_outbox_id: string;
+        };
+        Returns: number;
+      };
+      reset_petrock_remediation_quote: {
+        Args: { p_order_id: string; p_reason: string };
+        Returns: boolean;
+      };
       resolve_public_feed_merchant: {
         Args: { p_identifier: string; p_is_by_slug?: boolean };
         Returns: {
@@ -14751,6 +17640,7 @@ export type Database = {
           country: string;
           gmc_variants_enabled: boolean;
           id: string;
+          logo_url: string;
           payout_currency: string;
           slug: string;
         }[];
@@ -14772,6 +17662,15 @@ export type Database = {
           feature_settings: Json;
           merchant_data: Json;
         }[];
+      };
+      resolve_storefront_public_snapshot_v2: {
+        Args: { p_identifier: string };
+        Returns: {
+          custom_domain: string;
+          feature_settings: Json;
+          merchant_data: Json;
+          resolution_status: string;
+        };
       };
       restock_variant_inventory_units: {
         Args: {
@@ -14821,6 +17720,20 @@ export type Database = {
       rewrite_config_business_name: {
         Args: { cfg: Json; new_name: string; old_name: string };
         Returns: Json;
+      };
+      route_domain_event_v1: {
+        Args: {
+          p_active_destinations?: string[];
+          p_destinations: string[];
+          p_domain_event_id: string;
+          p_queue_message_id: number;
+          p_shadow?: boolean;
+        };
+        Returns: {
+          already_routed: boolean;
+          archived: boolean;
+          delivery_count: number;
+        }[];
       };
       sanitize_text_input: { Args: { input_text: string }; Returns: string };
       save_merchant_email_domain_registration: {
@@ -14913,6 +17826,7 @@ export type Database = {
           firs_submission_status: string | null;
           firs_submitted_at: string | null;
           fulfillment_details: Json | null;
+          fulfillment_notification_cycle_id: string;
           fulfillment_type: string | null;
           gift_wrapping_fee: number;
           id: string;
@@ -14929,7 +17843,6 @@ export type Database = {
           order_number: string;
           original_currency: string | null;
           original_total: number | null;
-          paid_at: string | null;
           payment_due_date: string | null;
           payment_method: string | null;
           payment_status: string;
@@ -14946,7 +17859,10 @@ export type Database = {
           shipped_at: string | null;
           shipping_address: Json | null;
           shipping_fee: number | null;
+          shipping_pickup_details: Json | null;
           shipping_provider: string | null;
+          shipping_rate_id: string | null;
+          shipping_rate_name: string | null;
           shipping_status: string;
           source: string | null;
           subtotal: number | null;
@@ -14992,6 +17908,17 @@ export type Database = {
           relevance: number;
           total_count: number;
         }[];
+      };
+      select_event_pipeline_replay_ids_v1: {
+        Args: {
+          p_destination: string;
+          p_error_code?: string;
+          p_from?: string;
+          p_merchant_id?: string;
+          p_status: string;
+          p_to?: string;
+        };
+        Returns: string[];
       };
       send_notification_to_all_merchants: {
         Args: { p_notification_id: string };
@@ -15041,6 +17968,18 @@ export type Database = {
         };
         Returns: boolean;
       };
+      set_petrock_eligibility_outcome: {
+        Args: {
+          p_carrier: string;
+          p_customer_message: string;
+          p_device_model: string;
+          p_failure_reason?: string;
+          p_order_id: string;
+          p_status: string;
+          p_status_segment: string;
+        };
+        Returns: boolean;
+      };
       set_primary_domain: {
         Args: { domain_id_param: string; merchant_id_param: string };
         Returns: undefined;
@@ -15067,15 +18006,15 @@ export type Database = {
           relevance: number;
         }[];
       };
-      bind_quiz_attempt_device: {
+      start_quiz_attempt: {
         Args: {
-          p_attempt_id: string;
-          p_device_hash: string;
+          p_event_id: string;
+          p_integrity_tier: string;
           p_route_proof?: Json;
+          p_user_id?: string;
         };
-        Returns: boolean;
+        Returns: Json;
       };
-      quiz_device_cap_ready: { Args: never; Returns: boolean };
       start_quiz_attempt_with_device: {
         Args: {
           p_device_hash: string;
@@ -15084,16 +18023,6 @@ export type Database = {
           p_integrity_tier: string;
           p_start_route_proof: Json;
           p_user_id: string;
-        };
-        Returns: Json;
-      };
-      quiz_free_entry_ready: { Args: never; Returns: boolean };
-      start_quiz_attempt: {
-        Args: {
-          p_event_id: string;
-          p_integrity_tier: string;
-          p_route_proof?: Json;
-          p_user_id?: string;
         };
         Returns: Json;
       };
@@ -15137,9 +18066,29 @@ export type Database = {
           target_amount: number;
         }[];
       };
+      sync_petrock_imei_provider_products: {
+        Args: { p_rows: Json };
+        Returns: number;
+      };
+      sync_petrock_remediation_products: {
+        Args: { p_rows: Json };
+        Returns: number;
+      };
       sync_product_variants_for_product: {
         Args: { p_merchant_id: string; p_product_id: string; p_variants: Json };
         Returns: number;
+      };
+      sync_virtual_terminal_local: {
+        Args: {
+          p_account_name?: string;
+          p_account_number?: string;
+          p_active?: boolean;
+          p_bank?: string;
+          p_code: string;
+          p_merchant_id: string;
+          p_name?: string;
+        };
+        Returns: string;
       };
       unsubscribe_newsletter: {
         Args: { p_email: string; p_merchant_id?: string };

@@ -39,7 +39,7 @@ async function buildProductionFixture() {
     digestVector: baseline.digestVector,
     effectSha256: baseline.effectSha256,
     effects: baseline.effects,
-    ledger: { rowCount: 439, tailVersion: '20260714225500' },
+    ledger: { rowCount: 442, tailVersion: '20260714225503' },
     schemaVersion: 2,
     scope: {
       componentCount: 76,

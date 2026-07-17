@@ -132,7 +132,7 @@ describe('canonicalReplayFixtureJson', () => {
     );
     expect(canonicalReplayFixtureJson(JSON.parse(aliasBytes))).toBe(aliasBytes);
     expect(sha256(provenanceBytes)).toBe(
-      '2e1be70f5cb3c2fdc049605343ea6d93b617493962920debaf5493668e4f03b0'
+      '1f1e4e3112a0010dbed91a25a8185d38fcfd4cf56d2d2b60ca76306bbbb100e1'
     );
     expect(sha256(aliasBytes)).toBe(
       'ba97d2e25bb8d2f43e0a4fdfdb1fa37586fd9c7397458fa8dc0c0c5858288ade'

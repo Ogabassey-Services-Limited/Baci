@@ -1,3 +1,4 @@
+import type { ForwardRepairDeploymentReceipt } from './schemas/forward-repair-deployment-receipt-schema';
 import type { MigrationNameAliasDeployRepair } from './schemas/migration-name-alias-deploy-repair-schema';
 import type { ProductionEffectProvenance } from './schemas/production-effect-provenance-schema';
 
@@ -60,6 +61,9 @@ export type FrozenReplaySource = {
 };
 
 export type ProductionReplayMapping = FrozenReplaySource & {
+  appliedName: string;
+  appliedVersion: string;
+  linkedName: string;
   productionVersion: string;
   rule: 'append-only-repair' | 'canonical' | 'superseded-final-state';
 };
@@ -103,8 +107,31 @@ export type SupabaseHistoryReplayManifest = {
     version: string;
   }[];
   forwardRepairs: readonly ForwardReplayRepair[];
+  forwardRepairReceipt: {
+    path: string;
+    schemaVersion: number;
+    sha256: string;
+  };
+  linkedLedgerFixture: {
+    linkedRowCount: number;
+    linkedTailVersion: string;
+    localFileCount: number;
+    localUniqueVersionCount: number;
+    path: string;
+    schemaVersion: number;
+    sha256: string;
+  };
   pipelineSources: readonly FrozenReplaySource[];
   productionMappings: readonly ProductionReplayMapping[];
+  productionEffectsFixture: {
+    effectSha256: string;
+    ledgerRowCount: number;
+    ledgerTailVersion: string;
+    path: string;
+    querySha256: string;
+    schemaVersion: number;
+    sha256: string;
+  };
   provenance: {
     evidenceSourceCount: number;
     exceptionalRecordCount: number;
@@ -114,6 +141,7 @@ export type SupabaseHistoryReplayManifest = {
     sha256: string;
   };
   repair: { body: string; path: string; sha256: string };
+  semanticFixture: { path: string; sha256: string; sourceCount: number };
   transforms: readonly ReplayTransform[];
 };
 
@@ -123,6 +151,7 @@ export type VerifiedReplayManifest = {
   bootstrapSources: readonly ReplaySource[];
   manifest: SupabaseHistoryReplayManifest;
   migrationNameAliasDeployRepair: MigrationNameAliasDeployRepair;
+  forwardRepairDeploymentReceipt: ForwardRepairDeploymentReceipt;
   pendingRepairState: PendingRepairState;
   productionEffectProvenance: ProductionEffectProvenance;
   verifiedSources: readonly ReplaySource[];

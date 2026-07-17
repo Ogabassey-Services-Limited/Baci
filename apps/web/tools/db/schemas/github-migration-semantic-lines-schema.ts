@@ -75,7 +75,7 @@ export const githubMigrationSemanticLinesSchema = z
   .object({
     schemaVersion: z.literal(1),
     sanitizerVersion: z.literal('github-actions-migration-semantic-lines-v1'),
-    sources: z.array(sourceSchema).length(26),
+    sources: z.array(sourceSchema).length(27),
   })
   .strict()
   .superRefine((fixture, context) => {
@@ -137,11 +137,11 @@ export const githubMigrationSemanticLinesSchema = z
         });
       }
     });
-    if (primaryCount !== 24 || corroborationCount !== 2) {
+    if (primaryCount !== 25 || corroborationCount !== 2) {
       context.addIssue({
         code: 'custom',
         message:
-          'semantic fixture must contain 24 primary and 2 corroboration sources',
+          'semantic fixture must contain 25 primary and 2 corroboration sources',
         path: ['sources'],
       });
     }
@@ -156,9 +156,9 @@ export function githubMigrationSemanticLinesSchemaForSources(
   const primaryCount = bindings.filter(({ kind }) => kind === 'primary').length;
   const corroborationCount = bindings.length - primaryCount;
   if (
-    bindings.length !== 26 ||
+    bindings.length !== 27 ||
     expected.size !== bindings.length ||
-    primaryCount !== 24 ||
+    primaryCount !== 25 ||
     corroborationCount !== 2
   ) {
     throw new Error('Semantic source binding set is invalid');

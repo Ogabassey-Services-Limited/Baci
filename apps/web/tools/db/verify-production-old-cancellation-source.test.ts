@@ -6,7 +6,8 @@ import { verifyProductionOldCancellationSource } from './verify-production-old-c
 
 const identity =
   'public.cancel_order_as_customer(p_order_id uuid, p_reason text)';
-const querySha256 = 'f'.repeat(64);
+const querySha256 =
+  '2b555af09c8a9cb7e8026b028c014b304de146a9f50a2c2f2a896a6626dfacbc';
 const scopeManifestSha256 =
   'a216397b8fcc2cd0cac6f7a66023582f43b0c5e348501a94d00d771da1084245';
 

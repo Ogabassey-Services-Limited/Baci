@@ -24,11 +24,11 @@ export const linkedMigrationLedgerSchema = z
   .object({
     schemaVersion: z.literal(1),
     baseSha: z.literal('9e3d1b14b1931a5e441fc23f0e5417c188056e47'),
-    linkedRowCount: z.literal(439),
-    linkedTailVersion: z.literal('20260714225500'),
+    linkedRowCount: z.literal(442),
+    linkedTailVersion: z.literal('20260714225503'),
     localFileCount: z.literal(424),
     localUniqueVersionCount: z.literal(422),
-    rows: z.array(rowSchema).length(439),
+    rows: z.array(rowSchema).length(442),
   })
   .strict()
   .superRefine((fixture, context) => {

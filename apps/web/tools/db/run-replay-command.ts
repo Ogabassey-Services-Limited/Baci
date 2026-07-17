@@ -4,6 +4,7 @@ import path from 'node:path';
 import { readSupabaseHistoryEffects } from './read-supabase-history-effects';
 import { replayRepository } from './replay-repository-root';
 import { supabaseHistoryEffectQueryContract } from './supabase-history-effect-query-contract';
+import { supabaseHistoryReplayManifest } from './supabase-history-replay-manifest';
 import type {
   ReplayCommand,
   SupabaseHistoryEffectComparisonMode,
@@ -217,7 +218,7 @@ async function readBoundReplayEffects(options: {
   const productionFixture = (
     await replayRepository.readSource(
       options.repositoryRoot,
-      'apps/web/tools/db/fixtures/production-history-effects.json'
+      supabaseHistoryReplayManifest.productionEffectsFixture.path
     )
   ).toString('utf8');
   return readSupabaseHistoryEffects({

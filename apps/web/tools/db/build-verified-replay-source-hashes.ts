@@ -3,7 +3,6 @@ import type { ProductionEffectProvenance } from './schemas/production-effect-pro
 import { supabaseHistoryReplayManifest as manifest } from './supabase-history-replay-manifest';
 
 const HEX_64 = /^[a-f0-9]{64}$/;
-
 function assertRepositoryPath(repositoryPath: string): void {
   if (
     repositoryPath.startsWith('/') ||
@@ -14,7 +13,6 @@ function assertRepositoryPath(repositoryPath: string): void {
     throw new Error(`Unsafe repository path: ${repositoryPath}`);
   }
 }
-
 function addExpected(
   expected: Map<string, string>,
   repositoryPath: string,
@@ -30,7 +28,6 @@ function addExpected(
   }
   expected.set(repositoryPath, sourceSha);
 }
-
 function jobEvidenceKey(evidence: {
   corroboration?: unknown;
   databaseJobId: number;
@@ -48,13 +45,15 @@ function jobEvidenceKey(evidence: {
     evidence.corroboration ?? null,
   ]);
 }
-
 function recordEvidenceKey(
   evidence: Parameters<typeof jobEvidenceKey>[0] & { logOrdinal: number }
 ): string {
   return JSON.stringify([jobEvidenceKey(evidence), evidence.logOrdinal]);
 }
-
+type JobReference = { databaseJobId: number; deploymentRunId: number };
+function jobReferenceKey(reference: JobReference): string {
+  return `${reference.deploymentRunId}:${reference.databaseJobId}`;
+}
 function verifyScalarBindings(provenance: ProductionEffectProvenance): void {
   if (
     provenance.baseSha !== manifest.baseSha ||
@@ -77,19 +76,25 @@ function verifyScalarBindings(provenance: ProductionEffectProvenance): void {
       'Exceptional record ordinals must be contiguous and one-based'
     );
   }
-  const pending = provenance.exceptionalRecords.filter(
-    (record) => record.applied === null
+  const repairRecords = provenance.exceptionalRecords.filter(
+    (record) => record.repositoryOwnerPath === manifest.repair.path
+  );
+  const repairMapping = manifest.productionMappings.find(
+    (mapping) => mapping.repositoryPath === manifest.repair.path
   );
   if (
-    pending.length !== 1 ||
-    pending[0].repositoryOwnerPath !== manifest.repair.path ||
-    pending[0].ownerSha256 !== manifest.repair.sha256 ||
-    pending[0].mappingRule !== 'append-only-repair'
+    !repairMapping ||
+    repairRecords.length !== 1 ||
+    !('linkedName' in repairRecords[0]) ||
+    repairRecords[0].applied?.version !== repairMapping.appliedVersion ||
+    repairRecords[0].applied?.name !== repairMapping.appliedName ||
+    repairRecords[0].linkedName !== repairMapping.linkedName ||
+    repairRecords[0].ownerSha256 !== manifest.repair.sha256 ||
+    repairRecords[0].mappingRule !== 'append-only-repair'
   ) {
-    throw new Error('Pending repair provenance does not match the manifest');
+    throw new Error('Applied repair migration identity mismatch');
   }
 }
-
 function verifyRecordBindings(
   provenance: ProductionEffectProvenance,
   expected: Map<string, string>
@@ -105,7 +110,6 @@ function verifyRecordBindings(
   );
   const recordEvidenceKeys = new Set<string>();
   for (const record of provenance.exceptionalRecords) {
-    if (record.applied === null) continue;
     addExpected(expected, record.repositoryOwnerPath, record.ownerSha256);
     if (!jobEvidenceKeys.has(jobEvidenceKey(record.evidence))) {
       throw new Error(
@@ -127,8 +131,7 @@ function verifyRecordBindings(
     }
   }
   const linkedRecords = provenance.exceptionalRecords.filter(
-    (record): record is typeof record & { linkedVersion: string } =>
-      'linkedVersion' in record
+    (record) => 'linkedName' in record
   );
   if (linkedRecords.length !== manifest.productionMappings.length) {
     throw new Error('Frozen linked production mapping count drift');
@@ -139,26 +142,36 @@ function verifyRecordBindings(
     );
     if (
       !record ||
+      record.applied.name !== mapping.appliedName ||
+      record.linkedName !== mapping.linkedName ||
       record.repositoryOwnerPath !== mapping.repositoryPath ||
       record.ownerSha256 !== mapping.sha256 ||
       record.mappingRule !== mapping.rule
     ) {
       throw new Error(
-        `Frozen linked mapping drift for ${mapping.productionVersion}`
+        `Frozen linked mapping migration identity drift for ${mapping.productionVersion}`
       );
     }
   }
   return records;
 }
-
 function verifyConstraintBindings(
   provenance: ProductionEffectProvenance,
   expected: Map<string, string>,
   records: Map<number, ProductionEffectProvenance['exceptionalRecords'][number]>
 ): void {
   const jobGroups = new Set<string>();
+  const evidenceJobCounts = new Map<string, number>();
+  for (const evidence of provenance.evidenceSources) {
+    const key = jobReferenceKey(evidence);
+    evidenceJobCounts.set(key, (evidenceJobCounts.get(key) ?? 0) + 1);
+  }
   for (const group of provenance.replayConstraints.jobGroups) {
-    jobGroups.add(`${group.deploymentRunId}:${group.databaseJobId}`);
+    const groupKey = jobReferenceKey(group);
+    if (evidenceJobCounts.get(groupKey) !== 1) {
+      throw new Error('Job-group primary evidence binding drift');
+    }
+    jobGroups.add(groupKey);
     if ('pipelineRecords' in group) {
       for (const source of group.pipelineRecords) {
         addExpected(expected, source.repositoryOwnerPath, source.ownerSha256);
@@ -178,7 +191,14 @@ function verifyConstraintBindings(
       }
     }
   }
-
+  if (
+    evidenceJobCounts.size !== jobGroups.size ||
+    [...evidenceJobCounts].some(
+      ([key, count]) => count !== 1 || !jobGroups.has(key)
+    )
+  ) {
+    throw new Error('Job-group primary evidence binding drift');
+  }
   const duplicateRelations = provenance.replayConstraints.relations.filter(
     (relation) => relation.kind === 'duplicate-version-companion'
   );
@@ -206,8 +226,8 @@ function verifyConstraintBindings(
       continue;
     }
     if (relation.kind === 'job-group-before-job-group') {
-      const before = `${relation.before.deploymentRunId}:${relation.before.databaseJobId}`;
-      const after = `${relation.after.deploymentRunId}:${relation.after.databaseJobId}`;
+      const before = jobReferenceKey(relation.before);
+      const after = jobReferenceKey(relation.after);
       if (!jobGroups.has(before) || !jobGroups.has(after)) {
         throw new Error('Job-group order relation cross-reference drift');
       }
@@ -248,7 +268,6 @@ function verifyConstraintBindings(
     }
   }
 }
-
 export function buildVerifiedReplaySourceHashes(
   provenance: ProductionEffectProvenance
 ): ReadonlyMap<string, string> {

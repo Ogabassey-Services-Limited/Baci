@@ -107,8 +107,8 @@ export const productionHistoryEffectsSchema = z
       .strict(),
     ledger: z
       .object({
-        rowCount: z.literal(439),
-        tailVersion: z.literal('20260714225500'),
+        rowCount: z.literal(442),
+        tailVersion: z.literal('20260714225503'),
       })
       .strict(),
     digestVector: z.array(digestSchema).length(76),

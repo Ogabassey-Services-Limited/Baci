@@ -26,11 +26,11 @@ async function readFixture(): Promise<unknown> {
 }
 
 describe('productionEffectProvenanceSchema', () => {
-  it('accepts the strict v4 production-effect receipt', async () => {
+  it('accepts the strict v5 production-effect receipt', async () => {
     const receipt = productionEffectProvenanceSchema.parse(await readFixture());
 
-    expect(receipt.schemaVersion).toBe(4);
-    expect(receipt.evidenceSources).toHaveLength(24);
+    expect(receipt.schemaVersion).toBe(5);
+    expect(receipt.evidenceSources).toHaveLength(25);
     expect(receipt.exceptionalRecords).toHaveLength(31);
     expect(receipt.exceptionalRecordCount).toBe(31);
   });
@@ -233,11 +233,22 @@ describe('productionEffectProvenanceSchema', () => {
         receipt.baseSha = '0'.repeat(40);
       },
       (receipt) => {
-        (receipt.linkedLedger as Record<string, unknown>).rowCount = 440;
+        const linked = receipt.linkedLedger as Record<string, unknown>;
+        (linked.historicalReplay as Record<string, unknown>).rowCount = 440;
       },
       (receipt) => {
-        (receipt.linkedLedger as Record<string, unknown>).tailVersion =
+        const linked = receipt.linkedLedger as Record<string, unknown>;
+        (linked.historicalReplay as Record<string, unknown>).tailVersion =
           '20260714225501';
+      },
+      (receipt) => {
+        const linked = receipt.linkedLedger as Record<string, unknown>;
+        (linked.receipt as Record<string, unknown>).rowCount = 441;
+      },
+      (receipt) => {
+        const linked = receipt.linkedLedger as Record<string, unknown>;
+        (linked.receipt as Record<string, unknown>).tailVersion =
+          '20260714225502';
       },
     ];
 
@@ -247,41 +258,6 @@ describe('productionEffectProvenanceSchema', () => {
         unknown
       >;
       mutate(receipt);
-      expect(productionEffectProvenanceSchema.safeParse(receipt).success).toBe(
-        false
-      );
-    }
-  });
-
-  it('binds every field of the exact pending append-only repair record', async () => {
-    const mutations: [string, unknown][] = [
-      ['recordOrdinal', 32],
-      ['linkedLedgerOrdinal', 248],
-      ['linkedProductionOnlyOrdinal', 248],
-      ['linkedVersion', '20260629154904'],
-      ['linkedName', 'different_fulfillment_migration'],
-      [
-        'repositoryOwnerPath',
-        'supabase/migrations/20260714225502_reconcile_order_fulfillment_timestamps.sql',
-      ],
-      ['ownerSha256', '0'.repeat(64)],
-      ['nullReason', 'different_pending_reason'],
-      ['mappingRule', 'canonical'],
-      ['exceptionalKinds', ['late_applied']],
-    ];
-
-    for (const [field, value] of mutations) {
-      const receipt = structuredClone(await readFixture()) as {
-        exceptionalRecords: Record<string, unknown>[];
-      };
-      const pending = receipt.exceptionalRecords.find(
-        (record) => record.applied === null
-      );
-      expect(pending).toBeDefined();
-      if (!pending) {
-        return;
-      }
-      pending[field] = value;
       expect(productionEffectProvenanceSchema.safeParse(receipt).success).toBe(
         false
       );

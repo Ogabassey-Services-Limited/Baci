@@ -110,7 +110,7 @@ function validFixture() {
         { name: 'pgmq', schema: 'pgmq', version: '1.5.1' },
       ],
     },
-    ledger: { rowCount: 439, tailVersion: '20260714225500' },
+    ledger: { rowCount: 442, tailVersion: '20260714225503' },
     digestVector,
     effectSha256: sha256(canonicalReplayEffectJson(digestVector)),
     effects: {

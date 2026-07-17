@@ -1,10 +1,10 @@
 import { createHash } from 'node:crypto';
-import { pathToFileURL } from 'node:url';
 import { canonicalReplayFixtureJson } from './canonical-replay-fixture-json';
 import { extractGithubMigrationSemanticLines } from './extract-github-migration-semantic-lines';
 import { parseGithubMigrationJobLog } from './parse-github-migration-job-log';
 import { replayRepository } from './replay-repository-root';
 import { replayCommandRuntime } from './run-replay-command';
+import type { ForwardRepairDeploymentReceipt } from './schemas/forward-repair-deployment-receipt-schema';
 import {
   type GithubMigrationSemanticLines,
   githubMigrationSemanticLinesSchemaForSources,
@@ -14,7 +14,8 @@ import {
   productionEffectProvenanceSchema,
 } from './schemas/production-effect-provenance-schema';
 import { supabaseHistoryReplayManifest } from './supabase-history-replay-manifest';
-import { verifySupabaseHistoryReplayReceipts } from './verify-supabase-history-replay-receipts';
+import { verifyForwardRepairSemanticSource } from './verify-forward-repair-semantic-source';
+import { verifyProductionEffectCaptureInputs } from './verify-production-effect-capture-inputs';
 
 const REPOSITORY = 'ogabasseyy/Baci';
 
@@ -38,6 +39,7 @@ type CapturedJob = {
 
 type Dependencies = {
   loadProvenance?: () => Promise<{
+    forwardRepairDeploymentReceipt: ForwardRepairDeploymentReceipt;
     provenance: ProductionEffectProvenance;
     sha256: string;
   }>;
@@ -96,7 +98,9 @@ function verifyMetadata(expected: ExpectedSource, actual: CapturedJob): void {
 function verifyPrimaryLog(
   provenance: ProductionEffectProvenance,
   expected: ExpectedSource,
-  parsed: ReturnType<typeof parseGithubMigrationJobLog>
+  parsed: ReturnType<typeof parseGithubMigrationJobLog>,
+  forwardRepairDeploymentReceipt: ForwardRepairDeploymentReceipt,
+  sanitizedJobLogSha256: string
 ): void {
   const group = provenance.replayConstraints.jobGroups.find(
     (candidate) => sourceKey(candidate) === sourceKey(expected)
@@ -134,6 +138,14 @@ function verifyPrimaryLog(
   }
   if (expected.expectedConclusion === 'success' && !parsed.summary) {
     throw sourceError(expected, 'summary missing');
+  }
+  if (group.coverage === 'complete-deployment-repair-log-group') {
+    verifyForwardRepairSemanticSource(forwardRepairDeploymentReceipt, {
+      databaseJobId: expected.databaseJobId,
+      deploymentRunId: expected.deploymentRunId,
+      parsed,
+      sanitizedJobLogSha256,
+    });
   }
 }
 
@@ -203,18 +215,24 @@ export async function captureProductionEffectProvenance(
   options: {
     workspaceRoot: string;
     semanticFixtureOutput: string;
+    refreshFixture?: boolean;
     verifyOnly?: boolean;
   },
   dependencies: Dependencies = {}
 ): Promise<{ sourceCount: number; fixtureSha256: string }> {
+  if (options.refreshFixture && options.verifyOnly) {
+    throw new Error('Semantic fixture mode is invalid');
+  }
   const loaded = dependencies.loadProvenance
     ? await dependencies.loadProvenance()
-    : {
-        provenance: (
-          await verifySupabaseHistoryReplayReceipts(options.workspaceRoot)
-        ).productionEffectProvenance,
-        sha256: supabaseHistoryReplayManifest.provenance.sha256,
-      };
+    : await verifyProductionEffectCaptureInputs(options.workspaceRoot).then(
+        (receipts) => ({
+          forwardRepairDeploymentReceipt:
+            receipts.forwardRepairDeploymentReceipt,
+          provenance: receipts.productionEffectProvenance,
+          sha256: supabaseHistoryReplayManifest.provenance.sha256,
+        })
+      );
   const provenance = productionEffectProvenanceSchema.parse(loaded.provenance);
   if (sha256(canonicalReplayFixtureJson(provenance)) !== loaded.sha256) {
     throw new Error('Production-effect provenance SHA-256 mismatch');
@@ -235,7 +253,13 @@ export async function captureProductionEffectProvenance(
     }
     const parsed = parseGithubMigrationJobLog(extracted.lines);
     if (expected.kind === 'primary') {
-      verifyPrimaryLog(provenance, expected, parsed);
+      verifyPrimaryLog(
+        provenance,
+        expected,
+        parsed,
+        loaded.forwardRepairDeploymentReceipt,
+        extracted.sanitizedJobLogSha256
+      );
     } else {
       verifyCorroborationLog(provenance, expected, parsed);
     }
@@ -263,27 +287,13 @@ export async function captureProductionEffectProvenance(
     const existing = await output.read('utf8');
     if (typeof existing !== 'string' || existing !== bytes)
       throw new Error('Semantic fixture verification mismatch');
+  } else if (options.refreshFixture) {
+    await output.read();
+    await output.replace(bytes, { mode: 0o600 });
   } else {
     await output.create(bytes, { encoding: 'utf8' }).catch(() => {
       throw new Error('Semantic fixture create failed or output exists');
     });
   }
   return { sourceCount: sources.length, fixtureSha256: sha256(bytes) };
-}
-
-if (
-  process.argv[1] &&
-  import.meta.url === pathToFileURL(process.argv[1]).href
-) {
-  void captureProductionEffectProvenance({
-    workspaceRoot: replayRepository.root(import.meta.dirname),
-    semanticFixtureOutput:
-      (process.argv.includes('--semantic-fixture-output')
-        ? process.argv[process.argv.indexOf('--semantic-fixture-output') + 1]
-        : 'apps/web/tools/db/fixtures/github-migration-semantic-lines.json') ??
-      '',
-    verifyOnly: process.argv.includes('--verify-only'),
-  }).catch(() => {
-    process.exitCode = 1;
-  });
 }
