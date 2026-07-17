@@ -48,6 +48,9 @@ function createExpoPlugins({ facebookSdkPlugin, tiktokBusinessPlugin }) {
           buildToolsVersion: '36.0.0',
           enableMinifyInReleaseBuilds: true,
           enableShrinkResourcesInReleaseBuilds: true,
+          // AGP 9.1 enables this by default. Keep the same DEX compaction on
+          // Expo's AGP 8.12 toolchain without forcing an unsupported upgrade.
+          extraProguardRules: '-repackageclasses',
         },
         ios: {
           deploymentTarget: '16.4',
