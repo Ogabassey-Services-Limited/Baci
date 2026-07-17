@@ -32,7 +32,7 @@
 
 ## Global Constraints
 
-- Work only in `/Users/mac/Baci-app/.worktrees/cwv-critical-viewport-home` on `codex/ogabassey-home-critical-shell-v2-plan`; do not create a worktree or rebase.
+- Work only in `/Users/mac/Baci-app/.worktrees/cwv-critical-viewport-home` on `codex/p0-event-pipeline-boundary`; do not create a worktree or rebase. This branch starts from merged main `dda0837fe9fae7729b1b1e1192b43fb79fc5e69c` after PR #3135 completed the Task 8 prerequisite.
 - Preserve both pre-existing CLI notifier files, `supabase/.temp/cli-latest` and `apps/web/supabase/.temp/cli-latest`, and never stage, reset, or rewrite either one. Preserve the normative V4 document; stage it only in the explicit documentation-baseline commit.
 - Do not touch `apps/web/src/proxy.ts`, storefront rendering, cache headers, invalidation behavior, Vercel tags, Cloudflare behavior, or H0/H1/H2 files.
 - Do not install, enable, restart, or reconfigure any worker. Do not import #3060's queue or HTTP drainer.
