@@ -23,7 +23,6 @@ import {
   type StatusModalState,
 } from '@/components/ui/StatusModal';
 import { COUNTRIES } from '@/constants/countries';
-import { useCachedImageUri } from '@/hooks/useCachedImageUri';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useSubscriptionManagement } from '@/hooks/useSubscriptionManagement';
@@ -37,12 +36,6 @@ export default function StoreSettingsScreen() {
   const queryClient = useQueryClient();
   const { merchant, isLoading } = useMerchant();
   const { isPro } = useRevenueCat();
-  const { fallbackUri: fallbackLogoUri, uri: cachedLogoUri } =
-    useCachedImageUri(merchant?.logo_url, {
-      width: 256,
-      height: 256,
-      resize: 'contain',
-    });
   const [showCountryModal, setShowCountryModal] = useState(false);
   const [statusModal, setStatusModal] = useState<StatusModalState>({
     visible: false,
@@ -247,9 +240,8 @@ export default function StoreSettingsScreen() {
       >
         <StoreLogoSection
           businessName={businessName}
-          cachedLogoUri={cachedLogoUri}
           colors={colors}
-          fallbackLogoUri={fallbackLogoUri}
+          logoUri={merchant?.logo_url}
           merchantId={merchant?.id}
           onStatusChange={setStatusModal}
           onUploadSuccess={invalidateMerchantQueries}
