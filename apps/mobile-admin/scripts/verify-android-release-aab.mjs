@@ -8,10 +8,15 @@ const ML_KIT_SCANNER_ACTIVITY =
 const USAGE =
   'Usage: verify-android-release-aab.mjs --aab <path> --mapping <path> --bundletool <path>';
 
+function isRecord(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
 export function findReleaseArtifactIssues({
   archiveEntries,
   manifestXml,
   mappingSize,
+  r8Metadata,
 }) {
   const issues = [];
 
@@ -27,6 +32,40 @@ export function findReleaseArtifactIssues({
   );
   if (!hasProguardMap || !hasR8Metadata) {
     issues.push('AAB is missing embedded R8 metadata');
+  }
+
+  let hasParsedR8Metadata = false;
+  let parsedR8Metadata;
+  if (hasR8Metadata) {
+    try {
+      const candidate = JSON.parse(r8Metadata);
+      if (
+        !isRecord(candidate) ||
+        !isRecord(candidate.options) ||
+        !isRecord(candidate.resourceOptimization)
+      ) {
+        throw new Error('Unexpected R8 metadata shape');
+      }
+      parsedR8Metadata = candidate;
+      hasParsedR8Metadata = true;
+    } catch {
+      issues.push('AAB contains invalid R8 metadata');
+    }
+  }
+
+  if (hasParsedR8Metadata) {
+    if (parsedR8Metadata?.options?.isOptimizationsEnabled !== true) {
+      issues.push('R8 code optimization is disabled');
+    }
+    if (parsedR8Metadata?.options?.isRepackageClassesEnabled !== true) {
+      issues.push('R8 class repackaging is disabled');
+    }
+    if (
+      parsedR8Metadata?.resourceOptimization?.isOptimizedShrinkingEnabled !==
+      true
+    ) {
+      issues.push('R8 optimized resource shrinking is disabled');
+    }
   }
 
   const scannerActivity = manifestXml
@@ -80,11 +119,19 @@ function verifyReleaseAab(args) {
     ],
     { encoding: 'utf8', maxBuffer: 4 * 1024 * 1024 }
   );
+  const r8MetadataEntry = 'BUNDLE-METADATA/com.android.tools/r8.json';
+  const r8Metadata = archiveEntries.includes(r8MetadataEntry)
+    ? execFileSync('unzip', ['-p', aabPath, r8MetadataEntry], {
+        encoding: 'utf8',
+        maxBuffer: 4 * 1024 * 1024,
+      })
+    : undefined;
   const mappingSize = statSync(mappingPath).size;
   const issues = findReleaseArtifactIssues({
     archiveEntries,
     manifestXml,
     mappingSize,
+    r8Metadata,
   });
 
   if (issues.length > 0) {
@@ -94,7 +141,7 @@ function verifyReleaseAab(args) {
   }
 
   console.log(
-    'Android release AAB verified: R8 metadata present and ML Kit orientation unrestricted.'
+    'Android release AAB verified: R8 optimization, repackaging, optimized resource shrinking, and unrestricted ML Kit orientation are active.'
   );
 }
 

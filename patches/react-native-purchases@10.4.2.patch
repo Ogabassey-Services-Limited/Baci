@@ -58,3 +58,14 @@
          disable 'GradleCompatible'
      }
      compileOptions {
+@@ -124,6 +138,9 @@
+ dependencies {
+     //noinspection GradleDynamicVersion
+     api 'com.facebook.react:react-native:+'
+-    implementation 'com.revenuecat.purchases:purchases-hybrid-common:18.19.0'
++    implementation('com.revenuecat.purchases:purchases-hybrid-common:18.19.0') {
++        exclude group: 'com.revenuecat.purchases', module: 'purchases-store-amazon'
++    }
++    implementation 'com.amazon.device:amazon-appstore-sdk:3.0.5'
+     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+ }
