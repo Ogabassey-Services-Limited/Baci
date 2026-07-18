@@ -1,3 +1,4 @@
+import { eventPipelineAuthorityCutover } from './event-pipeline-authority-cutover';
 import type { EventDestination } from './event-route-registry';
 
 export type EventPipelineRoutingMode = 'active' | 'disabled' | 'shadow';
@@ -61,13 +62,13 @@ export function isEventPipelineCanaryMerchant(merchantId?: string): boolean {
 }
 
 export function isLegacyAnalyticsFanoutDisabled(): boolean {
+  const authorityExpiry = Date.parse(
+    eventPipelineAuthorityCutover.temporaryAuthorityExpiresAt
+  );
   return (
-    process.env.EVENT_PIPELINE_DISABLE_LEGACY_FANOUT === 'true' &&
-    isEventPipelineEnqueueEnabled() &&
-    getEventPipelineRoutingMode() === 'active' &&
-    isEventPipelineDeliveryEnabled() &&
-    getEventPipelineActiveDestinations().length === EVENT_DESTINATIONS.length &&
-    (process.env.EVENT_PIPELINE_CANARY_MERCHANT_IDS ?? '').trim() === '*'
+    eventPipelineAuthorityCutover.queueOnlyDeliveryActivated ||
+    !Number.isFinite(authorityExpiry) ||
+    Date.now() >= authorityExpiry
   );
 }
 

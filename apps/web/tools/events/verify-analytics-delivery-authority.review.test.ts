@@ -19,4 +19,21 @@ describe('changed analytics runtime review regressions', () => {
       analyzeChangedRuntimeContracts([path], new Map([[path, 'run();']]))
     ).toEqual([]);
   });
+
+  it.each([
+    'js',
+    'jsx',
+    'mjs',
+    'cjs',
+  ])('enforces changed runtime contracts for .%s sources', (extension) => {
+    const path = `apps/web/src/lib/analytics/provider.${extension}`;
+    expect(
+      analyzeChangedRuntimeContracts(
+        [path],
+        new Map([[path, 'export const provider = true;']])
+      )
+    ).toEqual([
+      `${path}: changed runtime is missing colocated test apps/web/src/lib/analytics/provider.test.${extension}`,
+    ]);
+  });
 });

@@ -1,4 +1,3 @@
-import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
@@ -13,14 +12,15 @@ import {
   staticText,
 } from '../../src/lib/events/event-pipeline-boundary-manifest';
 import { validateEventPipelineSelection } from '../../src/lib/events/event-pipeline-database';
+import { parseEventPipelineTypeScriptSource } from '../../src/lib/events/event-pipeline-typescript-source';
 import { frozenRouteHashFinding } from './event-pipeline-boundary-hash';
+import { readGitSourceSnapshot } from './event-pipeline-git-source-snapshot';
 import { eventPipelineGovernedPaths } from './event-pipeline-governed-paths';
 import {
   serviceAuthorityGraphFindings,
   serviceRoleCredentialFinding,
 } from './event-pipeline-service-authority-graph';
 import { serviceRoleCredentialAuthority } from './event-pipeline-service-role-credential-analysis';
-import { readSourceInventory } from './event-pipeline-source-inventory';
 import { isTestSourcePath } from './event-pipeline-source-path';
 
 function queryCall(
@@ -89,13 +89,7 @@ export function analyzeRpcSource(
   const governedNames = new Set(eventPipelineBoundaryManifest.allFunctions);
   // biome-ignore format: compact classification set preserves the 300-line verifier gate.
   const classifiedNames = new Set([...governedNames, ...eventPipelineBoundaryManifest.adjacentFunctions]);
-  const sourceFile = ts.createSourceFile(
-    path,
-    source,
-    ts.ScriptTarget.Latest,
-    true,
-    path.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS
-  );
+  const sourceFile = parseEventPipelineTypeScriptSource(path, source);
   const production = enforceClassification && !isTestSourcePath(path);
   if (production) findings.push(...authorityFindings(path, sourceFile));
   const credentialFinding = production
@@ -188,10 +182,15 @@ export function analyzeRpcSource(
   return findings;
 }
 // biome-ignore format: compact hash receipt preserves the 300-line verifier gate.
-export function verifyEventPipelineBoundaries(): string[] {
-  const root = eventPipelineGovernedPaths.repoRoot();
+export function verifyEventPipelineBoundaries(
+  root = eventPipelineGovernedPaths.repoRoot()
+): string[] {
   const findings: string[] = [];
-  const governed = eventPipelineGovernedPaths.collect();
+  const snapshot = readGitSourceSnapshot(root);
+  const { sources } = snapshot;
+  const governed = eventPipelineGovernedPaths.collect(root, sources);
+  for (const path of snapshot.missingStagedPaths)
+    findings.push(`${path}: staged source is missing from index stage 0`);
   if (governed.fixtureRecordCount !== 154) {
     findings.push(
       `fixture: expected 154 records, found ${governed.fixtureRecordCount}`
@@ -203,11 +202,11 @@ export function verifyEventPipelineBoundaries(): string[] {
     ...eventPipelineBoundaryManifest.sdkConstructorHashes,
   };
   for (const [path, expectedHash] of Object.entries(frozenFiles)) {
-    if (!existsSync(resolve(root, path))) {
+    const source = sources.get(path);
+    if (source === undefined) {
       findings.push(`${path}: frozen event-pipeline source is missing`);
       continue;
     }
-    const source = readFileSync(resolve(root, path));
     const finding = frozenRouteHashFinding(path, source, expectedHash);
     if (finding) findings.push(finding);
   }
@@ -215,10 +214,6 @@ export function verifyEventPipelineBoundaries(): string[] {
   const seedPaths = new Set(governed.seedPaths);
   for (const path of governed.missingProductionRoots)
     findings.push(`${path}: event-pipeline production root is missing`);
-  const sources = readSourceInventory(
-    root,
-    eventPipelineGovernedPaths.sourcePaths(root)
-  ).sources;
   findings.push(...serviceRoleCredentialAuthority.findings(sources));
   findings.push(
     ...serviceAuthorityGraphFindings(sources, [
@@ -234,13 +229,11 @@ export function verifyEventPipelineBoundaries(): string[] {
       ...analyzeRpcSource(path, source, enforceClassification, enforceEscapes)
     );
   }
-  const cleanupWrapper = resolve(
-    root,
-    'vps-workers/jobs/supabase-retention-cleanup.mjs'
-  );
+  const cleanupWrapper =
+    'vps-workers/jobs/supabase-retention-cleanup.mjs';
+  const cleanupSource = sources.get(cleanupWrapper);
   if (
-    !existsSync(cleanupWrapper) ||
-    !readFileSync(cleanupWrapper, 'utf8').includes(
+    !cleanupSource?.includes(
       "rpc('cleanup_domain_event_pipeline_v1'"
     )
   ) {

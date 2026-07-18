@@ -1,12 +1,19 @@
+import { eventPipelineAuthorityCutover } from '../../src/lib/events/event-pipeline-authority-cutover';
+
 export const analyticsDeliveryAuthorityManifest = {
-  temporaryAuthorityExpiresAt: '2026-09-16T00:00:00.000Z',
+  temporaryAuthorityExpiresAt:
+    eventPipelineAuthorityCutover.temporaryAuthorityExpiresAt,
+  // The queue-only activation PR must flip this marker. The verifier then
+  // revokes the temporary authority immediately, even before the fixed date.
+  queueOnlyDeliveryActivated:
+    eventPipelineAuthorityCutover.queueOnlyDeliveryActivated,
   authorityClosureHashes: {
     'apps/web/src/app/api/analytics/conversion/route.ts':
-      'b7f45a04dd3d0d46cd7615f1f17de390fba80054dd618485904574ef8f04638c',
+      '8747272f15477bffc36d4bd8b18fa046338f1dbc6e1234bcd2400e11694057e2',
     'apps/web/src/app/api/events/route.ts':
-      '18ab338cdaa66b219fd733e46796df7179a59ba9306e57e1d8faed1c2c1ddf0f',
+      '3e758b45f0809b919f1a058251bb1acd85e6df6de93df2b63f45f6766be67aab',
     'apps/web/src/app/api/platform/events/platform-event-forwarding.ts':
-      '39ab8803de43052e26e87de5b5a34ccb1687cf636955a94d5b1a1ba80865c75f',
+      '78fd66f814bdff4621771fad58965bb9fad5e70d6da1012fa0450faf305bacf6',
     'apps/web/src/lib/analytics/fetch-analytics-platform-config.ts':
       '95cc62af2d374bfed4b9b89b5b745e2dbd4c34ada1f3a25cf0c398e3cb376c1e',
     'apps/web/src/lib/analytics/trusted-server-ad-platform-fanout.ts':

@@ -203,8 +203,8 @@ export async function POST(request: NextRequest) {
       message: 'Conversion event accepted',
     });
     return NextResponse.json({ event_id: eventId, results, success: true });
-  } catch (error) {
-    logger.error({ error, message: 'Conversion endpoint internal error' });
+  } catch {
+    logger.error({ message: 'Conversion endpoint internal error' });
     return NextResponse.json(
       { error: 'Internal server error', success: false },
       { status: 500 }

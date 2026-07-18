@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import ts from 'typescript';
+import { parseEventPipelineTypeScriptSource } from '../../src/lib/events/event-pipeline-typescript-source';
 import { resolveLexicalString } from './analytics-delivery-static-string';
 import { isTestSourcePath } from './event-pipeline-source-path';
 
@@ -110,13 +111,7 @@ const defaultLedgers: CredentialReaderLedgers = {
 };
 
 function readsCredential(path: string, source: string): boolean {
-  const file = ts.createSourceFile(
-    path,
-    source,
-    ts.ScriptTarget.Latest,
-    true,
-    path.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS
-  );
+  const file = parseEventPipelineTypeScriptSource(path, source);
   const key = (expression: ts.Expression | undefined, at: ts.Node) =>
     resolveLexicalString(expression, file, at) === 'SUPABASE_SERVICE_ROLE_KEY';
   let found = false;
@@ -143,8 +138,9 @@ function readsCredential(path: string, source: string): boolean {
     } else if (ts.isBindingElement(node)) {
       const property = node.propertyName ?? node.name;
       if (
-        ts.isIdentifier(property) &&
-        property.text === 'SUPABASE_SERVICE_ROLE_KEY'
+        (ts.isIdentifier(property) &&
+          property.text === 'SUPABASE_SERVICE_ROLE_KEY') ||
+        (ts.isComputedPropertyName(property) && key(property.expression, node))
       )
         found = true;
     }

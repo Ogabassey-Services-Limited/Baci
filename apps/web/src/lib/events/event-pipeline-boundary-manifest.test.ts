@@ -147,4 +147,19 @@ describe('event pipeline authority manifest', () => {
       ])
     );
   });
+
+  it('rejects a deep Supabase SDK factory import', () => {
+    const path = 'apps/web/src/app/api/fourth/route.ts';
+    const source = ts.createSourceFile(
+      path,
+      "import { createClient } from '@supabase/supabase-js/dist/index.mjs'; createClient(url, importedKey);",
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TS
+    );
+
+    expect(authorityFindings(path, source)).toContain(
+      `${path}: unauthorized privileged SDK factory importer`
+    );
+  });
 });

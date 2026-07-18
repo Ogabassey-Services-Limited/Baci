@@ -138,6 +138,13 @@ const factoryModules: Readonly<Record<string, FactoryKind>> = {
   '@/lib/supabase/service': 'service',
   '@supabase/supabase-js': 'sdk',
 };
+function factoryModuleKind(
+  specifier: string | undefined
+): FactoryKind | undefined {
+  return specifier?.startsWith('@supabase/supabase-js/')
+    ? 'sdk'
+    : factoryModules[specifier ?? ''];
+}
 const factoryExports: Readonly<Record<FactoryKind, readonly string[]>> = {
   admin: ['createClient', 'createAdminClient'],
   sdk: ['createClient'],
@@ -157,7 +164,7 @@ export function authorityFindings(path: string, sourceFile: ts.SourceFile): stri
   for (const statement of sourceFile.statements) {
     const reexport = ts.isExportDeclaration(statement) ? statement : undefined;
     // biome-ignore format: compact AST guard preserves the 300-line module gate.
-    const reexportKind = reexport?.moduleSpecifier && ts.isStringLiteral(reexport.moduleSpecifier) ? factoryModules[reexport.moduleSpecifier.text] : undefined;
+    const reexportKind = reexport?.moduleSpecifier && ts.isStringLiteral(reexport.moduleSpecifier) ? factoryModuleKind(reexport.moduleSpecifier.text) : undefined;
     if (reexportKind === 'admin' || reexportKind === 'service') {
       const clause = reexport?.exportClause;
       // biome-ignore format: compact AST guard preserves the 300-line module gate.
@@ -170,7 +177,7 @@ export function authorityFindings(path: string, sourceFile: ts.SourceFile): stri
       !ts.isStringLiteral(statement.moduleSpecifier)
     )
       continue;
-    const kind = factoryModules[statement.moduleSpecifier.text];
+    const kind = factoryModuleKind(statement.moduleSpecifier.text);
     if (!kind) continue;
     const names =
       statement.importClause?.namedBindings &&
@@ -249,7 +256,7 @@ export function authorityFindings(path: string, sourceFile: ts.SourceFile): stri
       }
     }
     // biome-ignore format: compact AST guard must stay within the 300-line module gate.
-    if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword && ['admin', 'service', ...(listed(authority.legacySdkImporters) ? [] : ['sdk'])].includes(factoryModules[staticText(node.arguments[0], sourceFile, node) ?? ''] ?? ''))
+    if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword && ['admin', 'service', ...(listed(authority.legacySdkImporters) ? [] : ['sdk'])].includes(factoryModuleKind(staticText(node.arguments[0], sourceFile, node)) ?? ''))
       add('unauthorized dynamic privileged factory import');
     ts.forEachChild(node, visit);
   }

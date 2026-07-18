@@ -226,15 +226,15 @@ export async function POST(request: NextRequest) {
           resolvedMerchantId,
         });
         after(async () => {
+          if (isLegacyAnalyticsFanoutDisabled()) return;
           try {
             await trustedServerAdPlatformFanout(
               createServiceClient('event-pipeline'),
               resolvedMerchantId,
               fanoutEvent
             );
-          } catch (error) {
+          } catch {
             logger.error({
-              error,
               message: 'CAPI fan-out error after response',
             });
           }

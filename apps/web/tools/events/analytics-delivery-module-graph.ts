@@ -1,14 +1,21 @@
-import { dirname, normalize } from 'node:path/posix';
+import { dirname, extname, normalize } from 'node:path/posix';
 import ts from 'typescript';
-import { resolveLexicalString } from './analytics-delivery-static-string';
+import { resolveLexicalModuleSpecifier } from './analytics-delivery-module-specifier';
 
 function parse(path: string, source: string): ts.SourceFile {
+  const scriptKind = path.endsWith('.tsx')
+    ? ts.ScriptKind.TSX
+    : path.endsWith('.jsx')
+      ? ts.ScriptKind.JSX
+      : /\.(?:cjs|js|mjs)$/.test(path)
+        ? ts.ScriptKind.JS
+        : ts.ScriptKind.TS;
   return ts.createSourceFile(
     path,
     source,
     ts.ScriptTarget.Latest,
     true,
-    path.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS
+    scriptKind
   );
 }
 
@@ -16,7 +23,7 @@ function moduleReferences(path: string, source: string): string[] {
   const file = parse(path, source);
   const references: string[] = [];
   function add(expression: ts.Expression | undefined, at: ts.Node) {
-    const value = resolveLexicalString(expression, file, at);
+    const value = resolveLexicalModuleSpecifier(expression, file, at);
     if (value) references.push(value);
   }
   function visit(node: ts.Node) {
@@ -56,7 +63,11 @@ function reExportReferences(path: string, source: string): string[] {
     !statement.isTypeOnly &&
     statement.moduleSpecifier
       ? [
-          resolveLexicalString(statement.moduleSpecifier, file, statement),
+          resolveLexicalModuleSpecifier(
+            statement.moduleSpecifier,
+            file,
+            statement
+          ),
         ].filter((value): value is string => Boolean(value))
       : []
   );
@@ -80,15 +91,62 @@ function resolveLocalModule(
   specifier: string,
   sources: ReadonlyMap<string, string>
 ): string | undefined {
-  const base = specifier.startsWith('@/')
-    ? `apps/web/src/${specifier.slice(2)}`
-    : specifier.startsWith('.')
-      ? normalize(`${dirname(importer)}/${specifier}`)
+  const webSourceRoot = 'apps/web/src';
+  const aliasBase =
+    specifier.startsWith('@/') && importer.startsWith('apps/web/')
+      ? normalize(`${webSourceRoot}/${specifier.slice(2)}`)
       : undefined;
+  if (
+    aliasBase &&
+    aliasBase !== webSourceRoot &&
+    !aliasBase.startsWith(`${webSourceRoot}/`)
+  )
+    return undefined;
+  const base =
+    aliasBase ??
+    (specifier.startsWith('.')
+      ? normalize(`${dirname(importer)}/${specifier}`)
+      : undefined);
   if (!base) return undefined;
-  return ['', '.ts', '.tsx', '.mjs', '/index.ts', '/index.tsx', '/index.mjs']
-    .map((suffix) => `${base}${suffix}`)
-    .find((candidate) => sources.has(candidate));
+  const extensions = [
+    '.ts',
+    '.tsx',
+    '.mts',
+    '.cts',
+    '.js',
+    '.jsx',
+    '.mjs',
+    '.cjs',
+  ];
+  const emittedExtension = extname(base);
+  const substitutions: Readonly<Record<string, readonly string[]>> = {
+    '.cjs': ['.cts', '.cjs'],
+    '.js': ['.ts', '.tsx', '.js', '.jsx'],
+    '.jsx': ['.tsx', '.jsx'],
+    '.mjs': ['.mts', '.mjs'],
+  };
+  const hasSourceExtension = extensions.some(
+    (extension) => extension === emittedExtension
+  );
+  const candidates = substitutions[emittedExtension]
+    ? substitutions[emittedExtension].map(
+        (extension) => `${base.slice(0, -emittedExtension.length)}${extension}`
+      )
+    : hasSourceExtension
+      ? [base]
+      : [
+          base,
+          ...extensions.map((extension) => `${base}${extension}`),
+          ...extensions.map((extension) => `${base}/index${extension}`),
+        ];
+  return candidates.find((candidate) => sources.has(candidate));
+}
+
+function isSupabaseSdkSpecifier(specifier: string): boolean {
+  return (
+    specifier === '@supabase/supabase-js' ||
+    specifier.startsWith('@supabase/supabase-js/')
+  );
 }
 
 function importPath(
@@ -139,6 +197,7 @@ function importClosure(
 export const analyticsDeliveryModuleGraph = {
   importClosure,
   importPath,
+  isSupabaseSdkSpecifier,
   moduleReferences,
   reExportReferences,
   resolveLocalModule,

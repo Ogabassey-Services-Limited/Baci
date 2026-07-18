@@ -1,22 +1,33 @@
-import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { analyzeCredentialProjectionSets } from './analytics-delivery-credential-projection-analysis';
-import {
-  analyzeChangedRuntimeContracts,
-  analyzeTemporaryAuthorityExpiry,
-  changedPaths,
-  verifyAnalyticsDeliveryAuthority,
-} from './verify-analytics-delivery-authority';
+import { analyzeTemporaryAuthorityExpiry } from './verify-analytics-delivery-authority';
 
 describe('analytics delivery authority verifier', () => {
   it('fails closed on the temporary authority expiry date', () => {
     expect(
-      analyzeTemporaryAuthorityExpiry(new Date('2026-09-15T23:59:59.999Z'))
+      analyzeTemporaryAuthorityExpiry(
+        new Date('2026-09-15T23:59:59.999Z'),
+        false
+      )
     ).toEqual([]);
     expect(
-      analyzeTemporaryAuthorityExpiry(new Date('2026-09-16T00:00:00.000Z'))
+      analyzeTemporaryAuthorityExpiry(
+        new Date('2026-09-16T00:00:00.000Z'),
+        false
+      )
     ).toEqual([
       'temporary event-pipeline analytics authority expired at 2026-09-16T00:00:00.000Z',
+    ]);
+  });
+
+  it('fails closed as soon as queue-only delivery is activated', () => {
+    expect(
+      analyzeTemporaryAuthorityExpiry(
+        new Date('2026-07-18T00:00:00.000Z'),
+        true
+      )
+    ).toEqual([
+      'temporary event-pipeline analytics authority expired because queue-only delivery is active',
     ]);
   });
 
@@ -214,44 +225,4 @@ describe('analytics delivery authority verifier', () => {
       `${platform}: exact credential projection set drift`,
     ]);
   });
-
-  it('enforces changed runtime size and colocated tests', () => {
-    const good = 'apps/web/src/lib/analytics/good.ts';
-    const oversized = 'apps/web/src/lib/analytics/oversized-provider.ts';
-    const sources = new Map([
-      [good, 'export const good = true;'],
-      ['apps/web/src/lib/analytics/good.test.ts', 'test();'],
-      [oversized, `${'// line\n'.repeat(301)}export const send = true;`],
-    ]);
-    expect(analyzeChangedRuntimeContracts([good, oversized], sources)).toEqual([
-      `${oversized}: changed runtime exceeds 300 lines`,
-      `${oversized}: changed runtime is missing colocated test apps/web/src/lib/analytics/oversized-provider.test.ts`,
-    ]);
-  });
-
-  it('counts an unterminated 301st runtime line', () => {
-    const path = 'apps/web/src/lib/analytics/unterminated.ts';
-    const sources = new Map([
-      [path, Array.from({ length: 301 }, () => 'export {};').join('\n')],
-      ['apps/web/src/lib/analytics/unterminated.test.ts', 'export {};'],
-    ]);
-    expect(analyzeChangedRuntimeContracts([path], sources)).toContain(
-      `${path}: changed runtime exceeds 300 lines`
-    );
-  });
-
-  it('fails closed when the PR merge base cannot be resolved', () => {
-    expect(() =>
-      changedPaths('/repo', (args) => {
-        if (args[0] === 'merge-base') throw new Error('missing base');
-        return '';
-      })
-    ).toThrow('missing base');
-  });
-
-  it('passes the live repository authority contract', () => {
-    expect(
-      verifyAnalyticsDeliveryAuthority(resolve(process.cwd(), '../..'))
-    ).toEqual([]);
-  }, 120_000);
 });

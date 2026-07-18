@@ -1,20 +1,23 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
 import { analyzeAnalyticsDeliveryAuthoritySources } from './analytics-delivery-authority-analysis';
 import { analyticsDeliveryAuthorityManifest as manifest } from './analytics-delivery-authority-manifest';
 import { analyzeCredentialProjectionSets } from './analytics-delivery-credential-projection-analysis';
-import { readSourceInventory } from './event-pipeline-source-inventory';
+import { analyzeAnalyticsWorkerAuthority } from './analytics-worker-authority-analysis';
+import { readQueueOnlyDeliveryCutover } from './event-pipeline-authority-cutover-analysis';
+import { readGitSourceSnapshot } from './event-pipeline-git-source-snapshot';
+import { eventPipelineSourceFilePolicy } from './event-pipeline-source-file-policy';
 import { isTestSourcePath } from './event-pipeline-source-path';
 
 const wrapperSpecifier = '@/lib/analytics/trusted-server-ad-platform-fanout';
 
 // biome-ignore format: compact parser preserves the 300-line verifier gate.
 function ast(path: string, source: string) {
-  return ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true, path.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+  const scriptKind = path.endsWith('.tsx') ? ts.ScriptKind.TSX : path.endsWith('.jsx') ? ts.ScriptKind.JSX : /\.(?:cjs|js|mjs)$/.test(path) ? ts.ScriptKind.JS : ts.ScriptKind.TS;
+  return ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true, scriptKind);
 }
 
 export function analyzeChangedRuntimeContracts(
@@ -24,7 +27,8 @@ export function analyzeChangedRuntimeContracts(
   const findings: string[] = [];
   for (const path of paths.filter(
     (value) =>
-      /^apps\/web\/(?:src|tools)\/.*\.(?:mjs|tsx?)$/.test(value) &&
+      /^apps\/web\/(?:src|tools)\//.test(value) &&
+      eventPipelineSourceFilePolicy.isSourcePath(value) &&
       !isTestSourcePath(value) &&
       !/\.d\.[^.]+$/.test(value) &&
       !value.includes('test-support')
@@ -44,7 +48,7 @@ export function analyzeChangedRuntimeContracts(
         !ts.isExportDeclaration(statement)
     );
     const testPath = path.replace(
-      /\.(mjs|tsx?)$/,
+      /\.(cjs|cts|js|jsx|mjs|mts|ts|tsx)$/,
       (_match, extension: string) => `.test.${extension}`
     );
     if (runtime && !sources.has(testPath)) {
@@ -56,23 +60,20 @@ export function analyzeChangedRuntimeContracts(
   return findings.sort();
 }
 
-export function analyzeTemporaryAuthorityExpiry(now: Date): string[] {
+export function analyzeTemporaryAuthorityExpiry(
+  now: Date,
+  queueOnlyDeliveryActivated: boolean
+): string[] {
+  if (queueOnlyDeliveryActivated) {
+    return [
+      'temporary event-pipeline analytics authority expired because queue-only delivery is active',
+    ];
+  }
   return now.getTime() >= Date.parse(manifest.temporaryAuthorityExpiresAt)
     ? [
         `temporary event-pipeline analytics authority expired at ${manifest.temporaryAuthorityExpiresAt}`,
       ]
     : [];
-}
-
-function gitSources(root: string): Map<string, string> {
-  const paths = execFileSync(
-    'git',
-    ['ls-files', '-co', '--exclude-standard', '*.ts', '*.tsx'],
-    { cwd: root, encoding: 'utf8' }
-  )
-    .split('\n')
-    .filter(Boolean);
-  return readSourceInventory(root, paths).sources;
 }
 
 type GitOutput = (args: string[]) => string;
@@ -105,33 +106,55 @@ export function changedPaths(root: string, git?: GitOutput): string[] {
   const committed = run([
     'diff',
     '--name-only',
+    '-z',
     `${mergeBase}...HEAD`,
     '--',
-    '*.ts',
-    '*.tsx',
+    ...eventPipelineSourceFilePolicy.pathspecs,
   ]);
-  const working = run(['diff', '--name-only', 'HEAD', '--', '*.ts', '*.tsx']);
+  const working = run([
+    'diff',
+    '--name-only',
+    '-z',
+    'HEAD',
+    '--',
+    ...eventPipelineSourceFilePolicy.pathspecs,
+  ]);
   const untracked = run([
     'ls-files',
     '--others',
     '--exclude-standard',
-    '*.ts',
-    '*.tsx',
+    '-z',
+    ...eventPipelineSourceFilePolicy.pathspecs,
   ]);
   return [
     ...new Set(
-      `${committed}\n${working}\n${untracked}`.split('\n').filter(Boolean)
+      `${committed}${working}${untracked}`.split('\0').filter(Boolean)
     ),
   ];
 }
 
 export function verifyAnalyticsDeliveryAuthority(root: string): string[] {
-  const sources = gitSources(root);
+  const snapshot = readGitSourceSnapshot(root);
+  const { sources } = snapshot;
+  const cutoverPath =
+    'apps/web/src/lib/events/event-pipeline-authority-cutover.ts';
+  const queueOnlyDeliveryActivated = readQueueOnlyDeliveryCutover(
+    sources.get(cutoverPath) ?? ''
+  );
   const findings = [
+    ...snapshot.missingStagedPaths.map(
+      (path) => `${path}: staged analytics authority source is unresolved`
+    ),
     ...analyzeAnalyticsDeliveryAuthoritySources(sources),
     ...analyzeCredentialProjectionSets(sources),
+    ...analyzeAnalyticsWorkerAuthority(sources),
     ...analyzeChangedRuntimeContracts(changedPaths(root), sources),
-    ...analyzeTemporaryAuthorityExpiry(new Date()),
+    ...(queueOnlyDeliveryActivated === undefined
+      ? [`${cutoverPath}: queue-only authority cutover marker is unresolved`]
+      : analyzeTemporaryAuthorityExpiry(
+          new Date(),
+          queueOnlyDeliveryActivated
+        )),
   ];
   const hashes = {
     ...manifest.authorityClosureHashes,
@@ -140,13 +163,12 @@ export function verifyAnalyticsDeliveryAuthority(root: string): string[] {
     [manifest.platformRouteHash.path]: manifest.platformRouteHash.sha256,
   };
   for (const [path, expected] of Object.entries(hashes)) {
-    if (!existsSync(resolve(root, path))) {
+    const source = sources.get(path);
+    if (source === undefined) {
       findings.push(`${path}: frozen authority source is missing`);
       continue;
     }
-    const actual = createHash('sha256')
-      .update(readFileSync(resolve(root, path)))
-      .digest('hex');
+    const actual = createHash('sha256').update(source).digest('hex');
     if (actual !== expected)
       findings.push(`${path}: frozen route hash ${actual}`);
   }

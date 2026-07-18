@@ -12,6 +12,8 @@ const mocks = vi.hoisted(() => ({
   createServiceClient: vi.fn(),
   fanout: vi.fn(),
   insert: vi.fn(),
+  legacyFanoutDisabled: vi.fn(),
+  loggerError: vi.fn(),
 }));
 vi.mock('next/server', async () => {
   const actual =
@@ -32,13 +34,16 @@ vi.mock('@/lib/supabase/service', () => ({
 vi.mock('@/lib/analytics/trusted-server-ad-platform-fanout', () => ({
   trustedServerAdPlatformFanout: mocks.fanout,
 }));
+vi.mock('@/lib/logger', () => ({
+  logger: { error: mocks.loggerError, info: vi.fn(), warn: vi.fn() },
+}));
 vi.mock('@/lib/analytics/send-to-ad-platforms', () => ({
   isConversionEvent: (value: string) => value === 'purchase',
   normalizeEventType: (value: string) => value,
 }));
 vi.mock('@/lib/events/event-pipeline-config', () => ({
   isEventPipelineEnqueueEnabled: () => false,
-  isLegacyAnalyticsFanoutDisabled: () => false,
+  isLegacyAnalyticsFanoutDisabled: mocks.legacyFanoutDisabled,
   isUnverifiedEventTelemetryEnabled: () => false,
 }));
 vi.mock('./build-legacy-ad-platform-fanout-event', () => ({
@@ -58,6 +63,7 @@ describe('POST /api/events fanout authority', () => {
     vi.clearAllMocks();
     mocks.insert.mockResolvedValue({ error: null });
     mocks.after.mockImplementation((callback) => callback());
+    mocks.legacyFanoutDisabled.mockReturnValue(false);
     mocks.createServerClient.mockResolvedValue(
       lookupClient({ id: EVENT_ROUTE_MERCHANT_ID })
     );
@@ -146,5 +152,45 @@ describe('POST /api/events fanout authority', () => {
         eventId: expect.stringMatching(/^evt_\d+_[0-9a-f]{32}$/),
       })
     );
+  });
+
+  it('does not log credential-bearing fanout exceptions', async () => {
+    const sentinel = 'merchant-provider-credential-sentinel';
+    mocks.fanout.mockRejectedValue(
+      new Error(`provider credential=${sentinel}`)
+    );
+
+    const response = await POST(
+      eventRouteRequest({ event_type: 'purchase', total: 100 })
+    );
+
+    expect(response.status).toBe(200);
+    await vi.waitFor(() => expect(mocks.loggerError).toHaveBeenCalled());
+    expect(JSON.stringify(mocks.loggerError.mock.calls)).not.toContain(
+      sentinel
+    );
+    expect(mocks.loggerError).toHaveBeenLastCalledWith({
+      message: 'CAPI fan-out error after response',
+    });
+  });
+
+  it('rechecks authority revocation before deferred client construction', async () => {
+    const deferred: Array<() => Promise<void>> = [];
+    mocks.after.mockImplementation((callback: () => Promise<void>) => {
+      deferred.push(callback);
+    });
+
+    const response = await POST(
+      eventRouteRequest({ event_type: 'purchase', total: 100 })
+    );
+    expect(response.status).toBe(200);
+    expect(deferred).toHaveLength(1);
+    expect(mocks.createServiceClient).not.toHaveBeenCalled();
+
+    mocks.legacyFanoutDisabled.mockReturnValue(true);
+    await deferred[0]?.();
+
+    expect(mocks.createServiceClient).not.toHaveBeenCalled();
+    expect(mocks.fanout).not.toHaveBeenCalled();
   });
 });

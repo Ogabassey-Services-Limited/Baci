@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   createAdminClient: vi.fn(),
@@ -48,6 +48,10 @@ describe('forwardToPlatformAnalytics', () => {
     });
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('forwards a platform purchase with its validated currency and page URL', async () => {
     await forwardToPlatformAnalytics({
       eventData: { currency: 'GHS', value: 15_000 },
@@ -82,9 +86,10 @@ describe('forwardToPlatformAnalytics', () => {
 
   it('logs a settings-query error without attempting provider delivery', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const sentinel = 'platform-settings-sensitive-sentinel';
     mocks.single.mockResolvedValue({
       data: null,
-      error: { message: 'platform_settings unavailable' },
+      error: { message: sentinel },
     });
 
     await expect(
@@ -97,17 +102,41 @@ describe('forwardToPlatformAnalytics', () => {
     ).resolves.toBeUndefined();
 
     expect(warn).toHaveBeenCalledWith(
-      'Failed to load platform analytics settings:',
-      expect.objectContaining({ message: 'platform_settings unavailable' })
+      'Failed to load platform analytics settings'
     );
+    expect(JSON.stringify(warn.mock.calls)).not.toContain(sentinel);
+    expect(mocks.sendGa4).not.toHaveBeenCalled();
+    expect(mocks.sendFacebook).not.toHaveBeenCalled();
+  });
+
+  it('contains a rejected settings query without logging its value', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const sentinel = 'privileged-query-credential-sentinel';
+    mocks.single.mockRejectedValue(new Error(sentinel));
+
+    await expect(
+      forwardToPlatformAnalytics({
+        eventData: undefined,
+        eventId: 'platform-event-rejected-query',
+        eventType: 'landing_page_view',
+        request,
+      })
+    ).resolves.toBeUndefined();
+
+    expect(warn).toHaveBeenCalledWith(
+      'Failed to load platform analytics settings'
+    );
+    expect(JSON.stringify(warn.mock.calls)).not.toContain(sentinel);
     expect(mocks.sendGa4).not.toHaveBeenCalled();
     expect(mocks.sendFacebook).not.toHaveBeenCalled();
   });
 
   it('continues after individual provider failures', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    mocks.sendGa4.mockRejectedValue(new Error('GA4 unavailable'));
-    mocks.sendFacebook.mockRejectedValue(new Error('Facebook unavailable'));
+    const ga4Sentinel = 'ga4_api_secret=credential-sentinel';
+    const facebookSentinel = 'facebook_capi_token=credential-sentinel';
+    mocks.sendGa4.mockRejectedValue(new Error(ga4Sentinel));
+    mocks.sendFacebook.mockRejectedValue(new Error(facebookSentinel));
 
     await expect(
       forwardToPlatformAnalytics({
@@ -118,11 +147,10 @@ describe('forwardToPlatformAnalytics', () => {
       })
     ).resolves.toBeUndefined();
 
-    expect(warn).toHaveBeenCalledWith('GA4 forward failed:', expect.any(Error));
-    expect(warn).toHaveBeenCalledWith(
-      'Facebook CAPI forward failed:',
-      expect.any(Error)
-    );
+    expect(warn).toHaveBeenCalledWith('GA4 forward failed');
+    expect(warn).toHaveBeenCalledWith('Facebook CAPI forward failed');
+    expect(JSON.stringify(warn.mock.calls)).not.toContain(ga4Sentinel);
+    expect(JSON.stringify(warn.mock.calls)).not.toContain(facebookSentinel);
   });
 
   it('sends GA4 but skips Facebook for a platform event without a Facebook map', async () => {

@@ -1,20 +1,58 @@
-import { dirname, normalize } from 'node:path/posix';
+import { dirname, extname, normalize } from 'node:path/posix';
 import ts from 'typescript';
+import { parseEventPipelineTypeScriptSource } from './event-pipeline-typescript-source';
+
+const moduleSuffixes = [
+  '',
+  '.ts',
+  '.tsx',
+  '.mts',
+  '.cts',
+  '.js',
+  '.jsx',
+  '.mjs',
+  '.cjs',
+] as const;
 
 function localImportPath(
   importer: string,
   specifier: string,
   sources: ReadonlyMap<string, string>
 ): string | undefined {
-  const base = specifier.startsWith('@/')
-    ? `apps/web/src/${specifier.slice(2)}`
-    : specifier.startsWith('.')
-      ? normalize(`${dirname(importer)}/${specifier}`)
+  const webSourceRoot = 'apps/web/src';
+  const aliasBase =
+    specifier.startsWith('@/') && importer.startsWith('apps/web/')
+      ? normalize(`${webSourceRoot}/${specifier.slice(2)}`)
       : undefined;
+  if (
+    aliasBase &&
+    aliasBase !== webSourceRoot &&
+    !aliasBase.startsWith(`${webSourceRoot}/`)
+  )
+    return undefined;
+  const base =
+    aliasBase ??
+    (specifier.startsWith('.')
+      ? normalize(`${dirname(importer)}/${specifier}`)
+      : undefined);
   if (!base) return undefined;
-  return ['', '.ts', '.tsx', '/index.ts', '/index.tsx']
-    .map((suffix) => `${base}${suffix}`)
-    .find((candidate) => sources.has(candidate));
+  const emittedExtension = extname(base);
+  const substitutions: Readonly<Record<string, readonly string[]>> = {
+    '.cjs': ['.cts', '.cjs'],
+    '.js': ['.ts', '.tsx', '.js', '.jsx'],
+    '.jsx': ['.tsx', '.jsx'],
+    '.mjs': ['.mts', '.mjs'],
+  };
+  const substitutionExtensions = substitutions[emittedExtension];
+  const candidates = substitutionExtensions
+    ? substitutionExtensions.map(
+        (extension) => `${base.slice(0, -emittedExtension.length)}${extension}`
+      )
+    : [
+        ...moduleSuffixes.map((suffix) => `${base}${suffix}`),
+        ...moduleSuffixes.slice(1).map((suffix) => `${base}/index${suffix}`),
+      ];
+  return candidates.find((candidate) => sources.has(candidate));
 }
 
 export function collectProductionImportClosure(
@@ -27,12 +65,9 @@ export function collectProductionImportClosure(
     const path = pending.pop() ?? '';
     if (!path || closure.has(path) || !sources.has(path)) continue;
     closure.add(path);
-    const sourceFile = ts.createSourceFile(
+    const sourceFile = parseEventPipelineTypeScriptSource(
       path,
-      sources.get(path) ?? '',
-      ts.ScriptTarget.Latest,
-      true,
-      path.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS
+      sources.get(path) ?? ''
     );
     function staticSpecifier(
       expression: ts.Expression | undefined,

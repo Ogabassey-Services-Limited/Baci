@@ -21,19 +21,24 @@ export async function forwardToPlatformAnalytics({
   pageUrl,
   request,
 }: PlatformEventForwardingInput) {
-  const { data: settings, error: settingsError } = await createAdminClient(
-    'event-pipeline'
-  )
-    .from('platform_settings')
-    .select(
-      'google_analytics_id, ga4_api_secret, facebook_pixel_id, facebook_capi_token'
-    )
-    .single();
-
-  if (settingsError) {
-    console.warn('Failed to load platform analytics settings:', settingsError);
-    return;
-  }
+  const settings = await (async () => {
+    try {
+      const { data, error } = await createAdminClient('event-pipeline')
+        .from('platform_settings')
+        .select(
+          'google_analytics_id, ga4_api_secret, facebook_pixel_id, facebook_capi_token'
+        )
+        .single();
+      if (error) {
+        console.warn('Failed to load platform analytics settings');
+        return null;
+      }
+      return data;
+    } catch {
+      console.warn('Failed to load platform analytics settings');
+      return null;
+    }
+  })();
   if (!settings) return;
 
   const ga4EventMap: Record<PlatformEventType, string> = {
@@ -73,8 +78,8 @@ export async function forwardToPlatformAnalytics({
           page_location: pageUrl,
         }
       );
-    } catch (error) {
-      console.warn('GA4 forward failed:', error);
+    } catch {
+      console.warn('GA4 forward failed');
     }
   }
 
@@ -117,8 +122,8 @@ export async function forwardToPlatformAnalytics({
         pageUrl,
         eventId
       );
-    } catch (error) {
-      console.warn('Facebook CAPI forward failed:', error);
+    } catch {
+      console.warn('Facebook CAPI forward failed');
     }
   }
 }

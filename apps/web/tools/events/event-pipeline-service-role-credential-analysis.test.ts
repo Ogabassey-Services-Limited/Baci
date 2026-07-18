@@ -9,6 +9,8 @@ describe('serviceRoleCredentialAuthority', () => {
     "const key = 'SUPABASE_SERVICE_ROLE_KEY'; process.env[key]",
     "Reflect.get(process.env, 'SUPABASE_' + 'SERVICE_ROLE_KEY')",
     'const { SUPABASE_SERVICE_ROLE_KEY: key } = process.env; use(key)',
+    "const { ['SUPABASE_SERVICE_ROLE_KEY']: key } = process.env; use(key)",
+    "const name = 'SUPABASE_SERVICE_ROLE_KEY'; const { [name]: key } = process.env; use(key)",
   ])('detects a service-role credential read: %s', (source) => {
     expect(
       serviceRoleCredentialAuthority.readsCredential('worker.ts', source)
@@ -22,6 +24,15 @@ describe('serviceRoleCredentialAuthority', () => {
         "// SUPABASE_SERVICE_ROLE_KEY\nthrow new Error('SUPABASE_SERVICE_ROLE_KEY')"
       )
     ).toBe(false);
+  });
+
+  it('detects a service-role credential read inside JSX', () => {
+    expect(
+      serviceRoleCredentialAuthority.readsCredential(
+        'worker.jsx',
+        'export const View = () => condition ? <div /> : <div data-key={process.env.SUPABASE_SERVICE_ROLE_KEY} />;'
+      )
+    ).toBe(true);
   });
 
   it('fails closed for an unclassified production reader and hash drift', () => {
