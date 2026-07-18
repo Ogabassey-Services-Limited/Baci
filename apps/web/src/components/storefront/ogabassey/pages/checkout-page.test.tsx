@@ -138,6 +138,11 @@ vi.mock('@/lib/credit-direct-client', () => ({
   openCreditDirectCheckout: vi.fn(),
 }));
 
+vi.mock('@/lib/api-client', () => ({
+  fetchWithCsrf: (input: RequestInfo | URL, init?: RequestInit) =>
+    fetch(input, init),
+}));
+
 vi.mock('@/lib/routes', () => ({
   asRoute: vi.fn((path: string) => path),
 }));
@@ -1069,13 +1074,14 @@ describe('CheckoutPage', () => {
           body: JSON.stringify({
             orderId: 'ord-1',
             checkoutTransactionId: 'cd-client-success-1',
+            customerEmail: 'ada@example.com',
             sessionId: 'signed-session-1',
             tracking_token: 'tok-123',
           }),
         }
       );
       expect(routerPush).toHaveBeenCalledWith(
-        '/test-store/checkout/bnpl?orderId=ord-1&gateway=credit_direct&merchant_slug=test-store&trackingToken=tok-123&email=ada%40example.com'
+        '/test-store/checkout/bnpl?orderId=ord-1&gateway=credit_direct&merchant_slug=test-store&creditDirectCompletion=cd-client-success-1&trackingToken=tok-123&email=ada%40example.com'
       );
       expect(
         routerPush.mock.calls.some(([href]) => String(href).includes('/order-success'))
@@ -1228,13 +1234,14 @@ describe('CheckoutPage', () => {
           body: JSON.stringify({
             orderId: 'order-cd',
             checkoutTransactionId: 'cd-client-success-2',
+            customerEmail: 'ada@example.com',
             sessionId: 'signed-session-2',
             tracking_token: 'track-cd',
           }),
         }
       );
       expect(routerPush).toHaveBeenCalledWith(
-        '/test-store/checkout/bnpl?orderId=order-cd&gateway=credit_direct&merchant_slug=test-store&trackingToken=track-cd&email=ada%40example.com'
+        '/test-store/checkout/bnpl?orderId=order-cd&gateway=credit_direct&merchant_slug=test-store&creditDirectCompletion=cd-client-success-2&trackingToken=track-cd&email=ada%40example.com'
       );
       expect(
         routerPush.mock.calls.some(([href]) => String(href).includes('/order-success'))

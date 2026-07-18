@@ -25,6 +25,11 @@ vi.mock('@/lib/credit-direct-client', () => ({
     mockOpenCreditDirectCheckout(...args),
 }));
 
+vi.mock('@/lib/api-client', () => ({
+  fetchWithCsrf: (input: RequestInfo | URL, init?: RequestInit) =>
+    fetch(input, init),
+}));
+
 describe('executeDirectPayment', () => {
   const mockResumedOrder: ResumedOrder = {
     id: 'order-123',
@@ -360,6 +365,7 @@ describe('executeDirectPayment', () => {
             body: JSON.stringify({
               orderId: 'order-123',
               checkoutTransactionId: 'cd-transaction-456',
+              customerEmail: 'john@example.com',
               sessionId: 'signed-session-1',
               tracking_token: 'track-token-123',
             }),
@@ -389,6 +395,7 @@ describe('executeDirectPayment', () => {
         expect(body).toEqual({
           orderId: 'order-123',
           checkoutTransactionId: 'cd-transaction-456',
+          customerEmail: 'john@example.com',
           sessionId: 'signed-session-1',
         });
         expect(body).not.toHaveProperty('tracking_token');
@@ -420,7 +427,7 @@ describe('executeDirectPayment', () => {
         });
 
         expect(defaultOpts.routerPush).toHaveBeenCalledWith(
-          '/test-store/checkout/bnpl?orderId=order-123&gateway=credit_direct&merchant_slug=test-store&trackingToken=track-token-123&email=john%40example.com',
+          '/test-store/checkout/bnpl?orderId=order-123&gateway=credit_direct&merchant_slug=test-store&creditDirectCompletion=cd-transaction-456&trackingToken=track-token-123&email=john%40example.com',
         );
       });
     });
@@ -540,7 +547,7 @@ describe('executeDirectPayment', () => {
       ).not.toThrow();
       await Promise.resolve();
       expect(defaultOpts.routerPush).toHaveBeenCalledWith(
-        '/test-store/checkout/bnpl?orderId=order-123&gateway=credit_direct&merchant_slug=test-store&trackingToken=track-token-123&email=john%40example.com',
+        '/test-store/checkout/bnpl?orderId=order-123&gateway=credit_direct&merchant_slug=test-store&creditDirectCompletion=cd-transaction-456&trackingToken=track-token-123&email=john%40example.com',
       );
     });
   });

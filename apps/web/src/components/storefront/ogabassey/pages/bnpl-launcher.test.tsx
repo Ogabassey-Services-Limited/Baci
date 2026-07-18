@@ -53,6 +53,8 @@ vi.mock('@/lib/credpal', () => ({
 
 vi.mock('@/lib/api-client', () => ({
   apiPost: (...args: unknown[]) => mockApiPost(...args),
+  fetchWithCsrf: (input: RequestInfo | URL, init?: RequestInit) =>
+    fetch(input, init),
 }));
 
 describe('BnplLauncher', () => {
@@ -193,6 +195,7 @@ describe('BnplLauncher', () => {
         body: JSON.stringify({
           orderId: 'order-1',
           checkoutTransactionId: 'ref-1',
+          customerEmail: 'customer@example.com',
           sessionId: 'signed-session-1',
           tracking_token: 'track-order-token',
         }),
@@ -225,6 +228,7 @@ describe('BnplLauncher', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           orderId: 'order-1',
+          customerEmail: 'customer@example.com',
           sessionId: 'signed-session-only',
           tracking_token: 'track-order-token',
         }),
@@ -1031,12 +1035,17 @@ describe('BnplLauncher', () => {
   });
 
   describe('Credit Direct popup return verification', () => {
-    function seedPopupMarker(orderId: string, transactionId: string) {
+    function seedPopupMarker(
+      orderId: string,
+      transactionId: string,
+      source?: 'popup' | 'sdk_success'
+    ) {
       window.sessionStorage.setItem(
         `${CREDIT_DIRECT_POPUP_MARKER_PREFIX}${orderId}`,
         JSON.stringify({
           transactionId,
           storedAt: '2026-07-06T12:29:45.000Z',
+          ...(source && { source }),
         })
       );
     }
@@ -1129,6 +1138,69 @@ describe('BnplLauncher', () => {
       expect(
         window.localStorage.getItem(CHECKOUT_IDEMPOTENCY_STORAGE_KEY)
       ).not.toBeNull();
+    });
+
+    it('honors an SDK completion handoff when session storage is unavailable', async () => {
+      mockSearchParams.mockReturnValue(
+        new URLSearchParams({
+          orderId: 'order-1',
+          gateway: 'credit_direct',
+          merchant_slug: 'test-store',
+          creditDirectCompletion: 'txn-url-fallback',
+          trackingToken: 'tok-123',
+        })
+      );
+      stubOrderStatusFetch('bnpl_pending');
+      const getItemSpy = vi
+        .spyOn(Storage.prototype, 'getItem')
+        .mockImplementation(() => {
+          throw new Error('storage unavailable');
+        });
+      const setItemSpy = vi
+        .spyOn(Storage.prototype, 'setItem')
+        .mockImplementation(() => {
+          throw new Error('storage unavailable');
+        });
+
+      try {
+        render(<BnplLauncher />);
+
+        expect(
+          await screen.findByRole('heading', {
+            name: 'Confirming your payment',
+          })
+        ).toBeInTheDocument();
+        expect(mockOpenCreditDirectCheckout).not.toHaveBeenCalled();
+        expect(
+          screen.queryByRole('button', { name: 'Start a new payment attempt' })
+        ).not.toBeInTheDocument();
+      } finally {
+        getItemSpy.mockRestore();
+        setItemSpy.mockRestore();
+      }
+    });
+
+    it('prefers an SDK completion handoff over a stale popup marker', async () => {
+      seedPopupMarker('order-1', 'txn-stale-popup');
+      mockSearchParams.mockReturnValue(
+        new URLSearchParams({
+          orderId: 'order-1',
+          gateway: 'credit_direct',
+          merchant_slug: 'test-store',
+          creditDirectCompletion: 'txn-sdk-success',
+          trackingToken: 'tok-123',
+        })
+      );
+      stubOrderStatusFetch('bnpl_approved');
+
+      render(<BnplLauncher />);
+
+      await waitFor(() => {
+        expect(mockPush).toHaveBeenCalledWith(
+          '/order-success?orderId=order-1&reference=txn-sdk-success&type=credit_direct&trackingToken=tok-123'
+        );
+      });
+      expect(mockOpenCreditDirectCheckout).not.toHaveBeenCalled();
     });
 
     it('shows the cancelled state without clearing checkout recovery', async () => {
@@ -1280,6 +1352,29 @@ describe('BnplLauncher', () => {
         expect(mockOpenCreditDirectCheckout).toHaveBeenCalled();
       });
       expect(readCreditDirectPopupMarker('order-1')).toBeNull();
+    });
+
+    it('does not offer a new attempt after SDK success times out', async () => {
+      vi.useFakeTimers();
+      try {
+        seedPopupMarker('order-1', 'txn-123', 'sdk_success');
+        stubOrderStatusFetch('bnpl_pending');
+
+        render(<BnplLauncher />);
+        await act(async () => {});
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(151_000);
+        });
+      } finally {
+        vi.useRealTimers();
+      }
+
+      expect(
+        screen.queryByRole('button', { name: 'Start a new payment attempt' })
+      ).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Keep checking' })).toBeEnabled();
+      expect(readCreditDirectPopupMarker('order-1')?.source).toBe('sdk_success');
+      expect(mockOpenCreditDirectCheckout).not.toHaveBeenCalled();
     });
 
     it('includes the lookup email on the verified success redirect when no tracking token exists', async () => {

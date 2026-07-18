@@ -6,7 +6,7 @@ import type { CreditDirectVerificationPhase } from '../hooks/use-credit-direct-v
 interface CreditDirectVerificationViewProps {
   phase: Exclude<CreditDirectVerificationPhase, 'idle' | 'confirmed'>;
   onKeepWaiting: () => void;
-  onRetryPayment: () => void;
+  onRetryPayment?: () => void;
   onReturnHome: () => void;
 }
 
@@ -88,10 +88,12 @@ export function CreditDirectVerificationView({
           confirmed automatically and you&apos;ll receive an email receipt —
           you will not be charged twice.
         </p>
-        <p className="text-gray-600 mb-6">
-          Only start a new attempt if you did <strong>not</strong> finish your
-          previous application — a new attempt replaces the earlier one.
-        </p>
+        {onRetryPayment && (
+          <p className="text-gray-600 mb-6">
+            Only start a new attempt if you did <strong>not</strong> finish your
+            previous application — a new attempt replaces the earlier one.
+          </p>
+        )}
         <button
           type="button"
           onClick={onKeepWaiting}
@@ -99,13 +101,15 @@ export function CreditDirectVerificationView({
         >
           Keep checking
         </button>
-        <button
-          type="button"
-          onClick={onRetryPayment}
-          className="w-full mt-3 py-3 border border-gray-300 text-gray-900 rounded-lg font-medium hover:bg-gray-50 transition-colors"
-        >
-          Start a new payment attempt
-        </button>
+        {onRetryPayment && (
+          <button
+            type="button"
+            onClick={onRetryPayment}
+            className="w-full mt-3 py-3 border border-gray-300 text-gray-900 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+          >
+            Start a new payment attempt
+          </button>
+        )}
         <button
           type="button"
           onClick={onReturnHome}

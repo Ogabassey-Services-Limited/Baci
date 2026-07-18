@@ -16,6 +16,11 @@ vi.mock('@/lib/credit-direct-client', () => ({
   openCreditDirectCheckout: vi.fn(),
 }));
 
+vi.mock('@/lib/api-client', () => ({
+  fetchWithCsrf: (input: RequestInfo | URL, init?: RequestInit) =>
+    fetch(input, init),
+}));
+
 vi.mock('@/lib/supabase/client', () => ({
   createClient: vi.fn(() => ({
     auth: {
@@ -604,13 +609,14 @@ describe('handlePlaceOrder', () => {
           body: JSON.stringify({
             orderId: 'order-cd',
             checkoutTransactionId: 'cd-transaction-1',
+            customerEmail: 'john@example.com',
             sessionId: 'signed-session-1',
             tracking_token: 'track-cd',
           }),
         },
       );
       expect(opts.routerPush).toHaveBeenCalledWith(
-        '/test-store/checkout/bnpl?orderId=order-cd&gateway=credit_direct&merchant_slug=test-store&trackingToken=track-cd&email=john%40example.com',
+        '/test-store/checkout/bnpl?orderId=order-cd&gateway=credit_direct&merchant_slug=test-store&creditDirectCompletion=cd-transaction-1&trackingToken=track-cd&email=john%40example.com',
       );
       expect(opts.clearCheckoutSession).not.toHaveBeenCalled();
       expect(opts.clearCart).not.toHaveBeenCalled();

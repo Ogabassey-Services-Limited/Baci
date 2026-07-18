@@ -3,16 +3,18 @@ import {
   readCreditDirectPopupMarker,
   writeCreditDirectPopupMarker,
 } from './credit-direct-popup-return';
+import { fetchWithCsrf } from '@/lib/api-client';
 
 interface CreditDirectClientCompletion {
   orderId: string;
   checkoutTransactionId?: string | null;
+  customerEmail?: string | null;
   sessionId?: string | null;
   trackingToken?: string | null;
 }
 
 type ClientCompletionFetch = (
-  input: RequestInfo | URL,
+  input: string,
   init?: RequestInit
 ) => Promise<Pick<Response, 'ok' | 'status' | 'statusText'>>;
 
@@ -25,21 +27,28 @@ export function captureCreditDirectClientCompletion(
   {
     orderId,
     checkoutTransactionId,
+    customerEmail,
     sessionId,
     trackingToken,
   }: CreditDirectClientCompletion,
-  fetcher: ClientCompletionFetch = globalThis.fetch
+  fetcher: ClientCompletionFetch = fetchWithCsrf
 ): CreditDirectPopupMarker {
   const markerTransactionId = checkoutTransactionId || sessionId;
   if (!markerTransactionId) {
     throw new Error('Credit Direct completion reference is required');
   }
   const fallbackMarker: CreditDirectPopupMarker = {
+    source: 'sdk_success',
     transactionId: markerTransactionId,
     storedAt: new Date().toISOString(),
   };
-  writeCreditDirectPopupMarker(orderId, markerTransactionId);
-  const marker = readCreditDirectPopupMarker(orderId) ?? fallbackMarker;
+  writeCreditDirectPopupMarker(orderId, markerTransactionId, 'sdk_success');
+  const storedMarker = readCreditDirectPopupMarker(orderId);
+  const marker =
+    storedMarker?.transactionId === markerTransactionId &&
+    storedMarker.source === 'sdk_success'
+      ? storedMarker
+      : fallbackMarker;
 
   void fetcher('/api/orders/credit-direct/client-completion', {
     method: 'POST',
@@ -48,6 +57,7 @@ export function captureCreditDirectClientCompletion(
     body: JSON.stringify({
       orderId,
       ...(checkoutTransactionId && { checkoutTransactionId }),
+      ...(customerEmail && { customerEmail }),
       ...(sessionId && { sessionId }),
       ...(trackingToken && { tracking_token: trackingToken }),
     }),

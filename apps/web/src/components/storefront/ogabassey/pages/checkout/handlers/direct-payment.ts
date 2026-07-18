@@ -102,9 +102,10 @@ export async function executeDirectPayment({
           quantity: item.quantity,
         })),
         onSuccess: ({ checkoutTransactionId, sessionId }) => {
-          captureCreditDirectClientCompletion({
+          const completionMarker = captureCreditDirectClientCompletion({
             orderId: resumedOrder.id,
             checkoutTransactionId,
+            customerEmail: resumedOrder.customer_email,
             sessionId,
             trackingToken: resumedOrder.tracking_token,
           });
@@ -113,6 +114,10 @@ export async function executeDirectPayment({
             gateway: 'credit_direct',
             merchant_slug: merchantSlug || 'ogabassey',
           });
+          verificationQuery.set(
+            'creditDirectCompletion',
+            completionMarker.transactionId,
+          );
           if (resumedOrder.tracking_token) {
             verificationQuery.set(
               'trackingToken',

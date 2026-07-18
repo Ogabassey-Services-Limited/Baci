@@ -18,13 +18,19 @@ vi.mock('@/lib/supabase/server', () => ({
 import { POST } from './route';
 
 const ORDER_ID = '00000000-0000-4000-8000-000000000001';
+const CSRF_TOKEN = 'test-csrf-token';
 
-function request(body: unknown) {
+function request(body: unknown, csrfToken: string | null = CSRF_TOKEN) {
+  const headers = new Headers({
+    'content-type': 'application/json',
+    cookie: `csrf-token=${CSRF_TOKEN}`,
+  });
+  if (csrfToken) headers.set('x-csrf-token', csrfToken);
   return new NextRequest(
     'http://localhost:3000/api/orders/credit-direct/client-completion',
     {
       body: JSON.stringify(body),
-      headers: { 'content-type': 'application/json' },
+      headers,
       method: 'POST',
     }
   );
@@ -59,6 +65,7 @@ describe('POST /api/orders/credit-direct/client-completion', () => {
       'record_credit_direct_client_completion',
       {
         p_checkout_transaction_id: 'cd-transaction-1',
+        p_email: null,
         p_order_id: ORDER_ID,
         p_session_id: null,
         p_tracking_token: 'track-1',
@@ -68,7 +75,11 @@ describe('POST /api/orders/credit-direct/client-completion', () => {
 
   it('keeps session-only SDK evidence separate from transaction ids', async () => {
     const response = await POST(
-      request({ orderId: ORDER_ID, sessionId: 'session-1' })
+      request({
+        customerEmail: 'customer@example.com',
+        orderId: ORDER_ID,
+        sessionId: 'session-1',
+      })
     );
 
     expect(response.status).toBe(202);
@@ -76,6 +87,7 @@ describe('POST /api/orders/credit-direct/client-completion', () => {
       'record_credit_direct_client_completion',
       {
         p_checkout_transaction_id: null,
+        p_email: 'customer@example.com',
         p_order_id: ORDER_ID,
         p_session_id: 'session-1',
         p_tracking_token: null,
@@ -89,6 +101,28 @@ describe('POST /api/orders/credit-direct/client-completion', () => {
     );
 
     expect(response.status).toBe(400);
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['missing', null],
+    ['invalid', 'wrong-csrf-token'],
+  ])('rejects a %s CSRF token before touching the database', async (_, token) => {
+    const response = await POST(
+      request(
+        {
+          checkoutTransactionId: 'cd-transaction-1',
+          orderId: ORDER_ID,
+        },
+        token
+      )
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      code: 'CSRF_VALIDATION_FAILED',
+      error: 'Invalid CSRF token',
+    });
     expect(mocks.rpc).not.toHaveBeenCalled();
   });
 

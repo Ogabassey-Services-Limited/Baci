@@ -1,29 +1,38 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({ fetchWithCsrf: vi.fn() }));
+
+vi.mock('@/lib/api-client', () => ({
+  fetchWithCsrf: mocks.fetchWithCsrf,
+}));
+
 import { captureCreditDirectClientCompletion } from './credit-direct-client-completion';
 import { readCreditDirectPopupMarker } from './credit-direct-popup-return';
 
 describe('captureCreditDirectClientCompletion', () => {
   beforeEach(() => {
     window.sessionStorage.clear();
+    mocks.fetchWithCsrf.mockReset();
+    mocks.fetchWithCsrf.mockReturnValue(new Promise(() => undefined));
   });
 
-  it('stores the marker synchronously and sends untrusted completion evidence', () => {
-    const fetcher = vi.fn().mockReturnValue(new Promise(() => undefined));
-
+  it('stores the marker synchronously and sends evidence through the CSRF-aware fetcher', () => {
     const marker = captureCreditDirectClientCompletion(
       {
         orderId: 'order-1',
         checkoutTransactionId: 'cd-transaction-1',
+        customerEmail: 'customer@example.com',
         trackingToken: 'track-1',
-      },
-      fetcher
+      }
     );
 
+    expect(marker.source).toBe('sdk_success');
     expect(marker.transactionId).toBe('cd-transaction-1');
-    expect(readCreditDirectPopupMarker('order-1')?.transactionId).toBe(
-      'cd-transaction-1'
-    );
-    expect(fetcher).toHaveBeenCalledWith(
+    expect(readCreditDirectPopupMarker('order-1')).toMatchObject({
+      source: 'sdk_success',
+      transactionId: 'cd-transaction-1',
+    });
+    expect(mocks.fetchWithCsrf).toHaveBeenCalledWith(
       '/api/orders/credit-direct/client-completion',
       {
         method: 'POST',
@@ -32,6 +41,7 @@ describe('captureCreditDirectClientCompletion', () => {
         body: JSON.stringify({
           orderId: 'order-1',
           checkoutTransactionId: 'cd-transaction-1',
+          customerEmail: 'customer@example.com',
           tracking_token: 'track-1',
         }),
       }
@@ -61,6 +71,36 @@ describe('captureCreditDirectClientCompletion', () => {
       );
     } finally {
       consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it('returns the SDK marker when storage keeps popup provenance', () => {
+    window.sessionStorage.setItem(
+      'baci_credit_direct_popup:order-1',
+      JSON.stringify({
+        source: 'popup',
+        storedAt: '2026-07-18T12:00:00.000Z',
+        transactionId: 'new-sdk-reference',
+      })
+    );
+    const setItemSpy = vi
+      .spyOn(Storage.prototype, 'setItem')
+      .mockImplementation(() => {
+        throw new Error('storage unavailable');
+      });
+
+    try {
+      const marker = captureCreditDirectClientCompletion({
+        orderId: 'order-1',
+        checkoutTransactionId: 'new-sdk-reference',
+      });
+
+      expect(marker).toMatchObject({
+        source: 'sdk_success',
+        transactionId: 'new-sdk-reference',
+      });
+    } finally {
+      setItemSpy.mockRestore();
     }
   });
 

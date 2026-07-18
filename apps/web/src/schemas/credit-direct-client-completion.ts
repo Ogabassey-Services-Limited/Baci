@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const creditDirectClientCompletionSchema = z
   .object({
     checkoutTransactionId: z.string().trim().min(1).max(200).optional(),
+    customerEmail: z.string().trim().email().max(254).optional(),
     orderId: z.uuid(),
     sessionId: z.string().trim().min(1).max(200).optional(),
     tracking_token: z.string().trim().min(1).max(512).optional(),

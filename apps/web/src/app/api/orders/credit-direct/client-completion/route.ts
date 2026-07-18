@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
 import { creditDirectClientCompletionSchema } from '@/schemas/credit-direct-client-completion';
@@ -19,6 +20,17 @@ const KNOWN_ERRORS = [
  * using either the authenticated customer/merchant identity or tracking token.
  */
 export async function POST(request: NextRequest) {
+  const csrf = await checkCsrfProtection(request);
+  if (!csrf.valid) {
+    return NextResponse.json(
+      {
+        error: csrf.response ? 'Invalid CSRF token' : 'CSRF validation failed',
+        code: 'CSRF_VALIDATION_FAILED',
+      },
+      { status: 403 }
+    );
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -40,6 +52,7 @@ export async function POST(request: NextRequest) {
     'record_credit_direct_client_completion',
     {
       p_checkout_transaction_id: parsed.data.checkoutTransactionId ?? null,
+      p_email: parsed.data.customerEmail ?? null,
       p_order_id: parsed.data.orderId,
       p_session_id: parsed.data.sessionId ?? null,
       p_tracking_token: parsed.data.tracking_token ?? null,

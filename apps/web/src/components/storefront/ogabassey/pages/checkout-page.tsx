@@ -99,7 +99,10 @@ import {
   getCheckoutIdempotencyKey,
 } from './checkout/checkout-idempotency';
 import { captureCreditDirectClientCompletion } from './checkout/credit-direct-client-completion';
-import { writeCreditDirectPopupMarker } from './checkout/credit-direct-popup-return';
+import {
+  type CreditDirectPopupMarker,
+  writeCreditDirectPopupMarker,
+} from './checkout/credit-direct-popup-return';
 import { persistCreditDirectPopupReference } from './checkout/persist-credit-direct-popup-reference';
 import { getCheckoutOrderErrorMessage } from './checkout/checkout-order-error-message';
 import { selectRejectedVoucherLines } from './checkout/select-rejected-voucher-lines';
@@ -163,6 +166,7 @@ const MANUAL_ADDRESS_LOCATION_DEBOUNCE_MS = 500;
 interface CreditDirectVerificationHandoff {
   orderId: string;
   merchantSlug: string;
+  completionMarker?: CreditDirectPopupMarker | null;
   trackingToken?: string | null;
   customerEmail?: string | null;
 }
@@ -170,6 +174,7 @@ interface CreditDirectVerificationHandoff {
 function buildCreditDirectVerificationPath({
   orderId,
   merchantSlug,
+  completionMarker,
   trackingToken,
   customerEmail,
 }: CreditDirectVerificationHandoff): string {
@@ -178,6 +183,9 @@ function buildCreditDirectVerificationPath({
     gateway: 'credit_direct',
     merchant_slug: merchantSlug,
   });
+  if (completionMarker) {
+    query.set('creditDirectCompletion', completionMarker.transactionId);
+  }
   if (trackingToken) query.set('trackingToken', trackingToken);
   if (customerEmail) query.set('email', customerEmail);
   return `/checkout/bnpl?${query.toString()}`;
@@ -1651,9 +1659,10 @@ export const CheckoutPage: React.FC = () => {
               resumedOrder.tracking_token || resumeTrackingToken;
             const merchantSlug =
               merchant?.slug || resumeMerchantSlug || 'ogabassey';
-            captureCreditDirectClientCompletion({
+            const completionMarker = captureCreditDirectClientCompletion({
               orderId: resumedOrder.id,
               checkoutTransactionId,
+              customerEmail: resumedOrder.customer_email,
               sessionId,
               trackingToken,
             });
@@ -1663,6 +1672,7 @@ export const CheckoutPage: React.FC = () => {
                   buildCreditDirectVerificationPath({
                     orderId: resumedOrder.id,
                     merchantSlug,
+                    completionMarker,
                     trackingToken,
                     customerEmail: resumedOrder.customer_email,
                   })
@@ -2425,9 +2435,10 @@ export const CheckoutPage: React.FC = () => {
             quantity: item.quantity,
           })),
           onSuccess: ({ checkoutTransactionId, sessionId }) => {
-            captureCreditDirectClientCompletion({
+            const completionMarker = captureCreditDirectClientCompletion({
               orderId: order.id,
               checkoutTransactionId,
+              customerEmail,
               sessionId,
               trackingToken: order.tracking_token,
             });
@@ -2437,6 +2448,7 @@ export const CheckoutPage: React.FC = () => {
                   buildCreditDirectVerificationPath({
                     orderId: order.id,
                     merchantSlug: merchant.slug || '',
+                    completionMarker,
                     trackingToken: order.tracking_token,
                     customerEmail,
                   })

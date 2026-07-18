@@ -407,6 +407,7 @@ async function launchBnplPayment({
                     const marker = captureCreditDirectClientCompletion({
                         orderId: order.id,
                         checkoutTransactionId,
+                        customerEmail: checkoutCustomerEmail,
                         sessionId,
                         trackingToken: order.tracking_token,
                     });
@@ -649,6 +650,8 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
 
     const orderId = searchParams.get('orderId');
     const gateway = searchParams.get('gateway') as BnplGateway | null;
+    const creditDirectCompletionReference =
+        searchParams.get('creditDirectCompletion')?.trim() || null;
     const klumpReference = searchParams.get('reference')?.trim() || null;
     const klumpCallback = searchParams.get('klump_callback') === '1';
     const klumpTransactionId = getKlumpTransactionId(searchParams);
@@ -696,6 +699,7 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
     const launchRequestKey = JSON.stringify([
         orderId,
         gateway,
+        creditDirectCompletionReference,
         klumpCallback,
         klumpReference,
         klumpTransactionId,
@@ -721,7 +725,13 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
                 return;
             }
             clearPaymentLaunch(paymentLaunchKeyRef);
-            const marker = readCreditDirectPopupMarker(orderId);
+            const marker = creditDirectCompletionReference
+                ? {
+                      source: 'sdk_success' as const,
+                      transactionId: creditDirectCompletionReference,
+                      storedAt: '',
+                  }
+                : readCreditDirectPopupMarker(orderId);
             if (marker) {
                 adoptCreditDirectPopupMarker(marker);
             }
@@ -729,7 +739,7 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
 
         window.addEventListener('pageshow', handlePageShow);
         return () => window.removeEventListener('pageshow', handlePageShow);
-    }, [gateway, klumpCallback, orderId]);
+    }, [creditDirectCompletionReference, gateway, klumpCallback, orderId]);
 
     useEffect(() => {
         // An error is terminal only for the launch request that produced it.
@@ -747,7 +757,13 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
             if (creditDirectPopupMarker) {
                 return;
             }
-            const marker = readCreditDirectPopupMarker(orderId);
+            const marker = creditDirectCompletionReference
+                ? {
+                      source: 'sdk_success' as const,
+                      transactionId: creditDirectCompletionReference,
+                      storedAt: '',
+                  }
+                : readCreditDirectPopupMarker(orderId);
             if (marker) {
                 adoptCreditDirectPopupMarker(marker);
                 return;
@@ -790,6 +806,7 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
         router,
         trackingToken,
         creditDirectPopupMarker,
+        creditDirectCompletionReference,
         launchRequestKey,
     ]);
 
@@ -879,7 +896,11 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
             <CreditDirectVerificationView
                 phase={verificationPhase}
                 onKeepWaiting={creditDirectVerification.restart}
-                onRetryPayment={retryCreditDirectPayment}
+                onRetryPayment={
+                    creditDirectPopupMarker.source === 'sdk_success'
+                        ? undefined
+                        : retryCreditDirectPayment
+                }
                 onReturnHome={() =>
                     router.push((buildLauncherScopedPath('') || '/') as Route)
                 }

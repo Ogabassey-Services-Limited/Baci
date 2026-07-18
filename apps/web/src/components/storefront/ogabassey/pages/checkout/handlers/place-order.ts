@@ -635,9 +635,10 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
         customerName: `${firstName} ${lastName}`.trim(),
         items,
         onSuccess: ({ checkoutTransactionId, sessionId }) => {
-          captureCreditDirectClientCompletion({
+          const completionMarker = captureCreditDirectClientCompletion({
             orderId: order.id,
             checkoutTransactionId,
+            customerEmail,
             sessionId,
             trackingToken: order.tracking_token,
           });
@@ -646,6 +647,10 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
             gateway: 'credit_direct',
             merchant_slug: merchant.slug || '',
           });
+          verificationQuery.set(
+            'creditDirectCompletion',
+            completionMarker.transactionId,
+          );
           if (order.tracking_token) {
             verificationQuery.set('trackingToken', order.tracking_token);
           }
