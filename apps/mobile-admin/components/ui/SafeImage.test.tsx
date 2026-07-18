@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
 import type { ImageSourcePropType } from 'react-native';
 import { describe, expect, it, vi } from 'vitest';
@@ -36,8 +36,18 @@ vi.mock('react-native', async () => {
     useColorScheme: () => 'light',
     StatusBar: () => null,
     ActivityIndicator: () => <span data-testid="activity-indicator" />,
-    Image: ({ source }: { source: unknown }) => (
-      <div data-source={JSON.stringify(source)} data-testid="native-image" />
+    Image: ({
+      onError,
+      source,
+    }: {
+      onError?: (event: { nativeEvent: { error: string } }) => void;
+      source: unknown;
+    }) => (
+      <button
+        data-source={JSON.stringify(source)}
+        onClick={() => onError?.({ nativeEvent: { error: 'load failed' } })}
+        type="button"
+      />
     ),
     StyleSheet: {
       create: <T extends Record<string, unknown>>(styles: T) => styles,
@@ -64,7 +74,7 @@ describe('SafeImage', () => {
 
     render(<SafeImage source={source} />);
 
-    expect(screen.getByTestId('native-image')).toHaveAttribute(
+    expect(screen.getByRole('button')).toHaveAttribute(
       'data-source',
       JSON.stringify({ uri: 'file:///cache/product.png' })
     );
@@ -78,7 +88,7 @@ describe('SafeImage', () => {
 
     render(<SafeImage source={source} />);
 
-    expect(screen.getByTestId('native-image')).toHaveAttribute(
+    expect(screen.getByRole('button')).toHaveAttribute(
       'data-source',
       JSON.stringify([
         { uri: 'file:///cache/fallback.png' },
@@ -100,12 +110,34 @@ describe('SafeImage', () => {
     expect(firstSource.uri).toBeInstanceOf(UriLike);
     expect(secondSource.uri).toBe('https://example.com/product.png');
 
-    expect(screen.getByTestId('native-image')).toHaveAttribute(
+    expect(screen.getByRole('button')).toHaveAttribute(
       'data-source',
       JSON.stringify([
         { uri: 'file:///cache/fallback.png' },
         { uri: 'https://example.com/product.png' },
       ])
     );
+  });
+
+  it('retries an original image source before showing the fallback icon', () => {
+    render(
+      <SafeImage
+        fallbackSource={{ uri: 'https://project.supabase.co/original.png' }}
+        source={{ uri: 'https://project.supabase.co/transformed.png' }}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button'));
+
+    expect(screen.getByRole('button')).toHaveAttribute(
+      'data-source',
+      JSON.stringify({ uri: 'https://project.supabase.co/original.png' })
+    );
+    expect(screen.queryByText('image-outline')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button'));
+
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(screen.getByText('image-outline')).toBeInTheDocument();
   });
 });
