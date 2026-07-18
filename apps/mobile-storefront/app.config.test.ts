@@ -7,6 +7,7 @@ jest.mock('dotenv/config', () => ({}));
 const originalEnv = process.env;
 
 function loadAppConfigWithEnv(env: {
+  ANDROID_VERSION_CODE?: string;
   EXPO_PUBLIC_MERCHANT_DOMAIN?: string;
   EXPO_PUBLIC_POSTHOG_API_KEY?: string;
   EXPO_PUBLIC_POSTHOG_HOST?: string;
@@ -19,6 +20,7 @@ function loadAppConfigWithEnv(env: {
 }) {
   jest.resetModules();
   process.env = { ...originalEnv };
+  delete process.env.ANDROID_VERSION_CODE;
   delete process.env.EXPO_PUBLIC_MERCHANT_DOMAIN;
   delete process.env.EXPO_PUBLIC_POSTHOG_API_KEY;
   delete process.env.EXPO_PUBLIC_POSTHOG_HOST;
@@ -28,13 +30,11 @@ function loadAppConfigWithEnv(env: {
   delete process.env.EXPO_UPDATE_CHANNEL;
   delete process.env.STOREFRONT_FACEBOOK_APP_ID;
   delete process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN;
-
   for (const [key, value] of Object.entries(env)) {
     if (value !== undefined) {
       process.env[key] = value;
     }
   }
-
   return jest.requireActual<typeof import('./app.config')>('./app.config')
     .default;
 }
