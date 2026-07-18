@@ -12,7 +12,6 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 const require = createRequire(import.meta.url);
 const tempRoots: string[] = [];
-
 interface PluginConfig {
   modRequest: {
     platformProjectRoot: string;
@@ -141,6 +140,7 @@ function createAndroidProject(options?: {
   }
 
   writeFile(root, 'app/src/main/AndroidManifest.xml', defaultMainManifest());
+  writeFile(root, 'app/proguard-rules.pro', '# Project rules\n');
   writeFile(root, 'settings.gradle', defaultSettingsGradle());
 
   return root;
@@ -194,15 +194,18 @@ afterEach(() => {
 describe('withAndroidGradleFixes Kotlin compilation guard', () => {
   it('keeps the Kotlin Android plugin when built-in Kotlin is disabled', () => {
     const projectRoot = createAndroidProject();
-
     const config = runPlugin(projectRoot);
-
+    runPlugin(projectRoot);
     const appBuildGradle = readFileSync(
       path.join(projectRoot, 'app/build.gradle'),
       'utf-8'
     );
     const gradleProperties = readFileSync(
       path.join(projectRoot, 'gradle.properties'),
+      'utf-8'
+    );
+    const proguardRules = readFileSync(
+      path.join(projectRoot, 'app/proguard-rules.pro'),
       'utf-8'
     );
     expect(config.modRequest.platformProjectRoot).toBe(projectRoot);
@@ -219,13 +222,16 @@ describe('withAndroidGradleFixes Kotlin compilation guard', () => {
       'android.r8.optimizedResourceShrinking=true'
     );
     expect(gradleProperties).toContain('-XX:MaxMetaspaceSize=1024m');
+    expect(proguardRules).toContain('\n-repackageclasses\n');
+    expect(proguardRules).toContain(
+      '\n-keep,allowshrinking,allowobfuscation,allowoptimization class com.amazon.** { *; }\n'
+    );
+    expect(proguardRules).not.toMatch(/^-dontoptimize$/m);
   });
 
   it('removes the Google code scanner portrait restriction during manifest merging', () => {
     const projectRoot = createAndroidProject();
-
     runPlugin(projectRoot);
-
     const mainManifest = readFileSync(
       path.join(projectRoot, 'app/src/main/AndroidManifest.xml'),
       'utf-8'

@@ -27,6 +27,14 @@ function readNoteString(value: unknown) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
+function getPayloadKeys(value: unknown) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return [];
+  }
+
+  return Object.keys(value).sort().slice(0, 20);
+}
+
 function readProductAmount(value: unknown) {
   if (typeof value === 'number') {
     return Number.isFinite(value) ? value : null;
@@ -229,7 +237,8 @@ export async function POST(request: NextRequest) {
       if (!validated) {
         logger.warn({
           message: 'Invalid Credit Direct webhook payload structure',
-          payload: parsed,
+          payloadKeys: getPayloadKeys(parsed),
+          svixId,
         });
         return NextResponse.json(
           { error: 'Invalid payload structure' },

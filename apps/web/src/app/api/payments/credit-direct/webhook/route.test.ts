@@ -338,7 +338,8 @@ describe('POST /api/payments/credit-direct/webhook', () => {
       expect(data).toEqual({ error: 'Invalid payload structure' });
       expect(logger.warn).toHaveBeenCalledWith({
         message: 'Invalid Credit Direct webhook payload structure',
-        payload: { invalid: 'payload' },
+        payloadKeys: ['invalid'],
+        svixId: VALID_SVIX_ID,
       });
     });
 

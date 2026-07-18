@@ -1,13 +1,14 @@
 /**
- * Expo config plugin: Android Gradle fixes for AGP 9.x + React Native
+ * Expo config plugin: Android Gradle fixes for Expo + React Native
  *
  * Applies after `expo prebuild --clean` so native dirs are always correct:
  * 1. Removes kotlin-gradle-plugin classpath (built into AGP 9.x)
  * 2. Keeps apply plugin "org.jetbrains.kotlin.android" for Kotlin compilation
- * 3. Changes proguard-android.txt → proguard-android-optimize.txt (AGP 9.x requirement)
- * 4. Bumps Gradle wrapper to 9.3.1 (minimum for AGP 9.x)
+ * 3. Changes proguard-android.txt → proguard-android-optimize.txt
+ * 4. Bumps Gradle wrapper to the repository-supported version
  * 5. Adds async-storage local maven repo
  * 6. Adds Worklets jniLibs pickFirst for release packaging
+ * 7. Enables AGP 8.12's optimized resource shrinking pipeline
  */
 const { withDangerousMod, withFinalizedMod } = require('@expo/config-plugins');
 const fs = require('node:fs');
@@ -194,6 +195,11 @@ function withAndroidGradleFixes(config) {
           content,
           'android.builtInKotlin',
           'false'
+        );
+        content = ensureGradleProperty(
+          content,
+          'android.r8.optimizedResourceShrinking',
+          'true'
         );
         content = ensureMergedJvmArgs(content, [
           '-Xmx2048m',
