@@ -1,113 +1,85 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createEventPipelineServiceRoleTestClient } from '@/lib/events/event-pipeline-service-role-test-client';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { ServiceRoleClient } from '@/lib/supabase/service';
 
-const mocks = vi.hoisted(() => ({ deliver: vi.fn() }));
-vi.mock('@/lib/events/deliver-domain-event', () => ({
-  deliverDomainEvent: mocks.deliver,
+const mocks = vi.hoisted(() => ({
+  createServiceClient: vi.fn(),
+  getClaimBatchSize: vi.fn(),
+  getConcurrency: vi.fn(() => 4),
+  getMaxAttempts: vi.fn(() => 8),
+  isEnabled: vi.fn(),
+  processDelivery: vi.fn(),
+  runWorker: vi.fn(),
+}));
+
+vi.mock('@/lib/events/event-pipeline-config', () => ({
+  getEventDeliveryConcurrency: mocks.getConcurrency,
+  getEventDeliveryMaxAttempts: mocks.getMaxAttempts,
+  isEventPipelineDeliveryEnabled: mocks.isEnabled,
+}));
+vi.mock('@/lib/supabase/service', () => ({
+  createServiceClient: mocks.createServiceClient,
+}));
+vi.mock('./event-delivery-claim-batch-size', () => ({
+  getEventDeliveryClaimBatchSize: mocks.getClaimBatchSize,
+}));
+vi.mock('./event-delivery-worker', () => ({
+  runEventDeliveryWorker: mocks.runWorker,
+}));
+vi.mock('./process-claimed-event-delivery', () => ({
+  processClaimedEventDelivery: mocks.processDelivery,
 }));
 
 import {
   getEventDeliveryClaimBatchSize,
   processClaimedEventDelivery,
+  runEventDeliveryWorker,
 } from './process-event-deliveries';
 
-function client(rpc: ReturnType<typeof vi.fn>) {
-  return createEventPipelineServiceRoleTestClient(
-    vi.fn<typeof globalThis.fetch>(async (input, init) => {
-      const result = await rpc(
-        new URL(String(input)).pathname.split('/').at(-1),
-        JSON.parse(String(init?.body ?? '{}'))
-      );
-      return result.error
-        ? Response.json(result.error, { status: 500 })
-        : Response.json(result.data);
-    })
-  );
-}
-
-const delivery = {
-  attempt_number: 1,
-  claim_token: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a230',
-  claimed_at: '2026-07-12T12:00:00.000Z',
-  destination: 'facebook' as const,
-  domain_event_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a234',
-  id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a231',
-  payload: {
-    data: { event_data: {}, event_type: 'add_to_cart' },
-    domain_event_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a234',
-    event_name: 'analytics.add_to_cart.v1',
-    external_event_id: 'event-1',
-    idempotency_key: 'event-1',
-    merchant_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235',
-    metadata: { environment: 'test' },
-    occurred_at: '2026-07-12T12:00:00.000Z',
-    producer: 'web',
-    schema_version: 1,
-    source: {},
-    subject: { id: 'event-1', type: 'analytics_event' },
-    trust_level: 'tenant_verified_client',
-  },
-};
-
-describe('processClaimedEventDelivery', () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it('finishes a successful attempt with its claim token', async () => {
-    const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
-    mocks.deliver.mockResolvedValue({
-      success: true,
-      terminalOutcome: 'delivered',
-    });
-
-    await processClaimedEventDelivery(client(rpc), delivery, 8);
-
-    expect(rpc).toHaveBeenCalledWith(
-      'finish_event_delivery_v1',
-      expect.objectContaining({
-        p_claim_token: delivery.claim_token,
-        p_delivery_id: delivery.id,
-        p_outcome: 'delivered',
-      })
-    );
-  });
-
-  it('does not retry an ambiguous provider timeout', async () => {
-    const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
-    mocks.deliver.mockResolvedValue({
-      errorCode: 'provider_request_timeout',
-      requestMayHaveBeenSent: true,
-      success: false,
-    });
-
-    await processClaimedEventDelivery(client(rpc), delivery, 8);
-
-    expect(rpc).toHaveBeenCalledWith(
-      'finish_event_delivery_v1',
-      expect.objectContaining({ p_outcome: 'delivery_unknown' })
-    );
-  });
-
-  it('dead-letters an identity-mismatched payload before provider delivery', async () => {
-    const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
-
-    await processClaimedEventDelivery(
-      client(rpc),
-      { ...delivery, domain_event_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a299' },
-      8
-    );
-
-    expect(mocks.deliver).not.toHaveBeenCalled();
-    expect(rpc).toHaveBeenCalledWith(
-      'finish_event_delivery_v1',
-      expect.objectContaining({ p_outcome: 'dead_letter' })
-    );
-  });
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.clearAllMocks();
 });
 
-describe('getEventDeliveryClaimBatchSize', () => {
-  it('keeps claimed work within two bounded concurrency waves', () => {
-    expect(getEventDeliveryClaimBatchSize(1)).toBe(2);
-    expect(getEventDeliveryClaimBatchSize(5)).toBe(10);
-    expect(getEventDeliveryClaimBatchSize(100)).toBe(25);
+describe('process-event-deliveries CLI facade', () => {
+  it('returns while disabled before constructing a client or signals', async () => {
+    mocks.isEnabled.mockReturnValue(false);
+    const signal = vi.spyOn(process, 'once');
+
+    await runEventDeliveryWorker({ once: true });
+
+    expect(mocks.createServiceClient).not.toHaveBeenCalled();
+    expect(mocks.runWorker).not.toHaveBeenCalled();
+    expect(signal).not.toHaveBeenCalled();
+  });
+
+  it('constructs the authorized client and delegates configured concurrency', async () => {
+    mocks.isEnabled.mockReturnValue(true);
+    const serviceClient = { rpc: vi.fn() } as unknown as ServiceRoleClient;
+    mocks.createServiceClient.mockReturnValue(serviceClient);
+    mocks.runWorker.mockResolvedValue(undefined);
+
+    await runEventDeliveryWorker({ once: true });
+
+    expect(mocks.createServiceClient).toHaveBeenCalledWith('event-pipeline');
+    expect(mocks.runWorker).toHaveBeenCalledWith(serviceClient, {
+      concurrency: 4,
+      once: true,
+    });
+  });
+
+  it('propagates a delegated worker rejection', async () => {
+    mocks.isEnabled.mockReturnValue(true);
+    const serviceClient = { rpc: vi.fn() } as unknown as ServiceRoleClient;
+    mocks.createServiceClient.mockReturnValue(serviceClient);
+    mocks.runWorker.mockRejectedValue(new Error('event_delivery_worker_failed'));
+
+    await expect(runEventDeliveryWorker({ once: true })).rejects.toThrow(
+      'event_delivery_worker_failed'
+    );
+  });
+
+  it('keeps delivery compatibility exports on the original path', () => {
+    expect(getEventDeliveryClaimBatchSize).toBe(mocks.getClaimBatchSize);
+    expect(processClaimedEventDelivery).toBe(mocks.processDelivery);
   });
 });

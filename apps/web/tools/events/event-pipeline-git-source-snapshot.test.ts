@@ -26,6 +26,34 @@ afterEach(() => {
 });
 
 describe('readGitSourceSnapshot', () => {
+  it('reads a committed revision independently of index and worktree overlays', () => {
+    const root = repository();
+    writeFileSync(join(root, 'authority.ts'), 'export const edge = "base";\n');
+    git(root, 'add', 'authority.ts');
+    git(root, 'commit', '--quiet', '-m', 'baseline');
+    const baseSha = git(root, 'rev-parse', 'HEAD').trim();
+    writeFileSync(
+      join(root, 'authority.ts'),
+      'export const edge = "staged";\n'
+    );
+    git(root, 'add', 'authority.ts');
+    writeFileSync(
+      join(root, 'authority.ts'),
+      'export const edge = "worktree";\n'
+    );
+
+    expect(
+      readGitSourceSnapshot.committedRevision(root, baseSha).get('authority.ts')
+    ).toBe('export const edge = "base";\n');
+  });
+
+  it('fails closed when the committed revision is unavailable', () => {
+    const root = repository();
+    expect(() =>
+      readGitSourceSnapshot.committedRevision(root, 'missing-frozen-sha')
+    ).toThrow();
+  });
+
   it('reads staged bytes when a clean worktree copy masks them', () => {
     const root = repository();
     mkdirSync(join(root, 'src'));

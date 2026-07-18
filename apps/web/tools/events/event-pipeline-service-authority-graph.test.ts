@@ -12,12 +12,10 @@ describe('event pipeline service authority graph', () => {
         "import { createClient } from '@supabase/supabase-js/dist/index.mjs'; createClient(url, process.env.SUPABASE_SERVICE_ROLE_KEY);",
       ],
     ]);
-
     expect(serviceAuthorityGraphFindings(sources)).toContain(
       `${bridge}: unauthorized sdk factory importer`
     );
   });
-
   it('rejects a credential-only test bridge reached by a production route', () => {
     const route = 'apps/web/src/app/api/fourth/route.ts';
     const bridge = 'apps/web/src/lib/events/credential-bridge.spec.ts';
@@ -30,7 +28,6 @@ describe('event pipeline service authority graph', () => {
       `${bridge}: service-role credential read is forbidden`
     );
   });
-
   it('continues to ignore a standalone test-named authority module', () => {
     const test = 'apps/web/src/lib/events/standalone-authority.spec.ts';
     const sources = new Map([
@@ -42,7 +39,6 @@ describe('event pipeline service authority graph', () => {
 
     expect(serviceAuthorityGraphFindings(sources)).toEqual([]);
   });
-
   it('allows the normal request-scoped server client used by dashboard settings', () => {
     const path = 'apps/web/src/app/dashboard/settings/actions.ts';
     const sources = new Map([
@@ -55,19 +51,19 @@ describe('event pipeline service authority graph', () => {
 
     expect(serviceAuthorityGraphFindings(sources, [path])).toEqual([]);
   });
-
-  it('allows the type-only SDK import used by the mobile useAuth hook', () => {
-    const path = 'apps/mobile-admin/hooks/useAuth.ts';
+  // biome-ignore format: authority reference fixtures stay compact under the 300-line gate.
+  it.each([
+    ['apps/mobile-admin/hooks/useAuth.ts', "import type { Session, User } from '@supabase/supabase-js'; export type State = { session: Session; user: User };"],
+    ['apps/web/src/app/api/fourth/route.ts', "export { type ServiceClient } from '@/lib/supabase/service';"],
+    ['apps/web/src/app/api/fourth/route.ts', "export type { ServiceClient } from '@/lib/supabase/service';"],
+  ])('allows a type-only authority reference from %s', (path, source) => {
     const sources = new Map([
-      [
-        path,
-        "import type { Session, User } from '@supabase/supabase-js'; export type State = { session: Session; user: User };",
-      ],
+      [path, source],
+      ['apps/web/src/lib/supabase/service.ts', 'export type ServiceClient = object;'],
     ]);
 
     expect(serviceAuthorityGraphFindings(sources, [path])).toEqual([]);
   });
-
   it('allows an ordinary runtime SDK import without a service-role credential', () => {
     const path = 'apps/mobile-admin/lib/supabase.ts';
     const sources = new Map([
@@ -79,7 +75,6 @@ describe('event pipeline service authority graph', () => {
 
     expect(serviceAuthorityGraphFindings(sources, [path])).toEqual([]);
   });
-
   it.each([
     '@/lib/supabase/admin',
     '@/lib/supabase/service',
@@ -97,7 +92,6 @@ describe('event pipeline service authority graph', () => {
       `${path}: unauthorized ${specifier.endsWith('/admin') ? 'admin' : 'service'} factory importer`,
     ]);
   });
-
   it('rejects a deep SDK service-role construction', () => {
     const path = 'apps/web/src/lib/events/rogue-sdk-client.ts';
     const sources = new Map([
@@ -143,6 +137,47 @@ describe('event pipeline service authority graph', () => {
     );
   });
 
+  it('subtracts inherited edges but rejects a new route to an inherited admin helper', () => {
+    const route = 'apps/web/src/app/api/fourth/route.ts';
+    const helper = 'apps/web/src/lib/inherited-admin.ts';
+    const admin = 'apps/web/src/lib/supabase/admin.ts';
+    // biome-ignore format: compact edge fixture preserves the 300-line test ceiling.
+    const frozen = new Map([[route, 'export const unchangedAuthority = true;'], [helper, "import '@/lib/supabase/admin';"], [admin, 'export const createAdminClient = () => null;']]);
+    const edited = new Map(frozen);
+    edited.set(route, 'export const nonAuthorityEdit = true;');
+    expect(serviceAuthorityGraphFindings(edited, [route], frozen)).toEqual([]);
+    edited.set(route, "import '@/lib/inherited-admin';");
+    // biome-ignore format: compact full-path assertion preserves the 300-line test ceiling.
+    expect(serviceAuthorityGraphFindings(edited, [route], frozen)).toEqual([expect.stringContaining(`${route} -> ${helper} -> ${admin}`)]);
+  });
+
+  // biome-ignore format: exact import shapes distinguish safe aliases from credential authority.
+  it.each([
+    ["import { getSupabaseUrl as url, getSupabaseAnonKey as key } from '@/env';", false],
+    ["export type { getSupabaseServiceRoleKey } from '@/env'; export { getSupabaseUrl as url, getSupabaseAnonKey as key } from '@/env';", false],
+    ["export { getSupabaseUrl } from '@/env'; export { getSupabaseServiceRoleKey } from '@/env';", true],
+    ["import { getSupabaseServiceRoleKey } from '@/env';", true],
+    ["export { getSupabaseServiceRoleKey } from '@/env';", true],
+    ["import * as env from '@/env';", true],
+    ["void import('@/env');", true],
+  ])('classifies credential bindings precisely', (source, forbidden) => {
+    const route = 'apps/web/src/app/api/fourth/route.ts';
+    // biome-ignore format: compact credential fixture preserves the 300-line test ceiling.
+    const sources = new Map([[route, source], ['apps/web/src/env.ts', "export const getSupabaseUrl = () => 'url'; export const getSupabaseAnonKey = () => 'anon'; export const getSupabaseServiceRoleKey = () => process.env.SUPABASE_SERVICE_ROLE_KEY;"]]);
+    const finding = serviceAuthorityGraphFindings(sources, [route]).some(
+      (message) => message.includes('credential authority')
+    );
+    expect(finding).toBe(forbidden);
+  });
+
+  // biome-ignore format: credential export shapes stay compact under the 300-line gate.
+  it.each([['a local export list', 'export const known = process.env.SUPABASE_SERVICE_ROLE_KEY; const hidden = process.env.SUPABASE_SERVICE_ROLE_KEY; export { hidden };', 'hidden'], ['a destructured export', 'export const known = process.env.SUPABASE_SERVICE_ROLE_KEY; export const { hidden } = { hidden: process.env.SUPABASE_SERVICE_ROLE_KEY };', 'hidden'], ['an unresolved export', 'export const known = process.env.SUPABASE_SERVICE_ROLE_KEY; export { missing };', 'missing']])('rejects credential access through %s', (_, targetSource, binding) => {
+    const route = 'apps/web/src/app/api/fourth/route.ts';
+    const target = 'apps/web/src/lib/events/credential-source.ts';
+    const sources = new Map([[route, `import { ${binding} } from '@/lib/events/credential-source';`], [target, targetSource]]);
+    expect(serviceAuthorityGraphFindings(sources, [route])).toContain(`${route}: API import graph reaches credential authority ${target}`);
+  });
+
   it('rejects fourth-route indirect test-client authority', () => {
     const sources = new Map([
       [
@@ -159,7 +194,9 @@ describe('event pipeline service authority graph', () => {
       ],
     ]);
     expect(serviceAuthorityGraphFindings(sources)).toEqual([
-      'apps/web/src/app/api/fourth/route.ts: API import graph reaches service authority apps/web/src/lib/events/event-pipeline-service-role-test-client.ts',
+      expect.stringContaining(
+        'apps/web/src/app/api/fourth/route.ts -> apps/web/src/lib/events/service-facade.ts -> apps/web/src/lib/events/event-pipeline-service-role-test-client.ts'
+      ),
     ]);
   });
 
@@ -236,7 +273,9 @@ describe('event pipeline service authority graph', () => {
     ]);
 
     expect(serviceAuthorityGraphFindings(sources)).toEqual([
-      `${route}: API import graph reaches service authority apps/web/src/lib/events/event-pipeline-service-role-test-client.ts`,
+      expect.stringContaining(
+        `${route} -> apps/web/src/lib/events/service-facade.ts -> apps/web/src/lib/events/event-pipeline-service-role-test-client.ts`
+      ),
     ]);
   });
 

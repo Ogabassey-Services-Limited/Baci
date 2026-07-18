@@ -114,5 +114,6 @@ describe('eventPipelineGovernedPaths', () => {
 
     expect(governed.changedPaths).toContain(governedTool);
     expect(governed.paths).toContain(governedTool);
+    expect(governed.productionPaths).not.toContain(governedTool);
   });
 });

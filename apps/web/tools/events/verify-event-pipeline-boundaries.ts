@@ -78,17 +78,19 @@ export function analyzeRpcSource(
   enforceEscapes = enforceClassification
 ): string[] {
   const findings: string[] = [];
-  const runtimeNames = new Set([
+  const runtimeNames: ReadonlySet<string> = new Set([
     ...eventPipelineBoundaryManifest.functions.typescriptApplication,
     ...eventPipelineBoundaryManifest.functions.vpsCleanup,
   ]);
-  const forbiddenNames = new Set([
+  const forbiddenNames: ReadonlySet<string> = new Set([
     ...eventPipelineBoundaryManifest.functions.sqlInternal,
     ...eventPipelineBoundaryManifest.functions.serviceRoleMetrics,
   ]);
-  const governedNames = new Set(eventPipelineBoundaryManifest.allFunctions);
+  const governedNames: ReadonlySet<string> = new Set(
+    eventPipelineBoundaryManifest.allFunctions
+  );
   // biome-ignore format: compact classification set preserves the 300-line verifier gate.
-  const classifiedNames = new Set([...governedNames, ...eventPipelineBoundaryManifest.adjacentFunctions]);
+  const classifiedNames: ReadonlySet<string> = new Set([...governedNames, ...eventPipelineBoundaryManifest.adjacentFunctions]);
   const sourceFile = parseEventPipelineTypeScriptSource(path, source);
   const production = enforceClassification && !isTestSourcePath(path);
   if (production) findings.push(...authorityFindings(path, sourceFile));
@@ -183,12 +185,23 @@ export function analyzeRpcSource(
 }
 // biome-ignore format: compact hash receipt preserves the 300-line verifier gate.
 export function verifyEventPipelineBoundaries(
-  root = eventPipelineGovernedPaths.repoRoot()
+  root = eventPipelineGovernedPaths.repoRoot(),
+  frozenBaseSha?: string
 ): string[] {
   const findings: string[] = [];
   const snapshot = readGitSourceSnapshot(root);
   const { sources } = snapshot;
-  const governed = eventPipelineGovernedPaths.collect(root, sources);
+  let governed: ReturnType<typeof eventPipelineGovernedPaths.collect>;
+  let frozenSources: ReadonlyMap<string, string>;
+  try {
+    governed = eventPipelineGovernedPaths.collect(root, sources, frozenBaseSha);
+    frozenSources = readGitSourceSnapshot.committedRevision(
+      root,
+      governed.frozenBaseSha
+    );
+  } catch {
+    return ['frozen event-pipeline source snapshot is unavailable'];
+  }
   for (const path of snapshot.missingStagedPaths)
     findings.push(`${path}: staged source is missing from index stage 0`);
   if (governed.fixtureRecordCount !== 154) {
@@ -210,7 +223,7 @@ export function verifyEventPipelineBoundaries(
     const finding = frozenRouteHashFinding(path, source, expectedHash);
     if (finding) findings.push(finding);
   }
-  const governedPaths = new Set(governed.paths);
+  const governedPaths = new Set(governed.productionPaths);
   const seedPaths = new Set(governed.seedPaths);
   for (const path of governed.missingProductionRoots)
     findings.push(`${path}: event-pipeline production root is missing`);
@@ -218,8 +231,13 @@ export function verifyEventPipelineBoundaries(
   findings.push(
     ...serviceAuthorityGraphFindings(sources, [
       ...eventPipelineBoundaryManifest.trustedWrapperImporters,
-      ...governed.changedPaths,
-    ])
+      ...governed.productionPaths,
+    ]),
+    ...serviceAuthorityGraphFindings(
+      sources,
+      governed.changedPaths,
+      frozenSources
+    )
   );
   for (const [path, source] of sources) {
     const enforceClassification = governedPaths.has(path);
@@ -239,7 +257,7 @@ export function verifyEventPipelineBoundaries(
   ) {
     findings.push('vps cleanup: expected direct cleanup RPC wrapper');
   }
-  return findings.sort();
+  return [...new Set(findings)].sort();
 }
 if (
   process.argv[1] &&

@@ -70,6 +70,7 @@ function collect(
   return {
     changedPaths: dynamicPaths,
     fixtureRecordCount: fixtureRecords.length,
+    frozenBaseSha,
     missingProductionRoots:
       eventPipelineBoundaryManifest.productionRoots.filter(
         (path) => !sources.has(path)
@@ -77,6 +78,9 @@ function collect(
     paths: [...new Set([...productionClosure, ...dynamicPaths])]
       .filter(eventPipelineSourceFilePolicy.isSourcePath)
       .filter((path) => !path.endsWith('/supabase/.temp/cli-latest'))
+      .sort(),
+    productionPaths: [...productionClosure]
+      .filter(eventPipelineSourceFilePolicy.isSourcePath)
       .sort(),
     seedPaths: fixturePaths.filter(eventPipelineSourceFilePolicy.isSourcePath),
   };

@@ -40,7 +40,7 @@ function destructuredProperty(
     (candidate) =>
       ts.isIdentifier(candidate.name) && candidate.name.text === name
   );
-  if (!element) return undefined;
+  if (!element || !ts.isIdentifier(element.name)) return undefined;
   return element.propertyName && ts.isIdentifier(element.propertyName)
     ? element.propertyName.text
     : element.name.text;

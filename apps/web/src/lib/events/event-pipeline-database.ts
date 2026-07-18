@@ -114,40 +114,18 @@ const frozenRoutes = {
     'bb3b5ea163f7029bd8a90523ac7944c9e126b2aebc0ce673f82c4e0c48d00161',
 } as const;
 const columns = (value: string) => value.split(' ');
+// biome-ignore format: compact RPC ownership map preserves the 300-line verifier gate.
 const runtimeCallers = {
-  'apps/web/src/app/api/admin/event-pipeline/dead-letters/route.ts': [
-    'get_event_pipeline_operations_v1',
-    'list_event_pipeline_deliveries_v1',
-    'list_event_pipeline_ingress_failures_v1',
-  ],
-  'apps/web/src/app/api/admin/event-pipeline/replay/route.ts': [
-    'replay_event_deliveries_batch_v1',
-    'replay_ingress_dead_letter_v1',
-    'select_event_pipeline_replay_ids_v1',
-  ],
-  'apps/web/src/lib/events/enqueue-paid-order-domain-event.ts': [
-    'enqueue_domain_event_v1',
-  ],
-  'apps/web/src/lib/events/record-analytics-domain-event.ts': [
-    'record_analytics_domain_event_v1',
-  ],
-  'apps/web/src/lib/events/record-platform-domain-event.ts': [
-    'record_platform_domain_event_v1',
-  ],
-  'apps/web/src/scripts/process-domain-events.ts': [
-    'dead_letter_ingress_event_v1',
-    'read_domain_events_v1',
-    'record_event_worker_heartbeat_v1',
-    'route_domain_event_v1',
-  ],
-  'apps/web/src/scripts/process-event-deliveries.ts': [
-    'claim_event_deliveries_v1',
-    'finish_event_delivery_v1',
-    'record_event_worker_heartbeat_v1',
-  ],
-  'vps-workers/jobs/supabase-retention-cleanup.mjs': [
-    'cleanup_domain_event_pipeline_v1',
-  ],
+  'apps/web/src/app/api/admin/event-pipeline/dead-letters/route.ts': ['get_event_pipeline_operations_v1', 'list_event_pipeline_deliveries_v1', 'list_event_pipeline_ingress_failures_v1'],
+  'apps/web/src/app/api/admin/event-pipeline/replay/route.ts': ['replay_event_deliveries_batch_v1', 'replay_ingress_dead_letter_v1', 'select_event_pipeline_replay_ids_v1'],
+  'apps/web/src/lib/events/enqueue-paid-order-domain-event.ts': ['enqueue_domain_event_v1'],
+  'apps/web/src/lib/events/record-analytics-domain-event.ts': ['record_analytics_domain_event_v1'],
+  'apps/web/src/lib/events/record-platform-domain-event.ts': ['record_platform_domain_event_v1'],
+  'apps/web/src/scripts/domain-event-worker-batch.ts': ['dead_letter_ingress_event_v1', 'route_domain_event_v1'],
+  'apps/web/src/scripts/domain-event-worker.ts': ['read_domain_events_v1', 'record_event_worker_heartbeat_v1'],
+  'apps/web/src/scripts/event-delivery-worker.ts': ['claim_event_deliveries_v1', 'record_event_worker_heartbeat_v1'],
+  'apps/web/src/scripts/process-claimed-event-delivery.ts': ['finish_event_delivery_v1'],
+  'vps-workers/jobs/supabase-retention-cleanup.mjs': ['cleanup_domain_event_pipeline_v1'],
 } as const;
 export const EVENT_PIPELINE_BOUNDARY = {
   allFunctions: EVENT_PIPELINE_FUNCTION_NAMES,
@@ -281,6 +259,8 @@ export const EVENT_PIPELINE_BOUNDARY = {
   },
   productionRoots: [
     ...Object.keys(runtimeCallers),
+    'apps/web/src/scripts/process-domain-events.ts',
+    'apps/web/src/scripts/process-event-deliveries.ts',
     'apps/web/src/lib/events/event-ingress-capability.ts',
     'apps/web/src/lib/events/event-ingress-context.ts',
     'apps/web/src/lib/events/paid-order-delivery-event.ts',

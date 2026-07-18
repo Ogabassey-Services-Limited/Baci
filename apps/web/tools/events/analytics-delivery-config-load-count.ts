@@ -33,22 +33,22 @@ function configLoader(
       return true;
     }
     const writes = sourceGuards.bindingWrites(file, expression);
+    const write = writes[0];
     return (
       writes.length === 1 &&
-      configLoader(writes[0] as ts.Expression, file, specifiers, seen)
+      Boolean(write && configLoader(write, file, specifiers, seen))
     );
   }
-  return (
-    ts.isPropertyAccessExpression(expression) &&
-    expression.name.text === 'fetchAnalyticsPlatformConfig' &&
-    ts.isIdentifier(expression.expression) &&
-    specifiers.some((specifier) =>
-      sourceGuards.identifierResolvesToNamedImport(
-        expression.expression,
-        specifier,
-        '*'
-      )
-    )
+  if (
+    !ts.isPropertyAccessExpression(expression) ||
+    expression.name.text !== 'fetchAnalyticsPlatformConfig' ||
+    !ts.isIdentifier(expression.expression)
+  ) {
+    return false;
+  }
+  const namespace = expression.expression;
+  return specifiers.some((specifier) =>
+    sourceGuards.identifierResolvesToNamedImport(namespace, specifier, '*')
   );
 }
 
