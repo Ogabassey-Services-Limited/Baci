@@ -84,7 +84,6 @@ describe('Expo app config (Facebook SDK and merchant domain)', () => {
       STOREFRONT_FACEBOOK_CLIENT_TOKEN: 'client-token',
     });
     const config = renderConfig(appConfig);
-
     expect(findFacebookPlugin(config)).toEqual([
       'react-native-fbsdk-next',
       {
@@ -108,7 +107,6 @@ describe('Expo app config (Facebook SDK and merchant domain)', () => {
       STOREFRONT_FACEBOOK_CLIENT_TOKEN: 'client-token',
     });
     const config = renderConfig(appConfig);
-
     expect(config.updates).toMatchObject({
       requestHeaders: {
         'expo-channel-name': 'preview',
@@ -125,10 +123,12 @@ describe('Expo app config (Facebook SDK and merchant domain)', () => {
       STOREFRONT_FACEBOOK_CLIENT_TOKEN: 'client-token',
     });
     const config = renderConfig(appConfig);
-
-    expect(config.version).toBe('2.0.0');
-    expect(config.runtimeVersion).toBe('2.0.0');
-    expect(config.android?.runtimeVersion).toBe('2.0.0-android-sdk57');
+    expect(config.version).toBe('2.0.1');
+    expect(config.runtimeVersion).toBe('2.0.1');
+    expect(config.android).toMatchObject({
+      runtimeVersion: '2.0.1-android-sdk57',
+      versionCode: 741,
+    });
   });
 
   it('defaults the storefront merchant domain for production BNPL returns', () => {
