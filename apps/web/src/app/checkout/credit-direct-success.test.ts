@@ -2,9 +2,41 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { readCreditDirectPopupMarker } from '@/components/storefront/ogabassey/pages/checkout/credit-direct-popup-return';
 import { handoffLegacyCreditDirectSuccess } from './credit-direct-success';
 
+const mocks = vi.hoisted(() => ({ fetchWithCsrf: vi.fn() }));
+
+vi.mock('@/lib/api-client', () => ({
+  fetchWithCsrf: mocks.fetchWithCsrf,
+}));
+
 describe('handoffLegacyCreditDirectSuccess', () => {
   beforeEach(() => {
     window.sessionStorage.clear();
+    mocks.fetchWithCsrf.mockReset();
+    mocks.fetchWithCsrf.mockReturnValue(new Promise(() => undefined));
+  });
+
+  it('uses the CSRF-aware fetcher by default', () => {
+    const navigate = vi.fn();
+
+    handoffLegacyCreditDirectSuccess({
+      orderId: 'order-1',
+      signedSessionId: 'signed-session-1',
+      customerEmail: 'buyer@example.com',
+      merchantSlug: 'test-store',
+      navigate,
+    });
+
+    expect(mocks.fetchWithCsrf).toHaveBeenCalledWith(
+      '/api/orders/credit-direct/client-completion',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          orderId: 'order-1',
+          customerEmail: 'buyer@example.com',
+          sessionId: 'signed-session-1',
+        }),
+      })
+    );
   });
 
   it('captures evidence before handing the legacy checkout to verification', () => {
@@ -37,6 +69,7 @@ describe('handoffLegacyCreditDirectSuccess', () => {
         body: JSON.stringify({
           orderId: 'order-1',
           checkoutTransactionId: 'checkout-transaction-1',
+          customerEmail: 'buyer@example.com',
           sessionId: 'signed-session-1',
           tracking_token: 'track-1',
         }),
@@ -73,6 +106,7 @@ describe('handoffLegacyCreditDirectSuccess', () => {
       expect.objectContaining({
         body: JSON.stringify({
           orderId: 'order-1',
+          customerEmail: 'buyer@example.com',
           sessionId: 'signed-session-1',
         }),
       })

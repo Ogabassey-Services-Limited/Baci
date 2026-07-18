@@ -13,6 +13,7 @@ const migrationPaths = [
   '../../../../supabase/migrations/20260718070006_harden_credit_direct_client_completion.sql',
   '../../../../supabase/migrations/20260718070007_supersede_credit_direct_completed_references.sql',
   '../../../../supabase/migrations/20260718070008_preserve_credit_direct_payment_audit_notes.sql',
+  '../../../../supabase/migrations/20260718070009_scope_credit_direct_payment_audit_notes.sql',
 ].map((migrationPath) =>
   join(dirname(fileURLToPath(import.meta.url)), migrationPath)
 );
@@ -27,6 +28,7 @@ describe('Credit Direct missing-confirmation reconciliation migration', () => {
   let completionHardeningSql: string;
   let completedReferenceSupersessionSql: string;
   let paymentAuditPreservationSql: string;
+  let paymentAuditScopeSql: string;
 
   beforeAll(() => {
     [
@@ -39,6 +41,7 @@ describe('Credit Direct missing-confirmation reconciliation migration', () => {
       completionHardeningSql,
       completedReferenceSupersessionSql,
       paymentAuditPreservationSql,
+      paymentAuditScopeSql,
     ] = migrationPaths.map((migrationPath) =>
       readFileSync(migrationPath, 'utf8')
     );
@@ -55,6 +58,7 @@ describe('Credit Direct missing-confirmation reconciliation migration', () => {
       completionHardeningSql,
       completedReferenceSupersessionSql,
       paymentAuditPreservationSql,
+      paymentAuditScopeSql,
     ].entries()) {
       expect(
         migrationSql.trimEnd().split('\n').length,
@@ -224,5 +228,32 @@ describe('Credit Direct missing-confirmation reconciliation migration', () => {
       /updated_at\s*<\s*\(now\(\)\s*-\s*interval/i
     );
     expect(reviewBackfillSql).toMatch(/ON\s+CONFLICT[\s\S]*DO\s+NOTHING/i);
+  });
+
+  it('limits stale-session enforcement to transient provider webhook writes', () => {
+    const verifiedWriteAssignment = paymentAuditScopeSql.match(
+      /v_is_verified_webhook_write\s*:=\s*[\s\S]*?;/i
+    )?.[0];
+    const provenanceGate = paymentAuditScopeSql.match(
+      /IF NOT v_is_verified_webhook_write[\s\S]*?RETURN NEW;\s+END IF;/i
+    )?.[0];
+
+    expect(verifiedWriteAssignment).toBeDefined();
+    expect(provenanceGate).toBeDefined();
+    expect(verifiedWriteAssignment).toMatch(
+      /auth\.role\(\)\s+IS\s+NOT\s+DISTINCT\s+FROM\s+'service_role'/i
+    );
+    expect(verifiedWriteAssignment).toMatch(
+      /\(v_new_notes->>'creditDirectVerifiedWebhookWrite'\)\s+IS\s+NOT\s+DISTINCT\s+FROM\s+'true'/i
+    );
+    expect(paymentAuditScopeSql).toMatch(
+      /v_new_notes\s*:=\s*v_new_notes\s*-\s*'creditDirectVerifiedWebhookWrite'/i
+    );
+    expect(provenanceGate).toContain('creditDirectClientCompletionStatus');
+    expect(provenanceGate).toContain('creditDirectProviderConfirmedAt');
+    expect(provenanceGate).toContain('creditDirectTransactionId');
+    expect(paymentAuditScopeSql.indexOf(provenanceGate as string)).toBeLessThan(
+      paymentAuditScopeSql.indexOf('stale_credit_direct_session')
+    );
   });
 });

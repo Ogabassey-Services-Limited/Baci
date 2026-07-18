@@ -76,6 +76,8 @@ function formatCreditDirectProductAmount(value: unknown) {
 
 const POSTGRES_UNIQUE_VIOLATION = '23505';
 const SUPABASE_NO_ROWS_RETURNED = 'PGRST116';
+const CREDIT_DIRECT_VERIFIED_WEBHOOK_WRITE_KEY =
+  'creditDirectVerifiedWebhookWrite';
 
 type RecordCreditDirectTransactionResult =
   | { kind: 'error' }
@@ -611,6 +613,7 @@ export async function POST(request: NextRequest) {
             amount_paid: orderTotal,
             notes: JSON.stringify({
               ...parsedNotes,
+              [CREDIT_DIRECT_VERIFIED_WEBHOOK_WRITE_KEY]: true,
               creditDirectClientCompletionStatus: 'provider_confirmed',
               creditDirectProviderConfirmedAt: payload.timeStamp,
               creditDirectTransactionId: payload.checkoutTransactionId,
@@ -1129,6 +1132,7 @@ async function markCreditDirectNotified(
     .update({
       notes: JSON.stringify({
         ...notes,
+        [CREDIT_DIRECT_VERIFIED_WEBHOOK_WRITE_KEY]: true,
         creditDirectNotifiedAt: new Date().toISOString(),
       }),
     })

@@ -28,12 +28,13 @@ export function handoffLegacyCreditDirectSuccess(
     basePath,
     navigate,
   }: LegacyCreditDirectSuccessHandoff,
-  fetcher: ClientCompletionFetch = globalThis.fetch
+  fetcher?: ClientCompletionFetch
 ): void {
   captureCreditDirectClientCompletion(
     {
       orderId,
       checkoutTransactionId,
+      customerEmail,
       sessionId: signedSessionId,
       trackingToken,
     },

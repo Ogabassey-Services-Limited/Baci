@@ -985,18 +985,14 @@ describe('POST /api/payments/credit-direct/webhook', () => {
         orderId: 'order_abc',
         providerReference: 'txn_123456789',
       });
-      expect(orderUpdate).toHaveBeenCalledWith(
+      const paidUpdate = orderUpdate.mock.calls[0]?.[0] as
+        | { notes?: string }
+        | undefined;
+      expect(JSON.parse(paidUpdate?.notes ?? '{}')).toEqual(
         expect.objectContaining({
-          notes: expect.stringContaining(
-            '"creditDirectTransactionId":"txn_123456789"'
-          ),
-        })
-      );
-      expect(orderUpdate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          notes: expect.stringContaining(
-            '"creditDirectClientCompletionStatus":"provider_confirmed"'
-          ),
+          creditDirectTransactionId: 'txn_123456789',
+          creditDirectVerifiedWebhookWrite: true,
+          creditDirectClientCompletionStatus: 'provider_confirmed',
         })
       );
 
@@ -2074,6 +2070,8 @@ describe('POST /api/payments/credit-direct/webhook', () => {
           creditDirectTransactionId: 'txn_123456789',
           credit_directTransactionId: 'txn_123456789',
           creditDirectSignedAmount: 50000,
+          creditDirectClientCompletionStatus: 'provider_confirmed',
+          creditDirectProviderConfirmedAt: '2024-01-15T11:00:00Z',
           // Written by the paid flip: notifications were queued but the
           // dispatch marker never landed — the crash window this replay
           // heals.
@@ -2143,9 +2141,14 @@ describe('POST /api/payments/credit-direct/webhook', () => {
 
       expect(response.status).toBe(200);
       expect(data).toEqual({ received: true, message: 'Already processed' });
-      expect(notifiedMarkerUpdate).toHaveBeenCalledWith(
+      const notifiedUpdate = notifiedMarkerUpdate.mock.calls[0]?.[0] as
+        | { notes?: string }
+        | undefined;
+      expect(JSON.parse(notifiedUpdate?.notes ?? '{}')).toEqual(
         expect.objectContaining({
-          notes: expect.stringContaining('creditDirectNotifiedAt'),
+          creditDirectClientCompletionStatus: 'provider_confirmed',
+          creditDirectNotifiedAt: expect.any(String),
+          creditDirectVerifiedWebhookWrite: true,
         })
       );
       expect(transactionInsert).toHaveBeenCalledWith({

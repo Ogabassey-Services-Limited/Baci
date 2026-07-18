@@ -11,6 +11,7 @@ DECLARE
   v_merge_order_id uuid := '00000000-0000-4000-8000-00000000cd11';
   v_mismatch_order_id uuid := '00000000-0000-4000-8000-00000000cd12';
   v_missing_order_id uuid := '00000000-0000-4000-8000-00000000cd13';
+  v_manual_order_id uuid := '00000000-0000-4000-8000-00000000cd14';
   v_notes jsonb;
 BEGIN
   INSERT INTO public.merchants (id, email, business_name, slug)
@@ -20,6 +21,8 @@ BEGIN
     'Credit Direct Audit Trigger Test',
     'credit-direct-audit-trigger-test'
   );
+
+  PERFORM set_config('request.jwt.claim.role', 'service_role', true);
 
   -- Successful overlap: the row already contains completion evidence that
   -- was absent from the webhook's earlier snapshot.
@@ -58,8 +61,10 @@ BEGIN
       amount_paid = 240447.87,
       notes = jsonb_build_object(
         'creditDirectSessionId', 'session_current',
+        'creditDirectVerifiedWebhookWrite', true,
         'creditDirectClientCompletionStatus', 'provider_confirmed',
         'creditDirectProviderConfirmedAt', '2026-07-18T10:01:00.000Z',
+        'creditDirectTransactionId', 'txn_provider_confirmed',
         'merchantPaidAt', '2026-07-18T10:01:00.000Z'
       )::text
   WHERE id = v_merge_order_id;
@@ -76,8 +81,29 @@ BEGIN
      OR v_notes->>'creditDirectClientCompletionStatus'
        IS DISTINCT FROM 'provider_confirmed'
      OR v_notes->>'creditDirectProviderConfirmedAt'
-       IS DISTINCT FROM '2026-07-18T10:01:00.000Z' THEN
+       IS DISTINCT FROM '2026-07-18T10:01:00.000Z'
+     OR v_notes ? 'creditDirectVerifiedWebhookWrite' THEN
     RAISE EXCEPTION 'overlapping Credit Direct notes were not merged safely: %', v_notes;
+  END IF;
+
+  -- A later service-role maintenance write may retain provider fields, but it
+  -- cannot inherit the stripped one-write marker and must bypass preservation.
+  UPDATE public.orders
+  SET notes = jsonb_build_object(
+    'creditDirectClientCompletionStatus', 'provider_confirmed',
+    'creditDirectProviderConfirmedAt', '2026-07-18T10:01:00.000Z',
+    'creditDirectTransactionId', 'txn_provider_confirmed',
+    'serviceMaintenance', 'replace-notes'
+  )::text
+  WHERE id = v_merge_order_id;
+
+  SELECT notes::jsonb INTO v_notes
+  FROM public.orders
+  WHERE id = v_merge_order_id;
+
+  IF v_notes->>'serviceMaintenance' IS DISTINCT FROM 'replace-notes'
+     OR v_notes ? 'creditDirectClientCompletedTransactionId' THEN
+    RAISE EXCEPTION 'service-role maintenance was treated as a webhook: %', v_notes;
   END IF;
 
   -- Paid-to-pending reset: a deliberate new attempt must not have the old
@@ -128,13 +154,56 @@ BEGIN
       'credit_direct',
       100,
       '{"creditDirectSessionId":"session_current"}'
+    ),
+    (
+      v_manual_order_id,
+      v_merchant_id,
+      'ORD-CD-AUDIT-MANUAL',
+      'manual@example.com',
+      'Manual Test',
+      'bnpl_pending',
+      'credit_direct',
+      100,
+      '{"creditDirectSessionId":"session_current"}'
     );
+
+  -- An authenticated merchant can legitimately mark a Credit Direct order
+  -- paid. Even if its payload contains the transient marker, the authenticated
+  -- role cannot enter provider preservation and the marker must not persist.
+  PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
+  UPDATE public.orders
+  SET payment_status = 'paid',
+      notes = jsonb_build_object(
+        'creditDirectVerifiedWebhookWrite', true,
+        'manualMerchantNote', 'Merchant verified transfer manually'
+      )::text
+  WHERE id = v_manual_order_id;
+
+  SELECT notes::jsonb INTO v_notes
+  FROM public.orders
+  WHERE id = v_manual_order_id;
+
+  IF (SELECT payment_status FROM public.orders WHERE id = v_manual_order_id)
+       IS DISTINCT FROM 'paid'
+     OR v_notes->>'manualMerchantNote'
+       IS DISTINCT FROM 'Merchant verified transfer manually'
+     OR v_notes ? 'creditDirectVerifiedWebhookWrite' THEN
+    RAISE EXCEPTION 'merchant paid-status edit was altered or rejected';
+  END IF;
+
+  PERFORM set_config('request.jwt.claim.role', 'service_role', true);
 
   -- A webhook built from an older signed session must fail the paid flip.
   BEGIN
     UPDATE public.orders
     SET payment_status = 'paid',
-        notes = '{"creditDirectSessionId":"session_stale"}'
+        notes = jsonb_build_object(
+          'creditDirectSessionId', 'session_stale',
+          'creditDirectVerifiedWebhookWrite', true,
+          'creditDirectClientCompletionStatus', 'provider_confirmed',
+          'creditDirectProviderConfirmedAt', '2026-07-18T10:02:00.000Z',
+          'creditDirectTransactionId', 'txn_stale'
+        )::text
     WHERE id = v_mismatch_order_id;
     RAISE EXCEPTION 'expected mismatched session update to fail';
   EXCEPTION WHEN OTHERS THEN
@@ -148,7 +217,12 @@ BEGIN
   BEGIN
     UPDATE public.orders
     SET payment_status = 'paid',
-        notes = '{"creditDirectClientCompletionStatus":"provider_confirmed"}'
+        notes = jsonb_build_object(
+          'creditDirectVerifiedWebhookWrite', true,
+          'creditDirectClientCompletionStatus', 'provider_confirmed',
+          'creditDirectProviderConfirmedAt', '2026-07-18T10:03:00.000Z',
+          'creditDirectTransactionId', 'txn_missing_session'
+        )::text
     WHERE id = v_missing_order_id;
     RAISE EXCEPTION 'expected missing session update to fail';
   EXCEPTION WHEN OTHERS THEN
