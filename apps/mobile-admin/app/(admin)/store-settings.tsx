@@ -37,7 +37,11 @@ export default function StoreSettingsScreen() {
   const queryClient = useQueryClient();
   const { merchant, isLoading } = useMerchant();
   const { isPro } = useRevenueCat();
-  const { uri: cachedLogoUri } = useCachedImageUri(merchant?.logo_url);
+  const { uri: cachedLogoUri } = useCachedImageUri(merchant?.logo_url, {
+    width: 256,
+    height: 256,
+    resize: 'contain',
+  });
   const [showCountryModal, setShowCountryModal] = useState(false);
   const [statusModal, setStatusModal] = useState<StatusModalState>({
     visible: false,

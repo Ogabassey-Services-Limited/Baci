@@ -25,7 +25,11 @@ export function WelcomeHeader({
   notificationCount = 0,
 }: WelcomeHeaderProps) {
   const { colors } = useTheme();
-  const { uri: cachedAvatarUri } = useCachedImageUri(avatarUrl);
+  const { uri: cachedAvatarUri } = useCachedImageUri(avatarUrl, {
+    width: 192,
+    height: 192,
+    resize: 'cover',
+  });
 
   // Determine avatar type
   const isSvgDataUri = avatarUrl?.startsWith('data:image/svg');
@@ -53,6 +57,7 @@ export function WelcomeHeader({
         <SafeImage
           source={{ uri: cachedAvatarUri }}
           style={[styles.avatar, { backgroundColor: colors.card }]}
+          resizeMethod="resize"
         />
       );
     }

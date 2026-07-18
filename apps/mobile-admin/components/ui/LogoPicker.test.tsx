@@ -18,9 +18,17 @@ vi.mock('@/components/ui/SafeImage', async () => {
   const React = await import('react');
 
   return {
-    default: () =>
+    default: ({
+      resizeMethod,
+      source,
+    }: {
+      resizeMethod?: string;
+      source?: unknown;
+    }) =>
       React.createElement('span', {
         'aria-label': 'store logo',
+        'data-resize-method': resizeMethod,
+        'data-source': JSON.stringify(source),
         role: 'img',
       }),
   };
@@ -111,6 +119,23 @@ describe('LogoPicker', () => {
 
     expect(screen.getByText('B').getAttribute('data-style')).toContain(
       '"color":"#f8fafc"'
+    );
+  });
+
+  it('requests bounded bitmap decoding for the store logo', () => {
+    render(
+      <LogoPicker
+        businessName="Baci"
+        cachedLogoUri="https://example.com/logo.png"
+        merchantId="merchant-1"
+        onStatusChange={vi.fn()}
+        onUploadSuccess={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole('img', { name: 'store logo' })).toHaveAttribute(
+      'data-resize-method',
+      'resize'
     );
   });
 });

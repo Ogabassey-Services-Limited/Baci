@@ -1,95 +1,83 @@
 /**
  * useCachedImageUri Hook
  *
- * Downloads remote images (e.g. Supabase Storage URLs) to the local
- * file-system cache so React Native's <Image> component can render
- * them reliably. Data URIs and local file:// paths are returned as-is.
- *
- * Uses expo-file-system's new File/Paths API for network I/O and caching.
+ * Builds target-sized Supabase Storage URLs and delegates downloading,
+ * caching, and bitmap memory management to React Native's native image
+ * pipeline. Data URIs and local file:// paths are returned as-is.
  */
 
-import * as Crypto from 'expo-crypto';
-import { File, Paths } from 'expo-file-system';
-import { useEffect, useState } from 'react';
-
 interface CachedImageResult {
-  /** The URI to pass to Image source — either the original or a cached local path */
+  /** The URI to pass to Image source. */
   uri: string | null;
-  /** Whether the download is still in progress */
+  /** Kept for call-site compatibility; native image loading owns progress. */
   isLoading: boolean;
 }
+
+interface ImageOptimizationOptions {
+  width: number;
+  height: number;
+  resize: 'contain' | 'cover' | 'fill';
+}
+
+const PUBLIC_OBJECT_PATH = '/storage/v1/object/public/';
+const PUBLIC_RENDER_PATH = '/storage/v1/render/image/public/';
 
 function isRemoteHttpUri(uri: string): boolean {
   return uri.startsWith('https://') || uri.startsWith('http://');
 }
 
-async function downloadToCache(remoteUri: string): Promise<string> {
-  try {
-    // Deterministic cache key over the full URL; preserving the extension keeps
-    // React Native image decoders on the fast path while avoiding URL-tail
-    // collisions.
-    const urlHash = await Crypto.digestStringAsync(
-      Crypto.CryptoDigestAlgorithm.SHA256,
-      remoteUri
-    );
-    const urlParts = remoteUri.split('?')[0].split('.');
-    const ext = urlParts.length > 1 ? `.${urlParts.pop()}` : '';
-    const dest = new File(Paths.cache, `img_cache_${urlHash}${ext}`);
+function getConfiguredSupabaseOrigin(): string | null {
+  const configuredUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 
-    // Check if already cached
-    if (dest.exists) {
-      return typeof dest.uri === 'string' ? dest.uri : String(dest.uri);
+  try {
+    return configuredUrl ? new URL(configuredUrl).origin : null;
+  } catch {
+    return null;
+  }
+}
+
+function getTargetSizedUri(
+  remoteUri: string,
+  options?: ImageOptimizationOptions
+): string {
+  if (!options) return remoteUri;
+
+  try {
+    const url = new URL(remoteUri);
+    const supabaseOrigin = getConfiguredSupabaseOrigin();
+    if (
+      !supabaseOrigin ||
+      url.origin !== supabaseOrigin ||
+      !url.pathname.startsWith(PUBLIC_OBJECT_PATH) ||
+      url.pathname.toLowerCase().endsWith('.svg')
+    ) {
+      return remoteUri;
     }
 
-    // Download to local cache
-    const downloaded = await File.downloadFileAsync(remoteUri, dest, {
-      idempotent: true,
-    });
-    return typeof downloaded.uri === 'string'
-      ? downloaded.uri
-      : String(downloaded.uri);
+    url.pathname = url.pathname.replace(PUBLIC_OBJECT_PATH, PUBLIC_RENDER_PATH);
+    url.searchParams.set('width', String(options.width));
+    url.searchParams.set('height', String(options.height));
+    url.searchParams.set('resize', options.resize);
+    return url.toString();
   } catch {
-    // Network error — fall back to the original URL so SafeImage
-    // can show its normal fallback icon if that also fails
     return remoteUri;
   }
 }
 
 export function useCachedImageUri(
-  remoteUri: string | null | undefined
+  remoteUri: string | null | undefined,
+  options?: ImageOptimizationOptions
 ): CachedImageResult {
-  const [resolved, setResolved] = useState<{
-    key: string;
-    uri: string;
-  } | null>(null);
-
-  useEffect(() => {
-    if (!remoteUri || !isRemoteHttpUri(remoteUri)) {
-      return;
-    }
-
-    let cancelled = false;
-
-    void downloadToCache(remoteUri).then((uri) => {
-      if (!cancelled) {
-        setResolved({ key: remoteUri, uri });
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [remoteUri]);
-
   if (!remoteUri) {
     return { uri: null, isLoading: false };
   }
 
-  // Data URIs and local file paths don't need caching
   if (!isRemoteHttpUri(remoteUri)) {
     return { uri: remoteUri, isLoading: false };
   }
 
-  const settled = resolved?.key === remoteUri ? resolved : null;
-  return { uri: settled?.uri ?? null, isLoading: settled === null };
+  return {
+    uri: getTargetSizedUri(remoteUri, options),
+    isLoading: false,
+  };
 }

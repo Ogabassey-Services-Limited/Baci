@@ -139,6 +139,7 @@ export function LogoPicker({
           source={{ uri: cachedLogoUri }}
           style={styles.logo}
           contentFit="contain"
+          resizeMethod="resize"
         />
       ) : (
         <View

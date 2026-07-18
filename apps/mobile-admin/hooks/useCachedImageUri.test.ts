@@ -1,67 +1,14 @@
-import { renderHook, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { renderHook } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useCachedImageUri } from './useCachedImageUri';
-
-// Mock variables that can be accessed inside vi.mock using vi.hoisted
-const { mocks } = vi.hoisted(() => {
-  const mockDownloadFileAsync = vi.fn();
-  const mockDigestStringAsync = vi.fn(
-    async (_algorithm: string, value: string) => `sha256_${value.length}`
-  );
-  const mockFileExists = vi.fn().mockReturnValue(false);
-
-  class MockURL {
-    constructor(private href: string) {}
-    toString() {
-      return this.href;
-    }
-  }
-
-  class MockFile {
-    exists = false;
-    uri: MockURL;
-    constructor(_parent: unknown, name: string) {
-      this.exists = mockFileExists();
-      this.uri = new MockURL(`file:///cache/${name}`);
-    }
-  }
-
-  return {
-    mocks: {
-      mockDownloadFileAsync,
-      mockDigestStringAsync,
-      mockFileExists,
-      MockURL,
-      MockFile,
-    },
-  };
-});
-
-vi.mock('expo-crypto', () => ({
-  CryptoDigestAlgorithm: {
-    SHA256: 'SHA-256',
-  },
-  digestStringAsync: mocks.mockDigestStringAsync,
-}));
-
-vi.mock('expo-file-system', () => {
-  return {
-    Paths: {
-      cache: 'mock-cache-dir',
-    },
-    File: class extends mocks.MockFile {
-      static downloadFileAsync = mocks.mockDownloadFileAsync;
-    },
-  };
-});
 
 describe('useCachedImageUri', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    mocks.mockDigestStringAsync.mockImplementation(
-      async (_algorithm: string, value: string) => `sha256_${value.length}`
-    );
-    mocks.mockFileExists.mockReturnValue(false);
+    vi.stubEnv('EXPO_PUBLIC_SUPABASE_URL', 'https://project.supabase.co');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it('returns null if remoteUri is falsy', () => {
@@ -77,57 +24,65 @@ describe('useCachedImageUri', () => {
     expect(result.current.isLoading).toBe(false);
   });
 
-  it('returns stringified cached URI if the file is already cached', async () => {
-    mocks.mockFileExists.mockReturnValue(true);
-    const remoteUri = 'https://example.com/image.png';
+  it('returns a target-sized Supabase URL immediately without manually downloading it', () => {
+    const remoteUri =
+      'https://project.supabase.co/storage/v1/object/public/media/merchant/logo.png';
 
-    const { result } = renderHook(() => useCachedImageUri(remoteUri));
-
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
-    });
-
-    expect(typeof result.current.uri).toBe('string');
-    expect(result.current.uri).toBe('file:///cache/img_cache_sha256_29.png');
-    expect(mocks.mockDigestStringAsync).toHaveBeenCalledWith(
-      'SHA-256',
-      remoteUri
+    const { result } = renderHook(() =>
+      useCachedImageUri(remoteUri, {
+        width: 192,
+        height: 192,
+        resize: 'contain',
+      })
     );
-    expect(mocks.mockDownloadFileAsync).not.toHaveBeenCalled();
+
+    expect(result.current).toEqual({
+      uri: 'https://project.supabase.co/storage/v1/render/image/public/media/merchant/logo.png?width=192&height=192&resize=contain',
+      isLoading: false,
+    });
   });
 
-  it('downloads file and returns stringified downloaded URI if not cached', async () => {
-    mocks.mockFileExists.mockReturnValue(false);
-    const remoteUri = 'https://example.com/image2.png';
+  it('delegates non-Supabase remote image caching to the native image pipeline', () => {
+    const remoteUri = 'https://cdn.example.com/avatar.png';
 
-    mocks.mockDownloadFileAsync.mockResolvedValue({
-      uri: new mocks.MockURL('file:///cache/downloaded_image2.png'),
-    });
+    const { result } = renderHook(() =>
+      useCachedImageUri(remoteUri, {
+        width: 192,
+        height: 192,
+        resize: 'cover',
+      })
+    );
 
-    const { result } = renderHook(() => useCachedImageUri(remoteUri));
-
-    expect(result.current.isLoading).toBe(true);
-
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
-    });
-
-    expect(typeof result.current.uri).toBe('string');
-    expect(result.current.uri).toBe('file:///cache/downloaded_image2.png');
-    expect(mocks.mockDownloadFileAsync).toHaveBeenCalled();
+    expect(result.current).toEqual({ uri: remoteUri, isLoading: false });
   });
 
-  it('falls back to remoteUri string if download throws', async () => {
-    mocks.mockFileExists.mockReturnValue(false);
-    const remoteUri = 'https://example.com/image3.png';
-    mocks.mockDownloadFileAsync.mockRejectedValue(new Error('Download failed'));
+  it('does not rewrite a Supabase-looking path hosted by a third-party CDN', () => {
+    const remoteUri =
+      'https://cdn.example.com/storage/v1/object/public/media/merchant/logo.png';
 
-    const { result } = renderHook(() => useCachedImageUri(remoteUri));
+    const { result } = renderHook(() =>
+      useCachedImageUri(remoteUri, {
+        width: 192,
+        height: 192,
+        resize: 'cover',
+      })
+    );
 
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
-    });
+    expect(result.current).toEqual({ uri: remoteUri, isLoading: false });
+  });
 
-    expect(result.current.uri).toBe(remoteUri);
+  it('does not send SVG assets through the bitmap transformation endpoint', () => {
+    const remoteUri =
+      'https://project.supabase.co/storage/v1/object/public/media/merchant/logo.svg';
+
+    const { result } = renderHook(() =>
+      useCachedImageUri(remoteUri, {
+        width: 256,
+        height: 256,
+        resize: 'contain',
+      })
+    );
+
+    expect(result.current).toEqual({ uri: remoteUri, isLoading: false });
   });
 });
