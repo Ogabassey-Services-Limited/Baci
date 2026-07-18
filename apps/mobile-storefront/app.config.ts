@@ -28,8 +28,9 @@ const parsedAndroidVersionCode =
     ? undefined
     : Number(rawAndroidVersionCode);
 let androidVersionCode: number | undefined;
-const appVersion = '2.0.0';
+const appVersion = '2.0.1';
 const androidRuntimeVersion = `${appVersion}-android-sdk57`;
+const DEFAULT_ANDROID_VERSION_CODE = 741;
 
 // `parsedAndroidVersionCode` is undefined iff `rawAndroidVersionCode` is, so
 // checking only the parsed value is sufficient and narrows the type below.
@@ -215,9 +216,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     runtimeVersion: androidRuntimeVersion,
-    ...(androidVersionCode !== undefined
-      ? { versionCode: androidVersionCode }
-      : {}),
+    versionCode: androidVersionCode ?? DEFAULT_ANDROID_VERSION_CODE,
     package: 'com.ogabassey.store',
     googleServicesFile: './google-services.json',
     adaptiveIcon: {
