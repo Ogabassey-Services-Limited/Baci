@@ -10,9 +10,11 @@ const reactTestRendererPath = require.resolve('react-test-renderer');
 const uuidPath = require.resolve('uuid');
 const expoPath = require.resolve('expo');
 const expoRoot = path.dirname(require.resolve('expo/package.json'));
-const expoModulesCorePath = require.resolve('expo-modules-core');
+const expoModulesCorePath = require.resolve('expo-modules-core', {
+  paths: [expoRoot],
+});
 const expoModulesCoreRoot = path.dirname(
-  require.resolve('expo-modules-core/package.json')
+  require.resolve('expo-modules-core/package.json', { paths: [expoRoot] })
 );
 
 /** @type {import('jest').Config} */
