@@ -53,6 +53,10 @@ describe('eventPipelineGovernedPaths', () => {
     writeFileSync(join(root, 'baseline.ts'), 'export {};');
     execFileSync('git', ['add', '.'], { cwd: root });
     execFileSync('git', ['commit', '--quiet', '-m', 'baseline'], { cwd: root });
+    const frozenBase = execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: root,
+      encoding: 'utf8',
+    }).trim();
     execFileSync('git', ['update-ref', 'refs/remotes/origin/main', 'HEAD'], {
       cwd: root,
     });
@@ -61,6 +65,54 @@ describe('eventPipelineGovernedPaths', () => {
     writeFileSync(join(root, path), 'export {};');
 
     expect(eventPipelineGovernedPaths.sourcePaths(root)).toContain(path);
-    expect(eventPipelineGovernedPaths.collect(root).paths).toContain(path);
+    expect(
+      eventPipelineGovernedPaths.collect(root, new Map(), frozenBase).paths
+    ).toContain(path);
+  });
+
+  it('discovers committed paths from the frozen base instead of origin/main', () => {
+    const root = mkdtempSync(join(tmpdir(), 'event-frozen-base-paths-'));
+    directories.push(root);
+    execFileSync('git', ['init', '--quiet'], { cwd: root });
+    execFileSync('git', ['config', 'user.email', 'tests@example.com'], {
+      cwd: root,
+    });
+    execFileSync('git', ['config', 'user.name', 'Tests'], { cwd: root });
+    const fixtureDirectory = join(root, 'apps/web/tools/events/fixtures');
+    mkdirSync(fixtureDirectory, { recursive: true });
+    writeFileSync(
+      join(fixtureDirectory, 'event-pipeline-path-inventory.tsv'),
+      'seed\tapps/web/src/root.ts\n'
+    );
+    writeFileSync(join(root, 'baseline.ts'), 'export {};');
+    execFileSync('git', ['add', '.'], { cwd: root });
+    execFileSync('git', ['commit', '--quiet', '-m', 'frozen base'], {
+      cwd: root,
+    });
+    const frozenBase = execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: root,
+      encoding: 'utf8',
+    }).trim();
+    const governedTool = 'apps/web/tools/events/governed-tool.ts';
+    writeFileSync(
+      join(root, governedTool),
+      'export const governedTool = true;'
+    );
+    execFileSync('git', ['add', '.'], { cwd: root });
+    execFileSync('git', ['commit', '--quiet', '-m', 'task tool'], {
+      cwd: root,
+    });
+    execFileSync('git', ['update-ref', 'refs/remotes/origin/main', 'HEAD'], {
+      cwd: root,
+    });
+
+    const governed = eventPipelineGovernedPaths.collect(
+      root,
+      new Map(),
+      frozenBase
+    );
+
+    expect(governed.changedPaths).toContain(governedTool);
+    expect(governed.paths).toContain(governedTool);
   });
 });

@@ -6,6 +6,9 @@ import { collectProductionImportClosure } from '../../src/lib/events/event-pipel
 import { readGitSourceSnapshot } from './event-pipeline-git-source-snapshot';
 import { eventPipelineSourceFilePolicy } from './event-pipeline-source-file-policy';
 
+const FROZEN_EVENT_PIPELINE_BASE_SHA =
+  '9e3d1b14b1931a5e441fc23f0e5417c188056e47';
+
 function repoRoot(): string {
   return execFileSync('git', ['rev-parse', '--show-toplevel'], {
     encoding: 'utf8',
@@ -31,7 +34,8 @@ function sourcePaths(root: string): string[] {
 
 function collect(
   root = repoRoot(),
-  sources = readGitSourceSnapshot(root).sources
+  sources = readGitSourceSnapshot(root).sources,
+  frozenBaseSha = FROZEN_EVENT_PIPELINE_BASE_SHA
 ) {
   const fixturePath = resolve(
     root,
@@ -50,7 +54,7 @@ function collect(
       'diff',
       '--name-only',
       '-z',
-      'origin/main...HEAD',
+      `${frozenBaseSha}...HEAD`,
       '--',
     ]),
     ...gitPaths(root, ['diff', '--cached', '--name-only', '-z', '--']),
