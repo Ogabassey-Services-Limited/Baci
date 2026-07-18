@@ -6,15 +6,15 @@ const mocks = vi.hoisted(() => ({
   fetchConfig: vi.fn(),
   loadPaidOrderDeliveryEvent: vi.fn(),
   sendGA4Event: vi.fn(),
-  sendToAdPlatforms: vi.fn(),
+  sendConfiguredAdPlatforms: vi.fn(),
 }));
 
 vi.mock('@/lib/analytics/analytics-platform-config', () => ({
   fetchAnalyticsPlatformConfig: mocks.fetchConfig,
 }));
 
-vi.mock('@/lib/analytics/send-to-ad-platforms', () => ({
-  sendToAdPlatforms: mocks.sendToAdPlatforms,
+vi.mock('@/lib/analytics/send-configured-ad-platforms', () => ({
+  sendConfiguredAdPlatforms: mocks.sendConfiguredAdPlatforms,
 }));
 
 vi.mock('@/lib/ga4-measurement-protocol', () => ({
@@ -76,7 +76,7 @@ describe('deliverAnalyticsEvent', () => {
 
   it('delivers one independent destination with the stable event ID', async () => {
     const controller = new AbortController();
-    mocks.sendToAdPlatforms.mockResolvedValue({
+    mocks.sendConfiguredAdPlatforms.mockResolvedValue({
       facebook: { success: true },
     });
 
@@ -88,7 +88,9 @@ describe('deliverAnalyticsEvent', () => {
         controller.signal
       )
     ).resolves.toEqual({ success: true, terminalOutcome: 'delivered' });
-    expect(mocks.sendToAdPlatforms).toHaveBeenCalledWith(
+    expect(mocks.fetchConfig).toHaveBeenCalledTimes(1);
+    expect(mocks.sendConfiguredAdPlatforms).toHaveBeenCalledWith(
+      expect.objectContaining({ facebook_pixel_id: 'pixel' }),
       expect.objectContaining({
         custom_data: expect.objectContaining({
           contents: [
@@ -113,7 +115,7 @@ describe('deliverAnalyticsEvent', () => {
       success: true,
       terminalOutcome: 'skipped',
     });
-    expect(mocks.sendToAdPlatforms).not.toHaveBeenCalled();
+    expect(mocks.sendConfiguredAdPlatforms).not.toHaveBeenCalled();
   });
 
   it('retries configuration reads that fail instead of silently skipping', async () => {
@@ -128,7 +130,7 @@ describe('deliverAnalyticsEvent', () => {
   });
 
   it('retries when the provider helper returns no destination result', async () => {
-    mocks.sendToAdPlatforms.mockResolvedValue({});
+    mocks.sendConfiguredAdPlatforms.mockResolvedValue({});
 
     await expect(
       deliverAnalyticsEvent(serviceClient(), event, 'facebook')
@@ -139,7 +141,7 @@ describe('deliverAnalyticsEvent', () => {
   });
 
   it('preserves a provider rejection HTTP status for delivery classification', async () => {
-    mocks.sendToAdPlatforms.mockResolvedValue({
+    mocks.sendConfiguredAdPlatforms.mockResolvedValue({
       facebook: {
         error: 'Request rejected',
         httpStatus: 400,

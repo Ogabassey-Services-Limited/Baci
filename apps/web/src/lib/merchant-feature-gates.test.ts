@@ -7,6 +7,16 @@ import {
 } from './merchant-feature-gates';
 
 describe('merchantHasFeature', () => {
+  it('keeps the Next facade delegated to the pure predicate', () => {
+    const source = readFileSync(
+      join(process.cwd(), 'src/lib/merchant-feature-gates.ts'),
+      'utf8'
+    );
+    expect(source).toContain("from './merchant-has-feature'");
+    expect(source).not.toContain('FEATURE_PLAN_TIERS');
+    expect(source).not.toContain('normalizePremiumFeatures');
+  });
+
   it('allows active paid plan tiers', () => {
     expect(
       merchantHasFeature(
@@ -79,7 +89,7 @@ describe('getMerchantFeatureAccess', () => {
     };
 
     const result = await getMerchantFeatureAccess(
-      supabase as never,
+      supabase as unknown as Parameters<typeof getMerchantFeatureAccess>[0],
       'merchant-1',
       'custom_domain'
     );
@@ -134,7 +144,9 @@ describe('requireMerchantFeatureAccess', () => {
 
     await expect(
       requireMerchantFeatureAccess(
-        supabase as never,
+        supabase as unknown as Parameters<
+          typeof requireMerchantFeatureAccess
+        >[0],
         'merchant-1',
         'marketplace_sync'
       )
@@ -153,7 +165,7 @@ describe('requireMerchantFeatureAccess', () => {
     };
 
     const response = await requireMerchantFeatureAccess(
-      supabase as never,
+      supabase as unknown as Parameters<typeof requireMerchantFeatureAccess>[0],
       'merchant-1',
       'marketplace_sync'
     );
@@ -164,3 +176,6 @@ describe('requireMerchantFeatureAccess', () => {
     });
   });
 });
+
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';

@@ -57,6 +57,7 @@ describe('forwardToPlatformAnalytics', () => {
       request,
     });
 
+    expect(mocks.createAdminClient).toHaveBeenCalledWith('event-pipeline');
     expect(mocks.sendGa4).toHaveBeenCalledWith(
       'G-TEST',
       'secret',

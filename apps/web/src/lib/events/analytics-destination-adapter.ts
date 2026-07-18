@@ -3,10 +3,10 @@ import {
   type AnalyticsPlatformConfig,
   fetchAnalyticsPlatformConfig,
 } from '@/lib/analytics/analytics-platform-config';
-import {
-  type AdPlatformTarget,
-  type ConversionEvent,
-  sendToAdPlatforms,
+import { sendConfiguredAdPlatforms } from '@/lib/analytics/send-configured-ad-platforms';
+import type {
+  AdPlatformTarget,
+  ConversionEvent,
 } from '@/lib/analytics/send-to-ad-platforms';
 import { sendGA4Event } from '@/lib/ga4-measurement-protocol';
 import type { ServiceRoleClient } from '@/lib/supabase/service';
@@ -250,7 +250,8 @@ export async function deliverAnalyticsEvent(
         };
   }
 
-  const results = await sendToAdPlatforms(
+  const results = await sendConfiguredAdPlatforms(
+    config,
     {
       ...prepared.conversion,
       targets: [providerTarget(destination)],

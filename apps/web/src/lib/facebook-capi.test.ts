@@ -69,7 +69,7 @@ describe('sendFacebookCAPIEvent', () => {
     }
   });
 
-  it('passes the caller abort signal to fetch', async () => {
+  it('preserves caller abort through the composed fetch signal', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       json: vi.fn().mockResolvedValue({ events_received: 1 }),
       ok: true,
@@ -89,10 +89,11 @@ describe('sendFacebookCAPIEvent', () => {
       controller.signal
     );
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({ signal: controller.signal })
-    );
+    const requestSignal = fetchMock.mock.calls[0]?.[1]?.signal as AbortSignal;
+    expect(requestSignal).not.toBe(controller.signal);
+    controller.abort('caller-abort');
+    expect(requestSignal.aborted).toBe(true);
+    expect(requestSignal.reason).toBe('caller-abort');
   });
 
   it('returns a sanitized provider rejection', async () => {

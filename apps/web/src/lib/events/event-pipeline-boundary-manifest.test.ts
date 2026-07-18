@@ -1,7 +1,9 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
+import { authorityFindings } from './event-pipeline-boundary-manifest';
 
 const modulePath = resolve(
   process.cwd(),
@@ -52,7 +54,7 @@ describe('event pipeline authority manifest', () => {
     ]);
   });
 
-  it('pins the six compatibility route receipts without authorizing Task 6 wrappers', async () => {
+  it('pins the six compatibility route receipts and two Task 6 wrappers', async () => {
     expect(existsSync(modulePath), 'boundary manifest is missing').toBe(true);
     if (!existsSync(modulePath)) return;
     const moduleUrl = pathToFileURL(modulePath).href;
@@ -73,7 +75,16 @@ describe('event pipeline authority manifest', () => {
       'apps/web/src/app/api/platform/events/route.ts':
         'bb3b5ea163f7029bd8a90523ac7944c9e126b2aebc0ce673f82c4e0c48d00161',
     });
-    expect(manifest.trustedWrapperImporters).toEqual([]);
+    expect(manifest.trustedWrapperImporters).toEqual([
+      'apps/web/src/app/api/analytics/conversion/route.ts',
+      'apps/web/src/app/api/events/route.ts',
+    ]);
+    expect(manifest.sdkConstructorHashes).toEqual({
+      'apps/web/src/lib/events/event-ingress-capability.ts':
+        '5e0cf13d22315a021e6a122604563777f0ecc22a1a88faed003daa3bee0db64c',
+      'apps/web/src/lib/events/event-pipeline-test-client.ts':
+        '4979380981132de46400971d9a626629db654df139f17321dceef7f4d0b6e713',
+    });
   });
 
   it('binds the anon regression to the exact grant and JSON-key sweeps', () => {
@@ -93,5 +104,47 @@ describe('event pipeline authority manifest', () => {
     expect(sql).toContain('repairs_catalog_enabled');
     expect(sql).toContain('cardinality(expected_feature_setting_keys) <> 62');
     expect(sql).toContain('2026-08-24');
+  });
+
+  it.each([
+    'apps/web/src/app/api/orders/route.ts',
+    'apps/web/src/app/api/payments/juicyway/webhook/route.ts',
+  ])('allows %s to import but not construct the admin client', (path) => {
+    const importOnly = ts.createSourceFile(
+      path,
+      "import { createAdminClient } from '@/lib/supabase/admin';",
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TS
+    );
+    expect(authorityFindings(path, importOnly)).toEqual([]);
+    const construction = ts.createSourceFile(
+      path,
+      "import { createAdminClient } from '@/lib/supabase/admin'; createAdminClient('event-pipeline');",
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TS
+    );
+    expect(authorityFindings(path, construction)).toContain(
+      `${path}: privileged route client construction is forbidden`
+    );
+  });
+
+  it('rejects a namespace service factory in a fourth route', () => {
+    const path = 'apps/web/src/app/api/fourth/route.ts';
+    const source = ts.createSourceFile(
+      path,
+      "import * as svc from '@/lib/supabase/service'; svc.createServiceClient('event-pipeline');",
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TS
+    );
+    expect(authorityFindings(path, source)).toEqual(
+      expect.arrayContaining([
+        `${path}: unauthorized trusted wrapper importer`,
+        `${path}: unauthorized service factory importer`,
+        `${path}: privileged route client construction is forbidden`,
+      ])
+    );
   });
 });

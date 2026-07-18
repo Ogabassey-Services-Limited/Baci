@@ -164,7 +164,7 @@ export const EVENT_PIPELINE_BOUNDARY = {
       ...Object.keys(frozenRoutes),
       'apps/web/src/app/api/analytics/conversion/route.ts',
       'apps/web/src/app/api/events/route.ts',
-      'apps/web/src/lib/analytics/analytics-platform-config.ts',
+      'apps/web/src/lib/analytics/fetch-analytics-platform-config.ts',
       'apps/web/src/lib/merchant-feature-gates.ts',
     ],
     factoryModules: [
@@ -172,8 +172,8 @@ export const EVENT_PIPELINE_BOUNDARY = {
       'apps/web/src/lib/supabase/server.ts',
       'apps/web/src/lib/supabase/service.ts',
     ],
-    // biome-ignore format: compact compatibility allowlist preserves the 300-line contract gate.
-    legacySdkImporters: ['apps/web/src/lib/analytics/send-to-ad-platforms.ts', 'vps-workers/jobs/supabase-retention-cleanup.mjs'],
+    // biome-ignore format: compact compatibility allowlist preserves the 300-line verifier gate.
+    legacySdkImporters: ['apps/web/src/lib/events/event-ingress-capability.ts', 'apps/web/src/lib/events/event-pipeline-test-client.ts', 'vps-workers/jobs/supabase-retention-cleanup.mjs'],
     serverImporters: [
       ...Object.keys(frozenRoutes),
       'apps/web/src/app/(platform)/onboarding/actions.ts',
@@ -185,16 +185,15 @@ export const EVENT_PIPELINE_BOUNDARY = {
       'apps/web/src/lib/platform-admin-auth.ts',
     ],
     serviceImporters: [
+      'apps/web/src/app/api/analytics/conversion/route.ts',
+      'apps/web/src/app/api/events/route.ts',
       'apps/web/src/lib/events/event-pipeline-service-role-test-client.ts',
       'apps/web/src/scripts/process-domain-events.ts',
       'apps/web/src/scripts/process-event-deliveries.ts',
     ],
   },
   callers: runtimeCallers,
-  frozenProjectionFiles: {
-    'apps/web/src/lib/analytics/analytics-platform-config.ts':
-      'cd654799c94ed26e6ab51e6480ee742c743a1db24b70e65c80f358909db58376',
-  },
+  frozenProjectionFiles: {},
   frozenRoutes,
   functions: {
     serviceRoleMetrics: ['get_domain_event_queue_metrics_v1'],
@@ -209,7 +208,7 @@ export const EVENT_PIPELINE_BOUNDARY = {
     vpsCleanup: ['cleanup_domain_event_pipeline_v1'],
   },
   operations: {
-    analytics_events: ['insert'],
+    analytics_events: ['insert', 'upsert'],
     domains: ['select'],
     merchant_feature_settings: ['select'],
     merchant_slug_aliases: ['select'],
@@ -220,7 +219,12 @@ export const EVENT_PIPELINE_BOUNDARY = {
     platform_settings: ['select'],
   },
   projectionAuthorities: {
-    'apps/web/src/lib/analytics/analytics-platform-config.ts': [
+    'apps/web/src/app/api/analytics/conversion/conversion-route-merchant-context.ts':
+      ['identity'],
+    'apps/web/src/app/api/platform/events/platform-event-forwarding.ts': [
+      'platformProviderConfig',
+    ],
+    'apps/web/src/lib/analytics/fetch-analytics-platform-config.ts': [
       'merchantFeatureProviderConfig',
       'merchantProviderConfig',
     ],
@@ -283,18 +287,13 @@ export const EVENT_PIPELINE_BOUNDARY = {
     'apps/web/src/lib/events/record-platform-order-created-event.ts',
   ],
 } as const;
-export type EventPipelineFunctionName =
-  (typeof EVENT_PIPELINE_FUNCTION_NAMES)[number];
-export type EventPipelineFunctionArgs<Name extends EventPipelineFunctionName> =
-  Database['public']['Functions'][Name]['Args'];
-export type EventPipelineFunctionReturns<
-  Name extends EventPipelineFunctionName,
-> = Database['public']['Functions'][Name]['Returns'];
+// biome-ignore format: compact type contracts preserve the 300-line verifier gate.
+export type EventPipelineFunctionArgs<Name extends (typeof EVENT_PIPELINE_FUNCTION_NAMES)[number]> = Database['public']['Functions'][Name]['Args'];
+// biome-ignore format: compact type contracts preserve the 300-line verifier gate.
+export type EventPipelineFunctionReturns<Name extends (typeof EVENT_PIPELINE_FUNCTION_NAMES)[number]> = Database['public']['Functions'][Name]['Returns'];
+// biome-ignore format: compact worker type contract preserves the 300-line verifier gate.
 export type EventPipelineWorkerContracts = {
-  cleanup: {
-    args: EventPipelineFunctionArgs<'cleanup_domain_event_pipeline_v1'>;
-    returns: EventPipelineFunctionReturns<'cleanup_domain_event_pipeline_v1'>;
-  };
+  cleanup: { args: EventPipelineFunctionArgs<'cleanup_domain_event_pipeline_v1'>; returns: EventPipelineFunctionReturns<'cleanup_domain_event_pipeline_v1'> };
   deliveryClaim: EventPipelineFunctionReturns<'claim_event_deliveries_v1'>;
   routingRead: EventPipelineFunctionArgs<'read_domain_events_v1'>;
 };

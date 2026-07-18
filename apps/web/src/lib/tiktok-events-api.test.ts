@@ -5,7 +5,6 @@ import { tiktokEventsAPI } from './tiktok-events-api';
 function sha256(value: string) {
   return createHash('sha256').update(value.toLowerCase().trim()).digest('hex');
 }
-
 function mockOkFetch() {
   const fetchMock = vi.fn().mockResolvedValue({
     ok: true,
@@ -14,12 +13,10 @@ function mockOkFetch() {
   vi.stubGlobal('fetch', fetchMock);
   return fetchMock;
 }
-
 function getSentPayload(fetchMock: ReturnType<typeof mockOkFetch>) {
   const [, init] = fetchMock.mock.calls[0];
   return JSON.parse(String(init?.body)).data[0];
 }
-
 function getSentBody(fetchMock: ReturnType<typeof mockOkFetch>) {
   const [, init] = fetchMock.mock.calls[0];
   return JSON.parse(String(init?.body));
@@ -222,7 +219,7 @@ describe('tiktokEventsAPI', () => {
     });
   });
 
-  it('passes the caller abort signal to fetch', async () => {
+  it('preserves caller abort through the composed fetch signal', async () => {
     const fetchMock = mockOkFetch();
     const controller = new AbortController();
 
@@ -235,10 +232,11 @@ describe('tiktokEventsAPI', () => {
       controller.signal
     );
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({ signal: controller.signal })
-    );
+    const requestSignal = fetchMock.mock.calls[0]?.[1]?.signal as AbortSignal;
+    expect(requestSignal).not.toBe(controller.signal);
+    controller.abort('caller-abort');
+    expect(requestSignal.aborted).toBe(true);
+    expect(requestSignal.reason).toBe('caller-abort');
   });
 
   it('returns a provider rejection without throwing', async () => {
@@ -271,7 +269,7 @@ describe('tiktokEventsAPI', () => {
     });
     expect(consoleError).toHaveBeenCalledWith(
       'TikTok Events API error:',
-      '{"access_token"=[redacted],"message":"invalid access token"}'
+      'invalid access token'
     );
   });
 
@@ -294,7 +292,7 @@ describe('tiktokEventsAPI', () => {
         { contentId: 'sku-1' }
       )
     ).resolves.toEqual({
-      error: 'Unknown error',
+      error: 'Invalid provider response',
       httpStatus: 502,
       success: false,
     });

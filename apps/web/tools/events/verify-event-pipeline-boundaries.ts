@@ -1,5 +1,3 @@
-import { execFileSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -7,7 +5,6 @@ import ts from 'typescript';
 import {
   authorityFindings,
   bindingInitializer,
-  collectProductionImportClosure,
   eventPipelineBoundaryManifest,
   findFromCall,
   memberName,
@@ -16,59 +13,16 @@ import {
   staticText,
 } from '../../src/lib/events/event-pipeline-boundary-manifest';
 import { validateEventPipelineSelection } from '../../src/lib/events/event-pipeline-database';
+import { frozenRouteHashFinding } from './event-pipeline-boundary-hash';
+import { eventPipelineGovernedPaths } from './event-pipeline-governed-paths';
+import {
+  serviceAuthorityGraphFindings,
+  serviceRoleCredentialFinding,
+} from './event-pipeline-service-authority-graph';
+import { serviceRoleCredentialAuthority } from './event-pipeline-service-role-credential-analysis';
+import { readSourceInventory } from './event-pipeline-source-inventory';
+import { isTestSourcePath } from './event-pipeline-source-path';
 
-// biome-ignore format: compact helper preserves the 300-line verifier gate.
-const repoRoot = () => execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
-function gitLines(root: string, args: readonly string[]): string[] {
-  return execFileSync('git', [...args], { cwd: root, encoding: 'utf8' })
-    .split('\n')
-    .filter(Boolean);
-}
-const governedSourcePath = (path: string) => /\.(?:mjs|tsx?)$/.test(path);
-export function collectGovernedPaths() {
-  const root = repoRoot();
-  const fixturePath = resolve(
-    root,
-    'apps/web/tools/events/fixtures/event-pipeline-path-inventory.tsv'
-  );
-  const fixtureRecords = readFileSync(fixturePath, 'utf8')
-    .trimEnd()
-    .split('\n');
-  const fixturePaths = fixtureRecords.map((line) => line.split('\t')[1] ?? '');
-  const sources = new Map(
-    sourcePaths(root).map((path) => [
-      path,
-      readFileSync(resolve(root, path), 'utf8'),
-    ])
-  );
-  const productionClosure = collectProductionImportClosure(
-    eventPipelineBoundaryManifest.productionRoots,
-    sources
-  );
-  const dynamicPaths = [
-    ...gitLines(root, ['diff', '--name-only', 'origin/main...HEAD']),
-    ...gitLines(root, ['diff', '--cached', '--name-only']),
-    ...gitLines(root, ['diff', '--name-only']),
-    ...gitLines(root, ['ls-files', '--others', '--exclude-standard']),
-  ];
-  return {
-    fixtureRecordCount: fixtureRecords.length,
-    seedPaths: fixturePaths.filter(governedSourcePath),
-    paths: [
-      ...new Set(
-        [...productionClosure, ...dynamicPaths].filter(governedSourcePath)
-      ),
-    ]
-      .filter((path) => !path.endsWith('/supabase/.temp/cli-latest'))
-      .sort(),
-  };
-}
-export { collectProductionImportClosure };
-
-function sourcePaths(root: string): string[] {
-  // biome-ignore format: compact git inventory preserves the 300-line verifier gate.
-  return gitLines(root, ['ls-files', '-co', '--exclude-standard', '*.ts', '*.tsx', '*.mjs']);
-}
 function queryCall(
   call: ts.CallExpression,
   sourceFile: ts.SourceFile
@@ -142,11 +96,12 @@ export function analyzeRpcSource(
     true,
     path.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS
   );
-  const production =
-    enforceClassification &&
-    !path.endsWith('.test.ts') &&
-    !path.endsWith('.test.tsx');
+  const production = enforceClassification && !isTestSourcePath(path);
   if (production) findings.push(...authorityFindings(path, sourceFile));
+  const credentialFinding = production
+    ? serviceRoleCredentialFinding(path, source)
+    : undefined;
+  if (credentialFinding) findings.push(credentialFinding);
   function visit(node: ts.Node) {
     if (
       enforceEscapes &&
@@ -232,20 +187,11 @@ export function analyzeRpcSource(
   visit(sourceFile);
   return findings;
 }
-export function frozenRouteHashFinding(
-  path: string,
-  source: string | Buffer,
-  expectedHash: string
-): string | undefined {
-  const actualHash = createHash('sha256').update(source).digest('hex');
-  return actualHash === expectedHash
-    ? undefined
-    : `${path}: frozen route hash ${actualHash}`;
-}
+// biome-ignore format: compact hash receipt preserves the 300-line verifier gate.
 export function verifyEventPipelineBoundaries(): string[] {
-  const root = repoRoot();
+  const root = eventPipelineGovernedPaths.repoRoot();
   const findings: string[] = [];
-  const governed = collectGovernedPaths();
+  const governed = eventPipelineGovernedPaths.collect();
   if (governed.fixtureRecordCount !== 154) {
     findings.push(
       `fixture: expected 154 records, found ${governed.fixtureRecordCount}`
@@ -254,16 +200,33 @@ export function verifyEventPipelineBoundaries(): string[] {
   const frozenFiles = {
     ...eventPipelineBoundaryManifest.frozenProjectionFiles,
     ...eventPipelineBoundaryManifest.frozenRoutes,
+    ...eventPipelineBoundaryManifest.sdkConstructorHashes,
   };
   for (const [path, expectedHash] of Object.entries(frozenFiles)) {
+    if (!existsSync(resolve(root, path))) {
+      findings.push(`${path}: frozen event-pipeline source is missing`);
+      continue;
+    }
     const source = readFileSync(resolve(root, path));
     const finding = frozenRouteHashFinding(path, source, expectedHash);
     if (finding) findings.push(finding);
   }
   const governedPaths = new Set(governed.paths);
   const seedPaths = new Set(governed.seedPaths);
-  for (const path of sourcePaths(root)) {
-    const source = readFileSync(resolve(root, path), 'utf8');
+  for (const path of governed.missingProductionRoots)
+    findings.push(`${path}: event-pipeline production root is missing`);
+  const sources = readSourceInventory(
+    root,
+    eventPipelineGovernedPaths.sourcePaths(root)
+  ).sources;
+  findings.push(...serviceRoleCredentialAuthority.findings(sources));
+  findings.push(
+    ...serviceAuthorityGraphFindings(sources, [
+      ...eventPipelineBoundaryManifest.trustedWrapperImporters,
+      ...governed.changedPaths,
+    ])
+  );
+  for (const [path, source] of sources) {
     const enforceClassification = governedPaths.has(path);
     const enforceEscapes = enforceClassification || seedPaths.has(path);
     if (!enforceEscapes && !source.includes('rpc')) continue;

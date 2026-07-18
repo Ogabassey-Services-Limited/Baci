@@ -3,6 +3,9 @@ import { createServiceClient } from '@/lib/supabase/service';
 export function createEventPipelineServiceRoleTestClient(
   fetch: typeof globalThis.fetch
 ) {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error('Event pipeline service-role test client is test-only');
+  }
   const originalUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const originalKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const originalFetch = globalThis.fetch;

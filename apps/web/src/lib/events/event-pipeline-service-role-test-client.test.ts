@@ -16,6 +16,16 @@ afterEach(() => {
 });
 
 describe('event pipeline service-role test client', () => {
+  it('fails closed outside the test runtime', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    const { createEventPipelineServiceRoleTestClient } = await import(
+      /* @vite-ignore */ pathToFileURL(modulePath).href
+    );
+    expect(() => createEventPipelineServiceRoleTestClient(vi.fn())).toThrow(
+      'test-only'
+    );
+  });
+
   it('delegates branding to the production sentinel factory', async () => {
     expect(existsSync(modulePath), 'service-role test client is missing').toBe(
       true

@@ -2,6 +2,7 @@ import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { collectProductionImportClosure } from '../../src/lib/events/event-pipeline-import-closure';
 
 const verifierPath = resolve(
   process.cwd(),
@@ -10,9 +11,12 @@ const verifierPath = resolve(
 describe('event pipeline source boundary verifier', () => {
   it('discovers the immutable inventory plus dynamic changed and untracked paths', async () => {
     if (!existsSync(verifierPath)) return;
-    const moduleUrl = pathToFileURL(verifierPath).href;
-    const { collectGovernedPaths, collectProductionImportClosure } =
-      await import(/* @vite-ignore */ moduleUrl);
+    const moduleUrl = pathToFileURL(
+      resolve(process.cwd(), 'tools/events/event-pipeline-governed-paths.ts')
+    ).href;
+    const { eventPipelineGovernedPaths } = await import(
+      /* @vite-ignore */ moduleUrl
+    );
     // biome-ignore format: compact dynamic fixtures preserve the 300-line test gate.
     const relativeFixtures = ['ts', 'mjs'].map((extension) => `src/lib/task5-untracked-worker-${process.pid}.${extension}`);
     // biome-ignore format: compact dynamic fixtures preserve the 300-line test gate.
@@ -20,7 +24,7 @@ describe('event pipeline source boundary verifier', () => {
       writeFileSync(resolve(process.cwd(), path), 'export const task5Untracked = true;', { flag: 'wx' });
     const paths = (() => {
       try {
-        return collectGovernedPaths();
+        return eventPipelineGovernedPaths.collect();
       } finally {
         for (const path of relativeFixtures)
           rmSync(resolve(process.cwd(), path), { force: true });
@@ -50,9 +54,7 @@ describe('event pipeline source boundary verifier', () => {
     ).toBe(true);
     if (!existsSync(verifierPath)) return;
     const moduleUrl = pathToFileURL(verifierPath).href;
-    const { analyzeRpcSource, frozenRouteHashFinding } = await import(
-      /* @vite-ignore */ moduleUrl
-    );
+    const { analyzeRpcSource } = await import(/* @vite-ignore */ moduleUrl);
     expect(
       analyzeRpcSource(
         'apps/web/src/lib/events/new-worker.ts',
@@ -159,9 +161,6 @@ describe('event pipeline source boundary verifier', () => {
       )
     ).toContain(
       'apps/web/src/lib/events/new-worker.ts: unauthorized merchants column bvn'
-    );
-    expect(frozenRouteHashFinding('route.ts', 'drift', 'expected')).toMatch(
-      /^route\.ts: frozen route hash /
     );
   }, 30_000);
   it('rejects bare clients, untyped factories, assertions, and unmanifested queries', async () => {

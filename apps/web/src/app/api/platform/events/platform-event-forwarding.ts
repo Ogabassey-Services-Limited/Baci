@@ -21,7 +21,9 @@ export async function forwardToPlatformAnalytics({
   pageUrl,
   request,
 }: PlatformEventForwardingInput) {
-  const { data: settings, error: settingsError } = await createAdminClient()
+  const { data: settings, error: settingsError } = await createAdminClient(
+    'event-pipeline'
+  )
     .from('platform_settings')
     .select(
       'google_analytics_id, ga4_api_secret, facebook_pixel_id, facebook_capi_token'
