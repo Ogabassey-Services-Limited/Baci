@@ -18,7 +18,7 @@ describe('event pipeline source boundary verifier', () => {
       /* @vite-ignore */ moduleUrl
     );
     // biome-ignore format: compact dynamic fixtures preserve the 300-line test gate.
-    const relativeFixtures = ['ts', 'mjs'].map((extension) => `src/lib/task5-untracked-worker-${process.pid}.${extension}`);
+    const relativeFixtures = ['ts', 'mjs'].map((extension) => `src/lib/task5-untracked-worker-${process.pid}.test.${extension}`);
     // biome-ignore format: compact dynamic fixtures preserve the 300-line test gate.
     for (const path of relativeFixtures)
       writeFileSync(resolve(process.cwd(), path), 'export const task5Untracked = true;', { flag: 'wx' });
@@ -34,8 +34,8 @@ describe('event pipeline source boundary verifier', () => {
     expect(paths.paths).toContain(
       'apps/web/src/scripts/process-event-deliveries.ts'
     );
-    expect(paths.paths).toContain(
-      'apps/web/tools/events/verify-event-pipeline-boundaries.ts'
+    expect(paths.productionPaths).toContain(
+      'apps/web/src/scripts/process-event-deliveries.ts'
     );
     for (const path of relativeFixtures)
       expect(paths.paths).toContain(`apps/web/${path}`);

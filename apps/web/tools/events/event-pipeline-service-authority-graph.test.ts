@@ -221,6 +221,18 @@ describe('event pipeline service authority graph', () => {
     );
   });
 
+  it('allows a declared service route to reach the canonical factory directly', () => {
+    const route =
+      'apps/web/src/app/api/payments/credit-direct/webhook/route.ts';
+    const service = 'apps/web/src/lib/supabase/service.ts';
+    const sources = new Map([
+      [route, "import { createServiceClient } from '@/lib/supabase/service';"],
+      [service, 'export const createServiceClient = () => null;'],
+    ]);
+
+    expect(serviceAuthorityGraphFindings(sources, [route])).toEqual([]);
+  });
+
   it('rejects a JavaScript-family route that indirectly reaches service authority', () => {
     const route = 'apps/web/src/app/api/fourth/route.jsx';
     const sources = new Map([

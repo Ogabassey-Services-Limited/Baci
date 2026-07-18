@@ -130,6 +130,27 @@ describe('event pipeline authority manifest', () => {
     );
   });
 
+  it.each([
+    'apps/web/src/app/api/cron/alert-stuck-bnpl/route.ts',
+    'apps/web/src/lib/expo-push.ts',
+    'apps/web/src/lib/merchant-sending-domain.ts',
+    'apps/web/src/lib/payments/file-inventory-confirmation-review.ts',
+    'apps/web/src/lib/payments/file-stuck-credit-direct-review.ts',
+    'apps/web/src/lib/payments/handle-payment-for-cancelled-order.ts',
+    'apps/web/src/lib/payments/resolve-credit-direct-confirmation-review.ts',
+    'apps/web/src/lib/zeptomail.ts',
+  ])('allows the reviewed admin importer %s', (path) => {
+    const importOnly = ts.createSourceFile(
+      path,
+      "import { createAdminClient } from '@/lib/supabase/admin';",
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TS
+    );
+
+    expect(authorityFindings(path, importOnly)).toEqual([]);
+  });
+
   it('rejects a namespace service factory in a fourth route', () => {
     const path = 'apps/web/src/app/api/fourth/route.ts';
     const source = ts.createSourceFile(
