@@ -12,6 +12,7 @@ const migrationPaths = [
   '../../../../supabase/migrations/20260718070005_backfill_credit_direct_missing_confirmation_review.sql',
   '../../../../supabase/migrations/20260718070006_harden_credit_direct_client_completion.sql',
   '../../../../supabase/migrations/20260718070007_supersede_credit_direct_completed_references.sql',
+  '../../../../supabase/migrations/20260718070008_preserve_credit_direct_payment_audit_notes.sql',
 ].map((migrationPath) =>
   join(dirname(fileURLToPath(import.meta.url)), migrationPath)
 );
@@ -25,6 +26,7 @@ describe('Credit Direct missing-confirmation reconciliation migration', () => {
   let reviewBackfillSql: string;
   let completionHardeningSql: string;
   let completedReferenceSupersessionSql: string;
+  let paymentAuditPreservationSql: string;
 
   beforeAll(() => {
     [
@@ -36,6 +38,7 @@ describe('Credit Direct missing-confirmation reconciliation migration', () => {
       reviewBackfillSql,
       completionHardeningSql,
       completedReferenceSupersessionSql,
+      paymentAuditPreservationSql,
     ] = migrationPaths.map((migrationPath) =>
       readFileSync(migrationPath, 'utf8')
     );
@@ -51,6 +54,7 @@ describe('Credit Direct missing-confirmation reconciliation migration', () => {
       reviewBackfillSql,
       completionHardeningSql,
       completedReferenceSupersessionSql,
+      paymentAuditPreservationSql,
     ].entries()) {
       expect(
         migrationSql.trimEnd().split('\n').length,

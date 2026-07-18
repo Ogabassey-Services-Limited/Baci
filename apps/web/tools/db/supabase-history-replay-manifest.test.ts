@@ -149,6 +149,7 @@ describe('supabaseHistoryReplayManifest', () => {
       'supabase/migrations/20260718070005_backfill_credit_direct_missing_confirmation_review.sql',
       'supabase/migrations/20260718070006_harden_credit_direct_client_completion.sql',
       'supabase/migrations/20260718070007_supersede_credit_direct_completed_references.sql',
+      'supabase/migrations/20260718070008_preserve_credit_direct_payment_audit_notes.sql',
     ]);
     expect(
       supabaseHistoryReplayManifest.postReplaySources.every(({ sha256 }) =>
