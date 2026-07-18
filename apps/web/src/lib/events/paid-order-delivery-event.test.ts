@@ -1,5 +1,6 @@
 import type { DomainEventV1 } from '@baci/shared/contracts';
 import { describe, expect, it, vi } from 'vitest';
+import { createEventPipelineServiceRoleTestClient } from './event-pipeline-service-role-test-client';
 import { loadPaidOrderDeliveryEvent } from './paid-order-delivery-event';
 
 const event: DomainEventV1 = {
@@ -19,12 +20,11 @@ const event: DomainEventV1 = {
 };
 
 function client(data: unknown, error: { message: string } | null = null) {
-  const builder = {
-    eq: vi.fn(() => builder),
-    maybeSingle: vi.fn().mockResolvedValue({ data, error }),
-    select: vi.fn(() => builder),
-  };
-  return { from: vi.fn(() => builder) };
+  return createEventPipelineServiceRoleTestClient(
+    vi.fn<typeof globalThis.fetch>(async () =>
+      error ? Response.json(error, { status: 500 }) : Response.json(data)
+    )
+  );
 }
 
 describe('loadPaidOrderDeliveryEvent', () => {
@@ -55,7 +55,7 @@ describe('loadPaidOrderDeliveryEvent', () => {
           state: 'Lagos',
         },
         total: 100,
-      }) as never,
+      }),
       event
     );
 
@@ -86,7 +86,7 @@ describe('loadPaidOrderDeliveryEvent', () => {
           id: 'order-1',
           payment_status: 'unpaid',
           total: 100,
-        }) as never,
+        }),
         event
       )
     ).rejects.toThrow('paid_order_not_deliverable');
@@ -95,7 +95,7 @@ describe('loadPaidOrderDeliveryEvent', () => {
   it('rejects when the source order query fails', async () => {
     await expect(
       loadPaidOrderDeliveryEvent(
-        client(null, { message: 'query failed' }) as never,
+        client(null, { message: 'query failed' }),
         event
       )
     ).rejects.toThrow('paid_order_lookup_failed');

@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { signScopedSupabaseJwt } from '@/lib/supabase/scoped-jwt';
+import type { Database } from '@/types/supabase';
 
 type EventIngressCapabilityInput = {
   eventId: string;
@@ -46,9 +47,9 @@ function createEventIngressToken(input: EventIngressCapabilityInput): string {
 
 export function createEventIngressClient(
   input: EventIngressCapabilityInput
-): SupabaseClient {
+): SupabaseClient<Database> {
   const accessToken = createEventIngressToken(input);
-  return createClient(getSupabaseUrl(), getSupabaseAnonKey(), {
+  return createClient<Database>(getSupabaseUrl(), getSupabaseAnonKey(), {
     accessToken: async () => accessToken,
     auth: {
       autoRefreshToken: false,

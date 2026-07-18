@@ -1,0 +1,85 @@
+import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { eventPipelineBoundaryManifest } from '../../src/lib/events/event-pipeline-boundary-manifest';
+import { collectProductionImportClosure } from '../../src/lib/events/event-pipeline-import-closure';
+import { readGitSourceSnapshot } from './event-pipeline-git-source-snapshot';
+import { eventPipelineSourceFilePolicy } from './event-pipeline-source-file-policy';
+
+function repoRoot(): string {
+  return execFileSync('git', ['rev-parse', '--show-toplevel'], {
+    encoding: 'utf8',
+  }).trim();
+}
+
+function gitPaths(root: string, args: readonly string[]): string[] {
+  return execFileSync('git', [...args], { cwd: root, encoding: 'utf8' })
+    .split('\0')
+    .filter(Boolean);
+}
+
+function sourcePaths(root: string): string[] {
+  return gitPaths(root, [
+    'ls-files',
+    '-co',
+    '--exclude-standard',
+    '-z',
+    '--',
+    ...eventPipelineSourceFilePolicy.pathspecs,
+  ]);
+}
+
+function collect(
+  root = repoRoot(),
+  sources = readGitSourceSnapshot(root).sources
+) {
+  const fixturePath = resolve(
+    root,
+    'apps/web/tools/events/fixtures/event-pipeline-path-inventory.tsv'
+  );
+  const fixtureRecords = readFileSync(fixturePath, 'utf8')
+    .trimEnd()
+    .split('\n');
+  const fixturePaths = fixtureRecords.map((line) => line.split('\t')[1] ?? '');
+  const productionClosure = collectProductionImportClosure(
+    eventPipelineBoundaryManifest.productionRoots,
+    sources
+  );
+  const dynamicPaths = [
+    ...gitPaths(root, [
+      'diff',
+      '--name-only',
+      '-z',
+      'origin/main...HEAD',
+      '--',
+    ]),
+    ...gitPaths(root, ['diff', '--cached', '--name-only', '-z', '--']),
+    ...gitPaths(root, ['diff', '--name-only', '-z', '--']),
+    ...gitPaths(root, [
+      'ls-files',
+      '--others',
+      '--exclude-standard',
+      '-z',
+      '--',
+    ]),
+  ];
+  return {
+    changedPaths: dynamicPaths,
+    fixtureRecordCount: fixtureRecords.length,
+    missingProductionRoots:
+      eventPipelineBoundaryManifest.productionRoots.filter(
+        (path) => !sources.has(path)
+      ),
+    paths: [...new Set([...productionClosure, ...dynamicPaths])]
+      .filter(eventPipelineSourceFilePolicy.isSourcePath)
+      .filter((path) => !path.endsWith('/supabase/.temp/cli-latest'))
+      .sort(),
+    seedPaths: fixturePaths.filter(eventPipelineSourceFilePolicy.isSourcePath),
+  };
+}
+
+export const eventPipelineGovernedPaths = {
+  collect,
+  repoRoot,
+  sourcePaths,
+} as const;

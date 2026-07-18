@@ -1,15 +1,15 @@
 import type { DomainEventV1 } from '@baci/shared/contracts';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   type AnalyticsPlatformConfig,
   fetchAnalyticsPlatformConfig,
 } from '@/lib/analytics/analytics-platform-config';
-import {
-  type AdPlatformTarget,
-  type ConversionEvent,
-  sendToAdPlatforms,
+import { sendConfiguredAdPlatforms } from '@/lib/analytics/send-configured-ad-platforms';
+import type {
+  AdPlatformTarget,
+  ConversionEvent,
 } from '@/lib/analytics/send-to-ad-platforms';
 import { sendGA4Event } from '@/lib/ga4-measurement-protocol';
+import type { ServiceRoleClient } from '@/lib/supabase/service';
 import type { EventDestinationResult } from './event-destination';
 import type { EventDestination } from './event-route-registry';
 import { loadPaidOrderDeliveryEvent } from './paid-order-delivery-event';
@@ -163,7 +163,7 @@ function toClientConversion(event: DomainEventV1): ConversionEvent {
 }
 
 export async function deliverAnalyticsEvent(
-  supabase: SupabaseClient,
+  supabase: ServiceRoleClient,
   event: DomainEventV1,
   destination: EventDestination,
   signal?: AbortSignal
@@ -250,7 +250,8 @@ export async function deliverAnalyticsEvent(
         };
   }
 
-  const results = await sendToAdPlatforms(
+  const results = await sendConfiguredAdPlatforms(
+    config,
     {
       ...prepared.conversion,
       targets: [providerTarget(destination)],

@@ -3,8 +3,8 @@ import { after, type NextRequest, NextResponse } from 'next/server';
 import {
   isConversionEvent,
   normalizeEventType,
-  sendToAdPlatforms,
 } from '@/lib/analytics/send-to-ad-platforms';
+import { trustedServerAdPlatformFanout } from '@/lib/analytics/trusted-server-ad-platform-fanout';
 import { buildAnalyticsEventData } from '@/lib/events/build-analytics-event-data';
 import { createEventIngressClient } from '@/lib/events/event-ingress-capability';
 import { resolveEventIngressContext } from '@/lib/events/event-ingress-context';
@@ -19,28 +19,15 @@ import { readBoundedJsonBody } from '@/lib/events/read-bounded-json-body';
 import { recordAnalyticsDomainEvent } from '@/lib/events/record-analytics-domain-event';
 import { logger } from '@/lib/logger';
 import { createClient as createServerClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 import {
   type AnalyticsEventRequest,
   analyticsEventRequestSchema,
 } from '@/schemas/analytics-event';
+import { buildLegacyAdPlatformFanoutEvent } from './build-legacy-ad-platform-fanout-event';
+import { resolveLegacyFanoutContext } from './resolve-legacy-fanout-context';
 
 const MAX_EVENT_BYTES = 64 * 1024;
-function conversionContents(input: AnalyticsEventRequest) {
-  const items = input.items ?? input.custom_data?.contents ?? [];
-  return items.flatMap((item) => {
-    const id = item.id ?? item.product_id;
-    if (!id) return [];
-    return [
-      {
-        id,
-        name: item.name ?? item.product_name,
-        price: item.price,
-        quantity: item.quantity,
-      },
-    ];
-  });
-}
-
 function deliveryData(input: AnalyticsEventRequest, request: NextRequest) {
   return {
     email: input.user_data?.em,
@@ -58,7 +45,6 @@ function deliveryData(input: AnalyticsEventRequest, request: NextRequest) {
     ua: request.headers.get('user-agent') ?? undefined,
   };
 }
-
 function storeLegacyEvent(
   supabase: SupabaseClient,
   input: AnalyticsEventRequest,
@@ -84,52 +70,6 @@ function storeLegacyEvent(
   }
   return supabase.from('analytics_events').insert(row);
 }
-
-function scheduleLegacyFanout(
-  request: NextRequest,
-  input: AnalyticsEventRequest,
-  eventType: string,
-  eventId: string
-) {
-  after(async () => {
-    try {
-      const contents = conversionContents(input);
-      await sendToAdPlatforms({
-        custom_data: {
-          content_name: input.product_name ?? input.custom_data?.content_name,
-          content_type: input.custom_data?.content_type ?? 'product',
-          contents:
-            contents.length > 0
-              ? contents
-              : input.product_id
-                ? [
-                    {
-                      id: input.product_id,
-                      name: input.product_name,
-                      price: input.product_price,
-                      quantity: input.quantity ?? 1,
-                    },
-                  ]
-                : undefined,
-          currency: input.currency ?? input.custom_data?.currency ?? 'NGN',
-          order_id: input.order_id ?? input.custom_data?.order_id,
-          price: input.product_price ?? input.custom_data?.price,
-          search_string: input.search_term ?? input.custom_data?.search_string,
-          url: input.page_url ?? input.custom_data?.url,
-          value: input.total ?? input.custom_data?.value ?? input.product_price,
-        },
-        event_id: eventId,
-        event_type: eventType,
-        merchant_id: input.merchant_id,
-        source: input.source ?? 'web',
-        user_data: deliveryData(input, request),
-      });
-    } catch (error) {
-      logger.error({ error, message: 'CAPI fan-out error after response' });
-    }
-  });
-}
-
 export async function POST(request: NextRequest) {
   const bodyResult = await readBoundedJsonBody(request, MAX_EVENT_BYTES);
   if (!bodyResult.ok && bodyResult.reason === 'too_large') {
@@ -138,14 +78,11 @@ export async function POST(request: NextRequest) {
       { status: 413 }
     );
   }
-  if (!bodyResult.ok) {
+  if (!bodyResult.ok)
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
-  }
   const body = bodyResult.body;
-
-  if (!body || typeof body !== 'object') {
+  if (!body || typeof body !== 'object')
     return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
-  }
   const raw = body as Record<string, unknown>;
   if (!(raw.event_type || raw.event_name) || !raw.merchant_id) {
     return NextResponse.json(
@@ -160,7 +97,6 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
-
   const input = parsed.data;
   if (input.timestamp && !isEventTimestampWithinWindow(input.timestamp)) {
     return NextResponse.json(
@@ -174,7 +110,7 @@ export async function POST(request: NextRequest) {
   const eventTimestamp = input.timestamp ?? new Date().toISOString();
   const durableEnqueue = isEventPipelineEnqueueEnabled();
   let responseEventId = input.event_id;
-
+  let verifiedFanoutMerchantId: string | null = null;
   try {
     if (durableEnqueue) {
       const contextSupabase = await createServerClient();
@@ -196,7 +132,6 @@ export async function POST(request: NextRequest) {
           { status: 403 }
         );
       }
-
       responseEventId = input.event_id ?? `evt_${crypto.randomUUID()}`;
       const eventSupabase = await createEventIngressClient({
         eventId: responseEventId,
@@ -230,7 +165,6 @@ export async function POST(request: NextRequest) {
         });
       } catch (error) {
         if (isLegacyAnalyticsFanoutDisabled()) throw error;
-
         logger.warn({
           error,
           message:
@@ -272,14 +206,41 @@ export async function POST(request: NextRequest) {
         );
       }
     }
-
     if (isConversionEvent(eventType) && !isLegacyAnalyticsFanoutDisabled()) {
-      const fanoutEventId =
-        responseEventId ??
-        `evt_${Date.now()}_${crypto.randomUUID().replace(/-/g, '')}`;
-      scheduleLegacyFanout(request, input, eventType, fanoutEventId);
+      const contextSupabase = await createServerClient();
+      verifiedFanoutMerchantId = await resolveLegacyFanoutContext({
+        merchantId: input.merchant_id,
+        request,
+        supabase: contextSupabase,
+      });
+      if (verifiedFanoutMerchantId) {
+        const resolvedMerchantId = verifiedFanoutMerchantId;
+        const fanoutEventId =
+          responseEventId ??
+          `evt_${Date.now()}_${crypto.randomUUID().replace(/-/g, '')}`;
+        const fanoutEvent = buildLegacyAdPlatformFanoutEvent({
+          request,
+          input,
+          eventType,
+          eventId: fanoutEventId,
+          resolvedMerchantId,
+        });
+        after(async () => {
+          if (isLegacyAnalyticsFanoutDisabled()) return;
+          try {
+            await trustedServerAdPlatformFanout(
+              createServiceClient('event-pipeline'),
+              resolvedMerchantId,
+              fanoutEvent
+            );
+          } catch {
+            logger.error({
+              message: 'CAPI fan-out error after response',
+            });
+          }
+        });
+      }
     }
-
     return NextResponse.json({ success: true, event_id: responseEventId });
   } catch (error) {
     logger.error({ error, message: 'Event tracking error' });

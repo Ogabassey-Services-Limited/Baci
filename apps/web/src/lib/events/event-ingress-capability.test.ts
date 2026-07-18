@@ -1,7 +1,10 @@
 // @vitest-environment node
 import { generateKeyPairSync } from 'node:crypto';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { jwtVerify } from 'jose';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
+import type { Database } from '@/types/supabase';
+import { createEventIngressClient } from './event-ingress-capability';
 
 const mocks = vi.hoisted(() => ({ createClient: vi.fn() }));
 
@@ -20,6 +23,12 @@ afterEach(() => {
 });
 
 describe('createEventIngressClient', () => {
+  it('constructs a generated Database client at the ingress boundary', () => {
+    expectTypeOf(createEventIngressClient).returns.toEqualTypeOf<
+      SupabaseClient<Database>
+    >();
+  });
+
   it('binds a short-lived anonymous capability to one analytics envelope', async () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://example.supabase.co';
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-key';
@@ -40,6 +49,7 @@ describe('createEventIngressClient', () => {
       source: 'web',
       trustLevel: 'tenant_verified_client',
     });
+    expect(mocks.createClient).toHaveBeenCalledOnce();
 
     const options = mocks.createClient.mock.calls[0]?.[2] as {
       accessToken: () => Promise<string>;

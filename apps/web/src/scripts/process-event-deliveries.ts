@@ -1,7 +1,6 @@
 import 'dotenv/config';
 import { hostname } from 'node:os';
 import { pathToFileURL } from 'node:url';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { deliverDomainEvent } from '@/lib/events/deliver-domain-event';
 import { classifyDeliveryFailure } from '@/lib/events/event-error-classification';
@@ -15,7 +14,10 @@ import { parseDomainEventV1 } from '@/lib/events/event-contract';
 import { sanitizeEventErrorMessage } from '@/lib/events/sanitize-event-error';
 import { settleWithConcurrency } from '@/lib/events/settle-with-concurrency';
 import { shouldRecordWorkerSuccess } from '@/lib/events/worker-heartbeat-throttle';
-import { createServiceClient } from '@/lib/supabase/service';
+import {
+  createServiceClient,
+  type ServiceRoleClient,
+} from '@/lib/supabase/service';
 
 const claimedDeliverySchema = z.strictObject({
   attempt_number: z.number().int().positive(),
@@ -36,7 +38,7 @@ export function getEventDeliveryClaimBatchSize(concurrency: number): number {
 }
 
 async function heartbeat(
-  supabase: SupabaseClient,
+  supabase: ServiceRoleClient,
   workerId: string,
   status: 'failed' | 'started' | 'succeeded',
   processedCount = 0,
@@ -57,7 +59,7 @@ async function heartbeat(
 }
 
 async function finishDelivery(
-  supabase: SupabaseClient,
+  supabase: ServiceRoleClient,
   delivery: ClaimedDelivery,
   outcome: 'dead_letter' | 'delivered' | 'delivery_unknown' | 'retry' | 'skipped',
   options: {
@@ -83,7 +85,7 @@ async function finishDelivery(
 }
 
 export async function processClaimedEventDelivery(
-  supabase: SupabaseClient,
+  supabase: ServiceRoleClient,
   delivery: ClaimedDelivery,
   maxAttempts = getEventDeliveryMaxAttempts()
 ): Promise<void> {
@@ -144,7 +146,7 @@ export async function processClaimedEventDelivery(
 }
 
 async function claimBatch(
-  supabase: SupabaseClient,
+  supabase: ServiceRoleClient,
   workerId: string,
   batchSize: number
 ): Promise<ClaimedDelivery[]> {
@@ -169,7 +171,7 @@ export async function runEventDeliveryWorker(options: { once?: boolean } = {}) {
     return;
   }
 
-  const supabase = createServiceClient();
+  const supabase = createServiceClient('event-pipeline');
   const workerId = `${hostname()}:${process.pid}`;
   const concurrency = getEventDeliveryConcurrency();
   let stopping = false;

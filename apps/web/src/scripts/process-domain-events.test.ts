@@ -1,8 +1,23 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createEventPipelineServiceRoleTestClient } from '@/lib/events/event-pipeline-service-role-test-client';
 import {
   processDomainEventBatch,
   processDomainEventMessage,
 } from './process-domain-events';
+
+function client(rpc: ReturnType<typeof vi.fn>) {
+  return createEventPipelineServiceRoleTestClient(
+    vi.fn<typeof globalThis.fetch>(async (input, init) => {
+      const result = await rpc(
+        new URL(String(input)).pathname.split('/').at(-1),
+        JSON.parse(String(init?.body ?? '{}'))
+      );
+      return result.error
+        ? Response.json(result.error, { status: 500 })
+        : Response.json(result.data);
+    })
+  );
+}
 
 const validMessage = {
   enqueued_at: '2026-07-12T12:00:00.000Z',
@@ -33,7 +48,7 @@ describe('processDomainEventMessage', () => {
   it('atomically archives a valid no-route observation', async () => {
     const rpc = vi.fn().mockResolvedValue({ data: [], error: null });
 
-    await processDomainEventMessage({ rpc } as never, validMessage, true);
+    await processDomainEventMessage(client(rpc), validMessage, true);
 
     expect(rpc).toHaveBeenCalledWith('route_domain_event_v1', {
       p_active_destinations: [],
@@ -51,7 +66,7 @@ describe('processDomainEventMessage', () => {
     const rpc = vi.fn().mockResolvedValue({ data: [], error: null });
 
     await processDomainEventMessage(
-      { rpc } as never,
+      client(rpc),
       {
         ...validMessage,
         message: {
@@ -80,7 +95,7 @@ describe('processDomainEventMessage', () => {
 
     try {
       await processDomainEventMessage(
-        { rpc } as never,
+        client(rpc),
         { ...validMessage, message: { password: 'do-not-copy' } },
         false
       );
@@ -104,9 +119,7 @@ describe('processDomainEventMessage', () => {
     const rpc = vi.fn().mockResolvedValue({ data: [], error: null });
 
     await processDomainEventMessage(
-      {
-        rpc,
-      } as never,
+      client(rpc),
       {
         ...validMessage,
         message: {
@@ -130,7 +143,7 @@ describe('processDomainEventMessage', () => {
       .mockResolvedValueOnce({ data: null, error: null });
 
     await processDomainEventMessage(
-      { rpc } as never,
+      client(rpc),
       { ...validMessage, read_ct: 5 },
       false,
       5
@@ -153,7 +166,7 @@ describe('processDomainEventMessage', () => {
 
     await expect(
       processDomainEventBatch(
-        { rpc } as never,
+        client(rpc),
         [validMessage, { ...validMessage, msg_id: 2 }],
         false
       )

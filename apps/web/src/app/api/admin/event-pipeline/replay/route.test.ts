@@ -83,6 +83,7 @@ describe('POST /api/admin/event-pipeline/replay', () => {
     );
 
     expect(response.status).toBe(200);
+    expect(mocks.createClient).toHaveBeenCalledWith('event-pipeline');
     expect(rpc).toHaveBeenCalledWith('replay_event_deliveries_batch_v1', {
       p_delivery_ids: ['019bbd89-8f5f-7f8c-a4fd-42b5d7e7a234'],
       p_replay_reason: 'Credential rotation verified',

@@ -1,6 +1,22 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
 import { enqueuePaidOrderDomainEvent } from './enqueue-paid-order-domain-event';
+import { createEventPipelineTestClient } from './event-pipeline-test-client';
+
+function client(
+  rpc: (...args: unknown[]) => Promise<{ data: unknown; error: unknown }>
+) {
+  return createEventPipelineTestClient(
+    vi.fn<typeof globalThis.fetch>(async (input, init) => {
+      const result = await rpc(
+        new URL(String(input)).pathname.split('/').at(-1),
+        JSON.parse(String(init?.body ?? '{}'))
+      );
+      return result.error
+        ? Response.json(result.error, { status: 500 })
+        : Response.json(result.data);
+    })
+  );
+}
 
 describe('enqueuePaidOrderDomainEvent', () => {
   it('uses the order side-effect identity as the producer dedupe key', async () => {
@@ -15,10 +31,7 @@ describe('enqueuePaidOrderDomainEvent', () => {
       error: null,
     });
 
-    const supabase: Pick<SupabaseClient, 'rpc'> = { rpc } as Pick<
-      SupabaseClient,
-      'rpc'
-    >;
+    const supabase = client(rpc);
 
     await enqueuePaidOrderDomainEvent(supabase, {
       externalEventId: 'purchase_order-1',
@@ -44,10 +57,7 @@ describe('enqueuePaidOrderDomainEvent', () => {
       data: null,
       error: { message: 'database unavailable' },
     });
-    const supabase: Pick<SupabaseClient, 'rpc'> = { rpc } as Pick<
-      SupabaseClient,
-      'rpc'
-    >;
+    const supabase = client(rpc);
 
     await expect(
       enqueuePaidOrderDomainEvent(supabase, {

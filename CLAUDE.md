@@ -1,66 +1,5 @@
 
 
-<!-- Source: AGENTS.md -->
-
-# AGENTS.md - Baci Ecosystem Context
-
-This file provides context and instructions for AI agents (like Google's Jules) to understand the Baci codebase and maintain our high standards for performance, SEO, and security.
-
-## Project Overview
-**Baci** is an AI-powered e-commerce builder for African merchants. It enables merchants to create professional storefronts, manage inventory, and process payments across multiple channels (Web, Mobile, WhatsApp).
-
-### Core Philosophy
-- **Holistic Performance:** Every change must prioritize Core Web Vitals (LCP < 2.5s, CLS < 0.1).
-- **Merchant Sovereignty:** Code should respect the multi-tenant architecture where each merchant has their own branding and domain context.
-- **Security First:** Strict CSP, rate limiting, and secure authentication are non-negotiable.
-
-## Technical Stack
-- **Framework:** Next.js 16 (App Router)
-- **Language:** TypeScript 6.0+
-- **Styling:** Tailwind CSS + Vanilla CSS (Variables for theming)
-- **Database/Auth:** Supabase (PostgreSQL)
-- **Component Library:** Headless UI / Shadcn (Themed)
-- **AI Integration:** Google Gemini & Imagen
-
-## Development Setup
-```bash
-# Install dependencies
-pnpm install
-
-# Run development server
-pnpm dev
-
-# Run tests
-pnpm test
-
-# Lint & Format
-pnpm lint
-pnpm format
-```
-
-## Key Architectures
-### 1. Proxy Middleware (`apps/web/src/proxy.ts`)
-Handles multi-tenant routing, security headers, and authentication mapping. It rewrites subdomain requests to the appropriate merchant storefront routes.
-
-### 2. Themed Components (`src/components/themed/`)
-Components must use CSS variables (`var(--theme-primary)`, etc.) to adapt to merchant brand colors. Never hardcode colors.
-
-### 3. Business Context (`src/config/business-types.ts`)
-Determines the AI-driven experience based on the merchant's business category.
-
-## Contribution Guidelines for AI Agents
-- **SEO:** Always include JSON-LD structured data on public pages.
-- **Accessibility:** Maintain WCAG 2.1 AA compliance (ARIA labels, keyboard navigation).
-- **Performance:** Use `next/image` for images and optimize fonts. Avoid heavy client-side libraries.
-- **Validation:** Use Zod for all API boundary validations.
-- **Types:** Strictly avoid `any`. Use `unknown` or explicit interfaces.
-
-## Testing Requirements
-Before submitting a PR, ensure:
-1. `pnpm check` passes (Types + Lint).
-2. `pnpm test` passes (Vitest).
-3. The "CI Quality Gate" workflow passes on GitHub Actions.
-
 <!-- Source: .ruler/AGENTS.md -->
 
 # Baci — AI-Native E-commerce Builder
@@ -119,12 +58,26 @@ pnpm turbo build      # Production build
 pnpm turbo lint       # Biome linting
 pnpm format           # Code formatting
 pnpm turbo typecheck  # TypeScript check
-pnpm turbo test       # Run tests (Vitest)
+pnpm turbo test       # Run tests (Vitest for web/mobile-admin, Jest for mobile-storefront)
 ```
+
+## Android Emulator QA
+
+For `apps/mobile-admin`, Android emulator QA must start from:
+
+```bash
+pnpm --filter baci-mobile-admin android:emulator
+```
+
+This is the only supported emulator launch path for agents and automation. Do not launch the emulator directly or with `-gpu swiftshader_indirect`; the repo launcher owns GPU mode, Quick Boot, ADB reset, boot waiting, Android settle checks, the Metro ADB reverse, and ADB shell stability checks.
+The default launcher AVD is `Baci_Pixel_9_Pro_XL_API_36_Google`, an Android 16 API 36 Google APIs Pixel 9 Pro XL profile with `auto` GPU, 2 CPU cores, and 4096 MB RAM. Use `BACI_ANDROID_AVD_NAME` only for explicit emulator-infrastructure fallback triage.
+Build with `cd apps/mobile-admin/android && ./gradlew :app:assembleDebug -PreactNativeArchitectures=arm64-v8a --console=plain`, then install with `pnpm --filter baci-mobile-admin android:install`; do not use Gradle `installDebug` for emulator QA on this host.
+Run Metro for Android with `pnpm --filter baci-mobile-admin android:metro`; do not use a localhost-only Metro host for emulator QA because the dev client connects through `10.0.2.2`.
+Launch the Android dev client with `pnpm --filter baci-mobile-admin android:launch`; do not use raw `adb shell am start` commands because the repo launcher owns the Metro reverse, settled-load check, package force-stop, and Expo dev-client URL.
 
 ## Deployment
 
-- Hosted on **Vercel** with auto-deploys from Git
+- Hosted on **Vercel**; production deploys use a local/prebuilt CI build and must finish with `vercel deploy --prebuilt --prod`. The default runner is the VPS prebuilt flow on `bassey@82.29.190.219`; owner-approved emergency fallback may use a GitHub-hosted runner for the same prebuilt flow.
 - Cron jobs in `vercel.json`
 - Database on Supabase (always-on PostgreSQL)
 
@@ -137,13 +90,16 @@ pnpm turbo test       # Run tests (Vitest)
 ## NEVER Do
 
 - **NEVER** use the admin/service-role Supabase client for user-facing operations. Use `@/lib/supabase/server` for SSR and `@/lib/supabase/client` for browser.
+- **TEMPORARY LEGACY ANALYTICS EXCEPTION (owner-approved 2026-07-18; expires when queue-only delivery activates or on 2026-09-16, whichever comes first):** only these exact server-side edges are authorized: (1) `apps/web/src/app/api/analytics/conversion/route.ts -> apps/web/src/lib/analytics/trusted-server-ad-platform-fanout.ts`, where the route may construct the branded `createServiceClient('event-pipeline')`; (2) `apps/web/src/app/api/events/route.ts -> apps/web/src/lib/analytics/trusted-server-ad-platform-fanout.ts`, under the same branded-client rule; and (3) the existing byte-frozen `apps/web/src/app/api/platform/events/route.ts -> apps/web/src/app/api/platform/events/platform-event-forwarding.ts -> apps/web/src/lib/supabase/admin.ts#createAdminClient()` edge. These edges are server-only by contract and must never be imported, re-exported, or bundled into a client graph. The two merchant edges may construct the privileged client only after tenant identity is independently resolved from trusted host/domain context and matches any request value. Their authority is limited to the exact merchant entitlement, merchant credential, and feature-setting projections needed for legacy analytics/conversion fanout; the platform edge retains only its exact platform-settings projection. Raw or body-selected tenant identity confers no authority; mismatch or unverified paths construct no privileged client. Credential values must never enter responses, logs, event payloads, or client bundles. No sibling module, fourth importer/edge, or generic service-role route use inherits authorization. The owner acknowledges that the backend key inherently bypasses RLS; these controls constrain approved use, not that capability. Remove or re-approve this exception at expiry; reapproval is required even if queue-only activation has not occurred.
 - **NEVER** modify `proxy.ts` without explicit approval — it handles auth, CSRF, rate limiting, and custom domains. A bug here breaks everything.
 - **NEVER** use `dangerouslySetInnerHTML`. Use the sanitization utilities in `lib/sanitize*.ts`.
 - **NEVER** edit existing migration files in `supabase/migrations/`. Migrations are append-only.
 - **NEVER** add manual `React.memo`, `useCallback`, or `useMemo` — React Compiler handles memoization.
 - **NEVER** add ESLint config files or plugins — we use Biome exclusively.
 - **NEVER** use npm or yarn — this is a pnpm monorepo. Use `pnpm turbo <command>`.
+- **NEVER** consume Vercel build minutes from Codex by running cloud-building deploy commands such as `vercel`, `vercel --prod`, or `vercel deploy --prod` without `--prebuilt`. Production deploys must use a local/prebuilt CI build and finish with `vercel deploy --prebuilt --prod`; the default runner is the VPS prebuilt flow on `bassey@82.29.190.219`, but owner-approved emergency fallback may use a GitHub-hosted runner for the same prebuilt flow. `vercel inspect` and `vercel logs` are allowed for status/debugging.
 - **NEVER** use `select('*')` — always select specific columns.
+
 
 ## ALWAYS Do
 
@@ -151,6 +107,8 @@ pnpm turbo test       # Run tests (Vitest)
 - **ALWAYS** check auth (`supabase.auth.getUser()`) as the first operation in protected API routes.
 - **ALWAYS** add RLS policies when creating new database tables.
 - **ALWAYS** run `pnpm turbo lint && pnpm turbo typecheck` after writing or modifying code.
+- **ALWAYS** include a regression test when fixing a bug — the test must reproduce the exact failing condition.
+- **ALWAYS** follow the Boy Scout Rule: when editing a file over 300 lines, extract the logic you touched into smaller files (hooks, utils, sub-components, schemas). Don't refactor the whole file — just leave it better than you found it.
 
 ## High-Risk Areas
 
@@ -194,7 +152,7 @@ pnpm turbo test       # Run tests (Vitest)
 
 ## Testing
 
-- Vitest + React Testing Library.
+- Vitest + React Testing Library for web and `apps/mobile-admin`; `apps/mobile-storefront` uses Jest + React Native Testing Library.
 - Test files colocated with source: `MyComponent.test.tsx`.
 - Test both success AND error paths.
 - Use `screen.getByRole()` over `getByTestId()`.
@@ -460,7 +418,7 @@ Every new or significantly modified file MUST have a colocated test file:
 - **New utilities/helpers** — all input variations, edge cases
 - **New API routes** — auth (401), validation (400), success (200), errors (500)
 - **New Zod schemas** — valid parsing, each validation rule, boundary values
-- **Bug fixes** — a regression test proving the fix works
+- **Bug fixes** — a regression test proving the fix works (see Regression Tests section below)
 
 ### What Does NOT Require Tests
 
@@ -478,6 +436,61 @@ Every new or significantly modified file MUST have a colocated test file:
 - **No implementation details**: Test behavior, not internal state or method calls
 - **No flaky tests**: No `setTimeout`, no random data, no network calls without mocks
 - **Prefer role queries**: `screen.getByRole('button', { name: 'Submit' })` over `getByTestId`
+
+## Regression Tests (Bug Fixes)
+
+**MANDATORY**: Every bug fix MUST include a regression test. Regression tests differ from feature tests — they prove a specific bug cannot recur.
+
+### Requirements
+
+1. **Reproduce first** — Write a test that would FAIL against the buggy code, proving the bug exists.
+2. **Pass after fix** — The same test PASSES once the fix is applied.
+3. **Target the exact condition** — Test the specific input, state, or edge case that triggered the bug. Keep it minimal.
+4. **Descriptive naming** — Include bug context in the test name:
+   - `it('does not crash when product price is zero')`
+   - `it('handles empty merchant_id without throwing')`
+   - `it('sanitizes script tags in SVG receipt content')`
+
+### Structure
+
+```typescript
+describe('bugfix: [brief description of what was broken]', () => {
+  it('[correct behavior] when [condition that triggered the bug]', () => {
+    // Arrange: Set up the exact conditions that triggered the bug
+    const input = { price: 0, quantity: 1 }; // the edge case
+
+    // Act: Perform the action that previously failed
+    const result = calculateTotal(input);
+
+    // Assert: Verify correct behavior (not the old broken behavior)
+    expect(result).toBe(0);
+  });
+});
+```
+
+### Feature Tests vs Regression Tests
+
+| | Feature Tests | Regression Tests |
+|---|---|---|
+| **When** | Writing new code or adding functionality | Fixing a bug |
+| **Purpose** | Verify new behavior works as designed | Verify a specific bug does NOT recur |
+| **Scope** | Broad — cover happy path, edge cases, error states | Narrow — test only the exact failing scenario |
+| **Naming** | Describes expected behavior | Describes what was broken and is now fixed |
+| **Required for** | New components, hooks, utils, API routes, schemas | Every bug fix, no matter how small |
+
+### Anti-Patterns
+
+```typescript
+// BAD: Regression test that doesn't test the actual bug condition
+it('works correctly', () => {
+  expect(calculateTotal({ price: 10, quantity: 2 })).toBe(20); // normal case, not the bug
+});
+
+// GOOD: Regression test targeting the exact edge case
+it('returns 0 when price is zero instead of NaN', () => {
+  expect(calculateTotal({ price: 0, quantity: 5 })).toBe(0); // the actual bug condition
+});
+```
 
 ## Modularity Rules
 
@@ -500,17 +513,3 @@ Before marking any task as complete, verify:
 3. No files exceed 300 lines
 4. No duplicated logic across files (extract to shared)
 5. All exports are typed (no implicit `any`)
-
-## Android Emulator QA
-
-For `apps/mobile-admin`, Android emulator QA must start from:
-
-```bash
-pnpm --filter baci-mobile-admin android:emulator
-```
-
-This is the only supported emulator launch path for agents and automation. Do not launch the emulator directly or with `-gpu swiftshader_indirect`; the repo launcher owns GPU mode, Quick Boot, ADB reset, boot waiting, Android settle checks, the Metro ADB reverse, and ADB shell stability checks.
-The default launcher AVD is `Baci_Pixel_9_Pro_XL_API_36_Google`, an Android 16 API 36 Google APIs Pixel 9 Pro XL profile with `auto` GPU, 2 CPU cores, and 4096 MB RAM. Use `BACI_ANDROID_AVD_NAME` only for explicit emulator-infrastructure fallback triage.
-Build with `cd apps/mobile-admin/android && ./gradlew :app:assembleDebug -PreactNativeArchitectures=arm64-v8a --console=plain`, then install with `pnpm --filter baci-mobile-admin android:install`; do not use Gradle `installDebug` for emulator QA on this host.
-Run Metro for Android with `pnpm --filter baci-mobile-admin android:metro`; do not use a localhost-only Metro host for emulator QA because the dev client connects through `10.0.2.2`.
-Launch the Android dev client with `pnpm --filter baci-mobile-admin android:launch`; do not use raw `adb shell am start` commands because the repo launcher owns the Metro reverse, settled-load check, package force-stop, and Expo dev-client URL.

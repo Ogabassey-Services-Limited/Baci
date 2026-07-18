@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getPlatformAdminAuth } from '@/lib/platform-admin-auth';
@@ -6,9 +7,10 @@ import {
   eventDeadLetterReplaySchema,
   eventPipelineReplayIdsSchema,
 } from '@/schemas/event-dead-letter';
+import type { Database } from '@/types/supabase';
 
 async function resolveFilteredDeliveryIds(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: SupabaseClient<Database>,
   filter: Extract<
     ReturnType<typeof eventDeadLetterReplaySchema.parse>,
     { kind: 'delivery_filter' }
@@ -18,11 +20,11 @@ async function resolveFilteredDeliveryIds(
     'select_event_pipeline_replay_ids_v1',
     {
       p_destination: filter.destination,
-      p_error_code: filter.error_code ?? null,
-      p_from: filter.from ?? null,
-      p_merchant_id: filter.merchant_id ?? null,
+      p_error_code: filter.error_code ?? undefined,
+      p_from: filter.from ?? undefined,
+      p_merchant_id: filter.merchant_id ?? undefined,
       p_status: filter.status,
-      p_to: filter.to ?? null,
+      p_to: filter.to ?? undefined,
     }
   );
   if (error) throw new Error('delivery_replay_filter_failed', { cause: error });
@@ -62,7 +64,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const supabase = await createClient();
+  const supabase = await createClient('event-pipeline');
   let result: { data: unknown; error: { message: string } | null };
   try {
     if (parsed.data.kind === 'ingress') {

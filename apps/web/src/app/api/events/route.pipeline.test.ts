@@ -3,7 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   after: vi.fn(),
+  afterCallbacks: [] as Array<() => Promise<void>>,
+  createServiceClient: vi.fn(),
   createServerClient: vi.fn(),
+  fanout: vi.fn(),
   insert: vi.fn(),
   isConversionEvent: vi.fn(),
   isLegacyFanoutDisabled: vi.fn(),
@@ -29,6 +32,9 @@ vi.mock('@/lib/events/event-ingress-capability', () => ({
 vi.mock('@/lib/supabase/server', () => ({
   createClient: mocks.createServerClient,
 }));
+vi.mock('@/lib/supabase/service', () => ({
+  createServiceClient: mocks.createServiceClient,
+}));
 vi.mock('next/server', async () => {
   const actual =
     await vi.importActual<typeof import('next/server')>('next/server');
@@ -37,7 +43,9 @@ vi.mock('next/server', async () => {
 vi.mock('@/lib/analytics/send-to-ad-platforms', () => ({
   isConversionEvent: mocks.isConversionEvent,
   normalizeEventType: (name: string) => name,
-  sendToAdPlatforms: vi.fn(),
+}));
+vi.mock('@/lib/analytics/trusted-server-ad-platform-fanout', () => ({
+  trustedServerAdPlatformFanout: mocks.fanout,
 }));
 vi.mock('@/lib/events/event-pipeline-config', () => ({
   isEventPipelineEnqueueEnabled: mocks.isPipelineEnabled,
@@ -65,6 +73,7 @@ function request(merchantId = MERCHANT_ID) {
     }),
     headers: {
       cookie: '_fbc=fb.1.click; _fbp=fbp.1; _ttp=ttp.1; ScCid=snap.1',
+      host: 'shop.usebaci.com',
       'user-agent': 'Baci test agent',
       'x-forwarded-for': '203.0.113.1',
       'x-merchant-slug': 'shop',
@@ -76,6 +85,10 @@ function request(merchantId = MERCHANT_ID) {
 describe('POST /api/events durable pipeline', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.afterCallbacks.length = 0;
+    mocks.after.mockImplementation((callback: () => Promise<void>) => {
+      mocks.afterCallbacks.push(callback);
+    });
     mocks.insert.mockResolvedValue({ error: null });
     mocks.upsert.mockResolvedValue({ error: null });
     mocks.isConversionEvent.mockReturnValue(false);
@@ -86,6 +99,8 @@ describe('POST /api/events durable pipeline', () => {
       from: () => ({ insert: mocks.insert, upsert: mocks.upsert }),
       rpc: mocks.rpc,
     });
+    mocks.createServiceClient.mockReturnValue({ from: vi.fn() });
+    mocks.fanout.mockResolvedValue({ facebook: { success: true } });
   });
 
   it('returns only after the atomic analytics and queue RPC succeeds', async () => {
@@ -180,5 +195,105 @@ describe('POST /api/events durable pipeline', () => {
 
     expect(response.status).toBe(200);
     expect(mocks.createServerClient).not.toHaveBeenCalled();
+  });
+
+  it('reuses durable verified context and constructs authority inside after', async () => {
+    mocks.isConversionEvent.mockReturnValue(true);
+    mocks.resolveContext.mockResolvedValue({
+      merchantId: MERCHANT_ID,
+      ok: true,
+      trustLevel: 'tenant_verified_client',
+      verified: true,
+    });
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(200);
+    expect(mocks.createServiceClient).not.toHaveBeenCalled();
+    expect(mocks.afterCallbacks).toHaveLength(1);
+    await mocks.afterCallbacks[0]?.();
+    expect(mocks.createServiceClient).toHaveBeenCalledWith('event-pipeline');
+    expect(mocks.fanout).toHaveBeenCalledWith(
+      expect.any(Object),
+      MERCHANT_ID,
+      expect.objectContaining({ merchant_id: MERCHANT_ID })
+    );
+  });
+
+  it.each([
+    ['page URL', { page_url: 'https://usebaci.com/victim/product' }, {}],
+    ['referer', {}, { referer: 'https://usebaci.com/victim/product' }],
+  ])('persists root-host %s context without elevating it', async (_name, payload, headers) => {
+    mocks.isConversionEvent.mockReturnValue(true);
+    mocks.resolveContext.mockImplementation(
+      async ({ pageUrl, request: requestView }) =>
+        pageUrl || requestView.headers.get('referer')
+          ? {
+              merchantId: MERCHANT_ID,
+              ok: true,
+              trustLevel: 'tenant_verified_client',
+              verified: true,
+            }
+          : {
+              merchantId: MERCHANT_ID,
+              ok: true,
+              trustLevel: 'anonymous_client',
+              verified: false,
+            }
+    );
+    const rootRequest = new NextRequest('https://usebaci.com/api/events', {
+      body: JSON.stringify({
+        event_type: 'purchase',
+        merchant_id: MERCHANT_ID,
+        ...payload,
+      }),
+      headers: { host: 'usebaci.com', ...headers },
+      method: 'POST',
+    });
+    const response = await POST(rootRequest);
+    expect(response.status).toBe(200);
+    expect(mocks.record).toHaveBeenCalledTimes(1);
+    expect(mocks.afterCallbacks).toHaveLength(0);
+    expect(mocks.createServiceClient).not.toHaveBeenCalled();
+  });
+
+  it('resolves durable-off conversion identity without changing persistence', async () => {
+    mocks.isPipelineEnabled.mockReturnValue(false);
+    mocks.isConversionEvent.mockReturnValue(true);
+    mocks.resolveContext.mockResolvedValue({
+      merchantId: MERCHANT_ID,
+      ok: true,
+      trustLevel: 'tenant_verified_client',
+      verified: true,
+    });
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(200);
+    expect(mocks.insert).toHaveBeenCalled();
+    expect(mocks.createServerClient).toHaveBeenCalledTimes(1);
+    await mocks.afterCallbacks[0]?.();
+    expect(mocks.fanout).toHaveBeenCalledWith(
+      expect.any(Object),
+      MERCHANT_ID,
+      expect.objectContaining({ merchant_id: MERCHANT_ID })
+    );
+  });
+
+  it('skips authority on durable-off mismatch while preserving the response', async () => {
+    mocks.isPipelineEnabled.mockReturnValue(false);
+    mocks.isConversionEvent.mockReturnValue(true);
+    mocks.resolveContext.mockResolvedValue({
+      code: 'merchant_mismatch',
+      ok: false,
+    });
+
+    const response = await POST(request(OTHER_MERCHANT_ID));
+
+    expect(response.status).toBe(200);
+    expect(mocks.insert).toHaveBeenCalled();
+    expect(mocks.afterCallbacks).toHaveLength(0);
+    expect(mocks.createServiceClient).not.toHaveBeenCalled();
+    expect(mocks.fanout).not.toHaveBeenCalled();
   });
 });

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+import type { Database } from '@/types/supabase';
 import { createDomainEventMetadata } from './event-metadata';
 
 const enqueueResultSchema = z.strictObject({
@@ -9,7 +10,7 @@ const enqueueResultSchema = z.strictObject({
 });
 
 export async function enqueuePaidOrderDomainEvent(
-  supabase: Pick<SupabaseClient, 'rpc'>,
+  supabase: SupabaseClient<Database>,
   input: {
     externalEventId: string;
     merchantId: string;
@@ -18,8 +19,8 @@ export async function enqueuePaidOrderDomainEvent(
   }
 ) {
   const { data, error } = await supabase.rpc('enqueue_domain_event_v1', {
-    p_causation_id: null,
-    p_changed_fields: null,
+    p_causation_id: undefined,
+    p_changed_fields: undefined,
     p_correlation_id: input.orderId,
     p_data: { order_id: input.orderId },
     p_event_name: 'analytics.purchase.completed.v1',

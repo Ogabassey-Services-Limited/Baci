@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@/types/supabase';
 
 type HeaderReader = {
   headers: { get(name: string): string | null };
@@ -51,7 +52,7 @@ function customDomainFromHost(host: string, rootDomain: string): string | null {
 }
 
 async function resolveSlug(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   slug: string
 ): Promise<string | null | undefined> {
   const { data, error } = await supabase
@@ -72,7 +73,7 @@ async function resolveSlug(
 }
 
 async function resolveDomain(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   domain: string
 ): Promise<string | null | undefined> {
   const { data, error } = await supabase
@@ -116,7 +117,7 @@ export async function resolveEventIngressContext({
   merchantId?: string;
   pageUrl?: string;
   request: HeaderReader;
-  supabase: SupabaseClient;
+  supabase: SupabaseClient<Database>;
 }): Promise<EventIngressContext> {
   const host = normalizeHost(request.headers.get('host'));
   const rootDomain = normalizeHost(

@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { eventPipelineAuthorityCutover } from './event-pipeline-authority-cutover';
 import {
   getEventDeliveryConcurrency,
   getEventDeliveryMaxAttempts,
@@ -16,6 +17,12 @@ const ORIGINAL_ENV = { ...process.env };
 
 afterEach(() => {
   process.env = { ...ORIGINAL_ENV };
+  Object.defineProperty(
+    eventPipelineAuthorityCutover,
+    'queueOnlyDeliveryActivated',
+    { configurable: true, value: false }
+  );
+  vi.useRealTimers();
 });
 
 describe('event pipeline configuration', () => {
@@ -59,7 +66,7 @@ describe('event pipeline configuration', () => {
     expect(isEventPipelineEnqueueEnabled()).toBe(true);
     expect(isEventPipelineDeliveryEnabled()).toBe(true);
     expect(getEventPipelineRoutingMode()).toBe('active');
-    expect(isLegacyAnalyticsFanoutDisabled()).toBe(true);
+    expect(isLegacyAnalyticsFanoutDisabled()).toBe(false);
     expect(isUnverifiedEventTelemetryEnabled()).toBe(true);
     expect(getEventDeliveryMaxAttempts()).toBe(12);
     expect(getEventDeliveryConcurrency()).toBe(7);
@@ -71,7 +78,7 @@ describe('event pipeline configuration', () => {
       'tiktok',
     ]);
     expect(isEventPipelineCanaryMerchant()).toBe(true);
-    expect(isLegacyAnalyticsFanoutDisabled()).toBe(true);
+    expect(isLegacyAnalyticsFanoutDisabled()).toBe(false);
   });
 
   it('keeps legacy fan-out unless the complete durable path is active', () => {
@@ -81,6 +88,33 @@ describe('event pipeline configuration', () => {
     process.env.EVENT_PIPELINE_ROUTING_MODE = 'shadow';
 
     expect(isLegacyAnalyticsFanoutDisabled()).toBe(false);
+  });
+
+  it('revokes legacy analytics authority at the fixed expiry without env flags', () => {
+    vi.useFakeTimers();
+    delete process.env.EVENT_PIPELINE_DISABLE_LEGACY_FANOUT;
+    delete process.env.EVENT_PIPELINE_ENQUEUE_ENABLED;
+    delete process.env.EVENT_PIPELINE_DELIVERY_ENABLED;
+    delete process.env.EVENT_PIPELINE_ROUTING_MODE;
+
+    vi.setSystemTime(new Date('2026-09-15T23:59:59.999Z'));
+    expect(isLegacyAnalyticsFanoutDisabled()).toBe(false);
+    vi.setSystemTime(new Date('2026-09-16T00:00:00.000Z'));
+    expect(isLegacyAnalyticsFanoutDisabled()).toBe(true);
+  });
+
+  it('revokes legacy authority at queue-only cutover without env flags', () => {
+    Object.defineProperty(
+      eventPipelineAuthorityCutover,
+      'queueOnlyDeliveryActivated',
+      { configurable: true, value: true }
+    );
+    delete process.env.EVENT_PIPELINE_DISABLE_LEGACY_FANOUT;
+    delete process.env.EVENT_PIPELINE_ENQUEUE_ENABLED;
+    delete process.env.EVENT_PIPELINE_DELIVERY_ENABLED;
+    delete process.env.EVENT_PIPELINE_ROUTING_MODE;
+
+    expect(isLegacyAnalyticsFanoutDisabled()).toBe(true);
   });
 
   it('keeps legacy fan-out when an active destination is missing', () => {

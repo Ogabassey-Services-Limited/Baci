@@ -1,5 +1,6 @@
 import type { DomainEventV1 } from '@baci/shared/contracts';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createEventPipelineServiceRoleTestClient } from './event-pipeline-service-role-test-client';
 
 const mocks = vi.hoisted(() => ({
   sendFacebook: vi.fn(),
@@ -31,11 +32,9 @@ const event: DomainEventV1 = {
 };
 
 function client(settings: unknown) {
-  const builder = {
-    maybeSingle: vi.fn().mockResolvedValue({ data: settings, error: null }),
-    select: vi.fn(() => builder),
-  };
-  return { from: vi.fn(() => builder) };
+  return createEventPipelineServiceRoleTestClient(
+    vi.fn<typeof globalThis.fetch>(async () => Response.json(settings))
+  );
 }
 
 describe('deliverPlatformEvent', () => {
@@ -53,7 +52,7 @@ describe('deliverPlatformEvent', () => {
         facebook_pixel_id: null,
         ga4_api_secret: 'secret',
         google_analytics_id: 'G-1',
-      }) as never,
+      }),
       event,
       'ga4',
       controller.signal
@@ -74,7 +73,7 @@ describe('deliverPlatformEvent', () => {
 
   it('skips destinations without platform credentials', async () => {
     await expect(
-      deliverPlatformEvent(client(null) as never, event, 'facebook')
+      deliverPlatformEvent(client(null), event, 'facebook')
     ).resolves.toMatchObject({
       providerResponseId: 'not_configured',
       terminalOutcome: 'skipped',
@@ -89,7 +88,7 @@ describe('deliverPlatformEvent', () => {
         facebook_pixel_id: 'pixel',
         ga4_api_secret: null,
         google_analytics_id: null,
-      }) as never,
+      }),
       {
         ...event,
         data: {
@@ -126,7 +125,7 @@ describe('deliverPlatformEvent', () => {
         facebook_pixel_id: null,
         ga4_api_secret: 'secret',
         google_analytics_id: 'G-1',
-      }) as never,
+      }),
       event,
       'ga4'
     );
@@ -151,7 +150,7 @@ describe('deliverPlatformEvent', () => {
         facebook_pixel_id: 'pixel',
         ga4_api_secret: null,
         google_analytics_id: null,
-      }) as never,
+      }),
       {
         ...event,
         data: {

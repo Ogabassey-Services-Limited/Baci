@@ -29,36 +29,31 @@ describe('toConversionOrderItems', () => {
   });
 
   it('does not coerce booleans or arrays into numeric values', () => {
+    const malformedItems: unknown = [
+      {
+        name: 'Phone',
+        price: true,
+        product_id: 'sku-1',
+        quantity: [1],
+      },
+    ];
     expect(
-      toConversionOrderItems({
-        items: [
-          {
-            name: 'Phone',
-            price: true as never,
-            product_id: 'sku-1',
-            quantity: [1] as never,
-          },
-        ],
-        orderId: 'order-1',
-      })
+      Reflect.apply(toConversionOrderItems, undefined, [
+        { items: malformedItems, orderId: 'order-1' },
+      ])
     ).toEqual([]);
   });
 
   it('does not coerce non-decimal numeric strings', () => {
+    const malformedItems: unknown = [
+      { name: 'Phone', price: '0x64', product_id: 'sku-1', quantity: 1 },
+      { name: 'Laptop', price: '100', product_id: 'sku-2', quantity: 1 },
+      { name: 'Tablet', price: '100', product_id: 'sku-3', quantity: '1e2' },
+    ];
     expect(
-      toConversionOrderItems({
-        items: [
-          { name: 'Phone', price: '0x64', product_id: 'sku-1', quantity: 1 },
-          { name: 'Laptop', price: '100', product_id: 'sku-2', quantity: 1 },
-          {
-            name: 'Tablet',
-            price: '100',
-            product_id: 'sku-3',
-            quantity: '1e2' as never,
-          },
-        ],
-        orderId: 'order-1',
-      })
+      Reflect.apply(toConversionOrderItems, undefined, [
+        { items: malformedItems, orderId: 'order-1' },
+      ])
     ).toEqual([{ id: 'sku-2', name: 'Laptop', price: 100, quantity: 1 }]);
   });
 });

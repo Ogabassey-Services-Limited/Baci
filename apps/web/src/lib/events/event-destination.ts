@@ -1,5 +1,5 @@
 import type { DomainEventV1 } from '@baci/shared/contracts';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { ServiceRoleClient } from '@/lib/supabase/service';
 import type { EventDestination } from './event-route-registry';
 
 export type EventDestinationResult = {
@@ -16,7 +16,7 @@ export type EventDestinationContext = {
   destination: EventDestination;
   event: DomainEventV1;
   signal?: AbortSignal;
-  supabase: SupabaseClient;
+  supabase: ServiceRoleClient;
 };
 
 export interface EventDestinationAdapter {

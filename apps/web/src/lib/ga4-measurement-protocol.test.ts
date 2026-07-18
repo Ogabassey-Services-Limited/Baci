@@ -7,10 +7,15 @@ afterEach(() => {
 });
 
 describe('sendGA4Event', () => {
-  it('passes the caller abort signal to fetch', async () => {
+  it('composes the caller abort signal with the provider timeout', async () => {
+    const timeoutController = new AbortController();
+    const timeoutSpy = vi
+      .spyOn(AbortSignal, 'timeout')
+      .mockReturnValue(timeoutController.signal);
+    const anySpy = vi.spyOn(AbortSignal, 'any');
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204 });
     vi.stubGlobal('fetch', fetchMock);
-    const controller = new AbortController();
+    const callerController = new AbortController();
 
     await sendGA4Event(
       'G-TEST',
@@ -19,13 +24,36 @@ describe('sendGA4Event', () => {
       { clientId: 'client-1' },
       {},
       false,
-      controller.signal
+      callerController.signal
     );
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({ signal: controller.signal })
-    );
+    const requestSignal = fetchMock.mock.calls[0]?.[1]?.signal as AbortSignal;
+    expect(timeoutSpy).toHaveBeenCalledWith(10_000);
+    expect(anySpy).toHaveBeenCalledWith([
+      callerController.signal,
+      timeoutController.signal,
+    ]);
+    expect(requestSignal).not.toBe(callerController.signal);
+
+    callerController.abort('caller-abort');
+
+    expect(requestSignal.aborted).toBe(true);
+    expect(requestSignal.reason).toBe('caller-abort');
+  });
+
+  it('encodes configured values as distinct query parameters', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204 });
+    vi.stubGlobal('fetch', fetchMock);
+    const measurementId = 'G TEST/&';
+    const apiSecret = 'api secret/?&="\\path';
+
+    await sendGA4Event(measurementId, apiSecret, 'page_view', {
+      clientId: 'client-1',
+    });
+
+    const requestUrl = new URL(String(fetchMock.mock.calls[0]?.[0]));
+    expect(requestUrl.searchParams.get('measurement_id')).toBe(measurementId);
+    expect(requestUrl.searchParams.get('api_secret')).toBe(apiSecret);
   });
 
   it('returns an HTTP failure without throwing', async () => {
@@ -39,6 +67,134 @@ describe('sendGA4Event', () => {
     });
 
     expect(result).toEqual({ error: 'HTTP 503', success: false });
+  });
+
+  it('redacts configured values from network errors and logs', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockRejectedValue(new Error('G-SECRET api-secret'))
+    );
+
+    const result = await sendGA4Event('G-SECRET', 'api-secret', 'page_view', {
+      clientId: 'client-1',
+    });
+    const observable = JSON.stringify({
+      logs: consoleError.mock.calls,
+      result,
+    });
+
+    expect(result).toEqual({
+      error: '[redacted] [redacted]',
+      success: false,
+    });
+    expect(observable).not.toContain('G-SECRET');
+    expect(observable).not.toContain('api-secret');
+  });
+
+  it('projects a successful debug response to safe validation fields', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        json: vi.fn().mockResolvedValue({
+          api_secret: 'api-secret',
+          measurement_id: 'G-SECRET',
+          validationMessages: [],
+          vendor_payload: { credential: 'api-secret' },
+        }),
+        ok: true,
+        status: 200,
+      })
+    );
+
+    const result = await sendGA4Event(
+      'G-SECRET',
+      'api-secret',
+      'page_view',
+      { clientId: 'client-1' },
+      {},
+      true
+    );
+
+    expect(result).toEqual({
+      debugInfo: { validationMessages: [] },
+      success: true,
+    });
+    expect(JSON.stringify(result)).not.toContain('G-SECRET');
+    expect(JSON.stringify(result)).not.toContain('api-secret');
+    expect(JSON.stringify(result)).not.toContain('vendor_payload');
+  });
+
+  it('sanitizes projected debug validation messages', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        json: vi.fn().mockResolvedValue({
+          api_secret: 'api-secret',
+          validationMessages: [
+            {
+              api_secret: 'api-secret',
+              description: 'Rejected G-SECRET api-secret',
+              fieldPath: 'events[0].params.currency',
+              validationCode: 'VALUE_INVALID',
+            },
+          ],
+        }),
+        ok: false,
+        status: 400,
+      })
+    );
+
+    const result = await sendGA4Event(
+      'G-SECRET',
+      'api-secret',
+      'purchase',
+      { clientId: 'client-1' },
+      {},
+      true
+    );
+
+    expect(result).toEqual({
+      debugInfo: {
+        validationMessages: [
+          {
+            description: 'Rejected [redacted] [redacted]',
+            fieldPath: 'events[0].params.currency',
+            validationCode: 'VALUE_INVALID',
+          },
+        ],
+      },
+      success: false,
+    });
+    expect(JSON.stringify(result)).not.toContain('G-SECRET');
+    expect(JSON.stringify(result)).not.toContain('api-secret');
+  });
+
+  it('does not accept an HTTP failure with empty debug validation messages', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        json: vi.fn().mockResolvedValue({ validationMessages: [] }),
+        ok: false,
+        status: 503,
+      })
+    );
+
+    const result = await sendGA4Event(
+      'G-TEST',
+      'secret',
+      'page_view',
+      { clientId: 'client-1' },
+      {},
+      true
+    );
+
+    expect(result).toEqual({
+      debugInfo: { validationMessages: [] },
+      success: false,
+    });
   });
 
   it('puts a durable event timestamp on the GA4 event envelope', async () => {

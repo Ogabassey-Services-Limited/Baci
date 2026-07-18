@@ -1,68 +1,20 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import {
+  type MerchantFeatureGate,
+  merchantHasFeature,
+} from './merchant-has-feature';
 
-export type MerchantFeatureGate =
-  | 'custom_domain'
-  | 'growth_integrations'
-  | 'marketplace_sync';
+export type { MerchantFeatureGate } from './merchant-has-feature';
+export { merchantHasFeature } from './merchant-has-feature';
 
-type MerchantFeatureSource = {
-  plan_expires_at?: string | null;
-  plan_tier?: string | null;
-  premium_features?: unknown;
-};
-
-const ALL_FEATURES = 'all_features';
 const FEATURE_MESSAGES: Record<MerchantFeatureGate, string> = {
   custom_domain: 'Custom domains require Baci Starter or higher',
   growth_integrations: 'Growth integrations require Baci Pro',
   marketplace_sync: 'Marketplace sync requires Baci Pro',
 };
-const FEATURE_PLAN_TIERS: Record<MerchantFeatureGate, Set<string>> = {
-  custom_domain: new Set(['starter', 'pro', 'business', 'enterprise']),
-  growth_integrations: new Set(['pro', 'business', 'enterprise']),
-  marketplace_sync: new Set(['pro', 'business', 'enterprise']),
-};
-
 export const MERCHANT_FEATURE_GATE_SELECT =
   'id, plan_tier, plan_expires_at, premium_features';
-
-function normalizePremiumFeatures(value: unknown): Set<string> {
-  if (!Array.isArray(value)) {
-    return new Set();
-  }
-
-  return new Set(
-    value
-      .filter((feature): feature is string => typeof feature === 'string')
-      .map((feature) => feature.trim().toLowerCase())
-      .filter(Boolean)
-  );
-}
-
-export function merchantHasFeature(
-  merchant: MerchantFeatureSource | null | undefined,
-  feature: MerchantFeatureGate,
-  now = new Date()
-): boolean {
-  const features = normalizePremiumFeatures(merchant?.premium_features);
-
-  if (features.has(ALL_FEATURES) || features.has(feature)) {
-    return true;
-  }
-
-  const featurePlanTiers = FEATURE_PLAN_TIERS[feature];
-  if (!merchant?.plan_tier || !featurePlanTiers.has(merchant.plan_tier)) {
-    return false;
-  }
-
-  if (!merchant.plan_expires_at) {
-    return true;
-  }
-
-  const expiryTime = Date.parse(merchant.plan_expires_at);
-  return Number.isFinite(expiryTime) && expiryTime > now.getTime();
-}
 
 export async function getMerchantFeatureAccess(
   supabase: SupabaseClient,
