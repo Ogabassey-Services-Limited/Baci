@@ -19,14 +19,17 @@ vi.mock('@/components/ui/SafeImage', async () => {
 
   return {
     default: ({
+      fallbackSource,
       resizeMethod,
       source,
     }: {
+      fallbackSource?: unknown;
       resizeMethod?: string;
       source?: unknown;
     }) =>
       React.createElement('span', {
         'aria-label': 'store logo',
+        'data-fallback-source': JSON.stringify(fallbackSource),
         'data-resize-method': resizeMethod,
         'data-source': JSON.stringify(source),
         role: 'img',
@@ -111,6 +114,7 @@ describe('LogoPicker', () => {
       <LogoPicker
         businessName="Baci"
         cachedLogoUri={null}
+        fallbackLogoUri={null}
         merchantId="merchant-1"
         onStatusChange={vi.fn()}
         onUploadSuccess={vi.fn()}
@@ -127,6 +131,7 @@ describe('LogoPicker', () => {
       <LogoPicker
         businessName="Baci"
         cachedLogoUri="https://example.com/logo.png"
+        fallbackLogoUri="https://example.com/original-logo.png"
         merchantId="merchant-1"
         onStatusChange={vi.fn()}
         onUploadSuccess={vi.fn()}
@@ -136,6 +141,10 @@ describe('LogoPicker', () => {
     expect(screen.getByRole('img', { name: 'store logo' })).toHaveAttribute(
       'data-resize-method',
       'resize'
+    );
+    expect(screen.getByRole('img', { name: 'store logo' })).toHaveAttribute(
+      'data-fallback-source',
+      JSON.stringify({ uri: 'https://example.com/original-logo.png' })
     );
   });
 });

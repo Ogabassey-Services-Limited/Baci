@@ -37,11 +37,12 @@ export default function StoreSettingsScreen() {
   const queryClient = useQueryClient();
   const { merchant, isLoading } = useMerchant();
   const { isPro } = useRevenueCat();
-  const { uri: cachedLogoUri } = useCachedImageUri(merchant?.logo_url, {
-    width: 256,
-    height: 256,
-    resize: 'contain',
-  });
+  const { fallbackUri: fallbackLogoUri, uri: cachedLogoUri } =
+    useCachedImageUri(merchant?.logo_url, {
+      width: 256,
+      height: 256,
+      resize: 'contain',
+    });
   const [showCountryModal, setShowCountryModal] = useState(false);
   const [statusModal, setStatusModal] = useState<StatusModalState>({
     visible: false,
@@ -248,6 +249,7 @@ export default function StoreSettingsScreen() {
           businessName={businessName}
           cachedLogoUri={cachedLogoUri}
           colors={colors}
+          fallbackLogoUri={fallbackLogoUri}
           merchantId={merchant?.id}
           onStatusChange={setStatusModal}
           onUploadSuccess={invalidateMerchantQueries}

@@ -17,6 +17,7 @@ import { createUploadFile, type RNFormData } from '@/types/upload';
 interface LogoPickerProps {
   merchantId: string | undefined;
   cachedLogoUri: string | null;
+  fallbackLogoUri: string | null;
   businessName: string;
   onUploadSuccess: () => void;
   onStatusChange: (status: {
@@ -75,6 +76,7 @@ async function uploadLogoToStorage(
 export function LogoPicker({
   merchantId,
   cachedLogoUri,
+  fallbackLogoUri,
   businessName,
   onUploadSuccess,
   onStatusChange,
@@ -136,6 +138,9 @@ export function LogoPicker({
     <View style={styles.logoContainer}>
       {cachedLogoUri ? (
         <SafeImage
+          fallbackSource={
+            fallbackLogoUri ? { uri: fallbackLogoUri } : undefined
+          }
           source={{ uri: cachedLogoUri }}
           style={styles.logo}
           contentFit="contain"

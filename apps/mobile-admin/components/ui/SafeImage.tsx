@@ -24,8 +24,27 @@ async function fetchSvgXml(uri: string): Promise<string> {
   return response.text();
 }
 
+function getImageSourceKey(source: ImageSourcePropType | undefined): string {
+  if (Array.isArray(source)) {
+    return source
+      .map((entry) =>
+        typeof entry === 'object' && entry !== null && 'uri' in entry
+          ? String(entry.uri ?? '')
+          : String(entry)
+      )
+      .join('|');
+  }
+
+  if (typeof source === 'object' && source !== null && 'uri' in source) {
+    return String(source.uri ?? '');
+  }
+
+  return String(source ?? '');
+}
+
 export interface SafeImageProps extends Omit<ImageProps, 'onError'> {
   onLoadError?: (error: Error) => void;
+  fallbackSource?: ImageSourcePropType;
   fallbackComponent?: React.ReactNode;
   showFallbackIcon?: boolean;
   fallbackStyle?: StyleProp<ViewStyle>;
@@ -39,6 +58,7 @@ export interface SafeImageProps extends Omit<ImageProps, 'onError'> {
 
 function SafeImage({
   source,
+  fallbackSource,
   style,
   placeholder: _placeholder,
   transition: _transition,
@@ -56,13 +76,29 @@ function SafeImage({
   const { colors } = useTheme();
   const [hasError, setHasError] = useState(false);
   const [errorCount, setErrorCount] = useState(0);
+  const [isUsingFallbackSource, setIsUsingFallbackSource] = useState(false);
   const [xml, setXml] = useState<string | null>(null);
   const [isLoadingXml, setIsLoadingXml] = useState(false);
 
+  const sourceKey = getImageSourceKey(source);
+  const fallbackSourceKey = getImageSourceKey(fallbackSource);
+  const activeSource = isUsingFallbackSource ? fallbackSource : source;
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: source value keys intentionally reset transient loading state when image inputs change.
+  useEffect(() => {
+    setHasError(false);
+    setErrorCount(0);
+    setIsUsingFallbackSource(false);
+    setXml(null);
+    setIsLoadingXml(false);
+  }, [fallbackSourceKey, sourceKey]);
+
   // SVG Detection Logic
   const rawUri =
-    typeof source === 'object' && source !== null && 'uri' in source
-      ? (source as { uri?: unknown }).uri
+    typeof activeSource === 'object' &&
+    activeSource !== null &&
+    'uri' in activeSource
+      ? (activeSource as { uri?: unknown }).uri
       : undefined;
 
   const uri = rawUri == null ? undefined : String(rawUri);
@@ -114,7 +150,11 @@ function SafeImage({
     if (errorCount >= 2) return;
 
     setErrorCount((prev) => prev + 1);
-    setHasError(true);
+    if (fallbackSource && !isUsingFallbackSource) {
+      setIsUsingFallbackSource(true);
+    } else {
+      setHasError(true);
+    }
 
     const errorMessage = e?.nativeEvent?.error || 'Unknown image loading error';
 
@@ -124,7 +164,7 @@ function SafeImage({
         '[SafeImage] Image load failed:',
         errorMessage,
         '\nSource:',
-        source
+        activeSource
       );
     }
 
@@ -223,9 +263,9 @@ function SafeImage({
 
   // Sanitize source to guarantee uri is a string if it's an object/array
   const resolvedSource = (() => {
-    if (!source) return source;
-    if (Array.isArray(source)) {
-      return source.map((src) =>
+    if (!activeSource) return activeSource;
+    if (Array.isArray(activeSource)) {
+      return activeSource.map((src) =>
         typeof src === 'object' && src !== null && 'uri' in src
           ? {
               ...src,
@@ -239,18 +279,18 @@ function SafeImage({
           : src
       );
     }
-    if (typeof source === 'object' && 'uri' in source) {
+    if (typeof activeSource === 'object' && 'uri' in activeSource) {
       return {
-        ...source,
+        ...activeSource,
         uri:
-          typeof source.uri === 'string'
-            ? source.uri
-            : source.uri
-              ? String(source.uri)
+          typeof activeSource.uri === 'string'
+            ? activeSource.uri
+            : activeSource.uri
+              ? String(activeSource.uri)
               : undefined,
       };
     }
-    return source;
+    return activeSource;
   })();
 
   // NOTE: Completely isolated from expo-image due to iOS CoreGraphics crash

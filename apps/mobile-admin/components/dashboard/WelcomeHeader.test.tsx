@@ -25,14 +25,17 @@ vi.mock('@/components/ui/SafeImage', async () => {
 
   return {
     default: ({
+      fallbackSource,
       resizeMethod,
       source,
     }: {
+      fallbackSource?: unknown;
       resizeMethod?: string;
       source?: unknown;
     }) =>
       ReactModule.createElement('span', {
         'aria-label': 'merchant avatar',
+        'data-fallback-source': JSON.stringify(fallbackSource),
         'data-resize-method': resizeMethod,
         'data-source': JSON.stringify(source),
         role: 'img',
@@ -81,6 +84,7 @@ describe('WelcomeHeader', () => {
   beforeEach(() => {
     useCachedImageUriMock.mockReset();
     useCachedImageUriMock.mockImplementation((uri: string) => ({
+      fallbackUri: uri ? `${uri}?original=1` : null,
       isLoading: false,
       uri,
     }));
@@ -99,6 +103,12 @@ describe('WelcomeHeader', () => {
     expect(
       screen.getByRole('img', { name: 'merchant avatar' })
     ).toHaveAttribute('data-resize-method', 'resize');
+    expect(
+      screen.getByRole('img', { name: 'merchant avatar' })
+    ).toHaveAttribute(
+      'data-fallback-source',
+      JSON.stringify({ uri: `${avatarUrl}?original=1` })
+    );
   });
 
   it('renders the Baci logo fallback when no avatar is available', () => {

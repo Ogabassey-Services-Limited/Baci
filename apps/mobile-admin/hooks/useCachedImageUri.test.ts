@@ -2,8 +2,25 @@ import { renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useCachedImageUri } from './useCachedImageUri';
 
+const { expoConfigState } = vi.hoisted(() => ({
+  expoConfigState: {
+    extra: {} as { supabaseUrl?: string },
+  },
+}));
+
+vi.mock('expo-constants', () => ({
+  default: {
+    expoConfig: {
+      get extra() {
+        return expoConfigState.extra;
+      },
+    },
+  },
+}));
+
 describe('useCachedImageUri', () => {
   beforeEach(() => {
+    expoConfigState.extra = {};
     vi.stubEnv('EXPO_PUBLIC_SUPABASE_URL', 'https://project.supabase.co');
   });
 
@@ -37,7 +54,31 @@ describe('useCachedImageUri', () => {
     );
 
     expect(result.current).toEqual({
+      fallbackUri: remoteUri,
       uri: 'https://project.supabase.co/storage/v1/render/image/public/media/merchant/logo.png?width=192&height=192&resize=contain',
+      isLoading: false,
+    });
+  });
+
+  it('uses the Expo config Supabase URL when the environment URL is empty', () => {
+    vi.stubEnv('EXPO_PUBLIC_SUPABASE_URL', '');
+    expoConfigState.extra = {
+      supabaseUrl: 'https://expo-project.supabase.co',
+    };
+    const remoteUri =
+      'https://expo-project.supabase.co/storage/v1/object/public/media/merchant/logo.png';
+
+    const { result } = renderHook(() =>
+      useCachedImageUri(remoteUri, {
+        width: 192,
+        height: 192,
+        resize: 'cover',
+      })
+    );
+
+    expect(result.current).toEqual({
+      fallbackUri: remoteUri,
+      uri: 'https://expo-project.supabase.co/storage/v1/render/image/public/media/merchant/logo.png?width=192&height=192&resize=cover',
       isLoading: false,
     });
   });
@@ -53,7 +94,11 @@ describe('useCachedImageUri', () => {
       })
     );
 
-    expect(result.current).toEqual({ uri: remoteUri, isLoading: false });
+    expect(result.current).toEqual({
+      fallbackUri: null,
+      uri: remoteUri,
+      isLoading: false,
+    });
   });
 
   it('does not rewrite a Supabase-looking path hosted by a third-party CDN', () => {
@@ -68,7 +113,11 @@ describe('useCachedImageUri', () => {
       })
     );
 
-    expect(result.current).toEqual({ uri: remoteUri, isLoading: false });
+    expect(result.current).toEqual({
+      fallbackUri: null,
+      uri: remoteUri,
+      isLoading: false,
+    });
   });
 
   it('does not send SVG assets through the bitmap transformation endpoint', () => {
@@ -83,6 +132,10 @@ describe('useCachedImageUri', () => {
       })
     );
 
-    expect(result.current).toEqual({ uri: remoteUri, isLoading: false });
+    expect(result.current).toEqual({
+      fallbackUri: null,
+      uri: remoteUri,
+      isLoading: false,
+    });
   });
 });

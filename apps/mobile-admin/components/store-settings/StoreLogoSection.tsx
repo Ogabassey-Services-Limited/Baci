@@ -8,6 +8,7 @@ interface StoreLogoSectionProps {
   businessName: string;
   cachedLogoUri: string | null;
   colors: ThemeColors;
+  fallbackLogoUri: string | null;
   merchantId: string | undefined;
   onStatusChange: (status: StatusModalState) => void;
   onUploadSuccess: () => void;
@@ -18,6 +19,7 @@ export function StoreLogoSection({
   businessName,
   cachedLogoUri,
   colors,
+  fallbackLogoUri,
   merchantId,
   onStatusChange,
   onUploadSuccess,
@@ -31,6 +33,7 @@ export function StoreLogoSection({
       <LogoPicker
         businessName={businessName}
         cachedLogoUri={cachedLogoUri}
+        fallbackLogoUri={fallbackLogoUri}
         merchantId={merchantId}
         onStatusChange={onStatusChange}
         onUploadSuccess={onUploadSuccess}

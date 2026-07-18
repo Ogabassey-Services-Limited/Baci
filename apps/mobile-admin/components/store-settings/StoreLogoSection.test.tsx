@@ -9,19 +9,25 @@ vi.mock('@/components/ui/LogoPicker', () => ({
   LogoPicker: ({
     businessName,
     cachedLogoUri,
+    fallbackLogoUri,
     merchantId,
   }: {
     businessName: string;
     cachedLogoUri: string | null;
+    fallbackLogoUri: string | null;
     merchantId: string | undefined;
   }) => {
     const logoStatus = cachedLogoUri ? 'Logo selected' : 'No logo selected';
+    const fallbackStatus = fallbackLogoUri
+      ? 'Original logo available'
+      : 'No original logo';
     const merchantStatus = merchantId ? 'Merchant ready' : 'Merchant missing';
 
     return (
       <section aria-label="Logo picker">
         <p>{businessName || 'Unnamed store'}</p>
         <p>{logoStatus}</p>
+        <p>{fallbackStatus}</p>
         <p>{merchantStatus}</p>
       </section>
     );
@@ -44,6 +50,7 @@ describe('StoreLogoSection', () => {
         businessName="Yodha Shopping"
         cachedLogoUri="https://example.com/logo.png"
         colors={LIGHT_COLORS}
+        fallbackLogoUri="https://example.com/original-logo.png"
         merchantId="merchant-1"
         onStatusChange={vi.fn()}
         onUploadSuccess={vi.fn()}
@@ -58,6 +65,7 @@ describe('StoreLogoSection', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('Yodha Shopping')).toBeInTheDocument();
     expect(screen.getByText('Logo selected')).toBeInTheDocument();
+    expect(screen.getByText('Original logo available')).toBeInTheDocument();
     expect(screen.getByText('Merchant ready')).toBeInTheDocument();
   });
 
@@ -68,6 +76,7 @@ describe('StoreLogoSection', () => {
         businessName=""
         cachedLogoUri={null}
         colors={LIGHT_COLORS}
+        fallbackLogoUri={null}
         merchantId={undefined}
         onStatusChange={vi.fn()}
         onUploadSuccess={vi.fn()}
@@ -82,6 +91,7 @@ describe('StoreLogoSection', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('Unnamed store')).toBeInTheDocument();
     expect(screen.getByText('No logo selected')).toBeInTheDocument();
+    expect(screen.getByText('No original logo')).toBeInTheDocument();
     expect(screen.getByText('Merchant missing')).toBeInTheDocument();
   });
 });
