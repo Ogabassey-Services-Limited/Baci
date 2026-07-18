@@ -14,6 +14,7 @@ const migrationPaths = [
   '../../../../supabase/migrations/20260718070007_supersede_credit_direct_completed_references.sql',
   '../../../../supabase/migrations/20260718070008_preserve_credit_direct_payment_audit_notes.sql',
   '../../../../supabase/migrations/20260718070009_scope_credit_direct_payment_audit_notes.sql',
+  '../../../../supabase/migrations/20260718070010_preserve_credit_direct_provider_reference.sql',
 ].map((migrationPath) =>
   join(dirname(fileURLToPath(import.meta.url)), migrationPath)
 );
@@ -29,6 +30,7 @@ describe('Credit Direct missing-confirmation reconciliation migration', () => {
   let completedReferenceSupersessionSql: string;
   let paymentAuditPreservationSql: string;
   let paymentAuditScopeSql: string;
+  let paymentAuditProviderReferenceSql: string;
 
   beforeAll(() => {
     [
@@ -42,6 +44,7 @@ describe('Credit Direct missing-confirmation reconciliation migration', () => {
       completedReferenceSupersessionSql,
       paymentAuditPreservationSql,
       paymentAuditScopeSql,
+      paymentAuditProviderReferenceSql,
     ] = migrationPaths.map((migrationPath) =>
       readFileSync(migrationPath, 'utf8')
     );
@@ -59,6 +62,7 @@ describe('Credit Direct missing-confirmation reconciliation migration', () => {
       completedReferenceSupersessionSql,
       paymentAuditPreservationSql,
       paymentAuditScopeSql,
+      paymentAuditProviderReferenceSql,
     ].entries()) {
       expect(
         migrationSql.trimEnd().split('\n').length,
@@ -255,5 +259,19 @@ describe('Credit Direct missing-confirmation reconciliation migration', () => {
     expect(paymentAuditScopeSql.indexOf(provenanceGate as string)).toBeLessThan(
       paymentAuditScopeSql.indexOf('stale_credit_direct_session')
     );
+  });
+
+  it('keeps the verified provider reference while preserving concurrent evidence', () => {
+    const mergeAssignment = paymentAuditProviderReferenceSql.match(
+      /v_merged_notes\s*:=\s*\([\s\S]*?\)\s*\|\|\s*v_new_notes;/i
+    )?.[0];
+    const preservedKeyLoop = paymentAuditProviderReferenceSql.match(
+      /FOREACH v_key IN ARRAY ARRAY\[[\s\S]*?END LOOP;/i
+    )?.[0];
+
+    expect(mergeAssignment).toContain("- 'creditDirectTransactionId'");
+    expect(mergeAssignment).toContain("- 'credit_directTransactionId'");
+    expect(preservedKeyLoop).not.toContain("'creditDirectTransactionId'");
+    expect(preservedKeyLoop).not.toContain("'credit_directTransactionId'");
   });
 });

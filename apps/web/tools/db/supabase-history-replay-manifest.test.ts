@@ -151,6 +151,7 @@ describe('supabaseHistoryReplayManifest', () => {
       'supabase/migrations/20260718070007_supersede_credit_direct_completed_references.sql',
       'supabase/migrations/20260718070008_preserve_credit_direct_payment_audit_notes.sql',
       'supabase/migrations/20260718070009_scope_credit_direct_payment_audit_notes.sql',
+      'supabase/migrations/20260718070010_preserve_credit_direct_provider_reference.sql',
     ]);
     expect(
       supabaseHistoryReplayManifest.postReplaySources.every(({ sha256 }) =>

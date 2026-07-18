@@ -48,6 +48,8 @@ BEGIN
     jsonb_build_object(
       'creditDirectSessionId', 'session_current',
       'creditDirectSignedAmount', 240447.87,
+      'creditDirectTransactionId', 'txn_old_attempt',
+      'credit_directTransactionId', 'txn_old_legacy_alias',
       'creditDirectClientCompletedTransactionId', 'txn_client_completed',
       'creditDirectClientCompletedSessionId', 'session_current',
       'creditDirectClientCompletedAt', '2026-07-18T10:00:00.000Z',
@@ -82,6 +84,9 @@ BEGIN
        IS DISTINCT FROM 'provider_confirmed'
      OR v_notes->>'creditDirectProviderConfirmedAt'
        IS DISTINCT FROM '2026-07-18T10:01:00.000Z'
+     OR v_notes->>'creditDirectTransactionId'
+       IS DISTINCT FROM 'txn_provider_confirmed'
+     OR v_notes ? 'credit_directTransactionId'
      OR v_notes ? 'creditDirectVerifiedWebhookWrite' THEN
     RAISE EXCEPTION 'overlapping Credit Direct notes were not merged safely: %', v_notes;
   END IF;

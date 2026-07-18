@@ -39,6 +39,38 @@ describe('handoffLegacyCreditDirectSuccess', () => {
     );
   });
 
+  it('keeps navigation non-blocking when CSRF completion capture fails', async () => {
+    mocks.fetchWithCsrf.mockRejectedValueOnce(
+      new Error('CSRF completion request failed')
+    );
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+    const navigate = vi.fn();
+
+    try {
+      handoffLegacyCreditDirectSuccess({
+        orderId: 'order-1',
+        signedSessionId: 'signed-session-1',
+        customerEmail: 'buyer@example.com',
+        merchantSlug: 'test-store',
+        navigate,
+      });
+
+      expect(navigate).toHaveBeenCalledWith(
+        '/test-store/checkout/bnpl?orderId=order-1&gateway=credit_direct&merchant_slug=test-store&email=buyer%40example.com'
+      );
+      await vi.waitFor(() =>
+        expect(consoleError).toHaveBeenCalledWith(
+          'Failed to record Credit Direct client completion:',
+          'CSRF completion request failed'
+        )
+      );
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
   it('captures evidence before handing the legacy checkout to verification', () => {
     const fetcher = vi.fn().mockReturnValue(new Promise(() => undefined));
     const navigate = vi.fn();
