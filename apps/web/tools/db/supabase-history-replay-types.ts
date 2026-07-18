@@ -122,6 +122,7 @@ export type SupabaseHistoryReplayManifest = {
     sha256: string;
   };
   pipelineSources: readonly FrozenReplaySource[];
+  postReplaySources: readonly FrozenReplaySource[];
   productionMappings: readonly ProductionReplayMapping[];
   productionEffectsFixture: {
     effectSha256: string;
@@ -153,6 +154,7 @@ export type VerifiedReplayManifest = {
   migrationNameAliasDeployRepair: MigrationNameAliasDeployRepair;
   forwardRepairDeploymentReceipt: ForwardRepairDeploymentReceipt;
   pendingRepairState: PendingRepairState;
+  postReplaySources: readonly ReplaySource[];
   productionEffectProvenance: ProductionEffectProvenance;
   verifiedSources: readonly ReplaySource[];
 };

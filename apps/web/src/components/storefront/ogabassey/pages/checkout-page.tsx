@@ -98,6 +98,8 @@ import {
   clearCheckoutIdempotencyKey,
   getCheckoutIdempotencyKey,
 } from './checkout/checkout-idempotency';
+import { captureCreditDirectClientCompletion } from './checkout/credit-direct-client-completion';
+import { writeCreditDirectPopupMarker } from './checkout/credit-direct-popup-return';
 import { persistCreditDirectPopupReference } from './checkout/persist-credit-direct-popup-reference';
 import { getCheckoutOrderErrorMessage } from './checkout/checkout-order-error-message';
 import { selectRejectedVoucherLines } from './checkout/select-rejected-voucher-lines';
@@ -157,6 +159,29 @@ interface InferredCheckoutAddressLocation {
 }
 
 const MANUAL_ADDRESS_LOCATION_DEBOUNCE_MS = 500;
+
+interface CreditDirectVerificationHandoff {
+  orderId: string;
+  merchantSlug: string;
+  trackingToken?: string | null;
+  customerEmail?: string | null;
+}
+
+function buildCreditDirectVerificationPath({
+  orderId,
+  merchantSlug,
+  trackingToken,
+  customerEmail,
+}: CreditDirectVerificationHandoff): string {
+  const query = new URLSearchParams({
+    orderId,
+    gateway: 'credit_direct',
+    merchant_slug: merchantSlug,
+  });
+  if (trackingToken) query.set('trackingToken', trackingToken);
+  if (customerEmail) query.set('email', customerEmail);
+  return `/checkout/bnpl?${query.toString()}`;
+}
 
 /**
  * Module-scope checkout helpers.
@@ -1621,26 +1646,28 @@ export const CheckoutPage: React.FC = () => {
             price: item.price,
             quantity: item.quantity,
           })),
-          onSuccess: async (transactionId) => {
-            await fetch(`/api/orders/update-payment-ref`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                orderId: resumedOrder.id,
-                paymentRef: transactionId,
-                gateway: 'credit_direct',
-              }),
-            });
-            clearCheckoutSession();
-            const successQuery = new URLSearchParams({
+          onSuccess: ({ checkoutTransactionId, sessionId }) => {
+            const trackingToken =
+              resumedOrder.tracking_token || resumeTrackingToken;
+            const merchantSlug =
+              merchant?.slug || resumeMerchantSlug || 'ogabassey';
+            captureCreditDirectClientCompletion({
               orderId: resumedOrder.id,
-              type: 'credit_direct',
+              checkoutTransactionId,
+              sessionId,
+              trackingToken,
             });
-            if (resumedOrder.tracking_token) {
-              successQuery.set('trackingToken', resumedOrder.tracking_token);
-            }
             router.push(
-              asRoute(getHref(`/order-success?${successQuery.toString()}`))
+              asRoute(
+                getHref(
+                  buildCreditDirectVerificationPath({
+                    orderId: resumedOrder.id,
+                    merchantSlug,
+                    trackingToken,
+                    customerEmail: resumedOrder.customer_email,
+                  })
+                )
+              )
             );
           },
           onError: (error) => {
@@ -1654,11 +1681,18 @@ export const CheckoutPage: React.FC = () => {
           onClose: () => {
             setIsProcessing(false);
           },
-          onPopup: async (transactionId) => {
+          onPopup: async ({ checkoutTransactionId, sessionId }) => {
+            writeCreditDirectPopupMarker(
+              resumedOrder.id,
+              checkoutTransactionId || sessionId
+            );
+            if (!checkoutTransactionId) {
+              return;
+            }
             try {
               await persistCreditDirectPopupReference(
                 resumedOrder,
-                transactionId
+                checkoutTransactionId
               );
             } catch (error) {
               console.error(
@@ -2390,22 +2424,24 @@ export const CheckoutPage: React.FC = () => {
             price: item.price,
             quantity: item.quantity,
           })),
-          onSuccess: async (transactionId) => {
-            console.log('Credit Direct success:', transactionId);
-            clearPendingCheckoutOrder();
-            await clearCheckoutIdempotencyKey(checkoutFingerprint);
-            clearCheckoutSession();
-            clearCart();
-            const successQuery = new URLSearchParams({
-              type: 'credit_direct',
+          onSuccess: ({ checkoutTransactionId, sessionId }) => {
+            captureCreditDirectClientCompletion({
               orderId: order.id,
-              sessionId: transactionId,
+              checkoutTransactionId,
+              sessionId,
+              trackingToken: order.tracking_token,
             });
-            if (order.tracking_token) {
-              successQuery.set('trackingToken', order.tracking_token);
-            }
             router.push(
-              asRoute(getHref(`/order-success?${successQuery.toString()}`))
+              asRoute(
+                getHref(
+                  buildCreditDirectVerificationPath({
+                    orderId: order.id,
+                    merchantSlug: merchant.slug || '',
+                    trackingToken: order.tracking_token,
+                    customerEmail,
+                  })
+                )
+              )
             );
           },
           onError: (error) => {
@@ -2422,9 +2458,19 @@ export const CheckoutPage: React.FC = () => {
             setIsProcessing(false);
             isOrderInFlightRef.current = false;
           },
-          onPopup: async (transactionId) => {
+          onPopup: async ({ checkoutTransactionId, sessionId }) => {
+            writeCreditDirectPopupMarker(
+              order.id,
+              checkoutTransactionId || sessionId
+            );
+            if (!checkoutTransactionId) {
+              return;
+            }
             try {
-              await persistCreditDirectPopupReference(order, transactionId);
+              await persistCreditDirectPopupReference(
+                order,
+                checkoutTransactionId
+              );
             } catch (error) {
               console.error(
                 'Failed to persist Credit Direct popup reference:',

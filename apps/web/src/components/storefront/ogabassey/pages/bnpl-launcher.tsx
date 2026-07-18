@@ -8,6 +8,7 @@ import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
 import { openCredPalCheckout } from '@/lib/credpal';
 import { apiPost } from '@/lib/api-client';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
+import { useCartSafe } from '@/hooks/cart';
 import {
     getKlumpConstructor,
     getKlumpPublicKey,
@@ -28,6 +29,8 @@ import {
     readCreditDirectPopupMarker,
     writeCreditDirectPopupMarker,
 } from './checkout/credit-direct-popup-return';
+import { captureCreditDirectClientCompletion } from './checkout/credit-direct-client-completion';
+import { clearCheckoutIdempotencyKey } from './checkout/checkout-idempotency';
 import { useCreditDirectVerification } from './checkout/hooks/use-credit-direct-verification';
 import { CreditDirectVerificationView } from './checkout/components/CreditDirectVerificationView';
 
@@ -400,25 +403,28 @@ async function launchBnplPayment({
                         quantity: item.quantity,
                     })
                 ),
-                onSuccess: (ref) => {
-                    clearCreditDirectPopupMarker(order.id);
-                    const successQuery = new URLSearchParams({
+                onSuccess: ({ checkoutTransactionId, sessionId }) => {
+                    const marker = captureCreditDirectClientCompletion({
                         orderId: order.id,
-                        reference: ref,
-                        type: 'credit_direct',
+                        checkoutTransactionId,
+                        sessionId,
+                        trackingToken: order.tracking_token,
                     });
-                    if (order.tracking_token) {
-                        successQuery.set('trackingToken', order.tracking_token);
-                    }
-                    router.push(`/order-success?${successQuery.toString()}` as Route);
+                    setCreditDirectPopupMarker(marker);
                 },
-                onPopup: async (transactionId) => {
-                    writeCreditDirectPopupMarker(order.id, transactionId);
+                onPopup: async ({ checkoutTransactionId, sessionId }) => {
+                    writeCreditDirectPopupMarker(
+                        order.id,
+                        checkoutTransactionId || sessionId
+                    );
+                    if (!checkoutTransactionId) {
+                        return;
+                    }
                     try {
                         await apiPost('/api/orders/update-payment-ref', {
                             gateway: 'credit_direct',
                             orderId: order.id,
-                            paymentRef: transactionId,
+                            paymentRef: checkoutTransactionId,
                             ...(order.tracking_token && {
                                 tracking_token: order.tracking_token,
                             }),
@@ -639,6 +645,7 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
     const router = useRouter();
     const searchParams = useSearchParams();
     const merchantContext = useMerchantSafe();
+    const clearCart = useCartSafe()?.clearCart;
 
     const orderId = searchParams.get('orderId');
     const gateway = searchParams.get('gateway') as BnplGateway | null;
@@ -673,6 +680,7 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const paymentLaunchKeyRef = useRef<string | null>(null);
     const lastLaunchRequestKeyRef = useRef<string | null>(null);
+    const confirmedCleanupKeyRef = useRef<string | null>(null);
     const klumpSuccessRedirectRef = useRef(false);
     const [creditDirectPopupMarker, setCreditDirectPopupMarker] =
         useState<CreditDirectPopupMarker | null>(null);
@@ -810,6 +818,12 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
             return;
         }
 
+        const cleanupKey = `${orderId}:${creditDirectPopupMarker.transactionId}`;
+        if (confirmedCleanupKeyRef.current === cleanupKey) {
+            return;
+        }
+        confirmedCleanupKeyRef.current = cleanupKey;
+
         const successQuery = new URLSearchParams({
             orderId,
             reference: creditDirectPopupMarker.transactionId,
@@ -822,6 +836,14 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
             // needs the email to fetch the order it is celebrating.
             successQuery.set('email', lookupEmail);
         }
+        clearCart?.();
+        try {
+            window.sessionStorage.removeItem(CHECKOUT_PENDING_ORDER_STORAGE_KEY);
+            window.sessionStorage.removeItem('checkout-form');
+        } catch {
+            // Storage cleanup is best-effort; confirmation must still navigate.
+        }
+        void clearCheckoutIdempotencyKey();
         clearCreditDirectPopupMarker(orderId);
         router.push(
             `${buildLauncherScopedPath('/order-success')}?${successQuery.toString()}` as Route
@@ -832,15 +854,9 @@ export function BnplLauncher({ merchantSlug = 'ogabassey' }: BnplLauncherProps) 
         orderId,
         trackingToken,
         lookupEmail,
+        clearCart,
         router,
     ]);
-
-    useEffect(() => {
-        if (creditDirectVerification.phase !== 'cancelled' || !orderId) {
-            return;
-        }
-        clearCreditDirectPopupMarker(orderId);
-    }, [creditDirectVerification.phase, orderId]);
 
     const retryCreditDirectPayment = () => {
         clearCreditDirectPopupMarker(orderId);

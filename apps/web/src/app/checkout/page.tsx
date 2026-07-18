@@ -36,6 +36,7 @@ import {
   SelectedShippingDisplay,
   ShippingOptions,
 } from '@/components/storefront/checkout/shipping-options';
+import { writeCreditDirectPopupMarker } from '@/components/storefront/ogabassey/pages/checkout/credit-direct-popup-return';
 import { ThemedButton, ThemedInput } from '@/components/themed';
 import { Button } from '@/components/ui/button';
 import {
@@ -57,6 +58,7 @@ import { trackEvent } from '@/lib/event-tracking';
 import { trackServerSideBeginCheckout } from '@/lib/server-side-analytics';
 import { createClient } from '@/lib/supabase/client';
 import type { ShippingQuote } from '@/types/shipping-quote';
+import { handoffLegacyCreditDirectSuccess } from './credit-direct-success';
 import { notifyLastOrderSnapshotChanged } from './success/client-page-order-snapshot';
 
 const DEFAULT_SHIPPING_FEE = Number.parseFloat(
@@ -1487,9 +1489,27 @@ function CheckoutPageContent() {
       signature: sign.signature,
       transaction,
       isLive: sign.isLive,
-      onSuccess: () => {
-        clearCart();
-        router.push(`/checkout/success?orderId=${order.id}`);
+      onSuccess: (response) => {
+        if (typeof order.id !== 'string' || !order.id) {
+          console.error('Credit Direct client completion skipped:', {
+            orderId: order.id,
+          });
+          return;
+        }
+
+        handoffLegacyCreditDirectSuccess({
+          orderId: order.id,
+          signedSessionId: sign.sessionId,
+          checkoutTransactionId: response?.checkoutTransactionId,
+          trackingToken:
+            typeof order.tracking_token === 'string'
+              ? order.tracking_token
+              : null,
+          customerEmail: data.email,
+          merchantSlug: merchantSlug || merchant?.slug || '',
+          basePath,
+          navigate: router.push,
+        });
       },
       onClose: () => {
         toast({
@@ -1514,6 +1534,8 @@ function CheckoutPageContent() {
           });
           return;
         }
+
+        writeCreditDirectPopupMarker(order.id, response.checkoutTransactionId);
 
         // Save transaction ID to order for webhook reconciliation
         const paymentReferenceError =

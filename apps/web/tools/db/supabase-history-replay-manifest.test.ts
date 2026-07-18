@@ -135,6 +135,23 @@ c429a6a71fec0487645b47f312998a25f14ec2af4c2741ce3de6b7b36b9356cf 20260714000300_
 fbf3de3af3099d6624d3367bfd91d9bc49435487c78670e2efc202e2456a18d2 20260714000400_drop_legacy_event_ingress_rpc_overloads.sql`.trim();
 
 describe('supabaseHistoryReplayManifest', () => {
+  it('binds post-replay migrations without changing the frozen base', () => {
+    expect(
+      supabaseHistoryReplayManifest.postReplaySources.map(
+        ({ repositoryPath }) => repositoryPath
+      )
+    ).toEqual([
+      'supabase/migrations/20260718070000_credit_direct_missing_confirmation_review.sql',
+      'supabase/migrations/20260718070001_record_credit_direct_client_completion.sql',
+      'supabase/migrations/20260718070002_bound_credit_direct_pending_cleanup.sql',
+    ]);
+    expect(
+      supabaseHistoryReplayManifest.postReplaySources.every(({ sha256 }) =>
+        /^[a-f0-9]{64}$/.test(sha256)
+      )
+    ).toBe(true);
+  });
+
   it('binds the base registry and 125-file bootstrap receipt', () => {
     expect(supabaseHistoryReplayManifest.baseSha).toBe(
       '9e3d1b14b1931a5e441fc23f0e5417c188056e47'

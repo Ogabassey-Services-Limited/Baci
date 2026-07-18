@@ -62,6 +62,7 @@ describe('verifySupabaseHistoryReplayManifest', () => {
     expect(result.pendingRepairState).toBe('materialized');
     expect(result.bootstrapSources).toHaveLength(125);
     expect(result.verifiedSources).toHaveLength(424);
+    expect(result.postReplaySources).toHaveLength(3);
     expect(result.productionEffectProvenance.exceptionalRecords).toHaveLength(
       31
     );
@@ -160,6 +161,23 @@ describe('verifySupabaseHistoryReplayManifest', () => {
         pendingRepairState: 'materialized',
       })
     ).rejects.toThrow('Forward repair SHA-256');
+  }, 30_000);
+
+  it('requires exact post-replay source bytes', async () => {
+    const root = await copyWorkspace();
+    await writeFile(
+      path.join(
+        root,
+        supabaseHistoryReplayManifest.postReplaySources[1].repositoryPath
+      ),
+      'unexpected bytes\n'
+    );
+
+    await expect(
+      verifySupabaseHistoryReplayManifest(root, {
+        pendingRepairState: 'materialized',
+      })
+    ).rejects.toThrow(/post-replay.*SHA-256/i);
   }, 30_000);
 
   it('rejects current-tree migration drift from the frozen base', async () => {

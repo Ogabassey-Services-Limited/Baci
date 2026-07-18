@@ -20,6 +20,7 @@ import {
   isOrderClampedAsCancelled,
 } from '@/lib/payments/handle-payment-for-cancelled-order';
 import { buildInventoryConfirmationFailurePayload } from '@/lib/payments/inventory-confirmation-response';
+import { resolveCreditDirectConfirmationReview } from '@/lib/payments/resolve-credit-direct-confirmation-review';
 import { escapeHtmlText } from '@/lib/sanitize';
 import { createServiceClient } from '@/lib/supabase/service';
 
@@ -335,6 +336,8 @@ export async function POST(request: NextRequest) {
       readNoteString(parsedNotes.credit_directTransactionId);
     const activeSessionId = readNoteString(parsedNotes.creditDirectSessionId);
     const activeReference = activeTransactionId ?? activeSessionId;
+    const hasPersistedPopupTransaction =
+      activeTransactionId !== null && activeTransactionId !== activeSessionId;
 
     const matchesActiveReference =
       activeReference === payload.checkoutTransactionId;
@@ -367,7 +370,7 @@ export async function POST(request: NextRequest) {
       Number.isFinite(payloadTimeMs) &&
       payloadTimeMs < signedAtMs - CLOCK_SKEW_TOLERANCE_MS;
     const acceptsUnpersistedPopupReference =
-      activeTransactionId === null &&
+      !hasPersistedPopupTransaction &&
       activeSessionId !== null &&
       payload.metaData === order.id &&
       !isSupersededReference &&
@@ -608,6 +611,9 @@ export async function POST(request: NextRequest) {
             amount_paid: orderTotal,
             notes: JSON.stringify({
               ...parsedNotes,
+              creditDirectClientCompletionStatus: 'provider_confirmed',
+              creditDirectProviderConfirmedAt: payload.timeStamp,
+              creditDirectTransactionId: payload.checkoutTransactionId,
               creditDirectNotificationsQueued: true,
               merchantPaidAt: payload.timeStamp,
               platformFee,
@@ -727,6 +733,17 @@ export async function POST(request: NextRequest) {
                 { status: 500 }
               );
             }
+            if (
+              !(await resolveCreditDirectConfirmationReview({
+                orderId: order.id,
+                providerReference: payload.checkoutTransactionId,
+              }))
+            ) {
+              return NextResponse.json(
+                { error: 'Payment reconciliation review unavailable' },
+                { status: 500 }
+              );
+            }
             return NextResponse.json({
               received: true,
               message: 'Order was refunded; payment filed for review',
@@ -797,6 +814,18 @@ export async function POST(request: NextRequest) {
             transactionId: recordedTransactionId,
           });
           if (!cancellationReviewFiled) {
+            return NextResponse.json(
+              { error: 'Payment reconciliation review unavailable' },
+              { status: 500 }
+            );
+          }
+
+          if (
+            !(await resolveCreditDirectConfirmationReview({
+              orderId: order.id,
+              providerReference: payload.checkoutTransactionId,
+            }))
+          ) {
             return NextResponse.json(
               { error: 'Payment reconciliation review unavailable' },
               { status: 500 }
@@ -876,6 +905,18 @@ export async function POST(request: NextRequest) {
           });
         }
 
+        if (
+          !(await resolveCreditDirectConfirmationReview({
+            orderId: order.id,
+            providerReference: payload.checkoutTransactionId,
+          }))
+        ) {
+          return NextResponse.json(
+            { error: 'Payment reconciliation review unavailable' },
+            { status: 500 }
+          );
+        }
+
         // Notify merchant of new order and payment (non-blocking)
         notifyMerchantOfPaidOrder(order, totalAmount);
 
@@ -887,6 +928,9 @@ export async function POST(request: NextRequest) {
           // an after()-task and stays best-effort either way.)
           await markCreditDirectNotified(supabase, order.id, {
             ...parsedNotes,
+            creditDirectClientCompletionStatus: 'provider_confirmed',
+            creditDirectProviderConfirmedAt: payload.timeStamp,
+            creditDirectTransactionId: payload.checkoutTransactionId,
             creditDirectNotificationsQueued: true,
             merchantAmount,
             merchantPaidAt: payload.timeStamp,
@@ -1001,6 +1045,18 @@ async function healPaidCreditDirectOrderReplay({
         { status: 500 }
       );
     }
+  }
+
+  if (
+    !(await resolveCreditDirectConfirmationReview({
+      orderId: order.id,
+      providerReference: payload.checkoutTransactionId,
+    }))
+  ) {
+    return NextResponse.json(
+      { error: 'Payment reconciliation review unavailable' },
+      { status: 500 }
+    );
   }
 
   // The first delivery may have failed AFTER the paid flip but BEFORE

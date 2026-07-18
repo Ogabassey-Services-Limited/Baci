@@ -1,4 +1,6 @@
 import { toast } from '@/hooks/use-toast';
+import { writeCreditDirectPopupMarker } from '../credit-direct-popup-return';
+import { captureCreditDirectClientCompletion } from '../credit-direct-client-completion';
 import { persistCreditDirectPopupReference } from '../persist-credit-direct-popup-reference';
 import type { ResumedOrder } from '../types';
 
@@ -99,28 +101,30 @@ export async function executeDirectPayment({
           price: item.price,
           quantity: item.quantity,
         })),
-        onSuccess: async (transactionId: string) => {
-          await fetch('/api/orders/update-payment-ref', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              orderId: resumedOrder.id,
-              paymentRef: transactionId,
-              gateway: 'credit_direct',
-              ...(resumedOrder.tracking_token && {
-                tracking_token: resumedOrder.tracking_token,
-              }),
-            }),
-          });
-          clearCheckoutSession();
-          const successQuery = new URLSearchParams({
+        onSuccess: ({ checkoutTransactionId, sessionId }) => {
+          captureCreditDirectClientCompletion({
             orderId: resumedOrder.id,
-            type: 'credit_direct',
+            checkoutTransactionId,
+            sessionId,
+            trackingToken: resumedOrder.tracking_token,
+          });
+          const verificationQuery = new URLSearchParams({
+            orderId: resumedOrder.id,
+            gateway: 'credit_direct',
+            merchant_slug: merchantSlug || 'ogabassey',
           });
           if (resumedOrder.tracking_token) {
-            successQuery.set('trackingToken', resumedOrder.tracking_token);
+            verificationQuery.set(
+              'trackingToken',
+              resumedOrder.tracking_token,
+            );
           }
-          routerPush(getHref(`/order-success?${successQuery.toString()}`));
+          if (resumedOrder.customer_email) {
+            verificationQuery.set('email', resumedOrder.customer_email);
+          }
+          routerPush(
+            getHref(`/checkout/bnpl?${verificationQuery.toString()}`),
+          );
         },
         onError: (error: string) => {
           toast({
@@ -133,11 +137,18 @@ export async function executeDirectPayment({
         onClose: () => {
           setIsProcessing(false);
         },
-        onPopup: async (transactionId: string) => {
+        onPopup: async ({ checkoutTransactionId, sessionId }) => {
+          writeCreditDirectPopupMarker(
+            resumedOrder.id,
+            checkoutTransactionId || sessionId,
+          );
+          if (!checkoutTransactionId) {
+            return;
+          }
           try {
             await persistCreditDirectPopupReference(
               resumedOrder,
-              transactionId,
+              checkoutTransactionId,
             );
           } catch (error) {
             console.error(

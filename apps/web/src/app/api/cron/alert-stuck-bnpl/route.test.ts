@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   gte: vi.fn(),
   statusOr: vi.fn(),
   transactionsIn: vi.fn(),
+  reviewInsert: vi.fn(),
   notifyMerchant: vi.fn(),
   loggerWarn: vi.fn(),
   loggerError: vi.fn(),
@@ -44,10 +45,18 @@ vi.mock('@/lib/supabase/admin', () => ({
     };
     transactionsChain.select.mockReturnValue(transactionsChain);
 
+    const reconciliationReviewChain = {
+      insert: mocks.reviewInsert,
+    };
+
     return {
-      from: vi.fn((table: string) =>
-        table === 'transactions' ? transactionsChain : ordersChain
-      ),
+      from: vi.fn((table: string) => {
+        if (table === 'transactions') return transactionsChain;
+        if (table === 'reconciliation_review') {
+          return reconciliationReviewChain;
+        }
+        return ordersChain;
+      }),
     };
   },
 }));
@@ -96,6 +105,7 @@ describe('GET /api/cron/alert-stuck-bnpl', () => {
     mocks.notifyMerchant.mockResolvedValue({ sent: 1, failed: 0, errors: [] });
     mocks.limit.mockResolvedValue({ data: [], error: null });
     mocks.transactionsIn.mockResolvedValue({ data: [], error: null });
+    mocks.reviewInsert.mockResolvedValue({ error: null });
   });
 
   it('returns 401 when the cron secret does not match', async () => {
@@ -187,6 +197,86 @@ describe('GET /api/cron/alert-stuck-bnpl', () => {
     );
   });
 
+  it('durably files every stuck Credit Direct order before alerting its merchant', async () => {
+    mocks.limit.mockResolvedValue({
+      data: [
+        stuckOrder({
+          id: 'order-pending',
+          payment_status: 'bnpl_pending',
+          notes: JSON.stringify({
+            creditDirectSessionId: 'session-1',
+            creditDirectTransactionId: 'transaction-1',
+            creditDirectSignedAt: '2026-06-30T23:50:00.000Z',
+          }),
+        }),
+        stuckOrder({
+          id: 'order-approved',
+          payment_status: 'bnpl_approved',
+          total: '250000.50',
+          notes: JSON.stringify({
+            creditDirectSessionId: 'session-2',
+          }),
+        }),
+        stuckOrder({
+          id: 'order-plain-pending',
+          payment_status: 'pending',
+          notes: JSON.stringify({
+            credit_directTransactionId: 'transaction-3',
+            paymentRefUpdatedAt: '2026-07-01T00:01:00.000Z',
+          }),
+        }),
+        stuckOrder({
+          id: 'order-unpaid',
+          payment_status: 'unpaid',
+          notes: JSON.stringify({
+            creditDirectTransactionId: 'transaction-4',
+          }),
+        }),
+        stuckOrder({
+          id: 'order-klump',
+          payment_method: 'klump',
+          notes: '{"klumpTransactionId":"klump-1"}',
+        }),
+      ],
+      error: null,
+    });
+
+    const response = await GET(createCronRequest());
+
+    expect(response.status).toBe(200);
+    expect(mocks.reviewInsert).toHaveBeenCalledTimes(4);
+    expect(mocks.reviewInsert).toHaveBeenCalledWith({
+      candidates: null,
+      issue_type: 'credit_direct_confirmation_missing',
+      merchant_id: 'merchant-1',
+      metadata: {
+        notes_evidence: {
+          creditDirectSessionId: 'session-1',
+          creditDirectSignedAt: '2026-06-30T23:50:00.000Z',
+          creditDirectTransactionId: 'transaction-1',
+          has_transaction_id_marker: true,
+          parseable: true,
+        },
+        payment_method: 'credit_direct',
+        payment_status: 'bnpl_pending',
+        source: 'credit_direct_stuck_cron',
+        total: 100000,
+        updated_at: '2026-07-01T00:00:00.000Z',
+      },
+      order_id: 'order-pending',
+      paystack_ref: 'transaction-1',
+      reason:
+        'Credit Direct order is awaiting authoritative provider confirmation',
+      txn_id: null,
+    });
+    expect(mocks.reviewInsert).not.toHaveBeenCalledWith(
+      expect.objectContaining({ order_id: 'order-klump' })
+    );
+    expect(mocks.reviewInsert.mock.invocationCallOrder.at(-1)).toBeLessThan(
+      mocks.notifyMerchant.mock.invocationCallOrder[0]
+    );
+  });
+
   it('scans every stuck BNPL status and ages on row movement, not creation', async () => {
     await GET(createCronRequest());
 
@@ -264,6 +354,66 @@ describe('GET /api/cron/alert-stuck-bnpl', () => {
     expect(data.stuckOrders).toBe(1);
     expect(mocks.transactionsIn).toHaveBeenCalledWith('order_id', ['order-1']);
     expect(mocks.notifyMerchant).toHaveBeenCalledTimes(1);
+  });
+
+  it('files the provider reference from Credit Direct transaction evidence when notes have none', async () => {
+    mocks.limit.mockResolvedValue({
+      data: [
+        stuckOrder({
+          id: 'order-1',
+          payment_status: 'pending',
+          notes: null,
+        }),
+      ],
+      error: null,
+    });
+    mocks.transactionsIn.mockResolvedValue({
+      data: [
+        {
+          gateway_reference: 'credit-direct-reference-1',
+          order_id: 'order-1',
+          status: 'processing',
+        },
+      ],
+      error: null,
+    });
+
+    const response = await GET(createCronRequest());
+
+    expect(response.status).toBe(200);
+    expect(mocks.reviewInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        order_id: 'order-1',
+        paystack_ref: 'credit-direct-reference-1',
+      })
+    );
+  });
+
+  it('keeps session-only SDK-success evidence in the pending-order scan', async () => {
+    mocks.limit.mockResolvedValue({
+      data: [
+        stuckOrder({
+          id: 'order-session-only',
+          payment_status: 'pending',
+          notes: JSON.stringify({
+            creditDirectSessionId: 'session-1',
+            creditDirectClientCompletedAt: '2026-07-01T00:01:00.000Z',
+          }),
+        }),
+      ],
+      error: null,
+    });
+
+    const response = await GET(createCronRequest());
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.stuckOrders).toBe(1);
+    expect(mocks.reviewInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ order_id: 'order-session-only' })
+    );
+    expect(mocks.notifyMerchant).toHaveBeenCalledTimes(1);
+    expect(mocks.transactionsIn).not.toHaveBeenCalled();
   });
 
   it('ignores still-pending transaction rows so initialize-flow abandoners stay excluded', async () => {
@@ -398,6 +548,78 @@ describe('GET /api/cron/alert-stuck-bnpl', () => {
     });
   });
 
+  it('keeps alerting and reports Credit Direct review insert failures', async () => {
+    mocks.limit.mockResolvedValue({
+      data: [stuckOrder()],
+      error: null,
+    });
+    mocks.reviewInsert.mockResolvedValue({
+      error: { code: 'XX000', message: 'database unavailable' },
+    });
+
+    const response = await GET(createCronRequest());
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data).toEqual({
+      success: true,
+      stuckOrders: 1,
+      merchants: 1,
+      merchantsNotified: 1,
+      reviewFailures: ['order-1'],
+    });
+    expect(mocks.notifyMerchant).toHaveBeenCalledTimes(1);
+    expect(mocks.loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Failed to file stuck Credit Direct reconciliation review',
+        orderId: 'order-1',
+      })
+    );
+  });
+
+  it('files reviews in bounded batches and reports failures deterministically', async () => {
+    const firstBatchResolvers = new Map<
+      string,
+      (result: { error: null | { code: string } }) => void
+    >();
+    mocks.limit.mockResolvedValue({
+      data: Array.from({ length: 6 }, (_, index) =>
+        stuckOrder({ id: `order-${index + 1}` })
+      ),
+      error: null,
+    });
+    mocks.reviewInsert.mockImplementation((row: { order_id: string }) =>
+      row.order_id === 'order-6'
+        ? Promise.resolve({ error: { code: 'XX000' } })
+        : new Promise((resolve) => {
+            firstBatchResolvers.set(row.order_id, resolve);
+          })
+    );
+
+    const responsePromise = GET(createCronRequest());
+    await vi.waitFor(() => {
+      expect(mocks.reviewInsert).toHaveBeenCalledTimes(5);
+    });
+    expect(mocks.reviewInsert).not.toHaveBeenCalledWith(
+      expect.objectContaining({ order_id: 'order-6' })
+    );
+    expect(mocks.notifyMerchant).not.toHaveBeenCalled();
+
+    firstBatchResolvers.get('order-5')?.({ error: null });
+    firstBatchResolvers.get('order-2')?.({ error: { code: 'XX000' } });
+    firstBatchResolvers.get('order-1')?.({ error: null });
+    firstBatchResolvers.get('order-4')?.({ error: null });
+    firstBatchResolvers.get('order-3')?.({ error: null });
+
+    const response = await responsePromise;
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mocks.reviewInsert).toHaveBeenCalledTimes(6);
+    expect(data.reviewFailures).toEqual(['order-2', 'order-6']);
+    expect(mocks.notifyMerchant).toHaveBeenCalledTimes(1);
+  });
+
   it('notifies merchants concurrently instead of waiting for each merchant serially', async () => {
     let resolveFirstPush:
       | ((value: { sent: number; failed: number }) => void)
@@ -421,22 +643,22 @@ describe('GET /api/cron/alert-stuck-bnpl', () => {
     );
 
     const responsePromise = GET(createCronRequest());
-    await Promise.resolve();
-
-    expect(mocks.notifyMerchant).toHaveBeenCalledWith(
-      'merchant-1',
-      expect.any(String),
-      expect.any(String),
-      expect.any(Object),
-      'orders'
-    );
-    expect(mocks.notifyMerchant).toHaveBeenCalledWith(
-      'merchant-2',
-      expect.any(String),
-      expect.any(String),
-      expect.any(Object),
-      'orders'
-    );
+    await vi.waitFor(() => {
+      expect(mocks.notifyMerchant).toHaveBeenCalledWith(
+        'merchant-1',
+        expect.any(String),
+        expect.any(String),
+        expect.any(Object),
+        'orders'
+      );
+      expect(mocks.notifyMerchant).toHaveBeenCalledWith(
+        'merchant-2',
+        expect.any(String),
+        expect.any(String),
+        expect.any(Object),
+        'orders'
+      );
+    });
 
     if (!resolveFirstPush) {
       throw new Error('First push resolver was not initialized');
