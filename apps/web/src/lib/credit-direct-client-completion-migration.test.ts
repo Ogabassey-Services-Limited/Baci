@@ -6,18 +6,19 @@ const migrationPaths = [
   '../../supabase/migrations/20260718070000_credit_direct_missing_confirmation_review.sql',
   '../../supabase/migrations/20260718070001_record_credit_direct_client_completion.sql',
   '../../supabase/migrations/20260718070002_bound_credit_direct_pending_cleanup.sql',
+  '../../supabase/migrations/20260718070003_allow_credit_direct_tracking_token_with_session.sql',
 ].map((migrationPath) => join(process.cwd(), migrationPath));
 
 describe('Credit Direct missing-confirmation reconciliation migration', () => {
-  const [reviewSql, completionSql, cleanupSql] = migrationPaths.map(
-    (migrationPath) => readFileSync(migrationPath, 'utf8')
-  );
+  const [reviewSql, completionSql, cleanupSql, completionAuthCorrectionSql] =
+    migrationPaths.map((migrationPath) => readFileSync(migrationPath, 'utf8'));
 
   it('keeps each ordered migration within the 300-line migration limit', () => {
     for (const [index, migrationSql] of [
       reviewSql,
       completionSql,
       cleanupSql,
+      completionAuthCorrectionSql,
     ].entries()) {
       expect(
         migrationSql.trimEnd().split('\n').length,
@@ -73,6 +74,28 @@ describe('Credit Direct missing-confirmation reconciliation migration', () => {
     expect(orderUpdate).not.toMatch(/payment_status\s*=/i);
     expect(completionSql).toMatch(
       /GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+public\.record_credit_direct_client_completion[\s\S]*TO\s+anon,\s*authenticated,\s*service_role/i
+    );
+  });
+
+  it('treats a matching tracking token as authorization even when a session exists', () => {
+    expect(completionAuthCorrectionSql).toMatch(
+      /CREATE OR REPLACE FUNCTION public\.record_credit_direct_client_completion/
+    );
+    const authorizationBlock = completionAuthCorrectionSql.match(
+      /IF v_request_role <> 'service_role' THEN[\s\S]*?RAISE EXCEPTION 'unauthorized';[\s\S]*?END IF;/
+    )?.[0];
+
+    expect(authorizationBlock).toBeDefined();
+    expect(authorizationBlock).toMatch(
+      /IF NOT \(\s*\(\s*p_tracking_token IS NOT NULL\s+AND trim\(p_tracking_token\) <> ''\s+AND p_tracking_token IS NOT DISTINCT FROM v_order\.tracking_token\s*\)\s+OR\s+\(\s*v_user_id IS NOT NULL\s+AND\s+\(\s*EXISTS \([\s\S]*?FROM public\.merchants[\s\S]*?OR EXISTS \([\s\S]*?FROM public\.staff_members[\s\S]*?OR EXISTS \([\s\S]*?FROM public\.customers[\s\S]*?\)\s*\)\s*\)\s*\) THEN\s+RAISE EXCEPTION 'unauthorized'/i
+    );
+    expect(authorizationBlock).not.toMatch(/v_user_id IS NULL/i);
+    expect(authorizationBlock).not.toMatch(/p_session_id/i);
+  });
+
+  it('normalizes provider-reference collisions without hiding missing reviews', () => {
+    expect(completionAuthCorrectionSql).toMatch(
+      /BEGIN\s+UPDATE public\.reconciliation_review[\s\S]*?EXCEPTION\s+WHEN unique_violation THEN\s+RAISE EXCEPTION 'reference_mismatch';\s+END;[\s\S]*?IF NOT FOUND THEN\s+RAISE EXCEPTION 'reference_mismatch';\s+END IF;/i
     );
   });
 

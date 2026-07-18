@@ -78,4 +78,26 @@ describe('handoffLegacyCreditDirectSuccess', () => {
       })
     );
   });
+
+  it('uses the merchant slug when the legacy root checkout has no base path', () => {
+    const fetcher = vi.fn().mockReturnValue(new Promise(() => undefined));
+    const navigate = vi.fn();
+
+    handoffLegacyCreditDirectSuccess(
+      {
+        orderId: 'order-1',
+        signedSessionId: 'signed-session-1',
+        trackingToken: 'track-1',
+        customerEmail: 'buyer@example.com',
+        merchantSlug: 'test-store',
+        basePath: '',
+        navigate,
+      },
+      fetcher
+    );
+
+    expect(navigate).toHaveBeenCalledWith(
+      '/test-store/checkout/bnpl?orderId=order-1&gateway=credit_direct&merchant_slug=test-store&trackingToken=track-1&email=buyer%40example.com'
+    );
+  });
 });

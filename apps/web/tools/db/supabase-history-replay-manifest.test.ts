@@ -144,6 +144,7 @@ describe('supabaseHistoryReplayManifest', () => {
       'supabase/migrations/20260718070000_credit_direct_missing_confirmation_review.sql',
       'supabase/migrations/20260718070001_record_credit_direct_client_completion.sql',
       'supabase/migrations/20260718070002_bound_credit_direct_pending_cleanup.sql',
+      'supabase/migrations/20260718070003_allow_credit_direct_tracking_token_with_session.sql',
     ]);
     expect(
       supabaseHistoryReplayManifest.postReplaySources.every(({ sha256 }) =>

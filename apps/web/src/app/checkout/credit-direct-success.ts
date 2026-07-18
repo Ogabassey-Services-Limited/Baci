@@ -1,3 +1,4 @@
+import type { Route } from 'next';
 import { captureCreditDirectClientCompletion } from '@/components/storefront/ogabassey/pages/checkout/credit-direct-client-completion';
 
 interface LegacyCreditDirectSuccessHandoff {
@@ -8,7 +9,7 @@ interface LegacyCreditDirectSuccessHandoff {
   customerEmail: string;
   merchantSlug: string;
   basePath?: string | null;
-  navigate: (href: string) => void;
+  navigate: (href: Route) => void;
 }
 
 type ClientCompletionFetch = (
@@ -46,7 +47,8 @@ export function handoffLegacyCreditDirectSuccess(
   });
   if (trackingToken) query.set('trackingToken', trackingToken);
   if (customerEmail) query.set('email', customerEmail);
-  const prefix =
+  const explicitPrefix =
     basePath && basePath !== '/' ? basePath.replace(/\/$/, '') : '';
-  navigate(`${prefix}/checkout/bnpl?${query.toString()}`);
+  const prefix = explicitPrefix || (merchantSlug ? `/${merchantSlug}` : '');
+  navigate(`${prefix}/checkout/bnpl?${query.toString()}` as Route);
 }
