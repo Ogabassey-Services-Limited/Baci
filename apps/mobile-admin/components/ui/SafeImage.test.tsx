@@ -45,7 +45,6 @@ vi.mock('react-native', async () => {
     }) => (
       <button
         data-source={JSON.stringify(source)}
-        data-testid="native-image"
         onClick={() => onError?.({ nativeEvent: { error: 'load failed' } })}
         type="button"
       />
@@ -75,7 +74,7 @@ describe('SafeImage', () => {
 
     render(<SafeImage source={source} />);
 
-    expect(screen.getByTestId('native-image')).toHaveAttribute(
+    expect(screen.getByRole('button')).toHaveAttribute(
       'data-source',
       JSON.stringify({ uri: 'file:///cache/product.png' })
     );
@@ -89,7 +88,7 @@ describe('SafeImage', () => {
 
     render(<SafeImage source={source} />);
 
-    expect(screen.getByTestId('native-image')).toHaveAttribute(
+    expect(screen.getByRole('button')).toHaveAttribute(
       'data-source',
       JSON.stringify([
         { uri: 'file:///cache/fallback.png' },
@@ -111,7 +110,7 @@ describe('SafeImage', () => {
     expect(firstSource.uri).toBeInstanceOf(UriLike);
     expect(secondSource.uri).toBe('https://example.com/product.png');
 
-    expect(screen.getByTestId('native-image')).toHaveAttribute(
+    expect(screen.getByRole('button')).toHaveAttribute(
       'data-source',
       JSON.stringify([
         { uri: 'file:///cache/fallback.png' },
@@ -128,17 +127,17 @@ describe('SafeImage', () => {
       />
     );
 
-    fireEvent.click(screen.getByTestId('native-image'));
+    fireEvent.click(screen.getByRole('button'));
 
-    expect(screen.getByTestId('native-image')).toHaveAttribute(
+    expect(screen.getByRole('button')).toHaveAttribute(
       'data-source',
       JSON.stringify({ uri: 'https://project.supabase.co/original.png' })
     );
     expect(screen.queryByText('image-outline')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByTestId('native-image'));
+    fireEvent.click(screen.getByRole('button'));
 
-    expect(screen.queryByTestId('native-image')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
     expect(screen.getByText('image-outline')).toBeInTheDocument();
   });
 });
