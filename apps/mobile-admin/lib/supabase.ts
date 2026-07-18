@@ -3,32 +3,17 @@
  */
 
 import { createClient, processLock } from '@supabase/supabase-js';
-import Constants from 'expo-constants';
 import { registerAuthRefreshLifecycle } from './auth/auth-refresh-lifecycle';
 import {
   authSessionStorage,
   getDefaultSupabaseAuthStorageKey,
 } from './auth/auth-session-storage';
-
-type ExpoExtraConfig = {
-  supabaseAnonKey?: string;
-  supabasePublishableKey?: string;
-  supabaseUrl?: string;
-};
-
-function getExpoExtraConfig(): ExpoExtraConfig {
-  const expoExtra = Constants.expoConfig?.extra;
-
-  if (!expoExtra || typeof expoExtra !== 'object') {
-    return {};
-  }
-
-  return expoExtra as ExpoExtraConfig;
-}
+import {
+  getConfiguredSupabaseUrl,
+  getExpoExtraConfig,
+} from './supabase-config';
 
 const expoExtra = getExpoExtraConfig();
-const supabaseUrl =
-  process.env.EXPO_PUBLIC_SUPABASE_URL || expoExtra.supabaseUrl || '';
 const supabasePublishableKey =
   process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
   expoExtra.supabasePublishableKey ||
@@ -38,15 +23,7 @@ const legacySupabaseAnonKey =
 const supabaseClientKey = supabasePublishableKey || legacySupabaseAnonKey;
 const isUsingLegacyAnonKey = !supabasePublishableKey && !!legacySupabaseAnonKey;
 
-function getValidSupabaseUrl(url: string): string {
-  try {
-    return url && new URL(url) ? url : '';
-  } catch {
-    return '';
-  }
-}
-
-const validSupabaseUrl = getValidSupabaseUrl(supabaseUrl);
+const validSupabaseUrl = getConfiguredSupabaseUrl(expoExtra);
 const hasSupabaseCredentials = Boolean(validSupabaseUrl && supabaseClientKey);
 
 if (!hasSupabaseCredentials) {
