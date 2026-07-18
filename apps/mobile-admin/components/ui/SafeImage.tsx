@@ -15,6 +15,7 @@ import {
 
 import { SvgUri, SvgXml } from 'react-native-svg';
 import { useTheme } from '@/hooks/useTheme';
+import { resolveSafeImageSource } from './safe-image-source';
 
 const DEFAULT_BLURHASH = 'L6PZfSi_.AyE_3t7t7RjE1%MWBR*';
 
@@ -22,24 +23,6 @@ async function fetchSvgXml(uri: string): Promise<string> {
   const response = await fetch(uri);
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return response.text();
-}
-
-function getImageSourceKey(source: ImageSourcePropType | undefined): string {
-  if (Array.isArray(source)) {
-    return source
-      .map((entry) =>
-        typeof entry === 'object' && entry !== null && 'uri' in entry
-          ? String(entry.uri ?? '')
-          : String(entry)
-      )
-      .join('|');
-  }
-
-  if (typeof source === 'object' && source !== null && 'uri' in source) {
-    return String(source.uri ?? '');
-  }
-
-  return String(source ?? '');
 }
 
 export interface SafeImageProps extends Omit<ImageProps, 'onError'> {
@@ -80,9 +63,10 @@ function SafeImage({
   const [xml, setXml] = useState<string | null>(null);
   const [isLoadingXml, setIsLoadingXml] = useState(false);
 
-  const sourceKey = getImageSourceKey(source);
-  const fallbackSourceKey = getImageSourceKey(fallbackSource);
+  const sourceKey = resolveSafeImageSource(source).key;
+  const fallbackSourceKey = resolveSafeImageSource(fallbackSource).key;
   const activeSource = isUsingFallbackSource ? fallbackSource : source;
+  const { source: resolvedSource, uri } = resolveSafeImageSource(activeSource);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: source value keys intentionally reset transient loading state when image inputs change.
   useEffect(() => {
@@ -94,15 +78,6 @@ function SafeImage({
   }, [fallbackSourceKey, sourceKey]);
 
   // SVG Detection Logic
-  const rawUri =
-    typeof activeSource === 'object' &&
-    activeSource !== null &&
-    'uri' in activeSource
-      ? (activeSource as { uri?: unknown }).uri
-      : undefined;
-
-  const uri = rawUri == null ? undefined : String(rawUri);
-
   const isSvg =
     typeof uri === 'string' &&
     (uri.toLowerCase().includes('.svg') ||
@@ -260,38 +235,6 @@ function SafeImage({
   if (contentFit === 'contain') resizeMode = 'contain';
   if (contentFit === 'fill') resizeMode = 'stretch';
   if (contentFit === 'none') resizeMode = 'center';
-
-  // Sanitize source to guarantee uri is a string if it's an object/array
-  const resolvedSource = (() => {
-    if (!activeSource) return activeSource;
-    if (Array.isArray(activeSource)) {
-      return activeSource.map((src) =>
-        typeof src === 'object' && src !== null && 'uri' in src
-          ? {
-              ...src,
-              uri:
-                typeof src.uri === 'string'
-                  ? src.uri
-                  : src.uri
-                    ? String(src.uri)
-                    : undefined,
-            }
-          : src
-      );
-    }
-    if (typeof activeSource === 'object' && 'uri' in activeSource) {
-      return {
-        ...activeSource,
-        uri:
-          typeof activeSource.uri === 'string'
-            ? activeSource.uri
-            : activeSource.uri
-              ? String(activeSource.uri)
-              : undefined,
-      };
-    }
-    return activeSource;
-  })();
 
   // NOTE: Completely isolated from expo-image due to iOS CoreGraphics crash
   // related to 24-bpp PNGs and color spaces (rdar://143602439)
