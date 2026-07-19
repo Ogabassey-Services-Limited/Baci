@@ -158,6 +158,7 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete payment state', () =
   });
 
   it('returns existing payment details without creating duplicate DVA or order', async () => {
+    vi.stubEnv('AGENTIC_PAYSTACK_DVA_MODE', 'paused');
     const { updateSpy } = mockSession({
       ...makeReadySession(),
       status: 'processing',

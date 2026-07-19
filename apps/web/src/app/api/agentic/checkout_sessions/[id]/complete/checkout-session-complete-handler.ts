@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { verifyAgenticRequestAccess } from '@/lib/agentic/agent-request-controls';
+import { resolveAgenticPaystackDvaCompletionGate } from '@/lib/agentic/agentic-paystack-dva-completion-gate';
+import { AGENTIC_PAYSTACK_DVA_PAUSED_ERROR } from '@/lib/agentic/agentic-paystack-dva-paused-error';
 import { verifyAgenticApiKey } from '@/lib/agentic/auth';
 import { getCheckoutCompletionAuthorizationSecrets } from '@/lib/agentic/checkout-completion-authorization-response';
 import { finalizeAgenticCheckoutPayment } from '@/lib/agentic/checkout-completion-finalize';
@@ -28,16 +30,13 @@ import { sanitizeForLog } from '@/lib/sanitize-core';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { agenticCheckoutCompleteSchema } from '@/schemas/agentic-checkout';
 import { agenticCheckoutSessionRouteParamsSchema } from '@/schemas/agentic-checkout-session-route-params';
+import type { CheckoutSessionCompleteRouteOptions } from './checkout-session-complete-handler-types';
 
 const COMPLETE_IDEMPOTENCY_ROUTE = 'checkout_sessions.complete';
-type SessionRouteProps = { params: Promise<{ id: string }> };
-type CheckoutSessionCompleteRouteOptions = {
-  requestBodyAdapter?: (body: unknown) => unknown;
-};
 
 export async function handleAgenticCheckoutSessionComplete(
   request: NextRequest,
-  props: SessionRouteProps,
+  props: { params: Promise<{ id: string }> },
   options: CheckoutSessionCompleteRouteOptions = {}
 ) {
   const params = await props.params;
@@ -165,15 +164,8 @@ export async function handleAgenticCheckoutSessionComplete(
         getAgenticReplayErrorStatus(replayReservation.error)
       );
     }
-    const storeResponse = respondWithIdempotency;
-    if (!storeResponse) {
-      return NextResponse.json(
-        { error: 'Internal Server Error' },
-        { status: 500 }
-      );
-    }
-    const respond = async (response: unknown, status: number) =>
-      storeResponse(response, status);
+    if (!respondWithIdempotency) throw new Error('Missing response store');
+    const respond = respondWithIdempotency;
 
     const { data: session, error } = await getAgenticCheckoutSession({
       merchantId: merchant.id,
@@ -200,6 +192,21 @@ export async function handleAgenticCheckoutSessionComplete(
       paymentState === 'order_finalizing'
         ? null
         : resolveExistingPaymentState({ buyer, session });
+    const pauseGate = resolveAgenticPaystackDvaCompletionGate({
+      existingPaymentStateStatus: existingPaymentState?.status ?? null,
+      paymentProvider: payment_data.provider,
+      paymentState,
+    });
+    if (pauseGate === 'replay_existing_payment' && existingPaymentState) {
+      return await respond(
+        existingPaymentState.body,
+        existingPaymentState.status
+      );
+    }
+    if (pauseGate === 'reject_paused') {
+      return await respond(AGENTIC_PAYSTACK_DVA_PAUSED_ERROR, 409);
+    }
+
     if (existingPaymentState) {
       return await respond(
         existingPaymentState.body,
