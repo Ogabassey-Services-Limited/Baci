@@ -36,6 +36,28 @@ describe('eventPipelineGovernedPaths', () => {
     expect(governed.missingProductionRoots).toEqual([]);
   });
 
+  it('pins the authority-byte baseline to a reachable reviewed commit', () => {
+    const root = eventPipelineGovernedPaths.repoRoot();
+    const reviewedSha = '4c603474b17e1f1457582afa4cfc0c90d4b4ae4f';
+
+    expect(eventPipelineGovernedPaths.authorityByteBaseSha).toBe(reviewedSha);
+    expect(
+      execFileSync('git', ['cat-file', '-t', reviewedSha], {
+        cwd: root,
+        encoding: 'utf8',
+      }).trim()
+    ).toBe('commit');
+    expect(() =>
+      execFileSync(
+        'git',
+        ['merge-base', '--is-ancestor', reviewedSha, 'HEAD'],
+        {
+          cwd: root,
+        }
+      )
+    ).not.toThrow();
+  });
+
   it('discovers every supported JavaScript and TypeScript source extension', () => {
     const root = mkdtempSync(join(tmpdir(), 'event-source-paths-'));
     directories.push(root);

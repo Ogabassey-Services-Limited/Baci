@@ -12,7 +12,7 @@ import { eventPipelineSourceFilePolicy } from './event-pipeline-source-file-poli
 const FROZEN_EVENT_PIPELINE_BASE_SHA =
   '9e3d1b14b1931a5e441fc23f0e5417c188056e47';
 const FROZEN_EVENT_PIPELINE_AUTHORITY_BYTE_BASE_SHA =
-  'aab1cb4751692805b7fc9f1e7b5c265175102143';
+  '4c603474b17e1f1457582afa4cfc0c90d4b4ae4f';
 const FROZEN_PATH_INVENTORY_SHA256 =
   '8a0f0b5e61d39fe46144e0114a41c7e25a8501e756ce1b819cca5fb793c6d0dc';
 const explicitlyHashedAuthorityPaths = new Set([
