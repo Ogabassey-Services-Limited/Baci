@@ -65,7 +65,7 @@ export interface RunPaidOrderSideEffectsArgs {
   gatewayResponse: Record<string, unknown>;
   order: RichPaidOrder;
   scheduleAfter: ScheduleAfter;
-  settlementGateway: 'korapay' | 'paystack';
+  settlementGateway: 'juicyway' | 'korapay' | 'paystack';
   supabase: ServiceRoleClient;
   transaction: PaidOrderSideEffectTransaction;
 }
