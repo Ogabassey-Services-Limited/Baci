@@ -150,7 +150,9 @@ export function resolveEventRoute(event: DomainEventV1): EventRouteResolution {
     return { destinations: [], kind: 'no_route' };
   }
 
-  const definition = EVENT_ROUTES[event.event_name];
+  const definition = Object.hasOwn(EVENT_ROUTES, event.event_name)
+    ? EVENT_ROUTES[event.event_name]
+    : undefined;
   if (!definition) return { code: 'unknown_event_name', kind: 'dead_letter' };
   const hasMismatchedDatabaseAuthority =
     (event.producer === 'database') !== (event.trust_level === 'database');

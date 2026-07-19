@@ -29,6 +29,15 @@ describe('claimedEventDeliverySchema', () => {
     ).toBe(false);
   });
 
+  it('requires the payload property even when its value is unknown', () => {
+    const withoutPayload: Partial<typeof delivery> = { ...delivery };
+    delete withoutPayload.payload;
+
+    expect(claimedEventDeliverySchema.safeParse(withoutPayload).success).toBe(
+      false
+    );
+  });
+
   it('rejects a malformed claim timestamp', () => {
     expect(
       claimedEventDeliverySchema.safeParse({

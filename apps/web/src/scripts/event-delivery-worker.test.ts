@@ -195,6 +195,37 @@ describe('runEventDeliveryWorker', () => {
     expect(claimCount).toBe(1);
   });
 
+  it.each([
+    ['SIGINT', 'claim'],
+    ['SIGTERM', 'claim'],
+    ['SIGINT', 'partial'],
+    ['SIGTERM', 'partial'],
+  ] as const)(
+    'skips failure backoff when %s stops a %s failure',
+    async (signal, failure) => {
+      const listeners = captureStopSignals();
+      const rpc = vi.fn(async (name: string, _args: Record<string, unknown>) => {
+        if (name !== 'claim_event_deliveries_v1') {
+          return { data: null, error: null };
+        }
+        if (failure === 'claim') {
+          listeners.get(signal)?.();
+          return { data: null, error: { code: 'XX000' } };
+        }
+        return { data: [claimedDelivery], error: null };
+      });
+      mocks.processDelivery.mockImplementation(async () => {
+        listeners.get(signal)?.();
+        throw new Error('provider_failed');
+      });
+      const wait = vi.fn(async () => {});
+
+      await runEventDeliveryWorker(client(rpc), { concurrency: 2, wait });
+
+      expect(wait).not.toHaveBeenCalled();
+    }
+  );
+
   it('paces an empty queue by one second', async () => {
     const listeners = captureStopSignals();
     const rpc = vi.fn(async (name: string, _args: Record<string, unknown>) => ({

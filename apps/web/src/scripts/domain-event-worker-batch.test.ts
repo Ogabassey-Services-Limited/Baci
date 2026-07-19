@@ -192,6 +192,48 @@ describe('domain event worker batch', () => {
     ).resolves.toEqual({ failed: 1, processed: 1 });
   });
 
+  it('logs only safe message identity when one batch item fails', async () => {
+    const sensitiveValue = 'private-token-do-not-log';
+    const rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: {
+        code: 'XX000',
+        details: `database details ${sensitiveValue}`,
+        message: `database message ${sensitiveValue}`,
+      },
+    });
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    try {
+      const result = await processDomainEventBatch(
+        client(rpc),
+        [
+          {
+            ...validMessage,
+            message: {
+              ...validMessage.message,
+              data: { secret: sensitiveValue },
+            },
+          },
+        ],
+        false
+      );
+
+      expect(result).toEqual({ failed: 1, processed: 0 });
+      expect(consoleError).toHaveBeenCalledOnce();
+      expect(consoleError).toHaveBeenCalledWith(
+        JSON.stringify({
+          code: 'domain_event_route_failed',
+          msg_id: 1,
+          worker: 'domain-event-router',
+        })
+      );
+      expect(JSON.stringify(consoleError.mock.calls)).not.toContain(sensitiveValue);
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
   it('checks the stop signal before every message', async () => {
     const rpc = vi.fn().mockResolvedValue({ data: [], error: null });
     const shouldStop = vi

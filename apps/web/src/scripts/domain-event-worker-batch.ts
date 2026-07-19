@@ -13,6 +13,11 @@ import type { DomainEventWorkerMessage } from './domain-event-worker-message';
 
 // Generated RPC types do not represent SQL-nullable required arguments.
 const sqlNullString: string = JSON.parse('null');
+const loggableFailureCodes = new Set([
+  'domain_event_message_invalid',
+  'domain_event_route_failed',
+  'ingress_dead_letter_failed',
+]);
 
 function potentialDomainEventId(message: unknown): string | null {
   if (!message || typeof message !== 'object' || Array.isArray(message)) {
@@ -115,8 +120,19 @@ async function processDomainEventBatch(
     try {
       await processDomainEventMessage(supabase, queued, shadow);
       processed += 1;
-    } catch {
+    } catch (error) {
       failed += 1;
+      const code =
+        error instanceof Error && loggableFailureCodes.has(error.message)
+          ? error.message
+          : 'domain_event_message_failed';
+      console.error(
+        JSON.stringify({
+          code,
+          msg_id: queued.msg_id,
+          worker: 'domain-event-router',
+        })
+      );
     }
   }
   return { failed, processed };

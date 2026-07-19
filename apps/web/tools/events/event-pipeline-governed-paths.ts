@@ -11,6 +11,8 @@ import { eventPipelineSourceFilePolicy } from './event-pipeline-source-file-poli
 
 const FROZEN_EVENT_PIPELINE_BASE_SHA =
   '9e3d1b14b1931a5e441fc23f0e5417c188056e47';
+// Rotation is two commits: first commit the reviewed production bytes, then
+// advance this receipt to that immutable parent. Never derive it from HEAD.
 const FROZEN_EVENT_PIPELINE_AUTHORITY_BYTE_BASE_SHA =
   '4c603474b17e1f1457582afa4cfc0c90d4b4ae4f';
 const FROZEN_PATH_INVENTORY_SHA256 =

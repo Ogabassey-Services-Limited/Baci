@@ -160,6 +160,40 @@ describe('runDomainEventWorker', () => {
     expect(readCount).toBe(1);
   });
 
+  it.each([
+    ['SIGINT', 'read'],
+    ['SIGTERM', 'read'],
+    ['SIGINT', 'partial'],
+    ['SIGTERM', 'partial'],
+  ] as const)(
+    'skips failure backoff when %s stops a %s failure',
+    async (signal, failure) => {
+      const listeners = captureStopSignals();
+      const rpc = vi.fn(async (name: string, _args: Record<string, unknown>) => {
+        if (name !== 'read_domain_events_v1') {
+          return { data: null, error: null };
+        }
+        if (failure === 'read') {
+          listeners.get(signal)?.();
+          return { data: null, error: { code: 'XX000' } };
+        }
+        return { data: [queuedMessage], error: null };
+      });
+      mocks.processBatch.mockImplementation(async () => {
+        listeners.get(signal)?.();
+        return { failed: 1, processed: 0 };
+      });
+      const wait = vi.fn(async () => {});
+
+      await runDomainEventWorker(client(rpc), {
+        routingMode: 'active',
+        wait,
+      });
+
+      expect(wait).not.toHaveBeenCalled();
+    }
+  );
+
   it('paces read failures by five seconds and exits after a stop signal', async () => {
     const listeners = captureStopSignals();
     const rpc = vi.fn(async (name: string, _args: Record<string, unknown>) => ({

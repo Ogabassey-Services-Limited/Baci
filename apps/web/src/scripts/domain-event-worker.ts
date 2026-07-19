@@ -103,7 +103,7 @@ async function runDomainEventWorker(
         if (failed > 0 && options.once) {
           throw new Error('batch_partial_failure');
         }
-        if (failed > 0) {
+        if (failed > 0 && !stopping) {
           await waitFor(WORKER_ERROR_BACKOFF_MS);
         }
       } catch (error) {
@@ -116,7 +116,7 @@ async function runDomainEventWorker(
           JSON.stringify({ code, status: 'failed', worker: 'domain-event-router' })
         );
         if (options.once) throw error;
-        await waitFor(WORKER_ERROR_BACKOFF_MS);
+        if (!stopping) await waitFor(WORKER_ERROR_BACKOFF_MS);
       }
     } while (!options.once && !stopping);
   } finally {

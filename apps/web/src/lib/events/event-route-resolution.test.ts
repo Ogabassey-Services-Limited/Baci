@@ -132,4 +132,11 @@ describe('resolveEventRoute', () => {
       resolveEventRoute(event({ event_name: 'unknown.event.created.v1' }))
     ).toEqual({ code: 'unknown_event_name', kind: 'dead_letter' });
   });
+
+  it('dead-letters inherited object keys instead of reading their values', () => {
+    expect(resolveEventRoute(event({ event_name: 'constructor' }))).toEqual({
+      code: 'unknown_event_name',
+      kind: 'dead_letter',
+    });
+  });
 });

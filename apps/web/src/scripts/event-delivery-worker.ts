@@ -125,7 +125,7 @@ async function runEventDeliveryWorker(
         if (failed.length > 0 && options.once) {
           throw new Error('batch_partial_failure');
         }
-        if (failed.length > 0) {
+        if (failed.length > 0 && !stopping) {
           await waitFor(WORKER_ERROR_BACKOFF_MS);
         } else if (batch.length === 0 && !options.once && !stopping) {
           await waitFor(1_000);
@@ -144,7 +144,7 @@ async function runEventDeliveryWorker(
           })
         );
         if (options.once) throw error;
-        await waitFor(WORKER_ERROR_BACKOFF_MS);
+        if (!stopping) await waitFor(WORKER_ERROR_BACKOFF_MS);
       }
     } while (!options.once && !stopping);
   } finally {
