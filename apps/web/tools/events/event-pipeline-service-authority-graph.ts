@@ -42,44 +42,49 @@ function serviceConstructionEdges(path: string, source: string, sources: Readonl
   if (allowedFactoryImporter(path, 'service') || !source.includes('createServiceClient')) return [];
   const referenced = moduleGraph.moduleReferences(path, source).some((specifier) => factoryReference(path, specifier, sources)?.kind === 'service');
   if (!referenced) return [];
-  const file = parseEventPipelineTypeScriptSource(path, source); const factories = new Set(['createServiceClient']); const containers = new Set<string>(); const edges: AuthorityEdge[] = []; let occurrence = 0;
+  const file = parseEventPipelineTypeScriptSource(path, source); const forms = new Map([['createServiceClient', 'direct']]); const containers = new Set<string>(); const functions = new Map<string, ts.ArrowFunction | ts.FunctionDeclaration | ts.FunctionExpression>(); const edges: AuthorityEdge[] = []; let changed = false;
   const unwrap = (expression: ts.Expression): ts.Expression => ts.isParenthesizedExpression(expression) || ts.isAsExpression(expression) || ts.isTypeAssertionExpression(expression) || ts.isNonNullExpression(expression) ? unwrap(expression.expression) : expression;
-  const addFactoryBindings = (name: ts.BindingName): void => { if (ts.isIdentifier(name)) factories.add(name.text); else for (const element of name.elements) if (ts.isBindingElement(element)) addFactoryBindings(element.name); };
+  const markForm = (name: string, form: string): void => { if (!forms.has(name)) { forms.set(name, form); changed = true; } };
+  const markContainer = (name: string): void => { if (!containers.has(name)) { containers.add(name); changed = true; } };
+  const addFactoryBindings = (name: ts.BindingName, form: string): void => { if (ts.isIdentifier(name)) markForm(name.text, form); else for (const element of name.elements) if (ts.isBindingElement(element)) addFactoryBindings(element.name, form); };
+  function indexFunctions(node: ts.Node) { if (ts.isFunctionDeclaration(node) && node.name && node.body) functions.set(node.name.text, node); if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) { const value = unwrap(node.initializer); if (ts.isArrowFunction(value) || ts.isFunctionExpression(value)) functions.set(node.name.text, value); } ts.forEachChild(node, indexFunctions); }
+  indexFunctions(file);
+  function callable(expression: ts.Expression) { const value = unwrap(expression); return ts.isArrowFunction(value) || ts.isFunctionExpression(value) ? value : ts.isIdentifier(value) ? functions.get(value.text) : undefined; }
+  function returned(fn: ts.ArrowFunction | ts.FunctionDeclaration | ts.FunctionExpression): ts.Expression[] { if (ts.isArrowFunction(fn) && !ts.isBlock(fn.body)) return [fn.body]; const values: ts.Expression[] = []; const body = fn.body; const find = (node: ts.Node) => { if (node !== body && ts.isFunctionLike(node)) return; if (ts.isReturnStatement(node) && node.expression) values.push(node.expression); else ts.forEachChild(node, find); }; if (body) find(body); return values; }
   function isForwarded(expression: ts.Expression): boolean {
     const value = unwrap(expression);
-    return ts.isIdentifier(value) ? containers.has(value.text) : ts.isArrayLiteralExpression(value) ? value.elements.some((element) => isFactory(element) || isForwarded(element)) : ts.isObjectLiteralExpression(value) ? value.properties.some((property) => ts.isPropertyAssignment(property) ? isFactory(property.initializer) || isForwarded(property.initializer) : ts.isShorthandPropertyAssignment(property) ? isFactory(property.name) : ts.isSpreadAssignment(property) && isForwarded(property.expression)) : false;
+    return ts.isIdentifier(value) ? containers.has(value.text) : ts.isArrayLiteralExpression(value) ? value.elements.some((element) => Boolean(factoryForm(element)) || isForwarded(element)) : ts.isObjectLiteralExpression(value) ? value.properties.some((property) => ts.isPropertyAssignment(property) ? Boolean(factoryForm(property.initializer)) || isForwarded(property.initializer) : ts.isShorthandPropertyAssignment(property) ? Boolean(factoryForm(property.name)) : ts.isSpreadAssignment(property) && isForwarded(property.expression)) : false;
   }
-  function isFactory(expression: ts.Expression): boolean {
+  function seedCall(call: ts.CallExpression, seen = new Set<ts.Node>()) { const fn = callable(call.expression); if (!fn) return undefined; for (const [index, parameter] of fn.parameters.entries()) { const argument = call.arguments[index]; if (!argument) continue; const form = factoryForm(argument, new Set(seen)); if (form) addFactoryBindings(parameter.name, 'forwarded'); else if (isForwarded(argument) && ts.isIdentifier(parameter.name)) markContainer(parameter.name.text); } return fn; }
+  function factoryForm(expression: ts.Expression, seen = new Set<ts.Node>()): string | undefined {
     const value = unwrap(expression);
-    if (ts.isPropertyAccessExpression(value) || ts.isElementAccessExpression(value)) { const name = memberName(value); return name === 'createServiceClient' || (name === 'bind' || name === 'call' ? isFactory(value.expression) : isForwarded(value.expression)); }
-    if (ts.isIdentifier(value)) return factories.has(value.text);
-    if (!ts.isCallExpression(value)) return false;
-    const returned = iifeResult(value);
-    return memberName(value.expression) === 'bind' && (ts.isPropertyAccessExpression(value.expression) || ts.isElementAccessExpression(value.expression)) && isFactory(value.expression.expression) || Boolean(returned && isFactory(returned));
+    if (seen.has(value)) return undefined; seen.add(value);
+    if (ts.isIdentifier(value)) return forms.get(value.text);
+    if (ts.isPropertyAccessExpression(value) || ts.isElementAccessExpression(value)) { const name = memberName(value); if (name === 'createServiceClient') return 'direct'; const owner = factoryForm(value.expression, new Set(seen)); if (owner && name === 'bind') return 'bound'; if (owner && (name === 'call' || name === 'apply')) return name; return isForwarded(value.expression) ? 'container' : undefined; }
+    if (!ts.isCallExpression(value)) return undefined;
+    const calleeForm = factoryForm(value.expression, new Set(seen)); if (calleeForm === 'bound' && memberName(value.expression) === 'bind') return 'bound';
+    const fn = seedCall(value, seen); return fn && returned(fn).some((result) => factoryForm(result, new Set(seen))) ? 'forwarded' : undefined;
   }
-  function iifeResult(call: ts.CallExpression): ts.Expression | undefined {
-    const callee = unwrap(call.expression); if (!(ts.isArrowFunction(callee) || ts.isFunctionExpression(callee))) return undefined;
-    for (const [index, parameter] of callee.parameters.entries()) { const argument = call.arguments[index]; if (argument && ts.isIdentifier(parameter.name)) { if (isFactory(argument)) factories.add(parameter.name.text); else if (isForwarded(argument)) containers.add(parameter.name.text); } }
-    return ts.isArrowFunction(callee) && !ts.isBlock(callee.body) ? callee.body : undefined;
-  }
-  function visit(node: ts.Node) {
+  const rootIdentifier = (expression: ts.Expression): string | undefined => { const value = unwrap(expression); return ts.isIdentifier(value) ? value.text : ts.isPropertyAccessExpression(value) || ts.isElementAccessExpression(value) ? rootIdentifier(value.expression) : undefined; };
+  function flow(node: ts.Node) {
     if (ts.isImportDeclaration(node) && !node.importClause?.isTypeOnly && ts.isStringLiteral(node.moduleSpecifier) && factoryReference(path, node.moduleSpecifier.text, sources)?.kind === 'service') {
-      const bindings = node.importClause?.namedBindings; if (bindings && ts.isNamedImports(bindings)) for (const element of bindings.elements) if (!element.isTypeOnly && (element.propertyName?.text ?? element.name.text) === 'createServiceClient') factories.add(element.name.text);
+      const bindings = node.importClause?.namedBindings; if (bindings && ts.isNamedImports(bindings)) for (const element of bindings.elements) if (!element.isTypeOnly && (element.propertyName?.text ?? element.name.text) === 'createServiceClient') markForm(element.name.text, 'direct');
     }
-    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) { if (isFactory(node.initializer)) factories.add(node.name.text); else if (isForwarded(node.initializer)) containers.add(node.name.text); }
-    if (ts.isVariableDeclaration(node) && !ts.isIdentifier(node.name) && node.initializer && isForwarded(node.initializer)) addFactoryBindings(node.name);
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) { const form = factoryForm(node.initializer); if (form) markForm(node.name.text, form === 'direct' && ts.isIdentifier(unwrap(node.initializer)) ? 'forwarded' : form); else if (isForwarded(node.initializer)) markContainer(node.name.text); }
+    if (ts.isVariableDeclaration(node) && !ts.isIdentifier(node.name) && node.initializer && isForwarded(node.initializer)) addFactoryBindings(node.name, 'container');
     if (ts.isVariableDeclaration(node) && ts.isObjectBindingPattern(node.name)) for (const element of node.name.elements) {
       const imported = element.propertyName && (ts.isIdentifier(element.propertyName) || ts.isStringLiteral(element.propertyName)) ? element.propertyName.text : ts.isIdentifier(element.name) ? element.name.text : undefined;
-      if (imported === 'createServiceClient' && ts.isIdentifier(element.name)) factories.add(element.name.text);
+      if (imported === 'createServiceClient' && ts.isIdentifier(element.name)) markForm(element.name.text, 'direct');
     }
-    if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken && ts.isIdentifier(node.left)) { if (isFactory(node.right)) factories.add(node.left.text); else if (isForwarded(node.right)) containers.add(node.left.text); }
-    if (ts.isCallExpression(node)) {
-      const callee = unwrap(node.expression); iifeResult(node);
-      if (isFactory(node.expression) && memberName(callee) !== 'bind') edges.push({ key: JSON.stringify(['construction', path, occurrence++]), message: `${path}: unauthorized service factory importer` });
-    }
-    ts.forEachChild(node, visit);
+    if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken) { const form = factoryForm(node.right); if (ts.isIdentifier(node.left)) { if (form) markForm(node.left.text, form === 'direct' && ts.isIdentifier(unwrap(node.right)) ? 'forwarded' : form); else if (isForwarded(node.right)) markContainer(node.left.text); } else if ((form || isForwarded(node.right)) && (ts.isPropertyAccessExpression(node.left) || ts.isElementAccessExpression(node.left))) { const root = rootIdentifier(node.left.expression); if (root) markContainer(root); } }
+    if (ts.isCallExpression(node)) seedCall(node);
+    ts.forEachChild(node, flow);
   }
-  visit(file); return edges;
+  do { changed = false; flow(file); } while (changed);
+  const counts = new Map<string, number>(); const signature = (expression: ts.Expression, form: string): string => { const value = unwrap(expression); if (ts.isPropertyAccessExpression(value) || ts.isElementAccessExpression(value)) { const name = memberName(value); if (name === 'call' || name === 'apply') return name; if (name === 'createServiceClient') return 'direct-member'; return ts.isElementAccessExpression(value) ? 'container-element' : 'container-member'; } return ts.isCallExpression(value) ? 'returned' : form; };
+  const bodyHasSink = (fn: ts.ArrowFunction | ts.FunctionDeclaration | ts.FunctionExpression): boolean => { let found = false; const scan = (node: ts.Node) => { if (found || node !== fn.body && ts.isFunctionLike(node)) return; if (ts.isCallExpression(node) && factoryForm(node.expression) && memberName(unwrap(node.expression)) !== 'bind') found = true; else ts.forEachChild(node, scan); }; if (fn.body) scan(fn.body); return found; };
+  function collect(node: ts.Node) { if (ts.isCallExpression(node)) { const form = factoryForm(node.expression); const fn = callable(node.expression); if (form && memberName(unwrap(node.expression)) !== 'bind' || fn && bodyHasSink(fn)) { const value = form ? signature(node.expression, form) : 'helper-invoke'; const occurrence = counts.get(value) ?? 0; counts.set(value, occurrence + 1); edges.push({ key: JSON.stringify(['construction', path, value, occurrence]), message: `${path}: unauthorized service factory importer` }); } } ts.forEachChild(node, collect); }
+  collect(file); return edges;
 }
 // biome-ignore format: compact path rendering preserves the frozen 300-line verifier gate.
 function pathMessage(root: string, kind: AuthorityKind, target: string, path: readonly string[]): string {
@@ -173,10 +178,8 @@ function credentialEdgeIsRelevant(importer: string, target: string, sources: Rea
 function collectAuthorityEdges(sources: ReadonlyMap<string, string>, roots: readonly string[], scanAllDirect = false): AuthorityEdge[] {
   // biome-ignore format: compact filtered graph construction preserves the frozen 300-line gate.
   const graphSources = new Map([...sources].map(([path, source]) => [path, withoutTypeOnlyNamedReexports(path, source)] as const));
-  const approved = new Set<string>(manifest.trustedWrapperImporters);
-  const indirectServiceTargets = manifest.authority.serviceImporters.filter((path) => !approved.has(path));
-  const productionClosures = new Map<string, Set<string>>();
-  const productionReachable = new Set<string>();
+  const approved = new Set<string>(manifest.trustedWrapperImporters); const indirectServiceTargets = manifest.authority.serviceImporters.filter((path) => !approved.has(path));
+  const productionClosures = new Map<string, Set<string>>(); const productionReachable = new Set<string>();
   for (const root of roots) {
     const source = sources.get(root);
     if (!source || !eventPipelineProductionSurface.isIndependent(root, source)) continue;

@@ -127,7 +127,6 @@ describe('event pipeline service authority graph', () => {
       `${path}: unauthorized service factory importer`
     );
   });
-
   it('subtracts inherited edges but rejects a new route to an inherited admin helper', () => {
     const route = 'apps/web/src/app/api/fourth/route.ts';
     const helper = 'apps/web/src/lib/inherited-admin.ts';
@@ -142,7 +141,7 @@ describe('event pipeline service authority graph', () => {
     expect(serviceAuthorityGraphFindings(edited, [route], frozen)).toEqual([expect.stringContaining(`${route} -> ${helper} -> ${admin}`)]);
   });
   // biome-ignore format: paired frozen/current fixtures prove occurrence-aware authority subtraction.
-  it.each([['first direct construction', "import { createServiceClient } from '@/lib/supabase/service';", "import { createServiceClient } from '@/lib/supabase/service'; createServiceClient('event-pipeline');"], ['additional direct construction', "import { createServiceClient } from '@/lib/supabase/service'; createServiceClient('event-pipeline');", "import { createServiceClient } from '@/lib/supabase/service'; createServiceClient('event-pipeline'); createServiceClient('event-pipeline');"], ['aliased ESM construction', "import { createServiceClient as make } from '@/lib/supabase/service';", "import { createServiceClient as make } from '@/lib/supabase/service'; make('event-pipeline');"], ['require construction', "require('@/lib/supabase/service');", "require('@/lib/supabase/service'); createServiceClient('event-pipeline');"], ['local alias construction', "import { createServiceClient } from '@/lib/supabase/service'; const make = createServiceClient;", "import { createServiceClient } from '@/lib/supabase/service'; const make = createServiceClient; make('event-pipeline');"], ['dynamic-import construction', "const { createServiceClient } = await import('@/lib/supabase/service');", "const { createServiceClient } = await import('@/lib/supabase/service'); createServiceClient('event-pipeline');"], ['bound construction', "import { createServiceClient } from '@/lib/supabase/service';", "import { createServiceClient } from '@/lib/supabase/service'; const bound = createServiceClient.bind(null); bound('event-pipeline');"], ['array-forwarded construction', "import { createServiceClient } from '@/lib/supabase/service';", "import { createServiceClient } from '@/lib/supabase/service'; const factories = [createServiceClient]; factories[0]('event-pipeline');"], ['array-destructured construction', "import { createServiceClient } from '@/lib/supabase/service';", "import { createServiceClient } from '@/lib/supabase/service'; const [make] = [createServiceClient]; make('event-pipeline');"], ['object-forwarded construction', "import { createServiceClient } from '@/lib/supabase/service';", "import { createServiceClient } from '@/lib/supabase/service'; const factories = { make: createServiceClient }; factories.make('event-pipeline');"], ['object-destructured construction', "import { createServiceClient } from '@/lib/supabase/service';", "import { createServiceClient } from '@/lib/supabase/service'; const { make } = { make: createServiceClient }; make('event-pipeline');"], ['IIFE-parameter construction', "import { createServiceClient } from '@/lib/supabase/service';", "import { createServiceClient } from '@/lib/supabase/service'; ((make) => make('event-pipeline'))(createServiceClient);"], ['IIFE-returned construction', "import { createServiceClient } from '@/lib/supabase/service';", "import { createServiceClient } from '@/lib/supabase/service'; const make = ((factory) => factory)(createServiceClient); make('event-pipeline');"], ['IIFE-chained construction', "import { createServiceClient } from '@/lib/supabase/service';", "import { createServiceClient } from '@/lib/supabase/service'; ((factory) => factory)(createServiceClient)('event-pipeline');"], ['call-forwarded construction', "import { createServiceClient } from '@/lib/supabase/service';", "import { createServiceClient } from '@/lib/supabase/service'; createServiceClient.call(null, 'event-pipeline');"]])('rejects a newly added %s behind inherited authority', (_, frozenSource, currentSource) => {
+  it.each([['first direct construction', "import { createServiceClient } from '@/lib/supabase/service';", "import { createServiceClient } from '@/lib/supabase/service'; createServiceClient('event-pipeline');"], ['additional direct construction', "import { createServiceClient } from '@/lib/supabase/service'; createServiceClient('event-pipeline');", "import { createServiceClient } from '@/lib/supabase/service'; createServiceClient('event-pipeline'); createServiceClient('event-pipeline');"], ['aliased ESM construction', "import { createServiceClient as make } from '@/lib/supabase/service';", "import { createServiceClient as make } from '@/lib/supabase/service'; make('event-pipeline');"], ['require construction', "require('@/lib/supabase/service');", "require('@/lib/supabase/service'); createServiceClient('event-pipeline');"], ['local alias construction', "import { createServiceClient } from '@/lib/supabase/service'; const make = createServiceClient;", "import { createServiceClient } from '@/lib/supabase/service'; const make = createServiceClient; make('event-pipeline');"], ['dynamic-import construction', "const { createServiceClient } = await import('@/lib/supabase/service');", "const { createServiceClient } = await import('@/lib/supabase/service'); createServiceClient('event-pipeline');"], ['bound construction', "import { createServiceClient } from '@/lib/supabase/service';", "import { createServiceClient } from '@/lib/supabase/service'; const bound = createServiceClient.bind(null); bound('event-pipeline');"], ['array-forwarded construction', "import { createServiceClient } from '@/lib/supabase/service';", "import { createServiceClient } from '@/lib/supabase/service'; const factories = [createServiceClient]; factories[0]('event-pipeline');"], ['array-destructured construction', "import { createServiceClient } from '@/lib/supabase/service';", "import { createServiceClient } from '@/lib/supabase/service'; const [make] = [createServiceClient]; make('event-pipeline');"], ['object-forwarded construction', "import { createServiceClient } from '@/lib/supabase/service';", "import { createServiceClient } from '@/lib/supabase/service'; const factories = { make: createServiceClient }; factories.make('event-pipeline');"], ['object-destructured construction', "import { createServiceClient } from '@/lib/supabase/service';", "import { createServiceClient } from '@/lib/supabase/service'; const { make } = { make: createServiceClient }; make('event-pipeline');"], ['IIFE-parameter construction', "import { createServiceClient } from '@/lib/supabase/service';", "import { createServiceClient } from '@/lib/supabase/service'; ((make) => make('event-pipeline'))(createServiceClient);"], ['IIFE-returned construction', "import { createServiceClient } from '@/lib/supabase/service';", "import { createServiceClient } from '@/lib/supabase/service'; const make = ((factory) => factory)(createServiceClient); make('event-pipeline');"], ['IIFE-chained construction', "import { createServiceClient } from '@/lib/supabase/service';", "import { createServiceClient } from '@/lib/supabase/service'; ((factory) => factory)(createServiceClient)('event-pipeline');"], ['call-forwarded construction', "import { createServiceClient } from '@/lib/supabase/service';", "import { createServiceClient } from '@/lib/supabase/service'; createServiceClient.call(null, 'event-pipeline');"], ['apply-forwarded construction', "import { createServiceClient } from '@/lib/supabase/service';", "import { createServiceClient } from '@/lib/supabase/service'; createServiceClient.apply(null, ['event-pipeline']);"], ['named identity construction', "import { createServiceClient } from '@/lib/supabase/service';", "import { createServiceClient } from '@/lib/supabase/service'; function forward(factory) { return factory; } const make = forward(createServiceClient); make('event-pipeline');"], ['named invoking-helper construction', "import { createServiceClient } from '@/lib/supabase/service';", "import { createServiceClient } from '@/lib/supabase/service'; function invoke(factory) { return factory('event-pipeline'); } invoke(createServiceClient);"], ['property-assigned construction', "import { createServiceClient } from '@/lib/supabase/service';", "import { createServiceClient } from '@/lib/supabase/service'; const bag = {}; bag.make = createServiceClient; bag.make('event-pipeline');"], ['block-IIFE-returned construction', "import { createServiceClient } from '@/lib/supabase/service';", "import { createServiceClient } from '@/lib/supabase/service'; const make = (function (factory) { return factory; })(createServiceClient); make('event-pipeline');"], ['call replacement', "import { createServiceClient } from '@/lib/supabase/service'; createServiceClient('event-pipeline');", "import { createServiceClient } from '@/lib/supabase/service'; createServiceClient.call(null, 'event-pipeline');"], ['bound replacement', "import { createServiceClient } from '@/lib/supabase/service'; createServiceClient('event-pipeline');", "import { createServiceClient } from '@/lib/supabase/service'; const bound = createServiceClient.bind(null); bound('event-pipeline');"], ['local-alias replacement', "import { createServiceClient } from '@/lib/supabase/service'; createServiceClient('event-pipeline');", "import { createServiceClient } from '@/lib/supabase/service'; const make = createServiceClient; make('event-pipeline');"]])('rejects a newly added %s behind inherited authority', (_, frozenSource, currentSource) => {
     const path = 'apps/web/src/lib/events/inherited-service-importer.ts';
     const service = 'apps/web/src/lib/supabase/service.ts';
     const frozen = new Map([[path, frozenSource], [service, 'export const createServiceClient = () => null;']]);
@@ -150,6 +149,14 @@ describe('event pipeline service authority graph', () => {
     current.set(path, currentSource);
     expect(serviceAuthorityGraphFindings(current, [path])).toContain(`${path}: unauthorized service factory importer`);
     expect(serviceAuthorityGraphFindings(current, [path], frozen)).toContain(`${path}: unauthorized service factory importer`);
+  });
+  // biome-ignore format: compact structural-identity fixture preserves the 300-line test ceiling.
+  it('keeps construction identity stable across non-authority edits', () => {
+    const path = 'apps/web/src/lib/events/inherited-service-importer.ts'; const service = 'apps/web/src/lib/supabase/service.ts';
+    const frozen = new Map([[path, "import { createServiceClient } from '@/lib/supabase/service'; createServiceClient('event-pipeline');"], [service, 'export const createServiceClient = () => null;']]);
+    const current = new Map(frozen); current.set(path, `${frozen.get(path)} export const nonAuthorityEdit = true;`);
+    expect(serviceAuthorityGraphFindings(current, [path])).toContain(`${path}: unauthorized service factory importer`);
+    expect(serviceAuthorityGraphFindings(current, [path], frozen)).toEqual([]);
   });
   // biome-ignore format: exact import shapes distinguish safe aliases from credential authority.
   it.each([
@@ -169,7 +176,6 @@ describe('event pipeline service authority graph', () => {
     );
     expect(finding).toBe(forbidden);
   });
-
   // biome-ignore format: credential export shapes stay compact under the 300-line gate.
   it.each([['a local export list', 'export const known = process.env.SUPABASE_SERVICE_ROLE_KEY; const hidden = process.env.SUPABASE_SERVICE_ROLE_KEY; export { hidden };', 'hidden'], ['a destructured export', 'export const known = process.env.SUPABASE_SERVICE_ROLE_KEY; export const { hidden } = { hidden: process.env.SUPABASE_SERVICE_ROLE_KEY };', 'hidden'], ['an unresolved export', 'export const known = process.env.SUPABASE_SERVICE_ROLE_KEY; export { missing };', 'missing']])('rejects credential access through %s', (_, targetSource, binding) => {
     const route = 'apps/web/src/app/api/fourth/route.ts';
@@ -177,7 +183,6 @@ describe('event pipeline service authority graph', () => {
     const sources = new Map([[route, `import { ${binding} } from '@/lib/events/credential-source';`], [target, targetSource]]);
     expect(serviceAuthorityGraphFindings(sources, [route])).toContain(`${route}: API import graph reaches credential authority ${target}`);
   });
-
   it('rejects fourth-route indirect test-client authority', () => {
     const sources = new Map([
       [
@@ -199,7 +204,6 @@ describe('event pipeline service authority graph', () => {
       ),
     ]);
   });
-
   it.each([
     [
       'server action',
@@ -234,12 +238,10 @@ describe('event pipeline service authority graph', () => {
         'export const createServiceClient = () => null;',
       ],
     ]);
-
     expect(serviceAuthorityGraphFindings(sources)).toContain(
       `${surface}: production surface import graph reaches service authority ${worker}`
     );
   });
-
   it('allows the declared worker root and an ordinary internal worker module', () => {
     const worker = 'apps/web/src/scripts/process-domain-events.ts';
     const internal = 'apps/web/src/lib/events/domain-event-worker-loop.ts';
@@ -252,12 +254,10 @@ describe('event pipeline service authority graph', () => {
       [internal, "import '@/scripts/process-domain-events';"],
       [service, 'export const createServiceClient = () => null;'],
     ]);
-
     expect(serviceAuthorityGraphFindings(sources, [worker, internal])).toEqual(
       []
     );
   });
-
   it('rejects a JavaScript-family route that indirectly reaches service authority', () => {
     const route = 'apps/web/src/app/api/fourth/route.jsx';
     const sources = new Map([
