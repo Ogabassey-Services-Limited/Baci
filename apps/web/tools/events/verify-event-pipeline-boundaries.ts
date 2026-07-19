@@ -16,6 +16,7 @@ import { parseEventPipelineTypeScriptSource } from '../../src/lib/events/event-p
 import { frozenRouteHashFinding } from './event-pipeline-boundary-hash';
 import { readGitSourceSnapshot } from './event-pipeline-git-source-snapshot';
 import { eventPipelineGovernedPaths } from './event-pipeline-governed-paths';
+import { eventPipelineProductionSurface } from './event-pipeline-production-surface';
 import {
   serviceAuthorityGraphFindings,
   serviceRoleCredentialFinding,
@@ -227,7 +228,7 @@ function sourceViewFindings(
     findings.push(`${path}: event-pipeline production root is missing`);
   findings.push(...serviceRoleCredentialAuthority.findings(sources));
   // biome-ignore format: compact union preserves the 300-line verifier gate.
-  const authorityRoots = [...new Set([...eventPipelineBoundaryManifest.trustedWrapperImporters, ...governed.productionPaths, ...governed.changedPaths])];
+  const authorityRoots = [...new Set([...eventPipelineBoundaryManifest.trustedWrapperImporters, ...governed.productionPaths, ...governed.changedPaths, ...[...sources].filter(([path, source]) => eventPipelineProductionSurface.isIndependent(path, source)).map(([path]) => path)])];
   findings.push(
     ...serviceAuthorityGraphFindings(
       sources,

@@ -1,6 +1,7 @@
 import ts from 'typescript';
 import { parseEventPipelineTypeScriptSource } from '../../src/lib/events/event-pipeline-typescript-source';
 import { analyticsDeliveryModuleGraph as moduleGraph } from './analytics-delivery-module-graph';
+import { resolveLexicalModuleSpecifier } from './analytics-delivery-module-specifier';
 
 type ModuleAnalysis = {
   references: readonly string[];
@@ -84,10 +85,15 @@ function analyzeModule(path: string, source: string): ModuleAnalysis {
   }
   const references = new Set<string>();
   const reexports = new Set<string>();
-  const add = (expression: ts.Expression | undefined, reexport = false) => {
-    if (!expression || !ts.isStringLiteralLike(expression)) return;
-    references.add(expression.text);
-    if (reexport) reexports.add(expression.text);
+  const add = (
+    expression: ts.Expression | undefined,
+    at: ts.Node,
+    reexport = false
+  ) => {
+    const specifier = resolveLexicalModuleSpecifier(expression, file, at);
+    if (specifier === undefined) return;
+    references.add(specifier);
+    if (reexport) reexports.add(specifier);
   };
   const visit = (node: ts.Node): void => {
     if (ts.isImportDeclaration(node) && !node.importClause?.isTypeOnly) {
@@ -99,7 +105,7 @@ function analyzeModule(path: string, source: string): ModuleAnalysis {
         bindings.elements.length === 0 ||
         bindings.elements.some((element) => !element.isTypeOnly)
       ) {
-        add(node.moduleSpecifier);
+        add(node.moduleSpecifier, node);
       }
     } else if (ts.isExportDeclaration(node) && !node.isTypeOnly) {
       const runtime =
@@ -107,19 +113,19 @@ function analyzeModule(path: string, source: string): ModuleAnalysis {
         ts.isNamespaceExport(node.exportClause) ||
         node.exportClause.elements.length === 0 ||
         node.exportClause.elements.some((element) => !element.isTypeOnly);
-      if (runtime) add(node.moduleSpecifier, true);
+      if (runtime) add(node.moduleSpecifier, node, true);
     } else if (
       ts.isImportEqualsDeclaration(node) &&
       !node.isTypeOnly &&
       ts.isExternalModuleReference(node.moduleReference)
     ) {
-      add(node.moduleReference.expression);
+      add(node.moduleReference.expression, node);
     } else if (
       ts.isCallExpression(node) &&
       (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
         referencesAlias(node.expression, aliases))
     ) {
-      add(node.arguments[0]);
+      add(node.arguments[0], node);
     }
     ts.forEachChild(node, visit);
   };

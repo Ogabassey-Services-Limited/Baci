@@ -67,6 +67,47 @@ describe('event pipeline static module graph', () => {
     ).toEqual([root, facade, service]);
   });
 
+  it('finds a const-bound dynamic-import path to local authority', () => {
+    const root = 'apps/web/src/app/api/example/route.ts';
+    const facade = 'apps/web/src/lib/events/facade.ts';
+    const service = 'apps/web/src/lib/supabase/service.ts';
+    const sources = new Map([
+      [root, "const target = '@/lib/events/facade'; import(target);"],
+      [facade, "export * from '@/lib/supabase/service';"],
+      [service, 'export {};'],
+    ]);
+
+    expect(
+      eventPipelineStaticModuleGraph.importPath(
+        root,
+        new Set([service]),
+        sources
+      )
+    ).toEqual([root, facade, service]);
+  });
+
+  it('finds a const-bound aliased-require path to local authority', () => {
+    const root = 'apps/web/src/app/api/example/route.ts';
+    const facade = 'apps/web/src/lib/events/facade.ts';
+    const service = 'apps/web/src/lib/supabase/service.ts';
+    const sources = new Map([
+      [
+        root,
+        "const load = require; const target = '@/lib/events/facade'; load(target);",
+      ],
+      [facade, "export * from '@/lib/supabase/service';"],
+      [service, 'export {};'],
+    ]);
+
+    expect(
+      eventPipelineStaticModuleGraph.importPath(
+        root,
+        new Set([service]),
+        sources
+      )
+    ).toEqual([root, facade, service]);
+  });
+
   it('finds multiple targets in one bounded traversal', () => {
     const root = 'apps/web/src/lib/events/root.ts';
     const left = 'apps/web/src/lib/events/left.ts';

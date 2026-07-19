@@ -14,6 +14,10 @@ const inheritedRoutes = [
   'apps/web/src/app/api/analytics/conversion/route.ts',
   'apps/web/src/app/api/events/route.ts',
 ] as const;
+const unchangedRoute = 'apps/web/src/app/api/unchanged/route.ts';
+const sharedHelper = 'apps/web/src/lib/events/shared-entry-helper.ts';
+const worker = 'apps/web/src/scripts/process-domain-events.ts';
+const service = 'apps/web/src/lib/supabase/service.ts';
 
 function git(root: string, ...args: string[]): void {
   execFileSync('git', args, { cwd: root });
@@ -53,6 +57,14 @@ function inheritedRepository(): { baseSha: string; root: string } {
     env,
     "export const getSupabaseUrl = () => 'url'; export const getSupabaseServiceRoleKey = () => process.env.SUPABASE_SERVICE_ROLE_KEY;\n"
   );
+  write(root, unchangedRoute, "import '@/lib/events/shared-entry-helper';\n");
+  write(root, sharedHelper, 'export const safe = true;\n');
+  write(
+    root,
+    worker,
+    "import { createServiceClient } from '@/lib/supabase/service'; createServiceClient('event-pipeline');\n"
+  );
+  write(root, service, 'export const createServiceClient = () => null;\n');
   git(root, 'add', '.');
   git(root, 'commit', '--quiet', '-m', 'inherited authority');
   const baseSha = execFileSync('git', ['rev-parse', 'HEAD'], {
@@ -97,6 +109,19 @@ describe('event pipeline verifier authority composition', () => {
 
     expect(thirdRouteFindings).toContain(
       `${thirdRoute} -> ${thirdHelper} -> ${env}`
+    );
+  });
+
+  it('traces changed helpers back to unchanged production entrypoints', () => {
+    const { baseSha, root } = inheritedRepository();
+    write(root, sharedHelper, "import '@/scripts/process-domain-events';\n");
+
+    const findings = verifyEventPipelineBoundaries(root, baseSha, baseSha).join(
+      '\n'
+    );
+
+    expect(findings).toContain(
+      `${unchangedRoute}: API import graph reaches service authority ${worker} via ${unchangedRoute} -> ${sharedHelper} -> ${worker}`
     );
   });
 });
