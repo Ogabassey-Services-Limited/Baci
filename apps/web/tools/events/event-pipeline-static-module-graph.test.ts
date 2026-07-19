@@ -86,6 +86,29 @@ describe('event pipeline static module graph', () => {
     ).toEqual([root, facade, service]);
   });
 
+  it('resolves one immutable separator reused across concatenation siblings', () => {
+    const source = [
+      "const slash = '/';",
+      "const target = '@' + slash + 'lib' + slash + 'supabase' + slash + 'service';",
+      'void import(target);',
+    ].join('\n');
+
+    expect(
+      eventPipelineStaticModuleGraph.moduleReferences('root.ts', source)
+    ).toEqual(['@/lib/supabase/service']);
+  });
+
+  it('resolves a const module target constrained with satisfies', () => {
+    const source = [
+      "const target = '@/lib/supabase/service' satisfies string;",
+      'void import(target);',
+    ].join('\n');
+
+    expect(
+      eventPipelineStaticModuleGraph.moduleReferences('root.ts', source)
+    ).toEqual(['@/lib/supabase/service']);
+  });
+
   it('finds a const-bound aliased-require path to local authority', () => {
     const root = 'apps/web/src/app/api/example/route.ts';
     const facade = 'apps/web/src/lib/events/facade.ts';
