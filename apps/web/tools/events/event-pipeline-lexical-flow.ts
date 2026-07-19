@@ -1,4 +1,6 @@
 import ts from 'typescript';
+import { eventPipelineRuntimeDefinitions } from './event-pipeline-runtime-reachability';
+import { eventPipelineSemanticFingerprint } from './event-pipeline-semantic-fingerprint';
 
 type Scope = {
   bindings: Map<string, ts.Node>;
@@ -33,40 +35,20 @@ function unwrap(expression: ts.Expression): ts.Expression {
   }
   return expression;
 }
-function isClassLike(
-  node: ts.Node
-): node is ts.ClassDeclaration | ts.ClassExpression {
-  return ts.isClassDeclaration(node) || ts.isClassExpression(node);
+function createsLexicalScope(node: ts.Node): boolean {
+  return (
+    ts.isBlock(node) ||
+    ts.isCatchClause(node) ||
+    ts.isClassDeclaration(node) ||
+    ts.isClassExpression(node) ||
+    ts.isForStatement(node) ||
+    ts.isForInStatement(node) ||
+    ts.isForOfStatement(node) ||
+    node.kind === ts.SyntaxKind.CaseBlock
+  );
 }
 function contains(ancestor: ts.Node, node: ts.Node): boolean {
   return ancestor.pos <= node.pos && ancestor.end >= node.end;
-}
-function executionOwner(node: ts.Node): ts.Node {
-  let cursor: ts.Node | undefined = node;
-  while (cursor?.parent) {
-    if (ts.isFunctionLike(cursor)) return cursor;
-    cursor = cursor.parent;
-  }
-  return cursor ?? node;
-}
-
-// biome-ignore format: compact control-flow dominance analysis preserves the 300-line utility gate.
-function assignmentIsConditional(assignment: ts.BinaryExpression, reference: ts.Identifier): boolean {
-  if (assignment.operatorToken.kind !== ts.SyntaxKind.EqualsToken) return true;
-  const owner = executionOwner(assignment); let cursor: ts.Node = assignment;
-  while (cursor.parent && cursor.parent !== owner) {
-    const parent = cursor.parent;
-    if (ts.isIfStatement(parent)) {
-      const branch = contains(parent.thenStatement, assignment) ? parent.thenStatement : parent.elseStatement && contains(parent.elseStatement, assignment) ? parent.elseStatement : undefined;
-      if (!branch || !contains(branch, reference)) return true;
-    } else if (ts.isConditionalExpression(parent)) {
-      const branch = contains(parent.whenTrue, assignment) ? parent.whenTrue : contains(parent.whenFalse, assignment) ? parent.whenFalse : undefined;
-      if (!branch || !contains(branch, reference)) return true;
-    } else if ((ts.isForStatement(parent) || ts.isForInStatement(parent) || ts.isForOfStatement(parent) || ts.isWhileStatement(parent) || ts.isDoStatement(parent)) && !contains(parent.statement, reference)) return true;
-    else if ((ts.isCaseClause(parent) || ts.isDefaultClause(parent) || ts.isCatchClause(parent) || ts.isTryStatement(parent)) && !contains(parent, reference)) return true;
-    cursor = parent;
-  }
-  return false;
 }
 
 function functionLabel(node: ts.SignatureDeclaration): string {
@@ -111,9 +93,7 @@ export function createEventPipelineLexicalFlow(
 
   const build = (node: ts.Node, scope: Scope): void => {
     const functionScope = node !== file && ts.isFunctionLike(node);
-    const blockScope =
-      node !== file &&
-      (ts.isBlock(node) || ts.isCatchClause(node) || isClassLike(node));
+    const blockScope = node !== file && createsLexicalScope(node);
     const local =
       functionScope || blockScope
         ? {
@@ -230,24 +210,18 @@ export function createEventPipelineLexicalFlow(
   const definitionKeys = (identifier: ts.Identifier): readonly ts.Node[] => {
     const declared = bindingOf(identifier);
     if (!declared) return [];
-    const referenceOwner = executionOwner(identifier);
-    const eligible = (assignments.get(declared) ?? []).filter(
-      (assignment) =>
-        assignment.end <= identifier.getStart(file) &&
-        contains(executionOwner(assignment), referenceOwner)
+    return eventPipelineRuntimeDefinitions(
+      file,
+      identifier,
+      declared,
+      assignments.get(declared) ?? [],
+      bindingOf
     );
-    let definitions: ts.Node[] = [declared];
-    for (const assignment of eligible) {
-      if (assignmentIsConditional(assignment, identifier)) {
-        definitions = [...definitions, assignment];
-      } else {
-        definitions = [assignment];
-      }
-    }
-    return definitions;
   };
 
   const semanticContext = (node: ts.Node): string => {
+    const fingerprint = (value: ts.Node) =>
+      eventPipelineSemanticFingerprint(file, value, definitionKeys);
     const labels: string[] = [];
     let cursor: ts.Node = node;
     while (cursor.parent) {
@@ -255,31 +229,37 @@ export function createEventPipelineLexicalFlow(
       if (ts.isFunctionLike(parent)) {
         labels.push(`function:${functionLabel(parent)}`);
       } else if (ts.isIfStatement(parent)) {
-        labels.push(
-          contains(parent.thenStatement, cursor)
-            ? 'if:then'
-            : parent.elseStatement && contains(parent.elseStatement, cursor)
-              ? 'if:else'
-              : 'if:condition'
-        );
+        const branch = contains(parent.thenStatement, cursor)
+          ? 'then'
+          : parent.elseStatement && contains(parent.elseStatement, cursor)
+            ? 'else'
+            : 'condition';
+        labels.push(`if:${fingerprint(parent.expression)}:${branch}`);
       } else if (ts.isConditionalExpression(parent)) {
+        const branch = contains(parent.whenTrue, cursor)
+          ? 'true'
+          : contains(parent.whenFalse, cursor)
+            ? 'false'
+            : 'condition';
+        labels.push(`conditional:${fingerprint(parent.condition)}:${branch}`);
+      } else if (ts.isForStatement(parent)) {
         labels.push(
-          contains(parent.whenTrue, cursor)
-            ? 'conditional:true'
-            : contains(parent.whenFalse, cursor)
-              ? 'conditional:false'
-              : 'conditional:condition'
+          `loop:for:${parent.condition ? fingerprint(parent.condition) : 'none'}`
         );
-      } else if (
-        ts.isForStatement(parent) ||
-        ts.isForInStatement(parent) ||
-        ts.isForOfStatement(parent) ||
-        ts.isWhileStatement(parent) ||
-        ts.isDoStatement(parent)
-      ) {
-        labels.push(`loop:${ts.SyntaxKind[parent.kind]}`);
-      } else if (ts.isCaseClause(parent) || ts.isDefaultClause(parent)) {
-        labels.push('switch:clause');
+      } else if (ts.isForInStatement(parent) || ts.isForOfStatement(parent)) {
+        labels.push(
+          `loop:${ts.SyntaxKind[parent.kind]}:${fingerprint(parent.expression)}`
+        );
+      } else if (ts.isWhileStatement(parent) || ts.isDoStatement(parent)) {
+        labels.push(
+          `loop:${ts.SyntaxKind[parent.kind]}:${fingerprint(parent.expression)}`
+        );
+      } else if (ts.isCaseClause(parent)) {
+        labels.push(`case:${fingerprint(parent.expression)}`);
+      } else if (ts.isDefaultClause(parent)) {
+        labels.push('case:default');
+      } else if (ts.isSwitchStatement(parent)) {
+        labels.push(`switch:${fingerprint(parent.expression)}`);
       } else if (ts.isCatchClause(parent)) {
         labels.push('catch');
       } else if (ts.isTryStatement(parent)) {
