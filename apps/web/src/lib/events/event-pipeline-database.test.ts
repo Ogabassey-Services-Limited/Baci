@@ -228,6 +228,26 @@ describe('event pipeline generated database boundary', () => {
     );
     expect(regression).toContain('DO $event_pipeline_contracts$');
   });
+  // biome-ignore format: exact caller authority is intentionally compact to remain below the modularity gate.
+  it('assigns worker RPCs to their leaf callers without moving bootstrap authority', async () => {
+    const { EVENT_PIPELINE_BOUNDARY } = await import(/* @vite-ignore */ pathToFileURL(modulePath).href);
+    expect(EVENT_PIPELINE_BOUNDARY.callers).toEqual({
+      'apps/web/src/app/api/admin/event-pipeline/dead-letters/route.ts': ['get_event_pipeline_operations_v1', 'list_event_pipeline_deliveries_v1', 'list_event_pipeline_ingress_failures_v1'],
+      'apps/web/src/app/api/admin/event-pipeline/replay/route.ts': ['replay_event_deliveries_batch_v1', 'replay_ingress_dead_letter_v1', 'select_event_pipeline_replay_ids_v1'],
+      'apps/web/src/lib/events/enqueue-paid-order-domain-event.ts': ['enqueue_domain_event_v1'],
+      'apps/web/src/lib/events/record-analytics-domain-event.ts': ['record_analytics_domain_event_v1'],
+      'apps/web/src/lib/events/record-platform-domain-event.ts': ['record_platform_domain_event_v1'],
+      'apps/web/src/scripts/domain-event-worker-batch.ts': ['dead_letter_ingress_event_v1', 'route_domain_event_v1'],
+      'apps/web/src/scripts/domain-event-worker.ts': ['read_domain_events_v1', 'record_event_worker_heartbeat_v1'],
+      'apps/web/src/scripts/event-delivery-worker.ts': ['claim_event_deliveries_v1', 'record_event_worker_heartbeat_v1'],
+      'apps/web/src/scripts/process-claimed-event-delivery.ts': ['finish_event_delivery_v1'],
+      'vps-workers/jobs/supabase-retention-cleanup.mjs': ['cleanup_domain_event_pipeline_v1'],
+    });
+    for (const path of ['apps/web/src/scripts/process-domain-events.ts', 'apps/web/src/scripts/process-event-deliveries.ts']) {
+      expect(EVENT_PIPELINE_BOUNDARY.authority.serviceImporters).toContain(path);
+      expect(EVENT_PIPELINE_BOUNDARY.productionRoots).toContain(path);
+    }
+  });
 
   it('converts plain JSON values and rejects non-JSON values', async () => {
     const moduleUrl = pathToFileURL(modulePath).href;

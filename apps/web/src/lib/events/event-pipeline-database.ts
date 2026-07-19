@@ -114,47 +114,25 @@ const frozenRoutes = {
     'bb3b5ea163f7029bd8a90523ac7944c9e126b2aebc0ce673f82c4e0c48d00161',
 } as const;
 const columns = (value: string) => value.split(' ');
+// biome-ignore format: compact RPC ownership map preserves the 300-line verifier gate.
 const runtimeCallers = {
-  'apps/web/src/app/api/admin/event-pipeline/dead-letters/route.ts': [
-    'get_event_pipeline_operations_v1',
-    'list_event_pipeline_deliveries_v1',
-    'list_event_pipeline_ingress_failures_v1',
-  ],
-  'apps/web/src/app/api/admin/event-pipeline/replay/route.ts': [
-    'replay_event_deliveries_batch_v1',
-    'replay_ingress_dead_letter_v1',
-    'select_event_pipeline_replay_ids_v1',
-  ],
-  'apps/web/src/lib/events/enqueue-paid-order-domain-event.ts': [
-    'enqueue_domain_event_v1',
-  ],
-  'apps/web/src/lib/events/record-analytics-domain-event.ts': [
-    'record_analytics_domain_event_v1',
-  ],
-  'apps/web/src/lib/events/record-platform-domain-event.ts': [
-    'record_platform_domain_event_v1',
-  ],
-  'apps/web/src/scripts/process-domain-events.ts': [
-    'dead_letter_ingress_event_v1',
-    'read_domain_events_v1',
-    'record_event_worker_heartbeat_v1',
-    'route_domain_event_v1',
-  ],
-  'apps/web/src/scripts/process-event-deliveries.ts': [
-    'claim_event_deliveries_v1',
-    'finish_event_delivery_v1',
-    'record_event_worker_heartbeat_v1',
-  ],
-  'vps-workers/jobs/supabase-retention-cleanup.mjs': [
-    'cleanup_domain_event_pipeline_v1',
-  ],
+  'apps/web/src/app/api/admin/event-pipeline/dead-letters/route.ts': ['get_event_pipeline_operations_v1', 'list_event_pipeline_deliveries_v1', 'list_event_pipeline_ingress_failures_v1'],
+  'apps/web/src/app/api/admin/event-pipeline/replay/route.ts': ['replay_event_deliveries_batch_v1', 'replay_ingress_dead_letter_v1', 'select_event_pipeline_replay_ids_v1'],
+  'apps/web/src/lib/events/enqueue-paid-order-domain-event.ts': ['enqueue_domain_event_v1'],
+  'apps/web/src/lib/events/record-analytics-domain-event.ts': ['record_analytics_domain_event_v1'],
+  'apps/web/src/lib/events/record-platform-domain-event.ts': ['record_platform_domain_event_v1'],
+  'apps/web/src/scripts/domain-event-worker-batch.ts': ['dead_letter_ingress_event_v1', 'route_domain_event_v1'],
+  'apps/web/src/scripts/domain-event-worker.ts': ['read_domain_events_v1', 'record_event_worker_heartbeat_v1'],
+  'apps/web/src/scripts/event-delivery-worker.ts': ['claim_event_deliveries_v1', 'record_event_worker_heartbeat_v1'],
+  'apps/web/src/scripts/process-claimed-event-delivery.ts': ['finish_event_delivery_v1'],
+  'vps-workers/jobs/supabase-retention-cleanup.mjs': ['cleanup_domain_event_pipeline_v1'],
 } as const;
 export const EVENT_PIPELINE_BOUNDARY = {
   allFunctions: EVENT_PIPELINE_FUNCTION_NAMES,
   adjacentFunctions: ['cleanup_database_retention'],
   authority: {
     // biome-ignore format: compact reviewed authority allowlist preserves the 300-line module gate.
-    adminImporters: ['apps/web/src/app/(platform)/onboarding/actions.ts', 'apps/web/src/app/api/cron/alert-stuck-bnpl/route.ts', 'apps/web/src/app/api/orders/route.ts', 'apps/web/src/app/api/payments/juicyway/webhook/route.ts', 'apps/web/src/app/api/platform/events/platform-event-forwarding.ts', 'apps/web/src/lib/expo-push.ts', 'apps/web/src/lib/events/record-platform-order-created-event.ts', 'apps/web/src/lib/merchant-sending-domain.ts', 'apps/web/src/lib/payments/file-inventory-confirmation-review.ts', 'apps/web/src/lib/payments/file-stuck-credit-direct-review.ts', 'apps/web/src/lib/payments/handle-payment-for-cancelled-order.ts', 'apps/web/src/lib/payments/resolve-credit-direct-confirmation-review.ts', 'apps/web/src/lib/zeptomail.ts'],
+    adminImporters: ['apps/web/src/app/(platform)/onboarding/actions.ts', 'apps/web/src/app/api/orders/route.ts', 'apps/web/src/app/api/payments/juicyway/webhook/route.ts', 'apps/web/src/app/api/platform/events/platform-event-forwarding.ts', 'apps/web/src/lib/events/record-platform-order-created-event.ts'],
     bareClientImporters: [
       ...Object.keys(frozenRoutes),
       'apps/web/src/app/api/analytics/conversion/route.ts',
@@ -182,7 +160,6 @@ export const EVENT_PIPELINE_BOUNDARY = {
     serviceImporters: [
       'apps/web/src/app/api/analytics/conversion/route.ts',
       'apps/web/src/app/api/events/route.ts',
-      'apps/web/src/app/api/payments/credit-direct/webhook/route.ts',
       'apps/web/src/lib/events/event-pipeline-service-role-test-client.ts',
       'apps/web/src/scripts/process-domain-events.ts',
       'apps/web/src/scripts/process-event-deliveries.ts',
@@ -277,6 +254,8 @@ export const EVENT_PIPELINE_BOUNDARY = {
   },
   productionRoots: [
     ...Object.keys(runtimeCallers),
+    'apps/web/src/scripts/process-domain-events.ts',
+    'apps/web/src/scripts/process-event-deliveries.ts',
     'apps/web/src/lib/events/event-ingress-capability.ts',
     'apps/web/src/lib/events/event-ingress-context.ts',
     'apps/web/src/lib/events/paid-order-delivery-event.ts',

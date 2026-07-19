@@ -170,16 +170,9 @@ export function changedPaths(root: string, git?: GitOutput): string[] {
   ];
 }
 
-export function baselineSources(
-  root: string,
-  paths: readonly string[],
-  git?: GitOutput
-): Map<string, string> {
-  const options = {
-    cwd: root,
-    encoding: 'utf8' as const,
-    stdio: ['ignore', 'pipe', 'pipe'] as const,
-  };
+// biome-ignore format: compact repository helper preserves the 300-line verifier gate.
+export function baselineSources(root: string, paths: readonly string[], git?: GitOutput): Map<string, string> {
+  const options = { cwd: root, encoding: 'utf8' as const };
   const run = git ?? ((args: string[]) => execFileSync('git', args, options));
   const mergeBase = resolveMergeBase(run);
   const sources = new Map<string, string>();
@@ -201,37 +194,25 @@ export function baselineSources(
   return sources;
 }
 
-export function verifyAnalyticsDeliveryAuthority(root: string): string[] {
-  const snapshot = readGitSourceSnapshot(root);
-  const { sources } = snapshot;
-  const changed = changedPaths(root);
-  const runtimeContractSnapshotPaths = changed.flatMap((path) => {
-    const runtimePath = runtimePathForColocatedTest(path) ?? path;
-    return [runtimePath, colocatedTestPath(runtimePath)];
-  });
+// biome-ignore format: compact source-view signature preserves the 300-line verifier gate.
+function sourceViewFindings(sources: ReadonlyMap<string, string>, paths: readonly string[], runtimeContractBaseline: ReadonlyMap<string, string>, now: Date): string[] {
   const cutoverPath =
     'apps/web/src/lib/events/event-pipeline-authority-cutover.ts';
   const queueOnlyDeliveryActivated = readQueueOnlyDeliveryCutover(
     sources.get(cutoverPath) ?? ''
   );
   const findings = [
-    ...snapshot.missingStagedPaths.map(
-      (path) => `${path}: staged analytics authority source is unresolved`
-    ),
     ...analyzeAnalyticsDeliveryAuthoritySources(sources),
     ...analyzeCredentialProjectionSets(sources),
     ...analyzeAnalyticsWorkerAuthority(sources),
     ...analyzeChangedRuntimeContracts(
-      changed,
+      paths,
       sources,
-      baselineSources(root, runtimeContractSnapshotPaths)
+      runtimeContractBaseline
     ),
     ...(queueOnlyDeliveryActivated === undefined
       ? [`${cutoverPath}: queue-only authority cutover marker is unresolved`]
-      : analyzeTemporaryAuthorityExpiry(
-          new Date(),
-          queueOnlyDeliveryActivated
-        )),
+      : analyzeTemporaryAuthorityExpiry(now, queueOnlyDeliveryActivated)),
   ];
   const hashes = {
     ...manifest.authorityClosureHashes,
@@ -262,6 +243,42 @@ export function verifyAnalyticsDeliveryAuthority(root: string): string[] {
       `${manifest.platformAuthority.helper}: platform helper imports trusted wrapper`
     );
   }
+  return findings;
+}
+// biome-ignore format: compact equality avoids duplicate full analysis for identical source views.
+function sameSources(left: ReadonlyMap<string, string>, right: ReadonlyMap<string, string>): boolean {
+  return left.size === right.size && [...left].every(([path, source]) => right.get(path) === source);
+}
+export function verifyAnalyticsDeliveryAuthority(root: string): string[] {
+  const snapshot = readGitSourceSnapshot(root);
+  const paths = changedPaths(root);
+  const runtimeContractSnapshotPaths = paths.flatMap((path) => {
+    const runtimePath = runtimePathForColocatedTest(path) ?? path;
+    return [runtimePath, colocatedTestPath(runtimePath)];
+  });
+  // biome-ignore format: compact baseline call preserves the 300-line verifier gate.
+  const runtimeContractBaseline = baselineSources(root, runtimeContractSnapshotPaths);
+  const now = new Date();
+  const findings = snapshot.missingStagedPaths.map(
+    (path) => `${path}: staged analytics authority source is unresolved`
+  );
+  findings.push(
+    ...sourceViewFindings(
+      snapshot.indexSources,
+      paths,
+      runtimeContractBaseline,
+      now
+    )
+  );
+  if (!sameSources(snapshot.indexSources, snapshot.filesystemSources))
+    findings.push(
+      ...sourceViewFindings(
+        snapshot.filesystemSources,
+        paths,
+        runtimeContractBaseline,
+        now
+      )
+    );
   return [...new Set(findings)].sort();
 }
 

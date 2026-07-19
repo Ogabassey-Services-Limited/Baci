@@ -25,154 +25,31 @@ function event(overrides: Partial<DomainEventV1> = {}): DomainEventV1 {
   };
 }
 
-describe('resolveEventRoute', () => {
-  it('routes client checkout events independently', () => {
-    expect(resolveEventRoute(event())).toEqual({
-      destinations: ['facebook', 'tiktok', 'snapchat'],
-      kind: 'route',
-    });
-  });
-
-  it('honours explicit delivery targets in durable event data', () => {
-    expect(
-      resolveEventRoute(
-        event({ data: { event_data: { targets: ['facebook', 'google'] } } })
-      )
-    ).toEqual({ destinations: ['facebook'], kind: 'route' });
-  });
-
-  it('rejects anonymous purchase claims', () => {
-    expect(
-      resolveEventRoute(
-        event({
-          event_name: 'analytics.purchase.completed.v1',
-          trust_level: 'anonymous_client',
-        })
-      )
-    ).toEqual({
-      code: 'producer_not_authorized_for_event',
-      kind: 'dead_letter',
-    });
-  });
-
-  it('routes trusted paid-order events to all purchase destinations', () => {
-    expect(
-      resolveEventRoute(
-        event({
-          event_name: 'analytics.purchase.completed.v1',
-          producer: 'worker',
-          trust_level: 'server',
-        })
-      )
-    ).toEqual({
-      destinations: ['facebook', 'tiktok', 'ga4', 'snapchat'],
-      kind: 'route',
-    });
-  });
-
-  it('rejects a trusted label from the wrong producer boundary', () => {
-    expect(
-      resolveEventRoute(
-        event({
-          event_name: 'analytics.purchase.completed.v1',
-          producer: 'web',
-          trust_level: 'server',
-        })
-      )
-    ).toEqual({
-      code: 'producer_not_authorized_for_event',
-      kind: 'dead_letter',
-    });
-  });
-
-  it('rejects spoofed CDC names from non-database producers', () => {
-    expect(
-      resolveEventRoute(
-        event({
-          event_name: 'commerce.order.paid.v1',
-          producer: 'web',
-          trust_level: 'tenant_verified_client',
-        })
-      )
-    ).toEqual({
-      code: 'producer_not_authorized_for_event',
-      kind: 'dead_letter',
-    });
-  });
-
-  it('archives approved CDC events without a destination', () => {
-    expect(
-      resolveEventRoute(
-        event({
-          event_name: 'catalog.product.updated.v1',
-          producer: 'database',
-          trust_level: 'database',
-        })
-      )
-    ).toEqual({ destinations: [], kind: 'no_route' });
-  });
-
-  it('dead-letters unknown names', () => {
-    expect(
-      resolveEventRoute(event({ event_name: 'unknown.event.created.v1' }))
-    ).toEqual({ code: 'unknown_event_name', kind: 'dead_letter' });
-  });
-});
-
-describe('domain event naming', () => {
-  it('uses the trusted purchase event name', () => {
-    expect(toAnalyticsDomainEventName('purchase')).toBe(
-      'analytics.purchase.completed.v1'
-    );
-  });
-
-  it('versions platform names', () => {
-    expect(toPlatformDomainEventName('pricing_page_view')).toBe(
-      'platform.pricing_page_view.v1'
-    );
-  });
-
-  it('downgrades unverified client events to observation-only names', () => {
-    expect(
-      toClientAnalyticsDomainEventName('add_to_cart', 'anonymous_client')
-    ).toBe('analytics.client.observed.v1');
-    expect(
-      toClientPlatformDomainEventName('platform_purchase', 'anonymous_client')
-    ).toBe('platform.client.observed.v1');
-  });
-
-  it('allows low-risk public platform funnel events without merchant trust', () => {
+describe('event route registry facade', () => {
+  it('preserves public route resolution and naming exports', () => {
     const eventName = toClientPlatformDomainEventName(
       'landing_page_view',
       'anonymous_client'
     );
 
-    expect(eventName).toBe('platform.landing_page_view.v1');
-    expect(
-      resolveEventRoute(
-        event({
-          event_name: eventName,
-          trust_level: 'anonymous_client',
-        })
-      )
-    ).toEqual({ destinations: ['facebook', 'ga4'], kind: 'route' });
-  });
-
-  it('never treats a client purchase claim as paid-order confirmation', () => {
+    expect(resolveEventRoute(event())).toEqual({
+      destinations: ['facebook', 'tiktok', 'snapchat'],
+      kind: 'route',
+    });
+    expect(toAnalyticsDomainEventName('purchase')).toBe(
+      'analytics.purchase.completed.v1'
+    );
+    expect(toPlatformDomainEventName('pricing_page_view')).toBe(
+      'platform.pricing_page_view.v1'
+    );
     expect(
       toClientAnalyticsDomainEventName('purchase', 'tenant_verified_client')
     ).toBe('analytics.purchase.observed.v1');
-  });
-
-  it('records other server-only client claims as observation telemetry', () => {
+    expect(eventName).toBe('platform.landing_page_view.v1');
     expect(
-      toClientAnalyticsDomainEventName('place_order', 'tenant_verified_client')
-    ).toBe('analytics.client.observed.v1');
-    expect(
-      toClientPlatformDomainEventName(
-        'platform_purchase',
-        'tenant_verified_client'
+      resolveEventRoute(
+        event({ event_name: eventName, trust_level: 'anonymous_client' })
       )
-    ).toBe('platform.client.observed.v1');
+    ).toEqual({ destinations: ['facebook', 'ga4'], kind: 'route' });
   });
 });

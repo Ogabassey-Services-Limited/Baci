@@ -5,7 +5,8 @@ function unwrap(expression: ts.Expression): ts.Expression {
   return ts.isParenthesizedExpression(expression) ||
     ts.isAsExpression(expression) ||
     ts.isTypeAssertionExpression(expression) ||
-    ts.isNonNullExpression(expression)
+    ts.isNonNullExpression(expression) ||
+    ts.isSatisfiesExpression(expression)
     ? unwrap(expression.expression)
     : expression;
 }
@@ -50,8 +51,8 @@ export function resolveLexicalString(
     ts.isBinaryExpression(value) &&
     value.operatorToken.kind === ts.SyntaxKind.PlusToken
   ) {
-    const left = resolveLexicalString(value.left, file, at, seen);
-    const right = resolveLexicalString(value.right, file, at, seen);
+    const left = resolveLexicalString(value.left, file, at, new Set(seen));
+    const right = resolveLexicalString(value.right, file, at, new Set(seen));
     return left !== undefined && right !== undefined
       ? `${left}${right}`
       : undefined;
@@ -67,6 +68,7 @@ export function resolveLexicalString(
   ) {
     return undefined;
   }
-  seen.add(binding.pos);
-  return resolveLexicalString(binding.initializer, file, binding, seen);
+  const nextSeen = new Set(seen);
+  nextSeen.add(binding.pos);
+  return resolveLexicalString(binding.initializer, file, binding, nextSeen);
 }

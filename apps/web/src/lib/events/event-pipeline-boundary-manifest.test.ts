@@ -130,16 +130,34 @@ describe('event pipeline authority manifest', () => {
     );
   });
 
+  it('pins the finite privileged-factory importer sets', async () => {
+    expect(existsSync(modulePath), 'boundary manifest is missing').toBe(true);
+    if (!existsSync(modulePath)) return;
+    const moduleUrl = pathToFileURL(modulePath).href;
+    const { eventPipelineBoundaryManifest: manifest } = await import(
+      /* @vite-ignore */ moduleUrl
+    );
+
+    expect(manifest.authority.adminImporters).toEqual([
+      'apps/web/src/app/(platform)/onboarding/actions.ts',
+      'apps/web/src/app/api/orders/route.ts',
+      'apps/web/src/app/api/payments/juicyway/webhook/route.ts',
+      'apps/web/src/app/api/platform/events/platform-event-forwarding.ts',
+      'apps/web/src/lib/events/record-platform-order-created-event.ts',
+    ]);
+    expect(manifest.authority.serviceImporters).toEqual([
+      'apps/web/src/app/api/analytics/conversion/route.ts',
+      'apps/web/src/app/api/events/route.ts',
+      'apps/web/src/lib/events/event-pipeline-service-role-test-client.ts',
+      'apps/web/src/scripts/process-domain-events.ts',
+      'apps/web/src/scripts/process-event-deliveries.ts',
+    ]);
+  });
+
   it.each([
-    'apps/web/src/app/api/cron/alert-stuck-bnpl/route.ts',
-    'apps/web/src/lib/expo-push.ts',
-    'apps/web/src/lib/merchant-sending-domain.ts',
-    'apps/web/src/lib/payments/file-inventory-confirmation-review.ts',
     'apps/web/src/lib/payments/file-stuck-credit-direct-review.ts',
-    'apps/web/src/lib/payments/handle-payment-for-cancelled-order.ts',
     'apps/web/src/lib/payments/resolve-credit-direct-confirmation-review.ts',
-    'apps/web/src/lib/zeptomail.ts',
-  ])('allows the reviewed admin importer %s', (path) => {
+  ])('rejects the retired admin importer %s', (path) => {
     const importOnly = ts.createSourceFile(
       path,
       "import { createAdminClient } from '@/lib/supabase/admin';",
@@ -148,7 +166,24 @@ describe('event pipeline authority manifest', () => {
       ts.ScriptKind.TS
     );
 
-    expect(authorityFindings(path, importOnly)).toEqual([]);
+    expect(authorityFindings(path, importOnly)).toContain(
+      `${path}: unauthorized admin factory importer`
+    );
+  });
+
+  it('rejects the Credit Direct webhook as a service importer', () => {
+    const path = 'apps/web/src/app/api/payments/credit-direct/webhook/route.ts';
+    const importOnly = ts.createSourceFile(
+      path,
+      "import { createServiceClient } from '@/lib/supabase/service';",
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TS
+    );
+
+    expect(authorityFindings(path, importOnly)).toContain(
+      `${path}: unauthorized trusted wrapper importer`
+    );
   });
 
   it('rejects a namespace service factory in a fourth route', () => {

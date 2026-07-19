@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
+  createAdminClient: vi.fn(),
   getCronSecret: vi.fn<() => string | undefined>(() => 'cron-secret'),
   limit: vi.fn(),
   statusIn: vi.fn(),
@@ -21,6 +22,7 @@ vi.mock('@/env', () => ({
 
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: () => {
+    mocks.createAdminClient();
     const ordersChain = {
       select: vi.fn(),
       eq: vi.fn(),
@@ -616,6 +618,7 @@ describe('GET /api/cron/alert-stuck-bnpl', () => {
 
     expect(response.status).toBe(200);
     expect(mocks.reviewInsert).toHaveBeenCalledTimes(6);
+    expect(mocks.createAdminClient).toHaveBeenCalledTimes(1);
     expect(data.reviewFailures).toEqual(['order-2', 'order-6']);
     expect(mocks.notifyMerchant).toHaveBeenCalledTimes(1);
   });

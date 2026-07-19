@@ -13,7 +13,14 @@ function lexicalScope(node: ts.Node): ts.Node | undefined {
     (candidate) =>
       ts.isSourceFile(candidate) ||
       ts.isBlock(candidate) ||
-      ts.isFunctionLike(candidate)
+      ts.isFunctionLike(candidate) ||
+      ts.isForStatement(candidate) ||
+      ts.isForInStatement(candidate) ||
+      ts.isForOfStatement(candidate) ||
+      ts.isCaseBlock(candidate) ||
+      ts.isModuleBlock(candidate) ||
+      ts.isCatchClause(candidate) ||
+      ts.isClassStaticBlockDeclaration(candidate)
   );
 }
 
@@ -46,6 +53,7 @@ export function resolveLexicalBinding(
     const leftScope = lexicalScope(left);
     const rightScope = lexicalScope(right);
     if (leftScope && rightScope) {
+      if (leftScope === rightScope) return right.pos - left.pos;
       if (isAncestor(leftScope, rightScope)) return 1;
       if (isAncestor(rightScope, leftScope)) return -1;
     }

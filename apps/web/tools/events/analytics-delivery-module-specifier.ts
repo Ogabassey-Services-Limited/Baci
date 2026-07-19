@@ -6,7 +6,8 @@ function unwrap(expression: ts.Expression): ts.Expression {
   return ts.isParenthesizedExpression(expression) ||
     ts.isAsExpression(expression) ||
     ts.isTypeAssertionExpression(expression) ||
-    ts.isNonNullExpression(expression)
+    ts.isNonNullExpression(expression) ||
+    ts.isSatisfiesExpression(expression)
     ? unwrap(expression.expression)
     : expression;
 }
@@ -41,7 +42,7 @@ export function resolveLexicalModuleSpecifier(
         span.expression,
         file,
         at,
-        seen
+        new Set(seen)
       );
       if (substitution === undefined) return undefined;
       result += substitution + span.literal.text;
@@ -51,6 +52,7 @@ export function resolveLexicalModuleSpecifier(
   if (!ts.isIdentifier(value)) return undefined;
   const initializer = constInitializer(value, file, at);
   if (!initializer || seen.has(initializer.pos)) return undefined;
-  seen.add(initializer.pos);
-  return resolveLexicalModuleSpecifier(initializer, file, at, seen);
+  const nextSeen = new Set(seen);
+  nextSeen.add(initializer.pos);
+  return resolveLexicalModuleSpecifier(initializer, file, at, nextSeen);
 }

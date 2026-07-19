@@ -11,6 +11,24 @@
       "google.maps"
     ]
   },
-  "include": ["tools/db/**/*.ts"],
+  "include": [
+    "tools/events/**/*.ts",
+    "tools/db/**/*.ts",
+    "src/scripts/process-domain-events.ts",
+    "src/scripts/process-domain-events.test.ts",
+    "src/scripts/domain-event-worker-message.ts",
+    "src/scripts/domain-event-worker-batch.ts",
+    "src/scripts/domain-event-worker-batch.test.ts",
+    "src/scripts/domain-event-worker.ts",
+    "src/scripts/domain-event-worker.test.ts",
+    "src/scripts/process-event-deliveries.ts",
+    "src/scripts/process-event-deliveries.test.ts",
+    "src/scripts/event-delivery-claim-batch-size.ts",
+    "src/scripts/event-delivery-claim-batch-size.test.ts",
+    "src/scripts/process-claimed-event-delivery.ts",
+    "src/scripts/process-claimed-event-delivery.test.ts",
+    "src/scripts/event-delivery-worker.ts",
+    "src/scripts/event-delivery-worker.test.ts"
+  ],
   "exclude": ["node_modules", ".next", "supabase"]
 }

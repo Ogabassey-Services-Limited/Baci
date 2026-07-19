@@ -153,6 +153,7 @@ export async function GET(request: NextRequest) {
     );
 
     const reviewFailures = await fileStuckCreditDirectReviews(
+      supabase,
       orders.filter((order) => order.payment_method === 'credit_direct'),
       transactionEvidenceReferences
     );

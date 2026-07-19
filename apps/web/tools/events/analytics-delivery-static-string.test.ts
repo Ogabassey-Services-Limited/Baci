@@ -38,4 +38,12 @@ describe('resolveLexicalString', () => {
       resolveLexicalString(fixture.argument, fixture.file, fixture.call)
     ).toBe('event-pipeline');
   });
+
+  it('rejects a self-referential immutable binding', () => {
+    const fixture = callArgument('const key = key; use(key);');
+
+    expect(
+      resolveLexicalString(fixture.argument, fixture.file, fixture.call)
+    ).toBeUndefined();
+  });
 });
