@@ -25,7 +25,7 @@ const settlementGrossAmountSchema = z.union([
 const settlementArgsSchema = z.object({
   allocatedGatewayFeeNgn: z.number().finite().min(0).optional(),
   externalGatewayReference: z.string().trim().min(1),
-  settlementGateway: z.enum(['korapay', 'paystack']),
+  settlementGateway: z.enum(['juicyway', 'korapay', 'paystack']),
   supabase: z.custom<ServiceRoleClient>(
     (value) =>
       value !== null &&
@@ -61,7 +61,7 @@ function throwSettlementRpcError(error: unknown): never {
 export function buildSettlementExecutor(args: {
   allocatedGatewayFeeNgn?: number;
   externalGatewayReference: string;
-  settlementGateway: 'korapay' | 'paystack';
+  settlementGateway: 'juicyway' | 'korapay' | 'paystack';
   supabase: ServiceRoleClient;
   transaction: PaidOrderSideEffectTransaction;
 }): StepExecutor {
@@ -82,11 +82,13 @@ export function buildSettlementExecutor(args: {
       throw new Error('Settlement amount must be positive');
     }
     const gatewayFee =
-      validatedArgs.allocatedGatewayFeeNgn ??
-      extractVerifiedGatewayFeeNgn(
-        validatedArgs.settlementGateway,
-        ctx.gatewayResponse
-      );
+      validatedArgs.settlementGateway === 'juicyway'
+        ? 0
+        : (validatedArgs.allocatedGatewayFeeNgn ??
+          extractVerifiedGatewayFeeNgn(
+            validatedArgs.settlementGateway,
+            ctx.gatewayResponse
+          ));
     if (!Number.isFinite(gatewayFee) || gatewayFee < 0) {
       throw new Error('Invalid gateway fee');
     }
@@ -96,7 +98,11 @@ export function buildSettlementExecutor(args: {
     const gatewayFeeKobo = Math.round(gatewayFee * KOBO_PER_NAIRA);
     const platformFeeKobo =
       validatedArgs.transaction.platform_fee == null
-        ? Math.round(calculatePlatformFee(unroundedGrossAmountKobo).platformFee)
+        ? validatedArgs.settlementGateway === 'juicyway'
+          ? 0
+          : Math.round(
+              calculatePlatformFee(unroundedGrossAmountKobo).platformFee
+            )
         : Math.round(
             toNumber(
               validatedArgs.transaction.platform_fee,

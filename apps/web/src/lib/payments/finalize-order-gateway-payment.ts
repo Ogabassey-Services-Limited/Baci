@@ -52,7 +52,7 @@ export async function finalizeOrderGatewayPayment({
   supabase: SupabaseClient;
   transaction: FinalizeOrderGatewayPaymentTransaction;
   orderId: string;
-  gateway: 'paystack' | 'korapay';
+  gateway: 'juicyway' | 'paystack' | 'korapay';
   reference: string;
   gatewayResponse: Record<string, unknown>;
   // True only for the caller that flipped the transaction row itself (the

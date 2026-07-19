@@ -1,11 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { verifyGatewayCharge } from '@/lib/payments/verify-gateway-charge';
+import {
+  isTerminalGatewayVerificationReason,
+  verifyGatewayCharge,
+} from '@/lib/payments/verify-gateway-charge';
 
 const mocks = vi.hoisted(() => ({
+  getJuicywaySession: vi.fn(),
   verifyKorapayPayment: vi.fn(),
   verifyPaystackPayment: vi.fn(),
 }));
 
+vi.mock('@/lib/juicyway', () => ({
+  getPaymentSession: mocks.getJuicywaySession,
+}));
 vi.mock('@/lib/korapay', () => ({
   verifyPayment: mocks.verifyKorapayPayment,
 }));
@@ -117,5 +124,162 @@ describe('verifyGatewayCharge', () => {
       ok: false,
       reason: 'korapay_verification_invalid_payload',
     });
+  });
+
+  it('verifies a succeeded Juicyway session against its locked settlement metadata', async () => {
+    mocks.getJuicywaySession.mockResolvedValue({
+      data: {
+        id: 'session-1',
+        payment: {
+          amount: 50_000,
+          currency: 'USDT',
+          id: 'payment-1',
+          status: 'succeeded',
+        },
+        status: 'succeeded',
+      },
+      success: true,
+    });
+
+    await expect(
+      verifyGatewayCharge('juicyway', 'BAC-JUICY', {
+        juicywayExpectedAmount: 50_000,
+        juicywayExpectedCurrency: 'USDT',
+        juicywaySessionId: 'session-1',
+      })
+    ).resolves.toEqual({
+      amount: 50_000,
+      currency: 'USDT',
+      ok: true,
+      response: {
+        id: 'session-1',
+        payment: {
+          amount: 50_000,
+          currency: 'USDT',
+          id: 'payment-1',
+          status: 'succeeded',
+        },
+        status: 'succeeded',
+      },
+    });
+    expect(mocks.getJuicywaySession).toHaveBeenCalledWith('session-1');
+  });
+
+  it('keeps a Juicyway session pending so the next sweep retries it', async () => {
+    mocks.getJuicywaySession.mockResolvedValue({
+      data: {
+        id: 'session-1',
+        payment: {
+          amount: 50_000,
+          currency: 'USDT',
+          id: 'payment-1',
+          status: 'processing',
+        },
+        status: 'processing',
+      },
+      success: true,
+    });
+
+    await expect(
+      verifyGatewayCharge('juicyway', 'BAC-JUICY', {
+        juicywayExpectedAmount: 50_000,
+        juicywayExpectedCurrency: 'USDT',
+        juicywaySessionId: 'session-1',
+      })
+    ).resolves.toEqual({
+      gatewayStatus: 'processing',
+      ok: false,
+      reason: 'juicyway_payment_pending',
+    });
+  });
+
+  it('rejects an underpaid Juicyway session', async () => {
+    mocks.getJuicywaySession.mockResolvedValue({
+      data: {
+        id: 'session-1',
+        payment: {
+          amount: 48_000,
+          currency: 'USDT',
+          id: 'payment-1',
+          status: 'succeeded',
+        },
+        status: 'succeeded',
+      },
+      success: true,
+    });
+
+    await expect(
+      verifyGatewayCharge('juicyway', 'BAC-JUICY', {
+        juicywayExpectedAmount: 50_000,
+        juicywayExpectedCurrency: 'USDT',
+        juicywaySessionId: 'session-1',
+      })
+    ).resolves.toEqual({ ok: false, reason: 'amount_mismatch' });
+  });
+
+  it.each([
+    { expectedResult: 'success', settledAmount: 49_500 },
+    { expectedResult: 'amount_mismatch', settledAmount: 49_499 },
+  ])('classifies $settledAmount at the one-percent underpayment boundary', async ({
+    expectedResult,
+    settledAmount,
+  }) => {
+    mocks.getJuicywaySession.mockResolvedValue({
+      data: {
+        id: 'session-1',
+        payment: {
+          amount: settledAmount,
+          currency: 'USDT',
+          id: 'payment-1',
+          status: 'succeeded',
+        },
+        status: 'succeeded',
+      },
+      success: true,
+    });
+
+    const result = await verifyGatewayCharge('juicyway', 'BAC-JUICY', {
+      juicywayExpectedAmount: 50_000,
+      juicywayExpectedCurrency: 'USDT',
+      juicywaySessionId: 'session-1',
+    });
+
+    expect(result).toEqual(
+      expectedResult === 'success'
+        ? {
+            amount: settledAmount,
+            currency: 'USDT',
+            ok: true,
+            response: {
+              id: 'session-1',
+              payment: {
+                amount: settledAmount,
+                currency: 'USDT',
+                id: 'payment-1',
+                status: 'succeeded',
+              },
+              status: 'succeeded',
+            },
+          }
+        : { ok: false, reason: expectedResult }
+    );
+  });
+
+  it('fails closed when Juicyway reconciliation metadata is missing', async () => {
+    await expect(verifyGatewayCharge('juicyway', 'BAC-JUICY')).resolves.toEqual(
+      {
+        ok: false,
+        reason: 'juicyway_verification_context_missing',
+      }
+    );
+    expect(mocks.getJuicywaySession).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    'juicyway_verification_invalid_payload',
+    'korapay_verification_invalid_payload',
+    'paystack_verification_invalid_payload',
+  ])('treats %s as a terminal review condition', (reason) => {
+    expect(isTerminalGatewayVerificationReason(reason)).toBe(true);
   });
 });

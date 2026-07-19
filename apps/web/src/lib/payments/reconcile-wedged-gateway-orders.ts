@@ -6,13 +6,16 @@ import {
   stampWedgeResolution,
 } from '@/lib/payments/retire-wedge-with-review';
 import {
+  buildJuicywayVerificationContext,
   isHealableGateway,
+  isTerminalGatewayVerificationReason,
   verifyGatewayCharge,
 } from '@/lib/payments/verify-gateway-charge';
 
-// Wedged gateway payments (completed txn, order never flipped): heal
-// paystack/korapay after re-verifying; terminal outcomes file a review
-// and stamp the row once.
+// Wedged gateway payments (completed txn, order never flipped) and pending
+// Juicyway sessions whose success webhook never arrived: heal after
+// re-verifying with the gateway. Terminal outcomes file a review and stamp the
+// row once.
 
 const AMOUNT_TOLERANCE_MAJOR_UNITS = 0.01;
 const DEFAULT_LIMIT = 10;
@@ -38,6 +41,7 @@ type WedgedCandidate = {
   gateway: string;
   gateway_reference: string | null;
   metadata: Record<string, unknown> | null;
+  status: string;
 };
 
 export async function reconcileWedgedGatewayOrders({
@@ -68,10 +72,10 @@ export async function reconcileWedgedGatewayOrders({
   const { data: candidates, error: lookupError } = await supabase
     .from('transactions')
     .select(
-      'id, order_id, merchant_id, amount, currency, platform_fee, gateway, gateway_reference, metadata, orders!inner(id, payment_status, cancelled_at)'
+      'id, order_id, merchant_id, amount, currency, platform_fee, gateway, gateway_reference, metadata, status, orders!inner(id, payment_status, cancelled_at)'
     )
-    .eq('status', 'completed')
     .eq('transaction_type', 'payment')
+    .or('status.eq.completed,and(status.eq.pending,gateway.eq.juicyway)')
     .not('order_id', 'is', null)
     .lt('updated_at', cutoff)
     .neq('orders.payment_status', 'paid')
@@ -128,7 +132,10 @@ export async function reconcileWedgedGatewayOrders({
 
       const verification = await verifyGatewayCharge(
         candidate.gateway,
-        candidate.gateway_reference
+        candidate.gateway_reference,
+        candidate.gateway === 'juicyway'
+          ? buildJuicywayVerificationContext(candidate.metadata)
+          : undefined
       );
 
       if (!verification.ok) {
@@ -136,20 +143,16 @@ export async function reconcileWedgedGatewayOrders({
           reason: verification.reason,
           transactionId: candidate.id,
         });
-        if (verification.reason === 'gateway_status_not_success') {
-          // Definitive gateway verdict: file for ops and retire the row.
+        if (isTerminalGatewayVerificationReason(verification.reason)) {
+          // Definitive gateway verdict or evidence mismatch: file for ops and
+          // retire the row. Transient/pending outcomes stay in the sweep.
           await retireWedgeWithReview({
             candidate,
-            reason: `Wedge sweep: ${candidate.gateway} verifies reference ${candidate.gateway_reference} as '${verification.gatewayStatus ?? 'unknown'}' although our transaction is completed`,
-            resolution: 'gateway_verification_negative',
-            supabase,
-          });
-        } else if (verification.reason === 'gateway_reference_invalid') {
-          // The gateway rejects the reference outright — no retry can fix it.
-          await retireWedgeWithReview({
-            candidate,
-            reason: `Wedge sweep: ${candidate.gateway} rejects reference ${candidate.gateway_reference} as invalid/unknown although our transaction is completed`,
-            resolution: 'gateway_reference_invalid',
+            reason: `Wedge sweep: ${candidate.gateway} could not safely confirm reference ${candidate.gateway_reference} (${verification.reason}${verification.gatewayStatus ? `: ${verification.gatewayStatus}` : ''}); manual reconciliation required`,
+            resolution:
+              verification.reason === 'gateway_status_not_success'
+                ? 'gateway_verification_negative'
+                : verification.reason,
             supabase,
           });
         }
@@ -159,8 +162,9 @@ export async function reconcileWedgedGatewayOrders({
 
       const expectedAmount = Number(candidate.amount) || 0;
       if (
+        candidate.gateway !== 'juicyway' &&
         Math.abs(verification.amount - expectedAmount) >
-        AMOUNT_TOLERANCE_MAJOR_UNITS
+          AMOUNT_TOLERANCE_MAJOR_UNITS
       ) {
         summary.skipped.push({
           reason: 'amount_mismatch',
@@ -177,6 +181,7 @@ export async function reconcileWedgedGatewayOrders({
         continue;
       }
       if (
+        candidate.gateway !== 'juicyway' &&
         candidate.currency &&
         verification.currency &&
         candidate.currency.toUpperCase() !== verification.currency.toUpperCase()
@@ -210,7 +215,7 @@ export async function reconcileWedgedGatewayOrders({
           order_id: candidate.order_id,
           platform_fee: candidate.platform_fee,
         },
-        wonTransactionFlip: false,
+        wonTransactionFlip: candidate.status !== 'completed',
       });
 
       if (outcome.kind === 'completed') {

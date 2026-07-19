@@ -1,8 +1,33 @@
+import { getPaymentSession as getJuicywayPaymentSession } from '@/lib/juicyway';
 import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
+import { JUICYWAY_UNDERPAYMENT_TOLERANCE } from '@/lib/payments/juicyway-settlement-policy';
 import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
 
-export const HEALABLE_GATEWAYS = ['paystack', 'korapay'] as const;
+export const HEALABLE_GATEWAYS = ['paystack', 'korapay', 'juicyway'] as const;
 export type HealableGateway = (typeof HEALABLE_GATEWAYS)[number];
+
+export interface GatewayChargeVerificationContext {
+  juicywayExpectedAmount?: number;
+  juicywayExpectedCurrency?: string;
+  juicywaySessionId?: string;
+}
+
+export function buildJuicywayVerificationContext(
+  metadata: Record<string, unknown> | null | undefined
+): GatewayChargeVerificationContext {
+  const safeMetadata = metadata ?? {};
+  return {
+    juicywayExpectedAmount: Number(safeMetadata.juicyway_expected_amount),
+    juicywayExpectedCurrency:
+      typeof safeMetadata.juicyway_expected_currency === 'string'
+        ? safeMetadata.juicyway_expected_currency
+        : undefined,
+    juicywaySessionId:
+      typeof safeMetadata.session_id === 'string'
+        ? safeMetadata.session_id
+        : undefined,
+  };
+}
 
 export function isHealableGateway(gateway: string): gateway is HealableGateway {
   return (HEALABLE_GATEWAYS as readonly string[]).includes(gateway);
@@ -17,6 +42,21 @@ const DEFINITIVE_FAILURE_CODES = new Set([
   'HTTP_400',
   'HTTP_404',
 ]);
+
+const TERMINAL_VERIFICATION_REASONS = new Set([
+  'amount_mismatch',
+  'currency_mismatch',
+  'gateway_reference_invalid',
+  'gateway_status_not_success',
+  'juicyway_verification_invalid_payload',
+  'juicyway_verification_context_missing',
+  'korapay_verification_invalid_payload',
+  'paystack_verification_invalid_payload',
+]);
+
+export function isTerminalGatewayVerificationReason(reason: string): boolean {
+  return TERMINAL_VERIFICATION_REASONS.has(reason);
+}
 
 function classifyFailure(code: string | undefined, gateway: string) {
   return code && DEFINITIVE_FAILURE_CODES.has(code)
@@ -52,7 +92,8 @@ export type GatewayChargeVerification =
 // discrepancy that must go to ops).
 export async function verifyGatewayCharge(
   gateway: HealableGateway,
-  reference: string
+  reference: string,
+  context?: GatewayChargeVerificationContext
 ): Promise<GatewayChargeVerification> {
   if (gateway === 'paystack') {
     const result = await verifyPaystackPayment(reference);
@@ -98,6 +139,85 @@ export async function verifyGatewayCharge(
       currency: result.data.currency,
       ok: true,
       response: result.data as unknown as Record<string, unknown>,
+    };
+  }
+  if (gateway === 'juicyway') {
+    const sessionId = context?.juicywaySessionId?.trim();
+    const expectedAmount = context?.juicywayExpectedAmount;
+    const expectedCurrency = context?.juicywayExpectedCurrency?.trim();
+    if (
+      !sessionId ||
+      typeof expectedAmount !== 'number' ||
+      !Number.isFinite(expectedAmount) ||
+      expectedAmount <= 0 ||
+      !expectedCurrency
+    ) {
+      return {
+        ok: false,
+        reason: 'juicyway_verification_context_missing',
+      };
+    }
+
+    const result = await getJuicywayPaymentSession(sessionId);
+    if (!result.success) {
+      return classifyFailure(result.code, 'juicyway');
+    }
+
+    const response = result.data;
+    const payment = response.payment;
+    const status =
+      typeof payment?.status === 'string'
+        ? payment.status.trim().toLowerCase()
+        : typeof response.status === 'string'
+          ? response.status.trim().toLowerCase()
+          : '';
+    if (status === 'pending' || status === 'processing') {
+      return {
+        gatewayStatus: status,
+        ok: false,
+        reason: 'juicyway_payment_pending',
+      };
+    }
+    if (status === 'failed' || status === 'cancelled') {
+      return {
+        gatewayStatus: status,
+        ok: false,
+        reason: 'gateway_status_not_success',
+      };
+    }
+    if (status !== 'succeeded') {
+      return {
+        ok: false,
+        reason: 'juicyway_verification_invalid_payload',
+      };
+    }
+
+    const settledAmount = payment?.amount;
+    const settledCurrency = payment?.currency;
+    if (!hasValidChargeEvidence(settledAmount, settledCurrency)) {
+      return {
+        ok: false,
+        reason: 'juicyway_verification_invalid_payload',
+      };
+    }
+    if (settledCurrency.toUpperCase() !== expectedCurrency.toUpperCase()) {
+      return { ok: false, reason: 'currency_mismatch' };
+    }
+
+    // Match the signed webhook's policy: allow overpayment/dust, but never
+    // finalize when the settled stablecoin amount is more than 1% short.
+    if (
+      settledAmount <
+      expectedAmount * (1 - JUICYWAY_UNDERPAYMENT_TOLERANCE)
+    ) {
+      return { ok: false, reason: 'amount_mismatch' };
+    }
+
+    return {
+      amount: settledAmount,
+      currency: settledCurrency,
+      ok: true,
+      response: response as unknown as Record<string, unknown>,
     };
   }
   return { ok: false, reason: 'unhealable_gateway' };

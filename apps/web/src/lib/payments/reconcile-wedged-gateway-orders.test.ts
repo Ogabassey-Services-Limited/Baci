@@ -4,11 +4,15 @@ import { reconcileWedgedGatewayOrders } from '@/lib/payments/reconcile-wedged-ga
 
 const mocks = vi.hoisted(() => ({
   finalizeOrderGatewayPayment: vi.fn(),
+  getJuicywaySession: vi.fn(),
   handlePaymentForCancelledOrder: vi.fn(),
   verifyKorapayPayment: vi.fn(),
   verifyPaystackPayment: vi.fn(),
 }));
 
+vi.mock('@/lib/juicyway', () => ({
+  getPaymentSession: mocks.getJuicywaySession,
+}));
 vi.mock('@/lib/paystack', () => ({
   verifyTransaction: mocks.verifyPaystackPayment,
 }));
@@ -33,8 +37,10 @@ const wedgedCandidate = {
   gateway_reference: '100004260711172450165090811595',
   id: 'txn-1',
   merchant_id: 'merchant-1',
+  metadata: null,
   order_id: 'order-1',
   orders: { cancelled_at: null, id: 'order-1', payment_status: 'pending' },
+  status: 'completed',
 };
 
 function buildSupabase(result: { data?: unknown[]; error?: unknown }) {
@@ -44,7 +50,16 @@ function buildSupabase(result: { data?: unknown[]; error?: unknown }) {
   const builder: Record<string, unknown> = {
     update: stampUpdate,
   };
-  for (const method of ['select', 'eq', 'neq', 'not', 'lt', 'is', 'order']) {
+  for (const method of [
+    'select',
+    'eq',
+    'neq',
+    'not',
+    'lt',
+    'is',
+    'or',
+    'order',
+  ]) {
     builder[method] = vi.fn().mockReturnValue(builder);
   }
   // `.limit()` is the terminal call in the sweep's candidate query chain;
@@ -210,9 +225,99 @@ describe('reconcileWedgedGatewayOrders', () => {
     ]);
   });
 
+  it('re-verifies a pending Juicyway session and finalizes the order without a webhook', async () => {
+    const juicywayCandidate = {
+      ...wedgedCandidate,
+      gateway: 'juicyway',
+      gateway_reference: 'BAC-JUICY',
+      metadata: {
+        juicyway_expected_amount: 50_000,
+        juicyway_expected_currency: 'USDT',
+        session_id: 'session-1',
+      },
+      status: 'pending',
+    };
+    const supabase = buildSupabase({ data: [juicywayCandidate] });
+    mocks.getJuicywaySession.mockResolvedValue({
+      data: {
+        id: 'session-1',
+        payment: {
+          amount: 50_000,
+          currency: 'USDT',
+          id: 'payment-1',
+          status: 'succeeded',
+        },
+        status: 'succeeded',
+      },
+      success: true,
+    });
+    mocks.finalizeOrderGatewayPayment.mockResolvedValue({
+      healed: false,
+      kind: 'completed',
+      orderNumber: 'ORD-JUICY',
+    });
+
+    const summary = await reconcileWedgedGatewayOrders({
+      scheduleAfter,
+      supabase,
+    });
+
+    expect(mocks.getJuicywaySession).toHaveBeenCalledWith('session-1');
+    expect(mocks.finalizeOrderGatewayPayment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        gateway: 'juicyway',
+        orderId: 'order-1',
+        reference: 'BAC-JUICY',
+        wonTransactionFlip: true,
+      })
+    );
+    expect(summary.healed).toEqual([
+      { orderId: 'order-1', orderNumber: 'ORD-JUICY' },
+    ]);
+  });
+
+  it('keeps a provider-pending Juicyway session in the hourly sweep', async () => {
+    const juicywayCandidate = {
+      ...wedgedCandidate,
+      gateway: 'juicyway',
+      gateway_reference: 'BAC-JUICY',
+      metadata: {
+        juicyway_expected_amount: 50_000,
+        juicyway_expected_currency: 'USDT',
+        session_id: 'session-1',
+      },
+      status: 'pending',
+    };
+    const supabase = buildSupabase({ data: [juicywayCandidate] });
+    mocks.getJuicywaySession.mockResolvedValue({
+      data: {
+        id: 'session-1',
+        payment: {
+          amount: 50_000,
+          currency: 'USDT',
+          id: 'payment-1',
+          status: 'processing',
+        },
+        status: 'processing',
+      },
+      success: true,
+    });
+
+    const summary = await reconcileWedgedGatewayOrders({
+      scheduleAfter,
+      supabase,
+    });
+
+    expect(summary.skipped).toEqual([
+      { reason: 'juicyway_payment_pending', transactionId: 'txn-1' },
+    ]);
+    expect(supabase.stampUpdate).not.toHaveBeenCalled();
+    expect(mocks.finalizeOrderGatewayPayment).not.toHaveBeenCalled();
+  });
+
   it('surfaces unhealable gateways loudly instead of guessing', async () => {
     const supabase = buildSupabase({
-      data: [{ ...wedgedCandidate, gateway: 'juicyway' }],
+      data: [{ ...wedgedCandidate, gateway: 'klump' }],
     });
 
     const summary = await reconcileWedgedGatewayOrders({
@@ -221,7 +326,7 @@ describe('reconcileWedgedGatewayOrders', () => {
     });
 
     expect(summary.detectedUnhealable).toEqual([
-      { gateway: 'juicyway', transactionId: 'txn-1' },
+      { gateway: 'klump', transactionId: 'txn-1' },
     ]);
     expect(mocks.finalizeOrderGatewayPayment).not.toHaveBeenCalled();
     // Logged once, stamped so it never consumes the hourly batch again.
@@ -272,7 +377,7 @@ describe('reconcileWedgedGatewayOrders', () => {
 
   it('does not retire a wedged row when its review cannot be filed', async () => {
     const supabase = buildSupabase({
-      data: [{ ...wedgedCandidate, gateway: 'juicyway' }],
+      data: [{ ...wedgedCandidate, gateway: 'klump' }],
     });
     mocks.handlePaymentForCancelledOrder.mockResolvedValue(false);
 

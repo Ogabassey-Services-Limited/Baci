@@ -4,7 +4,9 @@ import { finalizeOrderGatewayPayment } from '@/lib/payments/finalize-order-gatew
 import { REPLAYABLE_PAID_ORDER_SIDE_EFFECT_STEPS } from '@/lib/payments/replayable-paid-order-side-effect-steps';
 import { retireTerminalSideEffectDrain } from '@/lib/payments/retire-terminal-side-effect-drain';
 import {
-  type HealableGateway,
+  buildJuicywayVerificationContext,
+  isHealableGateway,
+  isTerminalGatewayVerificationReason,
   verifyGatewayCharge,
 } from '@/lib/payments/verify-gateway-charge';
 
@@ -21,7 +23,6 @@ const PERMANENT_STEP_ERRORS = [
   'financial_totals_inconsistent',
   'gateway_verification_terminal',
 ];
-const HEALABLE_GATEWAYS = new Set(['paystack', 'korapay']);
 const DEFAULT_LIMIT = 10;
 // Comfortably past the claim RPC's 60s takeover window.
 const STALE_CLAIM_MINUTES = 15;
@@ -121,7 +122,7 @@ export async function drainFailedPaidOrderSideEffects({
     try {
       const txn = row.transactions;
       const gateway = txn.gateway;
-      if (!HEALABLE_GATEWAYS.has(gateway)) {
+      if (!isHealableGateway(gateway)) {
         summary.skipped.push({ orderId, reason: 'unhealable_gateway' });
         continue;
       }
@@ -146,25 +147,23 @@ export async function drainFailedPaidOrderSideEffects({
 
       let gatewayResponse = txn.gateway_response;
       if (!gatewayResponse) {
-        const verification = await verifyGatewayCharge(
-          gateway as HealableGateway,
-          txn.gateway_reference
-        );
+        const verification =
+          gateway === 'juicyway'
+            ? await verifyGatewayCharge(
+                gateway,
+                txn.gateway_reference,
+                buildJuicywayVerificationContext(txn.metadata)
+              )
+            : await verifyGatewayCharge(gateway, txn.gateway_reference);
         if (!verification.ok) {
-          if (
-            verification.reason === 'gateway_status_not_success' ||
-            verification.reason === 'gateway_reference_invalid'
-          ) {
+          if (isTerminalGatewayVerificationReason(verification.reason)) {
             await retireTerminalSideEffectDrain({
               orderId,
-              reason:
-                verification.reason === 'gateway_reference_invalid'
-                  ? `Paid-order side-effect drain: ${gateway} rejects reference ${txn.gateway_reference} as invalid/unknown although the transaction is completed`
-                  : `Paid-order side-effect drain: ${gateway} verifies reference ${txn.gateway_reference} as '${verification.gatewayStatus ?? 'unknown'}' although the transaction is completed`,
+              reason: `Paid-order side-effect drain: ${gateway} could not safely confirm reference ${txn.gateway_reference} (${verification.reason}${verification.gatewayStatus ? `: ${verification.gatewayStatus}` : ''}); manual reconciliation required`,
               resolution:
-                verification.reason === 'gateway_reference_invalid'
-                  ? 'gateway_reference_invalid'
-                  : 'gateway_verification_negative',
+                verification.reason === 'gateway_status_not_success'
+                  ? 'gateway_verification_negative'
+                  : verification.reason,
               supabase,
               transaction: {
                 gateway,
@@ -183,7 +182,7 @@ export async function drainFailedPaidOrderSideEffects({
 
       const outcome = await finalizeOrderGatewayPayment({
         actor: 'cron:reconcile-gateway-paid-orders:drain',
-        gateway: gateway as 'paystack' | 'korapay',
+        gateway,
         gatewayResponse,
         orderId,
         reference: txn.gateway_reference,

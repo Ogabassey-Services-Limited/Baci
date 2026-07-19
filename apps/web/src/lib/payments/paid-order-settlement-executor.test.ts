@@ -94,6 +94,38 @@ describe('buildSettlementExecutor', () => {
     });
   });
 
+  it('records Juicyway settlements with zero gateway fee', async () => {
+    const { rpc, supabase } = createSupabase();
+    const result = await buildSettlementExecutor({
+      allocatedGatewayFeeNgn: 250,
+      externalGatewayReference: 'BAC-JUICY',
+      settlementGateway: 'juicyway',
+      supabase,
+      transaction: { ...transaction, platform_fee: null },
+    })(stepContext);
+
+    expect(result).toEqual({
+      gateway_fee: 0,
+      gross_amount: 20_000,
+      platform_fee: 0,
+    });
+    expect(rpc).toHaveBeenCalledWith('record_merchant_settlement', {
+      p_description: 'Order payment via juicyway',
+      p_gateway: 'juicyway',
+      p_gateway_fee: 0,
+      p_gateway_reference: 'BAC-JUICY',
+      p_gross_amount: 20_000,
+      p_merchant_id: 'merchant-1',
+      p_metadata: {
+        juicyway_reference: 'BAC-JUICY',
+        verified_gateway_fee: 0,
+      },
+      p_platform_fee: 0,
+      p_source_id: 'order-1',
+      p_source_type: 'order',
+    });
+  });
+
   it('allows replay to be delegated to the idempotent settlement RPC', async () => {
     const { rpc, supabase } = createSupabase();
     const executor = buildSettlementExecutor({

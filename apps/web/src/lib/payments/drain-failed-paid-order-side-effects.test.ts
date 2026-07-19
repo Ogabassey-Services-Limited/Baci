@@ -11,9 +11,16 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/lib/payments/finalize-order-gateway-payment', () => ({
   finalizeOrderGatewayPayment: mocks.finalizeOrderGatewayPayment,
 }));
-vi.mock('@/lib/payments/verify-gateway-charge', () => ({
-  verifyGatewayCharge: mocks.verifyGatewayCharge,
-}));
+vi.mock('@/lib/payments/verify-gateway-charge', async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import('@/lib/payments/verify-gateway-charge')
+    >();
+  return {
+    ...actual,
+    verifyGatewayCharge: mocks.verifyGatewayCharge,
+  };
+});
 vi.mock('@/lib/payments/retire-terminal-side-effect-drain', () => ({
   retireTerminalSideEffectDrain: mocks.retireTerminalSideEffectDrain,
 }));
@@ -112,12 +119,59 @@ describe('drainFailedPaidOrderSideEffects', () => {
     ]);
   });
 
-  it('skips gateways the finalizer cannot handle', async () => {
+  it('drains Juicyway side effects after cron-based payment finalization', async () => {
     const juicywayRow = {
       ...failedRow,
-      transactions: { ...failedRow.transactions, gateway: 'juicyway' },
+      transactions: {
+        ...failedRow.transactions,
+        gateway: 'juicyway',
+        gateway_response: null,
+        metadata: {
+          juicyway_expected_amount: 50_000,
+          juicyway_expected_currency: 'USDT',
+          session_id: '550e8400-e29b-41d4-a716-446655440000',
+        },
+      },
     };
     const supabase = buildSupabase({ data: [juicywayRow] });
+    mocks.verifyGatewayCharge.mockResolvedValue({
+      amount: 50_000,
+      currency: 'USDT',
+      ok: true,
+      response: { status: 'succeeded' },
+    });
+    mocks.finalizeOrderGatewayPayment.mockResolvedValue({
+      healed: false,
+      kind: 'completed',
+      orderNumber: 'ORD-1',
+    });
+
+    const summary = await drainFailedPaidOrderSideEffects({
+      scheduleAfter,
+      supabase,
+    });
+
+    expect(summary.drained).toEqual([{ orderId: 'order-1' }]);
+    expect(mocks.verifyGatewayCharge).toHaveBeenCalledWith(
+      'juicyway',
+      'REF-1',
+      {
+        juicywayExpectedAmount: 50_000,
+        juicywayExpectedCurrency: 'USDT',
+        juicywaySessionId: '550e8400-e29b-41d4-a716-446655440000',
+      }
+    );
+    expect(mocks.finalizeOrderGatewayPayment).toHaveBeenCalledWith(
+      expect.objectContaining({ gateway: 'juicyway' })
+    );
+  });
+
+  it('skips gateways the finalizer cannot handle', async () => {
+    const klumpRow = {
+      ...failedRow,
+      transactions: { ...failedRow.transactions, gateway: 'klump' },
+    };
+    const supabase = buildSupabase({ data: [klumpRow] });
 
     const summary = await drainFailedPaidOrderSideEffects({
       scheduleAfter,
@@ -294,5 +348,47 @@ describe('drainFailedPaidOrderSideEffects', () => {
     expect(summary.skipped).toEqual([
       { orderId: 'order-1', reason: 'gateway_status_not_success' },
     ]);
+  });
+
+  it('retires a definitive Juicyway amount mismatch instead of retrying it', async () => {
+    const missingEvidenceRow = {
+      ...failedRow,
+      transactions: {
+        ...failedRow.transactions,
+        gateway: 'juicyway',
+        gateway_response: null,
+        metadata: {
+          juicyway_expected_amount: 50_000,
+          juicyway_expected_currency: 'USDT',
+          session_id: '550e8400-e29b-41d4-a716-446655440000',
+        },
+      },
+    };
+    const supabase = buildSupabase({ data: [missingEvidenceRow] });
+    mocks.verifyGatewayCharge.mockResolvedValue({
+      ok: false,
+      reason: 'amount_mismatch',
+    });
+    mocks.retireTerminalSideEffectDrain.mockResolvedValue(true);
+
+    const summary = await drainFailedPaidOrderSideEffects({
+      scheduleAfter,
+      supabase,
+    });
+
+    expect(mocks.retireTerminalSideEffectDrain).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId: 'order-1',
+        resolution: 'amount_mismatch',
+        transaction: expect.objectContaining({
+          gateway: 'juicyway',
+          id: 'txn-1',
+        }),
+      })
+    );
+    expect(summary.skipped).toEqual([
+      { orderId: 'order-1', reason: 'amount_mismatch' },
+    ]);
+    expect(mocks.finalizeOrderGatewayPayment).not.toHaveBeenCalled();
   });
 });

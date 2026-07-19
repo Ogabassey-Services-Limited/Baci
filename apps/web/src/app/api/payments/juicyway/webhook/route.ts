@@ -19,6 +19,7 @@ import {
   handlePaymentForCancelledOrder,
   isOrderClampedAsCancelled,
 } from '@/lib/payments/handle-payment-for-cancelled-order';
+import { JUICYWAY_UNDERPAYMENT_TOLERANCE } from '@/lib/payments/juicyway-settlement-policy';
 import { handleJuicywayWalletTopUpIfNeeded } from '@/lib/payments/juicyway-wallet-top-up';
 import { scheduleLegacyPurchaseConversion } from '@/lib/payments/schedule-legacy-purchase-conversion';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -533,8 +534,10 @@ export async function POST(request: NextRequest) {
       // Allow overpayment + dust; reject clear underpayment (>1% short).
       // Stablecoins are ~1:1 USD, so the locked-rate expectation is exact
       // and the tolerance only absorbs on-chain rounding/dust.
-      const UNDERPAYMENT_TOLERANCE = 0.01;
-      if (settledAmount < expectedAmount * (1 - UNDERPAYMENT_TOLERANCE)) {
+      if (
+        settledAmount <
+        expectedAmount * (1 - JUICYWAY_UNDERPAYMENT_TOLERANCE)
+      ) {
         logger.error({
           message: 'Juicyway payment amount mismatch (underpaid)',
           reference,
