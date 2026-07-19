@@ -1,5 +1,6 @@
 import { getPaymentSession as getJuicywayPaymentSession } from '@/lib/juicyway';
 import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
+import { shouldRequireJuicywaySettlementMetadata } from '@/lib/payments/juicyway-settlement-metadata-compatibility';
 import { JUICYWAY_UNDERPAYMENT_TOLERANCE } from '@/lib/payments/juicyway-settlement-policy';
 import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
 
@@ -9,23 +10,33 @@ export type HealableGateway = (typeof HEALABLE_GATEWAYS)[number];
 export interface GatewayChargeVerificationContext {
   juicywayExpectedAmount?: number;
   juicywayExpectedCurrency?: string;
+  juicywayHasExpectedSettlementMetadata?: boolean;
   juicywaySessionId?: string;
+  juicywayTransactionCreatedAt?: string;
 }
 
 export function buildJuicywayVerificationContext(
-  metadata: Record<string, unknown> | null | undefined
+  metadata: Record<string, unknown> | null | undefined,
+  createdAt?: unknown
 ): GatewayChargeVerificationContext {
   const safeMetadata = metadata ?? {};
+  const rawExpectedAmount = safeMetadata.juicyway_expected_amount;
   return {
-    juicywayExpectedAmount: Number(safeMetadata.juicyway_expected_amount),
+    juicywayExpectedAmount:
+      rawExpectedAmount == null ? undefined : Number(rawExpectedAmount),
     juicywayExpectedCurrency:
       typeof safeMetadata.juicyway_expected_currency === 'string'
         ? safeMetadata.juicyway_expected_currency
         : undefined,
+    juicywayHasExpectedSettlementMetadata:
+      safeMetadata.juicyway_expected_amount != null ||
+      safeMetadata.juicyway_expected_currency != null,
     juicywaySessionId:
       typeof safeMetadata.session_id === 'string'
         ? safeMetadata.session_id
         : undefined,
+    juicywayTransactionCreatedAt:
+      typeof createdAt === 'string' ? createdAt : undefined,
   };
 }
 
@@ -145,12 +156,20 @@ export async function verifyGatewayCharge(
     const sessionId = context?.juicywaySessionId?.trim();
     const expectedAmount = context?.juicywayExpectedAmount;
     const expectedCurrency = context?.juicywayExpectedCurrency?.trim();
+    const requireExpectedSettlementMetadata =
+      context?.juicywayHasExpectedSettlementMetadata === true ||
+      expectedAmount !== undefined ||
+      expectedCurrency !== undefined ||
+      shouldRequireJuicywaySettlementMetadata(
+        context?.juicywayTransactionCreatedAt
+      );
     if (
       !sessionId ||
-      typeof expectedAmount !== 'number' ||
-      !Number.isFinite(expectedAmount) ||
-      expectedAmount <= 0 ||
-      !expectedCurrency
+      (requireExpectedSettlementMetadata &&
+        (typeof expectedAmount !== 'number' ||
+          !Number.isFinite(expectedAmount) ||
+          expectedAmount <= 0 ||
+          !expectedCurrency))
     ) {
       return {
         ok: false,
@@ -194,23 +213,28 @@ export async function verifyGatewayCharge(
 
     const settledAmount = payment?.amount;
     const settledCurrency = payment?.currency;
-    if (!hasValidChargeEvidence(settledAmount, settledCurrency)) {
+    if (
+      !hasValidChargeEvidence(settledAmount, settledCurrency) ||
+      typeof settledCurrency !== 'string'
+    ) {
       return {
         ok: false,
         reason: 'juicyway_verification_invalid_payload',
       };
     }
-    if (settledCurrency.toUpperCase() !== expectedCurrency.toUpperCase()) {
-      return { ok: false, reason: 'currency_mismatch' };
-    }
+    if (requireExpectedSettlementMetadata) {
+      if (settledCurrency.toUpperCase() !== expectedCurrency?.toUpperCase()) {
+        return { ok: false, reason: 'currency_mismatch' };
+      }
 
-    // Match the signed webhook's policy: allow overpayment/dust, but never
-    // finalize when the settled stablecoin amount is more than 1% short.
-    if (
-      settledAmount <
-      expectedAmount * (1 - JUICYWAY_UNDERPAYMENT_TOLERANCE)
-    ) {
-      return { ok: false, reason: 'amount_mismatch' };
+      // Match the signed webhook's policy: allow overpayment/dust, but never
+      // finalize when the settled stablecoin amount is more than 1% short.
+      if (
+        settledAmount <
+        (expectedAmount ?? 0) * (1 - JUICYWAY_UNDERPAYMENT_TOLERANCE)
+      ) {
+        return { ok: false, reason: 'amount_mismatch' };
+      }
     }
 
     return {

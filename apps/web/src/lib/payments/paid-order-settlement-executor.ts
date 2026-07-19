@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { StepExecutor } from '@/lib/payments/apply-paid-order-side-effects';
+import { calculateJuicywayPlatformFee } from '@/lib/payments/juicyway-platform-fee';
 import type {
   PaidOrderSideEffectTransaction,
   ServiceRoleClient,
@@ -99,7 +100,9 @@ export function buildSettlementExecutor(args: {
     const platformFeeKobo =
       validatedArgs.transaction.platform_fee == null
         ? validatedArgs.settlementGateway === 'juicyway'
-          ? 0
+          ? Math.round(
+              calculateJuicywayPlatformFee(grossAmount) * KOBO_PER_NAIRA
+            )
           : Math.round(
               calculatePlatformFee(unroundedGrossAmountKobo).platformFee
             )

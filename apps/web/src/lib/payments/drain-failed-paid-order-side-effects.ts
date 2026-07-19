@@ -38,6 +38,7 @@ type DrainCandidateRow = {
   transaction_id: string | null;
   transactions: {
     id: string;
+    created_at: string;
     order_id: string | null;
     merchant_id: string;
     amount: number | string | null;
@@ -65,7 +66,7 @@ export async function drainFailedPaidOrderSideEffects({
   };
 
   const DRAIN_SELECT =
-    'order_id, transaction_id, transactions!inner(id, order_id, merchant_id, amount, platform_fee, gateway, gateway_reference, gateway_response, metadata), orders!inner(id, payment_status, cancelled_at)';
+    'order_id, transaction_id, transactions!inner(id, created_at, order_id, merchant_id, amount, platform_fee, gateway, gateway_reference, gateway_response, metadata), orders!inner(id, payment_status, cancelled_at)';
 
   const { data: failedRows, error: lookupError } = await supabase
     .from('payment_side_effects')
@@ -152,7 +153,7 @@ export async function drainFailedPaidOrderSideEffects({
             ? await verifyGatewayCharge(
                 gateway,
                 txn.gateway_reference,
-                buildJuicywayVerificationContext(txn.metadata)
+                buildJuicywayVerificationContext(txn.metadata, txn.created_at)
               )
             : await verifyGatewayCharge(gateway, txn.gateway_reference);
         if (!verification.ok) {
