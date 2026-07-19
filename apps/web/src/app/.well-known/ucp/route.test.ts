@@ -216,6 +216,32 @@ describe('GET /.well-known/ucp', () => {
     );
   });
 
+  it('omits the Paystack handler but preserves pay on delivery while DVA is paused', async () => {
+    stubAgenticCheckoutEnv();
+    vi.stubEnv('AGENTIC_PAYSTACK_DVA_MODE', 'paused');
+    stubMerchant({
+      feature_settings: { pay_on_delivery_enabled: true },
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(
+      new Request('https://ogabassey.com/.well-known/ucp', {
+        headers: { host: 'ogabassey.com' },
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.ucp.payment_handlers).not.toHaveProperty(
+      'com.paystack.bank_transfer'
+    );
+    expect(body.ucp.payment_handlers).toHaveProperty(
+      'com.usebaci.pay_on_delivery'
+    );
+    expect(body.extensions.baci.payment_methods).toEqual(['pay_on_delivery']);
+    expect(body.ucp.capabilities['dev.ucp.shopping.checkout']).toBeDefined();
+  });
+
   it('returns a Baci platform profile on the root domain', async () => {
     const { GET } = await import('./route');
     const response = await GET(

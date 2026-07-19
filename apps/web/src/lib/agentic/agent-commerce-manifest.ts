@@ -11,6 +11,7 @@ import {
   getGooglePayAgenticConfig,
   getPaystackSecretKey,
 } from '@/env';
+import { isAgenticPaystackDvaPaused } from '@/lib/agentic/agentic-paystack-dva-paused';
 import {
   getConfiguredAgenticMerchantSlug,
   isAgenticCheckoutRuntimeConfigured,
@@ -194,6 +195,7 @@ function buildAgenticPaymentMethods(
   googlePayConfig: GooglePayAgenticConfig | null
 ) {
   const methods: AgenticPaymentMethod[] = [];
+  const paystackDvaPaused = isAgenticPaystackDvaPaused();
   // The public storefront snapshot omits the raw paystack_subaccount_code and
   // exposes the derived paystack_subaccount_configured hint instead, so the
   // public capability check accepts either signal (mirroring
@@ -204,7 +206,9 @@ function buildAgenticPaymentMethods(
     (isValidPaystackSubaccountCode(merchant.paystack_subaccount_code) ||
       merchant.paystack_subaccount_configured === true);
   if (paystackReady) {
-    methods.push(AGENTIC_PAYMENT_METHOD_PAYSTACK_BANK_TRANSFER);
+    if (!paystackDvaPaused) {
+      methods.push(AGENTIC_PAYMENT_METHOD_PAYSTACK_BANK_TRANSFER);
+    }
     if (googlePayConfig?.gateway === 'paystack') {
       methods.push(AGENTIC_PAYMENT_METHOD_GOOGLE_PAY);
     }

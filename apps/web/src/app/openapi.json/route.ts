@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server';
 import { AGENT_READINESS_CACHE_CONTROL } from '@/config/agent-readiness';
+import { isAgenticPaystackDvaPaused } from '@/lib/agentic/agentic-paystack-dva-paused';
 import { checkoutCompletePaymentInfo } from '@/lib/agentic/mpp-checkout-payment-info';
 import { buildRequestBaseUrl } from '@/lib/storefront-host';
 
 function buildOpenApiDocument(baseUrl: string) {
+  const paystackDvaPaused = isAgenticPaystackDvaPaused();
+
   return {
     openapi: '3.1.0',
     info: {
@@ -131,7 +134,9 @@ function buildOpenApiDocument(baseUrl: string) {
             'Complete a signed checkout session and receive payment instructions',
           security: [{ agenticBearerHmac: [] }],
           parameters: [{ $ref: '#/components/parameters/SessionId' }],
-          'x-payment-info': checkoutCompletePaymentInfo,
+          ...(paystackDvaPaused
+            ? {}
+            : { 'x-payment-info': checkoutCompletePaymentInfo }),
           requestBody: {
             required: true,
             content: {
@@ -144,8 +149,9 @@ function buildOpenApiDocument(baseUrl: string) {
           },
           responses: {
             '200': {
-              description:
-                'Order and machine-readable Paystack bank transfer instructions',
+              description: paystackDvaPaused
+                ? 'Order and machine-readable payment instructions'
+                : 'Order and machine-readable Paystack bank transfer instructions',
               content: {
                 'application/json': {
                   schema: { type: 'object', additionalProperties: true },
@@ -264,7 +270,9 @@ function buildOpenApiDocument(baseUrl: string) {
               properties: {
                 provider: {
                   type: 'string',
-                  enum: ['paystack', 'paystack_bank_transfer'],
+                  enum: paystackDvaPaused
+                    ? ['pay_on_delivery']
+                    : ['paystack', 'paystack_bank_transfer'],
                 },
                 token: { type: 'string' },
                 billing_address: {
@@ -272,7 +280,9 @@ function buildOpenApiDocument(baseUrl: string) {
                   additionalProperties: true,
                 },
               },
-              required: ['provider', 'token'],
+              required: paystackDvaPaused
+                ? ['provider']
+                : ['provider', 'token'],
             },
             completion_authorization: {
               type: ['object', 'null'],

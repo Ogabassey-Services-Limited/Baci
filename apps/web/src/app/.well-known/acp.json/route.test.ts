@@ -107,6 +107,23 @@ describe('GET /.well-known/acp.json', () => {
     expect(body.error).toBe('ACP discovery is not enabled for this storefront');
   });
 
+  it('removes checkout service when paused DVA is the only payment method', async () => {
+    vi.stubEnv('AGENTIC_PAYSTACK_DVA_MODE', 'paused');
+
+    const { GET } = await import('./route');
+    const response = await GET(
+      new Request('https://ogabassey.com/.well-known/acp.json', {
+        headers: { host: 'ogabassey.com' },
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.capabilities.services).toEqual(['orders']);
+    expect(body.capabilities.supported_currencies).toEqual([]);
+    expect(body.capabilities.supported_locales).toEqual([]);
+  });
+
   it('returns 500 when merchant lookup fails', async () => {
     const errorSpy = vi
       .spyOn(console, 'error')
