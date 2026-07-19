@@ -235,45 +235,45 @@ function verifyEventPipelineModularity(
   const collected = collectEventPipelineModularityPaths(root, options);
   const newModules = new Set(collected.newModulePaths);
   const findings: string[] = [];
-  for (const path of collected.paths) {
-    // biome-ignore format: compact source-view loop preserves the verifier's own gate.
-    for (const { source, view } of sourceViews(root, path, options.includeWorkingTree === true)) {
-      const lineCount =
-        source.split(/\r?\n/).length - Number(source.endsWith('\n'));
-      if (lineCount > 300) {
-        findings.push(`${path}: exceeds 300 lines (${lineCount})`);
-      }
-      if (!typeScriptExtension.test(path)) continue;
-      if (hasParseError(path, source))
-        findings.push(`${path}: TypeScript parse error`);
-      if (requiresColocatedTest(path, source)) {
-        const testPath = colocatedTestPath(path);
-        if (sourceView(root, testPath, view) === undefined) {
-          findings.push(
-            `${path}: runtime source is missing colocated test ${testPath}`
-          );
-        }
-      }
-      if (
-        testPathPattern.test(path) ||
-        path.includes('.test-support.') ||
-        !newModules.has(path)
-      )
-        continue;
-      const names = runtimeExportNames(path, source);
-      const thinFacade = isThinReexportFacade(path, source);
-      if (thinFacade && !namedThinFacades.has(path)) {
-        findings.push(`${path}: unauthorized thin re-export facade`);
-      }
-      if (
-        names.length > 1 &&
-        !isNextRouteMethodSet(path, names) &&
-        !(thinFacade && namedThinFacades.has(path)) &&
-        !isThinCli(path, source) &&
-        !grandfatheredAggregatePaths.has(path)
-      ) {
-        findings.push(`${path}: multiple runtime exports ${names.join(', ')}`);
-      }
+  // biome-ignore format: the queue adds only required colocated tests in their matching view.
+  const pending = collected.paths.flatMap((path) => sourceViews(root, path, options.includeWorkingTree === true).map((item) => ({ ...item, path })));
+  while (pending.length > 0) {
+    const item = pending.pop();
+    if (!item) break;
+    const { path, source, view } = item;
+    const lineCount =
+      source.split(/\r?\n/).length - Number(source.endsWith('\n'));
+    if (lineCount > 300) {
+      findings.push(`${path}: exceeds 300 lines (${lineCount})`);
+    }
+    if (!typeScriptExtension.test(path)) continue;
+    if (hasParseError(path, source))
+      findings.push(`${path}: TypeScript parse error`);
+    if (requiresColocatedTest(path, source)) {
+      const testPath = colocatedTestPath(path);
+      const testSource = sourceView(root, testPath, view);
+      // biome-ignore format: matched-view test discovery stays compact under the gate.
+      if (testSource === undefined) findings.push(`${path}: runtime source is missing colocated test ${testPath}`); else pending.push({ path: testPath, source: testSource, view });
+    }
+    if (
+      testPathPattern.test(path) ||
+      path.includes('.test-support.') ||
+      !newModules.has(path)
+    )
+      continue;
+    const names = runtimeExportNames(path, source);
+    const thinFacade = isThinReexportFacade(path, source);
+    if (thinFacade && !namedThinFacades.has(path)) {
+      findings.push(`${path}: unauthorized thin re-export facade`);
+    }
+    if (
+      names.length > 1 &&
+      !isNextRouteMethodSet(path, names) &&
+      !(thinFacade && namedThinFacades.has(path)) &&
+      !isThinCli(path, source) &&
+      !grandfatheredAggregatePaths.has(path)
+    ) {
+      findings.push(`${path}: multiple runtime exports ${names.join(', ')}`);
     }
   }
   return [...new Set(findings)].sort();

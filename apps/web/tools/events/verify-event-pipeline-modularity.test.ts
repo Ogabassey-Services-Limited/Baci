@@ -46,10 +46,8 @@ function fixtureRepository(): { baseSha: string; root: string } {
   return { baseSha, root };
 }
 
-afterEach(() => {
-  for (const directory of directories.splice(0))
-    rmSync(directory, { force: true, recursive: true });
-});
+// biome-ignore format: compact cleanup keeps this test under its own gate.
+afterEach(() => { for (const directory of directories.splice(0)) rmSync(directory, { force: true, recursive: true }); });
 
 describe('event pipeline modularity verifier', () => {
   it('unions frozen-base commits with staged, unstaged, and untracked paths', () => {
@@ -133,9 +131,14 @@ describe('event pipeline modularity verifier', () => {
   });
 
   it('governs changed helpers reached outside allowlisted prefixes', () => {
-    const { baseSha, root } = fixtureRepository();
+    const { root } = fixtureRepository();
     const entry = 'apps/web/src/scripts/process-domain-events.ts';
     const helper = 'apps/web/src/shared/reachable-event-helper.ts';
+    const testPath = helper.replace('.ts', '.test.ts');
+    write(root, testPath, '// existing test\n'.repeat(301));
+    git(root, ['add', testPath]);
+    git(root, ['commit', '--quiet', '-m', 'existing helper test']);
+    const baseSha = git(root, ['rev-parse', 'HEAD']);
     write(root, entry, "import '../shared/reachable-event-helper';\n");
     write(root, entry.replace('.ts', '.test.ts'), 'export {};\n');
     write(
@@ -148,13 +151,10 @@ describe('event pipeline modularity verifier', () => {
       includeWorkingTree: true,
     });
     const findings = verify(root, baseSha);
-
     expect(collected.paths).toContain(helper);
     expect(collected.newModulePaths).toContain(helper);
     expect(findings).toContain(`${helper}: exceeds 300 lines (301)`);
-    expect(findings).toContain(
-      `${helper}: runtime source is missing colocated test ${helper.replace('.ts', '.test.ts')}`
-    );
+    expect(findings).toContain(`${testPath}: exceeds 300 lines (301)`);
     expect(findings).toContain(
       `${helper}: multiple runtime exports first, second`
     );

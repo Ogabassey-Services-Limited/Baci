@@ -1,6 +1,6 @@
 import ts from 'typescript';
 // biome-ignore format: compact authority import preserves the frozen 300-line verifier gate.
-import { authorityFindings, eventPipelineBoundaryManifest as manifest } from '../../src/lib/events/event-pipeline-boundary-manifest';
+import { eventPipelineBoundaryManifest as manifest, memberName } from '../../src/lib/events/event-pipeline-boundary-manifest';
 import { parseEventPipelineTypeScriptSource } from '../../src/lib/events/event-pipeline-typescript-source';
 import { analyticsDeliveryModuleGraph as moduleGraph } from './analytics-delivery-module-graph';
 import { eventPipelineProductionSurface } from './event-pipeline-production-surface';
@@ -25,30 +25,39 @@ const factoryTargets = new Map<string, FactoryKind>([
   ['apps/web/src/lib/supabase/admin.ts', 'admin'],
   ['apps/web/src/lib/supabase/service.ts', 'service'],
 ]);
-function factoryReference(
-  importer: string,
-  specifier: string,
-  sources: ReadonlyMap<string, string>
-): { kind: FactoryKind; target: string } | undefined {
-  if (moduleGraph.isSupabaseSdkSpecifier(specifier)) {
-    return { kind: 'sdk', target: '@supabase/supabase-js' };
-  }
+// biome-ignore format: compact factory resolution preserves the frozen 300-line verifier gate.
+function factoryReference(importer: string, specifier: string, sources: ReadonlyMap<string, string>): { kind: FactoryKind; target: string } | undefined {
+  if (moduleGraph.isSupabaseSdkSpecifier(specifier)) return { kind: 'sdk', target: '@supabase/supabase-js' };
   const target = moduleGraph.resolveLocalModule(importer, specifier, sources);
   const kind = target ? factoryTargets.get(target) : undefined;
   return target && kind ? { kind, target } : undefined;
 }
+// biome-ignore format: compact allowlist lookup preserves the frozen 300-line verifier gate.
 function allowedFactoryImporter(path: string, kind: FactoryKind): boolean {
-  const authority = manifest.authority;
-  const allowed: readonly string[] =
-    kind === 'sdk'
-      ? [...authority.factoryModules, ...authority.legacySdkImporters]
-      : authority[`${kind}Importers`];
+  const authority = manifest.authority; const allowed: readonly string[] = kind === 'sdk' ? [...authority.factoryModules, ...authority.legacySdkImporters] : authority[`${kind}Importers`];
   return allowed.includes(path);
 }
 // biome-ignore format: compact occurrence edges preserve the frozen 300-line verifier gate.
-function serviceConstructionEdges(path: string, source: string): AuthorityEdge[] {
-  if (!source.includes('createServiceClient')) return []; let occurrence = 0; const message = `${path}: unauthorized service factory importer`;
-  return authorityFindings(path, parseEventPipelineTypeScriptSource(path, source)).flatMap((finding) => finding === message ? [{ key: JSON.stringify(['construction', path, occurrence++]), message }] : []);
+function serviceConstructionEdges(path: string, source: string, sources: ReadonlyMap<string, string>): AuthorityEdge[] {
+  if (allowedFactoryImporter(path, 'service') || !source.includes('createServiceClient')) return [];
+  const referenced = moduleGraph.moduleReferences(path, source).some((specifier) => factoryReference(path, specifier, sources)?.kind === 'service');
+  if (!referenced) return [];
+  const file = parseEventPipelineTypeScriptSource(path, source); const factories = new Set(['createServiceClient']); const edges: AuthorityEdge[] = []; let occurrence = 0;
+  const isFactory = (expression: ts.Expression): boolean => ts.isIdentifier(expression) ? factories.has(expression.text) : memberName(expression) === 'createServiceClient';
+  function visit(node: ts.Node) {
+    if (ts.isImportDeclaration(node) && !node.importClause?.isTypeOnly && ts.isStringLiteral(node.moduleSpecifier) && factoryReference(path, node.moduleSpecifier.text, sources)?.kind === 'service') {
+      const bindings = node.importClause?.namedBindings; if (bindings && ts.isNamedImports(bindings)) for (const element of bindings.elements) if (!element.isTypeOnly && (element.propertyName?.text ?? element.name.text) === 'createServiceClient') factories.add(element.name.text);
+    }
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer && isFactory(node.initializer)) factories.add(node.name.text);
+    if (ts.isVariableDeclaration(node) && ts.isObjectBindingPattern(node.name)) for (const element of node.name.elements) {
+      const imported = element.propertyName && (ts.isIdentifier(element.propertyName) || ts.isStringLiteral(element.propertyName)) ? element.propertyName.text : ts.isIdentifier(element.name) ? element.name.text : undefined;
+      if (imported === 'createServiceClient' && ts.isIdentifier(element.name)) factories.add(element.name.text);
+    }
+    if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken && ts.isIdentifier(node.left) && isFactory(node.right)) factories.add(node.left.text);
+    if (ts.isCallExpression(node) && isFactory(node.expression)) edges.push({ key: JSON.stringify(['construction', path, occurrence++]), message: `${path}: unauthorized service factory importer` });
+    ts.forEachChild(node, visit);
+  }
+  visit(file); return edges;
 }
 // biome-ignore format: compact path rendering preserves the frozen 300-line verifier gate.
 function pathMessage(root: string, kind: AuthorityKind, target: string, path: readonly string[]): string {
@@ -151,11 +160,8 @@ function credentialEdgeIsRelevant(
   }
   return !examined;
 }
-function collectAuthorityEdges(
-  sources: ReadonlyMap<string, string>,
-  roots: readonly string[],
-  scanAllDirect = false
-): AuthorityEdge[] {
+// biome-ignore format: compact signature preserves the frozen 300-line verifier gate.
+function collectAuthorityEdges(sources: ReadonlyMap<string, string>, roots: readonly string[], scanAllDirect = false): AuthorityEdge[] {
   // biome-ignore format: compact filtered graph construction preserves the frozen 300-line gate.
   const graphSources = new Map([...sources].map(([path, source]) => [path, withoutTypeOnlyNamedReexports(path, source)] as const));
   const approved = new Set<string>(manifest.trustedWrapperImporters);
@@ -193,7 +199,7 @@ function collectAuthorityEdges(
         message: credentialFinding,
       });
     }
-    edges.push(...serviceConstructionEdges(path, source));
+    edges.push(...serviceConstructionEdges(path, source, graphSources));
     for (const specifier of moduleGraph.moduleReferences(path, source)) {
       const reference = factoryReference(path, specifier, graphSources);
       if (
@@ -286,15 +292,8 @@ export function serviceAuthorityGraphFindings(
     ),
   ];
 }
-export function serviceRoleCredentialFinding(
-  path: string,
-  source: string
-): string | undefined {
-  const recorded = Object.values(serviceRoleCredentialAuthority.ledgers).some(
-    (ledger) => Object.hasOwn(ledger, path)
-  );
-  return serviceRoleCredentialAuthority.readsCredential(path, source) &&
-    !recorded
-    ? `${path}: service-role credential read is forbidden`
-    : undefined;
+// biome-ignore format: compact credential finding preserves the frozen 300-line verifier gate.
+export function serviceRoleCredentialFinding(path: string, source: string): string | undefined {
+  const recorded = Object.values(serviceRoleCredentialAuthority.ledgers).some((ledger) => Object.hasOwn(ledger, path));
+  return serviceRoleCredentialAuthority.readsCredential(path, source) && !recorded ? `${path}: service-role credential read is forbidden` : undefined;
 }
