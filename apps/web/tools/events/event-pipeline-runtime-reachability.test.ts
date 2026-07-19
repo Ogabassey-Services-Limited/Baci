@@ -91,4 +91,13 @@ describe('event pipeline runtime reachability', () => {
       result.assignments[0],
     ]);
   });
+
+  it('uses an aliased callable invocation before a later assignment', () => {
+    const source =
+      'let make = safe; function run() { make(); } const execute = run; execute(); make = createServiceClient;';
+
+    const result = analyze(source);
+
+    expect(result.definitions).toEqual([result.declared]);
+  });
 });

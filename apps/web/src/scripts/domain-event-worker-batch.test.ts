@@ -140,6 +140,27 @@ describe('domain event worker batch', () => {
     );
   });
 
+  it('honors a producer-level shadow-only gate in active routing mode', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: [], error: null });
+
+    await processDomainEventMessage(
+      client(rpc),
+      {
+        ...validMessage,
+        message: {
+          ...validMessage.message,
+          metadata: { environment: 'test', shadow_only: true },
+        },
+      },
+      false
+    );
+
+    expect(rpc).toHaveBeenCalledWith(
+      'route_domain_event_v1',
+      expect.objectContaining({ p_shadow: true })
+    );
+  });
+
   it('dead-letters a repeatedly failing route instead of looping forever', async () => {
     const rpc = vi
       .fn()

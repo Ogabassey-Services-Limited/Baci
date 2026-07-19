@@ -110,6 +110,75 @@ function invokedBinding(call: ts.CallExpression, bindingOf: BindingOf) {
     : undefined;
 }
 
+function referencesCallableAlias(
+  expression: ts.Expression,
+  aliases: ReadonlySet<ts.Node>,
+  bindingOf: BindingOf
+): boolean {
+  const value = unwrap(expression);
+  if (ts.isIdentifier(value)) {
+    const binding = bindingOf(value);
+    return Boolean(binding && aliases.has(binding));
+  }
+  if (ts.isConditionalExpression(value)) {
+    return (
+      referencesCallableAlias(value.whenTrue, aliases, bindingOf) ||
+      referencesCallableAlias(value.whenFalse, aliases, bindingOf)
+    );
+  }
+  if (ts.isBinaryExpression(value)) {
+    return value.operatorToken.kind === ts.SyntaxKind.CommaToken
+      ? referencesCallableAlias(value.right, aliases, bindingOf)
+      : (value.operatorToken.kind === ts.SyntaxKind.BarBarToken ||
+          value.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken) &&
+          (referencesCallableAlias(value.left, aliases, bindingOf) ||
+            referencesCallableAlias(value.right, aliases, bindingOf));
+  }
+  if (!ts.isCallExpression(value)) return false;
+  const callee = unwrap(value.expression);
+  return (
+    (ts.isPropertyAccessExpression(callee) ||
+      ts.isElementAccessExpression(callee)) &&
+    (ts.isPropertyAccessExpression(callee)
+      ? callee.name.text
+      : ts.isStringLiteralLike(callee.argumentExpression)
+        ? callee.argumentExpression.text
+        : undefined) === 'bind' &&
+    referencesCallableAlias(callee.expression, aliases, bindingOf)
+  );
+}
+
+function callableAliases(
+  file: ts.SourceFile,
+  binding: ts.Node,
+  bindingOf: BindingOf
+): ReadonlySet<ts.Node> {
+  const aliases = new Set<ts.Node>([binding]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    const visit = (node: ts.Node): void => {
+      if (
+        ts.isVariableDeclaration(node) &&
+        ts.isIdentifier(node.name) &&
+        node.initializer &&
+        ts.isVariableDeclarationList(node.parent) &&
+        ts.getCombinedNodeFlags(node.parent) & ts.NodeFlags.Const &&
+        referencesCallableAlias(node.initializer, aliases, bindingOf)
+      ) {
+        const alias = bindingOf(node.name);
+        if (alias && !aliases.has(alias)) {
+          aliases.add(alias);
+          changed = true;
+        }
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(file);
+  }
+  return aliases;
+}
+
 function invocationPoints(
   file: ts.SourceFile,
   owner: ts.Node,
@@ -117,13 +186,12 @@ function invocationPoints(
 ): ts.CallExpression[] {
   const binding = callableBinding(owner, bindingOf);
   if (!binding) return [];
+  const aliases = callableAliases(file, binding, bindingOf);
   const points: ts.CallExpression[] = [];
   const visit = (node: ts.Node): void => {
-    if (
-      ts.isCallExpression(node) &&
-      invokedBinding(node, bindingOf) === binding
-    ) {
-      points.push(node);
+    if (ts.isCallExpression(node)) {
+      const invoked = invokedBinding(node, bindingOf);
+      if (invoked && aliases.has(invoked)) points.push(node);
     }
     ts.forEachChild(node, visit);
   };
