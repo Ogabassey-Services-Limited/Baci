@@ -1,5 +1,11 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -16,6 +22,10 @@ describe('eventPipelineGovernedPaths', () => {
   it('loads the frozen seed inventory and current source inventory safely', () => {
     const governed = eventPipelineGovernedPaths.collect();
     expect(governed.fixtureRecordCount).toBe(154);
+    expect(governed.fixtureInventorySha256).toBe(
+      '8a0f0b5e61d39fe46144e0114a41c7e25a8501e756ce1b819cca5fb793c6d0dc'
+    );
+    expect(governed.fixtureInventoryHashMatches).toBe(true);
     expect(governed.paths).toContain(
       'apps/web/tools/events/event-pipeline-governed-paths.ts'
     );
@@ -34,6 +44,71 @@ describe('eventPipelineGovernedPaths', () => {
     expect(eventPipelineGovernedPaths.sourcePaths(root).sort()).toEqual(
       paths.sort()
     );
+  });
+
+  it('rejects a substituted seed inventory even when its record count is unchanged', () => {
+    const root = mkdtempSync(join(tmpdir(), 'event-seed-receipt-'));
+    directories.push(root);
+    execFileSync('git', ['init', '--quiet'], { cwd: root });
+    const fixtureDirectory = join(root, 'apps/web/tools/events/fixtures');
+    mkdirSync(fixtureDirectory, { recursive: true });
+    writeFileSync(
+      join(fixtureDirectory, 'event-pipeline-path-inventory.tsv'),
+      'seed\tapps/web/src/substituted.ts\n'
+    );
+    execFileSync('git', ['config', 'user.email', 'tests@example.com'], {
+      cwd: root,
+    });
+    execFileSync('git', ['config', 'user.name', 'Tests'], { cwd: root });
+    execFileSync('git', ['add', '.'], { cwd: root });
+    execFileSync('git', ['commit', '--quiet', '-m', 'baseline'], { cwd: root });
+    const frozenBase = execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: root,
+      encoding: 'utf8',
+    }).trim();
+
+    const governed = eventPipelineGovernedPaths.collect(
+      root,
+      new Map(),
+      frozenBase
+    );
+    expect(governed.fixtureRecordCount).toBe(1);
+    expect(governed.fixtureInventoryHashMatches).toBe(false);
+  });
+
+  it('rejects a staged inventory substitution hidden by clean filesystem bytes', () => {
+    const root = mkdtempSync(join(tmpdir(), 'event-seed-index-receipt-'));
+    directories.push(root);
+    execFileSync('git', ['init', '--quiet'], { cwd: root });
+    execFileSync('git', ['config', 'user.email', 'tests@example.com'], {
+      cwd: root,
+    });
+    execFileSync('git', ['config', 'user.name', 'Tests'], { cwd: root });
+    const fixturePath =
+      'apps/web/tools/events/fixtures/event-pipeline-path-inventory.tsv';
+    const fixtureSource = readFileSync(
+      join(eventPipelineGovernedPaths.repoRoot(), fixturePath),
+      'utf8'
+    );
+    mkdirSync(join(root, fixturePath, '..'), { recursive: true });
+    writeFileSync(join(root, fixturePath), fixtureSource);
+    execFileSync('git', ['add', '.'], { cwd: root });
+    execFileSync('git', ['commit', '--quiet', '-m', 'baseline'], { cwd: root });
+    const frozenBase = execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: root,
+      encoding: 'utf8',
+    }).trim();
+    writeFileSync(
+      join(root, fixturePath),
+      fixtureSource.replace('\t', '\tsubstituted-')
+    );
+    execFileSync('git', ['add', fixturePath], { cwd: root });
+    writeFileSync(join(root, fixturePath), fixtureSource);
+
+    expect(
+      eventPipelineGovernedPaths.collect(root, new Map(), frozenBase)
+        .fixtureInventoryHashMatches
+    ).toBe(false);
   });
 
   it('preserves newline-bearing source paths from every Git inventory', () => {

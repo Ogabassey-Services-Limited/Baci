@@ -1,13 +1,28 @@
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { eventPipelineBoundaryManifest } from '../../src/lib/events/event-pipeline-boundary-manifest';
 import { collectProductionImportClosure } from '../../src/lib/events/event-pipeline-import-closure';
+import { analyticsDeliveryAuthorityManifest } from './analytics-delivery-authority-manifest';
+import { readGitIndexSources } from './event-pipeline-git-content';
 import { readGitSourceSnapshot } from './event-pipeline-git-source-snapshot';
 import { eventPipelineSourceFilePolicy } from './event-pipeline-source-file-policy';
 
 const FROZEN_EVENT_PIPELINE_BASE_SHA =
   '9e3d1b14b1931a5e441fc23f0e5417c188056e47';
+const FROZEN_EVENT_PIPELINE_AUTHORITY_BYTE_BASE_SHA =
+  'aab1cb4751692805b7fc9f1e7b5c265175102143';
+const FROZEN_PATH_INVENTORY_SHA256 =
+  '8a0f0b5e61d39fe46144e0114a41c7e25a8501e756ce1b819cca5fb793c6d0dc';
+const explicitlyHashedAuthorityPaths = new Set([
+  ...Object.keys(analyticsDeliveryAuthorityManifest.authorityClosureHashes),
+  ...Object.keys(analyticsDeliveryAuthorityManifest.callerScopedRouteHashes),
+  ...Object.keys(
+    analyticsDeliveryAuthorityManifest.verifiedContextHelperHashes
+  ),
+  analyticsDeliveryAuthorityManifest.platformRouteHash.path,
+]);
 
 function repoRoot(): string {
   return execFileSync('git', ['rev-parse', '--show-toplevel'], {
@@ -37,13 +52,20 @@ function collect(
   sources = readGitSourceSnapshot(root).sources,
   frozenBaseSha = FROZEN_EVENT_PIPELINE_BASE_SHA
 ) {
-  const fixturePath = resolve(
-    root,
-    'apps/web/tools/events/fixtures/event-pipeline-path-inventory.tsv'
-  );
-  const fixtureRecords = readFileSync(fixturePath, 'utf8')
-    .trimEnd()
-    .split('\n');
+  const fixtureRelativePath =
+    'apps/web/tools/events/fixtures/event-pipeline-path-inventory.tsv';
+  const fixturePath = resolve(root, fixtureRelativePath);
+  const fixtureSource = readFileSync(fixturePath, 'utf8');
+  const fixtureInventorySha256 = createHash('sha256')
+    .update(fixtureSource)
+    .digest('hex');
+  const fixtureIndexSource = readGitIndexSources(root, [
+    fixtureRelativePath,
+  ]).get(fixtureRelativePath);
+  const fixtureIndexSha256 = fixtureIndexSource
+    ? createHash('sha256').update(fixtureIndexSource).digest('hex')
+    : undefined;
+  const fixtureRecords = fixtureSource.trimEnd().split('\n');
   const fixturePaths = fixtureRecords.map((line) => line.split('\t')[1] ?? '');
   const productionClosure = collectProductionImportClosure(
     eventPipelineBoundaryManifest.productionRoots,
@@ -69,6 +91,10 @@ function collect(
   ];
   return {
     changedPaths: dynamicPaths,
+    fixtureInventoryHashMatches:
+      fixtureInventorySha256 === FROZEN_PATH_INVENTORY_SHA256 &&
+      fixtureIndexSha256 === FROZEN_PATH_INVENTORY_SHA256,
+    fixtureInventorySha256,
     fixtureRecordCount: fixtureRecords.length,
     frozenBaseSha,
     missingProductionRoots:
@@ -87,7 +113,9 @@ function collect(
 }
 
 export const eventPipelineGovernedPaths = {
+  authorityByteBaseSha: FROZEN_EVENT_PIPELINE_AUTHORITY_BYTE_BASE_SHA,
   collect,
+  explicitlyHashedAuthorityPaths,
   repoRoot,
   sourcePaths,
 } as const;

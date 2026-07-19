@@ -186,13 +186,17 @@ export function analyzeRpcSource(
 function sourceViewFindings(
   sources: ReadonlyMap<string, string>,
   governed: ReturnType<typeof eventPipelineGovernedPaths.collect>,
-  frozenSources: ReadonlyMap<string, string>
+  frozenSources: ReadonlyMap<string, string>,
+  authorityByteSources: ReadonlyMap<string, string>
 ): string[] {
   const findings: string[] = [];
   if (governed.fixtureRecordCount !== 154) {
     findings.push(
       `fixture: expected 154 records, found ${governed.fixtureRecordCount}`
     );
+  }
+  if (!governed.fixtureInventoryHashMatches) {
+    findings.push('fixture: event-pipeline path inventory hash mismatch');
   }
   const frozenFiles = {
     ...eventPipelineBoundaryManifest.frozenProjectionFiles,
@@ -210,6 +214,15 @@ function sourceViewFindings(
   }
   const governedPaths = new Set(governed.productionPaths);
   const seedPaths = new Set(governed.seedPaths);
+  const separatelyFrozenPaths = new Set([
+    ...Object.keys(frozenFiles),
+    ...eventPipelineGovernedPaths.explicitlyHashedAuthorityPaths,
+  ]);
+  const inheritedAuthorityFreezePaths = new Set(
+    [...governedPaths, ...seedPaths].filter(
+      (path) => !separatelyFrozenPaths.has(path)
+    )
+  );
   for (const path of governed.missingProductionRoots)
     findings.push(`${path}: event-pipeline production root is missing`);
   findings.push(...serviceRoleCredentialAuthority.findings(sources));
@@ -221,7 +234,9 @@ function sourceViewFindings(
     ...serviceAuthorityGraphFindings(
       sources,
       governed.changedPaths,
-      frozenSources
+      frozenSources,
+      inheritedAuthorityFreezePaths,
+      authorityByteSources
     )
   );
   for (const [path, source] of sources) {
@@ -246,12 +261,13 @@ function sameSources(left: ReadonlyMap<string, string>, right: ReadonlyMap<strin
 // biome-ignore format: compact hash receipt preserves the 300-line verifier gate.
 export function verifyEventPipelineBoundaries(
   root = eventPipelineGovernedPaths.repoRoot(),
-  frozenBaseSha?: string
+  frozenBaseSha?: string,
+  authorityByteBaseSha: string = eventPipelineGovernedPaths.authorityByteBaseSha
 ): string[] {
   const findings: string[] = [];
   const snapshot = readGitSourceSnapshot(root);
   let views: { governed: ReturnType<typeof eventPipelineGovernedPaths.collect>; sources: ReadonlyMap<string, string> }[];
-  let frozenSources: ReadonlyMap<string, string>;
+  let frozenSources: ReadonlyMap<string, string>; let authorityByteSources: ReadonlyMap<string, string>;
   try {
     const indexGoverned = eventPipelineGovernedPaths.collect(root, snapshot.indexSources, frozenBaseSha);
     views = [{ governed: indexGoverned, sources: snapshot.indexSources }];
@@ -263,10 +279,11 @@ export function verifyEventPipelineBoundaries(
   } catch {
     return ['frozen event-pipeline source snapshot is unavailable'];
   }
+  try { authorityByteSources = readGitSourceSnapshot.committedRevision(root, authorityByteBaseSha); }
+  catch { return ['frozen event-pipeline authority-byte snapshot is unavailable']; }
   for (const path of snapshot.missingStagedPaths)
     findings.push(`${path}: staged source is missing from index stage 0`);
-  for (const view of views)
-    findings.push(...sourceViewFindings(view.sources, view.governed, frozenSources));
+  for (const view of views) findings.push(...sourceViewFindings(view.sources, view.governed, frozenSources, authorityByteSources));
   return [...new Set(findings)].sort();
 }
 if (

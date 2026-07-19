@@ -3,12 +3,24 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { verifyEventPipelineBoundaries } from './verify-event-pipeline-boundaries';
+import { verifyEventPipelineBoundaries as verifyProductionEventPipelineBoundaries } from './verify-event-pipeline-boundaries';
 
 const roots: string[] = [];
 
 function git(root: string, ...args: string[]) {
   execFileSync('git', args, { cwd: root });
+}
+
+function verifyEventPipelineBoundaries(
+  root: string,
+  frozenBaseSha: string,
+  authorityByteBaseSha = frozenBaseSha
+) {
+  return verifyProductionEventPipelineBoundaries(
+    root,
+    frozenBaseSha,
+    authorityByteBaseSha
+  );
 }
 
 function repository(rogueSource = 'export const safe = true;\n'): {
@@ -27,6 +39,10 @@ function repository(rogueSource = 'export const safe = true;\n'): {
     ],
     ['apps/web/src/lib/events/rogue-factory.ts', rogueSource],
     ['apps/web/src/lib/inherited-admin.ts', "import '@/lib/supabase/admin';\n"],
+    [
+      'apps/web/src/app/api/payments/credit-direct/webhook/route.ts',
+      "import { createServiceClient } from '@/lib/supabase/service';\n",
+    ],
     [
       'apps/web/src/lib/supabase/admin.ts',
       'export const createAdminClient = () => null;\n',
@@ -56,6 +72,14 @@ afterEach(() => {
 });
 
 describe('event pipeline verifier staged source snapshot', () => {
+  it('fails closed when the seed inventory receipt does not match', () => {
+    const { baseSha, root } = repository();
+
+    expect(verifyEventPipelineBoundaries(root, baseSha)).toContain(
+      'fixture: event-pipeline path inventory hash mismatch'
+    );
+  });
+
   it('rejects staged authority hidden by a clean unstaged worktree copy', () => {
     const { baseSha, root } = repository();
     const path = 'apps/web/src/lib/events/rogue-factory.ts';
@@ -86,15 +110,132 @@ describe('event pipeline verifier staged source snapshot', () => {
     );
   });
 
-  it('subtracts an inherited edge after a non-authority edit', () => {
+  it('accepts identical frozen bytes for governed inherited authority', () => {
     const source =
       "import { createServiceClient } from '@/lib/supabase/service';\n";
     const { baseSha, root } = repository(source);
     const path = 'apps/web/src/lib/events/rogue-factory.ts';
-    writeFileSync(join(root, path), `${source}export const edited = true;\n`);
 
     expect(verifyEventPipelineBoundaries(root, baseSha)).not.toContain(
+      `${path}: inherited event-pipeline authority source bytes changed`
+    );
+  });
+
+  it.each([
+    ['whitespace/comment edit', '// formatting only\n'],
+    ['destination move', 'left.send(createServiceClient);\n'],
+    ['arbitrary flow mutation', 'if (enabled) createServiceClient();\n'],
+  ])('rejects a governed inherited authority %s', (_, edit) => {
+    const source =
+      "import { createServiceClient } from '@/lib/supabase/service';\n";
+    const { baseSha, root } = repository(source);
+    const path = 'apps/web/src/lib/events/rogue-factory.ts';
+    writeFileSync(join(root, path), `${source}${edit}`);
+
+    expect(verifyEventPipelineBoundaries(root, baseSha)).toContain(
+      `${path}: inherited event-pipeline authority source bytes changed`
+    );
+  });
+
+  it('allows an inherited authority edit outside the production and seed envelope', () => {
+    const { baseSha, root } = repository();
+    const path = 'apps/web/src/app/api/payments/credit-direct/webhook/route.ts';
+    const source =
+      "import { createServiceClient } from '@/lib/supabase/service';\n";
+    writeFileSync(join(root, path), `${source}// unrelated edit\n`);
+
+    const findings = verifyEventPipelineBoundaries(root, baseSha);
+    expect(findings).not.toContain(
+      `${path}: inherited event-pipeline authority source bytes changed`
+    );
+    expect(findings).not.toContain(
       `${path}: unauthorized service factory importer`
+    );
+  });
+
+  it('allows an unrelated non-authority edit inside the governed seed envelope', () => {
+    const { baseSha, root } = repository();
+    const path = 'apps/web/src/lib/events/rogue-factory.ts';
+    writeFileSync(join(root, path), 'export const stillSafe = true;\n');
+
+    const findings = verifyEventPipelineBoundaries(root, baseSha);
+    expect(findings).not.toContain(
+      `${path}: inherited event-pipeline authority source bytes changed`
+    );
+    expect(findings).not.toContain(
+      `${path}: unauthorized service factory importer`
+    );
+  });
+
+  it('enforces governed inherited-authority bytes from the staged view', () => {
+    const source =
+      "import { createServiceClient } from '@/lib/supabase/service';\n";
+    const { baseSha, root } = repository(source);
+    const path = 'apps/web/src/lib/events/rogue-factory.ts';
+    writeFileSync(join(root, path), `${source}// staged edit\n`);
+    git(root, 'add', path);
+    writeFileSync(join(root, path), source);
+
+    expect(verifyEventPipelineBoundaries(root, baseSha)).toContain(
+      `${path}: inherited event-pipeline authority source bytes changed`
+    );
+  });
+
+  it('enforces governed inherited-authority bytes from the filesystem view', () => {
+    const source =
+      "import { createServiceClient } from '@/lib/supabase/service';\n";
+    const { baseSha, root } = repository(source);
+    const path = 'apps/web/src/lib/events/rogue-factory.ts';
+    git(root, 'update-index', '--chmod=+x', path);
+    writeFileSync(join(root, path), `${source}// filesystem edit\n`);
+
+    expect(verifyEventPipelineBoundaries(root, baseSha)).toContain(
+      `${path}: inherited event-pipeline authority source bytes changed`
+    );
+  });
+
+  it('keeps a separate immutable authority-byte baseline after HEAD advances', () => {
+    const source =
+      "import { createServiceClient } from '@/lib/supabase/service';\n";
+    const { baseSha, root } = repository(source);
+    const path = 'apps/web/src/lib/events/rogue-factory.ts';
+    const reviewed = `${source}// reviewed authority bytes\n`;
+    writeFileSync(join(root, path), reviewed);
+    git(root, 'add', path);
+    git(root, 'commit', '--quiet', '-m', 'reviewed authority bytes');
+    const authorityByteBaseSha = execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: root,
+      encoding: 'utf8',
+    }).trim();
+
+    expect(
+      verifyEventPipelineBoundaries(root, baseSha, authorityByteBaseSha)
+    ).not.toContain(
+      `${path}: inherited event-pipeline authority source bytes changed`
+    );
+
+    writeFileSync(join(root, path), `${reviewed}// later mutation\n`);
+    git(root, 'add', path);
+    git(root, 'commit', '--quiet', '-m', 'later mutation');
+    expect(
+      verifyEventPipelineBoundaries(root, baseSha, authorityByteBaseSha)
+    ).toContain(
+      `${path}: inherited event-pipeline authority source bytes changed`
+    );
+  });
+
+  it('fails closed when the authority-byte baseline is unavailable', () => {
+    const { baseSha, root } = repository();
+    expect(
+      verifyEventPipelineBoundaries(root, baseSha, 'missing-authority-base')
+    ).toContain('frozen event-pipeline authority-byte snapshot is unavailable');
+  });
+
+  it('does not derive the authority-byte baseline from a supplied edge base', () => {
+    const { baseSha, root } = repository();
+
+    expect(verifyProductionEventPipelineBoundaries(root, baseSha)).toContain(
+      'frozen event-pipeline authority-byte snapshot is unavailable'
     );
   });
 

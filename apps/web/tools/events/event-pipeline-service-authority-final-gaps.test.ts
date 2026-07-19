@@ -1,176 +1,137 @@
 import { describe, expect, it } from 'vitest';
 import { serviceAuthorityGraphFindings } from './event-pipeline-service-authority-graph';
 
-const path = 'apps/web/src/lib/events/inherited-service-importer.ts';
+const path = 'apps/web/src/lib/events/changed-authority-root.ts';
+const facade = 'apps/web/src/lib/events/service-facade.ts';
 const service = 'apps/web/src/lib/supabase/service.ts';
-const importFactory =
-  "import { createServiceClient } from '@/lib/supabase/service';";
 const serviceSource = 'export const createServiceClient = () => null;';
 
-function findingsForMove(frozenBody: string, currentBody: string): string[] {
+function findings(
+  currentSource: string,
+  frozenSource = 'export const safe = true;'
+): string[] {
   const frozen = new Map([
-    [path, `${importFactory} ${frozenBody}`],
+    [path, frozenSource],
+    [facade, "export * from '@/lib/supabase/service';"],
     [service, serviceSource],
   ]);
   const current = new Map(frozen);
-  current.set(path, `${importFactory} ${currentBody}`);
+  current.set(path, currentSource);
   return serviceAuthorityGraphFindings(current, [path], frozen);
 }
 
-function expectNewAuthority(frozenBody: string, currentBody: string): void {
-  expect(findingsForMove(frozenBody, currentBody)).toContain(
-    `${path}: unauthorized service factory importer`
-  );
-}
-
-describe('event pipeline service authority final gaps', () => {
+describe('event pipeline static service authority reachability', () => {
   it.each([
     [
-      'callee owner',
-      'left.send(createServiceClient);',
-      'right.send(createServiceClient);',
+      'aliased require literal',
+      "const load = require; load('@/lib/events/service-facade');",
     ],
-    [
-      'constructor owner',
-      'new Left(createServiceClient);',
-      'new Right(createServiceClient);',
-    ],
-    [
-      'argument index',
-      'external(createServiceClient, safe);',
-      'external(safe, createServiceClient);',
-    ],
-    [
-      'destination binding',
-      'const first = createServiceClient;',
-      'const second = createServiceClient;',
-    ],
-    [
-      'array slot',
-      'const values = [createServiceClient, safe];',
-      'const values = [safe, createServiceClient];',
-    ],
-    [
-      'object owner',
-      'const first = { make: createServiceClient };',
-      'const second = { make: createServiceClient };',
-    ],
-    [
-      'class owner',
-      'class First { static make = createServiceClient; }',
-      'class Second { static make = createServiceClient; }',
-    ],
-    [
-      'class slot',
-      'class Holder { first = createServiceClient; }',
-      'class Holder { second = createServiceClient; }',
-    ],
-    [
-      'control owner',
-      'if (flag) external(createServiceClient); if (flag) safe();',
-      'if (flag) safe(); if (flag) external(createServiceClient);',
-    ],
-  ])('rejects moving inherited authority to a new %s', (_, frozen, current) => {
-    expectNewAuthority(frozen, current);
+    ['dynamic import literal', "void import('@/lib/events/service-facade');"],
+    ['direct local facade import', "import '@/lib/events/service-facade';"],
+  ])('rejects a new %s through a local facade', (_, currentSource) => {
+    expect(findings(currentSource).join('\n')).toContain(
+      `${path} -> ${facade} -> ${service}`
+    );
   });
 
-  it.each([
-    [
-      'unknown passthrough result',
-      'const make = passthrough(createServiceClient);',
-      'const make = passthrough(createServiceClient); make();',
-    ],
-    [
-      'Promise.resolve callback',
-      'const promised = Promise.resolve(createServiceClient);',
-      'const promised = Promise.resolve(createServiceClient); promised.then((make) => make());',
-    ],
-    [
-      'Promise.then result',
-      'const promised = Promise.resolve(createServiceClient).then((make) => make);',
-      'const promised = Promise.resolve(createServiceClient).then((make) => make); promised.then((make) => make());',
-    ],
-    [
-      'dynamic-import namespace callback',
-      "import('@/lib/supabase/service').then(() => null);",
-      "import('@/lib/supabase/service').then((namespace) => namespace.createServiceClient('event-pipeline'));",
-    ],
-    [
-      'dynamic-import destructured callback',
-      "import('@/lib/supabase/service').then(() => null);",
-      "import('@/lib/supabase/service').then(({ createServiceClient }) => createServiceClient('event-pipeline'));",
-    ],
-  ])('propagates authority through %s', (_, frozen, current) => {
-    expectNewAuthority(frozen, current);
+  it('rejects a direct aliased require of the service factory', () => {
+    expect(
+      findings("const load = require; load('@/lib/supabase/service');")
+    ).toContain(`${path}: unauthorized service factory importer`);
   });
 
-  it('propagates a TypeScript import-equals namespace', () => {
-    const frozenSource = "import service = require('@/lib/supabase/service');";
+  it('subtracts identical inherited static reachability after an arbitrary flow edit', () => {
+    const inherited =
+      "import { createServiceClient } from '@/lib/supabase/service';";
+
+    expect(
+      findings(
+        `${inherited} if (enabled) left.send(createServiceClient);`,
+        inherited
+      )
+    ).toEqual([]);
+  });
+
+  it('freezes changed inherited authority bytes only inside the requested envelope', () => {
+    const inherited =
+      "import { createServiceClient } from '@/lib/supabase/service';";
     const frozen = new Map([
-      [path, frozenSource],
+      [path, inherited],
       [service, serviceSource],
     ]);
     const current = new Map(frozen);
-    current.set(
-      path,
-      `${frozenSource} service.createServiceClient('event-pipeline');`
-    );
-
-    expect(serviceAuthorityGraphFindings(current, [path], frozen)).toContain(
-      `${path}: unauthorized service factory importer`
-    );
-  });
-
-  it('propagates an aliased require namespace', () => {
-    const frozen = new Map([
-      [path, 'const load = require;'],
-      [service, serviceSource],
-    ]);
-    const current = new Map(frozen);
-    current.set(
-      path,
-      "const load = require; const namespace = load('@/lib/supabase/service'); namespace.createServiceClient('event-pipeline');"
-    );
-
-    expect(serviceAuthorityGraphFindings(current, [path], frozen)).toContain(
-      `${path}: unauthorized service factory importer`
-    );
-  });
-
-  it.each([
-    [
-      'class property merely named createServiceClient',
-      '',
-      'class Safe { createServiceClient = () => null; } new Safe().createServiceClient();',
-    ],
-    [
-      'safe array-destructured member',
-      'const safe = () => null; const values = [createServiceClient, safe];',
-      'const safe = () => null; const values = [createServiceClient, safe]; const [, read] = values; read();',
-    ],
-    [
-      'safe object-destructured member',
-      'const safe = () => null; const values = { make: createServiceClient, safe };',
-      'const safe = () => null; const values = { make: createServiceClient, safe }; const { safe: read } = values; read();',
-    ],
-    [
-      'known safe passthrough result',
-      'const safe = () => null; function discard(factory) { return safe; } const make = discard(createServiceClient);',
-      'const safe = () => null; function discard(factory) { return safe; } const make = discard(createServiceClient); make();',
-    ],
-    [
-      'known safe Promise projection',
-      'const safe = () => null; const promised = Promise.resolve(createServiceClient).then(() => safe);',
-      'const safe = () => null; const promised = Promise.resolve(createServiceClient).then(() => safe); promised.then((make) => make());',
-    ],
-  ])('does not taint a %s', (_, frozenBody, currentBody) => {
-    const frozen = new Map([
-      [path, `${importFactory} ${frozenBody}`],
-      [service, serviceSource],
-    ]);
-    const current = new Map(frozen);
-    current.set(path, `${importFactory} ${currentBody}`);
+    current.set(path, `${inherited}\n// formatting only`);
 
     expect(serviceAuthorityGraphFindings(current, [path], frozen)).toEqual([]);
+    expect(
+      serviceAuthorityGraphFindings(
+        current,
+        [path],
+        frozen,
+        new Set([path]),
+        frozen
+      )
+    ).toContain(
+      `${path}: inherited event-pipeline authority source bytes changed`
+    );
+  });
+
+  it('fails closed instead of inferring a missing authority-byte baseline', () => {
+    const inherited =
+      "import { createServiceClient } from '@/lib/supabase/service';";
+    const frozen = new Map([
+      [path, inherited],
+      [service, serviceSource],
+    ]);
+    const current = new Map(frozen);
+    current.set(path, `${inherited}\n// changed bytes`);
+
+    expect(
+      serviceAuthorityGraphFindings(current, [path], frozen, new Set([path]))
+    ).toContain(
+      'event-pipeline: authority-byte baseline is required for inherited path freezing'
+    );
+  });
+
+  it('freezes removal of inherited authority inside the requested envelope', () => {
+    const inherited =
+      "import { createServiceClient } from '@/lib/supabase/service';";
+    const frozen = new Map([
+      [path, inherited],
+      [service, serviceSource],
+    ]);
+    const current = new Map(frozen);
+    current.set(path, 'export const safe = true;');
+
+    expect(
+      serviceAuthorityGraphFindings(
+        current,
+        [path],
+        frozen,
+        new Set([path]),
+        frozen
+      )
+    ).toContain(
+      `${path}: inherited event-pipeline authority source bytes changed`
+    );
+  });
+
+  it('keeps type-only service references outside the runtime graph', () => {
+    expect(
+      findings("export type { ServiceClient } from '@/lib/supabase/service';")
+    ).toEqual([]);
+  });
+
+  it('allows a manifested service importer', () => {
+    const worker = 'apps/web/src/scripts/process-domain-events.ts';
+    const sources = new Map([
+      [
+        worker,
+        "import { createServiceClient } from '@/lib/supabase/service'; createServiceClient('event-pipeline');",
+      ],
+      [service, serviceSource],
+    ]);
+
+    expect(serviceAuthorityGraphFindings(sources, [worker])).toEqual([]);
   });
 });
