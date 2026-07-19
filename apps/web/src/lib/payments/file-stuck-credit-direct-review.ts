@@ -1,7 +1,8 @@
 import 'server-only';
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
-import { createAdminClient } from '@/lib/supabase/admin';
+import type { Database } from '@/types/supabase';
 
 const RECONCILIATION_ISSUE_TYPE = 'credit_direct_confirmation_missing';
 const POSTGRES_UNIQUE_VIOLATION = '23505';
@@ -22,6 +23,8 @@ interface StuckCreditDirectOrder {
   total: number | string | null;
   updated_at: string;
 }
+
+type ReconciliationReviewClient = Pick<SupabaseClient<Database>, 'from'>;
 
 const CREDIT_DIRECT_NOTE_KEYS = [
   'creditDirectSessionId',
@@ -66,6 +69,7 @@ function parseNotesEvidence(notes: string | null) {
 }
 
 async function fileStuckCreditDirectReview(
+  supabase: ReconciliationReviewClient,
   order: StuckCreditDirectOrder,
   fallbackProviderReference: string | null = null
 ): Promise<boolean> {
@@ -74,7 +78,6 @@ async function fileStuckCreditDirectReview(
   );
   const activeReference = notesReference ?? fallbackProviderReference;
   try {
-    const supabase = createAdminClient();
     const { error } = await supabase.from('reconciliation_review').insert({
       candidates: null,
       issue_type: RECONCILIATION_ISSUE_TYPE,
@@ -145,6 +148,7 @@ async function fileStuckCreditDirectReview(
 }
 
 export async function fileStuckCreditDirectReviews(
+  supabase: ReconciliationReviewClient,
   orders: StuckCreditDirectOrder[],
   fallbackProviderReferences: ReadonlyMap<string, string> = new Map()
 ): Promise<string[]> {
@@ -160,6 +164,7 @@ export async function fileStuckCreditDirectReviews(
         .slice(index, index + REVIEW_FILING_CONCURRENCY)
         .map(async (order) => ({
           filed: await fileStuckCreditDirectReview(
+            supabase,
             order,
             fallbackProviderReferences.get(order.id) ?? null
           ),

@@ -72,6 +72,36 @@ describe('event pipeline static service authority reachability', () => {
     );
   });
 
+  it('keeps a runtime helper import on the cron-to-admin credential path', () => {
+    const cron = 'apps/web/src/app/api/cron/alert-stuck-bnpl/route.ts';
+    const helper =
+      'apps/web/src/lib/payments/file-stuck-credit-direct-review.ts';
+    const admin = 'apps/web/src/lib/supabase/admin.ts';
+    const env = 'apps/web/src/env.ts';
+    const sources = new Map([
+      [
+        cron,
+        "import { fileReviews } from '@/lib/payments/file-stuck-credit-direct-review'; void fileReviews();",
+      ],
+      [
+        helper,
+        "import { createAdminClient } from '@/lib/supabase/admin'; export const fileReviews = () => createAdminClient();",
+      ],
+      [
+        admin,
+        "import { getSupabaseServiceRoleKey } from '@/env'; export const createAdminClient = () => getSupabaseServiceRoleKey();",
+      ],
+      [
+        env,
+        'export const getSupabaseServiceRoleKey = () => process.env.SUPABASE_SERVICE_ROLE_KEY;',
+      ],
+    ]);
+
+    expect(serviceAuthorityGraphFindings(sources, [cron]).join('\n')).toContain(
+      `${cron}: API import graph reaches credential authority ${env} via ${cron} -> ${helper} -> ${admin} -> ${env}`
+    );
+  });
+
   it('subtracts identical inherited static reachability after an arbitrary flow edit', () => {
     const inherited =
       "import { createServiceClient } from '@/lib/supabase/service';";

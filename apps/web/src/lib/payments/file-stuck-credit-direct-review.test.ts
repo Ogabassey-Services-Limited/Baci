@@ -1,11 +1,15 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { logger } from '@/lib/logger';
+import type { Database } from '@/types/supabase';
 import { fileStuckCreditDirectReviews } from './file-stuck-credit-direct-review';
 
 vi.mock('server-only', () => ({}));
 
 const mocks = vi.hoisted(() => ({
+  createAdminClient: vi.fn(),
   eq: vi.fn(),
+  from: vi.fn(),
   insert: vi.fn(),
   is: vi.fn(),
   maybeSingle: vi.fn(),
@@ -13,26 +17,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: vi.fn(() => {
-    const chain = {
-      eq: mocks.eq,
-      insert: mocks.insert,
-      is: mocks.is,
-      maybeSingle: mocks.maybeSingle,
-      select: mocks.select,
-    };
-    mocks.eq.mockReturnValue(chain);
-    mocks.is.mockReturnValue(chain);
-    mocks.select.mockReturnValue(chain);
-    return {
-      from: vi.fn((table: string) => {
-        if (table !== 'reconciliation_review') {
-          throw new Error(`Unexpected table: ${table}`);
-        }
-        return chain;
-      }),
-    };
-  }),
+  createAdminClient: mocks.createAdminClient,
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -42,6 +27,31 @@ vi.mock('@/lib/logger', () => ({
     warn: vi.fn(),
   },
 }));
+
+function createReconciliationReviewClient() {
+  const chain = {
+    eq: mocks.eq,
+    insert: mocks.insert,
+    is: mocks.is,
+    maybeSingle: mocks.maybeSingle,
+    select: mocks.select,
+  };
+  mocks.eq.mockReturnValue(chain);
+  mocks.is.mockReturnValue(chain);
+  mocks.select.mockReturnValue(chain);
+
+  mocks.from.mockImplementation((table: string) => {
+    if (table !== 'reconciliation_review') {
+      throw new Error(`Unexpected table: ${table}`);
+    }
+    return chain;
+  });
+
+  return { from: mocks.from } as unknown as Pick<
+    SupabaseClient<Database>,
+    'from'
+  >;
+}
 
 function stuckCreditDirectOrder(overrides: Record<string, unknown> = {}) {
   return {
@@ -61,8 +71,14 @@ function stuckCreditDirectOrder(overrides: Record<string, unknown> = {}) {
 }
 
 describe('fileStuckCreditDirectReview', () => {
+  let reviewClient: ReturnType<typeof createReconciliationReviewClient>;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    reviewClient = createReconciliationReviewClient();
+    mocks.createAdminClient.mockImplementation(() => {
+      throw new Error('helper must not construct admin authority');
+    });
     mocks.insert.mockResolvedValue({ error: null });
     mocks.maybeSingle.mockResolvedValue({
       data: { id: 'review-1' },
@@ -70,9 +86,18 @@ describe('fileStuckCreditDirectReview', () => {
     });
   });
 
+  it('uses the injected reconciliation client without constructing admin authority', async () => {
+    await expect(
+      fileStuckCreditDirectReviews(reviewClient, [stuckCreditDirectOrder()])
+    ).resolves.toEqual([]);
+
+    expect(mocks.from).toHaveBeenCalledWith('reconciliation_review');
+    expect(mocks.createAdminClient).not.toHaveBeenCalled();
+  });
+
   it('labels cron-detected reviews so they cannot masquerade as SDK success', async () => {
     await expect(
-      fileStuckCreditDirectReviews([stuckCreditDirectOrder()])
+      fileStuckCreditDirectReviews(reviewClient, [stuckCreditDirectOrder()])
     ).resolves.toEqual([]);
 
     expect(mocks.insert).toHaveBeenCalledWith(
@@ -90,7 +115,7 @@ describe('fileStuckCreditDirectReview', () => {
     });
 
     await expect(
-      fileStuckCreditDirectReviews([stuckCreditDirectOrder()])
+      fileStuckCreditDirectReviews(reviewClient, [stuckCreditDirectOrder()])
     ).resolves.toEqual([]);
     expect(mocks.select).toHaveBeenCalledWith('id');
     expect(mocks.eq).toHaveBeenCalledWith(
@@ -116,7 +141,7 @@ describe('fileStuckCreditDirectReview', () => {
     mocks.maybeSingle.mockResolvedValue({ data: null, error: null });
 
     await expect(
-      fileStuckCreditDirectReviews([stuckCreditDirectOrder()])
+      fileStuckCreditDirectReviews(reviewClient, [stuckCreditDirectOrder()])
     ).resolves.toEqual(['order-1']);
     expect(logger.error).toHaveBeenCalledWith({
       error,
@@ -134,7 +159,7 @@ describe('fileStuckCreditDirectReview', () => {
     mocks.insert.mockResolvedValue({ error });
 
     await expect(
-      fileStuckCreditDirectReviews([stuckCreditDirectOrder()])
+      fileStuckCreditDirectReviews(reviewClient, [stuckCreditDirectOrder()])
     ).resolves.toEqual(['order-1']);
     expect(logger.error).toHaveBeenCalledWith({
       error,
@@ -149,7 +174,7 @@ describe('fileStuckCreditDirectReview', () => {
     mocks.insert.mockRejectedValue(error);
 
     await expect(
-      fileStuckCreditDirectReviews([stuckCreditDirectOrder()])
+      fileStuckCreditDirectReviews(reviewClient, [stuckCreditDirectOrder()])
     ).resolves.toEqual(['order-1']);
     expect(logger.error).toHaveBeenCalledWith({
       error,

@@ -261,23 +261,17 @@ describe('event pipeline service authority graph', () => {
     );
   });
 
-  it('allows declared worker and Credit Direct service roots', () => {
+  it('allows declared worker roots', () => {
     const worker = 'apps/web/src/scripts/process-domain-events.ts';
     const internal = 'apps/web/src/lib/events/domain-event-worker-loop.ts';
-    const creditDirect =
-      'apps/web/src/app/api/payments/credit-direct/webhook/route.ts';
     const sources = new Map([
       [worker, "import '@/lib/supabase/service';"],
       [internal, "import '@/scripts/process-domain-events';"],
-      [
-        creditDirect,
-        "import { createServiceClient } from '@/lib/supabase/service';",
-      ],
       [service, 'export const createServiceClient = () => null;'],
     ]);
-    expect(
-      serviceAuthorityGraphFindings(sources, [worker, internal, creditDirect])
-    ).toEqual([]);
+    expect(serviceAuthorityGraphFindings(sources, [worker, internal])).toEqual(
+      []
+    );
   });
 
   it('recognizes JavaScript-family route roots', () => {

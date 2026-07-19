@@ -132,7 +132,7 @@ export const EVENT_PIPELINE_BOUNDARY = {
   adjacentFunctions: ['cleanup_database_retention'],
   authority: {
     // biome-ignore format: compact reviewed authority allowlist preserves the 300-line module gate.
-    adminImporters: ['apps/web/src/app/(platform)/onboarding/actions.ts', 'apps/web/src/app/api/cron/alert-stuck-bnpl/route.ts', 'apps/web/src/app/api/orders/route.ts', 'apps/web/src/app/api/payments/juicyway/webhook/route.ts', 'apps/web/src/app/api/platform/events/platform-event-forwarding.ts', 'apps/web/src/lib/expo-push.ts', 'apps/web/src/lib/events/record-platform-order-created-event.ts', 'apps/web/src/lib/merchant-sending-domain.ts', 'apps/web/src/lib/payments/file-inventory-confirmation-review.ts', 'apps/web/src/lib/payments/file-stuck-credit-direct-review.ts', 'apps/web/src/lib/payments/handle-payment-for-cancelled-order.ts', 'apps/web/src/lib/payments/resolve-credit-direct-confirmation-review.ts', 'apps/web/src/lib/zeptomail.ts'],
+    adminImporters: ['apps/web/src/app/(platform)/onboarding/actions.ts', 'apps/web/src/app/api/orders/route.ts', 'apps/web/src/app/api/payments/juicyway/webhook/route.ts', 'apps/web/src/app/api/platform/events/platform-event-forwarding.ts', 'apps/web/src/lib/events/record-platform-order-created-event.ts'],
     bareClientImporters: [
       ...Object.keys(frozenRoutes),
       'apps/web/src/app/api/analytics/conversion/route.ts',
@@ -160,7 +160,6 @@ export const EVENT_PIPELINE_BOUNDARY = {
     serviceImporters: [
       'apps/web/src/app/api/analytics/conversion/route.ts',
       'apps/web/src/app/api/events/route.ts',
-      'apps/web/src/app/api/payments/credit-direct/webhook/route.ts',
       'apps/web/src/lib/events/event-pipeline-service-role-test-client.ts',
       'apps/web/src/scripts/process-domain-events.ts',
       'apps/web/src/scripts/process-event-deliveries.ts',
