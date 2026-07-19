@@ -91,11 +91,13 @@ function runtimeReferenceBindings(
     ) {
       return undefined;
     }
+    if (clause.namedBindings.elements.length === 0) return undefined;
     return clause.namedBindings.elements
       .filter((element) => !element.isTypeOnly)
       .map((element) => element.propertyName?.text ?? element.name.text);
   }
   if (ts.isNamespaceExport(clause)) return undefined;
+  if (clause.elements.length === 0) return undefined;
   return clause.elements
     .filter((element) => !element.isTypeOnly)
     .map((element) => element.propertyName?.text ?? element.name.text);

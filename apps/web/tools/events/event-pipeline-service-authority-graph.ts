@@ -144,43 +144,43 @@ function collectAuthorityEdges(
   for (const root of pathRoots) {
     const source = sources.get(root);
     if (!source || isTestSourcePath(root)) continue;
-    const paths = graph.importPaths(root, authorityTargetPaths);
+    const paths = graph.importTargetPaths(root, authorityTargetPaths);
     for (const { factory, kind, productionOnly, target } of authorityTargets) {
       if (productionOnly && !independentRoots.has(root)) continue;
       if (factory && allowedFactoryImporter(root, kind as FactoryKind))
         continue;
-      const path = paths.get(target);
-      if (!path || path.length < 2) continue;
-      if (factory && path.length === 2) continue;
-      if (
-        factory &&
-        path
-          .slice(1, -1)
-          .some((importer) =>
-            allowedFactoryImporter(importer, kind as FactoryKind)
-          )
-      ) {
-        continue;
-      }
-      if (
-        kind === 'credential' &&
-        !credentialImports.edgeIsRelevant(path.at(-2) ?? '', target, sources)
-      ) {
-        continue;
-      }
-      const message = pathMessage(root, kind, target, path);
-      for (let index = 1; index < path.length; index += 1) {
-        edges.push({
-          key: JSON.stringify([
-            'path',
-            root,
-            path[index - 1],
-            path[index],
-            kind,
-          ]),
-          message,
-          path: path[index - 1] ?? root,
-        });
+      for (const path of paths.get(target) ?? []) {
+        if (path.length < 2 || (factory && path.length === 2)) continue;
+        if (
+          factory &&
+          path
+            .slice(1, -1)
+            .some((importer) =>
+              allowedFactoryImporter(importer, kind as FactoryKind)
+            )
+        ) {
+          continue;
+        }
+        if (
+          kind === 'credential' &&
+          !credentialImports.edgeIsRelevant(path.at(-2) ?? '', target, sources)
+        ) {
+          continue;
+        }
+        const message = pathMessage(root, kind, target, path);
+        for (let index = 1; index < path.length; index += 1) {
+          edges.push({
+            key: JSON.stringify([
+              'path',
+              root,
+              path[index - 1],
+              path[index],
+              kind,
+            ]),
+            message,
+            path: path[index - 1] ?? root,
+          });
+        }
       }
     }
   }
@@ -208,12 +208,7 @@ export function serviceAuthorityGraphFindings(
     );
   }
   if (authorityByteSources) {
-    const authorityByteEdges = collectAuthorityEdges(
-      authorityByteSources,
-      roots,
-      true
-    );
-    for (const path of new Set(authorityByteEdges.map((edge) => edge.path))) {
+    for (const path of new Set(frozenEdges.map((edge) => edge.path))) {
       if (
         freezeInheritedPaths.has(path) &&
         sources.get(path) !== authorityByteSources.get(path)

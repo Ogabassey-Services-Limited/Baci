@@ -22,6 +22,52 @@ describe('event pipeline credential import analysis', () => {
     ).toBe(false);
   });
 
+  it.each([
+    "import {} from '@/env';",
+    "export {} from '@/env';",
+  ])('fails closed for an empty runtime environment clause: %s', (source) => {
+    const importer = 'apps/web/src/lib/events/root.ts';
+    const target = 'apps/web/src/env.ts';
+    const sources = new Map([
+      [importer, source],
+      [
+        target,
+        'export const getSupabaseServiceRoleKey = () => process.env.SUPABASE_SERVICE_ROLE_KEY;',
+      ],
+    ]);
+
+    expect(
+      eventPipelineCredentialImportAnalysis.edgeIsRelevant(
+        importer,
+        target,
+        sources
+      )
+    ).toBe(true);
+  });
+
+  it.each([
+    "import { type EnvironmentShape } from '@/env';",
+    "export { type EnvironmentShape } from '@/env';",
+  ])('ignores a type-only environment clause: %s', (source) => {
+    const importer = 'apps/web/src/lib/events/root.ts';
+    const target = 'apps/web/src/env.ts';
+    const sources = new Map([
+      [importer, source],
+      [
+        target,
+        'export type EnvironmentShape = string; export const getSupabaseServiceRoleKey = () => process.env.SUPABASE_SERVICE_ROLE_KEY;',
+      ],
+    ]);
+
+    expect(
+      eventPipelineCredentialImportAnalysis.edgeIsRelevant(
+        importer,
+        target,
+        sources
+      )
+    ).toBe(false);
+  });
+
   it('recognizes an imported credential-bearing export', () => {
     const importer = 'apps/web/src/lib/events/root.ts';
     const target = 'apps/web/src/lib/events/credential-source.ts';

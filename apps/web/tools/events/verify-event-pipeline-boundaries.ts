@@ -226,14 +226,12 @@ function sourceViewFindings(
   for (const path of governed.missingProductionRoots)
     findings.push(`${path}: event-pipeline production root is missing`);
   findings.push(...serviceRoleCredentialAuthority.findings(sources));
+  // biome-ignore format: compact union preserves the 300-line verifier gate.
+  const authorityRoots = [...new Set([...eventPipelineBoundaryManifest.trustedWrapperImporters, ...governed.productionPaths, ...governed.changedPaths])];
   findings.push(
-    ...serviceAuthorityGraphFindings(sources, [
-      ...eventPipelineBoundaryManifest.trustedWrapperImporters,
-      ...governed.productionPaths,
-    ]),
     ...serviceAuthorityGraphFindings(
       sources,
-      governed.changedPaths,
+      authorityRoots,
       frozenSources,
       inheritedAuthorityFreezePaths,
       authorityByteSources

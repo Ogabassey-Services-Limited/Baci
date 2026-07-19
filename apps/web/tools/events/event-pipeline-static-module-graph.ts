@@ -96,6 +96,7 @@ function analyzeModule(path: string, source: string): ModuleAnalysis {
         node.importClause?.name ||
         !bindings ||
         !ts.isNamedImports(bindings) ||
+        bindings.elements.length === 0 ||
         bindings.elements.some((element) => !element.isTypeOnly)
       ) {
         add(node.moduleSpecifier);
@@ -104,6 +105,7 @@ function analyzeModule(path: string, source: string): ModuleAnalysis {
       const runtime =
         !node.exportClause ||
         ts.isNamespaceExport(node.exportClause) ||
+        node.exportClause.elements.length === 0 ||
         node.exportClause.elements.some((element) => !element.isTypeOnly);
       if (runtime) add(node.moduleSpecifier, true);
     } else if (
@@ -148,19 +150,20 @@ function create(sources: ReadonlyMap<string, string>) {
     analyses.set(path, value);
     return value;
   };
-  const importPaths = (
+  const importTargetPaths = (
     root: string,
     targets: ReadonlySet<string>
-  ): Map<string, string[]> => {
+  ): Map<string, string[][]> => {
     const pending: string[][] = [[root]];
     const visited = new Set<string>();
-    const paths = new Map<string, string[]>();
+    const seenTargetEdges = new Set<string>();
+    const paths = new Map<string, string[][]>();
+    if (targets.has(root)) paths.set(root, [[root]]);
     while (pending.length > 0) {
       const path = pending.shift();
       const current = path?.at(-1);
       if (!path || !current || visited.has(current)) continue;
       visited.add(current);
-      if (targets.has(current)) paths.set(current, path);
       const currentAnalysis = analysis(current);
       const references =
         current !== root && currentAnalysis.useServer
@@ -172,11 +175,32 @@ function create(sources: ReadonlyMap<string, string>) {
           specifier,
           sources
         );
-        if (target) pending.push([...path, target]);
+        if (!target) continue;
+        if (targets.has(target)) {
+          const edge = JSON.stringify([current, target]);
+          if (!seenTargetEdges.has(edge)) {
+            seenTargetEdges.add(edge);
+            const targetPaths = paths.get(target) ?? [];
+            targetPaths.push([...path, target]);
+            paths.set(target, targetPaths);
+          }
+        }
+        if (!visited.has(target)) pending.push([...path, target]);
       }
     }
     return paths;
   };
+  const importPaths = (
+    root: string,
+    targets: ReadonlySet<string>
+  ): Map<string, string[]> =>
+    new Map(
+      [...importTargetPaths(root, targets)]
+        .filter((entry): entry is [string, [string[], ...string[][]]] =>
+          Boolean(entry[1][0])
+        )
+        .map(([target, paths]) => [target, paths[0]])
+    );
   const importClosure = (roots: readonly string[]): Set<string> => {
     const closure = new Set<string>();
     const pending = [...roots];
@@ -196,6 +220,7 @@ function create(sources: ReadonlyMap<string, string>) {
     importPath: (root: string, targets: ReadonlySet<string>) =>
       importPaths(root, targets).values().next().value as string[] | undefined,
     importPaths,
+    importTargetPaths,
     moduleReferences: (path: string) => analysis(path).references,
   };
 }
@@ -220,6 +245,14 @@ function importPath(
   return create(sources).importPath(root, targets);
 }
 
+function importTargetPaths(
+  root: string,
+  targets: ReadonlySet<string>,
+  sources: ReadonlyMap<string, string>
+): Map<string, string[][]> {
+  return create(sources).importTargetPaths(root, targets);
+}
+
 function importClosure(
   roots: readonly string[],
   sources: ReadonlyMap<string, string>
@@ -232,5 +265,6 @@ export const eventPipelineStaticModuleGraph = {
   importClosure,
   importPath,
   importPaths,
+  importTargetPaths,
   moduleReferences,
 } as const;

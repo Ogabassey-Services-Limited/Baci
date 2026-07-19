@@ -24,6 +24,19 @@ describe('event pipeline static module graph', () => {
     ).toEqual(['./mixed']);
   });
 
+  it('keeps empty named clauses as runtime loads and drops type-only-only clauses', () => {
+    const source = [
+      "import {} from './empty-import';",
+      "export {} from './empty-export';",
+      "import { type Input } from './type-import';",
+      "export { type Output } from './type-export';",
+    ].join('\n');
+
+    expect(
+      eventPipelineStaticModuleGraph.moduleReferences('root.ts', source)
+    ).toEqual(['./empty-import', './empty-export']);
+  });
+
   it('collects bound and conditional literal loader calls', () => {
     const source = [
       "require.bind(null)('./bound');",
@@ -74,6 +87,37 @@ describe('event pipeline static module graph', () => {
       new Map([
         [left, [root, left]],
         [right, [root, right]],
+      ])
+    );
+  });
+
+  it('retains a root path for every distinct incoming target edge', () => {
+    const root = 'apps/web/src/lib/events/root.ts';
+    const safe = 'apps/web/src/lib/events/safe.ts';
+    const privileged = 'apps/web/src/lib/events/privileged.ts';
+    const target = 'apps/web/src/env.ts';
+    const sources = new Map([
+      [root, "import './safe'; import './privileged';"],
+      [safe, "import { getSupabaseUrl } from '@/env';"],
+      [privileged, "import { getSupabaseServiceRoleKey } from '@/env';"],
+      [target, 'export {};'],
+    ]);
+
+    expect(
+      eventPipelineStaticModuleGraph.importTargetPaths(
+        root,
+        new Set([target]),
+        sources
+      )
+    ).toEqual(
+      new Map([
+        [
+          target,
+          [
+            [root, safe, target],
+            [root, privileged, target],
+          ],
+        ],
       ])
     );
   });

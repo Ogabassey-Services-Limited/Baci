@@ -40,6 +40,38 @@ describe('event pipeline static service authority reachability', () => {
     ).toContain(`${path}: unauthorized service factory importer`);
   });
 
+  it.each([
+    ['empty import', "import {} from '@/lib/supabase/service';"],
+    ['empty re-export', "export {} from '@/lib/supabase/service';"],
+  ])('rejects an %s of the service factory', (_, source) => {
+    expect(findings(source)).toContain(
+      `${path}: unauthorized service factory importer`
+    );
+  });
+
+  it('checks every incoming edge when safe and privileged branches share a credential target', () => {
+    const route = 'apps/web/src/app/api/fourth/route.ts';
+    const safe = 'apps/web/src/lib/events/safe-env-branch.ts';
+    const privileged = 'apps/web/src/lib/events/privileged-env-branch.ts';
+    const env = 'apps/web/src/env.ts';
+    const sources = new Map([
+      [
+        route,
+        "import '@/lib/events/safe-env-branch'; import '@/lib/events/privileged-env-branch';",
+      ],
+      [safe, "import { getSupabaseUrl } from '@/env';"],
+      [privileged, "import { getSupabaseServiceRoleKey } from '@/env';"],
+      [
+        env,
+        "export const getSupabaseUrl = () => 'url'; export const getSupabaseServiceRoleKey = () => process.env.SUPABASE_SERVICE_ROLE_KEY;",
+      ],
+    ]);
+
+    expect(serviceAuthorityGraphFindings(sources).join('\n')).toContain(
+      `${route} -> ${privileged} -> ${env}`
+    );
+  });
+
   it('subtracts identical inherited static reachability after an arbitrary flow edit', () => {
     const inherited =
       "import { createServiceClient } from '@/lib/supabase/service';";
@@ -110,6 +142,38 @@ describe('event pipeline static service authority reachability', () => {
         frozen,
         new Set([path]),
         frozen
+      )
+    ).toContain(
+      `${path}: inherited event-pipeline authority source bytes changed`
+    );
+  });
+
+  it('freezes authority resurrected after a newer byte baseline removed it', () => {
+    const inherited = "import '@/lib/supabase/service';";
+    const frozen = new Map([
+      [path, inherited],
+      [service, serviceSource],
+    ]);
+    const authorityByteBaseline = new Map(frozen);
+    authorityByteBaseline.set(path, 'export const safe = true;');
+    const current = new Map(frozen);
+
+    expect(
+      serviceAuthorityGraphFindings(
+        authorityByteBaseline,
+        [path],
+        frozen,
+        new Set([path]),
+        authorityByteBaseline
+      )
+    ).toEqual([]);
+    expect(
+      serviceAuthorityGraphFindings(
+        current,
+        [path],
+        frozen,
+        new Set([path]),
+        authorityByteBaseline
       )
     ).toContain(
       `${path}: inherited event-pipeline authority source bytes changed`
