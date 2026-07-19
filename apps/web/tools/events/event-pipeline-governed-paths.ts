@@ -14,7 +14,7 @@ const FROZEN_EVENT_PIPELINE_BASE_SHA =
 // Rotation is two commits: first commit the reviewed production bytes, then
 // advance this receipt to that immutable parent. Never derive it from HEAD.
 const FROZEN_EVENT_PIPELINE_AUTHORITY_BYTE_BASE_SHA =
-  '4c603474b17e1f1457582afa4cfc0c90d4b4ae4f';
+  '3aba6709895656f3852c7342230f486ea8edf622';
 const FROZEN_PATH_INVENTORY_SHA256 =
   '8a0f0b5e61d39fe46144e0114a41c7e25a8501e756ce1b819cca5fb793c6d0dc';
 const explicitlyHashedAuthorityPaths = new Set([
