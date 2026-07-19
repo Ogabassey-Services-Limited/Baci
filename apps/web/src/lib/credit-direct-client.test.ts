@@ -90,7 +90,10 @@ describe('openCreditDirectCheckout', () => {
 
     await openCreditDirectCheckout(options);
 
-    expect(options.onSuccess).toHaveBeenCalledWith('cd-transaction-123');
+    expect(options.onSuccess).toHaveBeenCalledWith({
+      checkoutTransactionId: 'cd-transaction-123',
+      sessionId: 'session-123',
+    });
     expect(options.onClose).not.toHaveBeenCalled();
     expect(options.onError).not.toHaveBeenCalled();
   });
@@ -105,7 +108,10 @@ describe('openCreditDirectCheckout', () => {
 
     await openCreditDirectCheckout(options);
 
-    expect(options.onSuccess).toHaveBeenCalledWith('session-123');
+    expect(options.onSuccess).toHaveBeenCalledWith({
+      checkoutTransactionId: null,
+      sessionId: 'session-123',
+    });
   });
 
   it('reports cancellation when Credit Direct closes before success', async () => {
@@ -136,7 +142,10 @@ describe('openCreditDirectCheckout', () => {
 
     await openCreditDirectCheckout(options);
 
-    expect(options.onPopup).toHaveBeenCalledWith('cd-popup-transaction-1');
+    expect(options.onPopup).toHaveBeenCalledWith({
+      checkoutTransactionId: 'cd-popup-transaction-1',
+      sessionId: 'session-123',
+    });
     expect(options.onError).not.toHaveBeenCalled();
   });
 
@@ -152,7 +161,10 @@ describe('openCreditDirectCheckout', () => {
 
     await openCreditDirectCheckout(options);
 
-    expect(options.onPopup).toHaveBeenCalledWith('session-123');
+    expect(options.onPopup).toHaveBeenCalledWith({
+      checkoutTransactionId: null,
+      sessionId: 'session-123',
+    });
     expect(options.onError).not.toHaveBeenCalled();
   });
 });

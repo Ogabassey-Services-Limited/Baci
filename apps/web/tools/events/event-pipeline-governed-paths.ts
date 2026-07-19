@@ -74,6 +74,9 @@ function collect(
       .filter(eventPipelineSourceFilePolicy.isSourcePath)
       .filter((path) => !path.endsWith('/supabase/.temp/cli-latest'))
       .sort(),
+    productionPaths: [...productionClosure]
+      .filter(eventPipelineSourceFilePolicy.isSourcePath)
+      .sort(),
     seedPaths: fixturePaths.filter(eventPipelineSourceFilePolicy.isSourcePath),
   };
 }

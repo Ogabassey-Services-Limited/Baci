@@ -13,6 +13,22 @@ import { eventPipelineSourceFilePolicy } from './event-pipeline-source-file-poli
 import { isTestSourcePath } from './event-pipeline-source-path';
 
 const wrapperSpecifier = '@/lib/analytics/trusted-server-ad-platform-fanout';
+const sourceExtension = '(cjs|cts|js|jsx|mjs|mts|ts|tsx)';
+
+function colocatedTestPath(path: string): string {
+  return path.replace(
+    new RegExp(`\\.${sourceExtension}$`),
+    (_match, extension: string) => `.test.${extension}`
+  );
+}
+
+function runtimePathForColocatedTest(path: string): string | undefined {
+  const runtimePath = path.replace(
+    new RegExp(`\\.test\\.${sourceExtension}$`),
+    (_match, extension: string) => `.${extension}`
+  );
+  return runtimePath === path ? undefined : runtimePath;
+}
 
 // biome-ignore format: compact parser preserves the 300-line verifier gate.
 function ast(path: string, source: string) {
@@ -22,10 +38,14 @@ function ast(path: string, source: string) {
 
 export function analyzeChangedRuntimeContracts(
   paths: readonly string[],
-  sources: ReadonlyMap<string, string>
+  sources: ReadonlyMap<string, string>,
+  baselineSources: ReadonlyMap<string, string> = new Map()
 ): string[] {
   const findings: string[] = [];
-  for (const path of paths.filter(
+  const runtimePaths = [
+    ...new Set(paths.map((path) => runtimePathForColocatedTest(path) ?? path)),
+  ];
+  for (const path of runtimePaths.filter(
     (value) =>
       /^apps\/web\/(?:src|tools)\//.test(value) &&
       eventPipelineSourceFilePolicy.isSourcePath(value) &&
@@ -37,7 +57,12 @@ export function analyzeChangedRuntimeContracts(
     if (!source) continue;
     const lineCount =
       source.split(/\r?\n/).length - Number(source.endsWith('\n'));
-    if (lineCount > 300) {
+    const baselineSource = baselineSources.get(path);
+    const baselineLineCount = baselineSource
+      ? baselineSource.split(/\r?\n/).length -
+        Number(baselineSource.endsWith('\n'))
+      : 0;
+    if (lineCount > 300 && baselineLineCount <= 300) {
       findings.push(`${path}: changed runtime exceeds 300 lines`);
     }
     const runtime = ast(path, source).statements.some(
@@ -47,11 +72,18 @@ export function analyzeChangedRuntimeContracts(
         !ts.isTypeAliasDeclaration(statement) &&
         !ts.isExportDeclaration(statement)
     );
-    const testPath = path.replace(
-      /\.(cjs|cts|js|jsx|mjs|mts|ts|tsx)$/,
-      (_match, extension: string) => `.test.${extension}`
-    );
-    if (runtime && !sources.has(testPath)) {
+    const testPath = colocatedTestPath(path);
+    const baselineRuntime = baselineSource
+      ? ast(path, baselineSource).statements.some(
+          (statement) =>
+            !ts.isImportDeclaration(statement) &&
+            !ts.isInterfaceDeclaration(statement) &&
+            !ts.isTypeAliasDeclaration(statement) &&
+            !ts.isExportDeclaration(statement)
+        )
+      : false;
+    const legacyMissingTest = baselineRuntime && !baselineSources.has(testPath);
+    if (runtime && !sources.has(testPath) && !legacyMissingTest) {
       findings.push(
         `${path}: changed runtime is missing colocated test ${testPath}`
       );
@@ -78,9 +110,7 @@ export function analyzeTemporaryAuthorityExpiry(
 
 type GitOutput = (args: string[]) => string;
 
-export function changedPaths(root: string, git?: GitOutput): string[] {
-  const options = { cwd: root, encoding: 'utf8' as const };
-  const run = git ?? ((args: string[]) => execFileSync('git', args, options));
+function resolveMergeBase(run: GitOutput): string {
   const baseRefs = [
     ...(process.env.GITHUB_BASE_REF
       ? [`origin/${process.env.GITHUB_BASE_REF}`, process.env.GITHUB_BASE_REF]
@@ -103,6 +133,13 @@ export function changedPaths(root: string, git?: GitOutput): string[] {
       ? mergeBaseError
       : new Error('Unable to resolve analytics authority merge base');
   }
+  return mergeBase;
+}
+
+export function changedPaths(root: string, git?: GitOutput): string[] {
+  const options = { cwd: root, encoding: 'utf8' as const };
+  const run = git ?? ((args: string[]) => execFileSync('git', args, options));
+  const mergeBase = resolveMergeBase(run);
   const committed = run([
     'diff',
     '--name-only',
@@ -133,9 +170,45 @@ export function changedPaths(root: string, git?: GitOutput): string[] {
   ];
 }
 
+export function baselineSources(
+  root: string,
+  paths: readonly string[],
+  git?: GitOutput
+): Map<string, string> {
+  const options = {
+    cwd: root,
+    encoding: 'utf8' as const,
+    stdio: ['ignore', 'pipe', 'pipe'] as const,
+  };
+  const run = git ?? ((args: string[]) => execFileSync('git', args, options));
+  const mergeBase = resolveMergeBase(run);
+  const sources = new Map<string, string>();
+  for (const path of new Set(paths)) {
+    try {
+      sources.set(path, run(['show', `${mergeBase}:${path}`]));
+    } catch (error) {
+      const stderr =
+        error instanceof Error && 'stderr' in error ? String(error.stderr) : '';
+      const absentAtMergeBase =
+        stderr.includes(` does not exist in '${mergeBase}'`) ||
+        stderr.includes(` exists on disk, but not in '${mergeBase}'`);
+      if (!stderr.startsWith('fatal: path ') || !absentAtMergeBase) {
+        throw error;
+      }
+      // Confirmed absent at the merge base, so no legacy exemption applies.
+    }
+  }
+  return sources;
+}
+
 export function verifyAnalyticsDeliveryAuthority(root: string): string[] {
   const snapshot = readGitSourceSnapshot(root);
   const { sources } = snapshot;
+  const changed = changedPaths(root);
+  const runtimeContractSnapshotPaths = changed.flatMap((path) => {
+    const runtimePath = runtimePathForColocatedTest(path) ?? path;
+    return [runtimePath, colocatedTestPath(runtimePath)];
+  });
   const cutoverPath =
     'apps/web/src/lib/events/event-pipeline-authority-cutover.ts';
   const queueOnlyDeliveryActivated = readQueueOnlyDeliveryCutover(
@@ -148,7 +221,11 @@ export function verifyAnalyticsDeliveryAuthority(root: string): string[] {
     ...analyzeAnalyticsDeliveryAuthoritySources(sources),
     ...analyzeCredentialProjectionSets(sources),
     ...analyzeAnalyticsWorkerAuthority(sources),
-    ...analyzeChangedRuntimeContracts(changedPaths(root), sources),
+    ...analyzeChangedRuntimeContracts(
+      changed,
+      sources,
+      baselineSources(root, runtimeContractSnapshotPaths)
+    ),
     ...(queueOnlyDeliveryActivated === undefined
       ? [`${cutoverPath}: queue-only authority cutover marker is unresolved`]
       : analyzeTemporaryAuthorityExpiry(

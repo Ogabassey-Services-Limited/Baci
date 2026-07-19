@@ -210,7 +210,11 @@ export function verifyEventPipelineBoundaries(
     const finding = frozenRouteHashFinding(path, source, expectedHash);
     if (finding) findings.push(finding);
   }
-  const governedPaths = new Set(governed.paths);
+  // Dynamic PR paths are scanned below for direct event-pipeline RPC calls,
+  // but unrelated application queries must not inherit the event pipeline's
+  // database projection policy. Only the declared production import closure
+  // receives the full authority and query-boundary classification.
+  const governedPaths = new Set(governed.productionPaths);
   const seedPaths = new Set(governed.seedPaths);
   for (const path of governed.missingProductionRoots)
     findings.push(`${path}: event-pipeline production root is missing`);

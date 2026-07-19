@@ -16,9 +16,10 @@ describe('eventPipelineGovernedPaths', () => {
   it('loads the frozen seed inventory and current source inventory safely', () => {
     const governed = eventPipelineGovernedPaths.collect();
     expect(governed.fixtureRecordCount).toBe(154);
-    expect(governed.paths).toContain(
-      'apps/web/tools/events/event-pipeline-governed-paths.ts'
+    expect(governed.productionPaths).toContain(
+      'apps/web/src/scripts/process-event-deliveries.ts'
     );
+    expect(governed.seedPaths).toContain('apps/web/src/app/checkout/page.tsx');
     expect(governed.missingProductionRoots).toEqual([]);
   });
 

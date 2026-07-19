@@ -2,6 +2,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   analyzeChangedRuntimeContracts,
+  baselineSources,
   changedPaths,
   verifyAnalyticsDeliveryAuthority,
 } from './verify-analytics-delivery-authority';
@@ -30,6 +31,68 @@ describe('analytics delivery authority repository contract', () => {
     expect(analyzeChangedRuntimeContracts([path], sources)).toContain(
       `${path}: changed runtime exceeds 300 lines`
     );
+  });
+
+  it('grandfathers existing oversized runtime and existing test topology', () => {
+    const path = 'apps/web/src/app/checkout/page.tsx';
+    const testPath = 'apps/web/src/app/checkout/page.test.tsx';
+    const current = `${'// current\n'.repeat(350)}run();`;
+    const baseline = `${'// baseline\n'.repeat(340)}run();`;
+    expect(
+      analyzeChangedRuntimeContracts(
+        [path],
+        new Map([
+          [path, current],
+          [testPath, 'test();'],
+        ]),
+        new Map([
+          [path, baseline],
+          [testPath, 'test();'],
+        ])
+      )
+    ).toEqual([]);
+  });
+
+  it('grandfathers an existing runtime that already lacked a test', () => {
+    const path = 'apps/web/src/app/checkout/page.tsx';
+    const current = new Map([[path, 'run();']]);
+    const baseline = new Map([[path, 'run();']]);
+
+    expect(analyzeChangedRuntimeContracts([path], current, baseline)).toEqual(
+      []
+    );
+  });
+
+  it('rejects deleting the test for an existing runtime', () => {
+    const path = 'apps/web/src/app/checkout/page.tsx';
+    const testPath = 'apps/web/src/app/checkout/page.test.tsx';
+    const current = new Map([[path, 'run();']]);
+    const baseline = new Map([
+      [path, 'run();'],
+      [testPath, 'test();'],
+    ]);
+
+    expect(
+      analyzeChangedRuntimeContracts([testPath], current, baseline)
+    ).toEqual([
+      `${path}: changed runtime is missing colocated test ${testPath}`,
+    ]);
+  });
+
+  it('still rejects a legacy file that crosses the 300-line boundary', () => {
+    const path = 'apps/web/src/lib/analytics/provider.ts';
+    const current = `${'// current\n'.repeat(301)}run();`;
+    const baseline = `${'// baseline\n'.repeat(299)}run();`;
+    expect(
+      analyzeChangedRuntimeContracts(
+        [path],
+        new Map([
+          [path, current],
+          ['apps/web/src/lib/analytics/provider.test.ts', 'test();'],
+        ]),
+        new Map([[path, baseline]])
+      )
+    ).toContain(`${path}: changed runtime exceeds 300 lines`);
   });
 
   it.each([
@@ -70,6 +133,38 @@ describe('analytics delivery authority repository contract', () => {
         return '';
       })
     ).toEqual([changed, 'apps/web/src/other.ts']);
+  });
+
+  it('loads only paths that existed at the merge base', () => {
+    const showCalls: string[] = [];
+    expect(
+      baselineSources(
+        '/repo',
+        ['existing.ts', 'added.ts', 'existing.ts'],
+        (args) => {
+          if (args[0] === 'merge-base') return 'abc123\n';
+          showCalls.push(args[1] ?? '');
+          if (args[0] === 'show' && args[1] === 'abc123:existing.ts') {
+            return 'export const existing = true;';
+          }
+          throw Object.assign(new Error('missing path'), {
+            stderr: "fatal: path 'added.ts' does not exist in 'abc123'\n",
+          });
+        }
+      )
+    ).toEqual(new Map([['existing.ts', 'export const existing = true;']]));
+    expect(showCalls).toEqual(['abc123:existing.ts', 'abc123:added.ts']);
+  });
+
+  it('propagates unexpected baseline repository failures', () => {
+    expect(() =>
+      baselineSources('/repo', ['existing.ts'], (args) => {
+        if (args[0] === 'merge-base') return 'abc123\n';
+        throw Object.assign(new Error('repository unavailable'), {
+          stderr: 'fatal: not a git repository\n',
+        });
+      })
+    ).toThrow('repository unavailable');
   });
 
   it('passes the live repository authority contract', () => {

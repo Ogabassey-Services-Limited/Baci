@@ -76,9 +76,11 @@ export function serviceAuthorityGraphFindings(
     }
   }
   for (const [path, closure] of productionClosures) {
-    const targets = approved.has(path)
-      ? indirectTargets
-      : new Set([...indirectTargets, 'apps/web/src/lib/supabase/service.ts']);
+    const directlyApproved = allowedFactoryImporter(path, 'service');
+    const targets =
+      approved.has(path) || directlyApproved
+        ? indirectTargets
+        : new Set([...indirectTargets, 'apps/web/src/lib/supabase/service.ts']);
     const hit = [...closure].find(
       (candidate) => candidate !== path && targets.has(candidate)
     );

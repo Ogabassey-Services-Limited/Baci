@@ -222,6 +222,23 @@ describe('materializeSupabaseHistoryReplay', () => {
     }
   });
 
+  it('excludes post-replay migrations from both frozen history modes', () => {
+    const postReplayPaths = new Set(
+      verified.manifest.postReplaySources.map(({ repositoryPath }) =>
+        path.posix.basename(repositoryPath)
+      )
+    );
+
+    for (const mode of ['chronological', 'production-effect'] as const) {
+      const sources = materializeSupabaseHistoryReplay(verified, mode);
+      expect(
+        sources.some(({ repositoryPath }) =>
+          postReplayPaths.has(path.posix.basename(repositoryPath))
+        )
+      ).toBe(false);
+    }
+  });
+
   it('rejects mapped-splice binding drift', () => {
     const invalid = cloneVerified();
     invalid.manifest.productionMappings[0].repositoryPath =

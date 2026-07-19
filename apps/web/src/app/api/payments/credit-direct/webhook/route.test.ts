@@ -52,6 +52,10 @@ vi.mock('@/lib/payments/ensure-paid-order-inventory-confirmed', () => ({
   ensurePaidOrderInventoryConfirmed: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock('@/lib/payments/resolve-credit-direct-confirmation-review', () => ({
+  resolveCreditDirectConfirmationReview: vi.fn().mockResolvedValue(true),
+}));
+
 vi.mock('@/lib/logger', () => ({
   logger: {
     error: vi.fn(),
@@ -82,6 +86,9 @@ const { createServiceClient } = await import('@/lib/supabase/service');
 const { logger } = await import('@/lib/logger');
 const { ensurePaidOrderInventoryConfirmed } = await import(
   '@/lib/payments/ensure-paid-order-inventory-confirmed'
+);
+const { resolveCreditDirectConfirmationReview } = await import(
+  '@/lib/payments/resolve-credit-direct-confirmation-review'
 );
 const { sendEmail } = await import('@/lib/zeptomail');
 
@@ -909,6 +916,7 @@ describe('POST /api/payments/credit-direct/webhook', () => {
       vi.mocked(createServiceClient).mockReturnValue(supabaseMock as never);
 
       const mockChain = supabaseMock.from('orders');
+      const orderUpdate = vi.fn();
 
       // Track which from() call we're on
       let fromCallCount = 0;
@@ -927,7 +935,7 @@ describe('POST /api/payments/credit-direct/webhook', () => {
         } else if (fromCallCount === 2) {
           // Second from('orders') - order update (returns the clamped/active row)
           const updateChain = { ...mockChain };
-          updateChain.update = vi.fn().mockReturnValue(updateChain);
+          updateChain.update = orderUpdate.mockReturnValue(updateChain);
           updateChain.eq = vi.fn().mockReturnValue(updateChain);
           updateChain.select = vi.fn().mockReturnValue(updateChain);
           updateChain.maybeSingle = vi.fn().mockResolvedValue({
@@ -973,6 +981,21 @@ describe('POST /api/payments/credit-direct/webhook', () => {
       // Verify from() was called for orders (twice) and transactions (twice)
       expect(supabaseMock.from).toHaveBeenCalledWith('orders');
       expect(supabaseMock.from).toHaveBeenCalledWith('transactions');
+      expect(resolveCreditDirectConfirmationReview).toHaveBeenCalledWith({
+        orderId: 'order_abc',
+        providerReference: 'txn_123456789',
+        supabase: supabaseMock,
+      });
+      const paidUpdate = orderUpdate.mock.calls[0]?.[0] as
+        | { notes?: string }
+        | undefined;
+      expect(JSON.parse(paidUpdate?.notes ?? '{}')).toEqual(
+        expect.objectContaining({
+          creditDirectTransactionId: 'txn_123456789',
+          creditDirectVerifiedWebhookWrite: true,
+          creditDirectClientCompletionStatus: 'provider_confirmed',
+        })
+      );
 
       expect(logger.info).toHaveBeenCalledWith({
         message: 'Credit Direct merchant payment completed',
@@ -1293,13 +1316,26 @@ describe('POST /api/payments/credit-direct/webhook', () => {
       });
     });
 
-    it('accepts a webhook when the popup reference persist failed and metaData names the order', async () => {
-      const sessionOnlyOrder = {
-        ...mockOrder,
-        notes: JSON.stringify({
+    it.each([
+      [
+        'no popup reference was stored',
+        {
           creditDirectSessionId: 'session_123456789',
           creditDirectSignedAmount: 50000,
-        }),
+        },
+      ],
+      [
+        'a legacy client stored the signed session as the popup reference',
+        {
+          creditDirectSessionId: 'session_123456789',
+          creditDirectTransactionId: 'session_123456789',
+          creditDirectSignedAmount: 50000,
+        },
+      ],
+    ])('accepts a signed webhook when %s and metaData names the order', async (_case, notes) => {
+      const sessionOnlyOrder = {
+        ...mockOrder,
+        notes: JSON.stringify(notes),
       };
       const unpersistedPayload = {
         ...customerPaymentPayload,
@@ -2035,6 +2071,8 @@ describe('POST /api/payments/credit-direct/webhook', () => {
           creditDirectTransactionId: 'txn_123456789',
           credit_directTransactionId: 'txn_123456789',
           creditDirectSignedAmount: 50000,
+          creditDirectClientCompletionStatus: 'provider_confirmed',
+          creditDirectProviderConfirmedAt: '2024-01-15T11:00:00Z',
           // Written by the paid flip: notifications were queued but the
           // dispatch marker never landed — the crash window this replay
           // heals.
@@ -2104,9 +2142,14 @@ describe('POST /api/payments/credit-direct/webhook', () => {
 
       expect(response.status).toBe(200);
       expect(data).toEqual({ received: true, message: 'Already processed' });
-      expect(notifiedMarkerUpdate).toHaveBeenCalledWith(
+      const notifiedUpdate = notifiedMarkerUpdate.mock.calls[0]?.[0] as
+        | { notes?: string }
+        | undefined;
+      expect(JSON.parse(notifiedUpdate?.notes ?? '{}')).toEqual(
         expect.objectContaining({
-          notes: expect.stringContaining('creditDirectNotifiedAt'),
+          creditDirectClientCompletionStatus: 'provider_confirmed',
+          creditDirectNotifiedAt: expect.any(String),
+          creditDirectVerifiedWebhookWrite: true,
         })
       );
       expect(transactionInsert).toHaveBeenCalledWith({
