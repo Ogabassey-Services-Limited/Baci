@@ -15,6 +15,7 @@ const migrationPaths = [
   '../../../../supabase/migrations/20260718070008_preserve_credit_direct_payment_audit_notes.sql',
   '../../../../supabase/migrations/20260718070009_scope_credit_direct_payment_audit_notes.sql',
   '../../../../supabase/migrations/20260718070010_preserve_credit_direct_provider_reference.sql',
+  '../../../../supabase/migrations/20260718070011_require_credit_direct_guest_tracking_token.sql',
 ].map((migrationPath) =>
   join(dirname(fileURLToPath(import.meta.url)), migrationPath)
 );
@@ -31,6 +32,7 @@ describe('Credit Direct missing-confirmation reconciliation migration', () => {
   let paymentAuditPreservationSql: string;
   let paymentAuditScopeSql: string;
   let paymentAuditProviderReferenceSql: string;
+  let completionGuestCredentialSql: string;
 
   beforeAll(() => {
     [
@@ -45,6 +47,7 @@ describe('Credit Direct missing-confirmation reconciliation migration', () => {
       paymentAuditPreservationSql,
       paymentAuditScopeSql,
       paymentAuditProviderReferenceSql,
+      completionGuestCredentialSql,
     ] = migrationPaths.map((migrationPath) =>
       readFileSync(migrationPath, 'utf8')
     );
@@ -63,6 +66,7 @@ describe('Credit Direct missing-confirmation reconciliation migration', () => {
       paymentAuditPreservationSql,
       paymentAuditScopeSql,
       paymentAuditProviderReferenceSql,
+      completionGuestCredentialSql,
     ].entries()) {
       expect(
         migrationSql.trimEnd().split('\n').length,
@@ -162,6 +166,23 @@ describe('Credit Direct missing-confirmation reconciliation migration', () => {
     );
     expect(completionHardeningSql).toMatch(
       /record_credit_direct_client_completion_v1\([\s\S]*CASE[\s\S]*p_email\s+IS\s+NOT\s+NULL[\s\S]*lower\(p_email\)\s*=\s*lower\(trim\(v_order\.customer_email\)\)[\s\S]*THEN\s+v_order\.tracking_token[\s\S]*ELSE\s+p_tracking_token[\s\S]*END/i
+    );
+  });
+
+  it('requires a tracking token or authenticated identity for final guest authorization', () => {
+    const authorizationBlock = completionGuestCredentialSql.match(
+      /IF v_request_role <> 'service_role' THEN[\s\S]*?RAISE EXCEPTION 'unauthorized';[\s\S]*?END IF;/
+    )?.[0];
+
+    expect(authorizationBlock).toBeDefined();
+    expect(authorizationBlock).toContain('p_tracking_token');
+    expect(authorizationBlock).toContain('v_user_id IS NOT NULL');
+    expect(authorizationBlock).not.toContain('p_email');
+    expect(completionGuestCredentialSql).toMatch(
+      /record_credit_direct_client_completion_v1\([\s\S]*p_tracking_token\s*\n\s*\);/i
+    );
+    expect(completionGuestCredentialSql).not.toMatch(
+      /record_credit_direct_client_completion_v1\([\s\S]*CASE[\s\S]*p_email/i
     );
   });
 

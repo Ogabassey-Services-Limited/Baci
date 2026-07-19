@@ -152,6 +152,7 @@ describe('supabaseHistoryReplayManifest', () => {
       'supabase/migrations/20260718070008_preserve_credit_direct_payment_audit_notes.sql',
       'supabase/migrations/20260718070009_scope_credit_direct_payment_audit_notes.sql',
       'supabase/migrations/20260718070010_preserve_credit_direct_provider_reference.sql',
+      'supabase/migrations/20260718070011_require_credit_direct_guest_tracking_token.sql',
     ]);
     expect(
       supabaseHistoryReplayManifest.postReplaySources.every(({ sha256 }) =>

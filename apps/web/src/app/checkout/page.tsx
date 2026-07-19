@@ -36,7 +36,6 @@ import {
   SelectedShippingDisplay,
   ShippingOptions,
 } from '@/components/storefront/checkout/shipping-options';
-import { writeCreditDirectPopupMarker } from '@/components/storefront/ogabassey/pages/checkout/credit-direct-popup-return';
 import { ThemedButton, ThemedInput } from '@/components/themed';
 import { Button } from '@/components/ui/button';
 import {
@@ -59,6 +58,7 @@ import { trackServerSideBeginCheckout } from '@/lib/server-side-analytics';
 import { createClient } from '@/lib/supabase/client';
 import type { ShippingQuote } from '@/types/shipping-quote';
 import { handoffLegacyCreditDirectSuccess } from './credit-direct-success';
+import { captureLegacyCreditDirectPopup } from './legacy-credit-direct-popup';
 import { notifyLastOrderSnapshotChanged } from './success/client-page-order-snapshot';
 
 const DEFAULT_SHIPPING_FEE = Number.parseFloat(
@@ -1519,10 +1519,6 @@ function CheckoutPageContent() {
         setFormIsLoading(false);
       },
       onPopup: async (response) => {
-        if (!response?.checkoutTransactionId) {
-          return;
-        }
-
         if (typeof order.id !== 'string' || !order.id) {
           console.error('Credit Direct payment reference update skipped:', {
             orderId: order.id,
@@ -1535,14 +1531,12 @@ function CheckoutPageContent() {
           return;
         }
 
-        writeCreditDirectPopupMarker(order.id, response.checkoutTransactionId);
-
-        // Save transaction ID to order for webhook reconciliation
-        const paymentReferenceError =
-          await updateCreditDirectPaymentReferenceWithRetry({
-            orderId: order.id,
-            paymentRef: response.checkoutTransactionId,
-          });
+        const paymentReferenceError = await captureLegacyCreditDirectPopup({
+          checkoutTransactionId: response?.checkoutTransactionId,
+          orderId: order.id,
+          signedSessionId: sign.sessionId,
+          updatePaymentReference: updateCreditDirectPaymentReferenceWithRetry,
+        });
 
         if (paymentReferenceError) {
           console.error('Credit Direct payment reference update failed:', {
