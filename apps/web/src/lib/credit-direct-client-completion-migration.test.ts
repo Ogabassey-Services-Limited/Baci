@@ -184,6 +184,12 @@ describe('Credit Direct missing-confirmation reconciliation migration', () => {
     expect(completionGuestCredentialSql).not.toMatch(
       /record_credit_direct_client_completion_v1\([\s\S]*CASE[\s\S]*p_email/i
     );
+    expect(completionGuestCredentialSql).toMatch(
+      /v_active_reference\s+IS\s+NOT\s+DISTINCT\s+FROM\s+v_active_session[\s\S]*p_session_id\s+IS\s+NOT\s+DISTINCT\s+FROM\s+v_active_session/i
+    );
+    expect(completionGuestCredentialSql).toMatch(
+      /'creditDirectTransactionId'[\s\S]*p_checkout_transaction_id[\s\S]*UPDATE\s+public\.orders/i
+    );
   });
 
   it('supersedes SDK-only completion references before signing a retry', () => {

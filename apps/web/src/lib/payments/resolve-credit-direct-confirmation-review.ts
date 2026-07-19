@@ -1,19 +1,40 @@
 import 'server-only';
 
 import { logger } from '@/lib/logger';
-import { createAdminClient } from '@/lib/supabase/admin';
+
+interface CreditDirectConfirmationReviewClient {
+  from(relation: 'reconciliation_review'): {
+    update(values: { resolution_notes: string; resolved_at: string }): {
+      eq(
+        column: 'issue_type',
+        value: 'credit_direct_confirmation_missing'
+      ): {
+        eq(
+          column: 'order_id',
+          value: string
+        ): {
+          is(
+            column: 'resolved_at',
+            value: null
+          ): PromiseLike<{ error: unknown }>;
+        };
+      };
+    };
+  };
+}
 
 export async function resolveCreditDirectConfirmationReview({
   orderId,
   providerReference,
+  supabase,
 }: {
   orderId: string;
   providerReference: string;
+  supabase: CreditDirectConfirmationReviewClient;
 }): Promise<boolean> {
   const resolvedAt = new Date().toISOString();
 
   try {
-    const supabase = createAdminClient();
     const { error } = await supabase
       .from('reconciliation_review')
       .update({

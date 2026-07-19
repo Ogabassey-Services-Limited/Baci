@@ -1,17 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  createAdminClient: vi.fn(),
   from: vi.fn(),
   update: vi.fn(),
   eqIssue: vi.fn(),
   eqOrder: vi.fn(),
   isOpen: vi.fn(),
   loggerError: vi.fn(),
-}));
-
-vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: mocks.createAdminClient,
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -23,7 +18,6 @@ import { resolveCreditDirectConfirmationReview } from './resolve-credit-direct-c
 describe('resolveCreditDirectConfirmationReview', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.createAdminClient.mockReturnValue({ from: mocks.from });
     mocks.from.mockReturnValue({ update: mocks.update });
     mocks.update.mockReturnValue({ eq: mocks.eqIssue });
     mocks.eqIssue.mockReturnValue({ eq: mocks.eqOrder });
@@ -36,6 +30,7 @@ describe('resolveCreditDirectConfirmationReview', () => {
       resolveCreditDirectConfirmationReview({
         orderId: 'order-1',
         providerReference: 'cd-1',
+        supabase: { from: mocks.from },
       })
     ).resolves.toBe(true);
 
@@ -61,6 +56,7 @@ describe('resolveCreditDirectConfirmationReview', () => {
       resolveCreditDirectConfirmationReview({
         orderId: 'order-1',
         providerReference: 'cd-1',
+        supabase: { from: mocks.from },
       })
     ).resolves.toBe(false);
 

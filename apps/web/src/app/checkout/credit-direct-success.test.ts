@@ -145,7 +145,7 @@ describe('handoffLegacyCreditDirectSuccess', () => {
     );
   });
 
-  it('uses the merchant slug when the legacy root checkout has no base path', () => {
+  it('preserves the empty base path for a custom-domain checkout', () => {
     const fetcher = vi.fn().mockReturnValue(new Promise(() => undefined));
     const navigate = vi.fn();
 
@@ -163,7 +163,7 @@ describe('handoffLegacyCreditDirectSuccess', () => {
     );
 
     expect(navigate).toHaveBeenCalledWith(
-      '/test-store/checkout/bnpl?orderId=order-1&gateway=credit_direct&merchant_slug=test-store&trackingToken=track-1&email=buyer%40example.com'
+      '/checkout/bnpl?orderId=order-1&gateway=credit_direct&merchant_slug=test-store&trackingToken=track-1&email=buyer%40example.com'
     );
   });
 });

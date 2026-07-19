@@ -984,6 +984,7 @@ describe('POST /api/payments/credit-direct/webhook', () => {
       expect(resolveCreditDirectConfirmationReview).toHaveBeenCalledWith({
         orderId: 'order_abc',
         providerReference: 'txn_123456789',
+        supabase: supabaseMock,
       });
       const paidUpdate = orderUpdate.mock.calls[0]?.[0] as
         | { notes?: string }

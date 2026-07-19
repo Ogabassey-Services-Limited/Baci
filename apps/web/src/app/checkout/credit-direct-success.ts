@@ -48,8 +48,13 @@ export function handoffLegacyCreditDirectSuccess(
   });
   if (trackingToken) query.set('trackingToken', trackingToken);
   if (customerEmail) query.set('email', customerEmail);
-  const explicitPrefix =
-    basePath && basePath !== '/' ? basePath.replace(/\/$/, '') : '';
-  const prefix = explicitPrefix || (merchantSlug ? `/${merchantSlug}` : '');
+  const prefix =
+    basePath === undefined || basePath === null
+      ? merchantSlug
+        ? `/${merchantSlug}`
+        : ''
+      : basePath === '/'
+        ? ''
+        : basePath.replace(/\/$/, '');
   navigate(`${prefix}/checkout/bnpl?${query.toString()}` as Route);
 }

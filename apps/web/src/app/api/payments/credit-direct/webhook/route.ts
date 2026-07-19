@@ -740,6 +740,7 @@ export async function POST(request: NextRequest) {
               !(await resolveCreditDirectConfirmationReview({
                 orderId: order.id,
                 providerReference: payload.checkoutTransactionId,
+                supabase,
               }))
             ) {
               return NextResponse.json(
@@ -827,6 +828,7 @@ export async function POST(request: NextRequest) {
             !(await resolveCreditDirectConfirmationReview({
               orderId: order.id,
               providerReference: payload.checkoutTransactionId,
+              supabase,
             }))
           ) {
             return NextResponse.json(
@@ -912,6 +914,7 @@ export async function POST(request: NextRequest) {
           !(await resolveCreditDirectConfirmationReview({
             orderId: order.id,
             providerReference: payload.checkoutTransactionId,
+            supabase,
           }))
         ) {
           return NextResponse.json(
@@ -1054,6 +1057,7 @@ async function healPaidCreditDirectOrderReplay({
     !(await resolveCreditDirectConfirmationReview({
       orderId: order.id,
       providerReference: payload.checkoutTransactionId,
+      supabase,
     }))
   ) {
     return NextResponse.json(

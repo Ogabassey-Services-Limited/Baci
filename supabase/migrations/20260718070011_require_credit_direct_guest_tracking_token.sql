@@ -114,8 +114,34 @@ BEGIN
 
   IF p_checkout_transaction_id IS NOT NULL
      AND v_active_reference IS NOT NULL
-     AND p_checkout_transaction_id IS DISTINCT FROM v_active_reference THEN
+     AND p_checkout_transaction_id IS DISTINCT FROM v_active_reference
+     AND NOT (
+       v_active_reference IS NOT DISTINCT FROM v_active_session
+       AND p_session_id IS NOT DISTINCT FROM v_active_session
+     ) THEN
     RAISE EXCEPTION 'reference_mismatch';
+  END IF;
+
+  -- Legacy launchers sometimes persisted the signed session as the popup
+  -- reference before the SDK returned its real transaction id. Once the
+  -- caller has proved the current signed session and an order credential,
+  -- promote that placeholder so the revoked v1 worker can record the SDK
+  -- completion under the real reference. A superseded reference is still
+  -- rejected by the v1 worker and rolls this update back atomically.
+  IF p_checkout_transaction_id IS NOT NULL
+     AND p_checkout_transaction_id IS DISTINCT FROM v_active_reference
+     AND v_active_reference IS NOT DISTINCT FROM v_active_session
+     AND p_session_id IS NOT DISTINCT FROM v_active_session THEN
+    v_notes :=
+      (v_notes - 'creditDirectTransactionId' - 'credit_directTransactionId') ||
+      jsonb_build_object(
+        'creditDirectTransactionId',
+        p_checkout_transaction_id
+      );
+
+    UPDATE public.orders
+    SET notes = v_notes::text
+    WHERE id = v_order.id;
   END IF;
 
   v_completed_transaction := NULLIF(
