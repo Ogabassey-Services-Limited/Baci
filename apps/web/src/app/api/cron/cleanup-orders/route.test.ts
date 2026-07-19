@@ -177,6 +177,16 @@ describe('mark_abandoned_orders migration contract', () => {
       /EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+public\.transactions/i
     );
     expect(sql).toMatch(/created_at\s*</i);
+    expect(sql).toMatch(/updated_at\s*</i);
+    expect(sql).toMatch(/reconciliation_review/i);
+    expect(sql).toMatch(/credit_direct_confirmation_missing/i);
+    expect(sql).toMatch(/resolved_at\s+IS\s+NULL/i);
+    expect(sql).toMatch(/NOT\s+EXISTS/i);
+    expect(sql).toMatch(/credit_direct_sdk_on_success/i);
+    expect(sql).toMatch(/interval\s+'14 days'/i);
+    expect(sql).toMatch(
+      /UPDATE\s+public\.reconciliation_review[\s\S]*resolved_at/i
+    );
     expect(sql).toMatch(/hours_threshold\s*\*\s*interval\s+'1 hour'/i);
     expect(sql).not.toMatch(/hours_threshold\s*\|\|\s*' hours'/i);
     const appliedSql = readAppliedMarkAbandonedOrdersSql();

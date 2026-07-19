@@ -2,7 +2,10 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { CreditDirectVerificationView } from './CreditDirectVerificationView';
 
-function renderView(phase: 'polling' | 'timeout' | 'cancelled') {
+function renderView(
+  phase: 'polling' | 'timeout' | 'cancelled',
+  allowRetry = true
+) {
   const onKeepWaiting = vi.fn();
   const onRetryPayment = vi.fn();
   const onReturnHome = vi.fn();
@@ -11,7 +14,7 @@ function renderView(phase: 'polling' | 'timeout' | 'cancelled') {
     <CreditDirectVerificationView
       phase={phase}
       onKeepWaiting={onKeepWaiting}
-      onRetryPayment={onRetryPayment}
+      {...(allowRetry && { onRetryPayment })}
       onReturnHome={onReturnHome}
     />,
   );
@@ -62,5 +65,17 @@ describe('CreditDirectVerificationView', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Return to Home' }));
     expect(onReturnHome).toHaveBeenCalledTimes(1);
+  });
+
+  it('suppresses a new attempt when SDK success was already recorded', () => {
+    renderView('timeout', false);
+
+    expect(
+      screen.queryByRole('button', { name: 'Start a new payment attempt' })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Only start a new attempt if you did/)
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Keep checking' })).toBeEnabled();
   });
 });

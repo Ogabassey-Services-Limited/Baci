@@ -12,9 +12,17 @@ import type {
 } from './supabase-history-replay-types';
 import { verifySupabaseForwardRepairs } from './verify-supabase-forward-repairs';
 import { verifySupabaseHistoryReplayReceipts } from './verify-supabase-history-replay-receipts';
+import { verifySupabasePostReplaySources } from './verify-supabase-post-replay-sources';
 
 const MAX_GIT_OUTPUT = 32 * 1024 * 1024;
 const MIGRATION_PATH = /^supabase\/migrations\/([^/]+[.]sql)$/;
+
+function frozenReplayTailVersion(): string {
+  const name = manifest.forwardRepairs.at(-1)?.path.match(MIGRATION_PATH)?.[1];
+  const version = name?.match(/^(\d{14})_/)?.[1];
+  if (!version) throw new Error('Invalid frozen replay tail source');
+  return version;
+}
 
 function sha256(value: string | Buffer): string {
   return createHash('sha256').update(value).digest('hex');
@@ -184,6 +192,11 @@ async function verifyCurrentRegistry(
       path.posix.basename(repairPath)
     )
   );
+  expectedNames.push(
+    ...manifest.postReplaySources.map(({ repositoryPath }) =>
+      path.posix.basename(repositoryPath)
+    )
+  );
   if (JSON.stringify(currentNames) !== JSON.stringify(expectedNames.sort())) {
     throw new Error(
       'Current top-level migration registry differs from the explicit pending-repair state'
@@ -266,6 +279,11 @@ export async function verifySupabaseHistoryReplayManifest(
     receipts.expectedSourceHashes
   );
   await verifySupabaseForwardRepairs(root, manifest.forwardRepairs);
+  const postReplaySources = await verifySupabasePostReplaySources(
+    root,
+    manifest.postReplaySources,
+    frozenReplayTailVersion()
+  );
   await verifyCurrentRegistry(root, registryPaths, options.pendingRepairState);
   const bootstrapSources = verifyBootstrap(verifiedSources);
   await verifyTransform(root);
@@ -275,6 +293,7 @@ export async function verifySupabaseHistoryReplayManifest(
     manifest,
     migrationNameAliasDeployRepair: receipts.migrationNameAliasDeployRepair,
     pendingRepairState: options.pendingRepairState,
+    postReplaySources,
     productionEffectProvenance: receipts.productionEffectProvenance,
     verifiedSources,
   };

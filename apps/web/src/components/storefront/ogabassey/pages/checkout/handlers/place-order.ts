@@ -8,6 +8,8 @@ import {
 import { openCredPalCheckout } from '@/lib/credpal';
 import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
 import { createClient } from '@/lib/supabase/client';
+import { writeCreditDirectPopupMarker } from '../credit-direct-popup-return';
+import { captureCreditDirectClientCompletion } from '../credit-direct-client-completion';
 import { normalizeOrderPaymentMethod } from '../pending-checkout-order';
 import { persistCreditDirectPopupReference } from '../persist-credit-direct-popup-reference';
 import {
@@ -632,13 +634,31 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
         customerPhone,
         customerName: `${firstName} ${lastName}`.trim(),
         items,
-        onSuccess: (transactionId) => {
-          clearCheckoutSession();
-          clearCart();
+        onSuccess: ({ checkoutTransactionId, sessionId }) => {
+          const completionMarker = captureCreditDirectClientCompletion({
+            orderId: order.id,
+            checkoutTransactionId,
+            customerEmail,
+            sessionId,
+            trackingToken: order.tracking_token,
+          });
+          const verificationQuery = new URLSearchParams({
+            orderId: order.id,
+            gateway: 'credit_direct',
+            merchant_slug: merchant.slug || '',
+          });
+          verificationQuery.set(
+            'creditDirectCompletion',
+            completionMarker.transactionId,
+          );
+          if (order.tracking_token) {
+            verificationQuery.set('trackingToken', order.tracking_token);
+          }
+          if (customerEmail) {
+            verificationQuery.set('email', customerEmail);
+          }
           routerPush(
-            getHref(
-              `/order-success?type=credit_direct&orderId=${order.id}&sessionId=${transactionId}${trackingParam}`,
-            ),
+            getHref(`/checkout/bnpl?${verificationQuery.toString()}`),
           );
         },
         onError: (error) => {
@@ -656,9 +676,19 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
           setIsProcessing(false);
           isOrderInFlightRef.current = false;
         },
-        onPopup: async (transactionId) => {
+        onPopup: async ({ checkoutTransactionId, sessionId }) => {
+          writeCreditDirectPopupMarker(
+            order.id,
+            checkoutTransactionId || sessionId,
+          );
+          if (!checkoutTransactionId) {
+            return;
+          }
           try {
-            await persistCreditDirectPopupReference(order, transactionId);
+            await persistCreditDirectPopupReference(
+              order,
+              checkoutTransactionId,
+            );
           } catch (error) {
             console.error(
               'Failed to persist Credit Direct popup reference:',

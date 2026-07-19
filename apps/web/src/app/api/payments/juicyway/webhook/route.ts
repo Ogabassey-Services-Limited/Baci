@@ -19,6 +19,9 @@ import {
   handlePaymentForCancelledOrder,
   isOrderClampedAsCancelled,
 } from '@/lib/payments/handle-payment-for-cancelled-order';
+import { calculateJuicywayPlatformFee } from '@/lib/payments/juicyway-platform-fee';
+import { shouldRequireJuicywaySettlementMetadata } from '@/lib/payments/juicyway-settlement-metadata-compatibility';
+import { JUICYWAY_UNDERPAYMENT_TOLERANCE } from '@/lib/payments/juicyway-settlement-policy';
 import { handleJuicywayWalletTopUpIfNeeded } from '@/lib/payments/juicyway-wallet-top-up';
 import { scheduleLegacyPurchaseConversion } from '@/lib/payments/schedule-legacy-purchase-conversion';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -48,24 +51,6 @@ const ELIGIBLE_ORDER_PAYMENT_STATUSES = [
   'pending',
   'unpaid',
 ];
-
-// First release that persists Juicyway settlement amount/currency metadata on
-// transaction creation. Older in-flight sessions were already signed by
-// Juicyway but cannot be safely compared to new metadata that did not exist.
-const JUICYWAY_SETTLEMENT_METADATA_REQUIRED_AFTER_MS = Date.parse(
-  '2026-06-25T14:45:00.000Z'
-);
-
-function shouldRequireJuicywaySettlementMetadata(createdAt: unknown) {
-  if (typeof createdAt !== 'string') {
-    return true;
-  }
-  const createdAtMs = Date.parse(createdAt);
-  return (
-    !Number.isFinite(createdAtMs) ||
-    createdAtMs >= JUICYWAY_SETTLEMENT_METADATA_REQUIRED_AFTER_MS
-  );
-}
 
 /**
  * Logs whether the request originates from a known Juicyway IP. This is
@@ -110,7 +95,7 @@ async function recordJuicywaySettlement(
     const gatewayFee = 0;
     const platformFee =
       transaction.platform_fee == null
-        ? grossAmount * 0.015
+        ? calculateJuicywayPlatformFee(grossAmount)
         : Number(transaction.platform_fee);
     if (!Number.isFinite(platformFee) || platformFee < 0) {
       throw new Error('Invalid Juicyway settlement platform fee');
@@ -533,8 +518,10 @@ export async function POST(request: NextRequest) {
       // Allow overpayment + dust; reject clear underpayment (>1% short).
       // Stablecoins are ~1:1 USD, so the locked-rate expectation is exact
       // and the tolerance only absorbs on-chain rounding/dust.
-      const UNDERPAYMENT_TOLERANCE = 0.01;
-      if (settledAmount < expectedAmount * (1 - UNDERPAYMENT_TOLERANCE)) {
+      if (
+        settledAmount <
+        expectedAmount * (1 - JUICYWAY_UNDERPAYMENT_TOLERANCE)
+      ) {
         logger.error({
           message: 'Juicyway payment amount mismatch (underpaid)',
           reference,

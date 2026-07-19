@@ -19,7 +19,6 @@ describe('event pipeline service authority graph', () => {
       `${bridge}: unauthorized sdk factory importer`
     );
   });
-
   it('rejects a credential-only test bridge reached by a production route', () => {
     const route = 'apps/web/src/app/api/fourth/route.ts';
     const bridge = 'apps/web/src/lib/events/credential-bridge.spec.ts';
@@ -31,7 +30,6 @@ describe('event pipeline service authority graph', () => {
       `${bridge}: service-role credential read is forbidden`
     );
   });
-
   it('ignores a standalone test-named authority module', () => {
     const test = 'apps/web/src/lib/events/standalone-authority.spec.ts';
     const sources = new Map([
@@ -42,7 +40,6 @@ describe('event pipeline service authority graph', () => {
     ]);
     expect(serviceAuthorityGraphFindings(sources)).toEqual([]);
   });
-
   it('allows the request-scoped server client', () => {
     const path = 'apps/web/src/app/dashboard/settings/actions.ts';
     const sources = new Map([
@@ -54,7 +51,6 @@ describe('event pipeline service authority graph', () => {
     ]);
     expect(serviceAuthorityGraphFindings(sources, [path])).toEqual([]);
   });
-
   it.each([
     [
       'apps/mobile-admin/hooks/useAuth.ts',
@@ -75,7 +71,6 @@ describe('event pipeline service authority graph', () => {
     ]);
     expect(serviceAuthorityGraphFindings(sources, [path])).toEqual([]);
   });
-
   it('allows an SDK import without a service-role credential', () => {
     const path = 'apps/mobile-admin/lib/supabase.ts';
     const sources = new Map([
@@ -86,7 +81,6 @@ describe('event pipeline service authority graph', () => {
     ]);
     expect(serviceAuthorityGraphFindings(sources, [path])).toEqual([]);
   });
-
   it.each([
     ['@/lib/supabase/admin', admin, 'admin'],
     ['@/lib/supabase/service', service, 'service'],
@@ -267,17 +261,23 @@ describe('event pipeline service authority graph', () => {
     );
   });
 
-  it('allows a declared worker root and an internal module that imports it', () => {
+  it('allows declared worker and Credit Direct service roots', () => {
     const worker = 'apps/web/src/scripts/process-domain-events.ts';
     const internal = 'apps/web/src/lib/events/domain-event-worker-loop.ts';
+    const creditDirect =
+      'apps/web/src/app/api/payments/credit-direct/webhook/route.ts';
     const sources = new Map([
       [worker, "import '@/lib/supabase/service';"],
       [internal, "import '@/scripts/process-domain-events';"],
+      [
+        creditDirect,
+        "import { createServiceClient } from '@/lib/supabase/service';",
+      ],
       [service, 'export const createServiceClient = () => null;'],
     ]);
-    expect(serviceAuthorityGraphFindings(sources, [worker, internal])).toEqual(
-      []
-    );
+    expect(
+      serviceAuthorityGraphFindings(sources, [worker, internal, creditDirect])
+    ).toEqual([]);
   });
 
   it('recognizes JavaScript-family route roots', () => {

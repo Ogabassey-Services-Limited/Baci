@@ -21,12 +21,19 @@ const baseTransaction = {
   status: 'pending',
 };
 
-function transactionTable(callCount: number) {
+type TestTransaction = Omit<typeof baseTransaction, 'platform_fee'> & {
+  platform_fee: string | null;
+};
+
+function transactionTable(
+  callCount: number,
+  transaction: TestTransaction = baseTransaction
+) {
   if (callCount === 1) {
     return {
       eq: vi.fn().mockReturnThis(),
       select: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({ data: baseTransaction, error: null }),
+      single: vi.fn().mockResolvedValue({ data: transaction, error: null }),
     };
   }
   return {
@@ -49,10 +56,15 @@ describe('POST /api/payments/juicyway/webhook — settlement recovery', () => {
   it('records settlement idempotently when the paid flip finds 0 rows', async () => {
     mockVerifyWebhookSignature.mockResolvedValue(true);
     let transactionCallCount = 0;
+    const precisionTransaction = {
+      ...baseTransaction,
+      amount: '100.01',
+      platform_fee: null,
+    };
     const fromMock = vi.fn((table) => {
       if (table === 'transactions') {
         transactionCallCount += 1;
-        return transactionTable(transactionCallCount);
+        return transactionTable(transactionCallCount, precisionTransaction);
       }
       if (table === 'orders') {
         return {
@@ -84,7 +96,11 @@ describe('POST /api/payments/juicyway/webhook — settlement recovery', () => {
     expect(await response.json()).toEqual({ message: 'Already processed' });
     expect(webhookTest.mockAdminSupabase.rpc).toHaveBeenCalledWith(
       'record_merchant_settlement',
-      expect.objectContaining({ p_source_id: 'order-123' })
+      expect.objectContaining({
+        p_gross_amount: 100.01,
+        p_platform_fee: 1.5,
+        p_source_id: 'order-123',
+      })
     );
   });
 
