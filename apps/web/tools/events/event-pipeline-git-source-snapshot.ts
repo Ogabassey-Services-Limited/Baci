@@ -24,7 +24,11 @@ function readCommittedRevisionSources(
   const tree = execFileSync(
     'git',
     ['ls-tree', '-r', '-z', '--full-tree', revision],
-    { cwd: root, maxBuffer: 64 * 1024 * 1024 }
+    {
+      cwd: root,
+      maxBuffer: 64 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }
   );
   const entries = tree
     .toString('utf8')
@@ -80,6 +84,8 @@ function readCommittedRevisionSources(
 }
 
 function readCurrentGitSourceSnapshot(root: string): {
+  filesystemSources: Map<string, string>;
+  indexSources: Map<string, string>;
   missingPaths: string[];
   missingStagedPaths: string[];
   sources: Map<string, string>;
@@ -118,6 +124,12 @@ function readCurrentGitSourceSnapshot(root: string): {
   const missingStagedPaths: string[] = [];
   const sources = new Map<string, string>();
   const stagedSources = readGitIndexSources(root, [...staged]);
+  const filesystemSources = new Map<string, string>();
+  for (const path of new Set([...tracked, ...untracked])) {
+    const absolute = resolve(root, path);
+    if (existsSync(absolute))
+      filesystemSources.set(path, readFileSync(absolute, 'utf8'));
+  }
 
   for (const path of paths) {
     if (staged.has(path)) {
@@ -130,15 +142,21 @@ function readCurrentGitSourceSnapshot(root: string): {
       sources.set(path, source);
       continue;
     }
-    const absolute = resolve(root, path);
-    if (!existsSync(absolute)) {
+    const source = filesystemSources.get(path);
+    if (source === undefined) {
       missingPaths.push(path);
       continue;
     }
-    sources.set(path, readFileSync(absolute, 'utf8'));
+    sources.set(path, source);
   }
 
-  return { missingPaths, missingStagedPaths, sources };
+  return {
+    filesystemSources,
+    indexSources: sources,
+    missingPaths,
+    missingStagedPaths,
+    sources,
+  };
 }
 
 export const readGitSourceSnapshot = Object.assign(

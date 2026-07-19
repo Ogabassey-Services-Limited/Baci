@@ -71,6 +71,21 @@ describe('event pipeline verifier staged source snapshot', () => {
     );
   });
 
+  it('rejects unstaged authority hidden by a safe staged copy', () => {
+    const { baseSha, root } = repository();
+    const path = 'apps/web/src/lib/events/rogue-factory.ts';
+    writeFileSync(join(root, path), 'export const stagedSafe = true;\n');
+    git(root, 'add', path);
+    writeFileSync(
+      join(root, path),
+      "import { createServiceClient } from '@/lib/supabase/service';\n"
+    );
+
+    expect(verifyEventPipelineBoundaries(root, baseSha)).toContain(
+      `${path}: unauthorized service factory importer`
+    );
+  });
+
   it('subtracts an inherited edge after a non-authority edit', () => {
     const source =
       "import { createServiceClient } from '@/lib/supabase/service';\n";

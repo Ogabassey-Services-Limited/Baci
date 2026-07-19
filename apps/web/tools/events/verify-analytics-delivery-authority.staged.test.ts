@@ -52,4 +52,21 @@ describe('analytics authority staged cutover', () => {
       'temporary event-pipeline analytics authority expired because queue-only delivery is active'
     );
   });
+
+  it('revokes authority from worktree true even when staged bytes are false', () => {
+    const root = repository();
+    writeFileSync(
+      join(root, cutoverPath),
+      'export const eventPipelineAuthorityCutover = { queueOnlyDeliveryActivated: false, staged: true } as const;\n'
+    );
+    git(root, 'add', cutoverPath);
+    writeFileSync(
+      join(root, cutoverPath),
+      'export const eventPipelineAuthorityCutover = { queueOnlyDeliveryActivated: true } as const;\n'
+    );
+
+    expect(verifyAnalyticsDeliveryAuthority(root)).toContain(
+      'temporary event-pipeline analytics authority expired because queue-only delivery is active'
+    );
+  });
 });

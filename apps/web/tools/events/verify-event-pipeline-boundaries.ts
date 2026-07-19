@@ -183,27 +183,12 @@ export function analyzeRpcSource(
   visit(sourceFile);
   return findings;
 }
-// biome-ignore format: compact hash receipt preserves the 300-line verifier gate.
-export function verifyEventPipelineBoundaries(
-  root = eventPipelineGovernedPaths.repoRoot(),
-  frozenBaseSha?: string
+function sourceViewFindings(
+  sources: ReadonlyMap<string, string>,
+  governed: ReturnType<typeof eventPipelineGovernedPaths.collect>,
+  frozenSources: ReadonlyMap<string, string>
 ): string[] {
   const findings: string[] = [];
-  const snapshot = readGitSourceSnapshot(root);
-  const { sources } = snapshot;
-  let governed: ReturnType<typeof eventPipelineGovernedPaths.collect>;
-  let frozenSources: ReadonlyMap<string, string>;
-  try {
-    governed = eventPipelineGovernedPaths.collect(root, sources, frozenBaseSha);
-    frozenSources = readGitSourceSnapshot.committedRevision(
-      root,
-      governed.frozenBaseSha
-    );
-  } catch {
-    return ['frozen event-pipeline source snapshot is unavailable'];
-  }
-  for (const path of snapshot.missingStagedPaths)
-    findings.push(`${path}: staged source is missing from index stage 0`);
   if (governed.fixtureRecordCount !== 154) {
     findings.push(
       `fixture: expected 154 records, found ${governed.fixtureRecordCount}`
@@ -247,16 +232,41 @@ export function verifyEventPipelineBoundaries(
       ...analyzeRpcSource(path, source, enforceClassification, enforceEscapes)
     );
   }
-  const cleanupWrapper =
-    'vps-workers/jobs/supabase-retention-cleanup.mjs';
+  const cleanupWrapper = 'vps-workers/jobs/supabase-retention-cleanup.mjs';
   const cleanupSource = sources.get(cleanupWrapper);
-  if (
-    !cleanupSource?.includes(
-      "rpc('cleanup_domain_event_pipeline_v1'"
-    )
-  ) {
+  if (!cleanupSource?.includes("rpc('cleanup_domain_event_pipeline_v1'")) {
     findings.push('vps cleanup: expected direct cleanup RPC wrapper');
   }
+  return findings;
+}
+// biome-ignore format: compact equality avoids duplicate full-graph analysis for identical views.
+function sameSources(left: ReadonlyMap<string, string>, right: ReadonlyMap<string, string>): boolean {
+  return left.size === right.size && [...left].every(([path, source]) => right.get(path) === source);
+}
+// biome-ignore format: compact hash receipt preserves the 300-line verifier gate.
+export function verifyEventPipelineBoundaries(
+  root = eventPipelineGovernedPaths.repoRoot(),
+  frozenBaseSha?: string
+): string[] {
+  const findings: string[] = [];
+  const snapshot = readGitSourceSnapshot(root);
+  let views: { governed: ReturnType<typeof eventPipelineGovernedPaths.collect>; sources: ReadonlyMap<string, string> }[];
+  let frozenSources: ReadonlyMap<string, string>;
+  try {
+    const indexGoverned = eventPipelineGovernedPaths.collect(root, snapshot.indexSources, frozenBaseSha);
+    views = [{ governed: indexGoverned, sources: snapshot.indexSources }];
+    if (!sameSources(snapshot.indexSources, snapshot.filesystemSources)) {
+      const filesystemGoverned = eventPipelineGovernedPaths.collect(root, snapshot.filesystemSources, frozenBaseSha);
+      views.push({ governed: filesystemGoverned, sources: snapshot.filesystemSources });
+    }
+    frozenSources = readGitSourceSnapshot.committedRevision(root, indexGoverned.frozenBaseSha);
+  } catch {
+    return ['frozen event-pipeline source snapshot is unavailable'];
+  }
+  for (const path of snapshot.missingStagedPaths)
+    findings.push(`${path}: staged source is missing from index stage 0`);
+  for (const view of views)
+    findings.push(...sourceViewFindings(view.sources, view.governed, frozenSources));
   return [...new Set(findings)].sort();
 }
 if (

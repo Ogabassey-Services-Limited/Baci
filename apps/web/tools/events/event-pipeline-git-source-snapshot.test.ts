@@ -66,8 +66,15 @@ describe('readGitSourceSnapshot', () => {
     git(root, 'add', 'src/authority.ts');
     writeFileSync(path, 'export const authority = "clean worktree";\n');
 
-    expect(readGitSourceSnapshot(root).sources.get('src/authority.ts')).toBe(
+    const snapshot = readGitSourceSnapshot(root);
+    expect(snapshot.sources.get('src/authority.ts')).toBe(
       'export const authority = "malicious staged";\n'
+    );
+    expect(snapshot.indexSources.get('src/authority.ts')).toBe(
+      'export const authority = "malicious staged";\n'
+    );
+    expect(snapshot.filesystemSources.get('src/authority.ts')).toBe(
+      'export const authority = "clean worktree";\n'
     );
   });
 
@@ -84,9 +91,21 @@ describe('readGitSourceSnapshot', () => {
     git(root, 'add', 'added.cjs');
     writeFileSync(join(root, 'added.cjs'), 'module.exports = "masked";\n');
 
-    const snapshot = readGitSourceSnapshot(root).sources;
-    expect(snapshot.has('deleted.mjs')).toBe(false);
-    expect(snapshot.get('added.cjs')).toBe('module.exports = "staged";\n');
+    const snapshot = readGitSourceSnapshot(root);
+    expect(snapshot.sources.has('deleted.mjs')).toBe(false);
+    expect(snapshot.sources.get('added.cjs')).toBe(
+      'module.exports = "staged";\n'
+    );
+    expect(snapshot.indexSources.has('deleted.mjs')).toBe(false);
+    expect(snapshot.indexSources.get('added.cjs')).toBe(
+      'module.exports = "staged";\n'
+    );
+    expect(snapshot.filesystemSources.get('deleted.mjs')).toBe(
+      'export const restored = true;\n'
+    );
+    expect(snapshot.filesystemSources.get('added.cjs')).toBe(
+      'module.exports = "masked";\n'
+    );
   });
 
   it('reads untracked source files from the worktree', () => {

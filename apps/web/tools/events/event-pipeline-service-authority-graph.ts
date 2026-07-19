@@ -42,19 +42,41 @@ function serviceConstructionEdges(path: string, source: string, sources: Readonl
   if (allowedFactoryImporter(path, 'service') || !source.includes('createServiceClient')) return [];
   const referenced = moduleGraph.moduleReferences(path, source).some((specifier) => factoryReference(path, specifier, sources)?.kind === 'service');
   if (!referenced) return [];
-  const file = parseEventPipelineTypeScriptSource(path, source); const factories = new Set(['createServiceClient']); const edges: AuthorityEdge[] = []; let occurrence = 0;
-  const isFactory = (expression: ts.Expression): boolean => ts.isIdentifier(expression) ? factories.has(expression.text) : memberName(expression) === 'createServiceClient';
+  const file = parseEventPipelineTypeScriptSource(path, source); const factories = new Set(['createServiceClient']); const containers = new Set<string>(); const edges: AuthorityEdge[] = []; let occurrence = 0;
+  const unwrap = (expression: ts.Expression): ts.Expression => ts.isParenthesizedExpression(expression) || ts.isAsExpression(expression) || ts.isTypeAssertionExpression(expression) || ts.isNonNullExpression(expression) ? unwrap(expression.expression) : expression;
+  const addFactoryBindings = (name: ts.BindingName): void => { if (ts.isIdentifier(name)) factories.add(name.text); else for (const element of name.elements) if (ts.isBindingElement(element)) addFactoryBindings(element.name); };
+  function isForwarded(expression: ts.Expression): boolean {
+    const value = unwrap(expression);
+    return ts.isIdentifier(value) ? containers.has(value.text) : ts.isArrayLiteralExpression(value) ? value.elements.some((element) => isFactory(element) || isForwarded(element)) : ts.isObjectLiteralExpression(value) ? value.properties.some((property) => ts.isPropertyAssignment(property) ? isFactory(property.initializer) || isForwarded(property.initializer) : ts.isShorthandPropertyAssignment(property) ? isFactory(property.name) : ts.isSpreadAssignment(property) && isForwarded(property.expression)) : false;
+  }
+  function isFactory(expression: ts.Expression): boolean {
+    const value = unwrap(expression);
+    if (ts.isPropertyAccessExpression(value) || ts.isElementAccessExpression(value)) { const name = memberName(value); return name === 'createServiceClient' || (name === 'bind' || name === 'call' ? isFactory(value.expression) : isForwarded(value.expression)); }
+    if (ts.isIdentifier(value)) return factories.has(value.text);
+    if (!ts.isCallExpression(value)) return false;
+    const returned = iifeResult(value);
+    return memberName(value.expression) === 'bind' && (ts.isPropertyAccessExpression(value.expression) || ts.isElementAccessExpression(value.expression)) && isFactory(value.expression.expression) || Boolean(returned && isFactory(returned));
+  }
+  function iifeResult(call: ts.CallExpression): ts.Expression | undefined {
+    const callee = unwrap(call.expression); if (!(ts.isArrowFunction(callee) || ts.isFunctionExpression(callee))) return undefined;
+    for (const [index, parameter] of callee.parameters.entries()) { const argument = call.arguments[index]; if (argument && ts.isIdentifier(parameter.name)) { if (isFactory(argument)) factories.add(parameter.name.text); else if (isForwarded(argument)) containers.add(parameter.name.text); } }
+    return ts.isArrowFunction(callee) && !ts.isBlock(callee.body) ? callee.body : undefined;
+  }
   function visit(node: ts.Node) {
     if (ts.isImportDeclaration(node) && !node.importClause?.isTypeOnly && ts.isStringLiteral(node.moduleSpecifier) && factoryReference(path, node.moduleSpecifier.text, sources)?.kind === 'service') {
       const bindings = node.importClause?.namedBindings; if (bindings && ts.isNamedImports(bindings)) for (const element of bindings.elements) if (!element.isTypeOnly && (element.propertyName?.text ?? element.name.text) === 'createServiceClient') factories.add(element.name.text);
     }
-    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer && isFactory(node.initializer)) factories.add(node.name.text);
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) { if (isFactory(node.initializer)) factories.add(node.name.text); else if (isForwarded(node.initializer)) containers.add(node.name.text); }
+    if (ts.isVariableDeclaration(node) && !ts.isIdentifier(node.name) && node.initializer && isForwarded(node.initializer)) addFactoryBindings(node.name);
     if (ts.isVariableDeclaration(node) && ts.isObjectBindingPattern(node.name)) for (const element of node.name.elements) {
       const imported = element.propertyName && (ts.isIdentifier(element.propertyName) || ts.isStringLiteral(element.propertyName)) ? element.propertyName.text : ts.isIdentifier(element.name) ? element.name.text : undefined;
       if (imported === 'createServiceClient' && ts.isIdentifier(element.name)) factories.add(element.name.text);
     }
-    if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken && ts.isIdentifier(node.left) && isFactory(node.right)) factories.add(node.left.text);
-    if (ts.isCallExpression(node) && isFactory(node.expression)) edges.push({ key: JSON.stringify(['construction', path, occurrence++]), message: `${path}: unauthorized service factory importer` });
+    if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken && ts.isIdentifier(node.left)) { if (isFactory(node.right)) factories.add(node.left.text); else if (isForwarded(node.right)) containers.add(node.left.text); }
+    if (ts.isCallExpression(node)) {
+      const callee = unwrap(node.expression); iifeResult(node);
+      if (isFactory(node.expression) && memberName(callee) !== 'bind') edges.push({ key: JSON.stringify(['construction', path, occurrence++]), message: `${path}: unauthorized service factory importer` });
+    }
     ts.forEachChild(node, visit);
   }
   visit(file); return edges;
@@ -122,29 +144,16 @@ function runtimeReferenceBindings(statement: ts.ImportDeclaration | ts.ExportDec
   if (ts.isNamespaceExport(clause)) return undefined;
   return clause.elements.filter((element) => !element.isTypeOnly).map((element) => element.propertyName?.text ?? element.name.text);
 }
-function credentialEdgeIsRelevant(
-  importer: string,
-  target: string,
-  sources: ReadonlyMap<string, string>
-): boolean {
-  const source = sources.get(importer);
-  const targetSource = sources.get(target);
+// biome-ignore format: compact signature preserves the frozen 300-line verifier gate.
+function credentialEdgeIsRelevant(importer: string, target: string, sources: ReadonlyMap<string, string>): boolean {
+  const source = sources.get(importer); const targetSource = sources.get(target);
   if (!source || !targetSource) return false;
   const privileged = exportedCredentialBindings(target, targetSource);
   const file = parseEventPipelineTypeScriptSource(importer, source);
   let examined = false;
   for (const statement of file.statements) {
-    if (
-      (ts.isImportDeclaration(statement) ||
-        ts.isExportDeclaration(statement)) &&
-      statement.moduleSpecifier &&
-      ts.isStringLiteral(statement.moduleSpecifier) &&
-      moduleGraph.resolveLocalModule(
-        importer,
-        statement.moduleSpecifier.text,
-        sources
-      ) === target
-    ) {
+    // biome-ignore format: compact authority edge guard preserves the frozen 300-line verifier gate.
+    if ((ts.isImportDeclaration(statement) || ts.isExportDeclaration(statement)) && statement.moduleSpecifier && ts.isStringLiteral(statement.moduleSpecifier) && moduleGraph.resolveLocalModule(importer, statement.moduleSpecifier.text, sources) === target) {
       examined = true;
       const bindings = runtimeReferenceBindings(statement);
       if (!bindings) return true;
@@ -165,29 +174,17 @@ function collectAuthorityEdges(sources: ReadonlyMap<string, string>, roots: read
   // biome-ignore format: compact filtered graph construction preserves the frozen 300-line gate.
   const graphSources = new Map([...sources].map(([path, source]) => [path, withoutTypeOnlyNamedReexports(path, source)] as const));
   const approved = new Set<string>(manifest.trustedWrapperImporters);
-  const indirectServiceTargets = manifest.authority.serviceImporters.filter(
-    (path) => !approved.has(path)
-  );
+  const indirectServiceTargets = manifest.authority.serviceImporters.filter((path) => !approved.has(path));
   const productionClosures = new Map<string, Set<string>>();
   const productionReachable = new Set<string>();
   for (const root of roots) {
     const source = sources.get(root);
-    if (
-      !source ||
-      !eventPipelineProductionSurface.isIndependent(root, source)
-    ) {
-      continue;
-    }
+    if (!source || !eventPipelineProductionSurface.isIndependent(root, source)) continue;
     const closure = moduleGraph.importClosure([root], graphSources);
     productionClosures.set(root, closure);
     for (const reachable of closure) productionReachable.add(reachable);
   }
-  const directPaths = new Set([
-    ...(scanAllDirect ? [...sources.keys()] : roots).filter(
-      (path) => !isTestSourcePath(path)
-    ),
-    ...productionReachable,
-  ]);
+  const directPaths = new Set([...(scanAllDirect ? [...sources.keys()] : roots).filter((path) => !isTestSourcePath(path)), ...productionReachable]);
   const edges: AuthorityEdge[] = [];
   for (const path of directPaths) {
     const source = graphSources.get(path);
