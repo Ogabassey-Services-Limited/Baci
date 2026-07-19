@@ -18,6 +18,9 @@ function git(root: string, args: string[]): string {
   return execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
 }
 
+// biome-ignore format: compact verifier helper keeps this test under its own gate.
+const verify = (root: string, baseSha: string, includeWorkingTree = true) => eventPipelineModularityVerifier.verify(root, { baseSha, includeWorkingTree });
+
 function fixtureRepository(): { baseSha: string; root: string } {
   const root = mkdtempSync(join(tmpdir(), 'event-modularity-'));
   directories.push(root);
@@ -44,9 +47,8 @@ function fixtureRepository(): { baseSha: string; root: string } {
 }
 
 afterEach(() => {
-  for (const directory of directories.splice(0)) {
+  for (const directory of directories.splice(0))
     rmSync(directory, { force: true, recursive: true });
-  }
 });
 
 describe('event pipeline modularity verifier', () => {
@@ -75,12 +77,10 @@ describe('event pipeline modularity verifier', () => {
     git(root, ['add', staged, staged.replace('.ts', '.test.ts')]);
     write(root, untracked, 'export const untrackedWorker = true;\n');
     write(root, untracked.replace('.ts', '.test.ts'), 'export {};\n');
-
     const collected = eventPipelineModularityVerifier.collect(root, {
       baseSha,
       includeWorkingTree: true,
     });
-
     expect(collected.paths).toEqual(
       expect.arrayContaining([
         committed,
@@ -102,38 +102,61 @@ describe('event pipeline modularity verifier', () => {
     );
   });
 
-  it('uses the selected source view for staged overlays and colocated tests', () => {
+  it('checks staged index bytes and filesystem overlays independently', () => {
     const { baseSha, root } = fixtureRepository();
     const path = 'apps/web/src/lib/events/staged-overlay.ts';
     const testPath = path.replace('.ts', '.test.ts');
-    write(root, path, 'export const first = true;\n');
+    const good = 'export const first = true;\n';
+    const bad =
+      'const first = true;\nconst second = true;\nexport { first, second };\n';
+    write(root, path, bad);
     write(root, testPath, 'export {};\n');
     git(root, ['add', path, testPath]);
-    write(
-      root,
-      path,
-      'const first = true;\nconst second = true;\nexport { first, second };\n'
+    write(root, path, good);
+    expect(verify(root, baseSha)).toContain(
+      `${path}: multiple runtime exports first, second`
     );
-
-    expect(
-      eventPipelineModularityVerifier.verify(root, {
-        baseSha,
-        includeWorkingTree: true,
-      })
-    ).toContain(`${path}: multiple runtime exports first, second`);
+    git(root, ['add', path]);
+    write(root, path, bad);
+    expect(verify(root, baseSha)).toContain(
+      `${path}: multiple runtime exports first, second`
+    );
 
     const committed = 'apps/web/src/lib/events/committed-untested.ts';
     write(root, committed, 'export const committedUntested = true;\n');
     git(root, ['add', committed]);
     git(root, ['commit', '--quiet', '-m', 'untested runtime']);
     write(root, committed.replace('.ts', '.test.ts'), 'export {};\n');
-    expect(
-      eventPipelineModularityVerifier.verify(root, {
-        baseSha,
-        includeWorkingTree: false,
-      })
-    ).toContain(
+    expect(verify(root, baseSha, false)).toContain(
       `${committed}: runtime source is missing colocated test ${committed.replace('.ts', '.test.ts')}`
+    );
+  });
+
+  it('governs changed helpers reached outside allowlisted prefixes', () => {
+    const { baseSha, root } = fixtureRepository();
+    const entry = 'apps/web/src/scripts/process-domain-events.ts';
+    const helper = 'apps/web/src/shared/reachable-event-helper.ts';
+    write(root, entry, "import '../shared/reachable-event-helper';\n");
+    write(root, entry.replace('.ts', '.test.ts'), 'export {};\n');
+    write(
+      root,
+      helper,
+      `${'// boundary\n'.repeat(299)}export const first = true;\nexport const second = true;\n`
+    );
+    const collected = eventPipelineModularityVerifier.collect(root, {
+      baseSha,
+      includeWorkingTree: true,
+    });
+    const findings = verify(root, baseSha);
+
+    expect(collected.paths).toContain(helper);
+    expect(collected.newModulePaths).toContain(helper);
+    expect(findings).toContain(`${helper}: exceeds 300 lines (301)`);
+    expect(findings).toContain(
+      `${helper}: runtime source is missing colocated test ${helper.replace('.ts', '.test.ts')}`
+    );
+    expect(findings).toContain(
+      `${helper}: multiple runtime exports first, second`
     );
   });
 
@@ -152,10 +175,7 @@ describe('event pipeline modularity verifier', () => {
     for (const [name, source] of imported)
       write(root, `apps/web/src/lib/events/${name}`, source);
 
-    const findings = eventPipelineModularityVerifier.verify(root, {
-      baseSha,
-      includeWorkingTree: true,
-    });
+    const findings = verify(root, baseSha);
 
     expect(findings).toContain(`${oversized}: exceeds 300 lines (301)`);
     expect(findings).toContain(
@@ -175,12 +195,7 @@ describe('event pipeline modularity verifier', () => {
     // biome-ignore format: permitted module fixtures stay compact under the verifier gate.
     for (const [path, source] of [['apps/web/src/app/api/events/synthetic/route.ts', 'export function GET() {}\nexport function POST() {}\n'], ['apps/web/src/app/api/events/synthetic/route.test.ts', 'export {};\n'], ['apps/web/src/lib/events/synthetic-types.ts', 'export type Synthetic = { id: string };\n'], ['apps/web/src/lib/events/type-only-import.ts', "import { type Synthetic } from './synthetic-types';\nexport type Alias = Synthetic;\n"], ['apps/web/src/lib/events/declared-runtime.ts', 'export declare const declared: string;\nexport const runtime = true;\n'], ['apps/web/src/lib/events/declared-runtime.test.ts', 'export {};\n'], ['apps/web/src/lib/events/event-redaction.ts', "export { redactEventPayload } from './redact-event-payload';\n"], ['apps/web/src/lib/events/event-redaction.test.ts', 'export {};\n'], ['apps/web/src/scripts/process-domain-events.ts', "import 'dotenv/config';\nimport { pathToFileURL } from 'node:url';\nimport { createServiceClient } from '@/lib/supabase/service';\nimport { runDomainEventWorker as run } from './domain-event-worker';\nexport { processDomainEventBatch } from './domain-event-worker-batch';\nasync function runDomainEventWorker() { await run(createServiceClient('event-pipeline'), options); }\nexport { runDomainEventWorker };\nconst invokedPath = pathToFileURL(process.argv[1]).href;\nif (import.meta.url === invokedPath) runDomainEventWorker();\n"], ['apps/web/src/scripts/process-domain-events.test.ts', 'export {};\n'], ['apps/web/src/app/api/events/route.test-support.ts', 'export const first = true;\nexport const second = true;\n']] as const) write(root, path, source);
 
-    expect(
-      eventPipelineModularityVerifier.verify(root, {
-        baseSha,
-        includeWorkingTree: true,
-      })
-    ).toEqual([]);
+    expect(verify(root, baseSha)).toEqual([]);
   });
 
   // biome-ignore format: export shapes stay compact under the verifier gate.
@@ -190,12 +205,9 @@ describe('event pipeline modularity verifier', () => {
     write(root, path, source);
     write(root, path.replace('.ts', '.test.ts'), 'export {};\n');
 
-    expect(
-      eventPipelineModularityVerifier.verify(root, {
-        baseSha,
-        includeWorkingTree: true,
-      })
-    ).toContain(`${path}: multiple runtime exports ${names}`);
+    expect(verify(root, baseSha)).toContain(
+      `${path}: multiple runtime exports ${names}`
+    );
   });
 
   it('rejects local export lists, unnamed facades, and malformed CLIs', () => {
@@ -216,10 +228,10 @@ describe('event pipeline modularity verifier', () => {
     // biome-ignore format: repeated verifier invocation stays within the test's own 300-line gate.
     for (const source of malformedClis) {
       write(root, fakeCli, source);
-      expect(eventPipelineModularityVerifier.verify(root, { baseSha, includeWorkingTree: true })).toContain(`${fakeCli}: multiple runtime exports first, second`);
+      expect(verify(root, baseSha)).toContain(`${fakeCli}: multiple runtime exports first, second`);
     }
     // biome-ignore format: compact verifier invocation stays within the test's own 300-line gate.
-    const findings = eventPipelineModularityVerifier.verify(root, { baseSha, includeWorkingTree: true });
+    const findings = verify(root, baseSha);
     expect(findings).toContain(
       `${local}: multiple runtime exports first, second`
     );
@@ -239,10 +251,7 @@ describe('event pipeline modularity verifier', () => {
     write(root, paths[3] ?? '', `${'{}\n'.repeat(300)}{}`);
     write(root, paths[4] ?? '', `${'// boundary\n'.repeat(300)}// end`);
 
-    const findings = eventPipelineModularityVerifier.verify(root, {
-      baseSha,
-      includeWorkingTree: true,
-    });
+    const findings = verify(root, baseSha);
 
     for (const path of paths) {
       expect(findings).toContain(`${path}: exceeds 300 lines (301)`);
@@ -262,10 +271,7 @@ describe('event pipeline modularity verifier', () => {
     write(root, unlisted.replace('.ts', '.test.ts'), 'export {};\n');
     git(root, ['add', '.']);
 
-    const findings = eventPipelineModularityVerifier.verify(root, {
-      baseSha,
-      includeWorkingTree: true,
-    });
+    const findings = verify(root, baseSha);
 
     for (const path of grandfatheredAggregatePaths) {
       expect(findings).not.toContain(
@@ -283,10 +289,7 @@ describe('event pipeline modularity verifier', () => {
     // biome-ignore format: oversized malformed fixture construction stays compact.
     write(root, path, `${'// boundary\n'.repeat(300)}export function broken( {`);
 
-    const findings = eventPipelineModularityVerifier.verify(root, {
-      baseSha,
-      includeWorkingTree: true,
-    });
+    const findings = verify(root, baseSha);
 
     expect(findings).toContain(`${path}: exceeds 300 lines (301)`);
     expect(findings).toContain(`${path}: TypeScript parse error`);

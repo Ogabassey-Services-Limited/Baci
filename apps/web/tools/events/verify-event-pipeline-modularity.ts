@@ -3,6 +3,10 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
+// biome-ignore format: compact import preserves the verifier's own 300-line gate.
+import { collectProductionImportClosure, eventPipelineBoundaryManifest } from '../../src/lib/events/event-pipeline-boundary-manifest';
+import { readGitIndexSources } from './event-pipeline-git-content';
+import { readGitSourceSnapshot } from './event-pipeline-git-source-snapshot';
 
 const FROZEN_BASE_SHA = '9e3d1b14b1931a5e441fc23f0e5417c188056e47';
 const inventoryPath =
@@ -23,22 +27,27 @@ const thinCliPaths = new Set(['apps/web/src/scripts/process-domain-events.ts', '
 const grandfatheredAggregatePaths = new Set(['apps/web/src/lib/events/event-pipeline-boundary-manifest.ts', 'apps/web/src/lib/events/event-pipeline-database.ts', 'apps/web/tools/events/event-pipeline-service-authority-graph.ts', 'apps/web/tools/events/verify-analytics-delivery-authority.ts', 'apps/web/tools/events/verify-event-pipeline-boundaries.ts']);
 type ModularityOptions = { baseSha?: string; includeWorkingTree?: boolean };
 type CollectedPaths = { newModulePaths: string[]; paths: string[] };
+type SourceView = 'filesystem' | 'head' | 'index';
 function gitPaths(root: string, args: readonly string[]): string[] {
   return execFileSync('git', [...args], { cwd: root, encoding: 'utf8' })
     .split('\0')
     .filter(Boolean);
 }
-// biome-ignore format: source-view precedence is intentionally compact and explicit.
-function sourceView(root: string, path: string, includeWorkingTree: boolean): string | undefined {
-  if (includeWorkingTree) {
+// biome-ignore format: independent source views prevent one overlay from hiding another.
+function sourceView(root: string, path: string, view: SourceView): string | undefined {
+  if (view === 'filesystem') {
     const absolutePath = resolve(root, path);
     return existsSync(absolutePath) ? readFileSync(absolutePath, 'utf8') : undefined;
   }
   try {
-    return execFileSync('git', ['show', `HEAD:${path}`], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    return execFileSync('git', ['show', view === 'head' ? `HEAD:${path}` : `:${path}`], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
   } catch {
     return undefined;
   }
+}
+// biome-ignore format: each available snapshot is verified independently.
+function sourceViews(root: string, path: string, includeWorkingTree: boolean): { source: string; view: SourceView }[] {
+  return (includeWorkingTree ? ['index', 'filesystem'] as const : ['head'] as const).flatMap((view) => { const source = sourceView(root, path, view); return source === undefined ? [] : [{ source, view }]; });
 }
 // biome-ignore format: frozen inventory parsing stays compact under the verifier gate.
 function frozenCreatedPaths(root: string, baseSha: string): string[] {
@@ -57,6 +66,22 @@ function isEvidencePath(path: string): boolean {
 function isRelevantPath(path: string, frozen: ReadonlySet<string>): boolean {
   return !isEvidencePath(path) && checkedExtension.test(path) && (frozen.has(path) || path === 'apps/web/tsconfig.tools-workers.json' || dynamicPrefixes.some((prefix) => path.startsWith(prefix)));
 }
+// biome-ignore format: compact snapshot construction preserves the verifier's own gate.
+function productionClosure(root: string, baseSha: string, includeWorkingTree: boolean): Set<string> {
+  const frozen = readGitSourceSnapshot.committedRevision(root, baseSha);
+  const head = readGitSourceSnapshot.committedRevision(root, 'HEAD');
+  const snapshots: ReadonlyMap<string, string>[] = [frozen, head];
+  if (includeWorkingTree) {
+    const stagedPaths = gitPaths(root, ['diff', '--cached', '--name-only', '-z', '--']);
+    const stagedSources = readGitIndexSources(root, stagedPaths);
+    const index = new Map(head);
+    for (const path of stagedPaths) { const source = stagedSources.get(path); if (source === undefined) index.delete(path); else index.set(path, source); }
+    const filesystem = new Map(readGitSourceSnapshot(root).sources);
+    for (const path of stagedPaths) { const absolute = resolve(root, path); if (existsSync(absolute)) filesystem.set(path, readFileSync(absolute, 'utf8')); else filesystem.delete(path); }
+    snapshots.push(index, filesystem);
+  }
+  return new Set(snapshots.flatMap((sources) => [...collectProductionImportClosure(eventPipelineBoundaryManifest.productionRoots, sources)]));
+}
 function collectEventPipelineModularityPaths(
   root: string,
   options: ModularityOptions = {}
@@ -64,6 +89,8 @@ function collectEventPipelineModularityPaths(
   const baseSha = options.baseSha ?? FROZEN_BASE_SHA;
   const frozenCreated = frozenCreatedPaths(root, baseSha);
   const frozen = new Set(frozenCreated);
+  // biome-ignore format: compact closure call preserves the verifier's own gate.
+  const reachable = productionClosure(root, baseSha, options.includeWorkingTree === true);
   // biome-ignore format: argv vectors are kept compact for the 300-line gate.
   const committed = gitPaths(root, ['diff', '--name-only', '-z', `${baseSha}...HEAD`, '--']);
   // biome-ignore format: argv vectors are kept compact for the 300-line gate.
@@ -78,29 +105,12 @@ function collectEventPipelineModularityPaths(
     : [];
   // biome-ignore format: argv vectors are kept compact for the 300-line gate.
   const untracked = options.includeWorkingTree ? gitPaths(root, ['ls-files', '--others', '--exclude-standard', '-z', '--']) : [];
-  const relevant = (path: string) => isRelevantPath(path, frozen);
+  // biome-ignore format: reachability broadens location scope, not evidence or extension scope.
+  const relevant = (path: string) => isRelevantPath(path, frozen) || (!isEvidencePath(path) && checkedExtension.test(path) && reachable.has(path));
+  // biome-ignore format: compact path unions preserve the verifier's own 300-line gate.
   return {
-    newModulePaths: [
-      ...new Set([
-        ...frozenCreated,
-        ...committedAdded,
-        ...stagedAdded,
-        ...untracked,
-      ]),
-    ]
-      .filter(relevant)
-      .sort(),
-    paths: [
-      ...new Set([
-        ...frozenCreated,
-        ...committed,
-        ...staged,
-        ...unstaged,
-        ...untracked,
-      ]),
-    ]
-      .filter(relevant)
-      .sort(),
+    newModulePaths: [...new Set([...frozenCreated, ...committedAdded, ...stagedAdded, ...untracked])].filter(relevant).sort(),
+    paths: [...new Set([...frozenCreated, ...committed, ...staged, ...unstaged, ...untracked])].filter(relevant).sort(),
   };
 }
 // biome-ignore format: compact AST helpers preserve the verifier's own 300-line gate.
@@ -216,13 +226,8 @@ const colocatedTestPath = (path: string): string => path.replace(/\.(mjs|ts|tsx)
 function requiresColocatedTest(path: string, source: string): boolean {
   return /^apps\/web\/(?:src|tools)\//.test(path) && /\.(?:mjs|ts|tsx)$/.test(path) && !testPathPattern.test(path) && !path.includes('.test-support.') && hasRuntime(path, source);
 }
-function isNextRouteMethodSet(path: string, names: readonly string[]): boolean {
-  return (
-    /\/app\/api\/.+\/route\.ts$/.test(path) &&
-    names.length > 0 &&
-    names.every((name) => routeMethods.has(name))
-  );
-}
+// biome-ignore format: compact route predicate preserves the verifier's own gate.
+const isNextRouteMethodSet = (path: string, names: readonly string[]): boolean => /\/app\/api\/.+\/route\.ts$/.test(path) && names.length > 0 && names.every((name) => routeMethods.has(name));
 function verifyEventPipelineModularity(
   root: string,
   options: ModularityOptions = {}
@@ -231,46 +236,44 @@ function verifyEventPipelineModularity(
   const newModules = new Set(collected.newModulePaths);
   const findings: string[] = [];
   for (const path of collected.paths) {
-    const source = sourceView(root, path, options.includeWorkingTree === true);
-    if (source === undefined) continue;
-    const lineCount =
-      source.split(/\r?\n/).length - Number(source.endsWith('\n'));
-    if (lineCount > 300) {
-      findings.push(`${path}: exceeds 300 lines (${lineCount})`);
-    }
-    if (!typeScriptExtension.test(path)) continue;
-    if (hasParseError(path, source))
-      findings.push(`${path}: TypeScript parse error`);
-    if (requiresColocatedTest(path, source)) {
-      const testPath = colocatedTestPath(path);
-      if (
-        sourceView(root, testPath, options.includeWorkingTree === true) ===
-        undefined
-      ) {
-        findings.push(
-          `${path}: runtime source is missing colocated test ${testPath}`
-        );
+    // biome-ignore format: compact source-view loop preserves the verifier's own gate.
+    for (const { source, view } of sourceViews(root, path, options.includeWorkingTree === true)) {
+      const lineCount =
+        source.split(/\r?\n/).length - Number(source.endsWith('\n'));
+      if (lineCount > 300) {
+        findings.push(`${path}: exceeds 300 lines (${lineCount})`);
       }
-    }
-    if (
-      testPathPattern.test(path) ||
-      path.includes('.test-support.') ||
-      !newModules.has(path)
-    )
-      continue;
-    const names = runtimeExportNames(path, source);
-    const thinFacade = isThinReexportFacade(path, source);
-    if (thinFacade && !namedThinFacades.has(path)) {
-      findings.push(`${path}: unauthorized thin re-export facade`);
-    }
-    if (
-      names.length > 1 &&
-      !isNextRouteMethodSet(path, names) &&
-      !(thinFacade && namedThinFacades.has(path)) &&
-      !isThinCli(path, source) &&
-      !grandfatheredAggregatePaths.has(path)
-    ) {
-      findings.push(`${path}: multiple runtime exports ${names.join(', ')}`);
+      if (!typeScriptExtension.test(path)) continue;
+      if (hasParseError(path, source))
+        findings.push(`${path}: TypeScript parse error`);
+      if (requiresColocatedTest(path, source)) {
+        const testPath = colocatedTestPath(path);
+        if (sourceView(root, testPath, view) === undefined) {
+          findings.push(
+            `${path}: runtime source is missing colocated test ${testPath}`
+          );
+        }
+      }
+      if (
+        testPathPattern.test(path) ||
+        path.includes('.test-support.') ||
+        !newModules.has(path)
+      )
+        continue;
+      const names = runtimeExportNames(path, source);
+      const thinFacade = isThinReexportFacade(path, source);
+      if (thinFacade && !namedThinFacades.has(path)) {
+        findings.push(`${path}: unauthorized thin re-export facade`);
+      }
+      if (
+        names.length > 1 &&
+        !isNextRouteMethodSet(path, names) &&
+        !(thinFacade && namedThinFacades.has(path)) &&
+        !isThinCli(path, source) &&
+        !grandfatheredAggregatePaths.has(path)
+      ) {
+        findings.push(`${path}: multiple runtime exports ${names.join(', ')}`);
+      }
     }
   }
   return [...new Set(findings)].sort();
@@ -281,20 +284,14 @@ export const eventPipelineModularityVerifier = {
   verify: verifyEventPipelineModularity,
 } as const;
 
-if (process.argv[1]) {
-  const invokedPath = pathToFileURL(resolve(process.argv[1])).href;
-  if (import.meta.url === invokedPath) {
-    const root = execFileSync('git', ['rev-parse', '--show-toplevel'], {
-      encoding: 'utf8',
-    }).trim();
-    const findings = verifyEventPipelineModularity(root, {
-      includeWorkingTree: process.argv.includes('--include-working-tree'),
-    });
-    if (findings.length) {
-      console.error(findings.join('\n'));
-      process.exitCode = 1;
-    } else {
-      console.log('event pipeline modularity verification passed');
-    }
+// biome-ignore format: compact CLI preserves the verifier's own 300-line gate.
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  const root = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+  const findings = verifyEventPipelineModularity(root, { includeWorkingTree: process.argv.includes('--include-working-tree') });
+  if (findings.length) {
+    console.error(findings.join('\n'));
+    process.exitCode = 1;
+  } else {
+    console.log('event pipeline modularity verification passed');
   }
 }

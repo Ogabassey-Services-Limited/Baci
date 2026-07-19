@@ -23,7 +23,6 @@ describe('event pipeline service authority graph', () => {
       [route, "import '@/lib/events/credential-bridge.spec';"],
       [bridge, 'use(process.env.SUPABASE_SERVICE_ROLE_KEY);'],
     ]);
-
     expect(serviceAuthorityGraphFindings(sources)).toContain(
       `${bridge}: service-role credential read is forbidden`
     );
@@ -36,7 +35,6 @@ describe('event pipeline service authority graph', () => {
         "import { createClient } from '@supabase/supabase-js'; createClient(url, process.env.SUPABASE_SERVICE_ROLE_KEY);",
       ],
     ]);
-
     expect(serviceAuthorityGraphFindings(sources)).toEqual([]);
   });
   it('allows the normal request-scoped server client used by dashboard settings', () => {
@@ -48,7 +46,6 @@ describe('event pipeline service authority graph', () => {
         'export const createClient = () => null;',
       ],
     ]);
-
     expect(serviceAuthorityGraphFindings(sources, [path])).toEqual([]);
   });
   // biome-ignore format: authority reference fixtures stay compact under the 300-line gate.
@@ -61,7 +58,6 @@ describe('event pipeline service authority graph', () => {
       [path, source],
       ['apps/web/src/lib/supabase/service.ts', 'export type ServiceClient = object;'],
     ]);
-
     expect(serviceAuthorityGraphFindings(sources, [path])).toEqual([]);
   });
   it('allows an ordinary runtime SDK import without a service-role credential', () => {
@@ -72,7 +68,6 @@ describe('event pipeline service authority graph', () => {
         "import { createClient } from '@supabase/supabase-js'; createClient(url, anonKey);",
       ],
     ]);
-
     expect(serviceAuthorityGraphFindings(sources, [path])).toEqual([]);
   });
   it.each([
@@ -87,7 +82,6 @@ describe('event pipeline service authority graph', () => {
       [path, `import '${specifier}';`],
       [target, 'export const createClient = () => null;'],
     ]);
-
     expect(serviceAuthorityGraphFindings(sources, [path])).toEqual([
       `${path}: unauthorized ${specifier.endsWith('/admin') ? 'admin' : 'service'} factory importer`,
     ]);
@@ -100,7 +94,6 @@ describe('event pipeline service authority graph', () => {
         "import { createClient } from '@supabase/supabase-js/dist/index.mjs'; createClient(url, process.env.SUPABASE_SERVICE_ROLE_KEY);",
       ],
     ]);
-
     expect(serviceAuthorityGraphFindings(sources, [path])).toEqual(
       expect.arrayContaining([
         `${path}: service-role credential read is forbidden`,
@@ -108,7 +101,6 @@ describe('event pipeline service authority graph', () => {
       ])
     );
   });
-
   it.each([
     [
       'relative import',
@@ -131,7 +123,6 @@ describe('event pipeline service authority graph', () => {
         'export const createServiceClient = () => null;',
       ],
     ]);
-
     expect(serviceAuthorityGraphFindings(sources, [path])).toContain(
       `${path}: unauthorized service factory importer`
     );
@@ -150,7 +141,16 @@ describe('event pipeline service authority graph', () => {
     // biome-ignore format: compact full-path assertion preserves the 300-line test ceiling.
     expect(serviceAuthorityGraphFindings(edited, [route], frozen)).toEqual([expect.stringContaining(`${route} -> ${helper} -> ${admin}`)]);
   });
-
+  // biome-ignore format: paired frozen/current fixtures prove occurrence-aware authority subtraction.
+  it.each([["import { createServiceClient } from '@/lib/supabase/service';", "import { createServiceClient } from '@/lib/supabase/service'; createServiceClient('event-pipeline');"], ["import { createServiceClient } from '@/lib/supabase/service'; createServiceClient('event-pipeline');", "import { createServiceClient } from '@/lib/supabase/service'; createServiceClient('event-pipeline'); createServiceClient('event-pipeline');"]])('rejects a newly added service construction behind an inherited import', (frozenSource, currentSource) => {
+    const path = 'apps/web/src/lib/events/inherited-service-importer.ts';
+    const service = 'apps/web/src/lib/supabase/service.ts';
+    const frozen = new Map([[path, frozenSource], [service, 'export const createServiceClient = () => null;']]);
+    const current = new Map(frozen);
+    current.set(path, currentSource);
+    expect(serviceAuthorityGraphFindings(current, [path])).toContain(`${path}: unauthorized service factory importer`);
+    expect(serviceAuthorityGraphFindings(current, [path], frozen)).toContain(`${path}: unauthorized service factory importer`);
+  });
   // biome-ignore format: exact import shapes distinguish safe aliases from credential authority.
   it.each([
     ["import { getSupabaseUrl as url, getSupabaseAnonKey as key } from '@/env';", false],

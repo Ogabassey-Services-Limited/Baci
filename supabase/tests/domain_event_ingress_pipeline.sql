@@ -213,6 +213,8 @@ BEGIN
   PERFORM set_config('request.jwt.claim.sub', v_actor::text, true);
   IF public.list_event_pipeline_ingress_failures_v1() IS NULL THEN
     RAISE EXCEPTION 'platform admin ingress-failure read failed'; END IF;
+  IF public.get_event_pipeline_operations_v1() IS NULL THEN
+    RAISE EXCEPTION 'platform admin operator read failed'; END IF;
 END;
 $$;
 ROLLBACK;

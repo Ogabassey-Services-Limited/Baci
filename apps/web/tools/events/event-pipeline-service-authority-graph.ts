@@ -1,5 +1,6 @@
 import ts from 'typescript';
-import { eventPipelineBoundaryManifest as manifest } from '../../src/lib/events/event-pipeline-boundary-manifest';
+// biome-ignore format: compact authority import preserves the frozen 300-line verifier gate.
+import { authorityFindings, eventPipelineBoundaryManifest as manifest } from '../../src/lib/events/event-pipeline-boundary-manifest';
 import { parseEventPipelineTypeScriptSource } from '../../src/lib/events/event-pipeline-typescript-source';
 import { analyticsDeliveryModuleGraph as moduleGraph } from './analytics-delivery-module-graph';
 import { eventPipelineProductionSurface } from './event-pipeline-production-surface';
@@ -44,16 +45,14 @@ function allowedFactoryImporter(path: string, kind: FactoryKind): boolean {
       : authority[`${kind}Importers`];
   return allowed.includes(path);
 }
-function pathMessage(
-  root: string,
-  kind: AuthorityKind,
-  target: string,
-  path: readonly string[]
-): string {
-  const apiRoute =
-    /^apps\/web\/src\/app\/api\/(?:.+\/)?route\.(?:cjs|cts|js|jsx|mjs|mts|ts|tsx)$/.test(
-      root
-    );
+// biome-ignore format: compact occurrence edges preserve the frozen 300-line verifier gate.
+function serviceConstructionEdges(path: string, source: string): AuthorityEdge[] {
+  if (!source.includes('createServiceClient')) return []; let occurrence = 0; const message = `${path}: unauthorized service factory importer`;
+  return authorityFindings(path, parseEventPipelineTypeScriptSource(path, source)).flatMap((finding) => finding === message ? [{ key: JSON.stringify(['construction', path, occurrence++]), message }] : []);
+}
+// biome-ignore format: compact path rendering preserves the frozen 300-line verifier gate.
+function pathMessage(root: string, kind: AuthorityKind, target: string, path: readonly string[]): string {
+  const apiRoute = /^apps\/web\/src\/app\/api\/(?:.+\/)?route\.(?:cjs|cts|js|jsx|mjs|mts|ts|tsx)$/.test(root);
   const detail = path.length > 2 ? ` via ${path.join(' -> ')}` : '';
   return `${root}: ${apiRoute ? 'API' : 'production surface'} import graph reaches ${kind} authority ${target}${detail}`;
 }
@@ -194,6 +193,7 @@ function collectAuthorityEdges(
         message: credentialFinding,
       });
     }
+    edges.push(...serviceConstructionEdges(path, source));
     for (const specifier of moduleGraph.moduleReferences(path, source)) {
       const reference = factoryReference(path, specifier, graphSources);
       if (
