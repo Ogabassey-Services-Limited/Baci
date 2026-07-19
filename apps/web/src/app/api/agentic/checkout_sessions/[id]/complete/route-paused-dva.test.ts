@@ -12,6 +12,7 @@ import {
 } from '@/lib/agentic/paystack';
 import { reserveAgenticRequestId } from '@/lib/agentic/request-replay';
 import { completionConfirmationSecret } from './route-complete-test-helpers';
+import { grandfatheredReplayTestFixtures } from './route-grandfathered-replay-test-fixtures';
 import { paymentStateTestHelpers } from './route-payment-state-test-helpers';
 
 const mockVerifyAgenticApiKey = vi.fn(() => true);
@@ -83,6 +84,8 @@ const {
   mockCalculatedSession,
   mockSuccessfulPaymentSessionSupabase,
 } = paymentStateTestHelpers;
+const { makeSession: makeGrandfatheredSession, makeStoredResponse } =
+  grandfatheredReplayTestFixtures;
 
 describe('paused Agentic Paystack DVA completion', () => {
   beforeEach(() => {
@@ -142,17 +145,13 @@ describe('paused Agentic Paystack DVA completion', () => {
   });
 
   it('returns an exact stored idempotency replay before the pause gate', async () => {
-    const storedResponse = {
-      id: 'agentic_session_1',
-      order_id: 'order-existing',
-      payment_details: {
-        account_number: 'already-exposed-account',
-        type: 'bank_transfer',
-      },
-      status: 'ready_for_payment',
-    };
+    const storedResponse = makeStoredResponse();
+    const { updateSpy } = mockSuccessfulPaymentSessionSupabase(
+      makeGrandfatheredSession()
+    );
     vi.mocked(reserveAgenticIdempotencyKey).mockResolvedValueOnce({
       ok: true,
+      requestHash: 'a'.repeat(64),
       response: storedResponse,
       state: 'replay',
       status: 200,
@@ -168,6 +167,37 @@ describe('paused Agentic Paystack DVA completion', () => {
     expect(reserveAgenticRequestId).not.toHaveBeenCalled();
     expect(storeAgenticIdempotencyResponse).not.toHaveBeenCalled();
     expect(calculateCheckoutSession).not.toHaveBeenCalled();
+    expect(updateSpy).not.toHaveBeenCalled();
+    expect(createAgenticCheckoutPaymentAccount).not.toHaveBeenCalled();
+    expect(createDedicatedVirtualAccount).not.toHaveBeenCalled();
+    expect(createAgenticCheckoutOrder).not.toHaveBeenCalled();
+  });
+
+  it('rejects an exact request replay when the stored account identity drifted', async () => {
+    const storedResponse = makeStoredResponse();
+    mockSuccessfulPaymentSessionSupabase(
+      makeGrandfatheredSession({ virtual_account_number: '9999999999' })
+    );
+    vi.mocked(reserveAgenticIdempotencyKey).mockResolvedValueOnce({
+      ok: true,
+      requestHash: 'a'.repeat(64),
+      response: storedResponse,
+      state: 'replay',
+      status: 200,
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(buildCompleteRequest(), {
+      params: Promise.resolve({ id: 'agentic_session_1' }),
+    });
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      code: 'AGENTIC_PAYSTACK_DVA_PAUSED',
+      error: 'Agentic Paystack bank transfer is paused',
+    });
+    expect(reserveAgenticRequestId).not.toHaveBeenCalled();
+    expect(storeAgenticIdempotencyResponse).not.toHaveBeenCalled();
     expect(createAgenticCheckoutPaymentAccount).not.toHaveBeenCalled();
     expect(createDedicatedVirtualAccount).not.toHaveBeenCalled();
     expect(createAgenticCheckoutOrder).not.toHaveBeenCalled();

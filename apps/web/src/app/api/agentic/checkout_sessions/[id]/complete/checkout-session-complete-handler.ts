@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { verifyAgenticRequestAccess } from '@/lib/agentic/agent-request-controls';
 import { resolveAgenticPaystackDvaCompletionGate } from '@/lib/agentic/agentic-paystack-dva-completion-gate';
+import { buildAgenticPaystackDvaIdempotencyReplayResponse } from '@/lib/agentic/agentic-paystack-dva-idempotency-replay-response';
 import { AGENTIC_PAYSTACK_DVA_PAUSED_ERROR } from '@/lib/agentic/agentic-paystack-dva-paused-error';
 import { verifyAgenticApiKey } from '@/lib/agentic/auth';
 import { getCheckoutCompletionAuthorizationSecrets } from '@/lib/agentic/checkout-completion-authorization-response';
@@ -119,12 +120,14 @@ export async function handleAgenticCheckoutSessionComplete(
       );
     }
     if (idempotency.state === 'replay') {
-      return NextResponse.json(idempotency.response, {
-        status: idempotency.status,
-        headers: {
-          'idempotency-key': mutation.idempotencyKey,
-          'request-id': mutation.requestId,
-        },
+      return await buildAgenticPaystackDvaIdempotencyReplayResponse({
+        idempotencyKey: mutation.idempotencyKey,
+        merchantId: merchant.id,
+        paymentProvider: payment_data.provider,
+        replay: idempotency,
+        requestId: mutation.requestId,
+        sessionId,
+        supabase,
       });
     }
     respondWithIdempotency = async (response: unknown, status: number) =>
@@ -186,27 +189,19 @@ export async function handleAgenticCheckoutSessionComplete(
       return await respond({ error: 'Session already completed' }, 409);
 
     const paymentState = getAgenticPaymentState(session.metadata);
+    const pauseGate = resolveAgenticPaystackDvaCompletionGate({
+      paymentProvider: payment_data.provider,
+    });
+    if (pauseGate === 'reject_paused') {
+      return await respond(AGENTIC_PAYSTACK_DVA_PAUSED_ERROR, 409);
+    }
+
     const existingPaymentState =
       paymentState === 'claiming_payment' ||
       paymentState === 'payment_account_ready' ||
       paymentState === 'order_finalizing'
         ? null
         : resolveExistingPaymentState({ buyer, session });
-    const pauseGate = resolveAgenticPaystackDvaCompletionGate({
-      existingPaymentStateStatus: existingPaymentState?.status ?? null,
-      paymentProvider: payment_data.provider,
-      paymentState,
-    });
-    if (pauseGate === 'replay_existing_payment' && existingPaymentState) {
-      return await respond(
-        existingPaymentState.body,
-        existingPaymentState.status
-      );
-    }
-    if (pauseGate === 'reject_paused') {
-      return await respond(AGENTIC_PAYSTACK_DVA_PAUSED_ERROR, 409);
-    }
-
     if (existingPaymentState) {
       return await respond(
         existingPaymentState.body,

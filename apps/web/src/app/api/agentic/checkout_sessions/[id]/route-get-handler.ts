@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { verifyAgenticRequestAccess } from '@/lib/agentic/agent-request-controls';
+import { findGrandfatheredAgenticPaystackDvaReplay } from '@/lib/agentic/agentic-paystack-dva-grandfathered-replay';
+import { isAgenticPaystackDvaPaused } from '@/lib/agentic/agentic-paystack-dva-paused';
 import { verifyAgenticApiKey } from '@/lib/agentic/auth';
 import { calculateCheckoutSession } from '@/lib/agentic/checkout';
 import { resolveExistingPaymentState } from '@/lib/agentic/checkout-completion-response';
@@ -78,6 +80,34 @@ export async function handleAgenticCheckoutSessionGet(
     return NextResponse.json({ error: 'Session not found' }, { status: 404 });
   const existingPaymentState = resolveExistingPaymentState({ session });
   if (existingPaymentState) {
+    if (existingPaymentState.status === 200 && isAgenticPaystackDvaPaused()) {
+      const grandfathered = await findGrandfatheredAgenticPaystackDvaReplay({
+        merchantId: merchant.id,
+        session,
+        supabase,
+      });
+      if (grandfathered.error) {
+        logger.error({
+          error: sanitizeForLog(grandfathered.error),
+          message: 'Grandfathered Agentic DVA replay lookup failed',
+          sessionId: session.session_id,
+        });
+        return NextResponse.json({ error: 'Database error' }, { status: 500 });
+      }
+      if (grandfathered.data) {
+        return NextResponse.json(grandfathered.data.body, {
+          status: grandfathered.data.status,
+        });
+      }
+      return NextResponse.json(
+        {
+          error: 'Session already has pending payment',
+          order_id: session.order_id ?? null,
+          status: 'payment_pending',
+        },
+        { status: 409 }
+      );
+    }
     return NextResponse.json(existingPaymentState.body, {
       status: existingPaymentState.status,
     });

@@ -133,6 +133,7 @@ describe('POST /api/agentic/checkout_sessions idempotency replay ordering', () =
     });
     vi.mocked(reserveAgenticIdempotencyKey).mockResolvedValue({
       ok: true,
+      requestHash: 'a'.repeat(64),
       response: { id: 'agentic_session_1', status: 'ready_for_payment' },
       state: 'replay',
       status: 201,
