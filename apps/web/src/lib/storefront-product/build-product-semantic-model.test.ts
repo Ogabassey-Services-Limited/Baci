@@ -279,9 +279,16 @@ describe('buildProductSemanticModel', () => {
     const discoveryFirstCard = model.alternatives?.cards.find(
       (card) => card.title === 'Nearby Challenger'
     );
+    const closeContenderCard = model.alternatives?.cards.find(
+      (card) => card.title === 'Close Contender'
+    );
 
     expect(model.alternatives?.cards[0]?.title).toBe('Premium Flagship');
     expect(semanticFirstCard?.secondaryHref).toBeUndefined();
+    expect(closeContenderCard).toBeDefined();
+    expect(closeContenderCard?.secondaryHref).toBe(
+      'https://ogabassey.com/smartphones/compare/close-contender-vs-target-phone'
+    );
     expect(discoveryFirstCard?.secondaryHref).toBe(
       'https://ogabassey.com/smartphones/compare/nearby-challenger-vs-target-phone'
     );
