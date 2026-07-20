@@ -141,6 +141,7 @@ export function buildCategorySupportLinks(input: {
 }
 
 export function buildProductSupportLinks(input: {
+  approvedCompareSlugs?: ReadonlySet<string>;
   storeUrl: string;
   categorySlug: string;
   currentProductSlug: string;
@@ -172,7 +173,21 @@ export function buildProductSupportLinks(input: {
         rightProduct: alternate,
       }),
     }))
-    .find((entry) => entry.candidate.isIndexable);
+    .find((entry) => {
+      if (!entry.candidate.isIndexable) {
+        return false;
+      }
+
+      const canonicalSlug = buildCanonicalProductCompareSlug(
+        currentProduct.slug,
+        entry.alternate.slug
+      );
+
+      return (
+        input.approvedCompareSlugs === undefined ||
+        input.approvedCompareSlugs.has(canonicalSlug)
+      );
+    });
 
   if (productCompareEntry) {
     links.push({
