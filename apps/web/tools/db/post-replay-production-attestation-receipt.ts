@@ -1,5 +1,25 @@
 import { supabaseHistoryReplayManifest } from './supabase-history-replay-manifest';
 
+type DeepReadonly<T> = T extends (...args: never[]) => unknown
+  ? T
+  : T extends object
+    ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
+    : T;
+
+function deepFreeze<T extends object>(value: T): DeepReadonly<T> {
+  Object.freeze(value);
+  for (const nested of Object.values(value)) {
+    if (
+      typeof nested === 'object' &&
+      nested !== null &&
+      !Object.isFrozen(nested)
+    ) {
+      deepFreeze(nested);
+    }
+  }
+  return value as DeepReadonly<T>;
+}
+
 const appliedEntries = supabaseHistoryReplayManifest.postReplaySources.map(
   ({ repositoryPath }) => {
     const match = repositoryPath.match(/\/(\d{14})_([a-z0-9_]+)[.]sql$/);
@@ -8,7 +28,7 @@ const appliedEntries = supabaseHistoryReplayManifest.postReplaySources.map(
   }
 );
 
-export const postReplayProductionAttestationReceipt = {
+const receipt = {
   schemaVersion: 1,
   deployment: {
     appliedEntries,
@@ -66,3 +86,5 @@ export const postReplayProductionAttestationReceipt = {
     sourceKind: 'supabase-management-api-read-only',
   },
 } as const;
+
+export const postReplayProductionAttestationReceipt = deepFreeze(receipt);
