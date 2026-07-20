@@ -56,6 +56,7 @@ interface OrderPaymentBreakdownInput {
   shippingFee?: number | null;
   subtotal?: number | null;
   taxAmount?: number | null;
+  taxBasis?: 'exclusive' | 'inclusive' | null;
   total?: number | null;
   walletAmountUsed?: number | null;
 }
@@ -99,8 +100,13 @@ export function buildOrderPaymentBreakdown(
   const receiptDisplaySubtotal = input.merchant
     ? getReceiptDisplaySubtotal(order, input.merchant)
     : subtotal;
-  const displaySubtotal =
-    getStoredInclusiveDisplaySubtotal(order) ?? receiptDisplaySubtotal;
+  const taxWasExcludedFromTotal =
+    taxAmount > 0 &&
+    input.taxBasis !== 'inclusive' &&
+    almostEqual(order.total, getTaxExclusiveTotal(order));
+  const displaySubtotal = taxWasExcludedFromTotal
+    ? subtotal
+    : (getStoredInclusiveDisplaySubtotal(order) ?? receiptDisplaySubtotal);
   const vatRate = input.merchant
     ? getReceiptVatRate(input.merchant, currency)
     : null;
@@ -108,7 +114,7 @@ export function buildOrderPaymentBreakdown(
   return {
     displaySubtotal,
     giftWrappingFee,
-    showVat: taxAmount > 0,
+    showVat: taxAmount > 0 && !taxWasExcludedFromTotal,
     taxAmount,
     vatLabel: vatRate !== null ? `VAT (${vatRate}%)` : 'VAT',
     walletAmountUsed,

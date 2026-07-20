@@ -36,6 +36,7 @@ describe('buildOrderPaymentBreakdown', () => {
       shippingFee: 25000,
       subtotal: 210000,
       taxAmount,
+      taxBasis: 'inclusive',
       total,
     });
 
@@ -59,6 +60,20 @@ describe('buildOrderPaymentBreakdown', () => {
     expect(breakdown.showVat).toBe(false);
   });
 
+  it('does not split VAT that was excluded from the charged total', () => {
+    const breakdown = buildOrderPaymentBreakdown({
+      currency: 'NGN',
+      merchant: registeredMerchant,
+      shippingFee: 0,
+      subtotal: 1270000,
+      taxAmount: 95250,
+      total: 1270000,
+    });
+
+    expect(breakdown.showVat).toBe(false);
+    expect(breakdown.displaySubtotal).toBe(1270000);
+  });
+
   it('still discloses stored tax when merchant settings are missing', () => {
     const breakdown = buildOrderPaymentBreakdown({
       subtotal: 100,
@@ -79,6 +94,7 @@ describe('buildOrderPaymentBreakdown', () => {
       shippingFee: 25000,
       subtotal: 210000,
       taxAmount,
+      taxBasis: 'inclusive',
       total,
     });
 
@@ -99,6 +115,7 @@ describe('buildOrderPaymentBreakdown', () => {
       shippingFee: 25000,
       subtotal: 210000,
       taxAmount,
+      taxBasis: 'inclusive',
       total,
     });
 
@@ -121,6 +138,7 @@ describe('buildOrderPaymentBreakdown', () => {
       shippingFee,
       subtotal: total,
       taxAmount,
+      taxBasis: 'inclusive',
       total,
     });
 
@@ -179,6 +197,7 @@ describe('buildOrderPaymentBreakdown', () => {
       shippingFee: 25000,
       subtotal: 210000,
       taxAmount,
+      taxBasis: 'inclusive',
       total,
     });
 

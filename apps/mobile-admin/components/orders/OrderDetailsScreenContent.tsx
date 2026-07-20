@@ -38,6 +38,7 @@ export function OrderDetailsScreenContent({
     shippingFee: order.shipping_fee,
     subtotal: order.subtotal,
     taxAmount: order.tax_amount,
+    taxBasis: order.tax_basis,
     total: order.total,
     walletAmountUsed: order.wallet_amount_used,
   });
