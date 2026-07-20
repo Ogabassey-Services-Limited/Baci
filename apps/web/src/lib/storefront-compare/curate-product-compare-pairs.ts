@@ -1,4 +1,4 @@
-import { buildProductCompareCandidate } from './compare-eligibility';
+import { buildProductCompareCandidate } from '@/lib/storefront-compare/compare-eligibility';
 
 export const CURATED_PRODUCT_COMPARE_LINK_LIMIT = 12;
 export const MAX_CURATED_COMPARE_LINKS_PER_PRODUCT = 2;
