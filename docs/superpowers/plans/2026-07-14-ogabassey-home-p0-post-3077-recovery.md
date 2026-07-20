@@ -7,6 +7,8 @@
 > Exact refreshed fixture SHA-256 values are: linked ledger `0d8b54ecdae67d99da4e806276310e80992bda73ee94efaaf7a91fd16c3d8885`; production effects `bc1e37a53410d8dbeead2f3929a6e47149589ba68806fca88a359e0b9c7411c1`; production provenance `1f1e4e3112a0010dbed91a25a8185d38fcfd4cf56d2d2b60ca76306bbbb100e1`; forward-repair deployment receipt `8258b2098f1086a60e166935edf5313f2601977979d4eb1cb31c8ca41ef94e8c`; and semantic-lines fixture `1d550b33b8f681cdd2f1751279e6d93c1110457834d8743969aa6047d7e33eca`. The chronological receipt SHA-256 is `bd49803cad805fb80c626347652153941dfd98243a4babe6244cb68f9aa89f21`; the production-effect receipt SHA-256 is `225f0c4018a816eec6d10096104a564d34f737cf42b993a4672cd29238de3fef`.
 >
 > Both receipts used comparison mode `enforce`, required the byte-unchanged historical cancellation proof, converged with zero changed components, and equal the read-only production effect SHA-256 `71cba5629959c75352726e26cafcbfec8de99b1b52d10e6ad70fd85f07e4d253`. The required old-proof transition is `6155b28720d0f4a8a20746aa1a2365e631249e940fa7339e0e19b66c28fa1e62` to `b21dc2134c1aa3df7aed6c8b7a57173b1fed910a04730f901e56622862503556`. Exact deployed main was merged normally into this recovery branch at local merge `1d5dbc073e13c96ee7bbc118f00bdf0b49ccd26e`. The normative V4 contract and the immutable historical cancellation-proof fixture remain byte-identical.
+>
+> **Active post-replay attestation amendment (2026-07-19):** Production now has an exact append-only suffix of twelve manifest-bound Credit Direct migrations, versions `20260718070000` through `20260718070011`. Exact merge `fb6c7570ac1a0897efb9890db6b9992410c5eb7a` deployed successfully in run `29676236659`; database job `88164086530` completed successfully with semantic-log SHA-256 `9c91aeab90841c40970f18a4d37a988f85a9204a6fde36daa4a07bdea5438ffa`, exact ordered summary `12 applied, 427 skipped`, and one applied entry for each manifest suffix source. The original `442`-row ledger remains an exact prefix with tail `20260714225503` and SHA-256 `1ddb8497e4d0cc692a4f8fd5c5dec7f5da16d49b4c45c0511d4f19e7646b8ffc`; the full live ledger has `454` rows, tail `20260718070011`, and SHA-256 `ce47c285538cd31047888b4b68c3e4291ace8774e3c29a1bed9735508e5c8832`. The twelve sources remain excluded from both immutable historical replay modes. Current read-only production still passes all `76` effect components and all `19` event RPC safety assertions, but its effect SHA-256 is now `dd1f3d2e2b84fd1fe866eb3bd1baa44fc5edcf67aa97a53d1984e5d0b312bc70` because exactly one manifest-owned constraint changed: `public.reconciliation_review.reconciliation_review_issue_type_check`, from digest `e8c7feafd3d4249f19bdabadb9d38075dc303ec4b0c5e0dad579698500fb7906` to `b8162359116ec9a8565e08b8050a9646f711d081878f21c56a05f9963ff0c229`. Task 8.5 adds a separate no-write current-production attestation; it never refreshes or weakens the frozen replay fixtures.
 
 > **Historical block scope:** The pre-recovery implementation receipt, frozen-input list, and execution gate below are retained verbatim as audit evidence. They were superseded as active execution controls by the post-recovery receipt and active gate above and below; their historical hashes, failed-deployment facts, and counts must not be rewritten as current values.
 
@@ -22,11 +24,11 @@
 >
 > **Execution gate:** Before each remaining task and before push, fail unless the contract and checked provenance bytes remain exact; `origin/main` still equals `CURRENT_MAIN_SHA`; that SHA is an ancestor of `HEAD` after the fifth completed normal integration merge; run `29530977388` still records successful database/changes jobs and the production deploy failure honestly; and CI run `29530977474` is refreshed to its real terminal state before any push rather than prematurely called green. The old Task 4 and fixed final graph are superseded. Continue only through the exact-effect-boundary recovery plan until an intermediate repair release deploys and the regenerated v3 effect fixture proves three-way equality.
 
-> **Active execution gate:** Before each remaining source task and before any commit or push, require the normative V4 contract and immutable old-cancellation-proof fixture to remain byte-identical; require recovery merge `bb55d407e01b719a9014c87fb8a8253861b7005d` to be an ancestor of `HEAD`; require the branch to be zero commits behind the current `origin/main` after normal integration; require the refreshed fixture and receipt bytes to match every SHA-256 in the active receipt; require registry counts `427`/`425`, linked receipt `442`/tail `20260714225503`, exactly `31` exceptional records, and exactly two separate forward-repair receipt entries; and require both proof-required `enforce` receipts to remain equal to production effect `71cba5629959c75352726e26cafcbfec8de99b1b52d10e6ad70fd85f07e4d253`. Task 4 is complete through the superseding recovery. Resume source implementation at Task 5. Task 9's exact graph, head, and ahead/behind assertions remain derived and must be regenerated from actual history when Task 9 is reached.
+> **Active execution gate:** Before each remaining source task and before any commit or push, require the normative V4 contract and immutable old-cancellation-proof fixture to remain byte-identical; require recovery merge `bb55d407e01b719a9014c87fb8a8253861b7005d` to be an ancestor of `HEAD`; require the branch to be zero commits behind the current `origin/main` after normal integration; require the refreshed fixture and receipt bytes to match every SHA-256 in the active receipt; require the frozen registry and linked receipt to remain `427`/`425` and `442`/tail `20260714225503`; require exactly `31` exceptional records and exactly two separate forward-repair receipt entries; and require both proof-required `enforce` receipts to remain equal to the frozen post-recovery production effect `71cba5629959c75352726e26cafcbfec8de99b1b52d10e6ad70fd85f07e4d253`. After Task 8.5, additionally require the current read-only attestation to prove the exact unchanged `442`-row prefix, exact twelve-source post-replay suffix, `454`/tail `20260718070011` live ledger, all `76`/`19` safety assertions, and only the recorded one-constraint delta to live effect `dd1f3d2e2b84fd1fe866eb3bd1baa44fc5edcf67aa97a53d1984e5d0b312bc70`. Task 4 is complete through the superseding recovery. Resume source implementation at Task 5. Task 9's exact graph, head, and ahead/behind assertions remain derived and must be regenerated from actual history when Task 9 is reached.
 
 **Goal:** Recover the merged #3077 durable-event substrate into a replay-proven, generated-type-safe, modular, CI-covered baseline so H0 attribution can proceed without inheriting migration or worker uncertainty. P0 itself makes no storefront or Core Web Vitals change.
 
-**Architecture:** Build a hash-bound disposable migration replay that compares deterministic current-tree chronology with an evidence-backed production-effect replay: the latter starts from the same chronological registry and applies only the approved exceptional splices and partial-order constraints. Both replay effect hashes must equal a fresh read-only production-effect snapshot; the plan explicitly makes no total historical order claim. Add the one frozen append-only fulfillment-column reconciliation, regenerate Supabase types, close every #3077 database boundary, make provider delivery caller-injected and single-load under the exact manifest authority, modularize the bounded #3077/P0 touched tree required by V4, and add a dedicated tools/workers TypeScript project reached by the existing Quality Gate. P0 prepares and proves the worker boundary but leaves every event producer/worker flag inert. H0-RUNNER preparation may begin after the P0 exact-head gate is green and owner/admin authority exists; H0 itself requires both a coherent P0 exact application release and green H0-RUNNER availability/attestation. Much later, H1C1 installs/extends the existing services in an inert state; `H0R-H1-MEASURE` alone owns queue/routing/delivery activation after its green H0R gate.
+**Architecture:** Build a hash-bound disposable migration replay that compares deterministic frozen chronology with an evidence-backed frozen production-effect replay: the latter starts from the same registry and applies only the approved exceptional splices and partial-order constraints. Both historical replay effect hashes must equal the immutable post-recovery snapshot. A separate fail-closed read-only attestation proves that current production is exactly that frozen ledger/effect plus the manifest-bound post-replay suffix and its one recorded component delta; it never describes the current state as historical replay convergence. The plan explicitly makes no total historical order claim. Add the one frozen append-only fulfillment-column reconciliation, regenerate Supabase types, close every #3077 database boundary, make provider delivery caller-injected and single-load under the exact manifest authority, modularize the bounded #3077/P0 touched tree required by V4, and add a dedicated tools/workers TypeScript project reached by the existing Quality Gate. P0 prepares and proves the worker boundary but leaves every event producer/worker flag inert. H0-RUNNER preparation may begin after the P0 exact-head gate is green and owner/admin authority exists; H0 itself requires both a coherent P0 exact application release and green H0-RUNNER availability/attestation. Much later, H1C1 installs/extends the existing services in an inert state; `H0R-H1-MEASURE` alone owns queue/routing/delivery activation after its green H0R gate.
 
 **Tech Stack:** TypeScript `7.0.2`, Node.js major `24`, pnpm `11.7.0`, tsx `4.22.4`, Vitest, PostgreSQL `18.3` `psql`, Supabase CLI `2.95.4`/local Docker, Supabase generated `Database`, Biome, Turborepo, Node test runner, CodeRabbit.
 
@@ -2412,6 +2414,63 @@ Expected: Task 7's unchanged final dedicated project and the normal web project 
 
 ---
 
+### Task 8.5: Attest the exact post-replay production suffix
+
+**Files:**
+- Create: `apps/web/tools/db/post-replay-production-attestation-receipt.ts`
+- Create: `apps/web/tools/db/verify-post-replay-production-attestation.ts`
+- Create: `apps/web/tools/db/verify-post-replay-production-attestation.test.ts`
+- Create: `apps/web/tools/db/create-supabase-management-read-only-executor.ts`
+- Create: `apps/web/tools/db/create-supabase-management-read-only-executor.test.ts`
+- Create: `apps/web/tools/db/attest-post-replay-production.ts`
+- Create: `apps/web/tools/db/attest-post-replay-production.test.ts`
+- Modify: `apps/web/tools/db/capture-supabase-history-ledger.ts`
+- Modify: `apps/web/package.json`
+- Modify: this plan only to record the regenerated gate
+
+**Produces:** A no-write, fail-closed current-production attestation that preserves the historical replay receipts. No migration, replay materialization, fixture refresh, or activation.
+
+- [ ] **Step 1: Freeze the failing pure contract**
+
+Write red tests that reject any change to the frozen `442`-row prefix, the exact twelve manifest-derived suffix rows, full `454`-row ledger hash/tail, query/scope/server contract, `76`/`19` safety summary, live effect hash, or singleton before/after component digest. Also reject missing, reordered, duplicated, or additional suffix rows and every second changed component.
+
+- [ ] **Step 2: Add the read-only executor and attestation runtime**
+
+Extract the existing sanitized Supabase Management API read-only executor into one tested module and reuse it from the historical capture. The new attestation reads the ledger and the reviewed effect query only through `/database/query/read-only`, verifies the replay manifest with `pendingRepairState:materialized`, compares current effects in `classify` mode against the frozen production fixture, and passes only the secret-free digest result into the pure verifier. It must not invoke the Supabase CLI, write an output, or expose raw database values.
+
+Add the exact script:
+
+```json
+"db:replay:attest-post-replay": "tsx tools/db/attest-post-replay-production.ts"
+```
+
+- [ ] **Step 3: Verify, review, and commit the remediation**
+
+```bash
+set -euo pipefail
+pnpm --filter @baci/web exec vitest run \
+  tools/db/create-supabase-management-read-only-executor.test.ts \
+  tools/db/verify-post-replay-production-attestation.test.ts \
+  tools/db/attest-post-replay-production.test.ts \
+  tools/db/capture-supabase-history-ledger-boundaries.test.ts
+pnpm --filter @baci/web typecheck:tools-workers
+pnpm --filter @baci/web run db:replay:attest-post-replay
+pnpm --filter @baci/web exec biome check \
+  tools/db/create-supabase-management-read-only-executor.ts \
+  tools/db/create-supabase-management-read-only-executor.test.ts \
+  tools/db/verify-post-replay-production-attestation.ts \
+  tools/db/verify-post-replay-production-attestation.test.ts \
+  tools/db/post-replay-production-attestation-receipt.ts \
+  tools/db/attest-post-replay-production.ts \
+  tools/db/attest-post-replay-production.test.ts \
+  tools/db/capture-supabase-history-ledger.ts
+git diff --check
+```
+
+Expected: the historical receipt remains byte-identical; the current attestation reports only safe counts, tails, hashes, and the exact singleton delta; neither protected `cli-latest` path changes. Run one non-overlapping local CodeRabbit review, fix every valid critical/high finding, commit normally without amending, and obtain a fresh independent exact-head review before Task 9.
+
+---
+
 ### Task 9: Run cumulative P0 gates and produce the exact-head handoff
 
 **Files:**
@@ -2424,7 +2483,7 @@ Expected: Task 7's unchanged final dedicated project and the normal web project 
 ```bash
 set -euo pipefail
 pnpm --filter @baci/web exec vitest run tools/db
-pnpm --filter @baci/web run db:replay:capture-ledger --verify-only
+pnpm --filter @baci/web run db:replay:attest-post-replay
 pnpm --filter @baci/web run db:replay:capture-production-effect --verify-only
 pnpm --filter @baci/web run db:replay:chronological \
   --sql-check supabase/migrations/tests/reconcile_order_fulfillment_timestamps.sql \
@@ -2439,7 +2498,7 @@ pnpm --filter @baci/web exec tsx tools/events/verify-analytics-delivery-authorit
 pnpm --filter @baci/web exec tsx tools/events/verify-event-pipeline-modularity.ts
 ```
 
-Expected: the strict schema-v4 production-effect fixture still matches SHA-256 `2e1be70f5cb3c2fdc049605343ea6d93b617493962920debaf5493668e4f03b0` and count 31; the separate alias receipt matches SHA-256 `ba97d2e25bb8d2f43e0a4fdfdb1fa37586fd9c7397458fa8dc0c0c5858288ade` and remains outside effect records; both replay effect hashes equal the fresh read-only production effect hash; 26 immutable #3077 hashes are intact; all 19 public function contracts/effects are proven; and there is no bare-client, unapproved authority/import expansion, escape, or modularity finding. The five caller-scoped roots and separate platform route/helper class remain exact-byte/edge clean, the trusted-wrapper importer set is exactly conversion/events, and the final analytics authority graph is clean. No result is described as total historical order proof.
+Expected: schema-v5 production provenance remains byte-identical with count `31`; the separate alias receipt remains outside effect records; both immutable replay effects equal frozen effect `71cba5629959c75352726e26cafcbfec8de99b1b52d10e6ad70fd85f07e4d253`; the current read-only attestation proves the exact unchanged `442`-row prefix, twelve-row manifest suffix, `454`-row live ledger, all `76`/`19` safety assertions, and only the recorded one-constraint delta to live effect `dd1f3d2e2b84fd1fe866eb3bd1baa44fc5edcf67aa97a53d1984e5d0b312bc70`. The 26 immutable #3077 hashes are intact; all 19 public function contracts/effects are proven; and there is no bare-client, unapproved authority/import expansion, escape, or modularity finding. The five caller-scoped roots and separate platform route/helper class remain exact-byte/edge clean, the trusted-wrapper importer set is exactly conversion/events, and the final analytics authority graph is clean. No result is described as total historical order proof or current-production replay convergence.
 
 - [ ] **Step 2: Run all 64 frozen regression artifacts**
 
@@ -2587,4 +2646,4 @@ Create or update the P0 PR; record `headRefOid`; require not-behind/mergeable, a
 
 ## Completion Definition
 
-P0 is ready for PR handoff only when the final V4 and strict schema-v4 production-effect provenance fixture/count are exactly bound, every applied exception has valid primary run/job/log-ordinal/head/semantic-log/owner-hash evidence, failure-after-apply evidence has only the allowed ordinal-free corroboration, every partial-order relation is enforced, both replay effects equal a fresh read-only production effect hash, and no total historical order is claimed. The repair and all immutable hashes must be proven; generated types and replay checks must cover all 19 public event functions; the direct-caller/authority/column guard must be clean; all 64 `as never` escapes must be gone; durable analytics and platform delivery must each perform exactly one applicable configuration read and at most one provider request for the claimed destination; configured delivery must be plain-Node/DB-free; no `'use client'` or browser graph may reach credential modules; the five caller-scoped roots plus separate platform route/helper class must be byte/edge clean; and exactly two independently tenant-verified trusted-wrapper importers may remain under the recorded narrow owner-approved rule exception. The bounded touched tree must be modular; tools/workers must be reached by normal typecheck; the 64-artifact regression inventory and monorepo gates must pass; production effects must be read-only verified and inert; and local review must have no critical/high finding. H0-RUNNER preparation may begin after the P0 exact-head gate is green and owner/admin authority exists. H0 itself requires both a coherent merged P0 exact application release and a green H0-RUNNER availability/attestation gate. P0 itself claims no Core Web Vitals improvement.
+P0 is ready for PR handoff only when the final V4 and strict schema-v5 production-effect provenance fixture/count are exactly bound, every applied exception has valid primary run/job/log-ordinal/head/semantic-log/owner-hash evidence, failure-after-apply evidence has only the allowed ordinal-free corroboration, every partial-order relation is enforced, both immutable replay effects equal the frozen post-recovery production effect, the separate no-write attestation proves the exact current post-replay ledger suffix and singleton effect delta, and no total historical order or current-production replay convergence is claimed. The repair and all immutable hashes must be proven; generated types and replay checks must cover all 19 public event functions; the direct-caller/authority/column guard must be clean; all 64 `as never` escapes must be gone; durable analytics and platform delivery must each perform exactly one applicable configuration read and at most one provider request for the claimed destination; configured delivery must be plain-Node/DB-free; no `'use client'` or browser graph may reach credential modules; the five caller-scoped roots plus separate platform route/helper class must be byte/edge clean; and exactly two independently tenant-verified trusted-wrapper importers may remain under the recorded narrow owner-approved rule exception. The bounded touched tree must be modular; tools/workers must be reached by normal typecheck; the 64-artifact regression inventory and monorepo gates must pass; production effects must be read-only verified and inert; and local review must have no critical/high finding. H0-RUNNER preparation may begin after the P0 exact-head gate is green and owner/admin authority exists. H0 itself requires both a coherent merged P0 exact application release and a green H0-RUNNER availability/attestation gate. P0 itself claims no Core Web Vitals improvement.

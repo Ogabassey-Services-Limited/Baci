@@ -29,6 +29,7 @@
     "perf:ogabassey-pdp-lcp": "node tools/perf/measure-ogabassey-pdp-lcp.mjs",
     "db:replay:capture-ledger": "tsx tools/db/capture-supabase-history-ledger.ts",
     "db:replay:capture-production-effect": "tsx tools/db/capture-production-effect-provenance-cli.ts",
+    "db:replay:attest-post-replay": "tsx tools/db/attest-post-replay-production.ts",
     "db:replay:chronological": "tsx tools/db/run-supabase-history-replay.ts --mode chronological --pending-repair-state materialized --comparison-mode enforce",
     "db:replay:production-effect": "tsx tools/db/run-supabase-history-replay.ts --mode production-effect --pending-repair-state materialized --comparison-mode enforce",
     "capture-screenshots": "node scripts/capture-template-screenshots.mjs",

@@ -3,6 +3,7 @@ import { readFile, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { canonicalReplayFixtureJson } from './canonical-replay-fixture-json';
+import { createSupabaseManagementReadOnlyExecutor } from './create-supabase-management-read-only-executor';
 import { parseSupabaseHistoryCaptureArguments } from './parse-supabase-history-capture-arguments';
 import { parseSupabaseMigrationList } from './parse-supabase-migration-list';
 import { persistSupabaseHistoryFixtures } from './persist-supabase-history-fixtures';
@@ -23,7 +24,6 @@ import type { ReplayCommand } from './supabase-history-replay-types';
 
 const LEDGER_QUERY =
   'SELECT version,name FROM supabase_migrations.schema_migrations ORDER BY version';
-const MAX_MANAGEMENT_BYTES = 8 * 1024 * 1024;
 const MIGRATION_PATH = /^supabase\/migrations\/(\d{14})_([a-z0-9_]+)\.sql$/;
 type SafeEffectResult = {
   diagnostics: ProductionHistoryEffects['diagnostics'];
@@ -56,49 +56,6 @@ type CaptureOptions = {
 };
 const sha256 = (value: string | Buffer) =>
   createHash('sha256').update(value).digest('hex');
-async function linkedProjectRef(root: string): Promise<string> {
-  const value =
-    process.env.SUPABASE_PROJECT_REF ??
-    (await readFile(path.join(root, 'supabase/.temp/project-ref'), 'utf8'));
-  const projectRef = value.trim();
-  if (!/^[a-z0-9]{20}$/.test(projectRef))
-    throw new Error('Linked Supabase project reference is unavailable');
-  return projectRef;
-}
-async function managementExecutor(root: string) {
-  const token = process.env.SUPABASE_ACCESS_TOKEN;
-  if (!token) throw new Error('SUPABASE_ACCESS_TOKEN is required');
-  const projectRef = await linkedProjectRef(root);
-  return async (query: string): Promise<unknown[]> => {
-    let response: Response;
-    try {
-      response = await fetch(
-        `https://api.supabase.com/v1/projects/${projectRef}/database/query/read-only`,
-        {
-          body: JSON.stringify({ query }),
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          method: 'POST',
-        }
-      );
-    } catch {
-      throw new Error('Supabase management query transport failed');
-    }
-    const bytes = Buffer.from(await response.arrayBuffer());
-    if (!response.ok || bytes.length > MAX_MANAGEMENT_BYTES) {
-      throw new Error('Supabase management query failed');
-    }
-    try {
-      const parsed: unknown = JSON.parse(bytes.toString('utf8'));
-      if (!Array.isArray(parsed)) throw new Error('invalid');
-      return parsed;
-    } catch {
-      throw new Error('Supabase management query response was invalid');
-    }
-  };
-}
 async function baseLocalRows(
   root: string,
   runCommand: ReplayCommand,
@@ -167,7 +124,8 @@ export async function captureSupabaseHistoryLedger(
   const runCommand =
     dependencies.runCommand ?? replayCommandRuntime.create(root);
   const executeSelect =
-    dependencies.executeSelect ?? (await managementExecutor(root));
+    dependencies.executeSelect ??
+    (await createSupabaseManagementReadOnlyExecutor(root));
   const readObject = dependencies.readGitObject ?? readGitObjectBytes;
   const readEffects = dependencies.readEffects ?? readSupabaseHistoryEffects;
   const migrationList = parseSupabaseMigrationList(
