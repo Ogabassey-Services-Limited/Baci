@@ -1,26 +1,22 @@
 import {
-  buildCategoryPriceBandCandidates,
   buildCategorySupportLinks,
-  buildProductSupportLinks,
   type CommercialSupportLink,
 } from './build-commercial-support-links';
-import { parseCompareSlug } from './compare-slugs';
-
-interface CompareDiscoveryProduct {
-  slug: string;
-  name: string;
-  brand?: string | null;
-  price: number;
-  category_slug?: string | null;
-  product_key_specs?: Record<string, unknown> | null;
-}
+import {
+  buildCanonicalProductCompareSlug,
+  parseCompareSlug,
+} from './compare-slugs';
+import {
+  type CuratedCompareProduct,
+  curateProductComparePairs,
+} from './curate-product-compare-pairs';
 
 interface CompareDiscoveryInput {
   storeUrl: string;
   categorySlug: string;
   categoryName: string;
   includeBrandCompareLinks?: boolean;
-  products: CompareDiscoveryProduct[];
+  products: CuratedCompareProduct[];
   requiredProductSlugs?: string[];
 }
 
@@ -132,7 +128,7 @@ function dedupeLinks<T extends CommercialSupportLink>(links: T[]) {
 
 function buildProductScopedDiscoveryWindow(input: {
   limit: number;
-  products: CompareDiscoveryProduct[];
+  products: CuratedCompareProduct[];
   requiredProductSlugs?: string[];
 }) {
   const requiredSlugs = new Set(
@@ -141,7 +137,7 @@ function buildProductScopedDiscoveryWindow(input: {
       .filter(Boolean)
   );
   const seenSlugs = new Set<string>();
-  const windowProducts: CompareDiscoveryProduct[] = [];
+  const windowProducts: CuratedCompareProduct[] = [];
 
   for (const product of input.products) {
     if (!requiredSlugs.has(product.slug) || seenSlugs.has(product.slug)) {
@@ -175,25 +171,14 @@ function buildProductScopedSupportLinks(input: CompareDiscoveryInput) {
     requiredProductSlugs: input.requiredProductSlugs,
   });
 
-  // Hoist the product-invariant price-band candidate list: it depends only on
-  // (categorySlug, products) and was previously rebuilt inside every one of the
-  // up-to-150 buildProductSupportLinks calls below. Compute once, reuse.
-  const priceBandCandidates = buildCategoryPriceBandCandidates(
-    input.categorySlug,
-    products
-  );
-
-  return products.flatMap((product) =>
-    buildProductSupportLinks({
-      storeUrl: input.storeUrl,
-      categorySlug: input.categorySlug,
-      currentProductSlug: product.slug,
-      currentProductPrice: product.price,
-      includeBrandCompareLink: false,
-      products,
-      priceBandCandidates,
-    })
-  );
+  return curateProductComparePairs({
+    categorySlug: input.categorySlug,
+    products,
+    requiredProductSlugs: input.requiredProductSlugs,
+  }).map((candidate) => ({
+    href: `${trimTrailingSlash(input.storeUrl)}/${input.categorySlug}/compare/${buildCanonicalProductCompareSlug(candidate.leftProduct.slug, candidate.rightProduct.slug)}`,
+    label: `${candidate.leftProduct.name} vs ${candidate.rightProduct.name}`,
+  }));
 }
 
 export function buildCompareDiscoveryLinks(
@@ -202,11 +187,22 @@ export function buildCompareDiscoveryLinks(
   const productNamesBySlug = new Map(
     input.products.map((product) => [product.slug, product.name])
   );
+  const productSlugs = new Set(productNamesBySlug.keys());
+  const categoryCompareLinks = buildCategorySupportLinks({
+    ...input,
+    includeBrandCompareLink: input.includeBrandCompareLinks,
+  }).filter((link) => {
+    const slug = extractCategoryCompareSlug(link.href, input.categorySlug);
+    const parsed = slug ? parseCompareSlug(slug) : null;
+
+    return !(
+      parsed &&
+      productSlugs.has(parsed.leftKey) &&
+      productSlugs.has(parsed.rightKey)
+    );
+  });
   const links = [
-    ...buildCategorySupportLinks({
-      ...input,
-      includeBrandCompareLink: input.includeBrandCompareLinks,
-    }),
+    ...categoryCompareLinks,
     ...buildProductScopedSupportLinks(input),
   ];
 
