@@ -282,3 +282,180 @@ and unrelated pre-existing oversized files that #3077 merely touched:
 
 Those storefront/onboarding, checkout, orders, payment-webhook, IMEI, and
 environment modules are recorded debt, not authority to broaden this recovery.
+
+## Task 9 final P0 exact-head handoff receipt — 2026-07-20
+
+### Claim boundary
+
+This section is the active, append-only Task 9 handoff. Earlier schema-v4 and
+historical graph statements above remain provenance; where values differ, the
+schema-v5 and exact-head values below are current. P0 establishes migration,
+authority, worker, and deployment safety. It does not itself change a storefront
+response or claim a Core Web Vitals improvement.
+It does not activate producers or workers, assert a total order across
+exceptional history, or convert disposable historical replay convergence into
+a claim that the current production database itself was replay-converged.
+
+### Derived exact graph
+
+- Reviewed source head: `14d24cb7590711ec608de5c7d83a45192c8492b6`.
+- Fetched `origin/main`, merge base, and upstream base:
+  `ac2564ff1ba76ecc179fda9ebedeb91d5b571936`.
+- Ahead/behind: `2/0`; branch-only merge commits: `0`.
+- Exact branch commits:
+  `14fba75baf69904f6a7b411191f912a13e219fa2` (`feat: attest
+  post-replay production state`) and
+  `14d24cb7590711ec608de5c7d83a45192c8492b6` (`fix: freeze post-replay
+  attestation receipt`).
+- Recovery merge `bb55d407e01b719a9014c87fb8a8253861b7005d` is an ancestor of the
+  reviewed head.
+
+### Schema-v5 immutable bindings
+
+- Replay base: `9e3d1b14b1931a5e441fc23f0e5417c188056e47`.
+- Normative V4 receipt SHA-256:
+  `3503ca9613b6a511b2e37fb3d35b48830d19e8559e7e3c5df136487fce9efdca`.
+- Schema version: `5`; provenance SHA-256:
+  `1f1e4e3112a0010dbed91a25a8185d38fcfd4cf56d2d2b60ca76306bbbb100e1`.
+- Provenance inventory: 25 sources, 31 exceptional records, 9 replay
+  relations, and 2 forward repairs.
+- Registry inventory: 427 chronological entries and 425 production-effect
+  entries. Physical inventory: 439 chronological entries and 437
+  production-effect entries.
+- Frozen ledger: 442 entries, ending at version `20260714225503`. Live ledger:
+  454 entries, ending at version `20260718070011`.
+- Frozen/live effect SHA-256:
+  `71cba5629959c75352726e26cafcbfec8de99b1b52d10e6ad70fd85f07e4d253`
+  and `dd1f3d2e2b84fd1fe866eb3bd1baa44fc5edcf67aa97a53d1984e5d0b312bc70`.
+- Surface inventory: 76 components and 19 RPCs. The only frozen/live
+  structural difference is the recorded singleton constraint delta.
+- Migration-name-alias repair SHA-256:
+  `ba97d2e25bb8d2f43e0a4fdfdb1fa37586fd9c7397458fa8dc0c0c5858288ade`.
+- Forward-repair receipt SHA-256:
+  `8258b2098f1086a60e166935edf5313f2601977979d4eb1cb31c8ca41ef94e8c`.
+- Frozen fixture SHA-256 values: ledger
+  `0d8b54ecdae67d99da4e806276310e80992bda73ee94efaaf7a91fd16c3d8885`,
+  production effects
+  `bc1e37a53410d8dbeead2f3929a6e47149589ba68806fca88a359e0b9c7411c1`,
+  semantic lines
+  `1d550b33b8f681cdd2f1751279e6d93c1110457834d8743969aa6047d7e33eca`,
+  and old cancellation
+  `58b56f449017041b5311b727e9fe4f217e2880c1a31d5f1da4c1607ff6edd298`.
+
+### Disposable exact-head replay receipts
+
+Both replay modes ran sequentially from a disposable exact-head checkout. All
+owned containers and the checkout directory were removed, and neither protected
+active-worktree marker changed.
+
+| Mode | Ordered sources | Fresh receipt SHA-256 | Result |
+| --- | ---: | --- | --- |
+| Chronological | 427 | `aca3ae54cb230f217642911c5813786bc3e8ea9629bf9eadc5f4f01fff774e1e` | PostgreSQL `170006`; enforcement on; converged; no changed components |
+| Production effect | 426 | `d7c5314fb1cb6bdecb965b351e62d3e16207bed4b5500795a0d764ec3bdb2fea` | PostgreSQL `170006`; enforcement on; converged; no changed components |
+
+Each mode reproduced effect SHA-256
+`71cba5629959c75352726e26cafcbfec8de99b1b52d10e6ad70fd85f07e4d253`,
+proved that versions `20260718070000` through `20260718070011` are absent from
+the historical ordered sources, and reproduced the cancellation transition
+from `6155b28720d0f4a8a20746aa1a2365e631249e940fa7339e0e19b66c28fa1e62`
+to `b21dc2134c1aa3df7aed6c8b7a57173b1fed910a04730f901e56622862503556`.
+One disposable GoTrue startup timed out before SQL execution; owned resources
+were removed and a fresh isolated retry passed.
+
+All six required SQL checks passed in both modes:
+
+| Check | SHA-256 |
+| --- | --- |
+| Reconciliation timestamps | `822cc82a03b75cc76bf940cd76a11884cfe96fa7670c3be1cc9f731fb4225b0f` |
+| Duplicate semantics | `5c4cbda686fa423db01fc4bcebf02ae373798c4c90102c0435a5936172b7a833` |
+| Duplicate JSONB | `32ce9ce2c71855172606157ff836008d9eaa0b2a5fbbf16658f301184400083c` |
+| Cancellation reason | `f76f0bf901bb20929f516543d093729706abf5948de38eb2e6f123f609810cf5` |
+| Merchant anonymous exposure | `52dd02107f30d5048d507bd6e8c04be062cb83386e9f7224f24e01d6aa760b5a` |
+| Domain event pipeline | `6f602f5e9e6d0595d18cb6ee781c64d522f60473ca119f40a276c6658c9d0988` |
+
+The domain-event driver also verified ingress child SHA-256
+`07abd3396e36a5b4feb9c22f43d106bc6dbcb2c5a8a0e21d273f29a98b8ff96c`
+and delivery child SHA-256
+`e91e3610be20d968b38db558213e84feacdfd5c70982edd2dbb1cf633162284f`.
+
+### Production post-replay attestation
+
+- Deployment merge: `fb6c7570ac1a0897efb9890db6b9992410c5eb7a`.
+- Workflow run `29676236659`; database job `88164086530`.
+- Semantic log SHA-256:
+  `9c91aeab90841c40970f18a4d37a988f85a9204a6fde36daa4a07bdea5438ffa`.
+- Summary: 12 applied and 427 skipped.
+- Frozen-prefix SHA-256:
+  `1ddb8497e4d0cc692a4f8fd5c5dec7f5da16d49b4c45c0511d4f19e7646b8ffc`.
+- Live-ledger SHA-256:
+  `ce47c285538cd31047888b4b68c3e4291ace8774e3c29a1bed9735508e5c8832`.
+- Live-effect SHA-256:
+  `dd1f3d2e2b84fd1fe866eb3bd1baa44fc5edcf67aa97a53d1984e5d0b312bc70`.
+- Query/scope SHA-256:
+  `2b555af09c8a9cb7e8026b028c014b304de146a9f50a2c2f2a896a6626dfacbc`
+  and `a216397b8fcc2cd0cac6f7a66023582f43b0c5e348501a94d00d771da1084245`.
+- Singleton constraint
+  `public.reconciliation_review.reconciliation_review_issue_type_check`
+  moved from frozen SHA-256
+  `e8c7feafd3d4249f19bdabadb9d38075dc303ec4b0c5e0dad579698500fb7906`
+  to live SHA-256
+  `b8162359116ec9a8565e08b8050a9646f711d081878f21c56a05f9963ff0c229`.
+
+The no-write live verifier passed against the recursively frozen, 12-entry
+attestation receipt. The receipt rejects an invalid manifest source during
+module loading.
+
+### Cumulative quality and authority gates
+
+- Frozen application regressions: 57 web files/431 tests, 8 successor
+  files/36 tests, 1 shared file/7 tests, and 5 VPS files/22 tests.
+- Database tools: 86 files/552 tests.
+- Full monorepo tests: all 5 tasks passed; web reported 3,008 passed and 1
+  skipped files with 23,884 passed and 1 todo tests.
+- Normal web and tools-worker typechecks passed. Monorepo lint/typecheck passed
+  with only the recorded unrelated warnings.
+- Live modularity, analytics-authority, and 154-seed boundary verifiers passed.
+- Production-effect `--verify-only` passed. A transient GitHub HTTP 503 while
+  reading historical job logs recovered; exact jobs `81543472691` and
+  `84230399303` subsequently returned successfully before the final verifier.
+- VPS proof remains inert: both event worker units report `LoadState=not-found`,
+  `ActiveState=inactive`, `SubState=dead`, and an empty `FragmentPath`.
+
+### Review receipts
+
+- Independent Task 8.5 review returned READY/CLEAN at
+  `14fba75baf69904f6a7b411191f912a13e219fa2`.
+- Local CodeRabbit produced two substantive major findings on the receipt
+  change: runtime immutability and missing invalid-manifest module-load
+  coverage. Both were reproduced, fixed, and passed focused and cumulative
+  verification. A later clean-verdict retry was externally rate-limited before
+  analysis and is not represented as a clean review.
+- Fresh independent exact-head review returned READY/CLEAN for full range
+  `ac2564ff1ba76ecc179fda9ebedeb91d5b571936..14d24cb7590711ec608de5c7d83a45192c8492b6`.
+- Independent evidence-only document review returned READY/CLEAN; it validated
+  the exact graph, schema-v5 bindings, replay and attestation receipts,
+  protected state, inert worker proof, deployment blocker, and bounded claims.
+- The required evidence-only local CodeRabbit attempts exited during setup with
+  `No files to review`; the CLI performed no analysis of the Markdown-only
+  change, so no clean CodeRabbit verdict is claimed for this document.
+
+### Protected state and deployment-coherence handoff
+
+Protected marker SHA-256 values remained
+`c38e4136dae3e1849907643734ed2f1ea4c3c1829b41e81b55092246810d2d32`
+for `apps/web/supabase/.temp/cli-latest` and
+`0daaac4eb443724f347b3d1df0dbacffb1e0755f345412d1f9032eb664aa9b18`
+for `supabase/.temp/cli-latest`. The latter path's tracked working-tree drift
+predated Task 9 and was never staged, reset, or modified by this work.
+
+Automatic deployment run `29702227893` for exact SHA
+`ac2564ff1ba76ecc179fda9ebedeb91d5b571936` completed its prebuilt Vercel
+build and deploy but failed job `88233101830` only at `Purge and verify
+storefront release HTML`: the Cloudflare credential returned HTTP 401 / code
+10000. This is the remaining production-coherence blocker. Repair the
+Cloudflare credential and let the normal deployment/coherence path rerun; do
+not deploy manually.
+
+After coherence is restored, proceed with the H0 runner and measurement before
+selecting H1 or H2 from evidence. Nothing in this P0 receipt is a claim that
+LCP, FCP, CLS, INP, or TTFB has improved.
