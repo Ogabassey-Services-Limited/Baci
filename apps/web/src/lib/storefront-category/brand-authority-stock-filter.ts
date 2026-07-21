@@ -1,2 +1,10 @@
-export const BRAND_AUTHORITY_IN_STOCK_FILTER =
-  'manage_stock.is.null,manage_stock.eq.false,stock_quantity.gt.0,stock.gt.0';
+import { normalizeProduct, type RawDbProduct } from '@/lib/normalize-product';
+
+/**
+ * Uses the same post-hydration availability calculation as public storefront
+ * product cards. This matters for serialized inventory, whose public stock can
+ * differ from the stale product-table columns.
+ */
+export function isBrandAuthorityProductInStock(product: RawDbProduct): boolean {
+  return normalizeProduct(product).availability === 'InStock';
+}

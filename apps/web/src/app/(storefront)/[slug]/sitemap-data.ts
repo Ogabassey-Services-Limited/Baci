@@ -1,4 +1,3 @@
-import type { PostgrestError } from '@supabase/supabase-js';
 import type { MetadataRoute } from 'next';
 import {
   getCachedCategoryPageData,
@@ -10,8 +9,8 @@ import { isRepairsCatalogEnabled } from '@/lib/repairs/repairs-feature';
 import { escapeHtml } from '@/lib/sanitize-core';
 import { getProductUrl } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
-import { BRAND_AUTHORITY_IN_STOCK_FILTER } from '@/lib/storefront-category/brand-authority-stock-filter';
 import { brandAuthorityTaxonomy } from '@/lib/storefront-category/brand-authority-taxonomy';
+import { getCachedBrandAuthorityInventory } from '@/lib/storefront-category/get-cached-brand-authority-products';
 import { buildCommercialSupportDiscoveryLinks } from '@/lib/storefront-compare/build-compare-discovery-links';
 import {
   resolveMerchantContextIdentifier,
@@ -366,60 +365,70 @@ export async function getCategorySitemapEntries({
   }));
 }
 
-interface BrandAuthoritySitemapProduct {
-  updated_at: string | null;
-}
-
 export async function getBrandAuthoritySitemapEntries({
-  supabase,
   merchant,
   storeUrl,
 }: StorefrontSitemapContext): Promise<MetadataRoute.Sitemap> {
+  const eligibleCategories = await Promise.all(
+    brandAuthorityTaxonomy.getSupportedCategories().map(async (categorySlug) => {
+      try {
+        const categoryData = await getCachedCategoryPageData(
+          merchant.id,
+          categorySlug,
+          merchant.slug,
+          0,
+          1
+        );
+        return categoryData &&
+          !categoryData.isCollection &&
+          !categoryData.isInactiveCategory &&
+          !categoryData.productsQueryFailed
+          ? categorySlug
+          : null;
+      } catch (error) {
+        console.warn('Failed to load brand authority sitemap category', {
+          merchantId: merchant.id,
+          categorySlug,
+          error,
+        });
+        return null;
+      }
+    })
+  );
   const categoryEntries = await Promise.all(
-    brandAuthorityTaxonomy.getSupportedCategories().flatMap((categorySlug) =>
-      brandAuthorityTaxonomy.getEntries(categorySlug).map(async (entry) => {
-        const { count, data, error } = (await supabase
-          .from('products')
-          .select(
-            'updated_at, product_categories!inner(categories!inner(slug))',
-            {
-              count: 'exact',
-            }
-          )
-          .eq('merchant_id', merchant.id)
-          .eq('product_categories.categories.slug', categorySlug)
-          .eq('status', 'active')
-          .ilike('brand', entry.brandQueryValue)
-          .or(BRAND_AUTHORITY_IN_STOCK_FILTER)
-          .order('updated_at', { ascending: false })
-          .limit(1)) as {
-          count: number | null;
-          data: BrandAuthoritySitemapProduct[] | null;
-          error: PostgrestError | null;
-        };
-
-        if (error) {
-          console.warn('Failed to load brand authority sitemap entry', {
-            merchantId: merchant.id,
-            categorySlug,
-            brandKey: entry.brandKey,
-            error,
-          });
-          return null;
-        }
-
-        if ((count ?? 0) < entry.minimumProducts) {
-          return null;
-        }
-
-        const updatedAt = data?.[0]?.updated_at;
-        return {
-          url: `${storeUrl}/${entry.categorySlug}/brands/${entry.brandKey}`,
-          lastModified: updatedAt ? new Date(updatedAt) : undefined,
-          changeFrequency: 'daily' as const,
-          priority: 0.7,
-        };
-      })
+    eligibleCategories.flatMap((categorySlug) =>
+      categorySlug === null
+        ? []
+        : brandAuthorityTaxonomy
+            .getEntries(categorySlug)
+            .map(async (entry) => {
+              try {
+                const inventory = await getCachedBrandAuthorityInventory(
+                  merchant.id,
+                  categorySlug,
+                  entry
+                );
+                if (inventory.productCount < entry.minimumProducts) {
+                  return null;
+                }
+                return {
+                  url: `${storeUrl}/${entry.categorySlug}/brands/${entry.brandKey}`,
+                  lastModified: inventory.latestUpdatedAt
+                    ? new Date(inventory.latestUpdatedAt)
+                    : undefined,
+                  changeFrequency: 'daily' as const,
+                  priority: 0.7,
+                };
+              } catch (error) {
+                console.warn('Failed to load brand authority sitemap entry', {
+                  merchantId: merchant.id,
+                  categorySlug,
+                  brandKey: entry.brandKey,
+                  error,
+                });
+                return null;
+              }
+            })
     )
   );
   return categoryEntries.filter(

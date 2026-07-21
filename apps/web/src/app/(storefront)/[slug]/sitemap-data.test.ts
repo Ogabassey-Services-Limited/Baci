@@ -8,6 +8,7 @@ process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
 let mockHeaders = new Map<string, string>();
 const mockGetMerchantByIdentifier = vi.fn();
 const mockGetCachedCategoryPageData = vi.fn();
+const mockGetCachedBrandAuthorityInventory = vi.fn();
 const mockBuildCommercialSupportDiscoveryLinks = vi.fn();
 const mockQueryResults = new Map<
   string,
@@ -21,6 +22,10 @@ vi.mock('@/lib/cached-data', () => ({
     mockGetMerchantByIdentifier(...args),
   getCachedCategoryPageData: (...args: unknown[]) =>
     mockGetCachedCategoryPageData(...args),
+}));
+vi.mock('@/lib/storefront-category/get-cached-brand-authority-products', () => ({
+  getCachedBrandAuthorityInventory: (...args: unknown[]) =>
+    mockGetCachedBrandAuthorityInventory(...args),
 }));
 
 vi.mock('@/lib/storefront-compare/build-compare-discovery-links', () => ({
@@ -149,6 +154,11 @@ describe('sitemap-data', () => {
     });
     mockGetCachedCategoryPageData.mockReset();
     mockGetCachedCategoryPageData.mockResolvedValue(null);
+    mockGetCachedBrandAuthorityInventory.mockReset();
+    mockGetCachedBrandAuthorityInventory.mockResolvedValue({
+      latestUpdatedAt: null,
+      productCount: 0,
+    });
     mockBuildCommercialSupportDiscoveryLinks.mockReset();
     mockBuildCommercialSupportDiscoveryLinks.mockReturnValue([]);
   });
@@ -1351,54 +1361,29 @@ describe('sitemap-data', () => {
   });
 
   it('lists only inventory-qualified curated brand authority hubs', async () => {
-    const brandResults: Record<
-      string,
-      { count: number; updated_at: string | null }
-    > = {
-      Google: { count: 5, updated_at: null },
-      Samsung: { count: 5, updated_at: '2026-07-14T00:00:00Z' },
-      Tecno: { count: 4, updated_at: null },
-    };
-    const queries: Array<{ select: ReturnType<typeof vi.fn> }> = [];
+    mockGetCachedCategoryPageData.mockResolvedValue({
+      isCollection: false,
+      isInactiveCategory: false,
+      productsQueryFailed: false,
+    });
+    mockGetCachedBrandAuthorityInventory.mockImplementation(
+      async (
+        _merchantId: string,
+        _categorySlug: string,
+        entry: { displayName: string }
+      ) => ({
+        latestUpdatedAt:
+          entry.displayName === 'Samsung' ? '2026-07-14T00:00:00Z' : null,
+        productCount:
+          { Google: 5, Samsung: 5, Tecno: 4 }[entry.displayName] ?? 0,
+      })
+    );
     const { getBrandAuthoritySitemapEntries } = sitemapData;
 
     const entries = await getBrandAuthoritySitemapEntries({
       merchant: { id: 'merchant-1', slug: 'ogabassey' },
       storeUrl: 'https://ogabassey.com',
-      supabase: {
-        from: () => {
-          let brand = '';
-          const query = {
-            select: vi.fn(),
-            eq: vi.fn(),
-            ilike: vi.fn(),
-            or: vi.fn(),
-            order: vi.fn(),
-            limit: vi.fn(),
-          };
-          query.select.mockReturnValue(query);
-          query.eq.mockReturnValue(query);
-          query.ilike.mockImplementation((_column: string, value: string) => {
-            brand = value;
-            return query;
-          });
-          query.or.mockReturnValue(query);
-          query.order.mockReturnValue(query);
-          query.limit.mockImplementation(() => {
-            const result = brandResults[brand] ?? {
-              count: 0,
-              updated_at: null,
-            };
-            return Promise.resolve({
-              count: result.count,
-              data: [{ updated_at: result.updated_at }],
-              error: null,
-            });
-          });
-          queries.push(query);
-          return query;
-        },
-      },
+      supabase: {},
     } as unknown as StorefrontSitemapContext);
 
     expect(entries.map((entry) => entry.url)).toEqual([
@@ -1407,56 +1392,31 @@ describe('sitemap-data', () => {
     ]);
     expect(entries[0]?.lastModified).toEqual(new Date('2026-07-14T00:00:00Z'));
     expect(entries[1]?.lastModified).toBeUndefined();
-    expect(queries).toHaveLength(5);
-    expect(queries[0]?.select).toHaveBeenCalledWith(
-      'updated_at, product_categories!inner(categories!inner(slug))',
-      { count: 'exact' }
-    );
+    expect(mockGetCachedBrandAuthorityInventory).toHaveBeenCalledTimes(5);
   });
 
   it('keeps successful authority hubs when a single brand query fails', async () => {
+    mockGetCachedCategoryPageData.mockResolvedValue({
+      isCollection: false,
+      isInactiveCategory: false,
+      productsQueryFailed: false,
+    });
+    mockGetCachedBrandAuthorityInventory.mockImplementation(
+      async (
+        _merchantId: string,
+        _categorySlug: string,
+        entry: { displayName: string }
+      ) => {
+        if (entry.displayName !== 'Samsung') throw new Error('timeout');
+        return { latestUpdatedAt: '2026-07-14T00:00:00Z', productCount: 5 };
+      }
+    );
     const { getBrandAuthoritySitemapEntries } = sitemapData;
 
     const entries = await getBrandAuthoritySitemapEntries({
       merchant: { id: 'merchant-1', slug: 'ogabassey' },
       storeUrl: 'https://ogabassey.com',
-      supabase: {
-        from: () => {
-          let brand = '';
-          const query = {
-            select: vi.fn(),
-            eq: vi.fn(),
-            ilike: vi.fn(),
-            or: vi.fn(),
-            order: vi.fn(),
-            limit: vi.fn(),
-          };
-          query.select.mockReturnValue(query);
-          query.eq.mockReturnValue(query);
-          query.ilike.mockImplementation((_column: string, value: string) => {
-            brand = value;
-            return query;
-          });
-          query.or.mockReturnValue(query);
-          query.order.mockReturnValue(query);
-          query.limit.mockImplementation(() =>
-            Promise.resolve(
-              brand === 'Samsung'
-                ? {
-                    count: 5,
-                    data: [{ updated_at: '2026-07-14T00:00:00Z' }],
-                    error: null,
-                  }
-                : {
-                    count: null,
-                    data: null,
-                    error: new Error('timeout'),
-                  }
-            )
-          );
-          return query;
-        },
-      },
+      supabase: {},
     } as unknown as StorefrontSitemapContext);
 
     expect(entries).toEqual([
@@ -1464,6 +1424,24 @@ describe('sitemap-data', () => {
         url: 'https://ogabassey.com/smartphones/brands/samsung',
       }),
     ]);
+  });
+
+  it('omits authority hubs when the category cannot render publicly', async () => {
+    mockGetCachedCategoryPageData.mockResolvedValue({
+      isCollection: false,
+      isInactiveCategory: true,
+      productsQueryFailed: false,
+    });
+    const { getBrandAuthoritySitemapEntries } = sitemapData;
+
+    await expect(
+      getBrandAuthoritySitemapEntries({
+        merchant: { id: 'merchant-1', slug: 'ogabassey' },
+        storeUrl: 'https://ogabassey.com',
+        supabase: {},
+      } as unknown as StorefrontSitemapContext)
+    ).resolves.toEqual([]);
+    expect(mockGetCachedBrandAuthorityInventory).not.toHaveBeenCalled();
   });
 
   it('omits lastmod from commercial-support entries when the category has no timestamp', async () => {

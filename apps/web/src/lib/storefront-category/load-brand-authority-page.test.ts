@@ -146,8 +146,8 @@ describe('loadBrandAuthorityPage', () => {
     });
 
     expect(page?.products).toHaveLength(5);
-    expect(page?.intro).toContain('5 active Samsung phones');
-    expect(page?.metaDescription).toContain('5 active Samsung phones');
+    expect(page?.intro).toContain('a selection of 5 Samsung phones');
+    expect(page?.metaDescription).toContain('a selection of 5 Samsung phones');
   });
 
   it('fails the hub closed when the brand-scoped product read fails', async () => {

@@ -1,7 +1,6 @@
 import { cacheLife, cacheTag } from 'next/cache';
-import { getPublicSupabaseClient } from '@/lib/cached-data';
-import { BRAND_AUTHORITY_IN_STOCK_FILTER } from '@/lib/storefront-category/brand-authority-stock-filter';
 import { brandAuthorityTaxonomy } from '@/lib/storefront-category/brand-authority-taxonomy';
+import { getCachedBrandAuthorityInventory } from '@/lib/storefront-category/get-cached-brand-authority-products';
 
 async function getCachedBrandAuthorityEntriesRead(
   merchantId: string,
@@ -15,27 +14,15 @@ async function getCachedBrandAuthorityEntriesRead(
     // Unit tests run without Cache Components enabled.
   }
 
-  const supabase = getPublicSupabaseClient();
   const entries = brandAuthorityTaxonomy.getEntries(categorySlug);
   const counts = await Promise.all(
     entries.map(async (entry) => {
-      const { count, error } = await supabase
-        .from('products')
-        .select('id, product_categories!inner(categories!inner(slug))', {
-          count: 'exact',
-          head: true,
-        })
-        .eq('merchant_id', merchantId)
-        .eq('product_categories.categories.slug', categorySlug)
-        .eq('status', 'active')
-        .ilike('brand', entry.brandQueryValue)
-        .or(BRAND_AUTHORITY_IN_STOCK_FILTER);
-
-      if (error) {
-        throw error;
-      }
-
-      return { entry, productCount: count ?? 0 };
+      const inventory = await getCachedBrandAuthorityInventory(
+        merchantId,
+        categorySlug,
+        entry
+      );
+      return { entry, productCount: inventory.productCount };
     })
   );
 
