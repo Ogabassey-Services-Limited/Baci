@@ -77,6 +77,23 @@ describe('buildOrderPaymentBreakdown', () => {
     expect(breakdown.displaySubtotal).toBe(1270000);
   });
 
+  it('does not split excluded VAT when shipping is part of the charged total', () => {
+    const breakdown = buildOrderPaymentBreakdown({
+      currency: 'NGN',
+      merchant: registeredMerchant,
+      shippingFee: 10,
+      subtotal: 100,
+      taxAmount: 7.5,
+      taxBasis: null,
+      taxExclusiveAmount: 100,
+      taxInclusiveAmount: 107.5,
+      total: 110,
+    });
+
+    expect(breakdown.showVat).toBe(false);
+    expect(breakdown.displaySubtotal + 10).toBe(110);
+  });
+
   it('keeps the VAT row for a legacy inclusive-shaped order with an unknown tax basis', () => {
     const total = 235000;
     const taxAmount = total - total / 1.075;

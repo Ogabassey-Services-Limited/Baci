@@ -70,7 +70,7 @@ function hasStoredTaxExcludedTotal(
   const taxInclusiveAmount = toAmount(input.taxInclusiveAmount);
 
   return (
-    almostEqual(order.total, taxExclusiveAmount) &&
+    almostEqual(order.total, getTaxExclusiveTotal(order)) &&
     almostEqual(taxInclusiveAmount, taxExclusiveAmount + order.tax_amount)
   );
 }
@@ -130,7 +130,7 @@ export function buildOrderPaymentBreakdown(
     ? getReceiptDisplaySubtotal(order, input.merchant)
     : subtotal;
   // Null tax_basis is deliberately retained for legacy orders. Only hide the
-  // VAT row when the persisted tax-exclusive and tax-inclusive totals prove
+  // VAT row when the persisted item tax totals and order-level total prove
   // the customer was charged the tax-exclusive amount.
   const taxWasExcludedFromTotal = hasStoredTaxExcludedTotal(input, order);
   const displaySubtotal = taxWasExcludedFromTotal
