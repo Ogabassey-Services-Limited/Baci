@@ -21,12 +21,12 @@ async function getCachedBrandAuthorityEntriesRead(
     entries.map(async (entry) => {
       const { count, error } = await supabase
         .from('products')
-        .select('id, categories:category_id!inner(slug)', {
+        .select('id, product_categories!inner(categories!inner(slug))', {
           count: 'exact',
           head: true,
         })
         .eq('merchant_id', merchantId)
-        .eq('categories.slug', categorySlug)
+        .eq('product_categories.categories.slug', categorySlug)
         .eq('status', 'active')
         .ilike('brand', entry.brandQueryValue)
         .or(BRAND_AUTHORITY_IN_STOCK_FILTER);

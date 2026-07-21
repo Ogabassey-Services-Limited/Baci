@@ -50,7 +50,10 @@ describe('getCachedBrandAuthorityProducts', () => {
     ).resolves.toEqual([{ id: 'product-1' }]);
 
     expect(query.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
-    expect(query.eq).toHaveBeenCalledWith('categories.slug', 'smartphones');
+    expect(query.eq).toHaveBeenCalledWith(
+      'product_categories.categories.slug',
+      'smartphones'
+    );
     expect(query.eq).toHaveBeenCalledWith('status', 'active');
     expect(query.ilike).toHaveBeenCalledWith('brand', 'Samsung');
     expect(query.or).toHaveBeenCalledWith(

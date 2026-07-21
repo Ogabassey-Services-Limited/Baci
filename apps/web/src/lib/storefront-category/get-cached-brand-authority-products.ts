@@ -22,9 +22,9 @@ const BRAND_AUTHORITY_PRODUCTS_SELECT = `
   manage_stock,
   ${PRODUCT_KEY_SPECS_RELATION_SELECT},
   has_condition_offers,
-  categories:category_id!inner(id, name, slug),
-  product_categories (
-    categories (
+  categories:category_id(id, name, slug),
+  product_categories!inner(
+    categories!inner(
       id,
       name,
       slug
@@ -51,7 +51,7 @@ async function getCachedBrandAuthorityProductsRead(
     .from('products')
     .select(BRAND_AUTHORITY_PRODUCTS_SELECT)
     .eq('merchant_id', merchantId)
-    .eq('categories.slug', categorySlug)
+    .eq('product_categories.categories.slug', categorySlug)
     .eq('status', 'active')
     .ilike('brand', entry.brandQueryValue)
     .or(BRAND_AUTHORITY_IN_STOCK_FILTER)

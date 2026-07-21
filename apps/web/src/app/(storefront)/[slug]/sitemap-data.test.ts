@@ -1409,9 +1409,61 @@ describe('sitemap-data', () => {
     expect(entries[1]?.lastModified).toBeUndefined();
     expect(queries).toHaveLength(5);
     expect(queries[0]?.select).toHaveBeenCalledWith(
-      'updated_at, categories:category_id!inner(slug)',
+      'updated_at, product_categories!inner(categories!inner(slug))',
       { count: 'exact' }
     );
+  });
+
+  it('keeps successful authority hubs when a single brand query fails', async () => {
+    const { getBrandAuthoritySitemapEntries } = sitemapData;
+
+    const entries = await getBrandAuthoritySitemapEntries({
+      merchant: { id: 'merchant-1', slug: 'ogabassey' },
+      storeUrl: 'https://ogabassey.com',
+      supabase: {
+        from: () => {
+          let brand = '';
+          const query = {
+            select: vi.fn(),
+            eq: vi.fn(),
+            ilike: vi.fn(),
+            or: vi.fn(),
+            order: vi.fn(),
+            limit: vi.fn(),
+          };
+          query.select.mockReturnValue(query);
+          query.eq.mockReturnValue(query);
+          query.ilike.mockImplementation((_column: string, value: string) => {
+            brand = value;
+            return query;
+          });
+          query.or.mockReturnValue(query);
+          query.order.mockReturnValue(query);
+          query.limit.mockImplementation(() =>
+            Promise.resolve(
+              brand === 'Samsung'
+                ? {
+                    count: 5,
+                    data: [{ updated_at: '2026-07-14T00:00:00Z' }],
+                    error: null,
+                  }
+                : {
+                    count: null,
+                    data: null,
+                    error: new Error('timeout'),
+                  }
+            )
+          );
+          return query;
+        },
+      },
+    } as unknown as StorefrontSitemapContext);
+
+    expect(entries).toEqual([
+      expect.objectContaining({
+        url: 'https://ogabassey.com/smartphones/brands/samsung',
+      }),
+    ]);
   });
 
   it('omits lastmod from commercial-support entries when the category has no timestamp', async () => {

@@ -59,7 +59,7 @@ describe('getCachedBrandAuthorityEntries', () => {
     ]);
     expect(queries).toHaveLength(5);
     expect(queries[0].select).toHaveBeenCalledWith(
-      'id, categories:category_id!inner(slug)',
+      'id, product_categories!inner(categories!inner(slug))',
       { count: 'exact', head: true }
     );
     expect(queries[0].or).toHaveBeenCalledWith(

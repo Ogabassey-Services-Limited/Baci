@@ -28,6 +28,7 @@ describe('brandAuthorityPageRuntime', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('merges the request path prefix into the loaded page model', async () => {
+    // Arrange
     const page = {
       merchant: { slug: 'ogabassey' },
       pathPrefix: '',
@@ -38,6 +39,7 @@ describe('brandAuthorityPageRuntime', () => {
       './brand-authority-page-runtime'
     );
 
+    // Act
     const element = await brandAuthorityPageRuntime.render({
       params: Promise.resolve({
         slug: 'ogabassey',
@@ -47,6 +49,15 @@ describe('brandAuthorityPageRuntime', () => {
     });
     element.type(element.props);
 
+    // Assert
+    expect(mockLoadBrandAuthorityPage).toHaveBeenCalledWith(
+      {
+        merchantSlug: 'ogabassey',
+        categorySlug: 'smartphones',
+        brandSlug: 'samsung',
+      },
+      { includeRequestPathPrefix: false }
+    );
     expect(mockGetStorefrontPathPrefix).toHaveBeenCalledWith(
       'ogabassey',
       'ogabassey'
@@ -57,11 +68,13 @@ describe('brandAuthorityPageRuntime', () => {
   });
 
   it('returns not found before resolving a path prefix when the hub is thin', async () => {
+    // Arrange
     mockLoadBrandAuthorityPage.mockResolvedValue(null);
     const { brandAuthorityPageRuntime } = await import(
       './brand-authority-page-runtime'
     );
 
+    // Act and assert
     await expect(
       brandAuthorityPageRuntime.render({
         params: Promise.resolve({

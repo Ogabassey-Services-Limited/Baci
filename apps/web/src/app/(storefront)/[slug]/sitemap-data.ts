@@ -380,11 +380,14 @@ export async function getBrandAuthoritySitemapEntries({
       brandAuthorityTaxonomy.getEntries(categorySlug).map(async (entry) => {
         const { count, data, error } = (await supabase
           .from('products')
-          .select('updated_at, categories:category_id!inner(slug)', {
-            count: 'exact',
-          })
+          .select(
+            'updated_at, product_categories!inner(categories!inner(slug))',
+            {
+              count: 'exact',
+            }
+          )
           .eq('merchant_id', merchant.id)
-          .eq('categories.slug', categorySlug)
+          .eq('product_categories.categories.slug', categorySlug)
           .eq('status', 'active')
           .ilike('brand', entry.brandQueryValue)
           .or(BRAND_AUTHORITY_IN_STOCK_FILTER)
@@ -396,7 +399,13 @@ export async function getBrandAuthoritySitemapEntries({
         };
 
         if (error) {
-          throw error;
+          console.warn('Failed to load brand authority sitemap entry', {
+            merchantId: merchant.id,
+            categorySlug,
+            brandKey: entry.brandKey,
+            error,
+          });
+          return null;
         }
 
         if ((count ?? 0) < entry.minimumProducts) {
