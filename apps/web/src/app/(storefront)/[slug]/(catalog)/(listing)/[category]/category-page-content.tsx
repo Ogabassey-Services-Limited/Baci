@@ -130,22 +130,13 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
     category in CONTENT_CLUSTER_SUPPORT
       ? (category as SupportedClusterCategory)
       : null;
-  const [data, guidePosts, brandAuthorityEntries] = await Promise.all([
-    getCachedCategoryPageData(
-      merchant.id,
-      category,
-      slug,
-      productOffset,
-      STOREFRONT_PRODUCTS_PER_PAGE
-    ),
-    supportedClusterCategory
-      ? loadPublishedClusterPostsSafely(merchant.id, {
-          pageKind: 'category',
-          categorySlug: supportedClusterCategory,
-        })
-      : Promise.resolve([]),
-    getCachedBrandAuthorityEntries(merchant.id, category),
-  ]);
+  const data = await getCachedCategoryPageData(
+    merchant.id,
+    category,
+    slug,
+    productOffset,
+    STOREFRONT_PRODUCTS_PER_PAGE
+  );
 
   if (!data.isCollection && data.isInactiveCategory) {
     return renderCategoryNotFoundContent({ slug });
@@ -163,6 +154,23 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
   ) {
     return renderCategoryNotFoundContent({ slug });
   }
+
+  const canLoadBrandAuthorityEntries =
+    !data.isCollection &&
+    !data.isInactiveCategory &&
+    Boolean(data.category?.id);
+
+  const [guidePosts, brandAuthorityEntries] = await Promise.all([
+    supportedClusterCategory
+      ? loadPublishedClusterPostsSafely(merchant.id, {
+          pageKind: 'category',
+          categorySlug: supportedClusterCategory,
+        })
+      : Promise.resolve([]),
+    canLoadBrandAuthorityEntries
+      ? getCachedBrandAuthorityEntries(merchant.id, category)
+      : Promise.resolve([]),
+  ]);
 
   const productSlots = getCategoryPageProductSlots(data);
   const products = data.products as unknown as RawDbProduct[];

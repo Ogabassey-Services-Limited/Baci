@@ -17,12 +17,14 @@ function makeQuery(data: unknown, error: unknown = null) {
   const query = {
     select: vi.fn(),
     eq: vi.fn(),
+    or: vi.fn(),
     ilike: vi.fn(),
     order: vi.fn(),
     range: vi.fn(),
   };
   query.select.mockReturnValue(query);
   query.eq.mockReturnValue(query);
+  query.or.mockReturnValue(query);
   query.ilike.mockReturnValue(query);
   query.order.mockReturnValue(query);
   query.range.mockResolvedValue({ data, error });
@@ -67,12 +69,19 @@ describe('getCachedBrandAuthorityProducts', () => {
     );
     expect(query.eq).toHaveBeenCalledWith('status', 'active');
     expect(query.ilike).toHaveBeenCalledWith('brand', 'Samsung');
+    expect(query.or).toHaveBeenCalledWith(
+      'is_parent.eq.true,parent_product_id.is.null'
+    );
     expect(mockHydrateAndSanitizeProducts).toHaveBeenCalledWith(
       expect.anything(),
       'merchant-1',
       expect.any(Array)
     );
     expect(query.range).toHaveBeenCalledWith(0, 99);
+    expect(query.order).toHaveBeenNthCalledWith(1, 'updated_at', {
+      ascending: false,
+    });
+    expect(query.order).toHaveBeenNthCalledWith(2, 'id', { ascending: true });
   });
 
   it('uses serialized public availability instead of stale product stock', async () => {

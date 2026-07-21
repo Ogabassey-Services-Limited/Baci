@@ -247,11 +247,21 @@ function buildBrandCards(input: {
 
   const displayedBrands =
     explicitAuthorityEntries.length > 0
-      ? explicitAuthorityEntries.slice(0, 5).map((entry) => ({
-          key: entry.brandKey,
-          label: entry.displayName,
-          count: entry.productCount,
-        }))
+      ? [
+          ...explicitAuthorityEntries.slice(0, 5).map((entry) => ({
+            key: entry.brandKey,
+            label: entry.displayName,
+            count: entry.productCount,
+          })),
+          ...sortedBrands
+            .filter(
+              (entry) =>
+                !explicitAuthorityEntries.some(
+                  (authorityEntry) => authorityEntry.brandKey === entry.key
+                )
+            )
+            .slice(0, Math.max(0, 5 - explicitAuthorityEntries.length)),
+        ]
       : sortedBrands.slice(0, authorityEntries.size > 0 ? 5 : 3);
 
   return displayedBrands.flatMap((entry) => {
@@ -275,7 +285,7 @@ function buildBrandCards(input: {
       canonicalBrandCandidate?.isIndexable &&
       [canonicalBrandCandidate.leftBrand, canonicalBrandCandidate.rightBrand]
         .map((brand) => generateSlug(brand))
-        .includes(generateSlug(entry.label))
+        .includes(generateSlug(entry.key))
     ) {
       card.secondaryHref = `${input.storeUrl}/${input.categorySlug}/compare/${canonicalBrandCandidate.canonicalSlug}`;
       card.secondaryLabel = `Compare ${canonicalBrandCandidate.leftBrand} vs ${canonicalBrandCandidate.rightBrand}`;

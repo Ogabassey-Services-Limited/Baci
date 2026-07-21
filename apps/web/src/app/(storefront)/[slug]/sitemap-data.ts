@@ -10,8 +10,6 @@ import { isRepairsCatalogEnabled } from '@/lib/repairs/repairs-feature';
 import { escapeHtml } from '@/lib/sanitize-core';
 import { getProductUrl } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
-import { brandAuthorityTaxonomy } from '@/lib/storefront-category/brand-authority-taxonomy';
-import { getCachedBrandAuthorityInventory } from '@/lib/storefront-category/get-cached-brand-authority-products';
 import { buildCommercialSupportDiscoveryLinks } from '@/lib/storefront-compare/build-compare-discovery-links';
 import {
   resolveMerchantContextIdentifier,
@@ -24,6 +22,7 @@ import {
   hasPublishableWarrantyPolicy,
 } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import { createAnonClient } from '@/lib/supabase/anon';
+import { getBrandAuthoritySitemapEntries } from './brand-authority-sitemap';
 
 export interface ProductWithCategory {
   id: string;
@@ -366,76 +365,7 @@ export async function getCategorySitemapEntries({
   }));
 }
 
-export async function getBrandAuthoritySitemapEntries({
-  merchant,
-  storeUrl,
-}: StorefrontSitemapContext): Promise<MetadataRoute.Sitemap> {
-  const eligibleCategories = await Promise.all(
-    brandAuthorityTaxonomy
-      .getSupportedCategories()
-      .map(async (categorySlug) => {
-        try {
-          const categoryData = await getCachedCategoryPageData(
-            merchant.id,
-            categorySlug,
-            merchant.slug,
-            0,
-            1
-          );
-          return categoryData &&
-            !categoryData.isCollection &&
-            !categoryData.isInactiveCategory &&
-            !categoryData.productsQueryFailed
-            ? categorySlug
-            : null;
-        } catch (error) {
-          console.warn('Failed to load brand authority sitemap category', {
-            merchantId: merchant.id,
-            categorySlug,
-            error,
-          });
-          return null;
-        }
-      })
-  );
-  const categoryEntries = await Promise.all(
-    eligibleCategories.flatMap((categorySlug) =>
-      categorySlug === null
-        ? []
-        : brandAuthorityTaxonomy.getEntries(categorySlug).map(async (entry) => {
-            try {
-              const inventory = await getCachedBrandAuthorityInventory(
-                merchant.id,
-                categorySlug,
-                entry
-              );
-              if (inventory.productCount < entry.minimumProducts) {
-                return null;
-              }
-              return {
-                url: `${storeUrl}/${entry.categorySlug}/brands/${entry.brandKey}`,
-                lastModified: inventory.latestUpdatedAt
-                  ? new Date(inventory.latestUpdatedAt)
-                  : undefined,
-                changeFrequency: 'daily' as const,
-                priority: 0.7,
-              };
-            } catch (error) {
-              console.warn('Failed to load brand authority sitemap entry', {
-                merchantId: merchant.id,
-                categorySlug,
-                brandKey: entry.brandKey,
-                error,
-              });
-              return null;
-            }
-          })
-    )
-  );
-  return categoryEntries.filter(
-    (entry): entry is NonNullable<typeof entry> => entry !== null
-  );
-}
+export { getBrandAuthoritySitemapEntries } from './brand-authority-sitemap';
 
 /**
  * Whether the repairs catalogue is publicly enabled for this merchant. The

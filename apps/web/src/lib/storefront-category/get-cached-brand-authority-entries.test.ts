@@ -6,7 +6,7 @@ vi.mock('next/cache', () => ({
   cacheLife: vi.fn(),
   cacheTag: vi.fn(),
 }));
-vi.mock('./get-cached-brand-authority-products', () => ({
+vi.mock('./get-cached-brand-authority-inventory', () => ({
   getCachedBrandAuthorityInventory: (...args: unknown[]) =>
     mockGetCachedBrandAuthorityInventory(...args),
 }));
@@ -19,10 +19,10 @@ describe('getCachedBrandAuthorityEntries', () => {
       async (
         _merchantId: string,
         _categorySlug: string,
-        entry: { brandQueryValue: string }
+        entry: { displayName: string }
       ) => ({
         productCount:
-          { Google: 6, Samsung: 5, Tecno: 4 }[entry.brandQueryValue] ?? 0,
+          { 'Google Pixel': 6, Samsung: 5, Tecno: 4 }[entry.displayName] ?? 0,
       })
     );
     const { getCachedBrandAuthorityEntries } = await import(

@@ -24,7 +24,7 @@ vi.mock('@/lib/cached-data', () => ({
     mockGetCachedCategoryPageData(...args),
 }));
 vi.mock(
-  '@/lib/storefront-category/get-cached-brand-authority-products',
+  '@/lib/storefront-category/get-cached-brand-authority-inventory',
   () => ({
     getCachedBrandAuthorityInventory: (...args: unknown[]) =>
       mockGetCachedBrandAuthorityInventory(...args),
@@ -1373,12 +1373,11 @@ describe('sitemap-data', () => {
       async (
         _merchantId: string,
         _categorySlug: string,
-        entry: { brandQueryValue: string }
+        entry: { brandKey: string }
       ) => ({
         latestUpdatedAt:
-          entry.brandQueryValue === 'Samsung' ? '2026-07-14T00:00:00Z' : null,
-        productCount:
-          { Google: 5, Samsung: 5, Tecno: 4 }[entry.brandQueryValue] ?? 0,
+          entry.brandKey === 'samsung' ? '2026-07-14T00:00:00Z' : null,
+        productCount: { google: 5, samsung: 5, tecno: 4 }[entry.brandKey] ?? 0,
       })
     );
     const { getBrandAuthoritySitemapEntries } = sitemapData;
@@ -1408,9 +1407,9 @@ describe('sitemap-data', () => {
       async (
         _merchantId: string,
         _categorySlug: string,
-        entry: { brandQueryValue: string }
+        entry: { brandKey: string }
       ) => {
-        if (entry.brandQueryValue !== 'Samsung') throw new Error('timeout');
+        if (entry.brandKey !== 'samsung') throw new Error('timeout');
         return { latestUpdatedAt: '2026-07-14T00:00:00Z', productCount: 5 };
       }
     );

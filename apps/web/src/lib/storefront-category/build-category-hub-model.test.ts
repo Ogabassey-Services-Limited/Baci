@@ -351,6 +351,57 @@ describe('buildCategoryHubModel', () => {
     ]);
   });
 
+  it('backfills explicit authority cards with distinct top-selling brands', () => {
+    const model = buildCategoryHubModel({
+      categorySlug: 'smartphones',
+      categoryName: 'Smartphones',
+      merchantBusinessName: 'Ogabassey',
+      storeUrl: 'https://ogabassey.com',
+      products: [
+        ...Array.from({ length: 5 }, (_, index) =>
+          makeProduct({
+            brand: 'Samsung',
+            name: `Samsung ${index}`,
+            slug: `samsung-${index}`,
+          })
+        ),
+        ...Array.from({ length: 4 }, (_, index) =>
+          makeProduct({
+            brand: 'Tecno',
+            name: `Tecno ${index}`,
+            slug: `tecno-${index}`,
+          })
+        ),
+        ...Array.from({ length: 3 }, (_, index) =>
+          makeProduct({
+            brand: 'Infinix',
+            name: `Infinix ${index}`,
+            slug: `infinix-${index}`,
+          })
+        ),
+      ],
+      brandAuthorityEntries: [
+        {
+          brandKey: 'samsung',
+          brandQueryValue: 'Samsung',
+          categorySlug: 'smartphones',
+          displayName: 'Samsung',
+          minimumProducts: 5,
+          productCount: 5,
+        },
+      ],
+    });
+
+    expect(model.brandCards.map((card) => card.title)).toEqual([
+      'Samsung',
+      'Tecno',
+      'Infinix',
+    ]);
+    expect(model.brandCards[0]?.href).toBe(
+      'https://ogabassey.com/smartphones/brands/samsung'
+    );
+  });
+
   it.each([
     [
       'laptops',

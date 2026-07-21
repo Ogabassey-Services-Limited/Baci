@@ -1,6 +1,6 @@
 import { cacheLife, cacheTag } from 'next/cache';
 import { brandAuthorityTaxonomy } from '@/lib/storefront-category/brand-authority-taxonomy';
-import { getCachedBrandAuthorityInventory } from '@/lib/storefront-category/get-cached-brand-authority-products';
+import { getCachedBrandAuthorityInventory } from '@/lib/storefront-category/get-cached-brand-authority-inventory';
 
 async function getCachedBrandAuthorityEntriesRead(
   merchantId: string,

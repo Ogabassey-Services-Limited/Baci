@@ -238,5 +238,18 @@ describe('loadBrandAuthorityPage', () => {
     await expect(
       brandAuthorityPageLoader.getStorefrontPathPrefix('ogabassey', 'ogabassey')
     ).resolves.toBe('');
+
+    mockHeaders = new Headers({ 'x-merchant-slug': 'ogabassey' });
+    await expect(
+      brandAuthorityPageLoader.getStorefrontPathPrefix('ogabassey', 'ogabassey')
+    ).resolves.toBe('');
+
+    mockHeaders = new Headers();
+    await expect(
+      brandAuthorityPageLoader.getStorefrontPathPrefix(
+        'ogabassey.com',
+        'ogabassey'
+      )
+    ).resolves.toBe('');
   });
 });

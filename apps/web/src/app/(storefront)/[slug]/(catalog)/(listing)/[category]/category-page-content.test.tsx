@@ -264,6 +264,7 @@ describe('CategoryPageContent', () => {
     expect(
       screen.getByText(/compare the product name, brand, price/i)
     ).toBeInTheDocument();
+    expect(mockGetCachedBrandAuthorityEntries).not.toHaveBeenCalled();
   });
 
   it('passes the merchant payout currency into collection schema generation', async () => {
