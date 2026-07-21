@@ -178,17 +178,13 @@ describe('Paystack DVA caller contract', () => {
     expect(drain).not.toContain('/dedicated_account');
   });
 
-  it('exposes explicit audit and drain operator commands', () => {
+  it('does not expose cutover helpers before an operator boundary is approved', () => {
     const packageJson = JSON.parse(
       readFileSync(resolve(repositoryRoot, 'apps/web/package.json'), 'utf8')
     ) as { scripts?: Record<string, string> };
 
-    expect(packageJson.scripts).toMatchObject({
-      'agentic:dva-cutover:audit':
-        'tsx src/scripts/audit-agentic-dva-consent-cutover.ts',
-      'agentic:dva-cutover:drain':
-        'tsx src/scripts/drain-agentic-dva-consent-cutover.ts',
-    });
+    expect(packageJson.scripts).not.toHaveProperty('agentic:dva-cutover:audit');
+    expect(packageJson.scripts).not.toHaveProperty('agentic:dva-cutover:drain');
   });
 });
 

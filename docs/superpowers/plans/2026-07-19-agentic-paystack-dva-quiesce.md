@@ -142,16 +142,19 @@ git commit -m "feat: quiesce agentic Paystack DVA discovery"
 - Create: `apps/web/src/scripts/audit-agentic-dva-consent-cutover.test.ts`
 - Create: `apps/web/src/scripts/drain-agentic-dva-consent-cutover.ts`
 - Create: `apps/web/src/scripts/drain-agentic-dva-consent-cutover.test.ts`
-- Modify: `apps/web/package.json`
 
 **Steps:**
 
 1. Inventory every raw Paystack dedicated-account endpoint and transitive caller with a failing source-contract test.
-2. Implement a bounded service-role audit that reports only state counts and opaque ids.
-3. Implement a dry-run-by-default one-session drain requiring expected state and evidence fingerprint.
+2. Implement bounded, dependency-injected audit logic that reports only state counts and opaque ids; do not construct or inherit the event-pipeline service-role client.
+3. Implement dependency-injected, dry-run-by-default one-session drain logic requiring expected state and evidence fingerprint.
 4. Permit only release of a stale no-account claim or idempotent resume using an already stored account; forbid provider create/get.
 5. Add redaction canaries and zero-transitional-state assertions.
 6. Run tests, typecheck the scripts, and commit `feat: add agentic DVA cutover controls`.
+
+Operator execution remains blocked until a separately reviewed least-privilege
+server/RPC boundary or an explicit credential exception is approved. These
+helpers must not be exposed as standalone package scripts in this slice.
 
 ### Task 5: Preparation quality gate
 

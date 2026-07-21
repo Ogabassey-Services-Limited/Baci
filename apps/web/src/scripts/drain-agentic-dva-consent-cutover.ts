@@ -1,6 +1,3 @@
-import 'dotenv/config';
-import process from 'node:process';
-import { pathToFileURL } from 'node:url';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { agenticDvaCutoverCli } from '@/lib/agentic/agentic-dva-cutover-cli';
 import { agenticDvaCutoverConstants } from '@/lib/agentic/agentic-dva-cutover-constants';
@@ -8,14 +5,13 @@ import { assessAgenticDvaCutoverSession } from '@/lib/agentic/agentic-dva-cutove
 import { finalizeAgenticCheckoutPayment } from '@/lib/agentic/checkout-completion-finalize';
 import { reserveAgenticIdempotencyKey } from '@/lib/agentic/idempotency';
 import { logger } from '@/lib/logger';
-import { createServiceClient } from '@/lib/supabase/service';
 import { unknownValueGuards } from '@/lib/unknown-value-guards';
 const COMPLETE_ROUTE = 'checkout_sessions.complete';
 const { emitDriftAlert, fingerprintsMatch, isPaused, parseArgs, printResult } =
   agenticDvaCutoverCli;
 export async function runDrainAgenticDvaConsentCutoverCli(
-  argv: string[] = process.argv.slice(2),
-  supabase?: SupabaseClient,
+  argv: string[],
+  supabase: SupabaseClient,
   now = new Date()
 ): Promise<number> {
   if (!isPaused()) {
@@ -25,7 +21,7 @@ export async function runDrainAgenticDvaConsentCutoverCli(
     return 1;
   }
   const args = parseArgs(argv);
-  const serviceClient = supabase ?? createServiceClient('event-pipeline');
+  const serviceClient = supabase;
   const { data, error } = await serviceClient
     .from('checkout_sessions')
     .select(agenticDvaCutoverConstants.sessionSelect)
@@ -287,14 +283,4 @@ async function releaseStaleClaim({
     state: 'claiming_payment',
   });
   return 0;
-}
-
-const currentFile = process.argv[1] ? pathToFileURL(process.argv[1]).href : null;
-if (import.meta.url === currentFile) {
-  runDrainAgenticDvaConsentCutoverCli()
-    .then((exitCode) => { process.exitCode = exitCode; })
-    .catch((error: unknown) => {
-      console.error(error instanceof Error ? error.message : 'Drain failed');
-      process.exitCode = 1;
-    });
 }

@@ -1,20 +1,15 @@
-import 'dotenv/config';
-
-import process from 'node:process';
-import { pathToFileURL } from 'node:url';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { agenticDvaCutoverCli } from '@/lib/agentic/agentic-dva-cutover-cli';
 import { agenticDvaCutoverConstants } from '@/lib/agentic/agentic-dva-cutover-constants';
 import { assessAgenticDvaCutoverSession } from '@/lib/agentic/agentic-dva-cutover-evidence';
 import { logger } from '@/lib/logger';
-import { createServiceClient } from '@/lib/supabase/service';
 
 const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 500;
 
 export async function runAuditAgenticDvaConsentCutoverCli(
-  argv: string[] = process.argv.slice(2),
-  supabase?: SupabaseClient,
+  argv: string[],
+  supabase: SupabaseClient,
   now = new Date()
 ): Promise<number> {
   if (!agenticDvaCutoverCli.isPaused()) {
@@ -24,7 +19,7 @@ export async function runAuditAgenticDvaConsentCutoverCli(
     return 1;
   }
   const limit = parseArgs(argv);
-  const serviceClient = supabase ?? createServiceClient('event-pipeline');
+  const serviceClient = supabase;
   const states: Record<string, unknown> = {};
   const counts: Record<string, number> = {};
   let hasManualReview = false;
@@ -121,19 +116,4 @@ function parseArgs(argv: string[]): number {
     limit = value;
   }
   return limit;
-}
-
-const currentFile = process.argv[1]
-  ? pathToFileURL(process.argv[1]).href
-  : null;
-
-if (import.meta.url === currentFile) {
-  runAuditAgenticDvaConsentCutoverCli()
-    .then((exitCode) => {
-      process.exitCode = exitCode;
-    })
-    .catch((error: unknown) => {
-      console.error(error instanceof Error ? error.message : 'Audit failed');
-      process.exitCode = 1;
-    });
 }
