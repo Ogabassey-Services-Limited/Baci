@@ -9,18 +9,17 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE
-  v_actor uuid := (SELECT auth.uid());
-  v_is_service_role boolean := (SELECT auth.role()) = 'service_role';
-  v_order public.orders%ROWTYPE;
+  v_order record;
 BEGIN
-  IF v_actor IS NULL AND NOT v_is_service_role THEN
-    RAISE EXCEPTION 'not_authenticated' USING ERRCODE = '28000';
+  IF (SELECT auth.role()) IS DISTINCT FROM 'service_role' THEN
+    RAISE EXCEPTION 'service_role_required' USING ERRCODE = '42501';
   END IF;
   IF p_step NOT IN ('refund', 'customer_email') OR p_claim_token IS NULL THEN
     RAISE EXCEPTION 'invalid_cancellation_side_effect';
   END IF;
 
-  SELECT o.* INTO v_order
+  SELECT o.merchant_id, o.payment_status, o.amount_paid
+  INTO v_order
     FROM public.orders o
    WHERE o.id = p_order_id
      AND (
@@ -29,17 +28,6 @@ BEGIN
      );
   IF NOT FOUND THEN
     RAISE EXCEPTION 'cancelled_order_not_found' USING ERRCODE = 'P0002';
-  END IF;
-  IF NOT v_is_service_role AND NOT (
-    EXISTS (
-      SELECT 1 FROM public.merchants m
-       WHERE m.id = v_order.merchant_id AND m.user_id = v_actor
-    )
-    OR public.check_staff_permission(
-      v_actor, v_order.merchant_id, 'orders', 'edit'
-    )
-  ) THEN
-    RAISE EXCEPTION 'order_cancel_forbidden' USING ERRCODE = '42501';
   END IF;
   IF p_step = 'refund'
      AND (v_order.payment_status <> 'paid' OR v_order.amount_paid <= 0) THEN
@@ -110,12 +98,10 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE
-  v_actor uuid := (SELECT auth.uid());
-  v_is_service_role boolean := (SELECT auth.role()) = 'service_role';
   v_updated boolean := false;
 BEGIN
-  IF v_actor IS NULL AND NOT v_is_service_role THEN
-    RAISE EXCEPTION 'not_authenticated' USING ERRCODE = '28000';
+  IF (SELECT auth.role()) IS DISTINCT FROM 'service_role' THEN
+    RAISE EXCEPTION 'service_role_required' USING ERRCODE = '42501';
   END IF;
   IF p_status NOT IN ('completed', 'failed', 'delivery_uncertain') THEN
     RAISE EXCEPTION 'invalid_cancellation_side_effect_status';
@@ -130,23 +116,6 @@ BEGIN
      AND side_effect.step = p_step
      AND side_effect.claim_token = p_claim_token
      AND side_effect.status = 'claimed'
-     AND (
-       v_is_service_role
-       OR EXISTS (
-         SELECT 1
-           FROM public.orders o
-          WHERE o.id = side_effect.order_id
-            AND (
-              EXISTS (
-                SELECT 1 FROM public.merchants m
-                 WHERE m.id = o.merchant_id AND m.user_id = v_actor
-              )
-              OR public.check_staff_permission(
-                v_actor, o.merchant_id, 'orders', 'edit'
-              )
-            )
-       )
-     )
   RETURNING true INTO v_updated;
 
   RETURN COALESCE(v_updated, false);
@@ -156,11 +125,11 @@ $$;
 REVOKE ALL ON FUNCTION public.claim_order_cancellation_side_effect(uuid, text, uuid)
   FROM PUBLIC, anon, authenticated, service_role, postgres;
 GRANT EXECUTE ON FUNCTION public.claim_order_cancellation_side_effect(uuid, text, uuid)
-  TO authenticated, service_role;
+  TO service_role;
 
 REVOKE ALL ON FUNCTION public.finish_order_cancellation_side_effect(
   uuid, text, uuid, text, jsonb, text
 ) FROM PUBLIC, anon, authenticated, service_role, postgres;
 GRANT EXECUTE ON FUNCTION public.finish_order_cancellation_side_effect(
   uuid, text, uuid, text, jsonb, text
-) TO authenticated, service_role;
+) TO service_role;

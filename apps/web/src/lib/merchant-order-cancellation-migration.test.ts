@@ -30,10 +30,13 @@ describe('merchant order cancellation migration', () => {
     );
     expect(migrationSql).toContain('OR v_order.cancelled_at IS NOT NULL');
     expect(migrationSql).toContain(
-      "v_order.shipping_status IN ('shipped', 'delivered', 'completed', 'returned')"
+      "'shipped', 'out_for_delivery', 'delivered', 'completed', 'returned'"
     );
+    expect(migrationSql).toContain("t.status IN ('pending', 'processing')");
+    expect(migrationSql).toContain('payment_capture_in_flight');
     expect(migrationSql).toContain('private.restock_order_items(p_order_id)');
     expect(migrationSql).toContain('paid_order_ledger_inconsistent');
+    expect(migrationSql).not.toContain('SELECT o.*');
   });
 
   it('voids unpaid payment instruments and exposes the RPC only to authenticated users', () => {
@@ -51,5 +54,19 @@ describe('merchant order cancellation migration', () => {
     expect(migrationSql).toContain('PRIMARY KEY (order_id, step)');
     expect(migrationSql).toContain("'customer_email', 'failed'");
     expect(migrationSql).toContain("'refund', 'failed'");
+    expect(migrationSql).toContain('attempts integer NOT NULL DEFAULT 1');
+    expect(migrationSql).toContain('result jsonb');
+    expect(migrationSql).toContain('error text');
+  });
+
+  it('records who cancelled, why, and the before/after state in the audit trail', () => {
+    expect(migrationSql).toContain('actor_user_id');
+    expect(migrationSql).toContain(
+      "'cancellation_reason', v_order.cancellation_reason"
+    );
+    expect(migrationSql).toContain("'cancellation_reason', v_reason");
+    expect(migrationSql).toContain(
+      "jsonb_build_object('operation', 'merchant_order_cancellation')"
+    );
   });
 });

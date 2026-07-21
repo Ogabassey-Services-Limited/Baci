@@ -5,23 +5,26 @@ import {
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
-import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
-import { executeOrderCancellationSideEffect } from '@/lib/orders/execute-order-cancellation-side-effect';
-import { runOrderCancellationSideEffect } from '@/lib/orders/run-order-cancellation-side-effect';
-import { sendEmail } from '@/lib/zeptomail';
+import { productCacheRevalidation } from '@/lib/product-cache-revalidation';
 import { merchantOrderCancellationSchema } from '@/schemas/orders';
 
 /**
  * POST /api/orders/[id]/cancelled
- * Sends the "Order Cancelled" email to the customer
- * Called when merchant or customer cancels an order
+ * Atomically cancels a merchant-owned order and queues trusted refund/email work.
  */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // CSRF protection
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user || !auth.supabase) {
+      return NextResponse.json(
+        { error: auth.error || 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const { valid: csrfValid, response: csrfResponse } =
       await checkCsrfProtection(request);
     if (!csrfValid) {
@@ -48,15 +51,6 @@ export async function POST(
       );
     }
     const cancellationReason = parsedBody.data.reason;
-
-    // Authenticate request
-    const auth = await authenticateApiRequest(request);
-    if (auth.error || !auth.user || !auth.supabase) {
-      return NextResponse.json(
-        { error: auth.error || 'Unauthorized' },
-        { status: 401 }
-      );
-    }
 
     // Get merchant ID
     const merchantId = await getMerchantIdForApiUser(auth.supabase);
@@ -100,156 +94,65 @@ export async function POST(
     }
     const alreadyCancelled = !cancellationPerformed;
 
-    // Fetch merchant details
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select(
-        'id, business_name, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number'
-      )
-      .eq('id', merchantId)
-      .single();
-
-    if (merchantError || !merchant) {
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
+    productCacheRevalidation.revalidateDashboard(merchantId);
+    try {
+      const { data: orderItems, error: orderItemsError } = await supabase
+        .from('order_items')
+        .select('product_id')
+        .eq('order_id', id);
+      if (orderItemsError) throw orderItemsError;
+      const productIds = Array.from(
+        new Set(
+          (orderItems ?? [])
+            .map((item) => item.product_id)
+            .filter((productId): productId is string => Boolean(productId))
+        )
       );
-    }
-
-    // Fetch order with items
-    const { data: order, error: orderError } = await supabase
-      .from('orders')
-      .select(`${ORDER_WITH_ITEMS_QUERY}, cancelled_at`)
-      .eq('id', id)
-      .eq('merchant_id', merchant.id)
-      .single();
-
-    if (orderError || !order) {
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
-    }
-
-    // Check if order is actually cancelled
-    if (
-      !['cancelled', 'canceled'].includes(order.shipping_status) &&
-      !order.cancelled_at
-    ) {
-      return NextResponse.json(
-        { error: 'Order must be marked as cancelled first' },
-        { status: 400 }
-      );
-    }
-
-    // Calculate refund amount
-    const amountPaid = Number(order.amount_paid) || 0;
-    // For now, assume full refund of amount paid
-    const refundAmount = amountPaid;
-
-    // Process actual refund if payment was made
-    let refundResult: {
-      success: boolean;
-      refundId?: number;
-      error?: string;
-    } = { success: false };
-    let refundStatus:
-      | 'completed'
-      | 'deferred'
-      | 'failed'
-      | 'delivery_uncertain'
-      | 'not_required' = 'not_required';
-    if (amountPaid > 0 && order.payment_status === 'paid') {
-      refundStatus = await runOrderCancellationSideEffect({
-        orderId: id,
-        step: 'refund',
-        supabase,
-        execute: async () => {
-          const result = await executeOrderCancellationSideEffect({
-            merchant,
-            order,
-            reason: cancellationReason,
-            step: 'refund',
-            supabase,
+      if (productIds.length > 0) {
+        const { data: products, error: productsError } = await supabase
+          .from('products')
+          .select('slug, manage_stock')
+          .eq('merchant_id', merchantId)
+          .in('id', productIds);
+        if (productsError) throw productsError;
+        const trackedProducts = (products ?? []).filter(
+          (product) => product.manage_stock === true
+        );
+        if (trackedProducts.length > 0) {
+          productCacheRevalidation.revalidateProducts(merchantId, undefined, {
+            feedScope: 'merchant',
           });
-          if (!('refundId' in result)) {
-            throw new Error('Refund executor returned an invalid result');
-          }
-          const refundId = result.refundId;
-          refundResult = { success: true, refundId };
-          return result;
-        },
-      });
-      refundResult.success = refundStatus === 'completed';
-      if (!refundResult.success) refundResult.error = refundStatus;
-    }
-
-    let messageId: string | undefined;
-    const emailStatus = await runOrderCancellationSideEffect({
-      orderId: id,
-      step: 'customer_email',
-      supabase,
-      execute: async () => {
-        const result = await executeOrderCancellationSideEffect({
-          merchant,
-          order,
-          reason: cancellationReason,
-          sendCancellationEmail: sendEmail,
-          step: 'customer_email',
-          supabase,
-        });
-        if (!('messageId' in result)) {
-          throw new Error('Email executor returned an invalid result');
+          productCacheRevalidation.revalidateProductSlugs(
+            merchantId,
+            trackedProducts.map((product) => product.slug)
+          );
         }
-        messageId = result.messageId ?? undefined;
-        return result;
-      },
-    });
-
-    if (refundStatus === 'failed' || emailStatus === 'failed') {
-      return NextResponse.json(
-        {
-          success: false,
-          cancellationSucceeded: true,
-          alreadyCancelled,
-          error: 'Cancellation completed, but a side effect must be retried',
-          sideEffects: { refund: refundStatus, customerEmail: emailStatus },
-        },
-        { status: 500 }
-      );
+      }
+    } catch (error) {
+      productCacheRevalidation.revalidateProducts(merchantId, undefined, {
+        feedScope: 'merchant',
+      });
+      logger.error({
+        error,
+        message: 'Failed to revalidate product caches after cancellation',
+        merchantId,
+        orderId: id,
+      });
     }
 
-    const sideEffectsPending =
-      refundStatus === 'deferred' ||
-      refundStatus === 'delivery_uncertain' ||
-      emailStatus === 'deferred' ||
-      emailStatus === 'delivery_uncertain';
     return NextResponse.json(
       {
         success: true,
         alreadyCancelled,
-        message: sideEffectsPending
-          ? 'Cancellation completed; side effects are pending'
-          : 'Cancellation notification sent',
-        messageId,
-        sideEffects: { refund: refundStatus, customerEmail: emailStatus },
-        refund:
-          amountPaid > 0
-            ? {
-                attempted: true,
-                success: refundResult.success,
-                amount: refundAmount,
-                refundId: refundResult.refundId,
-                error: refundResult.error,
-              }
-            : {
-                attempted: false,
-                reason: 'No payment to refund',
-              },
+        message: 'Cancellation completed; side effects are queued',
+        sideEffects: { customerEmail: 'queued', refund: 'queued_if_required' },
       },
-      { status: sideEffectsPending ? 202 : 200 }
+      { status: 202 }
     );
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Internal Error';
-    console.error('Error in cancellation notification:', error);
-    logger.error({ message: 'Error sending cancellation email', error });
+    console.error('Error cancelling order:', error);
+    logger.error({ message: 'Order cancellation route failed', error });
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

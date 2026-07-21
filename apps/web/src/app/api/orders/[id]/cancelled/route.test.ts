@@ -5,34 +5,25 @@ const mocks = vi.hoisted(() => ({
   authenticateApiRequest: vi.fn(),
   checkCsrfProtection: vi.fn(),
   getMerchantIdForApiUser: vi.fn(),
-  initiateRefund: vi.fn(),
-  runSideEffect: vi.fn(),
-  sendEmail: vi.fn(),
+  revalidateDashboard: vi.fn(),
+  revalidateProductSlugs: vi.fn(),
+  revalidateProducts: vi.fn(),
 }));
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: mocks.authenticateApiRequest,
   getMerchantIdForApiUser: mocks.getMerchantIdForApiUser,
 }));
+vi.mock('@/lib/product-cache-revalidation', () => ({
+  productCacheRevalidation: {
+    revalidateDashboard: mocks.revalidateDashboard,
+    revalidateProductSlugs: mocks.revalidateProductSlugs,
+    revalidateProducts: mocks.revalidateProducts,
+  },
+}));
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: mocks.checkCsrfProtection,
 }));
-vi.mock('@/lib/orders/build-order-cancellation-email-message', () => ({
-  buildOrderCancellationEmailMessage: vi.fn(() => ({
-    to: 'customer@example.com',
-  })),
-}));
-vi.mock('@/lib/order-queries', () => ({
-  ORDER_WITH_ITEMS_QUERY: 'order fields',
-}));
-vi.mock('@/lib/orders/run-order-cancellation-side-effect', () => ({
-  DeliveryUncertainError: class DeliveryUncertainError extends Error {},
-  runOrderCancellationSideEffect: mocks.runSideEffect,
-}));
-vi.mock('@/lib/paystack', () => ({
-  initiateRefund: mocks.initiateRefund,
-}));
-vi.mock('@/lib/zeptomail', () => ({ sendEmail: mocks.sendEmail }));
 
 import { POST } from './route';
 
@@ -40,51 +31,32 @@ function request(body: unknown): NextRequest {
   return { json: vi.fn().mockResolvedValue(body) } as unknown as NextRequest;
 }
 
-function selectResult(data: unknown) {
-  const builder = {
-    eq: vi.fn(() => builder),
-    single: vi.fn().mockResolvedValue({ data, error: null }),
-    select: vi.fn(() => builder),
-  };
-  return builder;
-}
-
 function createSupabase() {
-  const merchant = {
-    business_name: 'Store',
-    cac_rc_number: null,
-    email: 'merchant@example.com',
-    email_sender_name: null,
-    id: 'merchant-1',
-    slug: 'store',
-    support_email: 'support@example.com',
-    tax_identification_number: null,
-  };
-  const order = {
-    amount_paid: 0,
-    currency: 'NGN',
-    customer_email: 'customer@example.com',
-    customer_id: 'customer-1',
-    customer_name: 'Ada',
-    id: 'order-1',
-    merchant_id: 'merchant-1',
-    order_items: [],
-    order_number: 'ORD-1',
-    payment_status: 'unpaid',
-    shipping_status: 'cancelled',
-    total: 5000,
-  };
-  const merchantBuilder = selectResult(merchant);
-  const orderBuilder = selectResult(order);
+  const orderItemsEq = vi.fn().mockResolvedValue({
+    data: [{ product_id: 'product-1' }],
+    error: null,
+  });
+  const productsIn = vi.fn().mockResolvedValue({
+    data: [{ manage_stock: true, slug: 'phone' }],
+    error: null,
+  });
   const supabase = {
     from: vi.fn((table: string) => {
-      if (table === 'merchants') return merchantBuilder;
-      if (table === 'orders') return orderBuilder;
+      if (table === 'order_items') {
+        return { select: vi.fn(() => ({ eq: orderItemsEq })) };
+      }
+      if (table === 'products') {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({ in: productsIn })),
+          })),
+        };
+      }
       throw new Error(`Unexpected table ${table}`);
     }),
     rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
   };
-  return supabase;
+  return { orderItemsEq, productsIn, supabase };
 }
 
 describe('POST /api/orders/[id]/cancelled', () => {
@@ -92,19 +64,16 @@ describe('POST /api/orders/[id]/cancelled', () => {
     vi.clearAllMocks();
     mocks.checkCsrfProtection.mockResolvedValue({ valid: true });
     mocks.getMerchantIdForApiUser.mockResolvedValue('merchant-1');
-    mocks.sendEmail.mockResolvedValue({
-      messageId: 'message-1',
-      success: true,
-    });
-    mocks.runSideEffect.mockImplementation(
-      async ({ execute }: { execute: () => Promise<unknown> }) => {
-        await execute();
-        return 'completed';
-      }
-    );
   });
 
-  it('requires an explicit cancellation confirmation', async () => {
+  it('authenticates before validating the cancellation confirmation', async () => {
+    const { supabase } = createSupabase();
+    mocks.authenticateApiRequest.mockResolvedValue({
+      error: null,
+      supabase,
+      user: { id: 'user-1' },
+    });
+
     const response = await POST(request({ cancelled_by: 'merchant' }), {
       params: Promise.resolve({ id: 'order-1' }),
     });
@@ -113,11 +82,12 @@ describe('POST /api/orders/[id]/cancelled', () => {
     await expect(response.json()).resolves.toMatchObject({
       code: 'INVALID_REQUEST_BODY',
     });
-    expect(mocks.authenticateApiRequest).not.toHaveBeenCalled();
+    expect(mocks.authenticateApiRequest).toHaveBeenCalledOnce();
+    expect(supabase.rpc).not.toHaveBeenCalled();
   });
 
-  it('cancels through the actor-audited RPC before notifying the customer', async () => {
-    const supabase = createSupabase();
+  it('queues trusted side effects and revalidates listing, feed, and PDP caches', async () => {
+    const { supabase } = createSupabase();
     mocks.authenticateApiRequest.mockResolvedValue({
       error: null,
       supabase,
@@ -133,18 +103,28 @@ describe('POST /api/orders/[id]/cancelled', () => {
       { params: Promise.resolve({ id: 'order-1' }) }
     );
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(202);
+    expect(mocks.revalidateDashboard).toHaveBeenCalledWith('merchant-1');
     expect(supabase.rpc).toHaveBeenCalledWith('cancel_order_as_merchant', {
       p_order_id: 'order-1',
       p_reason: 'Customer requested cancellation',
     });
-    expect(mocks.sendEmail).toHaveBeenCalledWith(
-      expect.objectContaining({ to: 'customer@example.com' })
+    expect(mocks.revalidateProducts).toHaveBeenCalledWith(
+      'merchant-1',
+      undefined,
+      { feedScope: 'merchant' }
     );
+    expect(mocks.revalidateProductSlugs).toHaveBeenCalledWith('merchant-1', [
+      'phone',
+    ]);
+    await expect(response.json()).resolves.toMatchObject({
+      message: 'Cancellation completed; side effects are queued',
+      sideEffects: { customerEmail: 'queued', refund: 'queued_if_required' },
+    });
   });
 
-  it('does not notify when the order is no longer cancellable', async () => {
-    const supabase = createSupabase();
+  it('does not queue or revalidate when the order is no longer cancellable', async () => {
+    const { supabase } = createSupabase();
     supabase.rpc.mockResolvedValue({
       data: null,
       error: { code: 'P0001', message: 'order_not_cancellable' },
@@ -160,38 +140,36 @@ describe('POST /api/orders/[id]/cancelled', () => {
     });
 
     expect(response.status).toBe(409);
-    expect(mocks.sendEmail).not.toHaveBeenCalled();
+    expect(mocks.revalidateProducts).not.toHaveBeenCalled();
   });
 
-  it('resumes only unfinished side effects when already cancelled', async () => {
-    const supabase = createSupabase();
+  it('keeps an idempotent retry queued without using the new request reason', async () => {
+    const { supabase } = createSupabase();
     supabase.rpc.mockResolvedValue({ data: false, error: null });
-    mocks.runSideEffect.mockResolvedValue('completed');
     mocks.authenticateApiRequest.mockResolvedValue({
       error: null,
       supabase,
       user: { id: 'user-1' },
     });
 
-    const response = await POST(request({ confirm_cancellation: true }), {
-      params: Promise.resolve({ id: 'order-1' }),
-    });
+    const response = await POST(
+      request({ confirm_cancellation: true, reason: 'Different retry reason' }),
+      { params: Promise.resolve({ id: 'order-1' }) }
+    );
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(202);
     await expect(response.json()).resolves.toMatchObject({
       alreadyCancelled: true,
       success: true,
     });
-    expect(mocks.initiateRefund).not.toHaveBeenCalled();
-    expect(mocks.runSideEffect).toHaveBeenCalledWith(
-      expect.objectContaining({ step: 'customer_email' })
-    );
-    expect(mocks.sendEmail).not.toHaveBeenCalled();
   });
 
-  it('returns accepted while another request owns a side-effect claim', async () => {
-    const supabase = createSupabase();
-    mocks.runSideEffect.mockResolvedValue('deferred');
+  it('avoids product and feed cache churn for unlimited-inventory items', async () => {
+    const { productsIn, supabase } = createSupabase();
+    productsIn.mockResolvedValue({
+      data: [{ manage_stock: false, slug: 'service-plan' }],
+      error: null,
+    });
     mocks.authenticateApiRequest.mockResolvedValue({
       error: null,
       supabase,
@@ -203,9 +181,8 @@ describe('POST /api/orders/[id]/cancelled', () => {
     });
 
     expect(response.status).toBe(202);
-    await expect(response.json()).resolves.toMatchObject({
-      message: 'Cancellation completed; side effects are pending',
-      success: true,
-    });
+    expect(mocks.revalidateDashboard).toHaveBeenCalledWith('merchant-1');
+    expect(mocks.revalidateProducts).not.toHaveBeenCalled();
+    expect(mocks.revalidateProductSlugs).not.toHaveBeenCalled();
   });
 });

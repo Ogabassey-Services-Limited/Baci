@@ -173,13 +173,13 @@ describe('supabaseHistoryReplayManifest', () => {
         repositoryPath:
           'supabase/migrations/20260721093206_merchant_order_cancellation_audit.sql',
         sha256:
-          '057a9e7f1c0be7000bdd73c55c39a436204c239c42e03a6b00aaee4aca93260d',
+          'b36447107978f1612b0f158bbd3331f635bf8bd940ec0ff01545ecba765a753b',
       },
       {
         repositoryPath:
           'supabase/migrations/20260721093207_order_cancellation_side_effect_claims.sql',
         sha256:
-          '1be071963ba75365aea6fd2584858e324279d4bce7eea8eaefe5507cafd417c2',
+          '399dfc28247c2f3d3c720783eeb13c3376a1b207f7ea1095e66366e919f1e5ea',
       },
     ]);
   });

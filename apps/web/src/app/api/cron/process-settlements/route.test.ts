@@ -50,6 +50,16 @@ function makeCronRequest(secret = 'test-secret') {
   });
 }
 
+function makeCancellationDrainRequest() {
+  return new Request(
+    'https://usebaci.com/api/cron/process-settlements?cancellationsOnly=true',
+    {
+      headers: { Authorization: 'Bearer test-secret' },
+      method: 'POST',
+    }
+  );
+}
+
 describe('POST /api/cron/process-settlements', () => {
   beforeEach(() => {
     for (const mock of Object.values(mocks)) {
@@ -120,6 +130,17 @@ describe('POST /api/cron/process-settlements', () => {
     ).not.toHaveBeenCalled();
     expect(mocks.from).not.toHaveBeenCalled();
     expect(mocks.sendEmail).not.toHaveBeenCalled();
+  });
+
+  it('drains cancellation side effects without running the daily settlement job', async () => {
+    const response = await POST(makeCancellationDrainRequest());
+
+    expect(response.status).toBe(200);
+    expect(mocks.drainFailedOrderCancellationSideEffects).toHaveBeenCalledWith(
+      expect.objectContaining({ sendCancellationEmail: mocks.sendEmail })
+    );
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.from).not.toHaveBeenCalled();
   });
 
   it('returns a 500 and skips notifications when settlement processing fails', async () => {

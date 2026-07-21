@@ -45,7 +45,7 @@ SET search_path = ''
 AS $$
 DECLARE
   v_actor uuid := (SELECT auth.uid());
-  v_order public.orders%ROWTYPE;
+  v_order record;
   v_reason text := NULLIF(btrim(p_reason), '');
 BEGIN
   IF v_actor IS NULL THEN
@@ -55,7 +55,16 @@ BEGIN
     RAISE EXCEPTION 'reason_too_long' USING ERRCODE = '22001';
   END IF;
 
-  SELECT o.* INTO v_order
+  SELECT
+    o.merchant_id,
+    o.shipping_status,
+    o.cancelled_at,
+    o.payment_status,
+    o.amount_paid,
+    o.total,
+    o.cancellation_reason,
+    o.cancelled_by
+  INTO v_order
     FROM public.orders o
    WHERE o.id = p_order_id
    FOR UPDATE;
@@ -81,8 +90,19 @@ BEGIN
      OR v_order.cancelled_at IS NOT NULL THEN
     RETURN false;
   END IF;
-  IF v_order.shipping_status IN ('shipped', 'delivered', 'completed', 'returned') THEN
+  IF v_order.shipping_status IN (
+    'shipped', 'out_for_delivery', 'delivered', 'completed', 'returned'
+  ) THEN
     RAISE EXCEPTION 'order_not_cancellable' USING ERRCODE = 'P0001';
+  END IF;
+  IF EXISTS (
+    SELECT 1
+      FROM public.transactions t
+     WHERE t.order_id = p_order_id
+       AND t.transaction_type = 'payment'
+       AND t.status IN ('pending', 'processing')
+  ) THEN
+    RAISE EXCEPTION 'payment_capture_in_flight' USING ERRCODE = 'P0001';
   END IF;
   IF v_order.payment_status = 'paid'
      AND v_order.amount_paid IS DISTINCT FROM v_order.total THEN

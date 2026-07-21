@@ -37,6 +37,17 @@ export async function POST(request: Request) {
     }
 
     const supabase = createServiceClient();
+    if (new URL(request.url).searchParams.get('cancellationsOnly') === 'true') {
+      const cancellationSideEffectDrain =
+        await drainFailedOrderCancellationSideEffects({
+          sendCancellationEmail: sendEmail,
+          supabase,
+        });
+      return NextResponse.json({
+        success: true,
+        cancellationSideEffectDrain,
+      });
+    }
 
     // 1. Process due settlements
     const { data: processResult, error: processError } = await supabase.rpc(

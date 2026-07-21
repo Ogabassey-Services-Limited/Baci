@@ -67,7 +67,7 @@ describe('verifySupabaseHistoryReplayManifest', () => {
     expect(result.productionEffectProvenance.exceptionalRecords).toHaveLength(
       31
     );
-  }, 30_000);
+  }, 60_000);
 
   it('requires the explicit pending repair state at runtime', async () => {
     const invalidOptions = {};

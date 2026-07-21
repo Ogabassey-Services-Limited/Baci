@@ -29,13 +29,14 @@ describe('order cancellation side-effect claims migration', () => {
     expect(migrationSql).toContain("t.transaction_type = 'refund'");
   });
 
-  it('allows only authenticated actors and the service-role retry worker', () => {
+  it('allows only the trusted service-role retry worker', () => {
     expect(migrationSql).toContain(
-      "v_is_service_role boolean := (SELECT auth.role()) = 'service_role'"
+      "(SELECT auth.role()) IS DISTINCT FROM 'service_role'"
     );
-    expect(migrationSql).toContain('IF NOT v_is_service_role AND NOT (');
     expect(migrationSql).toMatch(
-      /GRANT EXECUTE ON FUNCTION public\.claim_order_cancellation_side_effect[\s\S]*TO authenticated, service_role/
+      /GRANT EXECUTE ON FUNCTION public\.claim_order_cancellation_side_effect[\s\S]*TO service_role/
     );
+    expect(migrationSql).not.toMatch(/TO authenticated, service_role/);
+    expect(migrationSql).not.toContain('SELECT o.*');
   });
 });
