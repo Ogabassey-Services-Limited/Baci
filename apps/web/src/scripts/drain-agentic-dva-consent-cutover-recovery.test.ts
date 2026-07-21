@@ -92,6 +92,7 @@ describe('runDrainAgenticDvaConsentCutoverCli recovery', () => {
       agentic: {
         ...agentic,
         finalization_claim: `agentic_order_${'a'.repeat(64)}`,
+        finalization_order_id: 'order-1',
         payment_state: 'order_finalizing',
       },
     };
