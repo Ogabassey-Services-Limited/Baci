@@ -173,7 +173,7 @@ describe('supabaseHistoryReplayManifest', () => {
         repositoryPath:
           'supabase/migrations/20260721093206_merchant_order_cancellation_audit.sql',
         sha256:
-          '0b00564781f8afe40779f24b20cf5d099dfe79be494081cc6af87d1b58e3bbe8',
+          '127a2afc81174fafeb70e44a71c6aa2c540a98468eeb2f3086442adaf6221061',
       },
     ]);
   });

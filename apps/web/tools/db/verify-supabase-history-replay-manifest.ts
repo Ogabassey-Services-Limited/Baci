@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { lstat, readdir, readFile, realpath } from 'node:fs/promises';
+import { lstat, readFile, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { readGitObjectBytes } from './read-git-object-bytes';
 import { resolveSafeReplayPath } from './resolve-safe-replay-path';
@@ -10,6 +10,7 @@ import type {
   ReplaySource,
   VerifiedReplayManifest,
 } from './supabase-history-replay-types';
+import { verifyCurrentMigrationRegistry } from './verify-current-migration-registry';
 import { verifySupabaseForwardRepairs } from './verify-supabase-forward-repairs';
 import { verifySupabaseHistoryReplayReceipts } from './verify-supabase-history-replay-receipts';
 import { verifySupabasePostReplaySources } from './verify-supabase-post-replay-sources';
@@ -177,47 +178,6 @@ async function verifyCurrentSources(
   return verifiedSources;
 }
 
-async function verifyCurrentRegistry(
-  root: string,
-  registryPaths: readonly string[],
-  state: PendingRepairState
-): Promise<void> {
-  const migrationRoot = await resolveSafeReplayPath(
-    root,
-    'supabase/migrations'
-  );
-  const currentNames = (await readdir(migrationRoot, { withFileTypes: true }))
-    .filter((entry) => entry.name.endsWith('.sql'))
-    .map(({ name }) => name)
-    .sort();
-  const expectedNames = registryPaths.map((entry) =>
-    path.posix.basename(entry)
-  );
-  if (state === 'materialized') {
-    expectedNames.push(path.posix.basename(manifest.repair.path));
-  }
-  expectedNames.push(
-    ...manifest.forwardRepairs.map(({ path: repairPath }) =>
-      path.posix.basename(repairPath)
-    )
-  );
-  expectedNames.push(
-    ...manifest.postReplaySources.map(({ repositoryPath }) =>
-      path.posix.basename(repositoryPath)
-    )
-  );
-  expectedNames.push(
-    ...manifest.pendingSources.map(({ repositoryPath }) =>
-      path.posix.basename(repositoryPath)
-    )
-  );
-  if (JSON.stringify(currentNames) !== JSON.stringify(expectedNames.sort())) {
-    throw new Error(
-      'Current top-level migration registry differs from the explicit pending-repair state'
-    );
-  }
-}
-
 function verifyBootstrap(
   verifiedSources: readonly ReplaySource[]
 ): ReplaySource[] {
@@ -303,7 +263,15 @@ export async function verifySupabaseHistoryReplayManifest(
     manifest.pendingSources,
     postReplayTailVersion()
   );
-  await verifyCurrentRegistry(root, registryPaths, options.pendingRepairState);
+  await verifyCurrentMigrationRegistry(root, [
+    ...registryPaths,
+    ...(options.pendingRepairState === 'materialized'
+      ? [manifest.repair.path]
+      : []),
+    ...manifest.forwardRepairs.map(({ path: repairPath }) => repairPath),
+    ...manifest.postReplaySources.map(({ repositoryPath }) => repositoryPath),
+    ...manifest.pendingSources.map(({ repositoryPath }) => repositoryPath),
+  ]);
   const bootstrapSources = verifyBootstrap(verifiedSources);
   await verifyTransform(root);
   return {

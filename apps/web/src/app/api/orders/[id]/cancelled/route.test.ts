@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   checkCsrfProtection: vi.fn(),
   getMerchantIdForApiUser: vi.fn(),
   initiateRefund: vi.fn(),
+  runSideEffect: vi.fn(),
   sendEmail: vi.fn(),
 }));
 
@@ -16,12 +17,17 @@ vi.mock('@/lib/api-auth', () => ({
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: mocks.checkCsrfProtection,
 }));
-vi.mock('@/lib/email-templates', () => ({
-  generateOrderCancellationEmail: vi.fn(() => '<p>cancelled</p>'),
-  generateOrderCancellationText: vi.fn(() => 'cancelled'),
+vi.mock('@/lib/orders/build-order-cancellation-email-message', () => ({
+  buildOrderCancellationEmailMessage: vi.fn(() => ({
+    to: 'customer@example.com',
+  })),
 }));
 vi.mock('@/lib/order-queries', () => ({
   ORDER_WITH_ITEMS_QUERY: 'order fields',
+}));
+vi.mock('@/lib/orders/run-order-cancellation-side-effect', () => ({
+  DeliveryUncertainError: class DeliveryUncertainError extends Error {},
+  runOrderCancellationSideEffect: mocks.runSideEffect,
 }));
 vi.mock('@/lib/paystack', () => ({
   initiateRefund: mocks.initiateRefund,
@@ -90,6 +96,12 @@ describe('POST /api/orders/[id]/cancelled', () => {
       messageId: 'message-1',
       success: true,
     });
+    mocks.runSideEffect.mockImplementation(
+      async ({ execute }: { execute: () => Promise<unknown> }) => {
+        await execute();
+        return 'completed';
+      }
+    );
   });
 
   it('requires an explicit cancellation confirmation', async () => {
@@ -127,10 +139,7 @@ describe('POST /api/orders/[id]/cancelled', () => {
       p_reason: 'Customer requested cancellation',
     });
     expect(mocks.sendEmail).toHaveBeenCalledWith(
-      expect.objectContaining({
-        auditContext: expect.objectContaining({ orderId: 'order-1' }),
-        to: 'customer@example.com',
-      })
+      expect.objectContaining({ to: 'customer@example.com' })
     );
   });
 
@@ -154,9 +163,10 @@ describe('POST /api/orders/[id]/cancelled', () => {
     expect(mocks.sendEmail).not.toHaveBeenCalled();
   });
 
-  it('does not repeat refund or notification side effects when already cancelled', async () => {
+  it('resumes only unfinished side effects when already cancelled', async () => {
     const supabase = createSupabase();
     supabase.rpc.mockResolvedValue({ data: false, error: null });
+    mocks.runSideEffect.mockResolvedValue('completed');
     mocks.authenticateApiRequest.mockResolvedValue({
       error: null,
       supabase,
@@ -172,8 +182,30 @@ describe('POST /api/orders/[id]/cancelled', () => {
       alreadyCancelled: true,
       success: true,
     });
-    expect(supabase.from).not.toHaveBeenCalled();
     expect(mocks.initiateRefund).not.toHaveBeenCalled();
+    expect(mocks.runSideEffect).toHaveBeenCalledWith(
+      expect.objectContaining({ step: 'customer_email' })
+    );
     expect(mocks.sendEmail).not.toHaveBeenCalled();
+  });
+
+  it('returns accepted while another request owns a side-effect claim', async () => {
+    const supabase = createSupabase();
+    mocks.runSideEffect.mockResolvedValue('deferred');
+    mocks.authenticateApiRequest.mockResolvedValue({
+      error: null,
+      supabase,
+      user: { id: 'user-1' },
+    });
+
+    const response = await POST(request({ confirm_cancellation: true }), {
+      params: Promise.resolve({ id: 'order-1' }),
+    });
+
+    expect(response.status).toBe(202);
+    await expect(response.json()).resolves.toMatchObject({
+      message: 'Cancellation completed; side effects are pending',
+      success: true,
+    });
   });
 });

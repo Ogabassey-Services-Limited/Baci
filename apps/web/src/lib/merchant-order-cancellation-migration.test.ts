@@ -28,6 +28,7 @@ describe('merchant order cancellation migration', () => {
     expect(migrationSql).toContain(
       "v_order.shipping_status IN ('cancelled', 'canceled')"
     );
+    expect(migrationSql).toContain('OR v_order.cancelled_at IS NOT NULL');
     expect(migrationSql).toContain(
       "v_order.shipping_status IN ('shipped', 'delivered', 'completed', 'returned')"
     );
@@ -41,5 +42,23 @@ describe('merchant order cancellation migration', () => {
       'UPDATE public.order_wallet_funding_intents'
     );
     expect(migrationSql).toMatch(/GRANT EXECUTE[\s\S]*TO authenticated/);
+  });
+
+  it('persists and claims cancellation side effects idempotently', () => {
+    expect(migrationSql).toContain(
+      'CREATE TABLE IF NOT EXISTS public.order_cancellation_side_effects'
+    );
+    expect(migrationSql).toContain('PRIMARY KEY (order_id, step)');
+    expect(migrationSql).toContain(
+      'CREATE OR REPLACE FUNCTION public.claim_order_cancellation_side_effect('
+    );
+    expect(migrationSql).toContain(
+      'CREATE OR REPLACE FUNCTION public.finish_order_cancellation_side_effect('
+    );
+    expect(migrationSql).toContain("side_effect.status = 'failed'");
+    expect(migrationSql).toContain(
+      "p_status NOT IN ('completed', 'failed', 'delivery_uncertain')"
+    );
+    expect(migrationSql).toContain("t.transaction_type = 'refund'");
   });
 });
