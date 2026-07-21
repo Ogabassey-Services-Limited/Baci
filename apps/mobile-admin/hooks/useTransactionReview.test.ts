@@ -54,12 +54,31 @@ describe('transaction review visibility', () => {
     );
 
     await fetchTransactionReviewRows({
+      includeCancelledAt: true,
       includeTransactionDate: true,
       merchantId: 'merchant-1',
       selectStatement: 'id',
     });
 
     expect(mocks.is).toHaveBeenCalledWith('cancelled_at', null);
+    expect(mocks.or).toHaveBeenCalledWith(
+      'shipping_status.is.null,shipping_status.not.in.(cancelled,canceled)'
+    );
+  });
+
+  it('keeps the fallback query usable without cancelled_at', async () => {
+    const { fetchTransactionReviewRows } = await import(
+      './useTransactionReview'
+    );
+
+    await fetchTransactionReviewRows({
+      includeCancelledAt: false,
+      includeTransactionDate: true,
+      merchantId: 'merchant-1',
+      selectStatement: 'id, shipping_status',
+    });
+
+    expect(mocks.is).not.toHaveBeenCalled();
     expect(mocks.or).toHaveBeenCalledWith(
       'shipping_status.is.null,shipping_status.not.in.(cancelled,canceled)'
     );
@@ -102,6 +121,7 @@ describe('isTransactionReviewSchemaCacheError', () => {
 
     expect(TRANSACTION_REVIEW_LEGACY_SELECT).toContain('cost_price');
     expect(TRANSACTION_REVIEW_LEGACY_SELECT).toContain('supplier_name');
+    expect(TRANSACTION_REVIEW_LEGACY_SELECT).not.toContain('cancelled_at');
     expect(TRANSACTION_REVIEW_LEGACY_SELECT).not.toContain(
       'order_item_unit_costs'
     );
