@@ -7,7 +7,11 @@ const loggerMock = vi.hoisted(() => ({
   warn: vi.fn(),
   error: vi.fn(),
 }));
+const findWalletAccountMock = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/logger', () => ({ logger: loggerMock }));
+vi.mock('@/lib/customer-wallet-payment-accounts', () => ({
+  findCustomerWalletPaymentAccountByReceiver: findWalletAccountMock,
+}));
 
 import { confirmPaystackDvaByOrderAccount } from '@/lib/payments/confirm-paystack-dva-by-order-account';
 
@@ -155,6 +159,7 @@ function createSupabaseMock(opts: {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  findWalletAccountMock.mockResolvedValue(null);
 });
 
 describe('confirmPaystackDvaByOrderAccount — single match', () => {
@@ -246,6 +251,76 @@ describe('confirmPaystackDvaByOrderAccount — single match', () => {
 
     expect(result.kind).toBe('match');
     expect(state.insertCalls).toHaveLength(1);
+    expect(findWalletAccountMock).toHaveBeenCalledWith({
+      receiverAccountNumber: '9812851228',
+      supabase,
+    });
+  });
+
+  it('matches an unpaid generated invoice inside its active DVA window', async () => {
+    const { supabase, state } = createSupabaseMock({
+      accountRows: [
+        {
+          ...baseAccountRow,
+          orders: {
+            ...baseAccountRow.orders,
+            payment_status: 'unpaid',
+          },
+        },
+      ],
+    });
+
+    const result = await confirmPaystackDvaByOrderAccount({
+      supabase: supabase as never,
+      ...ctxBase,
+    });
+
+    expect(result.kind).toBe('match');
+    expect(state.insertCalls).toHaveLength(1);
+    expect(findWalletAccountMock).not.toHaveBeenCalled();
+  });
+
+  it('lets an active wallet DVA claim a transfer instead of a late expired invoice alias', async () => {
+    findWalletAccountMock.mockResolvedValue({ id: 'wallet-account-1' });
+    const { supabase, state } = createSupabaseMock({});
+
+    const result = await confirmPaystackDvaByOrderAccount({
+      supabase: supabase as never,
+      ...ctxBase,
+      paystackResponse: {
+        customer: { email: 'customer@example.com' },
+        paid_at: '2026-05-09T12:53:00Z',
+      },
+    });
+
+    expect(result).toEqual({ kind: 'none' });
+    expect(state.insertCalls).toHaveLength(0);
+  });
+
+  it('fails closed when the late-match wallet DVA lookup fails', async () => {
+    findWalletAccountMock.mockRejectedValue(new Error('wallet lookup failed'));
+    const { supabase, state } = createSupabaseMock({});
+
+    const result = await confirmPaystackDvaByOrderAccount({
+      supabase: supabase as never,
+      ...ctxBase,
+      paystackResponse: {
+        customer: { email: 'customer@example.com' },
+        paid_at: '2026-05-09T12:53:00Z',
+      },
+    });
+
+    expect(result).toEqual({
+      body: { error: 'Paystack DVA matching temporarily unavailable' },
+      kind: 'error',
+      status: 500,
+    });
+    expect(state.insertCalls).toHaveLength(0);
+    expect(loggerMock.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'B1 active wallet DVA lookup failed',
+      })
+    );
   });
 
   it('reuses the existing transaction when the locked RPC returns its id', async () => {

@@ -48,8 +48,16 @@ export type DvaMatchContext = {
 };
 
 export type DvaMatchResult =
-  | { kind: 'single'; candidate: DvaMatchCandidate }
-  | { kind: 'ambiguous'; candidates: DvaMatchCandidate[] }
+  | {
+      kind: 'single';
+      candidate: DvaMatchCandidate;
+      timing: 'in_window' | 'late';
+    }
+  | {
+      kind: 'ambiguous';
+      candidates: DvaMatchCandidate[];
+      timing: 'in_window' | 'late';
+    }
   | { kind: 'none' };
 
 export function matchPaystackDvaCandidates(
@@ -92,11 +100,15 @@ export function matchPaystackDvaCandidates(
   // Prefer the short-window candidates when available. This preserves the
   // original sequential-order disambiguation while allowing a bank transfer
   // that settles late to reach one uniquely identified active invoice.
-  const matched = inWindowMatches.length > 0 ? inWindowMatches : exactMatches;
+  const usesInWindowMatch = inWindowMatches.length > 0;
+  const matched = usesInWindowMatch ? inWindowMatches : exactMatches;
+  const timing = usesInWindowMatch ? 'in_window' : 'late';
 
   if (matched.length === 0) return { kind: 'none' };
-  if (matched.length === 1) return { kind: 'single', candidate: matched[0] };
-  return { kind: 'ambiguous', candidates: matched };
+  if (matched.length === 1) {
+    return { kind: 'single', candidate: matched[0], timing };
+  }
+  return { kind: 'ambiguous', candidates: matched, timing };
 }
 
 function normalizeEmail(value: string | null): string {

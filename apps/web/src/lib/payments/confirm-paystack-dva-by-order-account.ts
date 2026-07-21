@@ -17,6 +17,7 @@
 // `cancel_order_ids='{}'` case naturally.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { findCustomerWalletPaymentAccountByReceiver } from '@/lib/customer-wallet-payment-accounts';
 import { logger } from '@/lib/logger';
 import {
   type DvaMatchCandidate,
@@ -131,6 +132,32 @@ export async function confirmPaystackDvaByOrderAccount({
 
   if (match.kind === 'none') {
     return { kind: 'none' };
+  }
+
+  // A reusable Paystack account may later become the customer's wallet DVA.
+  // Once the order alias is outside its protected window, wallet ownership
+  // wins so a top-up cannot be consumed by an expired invoice alias.
+  if (match.timing === 'late') {
+    try {
+      const walletAccount = await findCustomerWalletPaymentAccountByReceiver({
+        receiverAccountNumber: accountNumber,
+        supabase,
+      });
+      if (walletAccount) {
+        return { kind: 'none' };
+      }
+    } catch (error) {
+      logger.error({
+        message: 'B1 active wallet DVA lookup failed',
+        accountNumber,
+        error,
+      });
+      return {
+        body: { error: 'Paystack DVA matching temporarily unavailable' },
+        kind: 'error',
+        status: 500,
+      };
+    }
   }
 
   if (match.kind === 'ambiguous') {
@@ -285,7 +312,9 @@ function normalizeCandidate(
   // Only an unpaid active order can receive an inbound invoice payment. Both
   // cancellation spellings exist in legacy data, and paid/refunded orders
   // must not compete with a later invoice that reuses the same DVA.
-  if (order.payment_status !== 'pending') return null;
+  if (order.payment_status !== 'pending' && order.payment_status !== 'unpaid') {
+    return null;
+  }
   if (
     order.shipping_status === 'cancelled' ||
     order.shipping_status === 'canceled'

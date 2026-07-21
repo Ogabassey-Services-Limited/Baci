@@ -39,6 +39,7 @@ describe('matchPaystackDvaCandidates — happy paths', () => {
     const result = matchPaystackDvaCandidates([candidate()], ctx());
     expect(result.kind).toBe('single');
     if (result.kind === 'single') {
+      expect(result.timing).toBe('in_window');
       expect(result.candidate.order_id).toBe(
         '211bcf0e-0795-488f-aeeb-52c5b7a8b9ae'
       );
@@ -57,6 +58,9 @@ describe('matchPaystackDvaCandidates — happy paths', () => {
     );
 
     expect(result.kind).toBe('single');
+    if (result.kind === 'single') {
+      expect(result.timing).toBe('in_window');
+    }
   });
 
   it('matches the right candidate when two share an account number but only one fits the window', () => {
@@ -73,6 +77,7 @@ describe('matchPaystackDvaCandidates — happy paths', () => {
     const result = matchPaystackDvaCandidates([stale, fresh], ctx());
     expect(result.kind).toBe('single');
     if (result.kind === 'single') {
+      expect(result.timing).toBe('in_window');
       expect(result.candidate.order_id).toBe('fresh-order');
     }
   });
@@ -139,6 +144,9 @@ describe('matchPaystackDvaCandidates — paid_at window', () => {
       ctx({ paidAt: new Date('2026-05-09T12:53:00Z') })
     );
     expect(result.kind).toBe('single');
+    if (result.kind === 'single') {
+      expect(result.timing).toBe('late');
+    }
   });
 
   it('uses the unique late-match fallback when account_expires_at is malformed', () => {
@@ -195,6 +203,7 @@ describe('matchPaystackDvaCandidates — ambiguity + zero candidates', () => {
     const result = matchPaystackDvaCandidates([a, b], ctx());
     expect(result.kind).toBe('ambiguous');
     if (result.kind === 'ambiguous') {
+      expect(result.timing).toBe('in_window');
       expect(result.candidates.map((c) => c.order_id).sort()).toEqual([
         'order-a',
         'order-b',
@@ -210,6 +219,9 @@ describe('matchPaystackDvaCandidates — ambiguity + zero candidates', () => {
     );
 
     expect(result.kind).toBe('ambiguous');
+    if (result.kind === 'ambiguous') {
+      expect(result.timing).toBe('late');
+    }
   });
 
   it('returns none when zero candidates pass the filter', () => {
