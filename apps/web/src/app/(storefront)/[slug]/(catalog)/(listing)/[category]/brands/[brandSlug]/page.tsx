@@ -1,11 +1,8 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
-import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { CatalogListingLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import { getIndexableRobotsMetadata } from '@/lib/seo-utils';
-import { brandAuthorityPageLoader } from '@/lib/storefront-category/load-brand-authority-page';
-import { BrandAuthorityPageContent } from './brand-authority-page-content';
+import { brandAuthorityPageRuntime } from './brand-authority-page-runtime';
 
 interface BrandAuthorityPageRouteProps {
   params: Promise<{
@@ -15,30 +12,10 @@ interface BrandAuthorityPageRouteProps {
   }>;
 }
 
-async function loadIndexableBrandAuthorityPage(
-  props: BrandAuthorityPageRouteProps
-) {
-  const resolvedParams = await props.params;
-  const page = await brandAuthorityPageLoader.load(
-    {
-      merchantSlug: resolvedParams.slug,
-      categorySlug: resolvedParams.category,
-      brandSlug: resolvedParams.brandSlug,
-    },
-    { includeRequestPathPrefix: false }
-  );
-
-  if (!page) {
-    notFound();
-  }
-
-  return { page, resolvedParams };
-}
-
 export async function generateMetadata(
   props: BrandAuthorityPageRouteProps
 ): Promise<Metadata> {
-  const { page } = await loadIndexableBrandAuthorityPage(props);
+  const { page } = await brandAuthorityPageRuntime.loadIndexablePage(props);
 
   return {
     title: { absolute: page.metaTitle },
@@ -48,15 +25,8 @@ export async function generateMetadata(
   };
 }
 
-async function BrandAuthorityPageRuntime(props: BrandAuthorityPageRouteProps) {
-  await connection();
-  const { page, resolvedParams } = await loadIndexableBrandAuthorityPage(props);
-  const pathPrefix = await brandAuthorityPageLoader.getStorefrontPathPrefix(
-    resolvedParams.slug,
-    page.merchant.slug
-  );
-
-  return <BrandAuthorityPageContent page={{ ...page, pathPrefix }} />;
+function BrandAuthorityPageRuntime(props: BrandAuthorityPageRouteProps) {
+  return brandAuthorityPageRuntime.render(props);
 }
 
 export default function BrandAuthorityPage(

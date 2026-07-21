@@ -5,19 +5,20 @@ const mockNotFound = vi.fn(() => {
   throw new Error('NEXT_NOT_FOUND');
 });
 
-vi.mock('next/navigation', () => ({ notFound: () => mockNotFound() }));
-vi.mock('next/server', () => ({ connection: () => Promise.resolve() }));
 vi.mock('@/lib/seo-utils', () => ({
   getIndexableRobotsMetadata: () => ({ index: true, follow: true }),
 }));
-vi.mock('@/lib/storefront-category/load-brand-authority-page', () => ({
-  brandAuthorityPageLoader: {
-    getStorefrontPathPrefix: () => Promise.resolve(''),
-    load: (...args: unknown[]) => mockLoadBrandAuthorityPage(...args),
+vi.mock('./brand-authority-page-runtime', () => ({
+  brandAuthorityPageRuntime: {
+    loadIndexablePage: async (...args: unknown[]) => {
+      const page = await mockLoadBrandAuthorityPage(...args);
+      if (!page) {
+        mockNotFound();
+      }
+      return { page, resolvedParams: {} };
+    },
+    render: vi.fn(),
   },
-}));
-vi.mock('./brand-authority-page-content', () => ({
-  BrandAuthorityPageContent: () => <div>Brand authority content</div>,
 }));
 
 const pageModel = {

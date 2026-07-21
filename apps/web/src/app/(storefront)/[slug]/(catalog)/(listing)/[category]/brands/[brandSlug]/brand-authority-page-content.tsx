@@ -11,12 +11,31 @@ type LoadedBrandAuthorityPage = NonNullable<
   Awaited<ReturnType<typeof brandAuthorityPageLoader.load>>
 >;
 
+export type BrandAuthorityPageContentModel = Pick<
+  LoadedBrandAuthorityPage,
+  | 'breadcrumbItems'
+  | 'canonicalUrl'
+  | 'categoryName'
+  | 'categoryUrl'
+  | 'guideLinks'
+  | 'heading'
+  | 'intro'
+  | 'pathPrefix'
+  | 'products'
+> & {
+  brand: Pick<LoadedBrandAuthorityPage['brand'], 'displayName'>;
+  merchant: Pick<
+    LoadedBrandAuthorityPage['merchant'],
+    'country' | 'payout_currency'
+  >;
+};
+
 interface BrandAuthorityPageContentProps {
-  page: LoadedBrandAuthorityPage;
+  page: BrandAuthorityPageContentModel;
 }
 
 function toProductIndexCardModel(
-  product: LoadedBrandAuthorityPage['products'][number]
+  product: BrandAuthorityPageContentModel['products'][number]
 ): NormalizedProduct {
   return {
     id: product.id,
@@ -84,24 +103,30 @@ export function BrandAuthorityPageContent({
             <h2 id="available-models" className="text-2xl font-semibold">
               Available {page.brand.displayName} models
             </h2>
-            <ul className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-              {page.products.map((product) => (
-                <li key={product.id}>
-                  <ProductIndexCard
-                    formattedPrice={formatDisplayCurrency(
-                      product.price,
-                      currency,
-                      {
-                        minimumFractionDigits: 0,
-                        maximumFractionDigits: 0,
-                      }
-                    )}
-                    pathPrefix={page.pathPrefix}
-                    product={toProductIndexCardModel(product)}
-                  />
-                </li>
-              ))}
-            </ul>
+            {page.products.length > 0 ? (
+              <ul className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+                {page.products.map((product) => (
+                  <li key={product.id}>
+                    <ProductIndexCard
+                      formattedPrice={formatDisplayCurrency(
+                        product.price,
+                        currency,
+                        {
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 0,
+                        }
+                      )}
+                      pathPrefix={page.pathPrefix}
+                      product={toProductIndexCardModel(product)}
+                    />
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-4 text-store-background-text/70">
+                No {page.brand.displayName} models are currently available.
+              </p>
+            )}
           </section>
 
           {page.guideLinks.length > 0 ? (

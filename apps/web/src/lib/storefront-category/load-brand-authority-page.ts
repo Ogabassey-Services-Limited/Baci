@@ -12,6 +12,7 @@ import {
 import { generateSlug } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { brandAuthorityTaxonomy } from '@/lib/storefront-category/brand-authority-taxonomy';
+import { getCachedBrandAuthorityProducts } from '@/lib/storefront-category/get-cached-brand-authority-products';
 import { buildCommercialGuideLinks } from '@/lib/storefront-content/build-commercial-guide-links';
 import type { SupportedClusterCategory } from '@/lib/storefront-content/content-cluster-types';
 import { loadPublishedClusterPostsSafely } from '@/lib/storefront-content/load-published-cluster-posts-safely';
@@ -91,7 +92,9 @@ async function loadBrandAuthorityPage(
   const categoryData = await getCachedCategoryPageData(
     merchant.id,
     args.categorySlug,
-    args.merchantSlug
+    args.merchantSlug,
+    0,
+    1
   );
   if (
     categoryData.isCollection ||
@@ -101,13 +104,31 @@ async function loadBrandAuthorityPage(
     return null;
   }
 
-  const normalizedProducts = ((categoryData.products ?? []) as unknown[])
+  let brandProducts: RawDbProduct[];
+  try {
+    brandProducts = await getCachedBrandAuthorityProducts(
+      merchant.id,
+      args.categorySlug,
+      authorityEntry
+    );
+  } catch (error) {
+    console.warn('Failed to load brand authority products', {
+      merchantId: merchant.id,
+      categorySlug: args.categorySlug,
+      brandKey: authorityEntry.brandKey,
+      error,
+    });
+    return null;
+  }
+  const normalizedProducts = (brandProducts as unknown[])
     .filter(isRawDbProduct)
     .map((product) =>
       normalizeProduct(product, { preferredCategorySlug: args.categorySlug })
     )
     .filter(
-      (product) => generateSlug(product.brand ?? '') === authorityEntry.brandKey
+      (product) =>
+        generateSlug(product.brand ?? '') === authorityEntry.brandKey &&
+        product.availability === 'InStock'
     );
   const isIndexable =
     normalizedProducts.length >= authorityEntry.minimumProducts;

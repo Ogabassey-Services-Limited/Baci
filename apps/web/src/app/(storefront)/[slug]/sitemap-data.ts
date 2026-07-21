@@ -8,8 +8,9 @@ import { normalizeProductKeySpecs } from '@/lib/product-key-specs-normalize';
 import { isRawDbProductRecord, type RawDbProduct } from '@/lib/raw-db-product';
 import { isRepairsCatalogEnabled } from '@/lib/repairs/repairs-feature';
 import { escapeHtml } from '@/lib/sanitize-core';
-import { generateSlug, getProductUrl } from '@/lib/seo-utils';
+import { getProductUrl } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
+import { BRAND_AUTHORITY_IN_STOCK_FILTER } from '@/lib/storefront-category/brand-authority-stock-filter';
 import { brandAuthorityTaxonomy } from '@/lib/storefront-category/brand-authority-taxonomy';
 import { buildCommercialSupportDiscoveryLinks } from '@/lib/storefront-compare/build-compare-discovery-links';
 import {
@@ -366,9 +367,7 @@ export async function getCategorySitemapEntries({
 }
 
 interface BrandAuthoritySitemapProduct {
-  brand: string | null;
   updated_at: string | null;
-  categories: { slug: string | null } | null;
 }
 
 export async function getBrandAuthoritySitemapEntries({
@@ -376,48 +375,47 @@ export async function getBrandAuthoritySitemapEntries({
   merchant,
   storeUrl,
 }: StorefrontSitemapContext): Promise<MetadataRoute.Sitemap> {
-  const { data, error } = (await supabase
-    .from('products')
-    .select('brand, updated_at, categories:category_id!inner(slug)')
-    .eq('merchant_id', merchant.id)
-    .eq('categories.slug', 'smartphones')
-    .eq('status', 'active')) as {
-    data: BrandAuthoritySitemapProduct[] | null;
-    error: PostgrestError | null;
-  };
+  const categoryEntries = await Promise.all(
+    brandAuthorityTaxonomy.getSupportedCategories().flatMap((categorySlug) =>
+      brandAuthorityTaxonomy.getEntries(categorySlug).map(async (entry) => {
+        const { count, data, error } = (await supabase
+          .from('products')
+          .select('updated_at, categories:category_id!inner(slug)', {
+            count: 'exact',
+          })
+          .eq('merchant_id', merchant.id)
+          .eq('categories.slug', categorySlug)
+          .eq('status', 'active')
+          .ilike('brand', entry.brandQueryValue)
+          .or(BRAND_AUTHORITY_IN_STOCK_FILTER)
+          .order('updated_at', { ascending: false })
+          .limit(1)) as {
+          count: number | null;
+          data: BrandAuthoritySitemapProduct[] | null;
+          error: PostgrestError | null;
+        };
 
-  if (error) {
-    throw error;
-  }
+        if (error) {
+          throw error;
+        }
 
-  const products = (data ?? []).map((product, index) => ({
-    slug: `sitemap-product-${index}`,
-    name: `Sitemap product ${index}`,
-    price: 0,
-    brand: product.brand,
-  }));
-  const eligibleEntries = brandAuthorityTaxonomy.getEligibleEntries(
-    'smartphones',
-    products
+        if ((count ?? 0) < entry.minimumProducts) {
+          return null;
+        }
+
+        const updatedAt = data?.[0]?.updated_at;
+        return {
+          url: `${storeUrl}/${entry.categorySlug}/brands/${entry.brandKey}`,
+          lastModified: updatedAt ? new Date(updatedAt) : undefined,
+          changeFrequency: 'daily' as const,
+          priority: 0.7,
+        };
+      })
+    )
   );
-
-  return eligibleEntries.map((entry) => {
-    const timestamps = (data ?? [])
-      .filter((product) => generateSlug(product.brand ?? '') === entry.brandKey)
-      .map((product) => product.updated_at)
-      .filter((value): value is string => Boolean(value))
-      .map((value) => new Date(value).getTime())
-      .filter(Number.isFinite);
-    const latestTimestamp =
-      timestamps.length > 0 ? Math.max(...timestamps) : null;
-
-    return {
-      url: `${storeUrl}/${entry.categorySlug}/brands/${entry.brandKey}`,
-      lastModified: latestTimestamp ? new Date(latestTimestamp) : undefined,
-      changeFrequency: 'daily',
-      priority: 0.7,
-    };
-  });
+  return categoryEntries.filter(
+    (entry): entry is NonNullable<typeof entry> => entry !== null
+  );
 }
 
 /**

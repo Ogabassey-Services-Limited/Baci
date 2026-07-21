@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import type { BrandAuthorityPageContentModel } from './brand-authority-page-content';
 
 vi.mock(
   '@/app/(storefront)/[slug]/(catalog)/(listing)/products/product-index-card',
@@ -24,7 +25,14 @@ const page = {
   categoryUrl: 'https://ogabassey.com/smartphones',
   brand: { displayName: 'Samsung' },
   merchant: { country: 'NG', payout_currency: 'NGN' },
-  breadcrumbItems: [],
+  breadcrumbItems: [
+    { name: 'Ogabassey', url: 'https://ogabassey.com' },
+    { name: 'Smartphones', url: 'https://ogabassey.com/smartphones' },
+    {
+      name: 'Samsung',
+      url: 'https://ogabassey.com/smartphones/brands/samsung',
+    },
+  ],
   pathPrefix: '',
   products: [
     {
@@ -51,14 +59,14 @@ const page = {
       kind: 'buyer-guide' as const,
     },
   ],
-};
+} satisfies BrandAuthorityPageContentModel;
 
 describe('BrandAuthorityPageContent', () => {
   it('renders brand context, product links, category link, and guides', async () => {
     const { BrandAuthorityPageContent } = await import(
       './brand-authority-page-content'
     );
-    render(<BrandAuthorityPageContent page={page as never} />);
+    const { container } = render(<BrandAuthorityPageContent page={page} />);
 
     expect(
       screen.getByRole('heading', {
@@ -73,5 +81,44 @@ describe('BrandAuthorityPageContent', () => {
     expect(
       screen.getByRole('link', { name: 'Best Samsung Phones' })
     ).toHaveAttribute('href', 'https://ogabassey.com/blog/best-samsung-phones');
+
+    const schemas = Array.from(
+      container.querySelectorAll('script[type="application/ld+json"]')
+    ).map((script) => JSON.parse(script.textContent ?? '{}'));
+    expect(schemas).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ '@type': 'BreadcrumbList' }),
+        expect.objectContaining({
+          '@type': 'ItemList',
+          itemListElement: [
+            expect.objectContaining({
+              position: 1,
+              item: expect.objectContaining({
+                '@type': 'Product',
+                name: 'Samsung Galaxy A56',
+              }),
+            }),
+          ],
+        }),
+      ])
+    );
+  });
+
+  it('renders accessible empty inventory copy without a guides section', async () => {
+    const { BrandAuthorityPageContent } = await import(
+      './brand-authority-page-content'
+    );
+    render(
+      <BrandAuthorityPageContent
+        page={{ ...page, guideLinks: [], products: [] }}
+      />
+    );
+
+    expect(
+      screen.getByText('No Samsung models are currently available.')
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Samsung buying guides' })
+    ).not.toBeInTheDocument();
   });
 });

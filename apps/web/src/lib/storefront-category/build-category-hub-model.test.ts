@@ -326,6 +326,8 @@ describe('buildCategoryHubModel', () => {
         ['itel', 'Itel', 29],
       ].map(([brandKey, displayName, productCount]) => ({
         brandKey: String(brandKey),
+        brandQueryValue:
+          String(brandKey) === 'google' ? 'Google' : String(displayName),
         categorySlug: 'smartphones',
         displayName: String(displayName),
         minimumProducts: 5,

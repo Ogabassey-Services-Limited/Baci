@@ -2,9 +2,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetMerchantByIdentifier = vi.fn();
 const mockGetCachedCategoryPageData = vi.fn();
+const mockGetCachedBrandAuthorityProducts = vi.fn();
+let mockHeaders = new Headers();
 
 vi.mock('next/headers', () => ({
-  headers: () => Promise.resolve(new Headers()),
+  headers: () => Promise.resolve(mockHeaders),
+}));
+
+vi.mock('./get-cached-brand-authority-products', () => ({
+  getCachedBrandAuthorityProducts: (...args: unknown[]) =>
+    mockGetCachedBrandAuthorityProducts(...args),
 }));
 
 vi.mock('@/lib/cached-data', () => ({
@@ -48,6 +55,7 @@ function makeProduct(index: number, brand = 'Samsung') {
 describe('loadBrandAuthorityPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockHeaders = new Headers();
     mockGetMerchantByIdentifier.mockResolvedValue({
       id: 'merchant-1',
       slug: 'ogabassey',
@@ -59,8 +67,11 @@ describe('loadBrandAuthorityPage', () => {
       isInactiveCategory: false,
       productsQueryFailed: false,
       fallbackName: 'Smartphones',
-      products: Array.from({ length: 6 }, (_, index) => makeProduct(index)),
+      products: [],
     });
+    mockGetCachedBrandAuthorityProducts.mockResolvedValue(
+      Array.from({ length: 6 }, (_, index) => makeProduct(index))
+    );
   });
 
   it('builds a canonical indexable hub from matching active inventory', async () => {
@@ -84,6 +95,13 @@ describe('loadBrandAuthorityPage', () => {
     });
     expect(page?.products).toHaveLength(6);
     expect(page?.breadcrumbItems).toHaveLength(3);
+    expect(mockGetCachedCategoryPageData).toHaveBeenCalledWith(
+      'merchant-1',
+      'smartphones',
+      'ogabassey',
+      0,
+      1
+    );
   });
 
   it('rejects uncurated and thin brand pages', async () => {
@@ -99,13 +117,9 @@ describe('loadBrandAuthorityPage', () => {
       })
     ).resolves.toBeNull();
 
-    mockGetCachedCategoryPageData.mockResolvedValueOnce({
-      isCollection: false,
-      isInactiveCategory: false,
-      productsQueryFailed: false,
-      fallbackName: 'Smartphones',
-      products: Array.from({ length: 4 }, (_, index) => makeProduct(index)),
-    });
+    mockGetCachedBrandAuthorityProducts.mockResolvedValueOnce(
+      Array.from({ length: 4 }, (_, index) => makeProduct(index))
+    );
 
     await expect(
       brandAuthorityPageLoader.load({
@@ -114,5 +128,115 @@ describe('loadBrandAuthorityPage', () => {
         brandSlug: 'samsung',
       })
     ).resolves.toBeNull();
+  });
+
+  it('counts only in-stock products toward indexability and published copy', async () => {
+    mockGetCachedBrandAuthorityProducts.mockResolvedValue([
+      ...Array.from({ length: 5 }, (_, index) => makeProduct(index)),
+      { ...makeProduct(6), availability: 'OutOfStock' as const, stock: 0 },
+    ]);
+    const { brandAuthorityPageLoader } = await import(
+      './load-brand-authority-page'
+    );
+
+    const page = await brandAuthorityPageLoader.load({
+      merchantSlug: 'ogabassey',
+      categorySlug: 'smartphones',
+      brandSlug: 'samsung',
+    });
+
+    expect(page?.products).toHaveLength(5);
+    expect(page?.intro).toContain('5 active Samsung phones');
+    expect(page?.metaDescription).toContain('5 active Samsung phones');
+  });
+
+  it('fails the hub closed when the brand-scoped product read fails', async () => {
+    mockGetCachedBrandAuthorityProducts.mockRejectedValueOnce(
+      new Error('database timeout')
+    );
+    const { brandAuthorityPageLoader } = await import(
+      './load-brand-authority-page'
+    );
+
+    await expect(
+      brandAuthorityPageLoader.load({
+        merchantSlug: 'ogabassey',
+        categorySlug: 'smartphones',
+        brandSlug: 'samsung',
+      })
+    ).resolves.toBeNull();
+  });
+
+  it('rejects missing merchants and unsafe route slugs before catalog reads', async () => {
+    const { brandAuthorityPageLoader } = await import(
+      './load-brand-authority-page'
+    );
+    mockGetMerchantByIdentifier.mockResolvedValueOnce(null);
+
+    await expect(
+      brandAuthorityPageLoader.load({
+        merchantSlug: 'missing',
+        categorySlug: 'smartphones',
+        brandSlug: 'samsung',
+      })
+    ).resolves.toBeNull();
+    await expect(
+      brandAuthorityPageLoader.load({
+        merchantSlug: 'ogabassey',
+        categorySlug: '',
+        brandSlug: 'samsung',
+      })
+    ).resolves.toBeNull();
+    await expect(
+      brandAuthorityPageLoader.load({
+        merchantSlug: 'ogabassey',
+        categorySlug: 'smartphones',
+        brandSlug: '',
+      })
+    ).resolves.toBeNull();
+
+    expect(mockGetCachedCategoryPageData).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['collection', { isCollection: true }],
+    ['inactive category', { isInactiveCategory: true }],
+    ['failed product query', { productsQueryFailed: true }],
+  ])('rejects a %s category response', async (_label, override) => {
+    mockGetCachedCategoryPageData.mockResolvedValue({
+      isCollection: false,
+      isInactiveCategory: false,
+      productsQueryFailed: false,
+      fallbackName: 'Smartphones',
+      products: [],
+      ...override,
+    });
+    const { brandAuthorityPageLoader } = await import(
+      './load-brand-authority-page'
+    );
+
+    await expect(
+      brandAuthorityPageLoader.load({
+        merchantSlug: 'ogabassey',
+        categorySlug: 'smartphones',
+        brandSlug: 'samsung',
+      })
+    ).resolves.toBeNull();
+    expect(mockGetCachedBrandAuthorityProducts).not.toHaveBeenCalled();
+  });
+
+  it('resolves path prefixes for platform and custom-domain requests', async () => {
+    const { brandAuthorityPageLoader } = await import(
+      './load-brand-authority-page'
+    );
+
+    await expect(
+      brandAuthorityPageLoader.getStorefrontPathPrefix('ogabassey', 'ogabassey')
+    ).resolves.toBe('/ogabassey');
+
+    mockHeaders = new Headers({ 'x-custom-domain': 'ogabassey.com' });
+    await expect(
+      brandAuthorityPageLoader.getStorefrontPathPrefix('ogabassey', 'ogabassey')
+    ).resolves.toBe('');
   });
 });

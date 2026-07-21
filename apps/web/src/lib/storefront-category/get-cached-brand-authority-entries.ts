@@ -1,5 +1,6 @@
 import { cacheLife, cacheTag } from 'next/cache';
 import { getPublicSupabaseClient } from '@/lib/cached-data';
+import { BRAND_AUTHORITY_IN_STOCK_FILTER } from '@/lib/storefront-category/brand-authority-stock-filter';
 import { brandAuthorityTaxonomy } from '@/lib/storefront-category/brand-authority-taxonomy';
 
 async function getCachedBrandAuthorityEntriesRead(
@@ -15,25 +16,31 @@ async function getCachedBrandAuthorityEntriesRead(
   }
 
   const supabase = getPublicSupabaseClient();
-  const { data, error } = await supabase
-    .from('products')
-    .select('brand, categories:category_id!inner(slug)')
-    .eq('merchant_id', merchantId)
-    .eq('categories.slug', categorySlug)
-    .eq('status', 'active');
+  const entries = brandAuthorityTaxonomy.getEntries(categorySlug);
+  const counts = await Promise.all(
+    entries.map(async (entry) => {
+      const { count, error } = await supabase
+        .from('products')
+        .select('id, categories:category_id!inner(slug)', {
+          count: 'exact',
+          head: true,
+        })
+        .eq('merchant_id', merchantId)
+        .eq('categories.slug', categorySlug)
+        .eq('status', 'active')
+        .ilike('brand', entry.brandQueryValue)
+        .or(BRAND_AUTHORITY_IN_STOCK_FILTER);
 
-  if (error) {
-    throw error;
-  }
+      if (error) {
+        throw error;
+      }
 
-  return brandAuthorityTaxonomy.getEligibleEntries(
-    categorySlug,
-    (data ?? []).map((product, index) => ({
-      slug: `brand-authority-${index}`,
-      name: `Brand authority product ${index}`,
-      price: 0,
-      brand: product.brand,
-    }))
+      return { entry, productCount: count ?? 0 };
+    })
+  );
+
+  return counts.flatMap(({ entry, productCount }) =>
+    productCount >= entry.minimumProducts ? [{ ...entry, productCount }] : []
   );
 }
 

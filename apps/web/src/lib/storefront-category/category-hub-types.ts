@@ -7,6 +7,7 @@ export type CategoryHubSource = 'merchant' | 'curated' | 'fallback';
 
 export interface BrandAuthorityEntry {
   brandKey: string;
+  brandQueryValue: string;
   categorySlug: string;
   displayName: string;
   minimumProducts: number;

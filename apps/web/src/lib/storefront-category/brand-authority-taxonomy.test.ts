@@ -36,4 +36,27 @@ describe('brand authority taxonomy', () => {
       expect.objectContaining({ brandKey: 'google', productCount: 6 }),
     ]);
   });
+
+  it('exposes supported categories and their database query values', () => {
+    expect(brandAuthorityTaxonomy.getSupportedCategories()).toEqual([
+      'smartphones',
+    ]);
+    expect(brandAuthorityTaxonomy.getEntries('smartphones')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          brandKey: 'google',
+          brandQueryValue: 'Google',
+        }),
+      ])
+    );
+    expect(brandAuthorityTaxonomy.getEntries('Smartphones')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          brandKey: 'google',
+          brandQueryValue: 'Google',
+        }),
+      ])
+    );
+    expect(brandAuthorityTaxonomy.getEntries('unknown')).toEqual([]);
+  });
 });

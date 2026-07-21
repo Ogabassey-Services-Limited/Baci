@@ -1351,32 +1351,53 @@ describe('sitemap-data', () => {
   });
 
   it('lists only inventory-qualified curated brand authority hubs', async () => {
-    mockProductsQuery([
-      ...Array.from({ length: 5 }, (_, index) => ({
-        brand: 'Samsung',
-        updated_at: `2026-07-${String(index + 10).padStart(2, '0')}T00:00:00Z`,
-        categories: { slug: 'smartphones' },
-      })),
-      ...Array.from({ length: 5 }, () => ({
-        brand: 'Google',
-        updated_at: null,
-        categories: { slug: 'smartphones' },
-      })),
-      ...Array.from({ length: 4 }, () => ({
-        brand: 'Tecno',
-        updated_at: null,
-        categories: { slug: 'smartphones' },
-      })),
-    ]);
+    const brandResults: Record<
+      string,
+      { count: number; updated_at: string | null }
+    > = {
+      Google: { count: 5, updated_at: null },
+      Samsung: { count: 5, updated_at: '2026-07-14T00:00:00Z' },
+      Tecno: { count: 4, updated_at: null },
+    };
+    const queries: Array<{ select: ReturnType<typeof vi.fn> }> = [];
     const { getBrandAuthoritySitemapEntries } = sitemapData;
 
     const entries = await getBrandAuthoritySitemapEntries({
       merchant: { id: 'merchant-1', slug: 'ogabassey' },
       storeUrl: 'https://ogabassey.com',
       supabase: {
-        from: (table: string) => ({
-          select: () => ({ eq: createEq(table) }),
-        }),
+        from: () => {
+          let brand = '';
+          const query = {
+            select: vi.fn(),
+            eq: vi.fn(),
+            ilike: vi.fn(),
+            or: vi.fn(),
+            order: vi.fn(),
+            limit: vi.fn(),
+          };
+          query.select.mockReturnValue(query);
+          query.eq.mockReturnValue(query);
+          query.ilike.mockImplementation((_column: string, value: string) => {
+            brand = value;
+            return query;
+          });
+          query.or.mockReturnValue(query);
+          query.order.mockReturnValue(query);
+          query.limit.mockImplementation(() => {
+            const result = brandResults[brand] ?? {
+              count: 0,
+              updated_at: null,
+            };
+            return Promise.resolve({
+              count: result.count,
+              data: [{ updated_at: result.updated_at }],
+              error: null,
+            });
+          });
+          queries.push(query);
+          return query;
+        },
       },
     } as unknown as StorefrontSitemapContext);
 
@@ -1386,6 +1407,11 @@ describe('sitemap-data', () => {
     ]);
     expect(entries[0]?.lastModified).toEqual(new Date('2026-07-14T00:00:00Z'));
     expect(entries[1]?.lastModified).toBeUndefined();
+    expect(queries).toHaveLength(5);
+    expect(queries[0]?.select).toHaveBeenCalledWith(
+      'updated_at, categories:category_id!inner(slug)',
+      { count: 'exact' }
+    );
   });
 
   it('omits lastmod from commercial-support entries when the category has no timestamp', async () => {

@@ -1,36 +1,38 @@
 import { generateSlug } from '@/lib/seo-utils';
-import type {
-  BrandAuthorityEntry,
-  CategoryHubProduct,
-} from '@/lib/storefront-category/category-hub-types';
+import type { BrandAuthorityEntry } from '@/lib/storefront-category/category-hub-types';
 
 const BRAND_AUTHORITY_ENTRIES: readonly BrandAuthorityEntry[] = [
   {
     brandKey: 'samsung',
+    brandQueryValue: 'Samsung',
     categorySlug: 'smartphones',
     displayName: 'Samsung',
     minimumProducts: 5,
   },
   {
     brandKey: 'google',
+    brandQueryValue: 'Google',
     categorySlug: 'smartphones',
     displayName: 'Google Pixel',
     minimumProducts: 5,
   },
   {
     brandKey: 'infinix',
+    brandQueryValue: 'Infinix',
     categorySlug: 'smartphones',
     displayName: 'Infinix',
     minimumProducts: 5,
   },
   {
     brandKey: 'tecno',
+    brandQueryValue: 'Tecno',
     categorySlug: 'smartphones',
     displayName: 'Tecno',
     minimumProducts: 5,
   },
   {
     brandKey: 'itel',
+    brandQueryValue: 'Itel',
     categorySlug: 'smartphones',
     displayName: 'Itel',
     minimumProducts: 5,
@@ -55,7 +57,7 @@ function getBrandAuthorityEntry(
 
 function getEligibleBrandAuthorityEntries(
   categorySlug: string,
-  products: CategoryHubProduct[]
+  products: ReadonlyArray<{ brand?: string | null }>
 ): Array<BrandAuthorityEntry & { productCount: number }> {
   const normalizedCategory = generateSlug(categorySlug);
 
@@ -72,6 +74,19 @@ function getEligibleBrandAuthorityEntries(
   });
 }
 
+function getBrandAuthorityEntries(categorySlug: string) {
+  const normalizedCategory = generateSlug(categorySlug);
+  return BRAND_AUTHORITY_ENTRIES.filter(
+    (entry) => entry.categorySlug === normalizedCategory
+  );
+}
+
+function getSupportedBrandAuthorityCategories() {
+  return Array.from(
+    new Set(BRAND_AUTHORITY_ENTRIES.map((entry) => entry.categorySlug))
+  );
+}
+
 function supportsBrandAuthorityCategory(categorySlug: string) {
   const normalizedCategory = generateSlug(categorySlug);
   return BRAND_AUTHORITY_ENTRIES.some(
@@ -80,7 +95,9 @@ function supportsBrandAuthorityCategory(categorySlug: string) {
 }
 
 export const brandAuthorityTaxonomy = {
+  getEntries: getBrandAuthorityEntries,
   getEligibleEntries: getEligibleBrandAuthorityEntries,
   getEntry: getBrandAuthorityEntry,
+  getSupportedCategories: getSupportedBrandAuthorityCategories,
   supportsCategory: supportsBrandAuthorityCategory,
 };
