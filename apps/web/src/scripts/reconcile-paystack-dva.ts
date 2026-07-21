@@ -18,6 +18,7 @@ import { pathToFileURL } from 'node:url';
 import { logger } from '@/lib/logger';
 import { verifyTransaction } from '@/lib/paystack';
 import { applyPaidOrderSideEffects } from '@/lib/payments/apply-paid-order-side-effects';
+import { completeOrderGatewayPayment } from '@/lib/payments/complete-order-gateway-payment';
 import { createServiceClient } from '@/lib/supabase/service';
 import { parseReconcileArgs } from '@/scripts/reconcile-paystack-dva-args';
 import {
@@ -140,6 +141,33 @@ export async function runReconcilePaystackDvaCli(
       2
     )
   );
+
+  // The legacy claim RPC predates the canonical payment ledger fields. Run
+  // the modern idempotent completion RPC before side effects so a recovered
+  // order always has amount_paid and paid_at populated from Paystack's
+  // verified response. This is safe on replay: the RPC locks per order and
+  // only heals missing ledger fields when the order is already paid.
+  const ledgerCompletion = await completeOrderGatewayPayment({
+    supabase,
+    transactionId: args.transactionId,
+    orderId: args.canonicalOrderId,
+    gatewayResponse: verify.data as unknown as Record<string, unknown>,
+    actor: ACTOR,
+  });
+  if (
+    !ledgerCompletion.ok ||
+    ledgerCompletion.completion.error_code !== undefined
+  ) {
+    logger.error({
+      message: 'reconcile-paystack-dva: payment ledger completion failed',
+      transactionId: args.transactionId,
+      canonicalOrderId: args.canonicalOrderId,
+      error: ledgerCompletion.ok
+        ? ledgerCompletion.completion.error_code
+        : ledgerCompletion.error,
+    });
+    return 1;
+  }
 
   // Step 4 — load the freshly-paid order with the rich shape the
   // executors need (customer fields, shipping_address, order_items).

@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   createServiceClient: vi.fn(),
   verifyTransaction: vi.fn(),
   applyPaidOrderSideEffects: vi.fn(),
+  completeOrderGatewayPayment: vi.fn(),
 }));
 
 vi.mock('@/lib/supabase/service', () => ({
@@ -14,6 +15,9 @@ vi.mock('@/lib/paystack', () => ({
 }));
 vi.mock('@/lib/payments/apply-paid-order-side-effects', () => ({
   applyPaidOrderSideEffects: mocks.applyPaidOrderSideEffects,
+}));
+vi.mock('@/lib/payments/complete-order-gateway-payment', () => ({
+  completeOrderGatewayPayment: mocks.completeOrderGatewayPayment,
 }));
 
 import { runReconcilePaystackDvaCli } from '@/scripts/reconcile-paystack-dva';
@@ -26,6 +30,23 @@ import {
 describe('runReconcilePaystackDvaCli — outbox failure surfaces in exit code', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.completeOrderGatewayPayment.mockResolvedValue({
+      ok: true,
+      completion: {
+        actor: 'script:reconcile-paystack-dva',
+        already_completed: true,
+        cancelled_at: null,
+        order_already_paid: true,
+        order_cancelled: false,
+        order_number: 'ORD-260509-00NV-R',
+        order_skipped_status: null,
+        order_updated: false,
+        payment_status: 'paid',
+        previous_payment_status: 'paid',
+        previous_shipping_status: 'processing',
+        shipping_status: 'processing',
+      },
+    });
   });
   afterEach(() => {
     vi.restoreAllMocks();

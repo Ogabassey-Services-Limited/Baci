@@ -34,6 +34,8 @@ const baseAccountRow = {
     customer_email: 'customer@example.com',
     total: '835000',
     currency: 'NGN',
+    payment_status: 'pending',
+    shipping_status: 'pending',
   },
 };
 
@@ -230,6 +232,22 @@ describe('confirmPaystackDvaByOrderAccount — single match', () => {
     expect(state.insertCalls).toHaveLength(1);
   });
 
+  it('matches Tony-style exact payment received after the 90-minute window', async () => {
+    const { supabase, state } = createSupabaseMock({});
+
+    const result = await confirmPaystackDvaByOrderAccount({
+      supabase: supabase as never,
+      ...ctxBase,
+      paystackResponse: {
+        customer: { email: 'customer@example.com' },
+        paid_at: '2026-05-09T12:53:00Z',
+      },
+    });
+
+    expect(result.kind).toBe('match');
+    expect(state.insertCalls).toHaveLength(1);
+  });
+
   it('reuses the existing transaction when the locked RPC returns its id', async () => {
     const existing = {
       id: 'txn-existing',
@@ -281,6 +299,54 @@ describe('confirmPaystackDvaByOrderAccount — no candidates / no DVA persisted'
           orders: {
             ...baseAccountRow.orders,
             shipping_status: 'cancelled',
+          },
+        },
+      ],
+    });
+
+    const result = await confirmPaystackDvaByOrderAccount({
+      supabase: supabase as never,
+      ...ctxBase,
+    });
+
+    expect(result).toEqual({ kind: 'none' });
+    expect(state.insertCalls).toHaveLength(0);
+  });
+
+  it('skips a candidate using the legacy canceled spelling', async () => {
+    const { supabase, state } = createSupabaseMock({
+      accountRows: [
+        {
+          ...baseAccountRow,
+          orders: {
+            ...baseAccountRow.orders,
+            shipping_status: 'canceled',
+          },
+        },
+      ],
+    });
+
+    const result = await confirmPaystackDvaByOrderAccount({
+      supabase: supabase as never,
+      ...ctxBase,
+    });
+
+    expect(result).toEqual({ kind: 'none' });
+    expect(state.insertCalls).toHaveLength(0);
+  });
+
+  it.each([
+    'paid',
+    'refunded',
+    'cancelled',
+  ])('skips an order whose payment status is %s', async (paymentStatus) => {
+    const { supabase, state } = createSupabaseMock({
+      accountRows: [
+        {
+          ...baseAccountRow,
+          orders: {
+            ...baseAccountRow.orders,
+            payment_status: paymentStatus,
           },
         },
       ],
