@@ -21,6 +21,7 @@ export interface TransactionReviewUnitCostRow {
 }
 
 export interface TransactionReviewOrderRow {
+  cancelled_at?: string | null;
   created_at: string;
   transaction_date?: string | null;
   customer_email: string | null;

@@ -17,13 +17,13 @@ interface TransactionReviewRange {
 export type { TransactionReviewItem, TransactionReviewOrder };
 
 const TRANSACTION_REVIEW_FULL_SELECT =
-  'id, order_number, created_at, transaction_date, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, fulfillment_details, order_items(id, product_id, variant_id, product_match_status, name, price, quantity, cost_price, supplier_name, fulfillment_data, order_item_unit_costs(unit_index, cost_price, supplier_name, identifier_type, identifier_value), product_variants(cost_price, sku, attributes, condition), products(cost_price, metadata, sku, fulfillment_details))';
+  'id, order_number, created_at, transaction_date, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, fulfillment_details, order_items(id, product_id, variant_id, product_match_status, name, price, quantity, cost_price, supplier_name, fulfillment_data, order_item_unit_costs(unit_index, cost_price, supplier_name, identifier_type, identifier_value), product_variants(cost_price, sku, attributes, condition), products(cost_price, metadata, sku, fulfillment_details))';
 
 export const TRANSACTION_REVIEW_LEGACY_SELECT =
-  'id, order_number, created_at, transaction_date, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, fulfillment_details, order_items(id, product_id, variant_id, product_match_status, name, price, quantity, cost_price, supplier_name, fulfillment_data, product_variants(cost_price, sku, attributes, condition), products(cost_price, metadata, sku, fulfillment_details))';
+  'id, order_number, created_at, transaction_date, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, fulfillment_details, order_items(id, product_id, variant_id, product_match_status, name, price, quantity, cost_price, supplier_name, fulfillment_data, product_variants(cost_price, sku, attributes, condition), products(cost_price, metadata, sku, fulfillment_details))';
 
 const TRANSACTION_REVIEW_BASE_SELECT =
-  'id, order_number, created_at, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, fulfillment_details, order_items(id, product_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
+  'id, order_number, created_at, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, fulfillment_details, order_items(id, product_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
 
 interface SupabaseQueryError {
   code?: string;
@@ -90,7 +90,8 @@ export function fetchTransactionReviewRows({
     .select(selectStatement)
     .eq('merchant_id', merchantId)
     .eq('payment_status', 'paid')
-    .or('shipping_status.is.null,shipping_status.neq.cancelled');
+    .is('cancelled_at', null)
+    .or('shipping_status.is.null,shipping_status.not.in.(cancelled,canceled)');
 
   if (includeTransactionDate) {
     query = query.order('transaction_date', {
@@ -117,9 +118,17 @@ export function fetchTransactionReviewRows({
 }
 
 export function filterCancelledTransactionReviewRows<
-  T extends { shipping_status?: string | null },
+  T extends {
+    cancelled_at?: string | null;
+    shipping_status?: string | null;
+  },
 >(rows: T[]) {
-  return rows.filter((row) => row.shipping_status !== 'cancelled');
+  return rows.filter(
+    (row) =>
+      row.cancelled_at == null &&
+      row.shipping_status !== 'cancelled' &&
+      row.shipping_status !== 'canceled'
+  );
 }
 
 export function useTransactionReview(range?: TransactionReviewRange) {
