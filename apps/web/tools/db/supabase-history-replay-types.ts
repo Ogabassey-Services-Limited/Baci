@@ -122,6 +122,7 @@ export type SupabaseHistoryReplayManifest = {
     sha256: string;
   };
   pipelineSources: readonly FrozenReplaySource[];
+  pendingSources: readonly FrozenReplaySource[];
   postReplaySources: readonly FrozenReplaySource[];
   productionMappings: readonly ProductionReplayMapping[];
   productionEffectsFixture: {

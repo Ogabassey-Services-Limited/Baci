@@ -24,6 +24,15 @@ function frozenReplayTailVersion(): string {
   return version;
 }
 
+function postReplayTailVersion(): string {
+  const name = manifest.postReplaySources
+    .at(-1)
+    ?.repositoryPath.match(MIGRATION_PATH)?.[1];
+  const version = name?.match(/^(\d{14})_/)?.[1];
+  if (!version) throw new Error('Invalid post-replay tail source');
+  return version;
+}
+
 function sha256(value: string | Buffer): string {
   return createHash('sha256').update(value).digest('hex');
 }
@@ -197,6 +206,11 @@ async function verifyCurrentRegistry(
       path.posix.basename(repositoryPath)
     )
   );
+  expectedNames.push(
+    ...manifest.pendingSources.map(({ repositoryPath }) =>
+      path.posix.basename(repositoryPath)
+    )
+  );
   if (JSON.stringify(currentNames) !== JSON.stringify(expectedNames.sort())) {
     throw new Error(
       'Current top-level migration registry differs from the explicit pending-repair state'
@@ -283,6 +297,11 @@ export async function verifySupabaseHistoryReplayManifest(
     root,
     manifest.postReplaySources,
     frozenReplayTailVersion()
+  );
+  await verifySupabasePostReplaySources(
+    root,
+    manifest.pendingSources,
+    postReplayTailVersion()
   );
   await verifyCurrentRegistry(root, registryPaths, options.pendingRepairState);
   const bootstrapSources = verifyBootstrap(verifiedSources);

@@ -153,14 +153,29 @@ describe('supabaseHistoryReplayManifest', () => {
       'supabase/migrations/20260718070009_scope_credit_direct_payment_audit_notes.sql',
       'supabase/migrations/20260718070010_preserve_credit_direct_provider_reference.sql',
       'supabase/migrations/20260718070011_require_credit_direct_guest_tracking_token.sql',
-      'supabase/migrations/20260721093205_harden_paid_order_completion_and_side_effect_retries.sql',
-      'supabase/migrations/20260721093206_merchant_order_cancellation_audit.sql',
     ]);
     expect(
       supabaseHistoryReplayManifest.postReplaySources.every(({ sha256 }) =>
         /^[a-f0-9]{64}$/.test(sha256)
       )
     ).toBe(true);
+  });
+
+  it('hash-binds pending migrations without treating them as deployed', () => {
+    expect(supabaseHistoryReplayManifest.pendingSources).toEqual([
+      {
+        repositoryPath:
+          'supabase/migrations/20260721093205_harden_paid_order_completion_and_side_effect_retries.sql',
+        sha256:
+          'e8398b0b10a5e9d199707bcceb5835f865bfce85dd4732e9bc46fc4e13d16d29',
+      },
+      {
+        repositoryPath:
+          'supabase/migrations/20260721093206_merchant_order_cancellation_audit.sql',
+        sha256:
+          '0b00564781f8afe40779f24b20cf5d099dfe79be494081cc6af87d1b58e3bbe8',
+      },
+    ]);
   });
 
   it('binds the base registry and 125-file bootstrap receipt', () => {
