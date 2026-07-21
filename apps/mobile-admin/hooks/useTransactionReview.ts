@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMerchant } from '@/hooks/useMerchant';
-import { supabase } from '@/lib/supabase';
+import { fetchTransactionReviewRows } from '@/lib/fetch-transaction-review-rows';
+import { filterCancelledTransactionReviewRows } from '@/lib/filter-cancelled-transaction-review-rows';
+import { isTransactionReviewSchemaCacheError } from '@/lib/is-transaction-review-schema-cache-error';
 import {
   buildTransactionReviewRangeFilters,
   mapTransactionOrderRows,
@@ -25,118 +27,18 @@ export const TRANSACTION_REVIEW_LEGACY_SELECT =
 const TRANSACTION_REVIEW_BASE_SELECT =
   'id, order_number, created_at, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, fulfillment_details, order_items(id, product_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
 
-interface SupabaseQueryError {
-  code?: string;
-  details?: string;
-  hint?: string;
-  message?: string;
-}
-
-export function isTransactionReviewSchemaCacheError(
-  error: SupabaseQueryError | null
-) {
-  const errorText = [error?.code, error?.message, error?.details, error?.hint]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase();
-
-  const isMissingSchemaShape =
-    errorText.includes('schema cache') || error?.code === '42703';
-  const mentionsTransactionReviewShape =
-    errorText.includes('order_items') ||
-    errorText.includes('order_item_unit_costs') ||
-    errorText.includes('orders') ||
-    errorText.includes('product_match_status') ||
-    errorText.includes('supplier_name') ||
-    errorText.includes('unit_index') ||
-    errorText.includes('identifier_type') ||
-    errorText.includes('identifier_value') ||
-    errorText.includes('transaction_date') ||
-    errorText.includes('cost_price') ||
-    errorText.includes('product_variants') ||
-    errorText.includes('variant_id');
-
-  return isMissingSchemaShape && mentionsTransactionReviewShape;
-}
-
 function warnTransactionReviewQueryError(
   stage: 'Base' | 'Full' | 'Legacy',
-  error: SupabaseQueryError | null
+  error: {
+    code?: string;
+    details?: string;
+    hint?: string;
+    message?: string;
+  } | null
 ) {
   if (__DEV__ && error) {
     console.warn('[TransactionReview] select failed', { error, stage });
   }
-}
-
-export function fetchTransactionReviewRows({
-  endDateFilter,
-  endDateIso,
-  includeCancelledAt,
-  includeTransactionDate,
-  merchantId,
-  selectStatement,
-  startDateFilter,
-  startDateIso,
-}: {
-  endDateFilter?: string;
-  endDateIso?: string;
-  includeCancelledAt: boolean;
-  includeTransactionDate: boolean;
-  merchantId: string;
-  selectStatement: string;
-  startDateFilter?: string;
-  startDateIso?: string;
-}) {
-  let query = supabase
-    .from('orders')
-    .select(selectStatement)
-    .eq('merchant_id', merchantId)
-    .eq('payment_status', 'paid');
-
-  if (includeCancelledAt) {
-    query = query.is('cancelled_at', null);
-  }
-
-  query = query.or(
-    'shipping_status.is.null,shipping_status.not.in.(cancelled,canceled)'
-  );
-
-  if (includeTransactionDate) {
-    query = query.order('transaction_date', {
-      ascending: false,
-      nullsFirst: false,
-    });
-  }
-
-  query = query.order('created_at', { ascending: false });
-
-  if (includeTransactionDate && startDateFilter) {
-    query = query.or(startDateFilter);
-  } else if (!includeTransactionDate && startDateIso) {
-    query = query.gte('created_at', startDateIso);
-  }
-
-  if (includeTransactionDate && endDateFilter) {
-    query = query.or(endDateFilter);
-  } else if (!includeTransactionDate && endDateIso) {
-    query = query.lte('created_at', endDateIso);
-  }
-
-  return query.limit(40);
-}
-
-export function filterCancelledTransactionReviewRows<
-  T extends {
-    cancelled_at?: string | null;
-    shipping_status?: string | null;
-  },
->(rows: T[]) {
-  return rows.filter(
-    (row) =>
-      row.cancelled_at == null &&
-      row.shipping_status !== 'cancelled' &&
-      row.shipping_status !== 'canceled'
-  );
 }
 
 export function useTransactionReview(range?: TransactionReviewRange) {
