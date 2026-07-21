@@ -6,13 +6,8 @@ import {
 import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
-import { buildOrderCancellationEmailMessage } from '@/lib/orders/build-order-cancellation-email-message';
-import {
-  DeliveryUncertainError,
-  runOrderCancellationSideEffect,
-} from '@/lib/orders/run-order-cancellation-side-effect';
-import { initiateRefund as initiatePaystackRefund } from '@/lib/paystack';
-import { sendEmail } from '@/lib/zeptomail';
+import { executeOrderCancellationSideEffect } from '@/lib/orders/execute-order-cancellation-side-effect';
+import { runOrderCancellationSideEffect } from '@/lib/orders/run-order-cancellation-side-effect';
 import { merchantOrderCancellationSchema } from '@/schemas/orders';
 
 /**
@@ -52,7 +47,6 @@ export async function POST(
       );
     }
     const cancellationReason = parsedBody.data.reason;
-    const cancelledBy = 'merchant' as const;
 
     // Authenticate request
     const auth = await authenticateApiRequest(request);
@@ -167,58 +161,19 @@ export async function POST(
         step: 'refund',
         supabase,
         execute: async () => {
-          const { data: transaction } = await supabase
-            .from('transactions')
-            .select('gateway, gateway_reference')
-            .eq('order_id', id)
-            .eq('transaction_type', 'payment')
-            .eq('status', 'completed')
-            .single();
-          if (!transaction?.gateway_reference) {
-            throw new Error('No completed payment transaction found');
+          const result = await executeOrderCancellationSideEffect({
+            merchant,
+            order,
+            reason: cancellationReason,
+            step: 'refund',
+            supabase,
+          });
+          if (!('refundId' in result)) {
+            throw new Error('Refund executor returned an invalid result');
           }
-          if (transaction.gateway !== 'paystack') {
-            throw new Error(`Unsupported gateway: ${transaction.gateway}`);
-          }
-
-          const paystackRefund = await initiatePaystackRefund(
-            transaction.gateway_reference,
-            refundAmount * 100,
-            cancellationReason || 'Order cancelled'
-          );
-          if (!paystackRefund.success) {
-            const isAmbiguousFailure =
-              paystackRefund.code === 'NETWORK_ERROR' ||
-              paystackRefund.code?.startsWith('HTTP_5');
-            const RefundError = isAmbiguousFailure
-              ? DeliveryUncertainError
-              : Error;
-            throw new RefundError(paystackRefund.error);
-          }
-
-          refundResult = {
-            success: true,
-            refundId: paystackRefund.data.id,
-          };
-          const { error: insertTxError } = await supabase
-            .from('transactions')
-            .insert({
-              merchant_id: order.merchant_id,
-              order_id: id,
-              transaction_type: 'refund',
-              amount: refundAmount,
-              currency: order.currency || 'NGN',
-              status: 'completed',
-              gateway: transaction.gateway,
-              gateway_reference: String(paystackRefund.data.id),
-              description: `Refund for cancelled order #${order.order_number || id.slice(0, 8)}`,
-            });
-          if (insertTxError) {
-            throw new DeliveryUncertainError(
-              'Refund succeeded but its local audit record failed'
-            );
-          }
-          return { refundId: paystackRefund.data.id };
+          const refundId = result.refundId;
+          refundResult = { success: true, refundId };
+          return result;
         },
       });
       refundResult.success = refundStatus === 'completed';
@@ -231,20 +186,18 @@ export async function POST(
       step: 'customer_email',
       supabase,
       execute: async () => {
-        const emailResult = await sendEmail(
-          buildOrderCancellationEmailMessage({
-            cancelledBy,
-            merchant,
-            order,
-            reason: cancellationReason,
-            refundAmount,
-          })
-        );
-        if (!emailResult.success) {
-          throw new Error(emailResult.error || 'Failed to send email');
+        const result = await executeOrderCancellationSideEffect({
+          merchant,
+          order,
+          reason: cancellationReason,
+          step: 'customer_email',
+          supabase,
+        });
+        if (!('messageId' in result)) {
+          throw new Error('Email executor returned an invalid result');
         }
-        messageId = emailResult.messageId;
-        return { messageId: emailResult.messageId };
+        messageId = result.messageId ?? undefined;
+        return result;
       },
     });
 
