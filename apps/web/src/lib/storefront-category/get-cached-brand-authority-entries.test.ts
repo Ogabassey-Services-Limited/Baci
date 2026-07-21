@@ -19,10 +19,10 @@ describe('getCachedBrandAuthorityEntries', () => {
       async (
         _merchantId: string,
         _categorySlug: string,
-        entry: { displayName: string }
+        entry: { brandQueryValue: string }
       ) => ({
         productCount:
-          { Google: 6, Samsung: 5, Tecno: 4 }[entry.displayName] ?? 0,
+          { Google: 6, Samsung: 5, Tecno: 4 }[entry.brandQueryValue] ?? 0,
       })
     );
     const { getCachedBrandAuthorityEntries } = await import(

@@ -1370,12 +1370,12 @@ describe('sitemap-data', () => {
       async (
         _merchantId: string,
         _categorySlug: string,
-        entry: { displayName: string }
+        entry: { brandQueryValue: string }
       ) => ({
         latestUpdatedAt:
-          entry.displayName === 'Samsung' ? '2026-07-14T00:00:00Z' : null,
+          entry.brandQueryValue === 'Samsung' ? '2026-07-14T00:00:00Z' : null,
         productCount:
-          { Google: 5, Samsung: 5, Tecno: 4 }[entry.displayName] ?? 0,
+          { Google: 5, Samsung: 5, Tecno: 4 }[entry.brandQueryValue] ?? 0,
       })
     );
     const { getBrandAuthoritySitemapEntries } = sitemapData;
@@ -1405,9 +1405,9 @@ describe('sitemap-data', () => {
       async (
         _merchantId: string,
         _categorySlug: string,
-        entry: { displayName: string }
+        entry: { brandQueryValue: string }
       ) => {
-        if (entry.displayName !== 'Samsung') throw new Error('timeout');
+        if (entry.brandQueryValue !== 'Samsung') throw new Error('timeout');
         return { latestUpdatedAt: '2026-07-14T00:00:00Z', productCount: 5 };
       }
     );
