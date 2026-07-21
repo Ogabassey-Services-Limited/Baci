@@ -98,7 +98,12 @@ export interface BuildCategoryHubModelInput {
   merchantBusinessName: string;
   storeUrl: string;
   products: CategoryHubProduct[];
-  brandAuthorityEntries?: Array<BrandAuthorityEntry & { productCount: number }>;
+  brandAuthorityEntries?: Array<
+    BrandAuthorityEntry & {
+      productCount: number;
+      productCountIsLowerBound?: boolean;
+    }
+  >;
   comparisonLinks?: CategoryHubComparisonLink[];
   guidePosts?: PublishedClusterPost[];
   categorySeo?: CategoryHubSeoInput | null;

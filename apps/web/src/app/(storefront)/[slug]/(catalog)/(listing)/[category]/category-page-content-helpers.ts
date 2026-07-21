@@ -93,7 +93,12 @@ export function buildCategoryPageHubModel(input: {
   products: StorefrontCategoryProduct[];
   comparisonLinks?: CategoryHubComparisonLink[];
   guidePosts?: Awaited<ReturnType<typeof getPublishedClusterPosts>>;
-  brandAuthorityEntries?: Array<BrandAuthorityEntry & { productCount: number }>;
+  brandAuthorityEntries?: Array<
+    BrandAuthorityEntry & {
+      productCount: number;
+      productCountIsLowerBound?: boolean;
+    }
+  >;
 }) {
   return buildCategoryHubModel({
     categorySlug: input.categorySlug,
