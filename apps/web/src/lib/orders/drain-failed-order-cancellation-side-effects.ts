@@ -72,7 +72,6 @@ export async function drainFailedOrderCancellationSideEffects({
     .from('order_cancellation_side_effects')
     .select(select)
     .eq('status', 'claimed')
-    .lt('attempts', MAX_ATTEMPTS)
     .lt('claimed_at', staleClaimCutoff)
     .order('claimed_at', { ascending: true })
     .limit(limit);

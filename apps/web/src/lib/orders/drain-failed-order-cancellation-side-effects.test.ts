@@ -95,10 +95,11 @@ describe('drainFailedOrderCancellationSideEffects', () => {
       .mockReturnValueOnce(updateQuery)
       .mockReturnValueOnce(updateQuery)
       .mockResolvedValueOnce({ error: null });
+    const staleQuery = terminalQuery([stale]);
     const from = vi
       .fn()
       .mockReturnValueOnce(terminalQuery([]))
-      .mockReturnValueOnce(terminalQuery([stale]))
+      .mockReturnValueOnce(staleQuery)
       .mockReturnValueOnce(updateQuery);
 
     const result = await drainFailedOrderCancellationSideEffects({
@@ -107,6 +108,11 @@ describe('drainFailedOrderCancellationSideEffects', () => {
     });
 
     expect(mocks.run).not.toHaveBeenCalled();
+    expect(staleQuery.lt).toHaveBeenCalledTimes(1);
+    expect(staleQuery.lt).toHaveBeenCalledWith(
+      'claimed_at',
+      expect.any(String)
+    );
     expect(updateQuery.update).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'delivery_uncertain' })
     );

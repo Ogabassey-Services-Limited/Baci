@@ -181,6 +181,18 @@ describe('supabaseHistoryReplayManifest', () => {
         sha256:
           '399dfc28247c2f3d3c720783eeb13c3376a1b207f7ea1095e66366e919f1e5ea',
       },
+      {
+        repositoryPath:
+          'supabase/migrations/20260721140000_forward_harden_merchant_order_cancellation.sql',
+        sha256:
+          '46efbde5a4a1f241ad0bc829edac60ecbbee156187f5d4f7975f3b6aabb9693b',
+      },
+      {
+        repositoryPath:
+          'supabase/migrations/20260721140100_forward_harden_cancellation_side_effects.sql',
+        sha256:
+          '1fa573e186b486ade1ae4bc628969a74c37ee01f850cf7ab4d60ac3a40fad8a8',
+      },
     ]);
   });
 

@@ -40,22 +40,42 @@ const order = {
   total: 100,
 };
 
-function refundClient(insertError: Error | null = null) {
-  const insert = vi.fn().mockResolvedValue({ error: insertError });
-  const single = vi.fn().mockResolvedValue({
-    data: { gateway: 'paystack', gateway_reference: 'ref-1' },
-    error: null,
-  });
-  const chain = {
+const paystackPayment = {
+  amount: 100,
+  currency: 'NGN',
+  gateway: 'paystack',
+  gateway_reference: 'ref-1',
+  id: 'payment-1',
+};
+
+function transactionQuery(data: unknown) {
+  return {
     eq: vi.fn().mockReturnThis(),
+    not: vi.fn().mockReturnThis(),
+    order: vi.fn().mockResolvedValue({ data, error: null }),
     select: vi.fn().mockReturnThis(),
-    single,
   };
+}
+
+function refundClient({
+  insertError = null,
+  payments = [paystackPayment],
+  refundRows = [],
+}: {
+  insertError?: Error | null;
+  payments?: (typeof paystackPayment)[];
+  refundRows?: { metadata: Record<string, unknown> }[];
+} = {}) {
+  const insert = vi.fn().mockResolvedValue({ error: insertError });
+  const paymentLookup = transactionQuery(payments);
   const from = vi
     .fn()
-    .mockReturnValueOnce(chain)
-    .mockReturnValueOnce({ insert });
-  return { from, insert };
+    .mockReturnValueOnce(paymentLookup)
+    .mockReturnValueOnce(transactionQuery(refundRows));
+  for (const _payment of payments) {
+    from.mockReturnValueOnce({ insert });
+  }
+  return { from, insert, paymentLookup };
 }
 
 describe('executeOrderCancellationSideEffect', () => {
@@ -90,10 +110,168 @@ describe('executeOrderCancellationSideEffect', () => {
         step: 'refund',
         supabase: supabase as never,
       })
-    ).resolves.toEqual({ refundId: 42 });
+    ).resolves.toEqual({ refundIds: [42] });
     expect(supabase.insert).toHaveBeenCalledWith(
-      expect.objectContaining({ amount: 100, transaction_type: 'refund' })
+      expect.objectContaining({
+        amount: 100,
+        metadata: expect.objectContaining({
+          payment_transaction_id: 'payment-1',
+        }),
+        transaction_type: 'refund',
+      })
     );
+    expect(supabase.paymentLookup.eq).toHaveBeenCalledWith(
+      'merchant_id',
+      'merchant-1'
+    );
+  });
+
+  it('refunds only the completed gateway-funded portion', async () => {
+    const supabase = refundClient({
+      payments: [{ ...paystackPayment, amount: 60 }],
+    });
+    mocks.initiateRefund.mockResolvedValue({
+      data: { id: 43 },
+      success: true,
+    });
+
+    await executeOrderCancellationSideEffect({
+      merchant,
+      order,
+      step: 'refund',
+      supabase: supabase as never,
+    });
+
+    expect(mocks.initiateRefund).toHaveBeenCalledWith(
+      'ref-1',
+      6000,
+      'Order cancelled'
+    );
+    expect(supabase.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ amount: 60, transaction_type: 'refund' })
+    );
+  });
+
+  it('refunds every completed gateway payment without replaying recorded legs', async () => {
+    const supabase = refundClient({
+      payments: [
+        paystackPayment,
+        {
+          ...paystackPayment,
+          amount: 40,
+          gateway_reference: 'ref-2',
+          id: 'payment-2',
+        },
+      ],
+      refundRows: [{ metadata: { payment_transaction_id: 'payment-1' } }],
+    });
+    mocks.initiateRefund.mockResolvedValue({
+      data: { id: 44 },
+      success: true,
+    });
+
+    await expect(
+      executeOrderCancellationSideEffect({
+        merchant,
+        order,
+        step: 'refund',
+        supabase: supabase as never,
+      })
+    ).resolves.toEqual({ refundIds: [44] });
+
+    expect(mocks.initiateRefund).toHaveBeenCalledTimes(1);
+    expect(mocks.initiateRefund).toHaveBeenCalledWith(
+      'ref-2',
+      4000,
+      'Order cancelled'
+    );
+    expect(supabase.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        amount: 40,
+        metadata: expect.objectContaining({
+          payment_transaction_id: 'payment-2',
+        }),
+      })
+    );
+  });
+
+  it('rejects a completed gateway transaction with no refundable amount', async () => {
+    const supabase = refundClient({
+      payments: [{ ...paystackPayment, amount: 0 }],
+    });
+
+    await expect(
+      executeOrderCancellationSideEffect({
+        merchant,
+        order,
+        step: 'refund',
+        supabase: supabase as never,
+      })
+    ).rejects.toThrow('no refundable amount');
+    expect(mocks.initiateRefund).not.toHaveBeenCalled();
+  });
+
+  it('files unsupported gateways for manual reconciliation without retries', async () => {
+    const reviewInsert = vi.fn().mockResolvedValue({ error: null });
+    const paymentQuery = transactionQuery([
+      {
+        amount: 75,
+        currency: 'NGN',
+        gateway: 'korapay',
+        gateway_reference: 'kora-ref',
+        id: 'payment-2',
+      },
+    ]);
+    const from = vi
+      .fn()
+      .mockReturnValueOnce(paymentQuery)
+      .mockReturnValueOnce({ insert: reviewInsert });
+
+    await expect(
+      executeOrderCancellationSideEffect({
+        merchant,
+        order,
+        step: 'refund',
+        supabase: { from } as never,
+      })
+    ).rejects.toBeInstanceOf(DeliveryUncertainError);
+    expect(mocks.initiateRefund).not.toHaveBeenCalled();
+    expect(reviewInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        issue_type: 'order_cancellation_refund_requires_review',
+        merchant_id: 'merchant-1',
+        order_id: 'order-1',
+        txn_id: 'payment-2',
+      })
+    );
+  });
+
+  it('retries when the manual-refund review cannot be persisted', async () => {
+    const reviewInsert = vi.fn().mockResolvedValue({
+      error: { code: 'XX000', message: 'database unavailable' },
+    });
+    const paymentQuery = transactionQuery([
+      {
+        amount: 75,
+        currency: 'NGN',
+        gateway: 'korapay',
+        gateway_reference: 'kora-ref',
+        id: 'payment-2',
+      },
+    ]);
+    const from = vi
+      .fn()
+      .mockReturnValueOnce(paymentQuery)
+      .mockReturnValueOnce({ insert: reviewInsert });
+
+    await expect(
+      executeOrderCancellationSideEffect({
+        merchant,
+        order,
+        step: 'refund',
+        supabase: { from } as never,
+      })
+    ).rejects.toThrow('Failed to file manual refund reconciliation review');
   });
 
   it('quarantines ambiguous Paystack failures', async () => {
