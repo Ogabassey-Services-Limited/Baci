@@ -48,6 +48,34 @@ function getStoredInclusiveDisplaySubtotal(
   return displaySubtotal >= 0 ? displaySubtotal : null;
 }
 
+function hasStoredTaxExcludedTotal(
+  input: Pick<
+    OrderPaymentBreakdownInput,
+    'taxBasis' | 'taxExclusiveAmount' | 'taxInclusiveAmount'
+  >,
+  order: OrderMoneyFields
+): boolean {
+  if (
+    order.tax_amount <= 0 ||
+    input.taxBasis !== null ||
+    input.taxExclusiveAmount === null ||
+    input.taxExclusiveAmount === undefined ||
+    input.taxInclusiveAmount === null ||
+    input.taxInclusiveAmount === undefined
+  ) {
+    return false;
+  }
+
+  const taxExclusiveAmount = toAmount(input.taxExclusiveAmount);
+  const taxInclusiveAmount = toAmount(input.taxInclusiveAmount);
+
+  return (
+    almostEqual(order.total, getTaxExclusiveTotal(order)) &&
+    almostEqual(order.subtotal, taxExclusiveAmount) &&
+    almostEqual(taxInclusiveAmount, taxExclusiveAmount + order.tax_amount)
+  );
+}
+
 interface OrderPaymentBreakdownInput {
   currency?: string | null;
   discountAmount?: number | null;
@@ -56,6 +84,9 @@ interface OrderPaymentBreakdownInput {
   shippingFee?: number | null;
   subtotal?: number | null;
   taxAmount?: number | null;
+  taxBasis?: 'exclusive' | 'inclusive' | null;
+  taxExclusiveAmount?: number | null;
+  taxInclusiveAmount?: number | null;
   total?: number | null;
   walletAmountUsed?: number | null;
 }
@@ -99,8 +130,13 @@ export function buildOrderPaymentBreakdown(
   const receiptDisplaySubtotal = input.merchant
     ? getReceiptDisplaySubtotal(order, input.merchant)
     : subtotal;
-  const displaySubtotal =
-    getStoredInclusiveDisplaySubtotal(order) ?? receiptDisplaySubtotal;
+  // Null tax_basis is deliberately retained for legacy orders. Only hide the
+  // VAT row when the persisted item tax totals, subtotal, and order-level
+  // total prove the customer was charged the tax-exclusive amount.
+  const taxWasExcludedFromTotal = hasStoredTaxExcludedTotal(input, order);
+  const displaySubtotal = taxWasExcludedFromTotal
+    ? subtotal
+    : (getStoredInclusiveDisplaySubtotal(order) ?? receiptDisplaySubtotal);
   const vatRate = input.merchant
     ? getReceiptVatRate(input.merchant, currency)
     : null;
@@ -108,7 +144,7 @@ export function buildOrderPaymentBreakdown(
   return {
     displaySubtotal,
     giftWrappingFee,
-    showVat: taxAmount > 0,
+    showVat: taxAmount > 0 && !taxWasExcludedFromTotal,
     taxAmount,
     vatLabel: vatRate !== null ? `VAT (${vatRate}%)` : 'VAT',
     walletAmountUsed,
