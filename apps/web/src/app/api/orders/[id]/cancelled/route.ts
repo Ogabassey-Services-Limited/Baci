@@ -8,6 +8,7 @@ import { logger } from '@/lib/logger';
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 import { executeOrderCancellationSideEffect } from '@/lib/orders/execute-order-cancellation-side-effect';
 import { runOrderCancellationSideEffect } from '@/lib/orders/run-order-cancellation-side-effect';
+import { sendEmail } from '@/lib/zeptomail';
 import { merchantOrderCancellationSchema } from '@/schemas/orders';
 
 /**
@@ -190,6 +191,7 @@ export async function POST(
           merchant,
           order,
           reason: cancellationReason,
+          sendCancellationEmail: sendEmail,
           step: 'customer_email',
           supabase,
         });

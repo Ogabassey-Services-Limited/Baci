@@ -52,6 +52,7 @@ describe('drainFailedOrderCancellationSideEffects', () => {
       .mockReturnValueOnce(terminalQuery({ id: 'merchant-1' }));
 
     const result = await drainFailedOrderCancellationSideEffects({
+      sendCancellationEmail: vi.fn(),
       supabase: { from } as never,
     });
 
@@ -72,6 +73,7 @@ describe('drainFailedOrderCancellationSideEffects', () => {
 
     await expect(
       drainFailedOrderCancellationSideEffects({
+        sendCancellationEmail: vi.fn(),
         supabase: { from } as never,
       })
     ).rejects.toThrow('cancellation_side_effect_lookup_failed');
@@ -100,6 +102,7 @@ describe('drainFailedOrderCancellationSideEffects', () => {
       .mockReturnValueOnce(updateQuery);
 
     const result = await drainFailedOrderCancellationSideEffects({
+      sendCancellationEmail: vi.fn(),
       supabase: { from } as never,
     });
 

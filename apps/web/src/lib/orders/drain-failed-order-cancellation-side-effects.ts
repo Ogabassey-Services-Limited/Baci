@@ -1,7 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
-import { executeOrderCancellationSideEffect } from '@/lib/orders/execute-order-cancellation-side-effect';
+import {
+  type CancellationEmailSender,
+  executeOrderCancellationSideEffect,
+} from '@/lib/orders/execute-order-cancellation-side-effect';
 import {
   type OrderCancellationSideEffectStep,
   runOrderCancellationSideEffect,
@@ -37,9 +40,11 @@ const MERCHANT_SELECT =
 export async function drainFailedOrderCancellationSideEffects({
   supabase,
   limit = DEFAULT_LIMIT,
+  sendCancellationEmail,
 }: {
   supabase: SupabaseClient;
   limit?: number;
+  sendCancellationEmail: CancellationEmailSender;
 }): Promise<CancellationSideEffectDrainSummary> {
   const summary: CancellationSideEffectDrainSummary = {
     drained: [],
@@ -140,6 +145,7 @@ export async function drainFailedOrderCancellationSideEffects({
             merchant,
             order,
             reason: order.cancellation_reason ?? undefined,
+            sendCancellationEmail,
             step,
             supabase,
           }),

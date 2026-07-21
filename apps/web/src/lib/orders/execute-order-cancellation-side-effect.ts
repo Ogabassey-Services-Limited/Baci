@@ -5,7 +5,6 @@ import {
   type OrderCancellationSideEffectStep,
 } from '@/lib/orders/run-order-cancellation-side-effect';
 import { initiateRefund as initiatePaystackRefund } from '@/lib/paystack';
-import { sendEmail } from '@/lib/zeptomail';
 
 type CancellationOrder = Parameters<
   typeof buildOrderCancellationEmailMessage
@@ -18,23 +17,39 @@ type CancellationOrder = Parameters<
 type CancellationMerchant = Parameters<
   typeof buildOrderCancellationEmailMessage
 >[0]['merchant'];
+type CancellationEmailMessage = ReturnType<
+  typeof buildOrderCancellationEmailMessage
+>;
+type CancellationEmailResult = {
+  error?: string;
+  messageId?: string;
+  success: boolean;
+};
+export type CancellationEmailSender = (
+  message: CancellationEmailMessage
+) => Promise<CancellationEmailResult>;
 
 export async function executeOrderCancellationSideEffect({
   merchant,
   order,
   reason,
+  sendCancellationEmail,
   step,
   supabase,
 }: {
   merchant: CancellationMerchant;
   order: CancellationOrder;
   reason?: string;
+  sendCancellationEmail?: CancellationEmailSender;
   step: OrderCancellationSideEffectStep;
   supabase: Pick<SupabaseClient, 'from'>;
 }): Promise<{ messageId: string | null } | { refundId: number }> {
   const refundAmount = Number(order.amount_paid) || 0;
   if (step === 'customer_email') {
-    const emailResult = await sendEmail(
+    if (!sendCancellationEmail) {
+      throw new Error('Cancellation email sender is required');
+    }
+    const emailResult = await sendCancellationEmail(
       buildOrderCancellationEmailMessage({
         cancelledBy: 'merchant',
         merchant,

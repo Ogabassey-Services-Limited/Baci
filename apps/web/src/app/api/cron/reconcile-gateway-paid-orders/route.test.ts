@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   createServiceClient: vi.fn(),
-  drainFailedOrderCancellationSideEffects: vi.fn(),
   drainFailedPaidOrderSideEffects: vi.fn(),
   getCronSecret: vi.fn(),
   reconcileWedgedGatewayOrders: vi.fn(),
@@ -20,10 +19,6 @@ vi.mock('@/lib/payments/reconcile-wedged-gateway-orders', () => ({
 }));
 vi.mock('@/lib/payments/drain-failed-paid-order-side-effects', () => ({
   drainFailedPaidOrderSideEffects: mocks.drainFailedPaidOrderSideEffects,
-}));
-vi.mock('@/lib/orders/drain-failed-order-cancellation-side-effects', () => ({
-  drainFailedOrderCancellationSideEffects:
-    mocks.drainFailedOrderCancellationSideEffects,
 }));
 
 import { GET } from './route';
@@ -44,11 +39,6 @@ beforeEach(() => {
   mocks.getCronSecret.mockReturnValue(CRON_SECRET);
   mocks.createServiceClient.mockReturnValue({});
   mocks.drainFailedPaidOrderSideEffects.mockResolvedValue({
-    drained: [],
-    failed: [],
-    skipped: [],
-  });
-  mocks.drainFailedOrderCancellationSideEffects.mockResolvedValue({
     drained: [],
     failed: [],
     skipped: [],
@@ -95,19 +85,11 @@ describe('GET /api/cron/reconcile-gateway-paid-orders', () => {
       failed: [],
       skipped: [],
     });
-    expect(body.cancellationSideEffectDrain).toEqual({
-      drained: [],
-      failed: [],
-      skipped: [],
-    });
     expect(typeof body.checked_at).toBe('string');
     expect(mocks.reconcileWedgedGatewayOrders).toHaveBeenCalledWith(
       expect.objectContaining({ supabase: expect.anything() })
     );
     expect(mocks.drainFailedPaidOrderSideEffects).toHaveBeenCalledWith(
-      expect.objectContaining({ supabase: expect.anything() })
-    );
-    expect(mocks.drainFailedOrderCancellationSideEffects).toHaveBeenCalledWith(
       expect.objectContaining({ supabase: expect.anything() })
     );
   });

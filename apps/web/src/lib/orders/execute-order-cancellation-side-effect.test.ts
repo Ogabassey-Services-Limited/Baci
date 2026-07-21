@@ -68,6 +68,7 @@ describe('executeOrderCancellationSideEffect', () => {
       executeOrderCancellationSideEffect({
         merchant,
         order,
+        sendCancellationEmail: mocks.sendEmail,
         step: 'customer_email',
         supabase: { from: vi.fn() } as never,
       })
