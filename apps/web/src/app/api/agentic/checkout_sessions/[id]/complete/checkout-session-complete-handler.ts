@@ -6,6 +6,7 @@ import { AGENTIC_PAYSTACK_DVA_PAUSED_ERROR } from '@/lib/agentic/agentic-paystac
 import { verifyAgenticApiKey } from '@/lib/agentic/auth';
 import { getCheckoutCompletionAuthorizationSecrets } from '@/lib/agentic/checkout-completion-authorization-response';
 import { finalizeAgenticCheckoutPayment } from '@/lib/agentic/checkout-completion-finalize';
+import { CHECKOUT_COMPLETION_IDEMPOTENCY_ROUTE } from '@/lib/agentic/checkout-completion-idempotency-route';
 import {
   getAgenticPaymentState,
   resolveExistingPaymentState,
@@ -32,8 +33,6 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { agenticCheckoutCompleteSchema } from '@/schemas/agentic-checkout';
 import { agenticCheckoutSessionRouteParamsSchema } from '@/schemas/agentic-checkout-session-route-params';
 import type { CheckoutSessionCompleteRouteOptions } from './checkout-session-complete-handler-types';
-
-const COMPLETE_IDEMPOTENCY_ROUTE = 'checkout_sessions.complete';
 
 export async function handleAgenticCheckoutSessionComplete(
   request: NextRequest,
@@ -110,7 +109,7 @@ export async function handleAgenticCheckoutSessionComplete(
       merchantId: merchant.id,
       method: mutation.method,
       pathname: mutation.pathname,
-      route: COMPLETE_IDEMPOTENCY_ROUTE,
+      route: CHECKOUT_COMPLETION_IDEMPOTENCY_ROUTE,
       supabase,
     });
     if (!idempotency.ok) {
@@ -136,7 +135,7 @@ export async function handleAgenticCheckoutSessionComplete(
         merchantId: merchant.id,
         requestId: mutation.requestId,
         response,
-        route: COMPLETE_IDEMPOTENCY_ROUTE,
+        route: CHECKOUT_COMPLETION_IDEMPOTENCY_ROUTE,
         status,
         supabase,
       });
@@ -144,7 +143,7 @@ export async function handleAgenticCheckoutSessionComplete(
       logger.warn({
         message: AGENTIC_CHECKOUT_DISABLED_ERROR,
         merchantId: merchant.id,
-        route: COMPLETE_IDEMPOTENCY_ROUTE,
+        route: CHECKOUT_COMPLETION_IDEMPOTENCY_ROUTE,
         sessionId,
       });
       return await respondWithIdempotency(
@@ -158,7 +157,7 @@ export async function handleAgenticCheckoutSessionComplete(
       idempotencyKey: mutation.idempotencyKey,
       merchantId: merchant.id,
       requestId: mutation.requestId,
-      route: COMPLETE_IDEMPOTENCY_ROUTE,
+      route: CHECKOUT_COMPLETION_IDEMPOTENCY_ROUTE,
       supabase,
     });
     if (!replayReservation.ok) {
@@ -238,7 +237,7 @@ export async function handleAgenticCheckoutSessionComplete(
         orderSession: session,
         orderSessionCalc: completionState.sessionCalc,
         requestId: mutation.requestId,
-        route: COMPLETE_IDEMPOTENCY_ROUTE,
+        route: CHECKOUT_COMPLETION_IDEMPOTENCY_ROUTE,
         sessionId,
         supabase,
       });
@@ -271,7 +270,7 @@ export async function handleAgenticCheckoutSessionComplete(
       orderSession: preparedPayment.payment.session,
       orderSessionCalc: preparedPayment.payment.sessionCalc,
       requestId: mutation.requestId,
-      route: COMPLETE_IDEMPOTENCY_ROUTE,
+      route: CHECKOUT_COMPLETION_IDEMPOTENCY_ROUTE,
       sessionId,
       supabase,
     });

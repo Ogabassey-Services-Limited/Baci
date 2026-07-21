@@ -189,6 +189,23 @@ describe('runDrainAgenticDvaConsentCutoverCli', () => {
     );
   });
 
+  it('fails closed on a currency mismatch without reserving or finalizing', async () => {
+    const row = accountReadyRow();
+    row.currency = 'USD';
+    const { supabase } = createSupabase(row);
+
+    await expect(
+      runDrainAgenticDvaConsentCutoverCli(
+        [...argsFor(row, 'payment_account_ready'), '--apply'],
+        supabase as never,
+        now
+      )
+    ).resolves.toBe(1);
+
+    expect(reserveAgenticIdempotencyKey).not.toHaveBeenCalled();
+    expect(finalizeAgenticCheckoutPayment).not.toHaveBeenCalled();
+  });
+
   it('does not finalize when the idempotency reservation is not acquired', async () => {
     vi.mocked(reserveAgenticIdempotencyKey).mockResolvedValue({
       ok: true,

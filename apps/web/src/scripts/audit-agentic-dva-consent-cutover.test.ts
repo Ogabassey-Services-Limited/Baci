@@ -118,7 +118,7 @@ describe('runAuditAgenticDvaConsentCutoverCli', () => {
     await runAuditAgenticDvaConsentCutoverCli([], supabase as never, now);
 
     const output = vi.mocked(console.log).mock.calls[0][0] as string;
-    expect(output).not.toContain('1234567890');
+    expect(output).not.toContain('+2348012345678');
     expect(output).not.toContain('buyer@example.com');
     expect(output).not.toContain('merchant-1');
     expect(output).not.toContain('secret-canary');

@@ -117,6 +117,23 @@ describe('assessAgenticDvaCutoverSession', () => {
   });
 
   it('blocks invalid payment identity and divergent buyer snapshots', () => {
+    const metadata = accountReadyRow().metadata as {
+      agentic: Record<string, unknown>;
+    };
+    expect(
+      assessAgenticDvaCutoverSession(
+        accountReadyRow({
+          metadata: {
+            agentic: { ...metadata.agentic, buyer: null },
+          },
+        }),
+        now
+      )
+    ).toMatchObject({
+      disposition: 'manual_review',
+      reason: 'buyer_or_payment_snapshot_missing',
+    });
+
     const invalidIdentity = assessAgenticDvaCutoverSession(
       accountReadyRow({ payment_provider: 'other' }),
       now

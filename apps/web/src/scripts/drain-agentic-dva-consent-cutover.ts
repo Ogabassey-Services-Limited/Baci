@@ -3,10 +3,10 @@ import { agenticDvaCutoverCli } from '@/lib/agentic/agentic-dva-cutover-cli';
 import { agenticDvaCutoverConstants } from '@/lib/agentic/agentic-dva-cutover-constants';
 import { assessAgenticDvaCutoverSession } from '@/lib/agentic/agentic-dva-cutover-evidence';
 import { finalizeAgenticCheckoutPayment } from '@/lib/agentic/checkout-completion-finalize';
+import { CHECKOUT_COMPLETION_IDEMPOTENCY_ROUTE } from '@/lib/agentic/checkout-completion-idempotency-route';
 import { reserveAgenticIdempotencyKey } from '@/lib/agentic/idempotency';
 import { logger } from '@/lib/logger';
 import { unknownValueGuards } from '@/lib/unknown-value-guards';
-const COMPLETE_ROUTE = 'checkout_sessions.complete';
 const { emitDriftAlert, fingerprintsMatch, isPaused, parseArgs, printResult } =
   agenticDvaCutoverCli;
 export async function runDrainAgenticDvaConsentCutoverCli(
@@ -144,7 +144,7 @@ export async function runDrainAgenticDvaConsentCutoverCli(
     method: 'POST',
     now,
     pathname: `/internal/agentic-dva-cutover/${args.sessionId}`,
-    route: COMPLETE_ROUTE,
+    route: CHECKOUT_COMPLETION_IDEMPOTENCY_ROUTE,
     supabase: serviceClient,
   });
   if (!reservation.ok || reservation.state !== 'reserved') {
@@ -186,7 +186,7 @@ export async function runDrainAgenticDvaConsentCutoverCli(
             : undefined,
       },
       requestId,
-      route: COMPLETE_ROUTE,
+      route: CHECKOUT_COMPLETION_IDEMPOTENCY_ROUTE,
       sessionId: args.sessionId,
       supabase: serviceClient,
     });

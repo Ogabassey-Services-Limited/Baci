@@ -2,9 +2,9 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveGrandfatheredPaymentPendingReplay } from './agentic-paystack-dva-grandfathered-response';
+import { CHECKOUT_COMPLETION_IDEMPOTENCY_ROUTE } from './checkout-completion-idempotency-route';
 import type { StoredCheckoutCompletionSession } from './checkout-completion-response';
 
-const COMPLETE_IDEMPOTENCY_ROUTE = 'checkout_sessions.complete';
 const MAX_REPLAY_CANDIDATES = 25;
 
 interface IdempotencyReplayRow {
@@ -27,7 +27,7 @@ export async function findGrandfatheredAgenticPaystackDvaReplay({
   const { data, error } = await supabase
     .from('agentic_idempotency_records')
     .select('request_hash, response_body, status_code')
-    .eq('route', COMPLETE_IDEMPOTENCY_ROUTE)
+    .eq('route', CHECKOUT_COMPLETION_IDEMPOTENCY_ROUTE)
     .eq('merchant_id', merchantId)
     .eq('status_code', 200)
     .gt('expires_at', now.toISOString())
