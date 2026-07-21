@@ -25,13 +25,11 @@ import {
   claimAgenticOrderFinalization,
   recordAgenticOrderFinalizationOrderCreated,
 } from '@/lib/agentic/checkout-order-finalization-claim';
+import { isValidOrderFinalizationClaim } from '@/lib/agentic/checkout-order-finalization-claim-reference';
 import type { AgenticMetadata } from '@/lib/agentic/checkout-storage';
 import { buildStoredAgenticIdempotencyResponse } from '@/lib/agentic/idempotency-response-storage';
-import {
-  revalidateProductSlugs,
-  revalidateProducts,
-} from '@/lib/cache-revalidation';
 import { logger } from '@/lib/logger';
+import { productCacheRevalidation } from '@/lib/product-cache-revalidation';
 import { sanitizeForLog } from '@/lib/sanitize-core';
 
 type CheckoutCalculation = Awaited<ReturnType<typeof calculateCheckoutSession>>;
@@ -39,6 +37,8 @@ type CheckoutCalculation = Awaited<ReturnType<typeof calculateCheckoutSession>>;
 export async function finalizeAgenticCheckoutPayment({
   buyer,
   dvaAccount,
+  expectedSessionUpdatedAt,
+  finalizationClaimOverride,
   idempotencyKey,
   merchantId,
   metadata,
@@ -51,6 +51,8 @@ export async function finalizeAgenticCheckoutPayment({
 }: {
   buyer: AgenticCheckoutBuyer;
   dvaAccount: StoredDvaAccount;
+  expectedSessionUpdatedAt?: string;
+  finalizationClaimOverride?: string;
   idempotencyKey: string;
   merchantId: string;
   metadata: AgenticMetadata;
@@ -66,11 +68,6 @@ export async function finalizeAgenticCheckoutPayment({
   sessionId: string;
   supabase: SupabaseClient;
 }) {
-  const finalizationClaim = buildOrderFinalizationClaim({
-    idempotencyKey,
-    requestId,
-    sessionId,
-  });
   const respond = (response: unknown, status: number) =>
     buildStoredAgenticIdempotencyResponse({
       idempotencyKey,
@@ -81,9 +78,30 @@ export async function finalizeAgenticCheckoutPayment({
       status,
       supabase,
     });
+  if (
+    finalizationClaimOverride !== undefined &&
+    !isValidOrderFinalizationClaim(finalizationClaimOverride)
+  ) {
+    logger.warn({
+      message: 'Rejected invalid agentic finalization claim override',
+      sessionId: sanitizeForLog(sessionId),
+    });
+    return respond({ error: 'Invalid finalization claim' }, 400);
+  }
+  if (finalizationClaimOverride !== undefined && !expectedSessionUpdatedAt) {
+    return respond({ error: 'Missing finalization timestamp' }, 400);
+  }
+  const finalizationClaim =
+    finalizationClaimOverride ??
+    buildOrderFinalizationClaim({
+      idempotencyKey,
+      requestId,
+      sessionId,
+    });
   const claim = await claimAgenticOrderFinalization({
     buyer,
     dvaAccount,
+    expectedUpdatedAt: expectedSessionUpdatedAt,
     finalizationClaim,
     merchantId,
     metadata,
@@ -177,19 +195,10 @@ export async function finalizeAgenticCheckoutPayment({
     }
     orderId = createdOrderId;
 
-    // Stock was decremented inside create_storefront_order (via
-    // createAgenticCheckoutOrder). Bust the merchant's product caches so the
-    // storefront reflects it immediately. Only runs on the new-order branch.
+    // create_storefront_order decrements only products with manage_stock=true.
+    // Resolve that policy before cache work so unlimited-inventory sales cause
+    // no catalog or feed churn.
     try {
-      revalidateProducts(merchantId);
-
-      // revalidateProducts(merchantId) busts only the merchant-wide/listing
-      // tags — NOT the per-slug tag the bounded PDP snapshot uses, so a
-      // just-sold-out product can keep rendering in-stock on
-      // its own PDP for the full 'products' cacheLife TTL. orderSessionCalc
-      // .lineItems carries only product_id (never slug), and item.product_id is
-      // always the PARENT product id (plain or variant line), so resolve slugs
-      // with one merchant-scoped, PK-indexed lookup and bust their PDP tags too.
       const productIds = Array.from(
         new Set(
           orderSessionCalc.lineItems
@@ -203,21 +212,32 @@ export async function finalizeAgenticCheckoutPayment({
         const { data: productsForRevalidate, error: slugLookupError } =
           await supabase
             .from('products')
-            .select('slug')
+            .select('slug, manage_stock')
             .in('id', productIds)
             .eq('merchant_id', merchantId)
-            .returns<Array<{ slug: string }>>();
+            .returns<Array<{ manage_stock: boolean | null; slug: string }>>();
         if (slugLookupError) {
+          productCacheRevalidation.revalidateProducts(merchantId, undefined, {
+            feedScope: 'none',
+          });
           logger.error({
             error: sanitizeForLog(slugLookupError),
             message: 'Failed to load product slugs for PDP cache revalidation',
             sessionId: sanitizeForLog(sessionId),
           });
         } else {
-          revalidateProductSlugs(
-            merchantId,
-            (productsForRevalidate ?? []).map((p) => p.slug)
+          const trackedProducts = (productsForRevalidate ?? []).filter(
+            (product) => product.manage_stock === true
           );
+          if (trackedProducts.length > 0) {
+            productCacheRevalidation.revalidateProducts(merchantId, undefined, {
+              feedScope: 'merchant',
+            });
+            productCacheRevalidation.revalidateProductSlugs(
+              merchantId,
+              trackedProducts.map((product) => product.slug)
+            );
+          }
         }
       }
     } catch (revalidateError) {

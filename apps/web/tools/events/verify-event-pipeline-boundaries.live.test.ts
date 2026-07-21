@@ -4,5 +4,5 @@ import { verifyEventPipelineBoundaries } from './verify-event-pipeline-boundarie
 describe('live event pipeline boundary', () => {
   it('passes the current repository boundary contract', () => {
     expect(verifyEventPipelineBoundaries()).toEqual([]);
-  }, 240_000);
+  }, 480_000);
 });

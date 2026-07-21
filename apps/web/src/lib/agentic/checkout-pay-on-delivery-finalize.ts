@@ -28,11 +28,8 @@ import {
   buildStoredAgenticIdempotencyResponse,
   persistAgenticIdempotencyResponse,
 } from '@/lib/agentic/idempotency-response-storage';
-import {
-  revalidateProductSlugs,
-  revalidateProducts,
-} from '@/lib/cache-revalidation';
 import { logger } from '@/lib/logger';
+import { productCacheRevalidation } from '@/lib/product-cache-revalidation';
 import { sanitizeForLog } from '@/lib/sanitize-core';
 
 type CheckoutCalculation = Awaited<ReturnType<typeof calculateCheckoutSession>>;
@@ -171,18 +168,10 @@ export async function finalizeAgenticPayOnDeliveryCheckout({
     }
     orderId = createdOrderId;
 
-    // Stock was decremented inside create_storefront_order (via
-    // createAgenticCheckoutOrder). Bust the merchant's product caches so the
-    // storefront reflects it immediately. Only runs on the new-order branch.
+    // create_storefront_order decrements only products with manage_stock=true.
+    // Resolve that policy before cache work so unlimited-inventory sales cause
+    // no catalog or feed churn.
     try {
-      revalidateProducts(merchantId);
-
-      // revalidateProducts(merchantId) does NOT bust the per-slug PDP snapshot
-      // tag (getProductScopedCacheTag('product',
-      // merchantId, slug)). orderSessionCalc.lineItems carries only product_id
-      // (GPTLineItem never exposes slug), and item.product_id is always the
-      // PARENT product id, so resolve slugs with one merchant-scoped, PK-indexed
-      // lookup and bust their PDP tags so a just-sold-out PDP isn't served stale.
       const touchedProductIds = Array.from(
         new Set(
           orderSessionCalc.lineItems
@@ -195,11 +184,14 @@ export async function finalizeAgenticPayOnDeliveryCheckout({
       if (touchedProductIds.length > 0) {
         const { data: touchedProducts, error: slugLookupError } = await supabase
           .from('products')
-          .select('slug')
+          .select('slug, manage_stock')
           .in('id', touchedProductIds)
           .eq('merchant_id', merchantId)
-          .returns<Array<{ slug: string }>>();
+          .returns<Array<{ manage_stock: boolean | null; slug: string }>>();
         if (slugLookupError) {
+          productCacheRevalidation.revalidateProducts(merchantId, undefined, {
+            feedScope: 'none',
+          });
           logger.error({
             error: sanitizeForLog(slugLookupError),
             message:
@@ -207,10 +199,18 @@ export async function finalizeAgenticPayOnDeliveryCheckout({
             sessionId: sanitizeForLog(sessionId),
           });
         } else {
-          revalidateProductSlugs(
-            merchantId,
-            (touchedProducts ?? []).map((row) => row.slug)
+          const trackedProducts = (touchedProducts ?? []).filter(
+            (product) => product.manage_stock === true
           );
+          if (trackedProducts.length > 0) {
+            productCacheRevalidation.revalidateProducts(merchantId, undefined, {
+              feedScope: 'merchant',
+            });
+            productCacheRevalidation.revalidateProductSlugs(
+              merchantId,
+              trackedProducts.map((product) => product.slug)
+            );
+          }
         }
       }
     } catch (revalidateError) {

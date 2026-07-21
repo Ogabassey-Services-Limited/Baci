@@ -1,4 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type Mock,
+  vi,
+} from 'vitest';
 import { calculateCheckoutSession } from '@/lib/agentic/checkout';
 import { createAgenticCheckoutOrder } from '@/lib/agentic/checkout-order-dispatch';
 import { createAgenticCheckoutPaymentAccount } from '@/lib/agentic/checkout-payment-account';
@@ -12,7 +20,7 @@ import {
 } from '@/lib/agentic/paystack';
 import { reserveAgenticRequestId } from '@/lib/agentic/request-replay';
 import { completionConfirmationSecret } from './route-complete-test-helpers';
-import { grandfatheredReplayTestFixtures } from './route-grandfathered-replay-test-fixtures';
+import { grandfatheredReplayTestFixtures } from './route-grandfathered-replay-test-support';
 import { paymentStateTestHelpers } from './route-payment-state-test-helpers';
 
 const mockVerifyAgenticApiKey = vi.fn(() => true);
@@ -87,7 +95,15 @@ const {
 const { makeSession: makeGrandfatheredSession, makeStoredResponse } =
   grandfatheredReplayTestFixtures;
 
-describe('paused Agentic Paystack DVA completion', () => {
+function expectNoPaymentSideEffects(updateSpy: Mock): void {
+  expect(calculateCheckoutSession).not.toHaveBeenCalled();
+  expect(updateSpy).not.toHaveBeenCalled();
+  expect(createAgenticCheckoutPaymentAccount).not.toHaveBeenCalled();
+  expect(createDedicatedVirtualAccount).not.toHaveBeenCalled();
+  expect(createAgenticCheckoutOrder).not.toHaveBeenCalled();
+}
+
+describe('checkout session complete handler in paused DVA mode', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubEnv('AGENTIC_PAYSTACK_DVA_MODE', 'paused');
@@ -137,11 +153,7 @@ describe('paused Agentic Paystack DVA completion', () => {
         status: 409,
       })
     );
-    expect(calculateCheckoutSession).not.toHaveBeenCalled();
-    expect(updateSpy).not.toHaveBeenCalled();
-    expect(createAgenticCheckoutPaymentAccount).not.toHaveBeenCalled();
-    expect(createDedicatedVirtualAccount).not.toHaveBeenCalled();
-    expect(createAgenticCheckoutOrder).not.toHaveBeenCalled();
+    expectNoPaymentSideEffects(updateSpy);
   });
 
   it('returns an exact stored idempotency replay before the pause gate', async () => {
@@ -166,16 +178,12 @@ describe('paused Agentic Paystack DVA completion', () => {
     expect(await response.json()).toEqual(storedResponse);
     expect(reserveAgenticRequestId).not.toHaveBeenCalled();
     expect(storeAgenticIdempotencyResponse).not.toHaveBeenCalled();
-    expect(calculateCheckoutSession).not.toHaveBeenCalled();
-    expect(updateSpy).not.toHaveBeenCalled();
-    expect(createAgenticCheckoutPaymentAccount).not.toHaveBeenCalled();
-    expect(createDedicatedVirtualAccount).not.toHaveBeenCalled();
-    expect(createAgenticCheckoutOrder).not.toHaveBeenCalled();
+    expectNoPaymentSideEffects(updateSpy);
   });
 
   it('rejects an exact request replay when the stored account identity drifted', async () => {
     const storedResponse = makeStoredResponse();
-    mockSuccessfulPaymentSessionSupabase(
+    const { updateSpy } = mockSuccessfulPaymentSessionSupabase(
       makeGrandfatheredSession({ virtual_account_number: '9999999999' })
     );
     vi.mocked(reserveAgenticIdempotencyKey).mockResolvedValueOnce({
@@ -198,9 +206,7 @@ describe('paused Agentic Paystack DVA completion', () => {
     });
     expect(reserveAgenticRequestId).not.toHaveBeenCalled();
     expect(storeAgenticIdempotencyResponse).not.toHaveBeenCalled();
-    expect(createAgenticCheckoutPaymentAccount).not.toHaveBeenCalled();
-    expect(createDedicatedVirtualAccount).not.toHaveBeenCalled();
-    expect(createAgenticCheckoutOrder).not.toHaveBeenCalled();
+    expectNoPaymentSideEffects(updateSpy);
   });
 
   it('leaves pay on delivery available', async () => {

@@ -20,6 +20,8 @@
     "verify:quiz-assets": "tsx src/scripts/verify-quiz-assets-cli.ts",
     "check:quiz-approval": "tsx src/scripts/check-quiz-production-approval.ts",
     "verify:blog-seo": "tsx src/scripts/verify-ogabassey-blog-seo.ts",
+    "agentic:dva-cutover:audit": "tsx src/scripts/audit-agentic-dva-consent-cutover.ts",
+    "agentic:dva-cutover:drain": "tsx src/scripts/drain-agentic-dva-consent-cutover.ts",
     "knip": "knip --no-exit-code",
     "seo:pagespeed": "tsx tools/seo/run-pagespeed.cli.ts",
     "seo:readiness": "tsx tools/seo/run-search-console-readiness.cli.ts",

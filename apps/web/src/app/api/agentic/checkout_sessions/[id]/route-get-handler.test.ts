@@ -1,3 +1,4 @@
+import { PostgrestError } from '@supabase/supabase-js';
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { findGrandfatheredAgenticPaystackDvaReplay } from '@/lib/agentic/agentic-paystack-dva-grandfathered-replay';
@@ -105,7 +106,7 @@ const routeParams = {
   params: Promise.resolve({ id: 'agentic_session_1' }),
 };
 
-describe('GET grandfathered Agentic Paystack DVA state', () => {
+describe('checkout session get handler in paused DVA mode', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubEnv('AGENTIC_PAYSTACK_DVA_MODE', 'paused');
@@ -197,7 +198,12 @@ describe('GET grandfathered Agentic Paystack DVA state', () => {
     mockSessionRead();
     vi.mocked(findGrandfatheredAgenticPaystackDvaReplay).mockResolvedValue({
       data: null,
-      error: { code: '42501', message: 'denied' } as never,
+      error: new PostgrestError({
+        code: '42501',
+        details: '',
+        hint: '',
+        message: 'denied',
+      }),
     });
 
     const { GET } = await import('./route');

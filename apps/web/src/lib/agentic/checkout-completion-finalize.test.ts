@@ -7,10 +7,8 @@ import {
 } from '@/lib/agentic/checkout-order-dispatch';
 import { buildOrderFinalizationClaim } from '@/lib/agentic/checkout-order-finalization-claim';
 import { storeAgenticIdempotencyResponse } from '@/lib/agentic/idempotency';
-import {
-  revalidateProductSlugs,
-  revalidateProducts,
-} from '@/lib/cache-revalidation';
+import { logger } from '@/lib/logger';
+import { productCacheRevalidation } from '@/lib/product-cache-revalidation';
 
 vi.mock('@/lib/agentic/checkout-order-dispatch', () => ({
   createAgenticCheckoutOrder: vi.fn(),
@@ -22,10 +20,14 @@ vi.mock('@/lib/agentic/idempotency', () => ({
   storeAgenticIdempotencyResponse: vi.fn(),
 }));
 
-vi.mock('@/lib/cache-revalidation', () => ({
-  revalidateProductSlugs: vi.fn(),
-  revalidateProducts: vi.fn(),
+vi.mock('@/lib/product-cache-revalidation', () => ({
+  productCacheRevalidation: {
+    revalidateProductSlugs: vi.fn(),
+    revalidateProducts: vi.fn(),
+  },
 }));
+
+const { revalidateProductSlugs, revalidateProducts } = productCacheRevalidation;
 
 const buyer = {
   email: 'buyer@example.com',
@@ -86,7 +88,7 @@ function createUpdateChain(
 }
 
 function createProductsChain(
-  data: Array<{ slug: string }> | null = [],
+  data: Array<{ manage_stock: boolean | null; slug: string }> | null = [],
   error: unknown = null
 ) {
   const chain: {
@@ -106,7 +108,7 @@ function createProductsChain(
 function createSupabaseWithUpdateChains(
   chains: ReturnType<typeof createUpdateChain>[],
   productsChain: ReturnType<typeof createProductsChain> = createProductsChain([
-    { slug: 'product-1-slug' },
+    { manage_stock: true, slug: 'product-1-slug' },
   ])
 ) {
   const update = vi.fn(() => {
@@ -133,11 +135,17 @@ function createSupabaseWithUpdateChains(
 
 function finalizeInput(
   supabase: unknown,
-  overrides: { orderSessionCalc?: typeof sessionCalc } = {}
+  overrides: {
+    expectedSessionUpdatedAt?: string;
+    finalizationClaimOverride?: string;
+    orderSessionCalc?: typeof sessionCalc;
+  } = {}
 ) {
   return {
     buyer,
     dvaAccount,
+    expectedSessionUpdatedAt: overrides.expectedSessionUpdatedAt,
+    finalizationClaimOverride: overrides.finalizationClaimOverride,
     idempotencyKey: 'idem-1',
     merchantId: 'merchant-1',
     metadata: { agentic: { payment_state: 'payment_account_ready' } },
@@ -194,6 +202,103 @@ describe('finalizeAgenticCheckoutPayment', () => {
         status: 409,
       })
     );
+  });
+
+  it('uses an operator-proved stored claim and compare-and-set timestamp', async () => {
+    const claimChain = createUpdateChain({ session_id: 'agentic_session_1' });
+    const markerChain = createUpdateChain({ session_id: 'agentic_session_1' });
+    const finalChain = createUpdateChain({ session_id: 'agentic_session_1' });
+    const supabase = createSupabaseWithUpdateChains([
+      claimChain,
+      markerChain,
+      finalChain,
+    ]);
+    const storedClaim = `agentic_order_${'a'.repeat(64)}`;
+    vi.mocked(createAgenticCheckoutOrder).mockResolvedValue({
+      data: { order: { id: 'order-1' } },
+      error: undefined,
+      ok: true,
+      orderId: 'order-1',
+      status: 201,
+      statusText: 'Created',
+    });
+
+    const response = await finalizeAgenticCheckoutPayment(
+      finalizeInput(supabase, {
+        expectedSessionUpdatedAt: '2026-07-20T11:30:00.000Z',
+        finalizationClaimOverride: storedClaim,
+      })
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      order: { id: 'order-1' },
+      status: 'ready_for_payment',
+    });
+    expect(supabase.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          agentic: expect.objectContaining({
+            finalization_claim: storedClaim,
+          }),
+        }),
+      })
+    );
+    expect(claimChain.eq).toHaveBeenCalledWith(
+      'updated_at',
+      '2026-07-20T11:30:00.000Z'
+    );
+    expect(finalChain.contains).toHaveBeenCalledWith('metadata', {
+      agentic: {
+        finalization_claim: storedClaim,
+        payment_state: 'order_finalizing',
+      },
+    });
+  });
+
+  it.each([
+    '',
+    'agentic_order_invalid',
+  ])('rejects invalid operator claim override %j before a session write', async (finalizationClaimOverride) => {
+    const warnSpy = vi
+      .spyOn(logger, 'warn')
+      .mockImplementation(() => undefined);
+    const claimChain = createUpdateChain(null);
+    const supabase = createSupabaseWithUpdateChains([claimChain]);
+
+    const response = await finalizeAgenticCheckoutPayment(
+      finalizeInput(supabase, { finalizationClaimOverride })
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Invalid finalization claim',
+    });
+    expect(supabase.update).not.toHaveBeenCalled();
+    expect(createAgenticCheckoutOrder).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith({
+      message: 'Rejected invalid agentic finalization claim override',
+      sessionId: 'agentic_session_1',
+    });
+    warnSpy.mockRestore();
+  });
+
+  it('requires an expected timestamp for an operator claim override', async () => {
+    const claimChain = createUpdateChain(null);
+    const supabase = createSupabaseWithUpdateChains([claimChain]);
+
+    const response = await finalizeAgenticCheckoutPayment(
+      finalizeInput(supabase, {
+        finalizationClaimOverride: `agentic_order_${'a'.repeat(64)}`,
+      })
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Missing finalization timestamp',
+    });
+    expect(supabase.update).not.toHaveBeenCalled();
+    expect(createAgenticCheckoutOrder).not.toHaveBeenCalled();
   });
 
   it('returns a database error when the finalization claim write fails', async () => {
@@ -277,7 +382,11 @@ describe('finalizeAgenticCheckoutPayment', () => {
     // call above — the cache bust fires on creation, independent of whether
     // this later session-finalization step (and the resulting cancellation)
     // succeeds. A restock-on-cancel cache bust is a separate, unaddressed gap.
-    expect(revalidateProducts).toHaveBeenCalledExactlyOnceWith('merchant-1');
+    expect(revalidateProducts).toHaveBeenCalledExactlyOnceWith(
+      'merchant-1',
+      undefined,
+      { feedScope: 'merchant' }
+    );
     expect(revalidateProductSlugs).toHaveBeenCalledExactlyOnceWith(
       'merchant-1',
       ['product-1-slug']
@@ -364,7 +473,11 @@ describe('finalizeAgenticCheckoutPayment', () => {
 
     expect(response.status).toBe(500);
     expect(body).toEqual({ error: 'Database error' });
-    expect(revalidateProducts).toHaveBeenCalledExactlyOnceWith('merchant-1');
+    expect(revalidateProducts).toHaveBeenCalledExactlyOnceWith(
+      'merchant-1',
+      undefined,
+      { feedScope: 'merchant' }
+    );
     expect(revalidateProductSlugs).toHaveBeenCalledExactlyOnceWith(
       'merchant-1',
       ['product-1-slug']
@@ -418,7 +531,11 @@ describe('finalizeAgenticCheckoutPayment', () => {
     });
     expect(markAgenticCheckoutOrderCanceled).not.toHaveBeenCalled();
     expect(sendAgenticOrderCreatedWebhook).toHaveBeenCalled();
-    expect(revalidateProducts).toHaveBeenCalledExactlyOnceWith('merchant-1');
+    expect(revalidateProducts).toHaveBeenCalledExactlyOnceWith(
+      'merchant-1',
+      undefined,
+      { feedScope: 'merchant' }
+    );
     expect(revalidateProductSlugs).toHaveBeenCalledExactlyOnceWith(
       'merchant-1',
       ['product-1-slug']
@@ -451,9 +568,13 @@ describe('finalizeAgenticCheckoutPayment', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(revalidateProducts).toHaveBeenCalledExactlyOnceWith('merchant-1');
-    // revalidateProducts() threw synchronously, so the rest of the try block
-    // (including the slug lookup) never runs.
+    expect(revalidateProducts).toHaveBeenCalledExactlyOnceWith(
+      'merchant-1',
+      undefined,
+      { feedScope: 'merchant' }
+    );
+    // revalidateProducts() threw synchronously, so per-slug invalidation did
+    // not run.
     expect(revalidateProductSlugs).not.toHaveBeenCalled();
   });
 
@@ -461,7 +582,9 @@ describe('finalizeAgenticCheckoutPayment', () => {
     const claimChain = createUpdateChain({ session_id: 'agentic_session_1' });
     const markerChain = createUpdateChain({ session_id: 'agentic_session_1' });
     const finalChain = createUpdateChain({ session_id: 'agentic_session_1' });
-    const productsChain = createProductsChain([{ slug: 'phone-slug' }]);
+    const productsChain = createProductsChain([
+      { manage_stock: true, slug: 'phone-slug' },
+    ]);
     const supabase = createSupabaseWithUpdateChains(
       [claimChain, markerChain, finalChain],
       productsChain
@@ -480,7 +603,7 @@ describe('finalizeAgenticCheckoutPayment', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(productsChain.select).toHaveBeenCalledWith('slug');
+    expect(productsChain.select).toHaveBeenCalledWith('slug, manage_stock');
     expect(productsChain.in).toHaveBeenCalledWith('id', ['product-1']);
     expect(revalidateProductSlugs).toHaveBeenCalledExactlyOnceWith(
       'merchant-1',
@@ -511,7 +634,11 @@ describe('finalizeAgenticCheckoutPayment', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(revalidateProducts).toHaveBeenCalledExactlyOnceWith('merchant-1');
+    expect(revalidateProducts).toHaveBeenCalledExactlyOnceWith(
+      'merchant-1',
+      undefined,
+      { feedScope: 'none' }
+    );
     expect(revalidateProductSlugs).not.toHaveBeenCalled();
   });
 
@@ -519,7 +646,9 @@ describe('finalizeAgenticCheckoutPayment', () => {
     const claimChain = createUpdateChain({ session_id: 'agentic_session_1' });
     const markerChain = createUpdateChain({ session_id: 'agentic_session_1' });
     const finalChain = createUpdateChain({ session_id: 'agentic_session_1' });
-    const productsChain = createProductsChain([{ slug: 'unused-slug' }]);
+    const productsChain = createProductsChain([
+      { manage_stock: true, slug: 'unused-slug' },
+    ]);
     const supabase = createSupabaseWithUpdateChains(
       [claimChain, markerChain, finalChain],
       productsChain
@@ -541,6 +670,36 @@ describe('finalizeAgenticCheckoutPayment', () => {
 
     expect(response.status).toBe(200);
     expect(productsChain.select).not.toHaveBeenCalled();
+    expect(revalidateProducts).not.toHaveBeenCalled();
+    expect(revalidateProductSlugs).not.toHaveBeenCalled();
+  });
+
+  it('does not churn product or feed caches for unlimited inventory', async () => {
+    const claimChain = createUpdateChain({ session_id: 'agentic_session_1' });
+    const markerChain = createUpdateChain({ session_id: 'agentic_session_1' });
+    const finalChain = createUpdateChain({ session_id: 'agentic_session_1' });
+    const productsChain = createProductsChain([
+      { manage_stock: false, slug: 'unlimited-phone' },
+    ]);
+    const supabase = createSupabaseWithUpdateChains(
+      [claimChain, markerChain, finalChain],
+      productsChain
+    );
+    vi.mocked(createAgenticCheckoutOrder).mockResolvedValue({
+      data: { order: { id: 'order-1' } },
+      error: undefined,
+      ok: true,
+      orderId: 'order-1',
+      status: 201,
+      statusText: 'Created',
+    });
+
+    const response = await finalizeAgenticCheckoutPayment(
+      finalizeInput(supabase)
+    );
+
+    expect(response.status).toBe(200);
+    expect(revalidateProducts).not.toHaveBeenCalled();
     expect(revalidateProductSlugs).not.toHaveBeenCalled();
   });
 });

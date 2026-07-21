@@ -149,6 +149,8 @@ describe('event pipeline authority manifest', () => {
       'apps/web/src/app/api/analytics/conversion/route.ts',
       'apps/web/src/app/api/events/route.ts',
       'apps/web/src/lib/events/event-pipeline-service-role-test-client.ts',
+      'apps/web/src/scripts/audit-agentic-dva-consent-cutover.ts',
+      'apps/web/src/scripts/drain-agentic-dva-consent-cutover.ts',
       'apps/web/src/scripts/process-domain-events.ts',
       'apps/web/src/scripts/process-event-deliveries.ts',
     ]);

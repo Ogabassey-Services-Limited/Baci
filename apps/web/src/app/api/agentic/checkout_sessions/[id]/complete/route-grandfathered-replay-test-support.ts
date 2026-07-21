@@ -1,33 +1,42 @@
-const buyer = {
-  email: 'buyer@example.com',
-  first_name: 'Ada',
-  last_name: 'Lovelace',
-  phone_number: '+2348012345678',
-};
-const dvaAccount = {
-  account_name: 'Baci Test',
-  account_number: '1234567890',
-  bank_name: 'Paystack-Titan',
-};
-const lineItems = [
-  {
-    base_amount: 500_000,
-    discount: 0,
-    id: 'line_product-1',
-    item: {
-      id: 'product-1',
-      product_id: 'product-1',
-      quantity: 1,
-      title: 'Phone',
+function makeValues() {
+  return {
+    buyer: {
+      email: 'buyer@example.com',
+      first_name: 'Ada',
+      last_name: 'Lovelace',
+      phone_number: '+2348012345678',
     },
-    subtotal: 500_000,
-    tax: 0,
-    total: 500_000,
-  },
-];
-const totals = [{ amount: 500_000, display_text: 'Total Due', type: 'total' }];
+    dvaAccount: {
+      account_name: 'Baci Test',
+      account_number: '1234567890',
+      bank_name: 'Paystack-Titan',
+    },
+    lineItems: [
+      {
+        base_amount: 500_000,
+        discount: 0,
+        id: 'line_product-1',
+        item: {
+          id: 'product-1',
+          product_id: 'product-1',
+          quantity: 1,
+          title: 'Phone',
+        },
+        subtotal: 500_000,
+        tax: 0,
+        total: 500_000,
+      },
+    ],
+    totals: [{ amount: 500_000, display_text: 'Total Due', type: 'total' }],
+  };
+}
 
 function makeSession(overrides: Record<string, unknown> = {}) {
+  const { buyer, dvaAccount, lineItems, totals } = makeValues();
+  const accountNumber =
+    typeof overrides.virtual_account_number === 'string'
+      ? overrides.virtual_account_number
+      : dvaAccount.account_number;
   return {
     cart_items: [{ id: 'product-1', quantity: 1 }],
     currency: 'NGN',
@@ -39,7 +48,7 @@ function makeSession(overrides: Record<string, unknown> = {}) {
     metadata: {
       agentic: {
         buyer,
-        dva_account: dvaAccount,
+        dva_account: { ...dvaAccount, account_number: accountNumber },
         line_items: lineItems,
         payment_state: 'payment_pending',
         totals,
@@ -48,19 +57,20 @@ function makeSession(overrides: Record<string, unknown> = {}) {
     order_id: 'order-1',
     payment_method: 'bank_transfer',
     payment_provider: 'paystack',
-    payment_reference: dvaAccount.account_number,
+    payment_reference: accountNumber,
     session_id: 'agentic_session_1',
     shipping_address: { city: 'Lagos' },
     shipping_method: 'pickup_store_1',
     status: 'processing',
     virtual_account_bank: dvaAccount.bank_name,
     virtual_account_name: dvaAccount.account_name,
-    virtual_account_number: dvaAccount.account_number,
+    virtual_account_number: accountNumber,
     ...overrides,
   };
 }
 
 function makeStoredResponse(overrides: Record<string, unknown> = {}) {
+  const { buyer, dvaAccount, lineItems, totals } = makeValues();
   return {
     buyer,
     currency: 'ngn',
