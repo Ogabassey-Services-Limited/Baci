@@ -18,6 +18,10 @@ describe('GET /openapi.json', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toContain('application/json');
+    expect(response.headers.get('cache-control')).toBe(
+      'no-store, max-age=0, must-revalidate'
+    );
+    expect(response.headers.get('cdn-cache-control')).toBe('no-store');
     expect(response.headers.get('vercel-cdn-cache-control')).toBe('no-store');
     expect(body.openapi).toBe('3.1.0');
     expect(body.info.title).toBe('Ogabassey Agentic Commerce API');

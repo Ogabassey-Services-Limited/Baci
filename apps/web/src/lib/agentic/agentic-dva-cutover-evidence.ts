@@ -182,6 +182,9 @@ export function assessAgenticDvaCutoverSession(
   ) {
     return manual('finalization_claim_missing');
   }
+  if (state === 'order_finalizing' && !nonEmptyString(finalizationOrderId)) {
+    return manual('finalization_order_marker_missing');
+  }
   const resumeMetadata: AgenticMetadata = { ...metadata, agentic };
 
   return {

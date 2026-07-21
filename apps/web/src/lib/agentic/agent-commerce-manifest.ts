@@ -25,7 +25,6 @@ import {
 } from '@/lib/storefront-agent-urls';
 
 export const AGENT_COMMERCE_SCHEMA_VERSION = '2026-04-30';
-export const AGENT_COMMERCE_CACHE_CONTROL = 'public, max-age=300';
 
 const AGENT_COMMERCE_CHECKOUT_CAPABILITIES = [
   'checkout.session.create',

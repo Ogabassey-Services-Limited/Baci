@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { buildCheckoutCompleteRequestSchema } from '@/app/openapi.json/checkout-complete-request-schema';
-import { AGENT_READINESS_CACHE_CONTROL } from '@/config/agent-readiness';
+import { AGENTIC_PAYMENT_DISCOVERY_NO_STORE_HEADERS } from '@/config/agentic-payment-discovery-cache';
 import { isAgenticPaystackDvaPaused } from '@/lib/agentic/agentic-paystack-dva-paused';
 import { checkoutCompletePaymentInfo } from '@/lib/agentic/mpp-checkout-payment-info';
 import { buildRequestBaseUrl } from '@/lib/storefront-host';
@@ -262,9 +262,6 @@ function buildOpenApiDocument(baseUrl: string) {
 
 export function GET(request: Request): NextResponse {
   return NextResponse.json(buildOpenApiDocument(buildRequestBaseUrl(request)), {
-    headers: {
-      'Cache-Control': AGENT_READINESS_CACHE_CONTROL,
-      'Vercel-CDN-Cache-Control': 'no-store',
-    },
+    headers: AGENTIC_PAYMENT_DISCOVERY_NO_STORE_HEADERS,
   });
 }

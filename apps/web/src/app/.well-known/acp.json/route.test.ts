@@ -57,7 +57,10 @@ describe('GET /.well-known/acp.json', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(response.headers.get('cache-control')).toBe('public, max-age=3600');
+    expect(response.headers.get('cache-control')).toBe(
+      'no-store, max-age=0, must-revalidate'
+    );
+    expect(response.headers.get('cdn-cache-control')).toBe('no-store');
     expect(response.headers.get('vercel-cdn-cache-control')).toBe('no-store');
     expect(body).toMatchObject({
       protocol: {

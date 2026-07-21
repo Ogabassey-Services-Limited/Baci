@@ -97,6 +97,7 @@ describe('assessAgenticDvaCutoverSession invariants', () => {
           agentic: {
             ...metadata.agentic,
             finalization_claim: `agentic_order_${'a'.repeat(64)}`,
+            finalization_order_id: 'order-1',
             payment_state: 'order_finalizing',
           },
         },
@@ -110,6 +111,24 @@ describe('assessAgenticDvaCutoverSession invariants', () => {
     expect(valid.resume?.unwrap().finalizationClaim).toBe(
       `agentic_order_${'a'.repeat(64)}`
     );
+
+    expect(
+      assessAgenticDvaCutoverSession(
+        accountReadyRow({
+          metadata: {
+            agentic: {
+              ...metadata.agentic,
+              finalization_claim: `agentic_order_${'a'.repeat(64)}`,
+              payment_state: 'order_finalizing',
+            },
+          },
+        }),
+        now
+      )
+    ).toMatchObject({
+      disposition: 'manual_review',
+      reason: 'finalization_order_marker_missing',
+    });
 
     expect(
       assessAgenticDvaCutoverSession(
