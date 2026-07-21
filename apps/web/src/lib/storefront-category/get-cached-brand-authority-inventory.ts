@@ -57,6 +57,7 @@ async function readCachedBrandAuthorityInventory(
     BRAND_AUTHORITY_PRODUCT_LIMIT,
     entry.minimumProducts
   );
+  let productCountIsLowerBound = false;
   let from = 0;
 
   while (true) {
@@ -90,6 +91,9 @@ async function readCachedBrandAuthorityInventory(
       rawProducts.length < BRAND_AUTHORITY_QUERY_PAGE_SIZE ||
       inStockProducts.length >= requiredProductCount
     ) {
+      productCountIsLowerBound =
+        rawProducts.length === BRAND_AUTHORITY_QUERY_PAGE_SIZE &&
+        inStockProducts.length >= requiredProductCount;
       break;
     }
     from += BRAND_AUTHORITY_QUERY_PAGE_SIZE;
@@ -100,6 +104,7 @@ async function readCachedBrandAuthorityInventory(
     latestUpdatedAt:
       typeof latestUpdatedAt === 'string' ? latestUpdatedAt : null,
     productCount: inStockProducts.length,
+    productCountIsLowerBound,
     products: inStockProducts,
   };
 }

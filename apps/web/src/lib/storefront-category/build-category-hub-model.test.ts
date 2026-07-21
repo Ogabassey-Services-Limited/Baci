@@ -387,7 +387,8 @@ describe('buildCategoryHubModel', () => {
           categorySlug: 'smartphones',
           displayName: 'Samsung',
           minimumProducts: 5,
-          productCount: 5,
+          productCount: 48,
+          productCountIsLowerBound: true,
         },
       ],
     });
@@ -399,6 +400,9 @@ describe('buildCategoryHubModel', () => {
     ]);
     expect(model.brandCards[0]?.href).toBe(
       'https://ogabassey.com/smartphones/brands/samsung'
+    );
+    expect(model.brandCards[0]?.description).toBe(
+      '48+ active products in this category.'
     );
   });
 

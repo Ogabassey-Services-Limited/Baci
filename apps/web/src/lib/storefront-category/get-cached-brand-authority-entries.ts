@@ -22,12 +22,18 @@ async function getCachedBrandAuthorityEntriesRead(
         categorySlug,
         entry
       );
-      return { entry, productCount: inventory.productCount };
+      return {
+        entry,
+        productCount: inventory.productCount,
+        productCountIsLowerBound: inventory.productCountIsLowerBound,
+      };
     })
   );
 
-  return counts.flatMap(({ entry, productCount }) =>
-    productCount >= entry.minimumProducts ? [{ ...entry, productCount }] : []
+  return counts.flatMap(({ entry, productCount, productCountIsLowerBound }) =>
+    productCount >= entry.minimumProducts
+      ? [{ ...entry, productCount, productCountIsLowerBound }]
+      : []
   );
 }
 

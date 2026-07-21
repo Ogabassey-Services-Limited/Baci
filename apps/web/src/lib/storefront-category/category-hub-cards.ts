@@ -218,7 +218,12 @@ function buildBrandCards(input: {
   categorySlug: string;
   storeUrl: string;
   products: CategoryHubProduct[];
-  brandAuthorityEntries?: Array<BrandAuthorityEntry & { productCount: number }>;
+  brandAuthorityEntries?: Array<
+    BrandAuthorityEntry & {
+      productCount: number;
+      productCountIsLowerBound?: boolean;
+    }
+  >;
 }) {
   const priorityDefaults =
     CATEGORY_HUB_DEFAULTS[
@@ -252,6 +257,7 @@ function buildBrandCards(input: {
             key: entry.brandKey,
             label: entry.displayName,
             count: entry.productCount,
+            countIsLowerBound: entry.productCountIsLowerBound ?? false,
           })),
           ...sortedBrands
             .filter(
@@ -274,9 +280,13 @@ function buildBrandCards(input: {
       ? `${input.storeUrl}/${input.categorySlug}/brands/${entry.key}`
       : `${input.storeUrl}/${input.categorySlug}/${representative?.slug}`;
 
+    const productCountLabel =
+      'countIsLowerBound' in entry && entry.countIsLowerBound
+        ? `${entry.count}+`
+        : String(entry.count);
     const card: CategoryHubCard = {
       title: entry.label,
-      description: `${entry.count} active ${entry.count === 1 ? 'product' : 'products'} in this category.`,
+      description: `${productCountLabel} active ${entry.count === 1 ? 'product' : 'products'} in this category.`,
       href,
       eyebrow: priorityDefaults.brandHighlights.heading,
     };
@@ -299,7 +309,12 @@ export function buildCategoryHubCards(input: {
   categorySlug: string;
   storeUrl: string;
   products: CategoryHubProduct[];
-  brandAuthorityEntries?: Array<BrandAuthorityEntry & { productCount: number }>;
+  brandAuthorityEntries?: Array<
+    BrandAuthorityEntry & {
+      productCount: number;
+      productCountIsLowerBound?: boolean;
+    }
+  >;
 }) {
   return {
     bestForCards: buildBestForCards(input),

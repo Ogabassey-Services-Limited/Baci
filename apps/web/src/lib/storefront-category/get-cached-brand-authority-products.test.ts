@@ -84,6 +84,35 @@ describe('getCachedBrandAuthorityProducts', () => {
     expect(query.order).toHaveBeenNthCalledWith(2, 'id', { ascending: true });
   });
 
+  it('marks a full qualified page as a lower-bound inventory count', async () => {
+    const query = makeQuery(
+      Array.from({ length: 100 }, (_, index) => ({
+        id: `product-${index}`,
+        name: `Samsung Galaxy ${index}`,
+        price: 100,
+        stock: 1,
+      }))
+    );
+    mockGetPublicSupabaseClient.mockReturnValue({ from: () => query });
+    const { brandAuthorityTaxonomy } = await import(
+      './brand-authority-taxonomy'
+    );
+    const { getCachedBrandAuthorityInventory } = await import(
+      './get-cached-brand-authority-inventory'
+    );
+    const entry = brandAuthorityTaxonomy.getEntry('smartphones', 'samsung');
+    if (!entry) throw new Error('Expected Samsung taxonomy entry');
+
+    await expect(
+      getCachedBrandAuthorityInventory('merchant-1', 'smartphones', entry)
+    ).resolves.toEqual(
+      expect.objectContaining({
+        productCount: 100,
+        productCountIsLowerBound: true,
+      })
+    );
+  });
+
   it('uses serialized public availability instead of stale product stock', async () => {
     const product = {
       id: 'product-1',
