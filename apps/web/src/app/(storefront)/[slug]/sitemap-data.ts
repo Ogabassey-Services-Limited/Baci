@@ -8,8 +8,9 @@ import { normalizeProductKeySpecs } from '@/lib/product-key-specs-normalize';
 import { isRawDbProductRecord, type RawDbProduct } from '@/lib/raw-db-product';
 import { isRepairsCatalogEnabled } from '@/lib/repairs/repairs-feature';
 import { escapeHtml } from '@/lib/sanitize-core';
-import { getProductUrl } from '@/lib/seo-utils';
+import { generateSlug, getProductUrl } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
+import { brandAuthorityTaxonomy } from '@/lib/storefront-category/brand-authority-taxonomy';
 import { buildCommercialSupportDiscoveryLinks } from '@/lib/storefront-compare/build-compare-discovery-links';
 import {
   resolveMerchantContextIdentifier,
@@ -364,6 +365,61 @@ export async function getCategorySitemapEntries({
   }));
 }
 
+interface BrandAuthoritySitemapProduct {
+  brand: string | null;
+  updated_at: string | null;
+  categories: { slug: string | null } | null;
+}
+
+export async function getBrandAuthoritySitemapEntries({
+  supabase,
+  merchant,
+  storeUrl,
+}: StorefrontSitemapContext): Promise<MetadataRoute.Sitemap> {
+  const { data, error } = (await supabase
+    .from('products')
+    .select('brand, updated_at, categories:category_id!inner(slug)')
+    .eq('merchant_id', merchant.id)
+    .eq('categories.slug', 'smartphones')
+    .eq('status', 'active')) as {
+    data: BrandAuthoritySitemapProduct[] | null;
+    error: PostgrestError | null;
+  };
+
+  if (error) {
+    throw error;
+  }
+
+  const products = (data ?? []).map((product, index) => ({
+    slug: `sitemap-product-${index}`,
+    name: `Sitemap product ${index}`,
+    price: 0,
+    brand: product.brand,
+  }));
+  const eligibleEntries = brandAuthorityTaxonomy.getEligibleEntries(
+    'smartphones',
+    products
+  );
+
+  return eligibleEntries.map((entry) => {
+    const timestamps = (data ?? [])
+      .filter((product) => generateSlug(product.brand ?? '') === entry.brandKey)
+      .map((product) => product.updated_at)
+      .filter((value): value is string => Boolean(value))
+      .map((value) => new Date(value).getTime())
+      .filter(Number.isFinite);
+    const latestTimestamp =
+      timestamps.length > 0 ? Math.max(...timestamps) : null;
+
+    return {
+      url: `${storeUrl}/${entry.categorySlug}/brands/${entry.brandKey}`,
+      lastModified: latestTimestamp ? new Date(latestTimestamp) : undefined,
+      changeFrequency: 'daily',
+      priority: 0.7,
+    };
+  });
+}
+
 /**
  * Whether the repairs catalogue is publicly enabled for this merchant. The
  * `/repairs` index and per-device pages only render (and should only be
@@ -566,6 +622,7 @@ export function getSitemapIndexLinks(
     `${storeUrl}/sitemap/static.xml`,
     `${storeUrl}/sitemap/products.xml`,
     `${storeUrl}/sitemap/categories.xml`,
+    `${storeUrl}/sitemap/brand-authority.xml`,
     `${storeUrl}/sitemap/commercial-support.xml`,
   ];
 
@@ -598,6 +655,8 @@ export function getNamedSitemapEntries(
       return getProductSitemapEntries(context);
     case 'categories':
       return getCategorySitemapEntries(context);
+    case 'brand-authority':
+      return getBrandAuthoritySitemapEntries(context);
     case 'commercial-support':
       return getCommercialSupportSitemapEntries(context);
     case 'repairs':

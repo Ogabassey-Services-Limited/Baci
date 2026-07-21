@@ -1,8 +1,10 @@
 import { CATEGORY_HUB_DEFAULTS } from '@/config/category-hub-defaults';
 import { generateSlug } from '@/lib/seo-utils';
+import { brandAuthorityTaxonomy } from '@/lib/storefront-category/brand-authority-taxonomy';
 import { countBrandsByActiveProduct } from '@/lib/storefront-category/category-hub-brand-utils';
 import { buildPriceBandCards } from '@/lib/storefront-category/category-hub-price-band-cards';
 import type {
+  BrandAuthorityEntry,
   CategoryHubCard,
   CategoryHubProduct,
 } from '@/lib/storefront-category/category-hub-types';
@@ -216,6 +218,7 @@ function buildBrandCards(input: {
   categorySlug: string;
   storeUrl: string;
   products: CategoryHubProduct[];
+  brandAuthorityEntries?: Array<BrandAuthorityEntry & { productCount: number }>;
 }) {
   const priorityDefaults =
     CATEGORY_HUB_DEFAULTS[
@@ -226,21 +229,45 @@ function buildBrandCards(input: {
   }
 
   const sortedBrands = countBrandsByActiveProduct(input.products);
+  const explicitAuthorityEntries = input.brandAuthorityEntries ?? [];
+  const eligibleAuthorityEntries =
+    explicitAuthorityEntries.length > 0
+      ? explicitAuthorityEntries
+      : brandAuthorityTaxonomy.getEligibleEntries(
+          input.categorySlug,
+          input.products
+        );
+  const authorityEntries = new Map(
+    eligibleAuthorityEntries.map((entry) => [entry.brandKey, entry])
+  );
   const canonicalBrandCandidate = buildBrandCompareCandidate({
     categorySlug: input.categorySlug,
     products: input.products,
   });
 
-  return sortedBrands.slice(0, 3).flatMap((entry) => {
+  const displayedBrands =
+    explicitAuthorityEntries.length > 0
+      ? explicitAuthorityEntries.slice(0, 5).map((entry) => ({
+          key: entry.brandKey,
+          label: entry.displayName,
+          count: entry.productCount,
+        }))
+      : sortedBrands.slice(0, authorityEntries.size > 0 ? 5 : 3);
+
+  return displayedBrands.flatMap((entry) => {
     const representative = pickFirstBrandProduct(input.products, entry.label);
-    if (!representative) {
+    const authorityEntry = authorityEntries.get(entry.key);
+    if (!authorityEntry && !representative) {
       return [];
     }
+    const href = authorityEntry
+      ? `${input.storeUrl}/${input.categorySlug}/brands/${entry.key}`
+      : `${input.storeUrl}/${input.categorySlug}/${representative?.slug}`;
 
     const card: CategoryHubCard = {
       title: entry.label,
       description: `${entry.count} active ${entry.count === 1 ? 'product' : 'products'} in this category.`,
-      href: `${input.storeUrl}/${input.categorySlug}/${representative.slug}`,
+      href,
       eyebrow: priorityDefaults.brandHighlights.heading,
     };
 
@@ -262,6 +289,7 @@ export function buildCategoryHubCards(input: {
   categorySlug: string;
   storeUrl: string;
   products: CategoryHubProduct[];
+  brandAuthorityEntries?: Array<BrandAuthorityEntry & { productCount: number }>;
 }) {
   return {
     bestForCards: buildBestForCards(input),

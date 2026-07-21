@@ -506,6 +506,7 @@ describe('sitemap-data', () => {
       'https://ogabassey.com/sitemap/static.xml',
       'https://ogabassey.com/sitemap/products.xml',
       'https://ogabassey.com/sitemap/categories.xml',
+      'https://ogabassey.com/sitemap/brand-authority.xml',
       'https://ogabassey.com/sitemap/commercial-support.xml',
       'https://ogabassey.com/blog/sitemap.xml',
       'https://ogabassey.com/blog/news-sitemap.xml',
@@ -539,6 +540,7 @@ describe('sitemap-data', () => {
       'https://ogabassey.com/sitemap/static.xml',
       'https://ogabassey.com/sitemap/products.xml',
       'https://ogabassey.com/sitemap/categories.xml',
+      'https://ogabassey.com/sitemap/brand-authority.xml',
       'https://ogabassey.com/sitemap/commercial-support.xml',
       'https://ogabassey.com/sitemap/repairs.xml',
     ]);
@@ -684,6 +686,7 @@ describe('sitemap-data', () => {
       'https://ogabassey.com/sitemap/static.xml',
       'https://ogabassey.com/sitemap/products.xml',
       'https://ogabassey.com/sitemap/categories.xml',
+      'https://ogabassey.com/sitemap/brand-authority.xml',
       'https://ogabassey.com/sitemap/commercial-support.xml',
     ]);
   });
@@ -701,6 +704,7 @@ describe('sitemap-data', () => {
       'https://ogabassey.com/sitemap/static.xml',
       'https://ogabassey.com/sitemap/products.xml',
       'https://ogabassey.com/sitemap/categories.xml',
+      'https://ogabassey.com/sitemap/brand-authority.xml',
       'https://ogabassey.com/sitemap/commercial-support.xml',
     ]);
   });
@@ -1344,6 +1348,44 @@ describe('sitemap-data', () => {
       expect.objectContaining({ url: 'https://ogabassey.com/smartphones' }),
     ]);
     expect(entries[0]?.lastModified).toBeUndefined();
+  });
+
+  it('lists only inventory-qualified curated brand authority hubs', async () => {
+    mockProductsQuery([
+      ...Array.from({ length: 5 }, (_, index) => ({
+        brand: 'Samsung',
+        updated_at: `2026-07-${String(index + 10).padStart(2, '0')}T00:00:00Z`,
+        categories: { slug: 'smartphones' },
+      })),
+      ...Array.from({ length: 5 }, () => ({
+        brand: 'Google',
+        updated_at: null,
+        categories: { slug: 'smartphones' },
+      })),
+      ...Array.from({ length: 4 }, () => ({
+        brand: 'Tecno',
+        updated_at: null,
+        categories: { slug: 'smartphones' },
+      })),
+    ]);
+    const { getBrandAuthoritySitemapEntries } = sitemapData;
+
+    const entries = await getBrandAuthoritySitemapEntries({
+      merchant: { id: 'merchant-1', slug: 'ogabassey' },
+      storeUrl: 'https://ogabassey.com',
+      supabase: {
+        from: (table: string) => ({
+          select: () => ({ eq: createEq(table) }),
+        }),
+      },
+    } as unknown as StorefrontSitemapContext);
+
+    expect(entries.map((entry) => entry.url)).toEqual([
+      'https://ogabassey.com/smartphones/brands/samsung',
+      'https://ogabassey.com/smartphones/brands/google',
+    ]);
+    expect(entries[0]?.lastModified).toEqual(new Date('2026-07-14T00:00:00Z'));
+    expect(entries[1]?.lastModified).toBeUndefined();
   });
 
   it('omits lastmod from commercial-support entries when the category has no timestamp', async () => {

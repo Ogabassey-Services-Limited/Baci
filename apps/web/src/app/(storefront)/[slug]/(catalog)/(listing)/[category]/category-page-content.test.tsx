@@ -11,6 +11,7 @@ const {
   mockGenerateCollectionPageSchema,
   mockGenerateFAQSchema,
   mockGetCachedCategoryPageData,
+  mockGetCachedBrandAuthorityEntries,
   mockGetCachedProductSemanticInventory,
   mockGetMerchantByIdentifier,
   mockGetPublishedClusterPosts,
@@ -27,6 +28,7 @@ const {
   mockGenerateCollectionPageSchema: vi.fn(() => ({})),
   mockGenerateFAQSchema: vi.fn(() => ({})),
   mockGetCachedCategoryPageData: vi.fn(),
+  mockGetCachedBrandAuthorityEntries: vi.fn(),
   mockGetCachedProductSemanticInventory: vi.fn(),
   mockGetMerchantByIdentifier: vi.fn(),
   mockGetPublishedClusterPosts: vi.fn(),
@@ -131,6 +133,11 @@ vi.mock('@/lib/store-url', () => ({
   buildStoreUrl: (...args: unknown[]) => mockBuildStoreUrl(...args),
 }));
 
+vi.mock('@/lib/storefront-category/get-cached-brand-authority-entries', () => ({
+  getCachedBrandAuthorityEntries: (...args: unknown[]) =>
+    mockGetCachedBrandAuthorityEntries(...args),
+}));
+
 vi.mock('@/lib/storefront-content/get-published-cluster-posts', () => ({
   getPublishedClusterPosts: (...args: unknown[]) =>
     mockGetPublishedClusterPosts(...args),
@@ -181,6 +188,7 @@ describe('CategoryPageContent', () => {
       category: null,
       products: [{ id: 'product-1' }],
     });
+    mockGetCachedBrandAuthorityEntries.mockResolvedValue([]);
     mockResolveCategoryPageName.mockReturnValue('Phones');
     mockNormalizeCategoryPageProducts.mockReturnValue([
       {

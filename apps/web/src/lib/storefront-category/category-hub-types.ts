@@ -5,6 +5,13 @@ import type {
 
 export type CategoryHubSource = 'merchant' | 'curated' | 'fallback';
 
+export interface BrandAuthorityEntry {
+  brandKey: string;
+  categorySlug: string;
+  displayName: string;
+  minimumProducts: number;
+}
+
 export interface CategoryHubFaqItem {
   question: string;
   answer: string;
@@ -90,6 +97,7 @@ export interface BuildCategoryHubModelInput {
   merchantBusinessName: string;
   storeUrl: string;
   products: CategoryHubProduct[];
+  brandAuthorityEntries?: Array<BrandAuthorityEntry & { productCount: number }>;
   comparisonLinks?: CategoryHubComparisonLink[];
   guidePosts?: PublishedClusterPost[];
   categorySeo?: CategoryHubSeoInput | null;

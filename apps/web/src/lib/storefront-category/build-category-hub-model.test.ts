@@ -303,6 +303,52 @@ describe('buildCategoryHubModel', () => {
     ]);
   });
 
+  it('links five inventory-qualified smartphone brands to authority hubs', () => {
+    const products = Array.from({ length: 5 }, (_, productIndex) =>
+      makeProduct({
+        brand: 'Samsung',
+        name: `Samsung Phone ${productIndex}`,
+        slug: `samsung-phone-${productIndex}`,
+        price: 100_000 + productIndex,
+      })
+    );
+    const model = buildCategoryHubModel({
+      categorySlug: 'smartphones',
+      categoryName: 'Smartphones',
+      merchantBusinessName: 'Ogabassey',
+      storeUrl: 'https://ogabassey.com',
+      products,
+      brandAuthorityEntries: [
+        ['samsung', 'Samsung', 50],
+        ['google', 'Google Pixel', 19],
+        ['infinix', 'Infinix', 18],
+        ['tecno', 'Tecno', 15],
+        ['itel', 'Itel', 29],
+      ].map(([brandKey, displayName, productCount]) => ({
+        brandKey: String(brandKey),
+        categorySlug: 'smartphones',
+        displayName: String(displayName),
+        minimumProducts: 5,
+        productCount: Number(productCount),
+      })),
+    });
+
+    expect(model.brandCards.map((card) => card.title)).toEqual([
+      'Samsung',
+      'Google Pixel',
+      'Infinix',
+      'Tecno',
+      'Itel',
+    ]);
+    expect(model.brandCards.map((card) => card.href)).toEqual([
+      'https://ogabassey.com/smartphones/brands/samsung',
+      'https://ogabassey.com/smartphones/brands/google',
+      'https://ogabassey.com/smartphones/brands/infinix',
+      'https://ogabassey.com/smartphones/brands/tecno',
+      'https://ogabassey.com/smartphones/brands/itel',
+    ]);
+  });
+
   it.each([
     [
       'laptops',

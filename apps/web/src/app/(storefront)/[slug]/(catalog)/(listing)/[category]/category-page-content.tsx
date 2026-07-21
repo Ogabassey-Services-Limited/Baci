@@ -20,6 +20,7 @@ import {
   generateFAQSchema,
 } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl, buildStoreUrl } from '@/lib/store-url';
+import { getCachedBrandAuthorityEntries } from '@/lib/storefront-category/get-cached-brand-authority-entries';
 import type { SupportedClusterCategory } from '@/lib/storefront-content/content-cluster-types';
 import { loadPublishedClusterPostsSafely } from '@/lib/storefront-content/load-published-cluster-posts-safely';
 import {
@@ -129,7 +130,7 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
     category in CONTENT_CLUSTER_SUPPORT
       ? (category as SupportedClusterCategory)
       : null;
-  const [data, guidePosts] = await Promise.all([
+  const [data, guidePosts, brandAuthorityEntries] = await Promise.all([
     getCachedCategoryPageData(
       merchant.id,
       category,
@@ -143,6 +144,7 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
           categorySlug: supportedClusterCategory,
         })
       : Promise.resolve([]),
+    getCachedBrandAuthorityEntries(merchant.id, category),
   ]);
 
   if (!data.isCollection && data.isInactiveCategory) {
@@ -220,6 +222,7 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
     storeUrl: requestScopedBaseUrl,
     products: normalizedProducts,
     guidePosts,
+    brandAuthorityEntries,
   });
   const paginatedCategoryUrl =
     currentPage > 1
