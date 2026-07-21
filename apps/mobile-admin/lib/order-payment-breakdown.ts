@@ -48,6 +48,33 @@ function getStoredInclusiveDisplaySubtotal(
   return displaySubtotal >= 0 ? displaySubtotal : null;
 }
 
+function hasStoredTaxExcludedTotal(
+  input: Pick<
+    OrderPaymentBreakdownInput,
+    'taxBasis' | 'taxExclusiveAmount' | 'taxInclusiveAmount'
+  >,
+  order: OrderMoneyFields
+): boolean {
+  if (
+    order.tax_amount <= 0 ||
+    input.taxBasis !== null ||
+    input.taxExclusiveAmount === null ||
+    input.taxExclusiveAmount === undefined ||
+    input.taxInclusiveAmount === null ||
+    input.taxInclusiveAmount === undefined
+  ) {
+    return false;
+  }
+
+  const taxExclusiveAmount = toAmount(input.taxExclusiveAmount);
+  const taxInclusiveAmount = toAmount(input.taxInclusiveAmount);
+
+  return (
+    almostEqual(order.total, taxExclusiveAmount) &&
+    almostEqual(taxInclusiveAmount, taxExclusiveAmount + order.tax_amount)
+  );
+}
+
 interface OrderPaymentBreakdownInput {
   currency?: string | null;
   discountAmount?: number | null;
@@ -57,6 +84,8 @@ interface OrderPaymentBreakdownInput {
   subtotal?: number | null;
   taxAmount?: number | null;
   taxBasis?: 'exclusive' | 'inclusive' | null;
+  taxExclusiveAmount?: number | null;
+  taxInclusiveAmount?: number | null;
   total?: number | null;
   walletAmountUsed?: number | null;
 }
@@ -100,10 +129,10 @@ export function buildOrderPaymentBreakdown(
   const receiptDisplaySubtotal = input.merchant
     ? getReceiptDisplaySubtotal(order, input.merchant)
     : subtotal;
-  const taxWasExcludedFromTotal =
-    taxAmount > 0 &&
-    input.taxBasis !== 'inclusive' &&
-    almostEqual(order.total, getTaxExclusiveTotal(order));
+  // Null tax_basis is deliberately retained for legacy orders. Only hide the
+  // VAT row when the persisted tax-exclusive and tax-inclusive totals prove
+  // the customer was charged the tax-exclusive amount.
+  const taxWasExcludedFromTotal = hasStoredTaxExcludedTotal(input, order);
   const displaySubtotal = taxWasExcludedFromTotal
     ? subtotal
     : (getStoredInclusiveDisplaySubtotal(order) ?? receiptDisplaySubtotal);

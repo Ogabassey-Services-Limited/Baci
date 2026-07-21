@@ -60,18 +60,41 @@ describe('buildOrderPaymentBreakdown', () => {
     expect(breakdown.showVat).toBe(false);
   });
 
-  it('does not split VAT that was excluded from the charged total', () => {
+  it('does not split VAT when stored tax totals show it was excluded from the charged total', () => {
     const breakdown = buildOrderPaymentBreakdown({
       currency: 'NGN',
       merchant: registeredMerchant,
       shippingFee: 0,
       subtotal: 1270000,
       taxAmount: 95250,
+      taxBasis: null,
+      taxExclusiveAmount: 1270000,
+      taxInclusiveAmount: 1365250,
       total: 1270000,
     });
 
     expect(breakdown.showVat).toBe(false);
     expect(breakdown.displaySubtotal).toBe(1270000);
+  });
+
+  it('keeps the VAT row for a legacy inclusive-shaped order with an unknown tax basis', () => {
+    const total = 235000;
+    const taxAmount = total - total / 1.075;
+    const breakdown = buildOrderPaymentBreakdown({
+      currency: 'NGN',
+      merchant: registeredMerchant,
+      shippingFee: 25000,
+      subtotal: 210000,
+      taxAmount,
+      taxBasis: null,
+      total,
+    });
+
+    expect(breakdown.showVat).toBe(true);
+    expect(breakdown.displaySubtotal + 25000 + breakdown.taxAmount).toBeCloseTo(
+      total,
+      2
+    );
   });
 
   it('still discloses stored tax when merchant settings are missing', () => {
