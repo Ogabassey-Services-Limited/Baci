@@ -72,9 +72,13 @@ describe('transaction review visibility', () => {
     };
     const legacyRow = { id: 'legacy-order', shipping_status: null };
 
-    expect(
-      filterCancelledTransactionReviewRows([activeRow, cancelledRow, legacyRow])
-    ).toEqual([activeRow, legacyRow]);
+    const visibleRows = filterCancelledTransactionReviewRows([
+      activeRow,
+      cancelledRow,
+      legacyRow,
+    ]);
+
+    expect(visibleRows).toEqual([activeRow, legacyRow]);
   });
 });
 
