@@ -44,7 +44,9 @@ describe('getCachedBrandAuthorityEntries', () => {
   });
 
   it('fails optional category links open when the query fails', async () => {
-    mockGetCachedBrandAuthorityInventory.mockRejectedValue(new Error('timeout'));
+    mockGetCachedBrandAuthorityInventory.mockRejectedValue(
+      new Error('timeout')
+    );
     const { getCachedBrandAuthorityEntries } = await import(
       './get-cached-brand-authority-entries'
     );

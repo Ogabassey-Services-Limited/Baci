@@ -108,7 +108,11 @@ export function getCachedBrandAuthorityProducts(
   categorySlug: string,
   entry: BrandAuthorityEntry
 ) {
-  return getCachedBrandAuthorityInventoryRead(merchantId, categorySlug, entry).then(
-    (inventory) => inventory.products.slice(0, BRAND_AUTHORITY_PRODUCT_LIMIT)
+  return getCachedBrandAuthorityInventoryRead(
+    merchantId,
+    categorySlug,
+    entry
+  ).then((inventory) =>
+    inventory.products.slice(0, BRAND_AUTHORITY_PRODUCT_LIMIT)
   );
 }

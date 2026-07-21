@@ -23,10 +23,13 @@ vi.mock('@/lib/cached-data', () => ({
   getCachedCategoryPageData: (...args: unknown[]) =>
     mockGetCachedCategoryPageData(...args),
 }));
-vi.mock('@/lib/storefront-category/get-cached-brand-authority-products', () => ({
-  getCachedBrandAuthorityInventory: (...args: unknown[]) =>
-    mockGetCachedBrandAuthorityInventory(...args),
-}));
+vi.mock(
+  '@/lib/storefront-category/get-cached-brand-authority-products',
+  () => ({
+    getCachedBrandAuthorityInventory: (...args: unknown[]) =>
+      mockGetCachedBrandAuthorityInventory(...args),
+  })
+);
 
 vi.mock('@/lib/storefront-compare/build-compare-discovery-links', () => ({
   buildCommercialSupportDiscoveryLinks: (...args: unknown[]) =>
