@@ -51,6 +51,7 @@ export interface TransactionReviewOrderRow {
   }> | null;
   order_number: string | null;
   payment_method: string | null;
+  shipping_status?: string | null;
   total: number | null;
 }
 

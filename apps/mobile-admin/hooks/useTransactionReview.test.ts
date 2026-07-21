@@ -1,12 +1,82 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({
+  eq: vi.fn(),
+  from: vi.fn(),
+  gte: vi.fn(),
+  limit: vi.fn(),
+  lte: vi.fn(),
+  neq: vi.fn(),
+  or: vi.fn(),
+  order: vi.fn(),
+  select: vi.fn(),
+}));
+
+const query = {
+  eq: mocks.eq,
+  gte: mocks.gte,
+  limit: mocks.limit,
+  lte: mocks.lte,
+  neq: mocks.neq,
+  or: mocks.or,
+  order: mocks.order,
+  select: mocks.select,
+};
 
 vi.mock('@/hooks/useMerchant', () => ({
   useMerchant: () => ({ merchant: null }),
 }));
 
 vi.mock('@/lib/supabase', () => ({
-  supabase: {},
+  supabase: { from: mocks.from },
 }));
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mocks.from.mockReturnValue(query);
+  mocks.select.mockReturnValue(query);
+  mocks.eq.mockReturnValue(query);
+  mocks.neq.mockReturnValue(query);
+  mocks.order.mockReturnValue(query);
+  mocks.or.mockReturnValue(query);
+  mocks.gte.mockReturnValue(query);
+  mocks.lte.mockReturnValue(query);
+  mocks.limit.mockResolvedValue({ data: [], error: null });
+});
+
+describe('transaction review visibility', () => {
+  it('excludes cancelled orders from transaction review queries', async () => {
+    const { fetchTransactionReviewRows } = await import(
+      './useTransactionReview'
+    );
+
+    await fetchTransactionReviewRows({
+      includeTransactionDate: true,
+      merchantId: 'merchant-1',
+      selectStatement: 'id',
+    });
+
+    expect(mocks.or).toHaveBeenCalledWith(
+      'shipping_status.is.null,shipping_status.neq.cancelled'
+    );
+  });
+
+  it('removes cancelled rows returned by the transaction query', async () => {
+    const { filterCancelledTransactionReviewRows } = await import(
+      './useTransactionReview'
+    );
+    const activeRow = { id: 'active-order', shipping_status: 'pending' };
+    const cancelledRow = {
+      id: 'cancelled-order',
+      shipping_status: 'cancelled',
+    };
+    const legacyRow = { id: 'legacy-order', shipping_status: null };
+
+    expect(
+      filterCancelledTransactionReviewRows([activeRow, cancelledRow, legacyRow])
+    ).toEqual([activeRow, legacyRow]);
+  });
+});
 
 describe('isTransactionReviewSchemaCacheError', () => {
   it('keeps existing cost and supplier fields in the legacy fallback select', async () => {
