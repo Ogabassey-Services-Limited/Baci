@@ -6,7 +6,6 @@ import { JsonLd, type JsonLdData } from '@/components/seo/json-ld';
 import { CategoryPage as OgabasseyCategoryPage } from '@/components/storefront/ogabassey/pages/category-page';
 import { V2ComparisonScope } from '@/components/storefront/ogabassey/providers/v2-comparison-scope';
 import { CategoryHubSections } from '@/components/storefront/ogabassey/seo/category-hub-sections';
-import { CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters';
 import {
   getCachedCategoryPageData,
   getMerchantByIdentifier,
@@ -20,9 +19,6 @@ import {
   generateFAQSchema,
 } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl, buildStoreUrl } from '@/lib/store-url';
-import { getCachedBrandAuthorityEntries } from '@/lib/storefront-category/get-cached-brand-authority-entries';
-import type { SupportedClusterCategory } from '@/lib/storefront-content/content-cluster-types';
-import { loadPublishedClusterPostsSafely } from '@/lib/storefront-content/load-published-cluster-posts-safely';
 import {
   parseStorefrontPageParam,
   STOREFRONT_PRODUCTS_PER_PAGE,
@@ -41,6 +37,7 @@ import {
 } from './category-page-content-helpers';
 import { CategoryPageCrawlSummary } from './category-page-crawl-summary';
 import { CategoryPageDeferredCompareLinks } from './category-page-deferred-compare-links';
+import { loadCategoryHubContent } from './load-category-hub-content';
 
 interface PageProps {
   params: Promise<{
@@ -126,10 +123,6 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
   }
 
   const productOffset = (currentPage - 1) * STOREFRONT_PRODUCTS_PER_PAGE;
-  const supportedClusterCategory =
-    category in CONTENT_CLUSTER_SUPPORT
-      ? (category as SupportedClusterCategory)
-      : null;
   const data = await getCachedCategoryPageData(
     merchant.id,
     category,
@@ -142,9 +135,6 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
     return renderCategoryNotFoundContent({ slug });
   }
 
-  // Doorway-trap stopgap (crawl-budget) — keep in lockstep with generateMetadata
-  // so the rendered shell and the metadata robots agree. Unknown/typo slug:
-  // no collection, no category row, no fuzzy-matched products.
   if (
     !data.isCollection &&
     !data.category?.id &&
@@ -155,22 +145,11 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
     return renderCategoryNotFoundContent({ slug });
   }
 
-  const canLoadBrandAuthorityEntries =
-    !data.isCollection &&
-    !data.isInactiveCategory &&
-    Boolean(data.category?.id);
-
-  const [guidePosts, brandAuthorityEntries] = await Promise.all([
-    supportedClusterCategory
-      ? loadPublishedClusterPostsSafely(merchant.id, {
-          pageKind: 'category',
-          categorySlug: supportedClusterCategory,
-        })
-      : Promise.resolve([]),
-    canLoadBrandAuthorityEntries
-      ? getCachedBrandAuthorityEntries(merchant.id, category)
-      : Promise.resolve([]),
-  ]);
+  const { guidePosts, brandAuthorityEntries } = await loadCategoryHubContent({
+    merchantId: merchant.id,
+    categorySlug: category,
+    categoryData: data,
+  });
 
   const productSlots = getCategoryPageProductSlots(data);
   const products = data.products as unknown as RawDbProduct[];
@@ -284,8 +263,6 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
 
       <V2ComparisonScope storageNamespace={merchant.id}>
         <OgabasseyCategoryPage
-          // Hub sections are composed here in the RSC boundary so `SafeHtml`
-          // (sanitize-html, 254 KB) renders on the server and never enters the
           // CategoryPage client bundle. Injected as a ReactNode slot.
           hubSections={<CategoryHubSections hub={hubContent} />}
           currentPage={categoryPageCurrentPage}
