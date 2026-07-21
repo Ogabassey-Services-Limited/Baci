@@ -31,6 +31,7 @@ export function buildOrderFinalizationClaim({
 export async function claimAgenticOrderFinalization({
   buyer,
   dvaAccount,
+  expectedUpdatedAt,
   finalizationClaim,
   merchantId,
   metadata,
@@ -39,13 +40,14 @@ export async function claimAgenticOrderFinalization({
 }: {
   buyer: AgenticCheckoutBuyer;
   dvaAccount: StoredDvaAccount;
+  expectedUpdatedAt?: string;
   finalizationClaim: string;
   merchantId: string;
   metadata: AgenticMetadata;
   sessionId: string;
   supabase: SupabaseClient;
 }) {
-  const { data, error } = await supabase
+  let claimQuery = supabase
     .from('checkout_sessions')
     .update({
       metadata: buildOrderFinalizationMetadata({
@@ -65,9 +67,11 @@ export async function claimAgenticOrderFinalization({
       agentic: {
         payment_state: 'payment_account_ready',
       },
-    })
-    .select('session_id')
-    .maybeSingle();
+    });
+  if (expectedUpdatedAt !== undefined) {
+    claimQuery = claimQuery.eq('updated_at', expectedUpdatedAt);
+  }
+  const { data, error } = await claimQuery.select('session_id').maybeSingle();
 
   if (
     !error &&
@@ -77,6 +81,7 @@ export async function claimAgenticOrderFinalization({
     return reclaimExistingOrderFinalizationClaim({
       buyer,
       dvaAccount,
+      expectedUpdatedAt,
       finalizationClaim,
       merchantId,
       metadata,
@@ -196,6 +201,7 @@ export async function recordAgenticOrderFinalizationOrderCreated({
 async function reclaimExistingOrderFinalizationClaim({
   buyer,
   dvaAccount,
+  expectedUpdatedAt,
   finalizationClaim,
   merchantId,
   metadata,
@@ -204,13 +210,14 @@ async function reclaimExistingOrderFinalizationClaim({
 }: {
   buyer: AgenticCheckoutBuyer;
   dvaAccount: StoredDvaAccount;
+  expectedUpdatedAt?: string;
   finalizationClaim: string;
   merchantId: string;
   metadata: AgenticMetadata;
   sessionId: string;
   supabase: SupabaseClient;
 }) {
-  const { data, error } = await supabase
+  let reclaimQuery = supabase
     .from('checkout_sessions')
     .update({
       metadata: buildOrderFinalizationMetadata({
@@ -231,9 +238,11 @@ async function reclaimExistingOrderFinalizationClaim({
         finalization_claim: finalizationClaim,
         payment_state: 'order_finalizing',
       },
-    })
-    .select('session_id')
-    .maybeSingle();
+    });
+  if (expectedUpdatedAt !== undefined) {
+    reclaimQuery = reclaimQuery.eq('updated_at', expectedUpdatedAt);
+  }
+  const { data, error } = await reclaimQuery.select('session_id').maybeSingle();
 
   if (error) {
     logger.error({
@@ -263,19 +272,24 @@ function buildOrderFinalizationMetadata({
   orderError?: unknown;
   paymentState: 'order_finalizing' | 'payment_account_ready';
 }) {
+  const agentic = {
+    ...(metadata.agentic ?? {}),
+    ...(buyer ? { buyer } : {}),
+    ...(dvaAccount ? { dva_account: dvaAccount } : {}),
+    ...(orderId ? { finalization_order_id: orderId } : {}),
+    ...(orderError === undefined
+      ? {}
+      : { finalization_error: sanitizeForLog(orderError) }),
+    finalization_claim: finalizationClaim,
+    finalization_updated_at: new Date().toISOString(),
+    payment_state: paymentState,
+  };
+  if (paymentState === 'payment_account_ready') {
+    delete agentic.finalization_order_id;
+  }
+
   return {
     ...metadata,
-    agentic: {
-      ...(metadata.agentic ?? {}),
-      ...(buyer ? { buyer } : {}),
-      ...(dvaAccount ? { dva_account: dvaAccount } : {}),
-      ...(orderId ? { finalization_order_id: orderId } : {}),
-      ...(orderError === undefined
-        ? {}
-        : { finalization_error: sanitizeForLog(orderError) }),
-      finalization_claim: finalizationClaim,
-      finalization_updated_at: new Date().toISOString(),
-      payment_state: paymentState,
-    },
+    agentic,
   };
 }

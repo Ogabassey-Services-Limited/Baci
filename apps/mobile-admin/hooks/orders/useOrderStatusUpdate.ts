@@ -24,7 +24,8 @@ async function updateOrderStatus(
   orderId: string,
   status: ShippingStatus
 ): Promise<Order> {
-  const url = `${BASE_URL}/api/orders/${orderId}`;
+  const isCancellation = status === 'cancelled';
+  const url = `${BASE_URL}/api/orders/${orderId}${isCancellation ? '/cancelled' : ''}`;
 
   if (IS_DEV_RUNTIME) {
     console.log('[OrderStatus] PATCH start', { orderId, status, url });
@@ -36,12 +37,14 @@ async function updateOrderStatus(
       url,
       {
         body: JSON.stringify({
-          shipping_status: status,
+          ...(isCancellation
+            ? { cancelled_by: 'merchant', confirm_cancellation: true }
+            : { shipping_status: status }),
         }),
         headers: {
           'Content-Type': 'application/json',
         },
-        method: 'PATCH',
+        method: isCancellation ? 'POST' : 'PATCH',
       },
       ORDER_STATUS_UPDATE_TIMEOUT_MS
     );
@@ -81,6 +84,10 @@ async function updateOrderStatus(
     }
 
     throw new Error(errorMessage);
+  }
+
+  if (isCancellation) {
+    return { id: orderId, shipping_status: 'cancelled' } as Order;
   }
 
   if (

@@ -112,6 +112,41 @@ describe('useUpdateOrderStatus', () => {
     );
   });
 
+  it('uses the audited cancellation endpoint instead of the generic patch route', async () => {
+    networkMock.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token-1' } },
+    });
+    networkMock.fetch.mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify({ success: true }),
+    });
+
+    const mutation = useUpdateOrderStatus() as unknown as {
+      mutationFn: (vars: {
+        orderId: string;
+        status: string;
+      }) => Promise<unknown>;
+    };
+
+    await expect(
+      mutation.mutationFn({ orderId: 'order-1', status: 'cancelled' })
+    ).resolves.toMatchObject({
+      id: 'order-1',
+      shipping_status: 'cancelled',
+    });
+
+    expect(networkMock.fetch).toHaveBeenCalledWith(
+      'https://example.test/api/orders/order-1/cancelled',
+      expect.objectContaining({
+        body: JSON.stringify({
+          cancelled_by: 'merchant',
+          confirm_cancellation: true,
+        }),
+        method: 'POST',
+      })
+    );
+  });
+
   it('throws sanitized API errors from failed status updates', async () => {
     networkMock.getSession.mockResolvedValue({
       data: { session: { access_token: 'token-1' } },

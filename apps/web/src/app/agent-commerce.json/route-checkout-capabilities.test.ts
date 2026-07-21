@@ -297,6 +297,31 @@ describe('GET /agent-commerce.json checkout capabilities', () => {
     );
   });
 
+  it('does not advertise Paystack bank transfer while DVA is paused', async () => {
+    stubAgenticCheckoutEnv();
+    vi.stubEnv('AGENTIC_PAYSTACK_DVA_MODE', 'paused');
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      business_name: 'Another Store',
+      custom_domain: 'another.example',
+      feature_settings: { pay_on_delivery_enabled: true },
+      id: 'merchant-2',
+      paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
+      slug: 'another-store',
+    });
+
+    const response = await GET(
+      new Request('https://another.example/agent-commerce.json', {
+        headers: { host: 'another.example' },
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.payment_methods).toEqual(['pay_on_delivery']);
+    expect(body.capabilities).toContain('checkout.session.complete');
+    expect(body.links.checkout_session_complete).toBeDefined();
+  });
+
   // Only discovery-safe catalog access is advertised when agent API env exists
   // but signing, confirmation, and payment runtime secrets are absent.
   it('does not advertise checkout when runtime secrets are incomplete', async () => {

@@ -103,4 +103,14 @@ describe('sanitizeEventErrorMessage', () => {
       ])
     ).toBe('provider echoed [redacted]');
   });
+
+  it('redacts metacharacters as literal sensitive values', () => {
+    const sensitiveValue = 'a(b)[c]{d}|e*+?^$\\';
+
+    expect(
+      sanitizeEventErrorMessage(`provider echoed ${sensitiveValue}`, [
+        sensitiveValue,
+      ])
+    ).toBe('provider echoed [redacted]');
+  });
 });

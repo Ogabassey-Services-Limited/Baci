@@ -29,7 +29,6 @@ const merchantDetailsSchema = z.strictObject({
   slug: nullableStringSchema,
   support_email: nullableStringSchema,
   tax_identification_number: nullableStringSchema,
-  website_url: nullableStringSchema,
 });
 
 const richOrderEmailSchema = z.looseObject({

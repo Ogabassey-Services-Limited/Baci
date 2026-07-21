@@ -13,10 +13,15 @@ export const CHECKOUT_SESSION_MUTABLE_STATUSES = [
 export interface AgenticCheckoutSessionRecord {
   cart_items: CheckoutItem[];
   currency: string;
+  customer_email?: string | null;
+  customer_name?: string | null;
+  customer_phone?: string | null;
   id: string;
   merchant_id: string;
   metadata: AgenticMetadata | null;
   order_id: string | null;
+  payment_method?: string | null;
+  payment_provider?: string | null;
   payment_reference: string | null;
   session_id: string;
   shipping_address: Record<string, unknown> | null;
@@ -28,7 +33,7 @@ export interface AgenticCheckoutSessionRecord {
 }
 
 const CHECKOUT_SESSION_SELECT =
-  'id, session_id, merchant_id, cart_items, shipping_method, shipping_address, currency, status, order_id, payment_reference, virtual_account_bank, virtual_account_name, virtual_account_number, metadata';
+  'id, session_id, merchant_id, cart_items, shipping_method, shipping_address, currency, status, order_id, customer_email, customer_name, customer_phone, payment_method, payment_provider, payment_reference, virtual_account_bank, virtual_account_name, virtual_account_number, metadata';
 
 export async function getAgenticCheckoutSession({
   merchantId,

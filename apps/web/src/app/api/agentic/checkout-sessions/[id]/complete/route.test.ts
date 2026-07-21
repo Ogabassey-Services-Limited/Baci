@@ -104,4 +104,30 @@ describe('POST /api/agentic/checkout-sessions/[id]/complete', () => {
       },
     });
   });
+
+  it('preserves the paused DVA conflict code in UCP errors', async () => {
+    mockHandleAgenticCheckoutSessionComplete.mockResolvedValueOnce(
+      NextResponse.json(
+        {
+          code: 'AGENTIC_PAYSTACK_DVA_PAUSED',
+          error: 'Agentic Paystack bank transfer is paused',
+        },
+        { status: 409 }
+      )
+    );
+    const request = new NextRequest(
+      'http://localhost/api/agentic/checkout-sessions/agentic_session_1/complete',
+      { method: 'POST' }
+    );
+
+    const { POST } = await import('./route');
+    const response = await POST(request, routeProps);
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body.code).toBe('AGENTIC_PAYSTACK_DVA_PAUSED');
+    expect(body.messages).toEqual([
+      expect.objectContaining({ code: 'AGENTIC_PAYSTACK_DVA_PAUSED' }),
+    ]);
+  });
 });

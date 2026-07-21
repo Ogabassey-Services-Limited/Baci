@@ -2,7 +2,8 @@ minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
   # Security hotfixes released within the cooldown window; Dependabot alerts opened 2026-06-15.
   - ws@5.2.5 || 6.2.4 || 7.5.11 || 8.21.0
-  - protobufjs@7.6.3
+  - protobufjs@7.6.5
+  - brace-expansion@5.0.7
   - form-data@2.5.6 || 3.0.5 || 4.0.6
   - js-yaml@4.2.0
   - '@babel/core@7.29.6'
@@ -136,8 +137,8 @@ overrides:
   undici: "7.28.0"
   # Pin to the current patched 2.x release for GHSA-rpr9-rxv7-x643 / CVE-2026-44990: prevent xmp raw-text passthrough from rehydrating attacker-controlled markup after sanitization.
   sanitize-html: "2.17.5"
-  # Pin to 7.6.3 to close the 7.x CVE set, including GHSA-jggg-4jg4-v7c6, GHSA-wcpc-wj8m-hjx6, and GHSA-f38q-mgvj-vph7, while preserving the protobufjs 7 major.
-  protobufjs: "7.6.3"
+  # Pin to 7.6.5 to close GHSA-j3f2-48v5-ccww / CVE-2026-59877 and prior 7.x CVEs while preserving the protobufjs 7 major.
+  protobufjs: "7.6.5"
   # Pin to 1.1.1 to close GHSA-mm78-2hpw-9j97 (overlong UTF-8 decoding allows mis-encoded sequences through). 1.1.0 is the vulnerable transitive that the legacy protobufjs 6.x consumers still drag in; 1.1.1 is the patched release.
   "@protobufjs/utf8": "1.1.1"
   rollup: "^4.59.0"
@@ -148,7 +149,8 @@ overrides:
   "glob@13": "13.0.6"
   minimatch: "10.2.3"
   # Pin older uuid consumers to 11.1.1 to mitigate GHSA-w5hq-g745-h8pq while staying on a CommonJS-compatible patched release.
-  "minimatch>brace-expansion": "5.0.6"
+  # Pin to 5.0.7 to mitigate GHSA-3jxr-9vmj-r5cp / CVE-2026-13149 (exponential brace expansion DoS).
+  "minimatch>brace-expansion": "5.0.7"
   # Pin vulnerable ws consumers to patched lines for GHSA-96hv-2xvq-fx4p / CVE-2026-48779 without forcing cross-major upgrades.
   "ws@>=5 <5.2.5": "5.2.5"
   "ws@>=6 <6.2.4": "6.2.4"

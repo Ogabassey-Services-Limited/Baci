@@ -17,7 +17,6 @@ const merchantDetails: MerchantDetails = {
   slug: 'ogabassey',
   support_email: 'support@example.com',
   tax_identification_number: 'TIN123',
-  website_url: null,
 };
 
 describe('paid-order email utilities', () => {
@@ -50,7 +49,7 @@ describe('paid-order email utilities', () => {
     ).toBeNull();
   });
 
-  it('resolves merchant URLs from website, slug, or the root domain', () => {
+  it('resolves merchant URLs from the slug or root domain', () => {
     expect(
       resolveMerchantUrl({ merchantDetails, rootDomain: 'root.test' })
     ).toBe('https://ogabassey.root.test');
@@ -58,26 +57,7 @@ describe('paid-order email utilities', () => {
       resolveMerchantUrl({
         merchantDetails: {
           ...merchantDetails,
-          website_url: 'shop.example.com',
-        },
-        rootDomain: 'root.test',
-      })
-    ).toBe('https://shop.example.com/');
-    expect(
-      resolveMerchantUrl({
-        merchantDetails: {
-          ...merchantDetails,
-          website_url: 'http://shop.example.com/path',
-        },
-        rootDomain: 'root.test',
-      })
-    ).toBe('https://shop.example.com/path');
-    expect(
-      resolveMerchantUrl({
-        merchantDetails: {
-          ...merchantDetails,
           slug: 'bad slug!',
-          website_url: null,
         },
         rootDomain: 'root.test',
       })
@@ -102,7 +82,7 @@ describe('paid-order email utilities', () => {
     ).toBe('https://ogabassey.usebaci.com');
     expect(
       resolveMerchantUrl({
-        merchantDetails: { ...merchantDetails, slug: null, website_url: null },
+        merchantDetails: { ...merchantDetails, slug: null },
         rootDomain: 'root.test',
       })
     ).toBe('https://root.test');

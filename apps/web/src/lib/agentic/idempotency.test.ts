@@ -153,6 +153,10 @@ describe('agentic idempotency', () => {
 
     expect(result).toEqual({
       ok: true,
+      requestHash: hashIdempotencyRequest({
+        ...defaultFingerprint,
+        body,
+      }),
       response: { id: 'session-1' },
       state: 'replay',
       status: 201,

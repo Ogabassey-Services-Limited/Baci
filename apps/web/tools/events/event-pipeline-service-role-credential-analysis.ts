@@ -22,7 +22,7 @@ const defaultLedgers: CredentialReaderLedgers = {
     'apps/web/mcp-server/migrate_images.ts':
       'bd69a87ccb7c68ecef2a49eaaf059465cef2b0a5de45a2dab9bc988381615bd7',
     'apps/web/mcp-server/server.ts':
-      'ae9ce3d368234091293bb77bebe892c4626cf463da5b8b50d801249273a5a323',
+      'b616e48f8a83fd45ae7d12337398a2755d04b4abe929276ac3df2ebfb16b76fe',
     'apps/web/scripts-tmp/bulk-fix-macbooks.ts':
       'b68336dba5c2cb670b48599657f635870aa75786d243fe65568c080ddf82372d',
     'apps/web/scripts-tmp/check-blog-images.ts':

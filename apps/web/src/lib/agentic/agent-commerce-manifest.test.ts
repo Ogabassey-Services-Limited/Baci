@@ -174,6 +174,77 @@ describe('agent commerce manifest builder', () => {
     });
   });
 
+  it('removes only Paystack bank transfer while the DVA mode is paused', async () => {
+    vi.stubEnv('AGENTIC_PAYSTACK_DVA_MODE', 'paused');
+
+    const { buildAgentCommerceManifest } = await import(
+      '@/lib/agentic/agent-commerce-manifest'
+    );
+
+    const manifest = buildAgentCommerceManifest(
+      {
+        business_name: 'Ogabassey',
+        feature_settings: { pay_on_delivery_enabled: true },
+        paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
+        slug: 'ogabassey',
+      },
+      'https://ogabassey.com'
+    );
+
+    expect(manifest.payment_methods).toEqual(['pay_on_delivery']);
+    expect(manifest.capabilities).toContain('checkout.session.complete');
+    expect(manifest.links.checkout_session_complete).toBeDefined();
+  });
+
+  it('suppresses Paystack-backed Google Pay while DVA is paused', async () => {
+    vi.stubEnv('AGENTIC_PAYSTACK_DVA_MODE', 'paused');
+    vi.stubEnv('BACI_GOOGLE_PAY_ENABLED', 'true');
+    vi.stubEnv('BACI_GOOGLE_PAY_GATEWAY', 'paystack');
+    vi.stubEnv('BACI_GOOGLE_PAY_GATEWAY_MERCHANT_ID', 'paystack-merchant-id');
+    vi.stubEnv('BACI_GOOGLE_PAY_MERCHANT_ID', 'google-merchant-id');
+
+    const { buildAgentCommerceManifest } = await import(
+      '@/lib/agentic/agent-commerce-manifest'
+    );
+
+    const manifest = buildAgentCommerceManifest(
+      {
+        business_name: 'Ogabassey',
+        feature_settings: { pay_on_delivery_enabled: false },
+        paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
+        slug: 'ogabassey',
+      },
+      'https://ogabassey.com'
+    );
+
+    expect(manifest.payment_methods).toEqual([]);
+    expect(manifest.payment_handler_configs).toBeUndefined();
+    expect(manifest.capabilities).toEqual(['catalog.read', 'order.read']);
+    expect(manifest.links.checkout_session_complete).toBeUndefined();
+  });
+
+  it('removes checkout mutations when paused DVA is the only payment method', async () => {
+    vi.stubEnv('AGENTIC_PAYSTACK_DVA_MODE', 'paused');
+
+    const { buildAgentCommerceManifest } = await import(
+      '@/lib/agentic/agent-commerce-manifest'
+    );
+
+    const manifest = buildAgentCommerceManifest(
+      {
+        business_name: 'Ogabassey',
+        feature_settings: { pay_on_delivery_enabled: false },
+        paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
+        slug: 'ogabassey',
+      },
+      'https://ogabassey.com'
+    );
+
+    expect(manifest.payment_methods).toEqual([]);
+    expect(manifest.capabilities).toEqual(['catalog.read', 'order.read']);
+    expect(manifest.links.checkout_session_complete).toBeUndefined();
+  });
+
   it('keeps catalog-only discovery when the merchant slug is not configured', async () => {
     const { buildAgentCommerceManifest } = await import(
       '@/lib/agentic/agent-commerce-manifest'

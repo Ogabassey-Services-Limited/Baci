@@ -7080,6 +7080,60 @@ export type Database = {
           },
         ];
       };
+      order_cancellation_side_effects: {
+        Row: {
+          attempts: number;
+          claim_token: string;
+          claimed_at: string;
+          completed_at: string | null;
+          error: string | null;
+          merchant_id: string;
+          order_id: string;
+          result: Json | null;
+          status: string;
+          step: string;
+        };
+        Insert: {
+          attempts?: number;
+          claim_token: string;
+          claimed_at?: string;
+          completed_at?: string | null;
+          error?: string | null;
+          merchant_id: string;
+          order_id: string;
+          result?: Json | null;
+          status: string;
+          step: string;
+        };
+        Update: {
+          attempts?: number;
+          claim_token?: string;
+          claimed_at?: string;
+          completed_at?: string | null;
+          error?: string | null;
+          merchant_id?: string;
+          order_id?: string;
+          result?: Json | null;
+          status?: string;
+          step?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'order_cancellation_side_effects_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchants';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'order_cancellation_side_effects_order_id_fkey';
+            columns: ['order_id'];
+            isOneToOne: false;
+            referencedRelation: 'orders';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       order_insurance_policies: {
         Row: {
           activation_reminder_sent_at: string | null;
@@ -14751,6 +14805,14 @@ export type Database = {
         Args: { p_order_id: string; p_reason?: string };
         Returns: boolean;
       };
+      cancel_order_as_merchant: {
+        Args: { p_order_id: string; p_reason?: string };
+        Returns: boolean;
+      };
+      claim_order_cancellation_side_effect: {
+        Args: { p_claim_token: string; p_order_id: string; p_step: string };
+        Returns: { current_status: string; we_won: boolean }[];
+      };
       cancel_provider_shipment_order_and_release_inventory: {
         Args: {
           p_cancelled_at?: string;
@@ -15896,6 +15958,17 @@ export type Database = {
           p_status: string;
           p_step: string;
           p_transaction_id: string;
+        };
+        Returns: boolean;
+      };
+      finish_order_cancellation_side_effect: {
+        Args: {
+          p_claim_token: string;
+          p_error?: string;
+          p_order_id: string;
+          p_result?: Json;
+          p_status: string;
+          p_step: string;
         };
         Returns: boolean;
       };

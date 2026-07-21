@@ -84,12 +84,14 @@ describe('drainFailedPaidOrderSideEffects', () => {
     expect(summary.drained).toEqual([{ orderId: 'order-1' }]);
     const firstQuery = vi.mocked(supabase.from).mock.results[0]?.value as {
       in: ReturnType<typeof vi.fn>;
+      lt: ReturnType<typeof vi.fn>;
     };
     expect(firstQuery.in).toHaveBeenCalledWith('step', [
       'paid_email',
       'ad_tracking_conversion',
       'merchant_settlement',
     ]);
+    expect(firstQuery.lt).toHaveBeenCalledWith('attempts', 5);
   });
 
   it('skips gateways the finalizer cannot handle', async () => {

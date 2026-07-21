@@ -5,7 +5,6 @@ import type {
 } from './supabase-history-replay-types';
 
 const migration = (filename: string) => `supabase/migrations/${filename}`;
-
 function parseFrozenSources(rows: string): FrozenReplaySource[] {
   return rows
     .trim()
@@ -127,6 +126,12 @@ e8aab2aed87c3ae93090db6343ac125210d1fd90f80de1cff51772ef33b29750 20260718070005_
 2dbcca4189d7a656fa8504383a54d8ea55024cb76720572931818d4df878be9e 20260718070010_preserve_credit_direct_provider_reference.sql
 395cfdef9ec80858ce34b031df0b642e51b3ba4d5d81922a9687a58962e35c5e 20260718070011_require_credit_direct_guest_tracking_token.sql`;
 
+const PENDING_SOURCES = `e8398b0b10a5e9d199707bcceb5835f865bfce85dd4732e9bc46fc4e13d16d29 20260721093205_harden_paid_order_completion_and_side_effect_retries.sql
+b36447107978f1612b0f158bbd3331f635bf8bd940ec0ff01545ecba765a753b 20260721093206_merchant_order_cancellation_audit.sql
+399dfc28247c2f3d3c720783eeb13c3376a1b207f7ea1095e66366e919f1e5ea 20260721093207_order_cancellation_side_effect_claims.sql
+46efbde5a4a1f241ad0bc829edac60ecbbee156187f5d4f7975f3b6aabb9693b 20260721140000_forward_harden_merchant_order_cancellation.sql
+1fa573e186b486ade1ae4bc628969a74c37ee01f850cf7ab4d60ac3a40fad8a8 20260721140100_forward_harden_cancellation_side_effects.sql`;
+
 const PRODUCTION_MAPPINGS = `20260623190041\t20260623190000_enable_realtime_negotiation_requests.sql\tbc2165173828d7a5c667e5a7415fb37b9ba7762aad2e12268b70eab6dcc94526\tcanonical
 20260624211416\t20260624200000_merchant_email_domains.sql\t120e16cb8768fdec2e36ce041dc5049e299594d271e1f900a4abd0ac3c775ad6\tcanonical
 20260625173604\t20260714010000_scope_feature_settings_read_policies.sql\t31091717a01f66c683c87e77a2f62245732df023b6dd61055855cf7ff78cff9f\tsuperseded-final-state
@@ -243,6 +248,7 @@ export const supabaseHistoryReplayManifest = {
     sha256: '0d8b54ecdae67d99da4e806276310e80992bda73ee94efaaf7a91fd16c3d8885',
   },
   pipelineSources: parseFrozenSources(PIPELINE_SOURCES),
+  pendingSources: parseFrozenSources(PENDING_SOURCES),
   postReplaySources: parseFrozenSources(POST_REPLAY_SOURCES),
   productionMappings: parseProductionMappings(PRODUCTION_MAPPINGS),
   productionEffectsFixture: {

@@ -15,6 +15,7 @@ import { after } from 'next/server';
 import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import { purgeCloudflareUrls } from '@/lib/cloudflare-purge';
 import { buildMerchantPublicationDataCacheTags } from '@/lib/merchant-publication-data-cache-tags';
+import { normalizeMerchantId } from '@/lib/normalize-merchant-id';
 import {
   getPlatformBlogPostCacheTag,
   PLATFORM_BLOG_CACHE_TAG,
@@ -22,13 +23,15 @@ import {
   PLATFORM_BLOG_LIST_CACHE_TAG,
   PLATFORM_BLOG_SITEMAP_CACHE_TAG,
 } from '@/lib/platform-blog';
-import {
-  getProductScopedCacheTag,
-  getProductSlugSetCacheTag,
-} from '@/lib/product-cache-tags';
+import { productCacheRevalidation } from '@/lib/product-cache-revalidation';
 import { generateSlug } from '@/lib/seo-utils';
-import { buildStorefrontProductsCacheTags } from '@/lib/storefront-products-cache-key';
 import { buildStorefrontBlogPurgeUrls } from '@/lib/storefront-purge-urls';
+
+export const revalidateMerchantFeed =
+  productCacheRevalidation.revalidateMerchantFeed;
+export const revalidateProductSlugs =
+  productCacheRevalidation.revalidateProductSlugs;
+export const revalidateProducts = productCacheRevalidation.revalidateProducts;
 
 interface BlogRevalidationOptions {
   identifiers?: Array<string | null | undefined>;
@@ -42,15 +45,6 @@ const CANONICAL_MERCHANT_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 function isSafeCanonicalMerchantSlug(slug: string): boolean {
   return CANONICAL_MERCHANT_SLUG_PATTERN.test(slug);
-}
-
-function normalizeMerchantIdForRevalidation(merchantId: string) {
-  if (typeof merchantId !== 'string') {
-    return null;
-  }
-
-  const normalizedMerchantId = merchantId.trim();
-  return normalizedMerchantId || null;
 }
 
 /**
@@ -69,95 +63,6 @@ function schedulePurgeCloudflareUrls(urls: string[]): void {
   } catch {
     // Not inside a request scope (standalone worker / test) — detach instead.
     void purgeCloudflareUrls(urls);
-  }
-}
-
-/**
- * Revalidate all cached data related to a merchant's products.
- * Call after product create/update/delete.
- */
-export function revalidateProducts(merchantId: string, productSlug?: string) {
-  const normalizedMerchantId = normalizeMerchantIdForRevalidation(merchantId);
-
-  if (!normalizedMerchantId) {
-    console.warn('Skipped product cache revalidation for invalid merchant ID', {
-      merchantId,
-    });
-    return;
-  }
-
-  // Invalidate the product list for this merchant
-  revalidateTag(`products-${normalizedMerchantId}`, 'products');
-  for (const tag of buildStorefrontProductsCacheTags(normalizedMerchantId)) {
-    revalidateTag(tag, 'products');
-  }
-
-  // Invalidate specific product cache if slug provided
-  if (productSlug) {
-    revalidateTag(
-      getProductScopedCacheTag('product', normalizedMerchantId, productSlug),
-      'products'
-    );
-  }
-
-  // Invalidate product details and category page data (includes products)
-  revalidateTag('product-details', 'products');
-  revalidateTag('category-page-data', 'storefront-page');
-
-  // Invalidate storefront product index (paginated listing)
-  revalidateTag(`product-index-${normalizedMerchantId}`, 'products');
-
-  // Invalidate the proxy crawl-budget slug-set (PR-B §3.3 invalidation contract):
-  // a published/unpublished/archived/deleted/slug-changed product must enter or
-  // leave the set so the proxy never hard-404s a live product or serves a stale
-  // 200 for a removed one. Every product mutation path funnels through here.
-  revalidateTag(getProductSlugSetCacheTag(normalizedMerchantId), 'products');
-
-  // Invalidate product redirect caches
-  revalidateTag('product-canonical-redirect', 'products');
-  revalidateTag('product-legacy-redirect', 'products');
-
-  // Invalidate merchant feed (OpenAI, Google Merchant)
-  revalidateMerchantFeed(normalizedMerchantId);
-
-  // Dashboard stats may change (revenue, inventory counts)
-  revalidateTag(`dashboard-${normalizedMerchantId}`, 'merchant');
-}
-
-/**
- * Invalidate ONLY the per-slug scoped product-detail Next cache tags for the
- * given slugs. `getCachedProductWithDetails` and `getCachedProductLcpHint`
- * each tag their entry with
- * `getProductScopedCacheTag('product', merchantId, slug)`. `revalidateProducts`
- * (called with no slug) busts the merchant-WIDE product tags but leaves each
- * product's per-slug entry cached until its cacheLife TTL — so a Cloudflare MISS
- * after an edge purge would REFILL the edge from stale Next-cached product data,
- * defeating the purge. Product-purge callers invoke this for every RESOLVED slug
- * BEFORE scheduling the edge purge to close that gap.
- *
- * Blank/duplicate slugs are skipped. Safe to over-supply (authoritative slug +
- * caller slug + id): a tag with no cached entry revalidates to a no-op.
- */
-export function revalidateProductSlugs(
-  merchantId: string,
-  slugs: readonly (string | null | undefined)[]
-): void {
-  const normalizedMerchantId = normalizeMerchantIdForRevalidation(merchantId);
-  if (!normalizedMerchantId) {
-    return;
-  }
-
-  const seen = new Set<string>();
-  for (const rawSlug of slugs) {
-    const slug = rawSlug?.trim();
-    if (!slug || seen.has(slug)) {
-      continue;
-    }
-    seen.add(slug);
-    revalidateTag(
-      getProductScopedCacheTag('product', normalizedMerchantId, slug),
-      'products'
-    );
   }
 }
 
@@ -212,7 +117,7 @@ export function revalidateMerchantPublication({
   canonicalMerchantSlug: string | null | undefined;
   identifiers: readonly (string | null | undefined)[];
 }): void {
-  const normalizedMerchantId = normalizeMerchantIdForRevalidation(merchantId);
+  const normalizedMerchantId = normalizeMerchantId(merchantId);
   if (!normalizedMerchantId) {
     console.warn(
       'Skipped publication cache revalidation for invalid merchant ID',
@@ -467,19 +372,6 @@ export function revalidatePageConfig(merchantId: string, pageSlug?: string) {
 }
 
 /**
- * Revalidate the feed cache (Google Merchant + OpenAI) for a merchant.
- * Call after the backfill script populates/refreshes `product_feed_images`,
- * or after any mutation that changes feed-relevant product data.
- *
- * @param merchantId - Canonical merchant UUID (not slug).
- */
-export function revalidateMerchantFeed(merchantId: string) {
-  revalidateTag('google-merchant-feed', 'products');
-  revalidateTag(`merchant-feed-${merchantId}`, 'products');
-  revalidateTag(`merchant-feed-review-signals-${merchantId}`, 'products');
-}
-
-/**
  * Revalidate the repairs catalog feeds (Facebook repairs XML + agent-repairs
  * JSONL) for a merchant. Call after any repairs catalog mutation — device,
  * quote, or service-type CRUD, and AI import commit — so the machine-readable
@@ -491,7 +383,7 @@ export function revalidateMerchantFeed(merchantId: string) {
  * @param merchantId - Canonical merchant UUID (not slug).
  */
 export function revalidateRepairsCatalog(merchantId: string) {
-  const normalizedMerchantId = normalizeMerchantIdForRevalidation(merchantId);
+  const normalizedMerchantId = normalizeMerchantId(merchantId);
   if (!normalizedMerchantId) {
     console.warn(
       'Skipped repairs catalog cache revalidation for invalid merchant ID',
