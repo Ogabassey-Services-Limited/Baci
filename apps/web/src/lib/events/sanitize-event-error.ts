@@ -17,25 +17,50 @@ function transportRepresentations(value: string): string[] {
   return representations;
 }
 
-function sensitiveValuePattern(value: string): string {
-  let pattern = '';
+function matchesSensitiveValue(
+  value: string,
+  startIndex: number,
+  sensitiveValue: string
+): boolean {
+  for (let index = 0; index < sensitiveValue.length; index += 1) {
+    const character = sensitiveValue[index];
+    if (character === '%' && value[startIndex + index] === '%') {
+      const expectedEscape = sensitiveValue.slice(index + 1, index + 3);
+      const actualEscape = value.slice(
+        startIndex + index + 1,
+        startIndex + index + 3
+      );
+      if (
+        /^[0-9a-f]{2}$/i.test(expectedEscape) &&
+        expectedEscape.toLowerCase() === actualEscape.toLowerCase()
+      ) {
+        index += 2;
+        continue;
+      }
+    }
+    if (character !== value[startIndex + index]) return false;
+  }
+  return true;
+}
+
+function redactSensitiveValues(
+  value: string,
+  sensitiveValues: readonly string[]
+): string {
+  let redactedValue = '';
   for (let index = 0; index < value.length; ) {
-    const percentEscape = value.slice(index, index + 3);
-    if (/^%[0-9a-f]{2}$/i.test(percentEscape)) {
-      pattern += [...percentEscape]
-        .map((character) =>
-          /[a-f]/i.test(character)
-            ? `[${character.toLowerCase()}${character.toUpperCase()}]`
-            : character
-        )
-        .join('');
-      index += 3;
+    const sensitiveValue = sensitiveValues.find((candidate) =>
+      matchesSensitiveValue(value, index, candidate)
+    );
+    if (sensitiveValue) {
+      redactedValue += '[redacted]';
+      index += sensitiveValue.length;
       continue;
     }
-    pattern += value[index]?.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') ?? '';
+    redactedValue += value[index];
     index += 1;
   }
-  return pattern;
+  return redactedValue;
 }
 
 export function sanitizeEventErrorMessage(
@@ -50,15 +75,7 @@ export function sanitizeEventErrorMessage(
         .flatMap(transportRepresentations)
     ),
   ].sort((left, right) => right.length - left.length);
-  const redactedValue = exactSensitiveValues.length
-    ? value.replace(
-        new RegExp(
-          exactSensitiveValues.map(sensitiveValuePattern).join('|'),
-          'g'
-        ),
-        '[redacted]'
-      )
-    : value;
+  const redactedValue = redactSensitiveValues(value, exactSensitiveValues);
   return redactedValue
     .replace(EMAIL, '[redacted-email]')
     .replace(LONG_NUMBER, '[redacted-number]')
