@@ -153,6 +153,8 @@ describe('supabaseHistoryReplayManifest', () => {
       'supabase/migrations/20260718070009_scope_credit_direct_payment_audit_notes.sql',
       'supabase/migrations/20260718070010_preserve_credit_direct_provider_reference.sql',
       'supabase/migrations/20260718070011_require_credit_direct_guest_tracking_token.sql',
+      'supabase/migrations/20260721093205_harden_paid_order_completion_and_side_effect_retries.sql',
+      'supabase/migrations/20260721093206_merchant_order_cancellation_audit.sql',
     ]);
     expect(
       supabaseHistoryReplayManifest.postReplaySources.every(({ sha256 }) =>

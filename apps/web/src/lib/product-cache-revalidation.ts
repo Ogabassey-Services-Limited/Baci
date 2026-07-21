@@ -43,6 +43,19 @@ function revalidateMerchantFeed(merchantId: string): void {
   );
 }
 
+function revalidateDashboard(merchantId: string): void {
+  const normalizedMerchantId = normalizeMerchantId(merchantId);
+  if (!normalizedMerchantId) {
+    logger.warn({
+      merchantId: sanitizeForLog(merchantId),
+      message: 'Skipped dashboard cache revalidation for invalid merchant ID',
+    });
+    return;
+  }
+
+  revalidateProductTag(`dashboard-${normalizedMerchantId}`, 'merchant');
+}
+
 function revalidateProducts(
   merchantId: string,
   productSlug?: string,
@@ -118,6 +131,7 @@ function revalidateProductSlugs(
 }
 
 export const productCacheRevalidation = {
+  revalidateDashboard,
   revalidateMerchantFeed,
   revalidateProductSlugs,
   revalidateProducts,

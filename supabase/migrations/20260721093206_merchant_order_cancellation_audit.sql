@@ -41,7 +41,7 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'order_cancel_forbidden' USING ERRCODE = '42501';
   END IF;
-  IF v_order.shipping_status = 'cancelled' THEN
+  IF v_order.shipping_status IN ('cancelled', 'canceled') THEN
     RETURN false;
   END IF;
   IF v_order.shipping_status IN ('shipped', 'delivered', 'completed', 'returned') THEN

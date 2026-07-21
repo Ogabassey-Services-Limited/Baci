@@ -22,12 +22,14 @@ vi.mock('@/lib/agentic/idempotency', () => ({
 
 vi.mock('@/lib/product-cache-revalidation', () => ({
   productCacheRevalidation: {
+    revalidateDashboard: vi.fn(),
     revalidateProductSlugs: vi.fn(),
     revalidateProducts: vi.fn(),
   },
 }));
 
-const { revalidateProductSlugs, revalidateProducts } = productCacheRevalidation;
+const { revalidateDashboard, revalidateProductSlugs, revalidateProducts } =
+  productCacheRevalidation;
 
 const buyer = {
   email: 'buyer@example.com',
@@ -701,5 +703,6 @@ describe('finalizeAgenticCheckoutPayment', () => {
     expect(response.status).toBe(200);
     expect(revalidateProducts).not.toHaveBeenCalled();
     expect(revalidateProductSlugs).not.toHaveBeenCalled();
+    expect(revalidateDashboard).toHaveBeenCalledExactlyOnceWith('merchant-1');
   });
 });

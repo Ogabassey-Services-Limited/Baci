@@ -153,4 +153,27 @@ describe('POST /api/orders/[id]/cancelled', () => {
     expect(response.status).toBe(409);
     expect(mocks.sendEmail).not.toHaveBeenCalled();
   });
+
+  it('does not repeat refund or notification side effects when already cancelled', async () => {
+    const supabase = createSupabase();
+    supabase.rpc.mockResolvedValue({ data: false, error: null });
+    mocks.authenticateApiRequest.mockResolvedValue({
+      error: null,
+      supabase,
+      user: { id: 'user-1' },
+    });
+
+    const response = await POST(request({ confirm_cancellation: true }), {
+      params: Promise.resolve({ id: 'order-1' }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      alreadyCancelled: true,
+      success: true,
+    });
+    expect(supabase.from).not.toHaveBeenCalled();
+    expect(mocks.initiateRefund).not.toHaveBeenCalled();
+    expect(mocks.sendEmail).not.toHaveBeenCalled();
+  });
 });

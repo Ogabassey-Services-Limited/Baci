@@ -61,6 +61,15 @@ describe('productCacheRevalidation', () => {
     );
   });
 
+  it('can invalidate dashboard order metrics without churning product caches', () => {
+    productCacheRevalidation.revalidateDashboard('merchant-1');
+
+    expect(revalidateTag).toHaveBeenCalledExactlyOnceWith(
+      'dashboard-merchant-1',
+      'merchant'
+    );
+  });
+
   it('deduplicates product slugs and ignores blank values', () => {
     productCacheRevalidation.revalidateProductSlugs('merchant-1', [
       'phone',

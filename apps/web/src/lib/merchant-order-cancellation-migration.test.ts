@@ -26,6 +26,9 @@ describe('merchant order cancellation migration', () => {
 
   it('rejects fulfilled orders and safely restores tracked inventory only', () => {
     expect(migrationSql).toContain(
+      "v_order.shipping_status IN ('cancelled', 'canceled')"
+    );
+    expect(migrationSql).toContain(
       "v_order.shipping_status IN ('shipped', 'delivered', 'completed', 'returned')"
     );
     expect(migrationSql).toContain('private.restock_order_items(p_order_id)');

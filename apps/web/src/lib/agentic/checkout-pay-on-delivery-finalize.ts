@@ -210,6 +210,8 @@ export async function finalizeAgenticPayOnDeliveryCheckout({
               merchantId,
               trackedProducts.map((product) => product.slug)
             );
+          } else {
+            productCacheRevalidation.revalidateDashboard(merchantId);
           }
         }
       }

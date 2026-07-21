@@ -80,13 +80,11 @@ export async function POST(
 
     const supabase = auth.supabase;
 
-    const { error: cancellationError } = await supabase.rpc(
-      'cancel_order_as_merchant',
-      {
+    const { data: cancellationPerformed, error: cancellationError } =
+      await supabase.rpc('cancel_order_as_merchant', {
         p_order_id: id,
         p_reason: cancellationReason,
-      }
-    );
+      });
     if (cancellationError) {
       const status =
         cancellationError.code === 'P0002'
@@ -110,6 +108,13 @@ export async function POST(
         },
         { status }
       );
+    }
+    if (!cancellationPerformed) {
+      return NextResponse.json({
+        success: true,
+        alreadyCancelled: true,
+        message: 'Order was already cancelled',
+      });
     }
 
     // Fetch merchant details

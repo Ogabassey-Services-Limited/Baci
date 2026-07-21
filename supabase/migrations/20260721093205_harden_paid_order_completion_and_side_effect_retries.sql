@@ -193,9 +193,12 @@ BEGIN
       AND (
         (
           public.payment_side_effects.status = 'failed'
-          AND public.payment_side_effects.claimed_at <= now() - LEAST(
-            interval '4 hours',
-            interval '15 minutes' * power(2, public.payment_side_effects.attempts - 1)
+          AND (
+            public.payment_side_effects.error = 'rpc_seed_pending_drain'
+            OR public.payment_side_effects.claimed_at <= now() - LEAST(
+              interval '4 hours',
+              interval '15 minutes' * power(2, public.payment_side_effects.attempts - 1)
+            )
           )
         )
         OR (

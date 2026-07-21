@@ -27,6 +27,12 @@ describe('paid order consistency migration', () => {
     expect(migrationSql).toContain("interval '15 minutes'");
   });
 
+  it('allows the completion seed to be claimed immediately', () => {
+    expect(migrationSql).toMatch(
+      /status = 'failed'[\s\S]*error = 'rpc_seed_pending_drain'[\s\S]*OR[\s\S]*claimed_at <= now\(\)/
+    );
+  });
+
   it('keeps both functions service-role only', () => {
     expect(migrationSql).toContain('requires service_role');
     expect(migrationSql).toMatch(/GRANT\s+EXECUTE[\s\S]*TO service_role/);

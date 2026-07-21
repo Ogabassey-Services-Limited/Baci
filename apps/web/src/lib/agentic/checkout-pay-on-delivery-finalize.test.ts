@@ -3,6 +3,7 @@ import { finalizeAgenticPayOnDeliveryCheckout } from '@/lib/agentic/checkout-pay
 
 const mocks = vi.hoisted(() => ({
   buildOrderFinalizationClaim: vi.fn(() => 'claim-1'),
+  revalidateDashboard: vi.fn(),
   revalidateProducts: vi.fn(),
   revalidateProductSlugs: vi.fn(),
   buildPayOnDeliveryCheckoutResponse: vi.fn(() => ({ ok: true })),
@@ -42,6 +43,7 @@ vi.mock('@/lib/agentic/checkout-order-dispatch', () => ({
 
 vi.mock('@/lib/product-cache-revalidation', () => ({
   productCacheRevalidation: {
+    revalidateDashboard: mocks.revalidateDashboard,
     revalidateProductSlugs: mocks.revalidateProductSlugs,
     revalidateProducts: mocks.revalidateProducts,
   },
@@ -450,5 +452,8 @@ describe('finalizeAgenticPayOnDeliveryCheckout', () => {
     expect(result).toMatchObject({ status: 200 });
     expect(mocks.revalidateProducts).not.toHaveBeenCalled();
     expect(mocks.revalidateProductSlugs).not.toHaveBeenCalled();
+    expect(mocks.revalidateDashboard).toHaveBeenCalledExactlyOnceWith(
+      'merchant-1'
+    );
   });
 });
