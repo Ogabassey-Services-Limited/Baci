@@ -426,7 +426,7 @@ describe('finalizeAgenticPayOnDeliveryCheckout', () => {
     expect(mocks.revalidateProducts).toHaveBeenCalledExactlyOnceWith(
       'merchant-1',
       undefined,
-      { feedScope: 'none' }
+      { feedScope: 'merchant' }
     );
     expect(mocks.revalidateProductSlugs).not.toHaveBeenCalled();
   });

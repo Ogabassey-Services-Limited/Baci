@@ -196,7 +196,7 @@ describe('agent commerce manifest builder', () => {
     expect(manifest.links.checkout_session_complete).toBeDefined();
   });
 
-  it('preserves independently configured Google Pay while DVA is paused', async () => {
+  it('suppresses Paystack-backed Google Pay while DVA is paused', async () => {
     vi.stubEnv('AGENTIC_PAYSTACK_DVA_MODE', 'paused');
     vi.stubEnv('BACI_GOOGLE_PAY_ENABLED', 'true');
     vi.stubEnv('BACI_GOOGLE_PAY_GATEWAY', 'paystack');
@@ -217,13 +217,10 @@ describe('agent commerce manifest builder', () => {
       'https://ogabassey.com'
     );
 
-    expect(manifest.payment_methods).toEqual(['google_pay']);
-    expect(manifest.payment_handler_configs?.google_pay).toEqual({
-      gateway: 'paystack',
-      gatewayMerchantId: 'paystack-merchant-id',
-      merchantId: 'google-merchant-id',
-    });
-    expect(manifest.capabilities).toContain('checkout.session.complete');
+    expect(manifest.payment_methods).toEqual([]);
+    expect(manifest.payment_handler_configs).toBeUndefined();
+    expect(manifest.capabilities).toEqual(['catalog.read', 'order.read']);
+    expect(manifest.links.checkout_session_complete).toBeUndefined();
   });
 
   it('removes checkout mutations when paused DVA is the only payment method', async () => {

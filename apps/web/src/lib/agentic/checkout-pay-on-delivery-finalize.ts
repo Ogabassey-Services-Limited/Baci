@@ -190,7 +190,7 @@ export async function finalizeAgenticPayOnDeliveryCheckout({
           .returns<Array<{ manage_stock: boolean | null; slug: string }>>();
         if (slugLookupError) {
           productCacheRevalidation.revalidateProducts(merchantId, undefined, {
-            feedScope: 'none',
+            feedScope: 'merchant',
           });
           logger.error({
             error: sanitizeForLog(slugLookupError),

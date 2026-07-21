@@ -209,7 +209,7 @@ function buildAgenticPaymentMethods(
     if (!paystackDvaPaused) {
       methods.push(AGENTIC_PAYMENT_METHOD_PAYSTACK_BANK_TRANSFER);
     }
-    if (googlePayConfig?.gateway === 'paystack') {
+    if (!paystackDvaPaused && googlePayConfig?.gateway === 'paystack') {
       methods.push(AGENTIC_PAYMENT_METHOD_GOOGLE_PAY);
     }
   }

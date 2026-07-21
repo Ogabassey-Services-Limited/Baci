@@ -637,7 +637,7 @@ describe('finalizeAgenticCheckoutPayment', () => {
     expect(revalidateProducts).toHaveBeenCalledExactlyOnceWith(
       'merchant-1',
       undefined,
-      { feedScope: 'none' }
+      { feedScope: 'merchant' }
     );
     expect(revalidateProductSlugs).not.toHaveBeenCalled();
   });
