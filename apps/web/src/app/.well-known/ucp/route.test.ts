@@ -67,8 +67,9 @@ describe('GET /.well-known/ucp', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe(
-      'public, max-age=300, s-maxage=300'
+      'no-store, max-age=0, must-revalidate'
     );
+    expect(response.headers.get('cdn-cache-control')).toBe('no-store');
     expect(response.headers.get('vercel-cdn-cache-control')).toBe('no-store');
     expect(body.store).toMatchObject({
       slug: 'ogabassey',

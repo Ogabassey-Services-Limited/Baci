@@ -577,14 +577,16 @@ The preparation application adds a server-only
 production default. Production is set to `paused` before that revision is
 deployed and remains paused for every later phase. When paused:
 
-- `buildAgentCommerceManifest` omits only `paystack_bank_transfer`; the derived
-  Agent Commerce, ACP, agent-native, and UCP documents therefore omit its
-  handler/instrument too. Pay on delivery and independently configured Google
-  Pay remain available because neither creates or exposes a DVA. If no payment
-  method remains, checkout mutation links and capabilities disappear under the
-  existing manifest rule. The five-minute public manifest cache must elapse and
-  every discovery surface must be probed before the consent migration can
-  proceed;
+- `buildAgentCommerceManifest` omits `paystack_bank_transfer` and the currently
+  Paystack-backed Google Pay handler. Google Pay is not independently
+  executable in this revision: UCP normalizes it to `provider = paystack`, and
+  the completion setup creates a DVA instead of charging the supplied token.
+  It may remain available only after a separate token-charge completion path is
+  implemented and proved not to create or expose a DVA. Pay on delivery remains
+  available. If no payment method remains, checkout mutation links and
+  capabilities disappear under the existing manifest rule. Every
+  manifest-derived discovery surface is non-cacheable at the browser, generic
+  CDN, and Vercel CDN layers so a pause cannot leave stale payment capabilities;
 - a newly requested `payment_data.provider = paystack` may pass authentication,
   Zod parsing, replay lookup, and an exact already-stored idempotency replay, but
   for a session without a pre-existing exposed account it returns stable `409`

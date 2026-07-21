@@ -208,6 +208,9 @@ function buildAgenticPaymentMethods(
     if (!paystackDvaPaused) {
       methods.push(AGENTIC_PAYMENT_METHOD_PAYSTACK_BANK_TRANSFER);
     }
+    // Google Pay is not independently executable yet: UCP normalizes it to the
+    // Paystack provider and the current completion setup creates a DVA instead
+    // of charging the supplied token. Do not advertise it through a DVA pause.
     if (!paystackDvaPaused && googlePayConfig?.gateway === 'paystack') {
       methods.push(AGENTIC_PAYMENT_METHOD_GOOGLE_PAY);
     }
