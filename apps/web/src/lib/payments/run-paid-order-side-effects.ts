@@ -27,7 +27,6 @@ const merchantDetailsSchema = z.object({
   slug: nullableStringSchema,
   support_email: nullableStringSchema,
   tax_identification_number: nullableStringSchema,
-  website_url: nullableStringSchema,
 });
 const supabaseErrorSchema = z.looseObject({
   code: z.string().optional(),
@@ -71,7 +70,7 @@ async function fetchMerchantDetails(
   const { data, error } = await supabase
     .from('merchants')
     .select(
-      'business_name, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number, website_url'
+      'business_name, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number'
     )
     .eq('id', merchantId)
     .single();

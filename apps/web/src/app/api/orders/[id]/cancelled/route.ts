@@ -12,6 +12,7 @@ import { logger } from '@/lib/logger';
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 import { initiateRefund as initiatePaystackRefund } from '@/lib/paystack';
 import { sendEmail } from '@/lib/zeptomail';
+import { merchantOrderCancellationSchema } from '@/schemas/orders';
 
 /** Order item interface for email templates (2026 best practice) */
 interface EmailOrderItem {
@@ -43,17 +44,21 @@ export async function POST(
     const { id } = await params;
     console.log(`[OrderCancelled] Starting for order ${id}`);
 
-    // Parse optional body for cancellation details
-    let cancellationReason: string | undefined;
-    let cancelledBy: 'merchant' | 'customer' = 'merchant';
-
+    let requestBody: unknown = {};
     try {
-      const body = await request.json();
-      cancellationReason = body.reason;
-      cancelledBy = body.cancelled_by || 'merchant';
+      requestBody = await request.json();
     } catch {
-      // No body provided, that's fine
+      // Validation below rejects missing explicit cancellation confirmation.
     }
+    const parsedBody = merchantOrderCancellationSchema.safeParse(requestBody);
+    if (!parsedBody.success) {
+      return NextResponse.json(
+        { error: 'Invalid cancellation request', code: 'INVALID_REQUEST_BODY' },
+        { status: 400 }
+      );
+    }
+    const cancellationReason = parsedBody.data.reason;
+    const cancelledBy = 'merchant' as const;
 
     // Authenticate request
     const auth = await authenticateApiRequest(request);
@@ -74,6 +79,38 @@ export async function POST(
     }
 
     const supabase = auth.supabase;
+
+    const { error: cancellationError } = await supabase.rpc(
+      'cancel_order_as_merchant',
+      {
+        p_order_id: id,
+        p_reason: cancellationReason,
+      }
+    );
+    if (cancellationError) {
+      const status =
+        cancellationError.code === 'P0002'
+          ? 404
+          : cancellationError.code === 'P0001'
+            ? 409
+            : cancellationError.code === '42501'
+              ? 403
+              : 500;
+      return NextResponse.json(
+        {
+          error:
+            status === 409
+              ? 'This order can no longer be cancelled.'
+              : status === 404
+                ? 'Order not found'
+                : status === 403
+                  ? 'You do not have permission to cancel this order.'
+                  : 'Failed to cancel order',
+          code: status === 409 ? 'ORDER_NOT_CANCELLABLE' : undefined,
+        },
+        { status }
+      );
+    }
 
     // Fetch merchant details
     const { data: merchant, error: merchantError } = await supabase

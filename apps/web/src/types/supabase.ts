@@ -14751,6 +14751,10 @@ export type Database = {
         Args: { p_order_id: string; p_reason?: string };
         Returns: boolean;
       };
+      cancel_order_as_merchant: {
+        Args: { p_order_id: string; p_reason?: string };
+        Returns: boolean;
+      };
       cancel_provider_shipment_order_and_release_inventory: {
         Args: {
           p_cancelled_at?: string;
