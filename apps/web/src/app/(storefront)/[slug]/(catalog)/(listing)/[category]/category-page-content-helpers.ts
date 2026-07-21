@@ -7,7 +7,10 @@ import {
   type RawDbProduct,
 } from '@/lib/normalize-product';
 import { buildCategoryHubModel } from '@/lib/storefront-category/build-category-hub-model';
-import type { CategoryHubComparisonLink } from '@/lib/storefront-category/category-hub-types';
+import type {
+  BrandAuthorityEntry,
+  CategoryHubComparisonLink,
+} from '@/lib/storefront-category/category-hub-types';
 import type { getPublishedClusterPosts } from '@/lib/storefront-content/get-published-cluster-posts';
 
 type CategoryPageData = Awaited<ReturnType<typeof getCachedCategoryPageData>>;
@@ -90,6 +93,12 @@ export function buildCategoryPageHubModel(input: {
   products: StorefrontCategoryProduct[];
   comparisonLinks?: CategoryHubComparisonLink[];
   guidePosts?: Awaited<ReturnType<typeof getPublishedClusterPosts>>;
+  brandAuthorityEntries?: Array<
+    BrandAuthorityEntry & {
+      productCount: number;
+      productCountIsLowerBound?: boolean;
+    }
+  >;
 }) {
   return buildCategoryHubModel({
     categorySlug: input.categorySlug,
@@ -98,6 +107,7 @@ export function buildCategoryPageHubModel(input: {
     storeUrl: input.storeUrl,
     guidePosts: input.guidePosts ?? [],
     comparisonLinks: input.comparisonLinks,
+    brandAuthorityEntries: input.brandAuthorityEntries,
     products: input.products.map((product) => ({
       slug: product.slug || '',
       name: product.name,
