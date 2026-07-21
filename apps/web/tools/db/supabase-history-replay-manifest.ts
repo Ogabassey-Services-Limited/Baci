@@ -5,7 +5,6 @@ import type {
 } from './supabase-history-replay-types';
 
 const migration = (filename: string) => `supabase/migrations/${filename}`;
-
 function parseFrozenSources(rows: string): FrozenReplaySource[] {
   return rows
     .trim()

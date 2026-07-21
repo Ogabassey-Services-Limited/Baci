@@ -64,7 +64,7 @@ function refundClient({
 }: {
   insertError?: Error | null;
   payments?: (typeof paystackPayment)[];
-  refundRows?: { metadata: Record<string, unknown> }[];
+  refundRows?: { metadata: Record<string, unknown>; status: string }[];
 } = {}) {
   const insert = vi.fn().mockResolvedValue({ error: insertError });
   const paymentLookup = transactionQuery(payments);
@@ -98,7 +98,7 @@ describe('executeOrderCancellationSideEffect', () => {
   it('records a successful Paystack refund', async () => {
     const supabase = refundClient();
     mocks.initiateRefund.mockResolvedValue({
-      data: { id: 42 },
+      data: { id: 42, status: 'processed' },
       success: true,
     });
 
@@ -131,7 +131,7 @@ describe('executeOrderCancellationSideEffect', () => {
       payments: [{ ...paystackPayment, amount: 60 }],
     });
     mocks.initiateRefund.mockResolvedValue({
-      data: { id: 43 },
+      data: { id: 43, status: 'processed' },
       success: true,
     });
 
@@ -163,10 +163,15 @@ describe('executeOrderCancellationSideEffect', () => {
           id: 'payment-2',
         },
       ],
-      refundRows: [{ metadata: { payment_transaction_id: 'payment-1' } }],
+      refundRows: [
+        {
+          metadata: { payment_transaction_id: 'payment-1' },
+          status: 'completed',
+        },
+      ],
     });
     mocks.initiateRefund.mockResolvedValue({
-      data: { id: 44 },
+      data: { id: 44, status: 'processed' },
       success: true,
     });
 
