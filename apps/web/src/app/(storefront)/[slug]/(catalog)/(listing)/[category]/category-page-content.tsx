@@ -7,10 +7,7 @@ import { CategoryPage as OgabasseyCategoryPage } from '@/components/storefront/o
 import { V2ComparisonScope } from '@/components/storefront/ogabassey/providers/v2-comparison-scope';
 import { CategoryHubSections } from '@/components/storefront/ogabassey/seo/category-hub-sections';
 import { CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters';
-import {
-  getCachedCategoryPageData,
-  getMerchantByIdentifier,
-} from '@/lib/cached-data';
+import { getMerchantByIdentifier } from '@/lib/cached-data';
 import type { RawDbProduct } from '@/lib/normalize-product';
 import type { Product as SeoProduct } from '@/lib/products';
 import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
@@ -23,12 +20,11 @@ import { buildRequestScopedStoreUrl, buildStoreUrl } from '@/lib/store-url';
 import type { SupportedClusterCategory } from '@/lib/storefront-content/content-cluster-types';
 import { loadPublishedClusterPostsSafely } from '@/lib/storefront-content/load-published-cluster-posts-safely';
 import {
+  buildStorefrontPageHref,
   parseStorefrontPageParam,
   STOREFRONT_PRODUCTS_PER_PAGE,
 } from '@/lib/storefront-pagination';
 import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
-import { isDomainIdentifier } from '@/lib/validation';
-import { StorefrontRouteNotFoundContent } from '../../../storefront-route-not-found-content';
 import {
   buildCategoryPageHubModel,
   getCategoryPageProductSlots,
@@ -40,6 +36,8 @@ import {
 } from './category-page-content-helpers';
 import { CategoryPageCrawlSummary } from './category-page-crawl-summary';
 import { CategoryPageDeferredCompareLinks } from './category-page-deferred-compare-links';
+import { loadFilteredCategoryPageData } from './load-filtered-category-page-data';
+import { renderCategoryNotFoundContent } from './render-category-not-found-content';
 
 interface PageProps {
   params: Promise<{
@@ -47,23 +45,6 @@ interface PageProps {
     category: string;
   }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
-}
-function renderCategoryNotFoundContent({
-  slug,
-  title = 'Category not found',
-  message = 'This category is unavailable or has moved.',
-}: {
-  slug: string;
-  title?: string;
-  message?: string;
-}) {
-  return (
-    <StorefrontRouteNotFoundContent
-      backHref={isDomainIdentifier(slug) ? '/' : `/${slug}`}
-      message={message}
-      title={title}
-    />
-  );
 }
 
 function toCollectionSchemaProduct(
@@ -103,7 +84,8 @@ function toCollectionSchemaProduct(
 
 export async function CategoryPageContent({ params, searchParams }: PageProps) {
   const { slug, category } = await params;
-  const { page } = await searchParams;
+  const resolvedSearchParams = await searchParams;
+  const { graphics, page } = resolvedSearchParams;
   const merchant = await getMerchantByIdentifier(slug);
 
   if (!merchant) {
@@ -129,14 +111,15 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
     category in CONTENT_CLUSTER_SUPPORT
       ? (category as SupportedClusterCategory)
       : null;
-  const [data, guidePosts] = await Promise.all([
-    getCachedCategoryPageData(
-      merchant.id,
+  const [categoryData, guidePosts] = await Promise.all([
+    loadFilteredCategoryPageData({
       category,
-      slug,
+      merchantId: merchant.id,
+      productLimit: STOREFRONT_PRODUCTS_PER_PAGE,
       productOffset,
-      STOREFRONT_PRODUCTS_PER_PAGE
-    ),
+      rawGraphics: graphics,
+      storeSlug: slug,
+    }),
     supportedClusterCategory
       ? loadPublishedClusterPostsSafely(merchant.id, {
           pageKind: 'category',
@@ -144,6 +127,7 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
         })
       : Promise.resolve([]),
   ]);
+  const { data, graphicsOptions, selectedGraphics } = categoryData;
 
   if (!data.isCollection && data.isInactiveCategory) {
     return renderCategoryNotFoundContent({ slug });
@@ -221,10 +205,10 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
     products: normalizedProducts,
     guidePosts,
   });
-  const paginatedCategoryUrl =
-    currentPage > 1
-      ? `${baseUrl}/${category}?page=${currentPage}`
-      : `${baseUrl}/${category}`;
+  const paginatedCategoryUrl = buildStorefrontPageHref(
+    `${baseUrl}/${category}`,
+    currentPage
+  );
 
   const collectionSchema = generateCollectionPageSchema({
     name: categoryName,
@@ -284,6 +268,8 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
           }
           itemsPerPage={STOREFRONT_PRODUCTS_PER_PAGE}
           products={categoryPageProducts}
+          graphicsOptions={graphicsOptions}
+          selectedGraphics={selectedGraphics}
           totalProductCount={
             productsArePrePaginated
               ? (data.productCount ?? productSlots.length)
