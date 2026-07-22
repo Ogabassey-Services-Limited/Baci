@@ -179,6 +179,9 @@ export function useUpdateOrderStatus() {
       queryClient.invalidateQueries({ queryKey: ['orders', merchant?.id] });
       queryClient.invalidateQueries({ queryKey: ['order', vars.orderId] });
       queryClient.invalidateQueries({
+        queryKey: ['transaction-review', merchant?.id],
+      });
+      queryClient.invalidateQueries({
         queryKey: ['dashboard-stats', merchant?.id],
       });
       queryClient.invalidateQueries({
