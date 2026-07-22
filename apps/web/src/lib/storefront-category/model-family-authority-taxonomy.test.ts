@@ -30,6 +30,8 @@ describe('model family authority taxonomy', () => {
     expect(matchingKeys('Redmi Note 15 Pro')).toEqual(['redmi-note']);
     expect(matchingKeys('Redmi A7 Pro')).toEqual(['redmi-a']);
     expect(matchingKeys('Redmi 15C 5G')).toEqual(['redmi-15']);
+    expect(matchingKeys('Xiaomi Redmi Note 14')).toEqual(['redmi-note']);
+    expect(matchingKeys('Xiaomi Redmi A5')).toEqual(['redmi-a']);
     expect(matchingKeys('Xiaomi 17T Pro')).toEqual(['xiaomi-t']);
   });
 
