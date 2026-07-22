@@ -274,5 +274,8 @@ describe('useUpdateOrderStatus', () => {
     expect(queryClientMock.invalidateQueries).toHaveBeenCalledWith({
       queryKey: ['order', 'order-1'],
     });
+    expect(queryClientMock.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['transaction-review', 'merchant-1'],
+    });
   });
 });

@@ -22,9 +22,15 @@ const TRANSACTION_REVIEW_FULL_SELECT =
   'id, order_number, created_at, transaction_date, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, fulfillment_details, order_items(id, product_id, variant_id, product_match_status, name, price, quantity, cost_price, supplier_name, fulfillment_data, order_item_unit_costs(unit_index, cost_price, supplier_name, identifier_type, identifier_value), product_variants(cost_price, sku, attributes, condition), products(cost_price, metadata, sku, fulfillment_details))';
 
 export const TRANSACTION_REVIEW_LEGACY_SELECT =
+  'id, order_number, created_at, transaction_date, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, fulfillment_details, order_items(id, product_id, variant_id, product_match_status, name, price, quantity, cost_price, supplier_name, fulfillment_data, product_variants(cost_price, sku, attributes, condition), products(cost_price, metadata, sku, fulfillment_details))';
+
+const TRANSACTION_REVIEW_LEGACY_COMPAT_SELECT =
   'id, order_number, created_at, transaction_date, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, fulfillment_details, order_items(id, product_id, variant_id, product_match_status, name, price, quantity, cost_price, supplier_name, fulfillment_data, product_variants(cost_price, sku, attributes, condition), products(cost_price, metadata, sku, fulfillment_details))';
 
 const TRANSACTION_REVIEW_BASE_SELECT =
+  'id, order_number, created_at, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, fulfillment_details, order_items(id, product_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
+
+const TRANSACTION_REVIEW_BASE_COMPAT_SELECT =
   'id, order_number, created_at, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, fulfillment_details, order_items(id, product_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
 
 function warnTransactionReviewQueryError(
@@ -98,7 +104,7 @@ export function useTransactionReview(range?: TransactionReviewRange) {
         const legacyResult = await fetchTransactionReviewRows({
           endDateFilter,
           endDateIso,
-          includeCancelledAt: false,
+          includeCancelledAt: true,
           includeTransactionDate: true,
           merchantId: merchant.id,
           selectStatement: TRANSACTION_REVIEW_LEGACY_SELECT,
@@ -115,7 +121,7 @@ export function useTransactionReview(range?: TransactionReviewRange) {
       if (isTransactionReviewSchemaCacheError(error)) {
         const baseResult = await fetchTransactionReviewRows({
           endDateIso,
-          includeCancelledAt: false,
+          includeCancelledAt: true,
           includeTransactionDate: false,
           merchantId: merchant.id,
           selectStatement: TRANSACTION_REVIEW_BASE_SELECT,
@@ -124,6 +130,40 @@ export function useTransactionReview(range?: TransactionReviewRange) {
 
         data = baseResult.data;
         error = baseResult.error;
+
+        warnTransactionReviewQueryError('Base', error);
+      }
+
+      if (isTransactionReviewSchemaCacheError(error)) {
+        const legacyCompatResult = await fetchTransactionReviewRows({
+          endDateFilter,
+          endDateIso,
+          includeCancelledAt: false,
+          includeTransactionDate: true,
+          merchantId: merchant.id,
+          selectStatement: TRANSACTION_REVIEW_LEGACY_COMPAT_SELECT,
+          startDateFilter,
+          startDateIso,
+        });
+
+        data = legacyCompatResult.data;
+        error = legacyCompatResult.error;
+
+        warnTransactionReviewQueryError('Legacy', error);
+      }
+
+      if (isTransactionReviewSchemaCacheError(error)) {
+        const baseCompatResult = await fetchTransactionReviewRows({
+          endDateIso,
+          includeCancelledAt: false,
+          includeTransactionDate: false,
+          merchantId: merchant.id,
+          selectStatement: TRANSACTION_REVIEW_BASE_COMPAT_SELECT,
+          startDateIso,
+        });
+
+        data = baseCompatResult.data;
+        error = baseCompatResult.error;
 
         warnTransactionReviewQueryError('Base', error);
       }
