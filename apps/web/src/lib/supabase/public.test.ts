@@ -6,20 +6,18 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: (...args: unknown[]) => mockCreateClient(...args),
 }));
 
-vi.mock('@/env', () => ({
-  getSupabaseAnonKey: () => 'test-anon-key',
-  getSupabaseUrl: () => 'https://test.supabase.co',
-}));
-
 import { createPublicClient } from '@/lib/supabase/public';
 
 describe('createPublicClient', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'test-anon-key');
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://test.supabase.co');
     mockCreateClient.mockReturnValue({});
   });
 
   afterEach(() => {
+    vi.unstubAllEnvs();
     vi.restoreAllMocks();
   });
 

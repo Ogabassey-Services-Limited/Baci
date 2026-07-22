@@ -2,8 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCategory = vi.fn();
 const mockInventory = vi.fn();
-vi.mock('@/lib/cached-data', () => ({
-  getCachedCategoryPageData: (...args: unknown[]) => mockCategory(...args),
+vi.mock('@/lib/storefront-category/brand-authority-public-data', () => ({
+  brandAuthorityPublicData: {
+    getCategory: (...args: unknown[]) => mockCategory(...args),
+  },
 }));
 vi.mock(
   '@/lib/storefront-category/get-cached-brand-authority-inventory',
@@ -16,11 +18,7 @@ vi.mock(
 describe('getBrandAuthoritySitemapEntries', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockCategory.mockResolvedValue({
-      isCollection: false,
-      isInactiveCategory: false,
-      productsQueryFailed: false,
-    });
+    mockCategory.mockResolvedValue({ id: 'category-1', name: 'Smartphones' });
   });
 
   it('emits eligible brand hubs and isolates inventory failures', async () => {

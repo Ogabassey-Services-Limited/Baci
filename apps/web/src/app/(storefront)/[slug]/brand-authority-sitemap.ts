@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next';
-import { getCachedCategoryPageData } from '@/lib/cached-data';
+import { brandAuthorityPublicData } from '@/lib/storefront-category/brand-authority-public-data';
 import { brandAuthorityTaxonomy } from '@/lib/storefront-category/brand-authority-taxonomy';
 import { getCachedBrandAuthorityInventory } from '@/lib/storefront-category/get-cached-brand-authority-inventory';
 import type { StorefrontSitemapContext } from './sitemap-data';
@@ -13,19 +13,11 @@ export async function getBrandAuthoritySitemapEntries({
       .getSupportedCategories()
       .map(async (categorySlug) => {
         try {
-          const categoryData = await getCachedCategoryPageData(
+          const categoryData = await brandAuthorityPublicData.getCategory(
             merchant.id,
-            categorySlug,
-            merchant.slug,
-            0,
-            1
+            categorySlug
           );
-          return categoryData &&
-            !categoryData.isCollection &&
-            !categoryData.isInactiveCategory &&
-            !categoryData.productsQueryFailed
-            ? categorySlug
-            : null;
+          return categoryData ? categorySlug : null;
         } catch (error) {
           console.warn('Failed to load brand authority sitemap category', {
             merchantId: merchant.id,

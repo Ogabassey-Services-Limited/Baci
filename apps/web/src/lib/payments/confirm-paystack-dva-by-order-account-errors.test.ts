@@ -81,6 +81,36 @@ describe('confirmPaystackDvaByOrderAccount — errors and review', () => {
     ]);
   });
 
+  it('lets an active wallet DVA suppress ambiguous late invoice matches', async () => {
+    findWalletAccountMock.mockResolvedValue({ id: 'wallet-account-1' });
+    const orderA = {
+      ...baseAccountRow,
+      order_id: 'order-a',
+      orders: { ...baseAccountRow.orders, id: 'order-a' },
+    };
+    const orderB = {
+      ...baseAccountRow,
+      order_id: 'order-b',
+      orders: { ...baseAccountRow.orders, id: 'order-b' },
+    };
+    const { supabase, state } = createSupabaseMock({
+      accountRows: [orderA, orderB],
+    });
+
+    await expect(
+      confirmPaystackDvaByOrderAccount({
+        supabase: supabase as never,
+        ...ctxBase,
+        paystackResponse: {
+          customer: { email: 'customer@example.com' },
+          paid_at: '2026-05-09T12:53:00Z',
+        },
+      })
+    ).resolves.toEqual({ kind: 'none' });
+    expect(state.reviewUpserts).toEqual([]);
+    expect(state.insertCalls).toEqual([]);
+  });
+
   it('treats a duplicate review insert as expected webhook retry traffic', async () => {
     const orderA = {
       ...baseAccountRow,

@@ -1,16 +1,13 @@
 import { headers } from 'next/headers';
 import { CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters';
 import {
-  getCachedCategoryPageData,
-  getMerchantByIdentifier,
-} from '@/lib/cached-data';
-import {
   normalizeProduct,
   type ProductKeySpecsRecord,
   type RawDbProduct,
 } from '@/lib/normalize-product';
 import { generateSlug } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
+import { brandAuthorityPublicData } from '@/lib/storefront-category/brand-authority-public-data';
 import { brandAuthorityTaxonomy } from '@/lib/storefront-category/brand-authority-taxonomy';
 import { getCachedBrandAuthorityProducts } from '@/lib/storefront-category/get-cached-brand-authority-products';
 import { buildCommercialGuideLinks } from '@/lib/storefront-content/build-commercial-guide-links';
@@ -69,7 +66,9 @@ async function loadBrandAuthorityPage(
   },
   options: { includeRequestPathPrefix?: boolean } = {}
 ) {
-  const merchant = await getMerchantByIdentifier(args.merchantSlug);
+  const merchant = await brandAuthorityPublicData.getMerchant(
+    args.merchantSlug
+  );
   if (!merchant) {
     return null;
   }
@@ -89,20 +88,11 @@ async function loadBrandAuthorityPage(
     return null;
   }
 
-  const categoryData = await getCachedCategoryPageData(
+  const categoryData = await brandAuthorityPublicData.getCategory(
     merchant.id,
-    args.categorySlug,
-    args.merchantSlug,
-    0,
-    1
+    args.categorySlug
   );
-  if (
-    categoryData.isCollection ||
-    categoryData.isInactiveCategory ||
-    categoryData.productsQueryFailed
-  ) {
-    return null;
-  }
+  if (!categoryData) return null;
 
   let brandProducts: RawDbProduct[];
   try {
@@ -155,7 +145,7 @@ async function loadBrandAuthorityPage(
     })
   );
   const storeUrl = buildStoreUrl(merchant);
-  const categoryName = categoryData.fallbackName || args.categorySlug;
+  const categoryName = categoryData.name;
   const canonicalUrl = `${storeUrl}/${args.categorySlug}/brands/${authorityEntry.brandKey}`;
   const countryContext = getCountryShoppingContext(merchant.country);
   const countrySuffix = countryContext ? ` ${countryContext}` : '';

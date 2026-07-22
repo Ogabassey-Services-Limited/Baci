@@ -149,7 +149,7 @@ describe('matchPaystackDvaCandidates — paid_at window', () => {
     }
   });
 
-  it('uses the unique late-match fallback when account_expires_at is malformed', () => {
+  it('uses the unique late-match fallback when account_expires_at is beyond the grace window', () => {
     const c = candidate({
       account_expires_at: new Date('2026-05-09T13:00:00Z'),
     });

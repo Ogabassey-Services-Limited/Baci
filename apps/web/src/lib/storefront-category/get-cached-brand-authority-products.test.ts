@@ -7,10 +7,14 @@ vi.mock('next/cache', () => ({
   cacheLife: vi.fn(),
   cacheTag: vi.fn(),
 }));
-vi.mock('@/lib/cached-data', () => ({
-  getPublicSupabaseClient: () => mockGetPublicSupabaseClient(),
-  hydrateAndSanitizeProducts: (...args: unknown[]) =>
+vi.mock('@/lib/hydrate-public-products', () => ({
+  hydrateAndSanitizePublicProducts: (...args: unknown[]) =>
     mockHydrateAndSanitizeProducts(...args),
+}));
+vi.mock('@/lib/storefront-category/brand-authority-public-data', () => ({
+  brandAuthorityPublicData: {
+    createClient: () => mockGetPublicSupabaseClient(),
+  },
 }));
 
 function makeQuery(data: unknown, error: unknown = null) {
