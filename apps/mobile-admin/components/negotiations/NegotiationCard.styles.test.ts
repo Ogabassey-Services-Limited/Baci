@@ -9,6 +9,9 @@ describe('negotiationCardStyles', () => {
     expect(negotiationCardStyles.cartToggle).toEqual(
       expect.objectContaining({ flexDirection: 'row' })
     );
+    expect(negotiationCardStyles.itemMetaChips).toEqual(
+      expect.objectContaining({ flexDirection: 'row', flexWrap: 'wrap' })
+    );
     expect(negotiationCardStyles.actionRow).toEqual(
       expect.objectContaining({ flexDirection: 'row' })
     );
