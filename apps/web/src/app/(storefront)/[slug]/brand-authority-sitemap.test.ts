@@ -32,6 +32,7 @@ describe('getBrandAuthoritySitemapEntries', () => {
         return {
           productCount: entry.brandKey === 'samsung' ? 5 : 0,
           latestUpdatedAt: '2026-07-21T00:00:00Z',
+          products: [],
         };
       }
     );
@@ -44,6 +45,41 @@ describe('getBrandAuthoritySitemapEntries', () => {
     } as never);
     expect(entries.map((entry) => entry.url)).toEqual([
       'https://store.test/smartphones/brands/samsung',
+    ]);
+  });
+
+  it('emits family hubs only when the family has enough products', async () => {
+    mockInventory.mockImplementation(
+      async (
+        _merchant: string,
+        _category: string,
+        entry: { brandKey: string }
+      ) => ({
+        productCount: entry.brandKey === 'samsung' ? 6 : 0,
+        latestUpdatedAt: '2026-07-21T00:00:00Z',
+        products:
+          entry.brandKey === 'samsung'
+            ? [
+                { name: 'Samsung Galaxy S24' },
+                { name: 'Samsung Galaxy S25' },
+                { name: 'Samsung Galaxy S26' },
+                { name: 'Samsung Galaxy A56' },
+                { name: 'Samsung Galaxy A36' },
+                { name: 'Samsung Galaxy Z Fold 7' },
+              ]
+            : [],
+      })
+    );
+    const { getBrandAuthoritySitemapEntries } = await import(
+      './brand-authority-sitemap'
+    );
+    const entries = await getBrandAuthoritySitemapEntries({
+      merchant: { id: 'merchant-1', slug: 'store' },
+      storeUrl: 'https://store.test',
+    } as never);
+    expect(entries.map((entry) => entry.url)).toEqual([
+      'https://store.test/smartphones/brands/samsung',
+      'https://store.test/smartphones/brands/samsung/families/galaxy-s',
     ]);
   });
 });

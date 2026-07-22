@@ -10,6 +10,7 @@ import { buildStoreUrl } from '@/lib/store-url';
 import { brandAuthorityPublicData } from '@/lib/storefront-category/brand-authority-public-data';
 import { brandAuthorityTaxonomy } from '@/lib/storefront-category/brand-authority-taxonomy';
 import { getCachedBrandAuthorityProducts } from '@/lib/storefront-category/get-cached-brand-authority-products';
+import { modelFamilyAuthorityTaxonomy } from '@/lib/storefront-category/model-family-authority-taxonomy';
 import { buildCommercialGuideLinks } from '@/lib/storefront-content/build-commercial-guide-links';
 import type { SupportedClusterCategory } from '@/lib/storefront-content/content-cluster-types';
 import { loadPublishedClusterPostsSafely } from '@/lib/storefront-content/load-published-cluster-posts-safely';
@@ -161,6 +162,22 @@ async function loadBrandAuthorityPage(
         brands: [authorityEntry.displayName, authorityEntry.brandKey],
       })
     : [];
+  const familyLinks = modelFamilyAuthorityTaxonomy
+    .getEntries(args.categorySlug, authorityEntry.brandKey)
+    .flatMap((entry) => {
+      const productCount = products.filter((product) =>
+        modelFamilyAuthorityTaxonomy.matchesProduct(entry, product.name)
+      ).length;
+      return productCount >= entry.minimumProducts
+        ? [
+            {
+              href: `${canonicalUrl}/families/${entry.familyKey}`,
+              label: `${entry.displayName} phones`,
+              productCount,
+            },
+          ]
+        : [];
+    });
 
   return {
     merchant,
@@ -187,6 +204,7 @@ async function loadBrandAuthorityPage(
           },
         })
       : [],
+    familyLinks,
     breadcrumbItems: [
       { name: merchant.business_name, url: storeUrl },
       { name: categoryName, url: `${storeUrl}/${args.categorySlug}` },

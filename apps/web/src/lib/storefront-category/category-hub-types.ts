@@ -13,6 +13,15 @@ export interface BrandAuthorityEntry {
   minimumProducts: number;
 }
 
+export interface ModelFamilyAuthorityEntry {
+  brandKey: string;
+  categorySlug: string;
+  displayName: string;
+  familyKey: string;
+  minimumProducts: number;
+  productNamePattern: string;
+}
+
 export interface CategoryHubFaqItem {
   question: string;
   answer: string;

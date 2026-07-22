@@ -37,6 +37,20 @@ const BRAND_AUTHORITY_ENTRIES: readonly BrandAuthorityEntry[] = [
     displayName: 'Itel',
     minimumProducts: 5,
   },
+  {
+    brandKey: 'xiaomi',
+    brandQueryValue: 'Xiaomi',
+    categorySlug: 'smartphones',
+    displayName: 'Xiaomi and Redmi',
+    minimumProducts: 5,
+  },
+  {
+    brandKey: 'oppo',
+    brandQueryValue: 'Oppo',
+    categorySlug: 'smartphones',
+    displayName: 'Oppo',
+    minimumProducts: 5,
+  },
 ];
 
 function getBrandAuthorityEntry(
