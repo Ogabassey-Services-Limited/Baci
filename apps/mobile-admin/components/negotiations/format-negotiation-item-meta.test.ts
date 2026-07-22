@@ -94,9 +94,10 @@ describe('formatNegotiationItemMeta', () => {
         variant_attributes: {
           refresh_rate: 120,
           batteryHealth: '90%',
+          sim_type: 'Dual SIM',
         } as unknown as Record<string, string>,
       })
-    ).toBe('Battery Health: 90% · Refresh Rate: 120');
+    ).toBe('Battery Health: 90% · Refresh Rate: 120 · SIM type: Dual SIM');
   });
 
   it('uses item condition instead of condition duplicated in attributes', () => {

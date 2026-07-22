@@ -42,6 +42,7 @@ vi.mock('react-native', async () => {
 });
 
 const colors = {
+  backgroundLight: '#0f172a',
   border: '#334155',
   text: '#f8fafc',
   textSecondary: '#94a3b8',
@@ -70,9 +71,10 @@ describe('NegotiationCartSnapshot', () => {
     );
 
     expect(screen.getByText('Dell Latitude')).toBeInTheDocument();
-    expect(
-      screen.getByText('16GB / 512GB · Condition: used')
-    ).toBeInTheDocument();
+    expect(screen.getByText('Variant')).toBeInTheDocument();
+    expect(screen.getByText('16GB / 512GB')).toBeInTheDocument();
+    expect(screen.getByText('Condition')).toBeInTheDocument();
+    expect(screen.getByText('used')).toBeInTheDocument();
     expect(screen.getByText(/900,000/)).toBeInTheDocument();
   });
 
@@ -158,8 +160,10 @@ describe('NegotiationCartSnapshot', () => {
       />
     );
 
+    expect(screen.getByText('Variant')).toBeInTheDocument();
     expect(screen.getByText('16GB / 512GB')).toBeInTheDocument();
-    expect(screen.getByText('Condition: open box')).toBeInTheDocument();
+    expect(screen.getByText('Condition')).toBeInTheDocument();
+    expect(screen.getByText('open box')).toBeInTheDocument();
   });
 
   it('keeps option-only cart lines keyed distinctly', () => {

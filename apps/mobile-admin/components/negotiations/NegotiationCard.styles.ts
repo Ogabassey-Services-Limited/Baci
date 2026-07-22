@@ -35,12 +35,38 @@ export const negotiationCardStyles = StyleSheet.create({
     color: palette.gray[900],
     marginBottom: SPACING.md,
   },
-  itemMeta: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: palette.gray[500],
+  itemMetaChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  itemMetaChipsCard: {
     marginTop: -SPACING.sm,
     marginBottom: SPACING.md,
+  },
+  itemMetaChipsCompact: {
+    marginTop: 4,
+  },
+  itemMetaChip: {
+    maxWidth: '100%',
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+    borderWidth: 1,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  itemMetaChipLabel: {
+    flexShrink: 0,
+    fontSize: 10,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  itemMetaChipValue: {
+    flexShrink: 1,
+    fontSize: 11,
+    fontWeight: '700',
   },
   priceRow: {
     flexDirection: 'row',
@@ -117,11 +143,6 @@ export const negotiationCardStyles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     color: palette.gray[900],
-  },
-  cartLineMeta: {
-    fontSize: 11,
-    color: palette.gray[500],
-    marginTop: 2,
   },
   cartLinePrice: {
     fontSize: 13,

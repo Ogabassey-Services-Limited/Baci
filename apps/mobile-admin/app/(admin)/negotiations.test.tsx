@@ -432,9 +432,12 @@ describe('NegotiationsScreen', () => {
     render(<NegotiationsScreen />);
 
     expect(await screen.findByText('iPhone 14 Pro Max')).toBeInTheDocument();
-    expect(
-      screen.getByText('Storage: 256GB · Color: Deep Purple · Condition: used')
-    ).toBeInTheDocument();
+    expect(screen.getByText('Storage')).toBeInTheDocument();
+    expect(screen.getByText('256GB')).toBeInTheDocument();
+    expect(screen.getByText('Color')).toBeInTheDocument();
+    expect(screen.getByText('Deep Purple')).toBeInTheDocument();
+    expect(screen.getByText('Condition')).toBeInTheDocument();
+    expect(screen.getByText('used')).toBeInTheDocument();
   });
 
   it('opens WhatsApp and a dialer for a customer with a phone number', async () => {

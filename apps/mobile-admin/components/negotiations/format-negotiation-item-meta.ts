@@ -19,6 +19,7 @@ const ATTRIBUTE_LABELS: Record<string, string> = {
   os: 'OS',
   ram: 'RAM',
   screen_size: 'Screen size',
+  sim_type: 'SIM type',
 };
 
 const IGNORED_ATTRIBUTE_KEYS = new Set([
