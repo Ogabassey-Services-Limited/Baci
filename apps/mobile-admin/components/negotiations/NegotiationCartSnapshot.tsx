@@ -36,7 +36,7 @@ function buildCartToggleLabel(count: number, expanded: boolean) {
   };
 }
 
-function formatCartLineMeta(line: NegotiationCartLine): string | null {
+function formatCartLineMeta(line: NegotiationCartLine) {
   return formatNegotiationItemMeta({
     name: line.name,
     variant_name: line.variant_name,

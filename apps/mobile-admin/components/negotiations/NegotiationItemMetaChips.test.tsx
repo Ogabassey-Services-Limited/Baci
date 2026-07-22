@@ -40,7 +40,11 @@ describe('NegotiationItemMetaChips', () => {
     render(
       <NegotiationItemMetaChips
         colors={colors}
-        metadata="Storage: 256GB · Color: Deep Purple · SIM type: Dual SIM"
+        metadata={[
+          { label: 'Storage', value: '256GB' },
+          { label: 'Color', value: 'Deep Purple' },
+          { label: 'SIM type', value: 'Dual SIM' },
+        ]}
       />
     );
 
@@ -59,10 +63,26 @@ describe('NegotiationItemMetaChips', () => {
 
   it('labels a saved option name as the variant', () => {
     render(
-      <NegotiationItemMetaChips colors={colors} metadata="16GB / 512GB SSD" />
+      <NegotiationItemMetaChips
+        colors={colors}
+        metadata={[{ label: 'Variant', value: '16GB / 512GB SSD' }]}
+      />
     );
 
     expect(screen.getByText('Variant')).toBeInTheDocument();
     expect(screen.getByText('16GB / 512GB SSD')).toBeInTheDocument();
+  });
+
+  it('preserves delimiters inside a selected option value', () => {
+    render(
+      <NegotiationItemMetaChips
+        colors={colors}
+        metadata={[{ label: 'Size', value: 'Small · Medium' }]}
+      />
+    );
+
+    expect(screen.getByText('Size')).toBeInTheDocument();
+    expect(screen.getByText('Small · Medium')).toBeInTheDocument();
+    expect(screen.queryByText('Variant')).not.toBeInTheDocument();
   });
 });

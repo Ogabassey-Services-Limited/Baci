@@ -1,5 +1,6 @@
 import { Text, View } from 'react-native';
 import { negotiationCardStyles as styles } from './NegotiationCard.styles';
+import type { NegotiationItemMetaPart } from './negotiation-item-meta.types';
 
 interface NegotiationItemMetaChipsColors {
   backgroundLight: string;
@@ -11,19 +12,7 @@ interface NegotiationItemMetaChipsColors {
 interface NegotiationItemMetaChipsProps {
   colors: NegotiationItemMetaChipsColors;
   compact?: boolean;
-  metadata: string;
-}
-
-function splitMetadataPart(part: string): { label: string; value: string } {
-  const separatorIndex = part.indexOf(':');
-  if (separatorIndex === -1) {
-    return { label: 'Variant', value: part };
-  }
-
-  return {
-    label: part.slice(0, separatorIndex).trim(),
-    value: part.slice(separatorIndex + 1).trim(),
-  };
+  metadata: readonly NegotiationItemMetaPart[];
 }
 
 export function NegotiationItemMetaChips({
@@ -31,7 +20,9 @@ export function NegotiationItemMetaChips({
   compact = false,
   metadata,
 }: NegotiationItemMetaChipsProps) {
-  const parts = metadata.split(' · ').map(splitMetadataPart);
+  const accessibilitySummary = metadata
+    .map(({ label, value }) => `${label}: ${value}`)
+    .join(', ');
 
   return (
     <View
@@ -40,9 +31,9 @@ export function NegotiationItemMetaChips({
         compact ? styles.itemMetaChipsCompact : styles.itemMetaChipsCard,
       ]}
       accessible={true}
-      accessibilityLabel={`Selected options: ${metadata.replaceAll(' · ', ', ')}`}
+      accessibilityLabel={`Selected options: ${accessibilitySummary}`}
     >
-      {parts.map(({ label, value }) => (
+      {metadata.map(({ label, value }) => (
         <View
           key={`${label}:${value}`}
           style={[
