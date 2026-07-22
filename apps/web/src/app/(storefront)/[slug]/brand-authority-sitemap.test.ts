@@ -116,4 +116,39 @@ describe('getBrandAuthoritySitemapEntries', () => {
       'https://store.test/smartphones/brands/samsung',
     ]);
   });
+
+  it('checks family eligibility against the same 48 products rendered by the page', async () => {
+    mockInventory.mockImplementation(
+      async (
+        _merchant: string,
+        _category: string,
+        entry: { brandKey: string }
+      ) => ({
+        productCount: entry.brandKey === 'samsung' ? 51 : 0,
+        latestUpdatedAt: '2026-07-21T00:00:00Z',
+        products:
+          entry.brandKey === 'samsung'
+            ? [
+                ...Array.from({ length: 48 }, (_, index) => ({
+                  name: `Samsung Other ${index}`,
+                })),
+                { name: 'Galaxy S24' },
+                { name: 'Galaxy S25' },
+                { name: 'Galaxy S26' },
+              ]
+            : [],
+      })
+    );
+    const { getBrandAuthoritySitemapEntries } = await import(
+      './brand-authority-sitemap'
+    );
+    const entries = await getBrandAuthoritySitemapEntries({
+      merchant: { id: 'merchant-1', slug: 'store' },
+      storeUrl: 'https://store.test',
+    } as never);
+
+    expect(entries.map((entry) => entry.url)).toEqual([
+      'https://store.test/smartphones/brands/samsung',
+    ]);
+  });
 });

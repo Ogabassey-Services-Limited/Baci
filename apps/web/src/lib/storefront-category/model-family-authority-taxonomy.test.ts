@@ -44,4 +44,17 @@ describe('model family authority taxonomy', () => {
       modelFamilyAuthorityTaxonomy.matchesProduct(entry, 'Tecno POP 10 Pro')
     ).toBe(true);
   });
+
+  it('matches family names when the product name omits its separate brand', () => {
+    const entry = modelFamilyAuthorityTaxonomy.getEntry(
+      'smartphones',
+      'samsung',
+      'galaxy-s'
+    );
+    if (!entry) throw new Error('Expected Samsung Galaxy S family entry');
+
+    expect(
+      modelFamilyAuthorityTaxonomy.matchesProduct(entry, 'Galaxy S24 Ultra')
+    ).toBe(true);
+  });
 });
