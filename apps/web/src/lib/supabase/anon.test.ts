@@ -6,16 +6,13 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: (...args: unknown[]) => mockCreateClient(...args),
 }));
 
-vi.mock('@/env', () => ({
-  getSupabaseAnonKey: () => 'test-anon-key',
-  getSupabaseUrl: () => 'https://test.supabase.co',
-}));
-
 // Reset the cached singleton between tests by re-importing
 describe('createAnonClient', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.resetModules();
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'test-anon-key');
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://test.supabase.co');
     mockCreateClient.mockReturnValue({ auth: {} });
   });
 

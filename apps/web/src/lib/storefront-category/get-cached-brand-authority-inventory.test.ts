@@ -8,11 +8,16 @@ const query = Object.fromEntries(
 for (const method of Object.values(query))
   method.mockReturnValue({ ...query, range: mockRange });
 vi.mock('next/cache', () => ({ cacheLife: vi.fn(), cacheTag: vi.fn() }));
-vi.mock('@/lib/cached-data', () => ({
-  getPublicSupabaseClient: () => ({
-    from: () => ({ ...query, range: mockRange }),
-  }),
-  hydrateAndSanitizeProducts: (...args: unknown[]) => mockHydrate(...args),
+vi.mock('@/lib/hydrate-public-products', () => ({
+  hydrateAndSanitizePublicProducts: (...args: unknown[]) =>
+    mockHydrate(...args),
+}));
+vi.mock('@/lib/storefront-category/brand-authority-public-data', () => ({
+  brandAuthorityPublicData: {
+    createClient: () => ({
+      from: () => ({ ...query, range: mockRange }),
+    }),
+  },
 }));
 
 describe('getCachedBrandAuthorityInventory', () => {

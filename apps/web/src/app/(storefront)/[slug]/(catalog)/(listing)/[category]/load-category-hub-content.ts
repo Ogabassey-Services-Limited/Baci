@@ -1,15 +1,13 @@
 import { CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters';
-import type { getCachedCategoryPageData } from '@/lib/cached-data';
+import type { CachedCategoryPageData } from '@/lib/cached-data';
 import { getCachedBrandAuthorityEntries } from '@/lib/storefront-category/get-cached-brand-authority-entries';
 import type { SupportedClusterCategory } from '@/lib/storefront-content/content-cluster-types';
 import { loadPublishedClusterPostsSafely } from '@/lib/storefront-content/load-published-cluster-posts-safely';
 
-type CategoryPageData = Awaited<ReturnType<typeof getCachedCategoryPageData>>;
-
 export async function loadCategoryHubContent(input: {
   merchantId: string;
   categorySlug: string;
-  categoryData: CategoryPageData;
+  categoryData: CachedCategoryPageData;
 }) {
   const supportedCategory =
     input.categorySlug in CONTENT_CLUSTER_SUPPORT

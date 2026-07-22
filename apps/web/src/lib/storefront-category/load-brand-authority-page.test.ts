@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockGetMerchantByIdentifier = vi.fn();
-const mockGetCachedCategoryPageData = vi.fn();
+const mockGetMerchant = vi.fn();
+const mockGetCategory = vi.fn();
 const mockGetCachedBrandAuthorityProducts = vi.fn();
 let mockHeaders = new Headers();
 
@@ -14,11 +14,11 @@ vi.mock('./get-cached-brand-authority-products', () => ({
     mockGetCachedBrandAuthorityProducts(...args),
 }));
 
-vi.mock('@/lib/cached-data', () => ({
-  getMerchantByIdentifier: (...args: unknown[]) =>
-    mockGetMerchantByIdentifier(...args),
-  getCachedCategoryPageData: (...args: unknown[]) =>
-    mockGetCachedCategoryPageData(...args),
+vi.mock('@/lib/storefront-category/brand-authority-public-data', () => ({
+  brandAuthorityPublicData: {
+    getMerchant: (...args: unknown[]) => mockGetMerchant(...args),
+    getCategory: (...args: unknown[]) => mockGetCategory(...args),
+  },
 }));
 
 vi.mock('@/lib/normalize-product', () => ({
@@ -56,18 +56,16 @@ describe('loadBrandAuthorityPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockHeaders = new Headers();
-    mockGetMerchantByIdentifier.mockResolvedValue({
+    mockGetMerchant.mockResolvedValue({
       id: 'merchant-1',
       slug: 'ogabassey',
       business_name: 'Ogabassey',
       country: 'NG',
+      payout_currency: 'NGN',
     });
-    mockGetCachedCategoryPageData.mockResolvedValue({
-      isCollection: false,
-      isInactiveCategory: false,
-      productsQueryFailed: false,
-      fallbackName: 'Smartphones',
-      products: [],
+    mockGetCategory.mockResolvedValue({
+      id: 'category-1',
+      name: 'Smartphones',
     });
     mockGetCachedBrandAuthorityProducts.mockResolvedValue(
       Array.from({ length: 6 }, (_, index) => makeProduct(index))
@@ -95,13 +93,7 @@ describe('loadBrandAuthorityPage', () => {
     });
     expect(page?.products).toHaveLength(6);
     expect(page?.breadcrumbItems).toHaveLength(3);
-    expect(mockGetCachedCategoryPageData).toHaveBeenCalledWith(
-      'merchant-1',
-      'smartphones',
-      'ogabassey',
-      0,
-      1
-    );
+    expect(mockGetCategory).toHaveBeenCalledWith('merchant-1', 'smartphones');
   });
 
   it('rejects uncurated and thin brand pages', async () => {
@@ -171,7 +163,7 @@ describe('loadBrandAuthorityPage', () => {
     const { brandAuthorityPageLoader } = await import(
       './load-brand-authority-page'
     );
-    mockGetMerchantByIdentifier.mockResolvedValueOnce(null);
+    mockGetMerchant.mockResolvedValueOnce(null);
 
     await expect(
       brandAuthorityPageLoader.load({
@@ -195,22 +187,11 @@ describe('loadBrandAuthorityPage', () => {
       })
     ).resolves.toBeNull();
 
-    expect(mockGetCachedCategoryPageData).not.toHaveBeenCalled();
+    expect(mockGetCategory).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ['collection', { isCollection: true }],
-    ['inactive category', { isInactiveCategory: true }],
-    ['failed product query', { productsQueryFailed: true }],
-  ])('rejects a %s category response', async (_label, override) => {
-    mockGetCachedCategoryPageData.mockResolvedValue({
-      isCollection: false,
-      isInactiveCategory: false,
-      productsQueryFailed: false,
-      fallbackName: 'Smartphones',
-      products: [],
-      ...override,
-    });
+  it('rejects a category that is not publicly available', async () => {
+    mockGetCategory.mockResolvedValue(null);
     const { brandAuthorityPageLoader } = await import(
       './load-brand-authority-page'
     );

@@ -8,6 +8,7 @@ process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
 let mockHeaders = new Map<string, string>();
 const mockGetMerchantByIdentifier = vi.fn();
 const mockGetCachedCategoryPageData = vi.fn();
+const mockGetBrandAuthorityCategory = vi.fn();
 const mockGetCachedBrandAuthorityInventory = vi.fn();
 const mockBuildCommercialSupportDiscoveryLinks = vi.fn();
 const mockQueryResults = new Map<
@@ -22,6 +23,11 @@ vi.mock('@/lib/cached-data', () => ({
     mockGetMerchantByIdentifier(...args),
   getCachedCategoryPageData: (...args: unknown[]) =>
     mockGetCachedCategoryPageData(...args),
+}));
+vi.mock('@/lib/storefront-category/brand-authority-public-data', () => ({
+  brandAuthorityPublicData: {
+    getCategory: (...args: unknown[]) => mockGetBrandAuthorityCategory(...args),
+  },
 }));
 vi.mock(
   '@/lib/storefront-category/get-cached-brand-authority-inventory',
@@ -157,6 +163,8 @@ describe('sitemap-data', () => {
     });
     mockGetCachedCategoryPageData.mockReset();
     mockGetCachedCategoryPageData.mockResolvedValue(null);
+    mockGetBrandAuthorityCategory.mockReset();
+    mockGetBrandAuthorityCategory.mockResolvedValue(null);
     mockGetCachedBrandAuthorityInventory.mockReset();
     mockGetCachedBrandAuthorityInventory.mockResolvedValue({
       latestUpdatedAt: null,
@@ -1364,10 +1372,9 @@ describe('sitemap-data', () => {
   });
 
   it('lists only inventory-qualified curated brand authority hubs', async () => {
-    mockGetCachedCategoryPageData.mockResolvedValue({
-      isCollection: false,
-      isInactiveCategory: false,
-      productsQueryFailed: false,
+    mockGetBrandAuthorityCategory.mockResolvedValue({
+      id: 'category-1',
+      name: 'Smartphones',
     });
     mockGetCachedBrandAuthorityInventory.mockImplementation(
       async (
@@ -1398,10 +1405,9 @@ describe('sitemap-data', () => {
   });
 
   it('keeps successful authority hubs when a single brand query fails', async () => {
-    mockGetCachedCategoryPageData.mockResolvedValue({
-      isCollection: false,
-      isInactiveCategory: false,
-      productsQueryFailed: false,
+    mockGetBrandAuthorityCategory.mockResolvedValue({
+      id: 'category-1',
+      name: 'Smartphones',
     });
     mockGetCachedBrandAuthorityInventory.mockImplementation(
       async (
@@ -1429,11 +1435,7 @@ describe('sitemap-data', () => {
   });
 
   it('omits authority hubs when the category cannot render publicly', async () => {
-    mockGetCachedCategoryPageData.mockResolvedValue({
-      isCollection: false,
-      isInactiveCategory: true,
-      productsQueryFailed: false,
-    });
+    mockGetBrandAuthorityCategory.mockResolvedValue(null);
     const { getBrandAuthoritySitemapEntries } = sitemapData;
 
     await expect(

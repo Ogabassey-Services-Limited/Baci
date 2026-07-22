@@ -37,6 +37,7 @@
     "process:import-jobs": "tsx src/scripts/process-import-jobs.ts",
     "process:domain-events": "tsx src/scripts/process-domain-events.ts",
     "process:event-deliveries": "tsx src/scripts/process-event-deliveries.ts",
+    "reconcile:paystack-dva": "NODE_OPTIONS=--conditions=react-server tsx src/scripts/reconcile-paystack-dva.ts",
     "sync:jumia-orders": "tsx src/scripts/sync-jumia-orders.ts",
     "mcp": "tsx mcp-server/server.ts"
   },

@@ -1,10 +1,8 @@
 import { cacheLife, cacheTag } from 'next/cache';
-import {
-  getPublicSupabaseClient,
-  hydrateAndSanitizeProducts,
-} from '@/lib/cached-data';
+import { hydrateAndSanitizePublicProducts } from '@/lib/hydrate-public-products';
 import type { RawDbProduct } from '@/lib/normalize-product';
 import { PRODUCT_KEY_SPECS_RELATION_SELECT } from '@/lib/product-key-specs-select';
+import { brandAuthorityPublicData } from '@/lib/storefront-category/brand-authority-public-data';
 import { isBrandAuthorityProductInStock } from '@/lib/storefront-category/brand-authority-stock-filter';
 import type { BrandAuthorityEntry } from '@/lib/storefront-category/category-hub-types';
 
@@ -51,7 +49,7 @@ async function readCachedBrandAuthorityInventory(
     // Unit tests run without Cache Components enabled.
   }
 
-  const supabase = getPublicSupabaseClient();
+  const supabase = brandAuthorityPublicData.createClient();
   const inStockProducts: RawDbProduct[] = [];
   const requiredProductCount = Math.max(
     BRAND_AUTHORITY_PRODUCT_LIMIT,
@@ -78,7 +76,7 @@ async function readCachedBrandAuthorityInventory(
     }
 
     const rawProducts = (data ?? []) as unknown as RawDbProduct[];
-    const hydratedProducts = await hydrateAndSanitizeProducts(
+    const hydratedProducts = await hydrateAndSanitizePublicProducts(
       supabase,
       merchantId,
       rawProducts
