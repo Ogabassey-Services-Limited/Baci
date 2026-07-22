@@ -61,12 +61,23 @@ describe('brand authority taxonomy', () => {
   });
 
   it('maps Redmi inventory into the Xiaomi authority hub', () => {
-    expect(
-      brandAuthorityTaxonomy.getEntry('smartphones', 'xiaomi')
-    ).toMatchObject({
+    const xiaomiEntry = brandAuthorityTaxonomy.getEntry(
+      'smartphones',
+      'xiaomi'
+    );
+    expect(xiaomiEntry).toMatchObject({
+      brandAliases: ['Redmi'],
       brandQueryValue: 'Xiaomi',
       displayName: 'Xiaomi and Redmi',
     });
+    expect(
+      brandAuthorityTaxonomy.getEligibleEntries(
+        'smartphones',
+        makeProducts('Redmi', 5)
+      )
+    ).toEqual([
+      expect.objectContaining({ brandKey: 'xiaomi', productCount: 5 }),
+    ]);
     expect(
       brandAuthorityTaxonomy.getEntry('smartphones', 'oppo')
     ).toMatchObject({

@@ -1,8 +1,12 @@
+import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockLoad = vi.fn();
 const mockGetPathPrefix = vi.fn();
 const mockContent = vi.fn();
+const mockNotFound = vi.fn(() => {
+  throw new Error('not found');
+});
 vi.mock('@/lib/storefront-category/load-model-family-authority-page', () => ({
   modelFamilyAuthorityPageLoader: {
     load: (...args: unknown[]) => mockLoad(...args),
@@ -21,9 +25,7 @@ vi.mock('../../brand-authority-page-content', () => ({
 }));
 vi.mock('next/server', () => ({ connection: vi.fn() }));
 vi.mock('next/navigation', () => ({
-  notFound: vi.fn(() => {
-    throw new Error('not found');
-  }),
+  notFound: () => mockNotFound(),
 }));
 
 describe('model family page runtime', () => {
@@ -48,8 +50,8 @@ describe('model family page runtime', () => {
         familySlug: 'galaxy-s',
       }),
     };
-    const element = await modelFamilyPageRuntime.render(props);
-    element.type(element.props);
+    render(await modelFamilyPageRuntime.render(props));
+    expect(screen.getByText('family page')).toBeInTheDocument();
     expect(mockLoad).toHaveBeenCalledWith({
       merchantSlug: 'store',
       categorySlug: 'smartphones',
@@ -61,5 +63,25 @@ describe('model family page runtime', () => {
         page: expect.objectContaining({ pathPrefix: '' }),
       })
     );
+  });
+
+  it('returns not found when the family no longer qualifies', async () => {
+    mockLoad.mockResolvedValue(null);
+    const { modelFamilyPageRuntime } = await import(
+      './model-family-page-runtime'
+    );
+
+    await expect(
+      modelFamilyPageRuntime.render({
+        params: Promise.resolve({
+          slug: 'store',
+          category: 'smartphones',
+          brandSlug: 'samsung',
+          familySlug: 'galaxy-z',
+        }),
+      })
+    ).rejects.toThrow('not found');
+    expect(mockNotFound).toHaveBeenCalledOnce();
+    expect(mockGetPathPrefix).not.toHaveBeenCalled();
   });
 });

@@ -5,7 +5,6 @@ import {
   type ProductKeySpecsRecord,
   type RawDbProduct,
 } from '@/lib/normalize-product';
-import { generateSlug } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { brandAuthorityPublicData } from '@/lib/storefront-category/brand-authority-public-data';
 import { brandAuthorityTaxonomy } from '@/lib/storefront-category/brand-authority-taxonomy';
@@ -118,8 +117,10 @@ async function loadBrandAuthorityPage(
     )
     .filter(
       (product) =>
-        generateSlug(product.brand ?? '') === authorityEntry.brandKey &&
-        product.availability === 'InStock'
+        brandAuthorityTaxonomy.matchesBrand(
+          authorityEntry,
+          product.brand ?? null
+        ) && product.availability === 'InStock'
     );
   const isIndexable =
     normalizedProducts.length >= authorityEntry.minimumProducts;

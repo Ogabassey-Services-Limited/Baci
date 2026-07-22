@@ -134,4 +134,17 @@ describe('BrandAuthorityPageContent', () => {
       screen.queryByRole('heading', { name: 'Samsung buying guides' })
     ).not.toBeInTheDocument();
   });
+
+  it('omits model family navigation when no families qualify', async () => {
+    const { BrandAuthorityPageContent } = await import(
+      './brand-authority-page-content'
+    );
+    render(
+      <BrandAuthorityPageContent page={{ ...page, familyLinks: undefined }} />
+    );
+
+    expect(
+      screen.queryByRole('heading', { name: 'Shop by model family' })
+    ).not.toBeInTheDocument();
+  });
 });
