@@ -119,6 +119,12 @@ export function useWalletFundingCreditPoll({
     // interval launch overlapping requests that pile up and defeat the bound.
     let inFlight = false;
     let activeController: AbortController | null = null;
+    // Fires at the foreground deadline to abort a request that launched just
+    // before it and then STALLED. Without it, every interval tick returns through
+    // the `inFlight` guard before reaching `isPastDeadline()`, so the UI would
+    // hang in "checking" until that request's own `requestTimeoutMs` fires (or,
+    // for a request that ignores abort, indefinitely).
+    let deadlineTimer: ReturnType<typeof setTimeout> | null = null;
     const known = new Set(baselineIds);
 
     // Absolute FOREGROUND deadline. `maxAttempts` assumes ~5s per attempt, but a
@@ -138,11 +144,19 @@ export function useWalletFundingCreditPoll({
     const isPastDeadline = () =>
       foregroundElapsedMs() >= WALLET_FUNDING_POLL.deadlineMs;
 
+    const clearDeadlineTimer = () => {
+      if (deadlineTimer !== null) {
+        clearTimeout(deadlineTimer);
+        deadlineTimer = null;
+      }
+    };
+
     const settle = (
       outcome: 'credited' | 'timed_out',
       credit: WalletTopUpCredit | null
     ) => {
       cancelled = true;
+      clearDeadlineTimer();
       captureClientEvent(
         WALLET_FUNDING_TELEMETRY.events.transferCheckSettled,
         {
@@ -160,6 +174,30 @@ export function useWalletFundingCreditPoll({
         return;
       }
       setStatus('timed_out');
+    };
+
+    // At the deadline, abort the in-flight request (a stall that ignores it still
+    // settles here) and force timed_out, so the five-minute foreground bound
+    // holds regardless of per-request timing. `settle` sets `cancelled`, so a
+    // late response is dropped by the post-await guard and never credited.
+    const onDeadlineReached = () => {
+      deadlineTimer = null;
+      if (cancelled) return;
+      activeController?.abort();
+      settle('timed_out', null);
+    };
+
+    // (Re)arm the deadline timer for the remaining FOREGROUND time. Paused while
+    // the tab is hidden (rearmed on return) so it tracks the hidden-excluded
+    // clock rather than wall time.
+    const armDeadlineTimer = () => {
+      clearDeadlineTimer();
+      if (cancelled || document.visibilityState === 'hidden') return;
+      const remainingMs = Math.max(
+        0,
+        WALLET_FUNDING_POLL.deadlineMs - foregroundElapsedMs()
+      );
+      deadlineTimer = setTimeout(onDeadlineReached, remainingMs);
     };
 
     const refresh = async () => {
@@ -216,19 +254,22 @@ export function useWalletFundingCreditPoll({
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
-        // Pause the foreground clock while the customer is in their bank app.
+        // Pause the foreground clock and its deadline timer (customer's bank app).
         if (hiddenSince === null) hiddenSince = Date.now();
+        clearDeadlineTimer();
         return;
       }
-      // Back in the foreground: bank the hidden span, then poll immediately.
+      // Back in the foreground: bank the hidden span, rearm the deadline, poll.
       if (hiddenSince !== null) {
         hiddenAccumMs += Date.now() - hiddenSince;
         hiddenSince = null;
       }
+      armDeadlineTimer();
       void refresh();
     };
 
     void refresh();
+    armDeadlineTimer();
     const interval = setInterval(() => {
       void refresh();
     }, WALLET_FUNDING_POLL.intervalMs);
@@ -237,6 +278,7 @@ export function useWalletFundingCreditPoll({
     return () => {
       cancelled = true;
       clearInterval(interval);
+      clearDeadlineTimer();
       // Abort a still-pending request so a stall cannot outlive the effect.
       activeController?.abort();
       document.removeEventListener('visibilitychange', handleVisibilityChange);

@@ -106,6 +106,44 @@ describe('useWalletFundingCreditPoll request concurrency', () => {
     );
   });
 
+  it('aborts a request that stalls across the deadline and times out at ~the deadline', async () => {
+    // Regression: a request launches just before the foreground deadline and then
+    // STALLS (never resolves, ignoring its own abort). Every interval tick after
+    // that returns through the `inFlight` guard, so before the deadline timer the
+    // loop would hang in "checking" indefinitely. The deadline timer must abort
+    // the in-flight request and settle timed_out AT the deadline.
+    let sawAbort = false;
+    mockPoll.mockImplementation(
+      (_slug: string, signal?: AbortSignal) =>
+        new Promise(() => {
+          signal?.addEventListener('abort', () => {
+            sawAbort = true;
+          });
+        })
+    );
+    const { onCredited, result } = renderPoll();
+
+    await act(async () => {
+      result.current.start();
+    });
+    // Just before the deadline the loop is still checking, waiting on the stall.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(WALLET_FUNDING_POLL.deadlineMs - 1_000);
+    });
+    expect(result.current.status).toBe('checking');
+
+    // Crossing the deadline aborts the stalled request and settles the loop —
+    // without waiting on that request's own (never-firing) resolution.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+
+    expect(sawAbort).toBe(true);
+    expect(result.current.status).toBe('timed_out');
+    expect(result.current.creditedAmount).toBeNull();
+    expect(onCredited).not.toHaveBeenCalled();
+  });
+
   it('does not launch a new poll while one is still in flight', async () => {
     let resolvePoll: ((value: unknown) => void) | undefined;
     mockPoll.mockImplementation(
