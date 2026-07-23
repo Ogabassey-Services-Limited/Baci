@@ -54,7 +54,7 @@ export function WalletFundingCheckStatus({
   if (status === 'credited') {
     return (
       <div aria-live="polite" className="space-y-2">
-        <p className="flex items-center gap-1.5 text-xs font-semibold text-green-700">
+        <p className="flex items-center gap-1.5 text-xs font-semibold text-store-primary">
           <CheckCircle2 aria-hidden="true" size={12} />
           {WALLET_FUNDING_COPY.checkCredited}
           {typeof creditedAmount === 'number'

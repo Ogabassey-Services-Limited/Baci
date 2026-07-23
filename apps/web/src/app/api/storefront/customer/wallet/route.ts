@@ -11,14 +11,16 @@
 import { NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import {
-  emptyWalletResponse,
   fetchCustomerWallet,
   getFundingAccount,
   getSavingsBalance,
   getUsdtBalance,
+} from './wallet-data';
+import {
+  emptyWalletResponse,
   logOptionalWalletHelperFailure,
   toNumber,
-} from './wallet-data';
+} from './wallet-data-helpers';
 
 interface CustomerWalletOwner {
   id: string;

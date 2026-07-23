@@ -1,90 +1,17 @@
 /**
- * Data helpers for `GET /api/storefront/customer/wallet`. Extracted from the
- * route so the handler stays focused on auth + orchestration and under the
- * 300-line budget. Kept colocated (same folder) — these are route-private.
+ * DB fetchers for `GET /api/storefront/customer/wallet`. Extracted from the
+ * route so the handler stays focused on auth + orchestration. Pure helpers live
+ * in `./wallet-data-helpers`; row/response types in `./wallet-data-types`.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/supabase';
-
-export interface WalletFundingAccountRow {
-  account_name: string;
-  account_number: string;
-  bank_name: string;
-  provider: string;
-}
-
-export interface CustomerWalletTransactionRow {
-  amount: number | string;
-  balance_after: number | string | null;
-  created_at: string | null;
-  description: string | null;
-  id: string;
-  source_type: string | null;
-  type: string;
-}
-
-export function toNumber(value: unknown) {
-  const numberValue = Number(value);
-  return Number.isFinite(numberValue) ? numberValue : 0;
-}
-
-export function formatFundingAccount(row: WalletFundingAccountRow | null) {
-  if (row?.provider !== 'paystack') {
-    return null;
-  }
-
-  return {
-    accountName: row.account_name,
-    accountNumber: row.account_number,
-    bankName: row.bank_name,
-    provider: 'paystack',
-  };
-}
-
-export function emptyWalletResponse({
-  fundingAccount = null,
-  loyaltyPoints = 0,
-  requiresFundingAccountConsent,
-  savingsBalance = 0,
-  usdtBalance = 0,
-  walletDvaEnabled = false,
-}: {
-  fundingAccount?: ReturnType<typeof formatFundingAccount>;
-  loyaltyPoints?: number;
-  requiresFundingAccountConsent?: boolean;
-  savingsBalance?: number;
-  usdtBalance?: number;
-  walletDvaEnabled?: boolean;
-} = {}) {
-  return {
-    balance: 0,
-    balances: { NGN: 0, USDT: usdtBalance },
-    earningsBalance: 0,
-    fundingAccount,
-    hasWallet: usdtBalance > 0,
-    loyaltyPoints,
-    requiresFundingAccountConsent:
-      requiresFundingAccountConsent ?? !fundingAccount,
-    savingsBalance,
-    totalEarned: 0,
-    totalRedeemed: 0,
-    transactions: [],
-    walletDvaEnabled,
-  };
-}
-
-export function logOptionalWalletHelperFailure(
-  label: string,
-  result: PromiseSettledResult<unknown>
-) {
-  if (result.status === 'rejected') {
-    console.error('Customer wallet optional fetch failed', {
-      error: result.reason,
-      label,
-    });
-  }
-}
+import { formatFundingAccount, toNumber } from './wallet-data-helpers';
+import type {
+  CustomerWalletFetch,
+  CustomerWalletTransactionRow,
+  WalletFundingAccountRow,
+} from './wallet-data-types';
 
 export async function getSavingsBalance({
   customerId,
@@ -159,31 +86,9 @@ export async function getUsdtBalance({
 
 /**
  * The wallet's NGN balance plus its recent transactions — the pre-transfer
- * BASELINE the client-side funding check loop reads.
- *
- * Fails LOUD on any real error rather than collapsing to an empty result:
- * - PGRST116 ("no row returned") is the truth — the customer has no wallet yet
- *   — and maps to `no-wallet`, a legitimately empty response.
- * - Any OTHER wallet error, or a transactions error, maps to `error`. An empty
- *   `transactions` list served as success is indistinguishable from "this
- *   wallet has no history", which would hand the loop an empty baseline and let
- *   an OLD top-up settle as the customer's new transfer — a false "money
- *   received". The route turns `error` into a 500 so the client stays
- *   fail-closed. `source_type` is selected because `type` is 'credit' for
- *   cashback/refunds too; only `source_type = 'wallet_topup'` proves an inbound
- *   transfer landed.
+ * BASELINE the client-side funding check loop reads. See `CustomerWalletFetch`
+ * for why this fails loud rather than serving an empty result on error.
  */
-export type CustomerWalletFetch =
-  | { kind: 'error' }
-  | { kind: 'no-wallet' }
-  | {
-      availableBalance: number;
-      kind: 'ok';
-      totalEarned: number;
-      totalRedeemed: number;
-      transactions: CustomerWalletTransactionRow[];
-    };
-
 export async function fetchCustomerWallet({
   customerId,
   merchantId,
