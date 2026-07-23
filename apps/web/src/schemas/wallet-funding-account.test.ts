@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   walletFundingAccountConsentSchema,
   walletFundingAccountQuerySchema,
+  walletFundingAccountSchema,
 } from '@/schemas/wallet-funding-account';
 
 describe('wallet funding account schemas', () => {
@@ -69,5 +70,57 @@ describe('wallet funding account schemas', () => {
     expect(() =>
       walletFundingAccountConsentSchema.parse({ consent: true })
     ).toThrow();
+  });
+});
+
+describe('walletFundingAccountSchema (response)', () => {
+  it('parses a funding account returned by the API', () => {
+    expect(
+      walletFundingAccountSchema.parse({
+        accountName: 'Ada Buyer',
+        accountNumber: '1234567890',
+        bankName: 'Wema Bank',
+        provider: 'paystack',
+      })
+    ).toEqual({
+      accountName: 'Ada Buyer',
+      accountNumber: '1234567890',
+      bankName: 'Wema Bank',
+      provider: 'paystack',
+    });
+  });
+
+  it('tolerates the nullable account/bank names the gateway can omit', () => {
+    const parsed = walletFundingAccountSchema.parse({
+      accountName: null,
+      accountNumber: '1234567890',
+      bankName: null,
+      provider: 'paystack',
+    });
+
+    expect(parsed.accountName).toBeNull();
+    expect(parsed.bankName).toBeNull();
+  });
+
+  it('rejects a non-numeric account number', () => {
+    expect(
+      walletFundingAccountSchema.safeParse({
+        accountName: 'Ada Buyer',
+        accountNumber: '12AB567890',
+        bankName: 'Wema Bank',
+        provider: 'paystack',
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects an unsupported provider', () => {
+    expect(
+      walletFundingAccountSchema.safeParse({
+        accountName: 'Ada Buyer',
+        accountNumber: '1234567890',
+        bankName: 'Wema Bank',
+        provider: 'korapay',
+      }).success
+    ).toBe(false);
   });
 });

@@ -3,10 +3,14 @@ import {
   ambiguousReviewSchema,
   orderWalletFundingIntentCreateSchema,
   orderWalletFundingIntentPollSchema,
+  walletOrderFundingIntentCreateResponseSchema,
+  walletOrderFundingIntentPollResponseSchema,
 } from '@/schemas/order-wallet-funding-intent';
-
-const VALID_ORDER_ID = '00000000-0000-4000-8000-000000000101';
-const VALID_MERCHANT_ID = '00000000-0000-4000-8000-000000000102';
+import {
+  INTENT,
+  VALID_MERCHANT_ID,
+  VALID_ORDER_ID,
+} from './order-wallet-funding-intent.fixtures';
 
 describe('order wallet funding intent schemas', () => {
   it('parses a valid creation payload with an existing merchant slug', () => {
@@ -210,5 +214,87 @@ describe('order wallet funding intent schemas', () => {
     ],
   ])('rejects ambiguous review payloads with %s', (_case, payload) => {
     expect(ambiguousReviewSchema.safeParse(payload).success).toBe(false);
+  });
+});
+
+describe('wallet order funding intent RESPONSE schemas', () => {
+  it('parses a create response and upper-cases the currency', () => {
+    const parsed = walletOrderFundingIntentCreateResponseSchema.parse({
+      account: {
+        accountName: 'Ada Buyer',
+        accountNumber: '1234567890',
+        bankName: 'Wema Bank',
+        provider: 'paystack',
+      },
+      intent: INTENT,
+    });
+
+    expect(parsed.intent.currency).toBe('NGN');
+    expect(parsed.account.accountNumber).toBe('1234567890');
+  });
+
+  it('parses every status the poll route can return', () => {
+    for (const status of [
+      'pending',
+      'underfunded',
+      'funded',
+      'processing',
+      'completed',
+      'expired',
+      'cancelled',
+      'review_required',
+      'failed',
+    ]) {
+      expect(
+        walletOrderFundingIntentPollResponseSchema.safeParse({
+          intent: { ...INTENT, status },
+        }).success
+      ).toBe(true);
+    }
+  });
+
+  it('carries the poll-only payment fields', () => {
+    const parsed = walletOrderFundingIntentPollResponseSchema.parse({
+      intent: {
+        ...INTENT,
+        debitedAmount: 5000,
+        excessAmount: 0,
+        fundedAmount: 5000,
+        orderPaid: true,
+        remainingAmount: 0,
+        status: 'completed',
+      },
+    });
+
+    expect(parsed.intent.orderPaid).toBe(true);
+    expect(parsed.intent.remainingAmount).toBe(0);
+  });
+
+  it('rejects an unknown status rather than treating it as pending', () => {
+    expect(
+      walletOrderFundingIntentPollResponseSchema.safeParse({
+        intent: { ...INTENT, status: 'settled' },
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects a non-positive expected amount', () => {
+    expect(
+      walletOrderFundingIntentPollResponseSchema.safeParse({
+        intent: { ...INTENT, expectedAmount: 0 },
+      }).success
+    ).toBe(false);
+  });
+
+  // Regression: PostgREST serializes `timestamptz` as `+00:00` offset form, not
+  // bare `Z`. The parser previously used `z.iso.datetime()` (Z-only), so every
+  // real create/poll response failed and the wallet flow fell back to the
+  // legacy DVA. It must accept the offset form the server actually sends.
+  it('accepts an offset-form (+00:00) expiration timestamp from PostgREST', () => {
+    const parsed = walletOrderFundingIntentPollResponseSchema.safeParse({
+      intent: { ...INTENT, expiresAt: '2026-07-13T10:30:00.000+00:00' },
+    });
+
+    expect(parsed.success).toBe(true);
   });
 });
