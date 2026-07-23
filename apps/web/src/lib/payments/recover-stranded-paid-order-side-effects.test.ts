@@ -17,6 +17,7 @@ const MISSING_COLUMN_ERROR =
 type CappedRow = {
   order_id: string;
   step: string;
+  status: string;
   attempts: number;
   error: string | null;
   claimed_at: string | null;
@@ -28,6 +29,7 @@ function cappedRow(overrides: Partial<CappedRow> = {}): CappedRow {
     claimed_at: STALE_CLAIMED_AT,
     error: MISSING_COLUMN_ERROR,
     order_id: 'order-1',
+    status: 'failed',
     step: 'paid_email',
     ...overrides,
   };
@@ -102,7 +104,7 @@ describe('recoverStrandedPaidOrderSideEffects', () => {
     // Eligibility filters (invariant #3) must be pinned, not just the reset.
     expect(selectFilters).toEqual(
       expect.arrayContaining([
-        ['eq', 'status', 'failed'],
+        ['in', 'status', ['failed', 'claimed']],
         ['gte', 'attempts', PAID_ORDER_SIDE_EFFECT_ATTEMPT_CAP],
         [
           'not',
@@ -149,6 +151,52 @@ describe('recoverStrandedPaidOrderSideEffects', () => {
       ['eq', 'status', 'failed'],
       ['gte', 'attempts', PAID_ORDER_SIDE_EFFECT_ATTEMPT_CAP],
     ]);
+  });
+
+  it('recovers a capped stale CLAIMED row (worker died before mark) and swaps on its status', async () => {
+    const { supabase, updatePayloads, updateFilters } = buildSupabase({
+      lookup: {
+        data: [cappedRow({ error: null, status: 'claimed' })],
+      },
+    });
+
+    const summary = await recoverStrandedPaidOrderSideEffects({
+      now: NOW,
+      supabase,
+    });
+
+    expect(summary.recovered).toEqual([
+      { orderId: 'order-1', step: 'paid_email' },
+    ]);
+    expect(updatePayloads).toEqual([{ attempts: 4 }]);
+    // The compare-and-swap re-asserts the OBSERVED status so a claimed row a
+    // live worker still holds (status would have changed) is a no-op.
+    expect(updateFilters).toContainEqual(['eq', 'status', 'claimed']);
+  });
+
+  it('does not reset a capped claimed row a live worker still holds (recent claimed_at → stranded)', async () => {
+    const { supabase, updatePayloads } = buildSupabase({
+      lookup: {
+        data: [
+          cappedRow({
+            claimed_at: RECENT_CLAIMED_AT,
+            error: null,
+            status: 'claimed',
+          }),
+        ],
+      },
+    });
+
+    const summary = await recoverStrandedPaidOrderSideEffects({
+      now: NOW,
+      supabase,
+    });
+
+    expect(summary.recovered).toEqual([]);
+    expect(summary.stranded).toEqual([
+      { error: null, orderId: 'order-1', step: 'paid_email' },
+    ]);
+    expect(updatePayloads).toEqual([]);
   });
 
   it('classifies a row attempted within the throttle window as stranded without resetting it', async () => {

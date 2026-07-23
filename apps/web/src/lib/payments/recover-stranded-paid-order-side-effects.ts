@@ -40,8 +40,17 @@ const HOUR_MS = 60 * 60 * 1000;
 // retry rather than burning a whole attempt budget again each window.
 const RESET_ATTEMPTS = PAID_ORDER_SIDE_EFFECT_ATTEMPT_CAP - 1;
 
+// Both a capped 'failed' row and a capped 'claimed' row can strand: if the
+// worker dies after the cap-reaching claim but before markCompleted/markFailed,
+// the row is left 'claimed' at attempts>=cap — excluded from the drain's
+// stale-claim sweep (attempts<cap) and the claim RPC re-claim guard (attempts<
+// cap) just like a capped 'failed' row. The claimed_at throttle below is the
+// safety guard: a mid-flight worker's claim is recent (well inside the window)
+// so it is only ever classified stranded, never reset.
+const RECOVERABLE_STATUSES = ['failed', 'claimed'] as const;
+
 const RECOVERY_SELECT =
-  'order_id, step, attempts, error, claimed_at, transactions!inner(status), orders!inner(payment_status, cancelled_at)';
+  'order_id, step, status, attempts, error, claimed_at, transactions!inner(status), orders!inner(payment_status, cancelled_at)';
 
 export interface StrandedSideEffectRecoverySummary {
   recovered: Array<{ orderId: string; step: string }>;
@@ -51,6 +60,7 @@ export interface StrandedSideEffectRecoverySummary {
 type CappedRow = {
   order_id: string;
   step: string;
+  status: string;
   attempts: number;
   error: string | null;
   claimed_at: string | null;
@@ -75,7 +85,7 @@ export async function recoverStrandedPaidOrderSideEffects({
   const { data, error } = await supabase
     .from('payment_side_effects')
     .select(RECOVERY_SELECT)
-    .eq('status', 'failed')
+    .in('status', [...RECOVERABLE_STATUSES])
     .gte('attempts', PAID_ORDER_SIDE_EFFECT_ATTEMPT_CAP)
     .not(
       'error',
@@ -125,15 +135,16 @@ export async function recoverStrandedPaidOrderSideEffects({
       continue;
     }
 
-    // Compare-and-swap: re-assert the eligibility predicate in the UPDATE so a
-    // row a concurrent actor already re-claimed (status/attempts changed) is a
-    // no-op, never resetting attempts on a mid-flight claimed row.
+    // Compare-and-swap: re-assert the eligibility predicate in the UPDATE
+    // (including the row's observed status) so a row a concurrent actor already
+    // moved (re-claim / already reset / status change) is a no-op — never
+    // resetting attempts on a mid-flight claimed row.
     const { data: updated, error: updateError } = await supabase
       .from('payment_side_effects')
       .update({ attempts: RESET_ATTEMPTS })
       .eq('order_id', raw.order_id)
       .eq('step', raw.step)
-      .eq('status', 'failed')
+      .eq('status', raw.status)
       .gte('attempts', PAID_ORDER_SIDE_EFFECT_ATTEMPT_CAP)
       .select('order_id');
 
