@@ -1,11 +1,9 @@
 import { NextResponse } from 'next/server';
+import { AGENTIC_PAYMENT_DISCOVERY_NO_STORE_HEADERS } from '@/config/agentic-payment-discovery-cache';
 import { getRootDomain } from '@/env';
 import { buildAgentCommerceManifest } from '@/lib/agentic/agent-commerce-manifest';
 import { buildBaciPlatformUcpProfile } from '@/lib/agentic/baci-platform-ucp-profile';
-import {
-  buildUcpDiscoveryProfile,
-  UCP_PROFILE_CACHE_CONTROL,
-} from '@/lib/agentic/ucp-discovery-profile';
+import { buildUcpDiscoveryProfile } from '@/lib/agentic/ucp-discovery-profile';
 import {
   buildRequestBaseUrl,
   getRequestHost,
@@ -21,10 +19,7 @@ export async function GET(request: Request) {
     return NextResponse.json(
       buildBaciPlatformUcpProfile(buildRequestBaseUrl(request)),
       {
-        headers: {
-          'Cache-Control': UCP_PROFILE_CACHE_CONTROL,
-          'Vercel-CDN-Cache-Control': 'no-store',
-        },
+        headers: AGENTIC_PAYMENT_DISCOVERY_NO_STORE_HEADERS,
       }
     );
   }
@@ -53,9 +48,6 @@ export async function GET(request: Request) {
   );
 
   return NextResponse.json(buildUcpDiscoveryProfile(manifest), {
-    headers: {
-      'Cache-Control': UCP_PROFILE_CACHE_CONTROL,
-      'Vercel-CDN-Cache-Control': 'no-store',
-    },
+    headers: AGENTIC_PAYMENT_DISCOVERY_NO_STORE_HEADERS,
   });
 }

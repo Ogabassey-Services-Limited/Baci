@@ -50,7 +50,6 @@ describe('scheduleManualPaidOrderSideEffects', () => {
             slug: 'store',
             support_email: null,
             tax_identification_number: null,
-            website_url: null,
           },
           error: null,
         }),

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { cacheLife, cacheTag } from 'next/cache';
-import { getPublicSupabaseClient } from '@/lib/cached-data';
+import { createPublicClient } from '@/lib/supabase/public';
 import type {
   BuildCommercialGuideLinksContext,
   PublishedClusterPost,
@@ -80,8 +80,10 @@ export async function getPublishedClusterPosts(
   // assertion at this RPC adapter boundary so Supabase can type the set-return
   // contract correctly; overrideTypes() cannot turn the default scalar Json
   // fallback for an unknown RPC into an array on current postgrest-js.
-  const supabase =
-    getPublicSupabaseClient() as SupabaseClient<StorefrontClusterGuideDatabase>;
+  const supabase = createPublicClient({
+    clientInfo: 'baci-web-storefront-cluster-guides',
+    timeoutMs: CLUSTER_GUIDE_TIMEOUT_MS,
+  }) as SupabaseClient<StorefrontClusterGuideDatabase>;
   const request = buildStorefrontClusterGuideRequest(context);
   const guideQuery = supabase
     .rpc('get_storefront_cluster_guide_candidates_v1', {

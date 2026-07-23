@@ -53,21 +53,12 @@ export function getQuizErrorMessage(
 
 export function getEventStartButtonText(
   eventStatus: QuizEvent['status'],
-  isStarting: boolean,
-  points: number
+  isStarting: boolean
 ): string {
   if (eventStatus === 'scheduled') return 'Scheduled';
   if (eventStatus === 'closed') return 'Closed';
   if (isStarting) return 'Starting...';
-  return `Use ${formatPointCount(points)} to start`;
-}
-
-export function formatPointCount(
-  points: number,
-  singular = 'point',
-  plural = `${singular}s`
-): string {
-  return `${points} ${Math.abs(points) === 1 ? singular : plural}`;
+  return 'Start free exam';
 }
 
 export function shouldShowEventList(status: QuizScreenStatus): boolean {

@@ -14,7 +14,11 @@ describe('formatNegotiationItemMeta', () => {
           ram: '6GB',
         },
       })
-    ).toBe('RAM: 6GB · Storage: 256GB · Color: Deep Purple');
+    ).toEqual([
+      { label: 'RAM', value: '6GB' },
+      { label: 'Storage', value: '256GB' },
+      { label: 'Color', value: 'Deep Purple' },
+    ]);
   });
 
   it('uses a saved variant label when one exists and keeps condition visible', () => {
@@ -28,7 +32,10 @@ describe('formatNegotiationItemMeta', () => {
           storage: '512GB SSD',
         },
       })
-    ).toBe('16GB / 512GB SSD · Condition: used');
+    ).toEqual([
+      { label: 'Variant', value: '16GB / 512GB SSD' },
+      { label: 'Condition', value: 'used' },
+    ]);
   });
 
   it('keeps attributes the variant label does not already convey', () => {
@@ -42,13 +49,17 @@ describe('formatNegotiationItemMeta', () => {
           ram: '16GB',
         },
       })
-    ).toBe('Silver · RAM: 16GB · Storage: 256GB');
+    ).toEqual([
+      { label: 'Variant', value: 'Silver' },
+      { label: 'RAM', value: '16GB' },
+      { label: 'Storage', value: '256GB' },
+    ]);
   });
 
   it('shows condition alone when no variant name or attributes exist', () => {
     expect(
       formatNegotiationItemMeta({ name: 'Widget', condition: 'refurbished' })
-    ).toBe('Condition: refurbished');
+    ).toEqual([{ label: 'Condition', value: 'refurbished' }]);
   });
 
   it('returns null when all attributes are ignored or invalid', () => {
@@ -84,7 +95,7 @@ describe('formatNegotiationItemMeta', () => {
         variant_name: '16GB / Used',
         condition: 'used',
       })
-    ).toBe('16GB / Used');
+    ).toEqual([{ label: 'Variant', value: '16GB / Used' }]);
   });
 
   it('formats numeric attributes and fallback labels', () => {
@@ -94,9 +105,14 @@ describe('formatNegotiationItemMeta', () => {
         variant_attributes: {
           refresh_rate: 120,
           batteryHealth: '90%',
+          sim_type: 'Dual SIM',
         } as unknown as Record<string, string>,
       })
-    ).toBe('Battery Health: 90% · Refresh Rate: 120');
+    ).toEqual([
+      { label: 'Battery Health', value: '90%' },
+      { label: 'Refresh Rate', value: '120' },
+      { label: 'SIM type', value: 'Dual SIM' },
+    ]);
   });
 
   it('uses item condition instead of condition duplicated in attributes', () => {
@@ -109,7 +125,10 @@ describe('formatNegotiationItemMeta', () => {
           storage: '512GB',
         },
       })
-    ).toBe('Storage: 512GB · Condition: open box');
+    ).toEqual([
+      { label: 'Storage', value: '512GB' },
+      { label: 'Condition', value: 'open box' },
+    ]);
   });
 
   it('does not suppress unrelated short metadata values', () => {
@@ -119,7 +138,19 @@ describe('formatNegotiationItemMeta', () => {
         variant_name: 'Used Laptop',
         condition: 'top',
       })
-    ).toBe('Used Laptop · Condition: top');
+    ).toEqual([
+      { label: 'Variant', value: 'Used Laptop' },
+      { label: 'Condition', value: 'top' },
+    ]);
+  });
+
+  it('preserves delimiters inside an attribute value', () => {
+    expect(
+      formatNegotiationItemMeta({
+        name: 'T-shirt',
+        variant_attributes: { size: 'Small · Medium' },
+      })
+    ).toEqual([{ label: 'Size', value: 'Small · Medium' }]);
   });
 
   it('returns null for null item info', () => {

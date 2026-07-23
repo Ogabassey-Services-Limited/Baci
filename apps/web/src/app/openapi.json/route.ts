@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server';
-import { AGENT_READINESS_CACHE_CONTROL } from '@/config/agent-readiness';
+import { buildCheckoutCompleteRequestSchema } from '@/app/openapi.json/checkout-complete-request-schema';
+import { AGENTIC_PAYMENT_DISCOVERY_NO_STORE_HEADERS } from '@/config/agentic-payment-discovery-cache';
+import { isAgenticPaystackDvaPaused } from '@/lib/agentic/agentic-paystack-dva-paused';
 import { checkoutCompletePaymentInfo } from '@/lib/agentic/mpp-checkout-payment-info';
 import { buildRequestBaseUrl } from '@/lib/storefront-host';
 
 function buildOpenApiDocument(baseUrl: string) {
+  const paystackDvaPaused = isAgenticPaystackDvaPaused();
+
   return {
     openapi: '3.1.0',
     info: {
@@ -131,7 +135,9 @@ function buildOpenApiDocument(baseUrl: string) {
             'Complete a signed checkout session and receive payment instructions',
           security: [{ agenticBearerHmac: [] }],
           parameters: [{ $ref: '#/components/parameters/SessionId' }],
-          'x-payment-info': checkoutCompletePaymentInfo,
+          ...(paystackDvaPaused
+            ? {}
+            : { 'x-payment-info': checkoutCompletePaymentInfo }),
           requestBody: {
             required: true,
             content: {
@@ -144,8 +150,9 @@ function buildOpenApiDocument(baseUrl: string) {
           },
           responses: {
             '200': {
-              description:
-                'Order and machine-readable Paystack bank transfer instructions',
+              description: paystackDvaPaused
+                ? 'Order and machine-readable payment instructions'
+                : 'Order and machine-readable Paystack bank transfer instructions',
               content: {
                 'application/json': {
                   schema: { type: 'object', additionalProperties: true },
@@ -246,41 +253,8 @@ function buildOpenApiDocument(baseUrl: string) {
           },
           required: ['items'],
         },
-        CheckoutCompleteRequest: {
-          type: 'object',
-          properties: {
-            buyer: {
-              type: 'object',
-              properties: {
-                email: { type: 'string', format: 'email' },
-                first_name: { type: 'string' },
-                last_name: { type: 'string' },
-                phone_number: { type: 'string' },
-              },
-              required: ['email', 'first_name', 'last_name', 'phone_number'],
-            },
-            payment_data: {
-              type: 'object',
-              properties: {
-                provider: {
-                  type: 'string',
-                  enum: ['paystack', 'paystack_bank_transfer'],
-                },
-                token: { type: 'string' },
-                billing_address: {
-                  type: 'object',
-                  additionalProperties: true,
-                },
-              },
-              required: ['provider', 'token'],
-            },
-            completion_authorization: {
-              type: ['object', 'null'],
-              additionalProperties: true,
-            },
-          },
-          required: ['buyer', 'payment_data'],
-        },
+        CheckoutCompleteRequest:
+          buildCheckoutCompleteRequestSchema(paystackDvaPaused),
       },
     },
   };
@@ -288,9 +262,6 @@ function buildOpenApiDocument(baseUrl: string) {
 
 export function GET(request: Request): NextResponse {
   return NextResponse.json(buildOpenApiDocument(buildRequestBaseUrl(request)), {
-    headers: {
-      'Cache-Control': AGENT_READINESS_CACHE_CONTROL,
-      'Vercel-CDN-Cache-Control': 'no-store',
-    },
+    headers: AGENTIC_PAYMENT_DISCOVERY_NO_STORE_HEADERS,
   });
 }

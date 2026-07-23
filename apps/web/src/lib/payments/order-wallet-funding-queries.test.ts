@@ -58,7 +58,9 @@ describe('order wallet funding payment queries', () => {
         orderId: 'order-1',
         supabase: asSupabaseClient(supabase.client),
       })
-    ).rejects.toThrow('Paid order has invalid subtotal');
+      // subtotal is now tolerated as 0 for legacy/imported rows; `total`
+      // remains the strict money field that rejects malformed orders.
+    ).rejects.toThrow('Paid order has invalid total');
   });
 
   it('throws the Supabase error from the paid order lookup', async () => {

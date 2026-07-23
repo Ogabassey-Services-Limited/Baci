@@ -204,14 +204,22 @@ export async function POST(
             orderId: parsedParams.data.id,
             supabase: authenticatedSupabase,
           }),
-        courierName,
-        estimatedDelivery,
+        courierName:
+          blockingState.shipmentSnapshot.courierName === undefined
+            ? courierName
+            : blockingState.shipmentSnapshot.courierName,
+        estimatedDelivery:
+          blockingState.shipmentSnapshot.estimatedDelivery ?? estimatedDelivery,
         eventType: 'order_shipped',
         merchantId,
         mismatchBehavior: 'invalid_state',
         orderId: parsedParams.data.id,
         supabase: auth.supabase,
-        trackingNumber,
+        trackingNumber:
+          blockingState.shipmentSnapshot.trackingNumber === undefined
+            ? trackingNumber
+            : blockingState.shipmentSnapshot.trackingNumber,
+        trackingToken: blockingState.shipmentSnapshot.trackingToken,
       });
     } catch (error) {
       try {

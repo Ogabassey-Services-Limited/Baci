@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import FontAwesome from '@react-native-vector-icons/fontawesome';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { DeliveryMethodCard } from './DeliveryMethodCard';
 
@@ -17,6 +18,12 @@ const baseProps = {
   onSelectMethod: jest.fn(),
   doorSubtitle: 'Delivered to your address',
   airportFee: 25000,
+  merchantPickupLocation: {
+    address: '2 Olaide Tomori St, Ikeja, Lagos',
+    city: 'Ikeja',
+    label: 'OgaBassey Office',
+    state: 'Lagos',
+  },
 };
 
 describe('DeliveryMethodCard', () => {
@@ -45,7 +52,18 @@ describe('DeliveryMethodCard', () => {
     expect(
       screen.getByRole('radio', { name: 'Select Pickup Station' })
     ).toBeTruthy();
-    expect(screen.queryByText('Taiyelolu Towers')).toBeNull();
+    expect(screen.queryByText('OgaBassey Office')).toBeNull();
+  });
+
+  it('uses clear logistics icons for road and air delivery', () => {
+    render(<DeliveryMethodCard {...baseProps} deliveryState="Rivers" />);
+
+    const iconNames = screen
+      .UNSAFE_getAllByType(FontAwesome)
+      .map((icon) => icon.props.name);
+
+    expect(iconNames).toContain('truck');
+    expect(iconNames).toContain('plane');
   });
 
   it('shows a load prompt for selected non-Lagos pickup without a quote', () => {
@@ -167,10 +185,10 @@ describe('DeliveryMethodCard', () => {
     );
     expect(screen.getByText('Port Harcourt Airport Delivery')).toBeTruthy();
     expect(screen.getByText('₦25,000')).toBeTruthy();
-    expect(screen.getByText('By Air\nEst. 24-48 working hours')).toBeTruthy();
+    expect(screen.getByText('By Air\nWithin 1–48 hours')).toBeTruthy();
     expect(
       screen.getByRole('button', {
-        name: /Select Port Harcourt Airport Delivery.*By Air.*24-48 working hours.*₦25,000/,
+        name: /Select Port Harcourt Airport Delivery.*By Air.*Within 1–48 hours.*₦25,000/,
       })
     ).toBeTruthy();
   });
@@ -183,7 +201,8 @@ describe('DeliveryMethodCard', () => {
         deliveryState="Lagos"
       />
     );
-    expect(screen.getByText('Taiyelolu Towers')).toBeTruthy();
+    expect(screen.getByText('OgaBassey Office')).toBeTruthy();
+    expect(screen.getByText('2 Olaide Tomori St, Ikeja, Lagos')).toBeTruthy();
   });
 
   it('shows selected GIGL pickup station details for non-Lagos pickup', () => {
@@ -209,7 +228,7 @@ describe('DeliveryMethodCard', () => {
     expect(screen.getByText('Station code: PHC')).toBeTruthy();
     expect(screen.getByText('PORT HARCOURT')).toBeTruthy();
     expect(screen.getByText('GIGL Aba Road, Port Harcourt')).toBeTruthy();
-    expect(screen.queryByText('Taiyelolu Towers')).toBeNull();
+    expect(screen.queryByText('OgaBassey Office')).toBeNull();
   });
 
   it('shows free pickup details for merchant pickup station', () => {
@@ -221,5 +240,19 @@ describe('DeliveryMethodCard', () => {
       />
     );
     expect(screen.getByText('Free pickup')).toBeTruthy();
+  });
+
+  it('does not advertise free office pickup without a merchant location', () => {
+    render(
+      <DeliveryMethodCard
+        {...baseProps}
+        merchantPickupLocation={undefined}
+        selectedMethod="pickup_station"
+        deliveryState="Lagos"
+      />
+    );
+
+    expect(screen.queryByText('Free pickup')).toBeNull();
+    expect(screen.queryByText('Pickup Station')).toBeNull();
   });
 });

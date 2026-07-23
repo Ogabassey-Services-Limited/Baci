@@ -37,12 +37,14 @@ import {
 
 interface WalletScreenProps {
   action?: string | string[];
+  intent?: string | string[];
   presentation?: 'stack' | 'tab';
   requiredAmount?: string | string[];
   returnTo?: string | string[];
 }
 export function WalletScreen({
   action,
+  intent,
   presentation = 'stack',
   requiredAmount,
   returnTo,
@@ -115,9 +117,7 @@ export function WalletScreen({
     ownerId: customer?.id ?? user?.id ?? '',
     walletData: data?.wallet,
   });
-  const handleFundAmountChange = (value: string) =>
-    setFundAmount(sanitizeWalletFundAmount(value));
-  useWalletRouteActionSetup({
+  const isWalletFundingSessionReady = useWalletRouteActionSetup({
     bankTransfer: {
       canCreateFundingAccount,
       createFundingAccount: handleCreateFundingAccount,
@@ -128,6 +128,7 @@ export function WalletScreen({
     },
     customerId: customer?.id,
     routeAction,
+    routeIntentId: Array.isArray(intent) ? intent[0] : intent,
     routeRequiredAmount,
     setFundAmount,
     setFundReturnTo,
@@ -242,8 +243,11 @@ export function WalletScreen({
         canCreateFundingAccount,
         contentContainerStyle: scrollContentStyle,
         createFundingAccountUnavailableMessage,
+        customerId: customer?.id,
+        canResolveCreditBaseline: isWalletFundingSessionReady,
         earningsBalance,
         fundAmount,
+        fundReturnTo,
         fundingAccount,
         isAddingSavingsContribution,
         isCreatingFundingAccount: createFundingAccountMutation.isPending,
@@ -264,7 +268,8 @@ export function WalletScreen({
           }),
         onChangeSavingsContributionAmount: (value) =>
           setSavingsContributionAmount(sanitizeWalletFundAmount(value)),
-        onChangeFundAmount: handleFundAmountChange,
+        onChangeFundAmount: (value) =>
+          setFundAmount(sanitizeWalletFundAmount(value)),
         onCreateFundingAccount: handleCreateFundingAccount,
         onChangeRedeemPoints: setRedeemPoints,
         onCloseSavingsProgress: () => setShowSavingsProgressModal(false),

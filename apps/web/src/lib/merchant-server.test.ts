@@ -2,8 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   cookies: vi.fn(),
-  fetchDashboardMerchant: vi.fn(),
-  fetchPrimaryDomain: vi.fn(),
+  fetchDashboardMerchantContext: vi.fn(),
   getUser: vi.fn(),
 }));
 
@@ -11,9 +10,8 @@ vi.mock('next/headers', () => ({
   cookies: mocks.cookies,
 }));
 
-vi.mock('@/hooks/merchant', () => ({
-  fetchDashboardMerchant: mocks.fetchDashboardMerchant,
-  fetchPrimaryDomain: mocks.fetchPrimaryDomain,
+vi.mock('@/hooks/merchant/fetch-dashboard-merchant-context', () => ({
+  fetchDashboardMerchantContext: mocks.fetchDashboardMerchantContext,
 }));
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -55,7 +53,7 @@ describe('merchant-server', () => {
       },
       user: null,
     });
-    expect(mocks.fetchDashboardMerchant).not.toHaveBeenCalled();
+    expect(mocks.fetchDashboardMerchantContext).not.toHaveBeenCalled();
   });
 
   it('marks the lookup as errored when auth.getUser fails', async () => {
@@ -78,7 +76,7 @@ describe('merchant-server', () => {
       },
       user: null,
     });
-    expect(mocks.fetchDashboardMerchant).not.toHaveBeenCalled();
+    expect(mocks.fetchDashboardMerchantContext).not.toHaveBeenCalled();
   });
 
   it('reuses the validated dashboard merchant query and attaches the primary domain', async () => {
@@ -93,8 +91,9 @@ describe('merchant-server', () => {
       data: { user },
       error: null,
     });
-    mocks.fetchDashboardMerchant.mockResolvedValue({
+    mocks.fetchDashboardMerchantContext.mockResolvedValue({
       merchant: { ...merchant },
+      primaryDomain: 'owner.example.com',
       staffAccess: {
         isStaff: false,
         isOwner: true,
@@ -102,18 +101,11 @@ describe('merchant-server', () => {
         permissions: { full_access: { all: true } },
       },
     });
-    mocks.fetchPrimaryDomain.mockResolvedValue('owner.example.com');
-
     const { getMerchantForUser } = await loadModule();
     const result = await getMerchantForUser();
 
-    expect(mocks.fetchDashboardMerchant).toHaveBeenCalledWith(
-      expect.any(Object),
-      'user-1'
-    );
-    expect(mocks.fetchPrimaryDomain).toHaveBeenCalledWith(
-      expect.any(Object),
-      'merchant-1'
+    expect(mocks.fetchDashboardMerchantContext).toHaveBeenCalledWith(
+      expect.any(Object)
     );
     expect(result.user).toEqual(user);
     expect(result.merchant).toMatchObject({
@@ -131,8 +123,9 @@ describe('merchant-server', () => {
       data: { user },
       error: null,
     });
-    mocks.fetchDashboardMerchant.mockResolvedValue({
+    mocks.fetchDashboardMerchantContext.mockResolvedValue({
       merchant: null,
+      primaryDomain: null,
       staffAccess: {
         isStaff: false,
         isOwner: false,
@@ -140,8 +133,6 @@ describe('merchant-server', () => {
         permissions: {},
       },
     });
-    mocks.fetchPrimaryDomain.mockResolvedValue(null);
-
     const {
       ensurePermission,
       isMerchantPermissionRedirectError,
@@ -166,12 +157,13 @@ describe('merchant-server', () => {
       data: { user },
       error: null,
     });
-    mocks.fetchDashboardMerchant.mockResolvedValue({
+    mocks.fetchDashboardMerchantContext.mockResolvedValue({
       merchant: {
         id: 'merchant-1',
         business_name: 'Staff Store',
         slug: 'staff-store',
       },
+      primaryDomain: null,
       staffAccess: {
         isStaff: true,
         isOwner: false,
@@ -179,8 +171,6 @@ describe('merchant-server', () => {
         permissions: { products: { view: true } },
       },
     });
-    mocks.fetchPrimaryDomain.mockResolvedValue(null);
-
     const {
       ensurePermission,
       isMerchantPermissionRedirectError,
@@ -198,6 +188,91 @@ describe('merchant-server', () => {
     expect(isMerchantPermissionRedirectError(rejection)).toBe(true);
   });
 
+  it('honors wildcard permission grants (settings:*) in ensurePermission', async () => {
+    mocks.getUser.mockResolvedValue({
+      data: { user: { id: 'user-1', email: 'staff@example.com' } },
+      error: null,
+    });
+    mocks.fetchDashboardMerchantContext.mockResolvedValue({
+      merchant: { id: 'merchant-1', business_name: 'S', slug: 's' },
+      primaryDomain: null,
+      staffAccess: {
+        isStaff: true,
+        isOwner: false,
+        role: 'manager',
+        permissions: { settings: { '*': true } },
+      },
+    });
+    const { ensurePermission } = await loadModule();
+
+    // settings:'*' must satisfy settings:view (previously denied).
+    const { merchant } = await ensurePermission('settings', 'view');
+    expect(merchant.id).toBe('merchant-1');
+  });
+
+  it('honors the global wildcard grant (*:*) in ensurePermission', async () => {
+    mocks.getUser.mockResolvedValue({
+      data: { user: { id: 'user-1', email: 'staff@example.com' } },
+      error: null,
+    });
+    mocks.fetchDashboardMerchantContext.mockResolvedValue({
+      merchant: { id: 'merchant-1', business_name: 'S', slug: 's' },
+      primaryDomain: null,
+      staffAccess: {
+        isStaff: true,
+        isOwner: false,
+        role: 'manager',
+        permissions: { '*': { '*': true } },
+      },
+    });
+    const { ensurePermission } = await loadModule();
+
+    const { merchant } = await ensurePermission('marketing', 'edit');
+    expect(merchant.id).toBe('merchant-1');
+  });
+
+  it('honors the action-level wildcard grant (*:view) in ensurePermission', async () => {
+    mocks.getUser.mockResolvedValue({
+      data: { user: { id: 'user-1', email: 'staff@example.com' } },
+      error: null,
+    });
+    mocks.fetchDashboardMerchantContext.mockResolvedValue({
+      merchant: { id: 'merchant-1', business_name: 'S', slug: 's' },
+      primaryDomain: null,
+      staffAccess: {
+        isStaff: true,
+        isOwner: false,
+        role: 'manager',
+        permissions: { '*': { view: true } },
+      },
+    });
+    const { ensurePermission } = await loadModule();
+
+    const { merchant } = await ensurePermission('settings', 'view');
+    expect(merchant.id).toBe('merchant-1');
+  });
+
+  it('honors the legacy resource-level all grant in ensurePermission', async () => {
+    mocks.getUser.mockResolvedValue({
+      data: { user: { id: 'user-1', email: 'staff@example.com' } },
+      error: null,
+    });
+    mocks.fetchDashboardMerchantContext.mockResolvedValue({
+      merchant: { id: 'merchant-1', business_name: 'S', slug: 's' },
+      primaryDomain: null,
+      staffAccess: {
+        isStaff: true,
+        isOwner: false,
+        role: 'manager',
+        permissions: { settings: { all: true } },
+      },
+    });
+    const { ensurePermission } = await loadModule();
+
+    const { merchant } = await ensurePermission('settings', 'edit');
+    expect(merchant.id).toBe('merchant-1');
+  });
+
   it('marks the lookup as errored when the rich merchant query fails', async () => {
     const user = { id: 'user-1', email: 'owner@example.com' };
 
@@ -205,10 +280,9 @@ describe('merchant-server', () => {
       data: { user },
       error: null,
     });
-    mocks.fetchDashboardMerchant.mockRejectedValue(
+    mocks.fetchDashboardMerchantContext.mockRejectedValue(
       new Error('Could not find the trust_profile column in the schema cache')
     );
-    mocks.fetchPrimaryDomain.mockResolvedValue(null);
 
     const { getMerchantForUser } = await loadModule();
     const result = await getMerchantForUser();
@@ -221,7 +295,6 @@ describe('merchant-server', () => {
       role: null,
       permissions: {},
     });
-    expect(mocks.fetchPrimaryDomain).not.toHaveBeenCalled();
     expect(result.merchantLookupStatus).toBe('error');
   });
 });

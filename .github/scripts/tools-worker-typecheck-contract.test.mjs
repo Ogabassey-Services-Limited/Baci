@@ -1,0 +1,58 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import test from 'node:test';
+
+test('the Quality Gate reaches the tools and worker TypeScript project', async () => {
+  const pkg = JSON.parse(await readFile('apps/web/package.json', 'utf8'));
+  const toolsTsconfig = JSON.parse(await readFile('apps/web/tsconfig.tools-workers.json', 'utf8'));
+  const configTest = await readFile('.github/scripts/resolve-ci-test-plan-config.test.mjs', 'utf8');
+  const workflow = await readFile('.github/workflows/ci.yml', 'utf8');
+  const workflowLines = workflow.split('\n');
+  const webFilterIndex = workflowLines.findIndex((line) => line.trim() === 'web:');
+  const webFilterIndent = webFilterIndex === -1 ? -1 : workflowLines[webFilterIndex].search(/\S/);
+  const webFilterLines =
+    webFilterIndex === -1
+      ? []
+      : workflowLines.slice(webFilterIndex + 1).map((line) => ({
+          indent: line.search(/\S/),
+          value: line.trim(),
+        }));
+  const webFilterEnd = webFilterLines.findIndex(
+    ({ indent, value }) => value.length > 0 && indent <= webFilterIndent
+  );
+  const webFilter = webFilterLines
+    .slice(0, webFilterEnd === -1 ? undefined : webFilterEnd)
+    .map(({ value }) => value);
+  assert.notEqual(webFilterIndex, -1);
+  assert.equal(pkg.scripts.typecheck, 'tsc --noEmit && pnpm typecheck:tools-workers');
+  assert.equal(pkg.scripts['typecheck:tools-workers'], 'tsc --noEmit -p tsconfig.tools-workers.json');
+  assert.deepEqual(toolsTsconfig.compilerOptions.types, [
+    'node', 'vitest/globals', '@testing-library/jest-dom', 'google.maps',
+  ]);
+  assert.deepEqual(toolsTsconfig.include, [
+    'tools/events/**/*.ts',
+    'tools/db/**/*.ts',
+    'src/scripts/process-domain-events.ts',
+    'src/scripts/process-domain-events.test.ts',
+    'src/scripts/domain-event-worker-message.ts',
+    'src/scripts/domain-event-worker-batch.ts',
+    'src/scripts/domain-event-worker-batch.test.ts',
+    'src/scripts/domain-event-worker.ts',
+    'src/scripts/domain-event-worker.test.ts',
+    'src/scripts/process-event-deliveries.ts',
+    'src/scripts/process-event-deliveries.test.ts',
+    'src/scripts/event-delivery-claim-batch-size.ts',
+    'src/scripts/event-delivery-claim-batch-size.test.ts',
+    'src/scripts/process-claimed-event-delivery.ts',
+    'src/scripts/process-claimed-event-delivery.test.ts',
+    'src/scripts/event-delivery-worker.ts',
+    'src/scripts/event-delivery-worker.test.ts',
+  ]);
+  assert.ok(!toolsTsconfig.include.includes('tools/**/*.ts'));
+  assert.ok(
+    webFilter.includes("- '.github/scripts/tools-worker-typecheck-contract.test.mjs'")
+  );
+  assert.match(configTest, /import '\.\/tools-worker-typecheck-contract\.test\.mjs';/);
+  assert.match(workflow, /node --test [^\n]*resolve-ci-test-plan-config\.test\.mjs/);
+  assert.match(workflow, /pnpm turbo typecheck/);
+});

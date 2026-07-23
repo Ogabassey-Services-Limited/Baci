@@ -1,5 +1,5 @@
 import { isPickupEligible } from '@baci/shared';
-import { PICKUP_STATION_ADDRESS_LINES } from './pickup-station.constants';
+import { MERCHANT_PICKUP_QUOTE_ID } from './merchant-pickup-location';
 import type { DeliveryMethod, ShippingQuote } from './types';
 
 export type ProviderStationPickupQuote = ShippingQuote & {
@@ -18,6 +18,15 @@ export function getStationPickupQuote(
   return quotes.find(isProviderStationPickupQuote);
 }
 
+export function getDefaultPickupQuoteId(
+  state: string,
+  providerPickupQuoteId = ''
+): string {
+  return isPickupEligible(state)
+    ? MERCHANT_PICKUP_QUOTE_ID
+    : providerPickupQuoteId;
+}
+
 export function getPickupStationLabel(quote?: ShippingQuote): string {
   if (!isProviderStationPickupQuote(quote)) {
     return 'Pick Up Station';
@@ -29,7 +38,7 @@ export function getPickupStationLabel(quote?: ShippingQuote): string {
 
 export function getPickupStationAddressLines(quote?: ShippingQuote): string[] {
   if (!isProviderStationPickupQuote(quote)) {
-    return [...PICKUP_STATION_ADDRESS_LINES];
+    return [];
   }
 
   const stationName = quote.stationName ?? quote.pickupStationName;
@@ -78,5 +87,48 @@ export function getPickupStationMode({
     hasResolvedDeliveryLocation,
     usesMerchantPickup,
     usesProviderPickup,
+  };
+}
+
+export function getShippingQuoteMode({
+  city,
+  deliveryMethod,
+  resolvedPreference,
+  resolvedQuoteKey,
+  shippingQuoteContextKey,
+  shippingQuotes,
+  state,
+}: {
+  city: string;
+  deliveryMethod: DeliveryMethod;
+  resolvedPreference: '' | 'door' | 'pickup_station';
+  resolvedQuoteKey: string;
+  shippingQuoteContextKey: string;
+  shippingQuotes: ShippingQuote[];
+  state: string;
+}) {
+  const stationQuote = getStationPickupQuote(shippingQuotes);
+  const pickupMode = getPickupStationMode({
+    city,
+    deliveryMethod,
+    state,
+    stationPickupQuote: stationQuote,
+  });
+  const currentQuotePreference =
+    deliveryMethod === 'pickup_station' ? 'pickup_station' : 'door';
+  const isCurrentQuoteContext =
+    shippingQuoteContextKey !== '' &&
+    resolvedQuoteKey === shippingQuoteContextKey &&
+    resolvedPreference === currentQuotePreference;
+
+  return {
+    ...pickupMode,
+    currentQuotePreference,
+    isCurrentQuoteContext,
+    stationPickupQuote: isCurrentQuoteContext ? stationQuote : undefined,
+    usesDoorQuotes: deliveryMethod === 'door' || deliveryMethod === 'airport',
+    usesPickupQuotes:
+      deliveryMethod === 'pickup_station' &&
+      pickupMode.hasResolvedDeliveryLocation,
   };
 }

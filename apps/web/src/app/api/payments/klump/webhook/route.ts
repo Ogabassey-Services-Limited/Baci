@@ -21,6 +21,7 @@ import {
 import { logger } from '@/lib/logger';
 import {
   ensurePaidOrderInventoryConfirmed,
+  type OrderStatusRollbackSnapshot,
   rollbackOrderStatusAfterInventoryConfirmationFailure,
 } from '@/lib/payments/ensure-paid-order-inventory-confirmed';
 import { fileInventoryConfirmationFailureReview } from '@/lib/payments/file-inventory-confirmation-review';
@@ -287,6 +288,27 @@ export async function POST(request: NextRequest) {
 
   let order: KlumpUpdatedOrder | null = null;
   if (transaction.order_id) {
+    // Snapshot the order's pre-update status so a later inventory-confirmation
+    // failure can roll it back to what it actually was (e.g. 'bnpl_pending'),
+    // not a hardcoded 'pending' that would stomp any other prior state.
+    const { data: preUpdateOrderStatus, error: preUpdateStatusError } =
+      await supabase
+        .from('orders')
+        .select('payment_status, shipping_status')
+        .eq('id', transaction.order_id)
+        .maybeSingle<OrderStatusRollbackSnapshot>();
+    if (preUpdateStatusError || !preUpdateOrderStatus) {
+      // Fail closed BEFORE mutating: without a trustworthy snapshot a later
+      // inventory-confirmation failure could not roll the order back to its
+      // real prior state. Klump retries on non-2xx.
+      logger.error({
+        error: preUpdateStatusError,
+        message: 'Klump pre-update order status snapshot failed',
+        orderId: transaction.order_id,
+      });
+      return errorResponse('Failed to snapshot order status', 500);
+    }
+
     const { data: updatedOrder, error: orderError } = await updateKlumpOrder({
       orderId: transaction.order_id,
       supabase,
@@ -305,13 +327,16 @@ export async function POST(request: NextRequest) {
     // settlement + merchant notification and file a reconciliation row. Ack
     // Klump with a 200 so it does not retry into a loop.
     if (updatedOrder && isOrderClampedAsCancelled(updatedOrder)) {
-      await handlePaymentForCancelledOrder({
+      const reviewFiled = await handlePaymentForCancelledOrder({
         gatewayReference: referenceResult.data,
         order: updatedOrder,
         reason:
           'Klump payment captured for an order cancelled before finalization',
         transactionId: transaction.id,
       });
+      if (!reviewFiled) {
+        return errorResponse('Payment reconciliation review unavailable', 500);
+      }
 
       return NextResponse.json({
         message:
@@ -365,8 +390,8 @@ export async function POST(request: NextRequest) {
               transaction.merchant_id,
               order.id,
               {
-                payment_status: 'pending',
-                shipping_status: 'pending',
+                payment_status: preUpdateOrderStatus.payment_status,
+                shipping_status: preUpdateOrderStatus.shipping_status,
               }
             );
           } catch (rollbackError) {

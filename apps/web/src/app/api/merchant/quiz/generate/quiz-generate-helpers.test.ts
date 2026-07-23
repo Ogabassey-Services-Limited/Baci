@@ -285,6 +285,113 @@ describe('activateMerchantQuizDraft', () => {
     });
   });
 
+  it('persists a deadline on a product-prize quiz so lifecycle closure can run', async () => {
+    const harness = buildQuizEventsHarness(
+      {
+        data: {
+          id: 'event-1',
+          slug: 'product-prize',
+          status: 'active',
+          title: 'Product Prize',
+        },
+        error: null,
+      },
+      { data: null, error: null },
+      {
+        data: {
+          settings: {
+            answer_key_reviewed: true,
+            answer_key_reviewed_at: '2026-07-08T12:00:00.000Z',
+            prize_product_id: 'product-1',
+          },
+        },
+        error: null,
+      }
+    );
+    const endsAt = '2999-01-01T00:00:00.000Z';
+
+    const result = await activateMerchantQuizDraft(
+      harness.supabase,
+      'event-1',
+      'merchant-1',
+      endsAt
+    );
+
+    expect(result).toMatchObject({ id: 'event-1', status: 'active' });
+    expect(harness.updatePayload()).toMatchObject({ ends_at: endsAt });
+  });
+
+  it('keeps a product-prize quiz open-ended when its deadline is omitted', async () => {
+    const harness = buildQuizEventsHarness(
+      {
+        data: {
+          id: 'event-1',
+          slug: 'product-prize',
+          status: 'active',
+          title: 'Product Prize',
+        },
+        error: null,
+      },
+      { data: null, error: null },
+      {
+        data: {
+          settings: {
+            answer_key_reviewed: true,
+            answer_key_reviewed_at: '2026-07-08T12:00:00.000Z',
+            prize_product_id: 'product-1',
+          },
+        },
+        error: null,
+      }
+    );
+
+    const result = await activateMerchantQuizDraft(
+      harness.supabase,
+      'event-1',
+      'merchant-1'
+    );
+
+    expect(result).toMatchObject({ id: 'event-1', status: 'active' });
+    expect(harness.updatePayload()).toMatchObject({ ends_at: null });
+  });
+
+  it.each([
+    '',
+    '   ',
+  ])('does not treat %j as a product-prize id', async (prizeProductId) => {
+    const harness = buildQuizEventsHarness(
+      {
+        data: {
+          id: 'event-1',
+          slug: 'plain-quiz',
+          status: 'active',
+          title: 'Plain Quiz',
+        },
+        error: null,
+      },
+      { data: null, error: null },
+      {
+        data: {
+          settings: {
+            answer_key_reviewed: true,
+            answer_key_reviewed_at: '2026-07-08T12:00:00.000Z',
+            prize_product_id: prizeProductId,
+          },
+        },
+        error: null,
+      }
+    );
+
+    await activateMerchantQuizDraft(
+      harness.supabase,
+      'event-1',
+      'merchant-1',
+      '2999-01-01T00:00:00.000Z'
+    );
+
+    expect(harness.updatePayload()).toMatchObject({ ends_at: null });
+  });
+
   it('refuses to activate a ranked-prize draft without a close deadline', async () => {
     const harness = buildQuizEventsHarness(
       {

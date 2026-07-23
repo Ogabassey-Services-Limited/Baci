@@ -61,14 +61,14 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Setup Ruby
-        uses: ruby/setup-ruby@d45b1a4e94b71acab930e56e79c6aa188764e7f9 # v1.316.0
+        uses: ruby/setup-ruby@003a5c4d8d6321bd302e38f6f0ec593f77f06600 # v1.319.0
         with:
           ruby-version: ${{ env.RUBY_VERSION }}
           bundler-cache: true
           working-directory: ${{ env.WORKING_DIR }}
 
       - name: Disable Node type stripping
-        run: echo "NODE_OPTIONS=--no-strip-types" >> "$GITHUB_ENV"
+        run: echo "NODE_OPTIONS=--no-experimental-strip-types" >> "$GITHUB_ENV"
 
       - name: Install JS dependencies
         env:
@@ -285,6 +285,7 @@ jobs:
           SUBMIT_BUILD_NUMBER: ${{ steps.version.outputs.build_number }}
           SUBMIT_APP_VERSION: ${{ env.IOS_APP_VERSION }}
           IOS_RELEASE_NOTES: ${{ vars.IOS_STOREFRONT_RELEASE_NOTES }}
+          IOS_REVIEW_NOTES: ${{ vars.IOS_STOREFRONT_REVIEW_NOTES }}
         run: bundle exec fastlane ios submit
 
       - name: Clean up secrets

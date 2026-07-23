@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
+  drainFailedOrderCancellationSideEffects: vi.fn(),
   eq: vi.fn(),
   from: vi.fn(),
   in: vi.fn(),
@@ -33,6 +34,10 @@ vi.mock('@/lib/supabase/service', () => ({
 vi.mock('@/lib/zeptomail', () => ({
   sendEmail: mocks.sendEmail,
 }));
+vi.mock('@/lib/orders/drain-failed-order-cancellation-side-effects', () => ({
+  drainFailedOrderCancellationSideEffects:
+    mocks.drainFailedOrderCancellationSideEffects,
+}));
 
 import { POST } from './route';
 
@@ -43,6 +48,16 @@ function makeCronRequest(secret = 'test-secret') {
     },
     method: 'POST',
   });
+}
+
+function makeCancellationDrainRequest() {
+  return new Request(
+    'https://usebaci.com/api/cron/process-settlements?cancellationsOnly=true',
+    {
+      headers: { Authorization: 'Bearer test-secret' },
+      method: 'POST',
+    }
+  );
 }
 
 describe('POST /api/cron/process-settlements', () => {
@@ -96,6 +111,11 @@ describe('POST /api/cron/process-settlements', () => {
       .mockReturnValueOnce({ select: mocks.select })
       .mockReturnValueOnce({ update: mocks.update });
     mocks.sendEmail.mockResolvedValue({ messageId: 'msg-1', success: true });
+    mocks.drainFailedOrderCancellationSideEffects.mockResolvedValue({
+      drained: [],
+      failed: [],
+      skipped: [],
+    });
   });
 
   it('rejects requests without the configured cron secret before processing settlements', async () => {
@@ -105,8 +125,22 @@ describe('POST /api/cron/process-settlements', () => {
     expect(response.status).toBe(401);
     expect(payload).toEqual({ error: 'Unauthorized' });
     expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(
+      mocks.drainFailedOrderCancellationSideEffects
+    ).not.toHaveBeenCalled();
     expect(mocks.from).not.toHaveBeenCalled();
     expect(mocks.sendEmail).not.toHaveBeenCalled();
+  });
+
+  it('drains cancellation side effects without running the daily settlement job', async () => {
+    const response = await POST(makeCancellationDrainRequest());
+
+    expect(response.status).toBe(200);
+    expect(mocks.drainFailedOrderCancellationSideEffects).toHaveBeenCalledWith(
+      expect.objectContaining({ sendCancellationEmail: mocks.sendEmail })
+    );
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.from).not.toHaveBeenCalled();
   });
 
   it('returns a 500 and skips notifications when settlement processing fails', async () => {
@@ -134,6 +168,9 @@ describe('POST /api/cron/process-settlements', () => {
     const payload = await response.json();
 
     expect(response.status).toBe(200);
+    expect(mocks.drainFailedOrderCancellationSideEffects).toHaveBeenCalledWith(
+      expect.objectContaining({ sendCancellationEmail: mocks.sendEmail })
+    );
     expect(payload.notifications).toEqual({ failed: 0, sent: 1 });
 
     const selectColumns = String(mocks.select.mock.calls[0]?.[0] ?? '');

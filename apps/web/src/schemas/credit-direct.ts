@@ -46,7 +46,7 @@ export const creditDirectWebhookProductSchema = z.object({
   productId: nonEmptyRawStringSchema,
 });
 
-export const creditDirectWebhookSchema = z.object({
+const creditDirectCamelCaseWebhookSchema = z.object({
   checkoutCustomer: z.object({
     firstName: z.string(),
     lastName: z.string(),
@@ -61,9 +61,135 @@ export const creditDirectWebhookSchema = z.object({
     .nullable()
     .optional()
     .transform((value) => value ?? null),
-  products: z.array(creditDirectWebhookProductSchema),
+  products: z.array(creditDirectWebhookProductSchema).min(1),
   timeStamp: nonEmptyRawStringSchema,
 });
+
+const creditDirectPascalCaseWebhookProductSchema = z
+  .object({
+    ProductName: nonEmptyRawStringSchema,
+    ProductAmount: creditDirectAmountSchema,
+    ProductId: nonEmptyRawStringSchema,
+  })
+  .transform((product) => ({
+    productName: product.ProductName,
+    productAmount: product.ProductAmount,
+    productId: product.ProductId,
+  }));
+
+const creditDirectPascalCaseWebhookSchema = z
+  .object({
+    CheckoutCustomer: z.object({
+      FirstName: z.string(),
+      LastName: z.string(),
+    }),
+    CheckoutTransactionId: nonEmptyRawStringSchema,
+    EventType: z.enum([
+      'Checkout_Customer_Payment_Completed',
+      'Checkout_Merchant_Payment_Completed',
+    ]),
+    MetaData: z.string().nullable().optional(),
+    Products: z.array(creditDirectPascalCaseWebhookProductSchema).min(1),
+    TimeStamp: nonEmptyRawStringSchema,
+  })
+  .transform((payload) => ({
+    checkoutCustomer: {
+      firstName: payload.CheckoutCustomer.FirstName,
+      lastName: payload.CheckoutCustomer.LastName,
+    },
+    checkoutTransactionId: payload.CheckoutTransactionId,
+    eventType: payload.EventType,
+    metaData: payload.MetaData ?? null,
+    products: payload.Products,
+    timeStamp: payload.TimeStamp,
+  }));
+
+const camelCaseWebhookKeys = [
+  'checkoutCustomer',
+  'checkoutTransactionId',
+  'eventType',
+  'metaData',
+  'products',
+  'timeStamp',
+] as const;
+
+const pascalCaseWebhookKeys = [
+  'CheckoutCustomer',
+  'CheckoutTransactionId',
+  'EventType',
+  'MetaData',
+  'Products',
+  'TimeStamp',
+] as const;
+
+const camelCaseCustomerKeys = ['firstName', 'lastName'] as const;
+const pascalCaseCustomerKeys = ['FirstName', 'LastName'] as const;
+const camelCaseProductKeys = [
+  'productName',
+  'productAmount',
+  'productId',
+] as const;
+const pascalCaseProductKeys = [
+  'ProductName',
+  'ProductAmount',
+  'ProductId',
+] as const;
+
+function hasOwnKey(value: Record<string, unknown>, key: string) {
+  return Object.hasOwn(value, key);
+}
+
+function mixesKnownKeyCasing(
+  value: unknown,
+  camelCaseKeys: readonly string[],
+  pascalCaseKeys: readonly string[]
+) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+  return (
+    camelCaseKeys.some((key) => hasOwnKey(record, key)) &&
+    pascalCaseKeys.some((key) => hasOwnKey(record, key))
+  );
+}
+
+function mixesWebhookKeyCasing(value: unknown) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+  if (
+    mixesKnownKeyCasing(record, camelCaseWebhookKeys, pascalCaseWebhookKeys)
+  ) {
+    return true;
+  }
+
+  const customer = record.checkoutCustomer ?? record.CheckoutCustomer;
+  if (
+    mixesKnownKeyCasing(customer, camelCaseCustomerKeys, pascalCaseCustomerKeys)
+  ) {
+    return true;
+  }
+
+  const products = record.products ?? record.Products;
+  return (
+    Array.isArray(products) &&
+    products.some((product) =>
+      mixesKnownKeyCasing(product, camelCaseProductKeys, pascalCaseProductKeys)
+    )
+  );
+}
+
+export const creditDirectWebhookSchema = z.preprocess(
+  (value) => (mixesWebhookKeyCasing(value) ? null : value),
+  z.union([
+    creditDirectCamelCaseWebhookSchema,
+    creditDirectPascalCaseWebhookSchema,
+  ])
+);
 
 export type CreditDirectWebhookProductInput = z.infer<
   typeof creditDirectWebhookProductSchema

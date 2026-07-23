@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import Colors from '@/constants/Colors';
 import type { useUtilityPayment } from '@/hooks/use-utility-payment';
+import type { WalletReturnHref } from '@/lib/sanitize-wallet-return-to';
 import { BillPaymentSection } from './BillPaymentSection';
 
 jest.mock('./UtilityPaymentOptions', () => {
@@ -48,6 +49,7 @@ describe('BillPaymentSection', () => {
         colors={Colors.light}
         formattedAmount="1,000"
         handlePaymentLayout={jest.fn()}
+        returnToHref={'/utilities/power?repeatAmount=1000' as WalletReturnHref}
         isFixedAmount={false}
         numericAmount={1000}
         payment={createPaymentState()}
@@ -70,6 +72,7 @@ describe('BillPaymentSection', () => {
         colors={Colors.light}
         formattedAmount="1,000"
         handlePaymentLayout={jest.fn()}
+        returnToHref={'/utilities/power?repeatAmount=1000' as WalletReturnHref}
         isFixedAmount={false}
         numericAmount={1000}
         payment={createPaymentState()}
@@ -86,6 +89,7 @@ describe('BillPaymentSection', () => {
         colors={Colors.light}
         formattedAmount="2,500"
         handlePaymentLayout={jest.fn()}
+        returnToHref={'/utilities/power?repeatAmount=1000' as WalletReturnHref}
         isFixedAmount={true}
         numericAmount={2500}
         payment={createPaymentState()}

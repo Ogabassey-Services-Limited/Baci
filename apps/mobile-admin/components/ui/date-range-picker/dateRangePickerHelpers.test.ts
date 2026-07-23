@@ -55,8 +55,9 @@ describe('dateRangePickerHelpers', () => {
     );
 
     expect(days).toHaveLength(42);
-    expect(format(days[0]!, 'MMM d')).toBe('Apr 26');
-    expect(format(days.at(-1)!, 'MMM d')).toBe('Jun 6');
+    const dayLabels = days.map((day) => format(day, 'MMM d'));
+    expect(dayLabels[0]).toBe('Apr 26');
+    expect(dayLabels.at(-1)).toBe('Jun 6');
   });
 
   it('reports selected and in-range days correctly', () => {

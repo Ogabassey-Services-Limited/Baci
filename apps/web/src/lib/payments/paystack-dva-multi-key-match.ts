@@ -8,7 +8,10 @@
 // The upstream lookup already filters by `(provider='paystack',
 // account_number=<receiver>)` so we only see candidates that share the
 // account number. This function applies the remaining B0 predicates:
-// amount, customer_email, and the paid_at window:
+// amount, customer_email, and the paid_at lower bound. The short checkout
+// window remains the preferred discriminator when several reusable-DVA
+// aliases exist. If no candidate is inside that window, an exact unique late
+// match is accepted; multiple late matches remain ambiguous for review.
 //
 //   paid_at IN [assignment timestamp,
 //               LEAST(account_expires_at, assignment timestamp + 90 min)]
@@ -45,8 +48,16 @@ export type DvaMatchContext = {
 };
 
 export type DvaMatchResult =
-  | { kind: 'single'; candidate: DvaMatchCandidate }
-  | { kind: 'ambiguous'; candidates: DvaMatchCandidate[] }
+  | {
+      kind: 'single';
+      candidate: DvaMatchCandidate;
+      timing: 'in_window' | 'late';
+    }
+  | {
+      kind: 'ambiguous';
+      candidates: DvaMatchCandidate[];
+      timing: 'in_window' | 'late';
+    }
   | { kind: 'none' };
 
 export function matchPaystackDvaCandidates(
@@ -56,7 +67,7 @@ export function matchPaystackDvaCandidates(
   const normalizedContextEmail = normalizeEmail(context.customerEmail);
   const paidAtMs = context.paidAt.getTime();
 
-  const matched = candidates.filter((candidate) => {
+  const exactMatches = candidates.filter((candidate) => {
     const expectedAmountKobo =
       candidate.payable_amount_kobo ?? candidate.total_kobo;
     if (
@@ -73,19 +84,31 @@ export function matchPaystackDvaCandidates(
     if (paidAtMs < assignedAtMs) {
       return false;
     }
-    const upperBoundFromGrace = assignedAtMs + NINETY_MINUTES_MS;
-    const upperBound = candidate.account_expires_at
-      ? Math.min(candidate.account_expires_at.getTime(), upperBoundFromGrace)
-      : upperBoundFromGrace;
-    if (paidAtMs > upperBound) {
-      return false;
-    }
     return true;
   });
 
+  const inWindowMatches = exactMatches.filter((candidate) => {
+    const assignedAt =
+      candidate.account_assigned_at ?? candidate.account_created_at;
+    const upperBoundFromGrace = assignedAt.getTime() + NINETY_MINUTES_MS;
+    const upperBound = candidate.account_expires_at
+      ? Math.min(candidate.account_expires_at.getTime(), upperBoundFromGrace)
+      : upperBoundFromGrace;
+    return paidAtMs <= upperBound;
+  });
+
+  // Prefer the short-window candidates when available. This preserves the
+  // original sequential-order disambiguation while allowing a bank transfer
+  // that settles late to reach one uniquely identified active invoice.
+  const usesInWindowMatch = inWindowMatches.length > 0;
+  const matched = usesInWindowMatch ? inWindowMatches : exactMatches;
+  const timing = usesInWindowMatch ? 'in_window' : 'late';
+
   if (matched.length === 0) return { kind: 'none' };
-  if (matched.length === 1) return { kind: 'single', candidate: matched[0] };
-  return { kind: 'ambiguous', candidates: matched };
+  if (matched.length === 1) {
+    return { kind: 'single', candidate: matched[0], timing };
+  }
+  return { kind: 'ambiguous', candidates: matched, timing };
 }
 
 function normalizeEmail(value: string | null): string {

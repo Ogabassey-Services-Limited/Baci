@@ -1,30 +1,16 @@
 import crypto from 'node:crypto';
-
-/**
- * Google Analytics 4 Measurement Protocol (Server-Side)
- *
- * Server-side event tracking for GA4.
- * This bypasses ad blockers and provides more accurate attribution.
- *
- * Required setup:
- * 1. Go to GA4 Admin > Data Streams > Your Stream
- * 2. Click "Measurement Protocol API secrets"
- * 3. Create a new secret and save it
- *
- * @see https://developers.google.com/analytics/devguides/collection/protocol/ga4
- */
+import { sanitizeEventErrorMessage } from '@/lib/events/sanitize-event-error';
 
 const GA4_ENDPOINT = 'https://www.google-analytics.com/mp/collect';
 const GA4_DEBUG_ENDPOINT = 'https://www.google-analytics.com/debug/mp/collect';
-
+const PROVIDER_REQUEST_TIMEOUT_MS = 10_000;
 export interface GA4UserData {
-  clientId: string; // Required - from _ga cookie or generated
-  userId?: string; // Optional - logged in user ID
+  clientId: string;
+  userId?: string;
   sessionId?: string;
   ipAddress?: string;
   userAgent?: string;
 }
-
 export interface GA4EventParams {
   currency?: string;
   value?: number;
@@ -41,7 +27,6 @@ export interface GA4EventParams {
   page_title?: string;
   [key: string]: unknown;
 }
-
 export type GA4EventName =
   | 'page_view'
   | 'view_item'
@@ -53,77 +38,114 @@ export type GA4EventName =
   | 'add_to_wishlist'
   | 'sign_up'
   | 'login';
-
-/**
- * Generate a client ID in the same format as GA4
- */
 export function generateClientId(): string {
   const timestamp = Math.floor(Date.now() / 1000);
   const random = crypto.randomInt(1000000000, 9999999999);
   return `${random}.${timestamp}`;
 }
-
-/**
- * Extract client ID from GA cookie
- */
 export function extractClientIdFromCookie(
   gaCookie: string | undefined
 ): string {
   if (!gaCookie) return generateClientId();
-  // GA cookie format: GA1.1.123456789.1234567890
   const parts = gaCookie.split('.');
   if (parts.length >= 4) {
     return `${parts[2]}.${parts[3]}`;
   }
   return generateClientId();
 }
-
-/**
- * Send event to GA4 Measurement Protocol
- */
+interface GA4ValidationMessage {
+  description?: string;
+  fieldPath?: string;
+  validationCode?: string;
+}
+function projectValidationMessages(
+  value: unknown,
+  sensitiveValues: readonly string[]
+): GA4ValidationMessage[] | null {
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    !('validationMessages' in value) ||
+    !Array.isArray(value.validationMessages)
+  ) {
+    return null;
+  }
+  return value.validationMessages.map((message: unknown) => {
+    if (!message || typeof message !== 'object') return {};
+    return {
+      ...('description' in message && typeof message.description === 'string'
+        ? {
+            description: sanitizeEventErrorMessage(
+              message.description,
+              sensitiveValues
+            ),
+          }
+        : {}),
+      ...('fieldPath' in message && typeof message.fieldPath === 'string'
+        ? {
+            fieldPath: sanitizeEventErrorMessage(
+              message.fieldPath,
+              sensitiveValues
+            ),
+          }
+        : {}),
+      ...('validationCode' in message &&
+      typeof message.validationCode === 'string'
+        ? {
+            validationCode: sanitizeEventErrorMessage(
+              message.validationCode,
+              sensitiveValues
+            ),
+          }
+        : {}),
+    };
+  });
+}
 export async function sendGA4Event(
   measurementId: string,
   apiSecret: string,
   eventName: GA4EventName | string,
   userData: GA4UserData,
   params?: GA4EventParams,
-  debug: boolean = false
+  debug: boolean = false,
+  signal?: AbortSignal,
+  eventTimestampMicros?: number
 ): Promise<{ success: boolean; error?: string; debugInfo?: unknown }> {
   if (!measurementId || !apiSecret) {
     return { success: false, error: 'Missing measurement ID or API secret' };
   }
-
   if (!userData.clientId) {
     return { success: false, error: 'Client ID is required' };
   }
-
   const endpoint = debug ? GA4_DEBUG_ENDPOINT : GA4_ENDPOINT;
-  const url = `${endpoint}?measurement_id=${measurementId}&api_secret=${apiSecret}`;
-
+  const url = `${endpoint}?${new URLSearchParams({
+    api_secret: apiSecret,
+    measurement_id: measurementId,
+  }).toString()}`;
+  const sensitiveValues = [measurementId, apiSecret];
   const payload = {
     client_id: userData.clientId,
     ...(userData.userId && { user_id: userData.userId }),
     events: [
       {
         name: eventName,
+        ...(eventTimestampMicros !== undefined && {
+          timestamp_micros: eventTimestampMicros,
+        }),
         params: {
           ...(params || {}),
-          // Add session info if available
           ...(userData.sessionId && { session_id: userData.sessionId }),
-          // Engagement time is required for most events
           engagement_time_msec: 100,
         },
       },
     ],
-    // User properties can be added here
-    ...(userData.ipAddress && {
-      user_properties: {
-        ip_override: { value: userData.ipAddress },
-      },
-    }),
+    ...(userData.ipAddress && { ip_override: userData.ipAddress }),
   };
-
   try {
+    const timeoutSignal = AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MS);
+    const requestSignal = signal
+      ? AbortSignal.any([signal, timeoutSignal])
+      : timeoutSignal;
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -131,38 +153,45 @@ export async function sendGA4Event(
         ...(userData.userAgent && { 'User-Agent': userData.userAgent }),
       },
       body: JSON.stringify(payload),
+      signal: requestSignal,
     });
-
     if (debug) {
-      const debugResponse = await response.json();
+      const debugResponse: unknown = await response.json();
+      const validationMessages = projectValidationMessages(
+        debugResponse,
+        sensitiveValues
+      );
       return {
-        success: debugResponse.validationMessages?.length === 0,
-        debugInfo: debugResponse,
+        success:
+          response.ok &&
+          validationMessages !== null &&
+          validationMessages.length === 0,
+        debugInfo: { validationMessages: validationMessages ?? [] },
       };
     }
-
-    // Non-debug endpoint returns 204 No Content on success
     if (response.status === 204 || response.ok) {
       return { success: true };
     }
-
     return { success: false, error: `HTTP ${response.status}` };
   } catch (error) {
-    console.error('GA4 Measurement Protocol error:', error);
+    const safeError = sanitizeEventErrorMessage(
+      error instanceof Error ? error.message : 'Network error',
+      sensitiveValues
+    );
+    console.error(
+      sanitizeEventErrorMessage(
+        'GA4 Measurement Protocol error:',
+        sensitiveValues
+      ),
+      safeError
+    );
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error',
+      error: safeError,
     };
   }
 }
-
-/**
- * Helper functions for common e-commerce events
- */
 export const ga4MeasurementProtocol = {
-  /**
-   * Track a purchase event
-   */
   purchase: (
     measurementId: string,
     apiSecret: string,
@@ -177,8 +206,8 @@ export const ga4MeasurementProtocol = {
       quantity: number;
       category?: string;
     }>
-  ) => {
-    return sendGA4Event(measurementId, apiSecret, 'purchase', userData, {
+  ) =>
+    sendGA4Event(measurementId, apiSecret, 'purchase', userData, {
       transaction_id: transactionId,
       value,
       currency,
@@ -189,12 +218,7 @@ export const ga4MeasurementProtocol = {
         quantity: p.quantity,
         item_category: p.category,
       })),
-    });
-  },
-
-  /**
-   * Track begin checkout event
-   */
+    }),
   beginCheckout: (
     measurementId: string,
     apiSecret: string,
@@ -207,8 +231,8 @@ export const ga4MeasurementProtocol = {
       price: number;
       quantity: number;
     }>
-  ) => {
-    return sendGA4Event(measurementId, apiSecret, 'begin_checkout', userData, {
+  ) =>
+    sendGA4Event(measurementId, apiSecret, 'begin_checkout', userData, {
       value,
       currency,
       items: products.map((p) => ({
@@ -217,12 +241,7 @@ export const ga4MeasurementProtocol = {
         price: p.price,
         quantity: p.quantity,
       })),
-    });
-  },
-
-  /**
-   * Track add to cart event
-   */
+    }),
   addToCart: (
     measurementId: string,
     apiSecret: string,
@@ -232,8 +251,8 @@ export const ga4MeasurementProtocol = {
     price: number,
     quantity: number,
     currency: string
-  ) => {
-    return sendGA4Event(measurementId, apiSecret, 'add_to_cart', userData, {
+  ) =>
+    sendGA4Event(measurementId, apiSecret, 'add_to_cart', userData, {
       currency,
       value: price * quantity,
       items: [
@@ -244,12 +263,7 @@ export const ga4MeasurementProtocol = {
           quantity,
         },
       ],
-    });
-  },
-
-  /**
-   * Track view item event
-   */
+    }),
   viewItem: (
     measurementId: string,
     apiSecret: string,
@@ -259,8 +273,8 @@ export const ga4MeasurementProtocol = {
     price: number,
     currency: string,
     category?: string
-  ) => {
-    return sendGA4Event(measurementId, apiSecret, 'view_item', userData, {
+  ) =>
+    sendGA4Event(measurementId, apiSecret, 'view_item', userData, {
       currency,
       value: price,
       items: [
@@ -272,20 +286,15 @@ export const ga4MeasurementProtocol = {
           item_category: category,
         },
       ],
-    });
-  },
+    }),
 
-  /**
-   * Track search event
-   */
   search: (
     measurementId: string,
     apiSecret: string,
     userData: GA4UserData,
     searchTerm: string
-  ) => {
-    return sendGA4Event(measurementId, apiSecret, 'search', userData, {
+  ) =>
+    sendGA4Event(measurementId, apiSecret, 'search', userData, {
       search_term: searchTerm,
-    });
-  },
+    }),
 };

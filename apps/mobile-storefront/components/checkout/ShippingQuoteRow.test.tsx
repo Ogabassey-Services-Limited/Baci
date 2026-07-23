@@ -27,19 +27,46 @@ describe('ShippingQuoteRow', () => {
         }}
         selectedAccentColor="#EF2B2D"
         selectedBackgroundColor={colors.card}
+        estimateOverride="Within 1–48 hours"
       />
     );
 
     expect(screen.getByText('Port Harcourt Airport Delivery')).toBeTruthy();
-    expect(screen.getByText('By Air\nEst. 24-48 working hours')).toBeTruthy();
+    expect(screen.getByText('By Air\nWithin 1–48 hours')).toBeTruthy();
     expect(screen.getByText('₦25,000')).toBeTruthy();
     const quoteButton = screen.getByRole('button', {
-      name: /Select Port Harcourt Airport Delivery.*By Air.*24-48 working hours.*₦25,000/,
+      name: /Select Port Harcourt Airport Delivery.*By Air.*Within 1–48 hours.*₦25,000/,
     });
     expect(quoteButton).toHaveAccessibilityState({ selected: true });
 
     fireEvent.press(quoteButton);
     expect(onSelect).toHaveBeenCalledWith('airport-delivery');
+  });
+
+  it('does not show an estimate for pickup routes', () => {
+    render(
+      <ShippingQuoteRow
+        colors={colors}
+        estimateOverride={null}
+        isSelected={false}
+        onSelect={jest.fn()}
+        quote={{
+          carrierName: 'GIG Logistics',
+          deliveryRange: '3 days',
+          displayName: 'Pickup at PHC D-Line',
+          id: 'station-quote',
+          isStationPickup: true,
+          price: 7_692,
+          provider: 'GIGL',
+          stationCode: 'PHC-DL',
+        }}
+        selectedAccentColor="#EF2B2D"
+        selectedBackgroundColor={colors.card}
+      />
+    );
+
+    expect(screen.queryByText(/Est\./)).toBeNull();
+    expect(screen.queryByText(/3 days/)).toBeNull();
   });
 
   it('shows GIG branding and station context for a pickup quote', () => {

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { defaultStaffAccess, ownerStaffAccess } from './constants';
+import { redactAlwaysSecretStaffFields } from './redact-always-secret-staff-fields';
 import type { MerchantData, StaffAccess, StaffRole } from './types';
 
 type MerchantRow = Omit<MerchantData, 'feature_settings'> & {
@@ -305,7 +306,12 @@ export async function fetchDashboardMerchant(
         }
 
         return {
-          merchant: merchantInfo,
+          // Strip the always-safe secret fields (national IDs, billing, terminal
+          // + top-level marketing credentials) that no non-owner staff surface
+          // reads. Permission-scoped fields (bank/paystack/product-sheet, nested
+          // feature_settings bags) are intentionally left for the S1 bounded-
+          // projection follow-up so this PR stays a low-risk containment step.
+          merchant: redactAlwaysSecretStaffFields(merchantInfo),
           staffAccess: {
             isStaff: true,
             isOwner: false,

@@ -72,6 +72,7 @@ export function DataForm({
     matchingRecipients,
     canShowBeneficiaries,
     shouldShowNetworkSection,
+    walletReturnToHref,
   } = useDataFormBeneficiaryController({
     initialPhoneNumber,
     initialProvider,
@@ -268,6 +269,7 @@ export function DataForm({
             isLoadingCards={payment.isLoadingCards}
             onSelectGateway={payment.selectGateway}
             onSelectSavedCard={payment.selectSavedCard}
+            returnToHref={walletReturnToHref}
             selectedGateway={payment.selectedGateway}
             selectedSavedCardId={payment.selectedSavedCardId}
             supportedGateways={payment.supportedGateways}

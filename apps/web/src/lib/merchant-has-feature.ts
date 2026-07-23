@@ -1,0 +1,38 @@
+export type MerchantFeatureGate =
+  | 'custom_domain'
+  | 'growth_integrations'
+  | 'marketplace_sync';
+
+export type MerchantFeatureSource = {
+  plan_expires_at?: string | null;
+  plan_tier?: string | null;
+  premium_features?: unknown;
+};
+
+export function merchantHasFeature(
+  merchant: MerchantFeatureSource | null | undefined,
+  feature: MerchantFeatureGate,
+  now = new Date()
+): boolean {
+  const features = new Set(
+    Array.isArray(merchant?.premium_features)
+      ? merchant.premium_features
+          .filter((value): value is string => typeof value === 'string')
+          .map((value) => value.trim().toLowerCase())
+          .filter(Boolean)
+      : []
+  );
+  if (features.has('all_features') || features.has(feature)) return true;
+
+  const allowedTiers: Record<MerchantFeatureGate, ReadonlySet<string>> = {
+    custom_domain: new Set(['starter', 'pro', 'business', 'enterprise']),
+    growth_integrations: new Set(['pro', 'business', 'enterprise']),
+    marketplace_sync: new Set(['pro', 'business', 'enterprise']),
+  };
+  if (!merchant?.plan_tier || !allowedTiers[feature].has(merchant.plan_tier)) {
+    return false;
+  }
+  if (!merchant.plan_expires_at) return true;
+  const expiryTime = Date.parse(merchant.plan_expires_at);
+  return Number.isFinite(expiryTime) && expiryTime > now.getTime();
+}

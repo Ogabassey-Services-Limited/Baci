@@ -157,7 +157,8 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete payment state', () =
     expect(createAgenticCheckoutOrder).not.toHaveBeenCalled();
   });
 
-  it('returns existing payment details without creating duplicate DVA or order', async () => {
+  it('does not mint a new replay for existing payment details while paused', async () => {
+    vi.stubEnv('AGENTIC_PAYSTACK_DVA_MODE', 'paused');
     const { updateSpy } = mockSession({
       ...makeReadySession(),
       status: 'processing',
@@ -184,19 +185,14 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete payment state', () =
     const response = await POST(buildCompleteRequest(), params);
     const body = await response.json();
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(409);
     expect(createDedicatedVirtualAccount).not.toHaveBeenCalled();
     expect(createAgenticCheckoutOrder).not.toHaveBeenCalled();
     expect(updateSpy).not.toHaveBeenCalled();
     expect(calculateCheckoutSession).not.toHaveBeenCalled();
-    expect(body).toMatchObject({
-      id: 'agentic_session_1',
-      status: 'ready_for_payment',
-      order_id: 'order-1',
-      payment_details: {
-        account_number: '1234567890',
-        bank_name: 'Paystack-Titan',
-      },
+    expect(body).toEqual({
+      code: 'AGENTIC_PAYSTACK_DVA_PAUSED',
+      error: 'Agentic Paystack bank transfer is paused',
     });
   });
 

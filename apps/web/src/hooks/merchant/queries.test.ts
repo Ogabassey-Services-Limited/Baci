@@ -194,6 +194,45 @@ describe('fetchDashboardMerchant', () => {
     expect(result.staffAccess.isStaff).toBe(false);
   });
 
+  it('returns the merchant and merged permissions for an active staff member', async () => {
+    const supabase = createMockSupabase({
+      // Not the owner of any merchant.
+      merchants: mockQueryChain({ data: null, error: null }),
+      staff_members: mockQueryChain({
+        data: {
+          id: 'staff-1',
+          role: 'manager',
+          permissions: { settings: { view: true } },
+          status: 'active',
+          merchant_id: 'merchant-9',
+          merchants: {
+            id: 'merchant-9',
+            user_id: 'owner-user',
+            business_name: 'Staffed Store',
+            slug: 'staffed-store',
+            feature_settings: null,
+            support_email: 'ops@staffed-store.com',
+          },
+        },
+        error: null,
+      }),
+      role_permissions: mockQueryChain({
+        data: { permissions: { orders: { view: true } } },
+        error: null,
+      }),
+    });
+
+    const result = await fetchDashboardMerchant(supabase, 'staff-user');
+
+    expect(result.staffAccess.isStaff).toBe(true);
+    expect(result.staffAccess.isOwner).toBe(false);
+    expect(result.merchant?.id).toBe('merchant-9');
+    expect(result.merchant?.support_email).toBe('ops@staffed-store.com');
+    // Role defaults + custom overrides are merged.
+    expect(result.staffAccess.permissions.orders?.view).toBe(true);
+    expect(result.staffAccess.permissions.settings?.view).toBe(true);
+  });
+
   it('treats owner rows without business details as incomplete', async () => {
     const supabase = createMockSupabase({
       merchants: mockQueryChain({

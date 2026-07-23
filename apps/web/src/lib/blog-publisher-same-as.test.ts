@@ -58,4 +58,22 @@ describe('buildBlogPublisherSameAs', () => {
       })
     ).toEqual([]);
   });
+
+  it('omits non-brand handles when a publisher identity is provided', () => {
+    expect(
+      buildBlogPublisherSameAs(
+        {
+          youtube: 'ogabassey',
+          linkedin: 'ogabasseyy',
+          tiktok: 'qynovx',
+          twitter: 'sxgtow',
+          instagram: 'ywzhqv',
+        },
+        'Ogabassey'
+      )
+    ).toEqual([
+      'https://youtube.com/@ogabassey',
+      'https://linkedin.com/company/ogabasseyy',
+    ]);
+  });
 });

@@ -1,6 +1,8 @@
 const GRADLE_DISTRIBUTION = 'gradle-9.3.1-bin.zip';
 const GRADLE_SHA256 =
   'b266d5ff6b90eada6dc3b20cb090e3731302e553a27c5d3e4df1f0d76beaff06';
+const GOOGLE_CODE_SCANNER_ACTIVITY =
+  'com.google.mlkit.vision.codescanner.internal.GmsBarcodeScanningDelegateActivity';
 
 function assertReplaceOrThrow(content, pattern, replacement, description) {
   const updated = content.replace(pattern, replacement);
@@ -215,15 +217,69 @@ function fixProguardOptimize(content, description) {
   );
 }
 
+function ensureR8ClassRepackaging(content) {
+  if (/^\s*-repackageclasses(?:\s+\S+)?\s*$/m.test(content)) {
+    return content;
+  }
+
+  const separator = content.endsWith('\n') ? '' : '\n';
+  return `${content}${separator}\n# Repackage classes for stronger R8 optimization on AGP 8.x.\n-repackageclasses\n`;
+}
+
+function ensureAmazonSdkOptimizationScope(content) {
+  const legacyScopedKeepRule =
+    '-keep,allowshrinking,allowobfuscation class com.amazon.** { *; }';
+  const scopedKeepRule =
+    '-keep,allowshrinking,allowobfuscation,allowoptimization class com.amazon.** { *; }';
+  if (content.includes(scopedKeepRule)) {
+    return content;
+  }
+  if (content.includes(legacyScopedKeepRule)) {
+    return content.replace(legacyScopedKeepRule, scopedKeepRule);
+  }
+
+  const separator = content.endsWith('\n') ? '' : '\n';
+  return `${content}${separator}\n# Protect malformed Amazon SDK bytecode without disabling R8 globally.\n-dontwarn com.amazon.**\n${scopedKeepRule}\n-keepattributes *Annotation*\n`;
+}
+
+function ensureGoogleCodeScannerOrientationIsUnrestricted(content) {
+  const activityOverride = `<activity android:name="${GOOGLE_CODE_SCANNER_ACTIVITY}" tools:remove="android:screenOrientation" />`;
+
+  if (content.includes(activityOverride)) {
+    return content;
+  }
+
+  let updated = content;
+  const openingManifest = updated.match(/<manifest\b[^>]*>/)?.[0] ?? '';
+  if (!/\bxmlns:tools\s*=/.test(openingManifest)) {
+    updated = assertReplaceOrThrow(
+      updated,
+      /<manifest\b/,
+      '<manifest xmlns:tools="http://schemas.android.com/tools"',
+      'Android tools namespace injection'
+    );
+  }
+
+  return assertReplaceOrThrow(
+    updated,
+    /\n\s*<\/application>/m,
+    `\n        ${activityOverride}\n    </application>`,
+    'Google code scanner orientation override injection'
+  );
+}
+
 module.exports = {
   addAsyncStorageRepo,
   assertReplaceOrThrow,
+  ensureAmazonSdkOptimizationScope,
+  ensureGoogleCodeScannerOrientationIsUnrestricted,
   ensureGradleWrapperVersion,
   ensureGradleProperty,
   ensureMergedJvmArgs,
   getGradleProperty,
   getJvmArgKey,
   ensureReleaseSigning,
+  ensureR8ClassRepackaging,
   fixProguardOptimize,
   removeKotlinAndroidPlugin,
   removeKotlinGradlePlugin,

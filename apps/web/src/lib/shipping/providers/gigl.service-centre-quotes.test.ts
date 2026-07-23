@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { ShippingQuote } from '../types';
+import type { ShippingAddress, ShippingQuote } from '../types';
 import { expandGiglServiceCentreQuotes } from './gigl.service-centre-quotes';
 import { serviceCentresResponse, stationsResponse } from './gigl.test-helpers';
 
@@ -86,6 +86,87 @@ describe('expandGiglServiceCentreQuotes', () => {
       'HUAWEI-PHC',
       'PHC D-LINE',
       'PHC PETER ODILLI',
+    ]);
+  });
+
+  it('prefers service centres matching the receiver city without coordinates', async () => {
+    const receiver: ShippingAddress = {
+      address: 'Opebi Road, Ikeja, Lagos',
+      city: 'Ikeja',
+      country: 'Nigeria',
+      countryCode: 'NG',
+      name: 'Ada',
+      phone: '08012345678',
+      state: 'Lagos',
+    };
+    const serviceCentres = [
+      {
+        ...serviceCentresResponse.data.data[0],
+        Address: '5 Admiralty Way, Lekki, Lagos',
+        ServiceCentreId: 1,
+        ServiceCentreName: 'LEKKI PHASE 1',
+      },
+      {
+        ...serviceCentresResponse.data.data[1],
+        Address: '12 Allen Avenue, Ikeja, Lagos',
+        ServiceCentreId: 2,
+        ServiceCentreName: 'IKEJA ALLEN',
+      },
+      {
+        ...serviceCentresResponse.data.data[2],
+        Address: 'Badore Road, Ajah, Lagos',
+        ServiceCentreId: 3,
+        ServiceCentreName: 'LEKKI BADORE',
+      },
+    ];
+
+    const quotes = await expandGiglServiceCentreQuotes({
+      baseQuote,
+      generateQuoteId: () => 'quote-id',
+      receiver,
+      receiverStation: stationsResponse.data.data[1],
+      serviceCentres,
+    });
+
+    expect(quotes.map((quote) => quote.stationName)).toEqual(['IKEJA ALLEN']);
+  });
+
+  it('does not treat a partial city token as a service-centre match', async () => {
+    const receiver: ShippingAddress = {
+      address: 'Ojo, Lagos',
+      city: 'Ojo',
+      country: 'Nigeria',
+      countryCode: 'NG',
+      name: 'Ada',
+      phone: '08012345678',
+      state: 'Lagos',
+    };
+    const serviceCentres = [
+      {
+        ...serviceCentresResponse.data.data[0],
+        Address: 'Ojota, Lagos',
+        ServiceCentreId: 1,
+        ServiceCentreName: 'OJOTA',
+      },
+      {
+        ...serviceCentresResponse.data.data[1],
+        Address: 'Allen Avenue, Ikeja, Lagos',
+        ServiceCentreId: 2,
+        ServiceCentreName: 'IKEJA',
+      },
+    ];
+
+    const quotes = await expandGiglServiceCentreQuotes({
+      baseQuote,
+      generateQuoteId: () => 'quote-id',
+      receiver,
+      receiverStation: stationsResponse.data.data[1],
+      serviceCentres,
+    });
+
+    expect(quotes.map((quote) => quote.stationName)).toEqual([
+      'IKEJA',
+      'OJOTA',
     ]);
   });
 

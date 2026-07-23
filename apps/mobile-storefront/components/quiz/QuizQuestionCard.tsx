@@ -1,7 +1,6 @@
 import { Pressable, Text, View } from 'react-native';
 import type { QuizAttempt } from '@/services/quiz-types';
 import type { createQuizStyles } from './QuizScreen.styles';
-import { formatPointCount } from './QuizScreen.utils';
 
 type QuizStyles = ReturnType<typeof createQuizStyles>;
 
@@ -65,9 +64,13 @@ export function QuizQuestionCard({
       >
         Time left: {remainingSeconds}s
       </Text>
+      {/* Entry is free, so this normally reports 0. Not hard-coded: an installed
+          build can briefly talk to a database that still charges, and telling
+          that player nothing was taken would misreport their balance. */}
       <Text style={styles.passReceipt}>
-        {formatPointCount(attempt.examPassPointsSpent)} exam pass used.{' '}
-        {formatPointCount(attempt.remainingLoyaltyPoints)} left.
+        {attempt.examPassPointsSpent > 0
+          ? `${attempt.examPassPointsSpent} loyalty ${attempt.examPassPointsSpent === 1 ? 'point' : 'points'} used. ${attempt.remainingLoyaltyPoints} left.`
+          : 'Free entry — no loyalty points used.'}
       </Text>
       <Text accessibilityRole="header" style={styles.question}>
         {attempt.question.prompt}

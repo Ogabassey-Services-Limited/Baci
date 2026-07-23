@@ -1,3 +1,4 @@
+import { QUIZ_FREE_ENTRY_MODE } from '@baci/shared/constants';
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { checkCsrfProtection } from '@/lib/csrf';
@@ -36,7 +37,13 @@ function mockAuthenticatedSupabase({
   rpcResult?: { data: unknown; error: unknown };
   selectResult?: { data: unknown; error: unknown };
 } = {}) {
-  const rpc = vi.fn().mockResolvedValue(rpcResult);
+  const rpc = vi.fn((name: string) =>
+    Promise.resolve(
+      name === 'quiz_free_entry_ready' || name === 'quiz_device_cap_ready'
+        ? { data: true, error: null }
+        : rpcResult
+    )
+  );
   const queryBuilder = {
     eq: vi.fn(() => queryBuilder),
     maybeSingle: vi.fn().mockResolvedValue(selectResult),
@@ -98,9 +105,14 @@ describe('quiz API route contracts', () => {
       return Promise.resolve({ data: { user: { id: USER_ID } }, error: null });
     });
     const request = {
+      headers: new Headers(),
       json: vi.fn(() => {
         order.push('json');
-        return Promise.resolve({ eventId: EVENT_ID, integrityTier: 'device' });
+        return Promise.resolve({
+          entryMode: QUIZ_FREE_ENTRY_MODE,
+          eventId: EVENT_ID,
+          integrityTier: 'device',
+        });
       }),
     } as unknown as NextRequest;
 
@@ -114,6 +126,7 @@ describe('quiz API route contracts', () => {
       p_event_id: EVENT_ID,
       p_integrity_tier: 'device',
       p_route_proof: expect.objectContaining({
+        action: 'start_quiz_attempt_free_v1',
         issued_at: expect.any(String),
         proof_id: expect.any(String),
         scope: 'quiz_phase1a',
@@ -128,6 +141,7 @@ describe('quiz API route contracts', () => {
     const { POST } = await import('@/app/api/quiz/attempts/start/route');
     const response = await POST(
       jsonRequest('http://localhost/api/quiz/attempts/start', {
+        entryMode: QUIZ_FREE_ENTRY_MODE,
         eventId: 'not-a-uuid',
         integrityTier: 'device',
       })

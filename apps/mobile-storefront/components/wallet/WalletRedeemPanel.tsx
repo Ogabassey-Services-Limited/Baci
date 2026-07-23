@@ -73,25 +73,23 @@ export function WalletRedeemPanel({
           </Text>
         </View>
 
+        {/*
+          Loyalty points must NOT be advertised as buying quiz entry or a better
+          leaderboard rank. Points are only ever earned by purchasing, so any
+          such promise makes the quiz purchase-gated (consideration) and, with
+          prizes at stake, a regulated promotional competition with no
+          free-entry defence. Entry is free and ranking is neutral — see
+          supabase/migrations/20260714102000_quiz_free_entry.sql and
+          20260714102100_quiz_neutral_ranking.sql.
+        */}
         <View style={styles.infoRow}>
           <Text style={styles.infoEmoji}>🏆</Text>
           <Text style={[styles.infoText, { color: colors.textSecondary }]}>
             <Text style={{ fontWeight: 'bold', color: colors.text }}>
               Super Quiz Entry:
             </Text>{' '}
-            Use points as exam passes to join high-stake quiz events and win
-            huge prizes!
-          </Text>
-        </View>
-
-        <View style={styles.infoRow}>
-          <Text style={styles.infoEmoji}>⚡</Text>
-          <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-            <Text style={{ fontWeight: 'bold', color: colors.text }}>
-              Leaderboard Tie-Breaker:
-            </Text>{' '}
-            If tied, players with higher loyalty points rank higher on the
-            leaderboard!
+            Free to enter — no points needed. Play high-stake quiz events and
+            win huge prizes!
           </Text>
         </View>
 

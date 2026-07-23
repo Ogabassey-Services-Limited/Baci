@@ -22,6 +22,7 @@ import {
   hasPublishableWarrantyPolicy,
 } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import { createAnonClient } from '@/lib/supabase/anon';
+import { getBrandAuthoritySitemapEntries } from './brand-authority-sitemap';
 
 export interface ProductWithCategory {
   id: string;
@@ -364,6 +365,8 @@ export async function getCategorySitemapEntries({
   }));
 }
 
+export { getBrandAuthoritySitemapEntries } from './brand-authority-sitemap';
+
 /**
  * Whether the repairs catalogue is publicly enabled for this merchant. The
  * `/repairs` index and per-device pages only render (and should only be
@@ -566,6 +569,7 @@ export function getSitemapIndexLinks(
     `${storeUrl}/sitemap/static.xml`,
     `${storeUrl}/sitemap/products.xml`,
     `${storeUrl}/sitemap/categories.xml`,
+    `${storeUrl}/sitemap/brand-authority.xml`,
     `${storeUrl}/sitemap/commercial-support.xml`,
   ];
 
@@ -598,6 +602,8 @@ export function getNamedSitemapEntries(
       return getProductSitemapEntries(context);
     case 'categories':
       return getCategorySitemapEntries(context);
+    case 'brand-authority':
+      return getBrandAuthoritySitemapEntries(context);
     case 'commercial-support':
       return getCommercialSupportSitemapEntries(context);
     case 'repairs':

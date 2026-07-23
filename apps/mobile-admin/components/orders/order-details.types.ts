@@ -60,6 +60,9 @@ export interface OrderDetailsRecord {
   } | null;
   subtotal?: number | null;
   tax_amount?: number | null;
+  tax_basis?: 'exclusive' | 'inclusive' | null;
+  tax_exclusive_amount?: number | null;
+  tax_inclusive_amount?: number | null;
   total: number;
   updated_at: string;
   virtual_account?: {

@@ -33,7 +33,6 @@ const merchantDetails: MerchantDetails = {
   slug: 'ogabassey',
   support_email: 'support@example.com',
   tax_identification_number: 'TIN123',
-  website_url: null,
 };
 
 const richOrder: RichPaidOrder = {

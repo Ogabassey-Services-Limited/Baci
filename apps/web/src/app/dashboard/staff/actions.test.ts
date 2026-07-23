@@ -8,6 +8,8 @@ const mocks = vi.hoisted(() => ({
   insert: vi.fn(),
   updateEq: vi.fn(),
   update: vi.fn(),
+  adminInsert: vi.fn(),
+  createVirtualTerminal: vi.fn(),
 }));
 
 vi.mock('@/lib/merchant-server', () => ({
@@ -40,7 +42,18 @@ function makeSupabase() {
 vi.mock('@/lib/supabase/server', () => ({
   createClient: () => makeSupabase(),
 }));
-vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: () => ({}) }));
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: () => ({
+    from: () => ({
+      insert: (...args: unknown[]) => mocks.adminInsert(...args),
+    }),
+  }),
+}));
+
+vi.mock('@/lib/paystack', () => ({
+  createVirtualTerminal: (...args: unknown[]) =>
+    mocks.createVirtualTerminal(...args),
+}));
 
 vi.mock('@/lib/zeptomail', () => ({
   sendEmail: (...args: unknown[]) => mocks.sendEmail(...args),
@@ -100,6 +113,38 @@ describe('inviteStaffMember', () => {
     expect(result.inviteUrl).toBe('https://app.test/staff/accept?token=tok-1');
     expect(result.message).toContain(
       'https://app.test/staff/accept?token=tok-1'
+    );
+  });
+
+  it('persists an auto-created staff terminal with the server-only admin client', async () => {
+    mocks.sendEmail.mockResolvedValue({ success: true });
+    mocks.single
+      .mockResolvedValueOnce({ data: null })
+      .mockResolvedValueOnce({ data: { id: 'staff-1' } });
+    mocks.createVirtualTerminal.mockResolvedValue({
+      success: true,
+      data: {
+        code: 'VT_STAFF1',
+        paymentMethods: [
+          {
+            type: 'dedicated_nuban',
+            account_number: '0123456789',
+            account_name: 'NEW PERSON',
+            bank: 'Test Bank',
+          },
+        ],
+      },
+    });
+    mocks.adminInsert.mockResolvedValue({ error: null });
+
+    await inviteStaffMember({ ...validInvite, autoCreateAccount: true });
+
+    expect(mocks.adminInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: 'VT_STAFF1',
+        merchant_id: 'm1',
+        staff_id: 'staff-1',
+      })
     );
   });
 });

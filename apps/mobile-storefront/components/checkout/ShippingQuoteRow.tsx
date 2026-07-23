@@ -11,9 +11,11 @@ type ColorsScheme = (typeof Colors)['light'];
 
 interface ShippingQuoteRowProps {
   colors: ColorsScheme;
+  estimateOverride?: string | null;
   isSelected: boolean;
   leadingIcon?: IoniconsIconName;
   onSelect: (id: string) => void;
+  priceLabelOverride?: string;
   quote: ShippingQuote;
   selectedAccentColor: string;
   selectedBackgroundColor: string;
@@ -21,31 +23,37 @@ interface ShippingQuoteRowProps {
 
 export function ShippingQuoteRow({
   colors,
+  estimateOverride,
   isSelected,
   leadingIcon,
   onSelect,
+  priceLabelOverride,
   quote,
   selectedAccentColor,
   selectedBackgroundColor,
 }: ShippingQuoteRowProps) {
   const eta =
-    quote.deliveryRange ||
-    (quote.estimatedDays ? `${quote.estimatedDays} days` : 'ETA unavailable');
+    estimateOverride === null
+      ? undefined
+      : estimateOverride ||
+        quote.deliveryRange ||
+        (quote.estimatedDays
+          ? `${quote.estimatedDays} days`
+          : 'ETA unavailable');
   const carrier = quote.carrierName || quote.provider || 'Delivery';
   const stationCode = quote.stationCode ?? quote.pickupStationCode;
   const metaLines = [
     carrier,
     stationCode ? `Station code: ${stationCode}` : undefined,
-    `Est. ${eta}`,
+    eta ? (estimateOverride ? estimateOverride : `Est. ${eta}`) : undefined,
   ].filter((line): line is string => Boolean(line));
   const normalizedCarrier = carrier.trim().toLowerCase();
   const isGiglQuote =
     quote.provider?.trim().toLowerCase() === 'gigl' ||
     normalizedCarrier === 'gigl' ||
     normalizedCarrier === 'gig logistics';
-  const accessibilityDetails = [...metaLines, formatPrice(quote.price)].join(
-    '. '
-  );
+  const priceLabel = priceLabelOverride ?? formatPrice(quote.price);
+  const accessibilityDetails = [...metaLines, priceLabel].join('. ');
 
   return (
     <Pressable
@@ -107,7 +115,7 @@ export function ShippingQuoteRow({
       </View>
       <View style={styles.quoteRight}>
         <Text style={[styles.quotePrice, { color: colors.text }]}>
-          {formatPrice(quote.price)}
+          {priceLabel}
         </Text>
         <Ionicons
           name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}

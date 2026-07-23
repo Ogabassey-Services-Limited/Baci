@@ -1,6 +1,6 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { FlashList } from '@shopify/flash-list';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useRef, useState } from 'react';
 import {
@@ -24,6 +24,7 @@ import {
 import type { DomainSearchResult } from '@/components/domains/domain-search-result';
 import { performDomainSearch } from '@/components/domains/perform-domain-search';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
+import { isDomainPurchaseEnabled } from '@/config/domain-purchase-availability';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 
@@ -81,7 +82,7 @@ async function openDomainPurchase(
   });
 }
 
-export default function BuyDomainScreen() {
+function BuyDomainPurchaseScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const [query, setQuery] = useState('');
@@ -257,4 +258,12 @@ export default function BuyDomainScreen() {
       </AppFormScreen>
     </FeatureGateScreen>
   );
+}
+
+export default function BuyDomainScreen() {
+  if (!isDomainPurchaseEnabled()) {
+    return <Redirect href="/domains/connect" />;
+  }
+
+  return <BuyDomainPurchaseScreen />;
 }

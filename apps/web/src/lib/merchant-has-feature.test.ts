@@ -1,0 +1,30 @@
+import { describe, expect, it } from 'vitest';
+import { merchantHasFeature } from './merchant-has-feature';
+
+describe('merchantHasFeature', () => {
+  it('honors paid tiers, explicit grants, and expiry without Next or Supabase', () => {
+    expect(
+      merchantHasFeature(
+        { plan_tier: 'pro', premium_features: [] },
+        'growth_integrations'
+      )
+    ).toBe(true);
+    expect(
+      merchantHasFeature(
+        { plan_tier: 'free', premium_features: ['growth_integrations'] },
+        'growth_integrations'
+      )
+    ).toBe(true);
+    expect(
+      merchantHasFeature(
+        {
+          plan_expires_at: '2026-01-01T00:00:00.000Z',
+          plan_tier: 'pro',
+          premium_features: [],
+        },
+        'growth_integrations',
+        new Date('2026-07-18T00:00:00.000Z')
+      )
+    ).toBe(false);
+  });
+});

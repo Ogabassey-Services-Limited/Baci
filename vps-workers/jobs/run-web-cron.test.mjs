@@ -400,6 +400,28 @@ describe('web cron worker', () => {
     assert.equal(signal instanceof AbortSignal, true);
   });
 
+  it('preserves a trusted cancellation-only query on the settlement endpoint', async () => {
+    const calls = [];
+    await runWebCron({
+      path: '/api/cron/process-settlements?cancellationsOnly=true',
+      env: {
+        BACI_WEB_BASE_URL: 'https://ogabassey.com',
+        CRON_SECRET: 'secret',
+      },
+      fetchFn: (url, init) => {
+        calls.push({ url, init });
+        return new Response('ok', { status: 200 });
+      },
+      logger: noopLogger,
+    });
+
+    assert.equal(
+      calls[0].url,
+      'https://ogabassey.com/api/cron/process-settlements?cancellationsOnly=true'
+    );
+    assert.equal(calls[0].init.method, 'POST');
+  });
+
   it('surfaces non-2xx responses with a bounded body preview', async () => {
     await assert.rejects(
       () =>

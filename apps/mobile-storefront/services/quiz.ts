@@ -1,3 +1,4 @@
+import { QUIZ_FREE_ENTRY_MODE } from '@baci/shared/constants';
 import Constants from 'expo-constants';
 import type { z } from 'zod';
 import { resolveApiBaseUrl } from '@/lib/api-url';
@@ -25,21 +26,7 @@ import type {
 } from '@/services/quiz-types';
 import { QuizServiceError } from '@/services/quiz-types';
 
-export type {
-  QuizAttempt,
-  QuizEvent,
-  QuizEventStatus,
-  QuizIntegrityTier,
-  QuizOption,
-  QuizPrizeClaim,
-  QuizPrizeCondition,
-  QuizQuestion,
-  QuizResult,
-  QuizServiceOptions,
-  StartQuizAttemptInput,
-  SubmitQuizAnswerInput,
-} from '@/services/quiz-types';
-export { QuizServiceError };
+export * from '@/services/quiz-types';
 
 const QUIZ_AUTH_RETRY_DELAY_MS = 300;
 const QUIZ_EVENTS_PAGE_LIMIT = 50;
@@ -259,6 +246,7 @@ export async function fetchQuizEvents(
 
 export function startQuizAttempt({
   baseUrl,
+  deviceFingerprint,
   eventId,
   integrityTier,
 }: StartQuizAttemptInput): Promise<QuizAttempt> {
@@ -266,7 +254,12 @@ export function startQuizAttempt({
     '/api/quiz/attempts/start',
     {
       method: 'POST',
-      body: JSON.stringify({ eventId, integrityTier }),
+      body: JSON.stringify({
+        entryMode: QUIZ_FREE_ENTRY_MODE,
+        eventId,
+        integrityTier,
+        ...(deviceFingerprint ? { deviceFingerprint } : {}),
+      }),
     },
     quizAttemptSchema,
     baseUrl

@@ -3,6 +3,7 @@ import { finalizeAgenticPayOnDeliveryCheckout } from '@/lib/agentic/checkout-pay
 
 const mocks = vi.hoisted(() => ({
   buildOrderFinalizationClaim: vi.fn(() => 'claim-1'),
+  revalidateDashboard: vi.fn(),
   revalidateProducts: vi.fn(),
   revalidateProductSlugs: vi.fn(),
   buildPayOnDeliveryCheckoutResponse: vi.fn(() => ({ ok: true })),
@@ -40,9 +41,12 @@ vi.mock('@/lib/agentic/checkout-order-dispatch', () => ({
   sendAgenticOrderCreatedWebhook: mocks.sendAgenticOrderCreatedWebhook,
 }));
 
-vi.mock('@/lib/cache-revalidation', () => ({
-  revalidateProductSlugs: mocks.revalidateProductSlugs,
-  revalidateProducts: mocks.revalidateProducts,
+vi.mock('@/lib/product-cache-revalidation', () => ({
+  productCacheRevalidation: {
+    revalidateDashboard: mocks.revalidateDashboard,
+    revalidateProductSlugs: mocks.revalidateProductSlugs,
+    revalidateProducts: mocks.revalidateProducts,
+  },
 }));
 
 vi.mock('@/lib/agentic/checkout-order-finalization-claim', () => ({
@@ -105,6 +109,26 @@ const orderSessionCalc = {
   typeof finalizeAgenticPayOnDeliveryCheckout
 >[0]['orderSessionCalc'];
 
+const trackedOrderSessionCalc = {
+  lineItems: [
+    {
+      id: 'line_product-1',
+      item: { id: 'product-1', product_id: 'product-1', quantity: 1 },
+      base_amount: 500000,
+      discount: 0,
+      subtotal: 500000,
+      tax: 0,
+      total: 500000,
+    },
+  ],
+  totals: [{ type: 'total', amount: 500000, display_text: 'Total' }],
+  fulfillmentOptions: [],
+  selectedOptionId: undefined,
+  messages: [],
+} as Parameters<
+  typeof finalizeAgenticPayOnDeliveryCheckout
+>[0]['orderSessionCalc'];
+
 function buildSessionUpdateMock(result: unknown) {
   const maybeSingle = vi.fn().mockResolvedValue(result);
   const chain = {
@@ -127,7 +151,7 @@ function buildSessionUpdateMock(result: unknown) {
 }
 
 function createProductsChain(
-  data: Array<{ slug: string }> | null = [],
+  data: Array<{ manage_stock: boolean | null; slug: string }> | null = [],
   error: unknown = null
 ) {
   const chain: {
@@ -238,9 +262,7 @@ describe('finalizeAgenticPayOnDeliveryCheckout', () => {
       mocks.compensatePayOnDeliveryFinalizationFailure
     ).not.toHaveBeenCalled();
     expect(mocks.releasePayOnDeliveryClaimSafely).not.toHaveBeenCalled();
-    expect(mocks.revalidateProducts).toHaveBeenCalledExactlyOnceWith(
-      'merchant-1'
-    );
+    expect(mocks.revalidateProducts).not.toHaveBeenCalled();
     // The shared orderSessionCalc fixture has no line items, so there is
     // nothing to resolve slugs for.
     expect(mocks.revalidateProductSlugs).not.toHaveBeenCalled();
@@ -331,9 +353,7 @@ describe('finalizeAgenticPayOnDeliveryCheckout', () => {
     expect(mocks.sendAgenticOrderCreatedWebhook).not.toHaveBeenCalled();
     // The order was genuinely created (stock already decremented) before the
     // marker write failed — revalidation already fired and stays fired.
-    expect(mocks.revalidateProducts).toHaveBeenCalledExactlyOnceWith(
-      'merchant-1'
-    );
+    expect(mocks.revalidateProducts).not.toHaveBeenCalled();
     expect(mocks.revalidateProductSlugs).not.toHaveBeenCalled();
   });
 
@@ -345,8 +365,16 @@ describe('finalizeAgenticPayOnDeliveryCheckout', () => {
       data: { session_id: 'agentic_session_1' },
       error: null,
     });
+    const productsChain = createProductsChain([
+      { manage_stock: true, slug: 'phone-slug' },
+    ]);
+    const supabase = {
+      from: vi.fn((table: string) =>
+        table === 'products' ? productsChain : mock.chain
+      ),
+    };
 
-    const result = await callFinalize(mock.supabase);
+    const result = await callFinalize(supabase, trackedOrderSessionCalc);
 
     expect(result).toMatchObject({ status: 200 });
     expect(mocks.sendAgenticOrderCreatedWebhook).toHaveBeenCalledTimes(1);
@@ -357,33 +385,24 @@ describe('finalizeAgenticPayOnDeliveryCheckout', () => {
       data: { session_id: 'agentic_session_1' },
       error: null,
     });
-    const productsChain = createProductsChain([{ slug: 'phone-slug' }]);
+    const productsChain = createProductsChain([
+      { manage_stock: true, slug: 'phone-slug' },
+    ]);
     const supabase = {
       from: vi.fn((table: string) =>
         table === 'products' ? productsChain : mock.chain
       ),
     };
 
-    const result = await callFinalize(supabase, {
-      lineItems: [
-        {
-          id: 'line_product-1',
-          item: { id: 'product-1', product_id: 'product-1', quantity: 1 },
-          base_amount: 500000,
-          discount: 0,
-          subtotal: 500000,
-          tax: 0,
-          total: 500000,
-        },
-      ],
-      totals: [{ type: 'total', amount: 500000, display_text: 'Total' }],
-      fulfillmentOptions: [],
-      selectedOptionId: undefined,
-      messages: [],
-    });
+    const result = await callFinalize(supabase, trackedOrderSessionCalc);
 
     expect(result).toMatchObject({ status: 200 });
-    expect(productsChain.select).toHaveBeenCalledWith('slug');
+    expect(mocks.revalidateProducts).toHaveBeenCalledExactlyOnceWith(
+      'merchant-1',
+      undefined,
+      { feedScope: 'merchant' }
+    );
+    expect(productsChain.select).toHaveBeenCalledWith('slug, manage_stock');
     expect(productsChain.in).toHaveBeenCalledWith('id', ['product-1']);
     expect(mocks.revalidateProductSlugs).toHaveBeenCalledExactlyOnceWith(
       'merchant-1',
@@ -403,28 +422,38 @@ describe('finalizeAgenticPayOnDeliveryCheckout', () => {
       ),
     };
 
-    const result = await callFinalize(supabase, {
-      lineItems: [
-        {
-          id: 'line_product-1',
-          item: { id: 'product-1', product_id: 'product-1', quantity: 1 },
-          base_amount: 500000,
-          discount: 0,
-          subtotal: 500000,
-          tax: 0,
-          total: 500000,
-        },
-      ],
-      totals: [{ type: 'total', amount: 500000, display_text: 'Total' }],
-      fulfillmentOptions: [],
-      selectedOptionId: undefined,
-      messages: [],
-    });
+    const result = await callFinalize(supabase, trackedOrderSessionCalc);
 
     expect(result).toMatchObject({ status: 200 });
     expect(mocks.revalidateProducts).toHaveBeenCalledExactlyOnceWith(
-      'merchant-1'
+      'merchant-1',
+      undefined,
+      { feedScope: 'merchant' }
     );
     expect(mocks.revalidateProductSlugs).not.toHaveBeenCalled();
+  });
+
+  it('does not churn product or feed caches for unlimited inventory', async () => {
+    const mock = buildSessionUpdateMock({
+      data: { session_id: 'agentic_session_1' },
+      error: null,
+    });
+    const productsChain = createProductsChain([
+      { manage_stock: false, slug: 'unlimited-phone' },
+    ]);
+    const supabase = {
+      from: vi.fn((table: string) =>
+        table === 'products' ? productsChain : mock.chain
+      ),
+    };
+
+    const result = await callFinalize(supabase, trackedOrderSessionCalc);
+
+    expect(result).toMatchObject({ status: 200 });
+    expect(mocks.revalidateProducts).not.toHaveBeenCalled();
+    expect(mocks.revalidateProductSlugs).not.toHaveBeenCalled();
+    expect(mocks.revalidateDashboard).toHaveBeenCalledExactlyOnceWith(
+      'merchant-1'
+    );
   });
 });

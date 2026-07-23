@@ -5,7 +5,42 @@ const mockAuthenticateApiRequest = vi.fn();
 const mockResolveVtuCustomer = vi.fn();
 const mockVerifyPaystackTransaction = vi.fn();
 const mockCreditWalletTopUp = vi.fn();
+const mockNotifyWalletCredited = vi.fn();
+const mockClaimWalletCreditPush = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({ status: 'claimed' })
+);
+const mockReleaseWalletCreditPush = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({ status: 'released' })
+);
 const mockFrom = vi.fn();
+
+// `after` runs the scheduled push immediately here so the assertions can see it;
+// in production it runs off the response path.
+vi.mock('next/server', async () => {
+  const actual =
+    await vi.importActual<typeof import('next/server')>('next/server');
+  return {
+    ...actual,
+    after: vi.fn((task: () => Promise<void>) => {
+      void task();
+    }),
+  };
+});
+
+vi.mock('@/lib/payments/notify-wallet-credited', () => ({
+  notifyWalletCredited: (...args: unknown[]) =>
+    mockNotifyWalletCredited(...args),
+}));
+
+vi.mock('@/lib/payments/claim-wallet-credit-push', () => ({
+  claimWalletCreditPush: (...args: unknown[]) =>
+    mockClaimWalletCreditPush(...args),
+}));
+
+vi.mock('@/lib/payments/release-wallet-credit-push', () => ({
+  releaseWalletCreditPush: (...args: unknown[]) =>
+    mockReleaseWalletCreditPush(...args),
+}));
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) =>
@@ -73,6 +108,7 @@ const defaultTransaction = {
 describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockClaimWalletCreditPush.mockResolvedValue({ status: 'claimed' });
     mockAuthenticateApiRequest.mockResolvedValue({
       error: null,
       supabase: {},
@@ -92,6 +128,7 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
       reference: 'WAL-123',
       transactionId: 'wallet-tx-1',
     });
+    mockNotifyWalletCredited.mockResolvedValue({ status: 'sent' });
     mockFrom.mockImplementation((table: string) => {
       if (table === 'merchants') {
         return {
@@ -650,5 +687,187 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
       status: 'pending',
     });
     expect(mockCreditWalletTopUp).not.toHaveBeenCalled();
+  });
+
+  describe('wallet-credited push', () => {
+    function mockTransaction(transaction: Record<string, unknown>) {
+      mockFrom.mockImplementation((table: string) => {
+        if (table === 'merchants') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: { id: 'merchant-1' },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }
+
+        if (table === 'transactions') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: transaction,
+                    error: null,
+                  }),
+                }),
+              }),
+            }),
+            update: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                neq: vi.fn().mockReturnValue({
+                  select: vi.fn().mockReturnValue({
+                    maybeSingle: vi.fn().mockResolvedValue({
+                      data: { id: 'txn-1' },
+                      error: null,
+                    }),
+                  }),
+                }),
+              }),
+            }),
+          };
+        }
+
+        throw new Error(`Unexpected table: ${table}`);
+      });
+    }
+
+    function confirmRequest() {
+      return POST(
+        makeRequest({
+          gateway: 'paystack',
+          merchantSlug: 'ogabassey',
+          reference: 'WAL-123',
+        })
+      );
+    }
+
+    it('notifies the customer when this route wins the race and takes the first credit', async () => {
+      mockTransaction({
+        ...defaultTransaction,
+        metadata: {
+          ...defaultTransaction.metadata,
+          return_to: '/checkout',
+        },
+      });
+      mockCreditWalletTopUp.mockResolvedValue({
+        balance: 7500,
+        firstCredit: true,
+        reference: 'WAL-123',
+        transactionId: 'wallet-tx-1',
+      });
+
+      const response = await confirmRequest();
+
+      expect(response.status).toBe(200);
+      await vi.waitFor(() =>
+        expect(mockNotifyWalletCredited).toHaveBeenCalledTimes(1)
+      );
+      expect(mockNotifyWalletCredited).toHaveBeenCalledWith({
+        amount: 2500,
+        currency: 'NGN',
+        customerId: 'customer-1',
+        merchantId: 'merchant-1',
+        returnTo: '/checkout',
+      });
+    });
+
+    it('stays silent when the webhook won the race and already took the credit', async () => {
+      vi.useFakeTimers();
+      mockTransaction({ ...defaultTransaction, status: 'completed' });
+      mockCreditWalletTopUp.mockResolvedValue({
+        balance: 7500,
+        firstCredit: false,
+        reference: 'WAL-123',
+        transactionId: 'wallet-tx-1',
+      });
+      mockClaimWalletCreditPush.mockResolvedValue({
+        status: 'already_claimed',
+      });
+
+      try {
+        const response = await confirmRequest();
+        await vi.runAllTimersAsync();
+
+        expect(response.status).toBe(200);
+        expect(mockCreditWalletTopUp).toHaveBeenCalledTimes(1);
+        expect(mockNotifyWalletCredited).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('notifies from the already-completed branch when that retry lands the credit', async () => {
+      mockTransaction({
+        ...defaultTransaction,
+        metadata: {
+          ...defaultTransaction.metadata,
+          return_to: '/utilities/airtime',
+        },
+        status: 'completed',
+      });
+      mockCreditWalletTopUp.mockResolvedValue({
+        balance: 7500,
+        firstCredit: true,
+        reference: 'WAL-123',
+        transactionId: 'wallet-tx-1',
+      });
+
+      const response = await confirmRequest();
+
+      expect(response.status).toBe(200);
+      await vi.waitFor(() =>
+        expect(mockNotifyWalletCredited).toHaveBeenCalledTimes(1)
+      );
+      expect(mockNotifyWalletCredited).toHaveBeenCalledWith(
+        expect.objectContaining({ returnTo: '/utilities/airtime' })
+      );
+    });
+
+    it('drops a non-resumable metadata destination instead of deep-linking to it', async () => {
+      mockTransaction({
+        ...defaultTransaction,
+        metadata: {
+          ...defaultTransaction.metadata,
+          return_to: '/auth/callback?returnTo=//evil.com',
+        },
+      });
+      mockCreditWalletTopUp.mockResolvedValue({
+        balance: 7500,
+        firstCredit: true,
+        reference: 'WAL-123',
+        transactionId: 'wallet-tx-1',
+      });
+
+      const response = await confirmRequest();
+
+      expect(response.status).toBe(200);
+      await vi.waitFor(() =>
+        expect(mockNotifyWalletCredited).toHaveBeenCalledWith(
+          expect.objectContaining({ returnTo: undefined })
+        )
+      );
+    });
+
+    it('still returns 200 when the push itself fails', async () => {
+      mockTransaction(defaultTransaction);
+      mockCreditWalletTopUp.mockResolvedValue({
+        balance: 7500,
+        firstCredit: true,
+        reference: 'WAL-123',
+        transactionId: 'wallet-tx-1',
+      });
+      mockNotifyWalletCredited.mockRejectedValue(new Error('expo down'));
+
+      const response = await confirmRequest();
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.success).toBe(true);
+    });
   });
 });

@@ -5,6 +5,10 @@ import {
   waitForSavingsAuthorizationConfirmation,
 } from '@/lib/customer-savings';
 import {
+  clearWalletFundingIntentIfUnchanged,
+  readWalletFundingIntentSnapshot,
+} from '@/lib/wallet-funding-intent';
+import {
   WalletTopUpStillProcessingError,
   waitForWalletTopUpConfirmation,
 } from '@/lib/wallet-top-up';
@@ -59,12 +63,17 @@ export function beginWalletTopUpCompletion({
 
   void (async () => {
     try {
+      const fundingIntentSnapshot = await readWalletFundingIntentSnapshot();
       await waitForWalletTopUpConfirmation({
         gateway,
         merchantId,
         merchantSlug,
         reference,
       });
+      // Confirmation is authoritative. Intent cleanup is best-effort and must
+      // happen even if the screen unmounted while the provider was settling;
+      // a storage failure must never turn a confirmed credit into retry UI.
+      await clearWalletFundingIntentIfUnchanged(fundingIntentSnapshot);
       if (!refs.isMountedRef.current) {
         return;
       }

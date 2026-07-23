@@ -90,6 +90,16 @@ describe('env validation', () => {
     await expect(loadEnvModule()).resolves.toBeDefined();
   });
 
+  it('allows the event pipeline worker profile without agentic signing material', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('GITHUB_ACTIONS', 'false');
+    vi.stubEnv('BACI_WORKER_PROFILE', 'event-pipeline');
+    delete process.env.SUPABASE_JWT_SECRET;
+    delete process.env.SUPABASE_AGENTIC_JWT_PRIVATE_JWK;
+
+    await expect(loadEnvModule()).resolves.toBeDefined();
+  });
+
   it('rejects spoofed GitHub Actions builds without GitHub run context', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     vi.stubEnv('NODE_ENV', 'production');
@@ -197,6 +207,37 @@ describe('env validation', () => {
     vi.stubEnv('USDT_WALLET_ENABLED', 'true');
     module = await loadEnvModule();
     expect(module.isUsdtWalletEnabled()).toBe(true);
+  });
+
+  it('keeps wallet-credit push notifications dark unless explicitly enabled', async () => {
+    delete process.env.WALLET_CREDIT_PUSH_ENABLED;
+    let module = await loadEnvModule();
+    expect(module.isWalletCreditPushEnabled()).toBe(false);
+
+    vi.stubEnv('WALLET_CREDIT_PUSH_ENABLED', 'true');
+    module = await loadEnvModule();
+    expect(module.isWalletCreditPushEnabled()).toBe(true);
+  });
+
+  it('honours a runtime override of the wallet-credit push flag', async () => {
+    delete process.env.WALLET_CREDIT_PUSH_ENABLED;
+    const module = await loadEnvModule();
+
+    // Validated env said false; a later runtime value wins on the next read.
+    vi.stubEnv('WALLET_CREDIT_PUSH_ENABLED', '1');
+    expect(module.isWalletCreditPushEnabled()).toBe(true);
+
+    vi.stubEnv('WALLET_CREDIT_PUSH_ENABLED', 'no');
+    expect(module.isWalletCreditPushEnabled()).toBe(false);
+  });
+
+  it('reports the wallet-credit push flag as disabled on the client runtime', async () => {
+    vi.stubEnv('WALLET_CREDIT_PUSH_ENABLED', 'true');
+    const module = await loadEnvModule();
+
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubGlobal('window', {} as unknown as Window & typeof globalThis);
+    expect(module.isWalletCreditPushEnabled()).toBe(false);
   });
 
   it('accepts normalized boolean aliases for Petrock and USDT production flags', async () => {
@@ -1053,6 +1094,7 @@ describe('env quiz validation', () => {
     vi.stubEnv('QUIZ_PHASE', 'production');
     vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
     vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'quiz-secret');
+    vi.stubEnv('QUIZ_DEVICE_HASH_PEPPER', 'p'.repeat(32));
 
     const { env } = await loadEnvModule();
 
@@ -1065,6 +1107,7 @@ describe('env quiz validation', () => {
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('SUPABASE_JWT_SECRET', 'jwt-secret');
     vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_DEVICE_HASH_PEPPER', 'p'.repeat(32));
     delete process.env.QUIZ_RPC_SERVER_SECRET;
 
     await expect(loadEnvModule()).rejects.toThrow(
@@ -1072,8 +1115,33 @@ describe('env quiz validation', () => {
     );
   });
 
+  it('requires a stable device hash pepper when QUIZ_PHASE is production', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('SUPABASE_JWT_SECRET', 'jwt-secret');
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'quiz-secret');
+    delete process.env.QUIZ_DEVICE_HASH_PEPPER;
+
+    await expect(loadEnvModule()).rejects.toThrow(
+      /QUIZ_DEVICE_HASH_PEPPER is required when QUIZ_PHASE is production/
+    );
+  });
+
+  it('rejects a weak device hash pepper', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('SUPABASE_JWT_SECRET', 'jwt-secret');
+    vi.stubEnv('QUIZ_DEVICE_HASH_PEPPER', 'too-short');
+
+    await expect(loadEnvModule()).rejects.toThrow(
+      /QUIZ_DEVICE_HASH_PEPPER must be at least 32 characters/
+    );
+  });
+
   it('declares and trims quiz runtime secret configuration', async () => {
     vi.stubEnv('QUIZ_RPC_SERVER_SECRET', '  quiz-secret  ');
+    vi.stubEnv('QUIZ_DEVICE_HASH_PEPPER', `  ${'p'.repeat(32)}  `);
     vi.stubEnv(
       'QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON',
       '  {"ios":"strong"}  '
@@ -1082,6 +1150,7 @@ describe('env quiz validation', () => {
     const { env } = await loadEnvModule();
 
     expect(env.QUIZ_RPC_SERVER_SECRET).toBe('quiz-secret');
+    expect(env.QUIZ_DEVICE_HASH_PEPPER).toBe('p'.repeat(32));
     expect(env.QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON).toEqual({
       ios: 'strong',
     });
@@ -1091,9 +1160,11 @@ describe('env quiz validation', () => {
     vi.stubEnv('QUIZ_PHASE', 'production');
     vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
     vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'runtime-secret');
+    vi.stubEnv('QUIZ_DEVICE_HASH_PEPPER', 'p'.repeat(32));
 
     const {
       getQuizIntegrityTierOverridesJson,
+      getQuizDeviceHashPepper,
       getQuizPhaseEnv,
       getQuizProductionApprovedEnv,
       getQuizRpcServerSecret,
@@ -1104,10 +1175,12 @@ describe('env quiz validation', () => {
 
     vi.stubEnv('QUIZ_PRODUCTION_APPROVED', '0');
     vi.stubEnv('QUIZ_RPC_SERVER_SECRET', '  runtime-secret  ');
+    vi.stubEnv('QUIZ_DEVICE_HASH_PEPPER', `  ${'q'.repeat(32)}  `);
     vi.stubEnv('QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON', ' {"ios":"strong"} ');
 
     expect(getQuizProductionApprovedEnv()).toBe(false);
     expect(getQuizRpcServerSecret()).toBe('runtime-secret');
+    expect(getQuizDeviceHashPepper()).toBe('q'.repeat(32));
     expect(getQuizIntegrityTierOverridesJson()).toEqual({ ios: 'strong' });
   });
 

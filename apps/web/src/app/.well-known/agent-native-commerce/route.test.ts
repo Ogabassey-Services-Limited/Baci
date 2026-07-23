@@ -189,7 +189,10 @@ describe('GET /.well-known/agent-native-commerce', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(response.headers.get('cache-control')).toBe('public, max-age=300');
+    expect(response.headers.get('cache-control')).toBe(
+      'no-store, max-age=0, must-revalidate'
+    );
+    expect(response.headers.get('cdn-cache-control')).toBe('no-store');
     expect(response.headers.get('vercel-cdn-cache-control')).toBe('no-store');
     expect(body).toMatchObject({
       schema_version: '2026-05-15',
@@ -243,6 +246,24 @@ describe('GET /.well-known/agent-native-commerce', () => {
     );
     expect(mockGetCachedGooglePlacesReviews).not.toHaveBeenCalled();
   }, 30_000);
+
+  it('omits Paystack bank transfer from the proof while DVA is paused', async () => {
+    vi.stubEnv('AGENTIC_PAYSTACK_DVA_MODE', 'paused');
+
+    const { GET } = await importRoute();
+    const response = await GET(
+      new Request('https://ogabassey.com/.well-known/agent-native-commerce', {
+        headers: { host: 'ogabassey.com' },
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.proof.action.payment_methods).toEqual([]);
+    expect(body.proof.action.capabilities).not.toContain(
+      'checkout.session.complete'
+    );
+  });
 
   it('enriches Google review authority before packaging trust proof', async () => {
     mockGetMerchantByIdentifier.mockResolvedValueOnce({

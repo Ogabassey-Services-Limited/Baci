@@ -75,6 +75,44 @@ const {
   makeReadySession,
 } = paymentStateTestHelpers;
 
+function makePaymentAccountReadySession() {
+  return {
+    ...makeReadySession(),
+    cart_items: [{ invalid: true }],
+    metadata: {
+      agentic: {
+        dva_account: {
+          account_name: 'Baci Test',
+          account_number: '1234567890',
+          bank_name: 'Paystack-Titan',
+        },
+        line_items: [
+          {
+            base_amount: 500000,
+            discount: 0,
+            id: 'line_product-1',
+            item: {
+              id: 'product-1',
+              product_id: 'product-1',
+              quantity: 1,
+              title: 'Phone',
+            },
+            subtotal: 500000,
+            tax: 0,
+            total: 500000,
+          },
+        ],
+        payment_state: 'payment_account_ready',
+        totals: [{ type: 'total', display_text: 'Total Due', amount: 500000 }],
+      },
+    },
+    payment_reference: '1234567890',
+    virtual_account_bank: 'Paystack-Titan',
+    virtual_account_name: 'Baci Test',
+    virtual_account_number: '1234567890',
+  };
+}
+
 describe('POST /api/agentic/checkout_sessions/[id]/complete payment-account resume', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -96,41 +134,7 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete payment-account resu
 
   it('resumes stored payment-account state without fresh calculation or authorization', async () => {
     const { updateSpy } = mockSuccessfulPaymentSessionSupabase({
-      ...makeReadySession(),
-      cart_items: [{ invalid: true }],
-      metadata: {
-        agentic: {
-          dva_account: {
-            account_name: 'Baci Test',
-            account_number: '1234567890',
-            bank_name: 'Paystack-Titan',
-          },
-          line_items: [
-            {
-              base_amount: 500000,
-              discount: 0,
-              id: 'line_product-1',
-              item: {
-                id: 'product-1',
-                product_id: 'product-1',
-                quantity: 1,
-                title: 'Phone',
-              },
-              subtotal: 500000,
-              tax: 0,
-              total: 500000,
-            },
-          ],
-          payment_state: 'payment_account_ready',
-          totals: [
-            { type: 'total', display_text: 'Total Due', amount: 500000 },
-          ],
-        },
-      },
-      payment_reference: '1234567890',
-      virtual_account_bank: 'Paystack-Titan',
-      virtual_account_name: 'Baci Test',
-      virtual_account_number: '1234567890',
+      ...makePaymentAccountReadySession(),
     });
     vi.mocked(createAgenticCheckoutOrder).mockResolvedValue({
       data: { order: { id: 'order-1' }, wallet: null, amountDueToGateway: 0 },
@@ -170,5 +174,29 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete payment-account resu
         bank_name: 'Paystack-Titan',
       },
     });
+  });
+
+  it('does not resume payment-account-ready state through the normal route while paused', async () => {
+    vi.stubEnv('AGENTIC_PAYSTACK_DVA_MODE', 'paused');
+    const { updateSpy } = mockSuccessfulPaymentSessionSupabase(
+      makePaymentAccountReadySession()
+    );
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      buildCompleteRequest({ includeAuthorization: false }),
+      { params: Promise.resolve({ id: 'agentic_session_1' }) }
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body).toEqual({
+      code: 'AGENTIC_PAYSTACK_DVA_PAUSED',
+      error: 'Agentic Paystack bank transfer is paused',
+    });
+    expect(calculateCheckoutSession).not.toHaveBeenCalled();
+    expect(updateSpy).not.toHaveBeenCalled();
+    expect(createDedicatedVirtualAccount).not.toHaveBeenCalled();
+    expect(createAgenticCheckoutOrder).not.toHaveBeenCalled();
   });
 });

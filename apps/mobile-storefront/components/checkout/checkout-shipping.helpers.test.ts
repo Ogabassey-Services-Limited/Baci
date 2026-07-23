@@ -264,6 +264,112 @@ describe('checkout-shipping.helpers', () => {
     expect(setSelectedQuoteId).toHaveBeenLastCalledWith('station-quote');
   });
 
+  it('keeps pickup stations matching the selected city when the provider returns wider state options', async () => {
+    const fetchMock = jest.fn<typeof fetch>().mockResolvedValue({
+      json: async () => ({
+        quotes: {
+          all: [
+            createShippingQuote({
+              displayName: 'GIG Logistics - Pickup at IKEJA ALLEN',
+              id: 'ikeja-station',
+              isStationPickup: true,
+              provider: 'GIGL',
+              stationAddress: '12 Allen Avenue, Ikeja, Lagos',
+              stationName: 'IKEJA ALLEN',
+            }),
+            createShippingQuote({
+              displayName: 'GIG Logistics - Pickup at LEKKI BADORE',
+              id: 'badore-station',
+              isStationPickup: true,
+              provider: 'GIGL',
+              stationAddress: 'Badore Road, Ajah, Lagos',
+              stationName: 'LEKKI BADORE',
+            }),
+          ],
+        },
+      }),
+      ok: true,
+    } as Response);
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const setShippingQuotes = jest.fn();
+
+    await fetchShippingQuotes({
+      apiUrl: 'https://example.com',
+      city: 'Ikeja',
+      customer: null,
+      deliveryPreference: 'pickup_station',
+      items: [createCartItem()],
+      quoteContextKey: 'Lagos|Ikeja',
+      setIsLoadingQuotes: jest.fn(),
+      setResolvedShippingQuoteContextKey: jest.fn(),
+      setSelectedQuoteId: jest.fn(),
+      setShippingQuotes,
+      shouldResetSelection: true,
+      state: 'Lagos',
+      watchedAddress: 'Opebi Road, Ikeja, Lagos',
+      watchedEmail: 'ada@example.com',
+      watchedFirstName: 'Ada',
+      watchedLastName: 'Lovelace',
+      watchedPhone: '08031234567',
+    });
+
+    expect(setShippingQuotes).toHaveBeenLastCalledWith([
+      expect.objectContaining({ id: 'ikeja-station' }),
+    ]);
+  });
+
+  it('does not treat a partial city token as a pickup-station match', async () => {
+    const fetchMock = jest.fn<typeof fetch>().mockResolvedValue({
+      json: async () => ({
+        quotes: {
+          all: [
+            createShippingQuote({
+              id: 'ojota-station',
+              isStationPickup: true,
+              provider: 'GIGL',
+              stationName: 'OJOTA',
+            }),
+            createShippingQuote({
+              id: 'ikeja-station',
+              isStationPickup: true,
+              provider: 'GIGL',
+              stationName: 'IKEJA',
+            }),
+          ],
+        },
+      }),
+      ok: true,
+    } as Response);
+    global.fetch = fetchMock as unknown as typeof fetch;
+    const setShippingQuotes = jest.fn();
+
+    await fetchShippingQuotes({
+      apiUrl: 'https://example.com',
+      city: 'Ojo',
+      customer: null,
+      deliveryPreference: 'pickup_station',
+      items: [createCartItem()],
+      quoteContextKey: 'Lagos|Ojo',
+      setIsLoadingQuotes: jest.fn(),
+      setResolvedShippingQuoteContextKey: jest.fn(),
+      setSelectedQuoteId: jest.fn(),
+      setShippingQuotes,
+      shouldResetSelection: true,
+      state: 'Lagos',
+      watchedAddress: 'Ojo, Lagos',
+      watchedEmail: 'ada@example.com',
+      watchedFirstName: 'Ada',
+      watchedLastName: 'Lovelace',
+      watchedPhone: '08031234567',
+    });
+
+    expect(setShippingQuotes).toHaveBeenLastCalledWith([
+      expect.objectContaining({ id: 'ojota-station' }),
+      expect.objectContaining({ id: 'ikeja-station' }),
+    ]);
+  });
+
   it('clears quotes when request fails and selection reset is required', async () => {
     global.fetch = jest.fn(async () => ({
       ok: false,

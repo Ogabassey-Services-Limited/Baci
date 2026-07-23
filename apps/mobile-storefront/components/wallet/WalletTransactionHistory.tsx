@@ -13,6 +13,12 @@ export interface WalletTransaction {
   created_at: string;
   description: string;
   id: string;
+  /**
+   * Ledger provenance (`customer_wallet_transactions.source_type`). Not
+   * rendered — the credit watch uses it to tell a `wallet_topup` funding credit
+   * apart from cashback/reversal credits.
+   */
+  source_type?: string | null;
   type:
     | 'credit'
     | 'debit'

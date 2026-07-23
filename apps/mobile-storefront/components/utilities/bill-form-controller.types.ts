@@ -4,6 +4,7 @@ import type { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { useUtilityPayment } from '@/hooks/use-utility-payment';
 import type { Biller, BillItem, useVTUBillers } from '@/hooks/use-vtu-billers';
 import type { useVTUVerify } from '@/hooks/use-vtu-verify';
+import type { WalletReturnHref } from '@/lib/sanitize-wallet-return-to';
 import type { UtilityBeneficiary } from '@/lib/utility-beneficiaries';
 import type { resolveBillItemSelection } from './bill-item-selection';
 
@@ -50,4 +51,6 @@ export interface BillFormController {
   updateAmount: (value: string) => void;
   updateCustomerId: (value: string) => void;
   verify: ReturnType<typeof useVTUVerify>;
+  /** Prefilled bill deep-link the wallet returns to after a bank transfer. */
+  walletReturnToHref: WalletReturnHref;
 }

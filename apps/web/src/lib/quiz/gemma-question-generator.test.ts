@@ -20,6 +20,25 @@ vi.mock('@/env', () => ({
   getOllamaBasicAuth: () => mockGetOllamaBasicAuth(),
 }));
 
+// The hosted Gemma chain (Cerebras Gemma 4 → Groq → Gemini → OpenRouter) is the
+// PRIMARY provider. It is mocked here so these cases can exercise the
+// self-hosted transport in isolation; hosted-first behaviour is asserted in its
+// own block below, and the chain itself is covered by
+// quiz-question-provider-chain.test.ts.
+const mockHasHostedProvider = vi.hoisted(() => vi.fn());
+const mockRunProviderChain = vi.hoisted(() => vi.fn());
+
+vi.mock('@/lib/quiz/quiz-question-provider-chain', () => ({
+  createHostedQuizQuestionProviderSignal: (routeSignal: AbortSignal) =>
+    routeSignal,
+  hasHostedQuizQuestionProvider: mockHasHostedProvider,
+  runQuizQuestionProviderChain: mockRunProviderChain,
+}));
+
+vi.mock('@/lib/logger', () => ({
+  logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() },
+}));
+
 const VALID_BEARER = 'quiz-bearer-token';
 
 describe('generateQuizQuestionsWithGemma', () => {
@@ -31,6 +50,8 @@ describe('generateQuizQuestionsWithGemma', () => {
     mockGetAiChatModel.mockReturnValue('gemma4:e2b');
     mockGetOllamaBaseUrl.mockReturnValue(undefined);
     mockGetOllamaBasicAuth.mockReturnValue(undefined);
+    // Default for the self-hosted transport cases below.
+    mockHasHostedProvider.mockReturnValue(false);
   });
 
   afterEach(() => {

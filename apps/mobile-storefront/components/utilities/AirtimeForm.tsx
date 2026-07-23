@@ -46,10 +46,10 @@ export function AirtimeForm(props: AirtimeFormProps) {
     setAmount,
     setIsBeneficiarySelected,
     setIsNetworkPickerExpanded,
+    walletReturnToHref,
   } = useAirtimeFormController(props);
 
-  const activeRecipients = recentRecipients;
-  const matchingRecipients = activeRecipients.filter((recipient) => {
+  const matchingRecipients = recentRecipients.filter((recipient) => {
     if (!phoneNumber) return true;
     const cleanPhone = phoneNumber.replace(/\D/g, '');
     const cleanRecip = (recipient.identifier ?? '').replace(/\D/g, '');
@@ -247,6 +247,7 @@ export function AirtimeForm(props: AirtimeFormProps) {
             isLoadingCards={payment.isLoadingCards}
             onSelectGateway={payment.selectGateway}
             onSelectSavedCard={payment.selectSavedCard}
+            returnToHref={walletReturnToHref}
             selectedGateway={payment.selectedGateway}
             selectedSavedCardId={payment.selectedSavedCardId}
             supportedGateways={payment.supportedGateways}

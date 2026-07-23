@@ -89,6 +89,9 @@ describe('runPaidOrderSideEffects', () => {
     expect(supabase.select).toHaveBeenCalledWith(
       expect.stringContaining('business_name')
     );
+    expect(supabase.select).toHaveBeenCalledWith(
+      expect.not.stringContaining('website_url')
+    );
     expect(supabase.rpc).toHaveBeenCalledWith(
       'record_merchant_settlement',
       expect.objectContaining({
@@ -162,7 +165,7 @@ describe('runPaidOrderSideEffects', () => {
     );
   });
 
-  it('uses the merchant website URL in confirmation email links when available', async () => {
+  it('uses the merchant slug in confirmation email links', async () => {
     const supabase = createSupabase({
       merchantData: {
         business_name: 'Ogabassey',
@@ -172,7 +175,6 @@ describe('runPaidOrderSideEffects', () => {
         slug: 'ogabassey',
         support_email: 'support@example.com',
         tax_identification_number: 'TIN123',
-        website_url: 'ogabassey.com',
       },
     });
 
@@ -189,7 +191,7 @@ describe('runPaidOrderSideEffects', () => {
 
     expect(mockGenerateOrderConfirmationEmail).toHaveBeenCalledWith(
       expect.objectContaining({
-        merchantUrl: 'https://ogabassey.com/',
+        merchantUrl: 'https://ogabassey.usebaci.com',
       })
     );
   });

@@ -2,6 +2,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import plist from 'plist';
+import fastfileConfigValidator from './validate-fastfile-ad-tracking-config.cjs';
+
+const { validateFastfileAdTrackingConfig } = fastfileConfigValidator;
 
 const FACEBOOK_APP_ID_PLACEHOLDER = 'facebook_app_id_placeholder';
 const FACEBOOK_CLIENT_TOKEN_PLACEHOLDER = 'facebook_client_token_placeholder';
@@ -248,16 +251,19 @@ function main() {
     'Ogabassey.xcodeproj',
     'project.pbxproj'
   );
+  const fastfilePath = path.join(projectRoot, 'fastlane', 'Fastfile');
 
   let appConfigDeclarations;
   let infoPlist;
   let xcodeProjectSource;
+  let fastfileSource;
   try {
     appConfigDeclarations = extractAppConfigAdDeclarations(
       readRequiredFile(appConfigPath)
     );
     infoPlist = plist.parse(readRequiredFile(infoPlistPath));
     xcodeProjectSource = readRequiredFile(xcodeProjectPath);
+    fastfileSource = readRequiredFile(fastfilePath);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`[ad-tracking-native-config] ${message}`);
@@ -268,6 +274,7 @@ function main() {
   const failures = [
     ...validateInfoPlist(infoPlist, appConfigDeclarations),
     ...validateXcodeProject(xcodeProjectSource),
+    ...validateFastfileAdTrackingConfig(fastfileSource),
   ];
 
   if (failures.length === 0) {

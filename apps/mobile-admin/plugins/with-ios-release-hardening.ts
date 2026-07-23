@@ -33,9 +33,10 @@ const withIosReleaseHardening: ConfigPlugin<HardeningOptions | undefined> = (
     minimumOSVersion = '16.4',
     localNetworkUsageDescription = 'This app uses the local network to communicate with nearby devices for sharing and printing.',
   } = options ?? {};
+  let nextConfig = config;
 
   // 1. Entitlements: Set APNs environment based on build config
-  config = withEntitlementsPlist(config, (mod) => {
+  nextConfig = withEntitlementsPlist(nextConfig, (mod) => {
     // Use 'development' for debug/simulator builds, 'production' for release
     const isDebug =
       process.env.EAS_BUILD_PROFILE === 'development' ||
@@ -45,7 +46,7 @@ const withIosReleaseHardening: ConfigPlugin<HardeningOptions | undefined> = (
   });
 
   // 2. Info.plist cleanup
-  config = withInfoPlist(config, (mod) => {
+  nextConfig = withInfoPlist(nextConfig, (mod) => {
     const plist = mod.modResults;
 
     // Replace LSMinimumSystemVersion with MinimumOSVersion
@@ -69,7 +70,7 @@ const withIosReleaseHardening: ConfigPlugin<HardeningOptions | undefined> = (
   });
 
   // 3. Xcode project: signing, team
-  config = withXcodeProject(config, (mod) => {
+  nextConfig = withXcodeProject(nextConfig, (mod) => {
     const project = mod.modResults;
     const configurations = project.pbxXCBuildConfigurationSection?.();
 
@@ -102,7 +103,7 @@ const withIosReleaseHardening: ConfigPlugin<HardeningOptions | undefined> = (
     return mod;
   });
 
-  return config;
+  return nextConfig;
 };
 
 export default withIosReleaseHardening;

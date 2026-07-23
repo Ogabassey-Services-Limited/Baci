@@ -1,4 +1,3 @@
-import { EXAM_PASS_POINTS_COST } from '@baci/shared/constants';
 import { useEffect } from 'react';
 import {
   ActivityIndicator,
@@ -11,6 +10,7 @@ import {
 import { useShallow } from 'zustand/react/shallow';
 import coinsImage from '@/assets/quiz/png/Coins.png';
 import { useTheme } from '@/hooks/useTheme';
+import { getQuizDeviceFingerprint } from '@/lib/get-quiz-device-fingerprint';
 import { createLogger } from '@/lib/logger';
 import {
   fetchQuizEvents,
@@ -23,11 +23,7 @@ import { QuizEventsList } from './QuizEventsList';
 import { QuizPrizeClaimPanel } from './QuizPrizeClaimPanel';
 import { QuizQuestionCard } from './QuizQuestionCard';
 import { createQuizStyles } from './QuizScreen.styles';
-import {
-  formatPointCount,
-  getQuizErrorMessage,
-  shouldShowEventList,
-} from './QuizScreen.utils';
+import { getQuizErrorMessage, shouldShowEventList } from './QuizScreen.utils';
 import { QuizUsernameGateModal } from './QuizUsernameGateModal';
 import { useQuizQuestionTimer } from './use-quiz-question-timer';
 import { useQuizStartGate } from './useQuizStartGate';
@@ -102,9 +98,14 @@ export function QuizScreen({
 
   const handleStart = async (eventId: string) => {
     try {
-      await startEvent(eventId, integrityTier, () =>
-        startQuizAttempt({ eventId, integrityTier })
-      );
+      await startEvent(eventId, integrityTier, async () => {
+        // Resolve inside the starter so startEvent enters its synchronous
+        // in-flight state before this best-effort native lookup can yield.
+        const deviceFingerprint = await getQuizDeviceFingerprint().catch(
+          () => null
+        );
+        return startQuizAttempt({ deviceFingerprint, eventId, integrityTier });
+      });
     } catch (error) {
       log.warn('Failed to start quiz attempt', error);
       setError(getQuizErrorMessage(error, QUIZ_COPY.actionFailed));
@@ -175,7 +176,7 @@ export function QuizScreen({
             Super Quiz
           </Text>
           <Text style={styles.subtitle}>
-            Use loyalty points to enter and answer for the rewards.
+            Free to enter — answer the questions and play for the rewards.
           </Text>
         </View>
         <Image
@@ -188,13 +189,10 @@ export function QuizScreen({
       </View>
 
       <View style={styles.introPanel}>
-        <Text style={styles.introTitle}>Exam pass</Text>
-        <Text style={styles.introText}>
-          Use {formatPointCount(EXAM_PASS_POINTS_COST, 'loyalty point')} as your
-          exam pass.
-        </Text>
+        <Text style={styles.introTitle}>Entry</Text>
+        <Text style={styles.introText}>Free to enter.</Text>
         <Text style={styles.introMeta}>
-          Your pass is charged when the exam starts.
+          No loyalty points required. No purchase necessary.
         </Text>
       </View>
 

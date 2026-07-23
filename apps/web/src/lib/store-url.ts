@@ -1,7 +1,8 @@
-import { getRootDomain } from '@/env';
 import type { CachedMerchant } from '@/lib/cached-data';
 
-const ROOT_DOMAIN = (getRootDomain() || 'usebaci.com').toLowerCase();
+const ROOT_DOMAIN = (
+  process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com'
+).toLowerCase();
 
 function normalizeStoreHost(rawHost: string | null): string {
   return (

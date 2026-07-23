@@ -30,7 +30,11 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: authMocks.createClient,
 }));
 
-import { authenticateApiRequest, getBearerTokenFromRequest } from './api-auth';
+import {
+  authenticateApiRequest,
+  getBearerTokenFromRequest,
+  hasBearerAuthScheme,
+} from './api-auth';
 
 describe('getBearerTokenFromRequest', () => {
   it('parses bearer authorization schemes case-insensitively', () => {
@@ -51,13 +55,21 @@ describe('getBearerTokenFromRequest', () => {
   });
 
   it('rejects bearer headers without a token payload', () => {
-    expect(
-      getBearerTokenFromRequest(
-        new Request('https://example.com', {
-          headers: { authorization: 'Bearer' },
-        })
-      )
-    ).toBeNull();
+    const request = new Request('https://example.com', {
+      headers: { authorization: '  BeArEr   ' },
+    });
+
+    expect(hasBearerAuthScheme(request)).toBe(true);
+    expect(getBearerTokenFromRequest(request)).toBeNull();
+  });
+
+  it('shares casing and leading-whitespace handling with scheme detection', () => {
+    const request = new Request('https://example.com', {
+      headers: { authorization: '  BeArEr   mobile-token  ' },
+    });
+
+    expect(hasBearerAuthScheme(request)).toBe(true);
+    expect(getBearerTokenFromRequest(request)).toBe('mobile-token');
   });
 });
 

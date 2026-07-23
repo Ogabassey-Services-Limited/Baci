@@ -114,11 +114,14 @@ describe('NegotiationCard', () => {
 
     renderCard(baseItem, { onOpenEvidence, onOpenExternalUrl });
 
-    expect(
-      screen.getByText(
-        'RAM: 6GB · Storage: 256GB · Color: Deep Purple · Condition: used'
-      )
-    ).toBeInTheDocument();
+    expect(screen.getByText('RAM')).toBeInTheDocument();
+    expect(screen.getByText('6GB')).toBeInTheDocument();
+    expect(screen.getByText('Storage')).toBeInTheDocument();
+    expect(screen.getByText('256GB')).toBeInTheDocument();
+    expect(screen.getByText('Color')).toBeInTheDocument();
+    expect(screen.getByText('Deep Purple')).toBeInTheDocument();
+    expect(screen.getByText('Condition')).toBeInTheDocument();
+    expect(screen.getByText('used')).toBeInTheDocument();
 
     fireEvent.click(
       screen.getByRole('button', { name: 'View customer evidence' })
@@ -158,9 +161,10 @@ describe('NegotiationCard', () => {
     );
 
     expect(screen.getByText('Dell Latitude')).toBeInTheDocument();
-    expect(
-      screen.getByText('16GB / 512GB · Condition: used')
-    ).toBeInTheDocument();
+    expect(screen.getByText('Variant')).toBeInTheDocument();
+    expect(screen.getByText('16GB / 512GB')).toBeInTheDocument();
+    expect(screen.getByText('Condition')).toBeInTheDocument();
+    expect(screen.getByText('used')).toBeInTheDocument();
 
     expect(screen.getByText('Bulk Cart')).toBeInTheDocument();
     expect(screen.getByText('-6%')).toBeInTheDocument();

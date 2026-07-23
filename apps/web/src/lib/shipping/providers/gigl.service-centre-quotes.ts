@@ -1,3 +1,4 @@
+import { filterByLocationPhrase } from '@baci/shared/lib';
 import type { ShippingAddress, ShippingQuote } from '../types';
 import {
   buildGiglProviderRateId,
@@ -17,7 +18,8 @@ interface ServiceCentreQuoteParams {
   baseQuote: ShippingQuote;
   generateQuoteId: () => string;
   log?: GiglQuoteIo['log'];
-  receiver: Pick<ShippingAddress, 'latitude' | 'longitude'>;
+  receiver: Pick<ShippingAddress, 'latitude' | 'longitude'> &
+    Partial<Pick<ShippingAddress, 'city' | 'state'>>;
   receiverStation: GiglStation;
   fetchServiceCentres?: () => Promise<GiglServiceCentre[]>;
   serviceCentres?: GiglServiceCentre[];
@@ -55,12 +57,24 @@ function hasFiniteCoordinates(
   );
 }
 
+function filterCentresByReceiverCity(
+  serviceCentres: GiglServiceCentre[],
+  receiver: ServiceCentreQuoteParams['receiver']
+): GiglServiceCentre[] {
+  return filterByLocationPhrase(
+    serviceCentres,
+    receiver.city ?? '',
+    receiver.state ?? '',
+    (centre) => `${centre.ServiceCentreName} ${centre.Address}`
+  );
+}
+
 function selectServiceCentres(
   serviceCentres: GiglServiceCentre[],
   receiver: ServiceCentreQuoteParams['receiver']
 ): GiglServiceCentre[] {
   const hasCoordinates = hasFiniteCoordinates(receiver);
-  return [...serviceCentres]
+  return [...filterCentresByReceiverCity(serviceCentres, receiver)]
     .sort((left, right) => {
       if (hasCoordinates) {
         const leftDistance = distanceKm(

@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server';
+import { AGENTIC_PAYMENT_DISCOVERY_NO_STORE_HEADERS } from '@/config/agentic-payment-discovery-cache';
 import { getRootDomain } from '@/env';
-import {
-  ACP_DISCOVERY_CACHE_CONTROL,
-  buildAcpDiscoveryProfile,
-} from '@/lib/agentic/acp-discovery-profile';
+import { buildAcpDiscoveryProfile } from '@/lib/agentic/acp-discovery-profile';
 import { buildAgentCommerceManifest } from '@/lib/agentic/agent-commerce-manifest';
 import { buildRequestBaseUrl } from '@/lib/storefront-host';
 import { resolveStorefrontMerchantFromRequest } from '@/lib/storefront-merchant';
@@ -43,10 +41,7 @@ export async function GET(request: Request) {
   }
 
   return NextResponse.json(profile, {
-    headers: {
-      'Cache-Control': ACP_DISCOVERY_CACHE_CONTROL,
-      'Vercel-CDN-Cache-Control': 'no-store',
-    },
+    headers: AGENTIC_PAYMENT_DISCOVERY_NO_STORE_HEADERS,
   });
 }
 

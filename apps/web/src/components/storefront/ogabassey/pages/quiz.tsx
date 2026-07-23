@@ -1,6 +1,6 @@
 'use client';
 
-import { EXAM_PASS_POINTS_COST } from '@baci/shared/constants';
+import { QUIZ_FREE_ENTRY_MODE } from '@baci/shared/constants';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
@@ -16,7 +16,6 @@ import {
   quizResultResponseSchema,
 } from '@/schemas/quiz';
 import { formatQuizDateRange } from './format-quiz-date-range';
-import { formatQuizPointCount } from './format-quiz-point-count';
 import { getQuizErrorMessage } from './get-quiz-error-message';
 import { getQuizStartButtonText } from './get-quiz-start-button-text';
 import { QuizQuestionPanel } from './quiz-question-panel';
@@ -50,6 +49,7 @@ async function fetchQuizEvents(merchantSlug: string) {
 async function startQuizAttempt(eventId: string) {
   const parsed = quizAttemptResponseSchema.safeParse(
     await apiPost<unknown>('/api/quiz/attempts/start', {
+      entryMode: QUIZ_FREE_ENTRY_MODE,
       eventId,
       integrityTier: QUIZ_INTEGRITY_TIER,
     })
@@ -103,8 +103,8 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
   const [error, setError] = useState<string | null>(null);
   // Synchronous in-flight guards (FIX D): async state (`status`) updates on the
   // next render, so a fast physical double-tap can fire two requests before the
-  // button disables. The server does NOT dedupe start (each debits a point), so
-  // guard synchronously.
+  // button disables. The server does NOT dedupe start — each call burns one of
+  // the player's limited attempts (QZ030 cap) — so guard synchronously.
   const startInFlightRef = useRef(false);
   const submitInFlightRef = useRef(false);
   const routePrefix = pathname?.startsWith(`/${merchantSlug}`) ? `/${merchantSlug}` : '';
@@ -194,14 +194,14 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
               <p className="text-xs font-semibold uppercase text-store-primary">Ogabassey rewards</p>
               <h1 className="mt-2 text-3xl font-bold tracking-normal text-store-background-text sm:text-4xl">Super Quiz</h1>
               <p className="mt-3 text-sm leading-6 text-store-background-text/70">
-                Use {formatQuizPointCount(EXAM_PASS_POINTS_COST)} as your exam pass,
-                answer each timed question, and qualify for prize rewards.
+                Free to enter — answer each timed question and qualify for prize
+                rewards. No purchase necessary.
               </p>
             </div>
             <div className="rounded-lg border border-store-primary/20 bg-store-primary/5 p-4">
-              <p className="text-sm font-semibold">Exam pass</p>
-              <p className="mt-1 text-2xl font-bold text-store-primary">{EXAM_PASS_POINTS_COST}</p>
-              <p className="text-xs text-store-background-text/60">Charged when an exam starts</p>
+              <p className="text-sm font-semibold">Entry</p>
+              <p className="mt-1 text-2xl font-bold text-store-primary">Free</p>
+              <p className="text-xs text-store-background-text/60">No loyalty points required</p>
             </div>
           </div>
         </section>
@@ -214,8 +214,8 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
           <section className={panel}>
             <h2 className="text-lg font-semibold">Sign in to play</h2>
             <p className="mt-2 text-sm leading-6 text-store-background-text/70">
-              Super Quiz is available to Ogabassey customers with an active
-              account and enough loyalty points for an exam pass.
+              Super Quiz is free to play for anyone with an Ogabassey account.
+              Creating one is free — no purchase necessary.
             </p>
             <Link href={asRoute(loginHref)} className={`mt-4 inline-flex items-center justify-center ${primaryButton}`}>Sign in</Link>
           </section>

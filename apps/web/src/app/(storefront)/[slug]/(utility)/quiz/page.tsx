@@ -11,7 +11,12 @@ import {
   isValidMerchantIdentifier,
 } from '@/lib/validation';
 
-const QUIZ_DESCRIPTION = 'Play the Ogabassey Super Quiz with loyalty points.';
+// Entry is free and ranking is neutral. This copy is a public, indexed promise:
+// describing the quiz as played "with loyalty points" advertises a purchase gate
+// (points are only ever earned by buying), which is the exact consideration that
+// makes a prize quiz a regulated promotional competition. Keep it purchase-free.
+const QUIZ_DESCRIPTION =
+  'Play the Ogabassey Super Quiz. Free to enter — no purchase needed.';
 
 export const metadata: Metadata = {
   description: QUIZ_DESCRIPTION,

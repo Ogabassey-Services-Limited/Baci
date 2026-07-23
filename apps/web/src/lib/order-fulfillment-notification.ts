@@ -1,5 +1,5 @@
-import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { orderFulfillmentNotificationSchemas } from '@/lib/order-fulfillment-notification-schemas';
 import { sendFulfillmentNotificationEmail } from '@/lib/order-fulfillment-notification-senders';
 import type {
   FeatureSettingsRecord,
@@ -13,7 +13,7 @@ import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 interface SendOrderFulfillmentNotificationParams {
   beforeProviderDispatch?: () => Promise<void>;
   resetProviderDispatch?: () => Promise<void>;
-  courierName?: string;
+  courierName?: string | null;
   estimatedDelivery?: string;
   eventType: OrderFulfillmentNotificationEventType;
   merchantId: string;
@@ -22,72 +22,9 @@ interface SendOrderFulfillmentNotificationParams {
   supabase: {
     from: (table: string) => unknown;
   };
-  trackingNumber?: string;
+  trackingNumber?: string | null;
+  trackingToken?: string | null;
 }
-const merchantSchema = z.object({
-  id: z.string().min(1),
-  business_name: z.string().min(1),
-  slug: z.string().min(1),
-  support_email: z.string().nullable(),
-  email_sender_name: z.string().nullable(),
-  email: z.string().nullable(),
-  tax_identification_number: z.string().nullable().optional(),
-  cac_rc_number: z.string().nullable().optional(),
-});
-
-const fulfillmentShippingStatusSchema = z.enum([
-  'pending',
-  'processing',
-  'shipped',
-  'out_for_delivery',
-  'delivered',
-  'completed',
-  'cancelled',
-  'canceled',
-  'returned',
-  'failed',
-]);
-
-const fulfillmentShippingAddressSchema = z.union([
-  z.object({
-    address: z.string().nullable().optional(),
-    city: z.string().nullable().optional(),
-    state: z.string().nullable().optional(),
-  }),
-  z.string().transform((address) => ({ address })),
-]);
-
-const fulfillmentOrderSchema = z.object({
-  id: z.string().min(1),
-  customer_id: z.string().nullable().optional(),
-  order_number: z.string().nullable(),
-  customer_name: z
-    .string()
-    .trim()
-    .nullable()
-    .optional()
-    .transform((value) => value || 'Customer'),
-  customer_email: z.string().nullable().optional(),
-  customer_phone: z.string().nullable().optional(),
-  shipping_status: fulfillmentShippingStatusSchema,
-  shipping_provider: z.string().nullable().optional(),
-  tracking_number: z.string().nullable().optional(),
-  tracking_token: z.string().nullable().optional(),
-  shipping_address: fulfillmentShippingAddressSchema.nullable().optional(),
-  order_items: z
-    .array(
-      z.object({
-        name: z.string().nullable(),
-        quantity: z.number().nullable(),
-      })
-    )
-    .nullable(),
-});
-
-const featureSettingsSchema = z.object({
-  google_place_id: z.string().nullable(),
-});
-
 type QueryBuilder = {
   eq: (column: string, value: unknown) => QueryBuilder;
   maybeSingle?: () => Promise<{ data: unknown; error: unknown }>;
@@ -104,7 +41,7 @@ function tableQuery(
 
 function isOrderInRequiredShippingStatus(
   eventType: OrderFulfillmentNotificationEventType,
-  shippingStatus: z.infer<typeof fulfillmentShippingStatusSchema>,
+  shippingStatus: FulfillmentOrderRecord['shipping_status'],
   allowHistoricalShippedEvent: boolean
 ): boolean {
   if (eventType === 'order_shipped') {
@@ -145,12 +82,12 @@ async function loadMerchant(
 
   if (!data) return null;
 
-  const parsed = merchantSchema.safeParse(data);
+  const parsed = orderFulfillmentNotificationSchemas.merchant.safeParse(data);
   if (!parsed.success) {
     logger.error({
       message: 'Invalid merchant payload for order notification',
       merchantId,
-      error: z.flattenError(parsed.error),
+      error: parsed.error.flatten(),
     });
     return 'invalid';
   }
@@ -183,13 +120,13 @@ async function loadOrder(
 
   if (!data) return null;
 
-  const parsed = fulfillmentOrderSchema.safeParse(data);
+  const parsed = orderFulfillmentNotificationSchemas.order.safeParse(data);
   if (!parsed.success) {
     logger.error({
       message: 'Invalid order payload for fulfillment notification',
       orderId,
       merchantId,
-      error: z.flattenError(parsed.error),
+      error: parsed.error.flatten(),
     });
     return 'invalid';
   }
@@ -222,11 +159,12 @@ async function loadFeatureSettings(
 
   if (!data) return null;
 
-  const parsed = featureSettingsSchema.safeParse(data);
+  const parsed =
+    orderFulfillmentNotificationSchemas.featureSettings.safeParse(data);
   if (!parsed.success) {
     logger.warn({
       message: 'Invalid merchant feature settings for delivered notification',
-      error: z.flattenError(parsed.error),
+      error: parsed.error.flatten(),
       merchantId,
       orderId,
     });
@@ -247,6 +185,7 @@ export async function sendOrderFulfillmentNotification({
   resetProviderDispatch,
   supabase,
   trackingNumber,
+  trackingToken,
 }: SendOrderFulfillmentNotificationParams): Promise<OrderFulfillmentNotificationResult> {
   const [merchant, order] = await Promise.all([
     loadMerchant(supabase, merchantId),
@@ -293,6 +232,10 @@ export async function sendOrderFulfillmentNotification({
   }
 
   if (eventType === 'order_shipped') {
+    const snapshotOrder =
+      trackingToken === undefined
+        ? order
+        : { ...order, tracking_token: trackingToken };
     return sendFulfillmentNotificationEmail({
       beforeProviderDispatch,
       courierName,
@@ -300,7 +243,7 @@ export async function sendOrderFulfillmentNotification({
       eventType,
       merchant,
       merchantId,
-      order,
+      order: snapshotOrder,
       resetProviderDispatch,
       trackingNumber,
     });

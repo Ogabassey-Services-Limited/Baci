@@ -109,6 +109,7 @@ export async function initializeWalletTopUp({
   gateway,
   merchantId,
   merchantSlug,
+  returnTo,
 }: {
   amount: number;
   customerName?: string;
@@ -116,6 +117,7 @@ export async function initializeWalletTopUp({
   gateway?: WalletTopUpGateway;
   merchantId?: string | null;
   merchantSlug?: string | null;
+  returnTo?: string;
 }): Promise<WalletTopUpInitializeResponse> {
   const accessToken = await getAccessToken();
   const requestBody = {
@@ -125,6 +127,7 @@ export async function initializeWalletTopUp({
     gateway,
     merchantId: getOptionalString(merchantId),
     merchantSlug: getMerchantSlug(merchantSlug),
+    returnTo: getOptionalString(returnTo),
   };
   const response = await fetchWithTimeout(
     `${API_URL}/api/storefront/customer/wallet/top-up/initialize`,

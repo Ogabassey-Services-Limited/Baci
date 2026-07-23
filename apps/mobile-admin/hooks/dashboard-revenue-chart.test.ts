@@ -49,7 +49,13 @@ describe('fetchRevenueChart', () => {
       type: 'branch',
     });
 
-    expect(chart).toEqual(mocks.data);
+    const buckets = buildRevenueChartBuckets('today');
+    expect(chart).toEqual(
+      mocks.data.map((point, index) => ({
+        ...point,
+        id: `${buckets[index].start_at}:${buckets[index].end_at}`,
+      }))
+    );
     expect(mocks.calls).toEqual([
       {
         args: expect.objectContaining({
@@ -65,6 +71,29 @@ describe('fetchRevenueChart', () => {
         name: 'get_mobile_admin_revenue_chart',
       },
     ]);
+  });
+
+  it('uses bucket intervals as stable unique IDs when labels repeat', async () => {
+    mocks.data = [
+      { label: 'S', value: 100 },
+      { label: 'S', value: 200 },
+      { label: 'T', value: 300 },
+      { label: 'T', value: 400 },
+      { label: 'T', value: 500 },
+      { label: 'F', value: 600 },
+      { label: 'S', value: 700 },
+    ];
+
+    const chart = await fetchRevenueChart('merchant-1', 'week');
+    const buckets = buildRevenueChartBuckets('week');
+
+    expect(new Set(chart.map((point) => point.id)).size).toBe(chart.length);
+    expect(chart.map((point) => point.id)).toEqual(
+      buckets.map((bucket) => `${bucket.start_at}:${bucket.end_at}`)
+    );
+    expect(chart.map((point) => point.label)).toEqual(
+      mocks.data.map((point) => point.label)
+    );
   });
 
   it('builds non-overlapping month buckets', () => {

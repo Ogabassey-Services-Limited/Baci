@@ -21,8 +21,23 @@ const CACHED_DATA_AST = ts.createSourceFile(
   true,
   ts.ScriptKind.TS
 );
+const HYDRATE_PUBLIC_PRODUCTS_SOURCE = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), 'hydrate-public-products.ts'),
+  'utf8'
+);
+const HYDRATE_PUBLIC_PRODUCTS_AST = ts.createSourceFile(
+  'hydrate-public-products.ts',
+  HYDRATE_PUBLIC_PRODUCTS_SOURCE,
+  ts.ScriptTarget.Latest,
+  true,
+  ts.ScriptKind.TS
+);
 
-function getFunctionSource(functionName: string): string {
+function getFunctionSourceFrom(
+  functionName: string,
+  source: string,
+  sourceFile: TypeScript.SourceFile
+): string {
   let match: TypeScript.FunctionDeclaration | undefined;
 
   function visit(node: TypeScript.Node): void {
@@ -34,13 +49,23 @@ function getFunctionSource(functionName: string): string {
     ts.forEachChild(node, visit);
   }
 
-  visit(CACHED_DATA_AST);
+  visit(sourceFile);
 
   if (!match) {
-    throw new Error(`Unable to locate ${functionName} in cached-data.ts`);
+    throw new Error(
+      `Unable to locate ${functionName} in ${sourceFile.fileName}`
+    );
   }
 
-  return CACHED_DATA_SOURCE.slice(match.getStart(CACHED_DATA_AST), match.end);
+  return source.slice(match.getStart(sourceFile), match.end);
+}
+
+function getFunctionSource(functionName: string): string {
+  return getFunctionSourceFrom(
+    functionName,
+    CACHED_DATA_SOURCE,
+    CACHED_DATA_AST
+  );
 }
 
 describe('cached-data cache directives', () => {
@@ -101,7 +126,11 @@ describe('cached-data cache directives', () => {
   });
 
   it('keeps serialized inventory availability out of the products cache', () => {
-    const hydrateSource = getFunctionSource('hydrateAndSanitizeProducts');
+    const hydrateSource = getFunctionSourceFrom(
+      'hydrateAndSanitizePublicProducts',
+      HYDRATE_PUBLIC_PRODUCTS_SOURCE,
+      HYDRATE_PUBLIC_PRODUCTS_AST
+    );
 
     expect(CACHED_DATA_SOURCE).not.toContain(
       'getCachedPublicSerializedVariantSummariesByProductId'

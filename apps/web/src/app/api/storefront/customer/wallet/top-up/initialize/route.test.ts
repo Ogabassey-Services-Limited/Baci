@@ -383,4 +383,66 @@ describe('POST /api/storefront/customer/wallet/top-up/initialize', () => {
       })
     );
   });
+
+  it('persists a sanitized returnTo into transaction metadata for the credit push', async () => {
+    const response = await POST(
+      makeRequest({
+        amount: 2500,
+        gateway: 'paystack',
+        merchantSlug: 'ogabassey',
+        returnTo: '/utilities/airtime?repeatAmount=500',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockTransactionInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          return_to: '/utilities/airtime?repeatAmount=500',
+          transaction_type: 'wallet_topup',
+        }),
+      })
+    );
+    expect(mockInitializePaystackTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: {
+          customer_email: 'customer@example.com',
+          customer_id: 'customer-1',
+          customer_name: 'Ada Lovelace',
+          merchant_slug: 'ogabassey',
+          transaction_type: 'wallet_topup',
+        },
+      })
+    );
+  });
+
+  it.each([
+    ['protocol-relative', '//evil.com'],
+    // Open-redirect chain: an internal redirector that forwards its own returnTo.
+    ['auth redirector chain', '/auth/callback?returnTo=//evil.com'],
+    [
+      'auth redirector with absolute nested value',
+      '/auth/callback?returnTo=https://evil.com',
+    ],
+    ['nested redirect param', '/checkout?redirect=//evil.com'],
+    ['non-resumable route', '/settings'],
+  ])('drops a malicious returnTo (%s) instead of persisting it', async (_label, returnTo) => {
+    const response = await POST(
+      makeRequest({
+        amount: 2500,
+        gateway: 'paystack',
+        merchantSlug: 'ogabassey',
+        returnTo,
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const insertedMetadata = (
+      mockTransactionInsert.mock.calls.at(-1)?.[0] as {
+        metadata?: Record<string, unknown>;
+      }
+    )?.metadata;
+    expect(insertedMetadata).toBeDefined();
+    expect(insertedMetadata && 'return_to' in insertedMetadata).toBe(false);
+  });
 });

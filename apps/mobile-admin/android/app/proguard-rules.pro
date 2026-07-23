@@ -12,3 +12,11 @@
 -keep class com.facebook.react.turbomodule.** { *; }
 
 # Add any project specific keep options here:
+
+# Protect malformed Amazon SDK bytecode without disabling R8 globally.
+-dontwarn com.amazon.**
+-keep,allowshrinking,allowobfuscation,allowoptimization class com.amazon.** { *; }
+-keepattributes *Annotation*
+
+# Repackage classes for stronger R8 optimization on AGP 8.x.
+-repackageclasses

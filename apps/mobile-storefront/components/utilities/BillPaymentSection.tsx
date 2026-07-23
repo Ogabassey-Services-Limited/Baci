@@ -2,6 +2,7 @@ import { type LayoutChangeEvent, Text, TextInput, View } from 'react-native';
 import { billFormStyles as styles } from '@/components/utilities/bill-form-styles';
 import type Colors from '@/constants/Colors';
 import type { useUtilityPayment } from '@/hooks/use-utility-payment';
+import type { WalletReturnHref } from '@/lib/sanitize-wallet-return-to';
 import { UtilityPaymentOptions } from './UtilityPaymentOptions';
 import { sanitizeAmountInput } from './utility-amount-sanitize';
 
@@ -14,6 +15,8 @@ interface BillPaymentSectionProps {
   isFixedAmount: boolean;
   numericAmount: number;
   payment: PaymentState;
+  /** Prefilled bill deep-link the wallet returns to after a bank transfer. */
+  returnToHref: WalletReturnHref;
   setAmount: (value: string) => void;
 }
 
@@ -24,6 +27,7 @@ export function BillPaymentSection({
   isFixedAmount,
   numericAmount,
   payment,
+  returnToHref,
   setAmount,
 }: BillPaymentSectionProps) {
   return (
@@ -64,6 +68,7 @@ export function BillPaymentSection({
         isLoadingCards={payment.isLoadingCards}
         onSelectGateway={payment.selectGateway}
         onSelectSavedCard={payment.selectSavedCard}
+        returnToHref={returnToHref}
         selectedGateway={payment.selectedGateway}
         selectedSavedCardId={payment.selectedSavedCardId}
         supportedGateways={payment.supportedGateways}

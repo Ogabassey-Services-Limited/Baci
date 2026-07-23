@@ -176,6 +176,10 @@ $CRON_SECRET`; `/api/cron/process-settlements` uses `POST` and the others use
 - `/api/cron/wallet-payouts`
 - `/api/inventory/push-alerts`
 
+Merchant cancellation refund and email outbox work uses the trusted
+`/api/cron/process-settlements?cancellationsOnly=true` mode every five minutes;
+the full settlement run remains daily.
+
 `jobs/cleanup-agentic-request-records.mjs` is a direct database maintenance
 worker scheduled hourly at minute 10. It uses `SUPABASE_SERVICE_ROLE_KEY` only
 on the VPS to remove request records more than one hour past `expires_at`, so

@@ -6,11 +6,11 @@ export const DATE_RANGE_PICKER_PRESETS = [
 ] as const;
 
 export const DATE_RANGE_PICKER_WEEKDAYS = [
-  'S',
-  'M',
-  'T',
-  'W',
-  'T',
-  'F',
-  'S',
+  { id: 'sunday', label: 'S' },
+  { id: 'monday', label: 'M' },
+  { id: 'tuesday', label: 'T' },
+  { id: 'wednesday', label: 'W' },
+  { id: 'thursday', label: 'T' },
+  { id: 'friday', label: 'F' },
+  { id: 'saturday', label: 'S' },
 ] as const;

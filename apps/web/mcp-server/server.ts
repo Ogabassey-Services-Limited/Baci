@@ -41,6 +41,7 @@ import {
   updateAgenticCheckoutSession,
   updateAgenticCheckoutSessionMcpInputSchema,
 } from './agentic-checkout-client';
+import { resolveMcpPaystackDvaAccess } from './mcp-paystack-dva-access';
 import { registerAgenticUcpTools } from './agentic-ucp-tools';
 import { resolveMcpSearchProductCondition } from './product-condition-filter';
 import { loadMcpSearchProducts } from './search-products-query';
@@ -2749,8 +2750,10 @@ function createOgabasseyServer() {
 
 
   if (ORDER_PAYMENT_TOOLS_ENABLED) {
+    const paystackDvaAccess = resolveMcpPaystackDvaAccess();
     // Tool: Generate Payment Account (DVA for bank transfers)
-    server.registerTool(
+    if (paystackDvaAccess.toolEnabled) {
+      server.registerTool(
       'generate_payment_account',
       {
         title: 'Generate Payment Account',
@@ -2925,7 +2928,8 @@ function createOgabasseyServer() {
           };
         }
       }
-    );
+      );
+    }
 
     // Tool: Check Payment Status
     server.registerTool(
@@ -3014,14 +3018,16 @@ function createOgabasseyServer() {
             };
           } else if (order.status === 'pending_payment') {
             const metadata = order.metadata || {};
+            const storedDva =
+              paystackDvaAccess.getDisclosableStoredDva(metadata);
             let text = `⏳ **Payment Pending**\n\n`;
             text += `We haven't received your payment of **₦${Number(order.total).toLocaleString()}** yet.\n\n`;
 
-            if (metadata.account_number) {
+            if (storedDva) {
               text += `Please transfer to:\n`;
-              text += `• **Bank:** ${metadata.bank_name}\n`;
-              text += `• **Account:** ${metadata.account_number}\n`;
-              text += `• **Name:** ${metadata.account_name}\n\n`;
+              text += `• **Bank:** ${storedDva.bankName}\n`;
+              text += `• **Account:** ${storedDva.accountNumber}\n`;
+              text += `• **Name:** ${storedDva.accountName}\n\n`;
             }
 
             text += `💡 Bank transfers can take a few minutes to process. If you've already transferred, please wait 2-3 minutes and check again.\n\n`;
@@ -3034,8 +3040,12 @@ function createOgabasseyServer() {
                 order_id: order.id,
                 amount: order.total,
                 payment_reference: order.payment_reference,
-                account_number: metadata.account_number,
-                bank_name: metadata.bank_name,
+                ...(storedDva
+                  ? {
+                      account_number: storedDva.accountNumber,
+                      bank_name: storedDva.bankName,
+                    }
+                  : {}),
               },
             };
           } else {

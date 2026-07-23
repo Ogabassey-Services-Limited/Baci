@@ -94,6 +94,7 @@ describe('quiz service', () => {
     mockFetch.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
+          entryMode: 'free-v1',
           events: [
             {
               id: 'event-1',
@@ -137,7 +138,9 @@ describe('quiz service', () => {
   it('falls back to the configured merchant slug when Expo merchant context is missing', async () => {
     mockExpoConstants.expoConfig = { extra: {} };
     mockFetch.mockResolvedValueOnce(
-      new Response(JSON.stringify({ events: [] }), { status: 200 })
+      new Response(JSON.stringify({ entryMode: 'free-v1', events: [] }), {
+        status: 200,
+      })
     );
 
     await expect(
@@ -154,6 +157,7 @@ describe('quiz service', () => {
       .mockResolvedValueOnce(
         new Response(
           JSON.stringify({
+            entryMode: 'free-v1',
             events: [
               {
                 id: 'event-1',
@@ -178,6 +182,7 @@ describe('quiz service', () => {
       .mockResolvedValueOnce(
         new Response(
           JSON.stringify({
+            entryMode: 'free-v1',
             events: [
               {
                 id: 'event-2',
@@ -238,6 +243,7 @@ describe('quiz service', () => {
     mockFetch.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
+          entryMode: 'free-v1',
           events: [],
           pagination: {
             hasMore: true,
@@ -320,7 +326,9 @@ describe('quiz service', () => {
         error: null,
       });
     mockFetch.mockResolvedValueOnce(
-      new Response(JSON.stringify({ events: [] }), { status: 200 })
+      new Response(JSON.stringify({ entryMode: 'free-v1', events: [] }), {
+        status: 200,
+      })
     );
 
     const resultPromise = fetchQuizEvents({ baseUrl: 'https://example.com' });
@@ -386,7 +394,9 @@ describe('quiz service', () => {
         error: null,
       });
     mockFetch.mockResolvedValueOnce(
-      new Response(JSON.stringify({ events: [] }), { status: 200 })
+      new Response(JSON.stringify({ entryMode: 'free-v1', events: [] }), {
+        status: 200,
+      })
     );
 
     const resultPromise = fetchQuizEvents({ baseUrl: 'https://example.com' });

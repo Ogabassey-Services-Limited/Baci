@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   buildOrderFinalizationClaim,
   claimAgenticOrderFinalization,
+  releaseAgenticOrderFinalizationClaim,
 } from '@/lib/agentic/checkout-order-finalization-claim';
 
 const buyer = {
@@ -72,6 +73,7 @@ describe('agentic checkout order finalization claim', () => {
     const result = await claimAgenticOrderFinalization({
       buyer,
       dvaAccount,
+      expectedUpdatedAt: '2026-07-20T11:30:00.000Z',
       finalizationClaim: 'claim-1',
       merchantId: 'merchant-1',
       metadata: { agentic: { payment_state: 'payment_account_ready' } },
@@ -81,6 +83,10 @@ describe('agentic checkout order finalization claim', () => {
 
     expect(result.claimed).toBe(true);
     expect(chain.is).toHaveBeenCalledWith('order_id', null);
+    expect(chain.eq).toHaveBeenCalledWith(
+      'updated_at',
+      '2026-07-20T11:30:00.000Z'
+    );
     expect(chain.contains).toHaveBeenCalledWith('metadata', {
       agentic: { payment_state: 'payment_account_ready' },
     });
@@ -95,6 +101,7 @@ describe('agentic checkout order finalization claim', () => {
     const result = await claimAgenticOrderFinalization({
       buyer,
       dvaAccount,
+      expectedUpdatedAt: '2026-07-20T11:30:00.000Z',
       finalizationClaim: 'claim-1',
       merchantId: 'merchant-1',
       metadata: { agentic: { payment_state: 'payment_account_ready' } },
@@ -122,6 +129,7 @@ describe('agentic checkout order finalization claim', () => {
     const result = await claimAgenticOrderFinalization({
       buyer,
       dvaAccount,
+      expectedUpdatedAt: '2026-07-20T11:30:00.000Z',
       finalizationClaim: 'claim-1',
       merchantId: 'merchant-1',
       metadata: {
@@ -136,12 +144,49 @@ describe('agentic checkout order finalization claim', () => {
 
     expect(result).toEqual({ claimed: true, error: null });
     expect(updateSpy).toHaveBeenCalledTimes(2);
+    expect(initialClaimChain.eq).toHaveBeenCalledWith(
+      'updated_at',
+      '2026-07-20T11:30:00.000Z'
+    );
+    expect(existingClaimChain.eq).toHaveBeenCalledWith(
+      'updated_at',
+      '2026-07-20T11:30:00.000Z'
+    );
     expect(existingClaimChain.contains).toHaveBeenCalledWith('metadata', {
       agentic: {
         finalization_claim: 'claim-1',
         payment_state: 'order_finalizing',
       },
     });
+  });
+
+  it('keeps a supplied blank timestamp in both claim compare-and-set queries', async () => {
+    const initialClaimChain = createUpdateChain({ data: null, error: null });
+    const existingClaimChain = createUpdateChain({ data: null, error: null });
+    const update = vi
+      .fn()
+      .mockReturnValueOnce(initialClaimChain)
+      .mockReturnValueOnce(existingClaimChain);
+    const supabase = { from: vi.fn(() => ({ update })) };
+
+    await claimAgenticOrderFinalization({
+      buyer,
+      dvaAccount,
+      expectedUpdatedAt: '',
+      finalizationClaim: 'claim-1',
+      merchantId: 'merchant-1',
+      metadata: {
+        agentic: {
+          finalization_claim: 'claim-1',
+          payment_state: 'order_finalizing',
+        },
+      },
+      sessionId: 'agentic_session_1',
+      supabase: supabase as never,
+    });
+
+    expect(initialClaimChain.eq).toHaveBeenCalledWith('updated_at', '');
+    expect(existingClaimChain.eq).toHaveBeenCalledWith('updated_at', '');
   });
 
   it('returns Supabase errors from finalization claim writes', async () => {
@@ -162,5 +207,39 @@ describe('agentic checkout order finalization claim', () => {
     });
 
     expect(result).toEqual({ claimed: false, error: claimError });
+  });
+
+  it('clears a created-order marker when releasing a failed finalization', async () => {
+    const chain = createUpdateChain();
+    const update = vi.fn((_payload: Record<string, unknown>) => chain);
+    const supabase = {
+      from: vi.fn(() => ({ update })),
+    };
+
+    await releaseAgenticOrderFinalizationClaim({
+      finalizationClaim: 'claim-1',
+      merchantId: 'merchant-1',
+      metadata: {
+        agentic: {
+          finalization_claim: 'claim-1',
+          finalization_order_id: 'canceled-order-1',
+          payment_state: 'order_finalizing',
+        },
+      },
+      orderError: 'checkout session update failed',
+      sessionId: 'agentic_session_1',
+      supabase: supabase as never,
+    });
+
+    const payload = update.mock.calls[0][0] as {
+      metadata: { agentic: Record<string, unknown> };
+    };
+    expect(payload.metadata.agentic).toMatchObject({
+      finalization_claim: 'claim-1',
+      payment_state: 'payment_account_ready',
+    });
+    expect(payload.metadata.agentic).not.toHaveProperty(
+      'finalization_order_id'
+    );
   });
 });

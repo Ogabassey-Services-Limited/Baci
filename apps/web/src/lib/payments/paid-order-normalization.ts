@@ -145,7 +145,9 @@ export function toRichPaidOrder(
     payment_status: 'paid',
     shipping_address: shippingAddress,
     shipping_fee: numberOrDefault(order, 'shipping_fee', 0),
-    subtotal: requiredNumber(order, 'subtotal'),
+    // Nullable on legacy/imported orders; the old inline email path treated
+    // it as 0, and a throw here would wedge the post-commit drain loop.
+    subtotal: numberOrDefault(order, 'subtotal', 0),
     tax_amount: numberOrDefault(order, 'tax_amount', 0),
     tax_basis:
       order.tax_basis === 'exclusive' || order.tax_basis === 'inclusive'

@@ -25,6 +25,11 @@ vi.mock('@/lib/credit-direct-client', () => ({
     mockOpenCreditDirectCheckout(...args),
 }));
 
+vi.mock('@/lib/api-client', () => ({
+  fetchWithCsrf: (input: RequestInfo | URL, init?: RequestInit) =>
+    fetch(input, init),
+}));
+
 describe('executeDirectPayment', () => {
   const mockResumedOrder: ResumedOrder = {
     id: 'order-123',
@@ -65,6 +70,7 @@ describe('executeDirectPayment', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    window.sessionStorage.clear();
     mockOpenCredPalCheckout.mockResolvedValue(undefined);
     mockOpenCreditDirectCheckout.mockResolvedValue(undefined);
     global.fetch = vi.fn(() =>
@@ -288,7 +294,10 @@ describe('executeDirectPayment', () => {
         preferredGateway: 'credit_direct',
       });
       const callArgs = mockOpenCreditDirectCheckout.mock.calls[0][0];
-      await callArgs.onPopup('cd-popup-transaction-1');
+      await callArgs.onPopup({
+        checkoutTransactionId: 'cd-popup-transaction-1',
+        sessionId: 'signed-session-1',
+      });
 
       expect(global.fetch).toHaveBeenCalledWith(
         '/api/orders/update-payment-ref',
@@ -320,7 +329,10 @@ describe('executeDirectPayment', () => {
       const callArgs = mockOpenCreditDirectCheckout.mock.calls[0][0];
 
       await expect(
-        callArgs.onPopup('cd-popup-transaction-1'),
+        callArgs.onPopup({
+          checkoutTransactionId: 'cd-popup-transaction-1',
+          sessionId: 'signed-session-1',
+        }),
       ).resolves.toBeUndefined();
       expect(console.error).toHaveBeenCalledWith(
         'Failed to persist Credit Direct popup reference:',
@@ -333,23 +345,28 @@ describe('executeDirectPayment', () => {
     });
 
     describe('onSuccess callback', () => {
-      it('calls update-payment-ref API with correct params', async () => {
+      it('records separately labelled client completion evidence', async () => {
         await executeDirectPayment({
           ...defaultOpts,
           preferredGateway: 'credit_direct',
         });
         const callArgs = mockOpenCreditDirectCheckout.mock.calls[0][0];
-        await callArgs.onSuccess('cd-transaction-456');
+        await callArgs.onSuccess({
+          checkoutTransactionId: 'cd-transaction-456',
+          sessionId: 'signed-session-1',
+        });
 
         expect(global.fetch).toHaveBeenCalledWith(
-          '/api/orders/update-payment-ref',
+          '/api/orders/credit-direct/client-completion',
           {
             method: 'POST',
+            keepalive: true,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               orderId: 'order-123',
-              paymentRef: 'cd-transaction-456',
-              gateway: 'credit_direct',
+              checkoutTransactionId: 'cd-transaction-456',
+              customerEmail: 'john@example.com',
+              sessionId: 'signed-session-1',
               tracking_token: 'track-token-123',
             }),
           },
@@ -368,39 +385,49 @@ describe('executeDirectPayment', () => {
           resumedOrder: orderWithoutToken,
         });
         const callArgs = mockOpenCreditDirectCheckout.mock.calls[0][0];
-        await callArgs.onSuccess('cd-transaction-456');
+        await callArgs.onSuccess({
+          checkoutTransactionId: 'cd-transaction-456',
+          sessionId: 'signed-session-1',
+        });
 
         const fetchCall = (global.fetch as Mock).mock.calls[0];
         const body = JSON.parse(fetchCall[1].body);
         expect(body).toEqual({
           orderId: 'order-123',
-          paymentRef: 'cd-transaction-456',
-          gateway: 'credit_direct',
+          checkoutTransactionId: 'cd-transaction-456',
+          customerEmail: 'john@example.com',
+          sessionId: 'signed-session-1',
         });
         expect(body).not.toHaveProperty('tracking_token');
       });
 
-      it('clears checkout session after successful payment', async () => {
+      it('keeps checkout recovery state until server verification confirms payment', async () => {
         await executeDirectPayment({
           ...defaultOpts,
           preferredGateway: 'credit_direct',
         });
         const callArgs = mockOpenCreditDirectCheckout.mock.calls[0][0];
-        await callArgs.onSuccess('cd-transaction-456');
+        await callArgs.onSuccess({
+          checkoutTransactionId: 'cd-transaction-456',
+          sessionId: 'signed-session-1',
+        });
 
-        expect(defaultOpts.clearCheckoutSession).toHaveBeenCalled();
+        expect(defaultOpts.clearCheckoutSession).not.toHaveBeenCalled();
       });
 
-      it('navigates to order success page with correct query params', async () => {
+      it('navigates to server verification with recovery parameters', async () => {
         await executeDirectPayment({
           ...defaultOpts,
           preferredGateway: 'credit_direct',
         });
         const callArgs = mockOpenCreditDirectCheckout.mock.calls[0][0];
-        await callArgs.onSuccess('cd-transaction-456');
+        await callArgs.onSuccess({
+          checkoutTransactionId: 'cd-transaction-456',
+          sessionId: 'signed-session-1',
+        });
 
         expect(defaultOpts.routerPush).toHaveBeenCalledWith(
-          '/test-store/order-success?orderId=order-123&type=credit_direct&trackingToken=track-token-123',
+          '/test-store/checkout/bnpl?orderId=order-123&gateway=credit_direct&merchant_slug=test-store&creditDirectCompletion=cd-transaction-456&trackingToken=track-token-123&email=john%40example.com',
         );
       });
     });
@@ -501,7 +528,7 @@ describe('executeDirectPayment', () => {
       ).rejects.toThrow('Network error');
     });
 
-    it('handles network errors during API call in credit_direct onSuccess', async () => {
+    it('keeps verifying when client-completion recording fails', async () => {
       global.fetch = vi.fn(() =>
         Promise.reject(new Error('Network error')),
       ) as Mock;
@@ -512,8 +539,15 @@ describe('executeDirectPayment', () => {
       });
       const callArgs = mockOpenCreditDirectCheckout.mock.calls[0][0];
 
-      await expect(callArgs.onSuccess('cd-transaction-456')).rejects.toThrow(
-        'Network error',
+      expect(() =>
+        callArgs.onSuccess({
+          checkoutTransactionId: 'cd-transaction-456',
+          sessionId: 'signed-session-1',
+        }),
+      ).not.toThrow();
+      await Promise.resolve();
+      expect(defaultOpts.routerPush).toHaveBeenCalledWith(
+        '/test-store/checkout/bnpl?orderId=order-123&gateway=credit_direct&merchant_slug=test-store&creditDirectCompletion=cd-transaction-456&trackingToken=track-token-123&email=john%40example.com',
       );
     });
   });

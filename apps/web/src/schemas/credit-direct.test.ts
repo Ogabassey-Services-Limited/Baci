@@ -38,6 +38,96 @@ describe('Credit Direct schemas', () => {
     }
   });
 
+  it('accepts the PascalCase payload Credit Direct sends and normalizes it', () => {
+    const result = creditDirectWebhookSchema.safeParse({
+      CheckoutCustomer: {
+        FirstName: 'DIALA',
+        LastName: 'KINGSLEY',
+      },
+      CheckoutTransactionId: 'a93343b8-2002-45ba-a0a5-a222e1c1d288',
+      EventType: 'Checkout_Merchant_Payment_Completed',
+      Products: [
+        {
+          ProductAmount: '430000',
+          ProductId: 'CTjKsQ0uoT1782138407475-631256',
+          ProductName: '13" Macbook Air 2018',
+        },
+      ],
+      TimeStamp: '2026-07-10T16:03:38.8373464+01:00',
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toEqual({
+        checkoutCustomer: {
+          firstName: 'DIALA',
+          lastName: 'KINGSLEY',
+        },
+        checkoutTransactionId: 'a93343b8-2002-45ba-a0a5-a222e1c1d288',
+        eventType: 'Checkout_Merchant_Payment_Completed',
+        metaData: null,
+        products: [
+          {
+            productAmount: 430000,
+            productId: 'CTjKsQ0uoT1782138407475-631256',
+            productName: '13" Macbook Air 2018',
+          },
+        ],
+        timeStamp: '2026-07-10T16:03:38.8373464+01:00',
+      });
+    }
+  });
+
+  it('rejects mixed casing instead of guessing between payload formats', () => {
+    expect(
+      creditDirectWebhookSchema.safeParse({
+        ...validWebhookPayload,
+        CheckoutTransactionId: 'different-transaction',
+      }).success
+    ).toBe(false);
+    expect(
+      creditDirectWebhookSchema.safeParse({
+        ...validWebhookPayload,
+        checkoutCustomer: {
+          ...validWebhookPayload.checkoutCustomer,
+          FirstName: 'DIFFERENT',
+        },
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects malformed PascalCase events and products', () => {
+    const pascalCasePayload = {
+      CheckoutCustomer: {
+        FirstName: 'Ada',
+        LastName: 'Lovelace',
+      },
+      CheckoutTransactionId: 'txn_123',
+      EventType: 'Checkout_Merchant_Payment_Completed',
+      Products: [
+        {
+          ProductName: 'Phone',
+          ProductAmount: '30000',
+          ProductId: 'prod_123',
+        },
+      ],
+      TimeStamp: '2026-07-10T16:03:38.8373464+01:00',
+    };
+
+    expect(
+      creditDirectWebhookSchema.safeParse({
+        ...pascalCasePayload,
+        EventType: 'Payment_Succeeded',
+      }).success
+    ).toBe(false);
+    expect(
+      creditDirectWebhookSchema.safeParse({
+        ...pascalCasePayload,
+        Products: [{ ProductName: 'Phone', ProductAmount: '30000' }],
+      }).success
+    ).toBe(false);
+  });
+
   it('accepts positive numeric product amounts at the webhook boundary', () => {
     expect(
       creditDirectWebhookProductSchema.safeParse({
@@ -113,6 +203,12 @@ describe('Credit Direct schemas', () => {
       creditDirectWebhookSchema.safeParse({
         ...validWebhookPayload,
         products: {},
+      }).success
+    ).toBe(false);
+    expect(
+      creditDirectWebhookSchema.safeParse({
+        ...validWebhookPayload,
+        products: [],
       }).success
     ).toBe(false);
   });

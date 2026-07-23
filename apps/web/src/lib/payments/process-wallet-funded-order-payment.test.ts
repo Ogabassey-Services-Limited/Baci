@@ -8,6 +8,12 @@ const mockRunPaidOrderSideEffects = vi.fn<(...args: unknown[]) => unknown>();
 const mockExtractVerifiedGatewayFeeNgn = vi.fn<(...args: unknown[]) => number>(
   () => 300
 );
+const mockClaimWalletCreditPush = vi.fn();
+
+vi.mock('@/lib/payments/claim-wallet-credit-push', () => ({
+  claimWalletCreditPush: (...args: unknown[]) =>
+    mockClaimWalletCreditPush(...args),
+}));
 
 // handlePaymentForCancelledOrder files the reconciliation row through a
 // service-role admin client (reconciliation_review is RLS-locked to
@@ -47,6 +53,14 @@ vi.mock('@/lib/payments/run-paid-order-side-effects', () => ({
     mockRunPaidOrderSideEffects(...args),
 }));
 
+const mockNotifyWalletCredited = vi.fn<
+  (...args: unknown[]) => Promise<{ status: 'sent' }>
+>(async () => ({ status: 'sent' }));
+vi.mock('@/lib/payments/notify-wallet-credited', () => ({
+  notifyWalletCredited: (...args: unknown[]) =>
+    mockNotifyWalletCredited(...args),
+}));
+
 vi.mock('@/lib/payments/verified-gateway-fee', () => ({
   extractVerifiedGatewayFeeNgn: (...args: unknown[]) =>
     mockExtractVerifiedGatewayFeeNgn(...args),
@@ -71,6 +85,7 @@ describe('processWalletFundedOrderPayment', () => {
       kind: 'match',
     });
     mockRunPaidOrderSideEffects.mockResolvedValue({ failedSteps: [] });
+    mockClaimWalletCreditPush.mockResolvedValue({ status: 'claimed' });
   });
 
   it('returns none for non-wallet-top-up transactions so plain order processing can continue', async () => {
@@ -117,6 +132,196 @@ describe('processWalletFundedOrderPayment', () => {
         settlementGateway: 'paystack',
       })
     );
+  });
+
+  it('schedules a wallet-credit push for the credit the finalizer just committed', async () => {
+    const tasks: Array<() => Promise<void>> = [];
+
+    await processWalletFundedOrderPayment({
+      gatewayReference: 'PSK_REF_1',
+      gatewayResponse: { fees: 30_000, paid_at: '2026-05-26T12:05:00.000Z' },
+      scheduleAfter: (task) => tasks.push(task),
+      supabase: createSupabase() as never,
+      transaction,
+    });
+
+    expect(tasks).toHaveLength(1);
+    await tasks[0]?.();
+    expect(mockNotifyWalletCredited).toHaveBeenCalledWith({
+      amount: 20_000,
+      currency: 'NGN',
+      customerId: 'customer-1',
+      merchantId: 'merchant-1',
+      returnTo: '/orders/order-1',
+    });
+  });
+
+  it('notifies only the current transfer amount when funding is cumulative', async () => {
+    const supabase = createSupabase();
+    supabase.rpc.mockResolvedValue({
+      data: {
+        credited_amount: 8_000,
+        debited_amount: 20_000,
+        excess_amount: 0,
+        funded_amount: 15_000,
+        order_id: 'order-1',
+        order_paid: false,
+        order_payment_transaction_id: null,
+        wallet_credit_transaction_id: 'wallet-credit-2',
+        wallet_debit_transaction_id: null,
+      },
+      error: null,
+    } as never);
+    const tasks: Array<() => Promise<void>> = [];
+
+    await processWalletFundedOrderPayment({
+      gatewayReference: 'PSK_REF_2',
+      gatewayResponse: { paid_at: '2026-05-26T12:10:00.000Z' },
+      scheduleAfter: (task) => tasks.push(task),
+      supabase: supabase as never,
+      transaction: { ...transaction, amount: 10_000, id: 'txn-funding-2' },
+    });
+
+    await tasks[0]?.();
+    expect(mockNotifyWalletCredited).toHaveBeenCalledWith(
+      expect.objectContaining({ amount: 8_000 })
+    );
+  });
+
+  it('uses the raw transaction amount when retrying a finalized transfer notification', async () => {
+    mockFindActiveWalletFundingIntentForTransfer.mockResolvedValue({
+      intent: {
+        ...intent,
+        lastGatewayReference: 'PSK_REF_REPLAY',
+        status: 'completed',
+      },
+      kind: 'match',
+    });
+    const supabase = createSupabase();
+    supabase.rpc.mockResolvedValue({
+      data: {
+        credited_amount: 8_000,
+        debited_amount: 20_000,
+        excess_amount: 0,
+        funded_amount: 28_000,
+        order_id: 'order-1',
+        order_paid: false,
+        order_payment_transaction_id: null,
+        wallet_credit_transaction_id: 'wallet-credit-replay',
+        wallet_debit_transaction_id: null,
+      },
+      error: null,
+    } as never);
+    const tasks: Array<() => Promise<void>> = [];
+
+    await processWalletFundedOrderPayment({
+      gatewayReference: 'PSK_REF_REPLAY',
+      gatewayResponse: { paid_at: '2026-05-26T12:15:00.000Z' },
+      scheduleAfter: (task) => tasks.push(task),
+      supabase: supabase as never,
+      transaction: { ...transaction, amount: 20_000 },
+    });
+
+    await tasks[0]?.();
+    expect(mockNotifyWalletCredited).toHaveBeenCalledWith(
+      expect.objectContaining({ amount: 20_000 })
+    );
+    expect(mockClaimWalletCreditPush).toHaveBeenCalledWith(
+      expect.objectContaining({ allowInitialClaim: false })
+    );
+  });
+
+  it('only retries the push marker when the matched transfer was already finalized', async () => {
+    vi.useFakeTimers();
+    try {
+      mockFindActiveWalletFundingIntentForTransfer.mockResolvedValue({
+        intent: {
+          ...intent,
+          fundedAmount: 20_000,
+          lastGatewayReference: 'PSK_REF_1',
+          lastTransactionId: 'txn-funding-1',
+          status: 'completed',
+        },
+        kind: 'match',
+      });
+      const tasks: Array<() => Promise<void>> = [];
+      mockClaimWalletCreditPush.mockResolvedValue({
+        status: 'already_claimed',
+      });
+
+      await processWalletFundedOrderPayment({
+        gatewayReference: 'PSK_REF_1',
+        gatewayResponse: { paid_at: '2026-05-26T12:05:00.000Z' },
+        scheduleAfter: (task) => tasks.push(task),
+        supabase: createSupabase() as never,
+        transaction,
+      });
+
+      expect(tasks).toHaveLength(1);
+      const task = tasks[0]?.();
+      await vi.runAllTimersAsync();
+      await task;
+      expect(mockClaimWalletCreditPush).toHaveBeenCalledWith(
+        expect.objectContaining({ allowInitialClaim: false })
+      );
+      expect(mockNotifyWalletCredited).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('claims a concurrent transfer notification only once after finalization', async () => {
+    const supabase = createSupabase();
+    const tasks: Array<() => Promise<void>> = [];
+    const input = {
+      gatewayReference: 'PSK_REF_CONCURRENT',
+      gatewayResponse: { paid_at: '2026-05-26T12:05:00.000Z' },
+      scheduleAfter: (task: () => Promise<void>) => tasks.push(task),
+      supabase: supabase as never,
+      transaction: {
+        ...transaction,
+        id: 'txn-funding-concurrent',
+      },
+    };
+
+    await Promise.all([
+      processWalletFundedOrderPayment(input),
+      processWalletFundedOrderPayment(input),
+    ]);
+
+    expect(tasks).toHaveLength(2);
+    let initialClaimed = false;
+    mockClaimWalletCreditPush.mockImplementation(
+      async ({ allowInitialClaim }: { allowInitialClaim: boolean }) => {
+        if (allowInitialClaim && !initialClaimed) {
+          initialClaimed = true;
+          return { status: 'claimed' };
+        }
+        return { status: 'already_claimed' };
+      }
+    );
+    await Promise.all(tasks.map((task) => task()));
+    expect(mockNotifyWalletCredited).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not schedule a wallet-credit push when the finalizer never runs', async () => {
+    mockFindActiveWalletFundingIntentForTransfer.mockResolvedValue({
+      kind: 'none',
+    });
+    const scheduleAfter = vi.fn();
+
+    const result = await processWalletFundedOrderPayment({
+      gatewayReference: 'PSK_REF_1',
+      gatewayResponse: { paid_at: '2026-05-26T12:05:00.000Z' },
+      scheduleAfter,
+      supabase: createSupabase() as never,
+      transaction,
+    });
+
+    // Webhook retries find no active intent, so the credit push cannot double-fire.
+    expect(result).toEqual({ kind: 'none' });
+    expect(scheduleAfter).not.toHaveBeenCalled();
+    expect(mockNotifyWalletCredited).not.toHaveBeenCalled();
   });
 
   it('builds finalizer RPC params with ISO paid time and gateway currency', () => {

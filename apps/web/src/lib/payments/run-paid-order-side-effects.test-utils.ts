@@ -52,7 +52,6 @@ export function createPaidOrderSideEffectsSupabase({
     slug: 'ogabassey',
     support_email: 'support@example.com',
     tax_identification_number: 'TIN123',
-    website_url: null,
   },
   merchantError = null,
 }: {

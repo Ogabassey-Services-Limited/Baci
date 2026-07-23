@@ -3,24 +3,10 @@ import { getCronSecret } from '@/env';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { formatCurrency, notifyMerchant } from '@/lib/expo-push';
 import { logger } from '@/lib/logger';
+import { fileStuckCreditDirectReviews } from '@/lib/payments/file-stuck-credit-direct-review';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { STUCK_BNPL_CONFIG } from './stuck-bnpl-config';
 
-const STUCK_BNPL_MIN_AGE_HOURS = 24;
-const STUCK_BNPL_MAX_AGE_DAYS = 7;
-const STUCK_BNPL_NOTIFICATION_CONCURRENCY = 5;
-const STUCK_BNPL_ORDER_SCAN_LIMIT = 500;
-const BNPL_PAYMENT_METHODS = ['credit_direct', 'klump', 'credpal'];
-// bnpl_pending: provider session opened, no completion webhook yet.
-// bnpl_approved: customer-completed webhook arrived but the merchant-payout
-//   webhook never did (partial delivery).
-// pending/unpaid: BNPL methods that never reached the session RPC flip —
-//   CredPal in particular never transitions to bnpl_pending.
-const STUCK_BNPL_PAYMENT_STATUSES = [
-  'bnpl_pending',
-  'bnpl_approved',
-  'pending',
-  'unpaid',
-];
 // pending/unpaid only prove the customer PICKED a BNPL method at checkout;
 // require provider-session evidence (a persisted transaction/session
 // reference in notes) so plain abandoned carts — which cleanup-orders
@@ -42,18 +28,20 @@ function hasProviderTransactionReference(notes: string | null) {
   return Boolean(notes && /transactionid/i.test(notes));
 }
 
+function hasProviderCheckoutEvidence(notes: string | null) {
+  return Boolean(
+    hasProviderTransactionReference(notes) ||
+      (notes && /creditdirectclientcompletedat/i.test(notes))
+  );
+}
+
 function getStuckAgeDays(lastMovementAt: string, now: Date) {
   const lastMovement = new Date(lastMovementAt).getTime();
   if (!Number.isFinite(lastMovement)) return 0;
   return Math.max(0, Math.floor((now.getTime() - lastMovement) / 86_400_000));
 }
 
-// Alerts merchants about BNPL orders stuck awaiting provider confirmation.
-// BNPL success is webhook-driven; when deliveries silently stop, orders sit
-// in bnpl_pending until auto-cancellation with no operator signal (July 2026
-// Credit Direct incident: zero webhook deliveries ever, ₦299M unconfirmed).
-// Manual fallback route — the schedule lives in vps-workers, keep CRON_SECRET
-// gating intact.
+// Alerts merchants and queues Credit Direct orders missing provider confirmation.
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
@@ -69,10 +57,10 @@ export async function GET(request: NextRequest) {
 
     const now = new Date();
     const minAgeCutoff = new Date(
-      now.getTime() - STUCK_BNPL_MIN_AGE_HOURS * 3_600_000
+      now.getTime() - STUCK_BNPL_CONFIG.minAgeHours * 3_600_000
     ).toISOString();
     const maxAgeCutoff = new Date(
-      now.getTime() - STUCK_BNPL_MAX_AGE_DAYS * 86_400_000
+      now.getTime() - STUCK_BNPL_CONFIG.maxAgeDays * 86_400_000
     ).toISOString();
 
     // Age on updated_at, not created_at: resumed/reminder orders flip into a
@@ -84,12 +72,12 @@ export async function GET(request: NextRequest) {
       .select(
         'id, order_number, merchant_id, total, payment_method, payment_status, updated_at, notes'
       )
-      .in('payment_status', STUCK_BNPL_PAYMENT_STATUSES)
-      .in('payment_method', BNPL_PAYMENT_METHODS)
+      .in('payment_status', STUCK_BNPL_CONFIG.paymentStatuses)
+      .in('payment_method', STUCK_BNPL_CONFIG.paymentMethods)
       .lt('updated_at', minAgeCutoff)
       .or(`payment_status.eq.bnpl_approved,updated_at.gte.${maxAgeCutoff}`)
       .order('updated_at', { ascending: true })
-      .limit(STUCK_BNPL_ORDER_SCAN_LIMIT);
+      .limit(STUCK_BNPL_CONFIG.orderScanLimit);
 
     if (error) {
       logger.error({
@@ -103,10 +91,10 @@ export async function GET(request: NextRequest) {
     }
 
     const scannedOrders = (stuckOrders ?? []) as StuckBnplOrderRow[];
-    if (scannedOrders.length === STUCK_BNPL_ORDER_SCAN_LIMIT) {
+    if (scannedOrders.length === STUCK_BNPL_CONFIG.orderScanLimit) {
       logger.warn({
         message: 'Stuck-BNPL scan hit scan limit; report may be partial',
-        scanLimit: STUCK_BNPL_ORDER_SCAN_LIMIT,
+        scanLimit: STUCK_BNPL_CONFIG.orderScanLimit,
       });
     }
     // Some BNPL flows (e.g. CredPal via /api/payments/initialize) never write
@@ -119,14 +107,15 @@ export async function GET(request: NextRequest) {
     const evidenceCandidates = scannedOrders.filter(
       (order) =>
         STATUSES_REQUIRING_PROVIDER_EVIDENCE.has(order.payment_status || '') &&
-        !hasProviderTransactionReference(order.notes)
+        !hasProviderCheckoutEvidence(order.notes)
     );
-    let orderIdsWithTransactionEvidence = new Set<string>();
+    const orderIdsWithTransactionEvidence = new Set<string>();
+    const transactionEvidenceReferences = new Map<string, string>();
     let transactionEvidenceLookupFailed = false;
     if (evidenceCandidates.length > 0) {
       const { data: transactionRows, error: transactionError } = await supabase
         .from('transactions')
-        .select('order_id, status')
+        .select('order_id, status, gateway_reference')
         .in(
           'order_id',
           evidenceCandidates.map((order) => order.id)
@@ -139,22 +128,34 @@ export async function GET(request: NextRequest) {
           error: transactionError,
         });
       } else {
-        orderIdsWithTransactionEvidence = new Set(
-          (transactionRows ?? [])
-            .map((row) => row as { order_id: string; status: string | null })
-            .filter(
-              (row) => row.status === 'processing' || row.status === 'completed'
-            )
-            .map((row) => row.order_id)
-        );
+        for (const row of (transactionRows ?? []) as Array<{
+          gateway_reference: string | null;
+          order_id: string;
+          status: string | null;
+        }>) {
+          if (row.status !== 'processing' && row.status !== 'completed') {
+            continue;
+          }
+          orderIdsWithTransactionEvidence.add(row.order_id);
+          const reference = row.gateway_reference?.trim();
+          if (reference && !transactionEvidenceReferences.has(row.order_id)) {
+            transactionEvidenceReferences.set(row.order_id, reference);
+          }
+        }
       }
     }
 
     const orders = scannedOrders.filter(
       (order) =>
         !STATUSES_REQUIRING_PROVIDER_EVIDENCE.has(order.payment_status || '') ||
-        hasProviderTransactionReference(order.notes) ||
+        hasProviderCheckoutEvidence(order.notes) ||
         orderIdsWithTransactionEvidence.has(order.id)
+    );
+
+    const reviewFailures = await fileStuckCreditDirectReviews(
+      supabase,
+      orders.filter((order) => order.payment_method === 'credit_direct'),
+      transactionEvidenceReferences
     );
 
     // CredPal never progresses its transactions row past 'pending' and its
@@ -199,11 +200,11 @@ export async function GET(request: NextRequest) {
     for (
       let index = 0;
       index < merchantEntries.length;
-      index += STUCK_BNPL_NOTIFICATION_CONCURRENCY
+      index += STUCK_BNPL_CONFIG.notificationConcurrency
     ) {
       const batchResults = await Promise.all(
         merchantEntries
-          .slice(index, index + STUCK_BNPL_NOTIFICATION_CONCURRENCY)
+          .slice(index, index + STUCK_BNPL_CONFIG.notificationConcurrency)
           .map(async ([merchantId, merchantOrders]) => {
             const totalAmount = merchantOrders.reduce(
               (sum, order) => sum + (Number(order.total) || 0),
@@ -274,6 +275,7 @@ export async function GET(request: NextRequest) {
       stuckOrders: orders.length,
       merchants: ordersByMerchant.size,
       merchantsNotified,
+      ...(reviewFailures.length > 0 && { reviewFailures }),
       ...(pushFailures.length > 0 && { pushFailures }),
     });
   } catch (error) {

@@ -57,6 +57,8 @@ import { trackEvent } from '@/lib/event-tracking';
 import { trackServerSideBeginCheckout } from '@/lib/server-side-analytics';
 import { createClient } from '@/lib/supabase/client';
 import type { ShippingQuote } from '@/types/shipping-quote';
+import { handoffLegacyCreditDirectSuccess } from './credit-direct-success';
+import { captureLegacyCreditDirectPopup } from './legacy-credit-direct-popup';
 import { notifyLastOrderSnapshotChanged } from './success/client-page-order-snapshot';
 
 const DEFAULT_SHIPPING_FEE = Number.parseFloat(
@@ -385,7 +387,9 @@ async function prepareCheckout(
     sessionStorage.setItem('lastOrder', JSON.stringify(orderData));
     notifyLastOrderSnapshotChanged();
 
-    // Track platform-level purchase (for platform owner's analytics)
+    // Preserve the legacy fanout while the server-side durable producer owns
+    // delivery after cutover. In durable mode this client claim is stored as
+    // observation-only telemetry and cannot create provider deliveries.
     trackPlatformPurchase(
       input.merchantId,
       order.total as number,
@@ -1485,9 +1489,27 @@ function CheckoutPageContent() {
       signature: sign.signature,
       transaction,
       isLive: sign.isLive,
-      onSuccess: () => {
-        clearCart();
-        router.push(`/checkout/success?orderId=${order.id}`);
+      onSuccess: (response) => {
+        if (typeof order.id !== 'string' || !order.id) {
+          console.error('Credit Direct client completion skipped:', {
+            orderId: order.id,
+          });
+          return;
+        }
+
+        handoffLegacyCreditDirectSuccess({
+          orderId: order.id,
+          signedSessionId: sign.sessionId,
+          checkoutTransactionId: response?.checkoutTransactionId,
+          trackingToken:
+            typeof order.tracking_token === 'string'
+              ? order.tracking_token
+              : null,
+          customerEmail: data.email,
+          merchantSlug: merchantSlug || merchant?.slug || '',
+          basePath,
+          navigate: router.push,
+        });
       },
       onClose: () => {
         toast({
@@ -1497,10 +1519,6 @@ function CheckoutPageContent() {
         setFormIsLoading(false);
       },
       onPopup: async (response) => {
-        if (!response?.checkoutTransactionId) {
-          return;
-        }
-
         if (typeof order.id !== 'string' || !order.id) {
           console.error('Credit Direct payment reference update skipped:', {
             orderId: order.id,
@@ -1513,12 +1531,12 @@ function CheckoutPageContent() {
           return;
         }
 
-        // Save transaction ID to order for webhook reconciliation
-        const paymentReferenceError =
-          await updateCreditDirectPaymentReferenceWithRetry({
-            orderId: order.id,
-            paymentRef: response.checkoutTransactionId,
-          });
+        const paymentReferenceError = await captureLegacyCreditDirectPopup({
+          checkoutTransactionId: response?.checkoutTransactionId,
+          orderId: order.id,
+          signedSessionId: sign.sessionId,
+          updatePaymentReference: updateCreditDirectPaymentReferenceWithRetry,
+        });
 
         if (paymentReferenceError) {
           console.error('Credit Direct payment reference update failed:', {

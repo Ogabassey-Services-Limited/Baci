@@ -1,3 +1,4 @@
+import { QUIZ_FREE_ENTRY_MODE } from '@baci/shared/constants';
 import { type NextRequest, NextResponse } from 'next/server';
 import {
   invalidInputResponse,
@@ -177,6 +178,7 @@ export async function GET(request: NextRequest) {
 
   if (!customer) {
     return NextResponse.json({
+      entryMode: QUIZ_FREE_ENTRY_MODE,
       events: [],
       pagination: {
         hasMore: false,
@@ -260,6 +262,7 @@ export async function GET(request: NextRequest) {
   }));
 
   return NextResponse.json({
+    entryMode: QUIZ_FREE_ENTRY_MODE,
     events,
     pagination: {
       hasMore,

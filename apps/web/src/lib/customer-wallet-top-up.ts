@@ -36,6 +36,10 @@ interface ExistingWalletTopUpCredit {
 
 export interface CreditWalletTopUpResult {
   balance: number;
+  // Distinguishes a fresh credit from an idempotent replay so callers can gate
+  // one-time side effects (e.g. push notifications). `false` when a prior credit
+  // already existed in the ledger; `true` when the crediting RPC ran.
+  firstCredit: boolean;
   reference: string;
   transactionId: string;
 }
@@ -135,6 +139,7 @@ async function findExistingWalletTopUpCredit({
 
   return {
     balance: normalizeWalletBalance(data.balance_after),
+    firstCredit: false,
     reference,
     transactionId: data.id,
   };
@@ -258,6 +263,7 @@ export async function creditWalletTopUp({
 
   return {
     balance,
+    firstCredit: true,
     reference,
     transactionId: result.transaction_id,
   };

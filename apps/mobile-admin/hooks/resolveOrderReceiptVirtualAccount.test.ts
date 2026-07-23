@@ -207,6 +207,37 @@ describe('resolveOrderReceiptVirtualAccount', () => {
     });
   });
 
+  it('skips active terminals without account numbers when selecting a receipt fallback', async () => {
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token' } },
+    });
+    mocks.fetch.mockResolvedValueOnce({ ok: false }).mockResolvedValueOnce({
+      json: async () => ({
+        terminals: [
+          { active: true, account_name: 'Placeholder' },
+          {
+            active: true,
+            account_name: 'Paystack Terminal',
+            account_number: '1234567890',
+            bank: 'Test Bank',
+          },
+        ],
+      }),
+      ok: true,
+    });
+
+    const account = await resolveOrderReceiptVirtualAccount({
+      merchant: null,
+      order: makeOrder(),
+    });
+
+    expect(account).toEqual({
+      account_name: 'Paystack Terminal',
+      account_number: '1234567890',
+      bank_name: 'Test Bank',
+    });
+  });
+
   it('ignores malformed API payloads and falls back to the merchant account', async () => {
     mocks.getSession.mockResolvedValue({
       data: { session: { access_token: 'token' } },

@@ -13,6 +13,7 @@ import type {
   ReturnMethodEnumeration,
   WithContext,
 } from 'schema-dts';
+import { filterBrandMatchedSocialProfiles } from '@/lib/brand-matched-social-profiles';
 import type { JsonLdStructuredData } from '@/lib/json-ld-types';
 import {
   type CheckoutPaymentMerchant,
@@ -541,7 +542,7 @@ function buildSameAsUrls(
   for (const url of Object.values(trustProfile?.socialLinks ?? {})) {
     const normalized = url.trim();
     if (normalized) {
-      sameAs.add(escapeHtml(normalized));
+      sameAs.add(normalized);
     }
   }
 
@@ -557,12 +558,14 @@ function buildSameAsUrls(
     for (const [platform, handle] of socialMediaEntries) {
       const normalized = normalizeSocialUrl(handle, platform);
       if (normalized) {
-        sameAs.add(escapeHtml(normalized));
+        sameAs.add(normalized);
       }
     }
   }
 
-  return [...sameAs];
+  return filterBrandMatchedSocialProfiles(data.name, sameAs).map((url) =>
+    escapeHtml(url)
+  );
 }
 
 function buildContactPoint(
@@ -1591,9 +1594,13 @@ export function generateLocalBusinessSchema(
   }
 
   if (business.socialMedia) {
-    schema.sameAs = Object.values(business.socialMedia)
-      .filter(Boolean)
-      .map((url) => escapeHtml(url));
+    const sameAs = filterBrandMatchedSocialProfiles(
+      business.name,
+      Object.values(business.socialMedia).filter(Boolean)
+    ).map((url) => escapeHtml(url));
+    if (sameAs.length > 0) {
+      schema.sameAs = sameAs;
+    }
   }
 
   // Add AggregateRating if provided

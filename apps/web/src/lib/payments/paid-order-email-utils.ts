@@ -95,9 +95,6 @@ export function resolveMerchantUrl({
   merchantDetails: MerchantDetails;
   rootDomain: string;
 }): string {
-  const websiteUrl = normalizeHttpsUrl(merchantDetails.website_url);
-  if (websiteUrl) return websiteUrl;
-
   const rootHost = normalizeRootDomain(rootDomain);
   const merchantSlug = normalizeMerchantSlug(merchantDetails.slug);
   const fallbackUrl = merchantSlug

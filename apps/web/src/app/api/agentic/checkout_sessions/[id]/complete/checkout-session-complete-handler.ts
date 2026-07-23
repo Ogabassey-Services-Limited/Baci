@@ -1,8 +1,12 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { verifyAgenticRequestAccess } from '@/lib/agentic/agent-request-controls';
+import { resolveAgenticPaystackDvaCompletionGate } from '@/lib/agentic/agentic-paystack-dva-completion-gate';
+import { buildAgenticPaystackDvaIdempotencyReplayResponse } from '@/lib/agentic/agentic-paystack-dva-idempotency-replay-response';
+import { AGENTIC_PAYSTACK_DVA_PAUSED_ERROR } from '@/lib/agentic/agentic-paystack-dva-paused-error';
 import { verifyAgenticApiKey } from '@/lib/agentic/auth';
 import { getCheckoutCompletionAuthorizationSecrets } from '@/lib/agentic/checkout-completion-authorization-response';
 import { finalizeAgenticCheckoutPayment } from '@/lib/agentic/checkout-completion-finalize';
+import { CHECKOUT_COMPLETION_IDEMPOTENCY_ROUTE } from '@/lib/agentic/checkout-completion-idempotency-route';
 import {
   getAgenticPaymentState,
   resolveExistingPaymentState,
@@ -28,16 +32,11 @@ import { sanitizeForLog } from '@/lib/sanitize-core';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { agenticCheckoutCompleteSchema } from '@/schemas/agentic-checkout';
 import { agenticCheckoutSessionRouteParamsSchema } from '@/schemas/agentic-checkout-session-route-params';
-
-const COMPLETE_IDEMPOTENCY_ROUTE = 'checkout_sessions.complete';
-type SessionRouteProps = { params: Promise<{ id: string }> };
-type CheckoutSessionCompleteRouteOptions = {
-  requestBodyAdapter?: (body: unknown) => unknown;
-};
+import type { CheckoutSessionCompleteRouteOptions } from './checkout-session-complete-handler-types';
 
 export async function handleAgenticCheckoutSessionComplete(
   request: NextRequest,
-  props: SessionRouteProps,
+  props: { params: Promise<{ id: string }> },
   options: CheckoutSessionCompleteRouteOptions = {}
 ) {
   const params = await props.params;
@@ -110,7 +109,7 @@ export async function handleAgenticCheckoutSessionComplete(
       merchantId: merchant.id,
       method: mutation.method,
       pathname: mutation.pathname,
-      route: COMPLETE_IDEMPOTENCY_ROUTE,
+      route: CHECKOUT_COMPLETION_IDEMPOTENCY_ROUTE,
       supabase,
     });
     if (!idempotency.ok) {
@@ -120,12 +119,14 @@ export async function handleAgenticCheckoutSessionComplete(
       );
     }
     if (idempotency.state === 'replay') {
-      return NextResponse.json(idempotency.response, {
-        status: idempotency.status,
-        headers: {
-          'idempotency-key': mutation.idempotencyKey,
-          'request-id': mutation.requestId,
-        },
+      return await buildAgenticPaystackDvaIdempotencyReplayResponse({
+        idempotencyKey: mutation.idempotencyKey,
+        merchantId: merchant.id,
+        paymentProvider: payment_data.provider,
+        replay: idempotency,
+        requestId: mutation.requestId,
+        sessionId,
+        supabase,
       });
     }
     respondWithIdempotency = async (response: unknown, status: number) =>
@@ -134,7 +135,7 @@ export async function handleAgenticCheckoutSessionComplete(
         merchantId: merchant.id,
         requestId: mutation.requestId,
         response,
-        route: COMPLETE_IDEMPOTENCY_ROUTE,
+        route: CHECKOUT_COMPLETION_IDEMPOTENCY_ROUTE,
         status,
         supabase,
       });
@@ -142,7 +143,7 @@ export async function handleAgenticCheckoutSessionComplete(
       logger.warn({
         message: AGENTIC_CHECKOUT_DISABLED_ERROR,
         merchantId: merchant.id,
-        route: COMPLETE_IDEMPOTENCY_ROUTE,
+        route: CHECKOUT_COMPLETION_IDEMPOTENCY_ROUTE,
         sessionId,
       });
       return await respondWithIdempotency(
@@ -156,7 +157,7 @@ export async function handleAgenticCheckoutSessionComplete(
       idempotencyKey: mutation.idempotencyKey,
       merchantId: merchant.id,
       requestId: mutation.requestId,
-      route: COMPLETE_IDEMPOTENCY_ROUTE,
+      route: CHECKOUT_COMPLETION_IDEMPOTENCY_ROUTE,
       supabase,
     });
     if (!replayReservation.ok) {
@@ -165,15 +166,8 @@ export async function handleAgenticCheckoutSessionComplete(
         getAgenticReplayErrorStatus(replayReservation.error)
       );
     }
-    const storeResponse = respondWithIdempotency;
-    if (!storeResponse) {
-      return NextResponse.json(
-        { error: 'Internal Server Error' },
-        { status: 500 }
-      );
-    }
-    const respond = async (response: unknown, status: number) =>
-      storeResponse(response, status);
+    if (!respondWithIdempotency) throw new Error('Missing response store');
+    const respond = respondWithIdempotency;
 
     const { data: session, error } = await getAgenticCheckoutSession({
       merchantId: merchant.id,
@@ -194,6 +188,13 @@ export async function handleAgenticCheckoutSessionComplete(
       return await respond({ error: 'Session already completed' }, 409);
 
     const paymentState = getAgenticPaymentState(session.metadata);
+    const pauseGate = resolveAgenticPaystackDvaCompletionGate({
+      paymentProvider: payment_data.provider,
+    });
+    if (pauseGate === 'reject_paused') {
+      return await respond(AGENTIC_PAYSTACK_DVA_PAUSED_ERROR, 409);
+    }
+
     const existingPaymentState =
       paymentState === 'claiming_payment' ||
       paymentState === 'payment_account_ready' ||
@@ -236,7 +237,7 @@ export async function handleAgenticCheckoutSessionComplete(
         orderSession: session,
         orderSessionCalc: completionState.sessionCalc,
         requestId: mutation.requestId,
-        route: COMPLETE_IDEMPOTENCY_ROUTE,
+        route: CHECKOUT_COMPLETION_IDEMPOTENCY_ROUTE,
         sessionId,
         supabase,
       });
@@ -269,7 +270,7 @@ export async function handleAgenticCheckoutSessionComplete(
       orderSession: preparedPayment.payment.session,
       orderSessionCalc: preparedPayment.payment.sessionCalc,
       requestId: mutation.requestId,
-      route: COMPLETE_IDEMPOTENCY_ROUTE,
+      route: CHECKOUT_COMPLETION_IDEMPOTENCY_ROUTE,
       sessionId,
       supabase,
     });

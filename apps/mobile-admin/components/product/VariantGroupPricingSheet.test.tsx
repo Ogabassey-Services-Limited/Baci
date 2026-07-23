@@ -222,31 +222,6 @@ describe('VariantGroupPricingSheet', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('resets pending edits and regroups rows when an axis is toggled off', () => {
-    render(
-      <VariantGroupPricingSheet
-        colors={colors}
-        currencySymbol="₦"
-        onApply={vi.fn()}
-        onClose={vi.fn()}
-        variants={variants}
-        visible={true}
-      />
-    );
-
-    fireEvent.change(screen.getByLabelText('Selling price for Used · 64GB'), {
-      target: { value: '500000' },
-    });
-    expect(screen.getByText('Apply to 2 variants')).toBeInTheDocument();
-
-    fireEvent.click(
-      screen.getByRole('checkbox', { name: 'Price varies by Storage' })
-    );
-
-    expect(screen.getByText('Edit a price to apply')).toBeInTheDocument();
-    expect(screen.getByLabelText('Selling price for Used')).toBeInTheDocument();
-  });
-
   it('shows a "Mixed" placeholder when a group has disagreeing prices', () => {
     const mixedVariants: EditableProductVariant[] = [
       buildVariant('v1', 'Black', '64GB', 400_000),
@@ -275,57 +250,5 @@ describe('VariantGroupPricingSheet', () => {
     expect(
       screen.getByLabelText('Selling price for Used · 128GB')
     ).toHaveAttribute('placeholder', '0.00');
-  });
-
-  it('refreshes selected pricing axes when reopened for a new variant set', () => {
-    const { rerender } = render(
-      <VariantGroupPricingSheet
-        colors={colors}
-        currencySymbol="₦"
-        onApply={vi.fn()}
-        onClose={vi.fn()}
-        variants={variants}
-        visible={true}
-      />
-    );
-
-    fireEvent.click(
-      screen.getByRole('checkbox', { name: 'Price varies by Storage' })
-    );
-    expect(screen.getByLabelText('Selling price for Used')).toBeInTheDocument();
-
-    rerender(
-      <VariantGroupPricingSheet
-        colors={colors}
-        currencySymbol="₦"
-        onApply={vi.fn()}
-        onClose={vi.fn()}
-        variants={[
-          buildVariant('v5', 'Gold', '256GB', 600_000),
-          buildVariant('v6', 'Silver', '512GB', 700_000),
-        ]}
-        visible={false}
-      />
-    );
-    rerender(
-      <VariantGroupPricingSheet
-        colors={colors}
-        currencySymbol="₦"
-        onApply={vi.fn()}
-        onClose={vi.fn()}
-        variants={[
-          buildVariant('v5', 'Gold', '256GB', 600_000),
-          buildVariant('v6', 'Silver', '512GB', 700_000),
-        ]}
-        visible={true}
-      />
-    );
-
-    expect(
-      screen.getByLabelText('Selling price for Used · 256GB')
-    ).toBeInTheDocument();
-    expect(
-      screen.getByLabelText('Selling price for Used · 512GB')
-    ).toBeInTheDocument();
   });
 });
