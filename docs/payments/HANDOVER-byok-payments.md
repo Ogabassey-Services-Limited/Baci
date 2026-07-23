@@ -41,6 +41,20 @@ This was not clear when the lane was built. It should drive the merge/launch dec
 
 **Recommendation carried forward:** if the objective is *African* merchants, **Lane 0 (Korapay) is the higher-value next thread** — it already reaches KE/GH/ZA/CFA on working rails and keeps the 2%. PayPal reaches nobody in NG and earns £0/transaction (BYOK fee-waived). PayPal is worth finishing to *safe/merged-behind-gate*, then parking until it has an audience.
 
+### 2a. Korapay Lane 0 status — the CODE is essentially DONE (scoped 2026-07-14)
+
+The old handover said "KES/GHS/ZAR coerce to NGN — needs the multi-country branch to land first." **That branch (#2993) has landed.** Verified on this branch:
+- `SUPPORTED_CURRENCIES` (`lib/korapay.ts`) = `NGN, KES, GHS, ZAR, XAF, XOF`.
+- `resolve-charge-currency.ts` charges in the **order's** currency (server-authoritative), routes multi-currency to Korapay, and **rejects** an unsupported currency with `UNSUPPORTED_CURRENCY` instead of coercing to NGN. Korapay is the only multi-currency rail; Paystack/BNPL/juicyway are `NGN_ONLY`.
+- `isKorapayCheckoutAvailable(merchant, country, currency)` offers Korapay when country+currency match Korapay settlement support (`getKorapaySettlementCurrency` / `KORAPAY_SUPPORTED_COUNTRY_CURRENCIES`).
+- The Korapay platform fee is now currency-correct (#39 fix, `0d6347fbc4`) — was capping non-NGN at a bare `2050`.
+
+**So "run Korapay for those African countries" is NOT primarily a coding task — it is an operational / business go-live:**
+1. **Live payout-corridor tests (THE gate, external):** Korapay non-NGN payouts (KES/GHS/ZAR) have never been exercised in prod. Small real disbursements per corridor before enabling each market — the "sitting on a merchant's money" risk. Owner-run.
+2. **A Korapay account that actually supports those corridors** (`KORAPAY_SECRET_KEY`) — confirm with Korapay which of KE/GH/ZA/CFA are live on the account.
+3. **Merchant enablement** — a KE/GH/ZA merchant needs `korapay_enabled=true` and their `country` set correctly (data/config, not code).
+4. **Worth a code re-check before go-live (not blockers):** the payments **webhook** currency-mismatch guard on a non-NGN Korapay charge; and that the Korapay **refund** path (now the queued cancellation executor, which automates Paystack — does it automate Korapay, or file for review?) behaves for non-NGN. These are verification tasks, ~an hour.
+
 ---
 
 ## 3. The review saga + what got fixed (chronological, so you can trust the state)
@@ -70,32 +84,32 @@ The PayPal money path went through an unusually long review loop. This matters b
 
 - `apps/web/src/lib/payments/paypal-reconciliation-sweep.ts` + `apps/web/src/app/api/cron/paypal-reconciliation/route.ts` + `vercel.json` cron (every 10 min).
 - **Purpose:** the missing safety net. Re-runs pending PayPal captures through the funnel under `reconcile_only` intent (so it **cannot charge**), healing rows whose local write failed after PayPal took the money.
-- **It is autonomous, service-role, money-touching code that runs every 10 minutes.** The 2026-07-14 review flagged it heavily (§5) — its queue can starve. Do not consider it trustworthy until §5.1 is resolved.
+- **It is autonomous, service-role, money-touching code that runs every 10 minutes.** The 2026-07-14 review flagged it heavily; both concerns (refund_pending re-poll, queue starvation) were **resolved in `f160108c09`** — see §5.1. It now runs two sweeps (stranded captures + pending refunds), both `reconcile_only`, both cursor-rotated. Remaining polish is minor (§5.1 residual).
 
 ---
 
-## 5. ⚠️ OPEN review findings (2026-07-14) — TRIAGE BEFORE MERGE
+## 5. Review findings (2026-07-14) — ✅ TRIAGED against current HEAD (2026-07-14, post-merge `0f2bbaf037`)
 
-Source: adversarial review of `d508dc50fb..9ea5c3a163` (workflow `wf_81389bc6-837`). **Honesty caveat:** the refutation/verification stage **largely failed on a weekly usage limit**, so most of these are *plausible, not confirmed*. **HEAD has since moved to `f160108c09`** (commits `82d9e0d868`, `ef9837444a`, `f160108c09` = "close … review gaps") — so **some may already be addressed. Re-check each against current HEAD.** Two clusters are evident from the code regardless and are almost certainly still real.
+Source: adversarial review of `d508dc50fb..9ea5c3a163` (workflow `wf_81389bc6-837`; verification stage hit a usage limit, so findings were *plausible, not confirmed*). **They have now been triaged against current code. Result: ZERO live merge-blockers remain.** Detail below so nobody re-opens a closed finding.
 
-### 5.1 HIGH-CONFIDENCE (evident from the code, likely still live)
+### 5.1 Two high-confidence findings — ALREADY FIXED by `f160108c09`
 
-**A. `refund_pending` is a write-only black hole (P0/P1).** The migration adds `refund_pending` + a partial index, and `mark-paypal-transaction-refunded.ts` writes it — but **nothing re-polls it.** An accepted-but-later-FAILED PayPal refund (common in BYOK: draws on the merchant's own balance) strands the order and the buyer's money forever, and the review row says no action needed. *Fix:* add a `refund_pending` re-poll pass to the sweeper (index is already there) — `GET /v2/payments/refunds/{id}` via merchant creds → COMPLETED ⇒ `refunded`; FAILED/CANCELLED ⇒ restore to settleable + file `needsManualRefund`. Requires persisting the refund id on the transaction (currently only in review metadata).
+**A. `refund_pending` re-poll — ✅ FIXED.** `paypal-reconciliation-sweep.ts` now has `sweepPendingPaypalRefunds()` (lines ~187-299): it selects `status='refund_pending'` rows, reads each refund id from `metadata.paypal_pending_refund_ids`, calls `getRefund()` via the merchant's live credentials, and terminalizes — COMPLETED ⇒ `refunded`; CANCELLED/FAILED ⇒ counted failed (row rotated for retry/manual review); PENDING ⇒ left. It also restores prepaid tender. The cron (`/api/cron/paypal-reconciliation`) calls both sweeps. **Not a black hole anymore.**
 
-**B. The sweeper starves itself (P1, flagged by 3 independent reviewers).** Oldest-first + `LIMIT 50`, and never-captured / abandoned `pending` rows are **never retired**, so they monopolize the cap forever and genuinely-stranded captures never get swept — the safety net silently stops working. *Fix:* give not-captured-past-grace rows a terminal state (e.g. `status='cancelled'` when the PayPal order is VOIDED/EXPIRED or the order is already cancelled) so they leave the candidate set; and/or add an attempt counter / `last_swept_at` + bound the scan window; alert when `truncated===true` instead of returning it in a 200 body nothing reads.
+**B. Sweeper starvation — ✅ ADDRESSED.** The stranded-capture sweep now touches `updated_at` on every checked/abandoned row and orders by `updated_at ASC` with `.lt('updated_at', strandedBefore)` — so a checked-but-still-abandoned oldest page rotates to the back and cannot starve newer captures (explicit comment at `paypal-reconciliation-sweep.ts:71-72`). *Residual (minor, cost not money):* a genuinely never-captured row is rotated forever rather than terminalized, so every abandoned PayPal checkout is re-polled against PayPal's API indefinitely — optional follow-up: terminalize `PAYPAL_NOT_CAPTURED` rows to `cancelled` after a longer grace (e.g. 24h). Also `truncated` is returned but not alerted — wire it to an alert channel eventually.
 
-### 5.2 NEEDS VERIFICATION AGAINST DB/CODE (plausible, unconfirmed)
+### 5.2 Two findings moved to DEAD CODE by the main merge (`0f2bbaf037`)
 
-**C. `completed → refunded` never debits `merchant_balances` (P1).** The balance trigger fires only on transitions *into* `completed`, so refunded money may stay withdrawable via payouts. *BUT* — reviewer's own caveat — BYOK PayPal settles into the merchant's OWN PayPal account, so it's unclear PayPal payment rows should touch platform `merchant_balances` at all. **This needs a human decision, not just a patch.** Verify the actual trigger `update_merchant_balance()` behaviour first.
+**D & E — now off the live path.** `origin/main` re-architected order cancellation to a **queued side-effect model**: the route calls the `cancel_order_as_merchant` RPC and returns 202; the refund runs in `lib/orders/execute-order-cancellation-side-effect.ts`, which **automates Paystack refunds and files everything non-Paystack (incl. PayPal) for manual review** (safe / fail-closed). This branch's **inline** `processOrderCancellationRefund` (→ `refund-paypal-order.ts`, the subject of findings D `.pending` and E partial-refund-conservation) is **no longer called by the route** — it is orphaned. So D/E are not live-path bugs. **Follow-up (enhancement, not a fix):** to *automate* PayPal cancellation refunds, wire the PayPal branch into `execute-order-cancellation-side-effect.ts` where it currently files manual review — and address D/E *there* (in the executor), not in the orphaned inline function. Until then, PayPal cancellation refunds are handled by a human via the review queue, which is correct while PayPal is pre-launch.
 
-**D. `refundPaypalOrder` (customer-facing cancellation path) reads `.success` but not `.pending` (P1).** A PENDING refund is reported as a hard failure → wrong amount in the customer email, no audit row, invites a second refund (pay the buyer twice). It's also the one refund path that never calls `markPaypalTransactionRefunded`. *Fix:* thread `pending` through `PaypalRefundSplitResult` → the cancellation route; book the audit row in a non-completed state.
+### 5.3 One real finding, NOT live, needs a DECISION — carry to launch gate
 
-**E. Money-conservation on partial refunds (P1).** Refunded amount is gated on all-or-nothing success, so genuinely-refunded captures in a partial can book ZERO in the ledger. *Fix:* attribute per-capture from PayPal's returned `amount`, one audit row per COMPLETED refund, keyed by refundId.
+**C. `merchant_balances` is not debited on refund — REAL, but gated + a design question.** Verified against prod: `update_merchant_balance()` fires only on `NEW.status='completed' AND OLD.status!='completed'` — there is **no `completed→refunded` reversal branch**, so a refunded payment leaves `available_balance`/`total_earned` inflated (withdrawable via payout). **Not live** — PayPal is gated closed, so no PayPal row hits this trigger today. **The real question is a design decision for the owner:** BYOK PayPal settles into the merchant's OWN PayPal account (money never reaches Baci), so should a PayPal payment credit Baci's platform `merchant_balances` *at all*? If NO (likely correct): exclude `gateway='paypal'` from the trigger credit entirely — then there's nothing to reverse. If YES: add the refund-reversal branch. **Resolve before PayPal goes live; irrelevant until then.** (Note: this also applies to a live Paystack/Korapay refund on the platform rails — worth confirming that path handles reversal, but that is existing behaviour, not introduced by this PR.)
 
-### 5.3 P2 / follow-ups
+### 5.4 Minor P2 follow-ups (not blockers; address if/when the PayPal executor branch is built)
+- Partial-refund money-conservation (was finding E) — orphaned with D in the inline path; address in the executor if PayPal cancellation refunds get automated.
 - Five of six review-filing sites discard `refundCapturedPaypalOrder`'s `pending` flag.
-- `canUsePaypalForLaunch` derives store currency from `country`, not the authoritative resolver (edge case; both fail closed).
-- New `.neq('payment_status','partially_paid')` CAS guard has no matching refund branch (captured payment declined, not refunded, filed under a misleading reason).
+- New `.neq('payment_status','partially_paid')` reconcile CAS guard has no matching refund branch (captured payment declined, not refunded, filed under a misleading reason) — same shape as the cancelled/bnpl terminal-refund branches; add one.
 
 ---
 
