@@ -68,17 +68,21 @@ GRANT INSERT, UPDATE, DELETE ON TABLE public.merchants TO authenticated;
 -- (c) Tighten the row policy from USING (true) to: own row OR published OR a
 --     merchant this user actively staffs. Closes draft-store PII enumeration by
 --     arbitrary signed-in users. IS TRUE so a NULL is_published row is excluded.
+--
+--     RECURSION INCIDENT (2026-07-23, second prod fix): the first tightened
+--     policy inlined an EXISTS over public.staff_members, but staff_members'
+--     own SELECT policy subqueries merchants -- merchants -> staff_members ->
+--     merchants recursed, and EVERY authenticated SELECT of merchants (and of
+--     staff_members) failed with 42P17. The owner/staff branch must therefore
+--     go through public.has_merchant_access(id) (SECURITY DEFINER: owner OR
+--     active staff), which bypasses RLS inside the function and breaks the
+--     cycle. This is the form applied to prod; do not reintroduce the inline
+--     EXISTS.
 ALTER POLICY "Authenticated can view merchants"
   ON public.merchants
   USING (
-    user_id = (SELECT auth.uid())
-    OR is_published IS TRUE
-    OR EXISTS (
-      SELECT 1 FROM public.staff_members s
-      WHERE s.user_id = (SELECT auth.uid())
-        AND s.merchant_id = merchants.id
-        AND s.status = 'active'
-    )
+    is_published IS TRUE
+    OR public.has_merchant_access(id)
   );
 
 -- (d) Grant back the same non-secret columns anon has (77). user_id is required
