@@ -1,8 +1,8 @@
 'use server';
 
-import { generateText } from 'ai';
 import { cookies } from 'next/headers';
-import { activeTextModel, sanitizePromptInput, withRetry } from '@/ai/provider';
+import { generateTextWithChain } from '@/ai/generate-text-with-chain';
+import { sanitizePromptInput } from '@/ai/provider';
 import { logger } from '@/lib/logger';
 import {
   ensurePermission,
@@ -92,13 +92,9 @@ ${businessType ? `Business Type: ${businessType}` : ''}
 
 Write a product description that is engaging, informative, and persuasive. Follow the style guidance to ensure the description matches the business type and target audience. Return only the description text, with no extra formatting or labels.`;
 
-    // Use retry wrapper for resilience
-    const { text } = await withRetry(async () => {
-      return await generateText({
-        model: activeTextModel,
-        prompt,
-      });
-    });
+    // The provider chain (Cerebras → Groq → Gemini → Gemini-Lite) is the
+    // retry: each provider gets exactly one attempt before falling through.
+    const { text } = await generateTextWithChain({ prompt });
 
     if (!text) {
       throw new Error('AI failed to generate a description.');

@@ -100,4 +100,120 @@ describe('chat tool runtime', () => {
       customerEmail: 'buyer@example.com',
     });
   });
+
+  describe('bugfix: concurrent duplicate side-effecting tool calls', () => {
+    it('runs createVirtualAccount only once when duplicate parallel calls arrive in one AI-SDK step', async () => {
+      // The AI SDK runs a step's tool calls concurrently; without dedupe each
+      // duplicate would insert its own chat_orders row.
+      const tools = createAiSdkAgenticChatTools('session-1');
+      const params = {
+        amount: 150000,
+        customerEmail: 'buyer@example.com',
+        customerName: 'Buyer',
+        items: [
+          { productId: 'p1', name: 'iPhone 11', price: 150000, quantity: 1 },
+        ],
+      };
+
+      const [first, second] = await Promise.all([
+        tools.createVirtualAccount.execute({ ...params }),
+        tools.createVirtualAccount.execute({ ...params }),
+      ]);
+
+      expect(mocks.handleCreateVirtualAccount).toHaveBeenCalledTimes(1);
+      expect(first).toBe(second);
+    });
+
+    it('cancels an order only once for duplicate parallel cancels of the same order', async () => {
+      const tools = createAiSdkAgenticChatTools('session-1');
+      const params = {
+        orderNumber: '#00001234',
+        customerEmail: 'buyer@example.com',
+      };
+
+      await Promise.all([
+        tools.cancelOrder.execute({ ...params }),
+        tools.cancelOrder.execute({ ...params }),
+      ]);
+
+      expect(mocks.handleCancelOrder).toHaveBeenCalledTimes(1);
+    });
+
+    it('still cancels each DISTINCT order when different cancels arrive in one turn', async () => {
+      const tools = createAiSdkAgenticChatTools('session-1');
+
+      await Promise.all([
+        tools.cancelOrder.execute({
+          orderNumber: '#0001',
+          customerEmail: 'buyer@example.com',
+        }),
+        tools.cancelOrder.execute({
+          orderNumber: '#0002',
+          customerEmail: 'buyer@example.com',
+        }),
+      ]);
+
+      expect(mocks.handleCancelOrder).toHaveBeenCalledTimes(2);
+    });
+
+    it('scopes dedupe per request — a fresh tools instance runs the side effect again', async () => {
+      const params = {
+        orderNumber: '#00001234',
+        customerEmail: 'buyer@example.com',
+      };
+
+      await createAiSdkAgenticChatTools('session-1').cancelOrder.execute({
+        ...params,
+      });
+      await createAiSdkAgenticChatTools('session-1').cancelOrder.execute({
+        ...params,
+      });
+
+      expect(mocks.handleCancelOrder).toHaveBeenCalledTimes(2);
+    });
+
+    it('re-runs a sequential duplicate on the SAME instance once the first has settled', async () => {
+      // Not concurrent: the first call fully settles (and its in-flight entry
+      // clears) before the second starts — a legitimate re-attempt, not an
+      // overlapping duplicate, so it must run again rather than replay the
+      // cached result.
+      const tools = createAiSdkAgenticChatTools('session-1');
+      const params = {
+        orderNumber: '#00001234',
+        customerEmail: 'buyer@example.com',
+      };
+
+      await tools.cancelOrder.execute({ ...params });
+      await tools.cancelOrder.execute({ ...params });
+
+      expect(mocks.handleCancelOrder).toHaveBeenCalledTimes(2);
+    });
+
+    it('allows a retry after a side effect rejects instead of replaying the failure', async () => {
+      mocks.handleCancelOrder
+        .mockRejectedValueOnce(new Error('transient failure'))
+        .mockResolvedValueOnce({
+          success: true,
+          status: 'cancelled',
+          orderId: 'order-1',
+        });
+      const tools = createAiSdkAgenticChatTools('session-1');
+      const params = {
+        orderNumber: '#00001234',
+        customerEmail: 'buyer@example.com',
+      };
+
+      await expect(tools.cancelOrder.execute({ ...params })).rejects.toThrow(
+        'transient failure'
+      );
+
+      const retry = await tools.cancelOrder.execute({ ...params });
+      expect(JSON.parse(retry)).toEqual({
+        success: true,
+        status: 'cancelled',
+        orderId: 'order-1',
+      });
+      expect(mocks.handleCancelOrder).toHaveBeenCalledTimes(2);
+    });
+  });
 });

@@ -1,5 +1,5 @@
 import { generateObject } from 'ai';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   deriveThemeFromColors,
   generateFeatures,
@@ -11,8 +11,14 @@ vi.mock('ai', () => ({
   generateObject: vi.fn(),
 }));
 
+// generateObjectWithChain (the real executor) constructs its default chain
+// via @/ai/provider — extend rather than replace this mock so construction
+// keeps working.
 vi.mock('@/ai/provider', () => ({
+  ACTIVE_TEXT_MODEL_NAME: 'gemini-2.5-flash',
   activeTextModel: 'test-model',
+  FALLBACK_TEXT_MODEL_NAME: 'gemini-2.5-flash-lite',
+  fallbackTextModel: 'test-model-lite',
 }));
 
 const generatedAiContent = {
@@ -48,6 +54,15 @@ describe('initial template fallback content', () => {
     vi.mocked(generateObject).mockResolvedValue(
       generatedAiContent as Awaited<ReturnType<typeof generateObject>>
     );
+    // Force the deterministic Gemini-only chain (no Cerebras/Groq keys) so
+    // provider-count assertions below are stable regardless of ambient env.
+    vi.stubEnv('CEREBRAS_API_KEY', '');
+    vi.stubEnv('GROQ_API_KEY', '');
+    vi.stubEnv('OPENROUTER_API_KEY', '');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it('uses food-specific hero copy for food-beverage merchants', async () => {
@@ -221,8 +236,36 @@ describe('initial template fallback content', () => {
     expect(productGrid?.props?.title).toBe('Our Products');
   });
 
-  it('falls back to static content when AI content generation fails', async () => {
-    vi.mocked(generateObject).mockRejectedValueOnce(new Error('ai down'));
+  it('uses AI-generated hero copy when the first chain provider fails and the second succeeds', async () => {
+    vi.mocked(generateObject)
+      .mockRejectedValueOnce(new Error('429 rate limited'))
+      .mockResolvedValueOnce(
+        generatedAiContent as Awaited<ReturnType<typeof generateObject>>
+      );
+
+    const config = await generateInitialTemplate({
+      businessName: 'Foodflow',
+      businessType: 'food-beverage',
+      brandColors: {
+        primary: '#14532d',
+        background: '#fff7ed',
+        accent: '#f97316',
+      },
+      merchant: {},
+    });
+
+    const hero = config.content.find((block) => block.type === 'HeroCarousel');
+    expect(hero?.props?.slides?.[0]).toMatchObject({
+      title: 'AI hero 1',
+      subtitle: 'AI subtitle 1',
+    });
+    expect(generateObject).toHaveBeenCalledTimes(2);
+  });
+
+  it('falls back to static content when every chain provider fails', async () => {
+    // Gemini-only chain in tests: both Gemini and Gemini-Lite must fail
+    // before generateAIContent's catch block degrades to static content.
+    vi.mocked(generateObject).mockRejectedValue(new Error('ai down'));
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {
       // Expected in this regression test.
     });
@@ -260,6 +303,7 @@ describe('initial template fallback content', () => {
       'AI Content Generation Failed:',
       expect.any(Error)
     );
+    expect(generateObject).toHaveBeenCalledTimes(2);
     errorSpy.mockRestore();
   });
 });
