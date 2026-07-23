@@ -1,8 +1,6 @@
-import {
-  migration,
-  parseFrozenSources,
-  parseProductionMappings,
-} from './supabase-history-replay-parsers';
+import { parseFrozenSources } from './supabase-history-replay-frozen-sources';
+import { migration } from './supabase-history-replay-migration-path';
+import { parseProductionMappings } from './supabase-history-replay-production-mappings';
 import type { SupabaseHistoryReplayManifest } from './supabase-history-replay-types';
 
 const PIPELINE_SOURCES = `4f31649ba4c9c3d6b5eb4110dbb0d144237502642d61c0606e15a9b1ba39556b 20260712150001_domain_event_pipeline_tables.sql
