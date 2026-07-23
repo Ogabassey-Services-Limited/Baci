@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { generateTextWithChain } from '@/ai/generate-text-with-chain';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { requestGemmaCompletion } from '@/lib/gemma/gemma-completion';
 import {
@@ -12,6 +13,23 @@ import { aggregateWebsitePerformance } from './website-performance-aggregation';
 export const maxDuration = 30;
 
 const MAX_FALLBACK_EVENT_ROWS = 100_000;
+
+// Tight per-provider budget: the route has a 30s total budget and the legacy
+// VPS Gemma fallback below still needs its own 15s window. The overall budget
+// caps the WHOLE walk (per-provider × N providers would otherwise exceed 30s
+// and starve the VPS fallback): 12s chain + 15s VPS = 27s < 30s maxDuration.
+const WEBSITE_PERFORMANCE_CHAIN_PROVIDER_TIMEOUT_MS = 8_000;
+const WEBSITE_PERFORMANCE_CHAIN_BUDGET_MS = 12_000;
+
+// Splits free-text model output into up to 2 short takeaway lines, stripping
+// common bullet markers. Shared by the chain and legacy Gemma branches below.
+function parseFreeTextInsights(text: string): string[] {
+  return text
+    .split('\n')
+    .map((line) => line.trim().replace(/^[-*•]\s*/, ''))
+    .filter(Boolean)
+    .slice(0, 2);
+}
 
 const querySchema = z.object({
   startDate: z.string().datetime().optional(),
@@ -191,73 +209,83 @@ export async function GET(request: NextRequest) {
 
   let aiInsights: { insights: string[] } = { insights: [] };
 
-  let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
+  // Cloud provider chain (Cerebras -> Groq -> Gemini -> Gemini-Lite) runs
+  // FIRST to take load off the VPS; the legacy transport is the last resort.
   try {
-    const controller = new AbortController();
-    timeoutId = setTimeout(() => controller.abort(), 15000);
-
-    const gemmaResponse = await requestGemmaCompletion({
-      ...resolveWebsitePerformanceGemmaConfig(),
-      messages: [{ role: 'user', content: gemmaPrompt }],
-      maxTokens: 300,
-      signal: controller.signal,
-      temperature: 0.2,
+    const chainResult = await generateTextWithChain({
+      prompt: gemmaPrompt,
+      perProviderTimeoutMs: WEBSITE_PERFORMANCE_CHAIN_PROVIDER_TIMEOUT_MS,
+      overallTimeoutMs: WEBSITE_PERFORMANCE_CHAIN_BUDGET_MS,
     });
+    aiInsights = { insights: parseFreeTextInsights(chainResult.text) };
+  } catch (chainError) {
+    console.warn(
+      '[website-performance] cloud provider chain failed; falling back to VPS Gemma:',
+      chainError instanceof Error ? chainError.message : String(chainError)
+    );
 
-    if (
-      !gemmaResponse ||
-      (typeof gemmaResponse === 'object' &&
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    try {
+      const controller = new AbortController();
+      timeoutId = setTimeout(() => controller.abort(), 15000);
+
+      const gemmaResponse = await requestGemmaCompletion({
+        ...resolveWebsitePerformanceGemmaConfig(),
+        messages: [{ role: 'user', content: gemmaPrompt }],
+        maxTokens: 300,
+        signal: controller.signal,
+        temperature: 0.2,
+      });
+
+      if (
+        !gemmaResponse ||
+        (typeof gemmaResponse === 'object' &&
+          'status' in gemmaResponse &&
+          gemmaResponse.status === 'error')
+      ) {
+        throw new Error(
+          gemmaResponse !== null &&
+            typeof gemmaResponse === 'object' &&
+            'error' in gemmaResponse &&
+            typeof gemmaResponse.error === 'string'
+            ? gemmaResponse.error
+            : 'AI Completion failed'
+        );
+      }
+
+      if (
+        gemmaResponse &&
+        typeof gemmaResponse === 'object' &&
         'status' in gemmaResponse &&
-        gemmaResponse.status === 'error')
-    ) {
-      throw new Error(
-        gemmaResponse !== null &&
-          typeof gemmaResponse === 'object' &&
-          'error' in gemmaResponse &&
-          typeof gemmaResponse.error === 'string'
-          ? gemmaResponse.error
-          : 'AI Completion failed'
-      );
-    }
-
-    if (
-      gemmaResponse &&
-      typeof gemmaResponse === 'object' &&
-      'status' in gemmaResponse &&
-      gemmaResponse.status === 'success' &&
-      'data' in gemmaResponse &&
-      gemmaResponse.data &&
-      typeof gemmaResponse.data === 'object' &&
-      'insights' in gemmaResponse.data &&
-      Array.isArray(gemmaResponse.data.insights)
-    ) {
+        gemmaResponse.status === 'success' &&
+        'data' in gemmaResponse &&
+        gemmaResponse.data &&
+        typeof gemmaResponse.data === 'object' &&
+        'insights' in gemmaResponse.data &&
+        Array.isArray(gemmaResponse.data.insights)
+      ) {
+        aiInsights = {
+          insights: gemmaResponse.data.insights.map((s) => String(s)),
+        };
+      } else {
+        const text =
+          typeof gemmaResponse === 'string'
+            ? gemmaResponse
+            : JSON.stringify(gemmaResponse);
+        aiInsights = { insights: parseFreeTextInsights(text) };
+      }
+    } catch (error) {
+      console.error('Gemma completion error:', error);
       aiInsights = {
-        insights: gemmaResponse.data.insights.map((s) => String(s)),
+        insights: [
+          'Website performance data aggregated successfully.',
+          'No significant search or conversion trends detected in this period.',
+        ],
       };
-    } else {
-      const text =
-        typeof gemmaResponse === 'string'
-          ? gemmaResponse
-          : JSON.stringify(gemmaResponse);
-      aiInsights = {
-        insights: text
-          .split('\n')
-          .map((s) => s.trim().replace(/^[-*•]\s*/, ''))
-          .filter(Boolean)
-          .slice(0, 2),
-      };
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
     }
-  } catch (error) {
-    console.error('Gemma completion error:', error);
-    aiInsights = {
-      insights: [
-        'Website performance data aggregated successfully.',
-        'No significant search or conversion trends detected in this period.',
-      ],
-    };
-  } finally {
-    if (timeoutId) clearTimeout(timeoutId);
   }
 
   return NextResponse.json({
