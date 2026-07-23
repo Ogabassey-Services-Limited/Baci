@@ -41,6 +41,10 @@ jest.mock('@/services/analytics', () => ({
 describe('useAppTrackingTransparency', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // clearAllMocks does not drain queued mockResolvedValueOnce values —
+    // reset the async mocks so no Once from a prior test can leak in.
+    mockGetTrackingPermissionStatus.mockReset();
+    mockRequestTrackingPermission.mockReset();
     mockAppState = 'active';
     mockAppStateListener = null;
     mockCanRequestTrackingTransparency.mockReturnValue(true);
@@ -231,6 +235,151 @@ describe('useAppTrackingTransparency', () => {
     await act(async () => {
       resolveFirstStatus?.({ status: 'undetermined' });
       await Promise.resolve();
+    });
+    expect(mockRequestTrackingPermission).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('bugfix: iOS silently discards ATT requests made during the launch transition (2.1.512 App Store rejection)', () => {
+  const flushAttFlow = async () => {
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+      await jest.advanceTimersByTimeAsync(0);
+    });
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.useFakeTimers();
+    // clearAllMocks does not drain queued mockResolvedValueOnce values —
+    // reset the async mocks so no Once from a prior test can leak in.
+    mockGetTrackingPermissionStatus.mockReset();
+    mockRequestTrackingPermission.mockReset();
+    mockAppState = 'active';
+    mockAppStateListener = null;
+    mockCanRequestTrackingTransparency.mockReturnValue(true);
+    mockGetTrackingPermissionStatus.mockResolvedValue({
+      status: 'undetermined',
+    });
+    mockRequestTrackingPermission.mockResolvedValue('granted');
+    Object.defineProperty(AppState, 'currentState', {
+      configurable: true,
+      get: () => mockAppState,
+    });
+    jest
+      .spyOn(AppState, 'addEventListener')
+      .mockImplementation((_type, listener) => {
+        mockAppStateListener = listener;
+        return { remove: mockRemoveAppStateListener };
+      });
+  });
+
+  afterEach(() => {
+    jest.clearAllTimers();
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  it('retries the native request when iOS denies without recording a decision', async () => {
+    // The rejection signature: request resolves 'denied' but the status
+    // re-check still reads 'undetermined' — the dialog never displayed.
+    mockRequestTrackingPermission
+      .mockResolvedValueOnce('denied')
+      .mockResolvedValueOnce('granted');
+
+    const { result } = renderHook(() =>
+      useAppTrackingTransparency({ enabled: true })
+    );
+    await flushAttFlow();
+
+    expect(mockRequestTrackingPermission).toHaveBeenCalledTimes(1);
+    expect(result.current.isTrackingAuthorizationSettled).toBe(false);
+    expect(mockTrackEvent).toHaveBeenCalledWith('ATT Request Unrecorded', {
+      attempt: '1',
+    });
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(800);
+    });
+
+    expect(mockRequestTrackingPermission).toHaveBeenCalledTimes(2);
+    expect(result.current.isTrackingAuthorizationSettled).toBe(true);
+    expect(mockTrackEvent).toHaveBeenCalledWith('ATT Request Result', {
+      status: 'granted',
+    });
+  });
+
+  it('settles with the silent denial after exhausting the bounded retries', async () => {
+    mockRequestTrackingPermission.mockResolvedValue('denied');
+
+    const { result } = renderHook(() =>
+      useAppTrackingTransparency({ enabled: true })
+    );
+    await flushAttFlow();
+
+    expect(mockRequestTrackingPermission).toHaveBeenCalledTimes(1);
+
+    for (const delay of [800, 1600, 2400]) {
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(delay);
+      });
+    }
+
+    expect(mockRequestTrackingPermission).toHaveBeenCalledTimes(4);
+    expect(result.current.isTrackingAuthorizationSettled).toBe(true);
+    expect(mockTrackEvent).toHaveBeenCalledWith('ATT Request Unrecorded', {
+      attempt: '3',
+    });
+    expect(mockTrackEvent).toHaveBeenCalledWith('ATT Request Result', {
+      status: 'denied',
+      recorded: 'false',
+    });
+
+    // No fifth request may remain scheduled once the retries are exhausted.
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(10_000);
+    });
+    expect(mockRequestTrackingPermission).toHaveBeenCalledTimes(4);
+  });
+
+  it('does not retry when the denial was genuinely recorded by iOS', async () => {
+    mockGetTrackingPermissionStatus
+      .mockResolvedValueOnce({ status: 'undetermined' })
+      .mockResolvedValueOnce({ status: 'denied' });
+    mockRequestTrackingPermission.mockResolvedValue('denied');
+
+    const { result } = renderHook(() =>
+      useAppTrackingTransparency({ enabled: true })
+    );
+    await flushAttFlow();
+
+    expect(result.current.isTrackingAuthorizationSettled).toBe(true);
+    expect(mockRequestTrackingPermission).toHaveBeenCalledTimes(1);
+    expect(mockTrackEvent).toHaveBeenCalledWith('ATT Request Result', {
+      status: 'denied',
+      recorded: 'true',
+    });
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      'ATT Request Unrecorded',
+      expect.anything()
+    );
+  });
+
+  it('clears a pending unrecorded-denial retry when the root unmounts', async () => {
+    mockRequestTrackingPermission.mockResolvedValue('denied');
+
+    const { unmount } = renderHook(() =>
+      useAppTrackingTransparency({ enabled: true })
+    );
+    await flushAttFlow();
+
+    expect(mockTrackEvent).toHaveBeenCalledWith('ATT Request Unrecorded', {
+      attempt: '1',
+    });
+    unmount();
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(10_000);
     });
     expect(mockRequestTrackingPermission).toHaveBeenCalledTimes(1);
   });
