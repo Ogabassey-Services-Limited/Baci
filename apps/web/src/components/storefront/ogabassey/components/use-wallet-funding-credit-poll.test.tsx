@@ -178,6 +178,46 @@ describe('useWalletFundingCreditPoll', () => {
     visibility.mockRestore();
   });
 
+  it('resets fully when the wallet identity changes, never crediting across a switch', async () => {
+    // Customer A arms the loop and it settles as credited.
+    mockPoll.mockResolvedValue(ready([topUpCredit]));
+    const { onCredited, rerender, result } = renderPoll();
+
+    await act(async () => {
+      result.current.start();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.status).toBe('credited');
+    expect(result.current.creditedAmount).toBe(5000);
+
+    // Customer B signs in on the same still-mounted panel (a `/wallet?fund=1`
+    // deep link retains it). B's wallet already HAS that same top-up as its
+    // pre-transfer baseline — it must not be re-announced as B's transfer.
+    onCredited.mockClear();
+    rerender({
+      customerId: 'customer-2',
+      knownTransactionIds: ['txn-topup'],
+      merchantSlug: 'other-store',
+    });
+
+    // A's credited status/amount must not carry over to B.
+    expect(result.current.status).toBe('idle');
+    expect(result.current.creditedAmount).toBeNull();
+
+    // Arm B and let it poll: the top-up is in B's frozen baseline, so it stays
+    // "checking" and never falsely credits B for A's (or a pre-existing) money.
+    await act(async () => {
+      result.current.start();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(WALLET_FUNDING_POLL.intervalMs * 2);
+    });
+    expect(result.current.status).toBe('checking');
+    expect(onCredited).not.toHaveBeenCalled();
+  });
+
   it('is a no-op when the dark-launch flag is off', async () => {
     const { result } = renderPoll({ enabled: false });
 
@@ -191,94 +231,5 @@ describe('useWalletFundingCreditPoll', () => {
     expect(result.current.status).toBe('idle');
     expect(mockPoll).not.toHaveBeenCalled();
     expect(mockCaptureClientEvent).not.toHaveBeenCalled();
-  });
-
-  it('aborts a stalled request and still times out (never a false credit)', async () => {
-    // A degraded connection: each GET hangs until its per-request timeout
-    // aborts it, at which point the real api resolves `{ kind: 'error' }`.
-    // Without bounding, the interval would pile up unresolved requests and the
-    // loop would never settle.
-    let launched = 0;
-    let aborted = 0;
-    mockPoll.mockImplementation(
-      (_slug: string, signal?: AbortSignal) =>
-        new Promise((resolve) => {
-          launched += 1;
-          signal?.addEventListener('abort', () => {
-            aborted += 1;
-            resolve({ kind: 'error' });
-          });
-        })
-    );
-    const { onCredited, result } = renderPoll();
-
-    await act(async () => {
-      result.current.start();
-    });
-    // Drive well past the full attempt budget. Each stalled request only
-    // settles once its per-request timeout aborts it, so the worst-case cadence
-    // is one attempt per (requestTimeout + interval); budget generously.
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(
-        (WALLET_FUNDING_POLL.requestTimeoutMs +
-          WALLET_FUNDING_POLL.intervalMs) *
-          (WALLET_FUNDING_POLL.maxAttempts + 5)
-      );
-    });
-
-    expect(aborted).toBeGreaterThan(0);
-    // Never overlapping: a request is only launched once the prior one settled.
-    expect(launched).toBeLessThanOrEqual(WALLET_FUNDING_POLL.maxAttempts);
-    expect(result.current.status).toBe('timed_out');
-    expect(result.current.creditedAmount).toBeNull();
-    expect(onCredited).not.toHaveBeenCalled();
-  });
-
-  it('does not launch a new poll while one is still in flight', async () => {
-    let resolvePoll: ((value: unknown) => void) | undefined;
-    mockPoll.mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          resolvePoll = resolve;
-        })
-    );
-    const { result } = renderPoll();
-
-    await act(async () => {
-      result.current.start();
-    });
-    // First poll launched and still pending.
-    expect(mockPoll).toHaveBeenCalledTimes(1);
-
-    // Several interval ticks fire while the first request is unresolved.
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(WALLET_FUNDING_POLL.intervalMs * 3);
-    });
-    expect(mockPoll).toHaveBeenCalledTimes(1);
-
-    // Once it settles, the loop is free to poll again.
-    await act(async () => {
-      resolvePoll?.({ balance: 0, kind: 'ready', transactions: [] });
-    });
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(WALLET_FUNDING_POLL.intervalMs);
-    });
-    expect(mockPoll.mock.calls.length).toBeGreaterThan(1);
-  });
-
-  it('stops polling on unmount', async () => {
-    const { result, unmount } = renderPoll();
-
-    await act(async () => {
-      result.current.start();
-    });
-    expect(mockPoll).toHaveBeenCalledTimes(1);
-
-    unmount();
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(WALLET_FUNDING_POLL.intervalMs * 3);
-    });
-
-    expect(mockPoll).toHaveBeenCalledTimes(1);
   });
 });

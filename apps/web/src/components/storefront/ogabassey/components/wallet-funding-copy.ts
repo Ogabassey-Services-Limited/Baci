@@ -23,7 +23,10 @@ export const WALLET_FUNDING_COPY = {
   checkChecking: 'Checking for your transfer...',
   checkCheckingHint:
     'Transfers usually land in under a minute. Keep this page open — we are watching for it.',
-  checkCredited: 'Transfer received. Your wallet has been topped up.',
+  // Never claims a BANK transfer specifically landed: a new card top-up shares
+  // the same `wallet_topup` ledger marker (see `wallet-funding-credit-detection`),
+  // so the copy only affirms the wallet was funded — which is true either way.
+  checkCredited: 'Your wallet has been topped up.',
   checkStartCta: "I've transferred — check for it",
   checkTimedOut:
     "We haven't seen your transfer yet. Bank transfers can take a few minutes — check again in a moment.",

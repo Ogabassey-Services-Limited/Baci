@@ -195,13 +195,22 @@ export const UtilityModal = ({
 
   // Reset the view when the modal (re)opens or the requested tab changes.
   // Render-time prev-prop comparison avoids a stale-frame effect round-trip.
-  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  // Init `false` (not `isOpen`) so the seed also runs when the modal is
+  // rendered already-open — the reload / backgrounded-tab-eviction case the
+  // resume feature exists for. Without it, a first mount at `isOpen === true`
+  // would skip the seed and strand a saved `data` draft on the default tab.
+  const [prevIsOpen, setPrevIsOpen] = useState(false);
   const [prevInitialTab, setPrevInitialTab] = useState(initialTab);
   if (isOpen !== prevIsOpen || initialTab !== prevInitialTab) {
     setPrevIsOpen(isOpen);
     setPrevInitialTab(initialTab);
     if (isOpen) {
-      setActiveTab(initialTab);
+      // Land on the tab that holds a resumed draft so a `data` draft is not
+      // stranded on the default `airtime` tab (paired with the per-tab `key`
+      // below, which forces AirtimeDataForm to remount and pick up the draft).
+      // Falls back to the caller's requested tab when there is nothing to
+      // resume.
+      setActiveTab(intent?.tab ?? initialTab);
       setStep('details');
       // Collapse the funding panel so reopening never re-triggers DVA
       // auto-create without a fresh "Pay with Bank Transfer" tap.
@@ -434,6 +443,11 @@ export const UtilityModal = ({
               ) : null}
               {(activeTab === 'airtime' || activeTab === 'data') && (
                 <AirtimeDataForm
+                  // Remount per tab: AirtimeDataForm seeds its fields from
+                  // `initialDraft` only on mount, so a shared instance across
+                  // the airtime/data tabs would never apply a resumed draft for
+                  // the non-active tab. Keying by tab forces the remount.
+                  key={activeTab}
                   type={activeTab}
                   loading={loading}
                   initialDraft={

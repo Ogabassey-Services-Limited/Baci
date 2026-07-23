@@ -5,10 +5,9 @@ import { CreditCard, History, Loader2, Plus, Wallet } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
-import { WALLET_FUNDING_TELEMETRY } from '@/lib/posthog/wallet-funding-events';
 import { EmptyState } from '../components/empty-state';
 import { UsdtWalletFundingPanel } from '../components/UsdtWalletFundingPanel';
-import { WalletFundingPanel } from '../components/WalletFundingPanel';
+import { WalletPageFundingPanel } from '../components/WalletPageFundingPanel';
 
 const NGN_CURRENCY_FORMATTER: Intl.NumberFormat = new Intl.NumberFormat(
   'en-NG',
@@ -180,31 +179,13 @@ export function OgabasseyV2Wallet({
             </div>
 
             {showFundingPanel ? (
-              <WalletFundingPanel
-                account={wallet?.fundingAccount ?? null}
+              <WalletPageFundingPanel
                 customerId={customer?.id}
+                customerPhone={customer?.phone}
                 merchantSlug={merchant?.slug}
-                onAccountCreated={(account) =>
-                  setWallet((current) =>
-                    current
-                      ? {
-                          ...current,
-                          fundingAccount: account,
-                          requiresFundingAccountConsent: false,
-                        }
-                      : current
-                  )
-                }
-                onRefreshBalance={() => setRefreshToken((token) => token + 1)}
-                // Baseline for the funding check loop: the top-up credits the
-                // wallet already had before the customer left to transfer.
-                walletTransactions={transactions}
-                requiresConsent={
-                  wallet?.requiresFundingAccountConsent === true &&
-                  wallet?.walletDvaEnabled === true &&
-                  Boolean(customer?.phone?.trim())
-                }
-                surface={WALLET_FUNDING_TELEMETRY.surfaces.walletPage}
+                onRefresh={() => setRefreshToken((token) => token + 1)}
+                setWallet={setWallet}
+                wallet={wallet}
               />
             ) : null}
 

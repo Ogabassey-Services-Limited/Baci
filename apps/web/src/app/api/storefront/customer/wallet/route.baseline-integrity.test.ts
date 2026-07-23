@@ -1,3 +1,4 @@
+import type { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCookies = vi.fn();
@@ -27,7 +28,7 @@ import { GET } from './route';
 function request() {
   return new Request(
     'http://localhost:3000/api/storefront/customer/wallet?merchant=ogabassey'
-  );
+  ) as unknown as NextRequest;
 }
 
 function singleQuery(data: unknown, error: unknown = null) {

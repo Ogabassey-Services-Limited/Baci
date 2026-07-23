@@ -19,7 +19,7 @@ export type WalletFundingCheckStatus =
   | 'idle'
   | 'timed_out';
 
-interface UseWalletFundingCreditPollOptions {
+export interface UseWalletFundingCreditPollOptions {
   customerId?: string;
   /** Dark-launch flag AND "the customer can actually see an account number". */
   enabled: boolean;
@@ -82,6 +82,24 @@ export function useWalletFundingCreditPoll({
   if (status === 'idle' && baselineKey !== knownIdsKey) {
     setBaselineKey(knownIdsKey);
     setBaselineIds(knownTransactionIds);
+  }
+
+  // Full reset when the wallet IDENTITY changes (sign-out, account switch, or a
+  // storefront switch while a `/wallet?fund=1` deep link keeps this panel
+  // mounted). `pages/wallet.tsx` deliberately retains the funding panel for the
+  // new identity, so without this a `credited` status, amount and frozen
+  // baseline from the PREVIOUS customer would carry over and announce "Transfer
+  // received" for a transfer that belongs to someone else. Render-phase sync
+  // (not an effect) so the stale state never renders for the new identity — the
+  // same customer-switch class as the mobile `wallet-funding-session` fix.
+  const identityKey = `${customerId ?? ''}:${merchantSlug ?? ''}`;
+  const [prevIdentityKey, setPrevIdentityKey] = useState(identityKey);
+  if (identityKey !== prevIdentityKey) {
+    setPrevIdentityKey(identityKey);
+    setStatus('idle');
+    setCreditedAmount(null);
+    setBaselineIds(knownTransactionIds);
+    setBaselineKey(knownIdsKey);
   }
 
   // Ref (written in an effect, never during render) so a parent re-render that

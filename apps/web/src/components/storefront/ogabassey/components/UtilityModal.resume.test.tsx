@@ -80,6 +80,27 @@ describe('UtilityModal funding-detour resume', () => {
       expect(harness.checkoutFetch).not.toHaveBeenCalled();
     });
 
+    it('resumes a non-default (data) tab draft onto its own tab and prefills it', () => {
+      // Regression: AirtimeDataForm shares one JSX slot for the airtime and
+      // data tabs, so before the per-tab remount + tab-seed fix a stored
+      // `tab: 'data'` draft could never prefill — the modal reopened on the
+      // default `airtime` tab and the form was never remounted for `data`.
+      sessionStorage.setItem(
+        UTILITY_PENDING_INTENT_STORAGE_KEY,
+        JSON.stringify({ ...storedIntent, amount: '1200', tab: 'data' })
+      );
+
+      renderOpenModal();
+
+      const form = screen.getByTestId('airtime-data-form');
+      // Landed on the DATA tab, not the default airtime tab...
+      expect(form).toHaveAttribute('data-type', 'data');
+      // ...and the saved draft actually prefilled it.
+      expect(form).toHaveAttribute('data-initial-amount', '1200');
+      expect(form).toHaveAttribute('data-initial-phone', '08012345678');
+      expect(harness.checkoutFetch).not.toHaveBeenCalled();
+    });
+
     it('persists the in-progress draft so it survives the funding detour', async () => {
       vi.useFakeTimers();
       renderOpenModal();

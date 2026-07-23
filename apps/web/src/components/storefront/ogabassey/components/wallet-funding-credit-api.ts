@@ -3,7 +3,7 @@ import {
   walletCreditPollResponseSchema,
 } from '@/schemas/wallet-credit-poll';
 
-type WalletCreditPollResult =
+export type WalletCreditPollResult =
   | {
       balance: number | null;
       kind: 'ready';
