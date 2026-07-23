@@ -1,6 +1,29 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import type { AuthChangeEvent } from '@supabase/supabase-js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useStorefrontCustomerSession } from './use-storefront-customer-session';
+
+type AuthChangeHandler = (event: AuthChangeEvent) => void;
+
+// Captured `onAuthStateChange` handler so tests can emit the storefront login
+// signal (Supabase auth transition) deterministically — no timers, no polling.
+let authChangeHandler: AuthChangeHandler | null = null;
+const unsubscribe = vi.fn();
+
+vi.mock('@/lib/supabase/client', () => ({
+  createClient: vi.fn(() => ({
+    auth: {
+      onAuthStateChange: (handler: AuthChangeHandler) => {
+        authChangeHandler = handler;
+        return { data: { subscription: { unsubscribe } } };
+      },
+    },
+  })),
+}));
+
+function emitAuthChange(event: AuthChangeEvent) {
+  authChangeHandler?.(event);
+}
 
 function stubFetch(response: { body: unknown; ok?: boolean }) {
   return vi.spyOn(globalThis, 'fetch').mockResolvedValue({
@@ -12,6 +35,8 @@ function stubFetch(response: { body: unknown; ok?: boolean }) {
 describe('useStorefrontCustomerSession', () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    authChangeHandler = null;
+    unsubscribe.mockClear();
   });
 
   it('reports a signed-in customer when the session endpoint says authenticated', async () => {
@@ -62,5 +87,100 @@ describe('useStorefrontCustomerSession', () => {
 
     expect(result.current.isAuthenticated).toBe(false);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  describe('bugfix: refresh auth state after mid-checkout login', () => {
+    it('flips to authenticated when a sign-in auth signal arrives after a guest load', async () => {
+      // Arrange: shopper arrives signed out — first session fetch says guest.
+      const fetchMock = vi
+        .spyOn(globalThis, 'fetch')
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ authenticated: false }),
+        } as Response)
+        // Act (below): after login the re-fetch reflects the signed-in cookie.
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ authenticated: true }),
+        } as Response);
+
+      const { result } = renderHook(() =>
+        useStorefrontCustomerSession('test-store')
+      );
+
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+      });
+      expect(result.current.isAuthenticated).toBe(false);
+
+      // Act: the storefront emits the login signal (CheckoutAuthModal sign-in).
+      act(() => {
+        emitAuthChange('SIGNED_IN');
+      });
+
+      // Assert: the gate re-evaluates and reflects the new signed-in state.
+      await waitFor(() => {
+        expect(result.current.isAuthenticated).toBe(true);
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('stays guest when the post-login refresh fails (fail-closed)', async () => {
+      // Arrange: guest load succeeds, then the refresh fetch rejects.
+      const fetchMock = vi
+        .spyOn(globalThis, 'fetch')
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ authenticated: false }),
+        } as Response)
+        .mockRejectedValueOnce(new Error('network down'));
+
+      const { result } = renderHook(() =>
+        useStorefrontCustomerSession('test-store')
+      );
+
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+      });
+
+      // Act: auth signal arrives but the refresh cannot confirm the session.
+      act(() => {
+        emitAuthChange('SIGNED_IN');
+      });
+
+      // Assert: a failed refresh keeps the customer on the guest (order-DVA) path.
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+      });
+      expect(result.current.isAuthenticated).toBe(false);
+    });
+
+    it('ignores the INITIAL_SESSION replay to avoid a duplicate fetch', async () => {
+      const fetchMock = stubFetch({ body: { authenticated: false } });
+
+      renderHook(() => useStorefrontCustomerSession('test-store'));
+
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+      });
+
+      act(() => {
+        emitAuthChange('INITIAL_SESSION');
+      });
+
+      // No extra request: the explicit mount load already covered it.
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('unsubscribes from the auth listener on unmount', () => {
+      stubFetch({ body: { authenticated: false } });
+
+      const { unmount } = renderHook(() =>
+        useStorefrontCustomerSession('test-store')
+      );
+
+      unmount();
+      expect(unsubscribe).toHaveBeenCalled();
+    });
   });
 });

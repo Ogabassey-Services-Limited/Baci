@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
 
 interface StorefrontSessionResponse {
   authenticated?: boolean;
@@ -50,6 +51,13 @@ async function loadSessionAuthenticated(
  * This is the correct client-side gate source for the wallet-funded transfer
  * flow: the intent API remains the real authority (it 401/409s guests), so a
  * stale `false` only defers to the legacy order-DVA path — it never claims payment.
+ *
+ * A guest who signs in mid-checkout (e.g. via `CheckoutAuthModal`, which calls
+ * `supabase.auth.signInWithPassword`, or by creating an account during checkout)
+ * must not stay pinned to the guest gate. We subscribe to Supabase
+ * `onAuthStateChange` — the same login signal `AuthContext` listens to — and
+ * re-fetch the server session on every auth transition so the gate reflects the
+ * new state. Fail-closed is preserved: a failed refresh resets to guest.
  */
 export function useStorefrontCustomerSession(merchantSlug: string | undefined): {
   isAuthenticated: boolean;
@@ -61,13 +69,42 @@ export function useStorefrontCustomerSession(merchantSlug: string | undefined): 
       setIsAuthenticated(false);
       return;
     }
-    const controller = new AbortController();
-    void loadSessionAuthenticated(
-      merchantSlug,
-      controller.signal,
-      setIsAuthenticated
-    );
-    return () => controller.abort();
+
+    let activeController: AbortController | null = null;
+
+    const runLoad = () => {
+      // Supersede any in-flight request so a slow earlier fetch can't clobber
+      // the result of a newer auth transition.
+      activeController?.abort();
+      const controller = new AbortController();
+      activeController = controller;
+      void loadSessionAuthenticated(
+        merchantSlug,
+        controller.signal,
+        setIsAuthenticated
+      );
+    };
+
+    // Initial evaluation on mount / merchant change.
+    runLoad();
+
+    // Re-evaluate whenever auth changes mid-checkout. INITIAL_SESSION is the
+    // subscribe-time replay and is already covered by the explicit runLoad above,
+    // so skip it to avoid a duplicate request.
+    const supabase = createClient();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'INITIAL_SESSION') {
+        return;
+      }
+      runLoad();
+    });
+
+    return () => {
+      activeController?.abort();
+      subscription.unsubscribe();
+    };
   }, [merchantSlug]);
 
   return { isAuthenticated };
