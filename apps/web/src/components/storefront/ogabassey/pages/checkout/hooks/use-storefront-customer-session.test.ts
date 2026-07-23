@@ -183,4 +183,69 @@ describe('useStorefrontCustomerSession', () => {
       expect(unsubscribe).toHaveBeenCalled();
     });
   });
+
+  describe('bugfix: await session resolution before the DVA branch decision', () => {
+    // A signed-in customer whose session fetch is still in flight must NOT be
+    // treated as a guest: the initial state is a distinct `loading`, and the
+    // checkout submit awaits `waitForResolvedAuthenticated` for the real value.
+    function deferredSessionFetch() {
+      let resolveSession: (body: { authenticated: boolean }) => void = () => {};
+      vi.spyOn(globalThis, 'fetch').mockReturnValue(
+        new Promise<Response>((resolve) => {
+          resolveSession = (body) =>
+            resolve({ ok: true, json: async () => body } as Response);
+        })
+      );
+      return { resolveSession: (body: { authenticated: boolean }) => resolveSession(body) };
+    }
+
+    it('exposes a loading status while the fetch is in flight, not guest', async () => {
+      const { resolveSession } = deferredSessionFetch();
+
+      const { result } = renderHook(() =>
+        useStorefrontCustomerSession('test-store')
+      );
+
+      expect(result.current.status).toBe('loading');
+      expect(result.current.isAuthenticated).toBe(false);
+
+      act(() => {
+        resolveSession({ authenticated: true });
+      });
+
+      await waitFor(() => {
+        expect(result.current.status).toBe('authenticated');
+      });
+    });
+
+    it('resolves the awaited value to signed-in even when read during loading', async () => {
+      const { resolveSession } = deferredSessionFetch();
+
+      const { result } = renderHook(() =>
+        useStorefrontCustomerSession('test-store')
+      );
+
+      // Simulate the checkout submit racing the still-loading session.
+      const pending = result.current.waitForResolvedAuthenticated();
+      expect(result.current.status).toBe('loading');
+
+      act(() => {
+        resolveSession({ authenticated: true });
+      });
+
+      await expect(pending).resolves.toBe(true);
+    });
+
+    it('resolves the awaited value to false (fail-closed) when the fetch rejects', async () => {
+      vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('network down'));
+
+      const { result } = renderHook(() =>
+        useStorefrontCustomerSession('test-store')
+      );
+
+      await expect(
+        result.current.waitForResolvedAuthenticated()
+      ).resolves.toBe(false);
+    });
+  });
 });

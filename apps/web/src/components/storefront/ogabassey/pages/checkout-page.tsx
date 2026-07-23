@@ -907,7 +907,7 @@ export const CheckoutPage: React.FC = () => {
   // is null here even for a signed-in customer. The wallet-funded gate must read
   // the cookie session directly (same source as the storefront header) or the
   // dark-launch flow would never activate for real customers.
-  const { isAuthenticated: isStorefrontCustomerAuthenticated } =
+  const { waitForResolvedAuthenticated: waitForResolvedStorefrontCustomerAuth } =
     useStorefrontCustomerSession(merchant?.slug ?? undefined);
 
   // Wallet-funded bank transfer (P4a, dark-launched). Signed-in customers of an
@@ -2376,10 +2376,19 @@ export const CheckoutPage: React.FC = () => {
         // auto-debit merchant (flag-gated). `start` resolves false for every
         // decline — guest, merchant flag off, no phone, consent denied, 5xx —
         // and we then run the untouched legacy order-DVA path.
+        //
+        // Await the AUTHORITATIVE session value first: the storefront session
+        // fetch is async, so reading a still-`loading` state here would treat a
+        // signed-in customer who submits promptly after page load as a guest and
+        // route them to legacy DVA. `waitForResolvedAuthenticated` blocks on the
+        // in-flight fetch (fail-closed to guest on error) so the branch decision
+        // is only made once the session is known.
+        const storefrontCustomerAuthenticated =
+          await waitForResolvedStorefrontCustomerAuth();
         const walletFundedStarted =
           merchant &&
           isEligibleForWalletFundedBankTransfer({
-            isAuthenticated: isStorefrontCustomerAuthenticated,
+            isAuthenticated: storefrontCustomerAuthenticated,
             merchantId: merchant.id,
             orderCurrency: orderChargeCurrency,
             paymentAmount,

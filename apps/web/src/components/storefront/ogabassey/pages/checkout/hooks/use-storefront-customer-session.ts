@@ -1,7 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+
+/**
+ * Three-state resolution for the storefront cookie session:
+ * - `loading`  — the initial fetch (or a post-auth-change refresh) is in flight.
+ *   MUST NOT be collapsed into `guest`: doing so routes a signed-in customer who
+ *   submits promptly after page load down the legacy order-DVA path.
+ * - `authenticated` / `guest` — the settled outcome once the fetch resolves.
+ */
+export type StorefrontCustomerSessionStatus =
+  | 'loading'
+  | 'authenticated'
+  | 'guest';
 
 interface StorefrontSessionResponse {
   authenticated?: boolean;
@@ -24,22 +36,29 @@ async function fetchSessionAuthenticated(
 
 // Module scope so the try/catch stays out of the effect body, where it would
 // otherwise block React Compiler memoization (same pattern as the sibling
-// polling hook).
+// polling hook). Fail-closed: an unreachable session resolves to guest.
 async function loadSessionAuthenticated(
   merchantSlug: string,
-  signal: AbortSignal,
-  setIsAuthenticated: (value: boolean) => void
-) {
+  signal: AbortSignal
+): Promise<boolean> {
   try {
-    const authenticated = await fetchSessionAuthenticated(merchantSlug, signal);
-    if (!signal.aborted) {
-      setIsAuthenticated(authenticated);
-    }
+    return await fetchSessionAuthenticated(merchantSlug, signal);
   } catch {
-    if (!signal.aborted) {
-      setIsAuthenticated(false);
-    }
+    return false;
   }
+}
+
+export interface StorefrontCustomerSession {
+  status: StorefrontCustomerSessionStatus;
+  /** Derived convenience flag — false while `loading`. */
+  isAuthenticated: boolean;
+  /**
+   * Resolves with the authoritative signed-in value, awaiting the in-flight
+   * session fetch when the status is still `loading`. Callers on the real-money
+   * checkout path MUST await this before choosing wallet-funded vs legacy DVA so
+   * a slow session fetch never mis-routes a signed-in customer to the guest path.
+   */
+  waitForResolvedAuthenticated: () => Promise<boolean>;
 }
 
 /**
@@ -59,14 +78,21 @@ async function loadSessionAuthenticated(
  * re-fetch the server session on every auth transition so the gate reflects the
  * new state. Fail-closed is preserved: a failed refresh resets to guest.
  */
-export function useStorefrontCustomerSession(merchantSlug: string | undefined): {
-  isAuthenticated: boolean;
-} {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+export function useStorefrontCustomerSession(
+  merchantSlug: string | undefined
+): StorefrontCustomerSession {
+  const [status, setStatus] = useState<StorefrontCustomerSessionStatus>(
+    merchantSlug ? 'loading' : 'guest'
+  );
+  // Latest in-flight (or settled) resolution promise. A checkout submit that
+  // fires before the session resolves awaits THIS instead of racing the initial
+  // `loading` state down the guest branch.
+  const pendingRef = useRef<Promise<boolean>>(Promise.resolve(false));
 
   useEffect(() => {
     if (!merchantSlug) {
-      setIsAuthenticated(false);
+      pendingRef.current = Promise.resolve(false);
+      setStatus('guest');
       return;
     }
 
@@ -78,11 +104,15 @@ export function useStorefrontCustomerSession(merchantSlug: string | undefined): 
       activeController?.abort();
       const controller = new AbortController();
       activeController = controller;
-      void loadSessionAuthenticated(
-        merchantSlug,
-        controller.signal,
-        setIsAuthenticated
-      );
+      setStatus('loading');
+      const pending = loadSessionAuthenticated(merchantSlug, controller.signal);
+      pendingRef.current = pending;
+      void pending.then((authenticated) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+        setStatus(authenticated ? 'authenticated' : 'guest');
+      });
     };
 
     // Initial evaluation on mount / merchant change.
@@ -107,5 +137,11 @@ export function useStorefrontCustomerSession(merchantSlug: string | undefined): 
     };
   }, [merchantSlug]);
 
-  return { isAuthenticated };
+  const waitForResolvedAuthenticated = () => pendingRef.current;
+
+  return {
+    status,
+    isAuthenticated: status === 'authenticated',
+    waitForResolvedAuthenticated,
+  };
 }
