@@ -16,6 +16,12 @@ interface WalletFundingCheckStatusProps {
   /** Utility surface only — prefills the paused purchase, never submits it. */
   onReturnToPurchase?: () => void;
   /**
+   * Re-trigger the parent's balance refresh. Shown while the return CTA is gated
+   * waiting on the refreshed snapshot, so a failed refresh is recoverable
+   * without a page reload instead of stranding the customer on the disabled CTA.
+   */
+  onRetryRefresh?: () => void;
+  /**
    * Gates the return CTA: only enable it once the refreshed wallet actually
    * reflects the credit. Returning before then lands the customer back on a
    * checkout that still reads their balance as insufficient. Defaults to `true`
@@ -34,6 +40,7 @@ export function WalletFundingCheckStatus({
   creditedAmount,
   onCheck,
   onReturnToPurchase,
+  onRetryRefresh,
   returnReady = true,
   status,
 }: WalletFundingCheckStatusProps) {
@@ -82,6 +89,16 @@ export function WalletFundingCheckStatus({
               <p aria-live="polite" className="text-xs text-gray-500">
                 {WALLET_FUNDING_COPY.returnUpdatingBalance}
               </p>
+              {onRetryRefresh ? (
+                <button
+                  className="flex items-center gap-1.5 text-xs font-semibold text-store-primary hover:opacity-80"
+                  onClick={onRetryRefresh}
+                  type="button"
+                >
+                  <RefreshCw aria-hidden="true" size={12} />
+                  {WALLET_FUNDING_COPY.returnRefreshRetry}
+                </button>
+              ) : null}
             </div>
           )
         ) : null}

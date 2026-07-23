@@ -205,6 +205,7 @@ export function WalletFundingPanel({
               creditedAmount={creditPoll.creditedAmount}
               onCheck={creditPoll.start}
               onReturnToPurchase={onReturnToPurchase}
+              onRetryRefresh={onRefreshBalance}
               returnReady={returnReady}
               status={creditPoll.status}
             />

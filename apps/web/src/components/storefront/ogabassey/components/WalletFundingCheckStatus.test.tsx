@@ -75,6 +75,46 @@ describe('WalletFundingCheckStatus', () => {
     expect(screen.getByText(/Updating your balance/i)).toBeInTheDocument();
   });
 
+  it('offers a refresh-retry recovery path while the gated resume CTA is stuck', async () => {
+    // Regression: when the post-credit balance refresh fails, returnReady stays
+    // false forever and the customer was stranded on the disabled resume CTA
+    // with no way to retry short of reloading. A refresh-retry button must be
+    // available so a failed refresh is recoverable.
+    const user = userEvent.setup();
+    const onRetryRefresh = vi.fn();
+
+    render(
+      <WalletFundingCheckStatus
+        creditedAmount={5000}
+        onCheck={vi.fn()}
+        onReturnToPurchase={vi.fn()}
+        onRetryRefresh={onRetryRefresh}
+        returnReady={false}
+        status="credited"
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: /Refresh balance/i }));
+    expect(onRetryRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides the refresh-retry once the balance reflects the credit', () => {
+    render(
+      <WalletFundingCheckStatus
+        creditedAmount={5000}
+        onCheck={vi.fn()}
+        onReturnToPurchase={vi.fn()}
+        onRetryRefresh={vi.fn()}
+        returnReady={true}
+        status="credited"
+      />
+    );
+
+    expect(
+      screen.queryByRole('button', { name: /Refresh balance/i })
+    ).not.toBeInTheDocument();
+  });
+
   it('enables the resume CTA once the refreshed wallet reflects the credit', () => {
     render(
       <WalletFundingCheckStatus

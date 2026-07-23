@@ -86,12 +86,10 @@ export function useWalletFundingCreditPoll({
 
   // Full reset when the wallet IDENTITY changes (sign-out, account switch, or a
   // storefront switch while a `/wallet?fund=1` deep link keeps this panel
-  // mounted). `pages/wallet.tsx` deliberately retains the funding panel for the
-  // new identity, so without this a `credited` status, amount and frozen
-  // baseline from the PREVIOUS customer would carry over and announce "Transfer
-  // received" for a transfer that belongs to someone else. Render-phase sync
-  // (not an effect) so the stale state never renders for the new identity — the
-  // same customer-switch class as the mobile `wallet-funding-session` fix.
+  // mounted): without it a `credited` status, amount and frozen baseline from
+  // the PREVIOUS customer would carry over and announce a top-up that belongs
+  // to someone else. Render-phase sync (not an effect) so it never renders —
+  // the same customer-switch class as the mobile `wallet-funding-session` fix.
   const identityKey = `${customerId ?? ''}:${merchantSlug ?? ''}`;
   const [prevIdentityKey, setPrevIdentityKey] = useState(identityKey);
   if (identityKey !== prevIdentityKey) {
@@ -120,19 +118,16 @@ export function useWalletFundingCreditPoll({
     let inFlight = false;
     let activeController: AbortController | null = null;
     // Fires at the foreground deadline to abort a request that launched just
-    // before it and then STALLED. Without it, every interval tick returns through
-    // the `inFlight` guard before reaching `isPastDeadline()`, so the UI would
-    // hang in "checking" until that request's own `requestTimeoutMs` fires (or,
-    // for a request that ignores abort, indefinitely).
+    // before it and then STALLED — without it the UI would hang in "checking"
+    // until that request's own `requestTimeoutMs` fires (or, for a request that
+    // ignores abort, indefinitely).
     let deadlineTimer: ReturnType<typeof setTimeout> | null = null;
     const known = new Set(baselineIds);
 
-    // Absolute FOREGROUND deadline. `maxAttempts` assumes ~5s per attempt, but a
-    // run of slow-but-completing requests stretches each attempt toward
-    // `requestTimeoutMs`, so the 60-attempt budget could span ~10 minutes. This
-    // wall-clock bound settles the loop at ~5 minutes of foreground checking
-    // regardless of per-request timing. Hidden time is excluded (the customer is
-    // in their bank app), matching the attempt-budget's foreground semantics.
+    // Absolute FOREGROUND deadline (~5 min). Without it a run of
+    // slow-but-completing requests could stretch the 60-attempt budget toward
+    // `requestTimeoutMs` * 60 (~10 min). Hidden time is excluded (customer in
+    // their bank app), matching the attempt-budget's foreground semantics.
     const armedAt = Date.now();
     let hiddenAccumMs = 0;
     let hiddenSince: number | null =
@@ -235,6 +230,13 @@ export function useWalletFundingCreditPoll({
       }
       if (cancelled) return;
 
+      // Enforce the deadline symmetrically: a late success can resolve before
+      // `onDeadlineReached` fires (busy loop) and must not credit past the bound.
+      if (isPastDeadline()) {
+        settle('timed_out', null);
+        return;
+      }
+
       const credit =
         result.kind === 'ready'
           ? detectWalletTopUpCredit(result.transactions, known)
@@ -243,11 +245,9 @@ export function useWalletFundingCreditPoll({
         settle('credited', credit);
         return;
       }
-      // Misses AND errors alike: keep polling, then time out. Never credit —
-      // including when the deadline lands while requests were merely slow, so a
-      // stalled sequence still settles as timed_out ("check again") rather than
-      // hanging in "checking".
-      if (attempts >= WALLET_FUNDING_POLL.maxAttempts || isPastDeadline()) {
+      // Misses and errors alike: poll until the attempt budget is spent
+      // (deadline handled above), then time out — never credit.
+      if (attempts >= WALLET_FUNDING_POLL.maxAttempts) {
         settle('timed_out', null);
       }
     };

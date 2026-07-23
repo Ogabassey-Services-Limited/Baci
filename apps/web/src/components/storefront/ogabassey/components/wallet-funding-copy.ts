@@ -32,6 +32,9 @@ export const WALLET_FUNDING_COPY = {
     "We haven't seen your transfer yet. Bank transfers can take a few minutes — check again in a moment.",
   returnToPurchaseCta: 'Return to your purchase',
   returnUpdatingBalance: 'Updating your balance...',
+  // Recovery when the post-credit balance refresh fails and the return CTA
+  // stays gated: let the customer re-trigger the refresh instead of reloading.
+  returnRefreshRetry: 'Refresh balance',
   subtitle:
     'Transfer to your personal account number below and your wallet is credited automatically.',
   title: 'Fund by bank transfer',

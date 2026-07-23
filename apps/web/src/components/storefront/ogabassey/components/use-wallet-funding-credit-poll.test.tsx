@@ -67,6 +67,42 @@ describe('useWalletFundingCreditPoll', () => {
     expect(eventNames()).not.toContain('wallet_funding_transfer_credited');
   });
 
+  it('does not credit a success that lands past the foreground deadline (busy-loop race)', async () => {
+    // Regression: a poll response can resolve in the same tick the ~5-minute
+    // foreground deadline passes — before the deadline timer's callback runs, so
+    // `cancelled` is still false. Without a symmetric deadline check the loop
+    // would settle a LATE success as `credited`, bypassing the documented bound.
+    let resolvePoll: (value: ReturnType<typeof ready>) => void = () => {};
+    mockPoll.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvePoll = resolve;
+        })
+    );
+    const { onCredited, result } = renderPoll();
+
+    await act(async () => {
+      result.current.start();
+    });
+
+    // Jump the foreground clock past the deadline WITHOUT advancing the fake
+    // timer queue, so the request is still in flight and the deadline timer has
+    // not fired (cancelled stays false) — the exact busy-event-loop window.
+    act(() => {
+      vi.setSystemTime(Date.now() + WALLET_FUNDING_POLL.deadlineMs + 1000);
+    });
+
+    // The still-in-flight request now completes successfully with a NEW top-up.
+    await act(async () => {
+      resolvePoll(ready([topUpCredit]));
+      await Promise.resolve();
+    });
+
+    expect(result.current.status).toBe('timed_out');
+    expect(result.current.creditedAmount).toBeNull();
+    expect(onCredited).not.toHaveBeenCalled();
+  });
+
   it('does NOT credit on cashback or a refund — it keeps checking', async () => {
     mockPoll.mockResolvedValue(
       ready([
