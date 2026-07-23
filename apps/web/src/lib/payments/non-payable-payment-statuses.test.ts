@@ -14,23 +14,19 @@ describe('NON_PAYABLE_PAYMENT_STATUSES', () => {
     expect(isNonPayablePaymentStatus('bnpl_approved')).toBe(true);
   });
 
-  it.each([
-    'paid',
-    'partially_paid',
-    'refunded',
-  ])('treats %s as non-payable', (status) => {
-    expect(isNonPayablePaymentStatus(status)).toBe(true);
-  });
+  it.each(['paid', 'partially_paid', 'refunded'])(
+    'treats %s as non-payable',
+    (status) => {
+      expect(isNonPayablePaymentStatus(status)).toBe(true);
+    }
+  );
 
-  it.each([
-    'unpaid',
-    'pending',
-    null,
-    undefined,
-    '',
-  ])('leaves %s payable', (status) => {
-    expect(isNonPayablePaymentStatus(status)).toBe(false);
-  });
+  it.each(['unpaid', 'pending', null, undefined, ''])(
+    'leaves %s payable',
+    (status) => {
+      expect(isNonPayablePaymentStatus(status)).toBe(false);
+    }
+  );
 
   it('does NOT include cancellation states — those must be clamped/refunded, not merely blocked', () => {
     // Routing a cancelled order through the "already settled" branch would block
@@ -41,22 +37,19 @@ describe('NON_PAYABLE_PAYMENT_STATUSES', () => {
 });
 
 describe('CANCELLED_PAYMENT_STATUSES', () => {
-  it.each([
-    'cancelled',
-    'expired',
-  ])('treats %s as a dead checkout', (status) => {
-    expect(isCancelledPaymentStatus(status)).toBe(true);
-  });
+  it.each(['cancelled', 'expired'])(
+    'treats %s as a dead checkout',
+    (status) => {
+      expect(isCancelledPaymentStatus(status)).toBe(true);
+    }
+  );
 
-  it.each([
-    'unpaid',
-    'paid',
-    'bnpl_approved',
-    null,
-    undefined,
-  ])('does not treat %s as cancelled', (status) => {
-    expect(isCancelledPaymentStatus(status)).toBe(false);
-  });
+  it.each(['unpaid', 'paid', 'bnpl_approved', null, undefined])(
+    'does not treat %s as cancelled',
+    (status) => {
+      expect(isCancelledPaymentStatus(status)).toBe(false);
+    }
+  );
 
   it('exposes exactly the two dead-checkout states', () => {
     expect([...CANCELLED_PAYMENT_STATUSES].sort()).toEqual([

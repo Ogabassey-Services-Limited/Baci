@@ -341,24 +341,24 @@ describe('resolvePaypalCaptureOutcome — §3 state table', () => {
       });
     });
 
-    it.each([
-      'cancelled',
-      'expired',
-    ])('treats payment_status=%s as cancelled even when shipping_status is still pending', (paymentStatus) => {
-      // The abandoned-order cron sets payment_status='cancelled' but leaves
-      // shipping_status='pending' (1,018 such rows in production), so a guard
-      // that reads shipping alone sees a dead checkout as live and lets a late
-      // PayPal approval resurrect it.
-      expect(
-        resolvePaypalCaptureOutcome(
-          state({
-            orderPaymentStatus: paymentStatus,
-            orderShippingStatus: 'pending',
-            paypalOrderStatus: 'COMPLETED',
-          })
-        )
-      ).toEqual({ kind: 'clamp_cancelled' });
-    });
+    it.each(['cancelled', 'expired'])(
+      'treats payment_status=%s as cancelled even when shipping_status is still pending',
+      (paymentStatus) => {
+        // The abandoned-order cron sets payment_status='cancelled' but leaves
+        // shipping_status='pending' (1,018 such rows in production), so a guard
+        // that reads shipping alone sees a dead checkout as live and lets a late
+        // PayPal approval resurrect it.
+        expect(
+          resolvePaypalCaptureOutcome(
+            state({
+              orderPaymentStatus: paymentStatus,
+              orderShippingStatus: 'pending',
+              paypalOrderStatus: 'COMPLETED',
+            })
+          )
+        ).toEqual({ kind: 'clamp_cancelled' });
+      }
+    );
 
     it('blocks an uncaptured PayPal order on a cron-cancelled (payment_status) order', () => {
       expect(

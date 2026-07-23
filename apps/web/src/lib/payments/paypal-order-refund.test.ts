@@ -320,26 +320,26 @@ describe('initiatePaypalOrderRefund', () => {
       expect(result.error).toMatch(/do NOT issue another refund/i);
     });
 
-    it.each([
-      'CANCELLED',
-      'FAILED',
-    ] as const)('treats a %s refund as a hard failure, not a success', async (status) => {
-      vi.mocked(refund).mockResolvedValue({
-        success: true,
-        data: { id: 'REFUND-X', status },
-      });
+    it.each(['CANCELLED', 'FAILED'] as const)(
+      'treats a %s refund as a hard failure, not a success',
+      async (status) => {
+        vi.mocked(refund).mockResolvedValue({
+          success: true,
+          data: { id: 'REFUND-X', status },
+        });
 
-      const result = await initiatePaypalOrderRefund({
-        merchantId: MERCHANT_ID,
-        gatewayResponse: CAPTURE_RESPONSE,
-        reason: 'Order cancelled',
-      });
+        const result = await initiatePaypalOrderRefund({
+          merchantId: MERCHANT_ID,
+          gatewayResponse: CAPTURE_RESPONSE,
+          reason: 'Order cancelled',
+        });
 
-      expect(result.success).toBe(false);
-      expect(result.pending).toBeFalsy();
-      expect(result.refundIds).toEqual([]);
-      expect(result.error).toContain(status);
-    });
+        expect(result.success).toBe(false);
+        expect(result.pending).toBeFalsy();
+        expect(result.refundIds).toEqual([]);
+        expect(result.error).toContain(status);
+      }
+    );
 
     it('reports the per-capture PayPal status so ops can tell in-flight from failed', async () => {
       vi.mocked(refund).mockResolvedValue({

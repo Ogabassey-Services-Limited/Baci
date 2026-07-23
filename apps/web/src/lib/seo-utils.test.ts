@@ -2765,7 +2765,7 @@ describe('generateProductSchema - condition mapping', () => {
     );
 
     const variants = schema.hasVariant as Record<string, unknown>[];
-    const availability = (variants[0]?.offers as Record<string, unknown>)
+    const availability = (variants[0].offers as Record<string, unknown>)
       .availability;
 
     expect(availability).toBe('https://schema.org/InStock');

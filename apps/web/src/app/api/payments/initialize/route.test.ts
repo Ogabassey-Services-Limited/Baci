@@ -1046,34 +1046,36 @@ describe('POST /api/payments/initialize', () => {
   });
 
   describe('bnpl gateways', () => {
-    it.each([
-      'credit_direct',
-      'credpal',
-    ] as const)('uses the request origin for %s BNPL launcher URLs', async (gateway) => {
-      // A forced BNPL gateway is only accepted when the merchant enabled it.
-      featureSettingsResult = {
-        data: {
-          credit_direct_enabled: true,
-          credpal_enabled: true,
-        },
-        error: null,
-      };
+    it.each(['credit_direct', 'credpal'] as const)(
+      'uses the request origin for %s BNPL launcher URLs',
+      async (gateway) => {
+        // A forced BNPL gateway is only accepted when the merchant enabled it.
+        featureSettingsResult = {
+          data: {
+            credit_direct_enabled: true,
+            credpal_enabled: true,
+          },
+          error: null,
+        };
 
-      const res = await POST(makeRequest({ ...validBody, gateway }));
-      const json = await res.json();
+        const res = await POST(makeRequest({ ...validBody, gateway }));
+        const json = await res.json();
 
-      expect(res.status).toBe(200);
-      expect(json.success).toBe(true);
-      expect(json.gateway).toBe(gateway);
-      expect(json.authorization_url).toMatch(
-        /^http:\/\/localhost:3000\/test-store\/checkout\/bnpl\?/
-      );
-      expect(json.checkout_url).toBe(json.authorization_url);
-      expect(json.authorization_url).toContain(
-        'orderId=a1b2c3d4-e5f6-7890-abcd-ef1234567890'
-      );
-      expect(json.authorization_url).toContain('trackingToken=track-token-123');
-    });
+        expect(res.status).toBe(200);
+        expect(json.success).toBe(true);
+        expect(json.gateway).toBe(gateway);
+        expect(json.authorization_url).toMatch(
+          /^http:\/\/localhost:3000\/test-store\/checkout\/bnpl\?/
+        );
+        expect(json.checkout_url).toBe(json.authorization_url);
+        expect(json.authorization_url).toContain(
+          'orderId=a1b2c3d4-e5f6-7890-abcd-ef1234567890'
+        );
+        expect(json.authorization_url).toContain(
+          'trackingToken=track-token-123'
+        );
+      }
+    );
 
     it('returns gateway_unavailable when a forced Klump gateway is not enabled', async () => {
       rpcResult = {

@@ -347,33 +347,32 @@ describe('POST /api/payments/paypal/create-order', () => {
     expect(createOrder).not.toHaveBeenCalled();
   });
 
-  it.each([
-    'paid',
-    'partially_paid',
-    'refunded',
-  ])('returns 409 ORDER_NOT_PAYABLE for a %s order and never mints a PayPal order', async (paymentStatus) => {
-    const supabase = buildSupabaseMock({
-      snapshot: {
-        merchant_id: MERCHANT_ID,
-        total: 130000,
-        currency: 'NGN',
-        tracking_token: 'track-123',
-        shipping_status: 'pending',
-        payment_status: paymentStatus,
-      },
-    });
-    vi.mocked(createAdminClient).mockReturnValue(supabase as never);
-    mockVaultOk();
+  it.each(['paid', 'partially_paid', 'refunded'])(
+    'returns 409 ORDER_NOT_PAYABLE for a %s order and never mints a PayPal order',
+    async (paymentStatus) => {
+      const supabase = buildSupabaseMock({
+        snapshot: {
+          merchant_id: MERCHANT_ID,
+          total: 130000,
+          currency: 'NGN',
+          tracking_token: 'track-123',
+          shipping_status: 'pending',
+          payment_status: paymentStatus,
+        },
+      });
+      vi.mocked(createAdminClient).mockReturnValue(supabase as never);
+      mockVaultOk();
 
-    const response = await POST(createRequest());
-    expect(response.status).toBe(409);
-    expect((await response.json()).code).toBe('ORDER_NOT_PAYABLE');
-    expect(createOrder).not.toHaveBeenCalled();
-    expect(supabase.rpc).not.toHaveBeenCalledWith(
-      'create_payment_transaction',
-      expect.anything()
-    );
-  });
+      const response = await POST(createRequest());
+      expect(response.status).toBe(409);
+      expect((await response.json()).code).toBe('ORDER_NOT_PAYABLE');
+      expect(createOrder).not.toHaveBeenCalled();
+      expect(supabase.rpc).not.toHaveBeenCalledWith(
+        'create_payment_transaction',
+        expect.anything()
+      );
+    }
+  );
 
   it('returns 400 PAYPAL_SANDBOX_NOT_ALLOWED for a sandbox-mode store and never touches PayPal', async () => {
     vi.mocked(createAdminClient).mockReturnValue(
@@ -604,36 +603,36 @@ describe('POST /api/payments/paypal/create-order', () => {
     expect(supabase.insert).not.toHaveBeenCalled();
   });
 
-  it.each([
-    null,
-    '   ',
-  ])('uses the platform NGN fallback when a legacy order has currency %p', async (currency) => {
-    const supabase = buildSupabaseMock({
-      snapshot: {
-        merchant_id: MERCHANT_ID,
-        total: 130000,
-        currency,
-        tracking_token: 'track-123',
-        shipping_status: 'pending',
-      },
-    });
-    vi.mocked(createAdminClient).mockReturnValue(supabase as never);
-    mockVaultOk();
+  it.each([null, '   '])(
+    'uses the platform NGN fallback when a legacy order has currency %p',
+    async (currency) => {
+      const supabase = buildSupabaseMock({
+        snapshot: {
+          merchant_id: MERCHANT_ID,
+          total: 130000,
+          currency,
+          tracking_token: 'track-123',
+          shipping_status: 'pending',
+        },
+      });
+      vi.mocked(createAdminClient).mockReturnValue(supabase as never);
+      mockVaultOk();
 
-    const response = await POST(createRequest());
+      const response = await POST(createRequest());
 
-    expect(response.status).toBe(200);
-    expect(getFreshNgnPerUsdt).toHaveBeenCalled();
-    expect(createOrder).toHaveBeenCalledWith(
-      'mock-client-id',
-      'mock-secret-key',
-      100,
-      'USD',
-      'track-123',
-      'live',
-      { returnUrl: undefined, cancelUrl: undefined }
-    );
-  });
+      expect(response.status).toBe(200);
+      expect(getFreshNgnPerUsdt).toHaveBeenCalled();
+      expect(createOrder).toHaveBeenCalledWith(
+        'mock-client-id',
+        'mock-secret-key',
+        100,
+        'USD',
+        'track-123',
+        'live',
+        { returnUrl: undefined, cancelUrl: undefined }
+      );
+    }
+  );
 
   it('charges only the residual for a mixed-tender (wallet/savings) order', async () => {
     const supabase = buildSupabaseMock();
