@@ -13,6 +13,7 @@ export interface DashboardStats {
 }
 
 export interface RevenueDataPoint {
+  id: string;
   label: string;
   value: number;
 }

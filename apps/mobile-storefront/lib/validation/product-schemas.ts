@@ -38,6 +38,7 @@ export type MerchantRow = z.infer<typeof MerchantRowSchema>;
 
 export const CustomerRowSchema = z.object({
   id: z.uuid(),
+  user_id: z.uuid().nullable().optional(),
   email: z.email(),
   first_name: z.string().nullable().optional(),
   last_name: z.string().nullable().optional(),
@@ -233,6 +234,8 @@ export const TransactionRowSchema = z.object({
   amount: z.number(),
   description: z.string().nullable().optional(),
   created_at: z.string(),
+  /** `wallet_topup` (funding) vs `vtu_transaction` (cashback), `order_reversal`… */
+  source_type: z.string().nullable().optional(),
 });
 
 export type TransactionRow = z.infer<typeof TransactionRowSchema>;

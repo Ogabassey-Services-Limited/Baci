@@ -41,7 +41,7 @@ describe('QuizEventsList', () => {
       />
     );
 
-    fireEvent.press(screen.getByLabelText(/Use .* to start Open Quiz/i));
+    fireEvent.press(screen.getByLabelText(/Start free exam Open Quiz/i));
 
     expect(onStart).toHaveBeenCalledWith('event-1');
   });

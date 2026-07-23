@@ -67,6 +67,12 @@ export interface QuizServiceOptions {
 export type QuizIntegrityTier = 'basic' | 'device' | 'strong';
 
 export interface StartQuizAttemptInput extends QuizServiceOptions {
+  /**
+   * SHA-256 of the native install id. Lets the server share one attempt budget
+   * across every account started from this device (anti multi-accounting).
+   * Optional: a device that cannot produce one still plays.
+   */
+  deviceFingerprint?: string | null;
   eventId: string;
   integrityTier: QuizIntegrityTier;
 }

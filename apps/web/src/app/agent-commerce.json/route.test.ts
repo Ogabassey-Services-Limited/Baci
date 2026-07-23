@@ -93,7 +93,11 @@ describe('GET /agent-commerce.json', () => {
         shipping_policy_url: 'https://ogabassey.com/shipping',
         terms_of_service_url: 'https://ogabassey.com/terms',
       });
-      expect(response.headers.get('cache-control')).toBe('public, max-age=300');
+      expect(response.headers.get('cache-control')).toBe(
+        'no-store, max-age=0, must-revalidate'
+      );
+      expect(response.headers.get('cdn-cache-control')).toBe('no-store');
+      expect(response.headers.get('vercel-cdn-cache-control')).toBe('no-store');
       expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
       expect(JSON.stringify(body)).not.toContain('xsoljx');
     },

@@ -7,6 +7,7 @@ jest.mock('dotenv/config', () => ({}));
 const originalEnv = process.env;
 
 function loadAppConfigWithEnv(env: {
+  ANDROID_VERSION_CODE?: string;
   EXPO_PUBLIC_MERCHANT_DOMAIN?: string;
   EXPO_PUBLIC_POSTHOG_API_KEY?: string;
   EXPO_PUBLIC_POSTHOG_HOST?: string;
@@ -19,6 +20,7 @@ function loadAppConfigWithEnv(env: {
 }) {
   jest.resetModules();
   process.env = { ...originalEnv };
+  delete process.env.ANDROID_VERSION_CODE;
   delete process.env.EXPO_PUBLIC_MERCHANT_DOMAIN;
   delete process.env.EXPO_PUBLIC_POSTHOG_API_KEY;
   delete process.env.EXPO_PUBLIC_POSTHOG_HOST;
@@ -28,13 +30,11 @@ function loadAppConfigWithEnv(env: {
   delete process.env.EXPO_UPDATE_CHANNEL;
   delete process.env.STOREFRONT_FACEBOOK_APP_ID;
   delete process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN;
-
   for (const [key, value] of Object.entries(env)) {
     if (value !== undefined) {
       process.env[key] = value;
     }
   }
-
   return jest.requireActual<typeof import('./app.config')>('./app.config')
     .default;
 }
@@ -84,7 +84,6 @@ describe('Expo app config (Facebook SDK and merchant domain)', () => {
       STOREFRONT_FACEBOOK_CLIENT_TOKEN: 'client-token',
     });
     const config = renderConfig(appConfig);
-
     expect(findFacebookPlugin(config)).toEqual([
       'react-native-fbsdk-next',
       {
@@ -108,7 +107,6 @@ describe('Expo app config (Facebook SDK and merchant domain)', () => {
       STOREFRONT_FACEBOOK_CLIENT_TOKEN: 'client-token',
     });
     const config = renderConfig(appConfig);
-
     expect(config.updates).toMatchObject({
       requestHeaders: {
         'expo-channel-name': 'preview',
@@ -125,10 +123,12 @@ describe('Expo app config (Facebook SDK and merchant domain)', () => {
       STOREFRONT_FACEBOOK_CLIENT_TOKEN: 'client-token',
     });
     const config = renderConfig(appConfig);
-
-    expect(config.version).toBe('2.0.0');
-    expect(config.runtimeVersion).toBe('2.0.0');
-    expect(config.android?.runtimeVersion).toBe('2.0.0-android-sdk57');
+    expect(config.version).toBe('2.0.1');
+    expect(config.runtimeVersion).toBe('2.0.1');
+    expect(config.android).toMatchObject({
+      runtimeVersion: '2.0.1-android-sdk57',
+      versionCode: 741,
+    });
   });
 
   it('defaults the storefront merchant domain for production BNPL returns', () => {

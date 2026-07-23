@@ -97,6 +97,9 @@ const baseMerchant = {
   social_media: {
     facebook: '@ogabasseyyy',
     instagram: '@ogabasseyy',
+    linkedin: '@ogabasseyy',
+    snapchat: '@ogabassey',
+    tiktok: '@ogabasseyy',
     twitter: '@ogabasseyy',
     youtube: '@ogabassey',
   },
@@ -209,6 +212,9 @@ describe('Storefront homepage structured data', () => {
       sameAs: expect.arrayContaining([
         'https://facebook.com/ogabasseyyy',
         'https://instagram.com/ogabasseyy',
+        'https://linkedin.com/company/ogabasseyy',
+        'https://www.snapchat.com/@ogabassey',
+        'https://www.tiktok.com/@ogabasseyy',
         'https://twitter.com/ogabasseyy',
         'https://youtube.com/@ogabassey',
       ]),

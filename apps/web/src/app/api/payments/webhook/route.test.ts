@@ -8,6 +8,7 @@ const mockGetPaystackDvaReceiverAccountNumber = vi.hoisted(() => vi.fn());
 const mockMarkAgenticPaystackDvaSessionPaid = vi.hoisted(() => vi.fn());
 const mockConfirmPaystackWalletDvaTopUp = vi.hoisted(() => vi.fn());
 const mockCreditWalletTopUp = vi.hoisted(() => vi.fn());
+const mockNotifyWalletCredited = vi.hoisted(() => vi.fn());
 const mockHandlePaystackSavingsWebhookTransaction = vi.hoisted(() => vi.fn());
 const mockProcessWalletFundedOrderPayment = vi.hoisted(() => vi.fn());
 const mockRunPaidOrderSideEffects = vi.hoisted(() => vi.fn());
@@ -97,6 +98,13 @@ function createMockSupabaseClient() {
         neq: vi.fn().mockReturnThis(),
         single: vi.fn().mockResolvedValue({ data: null, error: null }),
         maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        // The finalizer's pure-replay guard checks payment_side_effects via
+        // .select().eq().limit(); default to "outbox history exists" so
+        // replay tests keep exercising the drain path.
+        limit: vi.fn().mockResolvedValue({
+          data: [{ order_id: 'order-123', transaction_id: 'txn-123' }],
+          error: null,
+        }),
       };
       return chain;
     }),
@@ -106,11 +114,33 @@ function createMockSupabaseClient() {
     // claim response is `we_won: true` so the helper proceeds to the
     // executor; existing `record_merchant_settlement` callers still get
     // `{data: null, error: null}` via either await form.
+    //
+    // `complete_order_gateway_payment` is the atomic RPC backing
+    // finalizeOrderGatewayPayment. Tests that reach the order-finalizer path
+    // without overriding rpc() themselves get this default "healthy, order
+    // updated" completion shape so they don't have to each re-declare it;
+    // tests asserting a specific completion outcome (cancelled, already-paid
+    // replay, RPC failure, etc.) still override rpc() explicitly.
     rpc: vi.fn((name: string, _args?: unknown) => {
-      const data =
-        name === 'claim_payment_side_effect'
-          ? { we_won: true, current_status: 'claimed' }
-          : null;
+      let data: unknown = null;
+      if (name === 'claim_payment_side_effect') {
+        data = { we_won: true, current_status: 'claimed' };
+      } else if (name === 'complete_order_gateway_payment') {
+        data = {
+          actor: null,
+          already_completed: false,
+          order_already_paid: false,
+          order_updated: true,
+          order_cancelled: false,
+          order_skipped_status: null,
+          previous_payment_status: 'pending',
+          previous_shipping_status: 'pending',
+          payment_status: 'paid',
+          shipping_status: 'processing',
+          cancelled_at: null,
+          order_number: 'ORD-TEST-DEFAULT',
+        };
+      }
       const result = { data, error: null };
       const chain = Object.assign(Promise.resolve(result), {
         single: () => Promise.resolve(result),
@@ -123,6 +153,17 @@ function createMockSupabaseClient() {
 // Create initial mocks
 mockSupabaseClient = createMockSupabaseClient();
 mockServiceClient = createMockSupabaseClient();
+
+/** The query-chain shape `mockServiceClient.from` is typed to return. */
+type MockedQueryChain = ReturnType<typeof mockServiceClient.from>;
+
+/**
+ * Narrows a partial query-chain stub to the mocked `from` return type without
+ * `any`: the stub only implements the chain methods the code under test calls.
+ */
+function asMockedQueryChain(chain: Record<string, unknown>): MockedQueryChain {
+  return chain as unknown as MockedQueryChain;
+}
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn((cookieStore?: any) => {
@@ -146,6 +187,20 @@ vi.mock('@/lib/supabase/service', () => ({
 const mockReconciliationInsert = vi.hoisted(() =>
   vi.fn().mockResolvedValue({ data: null, error: null })
 );
+const mockClaimWalletCreditPush = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({ status: 'claimed' })
+);
+const mockReleaseWalletCreditPush = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({ status: 'released' })
+);
+vi.mock('@/lib/payments/claim-wallet-credit-push', () => ({
+  claimWalletCreditPush: (...args: unknown[]) =>
+    mockClaimWalletCreditPush(...args),
+}));
+vi.mock('@/lib/payments/release-wallet-credit-push', () => ({
+  releaseWalletCreditPush: (...args: unknown[]) =>
+    mockReleaseWalletCreditPush(...args),
+}));
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: vi.fn(() => ({
     from: vi.fn((table: string) => {
@@ -212,6 +267,10 @@ vi.mock('@/lib/customer-saved-payment-methods', () => ({
 vi.mock('@/lib/customer-wallet-top-up', () => ({
   creditWalletTopUp: mockCreditWalletTopUp,
   WALLET_TOP_UP_TRANSACTION_TYPE: 'wallet_topup',
+}));
+
+vi.mock('@/lib/payments/notify-wallet-credited', () => ({
+  notifyWalletCredited: mockNotifyWalletCredited,
 }));
 
 vi.mock('@/lib/vtu-fulfillment', () => ({
@@ -369,11 +428,29 @@ function setupSuccessfulTransactionMocks(
   // Mock RPC: chainable shape so the A1 outbox helper's
   // `.rpc('claim_payment_side_effect', ...).single()` works alongside
   // the existing `.rpc('record_merchant_settlement', ...)` await form.
+  // `complete_order_gateway_payment` gets the same default "healthy, order
+  // updated" completion as createMockSupabaseClient()'s default, for tests
+  // in this file that route an order_id through setupSuccessfulTransactionMocks.
   vi.mocked(mockServiceClient.rpc).mockImplementation((name: string) => {
-    const data =
-      name === 'claim_payment_side_effect'
-        ? { we_won: true, current_status: 'claimed' }
-        : null;
+    let data: unknown = null;
+    if (name === 'claim_payment_side_effect') {
+      data = { we_won: true, current_status: 'claimed' };
+    } else if (name === 'complete_order_gateway_payment') {
+      data = {
+        actor: null,
+        already_completed: false,
+        order_already_paid: false,
+        order_updated: true,
+        order_cancelled: false,
+        order_skipped_status: null,
+        previous_payment_status: 'pending',
+        previous_shipping_status: 'pending',
+        payment_status: 'paid',
+        shipping_status: 'processing',
+        cancelled_at: null,
+        order_number: 'ORD-TEST-DEFAULT',
+      };
+    }
     const result = { data, error: null };
     return Object.assign(Promise.resolve(result), {
       single: () => Promise.resolve(result),
@@ -384,6 +461,7 @@ function setupSuccessfulTransactionMocks(
 describe('POST /api/payments/webhook', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockClaimWalletCreditPush.mockResolvedValue({ status: 'claimed' });
     // Reset the mock clients
     mockServiceClient = createMockSupabaseClient();
     mockSupabaseClient = createMockSupabaseClient();
@@ -402,9 +480,11 @@ describe('POST /api/payments/webhook', () => {
     });
     mockCreditWalletTopUp.mockResolvedValue({
       balance: 20000,
+      firstCredit: true,
       reference: 'REF123',
       transactionId: 'wallet-credit-1',
     });
+    mockNotifyWalletCredited.mockResolvedValue({ status: 'sent' });
     mockHandlePaystackSavingsWebhookTransaction.mockResolvedValue(null);
     mockGetPaystackDvaReceiverAccountNumber.mockReturnValue(null);
     mockMarkAgenticPaystackDvaSessionPaid.mockResolvedValue({
@@ -3089,10 +3169,76 @@ describe('POST /api/payments/webhook', () => {
             }),
           } as any;
         }
+        // The short-circuit path now re-reads order state (not cancelled/
+        // refunded here) then, via finalizeOrderGatewayPayment, re-fetches the
+        // rich order row. Both calls land on this same chain: state lookup
+        // uses .maybeSingle(), the rich fetch uses .single().
+        if (table === 'orders') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: {
+                id: 'order-123',
+                payment_status: 'paid',
+                shipping_status: 'processing',
+                cancelled_at: null,
+              },
+              error: null,
+            }),
+            single: vi.fn().mockResolvedValue({
+              data: {
+                id: 'order-123',
+                order_number: 'ORD-123',
+                merchant_id: 'merchant-123',
+                customer_name: 'Test Customer',
+                customer_email: 'test@example.com',
+                customer_phone: null,
+                total: '1000',
+                subtotal: '1000',
+                shipping_fee: '0',
+                currency: 'NGN',
+                shipping_address: {},
+                order_items: [],
+              },
+              error: null,
+            }),
+          } as any;
+        }
         return {
           select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
           single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          limit: vi.fn().mockResolvedValue({
+            data: [{ order_id: 'order-123', transaction_id: 'txn-123' }],
+            error: null,
+          }),
         } as any;
+      });
+      // This is a genuine replay of an already fully-processed payment: the
+      // atomic RPC reports the order was already paid and nothing to update.
+      vi.mocked(mockServiceClient.rpc).mockImplementation((name: string) => {
+        const data =
+          name === 'complete_order_gateway_payment'
+            ? {
+                actor: null,
+                already_completed: true,
+                order_already_paid: true,
+                order_updated: false,
+                order_cancelled: false,
+                order_skipped_status: null,
+                previous_payment_status: 'paid',
+                previous_shipping_status: 'processing',
+                payment_status: 'paid',
+                shipping_status: 'processing',
+                cancelled_at: null,
+                order_number: 'ORD-123',
+              }
+            : null;
+        const result = { data, error: null };
+        return Object.assign(Promise.resolve(result), {
+          single: () => Promise.resolve(result),
+        }) as never;
       });
 
       const response = await POST(request);
@@ -3188,10 +3334,76 @@ describe('POST /api/payments/webhook', () => {
             }),
           } as any;
         }
+        // The short-circuit path now re-reads order state (not cancelled/
+        // refunded here) then, via finalizeOrderGatewayPayment, re-fetches the
+        // rich order row. Both calls land on this same chain: state lookup
+        // uses .maybeSingle(), the rich fetch uses .single().
+        if (table === 'orders') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: {
+                id: 'order-123',
+                payment_status: 'paid',
+                shipping_status: 'processing',
+                cancelled_at: null,
+              },
+              error: null,
+            }),
+            single: vi.fn().mockResolvedValue({
+              data: {
+                id: 'order-123',
+                order_number: 'ORD-123',
+                merchant_id: 'merchant-123',
+                customer_name: 'Test Customer',
+                customer_email: 'test@example.com',
+                customer_phone: null,
+                total: '1000',
+                subtotal: '1000',
+                shipping_fee: '0',
+                currency: 'NGN',
+                shipping_address: {},
+                order_items: [],
+              },
+              error: null,
+            }),
+          } as any;
+        }
         return {
           select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
           single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          limit: vi.fn().mockResolvedValue({
+            data: [{ order_id: 'order-123', transaction_id: 'txn-123' }],
+            error: null,
+          }),
         } as any;
+      });
+      // This is a genuine replay of an already fully-processed payment: the
+      // atomic RPC reports the order was already paid and nothing to update.
+      vi.mocked(mockServiceClient.rpc).mockImplementation((name: string) => {
+        const data =
+          name === 'complete_order_gateway_payment'
+            ? {
+                actor: null,
+                already_completed: true,
+                order_already_paid: true,
+                order_updated: false,
+                order_cancelled: false,
+                order_skipped_status: null,
+                previous_payment_status: 'paid',
+                previous_shipping_status: 'processing',
+                payment_status: 'paid',
+                shipping_status: 'processing',
+                cancelled_at: null,
+                order_number: 'ORD-123',
+              }
+            : null;
+        const result = { data, error: null };
+        return Object.assign(Promise.resolve(result), {
+          single: () => Promise.resolve(result),
+        }) as never;
       });
 
       const response = await POST(request);
@@ -3204,6 +3416,179 @@ describe('POST /api/payments/webhook', () => {
         expect.objectContaining({
           message: 'Transaction already processed',
           reference: 'REF123',
+        })
+      );
+    });
+
+    it('heals a wedged order on webhook redelivery (July 2026 ORD-260711-00NT-5 incident regression)', async () => {
+      // Arrange: the transaction is already completed (a prior delivery won
+      // the flip) but the order is STILL pending — the crashed-order-update
+      // wedge. The redelivery must flip the order and run side effects
+      // instead of returning a bare "Already processed" no-op.
+      const body = {
+        event: 'charge.success',
+        data: { reference: 'REF123' },
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-paystack-secret');
+      const request = createMockRequest(body, {
+        'x-paystack-signature': signature,
+      });
+
+      const { logger } = await import('@/lib/logger');
+      const { verifyTransaction } = await import('@/lib/paystack');
+      vi.mocked(verifyTransaction).mockResolvedValue({
+        success: true,
+        data: {
+          id: 1,
+          status: 'success',
+          amount: 100000,
+          reference: 'REF123',
+          currency: 'NGN',
+          channel: 'dedicated_nuban',
+          paid_at: '2026-07-11T17:25:08Z',
+          created_at: '2026-07-11T17:25:08Z',
+          customer: {
+            customer_code: 'CUS_test',
+            email: 'danneey7@example.com',
+            first_name: 'Daniel',
+            id: 1,
+            last_name: null,
+            phone: null,
+          },
+          metadata: null,
+          fees: 30000,
+          fees_split: null,
+        },
+      });
+
+      let transactionCallCount = 0;
+      const orderStateLookup = vi.fn().mockResolvedValue({
+        data: {
+          id: 'order-123',
+          payment_status: 'pending',
+          shipping_status: 'pending',
+          cancelled_at: null,
+        },
+        error: null,
+      });
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'transactions') {
+          transactionCallCount++;
+          if (transactionCallCount === 1) {
+            return {
+              select: vi.fn().mockReturnThis(),
+              eq: vi.fn().mockReturnThis(),
+              single: vi.fn().mockResolvedValue({
+                data: {
+                  id: 'txn-123',
+                  merchant_id: 'merchant-123',
+                  order_id: 'order-123',
+                  amount: '1000',
+                  currency: 'NGN',
+                  gateway_reference: 'REF123',
+                  metadata: { customer_email: 'danneey7@example.com' },
+                  status: 'completed',
+                },
+                error: null,
+              }),
+            } as any;
+          }
+          // The atomic flip attempt loses: the transaction is already
+          // completed, so .maybeSingle() returns no row.
+          return {
+            update: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            neq: vi.fn().mockReturnThis(),
+            select: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+          } as any;
+        }
+        if (table === 'orders') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            maybeSingle: orderStateLookup,
+            single: vi.fn().mockResolvedValue({
+              data: {
+                id: 'order-123',
+                order_number: 'ORD-260711-00NT-5',
+                merchant_id: 'merchant-123',
+                customer_name: 'Daniel Agboli',
+                customer_email: 'danneey7@example.com',
+                customer_phone: null,
+                total: '1000',
+                subtotal: '1000',
+                shipping_fee: '0',
+                currency: 'NGN',
+                shipping_address: {},
+                order_items: [],
+              },
+              error: null,
+            }),
+          } as any;
+        }
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          limit: vi.fn().mockResolvedValue({
+            data: [{ order_id: 'order-123', transaction_id: 'txn-123' }],
+            error: null,
+          }),
+        } as any;
+      });
+      vi.mocked(mockServiceClient.rpc).mockImplementation((name: string) => {
+        const data =
+          name === 'complete_order_gateway_payment'
+            ? {
+                actor: null,
+                already_completed: true,
+                order_already_paid: false,
+                order_updated: true,
+                order_cancelled: false,
+                order_skipped_status: null,
+                previous_payment_status: 'pending',
+                previous_shipping_status: 'pending',
+                payment_status: 'paid',
+                shipping_status: 'processing',
+                cancelled_at: null,
+                order_number: 'ORD-260711-00NT-5',
+              }
+            : name === 'claim_payment_side_effect'
+              ? { we_won: true, current_status: 'claimed' }
+              : null;
+        const result = { data, error: null };
+        return Object.assign(Promise.resolve(result), {
+          single: () => Promise.resolve(result),
+        }) as any;
+      });
+
+      // Act
+      const response = await POST(request);
+      const data = await response.json();
+
+      // Assert: the redelivery healed the order via the atomic RPC and
+      // reported success to the gateway.
+      expect(response.status).toBe(200);
+      expect(data).toEqual({ message: 'Already processed' });
+      expect(mockServiceClient.rpc).toHaveBeenCalledWith(
+        'complete_order_gateway_payment',
+        expect.objectContaining({
+          p_order_id: 'order-123',
+          p_transaction_id: 'txn-123',
+        })
+      );
+      expect(mockRunPaidOrderSideEffects).toHaveBeenCalledWith(
+        expect.objectContaining({
+          externalGatewayReference: 'REF123',
+          settlementGateway: 'paystack',
+        })
+      );
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Webhook redelivery healed a wedged order payment',
+          orderId: 'order-123',
         })
       );
     });
@@ -3291,9 +3676,10 @@ describe('POST /api/payments/webhook', () => {
         neq: vi.fn().mockReturnThis(),
         select: vi.fn().mockReturnThis(),
       });
-      const orderUpdate = vi.fn().mockReturnValue({
+      // The atomic RPC does the flip now; the webhook only re-reads the
+      // order via a plain select (no more `.from('orders').update()`).
+      const orderSelect = vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnThis(),
-        select: vi.fn().mockReturnThis(),
         single: vi.fn().mockResolvedValue({
           data: {
             ad_tracking: {},
@@ -3326,7 +3712,7 @@ describe('POST /api/payments/webhook', () => {
           } as any;
         }
         if (table === 'orders') {
-          return { update: orderUpdate } as any;
+          return { select: orderSelect } as any;
         }
         if (table === 'merchants') {
           return {
@@ -3386,7 +3772,7 @@ describe('POST /api/payments/webhook', () => {
       );
       expect(transactionSelect).not.toHaveBeenCalled();
       expect(transactionUpdate).toHaveBeenCalled();
-      expect(orderUpdate).toHaveBeenCalled();
+      expect(orderSelect).toHaveBeenCalled();
       expect(mockMarkAgenticPaystackDvaSessionPaid).toHaveBeenCalledWith(
         expect.objectContaining({
           gatewayReference: 'REF123',
@@ -3514,6 +3900,218 @@ describe('POST /api/payments/webhook', () => {
           transactionId: 'wallet-txn-1',
         })
       );
+    });
+
+    // Shared arrange for the wallet-credited push tests: a Paystack DVA transfer
+    // that falls through order matching into plain wallet top-up crediting.
+    async function buildWalletTopUpWebhookRequest(
+      metadata: Record<string, unknown> = {
+        customer_id: 'customer-1',
+        transaction_type: 'wallet_topup',
+      }
+    ) {
+      const body = {
+        event: 'charge.success',
+        data: {
+          authorization: { receiver_bank_account_number: '9812858131' },
+          reference: 'REF123',
+        },
+      };
+      const signature = createSignature(
+        JSON.stringify(body),
+        'test-paystack-secret'
+      );
+      const request = createMockRequest(body, {
+        'x-paystack-signature': signature,
+      });
+
+      const { verifyTransaction } = await import('@/lib/paystack');
+      vi.mocked(verifyTransaction).mockResolvedValue({
+        success: true,
+        data: {
+          amount: 2_000_000,
+          channel: 'dedicated_nuban',
+          created_at: '2026-05-21T09:59:00Z',
+          currency: 'NGN',
+          customer: {
+            customer_code: 'CUS_test',
+            email: 'wallet@example.com',
+            first_name: 'Wallet',
+            id: 1,
+            last_name: null,
+            phone: '+2348012345678',
+          },
+          fees: 30000,
+          fees_split: null,
+          id: 1,
+          metadata: null,
+          paid_at: '2026-05-21T10:00:00Z',
+          reference: 'REF123',
+          status: 'success',
+        },
+      });
+      mockGetPaystackDvaReceiverAccountNumber.mockReturnValue('9812858131');
+      mockConfirmPaystackWalletDvaTopUp.mockResolvedValueOnce({
+        kind: 'match',
+        transaction: {
+          amount: 20000,
+          currency: 'NGN',
+          gateway_reference: 'REF123',
+          id: 'wallet-txn-1',
+          merchant_id: 'merchant-1',
+          metadata,
+          order_id: null,
+          platform_fee: 0,
+        },
+      });
+
+      const transactionUpdate = vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: { id: 'wallet-txn-1' },
+          error: null,
+        }),
+        neq: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+      });
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'transactions') {
+          return asMockedQueryChain({
+            eq: vi.fn().mockReturnThis(),
+            select: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: null,
+              error: {
+                code: 'PGRST116',
+                details: 'The result contains 0 rows',
+                message: 'Not found',
+              },
+            }),
+            update: transactionUpdate,
+          });
+        }
+        return asMockedQueryChain({
+          eq: vi.fn().mockReturnThis(),
+          select: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+        });
+      });
+
+      return request;
+    }
+
+    it('schedules a wallet-credited push on the first credit', async () => {
+      const request = await buildWalletTopUpWebhookRequest({
+        customer_id: 'customer-1',
+        return_to: '/checkout',
+        transaction_type: 'wallet_topup',
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(mockNotifyWalletCredited).toHaveBeenCalledWith({
+        amount: 20000,
+        customerId: 'customer-1',
+        merchantId: 'merchant-1',
+        returnTo: '/checkout',
+      });
+    });
+
+    it('forwards a camelCase returnTo from metadata to the scheduled push', async () => {
+      const request = await buildWalletTopUpWebhookRequest({
+        customer_id: 'customer-1',
+        returnTo: '/utilities/airtime',
+        transaction_type: 'wallet_topup',
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(mockNotifyWalletCredited).toHaveBeenCalledWith({
+        amount: 20000,
+        customerId: 'customer-1',
+        merchantId: 'merchant-1',
+        returnTo: '/utilities/airtime',
+      });
+    });
+
+    it('passes undefined returnTo when metadata carries no return destination', async () => {
+      const request = await buildWalletTopUpWebhookRequest({
+        customer_id: 'customer-1',
+        transaction_type: 'wallet_topup',
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(mockNotifyWalletCredited).toHaveBeenCalledWith({
+        amount: 20000,
+        customerId: 'customer-1',
+        merchantId: 'merchant-1',
+        returnTo: undefined,
+      });
+    });
+
+    it.each([
+      ['auth redirector chain', '/auth/callback?returnTo=//evil.com'],
+      ['nested redirect param', '/checkout?redirect=//evil.com'],
+      ['protocol-relative', '//evil.com'],
+      ['non-resumable route', '/settings'],
+    ])('drops a hostile metadata returnTo (%s) before it reaches the push payload', async (_label, returnTo) => {
+      const request = await buildWalletTopUpWebhookRequest({
+        customer_id: 'customer-1',
+        return_to: returnTo,
+        transaction_type: 'wallet_topup',
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(mockNotifyWalletCredited).toHaveBeenCalledWith({
+        amount: 20000,
+        customerId: 'customer-1',
+        merchantId: 'merchant-1',
+        returnTo: undefined,
+      });
+    });
+
+    it('suppresses the wallet-credited push on idempotent webhook replays', async () => {
+      vi.useFakeTimers();
+      mockCreditWalletTopUp.mockResolvedValueOnce({
+        balance: 20000,
+        firstCredit: false,
+        reference: 'REF123',
+        transactionId: 'wallet-credit-1',
+      });
+      mockClaimWalletCreditPush.mockResolvedValue({
+        status: 'already_claimed',
+      });
+      try {
+        const request = await buildWalletTopUpWebhookRequest();
+        const response = await POST(request);
+        await vi.runAllTimersAsync();
+
+        expect(response.status).toBe(200);
+        expect(mockNotifyWalletCredited).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('acknowledges the webhook even when the scheduled push rejects', async () => {
+      mockNotifyWalletCredited.mockRejectedValueOnce(new Error('push failed'));
+      const request = await buildWalletTopUpWebhookRequest();
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toEqual({
+        message: 'Wallet top-up credited',
+        reference: 'REF123',
+        wallet: { balance: 20000 },
+      });
     });
 
     it('returns wallet-funded order processed responses before plain wallet top-up crediting', async () => {
@@ -4783,12 +5381,28 @@ describe('POST /api/payments/webhook', () => {
         } as any;
       });
 
-      // Mock RPC call for settlement
+      // Mock RPC call for settlement (and the atomic order-completion RPC
+      // that runs before it in finalizeOrderGatewayPayment).
       vi.mocked(mockServiceClient.rpc).mockImplementation((name: string) => {
-        const data =
-          name === 'claim_payment_side_effect'
-            ? { we_won: true, current_status: 'claimed' }
-            : null;
+        let data: unknown = null;
+        if (name === 'claim_payment_side_effect') {
+          data = { we_won: true, current_status: 'claimed' };
+        } else if (name === 'complete_order_gateway_payment') {
+          data = {
+            actor: null,
+            already_completed: false,
+            order_already_paid: false,
+            order_updated: true,
+            order_cancelled: false,
+            order_skipped_status: null,
+            previous_payment_status: 'pending',
+            previous_shipping_status: 'pending',
+            payment_status: 'paid',
+            shipping_status: 'processing',
+            cancelled_at: null,
+            order_number: 'ORD-123',
+          };
+        }
         const result = { data, error: null };
         return Object.assign(Promise.resolve(result), {
           single: () => Promise.resolve(result),
@@ -4912,6 +5526,36 @@ describe('POST /api/payments/webhook', () => {
           } as never;
         }
 
+        if (table === 'payment_side_effects') {
+          const expectedFilters: [string, string][] = [
+            ['order_id', 'order-123'],
+            ['transaction_id', 'txn-123'],
+            ['status', 'failed'],
+            ['error', 'rpc_seed_pending_drain'],
+          ];
+          let eqCallCount = 0;
+          const query = {
+            delete: vi.fn(() => query),
+            eq: vi.fn((column: string, value: string) => {
+              const expectedFilter = expectedFilters[eqCallCount];
+              if (
+                !expectedFilter ||
+                column !== expectedFilter[0] ||
+                value !== expectedFilter[1]
+              ) {
+                throw new Error(
+                  `Unexpected payment_side_effects filter: ${column}=${value}`
+                );
+              }
+              eqCallCount++;
+              return eqCallCount === expectedFilters.length
+                ? Promise.resolve({ error: null })
+                : query;
+            }),
+          };
+          return query as never;
+        }
+
         return {
           select: vi.fn().mockReturnThis(),
           insert: vi.fn().mockReturnThis(),
@@ -4933,6 +5577,31 @@ describe('POST /api/payments/webhook', () => {
               ],
               missingUnitCount: 1,
               reclaimedUnitCount: 0,
+            },
+            error: null,
+          };
+          return Object.assign(Promise.resolve(result), {
+            single: () => Promise.resolve(result),
+          }) as never;
+        }
+
+        // The atomic completion RPC must succeed so finalizeOrderGatewayPayment
+        // reaches the inventory-confirmation step tested here.
+        if (name === 'complete_order_gateway_payment') {
+          const result = {
+            data: {
+              actor: null,
+              already_completed: false,
+              order_already_paid: false,
+              order_updated: true,
+              order_cancelled: false,
+              order_skipped_status: null,
+              previous_payment_status: 'pending',
+              previous_shipping_status: 'pending',
+              payment_status: 'paid',
+              shipping_status: 'processing',
+              cancelled_at: null,
+              order_number: 'ORD-123',
             },
             error: null,
           };
@@ -5020,27 +5689,9 @@ describe('POST /api/payments/webhook', () => {
           } as never;
         }
 
-        if (table === 'orders') {
-          // The order UPDATE returns the CLAMPED cancelled row.
-          return {
-            update: vi.fn().mockReturnThis(),
-            eq: vi.fn().mockReturnThis(),
-            select: vi.fn().mockReturnThis(),
-            single: vi.fn().mockResolvedValue({
-              data: {
-                id: 'order-123',
-                order_number: 'ORD-123',
-                total: '1000',
-                currency: 'NGN',
-                shipping_status: 'cancelled',
-                payment_status: 'unpaid',
-                order_items: [],
-              },
-              error: null,
-            }),
-          } as never;
-        }
-
+        // The atomic RPC now signals the clamp: finalizeOrderGatewayPayment
+        // returns 'order_cancelled' before ever reading/writing `orders`, so
+        // no `.from('orders')` mock is needed for this scenario.
         return {
           select: vi.fn().mockReturnThis(),
           insert: vi.fn().mockReturnThis(),
@@ -5048,6 +5699,34 @@ describe('POST /api/payments/webhook', () => {
           eq: vi.fn().mockReturnThis(),
           single: vi.fn().mockResolvedValue({ data: null, error: null }),
         } as never;
+      });
+
+      // The order was cancelled before this payment landed: the
+      // complete_order_gateway_payment RPC's prevent_cancelled_order_reopen
+      // trigger clamps it and reports order_cancelled instead of flipping it
+      // to paid.
+      vi.mocked(mockServiceClient.rpc).mockImplementation((name: string) => {
+        const data =
+          name === 'complete_order_gateway_payment'
+            ? {
+                actor: null,
+                already_completed: false,
+                order_already_paid: false,
+                order_updated: false,
+                order_cancelled: true,
+                order_skipped_status: null,
+                previous_payment_status: 'unpaid',
+                previous_shipping_status: 'cancelled',
+                payment_status: 'unpaid',
+                shipping_status: 'cancelled',
+                cancelled_at: '2026-01-01T00:00:00Z',
+                order_number: 'ORD-123',
+              }
+            : null;
+        const result = { data, error: null };
+        return Object.assign(Promise.resolve(result), {
+          single: () => Promise.resolve(result),
+        }) as never;
       });
 
       const response = await POST(request);
@@ -5213,14 +5892,20 @@ describe('POST /api/payments/webhook', () => {
       );
     });
 
-    it('records settlement via fallback path when orders.update fails (review #1563 P1 regression test)', async () => {
+    it('records settlement via fallback path and fails closed for gateway retry when the atomic completion RPC fails (review #1563 P1 regression test)', async () => {
       // Review feedback (CodeRabbit P1): the fallback I added in
-      // commit fa3cc0eb1e — when `orders.update().single()` errors
-      // (transient DB blip / missing row), settlement must still be
-      // recorded via a direct record_merchant_settlement RPC call so
-      // the merchant isn't left uncredited. Idempotency from the A0
-      // partial unique index ensures a later replay with a successful
-      // order update is a no-op.
+      // commit fa3cc0eb1e — when order-completion fails (transient DB blip /
+      // missing row), settlement must still be recorded via a direct
+      // record_merchant_settlement RPC call so the merchant isn't left
+      // uncredited. Idempotency from the A0 partial unique index ensures a
+      // later replay with a successful completion is a no-op.
+      //
+      // Post-atomic-RPC update: the order flip and the transaction flip now
+      // happen together inside `complete_order_gateway_payment`, so "the
+      // order update failed" is represented by that RPC returning an
+      // error_code. The old swallow-to-200 behavior wedged a real order
+      // (ORD-260711-00NT-5) — the webhook now fails closed with 500 so the
+      // gateway redelivers and the redelivery path heals the order.
       const body = {
         reference: 'REF-FB-1',
         status: 'success',
@@ -5283,24 +5968,9 @@ describe('POST /api/payments/webhook', () => {
           } as never;
         }
 
-        if (table === 'orders') {
-          // CRITICAL: simulate transient DB error on the order update.
-          // Before the fa3cc0eb1e fix this would silently leave the
-          // merchant uncredited. After the fix, settlement still runs.
-          return {
-            update: vi.fn().mockReturnThis(),
-            eq: vi.fn().mockReturnThis(),
-            select: vi.fn().mockReturnThis(),
-            single: vi.fn().mockResolvedValue({
-              data: null,
-              error: {
-                message: 'connection terminated',
-                code: '57P01',
-              },
-            }),
-          } as never;
-        }
-
+        // finalizeOrderGatewayPayment fails at the atomic RPC step below,
+        // before ever reading/writing `orders` — no `.from('orders')` mock
+        // needed.
         return {
           select: vi.fn().mockReturnThis(),
           insert: vi.fn().mockReturnThis(),
@@ -5310,15 +5980,39 @@ describe('POST /api/payments/webhook', () => {
         } as never;
       });
 
-      vi.mocked(mockServiceClient.rpc).mockResolvedValue({
-        data: null,
-        error: null,
+      // CRITICAL: simulate the atomic completion RPC failing (transient DB
+      // blip / missing row). Before the fa3cc0eb1e fix this would silently
+      // leave the merchant uncredited; after it, settlement still runs via
+      // the fallback path even though the webhook now fails closed overall.
+      vi.mocked(mockServiceClient.rpc).mockImplementation((name: string) => {
+        if (name === 'complete_order_gateway_payment') {
+          const result = {
+            data: { error_code: 'ORDER_NOT_FOUND' },
+            error: null,
+          };
+          return Object.assign(Promise.resolve(result), {
+            single: () => Promise.resolve(result),
+          }) as never;
+        }
+        const result = { data: null, error: null };
+        return Object.assign(Promise.resolve(result), {
+          single: () => Promise.resolve(result),
+        }) as never;
       });
 
       const response = await POST(request);
-      expect(response.status).toBe(200);
+      const data = await response.json();
 
-      // The whole point of the fix: even though the order update
+      // The webhook fails closed so the gateway redelivers — the redelivery
+      // path re-reads the order and heals the flip (unlike the historical
+      // swallow-to-200 behavior that wedged ORD-260711-00NT-5).
+      expect(response.status).toBe(500);
+      expect(data).toEqual({
+        code: 'ORDER_PAYMENT_COMPLETION_FAILED',
+        error: 'Order payment completion failed',
+      });
+
+      // The whole point of the fix: even though the order-completion RPC
       // failed, record_merchant_settlement was called with the BAC-*
       // canonical key + the order_update_failed metadata flag so ops
       // can spot fallback-path settlements.

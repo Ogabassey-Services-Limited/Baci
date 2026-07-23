@@ -15,6 +15,7 @@ import {
 
 import { SvgUri, SvgXml } from 'react-native-svg';
 import { useTheme } from '@/hooks/useTheme';
+import { resolveSafeImageSource } from './safe-image-source';
 
 const DEFAULT_BLURHASH = 'L6PZfSi_.AyE_3t7t7RjE1%MWBR*';
 
@@ -26,6 +27,7 @@ async function fetchSvgXml(uri: string): Promise<string> {
 
 export interface SafeImageProps extends Omit<ImageProps, 'onError'> {
   onLoadError?: (error: Error) => void;
+  fallbackSource?: ImageSourcePropType;
   fallbackComponent?: React.ReactNode;
   showFallbackIcon?: boolean;
   fallbackStyle?: StyleProp<ViewStyle>;
@@ -39,6 +41,7 @@ export interface SafeImageProps extends Omit<ImageProps, 'onError'> {
 
 function SafeImage({
   source,
+  fallbackSource,
   style,
   placeholder: _placeholder,
   transition: _transition,
@@ -56,17 +59,25 @@ function SafeImage({
   const { colors } = useTheme();
   const [hasError, setHasError] = useState(false);
   const [errorCount, setErrorCount] = useState(0);
+  const [isUsingFallbackSource, setIsUsingFallbackSource] = useState(false);
   const [xml, setXml] = useState<string | null>(null);
   const [isLoadingXml, setIsLoadingXml] = useState(false);
 
+  const sourceKey = resolveSafeImageSource(source).key;
+  const fallbackSourceKey = resolveSafeImageSource(fallbackSource).key;
+  const activeSource = isUsingFallbackSource ? fallbackSource : source;
+  const { source: resolvedSource, uri } = resolveSafeImageSource(activeSource);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: source value keys intentionally reset transient loading state when image inputs change.
+  useEffect(() => {
+    setHasError(false);
+    setErrorCount(0);
+    setIsUsingFallbackSource(false);
+    setXml(null);
+    setIsLoadingXml(false);
+  }, [fallbackSourceKey, sourceKey]);
+
   // SVG Detection Logic
-  const rawUri =
-    typeof source === 'object' && source !== null && 'uri' in source
-      ? (source as { uri?: unknown }).uri
-      : undefined;
-
-  const uri = rawUri == null ? undefined : String(rawUri);
-
   const isSvg =
     typeof uri === 'string' &&
     (uri.toLowerCase().includes('.svg') ||
@@ -114,7 +125,11 @@ function SafeImage({
     if (errorCount >= 2) return;
 
     setErrorCount((prev) => prev + 1);
-    setHasError(true);
+    if (fallbackSource && !isUsingFallbackSource) {
+      setIsUsingFallbackSource(true);
+    } else {
+      setHasError(true);
+    }
 
     const errorMessage = e?.nativeEvent?.error || 'Unknown image loading error';
 
@@ -124,7 +139,7 @@ function SafeImage({
         '[SafeImage] Image load failed:',
         errorMessage,
         '\nSource:',
-        source
+        activeSource
       );
     }
 
@@ -220,38 +235,6 @@ function SafeImage({
   if (contentFit === 'contain') resizeMode = 'contain';
   if (contentFit === 'fill') resizeMode = 'stretch';
   if (contentFit === 'none') resizeMode = 'center';
-
-  // Sanitize source to guarantee uri is a string if it's an object/array
-  const resolvedSource = (() => {
-    if (!source) return source;
-    if (Array.isArray(source)) {
-      return source.map((src) =>
-        typeof src === 'object' && src !== null && 'uri' in src
-          ? {
-              ...src,
-              uri:
-                typeof src.uri === 'string'
-                  ? src.uri
-                  : src.uri
-                    ? String(src.uri)
-                    : undefined,
-            }
-          : src
-      );
-    }
-    if (typeof source === 'object' && 'uri' in source) {
-      return {
-        ...source,
-        uri:
-          typeof source.uri === 'string'
-            ? source.uri
-            : source.uri
-              ? String(source.uri)
-              : undefined,
-      };
-    }
-    return source;
-  })();
 
   // NOTE: Completely isolated from expo-image due to iOS CoreGraphics crash
   // related to 24-bpp PNGs and color spaces (rdar://143602439)

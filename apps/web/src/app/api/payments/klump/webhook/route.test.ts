@@ -126,15 +126,25 @@ function createSupabaseMock({
     data: { id: 'transaction-123' },
     error: null,
   },
+  inventoryConfirmationResult = {
+    data: { current_status: 'claimed', we_won: true },
+    error: null,
+  },
   merchantAmount = null,
   platformFee = null,
+  preUpdateOrderStatusResult = {
+    data: { payment_status: 'pending', shipping_status: 'pending' },
+    error: null,
+  },
   settlementResult = { data: null, error: null },
   transactionAmount = '50000',
   transactionStatus = 'pending',
 }: {
+  inventoryConfirmationResult?: { data: unknown; error: unknown };
   merchantAmount?: number | string | null;
   orderUpdateResult?: { data: unknown; error: unknown };
   platformFee?: number | string | null;
+  preUpdateOrderStatusResult?: { data: unknown; error: unknown };
   settlementResult?: { data: unknown; error: unknown };
   transactionAmount?: number | string | null;
   transactionStatus?: string;
@@ -170,6 +180,7 @@ function createSupabaseMock({
 
       if (table === 'orders') {
         return {
+          select: vi.fn(() => makeQueryChain(preUpdateOrderStatusResult)),
           update: vi.fn((payload: unknown) => {
             mocks.orderUpdateSingle(payload);
             return makeUpdateChain(orderUpdateResult);
@@ -211,6 +222,12 @@ function createSupabaseMock({
       if (name === 'record_merchant_settlement') {
         mocks.recordMerchantSettlement(args);
         return Promise.resolve(settlementResult);
+      }
+
+      if (name === 'confirm_order_inventory_reservations') {
+        return Object.assign(Promise.resolve(inventoryConfirmationResult), {
+          single: () => Promise.resolve(inventoryConfirmationResult),
+        });
       }
 
       const result = {
@@ -385,6 +402,69 @@ describe('POST /api/payments/klump/webhook', () => {
         p_source_type: 'order',
       })
     );
+  });
+
+  it('rolls back the order to its actual pre-update status when inventory confirmation fails', async () => {
+    mocks.createAdminClient.mockReturnValue(
+      createSupabaseMock({
+        preUpdateOrderStatusResult: {
+          data: {
+            payment_status: 'bnpl_pending',
+            shipping_status: 'confirmed',
+          },
+          error: null,
+        },
+        inventoryConfirmationResult: {
+          data: null,
+          error: { message: 'inventory rpc unavailable' },
+        },
+      })
+    );
+
+    const rawBody = JSON.stringify(successfulPayload);
+    const response = await POST(
+      createRequest(successfulPayload, signPayload(rawBody, 'klump-secret'))
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      code: 'INVENTORY_CONFIRMATION_FAILED',
+      error: 'Inventory confirmation failed',
+    });
+    // The first orders.update flips the order to paid; the second is the
+    // rollback, which must restore the order's ACTUAL pre-update status
+    // ('bnpl_pending' / 'confirmed'), not a hardcoded 'pending'/'pending'.
+    expect(mocks.orderUpdateSingle).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        payment_status: 'bnpl_pending',
+        shipping_status: 'confirmed',
+      })
+    );
+  });
+
+  it('fails closed before mutating when the pre-update snapshot read fails', async () => {
+    mocks.createAdminClient.mockReturnValue(
+      createSupabaseMock({
+        preUpdateOrderStatusResult: {
+          data: null,
+          error: { message: 'transient select failure' },
+        },
+      })
+    );
+
+    const rawBody = JSON.stringify(successfulPayload);
+    const response = await POST(
+      createRequest(successfulPayload, signPayload(rawBody, 'klump-secret'))
+    );
+    const body = await response.json();
+
+    // Without a trustworthy snapshot the order must not be flipped at all —
+    // Klump redelivers on non-2xx and the retry re-reads a fresh snapshot.
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: 'Failed to snapshot order status' });
+    expect(mocks.orderUpdateSingle).not.toHaveBeenCalled();
   });
 
   it('suppresses settlement + notification and files reconciliation when the order was clamped as cancelled', async () => {

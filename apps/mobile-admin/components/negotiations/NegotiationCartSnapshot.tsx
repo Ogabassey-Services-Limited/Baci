@@ -4,8 +4,10 @@ import { Pressable, Text, View } from 'react-native';
 import { formatCurrency as formatPrice } from '@/utils/format';
 import { formatNegotiationItemMeta } from './format-negotiation-item-meta';
 import { negotiationCardStyles as styles } from './NegotiationCard.styles';
+import { NegotiationItemMetaChips } from './NegotiationItemMetaChips';
 
 interface NegotiationCartSnapshotColors {
+  backgroundLight: string;
   border: string;
   text: string;
   textSecondary: string;
@@ -34,7 +36,7 @@ function buildCartToggleLabel(count: number, expanded: boolean) {
   };
 }
 
-function formatCartLineMeta(line: NegotiationCartLine): string | null {
+function formatCartLineMeta(line: NegotiationCartLine) {
   return formatNegotiationItemMeta({
     name: line.name,
     variant_name: line.variant_name,
@@ -92,15 +94,11 @@ export function NegotiationCartSnapshot({
                     {line.name}
                   </Text>
                   {lineMeta ? (
-                    <Text
-                      style={[
-                        styles.cartLineMeta,
-                        { color: colors.textSecondary },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {lineMeta}
-                    </Text>
+                    <NegotiationItemMetaChips
+                      colors={colors}
+                      compact={true}
+                      metadata={lineMeta}
+                    />
                   ) : null}
                 </View>
                 <Text style={[styles.cartLinePrice, { color: colors.text }]}>

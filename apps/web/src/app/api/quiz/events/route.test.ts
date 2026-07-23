@@ -291,6 +291,7 @@ describe('quiz events route', () => {
 
     expect(response.status).toBe(200);
     expect(await readJson(response)).toEqual({
+      entryMode: 'free-v1',
       events: [],
       pagination: {
         hasMore: false,
@@ -312,6 +313,7 @@ describe('quiz events route', () => {
 
     expect(response.status).toBe(200);
     expect(await readJson(response)).toEqual({
+      entryMode: 'free-v1',
       events: [],
       pagination: {
         hasMore: false,
@@ -597,6 +599,7 @@ describe('quiz events route', () => {
 
     expect(response.status).toBe(200);
     expect(await readJson(response)).toEqual({
+      entryMode: 'free-v1',
       events: [
         {
           endsAt: '2026-05-16T12:00:00.000Z',
@@ -667,6 +670,7 @@ describe('quiz events route', () => {
 
     expect(response.status).toBe(200);
     expect(await readJson(response)).toEqual({
+      entryMode: 'free-v1',
       events: [
         {
           endsAt: '2026-05-16T12:00:00.000Z',
@@ -701,6 +705,7 @@ describe('quiz events route', () => {
 
     expect(response.status).toBe(200);
     expect(await readJson(response)).toEqual({
+      entryMode: 'free-v1',
       events: [
         {
           endsAt: '2026-05-16T12:00:00.000Z',
@@ -767,6 +772,7 @@ describe('quiz events route', () => {
 
     expect(response.status).toBe(200);
     expect(await readJson(response)).toEqual({
+      entryMode: 'free-v1',
       events: [
         {
           endsAt: '2026-05-16T12:00:00.000Z',

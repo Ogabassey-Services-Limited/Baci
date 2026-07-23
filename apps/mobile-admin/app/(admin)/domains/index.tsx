@@ -18,6 +18,7 @@ import { DomainItemCard } from '@/components/domains/DomainItemCard';
 import DomainOptionsSheet from '@/components/domains/DomainOptionsSheet';
 import type { Domain } from '@/components/domains/domain-types';
 import { StoreLinkCard } from '@/components/domains/StoreLinkCard';
+import { isDomainPurchaseEnabled } from '@/config/domain-purchase-availability';
 import { SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useDomainActions } from '@/hooks/useDomainActions';
 import { useMerchant } from '@/hooks/useMerchant';
@@ -111,6 +112,7 @@ function DomainsDashboardContent({
 }) {
   const { colors, shadows, isDark } = useTheme();
   const router = useRouter();
+  const domainPurchaseEnabled = isDomainPurchaseEnabled();
   const fallbackDomains = merchantPrimaryDomain
     ? [
         normalizeDomain({
@@ -219,7 +221,11 @@ function DomainsDashboardContent({
           ) : domains.filter((d) => d.domain_type !== 'subdomain').length ===
             0 ? (
             <DomainEmptyState
-              onBuyDomain={() => router.push('/domains/buy')}
+              onBuyDomain={
+                domainPurchaseEnabled
+                  ? () => router.push('/domains/buy')
+                  : undefined
+              }
               onConnectDomain={() => router.push('/domains/connect')}
             />
           ) : (

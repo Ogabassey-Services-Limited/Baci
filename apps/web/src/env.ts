@@ -78,6 +78,10 @@ const recoveryCodePepperSchema = optionalTrimmedStringSchema.refine(
   (value) => value === undefined || value.length >= 32,
   { message: 'RECOVERY_CODE_PEPPER must be at least 32 characters' }
 );
+const quizDeviceHashPepperSchema = optionalTrimmedStringSchema.refine(
+  (value) => value === undefined || value.length >= 32,
+  { message: 'QUIZ_DEVICE_HASH_PEPPER must be at least 32 characters' }
+);
 
 const ENV_VALUE_LINE_BREAK_PATTERN = /\\n|\r?\n|\r/g;
 
@@ -202,6 +206,7 @@ const serverSchema = z
     PETROCK_ENABLED_TIERS: optionalTrimmedStringSchema,
     PETROCK_REMEDIATION_ENABLED: defaultFalseBooleanStringSchema,
     USDT_WALLET_ENABLED: defaultFalseBooleanStringSchema,
+    WALLET_CREDIT_PUSH_ENABLED: defaultFalseBooleanStringSchema,
     IMEI_FX_NGN_USD: z.coerce.number().positive().optional(),
     BACI_AGENTIC_ACCESS_TOKEN: z.string().optional(),
     BACI_AGENTIC_ACCESS_TOKEN_PREVIOUS: z.string().optional(),
@@ -327,6 +332,7 @@ const serverSchema = z
     QUIZ_PHASE: z.enum(['1a', 'production']).default('1a'),
     QUIZ_PRODUCTION_APPROVED: quizProductionApprovedSchema,
     QUIZ_RPC_SERVER_SECRET: optionalTrimmedStringSchema,
+    QUIZ_DEVICE_HASH_PEPPER: quizDeviceHashPepperSchema,
     QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON: quizIntegrityTierOverridesSchema,
 
     // Push Notifications
@@ -391,15 +397,17 @@ const serverSchema = z
       process.env.GITHUB_ACTIONS === 'true' &&
       Boolean(process.env.GITHUB_RUN_ID) &&
       Boolean(process.env.GITHUB_REPOSITORY);
-    // This VPS worker only runs Ollama layout generation; it never signs
-    // agentic JWTs, so it should not fail boot on unrelated signing material.
-    const isAiStorefrontWorker =
-      process.env.BACI_WORKER_PROFILE === 'ai-storefront-jobs';
+    // These bounded VPS workers never sign agentic JWTs, so they should not
+    // fail boot on unrelated signing material.
+    const isNonAgenticWorker = [
+      'ai-storefront-jobs',
+      'event-pipeline',
+    ].includes(process.env.BACI_WORKER_PROFILE ?? '');
 
     if (
       value.NODE_ENV !== 'production' ||
       isGitHubActionsBuild ||
-      isAiStorefrontWorker ||
+      isNonAgenticWorker ||
       value.SUPABASE_AGENTIC_JWT_PRIVATE_JWK ||
       value.SUPABASE_JWT_SECRET
     ) {
@@ -420,6 +428,16 @@ const serverSchema = z
         message:
           'QUIZ_RPC_SERVER_SECRET is required when QUIZ_PHASE is production',
         path: ['QUIZ_RPC_SERVER_SECRET'],
+      });
+    }
+  })
+  .superRefine((value, ctx) => {
+    if (value.QUIZ_PHASE === 'production' && !value.QUIZ_DEVICE_HASH_PEPPER) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'QUIZ_DEVICE_HASH_PEPPER is required when QUIZ_PHASE is production',
+        path: ['QUIZ_DEVICE_HASH_PEPPER'],
       });
     }
   })
@@ -598,6 +616,7 @@ const getEnv = () => {
         PETROCK_ENABLED_TIERS: process.env.PETROCK_ENABLED_TIERS,
         PETROCK_REMEDIATION_ENABLED: process.env.PETROCK_REMEDIATION_ENABLED,
         USDT_WALLET_ENABLED: process.env.USDT_WALLET_ENABLED,
+        WALLET_CREDIT_PUSH_ENABLED: process.env.WALLET_CREDIT_PUSH_ENABLED,
         IMEI_FX_NGN_USD: process.env.IMEI_FX_NGN_USD,
         KUDA_BILL_DEBUG: process.env.KUDA_BILL_DEBUG,
         BACI_AGENTIC_ACCESS_TOKEN: process.env.BACI_AGENTIC_ACCESS_TOKEN,
@@ -695,6 +714,7 @@ const getEnv = () => {
         QUIZ_PHASE: process.env.QUIZ_PHASE,
         QUIZ_PRODUCTION_APPROVED: process.env.QUIZ_PRODUCTION_APPROVED,
         QUIZ_RPC_SERVER_SECRET: process.env.QUIZ_RPC_SERVER_SECRET,
+        QUIZ_DEVICE_HASH_PEPPER: process.env.QUIZ_DEVICE_HASH_PEPPER,
         QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON:
           process.env.QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON,
         EXPO_ACCESS_TOKEN: process.env.EXPO_ACCESS_TOKEN,
@@ -1115,6 +1135,13 @@ export const isUsdtWalletEnabled = () => {
   );
   return runtimeValue ?? env?.USDT_WALLET_ENABLED ?? false;
 };
+export const isWalletCreditPushEnabled = () => {
+  if (isBrowserRuntime()) return false;
+  const runtimeValue = normalizeEnvBoolean(
+    trimSecret(process.env.WALLET_CREDIT_PUSH_ENABLED)
+  );
+  return runtimeValue ?? env?.WALLET_CREDIT_PUSH_ENABLED ?? false;
+};
 export const getImeiFxNgnUsd = () => {
   if (isBrowserRuntime()) return undefined;
   const runtimeValue = Number(process.env.IMEI_FX_NGN_USD);
@@ -1155,6 +1182,15 @@ export const getQuizRpcServerSecret = () => {
     env?.QUIZ_RPC_SERVER_SECRET
   );
   return secret || undefined;
+};
+export const getQuizDeviceHashPepper = () => {
+  if (isBrowserRuntime())
+    throw new Error('QUIZ_DEVICE_HASH_PEPPER cannot be accessed on the client');
+  const pepper = getRuntimeEnvValue(
+    process.env.QUIZ_DEVICE_HASH_PEPPER,
+    env?.QUIZ_DEVICE_HASH_PEPPER
+  );
+  return pepper || undefined;
 };
 export const getQuizIntegrityTierOverridesJson = () => {
   if (isBrowserRuntime())

@@ -138,6 +138,11 @@ vi.mock('@/lib/credit-direct-client', () => ({
   openCreditDirectCheckout: vi.fn(),
 }));
 
+vi.mock('@/lib/api-client', () => ({
+  fetchWithCsrf: (input: RequestInfo | URL, init?: RequestInit) =>
+    fetch(input, init),
+}));
+
 vi.mock('@/lib/routes', () => ({
   asRoute: vi.fn((path: string) => path),
 }));
@@ -175,7 +180,7 @@ vi.mock('@/components/storefront/cdn-format-image', () => ({
 
 import { hasPriceNegotiationEntitlement } from '@/lib/feature-flags';
 import { CheckoutPage } from './checkout-page';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useCart } from '@/hooks/cart';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { toast } from '@/hooks/use-toast';
@@ -187,6 +192,7 @@ import {
   usePersistedState,
 } from '@/hooks/use-persisted-state';
 import { CHECKOUT_IDEMPOTENCY_STORAGE_KEY } from './checkout/checkout-idempotency';
+import { readCreditDirectPopupMarker } from './checkout/credit-direct-popup-return';
 
 function mockCheckoutSubmissionState() {
   vi.mocked(useCart).mockReturnValue({
@@ -252,7 +258,14 @@ async function submitPickupPayOnDeliveryOrder() {
 describe('CheckoutPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.clear();
+    window.sessionStorage.clear();
     addressAutocompleteMock.selectedPlace = null;
+    vi.mocked(useRouter).mockReturnValue({
+      push: vi.fn(),
+      back: vi.fn(),
+      replace: vi.fn(),
+    } as unknown as ReturnType<typeof useRouter>);
     vi.mocked(useCart).mockReturnValue({
       cart: [],
       cartTotal: 0,
@@ -864,7 +877,10 @@ describe('CheckoutPage', () => {
 
     const callArgs = vi.mocked(openCreditDirectCheckout).mock.calls[0]?.[0];
     await act(async () => {
-      await callArgs?.onPopup?.('cd-popup-transaction-1');
+      await callArgs?.onPopup?.({
+        checkoutTransactionId: 'cd-popup-transaction-1',
+        sessionId: 'signed-session-1',
+      });
     });
 
     expect(fetchMock).toHaveBeenCalledWith('/api/orders/update-payment-ref', {
@@ -940,7 +956,10 @@ describe('CheckoutPage', () => {
 
     const callArgs = vi.mocked(openCreditDirectCheckout).mock.calls[0]?.[0];
     await act(async () => {
-      await callArgs?.onPopup?.('cd-popup-transaction-1');
+      await callArgs?.onPopup?.({
+        checkoutTransactionId: 'cd-popup-transaction-1',
+        sessionId: 'signed-session-1',
+      });
     });
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(
@@ -954,6 +973,286 @@ describe('CheckoutPage', () => {
 
     fetchMock.mockRestore();
     consoleErrorSpy.mockRestore();
+  });
+
+  it('hands resumed Credit Direct success to server verification before cleanup', async () => {
+    vi.mocked(useSearchParams).mockReturnValue(
+      new URLSearchParams({
+        orderId: 'ord-1',
+        gateway: 'credit_direct',
+        trackingToken: 'tok-123',
+      }) as unknown as ReturnType<typeof useSearchParams>
+    );
+    const routerPush = vi.fn();
+    vi.mocked(useRouter).mockReturnValue({
+      push: routerPush,
+      back: vi.fn(),
+      replace: vi.fn(),
+    } as unknown as ReturnType<typeof useRouter>);
+    const clearCheckoutSession = vi.fn();
+    vi.mocked(usePersistedForm).mockReturnValue({
+      values: {
+        firstName: '',
+        lastName: '',
+        customerEmail: '',
+        customerPhone: '',
+        newAddressStreet: '',
+        newAddressState: '',
+        newAddressCity: '',
+        currentStep: 'contact',
+        completedSteps: { contact: false, delivery: false },
+      },
+      setValue: vi.fn(),
+      setValues: vi.fn(),
+      clear: clearCheckoutSession,
+    } as unknown as ReturnType<typeof usePersistedForm>);
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.startsWith('/api/storefront/orders/ord-1')) {
+          return {
+            ok: true,
+            json: async () => ({
+              id: 'ord-1',
+              short_id: 'ORD-1',
+              subtotal: 1000,
+              shipping_cost: 0,
+              total: 1000,
+              customer_name: 'Ada Buyer',
+              customer_email: 'ada@example.com',
+              customer_phone: '+2348123456789',
+              tracking_token: 'tok-123',
+              shipping_address: { address: '', city: '', state: '' },
+              items: [],
+            }),
+          } as Response;
+        }
+        if (url === '/api/orders/credit-direct/client-completion') {
+          return {
+            ok: false,
+            status: 500,
+            statusText: 'Server Error',
+            text: async () => 'write failed',
+          } as Response;
+        }
+
+        return {
+          ok: true,
+          json: async () => ({ states: [], locations: [] }),
+          text: async () => '',
+        } as Response;
+      });
+
+    try {
+      render(<CheckoutPage />);
+
+      await waitFor(() => {
+        expect(openCreditDirectCheckout).toHaveBeenCalled();
+      });
+      const callArgs = vi.mocked(openCreditDirectCheckout).mock.calls[0]?.[0];
+
+      await act(async () => {
+        await callArgs?.onSuccess({
+          checkoutTransactionId: 'cd-client-success-1',
+          sessionId: 'signed-session-1',
+        });
+      });
+
+      expect(readCreditDirectPopupMarker('ord-1')?.transactionId).toBe(
+        'cd-client-success-1'
+      );
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/orders/credit-direct/client-completion',
+        {
+          method: 'POST',
+          keepalive: true,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId: 'ord-1',
+            checkoutTransactionId: 'cd-client-success-1',
+            customerEmail: 'ada@example.com',
+            sessionId: 'signed-session-1',
+            tracking_token: 'tok-123',
+          }),
+        }
+      );
+      expect(routerPush).toHaveBeenCalledWith(
+        '/test-store/checkout/bnpl?orderId=ord-1&gateway=credit_direct&merchant_slug=test-store&creditDirectCompletion=cd-client-success-1&trackingToken=tok-123&email=ada%40example.com'
+      );
+      expect(
+        routerPush.mock.calls.some(([href]) => String(href).includes('/order-success'))
+      ).toBe(false);
+      expect(clearCheckoutSession).not.toHaveBeenCalled();
+    } finally {
+      fetchMock.mockRestore();
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it('hands fresh Credit Direct success to server verification before cleanup', async () => {
+    const clearCart = vi.fn();
+    const clearCheckoutSession = vi.fn();
+    const clearPendingCheckoutOrder = vi.fn();
+    const routerPush = vi.fn();
+    vi.mocked(useRouter).mockReturnValue({
+      push: routerPush,
+      back: vi.fn(),
+      replace: vi.fn(),
+    } as unknown as ReturnType<typeof useRouter>);
+    vi.mocked(useCart).mockReturnValue({
+      cart: [
+        {
+          id: 'item-1',
+          name: 'Test Product',
+          price: 5000,
+          quantity: 1,
+          image: '',
+          slug: 'test-product',
+        },
+      ],
+      cartTotal: 5000,
+      clearCart,
+      isHydrated: true,
+    } as unknown as ReturnType<typeof useCart>);
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        slug: 'test-store',
+        business_name: 'Test Store',
+        vat_registration_status: 'registered',
+        vat_rate: 7.5,
+        country: 'NG',
+        feature_settings: {
+          credit_direct_enabled: true,
+        },
+      },
+      basePath: '/test-store',
+    } as unknown as ReturnType<typeof useMerchantSafe>);
+    vi.mocked(usePersistedForm).mockReturnValue({
+      values: {
+        firstName: 'Ada',
+        lastName: 'Buyer',
+        customerEmail: 'ada@example.com',
+        customerPhone: '+2348123456789',
+        newAddressStreet: '2 Olaide Tomori Street',
+        newAddressState: 'Lagos',
+        newAddressCity: 'Ikeja',
+        currentStep: 'delivery',
+        completedSteps: { contact: true, delivery: false },
+      },
+      setValue: vi.fn(),
+      setValues: vi.fn(),
+      clear: clearCheckoutSession,
+    } as unknown as ReturnType<typeof usePersistedForm>);
+    vi.mocked(usePersistedState).mockReturnValue([
+      null,
+      vi.fn(),
+      clearPendingCheckoutOrder,
+    ] as unknown as ReturnType<typeof usePersistedState>);
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input) => {
+        const url = String(input);
+        if (url === '/api/orders') {
+          return {
+            ok: true,
+            json: async () => ({
+              amountDueToGateway: 5750,
+              order: {
+                id: 'order-cd',
+                order_number: 'ORD-CD',
+                tracking_token: 'track-cd',
+              },
+              wallet: null,
+            }),
+            text: async () => '',
+          } as Response;
+        }
+        if (url === '/api/orders/credit-direct/client-completion') {
+          return {
+            ok: false,
+            status: 500,
+            statusText: 'Server Error',
+            text: async () => 'write failed',
+          } as Response;
+        }
+
+        return {
+          ok: true,
+          json: async () => ({ states: ['Lagos'], locations: [] }),
+          text: async () => '',
+        } as Response;
+      });
+
+    try {
+      render(<CheckoutPage />);
+
+      fireEvent.click(screen.getByRole('button', { name: /store pickup/i }));
+      fireEvent.click(
+        screen.getByRole('button', { name: /continue to payment/i })
+      );
+      fireEvent.click(
+        await screen.findByRole('button', { name: /pay in installments/i })
+      );
+      fireEvent.click(
+        await screen.findByRole('radio', { name: /credit direct/i })
+      );
+      const placeOrderButton = screen
+        .getAllByRole('button', { name: /place order/i })
+        .find((button) => !button.hasAttribute('disabled'));
+      expect(placeOrderButton).toBeDefined();
+      fireEvent.click(placeOrderButton as HTMLButtonElement);
+
+      await waitFor(() => {
+        expect(openCreditDirectCheckout).toHaveBeenCalled();
+      });
+      const callArgs = vi.mocked(openCreditDirectCheckout).mock.calls[0]?.[0];
+
+      await act(async () => {
+        await callArgs?.onSuccess({
+          checkoutTransactionId: 'cd-client-success-2',
+          sessionId: 'signed-session-2',
+        });
+      });
+
+      expect(readCreditDirectPopupMarker('order-cd')?.transactionId).toBe(
+        'cd-client-success-2'
+      );
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/orders/credit-direct/client-completion',
+        {
+          method: 'POST',
+          keepalive: true,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId: 'order-cd',
+            checkoutTransactionId: 'cd-client-success-2',
+            customerEmail: 'ada@example.com',
+            sessionId: 'signed-session-2',
+            tracking_token: 'track-cd',
+          }),
+        }
+      );
+      expect(routerPush).toHaveBeenCalledWith(
+        '/test-store/checkout/bnpl?orderId=order-cd&gateway=credit_direct&merchant_slug=test-store&creditDirectCompletion=cd-client-success-2&trackingToken=track-cd&email=ada%40example.com'
+      );
+      expect(
+        routerPush.mock.calls.some(([href]) => String(href).includes('/order-success'))
+      ).toBe(false);
+      expect(clearPendingCheckoutOrder).not.toHaveBeenCalled();
+      expect(clearCheckoutSession).not.toHaveBeenCalled();
+      expect(clearCart).not.toHaveBeenCalled();
+    } finally {
+      fetchMock.mockRestore();
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it('blocks order creation when door delivery has no selected quote', async () => {

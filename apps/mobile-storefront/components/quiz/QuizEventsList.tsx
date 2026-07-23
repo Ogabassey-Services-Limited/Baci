@@ -1,12 +1,7 @@
-import { EXAM_PASS_POINTS_COST } from '@baci/shared/constants';
 import { Pressable, Text, View } from 'react-native';
 import type { QuizEvent } from '@/services/quiz-types';
 import type { createQuizStyles } from './QuizScreen.styles';
-import {
-  formatPointCount,
-  formatTimeRange,
-  getEventStartButtonText,
-} from './QuizScreen.utils';
+import { formatTimeRange, getEventStartButtonText } from './QuizScreen.utils';
 
 type QuizStyles = ReturnType<typeof createQuizStyles>;
 
@@ -32,11 +27,7 @@ export function QuizEventsList({
       {events.map((event) => {
         const isEventOpen = event.status === 'open';
         const isStartDisabled = isStarting || !isEventOpen;
-        const buttonText = getEventStartButtonText(
-          event.status,
-          isStarting,
-          EXAM_PASS_POINTS_COST
-        );
+        const buttonText = getEventStartButtonText(event.status, isStarting);
 
         return (
           <View
@@ -48,9 +39,7 @@ export function QuizEventsList({
             <Text style={styles.eventPrize}>{event.prizeName}</Text>
             <Text style={styles.eventMeta}>
               {event.questionCount} questions,{' '}
-              {formatTimeRange(event, locale, timeNotSetLabel)},{' '}
-              {formatPointCount(EXAM_PASS_POINTS_COST, 'loyalty point')} exam
-              pass
+              {formatTimeRange(event, locale, timeNotSetLabel)}, free entry
             </Text>
             <Pressable
               accessibilityRole="button"

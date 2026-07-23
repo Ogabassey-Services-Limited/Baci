@@ -1,3 +1,5 @@
+import { isValidTwitterProfileHandle } from './twitter-profile-handle';
+
 /**
  * Normalizes a social media input (username or URL) into a valid URL.
  * Handles removing leading @ and prepending the correct domain.
@@ -23,27 +25,6 @@ const TWITTER_PROFILE_HOSTS = new Set([
   'www.twitter.com',
   'mobile.twitter.com',
 ]);
-const TWITTER_RESERVED_PATHS = new Set([
-  'account',
-  'communities',
-  'compose',
-  'explore',
-  'hashtag',
-  'home',
-  'i',
-  'intent',
-  'login',
-  'logout',
-  'messages',
-  'notifications',
-  'search',
-  'settings',
-  'share',
-  'signup',
-  'topics',
-  'who_to_follow',
-]);
-
 function normalizeTwitterProfileUrl(input: string): string | undefined {
   try {
     const url = new URL(input);
@@ -62,11 +43,7 @@ function normalizeTwitterProfileUrl(input: string): string | undefined {
     }
 
     const [handle] = pathSegments;
-    if (
-      !handle ||
-      TWITTER_RESERVED_PATHS.has(handle.toLowerCase()) ||
-      !/^[A-Za-z0-9_]{1,15}$/.test(handle)
-    ) {
+    if (!handle || !isValidTwitterProfileHandle(handle)) {
       return undefined;
     }
 

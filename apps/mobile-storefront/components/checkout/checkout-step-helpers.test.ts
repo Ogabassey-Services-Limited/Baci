@@ -1,11 +1,11 @@
 import { describe, expect, it } from '@jest/globals';
-import { PICKUP_STATION_ADDRESS_LINES } from '@/components/checkout/pickup-station.constants';
 import type { ShippingQuote } from '@/components/checkout/types';
 import {
   AIRPORT_DELIVERY_FEE,
   findSelectedQuote,
   getDeliveryMethodFee,
   getDeliveryMethodLabel,
+  getDeliveryMethodReviewDetail,
   getDeliveryMethodSummary,
   getPaymentTabForMethod,
   getQuotePreference,
@@ -83,10 +83,13 @@ describe('checkout-step-helpers', () => {
 
   it('returns delivery summaries by method and quote data', () => {
     expect(getDeliveryMethodSummary('airport', baseQuote)).toBe(
-      'Delivery to your doorstep • Est Delivery within 24-48 working hours'
+      'Delivery to your doorstep • Within 1–48 hours'
+    );
+    expect(getDeliveryMethodSummary('door', baseQuote, 'Lagos')).toBe(
+      'Topship Express • Within 1–24 hours'
     );
     expect(getDeliveryMethodSummary('pickup_station', baseQuote)).toBe(
-      PICKUP_STATION_ADDRESS_LINES.join(', ')
+      'Merchant office pickup'
     );
     expect(getDeliveryMethodSummary('pickup_station', stationPickupQuote)).toBe(
       'PORT HARCOURT, GIGL Aba Road, Port Harcourt'
@@ -120,6 +123,28 @@ describe('checkout-step-helpers', () => {
     expect(getDeliveryMethodSummary('door', undefined)).toBe(
       'Topship • Delivery estimate shown after selection'
     );
+  });
+
+  it('formats delivery details for the checkout review', () => {
+    expect(getDeliveryMethodReviewDetail('airport', undefined)).toBe(
+      'Delivery to your doorstep • Within 1–48 hours'
+    );
+    expect(getDeliveryMethodReviewDetail('door', baseQuote, 'Lagos')).toBe(
+      'Topship Express • Within 1–24 hours'
+    );
+    expect(
+      getDeliveryMethodReviewDetail('door', {
+        ...baseQuote,
+        deliveryRange: undefined,
+        estimatedDays: undefined,
+      })
+    ).toBe('Topship Express • Delivery estimate shown after selection');
+    expect(
+      getDeliveryMethodReviewDetail('pickup_station', stationPickupQuote)
+    ).toBe(stationPickupQuote.displayName);
+    expect(
+      getDeliveryMethodReviewDetail('pickup_station', undefined)
+    ).toBeUndefined();
   });
 
   it('returns the shipping provider for each delivery method', () => {
@@ -168,5 +193,17 @@ describe('checkout-step-helpers', () => {
     expect(requiresQuote('airport', goFasterQuote, false)).toBe(true);
     expect(requiresQuote('airport', undefined, false)).toBe(false);
     expect(requiresQuote('door', undefined, false)).toBe(true);
+    expect(
+      requiresQuote(
+        'pickup_station',
+        {
+          displayName: 'GIG Logistics - Pickup at IKEJA',
+          id: 'station-quote',
+          isStationPickup: true,
+          price: 9493,
+        },
+        false
+      )
+    ).toBe(true);
   });
 });

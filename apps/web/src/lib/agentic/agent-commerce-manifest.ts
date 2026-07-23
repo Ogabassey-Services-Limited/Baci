@@ -11,6 +11,7 @@ import {
   getGooglePayAgenticConfig,
   getPaystackSecretKey,
 } from '@/env';
+import { isAgenticPaystackDvaPaused } from '@/lib/agentic/agentic-paystack-dva-paused';
 import {
   getConfiguredAgenticMerchantSlug,
   isAgenticCheckoutRuntimeConfigured,
@@ -24,7 +25,6 @@ import {
 } from '@/lib/storefront-agent-urls';
 
 export const AGENT_COMMERCE_SCHEMA_VERSION = '2026-04-30';
-export const AGENT_COMMERCE_CACHE_CONTROL = 'public, max-age=300';
 
 const AGENT_COMMERCE_CHECKOUT_CAPABILITIES = [
   'checkout.session.create',
@@ -194,6 +194,7 @@ function buildAgenticPaymentMethods(
   googlePayConfig: GooglePayAgenticConfig | null
 ) {
   const methods: AgenticPaymentMethod[] = [];
+  const paystackDvaPaused = isAgenticPaystackDvaPaused();
   // The public storefront snapshot omits the raw paystack_subaccount_code and
   // exposes the derived paystack_subaccount_configured hint instead, so the
   // public capability check accepts either signal (mirroring
@@ -204,8 +205,13 @@ function buildAgenticPaymentMethods(
     (isValidPaystackSubaccountCode(merchant.paystack_subaccount_code) ||
       merchant.paystack_subaccount_configured === true);
   if (paystackReady) {
-    methods.push(AGENTIC_PAYMENT_METHOD_PAYSTACK_BANK_TRANSFER);
-    if (googlePayConfig?.gateway === 'paystack') {
+    if (!paystackDvaPaused) {
+      methods.push(AGENTIC_PAYMENT_METHOD_PAYSTACK_BANK_TRANSFER);
+    }
+    // Google Pay is not independently executable yet: UCP normalizes it to the
+    // Paystack provider and the current completion setup creates a DVA instead
+    // of charging the supplied token. Do not advertise it through a DVA pause.
+    if (!paystackDvaPaused && googlePayConfig?.gateway === 'paystack') {
       methods.push(AGENTIC_PAYMENT_METHOD_GOOGLE_PAY);
     }
   }

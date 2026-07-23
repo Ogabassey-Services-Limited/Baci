@@ -98,7 +98,7 @@ describe('/quiz screen', () => {
     ).toBeOnTheScreen();
     expect(
       screen.getByRole('button', {
-        name: 'Use 1 point to start Daily Prize Quiz',
+        name: 'Start free exam Daily Prize Quiz',
       })
     ).toBeOnTheScreen();
     expect(
@@ -113,7 +113,7 @@ describe('/quiz screen', () => {
 
     fireEvent.press(
       await screen.findByRole('button', {
-        name: 'Use 1 point to start Daily Prize Quiz',
+        name: 'Start free exam Daily Prize Quiz',
       })
     );
 
@@ -165,7 +165,7 @@ describe('/quiz screen', () => {
 
     fireEvent.press(
       await screen.findByRole('button', {
-        name: 'Use 1 point to start Daily Prize Quiz',
+        name: 'Start free exam Daily Prize Quiz',
       })
     );
 
@@ -183,7 +183,7 @@ describe('/quiz screen', () => {
 
     fireEvent.press(
       await screen.findByRole('button', {
-        name: 'Use 1 point to start Daily Prize Quiz',
+        name: 'Start free exam Daily Prize Quiz',
       })
     );
     fireEvent.press(await screen.findByRole('button', { name: 'Answer 4' }));

@@ -46,12 +46,14 @@ export function applyWalletRouteAction({
   if (routeAction === 'bank-transfer') {
     // Funding-account (DVA) setup surfaces in the hero section, not a
     // panel — close everything; use-wallet-route-action-setup owns the
-    // account auto-creation.
+    // account auto-creation. Preserve the incoming returnTo (like the fund
+    // path) so a post-credit "Return to your purchase" CTA can deep-link the
+    // customer back to where they came from.
     setShowFundPanel(false);
     setShowRedeemPanel(false);
     setShowSavingsProgressModal(false);
     setFundAmount('');
-    setFundReturnTo(undefined);
+    setFundReturnTo(walletReturnTo);
     return;
   }
   if (routeAction === 'savings') {

@@ -11,7 +11,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HomeScreenView } from '@/components/home/HomeScreenView';
 import { getHomeProductGridSummary } from '@/components/home/home-product-grid-summary';
-import { useHomePermissionPrompt } from '@/components/home/useHomePermissionPrompt';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { getHomeContentBottomPadding } from '@/constants/layout';
@@ -49,7 +48,6 @@ export default function HomeScreen() {
   const { data: merchant } = useMerchant();
   const merchantId = merchant?.id || CONSTANT_MERCHANT_ID;
 
-  useHomePermissionPrompt();
   const shouldRenderDecorations = useDeferredFocusRender(isFocused);
 
   const {

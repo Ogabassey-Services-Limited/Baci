@@ -57,7 +57,10 @@ describe('GET /.well-known/acp.json', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(response.headers.get('cache-control')).toBe('public, max-age=3600');
+    expect(response.headers.get('cache-control')).toBe(
+      'no-store, max-age=0, must-revalidate'
+    );
+    expect(response.headers.get('cdn-cache-control')).toBe('no-store');
     expect(response.headers.get('vercel-cdn-cache-control')).toBe('no-store');
     expect(body).toMatchObject({
       protocol: {
@@ -105,6 +108,23 @@ describe('GET /.well-known/acp.json', () => {
 
     expect(response.status).toBe(404);
     expect(body.error).toBe('ACP discovery is not enabled for this storefront');
+  });
+
+  it('removes checkout service when paused DVA is the only payment method', async () => {
+    vi.stubEnv('AGENTIC_PAYSTACK_DVA_MODE', 'paused');
+
+    const { GET } = await import('./route');
+    const response = await GET(
+      new Request('https://ogabassey.com/.well-known/acp.json', {
+        headers: { host: 'ogabassey.com' },
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.capabilities.services).toEqual(['orders']);
+    expect(body.capabilities.supported_currencies).toEqual([]);
+    expect(body.capabilities.supported_locales).toEqual([]);
   });
 
   it('returns 500 when merchant lookup fails', async () => {

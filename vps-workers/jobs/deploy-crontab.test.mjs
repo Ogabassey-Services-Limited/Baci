@@ -24,7 +24,6 @@ describe('deploy crontab', () => {
     );
   });
 
-
   it('schedules the order notification outbox cron through run-web-cron', () => {
     const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
 
@@ -206,6 +205,20 @@ describe('deploy crontab', () => {
     assert.doesNotMatch(
       deployScript,
       /2-59\/5 \* \* \* \* flock -n \$REMOTE_DIR\/locks\/process-import-jobs\.lock/
+    );
+  });
+
+  it('installs event workers and one-minute flock-guarded recovery sweeps', () => {
+    const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
+
+    assert.match(deployScript, /install-event-pipeline-services\.sh/);
+    assert.match(
+      deployScript,
+      /^\* \* \* \* \* flock -n \$REMOTE_DIR\/locks\/process-domain-events\.lock bash -lc 'export NODE_ENV=production && export BACI_WORKER_PROFILE=event-pipeline && cd \$REMOTE_DIR && \$REMOTE_DIR\/bin\/process-domain-events\.sh --once' >> \$REMOTE_DIR\/logs\/process-domain-events\.log 2>&1$/m
+    );
+    assert.match(
+      deployScript,
+      /^\* \* \* \* \* flock -n \$REMOTE_DIR\/locks\/process-event-deliveries\.lock bash -lc 'export NODE_ENV=production && export BACI_WORKER_PROFILE=event-pipeline && cd \$REMOTE_DIR && \$REMOTE_DIR\/bin\/process-event-deliveries\.sh --once' >> \$REMOTE_DIR\/logs\/process-event-deliveries\.log 2>&1$/m
     );
   });
 });

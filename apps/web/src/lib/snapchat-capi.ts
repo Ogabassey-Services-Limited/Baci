@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { sanitizeEventErrorMessage } from '@/lib/events/sanitize-event-error';
 
 /**
  * Snapchat Conversions API (Server-Side)
@@ -10,6 +11,7 @@ import crypto from 'node:crypto';
  */
 
 const SNAP_CAPI_URL = 'https://tr.snapchat.com/v2/conversion';
+const PROVIDER_REQUEST_TIMEOUT_MS = 10_000;
 
 export type SnapchatEventName =
   | 'PAGE_VIEW'
@@ -58,13 +60,15 @@ export async function sendSnapchatEvent(
   eventName: SnapchatEventName,
   userData: SnapchatUserData,
   eventData?: SnapchatEventData,
-  eventId?: string
-): Promise<{ success: boolean; error?: string }> {
+  eventId?: string,
+  signal?: AbortSignal,
+  eventTime?: number
+): Promise<{ success: boolean; error?: string; httpStatus?: number }> {
   if (!pixelId || !accessToken) {
     return { success: false, error: 'Missing pixel ID or access token' };
   }
 
-  const timestamp = Math.floor(Date.now() / 1000);
+  const timestamp = eventTime ?? Math.floor(Date.now() / 1000);
   const eventConversionType = eventName === 'PURCHASE' ? 'OFFLINE' : 'WEB';
 
   // Build hashed user data
@@ -102,6 +106,10 @@ export async function sendSnapchatEvent(
   };
 
   try {
+    const timeoutSignal = AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MS);
+    const requestSignal = signal
+      ? AbortSignal.any([signal, timeoutSignal])
+      : timeoutSignal;
     const response = await fetch(SNAP_CAPI_URL, {
       method: 'POST',
       headers: {
@@ -109,20 +117,45 @@ export async function sendSnapchatEvent(
         Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify(payload),
+      signal: requestSignal,
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Snapchat CAPI error:', errorText);
-      return { success: false, error: errorText };
+      const safeError = sanitizeEventErrorMessage(errorText, [
+        pixelId,
+        accessToken,
+      ]);
+      console.error(
+        sanitizeEventErrorMessage('Snapchat CAPI error:', [
+          pixelId,
+          accessToken,
+        ]),
+        safeError
+      );
+      return {
+        success: false,
+        error: safeError,
+        httpStatus: response.status,
+      };
     }
 
     return { success: true };
   } catch (error) {
-    console.error('Snapchat CAPI request failed:', error);
+    const safeError = sanitizeEventErrorMessage(
+      error instanceof Error ? error.message : 'Network error',
+      [pixelId, accessToken]
+    );
+    console.error(
+      sanitizeEventErrorMessage('Snapchat CAPI request failed:', [
+        pixelId,
+        accessToken,
+      ]),
+      safeError
+    );
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error',
+      error: safeError,
     };
   }
 }
@@ -139,7 +172,9 @@ export const snapchatCAPI = {
     value: number,
     currency: string,
     productIds: string[],
-    eventId?: string
+    eventId?: string,
+    signal?: AbortSignal,
+    eventTime?: number
   ) => {
     return sendSnapchatEvent(
       pixelId,
@@ -153,7 +188,9 @@ export const snapchatCAPI = {
         itemIds: productIds,
         numberOfItems: productIds.length,
       },
-      eventId
+      eventId,
+      signal,
+      eventTime
     );
   },
 
@@ -164,7 +201,9 @@ export const snapchatCAPI = {
     value: number,
     currency: string,
     productIds: string[],
-    eventId?: string
+    eventId?: string,
+    signal?: AbortSignal,
+    eventTime?: number
   ) => {
     return sendSnapchatEvent(
       pixelId,
@@ -176,7 +215,9 @@ export const snapchatCAPI = {
         currency,
         itemIds: productIds,
       },
-      eventId
+      eventId,
+      signal,
+      eventTime
     );
   },
 
@@ -187,7 +228,9 @@ export const snapchatCAPI = {
     productId: string,
     price: number,
     currency: string,
-    eventId?: string
+    eventId?: string,
+    signal?: AbortSignal,
+    eventTime?: number
   ) => {
     return sendSnapchatEvent(
       pixelId,
@@ -199,7 +242,9 @@ export const snapchatCAPI = {
         currency,
         itemIds: [productId],
       },
-      eventId
+      eventId,
+      signal,
+      eventTime
     );
   },
 };

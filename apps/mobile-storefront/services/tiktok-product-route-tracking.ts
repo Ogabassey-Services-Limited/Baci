@@ -1,9 +1,18 @@
-import { useEffect, useRef } from 'react';
+import {
+  createContext,
+  createElement,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useRef,
+} from 'react';
 import {
   trackAddToCart,
   trackAddToWishlist,
   trackProductViewed,
 } from '@/services/ad-tracking';
+
+const AdTrackingRouteReadinessContext = createContext(true);
 
 interface ProductRouteTrackingInput {
   brand?: string;
@@ -24,20 +33,39 @@ function toProductPayload(product: ProductRouteTrackingInput, price: number) {
   };
 }
 
+export function AdTrackingRouteReadinessProvider({
+  children,
+  ready,
+}: {
+  children: ReactNode;
+  ready: boolean;
+}) {
+  return createElement(
+    AdTrackingRouteReadinessContext.Provider,
+    { value: ready },
+    children
+  );
+}
+
 export function useTrackProductRouteViewed(
   product: ProductRouteTrackingInput | null,
   price: number
 ) {
+  const isAdTrackingReady = useContext(AdTrackingRouteReadinessContext);
   const trackedProductViewRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!product || trackedProductViewRef.current === product.id) {
+    if (
+      !isAdTrackingReady ||
+      !product ||
+      trackedProductViewRef.current === product.id
+    ) {
       return;
     }
 
     trackedProductViewRef.current = product.id;
     void trackProductViewed(toProductPayload(product, price));
-  }, [price, product]);
+  }, [isAdTrackingReady, price, product]);
 }
 
 export function trackProductRouteAddToCart(

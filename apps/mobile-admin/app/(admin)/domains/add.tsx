@@ -2,16 +2,22 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { FeatureGateScreen } from '@/components/billing/FeatureGateScreen';
+import { isDomainPurchaseEnabled } from '@/config/domain-purchase-availability';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 
 export default function AddDomainScreen() {
   const { colors, shadows } = useTheme();
   const router = useRouter();
+  const domainPurchaseEnabled = isDomainPurchaseEnabled();
 
   return (
     <FeatureGateScreen
-      description="Register or connect a branded domain when Baci Pro is active."
+      description={
+        domainPurchaseEnabled
+          ? 'Register or connect a branded domain when Baci Pro is active.'
+          : 'Connect a branded domain when Baci Pro is active.'
+      }
       feature="custom_domain"
       serverEntitlementRequired
       title="Custom domains are a Baci Pro feature"
@@ -21,56 +27,61 @@ export default function AddDomainScreen() {
         contentContainerStyle={styles.content}
       >
         <Text style={[styles.title, { color: colors.text }]}>
-          Choose how you want to proceed
+          {domainPurchaseEnabled
+            ? 'Choose how you want to proceed'
+            : 'Connect your existing domain'}
         </Text>
 
-        {/* Buy New Domain */}
-        <Pressable
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.primary },
-            shadows.sm,
-          ]}
-          onPress={() => router.push('/domains/buy')}
-        >
-          <View
+        {domainPurchaseEnabled ? (
+          <Pressable
             style={[
-              styles.iconBadge,
-              { backgroundColor: `${colors.primary}15` },
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.primary },
+              shadows.sm,
             ]}
+            onPress={() => router.push('/domains/buy')}
           >
-            <Ionicons name="cart" size={24} color={colors.primary} />
-          </View>
-          <View style={styles.textContainer}>
-            <Text style={[styles.cardTitle, { color: colors.text }]}>
-              Get a custom domain
-            </Text>
-            <Text style={[styles.cardDesc, { color: colors.textSecondary }]}>
-              Search and register a new domain name. We handle the technical
-              setup for you.
-            </Text>
             <View
               style={[
-                styles.noteContainer,
-                { backgroundColor: `${colors.warning}15` },
+                styles.iconBadge,
+                { backgroundColor: `${colors.primary}15` },
               ]}
             >
-              <Ionicons
-                name="information-circle"
-                size={14}
-                color={colors.warning}
-              />
-              <Text style={[styles.noteText, { color: colors.textSecondary }]}>
-                Activation may take up to 72 hours
-              </Text>
+              <Ionicons name="cart" size={24} color={colors.primary} />
             </View>
-          </View>
-          <Ionicons
-            name="chevron-forward"
-            size={24}
-            color={colors.textSecondary}
-          />
-        </Pressable>
+            <View style={styles.textContainer}>
+              <Text style={[styles.cardTitle, { color: colors.text }]}>
+                Get a custom domain
+              </Text>
+              <Text style={[styles.cardDesc, { color: colors.textSecondary }]}>
+                Search and register a new domain name. We handle the technical
+                setup for you.
+              </Text>
+              <View
+                style={[
+                  styles.noteContainer,
+                  { backgroundColor: `${colors.warning}15` },
+                ]}
+              >
+                <Ionicons
+                  name="information-circle"
+                  size={14}
+                  color={colors.warning}
+                />
+                <Text
+                  style={[styles.noteText, { color: colors.textSecondary }]}
+                >
+                  Activation may take up to 72 hours
+                </Text>
+              </View>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={24}
+              color={colors.textSecondary}
+            />
+          </Pressable>
+        ) : null}
 
         {/* Connect Existing */}
         <Pressable

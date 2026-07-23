@@ -48,6 +48,7 @@ export function BillForm(props: BillFormProps) {
     updateCustomerId,
     verifiedCustomerName,
     verify,
+    walletReturnToHref,
   } = useBillFormController(props);
 
   // Returning users repeat far more than they add new meters, so when there are
@@ -143,6 +144,7 @@ export function BillForm(props: BillFormProps) {
             isFixedAmount={isFixedAmount}
             numericAmount={numericAmount}
             payment={payment}
+            returnToHref={walletReturnToHref}
             setAmount={updateAmount}
           />
         ) : null}

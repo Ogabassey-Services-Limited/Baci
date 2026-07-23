@@ -213,10 +213,11 @@ describe('buildProductSemanticModel', () => {
 
   it('only emits semantic card compare CTAs for curated compare pairs', () => {
     const discoveryFirstProduct = makeCandidate({
-      slug: 'discovery-first-phone',
-      name: 'Discovery First Phone',
+      slug: 'nearby-challenger',
+      name: 'Nearby Challenger',
       brand: 'OnePlus',
-      price: 530_000,
+      condition: 'used',
+      price: 510_000,
       stock: 1,
       product_key_specs: {
         chipset: 'Snapdragon 8 Gen 2',
@@ -237,10 +238,10 @@ describe('buildProductSemanticModel', () => {
       },
     });
     const semanticFirstProduct = makeCandidate({
-      slug: 'semantic-first-phone',
-      name: 'Semantic First Phone',
+      slug: 'premium-flagship',
+      name: 'Premium Flagship',
       brand: 'Google',
-      price: 501_000,
+      price: 1_500_000,
       stock: 12,
       product_key_specs: {
         chipset: 'Tensor G5',
@@ -256,20 +257,40 @@ describe('buildProductSemanticModel', () => {
           discoveryFirstProduct,
           currentProduct,
           semanticFirstProduct,
+          makeCandidate({
+            slug: 'close-contender',
+            name: 'Close Contender',
+            brand: 'Xiaomi',
+            condition: 'used',
+            price: 520_000,
+            stock: 8,
+            product_key_specs: {
+              chipset: 'Dimensity 9400',
+              ram_gb: 10,
+              storage_gb: 256,
+            },
+          }),
         ],
       })
     );
     const semanticFirstCard = model.alternatives?.cards.find(
-      (card) => card.title === 'Semantic First Phone'
+      (card) => card.title === 'Premium Flagship'
     );
     const discoveryFirstCard = model.alternatives?.cards.find(
-      (card) => card.title === 'Discovery First Phone'
+      (card) => card.title === 'Nearby Challenger'
+    );
+    const closeContenderCard = model.alternatives?.cards.find(
+      (card) => card.title === 'Close Contender'
     );
 
-    expect(model.alternatives?.cards[0]?.title).toBe('Semantic First Phone');
+    expect(model.alternatives?.cards[0]?.title).toBe('Premium Flagship');
     expect(semanticFirstCard?.secondaryHref).toBeUndefined();
+    expect(closeContenderCard).toBeDefined();
+    expect(closeContenderCard?.secondaryHref).toBe(
+      'https://ogabassey.com/smartphones/compare/close-contender-vs-target-phone'
+    );
     expect(discoveryFirstCard?.secondaryHref).toBe(
-      'https://ogabassey.com/smartphones/compare/discovery-first-phone-vs-target-phone'
+      'https://ogabassey.com/smartphones/compare/nearby-challenger-vs-target-phone'
     );
   });
 

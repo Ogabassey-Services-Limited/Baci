@@ -16,8 +16,23 @@ describe('credit-direct popup marker storage', () => {
 
     const marker = readCreditDirectPopupMarker('order-1');
 
+    expect(marker?.source).toBe('popup');
     expect(marker?.transactionId).toBe('txn-123');
     expect(typeof marker?.storedAt).toBe('string');
+  });
+
+  it('preserves SDK-success markers while treating legacy markers as popup returns', () => {
+    writeCreditDirectPopupMarker('order-1', 'txn-123', 'sdk_success');
+    window.sessionStorage.setItem(
+      `${CREDIT_DIRECT_POPUP_MARKER_PREFIX}order-2`,
+      JSON.stringify({
+        transactionId: 'txn-legacy',
+        storedAt: '2026-07-06T12:00:00.000Z',
+      }),
+    );
+
+    expect(readCreditDirectPopupMarker('order-1')?.source).toBe('sdk_success');
+    expect(readCreditDirectPopupMarker('order-2')?.source).toBe('popup');
   });
 
   it('returns null for a different order id', () => {

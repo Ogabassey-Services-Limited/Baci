@@ -3,13 +3,14 @@
 # BACI_REPO_DIR, BACI_WORKER_ENV, and NODE_ENV from cron/systemd per deployment.
 set -euo pipefail
 
-if [ "$#" -ne 2 ]; then
-  echo "[run-web-script] Usage: run-web-script.sh <label> <script-path>" >&2
+if [ "$#" -lt 2 ]; then
+  echo "[run-web-script] Usage: run-web-script.sh <label> <script-path> [script-args...]" >&2
   exit 1
 fi
 
 LABEL="$1"
 SCRIPT_PATH="$2"
+shift 2
 DEFAULT_REPO_DIR="/opt/baci/app"
 LEGACY_RUNNER_NAME="${LEGACY_RUNNER_NAME:-baci-deploy-2}"
 # Temporary fallback for older VPS runner checkouts. Prefer BACI_REPO_DIR or
@@ -148,4 +149,4 @@ fi
 # The imported web graph can include Next `server-only` marker modules. The
 # standalone worker is still a server graph, so use React's server export
 # condition to make those sentinels resolve to their empty server entry.
-pnpm --filter @baci/web exec tsx --conditions react-server "$SCRIPT_FILE"
+pnpm --filter @baci/web exec tsx --conditions react-server "$SCRIPT_FILE" "$@"

@@ -1,4 +1,5 @@
 import type { NegotiationItemInfo } from '@baci/shared';
+import type { NegotiationItemMetaPart } from './negotiation-item-meta.types';
 
 const ATTRIBUTE_ORDER = [
   'ram',
@@ -19,6 +20,7 @@ const ATTRIBUTE_LABELS: Record<string, string> = {
   os: 'OS',
   ram: 'RAM',
   screen_size: 'Screen size',
+  sim_type: 'SIM type',
 };
 
 const IGNORED_ATTRIBUTE_KEYS = new Set([
@@ -86,8 +88,7 @@ function compareAttributeKeys(left: string, right: string): number {
 }
 
 interface VariantAttributeEntry {
-  /** Merchant-facing "Label: Value" text, e.g. "Storage: 256GB". */
-  display: string;
+  label: string;
   /** The bare value used for de-duplication against the variant label. */
   value: string;
 }
@@ -102,20 +103,31 @@ function variantAttributeEntries(attributes: unknown): VariantAttributeEntry[] {
       // shouldShowAttribute already guarantees a non-empty string value.
       const cleaned = cleanString(value) as string;
       return {
-        display: `${formatAttributeLabel(key)}: ${cleaned}`,
+        label: formatAttributeLabel(key),
         value: cleaned,
       };
     });
 }
 
+interface ComparableMetaPart extends NegotiationItemMetaPart {
+  comparisonText: string;
+  tokenizeForDuplicates: boolean;
+}
+
 function appendUniquePart({
   comparable,
-  display,
+  comparisonText,
+  label,
   parts,
+  tokenizeForDuplicates,
+  value,
 }: {
   comparable: string | null;
-  display: string;
-  parts: string[];
+  comparisonText: string;
+  label: string;
+  parts: ComparableMetaPart[];
+  tokenizeForDuplicates: boolean;
+  value: string;
 }): void {
   if (!comparable) return;
   const normalizedValue = normalizeComparableText(comparable);
@@ -123,8 +135,9 @@ function appendUniquePart({
   if (!normalizedValue || !normalizedBareValue) return;
   if (
     parts.some((part) => {
-      const normalizedPart = normalizeComparableText(part);
+      const normalizedPart = normalizeComparableText(part.comparisonText);
       if (normalizedPart === normalizedValue) return true;
+      if (!part.tokenizeForDuplicates) return false;
       return tokenizeComparableText(normalizedPart).some((token) => {
         const bareToken = normalizeConditionValue(token);
         return (
@@ -137,25 +150,47 @@ function appendUniquePart({
   ) {
     return;
   }
-  parts.push(display);
+  parts.push({
+    comparisonText,
+    label,
+    tokenizeForDuplicates,
+    value,
+  });
 }
 
-function appendUnique(parts: string[], value: string | null): void {
+function appendUniqueVariant(
+  parts: ComparableMetaPart[],
+  value: string | null
+): void {
   if (!value) return;
-  appendUniquePart({ comparable: value, display: value, parts });
+  appendUniquePart({
+    comparable: value,
+    comparisonText: value,
+    label: 'Variant',
+    parts,
+    tokenizeForDuplicates: true,
+    value,
+  });
 }
 
 // Append a "Label: Value" attribute unless its bare value is already conveyed by
-// an earlier part (e.g. the variant label). Unlike appendUnique, the duplicate
-// check compares the attribute's value — not the whole "Label: Value" string —
+// an earlier part (e.g. the variant label). The duplicate check compares the
+// attribute's value — not the whole "Label: Value" string —
 // so "Storage: 256GB" is dropped when the label already says "256GB", while
 // unrelated attributes such as "RAM: 16GB" are still appended.
 function appendUniqueAttribute(
-  parts: string[],
-  display: string,
-  comparableValue: string
+  parts: ComparableMetaPart[],
+  label: string,
+  value: string
 ): void {
-  appendUniquePart({ comparable: comparableValue, display, parts });
+  appendUniquePart({
+    comparable: value,
+    comparisonText: `${label}: ${value}`,
+    label,
+    parts,
+    tokenizeForDuplicates: false,
+    value,
+  });
 }
 
 function normalizeComparableText(value: string): string {
@@ -173,25 +208,37 @@ function tokenizeComparableText(value: string): string[] {
     .filter(Boolean);
 }
 
-function formatCondition(value: unknown): string | null {
+function cleanCondition(value: unknown): string | null {
   const condition = cleanString(value);
-  return condition ? `Condition: ${condition.replace(/_/g, ' ')}` : null;
+  return condition ? condition.replace(/_/g, ' ') : null;
 }
 
 export function formatNegotiationItemMeta(
   itemInfo: NegotiationItemInfo | null
-): string | null {
+): NegotiationItemMetaPart[] | null {
   if (!itemInfo) return null;
 
-  const parts: string[] = [];
+  const parts: ComparableMetaPart[] = [];
   const variantName = cleanString(itemInfo.variant_name);
-  appendUnique(parts, variantName);
+  appendUniqueVariant(parts, variantName);
   // Append every attribute the variant label doesn't already convey, so partial
   // labels (e.g. "Silver") still expose the storage/RAM that identify the SKU.
   for (const entry of variantAttributeEntries(itemInfo.variant_attributes)) {
-    appendUniqueAttribute(parts, entry.display, entry.value);
+    appendUniqueAttribute(parts, entry.label, entry.value);
   }
-  appendUnique(parts, formatCondition(itemInfo.condition));
+  const condition = cleanCondition(itemInfo.condition);
+  if (condition) {
+    appendUniquePart({
+      comparable: `Condition: ${condition}`,
+      comparisonText: `Condition: ${condition}`,
+      label: 'Condition',
+      parts,
+      tokenizeForDuplicates: false,
+      value: condition,
+    });
+  }
 
-  return parts.length > 0 ? parts.join(' · ') : null;
+  return parts.length > 0
+    ? parts.map(({ label, value }) => ({ label, value }))
+    : null;
 }

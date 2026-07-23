@@ -14,6 +14,7 @@ import {
   waitFor,
 } from '@testing-library/react-native';
 import type React from 'react';
+import { registerRootLayoutAttTests } from '@/test-support/root-layout-att-test-cases';
 
 const mockInitializeStorage = jest.fn<() => Promise<void>>();
 const mockInitializeAuth = jest.fn<() => Promise<void>>();
@@ -22,14 +23,16 @@ const mockRegisterPushNotifications = jest.fn();
 const mockPrefetchStartupStorefrontData = jest.fn<() => Promise<void>>();
 const mockActivateDueSavingsReminderNotification = jest.fn();
 const mockInitializeAdTrackingForStartup = jest.fn<() => Promise<void>>();
+const mockUseAppTrackingTransparency = jest.fn();
 const mockRootLayoutNavMount = jest.fn();
 const mockRootLayoutNavUnmount = jest.fn();
+let mockTrackingAuthorizationSettled = true;
 const mockAuthState = {
   cleanup: mockCleanup,
   initialize: mockInitializeAuth,
   isInitialized: true,
-  merchantId: null,
-  user: null,
+  merchantId: null as string | null,
+  user: null as { id: string } | null,
 };
 
 jest.mock('../../global.css', () => ({}));
@@ -68,9 +71,11 @@ jest.mock('@/components/AnimatedSplash', () => ({
 
 jest.mock('@/components/navigation/RootLayoutNav', () => ({
   RootLayoutNav: ({
+    adTrackingReady,
     persistenceEnabled,
     shouldResumeNavigation,
   }: {
+    adTrackingReady?: boolean;
     persistenceEnabled: boolean;
     shouldResumeNavigation?: boolean;
   }) => {
@@ -90,7 +95,8 @@ jest.mock('@/components/navigation/RootLayoutNav', () => ({
         accessibilityRole="text"
         testID="root-layout-nav"
       >
-        persistence:{String(persistenceEnabled)};resume:
+        adTracking:{String(adTrackingReady)};persistence:
+        {String(persistenceEnabled)};resume:
         {String(shouldResumeNavigation)}
       </Text>
     );
@@ -108,6 +114,15 @@ jest.mock('@/hooks/use-push-notifications', () => ({
     register: mockRegisterPushNotifications,
     registeredUserId: null,
   }),
+}));
+
+jest.mock('@/hooks/use-app-tracking-transparency', () => ({
+  useAppTrackingTransparency: (options: { enabled: boolean }) => {
+    mockUseAppTrackingTransparency(options);
+    return {
+      isTrackingAuthorizationSettled: mockTrackingAuthorizationSettled,
+    };
+  },
 }));
 
 jest.mock('@/lib/offline-queue', () => ({
@@ -164,6 +179,10 @@ describe('RootLayout storage boot gate', () => {
     mockInitializeAuth.mockResolvedValue(undefined);
     mockInitializeAdTrackingForStartup.mockResolvedValue(undefined);
     mockPrefetchStartupStorefrontData.mockResolvedValue(undefined);
+    mockTrackingAuthorizationSettled = true;
+    mockAuthState.isInitialized = true;
+    mockAuthState.merchantId = null;
+    mockAuthState.user = null;
   });
 
   afterEach(() => {
@@ -201,33 +220,6 @@ describe('RootLayout storage boot gate', () => {
     expect(mockCleanup).not.toHaveBeenCalled();
   });
 
-  it('waits for ATT initialization before mounting navigation', async () => {
-    let resolveAdTracking: () => void = () => {};
-    mockInitializeStorage.mockResolvedValue(undefined);
-    mockInitializeAdTrackingForStartup.mockReturnValue(
-      new Promise<void>((resolve) => {
-        resolveAdTracking = resolve;
-      })
-    );
-
-    render(<RootLayout />);
-
-    await waitFor(() => {
-      expect(mockInitializeAdTrackingForStartup).toHaveBeenCalledTimes(1);
-    });
-    expect(screen.queryByRole('text', { name: 'Store navigation' })).toBeNull();
-
-    await act(async () => {
-      resolveAdTracking();
-    });
-
-    await waitFor(() => {
-      expect(
-        screen.getByRole('text', { name: 'Store navigation' })
-      ).toBeOnTheScreen();
-    });
-  });
-
   it('keeps the navigator mounted when the startup splash finishes', async () => {
     mockInitializeStorage.mockResolvedValue(undefined);
 
@@ -235,7 +227,7 @@ describe('RootLayout storage boot gate', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('root-layout-nav')).toHaveTextContent(
-        'persistence:false;resume:false'
+        'adTracking:true;persistence:false;resume:false'
       );
     });
     expect(mockRootLayoutNavMount).toHaveBeenCalledTimes(1);
@@ -246,10 +238,53 @@ describe('RootLayout storage boot gate', () => {
       expect(screen.queryByTestId('animated-splash')).toBeNull();
     });
     expect(screen.getByTestId('root-layout-nav')).toHaveTextContent(
-      'persistence:true;resume:true'
+      'adTracking:true;persistence:true;resume:true'
     );
     expect(mockRootLayoutNavMount).toHaveBeenCalledTimes(1);
     expect(mockRootLayoutNavUnmount).not.toHaveBeenCalled();
+  });
+
+  it('keeps route navigation mounted while startup ad tracking finishes', async () => {
+    let resolveAdTrackingStartup: () => void = () => {};
+    mockInitializeStorage.mockResolvedValue(undefined);
+    mockInitializeAdTrackingForStartup.mockReturnValue(
+      new Promise<void>((resolve) => {
+        resolveAdTrackingStartup = resolve;
+      })
+    );
+
+    render(<RootLayout />);
+
+    await waitFor(() => {
+      expect(mockInitializeAdTrackingForStartup).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.getByTestId('root-layout-nav')).toHaveTextContent(
+      'adTracking:false;persistence:false;resume:false'
+    );
+
+    await act(async () => {
+      resolveAdTrackingStartup();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('root-layout-nav')).toHaveTextContent(
+        'adTracking:true;persistence:false;resume:false'
+      );
+    });
+  });
+
+  registerRootLayoutAttTests({
+    RootLayout,
+    authState: mockAuthState,
+    initializeStorage: mockInitializeStorage,
+    initializeAdTrackingForStartup: mockInitializeAdTrackingForStartup,
+    registerPushNotifications: mockRegisterPushNotifications,
+    activateDueSavingsReminderNotification:
+      mockActivateDueSavingsReminderNotification,
+    useAppTrackingTransparency: mockUseAppTrackingTransparency,
+    setTrackingAuthorizationSettled: (settled) => {
+      mockTrackingAuthorizationSettled = settled;
+    },
   });
 
   it('does not replay the animated splash after a completed boot remount', async () => {
@@ -259,7 +294,7 @@ describe('RootLayout storage boot gate', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('root-layout-nav')).toHaveTextContent(
-        'persistence:false;resume:false'
+        'adTracking:true;persistence:false;resume:false'
       );
     });
 
@@ -269,7 +304,7 @@ describe('RootLayout storage boot gate', () => {
       expect(screen.queryByTestId('animated-splash')).toBeNull();
     });
     expect(screen.getByTestId('root-layout-nav')).toHaveTextContent(
-      'persistence:true;resume:true'
+      'adTracking:true;persistence:true;resume:true'
     );
 
     firstRender.unmount();
@@ -277,7 +312,7 @@ describe('RootLayout storage boot gate', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('root-layout-nav')).toHaveTextContent(
-        'persistence:true;resume:true'
+        'adTracking:true;persistence:true;resume:true'
       );
     });
     expect(screen.queryByTestId('animated-splash')).toBeNull();

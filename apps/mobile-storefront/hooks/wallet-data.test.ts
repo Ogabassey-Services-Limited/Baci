@@ -103,6 +103,53 @@ describe('fetchWalletData', () => {
     expect(result.transactions).toEqual([]);
   });
 
+  it('selects and preserves the ledger source_type that identifies wallet top-ups', async () => {
+    const { selectCalls } = setupSupabaseTables({
+      customer_wallet_transactions: createResult([
+        {
+          amount: '2500',
+          created_at: '2026-07-13T10:00:00.000Z',
+          description: 'Wallet top-up via paystack',
+          id: 'tx-topup',
+          source_type: 'wallet_topup',
+          type: 'credit',
+        },
+        {
+          amount: '50',
+          created_at: '2026-07-13T09:00:00.000Z',
+          description: 'Airtime cashback',
+          id: 'tx-cashback',
+          source_type: 'vtu_transaction',
+          type: 'cashback',
+        },
+      ]),
+    });
+
+    const result = await fetchWalletData('customer-1', 'merchant-1', 'user-1');
+
+    expect(selectCalls.customer_wallet_transactions[0]).toContain(
+      'source_type'
+    );
+    expect(result.transactions).toEqual([
+      {
+        amount: 2500,
+        created_at: '2026-07-13T10:00:00.000Z',
+        description: 'Wallet top-up via paystack',
+        id: 'tx-topup',
+        source_type: 'wallet_topup',
+        type: 'credit',
+      },
+      {
+        amount: 50,
+        created_at: '2026-07-13T09:00:00.000Z',
+        description: 'Airtime cashback',
+        id: 'tx-cashback',
+        source_type: 'vtu_transaction',
+        type: 'cashback',
+      },
+    ]);
+  });
+
   it('combines wallet, funding account, savings balance, and valid transactions', async () => {
     const { selectCalls, tableCalls } = setupSupabaseTables({
       customer_wallet_payment_accounts: createResult({

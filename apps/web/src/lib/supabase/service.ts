@@ -1,5 +1,15 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseUrl } from '@/env';
+import type { Database } from '@/types/supabase';
+
+const serviceRoleClientBrand: unique symbol = Symbol(
+  'baci.event-pipeline.service-role-client'
+);
+const serviceRoleBrandValue: true = true;
+
+export type ServiceRoleClient = SupabaseClient<Database> & {
+  readonly [serviceRoleClientBrand]: true;
+};
 
 /**
  * Creates a Supabase client with service role key for admin operations.
@@ -10,7 +20,11 @@ import { getSupabaseUrl } from '@/env';
  *
  * WARNING: Never expose this client to the frontend!
  */
-export function createServiceClient() {
+export function createServiceClient(
+  sentinel: 'event-pipeline'
+): ServiceRoleClient;
+export function createServiceClient(): SupabaseClient;
+export function createServiceClient(sentinel?: 'event-pipeline') {
   const url = getSupabaseUrl();
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -26,10 +40,17 @@ export function createServiceClient() {
     );
   }
 
-  return createClient(url, serviceRoleKey, {
+  const options = {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
     },
-  });
+    global: { fetch: globalThis.fetch },
+  };
+  if (sentinel === 'event-pipeline') {
+    return Object.assign(createClient<Database>(url, serviceRoleKey, options), {
+      [serviceRoleClientBrand]: serviceRoleBrandValue,
+    });
+  }
+  return createClient(url, serviceRoleKey, options);
 }

@@ -8,6 +8,8 @@ process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
 let mockHeaders = new Map<string, string>();
 const mockGetMerchantByIdentifier = vi.fn();
 const mockGetCachedCategoryPageData = vi.fn();
+const mockGetBrandAuthorityCategory = vi.fn();
+const mockGetCachedBrandAuthorityInventory = vi.fn();
 const mockBuildCommercialSupportDiscoveryLinks = vi.fn();
 const mockQueryResults = new Map<
   string,
@@ -22,6 +24,18 @@ vi.mock('@/lib/cached-data', () => ({
   getCachedCategoryPageData: (...args: unknown[]) =>
     mockGetCachedCategoryPageData(...args),
 }));
+vi.mock('@/lib/storefront-category/brand-authority-public-data', () => ({
+  brandAuthorityPublicData: {
+    getCategory: (...args: unknown[]) => mockGetBrandAuthorityCategory(...args),
+  },
+}));
+vi.mock(
+  '@/lib/storefront-category/get-cached-brand-authority-inventory',
+  () => ({
+    getCachedBrandAuthorityInventory: (...args: unknown[]) =>
+      mockGetCachedBrandAuthorityInventory(...args),
+  })
+);
 
 vi.mock('@/lib/storefront-compare/build-compare-discovery-links', () => ({
   buildCommercialSupportDiscoveryLinks: (...args: unknown[]) =>
@@ -149,6 +163,13 @@ describe('sitemap-data', () => {
     });
     mockGetCachedCategoryPageData.mockReset();
     mockGetCachedCategoryPageData.mockResolvedValue(null);
+    mockGetBrandAuthorityCategory.mockReset();
+    mockGetBrandAuthorityCategory.mockResolvedValue(null);
+    mockGetCachedBrandAuthorityInventory.mockReset();
+    mockGetCachedBrandAuthorityInventory.mockResolvedValue({
+      latestUpdatedAt: null,
+      productCount: 0,
+    });
     mockBuildCommercialSupportDiscoveryLinks.mockReset();
     mockBuildCommercialSupportDiscoveryLinks.mockReturnValue([]);
   });
@@ -506,6 +527,7 @@ describe('sitemap-data', () => {
       'https://ogabassey.com/sitemap/static.xml',
       'https://ogabassey.com/sitemap/products.xml',
       'https://ogabassey.com/sitemap/categories.xml',
+      'https://ogabassey.com/sitemap/brand-authority.xml',
       'https://ogabassey.com/sitemap/commercial-support.xml',
       'https://ogabassey.com/blog/sitemap.xml',
       'https://ogabassey.com/blog/news-sitemap.xml',
@@ -539,6 +561,7 @@ describe('sitemap-data', () => {
       'https://ogabassey.com/sitemap/static.xml',
       'https://ogabassey.com/sitemap/products.xml',
       'https://ogabassey.com/sitemap/categories.xml',
+      'https://ogabassey.com/sitemap/brand-authority.xml',
       'https://ogabassey.com/sitemap/commercial-support.xml',
       'https://ogabassey.com/sitemap/repairs.xml',
     ]);
@@ -684,6 +707,7 @@ describe('sitemap-data', () => {
       'https://ogabassey.com/sitemap/static.xml',
       'https://ogabassey.com/sitemap/products.xml',
       'https://ogabassey.com/sitemap/categories.xml',
+      'https://ogabassey.com/sitemap/brand-authority.xml',
       'https://ogabassey.com/sitemap/commercial-support.xml',
     ]);
   });
@@ -701,6 +725,7 @@ describe('sitemap-data', () => {
       'https://ogabassey.com/sitemap/static.xml',
       'https://ogabassey.com/sitemap/products.xml',
       'https://ogabassey.com/sitemap/categories.xml',
+      'https://ogabassey.com/sitemap/brand-authority.xml',
       'https://ogabassey.com/sitemap/commercial-support.xml',
     ]);
   });
@@ -1344,6 +1369,83 @@ describe('sitemap-data', () => {
       expect.objectContaining({ url: 'https://ogabassey.com/smartphones' }),
     ]);
     expect(entries[0]?.lastModified).toBeUndefined();
+  });
+
+  it('lists only inventory-qualified curated brand authority hubs', async () => {
+    mockGetBrandAuthorityCategory.mockResolvedValue({
+      id: 'category-1',
+      name: 'Smartphones',
+    });
+    mockGetCachedBrandAuthorityInventory.mockImplementation(
+      async (
+        _merchantId: string,
+        _categorySlug: string,
+        entry: { brandKey: string }
+      ) => ({
+        latestUpdatedAt:
+          entry.brandKey === 'samsung' ? '2026-07-14T00:00:00Z' : null,
+        productCount: { google: 5, samsung: 5, tecno: 4 }[entry.brandKey] ?? 0,
+      })
+    );
+    const { getBrandAuthoritySitemapEntries } = sitemapData;
+
+    const entries = await getBrandAuthoritySitemapEntries({
+      merchant: { id: 'merchant-1', slug: 'ogabassey' },
+      storeUrl: 'https://ogabassey.com',
+      supabase: {},
+    } as unknown as StorefrontSitemapContext);
+
+    expect(entries.map((entry) => entry.url)).toEqual([
+      'https://ogabassey.com/smartphones/brands/samsung',
+      'https://ogabassey.com/smartphones/brands/google',
+    ]);
+    expect(entries[0]?.lastModified).toEqual(new Date('2026-07-14T00:00:00Z'));
+    expect(entries[1]?.lastModified).toBeUndefined();
+    expect(mockGetCachedBrandAuthorityInventory).toHaveBeenCalledTimes(5);
+  });
+
+  it('keeps successful authority hubs when a single brand query fails', async () => {
+    mockGetBrandAuthorityCategory.mockResolvedValue({
+      id: 'category-1',
+      name: 'Smartphones',
+    });
+    mockGetCachedBrandAuthorityInventory.mockImplementation(
+      async (
+        _merchantId: string,
+        _categorySlug: string,
+        entry: { brandKey: string }
+      ) => {
+        if (entry.brandKey !== 'samsung') throw new Error('timeout');
+        return { latestUpdatedAt: '2026-07-14T00:00:00Z', productCount: 5 };
+      }
+    );
+    const { getBrandAuthoritySitemapEntries } = sitemapData;
+
+    const entries = await getBrandAuthoritySitemapEntries({
+      merchant: { id: 'merchant-1', slug: 'ogabassey' },
+      storeUrl: 'https://ogabassey.com',
+      supabase: {},
+    } as unknown as StorefrontSitemapContext);
+
+    expect(entries).toEqual([
+      expect.objectContaining({
+        url: 'https://ogabassey.com/smartphones/brands/samsung',
+      }),
+    ]);
+  });
+
+  it('omits authority hubs when the category cannot render publicly', async () => {
+    mockGetBrandAuthorityCategory.mockResolvedValue(null);
+    const { getBrandAuthoritySitemapEntries } = sitemapData;
+
+    await expect(
+      getBrandAuthoritySitemapEntries({
+        merchant: { id: 'merchant-1', slug: 'ogabassey' },
+        storeUrl: 'https://ogabassey.com',
+        supabase: {},
+      } as unknown as StorefrontSitemapContext)
+    ).resolves.toEqual([]);
+    expect(mockGetCachedBrandAuthorityInventory).not.toHaveBeenCalled();
   });
 
   it('omits lastmod from commercial-support entries when the category has no timestamp', async () => {

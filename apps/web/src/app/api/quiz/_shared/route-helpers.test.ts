@@ -19,6 +19,12 @@ vi.mock('@/lib/csrf', () => ({
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: vi.fn(),
+  getBearerTokenFromRequest: (request: Request) => {
+    const header = request.headers.get('Authorization') ?? '';
+    return header.match(/^\s*bearer\s+(.+?)\s*$/i)?.[1]?.trim() || null;
+  },
+  hasBearerAuthScheme: (request: Request) =>
+    /^\s*bearer(?:\s|$)/i.test(request.headers.get('Authorization') ?? ''),
 }));
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -83,6 +89,7 @@ describe('quiz route-helpers', () => {
 
       expect(result.response).toBeNull();
       expect(result.user).toEqual({ id: USER_ID });
+      expect(result).toMatchObject({ authMethod: 'cookie' });
     });
 
     it('returns a 401 response when unauthenticated', async () => {
@@ -141,9 +148,41 @@ describe('quiz route-helpers', () => {
       const result = await requireQuizUser(request);
 
       expect(result.response).toBeNull();
+      expect(result).toMatchObject({ authMethod: 'bearer' });
       expect(result.supabase).toBe(supabase);
       expect(result.user).toEqual({ id: USER_ID });
       expect(authenticateApiRequest).toHaveBeenCalledWith(request);
+      expect(createClient).not.toHaveBeenCalled();
+    });
+
+    it('uses bearer authentication for a lowercase authorization scheme', async () => {
+      const request = new NextRequest('http://localhost/api/quiz/events', {
+        headers: { Authorization: 'bearer token-123' },
+      });
+      const supabase = { from: vi.fn() };
+      vi.mocked(authenticateApiRequest).mockResolvedValue({
+        error: null,
+        supabase: supabase as never,
+        user: { id: USER_ID } as never,
+      });
+
+      const result = await requireQuizUser(request);
+
+      expect(result.response).toBeNull();
+      expect(result).toMatchObject({ authMethod: 'bearer' });
+      expect(authenticateApiRequest).toHaveBeenCalledWith(request);
+      expect(createClient).not.toHaveBeenCalled();
+    });
+
+    it('rejects an empty bearer credential without falling back to cookies', async () => {
+      const request = new NextRequest('http://localhost/api/quiz/events', {
+        headers: { Authorization: 'Bearer   ' },
+      });
+
+      const result = await requireQuizUser(request);
+
+      expect(result.response?.status).toBe(401);
+      expect(authenticateApiRequest).not.toHaveBeenCalled();
       expect(createClient).not.toHaveBeenCalled();
     });
 
@@ -266,6 +305,19 @@ describe('quiz route-helpers', () => {
       const response = quizRpcClientErrorResponse({
         code: 'QZ030',
         message: 'attempt_limit_reached',
+      });
+
+      expect(response?.status).toBe(409);
+      expect(await readJson(response as Response)).toEqual({
+        code: 'QUIZ_ATTEMPT_LIMIT_REACHED',
+        error: "You've reached the maximum number of attempts for this quiz.",
+      });
+    });
+
+    it('quizRpcClientErrorResponse maps the device-limit code (QZ041) to a friendly 409', async () => {
+      const response = quizRpcClientErrorResponse({
+        code: 'QZ041',
+        message: 'quiz_device_attempt_limit',
       });
 
       expect(response?.status).toBe(409);

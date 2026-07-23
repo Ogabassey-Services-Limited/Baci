@@ -93,7 +93,7 @@ describe('fetchAnalyticsPlatformConfig', () => {
     });
 
     const result = await fetchAnalyticsPlatformConfig(
-      { from } as never,
+      { from } as unknown as Parameters<typeof fetchAnalyticsPlatformConfig>[0],
       'merchant-1'
     );
 
@@ -130,7 +130,7 @@ describe('fetchAnalyticsPlatformConfig', () => {
     });
 
     const result = await fetchAnalyticsPlatformConfig(
-      { from } as never,
+      { from } as unknown as Parameters<typeof fetchAnalyticsPlatformConfig>[0],
       'merchant-1'
     );
 

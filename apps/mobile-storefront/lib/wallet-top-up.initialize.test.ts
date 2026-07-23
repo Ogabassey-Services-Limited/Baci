@@ -120,6 +120,35 @@ describe('initializeWalletTopUp', () => {
     });
   });
 
+  it('forwards the interrupted-purchase returnTo for the credit push deep link', async () => {
+    mockFetchWithTimeout.mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: async () => ({
+        authorization_url: 'https://checkout.example.com/pay',
+        checkout_url: 'https://checkout.example.com/pay',
+        gateway: 'paystack',
+        reference: 'WALLET-123',
+        success: true,
+      }),
+    });
+
+    await initializeWalletTopUp({
+      amount: 2500,
+      gateway: 'paystack',
+      returnTo: '/utilities/airtime?repeatAmount=500',
+    });
+
+    const requestBody = getLastInitializeRequestBody();
+    expect(requestBody).toEqual({
+      amount: 2500,
+      gateway: 'paystack',
+      merchantSlug: 'demo-store',
+      returnTo: '/utilities/airtime?repeatAmount=500',
+    });
+  });
+
   it('includes the resolved merchant id and build-time slug fallback', async () => {
     mockFetchWithTimeout.mockResolvedValue({
       ok: true,

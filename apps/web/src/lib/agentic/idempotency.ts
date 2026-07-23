@@ -27,7 +27,13 @@ type ExistingIdempotencyRecordResult =
 
 export type IdempotencyReservationResult =
   | { ok: true; state: 'reserved' }
-  | { ok: true; response: unknown; state: 'replay'; status: number }
+  | {
+      ok: true;
+      requestHash: string;
+      response: unknown;
+      state: 'replay';
+      status: number;
+    }
   | {
       error:
         | typeof IDEMPOTENCY_PARAMETER_MISMATCH_ERROR
@@ -144,6 +150,7 @@ export async function reserveAgenticIdempotencyKey({
 
   return {
     ok: true,
+    requestHash,
     response: existing.record.response_body,
     state: 'replay',
     status: existing.record.status_code,

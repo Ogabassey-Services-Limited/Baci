@@ -2,12 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getPublishedClusterPosts } from './get-published-cluster-posts';
 
 const mockRpc = vi.fn();
-const mockGetPublicSupabaseClient = vi.fn();
+const mockCreatePublicClient = vi.fn();
 const mockCacheLife = vi.fn();
 const mockCacheTag = vi.fn();
 
-vi.mock('@/lib/cached-data', () => ({
-  getPublicSupabaseClient: () => mockGetPublicSupabaseClient(),
+vi.mock('@/lib/supabase/public', () => ({
+  createPublicClient: (...args: unknown[]) => mockCreatePublicClient(...args),
 }));
 
 vi.mock('next/cache', () => ({
@@ -59,7 +59,7 @@ describe('getPublishedClusterPosts', () => {
         error: null,
       })
     );
-    mockGetPublicSupabaseClient.mockReturnValue({ rpc: mockRpc });
+    mockCreatePublicClient.mockReturnValue({ rpc: mockRpc });
   });
 
   it('caches locally with the blog profile and merchant-scoped invalidation tags', async () => {
@@ -75,6 +75,11 @@ describe('getPublishedClusterPosts', () => {
 
   it('loads a bounded, context-ranked candidate set through the public RPC', async () => {
     const result = await getPublishedClusterPosts('merchant-1', context);
+
+    expect(mockCreatePublicClient).toHaveBeenCalledWith({
+      clientInfo: 'baci-web-storefront-cluster-guides',
+      timeoutMs: 3000,
+    });
 
     expect(mockRpc).toHaveBeenCalledWith(
       'get_storefront_cluster_guide_candidates_v1',

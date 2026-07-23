@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import DomainsDashboard from './index';
 
 const mocks = vi.hoisted(() => ({
+  domainPurchaseEnabled: true,
   handleOptionAction: vi.fn(),
   themeColors: {
     background: '#ffffff',
@@ -104,18 +105,24 @@ vi.mock('@/components/domains/DomainEmptyState', () => ({
     onBuyDomain,
     onConnectDomain,
   }: {
-    onBuyDomain: () => void;
+    onBuyDomain?: () => void;
     onConnectDomain: () => void;
   }) => (
     <div>
-      <button onClick={onBuyDomain} type="button">
-        Buy a domain
-      </button>
+      {onBuyDomain ? (
+        <button onClick={onBuyDomain} type="button">
+          Buy a domain
+        </button>
+      ) : null}
       <button onClick={onConnectDomain} type="button">
         Connect a domain
       </button>
     </div>
   ),
+}));
+
+vi.mock('@/config/domain-purchase-availability', () => ({
+  isDomainPurchaseEnabled: () => mocks.domainPurchaseEnabled,
 }));
 
 vi.mock('@/components/domains/DomainItemCard', () => ({
@@ -181,6 +188,7 @@ vi.mock('@/lib/supabase', () => ({
 describe('DomainsDashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.domainPurchaseEnabled = true;
     mocks.useQuery.mockImplementation(() => mocks.queryState);
     mocks.useRevenueCat.mockReturnValue({ isPro: false });
     mocks.useMerchant.mockReturnValue({
@@ -242,6 +250,19 @@ describe('DomainsDashboard', () => {
 
     expect(mocks.router.push).toHaveBeenCalledWith('/domains/buy');
     expect(mocks.router.push).toHaveBeenCalledWith('/domains/connect');
+  });
+
+  it('hides the empty-state purchase action on Android', () => {
+    mocks.domainPurchaseEnabled = false;
+    mocks.queryState.data = [];
+
+    render(<DomainsDashboard />);
+
+    expect(screen.queryByText('Buy a domain')).toBeNull();
+    fireEvent.click(screen.getByText('Connect a domain'));
+
+    expect(mocks.router.push).toHaveBeenCalledWith('/domains/connect');
+    expect(mocks.router.push).not.toHaveBeenCalledWith('/domains/buy');
   });
 
   it('keeps stack options mounted without loading domains when custom domains are locked', () => {

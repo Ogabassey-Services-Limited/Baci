@@ -25,6 +25,7 @@ interface MockUseMerchantResult {
 const mocks = vi.hoisted(() => ({
   getManagementLabel: vi.fn(() => 'Manage from helper'),
   getPlanLabel: vi.fn(() => 'Baci Pro'),
+  useCachedImageUri: vi.fn(() => ({ isLoading: false, uri: null })),
   useMerchantResult: {
     isLoading: false,
     merchant: {
@@ -94,7 +95,7 @@ vi.mock('@/hooks/useRevenueCat', () => ({
 }));
 
 vi.mock('@/hooks/useCachedImageUri', () => ({
-  useCachedImageUri: () => ({ uri: null }),
+  useCachedImageUri: mocks.useCachedImageUri,
 }));
 
 vi.mock('@/hooks/useSubscriptionManagement', () => ({
@@ -201,6 +202,8 @@ describe('StoreSettingsScreen', () => {
   beforeEach(() => {
     mocks.getManagementLabel.mockReset();
     mocks.getPlanLabel.mockReset();
+    mocks.useCachedImageUri.mockReset();
+    mocks.useCachedImageUri.mockReturnValue({ isLoading: false, uri: null });
     mocks.getManagementLabel.mockReturnValue('Manage from helper');
     mocks.getPlanLabel.mockReturnValue('Baci Pro');
     mocks.useMerchantResult = {
@@ -231,6 +234,32 @@ describe('StoreSettingsScreen', () => {
       'Manage from helper'
     );
     expect(mocks.subscriptionCardProps.planLabel).toBe('Baci Pro');
+  });
+
+  it('requests a target-sized store logo', () => {
+    const logoUrl =
+      'https://project.supabase.co/storage/v1/object/public/media/logo.png';
+    if (mocks.useMerchantResult.merchant) {
+      mocks.useMerchantResult.merchant.logo_url = logoUrl;
+    }
+
+    render(<StoreSettingsScreen />);
+
+    expect(mocks.useCachedImageUri).toHaveBeenCalledWith(logoUrl, {
+      height: 256,
+      resize: 'contain',
+      width: 256,
+    });
+  });
+
+  it('keeps the no-logo fallback while requesting the same target size', () => {
+    render(<StoreSettingsScreen />);
+
+    expect(mocks.useCachedImageUri).toHaveBeenCalledWith(null, {
+      height: 256,
+      resize: 'contain',
+      width: 256,
+    });
   });
 
   it('falls back to default management label when helper output is empty', () => {

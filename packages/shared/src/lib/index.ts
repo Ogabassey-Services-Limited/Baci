@@ -1,6 +1,7 @@
 export * from './cac-registration';
 export * from './dedupe-by-id';
 export * from './fetch-with-timeout';
+export * from './filter-by-location-phrase';
 export * from './is-finite-number';
 export * from './kuda-data-plan-bill-items';
 export * from './kuda-electricity-bill-items';
@@ -23,7 +24,9 @@ export * from './product-variant-media';
 export * from './product-variant-model';
 export * from './push-notification-payloads';
 export * from './receipt-claim-url';
+export * from './resumable-wallet-return-to';
 export * from './sanitize-html-text';
+export * from './sanitize-wallet-return-to';
 export * from './string-values';
 export * from './supabase-error-log';
 export * from './vtu-loyalty-points';

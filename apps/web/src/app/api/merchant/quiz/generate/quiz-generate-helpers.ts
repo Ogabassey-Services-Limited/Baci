@@ -184,6 +184,14 @@ export function isRankedPrizeQuizSettings(settings: unknown): boolean {
   );
 }
 
+function isProductPrizeQuizSettings(settings: unknown): boolean {
+  if (!settings || typeof settings !== 'object') {
+    return false;
+  }
+  const productId = (settings as Record<string, unknown>).prize_product_id;
+  return typeof productId === 'string' && productId.trim().length > 0;
+}
+
 // Opens a merchant-owned DRAFT quiz. Activation is deliberately a separate,
 // confirmed admin action performed AFTER the AI answer key is reviewed, so it
 // never runs implicitly as part of question generation.
@@ -217,6 +225,9 @@ export async function activateMerchantQuizDraft(
   const isRankedPrize = isRankedPrizeQuizSettings(
     (draft as { settings?: unknown } | null)?.settings
   );
+  const isProductPrize = isProductPrizeQuizSettings(
+    (draft as { settings?: unknown } | null)?.settings
+  );
 
   // Ranked-prize quizzes MUST carry a close deadline: the winner-mint cron only
   // finalizes a ranked event once ends_at has passed, so activating one with a
@@ -225,12 +236,11 @@ export async function activateMerchantQuizDraft(
     return null;
   }
 
-  // ONLY ranked-prize events get a deadline. The finalizer deliberately skips
-  // non-ranked/product-prize events, so persisting ends_at on one would strand it
-  // 'active' — /api/quiz/events maps active to `open` and the start buttons
-  // enable, while start_quiz_attempt rejects every start past ends_at, showing an
-  // open quiz that can never be played. Ignore endsAt for non-ranked quizzes.
-  const resolvedEndsAt = isRankedPrize ? (endsAt ?? null) : null;
+  // Ranked and product-prize events have lifecycle workers that consume
+  // ends_at. Plain quizzes remain open-ended even if an irrelevant deadline is
+  // submitted. Product prizes may still intentionally omit a deadline.
+  const resolvedEndsAt =
+    isRankedPrize || isProductPrize ? (endsAt ?? null) : null;
 
   const { data: activated, error: updateError } = await supabase
     .from('quiz_events')

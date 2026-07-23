@@ -87,6 +87,7 @@ describe('creditWalletTopUp', () => {
       creditWalletTopUp({ ...walletTopUpInput, supabase: client })
     ).resolves.toEqual({
       balance: 1250.75,
+      firstCredit: false,
       reference: 'WAL-123',
       transactionId: 'wallet-credit-1',
     });
@@ -104,6 +105,7 @@ describe('creditWalletTopUp', () => {
       creditWalletTopUp({ ...walletTopUpInput, supabase: client })
     ).resolves.toEqual({
       balance: 2250,
+      firstCredit: true,
       reference: 'WAL-123',
       transactionId: 'wallet-credit-2',
     });
@@ -153,6 +155,7 @@ describe('creditWalletTopUp', () => {
       creditWalletTopUp({ ...walletTopUpInput, supabase: client })
     ).resolves.toEqual({
       balance: 2250,
+      firstCredit: true,
       reference: 'WAL-123',
       transactionId: 'wallet-credit-2',
     });

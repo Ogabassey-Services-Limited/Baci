@@ -35,20 +35,17 @@ vi.mock('@/lib/expo-push', () => ({
     mockNotifyPaymentReceived(...args),
 }));
 
-const mockSendEmail = vi.fn((..._args: unknown[]) =>
-  Promise.resolve({ success: true })
-);
-vi.mock('@/lib/zeptomail', () => ({
-  sendEmail: (...args: unknown[]) => mockSendEmail(...args),
-}));
-
-vi.mock('@/lib/email-templates', () => ({
-  generateOrderConfirmationEmail: vi.fn(() => '<html />'),
-  generateOrderConfirmationText: vi.fn(() => 'text'),
-}));
-
-vi.mock('@/lib/payments/verified-gateway-fee', () => ({
-  extractVerifiedGatewayFeeNgn: vi.fn(() => 0),
+// The verify route now runs the same claim-gated outbox as the webhook via
+// finalizeOrderGatewayPayment; the outbox itself is unit-tested elsewhere.
+const mockRunPaidOrderSideEffects = vi.fn().mockResolvedValue({
+  concurrentTakeoverSteps: [],
+  failedSteps: [],
+  ranSteps: [],
+  skippedSteps: [],
+});
+vi.mock('@/lib/payments/run-paid-order-side-effects', () => ({
+  runPaidOrderSideEffects: (...args: unknown[]) =>
+    mockRunPaidOrderSideEffects(...args),
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -89,78 +86,140 @@ function createRequest() {
   });
 }
 
-const transactionRow = {
-  id: 'txn-1',
-  order_id: 'order-1',
-  merchant_id: 'merchant-1',
-  amount: 1000,
+const richOrderRow = {
+  ad_tracking: null,
+  cancelled_at: null,
   currency: 'NGN',
-  status: 'pending',
-  gateway: 'paystack',
-  gateway_reference: REFERENCE,
-  platform_fee: 0,
+  customer_email: 'jane@example.com',
+  customer_id: 'cust-1',
+  customer_name: 'Jane',
+  customer_phone: '+234',
+  discount_amount: 0,
+  gift_wrapping_fee: 0,
+  id: 'order-1',
+  merchant_id: 'merchant-1',
+  order_items: [],
+  order_number: 'ORD-1',
+  payment_status: 'paid',
+  shipping_address: {},
+  shipping_fee: 0,
+  shipping_status: 'processing',
+  subtotal: 1000,
+  tax_amount: 0,
+  tax_basis: null,
+  total: 1000,
+  updated_at: '2026-07-13T00:00:00Z',
 };
 
 function buildSupabase({
-  orderUpdateData,
+  transactionStatus = 'pending',
+  existingOrderStatus = 'unpaid',
+  gateway = 'paystack',
+  gatewayResponse = { fees: 123, status: 'success' } as Record<
+    string,
+    unknown
+  > | null,
+  completion,
+  inventoryConfirmationError = null,
 }: {
-  orderUpdateData: Record<string, unknown>;
+  transactionStatus?: string;
+  existingOrderStatus?: string;
+  gateway?: string;
+  gatewayResponse?: Record<string, unknown> | null;
+  completion: Record<string, unknown> | null;
+  inventoryConfirmationError?: unknown;
 }) {
-  const rpc = vi.fn().mockResolvedValue({ error: null });
+  const normalizedCompletion =
+    completion && !('error_code' in completion)
+      ? {
+          actor: 'verify:BAC-VERIFY-1',
+          already_completed: false,
+          cancelled_at: null,
+          order_already_paid: false,
+          order_cancelled: false,
+          order_number: 'ORD-1',
+          order_skipped_status: null,
+          order_updated: false,
+          payment_status: existingOrderStatus,
+          previous_payment_status: existingOrderStatus,
+          previous_shipping_status: 'pending',
+          shipping_status: 'processing',
+          ...completion,
+        }
+      : completion;
+  const rpc = vi.fn((name: string) => {
+    const data =
+      name === 'complete_order_gateway_payment'
+        ? normalizedCompletion
+        : name === 'claim_payment_side_effect'
+          ? { current_status: 'claimed', we_won: true }
+          : null;
+    const result = {
+      data,
+      error:
+        name === 'confirm_order_inventory_reservations'
+          ? inventoryConfirmationError
+          : null,
+    };
+    return Object.assign(Promise.resolve(result), {
+      single: () => Promise.resolve(result),
+    });
+  });
 
-  let transactionCall = 0;
   const from = vi.fn((table: string) => {
     if (table === 'transactions') {
-      transactionCall++;
-      if (transactionCall === 1) {
-        // lookup by gateway_reference
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          maybeSingle: vi
-            .fn()
-            .mockResolvedValue({ data: transactionRow, error: null }),
-        };
-      }
-      // claim update
       return {
-        update: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        neq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: {
+            amount: 1000,
+            currency: 'NGN',
+            gateway,
+            gateway_reference: REFERENCE,
+            gateway_response: gatewayResponse,
+            id: 'txn-1',
+            merchant_id: 'merchant-1',
+            order_id: 'order-1',
+            platform_fee: 0,
+            status: transactionStatus,
+          },
+          error: null,
+        }),
         select: vi.fn().mockReturnThis(),
-        maybeSingle: vi
-          .fn()
-          .mockResolvedValue({ data: { id: 'txn-1' }, error: null }),
       };
     }
     if (table === 'orders') {
-      // First a pre-fetch (maybeSingle) then the update (single).
+      // existingOrder lookup uses .maybeSingle(); the finalizer's rich
+      // order fetch uses .single().
       return {
-        select: vi.fn().mockReturnThis(),
-        update: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         maybeSingle: vi.fn().mockResolvedValue({
           data: {
             id: 'order-1',
             order_number: 'ORD-1',
-            payment_status: 'unpaid',
+            payment_status: existingOrderStatus,
             shipping_status: 'pending',
           },
           error: null,
         }),
-        single: vi
-          .fn()
-          .mockResolvedValue({ data: orderUpdateData, error: null }),
+        select: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({ data: richOrderRow, error: null }),
       };
     }
-    if (table === 'merchants') {
+    if (table === 'payment_side_effects') {
       return {
-        select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({
-          data: { business_name: 'Store', slug: 'store' },
+        limit: vi.fn().mockResolvedValue({
+          data: [
+            {
+              error: 'side_effect_failed',
+              status: 'failed',
+              transaction_id: 'txn-1',
+            },
+          ],
           error: null,
         }),
+        select: vi.fn().mockReturnThis(),
       };
     }
     throw new Error(`Unexpected table ${table}`);
@@ -169,32 +228,31 @@ function buildSupabase({
   return { from, rpc };
 }
 
-describe('POST /api/payments/verify — cancellation clamp', () => {
+describe('POST /api/payments/verify — finalizer outcomes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRunPaidOrderSideEffects.mockResolvedValue({
+      concurrentTakeoverSteps: [],
+      failedSteps: [],
+      ranSteps: [],
+      skippedSteps: [],
+    });
     mockVerifyPaystack.mockResolvedValue({
+      data: { amount: 100_000, currency: 'NGN', status: 'success' },
       success: true,
-      data: { status: 'success', amount: 100_000, currency: 'NGN' },
     });
   });
 
-  it('suppresses paid-order side effects and files reconciliation when the order is clamped as cancelled', async () => {
+  it('suppresses paid-order side effects and files reconciliation when the order is cancelled', async () => {
     const supabase = buildSupabase({
-      orderUpdateData: {
-        id: 'order-1',
-        order_number: 'ORD-1',
-        customer_id: 'cust-1',
-        total: 1000,
-        subtotal: 1000,
-        shipping_fee: 0,
-        customer_name: 'Jane',
-        customer_email: 'jane@example.com',
-        customer_phone: '+234',
-        shipping_address: {},
-        currency: 'NGN',
-        shipping_status: 'cancelled',
+      completion: {
+        already_completed: false,
         cancelled_at: '2026-06-15T00:00:00Z',
-        order_items: [],
+        order_already_paid: false,
+        order_cancelled: true,
+        order_number: 'ORD-1',
+        order_updated: false,
+        shipping_status: 'cancelled',
       },
     });
     mockCreateServiceClient.mockReturnValue(supabase);
@@ -203,15 +261,9 @@ describe('POST /api/payments/verify — cancellation clamp', () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data).toMatchObject({ success: true, status: 'success' });
-    // No paid-order side effects fired.
+    expect(data).toMatchObject({ status: 'success', success: true });
     expect(mockNotifyNewOrder).not.toHaveBeenCalled();
-    expect(mockSendEmail).not.toHaveBeenCalled();
-    expect(supabase.rpc).not.toHaveBeenCalledWith(
-      'record_merchant_settlement',
-      expect.anything()
-    );
-    // Reconciliation row filed through the service-role admin client.
+    expect(mockRunPaidOrderSideEffects).not.toHaveBeenCalled();
     expect(mockReconciliationInsert).toHaveBeenCalledWith(
       expect.objectContaining({
         issue_type: 'payment_received_after_cancellation',
@@ -220,23 +272,19 @@ describe('POST /api/payments/verify — cancellation clamp', () => {
     );
   });
 
-  it('fires paid-order side effects when the order is NOT cancelled', async () => {
+  it('fires push and the outbox side effects when the order is NOT cancelled', async () => {
     const supabase = buildSupabase({
-      orderUpdateData: {
-        id: 'order-1',
-        order_number: 'ORD-1',
-        customer_id: 'cust-1',
-        total: 1000,
-        subtotal: 1000,
-        shipping_fee: 0,
-        customer_name: 'Jane',
-        customer_email: 'jane@example.com',
-        customer_phone: '+234',
-        shipping_address: {},
-        currency: 'NGN',
-        shipping_status: 'processing',
+      completion: {
+        already_completed: false,
         cancelled_at: null,
-        order_items: [],
+        order_already_paid: false,
+        order_cancelled: false,
+        order_number: 'ORD-1',
+        order_updated: true,
+        payment_status: 'paid',
+        previous_payment_status: 'unpaid',
+        previous_shipping_status: 'pending',
+        shipping_status: 'processing',
       },
     });
     mockCreateServiceClient.mockReturnValue(supabase);
@@ -245,9 +293,168 @@ describe('POST /api/payments/verify — cancellation clamp', () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data).toMatchObject({ success: true });
+    expect(data).toMatchObject({ orderNumber: 'ORD-1', success: true });
     expect(mockReconciliationInsert).not.toHaveBeenCalled();
-    // The new-order push notification fires for a live order.
     expect(mockNotifyNewOrder).toHaveBeenCalled();
+    expect(mockRunPaidOrderSideEffects).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actor: `verify:${REFERENCE}`,
+        settlementGateway: 'paystack',
+      })
+    );
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'complete_order_gateway_payment',
+      expect.objectContaining({
+        p_order_id: 'order-1',
+        p_transaction_id: 'txn-1',
+      })
+    );
+  });
+
+  it('heals a wedged order (completed transaction, unpaid order) instead of short-circuiting', async () => {
+    const supabase = buildSupabase({
+      completion: {
+        already_completed: true,
+        cancelled_at: null,
+        order_already_paid: false,
+        order_cancelled: false,
+        order_number: 'ORD-1',
+        order_updated: true,
+        payment_status: 'paid',
+        previous_payment_status: 'unpaid',
+        previous_shipping_status: 'pending',
+        shipping_status: 'processing',
+      },
+      existingOrderStatus: 'unpaid',
+      transactionStatus: 'completed',
+    });
+    mockCreateServiceClient.mockReturnValue(supabase);
+
+    const response = await POST(createRequest());
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data).toMatchObject({ status: 'success', success: true });
+    // The re-verify heal path re-verifies with the gateway before touching
+    // anything, then runs the full finalizer (push + outbox).
+    expect(mockVerifyPaystack).toHaveBeenCalledWith(REFERENCE);
+    expect(mockNotifyNewOrder).toHaveBeenCalled();
+    expect(mockRunPaidOrderSideEffects).toHaveBeenCalled();
+  });
+
+  it('drains the outbox for a completed transaction whose order is already paid', async () => {
+    const supabase = buildSupabase({
+      completion: {
+        already_completed: true,
+        cancelled_at: null,
+        order_already_paid: true,
+        order_cancelled: false,
+        order_number: 'ORD-1',
+        order_updated: false,
+        payment_status: 'paid',
+        previous_payment_status: 'paid',
+        previous_shipping_status: 'processing',
+        shipping_status: 'processing',
+      },
+      existingOrderStatus: 'paid',
+      transactionStatus: 'completed',
+    });
+    mockCreateServiceClient.mockReturnValue(supabase);
+    mockVerifyPaystack.mockRejectedValue(
+      new Error('gateway verification unavailable')
+    );
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(200);
+    expect(mockVerifyPaystack).not.toHaveBeenCalled();
+    expect(mockRunPaidOrderSideEffects).toHaveBeenCalledWith(
+      expect.objectContaining({
+        gatewayResponse: { fees: 123, status: 'success' },
+      })
+    );
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'complete_order_gateway_payment',
+      expect.objectContaining({ p_transaction_id: 'txn-1' })
+    );
+  });
+
+  it('re-verifies Paystack before draining a locally paid order without stored gateway evidence', async () => {
+    const supabase = buildSupabase({
+      completion: {
+        already_completed: true,
+        cancelled_at: null,
+        order_already_paid: true,
+        order_cancelled: false,
+        order_number: 'ORD-1',
+        order_updated: false,
+        payment_status: 'paid',
+        previous_payment_status: 'paid',
+        previous_shipping_status: 'processing',
+        shipping_status: 'processing',
+      },
+      existingOrderStatus: 'paid',
+      gatewayResponse: null,
+      transactionStatus: 'completed',
+    });
+    mockCreateServiceClient.mockReturnValue(supabase);
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(200);
+    expect(mockVerifyPaystack).toHaveBeenCalledWith(REFERENCE);
+    expect(mockRunPaidOrderSideEffects).toHaveBeenCalledWith(
+      expect.objectContaining({
+        gatewayResponse: {
+          amount: 100_000,
+          currency: 'NGN',
+          status: 'success',
+        },
+      })
+    );
+  });
+
+  it('returns local success for a completed Juicyway payment', async () => {
+    const supabase = buildSupabase({
+      completion: null,
+      existingOrderStatus: 'paid',
+      gateway: 'juicyway',
+      transactionStatus: 'completed',
+    });
+    mockCreateServiceClient.mockReturnValue(supabase);
+
+    const response = await POST(createRequest());
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data).toEqual({
+      orderNumber: 'ORD-1',
+      status: 'success',
+      success: true,
+    });
+    expect(mockVerifyPaystack).not.toHaveBeenCalled();
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'confirm_order_inventory_reservations',
+      { p_merchant_id: 'merchant-1', p_order_id: 'order-1' }
+    );
+  });
+
+  it('fails closed when completed Juicyway inventory confirmation fails', async () => {
+    const supabase = buildSupabase({
+      completion: null,
+      existingOrderStatus: 'paid',
+      gateway: 'juicyway',
+      inventoryConfirmationError: { message: 'db unavailable' },
+      transactionStatus: 'completed',
+    });
+    mockCreateServiceClient.mockReturnValue(supabase);
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      code: 'INVENTORY_CONFIRMATION_FAILED',
+      error: 'Inventory confirmation failed',
+    });
   });
 });

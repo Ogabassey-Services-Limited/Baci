@@ -264,4 +264,16 @@ describe('hasPermission', () => {
 
     expect(hasPermission(access, 'anything', 'anything')).toBe(true);
   });
+
+  it.each([
+    ['full access', { full_access: { all: true } }],
+    ['legacy resource all', { orders: { all: true } }],
+  ])('grants access via %s permission', (_name, permissions) => {
+    const access: UserAccess = {
+      ...staffAccess,
+      permissions,
+    };
+
+    expect(hasPermission(access, 'orders', 'delete')).toBe(true);
+  });
 });

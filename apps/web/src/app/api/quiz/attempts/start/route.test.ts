@@ -1,9 +1,13 @@
-import { EXAM_PASS_POINTS_COST } from '@baci/shared/constants';
+import {
+  EXAM_PASS_POINTS_COST,
+  QUIZ_FREE_ENTRY_MODE,
+} from '@baci/shared/constants';
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
+import { resolveQuizDevice } from '@/lib/quiz/quiz-device-hash';
 import { createClient } from '@/lib/supabase/server';
 
 vi.mock('@/lib/api-auth', () => ({
@@ -15,6 +19,8 @@ vi.mock('@/lib/api-auth', () => ({
     const match = header.match(/^\s*bearer\s+(.+?)\s*$/i);
     return match?.[1]?.trim() || null;
   },
+  hasBearerAuthScheme: (request: Request) =>
+    /^\s*bearer(?:\s|$)/i.test(request.headers.get('Authorization') ?? ''),
 }));
 
 vi.mock('@/lib/csrf', () => ({
@@ -33,6 +39,11 @@ vi.mock('@/lib/logger', () => ({
   },
 }));
 
+vi.mock('@/lib/quiz/quiz-device-hash', () => ({
+  QUIZ_DEVICE_COOKIE: 'baci_qdid',
+  resolveQuizDevice: vi.fn(),
+}));
+
 const EVENT_ID = '11111111-1111-4111-8111-111111111111';
 const USER_ID = 'user-1';
 const ORIGINAL_QUIZ_ENV = {
@@ -43,7 +54,11 @@ const ORIGINAL_QUIZ_ENV = {
 
 function jsonRequest(body: unknown) {
   return new NextRequest('http://localhost/api/quiz/attempts/start', {
-    body: JSON.stringify(body),
+    body: JSON.stringify(
+      body && typeof body === 'object' && !Array.isArray(body)
+        ? { entryMode: QUIZ_FREE_ENTRY_MODE, ...body }
+        : body
+    ),
     headers: { 'Content-Type': 'application/json' },
     method: 'POST',
   });
@@ -53,7 +68,11 @@ function jsonRequest(body: unknown) {
 // username gate only applies to these bearer-authenticated clients.
 function bearerRequest(body: unknown) {
   return new NextRequest('http://localhost/api/quiz/attempts/start', {
-    body: JSON.stringify(body),
+    body: JSON.stringify(
+      body && typeof body === 'object' && !Array.isArray(body)
+        ? { entryMode: QUIZ_FREE_ENTRY_MODE, ...body }
+        : body
+    ),
     headers: {
       Authorization: 'Bearer test-token',
       'Content-Type': 'application/json',
@@ -66,7 +85,11 @@ function bearerRequest(body: unknown) {
 // check accept this case-insensitively, so the username gate must too.
 function lowercaseBearerRequest(body: unknown) {
   return new NextRequest('http://localhost/api/quiz/attempts/start', {
-    body: JSON.stringify(body),
+    body: JSON.stringify(
+      body && typeof body === 'object' && !Array.isArray(body)
+        ? { entryMode: QUIZ_FREE_ENTRY_MODE, ...body }
+        : body
+    ),
     headers: {
       Authorization: 'bearer test-token',
       'Content-Type': 'application/json',
@@ -97,11 +120,15 @@ function mockAuthenticatedSupabase({
     },
     error: null,
   },
+  readinessResult = { data: true, error: null },
+  bindResult = { data: true, error: null },
   user = { id: USER_ID },
 }: {
   eventGuardResult?: { data: unknown; error: unknown };
   customerAgeResult?: { data: unknown; error: unknown };
   rpcResult?: { data: unknown; error: unknown };
+  readinessResult?: { data: unknown; error: unknown };
+  bindResult?: { data: unknown; error: unknown };
   user?: { id: string } | null;
 } = {}) {
   const eventGuardBuilder = {
@@ -121,7 +148,29 @@ function mockAuthenticatedSupabase({
     if (table === 'customers') return customerAgeBuilder;
     return eventGuardBuilder;
   });
-  const rpc = vi.fn().mockResolvedValue(rpcResult);
+  const rpc = vi.fn((name: string) => {
+    if (name === 'quiz_free_entry_ready')
+      return Promise.resolve(readinessResult);
+    if (name === 'quiz_device_cap_ready')
+      return Promise.resolve({ data: true, error: null });
+    if (name === 'bind_quiz_attempt_device') return Promise.resolve(bindResult);
+    if (name === 'start_quiz_attempt_with_device') {
+      if (rpcResult.error) return Promise.resolve(rpcResult);
+      const startData =
+        rpcResult.data && typeof rpcResult.data === 'object'
+          ? rpcResult.data
+          : {};
+      return Promise.resolve({
+        data: {
+          ...startData,
+          deviceAllowed: bindResult.error ? true : bindResult.data,
+          deviceBindingFailed: Boolean(bindResult.error),
+        },
+        error: null,
+      });
+    }
+    return Promise.resolve(rpcResult);
+  });
   const supabase = {
     auth: {
       getUser: vi.fn().mockResolvedValue({
@@ -148,6 +197,10 @@ describe('start quiz attempt route', () => {
     vi.clearAllMocks();
     process.env.QUIZ_RPC_SERVER_SECRET = 'test-secret';
     vi.mocked(checkCsrfProtection).mockResolvedValue({ valid: true });
+    vi.mocked(resolveQuizDevice).mockReturnValue({
+      cookieToSet: undefined,
+      deviceHash: null,
+    });
   });
 
   afterEach(() => {
@@ -201,6 +254,54 @@ describe('start quiz attempt route', () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({ error: 'Invalid input' });
     expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('rejects legacy clients before creating an attempt', async () => {
+    const { rpc } = mockAuthenticatedSupabase();
+    const request = new NextRequest(
+      'http://localhost/api/quiz/attempts/start',
+      {
+        body: JSON.stringify({
+          eventId: EVENT_ID,
+          integrityTier: 'device',
+        }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+      }
+    );
+
+    const { POST } = await import('./route');
+    const response = await POST(request);
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: 'Invalid input' });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('fails closed before start when the free-entry migration is unavailable', async () => {
+    const { rpc } = mockAuthenticatedSupabase({
+      readinessResult: {
+        data: null,
+        error: { message: 'function quiz_free_entry_ready does not exist' },
+      },
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      jsonRequest({ eventId: EVENT_ID, integrityTier: 'device' })
+    );
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      code: 'QUIZ_TEMPORARILY_UNAVAILABLE',
+      error: 'Super Quiz is temporarily unavailable. Please try again soon.',
+    });
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith('quiz_free_entry_ready');
+    expect(rpc).not.toHaveBeenCalledWith(
+      'start_quiz_attempt',
+      expect.anything()
+    );
   });
 
   it('passes validated mobile input through the start RPC', async () => {
@@ -257,7 +358,10 @@ describe('start quiz attempt route', () => {
     });
   });
 
-  it('returns 409 when the customer does not have an exam pass point', async () => {
+  // Entry is free, so QZ011 can only mean the PAID entry RPC is still live (the
+  // free-entry migration has not applied). Fail closed rather than charging the
+  // player or telling them to go and buy loyalty points.
+  it('fails closed with 503 when the paid-entry RPC is still live (QZ011)', async () => {
     const { rpc } = mockAuthenticatedSupabase({
       rpcResult: {
         data: null,
@@ -270,14 +374,14 @@ describe('start quiz attempt route', () => {
       jsonRequest({ eventId: EVENT_ID, integrityTier: 'device' })
     );
 
-    expect(response.status).toBe(409);
-    const pointLabel = `${EXAM_PASS_POINTS_COST} loyalty ${
-      EXAM_PASS_POINTS_COST === 1 ? 'point' : 'points'
-    }`;
-    expect(await response.json()).toEqual({
-      code: 'QUIZ_EXAM_PASS_REQUIRED',
-      error: `You need ${pointLabel} to start this exam`,
+    expect(response.status).toBe(503);
+    const body = await response.json();
+    expect(body).toEqual({
+      code: 'QUIZ_TEMPORARILY_UNAVAILABLE',
+      error: 'Super Quiz is temporarily unavailable. Please try again soon.',
     });
+    // Must never re-sell the purchase gate that free entry removed.
+    expect(JSON.stringify(body)).not.toMatch(/loyalty/i);
     expect(rpc).toHaveBeenCalledWith(
       'start_quiz_attempt',
       expect.objectContaining({
@@ -286,7 +390,313 @@ describe('start quiz attempt route', () => {
         p_user_id: USER_ID,
       })
     );
-    expect(logger.error).not.toHaveBeenCalled();
+    // This is an operational fault, not a normal user outcome: QZ011 means the
+    // paid-entry RPC is still live in the database. It must be logged loudly.
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'start_quiz_attempt',
+        message: expect.stringContaining('paid-entry RPC is still live'),
+      })
+    );
+  });
+
+  // The QZ011 guard above does NOT cover this: the old RPC raised QZ011 only
+  // when the player held FEWER points than the cost. A player who held a point
+  // was charged and the RPC SUCCEEDED — so the free-entry build would silently
+  // spend a loyalty point for exactly the players it promised not to charge.
+  it('returns the committed receipt when a drifted start reports a charge', async () => {
+    const { rpc } = mockAuthenticatedSupabase({
+      rpcResult: {
+        data: {
+          attemptId: 'attempt-1',
+          eventId: EVENT_ID,
+          examPassPointsSpent: 1,
+          remainingLoyaltyPoints: 4,
+        },
+        error: null,
+      },
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      jsonRequest({ eventId: EVENT_ID, integrityTier: 'device' })
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body).toEqual({
+      attemptId: 'attempt-1',
+      eventId: EVENT_ID,
+      examPassPointsSpent: 1,
+      remainingLoyaltyPoints: 4,
+    });
+    expect(rpc).toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'start_quiz_attempt',
+        message: expect.stringContaining('readiness marker'),
+        pointsSpent: 1,
+      })
+    );
+  });
+
+  it('serves the attempt normally when entry was free', async () => {
+    mockAuthenticatedSupabase({
+      rpcResult: {
+        data: {
+          attemptId: 'attempt-1',
+          eventId: EVENT_ID,
+          examPassPointsSpent: 0,
+          remainingLoyaltyPoints: 4,
+          question: { id: 'q1', index: 1, total: 5 },
+        },
+        error: null,
+      },
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      jsonRequest({ eventId: EVENT_ID, integrityTier: 'device' })
+    );
+
+    expect(response.status).toBe(200);
+  });
+
+  it('ignores a client-supplied fingerprint for cookie-authenticated web starts', async () => {
+    mockAuthenticatedSupabase();
+
+    const { POST } = await import('./route');
+    await POST(
+      jsonRequest({
+        deviceFingerprint: 'a'.repeat(64),
+        eventId: EVENT_ID,
+        integrityTier: 'device',
+      })
+    );
+
+    expect(resolveQuizDevice).toHaveBeenCalledWith(
+      expect.any(NextRequest),
+      undefined
+    );
+  });
+
+  it('uses a validated fingerprint for bearer-authenticated mobile starts', async () => {
+    mockAuthenticatedSupabase();
+    const fingerprint = 'a'.repeat(64);
+
+    const { POST } = await import('./route');
+    await POST(
+      bearerRequest({
+        deviceFingerprint: fingerprint,
+        eventId: EVENT_ID,
+        integrityTier: 'device',
+      })
+    );
+
+    expect(resolveQuizDevice).toHaveBeenCalledWith(
+      expect.any(NextRequest),
+      fingerprint
+    );
+  });
+
+  it('does not mint a web device cookie for bearer starts without a fingerprint', async () => {
+    const { rpc } = mockAuthenticatedSupabase();
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      bearerRequest({ eventId: EVENT_ID, integrityTier: 'device' })
+    );
+
+    expect(response.status).toBe(200);
+    expect(resolveQuizDevice).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledWith('quiz_device_cap_ready');
+    expect(rpc).toHaveBeenCalledWith(
+      'start_quiz_attempt',
+      expect.objectContaining({ p_event_id: EVENT_ID })
+    );
+  });
+
+  it('reuses an existing web device cookie for bearer starts without a fingerprint', async () => {
+    const { rpc } = mockAuthenticatedSupabase();
+    const request = bearerRequest({
+      eventId: EVENT_ID,
+      integrityTier: 'device',
+    });
+    request.cookies.set('baci_qdid', 'existing-device-cookie');
+    vi.mocked(resolveQuizDevice).mockReturnValue({
+      deviceHash: 'b'.repeat(64),
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(request);
+
+    expect(response.status).toBe(200);
+    expect(resolveQuizDevice).toHaveBeenCalledWith(request, undefined);
+    expect(rpc).toHaveBeenCalledWith(
+      'start_quiz_attempt_with_device',
+      expect.objectContaining({ p_device_hash: 'b'.repeat(64) })
+    );
+  });
+
+  it('starts without device binding when device resolution throws', async () => {
+    const { rpc } = mockAuthenticatedSupabase();
+    vi.mocked(resolveQuizDevice).mockImplementation(() => {
+      throw new Error('randomness unavailable');
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      jsonRequest({ eventId: EVENT_ID, integrityTier: 'device' })
+    );
+
+    expect(response.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith(
+      'start_quiz_attempt',
+      expect.objectContaining({ p_event_id: EVENT_ID })
+    );
+    expect(rpc).not.toHaveBeenCalledWith(
+      'start_quiz_attempt_with_device',
+      expect.anything()
+    );
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'quiz_device_resolution',
+        message:
+          'Device identification failed; continuing without device binding',
+      })
+    );
+  });
+
+  it('uses the shared bearer parser for lowercase mobile authorization', async () => {
+    mockAuthenticatedSupabase();
+    const fingerprint = 'd'.repeat(64);
+
+    const { POST } = await import('./route');
+    await POST(
+      lowercaseBearerRequest({
+        deviceFingerprint: fingerprint,
+        eventId: EVENT_ID,
+        integrityTier: 'device',
+      })
+    );
+
+    expect(resolveQuizDevice).toHaveBeenCalledWith(
+      expect.any(NextRequest),
+      fingerprint
+    );
+  });
+
+  it('returns the device limit response after persisting an over-cap attempt', async () => {
+    const { rpc } = mockAuthenticatedSupabase({
+      bindResult: { data: false, error: null },
+    });
+    vi.mocked(resolveQuizDevice).mockReturnValue({
+      cookieToSet: {
+        maxAge: 31_536_000,
+        name: 'baci_qdid',
+        value: 'device-cookie',
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: true,
+        path: '/',
+      },
+      deviceHash: 'b'.repeat(64),
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      jsonRequest({ eventId: EVENT_ID, integrityTier: 'device' })
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      code: 'QUIZ_ATTEMPT_LIMIT_REACHED',
+      error: "You've reached the maximum number of attempts for this quiz.",
+    });
+    expect(response.headers.get('set-cookie')).toContain(
+      'baci_qdid=device-cookie'
+    );
+    expect(rpc).toHaveBeenCalledWith('start_quiz_attempt_with_device', {
+      p_device_hash: 'b'.repeat(64),
+      p_device_route_proof: expect.any(Object),
+      p_event_id: EVENT_ID,
+      p_integrity_tier: 'device',
+      p_start_route_proof: expect.any(Object),
+      p_user_id: USER_ID,
+    });
+  });
+
+  it('fails closed before device start when the device-cap migration is unavailable', async () => {
+    const { rpc } = mockAuthenticatedSupabase();
+    rpc.mockImplementation((name: string) => {
+      if (name === 'quiz_free_entry_ready') {
+        return Promise.resolve({ data: true, error: null });
+      }
+      if (name === 'quiz_device_cap_ready') {
+        return Promise.resolve({
+          data: null,
+          error: { message: 'function quiz_device_cap_ready does not exist' },
+        });
+      }
+      return Promise.resolve({ data: null, error: null });
+    });
+    vi.mocked(resolveQuizDevice).mockReturnValue({
+      cookieToSet: {
+        maxAge: 31_536_000,
+        name: 'baci_qdid',
+        value: 'readiness-device-cookie',
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: true,
+        path: '/',
+      },
+      deviceHash: 'b'.repeat(64),
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      jsonRequest({ eventId: EVENT_ID, integrityTier: 'device' })
+    );
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      code: 'QUIZ_TEMPORARILY_UNAVAILABLE',
+      error: 'Super Quiz is temporarily unavailable. Please try again soon.',
+    });
+    expect(response.headers.get('set-cookie')).toContain(
+      'baci_qdid=readiness-device-cookie'
+    );
+    expect(rpc).not.toHaveBeenCalledWith(
+      'start_quiz_attempt_with_device',
+      expect.anything()
+    );
+  });
+
+  it('returns the successful start when device binding fails unexpectedly', async () => {
+    mockAuthenticatedSupabase({
+      bindResult: {
+        data: null,
+        error: { code: 'XX000', message: 'unexpected bind failure' },
+      },
+    });
+    vi.mocked(resolveQuizDevice).mockReturnValue({
+      cookieToSet: undefined,
+      deviceHash: 'c'.repeat(64),
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      jsonRequest({ eventId: EVENT_ID, integrityTier: 'device' })
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ attemptId: 'attempt-1' });
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'start_quiz_attempt_with_device',
+        message: 'Device-cap binding failed inside quiz start; continuing',
+      })
+    );
   });
 
   it('returns a client error when the event is no longer open', async () => {

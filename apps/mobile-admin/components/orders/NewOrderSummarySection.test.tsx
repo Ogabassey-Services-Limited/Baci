@@ -113,8 +113,12 @@ describe('NewOrderSummarySection', () => {
 
     render(<NewOrderSummarySection controller={controller} />);
 
-    fireEvent.click(screen.getByText('Discount').closest('button')!);
-    fireEvent.click(screen.getByText('Shipping Fee').closest('button')!);
+    fireEvent.click(
+      screen.getByRole('button', { name: /^Edit Discount, currently/ })
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: /^Edit Shipping Fee, currently/ })
+    );
 
     expect(controller.setFinancialValue).toHaveBeenNthCalledWith(1, '500');
     expect(controller.setShowFinancialModal).toHaveBeenNthCalledWith(1, {
@@ -137,7 +141,9 @@ describe('NewOrderSummarySection', () => {
 
     render(<NewOrderSummarySection controller={controller} />);
 
-    fireEvent.click(screen.getByText('VAT (7.5%)').closest('button')!);
+    fireEvent.click(
+      screen.getByRole('button', { name: /^Edit VAT \(7\.5%\), currently/ })
+    );
 
     expect(controller.setFinancialValue).toHaveBeenCalledWith('');
     expect(controller.setShowFinancialModal).toHaveBeenCalledWith({
@@ -155,7 +161,9 @@ describe('NewOrderSummarySection', () => {
 
     render(<NewOrderSummarySection controller={controller} />);
 
-    fireEvent.click(screen.getByText('VAT (7.5%)').closest('button')!);
+    fireEvent.click(
+      screen.getByRole('button', { name: /^Edit VAT \(7\.5%\), currently/ })
+    );
 
     expect(controller.setFinancialValue).toHaveBeenCalledWith('125');
     expect(controller.setShowFinancialModal).toHaveBeenCalledWith({

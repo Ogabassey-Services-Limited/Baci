@@ -4,33 +4,27 @@ import {
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
-import {
-  generateOrderCancellationEmail,
-  generateOrderCancellationText,
-} from '@/lib/email-templates';
 import { logger } from '@/lib/logger';
-import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
-import { initiateRefund as initiatePaystackRefund } from '@/lib/paystack';
-import { sendEmail } from '@/lib/zeptomail';
-
-/** Order item interface for email templates (2026 best practice) */
-interface EmailOrderItem {
-  name: string;
-  quantity: number;
-  price: number;
-}
+import { productCacheRevalidation } from '@/lib/product-cache-revalidation';
+import { merchantOrderCancellationSchema } from '@/schemas/orders';
 
 /**
  * POST /api/orders/[id]/cancelled
- * Sends the "Order Cancelled" email to the customer
- * Called when merchant or customer cancels an order
+ * Atomically cancels a merchant-owned order and queues trusted refund/email work.
  */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // CSRF protection
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user || !auth.supabase) {
+      return NextResponse.json(
+        { error: auth.error || 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const { valid: csrfValid, response: csrfResponse } =
       await checkCsrfProtection(request);
     if (!csrfValid) {
@@ -43,26 +37,20 @@ export async function POST(
     const { id } = await params;
     console.log(`[OrderCancelled] Starting for order ${id}`);
 
-    // Parse optional body for cancellation details
-    let cancellationReason: string | undefined;
-    let cancelledBy: 'merchant' | 'customer' = 'merchant';
-
+    let requestBody: unknown = {};
     try {
-      const body = await request.json();
-      cancellationReason = body.reason;
-      cancelledBy = body.cancelled_by || 'merchant';
+      requestBody = await request.json();
     } catch {
-      // No body provided, that's fine
+      // Validation below rejects missing explicit cancellation confirmation.
     }
-
-    // Authenticate request
-    const auth = await authenticateApiRequest(request);
-    if (auth.error || !auth.user || !auth.supabase) {
+    const parsedBody = merchantOrderCancellationSchema.safeParse(requestBody);
+    if (!parsedBody.success) {
       return NextResponse.json(
-        { error: auth.error || 'Unauthorized' },
-        { status: 401 }
+        { error: 'Invalid cancellation request', code: 'INVALID_REQUEST_BODY' },
+        { status: 400 }
       );
     }
+    const cancellationReason = parsedBody.data.reason;
 
     // Get merchant ID
     const merchantId = await getMerchantIdForApiUser(auth.supabase);
@@ -75,235 +63,96 @@ export async function POST(
 
     const supabase = auth.supabase;
 
-    // Fetch merchant details
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select(
-        'id, business_name, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number'
-      )
-      .eq('id', merchantId)
-      .single();
-
-    if (merchantError || !merchant) {
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
-      );
-    }
-
-    // Fetch order with items
-    const { data: order, error: orderError } = await supabase
-      .from('orders')
-      .select(ORDER_WITH_ITEMS_QUERY)
-      .eq('id', id)
-      .eq('merchant_id', merchant.id)
-      .single();
-
-    if (orderError || !order) {
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
-    }
-
-    // Check if order is actually cancelled
-    if (order.shipping_status !== 'cancelled') {
-      return NextResponse.json(
-        { error: 'Order must be marked as cancelled first' },
-        { status: 400 }
-      );
-    }
-
-    // Calculate refund amount
-    const amountPaid = Number(order.amount_paid) || 0;
-    // For now, assume full refund of amount paid
-    const refundAmount = amountPaid;
-
-    // Process actual refund if payment was made
-    let refundResult: {
-      success: boolean;
-      refundId?: number;
-      error?: string;
-      auditRecordFailed?: boolean;
-    } = { success: false };
-    if (amountPaid > 0 && order.payment_status === 'paid') {
-      // Look up the transaction for this order
-      const { data: transaction } = await supabase
-        .from('transactions')
-        .select('gateway, gateway_reference')
-        .eq('order_id', id)
-        .eq('transaction_type', 'payment')
-        .eq('status', 'completed')
-        .single();
-
-      if (transaction?.gateway_reference) {
-        // Initiate refund based on payment gateway
-        if (transaction.gateway === 'paystack') {
-          const paystackRefund = await initiatePaystackRefund(
-            transaction.gateway_reference,
-            refundAmount * 100, // Convert to kobo
-            cancellationReason || 'Order cancelled'
-          );
-          refundResult = paystackRefund.success
-            ? { success: true, refundId: paystackRefund.data.id }
-            : { success: false, error: paystackRefund.error };
-        } else if (transaction.gateway === 'korapay') {
-          // TODO: Implement Korapay refund
-          logger.warn({
-            message: 'Korapay refund not yet implemented',
-            orderId: id,
-            transactionRef: transaction.gateway_reference,
-          });
-          refundResult = {
-            success: false,
-            error: 'Korapay refund not yet implemented',
-          };
-        } else {
-          logger.warn({
-            message: 'Unsupported payment gateway for refund',
-            gateway: transaction.gateway,
-            orderId: id,
-          });
-          refundResult = {
-            success: false,
-            error: `Unsupported gateway: ${transaction.gateway}`,
-          };
-        }
-
-        // Create refund transaction record
-        if (refundResult.success) {
-          const { error: insertTxError } = await supabase
-            .from('transactions')
-            .insert({
-              merchant_id: order.merchant_id,
-              order_id: id,
-              transaction_type: 'refund',
-              amount: refundAmount,
-              currency: order.currency || 'NGN',
-              status: 'completed',
-              gateway: transaction.gateway,
-              gateway_reference: String(refundResult.refundId),
-              description: `Refund for cancelled order #${order.order_number || id.slice(0, 8)}`,
-            });
-          if (insertTxError) {
-            // Refund already succeeded with the gateway. A 500 here would
-            // make a retried request re-issue the refund (double-refund
-            // risk) since the gateway is the authoritative ledger. Log the
-            // audit failure and continue to return the success response;
-            // monitoring picks up the audit-record gap from logs.
-            logger.error({
-              message:
-                'Refund processed but failed to create transaction audit record',
-              error: insertTxError,
-              orderId: id,
-              refundId: refundResult.refundId,
-            });
-            refundResult = {
-              ...refundResult,
-              auditRecordFailed: true,
-            };
-          }
-        }
-      } else {
-        logger.warn({
-          message: 'No transaction found for refund',
-          orderId: id,
-        });
-      }
-    }
-
-    // Prepare email data
-    const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
-    const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
-
-    const emailItems =
-      order.order_items?.map((item: EmailOrderItem) => ({
-        name: item.name || 'Product',
-        quantity: item.quantity || 1,
-        price: item.price || 0,
-      })) || [];
-
-    const cancellationData = {
-      orderNumber: order.order_number || order.id.slice(0, 8).toUpperCase(),
-      customerName: order.customer_name,
-      items: emailItems,
-      totalAmount: Number(order.total) || 0,
-      amountPaid,
-      refundAmount,
-      cancellationReason,
-      cancelledBy,
-      merchantName: merchant.business_name,
-      merchantUrl,
-      currency: order.currency || 'NGN',
-      supportEmail: merchant.support_email,
-      merchantTin: merchant.tax_identification_number ?? undefined,
-      merchantRcNumber: merchant.cac_rc_number ?? undefined,
-    };
-
-    const htmlContent = generateOrderCancellationEmail(cancellationData);
-    const textContent = generateOrderCancellationText(cancellationData);
-
-    const replyToEmail =
-      merchant.support_email ||
-      merchant.email ||
-      `support@${merchant.slug}.${rootDomain}`;
-    const senderName = merchant.email_sender_name
-      ? `${merchant.email_sender_name}`
-      : `${merchant.business_name}`;
-
-    // Send email
-    const emailResult = await sendEmail({
-      to: order.customer_email,
-      toName: order.customer_name,
-      subject: `Order #${cancellationData.orderNumber} Has Been Cancelled`,
-      htmlContent,
-      textContent,
-      replyTo: replyToEmail,
-      emailType: 'orders',
-      fromName: senderName,
-      auditContext: {
-        merchantId,
-        orderId: order.id,
-        customerId: order.customer_id,
-        metadata: {
-          trigger: 'order_cancelled_notification',
-          cancelledBy,
-        },
-      },
-    });
-
-    if (!emailResult.success) {
-      logger.error({
-        message: 'Failed to send cancellation email',
-        error: emailResult.error,
+    const { data: cancellationPerformed, error: cancellationError } =
+      await supabase.rpc('cancel_order_as_merchant', {
+        p_order_id: id,
+        p_reason: cancellationReason,
       });
+    if (cancellationError) {
+      const status =
+        cancellationError.code === 'P0002'
+          ? 404
+          : cancellationError.code === 'P0001'
+            ? 409
+            : cancellationError.code === '42501'
+              ? 403
+              : 500;
       return NextResponse.json(
-        { error: 'Failed to send email', details: emailResult.error },
-        { status: 500 }
+        {
+          error:
+            status === 409
+              ? 'This order can no longer be cancelled.'
+              : status === 404
+                ? 'Order not found'
+                : status === 403
+                  ? 'You do not have permission to cancel this order.'
+                  : 'Failed to cancel order',
+          code: status === 409 ? 'ORDER_NOT_CANCELLABLE' : undefined,
+        },
+        { status }
       );
     }
+    const alreadyCancelled = !cancellationPerformed;
 
-    console.log(`[OrderCancelled] Email sent for order ${id}`);
+    productCacheRevalidation.revalidateDashboard(merchantId);
+    try {
+      const { data: orderItems, error: orderItemsError } = await supabase
+        .from('order_items')
+        .select('product_id')
+        .eq('order_id', id);
+      if (orderItemsError) throw orderItemsError;
+      const productIds = Array.from(
+        new Set(
+          (orderItems ?? [])
+            .map((item) => item.product_id)
+            .filter((productId): productId is string => Boolean(productId))
+        )
+      );
+      if (productIds.length > 0) {
+        const { data: products, error: productsError } = await supabase
+          .from('products')
+          .select('slug, manage_stock')
+          .eq('merchant_id', merchantId)
+          .in('id', productIds);
+        if (productsError) throw productsError;
+        const trackedProducts = (products ?? []).filter(
+          (product) => product.manage_stock === true
+        );
+        if (trackedProducts.length > 0) {
+          productCacheRevalidation.revalidateProducts(merchantId, undefined, {
+            feedScope: 'merchant',
+          });
+          productCacheRevalidation.revalidateProductSlugs(
+            merchantId,
+            trackedProducts.map((product) => product.slug)
+          );
+        }
+      }
+    } catch (error) {
+      productCacheRevalidation.revalidateProducts(merchantId, undefined, {
+        feedScope: 'merchant',
+      });
+      logger.error({
+        error,
+        message: 'Failed to revalidate product caches after cancellation',
+        merchantId,
+        orderId: id,
+      });
+    }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Cancellation notification sent',
-      messageId: emailResult.messageId,
-      refund:
-        amountPaid > 0
-          ? {
-              attempted: true,
-              success: refundResult.success,
-              amount: refundAmount,
-              refundId: refundResult.refundId,
-              error: refundResult.error,
-            }
-          : {
-              attempted: false,
-              reason: 'No payment to refund',
-            },
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        alreadyCancelled,
+        message: 'Cancellation completed; side effects are queued',
+        sideEffects: { customerEmail: 'queued', refund: 'queued_if_required' },
+      },
+      { status: 202 }
+    );
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Internal Error';
-    console.error('Error in cancellation notification:', error);
-    logger.error({ message: 'Error sending cancellation email', error });
+    console.error('Error cancelling order:', error);
+    logger.error({ message: 'Order cancellation route failed', error });
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

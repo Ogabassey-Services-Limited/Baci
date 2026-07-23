@@ -9,6 +9,7 @@
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
+import { permissionGrantsAccess } from '@/lib/permission-grant';
 import { createAnonClient } from '@/lib/supabase/anon';
 import { createScopedClient } from '@/lib/supabase/scoped';
 import { createClient } from '@/lib/supabase/server';
@@ -22,6 +23,11 @@ export interface AuthResult {
   user: User | null;
   error: string | null;
   supabase: SupabaseClient | null;
+}
+
+export function hasBearerAuthScheme(request: Request | NextRequest): boolean {
+  const authHeader = request.headers.get('Authorization') ?? '';
+  return /^\s*bearer(?:\s|$)/i.test(authHeader);
 }
 
 export function getBearerTokenFromRequest(
@@ -159,12 +165,5 @@ export function hasPermission(
 ): boolean {
   // Owners have full access
   if (access.isOwner) return true;
-
-  // Check wildcard permissions first
-  if (access.permissions['*']?.['*']) return true;
-  if (access.permissions['*']?.[action]) return true;
-  if (access.permissions[resource]?.['*']) return true;
-
-  // Check specific permission
-  return access.permissions[resource]?.[action] === true;
+  return permissionGrantsAccess(access.permissions, resource, action);
 }

@@ -7,6 +7,7 @@ import {
   waitFor,
 } from '@testing-library/react-native';
 import { QuizScreen } from '@/components/quiz/QuizScreen';
+import { getQuizDeviceFingerprint } from '@/lib/get-quiz-device-fingerprint';
 import type { QuizAttempt, QuizEvent, QuizResult } from '@/services/quiz';
 import {
   fetchQuizEvents,
@@ -58,11 +59,15 @@ const quizEvent: QuizEvent = {
 const createFutureDeadline = (secondsFromNow: number) =>
   new Date(Date.now() + secondsFromNow * 1000).toISOString();
 
-const createQuizAttempt = (): QuizAttempt => ({
+// Entry is free, so a fresh attempt spends nothing. Overridable so the
+// deploy-window case (a stale database that still charged) can be exercised.
+const createQuizAttempt = (
+  overrides: Partial<QuizAttempt> = {}
+): QuizAttempt => ({
   attemptId: 'attempt-1',
   eventId: 'event-1',
-  examPassPointsSpent: 1,
-  remainingLoyaltyPoints: 4,
+  examPassPointsSpent: 0,
+  remainingLoyaltyPoints: 5,
   question: {
     deadlineAt: createFutureDeadline(30),
     id: 'question-1',
@@ -75,6 +80,7 @@ const createQuizAttempt = (): QuizAttempt => ({
     timeLimitSeconds: 30,
     total: 3,
   },
+  ...overrides,
 });
 
 const quizResult: QuizResult = {
@@ -94,6 +100,12 @@ function createDeferred<T>() {
   });
   return { promise, reject, resolve };
 }
+
+// Anti multi-accounting: QuizScreen sends a device fingerprint so the server can
+// share one attempt budget across every account started from this device.
+jest.mock('@/lib/get-quiz-device-fingerprint', () => ({
+  getQuizDeviceFingerprint: jest.fn(async () => 'a'.repeat(64)),
+}));
 
 jest.mock('@/services/quiz', () => ({
   fetchQuizEvents: jest.fn(),
@@ -143,17 +155,15 @@ describe('QuizScreen', () => {
     render(<QuizScreen integrityTier="device" locale="en-US" />);
 
     expect(await screen.findByText('Super Quiz')).toBeTruthy();
+    expect(screen.getByText('Free to enter.')).toBeTruthy();
     expect(
-      screen.getByText('Use 1 loyalty point as your exam pass.')
-    ).toBeTruthy();
-    expect(
-      screen.getByText('Your pass is charged when the exam starts.')
+      screen.getByText('No loyalty points required. No purchase necessary.')
     ).toBeTruthy();
     expect(await screen.findByText('Daily Prize Quiz')).toBeTruthy();
     expect(screen.getByText('N50,000 store credit')).toBeTruthy();
     expect(
       screen.getByRole('button', {
-        name: 'Use 1 point to start Daily Prize Quiz',
+        name: 'Start free exam Daily Prize Quiz',
       })
     ).toBeTruthy();
   });
@@ -184,12 +194,13 @@ describe('QuizScreen', () => {
 
     fireEvent.press(
       await screen.findByRole('button', {
-        name: 'Use 1 point to start Daily Prize Quiz',
+        name: 'Start free exam Daily Prize Quiz',
       })
     );
 
     expect(await screen.findByText('Starting...')).toBeTruthy();
     expect(startQuizAttempt).toHaveBeenCalledWith({
+      deviceFingerprint: 'a'.repeat(64),
       eventId: 'event-1',
       integrityTier: 'device',
     });
@@ -202,8 +213,67 @@ describe('QuizScreen', () => {
     expect(await screen.findByText('What is 2 + 2?')).toBeTruthy();
     expect(screen.getByText('Time left: 30s')).toBeTruthy();
     expect(
-      screen.getByText('1 point exam pass used. 4 points left.')
+      screen.getByText('Free entry — no loyalty points used.')
     ).toBeTruthy();
+  });
+
+  it('enters the pending state before device fingerprint lookup resolves', async () => {
+    const fingerprintDeferred = createDeferred<string>();
+    jest
+      .mocked(getQuizDeviceFingerprint)
+      .mockReturnValueOnce(fingerprintDeferred.promise);
+    render(<QuizScreen integrityTier="device" locale="en-US" />);
+
+    fireEvent.press(
+      await screen.findByRole('button', {
+        name: 'Start free exam Daily Prize Quiz',
+      })
+    );
+
+    expect(await screen.findByText('Starting...')).toBeTruthy();
+    expect(startQuizAttempt).not.toHaveBeenCalled();
+
+    await act(async () => {
+      fingerprintDeferred.resolve('c'.repeat(64));
+      await fingerprintDeferred.promise;
+    });
+
+    await waitFor(() =>
+      expect(startQuizAttempt).toHaveBeenCalledWith({
+        deviceFingerprint: 'c'.repeat(64),
+        eventId: 'event-1',
+        integrityTier: 'device',
+      })
+    );
+  });
+
+  // Deploy-window safety: an installed build can briefly talk to a database that
+  // has not applied the free-entry migration and still charged a point. The
+  // receipt must report what actually happened, not a hard-coded "free".
+  it('reports a real charge when a stale database still spent a point', async () => {
+    const startDeferred = createDeferred<QuizAttempt>();
+    jest.mocked(startQuizAttempt).mockReturnValueOnce(startDeferred.promise);
+    render(<QuizScreen integrityTier="device" locale="en-US" />);
+
+    fireEvent.press(
+      await screen.findByRole('button', {
+        name: 'Start free exam Daily Prize Quiz',
+      })
+    );
+
+    await act(async () => {
+      startDeferred.resolve(
+        createQuizAttempt({ examPassPointsSpent: 1, remainingLoyaltyPoints: 4 })
+      );
+      await startDeferred.promise;
+    });
+
+    expect(
+      await screen.findByText('1 loyalty point used. 4 left.')
+    ).toBeTruthy();
+    expect(
+      screen.queryByText('Free entry — no loyalty points used.')
+    ).toBeNull();
   });
 
   it('shows a pending submit state and renders a successful result', async () => {
@@ -213,7 +283,7 @@ describe('QuizScreen', () => {
 
     fireEvent.press(
       await screen.findByRole('button', {
-        name: 'Use 1 point to start Daily Prize Quiz',
+        name: 'Start free exam Daily Prize Quiz',
       })
     );
     fireEvent.press(await screen.findByRole('button', { name: 'Answer 4' }));
@@ -253,7 +323,7 @@ describe('QuizScreen', () => {
 
     fireEvent.press(
       await screen.findByRole('button', {
-        name: 'Use 1 point to start Daily Prize Quiz',
+        name: 'Start free exam Daily Prize Quiz',
       })
     );
     fireEvent.press(await screen.findByRole('button', { name: 'Answer 4' }));
@@ -262,7 +332,7 @@ describe('QuizScreen', () => {
     expect(await screen.findByText('Result')).toBeTruthy();
     expect(
       screen.getByRole('button', {
-        name: 'Use 1 point to start Daily Prize Quiz',
+        name: 'Start free exam Daily Prize Quiz',
       })
     ).toBeTruthy();
   });
@@ -273,17 +343,18 @@ describe('QuizScreen', () => {
 
     fireEvent.press(
       await screen.findByRole('button', {
-        name: 'Use 1 point to start Daily Prize Quiz',
+        name: 'Start free exam Daily Prize Quiz',
       })
     );
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Start failed');
     expect(
       screen.getByRole('button', {
-        name: 'Use 1 point to start Daily Prize Quiz',
+        name: 'Start free exam Daily Prize Quiz',
       })
     ).toBeTruthy();
     expect(startQuizAttempt).toHaveBeenCalledWith({
+      deviceFingerprint: 'a'.repeat(64),
       eventId: 'event-1',
       integrityTier: 'device',
     });
@@ -295,7 +366,7 @@ describe('QuizScreen', () => {
 
     fireEvent.press(
       await screen.findByRole('button', {
-        name: 'Use 1 point to start Daily Prize Quiz',
+        name: 'Start free exam Daily Prize Quiz',
       })
     );
     fireEvent.press(await screen.findByRole('button', { name: 'Answer 4' }));
@@ -320,7 +391,7 @@ describe('QuizScreen', () => {
 
     fireEvent.press(
       await screen.findByRole('button', {
-        name: 'Use 1 point to start Daily Prize Quiz',
+        name: 'Start free exam Daily Prize Quiz',
       })
     );
 
@@ -339,6 +410,7 @@ describe('QuizScreen', () => {
     });
     await waitFor(() => {
       expect(startQuizAttempt).toHaveBeenCalledWith({
+        deviceFingerprint: 'a'.repeat(64),
         eventId: 'event-1',
         integrityTier: 'device',
       });
@@ -352,7 +424,7 @@ describe('QuizScreen', () => {
 
     fireEvent.press(
       await screen.findByRole('button', {
-        name: 'Use 1 point to start Daily Prize Quiz',
+        name: 'Start free exam Daily Prize Quiz',
       })
     );
     fireEvent.press(

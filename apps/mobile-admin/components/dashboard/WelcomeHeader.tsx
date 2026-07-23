@@ -25,7 +25,12 @@ export function WelcomeHeader({
   notificationCount = 0,
 }: WelcomeHeaderProps) {
   const { colors } = useTheme();
-  const { uri: cachedAvatarUri } = useCachedImageUri(avatarUrl);
+  const { fallbackUri: fallbackAvatarUri, uri: cachedAvatarUri } =
+    useCachedImageUri(avatarUrl, {
+      width: 192,
+      height: 192,
+      resize: 'cover',
+    });
 
   // Determine avatar type
   const isSvgDataUri = avatarUrl?.startsWith('data:image/svg');
@@ -51,8 +56,12 @@ export function WelcomeHeader({
       // Regular image URL (PNG, JPG, etc.) — use locally cached version
       return (
         <SafeImage
+          fallbackSource={
+            fallbackAvatarUri ? { uri: fallbackAvatarUri } : undefined
+          }
           source={{ uri: cachedAvatarUri }}
           style={[styles.avatar, { backgroundColor: colors.card }]}
+          resizeMethod="resize"
         />
       );
     }

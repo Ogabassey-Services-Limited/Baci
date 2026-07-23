@@ -94,6 +94,7 @@ describe('getManualOrderNotificationOutboxBlockingState', () => {
       status: 'clear',
       claimId: '10000000-0000-4000-8000-000000000001',
       claimOwner: 'claim-owner-1',
+      shipmentSnapshot: {},
     });
   });
 
@@ -173,6 +174,7 @@ describe('getManualOrderNotificationOutboxBlockingState', () => {
       status: 'clear',
       claimId: '10000000-0000-4000-8000-000000000001',
       claimOwner: 'claim-owner-1',
+      shipmentSnapshot: {},
     });
   });
 
@@ -188,6 +190,36 @@ describe('getManualOrderNotificationOutboxBlockingState', () => {
       status: 'clear',
       claimId: '10000000-0000-4000-8000-000000000001',
       claimOwner: 'claim-owner-1',
+      shipmentSnapshot: {},
+    });
+  });
+
+  it('returns the claimed fulfillment snapshot for manual retries', async () => {
+    const result = await getManualOrderNotificationOutboxBlockingState({
+      eventType: 'order_shipped',
+      merchantId: 'merchant-1',
+      orderId: 'order-1',
+      supabase: createSupabaseMock({
+        claim_owner: 'claim-owner-1',
+        metadata: {
+          fulfillment_courier_name: 'GIGL',
+          fulfillment_tracking_number: 'CYCLE-1',
+          fulfillment_tracking_token: 'cycle-token-1',
+        },
+        outbox_id: '10000000-0000-4000-8000-000000000001',
+        status: null,
+      }),
+    });
+
+    expect(result).toEqual({
+      status: 'clear',
+      claimId: '10000000-0000-4000-8000-000000000001',
+      claimOwner: 'claim-owner-1',
+      shipmentSnapshot: {
+        courierName: 'GIGL',
+        trackingNumber: 'CYCLE-1',
+        trackingToken: 'cycle-token-1',
+      },
     });
   });
 

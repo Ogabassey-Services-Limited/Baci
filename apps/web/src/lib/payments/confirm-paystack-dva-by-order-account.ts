@@ -1,27 +1,16 @@
-// Phase B — B1 (Δ-3, Δ-6, Δ-10, Δ-12, Δ-55, Δ-57). Looks up a paid
-// Paystack DVA against persisted `order_payment_accounts` rows, applies
-// the B0 6-key tightening matcher, and either:
-//   - reserves a pending `transactions` row via the locked payment RPC + returns it for the
-//     webhook to flip via its existing UPDATE path (single match)
-//   - upserts a `payment_match_ambiguous` `reconciliation_review` row
-//     and returns 409 (multi-candidate; manual review needed)
-//   - returns `handled: false` so the caller falls through to the
-//     `transactions.gateway_reference` lookup (no match)
-//
-// The helper does NOT call `claim_paystack_paid_atomic` directly — by
-// returning a freshly-reserved pending transaction, the webhook's
-// existing path (UPDATE transactions, UPDATE orders,
-// applyPaidOrderSideEffects via the A1 outbox) takes over. The atomic
-// RPC is reserved for the manual reconcile script (PR3) where
-// duplicate cancellation matters; for the webhook path B1 covers the
-// `cancel_order_ids='{}'` case naturally.
+// Matches a verified Paystack DVA payment to a persisted invoice account,
+// reserves its transaction, or creates a manual-reconciliation result.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { findCustomerWalletPaymentAccountByReceiver } from '@/lib/customer-wallet-payment-accounts';
 import { logger } from '@/lib/logger';
+import { matchPaystackDvaCandidates } from '@/lib/payments/paystack-dva-multi-key-match';
 import {
-  type DvaMatchCandidate,
-  matchPaystackDvaCandidates,
-} from '@/lib/payments/paystack-dva-multi-key-match';
+  getPaystackCustomerName,
+  getPaystackDvaOrderCurrency,
+  normalizePaystackDvaOrderCandidate,
+  toPaystackKobo,
+} from '@/lib/payments/paystack-dva-order-candidate';
 
 const PAYSTACK_ACCOUNT_PATTERN = /^\d{6,20}$/;
 const POSTGRES_UNIQUE_VIOLATION = '23505';
@@ -94,7 +83,7 @@ export async function confirmPaystackDvaByOrderAccount({
   const { data: rows, error: lookupError } = await supabase
     .from('order_payment_accounts')
     .select(
-      'order_id, payable_amount, created_at, assigned_at, expires_at, orders!inner(id, merchant_id, customer_email, total, currency, shipping_status)'
+      'order_id, payable_amount, created_at, assigned_at, expires_at, orders!inner(id, merchant_id, customer_email, total, currency, payment_status, shipping_status)'
     )
     .eq('provider', 'paystack')
     .eq('account_number', accountNumber);
@@ -115,22 +104,50 @@ export async function confirmPaystackDvaByOrderAccount({
     return { kind: 'none' };
   }
 
-  const candidates: DvaMatchCandidate[] = rows
-    .map((row) => normalizeCandidate(row as Record<string, unknown>))
-    .filter((c): c is DvaMatchCandidate => c !== null);
+  const candidates = rows
+    .map((row) =>
+      normalizePaystackDvaOrderCandidate(row as Record<string, unknown>)
+    )
+    .filter((candidate) => candidate !== null);
 
   if (candidates.length === 0) {
     return { kind: 'none' };
   }
 
   const match = matchPaystackDvaCandidates(candidates, {
-    verifiedAmountKobo: toKobo(verifiedAmount.amount),
+    verifiedAmountKobo: toPaystackKobo(verifiedAmount.amount),
     customerEmail,
     paidAt,
   });
 
   if (match.kind === 'none') {
     return { kind: 'none' };
+  }
+
+  // A reusable Paystack account may later become the customer's wallet DVA.
+  // Once the order alias is outside its protected window, wallet ownership
+  // wins so a top-up cannot be consumed by an expired invoice alias.
+  if (match.timing === 'late') {
+    try {
+      const walletAccount = await findCustomerWalletPaymentAccountByReceiver({
+        receiverAccountNumber: accountNumber,
+        supabase,
+      });
+      if (walletAccount) {
+        return { kind: 'none' };
+      }
+    } catch (error) {
+      logger.error({
+        message: 'B1 active wallet DVA lookup failed',
+        accountNumber,
+        error,
+      });
+      return {
+        body: { error: 'Paystack DVA matching temporarily unavailable' },
+        kind: 'error',
+        status: 500,
+      };
+    }
   }
 
   if (match.kind === 'ambiguous') {
@@ -199,7 +216,7 @@ export async function confirmPaystackDvaByOrderAccount({
   // Single match → reserve a pending transaction inside the locked RPC.
   const winner = match.candidate;
   const candidateRow = candidates.find((c) => c.order_id === winner.order_id);
-  const currency = getCurrency(rows, winner.order_id) ?? 'NGN';
+  const currency = getPaystackDvaOrderCurrency(rows, winner.order_id) ?? 'NGN';
 
   const { data: transactionId, error: reserveError } = await supabase.rpc(
     'create_payment_transaction',
@@ -265,69 +282,4 @@ export async function confirmPaystackDvaByOrderAccount({
     kind: 'match',
     transaction: inserted as ConfirmPaystackDvaByOrderAccountTransaction,
   };
-}
-
-function getPaystackCustomerName(customer: Record<string, unknown> | null) {
-  const firstName =
-    typeof customer?.first_name === 'string' ? customer.first_name.trim() : '';
-  const lastName =
-    typeof customer?.last_name === 'string' ? customer.last_name.trim() : '';
-  const fullName = `${firstName} ${lastName}`.trim();
-  return fullName || null;
-}
-
-function normalizeCandidate(
-  row: Record<string, unknown>
-): DvaMatchCandidate | null {
-  const orderField = row.orders;
-  if (!orderField || typeof orderField !== 'object') return null;
-  const order = orderField as Record<string, unknown>;
-  // A cancelled order must never be matched to an inbound payment, even if a
-  // DVA alias row lingers. The cancel RPC also expires the alias; this is
-  // defense-in-depth at the matcher.
-  if (order.shipping_status === 'cancelled') return null;
-  const total = Number(order.total);
-  if (!Number.isFinite(total)) return null;
-  const payableAmount =
-    row.payable_amount == null ? null : Number(row.payable_amount);
-  const createdAt =
-    typeof row.created_at === 'string' ? new Date(row.created_at) : null;
-  if (!createdAt || Number.isNaN(createdAt.getTime())) return null;
-  const assignedAt =
-    typeof row.assigned_at === 'string' ? new Date(row.assigned_at) : null;
-  const expiresAt =
-    typeof row.expires_at === 'string' ? new Date(row.expires_at) : null;
-  return {
-    order_id: String(row.order_id),
-    merchant_id: String(order.merchant_id ?? ''),
-    customer_email:
-      typeof order.customer_email === 'string' ? order.customer_email : null,
-    total_kobo: toKobo(total),
-    payable_amount_kobo:
-      payableAmount != null && Number.isFinite(payableAmount)
-        ? toKobo(payableAmount)
-        : null,
-    account_created_at: createdAt,
-    account_assigned_at:
-      assignedAt && !Number.isNaN(assignedAt.getTime()) ? assignedAt : null,
-    account_expires_at:
-      expiresAt && !Number.isNaN(expiresAt.getTime()) ? expiresAt : null,
-  };
-}
-
-function getCurrency(rows: unknown[], orderId: string): string | null {
-  for (const row of rows) {
-    if (row && typeof row === 'object') {
-      const r = row as Record<string, unknown>;
-      if (r.order_id === orderId && r.orders && typeof r.orders === 'object') {
-        const order = r.orders as Record<string, unknown>;
-        if (typeof order.currency === 'string') return order.currency;
-      }
-    }
-  }
-  return null;
-}
-
-function toKobo(amountNgn: number): number {
-  return Math.round(amountNgn * 100);
 }

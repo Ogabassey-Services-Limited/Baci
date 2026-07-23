@@ -9,6 +9,7 @@ import { Platform } from 'react-native';
 import { requestMobileUpdateCheck } from '@/components/updates/mobile-update-events';
 import { createLogger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
+import { ensureAndroidNotificationChannels } from '@/services/push-notification-channels';
 
 const log = createLogger('PushNotifications');
 
@@ -107,7 +108,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
     }
 
     if (Platform.OS === 'android') {
-      await setupAndroidChannels();
+      await ensureAndroidNotificationChannels();
     }
 
     const tokenResponse = await Notifications.getExpoPushTokenAsync({
@@ -122,29 +123,6 @@ export async function registerForPushNotifications(): Promise<string | null> {
     log.error('Failed to get push token:', error);
     return null;
   }
-}
-
-async function setupAndroidChannels(): Promise<void> {
-  if (!Notifications) return;
-  await Notifications.setNotificationChannelAsync('orders', {
-    name: 'Order Updates',
-    description: 'Notifications about your order status',
-    importance: Notifications.AndroidImportance.HIGH,
-    vibrationPattern: [0, 250, 250, 250],
-    lightColor: '#DC2626',
-  });
-
-  await Notifications.setNotificationChannelAsync('promotions', {
-    name: 'Deals & Promotions',
-    description: 'Special offers and discounts',
-    importance: Notifications.AndroidImportance.DEFAULT,
-  });
-
-  await Notifications.setNotificationChannelAsync('general', {
-    name: 'General',
-    description: 'General notifications',
-    importance: Notifications.AndroidImportance.DEFAULT,
-  });
 }
 
 export async function savePushTokenToServer(

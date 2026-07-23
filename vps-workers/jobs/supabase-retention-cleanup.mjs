@@ -3,15 +3,17 @@
  * Bounds low-value analytics rows plus pg_cron and pg_net response history.
  */
 
+import { pathToFileURL } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
 import { config } from 'dotenv';
-import { pathToFileURL } from 'node:url';
 
 config({ path: new URL('../.env', import.meta.url).pathname });
 
 const DEFAULT_ANALYTICS_LOW_VALUE_RETENTION = '30 days';
 const DEFAULT_CRON_RETENTION = '14 days';
 const DEFAULT_PG_NET_RETENTION = '1 day';
+const DEFAULT_EVENT_QUEUE_ARCHIVE_RETENTION = '30 days';
+const DEFAULT_EVENT_DELIVERY_ATTEMPT_RETENTION = '30 days';
 
 function resolveRetention(envValue, fallback) {
   return typeof envValue === 'string' && envValue.trim()
@@ -65,17 +67,45 @@ export async function runSupabaseRetentionCleanup({
     );
   }
 
+  const { data: eventPipelineDeleted, error: eventPipelineError } =
+    await supabase.rpc('cleanup_domain_event_pipeline_v1', {
+      p_delivered_attempt_retention: resolveRetention(
+        env.EVENT_DELIVERY_ATTEMPT_RETENTION,
+        DEFAULT_EVENT_DELIVERY_ATTEMPT_RETENTION
+      ),
+      p_queue_archive_retention: resolveRetention(
+        env.EVENT_QUEUE_ARCHIVE_RETENTION,
+        DEFAULT_EVENT_QUEUE_ARCHIVE_RETENTION
+      ),
+    });
+  if (eventPipelineError) {
+    throw new Error(
+      `Event pipeline retention cleanup failed: ${eventPipelineError.message || eventPipelineError}`
+    );
+  }
+
   const result = data?.[0] ?? {
     analytics_events_deleted: 0,
     cron_job_run_details_deleted: 0,
     pg_net_responses_deleted: 0,
   };
 
+  const eventPipelineResult = eventPipelineDeleted?.[0] ?? {
+    delivery_attempts_deleted: 0,
+    queue_archive_messages_deleted: 0,
+  };
+
   logger.info?.(
-    `[supabase-retention-cleanup] analytics=${result.analytics_events_deleted} cron=${result.cron_job_run_details_deleted} pg_net=${result.pg_net_responses_deleted}`
+    `[supabase-retention-cleanup] analytics=${result.analytics_events_deleted} cron=${result.cron_job_run_details_deleted} pg_net=${result.pg_net_responses_deleted} event_attempts=${eventPipelineResult.delivery_attempts_deleted} event_archive=${eventPipelineResult.queue_archive_messages_deleted}`
   );
 
-  return result;
+  return {
+    ...result,
+    event_delivery_attempts_deleted:
+      eventPipelineResult.delivery_attempts_deleted,
+    event_queue_archive_messages_deleted:
+      eventPipelineResult.queue_archive_messages_deleted,
+  };
 }
 
 const isMain =

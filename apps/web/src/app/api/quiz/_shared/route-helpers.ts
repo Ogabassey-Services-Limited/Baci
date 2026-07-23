@@ -1,6 +1,10 @@
 import type { User } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
-import { authenticateApiRequest } from '@/lib/api-auth';
+import {
+  authenticateApiRequest,
+  getBearerTokenFromRequest,
+  hasBearerAuthScheme,
+} from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
 import { QuizProductionNotApprovedError } from '@/lib/quiz-compliance-gate';
@@ -27,6 +31,7 @@ type RequireQuizUserResult =
       response: null;
       supabase: ServerSupabaseClient;
       user: User;
+      authMethod: 'bearer' | 'cookie';
     }
   | {
       response: NextResponse;
@@ -84,11 +89,21 @@ function isMissingAuthSession(error: unknown) {
 export async function requireQuizUser(
   request?: NextRequest
 ): Promise<RequireQuizUserResult> {
-  const authHeader = request?.headers?.get('Authorization');
-  if (request && authHeader?.startsWith('Bearer ')) {
+  const hasBearerScheme = request ? hasBearerAuthScheme(request) : false;
+  const bearerToken = request ? getBearerTokenFromRequest(request) : null;
+  if (request && hasBearerScheme) {
+    if (!bearerToken) {
+      return {
+        response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
+        supabase: null,
+        user: null,
+      };
+    }
+
     const auth = await authenticateApiRequest(request);
     if (auth.user && auth.supabase) {
       return {
+        authMethod: 'bearer',
         response: null,
         // authenticateApiRequest returns the real Supabase client; this local
         // structural type only narrows the quiz routes to the methods they use.
@@ -142,7 +157,7 @@ export async function requireQuizUser(
     };
   }
 
-  return { response: null, supabase, user };
+  return { authMethod: 'cookie', response: null, supabase, user };
 }
 
 export async function requireQuizCsrf(request: NextRequest) {
@@ -264,6 +279,20 @@ const QUIZ_RPC_CLIENT_ERRORS: Record<
     status: 409,
   },
   QZ030: {
+    code: 'QUIZ_ATTEMPT_LIMIT_REACHED',
+    error: "You've reached the maximum number of attempts for this quiz.",
+    status: 409,
+  },
+  // Anti multi-accounting. Both caps count across ACCOUNTS, so the message must
+  // not imply the player can simply sign up again — that is exactly what these
+  // prevent. Deliberately vague about WHICH signal matched: naming it would tell
+  // an abuser precisely what to rotate next.
+  QZ040: {
+    code: 'QUIZ_ATTEMPT_LIMIT_REACHED',
+    error: "You've reached the maximum number of attempts for this quiz.",
+    status: 409,
+  },
+  QZ041: {
     code: 'QUIZ_ATTEMPT_LIMIT_REACHED',
     error: "You've reached the maximum number of attempts for this quiz.",
     status: 409,

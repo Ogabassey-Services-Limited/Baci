@@ -262,6 +262,45 @@ describe('PATCH /api/orders/[id]', () => {
     expect(ensurePaidOrderInventoryConfirmed).not.toHaveBeenCalled();
   });
 
+  it('rejects cancellation through the generic status update route', async () => {
+    const { supabase, ordersUpdate } = createSupabaseMock(
+      {
+        id: 'order-1',
+        order_number: 'BACI-001',
+        shipping_status: 'processing',
+        payment_status: 'paid',
+        is_credit_order: false,
+        customer_id: null,
+        selected_quote_id: null,
+        shipping_provider: null,
+        tracking_number: null,
+        shipment_id: null,
+      },
+      {
+        id: 'order-1',
+        shipping_status: 'cancelled',
+        shipping_provider: null,
+        tracking_number: null,
+      }
+    );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+
+    const response = await PATCH(
+      createPatchRequest({ shipping_status: 'cancelled' }),
+      { params: Promise.resolve({ id: 'order-1' }) }
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'USE_CANCELLATION_ENDPOINT',
+    });
+    expect(ordersUpdate).not.toHaveBeenCalled();
+  });
+
   it('queues the activation reminder when an order is marked completed', async () => {
     const existingOrder: ExistingOrder = {
       id: 'order-1',

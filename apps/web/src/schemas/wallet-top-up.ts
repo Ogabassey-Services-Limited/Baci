@@ -54,6 +54,10 @@ export const walletTopUpInitializeSchema = z
     gateway: walletTopUpGatewayEnum.optional(),
     merchantId: walletTopUpMerchantIdSchema,
     merchantSlug: walletTopUpMerchantSlugSchema,
+    // Interrupted-purchase destination for the wallet-credited push deep link.
+    // Validated as a safe internal path at the route (sanitizeWalletReturnToPath)
+    // before it is persisted into transaction metadata.
+    returnTo: z.string().trim().min(1).max(2048).optional(),
   })
   .superRefine(requireMerchantIdentifier);
 

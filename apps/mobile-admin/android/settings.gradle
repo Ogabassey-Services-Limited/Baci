@@ -37,3 +37,18 @@ expoAutolinking.useExpoVersionCatalog()
 
 include ':app'
 includeBuild(expoAutolinking.reactNativeGradlePlugin)
+
+// Baci: compile patched React Native sources
+def reactNativeSource = new File(
+  providers.exec {
+    workingDir(rootDir)
+    commandLine("node", "--print", "require.resolve('react-native/package.json')")
+  }.standardOutput.asText.get().trim()
+).getParentFile()
+
+includeBuild(reactNativeSource) {
+  dependencySubstitution {
+    substitute(module("com.facebook.react:react-android")).using(project(":packages:react-native:ReactAndroid"))
+    substitute(module("com.facebook.react:react-native")).using(project(":packages:react-native:ReactAndroid"))
+  }
+}

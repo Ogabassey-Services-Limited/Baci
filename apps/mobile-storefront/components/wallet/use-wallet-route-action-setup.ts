@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
 import { applyWalletRouteAction } from '@/components/wallet/apply-wallet-route-action';
+import { createLogger } from '@/lib/logger';
 import type { WalletReturnHref } from '@/lib/sanitize-wallet-return-to';
+import { storeWalletFundingIntent } from '@/lib/wallet-funding-intent';
+import { startWalletFundingSession } from '@/lib/wallet-funding-session';
+
+const log = createLogger('WalletRouteActionSetup');
 
 interface UseWalletRouteActionSetupParams {
   bankTransfer: {
@@ -13,6 +18,12 @@ interface UseWalletRouteActionSetupParams {
   };
   customerId: string | undefined;
   routeAction: string | undefined;
+  /**
+   * Per-navigation nonce from `/wallet?action=bank-transfer&intent=…`. Identifies
+   * WHICH bank-transfer attempt this is, so a remount of the same attempt keeps
+   * its funding-session anchor while a genuinely new attempt restamps it.
+   */
+  routeIntentId: string | undefined;
   routeRequiredAmount: string;
   setFundAmount: (value: string) => void;
   setFundReturnTo: (value: WalletReturnHref | undefined) => void;
@@ -34,6 +45,7 @@ export function useWalletRouteActionSetup({
   bankTransfer,
   customerId,
   routeAction,
+  routeIntentId,
   routeRequiredAmount,
   setFundAmount,
   setFundReturnTo,
@@ -43,6 +55,13 @@ export function useWalletRouteActionSetup({
   walletReturnTo,
 }: UseWalletRouteActionSetupParams) {
   const isBankTransferAction = routeAction === 'bank-transfer';
+  const fundingSessionKey =
+    isBankTransferAction && customerId
+      ? `${customerId}|${routeIntentId ?? ''}`
+      : null;
+  const [resolvedFundingSessionKey, setResolvedFundingSessionKey] = useState<
+    string | null
+  >(fundingSessionKey === null ? null : '');
   const [pendingBankTransfer, setPendingBankTransfer] =
     useState(isBankTransferAction);
   // customerId is deliberately NOT in this key: async auth hydration flips it
@@ -77,6 +96,78 @@ export function useWalletRouteActionSetup({
       setPendingBankTransfer(true);
     }
   }
+
+  // Landing on `/wallet?action=bank-transfer` IS the moment the customer
+  // expressed bank-transfer funding intent — the earliest point at which we know
+  // it, and strictly before any account number can be shown (the DVA is created
+  // below), so no transfer can have happened yet. Persist it: the credit watch
+  // baselines its ledger snapshot on this timestamp, which must survive the
+  // customer leaving for their bank app and the screen remounting (or the app
+  // being killed) with the credit already in the ledger.
+  //
+  // `routeIntentId` is what makes re-running safe AND correct: a remount replays
+  // the same nonce (anchor preserved — the credit that landed while they were
+  // away is still detectable), while a genuinely new attempt arrives with a new
+  // nonce (anchor restamped — a credit from the previous, unacknowledged attempt
+  // cannot be re-announced as this one's).
+  useEffect(() => {
+    if (!fundingSessionKey || !customerId) {
+      return;
+    }
+    let isActive = true;
+    void startWalletFundingSession(customerId, routeIntentId)
+      .then(() => {
+        if (isActive) {
+          setResolvedFundingSessionKey(fundingSessionKey);
+        }
+      })
+      .catch((error: unknown) => {
+        // The storage helper normally converts failures to `null`. An actual
+        // rejection is unexpected, so keep the readiness gate closed: reading
+        // the ledger without the intended session could baseline away a credit.
+        log.warn(
+          'Wallet funding session write rejected; baseline stays gated.',
+          {
+            error,
+          }
+        );
+      });
+    return () => {
+      isActive = false;
+    };
+  }, [customerId, fundingSessionKey, routeIntentId]);
+
+  // Record the onward destination the moment the customer reaches the funding
+  // surface with one. The CARD path also persists it server-side (via
+  // `/wallet/top-up/initialize`), but a BANK-TRANSFER top-up has no client
+  // initialize call at all — the DVA is a standing account number and the
+  // transaction is created by the webhook — so this local, single-use,
+  // TTL-bounded intent is the only place the destination can survive an async
+  // transfer. Read back (and cleared) by the wallet-credited push tap when the
+  // payload has no `returnTo`. Non-resumable values are rejected on write.
+  //
+  // Scoped to the signed-in customer, and deliberately NOT written while the
+  // customer is still hydrating (an unattributable intent would be cleared by
+  // the lib, which could race the real write): a shared device or an account
+  // switch inside the TTL must never let a new customer's DVA credit resume the
+  // previous customer's interrupted purchase.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new route nonce intentionally restamps the same destination.
+  useEffect(() => {
+    if (
+      !customerId ||
+      (routeAction !== 'fund' && routeAction !== 'bank-transfer')
+    ) {
+      return;
+    }
+    // An explicit funding surface without a destination disarms an abandoned
+    // old flow. Unrelated wallet opens must preserve an in-flight DVA intent.
+    void storeWalletFundingIntent({
+      customerId,
+      returnTo: walletReturnTo,
+    }).catch((error: unknown) => {
+      log.warn('Wallet funding intent write rejected.', { error });
+    });
+  }, [customerId, routeAction, routeIntentId, walletReturnTo]);
 
   const {
     canCreateFundingAccount,
@@ -116,4 +207,15 @@ export function useWalletRouteActionSetup({
     pendingBankTransfer,
     setShowFundPanel,
   ]);
+
+  // The child credit-watch effect must not read/anchor the ledger until this
+  // route's session write has settled. Child passive effects can run before a
+  // parent's passive effect on mount; without this gate the watch can observe
+  // "no session", baseline the current ledger, and then have the parent write
+  // an unanchored marker. A remount after the transfer would anchor that marker
+  // on the newly landed credit and swallow it.
+  return (
+    fundingSessionKey === null ||
+    resolvedFundingSessionKey === fundingSessionKey
+  );
 }

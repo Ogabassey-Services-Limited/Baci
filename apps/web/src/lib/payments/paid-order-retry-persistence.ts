@@ -8,6 +8,12 @@ export const PAID_ORDER_RETRY_STEPS = [
 ] as const;
 export const WEBHOOK_SIDE_EFFECT_FAILURE_REASON =
   'webhook_side_effect_runner_failed';
+// Marker written when the paid-order fetch failed BEFORE push notifications
+// were scheduled — replays use it as exact evidence that push is still owed.
+export const PAID_ORDER_FETCH_FAILURE_REASON = 'paid_order_fetch_failed';
+// Marker for a capture that landed on an order paid elsewhere and owed only
+// settlement. Never evidence that THIS transaction paid the order.
+export const SETTLEMENT_ONLY_FAILURE_REASON = 'settlement_only_capture_failed';
 
 const nonEmptyStringSchema = z.string().trim().min(1);
 const paidOrderSideEffectRetrySchema = z.object({
@@ -39,13 +45,19 @@ export function parseRetryInput(input: {
 export async function persistPaidOrderSideEffectRetry({
   error,
   orderId,
+  reason = WEBHOOK_SIDE_EFFECT_FAILURE_REASON,
   reference,
+  steps = PAID_ORDER_RETRY_STEPS,
   supabase,
   transaction,
 }: {
   error: unknown;
   orderId: string;
+  reason?: string;
   reference: string;
+  // Subset for a capture that only owed settlement — replaying the customer
+  // email / ad tracking for an order already confirmed would duplicate them.
+  steps?: readonly (typeof PAID_ORDER_RETRY_STEPS)[number][];
   supabase: SupabaseClient;
   transaction: { id: string };
 }) {
@@ -55,13 +67,13 @@ export async function persistPaidOrderSideEffectRetry({
   const { error: retryError } = await supabase
     .from('payment_side_effects')
     .upsert(
-      PAID_ORDER_RETRY_STEPS.map((step) => ({
+      steps.map((step) => ({
         claimed_by: `webhook:${parsed.reference}`,
         error: message,
         order_id: parsed.orderId,
         result: {
           gateway_reference: parsed.reference,
-          reason: WEBHOOK_SIDE_EFFECT_FAILURE_REASON,
+          reason,
         },
         status: 'failed',
         step,

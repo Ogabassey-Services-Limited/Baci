@@ -46,6 +46,7 @@ export const mockSupabase = {
     update: vi.fn().mockReturnThis(),
     delete: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
     single: vi.fn(),
     maybeSingle: vi.fn(),
   })),
@@ -213,6 +214,7 @@ export async function setupJuicywayWebhookTest(): Promise<
   mockSupabase.from.mockImplementation(() => ({
     delete: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
     insert: vi.fn().mockReturnThis(),
     maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
     select: vi.fn().mockReturnThis(),
@@ -295,11 +297,20 @@ export function wireProcessingMocks(
       return {
         update: vi.fn(() => {
           state.orderUpdated = true;
-          return {
-            eq: vi.fn().mockReturnThis(),
-            select: vi.fn().mockReturnThis(),
+          // Serves both the paid flip (.eq().neq().select().maybeSingle())
+          // and the shipping advance (.eq().eq(), awaited directly — a plain
+          // object awaits to itself and the route only reads `error`).
+          const chain: Record<string, unknown> = {
+            maybeSingle: vi
+              .fn()
+              .mockResolvedValue({ data: order, error: null }),
             single: vi.fn().mockResolvedValue({ data: order, error: null }),
           };
+          chain.eq = vi.fn().mockReturnValue(chain);
+          chain.neq = vi.fn().mockReturnValue(chain);
+          chain.in = vi.fn().mockReturnValue(chain);
+          chain.select = vi.fn().mockReturnValue(chain);
+          return chain;
         }),
       };
     }

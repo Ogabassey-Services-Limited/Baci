@@ -257,6 +257,96 @@ describe('buildCategorySupportLinks', () => {
 });
 
 describe('buildProductSupportLinks', () => {
+  it('omits product comparisons when the approved set is empty', () => {
+    const links = buildProductSupportLinks({
+      approvedCompareSlugs: new Set(),
+      storeUrl: 'https://ogabassey.com',
+      categorySlug: 'smartphones',
+      currentProductSlug: 'current-phone',
+      currentProductPrice: 500_000,
+      includeBrandCompareLink: false,
+      products: [
+        {
+          slug: 'current-phone',
+          name: 'Current Phone',
+          price: 500_000,
+          category_slug: 'smartphones',
+          product_key_specs: { chipset: 'A', ram_gb: 8, storage_gb: 128 },
+        },
+        {
+          slug: 'alternate-phone',
+          name: 'Alternate Phone',
+          price: 480_000,
+          category_slug: 'smartphones',
+          product_key_specs: { chipset: 'B', ram_gb: 12, storage_gb: 256 },
+        },
+      ],
+    });
+
+    expect(links.some((link) => link.href.includes('/compare/'))).toBe(false);
+  });
+
+  it('selects the first approved comparison instead of dropping PDP comparison support', () => {
+    const links = buildProductSupportLinks({
+      approvedCompareSlugs: new Set(['approved-phone-vs-current-phone']),
+      storeUrl: 'https://ogabassey.com',
+      categorySlug: 'smartphones',
+      currentProductSlug: 'current-phone',
+      currentProductPrice: 500_000,
+      includeBrandCompareLink: false,
+      products: [
+        {
+          slug: 'current-phone',
+          name: 'Current Phone',
+          brand: 'Current',
+          price: 500_000,
+          category_slug: 'smartphones',
+          product_key_specs: {
+            chipset: 'Current Chip',
+            ram_gb: 8,
+            storage_gb: 128,
+          },
+        },
+        {
+          slug: 'uncurated-phone',
+          name: 'Uncurated Phone',
+          brand: 'Other',
+          price: 490_000,
+          category_slug: 'smartphones',
+          product_key_specs: {
+            chipset: 'Other Chip',
+            ram_gb: 12,
+            storage_gb: 256,
+          },
+        },
+        {
+          slug: 'approved-phone',
+          name: 'Approved Phone',
+          brand: 'Approved',
+          price: 480_000,
+          category_slug: 'smartphones',
+          product_key_specs: {
+            chipset: 'Approved Chip',
+            ram_gb: 16,
+            storage_gb: 512,
+          },
+        },
+      ],
+    });
+
+    expect(links).toEqual(
+      expect.arrayContaining([
+        {
+          href: 'https://ogabassey.com/smartphones/compare/approved-phone-vs-current-phone',
+          label: 'Compare with Approved Phone',
+        },
+      ])
+    );
+    expect(links.some((link) => link.href.includes('uncurated-phone'))).toBe(
+      false
+    );
+  });
+
   it('returns compare and price-band links for the current product context', () => {
     expect(
       buildProductSupportLinks({

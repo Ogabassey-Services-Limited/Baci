@@ -1,6 +1,8 @@
 export const CREDIT_DIRECT_POPUP_MARKER_PREFIX = 'baci_credit_direct_popup:';
+export type CreditDirectPopupMarkerSource = 'popup' | 'sdk_success';
 
 export interface CreditDirectPopupMarker {
+  source: CreditDirectPopupMarkerSource;
   transactionId: string;
   storedAt: string;
 }
@@ -20,11 +22,13 @@ function getMarkerStorageKey(orderId: string) {
 export function writeCreditDirectPopupMarker(
   orderId: string,
   transactionId: string,
+  source: CreditDirectPopupMarkerSource = 'popup',
 ): void {
   if (typeof window === 'undefined') return;
 
   try {
     const marker: CreditDirectPopupMarker = {
+      source,
       transactionId,
       storedAt: new Date().toISOString(),
     };
@@ -52,6 +56,7 @@ export function readCreditDirectPopupMarker(
     }
 
     return {
+      source: parsed.source === 'sdk_success' ? 'sdk_success' : 'popup',
       transactionId: parsed.transactionId,
       storedAt: typeof parsed.storedAt === 'string' ? parsed.storedAt : '',
     };

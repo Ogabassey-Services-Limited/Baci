@@ -71,6 +71,8 @@ describe('order column constants', () => {
     expect(mobileAdminColumns).toContain('recorded_by_user_id');
     expect(mobileAdminColumns).toContain('gift_wrapping_fee');
     expect(mobileAdminColumns).toContain('tax_basis');
+    expect(mobileAdminColumns).toContain('tax_exclusive_amount');
+    expect(mobileAdminColumns).toContain('tax_inclusive_amount');
   });
 
   it('includes mobile admin order item snapshot fields required by edit mode', () => {

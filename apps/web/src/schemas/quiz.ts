@@ -1,3 +1,4 @@
+import { QUIZ_FREE_ENTRY_MODE } from '@baci/shared/constants';
 import { z } from 'zod';
 
 const quizUuidSchema = z.uuid();
@@ -26,7 +27,19 @@ export const quizEventsQuerySchema = z
     error: 'provide either merchantId or merchantSlug, not both',
   });
 
+/**
+ * A hashed device identifier (SHA-256 hex). Mobile derives it from the native
+ * install id; web derives it server-side from an httpOnly cookie. Optional
+ * because a client that cannot produce one must still be able to play — the
+ * per-customer and email-identity caps still apply to it.
+ */
+export const quizDeviceFingerprintSchema = z
+  .string()
+  .regex(/^[0-9a-f]{64}$/, 'Device fingerprint must be a SHA-256 hex digest');
+
 export const startQuizAttemptSchema = z.object({
+  entryMode: z.literal(QUIZ_FREE_ENTRY_MODE),
+  deviceFingerprint: quizDeviceFingerprintSchema.optional(),
   eventId: quizUuidSchema,
   integrityTier: quizIntegrityTierSchema,
 });
@@ -246,7 +259,10 @@ export const quizEventsResponseSchema = z.object({
 export const quizAttemptResponseSchema = z.object({
   attemptId: quizNonEmptyIdSchema,
   eventId: quizNonEmptyIdSchema,
-  examPassPointsSpent: z.int().positive(),
+  // Entry is free, so this is 0. It stays in the contract (rather than being
+  // dropped) so clients pinned to the old shape keep parsing, and so a stale
+  // database that still charges during a deploy window is also accepted.
+  examPassPointsSpent: z.int().nonnegative(),
   question: quizQuestionResponseSchema,
   remainingLoyaltyPoints: z.int().nonnegative(),
 });

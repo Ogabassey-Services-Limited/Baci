@@ -19,6 +19,19 @@ on:
         description: "Play Store version code (must be higher than current production)"
         required: false
         type: string
+      publish_to_play:
+        description: "Upload the built AAB to Google Play"
+        required: true
+        default: false
+        type: boolean
+      track:
+        description: "Google Play track used only when publish_to_play is true"
+        required: true
+        default: internal
+        type: choice
+        options:
+          - internal
+          - production
 
 concurrency:
   # Serialize storefront release runs only. Cross-app serialization is avoided
@@ -32,7 +45,7 @@ permissions:
 env:
   JAVA_VERSION: "21"
   NODE_VERSION: "24"
-  ANDROID_NODE_OPTIONS: "--no-strip-types --max-old-space-size=2048"
+  ANDROID_NODE_OPTIONS: "--no-experimental-strip-types --max-old-space-size=2048"
   ANDROID_GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8" -Dkotlin.daemon.jvm.options=-Xmx1024m'
   PNPM_STORE_DIR: ${{ github.workspace }}/.pnpm-store
   WORKING_DIR: apps/mobile-storefront
@@ -69,7 +82,7 @@ jobs:
           dest: ${{ runner.temp }}/setup-pnpm-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Setup Java
-        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
@@ -247,7 +260,9 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: storefront-app-release-${{ github.sha }}
-          path: ${{ env.WORKING_DIR }}/android/app/build/outputs/bundle/release/app-release.aab
+          path: |
+            ${{ env.WORKING_DIR }}/android/app/build/outputs/bundle/release/app-release.aab
+            ${{ env.WORKING_DIR }}/android/app/build/outputs/mapping/release/mapping.txt
           retention-days: 7
 
       - name: Guard Google Play upload against stale main builds
@@ -269,15 +284,24 @@ jobs:
         env:
           GITHUB_SHA: ${{ github.sha }}
 
-      - name: Upload to Google Play (full production rollout)
+      - name: Upload to Google Play
         id: play_upload
-        if: success() && (github.event_name != 'push' || github.ref != 'refs/heads/main' || steps.upload_guard.outputs.allow_upload == 'true')
+        if: >-
+          success() &&
+          (
+            (github.event_name == 'workflow_dispatch' && inputs.publish_to_play) ||
+            (
+              github.event_name == 'push' &&
+              (github.ref != 'refs/heads/main' || steps.upload_guard.outputs.allow_upload == 'true')
+            )
+          )
         uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.ogabassey.store
           releaseFiles: ${{ env.WORKING_DIR }}/android/app/build/outputs/bundle/release/app-release.aab
-          tracks: production
+          mappingFile: ${{ env.WORKING_DIR }}/android/app/build/outputs/mapping/release/mapping.txt
+          tracks: ${{ github.event_name == 'workflow_dispatch' && inputs.track || 'production' }}
           status: completed
 
       # Point the in-app update gate at the build we just published so installs
@@ -285,7 +309,10 @@ jobs:
       # production web deploy (Vercel snapshots env at deploy time). Non-fatal:
       # a sync hiccup must never fail an otherwise-successful store release.
       - name: Sync Android build number to in-app update gate
-        if: steps.play_upload.outcome == 'success'
+        if: >-
+          success() &&
+          steps.play_upload.outcome == 'success' &&
+          (github.event_name != 'workflow_dispatch' || inputs.track == 'production')
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -310,7 +337,10 @@ jobs:
           fi
 
       - name: Reconcile storefront Android live-build update gate
-        if: success() && steps.play_upload.outcome == 'success'
+        if: >-
+          success() &&
+          steps.play_upload.outcome == 'success' &&
+          (github.event_name != 'workflow_dispatch' || inputs.track == 'production')
         shell: bash
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}

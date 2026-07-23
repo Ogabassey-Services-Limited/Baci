@@ -11,6 +11,7 @@ export type QuizProductionGuardEvent = {
 //   QUIZ_PHASE                = "1a" (default) | "production"
 //   QUIZ_PRODUCTION_APPROVED  = truthy only once operations signs off prizes
 //   QUIZ_RPC_SERVER_SECRET    = required when QUIZ_PHASE=production (validated in env.ts)
+//   QUIZ_DEVICE_HASH_PEPPER   = required when QUIZ_PHASE=production (validated in env.ts)
 // QUIZ_PHASE defaults to "1a", which keeps every prize claim fail-closed. A real
 // production launch MUST set QUIZ_PHASE=production; otherwise the compliance /
 // age / permit guards below never treat prizes as live. `assertQuizPhaseMatchesDeployment`

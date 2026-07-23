@@ -56,12 +56,12 @@ export function DateRangePickerCalendarPanel({
       </View>
 
       <View style={styles.weekRow}>
-        {DATE_RANGE_PICKER_WEEKDAYS.map((weekday, index) => (
+        {DATE_RANGE_PICKER_WEEKDAYS.map((weekday) => (
           <Text
-            key={`${weekday}-${index}`}
+            key={weekday.id}
             style={[styles.weekdayText, { color: colors.textMuted }]}
           >
-            {weekday}
+            {weekday.label}
           </Text>
         ))}
       </View>

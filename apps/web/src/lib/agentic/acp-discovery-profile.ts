@@ -7,7 +7,6 @@ import {
 import { STOREFRONT_AGENT_ROUTES } from '@/config/storefront-agent-routes';
 import type { AgentCommerceManifest } from '@/lib/agentic/agent-commerce-manifest';
 
-export const ACP_DISCOVERY_CACHE_CONTROL = 'public, max-age=3600';
 const DEFAULT_ACP_PROTOCOL_VERSION = '2026-04-30';
 
 const CHECKOUT_SESSION_CAPABILITIES = [

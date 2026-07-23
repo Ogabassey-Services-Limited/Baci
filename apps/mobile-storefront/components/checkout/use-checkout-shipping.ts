@@ -5,8 +5,8 @@ import {
   resolveGoogleCitySuggestionAction,
 } from '@/components/checkout/checkout-shipping.helpers';
 import {
-  getPickupStationMode,
-  getStationPickupQuote,
+  getDefaultPickupQuoteId,
+  getShippingQuoteMode,
 } from '@/components/checkout/checkout-station-pickup';
 import {
   findSelectedQuote,
@@ -72,28 +72,24 @@ export function useCheckoutShipping({
   );
   const activeDeliveryCoordinates =
     watchedAddress === committedAddress ? deliveryCoordinates : null;
-  const availableStationPickupQuote = getStationPickupQuote(shippingQuotes);
   const {
     canUsePickupStation,
+    currentQuotePreference,
     hasResolvedDeliveryLocation,
+    isCurrentQuoteContext,
+    stationPickupQuote,
+    usesDoorQuotes,
+    usesPickupQuotes,
     usesProviderPickup,
-  } = getPickupStationMode({
+  } = getShippingQuoteMode({
     city: watchedCity,
     deliveryMethod,
+    resolvedPreference,
+    resolvedQuoteKey,
+    shippingQuoteContextKey: currentShippingQuoteContextKey,
+    shippingQuotes,
     state: watchedState,
-    stationPickupQuote: availableStationPickupQuote,
   });
-  const currentQuotePreference = usesProviderPickup
-    ? getQuotePreference(deliveryMethod)
-    : 'door';
-  const usesDoorQuotes = ['door', 'airport'].includes(deliveryMethod);
-  const isCurrentQuoteContext =
-    currentShippingQuoteContextKey !== '' &&
-    resolvedQuoteKey === currentShippingQuoteContextKey &&
-    resolvedPreference === currentQuotePreference;
-  const stationPickupQuote = isCurrentQuoteContext
-    ? availableStationPickupQuote
-    : undefined;
   if (
     (deliveryMethod !== 'door' && !hasResolvedDeliveryLocation) ||
     (deliveryMethod === 'airport' &&
@@ -127,7 +123,13 @@ export function useCheckoutShipping({
       watchedEmail,
       deliveryPreference,
       setIsLoadingQuotes,
-      setSelectedQuoteId,
+      setSelectedQuoteId: (quoteId) => {
+        if (deliveryPreference === 'pickup_station' && shouldResetSelection) {
+          setSelectedQuoteId(getDefaultPickupQuoteId(watchedState, quoteId));
+          return;
+        }
+        setSelectedQuoteId(quoteId);
+      },
       setResolvedShippingQuoteContextKey: (key) => {
         setResolvedQuoteKey(key);
         setResolvedPreference(key ? deliveryPreference : '');
@@ -175,17 +177,11 @@ export function useCheckoutShipping({
     setIsLoadingCities(Boolean(watchedState));
     if (!watchedState) resetQuotes();
   }
-  const quotesSuspendReason =
-    deliveryMethod === 'pickup_station' && !usesProviderPickup
-      ? 'method'
-      : watchedState && watchedCity
-        ? null
-        : 'address';
+  const quotesSuspendReason = watchedState && watchedCity ? null : 'address';
   const [prevQuotesSuspendReason, setPrevQuotesSuspendReason] =
     useState(quotesSuspendReason);
   if (prevQuotesSuspendReason !== quotesSuspendReason) {
     setPrevQuotesSuspendReason(quotesSuspendReason);
-    if (quotesSuspendReason === 'method') setIsLoadingQuotes(false);
     if (quotesSuspendReason !== null && deliveryMethod !== 'airport') {
       resetQuotes();
     }
@@ -214,7 +210,7 @@ export function useCheckoutShipping({
   useEffect(() => {
     if (shippingQuoteAbortRef.current) shippingQuoteAbortRef.current.abort();
     if (
-      (!usesDoorQuotes && !usesProviderPickup) ||
+      (!usesDoorQuotes && !usesPickupQuotes) ||
       !watchedState ||
       !watchedCity ||
       isCurrentQuoteContext
@@ -235,7 +231,7 @@ export function useCheckoutShipping({
     resolvedQuoteKey,
     resolvedPreference,
     usesDoorQuotes,
-    usesProviderPickup,
+    usesPickupQuotes,
     watchedCity,
     watchedState,
   ]);

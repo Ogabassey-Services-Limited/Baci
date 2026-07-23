@@ -161,6 +161,57 @@ describe('useBillFormController', () => {
     mockFilterBeneficiaries.mockReturnValue([]);
   });
 
+  it('derives a prefilled wallet return-to href from the verified bill selection', async () => {
+    const useBillFormController = await importController();
+    const { result } = renderHook(() =>
+      useBillFormController(
+        makeProps({
+          initialAmount: '5000',
+          initialBillerName: 'EKEDC NG',
+          initialCustomerIdentifier: '43901766923',
+          initialCustomerName: 'OLUROTIMI ADEBANJO',
+        })
+      )
+    );
+
+    act(() => {
+      result.current.handleBillerSelect(MOCK_BILLER as never);
+    });
+    act(() => {
+      result.current.updateCustomerId('43901766923');
+    });
+    act(() => {
+      result.current.updateAmount('5000');
+    });
+
+    // Before verification the href prefills what is known, and never claims a
+    // verified meter.
+    expect(result.current.walletReturnToHref).toContain('/utilities/power?');
+    expect(result.current.walletReturnToHref).toContain('repeatAmount=5000');
+    expect(result.current.walletReturnToHref).toContain(
+      'repeatCustomerIdentifier=43901766923'
+    );
+    expect(result.current.walletReturnToHref).toContain(
+      'repeatBillerName=EKEDC%20NG'
+    );
+    expect(result.current.walletReturnToHref).not.toContain('repeatVerified');
+
+    act(() => {
+      result.current.handleVerify();
+    });
+    triggerVerifySuccess({
+      customerName: 'OLUROTIMI ADEBANJO',
+      message: 'ok',
+      verified: true,
+    });
+
+    // Once the meter is verified the round-trip can restore the verified state.
+    expect(result.current.walletReturnToHref).toContain(
+      'repeatCustomerName=OLUROTIMI%20ADEBANJO'
+    );
+    expect(result.current.walletReturnToHref).toContain('repeatVerified=1');
+  });
+
   it('initializes verifiedCustomerName from initialCustomerName', async () => {
     const useBillFormController = await importController();
     const { result } = renderHook(() =>

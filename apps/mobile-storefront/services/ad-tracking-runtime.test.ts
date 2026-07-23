@@ -115,6 +115,59 @@ describe('ad-tracking runtime initialization', () => {
     );
   });
 
+  it('does not repeat authorized SDK initialization after ATT grant initializes it', async () => {
+    const setAdvertiserTrackingEnabled =
+      jest.fn<(enabled: boolean) => boolean>();
+    const initializeSDK = jest.fn<() => void>();
+    mockLoadAdTrackingNativeModules.mockResolvedValue(
+      createNativeModules({
+        FBSettings: {
+          initializeSDK,
+          setAdvertiserTrackingEnabled,
+        },
+      })
+    );
+
+    const { initAdTracking, requestTrackingPermission } = await import(
+      './ad-tracking-runtime'
+    );
+
+    await expect(requestTrackingPermission()).resolves.toBe('granted');
+    await initAdTracking();
+
+    expect(setAdvertiserTrackingEnabled).toHaveBeenCalledTimes(1);
+    expect(initializeSDK).toHaveBeenCalledTimes(1);
+    expect(mockGetTrackingPermissionStatus).not.toHaveBeenCalled();
+  });
+
+  it('allows startup initialization to retry when ATT grant cannot load native modules', async () => {
+    const setAdvertiserTrackingEnabled =
+      jest.fn<(enabled: boolean) => boolean>();
+    const initializeSDK = jest.fn<() => void>();
+    mockLoadAdTrackingNativeModules
+      .mockResolvedValueOnce(createNativeModules())
+      .mockResolvedValueOnce(
+        createNativeModules({
+          FBSettings: {
+            initializeSDK,
+            setAdvertiserTrackingEnabled,
+          },
+        })
+      );
+    mockGetTrackingPermissionStatus.mockResolvedValue({ status: 'granted' });
+
+    const { initAdTracking, requestTrackingPermission } = await import(
+      './ad-tracking-runtime'
+    );
+
+    await expect(requestTrackingPermission()).resolves.toBe('granted');
+    await initAdTracking();
+
+    expect(mockLoadAdTrackingNativeModules).toHaveBeenCalledTimes(2);
+    expect(setAdvertiserTrackingEnabled).toHaveBeenCalledTimes(1);
+    expect(initializeSDK).toHaveBeenCalledTimes(1);
+  });
+
   it('initializes TikTok only when app config marks it configured', async () => {
     const initializeTikTok = jest.fn(() => true);
     mockGetTrackingPermissionStatus.mockResolvedValue({ status: 'granted' });

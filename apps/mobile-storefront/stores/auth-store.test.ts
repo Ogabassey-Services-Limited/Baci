@@ -93,6 +93,7 @@ jest.mock('../lib/validation', () => ({
           success: true,
           data: {
             id: d.id,
+            ...('user_id' in d ? { user_id: d.user_id } : {}),
             email: d.email,
             first_name: d.first_name ?? null,
             last_name: d.last_name ?? null,
@@ -1578,6 +1579,7 @@ describe('useAuthStore', () => {
         return {
           data: {
             ...mockCustomerRow,
+            user_id: USER_ID,
             phone: '+2348011111111',
             username: null,
           },
@@ -1596,6 +1598,7 @@ describe('useAuthStore', () => {
       expect(result).toEqual({ success: true });
       const finalCustomer = useAuthStore.getState().customer;
       expect(finalCustomer?.phone).toBe('+2348011111111');
+      expect(finalCustomer?.user_id).toBe(USER_ID);
       // Live username preserved — not clobbered by the stale NULL.
       expect(finalCustomer?.username).toBe('OgaFan');
     });

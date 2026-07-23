@@ -1,12 +1,9 @@
 import type { User } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { cache } from 'react';
-import {
-  fetchDashboardMerchant,
-  fetchPrimaryDomain,
-  type MerchantData,
-  type StaffAccess,
-} from '@/hooks/merchant';
+import type { MerchantData, StaffAccess } from '@/hooks/merchant';
+import { fetchDashboardMerchantContext } from '@/hooks/merchant/fetch-dashboard-merchant-context';
+import { permissionGrantsAccess } from '@/lib/permission-grant';
 import { createClient } from '@/lib/supabase/server';
 
 const defaultStaffAccess: StaffAccess = {
@@ -93,18 +90,18 @@ export const getMerchantForUser = cache(
     }
 
     try {
-      const { merchant: merchantData, staffAccess: access } =
-        await fetchDashboardMerchant(supabase, user.id);
+      // The caller-bound SECURITY DEFINER RPC pins lookup scope to auth.uid()
+      // and returns only the explicit dashboard projection. This keeps SSR
+      // working after authenticated column grants are tightened without using
+      // a service-role client in a user-facing request.
+      const {
+        merchant: merchantData,
+        primaryDomain,
+        staffAccess: access,
+      } = await fetchDashboardMerchantContext(supabase);
 
-      // If we found a merchant, fetch their primary domain
-      if (merchantData) {
-        const primaryDomain = await fetchPrimaryDomain(
-          supabase,
-          merchantData.id
-        );
-        if (primaryDomain) {
-          merchantData.custom_domain = primaryDomain;
-        }
+      if (merchantData && primaryDomain) {
+        merchantData.custom_domain = primaryDomain;
       }
 
       return {
@@ -156,14 +153,7 @@ export async function ensurePermission(
     return { merchant, staffAccess };
   }
 
-  // Check full_access permission
-  if (staffAccess.permissions?.full_access?.all) {
-    return { merchant, staffAccess };
-  }
-
-  // Check specific permission
-  const resourcePermissions = staffAccess.permissions?.[resource];
-  if (!resourcePermissions?.[action] && !resourcePermissions?.all) {
+  if (!permissionGrantsAccess(staffAccess.permissions, resource, action)) {
     throw new MerchantPermissionDeniedError(resource, action);
   }
 

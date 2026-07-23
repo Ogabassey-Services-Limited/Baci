@@ -47,6 +47,8 @@ export interface Transaction {
   amount: number;
   description: string;
   created_at: string;
+  /** `customer_wallet_transactions.source_type` — `wallet_topup` for funding. */
+  source_type?: string | null;
 }
 
 export interface WalletQueryData {

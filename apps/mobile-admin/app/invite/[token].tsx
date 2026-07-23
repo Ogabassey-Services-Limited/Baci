@@ -36,6 +36,7 @@ export default function StaffInviteScreen() {
     message: 'Checking your invitation...',
   });
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: retryNonce intentionally retries the invite flow after a transient failure.
   useEffect(() => {
     let cancelled = false;
 

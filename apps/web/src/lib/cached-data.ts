@@ -13,6 +13,7 @@ import {
 } from '@/env';
 import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
+import { hydrateAndSanitizePublicProducts } from '@/lib/hydrate-public-products';
 import { merchantFeatureSettingsDefaults } from '@/lib/merchant-feature-settings-defaults';
 import { normalizeStorefrontCategoryValue } from '@/lib/normalize-storefront-category-value';
 import { getProductScopedCacheTag } from '@/lib/product-cache-tags';
@@ -54,10 +55,6 @@ import type {
 } from '@/types/storefront-database';
 import type { MerchantTrustProfileDraft } from '../../../../packages/shared/src/contracts/merchant-trust-profile';
 import { sanitizePublicProduct } from './public-fulfillment-sanitizer';
-import {
-  getPublicSerializedVariantSummariesByProductId,
-  type PublicSerializedVariantSummary,
-} from './public-serialized-variant-summary';
 
 // Supabase/PostgREST `estimated` keeps small public blog counts exact while
 // avoiding full COUNT scans when stale route regeneration hits large merchant
@@ -69,46 +66,6 @@ const RELATED_BLOG_POSTS_LIMIT = 3;
 const RELATED_BLOG_POSTS_FETCH_LIMIT = 36;
 const RELATED_BLOG_CATEGORY_FETCH_LIMIT = 24;
 
-/**
- * Stock quantity shown to storefront when a variant using
- * `serialized_then_unlimited` has depleted serialized units but remains
- * purchasable as unlimited stock.
- */
-const SERIALIZED_THEN_UNLIMITED_STOCK_QUANTITY = 9999;
-
-type PublicVariantRecord = { id: string; [key: string]: unknown };
-
-function hydratePublicSerializedVariants(
-  variants: PublicVariantRecord[],
-  productSummaries: PublicSerializedVariantSummary[]
-): PublicVariantRecord[] {
-  const summariesByVariantId = new Map(
-    productSummaries
-      .filter((summary) => summary.variantId !== null)
-      .map((summary) => [summary.variantId, summary])
-  );
-
-  return variants.map((variant) => {
-    const variantSummary = summariesByVariantId.get(variant.id);
-    if (!variantSummary) {
-      return variant;
-    }
-
-    const updatedVariant = { ...variant };
-    updatedVariant.inventory_tracking_policy =
-      variantSummary.inventoryTrackingPolicy;
-    updatedVariant.stock_quantity = variantSummary.publicAvailableUnits;
-
-    if (
-      variantSummary.inventoryTrackingPolicy === 'serialized_then_unlimited' &&
-      variantSummary.publicAvailableUnits === 0
-    ) {
-      updatedVariant.stock_quantity = SERIALIZED_THEN_UNLIMITED_STOCK_QUANTITY;
-    }
-
-    return updatedVariant;
-  });
-}
 const RELATED_BLOG_POST_SELECT =
   'id, title, slug, excerpt, featured_image_url, category, tags, keywords, published_at, reading_time_minutes';
 
@@ -203,80 +160,7 @@ export async function hydrateAndSanitizeProducts<T extends { id: string }>(
   merchantId: string,
   products: T[]
 ): Promise<T[]> {
-  if (!products || products.length === 0) return [];
-
-  const productIds = products.map((p) => p.id);
-  const summaries = await getPublicSerializedVariantSummariesByProductId(
-    supabase,
-    merchantId,
-    productIds
-  );
-
-  const summariesByProduct = new Map<
-    string,
-    PublicSerializedVariantSummary[]
-  >();
-  for (const s of summaries) {
-    const list = summariesByProduct.get(s.productId) || [];
-    list.push(s);
-    summariesByProduct.set(s.productId, list);
-  }
-
-  const hydrated = products.map((product) => {
-    const productSummaries = summariesByProduct.get(product.id) || [];
-    if (productSummaries.length === 0) {
-      return product;
-    }
-
-    const updatedProduct = { ...product } as Record<string, unknown>;
-    const productSummary = productSummaries.find((s) => s.variantId === null);
-
-    if (productSummary) {
-      const resolvedUnits =
-        productSummary.inventoryTrackingPolicy ===
-          'serialized_then_unlimited' &&
-        productSummary.publicAvailableUnits === 0
-          ? SERIALIZED_THEN_UNLIMITED_STOCK_QUANTITY
-          : productSummary.publicAvailableUnits;
-
-      updatedProduct.inventory_tracking_policy =
-        productSummary.inventoryTrackingPolicy;
-      updatedProduct.quantity = resolvedUnits;
-      updatedProduct.stock_quantity = resolvedUnits;
-      updatedProduct.stock = resolvedUnits;
-
-      if (productSummary.inventoryTrackingPolicy === 'serialized_strict') {
-        updatedProduct.track_quantity = true;
-        updatedProduct.manage_stock = true;
-      } else if (
-        productSummary.inventoryTrackingPolicy === 'serialized_then_unlimited'
-      ) {
-        updatedProduct.track_quantity = false;
-        updatedProduct.manage_stock = false;
-      }
-    }
-
-    if (
-      updatedProduct.product_variants &&
-      Array.isArray(updatedProduct.product_variants)
-    ) {
-      updatedProduct.product_variants = hydratePublicSerializedVariants(
-        updatedProduct.product_variants as PublicVariantRecord[],
-        productSummaries
-      );
-    }
-
-    if (updatedProduct.variants && Array.isArray(updatedProduct.variants)) {
-      updatedProduct.variants = hydratePublicSerializedVariants(
-        updatedProduct.variants as PublicVariantRecord[],
-        productSummaries
-      );
-    }
-
-    return updatedProduct as unknown as T;
-  });
-
-  return hydrated.map(sanitizePublicProduct);
+  return await hydrateAndSanitizePublicProducts(supabase, merchantId, products);
 }
 
 interface PublicStorefrontProductVariant {

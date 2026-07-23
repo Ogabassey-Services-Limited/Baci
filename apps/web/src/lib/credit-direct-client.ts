@@ -24,6 +24,11 @@ export interface CreditDirectTransaction {
   products: CreditDirectProduct[];
 }
 
+export interface CreditDirectCheckoutReference {
+  checkoutTransactionId: string | null;
+  sessionId: string;
+}
+
 export interface CreditDirectCheckoutOptions {
   merchantSlug: string;
   orderId: string;
@@ -37,10 +42,10 @@ export interface CreditDirectCheckoutOptions {
     price: number;
     quantity: number;
   }>;
-  onSuccess: (transactionId: string) => void;
+  onSuccess: (reference: CreditDirectCheckoutReference) => void;
   onClose: () => void;
   onError: (error: string) => void;
-  onPopup?: (transactionId: string) => void;
+  onPopup?: (reference: CreditDirectCheckoutReference) => void;
 }
 
 interface SignResponse {
@@ -190,10 +195,12 @@ export async function openCreditDirectCheckout(
     });
 
     let checkoutCompleted = false;
-    const resolveTransactionId = (response?: CreditDirectSdkPayload) => {
-      const transactionId = response?.checkoutTransactionId?.trim();
-      return transactionId || signData.sessionId;
-    };
+    const resolveReference = (
+      response?: CreditDirectSdkPayload
+    ): CreditDirectCheckoutReference => ({
+      checkoutTransactionId: response?.checkoutTransactionId?.trim() || null,
+      sessionId: signData.sessionId,
+    });
 
     const checkout = new window.Connect({
       publicKey: signData.publicKey,
@@ -203,7 +210,7 @@ export async function openCreditDirectCheckout(
       onSuccess: (response) => {
         console.log('Credit Direct checkout success');
         checkoutCompleted = true;
-        onSuccess(resolveTransactionId(response));
+        onSuccess(resolveReference(response));
       },
       onClose: () => {
         if (checkoutCompleted) {
@@ -217,12 +224,9 @@ export async function openCreditDirectCheckout(
         const popupTransactionId = response?.checkoutTransactionId?.trim();
         console.log(
           'Credit Direct popup opened:',
-          popupTransactionId || 'No ID returned (using session id)'
+          popupTransactionId || 'No checkout transaction ID returned'
         );
-        // Fall back to the signing sessionId (same fallback onSuccess uses):
-        // the popup handoff must always be observable so the launcher can
-        // record it before the popup replaces the document in a WebView.
-        onPopup?.(resolveTransactionId(response));
+        onPopup?.(resolveReference(response));
       },
     });
 

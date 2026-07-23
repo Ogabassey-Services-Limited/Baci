@@ -1,34 +1,34 @@
 import { formatOrderItemDisplayName } from '@baci/shared/lib';
 import { after, type NextRequest, NextResponse } from 'next/server';
-import {
-  fetchAnalyticsPlatformConfig,
-  hasConfiguredAnalyticsPlatform,
-} from '@/lib/analytics/analytics-platform-config';
 import { USDT_WALLET_TOP_UP_TRANSACTION_TYPE } from '@/lib/customer-wallet-account';
 import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
 } from '@/lib/email-templates';
+import { isEventPipelineEnqueueEnabled } from '@/lib/events/event-pipeline-config';
 import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
 import {
   type JuicywayWebhookPayload,
   verifyWebhookSignature,
 } from '@/lib/juicyway';
 import { logger } from '@/lib/logger';
-import {
-  logConversionResults,
-  type MerchantAnalyticsConfig,
-  type OrderConversionData,
-  sendPurchaseConversion,
-} from '@/lib/offline-conversions';
+import { enqueueJuicywayOrderConversion } from '@/lib/payments/enqueue-juicyway-order-conversion';
 import { ensurePaidOrderInventoryConfirmed } from '@/lib/payments/ensure-paid-order-inventory-confirmed';
 import { fileInventoryConfirmationFailureReview } from '@/lib/payments/file-inventory-confirmation-review';
 import {
   handlePaymentForCancelledOrder,
   isOrderClampedAsCancelled,
 } from '@/lib/payments/handle-payment-for-cancelled-order';
+import { calculateJuicywayPlatformFee } from '@/lib/payments/juicyway-platform-fee';
+import { shouldRequireJuicywaySettlementMetadata } from '@/lib/payments/juicyway-settlement-metadata-compatibility';
+import { JUICYWAY_UNDERPAYMENT_TOLERANCE } from '@/lib/payments/juicyway-settlement-policy';
 import { handleJuicywayWalletTopUpIfNeeded } from '@/lib/payments/juicyway-wallet-top-up';
+import { scheduleLegacyPurchaseConversion } from '@/lib/payments/schedule-legacy-purchase-conversion';
 import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  type OrderForConversion,
+  triggerPurchaseConversion,
+} from '@/lib/trigger-purchase-conversion';
 import { sendEmail } from '@/lib/zeptomail';
 
 // Juicyway webhook IP whitelist (from docs)
@@ -45,24 +45,12 @@ const JUICYWAY_IPS = [
   '52.51.85.69',
   '52.210.159.41',
 ];
-
-// First release that persists Juicyway settlement amount/currency metadata on
-// transaction creation. Older in-flight sessions were already signed by
-// Juicyway but cannot be safely compared to new metadata that did not exist.
-const JUICYWAY_SETTLEMENT_METADATA_REQUIRED_AFTER_MS = Date.parse(
-  '2026-06-25T14:45:00.000Z'
-);
-
-function shouldRequireJuicywaySettlementMetadata(createdAt: unknown) {
-  if (typeof createdAt !== 'string') {
-    return true;
-  }
-  const createdAtMs = Date.parse(createdAt);
-  return (
-    !Number.isFinite(createdAtMs) ||
-    createdAtMs >= JUICYWAY_SETTLEMENT_METADATA_REQUIRED_AFTER_MS
-  );
-}
+const ELIGIBLE_ORDER_PAYMENT_STATUSES = [
+  'failed',
+  'partially_paid',
+  'pending',
+  'unpaid',
+];
 
 /**
  * Logs whether the request originates from a known Juicyway IP. This is
@@ -81,6 +69,78 @@ function isFromJuicywayIP(request: NextRequest): boolean {
   }
 
   return JUICYWAY_IPS.includes(ip);
+}
+
+// Idempotent merchant settlement for a captured Juicyway order payment.
+// `record_merchant_settlement` upserts on (source_type, source_id,
+// gateway_reference), so the paid-flip winner and any 0-row loser can both
+// call this safely. Locked to service_role — Juicyway calls us anonymously,
+// so this goes through the admin client (trust boundary is the signature
+// verification at the top of the handler).
+async function recordJuicywaySettlement(
+  transaction: {
+    amount: number | string | null;
+    merchant_id: string;
+    order_id: string | null;
+    platform_fee: number | string | null;
+  },
+  reference: string
+): Promise<boolean> {
+  try {
+    const grossAmount = Number(transaction.amount);
+    if (!Number.isFinite(grossAmount) || grossAmount <= 0) {
+      throw new Error('Invalid Juicyway settlement gross amount');
+    }
+    // Δ-0b: Juicyway verify response carries no fee; default to 0 honestly.
+    const gatewayFee = 0;
+    const platformFee =
+      transaction.platform_fee == null
+        ? calculateJuicywayPlatformFee(grossAmount)
+        : Number(transaction.platform_fee);
+    if (!Number.isFinite(platformFee) || platformFee < 0) {
+      throw new Error('Invalid Juicyway settlement platform fee');
+    }
+
+    const adminSupabase = createAdminClient();
+    const { error: settlementError } = await adminSupabase.rpc(
+      'record_merchant_settlement',
+      {
+        p_merchant_id: transaction.merchant_id,
+        p_source_type: 'order',
+        p_source_id: transaction.order_id,
+        p_gateway: 'juicyway',
+        p_gateway_reference: reference,
+        p_gross_amount: grossAmount,
+        p_gateway_fee: gatewayFee,
+        p_platform_fee: platformFee,
+        p_description: 'Order payment via Juicyway',
+        // Δ-29 / Δ-59: traceability — Juicyway's gateway-side ref lives
+        // in metadata for downstream reconciliation queries.
+        p_metadata: { juicyway_reference: reference },
+      }
+    );
+
+    if (settlementError) {
+      logger.warn({
+        message: 'Failed to record merchant settlement',
+        error: settlementError,
+        reference,
+      });
+      return false;
+    }
+    logger.info({
+      message: 'Merchant settlement recorded (Juicyway)',
+      reference,
+      grossAmount,
+    });
+    return true;
+  } catch (settlementError) {
+    logger.warn({
+      message: 'Settlement recording error',
+      error: settlementError,
+    });
+    return false;
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -211,7 +271,7 @@ export async function POST(request: NextRequest) {
         // Δ-0a: `gateway_fee` is not a column on `transactions`. Juicyway
         // verify webhooks have no fee field either, so settlement passes 0
         // (matches existing semantics).
-        'id, order_id, merchant_id, amount, platform_fee, status, metadata, created_at'
+        'id, order_id, merchant_id, amount, platform_fee, status, metadata, created_at, updated_at'
       )
       .eq('gateway_reference', reference)
       .eq('gateway', 'juicyway')
@@ -239,28 +299,132 @@ export async function POST(request: NextRequest) {
 
     const supabase = adminSupabase;
 
-    // Check if already processed (idempotency)
+    // Check if already processed (idempotency). A completed transaction does
+    // NOT guarantee the order flip landed — the ORD-260711-00NT-5 wedge
+    // class: the order update failed after the flip and every redelivery
+    // acked 200 forever. Re-read the order and fall through to heal it when
+    // it is still unpaid.
     if (transaction.status === 'completed') {
+      let healWedgedOrder = false;
       if (transaction.order_id) {
-        const { data: completedOrder } = await supabase
-          .from('orders')
-          .select('id, shipping_status, cancelled_at')
-          .eq('id', transaction.order_id)
-          .maybeSingle();
+        const { data: completedOrder, error: completedOrderError } =
+          await supabase
+            .from('orders')
+            .select(
+              'id, order_number, total, currency, customer_id, customer_name, customer_email, customer_phone, shipping_address, order_items(id, product_id, condition, name, price, quantity, variant_name), ad_tracking, payment_status, shipping_status, cancelled_at'
+            )
+            .eq('id', transaction.order_id)
+            .maybeSingle();
 
-        if (isOrderClampedAsCancelled(completedOrder)) {
-          await handlePaymentForCancelledOrder({
+        if (completedOrderError) {
+          // A failed re-read must not be acknowledged as "Already processed"
+          // — that would consume the redelivery that could heal a wedge.
+          logger.error({
+            error: completedOrderError,
+            message: 'Order state lookup failed on Juicyway redelivery',
+            orderId: transaction.order_id,
+          });
+          if (isEventPipelineEnqueueEnabled()) {
+            throw new Error('completed_order_lookup_failed', {
+              cause: completedOrderError,
+            });
+          }
+          return NextResponse.json(
+            { error: 'Order state lookup failed' },
+            { status: 500 }
+          );
+        }
+
+        const completedOrderIsCancelled =
+          isOrderClampedAsCancelled(completedOrder);
+        if (completedOrderIsCancelled) {
+          const reviewFiled = await handlePaymentForCancelledOrder({
             gatewayReference: reference,
             order: completedOrder ?? { id: transaction.order_id },
             reason:
               'Juicyway completed-transaction retry observed a cancelled order',
             transactionId: transaction.id,
           });
+          if (!reviewFiled) {
+            return NextResponse.json(
+              { error: 'Payment reconciliation review unavailable' },
+              { status: 500 }
+            );
+          }
+        } else if (completedOrder?.payment_status === 'refunded') {
+          const reviewFiled = await handlePaymentForCancelledOrder({
+            gatewayReference: reference,
+            issueType: 'payment_received_after_refund',
+            order: completedOrder,
+            reason:
+              'Juicyway completed-transaction retry observed a refunded order',
+            transactionId: transaction.id,
+          });
+          if (!reviewFiled) {
+            return NextResponse.json(
+              { error: 'Payment reconciliation review unavailable' },
+              { status: 500 }
+            );
+          }
+        } else if (
+          isEventPipelineEnqueueEnabled() &&
+          completedOrder?.payment_status === 'paid'
+        ) {
+          const conversionOrder: OrderForConversion = {
+            ad_tracking: completedOrder.ad_tracking,
+            currency: completedOrder.currency,
+            customer_email: completedOrder.customer_email,
+            customer_id: completedOrder.customer_id,
+            customer_name: completedOrder.customer_name,
+            customer_phone: completedOrder.customer_phone,
+            id: completedOrder.id,
+            occurredAt: transaction.updated_at,
+            order_items: completedOrder.order_items,
+            order_number: completedOrder.order_number,
+            shipping_address: completedOrder.shipping_address,
+            total: completedOrder.total ?? transaction.amount,
+          };
+          await triggerPurchaseConversion(
+            createAdminClient(),
+            transaction.merchant_id,
+            conversionOrder,
+            { deliveryMode: 'enqueue_only' }
+          );
+          // The prior response may have ended after durable enqueue but
+          // before `after()` ran. Re-schedule on every idempotent webhook
+          // retry while shadow fanout is enabled; legacy provider sends use
+          // the stable order event ID (or GA4 transaction ID) for dedupe.
+          scheduleLegacyPurchaseConversion({
+            merchantId: transaction.merchant_id,
+            order: conversionOrder,
+            scheduleAfter: (task) => after(task),
+            supabase: createAdminClient(),
+          });
+        } else {
+          const completedOrderStatus = completedOrder?.payment_status;
+          healWedgedOrder = Boolean(
+            completedOrder &&
+              completedOrderStatus !== 'paid' &&
+              completedOrderStatus !== 'cancelled' &&
+              completedOrderStatus !== 'refunded'
+          );
         }
       }
 
-      logger.info({ message: 'Transaction already processed', reference });
-      return NextResponse.json({ message: 'Already processed' });
+      if (!healWedgedOrder) {
+        logger.info({ message: 'Transaction already processed', reference });
+        return NextResponse.json({ message: 'Already processed' });
+      }
+
+      // Fall through: the transaction UPDATE below re-completes idempotently,
+      // the order UPDATE flips the wedged order to paid, and the paid-order
+      // side effects (email/push/conversion) run for the first time. The
+      // settlement upsert is idempotent on its unique key.
+      logger.warn({
+        message: 'Juicyway redelivery healing a wedged order payment',
+        orderId: transaction.order_id,
+        reference,
+      });
     }
 
     // Validate the settled amount against what we expected at session creation.
@@ -354,8 +518,10 @@ export async function POST(request: NextRequest) {
       // Allow overpayment + dust; reject clear underpayment (>1% short).
       // Stablecoins are ~1:1 USD, so the locked-rate expectation is exact
       // and the tolerance only absorbs on-chain rounding/dust.
-      const UNDERPAYMENT_TOLERANCE = 0.01;
-      if (settledAmount < expectedAmount * (1 - UNDERPAYMENT_TOLERANCE)) {
+      if (
+        settledAmount <
+        expectedAmount * (1 - JUICYWAY_UNDERPAYMENT_TOLERANCE)
+      ) {
         logger.error({
           message: 'Juicyway payment amount mismatch (underpaid)',
           reference,
@@ -397,20 +563,204 @@ export async function POST(request: NextRequest) {
       throw updateError;
     }
 
-    // Update order status if order_id exists
+    let durableEnqueueError: unknown = null;
+
+    // Update order status if order_id exists. The .neq('payment_status',
+    // 'paid') CAS makes concurrent deliveries (or heal redeliveries racing
+    // each other) resolve to exactly one winner — only the winner runs the
+    // non-outbox side effects below (email/push/conversion have no claim
+    // gating on this route). shipping_status is advanced separately and only
+    // from 'pending' so a heal never regresses fulfilment progress.
+    let orderUpdateFailed = false;
     if (transaction.order_id) {
-      const response = await supabase
+      // Advance fulfilment FIRST (only from its initial state, so a heal
+      // never regresses a shipped order). Ordering matters: if this write
+      // fails or the process dies here, the order is still unpaid, so the
+      // redelivery wedge check re-runs the whole sequence — whereas
+      // advancing after the paid flip would leave a paid order stuck at
+      // shipping 'pending' with redeliveries acking 'Already processed'.
+      const { error: shippingAdvanceError } = await supabase
         .from('orders')
         .update({
-          payment_status: 'paid',
           shipping_status: 'processing',
           updated_at: new Date().toISOString(),
         })
         .eq('id', transaction.order_id)
+        .eq('shipping_status', 'pending')
+        .in('payment_status', ELIGIBLE_ORDER_PAYMENT_STATUSES);
+      if (shippingAdvanceError) {
+        logger.error({
+          error: shippingAdvanceError,
+          message: 'Juicyway paid order shipping advance failed',
+          orderId: transaction.order_id,
+        });
+        return NextResponse.json(
+          {
+            code: 'ORDER_PAYMENT_COMPLETION_FAILED',
+            error: 'Order payment completion failed',
+          },
+          { status: 500 }
+        );
+      }
+
+      const response = await supabase
+        .from('orders')
+        .update({
+          payment_status: 'paid',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', transaction.order_id)
+        .in('payment_status', ELIGIBLE_ORDER_PAYMENT_STATUSES)
         .select(
           'id, order_number, merchant_id, customer_id, total, subtotal, shipping_fee, customer_name, customer_email, customer_phone, shipping_address, currency, payment_status, shipping_status, cancelled_at, updated_at, ad_tracking, order_items(id, product_id, condition, name, price, quantity, variant_name)'
         )
-        .single();
+        .maybeSingle();
+
+      if (!response.error && !response.data) {
+        const { data: terminalOrder, error: terminalOrderError } =
+          await supabase
+            .from('orders')
+            .select(
+              'id, payment_status, shipping_status, cancelled_at, order_number'
+            )
+            .eq('id', transaction.order_id)
+            .maybeSingle();
+        if (terminalOrderError || !terminalOrder) {
+          return NextResponse.json(
+            { error: 'Order state lookup failed' },
+            { status: 500 }
+          );
+        }
+        const terminalIssueType =
+          terminalOrder.payment_status === 'refunded'
+            ? 'payment_received_after_refund'
+            : isOrderClampedAsCancelled(terminalOrder)
+              ? 'payment_received_after_cancellation'
+              : null;
+        if (terminalIssueType) {
+          const reviewFiled = await handlePaymentForCancelledOrder({
+            gatewayReference: reference,
+            issueType: terminalIssueType,
+            order: terminalOrder,
+            reason: `Juicyway payment captured for terminal order status ${terminalOrder.payment_status}`,
+            transactionId: transaction.id,
+          });
+          if (!reviewFiled) {
+            return NextResponse.json(
+              { error: 'Payment reconciliation review unavailable' },
+              { status: 500 }
+            );
+          }
+          return NextResponse.json({
+            message: 'Payment recorded; terminal order filed for review',
+            success: true,
+          });
+        }
+
+        if (terminalOrder.payment_status !== 'paid') {
+          const reviewFiled = await handlePaymentForCancelledOrder({
+            gatewayReference: reference,
+            issueType: 'gateway_payment_wedge_requires_review',
+            order: terminalOrder,
+            reason: `Juicyway payment captured for an order in blocked payment status ${terminalOrder.payment_status}`,
+            transactionId: transaction.id,
+          });
+          if (!reviewFiled) {
+            return NextResponse.json(
+              { error: 'Payment reconciliation review unavailable' },
+              { status: 500 }
+            );
+          }
+          return NextResponse.json({
+            message: 'Payment recorded; blocked order filed for review',
+            success: true,
+          });
+        }
+
+        // 0 rows: the order is already paid — either a concurrent delivery
+        // won the flip, or the order was paid through another channel before
+        // this delivery. The Juicyway money IS captured (signature + amount
+        // verified above) and the transaction row is completed, so a bare
+        // ack would strand the settlement if the winner died before its own
+        // settlement write. Record it here (idempotent upsert on the
+        // settlement's unique key) and ack terminally — a 500 could never
+        // resolve for the paid-through-another-channel case.
+        logger.warn({
+          message:
+            'Juicyway order flip found the order already paid; recording settlement idempotently',
+          orderId: transaction.order_id,
+          reference,
+        });
+        const settled = await recordJuicywaySettlement(
+          {
+            amount: transaction.amount,
+            merchant_id: transaction.merchant_id,
+            order_id: transaction.order_id,
+            platform_fee: transaction.platform_fee,
+          },
+          reference
+        );
+        if (!settled) {
+          // This branch IS the recovery path for these captured funds:
+          // acking without the settlement would strand them.
+          return NextResponse.json(
+            { error: 'Merchant settlement unavailable' },
+            { status: 500 }
+          );
+        }
+        // Also drain serialized-inventory confirmation (idempotent): a
+        // winner that crashed right after its flip never reached it.
+        // Email/push cannot be safely replayed here because Juicyway has no
+        // dispatch marker. The durable conversion pipeline is idempotent, so
+        // it is recovered below after inventory is confirmed.
+        try {
+          await ensurePaidOrderInventoryConfirmed(
+            supabase,
+            transaction.merchant_id,
+            transaction.order_id
+          );
+        } catch (inventoryError) {
+          logger.error({
+            error: inventoryError,
+            message:
+              'Juicyway 0-row flip failed to confirm inventory for the paid order',
+            orderId: transaction.order_id,
+          });
+          // Redelivery re-enters this branch: settlement no-ops, inventory
+          // retries.
+          return NextResponse.json(
+            { error: 'Inventory confirmation failed' },
+            { status: 500 }
+          );
+        }
+        if (isEventPipelineEnqueueEnabled()) {
+          const { data: conversionOrderRow, error: conversionOrderError } =
+            await supabase
+              .from('orders')
+              .select(
+                'id, order_number, total, currency, customer_id, customer_name, customer_email, customer_phone, shipping_address, order_items(id, product_id, condition, name, price, quantity, variant_name), ad_tracking'
+              )
+              .eq('id', transaction.order_id)
+              .single();
+          if (conversionOrderError || !conversionOrderRow) {
+            return NextResponse.json(
+              { error: 'Order conversion lookup failed' },
+              { status: 500 }
+            );
+          }
+          await enqueueJuicywayOrderConversion({
+            merchantId: transaction.merchant_id,
+            order: {
+              ...conversionOrderRow,
+              occurredAt: transaction.updated_at,
+              total: conversionOrderRow.total ?? transaction.amount,
+            } as OrderForConversion,
+            scheduleAfter: (task) => after(task),
+            supabase: createAdminClient(),
+          });
+        }
+        return NextResponse.json({ message: 'Already processed' });
+      }
 
       const orderError = response.error;
       const order = response.data as {
@@ -447,6 +797,7 @@ export async function POST(request: NextRequest) {
       } | null;
 
       if (orderError || !order) {
+        orderUpdateFailed = true;
         logger.error({
           message: 'Failed to update order',
           orderId: transaction.order_id,
@@ -456,13 +807,19 @@ export async function POST(request: NextRequest) {
         // The prevent_cancelled_order_reopen trigger clamped this reopen:
         // suppress all paid-order side effects (email, push, conversions,
         // settlement) and file a reconciliation row. Ack the gateway.
-        await handlePaymentForCancelledOrder({
+        const reviewFiled = await handlePaymentForCancelledOrder({
           gatewayReference: reference,
           order,
           reason:
             'Juicyway payment captured for an order cancelled before finalization',
           transactionId: transaction.id,
         });
+        if (!reviewFiled) {
+          return NextResponse.json(
+            { error: 'Payment reconciliation review unavailable' },
+            { status: 500 }
+          );
+        }
 
         return NextResponse.json({
           success: true,
@@ -671,158 +1028,100 @@ export async function POST(request: NextRequest) {
         });
 
         // Send offline conversion events to ad platforms
+        const durableEnqueue = isEventPipelineEnqueueEnabled();
         try {
-          const merchantAnalytics = await fetchAnalyticsPlatformConfig(
-            supabase,
-            transaction.merchant_id
+          const conversionOrder: OrderForConversion = {
+            ad_tracking: order.ad_tracking,
+            currency: order.currency,
+            customer_email: order.customer_email,
+            customer_id: order.customer_id,
+            customer_name: order.customer_name,
+            customer_phone: order.customer_phone,
+            id: order.id,
+            occurredAt: data.date,
+            order_items: order.order_items,
+            order_number: order.order_number,
+            total: order.total,
+          };
+          const conversion = triggerPurchaseConversion(
+            durableEnqueue ? createAdminClient() : supabase,
+            transaction.merchant_id,
+            conversionOrder,
+            durableEnqueue ? { deliveryMode: 'enqueue_only' } : undefined
           );
 
-          if (merchantAnalytics?.offline_conversions_enabled === false) {
-            logger.info({
-              message: 'Offline conversions disabled by merchant',
+          if (durableEnqueue) {
+            await conversion;
+            scheduleLegacyPurchaseConversion({
               merchantId: transaction.merchant_id,
+              order: conversionOrder,
+              scheduleAfter: (task) => after(task),
+              supabase: createAdminClient(),
             });
-          } else if (merchantAnalytics) {
-            const analyticsConfig: MerchantAnalyticsConfig = {
-              facebook_pixel_id: merchantAnalytics.facebook_pixel_id,
-              facebook_capi_token: merchantAnalytics.facebook_capi_token,
-              tiktok_pixel_id: merchantAnalytics.tiktok_pixel_id,
-              tiktok_access_token: merchantAnalytics.tiktok_access_token,
-              google_analytics_id: merchantAnalytics.google_analytics_id,
-              ga4_api_secret: merchantAnalytics.ga4_api_secret,
-              snapchat_pixel_id: merchantAnalytics.snapchat_pixel_id,
-              snapchat_capi_token: merchantAnalytics.snapchat_capi_token,
-            };
-
-            if (hasConfiguredAnalyticsPlatform(merchantAnalytics)) {
-              const adTracking = order.ad_tracking as Record<
-                string,
-                unknown
-              > | null;
-
-              const orderConversionData: OrderConversionData = {
-                orderId: order.id,
-                orderNumber:
-                  order.order_number || order.id.slice(0, 8).toUpperCase(),
-                total: Number.parseFloat(order.total || '0'),
-                currency: order.currency || 'NGN',
-                customerEmail: order.customer_email,
-                customerPhone: order.customer_phone,
-                customerName: order.customer_name,
-                customerId: order.customer_id,
-                items: (order.order_items || []).map(
-                  (item: Record<string, unknown>) => ({
-                    id:
-                      (item.product_id as string) || (item.id as string) || '',
-                    name: (item.name as string) || 'Product',
-                    price: Number(item.price) || 0,
-                    quantity: Number(item.quantity) || 1,
-                  })
-                ),
-                fbclid: adTracking?.fbclid as string | undefined,
-                fbp: adTracking?.fbp as string | undefined,
-                ttp: adTracking?.ttp as string | undefined,
-                gclid: adTracking?.gclid as string | undefined,
-                sccid: adTracking?.sccid as string | undefined,
-                gaClientId: adTracking?.gaClientId as string | undefined,
-                userIp: adTracking?.userIp as string | undefined,
-                userAgent: adTracking?.userAgent as string | undefined,
-                eventId: adTracking?.eventId as string | undefined,
-                limitedDataUse: adTracking?.limitedDataUse as
-                  | boolean
-                  | undefined,
-              };
-
-              sendPurchaseConversion(analyticsConfig, orderConversionData)
-                .then((results) => {
-                  try {
-                    logConversionResults(
-                      orderConversionData.orderNumber,
-                      results
-                    );
-                  } catch (logErr) {
-                    logger.error({
-                      message: 'Failed to log conversion results',
-                      orderId: order.id,
-                      error: logErr,
-                    });
-                  }
-                })
-                .catch((err) => {
-                  logger.error({
-                    message: 'Offline conversion tracking failed',
-                    orderId: order.id,
-                    error: err,
-                  });
-                });
-
-              logger.info({
-                message: 'Offline conversion tracking initiated (Juicyway)',
+          } else {
+            void conversion.catch((error) => {
+              logger.error({
+                error,
+                message: 'Offline conversion tracking failed',
                 orderId: order.id,
               });
-            }
+            });
           }
+
+          logger.info({
+            durableEnqueue,
+            message: 'Offline conversion tracking initiated (Juicyway)',
+            orderId: order.id,
+          });
         } catch (conversionError) {
           logger.error({
             message: 'Failed to initiate offline conversion tracking',
             error: conversionError,
           });
+          if (durableEnqueue) {
+            // Finish settlement bookkeeping below, then fail the webhook so
+            // Juicyway retries. The completed-transaction branch above
+            // replays this idempotent order-scoped enqueue on that retry.
+            durableEnqueueError = conversionError;
+          }
         }
       }
     }
 
     // Record settlement for merchant wallet tracking
-    try {
-      const grossAmount = Number(transaction.amount) || 0;
-      // Δ-0b: Juicyway verify response carries no fee; default to 0 honestly.
-      const gatewayFee = 0;
-      const platformFee =
-        Number(transaction.platform_fee) || grossAmount * 0.015;
-
-      // `record_merchant_settlement` is locked to service_role per the
-      // 20260428071421 advisor cleanup. Webhook callbacks have no user
-      // session (Juicyway calls us anonymously), so the SSR client runs
-      // as `anon` and would hit a function-permission error. Trust
-      // boundary is signature verification at the top of this handler.
-      // (The IP allowlist is currently audit-only / logging — see line 64.)
-      // Using the admin client here is safe.
-      const adminSupabase = createAdminClient();
-      const { error: settlementError } = await adminSupabase.rpc(
-        'record_merchant_settlement',
-        {
-          p_merchant_id: transaction.merchant_id,
-          p_source_type: 'order',
-          p_source_id: transaction.order_id,
-          p_gateway: 'juicyway',
-          p_gateway_reference: reference,
-          p_gross_amount: grossAmount,
-          p_gateway_fee: gatewayFee,
-          p_platform_fee: platformFee,
-          p_description: 'Order payment via Juicyway',
-          // Δ-29 / Δ-59: traceability — Juicyway's gateway-side ref lives
-          // in metadata for downstream reconciliation queries.
-          p_metadata: { juicyway_reference: reference },
-        }
+    const settlementRecorded = await recordJuicywaySettlement(
+      {
+        amount: transaction.amount,
+        merchant_id: transaction.merchant_id,
+        order_id: transaction.order_id,
+        platform_fee: transaction.platform_fee,
+      },
+      reference
+    );
+    if (!settlementRecorded) {
+      return NextResponse.json(
+        { error: 'Merchant settlement unavailable' },
+        { status: 500 }
       );
+    }
 
-      if (settlementError) {
-        logger.warn({
-          message: 'Failed to record merchant settlement',
-          error: settlementError,
-          reference,
-        });
-      } else {
-        logger.info({
-          message: 'Merchant settlement recorded (Juicyway)',
-          reference,
-          grossAmount,
-        });
-      }
-    } catch (settlementError) {
-      logger.warn({
-        message: 'Settlement recording error',
-        error: settlementError,
-      });
+    if (durableEnqueueError) {
+      throw durableEnqueueError;
+    }
+
+    if (orderUpdateFailed) {
+      // Settlement above is recorded (idempotent upsert) so the merchant is
+      // not left uncredited, but the order is NOT paid — fail closed so the
+      // sender redelivers and the redelivery heals via the wedge check at
+      // the top of this handler. The old swallow-to-200 here is what made
+      // this wedge class permanent.
+      return NextResponse.json(
+        {
+          code: 'ORDER_PAYMENT_COMPLETION_FAILED',
+          error: 'Order payment completion failed',
+        },
+        { status: 500 }
+      );
     }
 
     logger.info({

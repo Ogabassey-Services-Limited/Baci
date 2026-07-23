@@ -38,7 +38,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { apiPatch, fetchWithCsrf } from '@/lib/api-client';
+import { apiPatch, apiPost, fetchWithCsrf } from '@/lib/api-client';
 import { formatDisplayCurrency } from '@/lib/format-display-currency';
 import {
   type Order,
@@ -186,16 +186,39 @@ export default function OrderDetailsClientPage({
       return;
     }
 
+    if (newStatus === 'Canceled') {
+      const warning =
+        order.paymentStatus === 'Paid'
+          ? 'This is a paid order. Cancelling records your account as the actor and starts the refund workflow. Continue?'
+          : 'Cancel this order and restore its tracked inventory?';
+      if (!window.confirm(warning)) return;
+    }
+
     try {
-      const result = await apiPatch<{
+      let result: {
         order: {
           shipping_status: string;
           shipping_provider?: string | null;
           tracking_number?: string | null;
         };
-      }>(`/api/orders/${order.id}`, {
-        shipping_status: toDbShippingStatus(newStatus),
-      });
+      };
+      if (newStatus === 'Canceled') {
+        await apiPost<{ success: boolean }>(
+          `/api/orders/${order.id}/cancelled`,
+          { cancelled_by: 'merchant', confirm_cancellation: true }
+        );
+        result = { order: { shipping_status: 'cancelled' } };
+      } else {
+        result = await apiPatch<{
+          order: {
+            shipping_status: string;
+            shipping_provider?: string | null;
+            tracking_number?: string | null;
+          };
+        }>(`/api/orders/${order.id}`, {
+          shipping_status: toDbShippingStatus(newStatus),
+        });
+      }
 
       setOrder((prev) => ({
         ...prev,
@@ -311,7 +334,7 @@ export default function OrderDetailsClientPage({
       case 'Processing':
         return {
           text: 'Cancel Order',
-          action: () => handleUpdateStatus('Cancelled' as ShippingStatus),
+          action: () => handleUpdateStatus('Canceled'),
           icon: XCircle,
           variant: 'destructive' as const,
         };

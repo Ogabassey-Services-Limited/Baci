@@ -3,6 +3,7 @@ import { logger } from '@/lib/logger';
 import { sendOrderFulfillmentNotification } from '@/lib/order-fulfillment-notification';
 import { beginOrderNotificationOutboxDispatch } from '@/lib/order-notification-outbox-dispatch';
 import { resetOrderNotificationOutboxDispatch } from '@/lib/order-notification-outbox-dispatch-reset';
+import { resolveOrderNotificationOutboxShipmentMetadata } from '@/lib/order-notification-outbox-shipment-metadata';
 import type { createServiceClient } from '@/lib/supabase/service';
 
 const RETRY_BASE_DELAY_MS = 5 * 60 * 1000;
@@ -24,12 +25,6 @@ export const claimedOrderNotificationOutboxRowSchema = z.object({
 export type ClaimedOrderNotificationOutboxRow = z.infer<
   typeof claimedOrderNotificationOutboxRowSchema
 >;
-
-const outboxShipmentMetadataSchema = z.object({
-  manual_courier_name: z.string().trim().min(1).optional(),
-  manual_estimated_delivery: z.string().trim().min(1).optional(),
-  manual_tracking_number: z.string().trim().min(1).optional(),
-});
 
 type OrderNotificationOutboxStatus = 'pending' | 'sent' | 'skipped' | 'failed';
 type SupabaseClientLike = ReturnType<typeof createServiceClient>;
@@ -98,11 +93,6 @@ async function updateOutboxStatus(
     });
     throw new OutboxStatusUpdateError(row.id, { cause: error });
   }
-}
-
-function getShipmentMetadata(row: ClaimedOrderNotificationOutboxRow) {
-  const parsed = outboxShipmentMetadataSchema.safeParse(row.metadata);
-  return parsed.success ? parsed.data : {};
 }
 
 async function markSent(
@@ -180,7 +170,9 @@ async function processClaimedRow(
   summary: OrderNotificationCronSummary
 ) {
   try {
-    const shipmentMetadata = getShipmentMetadata(row);
+    const shipmentMetadata = resolveOrderNotificationOutboxShipmentMetadata(
+      row.metadata
+    );
     const result = await sendOrderFulfillmentNotification({
       beforeProviderDispatch: () =>
         beginOrderNotificationOutboxDispatch({
@@ -200,13 +192,14 @@ async function processClaimedRow(
           orderId: row.order_id,
           supabase,
         }),
-      courierName: shipmentMetadata.manual_courier_name,
-      estimatedDelivery: shipmentMetadata.manual_estimated_delivery,
+      courierName: shipmentMetadata.courierName,
+      estimatedDelivery: shipmentMetadata.estimatedDelivery,
       eventType: row.event_type,
       merchantId: row.merchant_id,
       orderId: row.order_id,
       supabase,
-      trackingNumber: shipmentMetadata.manual_tracking_number,
+      trackingNumber: shipmentMetadata.trackingNumber,
+      trackingToken: shipmentMetadata.trackingToken,
     });
 
     if (result.status === 'sent') {
