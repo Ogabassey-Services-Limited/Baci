@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { EXPECTED_DUPLICATE_GROUPS } from './expected-duplicate-groups.test-support';
+import { EXPECTED_PENDING_SOURCES } from './expected-pending-sources.test-support';
 import { supabaseHistoryReplayManifest } from './supabase-history-replay-manifest';
 
 const MAPPINGS = [
@@ -162,62 +164,9 @@ describe('supabaseHistoryReplayManifest', () => {
   });
 
   it('hash-binds pending migrations without treating them as deployed', () => {
-    expect(supabaseHistoryReplayManifest.pendingSources).toEqual([
-      {
-        repositoryPath:
-          'supabase/migrations/20260721093205_harden_paid_order_completion_and_side_effect_retries.sql',
-        sha256:
-          'e8398b0b10a5e9d199707bcceb5835f865bfce85dd4732e9bc46fc4e13d16d29',
-      },
-      {
-        repositoryPath:
-          'supabase/migrations/20260721093206_merchant_order_cancellation_audit.sql',
-        sha256:
-          'b36447107978f1612b0f158bbd3331f635bf8bd940ec0ff01545ecba765a753b',
-      },
-      {
-        repositoryPath:
-          'supabase/migrations/20260721093207_order_cancellation_side_effect_claims.sql',
-        sha256:
-          '399dfc28247c2f3d3c720783eeb13c3376a1b207f7ea1095e66366e919f1e5ea',
-      },
-      {
-        repositoryPath:
-          'supabase/migrations/20260721140000_forward_harden_merchant_order_cancellation.sql',
-        sha256:
-          '46efbde5a4a1f241ad0bc829edac60ecbbee156187f5d4f7975f3b6aabb9693b',
-      },
-      {
-        repositoryPath:
-          'supabase/migrations/20260721140100_forward_harden_cancellation_side_effects.sql',
-        sha256:
-          '1fa573e186b486ade1ae4bc628969a74c37ee01f850cf7ab4d60ac3a40fad8a8',
-      },
-      {
-        repositoryPath:
-          'supabase/migrations/20260722150000_s1_merchants_authenticated_containment.sql',
-        sha256:
-          '3fdc876b7699184efe079f9d9412301eac3b893aefc193868baef6e9bb448d76',
-      },
-      {
-        repositoryPath:
-          'supabase/migrations/20260723150000_merchant_payment_secret_rpcs.sql',
-        sha256:
-          '36b7e8bb66b30691e633e312c8dbfea3bfee10a945007a59f0bfb8f5599991fe',
-      },
-      {
-        repositoryPath:
-          'supabase/migrations/20260723160000_admin_merchant_profiles_rpc.sql',
-        sha256:
-          '28db4728fe8661bcd8083fa9bbd93b63a04c279c657b7f228d0c39cfca685e0a',
-      },
-      {
-        repositoryPath:
-          'supabase/migrations/20260723210000_scope_subaccount_rpc_staff_permission.sql',
-        sha256:
-          '9df49e0051a16c29e444513ad5bc2786c2420560071da5f02d8f249fc38616d0',
-      },
-    ]);
+    expect(supabaseHistoryReplayManifest.pendingSources).toEqual(
+      EXPECTED_PENDING_SOURCES
+    );
   });
 
   it('binds the base registry and 125-file bootstrap receipt', () => {
@@ -270,38 +219,9 @@ describe('supabaseHistoryReplayManifest', () => {
   });
 
   it('binds the two physical duplicate groups', () => {
-    expect(supabaseHistoryReplayManifest.duplicateGroups).toEqual([
-      {
-        version: '20260615120000',
-        sources: [
-          [
-            'supabase/migrations/20260615120000_customer_order_cancellation.sql',
-            'acb7406d4975c5cd8d3964e86b991b51046b6f750d49b3769699b878b92192d3',
-          ],
-          [
-            'supabase/migrations/20260615120000_register_push_token_rpc.sql',
-            '6000b0006539041c1bd914567ebcbc31eb15e8f14401ae488d0a609ce74b4293',
-          ],
-        ],
-      },
-      {
-        version: '20260713130000',
-        sources: [
-          [
-            'supabase/migrations/20260713130000_add_storefront_paystack_subaccount_configured_rpc.sql',
-            '9cb95f8ba9ebd75568b9b5c7ee17521981465fa330d18a76ed467a179dd79645',
-          ],
-          [
-            'supabase/migrations/20260713130000_quiz_finalize_rank_winners.sql',
-            '3140c3a76b2cd6ca1952dc166cd5e010d15c7070fde0647e41ad9bfc7d400ab2',
-          ],
-        ],
-        uniqueReapply: [
-          'supabase/migrations/20260713140000_quiz_finalize_rank_winners_reapply.sql',
-          'f3461eead2451852ecc9a643f34ca486207ea6b10b8ef3439e69718e738acd8c',
-        ],
-      },
-    ]);
+    expect(supabaseHistoryReplayManifest.duplicateGroups).toEqual(
+      EXPECTED_DUPLICATE_GROUPS
+    );
   });
 
   it('binds all 26 immutable event-pipeline migrations', () => {
