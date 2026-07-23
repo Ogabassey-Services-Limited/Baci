@@ -4,6 +4,7 @@ import {
   optionalNonEmptyString,
   requireMerchantIdentifier,
 } from '@/schemas/merchant-identifier';
+import { walletFundingAccountSchema } from '@/schemas/wallet-funding-account';
 
 const merchantIdentifierObjectSchema = z.object({
   merchantId: optionalMerchantId,
@@ -25,6 +26,59 @@ export const orderWalletFundingIntentPollSchema = z
   .strictObject(merchantIdentifierObjectSchema.shape)
   .superRefine(requireMerchantIdentifier);
 
+/**
+ * RESPONSE schemas — the web checkout parses the intent API's replies through
+ * these before trusting them. Mirrors
+ * `apps/mobile-storefront/schemas/order-wallet-funding-intent.ts` so both
+ * platforms speak one protocol; the status union is the DB enum
+ * (`OrderWalletFundingIntentStatus`).
+ */
+export const walletOrderFundingIntentStatusSchema = z.enum([
+  'pending',
+  'underfunded',
+  'funded',
+  'processing',
+  'completed',
+  'expired',
+  'cancelled',
+  'review_required',
+  'failed',
+]);
+
+const currencySchema = z
+  .string()
+  .trim()
+  .transform((currency) => currency.toUpperCase())
+  .pipe(z.string().regex(/^[A-Z]{3}$/));
+
+export const walletOrderFundingIntentSchema = z.object({
+  currency: currencySchema,
+  debitedAmount: z.number().min(0).optional(),
+  excessAmount: z.number().min(0).optional(),
+  expectedAmount: z.number().gt(0),
+  // PostgREST serializes `timestamptz` in `+00:00` offset form, not bare `Z`,
+  // so the parser MUST accept offsets or every real server response fails
+  // validation and the wallet flow silently falls back to the legacy DVA.
+  expiresAt: z.iso.datetime({ offset: true }),
+  fundedAmount: z.number().min(0),
+  id: z.uuid(),
+  orderId: z.uuid(),
+  // Only the poll route returns these; the create route omits them.
+  orderPaid: z.boolean().optional(),
+  remainingAmount: z.number().min(0).optional(),
+  status: walletOrderFundingIntentStatusSchema,
+  targetOrderAmount: z.number().gt(0),
+});
+
+export const walletOrderFundingIntentCreateResponseSchema = z.object({
+  account: walletFundingAccountSchema,
+  intent: walletOrderFundingIntentSchema,
+});
+
+export const walletOrderFundingIntentPollResponseSchema = z.object({
+  intent: walletOrderFundingIntentSchema,
+});
+
 export const ambiguousReviewSchema = z.object({
   gatewayReference: z.string().trim().min(1),
   intentIds: z.array(z.string().trim().min(1)).min(1),
@@ -36,4 +90,16 @@ export type OrderWalletFundingIntentCreateInput = z.infer<
 
 export type OrderWalletFundingIntentPollInput = z.infer<
   typeof orderWalletFundingIntentPollSchema
+>;
+
+export type WalletOrderFundingIntent = z.infer<
+  typeof walletOrderFundingIntentSchema
+>;
+
+export type WalletOrderFundingIntentStatus = z.infer<
+  typeof walletOrderFundingIntentStatusSchema
+>;
+
+export type WalletOrderFundingIntentCreateResponse = z.infer<
+  typeof walletOrderFundingIntentCreateResponseSchema
 >;
