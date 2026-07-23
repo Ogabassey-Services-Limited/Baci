@@ -215,7 +215,7 @@ describe('supabaseHistoryReplayManifest', () => {
         repositoryPath:
           'supabase/migrations/20260723210000_scope_subaccount_rpc_staff_permission.sql',
         sha256:
-          '412b64378281caf15239894a650e2b1bc0ed8500e5aa956ac9a583a5ee60f7fb',
+          '9df49e0051a16c29e444513ad5bc2786c2420560071da5f02d8f249fc38616d0',
       },
     ]);
   });

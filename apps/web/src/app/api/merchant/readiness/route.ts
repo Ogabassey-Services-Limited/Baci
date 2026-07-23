@@ -5,7 +5,6 @@ import {
   getLaunchPaymentRequirement,
   requiresNigerianKycForLaunch,
 } from '@/lib/checkout/payment-gateway-availability';
-import { fetchMerchantPaystackSubaccountCode } from '@/lib/fetch-merchant-payment-secret';
 import {
   getMerchantForApiRequest,
   toUserAccess,
@@ -220,16 +219,23 @@ export async function GET() {
       );
     }
 
-    // The secret `paystack_subaccount_code` is revoked from the authenticated
-    // role; read it through the bounded SECURITY DEFINER RPC on the same
-    // authenticated client (owner/active-staff), keyed to the resolved merchant
-    // id, then merge it into the row the launch-payment gate reads.
+    // Readiness only needs CONFIGURED-NESS, not the raw secret: the launch
+    // gate natively honors `paystack_subaccount_configured`. Use the derived
+    // boolean RPC (owner/active-staff — so accountant/sales_rep and other
+    // dashboard.view-only roles keep an accurate checklist) instead of the
+    // permission-gated raw-code RPC.
+    const { data: paystackConfigured, error: paystackConfiguredError } =
+      await supabase.rpc('get_merchant_paystack_subaccount_configured', {
+        p_merchant_id: baseMerchant.id,
+      });
+    if (paystackConfiguredError) {
+      throw new Error(
+        `Failed to load merchant payment configuration: ${paystackConfiguredError.message}`
+      );
+    }
     const validMerchant = {
       ...baseMerchant,
-      paystack_subaccount_code: await fetchMerchantPaystackSubaccountCode(
-        supabase,
-        baseMerchant.id
-      ),
+      paystack_subaccount_configured: paystackConfigured === true,
     };
 
     const [

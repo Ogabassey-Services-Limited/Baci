@@ -16179,6 +16179,10 @@ export type Database = {
         Args: { p_merchant_id: string };
         Returns: string;
       };
+      get_merchant_paystack_subaccount_configured: {
+        Args: { p_merchant_id: string };
+        Returns: boolean;
+      };
       get_merchant_verification_flags: {
         Args: { p_merchant_id: string };
         Returns: Json;
