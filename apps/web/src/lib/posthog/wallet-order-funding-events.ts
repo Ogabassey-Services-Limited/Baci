@@ -10,11 +10,17 @@
  * `wallet_order_funding_fallback` is the one that matters operationally: it is
  * how we see, per reason code, which customers were pushed back onto the
  * legacy order-DVA path after the intent API declined.
+ *
+ * `wallet_order_funding_uncertain` is the money-safety signal: the create-intent
+ * POST outcome was indeterminate (5xx / transport drop / unreadable 2xx), so the
+ * checkout deliberately did NOT open the legacy path — an intent may already
+ * fund the order. A spike here flags customers who need a wallet check / retry.
  */
 export const WALLET_ORDER_FUNDING_TELEMETRY = {
   events: {
     intentCreated: 'wallet_order_funding_intent_created',
     fallback: 'wallet_order_funding_fallback',
+    uncertain: 'wallet_order_funding_uncertain',
   },
 } as const;
 

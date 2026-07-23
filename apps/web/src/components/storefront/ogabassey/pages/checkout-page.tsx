@@ -2385,7 +2385,7 @@ export const CheckoutPage: React.FC = () => {
         // is only made once the session is known.
         const storefrontCustomerAuthenticated =
           await waitForResolvedStorefrontCustomerAuth();
-        const walletFundedStarted =
+        const walletFundedOutcome =
           merchant &&
           isEligibleForWalletFundedBankTransfer({
             isAuthenticated: storefrontCustomerAuthenticated,
@@ -2401,9 +2401,25 @@ export const CheckoutPage: React.FC = () => {
                 orderId: order.id,
                 trackingToken: order.tracking_token,
               })
-            : false;
+            : ('fallback' as const);
 
-        if (walletFundedStarted) {
+        if (walletFundedOutcome === 'started') {
+          setIsProcessing(false);
+          isOrderInFlightRef.current = false;
+          return;
+        }
+
+        if (walletFundedOutcome === 'uncertain') {
+          // Money-safety: the create-intent POST outcome is indeterminate — the
+          // server may already hold a funding intent for this order. Do NOT open
+          // the legacy order-DVA path (a second funding channel risks a double
+          // charge); prompt the customer to check their wallet and retry.
+          toast({
+            title: 'We could not confirm your transfer setup',
+            description:
+              'Please check your wallet balance before trying again. Do not start another payment for this order yet.',
+            variant: 'destructive',
+          });
           setIsProcessing(false);
           isOrderInFlightRef.current = false;
           return;

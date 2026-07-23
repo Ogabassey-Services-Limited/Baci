@@ -194,4 +194,102 @@ describe('startWalletFundedBankTransfer', () => {
       startWalletFundedBankTransfer({ ...ARGS, requestConsent: vi.fn() })
     ).resolves.toMatchObject({ kind: 'fallback' });
   });
+
+  describe('money-safety: indeterminate create outcome does not fall back', () => {
+    // An indeterminate create-intent POST may already have committed a funding
+    // intent server-side. Falling back to the legacy order-DVA path would open a
+    // SECOND funding channel for the same order (double-charge / split state),
+    // so the result must be `uncertain`, never `fallback`.
+    it('returns `uncertain` when the first create is indeterminate', async () => {
+      createIntentMock.mockRejectedValue(
+        new WalletOrderFundingIntentError(
+          'Service unavailable',
+          'server_error',
+          502,
+          true
+        )
+      );
+
+      const result = await startWalletFundedBankTransfer({
+        ...ARGS,
+        requestConsent: vi.fn(),
+      });
+
+      expect(result).toMatchObject({ code: 'server_error', kind: 'uncertain' });
+      expect(captureClientEventMock).toHaveBeenCalledWith(
+        'wallet_order_funding_uncertain',
+        expect.objectContaining({ reason: 'server_error' })
+      );
+      expect(captureClientEventMock).not.toHaveBeenCalledWith(
+        'wallet_order_funding_fallback',
+        expect.anything()
+      );
+    });
+
+    it('returns `fallback` when the first create fails definitively (4xx)', async () => {
+      createIntentMock.mockRejectedValue(
+        new WalletOrderFundingIntentError(
+          'Auto debit disabled',
+          'WALLET_ORDER_AUTO_DEBIT_DISABLED',
+          403,
+          false
+        )
+      );
+
+      const result = await startWalletFundedBankTransfer({
+        ...ARGS,
+        requestConsent: vi.fn(),
+      });
+
+      expect(result).toMatchObject({ kind: 'fallback' });
+      expect(captureClientEventMock).toHaveBeenCalledWith(
+        'wallet_order_funding_fallback',
+        expect.objectContaining({ reason: 'WALLET_ORDER_AUTO_DEBIT_DISABLED' })
+      );
+    });
+
+    it('returns `uncertain` when the post-consent retry create is indeterminate', async () => {
+      createIntentMock
+        .mockRejectedValueOnce(
+          new WalletOrderFundingIntentError(
+            'Consent required',
+            'WALLET_DVA_CONSENT_REQUIRED',
+            409
+          )
+        )
+        .mockRejectedValueOnce(
+          new WalletOrderFundingIntentError('Timed out', 'network', undefined, true)
+        );
+      createAccountMock.mockResolvedValue(CREATED.account);
+
+      const result = await startWalletFundedBankTransfer({
+        ...ARGS,
+        requestConsent: vi.fn().mockResolvedValue(true),
+      });
+
+      expect(result).toMatchObject({ code: 'network', kind: 'uncertain' });
+    });
+
+    it('falls back (not uncertain) when DVA provisioning fails, even on a 5xx', async () => {
+      // Provisioning the standing wallet DVA is not an order-funding path — no
+      // order intent exists yet, so the legacy fallback is safe.
+      createIntentMock.mockRejectedValue(
+        new WalletOrderFundingIntentError(
+          'Consent required',
+          'WALLET_DVA_CONSENT_REQUIRED',
+          409
+        )
+      );
+      createAccountMock.mockRejectedValue(
+        new WalletOrderFundingIntentError('Boom', 'server_error', 500, true)
+      );
+
+      const result = await startWalletFundedBankTransfer({
+        ...ARGS,
+        requestConsent: vi.fn().mockResolvedValue(true),
+      });
+
+      expect(result).toMatchObject({ kind: 'fallback' });
+    });
+  });
 });

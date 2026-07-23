@@ -89,6 +89,44 @@ describe('useStorefrontCustomerSession', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  describe('bugfix: bound the session request so a stall fails closed', () => {
+    // A dropped connection can leave the fetch hanging rather than rejecting,
+    // pinning the gate on `loading`. The fetch carries an `AbortSignal.timeout`
+    // so a stall aborts and resolves to guest (fail-closed), never hanging.
+    it('arms an AbortSignal.timeout on the session fetch', async () => {
+      const timeoutSpy = vi.spyOn(AbortSignal, 'timeout');
+      const fetchMock = stubFetch({ body: { authenticated: true } });
+
+      renderHook(() => useStorefrontCustomerSession('test-store'));
+
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+      });
+      expect(timeoutSpy).toHaveBeenCalledWith(expect.any(Number));
+      // A positive bound so the request cannot hang indefinitely.
+      expect(timeoutSpy.mock.calls[0]?.[0]).toBeGreaterThan(0);
+    });
+
+    it('resolves to guest when the session fetch times out (aborts)', async () => {
+      // Simulate what AbortSignal.timeout produces on a stalled connection.
+      vi.spyOn(globalThis, 'fetch').mockRejectedValue(
+        new DOMException('The operation timed out.', 'TimeoutError')
+      );
+
+      const { result } = renderHook(() =>
+        useStorefrontCustomerSession('test-store')
+      );
+
+      // Fail-closed: the awaited value settles to false rather than hanging.
+      await expect(
+        result.current.waitForResolvedAuthenticated()
+      ).resolves.toBe(false);
+      await waitFor(() => {
+        expect(result.current.status).toBe('guest');
+      });
+    });
+  });
+
   describe('bugfix: refresh auth state after mid-checkout login', () => {
     it('flips to authenticated when a sign-in auth signal arrives after a guest load', async () => {
       // Arrange: shopper arrives signed out — first session fetch says guest.

@@ -6,6 +6,7 @@ describe('WALLET_ORDER_FUNDING_TELEMETRY', () => {
     expect(WALLET_ORDER_FUNDING_TELEMETRY.events).toEqual({
       fallback: 'wallet_order_funding_fallback',
       intentCreated: 'wallet_order_funding_intent_created',
+      uncertain: 'wallet_order_funding_uncertain',
     });
   });
 

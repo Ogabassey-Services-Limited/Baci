@@ -19,13 +19,26 @@ interface StorefrontSessionResponse {
   authenticated?: boolean;
 }
 
+// A dropped connection can leave the session fetch hanging (stalled, not
+// rejected) rather than failing, which would pin the checkout gate on `loading`
+// forever. Bound the request so a stall aborts and fails closed to guest — the
+// intent API stays the real authority, so a stale guest only defers to legacy.
+const SESSION_REQUEST_TIMEOUT_MS = 12_000;
+
 async function fetchSessionAuthenticated(
   merchantSlug: string,
   signal: AbortSignal
 ): Promise<boolean> {
   const response = await fetch(
     `/api/storefront/auth/session?merchantSlug=${encodeURIComponent(merchantSlug)}`,
-    { signal }
+    // Combine the supersede/unmount controller with a hard timeout so neither a
+    // newer auth transition nor a stalled connection can leave this hanging.
+    {
+      signal: AbortSignal.any([
+        signal,
+        AbortSignal.timeout(SESSION_REQUEST_TIMEOUT_MS),
+      ]),
+    }
   );
   if (!response.ok) {
     return false;

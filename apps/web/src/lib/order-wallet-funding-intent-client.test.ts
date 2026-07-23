@@ -110,6 +110,114 @@ describe('order wallet funding intent client', () => {
     ).rejects.toBeInstanceOf(WalletOrderFundingIntentError);
   });
 
+  describe('create-intent POST indeterminacy classification', () => {
+    // The create POST mutates: only an explicit 4xx proves the server rejected
+    // before committing. Everything else that is not a clean 2xx may have
+    // created a funding intent → indeterminate (the caller must not fall back).
+    it('marks a transport rejection (drop after send) as indeterminate', async () => {
+      fetchWithCsrfMock.mockRejectedValue(new Error('Failed to fetch'));
+
+      await expect(
+        createOrderWalletFundingIntent({
+          merchantId: 'merchant-1',
+          orderId: ORDER_ID,
+        })
+      ).rejects.toMatchObject({ code: 'network', indeterminate: true });
+    });
+
+    it('marks a 5xx as indeterminate (server may have committed)', async () => {
+      fetchWithCsrfMock.mockResolvedValue(
+        jsonResponse({ code: 'server_error', error: 'boom' }, 502)
+      );
+
+      await expect(
+        createOrderWalletFundingIntent({
+          merchantId: 'merchant-1',
+          orderId: ORDER_ID,
+        })
+      ).rejects.toMatchObject({ indeterminate: true, status: 502 });
+    });
+
+    it('treats a 4xx as a definite no-op (not indeterminate)', async () => {
+      fetchWithCsrfMock.mockResolvedValue(
+        jsonResponse(
+          { code: 'GUEST_CHECKOUT', error: 'Customer not found' },
+          409
+        )
+      );
+
+      await expect(
+        createOrderWalletFundingIntent({
+          merchantId: 'merchant-1',
+          orderId: ORDER_ID,
+        })
+      ).rejects.toMatchObject({ code: 'GUEST_CHECKOUT', indeterminate: false });
+    });
+
+    it('marks an unparseable 2xx body as indeterminate (intent was created)', async () => {
+      fetchWithCsrfMock.mockResolvedValue(
+        jsonResponse({
+          account: ACCOUNT,
+          intent: { ...INTENT, status: 'weird' },
+        })
+      );
+
+      await expect(
+        createOrderWalletFundingIntent({
+          merchantId: 'merchant-1',
+          orderId: ORDER_ID,
+        })
+      ).rejects.toMatchObject({
+        code: 'invalid_response',
+        indeterminate: true,
+      });
+    });
+  });
+
+  describe('bugfix: poll timeout normalizes to a retryable transport error', () => {
+    // The poll GET carries an `AbortSignal.timeout`; a stalled connection fires
+    // a `TimeoutError` DOMException. It MUST surface as the synthetic `network`
+    // transport error (retryable, NOT indeterminate) so the polling loop treats
+    // it as one more failed attempt instead of throwing an unhandled abort.
+    it('maps a poll timeout abort onto a retryable `network` transport error', async () => {
+      vi.spyOn(globalThis, 'fetch').mockRejectedValue(
+        new DOMException('The operation timed out.', 'TimeoutError')
+      );
+
+      await expect(
+        getOrderWalletFundingIntent({
+          intentId: INTENT_ID,
+          merchantSlug: 'test-store',
+        })
+      ).rejects.toMatchObject({ code: 'network', indeterminate: false });
+
+      await expect(
+        getOrderWalletFundingIntent({
+          intentId: INTENT_ID,
+          merchantSlug: 'test-store',
+        })
+      ).rejects.toBeInstanceOf(WalletOrderFundingIntentError);
+    });
+
+    it('passes an AbortSignal to the poll fetch (the timeout bound is wired)', async () => {
+      const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        jsonResponse({
+          intent: { ...INTENT, orderPaid: true, status: 'completed' },
+        })
+      );
+
+      await getOrderWalletFundingIntent({
+        intentId: INTENT_ID,
+        merchantSlug: 'test-store',
+      });
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      );
+    });
+  });
+
   it('polls an intent through a plain credentialed GET', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       jsonResponse({

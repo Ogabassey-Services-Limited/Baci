@@ -166,6 +166,7 @@ vi.mock('@/components/storefront/cdn-format-image', () => ({
 }));
 
 import { useAuthSafe } from '@/contexts/auth-context';
+import { toast } from '@/hooks/use-toast';
 import {
   called,
   FLAG,
@@ -235,6 +236,33 @@ describe('CheckoutPage — wallet-funded bank transfer', () => {
     await waitFor(() => {
       expect(called(fetchMock, '/api/payments/initialize')).toBe(true);
     });
+  });
+
+  it('does NOT open the legacy order-DVA path when the intent POST is indeterminate (5xx)', async () => {
+    // Money-safety: a 5xx create means the server may already hold a funding
+    // intent for this order. Opening the legacy `/api/payments/initialize` DVA
+    // would be a SECOND funding channel (double-charge / split-order risk). The
+    // checkout must stop and warn — never fall back.
+    vi.stubEnv(FLAG, 'true');
+    const fetchMock = stubFetch({
+      intentResponse: {
+        body: { code: 'server_error', error: 'boom' },
+        status: 502,
+      },
+    });
+
+    await placeBankTransferOrder();
+
+    await waitFor(() => {
+      expect(called(fetchMock, INTENTS_URL)).toBe(true);
+    });
+    await waitFor(() => {
+      expect(vi.mocked(toast)).toHaveBeenCalledWith(
+        expect.objectContaining({ variant: 'destructive' })
+      );
+    });
+    // The legacy DVA path must never be reached on an indeterminate outcome.
+    expect(called(fetchMock, '/api/payments/initialize')).toBe(false);
   });
 
   it('shows the wallet account number and never mints an order DVA when the intent opens', async () => {

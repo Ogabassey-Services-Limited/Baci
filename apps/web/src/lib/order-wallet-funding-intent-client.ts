@@ -27,12 +27,29 @@ const POLL_REQUEST_TIMEOUT_MS = 15_000;
 export class WalletOrderFundingIntentError extends Error {
   readonly code: string;
   readonly status?: number;
+  /**
+   * True when the outcome of a *mutating* create POST is NOT provably a no-op:
+   * a 5xx (server reached, may have committed before failing), a transport
+   * drop/timeout after send (the browser cannot prove the bytes never reached
+   * the server), or a 2xx whose body we could not read/parse (the intent was
+   * created but its id is lost). The checkout MUST NOT open the legacy
+   * order-DVA path on an indeterminate create: an intent may already fund the
+   * order, so a second channel risks a double charge or a split order state.
+   * Only an explicit 4xx proves the server rejected before any commit.
+   */
+  readonly indeterminate: boolean;
 
-  constructor(message: string, code: string, status?: number) {
+  constructor(
+    message: string,
+    code: string,
+    status?: number,
+    indeterminate = false
+  ) {
     super(message);
     this.name = 'WalletOrderFundingIntentError';
     this.code = code;
     this.status = status;
+    this.indeterminate = indeterminate;
   }
 }
 
@@ -56,16 +73,29 @@ async function assertOk(response: Response, fallbackMessage: string) {
   const body = await readErrorBody(response);
   const code = typeof body.code === 'string' ? body.code : 'other';
   const message = typeof body.error === 'string' ? body.error : fallbackMessage;
-  throw new WalletOrderFundingIntentError(message, code, response.status);
+  // 5xx: the server was reached and may have committed the write before it
+  // failed → indeterminate. A 4xx is a pre-commit rejection (definite no-op).
+  throw new WalletOrderFundingIntentError(
+    message,
+    code,
+    response.status,
+    response.status >= 500
+  );
 }
 
-function toTransportError(error: unknown, fallbackMessage: string): never {
+function toTransportError(
+  error: unknown,
+  fallbackMessage: string,
+  indeterminate = false
+): never {
   if (error instanceof WalletOrderFundingIntentError) {
     throw error;
   }
   throw new WalletOrderFundingIntentError(
     error instanceof Error ? error.message : fallbackMessage,
-    'network'
+    'network',
+    undefined,
+    indeterminate
   );
 }
 
@@ -78,6 +108,10 @@ export async function createOrderWalletFundingIntent({
   merchantSlug?: string;
   orderId: string;
 }): Promise<WalletOrderFundingIntentCreateResponse> {
+  // This POST mutates: a transport rejection is INDETERMINATE (the browser
+  // cannot prove the request never reached the server — a mid-flight drop after
+  // the intent was committed is indistinguishable from a refused connection), so
+  // it must never silently fall back to a second funding path.
   const response = await fetchWithCsrf(INTENTS_PATH, {
     body: JSON.stringify({
       ...(merchantId ? { merchantId } : {}),
@@ -86,21 +120,24 @@ export async function createOrderWalletFundingIntent({
     }),
     method: 'POST',
   }).catch((error: unknown) =>
-    toTransportError(error, 'Failed to start wallet transfer')
+    toTransportError(error, 'Failed to start wallet transfer', true)
   );
 
   await assertOk(response, 'Failed to start wallet transfer');
 
-  const data = await response
-    .json()
-    .catch((error: unknown) =>
-      toTransportError(error, 'Failed to start wallet transfer')
-    );
+  const data = await response.json().catch((error: unknown) =>
+    // A 2xx we cannot read still means the server created the intent.
+    toTransportError(error, 'Failed to start wallet transfer', true)
+  );
   const parsed = walletOrderFundingIntentCreateResponseSchema.safeParse(data);
   if (!parsed.success) {
     throw new WalletOrderFundingIntentError(
       'Invalid wallet order funding intent create response',
-      'invalid_response'
+      'invalid_response',
+      undefined,
+      // The server answered 2xx, so an intent exists even though the body did
+      // not match — treat as committed, not a clean no-op.
+      true
     );
   }
   return parsed.data;
@@ -121,8 +158,13 @@ export async function getOrderWalletFundingIntent({
 
   const response = await fetch(
     `${INTENTS_PATH}/${encodeURIComponent(intentId)}?${query.toString()}`,
-    { credentials: 'include', signal: AbortSignal.timeout(POLL_REQUEST_TIMEOUT_MS) }
+    {
+      credentials: 'include',
+      signal: AbortSignal.timeout(POLL_REQUEST_TIMEOUT_MS),
+    }
   ).catch((error: unknown) =>
+    // Read-only GET: a transport error (including the timeout abort) stays a
+    // retryable `network` error the polling loop retries — never indeterminate.
     toTransportError(error, 'Failed to check transfer status')
   );
 

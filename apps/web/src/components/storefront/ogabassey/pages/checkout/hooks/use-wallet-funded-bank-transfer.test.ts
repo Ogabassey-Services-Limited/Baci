@@ -58,7 +58,7 @@ describe('useWalletFundedBankTransfer', () => {
     getIntentMock.mockResolvedValue(INTENT);
   });
 
-  it('resolves false and opens no modal when the intent API declines', async () => {
+  it('resolves `fallback` and opens no modal when the intent API declines', async () => {
     startMock.mockResolvedValue({
       code: 'WALLET_ORDER_AUTO_DEBIT_DISABLED',
       kind: 'fallback',
@@ -67,12 +67,35 @@ describe('useWalletFundedBankTransfer', () => {
 
     const { view } = renderWalletTransfer();
 
-    let started: boolean | undefined;
+    let started: string | undefined;
     await act(async () => {
       started = await view.result.current.start(START_ARGS);
     });
 
-    expect(started).toBe(false);
+    expect(started).toBe('fallback');
+    expect(view.result.current.account).toBeNull();
+    expect(view.result.current.intent).toBeNull();
+    expect(getIntentMock).not.toHaveBeenCalled();
+  });
+
+  it('resolves `uncertain` and opens no modal on an indeterminate create', async () => {
+    // Money-safety: an indeterminate create must NOT be treated as `started`
+    // (no session/modal, the intent may not exist) NOR as `fallback` (the
+    // caller would open the legacy path and risk a double charge).
+    startMock.mockResolvedValue({
+      code: 'server_error',
+      kind: 'uncertain',
+      message: 'unconfirmed',
+    });
+
+    const { view } = renderWalletTransfer();
+
+    let started: string | undefined;
+    await act(async () => {
+      started = await view.result.current.start(START_ARGS);
+    });
+
+    expect(started).toBe('uncertain');
     expect(view.result.current.account).toBeNull();
     expect(view.result.current.intent).toBeNull();
     expect(getIntentMock).not.toHaveBeenCalled();
@@ -83,12 +106,12 @@ describe('useWalletFundedBankTransfer', () => {
 
     const { view } = renderWalletTransfer();
 
-    let started: boolean | undefined;
+    let started: string | undefined;
     await act(async () => {
       started = await view.result.current.start(START_ARGS);
     });
 
-    expect(started).toBe(true);
+    expect(started).toBe('started');
     expect(view.result.current.account).toEqual(ACCOUNT);
     await waitFor(() => {
       expect(getIntentMock).toHaveBeenCalledWith({
@@ -151,7 +174,7 @@ describe('useWalletFundedBankTransfer', () => {
 
     const { view } = renderWalletTransfer();
 
-    let startedPromise: Promise<boolean> | undefined;
+    let startedPromise: Promise<string> | undefined;
     await act(async () => {
       startedPromise = view.result.current.start(START_ARGS);
     });
@@ -164,11 +187,11 @@ describe('useWalletFundedBankTransfer', () => {
       view.result.current.acceptConsent();
     });
 
-    await expect(startedPromise).resolves.toBe(true);
+    await expect(startedPromise).resolves.toBe('started');
     expect(view.result.current.consentRequested).toBe(false);
   });
 
-  it('resolves start() false and clears the prompt when consent is declined', async () => {
+  it('resolves start() `fallback` and clears the prompt when consent is declined', async () => {
     startMock.mockImplementation(
       async ({ requestConsent }: { requestConsent: () => Promise<boolean> }) => {
         const granted = await requestConsent();
@@ -180,7 +203,7 @@ describe('useWalletFundedBankTransfer', () => {
 
     const { view } = renderWalletTransfer();
 
-    let startedPromise: Promise<boolean> | undefined;
+    let startedPromise: Promise<string> | undefined;
     await act(async () => {
       startedPromise = view.result.current.start(START_ARGS);
     });
@@ -193,9 +216,9 @@ describe('useWalletFundedBankTransfer', () => {
       view.result.current.declineConsent();
     });
 
-    // Declining must fall back to the legacy path: start() resolves false and
-    // the prompt is dismissed.
-    await expect(startedPromise).resolves.toBe(false);
+    // Declining is a definite decline: start() resolves `fallback` so the
+    // caller runs the legacy path, and the prompt is dismissed.
+    await expect(startedPromise).resolves.toBe('fallback');
     expect(view.result.current.consentRequested).toBe(false);
   });
 

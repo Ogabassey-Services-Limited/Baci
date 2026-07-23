@@ -20,6 +20,18 @@ export interface WalletFundedOrderPaidPayload {
   trackingToken?: string;
 }
 
+/**
+ * - `started`   — the wallet-funded transfer session is live; the modal is up.
+ * - `fallback`  — a definite decline; the caller runs the legacy order-DVA path.
+ * - `uncertain` — the create-intent POST outcome was indeterminate; the caller
+ *   MUST NOT run the legacy path (double-charge risk) and instead prompts the
+ *   customer to check their wallet / retry.
+ */
+export type WalletFundedTransferStartOutcome =
+  | 'started'
+  | 'fallback'
+  | 'uncertain';
+
 interface StartArgs {
   checkoutFingerprint: string;
   merchantId: string;
@@ -33,8 +45,11 @@ interface StartArgs {
  * (with the consent round-trip), keep it polled, and hand the caller a single
  * boolean so the legacy order-DVA path stays the fallback.
  *
- * `start()` resolves FALSE for every declined/failed outcome — the caller must
- * then run the untouched order-DVA path. It never throws.
+ * `start()` resolves a three-way outcome (`started` / `fallback` / `uncertain`):
+ * only `fallback` may run the untouched legacy order-DVA path. `uncertain` means
+ * the create-intent POST may have committed server-side, so the caller must
+ * surface a check-your-wallet/retry state rather than opening a second funding
+ * path. It never throws.
  */
 export function useWalletFundedBankTransfer({
   merchantId,
@@ -84,7 +99,7 @@ export function useWalletFundedBankTransfer({
     merchantSlug: startMerchantSlug,
     orderId,
     trackingToken,
-  }: StartArgs): Promise<boolean> => {
+  }: StartArgs): Promise<WalletFundedTransferStartOutcome> => {
     const result = await startWalletFundedBankTransfer({
       merchantId: startMerchantId,
       merchantSlug: startMerchantSlug,
@@ -97,7 +112,10 @@ export function useWalletFundedBankTransfer({
     });
 
     if (result.kind === 'fallback') {
-      return false;
+      return 'fallback';
+    }
+    if (result.kind === 'uncertain') {
+      return 'uncertain';
     }
 
     setSession({
@@ -107,7 +125,7 @@ export function useWalletFundedBankTransfer({
       orderId,
       trackingToken,
     });
-    return true;
+    return 'started';
   };
 
   return {
