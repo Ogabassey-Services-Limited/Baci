@@ -179,3 +179,19 @@ describe('mobile-admin Supabase auth config', () => {
     );
   });
 });
+
+describe('mobile-admin App Tracking Transparency config', () => {
+  // Regression: App Store review rejected the app under Guideline 5.1.2(i)
+  // because the ATT prompt never appeared. Without this Info.plist key iOS
+  // auto-denies requestTrackingPermissionsAsync WITHOUT showing the dialog,
+  // silently recreating the rejection.
+  it('keeps a non-empty NSUserTrackingUsageDescription in the iOS infoPlist', async () => {
+    const { default: buildConfig } = await import('./app.config');
+    const config = buildConfig(TEST_CONFIG_CONTEXT);
+
+    const usageDescription =
+      config.ios?.infoPlist?.NSUserTrackingUsageDescription;
+    expect(typeof usageDescription).toBe('string');
+    expect((usageDescription as string).trim().length).toBeGreaterThan(0);
+  });
+});

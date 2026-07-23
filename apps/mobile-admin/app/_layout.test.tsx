@@ -8,7 +8,10 @@ const mocks = vi.hoisted(() => ({
   isRuntimePlatform: vi.fn(() => false),
   navigationBarSetStyle: vi.fn(),
   splashHideAsync: vi.fn(),
-  useFonts: vi.fn(() => [true, null] as const),
+  useAppTrackingTransparency: vi.fn(() => ({
+    isTrackingAuthorizationSettled: true,
+  })),
+  useFonts: vi.fn<() => readonly [boolean, Error | null]>(() => [true, null]),
   useRevenueCat: vi.fn(),
 }));
 
@@ -106,6 +109,10 @@ vi.mock('@/context/OnboardingContext', async () => {
   };
 });
 
+vi.mock('@/hooks/useAppTrackingTransparency', () => ({
+  useAppTrackingTransparency: mocks.useAppTrackingTransparency,
+}));
+
 vi.mock('@/hooks/useRevenueCat', () => ({
   useRevenueCat: mocks.useRevenueCat,
 }));
@@ -145,6 +152,40 @@ describe('mobile-admin RootLayout', () => {
     await waitFor(() => {
       expect(mocks.initAdminAnalytics).toHaveBeenCalledTimes(1);
       expect(mocks.initializeAuthStore).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // Regression: App Store review rejected the admin app because the native
+  // ATT prompt never appeared — RootLayout must drive the request.
+  it('enables the ATT prompt once fonts are loaded and the first frame renders', () => {
+    mocks.useFonts
+      .mockReturnValueOnce([false, null])
+      .mockReturnValue([true, null]);
+    const { rerender } = render(<RootLayout />);
+    expect(mocks.useAppTrackingTransparency).toHaveBeenCalledWith({
+      enabled: false,
+    });
+    expect(mocks.useAppTrackingTransparency).not.toHaveBeenCalledWith({
+      enabled: true,
+    });
+
+    rerender(<RootLayout />);
+
+    expect(mocks.useAppTrackingTransparency).toHaveBeenCalledWith({
+      enabled: true,
+    });
+  });
+
+  it('does not enable the ATT prompt before the first frame is ready', () => {
+    mocks.useFonts.mockReturnValue([false, null]);
+
+    render(<RootLayout />);
+
+    expect(mocks.useAppTrackingTransparency).toHaveBeenCalledWith({
+      enabled: false,
+    });
+    expect(mocks.useAppTrackingTransparency).not.toHaveBeenCalledWith({
+      enabled: true,
     });
   });
 });

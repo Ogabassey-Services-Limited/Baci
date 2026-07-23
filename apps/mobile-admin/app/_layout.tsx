@@ -24,6 +24,7 @@ import { isRuntimePlatform } from '@/config/runtime-platform';
 import { DARK_COLORS, LIGHT_COLORS } from '@/constants/theme';
 import { NetworkProvider } from '@/context/NetworkContext';
 import { OnboardingProvider } from '@/context/OnboardingContext';
+import { useAppTrackingTransparency } from '@/hooks/useAppTrackingTransparency';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { QueryProvider } from '@/lib/QueryProvider';
 import { initAdminAnalytics } from '@/services/analytics-core';
@@ -88,6 +89,11 @@ export default function RootLayout() {
     Inter_700Bold,
     Inter_800ExtraBold,
   });
+
+  // App Store review requires the native ATT prompt on first launch: the app
+  // declares IDFA use (TikTok Business SDK auto-initializes natively), so the
+  // request must fire as soon as the first frame is visible and active.
+  useAppTrackingTransparency({ enabled: loaded });
 
   useEffect(() => {
     if (error) throw error;
