@@ -1,90 +1,9 @@
-import type {
-  FrozenReplaySource,
-  ProductionReplayMapping,
-  SupabaseHistoryReplayManifest,
-} from './supabase-history-replay-types';
-
-const migration = (filename: string) => `supabase/migrations/${filename}`;
-function parseFrozenSources(rows: string): FrozenReplaySource[] {
-  return rows
-    .trim()
-    .split('\n')
-    .map((row) => {
-      const separator = row.indexOf(' ');
-      if (separator < 1 || separator === row.length - 1) {
-        throw new Error('Invalid frozen replay source row');
-      }
-      return {
-        repositoryPath: migration(row.slice(separator + 1)),
-        sha256: row.slice(0, separator),
-      };
-    });
-}
-
-const mappingRules = {
-  'append-only-repair': true,
-  canonical: true,
-  'superseded-final-state': true,
-} satisfies Record<ProductionReplayMapping['rule'], true>;
-
-const productionNames: Record<string, string> = {
-  '20260623190041': 'enable_realtime_negotiation_requests',
-  '20260624211416': 'merchant_email_domains',
-  '20260625173604': 'public_read_storefront_feature_settings',
-  '20260626131520': 'fix_search_products_condition_filter',
-  '20260629154903': 'add_order_fulfillment_timestamps',
-  '20260630123511': 'fix_mobile_admin_product_phantom_columns',
-  '20260701080400': 'order_item_unit_costs_supplier_analytics',
-  '20260701123945': 'supplier_purchase_analytics_branch_scope',
-  '20260706202930': 'add_storefront_preflight_rpcs',
-  '20260706210329': 'allow_page_config_history_insert',
-  '20260707064146': 'add_blog_listing_preflight_rpc',
-  '20260708072653': 'create_domain_purchase_transaction_rpc',
-  '20260708072825': 'fix_domain_purchase_rpc_merchant_derivation',
-  '20260708075932': 'lock_domain_purchase_rpc_service_role',
-  '20260708102643': 'optimize_storefront_cached_merchant_and_variant_wrappers',
-  '20260708220832': 'drop_authenticated_domain_purchase_rpc',
-  '20260713200830': 'split_platform_blog_anon_read_policy',
-};
-
-function isMappingRule(
-  value: string
-): value is ProductionReplayMapping['rule'] {
-  return value in mappingRules;
-}
-
-function parseProductionMappings(rows: string): ProductionReplayMapping[] {
-  return rows
-    .trim()
-    .split('\n')
-    .map((row) => {
-      const [productionVersion, filename, sha256, rule, ...extra] =
-        row.split('\t');
-      const filenameMatch = filename?.match(/^(\d{14})_([a-z0-9_]+)\.sql$/);
-      const linkedName = productionNames[productionVersion ?? ''];
-      if (
-        !productionVersion ||
-        !linkedName ||
-        !filename ||
-        !filenameMatch ||
-        !sha256 ||
-        !rule ||
-        extra.length > 0 ||
-        !isMappingRule(rule)
-      ) {
-        throw new Error('Invalid production replay mapping row');
-      }
-      return {
-        appliedName: filenameMatch[2] as string,
-        appliedVersion: filenameMatch[1] as string,
-        linkedName,
-        productionVersion,
-        repositoryPath: migration(filename),
-        rule,
-        sha256,
-      };
-    });
-}
+import {
+  migration,
+  parseFrozenSources,
+  parseProductionMappings,
+} from './supabase-history-replay-parsers';
+import type { SupabaseHistoryReplayManifest } from './supabase-history-replay-types';
 
 const PIPELINE_SOURCES = `4f31649ba4c9c3d6b5eb4110dbb0d144237502642d61c0606e15a9b1ba39556b 20260712150001_domain_event_pipeline_tables.sql
 3a3018fcd2e0daea0dec918d953e1dadf314ea1f88698e336a72a97da8ddcd1c 20260712150050_eventing_internal_schema.sql
@@ -131,7 +50,8 @@ b36447107978f1612b0f158bbd3331f635bf8bd940ec0ff01545ecba765a753b 20260721093206_
 1fa573e186b486ade1ae4bc628969a74c37ee01f850cf7ab4d60ac3a40fad8a8 20260721140100_forward_harden_cancellation_side_effects.sql
 3fdc876b7699184efe079f9d9412301eac3b893aefc193868baef6e9bb448d76 20260722150000_s1_merchants_authenticated_containment.sql
 36b7e8bb66b30691e633e312c8dbfea3bfee10a945007a59f0bfb8f5599991fe 20260723150000_merchant_payment_secret_rpcs.sql
-28db4728fe8661bcd8083fa9bbd93b63a04c279c657b7f228d0c39cfca685e0a 20260723160000_admin_merchant_profiles_rpc.sql`;
+28db4728fe8661bcd8083fa9bbd93b63a04c279c657b7f228d0c39cfca685e0a 20260723160000_admin_merchant_profiles_rpc.sql
+412b64378281caf15239894a650e2b1bc0ed8500e5aa956ac9a583a5ee60f7fb 20260723210000_scope_subaccount_rpc_staff_permission.sql`;
 const PRODUCTION_MAPPINGS = `20260623190041\t20260623190000_enable_realtime_negotiation_requests.sql\tbc2165173828d7a5c667e5a7415fb37b9ba7762aad2e12268b70eab6dcc94526\tcanonical
 20260624211416\t20260624200000_merchant_email_domains.sql\t120e16cb8768fdec2e36ce041dc5049e299594d271e1f900a4abd0ac3c775ad6\tcanonical
 20260625173604\t20260714010000_scope_feature_settings_read_policies.sql\t31091717a01f66c683c87e77a2f62245732df023b6dd61055855cf7ff78cff9f\tsuperseded-final-state
