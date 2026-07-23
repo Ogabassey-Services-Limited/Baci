@@ -17,12 +17,14 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AnalyticsNoticeScreen } from '@/components/analytics/AnalyticsNoticeScreen';
 import { FeatureGateScreen } from '@/components/billing/FeatureGateScreen';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
+import { fetchAnalyticsConfigContext } from '@/lib/analytics-config-context';
 import {
   type AnalyticsState,
   analyticsStatesEqual,
@@ -228,27 +230,14 @@ export default function AnalyticsConfigScreen() {
   // enabled until the merchant edits the form, so cached query data can be
   // replaced by fresher server data before the buffer becomes dirty. Once dirty,
   // refetches stop repainting the editable buffer.
-  const { data: trackingConfig, isLoading } = useQuery({
+  const {
+    data: trackingConfig,
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: ['merchant-analytics-full', user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('merchants')
-        .select(`
-          google_analytics_id,
-          ga4_api_secret,
-          facebook_pixel_id,
-          facebook_capi_token,
-          tiktok_pixel_id,
-          tiktok_access_token,
-          snapchat_pixel_id,
-          snapchat_capi_token,
-          offline_conversions_enabled
-        `)
-        .eq('user_id', user?.id)
-        .single();
-      if (error) throw error;
-      return data;
-    },
+    queryFn: fetchAnalyticsConfigContext,
     enabled: Boolean(user?.id && hasGrowthIntegrations),
     staleTime: 1000 * 60 * 5, // 5 minutes
     refetchOnWindowFocus: shouldBackgroundRefetch,
@@ -259,8 +248,12 @@ export default function AnalyticsConfigScreen() {
   // edits the form. This lets cached data be replaced by a fresher refetch while
   // the form is clean, but prevents background refetches from clobbering typed
   // edits once dirty.
+  // Staff get redacted tokens from the context RPC and the owner-filtered
+  // save UPDATE would match zero rows for them, so only owners may edit.
+  const canManageAnalytics = trackingConfig?.isOwner === true;
+
   if (trackingConfig && !isDirty) {
-    const seeded = toAnalyticsState(trackingConfig);
+    const seeded = toAnalyticsState(trackingConfig.analytics);
     if (!analyticsStatesEqual(seededSnapshot, seeded)) {
       setSeededSnapshot(seeded);
       analyticsRef.current = seeded;
@@ -276,6 +269,12 @@ export default function AnalyticsConfigScreen() {
       if (!seededSnapshot) {
         throw new Error(
           'Analytics settings are still loading. Please try again.'
+        );
+      }
+
+      if (!canManageAnalytics) {
+        throw new Error(
+          'Only the store owner can manage analytics credentials.'
         );
       }
 
@@ -301,10 +300,10 @@ export default function AnalyticsConfigScreen() {
       );
       setSeededSnapshot(savedAnalytics);
       setIsDirty(hasPendingEdits);
-      queryClient.setQueryData(
-        ['merchant-analytics-full', user?.id],
-        savedAnalytics
-      );
+      queryClient.setQueryData(['merchant-analytics-full', user?.id], {
+        analytics: savedAnalytics,
+        isOwner: true,
+      });
       queryClient.invalidateQueries({ queryKey: ['merchant'] });
       queryClient.invalidateQueries({ queryKey: ['merchant-analytics-full'] });
       queryClient.invalidateQueries({ queryKey: ['store-readiness'] });
@@ -347,6 +346,33 @@ export default function AnalyticsConfigScreen() {
     );
   }
 
+  // A failed context load leaves trackingConfig undefined, which the owner
+  // gate below would read as "not the owner" and silently strip Save from a
+  // legitimate owner. Surface the failure with a retry instead.
+  if (isError && !trackingConfig) {
+    return (
+      <AnalyticsNoticeScreen
+        icon="cloud-offline-outline"
+        title="Couldn't load analytics settings"
+        message="Check your connection and try again."
+        action={{ label: 'Retry', onPress: () => refetch() }}
+      />
+    );
+  }
+
+  // Staff receive redacted tokens from the context RPC and the owner-filtered
+  // save UPDATE would match zero rows for them, so the editable form (and its
+  // false success path) is owner-only.
+  if (trackingConfig && !canManageAnalytics) {
+    return (
+      <AnalyticsNoticeScreen
+        icon="lock-closed-outline"
+        title="Owner-only settings"
+        message="Analytics credentials can only be viewed and managed by the store owner."
+      />
+    );
+  }
+
   // Check if platforms are configured
   const isFacebookConfigured = !!(
     analytics.facebook_pixel_id && analytics.facebook_capi_token
@@ -366,23 +392,26 @@ export default function AnalyticsConfigScreen() {
       <Stack.Screen
         options={{
           title: 'Analytics & Tracking',
-          headerRight: hasGrowthIntegrations
-            ? () => (
-                <Pressable
-                  onPress={handleSave}
-                  disabled={saveMutation.isPending}
-                  style={styles.saveButton}
-                >
-                  {saveMutation.isPending ? (
-                    <ActivityIndicator size="small" color={colors.primary} />
-                  ) : (
-                    <Text style={[styles.saveText, { color: colors.primary }]}>
-                      Save
-                    </Text>
-                  )}
-                </Pressable>
-              )
-            : undefined,
+          headerRight:
+            hasGrowthIntegrations && canManageAnalytics
+              ? () => (
+                  <Pressable
+                    onPress={handleSave}
+                    disabled={saveMutation.isPending}
+                    style={styles.saveButton}
+                  >
+                    {saveMutation.isPending ? (
+                      <ActivityIndicator size="small" color={colors.primary} />
+                    ) : (
+                      <Text
+                        style={[styles.saveText, { color: colors.primary }]}
+                      >
+                        Save
+                      </Text>
+                    )}
+                  </Pressable>
+                )
+              : undefined,
           headerStyle: { backgroundColor: colors.background },
           headerShadowVisible: false,
           headerTintColor: colors.text,
