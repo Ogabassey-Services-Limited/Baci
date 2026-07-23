@@ -17,6 +17,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AnalyticsNoticeScreen } from '@/components/analytics/AnalyticsNoticeScreen';
 import { FeatureGateScreen } from '@/components/billing/FeatureGateScreen';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
@@ -350,49 +351,12 @@ export default function AnalyticsConfigScreen() {
   // legitimate owner. Surface the failure with a retry instead.
   if (isError && !trackingConfig) {
     return (
-      <>
-        <Stack.Screen
-          options={{
-            title: 'Analytics & Tracking',
-            headerStyle: { backgroundColor: colors.background },
-            headerShadowVisible: false,
-            headerTintColor: colors.text,
-          }}
-        />
-        <SafeAreaView
-          style={[styles.container, { backgroundColor: colors.background }]}
-          edges={['bottom']}
-        >
-          <View
-            style={[
-              styles.infoBanner,
-              { backgroundColor: `${colors.primary}10` },
-            ]}
-          >
-            <Ionicons
-              name="cloud-offline-outline"
-              size={24}
-              color={colors.primary}
-            />
-            <View style={styles.infoContent}>
-              <Text style={[styles.infoTitle, { color: colors.text }]}>
-                Couldn't load analytics settings
-              </Text>
-              <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-                Check your connection and try again.
-              </Text>
-            </View>
-          </View>
-          <Pressable
-            style={[styles.retryButton, { borderColor: colors.primary }]}
-            onPress={() => refetch()}
-          >
-            <Text style={[styles.retryText, { color: colors.primary }]}>
-              Retry
-            </Text>
-          </Pressable>
-        </SafeAreaView>
-      </>
+      <AnalyticsNoticeScreen
+        icon="cloud-offline-outline"
+        title="Couldn't load analytics settings"
+        message="Check your connection and try again."
+        action={{ label: 'Retry', onPress: () => refetch() }}
+      />
     );
   }
 
@@ -401,42 +365,11 @@ export default function AnalyticsConfigScreen() {
   // false success path) is owner-only.
   if (trackingConfig && !canManageAnalytics) {
     return (
-      <>
-        <Stack.Screen
-          options={{
-            title: 'Analytics & Tracking',
-            headerStyle: { backgroundColor: colors.background },
-            headerShadowVisible: false,
-            headerTintColor: colors.text,
-          }}
-        />
-        <SafeAreaView
-          style={[styles.container, { backgroundColor: colors.background }]}
-          edges={['bottom']}
-        >
-          <View
-            style={[
-              styles.infoBanner,
-              { backgroundColor: `${colors.primary}10` },
-            ]}
-          >
-            <Ionicons
-              name="lock-closed-outline"
-              size={24}
-              color={colors.primary}
-            />
-            <View style={styles.infoContent}>
-              <Text style={[styles.infoTitle, { color: colors.text }]}>
-                Owner-only settings
-              </Text>
-              <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-                Analytics credentials can only be viewed and managed by the
-                store owner.
-              </Text>
-            </View>
-          </View>
-        </SafeAreaView>
-      </>
+      <AnalyticsNoticeScreen
+        icon="lock-closed-outline"
+        title="Owner-only settings"
+        message="Analytics credentials can only be viewed and managed by the store owner."
+      />
     );
   }
 
@@ -747,18 +680,6 @@ const styles = StyleSheet.create({
   scrollContent: { padding: SPACING.lg },
   saveButton: {},
   saveText: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-  },
-  retryButton: {
-    alignSelf: 'center',
-    borderWidth: 1,
-    borderRadius: RADIUS.md,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.sm,
-    marginTop: SPACING.md,
-  },
-  retryText: {
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
