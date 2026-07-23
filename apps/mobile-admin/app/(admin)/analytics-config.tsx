@@ -229,7 +229,12 @@ export default function AnalyticsConfigScreen() {
   // enabled until the merchant edits the form, so cached query data can be
   // replaced by fresher server data before the buffer becomes dirty. Once dirty,
   // refetches stop repainting the editable buffer.
-  const { data: trackingConfig, isLoading } = useQuery({
+  const {
+    data: trackingConfig,
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: ['merchant-analytics-full', user?.id],
     queryFn: fetchAnalyticsConfigContext,
     enabled: Boolean(user?.id && hasGrowthIntegrations),
@@ -337,6 +342,57 @@ export default function AnalyticsConfigScreen() {
       >
         <ScreenSkeleton variant="card-list" cards={4} />
       </SafeAreaView>
+    );
+  }
+
+  // A failed context load leaves trackingConfig undefined, which the owner
+  // gate below would read as "not the owner" and silently strip Save from a
+  // legitimate owner. Surface the failure with a retry instead.
+  if (isError && !trackingConfig) {
+    return (
+      <>
+        <Stack.Screen
+          options={{
+            title: 'Analytics & Tracking',
+            headerStyle: { backgroundColor: colors.background },
+            headerShadowVisible: false,
+            headerTintColor: colors.text,
+          }}
+        />
+        <SafeAreaView
+          style={[styles.container, { backgroundColor: colors.background }]}
+          edges={['bottom']}
+        >
+          <View
+            style={[
+              styles.infoBanner,
+              { backgroundColor: `${colors.primary}10` },
+            ]}
+          >
+            <Ionicons
+              name="cloud-offline-outline"
+              size={24}
+              color={colors.primary}
+            />
+            <View style={styles.infoContent}>
+              <Text style={[styles.infoTitle, { color: colors.text }]}>
+                Couldn't load analytics settings
+              </Text>
+              <Text style={[styles.infoText, { color: colors.textSecondary }]}>
+                Check your connection and try again.
+              </Text>
+            </View>
+          </View>
+          <Pressable
+            style={[styles.retryButton, { borderColor: colors.primary }]}
+            onPress={() => refetch()}
+          >
+            <Text style={[styles.retryText, { color: colors.primary }]}>
+              Retry
+            </Text>
+          </Pressable>
+        </SafeAreaView>
+      </>
     );
   }
 
@@ -691,6 +747,18 @@ const styles = StyleSheet.create({
   scrollContent: { padding: SPACING.lg },
   saveButton: {},
   saveText: {
+    fontSize: TYPOGRAPHY.size.md,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+  },
+  retryButton: {
+    alignSelf: 'center',
+    borderWidth: 1,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
+    marginTop: SPACING.md,
+  },
+  retryText: {
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },

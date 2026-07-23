@@ -322,23 +322,30 @@ describe('AnalyticsConfigScreen — theme token regression (#1636)', () => {
     expect(options.enabled).toBe(false);
   });
 
-  it('falls back to default unconfigured state when analytics data is missing after a query error', () => {
+  it('renders an error state with a working retry action when the credentials query fails', () => {
+    // Arrange: the context query fails, so ownership is unknown — the screen
+    // must not fall through to the owner gate (which would strip Save from a
+    // legitimate owner with no explanation).
+    const refetch = vi.fn();
     queryMocks.useQuery.mockReturnValueOnce({
       data: null,
       isError: true,
       isLoading: false,
+      refetch,
     });
 
+    // Act
     render(<AnalyticsConfigScreen />);
 
-    expect(screen.getByTestId('icon-logo-tiktok')).toHaveAttribute(
-      'data-color',
-      THEME_TEXT
-    );
-    expect(screen.getByTestId('offline-conversions-toggle-knob')).toHaveStyle({
-      backgroundColor: THEME_TEXT_ON_PRIMARY,
-    });
-    expect(screen.getAllByText('Not configured')).toHaveLength(4);
+    // Assert: explicit error state, no editable form, retry wired to refetch.
+    expect(
+      screen.getByText("Couldn't load analytics settings")
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('Meta (Facebook/Instagram)')
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText('Retry').closest('button') as Element);
+    expect(refetch).toHaveBeenCalled();
   });
 
   it('blocks saving before analytics data has successfully seeded', async () => {
@@ -470,36 +477,20 @@ describe('AnalyticsConfigScreen — background refetch must not clobber edits (V
     expect(supabaseMocks.update).not.toHaveBeenCalled();
   });
 
-  it('keeps reconnect and focus refetching enabled after a query error even once the user types, so recovery can seed the buffer', () => {
-    // Initial query errors: no data, so the buffer never seeds.
+  it('keeps reconnect and focus refetching enabled while the query is errored and unseeded', () => {
+    // Initial query errors: no data, so the buffer never seeds. The error
+    // state replaces the form, and background recovery must stay enabled so a
+    // reconnect refetch (or the Retry button) can seed the snapshot.
     queryMocks.useQuery.mockReturnValue({
       data: null,
       isError: true,
       isLoading: false,
+      refetch: vi.fn(),
     });
 
-    const { rerender } = render(<AnalyticsConfigScreen />);
+    render(<AnalyticsConfigScreen />);
 
-    let options = queryMocks.useQuery.mock.calls.at(-1)?.[0] as {
-      refetchOnWindowFocus?: boolean;
-      refetchOnReconnect?: boolean;
-    };
-    expect(options.refetchOnWindowFocus).toBe(true);
-    expect(options.refetchOnReconnect).toBe(true);
-
-    // The user types before reconnect succeeds: the buffer becomes dirty while
-    // it is still unseeded (seededSnapshot === null).
-    fireEvent.click(
-      screen.getByText('Meta (Facebook/Instagram)').closest('button') as Element
-    );
-    fireEvent.change(screen.getByPlaceholderText('1234567890123456'), {
-      target: { value: 'EDITED-BEFORE-RECONNECT' },
-    });
-    rerender(<AnalyticsConfigScreen />);
-
-    // Recovery must stay enabled until the first successful seed, otherwise a
-    // reconnect refetch can never seed the snapshot and Save throws forever.
-    options = queryMocks.useQuery.mock.calls.at(-1)?.[0] as {
+    const options = queryMocks.useQuery.mock.calls.at(-1)?.[0] as {
       refetchOnWindowFocus?: boolean;
       refetchOnReconnect?: boolean;
     };
