@@ -29,6 +29,13 @@ const WEB_CRON_CONFIG = new Map([
     '/api/cron/reconcile-vtu-processing',
     { method: 'GET', timeoutMs: 6 * 60_000 },
   ],
+  [
+    // 6-min client timeout gives headroom over the route's 300s maxDuration
+    // so near-deadline runs are not aborted before response overhead lands
+    // (mirrors reconcile-vtu-processing).
+    '/api/cron/reconcile-gateway-paid-orders',
+    { method: 'GET', timeoutMs: 6 * 60_000 },
+  ],
   ['/api/cron/sync-petrock-catalog', { method: 'GET', timeoutMs: 5 * 60_000 }],
   ['/api/cron/petrock-reconcile', { method: 'GET', timeoutMs: 5 * 60_000 }],
   [
