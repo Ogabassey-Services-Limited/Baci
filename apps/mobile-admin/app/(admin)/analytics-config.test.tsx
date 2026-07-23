@@ -25,10 +25,24 @@ const accessMocks = vi.hoisted(() => ({
 // Captures the Supabase `.update()` payload so tests can assert exactly which
 // analytics fields were written (drift vector V3: a save must not rewrite
 // unchanged fields, and a background refetch must not clobber typed edits).
-const supabaseMocks = vi.hoisted(() => ({
-  update: vi.fn(() => ({ eq: () => ({ error: null }) })),
-  selectSingle: vi.fn(async () => ({ data: null, error: null })),
-}));
+// `rpc` and `from` are separate spies so a test can prove the READ goes through
+// the owner-scoped `get_user_merchant_context` RPC and never the raw
+// `merchants` table (which 42501s under the S1 authenticated-role containment).
+const supabaseMocks = vi.hoisted(() => {
+  const update = vi.fn(() => ({ eq: () => ({ error: null }) }));
+  const selectSingle = vi.fn(async () => ({ data: null, error: null }));
+  const from = vi.fn(() => ({
+    select: () => ({ eq: () => ({ single: selectSingle }) }),
+    update,
+  }));
+  const rpc = vi.fn(
+    async (): Promise<{
+      data: { merchant: Record<string, unknown> | null } | null;
+      error: unknown;
+    }> => ({ data: { merchant: null }, error: null })
+  );
+  return { from, update, selectSingle, rpc };
+});
 
 // Drives the real mutationFn: useMutation captures the options and `mutate`
 // invokes the mutationFn so the per-field dirty diff actually runs.
@@ -198,12 +212,8 @@ vi.mock('@/hooks/useRevenueCat', () => ({
 
 vi.mock('@/lib/supabase', () => ({
   supabase: {
-    from: () => ({
-      select: () => ({
-        eq: () => ({ single: supabaseMocks.selectSingle }),
-      }),
-      update: supabaseMocks.update,
-    }),
+    from: supabaseMocks.from,
+    rpc: supabaseMocks.rpc,
   },
 }));
 
@@ -241,6 +251,10 @@ describe('AnalyticsConfigScreen — theme token regression (#1636)', () => {
       data: null,
       error: null,
     }));
+    supabaseMocks.rpc.mockImplementation(async () => ({
+      data: { merchant: null },
+      error: null,
+    }));
     mutationMocks.state.options = null;
     accessMocks.useMerchant.mockReturnValue({
       isLoading: false,
@@ -252,6 +266,49 @@ describe('AnalyticsConfigScreen — theme token regression (#1636)', () => {
       isError: false,
       isLoading: false,
     });
+  });
+
+  // Regression for the S1 authenticated-role containment: the token columns
+  // (ga4_api_secret, facebook/tiktok/snapchat CAPI tokens) were REVOKED for the
+  // `authenticated` role, so the old `.from('merchants').select(<tokens>)` read
+  // 42501'd in prod and the screen never seeded. The read must go through the
+  // owner-scoped SECURITY DEFINER `get_user_merchant_context` RPC instead.
+  it('reads analytics credentials through the get_user_merchant_context RPC, never the raw merchants table', async () => {
+    supabaseMocks.rpc.mockResolvedValueOnce({
+      data: {
+        merchant: {
+          ...merchantAnalytics,
+          ga4_api_secret: 'GA4-SECRET',
+          // A non-analytics owner secret the RPC also returns must be stripped
+          // so it never enters this screen's query cache.
+          bvn: '12345678901',
+        },
+      },
+      error: null,
+    });
+
+    render(<AnalyticsConfigScreen />);
+    const options = queryMocks.useQuery.mock.calls.at(-1)?.[0] as {
+      queryFn: () => Promise<Record<string, unknown>>;
+    };
+    const result = await options.queryFn();
+
+    expect(supabaseMocks.rpc).toHaveBeenCalledWith('get_user_merchant_context');
+    expect(supabaseMocks.from).not.toHaveBeenCalled();
+    expect(result.ga4_api_secret).toBe('GA4-SECRET');
+    expect(result).not.toHaveProperty('bvn');
+  });
+
+  it('throws (so query recovery retries) when the RPC returns no merchant context', async () => {
+    supabaseMocks.rpc.mockResolvedValueOnce({ data: null, error: null });
+
+    render(<AnalyticsConfigScreen />);
+    const options = queryMocks.useQuery.mock.calls.at(-1)?.[0] as {
+      queryFn: () => Promise<unknown>;
+    };
+
+    await expect(options.queryFn()).rejects.toThrow('unavailable');
+    expect(supabaseMocks.from).not.toHaveBeenCalled();
   });
 
   it('passes the theme text token to the TikTok PlatformCard icon, not hardcoded black', () => {

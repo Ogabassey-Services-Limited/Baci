@@ -17,6 +17,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { z } from 'zod';
 import { FeatureGateScreen } from '@/components/billing/FeatureGateScreen';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
@@ -43,7 +44,11 @@ const INITIAL_STATE: AnalyticsState = {
   offline_conversions_enabled: true,
 };
 
-function toAnalyticsState(merchant: Partial<AnalyticsState>): AnalyticsState {
+function toAnalyticsState(
+  merchant: {
+    [K in keyof AnalyticsState]?: AnalyticsState[K] | null;
+  }
+): AnalyticsState {
   return {
     google_analytics_id: merchant.google_analytics_id || '',
     ga4_api_secret: merchant.ga4_api_secret || '',
@@ -56,6 +61,27 @@ function toAnalyticsState(merchant: Partial<AnalyticsState>): AnalyticsState {
     offline_conversions_enabled: merchant.offline_conversions_enabled !== false,
   };
 }
+
+// The four CAPI secret tokens (ga4_api_secret, facebook/tiktok/snapchat) are
+// owner-only and are no longer selectable from the authenticated `merchants`
+// table — the S1 containment revoked those columns for the `authenticated`
+// role, so a raw `.from('merchants').select(...)` of them 42501s in prod. Read
+// them through the SECURITY DEFINER `get_user_merchant_context` RPC instead:
+// it is the same owner/staff-scoped boundary `useMerchant` uses, returns the
+// tokens only to the merchant owner (staff receive null), and bypasses the
+// column grant. `.object()` strips every non-analytics field, so the secrets
+// stay confined to this screen rather than the app-wide merchant context.
+const AnalyticsMerchantSchema = z.object({
+  google_analytics_id: z.string().nullish(),
+  ga4_api_secret: z.string().nullish(),
+  facebook_pixel_id: z.string().nullish(),
+  facebook_capi_token: z.string().nullish(),
+  tiktok_pixel_id: z.string().nullish(),
+  tiktok_access_token: z.string().nullish(),
+  snapchat_pixel_id: z.string().nullish(),
+  snapchat_capi_token: z.string().nullish(),
+  offline_conversions_enabled: z.boolean().nullish(),
+});
 
 // Help links for each platform
 const HELP_LINKS = {
@@ -231,23 +257,13 @@ export default function AnalyticsConfigScreen() {
   const { data: trackingConfig, isLoading } = useQuery({
     queryKey: ['merchant-analytics-full', user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('merchants')
-        .select(`
-          google_analytics_id,
-          ga4_api_secret,
-          facebook_pixel_id,
-          facebook_capi_token,
-          tiktok_pixel_id,
-          tiktok_access_token,
-          snapchat_pixel_id,
-          snapchat_capi_token,
-          offline_conversions_enabled
-        `)
-        .eq('user_id', user?.id)
-        .single();
+      const { data, error } = await supabase.rpc('get_user_merchant_context');
       if (error) throw error;
-      return data;
+      const merchant = (data as { merchant?: unknown } | null)?.merchant;
+      if (!merchant) {
+        throw new Error('Analytics settings are unavailable right now.');
+      }
+      return AnalyticsMerchantSchema.parse(merchant);
     },
     enabled: Boolean(user?.id && hasGrowthIntegrations),
     staleTime: 1000 * 60 * 5, // 5 minutes
