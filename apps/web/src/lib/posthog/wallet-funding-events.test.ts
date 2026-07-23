@@ -3,7 +3,7 @@ import type { CustomerWalletPaymentAccountErrorCode } from '@/lib/customer-walle
 import { WALLET_FUNDING_TELEMETRY } from './wallet-funding-events';
 
 describe('WALLET_FUNDING_TELEMETRY', () => {
-  it('exposes the six funnel event names', () => {
+  it('exposes the eight funnel event names', () => {
     expect(WALLET_FUNDING_TELEMETRY.events).toEqual({
       surfaceOpened: 'wallet_funding_surface_opened',
       createAttempted: 'wallet_funding_account_create_attempted',
@@ -11,7 +11,20 @@ describe('WALLET_FUNDING_TELEMETRY', () => {
       createFailed: 'wallet_funding_account_create_failed',
       paymentMethodSelected: 'utility_payment_method_selected',
       transferCredited: 'wallet_funding_transfer_credited',
+      transferCheckStarted: 'wallet_funding_transfer_check_started',
+      transferCheckSettled: 'wallet_funding_transfer_check_settled',
     });
+  });
+
+  it('keeps the client check-loop events distinct from the server credited event', () => {
+    // The server emits `transferCredited` with a deterministic dedupe uuid; the
+    // client loop must never re-fire it or the funnel terminal double-counts.
+    expect(WALLET_FUNDING_TELEMETRY.events.transferCheckSettled).not.toBe(
+      WALLET_FUNDING_TELEMETRY.events.transferCredited
+    );
+    expect(WALLET_FUNDING_TELEMETRY.events.transferCheckStarted).not.toBe(
+      WALLET_FUNDING_TELEMETRY.events.transferCredited
+    );
   });
 
   it('exposes both funding surfaces', () => {

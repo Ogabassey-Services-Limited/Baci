@@ -45,6 +45,13 @@ export interface StorefrontWalletTransaction {
   balance_after: number;
   description: string;
   created_at: string;
+  /**
+   * Ledger source discriminator (`'wallet_topup'` for a bank-transfer/card
+   * top-up). `type` is `'credit'` for cashback and refunds too, so this is the
+   * only field that can prove an inbound transfer landed. Optional: older
+   * cached responses predate the column being exposed.
+   */
+  source_type?: string | null;
 }
 
 export interface StorefrontWalletFundingAccount {
