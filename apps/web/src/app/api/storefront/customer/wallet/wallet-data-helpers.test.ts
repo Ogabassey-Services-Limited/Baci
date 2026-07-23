@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   emptyWalletResponse,
   formatFundingAccount,
+  logOptionalWalletHelperFailure,
   toNumber,
 } from './wallet-data-helpers';
 
@@ -50,5 +51,30 @@ describe('emptyWalletResponse', () => {
       emptyWalletResponse({ requiresFundingAccountConsent: false })
         .requiresFundingAccountConsent
     ).toBe(false);
+  });
+});
+
+describe('logOptionalWalletHelperFailure', () => {
+  it('logs a rejected optional read but ignores a fulfilled one', () => {
+    const error = new Error('timeout');
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    logOptionalWalletHelperFailure('funding account', {
+      reason: error,
+      status: 'rejected',
+    });
+    logOptionalWalletHelperFailure('savings balance', {
+      status: 'fulfilled',
+      value: 1000,
+    });
+
+    expect(consoleError).toHaveBeenCalledTimes(1);
+    expect(consoleError).toHaveBeenCalledWith(
+      'Customer wallet optional fetch failed',
+      { error, label: 'funding account' }
+    );
+    consoleError.mockRestore();
   });
 });

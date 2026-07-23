@@ -213,6 +213,30 @@ describe('UtilityModal funding-detour resume', () => {
       );
     });
 
+    it('clears the persisted draft when the modal is closed without funding', async () => {
+      // Regression: the resume snapshot was only cleared after a SUCCESSFUL
+      // checkout, so abandoning the form — closing the modal without entering
+      // the funding detour — left a stale draft that silently reseeded (and
+      // could be Paid at) a later, unrelated purchase. A deliberate close now
+      // drops it. (Reload / tab-eviction, the real resume path, never closes.)
+      sessionStorage.setItem(
+        UTILITY_PENDING_INTENT_STORAGE_KEY,
+        JSON.stringify(storedIntent)
+      );
+      renderOpenModal();
+      // The draft is present and prefilled before the close.
+      expect(screen.getByTestId('airtime-data-form')).toHaveAttribute(
+        'data-initial-amount',
+        '500'
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /close/i }));
+
+      await waitFor(() => {
+        expect(storedIntentValue()).toBeNull();
+      });
+    });
+
     it('clears the resume snapshot once the purchase completes', async () => {
       sessionStorage.setItem(
         UTILITY_PENDING_INTENT_STORAGE_KEY,

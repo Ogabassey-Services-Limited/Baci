@@ -107,4 +107,42 @@ describe('submitUtilityCheckout', () => {
       message: 'Payment checkout failed (502)',
     });
   });
+
+  it('fails closed on a schema-invalid success response', async () => {
+    // response.ok but the body is not a valid checkout response (amount is not
+    // a number): must error, never treat malformed data as a real checkout.
+    mockFetchWithCsrf.mockResolvedValue(
+      jsonResponse({ amount: 'not-a-number' })
+    );
+
+    const result = await submitUtilityCheckout({
+      ...baseRequest,
+      walletAmount: 0,
+    });
+
+    expect(result).toEqual({
+      kind: 'error',
+      message: 'Payment checkout returned an invalid response',
+    });
+    expect(mockRedirect).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when a card response returns no checkout url', async () => {
+    // Valid shape but neither checkout_url nor authorization_url: the card flow
+    // must error without redirecting anywhere.
+    mockFetchWithCsrf.mockResolvedValue(
+      jsonResponse({ amount: 100, reference: 'REF123', status: 'successful' })
+    );
+
+    const result = await submitUtilityCheckout({
+      ...baseRequest,
+      walletAmount: 0,
+    });
+
+    expect(result).toEqual({
+      kind: 'error',
+      message: 'Payment checkout URL was not returned',
+    });
+    expect(mockRedirect).not.toHaveBeenCalled();
+  });
 });

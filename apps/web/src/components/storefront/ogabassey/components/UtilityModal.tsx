@@ -167,6 +167,14 @@ export const UtilityModal = ({
     setPayWithWallet(method === 'wallet');
   };
 
+  const handleClose = () => {
+    // A deliberate close abandons the draft: drop the persisted resume snapshot
+    // so an abandoned form is not silently restored into a later purchase.
+    // (Reload / tab-eviction — the resume path — never runs this handler.)
+    clearIntent();
+    onClose();
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -175,7 +183,7 @@ export const UtilityModal = ({
         <div className="bg-gray-50 px-6 py-4 flex items-center justify-between border-b border-gray-100">
           <h3 className="font-bold text-lg text-gray-900">Utility Payment</h3>
           <button type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="text-gray-400 hover:text-gray-600 transition-colors"
           >
             <span className="sr-only">Close</span>
@@ -209,7 +217,7 @@ export const UtilityModal = ({
             <UtilitySuccessView
               activeTab={activeTab}
               amount={successAmount}
-              onClose={onClose}
+              onClose={handleClose}
               reference={transactionRef}
             />
           ) : (
