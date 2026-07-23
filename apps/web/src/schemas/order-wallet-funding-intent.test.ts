@@ -3,6 +3,8 @@ import {
   ambiguousReviewSchema,
   orderWalletFundingIntentCreateSchema,
   orderWalletFundingIntentPollSchema,
+  walletOrderFundingIntentCreateResponseSchema,
+  walletOrderFundingIntentPollResponseSchema,
 } from '@/schemas/order-wallet-funding-intent';
 
 const VALID_ORDER_ID = '00000000-0000-4000-8000-000000000101';
@@ -210,5 +212,86 @@ describe('order wallet funding intent schemas', () => {
     ],
   ])('rejects ambiguous review payloads with %s', (_case, payload) => {
     expect(ambiguousReviewSchema.safeParse(payload).success).toBe(false);
+  });
+});
+
+describe('wallet order funding intent RESPONSE schemas', () => {
+  const INTENT = {
+    currency: 'ngn',
+    expectedAmount: 5000,
+    expiresAt: '2026-07-13T10:30:00.000Z',
+    fundedAmount: 0,
+    id: VALID_ORDER_ID,
+    orderId: VALID_MERCHANT_ID,
+    status: 'pending',
+    targetOrderAmount: 5000,
+  };
+
+  it('parses a create response and upper-cases the currency', () => {
+    const parsed = walletOrderFundingIntentCreateResponseSchema.parse({
+      account: {
+        accountName: 'Ada Buyer',
+        accountNumber: '1234567890',
+        bankName: 'Wema Bank',
+        provider: 'paystack',
+      },
+      intent: INTENT,
+    });
+
+    expect(parsed.intent.currency).toBe('NGN');
+    expect(parsed.account.accountNumber).toBe('1234567890');
+  });
+
+  it('parses every status the poll route can return', () => {
+    for (const status of [
+      'pending',
+      'underfunded',
+      'funded',
+      'processing',
+      'completed',
+      'expired',
+      'cancelled',
+      'review_required',
+      'failed',
+    ]) {
+      expect(
+        walletOrderFundingIntentPollResponseSchema.safeParse({
+          intent: { ...INTENT, status },
+        }).success
+      ).toBe(true);
+    }
+  });
+
+  it('carries the poll-only payment fields', () => {
+    const parsed = walletOrderFundingIntentPollResponseSchema.parse({
+      intent: {
+        ...INTENT,
+        debitedAmount: 5000,
+        excessAmount: 0,
+        fundedAmount: 5000,
+        orderPaid: true,
+        remainingAmount: 0,
+        status: 'completed',
+      },
+    });
+
+    expect(parsed.intent.orderPaid).toBe(true);
+    expect(parsed.intent.remainingAmount).toBe(0);
+  });
+
+  it('rejects an unknown status rather than treating it as pending', () => {
+    expect(
+      walletOrderFundingIntentPollResponseSchema.safeParse({
+        intent: { ...INTENT, status: 'settled' },
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects a non-positive expected amount', () => {
+    expect(
+      walletOrderFundingIntentPollResponseSchema.safeParse({
+        intent: { ...INTENT, expectedAmount: 0 },
+      }).success
+    ).toBe(false);
   });
 });

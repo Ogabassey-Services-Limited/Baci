@@ -127,6 +127,11 @@ import {
   resetDeliveryQuotesForAddressChange,
 } from './checkout/utils';
 import { resolveAirportShippingAddress } from './checkout/resolve-airport-shipping-address';
+import { isWalletOrderAutoDebitWebEnabled } from '@/config/wallet-order-auto-debit';
+import { isEligibleForWalletFundedBankTransfer } from './checkout/wallet-funded-transfer-eligibility';
+import { useWalletFundedBankTransfer } from './checkout/hooks/use-wallet-funded-bank-transfer';
+import { WalletFundedTransferModal } from './checkout/components/WalletFundedTransferModal';
+import { WalletTransferConsentDialog } from './checkout/components/WalletTransferConsentDialog';
 
 /**
  * Discriminated union for checkout item rendering. The `kind` tag is set at
@@ -862,6 +867,28 @@ export const CheckoutPage: React.FC = () => {
   const autoTriggerRef = useRef(false);
   // Double-submit protection: prevents race conditions from rapid clicks
   const isOrderInFlightRef = useRef(false);
+
+  // Wallet-funded bank transfer (P4a, dark-launched). Signed-in customers of an
+  // auto-debit-enabled merchant fund the order through their STANDING wallet
+  // account number; the webhook credits the wallet and the order auto-debits.
+  // Everything this declines falls back to the legacy order-DVA path below.
+  const walletFundedTransfer = useWalletFundedBankTransfer({
+    merchantId: merchant?.id,
+    merchantSlug: merchant?.slug ?? undefined,
+    onOrderPaid: ({ checkoutFingerprint, orderId, trackingToken }) => {
+      clearPendingCheckoutOrder();
+      void clearCheckoutIdempotencyKey(checkoutFingerprint);
+      clearCheckoutSession();
+      const successQuery = new URLSearchParams({ orderId, wallet: 'true' });
+      if (trackingToken) {
+        successQuery.set('trackingToken', trackingToken);
+      }
+      router.push(
+        asRoute(getHref(`/order-success?${successQuery.toString()}`))
+      );
+      setTimeout(clearCart, 500);
+    },
+  });
 
   // Chain/currency compatibility
   const cryptoChainSupport: Record<'USDT' | 'USDC', Array<'TRX' | 'ETH' | 'MATIC' | 'AVAXC'>> = {
@@ -2292,6 +2319,34 @@ export const CheckoutPage: React.FC = () => {
       }
 
       if (paymentMethod === 'bank_transfer') {
+        // Wallet-funded transfer FIRST for signed-in customers of an
+        // auto-debit merchant (flag-gated). `start` resolves false for every
+        // decline — guest, merchant flag off, no phone, consent denied, 5xx —
+        // and we then run the untouched legacy order-DVA path.
+        const walletFundedStarted =
+          merchant &&
+          isEligibleForWalletFundedBankTransfer({
+            isAuthenticated: Boolean(user),
+            merchantId: merchant.id,
+            orderCurrency: orderChargeCurrency,
+            paymentAmount,
+            walletOrderAutoDebitWebEnabled: isWalletOrderAutoDebitWebEnabled(),
+          })
+            ? await walletFundedTransfer.start({
+                checkoutFingerprint,
+                merchantId: merchant.id,
+                merchantSlug: merchant.slug ?? undefined,
+                orderId: order.id,
+                trackingToken: order.tracking_token,
+              })
+            : false;
+
+        if (walletFundedStarted) {
+          setIsProcessing(false);
+          isOrderInFlightRef.current = false;
+          return;
+        }
+
         await handleBankTransfer(order, paymentAmount, billingAddress);
         return;
       }
@@ -3071,6 +3126,31 @@ export const CheckoutPage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Wallet-funded bank transfer (P4a): consent, then the customer's own
+          standing wallet account number — money in, wallet credited, order
+          auto-debited. Legacy order-DVA modal below is untouched. */}
+      {walletFundedTransfer.consentRequested && (
+        <WalletTransferConsentDialog
+          merchantName={merchant?.business_name || 'This store'}
+          onAccept={walletFundedTransfer.acceptConsent}
+          onDecline={walletFundedTransfer.declineConsent}
+        />
+      )}
+
+      {walletFundedTransfer.account && walletFundedTransfer.intent && (
+        <WalletFundedTransferModal
+          account={walletFundedTransfer.account}
+          copiedText={copiedText}
+          error={walletFundedTransfer.error}
+          formatCurrency={formatCurrencyAuto}
+          intent={walletFundedTransfer.intent}
+          isChecking={walletFundedTransfer.isChecking}
+          onCheckNow={walletFundedTransfer.checkNow}
+          onClose={walletFundedTransfer.close}
+          onCopy={copyToClipboard}
+        />
       )}
 
       {/* Dedicated Virtual Account (DVA) Modal */}
