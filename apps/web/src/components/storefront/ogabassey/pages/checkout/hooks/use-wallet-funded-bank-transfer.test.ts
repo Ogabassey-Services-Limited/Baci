@@ -168,6 +168,37 @@ describe('useWalletFundedBankTransfer', () => {
     expect(view.result.current.consentRequested).toBe(false);
   });
 
+  it('resolves start() false and clears the prompt when consent is declined', async () => {
+    startMock.mockImplementation(
+      async ({ requestConsent }: { requestConsent: () => Promise<boolean> }) => {
+        const granted = await requestConsent();
+        return granted
+          ? { account: ACCOUNT, intent: INTENT, kind: 'intent' }
+          : { code: 'WALLET_CONSENT_DENIED', kind: 'fallback', message: 'denied' };
+      }
+    );
+
+    const { view } = renderWalletTransfer();
+
+    let startedPromise: Promise<boolean> | undefined;
+    await act(async () => {
+      startedPromise = view.result.current.start(START_ARGS);
+    });
+
+    await waitFor(() => {
+      expect(view.result.current.consentRequested).toBe(true);
+    });
+
+    await act(async () => {
+      view.result.current.declineConsent();
+    });
+
+    // Declining must fall back to the legacy path: start() resolves false and
+    // the prompt is dismissed.
+    await expect(startedPromise).resolves.toBe(false);
+    expect(view.result.current.consentRequested).toBe(false);
+  });
+
   it('closing the modal ends the session', async () => {
     startMock.mockResolvedValue({ account: ACCOUNT, intent: INTENT, kind: 'intent' });
 

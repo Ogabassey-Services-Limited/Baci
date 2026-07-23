@@ -12,6 +12,10 @@ import {
 
 const INTENTS_PATH = '/api/storefront/customer/wallet/order-funding-intents';
 const FUNDING_ACCOUNT_PATH = '/api/storefront/customer/wallet/funding-account';
+// Bounds a single poll: a stalled network must not hang the transfer status
+// check indefinitely. A timeout aborts into the `.catch` below as a transport
+// error, which the polling loop treats as a retryable failed attempt.
+const POLL_REQUEST_TIMEOUT_MS = 15_000;
 
 /**
  * Browser client for the order wallet-funding intent API. Every failure —
@@ -117,7 +121,7 @@ export async function getOrderWalletFundingIntent({
 
   const response = await fetch(
     `${INTENTS_PATH}/${encodeURIComponent(intentId)}?${query.toString()}`,
-    { credentials: 'include' }
+    { credentials: 'include', signal: AbortSignal.timeout(POLL_REQUEST_TIMEOUT_MS) }
   ).catch((error: unknown) =>
     toTransportError(error, 'Failed to check transfer status')
   );
