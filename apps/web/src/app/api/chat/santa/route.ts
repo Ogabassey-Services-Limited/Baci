@@ -1,10 +1,10 @@
 import crypto from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { streamText } from 'ai';
 import { headers } from 'next/headers';
 import z from 'zod';
+import { generateTextWithChain } from '@/ai/generate-text-with-chain';
 import { SANTA_ERROR_MESSAGES } from '@/ai/prompts/santa';
-import { AI_RATE_LIMITS, activeTextModel, checkRateLimit } from '@/ai/provider';
+import { AI_RATE_LIMITS, checkRateLimit } from '@/ai/provider';
 import { getCachedSantaProducts } from '@/ai/santa-data';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -275,31 +275,37 @@ export async function POST(req: Request) {
     // Step 5: Generate prompt with cached product data
     const systemPrompt = await generateSantaPrompt();
 
-    // Stream the response using Gemini 2.5 Flash
-    const result = streamText({
-      model: activeTextModel,
+    // Buffered output replaces streaming so every provider in the chain
+    // (Cerebras -> Groq -> Gemini Flash -> Flash-Lite) can serve the reply,
+    // not just Gemini. Replies are short and Cerebras runs ~1850 tok/s, so
+    // perceived latency drops rather than rises.
+    const { text } = await generateTextWithChain({
       system: systemPrompt,
       messages: sanitizedMessages,
-      onFinish: ({ text }) => {
-        // Log the interaction after response is complete (fire and forget)
-        const wishResult = parseWishResult(text);
-
-        logSantaInteraction({
-          sessionId,
-          clientIp,
-          interactionType: wishResult.type,
-          userMessage: latestUserMessage,
-          santaResponse: text,
-          productName: wishResult.productName,
-          requestedPrice,
-          approvedPrice: wishResult.approvedPrice,
-        }).catch((err) =>
-          console.error('[Santa Analytics] Logging error:', err)
-        );
-      },
+      abortSignal: req.signal,
+      perProviderTimeoutMs: 15_000,
+      // Cap the whole walk so it returns before the 30s maxDuration (4 × 15s
+      // per-provider would blow past it and hand the client an empty 504);
+      // 24s leaves slop for logging + serialization.
+      overallTimeoutMs: 24_000,
     });
 
-    return result.toTextStreamResponse();
+    // Log the interaction after response is complete (fire and forget)
+    const wishResult = parseWishResult(text);
+    logSantaInteraction({
+      sessionId,
+      clientIp,
+      interactionType: wishResult.type,
+      userMessage: latestUserMessage,
+      santaResponse: text,
+      productName: wishResult.productName,
+      requestedPrice,
+      approvedPrice: wishResult.approvedPrice,
+    }).catch((err) => console.error('[Santa Analytics] Logging error:', err));
+
+    return new Response(text, {
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    });
   } catch (error) {
     console.error('[Santa Chat] Error:', error);
     return new Response(

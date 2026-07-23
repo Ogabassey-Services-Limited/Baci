@@ -1,8 +1,7 @@
 'use server';
 
-import { generateObject } from 'ai';
 import z from 'zod';
-import { geminiFlash, withRetry } from '@/ai/provider';
+import { generateObjectWithChain } from '@/ai/generate-object-with-chain';
 import { ensurePermission } from '@/lib/merchant-server';
 import { createClient } from '@/lib/supabase/server';
 
@@ -72,16 +71,24 @@ For each product:
 Products:
 ${productNames.map((name, i) => `${i + 1}. ${name}`).join('\n')}
 
-Return a JSON array matching the product names to their enriched data.
+Respond with ONLY a JSON object of this exact shape:
+{
+  "results": [
+    {
+      "productName": "string (must match one input product name exactly)",
+      "description": "string",
+      "sku": "string",
+      "category": "string",
+      "attributes": { "RAM": "8GB" }
+    }
+  ]
+}
 `;
 
   try {
-    const { object } = await withRetry(async () => {
-      return await generateObject({
-        model: geminiFlash,
-        schema: BatchEnrichmentResponseSchema,
-        prompt,
-      });
+    const { object } = await generateObjectWithChain({
+      schema: BatchEnrichmentResponseSchema,
+      prompt,
     });
 
     return object.results;

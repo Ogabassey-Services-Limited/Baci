@@ -6,18 +6,22 @@ const mocks = vi.hoisted(() => ({
   generateObject: vi.fn(),
   getUser: vi.fn(),
   isMerchantPermissionRedirectError: vi.fn(),
-  withRetry: vi.fn(),
 }));
 
 vi.mock('ai', () => ({
   generateObject: (...args: unknown[]) => mocks.generateObject(...args),
 }));
 
+// generateObjectWithChain builds its default chain via @/ai/text-provider-chain,
+// which reads these exports from @/ai/provider — extend the partial mock with
+// them (real chain/executor modules run unmocked, only their model source is
+// stubbed) rather than stubbing the whole chain layer.
 vi.mock('@/ai/provider', () => ({
-  gemini25FlashImage: 'gemini-image-test-model',
-  geminiFlash: 'gemini-test-model',
+  ACTIVE_TEXT_MODEL_NAME: 'gemini-2.5-flash',
+  FALLBACK_TEXT_MODEL_NAME: 'gemini-2.5-flash-lite',
+  activeTextModel: 'gemini-active-test-model',
+  fallbackTextModel: 'gemini-fallback-test-model',
   sanitizePromptInput: (value: string) => ({ value }),
-  withRetry: (operation: () => Promise<unknown>) => mocks.withRetry(operation),
 }));
 
 vi.mock('@/lib/merchant-server', () => ({
@@ -51,6 +55,11 @@ const existingProducts = [
 describe('product import actions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Force the keyless (Gemini-only, 2-provider) chain so provider-count
+    // assertions below are deterministic regardless of ambient env.
+    vi.stubEnv('CEREBRAS_API_KEY', '');
+    vi.stubEnv('GROQ_API_KEY', '');
+    vi.stubEnv('OPENROUTER_API_KEY', '');
     mocks.getUser.mockResolvedValue({
       data: { user: { id: 'user-1' } },
       error: null,
@@ -60,13 +69,11 @@ describe('product import actions', () => {
       staffAccess: { isOwner: true },
     });
     mocks.isMerchantPermissionRedirectError.mockReturnValue(false);
-    mocks.withRetry.mockImplementation((operation: () => Promise<unknown>) =>
-      operation()
-    );
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 
   it('does not process price lists with AI for unauthenticated callers', async () => {
@@ -205,7 +212,13 @@ describe('product import actions', () => {
   });
 
   it('processes image price lists without duplicating base64 in the text prompt', async () => {
-    const imagePayload = 'data:image/png;base64,THIS_SHOULD_ONLY_BE_IMAGE_DATA';
+    // A real base64 payload (the old literal used underscores, which are not
+    // valid base64 alphabet characters — irrelevant when the string was only
+    // passed through unchanged, but this test now round-trips the decode).
+    const base64Payload = Buffer.from('fake-png-bytes-for-test').toString(
+      'base64'
+    );
+    const imagePayload = `data:image/png;base64,${base64Payload}`;
     mocks.generateObject.mockResolvedValueOnce({
       object: {
         changes: [],
@@ -224,10 +237,16 @@ describe('product import actions', () => {
       changes: [],
       summary: 'Processed image price list',
     });
+    // Success on the first vision-chain provider — no fallthrough needed.
     expect(mocks.generateObject).toHaveBeenCalledOnce();
     const call = mocks.generateObject.mock.calls[0]?.[0] as {
       messages?: Array<{
-        content?: Array<{ type: string; text?: string; image?: string }>;
+        content?: Array<{
+          type: string;
+          text?: string;
+          image?: Uint8Array;
+          mediaType?: string;
+        }>;
       }>;
     };
     const content = call.messages?.[0]?.content ?? [];
@@ -236,7 +255,39 @@ describe('product import actions', () => {
 
     expect(textPart?.text).toContain('Image attachment supplied separately');
     expect(textPart?.text).not.toContain(imagePayload);
-    expect(imagePart?.image).toBe(imagePayload);
+    // The chain requires raw bytes (never the data-URL string or a remote
+    // URL) — confirm the data-URL was decoded, not passed through. (Node's
+    // Buffer is a Uint8Array subclass, but `instanceof Uint8Array` is
+    // unreliable under jsdom's separate realm, so check via Buffer.isBuffer
+    // and a content round-trip instead.)
+    expect(imagePart?.mediaType).toBe('image/png');
+    expect(Buffer.isBuffer(imagePart?.image)).toBe(true);
+    expect(typeof imagePart?.image).not.toBe('string');
+    expect(
+      Buffer.from(imagePart?.image ?? new Uint8Array()).toString('base64')
+    ).toBe(base64Payload);
+  });
+
+  it('degrades to an error summary when every vision provider in the chain fails', async () => {
+    const imagePayload = 'data:image/png;base64,SOME_IMAGE_DATA';
+    mocks.generateObject.mockRejectedValue(new Error('vision quota exceeded'));
+
+    const result = await processPriceList(
+      existingProducts,
+      imagePayload,
+      'Vendor',
+      'image/png'
+    );
+
+    expect(result.changes).toEqual([]);
+    // Generic, client-safe summary — the internal provider/model chain and
+    // upstream error bodies must NOT leak to the client.
+    expect(result.summary).toBe(
+      'Error: AI processing failed. Please try again.'
+    );
+    expect(result.summary).not.toContain('all object providers failed');
+    // Keyless env => 2-provider Gemini-only vision chain; both attempted.
+    expect(mocks.generateObject).toHaveBeenCalledTimes(2);
   });
 
   it('processes price lists with AI after product create authorization', async () => {
@@ -285,6 +336,44 @@ describe('product import actions', () => {
     expect(
       JSON.stringify(mocks.generateObject.mock.calls[0]?.[0])
     ).not.toContain('internal_secret_note');
+  });
+
+  it('falls through to the fallback model before returning an error summary', async () => {
+    mocks.generateObject
+      .mockRejectedValueOnce(new Error('primary quota exceeded'))
+      .mockResolvedValueOnce({
+        object: { changes: [], summary: 'Processed via fallback' },
+      });
+
+    const result = await processPriceList(
+      existingProducts,
+      'Name,Price\nNew Phone,2000',
+      'Vendor',
+      'text/csv'
+    );
+
+    expect(result).toEqual({ changes: [], summary: 'Processed via fallback' });
+    expect(mocks.generateObject).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns a formatted error summary when every AI provider in the chain fails', async () => {
+    mocks.generateObject.mockRejectedValue(new Error('quota exceeded'));
+
+    const result = await processPriceList(
+      existingProducts,
+      'Name,Price\nNew Phone,2000',
+      'Vendor',
+      'text/csv'
+    );
+
+    expect(result.changes).toEqual([]);
+    // Generic, client-safe summary — no provider topology leak.
+    expect(result.summary).toBe(
+      'Error: AI processing failed. Please try again.'
+    );
+    expect(result.summary).not.toContain('all object providers failed');
+    // Keyless env => 2-provider Gemini-only text chain; both attempted.
+    expect(mocks.generateObject).toHaveBeenCalledTimes(2);
   });
 
   it('does not parse CSV for unauthenticated callers', async () => {

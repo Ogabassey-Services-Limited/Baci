@@ -1,3 +1,4 @@
+import { generateTextWithChain } from '@/ai/generate-text-with-chain';
 import {
   getAiChatModel,
   getLlmChatModel,
@@ -17,12 +18,16 @@ import {
 } from './import-parse';
 
 /**
- * Gemma transport orchestration for the repairs paste-import.
+ * AI transport orchestration for the repairs paste-import.
  *
- * Mirrors the quiz generator's transport selection (LLM server preferred, else
- * Ollama) and reuses the shared `requestGemmaCompletion`. Long pastes are
- * chunked (Gemma num_ctx is 2048) and parsed per chunk; failures surface as a
- * clean RepairsImportUnavailableError which the route maps to a 503.
+ * Per chunk, the cloud provider chain (Cerebras -> Groq -> Gemini ->
+ * Gemini-Lite) is tried first to take load off the self-hosted VPS. When the
+ * chain is exhausted (or its completion fails to parse), the legacy
+ * LLM-server/Ollama transport — mirroring the quiz generator's transport
+ * selection (LLM server preferred, else Ollama) — serves as the fallback so
+ * self-host capability is preserved. Long pastes are chunked (Gemma num_ctx
+ * is 2048) and parsed per chunk; failures surface as a clean
+ * RepairsImportUnavailableError which the route maps to a 503.
  */
 
 export class RepairsImportUnavailableError extends Error {
@@ -40,6 +45,17 @@ const IMPORT_CHUNK_CHARS = 900;
 const IMPORT_MAX_TOKENS = 1024;
 const IMPORT_TEMPERATURE = 0.1;
 const IMPORT_TIMEOUT_MS = 100_000;
+// Chunks are small and focused, so cloud attempts stay tight — chunks run
+// sequentially and each already has a generous 100s legacy fallback budget.
+const IMPORT_CHAIN_PROVIDER_TIMEOUT_MS = 12_000;
+// Bound a single chunk's whole cloud walk so 4 providers can't stack to ~48s.
+const IMPORT_CHAIN_BUDGET_MS = 15_000;
+// Aggregate wall-clock budget for the ENTIRE import (all chunks), kept under
+// the route's 120s maxDuration. Without it, sequential chunks each carrying a
+// 100s legacy fallback could run for minutes and blow the route deadline
+// mid-chunk (leaving a silently-truncated catalog). Each chunk's chain and
+// legacy attempts are capped to the time remaining against this deadline.
+const IMPORT_AGGREGATE_BUDGET_MS = 110_000;
 
 const SYSTEM_PROMPT =
   'You extract structured repair price rows from pasted price lists. Return strict JSON shaped as {"rows": [...]} with brand, model, repair_type, and numeric price fields. No markdown.';
@@ -75,6 +91,18 @@ function getRepairsImportTransportConfig(): TransportConfig {
   return { model: getAiChatModel(), ollamaBaseUrl, ollamaBasicAuth };
 }
 
+// The legacy transport is now an optional per-chunk fallback rather than a
+// hard prerequisite — the cloud chain alone can serve every chunk. Resolve it
+// once up front (env-derived, stable across chunks) without throwing, so an
+// unconfigured VPS never blocks a chain-only import.
+function resolveOptionalRepairsImportTransportConfig(): TransportConfig | null {
+  try {
+    return getRepairsImportTransportConfig();
+  } catch {
+    return null;
+  }
+}
+
 function dedupeRows(rows: ParsedRepairRow[]): ParsedRepairRow[] {
   const seen = new Set<string>();
   const result: ParsedRepairRow[] = [];
@@ -94,12 +122,33 @@ function dedupeRows(rows: ParsedRepairRow[]): ParsedRepairRow[] {
   return result;
 }
 
-async function parseChunk(
+async function parseChunkWithChain(
   chunk: string,
-  transport: TransportConfig
+  deadlineMs: number
+): Promise<ParsedRepairRow[]> {
+  const remainingMs = Math.max(0, deadlineMs - Date.now());
+  const chainResult = await generateTextWithChain({
+    system: SYSTEM_PROMPT,
+    prompt: buildRepairImportPrompt(chunk),
+    temperature: IMPORT_TEMPERATURE,
+    maxOutputTokens: IMPORT_MAX_TOKENS,
+    perProviderTimeoutMs: IMPORT_CHAIN_PROVIDER_TIMEOUT_MS,
+    overallTimeoutMs: Math.min(IMPORT_CHAIN_BUDGET_MS, remainingMs),
+  });
+  return parseRepairImportResponse(chainResult.text);
+}
+
+async function parseChunkWithLegacyTransport(
+  chunk: string,
+  transport: TransportConfig,
+  deadlineMs: number
 ): Promise<ParsedRepairRow[]> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), IMPORT_TIMEOUT_MS);
+  const budgetMs = Math.min(
+    IMPORT_TIMEOUT_MS,
+    Math.max(0, deadlineMs - Date.now())
+  );
+  const timeout = setTimeout(() => controller.abort(), budgetMs);
   try {
     const content = await requestGemmaCompletion({
       ...transport,
@@ -117,14 +166,46 @@ async function parseChunk(
   }
 }
 
+// Cloud chain first (per chunk); the legacy transport below is the
+// last-resort fallback, and only when it is actually configured — a
+// chunk-level chain failure with no legacy transport means this chunk (and
+// therefore the whole import) is unavailable.
+async function parseChunk(
+  chunk: string,
+  transport: TransportConfig | null,
+  deadlineMs: number
+): Promise<ParsedRepairRow[]> {
+  try {
+    return await parseChunkWithChain(chunk, deadlineMs);
+  } catch (chainError) {
+    console.warn(
+      '[repairs-import] cloud provider chain failed for a chunk; falling back:',
+      chainError instanceof Error ? chainError.message : String(chainError)
+    );
+  }
+
+  if (!transport) {
+    throw new RepairsImportUnavailableError();
+  }
+
+  return parseChunkWithLegacyTransport(chunk, transport, deadlineMs);
+}
+
 export async function parseRepairPriceList(
   text: string
 ): Promise<ParsedRepairRow[]> {
-  const transport = getRepairsImportTransportConfig();
+  const transport = resolveOptionalRepairsImportTransportConfig();
   const chunks = chunkImportText(text, IMPORT_CHUNK_CHARS);
   const rows: ParsedRepairRow[] = [];
+  const deadlineMs = Date.now() + IMPORT_AGGREGATE_BUDGET_MS;
   for (const chunk of chunks) {
-    rows.push(...(await parseChunk(chunk, transport)));
+    // Fail loudly rather than return a silently-truncated catalog when the
+    // aggregate budget is spent mid-import — the merchant reviews these rows
+    // as if they were the whole list.
+    if (Date.now() >= deadlineMs) {
+      throw new RepairsImportUnavailableError();
+    }
+    rows.push(...(await parseChunk(chunk, transport, deadlineMs)));
   }
   return dedupeRows(rows);
 }
