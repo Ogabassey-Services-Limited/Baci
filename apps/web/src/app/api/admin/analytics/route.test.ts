@@ -134,10 +134,10 @@ describe('/api/admin/analytics route', () => {
     vi.clearAllMocks();
     mockSupabase = createMockSupabase(
       {
-        merchants: [
-          { data: { is_platform_admin: true }, error: null },
-          { data: [], error: null },
-        ],
+        // Only the is_platform_admin gate reads merchants on the authenticated
+        // client now; merchantProfiles comes from the get_admin_merchant_profiles
+        // RPC below.
+        merchants: [{ data: { is_platform_admin: true }, error: null }],
         orders: [
           { data: [], error: null },
           { data: [], error: null },
@@ -146,6 +146,7 @@ describe('/api/admin/analytics route', () => {
       },
       {
         get_admin_merchant_health: { data: [], error: null },
+        get_admin_merchant_profiles: { data: [], error: null },
         get_admin_platform_daily_summary: { data: [], error: null },
         get_admin_platform_growth: { data: [], error: null },
         get_admin_top_merchants: { data: [], error: null },
@@ -192,17 +193,21 @@ describe('/api/admin/analytics route', () => {
     expect(body.error).toBe('Unauthorized');
   });
 
-  it('reads paystack_subaccount_code via the admin client while the is_platform_admin gate stays on the authenticated client', async () => {
+  it('reads merchant payout profiles via the platform-admin RPC, never a service-role client', async () => {
     const response = await GET(createRequest(`${analyticsUrl}?period=30d`));
 
     expect(response.status).toBe(200);
-    // The merchantProfiles projection names paystack_subaccount_code, which is
-    // revoked from the authenticated Postgres role (S1 containment), so an
-    // authenticated-client select naming it fails the whole query with 42501.
-    // It must be read via the service-role admin client.
-    expect(mockSupabase.__adminClient.from).toHaveBeenCalledWith('merchants');
-    // is_platform_admin stays granted to the authenticated role, so its admin
-    // gate read runs on the authenticated client (like the other admin routes).
+    // merchantProfiles (which includes the revoked paystack_subaccount_code) is a
+    // cross-tenant aggregate served by the bounded SECURITY DEFINER RPC on the
+    // authenticated client — no service-role client is constructed for it.
+    expect(mockSupabase.rpc).toHaveBeenCalledWith(
+      'get_admin_merchant_profiles'
+    );
+    expect(mockSupabase.__adminClient.from).not.toHaveBeenCalledWith(
+      'merchants'
+    );
+    // is_platform_admin stays granted to the authenticated role, so its gate
+    // read runs on the authenticated client (like the other admin routes).
     expect(mockSupabase.from).toHaveBeenCalledWith('merchants');
     // Auth/authorization stays on the authenticated client.
     expect(mockSupabase.auth.getUser).toHaveBeenCalled();
@@ -253,59 +258,7 @@ describe('/api/admin/analytics route', () => {
   it('returns shaped analytics data for a valid request', async () => {
     mockSupabase = createMockSupabase(
       {
-        merchants: [
-          { data: { is_platform_admin: true }, error: null },
-          {
-            data: [
-              {
-                bank_account_name: 'Baci Store',
-                bank_account_number: '0123456789',
-                bank_code: '058',
-                business_name: 'Baci Store',
-                business_type: 'fashion',
-                id: 'merchant-1',
-                is_published: true,
-                kyc_status: 'verified',
-                paystack_subaccount_code: 'ACCT_test',
-                signup_source: 'web',
-                slug: 'baci-store',
-                support_email: 'support@baci.app',
-                support_phone: null,
-              },
-              {
-                bank_account_name: null,
-                bank_account_number: null,
-                bank_code: null,
-                business_name: null,
-                business_type: null,
-                id: 'merchant-2',
-                is_published: false,
-                kyc_status: 'pending',
-                paystack_subaccount_code: null,
-                signup_source: 'ios',
-                slug: null,
-                support_email: null,
-                support_phone: null,
-              },
-              {
-                bank_account_name: null,
-                bank_account_number: null,
-                bank_code: null,
-                business_name: 'Mobile Shop',
-                business_type: 'Church',
-                id: 'merchant-3',
-                is_published: false,
-                kyc_status: 'pending',
-                paystack_subaccount_code: null,
-                signup_source: 'android',
-                slug: 'mobile-shop',
-                support_email: null,
-                support_phone: '08000000000',
-              },
-            ],
-            error: null,
-          },
-        ],
+        merchants: [{ data: { is_platform_admin: true }, error: null }],
         orders: [
           {
             data: [
@@ -352,6 +305,56 @@ describe('/api/admin/analytics route', () => {
             { health_status: 'healthy' },
             { health_status: 'at_risk' },
             { health_status: 'new' },
+          ],
+          error: null,
+        },
+        get_admin_merchant_profiles: {
+          data: [
+            {
+              bank_account_name: 'Baci Store',
+              bank_account_number: '0123456789',
+              bank_code: '058',
+              business_name: 'Baci Store',
+              business_type: 'fashion',
+              id: 'merchant-1',
+              is_published: true,
+              kyc_status: 'verified',
+              paystack_subaccount_code: 'ACCT_test',
+              signup_source: 'web',
+              slug: 'baci-store',
+              support_email: 'support@baci.app',
+              support_phone: null,
+            },
+            {
+              bank_account_name: null,
+              bank_account_number: null,
+              bank_code: null,
+              business_name: null,
+              business_type: null,
+              id: 'merchant-2',
+              is_published: false,
+              kyc_status: 'pending',
+              paystack_subaccount_code: null,
+              signup_source: 'ios',
+              slug: null,
+              support_email: null,
+              support_phone: null,
+            },
+            {
+              bank_account_name: null,
+              bank_account_number: null,
+              bank_code: null,
+              business_name: 'Mobile Shop',
+              business_type: 'Church',
+              id: 'merchant-3',
+              is_published: false,
+              kyc_status: 'pending',
+              paystack_subaccount_code: null,
+              signup_source: 'android',
+              slug: 'mobile-shop',
+              support_email: null,
+              support_phone: '08000000000',
+            },
           ],
           error: null,
         },
@@ -628,27 +631,7 @@ describe('/api/admin/analytics route', () => {
     ];
     mockSupabase = createMockSupabase(
       {
-        merchants: [
-          { data: { is_platform_admin: true }, error: null },
-          {
-            data: healthRows.map((row, index) => ({
-              bank_account_name: null,
-              bank_account_number: null,
-              bank_code: null,
-              business_name: row.business_name,
-              business_type: index === 2 ? 'fashion' : null,
-              id: row.merchant_id,
-              is_published: false,
-              kyc_status: 'pending',
-              paystack_subaccount_code: null,
-              signup_source: 'web',
-              slug: row.business_name ? 'active-store' : null,
-              support_email: null,
-              support_phone: null,
-            })),
-            error: null,
-          },
-        ],
+        merchants: [{ data: { is_platform_admin: true }, error: null }],
         orders: [
           {
             data: [{ merchant_id: 'merchant-active', payment_status: 'paid' }],
@@ -675,6 +658,24 @@ describe('/api/admin/analytics route', () => {
       },
       {
         get_admin_merchant_health: { data: healthRows, error: null },
+        get_admin_merchant_profiles: {
+          data: healthRows.map((row, index) => ({
+            bank_account_name: null,
+            bank_account_number: null,
+            bank_code: null,
+            business_name: row.business_name,
+            business_type: index === 2 ? 'fashion' : null,
+            id: row.merchant_id,
+            is_published: false,
+            kyc_status: 'pending',
+            paystack_subaccount_code: null,
+            signup_source: 'web',
+            slug: row.business_name ? 'active-store' : null,
+            support_email: null,
+            support_phone: null,
+          })),
+          error: null,
+        },
         get_admin_platform_daily_summary: { data: [], error: null },
         get_admin_platform_growth: {
           data: [{ month: '2026-03-01', new_merchants: 12 }],

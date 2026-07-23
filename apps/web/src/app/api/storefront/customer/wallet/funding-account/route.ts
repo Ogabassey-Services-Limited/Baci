@@ -16,6 +16,7 @@ import {
   walletFundingAccountConsentSchema,
   walletFundingAccountQuerySchema,
 } from '@/schemas/wallet-funding-account';
+import { walletAccountErrorResponse } from './wallet-funding-account-error';
 
 // Identity only (no secret) — resolved on the caller's RLS client so an
 // unpublished merchant is indistinguishable from a nonexistent one (no oracle).
@@ -62,33 +63,6 @@ function getIdentifierParams(searchParams: URLSearchParams) {
     merchantId: searchParams.get('merchantId') ?? undefined,
     merchantSlug: searchParams.get('merchantSlug') ?? undefined,
   };
-}
-
-function walletAccountErrorStatus(code: string) {
-  if (code === 'CUSTOMER_PHONE_REQUIRED') {
-    return 400;
-  }
-
-  if (
-    code === 'GATEWAY_NOT_CONFIGURED' ||
-    code === 'WALLET_DVA_ORDER_ALIAS_CONFLICT' ||
-    code === 'WALLET_DVA_SUBACCOUNT_CONFLICT'
-  ) {
-    return 409;
-  }
-
-  if (code === 'PAYSTACK_CUSTOMER_ERROR' || code === 'PAYSTACK_DVA_ERROR') {
-    return 502;
-  }
-
-  return 500;
-}
-
-function walletAccountErrorResponse(error: CustomerWalletPaymentAccountError) {
-  return NextResponse.json(
-    { error: error.message, code: error.code },
-    { status: walletAccountErrorStatus(error.code) }
-  );
 }
 
 async function resolveMerchantAndCustomer({

@@ -16023,6 +16023,10 @@ export type Database = {
           total_orders: number;
         }[];
       };
+      get_admin_merchant_profiles: {
+        Args: never;
+        Returns: Json;
+      };
       get_admin_platform_daily_summary: {
         Args: { p_end_date?: string; p_start_date?: string };
         Returns: {
