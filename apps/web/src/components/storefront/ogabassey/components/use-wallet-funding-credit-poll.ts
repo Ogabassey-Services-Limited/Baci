@@ -121,6 +121,23 @@ export function useWalletFundingCreditPoll({
     let activeController: AbortController | null = null;
     const known = new Set(baselineIds);
 
+    // Absolute FOREGROUND deadline. `maxAttempts` assumes ~5s per attempt, but a
+    // run of slow-but-completing requests stretches each attempt toward
+    // `requestTimeoutMs`, so the 60-attempt budget could span ~10 minutes. This
+    // wall-clock bound settles the loop at ~5 minutes of foreground checking
+    // regardless of per-request timing. Hidden time is excluded (the customer is
+    // in their bank app), matching the attempt-budget's foreground semantics.
+    const armedAt = Date.now();
+    let hiddenAccumMs = 0;
+    let hiddenSince: number | null =
+      document.visibilityState === 'hidden' ? armedAt : null;
+    const foregroundElapsedMs = () => {
+      const pendingHiddenMs = hiddenSince === null ? 0 : Date.now() - hiddenSince;
+      return Date.now() - armedAt - hiddenAccumMs - pendingHiddenMs;
+    };
+    const isPastDeadline = () =>
+      foregroundElapsedMs() >= WALLET_FUNDING_POLL.deadlineMs;
+
     const settle = (
       outcome: 'credited' | 'timed_out',
       credit: WalletTopUpCredit | null
@@ -150,6 +167,12 @@ export function useWalletFundingCreditPoll({
       // Don't spend the attempt budget while the customer is away in their bank
       // app; the visibilitychange listener polls again the moment they return.
       if (document.visibilityState === 'hidden') return;
+      // Absolute foreground bound: settle before launching another request so a
+      // slow-but-completing sequence cannot stretch the loop past ~5 minutes.
+      if (isPastDeadline()) {
+        settle('timed_out', null);
+        return;
+      }
 
       attempts += 1;
       inFlight = true;
@@ -182,14 +205,27 @@ export function useWalletFundingCreditPoll({
         settle('credited', credit);
         return;
       }
-      // Misses AND errors alike: keep polling, then time out. Never credit.
-      if (attempts >= WALLET_FUNDING_POLL.maxAttempts) {
+      // Misses AND errors alike: keep polling, then time out. Never credit —
+      // including when the deadline lands while requests were merely slow, so a
+      // stalled sequence still settles as timed_out ("check again") rather than
+      // hanging in "checking".
+      if (attempts >= WALLET_FUNDING_POLL.maxAttempts || isPastDeadline()) {
         settle('timed_out', null);
       }
     };
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') void refresh();
+      if (document.visibilityState === 'hidden') {
+        // Pause the foreground clock while the customer is in their bank app.
+        if (hiddenSince === null) hiddenSince = Date.now();
+        return;
+      }
+      // Back in the foreground: bank the hidden span, then poll immediately.
+      if (hiddenSince !== null) {
+        hiddenAccumMs += Date.now() - hiddenSince;
+        hiddenSince = null;
+      }
+      void refresh();
     };
 
     void refresh();

@@ -70,6 +70,42 @@ describe('useWalletFundingCreditPoll request concurrency', () => {
     expect(onCredited).not.toHaveBeenCalled();
   });
 
+  it('times out at the absolute deadline even while requests keep succeeding slowly', async () => {
+    // Every GET SUCCEEDS (a miss, no credit) but only after a long delay, so
+    // the attempt count climbs at ~one request per 10s instead of the assumed
+    // 5s. Far fewer than `maxAttempts` requests land inside the five-minute
+    // window, yet the loop must still time out on the wall-clock deadline
+    // instead of hanging in "checking" for ~ten minutes.
+    mockPoll.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(
+            () => resolve(ready([])),
+            WALLET_FUNDING_POLL.requestTimeoutMs - 1_000
+          );
+        })
+    );
+    const { onCredited, result } = renderPoll();
+
+    await act(async () => {
+      result.current.start();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(
+        WALLET_FUNDING_POLL.deadlineMs + WALLET_FUNDING_POLL.requestTimeoutMs
+      );
+    });
+
+    expect(result.current.status).toBe('timed_out');
+    expect(result.current.creditedAmount).toBeNull();
+    expect(onCredited).not.toHaveBeenCalled();
+    // Proves the DEADLINE settled the loop, not the attempt cap: the slow
+    // cadence means well under `maxAttempts` requests occurred by five minutes.
+    expect(mockPoll.mock.calls.length).toBeLessThan(
+      WALLET_FUNDING_POLL.maxAttempts
+    );
+  });
+
   it('does not launch a new poll while one is still in flight', async () => {
     let resolvePoll: ((value: unknown) => void) | undefined;
     mockPoll.mockImplementation(

@@ -1,21 +1,13 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { useOptionalCustomerAuth } from '@/contexts/customer-auth-context';
-import { toast } from '@/hooks/use-toast';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
-import { fetchWithCsrf } from '@/lib/api-client';
 import { captureClientEvent } from '@/lib/posthog/capture-client-event';
 import { WALLET_FUNDING_TELEMETRY } from '@/lib/posthog/wallet-funding-events';
 import { useWallet } from '@/components/storefront/ogabassey/pages/checkout/hooks/use-wallet';
-import {
-  createWalletIdempotencyKey,
-  getCheckoutErrorMessage,
-  isUtilityCheckoutResponse,
-  redirectToPaymentCheckout,
-  type UtilityCheckoutPayload,
-} from './utility-checkout';
 import { useUtilityPendingIntent } from './use-utility-pending-intent';
+import { useUtilityPurchase } from './use-utility-purchase';
 import { AirtimeDataForm } from './utility/AirtimeDataForm';
 import { BillPaymentForm } from './utility/BillPaymentForm';
 import { UtilityPaymentMethodSelector } from './UtilityPaymentMethodSelector';
@@ -30,127 +22,12 @@ interface UtilityModalProps {
   initialTab?: 'airtime' | 'data' | 'tv' | 'power' | 'betting';
 }
 
-interface UtilityCheckoutRequest {
-  payload: UtilityCheckoutPayload;
-  merchantSlug: string;
-  customerName: string;
-  customerPhone: string | null | undefined;
-  walletAmount: number;
-  getWalletIdempotencyKey: (payloadSignature: string) => string;
-}
-
-type UtilityCheckoutResult =
-  | { kind: 'redirected' }
-  | {
-      kind: 'wallet-success';
-      reference: string;
-      amount: number;
-      processing: boolean;
-    }
-  | { kind: 'error'; message: string };
-
-// Module-scope helper: keeps try/finally + throw-in-try out of the component
-// body so React Compiler can memoize UtilityModal.
-const submitUtilityCheckout = async ({
-  payload,
-  merchantSlug,
-  customerName,
-  customerPhone,
-  walletAmount,
-  getWalletIdempotencyKey,
-}: UtilityCheckoutRequest): Promise<UtilityCheckoutResult> => {
-  try {
-    const checkoutPayload = {
-      merchantSlug,
-      customerName,
-      ...(customerPhone ? { customerPhone } : {}),
-      ...payload,
-    };
-    const isWalletOnly = walletAmount > 0 && walletAmount >= payload.amount;
-    const walletPayload = {
-      ...checkoutPayload,
-      walletAmount: payload.amount,
-    };
-    const response = await fetchWithCsrf(
-      isWalletOnly
-        ? '/api/vtu/checkout/wallet-only'
-        : '/api/vtu/checkout/initialize',
-      {
-        method: 'POST',
-        headers: isWalletOnly
-          ? {
-              'Idempotency-Key': getWalletIdempotencyKey(
-                JSON.stringify(walletPayload)
-              ),
-            }
-          : undefined,
-        body: JSON.stringify({
-          ...(isWalletOnly ? walletPayload : checkoutPayload),
-          ...(isWalletOnly
-            ? {}
-            : {
-                gateway: 'paystack',
-                ...(walletAmount > 0 ? { walletAmount } : {}),
-              }),
-        }),
-      }
-    );
-
-    const rawResponse = await response.text();
-    let parsedData: unknown;
-    try {
-      parsedData = JSON.parse(rawResponse);
-    } catch {
-      throw new Error(
-        response.ok
-          ? 'Payment checkout returned an invalid response'
-          : `Payment checkout failed (${response.status})`
-      );
-    }
-    if (!response.ok) throw new Error(getCheckoutErrorMessage(parsedData));
-    if (!isUtilityCheckoutResponse(parsedData)) {
-      throw new Error('Payment checkout returned an invalid response');
-    }
-    const data = parsedData;
-
-    if (!isWalletOnly) {
-      const checkoutUrl = data.checkout_url || data.authorization_url;
-      if (!checkoutUrl) {
-        throw new Error('Payment checkout URL was not returned');
-      }
-      redirectToPaymentCheckout(checkoutUrl);
-      return { kind: 'redirected' };
-    }
-
-    return {
-      kind: 'wallet-success',
-      reference: data.reference ?? '',
-      amount: data.amount ?? payload.amount,
-      processing: data.status === 'processing',
-    };
-  } catch (error) {
-    return {
-      kind: 'error',
-      message:
-        error instanceof Error ? error.message : 'Something went wrong',
-    };
-  }
-};
-
 export const UtilityModal = ({
   isOpen,
   onClose,
   initialTab = 'airtime',
 }: UtilityModalProps) => {
   const [activeTab, setActiveTab] = useState<UtilityTabId>(initialTab);
-  const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState<'details' | 'success'>('details');
-  const [transactionRef, setTransactionRef] = useState('');
-  const [successAmount, setSuccessAmount] = useState(0);
-  const walletIdempotencyAttemptRef = useRef<{
-    key: string;
-    payloadSignature: string;
-  } | null>(null);
 
   const merchantContext = useMerchantSafe();
   const merchant = merchantContext?.merchant;
@@ -193,29 +70,88 @@ export const UtilityModal = ({
   const selectedPaymentMethod: UtilityPaymentMethod =
     canUseWallet && payWithWallet ? 'wallet' : 'card';
 
+  const {
+    handleAirtimeDataSubmit,
+    handleBillSubmit,
+    loading,
+    setStep,
+    step,
+    successAmount,
+    transactionRef,
+  } = useUtilityPurchase({
+    activeTab,
+    clearIntent,
+    customer,
+    isAuthLoading,
+    isAuthenticated,
+    merchantSlug: merchant?.slug,
+    selectedPaymentMethod,
+    setWalletBalance,
+    user,
+    walletBalance,
+  });
+
+  // Stable identity of the currently owned resume draft; null when there is
+  // nothing to resume (flag off, no draft, or auth not hydrated yet).
+  const intentKey = intent
+    ? `${intent.tab}|${intent.amount}|${intent.phoneNumber}|${intent.networkProvider ?? ''}`
+    : null;
+
   // Reset the view when the modal (re)opens or the requested tab changes.
   // Render-time prev-prop comparison avoids a stale-frame effect round-trip.
   // Init `false` (not `isOpen`) so the seed also runs when the modal is
   // rendered already-open — the reload / backgrounded-tab-eviction case the
-  // resume feature exists for. Without it, a first mount at `isOpen === true`
-  // would skip the seed and strand a saved `data` draft on the default tab.
+  // resume feature exists for.
   const [prevIsOpen, setPrevIsOpen] = useState(false);
   const [prevInitialTab, setPrevInitialTab] = useState(initialTab);
+  // Which owned intent (if any) has already been applied to the form. Doubles
+  // as the form remount key so a late-arriving intent forces a re-seed.
+  const [appliedIntentKey, setAppliedIntentKey] = useState<string | null>(null);
+  // Detect the exact render where auth hydration reveals the signed-in customer
+  // (`customer.id` absent -> present). The late reseed must fire only on THAT
+  // transition — not when an already-signed-in customer's own first keystroke
+  // saves a draft, which also flips `intent` non-null but must never remount
+  // the form mid-typing (that drops input focus / dismisses the keyboard).
+  const customerId = customer?.id;
+  const [prevCustomerId, setPrevCustomerId] = useState(customerId);
+  const customerJustHydrated = Boolean(customerId) && !prevCustomerId;
+  if (customerId !== prevCustomerId) {
+    setPrevCustomerId(customerId);
+  }
   if (isOpen !== prevIsOpen || initialTab !== prevInitialTab) {
     setPrevIsOpen(isOpen);
     setPrevInitialTab(initialTab);
     if (isOpen) {
       // Land on the tab that holds a resumed draft so a `data` draft is not
-      // stranded on the default `airtime` tab (paired with the per-tab `key`
-      // below, which forces AirtimeDataForm to remount and pick up the draft).
-      // Falls back to the caller's requested tab when there is nothing to
-      // resume.
+      // stranded on the default `airtime` tab (paired with the form remount
+      // key below). Falls back to the caller's requested tab when there is
+      // nothing to resume.
       setActiveTab(intent?.tab ?? initialTab);
       setStep('details');
       // Collapse the funding panel so reopening never re-triggers DVA
       // auto-create without a fresh "Pay with Bank Transfer" tap.
       setShowFundingPanel(false);
+      // May be null when auth has not hydrated yet — the branch below reseeds
+      // once the owned intent resolves.
+      setAppliedIntentKey(intentKey);
+    } else {
+      // Re-arm seeding for the next open.
+      setAppliedIntentKey(null);
     }
+  } else if (
+    isOpen &&
+    intent &&
+    appliedIntentKey === null &&
+    customerJustHydrated
+  ) {
+    // Auth resolved AFTER the modal mounted open: `customer.id` was absent on
+    // the first render, so the owned intent was null and never seeded. Now that
+    // the (customer-scoped) intent is available, seed its tab and remount the
+    // form exactly once. Gated on the customer-id hydration transition so an
+    // already-signed-in customer's first keystroke (which also flips `intent`
+    // non-null) never triggers a spurious mid-typing remount.
+    setActiveTab(intent.tab);
+    setAppliedIntentKey(intentKey);
   }
 
   // Collapse the funding panel if the signed-in customer OR the storefront
@@ -230,16 +166,6 @@ export const UtilityModal = ({
     setShowFundingPanel(false);
   }
 
-  const getWalletIdempotencyKey = (payloadSignature: string) => {
-    if (walletIdempotencyAttemptRef.current?.payloadSignature !== payloadSignature) {
-      walletIdempotencyAttemptRef.current = {
-        key: createWalletIdempotencyKey(),
-        payloadSignature,
-      };
-    }
-    return walletIdempotencyAttemptRef.current.key;
-  };
-
   const handleSelectPaymentMethod = (method: UtilityPaymentMethod) => {
     captureClientEvent(
       WALLET_FUNDING_TELEMETRY.events.paymentMethodSelected,
@@ -252,110 +178,6 @@ export const UtilityModal = ({
       }
     );
     setPayWithWallet(method === 'wallet');
-  };
-
-  const handlePurchase = async (payload: UtilityCheckoutPayload) => {
-    if (isAuthLoading) {
-      toast({
-        title: 'Checking account',
-        description: 'Please wait while we confirm your session.',
-      });
-      return;
-    }
-
-    if (!isAuthenticated || !user) {
-      toast({
-        title: 'Sign in required',
-        description: 'Please sign in to use utility checkout.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setLoading(true);
-    const customerName =
-      [customer?.first_name, customer?.last_name]
-        .filter(Boolean)
-        .join(' ')
-        .trim() || customer?.email || user.email || 'Customer';
-    const result = await submitUtilityCheckout({
-      payload,
-      merchantSlug: merchant?.slug || 'ogabassey',
-      customerName,
-      customerPhone: customer?.phone,
-      walletAmount:
-        selectedPaymentMethod === 'wallet'
-          ? Math.min(walletBalance, payload.amount)
-          : 0,
-      getWalletIdempotencyKey,
-    });
-
-    if (result.kind === 'wallet-success') {
-      walletIdempotencyAttemptRef.current = null;
-      clearIntent();
-      setWalletBalance((balance) => Math.max(balance - payload.amount, 0));
-      setTransactionRef(result.reference);
-      setSuccessAmount(result.amount);
-      setStep('success');
-      toast({
-        title: result.processing ? 'Purchase Processing' : 'Purchase Successful',
-        description: result.processing
-          ? `Your ${activeTab} purchase is processing.`
-          : `Your ${activeTab} purchase was successful!`,
-      });
-    } else if (result.kind === 'error') {
-      toast({
-        title: 'Transaction Failed',
-        description: result.message,
-        variant: 'destructive',
-      });
-    }
-    setLoading(false);
-  };
-
-  const handleAirtimeDataSubmit = (data: {
-    phoneNumber: string;
-    amount: number;
-    networkProvider: string;
-    dataPlanCode?: string;
-  }) => {
-    handlePurchase({
-      type: activeTab,
-      phoneNumber: data.phoneNumber,
-      amount: data.amount,
-      networkProvider: data.networkProvider,
-      dataPlanCode: data.dataPlanCode,
-    });
-  };
-
-  const handleBillSubmit = (data: {
-    amount: number;
-    billItemIdentifier: string;
-    billerCode?: string;
-    customerAddress?: string;
-    customerIdentifier: string;
-    billerName: string;
-    productCode?: string;
-    provider?: 'kuda' | 'monnify';
-    requireValidationRef?: boolean;
-    type: string;
-    validationReference?: string;
-  }) => {
-    handlePurchase({
-      type: data.type,
-      amount: data.amount,
-      billItemIdentifier: data.billItemIdentifier,
-      billerCode: data.billerCode,
-      ...(data.customerAddress
-        ? { customerAddress: data.customerAddress }
-        : {}),
-      customerIdentifier: data.customerIdentifier,
-      billerName: data.billerName,
-      productCode: data.productCode,
-      provider: data.provider,
-      requireValidationRef: data.requireValidationRef,
-      validationReference: data.validationReference,
-    });
   };
 
   if (!isOpen) return null;
@@ -443,11 +265,11 @@ export const UtilityModal = ({
               ) : null}
               {(activeTab === 'airtime' || activeTab === 'data') && (
                 <AirtimeDataForm
-                  // Remount per tab: AirtimeDataForm seeds its fields from
-                  // `initialDraft` only on mount, so a shared instance across
-                  // the airtime/data tabs would never apply a resumed draft for
-                  // the non-active tab. Keying by tab forces the remount.
-                  key={activeTab}
+                  // Remount on tab change AND when a late-hydrating intent is
+                  // seeded: AirtimeDataForm reads `initialDraft` only on mount,
+                  // so a shared instance would never pick up a resumed draft for
+                  // the non-active tab or one that arrived after auth hydrated.
+                  key={`${activeTab}|${appliedIntentKey ?? ''}`}
                   type={activeTab}
                   loading={loading}
                   initialDraft={

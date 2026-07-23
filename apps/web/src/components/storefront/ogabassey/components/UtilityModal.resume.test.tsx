@@ -125,6 +125,78 @@ describe('UtilityModal funding-detour resume', () => {
       vi.useRealTimers();
     });
 
+    it('reseeds the draft once the customer id hydrates after the modal mounts open', () => {
+      // Reload / background-tab-eviction case: the modal renders already-open
+      // before CustomerAuthProvider resolves the signed-in customer. On that
+      // first render `customer.id` is absent, so the stored intent is not yet
+      // owned and the form mounts empty. Once auth hydrates the owning
+      // customer, the draft must be reseeded — the render-time reset keyed on
+      // isOpen/initialTab does not re-run, so a dedicated reseed path is needed.
+      sessionStorage.setItem(
+        UTILITY_PENDING_INTENT_STORAGE_KEY,
+        JSON.stringify(storedIntent)
+      );
+
+      harness.useAuth.mockReturnValue({
+        customer: null,
+        isAuthenticated: false,
+        isLoading: true,
+        user: null,
+      });
+      const { rerender } = renderOpenModal();
+
+      // Identity unknown: the stored draft is not yet owned, so nothing shows.
+      expect(screen.getByTestId('airtime-data-form')).toHaveAttribute(
+        'data-initial-amount',
+        ''
+      );
+
+      // Auth resolves to the owning customer (customer-1).
+      harness.useAuth.mockReturnValue({
+        customer: {
+          id: 'customer-1',
+          email: 'customer@example.com',
+          first_name: 'Test',
+          last_name: 'Customer',
+          phone: '08012345678',
+        },
+        isAuthenticated: true,
+        isLoading: false,
+        user: {
+          email: 'customer@example.com',
+          id: 'user-1',
+          role: 'customer',
+        },
+      });
+      rerender(<UtilityModal isOpen={true} onClose={harness.onClose} />);
+
+      const form = screen.getByTestId('airtime-data-form');
+      expect(form).toHaveAttribute('data-initial-amount', '500');
+      expect(form).toHaveAttribute('data-initial-phone', '08012345678');
+      // Prefill only — no auto-submit fires from the late reseed.
+      expect(harness.checkoutFetch).not.toHaveBeenCalled();
+    });
+
+    it('does not remount the airtime form when a signed-in customer saves the first draft', () => {
+      // Regression: the late-hydration reseed path must fire ONLY when the
+      // customer id transitions absent -> present (auth resolving after the
+      // modal mounted open). For a customer who is already signed in with no
+      // stored draft, typing the first character saves a draft, which flips
+      // `intent` non-null. If the reseed branch also fired here it would bump
+      // the form remount key and unmount/remount AirtimeDataForm on the first
+      // keystroke — dropping input focus (dismissing the mobile keyboard). The
+      // form must stay the SAME mounted instance across that first save.
+      const { getByTestId } = renderOpenModal();
+      const form = getByTestId('airtime-data-form');
+      const instanceBefore = form.getAttribute('data-instance');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Mock Draft Change' }));
+
+      expect(getByTestId('airtime-data-form').getAttribute('data-instance')).toBe(
+        instanceBefore
+      );
+    });
+
     it('never prefills a different customer\'s stored intent', () => {
       // An intent left by another customer on this shared tab must not leak
       // into the currently signed-in customer's (customer-1) money form.

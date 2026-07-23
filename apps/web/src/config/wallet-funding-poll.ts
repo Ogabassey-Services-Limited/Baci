@@ -11,8 +11,17 @@
  * window. A stalled request therefore always settles (as an error, never a
  * credit), which lets the attempt budget advance and the overall loop still
  * time out instead of piling up unresolved requests.
+ *
+ * `deadlineMs` is an absolute wall-clock bound on FOREGROUND checking time,
+ * measured from the moment the loop is armed and paused while the tab is hidden
+ * (the customer is in their bank app). `maxAttempts` alone assumes ~5s per
+ * attempt, but a run of slow-but-completing requests stretches each attempt to
+ * `requestTimeoutMs`, so 60 attempts could otherwise occupy ~10 minutes. This
+ * deadline caps the visible "checking…" state at ~5 minutes regardless of
+ * per-request timing; hitting it times out, it never credits.
  */
 export const WALLET_FUNDING_POLL = {
+  deadlineMs: 300_000,
   intervalMs: 5_000,
   maxAttempts: 60,
   requestTimeoutMs: 10_000,

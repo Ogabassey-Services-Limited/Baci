@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { vi } from 'vitest';
 import { toast } from '@/hooks/use-toast';
 import { fetchWithCsrf } from '@/lib/api-client';
 
 const {
+  mockAirtimeMountCount,
   mockAirtimeSubmitAmount,
   mockCaptureClientEvent,
   mockFetchWithCsrf,
@@ -10,6 +12,7 @@ const {
   mockUseCustomerAuth,
   mockUseWallet,
 } = vi.hoisted(() => ({
+  mockAirtimeMountCount: { current: 0 },
   mockAirtimeSubmitAmount: { current: 100 },
   mockCaptureClientEvent: vi.fn(),
   mockFetchWithCsrf: vi.fn(),
@@ -60,11 +63,22 @@ vi.mock('./utility/AirtimeDataForm', () => ({
     }) => void;
     onSubmit: (data: Record<string, unknown>) => void;
     type: string;
-  }) => (
+  }) => {
+    // A fresh instance id is minted only on MOUNT (lazy useState initializer),
+    // mirroring the real AirtimeDataForm reading `initialDraft` once via
+    // `useState`. A key change remounts and bumps this id; a plain re-render
+    // does not — letting tests assert whether a form was remounted (and thus
+    // would have lost input focus) versus merely re-rendered.
+    const instance = useState(() => {
+      mockAirtimeMountCount.current += 1;
+      return mockAirtimeMountCount.current;
+    })[0];
+    return (
     <div
       data-testid="airtime-data-form"
       data-type={type}
       data-loading={String(loading)}
+      data-instance={String(instance)}
       data-initial-amount={initialDraft?.amount ?? ''}
       data-initial-phone={initialDraft?.phoneNumber ?? ''}
     >
@@ -93,7 +107,8 @@ vi.mock('./utility/AirtimeDataForm', () => ({
         Mock Submit
       </button>
     </div>
-  ),
+    );
+  },
 }));
 
 vi.mock('./utility/BillPaymentForm', () => ({
@@ -182,6 +197,7 @@ export const utilityModalTestHarness = {
     this.checkoutFetch.mockReset();
     mockRedirectToPaymentCheckout.mockReset();
     mockCaptureClientEvent.mockReset();
+    mockAirtimeMountCount.current = 0;
     mockAirtimeSubmitAmount.current = 100;
     mockUseCustomerAuth.mockReturnValue({
       customer: {
