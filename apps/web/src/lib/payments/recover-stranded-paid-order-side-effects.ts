@@ -86,6 +86,13 @@ export async function recoverStrandedPaidOrderSideEffects({
     .eq('transactions.status', 'completed')
     .eq('orders.payment_status', 'paid')
     .is('orders.cancelled_at', null)
+    // Oldest attempt first: the rows most likely past the throttle window (so
+    // eligible for a reset) sort to the front, and each reset drops a row below
+    // the cap out of this result set — so a backlog larger than `limit` drains
+    // deterministically across ticks instead of the unordered query starving
+    // rows beyond the first page. Aligns with payment_side_effects_open_idx
+    // (status, claimed_at).
+    .order('claimed_at', { ascending: true })
     .limit(limit);
 
   if (error) {

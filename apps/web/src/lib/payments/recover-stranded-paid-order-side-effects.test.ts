@@ -46,7 +46,7 @@ function buildSupabase({
 
   const from = vi.fn(() => {
     const lookupChain: Record<string, unknown> = {};
-    for (const method of ['eq', 'gte', 'not', 'in', 'is']) {
+    for (const method of ['eq', 'gte', 'not', 'in', 'is', 'order']) {
       lookupChain[method] = vi.fn((...args: unknown[]) => {
         selectFilters.push([method, ...args]);
         return lookupChain;
@@ -118,6 +118,8 @@ describe('recoverStrandedPaidOrderSideEffects', () => {
         ['eq', 'transactions.status', 'completed'],
         ['eq', 'orders.payment_status', 'paid'],
         ['is', 'orders.cancelled_at', null],
+        // Oldest attempt first so a backlog > limit drains without starvation.
+        ['order', 'claimed_at', { ascending: true }],
       ])
     );
   });
