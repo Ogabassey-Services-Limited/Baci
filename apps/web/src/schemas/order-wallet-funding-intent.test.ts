@@ -6,9 +6,11 @@ import {
   walletOrderFundingIntentCreateResponseSchema,
   walletOrderFundingIntentPollResponseSchema,
 } from '@/schemas/order-wallet-funding-intent';
-
-const VALID_ORDER_ID = '00000000-0000-4000-8000-000000000101';
-const VALID_MERCHANT_ID = '00000000-0000-4000-8000-000000000102';
+import {
+  INTENT,
+  VALID_MERCHANT_ID,
+  VALID_ORDER_ID,
+} from './order-wallet-funding-intent.fixtures';
 
 describe('order wallet funding intent schemas', () => {
   it('parses a valid creation payload with an existing merchant slug', () => {
@@ -216,17 +218,6 @@ describe('order wallet funding intent schemas', () => {
 });
 
 describe('wallet order funding intent RESPONSE schemas', () => {
-  const INTENT = {
-    currency: 'ngn',
-    expectedAmount: 5000,
-    expiresAt: '2026-07-13T10:30:00.000Z',
-    fundedAmount: 0,
-    id: VALID_ORDER_ID,
-    orderId: VALID_MERCHANT_ID,
-    status: 'pending',
-    targetOrderAmount: 5000,
-  };
-
   it('parses a create response and upper-cases the currency', () => {
     const parsed = walletOrderFundingIntentCreateResponseSchema.parse({
       account: {
@@ -293,5 +284,17 @@ describe('wallet order funding intent RESPONSE schemas', () => {
         intent: { ...INTENT, expectedAmount: 0 },
       }).success
     ).toBe(false);
+  });
+
+  // Regression: PostgREST serializes `timestamptz` as `+00:00` offset form, not
+  // bare `Z`. The parser previously used `z.iso.datetime()` (Z-only), so every
+  // real create/poll response failed and the wallet flow fell back to the
+  // legacy DVA. It must accept the offset form the server actually sends.
+  it('accepts an offset-form (+00:00) expiration timestamp from PostgREST', () => {
+    const parsed = walletOrderFundingIntentPollResponseSchema.safeParse({
+      intent: { ...INTENT, expiresAt: '2026-07-13T10:30:00.000+00:00' },
+    });
+
+    expect(parsed.success).toBe(true);
   });
 });

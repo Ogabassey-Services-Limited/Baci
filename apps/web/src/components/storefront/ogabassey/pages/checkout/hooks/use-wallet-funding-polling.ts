@@ -91,6 +91,11 @@ export function useWalletFundingPolling({
   const inFlightRef = useRef(false);
   const mountedRef = useRef(true);
   const onCompletedRef = useRef(onCompleted);
+  // Tracks the currently-polled intent so a manual "check now" that resolves
+  // late can be dropped if the customer has since closed this transfer and
+  // opened another — otherwise transfer A's `completed` would fire the
+  // callback bound to transfer B and falsely mark B as paid.
+  const activeIntentIdRef = useRef(intentId);
   const [prevIntentId, setPrevIntentId] = useState(intentId);
 
   // Render-phase reset so consumers never read the previous intent's status for
@@ -116,6 +121,7 @@ export function useWalletFundingPolling({
   useEffect(() => {
     completedRef.current = false;
     inFlightRef.current = false;
+    activeIntentIdRef.current = intentId;
   }, [intentId]);
 
   const status = intent?.status;
@@ -155,11 +161,16 @@ export function useWalletFundingPolling({
     if (!(enabled && intentId) || stopped || inFlightRef.current) {
       return;
     }
+    // Capture the intent this manual check belongs to. If the active intent
+    // changes before the request resolves, the callback is dropped so a stale
+    // `completed` can never be applied to a different transfer.
+    const requestedIntentId = intentId;
     void runPollAttempt({
       completedRef,
       fetchArgs: { intentId, merchantId, merchantSlug },
       inFlightRef,
-      isActive: () => mountedRef.current,
+      isActive: () =>
+        mountedRef.current && activeIntentIdRef.current === requestedIntentId,
       onCompletedRef,
       setError,
       setIntent,

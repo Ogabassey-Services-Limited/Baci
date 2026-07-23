@@ -1,5 +1,7 @@
 'use client';
 
+import { useNativeModalDialog } from '../hooks/use-native-modal-dialog';
+
 interface WalletTransferConsentDialogProps {
   merchantName: string;
   onAccept: () => void;
@@ -16,12 +18,15 @@ export function WalletTransferConsentDialog({
   onAccept,
   onDecline,
 }: WalletTransferConsentDialogProps) {
+  // Escape (native cancel) declines — the safe fallback to a one-off account.
+  const dialogRef = useNativeModalDialog(onDecline);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
       <dialog
         aria-labelledby="wallet-consent-title"
         className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl"
-        open
+        ref={dialogRef}
       >
         <h2
           className="font-bold text-gray-900 text-lg"

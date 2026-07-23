@@ -56,7 +56,10 @@ export const walletOrderFundingIntentSchema = z.object({
   debitedAmount: z.number().min(0).optional(),
   excessAmount: z.number().min(0).optional(),
   expectedAmount: z.number().gt(0),
-  expiresAt: z.iso.datetime(),
+  // PostgREST serializes `timestamptz` in `+00:00` offset form, not bare `Z`,
+  // so the parser MUST accept offsets or every real server response fails
+  // validation and the wallet flow silently falls back to the legacy DVA.
+  expiresAt: z.iso.datetime({ offset: true }),
   fundedAmount: z.number().min(0),
   id: z.uuid(),
   orderId: z.uuid(),

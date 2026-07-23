@@ -3,18 +3,22 @@
 import { Building2, Check, Copy, Loader2, X } from 'lucide-react';
 import type { WalletOrderFundingIntent } from '@/schemas/order-wallet-funding-intent';
 import type { WalletFundingAccountResponse } from '@/schemas/wallet-funding-account';
+import { useNativeModalDialog } from '../hooks/use-native-modal-dialog';
 import {
   describeWalletFundedTransfer,
   formatWalletTransferDeadline,
   type WalletFundedTransferTone,
 } from '../wallet-funded-transfer-copy';
 
+// Status tints derive from the merchant's storefront theme so non-blue/green
+// brands stay on-brand on this payment screen. `review` reuses the themed
+// rating hue (the storefront's caution accent); `stopped` is a neutral surface.
 const TONE_STYLES: Record<WalletFundedTransferTone, string> = {
-  progress: 'bg-blue-50 border-blue-100 text-blue-900',
-  review: 'bg-amber-50 border-amber-200 text-amber-900',
-  stopped: 'bg-gray-50 border-gray-200 text-gray-800',
-  success: 'bg-green-50 border-green-200 text-green-900',
-  waiting: 'bg-blue-50 border-blue-100 text-blue-900',
+  progress: 'border-store-primary/20 bg-store-primary/5 text-store-foreground',
+  review: 'border-store-rating/40 bg-store-rating/10 text-store-foreground',
+  stopped: 'border-store-border bg-store-secondary text-store-foreground',
+  success: 'border-store-primary/30 bg-store-primary/10 text-store-primary',
+  waiting: 'border-store-primary/20 bg-store-primary/5 text-store-foreground',
 };
 
 interface WalletFundedTransferModalProps {
@@ -46,6 +50,7 @@ export function WalletFundedTransferModal({
   onClose,
   onCopy,
 }: WalletFundedTransferModalProps) {
+  const dialogRef = useNativeModalDialog(onClose);
   const remainingAmount =
     intent.remainingAmount ??
     Math.max(intent.expectedAmount - intent.fundedAmount, 0);
@@ -63,7 +68,7 @@ export function WalletFundedTransferModal({
       <dialog
         aria-labelledby="wallet-funded-transfer-title"
         className="max-h-[90vh] w-full max-w-md animate-in overflow-y-auto rounded-2xl bg-white shadow-2xl duration-200 zoom-in-95"
-        open
+        ref={dialogRef}
       >
         <div className="sticky top-0 flex items-center justify-between rounded-t-2xl bg-linear-to-r from-store-primary to-store-primary/80 p-6">
           <div className="flex items-center gap-3">
@@ -117,7 +122,7 @@ export function WalletFundedTransferModal({
                       aria-label="Copy account number"
                       className={`absolute top-2 right-2 bottom-2 flex items-center justify-center rounded-lg border bg-white px-4 shadow-sm transition-all ${
                         copiedText === account.accountNumber
-                          ? 'border-green-300 text-green-600'
+                          ? 'border-store-primary/40 text-store-primary'
                           : 'border-gray-200 hover:border-store-primary/40 hover:text-store-primary'
                       }`}
                       onClick={() => onCopy(account.accountNumber)}

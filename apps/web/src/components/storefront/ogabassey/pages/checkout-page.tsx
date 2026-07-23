@@ -135,6 +135,7 @@ import { resolveAirportShippingAddress } from './checkout/resolve-airport-shippi
 import { isWalletOrderAutoDebitWebEnabled } from '@/config/wallet-order-auto-debit';
 import { isEligibleForWalletFundedBankTransfer } from './checkout/wallet-funded-transfer-eligibility';
 import { useWalletFundedBankTransfer } from './checkout/hooks/use-wallet-funded-bank-transfer';
+import { useStorefrontCustomerSession } from './checkout/hooks/use-storefront-customer-session';
 import { WalletFundedTransferModal } from './checkout/components/WalletFundedTransferModal';
 import { WalletTransferConsentDialog } from './checkout/components/WalletTransferConsentDialog';
 
@@ -900,6 +901,14 @@ export const CheckoutPage: React.FC = () => {
   const autoTriggerRef = useRef(false);
   // Double-submit protection: prevents race conditions from rapid clicks
   const isOrderInFlightRef = useRef(false);
+
+  // Storefront customer sign-in state. The `(commerce)` checkout route mounts
+  // neither `AuthProvider` nor `CustomerAuthProvider`, so `useAuthSafe()` above
+  // is null here even for a signed-in customer. The wallet-funded gate must read
+  // the cookie session directly (same source as the storefront header) or the
+  // dark-launch flow would never activate for real customers.
+  const { isAuthenticated: isStorefrontCustomerAuthenticated } =
+    useStorefrontCustomerSession(merchant?.slug ?? undefined);
 
   // Wallet-funded bank transfer (P4a, dark-launched). Signed-in customers of an
   // auto-debit-enabled merchant fund the order through their STANDING wallet
@@ -2370,7 +2379,7 @@ export const CheckoutPage: React.FC = () => {
         const walletFundedStarted =
           merchant &&
           isEligibleForWalletFundedBankTransfer({
-            isAuthenticated: Boolean(user),
+            isAuthenticated: isStorefrontCustomerAuthenticated,
             merchantId: merchant.id,
             orderCurrency: orderChargeCurrency,
             paymentAmount,

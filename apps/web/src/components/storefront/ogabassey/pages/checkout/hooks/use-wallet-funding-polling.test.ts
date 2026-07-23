@@ -43,13 +43,20 @@ describe('useWalletFundingPolling', () => {
     vi.clearAllMocks();
   });
 
-  it('does not poll when disabled', async () => {
-    getIntentMock.mockResolvedValue(BASE_INTENT);
+  it('does not poll when disabled', () => {
+    // Deterministic: fake timers prove no interval fires without depending on
+    // the real scheduler (repo forbids real timers in tests).
+    vi.useFakeTimers();
+    try {
+      getIntentMock.mockResolvedValue(BASE_INTENT);
 
-    renderPolling({ enabled: false });
+      renderPolling({ enabled: false });
 
-    await new Promise((resolve) => setTimeout(resolve, 10));
-    expect(getIntentMock).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(10_000);
+      expect(getIntentMock).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('exposes the polled intent and fires onCompleted once when the order is paid', async () => {
@@ -106,6 +113,62 @@ describe('useWalletFundingPolling', () => {
     await waitFor(() => {
       expect(view.result.current.intent?.status).toBe('review_required');
     });
+    expect(onCompleted).not.toHaveBeenCalled();
+  });
+
+  // Regression (cross-intent completion): a manual "check now" for transfer A
+  // that resolves late must NOT fire onCompleted once the customer has closed A
+  // and opened transfer B — otherwise checkout would clear the cart and redirect
+  // to B's success page while B is still unpaid.
+  it('drops a late manual check once the customer switches to another transfer', async () => {
+    getIntentMock.mockResolvedValue({ ...BASE_INTENT, status: 'pending' });
+
+    const onCompleted = vi.fn();
+    const { rerender, result } = renderHook(
+      ({ intentId }) =>
+        useWalletFundingPolling({
+          enabled: true,
+          intentId,
+          merchantId: 'merchant-1',
+          merchantSlug: 'test-store',
+          onCompleted,
+          // Effectively disable the interval so only the manual check is racing.
+          pollIntervalMs: 10_000_000,
+        }),
+      { initialProps: { intentId: 'intent-a' } }
+    );
+
+    // Let the initial auto-poll settle so the manual check is not blocked.
+    await waitFor(() => {
+      expect(result.current.intent?.status).toBe('pending');
+    });
+
+    // The manual check for A is issued but its response is held in flight.
+    let resolveManual: (intent: unknown) => void = () => {};
+    getIntentMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveManual = resolve;
+        })
+    );
+    act(() => {
+      result.current.checkNow();
+    });
+
+    // Customer closes A and starts transfer B before A's check resolves.
+    rerender({ intentId: 'intent-b' });
+
+    // A's manual check now returns `completed` — but it belongs to the old intent.
+    await act(async () => {
+      resolveManual({
+        ...BASE_INTENT,
+        fundedAmount: 5000,
+        id: 'intent-a',
+        orderPaid: true,
+        status: 'completed',
+      });
+    });
+
     expect(onCompleted).not.toHaveBeenCalled();
   });
 
