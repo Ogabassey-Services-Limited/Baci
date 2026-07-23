@@ -24,6 +24,23 @@ describe('deploy crontab', () => {
     );
   });
 
+  it('schedules the gateway paid-order reconcile drain hourly through run-web-cron', () => {
+    const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
+
+    assert.match(
+      deployScript,
+      /20 \*\s+\* \* \* flock -n \$REMOTE_DIR\/locks\/reconcile-gateway-paid-orders\.lock/
+    );
+    assert.match(
+      deployScript,
+      /\$NODE_BIN \$REMOTE_DIR\/jobs\/run-web-cron\.mjs \/api\/cron\/reconcile-gateway-paid-orders/
+    );
+    assert.match(
+      deployScript,
+      />> \$REMOTE_DIR\/logs\/reconcile-gateway-paid-orders\.log 2>&1/
+    );
+  });
+
   it('schedules the order notification outbox cron through run-web-cron', () => {
     const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
 

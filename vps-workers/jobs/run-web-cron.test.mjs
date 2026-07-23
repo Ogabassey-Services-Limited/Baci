@@ -23,6 +23,38 @@ describe('web cron worker', () => {
     );
   });
 
+  it('allows the gateway paid-order reconcile drain endpoint', async () => {
+    const calls = [];
+    const result = await runWebCron({
+      path: '/api/cron/reconcile-gateway-paid-orders',
+      env: {
+        BACI_WEB_BASE_URL: 'https://ogabassey.com',
+        CRON_SECRET: 'secret',
+      },
+      fetchFn: (url, init) => {
+        calls.push({ url, init });
+        return new Response('ok', { status: 200 });
+      },
+      logger: noopLogger,
+    });
+
+    assert.deepEqual(result, { status: 200, body: 'ok' });
+    assert.equal(calls.length, 1);
+    assert.equal(
+      calls[0].url,
+      'https://ogabassey.com/api/cron/reconcile-gateway-paid-orders'
+    );
+    const { signal, ...initWithoutSignal } = calls[0].init;
+    assert.deepEqual(initWithoutSignal, {
+      method: 'GET',
+      headers: {
+        Authorization: 'Bearer secret',
+        'User-Agent': 'baci-vps-web-cron/1.0',
+      },
+    });
+    assert.equal(signal instanceof AbortSignal, true);
+  });
+
   it('allows the monthly VTU cashback summary cron endpoint', async () => {
     const calls = [];
     const result = await runWebCron({
