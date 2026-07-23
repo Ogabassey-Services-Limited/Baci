@@ -193,6 +193,24 @@ describe('supabaseHistoryReplayManifest', () => {
         sha256:
           '1fa573e186b486ade1ae4bc628969a74c37ee01f850cf7ab4d60ac3a40fad8a8',
       },
+      {
+        repositoryPath:
+          'supabase/migrations/20260722150000_s1_merchants_authenticated_containment.sql',
+        sha256:
+          '3fdc876b7699184efe079f9d9412301eac3b893aefc193868baef6e9bb448d76',
+      },
+      {
+        repositoryPath:
+          'supabase/migrations/20260723150000_merchant_payment_secret_rpcs.sql',
+        sha256:
+          '36b7e8bb66b30691e633e312c8dbfea3bfee10a945007a59f0bfb8f5599991fe',
+      },
+      {
+        repositoryPath:
+          'supabase/migrations/20260723160000_admin_merchant_profiles_rpc.sql',
+        sha256:
+          '28db4728fe8661bcd8083fa9bbd93b63a04c279c657b7f228d0c39cfca685e0a',
+      },
     ]);
   });
 

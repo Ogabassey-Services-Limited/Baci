@@ -154,11 +154,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Also update legacy column for backwards compatibility.
-    const { data: existingLegacy, error: existingLegacyError } = await supabase
-      .from('merchants')
-      .select('virtual_terminal_code')
-      .eq('id', merchantId)
-      .single();
+    // `virtual_terminal_code` is revoked from the authenticated role, so the
+    // read goes via the bounded SECURITY DEFINER RPC (re-checks access inside
+    // the definer); the UPDATE below only SETs it by id, still table-granted.
+    const { data: existingLegacyCode, error: existingLegacyError } =
+      await supabase.rpc('get_merchant_virtual_terminal_code', {
+        p_merchant_id: merchantId,
+      });
+    const existingLegacy = existingLegacyError
+      ? null
+      : { virtual_terminal_code: existingLegacyCode };
 
     let legacySyncWarning:
       | 'legacy_fetch_failed'

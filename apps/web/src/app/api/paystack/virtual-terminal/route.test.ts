@@ -5,9 +5,11 @@ const mockAuthenticateApiRequest = vi.fn();
 const mockGetUser = vi.fn();
 const mockGetMerchantForApiRequest = vi.fn();
 const mockFrom = vi.fn();
+const mockRpc = vi.fn();
 const mockSupabase = {
   auth: { getUser: mockGetUser },
   from: mockFrom,
+  rpc: mockRpc,
 };
 
 vi.mock('next/headers', () => ({
@@ -99,6 +101,10 @@ describe('POST /api/paystack/virtual-terminal', () => {
       user: { id: 'u-1' },
       supabase: mockSupabase,
     });
+    // The secret `virtual_terminal_code` read runs through the bounded
+    // SECURITY DEFINER RPC on the authenticated client; default to "no existing
+    // legacy code" so the SET-only UPDATE path is exercised.
+    mockRpc.mockResolvedValue({ data: null, error: null });
   });
 
   it('returns 401 when not authenticated', async () => {
@@ -256,6 +262,14 @@ describe('POST /api/paystack/virtual-terminal', () => {
     expect(body.success).toBe(true);
     expect(body.terminal.code).toBe('VT_TEST123');
     expect(body.terminal.accountNumber).toBe('1234567890');
+    // The revoked secret column is read through the bounded RPC on the
+    // authenticated client, never via a raw table SELECT.
+    expect(mockRpc).toHaveBeenCalledWith('get_merchant_virtual_terminal_code', {
+      p_merchant_id: 'm-1',
+    });
+    expect(updateMock).toHaveBeenCalledWith({
+      virtual_terminal_code: 'VT_TEST123',
+    });
   });
 
   it('returns 400 when Paystack API fails', async () => {

@@ -5,6 +5,7 @@ const mockAuthenticateApiRequest = vi.fn();
 const mockCheckCsrfProtection = vi.fn();
 const mockResolveWalletTopUpMerchant = vi.fn();
 const mockResolveVtuCustomer = vi.fn();
+const mockFetchPaystackSubaccountCode = vi.fn();
 const mockCreateOrderWalletFundingIntent = vi.fn();
 const mockAuthSupabase = { authScope: 'customer' };
 vi.mock('@/lib/api-auth', () => ({
@@ -17,6 +18,15 @@ vi.mock('@/lib/csrf', () => ({
 vi.mock('@/lib/resolve-wallet-top-up-merchant', () => ({
   resolveWalletTopUpMerchant: (...args: unknown[]) =>
     mockResolveWalletTopUpMerchant(...args),
+}));
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => ({ role: 'service-role' })),
+}));
+
+vi.mock('@/lib/fetch-merchant-payment-secret', () => ({
+  fetchMerchantPaystackSubaccountCode: (...args: unknown[]) =>
+    mockFetchPaystackSubaccountCode(...args),
 }));
 
 vi.mock('@/lib/vtu-pending-transaction', () => ({
@@ -102,6 +112,9 @@ describe('/api/storefront/customer/wallet/order-funding-intents', () => {
     mockCheckCsrfProtection.mockResolvedValue({ response: null, valid: true });
     mockResolveWalletTopUpMerchant.mockResolvedValue(merchant);
     mockResolveVtuCustomer.mockResolvedValue(customer);
+    mockFetchPaystackSubaccountCode.mockResolvedValue(
+      merchant.paystack_subaccount_code
+    );
     mockCreateOrderWalletFundingIntent.mockResolvedValue({
       account,
       intent,
