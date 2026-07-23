@@ -177,7 +177,9 @@ export const UtilityModal = ({
   });
   // Survives the funding detour (reload / backgrounded-tab eviction while the
   // customer is in their bank app). No-op while the check-loop flag is off.
-  const { clearIntent, intent, saveIntent } = useUtilityPendingIntent();
+  const { clearIntent, intent, saveIntent } = useUtilityPendingIntent(
+    customer?.id
+  );
   const [showFundingPanel, setShowFundingPanel] = useState(false);
   const canUseWallet = isAuthenticated && walletBalance > 0;
   // Offer bank-transfer funding when the merchant has wallet DVAs on and

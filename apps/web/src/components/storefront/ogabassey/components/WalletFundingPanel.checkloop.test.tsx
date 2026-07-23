@@ -123,6 +123,69 @@ describe('WalletFundingPanel check loop', () => {
       expect(onCredited).toHaveBeenCalledTimes(1);
     });
 
+    it('gates the return CTA until the refreshed wallet reflects the credit', async () => {
+      const user = userEvent.setup();
+      const onReturnToPurchase = vi.fn();
+      const creditedTransaction = {
+        amount: 5000,
+        balance_after: 5000,
+        created_at: '2026-07-13T10:00:00.000Z',
+        description: 'Wallet top-up',
+        id: 'txn-new',
+        source_type: 'wallet_topup',
+        type: 'credit',
+      };
+      mockPoll.mockResolvedValue({
+        balance: 5000,
+        kind: 'ready',
+        transactions: [creditedTransaction],
+      });
+
+      const view = render(
+        <WalletFundingPanel
+          account={account}
+          merchantSlug="ogabassey"
+          onAccountCreated={vi.fn()}
+          onRefreshBalance={vi.fn()}
+          onReturnToPurchase={onReturnToPurchase}
+          requiresConsent={false}
+          surface="wallet_page"
+          walletTransactions={[knownTransaction]}
+        />
+      );
+      await user.click(
+        screen.getByRole('button', { name: /I've transferred/i })
+      );
+
+      // Credit detected, but the parent's refreshed snapshot has NOT yet landed
+      // the new txn — returning now would show insufficient balance at checkout.
+      expect(await screen.findByText(/Transfer received/i)).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /Return to your purchase/i })
+      ).toBeDisabled();
+
+      // The refresh lands: the panel now sees the credited transaction.
+      view.rerender(
+        <WalletFundingPanel
+          account={account}
+          merchantSlug="ogabassey"
+          onAccountCreated={vi.fn()}
+          onRefreshBalance={vi.fn()}
+          onReturnToPurchase={onReturnToPurchase}
+          requiresConsent={false}
+          surface="wallet_page"
+          walletTransactions={[knownTransaction, creditedTransaction]}
+        />
+      );
+
+      const returnButton = screen.getByRole('button', {
+        name: /Return to your purchase/i,
+      });
+      expect(returnButton).toBeEnabled();
+      await user.click(returnButton);
+      expect(onReturnToPurchase).toHaveBeenCalledTimes(1);
+    });
+
     it('does not announce a credit when only cashback lands', async () => {
       const user = userEvent.setup();
       const onCredited = vi.fn();

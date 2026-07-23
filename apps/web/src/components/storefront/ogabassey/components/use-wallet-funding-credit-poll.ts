@@ -97,6 +97,10 @@ export function useWalletFundingCreditPoll({
 
     let cancelled = false;
     let attempts = 0;
+    // A single request is in flight at most: a stalled GET must not let the
+    // interval launch overlapping requests that pile up and defeat the bound.
+    let inFlight = false;
+    let activeController: AbortController | null = null;
     const known = new Set(baselineIds);
 
     const settle = (
@@ -124,13 +128,32 @@ export function useWalletFundingCreditPoll({
     };
 
     const refresh = async () => {
-      if (cancelled) return;
+      if (cancelled || inFlight) return;
       // Don't spend the attempt budget while the customer is away in their bank
       // app; the visibilitychange listener polls again the moment they return.
       if (document.visibilityState === 'hidden') return;
 
       attempts += 1;
-      const result = await walletFundingCreditApi.poll(merchantSlug);
+      inFlight = true;
+      // Bound this individual request: on a degraded connection the GET can
+      // stall forever, so abort it and let it settle as an error. That keeps
+      // the attempt budget advancing so the overall loop still times out.
+      const controller = new AbortController();
+      activeController = controller;
+      const abortTimer = setTimeout(() => {
+        controller.abort();
+      }, WALLET_FUNDING_POLL.requestTimeoutMs);
+
+      let result: Awaited<ReturnType<typeof walletFundingCreditApi.poll>>;
+      try {
+        result = await walletFundingCreditApi.poll(merchantSlug, controller.signal);
+      } finally {
+        clearTimeout(abortTimer);
+        inFlight = false;
+        if (activeController === controller) {
+          activeController = null;
+        }
+      }
       if (cancelled) return;
 
       const credit =
@@ -160,6 +183,8 @@ export function useWalletFundingCreditPoll({
     return () => {
       cancelled = true;
       clearInterval(interval);
+      // Abort a still-pending request so a stall cannot outlive the effect.
+      activeController?.abort();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [baselineIds, customerId, enabled, merchantSlug, status, surface]);

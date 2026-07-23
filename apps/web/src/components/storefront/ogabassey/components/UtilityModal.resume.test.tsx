@@ -9,8 +9,10 @@ import { UtilityModal } from './UtilityModal';
  * modal's checkout and rendering behaviour live in `UtilityModal.checkout.test`
  * and `UtilityModal.test`; kept separate for the 300-line modularity budget.
  */
+// The harness signs in `customer-1`; a resumable intent is scoped to that id.
 const storedIntent = {
   amount: '500',
+  customerId: 'customer-1',
   networkProvider: 'MTN',
   phoneNumber: '08012345678',
   tab: 'airtime' as const,
@@ -94,11 +96,28 @@ describe('UtilityModal funding-detour resume', () => {
 
       expect(storedIntentValue()).toEqual({
         amount: '750',
+        customerId: 'customer-1',
         networkProvider: 'MTN',
         phoneNumber: '08012345678',
         tab: 'airtime',
       });
       vi.useRealTimers();
+    });
+
+    it('never prefills a different customer\'s stored intent', () => {
+      // An intent left by another customer on this shared tab must not leak
+      // into the currently signed-in customer's (customer-1) money form.
+      sessionStorage.setItem(
+        UTILITY_PENDING_INTENT_STORAGE_KEY,
+        JSON.stringify({ ...storedIntent, customerId: 'someone-else' })
+      );
+
+      renderOpenModal();
+
+      expect(screen.getByTestId('airtime-data-form')).toHaveAttribute(
+        'data-initial-amount',
+        ''
+      );
     });
 
     it('clears the resume snapshot once the purchase completes', async () => {

@@ -54,6 +54,44 @@ describe('WalletFundingCheckStatus', () => {
     ).toBeInTheDocument();
   });
 
+  it('disables the resume CTA until the refreshed wallet reflects the credit', () => {
+    const onReturnToPurchase = vi.fn();
+
+    render(
+      <WalletFundingCheckStatus
+        creditedAmount={5000}
+        onCheck={vi.fn()}
+        onReturnToPurchase={onReturnToPurchase}
+        returnReady={false}
+        status="credited"
+      />
+    );
+
+    // The button is present (so the customer sees it is coming) but disabled,
+    // so a click cannot return them to a checkout that still reads insufficient.
+    expect(
+      screen.getByRole('button', { name: /Return to your purchase/i })
+    ).toBeDisabled();
+    expect(screen.getByText(/Updating your balance/i)).toBeInTheDocument();
+  });
+
+  it('enables the resume CTA once the refreshed wallet reflects the credit', () => {
+    render(
+      <WalletFundingCheckStatus
+        creditedAmount={5000}
+        onCheck={vi.fn()}
+        onReturnToPurchase={vi.fn()}
+        returnReady={true}
+        status="credited"
+      />
+    );
+
+    expect(
+      screen.getByRole('button', { name: /Return to your purchase/i })
+    ).toBeEnabled();
+    expect(screen.queryByText(/Updating your balance/i)).not.toBeInTheDocument();
+  });
+
   it('omits the resume CTA where there is no purchase to return to', () => {
     render(
       <WalletFundingCheckStatus

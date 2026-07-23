@@ -28,6 +28,7 @@ export const WALLET_FUNDING_COPY = {
   checkTimedOut:
     "We haven't seen your transfer yet. Bank transfers can take a few minutes — check again in a moment.",
   returnToPurchaseCta: 'Return to your purchase',
+  returnUpdatingBalance: 'Updating your balance...',
   subtitle:
     'Transfer to your personal account number below and your wallet is credited automatically.',
   title: 'Fund by bank transfer',

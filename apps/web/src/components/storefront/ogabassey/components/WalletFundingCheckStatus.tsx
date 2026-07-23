@@ -15,6 +15,13 @@ interface WalletFundingCheckStatusProps {
   onCheck: () => void;
   /** Utility surface only — prefills the paused purchase, never submits it. */
   onReturnToPurchase?: () => void;
+  /**
+   * Gates the return CTA: only enable it once the refreshed wallet actually
+   * reflects the credit. Returning before then lands the customer back on a
+   * checkout that still reads their balance as insufficient. Defaults to `true`
+   * for surfaces that have no purchase to return to.
+   */
+  returnReady?: boolean;
   status: CheckStatus;
 }
 
@@ -27,6 +34,7 @@ export function WalletFundingCheckStatus({
   creditedAmount,
   onCheck,
   onReturnToPurchase,
+  returnReady = true,
   status,
 }: WalletFundingCheckStatusProps) {
   if (status === 'checking') {
@@ -54,13 +62,28 @@ export function WalletFundingCheckStatus({
             : ''}
         </p>
         {onReturnToPurchase ? (
-          <button
-            className="w-full rounded-lg bg-store-primary px-3 py-2 text-sm font-bold text-white hover:opacity-90"
-            onClick={onReturnToPurchase}
-            type="button"
-          >
-            {WALLET_FUNDING_COPY.returnToPurchaseCta}
-          </button>
+          returnReady ? (
+            <button
+              className="w-full rounded-lg bg-store-primary px-3 py-2 text-sm font-bold text-white hover:opacity-90"
+              onClick={onReturnToPurchase}
+              type="button"
+            >
+              {WALLET_FUNDING_COPY.returnToPurchaseCta}
+            </button>
+          ) : (
+            <div className="space-y-1">
+              <button
+                className="w-full cursor-not-allowed rounded-lg bg-store-primary/60 px-3 py-2 text-sm font-bold text-white"
+                disabled
+                type="button"
+              >
+                {WALLET_FUNDING_COPY.returnToPurchaseCta}
+              </button>
+              <p aria-live="polite" className="text-xs text-gray-500">
+                {WALLET_FUNDING_COPY.returnUpdatingBalance}
+              </p>
+            </div>
+          )
         ) : null}
       </div>
     );
