@@ -6,6 +6,7 @@ import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { captureClientEvent } from '@/lib/posthog/capture-client-event';
 import { WALLET_FUNDING_TELEMETRY } from '@/lib/posthog/wallet-funding-events';
 import { useWallet } from '@/components/storefront/ogabassey/pages/checkout/hooks/use-wallet';
+import { useCustomerFormReset } from './use-customer-form-reset';
 import { useUtilityPendingIntent } from './use-utility-pending-intent';
 import { useUtilityPurchase } from './use-utility-purchase';
 import { AirtimeDataForm } from './utility/AirtimeDataForm';
@@ -91,66 +92,52 @@ export const UtilityModal = ({
     walletBalance,
   });
 
-  // Stable identity of the currently owned resume draft; null when there is
-  // nothing to resume (flag off, no draft, or auth not hydrated yet).
+  // Stable identity of the owned resume draft; null when nothing to resume.
   const intentKey = intent
     ? `${intent.tab}|${intent.amount}|${intent.phoneNumber}|${intent.networkProvider ?? ''}`
     : null;
 
-  // Reset the view when the modal (re)opens or the requested tab changes.
-  // Render-time prev-prop comparison avoids a stale-frame effect round-trip.
-  // Init `false` (not `isOpen`) so the seed also runs when the modal is
-  // rendered already-open — the reload / backgrounded-tab-eviction case the
-  // resume feature exists for.
+  // Render-time prev-prop comparison (no stale-frame effect round-trip) that
+  // seeds the form. `prevIsOpen` inits `false` so the seed also runs when the
+  // modal is rendered already-open (reload / backgrounded-tab eviction — the
+  // case the resume feature exists for).
   const [prevIsOpen, setPrevIsOpen] = useState(false);
   const [prevInitialTab, setPrevInitialTab] = useState(initialTab);
-  // Which owned intent (if any) has already been applied to the form. Doubles
-  // as the form remount key so a late-arriving intent forces a re-seed.
+  // Owned intent already applied to the form; also part of the form remount key.
   const [appliedIntentKey, setAppliedIntentKey] = useState<string | null>(null);
-  // Detect the exact render where auth hydration reveals the signed-in customer
-  // (`customer.id` absent -> present). The late reseed must fire only on THAT
-  // transition — not when an already-signed-in customer's own first keystroke
-  // saves a draft, which also flips `intent` non-null but must never remount
-  // the form mid-typing (that drops input focus / dismisses the keyboard).
+  // `customer.id` changes on auth hydration (undefined -> defined) AND on an
+  // account switch (defined -> defined on the same shared tab). Either re-seeds
+  // from the NEW customer's owned intent (below); a switch also bumps
+  // `customerEpoch`, which both forms key on so neither carries the previous
+  // customer's local draft. A keystroke does NOT change `customer.id`, so
+  // reseeds never remount mid-typing (which would drop input focus).
   const customerId = customer?.id;
-  const [prevCustomerId, setPrevCustomerId] = useState(customerId);
-  const customerJustHydrated = Boolean(customerId) && !prevCustomerId;
-  if (customerId !== prevCustomerId) {
-    setPrevCustomerId(customerId);
-  }
+  const { customerChanged, customerEpoch } = useCustomerFormReset(customerId);
   if (isOpen !== prevIsOpen || initialTab !== prevInitialTab) {
     setPrevIsOpen(isOpen);
     setPrevInitialTab(initialTab);
     if (isOpen) {
-      // Land on the tab that holds a resumed draft so a `data` draft is not
-      // stranded on the default `airtime` tab (paired with the form remount
-      // key below). Falls back to the caller's requested tab when there is
-      // nothing to resume.
+      // Land on the tab holding the resumed draft so a `data` draft is not
+      // stranded on the default `airtime` tab. `intentKey` may be null until
+      // auth hydrates — the customer-change branch below reseeds then.
       setActiveTab(intent?.tab ?? initialTab);
       setStep('details');
       // Collapse the funding panel so reopening never re-triggers DVA
       // auto-create without a fresh "Pay with Bank Transfer" tap.
       setShowFundingPanel(false);
-      // May be null when auth has not hydrated yet — the branch below reseeds
-      // once the owned intent resolves.
       setAppliedIntentKey(intentKey);
     } else {
       // Re-arm seeding for the next open.
       setAppliedIntentKey(null);
     }
-  } else if (
-    isOpen &&
-    intent &&
-    appliedIntentKey === null &&
-    customerJustHydrated
-  ) {
-    // Auth resolved AFTER the modal mounted open: `customer.id` was absent on
-    // the first render, so the owned intent was null and never seeded. Now that
-    // the (customer-scoped) intent is available, seed its tab and remount the
-    // form exactly once. Gated on the customer-id hydration transition so an
-    // already-signed-in customer's first keystroke (which also flips `intent`
-    // non-null) never triggers a spurious mid-typing remount.
-    setActiveTab(intent.tab);
+  } else if (isOpen && customerChanged) {
+    // Signed-in customer changed while the modal stayed open (auth hydrating,
+    // or an account switch). Re-seed for them and remount AirtimeDataForm (its
+    // key includes `customerId`): the previous customer's typed phone/amount
+    // lives in the form's LOCAL state — which no prop clears without a remount
+    // — and must never surface to the next customer.
+    setActiveTab(intent?.tab ?? initialTab);
+    setStep('details');
     setAppliedIntentKey(intentKey);
   }
 
@@ -265,11 +252,12 @@ export const UtilityModal = ({
               ) : null}
               {(activeTab === 'airtime' || activeTab === 'data') && (
                 <AirtimeDataForm
-                  // Remount on tab change AND when a late-hydrating intent is
-                  // seeded: AirtimeDataForm reads `initialDraft` only on mount,
-                  // so a shared instance would never pick up a resumed draft for
-                  // the non-active tab or one that arrived after auth hydrated.
-                  key={`${activeTab}|${appliedIntentKey ?? ''}`}
+                  // Remount on tab change, on a customer switch (`customerEpoch`),
+                  // and when a late-hydrating intent seeds. AirtimeDataForm reads
+                  // `initialDraft` only on mount and keeps the typed draft in
+                  // local state, so a shared instance would misfire a resumed
+                  // draft or leak the prior customer's phone/amount to the next.
+                  key={`${activeTab}|${customerEpoch}|${appliedIntentKey ?? ''}`}
                   type={activeTab}
                   loading={loading}
                   initialDraft={
@@ -285,6 +273,11 @@ export const UtilityModal = ({
                 activeTab === 'power' ||
                 activeTab === 'betting') && (
                 <BillPaymentForm
+                  // Remount on a customer switch so the previous customer's typed
+                  // meter/smartcard/betting id, amount, biller and VERIFIED
+                  // account-holder address (all in the form's local state) never
+                  // surface to the next customer on a shared tab.
+                  key={`${activeTab}|${customerEpoch}`}
                   type={activeTab}
                   loading={loading}
                   onSubmit={handleBillSubmit}
