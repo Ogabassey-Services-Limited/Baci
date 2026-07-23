@@ -60,8 +60,9 @@ describe('getCachedBrandAuthorityInventory', () => {
       minimumProducts: 5,
     });
 
+    expect(query.or).toHaveBeenCalledTimes(1);
     expect(query.or).toHaveBeenCalledWith(
-      'brand.ilike.Xiaomi,brand.ilike.Redmi'
+      'and(is_parent.eq.true,brand.ilike.Xiaomi),and(parent_product_id.is.null,brand.ilike.Xiaomi),and(is_parent.eq.true,brand.ilike.Redmi),and(parent_product_id.is.null,brand.ilike.Redmi)'
     );
   });
 });

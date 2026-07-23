@@ -66,13 +66,19 @@ async function readCachedBrandAuthorityInventory(
       .select(BRAND_AUTHORITY_PRODUCTS_SELECT)
       .eq('merchant_id', merchantId)
       .eq('product_categories.categories.slug', categorySlug)
-      .eq('status', 'active')
-      .or('is_parent.eq.true,parent_product_id.is.null');
+      .eq('status', 'active');
     const brandQuery =
       brandQueryValues.length === 1
-        ? baseQuery.ilike('brand', brandQueryValues[0])
+        ? baseQuery
+            .or('is_parent.eq.true,parent_product_id.is.null')
+            .ilike('brand', brandQueryValues[0])
         : baseQuery.or(
-            brandQueryValues.map((value) => `brand.ilike.${value}`).join(',')
+            brandQueryValues
+              .flatMap((value) => [
+                `and(is_parent.eq.true,brand.ilike.${value})`,
+                `and(parent_product_id.is.null,brand.ilike.${value})`,
+              ])
+              .join(',')
           );
     const { data, error } = await brandQuery
       .order('updated_at', { ascending: false })
