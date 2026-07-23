@@ -231,12 +231,15 @@ export async function inviteStaffMember(rawData: InviteStaffData) {
             throw new Error('Failed to save auto-created staff account');
           }
 
-          // Also update legacy column for backwards compatibility if needed
-          await supabase
-            .from('merchants')
-            .update({ virtual_terminal_code: vtResult.data.code })
-            .eq('id', merchant.id)
-            .is('virtual_terminal_code', null);
+          // Also update legacy column for backwards compatibility if needed.
+          // `virtual_terminal_code` is a secret column revoked from the
+          // authenticated Postgres role, so the "set only when currently NULL"
+          // write goes through the bounded SECURITY DEFINER RPC (which re-checks
+          // merchant access inside the definer) on the authenticated client.
+          await supabase.rpc('set_merchant_virtual_terminal_code_if_absent', {
+            p_code: vtResult.data.code,
+            p_merchant_id: merchant.id,
+          });
         }
       }
     } catch (err) {

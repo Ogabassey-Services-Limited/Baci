@@ -15174,6 +15174,10 @@ export type Database = {
         Returns: undefined;
       };
       cleanup_stale_push_tokens: { Args: never; Returns: number };
+      clear_merchant_virtual_terminal_code: {
+        Args: { p_code: string; p_merchant_id: string };
+        Returns: undefined;
+      };
       clear_petrock_remediation_notification: {
         Args: { p_channel: string; p_claim_token: string; p_order_id: string };
         Returns: boolean;
@@ -16019,6 +16023,10 @@ export type Database = {
           total_orders: number;
         }[];
       };
+      get_admin_merchant_profiles: {
+        Args: never;
+        Returns: Json;
+      };
       get_admin_platform_daily_summary: {
         Args: { p_end_date?: string; p_start_date?: string };
         Returns: {
@@ -16167,6 +16175,10 @@ export type Database = {
           token: string;
         }[];
       };
+      get_merchant_paystack_subaccount_code: {
+        Args: { p_merchant_id: string };
+        Returns: string;
+      };
       get_merchant_verification_flags: {
         Args: { p_merchant_id: string };
         Returns: Json;
@@ -16174,6 +16186,10 @@ export type Database = {
       get_merchant_verification_status: {
         Args: { p_merchant_id: string };
         Returns: Json;
+      };
+      get_merchant_virtual_terminal_code: {
+        Args: { p_merchant_id: string };
+        Returns: string;
       };
       get_missing_index_suggestions: {
         Args: never;
@@ -18031,6 +18047,10 @@ export type Database = {
           sender_local_part: string;
           status: string;
         }[];
+      };
+      set_merchant_virtual_terminal_code_if_absent: {
+        Args: { p_code: string; p_merchant_id: string };
+        Returns: undefined;
       };
       set_order_payment_ref: {
         Args: {

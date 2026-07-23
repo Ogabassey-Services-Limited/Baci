@@ -9,6 +9,7 @@ import {
   requiresNigerianKycForLaunch,
 } from '@/lib/checkout/payment-gateway-availability';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { fetchMerchantPaystackSubaccountCode } from '@/lib/fetch-merchant-payment-secret';
 import { getStorefrontPublicationCacheIdentity } from '@/lib/get-storefront-publication-cache-identity';
 import { evictStorefrontPublicationCaches } from '@/lib/storefront-publication-cache-eviction';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -103,18 +104,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
 
-    // Use the auth-scoped client from authenticateApiRequest for all DB ops so
-    // mobile (Bearer token) requests run with the user's token and satisfy
-    // RLS. Falling back to cookie-based createClient would run as anon on
-    // React Native where no session cookie is present, silently failing RLS
+    // Use the auth-scoped client from authenticateApiRequest for user-facing DB
+    // ops so mobile (Bearer token) requests run with the user's token and
+    // satisfy RLS. Falling back to cookie-based createClient would run as anon
+    // on React Native where no session cookie is present, silently failing RLS
     // checks and breaking publish from the mobile admin app.
     const supabase = auth.supabase;
 
-    // Get merchant with required fields for validation
-    const { data: merchant, error: merchantError } = await supabase
+    // Non-secret merchant columns remain granted to the `authenticated`
+    // Postgres role, so read the fields needed for publish validation on the
+    // auth-scoped client, strictly keyed to the caller's already-resolved
+    // merchant id (access.merchantId) to preserve tenant scoping. The secret
+    // `paystack_subaccount_code` is revoked from that role and is fetched
+    // separately below via a bounded RPC.
+    const { data: merchantRecord, error: merchantError } = await supabase
       .from('merchants')
       .select(
-        'id, business_name, country, email, phone, support_email, support_phone, paystack_subaccount_code, bank_code, bank_account_number, slug'
+        'id, business_name, country, email, phone, support_email, support_phone, bank_code, bank_account_number, slug'
       )
       .eq('id', access.merchantId)
       .maybeSingle();
@@ -127,12 +133,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!merchant) {
+    if (!merchantRecord) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+
+    // Read the revoked `paystack_subaccount_code` through the bounded SECURITY
+    // DEFINER RPC on the same authenticated client (owner/active-staff), then
+    // merge it into the merchant row the launch-payment gate validates.
+    const merchant = {
+      ...merchantRecord,
+      paystack_subaccount_code: await fetchMerchantPaystackSubaccountCode(
+        supabase,
+        access.merchantId
+      ),
+    };
 
     const { data: featureSettings, error: featureSettingsError } =
       await supabase

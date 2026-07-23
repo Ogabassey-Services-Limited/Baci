@@ -6,6 +6,7 @@ const mockEnsureCustomerWalletPaymentAccount = vi.fn();
 const mockResolveCustomerWalletPaymentAccount = vi.fn();
 const mockResolveVtuCustomer = vi.fn();
 const mockResolveWalletTopUpMerchant = vi.fn();
+const mockFetchPaystackSubaccountCode = vi.fn();
 const mockRpc = vi.fn();
 
 vi.mock('@/lib/api-auth', () => ({
@@ -46,6 +47,11 @@ vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: vi.fn(() => ({ role: 'server-verified-payment-account' })),
 }));
 
+vi.mock('@/lib/fetch-merchant-payment-secret', () => ({
+  fetchMerchantPaystackSubaccountCode: (...args: unknown[]) =>
+    mockFetchPaystackSubaccountCode(...args),
+}));
+
 import { GET, POST } from './route';
 import {
   customer,
@@ -65,6 +71,9 @@ describe('/api/storefront/customer/wallet/funding-account resolution failures', 
     mockCheckCsrfProtection.mockResolvedValue({ valid: true, response: null });
     mockResolveWalletTopUpMerchant.mockResolvedValue(merchant);
     mockResolveVtuCustomer.mockResolvedValue(customer);
+    mockFetchPaystackSubaccountCode.mockResolvedValue(
+      merchant.paystack_subaccount_code
+    );
     mockRpc.mockResolvedValue({ data: true, error: null });
   });
 

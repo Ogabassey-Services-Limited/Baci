@@ -1,7 +1,5 @@
-import type { createAdminClient } from '@/lib/supabase/admin';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { withMerchantSlugAliasFallback } from '@/lib/with-merchant-slug-alias-fallback';
-
-type AdminSupabaseClient = ReturnType<typeof createAdminClient>;
 
 function selectColumnsWithSlug(columns: string) {
   const selectedColumns = columns
@@ -57,8 +55,16 @@ function throwLookupError({
  * agrees with merchantSlug. A valid slug then wins over a stale-but-existing
  * id, while a valid id can still recover when the slug is stale or unavailable.
  */
+/**
+ * Resolve a merchant by id-first / slug-fallback. The CALLER chooses the client
+ * to match the columns it selects: pass the authenticated (RLS) client when
+ * selecting only non-secret identity columns (so unpublished merchants the caller
+ * cannot access stay invisible — no tenant existence oracle), and the service-
+ * role client only when the caller genuinely needs revoked secret columns AND has
+ * already established a trusted tenant context.
+ */
 export async function resolveWalletTopUpMerchant<T>(
-  supabase: AdminSupabaseClient,
+  supabase: SupabaseClient,
   identifiers: { merchantId?: string; merchantSlug?: string },
   columns: string
 ): Promise<T | null> {

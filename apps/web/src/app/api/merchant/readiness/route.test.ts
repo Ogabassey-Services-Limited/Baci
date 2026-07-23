@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   createAdminClient: vi.fn(),
   createClient: vi.fn(),
+  fetchMerchantPaystackSubaccountCode: vi.fn(),
   getMerchantForApiRequest: vi.fn(),
   hasPermission: vi.fn(),
 }));
@@ -26,6 +27,11 @@ vi.mock('@/lib/supabase/admin', () => ({
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: mocks.createClient,
+}));
+
+vi.mock('@/lib/fetch-merchant-payment-secret', () => ({
+  fetchMerchantPaystackSubaccountCode:
+    mocks.fetchMerchantPaystackSubaccountCode,
 }));
 
 function merchantRow() {
@@ -82,6 +88,13 @@ function countChain(result: unknown) {
   return query;
 }
 
+// The owned-merchant read and the staff_members -> merchants join now select
+// only non-secret columns and run on the authenticated client. The revoked
+// paystack_subaccount_code is read separately via the bounded RPC helper. The
+// per-test merchant option is shared here so both the authenticated merchants
+// mock and the helper mock (wired in beforeEach) resolve the same fixture.
+let currentMerchantMock: unknown;
+
 function createReadinessSupabaseMock(options?: {
   featureSettingsError?: unknown;
   featureSettings?: unknown;
@@ -92,6 +105,7 @@ function createReadinessSupabaseMock(options?: {
   productCount?: number;
   user?: { id: string } | null;
 }) {
+  currentMerchantMock = options?.merchant ?? merchantRow();
   return {
     auth: {
       getUser: vi.fn().mockResolvedValue({
@@ -101,8 +115,12 @@ function createReadinessSupabaseMock(options?: {
       }),
     },
     from: vi.fn((table: string) => {
+      // Non-secret merchant columns are read on the authenticated client, so the
+      // owned-merchant read and the staff_members -> merchants join are served
+      // here. The revoked paystack_subaccount_code is NOT selected; it comes
+      // from the bounded RPC helper (mocks.fetchMerchantPaystackSubaccountCode).
       if (table === 'merchants') {
-        return chain(queryResult(options?.merchant ?? merchantRow()));
+        return chain(queryResult(currentMerchantMock ?? merchantRow()));
       }
 
       if (table === 'staff_members') {
@@ -151,16 +169,21 @@ function createReadinessSupabaseMock(options?: {
 function createAdminSupabaseMock() {
   return {
     from: vi.fn((table: string) => {
-      if (table !== 'merchant_verifications') {
-        throw new Error(`Unexpected admin table ${table}`);
+      // The admin client is retained ONLY for the merchant_verifications KYC
+      // read (getVerificationFlags). The merchant row is now read on the
+      // authenticated client; its secret paystack_subaccount_code comes from
+      // the bounded RPC helper.
+      if (table === 'merchant_verifications') {
+        return chain(
+          queryResult({
+            bvn_verified: true,
+            cac_verified: false,
+            nin_verified: false,
+          })
+        );
       }
-      return chain(
-        queryResult({
-          bvn_verified: true,
-          cac_verified: false,
-          nin_verified: false,
-        })
-      );
+
+      throw new Error(`Unexpected admin table ${table}`);
     }),
   };
 }
@@ -168,6 +191,7 @@ function createAdminSupabaseMock() {
 describe('GET /api/merchant/readiness', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    currentMerchantMock = undefined;
     mocks.hasPermission.mockImplementation(
       (_access: unknown, _resource: string, action: string) => action !== 'edit'
     );
@@ -181,6 +205,20 @@ describe('GET /api/merchant/readiness', () => {
       },
     });
     mocks.createAdminClient.mockReturnValue(createAdminSupabaseMock());
+    // The revoked paystack_subaccount_code is read via the bounded RPC helper.
+    // Serve whatever value the current merchant fixture carries so the
+    // launch-payment gate sees the same code the old admin read returned.
+    mocks.fetchMerchantPaystackSubaccountCode.mockImplementation(() =>
+      Promise.resolve(
+        (
+          currentMerchantMock as
+            | {
+                paystack_subaccount_code?: string | null;
+              }
+            | undefined
+        )?.paystack_subaccount_code ?? null
+      )
+    );
   });
 
   it('returns 401 when no web session exists', async () => {
@@ -205,6 +243,25 @@ describe('GET /api/merchant/readiness', () => {
 
     expect(response.status).toBe(404);
     expect(await response.json()).toEqual({ error: 'Merchant not found' });
+  });
+
+  it('reads the merchant row on the authenticated client and the revoked paystack_subaccount_code via the bounded RPC helper', async () => {
+    mocks.hasPermission.mockReturnValue(true);
+    const authClient = createReadinessSupabaseMock({});
+    mocks.createClient.mockReturnValue(authClient);
+
+    const { GET } = await import('./route');
+    const response = await GET();
+
+    expect(response.status).toBe(200);
+    // Non-secret merchant columns run on the authenticated client...
+    expect(authClient.from).toHaveBeenCalledWith('merchants');
+    // ...and the revoked secret resolves through the RPC helper on that same
+    // authenticated client, keyed to the resolved merchant id.
+    expect(mocks.fetchMerchantPaystackSubaccountCode).toHaveBeenCalledWith(
+      authClient,
+      'merchant-1'
+    );
   });
 
   it('returns starter readiness with store build status', async () => {
