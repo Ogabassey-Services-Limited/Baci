@@ -47,7 +47,7 @@ describe('WalletFundingCheckStatus', () => {
       />
     );
 
-    expect(screen.getByText(/Transfer received/i)).toBeInTheDocument();
+    expect(screen.getByText(/topped up/i)).toBeInTheDocument();
     expect(screen.getByText(/5,000/)).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /Return to your purchase/i })
@@ -119,7 +119,7 @@ describe('WalletFundingCheckStatus', () => {
     );
 
     expect(screen.getByText(/haven't seen your transfer yet/i)).toBeInTheDocument();
-    expect(screen.queryByText(/Transfer received/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/topped up/i)).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /Check again/i }));
     expect(onCheck).toHaveBeenCalledTimes(1);
   });

@@ -118,7 +118,7 @@ describe('WalletFundingPanel check loop', () => {
         screen.getByRole('button', { name: /I've transferred/i })
       );
 
-      expect(await screen.findByText(/Transfer received/i)).toBeInTheDocument();
+      expect(await screen.findByText(/topped up/i)).toBeInTheDocument();
       expect(onRefreshBalance).toHaveBeenCalledTimes(1);
       expect(onCredited).toHaveBeenCalledTimes(1);
     });
@@ -159,7 +159,7 @@ describe('WalletFundingPanel check loop', () => {
 
       // Credit detected, but the parent's refreshed snapshot has NOT yet landed
       // the new txn — returning now would show insufficient balance at checkout.
-      expect(await screen.findByText(/Transfer received/i)).toBeInTheDocument();
+      expect(await screen.findByText(/topped up/i)).toBeInTheDocument();
       expect(
         screen.getByRole('button', { name: /Return to your purchase/i })
       ).toBeDisabled();
@@ -210,7 +210,7 @@ describe('WalletFundingPanel check loop', () => {
       expect(
         await screen.findByText(/Checking for your transfer/i)
       ).toBeInTheDocument();
-      expect(screen.queryByText(/Transfer received/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/topped up/i)).not.toBeInTheDocument();
       expect(onCredited).not.toHaveBeenCalled();
     });
 
@@ -235,7 +235,7 @@ describe('WalletFundingPanel check loop', () => {
       expect(
         screen.getByText(/haven't seen your transfer yet/i)
       ).toBeInTheDocument();
-      expect(screen.queryByText(/Transfer received/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/topped up/i)).not.toBeInTheDocument();
       expect(
         screen.getByRole('button', { name: /Check again/i })
       ).toBeInTheDocument();
