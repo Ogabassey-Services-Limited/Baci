@@ -203,7 +203,7 @@ describe('supabaseHistoryReplayManifest', () => {
         repositoryPath:
           'supabase/migrations/20260723150000_merchant_payment_secret_rpcs.sql',
         sha256:
-          'bf6b188dae0cd0d75c95642fd3e1f0281dc27b591e8d54bb6436e78242658e75',
+          '36b7e8bb66b30691e633e312c8dbfea3bfee10a945007a59f0bfb8f5599991fe',
       },
       {
         repositoryPath:
