@@ -12,6 +12,7 @@ type MerchantContext = {
 };
 
 const {
+  mockAdminFrom,
   mockDeactivateVirtualTerminal,
   mockFetchVirtualTerminal,
   mockFrom,
@@ -21,11 +22,13 @@ const {
   mockSupabase,
   mockUpdateVirtualTerminal,
 } = vi.hoisted(() => {
+  const mockAdminFrom = vi.fn();
   const mockFrom = vi.fn();
   const mockGetUser = vi.fn();
   const mockRpc = vi.fn();
 
   return {
+    mockAdminFrom,
     mockDeactivateVirtualTerminal: vi.fn(),
     mockFetchVirtualTerminal: vi.fn(),
     mockFrom,
@@ -50,7 +53,7 @@ vi.mock('@/lib/supabase/server', () => ({
 }));
 
 vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: vi.fn(() => ({ rpc: mockRpc })),
+  createAdminClient: vi.fn(() => ({ from: mockAdminFrom, rpc: mockRpc })),
 }));
 
 vi.mock('@/lib/api-auth', () => ({
@@ -253,6 +256,50 @@ describe('/api/paystack/virtual-terminal/[code]', () => {
       p_merchant_id: MERCHANT_ID,
       p_name: 'Sales Terminal',
     });
+  });
+
+  it('deactivates a terminal and clears the legacy code through the admin client', async () => {
+    const terminalLookup = createMerchantLookup(null);
+    terminalLookup.maybeSingle.mockResolvedValue({
+      data: { id: 'terminal-1' },
+      error: null,
+    });
+    // Authenticated client only handles the ownership lookup.
+    mockFrom.mockReturnValue(terminalLookup);
+    mockDeactivateVirtualTerminal.mockResolvedValue({
+      data: { code: TERMINAL_CODE },
+      success: true,
+    });
+    mockRpc.mockResolvedValue({ data: 'terminal-1', error: null });
+    // The `.eq('virtual_terminal_code', code)` filter reads the revoked secret
+    // column, so the legacy clear must run on the admin client.
+    const legacyClearChain = {
+      eq: vi.fn().mockReturnThis(),
+      error: null,
+      update: vi.fn().mockReturnThis(),
+    };
+    mockAdminFrom.mockReturnValue(legacyClearChain);
+
+    const response = await DELETE(createRequest('DELETE'), createParams());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      success: true,
+      message: 'Virtual Terminal deactivated',
+    });
+    // The secret-filter UPDATE ran on the admin client, scoped to the merchant.
+    expect(mockAdminFrom).toHaveBeenCalledWith('merchants');
+    expect(legacyClearChain.update).toHaveBeenCalledWith({
+      virtual_terminal_code: null,
+    });
+    expect(legacyClearChain.eq).toHaveBeenCalledWith('id', MERCHANT_ID);
+    expect(legacyClearChain.eq).toHaveBeenCalledWith(
+      'virtual_terminal_code',
+      TERMINAL_CODE
+    );
+    // The authenticated client is never used to read/filter the secret column.
+    expect(mockFrom).not.toHaveBeenCalledWith('merchants');
   });
 
   it('syncs a rename when the Paystack response omits paymentMethods', async () => {

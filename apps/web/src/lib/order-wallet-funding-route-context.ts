@@ -2,6 +2,7 @@ import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { resolveWalletTopUpMerchant } from '@/lib/resolve-wallet-top-up-merchant';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveVtuCustomer } from '@/lib/vtu-pending-transaction';
 
 export type OrderFundingRouteContext<TMerchant> =
@@ -40,10 +41,15 @@ export async function resolveOrderFundingMerchantAndCustomer<
 }): Promise<OrderFundingRouteContext<TMerchant>> {
   let merchant: TMerchant | null;
   try {
+    // paystack_subaccount_code is SELECT-revoked from the authenticated role, so
+    // the merchant payment-config lookup runs under the service-role client. The
+    // customer lookup below stays on the caller's authenticated RLS client.
+    const validatedMerchantSelect =
+      assertOrderFundingMerchantSelect(merchantSelect);
     merchant = await resolveWalletTopUpMerchant<TMerchant>(
-      supabase,
+      createAdminClient(),
       identifiers,
-      assertOrderFundingMerchantSelect(merchantSelect)
+      validatedMerchantSelect
     );
   } catch (error) {
     logger.error({

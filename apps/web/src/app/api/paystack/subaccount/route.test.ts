@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const {
   mockAuthenticateApiRequest,
   mockCheckCsrfProtection,
+  mockCreateAdminClient,
   mockCreateSubaccount,
   mockGetMerchantForApiRequest,
   mockHasPermission,
@@ -15,6 +16,7 @@ const {
 } = vi.hoisted(() => ({
   mockAuthenticateApiRequest: vi.fn(),
   mockCheckCsrfProtection: vi.fn(),
+  mockCreateAdminClient: vi.fn(),
   mockCreateSubaccount: vi.fn(),
   mockGetMerchantForApiRequest: vi.fn(),
   mockHasPermission: vi.fn(),
@@ -51,6 +53,10 @@ vi.mock('@/lib/paystack', () => ({
   updateSubaccount: (...args: unknown[]) => mockUpdateSubaccount(...args),
 }));
 
+vi.mock('@/lib/supabase/admin', () => ({
+  createClient: (...args: unknown[]) => mockCreateAdminClient(...args),
+}));
+
 import { POST } from './route';
 
 function makeRequest(
@@ -77,11 +83,14 @@ describe('POST /api/paystack/subaccount', () => {
   const mockWalletUpdateEq = vi.fn(() => ({ select: mockWalletUpdateSelect }));
   const mockWalletUpdate = vi.fn(() => ({ eq: mockWalletUpdateEq }));
   const mockRpc = vi.fn();
+  // Secret-column reads (paystack_subaccount_code) must go through the
+  // service-role admin client, so the authenticated client only exposes the
+  // merchants UPDATE path here. If the route ever reads merchants via the
+  // authenticated client again, `.select` will be undefined and the test throws.
   const mockSupabase = {
     from: vi.fn((table: string) => {
       if (table === 'merchants') {
         return {
-          select: mockMerchantSelect,
           update: mockMerchantUpdate,
         };
       }
@@ -96,6 +105,15 @@ describe('POST /api/paystack/subaccount', () => {
     }),
     rpc: mockRpc,
   };
+  // The admin client owns the secret-column SELECT.
+  const mockAdminFrom = vi.fn((table: string) => {
+    if (table === 'merchants') {
+      return { select: mockMerchantSelect };
+    }
+
+    throw new Error(`Unexpected admin table ${table}`);
+  });
+  const mockAdminSupabase = { from: mockAdminFrom };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -103,7 +121,6 @@ describe('POST /api/paystack/subaccount', () => {
     mockSupabase.from.mockImplementation((table: string) => {
       if (table === 'merchants') {
         return {
-          select: mockMerchantSelect,
           update: mockMerchantUpdate,
         };
       }
@@ -116,6 +133,15 @@ describe('POST /api/paystack/subaccount', () => {
 
       throw new Error(`Unexpected table ${table}`);
     });
+
+    mockAdminFrom.mockImplementation((table: string) => {
+      if (table === 'merchants') {
+        return { select: mockMerchantSelect };
+      }
+
+      throw new Error(`Unexpected admin table ${table}`);
+    });
+    mockCreateAdminClient.mockReturnValue(mockAdminSupabase);
 
     mockAuthenticateApiRequest.mockResolvedValue({
       user: { id: 'user-123', email: 'owner@example.com' },
@@ -341,6 +367,47 @@ describe('POST /api/paystack/subaccount', () => {
     // Busts the cached storefront-features Paystack lookup so checkout picks up
     // the newly configured subaccount without waiting for the cache TTL.
     expect(mockRevalidateFeatures).toHaveBeenCalledWith('merchant-456');
+  });
+
+  it('reads the secret paystack_subaccount_code column via the service-role admin client', async () => {
+    const response = await POST(
+      makeRequest({
+        accountNumber: '1234567890',
+        bankCode: '044',
+        businessName: 'Baci Store',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    // Auth/permission gates still ran on the authenticated client first.
+    expect(mockGetMerchantForApiRequest).toHaveBeenCalledWith(
+      mockSupabase,
+      'user-123'
+    );
+    expect(mockHasPermission).toHaveBeenCalled();
+    // The 42501-triggering SELECT of the revoked secret column is served by the
+    // admin client, scoped to the already-resolved merchant id.
+    expect(mockCreateAdminClient).toHaveBeenCalled();
+    expect(mockAdminFrom).toHaveBeenCalledWith('merchants');
+    expect(mockMerchantSelect).toHaveBeenCalledWith(
+      'paystack_subaccount_code, business_name, country, email, phone'
+    );
+    expect(mockMerchantSelectEq).toHaveBeenCalledWith('id', 'merchant-456');
+  });
+
+  it('does not construct the admin client before authorization passes', async () => {
+    mockHasPermission.mockReturnValueOnce(false);
+
+    const response = await POST(
+      makeRequest({
+        accountNumber: '1234567890',
+        bankCode: '044',
+        businessName: 'Baci Store',
+      })
+    );
+
+    expect(response.status).toBe(403);
+    expect(mockCreateAdminClient).not.toHaveBeenCalled();
   });
 
   it('returns the saved subaccount when feature cache invalidation fails', async () => {

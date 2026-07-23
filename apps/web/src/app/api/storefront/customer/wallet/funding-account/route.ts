@@ -91,8 +91,12 @@ async function resolveMerchantAndCustomer({
   supabase: SupabaseClient;
   user: User;
 }): Promise<FundingAccountResolvedContext> {
+  // paystack_subaccount_code is SELECT-revoked from the authenticated role, so
+  // the merchant payment-config lookup must run under the service-role client.
+  // Customer auth/CSRF (above) and resolveVtuCustomer (below) stay on the
+  // authenticated RLS client.
   const merchant = await resolveWalletTopUpMerchant<FundingAccountMerchant>(
-    supabase,
+    createAdminClient(),
     identifiers,
     MERCHANT_SELECT
   );

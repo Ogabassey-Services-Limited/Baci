@@ -1,4 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
+
+const { mockCreateAdminClient } = vi.hoisted(() => ({
+  mockCreateAdminClient: vi.fn(),
+}));
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: (...args: unknown[]) => mockCreateAdminClient(...args),
+}));
+
 import {
   clearLegacyTerminalCode,
   syncTerminalRecord,
@@ -176,25 +185,45 @@ describe('virtual terminal local sync helpers', () => {
     });
   });
 
-  it('does not warn when a legacy clear matches no merchant row', async () => {
-    const supabase = {
-      from: vi.fn(() => createChain({ data: null, error: null })),
-    };
+  it('clears the legacy code through the admin client scoped to the merchant', async () => {
+    // The `.eq('virtual_terminal_code', code)` filter reads a revoked secret
+    // column, so it must run on the service-role admin client while staying
+    // scoped to the owning merchant id.
+    const chain = createChain({ data: null, error: null });
+    const adminSupabase = { from: vi.fn(() => chain) };
 
     await expect(
-      clearLegacyTerminalCode(supabase as never, 'merchant-1', 'VT_123')
+      clearLegacyTerminalCode('merchant-1', 'VT_123', adminSupabase as never)
     ).resolves.toBeNull();
+
+    expect(adminSupabase.from).toHaveBeenCalledWith('merchants');
+    expect(chain.update).toHaveBeenCalledWith({ virtual_terminal_code: null });
+    expect(chain.eq).toHaveBeenCalledWith('id', 'merchant-1');
+    expect(chain.eq).toHaveBeenCalledWith('virtual_terminal_code', 'VT_123');
+  });
+
+  it('defaults to the service-role admin client for the secret filter', async () => {
+    const chain = createChain({ data: null, error: null });
+    const adminFrom = vi.fn(() => chain);
+    mockCreateAdminClient.mockReturnValue({ from: adminFrom });
+
+    await expect(
+      clearLegacyTerminalCode('merchant-1', 'VT_123')
+    ).resolves.toBeNull();
+
+    expect(mockCreateAdminClient).toHaveBeenCalled();
+    expect(adminFrom).toHaveBeenCalledWith('merchants');
   });
 
   it('returns a warning when clearing the legacy code fails', async () => {
-    const supabase = {
+    const adminSupabase = {
       from: vi.fn(() =>
         createChain({ data: null, error: { message: 'boom' } })
       ),
     };
 
     await expect(
-      clearLegacyTerminalCode(supabase as never, 'merchant-1', 'VT_123')
+      clearLegacyTerminalCode('merchant-1', 'VT_123', adminSupabase as never)
     ).resolves.toBe('legacy_clear_failed');
   });
 });

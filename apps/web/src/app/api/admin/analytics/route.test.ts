@@ -5,6 +5,7 @@ const mockCookies = vi.fn();
 const mockGetCachedPlatformAnalytics = vi.fn();
 const mockGetMerchantForApiRequest = vi.fn();
 const mockCreateClient = vi.fn();
+const mockCreateAdminClient = vi.fn();
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn(async () => mockCookies()),
@@ -22,6 +23,10 @@ vi.mock('@/lib/get-merchant-for-api-request', () => ({
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: (...args: unknown[]) => mockCreateClient(...args),
+}));
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: (...args: unknown[]) => mockCreateAdminClient(...args),
 }));
 
 function createQueryBuilder(result: {
@@ -70,7 +75,23 @@ function createMockSupabase(
     !('error' in rpcResult) &&
     Object.keys(rpcResult).length > 0;
 
-  return {
+  const rpc = isNamedRpc
+    ? vi.fn((name: string) => {
+        const result =
+          (rpcResult as Record<string, { data?: unknown; error?: unknown }>)[
+            name
+          ] ?? {};
+        return Promise.resolve({
+          data: result.data ?? [],
+          error: result.error ?? null,
+        });
+      })
+    : vi.fn().mockResolvedValue({
+        data: (rpcResult as { data?: unknown; error?: unknown }).data ?? [],
+        error: (rpcResult as { data?: unknown; error?: unknown }).error ?? null,
+      });
+
+  const authClient = {
     auth: {
       getUser: vi.fn().mockResolvedValue({
         data: { user: { id: 'user-1' } },
@@ -80,23 +101,22 @@ function createMockSupabase(
     from: vi.fn((table: string) =>
       createQueryBuilder(queues[table]?.shift() ?? {})
     ),
-    rpc: isNamedRpc
-      ? vi.fn((name: string) => {
-          const result =
-            (rpcResult as Record<string, { data?: unknown; error?: unknown }>)[
-              name
-            ] ?? {};
-          return Promise.resolve({
-            data: result.data ?? [],
-            error: result.error ?? null,
-          });
-        })
-      : vi.fn().mockResolvedValue({
-          data: (rpcResult as { data?: unknown; error?: unknown }).data ?? [],
-          error:
-            (rpcResult as { data?: unknown; error?: unknown }).error ?? null,
-        }),
+    rpc,
   };
+
+  // Service-role admin client. It shares the same table queues as the
+  // authenticated client but is a distinct object with its own `from` spy so
+  // tests can assert that secret `merchants` reads (is_platform_admin,
+  // paystack_subaccount_code, bank fields) route through the admin client per
+  // the S1 column-containment fix, not through the authenticated client.
+  const adminClient = {
+    from: vi.fn((table: string) =>
+      createQueryBuilder(queues[table]?.shift() ?? {})
+    ),
+    rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
+  };
+
+  return Object.assign(authClient, { __adminClient: adminClient });
 }
 
 function createRequest(url: string, init: RequestInit = {}): NextRequest {
@@ -133,6 +153,9 @@ describe('/api/admin/analytics route', () => {
     );
     mockCookies.mockReturnValue(new Map());
     mockCreateClient.mockReturnValue(mockSupabase);
+    // Resolve lazily so tests that reassign `mockSupabase` still get the
+    // matching admin client without re-wiring this mock.
+    mockCreateAdminClient.mockImplementation(() => mockSupabase.__adminClient);
     mockGetMerchantForApiRequest.mockResolvedValue({
       merchantId: 'merchant-1',
       staffAccess: { isStaff: false },
@@ -167,6 +190,22 @@ describe('/api/admin/analytics route', () => {
 
     expect(response.status).toBe(401);
     expect(body.error).toBe('Unauthorized');
+  });
+
+  it('reads paystack_subaccount_code via the admin client while the is_platform_admin gate stays on the authenticated client', async () => {
+    const response = await GET(createRequest(`${analyticsUrl}?period=30d`));
+
+    expect(response.status).toBe(200);
+    // The merchantProfiles projection names paystack_subaccount_code, which is
+    // revoked from the authenticated Postgres role (S1 containment), so an
+    // authenticated-client select naming it fails the whole query with 42501.
+    // It must be read via the service-role admin client.
+    expect(mockSupabase.__adminClient.from).toHaveBeenCalledWith('merchants');
+    // is_platform_admin stays granted to the authenticated role, so its admin
+    // gate read runs on the authenticated client (like the other admin routes).
+    expect(mockSupabase.from).toHaveBeenCalledWith('merchants');
+    // Auth/authorization stays on the authenticated client.
+    expect(mockSupabase.auth.getUser).toHaveBeenCalled();
   });
 
   it('returns 400 for an invalid period before route queries run', async () => {

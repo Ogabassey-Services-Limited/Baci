@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockGetUser = vi.fn();
 const mockGetMerchantForApiRequest = vi.fn();
 const mockFrom = vi.fn();
+const mockAdminFrom = vi.fn();
+const mockCreateAdminClient = vi.fn(() => ({ from: mockAdminFrom }));
 const mockCreateVirtualTerminal = vi.fn();
 
 vi.mock('next/headers', () => ({
@@ -18,7 +20,7 @@ vi.mock('@/lib/supabase/server', () => ({
 }));
 
 vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: vi.fn(() => ({ from: mockFrom })),
+  createAdminClient: () => mockCreateAdminClient(),
 }));
 
 vi.mock('@/lib/api-auth', () => ({
@@ -96,7 +98,8 @@ describe('POST /api/paystack/virtual-terminal legacy sync', () => {
         error: { message: 'legacy lookup failed' },
       }),
     };
-    mockFrom.mockImplementation((table: string) =>
+    // The secret `virtual_terminal_code` SELECT is served by the admin client.
+    mockAdminFrom.mockImplementation((table: string) =>
       table === 'virtual_terminals' ? terminalInsert : legacyLookup
     );
 
@@ -108,6 +111,10 @@ describe('POST /api/paystack/virtual-terminal legacy sync', () => {
       success: true,
       terminal: { code: 'VT_123', id: 'terminal-1' },
     });
+    // The revoked secret column is read through the service-role admin client,
+    // never the authenticated client.
+    expect(mockCreateAdminClient).toHaveBeenCalled();
+    expect(mockAdminFrom).toHaveBeenCalledWith('merchants');
   });
 
   it('returns success with a warning when the legacy update fails', async () => {
@@ -136,10 +143,12 @@ describe('POST /api/paystack/virtual-terminal legacy sync', () => {
       select: vi.fn().mockReturnThis(),
       update: vi.fn().mockReturnThis(),
     };
-    mockFrom
+    // Insert + secret-column SELECT run on the admin client; the SET-only UPDATE
+    // (filtered by id) stays on the authenticated client.
+    mockAdminFrom
       .mockReturnValueOnce(terminalInsert)
-      .mockReturnValueOnce(legacyLookup)
-      .mockReturnValueOnce(legacyUpdate);
+      .mockReturnValueOnce(legacyLookup);
+    mockFrom.mockReturnValue(legacyUpdate);
 
     const response = await POST(createRequest());
 
@@ -149,6 +158,8 @@ describe('POST /api/paystack/virtual-terminal legacy sync', () => {
       success: true,
       terminal: { code: 'VT_123', id: 'terminal-1' },
     });
+    // The SET-only legacy UPDATE remains on the authenticated client.
+    expect(mockFrom).toHaveBeenCalledWith('merchants');
   });
 
   it('returns success without a warning when the legacy code is already set', async () => {
@@ -168,7 +179,7 @@ describe('POST /api/paystack/virtual-terminal legacy sync', () => {
         error: null,
       }),
     };
-    mockFrom
+    mockAdminFrom
       .mockReturnValueOnce(terminalInsert)
       .mockReturnValueOnce(legacyLookup);
 
@@ -181,5 +192,7 @@ describe('POST /api/paystack/virtual-terminal legacy sync', () => {
       terminal: { code: 'VT_123', id: 'terminal-1' },
     });
     expect(responseBody).not.toHaveProperty('legacySyncWarning');
+    // When the legacy code is already set no authenticated UPDATE is issued.
+    expect(mockFrom).not.toHaveBeenCalled();
   });
 });

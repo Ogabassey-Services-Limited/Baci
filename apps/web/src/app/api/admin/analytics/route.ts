@@ -106,6 +106,9 @@ export async function GET(request: NextRequest) {
     }
 
     const merchantId = merchantContext.merchantId;
+    // is_platform_admin stays granted to the authenticated role, so this
+    // self-scoped admin gate read runs on the authenticated client like the
+    // other admin routes.
     const { data: adminCheck, error: adminCheckError } = await supabase
       .from('merchants')
       .select('is_platform_admin')
@@ -153,7 +156,11 @@ export async function GET(request: NextRequest) {
       }),
       getAdminMerchantHealthRows(supabase),
       supabase.rpc('get_admin_platform_growth', { p_limit: 2 }),
-      supabase
+      // This merchantProfiles read names paystack_subaccount_code, which is
+      // revoked from the authenticated role (S1 column containment), so it runs
+      // on the service-role admin client. The admin auth/staff gate above has
+      // already passed; this is a platform-wide analytics aggregate.
+      createAdminClient()
         .from('merchants')
         .select(
           [

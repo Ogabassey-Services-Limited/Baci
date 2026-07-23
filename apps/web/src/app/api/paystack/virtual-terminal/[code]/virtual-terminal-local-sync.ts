@@ -88,11 +88,15 @@ export async function syncTerminalRecord(
 }
 
 export async function clearLegacyTerminalCode(
-  supabase: VirtualTerminalSupabaseClient,
   merchantId: string,
-  code: string
+  code: string,
+  adminSupabase: VirtualTerminalAdminClient = createAdminClient()
 ): Promise<'legacy_clear_failed' | null> {
-  const { error } = await supabase
+  // The `.eq('virtual_terminal_code', code)` filter READS the secret column,
+  // which is revoked from the authenticated Postgres role (42501 even for an
+  // UPDATE). Run it through the service-role admin client, still scoped by the
+  // already-authorized merchant id, so tenant ownership is preserved.
+  const { error } = await adminSupabase
     .from('merchants')
     .update({ virtual_terminal_code: null })
     .eq('id', merchantId)

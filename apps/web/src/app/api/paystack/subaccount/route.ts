@@ -16,6 +16,7 @@ import {
   getPaystackFailureMessage,
   getPaystackFailureStatus,
 } from '@/lib/paystack-route-errors';
+import { createClient as createAdminClient } from '@/lib/supabase/admin';
 import { resolvePaystackAccountSchema } from '@/schemas/paystack-resolve';
 import { paystackSubaccountSchema } from '@/schemas/paystack-subaccount';
 
@@ -154,8 +155,14 @@ export async function POST(request: NextRequest) {
 
     const merchantId = merchantContext.merchantId;
 
+    // The secret column `paystack_subaccount_code` is revoked from the
+    // authenticated Postgres role, so any SELECT touching it fails with 42501.
+    // Read it via the service-role admin client AFTER auth/permission checks,
+    // scoped to the already-resolved merchant id so tenant scoping is preserved.
+    const adminSupabase = createAdminClient();
+
     // Fetch additional merchant fields needed for subaccount operations
-    const { data: merchantDetails } = await auth.supabase
+    const { data: merchantDetails } = await adminSupabase
       .from('merchants')
       .select('paystack_subaccount_code, business_name, country, email, phone')
       .eq('id', merchantId)

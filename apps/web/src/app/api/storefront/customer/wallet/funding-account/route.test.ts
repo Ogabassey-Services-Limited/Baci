@@ -109,10 +109,18 @@ describe('/api/storefront/customer/wallet/funding-account', () => {
       },
       requiresConsent: false,
     });
+    // paystack_subaccount_code is SELECT-revoked from the authenticated role:
+    // the merchant payment-config lookup must go through the service-role client.
     expect(mockResolveWalletTopUpMerchant).toHaveBeenCalledWith(
-      expect.objectContaining({ authScope: 'customer' }),
+      mockAdminClient,
       expect.anything(),
       expect.anything()
+    );
+    // Customer resolution stays on the authenticated RLS client.
+    expect(mockResolveVtuCustomer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        supabase: expect.objectContaining({ authScope: 'customer' }),
+      })
     );
   });
 

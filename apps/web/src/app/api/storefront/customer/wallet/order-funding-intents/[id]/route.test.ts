@@ -17,6 +17,10 @@ vi.mock('@/lib/resolve-wallet-top-up-merchant', () => ({
     mockResolveWalletTopUpMerchant(...args),
 }));
 
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => ({ role: 'service-role' })),
+}));
+
 vi.mock('@/lib/vtu-pending-transaction', () => ({
   resolveVtuCustomer: (...args: unknown[]) => mockResolveVtuCustomer(...args),
 }));

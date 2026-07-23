@@ -1,6 +1,7 @@
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { resolveWalletTopUpMerchant } from '@/lib/resolve-wallet-top-up-merchant';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveVtuCustomer } from '@/lib/vtu-pending-transaction';
 
 const MERCHANT_SELECT = 'id, slug, business_name, paystack_subaccount_code';
@@ -42,8 +43,11 @@ export async function resolveCustomerSavingsContext({
   supabase: SupabaseClient;
   user: User;
 }): Promise<SavingsContext> {
+  // paystack_subaccount_code is SELECT-revoked from the authenticated role, so
+  // the merchant payment-config lookup must run under the service-role client.
+  // resolveVtuCustomer below stays on the caller's authenticated RLS client.
   const merchant = await resolveWalletTopUpMerchant<SavingsMerchant>(
-    supabase,
+    createAdminClient(),
     identifiers,
     MERCHANT_SELECT
   );

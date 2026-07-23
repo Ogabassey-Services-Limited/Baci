@@ -103,15 +103,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
 
-    // Use the auth-scoped client from authenticateApiRequest for all DB ops so
-    // mobile (Bearer token) requests run with the user's token and satisfy
-    // RLS. Falling back to cookie-based createClient would run as anon on
-    // React Native where no session cookie is present, silently failing RLS
+    // Use the auth-scoped client from authenticateApiRequest for user-facing DB
+    // ops so mobile (Bearer token) requests run with the user's token and
+    // satisfy RLS. Falling back to cookie-based createClient would run as anon
+    // on React Native where no session cookie is present, silently failing RLS
     // checks and breaking publish from the mobile admin app.
     const supabase = auth.supabase;
 
+    // The merchant row needed for publish validation includes secret columns
+    // (paystack_subaccount_code) that are REVOKED from the `authenticated`
+    // Postgres role, so naming them in an auth-scoped select fails the whole
+    // query with 42501. Authorization has already been enforced above
+    // (getUserAccess + hasPermission), so read the merchant via the
+    // service-role admin client, strictly keyed to the caller's already-
+    // resolved merchant id (access.merchantId) to preserve tenant scoping.
+    const admin = createAdminClient();
+
     // Get merchant with required fields for validation
-    const { data: merchant, error: merchantError } = await supabase
+    const { data: merchant, error: merchantError } = await admin
       .from('merchants')
       .select(
         'id, business_name, country, email, phone, support_email, support_phone, paystack_subaccount_code, bank_code, bank_account_number, slug'

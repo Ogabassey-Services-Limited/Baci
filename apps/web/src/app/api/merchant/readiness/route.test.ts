@@ -82,6 +82,12 @@ function countChain(result: unknown) {
   return query;
 }
 
+// The owned-merchant read and the staff_members -> merchants join both name
+// paystack_subaccount_code (revoked from the authenticated role), so the route
+// resolves them through the service-role admin client. The per-test merchant
+// option is shared here so the admin mock (created in beforeEach) can serve it.
+let currentMerchantMock: unknown;
+
 function createReadinessSupabaseMock(options?: {
   featureSettingsError?: unknown;
   featureSettings?: unknown;
@@ -92,6 +98,7 @@ function createReadinessSupabaseMock(options?: {
   productCount?: number;
   user?: { id: string } | null;
 }) {
+  currentMerchantMock = options?.merchant ?? merchantRow();
   return {
     auth: {
       getUser: vi.fn().mockResolvedValue({
@@ -101,14 +108,9 @@ function createReadinessSupabaseMock(options?: {
       }),
     },
     from: vi.fn((table: string) => {
-      if (table === 'merchants') {
-        return chain(queryResult(options?.merchant ?? merchantRow()));
-      }
-
-      if (table === 'staff_members') {
-        return chain(queryResult(null));
-      }
-
+      // merchants / staff_members are intentionally NOT served here. They now
+      // run on the admin client; a route regression that reads them via this
+      // authenticated client falls through to the throw below and surfaces 500.
       if (table === 'products') {
         return countChain({
           count: options?.productCount ?? 1,
@@ -151,16 +153,28 @@ function createReadinessSupabaseMock(options?: {
 function createAdminSupabaseMock() {
   return {
     from: vi.fn((table: string) => {
-      if (table !== 'merchant_verifications') {
-        throw new Error(`Unexpected admin table ${table}`);
+      if (table === 'merchant_verifications') {
+        return chain(
+          queryResult({
+            bvn_verified: true,
+            cac_verified: false,
+            nin_verified: false,
+          })
+        );
       }
-      return chain(
-        queryResult({
-          bvn_verified: true,
-          cac_verified: false,
-          nin_verified: false,
-        })
-      );
+
+      // Secret-column containment: the owned-merchant read and the
+      // staff_members -> merchants join both name paystack_subaccount_code, so
+      // they run on the admin client keyed by the caller's user id.
+      if (table === 'merchants') {
+        return chain(queryResult(currentMerchantMock ?? merchantRow()));
+      }
+
+      if (table === 'staff_members') {
+        return chain(queryResult(null));
+      }
+
+      throw new Error(`Unexpected admin table ${table}`);
     }),
   };
 }
@@ -168,6 +182,7 @@ function createAdminSupabaseMock() {
 describe('GET /api/merchant/readiness', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    currentMerchantMock = undefined;
     mocks.hasPermission.mockImplementation(
       (_access: unknown, _resource: string, action: string) => action !== 'edit'
     );
@@ -205,6 +220,21 @@ describe('GET /api/merchant/readiness', () => {
 
     expect(response.status).toBe(404);
     expect(await response.json()).toEqual({ error: 'Merchant not found' });
+  });
+
+  it('reads the merchant row (paystack_subaccount_code) through the service-role admin client', async () => {
+    mocks.hasPermission.mockReturnValue(true);
+    const adminMock = createAdminSupabaseMock();
+    mocks.createAdminClient.mockReturnValue(adminMock);
+    mocks.createClient.mockReturnValue(createReadinessSupabaseMock({}));
+
+    const { GET } = await import('./route');
+    const response = await GET();
+
+    // The authenticated mock throws if merchants is read through it, so a 200
+    // here proves the secret merchant read resolved via the admin client.
+    expect(response.status).toBe(200);
+    expect(adminMock.from).toHaveBeenCalledWith('merchants');
   });
 
   it('returns starter readiness with store build status', async () => {

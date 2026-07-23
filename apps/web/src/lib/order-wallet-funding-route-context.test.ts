@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockResolveWalletTopUpMerchant = vi.fn();
 const mockResolveVtuCustomer = vi.fn();
 const mockLoggerError = vi.fn();
+const mockAdminClient = { role: 'service-role' } as unknown as SupabaseClient;
 
 vi.mock('@/lib/resolve-wallet-top-up-merchant', () => ({
   resolveWalletTopUpMerchant: (...args: unknown[]) =>
@@ -12,6 +13,10 @@ vi.mock('@/lib/resolve-wallet-top-up-merchant', () => ({
 
 vi.mock('@/lib/vtu-pending-transaction', () => ({
   resolveVtuCustomer: (...args: unknown[]) => mockResolveVtuCustomer(...args),
+}));
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => mockAdminClient),
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -96,6 +101,17 @@ describe('resolveOrderFundingMerchantAndCustomer', () => {
     const typedMerchant: MerchantWithSlug = result.merchant;
     expect(typedMerchant.slug).toBe('ogabassey');
     expect(result.customer).toBe(customer);
+    // paystack_subaccount_code is SELECT-revoked from the authenticated role:
+    // the merchant payment-config lookup must go through the service-role client.
+    expect(mockResolveWalletTopUpMerchant).toHaveBeenCalledWith(
+      mockAdminClient,
+      { merchantSlug: 'ogabassey' },
+      ORDER_FUNDING_MERCHANT_SELECT
+    );
+    // Customer resolution stays on the caller's authenticated RLS client.
+    expect(mockResolveVtuCustomer).toHaveBeenCalledWith(
+      expect.objectContaining({ supabase })
+    );
   });
 
   it('returns a 500 response when merchant resolution throws', async () => {

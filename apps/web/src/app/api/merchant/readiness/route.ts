@@ -113,10 +113,20 @@ export async function GET() {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    // The merchant row (owned, or resolved via the staff_members -> merchants
+    // join) includes secret columns (paystack_subaccount_code) that are
+    // REVOKED from the `authenticated` Postgres role; naming them in an
+    // auth-scoped select fails the whole query with 42501. Auth + permission
+    // are enforced above, so read those rows via the service-role admin client
+    // (mirroring getVerificationFlags). The `.eq('user_id', user.id)` and
+    // staff-membership filters below are preserved verbatim, so scoping to the
+    // caller's own or staffed merchant is unchanged — only the client changes.
+    const admin = createAdminClient();
+
     // Get merchant with all relevant fields (only columns that exist in the table)
     // KYC readiness is derived from merchant_verifications — the legacy
     // nin/bvn/cac_rc_number columns on `merchants` are no longer read here.
-    const { data: ownedMerchant, error: merchantError } = await supabase
+    const { data: ownedMerchant, error: merchantError } = await admin
       .from('merchants')
       .select(`
         id,
@@ -152,7 +162,7 @@ export async function GET() {
       }
 
       // User is not a merchant owner, check if they are staff
-      const { data: staffMember, error: staffError } = await supabase
+      const { data: staffMember, error: staffError } = await admin
         .from('staff_members')
         .select(`
           merchant_id,
