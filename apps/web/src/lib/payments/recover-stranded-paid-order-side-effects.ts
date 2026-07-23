@@ -87,10 +87,12 @@ export async function recoverStrandedPaidOrderSideEffects({
     .select(RECOVERY_SELECT)
     .in('status', [...RECOVERABLE_STATUSES])
     .gte('attempts', PAID_ORDER_SIDE_EFFECT_ATTEMPT_CAP)
-    .not(
-      'error',
-      'in',
-      `(${PERMANENT_PAID_ORDER_SIDE_EFFECT_ERRORS.join(',')})`
+    // A capped 'claimed' row left by a dead worker has error = NULL (the claim
+    // RPC never writes one). PostgREST `not.in` compiles to SQL `NOT IN`, which
+    // is UNKNOWN — not TRUE — for NULL, so a plain `.not('error','in',...)`
+    // would silently drop exactly those rows. Admit NULL errors explicitly.
+    .or(
+      `error.is.null,error.not.in.(${PERMANENT_PAID_ORDER_SIDE_EFFECT_ERRORS.join(',')})`
     )
     .in('step', [...REPLAYABLE_PAID_ORDER_SIDE_EFFECT_STEPS])
     .eq('transactions.status', 'completed')

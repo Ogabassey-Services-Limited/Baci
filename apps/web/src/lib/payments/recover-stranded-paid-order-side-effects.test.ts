@@ -1,93 +1,18 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   PAID_ORDER_SIDE_EFFECT_ATTEMPT_CAP,
   PERMANENT_PAID_ORDER_SIDE_EFFECT_ERRORS,
 } from '@/lib/payments/paid-order-side-effect-retry-policy';
 import { recoverStrandedPaidOrderSideEffects } from '@/lib/payments/recover-stranded-paid-order-side-effects';
+import { recoverStrandedTestKit } from '@/lib/payments/recover-stranded-paid-order-side-effects.test-helpers';
 
-const NOW = new Date('2026-07-23T12:00:00.000Z');
-// Older than the 24h throttle window → eligible for a reset.
-const STALE_CLAIMED_AT = '2026-07-20T12:00:00.000Z';
-// Inside the 24h window → attempted recently, must be classed stranded.
-const RECENT_CLAIMED_AT = '2026-07-23T11:00:00.000Z';
-const MISSING_COLUMN_ERROR =
-  'merchant_fetch_error: column merchants.website_url does not exist';
-
-type CappedRow = {
-  order_id: string;
-  step: string;
-  status: string;
-  attempts: number;
-  error: string | null;
-  claimed_at: string | null;
-};
-
-function cappedRow(overrides: Partial<CappedRow> = {}): CappedRow {
-  return {
-    attempts: 5,
-    claimed_at: STALE_CLAIMED_AT,
-    error: MISSING_COLUMN_ERROR,
-    order_id: 'order-1',
-    status: 'failed',
-    step: 'paid_email',
-    ...overrides,
-  };
-}
-
-function buildSupabase({
-  lookup,
-  update = { data: [{ order_id: 'order-1' }] },
-}: {
-  lookup: { data?: unknown[]; error?: unknown };
-  update?: { data?: unknown[]; error?: unknown };
-}) {
-  const selectFilters: [string, ...unknown[]][] = [];
-  const updateFilters: [string, ...unknown[]][] = [];
-  const updatePayloads: Record<string, unknown>[] = [];
-
-  const from = vi.fn(() => {
-    const lookupChain: Record<string, unknown> = {};
-    for (const method of ['eq', 'gte', 'not', 'in', 'is', 'order']) {
-      lookupChain[method] = vi.fn((...args: unknown[]) => {
-        selectFilters.push([method, ...args]);
-        return lookupChain;
-      });
-    }
-    lookupChain.limit = vi.fn((n: number) => {
-      selectFilters.push(['limit', n]);
-      return Promise.resolve({ data: null, error: null, ...lookup });
-    });
-
-    return {
-      select: vi.fn((sel: string) => {
-        selectFilters.push(['select', sel]);
-        return lookupChain;
-      }),
-      update: vi.fn((payload: Record<string, unknown>) => {
-        updatePayloads.push(payload);
-        const updateChain: Record<string, unknown> = {};
-        for (const method of ['eq', 'gte']) {
-          updateChain[method] = vi.fn((...args: unknown[]) => {
-            updateFilters.push([method, ...args]);
-            return updateChain;
-          });
-        }
-        updateChain.select = vi.fn(() =>
-          Promise.resolve({ data: null, error: null, ...update })
-        );
-        return updateChain;
-      }),
-    };
-  });
-
-  return {
-    selectFilters,
-    supabase: { from } as unknown as SupabaseClient,
-    updateFilters,
-    updatePayloads,
-  };
-}
+const {
+  buildSupabase,
+  cappedRow,
+  MISSING_COLUMN_ERROR,
+  NOW,
+  RECENT_CLAIMED_AT,
+} = recoverStrandedTestKit;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -95,9 +20,7 @@ beforeEach(() => {
 
 describe('recoverStrandedPaidOrderSideEffects', () => {
   it('only selects capped, non-permanent, replayable rows on paid, non-cancelled orders', async () => {
-    const { supabase, selectFilters } = buildSupabase({
-      lookup: { data: [] },
-    });
+    const { supabase, selectFilters } = buildSupabase({ lookup: { data: [] } });
 
     await recoverStrandedPaidOrderSideEffects({ now: NOW, supabase });
 
@@ -106,11 +29,11 @@ describe('recoverStrandedPaidOrderSideEffects', () => {
       expect.arrayContaining([
         ['in', 'status', ['failed', 'claimed']],
         ['gte', 'attempts', PAID_ORDER_SIDE_EFFECT_ATTEMPT_CAP],
+        // NULL-admitting: a dead-worker capped claim has error = NULL, which a
+        // plain `not.in` (SQL NOT IN) would drop.
         [
-          'not',
-          'error',
-          'in',
-          `(${PERMANENT_PAID_ORDER_SIDE_EFFECT_ERRORS.join(',')})`,
+          'or',
+          `error.is.null,error.not.in.(${PERMANENT_PAID_ORDER_SIDE_EFFECT_ERRORS.join(',')})`,
         ],
         [
           'in',
@@ -155,9 +78,7 @@ describe('recoverStrandedPaidOrderSideEffects', () => {
 
   it('recovers a capped stale CLAIMED row (worker died before mark) and swaps on its status', async () => {
     const { supabase, updatePayloads, updateFilters } = buildSupabase({
-      lookup: {
-        data: [cappedRow({ error: null, status: 'claimed' })],
-      },
+      lookup: { data: [cappedRow({ error: null, status: 'claimed' })] },
     });
 
     const summary = await recoverStrandedPaidOrderSideEffects({
