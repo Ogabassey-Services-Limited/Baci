@@ -1,7 +1,7 @@
-import { generateText } from 'ai';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { activeTextModel, sanitizePromptInput } from '@/ai/provider';
+import { generateTextWithChain } from '@/ai/generate-text-with-chain';
+import { sanitizePromptInput } from '@/ai/provider';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { createClient } from '@/lib/supabase/server';
 
@@ -51,8 +51,9 @@ IMPORTANT requirements:
       ? `Instruction: ${sanitizedInstruction}\n\nContent to edit:\n${content}`
       : `Content to edit:\n${content}`;
 
-    const { text } = await generateText({
-      model: activeTextModel,
+    // Routed through the platform provider chain (Cerebras -> Groq -> Gemini
+    // Flash -> Flash-Lite) instead of calling Gemini directly.
+    const { text } = await generateTextWithChain({
       system: systemPrompt,
       prompt: userPrompt,
     });

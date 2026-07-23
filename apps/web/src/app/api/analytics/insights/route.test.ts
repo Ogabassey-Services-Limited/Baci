@@ -1,6 +1,6 @@
-import { generateObject } from 'ai';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { checkRateLimit, withRetry } from '@/ai/provider';
+import { generateObjectWithChain } from '@/ai/generate-object-with-chain';
+import { checkRateLimit } from '@/ai/provider';
 import {
   generateAnalyticsInsightsWithOllama,
   isAnalyticsInsightsOllamaConfigured,
@@ -12,10 +12,11 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
+import { analyticsInsightsSchema } from '@/schemas/analytics-insights';
 import { GET, maxDuration } from './route';
 
-vi.mock('ai', () => ({
-  generateObject: vi.fn(),
+vi.mock('@/ai/generate-object-with-chain', () => ({
+  generateObjectWithChain: vi.fn(),
 }));
 
 vi.mock('@/ai/provider', () => ({
@@ -23,8 +24,6 @@ vi.mock('@/ai/provider', () => ({
     insights: { requests: 5, windowMs: 60_000 },
   },
   checkRateLimit: vi.fn(),
-  geminiFlash: { modelId: 'gemini-2.0-flash' },
-  withRetry: vi.fn((operation: () => Promise<unknown>) => operation()),
 }));
 
 vi.mock('@/lib/api-auth', () => ({
@@ -171,7 +170,7 @@ describe('GET /api/analytics/insights', () => {
     await expect(response.json()).resolves.toEqual({
       error: 'Merchant not found',
     });
-    expect(generateObject).not.toHaveBeenCalled();
+    expect(generateObjectWithChain).not.toHaveBeenCalled();
   });
 
   it('returns 403 when analytics view permission is denied', async () => {
@@ -183,7 +182,7 @@ describe('GET /api/analytics/insights', () => {
 
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toEqual({ error: 'Forbidden' });
-    expect(generateObject).not.toHaveBeenCalled();
+    expect(generateObjectWithChain).not.toHaveBeenCalled();
   });
 
   it('returns 429 when the insights rate limit is exceeded', async () => {
@@ -202,11 +201,11 @@ describe('GET /api/analytics/insights', () => {
       error: 'Rate limit exceeded',
       details: 'Please wait 45 seconds before trying again.',
     });
-    expect(generateObject).not.toHaveBeenCalled();
+    expect(generateObjectWithChain).not.toHaveBeenCalled();
   });
 
-  it('bounds AI insight generation below the Vercel function timeout', async () => {
-    vi.mocked(generateObject).mockResolvedValue({
+  it('serves insights from the cloud provider chain first', async () => {
+    vi.mocked(generateObjectWithChain).mockResolvedValue({
       object: {
         insights: [
           {
@@ -217,7 +216,8 @@ describe('GET /api/analytics/insights', () => {
           },
         ],
       },
-    } as unknown as Awaited<ReturnType<typeof generateObject>>);
+      providerName: 'cerebras:gemma-4-31b',
+    } as Awaited<ReturnType<typeof generateObjectWithChain>>);
 
     const response = await GET(
       new Request('https://usebaci.com/api/analytics/insights')
@@ -231,26 +231,27 @@ describe('GET /api/analytics/insights', () => {
         },
       ],
     });
-    expect(withRetry).toHaveBeenCalledWith(
-      expect.any(Function),
-      expect.objectContaining({ maxRetries: 0 })
-    );
     expect(maxDuration).toBe(30);
-    expect(generateObject).toHaveBeenCalledWith(
+    expect(generateObjectWithChain).toHaveBeenCalledWith(
       expect.objectContaining({
-        maxRetries: 0,
-        timeout: 25_000,
+        schema: analyticsInsightsSchema,
+        perProviderTimeoutMs: 12_000,
+        // Overall walk budget keeps the Ollama/static fallback reachable
+        // within the 30s maxDuration.
+        overallTimeoutMs: 18_000,
       })
     );
+    // Chain succeeded, so the VPS Ollama fallback must never be consulted.
+    expect(generateAnalyticsInsightsWithOllama).not.toHaveBeenCalled();
   });
 
-  it('sanitizes analytics context before sending the Gemini prompt', async () => {
+  it('sanitizes analytics context before sending the chain prompt', async () => {
     vi.mocked(sanitizeAnalyticsInsightsContext).mockReturnValueOnce({
       salesHistory: [{ total_revenue: 1000 }],
       topProducts: [],
       channels: [],
     });
-    vi.mocked(generateObject).mockResolvedValue({
+    vi.mocked(generateObjectWithChain).mockResolvedValue({
       object: {
         insights: [
           {
@@ -261,19 +262,22 @@ describe('GET /api/analytics/insights', () => {
           },
         ],
       },
-    } as unknown as Awaited<ReturnType<typeof generateObject>>);
+      providerName: 'cerebras:gemma-4-31b',
+    } as Awaited<ReturnType<typeof generateObjectWithChain>>);
 
     const response = await GET(
       new Request('https://usebaci.com/api/analytics/insights')
     );
 
     expect(response.status).toBe(200);
-    expect(generateObject).toHaveBeenCalledWith(
+    expect(generateObjectWithChain).toHaveBeenCalledWith(
       expect.objectContaining({
         prompt: expect.stringContaining('total_revenue'),
       })
     );
-    const [{ prompt }] = vi.mocked(generateObject).mock.calls[0] ?? [{}];
+    const [{ prompt }] = vi.mocked(generateObjectWithChain).mock.calls[0] ?? [
+      {},
+    ];
     expect(String(prompt)).not.toContain('customer_email');
     expect(sanitizeAnalyticsInsightsContext).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -284,7 +288,10 @@ describe('GET /api/analytics/insights', () => {
     );
   });
 
-  it('uses the VPS Gemma/Ollama structured-output path when configured', async () => {
+  it('falls back to the VPS Gemma/Ollama transport when the chain is exhausted', async () => {
+    vi.mocked(generateObjectWithChain).mockRejectedValue(
+      new Error('all object providers failed')
+    );
     vi.mocked(isAnalyticsInsightsOllamaConfigured).mockReturnValueOnce(true);
     vi.mocked(generateAnalyticsInsightsWithOllama).mockResolvedValueOnce({
       insights: [
@@ -312,7 +319,7 @@ describe('GET /api/analytics/insights', () => {
         topProducts: expect.any(Array),
         channels: expect.any(Array),
       }),
-      expect.objectContaining({ timeoutMs: 25_000 })
+      expect.objectContaining({ timeoutMs: 10_000 })
     );
     expect(cache.set).toHaveBeenCalledWith(
       'ai-insights:merchant-1',
@@ -323,10 +330,12 @@ describe('GET /api/analytics/insights', () => {
       }),
       86400
     );
-    expect(generateObject).not.toHaveBeenCalled();
   });
 
-  it('returns fallback insights when the VPS Gemma/Ollama call fails', async () => {
+  it('returns fallback insights when both the chain and the VPS Gemma/Ollama call fail', async () => {
+    vi.mocked(generateObjectWithChain).mockRejectedValue(
+      new Error('all object providers failed')
+    );
     vi.mocked(isAnalyticsInsightsOllamaConfigured).mockReturnValueOnce(true);
     vi.mocked(generateAnalyticsInsightsWithOllama).mockRejectedValueOnce(
       new Error('Ollama timeout')
@@ -342,7 +351,7 @@ describe('GET /api/analytics/insights', () => {
         topProducts: expect.any(Array),
         channels: expect.any(Array),
       }),
-      expect.objectContaining({ timeoutMs: 25_000 })
+      expect.objectContaining({ timeoutMs: 10_000 })
     );
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
@@ -375,8 +384,10 @@ describe('GET /api/analytics/insights', () => {
     expect(console.error).not.toHaveBeenCalled();
   });
 
-  it('returns fallback insights when the AI call times out or fails', async () => {
-    vi.mocked(generateObject).mockRejectedValueOnce(new Error('model timeout'));
+  it('returns fallback insights when the chain fails and Ollama is not configured', async () => {
+    vi.mocked(generateObjectWithChain).mockRejectedValue(
+      new Error('model timeout')
+    );
 
     const response = await GET(
       new Request('https://usebaci.com/api/analytics/insights')
@@ -402,11 +413,12 @@ describe('GET /api/analytics/insights', () => {
       }),
       300
     );
+    expect(generateAnalyticsInsightsWithOllama).not.toHaveBeenCalled();
     expect(console.warn).toHaveBeenCalledWith(
       'AI insights generation unavailable; using fallback',
       expect.objectContaining({
         merchantId: 'merchant-1',
-        provider: 'gemini',
+        provider: 'chain',
         error: 'model timeout',
       })
     );

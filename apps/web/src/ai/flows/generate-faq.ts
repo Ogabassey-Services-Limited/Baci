@@ -4,9 +4,9 @@
 // `generateFAQ` as a public server-action endpoint.
 import 'server-only';
 
-import { generateObject } from 'ai';
 import z from 'zod';
-import { activeTextModel, sanitizePromptInput, withRetry } from '@/ai/provider';
+import { generateObjectWithChain } from '@/ai/generate-object-with-chain';
+import { sanitizePromptInput } from '@/ai/provider';
 import { getAIPromptContext } from '@/config/business-types';
 import { logger } from '@/lib/logger';
 import type { FAQItem } from '@/types/faq';
@@ -122,15 +122,17 @@ REQUIREMENTS:
 5. Include location-specific info (payment methods, delivery times for ${country})
 6. For ${aiContext} businesses, include relevant product-specific questions
 
-Write natural, customer-friendly questions and helpful answers.`;
+Write natural, customer-friendly questions and helpful answers.
 
-    // Generate FAQs with structured output
-    const result = await withRetry(async () => {
-      return await generateObject({
-        model: activeTextModel,
-        schema: FAQOutputSchema,
-        prompt,
-      });
+Return JSON in exactly this shape (no extra keys, no markdown fences):
+{"faqs": [{"question": string, "answer": string, "category": "Shipping" | "Payment" | "Returns" | "Products" | "Orders" | "General"}]}`;
+
+    // Generate FAQs with structured output via the platform provider chain
+    // (Cerebras → Groq → Gemini → Gemini-Lite). The chain itself is the
+    // retry, so no withRetry wrapper is needed here.
+    const result = await generateObjectWithChain({
+      schema: FAQOutputSchema,
+      prompt,
     });
 
     if (!result.object?.faqs?.length) {

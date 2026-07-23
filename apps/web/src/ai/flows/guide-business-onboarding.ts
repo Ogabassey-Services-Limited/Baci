@@ -2,13 +2,16 @@
 
 import { generateObject, generateText } from 'ai';
 import z from 'zod';
+import { generateObjectWithChain } from '@/ai/generate-object-with-chain';
 import {
   activeImageModel,
   activeTextModel,
   sanitizePromptInput,
   withRetry,
 } from '@/ai/provider';
+import { getVisionProviderChain } from '@/ai/vision-provider-chain';
 import { ensureActionRateLimit } from '@/lib/ensure-action-rate-limit';
+import { fetchImageBytes } from '@/lib/fetch-image-bytes';
 import { logger } from '@/lib/logger';
 import { guideBusinessOnboardingInputSchema } from '@/schemas/ai-guide-business-onboarding';
 import { createFallbackLogo } from './fallback-logo';
@@ -35,6 +38,19 @@ const AI_LOGO_RETRY_CONFIG = Object.freeze({
   maxDelayMs: 0,
   backoffMultiplier: 1,
 });
+
+const EXTRACT_COLORS_SYSTEM_PROMPT = `You are a professional brand designer analyzing a logo image.
+TASK: Extract exactly 3 brand colors from this logo in hex format.
+INSTRUCTIONS:
+1. Primary color = The MOST DOMINANT color in the logo (usually the main brand color).
+2. Background color = A LIGHT, neutral color. Prefer pure white (#FFFFFF) or a very light off-white/grey from the logo that is suitable for a page background.
+3. Accent color = A complementary or highlight color that stands out from the primary color.
+IMPORTANT:
+- Look at the actual colors IN THE LOGO IMAGE.
+- Return colors as they appear in the logo, unless a background color must be generated.
+- Ensure the background color is very light for good readability.
+OUTPUT: Return JSON only, in exactly this shape (hex strings, no extra keys):
+{"primary": "#RRGGBB", "background": "#RRGGBB", "accent": "#RRGGBB"}`;
 
 const _GuideBusinessOnboardingOutputSchema = z.object({
   logos: z
@@ -87,31 +103,43 @@ export async function guideBusinessOnboarding(
     });
 
     try {
-      const { object } = await withRetry(async () => {
-        return await generateObject({
-          model: activeTextModel,
-          schema: BrandColorsSchema,
-          messages: [
-            {
-              role: 'system',
-              content: `You are a professional brand designer analyzing a logo image.
-TASK: Extract exactly 3 brand colors from this logo in hex format.
-INSTRUCTIONS:
-1. Primary color = The MOST DOMINANT color in the logo (usually the main brand color).
-2. Background color = A LIGHT, neutral color. Prefer pure white (#FFFFFF) or a very light off-white/grey from the logo that is suitable for a page background.
-3. Accent color = A complementary or highlight color that stands out from the primary color.
-IMPORTANT:
-- Look at the actual colors IN THE LOGO IMAGE.
-- Return colors as they appear in the logo, unless a background color must be generated.
-- Ensure the background color is very light for good readability.`,
-            },
-            {
-              role: 'user',
-              content: [{ type: 'image', image: logoUrl }],
-            },
-          ],
-        });
-      });
+      // Cerebras (and the rest of the vision chain) only accepts base64
+      // image bytes, never remote URLs, so fetch the logo bytes first. If
+      // the fetch fails for any reason, fall back to the original
+      // Gemini URL-based call unchanged.
+      const imageBytes = await fetchImageBytes(logoUrl);
+
+      const { object } = imageBytes
+        ? await generateObjectWithChain({
+            chain: getVisionProviderChain(),
+            schema: BrandColorsSchema,
+            messages: [
+              { role: 'system', content: EXTRACT_COLORS_SYSTEM_PROMPT },
+              {
+                role: 'user',
+                content: [
+                  {
+                    type: 'image',
+                    image: imageBytes.bytes,
+                    mediaType: imageBytes.mediaType,
+                  },
+                ],
+              },
+            ],
+          })
+        : await withRetry(async () => {
+            return await generateObject({
+              model: activeTextModel,
+              schema: BrandColorsSchema,
+              messages: [
+                { role: 'system', content: EXTRACT_COLORS_SYSTEM_PROMPT },
+                {
+                  role: 'user',
+                  content: [{ type: 'image', image: logoUrl }],
+                },
+              ],
+            });
+          });
 
       logger.info({ message: 'Colors extracted successfully', colors: object });
       return { brandColors: object };
@@ -208,18 +236,16 @@ Please generate the logo image now.`;
     const tone = input.tone || 'Modern';
 
     try {
-      const { object } = await withRetry(async () => {
-        return await generateObject({
-          model: activeTextModel,
-          schema: z.object({
-            businessNames: z
-              .array(z.string())
-              .describe('Array of 6 creative business name suggestions'),
-          }),
-          messages: [
-            {
-              role: 'system',
-              content: `You are a creative brand naming expert. Generate unique, memorable business names.
+      const { object } = await generateObjectWithChain({
+        schema: z.object({
+          businessNames: z
+            .array(z.string())
+            .describe('Array of 6 creative business name suggestions'),
+        }),
+        messages: [
+          {
+            role: 'system',
+            content: `You are a creative brand naming expert. Generate unique, memorable business names.
 
 TASK: Generate 6 creative business name suggestions based on the description and tone.
 
@@ -232,14 +258,15 @@ REQUIREMENTS:
 - Avoid generic names
 - Consider domain availability trends (short, unique)
 
-OUTPUT: Return exactly 6 names as an array.`,
-            },
-            {
-              role: 'user',
-              content: `Business Description: ${description}\nTone: ${tone}\n\nGenerate 6 creative business name suggestions.`,
-            },
-          ],
-        });
+OUTPUT: Return exactly 6 names as an array.
+
+Return JSON in exactly this shape: {"businessNames": string[]}`,
+          },
+          {
+            role: 'user',
+            content: `Business Description: ${description}\nTone: ${tone}\n\nGenerate 6 creative business name suggestions.`,
+          },
+        ],
       });
 
       logger.info({

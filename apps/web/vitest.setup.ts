@@ -1,6 +1,7 @@
-import { vi } from 'vitest';
+import { beforeEach, vi } from 'vitest';
 import '@testing-library/jest-dom';
 import React from 'react';
+import { resetProviderCooldowns } from '@/ai/provider-cooldown';
 
 vi.mock('server-only', () => ({}));
 
@@ -169,3 +170,12 @@ vi.mock('next/image', () => ({
     props: { ...props, src: normalizeMockImageSrc(src), alt: alt ?? '' },
   }),
 }));
+
+// The AI provider chain parks rate-limited providers in a module-level
+// cooldown Map (src/ai/provider-cooldown.ts). Any test that simulates a
+// quota/429 rejection would otherwise leak that cooldown into the tests that
+// follow it in the same file, silently changing which provider the chain
+// attempts. Reset it globally so each test starts from a clean chain.
+beforeEach(() => {
+  resetProviderCooldowns();
+});
