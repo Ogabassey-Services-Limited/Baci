@@ -6,8 +6,16 @@
 -- ops can reconcile by hand instead of the payment being lost silently.
 --
 -- The CHECK is replaced wholesale (append-only migration), so the value list
--- below is the union of every issue type in force at authoring time plus the
--- new one. The generic (issue_type, order_id) partial unique index created in
+-- below MUST be the union of every issue type in force WHEN THIS MIGRATION RUNS
+-- plus the new one. This migration is dated after main's tail (20260721), so it
+-- runs after every migration that expanded this constraint — including the
+-- Credit Direct + cancellation review types (`credit_direct_confirmation_missing`,
+-- `order_cancellation_refund_requires_review`, `payment_received_after_refund`,
+-- `merchant_settlement_failed`, `gateway_payment_wedge_requires_review`). Dropping
+-- any of them would make this immediately-validated ADD CONSTRAINT reject existing
+-- production rows and abort the deploy, and would break the live flows that insert
+-- them. The full list is verified against the production constraint definition.
+-- The generic (issue_type, order_id) partial unique index created in
 -- 20260509110000 already provides retry idempotency for the new type — no new
 -- index is needed.
 
@@ -27,6 +35,11 @@ ALTER TABLE public.reconciliation_review
     'wallet_order_funding_conflict',
     'wallet_order_funding_finalize_failed',
     'payment_received_after_cancellation',
+    'payment_received_after_refund',
     'serialized_inventory_confirmation_failed',
+    'merchant_settlement_failed',
+    'gateway_payment_wedge_requires_review',
+    'credit_direct_confirmation_missing',
+    'order_cancellation_refund_requires_review',
     'paypal_capture_persist_failed'
   ));

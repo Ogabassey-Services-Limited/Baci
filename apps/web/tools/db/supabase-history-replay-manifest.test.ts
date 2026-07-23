@@ -203,13 +203,13 @@ describe('supabaseHistoryReplayManifest', () => {
         repositoryPath:
           'supabase/migrations/20260723000002_byok_direct_settlements.sql',
         sha256:
-          '9b0455094b31d0e81a7dfd8a9c83201512ae870410ade6aaec23e9bff9fcf072',
+          '4127cea6c8c3b54f96c7cc051817100ec4c2cc536592cee670eef18ea921e330',
       },
       {
         repositoryPath:
           'supabase/migrations/20260723000003_paypal_capture_persist_reconciliation_issue.sql',
         sha256:
-          'efb14411b91c0118dc13b0d50d9dbd54e8d743c7c900280aa1470ad7611c41b0',
+          'dda2363ed20ac43cf85923f54280f26033479337e33f358149c6eae04432529c',
       },
       {
         repositoryPath:
@@ -263,7 +263,7 @@ describe('supabaseHistoryReplayManifest', () => {
         repositoryPath:
           'supabase/migrations/20260723000012_include_paypal_capture_persist_review_type.sql',
         sha256:
-          '072dd7791e4b9414187fe63c9056543f1b83b1a83837681584a9ae9527e020f3',
+          '6f396c1d148a7971eaf4eaaea4e896211569f3b536fd65d71ea296fa63ccfcb5',
       },
       {
         repositoryPath:

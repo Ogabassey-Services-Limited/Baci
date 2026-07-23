@@ -84,7 +84,12 @@ DECLARE
   v_net_amount    numeric(12,2);
   v_settlement_id uuid;
 BEGIN
-  IF auth.role() <> 'service_role' THEN
+  -- IS DISTINCT FROM, not `<>`: when the RPC is invoked with no JWT role claim
+  -- `auth.role()` is NULL, and `NULL <> 'service_role'` evaluates to NULL, so a
+  -- plain `<>` guard would skip the RAISE and permit the privileged settlement
+  -- write. IS DISTINCT FROM treats NULL as a distinct value, so missing claims
+  -- fail closed (mirrors 20260510170000_payment_rpc_null_safe_role_guards).
+  IF auth.role() IS DISTINCT FROM 'service_role' THEN
     RAISE EXCEPTION 'forbidden: record_merchant_settlement_v2 requires service_role';
   END IF;
 

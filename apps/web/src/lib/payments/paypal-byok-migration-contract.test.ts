@@ -197,6 +197,11 @@ describe('PayPal BYOK migration contracts', () => {
       'serialized_inventory_confirmation_failed',
       'merchant_settlement_failed',
       'gateway_payment_wedge_requires_review',
+      // These two were added by main's Credit Direct + cancellation migrations;
+      // since this migration is dated after main's tail it MUST preserve them, or
+      // the validated ADD CONSTRAINT rejects existing prod rows and aborts deploy.
+      'credit_direct_confirmation_missing',
+      'order_cancellation_refund_requires_review',
       'paypal_capture_persist_failed',
     ]);
     expect(sql).toMatch(
