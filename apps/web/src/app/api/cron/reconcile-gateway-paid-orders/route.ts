@@ -6,7 +6,10 @@ import { drainFailedPaidOrderSideEffects } from '@/lib/payments/drain-failed-pai
 import { reconcileWedgedGatewayOrders } from '@/lib/payments/reconcile-wedged-gateway-orders';
 import { createServiceClient } from '@/lib/supabase/service';
 
-// Scheduled by the vercel.json cron entry. Two passes:
+// Manual fallback only — DO NOT re-enable Vercel Cron for this route.
+// Scheduled execution lives in vps-workers (deploy.sh crontab →
+// run-web-cron.mjs), which invokes this CRON_SECRET-gated endpoint over the
+// custom domain; keep the CRON_SECRET gating intact. Two passes:
 // 1. Heal "wedged" gateway order payments — completed transaction, order
 //    never flipped to paid — after re-verifying with the gateway.
 // 2. Drain failed paid-order side effects (settlement/email/ad tracking)
