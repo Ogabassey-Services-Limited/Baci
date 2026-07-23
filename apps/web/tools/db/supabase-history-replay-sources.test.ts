@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import {
-  PENDING_SOURCES,
+import { REPLAY_SOURCE_DATA } from './supabase-history-replay-sources';
+
+const {
   PIPELINE_SOURCES,
   POST_REPLAY_SOURCES,
+  PENDING_SOURCES,
   PRODUCTION_MAPPINGS,
-} from './supabase-history-replay-sources';
+} = REPLAY_SOURCE_DATA;
 
 /**
  * Colocated guard for the extracted replay-source data. The manifest module

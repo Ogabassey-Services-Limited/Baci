@@ -1,9 +1,12 @@
-import {
-  PENDING_SOURCES,
+import { REPLAY_SOURCE_DATA } from './supabase-history-replay-sources';
+
+const {
   PIPELINE_SOURCES,
   POST_REPLAY_SOURCES,
+  PENDING_SOURCES,
   PRODUCTION_MAPPINGS,
-} from './supabase-history-replay-sources';
+} = REPLAY_SOURCE_DATA;
+
 import type {
   FrozenReplaySource,
   ProductionReplayMapping,
