@@ -44,7 +44,14 @@ export function createAiSdkAgenticChatTools(sessionId: string) {
     if (existing) {
       return existing;
     }
-    const pending = run();
+    // Clear the entry once the call SETTLES so this stays a true in-flight guard:
+    // only overlapping concurrent duplicates collapse. A later sequential call
+    // (e.g. a legitimate re-attempt in a subsequent tool round) — or a retry
+    // after this attempt REJECTED — must run again rather than replay a stale or
+    // failed result.
+    const pending = run().finally(() => {
+      inFlightSideEffects.delete(key);
+    });
     inFlightSideEffects.set(key, pending);
     return pending;
   };

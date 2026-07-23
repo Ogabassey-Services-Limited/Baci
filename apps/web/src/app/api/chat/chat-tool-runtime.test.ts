@@ -171,5 +171,49 @@ describe('chat tool runtime', () => {
 
       expect(mocks.handleCancelOrder).toHaveBeenCalledTimes(2);
     });
+
+    it('re-runs a sequential duplicate on the SAME instance once the first has settled', async () => {
+      // Not concurrent: the first call fully settles (and its in-flight entry
+      // clears) before the second starts — a legitimate re-attempt, not an
+      // overlapping duplicate, so it must run again rather than replay the
+      // cached result.
+      const tools = createAiSdkAgenticChatTools('session-1');
+      const params = {
+        orderNumber: '#00001234',
+        customerEmail: 'buyer@example.com',
+      };
+
+      await tools.cancelOrder.execute({ ...params });
+      await tools.cancelOrder.execute({ ...params });
+
+      expect(mocks.handleCancelOrder).toHaveBeenCalledTimes(2);
+    });
+
+    it('allows a retry after a side effect rejects instead of replaying the failure', async () => {
+      mocks.handleCancelOrder
+        .mockRejectedValueOnce(new Error('transient failure'))
+        .mockResolvedValueOnce({
+          success: true,
+          status: 'cancelled',
+          orderId: 'order-1',
+        });
+      const tools = createAiSdkAgenticChatTools('session-1');
+      const params = {
+        orderNumber: '#00001234',
+        customerEmail: 'buyer@example.com',
+      };
+
+      await expect(tools.cancelOrder.execute({ ...params })).rejects.toThrow(
+        'transient failure'
+      );
+
+      const retry = await tools.cancelOrder.execute({ ...params });
+      expect(JSON.parse(retry)).toEqual({
+        success: true,
+        status: 'cancelled',
+        orderId: 'order-1',
+      });
+      expect(mocks.handleCancelOrder).toHaveBeenCalledTimes(2);
+    });
   });
 });
