@@ -300,7 +300,21 @@ export async function GET(request: Request) {
       .eq('merchant_id', merchant.id)
       .single();
 
-    if (walletError || !wallet) {
+    // PGRST116 = "no row returned": the customer genuinely has no wallet yet, so
+    // an empty response is the truth. Any OTHER error is a real failure and must
+    // NOT be flattened into an empty wallet: the funding check loop uses
+    // `transactions` as its pre-transfer baseline, and an empty baseline that
+    // actually means "we failed to load them" makes the loop read a PRE-EXISTING
+    // top-up as the transfer the customer just made — a false "money received".
+    if (walletError && walletError.code !== 'PGRST116') {
+      console.error('Customer wallet lookup error:', walletError);
+      return NextResponse.json(
+        { error: 'Failed to fetch wallet', balance: 0, transactions: [] },
+        { status: 500 }
+      );
+    }
+
+    if (!wallet) {
       // No wallet yet - return zero balance
       return NextResponse.json(
         emptyWalletResponse({
@@ -313,13 +327,30 @@ export async function GET(request: Request) {
       );
     }
 
-    // Get recent transactions (last 10)
-    const { data: transactions } = await supabase
+    // Get recent transactions (last 10).
+    // `source_type` is required by the client-side funding check loop: `type` is
+    // 'credit' for cashback, refunds and order reversals as well, so only
+    // source_type = 'wallet_topup' proves an inbound bank transfer landed.
+    const { data: transactions, error: transactionsError } = await supabase
       .from('customer_wallet_transactions')
-      .select('id, type, amount, balance_after, description, created_at')
+      .select(
+        'id, type, amount, balance_after, description, created_at, source_type'
+      )
       .eq('wallet_id', wallet.id)
       .order('created_at', { ascending: false })
       .limit(10);
+
+    // Fail LOUD rather than serving `transactions: []` with a 200. A silently
+    // empty list is indistinguishable from "this wallet has no history", which
+    // would hand the check loop an empty baseline and let an OLD top-up settle
+    // as the customer's new transfer. A 500 keeps the client fail-closed.
+    if (transactionsError) {
+      console.error('Customer wallet transactions error:', transactionsError);
+      return NextResponse.json(
+        { error: 'Failed to fetch wallet', balance: 0, transactions: [] },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       balance: toNumber(wallet.available_balance),

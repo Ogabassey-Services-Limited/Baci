@@ -41,11 +41,23 @@ vi.mock('./utility-checkout', async (importOriginal) => {
 
 vi.mock('./utility/AirtimeDataForm', () => ({
   AirtimeDataForm: ({
+    initialDraft,
     loading,
+    onDraftChange,
     onSubmit,
     type,
   }: {
+    initialDraft?: {
+      amount: string;
+      networkProvider: string | null;
+      phoneNumber: string;
+    };
     loading: boolean;
+    onDraftChange?: (draft: {
+      amount: string;
+      networkProvider: string | null;
+      phoneNumber: string;
+    }) => void;
     onSubmit: (data: Record<string, unknown>) => void;
     type: string;
   }) => (
@@ -53,7 +65,21 @@ vi.mock('./utility/AirtimeDataForm', () => ({
       data-testid="airtime-data-form"
       data-type={type}
       data-loading={String(loading)}
+      data-initial-amount={initialDraft?.amount ?? ''}
+      data-initial-phone={initialDraft?.phoneNumber ?? ''}
     >
+      <button
+        type="button"
+        onClick={() =>
+          onDraftChange?.({
+            amount: '750',
+            networkProvider: 'MTN',
+            phoneNumber: '08012345678',
+          })
+        }
+      >
+        Mock Draft Change
+      </button>
       <button
         type="button"
         onClick={() =>

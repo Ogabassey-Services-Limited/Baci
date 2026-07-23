@@ -15,6 +15,7 @@ import {
   redirectToPaymentCheckout,
   type UtilityCheckoutPayload,
 } from './utility-checkout';
+import { useUtilityPendingIntent } from './use-utility-pending-intent';
 import { AirtimeDataForm } from './utility/AirtimeDataForm';
 import { BillPaymentForm } from './utility/BillPaymentForm';
 import { UtilityPaymentMethodSelector } from './UtilityPaymentMethodSelector';
@@ -169,10 +170,14 @@ export const UtilityModal = ({
     walletBalance,
     walletDvaEnabled,
     walletLoading,
+    walletTransactions,
   } = useWallet({
     merchantSlug: merchant?.slug,
     userId: user?.id,
   });
+  // Survives the funding detour (reload / backgrounded-tab eviction while the
+  // customer is in their bank app). No-op while the check-loop flag is off.
+  const { clearIntent, intent, saveIntent } = useUtilityPendingIntent();
   const [showFundingPanel, setShowFundingPanel] = useState(false);
   const canUseWallet = isAuthenticated && walletBalance > 0;
   // Offer bank-transfer funding when the merchant has wallet DVAs on and
@@ -276,6 +281,7 @@ export const UtilityModal = ({
 
     if (result.kind === 'wallet-success') {
       walletIdempotencyAttemptRef.current = null;
+      clearIntent();
       setWalletBalance((balance) => Math.max(balance - payload.amount, 0));
       setTransactionRef(result.reference);
       setSuccessAmount(result.amount);
@@ -412,8 +418,15 @@ export const UtilityModal = ({
                     merchantSlug={merchant?.slug}
                     onAccountCreated={setFundingAccount}
                     onRefreshBalance={refreshWallet}
+                    onReturnToPurchase={() => {
+                      // Prefill-only resume: collapse the funding panel and
+                      // preselect the wallet. The customer still presses Pay.
+                      setShowFundingPanel(false);
+                      setPayWithWallet(true);
+                    }}
                     requiresConsent={requiresFundingAccountConsent}
                     surface={WALLET_FUNDING_TELEMETRY.surfaces.utilityModal}
+                    walletTransactions={walletTransactions}
                   />
                 </div>
               ) : null}
@@ -421,6 +434,12 @@ export const UtilityModal = ({
                 <AirtimeDataForm
                   type={activeTab}
                   loading={loading}
+                  initialDraft={
+                    intent?.tab === activeTab ? intent : undefined
+                  }
+                  onDraftChange={(draft) =>
+                    saveIntent({ ...draft, tab: activeTab })
+                  }
                   onSubmit={handleAirtimeDataSubmit}
                 />
               )}

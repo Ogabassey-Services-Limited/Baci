@@ -17,6 +17,17 @@ export const WALLET_FUNDING_COPY = {
   orderPaymentInProgress:
     'Your account number is handling an order payment right now. Complete that payment first, then try again — reservations clear within about 90 minutes.',
   refreshCta: "I've sent it — refresh balance",
+  // Check-loop copy. `checkTimedOut` must never imply the money arrived — a
+  // timeout only means we have not SEEN it yet.
+  checkAgainCta: 'Check again',
+  checkChecking: 'Checking for your transfer...',
+  checkCheckingHint:
+    'Transfers usually land in under a minute. Keep this page open — we are watching for it.',
+  checkCredited: 'Transfer received. Your wallet has been topped up.',
+  checkStartCta: "I've transferred — check for it",
+  checkTimedOut:
+    "We haven't seen your transfer yet. Bank transfers can take a few minutes — check again in a moment.",
+  returnToPurchaseCta: 'Return to your purchase',
   subtitle:
     'Transfer to your personal account number below and your wallet is credited automatically.',
   title: 'Fund by bank transfer',

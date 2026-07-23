@@ -196,6 +196,9 @@ export function OgabasseyV2Wallet({
                   )
                 }
                 onRefreshBalance={() => setRefreshToken((token) => token + 1)}
+                // Baseline for the funding check loop: the top-up credits the
+                // wallet already had before the customer left to transfer.
+                walletTransactions={transactions}
                 requiresConsent={
                   wallet?.requiresFundingAccountConsent === true &&
                   wallet?.walletDvaEnabled === true &&

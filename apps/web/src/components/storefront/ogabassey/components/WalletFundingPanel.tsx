@@ -1,6 +1,9 @@
 'use client';
 
-import type { StorefrontWalletFundingAccount } from '@baci/shared';
+import type {
+  StorefrontWalletFundingAccount,
+  StorefrontWalletTransaction,
+} from '@baci/shared';
 import { Copy, Landmark, Loader2, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from '@/hooks/use-toast';
@@ -12,6 +15,9 @@ import {
   type WalletFundingSurface,
 } from '@/lib/posthog/wallet-funding-events';
 import { resolveWalletFundingFailureReason } from '@/lib/posthog/wallet-funding-failure-reason';
+import { isWalletFundingCheckLoopEnabled } from '@/lib/wallet-funding-check-loop-flag';
+import { useWalletFundingCreditPoll } from './use-wallet-funding-credit-poll';
+import { WalletFundingCheckStatus } from './WalletFundingCheckStatus';
 import { WALLET_FUNDING_COPY } from './wallet-funding-copy';
 
 interface WalletFundingPanelProps {
@@ -26,10 +32,16 @@ interface WalletFundingPanelProps {
   customerId?: string;
   merchantSlug: string | undefined;
   onAccountCreated: (account: StorefrontWalletFundingAccount) => void;
+  /** Called once the check loop detects a NEW `wallet_topup` credit. */
+  onCredited?: () => void;
   onRefreshBalance?: () => void;
+  /** Utility surface only — resumes the paused purchase (prefill, no submit). */
+  onReturnToPurchase?: () => void;
   requiresConsent: boolean;
   /** Which surface rendered the panel — drives the `surface` funnel property. */
   surface: WalletFundingSurface;
+  /** Wallet snapshot the parent already fetched — the check loop's baseline. */
+  walletTransactions?: readonly StorefrontWalletTransaction[];
 }
 
 type CreateAccountResult =
@@ -90,14 +102,35 @@ export function WalletFundingPanel({
   customerId,
   merchantSlug,
   onAccountCreated,
+  onCredited,
   onRefreshBalance,
+  onReturnToPurchase,
   requiresConsent,
   surface,
+  walletTransactions,
 }: WalletFundingPanelProps) {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [autoCreateAttempted, setAutoCreateAttempted] = useState(false);
   const [surfaceReported, setSurfaceReported] = useState(false);
+
+  // Dark-launched: with the flag off the panel keeps the manual refresh button
+  // and never polls. Only armed once the customer can actually see an account
+  // number to transfer to.
+  const checkLoopEnabled = isWalletFundingCheckLoopEnabled() && Boolean(account);
+  const creditPoll = useWalletFundingCreditPoll({
+    customerId,
+    enabled: checkLoopEnabled,
+    knownTransactionIds: (walletTransactions ?? []).map(
+      (transaction) => transaction.id
+    ),
+    merchantSlug,
+    onCredited: () => {
+      onRefreshBalance?.();
+      onCredited?.();
+    },
+    surface,
+  });
 
   // Fire the funnel-entry event once, but only after the merchant context has
   // resolved — firing on a pre-merchant mount would lose the attribution.
@@ -208,7 +241,14 @@ export function WalletFundingPanel({
           <p className="text-xs font-medium text-store-primary">
             {WALLET_FUNDING_COPY.feeNote}
           </p>
-          {onRefreshBalance ? (
+          {checkLoopEnabled ? (
+            <WalletFundingCheckStatus
+              creditedAmount={creditPoll.creditedAmount}
+              onCheck={creditPoll.start}
+              onReturnToPurchase={onReturnToPurchase}
+              status={creditPoll.status}
+            />
+          ) : onRefreshBalance ? (
             <button
               type="button"
               onClick={onRefreshBalance}
