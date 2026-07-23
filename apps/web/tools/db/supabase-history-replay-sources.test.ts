@@ -16,7 +16,8 @@ import {
  */
 
 const FROZEN_ROW = /^[0-9a-f]{64} 202\d{11}_[a-z0-9_]+\.sql$/;
-const MAPPING_ROW = /^202\d{11}\t202\d{11}_[a-z0-9_]+\.sql\t[0-9a-f]{64}\t[a-z-]+$/;
+const MAPPING_ROW =
+  /^202\d{11}\t202\d{11}_[a-z0-9_]+\.sql\t[0-9a-f]{64}\t[a-z-]+$/;
 
 function rows(block: string): string[] {
   return block
