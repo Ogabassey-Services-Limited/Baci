@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   update: vi.fn(),
   adminInsert: vi.fn(),
   createVirtualTerminal: vi.fn(),
+  rpc: vi.fn(),
 }));
 
 vi.mock('@/lib/merchant-server', () => ({
@@ -36,7 +37,10 @@ function makeSupabase() {
     updateChain.select = () => ({ single: () => mocks.updateEq() });
     return updateChain;
   };
-  return { from: () => builder };
+  return {
+    from: () => builder,
+    rpc: (...args: unknown[]) => mocks.rpc(...args),
+  };
 }
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -116,7 +120,7 @@ describe('inviteStaffMember', () => {
     );
   });
 
-  it('persists an auto-created staff terminal with the server-only admin client', async () => {
+  it('persists an auto-created staff terminal with the admin client and sets the legacy code through the bounded RPC', async () => {
     mocks.sendEmail.mockResolvedValue({ success: true });
     mocks.single
       .mockResolvedValueOnce({ data: null })
@@ -136,6 +140,7 @@ describe('inviteStaffMember', () => {
       },
     });
     mocks.adminInsert.mockResolvedValue({ error: null });
+    mocks.rpc.mockResolvedValue({ data: null, error: null });
 
     await inviteStaffMember({ ...validInvite, autoCreateAccount: true });
 
@@ -145,6 +150,13 @@ describe('inviteStaffMember', () => {
         merchant_id: 'm1',
         staff_id: 'staff-1',
       })
+    );
+    // The secret `virtual_terminal_code` "set only when absent" write runs
+    // through the bounded SECURITY DEFINER RPC on the authenticated client,
+    // never a service-role client.
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      'set_merchant_virtual_terminal_code_if_absent',
+      { p_code: 'VT_STAFF1', p_merchant_id: 'm1' }
     );
   });
 });

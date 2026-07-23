@@ -239,7 +239,11 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     });
     if (syncError) return syncError;
 
-    const legacyClearWarning = await clearLegacyTerminalCode(merchantId, code);
+    const legacyClearWarning = await clearLegacyTerminalCode(
+      supabase,
+      merchantId,
+      code
+    );
 
     return NextResponse.json({
       success: true,

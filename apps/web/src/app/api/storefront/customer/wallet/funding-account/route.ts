@@ -132,10 +132,12 @@ async function resolveMerchantAndCustomer({
     };
   }
 
-  // Customer is verified — only now read the revoked payment secret via admin.
+  // Customer is verified — only now read the revoked payment secret, via the
+  // bounded SECURITY DEFINER RPC on the caller's authenticated client.
   const merchant: FundingAccountMerchant = {
     ...identity,
     paystack_subaccount_code: await fetchMerchantPaystackSubaccountCode(
+      supabase,
       identity.id
     ),
   };

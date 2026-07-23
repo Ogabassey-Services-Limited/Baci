@@ -1,23 +1,24 @@
-import { createAdminClient } from '@/lib/supabase/admin';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
  * Read a merchant's `paystack_subaccount_code` (revoked from the `authenticated`
- * Postgres role by the S1 containment) via the service-role client.
+ * Postgres role by the S1 containment) through the bounded SECURITY DEFINER RPC
+ * `get_merchant_paystack_subaccount_code`, on the caller's authenticated client.
  *
- * SECURITY: this bypasses RLS. Call it ONLY after the merchant identity has been
- * resolved on the caller's authenticated/RLS client AND the caller's entitlement
- * to that merchant has been verified (e.g. `resolveVtuCustomer`). Never pass it a
- * raw request-supplied id/slug directly — doing so re-creates a cross-tenant
- * existence oracle over unpublished merchants.
+ * The RPC re-derives authorization inside the definer (published storefront for
+ * customer payment routing, or owner/active-staff), so it never widens access
+ * beyond the raw table. Pass the SAME authenticated client the caller used for
+ * its auth checks — never a service-role client (that is what the AGENTS.md
+ * service-role policy forbids in these merchant/customer-facing routes).
  */
 export async function fetchMerchantPaystackSubaccountCode(
+  supabase: SupabaseClient,
   merchantId: string
 ): Promise<string | null> {
-  const { data, error } = await createAdminClient()
-    .from('merchants')
-    .select('paystack_subaccount_code')
-    .eq('id', merchantId)
-    .maybeSingle();
+  const { data, error } = await supabase.rpc(
+    'get_merchant_paystack_subaccount_code',
+    { p_merchant_id: merchantId }
+  );
 
   if (error) {
     throw new Error(
@@ -25,5 +26,5 @@ export async function fetchMerchantPaystackSubaccountCode(
     );
   }
 
-  return data?.paystack_subaccount_code ?? null;
+  return (data as string | null) ?? null;
 }

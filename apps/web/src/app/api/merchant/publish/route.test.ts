@@ -105,23 +105,15 @@ function createMockSupabase() {
 function createMockAdminSupabase() {
   return {
     from: (table: string) => {
+      // The admin client is retained ONLY for the merchant_verifications KYC
+      // read (getVerificationStatus). The merchant row — including the revoked
+      // paystack_subaccount_code — is no longer read here; it is read on the
+      // authenticated client (non-secret cols) plus the bounded RPC helper.
       if (table === 'merchant_verifications') {
         return {
           select: () => ({
             eq: () => ({
               maybeSingle: () => Promise.resolve(mockVerificationData),
-            }),
-          }),
-        };
-      }
-
-      // The POST merchant read names paystack_subaccount_code (revoked from the
-      // authenticated role), so it is served by the service-role admin client.
-      if (table === 'merchants') {
-        return {
-          select: () => ({
-            eq: () => ({
-              maybeSingle: () => Promise.resolve(mockMerchantData),
             }),
           }),
         };
@@ -142,6 +134,13 @@ const mockCreateAdminClient = vi.fn();
 
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: (...args: unknown[]) => mockCreateAdminClient(...args),
+}));
+
+const mockFetchPaystackSubaccountCode = vi.fn();
+
+vi.mock('@/lib/fetch-merchant-payment-secret', () => ({
+  fetchMerchantPaystackSubaccountCode: (...args: unknown[]) =>
+    mockFetchPaystackSubaccountCode(...args),
 }));
 
 vi.mock('@/lib/csrf', () => ({
@@ -303,6 +302,18 @@ describe('POST /api/merchant/publish', () => {
     setupVerification({ nin_verified: true });
     // Restore default admin mock implementation
     mockCreateAdminClient.mockImplementation(() => createMockAdminSupabase());
+    // The revoked paystack_subaccount_code is read via the bounded RPC helper.
+    // Serve whatever value the current merchant fixture carries so the
+    // launch-payment gate sees the same code the old admin read returned.
+    mockFetchPaystackSubaccountCode.mockImplementation(() =>
+      Promise.resolve(
+        (
+          mockMerchantData?.data as {
+            paystack_subaccount_code?: string | null;
+          } | null
+        )?.paystack_subaccount_code ?? null
+      )
+    );
   });
 
   describe('authentication', () => {
@@ -350,57 +361,31 @@ describe('POST /api/merchant/publish', () => {
   });
 
   describe('secret column containment', () => {
-    it('reads the merchant row (paystack_subaccount_code) through the service-role admin client even when the authenticated client is denied SELECT on merchants', async () => {
+    it('reads the revoked paystack_subaccount_code via the bounded RPC helper on the authenticated client (never a service-role admin client)', async () => {
       setupAuth(true, true);
-      // mockMerchantData holds a valid, publishable row; the admin mock serves it.
+      // mockMerchantData holds a valid, publishable row; the helper serves the
+      // secret code from that fixture.
       setupMerchantData({});
       setupProductCount(1, 1);
       setupUpdateSuccess();
 
-      // Authenticated client: SELECT on merchants fails like Postgres 42501
-      // (secret column revoked from the authenticated role). UPDATE and the
-      // non-secret product/feature-setting reads keep working.
-      const permissionDenied = {
-        data: null,
-        error: {
-          message: 'permission denied for table merchants',
-          code: '42501',
-        },
-      };
+      // Pin the authenticated client so we can assert the helper runs on it.
       const authClient = createMockSupabase();
-      const originalFrom = authClient.from;
-      vi.spyOn(authClient, 'from').mockImplementation((table: string) => {
-        if (table === 'merchants') {
-          return {
-            select: () => ({
-              eq: () => ({
-                maybeSingle: () => Promise.resolve(permissionDenied),
-              }),
-            }),
-            update: (data: unknown) => {
-              mockMerchantUpdate(data);
-              return { eq: () => Promise.resolve(mockUpdateResult) };
-            },
-          };
-        }
-        return originalFrom(table);
-      });
       mockAuthenticateApiRequest.mockResolvedValue({
         user: { id: 'user-123' },
         supabase: authClient,
         error: null,
       });
 
-      const adminClient = createMockAdminSupabase();
-      const adminFromSpy = vi.spyOn(adminClient, 'from');
-      mockCreateAdminClient.mockImplementation(() => adminClient);
-
       const res = await POST(makeRequest('POST'));
 
-      // Regression: reading merchants via the authenticated client would 500
-      // here; the secret read must resolve through the admin client instead.
+      // The non-secret merchant read resolves on the authenticated client and
+      // the revoked secret resolves through the RPC helper on that same client.
       expect(res.status).toBe(200);
-      expect(adminFromSpy).toHaveBeenCalledWith('merchants');
+      expect(mockFetchPaystackSubaccountCode).toHaveBeenCalledWith(
+        authClient,
+        MERCHANT_ID
+      );
     });
   });
 

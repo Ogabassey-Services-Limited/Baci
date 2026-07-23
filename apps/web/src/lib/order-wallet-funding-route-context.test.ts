@@ -112,7 +112,10 @@ describe('resolveOrderFundingMerchantAndCustomer', () => {
     expect(mockResolveVtuCustomer).toHaveBeenCalledWith(
       expect.objectContaining({ merchantId: 'merchant-1', supabase })
     );
-    expect(mockFetchPaystackSubaccountCode).toHaveBeenCalledWith('merchant-1');
+    expect(mockFetchPaystackSubaccountCode).toHaveBeenCalledWith(
+      supabase,
+      'merchant-1'
+    );
     expect(result.merchant).toEqual({
       business_name: 'Oga',
       id: 'merchant-1',

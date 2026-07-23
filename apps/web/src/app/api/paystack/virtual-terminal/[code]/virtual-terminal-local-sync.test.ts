@@ -185,45 +185,35 @@ describe('virtual terminal local sync helpers', () => {
     });
   });
 
-  it('clears the legacy code through the admin client scoped to the merchant', async () => {
-    // The `.eq('virtual_terminal_code', code)` filter reads a revoked secret
-    // column, so it must run on the service-role admin client while staying
-    // scoped to the owning merchant id.
-    const chain = createChain({ data: null, error: null });
-    const adminSupabase = { from: vi.fn(() => chain) };
+  it('clears the legacy code through the bounded RPC on the authenticated client', async () => {
+    // Both reading and filtering the revoked secret column are forbidden for the
+    // authenticated Postgres role, so the clear runs through the bounded
+    // SECURITY DEFINER RPC on the caller's authenticated client, scoped to the
+    // owning merchant id — never a service-role client.
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: null });
+    const supabase = { rpc };
 
     await expect(
-      clearLegacyTerminalCode('merchant-1', 'VT_123', adminSupabase as never)
+      clearLegacyTerminalCode(supabase as never, 'merchant-1', 'VT_123')
     ).resolves.toBeNull();
 
-    expect(adminSupabase.from).toHaveBeenCalledWith('merchants');
-    expect(chain.update).toHaveBeenCalledWith({ virtual_terminal_code: null });
-    expect(chain.eq).toHaveBeenCalledWith('id', 'merchant-1');
-    expect(chain.eq).toHaveBeenCalledWith('virtual_terminal_code', 'VT_123');
-  });
-
-  it('defaults to the service-role admin client for the secret filter', async () => {
-    const chain = createChain({ data: null, error: null });
-    const adminFrom = vi.fn(() => chain);
-    mockCreateAdminClient.mockReturnValue({ from: adminFrom });
-
-    await expect(
-      clearLegacyTerminalCode('merchant-1', 'VT_123')
-    ).resolves.toBeNull();
-
-    expect(mockCreateAdminClient).toHaveBeenCalled();
-    expect(adminFrom).toHaveBeenCalledWith('merchants');
+    expect(rpc).toHaveBeenCalledWith('clear_merchant_virtual_terminal_code', {
+      p_code: 'VT_123',
+      p_merchant_id: 'merchant-1',
+    });
+    // The secret column is never touched through a service-role client.
+    expect(mockCreateAdminClient).not.toHaveBeenCalled();
   });
 
   it('returns a warning when clearing the legacy code fails', async () => {
-    const adminSupabase = {
-      from: vi.fn(() =>
-        createChain({ data: null, error: { message: 'boom' } })
-      ),
-    };
+    const rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: 'boom' },
+    });
+    const supabase = { rpc };
 
     await expect(
-      clearLegacyTerminalCode('merchant-1', 'VT_123', adminSupabase as never)
+      clearLegacyTerminalCode(supabase as never, 'merchant-1', 'VT_123')
     ).resolves.toBe('legacy_clear_failed');
   });
 });

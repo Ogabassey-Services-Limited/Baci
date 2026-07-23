@@ -3,6 +3,7 @@ import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { revalidateFeatures } from '@/lib/cache-revalidation';
 import { isBaciPaystackSettlementCountry } from '@/lib/checkout/payment-gateway-availability';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { fetchMerchantPaystackSubaccountCode } from '@/lib/fetch-merchant-payment-secret';
 import {
   getMerchantForApiRequest,
   toUserAccess,
@@ -16,7 +17,6 @@ import {
   getPaystackFailureMessage,
   getPaystackFailureStatus,
 } from '@/lib/paystack-route-errors';
-import { createClient as createAdminClient } from '@/lib/supabase/admin';
 import { resolvePaystackAccountSchema } from '@/schemas/paystack-resolve';
 import { paystackSubaccountSchema } from '@/schemas/paystack-subaccount';
 
@@ -155,25 +155,35 @@ export async function POST(request: NextRequest) {
 
     const merchantId = merchantContext.merchantId;
 
-    // The secret column `paystack_subaccount_code` is revoked from the
-    // authenticated Postgres role, so any SELECT touching it fails with 42501.
-    // Read it via the service-role admin client AFTER auth/permission checks,
-    // scoped to the already-resolved merchant id so tenant scoping is preserved.
-    const adminSupabase = createAdminClient();
-
-    // Fetch additional merchant fields needed for subaccount operations
-    const { data: merchantDetails } = await adminSupabase
+    // Non-secret merchant fields remain granted to the authenticated Postgres
+    // role, so read them on the auth-scoped client AFTER auth/permission checks,
+    // keyed to the already-resolved merchant id so tenant scoping is preserved.
+    const { data: merchantRecord } = await auth.supabase
       .from('merchants')
-      .select('paystack_subaccount_code, business_name, country, email, phone')
+      .select('business_name, country, email, phone')
       .eq('id', merchantId)
       .single();
 
-    if (!merchantDetails) {
+    if (!merchantRecord) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+
+    // The secret column `paystack_subaccount_code` is revoked from the
+    // authenticated role, so a direct SELECT would fail with 42501. Read it
+    // through the bounded SECURITY DEFINER RPC on the same authenticated client
+    // (owner/active-staff, or a published storefront) keyed to the resolved id.
+    const paystackSubaccountCode = await fetchMerchantPaystackSubaccountCode(
+      auth.supabase,
+      merchantId
+    );
+
+    const merchantDetails = {
+      ...merchantRecord,
+      paystack_subaccount_code: paystackSubaccountCode,
+    };
 
     // 3. Create or Update Subaccount in Paystack
     let subaccountCode = merchantDetails.paystack_subaccount_code;

@@ -155,16 +155,18 @@ export async function POST(request: NextRequest) {
 
     // Also update legacy column for backwards compatibility.
     // `virtual_terminal_code` is a secret column revoked from the authenticated
-    // Postgres role, so SELECTing it must go through the service-role admin
-    // client, scoped to the already-authorized merchant id. The UPDATE below
-    // only SETs the column (filtering by id), so it stays on the authenticated
+    // Postgres role, so reading it must go through the bounded SECURITY DEFINER
+    // RPC (which re-checks merchant access inside the definer) on the caller's
+    // authenticated client — never a service-role client. The UPDATE below only
+    // SETs the column (filtering by id), so it stays on the authenticated
     // client where table-level UPDATE is still granted.
-    const { data: existingLegacy, error: existingLegacyError } =
-      await adminSupabase
-        .from('merchants')
-        .select('virtual_terminal_code')
-        .eq('id', merchantId)
-        .single();
+    const { data: existingLegacyCode, error: existingLegacyError } =
+      await supabase.rpc('get_merchant_virtual_terminal_code', {
+        p_merchant_id: merchantId,
+      });
+    const existingLegacy = existingLegacyError
+      ? null
+      : { virtual_terminal_code: existingLegacyCode };
 
     let legacySyncWarning:
       | 'legacy_fetch_failed'

@@ -127,7 +127,10 @@ describe('/api/storefront/customer/wallet/funding-account', () => {
       expect.anything(),
       'id, slug, business_name'
     );
-    expect(mockFetchPaystackSubaccountCode).toHaveBeenCalledWith('merchant-1');
+    expect(mockFetchPaystackSubaccountCode).toHaveBeenCalledWith(
+      expect.objectContaining({ authScope: 'customer' }),
+      'merchant-1'
+    );
     // Customer resolution stays on the authenticated RLS client.
     expect(mockResolveVtuCustomer).toHaveBeenCalledWith(
       expect.objectContaining({

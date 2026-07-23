@@ -110,7 +110,10 @@ describe('resolveCustomerSavingsContext', () => {
     expect(mockResolveVtuCustomer).toHaveBeenCalledWith(
       expect.objectContaining({ supabase: authClient })
     );
-    expect(mockFetchPaystackSubaccountCode).toHaveBeenCalledWith('merchant-1');
+    expect(mockFetchPaystackSubaccountCode).toHaveBeenCalledWith(
+      authClient,
+      'merchant-1'
+    );
     expect(result.merchant).toEqual({
       business_name: 'Ogabassey',
       id: 'merchant-1',
