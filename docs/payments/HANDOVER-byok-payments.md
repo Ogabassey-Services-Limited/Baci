@@ -1,151 +1,161 @@
-# HANDOVER — BYOK Payment Providers Implementation
+# HANDOVER — BYOK Payment Providers (PayPal lane) — READ FIRST
 
-**Written:** 2026-07-08 · **Updated:** 2026-07-08 (Wave 2 closure pass) · **For:** the next agent/engineer continuing this work
-**Status at handover:** Wave 1 + Wave 2 (PayPal lane) **code-complete, twice adversarially reviewed (incl. an independent verification of the gap-closure commit), low-severity polish applied (`232c721e66`: 400 PAYPAL_UNSUPPORTED_CURRENCY vs 503 FX outage, mode-mismatch captures now file reconciliation reviews, dead isSandboxMismatch removed, non-paypal fee-passthrough regression test). 19 commits, gate green. PUSHED as PR #3024 (https://github.com/ogabasseyy/Baci/pull/3024) on 2026-07-10 after merging origin/main twice (incl. #2993 multi-country currency — guard composition documented in the PR body). CSP applied to proxy.ts (own commit); Vercel PAYMENT_CREDS_ENCRYPTION_KEY set per environment. Remaining: PR review loop + merge-time migration apply/type regen + PayPal pilot.**
+**Updated:** 2026-07-14 · **Branch:** `feat/payment-byok` · **PR:** [#3024](https://github.com/ogabasseyy/Baci/pull/3024) (OPEN)
+**HEAD at writing:** `f160108c09` · **behind `origin/main`:** 32 commits · **migrations pending on merge:** 17
 
-> ✅ **Wave 2 closure pass completed:** the prior top-of-queue gaps are closed. `apps/web/src/app/api/merchant/payment-credentials/route.test.ts` now covers unauthenticated, permission-denied, CSRF, rate-limit, invalid provider credentials, save, write-only GET, DELETE, and no-secret-in-response behavior. The Wave 2 adversarial review over `git diff 66b794a188..HEAD` found and fixed four issues: unsupported non-NGN PayPal currencies now fail closed before order creation, capture mode detection rejects `unknown`, PayPal capture uses a stable `PayPal-Request-Id`, and direct-to-merchant verify reconciliation forces `p_platform_fee=0` even for stale prototype rows. It also scrubbed legacy PayPal credential keys from generic feature-settings responses/writes.
-
----
-
-## 1. What this project is
-
-Let Baci merchants take storefront payments through **their own** payment-provider accounts (money settles directly to the merchant), primarily to unlock online payments for merchants **outside Nigeria** who have none today. Full decisions, rationale, and phased plan:
-
-- **THE PLAN (read this first, cover to cover):**
-  `docs/payments/byok-payment-providers-plan.md`
-  (identical copy also at the main checkout `/Users/mac/Baci-app/docs/payments/byok-payment-providers-plan.md`)
-
-The plan is the source of truth. It contains: the 3-lanes decision (Lane 0 African currencies on Baci's Korapay rails / Lane 1 PayPal key-paste / Lane 2 Stripe `rk_` / Lane 3 Paystack-Connect+Flutterwave+Razorpay), the fee stance (**waive 2% on BYOK lanes, keep 2% on platform rails**), storage design (`private` schema + SECURITY DEFINER RPCs + AES-256-GCM), the merchant-country-gates-rails / customer-geo-only-ranks rule (§3.2), the Payaza vs Korapay bake-off (§Phase 1.6/7), M-Pesa/Kenya notes, and per-provider ToS findings.
-
-**Superseded sibling doc:** `docs/ai/byok-gemini-keys-plan.md` is an EARLIER, DIFFERENT feature (merchants supplying their own Gemini AI keys). It was mooted by PR #2978 (Cerebras/Gemma multi-provider copilot chain, already merged to main). Open question for the user: delete it or keep as backlog. Do NOT confuse the two docs.
+> **One-paragraph status.** The PayPal BYOK lane is code-complete and has been through **12 automated review rounds (Codex) + 2 independent Fable reviews + 1 adversarial review of the fixes themselves**. That review history found — and this branch has fixed — a large pile of real money bugs, including two P0s (a double-charge and a feature that shipped dead). **It is NOT yet ready to touch a real customer's money.** There is an open cluster of review findings from 2026-07-14 (below), a required human review of the shared-rail delta, and a sandbox end-to-end pass still outstanding. The PayPal feature gate is currently **verified closed in production**, so none of this is live. **The single most important strategic fact: PayPal does not serve the home market — see §2.**
 
 ---
 
-## 2. Worktrees (exact paths)
+## 0. If you read nothing else
 
-| Path | Branch | Role |
-|---|---|---|
-| `/Users/mac/Baci-app/.worktrees/payment-byok` | `feat/payment-byok` | **THE working branch — all implementation lives here.** Branched from `origin/main` @ `f0115846b1` (2026-07-08). |
-| `/Users/mac/Baci-app/.worktrees/paypal-integration` | `feature/paypal-integration` | **READ-ONLY reference.** The original PayPal prototype (5 commits, ~6 weeks stale). Wave 2 ports from it. NEVER commit or edit here. |
-| `/Users/mac/Baci-app` (main checkout) | `codex/posthog-observability` | Unrelated session branch. The plan doc + AI-keys doc live here too, but no BYOK payment code. Leave alone. |
-
-**PR #3024 is OPEN** (pushed 2026-07-10 after user approval). Watch the review gates (CodeRabbit/Codex/Jules) there.
+1. **Do not merge-and-launch.** Merging behind the closed gate is fine (stops the drift tax); letting a real merchant take a real PayPal payment is NOT, until §6 is done.
+2. **The gate is closed — verified with data, not belief** (2026-07-14): only one merchant (`ogabassey`, the owner's own store) has `paypal_enabled=true`, and it is `paypal_mode=sandbox`. Customer checkout is **live-only**, and the credentials vault table **does not exist in prod yet** (it ships in this PR's migrations). So even after merge, no money can move through PayPal until a merchant is deliberately switched to live with real credentials.
+3. **There is an OPEN review-findings cluster from 2026-07-14 (§5).** Most were NOT adversarially confirmed (the verification pass hit a weekly usage limit), BUT two clusters are evident from the code and are almost certainly real: the **`refund_pending` write-only black hole** and the **reconciliation sweeper starving itself**. Triage these against current HEAD before merge.
+4. **PayPal's real market is UK/US/EU, not Africa (§2).** If the goal is African merchants, the higher-value thread is **Lane 0 (Korapay)**, not PayPal.
+5. **Every round of fixes in this branch has historically introduced ~1 new bug.** Assume the same of the latest fixes. Do not trust "tests pass" — they all mock Supabase, so schema/constraint bugs sail through (that is exactly how the `refunded` CHECK-constraint bug hid).
 
 ---
 
-## 3. Progress — what's DONE and reviewed (Wave 1, all committed)
+## 1. What this is + where the canonical plan lives
 
-Branch `feat/payment-byok`, commits vs `origin/main` (oldest first):
+Let Baci merchants take storefront payments through **their own** payment-provider accounts, money settling directly to the merchant. This PR is **Lane 1: PayPal key-paste**.
 
-| Commit | What | Model | Status |
-|---|---|---|---|
-| `5b2a65d5c9` | plan doc | — | ✅ |
-| `2a799df418` | `lib/crypto/secret-box.ts` — AES-256-GCM (server-only, versioned KEK, tamper tests) + `env.ts` + `turbo.json` wiring | sonnet | ✅ reviewed clean |
-| `6f2a3d76f5` | `lib/payments/platform-fee.ts` — consolidated the **3** duplicated 2%-fee helpers (found a 3rd IEEE-754 divergence in credit-direct), bit-for-bit parity oracle tests | opus | ✅ reviewed clean |
-| `475d5d3192` | country-gate Korapay availability (`isKorapayCheckoutAvailable(merchant, country?, currency?)`, null country = NG) | opus | ✅ |
-| `8ac5476ba1` | harden client-forced `data.gateway` in initialize route → `isForcedGatewayAvailable` guard, fail-closed | opus | ✅ |
-| `188f636b30` | **vault**: migration `20260708093415_merchant_payment_credentials.sql` (`private.merchant_payment_credentials` + 6 SECURITY DEFINER RPCs, `byok_fee_accruals`) + `lib/payments/merchant-credentials.ts` wrapper | sonnet (recovered) | ✅ reviewed clean |
-| `9ddd520fd0` | close the auto-select gating gap (the one MEDIUM review finding) — country-gate Korapay inside `selectGateway` + downstream guard | opus | ✅ |
-| `415a32e26b` | doc: record `SUPPORTED_CURRENCIES` whitelist as a Lane-0 launch gate | — | ✅ |
-| `66b794a188` | SQL permission-assertion test `supabase/tests/merchant_payment_credentials_permissions.sql` + authz doc comments on the vault wrapper | sonnet | ✅ |
+- **THE PLAN (source of truth, read cover to cover):** `docs/payments/byok-payment-providers-plan.md`
+- **The capture/reconcile design:** `docs/payments/paypal-capture-reconciliation-design.md`
+- **CSP change required for the PayPal SDK:** `docs/payments/paypal-csp-required-change.md`
 
-**Wave 1 final gate (verified by me):** `pnpm turbo lint/typecheck --filter=@baci/web` clean; **746 scoped tests passed** across crypto/payments/checkout/initialize/korapay/paystack/credit-direct/seo-utils/env.
-
-**Wave 1 adversarial review verdict:** no high-severity defects. Money-path parity bit-for-bit, RPCs correctly `REVOKE`-then-`GRANT service_role`, RLS on `byok_fee_accruals` joins via `merchants.user_id` (not the classic mistake), secret-box server-only + never logs key material, migration replay-safe. All findings resolved or accepted (see §6).
+Lanes (from the plan): **Lane 0** = African currencies on Baci's OWN Korapay rails (KES/GHS/ZAR/XAF/XOF, keeps the 2%, no BYOK). **Lane 1** = PayPal (this PR). **Lane 2** = Stripe `rk_`. **Lane 3** = Paystack-Connect / Flutterwave / Razorpay (BD-gated, not built). Fee stance: **waive the 2% on BYOK lanes** (money settles direct to merchant), **keep 2% on platform rails**.
 
 ---
 
-## 4. Wave 2 (PayPal lane) — FINISHED, REVIEWED, AND TESTED
+## 2. ⚠️ STRATEGIC REALITY — who can actually use PayPal BYOK (verified 2026-07-14)
 
-Workflow `wdp9mamg6` (run `wf_ce809e80-821`) completed: **5 agents succeeded, 4 dropped** (`credentials-api` connection loss; `checkout-wiring`, `gate:quality`, `review:adversarial` all hit the session limit at 19:10 Africa/Lagos). The dropped work was closed in the follow-up pass: the credentials API route now has colocated route tests, and Wave 2 received a direct adversarial review with fixes.
+This was not clear when the lane was built. It should drive the merge/launch decision.
 
-**Wave 2 commits (all LANDED, newest first):**
-- `b8d54110fc` feat(checkout): paypal payment option gated by vault-backed availability *(checkout-wiring — it committed before its report dropped; includes `lib/paypal-checkout-client.ts`, `checkout/hooks/use-paypal-return.ts`, PaymentStep/PaymentOptionsPanel/checkout-page/place-order wiring, storefront features exposure of the paypal availability boolean)*
-- `5c3b09503d` feat(payments): paypal verify branch + provider-aware launch requirement
-- `9f681254dd` feat(dashboard): paypal connection card on payments settings (write-only)
-- `a25c1ff316` feat(payments): paypal checkout routes on the vault (fee-waived, fail-closed FX, presentment anchoring, full-capture validation, capture-ok/DB-fail reconciliation → migration `20260708150000_paypal_capture_persist_reconciliation_issue.sql`)
-- `460bbd661f` feat(db): direct-to-merchant settlement type — migration `20260708140644_byok_direct_settlements.sql` + test. **Design note: it added a NEW function `record_merchant_settlement_v2(... , p_settlement_type)` rather than overloading `record_merchant_settlement`** (avoids the PGRST203 ambiguity prior migrations fought); `'direct_to_merchant'` writes an informational `status='direct'` row with NO wallet credit and excluded from the settlement-notification cron. The PayPal capture route (`a25c1ff316`) is its caller.
-- `deba1fcb9e` feat(payments): paypal client library (`lib/paypal/*` split — auth/orders/refunds/currency/endpoints/mode-guard/types, each tested)
-- `<recovered>` feat(payments): merchant payment credentials API — **the credentials-api orphan, committed by hand.** Route enforces the authz boundary (auth → `settings:edit` → CSRF → rate limit → PayPal validate-on-save). Schema + schema-test committed.
+- **PayPal is effectively send-only across most of Africa.** Only ~8 African countries can *receive and withdraw*: South Africa, Kenya, Botswana, Lesotho, Mauritius, Morocco, Mozambique, Senegal. **Nigeria cannot receive** — so the owner cannot be the pilot merchant, and NG merchants can never use this.
+- **The receive-capable African currencies are not PayPal currencies.** KES and ZAR are not presentable to PayPal, so a Kenyan/South-African merchant can only use PayPal if they **price in USD**.
+- **Net: PayPal BYOK realistically serves UK (GBP), US (USD), EU (EUR), CA, AU** — and those are the *safest* path through this code, because the only FX-conversion path (NGN→USD, the source of the P0 double-charge) is never reached for a native-currency merchant.
+- **Consequence for launch:** the "pilot on your own store with real money" gate is **impossible** (owner is in NG). Substitute = **PayPal sandbox** end-to-end (sandbox business accounts are US-based, not country-bound). See §6.
+- **The gate now enforces this** (commit `6d6383dcf8`): `paypal-merchant-countries.ts` is an explicit allow-list of receive-capable countries, applied to both launch-readiness and checkout, failing closed on unknown country; currency presentability is a separate, orthogonal check.
 
-**Gate I ran in place of the session-limited gate agent (all green):**
-- `pnpm turbo lint --filter=@baci/web` → 1 successful, only the pre-existing `chunk-recovery-notice.tsx` warning (untouched by branch).
-- `pnpm turbo typecheck --filter=@baci/web` → clean (56s, no stale cache).
-- `pnpm exec vitest run` across `lib/paypal lib/payments lib/checkout lib/crypto app/api/payments app/api/merchant/payment-credentials schemas/merchant-payment-credentials.test.ts checkout/*` → **1424 tests / 115 files passed.**
-
-**Wave 2 closure fixes from the adversarial review:**
-- `resolvePaypalPresentment()` now rejects unsupported non-NGN currencies instead of forwarding them to PayPal; the storefront availability gate and server create-order boundary now agree.
-- PayPal capture mode enforcement now rejects `unknown` response mode, not only positive sandbox/live mismatches.
-- PayPal capture requests now send a stable `PayPal-Request-Id` (`capture-${paypal_order_id}`) for idempotency.
-- `/api/payments/verify` now forces `p_platform_fee=0` for direct-to-merchant PayPal reconciliation, even if a stale/prototype transaction row contains a phantom fee.
-- Generic merchant feature-settings responses/writes scrub legacy PayPal credential keys (`paypal_client_id`, `paypal_secret_key`, etc.) so prototype-era plaintext keys cannot leak through the settings API.
-- The credentials API route was modularized below 300 lines and has colocated route/helper tests.
+**Recommendation carried forward:** if the objective is *African* merchants, **Lane 0 (Korapay) is the higher-value next thread** — it already reaches KE/GH/ZA/CFA on working rails and keeps the 2%. PayPal reaches nobody in NG and earns £0/transaction (BYOK fee-waived). PayPal is worth finishing to *safe/merged-behind-gate*, then parking until it has an audience.
 
 ---
 
-## 5. LAUNCH GATES (blockers before any of this can go live) — carry these forward
+## 3. The review saga + what got fixed (chronological, so you can trust the state)
 
-These are NOT code — they need human action / external steps. Track them:
+The PayPal money path went through an unusually long review loop. This matters because the **flat find-rate proved the PR is too big to review** (21k lines; [SmartBear data](https://www.propelcode.ai/blog/pr-size-impact-code-review-quality-data-study): defect detection ~28% on 1,000+-line PRs vs 87% under 100). A clean pass is a *sample that missed*, not a certificate — proven here: an earlier pass returned 0 findings and a re-run on the same commit found 4 P1s.
 
-1. **Vercel env `PAYMENT_CREDS_ENCRYPTION_KEY`** — base64 32-byte KEK, **distinct per environment** (prod/preview/dev). Set via `printf '%s' | vercel env add` (never echo). Vault decrypt fails closed without it. Registered in `env.ts` + `turbo.json` already; just needs the actual value set.
-2. **PayPal CSP change to `proxy.ts`** — the PayPal JS SDK needs script/connect/frame CSP whitelist entries. `proxy.ts` is a **protected file requiring explicit user approval** — do NOT edit it in a workflow. The checkout-wiring agent was instructed to write the exact required diff into `docs/payments/paypal-csp-required-change.md` (a launch-gate doc) instead. The PayPal button cannot load in production until a human applies that diff. Reference commit in the prototype: `git -C /Users/mac/Baci-app/.worktrees/paypal-integration show d109422fd2`.
-3. **`SUPPORTED_CURRENCIES` whitelist** (in the initialize route's Zod schema) only admits NGN/USD/GBP/EUR — **KES/GHS/ZAR coerce to NGN before gateway selection**, so each Lane-0 African market needs its currency added there before real merchants can transact. Deliberately fail-closed today.
-4. **Migrations must be applied to the Supabase branch** (not run locally — the repo's convention; local baseline replay fails per project memory) **and TypeScript types regenerated** after apply. Three new migrations: `20260708093415`, `20260708140644`, `20260708150000` (last one untracked at handover). SQL permission tests in `supabase/tests/*.sql` are run against the applied branch via Supabase MCP `execute_sql` or `psql`, not locally.
-5. **Lane-0 payout-corridor live tests** — Korapay (and/or Payaza) non-NGN payouts (KES/GHS/ZAR) have never been exercised in production; small real disbursements per corridor required before enabling each market (plan Phase 1.3). This is the "sitting on a merchant's money" failure mode — highest priority of the Lane-0 gates.
+**Codex passes 8→11** (commits `b9eae8f68a` → `c3b9d927ac`): the recurring pattern was *fixes-of-fixes* — capture-order, `/verify`, and the create-order reconcile guard each **re-derived** "settle / block / refund / reject?" from their own slice of state, so a fix in one missed its twins. **Root-caused and fixed structurally by the settlement-funnel unification** (`cac2ba8cba`): ONE funnel — `resolvePaypalCaptureOutcome()` decides, `handlePaypalCaptureOutcome()` acts — every caller routes through it with intent `capture` (capture-order, the ONLY caller allowed to charge) or `reconcile_only` (verify, create-order, and the new cron; may NEVER charge). This drained 25 of pass-11's 39 findings at once.
 
----
+**Pass 11 triage (39 findings → 25 already fixed, 2 refuted, 12 live).** The 12 live were fixed across `c3b9d927ac`; the headline ones:
+- **BNPL double-charge** — resolver's settled-status set omitted `bnpl_approved`; a financed order could also be charged on PayPal. Fixed via one shared `NON_PAYABLE_PAYMENT_STATUSES` (imported by resolver + create-order + CAS so they can't drift).
+- **Cancelled-checkout resurrection** — resolver keyed cancellation off `shipping_status` only, but the abandoned-order cron sets `payment_status='cancelled'` and leaves `shipping_status='pending'` (**1,018 such rows in prod**). Now read from `payment_status` too; a landed capture is refunded, not stranded.
+- **PayPal shipped DEAD (#1)** — the snapshot RPC stripped `paypal_enabled` at the DB boundary, so checkout always read `undefined`. Migration `20260713150001` exposes it. (Tests missed it because they hand-build `feature_settings` and never cross the RPC.)
 
-## 6. Accepted / deferred items (don't re-litigate; these were decided)
+**Fable review #1 (money path) — found 2 things 12 Codex passes missed:**
+- **P0 double-charge** (`61166024b6`) — the "already captured?" guard sat inside `if (reusablePayPalOrderId)`, and reusability is lost when the presentment drifts >$0.02. NGN presentments come from an FX rate cached 5 min, so nearly *any* retry re-priced past tolerance, skipped the guard, minted a second PayPal order, and overwrote the pointer to the first. Buyer charged twice; first capture stranded (no webhook, no cron). Fixed: every stored `gateway_reference` is checked before minting; superseded ids archived to `metadata.superseded_paypal_order_ids`.
+- **P1 settle-vs-refund race** (`61166024b6`) — every CAS was on `orders` alone, so a refund lane could hand the money back while a settle lane flipped the order to paid against the refunded txn. Fixed: the writer now **claims the transaction row** (`.in('status',['pending','completed']).select('id')`) before the order CAS — a terminal txn matches nothing and settlement aborts. Also doubles as the row-count assertion the flips lacked (supabase-js returns `error:null` for a 0-row update).
 
-- **Vault RPCs do NO caller authorization** (they're `service_role`-only; `auth.uid()` is NULL there). Authorization lives ENTIRELY in the calling API route. The wrapper `lib/payments/merchant-credentials.ts` carries loud doc comments saying so. The `/api/merchant/payment-credentials` route IS the authorization boundary — it gates on `hasPermission('settings','edit')` + CSRF for writes, and its route tests now cover the boundary.
-- **Korapay availability flipped opt-in→opt-out** (`=== false` gate) to match the DB default `korapay_enabled: true`. Intended, tested.
-- **Error-code casing split**: forced-path guard uses lowercase `gateway_unavailable`; auto-select downstream guard uses uppercase `GATEWAY_UNAVAILABLE`. Each matches its layer's local convention. Normalize only if a client starts string-matching.
-- **KE+NGN rejection surfaces a Paystack-flavored `GATEWAY_NOT_CONFIGURED`** (the NGN fallback chain terminates in paystack), not a Korapay-specific message. Fail-closed and correct; imperfect copy.
-- **AI-keys BYOK doc** (`docs/ai/byok-gemini-keys-plan.md`) superseded — pending user decision (delete vs backlog).
-- Flagged for a **separate** cleanup (outside this branch): `apps/web/src/lib/get-product-seo-link-inventory.ts` may have a silently-broken `supabase-js` `.rpc<T>()` generic misuse masked by stale tsbuildinfo (the recovery agent hit and avoided the same bug).
+**Fable review #2 (decision) + web research** converged with the code review on the ONE structural gap: **no webhook + no cron = no safety net.** PayPal BYOK has no webhook, so a capture whose local write failed was invisible forever. Built the **reconciliation sweeper** (`1069c2f365`, §4) as the fix. Both agents' launch plan also converged on: scoped human review of shared rails + a real-money pilot (blocked by §2, substitute = sandbox).
 
----
+**Constraint bug caught & fixed (`1069c2f365` + migration `20260714090001`):** the terminal-marking guard wrote `status='refunded'`, but `transactions_status_check` did not permit that value. The write is best-effort, so the constraint violation was **logged and swallowed** — the refunded capture stayed settleable. *Every test passed because they mock Supabase.* This is the canonical "mocked tests can't catch schema bugs" case; keep it in mind. Constraint widened to `pending|processing|completed|failed|cancelled|refunded|refund_pending`.
 
-## 7. Working rules (project + this effort's conventions)
-
-- **Model discipline (hard rule):** subagents NEVER use `fable`. `sonnet` for mechanical slices, `opus` for money-path / crux slices. (Project memory: `feedback_subagent_model_cost`.)
-- Repo: pnpm + Turborepo, **Biome not ESLint**, TS strict (no `any`), colocated `.test.ts` for every source file (success AND error paths), max 300 lines/file, Zod schemas in `apps/web/src/schemas/`.
-- **Never** edit `proxy.ts` (protected), never edit existing files in `supabase/migrations/` (append-only), never `git add -A` (agents commit explicit paths only — parallel agents share the worktree).
-- Auto-format hook + a **Stop-hook quality gate** run on the main session; the Stop hook lints the whole worktree, so it false-positives on background agents' uncommitted in-flight files (a Wave-2 schema test tripped it — resolved with a scoped `biome check --write` on that one file). Don't panic-fix files a live agent owns; scoped-format or wait for its commit.
-- Verify scoped, not full-suite: `pnpm turbo lint/typecheck --filter=@baci/web`, `pnpm exec vitest run <paths>`. Delete `apps/web/tsconfig.tsbuildinfo` before typecheck (stale cache masks errors). Known-flaky pre-existing test files to ignore: `ucp`, `feed-openai`, `imei-check`, `agent-native-commerce`.
-- **Disk is tight: ~10Gi free / 98% used.** `df -h /Users/mac` before big operations; ENOSPC masquerades as unrelated test failures. `.worktrees/` is the usual disk hog.
+**Korapay #39 (`0d6347fbc4`):** `calculatePlatformFee` hardcoded NGN, so the ₦2,050 cap was applied as a bare `2050` in KES/GHS/ZAR — a KES 500k order accrued 2,050 instead of 10,000. Now takes the order currency. **This is a live-rails bug that affected real money the day multi-country Korapay goes live — verify the fix didn't regress the NGN fee (see §5 gate-and-fees).**
 
 ---
 
-## 8. What comes AFTER Wave 2 (roadmap, per the plan)
+## 4. The reconciliation sweeper (new, unreviewed money code — treat with suspicion)
 
-Wave 2 finishes the **PayPal lane** (plan Phase 2). Not yet started, in rough priority order:
-1. **Lane 0 finish** (plan Phase 1): storefront sends real order currency (needs `codex/multi-country-currency` to land first — it's a separate in-flight branch normalizing country + order currency), add KES/GHS/ZAR to `SUPPORTED_CURRENCIES`, Korapay-vs-Payaza bake-off + live payout tests, M-Pesa (Korapay hosted checkout is the v1 path; native STK push is a v2 conversion upgrade needing async pending-order UX).
-2. **Stripe `rk_` lane** (plan Phase 3) — restricted-key paste, per-merchant webhook endpoint + secret in the vault, `/api/payments/stripe/webhook` (fits the CSRF-exempt regex, no proxy.ts change).
-3. **Expansion** (plan Phase 4, BD-gated) — Paystack Connect / Flutterwave / Razorpay-OAuth-for-India.
-
-**Recommended PR strategy:** land the Wave-1 foundations as a self-contained PR first (zero user-visible behavior change beyond fail-closed gating), stack PayPal (Wave 2) on top. Get the user's go before pushing — nothing has been pushed.
+- `apps/web/src/lib/payments/paypal-reconciliation-sweep.ts` + `apps/web/src/app/api/cron/paypal-reconciliation/route.ts` + `vercel.json` cron (every 10 min).
+- **Purpose:** the missing safety net. Re-runs pending PayPal captures through the funnel under `reconcile_only` intent (so it **cannot charge**), healing rows whose local write failed after PayPal took the money.
+- **It is autonomous, service-role, money-touching code that runs every 10 minutes.** The 2026-07-14 review flagged it heavily (§5) — its queue can starve. Do not consider it trustworthy until §5.1 is resolved.
 
 ---
 
-## 9. Quick-start commands for the next agent
+## 5. ⚠️ OPEN review findings (2026-07-14) — TRIAGE BEFORE MERGE
+
+Source: adversarial review of `d508dc50fb..9ea5c3a163` (workflow `wf_81389bc6-837`). **Honesty caveat:** the refutation/verification stage **largely failed on a weekly usage limit**, so most of these are *plausible, not confirmed*. **HEAD has since moved to `f160108c09`** (commits `82d9e0d868`, `ef9837444a`, `f160108c09` = "close … review gaps") — so **some may already be addressed. Re-check each against current HEAD.** Two clusters are evident from the code regardless and are almost certainly still real.
+
+### 5.1 HIGH-CONFIDENCE (evident from the code, likely still live)
+
+**A. `refund_pending` is a write-only black hole (P0/P1).** The migration adds `refund_pending` + a partial index, and `mark-paypal-transaction-refunded.ts` writes it — but **nothing re-polls it.** An accepted-but-later-FAILED PayPal refund (common in BYOK: draws on the merchant's own balance) strands the order and the buyer's money forever, and the review row says no action needed. *Fix:* add a `refund_pending` re-poll pass to the sweeper (index is already there) — `GET /v2/payments/refunds/{id}` via merchant creds → COMPLETED ⇒ `refunded`; FAILED/CANCELLED ⇒ restore to settleable + file `needsManualRefund`. Requires persisting the refund id on the transaction (currently only in review metadata).
+
+**B. The sweeper starves itself (P1, flagged by 3 independent reviewers).** Oldest-first + `LIMIT 50`, and never-captured / abandoned `pending` rows are **never retired**, so they monopolize the cap forever and genuinely-stranded captures never get swept — the safety net silently stops working. *Fix:* give not-captured-past-grace rows a terminal state (e.g. `status='cancelled'` when the PayPal order is VOIDED/EXPIRED or the order is already cancelled) so they leave the candidate set; and/or add an attempt counter / `last_swept_at` + bound the scan window; alert when `truncated===true` instead of returning it in a 200 body nothing reads.
+
+### 5.2 NEEDS VERIFICATION AGAINST DB/CODE (plausible, unconfirmed)
+
+**C. `completed → refunded` never debits `merchant_balances` (P1).** The balance trigger fires only on transitions *into* `completed`, so refunded money may stay withdrawable via payouts. *BUT* — reviewer's own caveat — BYOK PayPal settles into the merchant's OWN PayPal account, so it's unclear PayPal payment rows should touch platform `merchant_balances` at all. **This needs a human decision, not just a patch.** Verify the actual trigger `update_merchant_balance()` behaviour first.
+
+**D. `refundPaypalOrder` (customer-facing cancellation path) reads `.success` but not `.pending` (P1).** A PENDING refund is reported as a hard failure → wrong amount in the customer email, no audit row, invites a second refund (pay the buyer twice). It's also the one refund path that never calls `markPaypalTransactionRefunded`. *Fix:* thread `pending` through `PaypalRefundSplitResult` → the cancellation route; book the audit row in a non-completed state.
+
+**E. Money-conservation on partial refunds (P1).** Refunded amount is gated on all-or-nothing success, so genuinely-refunded captures in a partial can book ZERO in the ledger. *Fix:* attribute per-capture from PayPal's returned `amount`, one audit row per COMPLETED refund, keyed by refundId.
+
+### 5.3 P2 / follow-ups
+- Five of six review-filing sites discard `refundCapturedPaypalOrder`'s `pending` flag.
+- `canUsePaypalForLaunch` derives store currency from `country`, not the authoritative resolver (edge case; both fail closed).
+- New `.neq('payment_status','partially_paid')` CAS guard has no matching refund branch (captured payment declined, not refunded, filed under a misleading reason).
+
+---
+
+## 6. LAUNCH GATES — before a real customer pays a real merchant
+
+**Human / external (not code):**
+1. **Triage §5** against current HEAD; fix 5.1 A+B at minimum; get a human ruling on 5.2 C.
+2. **Scoped human review of the shared-rail delta** (~1–2k lines, NOT the 21k PR): `platform-fee.ts`, the gateway-selection / forced-gateway guards, the Korapay opt-out flip + fee-currency change, the shared branches of `/api/payments/verify` and the cancellation route, the `proxy.ts` CSP diff. **This is the only part that touches money already flowing on Paystack/Korapay today.** Half a day for one payments engineer. (Project stop-rule already triggered: "if another self-inflicted round appears, get a HUMAN review before merging money code.")
+3. **PayPal CSP → `proxy.ts`** (protected file, needs owner approval) — diff in `docs/payments/paypal-csp-required-change.md`. Button can't load without it.
+4. **Vercel env `PAYMENT_CREDS_ENCRYPTION_KEY`** — base64 32-byte KEK, distinct per env, `printf '%s' | vercel env add`. Vault decrypt fails closed without it.
+5. **Apply all 17 migrations to the Supabase branch (in order) + regen types.** One failing migration blocks ALL deploys on this repo. Run `supabase/tests/*.sql` permission tests against the applied schema (not locally — baseline replay fails per project memory).
+6. **Sandbox E2E matrix** (substitute for the impossible NG pilot): capture happy-path, abandon, cancel-before-capture, full refund, partial/mixed-tender refund, BNPL+PayPal double-tender, duplicate capture, retry-after-crash-mid-reconcile. Record results.
+7. **Money-conservation property test** — randomized interleavings of capture/verify/cancel/refund asserting `sum(captured) − sum(refunded) === settled`, settled exactly once, no refund without positive proof. This is the mechanism that terminates the review loop (would have caught most of rounds 8–11). Build it before launch, not after.
+8. **Reconciliation review rows must route to a human** (email/Slack), not a table nobody reads.
+
+**Lane 0 (Korapay) gates, if that thread is picked up instead:** add KES/GHS/ZAR to `SUPPORTED_CURRENCIES`; live payout-corridor tests per market (the "sitting on a merchant's money" risk).
+
+---
+
+## 7. Verify current state / quick-start
 
 ```bash
-# Where the work is
 cd /Users/mac/Baci-app/.worktrees/payment-byok
-git log --oneline origin/main..HEAD      # 16 commits (Wave 1 + Wave 2, all committed)
-git status --short                        # should be clean apart from this doc
+git log --oneline origin/main..HEAD | head            # ~54 commits
+git rev-list --count HEAD..origin/main                # behind main (was 32) — MERGE MAIN before pushing
+git diff --name-only origin/main...HEAD -- supabase/migrations   # 17 pending migrations
 
-# Read the plan + this doc
-$EDITOR docs/payments/byok-payment-providers-plan.md
-$EDITOR docs/payments/HANDOVER-byok-payments.md
-
-# Verify current state (from apps/web)
 cd apps/web && rm -f tsconfig.tsbuildinfo
-pnpm turbo lint --filter=@baci/web && pnpm turbo typecheck --filter=@baci/web
-pnpm exec vitest run src/lib/paypal src/lib/payments src/lib/checkout src/lib/crypto \
-  src/app/api/payments src/app/api/merchant/payment-credentials
-
-# Reference prototype (read-only)
-git -C /Users/mac/Baci-app/.worktrees/paypal-integration log --oneline -6
+NODE_OPTIONS=--max-old-space-size=8192 npx tsc --noEmit
+npx @biomejs/biome check src/lib/payments src/app/api/payments src/lib/checkout
+NODE_OPTIONS=--max-old-space-size=8192 npx vitest run \
+  src/lib/payments src/app/api/payments src/lib/checkout src/app/api/merchant src/app/api/cron
 ```
+
+**Gate as of `f160108c09`:** payments/checkout suites green, tsc + biome clean. **Caveat that matters:** green tests mean little here — they mock Supabase, so they cannot catch the schema/constraint/real-PayPal-API bugs that have been the actual failure mode. Trust the sandbox E2E + the human review, not the unit suite.
+
+**Prod verification snippet (gate-closed check — re-run before any merge):**
+```sql
+-- expect: only ogabassey, mode=sandbox; and no live credential rows
+select m.slug, fs.custom_settings->>'paypal_enabled', fs.custom_settings->>'paypal_mode'
+from merchant_feature_settings fs join merchants m on m.id=fs.merchant_id
+where fs.custom_settings ? 'paypal_enabled';
+```
+
+---
+
+## 8. Accepted / decided (don't re-litigate)
+- **Vault RPCs do NO caller authz** (service_role-only, `auth.uid()` is NULL). The API route is the authorization boundary. Documented loudly in `merchant-credentials.ts`.
+- **BYOK fee waived (0%)**, recorded as `byok_fee_accruals` rows (`fee=0, waived=true`) to keep a future fee/subscription option open. Platform rails keep 2%.
+- **Settler identity is a 3-state verdict** (`this_txn|other_txn|unknown`): auto-refund requires positive proof (`other_txn`); `unknown` files a review and NEVER claws back. `unknown` is COMMON (non-PayPal tenders never stamp `paid_transaction_id`).
+- **Country gate keeps ZA/KE** (PayPal pays out there) and lets the *currency* check stop them if they price in KES/ZAR — blocking by country would refuse a merchant PayPal will pay.
+
+## 9. Worktrees
+| Path | Branch | Role |
+|---|---|---|
+| `/Users/mac/Baci-app/.worktrees/payment-byok` | `feat/payment-byok` | THE working branch. |
+| `/Users/mac/Baci-app/.worktrees/paypal-integration` | `feature/paypal-integration` | READ-ONLY prototype reference. Never edit. |
+
+## 10. Working rules
+- Subagents NEVER use `fable` for money-path code (model discipline); `opus` for crux slices. *(Note: the 2026-07-14 reviews deliberately used `fable` reviewers as an independent second opinion — that's review, not authoring.)*
+- Biome not ESLint; TS strict, no `any`; colocated `.test.ts` (success + error); max 300 lines/file; Zod in `schemas/`.
+- Never edit `proxy.ts` or existing migrations (append-only); commit explicit paths, never `git add -A` in a shared worktree.
+- Merge `origin/main` immediately before pushing (branch drifts fast — 32 behind at writing). Pre-push hook runs typecheck + behind-base; verify with `cmd > log 2>&1; echo EXIT: $?` (piping masks exit codes).
