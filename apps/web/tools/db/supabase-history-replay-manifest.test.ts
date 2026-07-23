@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { EXPECTED_DUPLICATE_GROUPS } from './expected-duplicate-groups';
-import { EXPECTED_PENDING_SOURCES } from './expected-pending-sources';
+import { EXPECTED_DUPLICATE_GROUPS } from './expected-duplicate-groups.test-support';
+import { EXPECTED_PENDING_SOURCES } from './expected-pending-sources.test-support';
 import { supabaseHistoryReplayManifest } from './supabase-history-replay-manifest';
 
 const MAPPINGS = [

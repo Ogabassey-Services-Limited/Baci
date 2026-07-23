@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readByokMigration as readMigration } from './read-byok-migration';
+import { readByokMigration as readMigration } from './read-byok-migration.test-support';
 
 describe('PayPal BYOK migration contracts (review types, snapshots, audits)', () => {
   it('removes legacy touch RPCs after atomic replacement owns validation', () => {

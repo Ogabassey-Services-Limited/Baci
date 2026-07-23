@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readByokMigration as readMigration } from './read-byok-migration';
+import { readByokMigration as readMigration } from './read-byok-migration.test-support';
 
 describe('PayPal BYOK migration contracts', () => {
   it('atomically serializes both credential-role replacements', () => {
