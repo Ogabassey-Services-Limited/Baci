@@ -1,7 +1,7 @@
 import { act } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WALLET_FUNDING_POLL } from '@/config/wallet-funding-poll';
-import { ready, renderPoll } from './use-wallet-funding-credit-poll.support';
+import { ready, renderPoll } from './use-wallet-funding-credit-poll.test-support';
 
 // Request-concurrency / lifecycle half of the poll suite. Split from
 // `use-wallet-funding-credit-poll.test.tsx` (fail-closed settlement lives there)

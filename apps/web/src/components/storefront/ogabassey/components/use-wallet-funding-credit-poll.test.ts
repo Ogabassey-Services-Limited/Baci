@@ -5,7 +5,7 @@ import {
   ready,
   renderPoll,
   topUpCredit,
-} from './use-wallet-funding-credit-poll.support';
+} from './use-wallet-funding-credit-poll.test-support';
 
 const mockPoll = vi.hoisted(() => vi.fn());
 const mockCaptureClientEvent = vi.hoisted(() => vi.fn());
