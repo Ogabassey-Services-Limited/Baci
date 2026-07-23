@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockResolveWalletTopUpMerchant = vi.fn();
 const mockResolveVtuCustomer = vi.fn();
-const mockAdminClient = { role: 'service-role' } as unknown as SupabaseClient;
+const mockFetchPaystackSubaccountCode = vi.fn();
 
 vi.mock('@/lib/resolve-wallet-top-up-merchant', () => ({
   resolveWalletTopUpMerchant: (...args: unknown[]) =>
@@ -14,8 +14,9 @@ vi.mock('@/lib/vtu-pending-transaction', () => ({
   resolveVtuCustomer: (...args: unknown[]) => mockResolveVtuCustomer(...args),
 }));
 
-vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: vi.fn(() => mockAdminClient),
+vi.mock('@/lib/fetch-merchant-payment-secret', () => ({
+  fetchMerchantPaystackSubaccountCode: (...args: unknown[]) =>
+    mockFetchPaystackSubaccountCode(...args),
 }));
 
 import {
@@ -78,16 +79,16 @@ describe('resolveCustomerSavingsContext', () => {
     vi.clearAllMocks();
   });
 
-  it('reads merchant payment config via the service-role client while resolving the customer on the authenticated client', async () => {
-    const merchant = {
+  it('resolves identity under RLS and reads the payment secret via admin only after verifying the customer', async () => {
+    const identity = {
       business_name: 'Ogabassey',
       id: 'merchant-1',
-      paystack_subaccount_code: 'ACCT_secret',
       slug: 'ogabassey',
     };
     const customer = { id: 'customer-1' };
-    mockResolveWalletTopUpMerchant.mockResolvedValue(merchant);
+    mockResolveWalletTopUpMerchant.mockResolvedValue(identity);
     mockResolveVtuCustomer.mockResolvedValue(customer);
+    mockFetchPaystackSubaccountCode.mockResolvedValue('ACCT_secret');
     const authClient = { authScope: 'customer' } as unknown as SupabaseClient;
 
     const result = await resolveCustomerSavingsContext({
@@ -97,19 +98,26 @@ describe('resolveCustomerSavingsContext', () => {
     });
 
     if ('response' in result) throw new Error('expected context');
-    expect(result.merchant).toBe(merchant);
-    expect(result.customer).toBe(customer);
-    // paystack_subaccount_code is SELECT-revoked from the authenticated role:
-    // the merchant payment-config lookup must go through the service-role client.
+    // Identity is resolved on the caller's RLS client with non-secret columns,
+    // so an unpublished merchant is indistinguishable from a nonexistent one.
     expect(mockResolveWalletTopUpMerchant).toHaveBeenCalledWith(
-      mockAdminClient,
+      authClient,
       { merchantSlug: 'ogabassey' },
-      'id, slug, business_name, paystack_subaccount_code'
+      'id, slug, business_name'
     );
-    // Customer resolution stays on the caller's authenticated RLS client.
+    // Customer resolution stays on the caller's authenticated RLS client and
+    // runs before the RLS-bypassing secret read.
     expect(mockResolveVtuCustomer).toHaveBeenCalledWith(
       expect.objectContaining({ supabase: authClient })
     );
+    expect(mockFetchPaystackSubaccountCode).toHaveBeenCalledWith('merchant-1');
+    expect(result.merchant).toEqual({
+      business_name: 'Ogabassey',
+      id: 'merchant-1',
+      paystack_subaccount_code: 'ACCT_secret',
+      slug: 'ogabassey',
+    });
+    expect(result.customer).toBe(customer);
   });
 
   it('returns 404 without resolving a customer when the merchant is not found', async () => {

@@ -8,6 +8,7 @@ import {
   ensureCustomerWalletPaymentAccount,
   resolveCustomerWalletPaymentAccount,
 } from '@/lib/customer-wallet-payment-accounts';
+import { fetchMerchantPaystackSubaccountCode } from '@/lib/fetch-merchant-payment-secret';
 import { resolveWalletTopUpMerchant } from '@/lib/resolve-wallet-top-up-merchant';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveVtuCustomer } from '@/lib/vtu-pending-transaction';
@@ -16,7 +17,15 @@ import {
   walletFundingAccountQuerySchema,
 } from '@/schemas/wallet-funding-account';
 
-const MERCHANT_SELECT = 'id, slug, business_name, paystack_subaccount_code';
+// Identity only (no secret) — resolved on the caller's RLS client so an
+// unpublished merchant is indistinguishable from a nonexistent one (no oracle).
+const MERCHANT_IDENTITY_SELECT = 'id, slug, business_name';
+
+interface FundingAccountMerchantIdentity {
+  business_name: string | null;
+  id: string;
+  slug: string | null;
+}
 
 interface FundingAccountMerchant {
   business_name: string | null;
@@ -91,17 +100,15 @@ async function resolveMerchantAndCustomer({
   supabase: SupabaseClient;
   user: User;
 }): Promise<FundingAccountResolvedContext> {
-  // paystack_subaccount_code is SELECT-revoked from the authenticated role, so
-  // the merchant payment-config lookup must run under the service-role client.
-  // Customer auth/CSRF (above) and resolveVtuCustomer (below) stay on the
-  // authenticated RLS client.
-  const merchant = await resolveWalletTopUpMerchant<FundingAccountMerchant>(
-    createAdminClient(),
-    identifiers,
-    MERCHANT_SELECT
-  );
+  // Resolve identity on the caller's RLS client first — no cross-tenant oracle.
+  const identity =
+    await resolveWalletTopUpMerchant<FundingAccountMerchantIdentity>(
+      supabase,
+      identifiers,
+      MERCHANT_IDENTITY_SELECT
+    );
 
-  if (!merchant) {
+  if (!identity) {
     return {
       response: NextResponse.json(
         { error: 'Merchant not found' },
@@ -111,7 +118,7 @@ async function resolveMerchantAndCustomer({
   }
 
   const customer = await resolveVtuCustomer({
-    merchantId: merchant.id,
+    merchantId: identity.id,
     supabase,
     user,
   });
@@ -124,6 +131,14 @@ async function resolveMerchantAndCustomer({
       ),
     };
   }
+
+  // Customer is verified — only now read the revoked payment secret via admin.
+  const merchant: FundingAccountMerchant = {
+    ...identity,
+    paystack_subaccount_code: await fetchMerchantPaystackSubaccountCode(
+      identity.id
+    ),
+  };
 
   return { customer, merchant, supabase };
 }

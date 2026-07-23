@@ -6,18 +6,8 @@ import {
   expireStaleWalletFundingIntents,
   getOrderWalletFundingIntent,
 } from '@/lib/order-wallet-funding-intents';
-import {
-  ORDER_FUNDING_MERCHANT_SELECT,
-  resolveOrderFundingMerchantAndCustomer,
-} from '@/lib/order-wallet-funding-route-context';
+import { resolveOrderFundingMerchantAndCustomer } from '@/lib/order-wallet-funding-route-context';
 import { orderWalletFundingIntentPollSchema } from '@/schemas/order-wallet-funding-intent';
-
-interface OrderFundingMerchant {
-  business_name: string | null;
-  id: string;
-  paystack_subaccount_code: string | null;
-  slug: string | null;
-}
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -82,13 +72,11 @@ export async function GET(
     }
     intentId = parsedParams.data.id;
 
-    const resolved =
-      await resolveOrderFundingMerchantAndCustomer<OrderFundingMerchant>({
-        identifiers: parsed.data,
-        merchantSelect: ORDER_FUNDING_MERCHANT_SELECT,
-        supabase: auth.supabase,
-        user: auth.user,
-      });
+    const resolved = await resolveOrderFundingMerchantAndCustomer({
+      identifiers: parsed.data,
+      supabase: auth.supabase,
+      user: auth.user,
+    });
     if ('response' in resolved) return resolved.response;
 
     await expireStaleWalletFundingIntents({
