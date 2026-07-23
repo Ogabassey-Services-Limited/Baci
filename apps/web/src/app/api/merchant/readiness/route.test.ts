@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   createAdminClient: vi.fn(),
   createClient: vi.fn(),
-  fetchMerchantPaystackSubaccountCode: vi.fn(),
   getMerchantForApiRequest: vi.fn(),
   hasPermission: vi.fn(),
 }));
@@ -27,11 +26,6 @@ vi.mock('@/lib/supabase/admin', () => ({
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: mocks.createClient,
-}));
-
-vi.mock('@/lib/fetch-merchant-payment-secret', () => ({
-  fetchMerchantPaystackSubaccountCode:
-    mocks.fetchMerchantPaystackSubaccountCode,
 }));
 
 function merchantRow() {
@@ -89,10 +83,10 @@ function countChain(result: unknown) {
 }
 
 // The owned-merchant read and the staff_members -> merchants join now select
-// only non-secret columns and run on the authenticated client. The revoked
-// paystack_subaccount_code is read separately via the bounded RPC helper. The
-// per-test merchant option is shared here so both the authenticated merchants
-// mock and the helper mock (wired in beforeEach) resolve the same fixture.
+// only non-secret columns and run on the authenticated client. Paystack
+// configured-ness is read separately via the derived boolean RPC. The per-test
+// merchant option is shared here so both the authenticated merchants mock and
+// the rpc mock resolve the same fixture.
 let currentMerchantMock: unknown;
 
 function createReadinessSupabaseMock(options?: {
@@ -117,8 +111,8 @@ function createReadinessSupabaseMock(options?: {
     from: vi.fn((table: string) => {
       // Non-secret merchant columns are read on the authenticated client, so the
       // owned-merchant read and the staff_members -> merchants join are served
-      // here. The revoked paystack_subaccount_code is NOT selected; it comes
-      // from the bounded RPC helper (mocks.fetchMerchantPaystackSubaccountCode).
+      // here. The revoked paystack_subaccount_code is NOT selected; only its
+      // configured-ness is read, via the rpc mock below.
       if (table === 'merchants') {
         return chain(queryResult(currentMerchantMock ?? merchantRow()));
       }
@@ -163,6 +157,19 @@ function createReadinessSupabaseMock(options?: {
 
       throw new Error(`Unexpected table ${table}`);
     }),
+    // The revoked paystack_subaccount_code is never selected; readiness reads
+    // only the derived configured-ness boolean via this owner/staff-scoped RPC.
+    rpc: vi.fn((fn: string) => {
+      if (fn === 'get_merchant_paystack_subaccount_configured') {
+        const code = (
+          currentMerchantMock as
+            | { paystack_subaccount_code?: string | null }
+            | undefined
+        )?.paystack_subaccount_code;
+        return Promise.resolve({ data: Boolean(code?.trim()), error: null });
+      }
+      throw new Error(`Unexpected rpc ${fn}`);
+    }),
   };
 }
 
@@ -205,20 +212,6 @@ describe('GET /api/merchant/readiness', () => {
       },
     });
     mocks.createAdminClient.mockReturnValue(createAdminSupabaseMock());
-    // The revoked paystack_subaccount_code is read via the bounded RPC helper.
-    // Serve whatever value the current merchant fixture carries so the
-    // launch-payment gate sees the same code the old admin read returned.
-    mocks.fetchMerchantPaystackSubaccountCode.mockImplementation(() =>
-      Promise.resolve(
-        (
-          currentMerchantMock as
-            | {
-                paystack_subaccount_code?: string | null;
-              }
-            | undefined
-        )?.paystack_subaccount_code ?? null
-      )
-    );
   });
 
   it('returns 401 when no web session exists', async () => {
@@ -245,7 +238,7 @@ describe('GET /api/merchant/readiness', () => {
     expect(await response.json()).toEqual({ error: 'Merchant not found' });
   });
 
-  it('reads the merchant row on the authenticated client and the revoked paystack_subaccount_code via the bounded RPC helper', async () => {
+  it('reads the merchant row on the authenticated client and Paystack configured-ness via the derived boolean RPC', async () => {
     mocks.hasPermission.mockReturnValue(true);
     const authClient = createReadinessSupabaseMock({});
     mocks.createClient.mockReturnValue(authClient);
@@ -256,11 +249,59 @@ describe('GET /api/merchant/readiness', () => {
     expect(response.status).toBe(200);
     // Non-secret merchant columns run on the authenticated client...
     expect(authClient.from).toHaveBeenCalledWith('merchants');
-    // ...and the revoked secret resolves through the RPC helper on that same
-    // authenticated client, keyed to the resolved merchant id.
-    expect(mocks.fetchMerchantPaystackSubaccountCode).toHaveBeenCalledWith(
-      authClient,
-      'merchant-1'
+    // ...and only the derived configured-ness boolean is read — never the raw
+    // secret — keyed to the resolved merchant id.
+    expect(authClient.rpc).toHaveBeenCalledWith(
+      'get_merchant_paystack_subaccount_configured',
+      { p_merchant_id: 'merchant-1' }
+    );
+  });
+
+  it('reports Paystack as configured for dashboard.view-only staff (accountant/sales_rep) instead of falsely showing not-ready', async () => {
+    // Regression for the post-#3173 Codex finding: gating the raw-code RPC on
+    // settings/integrations permissions made readiness report a configured
+    // Paystack subaccount as missing for default roles that only hold
+    // dashboard.view. The derived boolean RPC is owner/any-active-staff scoped,
+    // so those roles keep an accurate checklist.
+    mocks.hasPermission.mockImplementation(
+      (_access: unknown, resource: string, action: string) =>
+        resource === 'dashboard' && action === 'view'
+    );
+    mocks.getMerchantForApiRequest.mockResolvedValue({
+      merchantId: 'merchant-1',
+      staffAccess: {
+        isOwner: false,
+        isStaff: true,
+        permissions: { dashboard: { view: true } },
+        role: 'sales_rep',
+      },
+    });
+    const authClient = createReadinessSupabaseMock({
+      featureSettings: {
+        korapay_enabled: false,
+        pay_on_delivery_enabled: false,
+        paystack_enabled: true,
+      },
+    });
+    mocks.createClient.mockReturnValue(authClient);
+
+    const { GET } = await import('./route');
+    const response = await GET();
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(authClient.rpc).toHaveBeenCalledWith(
+      'get_merchant_paystack_subaccount_configured',
+      { p_merchant_id: 'merchant-1' }
+    );
+    // The fixture's subaccount is configured; the NG launch-payment item must
+    // reflect that even though this staff role could not read the raw code —
+    // pre-fix, the permission-gated raw-code RPC returned NULL here and this
+    // item regressed to completed: false.
+    expect(body.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'bank_account', completed: true }),
+      ])
     );
   });
 
