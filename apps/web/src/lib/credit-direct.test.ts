@@ -233,6 +233,43 @@ describe('parseWebhookPayload', () => {
     });
   });
 
+  it('normalizes the exact PascalCase webhook envelope from Credit Direct', () => {
+    expect(
+      parseWebhookPayload({
+        CheckoutCustomer: {
+          FirstName: 'DIALA',
+          LastName: 'KINGSLEY',
+        },
+        CheckoutTransactionId: 'a93343b8-2002-45ba-a0a5-a222e1c1d288',
+        EventType: 'Checkout_Merchant_Payment_Completed',
+        Products: [
+          {
+            ProductAmount: '430000',
+            ProductId: 'CTjKsQ0uoT1782138407475-631256',
+            ProductName: '13" Macbook Air 2018',
+          },
+        ],
+        TimeStamp: '2026-07-10T16:03:38.8373464+01:00',
+      })
+    ).toEqual({
+      checkoutCustomer: {
+        firstName: 'DIALA',
+        lastName: 'KINGSLEY',
+      },
+      checkoutTransactionId: 'a93343b8-2002-45ba-a0a5-a222e1c1d288',
+      eventType: 'Checkout_Merchant_Payment_Completed',
+      metaData: null,
+      products: [
+        {
+          productAmount: 430000,
+          productId: 'CTjKsQ0uoT1782138407475-631256',
+          productName: '13" Macbook Air 2018',
+        },
+      ],
+      timeStamp: '2026-07-10T16:03:38.8373464+01:00',
+    });
+  });
+
   it('rejects non-numeric string amounts at the schema boundary', () => {
     const payload = {
       ...validPayload,

@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+import type { Database } from '@/types/supabase';
 import { createDomainEventMetadata } from './event-metadata';
+import { toEventPipelineJson } from './event-pipeline-database';
 import { redactEventPayload } from './event-redaction';
 
 const enqueueResultSchema = z.strictObject({
@@ -23,16 +25,20 @@ type AnalyticsDomainEventInput = {
 };
 
 export async function recordAnalyticsDomainEvent(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   input: AnalyticsDomainEventInput
 ) {
   const producer = input.source === 'mobile_app' ? 'mobile' : 'web';
+  const eventData = toEventPipelineJson(input.eventData);
+  const deliveryData = toEventPipelineJson(input.deliveryData ?? {});
   const { data, error } = await supabase.rpc(
     'record_analytics_domain_event_v1',
     {
-      p_domain_event_data: redactEventPayload(input.eventData),
-      p_delivery_data: input.deliveryData ?? {},
-      p_event_data: input.eventData,
+      p_domain_event_data: toEventPipelineJson(
+        redactEventPayload(input.eventData)
+      ),
+      p_delivery_data: deliveryData,
+      p_event_data: eventData,
       p_event_name: input.eventName,
       p_event_timestamp: input.eventTimestamp,
       p_event_type: input.eventType,

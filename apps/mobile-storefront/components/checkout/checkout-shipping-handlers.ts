@@ -1,8 +1,10 @@
-import { isPickupEligible } from '@baci/shared';
 import type { RefObject } from 'react';
 import type { UseFormSetValue } from 'react-hook-form';
 import { normalizeStateName } from '@/components/checkout/checkout-shipping.helpers';
-import { isProviderStationPickupQuote } from '@/components/checkout/checkout-station-pickup';
+import {
+  getDefaultPickupQuoteId,
+  isProviderStationPickupQuote,
+} from '@/components/checkout/checkout-station-pickup';
 import {
   AIRPORT_QUOTE_ID,
   isGiglGoFasterQuote,
@@ -152,14 +154,11 @@ export function createCheckoutShippingHandlers({
         setSelectedQuoteId('');
       }
       if (method === 'pickup_station') {
-        // Only select the provider station quote when the card actually offered
-        // provider-backed pickup (non-Lagos). In Lagos the card shows FREE
-        // merchant pickup, so selecting the paid station quote would silently
-        // switch the fee + fulfillment to a station the customer never chose.
         setSelectedQuoteId(
-          stationPickupQuote && !isPickupEligible(watchedState)
-            ? String(stationPickupQuote.id)
-            : ''
+          getDefaultPickupQuoteId(
+            watchedState,
+            stationPickupQuote ? String(stationPickupQuote.id) : ''
+          )
         );
       } else if (method === 'airport') {
         const selectedQuote = shippingQuotes.find(

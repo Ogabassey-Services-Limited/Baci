@@ -126,6 +126,7 @@ jobs:
               - '.github/scripts/resolve-ci-test-plan.mjs'
               - '.github/scripts/resolve-ci-test-plan-config.mjs'
               - '.github/scripts/resolve-ci-test-plan-config.test.mjs'
+              - '.github/scripts/tools-worker-typecheck-contract.test.mjs'
               - '.github/scripts/resolve-ci-test-plan.test.mjs'
               - '.github/workflows/ci.yml'
               - 'package.json'

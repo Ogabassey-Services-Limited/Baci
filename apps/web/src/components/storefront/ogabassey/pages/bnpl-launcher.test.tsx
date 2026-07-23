@@ -6,8 +6,10 @@ import {
   CREDIT_DIRECT_POPUP_MARKER_PREFIX,
   readCreditDirectPopupMarker,
 } from './checkout/credit-direct-popup-return';
+import { CHECKOUT_IDEMPOTENCY_STORAGE_KEY } from './checkout/checkout-idempotency';
 import { CHECKOUT_PENDING_ORDER_STORAGE_KEY } from './checkout/pending-checkout-order';
 
+const mockClearCart = vi.hoisted(() => vi.fn());
 const mockPush = vi.fn();
 const mockRouter = { push: mockPush };
 const mockSearchParams = vi.fn();
@@ -34,6 +36,10 @@ vi.mock('@/hooks/use-merchant-client', () => ({
   })),
 }));
 
+vi.mock('@/hooks/cart', () => ({
+  useCartSafe: () => ({ clearCart: mockClearCart }),
+}));
+
 vi.mock('@/lib/credit-direct-client', () => ({
   openCreditDirectCheckout: (...args: unknown[]) =>
     mockOpenCreditDirectCheckout(...args),
@@ -47,11 +53,15 @@ vi.mock('@/lib/credpal', () => ({
 
 vi.mock('@/lib/api-client', () => ({
   apiPost: (...args: unknown[]) => mockApiPost(...args),
+  fetchWithCsrf: (input: RequestInfo | URL, init?: RequestInit) =>
+    fetch(input, init),
 }));
 
 describe('BnplLauncher', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockOpenCreditDirectCheckout.mockReset();
+    mockOpenCredPalCheckout.mockReset();
     window.history.replaceState({}, '', '/checkout/bnpl');
     window.sessionStorage.clear();
     window.localStorage.clear();
@@ -161,19 +171,69 @@ describe('BnplLauncher', () => {
     });
   });
 
-  it('preserves trackingToken when redirecting after Credit Direct success', async () => {
+  it('verifies an in-page Credit Direct success before redirecting', async () => {
     mockOpenCreditDirectCheckout.mockImplementation(({ onSuccess }) => {
-      onSuccess('ref-1');
+      onSuccess({
+        checkoutTransactionId: 'ref-1',
+        sessionId: 'signed-session-1',
+      });
+      return Promise.resolve();
+    });
+
+    render(<BnplLauncher />);
+
+    expect(
+      await screen.findByRole('heading', { name: 'Confirming your payment' })
+    ).toBeInTheDocument();
+    expect(readCreditDirectPopupMarker('order-1')?.transactionId).toBe('ref-1');
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/orders/credit-direct/client-completion',
+      {
+        method: 'POST',
+        keepalive: true,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: 'order-1',
+          checkoutTransactionId: 'ref-1',
+          customerEmail: 'customer@example.com',
+          sessionId: 'signed-session-1',
+          tracking_token: 'track-order-token',
+        }),
+      }
+    );
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('labels a signed-session-only success without inventing a transaction id', async () => {
+    mockOpenCreditDirectCheckout.mockImplementation(({ onSuccess }) => {
+      onSuccess({
+        checkoutTransactionId: null,
+        sessionId: 'signed-session-only',
+      });
       return Promise.resolve();
     });
 
     render(<BnplLauncher />);
 
     await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith(
-        '/order-success?orderId=order-1&reference=ref-1&type=credit_direct&trackingToken=track-order-token'
+      expect(readCreditDirectPopupMarker('order-1')?.transactionId).toBe(
+        'signed-session-only'
       );
     });
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/orders/credit-direct/client-completion',
+      {
+        method: 'POST',
+        keepalive: true,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: 'order-1',
+          customerEmail: 'customer@example.com',
+          sessionId: 'signed-session-only',
+          tracking_token: 'track-order-token',
+        }),
+      }
+    );
   });
 
   it('normalizes string order totals before signing Credit Direct checkout', async () => {
@@ -290,7 +350,10 @@ describe('BnplLauncher', () => {
 
   it('stores Credit Direct popup transaction ids with the public tracking token', async () => {
     mockOpenCreditDirectCheckout.mockImplementation(({ onPopup }) => {
-      onPopup('cd-popup-transaction-1');
+      onPopup({
+        checkoutTransactionId: 'cd-popup-transaction-1',
+        sessionId: 'signed-session-1',
+      });
       return Promise.resolve();
     });
 
@@ -307,6 +370,25 @@ describe('BnplLauncher', () => {
         }
       );
     });
+  });
+
+  it('keeps a session-only popup marker without persisting it as a transaction id', async () => {
+    mockOpenCreditDirectCheckout.mockImplementation(({ onPopup }) => {
+      onPopup({
+        checkoutTransactionId: null,
+        sessionId: 'signed-session-only',
+      });
+      return Promise.resolve();
+    });
+
+    render(<BnplLauncher />);
+
+    await waitFor(() => {
+      expect(readCreditDirectPopupMarker('order-1')?.transactionId).toBe(
+        'signed-session-only'
+      );
+    });
+    expect(mockApiPost).not.toHaveBeenCalled();
   });
 
   it('bridges Credit Direct close events to React Native without rendering cancellation UI', async () => {
@@ -340,7 +422,10 @@ describe('BnplLauncher', () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     mockApiPost.mockRejectedValueOnce(new Error('Update failed'));
     mockOpenCreditDirectCheckout.mockImplementation(({ onPopup }) => {
-      onPopup('cd-popup-transaction-1');
+      onPopup({
+        checkoutTransactionId: 'cd-popup-transaction-1',
+        sessionId: 'signed-session-1',
+      });
       return Promise.resolve();
     });
 
@@ -950,12 +1035,17 @@ describe('BnplLauncher', () => {
   });
 
   describe('Credit Direct popup return verification', () => {
-    function seedPopupMarker(orderId: string, transactionId: string) {
+    function seedPopupMarker(
+      orderId: string,
+      transactionId: string,
+      source?: 'popup' | 'sdk_success'
+    ) {
       window.sessionStorage.setItem(
         `${CREDIT_DIRECT_POPUP_MARKER_PREFIX}${orderId}`,
         JSON.stringify({
           transactionId,
           storedAt: '2026-07-06T12:29:45.000Z',
+          ...(source && { source }),
         })
       );
     }
@@ -982,8 +1072,24 @@ describe('BnplLauncher', () => {
       );
     }
 
+    function seedCheckoutRecoveryState() {
+      window.sessionStorage.setItem(
+        CHECKOUT_PENDING_ORDER_STORAGE_KEY,
+        JSON.stringify({ orderId: 'order-1' })
+      );
+      window.sessionStorage.setItem(
+        'checkout-form',
+        JSON.stringify({ customerEmail: 'customer@example.com' })
+      );
+      window.localStorage.setItem(
+        CHECKOUT_IDEMPOTENCY_STORAGE_KEY,
+        JSON.stringify({ key: 'checkout-key' })
+      );
+    }
+
     it('verifies the order instead of relaunching checkout when a popup marker exists', async () => {
       seedPopupMarker('order-1', 'txn-123');
+      seedCheckoutRecoveryState();
       stubOrderStatusFetch('bnpl_approved');
 
       render(<BnplLauncher />);
@@ -998,11 +1104,22 @@ describe('BnplLauncher', () => {
         '/api/storefront/orders/order-1?merchant_slug=test-store&token=tok-123',
         expect.objectContaining({ signal: expect.any(AbortSignal) })
       );
-      expect(readCreditDirectPopupMarker('order-1')).toBeNull();
+      await waitFor(() => {
+        expect(readCreditDirectPopupMarker('order-1')).toBeNull();
+        expect(
+          window.sessionStorage.getItem(CHECKOUT_PENDING_ORDER_STORAGE_KEY)
+        ).toBeNull();
+        expect(window.sessionStorage.getItem('checkout-form')).toBeNull();
+        expect(
+          window.localStorage.getItem(CHECKOUT_IDEMPOTENCY_STORAGE_KEY)
+        ).toBeNull();
+      });
+      expect(mockClearCart).toHaveBeenCalledOnce();
     });
 
     it('shows the confirming state while the payment is still pending', async () => {
       seedPopupMarker('order-1', 'txn-123');
+      seedCheckoutRecoveryState();
       stubOrderStatusFetch('bnpl_pending');
 
       render(<BnplLauncher />);
@@ -1012,10 +1129,83 @@ describe('BnplLauncher', () => {
       ).toBeInTheDocument();
       expect(mockOpenCreditDirectCheckout).not.toHaveBeenCalled();
       expect(mockPush).not.toHaveBeenCalled();
+      expect(mockClearCart).not.toHaveBeenCalled();
+      expect(readCreditDirectPopupMarker('order-1')).not.toBeNull();
+      expect(
+        window.sessionStorage.getItem(CHECKOUT_PENDING_ORDER_STORAGE_KEY)
+      ).not.toBeNull();
+      expect(window.sessionStorage.getItem('checkout-form')).not.toBeNull();
+      expect(
+        window.localStorage.getItem(CHECKOUT_IDEMPOTENCY_STORAGE_KEY)
+      ).not.toBeNull();
     });
 
-    it('shows the cancelled state and clears the marker for a cancelled order', async () => {
+    it('honors an SDK completion handoff when session storage is unavailable', async () => {
+      mockSearchParams.mockReturnValue(
+        new URLSearchParams({
+          orderId: 'order-1',
+          gateway: 'credit_direct',
+          merchant_slug: 'test-store',
+          creditDirectCompletion: 'txn-url-fallback',
+          trackingToken: 'tok-123',
+        })
+      );
+      stubOrderStatusFetch('bnpl_pending');
+      const getItemSpy = vi
+        .spyOn(Storage.prototype, 'getItem')
+        .mockImplementation(() => {
+          throw new Error('storage unavailable');
+        });
+      const setItemSpy = vi
+        .spyOn(Storage.prototype, 'setItem')
+        .mockImplementation(() => {
+          throw new Error('storage unavailable');
+        });
+
+      try {
+        render(<BnplLauncher />);
+
+        expect(
+          await screen.findByRole('heading', {
+            name: 'Confirming your payment',
+          })
+        ).toBeInTheDocument();
+        expect(mockOpenCreditDirectCheckout).not.toHaveBeenCalled();
+        expect(
+          screen.queryByRole('button', { name: 'Start a new payment attempt' })
+        ).not.toBeInTheDocument();
+      } finally {
+        getItemSpy.mockRestore();
+        setItemSpy.mockRestore();
+      }
+    });
+
+    it('prefers an SDK completion handoff over a stale popup marker', async () => {
+      seedPopupMarker('order-1', 'txn-stale-popup');
+      mockSearchParams.mockReturnValue(
+        new URLSearchParams({
+          orderId: 'order-1',
+          gateway: 'credit_direct',
+          merchant_slug: 'test-store',
+          creditDirectCompletion: 'txn-sdk-success',
+          trackingToken: 'tok-123',
+        })
+      );
+      stubOrderStatusFetch('bnpl_approved');
+
+      render(<BnplLauncher />);
+
+      await waitFor(() => {
+        expect(mockPush).toHaveBeenCalledWith(
+          '/order-success?orderId=order-1&reference=txn-sdk-success&type=credit_direct&trackingToken=tok-123'
+        );
+      });
+      expect(mockOpenCreditDirectCheckout).not.toHaveBeenCalled();
+    });
+
+    it('shows the cancelled state without clearing checkout recovery', async () => {
       seedPopupMarker('order-1', 'txn-123');
+      seedCheckoutRecoveryState();
       stubOrderStatusFetch('cancelled');
 
       render(<BnplLauncher />);
@@ -1024,14 +1214,23 @@ describe('BnplLauncher', () => {
         await screen.findByRole('heading', { name: 'Order cancelled' })
       ).toBeInTheDocument();
       expect(mockOpenCreditDirectCheckout).not.toHaveBeenCalled();
-      await waitFor(() => {
-        expect(readCreditDirectPopupMarker('order-1')).toBeNull();
-      });
+      expect(mockClearCart).not.toHaveBeenCalled();
+      expect(readCreditDirectPopupMarker('order-1')).not.toBeNull();
+      expect(
+        window.sessionStorage.getItem(CHECKOUT_PENDING_ORDER_STORAGE_KEY)
+      ).not.toBeNull();
+      expect(window.sessionStorage.getItem('checkout-form')).not.toBeNull();
+      expect(
+        window.localStorage.getItem(CHECKOUT_IDEMPOTENCY_STORAGE_KEY)
+      ).not.toBeNull();
     });
 
     it('writes a popup marker when the Credit Direct SDK opens its popup', async () => {
       let capturedOnPopup:
-        | ((transactionId: string) => Promise<void>)
+        | ((reference: {
+            checkoutTransactionId: string | null;
+            sessionId: string;
+          }) => Promise<void>)
         | undefined;
       mockOpenCreditDirectCheckout.mockImplementation(({ onPopup }) => {
         capturedOnPopup = onPopup;
@@ -1043,35 +1242,87 @@ describe('BnplLauncher', () => {
       await waitFor(() => {
         expect(mockOpenCreditDirectCheckout).toHaveBeenCalled();
       });
-      await capturedOnPopup?.('txn-999');
+      await capturedOnPopup?.({
+        checkoutTransactionId: 'txn-999',
+        sessionId: 'signed-session-1',
+      });
 
       expect(readCreditDirectPopupMarker('order-1')?.transactionId).toBe(
         'txn-999'
       );
     });
 
-    it('clears the popup marker after an in-page success callback', async () => {
-      mockOpenCreditDirectCheckout.mockImplementation(
-        async ({ onPopup, onSuccess }) => {
-          await onPopup('txn-999');
-          onSuccess('txn-999');
-        }
+    it('keeps verifying when recording an in-page success callback fails', async () => {
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockImplementation(async (input) => {
+          if (String(input) === '/api/orders/credit-direct/client-completion') {
+            return {
+              ok: false,
+              status: 500,
+              statusText: 'Server Error',
+              text: async () => 'write failed',
+            } as Response;
+          }
+
+          return {
+            ok: true,
+            json: async () => ({
+              id: 'order-1',
+              tracking_token: 'track-order-token',
+              payment_status: 'bnpl_pending',
+              total: 1000,
+              customer_email: 'customer@example.com',
+              customer_phone: '08012345678',
+              customer_name: 'John Doe',
+              items: [
+                {
+                  product_id: 'product-1',
+                  name: 'Capsule',
+                  price: 1000,
+                  quantity: 1,
+                },
+              ],
+            }),
+          } as Response;
+        })
       );
-
-      render(<BnplLauncher />);
-
-      await waitFor(() => {
-        expect(mockPush).toHaveBeenCalledWith(
-          '/order-success?orderId=order-1&reference=txn-999&type=credit_direct&trackingToken=track-order-token'
+      try {
+        mockOpenCreditDirectCheckout.mockImplementation(
+          async ({ onPopup, onSuccess }) => {
+            const reference = {
+              checkoutTransactionId: 'txn-999',
+              sessionId: 'signed-session-1',
+            };
+            await onPopup(reference);
+            onSuccess(reference);
+          }
         );
-      });
-      expect(readCreditDirectPopupMarker('order-1')).toBeNull();
+
+        render(<BnplLauncher />);
+
+        expect(
+          await screen.findByRole('heading', {
+            name: 'Confirming your payment',
+          })
+        ).toBeInTheDocument();
+        expect(readCreditDirectPopupMarker('order-1')?.transactionId).toBe(
+          'txn-999'
+        );
+        expect(mockPush).not.toHaveBeenCalled();
+      } finally {
+        consoleErrorSpy.mockRestore();
+      }
     });
 
     it('relaunches checkout after starting a new attempt on a verification timeout', async () => {
       vi.useFakeTimers();
       try {
         seedPopupMarker('order-1', 'txn-123');
+        seedCheckoutRecoveryState();
         stubOrderStatusFetch('bnpl_pending');
 
         render(<BnplLauncher />);
@@ -1083,6 +1334,16 @@ describe('BnplLauncher', () => {
         vi.useRealTimers();
       }
 
+      expect(mockClearCart).not.toHaveBeenCalled();
+      expect(readCreditDirectPopupMarker('order-1')).not.toBeNull();
+      expect(
+        window.sessionStorage.getItem(CHECKOUT_PENDING_ORDER_STORAGE_KEY)
+      ).not.toBeNull();
+      expect(window.sessionStorage.getItem('checkout-form')).not.toBeNull();
+      expect(
+        window.localStorage.getItem(CHECKOUT_IDEMPOTENCY_STORAGE_KEY)
+      ).not.toBeNull();
+
       fireEvent.click(
         screen.getByRole('button', { name: 'Start a new payment attempt' })
       );
@@ -1091,6 +1352,29 @@ describe('BnplLauncher', () => {
         expect(mockOpenCreditDirectCheckout).toHaveBeenCalled();
       });
       expect(readCreditDirectPopupMarker('order-1')).toBeNull();
+    });
+
+    it('does not offer a new attempt after SDK success times out', async () => {
+      vi.useFakeTimers();
+      try {
+        seedPopupMarker('order-1', 'txn-123', 'sdk_success');
+        stubOrderStatusFetch('bnpl_pending');
+
+        render(<BnplLauncher />);
+        await act(async () => {});
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(151_000);
+        });
+      } finally {
+        vi.useRealTimers();
+      }
+
+      expect(
+        screen.queryByRole('button', { name: 'Start a new payment attempt' })
+      ).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Keep checking' })).toBeEnabled();
+      expect(readCreditDirectPopupMarker('order-1')?.source).toBe('sdk_success');
+      expect(mockOpenCreditDirectCheckout).not.toHaveBeenCalled();
     });
 
     it('includes the lookup email on the verified success redirect when no tracking token exists', async () => {
@@ -1153,7 +1437,12 @@ describe('BnplLauncher', () => {
     // popup marker, then a bfcache restore adopts it into React state before
     // onError fires. The error/retry view must replace payment verification.
     it('clears a stale popup marker when the SDK reports an error', async () => {
-      let onPopup: ((transactionId: string) => Promise<void>) | undefined;
+      let onPopup:
+        | ((reference: {
+            checkoutTransactionId: string | null;
+            sessionId: string;
+          }) => Promise<void>)
+        | undefined;
       let onError: ((error: string) => void) | undefined;
       mockOpenCreditDirectCheckout.mockImplementation((options) => {
         onPopup = options.onPopup;
@@ -1167,7 +1456,10 @@ describe('BnplLauncher', () => {
         expect(mockOpenCreditDirectCheckout).toHaveBeenCalledOnce();
       });
       await act(async () => {
-        await onPopup?.('txn-999');
+        await onPopup?.({
+          checkoutTransactionId: 'txn-999',
+          sessionId: 'signed-session-1',
+        });
       });
       const pageShowEvent = new Event('pageshow');
       Object.defineProperty(pageShowEvent, 'persisted', { value: true });

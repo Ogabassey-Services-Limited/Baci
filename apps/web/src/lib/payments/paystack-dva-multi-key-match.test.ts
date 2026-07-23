@@ -39,6 +39,7 @@ describe('matchPaystackDvaCandidates — happy paths', () => {
     const result = matchPaystackDvaCandidates([candidate()], ctx());
     expect(result.kind).toBe('single');
     if (result.kind === 'single') {
+      expect(result.timing).toBe('in_window');
       expect(result.candidate.order_id).toBe(
         '211bcf0e-0795-488f-aeeb-52c5b7a8b9ae'
       );
@@ -57,6 +58,9 @@ describe('matchPaystackDvaCandidates — happy paths', () => {
     );
 
     expect(result.kind).toBe('single');
+    if (result.kind === 'single') {
+      expect(result.timing).toBe('in_window');
+    }
   });
 
   it('matches the right candidate when two share an account number but only one fits the window', () => {
@@ -73,6 +77,7 @@ describe('matchPaystackDvaCandidates — happy paths', () => {
     const result = matchPaystackDvaCandidates([stale, fresh], ctx());
     expect(result.kind).toBe('single');
     if (result.kind === 'single') {
+      expect(result.timing).toBe('in_window');
       expect(result.candidate.order_id).toBe('fresh-order');
     }
   });
@@ -129,19 +134,22 @@ describe('matchPaystackDvaCandidates — paid_at window', () => {
     expect(result.kind).toBe('none');
   });
 
-  it('rejects paid_at after the +90min upper bound', () => {
-    // account_created_at = 10:00; expires_at = 11:30; +90min = 11:30.
-    // LEAST = 11:30. paid_at = 11:31 is outside window.
+  it('accepts one uniquely matching late invoice payment after the +90min window', () => {
+    // Tony's production incident shape: the reusable DVA received the exact
+    // invoice amount after the short checkout window had elapsed. Account,
+    // customer email, amount, and assignment lower-bound still identify one
+    // active invoice, so the payment must not be stranded in review.
     const result = matchPaystackDvaCandidates(
       [candidate()],
-      ctx({ paidAt: new Date('2026-05-09T11:31:00Z') })
+      ctx({ paidAt: new Date('2026-05-09T12:53:00Z') })
     );
-    expect(result.kind).toBe('none');
+    expect(result.kind).toBe('single');
+    if (result.kind === 'single') {
+      expect(result.timing).toBe('late');
+    }
   });
 
-  it('clamps to +90min when account_expires_at is later (defends against a malformed DVA assignment)', () => {
-    // account_created_at = 10:00, expires_at = 13:00 (bogus). +90min = 11:30.
-    // LEAST = 11:30. paid_at = 11:35 is outside the clamped window.
+  it('uses the unique late-match fallback when account_expires_at is beyond the grace window', () => {
     const c = candidate({
       account_expires_at: new Date('2026-05-09T13:00:00Z'),
     });
@@ -149,7 +157,7 @@ describe('matchPaystackDvaCandidates — paid_at window', () => {
       [c],
       ctx({ paidAt: new Date('2026-05-09T11:35:00Z') })
     );
-    expect(result.kind).toBe('none');
+    expect(result.kind).toBe('single');
   });
 
   it('falls back to +90min when account_expires_at is null', () => {
@@ -195,10 +203,24 @@ describe('matchPaystackDvaCandidates — ambiguity + zero candidates', () => {
     const result = matchPaystackDvaCandidates([a, b], ctx());
     expect(result.kind).toBe('ambiguous');
     if (result.kind === 'ambiguous') {
+      expect(result.timing).toBe('in_window');
       expect(result.candidates.map((c) => c.order_id).sort()).toEqual([
         'order-a',
         'order-b',
       ]);
+    }
+  });
+
+  it('returns ambiguous instead of guessing when 2+ late candidates match', () => {
+    const lateContext = ctx({ paidAt: new Date('2026-05-09T12:53:00Z') });
+    const result = matchPaystackDvaCandidates(
+      [candidate({ order_id: 'late-a' }), candidate({ order_id: 'late-b' })],
+      lateContext
+    );
+
+    expect(result.kind).toBe('ambiguous');
+    if (result.kind === 'ambiguous') {
+      expect(result.timing).toBe('late');
     }
   });
 

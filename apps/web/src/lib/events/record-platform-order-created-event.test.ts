@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   admin: { rpc: vi.fn() },
+  createAdminClient: vi.fn(),
   enabled: true,
   record: vi.fn(),
 }));
@@ -13,7 +14,7 @@ vi.mock('@/lib/events/record-platform-domain-event', () => ({
   recordPlatformDomainEvent: mocks.record,
 }));
 vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: () => mocks.admin,
+  createAdminClient: mocks.createAdminClient,
 }));
 vi.mock('@/lib/logger', () => ({
   logger: { error: vi.fn() },
@@ -25,6 +26,7 @@ describe('recordPlatformOrderCreatedEvent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.enabled = true;
+    mocks.createAdminClient.mockReturnValue(mocks.admin);
     mocks.record.mockResolvedValue({ already_enqueued: false });
   });
 
@@ -55,6 +57,7 @@ describe('recordPlatformOrderCreatedEvent', () => {
         trustLevel: 'server',
       })
     );
+    expect(mocks.createAdminClient).toHaveBeenCalledWith('event-pipeline');
   });
 
   it('does nothing before durable enqueue is enabled', async () => {

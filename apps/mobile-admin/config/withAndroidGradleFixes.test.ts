@@ -12,7 +12,6 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 const require = createRequire(import.meta.url);
 const tempRoots: string[] = [];
-
 interface PluginConfig {
   modRequest: {
     platformProjectRoot: string;
@@ -82,9 +81,30 @@ android {
     }
 }
 
+dependencies {
+    implementation("com.facebook.react:react-android")
+}
+
 /**
  * Set this to true in release builds
  */
+`;
+}
+
+function defaultMainManifest() {
+  return `<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+  <application android:name=".MainApplication">
+  </application>
+</manifest>
+`;
+}
+
+function defaultSettingsGradle() {
+  return `pluginManagement {
+  includeBuild("../../../node_modules/@react-native/gradle-plugin")
+}
+
+include ':app'
 `;
 }
 
@@ -118,6 +138,10 @@ function createAndroidProject(options?: {
         'org.gradle.jvmargs=-Xmx1024m -XX:MaxMetaspaceSize=512m\n'
     );
   }
+
+  writeFile(root, 'app/src/main/AndroidManifest.xml', defaultMainManifest());
+  writeFile(root, 'app/proguard-rules.pro', '# Project rules\n');
+  writeFile(root, 'settings.gradle', defaultSettingsGradle());
 
   return root;
 }
@@ -170,9 +194,8 @@ afterEach(() => {
 describe('withAndroidGradleFixes Kotlin compilation guard', () => {
   it('keeps the Kotlin Android plugin when built-in Kotlin is disabled', () => {
     const projectRoot = createAndroidProject();
-
     const config = runPlugin(projectRoot);
-
+    runPlugin(projectRoot);
     const appBuildGradle = readFileSync(
       path.join(projectRoot, 'app/build.gradle'),
       'utf-8'
@@ -181,14 +204,63 @@ describe('withAndroidGradleFixes Kotlin compilation guard', () => {
       path.join(projectRoot, 'gradle.properties'),
       'utf-8'
     );
+    const proguardRules = readFileSync(
+      path.join(projectRoot, 'app/proguard-rules.pro'),
+      'utf-8'
+    );
     expect(config.modRequest.platformProjectRoot).toBe(projectRoot);
     expect(appBuildGradle).toContain(
       'apply plugin: "org.jetbrains.kotlin.android"'
     );
     expect(appBuildGradle).toContain('proguard-android-optimize.txt');
+    expect(appBuildGradle).toContain(
+      'implementation("com.google.android.material:material:1.14.0")'
+    );
     expect(appBuildGradle).toContain("pickFirsts += ['**/libworklets.so']");
     expect(gradleProperties).toContain('android.builtInKotlin=false');
+    expect(gradleProperties).toContain(
+      'android.r8.optimizedResourceShrinking=true'
+    );
     expect(gradleProperties).toContain('-XX:MaxMetaspaceSize=1024m');
+    expect(proguardRules).toContain('\n-repackageclasses\n');
+    expect(proguardRules).toContain(
+      '\n-keep,allowshrinking,allowobfuscation,allowoptimization class com.amazon.** { *; }\n'
+    );
+    expect(proguardRules).not.toMatch(/^-dontoptimize$/m);
+  });
+
+  it('removes the Google code scanner portrait restriction during manifest merging', () => {
+    const projectRoot = createAndroidProject();
+    runPlugin(projectRoot);
+    const mainManifest = readFileSync(
+      path.join(projectRoot, 'app/src/main/AndroidManifest.xml'),
+      'utf-8'
+    );
+    expect(mainManifest).toContain(
+      'android:name="com.google.mlkit.vision.codescanner.internal.GmsBarcodeScanningDelegateActivity"'
+    );
+    expect(mainManifest).toContain('tools:remove="android:screenOrientation"');
+    expect(mainManifest).not.toContain('android:screenOrientation="portrait"');
+  });
+
+  it('builds React Native from the patched workspace source', () => {
+    const projectRoot = createAndroidProject();
+
+    runPlugin(projectRoot);
+
+    const settingsGradle = readFileSync(
+      path.join(projectRoot, 'settings.gradle'),
+      'utf-8'
+    );
+    expect(settingsGradle).toContain(
+      "require.resolve('react-native/package.json')"
+    );
+    expect(settingsGradle).toContain(
+      'substitute(module("com.facebook.react:react-android"))'
+    );
+    expect(settingsGradle).toContain(
+      'project(":packages:react-native:ReactAndroid")'
+    );
   });
 
   it('restores the Kotlin Android plugin when a generated app Gradle file is missing it', () => {

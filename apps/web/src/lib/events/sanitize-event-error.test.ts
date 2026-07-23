@@ -41,4 +41,76 @@ describe('sanitizeEventErrorMessage', () => {
       '{"access_token"=[redacted],"client_secret"=[redacted],"refresh_token"=[redacted]}'
     );
   });
+
+  it('redacts exact sensitive values longest-first without a minimum length', () => {
+    expect(sanitizeEventErrorMessage('abc|ab|a', ['a', 'abc', 'ab'])).toBe(
+      '[redacted]|[redacted]|[redacted]'
+    );
+  });
+
+  it('redacts deterministic JSON and query transport representations', () => {
+    const sensitiveValue = 'api secret/with?query&quote="\\path';
+    const jsonEscaped = JSON.stringify(sensitiveValue).slice(1, -1);
+    const uriEncoded = encodeURIComponent(sensitiveValue);
+    const queryEncoded = new URLSearchParams({ value: sensitiveValue })
+      .toString()
+      .slice('value='.length);
+
+    expect(
+      sanitizeEventErrorMessage(
+        `${sensitiveValue}|${jsonEscaped}|${uriEncoded}|${queryEncoded}`,
+        [sensitiveValue]
+      )
+    ).toBe('[redacted]|[redacted]|[redacted]|[redacted]');
+  });
+
+  it.each([
+    'uri',
+    'form',
+  ] as const)('redacts lowercase and mixed-case percent escapes in %s encoding', (encoding) => {
+    const sensitiveValue = 'api secret/with?query&quote="\\path';
+    const encoded =
+      encoding === 'uri'
+        ? encodeURIComponent(sensitiveValue)
+        : new URLSearchParams({ value: sensitiveValue })
+            .toString()
+            .slice('value='.length);
+    let escapeIndex = 0;
+    const mixedCasePercentEscapes = encoded.replace(
+      /%[0-9A-F]{2}/g,
+      (percentEscape) => {
+        escapeIndex += 1;
+        return escapeIndex % 2 === 0
+          ? percentEscape.toLowerCase()
+          : percentEscape.toUpperCase();
+      }
+    );
+
+    expect(
+      sanitizeEventErrorMessage(
+        `${encoded.toLowerCase()}|${mixedCasePercentEscapes}`,
+        [sensitiveValue]
+      )
+    ).toBe('[redacted]|[redacted]');
+  });
+
+  it('does not throw when a sensitive value contains a lone surrogate', () => {
+    const sensitiveValue = '\uD800';
+
+    expect(
+      sanitizeEventErrorMessage(`provider echoed ${sensitiveValue}`, [
+        sensitiveValue,
+      ])
+    ).toBe('provider echoed [redacted]');
+  });
+
+  it('redacts metacharacters as literal sensitive values', () => {
+    const sensitiveValue = 'a(b)[c]{d}|e*+?^$\\';
+
+    expect(
+      sanitizeEventErrorMessage(`provider echoed ${sensitiveValue}`, [
+        sensitiveValue,
+      ])
+    ).toBe('provider echoed [redacted]');
+  });
 });

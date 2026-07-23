@@ -1,79 +1,21 @@
-import type { Control, FieldErrors } from 'react-hook-form';
 import { ScrollView, Text, View } from 'react-native';
 import { CheckoutContactCard } from '@/components/checkout/CheckoutContactCard';
 import { CheckoutDeliveryCard } from '@/components/checkout/CheckoutDeliveryCard';
-import type { CheckoutDeliveryCardProps } from '@/components/checkout/CheckoutDeliveryCard.types';
 import { CheckoutFormField } from '@/components/checkout/CheckoutFormField';
 import {
-  getPickupStationMode,
-  getStationPickupQuote,
-  isProviderStationPickupQuote,
-} from '@/components/checkout/checkout-station-pickup';
-import {
+  AIRPORT_DELIVERY_ESTIMATE,
   AIRPORT_DELIVERY_FEE,
-  AIRPORT_QUOTE_ID,
   getDeliveryMethodSummary,
-  isGiglGoFasterQuote,
+  LAGOS_ROAD_DELIVERY_ESTIMATE,
 } from '@/components/checkout/checkout-step-helpers';
 import { DeliveryMethodCard } from '@/components/checkout/DeliveryMethodCard';
 import { DeliveryNotesCard } from '@/components/checkout/DeliveryNotesCard';
+import { PickupLocationOptions } from '@/components/checkout/PickupLocationOptions';
 import { ShippingQuotesCard } from '@/components/checkout/ShippingQuotesCard';
-import type Colors from '@/constants/Colors';
-import type { SavedAddress } from '@/lib/checkout-saved-address';
-import type { ShippingAddressInput } from '@/lib/validation';
+import type { CheckoutAddressStepViewProps } from './CheckoutAddressStepView.types';
 import { checkoutScreenViewStyles as styles } from './CheckoutScreenView.styles';
-import type { DeliveryMethod, ShippingQuote } from './types';
-
-type ColorsScheme = (typeof Colors)['light'];
-
-interface CheckoutAddressStepViewProps {
-  accountPassword: string;
-  colors: ColorsScheme;
-  contactSummary: string;
-  control: Control<ShippingAddressInput>;
-  currentDeliverySummary: string;
-  defaultSavedAddress: SavedAddress | null;
-  deliveryMethod: DeliveryMethod;
-  errors: FieldErrors<ShippingAddressInput>;
-  formContentPaddingBottom: number;
-  hasContactIdentity: boolean;
-  hasSavedAddresses: boolean;
-  isAddingNewAddress: boolean;
-  isAuthenticated: boolean;
-  isContactCollapsed: boolean;
-  isDark: boolean;
-  isDeliveryCollapsed: boolean;
-  isLoadingCities: boolean;
-  isLoadingLocations: boolean;
-  isLoadingQuotes: boolean;
-  isLoadingSavedAddresses: boolean;
-  onAddressSelected: CheckoutDeliveryCardProps['onAddressSelected'];
-  onAddressTextChanged: CheckoutDeliveryCardProps['onAddressTextChanged'];
-  onChangeAccountPassword: (value: string) => void;
-  onOpenCityPicker: () => void;
-  onOpenNewAddressEditor: () => void;
-  onOpenStatePicker: () => void;
-  onRetryQuotes: () => void;
-  onSelectDeliveryMethod: (method: DeliveryMethod) => void;
-  onSelectQuote: (quoteId: string) => void;
-  onToggleContactCollapsed: () => void;
-  onToggleDeliveryCollapsed: () => void;
-  onToggleSaveAsDefaultAddress: () => void;
-  onToggleSaveDetails: () => void;
-  onUseSavedAddress: CheckoutDeliveryCardProps['onUseSavedAddress'];
-  phone: string;
-  saveAsDefaultAddress: boolean;
-  saveDetails: boolean;
-  savedAddresses: SavedAddress[];
-  selectedQuote: ShippingQuote | undefined;
-  selectedQuoteId: string;
-  selectedSavedAddress: SavedAddress | null;
-  selectedSavedAddressId: string | null;
-  shippingQuotes: ShippingQuote[];
-  watchedCity: string;
-  watchedEmail: string;
-  watchedState: string;
-}
+import { getCheckoutAddressShippingOptions } from './checkout-address-shipping-options';
+import { MERCHANT_PICKUP_QUOTE_ID } from './merchant-pickup-location';
 
 export function CheckoutAddressStepView({
   accountPassword,
@@ -96,6 +38,7 @@ export function CheckoutAddressStepView({
   isLoadingLocations,
   isLoadingQuotes,
   isLoadingSavedAddresses,
+  merchantPickupLocation,
   onAddressSelected,
   onAddressTextChanged,
   onChangeAccountPassword,
@@ -123,44 +66,27 @@ export function CheckoutAddressStepView({
   watchedEmail,
   watchedState,
 }: CheckoutAddressStepViewProps) {
-  const stationPickupQuote = getStationPickupQuote(shippingQuotes);
-  const doorSelectedQuote =
-    selectedQuote != null && !isProviderStationPickupQuote(selectedQuote)
-      ? selectedQuote
-      : undefined;
-  const doorShippingQuotes = shippingQuotes.filter(
-    (quote) =>
-      !isProviderStationPickupQuote(quote) && !isGiglGoFasterQuote(quote)
-  );
-  const airShippingQuotes = shippingQuotes.filter(isGiglGoFasterQuote);
-  const providerPickupQuotes = shippingQuotes.filter(
-    isProviderStationPickupQuote
-  );
   const canChooseDeliveryMethod = Boolean(watchedState && watchedCity);
-  const { usesProviderPickup } = getPickupStationMode({
-    city: watchedCity,
-    deliveryMethod,
-    state: watchedState,
+  const {
+    airShippingQuotes,
+    doorSelectedQuote,
+    doorShippingQuotes,
+    effectiveSelectedQuoteId,
+    localAirportQuote,
+    providerPickupQuotes,
     stationPickupQuote,
+    usesMerchantPickup,
+  } = getCheckoutAddressShippingOptions({
+    deliveryMethod,
+    selectedQuote,
+    selectedQuoteId,
+    shippingQuotes,
+    watchedCity,
+    watchedState,
   });
   const shouldShowShippingQuotes =
-    (deliveryMethod === 'door' ||
-      deliveryMethod === 'airport' ||
-      usesProviderPickup) &&
+    (deliveryMethod === 'door' || deliveryMethod === 'airport') &&
     Boolean(watchedState && watchedCity);
-  const airportLocation = watchedCity.trim() || watchedState.trim();
-  const localAirportQuote: ShippingQuote = {
-    carrierName: 'By Air',
-    deliveryRange: '24-48 working hours',
-    displayName: `${airportLocation ? `${airportLocation} ` : ''}Airport Delivery`,
-    id: AIRPORT_QUOTE_ID,
-    price: AIRPORT_DELIVERY_FEE,
-  };
-  const effectiveSelectedQuoteId =
-    deliveryMethod === 'airport' && !isGiglGoFasterQuote(selectedQuote)
-      ? AIRPORT_QUOTE_ID
-      : selectedQuoteId;
-
   return (
     <ScrollView
       style={styles.formContainer}
@@ -241,28 +167,54 @@ export function CheckoutAddressStepView({
           deliveryState={watchedState}
           doorSubtitle={
             doorSelectedQuote != null
-              ? getDeliveryMethodSummary('door', doorSelectedQuote)
+              ? getDeliveryMethodSummary(
+                  'door',
+                  doorSelectedQuote,
+                  watchedState
+                )
               : 'Rates loaded after you enter your address'
           }
           airportFee={AIRPORT_DELIVERY_FEE}
           pickupStationQuote={stationPickupQuote}
+          merchantPickupLocation={merchantPickupLocation}
         >
-          {shouldShowShippingQuotes ? (
+          {deliveryMethod === 'pickup_station' ? (
+            <PickupLocationOptions
+              colors={colors}
+              isDark={isDark}
+              isLoading={isLoadingQuotes}
+              merchantLocation={
+                usesMerchantPickup ? merchantPickupLocation : undefined
+              }
+              onRetry={onRetryQuotes}
+              onSelect={onSelectQuote}
+              providerQuotes={providerPickupQuotes}
+              selectedQuoteId={
+                selectedQuoteId ||
+                (usesMerchantPickup && merchantPickupLocation
+                  ? MERCHANT_PICKUP_QUOTE_ID
+                  : '')
+              }
+            />
+          ) : shouldShowShippingQuotes ? (
             <ShippingQuotesCard
               embedded
               colors={colors}
+              estimateOverride={
+                deliveryMethod === 'airport'
+                  ? AIRPORT_DELIVERY_ESTIMATE
+                  : watchedState.trim().toLowerCase() === 'lagos'
+                    ? LAGOS_ROAD_DELIVERY_ESTIMATE
+                    : undefined
+              }
               isDark={isDark}
               isLoadingQuotes={isLoadingQuotes}
               shippingQuotes={
-                usesProviderPickup
-                  ? providerPickupQuotes
-                  : deliveryMethod === 'airport'
-                    ? [localAirportQuote, ...airShippingQuotes]
-                    : doorShippingQuotes
+                deliveryMethod === 'airport'
+                  ? [localAirportQuote, ...airShippingQuotes]
+                  : doorShippingQuotes
               }
-              stationPickupQuote={
-                usesProviderPickup ? undefined : stationPickupQuote
-              }
+              stationPickupQuote={stationPickupQuote}
               selectedQuoteId={effectiveSelectedQuoteId}
               onSelectQuote={onSelectQuote}
               onRetryQuotes={onRetryQuotes}

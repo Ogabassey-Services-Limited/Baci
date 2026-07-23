@@ -31,13 +31,21 @@ export async function fetchRevenueChart(
   }
 
   if (!Array.isArray(data)) {
-    return buckets.map((bucket) => ({ label: bucket.label, value: 0 }));
+    return buckets.map((bucket) => ({
+      id: getRevenueChartPointId(bucket),
+      label: bucket.label,
+      value: 0,
+    }));
   }
 
-  return data.map((point: RevenueChartRpcPoint) => ({
-    label: typeof point.label === 'string' ? point.label : '',
-    value: Number(point.value ?? 0),
-  }));
+  return data.map((point: RevenueChartRpcPoint, index) => {
+    const bucket = buckets[index];
+    return {
+      id: bucket ? getRevenueChartPointId(bucket) : `${period}:${index}`,
+      label: typeof point.label === 'string' ? point.label : '',
+      value: Number(point.value ?? 0),
+    };
+  });
 }
 
 export function buildRevenueChartBuckets(
@@ -144,4 +152,8 @@ function toRevenueChartBucket(
     ordinal,
     start_at: start.toISOString(),
   };
+}
+
+function getRevenueChartPointId(bucket: RevenueChartBucket): string {
+  return `${bucket.start_at}:${bucket.end_at}`;
 }

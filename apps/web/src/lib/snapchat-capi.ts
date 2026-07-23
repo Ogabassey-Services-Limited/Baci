@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { sanitizeEventErrorMessage } from '@/lib/events/sanitize-event-error';
 
 /**
  * Snapchat Conversions API (Server-Side)
@@ -105,6 +106,10 @@ export async function sendSnapchatEvent(
   };
 
   try {
+    const timeoutSignal = AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MS);
+    const requestSignal = signal
+      ? AbortSignal.any([signal, timeoutSignal])
+      : timeoutSignal;
     const response = await fetch(SNAP_CAPI_URL, {
       method: 'POST',
       headers: {
@@ -112,21 +117,45 @@ export async function sendSnapchatEvent(
         Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify(payload),
-      signal: signal ?? AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MS),
+      signal: requestSignal,
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Snapchat CAPI error:', errorText);
-      return { success: false, error: errorText, httpStatus: response.status };
+      const safeError = sanitizeEventErrorMessage(errorText, [
+        pixelId,
+        accessToken,
+      ]);
+      console.error(
+        sanitizeEventErrorMessage('Snapchat CAPI error:', [
+          pixelId,
+          accessToken,
+        ]),
+        safeError
+      );
+      return {
+        success: false,
+        error: safeError,
+        httpStatus: response.status,
+      };
     }
 
     return { success: true };
   } catch (error) {
-    console.error('Snapchat CAPI request failed:', error);
+    const safeError = sanitizeEventErrorMessage(
+      error instanceof Error ? error.message : 'Network error',
+      [pixelId, accessToken]
+    );
+    console.error(
+      sanitizeEventErrorMessage('Snapchat CAPI request failed:', [
+        pixelId,
+        accessToken,
+      ]),
+      safeError
+    );
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error',
+      error: safeError,
     };
   }
 }

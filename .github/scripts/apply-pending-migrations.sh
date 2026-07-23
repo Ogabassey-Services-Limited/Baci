@@ -119,6 +119,17 @@ historical_collision_name_is_valid() {
   esac
 }
 
+historical_name_alias_is_valid() {
+  case "$1:$2:$3" in
+    20260604132853:fix_storefront_order_customer_returning_id_ambiguity:fix_create_storefront_order_customer_returning_id_ambiguity)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 applied_versions_body="$(jq -n '{query: "SELECT version, name FROM supabase_migrations.schema_migrations ORDER BY version"}')"
 applied_versions_response="$(api_query <<<"$applied_versions_body")"
 applied_migrations="$(jq -r '.[] | [.version, .name] | @tsv' <<<"$applied_versions_response")"
@@ -174,8 +185,12 @@ for file in "${sorted_files[@]}"; do
       fi
       echo "::warning::Historical collision $version is reconciled by repair migration ${repair_version}_${repair_name}.sql (recorded name: $recorded_name)"
     elif [ "$recorded_name" != "$name" ]; then
-      echo "::error::Migration $version is recorded as '$recorded_name', not current file '$name'" >&2
-      exit 1
+      if historical_name_alias_is_valid "$version" "$recorded_name" "$name"; then
+        echo "::warning::historical name alias $version is reconciled: $recorded_name -> $name"
+      else
+        echo "::error::Migration $version is recorded as '$recorded_name', not current file '$name'" >&2
+        exit 1
+      fi
     fi
     echo "✓ already applied: $version  ${name}"
     skipped_count=$((skipped_count + 1))

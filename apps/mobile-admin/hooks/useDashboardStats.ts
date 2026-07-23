@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { skipToken, useQuery } from '@tanstack/react-query';
 import { getBranchScopeKey } from '@/lib/branch-scope-query';
 import { fetchRevenueChart } from './dashboard-revenue-chart';
 import type {
@@ -28,7 +28,9 @@ export function useDashboardStats(period: TimePeriod = 'week') {
     refetch: refetchStats,
   } = useQuery({
     enabled: !!merchantId,
-    queryFn: () => fetchDashboardStats(merchantId!, period, scope),
+    queryFn: merchantId
+      ? () => fetchDashboardStats(merchantId, period, scope)
+      : skipToken,
     queryKey: ['dashboard-stats', merchantId, period, branchScopeKey],
     staleTime: 1000 * 60 * 2,
   });
@@ -40,14 +42,18 @@ export function useDashboardStats(period: TimePeriod = 'week') {
     refetch: refetchChart,
   } = useQuery({
     enabled: !!merchantId,
-    queryFn: () => fetchRevenueChart(merchantId!, period, scope),
+    queryFn: merchantId
+      ? () => fetchRevenueChart(merchantId, period, scope)
+      : skipToken,
     queryKey: ['revenue-chart', merchantId, period, branchScopeKey],
     staleTime: 1000 * 60 * 5,
   });
 
   const { data: topProducts, refetch: refetchTopProducts } = useQuery({
     enabled: !!merchantId,
-    queryFn: () => fetchTopProducts(merchantId!, 5, scope),
+    queryFn: merchantId
+      ? () => fetchTopProducts(merchantId, 5, scope)
+      : skipToken,
     queryKey: ['top-products', merchantId, branchScopeKey],
     staleTime: 1000 * 60 * 10,
   });
@@ -56,6 +62,9 @@ export function useDashboardStats(period: TimePeriod = 'week') {
     error: statsError || chartError,
     isLoading: isStatsLoading || isChartLoading,
     refetch: () => {
+      if (!merchantId) {
+        return;
+      }
       refetchStats();
       refetchChart();
       refetchTopProducts();

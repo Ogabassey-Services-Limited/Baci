@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createEventPipelineTestClient } from '@/lib/events/event-pipeline-test-client';
 
 const mocks = vi.hoisted(() => ({
   enqueue: vi.fn(),
@@ -36,6 +37,11 @@ const order = {
   order_items: [],
   total: 200_000,
 };
+
+const testClient = () =>
+  createEventPipelineTestClient(
+    vi.fn<typeof globalThis.fetch>(async () => Response.json([]))
+  );
 
 const pipelineEnvironmentKeys = [
   'EVENT_PIPELINE_ENQUEUE_ENABLED',
@@ -80,7 +86,7 @@ describe('triggerPurchaseConversion pipeline migration', () => {
   });
 
   it('can stop after the durable handoff without loading customer data', async () => {
-    const supabase = {} as never;
+    const supabase = testClient();
 
     await triggerPurchaseConversion(supabase, 'merchant-1', order, {
       deliveryMode: 'enqueue_only',
@@ -98,7 +104,7 @@ describe('triggerPurchaseConversion pipeline migration', () => {
     const paidAt = '2026-07-13T12:34:56.000Z';
 
     await triggerPurchaseConversion(
-      {} as never,
+      testClient(),
       'merchant-1',
       { ...order, occurredAt: paidAt },
       { deliveryMode: 'enqueue_only' }
@@ -111,7 +117,7 @@ describe('triggerPurchaseConversion pipeline migration', () => {
   });
 
   it('retains legacy delivery after enqueue until full cutover is explicit', async () => {
-    await triggerPurchaseConversion({} as never, 'merchant-1', order);
+    await triggerPurchaseConversion(testClient(), 'merchant-1', order);
 
     expect(mocks.enqueue).toHaveBeenCalledTimes(1);
     expect(mocks.send).toHaveBeenCalledTimes(1);
@@ -121,7 +127,7 @@ describe('triggerPurchaseConversion pipeline migration', () => {
     mocks.enqueue.mockRejectedValueOnce(new Error('queue unavailable'));
 
     await expect(
-      triggerPurchaseConversion({} as never, 'merchant-1', order)
+      triggerPurchaseConversion(testClient(), 'merchant-1', order)
     ).rejects.toThrow('queue unavailable');
     expect(mocks.send).not.toHaveBeenCalled();
   });

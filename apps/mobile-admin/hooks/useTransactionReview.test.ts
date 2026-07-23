@@ -1,91 +1,72 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({
+  fetchTransactionReviewRows: vi.fn(),
+  mapTransactionOrderRows: vi.fn(),
+  useQuery: vi.fn(),
+}));
+
+vi.mock('@tanstack/react-query', () => ({
+  useQuery: mocks.useQuery,
+}));
 
 vi.mock('@/hooks/useMerchant', () => ({
-  useMerchant: () => ({ merchant: null }),
+  useMerchant: () => ({ merchant: { id: 'merchant-1' } }),
 }));
 
-vi.mock('@/lib/supabase', () => ({
-  supabase: {},
+vi.mock('@/lib/fetch-transaction-review-rows', () => ({
+  fetchTransactionReviewRows: mocks.fetchTransactionReviewRows,
 }));
 
-describe('isTransactionReviewSchemaCacheError', () => {
-  it('keeps existing cost and supplier fields in the legacy fallback select', async () => {
-    const { TRANSACTION_REVIEW_LEGACY_SELECT } = await import(
-      './useTransactionReview'
-    );
+vi.mock('@/lib/transaction-review', () => ({
+  buildTransactionReviewRangeFilters: () => ({}),
+  mapTransactionOrderRows: mocks.mapTransactionOrderRows,
+}));
 
-    expect(TRANSACTION_REVIEW_LEGACY_SELECT).toContain('cost_price');
-    expect(TRANSACTION_REVIEW_LEGACY_SELECT).toContain('supplier_name');
-    expect(TRANSACTION_REVIEW_LEGACY_SELECT).not.toContain(
-      'order_item_unit_costs'
-    );
+import { useTransactionReview } from './useTransactionReview';
+
+describe('useTransactionReview', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.useQuery.mockImplementation((options) => options);
+    mocks.mapTransactionOrderRows.mockImplementation((rows) => rows);
   });
 
-  it('returns true for missing transaction-review columns in PostgREST schema cache', async () => {
-    const { isTransactionReviewSchemaCacheError } = await import(
-      './useTransactionReview'
-    );
-
-    expect(
-      isTransactionReviewSchemaCacheError({
-        code: 'PGRST204',
-        message:
-          "Could not find the 'cost_price' column of 'order_items' in the schema cache",
+  it('keeps timestamp cancellation filtering after a full schema fallback', async () => {
+    mocks.fetchTransactionReviewRows
+      .mockResolvedValueOnce({
+        data: null,
+        error: {
+          code: 'PGRST204',
+          message:
+            "Could not find the 'order_item_unit_costs' relationship in the schema cache",
+        },
       })
-    ).toBe(true);
-  });
+      .mockResolvedValueOnce({
+        data: [
+          {
+            cancelled_at: '2026-07-21T00:00:00.000Z',
+            id: 'cancelled-order',
+            shipping_status: 'pending',
+          },
+        ],
+        error: null,
+      });
 
-  it('returns true for older orders tables missing transaction_date', async () => {
-    const { isTransactionReviewSchemaCacheError } = await import(
-      './useTransactionReview'
-    );
+    const query = useTransactionReview() as unknown as {
+      queryFn: () => Promise<unknown>;
+    };
 
-    expect(
-      isTransactionReviewSchemaCacheError({
-        code: 'PGRST204',
-        message:
-          "Could not find the 'transaction_date' column of 'orders' in the schema cache",
+    const result = await query.queryFn();
+
+    expect(mocks.fetchTransactionReviewRows).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        includeCancelledAt: true,
+        selectStatement: expect.stringContaining('cancelled_at'),
       })
-    ).toBe(true);
-  });
-
-  it('returns true for Postgres undefined-column responses from embedded order items', async () => {
-    const { isTransactionReviewSchemaCacheError } = await import(
-      './useTransactionReview'
     );
-
-    expect(
-      isTransactionReviewSchemaCacheError({
-        code: '42703',
-        message: 'column order_items_1.product_match_status does not exist',
-      })
-    ).toBe(true);
-  });
-
-  it('returns true when the unit-cost relation is missing from the schema cache', async () => {
-    const { isTransactionReviewSchemaCacheError } = await import(
-      './useTransactionReview'
-    );
-
-    expect(
-      isTransactionReviewSchemaCacheError({
-        code: 'PGRST200',
-        message:
-          "Could not find a relationship between 'order_items' and 'order_item_unit_costs' in the schema cache",
-      })
-    ).toBe(true);
-  });
-
-  it('returns false for non-schema errors', async () => {
-    const { isTransactionReviewSchemaCacheError } = await import(
-      './useTransactionReview'
-    );
-
-    expect(
-      isTransactionReviewSchemaCacheError({
-        code: '42501',
-        message: 'permission denied for table orders',
-      })
-    ).toBe(false);
+    expect(mocks.mapTransactionOrderRows).toHaveBeenCalledWith([]);
+    expect(result).toEqual([]);
   });
 });

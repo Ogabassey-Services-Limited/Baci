@@ -1,8 +1,8 @@
 import type { DomainEventV1 } from '@baci/shared/contracts';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { generateFbc } from '@/lib/ad-tracking-cookies';
 import type { ConversionEvent } from '@/lib/analytics/send-to-ad-platforms';
+import type { ServiceRoleClient } from '@/lib/supabase/service';
 
 const orderItemSchema = z.object({
   id: z.string().nullable().optional(),
@@ -38,7 +38,7 @@ function optionalString(value: unknown): string | undefined {
 }
 
 export async function loadPaidOrderDeliveryEvent(
-  supabase: SupabaseClient,
+  supabase: ServiceRoleClient,
   event: DomainEventV1
 ): Promise<PaidOrderDeliveryEvent> {
   const orderId = optionalString(event.data.order_id);

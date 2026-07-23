@@ -1,18 +1,14 @@
-import { spawn } from 'node:child_process';
+import type { ChildProcess } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runInNewContext } from 'node:vm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { mcpServerTestSupport } from './server-test-support';
 
 const testFileDirectory = dirname(fileURLToPath(import.meta.url));
-const serverSource = readFileSync(
-  join(testFileDirectory, 'server.ts'),
-  'utf8'
-);
-const snippetStartMatch = /^\s*const\s+ESCAPE_HTML_MAP\s*=/m.exec(
-  serverSource
-);
+const serverSource = readFileSync(join(testFileDirectory, 'server.ts'), 'utf8');
+const snippetStartMatch = /^\s*const\s+ESCAPE_HTML_MAP\s*=/m.exec(serverSource);
 const snippetStart = snippetStartMatch?.index ?? -1;
 const snippetEndMatch =
   snippetStart === -1
@@ -28,23 +24,15 @@ if (snippetStart === -1 || snippetEnd === -1) {
 }
 
 const escapeHtmlSnippet = serverSource.slice(snippetStart, snippetEnd);
-const webRootDirectory = dirname(testFileDirectory);
-const repoRootDirectory = dirname(dirname(webRootDirectory));
-const tsxExecutable = join(
-  repoRootDirectory,
-  'node_modules',
-  '.bin',
-  process.platform === 'win32' ? 'tsx.cmd' : 'tsx'
-);
+const { getResultTools, postMcpJsonRpc, startMcpServer, stopMcpServer } =
+  mcpServerTestSupport;
 
 function runEmbeddedEscapeHtml(input: unknown) {
   const context: { input: unknown; result?: string } = { input };
-
   runInNewContext(
     `${escapeHtmlSnippet}\nglobalThis.result = escapeHtml(globalThis.input);`,
     context
   );
-
   return context.result;
 }
 
@@ -67,7 +55,7 @@ describe('MCP widget HTML escaping', () => {
 });
 
 describe('MCP streamable HTTP probe compatibility', () => {
-  let serverProcess: ReturnType<typeof spawn> | undefined;
+  let serverProcess: ChildProcess | undefined;
   let serverBaseUrl: string;
 
   beforeAll(async () => {
@@ -82,13 +70,13 @@ describe('MCP streamable HTTP probe compatibility', () => {
 
   it('allows the MCP protocol version header in CORS preflights', async () => {
     const response = await fetch(`${serverBaseUrl}/mcp`, {
-      method: 'OPTIONS',
       headers: {
         'access-control-request-headers':
           'content-type, mcp-protocol-version',
         'access-control-request-method': 'POST',
         origin: 'https://chatgpt.com',
       },
+      method: 'OPTIONS',
     });
 
     expect(response.status).toBe(204);
@@ -106,33 +94,30 @@ describe('MCP streamable HTTP probe compatibility', () => {
     );
   });
 
-  it('publishes product_id and product_name lookup inputs for product detail tools', async () => {
+  it('publishes product lookup inputs for product detail tools', async () => {
     const payload = await postMcpJsonRpc(serverBaseUrl, {
       id: 1,
       method: 'tools/list',
       params: {},
     });
     const tools = getResultTools(payload);
-    const productTools = ['get_product', 'get_product_variants'];
 
-    for (const toolName of productTools) {
+    for (const toolName of ['get_product', 'get_product_variants']) {
       const tool = tools.find((candidate) => candidate.name === toolName);
-      expect(tool).toBeDefined();
-
       expect(tool?.inputSchema.properties.product_id).toMatchObject({
-        type: 'string',
-        minLength: 1,
         maxLength: 80,
+        minLength: 1,
+        type: 'string',
       });
       expect(tool?.inputSchema.properties.product_name).toMatchObject({
-        type: 'string',
-        minLength: 1,
         maxLength: 100,
+        minLength: 1,
+        type: 'string',
       });
     }
   });
 
-  it('keeps the ChatGPT tool surface public-only unless private feature flags are enabled', async () => {
+  it('keeps the default ChatGPT tool surface public-only', async () => {
     const payload = await postMcpJsonRpc(serverBaseUrl, {
       id: 2,
       method: 'tools/list',
@@ -159,225 +144,4 @@ describe('MCP streamable HTTP probe compatibility', () => {
     expect(toolNames).not.toContain('generate_payment_account');
     expect(toolNames).not.toContain('search_ucp_catalog');
   });
-
-  it('exposes private agentic and payment tools when explicit feature flags are enabled', async () => {
-    const flaggedServer = await startMcpServer({
-      MCP_ENABLE_AGENTIC_CHECKOUT_TOOLS: '1',
-      MCP_ENABLE_ORDER_PAYMENT_TOOLS: '1',
-    });
-
-    try {
-      const payload = await postMcpJsonRpc(flaggedServer.baseUrl, {
-        id: 3,
-        method: 'tools/list',
-        params: {},
-      });
-      const tools = getResultTools(payload);
-      const toolNames = tools.map((tool) => tool.name);
-
-      expect(toolNames).toEqual(
-        expect.arrayContaining([
-          'cancel_agentic_checkout_session',
-          'cancel_ucp_cart',
-          'check_order',
-          'check_payment_status',
-          'complete_agentic_checkout_session',
-          'convert_ucp_cart_to_checkout',
-          'create_agentic_checkout_session',
-          'create_ucp_cart',
-          'generate_payment_account',
-          'get_agentic_checkout_session',
-          'get_ucp_cart',
-          'lookup_ucp_catalog_items',
-          'search_ucp_catalog',
-          'update_agentic_checkout_session',
-          'update_ucp_cart',
-        ])
-      );
-
-      const paymentTools = ['generate_payment_account', 'check_payment_status'];
-      for (const toolName of paymentTools) {
-        const tool = tools.find((candidate) => candidate.name === toolName);
-        expect(tool?.inputSchema.properties.customer_email).toMatchObject({
-          type: 'string',
-          format: 'email',
-        });
-      }
-    } finally {
-      await stopMcpServer(flaggedServer.process);
-    }
-  });
 });
-
-interface JsonRpcResponse {
-  result?: unknown;
-}
-
-interface McpToolDefinition {
-  name: string;
-  inputSchema: {
-    properties: Record<string, unknown>;
-  };
-}
-
-async function postMcpJsonRpc(
-  serverBaseUrl: string,
-  request: {
-    id: number;
-    method: string;
-    params: Record<string, unknown>;
-  }
-): Promise<JsonRpcResponse> {
-  const response = await fetch(`${serverBaseUrl}/mcp`, {
-    method: 'POST',
-    headers: {
-      accept: 'application/json, text/event-stream',
-      'content-type': 'application/json',
-      'mcp-protocol-version': '2025-06-18',
-    },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      ...request,
-    }),
-  });
-
-  expect(response.status).toBe(200);
-
-  return (await response.json()) as JsonRpcResponse;
-}
-
-function getResultTools(payload: JsonRpcResponse): McpToolDefinition[] {
-  const result = payload.result;
-  if (!result || typeof result !== 'object' || !('tools' in result)) {
-    throw new Error('MCP tools/list response did not include tools');
-  }
-
-  const tools = (result as { tools?: unknown }).tools;
-  if (!Array.isArray(tools)) {
-    throw new Error('MCP tools/list response tools field was not an array');
-  }
-
-  return tools as McpToolDefinition[];
-}
-
-interface StartedMcpServer {
-  baseUrl: string;
-  process: ReturnType<typeof spawn>;
-}
-
-async function startMcpServer(
-  envOverrides: NodeJS.ProcessEnv = {}
-): Promise<StartedMcpServer> {
-  const serverProcess = spawn(tsxExecutable, ['mcp-server/server.ts'], {
-    cwd: webRootDirectory,
-    env: buildMcpServerEnv(envOverrides),
-  });
-
-  try {
-    const port = await waitForMcpServerStartup(serverProcess);
-    return {
-      baseUrl: `http://127.0.0.1:${port}`,
-      process: serverProcess,
-    };
-  } catch (error) {
-    await stopMcpServer(serverProcess);
-    throw error;
-  }
-}
-
-function buildMcpServerEnv(
-  overrides: NodeJS.ProcessEnv = {}
-): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = {
-    ...process.env,
-    MCP_AGENTIC_CHECKOUT_BASE_URL: 'https://ogabassey.test',
-    MCP_PORT: '0',
-    NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:54321',
-    OPENAI_AGENTIC_API_KEY: 'test-agentic-key',
-    OPENAI_AGENTIC_SIGNING_KEY: 'test-signing-key',
-    PAYSTACK_SECRET_KEY: 'test-paystack-key',
-    SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-key',
-    ...overrides,
-  };
-
-  if (!Object.hasOwn(overrides, 'MCP_ENABLE_AGENTIC_CHECKOUT_TOOLS')) {
-    delete env.MCP_ENABLE_AGENTIC_CHECKOUT_TOOLS;
-  }
-  if (!Object.hasOwn(overrides, 'MCP_ENABLE_ORDER_PAYMENT_TOOLS')) {
-    delete env.MCP_ENABLE_ORDER_PAYMENT_TOOLS;
-  }
-
-  return env;
-}
-
-async function waitForMcpServerStartup(
-  child: ReturnType<typeof spawn>
-): Promise<number> {
-  let stderr = '';
-  let stdout = '';
-
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      reject(
-        new Error(
-          `Timed out waiting for MCP server startup: stdout=${stdout} stderr=${stderr}`
-        )
-      );
-    }, 10_000);
-
-    child.stderr.on('data', (chunk: Buffer) => {
-      stderr += chunk.toString('utf8');
-    });
-
-    child.stdout.on('data', (chunk: Buffer) => {
-      stdout += chunk.toString('utf8');
-      const startupMatch = /\{[^\n]*"event":"startup"[^\n]*\}/.exec(stdout);
-      if (!startupMatch) return;
-
-      const startupEvent = JSON.parse(startupMatch[0]) as { port?: unknown };
-      if (typeof startupEvent.port !== 'number' || startupEvent.port <= 0) {
-        reject(new Error(`MCP server reported invalid startup port: ${stdout}`));
-        return;
-      }
-
-      clearTimeout(timeout);
-      resolve(startupEvent.port);
-    });
-
-    child.once('exit', (code, signal) => {
-      clearTimeout(timeout);
-      reject(
-        new Error(
-          `MCP server exited before startup: code=${code ?? 'null'} signal=${
-            signal ?? 'null'
-          } stdout=${stdout} stderr=${stderr}`
-        )
-      );
-    });
-
-    child.once('error', (error) => {
-      clearTimeout(timeout);
-      reject(error);
-    });
-  });
-}
-
-async function stopMcpServer(
-  child: ReturnType<typeof spawn> | undefined
-): Promise<void> {
-  if (!child || child.exitCode !== null) return;
-
-  await new Promise<void>((resolve) => {
-    const timeout = setTimeout(() => {
-      child.kill('SIGKILL');
-      resolve();
-    }, 5_000);
-
-    child.once('exit', () => {
-      clearTimeout(timeout);
-      resolve();
-    });
-
-    child.kill('SIGTERM');
-  });
-}

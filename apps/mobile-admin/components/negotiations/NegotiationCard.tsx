@@ -12,6 +12,7 @@ import { formatNegotiationItemMeta } from './format-negotiation-item-meta';
 import { negotiationCardStyles as styles } from './NegotiationCard.styles';
 import { NegotiationCartSnapshot } from './NegotiationCartSnapshot';
 import { NegotiationDecisionControls } from './NegotiationDecisionControls';
+import { NegotiationItemMetaChips } from './NegotiationItemMetaChips';
 
 export type NegotiationStatus =
   | 'pending'
@@ -128,12 +129,7 @@ export function NegotiationCard({
         {item.item_info?.name ?? 'Cart Negotiation'}
       </Text>
       {itemMeta ? (
-        <Text
-          style={[styles.itemMeta, { color: colors.textSecondary }]}
-          numberOfLines={2}
-        >
-          {itemMeta}
-        </Text>
+        <NegotiationItemMetaChips colors={colors} metadata={itemMeta} />
       ) : null}
 
       <View

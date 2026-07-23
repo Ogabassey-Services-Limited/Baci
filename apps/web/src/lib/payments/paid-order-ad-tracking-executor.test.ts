@@ -98,19 +98,24 @@ describe('toOrderForConversion', () => {
     null,
     undefined,
   ])('throws when the paid order payload is %s', (order) => {
-    expect(() => toOrderForConversion(order as never)).toThrow();
+    const malformedOrder: unknown = order;
+    expect(() =>
+      Reflect.apply(toOrderForConversion, undefined, [malformedOrder])
+    ).toThrow();
   });
 
   it('guards missing optional customer, item, and shipping fields', () => {
     expect(
-      toOrderForConversion({
-        ...richOrder,
-        customer_email: undefined,
-        order_items: [
-          { name: undefined, price: undefined, quantity: undefined },
-        ],
-        shipping_address: null,
-      } as never)
+      Reflect.apply(toOrderForConversion, undefined, [
+        {
+          ...richOrder,
+          customer_email: undefined,
+          order_items: [
+            { name: undefined, price: undefined, quantity: undefined },
+          ],
+          shipping_address: null,
+        },
+      ])
     ).toMatchObject({
       customer_email: null,
       order_items: [{ name: null, price: null, quantity: null }],
@@ -120,10 +125,12 @@ describe('toOrderForConversion', () => {
 
   it('throws when malformed line items are not array-like', () => {
     expect(() =>
-      toOrderForConversion({
-        ...richOrder,
-        order_items: { name: 'not-an-array' },
-      } as never)
+      Reflect.apply(toOrderForConversion, undefined, [
+        {
+          ...richOrder,
+          order_items: { name: 'not-an-array' },
+        },
+      ])
     ).toThrow();
   });
 });

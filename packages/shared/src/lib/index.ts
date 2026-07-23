@@ -1,6 +1,7 @@
 export * from './cac-registration';
 export * from './dedupe-by-id';
 export * from './fetch-with-timeout';
+export * from './filter-by-location-phrase';
 export * from './is-finite-number';
 export * from './kuda-data-plan-bill-items';
 export * from './kuda-electricity-bill-items';

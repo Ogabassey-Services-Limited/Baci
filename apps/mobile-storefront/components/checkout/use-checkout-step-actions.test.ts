@@ -1,10 +1,6 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { renderHook } from '@testing-library/react-native';
 import { Alert } from 'react-native';
-import {
-  PICKUP_STATION_CITY,
-  PICKUP_STATION_STATE,
-} from '@/components/checkout/pickup-station.constants';
 import type { ShippingQuote } from '@/components/checkout/types';
 import type { ShippingAddressInput } from '@/lib/validation';
 import { useCheckoutStepActions } from './use-checkout-step-actions';
@@ -30,6 +26,12 @@ function renderStepActions(overrides: Partial<Params>) {
   const handleSubmit = jest.fn(() => submitHandler);
   const params = {
     handleSubmit,
+    merchantPickupLocation: {
+      address: '2 Olaide Tomori St, Ikeja, Lagos',
+      city: 'Ikeja',
+      label: 'OgaBassey Office',
+      state: 'Lagos',
+    },
     setValue,
     setStep: jest.fn(),
     setIsContactCollapsed: jest.fn(),
@@ -83,33 +85,56 @@ describe('useCheckoutStepActions — address continue', () => {
     );
     expect(setValue).not.toHaveBeenCalledWith(
       'city',
-      PICKUP_STATION_CITY,
+      'Ikeja',
       expect.anything()
     );
     expect(setValue).not.toHaveBeenCalledWith(
       'state',
-      PICKUP_STATION_STATE,
+      'Lagos',
       expect.anything()
     );
   });
 
-  it('rewrites city/state to the merchant Lagos pickup when there is no provider quote', () => {
+  it('uses the fetched merchant office when there is no provider quote', () => {
     const { result, setValue } = renderStepActions({
       selectedQuote: undefined,
     });
 
     result.current.handleContinue();
 
-    expect(setValue).toHaveBeenCalledWith('city', PICKUP_STATION_CITY, {
+    expect(setValue).toHaveBeenCalledWith(
+      'address',
+      '2 Olaide Tomori St, Ikeja, Lagos',
+      { shouldValidate: true }
+    );
+    expect(setValue).toHaveBeenCalledWith('city', 'Ikeja', {
       shouldValidate: true,
     });
-    expect(setValue).toHaveBeenCalledWith('state', PICKUP_STATION_STATE, {
+    expect(setValue).toHaveBeenCalledWith('state', 'Lagos', {
       shouldValidate: true,
     });
   });
 
+  it('blocks merchant pickup when the fetched office location is incomplete', () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+    const { result, setValue, submitHandler } = renderStepActions({
+      merchantPickupLocation: undefined,
+      selectedQuote: undefined,
+    });
+
+    result.current.handleContinue();
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Pickup Unavailable',
+      'The merchant office address is not available right now. Choose a GIG Logistics centre or try again.'
+    );
+    expect(setValue).not.toHaveBeenCalled();
+    expect(submitHandler).not.toHaveBeenCalled();
+    alertSpy.mockRestore();
+  });
+
   it('blocks non-Lagos provider pickup until a station quote is selected', () => {
-    const alertSpy = jest.spyOn(Alert, 'alert');
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
     const { result, setValue, submitHandler } = renderStepActions({
       requiresShippingQuote: true,
       selectedQuote: undefined,
@@ -123,15 +148,16 @@ describe('useCheckoutStepActions — address continue', () => {
     );
     expect(setValue).not.toHaveBeenCalledWith(
       'city',
-      PICKUP_STATION_CITY,
+      'Ikeja',
       expect.anything()
     );
     expect(setValue).not.toHaveBeenCalledWith(
       'state',
-      PICKUP_STATION_STATE,
+      'Lagos',
       expect.anything()
     );
     expect(submitHandler).not.toHaveBeenCalled();
+    alertSpy.mockRestore();
   });
 });
 

@@ -276,7 +276,7 @@ describe('useCheckoutShipping', () => {
     expect(result.current.isLoadingQuotes).toBe(false);
   });
 
-  it('resets quote state when switching to pickup-station delivery', async () => {
+  it('requests pickup-station quotes when switching to pickup delivery', async () => {
     const quote: ShippingQuote = {
       displayName: 'GIGL Standard',
       id: 'quote-1',
@@ -302,9 +302,13 @@ describe('useCheckoutShipping', () => {
     });
 
     expect(result.current.deliveryMethod).toBe('pickup_station');
-    expect(result.current.shippingQuotes).toEqual([]);
-    expect(result.current.selectedQuoteId).toBe('');
-    expect(result.current.isLoadingQuotes).toBe(false);
+    await waitFor(() =>
+      expect(mockFetchShippingQuotes).toHaveBeenLastCalledWith(
+        expect.objectContaining({ deliveryPreference: 'pickup_station' })
+      )
+    );
+    expect(result.current.shippingQuotes).toEqual([quote]);
+    expect(result.current.selectedQuoteId).toBe('merchant-office-pickup');
   });
 
   it('falls back to door when the address state no longer supports airport', () => {

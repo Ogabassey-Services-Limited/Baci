@@ -197,6 +197,17 @@ export async function PATCH(
     const { payment_status, shipping_status, notes, shipping_address } =
       parsedBody.data;
 
+    if (shipping_status === 'cancelled' || shipping_status === 'canceled') {
+      return NextResponse.json(
+        {
+          error:
+            'Use the cancellation endpoint so confirmation, inventory, refunds, and audit records remain consistent.',
+          code: 'USE_CANCELLATION_ENDPOINT',
+        },
+        { status: 409 }
+      );
+    }
+
     // Validate: Cannot move to 'processing' unless paid or is_credit_order
     if (
       shipping_status === 'processing' &&

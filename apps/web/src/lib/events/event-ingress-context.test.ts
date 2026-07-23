@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { createEventPipelineTestClient } from '@/lib/events/event-pipeline-test-client';
 import { resolveEventIngressContext } from './event-ingress-context';
 
 function request(headers: Record<string, string>, url?: string) {
@@ -9,13 +10,10 @@ function lookupClient(
   result: { id?: string; merchant_id?: string } | null,
   error: { message: string } | null = null
 ) {
-  const maybeSingle = vi.fn().mockResolvedValue({ data: result, error });
-  const builder = {
-    eq: vi.fn(() => builder),
-    maybeSingle,
-    select: vi.fn(() => builder),
-  };
-  return { from: vi.fn(() => builder) };
+  const testFetch = vi.fn<typeof globalThis.fetch>(async () =>
+    error ? Response.json(error, { status: 500 }) : Response.json(result)
+  );
+  return Object.assign(createEventPipelineTestClient(testFetch), { testFetch });
 }
 
 describe('resolveEventIngressContext', () => {
@@ -23,7 +21,7 @@ describe('resolveEventIngressContext', () => {
     const result = await resolveEventIngressContext({
       merchantId: 'merchant-1',
       request: request({ host: 'shop.usebaci.com' }),
-      supabase: lookupClient({ id: 'merchant-1' }) as never,
+      supabase: lookupClient({ id: 'merchant-1' }),
     });
 
     expect(result).toEqual({
@@ -38,7 +36,7 @@ describe('resolveEventIngressContext', () => {
     const result = await resolveEventIngressContext({
       merchantId: 'merchant-2',
       request: request({ host: 'shop.usebaci.com' }),
-      supabase: lookupClient({ id: 'merchant-1' }) as never,
+      supabase: lookupClient({ id: 'merchant-1' }),
     });
 
     expect(result).toEqual({ code: 'merchant_mismatch', ok: false });
@@ -49,7 +47,7 @@ describe('resolveEventIngressContext', () => {
     const result = await resolveEventIngressContext({
       merchantId: 'merchant-2',
       request: request({ host: 'usebaci.com', 'x-merchant-slug': 'shop' }),
-      supabase: client as never,
+      supabase: client,
     });
 
     expect(result).toEqual({
@@ -58,14 +56,14 @@ describe('resolveEventIngressContext', () => {
       trustLevel: 'anonymous_client',
       verified: false,
     });
-    expect(client.from).not.toHaveBeenCalled();
+    expect(client.testFetch).not.toHaveBeenCalled();
   });
 
   it('derives an apex custom domain from a www host', async () => {
     const result = await resolveEventIngressContext({
       merchantId: 'merchant-1',
       request: request({ host: 'www.shop.example' }),
-      supabase: lookupClient({ merchant_id: 'merchant-1' }) as never,
+      supabase: lookupClient({ merchant_id: 'merchant-1' }),
     });
 
     expect(result).toMatchObject({
@@ -83,7 +81,7 @@ describe('resolveEventIngressContext', () => {
         { host: 'usebaci.com' },
         'https://usebaci.com/api/events'
       ),
-      supabase: lookupClient({ id: 'merchant-1' }) as never,
+      supabase: lookupClient({ id: 'merchant-1' }),
     });
 
     expect(result).toMatchObject({
@@ -102,7 +100,7 @@ describe('resolveEventIngressContext', () => {
         { host: 'usebaci.com' },
         'https://usebaci.com/api/events'
       ),
-      supabase: client as never,
+      supabase: client,
     });
 
     expect(result).toEqual({
@@ -111,7 +109,7 @@ describe('resolveEventIngressContext', () => {
       trustLevel: 'anonymous_client',
       verified: false,
     });
-    expect(client.from).not.toHaveBeenCalled();
+    expect(client.testFetch).not.toHaveBeenCalled();
   });
 
   it('uses the posted path storefront slug for a www root-domain host', async () => {
@@ -123,7 +121,7 @@ describe('resolveEventIngressContext', () => {
         { host: 'www.usebaci.com' },
         'https://www.usebaci.com/api/events'
       ),
-      supabase: client as never,
+      supabase: client,
     });
 
     expect(result).toMatchObject({
@@ -131,17 +129,16 @@ describe('resolveEventIngressContext', () => {
       ok: true,
       trustLevel: 'tenant_verified_client',
     });
-    const merchantsBuilder = client.from.mock.results[0]?.value as {
-      eq: ReturnType<typeof vi.fn>;
-    };
-    expect(merchantsBuilder.eq).toHaveBeenCalledWith('slug', 'shop');
+    expect(String(client.testFetch.mock.calls[0]?.[0])).toContain(
+      'slug=eq.shop'
+    );
   });
 
   it('keeps an unknown tenant host anonymous', async () => {
     const result = await resolveEventIngressContext({
       merchantId: 'merchant-1',
       request: request({ host: 'unknown.usebaci.com' }),
-      supabase: lookupClient(null) as never,
+      supabase: lookupClient(null),
     });
 
     expect(result).toEqual({
@@ -158,7 +155,7 @@ describe('resolveEventIngressContext', () => {
       request: request({ host: 'shop.usebaci.com' }),
       supabase: lookupClient(null, {
         message: 'database unavailable',
-      }) as never,
+      }),
     });
 
     expect(result).toEqual({ code: 'merchant_context_error', ok: false });

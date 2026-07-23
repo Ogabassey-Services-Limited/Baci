@@ -110,6 +110,27 @@ describe('mobile-admin app config version resolution', () => {
   });
 });
 
+describe('mobile-admin Android release optimization config', () => {
+  it('enables R8 code minification and resource shrinking during prebuild', async () => {
+    const { default: buildConfig } = await import('./app.config');
+    const config = buildConfig(TEST_CONFIG_CONTEXT);
+
+    expect(config.plugins).toEqual(
+      expect.arrayContaining([
+        [
+          'expo-build-properties',
+          expect.objectContaining({
+            android: expect.objectContaining({
+              enableMinifyInReleaseBuilds: true,
+              enableShrinkResourcesInReleaseBuilds: true,
+            }),
+          }),
+        ],
+      ])
+    );
+  });
+});
+
 describe('mobile-admin Supabase auth config', () => {
   it('exposes the publishable key and keeps a one-release anon fallback', async () => {
     vi.stubEnv('EXPO_PUBLIC_SUPABASE_URL', 'https://abc123.supabase.co');

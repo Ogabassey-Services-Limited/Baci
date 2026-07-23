@@ -36,7 +36,7 @@ export function scheduleManualPaidOrderSideEffects({
         await supabase
           .from('merchants')
           .select(
-            'business_name, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number, website_url'
+            'business_name, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number'
           )
           .eq('id', merchantId)
           .single();

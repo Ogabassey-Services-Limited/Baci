@@ -1,12 +1,9 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
-import {
-  normalizeEventType,
-  sendToAdPlatforms,
-} from '@/lib/analytics/send-to-ad-platforms';
+import { normalizeEventType } from '@/lib/analytics/send-to-ad-platforms';
+import { trustedServerAdPlatformFanout } from '@/lib/analytics/trusted-server-ad-platform-fanout';
 import { conversionEventPayload } from '@/lib/events/conversion-event-payload';
 import { createEventIngressClient } from '@/lib/events/event-ingress-capability';
-import { resolveEventIngressContext } from '@/lib/events/event-ingress-context';
+import type { EventIngressContext } from '@/lib/events/event-ingress-context';
 import {
   isEventPipelineEnqueueEnabled,
   isLegacyAnalyticsFanoutDisabled,
@@ -19,142 +16,52 @@ import { recordAnalyticsDomainEvent } from '@/lib/events/record-analytics-domain
 import { generateEventId } from '@/lib/facebook-capi';
 import { logger } from '@/lib/logger';
 import { createClient as createServerClient } from '@/lib/supabase/server';
-import {
-  type ConversionEventRequest,
-  conversionEventRequestSchema,
-} from '@/schemas/conversion-event';
+import { createServiceClient } from '@/lib/supabase/service';
+import { conversionEventRequestSchema } from '@/schemas/conversion-event';
+import { resolveConversionRouteMerchantContext } from './conversion-route-merchant-context';
+import { storeLegacyConversionEvent } from './store-legacy-conversion-event';
 
 const MAX_EVENT_BYTES = 64 * 1024;
-const DEFAULT_MERCHANT_SLUG = 'ogabassey';
-async function resolveLegacyMerchant(
-  supabase: SupabaseClient,
-  merchantId: string | undefined,
-  origin: string
-): Promise<string | null> {
-  if (merchantId) {
-    const { data, error } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('id', merchantId)
-      .maybeSingle();
-    if (!error && data?.id) return data.id;
+
+function compatiblePipelineContext(
+  context: EventIngressContext,
+  persistenceMerchantId: string | null,
+  hasClaimedMerchant: boolean
+): EventIngressContext | null {
+  if (context.ok && (context.verified || isUnverifiedEventTelemetryEnabled())) {
+    return context;
   }
-
-  const slug =
-    origin.match(/^https?:\/\/([^.]+)\./)?.[1] ?? DEFAULT_MERCHANT_SLUG;
-  const { data, error } = await supabase
-    .from('merchants')
-    .select('id')
-    .eq('slug', slug)
-    .maybeSingle();
-  return error ? null : (data?.id ?? null);
-}
-
-async function storeLegacyConversion(
-  supabase: SupabaseClient,
-  merchantId: string,
-  eventType: string,
-  eventId: string,
-  input: ConversionEventRequest
-) {
-  const { error } = await supabase.from('analytics_events').upsert(
-    {
-      event_data: conversionEventPayload.toStoredEventData(input),
-      event_id: eventId,
-      event_timestamp: new Date(input.event_time * 1000).toISOString(),
-      event_type: eventType,
-      merchant_id: merchantId,
-      source: input.event_source,
-    },
-    {
-      ignoreDuplicates: true,
-      onConflict: 'merchant_id,event_id,event_type',
-    }
-  );
-  if (error) {
-    logger.warn({
-      error,
-      eventType,
-      merchantId,
-      message: 'Failed to log conversion event locally',
-    });
-  }
-}
-
-async function resolvePipelineMerchant(
-  request: NextRequest,
-  merchantId: string | undefined,
-  supabase: SupabaseClient
-) {
-  if (!merchantId) {
-    const originMerchantId = await resolveLegacyMerchant(
-      supabase,
-      undefined,
-      request.headers.get('origin') ?? ''
-    );
-    const requestContext = await resolveEventIngressContext({
-      merchantId: originMerchantId ?? undefined,
-      request,
-      supabase,
-    });
-    if (requestContext.ok && requestContext.verified) return requestContext;
-    if (originMerchantId) {
-      return {
-        merchantId: originMerchantId,
-        ok: true as const,
-        trustLevel: 'tenant_verified_client' as const,
-        verified: true,
-      };
-    }
-
-    const { data, error } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('slug', DEFAULT_MERCHANT_SLUG)
-      .maybeSingle();
-    if (error || !data?.id) return null;
-    // Preserve the pre-pipeline mobile-client default while all clients are
-    // migrated to send tenant identity. This endpoint historically routed
-    // such requests to this merchant, so treating it as unverified would
-    // silently drop conversions after enabling the queue.
+  if (!hasClaimedMerchant && persistenceMerchantId) {
     return {
-      merchantId: data.id,
-      ok: true as const,
-      trustLevel: 'tenant_verified_client' as const,
-      verified: true,
+      merchantId: persistenceMerchantId,
+      ok: true,
+      trustLevel: 'anonymous_client',
+      verified: false,
     };
   }
-  const context = await resolveEventIngressContext({
-    merchantId,
-    request,
-    supabase,
-  });
-  if (!context.ok) return context;
-  if (!context.verified && !isUnverifiedEventTelemetryEnabled()) return null;
-  return context;
+  return null;
 }
 
 export async function POST(request: NextRequest) {
   const bodyResult = await readBoundedJsonBody(request, MAX_EVENT_BYTES);
-  if (!bodyResult.ok && bodyResult.reason === 'too_large') {
+  if (!bodyResult.ok) {
     return NextResponse.json(
-      { error: 'Event payload too large' },
-      { status: 413 }
+      {
+        error:
+          bodyResult.reason === 'too_large'
+            ? 'Event payload too large'
+            : 'Invalid JSON',
+      },
+      { status: bodyResult.reason === 'too_large' ? 413 : 400 }
     );
   }
-  if (!bodyResult.ok) {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
-  }
-  const body = bodyResult.body;
-
-  const parsed = conversionEventRequestSchema.safeParse(body);
+  const parsed = conversionEventRequestSchema.safeParse(bodyResult.body);
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'Invalid input', details: parsed.error.flatten() },
       { status: 400 }
     );
   }
-
   const input = parsed.data;
   if (!isEventTimestampWithinWindow(input.event_time)) {
     return NextResponse.json(
@@ -172,33 +79,32 @@ export async function POST(request: NextRequest) {
 
   const eventId = input.event_id ?? generateEventId();
   const durableEnqueue = isEventPipelineEnqueueEnabled();
-
   try {
     const contextSupabase = await createServerClient();
+    const merchantContext = await resolveConversionRouteMerchantContext({
+      claimedMerchantId: input.merchant_id,
+      request,
+      supabase: contextSupabase,
+    });
     const pipelineContext = durableEnqueue
-      ? await resolvePipelineMerchant(
-          request,
-          input.merchant_id,
-          contextSupabase
+      ? compatiblePipelineContext(
+          merchantContext.context,
+          merchantContext.persistenceMerchantId,
+          Boolean(input.merchant_id)
         )
       : null;
     if (durableEnqueue && !pipelineContext?.ok) {
+      const code = !merchantContext.context.ok
+        ? merchantContext.context.code
+        : 'Unverified merchant context';
       return NextResponse.json(
-        { error: pipelineContext?.code ?? 'Unverified merchant context' },
-        {
-          status:
-            pipelineContext?.code === 'merchant_context_error' ? 500 : 403,
-        }
+        { error: code },
+        { status: code === 'merchant_context_error' ? 500 : 403 }
       );
     }
-
     const merchantId = pipelineContext?.ok
       ? pipelineContext.merchantId
-      : await resolveLegacyMerchant(
-          contextSupabase,
-          input.merchant_id,
-          request.headers.get('origin') ?? ''
-        );
+      : merchantContext.persistenceMerchantId;
     if (!merchantId) {
       return NextResponse.json(
         { error: 'Merchant context not found' },
@@ -206,8 +112,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const eventTimestamp = new Date(input.event_time * 1_000).toISOString();
     if (pipelineContext?.ok) {
-      const eventTimestamp = new Date(input.event_time * 1000).toISOString();
       const eventName = toClientAnalyticsDomainEventName(
         eventType,
         pipelineContext.trustLevel
@@ -243,7 +149,7 @@ export async function POST(request: NextRequest) {
           eventId,
           message: 'Durable conversion enqueue failed; using legacy fanout',
         });
-        await storeLegacyConversion(
+        await storeLegacyConversionEvent(
           eventSupabase,
           merchantId,
           eventType,
@@ -255,7 +161,7 @@ export async function POST(request: NextRequest) {
       const eventSupabase = await createEventIngressClient({
         eventId,
         eventName: `analytics.${eventType}.legacy.v1`,
-        eventTimestamp: new Date(input.event_time * 1000).toISOString(),
+        eventTimestamp,
         eventType,
         kind: 'analytics',
         merchantId,
@@ -263,7 +169,7 @@ export async function POST(request: NextRequest) {
         source: input.event_source,
         trustLevel: 'anonymous_client',
       });
-      await storeLegacyConversion(
+      await storeLegacyConversionEvent(
         eventSupabase,
         merchantId,
         eventType,
@@ -272,18 +178,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const results = isLegacyAnalyticsFanoutDisabled()
-      ? {}
-      : await sendToAdPlatforms({
-          custom_data: input.custom_data,
-          event_id: eventId,
-          event_type: eventType,
-          merchant_id: merchantId,
-          source: input.event_source,
-          targets: input.targets,
-          user_data: conversionEventPayload.deliveryData(input, request),
-        });
-
+    const verifiedMerchantId = merchantContext.verifiedMerchantId;
+    const results =
+      isLegacyAnalyticsFanoutDisabled() || !verifiedMerchantId
+        ? {}
+        : await trustedServerAdPlatformFanout(
+            createServiceClient('event-pipeline'),
+            verifiedMerchantId,
+            {
+              custom_data: input.custom_data,
+              event_id: eventId,
+              event_type: eventType,
+              merchant_id: verifiedMerchantId,
+              source: input.event_source,
+              targets: input.targets,
+              user_data: conversionEventPayload.deliveryData(input, request),
+            }
+          );
     logger.info({
       durableEnqueue,
       eventId,
@@ -292,8 +203,8 @@ export async function POST(request: NextRequest) {
       message: 'Conversion event accepted',
     });
     return NextResponse.json({ event_id: eventId, results, success: true });
-  } catch (error) {
-    logger.error({ error, message: 'Conversion endpoint internal error' });
+  } catch {
+    logger.error({ message: 'Conversion endpoint internal error' });
     return NextResponse.json(
       { error: 'Internal server error', success: false },
       { status: 500 }

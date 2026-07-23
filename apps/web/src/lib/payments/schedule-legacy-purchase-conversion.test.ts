@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createEventPipelineTestClient } from '@/lib/events/event-pipeline-test-client';
 
 const mocks = vi.hoisted(() => ({
   disabled: false,
@@ -20,7 +21,9 @@ const args = {
   merchantId: 'merchant-1',
   order: { id: 'order-1', total: 100 },
   scheduleAfter: vi.fn((task: () => Promise<void>) => task()),
-  supabase: {} as never,
+  supabase: createEventPipelineTestClient(
+    vi.fn<typeof globalThis.fetch>(async () => Response.json([]))
+  ),
 };
 
 describe('scheduleLegacyPurchaseConversion', () => {

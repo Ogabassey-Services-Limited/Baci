@@ -160,6 +160,7 @@ export function buildProductSemanticCompareSupport(
   const supportLinks = dedupeLinks([
     buildCategoryHubLink(normalizedInput),
     ...buildProductSupportLinks({
+      approvedCompareSlugs,
       storeUrl: normalizedInput.storeUrl,
       categorySlug: normalizedInput.categorySlug,
       currentProductSlug: normalizedInput.currentProduct.slug,

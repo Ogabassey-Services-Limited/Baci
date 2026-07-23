@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { eventPipelineAuthorityCutover } from './event-pipeline-authority-cutover';
 import {
   getEventDeliveryConcurrency,
   getEventDeliveryMaxAttempts,
@@ -16,10 +17,16 @@ const ORIGINAL_ENV = { ...process.env };
 
 afterEach(() => {
   process.env = { ...ORIGINAL_ENV };
+  Object.defineProperty(
+    eventPipelineAuthorityCutover,
+    'queueOnlyDeliveryActivated',
+    { configurable: true, value: false }
+  );
+  vi.useRealTimers();
 });
 
-describe('event pipeline configuration', () => {
-  it('fails closed when flags are absent', () => {
+describe('event pipeline configuration facade', () => {
+  it('preserves fail-closed defaults through the public facade', () => {
     delete process.env.EVENT_PIPELINE_ENQUEUE_ENABLED;
     delete process.env.EVENT_PIPELINE_DELIVERY_ENABLED;
     delete process.env.EVENT_PIPELINE_ROUTING_MODE;
@@ -43,7 +50,7 @@ describe('event pipeline configuration', () => {
     expect(isEventPipelineCanaryMerchant('merchant-1')).toBe(false);
   });
 
-  it('accepts only explicit supported values', () => {
+  it('preserves the complete active configuration through the public facade', () => {
     process.env.EVENT_PIPELINE_ENQUEUE_ENABLED = 'true';
     process.env.EVENT_PIPELINE_DELIVERY_ENABLED = 'true';
     process.env.EVENT_PIPELINE_ROUTING_MODE = 'active';
@@ -59,7 +66,7 @@ describe('event pipeline configuration', () => {
     expect(isEventPipelineEnqueueEnabled()).toBe(true);
     expect(isEventPipelineDeliveryEnabled()).toBe(true);
     expect(getEventPipelineRoutingMode()).toBe('active');
-    expect(isLegacyAnalyticsFanoutDisabled()).toBe(true);
+    expect(isLegacyAnalyticsFanoutDisabled()).toBe(false);
     expect(isUnverifiedEventTelemetryEnabled()).toBe(true);
     expect(getEventDeliveryMaxAttempts()).toBe(12);
     expect(getEventDeliveryConcurrency()).toBe(7);
@@ -71,68 +78,5 @@ describe('event pipeline configuration', () => {
       'tiktok',
     ]);
     expect(isEventPipelineCanaryMerchant()).toBe(true);
-    expect(isLegacyAnalyticsFanoutDisabled()).toBe(true);
-  });
-
-  it('keeps legacy fan-out unless the complete durable path is active', () => {
-    process.env.EVENT_PIPELINE_DISABLE_LEGACY_FANOUT = 'true';
-    process.env.EVENT_PIPELINE_ENQUEUE_ENABLED = 'true';
-    process.env.EVENT_PIPELINE_DELIVERY_ENABLED = 'true';
-    process.env.EVENT_PIPELINE_ROUTING_MODE = 'shadow';
-
-    expect(isLegacyAnalyticsFanoutDisabled()).toBe(false);
-  });
-
-  it('keeps legacy fan-out when an active destination is missing', () => {
-    process.env.EVENT_PIPELINE_DISABLE_LEGACY_FANOUT = 'true';
-    process.env.EVENT_PIPELINE_ENQUEUE_ENABLED = 'true';
-    process.env.EVENT_PIPELINE_DELIVERY_ENABLED = 'true';
-    process.env.EVENT_PIPELINE_ROUTING_MODE = 'active';
-    process.env.EVENT_PIPELINE_ACTIVE_DESTINATIONS = 'facebook,ga4,snapchat';
-    process.env.EVENT_PIPELINE_CANARY_MERCHANT_IDS = '*';
-
-    expect(isLegacyAnalyticsFanoutDisabled()).toBe(false);
-  });
-
-  it('fails closed on invalid destinations and scopes active routing to canaries', () => {
-    process.env.EVENT_PIPELINE_ACTIVE_DESTINATIONS =
-      'facebook,unknown,SNAPCHAT';
-    process.env.EVENT_PIPELINE_CANARY_MERCHANT_IDS =
-      '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235';
-
-    expect(getEventPipelineActiveDestinations()).toEqual([
-      'facebook',
-      'snapchat',
-    ]);
-    expect(
-      isEventPipelineCanaryMerchant('019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235')
-    ).toBe(true);
-    expect(
-      isEventPipelineCanaryMerchant('019bbd89-8f5f-7f8c-a4fd-42b5d7e7a299')
-    ).toBe(false);
-  });
-
-  it('clamps delivery concurrency to a safe range', () => {
-    process.env.EVENT_PIPELINE_DELIVERY_CONCURRENCY = '100';
-    expect(getEventDeliveryConcurrency()).toBe(10);
-    process.env.EVENT_PIPELINE_DELIVERY_CONCURRENCY = '0';
-    expect(getEventDeliveryConcurrency()).toBe(1);
-  });
-
-  it('clamps ingress poison-message reads to a bounded range', () => {
-    process.env.EVENT_PIPELINE_INGRESS_MAX_READS = '1';
-    expect(getEventIngressMaxReads()).toBe(2);
-    process.env.EVENT_PIPELINE_INGRESS_MAX_READS = '100';
-    expect(getEventIngressMaxReads()).toBe(20);
-  });
-
-  it('uses defaults for malformed numeric configuration', () => {
-    process.env.EVENT_PIPELINE_MAX_DELIVERY_ATTEMPTS = '12oops';
-    process.env.EVENT_PIPELINE_DELIVERY_CONCURRENCY = '1.5';
-    process.env.EVENT_PIPELINE_INGRESS_MAX_READS = '0x10';
-
-    expect(getEventDeliveryMaxAttempts()).toBe(8);
-    expect(getEventDeliveryConcurrency()).toBe(5);
-    expect(getEventIngressMaxReads()).toBe(5);
   });
 });

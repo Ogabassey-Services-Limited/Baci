@@ -5,7 +5,10 @@ import {
   getPickupStationAddressLines,
   isProviderStationPickupQuote,
 } from '@/components/checkout/checkout-station-pickup';
-import { AIRPORT_QUOTE_ID } from '@/components/checkout/checkout-step-helpers';
+import {
+  AIRPORT_DELIVERY_ESTIMATE,
+  AIRPORT_QUOTE_ID,
+} from '@/components/checkout/checkout-step-helpers';
 import { ShippingQuoteRow } from '@/components/checkout/ShippingQuoteRow';
 import type {
   DeliveryMethod,
@@ -17,6 +20,7 @@ import {
   type DeliveryMethodOption,
   DeliveryMethodTabs,
 } from './DeliveryMethodTabs';
+import type { MerchantPickupLocation } from './merchant-pickup-location';
 import { CheckoutSectionCard } from './selection/CheckoutSectionCard';
 
 const AIRPORT_DOORSTEP_NOTE = 'Delivery to your doorstep';
@@ -28,6 +32,7 @@ type ColorsScheme = (typeof Colors)['light'];
 interface DeliveryMethodCardProps {
   colors: ColorsScheme;
   isDark: boolean;
+  merchantPickupLocation?: MerchantPickupLocation;
   selectedMethod: DeliveryMethod;
   onSelectMethod: (method: DeliveryMethod) => void;
   doorSubtitle: string;
@@ -41,6 +46,7 @@ interface DeliveryMethodCardProps {
 export function DeliveryMethodCard({
   colors,
   isDark,
+  merchantPickupLocation,
   selectedMethod,
   onSelectMethod,
   doorSubtitle,
@@ -56,7 +62,7 @@ export function DeliveryMethodCard({
       title: 'By Road',
       subtitle: doorSubtitle,
       helperText: AIRPORT_DOORSTEP_NOTE,
-      icon: 'car-outline',
+      icon: { family: 'fontawesome', name: 'truck' },
       isProviderPickup: false,
     },
   ];
@@ -66,15 +72,17 @@ export function DeliveryMethodCard({
       title: 'By Air',
       subtitle: AIRPORT_DOORSTEP_NOTE,
       helperText: AIRPORT_DOORSTEP_NOTE,
-      icon: 'airplane-outline',
+      icon: { family: 'fontawesome', name: 'plane' },
       isProviderPickup: false,
     });
   }
-  const usesMerchantPickup = isPickupEligible(deliveryState);
+  const usesMerchantPickup =
+    Boolean(merchantPickupLocation) && isPickupEligible(deliveryState);
   const providerPickupQuote = usesMerchantPickup
     ? undefined
     : pickupStationQuote;
-  const canRequestProviderPickup = Boolean(deliveryState?.trim());
+  const canRequestProviderPickup =
+    Boolean(deliveryState?.trim()) && !isPickupEligible(deliveryState);
   if (usesMerchantPickup || providerPickupQuote || canRequestProviderPickup) {
     const hasProviderQuote = isProviderStationPickupQuote(providerPickupQuote);
     options.push({
@@ -83,10 +91,10 @@ export function DeliveryMethodCard({
       subtitle: hasProviderQuote
         ? getPickupStationAddressLines(providerPickupQuote).join(', ')
         : usesMerchantPickup
-          ? getPickupStationAddressLines().join(', ')
+          ? merchantPickupLocation?.address || 'Office pickup'
           : 'Collect from a nearby GIG Logistics service centre',
       helperText: PICKUP_HELPER_TEXT,
-      icon: 'storefront-outline',
+      icon: { family: 'ionicons', name: 'storefront-outline' },
       pickupStationQuote: providerPickupQuote,
       isProviderPickup: !usesMerchantPickup,
     });
@@ -98,7 +106,11 @@ export function DeliveryMethodCard({
     (Boolean(selectedOption.pickupStationQuote) ||
       !selectedOption.isProviderPickup);
   const pickupAddressLines = shouldShowPickupAddress
-    ? getPickupStationAddressLines(selectedOption?.pickupStationQuote)
+    ? selectedOption?.pickupStationQuote
+      ? getPickupStationAddressLines(selectedOption.pickupStationQuote)
+      : merchantPickupLocation
+        ? [merchantPickupLocation.label, merchantPickupLocation.address]
+        : []
     : [];
   const [primaryPickupLine, ...secondaryPickupLines] = pickupAddressLines;
   const stationCode = selectedOption?.pickupStationQuote
@@ -109,7 +121,7 @@ export function DeliveryMethodCard({
   const airportLocation = deliveryCity?.trim() || deliveryState?.trim();
   const airportQuote: ShippingQuote = {
     carrierName: 'By Air',
-    deliveryRange: '24-48 working hours',
+    deliveryRange: AIRPORT_DELIVERY_ESTIMATE,
     displayName: airportLocation
       ? `${airportLocation} Airport Delivery`
       : 'Airport Delivery',
@@ -148,6 +160,7 @@ export function DeliveryMethodCard({
             {selectedOption?.id === 'airport' ? (
               <ShippingQuoteRow
                 colors={colors}
+                estimateOverride={AIRPORT_DELIVERY_ESTIMATE}
                 isSelected
                 leadingIcon="airplane-outline"
                 onSelect={ignoreAirportQuotePress}

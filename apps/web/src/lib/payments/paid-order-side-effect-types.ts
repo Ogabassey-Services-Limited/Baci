@@ -11,7 +11,6 @@ export type MerchantDetails = {
   slug: string | null;
   support_email: string | null;
   tax_identification_number: string | null;
-  website_url: string | null;
 };
 
 export type RichOrderItem = {
@@ -65,7 +64,7 @@ export interface RunPaidOrderSideEffectsArgs {
   gatewayResponse: Record<string, unknown>;
   order: RichPaidOrder;
   scheduleAfter: ScheduleAfter;
-  settlementGateway: 'korapay' | 'paystack';
+  settlementGateway: 'juicyway' | 'korapay' | 'paystack';
   supabase: ServiceRoleClient;
   transaction: PaidOrderSideEffectTransaction;
 }

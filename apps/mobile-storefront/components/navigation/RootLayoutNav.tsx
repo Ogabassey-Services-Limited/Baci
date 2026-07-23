@@ -24,6 +24,7 @@ import { CONFIG } from '@/lib/config';
 import { getOptionalGestureHandlerRuntime } from '@/lib/optional-gesture-handler';
 import { QueryProvider } from '@/lib/QueryProvider';
 import { getTemplateConfig } from '@/lib/templates';
+import { AdTrackingRouteReadinessProvider } from '@/services/tiktok-product-route-tracking';
 
 const OgabasseyLightTheme = {
   ...DefaultTheme,
@@ -50,11 +51,13 @@ const OgabasseyDarkTheme = {
 };
 
 interface RootLayoutNavProps {
+  adTrackingReady?: boolean;
   persistenceEnabled?: boolean;
   shouldResumeNavigation?: boolean;
 }
 
 export function RootLayoutNav({
+  adTrackingReady = true,
   persistenceEnabled = true,
   shouldResumeNavigation = false,
 }: RootLayoutNavProps) {
@@ -99,48 +102,50 @@ export function RootLayoutNav({
                   ]}
                 >
                   <GlobalErrorBoundary context="RootNavigation">
-                    <RouteResumeController
-                      shouldResume={shouldResumeNavigation}
-                    />
-                    <MobileUpdateController />
-                    {/*
-                     * No custom `header` function in screenOptions — that would
-                     * make react-native-screens NativeStack reserve a header zone
-                     * via additionalSafeAreaInsets on every screen, even ones
-                     * with `headerShown: false`, which combined with screens'
-                     * own `<SafeAreaView edges={['top']}>` produced ~120pt of
-                     * stacked blank padding above content. Mirrors apps/mobile-admin
-                     * which uses the native iOS UINavigationBar.
-                     *
-                     * Screens that need a custom JS header can opt in
-                     * per-Stack.Screen via `options.header`. Inner-content
-                     * customization (back button, title node, right action) is
-                     * available via `headerLeft`, `headerRight`, `headerTitle`
-                     * without triggering the inset reservation.
-                     */}
-                    <Stack
-                      screenOptions={{
-                        headerStyle: {
-                          backgroundColor: colors.background,
-                        },
-                        headerTintColor: colors.text,
-                        headerTitleStyle: {
-                          fontWeight: '600',
-                        },
-                        headerShadowVisible: false,
-                        contentStyle: {
-                          backgroundColor: colors.background,
-                        },
-                        animation: 'slide_from_right',
-                        gestureEnabled: true,
-                        gestureDirection: 'horizontal',
-                        headerBackTitle: '',
-                      }}
-                    >
-                      {renderRootStackScreens({
-                        mutedContentBackgroundColor: colors.muted,
-                      })}
-                    </Stack>
+                    <AdTrackingRouteReadinessProvider ready={adTrackingReady}>
+                      <RouteResumeController
+                        shouldResume={shouldResumeNavigation}
+                      />
+                      <MobileUpdateController />
+                      {/*
+                       * No custom `header` function in screenOptions — that would
+                       * make react-native-screens NativeStack reserve a header zone
+                       * via additionalSafeAreaInsets on every screen, even ones
+                       * with `headerShown: false`, which combined with screens'
+                       * own `<SafeAreaView edges={['top']}>` produced ~120pt of
+                       * stacked blank padding above content. Mirrors apps/mobile-admin
+                       * which uses the native iOS UINavigationBar.
+                       *
+                       * Screens that need a custom JS header can opt in
+                       * per-Stack.Screen via `options.header`. Inner-content
+                       * customization (back button, title node, right action) is
+                       * available via `headerLeft`, `headerRight`, `headerTitle`
+                       * without triggering the inset reservation.
+                       */}
+                      <Stack
+                        screenOptions={{
+                          headerStyle: {
+                            backgroundColor: colors.background,
+                          },
+                          headerTintColor: colors.text,
+                          headerTitleStyle: {
+                            fontWeight: '600',
+                          },
+                          headerShadowVisible: false,
+                          contentStyle: {
+                            backgroundColor: colors.background,
+                          },
+                          animation: 'slide_from_right',
+                          gestureEnabled: true,
+                          gestureDirection: 'horizontal',
+                          headerBackTitle: '',
+                        }}
+                      >
+                        {renderRootStackScreens({
+                          mutedContentBackgroundColor: colors.muted,
+                        })}
+                      </Stack>
+                    </AdTrackingRouteReadinessProvider>
                   </GlobalErrorBoundary>
                   {enableConnectivityBanner ? <ConnectivityBanner /> : null}
                   {enableChatWidget ? (

@@ -2,7 +2,18 @@ minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
   # Security hotfixes released within the cooldown window; Dependabot alerts opened 2026-06-15.
   - ws@5.2.5 || 6.2.4 || 7.5.11 || 8.21.0
-  - protobufjs@7.6.3
+  - protobufjs@7.6.5
+  - brace-expansion@5.0.7
+  - js-yaml@4.3.0
+  - shell-quote@1.9.0
+  - body-parser@1.20.6 || 2.3.0
+  - sharp@0.35.3
+  - hono@4.12.27
+  - '@hono/node-server@2.0.10'
+  - fast-uri@3.1.4
+  - linkify-it@5.0.2
+  - dompurify@3.4.12
+  - svgo@3.3.4
   - form-data@2.5.6 || 3.0.5 || 4.0.6
   - js-yaml@4.2.0
   - '@babel/core@7.29.6'
@@ -114,8 +125,8 @@ overrides:
   yaml: ">=2.8.3"
   # Pin to the patched esbuild 0.28 line for local dev-server path hardening and binary integrity fixes.
   esbuild: "^0.28.1"
-  # Pin to ^0.34.5 to mitigate security advisories and maintain image scaling stability.
-  sharp: "^0.34.5"
+  # Pin to 0.35.3 to mitigate GHSA-f88m-g3jw-g9cj and retain the corrected TypeScript export map.
+  sharp: "0.35.3"
   prismjs: "^1.30.0"
   # Pin to 6.15.2 to mitigate GHSA-q8mj-m7cp-5q26 in qs.stringify comma-format array handling.
   qs: "6.15.2"
@@ -125,19 +136,20 @@ overrides:
   # reanimated 4.5.1; see #2960). Keep in lockstep with the reanimated pin below
   # when bumping Expo SDK.
   react-native-worklets: "0.10.1"
-  # Pin patched Hono floor for GHSA-2gcr-mfcq-wcc3, GHSA-xrhx-7g5j-rcj5, GHSA-3hrh-pfw6-9m5x, and GHSA-f577-qrjj-4474.
-  hono: "^4.12.23"
-  "@hono/node-server": "^2.0.2"
-  svgo: "^3.3.3"
+  # Pin patched Hono releases for GHSA-xgm2-5f3f-mvvc, GHSA-w62v-xxxg-mg59, GHSA-hvrm-45r6-mjfj, GHSA-frvp-7c67-39w9, and GHSA-9mqv-5hh9-4cgg.
+  hono: "4.12.27"
+  "@hono/node-server": "2.0.10"
+  svgo: "3.3.4"
+  linkify-it: "5.0.2"
   underscore: "^1.13.8"
-  # Pin to 3.4.11 to mitigate GHSA-cmwh-pvxp-8882 in transitive DOMPurify consumers.
-  dompurify: "3.4.11"
+  # Pin to 3.4.12 to mitigate GHSA-c2j3-45gr-mqc4 in transitive DOMPurify consumers.
+  dompurify: "3.4.12"
   # Pin to patched 7.x to mitigate GHSA-vmh5-mc38-953g and GHSA-pr7r-676h-xcf6 without a cross-major Undici 8 upgrade.
   undici: "7.28.0"
   # Pin to the current patched 2.x release for GHSA-rpr9-rxv7-x643 / CVE-2026-44990: prevent xmp raw-text passthrough from rehydrating attacker-controlled markup after sanitization.
   sanitize-html: "2.17.5"
-  # Pin to 7.6.3 to close the 7.x CVE set, including GHSA-jggg-4jg4-v7c6, GHSA-wcpc-wj8m-hjx6, and GHSA-f38q-mgvj-vph7, while preserving the protobufjs 7 major.
-  protobufjs: "7.6.3"
+  # Pin to 7.6.5 to close GHSA-j3f2-48v5-ccww / CVE-2026-59877 and prior 7.x CVEs while preserving the protobufjs 7 major.
+  protobufjs: "7.6.5"
   # Pin to 1.1.1 to close GHSA-mm78-2hpw-9j97 (overlong UTF-8 decoding allows mis-encoded sequences through). 1.1.0 is the vulnerable transitive that the legacy protobufjs 6.x consumers still drag in; 1.1.1 is the patched release.
   "@protobufjs/utf8": "1.1.1"
   rollup: "^4.59.0"
@@ -148,7 +160,8 @@ overrides:
   "glob@13": "13.0.6"
   minimatch: "10.2.3"
   # Pin older uuid consumers to 11.1.1 to mitigate GHSA-w5hq-g745-h8pq while staying on a CommonJS-compatible patched release.
-  "minimatch>brace-expansion": "5.0.6"
+  # Pin to 5.0.7 to mitigate GHSA-3jxr-9vmj-r5cp / CVE-2026-13149 (exponential brace expansion DoS).
+  "minimatch>brace-expansion": "5.0.7"
   # Pin vulnerable ws consumers to patched lines for GHSA-96hv-2xvq-fx4p / CVE-2026-48779 without forcing cross-major upgrades.
   "ws@>=5 <5.2.5": "5.2.5"
   "ws@>=6 <6.2.4": "6.2.4"
@@ -160,8 +173,8 @@ overrides:
   fast-xml-parser: "5.9.0"
   # Pin to 1.2.0 to mitigate two Dependabot alerts on the version that fast-xml-parser 5.x pulls in transitively: the high-severity attribute-quote bypass (alert #162, fixed 1.1.7) and the medium-severity comment-regex bypass (alert #161, fixed 1.1.6). 1.2.0 is the latest published. fast-xml-parser declares fast-xml-builder ^1.1.5 so this override stays inside its accepted semver range. Exact pin matches the convention for CVE-motivated overrides in this file.
   fast-xml-builder: "1.2.0"
-  # Pin to 3.1.2 to mitigate two high-severity Dependabot alerts on the 3.1.0 transitive of ajv@8.18.0: GHSA-v39h-62p7-jpjc (alert #164, host confusion via percent-encoded authority delimiters, fixed 3.1.2) and the path-traversal-via-percent-encoded-dot-segments advisory (alert #163, fixed 3.1.1). ajv 8.x has no fast-uri peer constraint so the override is safe. Exact pin matches the convention for CVE-motivated overrides in this file.
-  fast-uri: "3.1.2"
+  # Pin to 3.1.4 to mitigate GHSA-4c8g-83qw-93j6 and GHSA-v2hh-gcrm-f6hx. ajv 8.x has no fast-uri peer constraint, so this exact patch pin is compatible.
+  fast-uri: "3.1.4"
   # Pin to 4.1.0 so Vitest 4.x can import isAgent from a compatible std-env release.
   std-env: "4.1.0"
   # Pin to 3.1.0 so Vitest 4.x consumers resolve a compatible color utility during CLI startup.
@@ -179,8 +192,8 @@ overrides:
   "uuid@>=13 <13.0.1": "13.0.1"
   # Pin to 10.2.0 to mitigate GHSA-v2v4-37r5-5v8g via transitive Lighthouse/Puppeteer proxy tooling.
   ip-address: "10.2.0"
-  # Pin to 16.2.9 to mitigate GHSA-q4gf-8mx6-v5v3 in Server Components while staying on the current Next.js 16 patch.
-  next: "16.2.9"
+  # Pin to 16.2.11 to mitigate the Next.js Server Components advisories while staying on the current Next.js 16 patch.
+  next: "16.2.11"
   flatted: "3.4.2"
   lodash: "4.18.1"
   lodash-es: "4.18.1"
@@ -265,14 +278,17 @@ overrides:
   "@grpc/grpc-js@>=1.14.0 <1.14.4": "1.14.4"
   # google-gax declares a broad ^1.10.x range; keep it on the latest patched 1.14.x line instead of the 1.10.x patched floor.
   "google-gax>@grpc/grpc-js": "1.14.4"
-  # Pin vulnerable shell-quote consumers to the first patched release for CVE-2026-9277.
-  "shell-quote@>=1.1.0 <=1.8.3": "1.8.4"
+  # Pin to 1.9.0 to mitigate GHSA-395f-4hp3-45gv / CVE-2026-9277.
+  shell-quote: "1.9.0"
+  # Pin each body-parser major to its first patched release for GHSA-v422-hmwv-36x6.
+  "body-parser@<2": "1.20.6"
+  "body-parser@>=2 <2.3.0": "2.3.0"
   # Pin form-data patched lines for GHSA-hmw2-7cc7-3qxx / CVE-2026-12143.
   "form-data@<2.5.6": "2.5.6"
   "form-data@>=3 <3.0.5": "3.0.5"
   "form-data@>=4 <4.0.6": "4.0.6"
-  # Pin js-yaml to the patched 4.2 line for GHSA-h67p-54hq-rp68 / CVE-2026-53550.
-  js-yaml: "4.2.0"
+  # Pin to 4.3.0 to mitigate GHSA-52cp-r559-cp3m.
+  js-yaml: "4.3.0"
   # Pin OpenTelemetry packages to the current 2.8 line to satisfy the core advisory while keeping @vercel/otel on its documented >=2 peer range.
   "@opentelemetry/core": "2.8.0"
   "@opentelemetry/resources": "2.8.0"
@@ -284,6 +300,7 @@ patchedDependencies:
   "@react-native-community/datetimepicker@9.1.0": "patches/@react-native-community/datetimepicker@9.1.0.patch"
   "@react-native-google-signin/google-signin@16.1.2": "patches/@react-native-google-signin/google-signin@16.1.2.patch"
   "lottie-react-native@7.3.8": "patches/lottie-react-native@7.3.8.patch"
+  "next@16.2.11": "patches/next@16.2.11.patch"
   "novel@1.0.2": "patches/novel@1.0.2.patch"
   "react-native-mmkv@4.3.1": "patches/react-native-mmkv@4.3.1.patch"
   "react-native-nitro-modules@0.35.9": "patches/react-native-nitro-modules@0.35.9.patch"
@@ -291,7 +308,6 @@ patchedDependencies:
   "react-native-purchases@10.4.2": "patches/react-native-purchases@10.4.2.patch"
   "react-native-safe-area-context@5.8.0": "patches/react-native-safe-area-context@5.8.0.patch"
   "react-native-webview@13.16.1": "patches/react-native-webview@13.16.1.patch"
-  # Backport of vercel/next.js#94630; fixes PPR resume mismatch digest 1617769459 for htmlLimitedBots under cacheComponents. Remove when a stable Next release contains the fix.
-  "next@16.2.9": "patches/next@16.2.9.patch"
   "metro@0.84.4": "patches/metro@0.84.4.patch"
   "metro-runtime@0.84.4": "patches/metro-runtime@0.84.4.patch"
+  react-native@0.86.0: patches/react-native@0.86.0.patch

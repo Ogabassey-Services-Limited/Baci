@@ -1,5 +1,6 @@
 import type { DomainEventV1 } from '@baci/shared/contracts';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createEventPipelineServiceRoleTestClient } from './event-pipeline-service-role-test-client';
 
 const mocks = vi.hoisted(() => ({ deliver: vi.fn() }));
 vi.mock('./analytics-destination-adapter', () => ({
@@ -7,6 +8,11 @@ vi.mock('./analytics-destination-adapter', () => ({
 }));
 
 import { deliverDomainEvent } from './deliver-domain-event';
+
+const serviceClient = () =>
+  createEventPipelineServiceRoleTestClient(
+    vi.fn<typeof globalThis.fetch>(async () => Response.json([]))
+  );
 
 const event = {
   event_name: 'analytics.add_to_cart.v1',
@@ -28,7 +34,7 @@ describe('deliverDomainEvent', () => {
     const result = await deliverDomainEvent({
       destination: 'facebook',
       event,
-      supabase: {} as never,
+      supabase: serviceClient(),
     });
 
     expect(result).toEqual({
@@ -47,7 +53,7 @@ describe('deliverDomainEvent', () => {
     const delivery = deliverDomainEvent({
       destination: 'facebook',
       event,
-      supabase: {} as never,
+      supabase: serviceClient(),
     });
     await vi.advanceTimersByTimeAsync(10_000);
 
@@ -70,7 +76,7 @@ describe('deliverDomainEvent', () => {
       deliverDomainEvent({
         destination: 'facebook',
         event,
-        supabase: {} as never,
+        supabase: serviceClient(),
       })
     ).resolves.toEqual({
       errorCode: 'provider_rejected',

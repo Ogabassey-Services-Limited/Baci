@@ -1,5 +1,22 @@
 import { describe, expect, it, vi } from 'vitest';
+import { createEventPipelineTestClient } from './event-pipeline-test-client';
 import { recordPlatformDomainEvent } from './record-platform-domain-event';
+
+function client(
+  rpc: (...args: unknown[]) => Promise<{ data: unknown; error: unknown }>
+) {
+  return createEventPipelineTestClient(
+    vi.fn<typeof globalThis.fetch>(async (input, init) => {
+      const result = await rpc(
+        new URL(String(input)).pathname.split('/').at(-1),
+        JSON.parse(String(init?.body ?? '{}'))
+      );
+      return result.error
+        ? Response.json(result.error, { status: 500 })
+        : Response.json(result.data);
+    })
+  );
+}
 
 describe('recordPlatformDomainEvent', () => {
   it('uses one atomic recording RPC and strips URL query data', async () => {
@@ -14,7 +31,7 @@ describe('recordPlatformDomainEvent', () => {
       error: null,
     });
 
-    await recordPlatformDomainEvent({ rpc } as never, {
+    await recordPlatformDomainEvent(client(rpc), {
       eventData: { page_url: 'https://usebaci.com/?email=person@example.com' },
       eventName: 'platform.client.observed.v1',
       eventTimestamp: '2026-07-12T12:00:00.000Z',
@@ -42,7 +59,7 @@ describe('recordPlatformDomainEvent', () => {
     });
 
     await expect(
-      recordPlatformDomainEvent({ rpc } as never, {
+      recordPlatformDomainEvent(client(rpc), {
         eventData: {},
         eventName: 'platform.client.observed.v1',
         eventTimestamp: '2026-07-12T12:00:00.000Z',
@@ -65,7 +82,7 @@ describe('recordPlatformDomainEvent', () => {
       error: null,
     });
 
-    await recordPlatformDomainEvent({ rpc } as never, {
+    await recordPlatformDomainEvent(client(rpc), {
       eventData: {},
       eventName: 'platform.merchant_signup_completed.v1',
       eventTimestamp: '2026-07-12T12:00:00.000Z',
@@ -92,7 +109,7 @@ describe('recordPlatformDomainEvent', () => {
     });
 
     await expect(
-      recordPlatformDomainEvent({ rpc } as never, {
+      recordPlatformDomainEvent(client(rpc), {
         eventData: {},
         eventName: 'platform.client.observed.v1',
         eventTimestamp: '2026-07-12T12:00:00.000Z',
@@ -101,5 +118,22 @@ describe('recordPlatformDomainEvent', () => {
         trustLevel: 'anonymous_client',
       })
     ).rejects.toThrow('durable_platform_enqueue_invalid');
+  });
+
+  it('rejects cyclic event data before invoking the durable RPC', async () => {
+    const rpc = vi.fn();
+    const eventData: Record<string, unknown> = {};
+    eventData.self = eventData;
+    await expect(
+      recordPlatformDomainEvent(client(rpc), {
+        eventData,
+        eventName: 'platform.client.observed.v1',
+        eventTimestamp: '2026-07-12T12:00:00.000Z',
+        eventType: 'landing_page_view',
+        externalEventId: 'event-1',
+        trustLevel: 'anonymous_client',
+      })
+    ).rejects.toThrow('event_pipeline_non_json_value');
+    expect(rpc).not.toHaveBeenCalled();
   });
 });

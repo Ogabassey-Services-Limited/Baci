@@ -407,6 +407,19 @@ export const orderUpdateSchema = z
 
 export type OrderUpdateInput = z.infer<typeof orderUpdateSchema>;
 
+export const merchantOrderCancellationSchema = z.strictObject({
+  cancelled_by: z.literal('merchant').optional(),
+  confirm_cancellation: z.literal(true),
+  reason: z
+    .string()
+    .trim()
+    .max(500)
+    .optional()
+    .transform((value) =>
+      value ? sanitizeText(value, 500).trim() || undefined : undefined
+    ),
+});
+
 const recordPaymentSchema = z.object({
   amount: z.coerce.number().positive(),
   payment_method: z

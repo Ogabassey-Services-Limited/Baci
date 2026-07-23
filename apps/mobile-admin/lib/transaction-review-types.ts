@@ -21,6 +21,7 @@ export interface TransactionReviewUnitCostRow {
 }
 
 export interface TransactionReviewOrderRow {
+  cancelled_at?: string | null;
   created_at: string;
   transaction_date?: string | null;
   customer_email: string | null;
@@ -51,6 +52,7 @@ export interface TransactionReviewOrderRow {
   }> | null;
   order_number: string | null;
   payment_method: string | null;
+  shipping_status?: string | null;
   total: number | null;
 }
 

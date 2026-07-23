@@ -1,11 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { verifyGatewayCharge } from '@/lib/payments/verify-gateway-charge';
+import {
+  isTerminalGatewayVerificationReason,
+  verifyGatewayCharge,
+} from '@/lib/payments/verify-gateway-charge';
 
 const mocks = vi.hoisted(() => ({
+  getJuicywaySession: vi.fn(),
   verifyKorapayPayment: vi.fn(),
   verifyPaystackPayment: vi.fn(),
 }));
 
+vi.mock('@/lib/juicyway', () => ({
+  getPaymentSession: mocks.getJuicywaySession,
+}));
 vi.mock('@/lib/korapay', () => ({
   verifyPayment: mocks.verifyKorapayPayment,
 }));
@@ -117,5 +124,13 @@ describe('verifyGatewayCharge', () => {
       ok: false,
       reason: 'korapay_verification_invalid_payload',
     });
+  });
+
+  it.each([
+    'juicyway_verification_invalid_payload',
+    'korapay_verification_invalid_payload',
+    'paystack_verification_invalid_payload',
+  ])('treats %s as a terminal review condition', (reason) => {
+    expect(isTerminalGatewayVerificationReason(reason)).toBe(true);
   });
 });

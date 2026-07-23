@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   createServiceClient: vi.fn(),
   verifyTransaction: vi.fn(),
   applyPaidOrderSideEffects: vi.fn(),
+  completeOrderGatewayPayment: vi.fn(),
 }));
 
 vi.mock('@/lib/supabase/service', () => ({
@@ -14,6 +15,9 @@ vi.mock('@/lib/paystack', () => ({
 }));
 vi.mock('@/lib/payments/apply-paid-order-side-effects', () => ({
   applyPaidOrderSideEffects: mocks.applyPaidOrderSideEffects,
+}));
+vi.mock('@/lib/payments/complete-order-gateway-payment', () => ({
+  completeOrderGatewayPayment: mocks.completeOrderGatewayPayment,
 }));
 
 import { runReconcilePaystackDvaCli } from '@/scripts/reconcile-paystack-dva';
@@ -26,6 +30,23 @@ import {
 describe('runReconcilePaystackDvaCli — happy path (incident shape)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.completeOrderGatewayPayment.mockResolvedValue({
+      ok: true,
+      completion: {
+        actor: 'script:reconcile-paystack-dva',
+        already_completed: true,
+        cancelled_at: null,
+        order_already_paid: true,
+        order_cancelled: false,
+        order_number: 'ORD-260509-00NV-R',
+        order_skipped_status: null,
+        order_updated: false,
+        payment_status: 'paid',
+        previous_payment_status: 'paid',
+        previous_shipping_status: 'processing',
+        shipping_status: 'processing',
+      },
+    });
   });
   afterEach(() => {
     vi.restoreAllMocks();
@@ -74,6 +95,14 @@ describe('runReconcilePaystackDvaCli — happy path (incident shape)', () => {
     expect((rpcCall.p_gateway_response as Record<string, unknown>).reference).toBe(
       '100026260509110323000058369193'
     );
+
+    expect(mocks.completeOrderGatewayPayment).toHaveBeenCalledWith({
+      supabase,
+      transactionId: '427ec4ea-b41d-4058-aaf9-3de57ee5fa35',
+      orderId: '211bcf0e-0795-488f-aeeb-52c5b7a8b9ae',
+      gatewayResponse: verifySuccess.data,
+      actor: 'script:reconcile-paystack-dva',
+    });
 
     expect(mocks.applyPaidOrderSideEffects).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -191,6 +220,23 @@ describe('runReconcilePaystackDvaCli — Paystack guards', () => {
 describe('runReconcilePaystackDvaCli — RPC failure modes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.completeOrderGatewayPayment.mockResolvedValue({
+      ok: true,
+      completion: {
+        actor: 'script:reconcile-paystack-dva',
+        already_completed: true,
+        cancelled_at: null,
+        order_already_paid: true,
+        order_cancelled: false,
+        order_number: 'ORD-260509-00NV-R',
+        order_skipped_status: null,
+        order_updated: false,
+        payment_status: 'paid',
+        previous_payment_status: 'paid',
+        previous_shipping_status: 'processing',
+        shipping_status: 'processing',
+      },
+    });
   });
   afterEach(() => {
     vi.restoreAllMocks();
@@ -250,7 +296,3 @@ describe('runReconcilePaystackDvaCli — RPC failure modes', () => {
     expect(mocks.applyPaidOrderSideEffects).toHaveBeenCalledTimes(1);
   });
 });
-
-// Exit-code surface tests are colocated in
-// `reconcile-paystack-dva-exit-code.test.ts` so this file stays under
-// the 300-line per-file cap.

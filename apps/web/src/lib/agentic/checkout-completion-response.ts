@@ -6,33 +6,35 @@ export interface AgenticCheckoutBuyer {
   last_name: string;
   phone_number: string;
 }
-
-interface StoredCheckoutCompletionSession {
+export interface StoredCheckoutCompletionSession {
   currency: string;
+  customer_email?: string | null;
+  customer_name?: string | null;
+  customer_phone?: string | null;
   metadata?: unknown;
   order_id?: string | null;
+  payment_method?: string | null;
+  payment_provider?: string | null;
   payment_reference?: string | null;
   session_id: string;
   shipping_address?: unknown;
   shipping_method?: string | null;
+  status?: string | null;
   virtual_account_bank?: string | null;
   virtual_account_name?: string | null;
   virtual_account_number?: string | null;
 }
-
 export interface CheckoutPaymentSideEffectSession {
   metadata?: unknown;
   order_id?: string | null;
   payment_reference?: string | null;
   virtual_account_number?: string | null;
 }
-
 export interface StoredDvaAccount {
   account_name: string;
   account_number: string;
   bank_name: string;
 }
-
 interface PaymentPendingResponseInput {
   buyer: AgenticCheckoutBuyer;
   dvaAccount: StoredDvaAccount;
@@ -210,7 +212,7 @@ export function getAgenticPaymentMethod(metadata: unknown): string | null {
   return typeof value === 'string' ? value : null;
 }
 
-function getAgenticMetadataValue(metadata: unknown, key: string) {
+export function getAgenticMetadataValue(metadata: unknown, key: string) {
   if (!metadata || typeof metadata !== 'object' || !('agentic' in metadata)) {
     return undefined;
   }

@@ -1,7 +1,9 @@
+import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it, jest } from '@jest/globals';
 import type { ConfigContext, ExpoConfig } from 'expo/config';
+import { createExpoPlugins } from '../../config/expo-plugins';
 
 type AppConfig = typeof import('../../app.config').default;
 
@@ -30,6 +32,16 @@ function findTypeScriptSourceFiles(directory: string): string[] {
 
     return [entryPath];
   });
+}
+
+function findPlugin(
+  plugins: NonNullable<ExpoConfig['plugins']>,
+  pluginName: string
+) {
+  return plugins.find(
+    (plugin): plugin is [string, Record<string, unknown>] =>
+      Array.isArray(plugin) && plugin[0] === pluginName
+  );
 }
 
 describe('Expo compliance', () => {
@@ -94,29 +106,101 @@ describe('Expo compliance', () => {
     expect(configSource).not.toContain('newArchEnabled');
   });
 
-  it('sets the supported iOS deployment target to 16.4', () => {
+  it('loads nested app config helpers when Node type stripping is disabled', () => {
     const configSource = readFileSync(
       path.join(ROOT, 'app.config.ts'),
       'utf-8'
     );
+    const helperPaths = [
+      ...configSource.matchAll(
+        /require\('(\.\/config\/(?:expo-plugins|resolve-update-channel)[^']*)'\)/g
+      ),
+    ].map((match) => match[1]);
 
-    expect(configSource).toContain("deploymentTarget: '16.4'");
-    expect(configSource).not.toContain("deploymentTarget: '15.1'");
+    expect(helperPaths).toHaveLength(2);
+
+    const result = spawnSync(
+      process.execPath,
+      [
+        '--no-experimental-strip-types',
+        '-e',
+        `for (const helperPath of ${JSON.stringify(helperPaths)}) require(helperPath);`,
+      ],
+      {
+        cwd: ROOT,
+        encoding: 'utf8',
+      }
+    );
+
+    expect(result.stderr).toBe('');
+    expect(result.status).toBe(0);
+  });
+
+  it('uploads the R8 mapping file with Android production releases', () => {
+    const workflowSource = readFileSync(
+      path.resolve(
+        ROOT,
+        '../../.github/workflows/android-storefront-release.yml'
+      ),
+      'utf-8'
+    );
+
+    expect(workflowSource).toMatch(
+      /mappingFile: \$\{\{ env\.WORKING_DIR \}\}\/android\/app\/build\/outputs\/mapping\/release\/mapping\.txt/
+    );
+  });
+
+  it('uses the supported Node 24 flag to disable type stripping in release workflows', () => {
+    const workflowPaths = [
+      '../../.github/workflows/android-storefront-release.yml',
+      '../../.github/workflows/ios-storefront-release.yml',
+    ];
+
+    for (const workflowPath of workflowPaths) {
+      const workflowSource = readFileSync(
+        path.resolve(ROOT, workflowPath),
+        'utf-8'
+      );
+
+      expect(workflowSource).toContain('--no-experimental-strip-types');
+      expect(workflowSource).not.toMatch(/--no-strip-types(?:\s|")/);
+    }
+  });
+
+  it('sets the supported iOS deployment target to 16.4', () => {
+    const plugins = createExpoPlugins({
+      facebookSdkPlugin: null,
+      tiktokBusinessPlugin: null,
+    });
+
+    const buildPropertiesPlugin = findPlugin(plugins, 'expo-build-properties');
+
+    expect(buildPropertiesPlugin?.[1]).toMatchObject({
+      ios: {
+        deploymentTarget: '16.4',
+      },
+    });
+    expect(buildPropertiesPlugin?.[1]).not.toMatchObject({
+      ios: {
+        deploymentTarget: '15.1',
+      },
+    });
   });
 
   it('configures the Expo splash plugin without a static splash image', () => {
-    const configSource = readFileSync(
-      path.join(ROOT, 'app.config.ts'),
-      'utf-8'
-    );
+    const plugins = createExpoPlugins({
+      facebookSdkPlugin: null,
+      tiktokBusinessPlugin: null,
+    });
 
-    expect(configSource).toContain("'expo-splash-screen'");
-    expect(configSource).toContain("backgroundColor: '#000000'");
-    expect(configSource).not.toContain(
-      "image: './assets/images/splash-icon.png'"
-    );
-    expect(configSource).not.toContain("resizeMode: 'contain'");
-    expect(configSource).toContain("'./config/withNoSplashImage.js'");
+    const splashPlugin = findPlugin(plugins, 'expo-splash-screen');
+
+    expect(splashPlugin?.[1]).toEqual({
+      backgroundColor: '#000000',
+    });
+    expect(splashPlugin?.[1]).not.toHaveProperty('image');
+    expect(splashPlugin?.[1]).not.toHaveProperty('resizeMode');
+    expect(plugins).toContain('./config/withNoSplashImage.js');
   });
 
   it('gradle.properties does not contain newArchEnabled', () => {
