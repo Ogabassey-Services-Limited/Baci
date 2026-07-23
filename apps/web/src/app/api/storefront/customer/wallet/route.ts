@@ -8,154 +8,23 @@
  * - Transaction history for transparency
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/api-auth';
-import type { Database } from '@/types/supabase';
+import {
+  fetchCustomerWallet,
+  getFundingAccount,
+  getSavingsBalance,
+  getUsdtBalance,
+} from './wallet-data';
+import {
+  emptyWalletResponse,
+  logOptionalWalletHelperFailure,
+  toNumber,
+} from './wallet-data-helpers';
 
 interface CustomerWalletOwner {
   id: string;
   loyalty_points: number | string | null;
-}
-
-interface WalletFundingAccountRow {
-  account_name: string;
-  account_number: string;
-  bank_name: string;
-  provider: string;
-}
-
-function toNumber(value: unknown) {
-  const numberValue = Number(value);
-  return Number.isFinite(numberValue) ? numberValue : 0;
-}
-
-function formatFundingAccount(row: WalletFundingAccountRow | null) {
-  if (row?.provider !== 'paystack') {
-    return null;
-  }
-
-  return {
-    accountName: row.account_name,
-    accountNumber: row.account_number,
-    bankName: row.bank_name,
-    provider: 'paystack',
-  };
-}
-
-function emptyWalletResponse({
-  fundingAccount = null,
-  loyaltyPoints = 0,
-  requiresFundingAccountConsent,
-  savingsBalance = 0,
-  usdtBalance = 0,
-  walletDvaEnabled = false,
-}: {
-  fundingAccount?: ReturnType<typeof formatFundingAccount>;
-  loyaltyPoints?: number;
-  requiresFundingAccountConsent?: boolean;
-  savingsBalance?: number;
-  usdtBalance?: number;
-  walletDvaEnabled?: boolean;
-} = {}) {
-  return {
-    balance: 0,
-    balances: { NGN: 0, USDT: usdtBalance },
-    earningsBalance: 0,
-    fundingAccount,
-    hasWallet: usdtBalance > 0,
-    loyaltyPoints,
-    requiresFundingAccountConsent:
-      requiresFundingAccountConsent ?? !fundingAccount,
-    savingsBalance,
-    totalEarned: 0,
-    totalRedeemed: 0,
-    transactions: [],
-    walletDvaEnabled,
-  };
-}
-
-function logOptionalWalletHelperFailure(
-  label: string,
-  result: PromiseSettledResult<unknown>
-) {
-  if (result.status === 'rejected') {
-    console.error('Customer wallet optional fetch failed', {
-      error: result.reason,
-      label,
-    });
-  }
-}
-
-async function getSavingsBalance({
-  customerId,
-  merchantId,
-  supabase,
-}: {
-  customerId: string;
-  merchantId: string;
-  supabase: SupabaseClient<Database>;
-}) {
-  const { data, error } = await supabase
-    .from('customer_savings_goals')
-    .select('current_amount')
-    .eq('customer_id', customerId)
-    .eq('merchant_id', merchantId)
-    .in('status', ['active', 'paused', 'completed']);
-
-  if (error) {
-    throw error;
-  }
-
-  return (data ?? []).reduce(
-    (total, row) => total + toNumber(row.current_amount),
-    0
-  );
-}
-
-async function getFundingAccount({
-  customerId,
-  merchantId,
-  supabase,
-}: {
-  customerId: string;
-  merchantId: string;
-  supabase: SupabaseClient<Database>;
-}) {
-  const { data, error } = await supabase
-    .from('customer_wallet_payment_accounts')
-    .select('account_name, account_number, bank_name, provider')
-    .eq('customer_id', customerId)
-    .eq('merchant_id', merchantId)
-    .eq('provider', 'paystack')
-    .eq('status', 'active')
-    .maybeSingle();
-
-  if (error) {
-    throw error;
-  }
-
-  return formatFundingAccount(data as WalletFundingAccountRow | null);
-}
-
-async function getUsdtBalance({
-  customerId,
-  merchantId,
-  supabase,
-}: {
-  customerId: string;
-  merchantId: string;
-  supabase: SupabaseClient<Database>;
-}) {
-  const { data, error } = await supabase
-    .from('customer_wallet_accounts')
-    .select('available_balance')
-    .eq('customer_id', customerId)
-    .eq('merchant_id', merchantId)
-    .eq('currency', 'USDT')
-    .maybeSingle();
-  if (error) throw error;
-  return toNumber(data?.available_balance);
 }
 
 export async function GET(request: Request) {
@@ -292,16 +161,23 @@ export async function GET(request: Request) {
     logOptionalWalletHelperFailure('funding account', fundingAccountResult);
     logOptionalWalletHelperFailure('USDT balance', usdtBalanceResult);
 
-    // Get customer wallet
-    const { data: wallet, error: walletError } = await supabase
-      .from('customer_wallets')
-      .select('id, available_balance, total_earned, total_redeemed')
-      .eq('customer_id', customer.id)
-      .eq('merchant_id', merchant.id)
-      .single();
+    // Wallet balance + baseline transactions. `fetchCustomerWallet` fails LOUD
+    // (kind: 'error') on any real failure so the funding check loop is never
+    // handed a spuriously-empty baseline — see that helper's contract.
+    const walletFetch = await fetchCustomerWallet({
+      customerId: customer.id,
+      merchantId: merchant.id,
+      supabase,
+    });
 
-    if (walletError || !wallet) {
-      // No wallet yet - return zero balance
+    if (walletFetch.kind === 'error') {
+      return NextResponse.json(
+        { error: 'Failed to fetch wallet', balance: 0, transactions: [] },
+        { status: 500 }
+      );
+    }
+
+    if (walletFetch.kind === 'no-wallet') {
       return NextResponse.json(
         emptyWalletResponse({
           fundingAccount,
@@ -313,28 +189,20 @@ export async function GET(request: Request) {
       );
     }
 
-    // Get recent transactions (last 10)
-    const { data: transactions } = await supabase
-      .from('customer_wallet_transactions')
-      .select('id, type, amount, balance_after, description, created_at')
-      .eq('wallet_id', wallet.id)
-      .order('created_at', { ascending: false })
-      .limit(10);
-
     return NextResponse.json({
-      balance: toNumber(wallet.available_balance),
+      balance: walletFetch.availableBalance,
       balances: {
-        NGN: toNumber(wallet.available_balance),
+        NGN: walletFetch.availableBalance,
         USDT: usdtBalance,
       },
-      earningsBalance: toNumber(wallet.available_balance),
+      earningsBalance: walletFetch.availableBalance,
       fundingAccount,
       loyaltyPoints,
       requiresFundingAccountConsent: !fundingAccount,
       savingsBalance,
-      totalEarned: toNumber(wallet.total_earned),
-      totalRedeemed: toNumber(wallet.total_redeemed),
-      transactions: transactions || [],
+      totalEarned: walletFetch.totalEarned,
+      totalRedeemed: walletFetch.totalRedeemed,
+      transactions: walletFetch.transactions,
       walletDvaEnabled,
       hasWallet: true,
     });
