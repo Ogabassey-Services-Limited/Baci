@@ -26,6 +26,36 @@ import {
 } from '@/ai/chat-tools';
 
 export function createAiSdkAgenticChatTools(sessionId: string) {
+  // The AI SDK executes a single step's tool calls concurrently (Promise.all).
+  // A model that emits the SAME side-effecting call twice in one step (a common
+  // uncertainty pattern) would otherwise run each independently — inserting a
+  // duplicate chat_orders row or double-cancelling an order. Collapse concurrent
+  // identical side-effecting calls onto one in-flight promise so the duplicate
+  // reuses the first execution's result instead of triggering a second side
+  // effect. Keyed by tool + args, so genuinely distinct calls (e.g. cancelling
+  // two different orders in one turn) still each run. Map is per-request (this
+  // factory is called once per chat request).
+  const inFlightSideEffects = new Map<string, Promise<string>>();
+  const dedupeSideEffect = (
+    key: string,
+    run: () => Promise<string>
+  ): Promise<string> => {
+    const existing = inFlightSideEffects.get(key);
+    if (existing) {
+      return existing;
+    }
+    // Clear the entry once the call SETTLES so this stays a true in-flight guard:
+    // only overlapping concurrent duplicates collapse. A later sequential call
+    // (e.g. a legitimate re-attempt in a subsequent tool round) — or a retry
+    // after this attempt REJECTED — must run again rather than replay a stale or
+    // failed result.
+    const pending = run().finally(() => {
+      inFlightSideEffects.delete(key);
+    });
+    inFlightSideEffects.set(key, pending);
+    return pending;
+  };
+
   return {
     searchProducts: {
       description: TOOL_DESCRIPTIONS.searchProducts,
@@ -46,10 +76,13 @@ export function createAiSdkAgenticChatTools(sessionId: string) {
     createVirtualAccount: {
       description: TOOL_DESCRIPTIONS.createVirtualAccount,
       inputSchema: createVirtualAccountSchema,
-      execute: async (params: CreateVirtualAccountParams) => {
-        const result = await handleCreateVirtualAccount(params, sessionId);
-        return JSON.stringify(result);
-      },
+      // Side-effecting (inserts a chat_orders row): dedupe concurrent duplicates.
+      execute: (params: CreateVirtualAccountParams) =>
+        dedupeSideEffect(
+          `createVirtualAccount:${JSON.stringify(params)}`,
+          async () =>
+            JSON.stringify(await handleCreateVirtualAccount(params, sessionId))
+        ),
     },
     checkPaymentStatus: {
       description: TOOL_DESCRIPTIONS.checkPaymentStatus,
@@ -62,13 +95,14 @@ export function createAiSdkAgenticChatTools(sessionId: string) {
     cancelOrder: {
       description: TOOL_DESCRIPTIONS.cancelOrder,
       inputSchema: cancelOrderSchema,
-      execute: async (params: CancelOrderParams) => {
-        // Order cancellation must work for existing storefront orders, not only
-        // orders created in this chat session. The handler verifies merchant
-        // scope, order reference, customer email, and cancellable order status.
-        const result = await handleCancelOrder(params);
-        return JSON.stringify(result);
-      },
+      // Order cancellation must work for existing storefront orders, not only
+      // orders created in this chat session. The handler verifies merchant
+      // scope, order reference, customer email, and cancellable order status.
+      // Side-effecting: dedupe concurrent duplicate cancels of the same order.
+      execute: (params: CancelOrderParams) =>
+        dedupeSideEffect(`cancelOrder:${JSON.stringify(params)}`, async () =>
+          JSON.stringify(await handleCancelOrder(params))
+        ),
     },
     getRecommendations: {
       description: TOOL_DESCRIPTIONS.getRecommendations,
