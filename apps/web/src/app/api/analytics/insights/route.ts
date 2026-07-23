@@ -1,12 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { generateObject } from 'ai';
 import { NextResponse } from 'next/server';
-import {
-  AI_RATE_LIMITS,
-  checkRateLimit,
-  geminiFlash,
-  withRetry,
-} from '@/ai/provider';
+import { generateObjectWithChain } from '@/ai/generate-object-with-chain';
+import { AI_RATE_LIMITS, checkRateLimit } from '@/ai/provider';
 import {
   generateAnalyticsInsightsWithOllama,
   isAnalyticsInsightsOllamaConfigured,
@@ -22,15 +17,22 @@ import { analyticsInsightsSchema } from '@/schemas/analytics-insights';
 
 export const maxDuration = 30;
 
-const AI_INSIGHTS_TIMEOUT_MS = 25_000;
+// Budgets sized against the 30s maxDuration so the Ollama/static fallback stays
+// reachable: the cloud chain walks for at most CHAIN_BUDGET, then the VPS
+// single-shot gets OLLAMA_TIMEOUT — 18 + 10 = 28s < 30s, leaving slop for
+// cache/serialization. Per-provider caps each attempt; the overall budget caps
+// the whole walk (a hung provider can't consume the route deadline).
+const AI_INSIGHTS_PER_PROVIDER_TIMEOUT_MS = 12_000;
+const AI_INSIGHTS_CHAIN_BUDGET_MS = 18_000;
+const AI_INSIGHTS_OLLAMA_TIMEOUT_MS = 10_000;
 const AI_INSIGHTS_CACHE_TTL_SECONDS = 86_400;
 const AI_INSIGHTS_FALLBACK_CACHE_TTL_SECONDS = 300;
-const AI_INSIGHTS_RETRY_CONFIG = {
-  maxRetries: 0,
-  initialDelayMs: 0,
-  maxDelayMs: 0,
-  backoffMultiplier: 1,
-};
+
+// generateObjectWithChain uses loose JSON mode (no schema is sent to the
+// provider), so the prompt must spell out the shape the old direct
+// `generateObject({ schema })` call used to enforce via the AI SDK.
+const ANALYTICS_INSIGHTS_JSON_SHAPE =
+  '{"insights": [{"title": string, "description": string, "type": "positive" | "negative" | "neutral" | "opportunity", "priority": "high" | "medium" | "low", "action": string (optional)}]} — include 3 to 5 items in "insights".';
 
 const FALLBACK_INSIGHTS = {
   insights: [
@@ -129,26 +131,7 @@ async function generateInsights(
 
   const safeContext = sanitizeAnalyticsInsightsContext(context);
 
-  // Generate insights with retry logic
-  // Wrap in try-catch to prevent server freezing if AI API is unavailable
-  const insightsProvider = isAnalyticsInsightsOllamaConfigured()
-    ? 'ollama'
-    : 'gemini';
-
-  try {
-    const object =
-      insightsProvider === 'ollama'
-        ? await generateAnalyticsInsightsWithOllama(safeContext, {
-            timeoutMs: AI_INSIGHTS_TIMEOUT_MS,
-          })
-        : (
-            await withRetry(async () => {
-              return await generateObject({
-                model: geminiFlash,
-                schema: analyticsInsightsSchema,
-                maxRetries: 0,
-                timeout: AI_INSIGHTS_TIMEOUT_MS,
-                prompt: `
+  const prompt = `
 Analyze the following e-commerce data for a merchant and provide 3-5 actionable insights.
 Focus on trends, opportunities for growth, and potential issues.
 
@@ -161,20 +144,55 @@ Provide insights in the following categories:
 - Channel effectiveness
 
 Be specific and constructive.
-      `,
-              });
-            }, AI_INSIGHTS_RETRY_CONFIG)
-          ).object;
+Return JSON only, matching this exact shape: ${ANALYTICS_INSIGHTS_JSON_SHAPE}
+      `;
 
-    // Cache the insights for 24 hours.
+  // The cloud provider chain (Cerebras -> Groq -> Gemini -> Gemini-Lite) is
+  // tried first so insight generation stops loading the self-hosted VPS. The
+  // VPS Ollama transport survives as the last-resort fallback so self-host
+  // capability is preserved when every cloud provider is unavailable.
+  try {
+    const { object } = await generateObjectWithChain({
+      schema: analyticsInsightsSchema,
+      prompt,
+      perProviderTimeoutMs: AI_INSIGHTS_PER_PROVIDER_TIMEOUT_MS,
+      overallTimeoutMs: AI_INSIGHTS_CHAIN_BUDGET_MS,
+    });
     cache.set(cacheKey, object, AI_INSIGHTS_CACHE_TTL_SECONDS);
-
     return { data: object };
-  } catch (error) {
+  } catch (chainError) {
+    const chainErrorMessage =
+      chainError instanceof Error ? chainError.message : String(chainError);
+
+    if (isAnalyticsInsightsOllamaConfigured()) {
+      try {
+        const object = await generateAnalyticsInsightsWithOllama(safeContext, {
+          timeoutMs: AI_INSIGHTS_OLLAMA_TIMEOUT_MS,
+        });
+        cache.set(cacheKey, object, AI_INSIGHTS_CACHE_TTL_SECONDS);
+        return { data: object };
+      } catch (ollamaError) {
+        console.warn('AI insights generation unavailable; using fallback', {
+          merchantId,
+          provider: 'ollama',
+          error:
+            ollamaError instanceof Error
+              ? ollamaError.message
+              : String(ollamaError),
+        });
+        cache.set(
+          cacheKey,
+          FALLBACK_INSIGHTS,
+          AI_INSIGHTS_FALLBACK_CACHE_TTL_SECONDS
+        );
+        return { data: FALLBACK_INSIGHTS };
+      }
+    }
+
     console.warn('AI insights generation unavailable; using fallback', {
       merchantId,
-      provider: insightsProvider,
-      error: error instanceof Error ? error.message : String(error),
+      provider: 'chain',
+      error: chainErrorMessage,
     });
     // Short-cache fallback insights to avoid repeated upstream timeouts while
     // keeping recovery quick when the VPS/provider becomes responsive again.

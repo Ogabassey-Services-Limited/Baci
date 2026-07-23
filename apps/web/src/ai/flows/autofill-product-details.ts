@@ -1,8 +1,8 @@
 'use server';
 
-import { generateObject } from 'ai';
 import z from 'zod';
-import { activeTextModel, sanitizePromptInput, withRetry } from '@/ai/provider';
+import { generateObjectWithChain } from '@/ai/generate-object-with-chain';
+import { sanitizePromptInput } from '@/ai/provider';
 import { getCategoryConfigFromBusinessType } from '@/lib/category-configs';
 import { logger } from '@/lib/logger';
 import {
@@ -146,11 +146,9 @@ export async function autofillProductDetails(
   const existingCategories = categoryConfig.productCategories || [];
 
   try {
-    const { object } = await withRetry(async () => {
-      return await generateObject({
-        model: activeTextModel,
-        schema: ProductDetailsSchema,
-        prompt: `
+    const { object } = await generateObjectWithChain({
+      schema: ProductDetailsSchema,
+      prompt: `
         You are an AI assistant for an e-commerce platform. Your task is to autofill product details based on a product name and business type.
 
         Product Name: "${productName}"
@@ -172,9 +170,9 @@ export async function autofillProductDetails(
             - **IMPORTANT**: Return **at least three** distinct color options when the "Color" attribute is present.
             - If no variants seem applicable, return an empty array for this field. DO NOT suggest a price.
 
-        Return a single, valid JSON object.
+        Return a single, valid JSON object in exactly this shape (no extra keys, no markdown fences):
+        {"suggestedName": string, "description": string, "category": string, "brand": string, "suggestedVariants": [{"attribute": string, "options": string[]}]}
       `,
-      });
     });
 
     logger.info({

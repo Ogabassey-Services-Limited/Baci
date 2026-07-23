@@ -1,9 +1,9 @@
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
-import { generateText, type ModelMessage } from 'ai';
+import type { ModelMessage } from 'ai';
 import { type NextRequest, NextResponse } from 'next/server';
 import { match } from 'ts-pattern';
-import { activeTextModel } from '@/ai/provider';
+import { generateTextWithChain } from '@/ai/generate-text-with-chain';
 import { checkCsrfProtection } from '@/lib/csrf';
 
 // Check if Upstash Redis is configured for rate limiting (optional)
@@ -158,15 +158,15 @@ export async function POST(req: Request): Promise<Response> {
     .run();
 
   try {
-    const { text } = await generateText({
-      model: activeTextModel,
+    // Routed through the platform provider chain (Cerebras -> Groq -> Gemini
+    // Flash -> Flash-Lite) instead of calling Gemini directly. topP,
+    // frequencyPenalty, and presencePenalty aren't supported by the shared
+    // chain executor (its options are provider-agnostic across vendors that
+    // don't all expose them), so they are dropped here.
+    const { text } = await generateTextWithChain({
       messages,
-      // @ts-expect-error: handling version specific parameter names (maxTokens vs max_tokens)
-      maxTokens: 400,
+      maxOutputTokens: 400,
       temperature: 0.7,
-      topP: 0.95,
-      frequencyPenalty: 0,
-      presencePenalty: 0,
     });
 
     return new Response(text);

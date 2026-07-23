@@ -1,6 +1,7 @@
 import { generateObject, generateText } from 'ai';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ensureActionRateLimit } from '@/lib/ensure-action-rate-limit';
+import { fetchImageBytes } from '@/lib/fetch-image-bytes';
 import { guideBusinessOnboarding } from './guide-business-onboarding';
 
 vi.mock('ai', () => ({
@@ -12,9 +13,15 @@ vi.mock('@/lib/ensure-action-rate-limit', () => ({
   ensureActionRateLimit: vi.fn(async () => true),
 }));
 
+// generateObjectWithChain / getVisionProviderChain (the real executors, not
+// mocked below) construct their default chain via @/ai/provider — extend
+// rather than replace this mock so construction keeps working.
 vi.mock('@/ai/provider', () => ({
+  ACTIVE_TEXT_MODEL_NAME: 'gemini-2.5-flash',
   activeImageModel: 'test-image-model',
   activeTextModel: 'test-text-model',
+  FALLBACK_TEXT_MODEL_NAME: 'gemini-2.5-flash-lite',
+  fallbackTextModel: 'test-text-model-lite',
   sanitizePromptInput: (input: string, limit: number) => ({
     value: input.slice(0, limit),
     metadata: {
@@ -27,6 +34,10 @@ vi.mock('@/ai/provider', () => ({
   withRetry: vi.fn((operation: () => Promise<unknown>) => operation()),
 }));
 
+vi.mock('@/lib/fetch-image-bytes', () => ({
+  fetchImageBytes: vi.fn(),
+}));
+
 vi.mock('@/lib/logger', () => ({
   logger: {
     error: vi.fn(),
@@ -37,11 +48,24 @@ vi.mock('@/lib/logger', () => ({
 const mockGenerateText = vi.mocked(generateText);
 const mockGenerateObject = vi.mocked(generateObject);
 const mockEnsureActionRateLimit = vi.mocked(ensureActionRateLimit);
+const mockFetchImageBytes = vi.mocked(fetchImageBytes);
 
 describe('guideBusinessOnboarding', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Force the deterministic Gemini-only chain (no Cerebras/Groq keys) so
+    // provider-count assertions below are stable regardless of ambient env.
+    vi.stubEnv('CEREBRAS_API_KEY', '');
+    vi.stubEnv('GROQ_API_KEY', '');
+    vi.stubEnv('OPENROUTER_API_KEY', '');
     mockEnsureActionRateLimit.mockResolvedValue(true);
+    // Default: no bytes available, so extract_colors tests exercise the
+    // URL-based Gemini fallback unless a test opts into the bytes path.
+    mockFetchImageBytes.mockResolvedValue(null);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it('rejects rate-limited callers before invoking any AI model', async () => {
@@ -123,7 +147,8 @@ describe('guideBusinessOnboarding', () => {
     });
   });
 
-  it('extracts brand colors from a logo URL', async () => {
+  it('extracts brand colors from a logo URL when bytes are unavailable (fallback)', async () => {
+    mockFetchImageBytes.mockResolvedValueOnce(null);
     mockGenerateObject.mockResolvedValueOnce({
       object: {
         primary: '#111111',
@@ -140,6 +165,9 @@ describe('guideBusinessOnboarding', () => {
       task: 'extract_colors',
     });
 
+    expect(mockFetchImageBytes).toHaveBeenCalledWith(
+      'https://example.com/logo.png'
+    );
     expect(result.brandColors).toEqual({
       primary: '#111111',
       background: '#FFFFFF',
@@ -148,8 +176,108 @@ describe('guideBusinessOnboarding', () => {
     expect(mockGenerateObject).toHaveBeenCalledWith(
       expect.objectContaining({
         model: 'test-text-model',
+        messages: expect.arrayContaining([
+          expect.objectContaining({
+            role: 'user',
+            content: [{ type: 'image', image: 'https://example.com/logo.png' }],
+          }),
+        ]),
       })
     );
+  });
+
+  it('extracts brand colors from fetched image bytes via the vision chain when bytes are available', async () => {
+    const bytes = new Uint8Array([1, 2, 3]);
+    mockFetchImageBytes.mockResolvedValueOnce({
+      bytes,
+      mediaType: 'image/png',
+    });
+    mockGenerateObject.mockResolvedValueOnce({
+      object: {
+        primary: '#222222',
+        background: '#FAFAFA',
+        accent: '#0EA5E9',
+      },
+    } as Awaited<ReturnType<typeof generateObject>>);
+
+    const result = await guideBusinessOnboarding({
+      businessName: 'Baci Meds',
+      businessType: 'pharmaceuticals',
+      brandPreferences: 'green',
+      logoUrl: 'https://example.com/logo.png',
+      task: 'extract_colors',
+    });
+
+    expect(result.brandColors).toEqual({
+      primary: '#222222',
+      background: '#FAFAFA',
+      accent: '#0EA5E9',
+    });
+    // The vision-chain executor (real, not mocked) forwards raw bytes +
+    // mediaType instead of the logo URL.
+    expect(mockGenerateObject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: expect.arrayContaining([
+          expect.objectContaining({
+            role: 'user',
+            content: [{ type: 'image', image: bytes, mediaType: 'image/png' }],
+          }),
+        ]),
+      })
+    );
+    expect(mockGenerateObject).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls through to the next vision-chain provider when the first one fails', async () => {
+    mockFetchImageBytes.mockResolvedValueOnce({
+      bytes: new Uint8Array([1, 2, 3]),
+      mediaType: 'image/png',
+    });
+    mockGenerateObject
+      .mockRejectedValueOnce(new Error('429 rate limited'))
+      .mockResolvedValueOnce({
+        object: {
+          primary: '#333333',
+          background: '#FFFFFF',
+          accent: '#10B981',
+        },
+      } as Awaited<ReturnType<typeof generateObject>>);
+
+    const result = await guideBusinessOnboarding({
+      businessName: 'Baci Meds',
+      businessType: 'pharmaceuticals',
+      brandPreferences: 'green',
+      logoUrl: 'https://example.com/logo.png',
+      task: 'extract_colors',
+    });
+
+    expect(result.brandColors).toEqual({
+      primary: '#333333',
+      background: '#FFFFFF',
+      accent: '#10B981',
+    });
+    expect(mockGenerateObject).toHaveBeenCalledTimes(2);
+  });
+
+  it('throws the stable extraction error once the vision chain is exhausted', async () => {
+    mockFetchImageBytes.mockResolvedValueOnce({
+      bytes: new Uint8Array([1, 2, 3]),
+      mediaType: 'image/png',
+    });
+    mockGenerateObject.mockRejectedValue(new Error('all providers down'));
+
+    await expect(
+      guideBusinessOnboarding({
+        businessName: 'Baci Meds',
+        businessType: 'pharmaceuticals',
+        brandPreferences: 'green',
+        logoUrl: 'https://example.com/logo.png',
+        task: 'extract_colors',
+      })
+    ).rejects.toThrow('Failed to extract brand colors.');
+    // Gemini-only vision chain in tests: both Gemini and Gemini-Lite are
+    // attempted before the chain's exhaustion error reaches the flow.
+    expect(mockGenerateObject).toHaveBeenCalledTimes(2);
   });
 
   it('generates business name suggestions from a description', async () => {
@@ -183,6 +311,43 @@ describe('guideBusinessOnboarding', () => {
       'Lush Desk',
       'Tone Market',
     ]);
+    expect(mockGenerateObject).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls through to the next chain provider when name generation first fails', async () => {
+    mockGenerateObject
+      .mockRejectedValueOnce(new Error('429 rate limited'))
+      .mockResolvedValueOnce({
+        object: { businessNames: ['Glow Bar'] },
+      } as Awaited<ReturnType<typeof generateObject>>);
+
+    const result = await guideBusinessOnboarding({
+      businessName: 'Starter',
+      businessType: 'health-beauty',
+      brandPreferences: 'pink',
+      description: 'A beauty shop focused on clean skincare',
+      tone: 'Premium',
+      task: 'generate_names',
+    });
+
+    expect(result.businessNames).toEqual(['Glow Bar']);
+    expect(mockGenerateObject).toHaveBeenCalledTimes(2);
+  });
+
+  it('wraps chain exhaustion in a stable error when every name-generation provider fails', async () => {
+    mockGenerateObject.mockRejectedValue(new Error('model unavailable'));
+
+    await expect(
+      guideBusinessOnboarding({
+        businessName: 'Starter',
+        businessType: 'health-beauty',
+        brandPreferences: 'pink',
+        description: 'A beauty shop focused on clean skincare',
+        tone: 'Premium',
+        task: 'generate_names',
+      })
+    ).rejects.toThrow('Failed to generate business names.');
+    expect(mockGenerateObject).toHaveBeenCalledTimes(2);
   });
 
   it('rejects color extraction without a logo URL', async () => {
@@ -194,5 +359,6 @@ describe('guideBusinessOnboarding', () => {
         task: 'extract_colors',
       })
     ).rejects.toThrow('logoUrl is required for color extraction.');
+    expect(mockFetchImageBytes).not.toHaveBeenCalled();
   });
 });
