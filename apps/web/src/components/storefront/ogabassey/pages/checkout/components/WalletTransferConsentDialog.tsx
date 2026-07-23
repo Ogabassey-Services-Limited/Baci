@@ -25,30 +25,30 @@ export function WalletTransferConsentDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
       <dialog
         aria-labelledby="wallet-consent-title"
-        className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl"
+        className="w-full max-w-sm rounded-2xl bg-store-background p-6 shadow-2xl"
         ref={dialogRef}
       >
         <h2
-          className="font-bold text-gray-900 text-lg"
+          className="font-bold text-store-foreground text-lg"
           id="wallet-consent-title"
         >
           Create your transfer account
         </h2>
-        <p className="mt-2 text-gray-600 text-sm leading-relaxed">
+        <p className="mt-2 text-store-foreground/70 text-sm leading-relaxed">
           {merchantName} will create a permanent bank account number in your
           name. Money you send to it lands in your wallet and pays this order
           automatically — and you can reuse the same number next time.
         </p>
         <div className="mt-6 space-y-3">
           <button
-            className="w-full rounded-xl bg-store-primary py-3 font-bold text-white transition-colors hover:bg-store-primary/90"
+            className="w-full rounded-xl bg-store-primary py-3 font-bold text-store-primary-text transition-colors hover:bg-store-primary/90"
             onClick={onAccept}
             type="button"
           >
             Create my account
           </button>
           <button
-            className="w-full py-2 font-medium text-gray-500 text-sm transition-colors hover:text-gray-700"
+            className="w-full py-2 font-medium text-store-foreground/60 text-sm transition-colors hover:text-store-foreground/80"
             onClick={onDecline}
             type="button"
           >
