@@ -81,7 +81,12 @@ vi.mock('@/hooks/use-toast', () => ({
 
 vi.mock('@/lib/supabase/client', () => ({
   createClient: vi.fn(() => ({
-    auth: { getUser: vi.fn() },
+    auth: {
+      getUser: vi.fn(),
+      onAuthStateChange: vi.fn(() => ({
+        data: { subscription: { unsubscribe: vi.fn() } },
+      })),
+    },
     from: vi.fn(() => ({
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
