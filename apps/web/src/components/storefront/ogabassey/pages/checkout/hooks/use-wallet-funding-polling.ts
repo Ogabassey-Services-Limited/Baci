@@ -91,10 +91,11 @@ export function useWalletFundingPolling({
   const inFlightRef = useRef(false);
   const mountedRef = useRef(true);
   const onCompletedRef = useRef(onCompleted);
-  // Tracks the currently-polled intent so a manual "check now" that resolves
-  // late can be dropped if the customer has since closed this transfer and
-  // opened another — otherwise transfer A's `completed` would fire the
-  // callback bound to transfer B and falsely mark B as paid.
+  // Tracks the currently-polled intent so any request that resolves late —
+  // whether from a manual "check now" or a scheduled interval tick — is dropped
+  // if the customer has since closed this transfer and opened another;
+  // otherwise transfer A's `completed` would fire the callback bound to
+  // transfer B and falsely mark B as paid.
   const activeIntentIdRef = useRef(intentId);
   const [prevIntentId, setPrevIntentId] = useState(intentId);
 
@@ -133,6 +134,17 @@ export function useWalletFundingPolling({
     }
 
     let cancelled = false;
+    // Bind every request this effect dispatches (initial + each interval tick)
+    // to the intent that was active when it subscribed. Mirrors the `checkNow`
+    // guard so both the manual and scheduled paths share one rule: a late
+    // response is applied only when the component is still mounted, this effect
+    // was not torn down, AND the active intent is unchanged. Without the
+    // intent-id check a stale transfer-A response could settle transfer B.
+    const scheduledIntentId = intentId;
+    const isActive = () =>
+      !cancelled &&
+      mountedRef.current &&
+      activeIntentIdRef.current === scheduledIntentId;
     const poll = () => {
       if (cancelled || inFlightRef.current || !mountedRef.current) {
         return;
@@ -141,7 +153,7 @@ export function useWalletFundingPolling({
         completedRef,
         fetchArgs: { intentId, merchantId, merchantSlug },
         inFlightRef,
-        isActive: () => !cancelled && mountedRef.current,
+        isActive,
         onCompletedRef,
         setError,
         setIntent,

@@ -172,6 +172,69 @@ describe('useWalletFundingPolling', () => {
     expect(onCompleted).not.toHaveBeenCalled();
   });
 
+  // Regression (cross-intent completion, scheduled path): a scheduled interval
+  // poll for transfer A that resolves after the customer closes A and opens
+  // transfer B must NOT settle B. The scheduled poll is bound to its
+  // originating intent exactly like the manual "check now" guard, so a stale
+  // transfer-A `completed` can never clear the cart or mark B as paid.
+  it('drops a late scheduled poll once the customer switches to another transfer', async () => {
+    const onCompleted = vi.fn();
+
+    // Hold transfer A's scheduled (auto) poll in flight.
+    let resolveScheduledA: (intent: unknown) => void = () => {};
+    getIntentMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveScheduledA = resolve;
+        })
+    );
+    // Transfer B's scheduled poll stays non-terminal so `completedRef` never
+    // trips — this isolates the intent-identity guard from the "fire once"
+    // guard, proving A is dropped on its own merits.
+    getIntentMock.mockResolvedValue({
+      ...BASE_INTENT,
+      id: 'intent-b',
+      status: 'pending',
+    });
+
+    const { rerender, result } = renderHook(
+      ({ intentId }) =>
+        useWalletFundingPolling({
+          enabled: true,
+          intentId,
+          merchantId: 'merchant-1',
+          merchantSlug: 'test-store',
+          onCompleted,
+          // Large interval: only the initial scheduled poll is racing.
+          pollIntervalMs: 10_000_000,
+        }),
+      { initialProps: { intentId: 'intent-a' } }
+    );
+
+    // Customer closes A and starts transfer B while A's poll is still in flight.
+    rerender({ intentId: 'intent-b' });
+
+    await waitFor(() => {
+      expect(result.current.intent?.status).toBe('pending');
+    });
+
+    // A's scheduled poll now returns `completed` — but it belongs to the old
+    // intent and must be ignored.
+    await act(async () => {
+      resolveScheduledA({
+        ...BASE_INTENT,
+        fundedAmount: 5000,
+        id: 'intent-a',
+        orderPaid: true,
+        status: 'completed',
+      });
+    });
+
+    expect(onCompleted).not.toHaveBeenCalled();
+    // The active transfer B is untouched by the stale A response.
+    expect(result.current.intent?.status).toBe('pending');
+  });
+
   it('surfaces a poll failure as an error without claiming payment', async () => {
     getIntentMock.mockRejectedValue(new Error('offline'));
 
