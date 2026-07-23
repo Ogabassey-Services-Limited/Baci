@@ -1,4 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
+
+const { mockCreateAdminClient } = vi.hoisted(() => ({
+  mockCreateAdminClient: vi.fn(),
+}));
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: (...args: unknown[]) => mockCreateAdminClient(...args),
+}));
+
 import {
   clearLegacyTerminalCode,
   syncTerminalRecord,
@@ -176,22 +185,32 @@ describe('virtual terminal local sync helpers', () => {
     });
   });
 
-  it('does not warn when a legacy clear matches no merchant row', async () => {
-    const supabase = {
-      from: vi.fn(() => createChain({ data: null, error: null })),
-    };
+  it('clears the legacy code through the bounded RPC on the authenticated client', async () => {
+    // Both reading and filtering the revoked secret column are forbidden for the
+    // authenticated Postgres role, so the clear runs through the bounded
+    // SECURITY DEFINER RPC on the caller's authenticated client, scoped to the
+    // owning merchant id — never a service-role client.
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: null });
+    const supabase = { rpc };
 
     await expect(
       clearLegacyTerminalCode(supabase as never, 'merchant-1', 'VT_123')
     ).resolves.toBeNull();
+
+    expect(rpc).toHaveBeenCalledWith('clear_merchant_virtual_terminal_code', {
+      p_code: 'VT_123',
+      p_merchant_id: 'merchant-1',
+    });
+    // The secret column is never touched through a service-role client.
+    expect(mockCreateAdminClient).not.toHaveBeenCalled();
   });
 
   it('returns a warning when clearing the legacy code fails', async () => {
-    const supabase = {
-      from: vi.fn(() =>
-        createChain({ data: null, error: { message: 'boom' } })
-      ),
-    };
+    const rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: 'boom' },
+    });
+    const supabase = { rpc };
 
     await expect(
       clearLegacyTerminalCode(supabase as never, 'merchant-1', 'VT_123')

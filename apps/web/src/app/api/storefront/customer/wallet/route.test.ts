@@ -292,6 +292,7 @@ describe('GET /api/storefront/customer/wallet', () => {
             created_at: '2026-05-21T10:00:00.000Z',
             description: 'Wallet top-up via paystack',
             id: 'wallet-txn-1',
+            source_type: 'wallet_topup',
             type: 'credit',
           },
         ]);
@@ -339,6 +340,55 @@ describe('GET /api/storefront/customer/wallet', () => {
       walletDvaEnabled: true,
     });
     expect(body.transactions).toHaveLength(1);
+    // The client funding check loop settles on source_type, never on a balance
+    // delta — `type` is 'credit' for cashback and refunds too.
+    expect(body.transactions[0]).toMatchObject({
+      id: 'wallet-txn-1',
+      source_type: 'wallet_topup',
+    });
+  });
+
+  it('selects source_type so a bank-transfer top-up is distinguishable from cashback', async () => {
+    const transactionsSelect = vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        order: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+        }),
+      }),
+    });
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'merchants') return singleQuery({ id: 'merchant-1' });
+      if (table === 'customers') {
+        return singleQuery({ id: 'customer-1', loyalty_points: 0 });
+      }
+      if (table === 'customer_wallets') {
+        return singleQuery({
+          available_balance: '0',
+          id: 'wallet-1',
+          total_earned: '0',
+          total_redeemed: '0',
+        });
+      }
+      if (table === 'customer_wallet_transactions') {
+        return { select: transactionsSelect };
+      }
+      if (table === 'customer_savings_goals') return savingsQuery([]);
+      if (table === 'customer_wallet_payment_accounts') {
+        return maybeSingleQuery(null);
+      }
+      if (table === 'customer_wallet_accounts') {
+        return currencyAccountQuery(null);
+      }
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    await GET(request());
+
+    expect(transactionsSelect).toHaveBeenCalledWith(
+      expect.stringContaining('source_type')
+    );
+    // select('*') is banned — the column list stays explicit.
+    expect(transactionsSelect).not.toHaveBeenCalledWith('*');
   });
 
   it('reports walletDvaEnabled false when the merchant has DVA funding disabled', async () => {

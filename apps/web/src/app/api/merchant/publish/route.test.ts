@@ -105,6 +105,10 @@ function createMockSupabase() {
 function createMockAdminSupabase() {
   return {
     from: (table: string) => {
+      // The admin client is retained ONLY for the merchant_verifications KYC
+      // read (getVerificationStatus). The merchant row — including the revoked
+      // paystack_subaccount_code — is no longer read here; it is read on the
+      // authenticated client (non-secret cols) plus the bounded RPC helper.
       if (table === 'merchant_verifications') {
         return {
           select: () => ({
@@ -130,6 +134,13 @@ const mockCreateAdminClient = vi.fn();
 
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: (...args: unknown[]) => mockCreateAdminClient(...args),
+}));
+
+const mockFetchPaystackSubaccountCode = vi.fn();
+
+vi.mock('@/lib/fetch-merchant-payment-secret', () => ({
+  fetchMerchantPaystackSubaccountCode: (...args: unknown[]) =>
+    mockFetchPaystackSubaccountCode(...args),
 }));
 
 vi.mock('@/lib/csrf', () => ({
@@ -291,6 +302,18 @@ describe('POST /api/merchant/publish', () => {
     setupVerification({ nin_verified: true });
     // Restore default admin mock implementation
     mockCreateAdminClient.mockImplementation(() => createMockAdminSupabase());
+    // The revoked paystack_subaccount_code is read via the bounded RPC helper.
+    // Serve whatever value the current merchant fixture carries so the
+    // launch-payment gate sees the same code the old admin read returned.
+    mockFetchPaystackSubaccountCode.mockImplementation(() =>
+      Promise.resolve(
+        (
+          mockMerchantData?.data as {
+            paystack_subaccount_code?: string | null;
+          } | null
+        )?.paystack_subaccount_code ?? null
+      )
+    );
   });
 
   describe('authentication', () => {
@@ -333,6 +356,35 @@ describe('POST /api/merchant/publish', () => {
         expect.anything(),
         'settings',
         'edit'
+      );
+    });
+  });
+
+  describe('secret column containment', () => {
+    it('reads the revoked paystack_subaccount_code via the bounded RPC helper on the authenticated client (never a service-role admin client)', async () => {
+      setupAuth(true, true);
+      // mockMerchantData holds a valid, publishable row; the helper serves the
+      // secret code from that fixture.
+      setupMerchantData({});
+      setupProductCount(1, 1);
+      setupUpdateSuccess();
+
+      // Pin the authenticated client so we can assert the helper runs on it.
+      const authClient = createMockSupabase();
+      mockAuthenticateApiRequest.mockResolvedValue({
+        user: { id: 'user-123' },
+        supabase: authClient,
+        error: null,
+      });
+
+      const res = await POST(makeRequest('POST'));
+
+      // The non-secret merchant read resolves on the authenticated client and
+      // the revoked secret resolves through the RPC helper on that same client.
+      expect(res.status).toBe(200);
+      expect(mockFetchPaystackSubaccountCode).toHaveBeenCalledWith(
+        authClient,
+        MERCHANT_ID
       );
     });
   });

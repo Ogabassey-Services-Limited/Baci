@@ -8,6 +8,7 @@ import {
   ensureCustomerWalletPaymentAccount,
   resolveCustomerWalletPaymentAccount,
 } from '@/lib/customer-wallet-payment-accounts';
+import { fetchMerchantPaystackSubaccountCode } from '@/lib/fetch-merchant-payment-secret';
 import { resolveWalletTopUpMerchant } from '@/lib/resolve-wallet-top-up-merchant';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveVtuCustomer } from '@/lib/vtu-pending-transaction';
@@ -15,8 +16,17 @@ import {
   walletFundingAccountConsentSchema,
   walletFundingAccountQuerySchema,
 } from '@/schemas/wallet-funding-account';
+import { walletAccountErrorResponse } from './wallet-funding-account-error';
 
-const MERCHANT_SELECT = 'id, slug, business_name, paystack_subaccount_code';
+// Identity only (no secret) — resolved on the caller's RLS client so an
+// unpublished merchant is indistinguishable from a nonexistent one (no oracle).
+const MERCHANT_IDENTITY_SELECT = 'id, slug, business_name';
+
+interface FundingAccountMerchantIdentity {
+  business_name: string | null;
+  id: string;
+  slug: string | null;
+}
 
 interface FundingAccountMerchant {
   business_name: string | null;
@@ -55,33 +65,6 @@ function getIdentifierParams(searchParams: URLSearchParams) {
   };
 }
 
-function walletAccountErrorStatus(code: string) {
-  if (code === 'CUSTOMER_PHONE_REQUIRED') {
-    return 400;
-  }
-
-  if (
-    code === 'GATEWAY_NOT_CONFIGURED' ||
-    code === 'WALLET_DVA_ORDER_ALIAS_CONFLICT' ||
-    code === 'WALLET_DVA_SUBACCOUNT_CONFLICT'
-  ) {
-    return 409;
-  }
-
-  if (code === 'PAYSTACK_CUSTOMER_ERROR' || code === 'PAYSTACK_DVA_ERROR') {
-    return 502;
-  }
-
-  return 500;
-}
-
-function walletAccountErrorResponse(error: CustomerWalletPaymentAccountError) {
-  return NextResponse.json(
-    { error: error.message, code: error.code },
-    { status: walletAccountErrorStatus(error.code) }
-  );
-}
-
 async function resolveMerchantAndCustomer({
   identifiers,
   supabase,
@@ -91,13 +74,15 @@ async function resolveMerchantAndCustomer({
   supabase: SupabaseClient;
   user: User;
 }): Promise<FundingAccountResolvedContext> {
-  const merchant = await resolveWalletTopUpMerchant<FundingAccountMerchant>(
-    supabase,
-    identifiers,
-    MERCHANT_SELECT
-  );
+  // Resolve identity on the caller's RLS client first — no cross-tenant oracle.
+  const identity =
+    await resolveWalletTopUpMerchant<FundingAccountMerchantIdentity>(
+      supabase,
+      identifiers,
+      MERCHANT_IDENTITY_SELECT
+    );
 
-  if (!merchant) {
+  if (!identity) {
     return {
       response: NextResponse.json(
         { error: 'Merchant not found' },
@@ -107,7 +92,7 @@ async function resolveMerchantAndCustomer({
   }
 
   const customer = await resolveVtuCustomer({
-    merchantId: merchant.id,
+    merchantId: identity.id,
     supabase,
     user,
   });
@@ -120,6 +105,16 @@ async function resolveMerchantAndCustomer({
       ),
     };
   }
+
+  // Customer is verified — only now read the revoked payment secret, via the
+  // bounded SECURITY DEFINER RPC on the caller's authenticated client.
+  const merchant: FundingAccountMerchant = {
+    ...identity,
+    paystack_subaccount_code: await fetchMerchantPaystackSubaccountCode(
+      supabase,
+      identity.id
+    ),
+  };
 
   return { customer, merchant, supabase };
 }

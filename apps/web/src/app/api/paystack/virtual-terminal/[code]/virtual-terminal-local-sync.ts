@@ -92,11 +92,15 @@ export async function clearLegacyTerminalCode(
   merchantId: string,
   code: string
 ): Promise<'legacy_clear_failed' | null> {
-  const { error } = await supabase
-    .from('merchants')
-    .update({ virtual_terminal_code: null })
-    .eq('id', merchantId)
-    .eq('virtual_terminal_code', code);
+  // Both reading and filtering on the secret `virtual_terminal_code` column are
+  // revoked from the authenticated Postgres role (42501 even for an UPDATE).
+  // The bounded SECURITY DEFINER RPC clears it atomically (only when it still
+  // equals p_code) and re-checks merchant access inside the definer, so this
+  // runs on the caller's authenticated client — never a service-role client.
+  const { error } = await supabase.rpc('clear_merchant_virtual_terminal_code', {
+    p_code: code,
+    p_merchant_id: merchantId,
+  });
 
   if (error) {
     logger.error({

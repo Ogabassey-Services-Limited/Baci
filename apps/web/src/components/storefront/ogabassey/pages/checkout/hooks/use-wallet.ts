@@ -1,6 +1,9 @@
 'use client';
 
-import type { StorefrontWalletFundingAccount } from '@baci/shared';
+import type {
+  StorefrontWalletFundingAccount,
+  StorefrontWalletTransaction,
+} from '@baci/shared';
 import {
   type Dispatch,
   type SetStateAction,
@@ -22,6 +25,12 @@ interface UseWalletReturn {
   fundingAccount: StorefrontWalletFundingAccount | null;
   requiresFundingAccountConsent: boolean;
   walletDvaEnabled: boolean;
+  /**
+   * Recent ledger rows. The funding check loop needs them as its pre-transfer
+   * baseline — `source_type` is what tells a bank-transfer top-up apart from
+   * cashback or a refund.
+   */
+  walletTransactions: StorefrontWalletTransaction[];
   setFundingAccount: (account: StorefrontWalletFundingAccount | null) => void;
   refreshWallet: () => void;
 }
@@ -35,6 +44,9 @@ export function useWallet({ userId, merchantSlug }: UseWalletOptions): UseWallet
   const [requiresFundingAccountConsent, setRequiresFundingAccountConsent] =
     useState(false);
   const [walletDvaEnabled, setWalletDvaEnabled] = useState(false);
+  const [walletTransactions, setWalletTransactions] = useState<
+    StorefrontWalletTransaction[]
+  >([]);
   const [refreshToken, setRefreshToken] = useState(0);
 
   // Clear the previous identity's wallet + funding account SYNCHRONOUSLY
@@ -52,6 +64,7 @@ export function useWallet({ userId, merchantSlug }: UseWalletOptions): UseWallet
     setFundingAccount(null);
     setRequiresFundingAccountConsent(false);
     setWalletDvaEnabled(false);
+    setWalletTransactions([]);
   }
 
   useEffect(() => {
@@ -78,6 +91,9 @@ export function useWallet({ userId, merchantSlug }: UseWalletOptions): UseWallet
             data.requiresFundingAccountConsent === true
           );
           setWalletDvaEnabled(data.walletDvaEnabled === true);
+          setWalletTransactions(
+            Array.isArray(data.transactions) ? data.transactions : []
+          );
           if (balance > 0) {
             setPayWithWallet(true);
           }
@@ -108,6 +124,7 @@ export function useWallet({ userId, merchantSlug }: UseWalletOptions): UseWallet
     fundingAccount,
     requiresFundingAccountConsent,
     walletDvaEnabled,
+    walletTransactions,
     setFundingAccount: (account) => {
       setFundingAccount(account);
       setRequiresFundingAccountConsent(!account);

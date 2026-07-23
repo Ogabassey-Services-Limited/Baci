@@ -6,6 +6,7 @@ const {
   mockAuthenticateApiRequest,
   mockCheckCsrfProtection,
   mockCreateSubaccount,
+  mockFetchPaystackSubaccountCode,
   mockGetMerchantForApiRequest,
   mockHasPermission,
   mockResolveAccountNumber,
@@ -16,6 +17,7 @@ const {
   mockAuthenticateApiRequest: vi.fn(),
   mockCheckCsrfProtection: vi.fn(),
   mockCreateSubaccount: vi.fn(),
+  mockFetchPaystackSubaccountCode: vi.fn(),
   mockGetMerchantForApiRequest: vi.fn(),
   mockHasPermission: vi.fn(),
   mockResolveAccountNumber: vi.fn(),
@@ -51,6 +53,11 @@ vi.mock('@/lib/paystack', () => ({
   updateSubaccount: (...args: unknown[]) => mockUpdateSubaccount(...args),
 }));
 
+vi.mock('@/lib/fetch-merchant-payment-secret', () => ({
+  fetchMerchantPaystackSubaccountCode: (...args: unknown[]) =>
+    mockFetchPaystackSubaccountCode(...args),
+}));
+
 import { POST } from './route';
 
 function makeRequest(
@@ -77,6 +84,10 @@ describe('POST /api/paystack/subaccount', () => {
   const mockWalletUpdateEq = vi.fn(() => ({ select: mockWalletUpdateSelect }));
   const mockWalletUpdate = vi.fn(() => ({ eq: mockWalletUpdateEq }));
   const mockRpc = vi.fn();
+  // Non-secret merchant columns are read on the authenticated client via
+  // `.select`; the revoked `paystack_subaccount_code` is read through the
+  // bounded RPC helper (mocked as `mockFetchPaystackSubaccountCode`), never a
+  // direct secret-column SELECT and never a service-role admin client.
   const mockSupabase = {
     from: vi.fn((table: string) => {
       if (table === 'merchants') {
@@ -117,6 +128,8 @@ describe('POST /api/paystack/subaccount', () => {
       throw new Error(`Unexpected table ${table}`);
     });
 
+    mockFetchPaystackSubaccountCode.mockResolvedValue(null);
+
     mockAuthenticateApiRequest.mockResolvedValue({
       user: { id: 'user-123', email: 'owner@example.com' },
       error: null,
@@ -137,7 +150,6 @@ describe('POST /api/paystack/subaccount', () => {
     mockHasPermission.mockReturnValue(true);
     mockMerchantSingle.mockResolvedValue({
       data: {
-        paystack_subaccount_code: null,
         business_name: 'Baci Store',
         country: 'NG',
         email: 'merchant@example.com',
@@ -282,7 +294,6 @@ describe('POST /api/paystack/subaccount', () => {
   it('returns 400 when neither the payload nor merchant record has a business name', async () => {
     mockMerchantSingle.mockResolvedValueOnce({
       data: {
-        paystack_subaccount_code: null,
         business_name: null,
         email: 'merchant@example.com',
         phone: '08012345678',
@@ -343,6 +354,52 @@ describe('POST /api/paystack/subaccount', () => {
     expect(mockRevalidateFeatures).toHaveBeenCalledWith('merchant-456');
   });
 
+  it('reads non-secret merchant fields on the authenticated client and the revoked paystack_subaccount_code via the bounded RPC helper', async () => {
+    const response = await POST(
+      makeRequest({
+        accountNumber: '1234567890',
+        bankCode: '044',
+        businessName: 'Baci Store',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    // Auth/permission gates ran on the authenticated client first.
+    expect(mockGetMerchantForApiRequest).toHaveBeenCalledWith(
+      mockSupabase,
+      'user-123'
+    );
+    expect(mockHasPermission).toHaveBeenCalled();
+    // Non-secret columns are read on the authenticated client, scoped to the
+    // already-resolved merchant id.
+    expect(mockMerchantSelect).toHaveBeenCalledWith(
+      'business_name, country, email, phone'
+    );
+    expect(mockMerchantSelectEq).toHaveBeenCalledWith('id', 'merchant-456');
+    // The revoked secret column is read through the SECURITY DEFINER RPC helper
+    // on the same authenticated client, never a service-role admin client.
+    expect(mockFetchPaystackSubaccountCode).toHaveBeenCalledWith(
+      mockSupabase,
+      'merchant-456'
+    );
+  });
+
+  it('does not read merchant data before authorization passes', async () => {
+    mockHasPermission.mockReturnValueOnce(false);
+
+    const response = await POST(
+      makeRequest({
+        accountNumber: '1234567890',
+        bankCode: '044',
+        businessName: 'Baci Store',
+      })
+    );
+
+    expect(response.status).toBe(403);
+    expect(mockMerchantSelect).not.toHaveBeenCalled();
+    expect(mockFetchPaystackSubaccountCode).not.toHaveBeenCalled();
+  });
+
   it('returns the saved subaccount when feature cache invalidation fails', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     mockRevalidateFeatures.mockImplementationOnce(() => {
@@ -369,7 +426,6 @@ describe('POST /api/paystack/subaccount', () => {
   it('saves manual invoice bank details for India without calling Paystack', async () => {
     mockMerchantSingle.mockResolvedValueOnce({
       data: {
-        paystack_subaccount_code: null,
         business_name: 'Yodha Shopping',
         country: 'IN',
         email: 'yodhashopping@gmail.com',
@@ -417,7 +473,6 @@ describe('POST /api/paystack/subaccount', () => {
     });
     mockMerchantSingle.mockResolvedValueOnce({
       data: {
-        paystack_subaccount_code: null,
         business_name: 'Yodha Shopping',
         country: 'IN',
         email: 'yodhashopping@gmail.com',
@@ -447,7 +502,6 @@ describe('POST /api/paystack/subaccount', () => {
   it('rejects placeholder manual invoice bank names for India', async () => {
     mockMerchantSingle.mockResolvedValueOnce({
       data: {
-        paystack_subaccount_code: null,
         business_name: 'Yodha Shopping',
         country: 'IN',
         email: 'yodhashopping@gmail.com',
@@ -497,7 +551,6 @@ describe('POST /api/paystack/subaccount', () => {
   it('rejects auto-payout changes for India bank details', async () => {
     mockMerchantSingle.mockResolvedValueOnce({
       data: {
-        paystack_subaccount_code: null,
         business_name: 'Yodha Shopping',
         country: 'IN',
         email: 'yodhashopping@gmail.com',
@@ -531,7 +584,6 @@ describe('POST /api/paystack/subaccount', () => {
   it('updates an existing subaccount instead of creating a new one', async () => {
     mockMerchantSingle.mockResolvedValueOnce({
       data: {
-        paystack_subaccount_code: 'ACCT_existing123',
         business_name: 'Baci Store',
         country: 'NG',
         email: 'merchant@example.com',
@@ -539,6 +591,8 @@ describe('POST /api/paystack/subaccount', () => {
       },
       error: null,
     });
+    // The existing subaccount code is returned by the bounded RPC helper.
+    mockFetchPaystackSubaccountCode.mockResolvedValueOnce('ACCT_existing123');
 
     const response = await POST(
       makeRequest({

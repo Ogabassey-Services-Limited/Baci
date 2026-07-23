@@ -1,0 +1,60 @@
+'use client';
+
+import type { StorefrontWallet } from '@baci/shared';
+import type { Dispatch, SetStateAction } from 'react';
+import { WALLET_FUNDING_TELEMETRY } from '@/lib/posthog/wallet-funding-events';
+import { WalletFundingPanel } from './WalletFundingPanel';
+
+interface WalletPageFundingPanelProps {
+  customerId: string | undefined;
+  customerPhone: string | null | undefined;
+  merchantSlug: string | undefined;
+  onRefresh: () => void;
+  setWallet: Dispatch<SetStateAction<StorefrontWallet | null>>;
+  wallet: StorefrontWallet | null;
+}
+
+/**
+ * Wallet-page wiring for the bank-transfer (Paystack DVA) funding panel.
+ * Extracted from `pages/wallet.tsx` so that page stays under the 300-line
+ * budget. Owns the derivations the panel needs: the account/baseline pulled
+ * from the fetched wallet, the consent gate, and the local wallet-state patch
+ * applied when an account is created.
+ */
+export function WalletPageFundingPanel({
+  customerId,
+  customerPhone,
+  merchantSlug,
+  onRefresh,
+  setWallet,
+  wallet,
+}: WalletPageFundingPanelProps) {
+  return (
+    <WalletFundingPanel
+      account={wallet?.fundingAccount ?? null}
+      customerId={customerId}
+      merchantSlug={merchantSlug}
+      onAccountCreated={(account) =>
+        setWallet((current) =>
+          current
+            ? {
+                ...current,
+                fundingAccount: account,
+                requiresFundingAccountConsent: false,
+              }
+            : current
+        )
+      }
+      onRefreshBalance={onRefresh}
+      // Baseline for the funding check loop: the top-up credits the wallet
+      // already had before the customer left to transfer.
+      walletTransactions={wallet?.transactions ?? []}
+      requiresConsent={
+        wallet?.requiresFundingAccountConsent === true &&
+        wallet?.walletDvaEnabled === true &&
+        Boolean(customerPhone?.trim())
+      }
+      surface={WALLET_FUNDING_TELEMETRY.surfaces.walletPage}
+    />
+  );
+}

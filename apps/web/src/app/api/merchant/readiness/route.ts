@@ -5,6 +5,7 @@ import {
   getLaunchPaymentRequirement,
   requiresNigerianKycForLaunch,
 } from '@/lib/checkout/payment-gateway-availability';
+import { fetchMerchantPaystackSubaccountCode } from '@/lib/fetch-merchant-payment-secret';
 import {
   getMerchantForApiRequest,
   toUserAccess,
@@ -113,6 +114,14 @@ export async function GET() {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    // Non-secret merchant columns remain granted to the `authenticated`
+    // Postgres role, so read the merchant row (owned, or resolved via the
+    // staff_members -> merchants join) on the auth-scoped client. The secret
+    // `paystack_subaccount_code` is REVOKED from that role and is fetched
+    // separately below via a bounded RPC. The `.eq('user_id', user.id)` and
+    // staff-membership filters are preserved verbatim, so scoping to the
+    // caller's own or staffed merchant is unchanged.
+
     // Get merchant with all relevant fields (only columns that exist in the table)
     // KYC readiness is derived from merchant_verifications — the legacy
     // nin/bvn/cac_rc_number columns on `merchants` are no longer read here.
@@ -128,7 +137,6 @@ export async function GET() {
         support_email,
         support_phone,
         business_address,
-        paystack_subaccount_code,
         bank_code,
         bank_account_number,
         social_media,
@@ -145,7 +153,7 @@ export async function GET() {
       .maybeSingle();
 
     // Get merchant - either as owner or staff member
-    const validMerchant = await (async () => {
+    const baseMerchant = await (async () => {
       // First, check if user owns a merchant directly
       if (!merchantError && ownedMerchant) {
         return ownedMerchant;
@@ -166,7 +174,6 @@ export async function GET() {
             support_email,
             support_phone,
             business_address,
-            paystack_subaccount_code,
             bank_code,
             bank_account_number,
             social_media,
@@ -206,12 +213,24 @@ export async function GET() {
       return merchantData as typeof ownedMerchant;
     })();
 
-    if (!validMerchant) {
+    if (!baseMerchant) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+
+    // The secret `paystack_subaccount_code` is revoked from the authenticated
+    // role; read it through the bounded SECURITY DEFINER RPC on the same
+    // authenticated client (owner/active-staff), keyed to the resolved merchant
+    // id, then merge it into the row the launch-payment gate reads.
+    const validMerchant = {
+      ...baseMerchant,
+      paystack_subaccount_code: await fetchMerchantPaystackSubaccountCode(
+        supabase,
+        baseMerchant.id
+      ),
+    };
 
     const [
       { count: publishedProductCount },

@@ -29,6 +29,11 @@ export const EXPECTED_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260722150000_s1_merchants_authenticated_containment.sql',
+    sha256: '3fdc876b7699184efe079f9d9412301eac3b893aefc193868baef6e9bb448d76',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260723000001_merchant_payment_credentials.sql',
     sha256: '67f823ff2e8758874e04d1e66365995dcf10840cf8e4db1180164e848afcc95e',
   },
@@ -116,5 +121,15 @@ export const EXPECTED_PENDING_SOURCES = [
     repositoryPath:
       'supabase/migrations/20260723000018_byok_fee_accrual_ledger.sql',
     sha256: 'de216327cc42bd2a1814771969823be8b598a3d00f4504e313a250e3f1baf5d0',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260723150000_merchant_payment_secret_rpcs.sql',
+    sha256: '36b7e8bb66b30691e633e312c8dbfea3bfee10a945007a59f0bfb8f5599991fe',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260723160000_admin_merchant_profiles_rpc.sql',
+    sha256: '28db4728fe8661bcd8083fa9bbd93b63a04c279c657b7f228d0c39cfca685e0a',
   },
 ];

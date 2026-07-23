@@ -7,6 +7,7 @@ const mockResolveVtuCustomer = vi.fn();
 const mockResolveWalletTopUpMerchant = vi.fn();
 const mockResolveCustomerWalletPaymentAccount = vi.fn();
 const mockEnsureCustomerWalletPaymentAccount = vi.fn();
+const mockFetchPaystackSubaccountCode = vi.fn();
 const mockRpc = vi.fn();
 const mockAdminClient = { role: 'server-verified-payment-account' };
 
@@ -48,6 +49,11 @@ vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: vi.fn(() => mockAdminClient),
 }));
 
+vi.mock('@/lib/fetch-merchant-payment-secret', () => ({
+  fetchMerchantPaystackSubaccountCode: (...args: unknown[]) =>
+    mockFetchPaystackSubaccountCode(...args),
+}));
+
 import { CustomerWalletPaymentAccountError } from '@/lib/customer-wallet-payment-accounts';
 import { GET, POST } from './route';
 import {
@@ -69,6 +75,9 @@ describe('/api/storefront/customer/wallet/funding-account', () => {
     mockCheckCsrfProtection.mockResolvedValue({ valid: true, response: null });
     mockResolveWalletTopUpMerchant.mockResolvedValue(merchant);
     mockResolveVtuCustomer.mockResolvedValue(customer);
+    mockFetchPaystackSubaccountCode.mockResolvedValue(
+      merchant.paystack_subaccount_code
+    );
     mockResolveCustomerWalletPaymentAccount.mockResolvedValue(walletAccount);
     mockEnsureCustomerWalletPaymentAccount.mockResolvedValue(walletAccount);
     mockRpc.mockResolvedValue({ data: true, error: null });
@@ -109,10 +118,24 @@ describe('/api/storefront/customer/wallet/funding-account', () => {
       },
       requiresConsent: false,
     });
+    // Identity is resolved on the caller's authenticated RLS client with
+    // non-secret columns, so an unpublished merchant is indistinguishable from a
+    // nonexistent one (no tenant existence oracle). The revoked
+    // paystack_subaccount_code is read via admin AFTER the customer is verified.
     expect(mockResolveWalletTopUpMerchant).toHaveBeenCalledWith(
       expect.objectContaining({ authScope: 'customer' }),
       expect.anything(),
-      expect.anything()
+      'id, slug, business_name'
+    );
+    expect(mockFetchPaystackSubaccountCode).toHaveBeenCalledWith(
+      expect.objectContaining({ authScope: 'customer' }),
+      'merchant-1'
+    );
+    // Customer resolution stays on the authenticated RLS client.
+    expect(mockResolveVtuCustomer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        supabase: expect.objectContaining({ authScope: 'customer' }),
+      })
     );
   });
 

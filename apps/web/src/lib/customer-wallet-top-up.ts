@@ -2,8 +2,13 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { deterministicEventUuid } from '@/lib/posthog/deterministic-event-uuid';
 import { captureServerEvent } from '@/lib/posthog/server';
 import { WALLET_FUNDING_TELEMETRY } from '@/lib/posthog/wallet-funding-events';
+import { WALLET_TOP_UP_TRANSACTION_TYPE } from '@/lib/wallet-top-up-source-type';
 
-export const WALLET_TOP_UP_TRANSACTION_TYPE = 'wallet_topup';
+// Re-exported so existing server-side importers keep their import path while the
+// browser-safe funding poll can read the same constant without dragging this
+// server-only module into a client bundle.
+export { WALLET_TOP_UP_TRANSACTION_TYPE };
+
 const ALLOWED_WALLET_TOP_UP_GATEWAYS = ['paystack', 'korapay'] as const;
 
 type WalletTopUpGateway = (typeof ALLOWED_WALLET_TOP_UP_GATEWAYS)[number];

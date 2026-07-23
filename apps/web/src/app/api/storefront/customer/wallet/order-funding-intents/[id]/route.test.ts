@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockAuthenticateApiRequest = vi.fn();
 const mockResolveWalletTopUpMerchant = vi.fn();
 const mockResolveVtuCustomer = vi.fn();
+const mockFetchPaystackSubaccountCode = vi.fn();
 const mockGetOrderWalletFundingIntent = vi.fn();
 const mockExpireStaleWalletFundingIntents = vi.fn();
 
@@ -15,6 +16,15 @@ vi.mock('@/lib/api-auth', () => ({
 vi.mock('@/lib/resolve-wallet-top-up-merchant', () => ({
   resolveWalletTopUpMerchant: (...args: unknown[]) =>
     mockResolveWalletTopUpMerchant(...args),
+}));
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => ({ role: 'service-role' })),
+}));
+
+vi.mock('@/lib/fetch-merchant-payment-secret', () => ({
+  fetchMerchantPaystackSubaccountCode: (...args: unknown[]) =>
+    mockFetchPaystackSubaccountCode(...args),
 }));
 
 vi.mock('@/lib/vtu-pending-transaction', () => ({
@@ -81,6 +91,9 @@ describe('/api/storefront/customer/wallet/order-funding-intents/[id]', () => {
     });
     mockResolveWalletTopUpMerchant.mockResolvedValue(merchant);
     mockResolveVtuCustomer.mockResolvedValue(customer);
+    mockFetchPaystackSubaccountCode.mockResolvedValue(
+      merchant.paystack_subaccount_code
+    );
     mockExpireStaleWalletFundingIntents.mockResolvedValue(undefined);
     mockGetOrderWalletFundingIntent.mockResolvedValue(intent);
   });

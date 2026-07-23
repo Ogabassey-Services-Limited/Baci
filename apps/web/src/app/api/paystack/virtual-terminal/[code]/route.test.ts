@@ -12,6 +12,8 @@ type MerchantContext = {
 };
 
 const {
+  mockAdminFrom,
+  mockAdminRpc,
   mockDeactivateVirtualTerminal,
   mockFetchVirtualTerminal,
   mockFrom,
@@ -21,11 +23,15 @@ const {
   mockSupabase,
   mockUpdateVirtualTerminal,
 } = vi.hoisted(() => {
+  const mockAdminFrom = vi.fn();
+  const mockAdminRpc = vi.fn();
   const mockFrom = vi.fn();
   const mockGetUser = vi.fn();
   const mockRpc = vi.fn();
 
   return {
+    mockAdminFrom,
+    mockAdminRpc,
     mockDeactivateVirtualTerminal: vi.fn(),
     mockFetchVirtualTerminal: vi.fn(),
     mockFrom,
@@ -50,7 +56,7 @@ vi.mock('@/lib/supabase/server', () => ({
 }));
 
 vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: vi.fn(() => ({ rpc: mockRpc })),
+  createAdminClient: vi.fn(() => ({ from: mockAdminFrom, rpc: mockAdminRpc })),
 }));
 
 vi.mock('@/lib/api-auth', () => ({
@@ -187,7 +193,7 @@ describe('/api/paystack/virtual-terminal/[code]', () => {
       },
       success: true,
     });
-    mockRpc.mockResolvedValue({ data: 'terminal-1', error: null });
+    mockAdminRpc.mockResolvedValue({ data: 'terminal-1', error: null });
 
     const response = await PUT(
       createRequest('PUT', { name: 'Sales Terminal' }),
@@ -195,7 +201,7 @@ describe('/api/paystack/virtual-terminal/[code]', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mockRpc).toHaveBeenCalledWith('sync_virtual_terminal_local', {
+    expect(mockAdminRpc).toHaveBeenCalledWith('sync_virtual_terminal_local', {
       p_account_name: 'Test Store',
       p_account_number: '1234567890',
       p_active: null,
@@ -236,7 +242,7 @@ describe('/api/paystack/virtual-terminal/[code]', () => {
       },
       success: true,
     });
-    mockRpc.mockResolvedValue({ data: 'terminal-1', error: null });
+    mockAdminRpc.mockResolvedValue({ data: 'terminal-1', error: null });
 
     const response = await PUT(
       createRequest('PUT', { name: 'Sales Terminal' }),
@@ -244,7 +250,7 @@ describe('/api/paystack/virtual-terminal/[code]', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mockRpc).toHaveBeenCalledWith('sync_virtual_terminal_local', {
+    expect(mockAdminRpc).toHaveBeenCalledWith('sync_virtual_terminal_local', {
       p_account_name: 'Test Store',
       p_account_number: '1234567890',
       p_active: null,
@@ -253,6 +259,48 @@ describe('/api/paystack/virtual-terminal/[code]', () => {
       p_merchant_id: MERCHANT_ID,
       p_name: 'Sales Terminal',
     });
+  });
+
+  it('deactivates a terminal and clears the legacy code through the bounded RPC on the authenticated client', async () => {
+    const terminalLookup = createMerchantLookup(null);
+    terminalLookup.maybeSingle.mockResolvedValue({
+      data: { id: 'terminal-1' },
+      error: null,
+    });
+    // Authenticated client only handles the ownership lookup and the bounded
+    // legacy-clear RPC.
+    mockFrom.mockReturnValue(terminalLookup);
+    mockDeactivateVirtualTerminal.mockResolvedValue({
+      data: { code: TERMINAL_CODE },
+      success: true,
+    });
+    // The local terminal deactivation legitimately runs on the admin RPC.
+    mockAdminRpc.mockResolvedValue({ data: 'terminal-1', error: null });
+    // The secret column can neither be read nor filtered by the authenticated
+    // role, so the legacy clear runs through the bounded SECURITY DEFINER RPC on
+    // the authenticated client.
+    mockRpc.mockResolvedValue({ data: null, error: null });
+
+    const response = await DELETE(createRequest('DELETE'), createParams());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      success: true,
+      message: 'Virtual Terminal deactivated',
+    });
+    // The legacy clear ran through the bounded RPC on the authenticated client,
+    // scoped to the owning merchant and constrained to the terminal code.
+    expect(mockRpc).toHaveBeenCalledWith(
+      'clear_merchant_virtual_terminal_code',
+      {
+        p_code: TERMINAL_CODE,
+        p_merchant_id: MERCHANT_ID,
+      }
+    );
+    // The secret column is never read or filtered through a service-role client.
+    expect(mockAdminFrom).not.toHaveBeenCalledWith('merchants');
+    expect(mockFrom).not.toHaveBeenCalledWith('merchants');
   });
 
   it('syncs a rename when the Paystack response omits paymentMethods', async () => {
@@ -275,7 +323,7 @@ describe('/api/paystack/virtual-terminal/[code]', () => {
       data: { code: TERMINAL_CODE },
       success: true,
     });
-    mockRpc.mockResolvedValue({ data: 'terminal-1', error: null });
+    mockAdminRpc.mockResolvedValue({ data: 'terminal-1', error: null });
 
     const response = await PUT(
       createRequest('PUT', { name: 'Sales Terminal' }),
@@ -283,7 +331,7 @@ describe('/api/paystack/virtual-terminal/[code]', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mockRpc).toHaveBeenCalledWith('sync_virtual_terminal_local', {
+    expect(mockAdminRpc).toHaveBeenCalledWith('sync_virtual_terminal_local', {
       p_account_name: null,
       p_account_number: null,
       p_active: null,

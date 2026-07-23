@@ -1,16 +1,21 @@
+import { useState } from 'react';
 import { vi } from 'vitest';
 import { toast } from '@/hooks/use-toast';
 import { fetchWithCsrf } from '@/lib/api-client';
 
 const {
+  mockAirtimeMountCount,
   mockAirtimeSubmitAmount,
+  mockBillMountCount,
   mockCaptureClientEvent,
   mockFetchWithCsrf,
   mockRedirectToPaymentCheckout,
   mockUseCustomerAuth,
   mockUseWallet,
 } = vi.hoisted(() => ({
+  mockAirtimeMountCount: { current: 0 },
   mockAirtimeSubmitAmount: { current: 100 },
+  mockBillMountCount: { current: 0 },
   mockCaptureClientEvent: vi.fn(),
   mockFetchWithCsrf: vi.fn(),
   mockRedirectToPaymentCheckout: vi.fn(),
@@ -41,19 +46,56 @@ vi.mock('./utility-checkout', async (importOriginal) => {
 
 vi.mock('./utility/AirtimeDataForm', () => ({
   AirtimeDataForm: ({
+    initialDraft,
     loading,
+    onDraftChange,
     onSubmit,
     type,
   }: {
+    initialDraft?: {
+      amount: string;
+      networkProvider: string | null;
+      phoneNumber: string;
+    };
     loading: boolean;
+    onDraftChange?: (draft: {
+      amount: string;
+      networkProvider: string | null;
+      phoneNumber: string;
+    }) => void;
     onSubmit: (data: Record<string, unknown>) => void;
     type: string;
-  }) => (
+  }) => {
+    // A fresh instance id is minted only on MOUNT (lazy useState initializer),
+    // mirroring the real AirtimeDataForm reading `initialDraft` once via
+    // `useState`. A key change remounts and bumps this id; a plain re-render
+    // does not — letting tests assert whether a form was remounted (and thus
+    // would have lost input focus) versus merely re-rendered.
+    const instance = useState(() => {
+      mockAirtimeMountCount.current += 1;
+      return mockAirtimeMountCount.current;
+    })[0];
+    return (
     <div
       data-testid="airtime-data-form"
       data-type={type}
       data-loading={String(loading)}
+      data-instance={String(instance)}
+      data-initial-amount={initialDraft?.amount ?? ''}
+      data-initial-phone={initialDraft?.phoneNumber ?? ''}
     >
+      <button
+        type="button"
+        onClick={() =>
+          onDraftChange?.({
+            amount: '750',
+            networkProvider: 'MTN',
+            phoneNumber: '08012345678',
+          })
+        }
+      >
+        Mock Draft Change
+      </button>
       <button
         type="button"
         onClick={() =>
@@ -67,7 +109,8 @@ vi.mock('./utility/AirtimeDataForm', () => ({
         Mock Submit
       </button>
     </div>
-  ),
+    );
+  },
 }));
 
 vi.mock('./utility/BillPaymentForm', () => ({
@@ -79,28 +122,38 @@ vi.mock('./utility/BillPaymentForm', () => ({
     loading: boolean;
     onSubmit: (data: Record<string, unknown>) => void;
     type: string;
-  }) => (
-    <div
-      data-testid="bill-payment-form"
-      data-type={type}
-      data-loading={String(loading)}
-    >
-      <button
-        type="button"
-        onClick={() =>
-          onSubmit({
-            amount: 5000,
-            billerName: 'DStv',
-            billItemIdentifier: 'DSTV',
-            customerIdentifier: '123',
-            type: 'cable_tv',
-          })
-        }
+  }) => {
+    // Fresh instance id per MOUNT (see AirtimeDataForm mock), so a test can
+    // assert the bill form remounts — and thus drops customer A's typed
+    // meter/smartcard id, amount and verified address — on a customer switch.
+    const instance = useState(() => {
+      mockBillMountCount.current += 1;
+      return mockBillMountCount.current;
+    })[0];
+    return (
+      <div
+        data-testid="bill-payment-form"
+        data-type={type}
+        data-loading={String(loading)}
+        data-instance={String(instance)}
       >
-        Mock Bill Submit
-      </button>
-    </div>
-  ),
+        <button
+          type="button"
+          onClick={() =>
+            onSubmit({
+              amount: 5000,
+              billerName: 'DStv',
+              billItemIdentifier: 'DSTV',
+              customerIdentifier: '123',
+              type: 'cable_tv',
+            })
+          }
+        >
+          Mock Bill Submit
+        </button>
+      </div>
+    );
+  },
 }));
 
 vi.mock('@/hooks/use-merchant-client', () => ({
@@ -156,6 +209,8 @@ export const utilityModalTestHarness = {
     this.checkoutFetch.mockReset();
     mockRedirectToPaymentCheckout.mockReset();
     mockCaptureClientEvent.mockReset();
+    mockAirtimeMountCount.current = 0;
+    mockBillMountCount.current = 0;
     mockAirtimeSubmitAmount.current = 100;
     mockUseCustomerAuth.mockReturnValue({
       customer: {

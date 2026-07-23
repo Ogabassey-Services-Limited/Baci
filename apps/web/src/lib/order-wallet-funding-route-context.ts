@@ -1,49 +1,50 @@
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { fetchMerchantPaystackSubaccountCode } from '@/lib/fetch-merchant-payment-secret';
 import { logger } from '@/lib/logger';
 import { resolveWalletTopUpMerchant } from '@/lib/resolve-wallet-top-up-merchant';
 import { resolveVtuCustomer } from '@/lib/vtu-pending-transaction';
 
-export type OrderFundingRouteContext<TMerchant> =
+export interface OrderFundingMerchant {
+  business_name: string | null;
+  id: string;
+  paystack_subaccount_code: string | null;
+  slug: string | null;
+}
+
+interface OrderFundingMerchantIdentity {
+  business_name: string | null;
+  id: string;
+  slug: string | null;
+}
+
+export type OrderFundingRouteContext =
   | {
       customer: NonNullable<Awaited<ReturnType<typeof resolveVtuCustomer>>>;
-      merchant: TMerchant;
+      merchant: OrderFundingMerchant;
     }
   | { response: NextResponse };
 
-export const ORDER_FUNDING_MERCHANT_SELECT =
-  'id, slug, business_name, paystack_subaccount_code';
+// Identity only (no secret) — resolved on the caller's RLS client so an
+// unpublished merchant is indistinguishable from a nonexistent one (no oracle).
+const ORDER_FUNDING_MERCHANT_IDENTITY_SELECT = 'id, slug, business_name';
 
-const ALLOWED_ORDER_FUNDING_MERCHANT_SELECTS = new Set([
-  ORDER_FUNDING_MERCHANT_SELECT,
-]);
-
-function assertOrderFundingMerchantSelect(merchantSelect: string) {
-  if (!ALLOWED_ORDER_FUNDING_MERCHANT_SELECTS.has(merchantSelect)) {
-    throw new Error('Unsupported order-funding merchant select');
-  }
-  return merchantSelect;
-}
-
-export async function resolveOrderFundingMerchantAndCustomer<
-  TMerchant extends { id: string },
->({
+export async function resolveOrderFundingMerchantAndCustomer({
   identifiers,
-  merchantSelect,
   supabase,
   user,
 }: {
   identifiers: { merchantId?: string; merchantSlug?: string };
-  merchantSelect: string;
   supabase: SupabaseClient;
   user: User;
-}): Promise<OrderFundingRouteContext<TMerchant>> {
-  let merchant: TMerchant | null;
+}): Promise<OrderFundingRouteContext> {
+  let identity: OrderFundingMerchantIdentity | null;
   try {
-    merchant = await resolveWalletTopUpMerchant<TMerchant>(
+    // Resolve identity on the caller's RLS client first — no cross-tenant oracle.
+    identity = await resolveWalletTopUpMerchant<OrderFundingMerchantIdentity>(
       supabase,
       identifiers,
-      assertOrderFundingMerchantSelect(merchantSelect)
+      ORDER_FUNDING_MERCHANT_IDENTITY_SELECT
     );
   } catch (error) {
     logger.error({
@@ -58,7 +59,7 @@ export async function resolveOrderFundingMerchantAndCustomer<
       ),
     };
   }
-  if (!merchant) {
+  if (!identity) {
     return {
       response: NextResponse.json(
         { error: 'Merchant not found' },
@@ -70,14 +71,14 @@ export async function resolveOrderFundingMerchantAndCustomer<
   let customer: Awaited<ReturnType<typeof resolveVtuCustomer>>;
   try {
     customer = await resolveVtuCustomer({
-      merchantId: merchant.id,
+      merchantId: identity.id,
       supabase,
       user,
     });
   } catch (error) {
     logger.error({
       error,
-      merchantId: merchant.id,
+      merchantId: identity.id,
       message: 'Failed to resolve order-funding customer context',
     });
     return {
@@ -95,6 +96,16 @@ export async function resolveOrderFundingMerchantAndCustomer<
       ),
     };
   }
+
+  // Customer is verified — only now read the revoked payment secret, via the
+  // bounded SECURITY DEFINER RPC on the caller's authenticated client.
+  const merchant: OrderFundingMerchant = {
+    ...identity,
+    paystack_subaccount_code: await fetchMerchantPaystackSubaccountCode(
+      supabase,
+      identity.id
+    ),
+  };
 
   return { customer, merchant };
 }
