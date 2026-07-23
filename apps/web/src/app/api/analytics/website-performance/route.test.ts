@@ -6,6 +6,7 @@ const mockGetMerchantForApiRequest = vi.fn();
 const mockHasPermission = vi.fn();
 const mockToUserAccess = vi.fn();
 const mockRequestGemmaCompletion = vi.fn();
+const mockGenerateTextWithChain = vi.fn();
 const mockGetAiChatModel = vi.fn();
 const mockGetAiChatProvider = vi.fn();
 const mockGetLlmChatModel = vi.fn();
@@ -18,6 +19,11 @@ vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) =>
     mockAuthenticateApiRequest(...args),
   hasPermission: (...args: unknown[]) => mockHasPermission(...args),
+}));
+
+vi.mock('@/ai/generate-text-with-chain', () => ({
+  generateTextWithChain: (...args: unknown[]) =>
+    mockGenerateTextWithChain(...args),
 }));
 
 vi.mock('@/lib/get-merchant-for-api-request', () => ({
@@ -86,6 +92,12 @@ describe('GET /api/analytics/website-performance', () => {
     mockGetLlmServerUrl.mockReturnValue('https://llm.example.com');
     mockGetOllamaBaseUrl.mockReturnValue('http://127.0.0.1:11434');
     mockGetOllamaBasicAuth.mockReturnValue('user:pass');
+    // Default: the cloud provider chain is exhausted, so every legacy-focused
+    // test below (unchanged from before the chain was wired in) exercises the
+    // VPS Gemma fallback path.
+    mockGenerateTextWithChain.mockRejectedValue(
+      new Error('all text providers failed')
+    );
   });
 
   it('returns 401 when auth fails', async () => {
@@ -547,6 +559,60 @@ describe('GET /api/analytics/website-performance', () => {
         'Website performance data aggregated successfully.',
         'No significant search or conversion trends detected in this period.',
       ],
+    });
+  });
+
+  it('serves AI insights from the cloud provider chain without calling the legacy VPS transport', async () => {
+    mockSuccessfulAnalyticsAggregation();
+    mockGenerateTextWithChain.mockReset().mockResolvedValueOnce({
+      providerName: 'cerebras:gemma-4-31b',
+      text: '- Best seller is trending up\n- Search conversion looks healthy',
+    });
+
+    const response = await GET(
+      createRequest(
+        'http://localhost/api/analytics/website-performance?startDate=2026-04-01T00:00:00.000Z&endDate=2026-04-10T23:59:59.999Z'
+      )
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.aiInsights).toEqual({
+      insights: [
+        'Best seller is trending up',
+        'Search conversion looks healthy',
+      ],
+    });
+    expect(mockGenerateTextWithChain).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: expect.stringContaining('website performance metrics'),
+        perProviderTimeoutMs: 8_000,
+      })
+    );
+    expect(mockRequestGemmaCompletion).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the legacy VPS transport once the cloud provider chain is exhausted', async () => {
+    mockSuccessfulAnalyticsAggregation();
+    mockRequestGemmaCompletion.mockResolvedValueOnce({
+      status: 'success',
+      data: { insights: ['Served by the VPS fallback'] },
+    });
+
+    const response = await GET(
+      createRequest(
+        'http://localhost/api/analytics/website-performance?startDate=2026-04-01T00:00:00.000Z&endDate=2026-04-10T23:59:59.999Z'
+      )
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    // Default beforeEach mock rejects the chain, so this exercises the
+    // exhaustion -> legacy fallback path.
+    expect(mockGenerateTextWithChain).toHaveBeenCalledTimes(1);
+    expect(mockRequestGemmaCompletion).toHaveBeenCalledTimes(1);
+    expect(body.aiInsights).toEqual({
+      insights: ['Served by the VPS fallback'],
     });
   });
 });

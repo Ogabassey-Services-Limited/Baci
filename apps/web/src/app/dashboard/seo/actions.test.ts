@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const MERCHANT_ID = '0b9f6b1a-3c2d-4e5f-8a7b-9c0d1e2f3a4b';
 const OTHER_MERCHANT_ID = '9f8e7d6c-5b4a-4f3e-8d2c-1b0a9f8e7d6c';
@@ -13,7 +13,16 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('ai', () => ({ generateText: mocks.generateText }));
-vi.mock('@/ai/provider', () => ({ geminiFlash: {} }));
+// generateTextWithChain builds its default chain via @/ai/text-provider-chain,
+// which reads these exports from @/ai/provider — extend the partial mock with
+// them (real chain/executor modules run unmocked, only their model source is
+// stubbed) rather than stubbing the whole chain layer.
+vi.mock('@/ai/provider', () => ({
+  ACTIVE_TEXT_MODEL_NAME: 'gemini-2.5-flash',
+  FALLBACK_TEXT_MODEL_NAME: 'gemini-2.5-flash-lite',
+  activeTextModel: 'gemini-active-test-model',
+  fallbackTextModel: 'gemini-fallback-test-model',
+}));
 vi.mock('next/cache', () => ({ revalidatePath: mocks.revalidatePath }));
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({})) }));
 
@@ -113,7 +122,16 @@ function authenticate() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Force the keyless (Gemini-only, 2-provider) chain so provider-count
+  // assertions below are deterministic regardless of ambient env.
+  vi.stubEnv('CEREBRAS_API_KEY', '');
+  vi.stubEnv('GROQ_API_KEY', '');
+  vi.stubEnv('OPENROUTER_API_KEY', '');
   mocks.getUser.mockResolvedValue({ data: { user: null }, error: null });
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 describe('getSEOStatus', () => {
@@ -217,6 +235,42 @@ describe('generateSEOSuggestions', () => {
     expect(builder.eq).toHaveBeenCalledWith('merchant_id', MERCHANT_ID);
     expect(result).toHaveLength(1);
     expect(result[0].optimized.meta_title).toBe(validOptimization.meta_title);
+  });
+
+  it('falls through to the fallback provider before returning a result', async () => {
+    authenticate();
+    const builder = createQueryBuilder({ data: [product] });
+    mocks.from.mockReturnValue(builder);
+    mocks.generateText
+      .mockRejectedValueOnce(new Error('primary quota exceeded'))
+      .mockResolvedValueOnce({
+        text: JSON.stringify({
+          meta_title: validOptimization.meta_title,
+          meta_description: validOptimization.meta_description,
+          keywords: validOptimization.keywords,
+          focus_keyword: 'leather tote',
+          suggestions: [],
+        }),
+      });
+
+    const result = await generateSEOSuggestions(MERCHANT_ID, [PRODUCT_ID]);
+
+    expect(mocks.generateText).toHaveBeenCalledTimes(2);
+    expect(result).toHaveLength(1);
+    expect(result[0].optimized.meta_title).toBe(validOptimization.meta_title);
+  });
+
+  it('skips a product without throwing when its entire AI provider chain is exhausted', async () => {
+    authenticate();
+    const builder = createQueryBuilder({ data: [product] });
+    mocks.from.mockReturnValue(builder);
+    mocks.generateText.mockRejectedValue(new Error('quota exceeded'));
+
+    const result = await generateSEOSuggestions(MERCHANT_ID, [PRODUCT_ID]);
+
+    expect(result).toEqual([]);
+    // Keyless env => 2-provider Gemini-only text chain; both attempted.
+    expect(mocks.generateText).toHaveBeenCalledTimes(2);
   });
 });
 

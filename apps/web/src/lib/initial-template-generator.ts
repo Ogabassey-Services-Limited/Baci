@@ -1,7 +1,6 @@
 import type { Data } from '@puckeditor/core';
-import { generateObject } from 'ai';
 import z from 'zod';
-import { activeTextModel } from '@/ai/provider';
+import { generateObjectWithChain } from '@/ai/generate-object-with-chain';
 import {
   getInitialTemplateProfile,
   normalizeBusinessType,
@@ -46,12 +45,17 @@ async function generateAIContent(
   businessType: string
 ): Promise<AIContent | null> {
   try {
-    const { object } = await generateObject({
-      model: activeTextModel,
+    // Onboarding critical path: a slow provider must not stall signup, so
+    // each chain attempt gets a tighter budget than the 25s default before
+    // the walk moves on to the next provider.
+    const { object } = await generateObjectWithChain({
       schema: aiContentSchema,
-      prompt: `Generate 3 hero carousel slides (title, subtitle) and 3 unique features (title, description, icon name from lucide-react) for a "${businessType}" business named "${businessName}". 
+      perProviderTimeoutMs: 10_000,
+      prompt: `Generate 3 hero carousel slides (title, subtitle) and 3 unique features (title, description, icon name from lucide-react) for a "${businessType}" business named "${businessName}".
       The tone should be professional, engaging, and specific to the industry.
-      For the icon, use only valid kebab-case Lucide icon names (e.g., 'shopping-bag', 'star', 'truck', 'shield-check').`,
+      For the icon, use only valid kebab-case Lucide icon names (e.g., 'shopping-bag', 'star', 'truck', 'shield-check').
+
+      Return JSON in exactly this shape: {"hero": [{"title": string, "subtitle": string}], "features": [{"title": string, "description": string, "icon": string}]} — "hero" and "features" must each contain exactly 3 items.`,
     });
     return object;
   } catch (error) {
