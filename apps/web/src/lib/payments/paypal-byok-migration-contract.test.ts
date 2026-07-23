@@ -15,7 +15,7 @@ function readMigration(fileName: string): string {
 describe('PayPal BYOK migration contracts', () => {
   it('atomically serializes both credential-role replacements', () => {
     const sql = readMigration(
-      '20260714162000_replace_merchant_payment_credential_pair.sql'
+      '20260723000013_replace_merchant_payment_credential_pair.sql'
     );
 
     expect(sql).toContain(
@@ -68,7 +68,7 @@ describe('PayPal BYOK migration contracts', () => {
 
   it('preserves and validates the authoritative settlement foreign key', () => {
     const sql = readMigration(
-      '20260712100001_orders_paid_transaction_marker.sql'
+      '20260723000005_orders_paid_transaction_marker.sql'
     );
 
     expect(sql).toContain("conrelid = 'public.orders'::regclass");
@@ -85,7 +85,7 @@ describe('PayPal BYOK migration contracts', () => {
 
   it('builds the settlement-marker index concurrently', () => {
     const sql = readMigration(
-      '20260712100002_orders_paid_transaction_marker_index.sql'
+      '20260723000006_orders_paid_transaction_marker_index.sql'
     );
 
     expect(sql.startsWith('-- disable-transaction')).toBe(true);
@@ -114,10 +114,10 @@ describe('PayPal BYOK migration contracts', () => {
 
   it('builds the refund-pending index concurrently', () => {
     const statusSql = readMigration(
-      '20260714090001_transactions_refund_statuses.sql'
+      '20260723000010_transactions_refund_statuses.sql'
     );
     const indexSql = readMigration(
-      '20260714090002_transactions_refund_pending_index.sql'
+      '20260723000011_transactions_refund_pending_index.sql'
     );
 
     expect(statusSql).not.toContain('CREATE INDEX');
@@ -170,7 +170,7 @@ describe('PayPal BYOK migration contracts', () => {
 
   it('preserves the PayPal capture-persist reconciliation review type', () => {
     const sql = readMigration(
-      '20260714130000_include_paypal_capture_persist_review_type.sql'
+      '20260723000012_include_paypal_capture_persist_review_type.sql'
     );
 
     expect(sql).toContain(
@@ -209,7 +209,7 @@ describe('PayPal BYOK migration contracts', () => {
 
   it('removes legacy touch RPCs after atomic replacement owns validation', () => {
     const scopedTouchSql = readMigration(
-      '20260713140001_touch_merchant_credential_validated_by_environment.sql'
+      '20260723000008_touch_merchant_credential_validated_by_environment.sql'
     );
     const compactTouchSql = scopedTouchSql.replace(/\s+/g, ' ');
     expect(compactTouchSql).toMatch(
@@ -222,14 +222,14 @@ describe('PayPal BYOK migration contracts', () => {
     expect(compactTouchSql).toContain("USING ERRCODE = '22023'");
 
     const replacementSql = readMigration(
-      '20260714162000_replace_merchant_payment_credential_pair.sql'
+      '20260723000013_replace_merchant_payment_credential_pair.sql'
     ).replace(/\s+/g, ' ');
     expect(replacementSql).toMatch(
       /last_validated_at, last_validation_error[\s\S]*pg_catalog\.now\(\), NULL[\s\S]*last_validated_at = pg_catalog\.now\(\)/
     );
 
     const cleanupSql = readMigration(
-      '20260714162200_drop_legacy_credential_validation_touch.sql'
+      '20260723000015_drop_legacy_credential_validation_touch.sql'
     );
     expect(cleanupSql).toContain(
       'DROP FUNCTION IF EXISTS public.touch_merchant_payment_credential_validated(uuid, text);'
@@ -241,7 +241,7 @@ describe('PayPal BYOK migration contracts', () => {
 
   it('publishes PayPal flags but minimizes unpublished storefront snapshots', () => {
     const sql = readMigration(
-      '20260713150001_public_snapshot_paypal_flags.sql'
+      '20260723000009_public_snapshot_paypal_flags.sql'
     );
 
     const expectedCustomSettings = `
@@ -269,7 +269,7 @@ describe('PayPal BYOK migration contracts', () => {
 
   it('atomically terminalizes PayPal refund audits with locked metadata merge', () => {
     const sql = readMigration(
-      '20260714162300_mark_paypal_transaction_refunded.sql'
+      '20260723000016_mark_paypal_transaction_refunded.sql'
     );
     const compactSql = sql.replace(/\s+/g, ' ');
 
@@ -295,7 +295,7 @@ describe('PayPal BYOK migration contracts', () => {
 
   it('returns merchant country through the bounded order payment snapshot', () => {
     const sql = readMigration(
-      '20260714162400_order_payment_snapshot_merchant_country.sql'
+      '20260723000017_order_payment_snapshot_merchant_country.sql'
     );
     const compactSql = sql.replace(/\s+/g, ' ');
 
@@ -311,7 +311,7 @@ describe('PayPal BYOK migration contracts', () => {
 
   it('atomically preserves the first savings-reversal audit transition', () => {
     const sql = readMigration(
-      '20260714162100_mark_savings_redemptions_reversed.sql'
+      '20260723000014_mark_savings_redemptions_reversed.sql'
     );
     const compactSql = sql.replace(/\s+/g, ' ');
 
