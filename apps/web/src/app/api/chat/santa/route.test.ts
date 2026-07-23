@@ -1,24 +1,13 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ---- Module-scope mutable state for controlling mocks ----
 let rateLimitAllowed = true;
 let rateLimitResetIn = 0;
 let mockProducts = 'Product List Here';
-let streamTextError: Error | null = null;
 
 // ---- Mocks ----
 
-vi.mock('ai', () => ({
-  streamText: vi.fn(() => {
-    if (streamTextError) throw streamTextError;
-    return {
-      toTextStreamResponse: () =>
-        new Response('Ho ho ho!', {
-          headers: { 'Content-Type': 'text/plain' },
-        }),
-    };
-  }),
-}));
+vi.mock('ai', () => ({ generateText: vi.fn() }));
 
 vi.mock('next/headers', () => ({
   headers: vi.fn(async () => ({
@@ -30,6 +19,10 @@ vi.mock('next/headers', () => ({
   })),
 }));
 
+// Partial mock of @/ai/provider: santa/route.ts consumes checkRateLimit +
+// AI_RATE_LIMITS directly; the real (unmocked) @/ai/text-provider-chain
+// consumes the model exports below to build the real provider chain, so
+// generateTextWithChain runs for real against the mocked `ai`.generateText.
 vi.mock('@/ai/provider', () => ({
   checkRateLimit: vi.fn(() =>
     rateLimitAllowed
@@ -37,7 +30,10 @@ vi.mock('@/ai/provider', () => ({
       : { allowed: false, resetIn: rateLimitResetIn }
   ),
   AI_RATE_LIMITS: { santa: { requests: 10, windowMs: 60000 } },
-  activeTextModel: 'mock-model',
+  ACTIVE_TEXT_MODEL_NAME: 'gemini-2.5-flash',
+  FALLBACK_TEXT_MODEL_NAME: 'gemini-2.5-flash-lite',
+  activeTextModel: 'mock-active-model',
+  fallbackTextModel: 'mock-fallback-model',
 }));
 
 vi.mock('@/ai/santa-data', () => ({
@@ -63,11 +59,23 @@ vi.mock('@/ai/prompts/santa', () => ({
 }));
 
 // ---- Import handler AFTER mocks ----
-import { streamText } from 'ai';
+import { generateText } from 'ai';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { POST } from './route';
 
 // ---- Helpers ----
+
+type GenerateTextResult = Awaited<ReturnType<typeof generateText>>;
+
+function respondByModel(map: Record<string, string | Error>) {
+  vi.mocked(generateText).mockImplementation(((opts: { model: string }) => {
+    const behavior = map[opts.model];
+    if (behavior instanceof Error) {
+      return Promise.reject(behavior);
+    }
+    return Promise.resolve({ text: behavior } as GenerateTextResult);
+  }) as unknown as typeof generateText);
+}
 
 function makeRequest(body: unknown): Request {
   return new Request('http://localhost:3000/api/chat/santa', {
@@ -93,7 +101,12 @@ describe('POST /api/chat/santa', () => {
     rateLimitAllowed = true;
     rateLimitResetIn = 0;
     mockProducts = 'Product List Here';
-    streamTextError = null;
+    // Default: the leading (active) provider succeeds immediately.
+    respondByModel({ 'mock-active-model': 'Ho ho ho!' });
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it('returns 429 when rate limit is exceeded', async () => {
@@ -152,7 +165,7 @@ describe('POST /api/chat/santa', () => {
     expect(json.error).toBe('Invalid input');
   });
 
-  it('returns streaming text response on success', async () => {
+  it('returns a buffered text response on success', async () => {
     // Act
     const response = await POST(
       makeRequest({
@@ -162,6 +175,9 @@ describe('POST /api/chat/santa', () => {
 
     // Assert
     expect(response.status).toBe(200);
+    expect(response.headers.get('Content-Type')).toBe(
+      'text/plain; charset=utf-8'
+    );
     const text = await response.text();
     expect(text).toBe('Ho ho ho!');
   });
@@ -178,7 +194,7 @@ describe('POST /api/chat/santa', () => {
     expect(sanitizeHtml).toHaveBeenCalledWith('<script>alert("xss")</script>');
   });
 
-  it('calls streamText with correct model and system prompt', async () => {
+  it('calls generateText with the active model, system prompt, and abort signal', async () => {
     // Act
     await POST(
       makeRequest({
@@ -187,20 +203,44 @@ describe('POST /api/chat/santa', () => {
     );
 
     // Assert
-    expect(streamText).toHaveBeenCalledWith(
+    expect(generateText).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: 'mock-model',
+        model: 'mock-active-model',
         system: expect.stringContaining('Santa Claus'),
         messages: expect.arrayContaining([
           expect.objectContaining({ role: 'user', content: 'Hello' }),
         ]),
+        abortSignal: expect.any(AbortSignal),
       })
     );
   });
 
-  it('returns 500 on internal error', async () => {
+  it('falls through to the fallback model when the active model fails', async () => {
+    // Arrange - keyless test env resolves to [google active, google fallback]
+    respondByModel({
+      'mock-active-model': new Error('429 rate limited'),
+      'mock-fallback-model': 'Fallback ho ho ho!',
+    });
+
+    // Act
+    const response = await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'I want a phone!' }],
+      })
+    );
+    const text = await response.text();
+
+    // Assert
+    expect(response.status).toBe(200);
+    expect(text).toBe('Fallback ho ho ho!');
+  });
+
+  it('returns 500 when every provider in the chain fails', async () => {
     // Arrange
-    streamTextError = new Error('AI service down');
+    respondByModel({
+      'mock-active-model': new Error('AI service down'),
+      'mock-fallback-model': new Error('AI service down'),
+    });
 
     // Act
     const response = await POST(

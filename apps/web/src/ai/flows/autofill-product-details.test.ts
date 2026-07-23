@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   ensurePermission: vi.fn(),
@@ -10,8 +10,14 @@ vi.mock('ai', () => ({
   generateObject: mocks.generateObject,
 }));
 
+// generateObjectWithChain (the real executor) constructs its default chain
+// via @/ai/provider — extend rather than replace this mock so construction
+// keeps working when a test exercises the real executor.
 vi.mock('@/ai/provider', () => ({
-  activeTextModel: {},
+  ACTIVE_TEXT_MODEL_NAME: 'gemini-2.5-flash',
+  activeTextModel: { id: 'gemini-2.5-flash' },
+  FALLBACK_TEXT_MODEL_NAME: 'gemini-2.5-flash-lite',
+  fallbackTextModel: { id: 'gemini-2.5-flash-lite' },
   sanitizePromptInput: (input: string, maxLength: number) => ({
     value: input.slice(0, maxLength),
     metadata: {
@@ -67,6 +73,11 @@ const generatedDetails = {
 describe('autofillProductDetails', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Force the deterministic Gemini-only chain (no Cerebras/Groq keys) so
+    // provider-count assertions below are stable regardless of ambient env.
+    vi.stubEnv('CEREBRAS_API_KEY', '');
+    vi.stubEnv('GROQ_API_KEY', '');
+    vi.stubEnv('OPENROUTER_API_KEY', '');
     mocks.getUser.mockResolvedValue({
       data: { user: { id: 'user-1' } },
       error: null,
@@ -76,6 +87,10 @@ describe('autofillProductDetails', () => {
       staffAccess: { isOwner: true },
     });
     mocks.generateObject.mockResolvedValue({ object: generatedDetails });
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it('throws a sign-in error and skips generation when unauthenticated', async () => {
@@ -141,5 +156,37 @@ describe('autofillProductDetails', () => {
 
     expect(result.metadata?.inputTruncation?.productName).toBe(true);
     expect(result.metadata?.inputTruncation?.businessType).toBe(false);
+  });
+
+  it('falls through to the next chain provider when the first one fails', async () => {
+    mocks.generateObject
+      .mockRejectedValueOnce(new Error('429 rate limited'))
+      .mockResolvedValueOnce({ object: generatedDetails });
+
+    const result = await autofillProductDetails(validInput);
+
+    expect(mocks.generateObject).toHaveBeenCalledTimes(2);
+    expect(result.details).toEqual(generatedDetails);
+  });
+
+  it('wraps chain exhaustion in a stable error after every provider fails', async () => {
+    mocks.generateObject.mockRejectedValue(new Error('model unavailable'));
+
+    await expect(autofillProductDetails(validInput)).rejects.toThrow(
+      'Failed to generate product details.'
+    );
+    // Gemini-only chain in tests: both Gemini and Gemini-Lite are attempted
+    // before the chain's exhaustion error reaches the flow's catch block.
+    expect(mocks.generateObject).toHaveBeenCalledTimes(2);
+  });
+
+  it('wraps chain exhaustion in a stable error when every provider returns off-shape JSON', async () => {
+    mocks.generateObject.mockResolvedValue({
+      object: { suggestedName: '', description: '' }, // missing required fields
+    });
+
+    await expect(autofillProductDetails(validInput)).rejects.toThrow(
+      'Failed to generate product details.'
+    );
   });
 });

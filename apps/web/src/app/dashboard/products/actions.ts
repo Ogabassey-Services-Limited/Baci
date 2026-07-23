@@ -1,12 +1,8 @@
 'use server';
 
-import { generateObject } from 'ai';
-import {
-  gemini25FlashImage,
-  geminiFlash,
-  sanitizePromptInput,
-  withRetry,
-} from '@/ai/provider';
+import { generateObjectWithChain } from '@/ai/generate-object-with-chain';
+import { sanitizePromptInput } from '@/ai/provider';
+import { getVisionProviderChain } from '@/ai/vision-provider-chain';
 import {
   ensurePermission,
   isMerchantPermissionRedirectError,
@@ -119,6 +115,12 @@ export async function processPriceList(
   const priceListPromptContent = isImage
     ? '[Image attachment supplied separately; inspect the attached image for vendor rows and prices.]'
     : validatedPriceListData;
+  // Chain providers need raw image bytes, never a data-URL string: Cerebras
+  // requires base64 data internally and the AI SDK passes URL/string parts
+  // through verbatim instead of downloading them.
+  const decodedImage = isImage
+    ? decodeDataUrlImage(validatedPriceListData, input.data.fileType)
+    : null;
 
   const prompt = `
 You are an AI assistant for an e-commerce platform. Your task is to analyze a new price list and compare it to the current product catalog.
@@ -152,34 +154,60 @@ Instructions:
 5.  Populate the 'changes' array.
 6.  If a critical field is unclear, use 'clarificationRequest'.
 7.  Provide a concise 'summary' of changes.
+
+Respond with ONLY a JSON object of this exact shape (omit optional keys you have no value for; never add keys outside this shape):
+{
+  "changes": [
+    {
+      "type": "update" | "new" | "remove",
+      "productId": "existing product id or SKU (update/remove only, optional)",
+      "newPrice": 0,
+      "details": {
+        "name": "string",
+        "price": 0,
+        "cost_price": 0,
+        "sku": "string",
+        "description": "string",
+        "stock": 0,
+        "brand": "string",
+        "image": "string (URL)",
+        "category": "string",
+        "attributes": { "RAM": "8GB" }
+      },
+      "reason": "string"
+    }
+  ],
+  "summary": "string",
+  "clarificationRequest": { "question": "string", "options": ["string"] },
+  "missingParameterRequest": { "productName": "string", "missingFields": ["string"] }
+}
 `;
 
   try {
-    const { object } = await withRetry(async () => {
-      // For images, we must use the multimodal model and messages format
-      if (isImage) {
-        return await generateObject({
-          model: gemini25FlashImage,
+    // For images, walk the vision-capable subset of the chain with the
+    // multimodal messages format; for text/CSV/PDF, walk the full text chain.
+    const { object } = decodedImage
+      ? await generateObjectWithChain({
           schema: AIResponseSchema,
+          chain: getVisionProviderChain(),
           messages: [
             {
               role: 'user',
               content: [
                 { type: 'text', text: prompt },
-                { type: 'image', image: validatedPriceListData }, // priceListData is base64 string
+                {
+                  type: 'image',
+                  image: decodedImage.bytes,
+                  mediaType: decodedImage.mediaType,
+                },
               ],
             },
           ],
+        })
+      : await generateObjectWithChain({
+          schema: AIResponseSchema,
+          prompt,
         });
-      }
-
-      // For text/CSV/PDF, standard text-only model
-      return await generateObject({
-        model: geminiFlash,
-        schema: AIResponseSchema,
-        prompt,
-      });
-    });
 
     const result = object as AIResponse;
     performance.mark('processPriceList-end');
@@ -190,10 +218,12 @@ Instructions:
     );
     return result;
   } catch (error) {
+    // Log the full error (which includes the internal provider/model chain and
+    // upstream bodies) server-side only — never surface it to the client.
     console.error('Error processing price list with AI:', error);
     return {
       changes: [],
-      summary: `Error: ${error instanceof Error ? error.message : 'AI processing failed. Please try again.'}`,
+      summary: 'Error: AI processing failed. Please try again.',
     };
   }
 }
@@ -478,6 +508,26 @@ export async function parseCSVDirectly(
     changes,
     summary: `Parsed ${csvProductCount} products from CSV. Found ${newCount} new, ${updateCount} updates. Skipped ${skippedCount} rows (empty or invalid).`,
   };
+}
+
+interface DecodedImage {
+  bytes: Uint8Array;
+  mediaType: string;
+}
+
+// Helper: Decode a "data:<mediaType>;base64,<data>" URL into raw bytes for
+// the vision provider chain (chain providers accept image bytes, never
+// data-URL strings or remote URLs). Falls back to treating the whole input
+// as base64 payload with the caller-supplied media type if it does not
+// match the expected data-URL shape.
+function decodeDataUrlImage(
+  dataUrl: string,
+  fallbackMediaType: string
+): DecodedImage {
+  const match = /^data:([^;,]+);base64,([\s\S]+)$/.exec(dataUrl);
+  const mediaType = match?.[1] || fallbackMediaType;
+  const base64Data = match?.[2] ?? dataUrl;
+  return { bytes: Buffer.from(base64Data, 'base64'), mediaType };
 }
 
 // Helper: Parse a single CSV row (handles quoted fields)

@@ -1,9 +1,8 @@
 'use server';
 
-import { generateText } from 'ai';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
-import { geminiFlash } from '@/ai/provider';
+import { generateTextWithChain } from '@/ai/generate-text-with-chain';
 import {
   ensurePermission,
   isMerchantPermissionRedirectError,
@@ -329,8 +328,7 @@ Requirements:
 Return ONLY valid JSON, no markdown or explanation.`;
 
     try {
-      const { text: response } = await generateText({
-        model: geminiFlash,
+      const { text: response } = await generateTextWithChain({
         prompt,
       });
 
