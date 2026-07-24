@@ -311,3 +311,14 @@ patchedDependencies:
   "metro@0.84.4": "patches/metro@0.84.4.patch"
   "metro-runtime@0.84.4": "patches/metro-runtime@0.84.4.patch"
   react-native@0.86.0: patches/react-native@0.86.0.patch
+  # Xcode 26.2 (CI macos-26 image) fails to type-check 57.0.3's inline
+  # `abs(ms) <= max` guard ("type of expression is ambiguous") and has broken
+  # every iOS storefront release since #3139. Hoists the magnitude into an
+  # explicitly typed local; 57.0.4 ships the identical file, so there is no
+  # upstream fix to bump to yet. Applies only to 57.0.3 (the storefront's
+  # transitive pin via expo@57.0.7); mobile-admin's 57.0.0 compiles fine and
+  # stays unpatched. No version override on purpose: 57.0.3 is held by the
+  # lockfile (expo-modules-core declares ~57.0.0), and pnpm fails install
+  # loudly on an orphaned patch if a re-resolution moves off 57.0.3 — re-key
+  # the patch to the new version then (57.0.4 is byte-identical here).
+  "expo-modules-jsi@57.0.3": "patches/expo-modules-jsi@57.0.3.patch"

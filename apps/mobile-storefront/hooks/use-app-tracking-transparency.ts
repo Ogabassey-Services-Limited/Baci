@@ -16,6 +16,17 @@ interface UseAppTrackingTransparencyResult {
   isTrackingAuthorizationSettled: boolean;
 }
 
+// iOS silently completes an ATT request with 'denied' WITHOUT recording a
+// decision when the request lands outside a fully-active UIKit state (e.g.
+// during the launch transition) — the dialog never displays, the status stays
+// 'undetermined', and every later launch repeats the silent denial. Prod
+// telemetry for 2.1.512-517 shows exactly this on Apple's review devices:
+// 'undetermined' → request → 'denied' within 1ms, never recorded. The
+// recovery below retries on a later tick; it is bounded because a missing
+// native module produces the same signature indefinitely.
+const MAX_UNRECORDED_DENIAL_RETRIES = 3;
+const UNRECORDED_DENIAL_RETRY_BASE_DELAY_MS = 800;
+
 function recordAttLifecycleEvent(
   eventName: string,
   breadcrumbName: string,
@@ -56,10 +67,25 @@ export function useAppTrackingTransparency({
     let appStateSubscription: ReturnType<
       typeof AppState.addEventListener
     > | null = null;
+    let unrecordedDenialRetryTimeout: ReturnType<typeof setTimeout> | null =
+      null;
+    let unrecordedDenialRetries = 0;
 
     const settle = () => {
       if (!cancelled) {
         setIsTrackingAuthorizationSettled(true);
+      }
+    };
+
+    // A user's real denial is recorded by iOS; a still-'undetermined' status
+    // right after a 'denied' result means the dialog never showed. null =
+    // the recheck itself failed and the truth is unknown.
+    const isDenialUnrecorded = async (): Promise<boolean | null> => {
+      try {
+        const recheck = await getTrackingPermissionStatus();
+        return recheck.status === 'undetermined';
+      } catch {
+        return null;
       }
     };
 
@@ -68,20 +94,53 @@ export function useAppTrackingTransparency({
 
       recordAttLifecycleEvent('ATT Request Started', 'att:request_started');
 
+      let status: string;
       try {
-        const status = await requestTrackingPermission();
-        if (cancelled) return;
-        recordAttLifecycleEvent('ATT Request Result', 'att:request_result', {
-          status,
-        });
+        status = await requestTrackingPermission();
       } catch {
         if (cancelled) return;
         recordAttLifecycleEvent('ATT Request Error', 'att:request_error', {
           stage: 'request',
         });
-      } finally {
         settle();
+        return;
       }
+      if (cancelled) return;
+
+      let deniedRecordedTag: string | null = null;
+      if (status === 'denied') {
+        const unrecorded = await isDenialUnrecorded();
+        if (cancelled) return;
+
+        if (
+          unrecorded === true &&
+          unrecordedDenialRetries < MAX_UNRECORDED_DENIAL_RETRIES
+        ) {
+          unrecordedDenialRetries += 1;
+          recordAttLifecycleEvent(
+            'ATT Request Unrecorded',
+            'att:request_unrecorded',
+            { attempt: String(unrecordedDenialRetries) }
+          );
+          unrecordedDenialRetryTimeout = setTimeout(() => {
+            unrecordedDenialRetryTimeout = null;
+            requestWhenActive();
+          }, UNRECORDED_DENIAL_RETRY_BASE_DELAY_MS * unrecordedDenialRetries);
+          return;
+        }
+
+        // Production dashboards must be able to tell a user's real denial
+        // from an exhausted silent one — the Result event is the evidence
+        // stream for the App Store resubmission.
+        deniedRecordedTag =
+          unrecorded === null ? 'unknown' : unrecorded ? 'false' : 'true';
+      }
+
+      recordAttLifecycleEvent('ATT Request Result', 'att:request_result', {
+        status,
+        ...(deniedRecordedTag !== null ? { recorded: deniedRecordedTag } : {}),
+      });
+      settle();
     };
 
     const requestWhenActive = () => {
@@ -128,6 +187,9 @@ export function useAppTrackingTransparency({
       cancelled = true;
       hasStartedRef.current = false;
       appStateSubscription?.remove();
+      if (unrecordedDenialRetryTimeout) {
+        clearTimeout(unrecordedDenialRetryTimeout);
+      }
     };
   }, [enabled, isTrackingAuthorizationSettled]);
 

@@ -7,19 +7,22 @@ import {
   jest,
 } from '@jest/globals';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
-import { AppState, type AppStateStatus } from 'react-native';
 import { useAppTrackingTransparency } from './use-app-tracking-transparency';
+import {
+  attAppStateMock,
+  mockCanRequestTrackingTransparency,
+  mockGetTrackingPermissionStatus,
+  mockRecordCrashBreadcrumb,
+  mockRemoveAppStateListener,
+  mockRequestTrackingPermission,
+  mockTrackEvent,
+  primeAttTrackingMocks,
+} from './use-app-tracking-transparency.test-utils';
 
-const mockCanRequestTrackingTransparency = jest.fn<() => boolean>(() => true);
-const mockGetTrackingPermissionStatus =
-  jest.fn<() => Promise<{ status: string }>>();
-const mockRequestTrackingPermission = jest.fn<() => Promise<string>>();
-const mockRecordCrashBreadcrumb = jest.fn();
-const mockTrackEvent = jest.fn();
-const mockRemoveAppStateListener = jest.fn();
-let mockAppState: AppStateStatus = 'active';
-let mockAppStateListener: ((state: AppStateStatus) => void) | null = null;
-
+// jest.mock is hoisted above every import, so the hook under test binds to
+// these mocks rather than the real native modules. The factories reference the
+// imported `mock*` singletons (allowed by babel-plugin-jest-hoist) and only
+// invoke them at call time, once the test-utils bindings have initialized.
 jest.mock('@/lib/tracking-transparency', () => ({
   canRequestTrackingTransparency: () => mockCanRequestTrackingTransparency(),
   getTrackingPermissionStatus: () => mockGetTrackingPermissionStatus(),
@@ -41,23 +44,7 @@ jest.mock('@/services/analytics', () => ({
 describe('useAppTrackingTransparency', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockAppState = 'active';
-    mockAppStateListener = null;
-    mockCanRequestTrackingTransparency.mockReturnValue(true);
-    mockGetTrackingPermissionStatus.mockResolvedValue({
-      status: 'undetermined',
-    });
-    mockRequestTrackingPermission.mockResolvedValue('granted');
-    Object.defineProperty(AppState, 'currentState', {
-      configurable: true,
-      get: () => mockAppState,
-    });
-    jest
-      .spyOn(AppState, 'addEventListener')
-      .mockImplementation((_type, listener) => {
-        mockAppStateListener = listener;
-        return { remove: mockRemoveAppStateListener };
-      });
+    primeAttTrackingMocks();
   });
 
   afterEach(() => {
@@ -107,7 +94,7 @@ describe('useAppTrackingTransparency', () => {
   });
 
   it('waits for the app to become active before presenting ATT', async () => {
-    mockAppState = 'background';
+    attAppStateMock.current = 'background';
 
     const { result } = renderHook(() =>
       useAppTrackingTransparency({ enabled: true })
@@ -117,11 +104,11 @@ describe('useAppTrackingTransparency', () => {
       expect(mockGetTrackingPermissionStatus).toHaveBeenCalledTimes(1);
     });
     expect(mockRequestTrackingPermission).not.toHaveBeenCalled();
-    expect(mockAppStateListener).not.toBeNull();
+    expect(attAppStateMock.listener).not.toBeNull();
 
-    mockAppState = 'active';
+    attAppStateMock.current = 'active';
     await act(async () => {
-      mockAppStateListener?.('active');
+      attAppStateMock.listener?.('active');
       await Promise.resolve();
     });
 
@@ -182,13 +169,13 @@ describe('useAppTrackingTransparency', () => {
   });
 
   it('removes a pending active-state listener when the root unmounts', async () => {
-    mockAppState = 'background';
+    attAppStateMock.current = 'background';
     const { unmount } = renderHook(() =>
       useAppTrackingTransparency({ enabled: true })
     );
 
     await waitFor(() => {
-      expect(mockAppStateListener).not.toBeNull();
+      expect(attAppStateMock.listener).not.toBeNull();
     });
     unmount();
 

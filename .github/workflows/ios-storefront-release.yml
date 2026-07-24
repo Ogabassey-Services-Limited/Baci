@@ -10,6 +10,10 @@ on:
       - 'package.json'
       - 'pnpm-workspace.yaml'
       - '.npmrc'
+      # pnpm patches ship native code (e.g. expo-modules-jsi); a patch or
+      # lockfile-only change must still trigger a release build.
+      - 'patches/**'
+      - 'pnpm-lock.yaml'
     tags:
       - 'v*-storefront-ios'
   workflow_dispatch:
