@@ -13,8 +13,11 @@ const FROZEN_EVENT_PIPELINE_BASE_SHA =
   '9e3d1b14b1931a5e441fc23f0e5417c188056e47';
 // Rotation is two commits: first commit the reviewed production bytes, then
 // advance this receipt to that immutable parent. Never derive it from HEAD.
+// Rotated to 71920cb9ad (S2 re-enable): checkout/page.tsx now uses the
+// server-signed Credit-Direct amount for the popup total and forwards the
+// order tracking token to the sign endpoint — reviewed authority bytes.
 const FROZEN_EVENT_PIPELINE_AUTHORITY_BYTE_BASE_SHA =
-  '3aba6709895656f3852c7342230f486ea8edf622';
+  '71920cb9adadb1ef284c61f3c64c3e59154dea2f';
 const FROZEN_PATH_INVENTORY_SHA256 =
   '8a0f0b5e61d39fe46144e0114a41c7e25a8501e756ce1b819cca5fb793c6d0dc';
 const explicitlyHashedAuthorityPaths = new Set([
