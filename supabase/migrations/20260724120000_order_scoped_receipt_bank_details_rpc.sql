@@ -80,23 +80,31 @@ BEGIN
   END IF;
 
   -- (a) Guest capability: an unguessable tracking token bound to THIS order.
-  v_token := pg_catalog.nullif(pg_catalog.btrim(p_tracking_token), '');
+  -- EXISTS (never NULL) rather than SELECT INTO: a zero-row SELECT INTO sets
+  -- the target to NULL, and NULL poisons every later `IF NOT v_authorized`
+  -- guard (NOT NULL is NULL, which is not true), silently skipping the
+  -- fail-closed gate. EXISTS returns strict true/false.
+  -- NULLIF is a SQL conditional expression (parser-level, like COALESCE), not
+  -- a pg_catalog function — schema-qualifying it fails at runtime.
+  v_token := NULLIF(pg_catalog.btrim(p_tracking_token), '');
   IF v_token IS NOT NULL THEN
-    SELECT true INTO v_authorized
-    FROM public.orders AS o
-    WHERE o.id = p_order_id
-      AND o.tracking_token = v_token
-    LIMIT 1;
+    v_authorized := EXISTS (
+      SELECT 1
+      FROM public.orders AS o
+      WHERE o.id = p_order_id
+        AND o.tracking_token = v_token
+    );
   END IF;
 
   -- (b) Authenticated customer who owns the order.
   IF NOT v_authorized AND v_uid IS NOT NULL THEN
-    SELECT true INTO v_authorized
-    FROM public.orders AS o
-    JOIN public.customers AS c ON c.id = o.customer_id
-    WHERE o.id = p_order_id
-      AND c.user_id = v_uid
-    LIMIT 1;
+    v_authorized := EXISTS (
+      SELECT 1
+      FROM public.orders AS o
+      JOIN public.customers AS c ON c.id = o.customer_id
+      WHERE o.id = p_order_id
+        AND c.user_id = v_uid
+    );
   END IF;
 
   -- (c) Merchant owner or active staff of the order's store.
@@ -104,7 +112,7 @@ BEGIN
     v_authorized := public.has_merchant_access(v_merchant_id);
   END IF;
 
-  IF NOT v_authorized THEN
+  IF NOT COALESCE(v_authorized, false) THEN
     RETURN; -- fail closed: no capability, no ownership -> no rows
   END IF;
 
