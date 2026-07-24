@@ -1,96 +1,34 @@
 'use client';
 
-import { QUIZ_FREE_ENTRY_MODE } from '@baci/shared/constants';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
-import { apiGet, apiPost } from '@/lib/api-client';
 import { asRoute } from '@/lib/routes';
-import {
-  type QuizAttemptResponse,
-  quizAttemptResponseSchema,
-  type QuizEventResponse,
-  quizEventsResponseSchema,
-  type QuizResultResponse,
-  quizResultResponseSchema,
+import type {
+  QuizAttemptResponse,
+  QuizEventResponse,
+  QuizResultResponse,
 } from '@/schemas/quiz';
 import { formatQuizDateRange } from './format-quiz-date-range';
 import { getQuizErrorMessage } from './get-quiz-error-message';
 import { getQuizStartButtonText } from './get-quiz-start-button-text';
+import {
+  loadQuizEvents,
+  QUIZ_FORFEIT_ANSWER,
+  type QuizStatus,
+  startQuizAttempt,
+  submitQuizAnswer,
+} from './quiz-page-data';
 import { QuizQuestionPanel } from './quiz-question-panel';
+import { QuizResultPanel } from './quiz-result-panel';
 import {
   quizPanel as panel,
   quizPrimaryButton as primaryButton,
   quizSecondaryButton as secondaryButton,
 } from './quiz-styles';
 
-type QuizStatus = 'idle' | 'loading' | 'ready' | 'error' | 'starting' | 'question' | 'submitting' | 'result';
-
 type OgabasseyV2QuizProps = { merchantSlug: string };
-
-const QUIZ_INTEGRITY_TIER = 'basic';
-// Non-empty sentinel so an auto-submitted forfeit still satisfies the answer
-// schema (min length 1). The server treats any non-matching answer as
-// incorrect and advances the attempt, so a timed-out player is scored wrong
-// rather than left stalled. It is intentionally longer than the 20-char option
-// id cap (generatedQuizOptionSchema) so it can never equal a real option id and
-// be scored correct by accident.
-const QUIZ_FORFEIT_ANSWER = '__baci_quiz_timeout_forfeit_no_answer__';
-async function fetchQuizEvents(merchantSlug: string) {
-  const query = new URLSearchParams({ limit: '50', merchantSlug, offset: '0' });
-  const parsed = quizEventsResponseSchema.safeParse(
-    await apiGet<unknown>(`/api/quiz/events?${query}`)
-  );
-  if (!parsed.success) throw new Error('Invalid quiz response');
-  return parsed.data.events;
-}
-
-async function startQuizAttempt(eventId: string) {
-  const parsed = quizAttemptResponseSchema.safeParse(
-    await apiPost<unknown>('/api/quiz/attempts/start', {
-      entryMode: QUIZ_FREE_ENTRY_MODE,
-      eventId,
-      integrityTier: QUIZ_INTEGRITY_TIER,
-    })
-  );
-  if (!parsed.success) throw new Error('Invalid quiz response');
-  return parsed.data;
-}
-
-async function submitQuizAnswer(attemptId: string, questionId: string, answer: string) {
-  const parsed = quizResultResponseSchema.safeParse(
-    await apiPost<unknown>(
-      `/api/quiz/attempts/${encodeURIComponent(attemptId)}/answers`,
-      { answer, clientAnsweredAt: new Date().toISOString(), integrityTier: QUIZ_INTEGRITY_TIER, questionId }
-    )
-  );
-  if (!parsed.success) throw new Error('Invalid quiz response');
-  return parsed.data;
-}
-
-interface QuizListSetters {
-  setError: (error: string | null) => void;
-  setEvents: (events: QuizEventResponse[]) => void;
-  setStatus: (status: QuizStatus) => void;
-}
-
-// Module-scope helper so the status/error bookkeeping is not a synchronous
-// setState inside the component's effect body.
-async function loadQuizEvents(
-  merchantSlug: string,
-  { setError, setEvents, setStatus }: QuizListSetters,
-) {
-  setError(null);
-  setStatus('loading');
-  try {
-    setEvents(await fetchQuizEvents(merchantSlug));
-    setStatus('ready');
-  } catch (error) {
-    setError(getQuizErrorMessage(error));
-    setStatus('error');
-  }
-}
 
 export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
   const pathname = usePathname();
@@ -99,6 +37,9 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
   const [events, setEvents] = useState<QuizEventResponse[]>([]);
   const [attempt, setAttempt] = useState<QuizAttemptResponse | null>(null);
   const [result, setResult] = useState<QuizResultResponse | null>(null);
+  // Captured at start so the result view can load this event's leaderboard —
+  // `attempt` is cleared when the attempt completes.
+  const [playedEventId, setPlayedEventId] = useState<string | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Synchronous in-flight guards (FIX D): async state (`status`) updates on the
@@ -127,6 +68,7 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
     try {
       const nextAttempt = await startQuizAttempt(event.id);
       setAttempt(nextAttempt);
+      setPlayedEventId(event.id);
       setResult(null);
       setSelectedAnswer(null);
       setStatus('question');
@@ -285,19 +227,11 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
         ) : null}
 
         {status === 'result' && result ? (
-          <section role="status" className={panel}>
-            <h2 className="text-lg font-semibold">Result</h2>
-            <p className="mt-2 text-3xl font-bold text-store-primary">{result.correctAnswers} of {result.totalQuestions}</p>
-            <p className="mt-2 text-sm text-store-background-text/70">
-              {result.prizeEligible ? 'Prize entry recorded.' : 'Practice result recorded.'}
-            </p>
-            {result.prizeClaim ? (
-              <Link href={asRoute(result.prizeClaim.cartPath)} className={`mt-5 inline-flex items-center justify-center ${primaryButton}`}>
-                Add gift to cart
-              </Link>
-            ) : null}
-            <button type="button" onClick={() => void loadEvents()} className={`${result.prizeClaim ? 'ml-0 mt-3 block' : 'mt-5'} ${secondaryButton}`}>Back to quizzes</button>
-          </section>
+          <QuizResultPanel
+            eventId={playedEventId}
+            onBackToQuizzes={() => void loadEvents()}
+            result={result}
+          />
         ) : null}
       </div>
     </main>

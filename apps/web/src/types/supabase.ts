@@ -16262,6 +16262,31 @@ export type Database = {
           tracking_token: string;
         }[];
       };
+      get_order_receipt_bank_details: {
+        Args: { p_order_id: string; p_tracking_token?: string };
+        Returns: {
+          bank_account_name: string;
+          bank_account_number: string;
+          bank_code: string;
+          bank_name: string;
+          brand_colors: Json;
+          business_address: string;
+          business_name: string;
+          cac_rc_number: string;
+          email: string;
+          legal_entity_name: string;
+          logo_url: string;
+          pages: Json;
+          phone: string;
+          rider_phone_number: string;
+          social_media: Json;
+          support_email: string;
+          support_phone: string;
+          tax_identification_number: string;
+          vat_rate: number;
+          vat_registration_status: string;
+        }[];
+      };
       get_order_tracking: {
         Args: {
           p_email?: string;
@@ -16379,6 +16404,19 @@ export type Database = {
           attempt_id: string;
           customer_id: string;
           customer_name: string;
+          is_current_customer: boolean;
+          rank: number;
+          score: number;
+          status: string;
+          submitted_at: string;
+          total_time_seconds: number;
+        }[];
+      };
+      get_quiz_leaderboard_public: {
+        Args: { p_event_id: string };
+        Returns: {
+          customer_name: string;
+          is_current_customer: boolean;
           rank: number;
           score: number;
           status: string;
