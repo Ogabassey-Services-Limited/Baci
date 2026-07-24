@@ -610,7 +610,8 @@ describe('getCachedFeatureSettings', () => {
     expect(result).toMatchObject({
       merchant_id: 'merchant-1',
       paystack_enabled: true,
-      korapay_enabled: true,
+      // Korapay is opt-in (default OFF) when no settings row exists.
+      korapay_enabled: false,
       preferred_local_gateway: 'paystack',
       preferred_international_gateway: 'korapay',
     });
