@@ -163,8 +163,13 @@ export function calculatePlatformFee(
   }
 
   // Cap applies to NGN only; scale it to minor units when the amount is minor.
+  // Zero-decimal currencies have no sub-unit, so their "minor" amount equals the
+  // major amount — never multiply their cap by 100. (Inert today: only NGN is
+  // capped and NGN is 2-decimal; this guards any future capped zero-decimal currency.)
   if (config.capMajor !== null) {
-    const cap = unit === 'minor' ? config.capMajor * 100 : config.capMajor;
+    const scaleCapToMinor =
+      unit === 'minor' && !ZERO_DECIMAL_CURRENCIES.has(currency.toUpperCase());
+    const cap = scaleCapToMinor ? config.capMajor * 100 : config.capMajor;
     fee = Math.min(fee, cap);
   }
 
