@@ -7,6 +7,10 @@ SCHEME = "BaciTheEcommerceBuilder"
 BUNDLE_ID = "com.ogabassey.baci"
 OUTPUT_DIR = File.expand_path("../build", __dir__)
 APP_STORE_RELEASE_NOTES_MAX_LENGTH = 4000
+DEFAULT_ATT_REVIEW_NOTES = <<~NOTES.freeze
+  App Tracking Transparency review path:
+  On a fresh install, launch the app and wait for the splash screen to finish. The native ATT prompt appears automatically on the first visible screen; no login or navigation is required. If this device has reviewed an earlier build, delete the app before reinstalling because iOS preserves the previous one-time ATT decision across updates. Advertising attribution (TikTok Business SDK) remains limited unless the user selects Allow.
+NOTES
 APP_STORE_PROCESSING_WAIT_TIMEOUT_SECONDS = 5400
 LEGACY_SUPABASE_ANON_KEY_FALLBACK_CUTOFF =
   ENV.fetch("LEGACY_SUPABASE_ANON_KEY_FALLBACK_CUTOFF", "2027-01-01")
@@ -121,6 +125,38 @@ def app_store_release_notes(text)
   notes[0, APP_STORE_RELEASE_NOTES_MAX_LENGTH]
 end
 
+def update_app_review_notes!(notes, app_version:)
+  UI.user_error!("App Review notes must not exceed 4000 bytes") if notes.bytesize > 4000
+
+  app = Spaceship::ConnectAPI::App.find(BUNDLE_ID)
+  UI.user_error!("Could not find App Store Connect app #{BUNDLE_ID}") unless app
+
+  version = app.get_edit_app_store_version(
+    platform: Spaceship::ConnectAPI::Platform::IOS
+  )
+  UI.user_error!("Could not find an editable iOS App Store version") unless version
+  if !app_version.empty? && version.version_string != app_version
+    UI.user_error!(
+      "Editable App Store version is #{version.version_string}, not requested #{app_version}"
+    )
+  end
+
+  review_detail = version.fetch_app_store_review_detail
+  UI.user_error!("Configure App Review contact information in App Store Connect first") unless review_detail
+  missing_contact_fields = {
+    "first name" => review_detail.contact_first_name,
+    "last name" => review_detail.contact_last_name,
+    "phone" => review_detail.contact_phone,
+    "email" => review_detail.contact_email
+  }.select { |_name, value| value.to_s.strip.empty? }.keys
+  unless missing_contact_fields.empty?
+    UI.user_error!("Missing App Review contact fields: #{missing_contact_fields.join(', ')}")
+  end
+
+  UI.message("Updating App Review notes without replacing existing attachments")
+  review_detail.update(attributes: { notes: notes })
+end
+
 
 def app_store_processing_wait_timeout_seconds
   raw_value = ENV["APP_STORE_PROCESSING_WAIT_TIMEOUT_SECONDS"].to_s.strip
@@ -210,6 +246,8 @@ platform :ios do
     api_key = asc_api_key
 
     release_notes_text = app_store_release_notes(ENV["IOS_RELEASE_NOTES"])
+    review_notes_text = ENV["IOS_REVIEW_NOTES"].to_s.strip
+    review_notes_text = DEFAULT_ATT_REVIEW_NOTES if review_notes_text.empty?
 
     deliver_opts = {
       api_key: api_key,
@@ -262,6 +300,9 @@ platform :ios do
     changelog_opts = { api_key: api_key, changelog: release_notes_text }
     changelog_opts[:version] = app_version unless app_version.empty?
     set_changelog(changelog_opts)
+
+    # set_changelog creates or renames the editable App Store version first.
+    update_app_review_notes!(review_notes_text, app_version: app_version)
 
     deliver(deliver_opts)
   end
