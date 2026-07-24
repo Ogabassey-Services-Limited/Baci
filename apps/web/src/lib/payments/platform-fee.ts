@@ -72,6 +72,32 @@ const DEFAULT_PERCENTAGE = 2;
 const NGN_CAP_MAJOR = 2050;
 
 /**
+ * ISO-4217 zero-decimal currencies (no minor unit). Fees and merchant residuals
+ * in these currencies MUST be whole units — a fractional value like XOF 10,000.02
+ * is unrepresentable and would break settlement/display. Korapay's Lane-0 CFA
+ * currencies (XAF/XOF) are the reachable cases here; the rest are included so the
+ * single-source-of-truth stays correct for any zero-decimal currency added later.
+ */
+const ZERO_DECIMAL_CURRENCIES: ReadonlySet<string> = new Set([
+  'BIF',
+  'CLP',
+  'DJF',
+  'GNF',
+  'ISK',
+  'JPY',
+  'KMF',
+  'KRW',
+  'PYG',
+  'RWF',
+  'UGX',
+  'VND',
+  'VUV',
+  'XAF',
+  'XOF',
+  'XPF',
+]);
+
+/**
  * Per-currency fee configuration. NGN is capped; everything else is
  * percentage-only. Extend here (never in call sites) as new markets land.
  */
@@ -145,6 +171,19 @@ export function calculatePlatformFee(
   const merchantAmount = amount - fee;
 
   if (rounding === 'cents') {
+    // Zero-decimal currencies (XAF/XOF/…) cannot carry a fractional fee, so round
+    // to whole units and derive the residual from the rounded fee to keep
+    // fee + merchant === total exactly. NGN and other 2-decimal currencies keep
+    // the historical cents rounding, so this path is a strict superset (NGN is
+    // bit-for-bit unchanged — it is not zero-decimal).
+    if (ZERO_DECIMAL_CURRENCIES.has(currency.toUpperCase())) {
+      const wholeFee = Math.round(fee);
+      return {
+        platformFee: wholeFee,
+        merchantAmount: amount - wholeFee,
+        total: amount,
+      };
+    }
     return {
       platformFee: roundToCents(fee),
       merchantAmount: roundToCents(merchantAmount),

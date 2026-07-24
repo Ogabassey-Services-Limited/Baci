@@ -253,6 +253,27 @@ describe('Korapay fee currency (Codex #39)', () => {
     expect(r.merchantAmount).toBe(amount - expectedFee);
   });
 
+  it.each([
+    ['XAF', 500_001, 10_000, 490_001],
+    ['XOF', 500_001, 10_000, 490_001],
+  ])('rounds %s fees to whole units for non-50-divisible amounts (Codex #P1)', (currency, amount, expectedFee, expectedMerchant) => {
+    // XAF/XOF are zero-decimal: (500_001 * 2) / 100 = 10_000.02 must NOT persist
+    // a fractional fee. Round to whole units, and fee + merchant === total exactly.
+    const r = korapayFee(amount, currency as 'XAF');
+    expect(Number.isInteger(r.platformFee)).toBe(true);
+    expect(Number.isInteger(r.merchantAmount)).toBe(true);
+    expect(r.platformFee).toBe(expectedFee);
+    expect(r.merchantAmount).toBe(expectedMerchant);
+    expect(r.platformFee + r.merchantAmount).toBe(amount);
+  });
+
+  it('does NOT round 2-decimal currencies (ZAR keeps cents)', () => {
+    // Guard: the zero-decimal rounding must not leak into 2-decimal currencies.
+    const r = korapayFee(500_001, 'ZAR');
+    expect(r.platformFee).toBe(10_000.02);
+    expect(r.merchantAmount).toBe(490_000.98);
+  });
+
   it('defaults to NGN when no currency is supplied (back-compat)', () => {
     expect(korapayFee(500_000)).toEqual(korapayFee(500_000, 'NGN'));
   });
