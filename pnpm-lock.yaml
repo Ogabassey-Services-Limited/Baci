@@ -356,6 +356,9 @@ importers:
       expo-system-ui:
         specifier: ~57.0.0
         version: 57.0.0(expo@57.0.2)(react-native-web@0.21.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-native@0.86.0(patch_hash=75d926ec5e933d6b59a8cefbd22c76d02106a0a2553d65bdcfd72743f461702c)(@babel/core@7.29.6)(@react-native/jest-preset@0.86.0(@babel/core@7.29.6)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.6))(@types/react@19.2.17)(react@19.2.3))
+      expo-tracking-transparency:
+        specifier: ~57.0.1
+        version: 57.0.1(expo@57.0.2)(react-native@0.86.0(patch_hash=75d926ec5e933d6b59a8cefbd22c76d02106a0a2553d65bdcfd72743f461702c)(@babel/core@7.29.6)(@react-native/jest-preset@0.86.0(@babel/core@7.29.6)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.6))(@types/react@19.2.17)(react@19.2.3))
       expo-web-browser:
         specifier: ~57.0.0
         version: 57.0.0(expo@57.0.2)(react-native@0.86.0(patch_hash=75d926ec5e933d6b59a8cefbd22c76d02106a0a2553d65bdcfd72743f461702c)(@babel/core@7.29.6)(@react-native/jest-preset@0.86.0(@babel/core@7.29.6)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.6))(@types/react@19.2.17)(react@19.2.3))
@@ -21467,6 +21470,11 @@ snapshots:
       react-native-web: 0.21.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
     transitivePeerDependencies:
       - supports-color
+
+  expo-tracking-transparency@57.0.1(expo@57.0.2)(react-native@0.86.0(patch_hash=75d926ec5e933d6b59a8cefbd22c76d02106a0a2553d65bdcfd72743f461702c)(@babel/core@7.29.6)(@react-native/jest-preset@0.86.0(@babel/core@7.29.6)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.6))(@types/react@19.2.17)(react@19.2.3)):
+    dependencies:
+      expo: 57.0.2(94e727008e281e0657af508aa8fb3f84)
+      react-native: 0.86.0(patch_hash=75d926ec5e933d6b59a8cefbd22c76d02106a0a2553d65bdcfd72743f461702c)(@babel/core@7.29.6)(@react-native/jest-preset@0.86.0(@babel/core@7.29.6)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.6))(@types/react@19.2.17)(react@19.2.3)
 
   expo-tracking-transparency@57.0.1(expo@57.0.7)(react-native@0.86.0(patch_hash=75d926ec5e933d6b59a8cefbd22c76d02106a0a2553d65bdcfd72743f461702c)(@babel/core@7.29.6)(@react-native/jest-preset@0.86.0(@babel/core@7.29.6)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.6))(@types/react@19.2.17)(react@19.2.3)):
     dependencies:
