@@ -10,6 +10,7 @@ export interface Customer {
   phone?: string;
   loyalty_points?: number;
   username?: string | null;
+  date_of_birth?: string | null;
 }
 
 export interface AuthState {
@@ -47,6 +48,9 @@ export interface AuthState {
   setUsername: (
     username: string
   ) => Promise<{ success: boolean; error?: string; username?: string }>;
+  setDateOfBirth: (
+    dateOfBirth: string
+  ) => Promise<{ success: boolean; error?: string; dateOfBirth?: string }>;
   clearError: () => void;
 }
 

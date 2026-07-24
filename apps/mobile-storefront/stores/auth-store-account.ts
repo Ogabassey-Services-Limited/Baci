@@ -32,6 +32,19 @@ function mapUsernameError(message: string): string {
   return USERNAME_ERROR_MESSAGES[message] ?? 'Could not set username';
 }
 
+// set_customer_date_of_birth raises these as the Postgres error message.
+const DATE_OF_BIRTH_ERROR_MESSAGES: Record<string, string> = {
+  invalid_date_of_birth: 'Enter a valid date of birth.',
+  customer_not_found: 'No shopper account found for this store.',
+  not_authenticated: 'Please sign in to continue.',
+};
+
+function mapDateOfBirthError(message: string): string {
+  return (
+    DATE_OF_BIRTH_ERROR_MESSAGES[message] ?? 'Could not save date of birth'
+  );
+}
+
 function clearUserStores() {
   queryClient.clear();
   useCartStore.getState().clearCart();
@@ -162,6 +175,10 @@ export function createAccountActions(set: AuthStoreSet, get: AuthStoreGet) {
         // handled in setUsername below). Prefer the live store value — it can
         // only be newer, since this action cannot legitimately change it.
         const liveUsername = get().customer?.username;
+        // Same stale-read race as username: updateProfile never writes
+        // date_of_birth, so a concurrent setDateOfBirth could have resolved
+        // while this update was in flight. Prefer the live store value.
+        const liveDateOfBirth = get().customer?.date_of_birth;
         set({
           customer: {
             id: updateValidation.data.id,
@@ -173,6 +190,10 @@ export function createAccountActions(set: AuthStoreSet, get: AuthStoreGet) {
             loyalty_points: updateValidation.data.loyalty_points ?? undefined,
             username:
               liveUsername ?? updateValidation.data.username ?? undefined,
+            date_of_birth:
+              liveDateOfBirth ??
+              updateValidation.data.date_of_birth ??
+              undefined,
           },
         });
         return { success: true };
@@ -229,6 +250,56 @@ export function createAccountActions(set: AuthStoreSet, get: AuthStoreGet) {
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Could not set username';
+        return { success: false, error: message };
+      }
+    },
+
+    setDateOfBirth: async (dateOfBirth: string) => {
+      try {
+        const { customer, merchantId } = get();
+        if (!customer || !merchantId) {
+          return { success: false, error: 'Not logged in' };
+        }
+
+        const {
+          data: { user: verifiedUser },
+          error: authError,
+        } = await supabase.auth.getUser();
+        if (authError || !verifiedUser) {
+          return {
+            success: false,
+            error: 'Session expired. Please sign in again.',
+          };
+        }
+
+        // The RPC re-derives the customer from auth.uid() + merchant, validates
+        // the ISO date server-side, and raises friendly codes.
+        const { data, error } = await supabase.rpc(
+          'set_customer_date_of_birth',
+          {
+            p_merchant_id: merchantId,
+            p_date_of_birth: dateOfBirth,
+          }
+        );
+        if (error) {
+          return { success: false, error: mapDateOfBirthError(error.message) };
+        }
+
+        const stored = typeof data === 'string' ? data : dateOfBirth;
+        // Re-read the customer instead of spreading the top-of-function
+        // snapshot: two awaits (getUser + the RPC) ran since, during which a
+        // concurrent updateProfile could have replaced `customer`.
+        const latestCustomer = get().customer;
+        if (!latestCustomer) {
+          return { success: false, error: 'Not logged in' };
+        }
+        set({ customer: { ...latestCustomer, date_of_birth: stored } });
+        return { success: true, dateOfBirth: stored };
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Could not save date of birth';
         return { success: false, error: message };
       }
     },

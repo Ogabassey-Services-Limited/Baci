@@ -19,6 +19,7 @@ import {
   submitQuizAnswer,
 } from '@/services/quiz';
 import { useQuizStore } from '@/stores/quiz-store';
+import { QuizDateOfBirthGateModal } from './QuizDateOfBirthGateModal';
 import { QuizEventsList } from './QuizEventsList';
 import { QuizPrizeClaimPanel } from './QuizPrizeClaimPanel';
 import { QuizQuestionCard } from './QuizQuestionCard';
@@ -26,6 +27,7 @@ import { createQuizStyles } from './QuizScreen.styles';
 import { getQuizErrorMessage, shouldShowEventList } from './QuizScreen.utils';
 import { QuizUsernameGateModal } from './QuizUsernameGateModal';
 import { useQuizQuestionTimer } from './use-quiz-question-timer';
+import { useQuizDateOfBirthGate } from './useQuizDateOfBirthGate';
 import { useQuizStartGate } from './useQuizStartGate';
 
 const log = createLogger('Quiz');
@@ -112,12 +114,18 @@ export function QuizScreen({
     }
   };
 
-  // A shopper must choose a public username before their first play (it becomes
-  // their leaderboard name). requestStart shows the gate when needed and only
-  // then proceeds to handleStart.
+  // A shopper must satisfy BOTH gates before their first play: a public
+  // username (their leaderboard name) and a date of birth (Super Quiz is 18+).
+  // The username gate opens first; on success it hands off to the date-of-birth
+  // gate, which either opens or proceeds to the actual start. Both gates
+  // fall back to the authoritative server start while the customer row is
+  // still hydrating.
+  const dobGate = useQuizDateOfBirthGate((eventId) => {
+    void handleStart(eventId);
+  });
   const { cancelGate, confirmGate, isGateVisible, requestStart } =
     useQuizStartGate((eventId) => {
-      void handleStart(eventId);
+      dobGate.requestStart(eventId);
     });
 
   const submitAnswerValue = async (answer: string, viaForfeit: boolean) => {
@@ -279,6 +287,13 @@ export function QuizScreen({
           confirmGate();
         }}
         visible={isGateVisible}
+      />
+      <QuizDateOfBirthGateModal
+        onCancel={dobGate.cancelGate}
+        onSuccess={() => {
+          dobGate.confirmGate();
+        }}
+        visible={dobGate.isGateVisible}
       />
     </ScrollView>
   );

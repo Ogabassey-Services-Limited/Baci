@@ -26,24 +26,61 @@ jest.setTimeout(15000);
 // start-flow tests below are unaffected by the username gate. The gate
 // itself is covered by the dedicated test further down.
 let mockUsername: string | null = 'ogafan';
+// Start-flow tests default to an adult DOB so the 18+ gate passes; the
+// dedicated date-of-birth gate tests below set it to null.
+let mockDateOfBirth: string | null = '1990-06-15';
 const mockSetUsername =
   jest.fn<
     (
       username: string
     ) => Promise<{ success: boolean; error?: string; username?: string }>
   >();
+const mockSetDateOfBirth =
+  jest.fn<
+    (
+      dateOfBirth: string
+    ) => Promise<{ success: boolean; error?: string; dateOfBirth?: string }>
+  >();
 
 jest.mock('@/stores/auth-store', () => ({
   useAuthStore: (
     selector: (state: {
-      customer: { username: string | null } | null;
+      customer: {
+        username: string | null;
+        date_of_birth: string | null;
+      } | null;
       setUsername: typeof mockSetUsername;
+      setDateOfBirth: typeof mockSetDateOfBirth;
     }) => unknown
   ) =>
     selector({
-      customer: { username: mockUsername },
+      customer: { username: mockUsername, date_of_birth: mockDateOfBirth },
       setUsername: mockSetUsername,
+      setDateOfBirth: mockSetDateOfBirth,
     }),
+}));
+
+// The date-of-birth gate transitively renders DateTimePickerField, which
+// imports the native picker. Mock it so the module resolves and a tapped field
+// yields a fixed, valid past date (2026-05-23).
+type MockDateTimePickerProps = {
+  onChange: (event: { type: 'set' }, date: Date) => void;
+};
+jest.mock('@react-native-community/datetimepicker', () => ({
+  __esModule: true,
+  default: ({ onChange }: MockDateTimePickerProps) => {
+    const { Pressable, Text } =
+      jest.requireActual<typeof import('react-native')>('react-native');
+    return (
+      <Pressable
+        accessibilityLabel="mock-date-picker"
+        accessibilityRole="button"
+        onPress={() => onChange({ type: 'set' }, new Date(2026, 4, 23))}
+      >
+        <Text>mock picker</Text>
+      </Pressable>
+    );
+  },
 }));
 
 const quizEvent: QuizEvent = {
@@ -117,7 +154,9 @@ describe('QuizScreen', () => {
   beforeEach(() => {
     useQuizStore.getState().reset();
     mockUsername = 'ogafan';
+    mockDateOfBirth = '1990-06-15';
     mockSetUsername.mockReset();
+    mockSetDateOfBirth.mockReset();
     jest.mocked(fetchQuizEvents).mockResolvedValue([quizEvent]);
     jest
       .mocked(startQuizAttempt)
@@ -435,6 +474,64 @@ describe('QuizScreen', () => {
       screen.queryByRole('header', {
         name: 'Choose a username to appear on the leaderboard',
       })
+    ).toBeNull();
+    expect(startQuizAttempt).not.toHaveBeenCalled();
+  });
+
+  it('gates the quiz start behind a date of birth, then starts once one is set', async () => {
+    mockDateOfBirth = null;
+    mockSetDateOfBirth.mockResolvedValue({
+      success: true,
+      dateOfBirth: '2026-05-23',
+    });
+    render(<QuizScreen integrityTier="device" locale="en-US" />);
+
+    fireEvent.press(
+      await screen.findByRole('button', {
+        name: 'Start free exam Daily Prize Quiz',
+      })
+    );
+
+    // Username is already set, so the 18+ gate is what blocks the start.
+    expect(
+      await screen.findByRole('header', { name: 'Confirm your date of birth' })
+    ).toBeTruthy();
+    expect(startQuizAttempt).not.toHaveBeenCalled();
+
+    fireEvent.press(screen.getByRole('button', { name: 'Date of birth' }));
+    fireEvent.press(screen.getByRole('button', { name: 'mock-date-picker' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+
+    await waitFor(() => {
+      expect(mockSetDateOfBirth).toHaveBeenCalledWith('2026-05-23');
+    });
+    await waitFor(() => {
+      expect(startQuizAttempt).toHaveBeenCalledWith({
+        deviceFingerprint: 'a'.repeat(64),
+        eventId: 'event-1',
+        integrityTier: 'device',
+      });
+    });
+    expect(await screen.findByText('What is 2 + 2?')).toBeTruthy();
+  });
+
+  it('closes the date of birth gate without starting when cancelled', async () => {
+    mockDateOfBirth = null;
+    render(<QuizScreen integrityTier="device" locale="en-US" />);
+
+    fireEvent.press(
+      await screen.findByRole('button', {
+        name: 'Start free exam Daily Prize Quiz',
+      })
+    );
+    fireEvent.press(
+      await screen.findByRole('button', {
+        name: 'Cancel date of birth setup',
+      })
+    );
+
+    expect(
+      screen.queryByRole('header', { name: 'Confirm your date of birth' })
     ).toBeNull();
     expect(startQuizAttempt).not.toHaveBeenCalled();
   });
