@@ -239,9 +239,6 @@ interface CreditDirectSignResult {
   publicKey: string;
   sessionId: string;
   isLive: boolean;
-  // Server-derived amount that was signed. The popup MUST use it so the
-  // transaction total matches the signature.
-  amount?: number;
 }
 
 type SignCreditDirectResult =
@@ -1475,14 +1472,7 @@ function CheckoutPageContent() {
     }
 
     const transaction = {
-      // Prefer the server-signed amount so the popup total matches the
-      // signature; fall back to the order total for older responses.
-      totalAmount:
-        typeof sign.amount === 'number' &&
-        Number.isFinite(sign.amount) &&
-        sign.amount > 0
-          ? sign.amount
-          : (order.total as number),
+      totalAmount: order.total as number,
       customerEmail: data.email,
       customerPhone: data.phone,
       sessionId: sign.sessionId,

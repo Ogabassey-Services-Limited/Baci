@@ -150,11 +150,11 @@ export const EXPECTED_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260724100100_s2p_credit_direct_checkout_tokens.sql',
-    sha256: '4c7467762577d1eafee024b9dad19fa3d91ea735cbc5298b26f58780e92ed6a0',
+    sha256: '43bf182126faf53bfa53927bbb8c2a33e996ba97d46fc93ac03ef61f1e1884f9',
   },
   {
     repositoryPath:
       'supabase/migrations/20260724100200_s2p_harden_set_credit_direct_session.sql',
-    sha256: 'd54dd6079d0df0cb0673eae29c20b25bbfd8eef8b827e4f89e3add0f12c7011d',
+    sha256: 'a072f04122e058bb6d09a613385d981c7c8a75432f67a7edcf8500ea211c6ea8',
   },
 ];

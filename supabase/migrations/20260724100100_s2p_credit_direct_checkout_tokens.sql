@@ -132,7 +132,7 @@ BEGIN
     RAISE EXCEPTION 'order_not_payable';
   END IF;
   IF v_payment_status IS NULL
-     OR v_payment_status NOT IN ('pending', 'partially_paid', 'bnpl_pending') THEN
+     OR v_payment_status NOT IN ('unpaid', 'pending', 'partially_paid', 'bnpl_pending') THEN
     RAISE EXCEPTION 'order_not_payable';
   END IF;
 
@@ -184,3 +184,47 @@ COMMENT ON FUNCTION
   'S2-P: issues a single-use Credit-Direct checkout capability token bound to '
   '{order, merchant, server-derived amount, 30-min expiry, session}. Returns '
   'the raw token once; only its SHA-256 hash is persisted.';
+
+-- ---------------------------------------------------------------------------
+-- Bounded retention. Every checkout attempt inserts a row; consumed and
+-- expired rows are dead weight the expires_at index exists to sweep. Delete in
+-- capped batches so a scheduled caller (VPS cron via a service-role edge) can
+-- reclaim rows without a long lock. Service-role only — never anon/authenticated.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.cleanup_credit_direct_checkout_tokens(
+  p_limit integer DEFAULT 1000
+) RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_deleted integer;
+BEGIN
+  WITH doomed AS (
+    SELECT id
+    FROM public.credit_direct_checkout_tokens
+    WHERE consumed_at IS NOT NULL
+       OR expires_at <= pg_catalog.now()
+    ORDER BY expires_at
+    LIMIT GREATEST(COALESCE(p_limit, 1000), 1)
+    FOR UPDATE SKIP LOCKED
+  )
+  DELETE FROM public.credit_direct_checkout_tokens t
+  USING doomed
+  WHERE t.id = doomed.id;
+  GET DIAGNOSTICS v_deleted = ROW_COUNT;
+  RETURN v_deleted;
+END;
+$$;
+
+ALTER FUNCTION public.cleanup_credit_direct_checkout_tokens(integer)
+  OWNER TO postgres;
+REVOKE EXECUTE ON FUNCTION public.cleanup_credit_direct_checkout_tokens(integer)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.cleanup_credit_direct_checkout_tokens(integer)
+  TO service_role;
+
+COMMENT ON FUNCTION public.cleanup_credit_direct_checkout_tokens(integer) IS
+  'S2-P retention: deletes up to p_limit consumed or expired checkout tokens '
+  '(FOR UPDATE SKIP LOCKED). Service-role only, for a scheduled sweep.';

@@ -129,7 +129,7 @@ BEGIN
     RAISE EXCEPTION 'order_not_payable';
   END IF;
   IF v_payment_status IS NULL
-     OR v_payment_status NOT IN ('pending', 'partially_paid', 'bnpl_pending') THEN
+     OR v_payment_status NOT IN ('unpaid', 'pending', 'partially_paid', 'bnpl_pending') THEN
     RAISE EXCEPTION 'order_not_payable';
   END IF;
 
