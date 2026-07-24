@@ -7,19 +7,22 @@ import {
   jest,
 } from '@jest/globals';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
-import { AppState, type AppStateStatus } from 'react-native';
 import { useAppTrackingTransparency } from './use-app-tracking-transparency';
+import {
+  attAppStateMock,
+  mockCanRequestTrackingTransparency,
+  mockGetTrackingPermissionStatus,
+  mockRecordCrashBreadcrumb,
+  mockRemoveAppStateListener,
+  mockRequestTrackingPermission,
+  mockTrackEvent,
+  primeAttTrackingMocks,
+} from './use-app-tracking-transparency.test-utils';
 
-const mockCanRequestTrackingTransparency = jest.fn<() => boolean>(() => true);
-const mockGetTrackingPermissionStatus =
-  jest.fn<() => Promise<{ status: string }>>();
-const mockRequestTrackingPermission = jest.fn<() => Promise<string>>();
-const mockRecordCrashBreadcrumb = jest.fn();
-const mockTrackEvent = jest.fn();
-const mockRemoveAppStateListener = jest.fn();
-let mockAppState: AppStateStatus = 'active';
-let mockAppStateListener: ((state: AppStateStatus) => void) | null = null;
-
+// jest.mock is hoisted above every import, so the hook under test binds to
+// these mocks rather than the real native modules. The factories reference the
+// imported `mock*` singletons (allowed by babel-plugin-jest-hoist) and only
+// invoke them at call time, once the test-utils bindings have initialized.
 jest.mock('@/lib/tracking-transparency', () => ({
   canRequestTrackingTransparency: () => mockCanRequestTrackingTransparency(),
   getTrackingPermissionStatus: () => mockGetTrackingPermissionStatus(),
@@ -41,27 +44,7 @@ jest.mock('@/services/analytics', () => ({
 describe('useAppTrackingTransparency', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // clearAllMocks does not drain queued mockResolvedValueOnce values —
-    // reset the async mocks so no Once from a prior test can leak in.
-    mockGetTrackingPermissionStatus.mockReset();
-    mockRequestTrackingPermission.mockReset();
-    mockAppState = 'active';
-    mockAppStateListener = null;
-    mockCanRequestTrackingTransparency.mockReturnValue(true);
-    mockGetTrackingPermissionStatus.mockResolvedValue({
-      status: 'undetermined',
-    });
-    mockRequestTrackingPermission.mockResolvedValue('granted');
-    Object.defineProperty(AppState, 'currentState', {
-      configurable: true,
-      get: () => mockAppState,
-    });
-    jest
-      .spyOn(AppState, 'addEventListener')
-      .mockImplementation((_type, listener) => {
-        mockAppStateListener = listener;
-        return { remove: mockRemoveAppStateListener };
-      });
+    primeAttTrackingMocks();
   });
 
   afterEach(() => {
@@ -111,7 +94,7 @@ describe('useAppTrackingTransparency', () => {
   });
 
   it('waits for the app to become active before presenting ATT', async () => {
-    mockAppState = 'background';
+    attAppStateMock.current = 'background';
 
     const { result } = renderHook(() =>
       useAppTrackingTransparency({ enabled: true })
@@ -121,11 +104,11 @@ describe('useAppTrackingTransparency', () => {
       expect(mockGetTrackingPermissionStatus).toHaveBeenCalledTimes(1);
     });
     expect(mockRequestTrackingPermission).not.toHaveBeenCalled();
-    expect(mockAppStateListener).not.toBeNull();
+    expect(attAppStateMock.listener).not.toBeNull();
 
-    mockAppState = 'active';
+    attAppStateMock.current = 'active';
     await act(async () => {
-      mockAppStateListener?.('active');
+      attAppStateMock.listener?.('active');
       await Promise.resolve();
     });
 
@@ -186,13 +169,13 @@ describe('useAppTrackingTransparency', () => {
   });
 
   it('removes a pending active-state listener when the root unmounts', async () => {
-    mockAppState = 'background';
+    attAppStateMock.current = 'background';
     const { unmount } = renderHook(() =>
       useAppTrackingTransparency({ enabled: true })
     );
 
     await waitFor(() => {
-      expect(mockAppStateListener).not.toBeNull();
+      expect(attAppStateMock.listener).not.toBeNull();
     });
     unmount();
 
@@ -235,151 +218,6 @@ describe('useAppTrackingTransparency', () => {
     await act(async () => {
       resolveFirstStatus?.({ status: 'undetermined' });
       await Promise.resolve();
-    });
-    expect(mockRequestTrackingPermission).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe('bugfix: iOS silently discards ATT requests made during the launch transition (2.1.512 App Store rejection)', () => {
-  const flushAttFlow = async () => {
-    await act(async () => {
-      await jest.advanceTimersByTimeAsync(0);
-      await jest.advanceTimersByTimeAsync(0);
-    });
-  };
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-    jest.useFakeTimers();
-    // clearAllMocks does not drain queued mockResolvedValueOnce values —
-    // reset the async mocks so no Once from a prior test can leak in.
-    mockGetTrackingPermissionStatus.mockReset();
-    mockRequestTrackingPermission.mockReset();
-    mockAppState = 'active';
-    mockAppStateListener = null;
-    mockCanRequestTrackingTransparency.mockReturnValue(true);
-    mockGetTrackingPermissionStatus.mockResolvedValue({
-      status: 'undetermined',
-    });
-    mockRequestTrackingPermission.mockResolvedValue('granted');
-    Object.defineProperty(AppState, 'currentState', {
-      configurable: true,
-      get: () => mockAppState,
-    });
-    jest
-      .spyOn(AppState, 'addEventListener')
-      .mockImplementation((_type, listener) => {
-        mockAppStateListener = listener;
-        return { remove: mockRemoveAppStateListener };
-      });
-  });
-
-  afterEach(() => {
-    jest.clearAllTimers();
-    jest.useRealTimers();
-    jest.restoreAllMocks();
-  });
-
-  it('retries the native request when iOS denies without recording a decision', async () => {
-    // The rejection signature: request resolves 'denied' but the status
-    // re-check still reads 'undetermined' — the dialog never displayed.
-    mockRequestTrackingPermission
-      .mockResolvedValueOnce('denied')
-      .mockResolvedValueOnce('granted');
-
-    const { result } = renderHook(() =>
-      useAppTrackingTransparency({ enabled: true })
-    );
-    await flushAttFlow();
-
-    expect(mockRequestTrackingPermission).toHaveBeenCalledTimes(1);
-    expect(result.current.isTrackingAuthorizationSettled).toBe(false);
-    expect(mockTrackEvent).toHaveBeenCalledWith('ATT Request Unrecorded', {
-      attempt: '1',
-    });
-
-    await act(async () => {
-      await jest.advanceTimersByTimeAsync(800);
-    });
-
-    expect(mockRequestTrackingPermission).toHaveBeenCalledTimes(2);
-    expect(result.current.isTrackingAuthorizationSettled).toBe(true);
-    expect(mockTrackEvent).toHaveBeenCalledWith('ATT Request Result', {
-      status: 'granted',
-    });
-  });
-
-  it('settles with the silent denial after exhausting the bounded retries', async () => {
-    mockRequestTrackingPermission.mockResolvedValue('denied');
-
-    const { result } = renderHook(() =>
-      useAppTrackingTransparency({ enabled: true })
-    );
-    await flushAttFlow();
-
-    expect(mockRequestTrackingPermission).toHaveBeenCalledTimes(1);
-
-    for (const delay of [800, 1600, 2400]) {
-      await act(async () => {
-        await jest.advanceTimersByTimeAsync(delay);
-      });
-    }
-
-    expect(mockRequestTrackingPermission).toHaveBeenCalledTimes(4);
-    expect(result.current.isTrackingAuthorizationSettled).toBe(true);
-    expect(mockTrackEvent).toHaveBeenCalledWith('ATT Request Unrecorded', {
-      attempt: '3',
-    });
-    expect(mockTrackEvent).toHaveBeenCalledWith('ATT Request Result', {
-      status: 'denied',
-      recorded: 'false',
-    });
-
-    // No fifth request may remain scheduled once the retries are exhausted.
-    await act(async () => {
-      await jest.advanceTimersByTimeAsync(10_000);
-    });
-    expect(mockRequestTrackingPermission).toHaveBeenCalledTimes(4);
-  });
-
-  it('does not retry when the denial was genuinely recorded by iOS', async () => {
-    mockGetTrackingPermissionStatus
-      .mockResolvedValueOnce({ status: 'undetermined' })
-      .mockResolvedValueOnce({ status: 'denied' });
-    mockRequestTrackingPermission.mockResolvedValue('denied');
-
-    const { result } = renderHook(() =>
-      useAppTrackingTransparency({ enabled: true })
-    );
-    await flushAttFlow();
-
-    expect(result.current.isTrackingAuthorizationSettled).toBe(true);
-    expect(mockRequestTrackingPermission).toHaveBeenCalledTimes(1);
-    expect(mockTrackEvent).toHaveBeenCalledWith('ATT Request Result', {
-      status: 'denied',
-      recorded: 'true',
-    });
-    expect(mockTrackEvent).not.toHaveBeenCalledWith(
-      'ATT Request Unrecorded',
-      expect.anything()
-    );
-  });
-
-  it('clears a pending unrecorded-denial retry when the root unmounts', async () => {
-    mockRequestTrackingPermission.mockResolvedValue('denied');
-
-    const { unmount } = renderHook(() =>
-      useAppTrackingTransparency({ enabled: true })
-    );
-    await flushAttFlow();
-
-    expect(mockTrackEvent).toHaveBeenCalledWith('ATT Request Unrecorded', {
-      attempt: '1',
-    });
-    unmount();
-
-    await act(async () => {
-      await jest.advanceTimersByTimeAsync(10_000);
     });
     expect(mockRequestTrackingPermission).toHaveBeenCalledTimes(1);
   });
