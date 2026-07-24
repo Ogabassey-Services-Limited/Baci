@@ -11,7 +11,7 @@ import { REPLAYABLE_PAID_ORDER_SIDE_EFFECT_STEPS } from '@/lib/payments/replayab
 // excluded from BOTH the drain SELECT and the claim RPC's re-claim guard —
 // permanently stranded even after the underlying bug is fixed in a later
 // deploy. Before this pre-pass an operator had to reset `attempts` by hand to
-// get the receipt out (the danneey7 order, 2026-07-23).
+// get the receipt out (prod incident, 2026-07-23).
 //
 // Run at the head of the drain each cron tick, this does two bounded things:
 //   1. Grants each stranded-but-recoverable row ONE fresh attempt — throttled
