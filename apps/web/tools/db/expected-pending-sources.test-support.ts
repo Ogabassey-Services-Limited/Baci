@@ -145,7 +145,7 @@ export const EXPECTED_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260724000002_reject_staff_merchant_credential_writes.sql',
-    sha256: '2b8a44b35750e793e384f71715b8a0b305d3aa7b7813b58356aa19a8549567be',
+    sha256: 'd06bad9b4f732769925a478fc858cf6a9d4ee324860a4712d00af4218039d834',
   },
   {
     repositoryPath:

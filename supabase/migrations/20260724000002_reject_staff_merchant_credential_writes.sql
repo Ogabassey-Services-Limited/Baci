@@ -40,6 +40,11 @@
 -- exist on merchants (only stripe_customer_id / stripe_subscription_id do).
 -- Both Facebook CAPI token columns are guarded -- facebook_capi_token AND its
 -- legacy sibling facebook_capi_access_token -- so the pair cannot be split.
+-- The FIRS e-invoice credential set (firs_public_key, firs_certificate,
+-- firs_email, firs_password_encrypted), stripe_subscription_id, and the CAC
+-- identity columns (cac_number, cac_rc_number) are also owner-only.
+-- The trigger additionally rejects staff changes to user_id so a staff member
+-- cannot claim ownership and escalate past the owner bypass on a later write.
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION public.reject_staff_merchant_credential_writes()
@@ -59,6 +64,17 @@ BEGIN
     RETURN NEW;
   END IF;
 
+  -- Ownership-claim escalation guard: without this, a settings.edit staff
+  -- member could PATCH user_id to their own UUID (the trigger's owner bypass
+  -- reads OLD.user_id, so THIS statement is evaluated as staff), then on the
+  -- NEXT request be treated as the owner and rewrite every guarded credential.
+  -- Non-owner/non-service callers may never change ownership.
+  IF NEW.user_id IS DISTINCT FROM OLD.user_id THEN
+    RAISE EXCEPTION
+      'Staff are not permitted to change merchant ownership'
+      USING ERRCODE = '42501';
+  END IF;
+
   -- Delegated staff: reject any actual change to an owner-only credential
   -- column. NULL-safe IS DISTINCT FROM lets no-op updates through so
   -- legitimate settings edits that do not touch these columns continue to
@@ -74,7 +90,15 @@ BEGIN
       IS DISTINCT FROM OLD.facebook_capi_access_token
     OR NEW.ga4_api_secret IS DISTINCT FROM OLD.ga4_api_secret
     OR NEW.tiktok_access_token IS DISTINCT FROM OLD.tiktok_access_token
-    OR NEW.snapchat_capi_token IS DISTINCT FROM OLD.snapchat_capi_token THEN
+    OR NEW.snapchat_capi_token IS DISTINCT FROM OLD.snapchat_capi_token
+    OR NEW.firs_public_key IS DISTINCT FROM OLD.firs_public_key
+    OR NEW.firs_certificate IS DISTINCT FROM OLD.firs_certificate
+    OR NEW.firs_email IS DISTINCT FROM OLD.firs_email
+    OR NEW.firs_password_encrypted
+      IS DISTINCT FROM OLD.firs_password_encrypted
+    OR NEW.stripe_subscription_id IS DISTINCT FROM OLD.stripe_subscription_id
+    OR NEW.cac_number IS DISTINCT FROM OLD.cac_number
+    OR NEW.cac_rc_number IS DISTINCT FROM OLD.cac_rc_number THEN
     RAISE EXCEPTION
       'Staff are not permitted to modify merchant credential columns'
       USING ERRCODE = '42501';
