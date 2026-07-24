@@ -139,6 +139,11 @@ export const EXPECTED_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260724090000_s1_pr2b_revoke_payment_secret_column_grants.sql',
+    sha256: '2a8e2b69b99fb69c2cbed3bd43f55218f15919951103163e525f0d87f696ed1d',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260724100000_s2i_contain_credit_direct_public_mutation.sql',
     sha256: '9d982df889a769e4b945aabd716e7b3b69693130f10f8acd77931626bfb6b05c',
   },
