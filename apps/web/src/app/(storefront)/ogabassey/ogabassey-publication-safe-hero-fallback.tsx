@@ -1,7 +1,10 @@
 import {
   HERO_MOBILE_CONTROLS_ROW_CLASSES,
+  HERO_MOBILE_IMAGE_COLUMN_CLASSES,
   HERO_MOBILE_PANEL_CLASSES,
   HERO_MOBILE_PLAY_TOGGLE_SLOT_CLASSES,
+  HERO_MOBILE_SLIDE_GRID_CLASSES,
+  HERO_MOBILE_TEXT_COLUMN_CLASSES,
   HERO_MOBILE_UTILITY_PANEL_MIN_HEIGHT_CLASS,
   HERO_MOBILE_WRAPPER_CLASSES,
 } from '@/components/storefront/ogabassey/components/hero-mobile-geometry';
@@ -39,12 +42,23 @@ export function OgabasseyPublicationSafeHeroFallback({
               sole owner of product copy, prices, PDP links, and controls. */}
           <div className={HERO_MOBILE_PANEL_CLASSES}>
             {heroImageUrl ? (
-              <MobileLcpHeroImage
-                alt=""
-                imageFit="contain"
-                shouldPrioritizeImage
-                src={heroImageUrl}
-              />
+              <div className={HERO_MOBILE_SLIDE_GRID_CLASSES}>
+                {/* Empty text column: reserves the real slide's 60% copy slot
+                    while emitting NO product name, price, or CTA, so the image
+                    paints in its true 40% (col-span-2) column. That matches the
+                    image's `sizes` (no undersized/upscaled LCP frame) AND the
+                    streamed Hero's geometry, so the Suspense swap causes no
+                    resize/recomposition on the slow-mobile path this targets. */}
+                <div className={HERO_MOBILE_TEXT_COLUMN_CLASSES} />
+                <div className={HERO_MOBILE_IMAGE_COLUMN_CLASSES}>
+                  <MobileLcpHeroImage
+                    alt=""
+                    imageFit="contain"
+                    shouldPrioritizeImage
+                    src={heroImageUrl}
+                  />
+                </div>
+              </div>
             ) : null}
           </div>
           {hasCarouselControls ? (

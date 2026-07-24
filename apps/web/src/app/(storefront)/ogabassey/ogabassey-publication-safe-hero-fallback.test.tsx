@@ -1,6 +1,15 @@
 import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { HERO_MOBILE_UTILITY_PANEL_MIN_HEIGHT_CLASS } from '@/components/storefront/ogabassey/components/hero-mobile-geometry';
+import {
+  HERO_MOBILE_IMAGE_COLUMN_CLASSES,
+  HERO_MOBILE_TEXT_COLUMN_CLASSES,
+  HERO_MOBILE_UTILITY_PANEL_MIN_HEIGHT_CLASS,
+} from '@/components/storefront/ogabassey/components/hero-mobile-geometry';
+
+/** Build a CSS selector from a space-separated Tailwind class constant. */
+const classSelector = (classes: string) =>
+  `.${classes.trim().split(/\s+/).join('.')}`;
+
 import { OgabasseyPublicationSafeHeroFallback } from './ogabassey-publication-safe-hero-fallback';
 
 const HERO_IMAGE_URL =
@@ -42,6 +51,21 @@ describe('OgabasseyPublicationSafeHeroFallback', () => {
     expect(picture?.querySelector('source')?.getAttribute('srcset')).toContain(
       HERO_IMAGE_URL
     );
+
+    // Geometry lock (regression guard for the full-width mispaint the fable
+    // review and Codex both flagged): the image paints in the real slide's 40%
+    // image column (col-span-2) inside the grid, so `sizes` selects the right
+    // source and the streamed Hero swap causes no resize/recomposition.
+    const imageColumn = container.querySelector(
+      classSelector(HERO_MOBILE_IMAGE_COLUMN_CLASSES)
+    );
+    expect(imageColumn).toContainElement(picture);
+    // The mirrored 60% text column reserves the slot but stays empty — no copy.
+    const textColumn = container.querySelector(
+      classSelector(HERO_MOBILE_TEXT_COLUMN_CLASSES)
+    );
+    expect(textColumn).toBeInTheDocument();
+    expect(textColumn?.textContent).toBe('');
   });
 
   it('renders no image while keeping the inert skeleton when the feed is empty', () => {
