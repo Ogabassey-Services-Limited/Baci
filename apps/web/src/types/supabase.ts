@@ -16404,6 +16404,19 @@ export type Database = {
           attempt_id: string;
           customer_id: string;
           customer_name: string;
+          is_current_customer: boolean;
+          rank: number;
+          score: number;
+          status: string;
+          submitted_at: string;
+          total_time_seconds: number;
+        }[];
+      };
+      get_quiz_leaderboard_public: {
+        Args: { p_event_id: string };
+        Returns: {
+          customer_name: string;
+          is_current_customer: boolean;
           rank: number;
           score: number;
           status: string;
