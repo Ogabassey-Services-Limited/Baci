@@ -133,6 +133,24 @@ function roundToCents(value: number): number {
 }
 
 /**
+ * Express a major-unit cap in the amount's own unit. Zero-decimal currencies
+ * (XAF/XOF/…) have no sub-unit, so their `'minor'` amount equals the major
+ * amount — their cap must NOT be multiplied by 100. Two-decimal currencies scale
+ * a `'minor'` cap by 100 (e.g. NGN ₦2,050 → 205,000 kobo). Exported for direct
+ * unit testing of the zero-decimal branch, which is unreachable via the public
+ * API today (only NGN is capped and NGN is 2-decimal).
+ */
+export function resolveCapInAmountUnit(
+  capMajor: number,
+  unit: PlatformFeeUnit,
+  currency: string
+): number {
+  const scaleToMinor =
+    unit === 'minor' && !ZERO_DECIMAL_CURRENCIES.has(currency.toUpperCase());
+  return scaleToMinor ? capMajor * 100 : capMajor;
+}
+
+/**
  * Compute the platform fee and the merchant's residual amount for a gross
  * `amount`. See the module header for the parity guarantees.
  */
@@ -162,15 +180,13 @@ export function calculatePlatformFee(
     fee = Math.round(fee);
   }
 
-  // Cap applies to NGN only; scale it to minor units when the amount is minor.
-  // Zero-decimal currencies have no sub-unit, so their "minor" amount equals the
-  // major amount — never multiply their cap by 100. (Inert today: only NGN is
-  // capped and NGN is 2-decimal; this guards any future capped zero-decimal currency.)
+  // Cap applies to NGN only; express it in the amount's unit (see helper — inert
+  // today for zero-decimal currencies since only NGN is capped, and NGN is 2-decimal).
   if (config.capMajor !== null) {
-    const scaleCapToMinor =
-      unit === 'minor' && !ZERO_DECIMAL_CURRENCIES.has(currency.toUpperCase());
-    const cap = scaleCapToMinor ? config.capMajor * 100 : config.capMajor;
-    fee = Math.min(fee, cap);
+    fee = Math.min(
+      fee,
+      resolveCapInAmountUnit(config.capMajor, unit, currency)
+    );
   }
 
   const merchantAmount = amount - fee;

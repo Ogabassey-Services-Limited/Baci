@@ -5,7 +5,7 @@ import {
 } from '../credit-direct';
 import { calculatePlatformFee as korapayFee } from '../korapay';
 import { calculatePlatformFee as paystackFee } from '../paystack';
-import { calculatePlatformFee } from './platform-fee';
+import { calculatePlatformFee, resolveCapInAmountUnit } from './platform-fee';
 
 // ---------------------------------------------------------------------------
 // Legacy oracles — verbatim copies of the three pre-consolidation formulas.
@@ -276,5 +276,26 @@ describe('Korapay fee currency (Codex #39)', () => {
 
   it('defaults to NGN when no currency is supplied (back-compat)', () => {
     expect(korapayFee(500_000)).toEqual(korapayFee(500_000, 'NGN'));
+  });
+});
+
+describe('resolveCapInAmountUnit (zero-decimal cap guard, CodeRabbit)', () => {
+  it('scales a 2-decimal cap to minor units', () => {
+    // NGN ₦2,050 cap → 205,000 kobo when the amount is in minor units.
+    expect(resolveCapInAmountUnit(2050, 'minor', 'NGN')).toBe(205_000);
+    expect(resolveCapInAmountUnit(2050, 'major', 'NGN')).toBe(2050);
+  });
+
+  it('does NOT scale a zero-decimal currency cap to minor units', () => {
+    // XAF/XOF have no sub-unit: a capped zero-decimal currency (hypothetical
+    // today) must keep the cap at 2,050, never 205,000, even for unit: 'minor'.
+    expect(resolveCapInAmountUnit(2050, 'minor', 'XAF')).toBe(2050);
+    expect(resolveCapInAmountUnit(2050, 'minor', 'XOF')).toBe(2050);
+    expect(resolveCapInAmountUnit(2050, 'major', 'XAF')).toBe(2050);
+  });
+
+  it('is case-insensitive on the currency code', () => {
+    expect(resolveCapInAmountUnit(2050, 'minor', 'xof')).toBe(2050);
+    expect(resolveCapInAmountUnit(2050, 'minor', 'ngn')).toBe(205_000);
   });
 });
