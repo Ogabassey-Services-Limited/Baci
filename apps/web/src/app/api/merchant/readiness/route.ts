@@ -5,7 +5,7 @@ import {
   getLaunchPaymentRequirement,
   requiresNigerianKycForLaunch,
 } from '@/lib/checkout/payment-gateway-availability';
-import { fetchMerchantPaystackSubaccountCode } from '@/lib/fetch-merchant-payment-secret';
+import { fetchMerchantPaystackConfigured } from '@/lib/fetch-merchant-paystack-configured';
 import {
   getMerchantForApiRequest,
   toUserAccess,
@@ -220,13 +220,13 @@ export async function GET() {
       );
     }
 
-    // The secret `paystack_subaccount_code` is revoked from the authenticated
-    // role; read it through the bounded SECURITY DEFINER RPC on the same
-    // authenticated client (owner/active-staff), keyed to the resolved merchant
-    // id, then merge it into the row the launch-payment gate reads.
+    // Readiness only needs CONFIGURED-NESS, not the raw secret: the launch
+    // gate natively honors `paystack_subaccount_configured`. The derived
+    // boolean RPC is owner/active-staff scoped, so accountant/sales_rep and
+    // other dashboard.view-only roles keep an accurate checklist.
     const validMerchant = {
       ...baseMerchant,
-      paystack_subaccount_code: await fetchMerchantPaystackSubaccountCode(
+      paystack_subaccount_configured: await fetchMerchantPaystackConfigured(
         supabase,
         baseMerchant.id
       ),

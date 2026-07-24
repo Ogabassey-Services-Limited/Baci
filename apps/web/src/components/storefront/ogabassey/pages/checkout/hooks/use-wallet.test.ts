@@ -70,6 +70,48 @@ describe('useWallet', () => {
     });
   });
 
+  it('surfaces the wallet transactions (with source_type) for the funding check loop', async () => {
+    const transactions = [
+      {
+        amount: 5000,
+        balance_after: 5000,
+        created_at: '2026-07-13T10:00:00.000Z',
+        description: 'Wallet top-up via paystack',
+        id: 'txn-1',
+        source_type: 'wallet_topup',
+        type: 'credit',
+      },
+    ];
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ balance: 5000, transactions }),
+    });
+
+    const { result } = renderHook(() =>
+      useWallet({ userId: 'user-123', merchantSlug: 'test-merchant' }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.walletTransactions).toEqual(transactions);
+    });
+  });
+
+  it('falls back to an empty transaction list when the API omits it', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ balance: 100 }),
+    });
+
+    const { result } = renderHook(() =>
+      useWallet({ userId: 'user-123', merchantSlug: 'test-merchant' }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.walletBalance).toBe(100);
+    });
+    expect(result.current.walletTransactions).toEqual([]);
+  });
+
   it('should set balance to 0 and not enable payWithWallet when balance is 0', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,

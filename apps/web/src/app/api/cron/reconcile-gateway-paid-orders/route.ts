@@ -48,7 +48,9 @@ export async function GET(request: NextRequest) {
     if (
       summary.checked > 0 ||
       sideEffectDrain.drained.length > 0 ||
-      sideEffectDrain.failed.length > 0
+      sideEffectDrain.failed.length > 0 ||
+      sideEffectDrain.recovered.length > 0 ||
+      sideEffectDrain.stranded.length > 0
     ) {
       logger.warn({
         message:

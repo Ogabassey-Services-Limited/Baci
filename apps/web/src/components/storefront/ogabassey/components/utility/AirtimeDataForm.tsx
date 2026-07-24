@@ -18,9 +18,22 @@ const AIRTIME_PROVIDERS: Provider[] = [
   { id: '9MOBILE', name: '9mobile', color: '#006400' },
 ];
 
+export interface AirtimeDataDraft {
+  amount: string;
+  networkProvider: string | null;
+  phoneNumber: string;
+}
+
 interface AirtimeDataFormProps {
   type: 'airtime' | 'data';
   loading: boolean;
+  /**
+   * Prefill for a purchase resumed after a wallet-funding detour. Applied on
+   * mount only, and never auto-submitted — the customer still presses Pay.
+   */
+  initialDraft?: AirtimeDataDraft;
+  /** Reports the in-progress draft so it can survive a funding detour. */
+  onDraftChange?: (draft: AirtimeDataDraft) => void;
   onSubmit: (data: {
     phoneNumber: string;
     amount: number;
@@ -32,11 +45,17 @@ interface AirtimeDataFormProps {
 export function AirtimeDataForm({
   type,
   loading,
+  initialDraft,
+  onDraftChange,
   onSubmit,
 }: AirtimeDataFormProps) {
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [amount, setAmount] = useState('');
-  const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
+  const [phoneNumber, setPhoneNumber] = useState(
+    initialDraft?.phoneNumber ?? ''
+  );
+  const [amount, setAmount] = useState(initialDraft?.amount ?? '');
+  const [selectedProvider, setSelectedProvider] = useState<string | null>(
+    initialDraft?.networkProvider ?? null
+  );
 
   const handlePhoneNumberChange = (
     e: React.ChangeEvent<HTMLInputElement>
@@ -45,12 +64,37 @@ export function AirtimeDataForm({
     setPhoneNumber(nextPhoneNumber);
     // Auto-detect network from phone number in the event handler instead of
     // an effect, so the update happens in a single render pass.
+    let nextProvider = selectedProvider;
     if (nextPhoneNumber.length >= 4) {
       const detected = detectNetworkProvider(nextPhoneNumber);
       if (detected) {
+        nextProvider = detected;
         setSelectedProvider(detected);
       }
     }
+    onDraftChange?.({
+      amount,
+      networkProvider: nextProvider,
+      phoneNumber: nextPhoneNumber,
+    });
+  };
+
+  const handleAmountChange = (nextAmount: string) => {
+    setAmount(nextAmount);
+    onDraftChange?.({
+      amount: nextAmount,
+      networkProvider: selectedProvider,
+      phoneNumber,
+    });
+  };
+
+  const handleProviderChange = (nextProvider: string) => {
+    setSelectedProvider(nextProvider);
+    onDraftChange?.({
+      amount,
+      networkProvider: nextProvider,
+      phoneNumber,
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -93,7 +137,7 @@ export function AirtimeDataForm({
             type="button"
             role="radio"
             aria-checked={selectedProvider === provider.id}
-            onClick={() => setSelectedProvider(provider.id)}
+            onClick={() => handleProviderChange(provider.id)}
             className={cn(
               'flex flex-col items-center justify-center p-2 rounded-xl border-2 transition-all aspect-square',
               selectedProvider === provider.id
@@ -122,7 +166,7 @@ export function AirtimeDataForm({
             id="airtime-amount"
             type="number"
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            onChange={(e) => handleAmountChange(e.target.value)}
             placeholder="0.00"
             className="w-full pl-8 pr-4 py-3 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-1 focus:ring-red-600 outline-hidden transition-all"
             required
@@ -134,7 +178,7 @@ export function AirtimeDataForm({
             <button
               key={amt}
               type="button"
-              onClick={() => setAmount(String(amt))}
+              onClick={() => handleAmountChange(String(amt))}
               className="text-xs border border-gray-200 rounded-lg px-2 py-1 hover:bg-gray-50 hover:border-gray-300 transition-colors"
             >
               ₦{amt}

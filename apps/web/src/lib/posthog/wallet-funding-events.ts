@@ -16,6 +16,14 @@ export const WALLET_FUNDING_TELEMETRY = {
     createFailed: 'wallet_funding_account_create_failed',
     paymentMethodSelected: 'utility_payment_method_selected',
     transferCredited: 'wallet_funding_transfer_credited',
+    // Client-side "I've transferred — checking…" loop. `transferCheckStarted`
+    // is the customer arming the poll; `transferCheckSettled` carries
+    // `outcome: 'credited' | 'timed_out'`. Deliberately NOT `transferCredited`:
+    // that one is emitted server-side with a deterministic dedupe uuid
+    // (customer-wallet-top-up.ts), so a client copy would double-count the
+    // funnel's terminal step.
+    transferCheckStarted: 'wallet_funding_transfer_check_started',
+    transferCheckSettled: 'wallet_funding_transfer_check_settled',
   },
   surfaces: {
     utilityModal: 'utility_modal',

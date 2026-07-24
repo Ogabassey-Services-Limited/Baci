@@ -1,17 +1,21 @@
 'use client';
 
-import type { StorefrontWalletFundingAccount } from '@baci/shared';
+import type {
+  StorefrontWalletFundingAccount,
+  StorefrontWalletTransaction,
+} from '@baci/shared';
 import { Copy, Landmark, Loader2, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from '@/hooks/use-toast';
-import { fetchWithCsrf } from '@/lib/api-client';
 import { captureClientEvent } from '@/lib/posthog/capture-client-event';
 import {
   WALLET_FUNDING_TELEMETRY,
-  type WalletFundingFailureReason,
   type WalletFundingSurface,
 } from '@/lib/posthog/wallet-funding-events';
-import { resolveWalletFundingFailureReason } from '@/lib/posthog/wallet-funding-failure-reason';
+import { isWalletFundingCheckLoopEnabled } from '@/lib/wallet-funding-check-loop-flag';
+import { requestFundingAccount } from './wallet-funding-account-request';
+import { useWalletFundingCreditPoll } from './use-wallet-funding-credit-poll';
+import { WalletFundingCheckStatus } from './WalletFundingCheckStatus';
 import { WALLET_FUNDING_COPY } from './wallet-funding-copy';
 
 interface WalletFundingPanelProps {
@@ -26,63 +30,17 @@ interface WalletFundingPanelProps {
   customerId?: string;
   merchantSlug: string | undefined;
   onAccountCreated: (account: StorefrontWalletFundingAccount) => void;
+  /** Called once the check loop detects a NEW `wallet_topup` credit. */
+  onCredited?: () => void;
   onRefreshBalance?: () => void;
+  /** Utility surface only — resumes the paused purchase (prefill, no submit). */
+  onReturnToPurchase?: () => void;
   requiresConsent: boolean;
   /** Which surface rendered the panel — drives the `surface` funnel property. */
   surface: WalletFundingSurface;
+  /** Wallet snapshot the parent already fetched — the check loop's baseline. */
+  walletTransactions?: readonly StorefrontWalletTransaction[];
 }
-
-type CreateAccountResult =
-  | { kind: 'created'; account: StorefrontWalletFundingAccount }
-  | {
-      kind: 'error';
-      message: string;
-      reason: WalletFundingFailureReason;
-    };
-
-// Module-scope helper keeps async try/catch out of the component body so
-// React Compiler can memoize WalletFundingPanel.
-const requestFundingAccount = async (
-  merchantSlug: string
-): Promise<CreateAccountResult> => {
-  try {
-    const response = await fetchWithCsrf(
-      '/api/storefront/customer/wallet/funding-account',
-      {
-        method: 'POST',
-        body: JSON.stringify({ consent: true, merchantSlug }),
-      }
-    );
-    const data = await response.json();
-    if (!response.ok || !data.account) {
-      const reason = resolveWalletFundingFailureReason(data.code);
-      // The customer's Paystack NUBAN is inside an active order-payment
-      // reservation window (max ~90 min) — actionable, not a hard failure.
-      if (data.code === 'WALLET_DVA_ORDER_ALIAS_CONFLICT') {
-        return {
-          kind: 'error',
-          message: WALLET_FUNDING_COPY.orderPaymentInProgress,
-          reason,
-        };
-      }
-      return {
-        kind: 'error',
-        message:
-          typeof data.error === 'string'
-            ? data.error
-            : WALLET_FUNDING_COPY.unavailable,
-        reason,
-      };
-    }
-    return { kind: 'created', account: data.account };
-  } catch {
-    return {
-      kind: 'error',
-      message: WALLET_FUNDING_COPY.unavailable,
-      reason: WALLET_FUNDING_TELEMETRY.reasons.network,
-    };
-  }
-};
 
 export function WalletFundingPanel({
   account,
@@ -90,19 +48,53 @@ export function WalletFundingPanel({
   customerId,
   merchantSlug,
   onAccountCreated,
+  onCredited,
   onRefreshBalance,
+  onReturnToPurchase,
   requiresConsent,
   surface,
+  walletTransactions,
 }: WalletFundingPanelProps) {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [autoCreateAttempted, setAutoCreateAttempted] = useState(false);
   const [surfaceReported, setSurfaceReported] = useState(false);
+  // Id of the detected top-up. The return-to-purchase CTA stays gated until the
+  // REFRESHED wallet snapshot actually contains this credit — returning before
+  // then lands the customer on a checkout that still reads insufficient balance.
+  const [creditedTransactionId, setCreditedTransactionId] = useState<
+    string | null
+  >(null);
+
+  // Dark-launched: flag off keeps the manual refresh button and never polls.
+  // Only armed once the customer can see an account number to transfer to.
+  const checkLoopEnabled = isWalletFundingCheckLoopEnabled() && Boolean(account);
+  const creditPoll = useWalletFundingCreditPoll({
+    customerId,
+    enabled: checkLoopEnabled,
+    knownTransactionIds: (walletTransactions ?? []).map(
+      (transaction) => transaction.id
+    ),
+    merchantSlug,
+    onCredited: (credit) => {
+      setCreditedTransactionId(credit.id);
+      onRefreshBalance?.();
+      onCredited?.();
+    },
+    surface,
+  });
+
+  // Fail-closed gate for the return CTA: only ready once the parent's refreshed
+  // wallet snapshot reflects the detected credit (its txn id is now present).
+  const returnReady =
+    creditedTransactionId !== null &&
+    (walletTransactions ?? []).some(
+      (transaction) => transaction.id === creditedTransactionId
+    );
 
   // Fire the funnel-entry event once, but only after the merchant context has
-  // resolved — firing on a pre-merchant mount would lose the attribution.
-  // Guarded by state (rather than a dependency array) to match the auto-create
-  // effect below.
+  // resolved — a pre-merchant mount would lose the attribution. State-guarded
+  // (not a dependency array) to match the auto-create effect below.
   useEffect(() => {
     if (surfaceReported || !merchantSlug) {
       return;
@@ -208,7 +200,16 @@ export function WalletFundingPanel({
           <p className="text-xs font-medium text-store-primary">
             {WALLET_FUNDING_COPY.feeNote}
           </p>
-          {onRefreshBalance ? (
+          {checkLoopEnabled ? (
+            <WalletFundingCheckStatus
+              creditedAmount={creditPoll.creditedAmount}
+              onCheck={creditPoll.start}
+              onReturnToPurchase={onReturnToPurchase}
+              onRetryRefresh={onRefreshBalance}
+              returnReady={returnReady}
+              status={creditPoll.status}
+            />
+          ) : onRefreshBalance ? (
             <button
               type="button"
               onClick={onRefreshBalance}

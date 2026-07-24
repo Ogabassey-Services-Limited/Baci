@@ -132,4 +132,56 @@ describe('AirtimeDataForm', () => {
 
     expect(screen.getByText('Processing…')).toBeInTheDocument();
   });
+
+  it('prefills a resumed draft WITHOUT auto-submitting the purchase', () => {
+    render(
+      <AirtimeDataForm
+        type="airtime"
+        loading={false}
+        initialDraft={{
+          amount: '500',
+          networkProvider: 'MTN',
+          phoneNumber: '08012345678',
+        }}
+        onSubmit={mockOnSubmit}
+      />
+    );
+
+    expect(screen.getByPlaceholderText('08012345678')).toHaveValue(
+      '08012345678'
+    );
+    expect(screen.getByLabelText('Amount')).toHaveValue(500);
+    expect(screen.getByRole('radio', { name: /MTN/ })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
+    // The customer must press Pay themselves — a real-money purchase is never
+    // auto-submitted from a restored draft.
+    expect(mockOnSubmit).not.toHaveBeenCalled();
+  });
+
+  it('reports draft changes so an interrupted purchase can be resumed', () => {
+    const onDraftChange = vi.fn();
+
+    render(
+      <AirtimeDataForm
+        type="airtime"
+        loading={false}
+        onDraftChange={onDraftChange}
+        onSubmit={mockOnSubmit}
+      />
+    );
+    fireEvent.change(screen.getByPlaceholderText('08012345678'), {
+      target: { value: '08012345678' },
+    });
+    fireEvent.change(screen.getByLabelText('Amount'), {
+      target: { value: '500' },
+    });
+
+    expect(onDraftChange).toHaveBeenLastCalledWith({
+      amount: '500',
+      networkProvider: null,
+      phoneNumber: '08012345678',
+    });
+  });
 });
