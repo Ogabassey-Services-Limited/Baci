@@ -192,4 +192,24 @@ describe('mobile-admin RootLayout', () => {
     });
     expect(mocks.splashHideAsync).not.toHaveBeenCalled();
   });
+
+  // Regression: SplashScreen.hideAsync() rejects most often because the splash
+  // is already hidden. Blocking ATT enablement on that rejection would strand
+  // the prompt — the exact rejection this fix addresses — so enablement must
+  // fail open once the first frame has been revealed.
+  it('still enables the ATT prompt when SplashScreen.hideAsync() rejects', async () => {
+    mocks.useFonts.mockReturnValue([true, null]);
+    mocks.splashHideAsync.mockImplementationOnce(async () => {
+      throw new Error('Native splash screen is already hidden');
+    });
+
+    render(<RootLayout />);
+
+    await waitFor(() => {
+      expect(mocks.splashHideAsync).toHaveBeenCalledTimes(1);
+      expect(mocks.useAppTrackingTransparency).toHaveBeenCalledWith({
+        enabled: true,
+      });
+    });
+  });
 });

@@ -114,8 +114,14 @@ export default function RootLayout() {
       try {
         await SplashScreen.hideAsync();
       } catch {
-        // Ignore — splash may already be hidden (e.g. fast reload).
+        // hideAsync() rejects predominantly when the splash is already hidden
+        // (e.g. fast reload / double-hide) — i.e. the frame is already visible.
       } finally {
+        // Fail open: enable ATT once we have attempted to reveal the first
+        // frame, even on rejection. Gating enablement on a successful hide
+        // would risk the prompt never appearing — the exact Guideline 5.1.2(i)
+        // rejection this change fixes — and the common rejection ("already
+        // hidden") means the splash is gone, so the request is safe to fire.
         if (!cancelled) {
           setIsSplashHidden(true);
         }
