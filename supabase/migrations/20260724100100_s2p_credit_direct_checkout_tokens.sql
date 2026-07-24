@@ -172,6 +172,18 @@ BEGIN
     RAISE EXCEPTION 'amount_out_of_range';
   END IF;
 
+  -- Bound per-order issuance: a fresh sign attempt supersedes any earlier
+  -- unconsumed token for this order (the shopper is retrying, with a new
+  -- session), so drop those before inserting. This caps LIVE (unconsumed)
+  -- tokens per order to one, so a single (leaked) tracking-token capability
+  -- cannot spam unconsumed rows faster than the hourly consumed/expired sweep
+  -- reclaims them. Mass row creation would then require mass order creation
+  -- (each order needs its own real tracking token), which the checkout flow
+  -- already bounds.
+  DELETE FROM public.credit_direct_checkout_tokens
+  WHERE order_id = p_order_id
+    AND consumed_at IS NULL;
+
   v_token := pg_catalog.encode(extensions.gen_random_bytes(32), 'hex');
   v_hash := pg_catalog.encode(extensions.digest(v_token, 'sha256'), 'hex');
 

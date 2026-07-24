@@ -165,7 +165,7 @@ export const EXPECTED_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260724100100_s2p_credit_direct_checkout_tokens.sql',
-    sha256: '88ce48085820ac8a80c83e7a2cd029587b739442fac356697241222ef2c2f970',
+    sha256: 'e1ac8338dd870606df93984f8193d71b4ef66b72a2ef4440710a3ffcd9c4bea6',
   },
   {
     repositoryPath:
