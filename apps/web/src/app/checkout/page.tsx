@@ -239,6 +239,9 @@ interface CreditDirectSignResult {
   publicKey: string;
   sessionId: string;
   isLive: boolean;
+  // Server-derived amount that was signed. The popup MUST use it so the
+  // transaction total matches the signature.
+  amount?: number;
 }
 
 type SignCreditDirectResult =
@@ -252,6 +255,7 @@ async function signCreditDirectCheckout(input: {
   totalAmount: unknown;
   merchantSlug: string | null;
   orderId: unknown;
+  trackingToken: unknown;
 }): Promise<SignCreditDirectResult> {
   try {
     const data = await apiPost<CreditDirectSignResult>(
@@ -261,6 +265,7 @@ async function signCreditDirectCheckout(input: {
         totalAmount: input.totalAmount,
         merchantSlug: input.merchantSlug,
         orderId: input.orderId,
+        trackingToken: input.trackingToken,
       }
     );
 
@@ -403,6 +408,7 @@ async function prepareCheckout(
         totalAmount: order.total,
         merchantSlug: input.merchantSlug,
         orderId: order.id,
+        trackingToken: order.tracking_token,
       });
 
       if (!signResult.ok) {
@@ -1472,7 +1478,15 @@ function CheckoutPageContent() {
     }
 
     const transaction = {
-      totalAmount: order.total as number,
+      // Prefer the server-signed amount so the popup total matches the HMAC
+      // signature (signTransaction folds the amount in); fall back to the order
+      // total only for an older server response without `amount`.
+      totalAmount:
+        typeof sign.amount === 'number' &&
+        Number.isFinite(sign.amount) &&
+        sign.amount > 0
+          ? sign.amount
+          : (order.total as number),
       customerEmail: data.email,
       customerPhone: data.phone,
       sessionId: sign.sessionId,

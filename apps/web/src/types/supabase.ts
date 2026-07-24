@@ -16797,6 +16797,7 @@ export type Database = {
           p_merchant_id: string;
           p_order_id: string;
           p_session_id: string;
+          p_tracking_token: string;
         };
         Returns: {
           checkout_token: string;

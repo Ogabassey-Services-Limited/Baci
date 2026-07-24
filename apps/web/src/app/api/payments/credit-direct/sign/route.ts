@@ -63,6 +63,7 @@ export async function POST(request: NextRequest) {
       customerEmail,
       merchantSlug: rawMerchantSlug,
       orderId,
+      trackingToken,
     } = parsed.data;
 
     // Resolve a retired slug to the current one: a checkout tab open on the
@@ -133,6 +134,7 @@ export async function POST(request: NextRequest) {
         p_email: customerEmail,
         p_merchant_id: merchantId,
         p_session_id: sessionId,
+        p_tracking_token: trackingToken,
       }
     );
 

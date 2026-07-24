@@ -80,6 +80,7 @@ function createRequest(overrides: Record<string, unknown> = {}) {
         merchantSlug: 'ogabassey',
         orderId: ORDER_ID,
         totalAmount: 120_000,
+        trackingToken: 'order-tracking-token',
         ...overrides,
       }),
       headers: { 'Content-Type': 'application/json' },
@@ -121,6 +122,9 @@ describe('POST /api/payments/credit-direct/sign', () => {
     { expectedField: 'merchantSlug', overrides: { merchantSlug: '' } },
     { expectedField: 'orderId', overrides: { orderId: 'not-a-uuid' } },
     { expectedField: 'totalAmount', overrides: { totalAmount: '1e3' } },
+    // F1 regression: the tracking token gates capability minting, so a request
+    // without it must fail validation before any signing/minting occurs.
+    { expectedField: 'trackingToken', overrides: { trackingToken: '' } },
   ])('returns 400 before signing for invalid $expectedField', async ({
     expectedField,
     overrides,
@@ -247,6 +251,7 @@ describe('POST /api/payments/credit-direct/sign', () => {
         p_merchant_id: MERCHANT_ID,
         p_order_id: ORDER_ID,
         p_session_id: 'session-123',
+        p_tracking_token: 'order-tracking-token',
       }
     );
     expect(supabase.rpc).toHaveBeenCalledWith('set_credit_direct_session', {

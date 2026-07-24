@@ -1,7 +1,10 @@
 -- S2-P (part 1/2): guest-safe, single-use Credit-Direct checkout capability.
 --
 -- The guest sign route is deliberately unauthenticated (anon cookie client, no
--- auth.uid()), so an ownership check is infeasible. Instead the server issues an
+-- auth.uid()), so an ownership check is infeasible. Minting is instead gated on
+-- the order's unguessable tracking_token (the guest capability the shopper
+-- already holds via their order link), so a caller who merely knows an order
+-- UUID + customer email cannot forge a BNPL session. The server then issues an
 -- unguessable, single-use capability token bound to {order, merchant,
 -- server-derived amount, expiry, session}. Only the token hash is persisted; the
 -- raw token is returned once to the caller and never stored or logged. The
@@ -52,15 +55,22 @@ COMMENT ON TABLE public.credit_direct_checkout_tokens IS
   'issue/consume RPCs; RLS on and all role grants revoked.';
 
 -- ---------------------------------------------------------------------------
--- Issue a capability token. Locks the order, derives the payable residual from
--- the LOCKED row, validates payability + feature enablement + eligible range,
--- and stores only the token hash. Returns the raw token once.
+-- Issue a capability token. Locks the order (bound to merchant + email +
+-- unguessable tracking_token), derives the payable residual from the LOCKED
+-- row, validates payability + feature enablement + eligible range, and stores
+-- only the token hash. Returns the raw token once.
 -- ---------------------------------------------------------------------------
+-- Drop the earlier 4-arg signature before the arity change: CREATE OR REPLACE
+-- cannot alter the argument list, it would leave the old overload behind.
+DROP FUNCTION IF EXISTS public.issue_credit_direct_checkout_token(
+  uuid, text, uuid, text
+);
 CREATE OR REPLACE FUNCTION public.issue_credit_direct_checkout_token(
   p_order_id uuid,
   p_email text,
   p_merchant_id uuid,
-  p_session_id text
+  p_session_id text,
+  p_tracking_token text
 ) RETURNS TABLE(checkout_token text, signed_amount numeric, expires_at timestamptz)
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -78,6 +88,7 @@ DECLARE
   v_amount numeric;
   v_token text;
   v_hash text;
+  v_tracking_token text;
   v_expires timestamptz := pg_catalog.now() + interval '30 minutes';
 BEGIN
   IF p_order_id IS NULL OR p_merchant_id IS NULL THEN
@@ -94,9 +105,19 @@ BEGIN
     RAISE EXCEPTION 'invalid_session';
   END IF;
 
-  -- Lock the order and bind it to the caller's merchant + email. A guest can
-  -- only reach an order it can already name AND whose customer email it knows
-  -- (the same secret the public order snapshot RPC relies on).
+  -- The order's unguessable tracking_token is the guest capability (same
+  -- secret-bearer pattern as get_order_tracking / S0-B). Requiring it here is
+  -- what confines minting to a caller who legitimately holds the order link:
+  -- an anon PostgREST caller who merely knows an order UUID + customer email
+  -- cannot forge a session without it. Fail closed if absent.
+  v_tracking_token := NULLIF(pg_catalog.btrim(COALESCE(p_tracking_token, '')), '');
+  IF v_tracking_token IS NULL OR pg_catalog.length(v_tracking_token) > 200 THEN
+    RAISE EXCEPTION 'order_not_found';
+  END IF;
+
+  -- Lock the order and bind it to the caller's merchant + email + tracking
+  -- token. A guest can only reach an order it can name AND whose customer email
+  -- AND unguessable tracking token it holds.
   SELECT o.total, o.amount_paid, o.wallet_amount_used,
          o.shipping_status, o.payment_status
     INTO v_total, v_amount_paid, v_wallet_used,
@@ -105,6 +126,7 @@ BEGIN
   WHERE o.id = p_order_id
     AND o.merchant_id = p_merchant_id
     AND pg_catalog.lower(o.customer_email) = pg_catalog.lower(p_email)
+    AND o.tracking_token = v_tracking_token
   LIMIT 1
   FOR UPDATE;
 
@@ -166,21 +188,21 @@ BEGIN
 END;
 $$;
 
-ALTER FUNCTION public.issue_credit_direct_checkout_token(uuid, text, uuid, text)
+ALTER FUNCTION public.issue_credit_direct_checkout_token(uuid, text, uuid, text, text)
   OWNER TO postgres;
 
 -- Supabase default-grants EXECUTE to PUBLIC (and anon) on new functions, so a
 -- bare REVOKE FROM PUBLIC is not enough. Revoke explicitly, then re-grant only
 -- the roles the guest sign route runs as.
 REVOKE EXECUTE ON FUNCTION
-  public.issue_credit_direct_checkout_token(uuid, text, uuid, text)
+  public.issue_credit_direct_checkout_token(uuid, text, uuid, text, text)
   FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION
-  public.issue_credit_direct_checkout_token(uuid, text, uuid, text)
+  public.issue_credit_direct_checkout_token(uuid, text, uuid, text, text)
   TO anon, authenticated, service_role;
 
 COMMENT ON FUNCTION
-  public.issue_credit_direct_checkout_token(uuid, text, uuid, text) IS
+  public.issue_credit_direct_checkout_token(uuid, text, uuid, text, text) IS
   'S2-P: issues a single-use Credit-Direct checkout capability token bound to '
   '{order, merchant, server-derived amount, 30-min expiry, session}. Returns '
   'the raw token once; only its SHA-256 hash is persisted.';

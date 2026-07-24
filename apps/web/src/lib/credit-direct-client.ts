@@ -33,6 +33,9 @@ export interface CreditDirectCheckoutOptions {
   merchantSlug: string;
   orderId: string;
   amount: number;
+  // The order's unguessable tracking token — forwarded to the sign endpoint so
+  // the DB can gate capability-token minting on it (S2-P).
+  trackingToken: string;
   customerEmail: string;
   customerPhone: string;
   customerName: string;
@@ -53,6 +56,11 @@ interface SignResponse {
   publicKey: string;
   sessionId: string;
   isLive: boolean;
+  // Server-derived amount that was actually signed. The popup MUST use this so
+  // transaction.totalAmount matches the HMAC signature (signTransaction folds
+  // the amount into the signature); a client-supplied amount can diverge from
+  // the DB residual for wallet/partial-payment orders.
+  amount?: number;
   error?: string;
 }
 
@@ -132,6 +140,7 @@ export async function openCreditDirectCheckout(
     merchantSlug,
     orderId,
     amount,
+    trackingToken,
     customerEmail,
     customerPhone,
     items,
@@ -151,6 +160,7 @@ export async function openCreditDirectCheckout(
         totalAmount: amount,
         merchantSlug,
         orderId,
+        trackingToken,
       }),
     });
 
@@ -172,9 +182,17 @@ export async function openCreditDirectCheckout(
       throw new Error('Credit Direct SDK failed to load');
     }
 
-    // Step 3: Build transaction object
+    // Step 3: Build transaction object. Prefer the server-signed amount so the
+    // popup total matches the signature; fall back to the passed amount only if
+    // the response omits it (older server).
+    const signedAmount =
+      typeof signData.amount === 'number' &&
+      Number.isFinite(signData.amount) &&
+      signData.amount > 0
+        ? signData.amount
+        : amount;
     const transaction: CreditDirectTransaction = {
-      totalAmount: amount,
+      totalAmount: signedAmount,
       customerEmail,
       customerPhone: customerPhone || '',
       sessionId: signData.sessionId,
