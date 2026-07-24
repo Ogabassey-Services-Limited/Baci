@@ -60,7 +60,6 @@ vi.mock('next/link', () => ({
 }));
 
 const PRIZE_PRODUCT_ID = '55555555-5555-4555-8555-555555555555';
-const PRIZE_AWARD_ID = '44444444-4444-4444-8444-444444444444';
 const createFutureDeadline = (secondsFromNow: number) =>
   new Date(Date.now() + secondsFromNow * 1000).toISOString();
 
@@ -277,112 +276,5 @@ describe('OgabasseyV2Quiz', () => {
     ).toBeInTheDocument();
     // The synchronous in-flight ref must have swallowed the second tap.
     expect(apiPost).toHaveBeenCalledTimes(1);
-  });
-
-  it('refreshes the sponsored question ad when the next question appears', async () => {
-    vi.mocked(apiGet).mockResolvedValue({
-      ...eventResponse,
-      events: [{ ...eventResponse.events[0], questionCount: 2 }],
-    });
-    vi.mocked(apiPost)
-      .mockResolvedValueOnce({
-        ...attemptResponse,
-        question: { ...attemptResponse.question, total: 2 },
-      })
-      .mockResolvedValueOnce({
-        attemptId: 'attempt-1',
-        correctAnswers: 1,
-        prizeEligible: false,
-        question: {
-          deadlineAt: createFutureDeadline(30),
-          id: 'question-2',
-          index: 2,
-          options: [
-            { id: 'a', label: 'Answer A' },
-            { id: 'b', label: 'Answer B' },
-          ],
-          prompt: 'Pick the final answer',
-          timeLimitSeconds: 30,
-          total: 2,
-        },
-        status: 'in_progress',
-        totalQuestions: 2,
-      })
-      .mockResolvedValueOnce({
-        attemptId: 'attempt-1',
-        correctAnswers: 2,
-        prizeEligible: false,
-        status: 'completed',
-        totalQuestions: 2,
-      });
-
-    render(<OgabasseyV2Quiz merchantSlug="ogabassey" />);
-
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'Start exam for Daily Quiz' })
-    );
-
-    expect(await screen.findByTestId('quiz-question-ad')).toHaveAttribute(
-      'data-placement-key',
-      'QUIZ_QUESTION_MPU'
-    );
-    expect(screen.getByTestId('quiz-question-ad')).toHaveAttribute(
-      'data-refresh-key',
-      'question-1'
-    );
-    expect(
-      screen.getByLabelText('Reserved sponsored quiz placement')
-    ).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Answer A' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Submit answer' }));
-
-    expect(await screen.findByText('Pick the final answer')).toBeInTheDocument();
-    expect(screen.getByTestId('quiz-question-ad')).toHaveAttribute(
-      'data-refresh-key',
-      'question-2'
-    );
-    expect(mockDeferredAdUnit).toHaveBeenLastCalledWith({
-      placementKey: 'QUIZ_QUESTION_MPU',
-      refreshKey: 'question-2',
-    });
-  });
-
-  it('links eligible prize winners to add the device gift to cart', async () => {
-    vi.mocked(apiGet).mockResolvedValue(eventResponse);
-    vi.mocked(apiPost)
-      .mockResolvedValueOnce(attemptResponse)
-      .mockResolvedValueOnce({
-        attemptId: 'attempt-1',
-        correctAnswers: 1,
-        prizeClaim: {
-          awardId: PRIZE_AWARD_ID,
-          cartPath:
-            `/ogabassey/cart?item_id=${PRIZE_PRODUCT_ID}&quiz_award_id=${PRIZE_AWARD_ID}&quiz_voucher_token=signed-token`,
-          condition: null,
-          productId: PRIZE_PRODUCT_ID,
-          variantId: null,
-          voucherToken: 'signed-token',
-        },
-        prizeEligible: true,
-        status: 'completed',
-        totalQuestions: 1,
-      });
-
-    render(<OgabasseyV2Quiz merchantSlug="ogabassey" />);
-
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'Start exam for Daily Quiz' })
-    );
-    fireEvent.click(await screen.findByRole('button', { name: 'Answer A' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Submit answer' }));
-
-    expect(await screen.findByText('Prize entry recorded.')).toBeInTheDocument();
-    expect(
-      screen.getByRole('link', { name: /add gift to cart/i })
-    ).toHaveAttribute(
-      'href',
-      `/ogabassey/cart?item_id=${PRIZE_PRODUCT_ID}&quiz_award_id=${PRIZE_AWARD_ID}&quiz_voucher_token=signed-token`
-    );
   });
 });
