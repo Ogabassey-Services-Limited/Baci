@@ -233,7 +233,9 @@ export async function GET(request: NextRequest) {
       guestCheckoutEnabled: asBoolean(settings.guest_checkout_enabled, true),
       // Payment gateways
       paystackEnabled,
-      korapayEnabled: asBoolean(settings.korapay_enabled, true),
+      // Korapay is opt-in (default OFF) — matches the strict checkout gate and the
+      // merchant_feature_settings default. A null/absent flag must not offer Korapay.
+      korapayEnabled: asBoolean(settings.korapay_enabled, false),
       payOnDeliveryEnabled: asBoolean(settings.pay_on_delivery_enabled, false),
       creditDirectEnabled: asBoolean(settings.credit_direct_enabled, false),
       credpalEnabled: asBoolean(settings.credpal_enabled, false),

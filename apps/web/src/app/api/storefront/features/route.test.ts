@@ -186,6 +186,42 @@ describe('GET /api/storefront/features', () => {
     expect(body.repairsCatalogEnabled).toBe(false);
   });
 
+  it('defaults korapay OFF when the flag is absent, and honours an explicit true', async () => {
+    // Absent flag → opt-in default OFF (must not advertise Korapay at checkout).
+    mockSingle.mockResolvedValueOnce({
+      data: { id: 'merchant-1', paystack_subaccount_code: null },
+      error: null,
+    });
+    mockGetCachedFeatureSettings.mockResolvedValueOnce({});
+
+    const absentResponse = await GET(
+      buildMerchantRequest(`merchantId=${VALID_MERCHANT_ID}`)
+    );
+    const absentBody = (await absentResponse.json()) as {
+      korapayEnabled: boolean;
+    };
+    expect(absentResponse.status).toBe(200);
+    expect(absentBody.korapayEnabled).toBe(false);
+
+    // Explicit opt-in still works.
+    mockSingle.mockResolvedValueOnce({
+      data: { id: 'merchant-1', paystack_subaccount_code: null },
+      error: null,
+    });
+    mockGetCachedFeatureSettings.mockResolvedValueOnce({
+      korapay_enabled: true,
+    });
+
+    const enabledResponse = await GET(
+      buildMerchantRequest(`merchantId=${VALID_MERCHANT_ID}`)
+    );
+    const enabledBody = (await enabledResponse.json()) as {
+      korapayEnabled: boolean;
+    };
+    expect(enabledResponse.status).toBe(200);
+    expect(enabledBody.korapayEnabled).toBe(true);
+  });
+
   it('preserves an explicit empty checkout add-on amount list', async () => {
     mockSingle.mockResolvedValueOnce({
       data: { id: 'merchant-1', paystack_subaccount_code: null },

@@ -51,7 +51,9 @@ interface PaymentGatewaySettings {
 
 const DEFAULT_SETTINGS: PaymentGatewaySettings = {
   paystack_enabled: true,
-  korapay_enabled: true,
+  // Korapay is opt-in (default OFF) — consistent with the checkout gate and the
+  // merchant_feature_settings default. The toggle shows OFF until explicitly enabled.
+  korapay_enabled: false,
   pay_on_delivery_enabled: false,
   preferred_local_gateway: 'paystack',
   preferred_international_gateway: 'korapay',
@@ -68,7 +70,7 @@ async function fetchPaymentSettings(): Promise<PaymentGatewaySettings | null> {
   const data = await response.json();
   return {
     paystack_enabled: data.paystack_enabled ?? true,
-    korapay_enabled: data.korapay_enabled ?? true,
+    korapay_enabled: data.korapay_enabled ?? false,
     pay_on_delivery_enabled: data.pay_on_delivery_enabled ?? false,
     preferred_local_gateway: data.preferred_local_gateway || 'paystack',
     preferred_international_gateway:
