@@ -165,6 +165,6 @@ export const EXPECTED_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260724140000_merchant_balance_gateway_origin_guard.sql',
-    sha256: 'a0fe583d52e2c86e4a37f63aad41dfb3da1a62bccaeb3e2624287afec8ab4081',
+    sha256: '8b794c4535b8a5f2acf674fbeb78037aeb518591e03b72bd2106efa4454e63f4',
   },
 ];

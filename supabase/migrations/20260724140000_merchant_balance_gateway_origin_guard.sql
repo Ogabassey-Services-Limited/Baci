@@ -19,10 +19,13 @@
 -- Extend the allowlist ONLY after confirming the gateway funds the disbursable
 -- Korapay float. NULL `merchant_amount` never credits (guards mis-recorded rows).
 --
--- Go-forward only. Existing phantom rows in `merchant_balances` are reconciled
--- separately via an owner-approved re-run of a corrected `backfill_merchant_balances`
--- (see docs); they are inert until Korapay collection is enabled, which is gated OFF.
--- The `payout` branch is unchanged.
+-- This migration ALSO reconciles existing rows: it replaces `backfill_merchant_balances`
+-- with the same gateway-aware, custodied-only rule (and drops the legacy gross-`amount`
+-- fallback that over-credited NULL-`merchant_amount` rows), then runs it so pre-existing
+-- phantom balances (Paystack/BNPL/manual) are corrected in the same deploy — not left to
+-- a manual rerun. Reconciliation is safe now: no payout has ever run and Korapay
+-- collection is gated OFF, so no live balance is mid-withdrawal. The `payout` branch of
+-- the trigger is unchanged.
 
 CREATE OR REPLACE FUNCTION "public"."update_merchant_balance"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
@@ -53,3 +56,136 @@ BEGIN
     RETURN NEW;
 END;
 $$;
+
+-- Reconcile existing merchant_balances with the same custodied-only rule. This
+-- replaces the legacy backfill (which summed EVERY gateway and fell back to gross
+-- `amount` when merchant_amount was NULL) so pre-migration phantom rows are corrected
+-- in this deploy. Only completed Korapay payments count toward available_balance /
+-- total_earned; payouts are unchanged. CREATE OR REPLACE preserves the existing
+-- REVOKE/GRANT (service_role-only) privileges.
+CREATE OR REPLACE FUNCTION public.backfill_merchant_balances()
+RETURNS TABLE(scope text, rows_updated integer)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $$
+DECLARE
+  v_rows integer;
+BEGIN
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('public.backfill_merchant_balances', 0)
+  );
+
+  LOCK TABLE
+    public.transactions,
+    public.merchant_balances
+  IN SHARE ROW EXCLUSIVE MODE;
+
+  WITH merchant_balance_targets AS (
+    SELECT mb.merchant_id, mb.currency
+    FROM public.merchant_balances mb
+    UNION
+    SELECT t.merchant_id, t.currency
+    FROM public.transactions t
+    WHERE t.transaction_type IN ('payment', 'payout')
+  ),
+  merchant_balance_rollup AS (
+    SELECT
+      mbt.merchant_id,
+      mbt.currency,
+      COALESCE(
+        SUM(
+          CASE
+            -- Only Korapay-custodied payments create a withdrawable balance.
+            WHEN t.status = 'completed' AND t.transaction_type = 'payment'
+                 AND t.gateway = 'korapay'
+              THEN COALESCE(t.merchant_amount, 0)
+            WHEN t.status = 'completed' AND t.transaction_type = 'payout'
+              THEN -t.amount
+            ELSE 0
+          END
+        ),
+        0
+      ) AS available_balance,
+      COALESCE(
+        SUM(
+          CASE
+            WHEN t.status IN ('pending', 'processing') AND t.transaction_type = 'payout'
+              THEN t.amount
+            ELSE 0
+          END
+        ),
+        0
+      ) AS pending_balance,
+      COALESCE(
+        SUM(
+          CASE
+            WHEN t.status = 'completed' AND t.transaction_type = 'payment'
+                 AND t.gateway = 'korapay'
+              THEN COALESCE(t.merchant_amount, 0)
+            ELSE 0
+          END
+        ),
+        0
+      ) AS total_earned,
+      COALESCE(
+        SUM(
+          CASE
+            WHEN t.status = 'completed' AND t.transaction_type = 'payout'
+              THEN t.amount
+            ELSE 0
+          END
+        ),
+        0
+      ) AS total_withdrawn
+    FROM merchant_balance_targets mbt
+    LEFT JOIN public.transactions t
+      ON t.merchant_id = mbt.merchant_id
+      AND t.currency = mbt.currency
+      AND t.transaction_type IN ('payment', 'payout')
+    GROUP BY mbt.merchant_id, mbt.currency
+  ),
+  upserted_merchant_balances AS (
+    INSERT INTO public.merchant_balances (
+      merchant_id,
+      currency,
+      available_balance,
+      pending_balance,
+      total_earned,
+      total_withdrawn,
+      updated_at
+    )
+    SELECT
+      mbr.merchant_id,
+      mbr.currency,
+      mbr.available_balance,
+      mbr.pending_balance,
+      mbr.total_earned,
+      mbr.total_withdrawn,
+      now()
+    FROM merchant_balance_rollup mbr
+    ON CONFLICT (merchant_id, currency)
+    DO UPDATE SET
+      available_balance = EXCLUDED.available_balance,
+      pending_balance = EXCLUDED.pending_balance,
+      total_earned = EXCLUDED.total_earned,
+      total_withdrawn = EXCLUDED.total_withdrawn,
+      updated_at = now()
+    WHERE
+      public.merchant_balances.available_balance IS DISTINCT FROM EXCLUDED.available_balance
+      OR public.merchant_balances.pending_balance IS DISTINCT FROM EXCLUDED.pending_balance
+      OR public.merchant_balances.total_earned IS DISTINCT FROM EXCLUDED.total_earned
+      OR public.merchant_balances.total_withdrawn IS DISTINCT FROM EXCLUDED.total_withdrawn
+    RETURNING 1
+  )
+  SELECT count(*)::integer INTO v_rows
+  FROM upserted_merchant_balances;
+
+  scope := 'merchant_balances';
+  rows_updated := v_rows;
+  RETURN NEXT;
+END;
+$$;
+
+-- Run the corrected reconciliation now (idempotent; recomputes from transactions).
+SELECT * FROM public.backfill_merchant_balances();

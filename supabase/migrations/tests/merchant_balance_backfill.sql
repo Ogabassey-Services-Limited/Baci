@@ -62,7 +62,8 @@ BEGIN
         SUM(
           CASE
             WHEN t.status = 'completed' AND t.transaction_type = 'payment'
-              THEN COALESCE(t.merchant_amount, t.amount - COALESCE(t.platform_fee, 0), 0)
+                 AND t.gateway = 'korapay'
+              THEN COALESCE(t.merchant_amount, 0)
             WHEN t.status = 'completed' AND t.transaction_type = 'payout'
               THEN -t.amount
             ELSE 0
@@ -84,7 +85,8 @@ BEGIN
         SUM(
           CASE
             WHEN t.status = 'completed' AND t.transaction_type = 'payment'
-              THEN COALESCE(t.merchant_amount, t.amount - COALESCE(t.platform_fee, 0), 0)
+                 AND t.gateway = 'korapay'
+              THEN COALESCE(t.merchant_amount, 0)
             ELSE 0
           END
         ),
