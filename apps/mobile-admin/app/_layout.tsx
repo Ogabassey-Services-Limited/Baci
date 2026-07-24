@@ -14,7 +14,7 @@ import {
   ThemeProvider,
 } from 'expo-router/react-navigation';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
 import { StatusBar, useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -24,6 +24,7 @@ import { isRuntimePlatform } from '@/config/runtime-platform';
 import { DARK_COLORS, LIGHT_COLORS } from '@/constants/theme';
 import { NetworkProvider } from '@/context/NetworkContext';
 import { OnboardingProvider } from '@/context/OnboardingContext';
+import { useAppTrackingTransparency } from '@/hooks/useAppTrackingTransparency';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { QueryProvider } from '@/lib/QueryProvider';
 import { initAdminAnalytics } from '@/services/analytics-core';
@@ -88,15 +89,50 @@ export default function RootLayout() {
     Inter_700Bold,
     Inter_800ExtraBold,
   });
+  const [isSplashHidden, setIsSplashHidden] = useState(false);
+
+  // App Store review requires the native ATT prompt on first launch: the app
+  // declares IDFA use (TikTok Business SDK auto-initializes natively). Gate the
+  // request on splash dismissal — not just font loading — so the native dialog
+  // is never presented behind the splash overlay. `loaded` only means fonts are
+  // ready; `SplashScreen.hideAsync()` is async, so enabling on `loaded` could
+  // fire the request while the splash still covers the first frame, which iOS
+  // suppresses and recreates the first-launch review failure.
+  useAppTrackingTransparency({ enabled: isSplashHidden });
 
   useEffect(() => {
     if (error) throw error;
   }, [error]);
 
   useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
+    if (!loaded) {
+      return;
     }
+
+    let cancelled = false;
+    const revealFirstFrame = async () => {
+      try {
+        await SplashScreen.hideAsync();
+      } catch {
+        // hideAsync() rejects predominantly when the splash is already hidden
+        // (e.g. fast reload / double-hide) — i.e. the frame is already visible.
+      } finally {
+        // Fail open: enable ATT once we have attempted to reveal the first
+        // frame, even on rejection. Gating enablement on a successful hide
+        // would risk the prompt never appearing — the exact Guideline 5.1.2(i)
+        // rejection this change fixes — and the common rejection ("already
+        // hidden") means the splash is gone, so the request is safe to fire.
+        if (!cancelled) {
+          setIsSplashHidden(true);
+        }
+      }
+    };
+
+    void revealFirstFrame();
+
+    return () => {
+      cancelled = true;
+    };
   }, [loaded]);
 
   useEffect(() => {
