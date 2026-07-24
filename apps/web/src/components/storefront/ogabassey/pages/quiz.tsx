@@ -12,6 +12,7 @@ import type {
 } from '@/schemas/quiz';
 import { formatQuizDateRange } from './format-quiz-date-range';
 import { getQuizErrorMessage } from './get-quiz-error-message';
+import { QuizAgeGateModal } from './quiz-age-gate-modal';
 import { getQuizStartButtonText } from './get-quiz-start-button-text';
 import {
   loadQuizEvents,
@@ -32,7 +33,8 @@ type OgabasseyV2QuizProps = { merchantSlug: string };
 
 export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
   const pathname = usePathname();
-  const { isAuthenticated, isLoading } = useCustomerAuth();
+  const { customer, isAuthenticated, isLoading, updateCustomer } =
+    useCustomerAuth();
   const [status, setStatus] = useState<QuizStatus>('idle');
   const [events, setEvents] = useState<QuizEventResponse[]>([]);
   const [attempt, setAttempt] = useState<QuizAttemptResponse | null>(null);
@@ -42,6 +44,13 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
   const [playedEventId, setPlayedEventId] = useState<string | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Super Quiz is 18+. When the customer has no date of birth on file, the
+  // start is deferred behind this gate until they provide one.
+  const [ageGateEvent, setAgeGateEvent] = useState<QuizEventResponse | null>(
+    null
+  );
+  const [ageGateSubmitting, setAgeGateSubmitting] = useState(false);
+  const [ageGateError, setAgeGateError] = useState<string | null>(null);
   // Synchronous in-flight guards (FIX D): async state (`status`) updates on the
   // next render, so a fast physical double-tap can fire two requests before the
   // button disables. The server does NOT dedupe start — each call burns one of
@@ -60,7 +69,7 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
     // biome-ignore lint/correctness/useExhaustiveDependencies: loadEvents intentionally runs only when auth becomes ready
   }, [isAuthenticated, isLoading, merchantSlug, status]);
 
-  const handleStart = async (event: QuizEventResponse) => {
+  const runStart = async (event: QuizEventResponse) => {
     if (startInFlightRef.current) return;
     startInFlightRef.current = true;
     setError(null);
@@ -78,6 +87,32 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
     } finally {
       startInFlightRef.current = false;
     }
+  };
+
+  const handleStart = (event: QuizEventResponse) => {
+    // The server age gate (production) needs a date of birth on the customer
+    // profile; collect it once here before starting, otherwise start straight.
+    if (customer && !customer.date_of_birth) {
+      setAgeGateError(null);
+      setAgeGateEvent(event);
+      return;
+    }
+    void runStart(event);
+  };
+
+  const handleAgeGateSubmit = async (dateOfBirth: string) => {
+    const event = ageGateEvent;
+    if (!event) return;
+    setAgeGateSubmitting(true);
+    setAgeGateError(null);
+    const saved = await updateCustomer({ date_of_birth: dateOfBirth });
+    setAgeGateSubmitting(false);
+    if (!saved.success) {
+      setAgeGateError(saved.error ?? 'Could not save your date of birth.');
+      return;
+    }
+    setAgeGateEvent(null);
+    void runStart(event);
   };
 
   const submitAnswer = async (answer: string) => {
@@ -234,6 +269,14 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
           />
         ) : null}
       </div>
+
+      <QuizAgeGateModal
+        onCancel={() => setAgeGateEvent(null)}
+        onSubmit={(dateOfBirth) => void handleAgeGateSubmit(dateOfBirth)}
+        open={ageGateEvent !== null}
+        serverError={ageGateError}
+        submitting={ageGateSubmitting}
+      />
     </main>
   );
 }

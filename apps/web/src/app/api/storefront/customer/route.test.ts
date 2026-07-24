@@ -151,6 +151,65 @@ describe('PATCH /api/storefront/customer', () => {
     );
   });
 
+  it('returns 400 when date_of_birth is not a real date', async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'user-123' } },
+      error: null,
+    });
+
+    const request = makeRequest({
+      merchantSlug: 'test-store',
+      date_of_birth: '1990-02-30', // Feb 30 is not a real date
+    });
+    const response = await PATCH(request);
+    const json = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(json.error).toBe('Invalid input');
+  });
+
+  it('saves a valid date_of_birth (powers the quiz 18+ gate)', async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'user-123' } },
+      error: null,
+    });
+
+    const merchantChain = mockChain({
+      data: { id: 'merchant-1' },
+      error: null,
+    });
+    const customerChain = mockChain({
+      data: { id: 'customer-1' },
+      error: null,
+    });
+    const updateChain = {
+      update: vi.fn().mockReturnValue({
+        eq: vi.fn().mockResolvedValue({ error: null }),
+      }),
+    };
+
+    let fromCallCount = 0;
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'merchants') return merchantChain;
+      if (table === 'customers') {
+        fromCallCount++;
+        return fromCallCount === 1 ? customerChain : updateChain;
+      }
+      return merchantChain;
+    });
+
+    const request = makeRequest({
+      merchantSlug: 'test-store',
+      date_of_birth: '1990-06-15',
+    });
+    const response = await PATCH(request);
+
+    expect(response.status).toBe(200);
+    expect(updateChain.update).toHaveBeenCalledWith(
+      expect.objectContaining({ date_of_birth: '1990-06-15' })
+    );
+  });
+
   it('returns 200 on valid PATCH with saved_addresses', async () => {
     mockGetUser.mockResolvedValue({
       data: { user: { id: 'user-123' } },

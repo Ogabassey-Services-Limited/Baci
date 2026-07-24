@@ -155,6 +155,90 @@ describe('OgabasseyV2Quiz', () => {
     expect(apiGet).not.toHaveBeenCalled();
   });
 
+  function mockCustomer(
+    customer: { date_of_birth: string | null },
+    updateCustomer = vi.fn()
+  ) {
+    vi.mocked(useCustomerAuth).mockReturnValue({
+      customer: {
+        email: 'shopper@example.com',
+        first_name: 'Ada',
+        id: 'customer-1',
+        last_name: 'Lovelace',
+        ...customer,
+      },
+      isAuthenticated: true,
+      isLoading: false,
+      logout: vi.fn(),
+      otpState: null,
+      refreshCustomer: vi.fn(),
+      sendOtp: vi.fn(),
+      signInWithApple: vi.fn(),
+      signInWithGoogle: vi.fn(),
+      updateCustomer,
+      user: null,
+      verifyOtp: vi.fn(),
+    });
+    return updateCustomer;
+  }
+
+  it('opens the 18+ age gate instead of starting when the customer has no date of birth', async () => {
+    mockCustomer({ date_of_birth: null });
+    vi.mocked(apiGet).mockResolvedValue(eventResponse);
+
+    render(<OgabasseyV2Quiz merchantSlug="ogabassey" />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: /start exam/i })
+    );
+
+    expect(
+      await screen.findByRole('dialog', { name: 'Confirm your date of birth' })
+    ).toBeInTheDocument();
+    // The attempt must NOT be started until a DOB is provided.
+    expect(apiPost).not.toHaveBeenCalled();
+  });
+
+  it('saves the date of birth then starts the exam', async () => {
+    const updateCustomer = mockCustomer(
+      { date_of_birth: null },
+      vi.fn().mockResolvedValue({ success: true })
+    );
+    vi.mocked(apiGet).mockResolvedValue(eventResponse);
+    vi.mocked(apiPost).mockResolvedValueOnce(attemptResponse);
+
+    render(<OgabasseyV2Quiz merchantSlug="ogabassey" />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: /start exam/i })
+    );
+    fireEvent.change(await screen.findByLabelText('Date of birth'), {
+      target: { value: '1990-06-15' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+
+    expect(updateCustomer).toHaveBeenCalledWith({
+      date_of_birth: '1990-06-15',
+    });
+    // The attempt starts once the DOB is saved.
+    expect(await screen.findByText('Pick the winning answer')).toBeInTheDocument();
+  });
+
+  it('starts directly when the customer already has a date of birth', async () => {
+    mockCustomer({ date_of_birth: '1990-06-15' });
+    vi.mocked(apiGet).mockResolvedValue(eventResponse);
+    vi.mocked(apiPost).mockResolvedValueOnce(attemptResponse);
+
+    render(<OgabasseyV2Quiz merchantSlug="ogabassey" />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: /start exam/i })
+    );
+
+    expect(await screen.findByText('Pick the winning answer')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
   it('loads events, starts an exam, and submits an answer', async () => {
     vi.mocked(apiGet).mockResolvedValue(eventResponse);
     vi.mocked(apiPost)

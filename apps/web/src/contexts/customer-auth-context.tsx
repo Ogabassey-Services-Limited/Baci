@@ -16,6 +16,8 @@ export interface Customer {
   email: string;
   phone?: string;
   address?: string;
+  /** ISO `YYYY-MM-DD`. Powers the quiz 18+ age gate; null until captured. */
+  date_of_birth?: string | null;
   saved_addresses?: SavedAddress[];
   store_credit?: number;
   total_orders?: number;

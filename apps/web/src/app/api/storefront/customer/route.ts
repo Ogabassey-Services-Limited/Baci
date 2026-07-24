@@ -3,6 +3,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { resolveMerchantIdBySlugOrAlias } from '@/lib/resolve-merchant-by-slug';
 import { createClient } from '@/lib/supabase/server';
+import { dateOfBirthSchema } from '@/schemas/customer-date-of-birth';
 
 /**
  * Customer Profile API
@@ -28,6 +29,7 @@ const patchBodySchema = z.object({
   first_name: z.string().optional(),
   last_name: z.string().optional(),
   phone: z.string().optional(),
+  date_of_birth: dateOfBirthSchema.optional(),
   saved_addresses: z.array(savedAddressSchema).optional(),
 });
 
@@ -62,8 +64,14 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const { merchantSlug, first_name, last_name, phone, saved_addresses } =
-      parseResult.data;
+    const {
+      merchantSlug,
+      first_name,
+      last_name,
+      phone,
+      date_of_birth,
+      saved_addresses,
+    } = parseResult.data;
 
     // 3. Get merchant (alias-aware: a stale client on a just-renamed store passes
     // the retired slug in the body, which the proxy can't rewrite — resolve it via
@@ -105,6 +113,10 @@ export async function PATCH(request: NextRequest) {
 
     if (phone !== undefined) {
       updateData.phone = phone;
+    }
+
+    if (date_of_birth !== undefined) {
+      updateData.date_of_birth = date_of_birth;
     }
 
     if (saved_addresses !== undefined) {
