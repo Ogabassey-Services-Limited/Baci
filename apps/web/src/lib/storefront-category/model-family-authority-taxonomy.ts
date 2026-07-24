@@ -14,7 +14,7 @@ const MODEL_FAMILY_ENTRIES: readonly ModelFamilyAuthorityEntry[] = [
   ['xiaomi', 'redmi-a', 'Redmi A', '^(?:Xiaomi )?Redmi A'],
   ['xiaomi', 'redmi-15', 'Redmi 15', '^(?:Xiaomi )?Redmi 15'],
   ['xiaomi', 'xiaomi-t', 'Xiaomi T Series', '^(?:Xiaomi )?[0-9]+T'],
-  ['oppo', 'a-series', 'Oppo A Series', '^(?:Oppo )?A'],
+  ['oppo', 'a-series', 'Oppo A Series', '^(?:Oppo\\s+)?A(?=\\s|\\d)'],
 ].map(([brandKey, familyKey, displayName, productNamePattern]) => ({
   brandKey,
   categorySlug: 'smartphones',

@@ -2,16 +2,10 @@ import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { CatalogListingLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import { getIndexableRobotsMetadata } from '@/lib/seo-utils';
-import { modelFamilyPageRuntime } from './model-family-page-runtime';
-
-interface ModelFamilyPageRouteProps {
-  params: Promise<{
-    slug: string;
-    category: string;
-    brandSlug: string;
-    familySlug: string;
-  }>;
-}
+import {
+  type ModelFamilyPageRouteProps,
+  modelFamilyPageRuntime,
+} from './model-family-page-runtime';
 
 export async function generateMetadata(
   props: ModelFamilyPageRouteProps

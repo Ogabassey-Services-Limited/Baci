@@ -5,7 +5,7 @@ import { brandAuthorityPageLoader } from '@/lib/storefront-category/load-brand-a
 import { modelFamilyAuthorityPageLoader } from '@/lib/storefront-category/load-model-family-authority-page';
 import { BrandAuthorityPageContent } from '../../brand-authority-page-content';
 
-interface ModelFamilyPageRouteProps {
+export interface ModelFamilyPageRouteProps {
   params: Promise<{
     slug: string;
     category: string;
