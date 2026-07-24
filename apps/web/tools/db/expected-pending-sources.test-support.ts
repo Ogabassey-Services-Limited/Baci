@@ -29,6 +29,11 @@ export const EXPECTED_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260721150000_quiz_leaderboard_bounded_and_self.sql',
+    sha256: '9e16adac5b0653fbd27814b5af40d5dd170d11da3ff852970ea47735b9451bbd',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260722150000_s1_merchants_authenticated_containment.sql',
     sha256: '3fdc876b7699184efe079f9d9412301eac3b893aefc193868baef6e9bb448d76',
   },

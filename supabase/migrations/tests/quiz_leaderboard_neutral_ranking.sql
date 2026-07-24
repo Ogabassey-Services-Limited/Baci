@@ -39,16 +39,23 @@ BEGIN
     RAISE EXCEPTION 'get_quiz_leaderboard must pin a blank search_path';
   END IF;
 
-  -- 2. Verify execute permissions
-  v_anon_allowed := has_function_privilege('anon', 'public.get_quiz_leaderboard(uuid)', 'EXECUTE');
-  v_auth_allowed := has_function_privilege('authenticated', 'public.get_quiz_leaderboard(uuid)', 'EXECUTE');
+  -- 2. Verify execute permissions. The authenticated-facing leaderboard is the
+  -- scrubbed wrapper get_quiz_leaderboard_public; the richer get_quiz_leaderboard
+  -- (which also returns the internal customer_id/attempt_id used below) must be
+  -- service_role only so those ids never reach authenticated callers.
+  v_anon_allowed := has_function_privilege('anon', 'public.get_quiz_leaderboard_public(uuid)', 'EXECUTE');
+  v_auth_allowed := has_function_privilege('authenticated', 'public.get_quiz_leaderboard_public(uuid)', 'EXECUTE');
 
   IF v_anon_allowed THEN
-    RAISE EXCEPTION 'get_quiz_leaderboard must not be executable by anon';
+    RAISE EXCEPTION 'get_quiz_leaderboard_public must not be executable by anon';
   END IF;
 
   IF NOT v_auth_allowed THEN
-    RAISE EXCEPTION 'get_quiz_leaderboard must be executable by authenticated users';
+    RAISE EXCEPTION 'get_quiz_leaderboard_public must be executable by authenticated users';
+  END IF;
+
+  IF has_function_privilege('authenticated', 'public.get_quiz_leaderboard(uuid)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'richer get_quiz_leaderboard must not be executable by authenticated (leaks customer_id/attempt_id)';
   END IF;
 
   -- 3. Verify loyalty_points is NOT exposed in the projection (wallet-like PII).
