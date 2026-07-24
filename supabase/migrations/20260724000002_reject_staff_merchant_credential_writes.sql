@@ -35,14 +35,24 @@
 -- and fires regardless of the caller's EXECUTE privilege, so REVOKE ALL is a
 -- tidy defensive default, not a functional requirement.
 --
--- Column set verified against the 20260418000000 baseline merchants schema.
--- `stripe_account_id` from the PR brief is intentionally omitted: it does not
--- exist on merchants (only stripe_customer_id / stripe_subscription_id do).
--- Both Facebook CAPI token columns are guarded -- facebook_capi_token AND its
--- legacy sibling facebook_capi_access_token -- so the pair cannot be split.
--- The FIRS e-invoice credential set (firs_public_key, firs_certificate,
--- firs_email, firs_password_encrypted), stripe_subscription_id, and the CAC
--- identity columns (cac_number, cac_rc_number) are also owner-only.
+-- Column set verified EXHAUSTIVELY against the 20260418000000 baseline
+-- merchants schema (every credential/payout/KYC/e-invoice column is covered):
+--   * Owner-only: nin, bvn, stripe_customer_id, stripe_subscription_id,
+--     cac_number, cac_rc_number, the ad-platform secrets (facebook_capi_token
+--     AND its legacy sibling facebook_capi_access_token, ga4_api_secret,
+--     tiktok_access_token, snapchat_capi_token), and the full FIRS e-invoice
+--     set (firs_public_key, firs_certificate, firs_email,
+--     firs_password_encrypted, firs_business_id, firs_service_id).
+--   * integrations.manage: the bank/payout family written together by the
+--     sanctioned /api/paystack/subaccount + virtual-terminal flows
+--     (paystack_subaccount_code, virtual_terminal_code, bank_account_number,
+--     bank_account_name, bank_code, bank_name).
+-- `stripe_account_id` is intentionally omitted: it does not exist on merchants.
+-- INTENTIONALLY NOT guarded (public marketing/config, legitimately editable by
+-- settings.edit staff): the pixel/analytics IDs (facebook_pixel_id,
+-- google_analytics_id, tiktok_pixel_id, snapchat_pixel_id, twitter_pixel_id --
+-- embedded client-side in the storefront) and the FIRS transport-config IDs
+-- (endpoint_id, endpoint_scheme_id, template_id -- routing config, not secrets).
 -- The trigger additionally rejects staff changes to user_id so a staff member
 -- cannot claim ownership and escalate past the owner bypass on a later write.
 -- ============================================================================
@@ -93,6 +103,8 @@ BEGIN
     OR NEW.firs_email IS DISTINCT FROM OLD.firs_email
     OR NEW.firs_password_encrypted
       IS DISTINCT FROM OLD.firs_password_encrypted
+    OR NEW.firs_business_id IS DISTINCT FROM OLD.firs_business_id
+    OR NEW.firs_service_id IS DISTINCT FROM OLD.firs_service_id
     OR NEW.stripe_subscription_id IS DISTINCT FROM OLD.stripe_subscription_id
     OR NEW.cac_number IS DISTINCT FROM OLD.cac_number
     OR NEW.cac_rc_number IS DISTINCT FROM OLD.cac_rc_number THEN
@@ -121,7 +133,8 @@ BEGIN
       OR NEW.virtual_terminal_code IS DISTINCT FROM OLD.virtual_terminal_code
       OR NEW.bank_account_number IS DISTINCT FROM OLD.bank_account_number
       OR NEW.bank_account_name IS DISTINCT FROM OLD.bank_account_name
-      OR NEW.bank_code IS DISTINCT FROM OLD.bank_code)
+      OR NEW.bank_code IS DISTINCT FROM OLD.bank_code
+      OR NEW.bank_name IS DISTINCT FROM OLD.bank_name)
     AND NOT public.check_staff_permission(
       v_uid, OLD.id, 'integrations', 'manage'
     ) THEN
