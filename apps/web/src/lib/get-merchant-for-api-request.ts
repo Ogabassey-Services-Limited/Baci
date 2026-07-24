@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { StaffAccess, StaffRole } from '@/hooks/use-merchant';
 import type { UserAccess } from '@/lib/api-auth';
+import { mergeStaffPermissions } from '@/lib/staff-permissions-merge';
 
 export type MerchantContext = NonNullable<
   Awaited<ReturnType<typeof getMerchantForApiRequest>>
@@ -128,16 +129,12 @@ export async function getMerchantForApiRequest(
         Record<string, boolean>
       >;
 
-      // Merge permissions: custom overrides defaults
-      const mergedPermissions: Record<string, Record<string, boolean>> = {
-        ...defaultPerms,
-      };
-      for (const [resource, actions] of Object.entries(customPerms)) {
-        mergedPermissions[resource] = {
-          ...mergedPermissions[resource],
-          ...actions,
-        };
-      }
+      // Per-resource deep merge: custom actions override, default siblings kept.
+      // Mirrors the get_staff_permissions / get_user_access RPCs.
+      const mergedPermissions = mergeStaffPermissions(
+        defaultPerms,
+        customPerms
+      );
 
       return {
         merchantId: merchantInfo.id,

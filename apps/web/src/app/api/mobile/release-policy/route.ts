@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { readLatestLiveBuild } from '@/lib/mobile-release-gate-store';
+import { evaluateNativeUpdateGate } from '@/lib/mobile-release-policy-evaluation';
 import {
   parseBuildNumber,
   readMobilePlatformEnv,
@@ -12,40 +13,6 @@ import { mobileReleasePolicyQuerySchema } from '@/schemas/mobile-release-policy'
 const NO_STORE_HEADERS = {
   'Cache-Control': 'no-store',
 } as const;
-
-function parseVersion(version: string | null) {
-  if (!version) return null;
-  const parts = version
-    .trim()
-    .split('.')
-    .map((part) => Number(part));
-
-  if (
-    parts.length === 0 ||
-    parts.some((part) => !Number.isInteger(part) || part < 0)
-  ) {
-    return null;
-  }
-
-  return parts;
-}
-
-function compareVersions(left: string | null, right: string | null) {
-  const leftParts = parseVersion(left);
-  const rightParts = parseVersion(right);
-  if (!leftParts || !rightParts) return 0;
-
-  const length = Math.max(leftParts.length, rightParts.length);
-  for (let index = 0; index < length; index += 1) {
-    const leftValue = leftParts[index] ?? 0;
-    const rightValue = rightParts[index] ?? 0;
-    if (leftValue !== rightValue) {
-      return leftValue > rightValue ? 1 : -1;
-    }
-  }
-
-  return 0;
-}
 
 function disabledResponse() {
   return NextResponse.json(
@@ -106,26 +73,19 @@ export async function GET(request: NextRequest) {
   const storeUrl = readMobilePlatformEnv(app, platform, 'STORE_URL');
   const message = readMobileUpdateMessage(app);
 
-  // REQUIRED is an operator-forced floor: either the marketing version below
-  // MIN_VERSION or the build below MIN_BUILD. Both are deliberately set by an
-  // operator, so the version signal is safe here.
-  const nativeUpdateRequired =
-    (minNativeVersion !== null &&
-      compareVersions(nativeVersion, minNativeVersion) < 0) ||
-    (installedBuild !== null &&
-      minNativeBuild !== null &&
-      installedBuild < minNativeBuild);
-  // RECOMMENDED is driven ONLY by the live build number. The build gate is now
-  // sourced from the store's actual live build (mobile_release_gate, kept current
-  // by the reconciler), so it never prompts ahead of availability. We do NOT OR
-  // in LATEST_VERSION here: that env value can be set ahead of the App Store live
-  // version (e.g. a CI bump to 2.1.390 while build 360 is still live), which would
-  // recommend an unreleased version and defeat the live-build gate.
-  const nativeUpdateRecommended =
-    nativeUpdateRequired ||
-    (installedBuild !== null &&
-      latestNativeBuild !== null &&
-      installedBuild < latestNativeBuild);
+  // Evaluation is extracted into a pure, unit-tested module so the S0-B
+  // minimum-version gate can be verified in isolation. REQUIRED is an
+  // operator-forced floor (MIN_VERSION / MIN_BUILD); RECOMMENDED is driven only
+  // by the store's actual live build, never by LATEST_VERSION (which may be set
+  // ahead of the live version and would prompt for an unreleased build).
+  const { nativeUpdateRequired, nativeUpdateRecommended } =
+    evaluateNativeUpdateGate({
+      installedBuild,
+      latestNativeBuild,
+      minNativeBuild,
+      minNativeVersion,
+      nativeVersion,
+    });
 
   return NextResponse.json(
     {

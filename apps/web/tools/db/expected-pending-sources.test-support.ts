@@ -29,6 +29,11 @@ export const EXPECTED_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260721150000_quiz_leaderboard_bounded_and_self.sql',
+    sha256: '9e16adac5b0653fbd27814b5af40d5dd170d11da3ff852970ea47735b9451bbd',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260722150000_s1_merchants_authenticated_containment.sql',
     sha256: '3fdc876b7699184efe079f9d9412301eac3b893aefc193868baef6e9bb448d76',
   },
@@ -139,22 +144,22 @@ export const EXPECTED_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260724000001_deep_merge_get_staff_permissions.sql',
+    sha256: 'b4fbc631b272f314b2c15f47f8bb59b3bbdea5583b620153a67f3915bf321918',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260724000002_reject_staff_merchant_credential_writes.sql',
+    sha256: '5b48e521ddc688c4694394c2c1f1c30ab01266951d3681f5d56cd2d6488c5ca0',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260724090000_s1_pr2b_revoke_payment_secret_column_grants.sql',
     sha256: '2a8e2b69b99fb69c2cbed3bd43f55218f15919951103163e525f0d87f696ed1d',
   },
   {
     repositoryPath:
-      'supabase/migrations/20260724100000_s2i_contain_credit_direct_public_mutation.sql',
-    sha256: '9d982df889a769e4b945aabd716e7b3b69693130f10f8acd77931626bfb6b05c',
-  },
-  {
-    repositoryPath:
-      'supabase/migrations/20260724100100_s2p_credit_direct_checkout_tokens.sql',
-    sha256: '43bf182126faf53bfa53927bbb8c2a33e996ba97d46fc93ac03ef61f1e1884f9',
-  },
-  {
-    repositoryPath:
-      'supabase/migrations/20260724100200_s2p_harden_set_credit_direct_session.sql',
-    sha256: 'a072f04122e058bb6d09a613385d981c7c8a75432f67a7edcf8500ea211c6ea8',
+      'supabase/migrations/20260724120000_order_scoped_receipt_bank_details_rpc.sql',
+    sha256: 'd94773042e415b149f6c66615aaf2a668af386c6a529e324f7cc2287cdcbb5f2',
   },
 ];
