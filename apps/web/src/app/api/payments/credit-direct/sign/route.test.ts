@@ -5,7 +5,6 @@ import {
   generateSessionId,
   getPrivateKey,
   getPublicKey,
-  isAmountEligible,
   isLiveMode,
   signTransaction,
 } from '@/lib/credit-direct';
@@ -20,21 +19,22 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(),
 }));
 
+vi.mock('@/lib/slug-alias-cache', () => ({
+  getCurrentSlugForAlias: vi.fn().mockResolvedValue(null),
+}));
+
 vi.mock('@/lib/credit-direct', () => ({
-  CREDIT_DIRECT_CONFIG: {
-    maxAmount: 5_000_000,
-    minAmount: 10_000,
-  },
   generateSessionId: vi.fn(),
   getPrivateKey: vi.fn(),
   getPublicKey: vi.fn(),
-  isAmountEligible: vi.fn(),
   isLiveMode: vi.fn(),
   signTransaction: vi.fn(),
 }));
 
 const MERCHANT_ID = '123e4567-e89b-12d3-a456-426614174000';
 const ORDER_ID = '123e4567-e89b-12d3-a456-426614174111';
+const CHECKOUT_TOKEN = 'raw-capability-token';
+const DERIVED_AMOUNT = 120_000;
 
 type RpcResult = { data: unknown; error: unknown };
 type SettingsRow = {
@@ -44,10 +44,10 @@ type SettingsRow = {
   credit_direct_public_key: string;
   merchant_id: string;
 };
-type OrderSnapshotRow = {
-  merchant_id: string;
-  total: number;
-  shipping_status?: string;
+type IssuedRow = {
+  checkout_token: string;
+  signed_amount: number;
+  expires_at: string;
 };
 
 function buildSettingsRow(overrides: Partial<SettingsRow> = {}): SettingsRow {
@@ -61,12 +61,11 @@ function buildSettingsRow(overrides: Partial<SettingsRow> = {}): SettingsRow {
   };
 }
 
-function buildOrderSnapshotRow(
-  overrides: Partial<OrderSnapshotRow> = {}
-): OrderSnapshotRow {
+function buildIssuedRow(overrides: Partial<IssuedRow> = {}): IssuedRow {
   return {
-    merchant_id: MERCHANT_ID,
-    total: 120_000,
+    checkout_token: CHECKOUT_TOKEN,
+    signed_amount: DERIVED_AMOUNT,
+    expires_at: '2026-07-24T12:30:00.000Z',
     ...overrides,
   };
 }
@@ -90,26 +89,19 @@ function createRequest(overrides: Record<string, unknown> = {}) {
 
 function buildSupabaseMock(overrides: Partial<Record<string, RpcResult>> = {}) {
   const defaultResults: Record<string, RpcResult> = {
-    get_credit_direct_settings: {
-      data: [buildSettingsRow()],
+    get_credit_direct_settings: { data: [buildSettingsRow()], error: null },
+    issue_credit_direct_checkout_token: {
+      data: [buildIssuedRow()],
       error: null,
     },
-    get_order_payment_snapshot: {
-      data: [buildOrderSnapshotRow()],
-      error: null,
-    },
-    set_credit_direct_session: {
-      data: true,
-      error: null,
-    },
+    set_credit_direct_session: { data: true, error: null },
     ...overrides,
   };
 
-  return {
-    rpc: vi.fn((name: string) =>
-      Promise.resolve(defaultResults[name] ?? { data: null, error: null })
-    ),
-  };
+  const rpc = vi.fn((name: string) =>
+    Promise.resolve(defaultResults[name] ?? { data: null, error: null })
+  );
+  return { rpc };
 }
 
 describe('POST /api/payments/credit-direct/sign', () => {
@@ -119,29 +111,16 @@ describe('POST /api/payments/credit-direct/sign', () => {
     vi.mocked(generateSessionId).mockReturnValue('session-123');
     vi.mocked(getPrivateKey).mockReturnValue('env-private-key');
     vi.mocked(getPublicKey).mockReturnValue('env-public-key');
-    vi.mocked(isAmountEligible).mockReturnValue(true);
     vi.mocked(isLiveMode).mockReturnValue(true);
     vi.mocked(signTransaction).mockReturnValue('signed-transaction');
     vi.mocked(createClient).mockReturnValue(buildSupabaseMock() as never);
   });
 
   it.each([
-    {
-      expectedField: 'customerEmail',
-      overrides: { customerEmail: 'not-an-email' },
-    },
-    {
-      expectedField: 'merchantSlug',
-      overrides: { merchantSlug: '' },
-    },
-    {
-      expectedField: 'orderId',
-      overrides: { orderId: 'not-a-uuid' },
-    },
-    {
-      expectedField: 'totalAmount',
-      overrides: { totalAmount: '1e3' },
-    },
+    { expectedField: 'customerEmail', overrides: { customerEmail: 'nope' } },
+    { expectedField: 'merchantSlug', overrides: { merchantSlug: '' } },
+    { expectedField: 'orderId', overrides: { orderId: 'not-a-uuid' } },
+    { expectedField: 'totalAmount', overrides: { totalAmount: '1e3' } },
   ])('returns 400 before signing for invalid $expectedField', async ({
     expectedField,
     overrides,
@@ -152,24 +131,6 @@ describe('POST /api/payments/credit-direct/sign', () => {
     expect(response.status).toBe(400);
     expect(body.error).toBe('Invalid request');
     expect(body.details[expectedField]).toBeDefined();
-    expect(signTransaction).not.toHaveBeenCalled();
-  });
-
-  it('returns 400 before signing when amount exceeds the verified order total', async () => {
-    vi.mocked(createClient).mockReturnValue(
-      buildSupabaseMock({
-        get_order_payment_snapshot: {
-          data: [buildOrderSnapshotRow({ total: 119_999 })],
-          error: null,
-        },
-      }) as never
-    );
-
-    const response = await POST(createRequest());
-    const body = await response.json();
-
-    expect(response.status).toBe(400);
-    expect(body).toEqual({ error: 'Amount exceeds order total' });
     expect(signTransaction).not.toHaveBeenCalled();
   });
 
@@ -208,79 +169,28 @@ describe('POST /api/payments/credit-direct/sign', () => {
     expect(signTransaction).not.toHaveBeenCalled();
   });
 
-  it('returns 404 before signing when the order is not found', async () => {
+  it.each([
+    { code: 'order_not_found', status: 404 },
+    { code: 'order_not_payable', status: 409 },
+    { code: 'amount_out_of_range', status: 400 },
+    { code: 'credit_direct_disabled', status: 403 },
+  ])('maps issue-token RPC error $code to $status before signing', async ({
+    code,
+    status,
+  }) => {
     vi.mocked(createClient).mockReturnValue(
       buildSupabaseMock({
-        get_order_payment_snapshot: { data: [], error: null },
-      }) as never
-    );
-
-    const response = await POST(createRequest());
-    const body = await response.json();
-
-    expect(response.status).toBe(404);
-    expect(body).toEqual({ error: 'Order not found or email mismatch' });
-    expect(signTransaction).not.toHaveBeenCalled();
-  });
-
-  it('returns 403 before signing when the order belongs to another merchant', async () => {
-    vi.mocked(createClient).mockReturnValue(
-      buildSupabaseMock({
-        get_order_payment_snapshot: {
-          data: [
-            buildOrderSnapshotRow({
-              merchant_id: '123e4567-e89b-12d3-a456-426614174999',
-            }),
-          ],
-          error: null,
-        },
-      }) as never
-    );
-
-    const response = await POST(createRequest());
-    const body = await response.json();
-
-    expect(response.status).toBe(403);
-    expect(body).toEqual({ error: 'Merchant mismatch for this order' });
-    expect(signTransaction).not.toHaveBeenCalled();
-  });
-
-  it('returns 409 before signing when the order has been cancelled', async () => {
-    vi.mocked(createClient).mockReturnValue(
-      buildSupabaseMock({
-        get_order_payment_snapshot: {
-          data: [buildOrderSnapshotRow({ shipping_status: 'cancelled' })],
-          error: null,
-        },
-      }) as never
-    );
-
-    const response = await POST(createRequest());
-    const body = await response.json();
-
-    expect(response.status).toBe(409);
-    expect(body.code).toBe('ORDER_NOT_PAYABLE');
-    expect(signTransaction).not.toHaveBeenCalled();
-  });
-
-  it('returns 500 when the signed session cannot be linked', async () => {
-    vi.mocked(createClient).mockReturnValue(
-      buildSupabaseMock({
-        set_credit_direct_session: {
+        issue_credit_direct_checkout_token: {
           data: null,
-          error: { message: 'rpc failed' },
+          error: { message: code },
         },
       }) as never
     );
 
     const response = await POST(createRequest());
-    const body = await response.json();
 
-    expect(response.status).toBe(500);
-    expect(body).toEqual({
-      error: 'Failed to initialize Credit Direct checkout',
-    });
-    expect(signTransaction).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(status);
+    expect(signTransaction).not.toHaveBeenCalled();
   });
 
   it('does not combine an environment private key with a merchant public key', async () => {
@@ -304,7 +214,7 @@ describe('POST /api/payments/credit-direct/sign', () => {
     );
   });
 
-  it('signs with the matching environment key pair', async () => {
+  it('signs the server-derived amount and returns it with the session', async () => {
     const response = await POST(createRequest());
     const body = await response.json();
 
@@ -312,10 +222,11 @@ describe('POST /api/payments/credit-direct/sign', () => {
     expect(signTransaction).toHaveBeenCalledWith(
       'session-123',
       'customer@example.com',
-      120_000,
+      DERIVED_AMOUNT,
       'env-private-key'
     );
     expect(body).toEqual({
+      amount: DERIVED_AMOUNT,
       isLive: true,
       publicKey: 'env-public-key',
       sessionId: 'session-123',
@@ -323,15 +234,97 @@ describe('POST /api/payments/credit-direct/sign', () => {
     });
   });
 
-  it('accepts numeric-string amounts from storefront order lookups', async () => {
-    const response = await POST(createRequest({ totalAmount: '120000.00' }));
+  it('consumes the capability token minted by the issue RPC', async () => {
+    const supabase = buildSupabaseMock();
+    vi.mocked(createClient).mockReturnValue(supabase as never);
+
+    await POST(createRequest());
+
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'issue_credit_direct_checkout_token',
+      {
+        p_email: 'customer@example.com',
+        p_merchant_id: MERCHANT_ID,
+        p_order_id: ORDER_ID,
+        p_session_id: 'session-123',
+      }
+    );
+    expect(supabase.rpc).toHaveBeenCalledWith('set_credit_direct_session', {
+      p_checkout_token: CHECKOUT_TOKEN,
+      p_merchant_id: MERCHANT_ID,
+      p_order_id: ORDER_ID,
+      p_session_id: 'session-123',
+      p_signed_amount: DERIVED_AMOUNT,
+    });
+  });
+
+  // Regression: caller-controlled amount. A tampered client `totalAmount` must
+  // never be signed or recorded — only the DB-derived amount from the issue RPC.
+  it('ignores a caller-controlled totalAmount and signs the DB-derived amount', async () => {
+    const supabase = buildSupabaseMock();
+    vi.mocked(createClient).mockReturnValue(supabase as never);
+
+    const response = await POST(createRequest({ totalAmount: 5 }));
+    const body = await response.json();
 
     expect(response.status).toBe(200);
+    expect(body.amount).toBe(DERIVED_AMOUNT);
     expect(signTransaction).toHaveBeenCalledWith(
       'session-123',
       'customer@example.com',
-      120_000,
+      DERIVED_AMOUNT,
       'env-private-key'
     );
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'set_credit_direct_session',
+      expect.objectContaining({ p_signed_amount: DERIVED_AMOUNT })
+    );
+  });
+
+  // Regression: replayed / already-used capability token. The consume RPC
+  // raises `checkout_token_already_used`, which must surface as a 409 retry.
+  it('returns 409 when the capability token was already consumed (replay)', async () => {
+    vi.mocked(createClient).mockReturnValue(
+      buildSupabaseMock({
+        set_credit_direct_session: {
+          data: null,
+          error: { message: 'checkout_token_already_used' },
+        },
+      }) as never
+    );
+
+    const response = await POST(createRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body.code).toBe('CHECKOUT_TOKEN_USED');
+    expect(signTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns 500 when the token consume RPC fails opaquely', async () => {
+    vi.mocked(createClient).mockReturnValue(
+      buildSupabaseMock({
+        set_credit_direct_session: {
+          data: null,
+          error: { message: 'connection reset' },
+        },
+      }) as never
+    );
+
+    const response = await POST(createRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      error: 'Failed to initialize Credit Direct checkout',
+    });
+    expect(signTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('never leaks the raw capability token in the response', async () => {
+    const response = await POST(createRequest());
+    const body = await response.json();
+
+    expect(JSON.stringify(body)).not.toContain(CHECKOUT_TOKEN);
   });
 });

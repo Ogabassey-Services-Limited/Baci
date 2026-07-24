@@ -1,0 +1,186 @@
+-- S2-P (part 1/2): guest-safe, single-use Credit-Direct checkout capability.
+--
+-- The guest sign route is deliberately unauthenticated (anon cookie client, no
+-- auth.uid()), so an ownership check is infeasible. Instead the server issues an
+-- unguessable, single-use capability token bound to {order, merchant,
+-- server-derived amount, expiry, session}. Only the token hash is persisted; the
+-- raw token is returned once to the caller and never stored or logged. The
+-- companion migration 20260724100200 replaces set_credit_direct_session with a
+-- token-consuming boundary that atomically marks the token used and mutates the
+-- order — so a replayed or forged call cannot start/overwrite a BNPL session or
+-- tamper the recorded amount.
+--
+-- The DB derives the payable amount from the LOCKED order row (never trusting a
+-- caller-supplied amount), validates current payability + feature enablement,
+-- and records replay-safe audit state.
+
+-- ---------------------------------------------------------------------------
+-- Capability-token store. RLS on + all role grants revoked: only the SECURITY
+-- DEFINER RPCs below (owned by postgres) ever read or write it.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.credit_direct_checkout_tokens (
+  id uuid PRIMARY KEY DEFAULT extensions.gen_random_uuid(),
+  token_hash text NOT NULL UNIQUE,
+  order_id uuid NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
+  merchant_id uuid NOT NULL REFERENCES public.merchants(id) ON DELETE CASCADE,
+  signed_amount numeric NOT NULL CHECK (signed_amount > 0),
+  session_id text NOT NULL,
+  expires_at timestamptz NOT NULL,
+  consumed_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS credit_direct_checkout_tokens_order_id_idx
+  ON public.credit_direct_checkout_tokens (order_id);
+CREATE INDEX IF NOT EXISTS credit_direct_checkout_tokens_merchant_id_idx
+  ON public.credit_direct_checkout_tokens (merchant_id);
+-- Supports bounded cleanup of expired / consumed rows.
+CREATE INDEX IF NOT EXISTS credit_direct_checkout_tokens_expires_at_idx
+  ON public.credit_direct_checkout_tokens (expires_at);
+
+ALTER TABLE public.credit_direct_checkout_tokens ENABLE ROW LEVEL SECURITY;
+
+-- Belt-and-suspenders: Supabase default privileges grant table DML to
+-- anon/authenticated; strip them so the store is unreachable via PostgREST.
+-- RLS is enabled with no policy, so even a stray grant would return zero rows.
+REVOKE ALL ON TABLE public.credit_direct_checkout_tokens
+  FROM PUBLIC, anon, authenticated;
+
+COMMENT ON TABLE public.credit_direct_checkout_tokens IS
+  'Single-use Credit-Direct BNPL checkout capability tokens (S2-P). Only the '
+  'SHA-256 hash is stored. Reachable exclusively through the SECURITY DEFINER '
+  'issue/consume RPCs; RLS on and all role grants revoked.';
+
+-- ---------------------------------------------------------------------------
+-- Issue a capability token. Locks the order, derives the payable residual from
+-- the LOCKED row, validates payability + feature enablement + eligible range,
+-- and stores only the token hash. Returns the raw token once.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.issue_credit_direct_checkout_token(
+  p_order_id uuid,
+  p_email text,
+  p_merchant_id uuid,
+  p_session_id text
+) RETURNS TABLE(checkout_token text, signed_amount numeric, expires_at timestamptz)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_total numeric;
+  v_amount_paid numeric;
+  v_wallet_used numeric;
+  v_shipping_status text;
+  v_payment_status text;
+  v_enabled boolean;
+  v_min numeric;
+  v_max numeric;
+  v_amount numeric;
+  v_token text;
+  v_hash text;
+  v_expires timestamptz := pg_catalog.now() + interval '30 minutes';
+BEGIN
+  IF p_order_id IS NULL OR p_merchant_id IS NULL THEN
+    RAISE EXCEPTION 'order_not_found';
+  END IF;
+
+  p_email := NULLIF(pg_catalog.btrim(COALESCE(p_email, '')), '');
+  IF p_email IS NULL OR pg_catalog.length(p_email) > 254 THEN
+    RAISE EXCEPTION 'order_not_found';
+  END IF;
+
+  p_session_id := NULLIF(pg_catalog.btrim(COALESCE(p_session_id, '')), '');
+  IF p_session_id IS NULL OR pg_catalog.length(p_session_id) > 200 THEN
+    RAISE EXCEPTION 'invalid_session';
+  END IF;
+
+  -- Lock the order and bind it to the caller's merchant + email. A guest can
+  -- only reach an order it can already name AND whose customer email it knows
+  -- (the same secret the public order snapshot RPC relies on).
+  SELECT o.total, o.amount_paid, o.wallet_amount_used,
+         o.shipping_status, o.payment_status
+    INTO v_total, v_amount_paid, v_wallet_used,
+         v_shipping_status, v_payment_status
+  FROM public.orders AS o
+  WHERE o.id = p_order_id
+    AND o.merchant_id = p_merchant_id
+    AND pg_catalog.lower(o.customer_email) = pg_catalog.lower(p_email)
+  LIMIT 1
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'order_not_found';
+  END IF;
+
+  -- Feature must be enabled for this merchant (fail closed while S2-I keeps
+  -- Credit Direct disabled; re-enable is a separate flag flip).
+  SELECT s.credit_direct_enabled,
+         COALESCE(s.credit_direct_min_amount, 10000),
+         COALESCE(s.credit_direct_max_amount, 5000000)
+    INTO v_enabled, v_min, v_max
+  FROM public.merchant_feature_settings AS s
+  WHERE s.merchant_id = p_merchant_id
+  LIMIT 1;
+
+  IF NOT COALESCE(v_enabled, false) THEN
+    RAISE EXCEPTION 'credit_direct_disabled';
+  END IF;
+
+  -- Payability: never originate a BNPL loan for a cancelled or already-settled
+  -- order. bnpl_pending is a legitimate retry source.
+  IF v_shipping_status = 'cancelled' THEN
+    RAISE EXCEPTION 'order_not_payable';
+  END IF;
+  IF v_payment_status IS NULL
+     OR v_payment_status NOT IN ('pending', 'partially_paid', 'bnpl_pending') THEN
+    RAISE EXCEPTION 'order_not_payable';
+  END IF;
+
+  -- Server-derived residual from the locked row. Wallet / deposit redemptions
+  -- settle before the gateway leg, so Credit Direct collects the remainder.
+  v_amount := pg_catalog.round(
+    COALESCE(v_total, 0)
+      - GREATEST(COALESCE(v_amount_paid, 0), COALESCE(v_wallet_used, 0)),
+    2
+  );
+  IF v_amount IS NULL OR v_amount <= 0 THEN
+    RAISE EXCEPTION 'invalid_order_amount';
+  END IF;
+  IF v_amount < v_min OR v_amount > v_max THEN
+    RAISE EXCEPTION 'amount_out_of_range';
+  END IF;
+
+  v_token := pg_catalog.encode(extensions.gen_random_bytes(32), 'hex');
+  v_hash := pg_catalog.encode(extensions.digest(v_token, 'sha256'), 'hex');
+
+  INSERT INTO public.credit_direct_checkout_tokens (
+    token_hash, order_id, merchant_id, signed_amount, session_id, expires_at
+  ) VALUES (
+    v_hash, p_order_id, p_merchant_id, v_amount, p_session_id, v_expires
+  );
+
+  checkout_token := v_token;
+  signed_amount := v_amount;
+  expires_at := v_expires;
+  RETURN NEXT;
+END;
+$$;
+
+ALTER FUNCTION public.issue_credit_direct_checkout_token(uuid, text, uuid, text)
+  OWNER TO postgres;
+
+-- Supabase default-grants EXECUTE to PUBLIC (and anon) on new functions, so a
+-- bare REVOKE FROM PUBLIC is not enough. Revoke explicitly, then re-grant only
+-- the roles the guest sign route runs as.
+REVOKE EXECUTE ON FUNCTION
+  public.issue_credit_direct_checkout_token(uuid, text, uuid, text)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION
+  public.issue_credit_direct_checkout_token(uuid, text, uuid, text)
+  TO anon, authenticated, service_role;
+
+COMMENT ON FUNCTION
+  public.issue_credit_direct_checkout_token(uuid, text, uuid, text) IS
+  'S2-P: issues a single-use Credit-Direct checkout capability token bound to '
+  '{order, merchant, server-derived amount, 30-min expiry, session}. Returns '
+  'the raw token once; only its SHA-256 hash is persisted.';

@@ -53,6 +53,10 @@ interface SignResponse {
   publicKey: string;
   sessionId: string;
   isLive: boolean;
+  // Server-derived amount that was actually signed. The popup transaction MUST
+  // use this so `transaction.totalAmount` matches the signature; the server no
+  // longer trusts the client's requested amount.
+  amount?: number;
   error?: string;
 }
 
@@ -172,9 +176,17 @@ export async function openCreditDirectCheckout(
       throw new Error('Credit Direct SDK failed to load');
     }
 
-    // Step 3: Build transaction object
+    // Step 3: Build transaction object. Prefer the server-signed amount so the
+    // popup total always matches the signature (falls back to the requested
+    // amount for older responses that don't echo it).
+    const signedAmount =
+      typeof signData.amount === 'number' &&
+      Number.isFinite(signData.amount) &&
+      signData.amount > 0
+        ? signData.amount
+        : amount;
     const transaction: CreditDirectTransaction = {
-      totalAmount: amount,
+      totalAmount: signedAmount,
       customerEmail,
       customerPhone: customerPhone || '',
       sessionId: signData.sessionId,

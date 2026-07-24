@@ -16753,6 +16753,19 @@ export type Database = {
         Returns: undefined;
       };
       invoke_cleanup_pending_transactions: { Args: never; Returns: undefined };
+      issue_credit_direct_checkout_token: {
+        Args: {
+          p_email: string;
+          p_merchant_id: string;
+          p_order_id: string;
+          p_session_id: string;
+        };
+        Returns: {
+          checkout_token: string;
+          expires_at: string;
+          signed_amount: number;
+        }[];
+      };
       is_active_staff_of: {
         Args: { p_merchant_id: string; p_user_id: string };
         Returns: boolean;
@@ -18023,7 +18036,7 @@ export type Database = {
       };
       set_credit_direct_session: {
         Args: {
-          p_email: string;
+          p_checkout_token: string;
           p_merchant_id: string;
           p_order_id: string;
           p_session_id: string;

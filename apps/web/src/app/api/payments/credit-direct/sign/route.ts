@@ -1,14 +1,13 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import {
-  CREDIT_DIRECT_CONFIG,
   generateSessionId,
   getPrivateKey,
   getPublicKey,
-  isAmountEligible,
   isLiveMode,
   signTransaction,
 } from '@/lib/credit-direct';
+import { resolveCreditDirectRpcError } from '@/lib/payments/credit-direct-checkout-token';
 import { getCurrentSlugForAlias } from '@/lib/slug-alias-cache';
 import { createClient } from '@/lib/supabase/server';
 import { creditDirectSignSchema } from '@/schemas/credit-direct';
@@ -16,23 +15,28 @@ import { creditDirectSignSchema } from '@/schemas/credit-direct';
 /**
  * POST /api/payments/credit-direct/sign
  *
- * Signs a Credit Direct BNPL transaction server-side.
- * The private key is never exposed to the client.
+ * Signs a Credit Direct BNPL transaction server-side and starts the session
+ * behind a single-use capability token (S2-P). The private key is never
+ * exposed to the client, and the amount that gets signed / recorded is derived
+ * by the database from the locked order row — a client-supplied `totalAmount`
+ * is validated for shape but never trusted for money.
  *
- * CSRF exemption: This is an unauthenticated storefront endpoint for BNPL checkout.
- * Guest users do not have CSRF tokens.
+ * CSRF exemption: This is an unauthenticated storefront endpoint for BNPL
+ * checkout. Guest users do not have CSRF tokens.
  *
  * Request body:
  * - customerEmail: string
- * - totalAmount: number (in NGN)
+ * - totalAmount: number (shape-validated only; the DB derives the real amount)
  * - merchantSlug: string
- * - orderId: string (required, for linking)
+ * - orderId: string (uuid)
  *
  * Response:
  * - signature: string (HMAC-SHA256 hex)
  * - publicKey: string
  * - sessionId: string
  * - isLive: boolean
+ * - amount: number (server-derived amount that was signed — clients MUST use
+ *   this for the popup so the transaction matches the signature)
  */
 export async function POST(request: NextRequest) {
   try {
@@ -57,23 +61,23 @@ export async function POST(request: NextRequest) {
 
     const {
       customerEmail,
-      totalAmount,
       merchantSlug: rawMerchantSlug,
       orderId,
     } = parsed.data;
 
-    // Resolve a retired slug to the current one: a checkout tab open on the store
-    // BEFORE a rename submits the old slug in the body (which the proxy can't
-    // rewrite), and the settings RPC filters `WHERE m.slug = p_merchant_slug`, so
-    // without this it would 404. getCurrentSlugForAlias returns null for a live
-    // slug, so a normal checkout is unaffected.
+    // Resolve a retired slug to the current one: a checkout tab open on the
+    // store BEFORE a rename submits the old slug in the body (which the proxy
+    // can't rewrite), and the settings RPC filters `WHERE m.slug =
+    // p_merchant_slug`, so without this it would 404. getCurrentSlugForAlias
+    // returns null for a live slug, so a normal checkout is unaffected.
     const currentSlug = await getCurrentSlugForAlias(
       rawMerchantSlug.trim().toLowerCase()
     );
     const merchantSlug = currentSlug ?? rawMerchantSlug;
 
-    // This is an unauthenticated endpoint for storefront checkout
-    // It uses RLS-protected RPCs to fetch public merchant settings
+    // This is an unauthenticated endpoint for storefront checkout. It uses
+    // RLS-protected / bounded SECURITY DEFINER RPCs on the caller's client
+    // (never the service-role client) to read settings and mutate the order.
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -103,9 +107,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const creditDirectEnabled = settings?.credit_direct_enabled ?? false;
-
-    if (!creditDirectEnabled) {
+    if (!(settings.credit_direct_enabled ?? false)) {
       console.error('Credit Direct Sign Blocked: Feature disabled', {
         merchant: merchantSlug,
         merchantId,
@@ -116,79 +118,43 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const minAmount =
-      settings?.credit_direct_min_amount ?? CREDIT_DIRECT_CONFIG.minAmount;
-    const maxAmount =
-      settings?.credit_direct_max_amount ?? CREDIT_DIRECT_CONFIG.maxAmount;
+    // Generate the session id up front so the capability token binds to it and
+    // the signature covers the same session.
+    const sessionId = generateSessionId(15);
 
-    // Validate order context and ensure email matches order
-    const { data: snapshotRows, error: snapshotError } = await supabase.rpc(
-      'get_order_payment_snapshot',
+    // Issue a single-use capability token. The DB locks the order, derives the
+    // payable amount from the locked row (never trusting the client), validates
+    // payability + enablement + eligible range, and binds the token to
+    // {order, merchant, server-derived amount, expiry, session}.
+    const { data: issuedRows, error: issueError } = await supabase.rpc(
+      'issue_credit_direct_checkout_token',
       {
         p_order_id: orderId,
         p_email: customerEmail,
+        p_merchant_id: merchantId,
+        p_session_id: sessionId,
       }
     );
 
-    const orderSnapshot =
-      Array.isArray(snapshotRows) && snapshotRows.length > 0
-        ? snapshotRows[0]
-        : null;
+    if (issueError) {
+      const mapped = resolveCreditDirectRpcError(issueError.message);
+      return NextResponse.json(mapped.body, { status: mapped.status });
+    }
 
-    if (snapshotError || !orderSnapshot) {
+    const issued =
+      Array.isArray(issuedRows) && issuedRows.length > 0 ? issuedRows[0] : null;
+    if (!issued || typeof issued.checkout_token !== 'string') {
       return NextResponse.json(
-        { error: 'Order not found or email mismatch' },
-        { status: 404 }
+        { error: 'Failed to initialize Credit Direct checkout' },
+        { status: 500 }
       );
     }
 
-    if (orderSnapshot.merchant_id !== merchantId) {
-      return NextResponse.json(
-        { error: 'Merchant mismatch for this order' },
-        { status: 403 }
-      );
-    }
-
-    // A cancelled order must never be payable — including via a Credit Direct
-    // BNPL loan origination (mirrors the guard in payments/initialize).
-    if (orderSnapshot.shipping_status === 'cancelled') {
-      return NextResponse.json(
-        {
-          error: 'This order has been cancelled and can no longer be paid',
-          code: 'ORDER_NOT_PAYABLE',
-        },
-        { status: 409 }
-      );
-    }
-
-    const snapshotTotal = Number(orderSnapshot.total);
-    if (Number.isNaN(snapshotTotal)) {
+    const checkoutToken = issued.checkout_token;
+    const signedAmount = Number(issued.signed_amount);
+    if (!Number.isFinite(signedAmount) || signedAmount <= 0) {
       return NextResponse.json(
         { error: 'Invalid order total' },
-        { status: 400 }
-      );
-    }
-    if (snapshotTotal <= 0) {
-      return NextResponse.json(
-        { error: 'Invalid order total' },
-        { status: 400 }
-      );
-    }
-    if (totalAmount > snapshotTotal) {
-      return NextResponse.json(
-        { error: 'Amount exceeds order total' },
-        { status: 400 }
-      );
-    }
-
-    // Validate amount is within eligible range
-    if (!isAmountEligible(totalAmount, minAmount, maxAmount)) {
-      return NextResponse.json(
-        {
-          error: `Amount must be between ₦${minAmount.toLocaleString()} and ₦${maxAmount.toLocaleString()} for BNPL`,
-          minAmount,
-          maxAmount,
-        },
         { status: 400 }
       );
     }
@@ -216,35 +182,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate session ID
-    const sessionId = generateSessionId(15);
-
-    // Sign the transaction
+    // Sign the SERVER-DERIVED amount — never a client-supplied value.
     const signature = signTransaction(
       sessionId,
       customerEmail,
-      totalAmount,
+      signedAmount,
       privateKey
     );
 
-    // Store the session mapping for webhook reconciliation
+    // Consume the capability token: single-use (atomic), re-derives and matches
+    // the amount against the locked order, and starts the BNPL session.
     const { error: sessionError } = await supabase.rpc(
       'set_credit_direct_session',
       {
+        p_checkout_token: checkoutToken,
         p_order_id: orderId,
-        p_email: customerEmail,
         p_merchant_id: merchantId,
         p_session_id: sessionId,
-        p_signed_amount: totalAmount,
+        p_signed_amount: signedAmount,
       }
     );
 
     if (sessionError) {
-      console.error('Failed to link Credit Direct session:', sessionError);
-      return NextResponse.json(
-        { error: 'Failed to initialize Credit Direct checkout' },
-        { status: 500 }
+      // Log the error message only — never the raw token.
+      console.error(
+        'Failed to link Credit Direct session:',
+        sessionError.message
       );
+      const mapped = resolveCreditDirectRpcError(sessionError.message);
+      return NextResponse.json(mapped.body, { status: mapped.status });
     }
 
     return NextResponse.json({
@@ -252,6 +218,7 @@ export async function POST(request: NextRequest) {
       publicKey,
       sessionId,
       isLive: isLiveMode(),
+      amount: signedAmount,
     });
   } catch (error) {
     console.error('Credit Direct sign error:', error);
