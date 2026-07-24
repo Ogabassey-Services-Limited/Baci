@@ -5,12 +5,17 @@ import { drainFailedPaidOrderSideEffectsTestKit } from '@/lib/payments/drain-fai
 
 const mocks = vi.hoisted(() => ({
   finalizeOrderGatewayPayment: vi.fn(),
+  recoverStrandedPaidOrderSideEffects: vi.fn(),
   retireTerminalSideEffectDrain: vi.fn(),
   verifyGatewayCharge: vi.fn(),
 }));
 
 vi.mock('@/lib/payments/finalize-order-gateway-payment', () => ({
   finalizeOrderGatewayPayment: mocks.finalizeOrderGatewayPayment,
+}));
+vi.mock('@/lib/payments/recover-stranded-paid-order-side-effects', () => ({
+  recoverStrandedPaidOrderSideEffects:
+    mocks.recoverStrandedPaidOrderSideEffects,
 }));
 vi.mock('@/lib/payments/verify-gateway-charge', async (importOriginal) => {
   const actual =
@@ -34,6 +39,10 @@ const scheduleAfter = (task: () => Promise<void>) => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.recoverStrandedPaidOrderSideEffects.mockResolvedValue({
+    recovered: [],
+    stranded: [],
+  });
 });
 
 describe('drainFailedPaidOrderSideEffects', () => {
@@ -53,8 +62,54 @@ describe('drainFailedPaidOrderSideEffects', () => {
       supabase,
     });
 
-    expect(summary).toEqual({ drained: [], failed: [], skipped: [] });
+    expect(summary).toEqual({
+      drained: [],
+      failed: [],
+      recovered: [],
+      skipped: [],
+      stranded: [],
+    });
     expect(mocks.finalizeOrderGatewayPayment).not.toHaveBeenCalled();
+  });
+
+  it('runs the stranded-row recovery before selecting drain candidates and surfaces its result', async () => {
+    const supabase = buildSupabase({ data: [] });
+    mocks.recoverStrandedPaidOrderSideEffects.mockResolvedValue({
+      recovered: [{ orderId: 'order-9', step: 'paid_email' }],
+      stranded: [
+        {
+          error: 'still_broken',
+          orderId: 'order-7',
+          step: 'merchant_settlement',
+        },
+      ],
+    });
+
+    const summary = await drainFailedPaidOrderSideEffects({
+      scheduleAfter,
+      supabase,
+    });
+
+    expect(mocks.recoverStrandedPaidOrderSideEffects).toHaveBeenCalledWith(
+      expect.objectContaining({ supabase })
+    );
+    // Recovery MUST run before the drain's candidate SELECT so a row it lifts
+    // back below the cap is picked up in the same tick.
+    const recoveryOrder =
+      mocks.recoverStrandedPaidOrderSideEffects.mock.invocationCallOrder[0];
+    const firstSelectOrder = vi.mocked(supabase.from).mock
+      .invocationCallOrder[0];
+    expect(recoveryOrder).toBeLessThan(firstSelectOrder);
+    expect(summary.recovered).toEqual([
+      { orderId: 'order-9', step: 'paid_email' },
+    ]);
+    expect(summary.stranded).toEqual([
+      {
+        error: 'still_broken',
+        orderId: 'order-7',
+        step: 'merchant_settlement',
+      },
+    ]);
   });
 
   it('re-runs the finalizer once per order and reports the drain', async () => {
