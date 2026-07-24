@@ -249,4 +249,31 @@ GRANT EXECUTE ON FUNCTION public.cleanup_credit_direct_checkout_tokens(integer)
 
 COMMENT ON FUNCTION public.cleanup_credit_direct_checkout_tokens(integer) IS
   'S2-P retention: deletes up to p_limit consumed or expired checkout tokens '
-  '(FOR UPDATE SKIP LOCKED). Service-role only, for a scheduled sweep.';
+  '(FOR UPDATE SKIP LOCKED). Service-role only, run by the pg_cron schedule below.';
+
+-- ---------------------------------------------------------------------------
+-- Schedule the retention sweep via pg_cron (already installed — the Supabase
+-- retention cleanup manages cron.job_run_details). Hourly at :23 (off-peak
+-- minute). Idempotent: guarded on the cron schema existing (a no-op in any
+-- environment without pg_cron, e.g. a from-scratch replay), and re-runnable
+-- (unschedule the prior job of the same name first). Without this the token
+-- table would grow unbounded once Credit Direct is re-enabled.
+-- ---------------------------------------------------------------------------
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_catalog.pg_namespace WHERE nspname = 'cron'
+  ) THEN
+    IF EXISTS (
+      SELECT 1 FROM cron.job
+      WHERE jobname = 'credit-direct-checkout-token-cleanup'
+    ) THEN
+      PERFORM cron.unschedule('credit-direct-checkout-token-cleanup');
+    END IF;
+    PERFORM cron.schedule(
+      'credit-direct-checkout-token-cleanup',
+      '23 * * * *',
+      $cron$SELECT public.cleanup_credit_direct_checkout_tokens(1000)$cron$
+    );
+  END IF;
+END $$;
