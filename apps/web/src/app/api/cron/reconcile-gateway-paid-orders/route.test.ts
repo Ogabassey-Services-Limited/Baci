@@ -5,11 +5,15 @@ const mocks = vi.hoisted(() => ({
   createServiceClient: vi.fn(),
   drainFailedPaidOrderSideEffects: vi.fn(),
   getCronSecret: vi.fn(),
+  logger: { error: vi.fn(), warn: vi.fn() },
   reconcileWedgedGatewayOrders: vi.fn(),
 }));
 
 vi.mock('@/env', () => ({
   getCronSecret: mocks.getCronSecret,
+}));
+vi.mock('@/lib/logger', () => ({
+  logger: mocks.logger,
 }));
 vi.mock('@/lib/supabase/service', () => ({
   createServiceClient: mocks.createServiceClient,
@@ -41,7 +45,9 @@ beforeEach(() => {
   mocks.drainFailedPaidOrderSideEffects.mockResolvedValue({
     drained: [],
     failed: [],
+    recovered: [],
     skipped: [],
+    stranded: [],
   });
 });
 
@@ -83,7 +89,9 @@ describe('GET /api/cron/reconcile-gateway-paid-orders', () => {
     expect(body.sideEffectDrain).toEqual({
       drained: [],
       failed: [],
+      recovered: [],
       skipped: [],
+      stranded: [],
     });
     expect(typeof body.checked_at).toBe('string');
     expect(mocks.reconcileWedgedGatewayOrders).toHaveBeenCalledWith(
@@ -91,6 +99,41 @@ describe('GET /api/cron/reconcile-gateway-paid-orders', () => {
     );
     expect(mocks.drainFailedPaidOrderSideEffects).toHaveBeenCalledWith(
       expect.objectContaining({ supabase: expect.anything() })
+    );
+  });
+
+  it('surfaces and logs recovered/stranded side effects even when nothing else changed', async () => {
+    mocks.reconcileWedgedGatewayOrders.mockResolvedValue({
+      checked: 0,
+      detectedUnhealable: [],
+      failed: [],
+      healed: [],
+      skipped: [],
+    });
+    const sideEffectDrain = {
+      drained: [],
+      failed: [],
+      recovered: [{ orderId: 'order-9', step: 'paid_email' }],
+      skipped: [],
+      stranded: [
+        {
+          error: 'still_broken',
+          orderId: 'order-7',
+          step: 'merchant_settlement',
+        },
+      ],
+    };
+    mocks.drainFailedPaidOrderSideEffects.mockResolvedValue(sideEffectDrain);
+
+    const response = await GET(buildRequest(`Bearer ${CRON_SECRET}`));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.sideEffectDrain).toEqual(sideEffectDrain);
+    // The recovered/stranded disjuncts in the log gate must actually fire when
+    // they are the only non-empty signal (checked/drained/failed all zero).
+    expect(mocks.logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ sideEffectDrain })
     );
   });
 
