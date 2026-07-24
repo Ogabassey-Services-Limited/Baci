@@ -1,6 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
 import { finalizeOrderGatewayPayment } from '@/lib/payments/finalize-order-gateway-payment';
+import {
+  PAID_ORDER_SIDE_EFFECT_ATTEMPT_CAP,
+  PERMANENT_PAID_ORDER_SIDE_EFFECT_ERRORS,
+} from '@/lib/payments/paid-order-side-effect-retry-policy';
+import { recoverStrandedPaidOrderSideEffects } from '@/lib/payments/recover-stranded-paid-order-side-effects';
 import { REPLAYABLE_PAID_ORDER_SIDE_EFFECT_STEPS } from '@/lib/payments/replayable-paid-order-side-effect-steps';
 import { retireTerminalSideEffectDrain } from '@/lib/payments/retire-terminal-side-effect-drain';
 import {
@@ -18,11 +23,6 @@ import {
 // drain re-runs the finalizer, whose claim-gated outbox retries exactly the
 // failed steps. Stub/permanent errors are excluded to avoid retry loops.
 
-const PERMANENT_STEP_ERRORS = [
-  'wired_in_b3_5',
-  'financial_totals_inconsistent',
-  'gateway_verification_terminal',
-];
 const DEFAULT_LIMIT = 10;
 // Comfortably past the claim RPC's 60s takeover window.
 const STALE_CLAIM_MINUTES = 15;
@@ -31,6 +31,10 @@ export interface FailedSideEffectDrainSummary {
   drained: Array<{ orderId: string }>;
   failed: Array<{ orderId: string; reason: string }>;
   skipped: Array<{ orderId: string; reason: string }>;
+  // Rows lifted back below the attempt cap this run so a code fix can drain
+  // them; and rows a recent recovery already retried that are still failing.
+  recovered: Array<{ orderId: string; step: string }>;
+  stranded: Array<{ orderId: string; step: string; error: string | null }>;
 }
 
 type DrainCandidateRow = {
@@ -62,8 +66,31 @@ export async function drainFailedPaidOrderSideEffects({
   const summary: FailedSideEffectDrainSummary = {
     drained: [],
     failed: [],
+    recovered: [],
     skipped: [],
+    stranded: [],
   };
+
+  // Un-strand any rows stuck at/over the attempt cap BEFORE selecting drain
+  // candidates, so a row lifted back below the cap this run is picked up by the
+  // failed-row query below (same tick). Best-effort: it never throws.
+  const recovery = await recoverStrandedPaidOrderSideEffects({ supabase });
+  summary.recovered = recovery.recovered;
+  summary.stranded = recovery.stranded;
+  if (recovery.recovered.length > 0) {
+    logger.warn({
+      message:
+        'Recovered stranded paid-order side effects for another drain attempt',
+      recovered: recovery.recovered,
+    });
+  }
+  if (recovery.stranded.length > 0) {
+    logger.error({
+      message:
+        'Paid-order side effects stranded past the retry cap — classify the error or reset manually',
+      stranded: recovery.stranded,
+    });
+  }
 
   const DRAIN_SELECT =
     'order_id, transaction_id, transactions!inner(id, created_at, order_id, merchant_id, amount, platform_fee, gateway, gateway_reference, gateway_response, metadata), orders!inner(id, payment_status, cancelled_at)';
@@ -72,8 +99,12 @@ export async function drainFailedPaidOrderSideEffects({
     .from('payment_side_effects')
     .select(DRAIN_SELECT)
     .eq('status', 'failed')
-    .lt('attempts', 5)
-    .not('error', 'in', `(${PERMANENT_STEP_ERRORS.join(',')})`)
+    .lt('attempts', PAID_ORDER_SIDE_EFFECT_ATTEMPT_CAP)
+    .not(
+      'error',
+      'in',
+      `(${PERMANENT_PAID_ORDER_SIDE_EFFECT_ERRORS.join(',')})`
+    )
     .in('step', [...REPLAYABLE_PAID_ORDER_SIDE_EFFECT_STEPS])
     .eq('transactions.status', 'completed')
     .eq('orders.payment_status', 'paid')
@@ -96,7 +127,7 @@ export async function drainFailedPaidOrderSideEffects({
     .from('payment_side_effects')
     .select(DRAIN_SELECT)
     .eq('status', 'claimed')
-    .lt('attempts', 5)
+    .lt('attempts', PAID_ORDER_SIDE_EFFECT_ATTEMPT_CAP)
     .lt('claimed_at', staleClaimCutoff)
     .in('step', [...REPLAYABLE_PAID_ORDER_SIDE_EFFECT_STEPS])
     .eq('transactions.status', 'completed')

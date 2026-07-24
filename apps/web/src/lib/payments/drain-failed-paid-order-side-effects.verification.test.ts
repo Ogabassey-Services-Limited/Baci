@@ -4,12 +4,17 @@ import { drainFailedPaidOrderSideEffectsTestKit } from '@/lib/payments/drain-fai
 
 const mocks = vi.hoisted(() => ({
   finalizeOrderGatewayPayment: vi.fn(),
+  recoverStrandedPaidOrderSideEffects: vi.fn(),
   retireTerminalSideEffectDrain: vi.fn(),
   verifyGatewayCharge: vi.fn(),
 }));
 
 vi.mock('@/lib/payments/finalize-order-gateway-payment', () => ({
   finalizeOrderGatewayPayment: mocks.finalizeOrderGatewayPayment,
+}));
+vi.mock('@/lib/payments/recover-stranded-paid-order-side-effects', () => ({
+  recoverStrandedPaidOrderSideEffects:
+    mocks.recoverStrandedPaidOrderSideEffects,
 }));
 vi.mock('@/lib/payments/verify-gateway-charge', async (importOriginal) => {
   const actual =
@@ -30,6 +35,10 @@ const scheduleAfter = (task: () => Promise<void>) => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.recoverStrandedPaidOrderSideEffects.mockResolvedValue({
+    recovered: [],
+    stranded: [],
+  });
 });
 
 describe('drainFailedPaidOrderSideEffects verification', () => {
