@@ -162,4 +162,9 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260724120000_order_scoped_receipt_bank_details_rpc.sql',
     sha256: 'd94773042e415b149f6c66615aaf2a668af386c6a529e324f7cc2287cdcbb5f2',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260724140000_merchant_balance_gateway_origin_guard.sql',
+    sha256: 'a0fe583d52e2c86e4a37f63aad41dfb3da1a62bccaeb3e2624287afec8ab4081',
+  },
 ];
