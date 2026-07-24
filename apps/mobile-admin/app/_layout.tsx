@@ -14,7 +14,7 @@ import {
   ThemeProvider,
 } from 'expo-router/react-navigation';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
 import { StatusBar, useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -89,20 +89,44 @@ export default function RootLayout() {
     Inter_700Bold,
     Inter_800ExtraBold,
   });
+  const [isSplashHidden, setIsSplashHidden] = useState(false);
 
   // App Store review requires the native ATT prompt on first launch: the app
-  // declares IDFA use (TikTok Business SDK auto-initializes natively), so the
-  // request must fire as soon as the first frame is visible and active.
-  useAppTrackingTransparency({ enabled: loaded });
+  // declares IDFA use (TikTok Business SDK auto-initializes natively). Gate the
+  // request on splash dismissal — not just font loading — so the native dialog
+  // is never presented behind the splash overlay. `loaded` only means fonts are
+  // ready; `SplashScreen.hideAsync()` is async, so enabling on `loaded` could
+  // fire the request while the splash still covers the first frame, which iOS
+  // suppresses and recreates the first-launch review failure.
+  useAppTrackingTransparency({ enabled: isSplashHidden });
 
   useEffect(() => {
     if (error) throw error;
   }, [error]);
 
   useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
+    if (!loaded) {
+      return;
     }
+
+    let cancelled = false;
+    const revealFirstFrame = async () => {
+      try {
+        await SplashScreen.hideAsync();
+      } catch {
+        // Ignore — splash may already be hidden (e.g. fast reload).
+      } finally {
+        if (!cancelled) {
+          setIsSplashHidden(true);
+        }
+      }
+    };
+
+    void revealFirstFrame();
+
+    return () => {
+      cancelled = true;
+    };
   }, [loaded]);
 
   useEffect(() => {

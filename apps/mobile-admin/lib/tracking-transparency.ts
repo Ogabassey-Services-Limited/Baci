@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { isRuntimePlatform } from '@/config/runtime-platform';
 
 type TrackingTransparencyPermission = {
   status: string;
@@ -32,7 +32,7 @@ async function tryLoadTrackingTransparency(): Promise<TrackingTransparencyModule
 }
 
 export function canRequestTrackingTransparency(): boolean {
-  return Platform.OS === 'ios';
+  return isRuntimePlatform('ios');
 }
 
 export async function getTrackingPermissionStatus(): Promise<TrackingTransparencyPermission> {

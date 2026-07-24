@@ -7,8 +7,8 @@ const mocks = vi.hoisted(() => ({
   initAdminAnalytics: vi.fn(),
   isRuntimePlatform: vi.fn(() => false),
   navigationBarSetStyle: vi.fn(),
-  splashHideAsync: vi.fn(),
-  useAppTrackingTransparency: vi.fn(() => ({
+  splashHideAsync: vi.fn(() => Promise.resolve()),
+  useAppTrackingTransparency: vi.fn((_options: { enabled: boolean }) => ({
     isTrackingAuthorizationSettled: true,
   })),
   useFonts: vi.fn<() => readonly [boolean, Error | null]>(() => [true, null]),
@@ -156,27 +156,30 @@ describe('mobile-admin RootLayout', () => {
   });
 
   // Regression: App Store review rejected the admin app because the native
-  // ATT prompt never appeared — RootLayout must drive the request.
-  it('enables the ATT prompt once fonts are loaded and the first frame renders', () => {
-    mocks.useFonts
-      .mockReturnValueOnce([false, null])
-      .mockReturnValue([true, null]);
-    const { rerender } = render(<RootLayout />);
-    expect(mocks.useAppTrackingTransparency).toHaveBeenCalledWith({
+  // ATT prompt never appeared — RootLayout must drive the request, and only
+  // once the splash overlay is dismissed. Enabling on `loaded` alone fired the
+  // request while the splash still covered the first frame, which iOS
+  // suppresses — recreating the first-launch failure.
+  it('enables the ATT prompt only after the splash screen is dismissed', async () => {
+    mocks.useFonts.mockReturnValue([true, null]);
+
+    render(<RootLayout />);
+
+    // First commit: fonts are ready but SplashScreen.hideAsync() has not
+    // resolved, so the splash still covers the frame and ATT must stay off.
+    expect(mocks.useAppTrackingTransparency.mock.calls[0]?.[0]).toEqual({
       enabled: false,
     });
-    expect(mocks.useAppTrackingTransparency).not.toHaveBeenCalledWith({
-      enabled: true,
-    });
 
-    rerender(<RootLayout />);
-
-    expect(mocks.useAppTrackingTransparency).toHaveBeenCalledWith({
-      enabled: true,
+    await waitFor(() => {
+      expect(mocks.splashHideAsync).toHaveBeenCalledTimes(1);
+      expect(mocks.useAppTrackingTransparency).toHaveBeenCalledWith({
+        enabled: true,
+      });
     });
   });
 
-  it('does not enable the ATT prompt before the first frame is ready', () => {
+  it('does not enable the ATT prompt or hide the splash before fonts load', () => {
     mocks.useFonts.mockReturnValue([false, null]);
 
     render(<RootLayout />);
@@ -187,5 +190,6 @@ describe('mobile-admin RootLayout', () => {
     expect(mocks.useAppTrackingTransparency).not.toHaveBeenCalledWith({
       enabled: true,
     });
+    expect(mocks.splashHideAsync).not.toHaveBeenCalled();
   });
 });
