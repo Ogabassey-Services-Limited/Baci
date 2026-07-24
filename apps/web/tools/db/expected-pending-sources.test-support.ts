@@ -137,4 +137,14 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260723210000_scope_subaccount_rpc_staff_permission.sql',
     sha256: '9df49e0051a16c29e444513ad5bc2786c2420560071da5f02d8f249fc38616d0',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260724000001_deep_merge_get_staff_permissions.sql',
+    sha256: 'b4fbc631b272f314b2c15f47f8bb59b3bbdea5583b620153a67f3915bf321918',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260724000002_reject_staff_merchant_credential_writes.sql',
+    sha256: '2d677315988dcc607e882164768e8877968455240766cf09fc0a9232f0e350d3',
+  },
 ];
