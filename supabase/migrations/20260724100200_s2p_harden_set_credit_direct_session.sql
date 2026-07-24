@@ -66,6 +66,24 @@ BEGIN
     RAISE EXCEPTION 'checkout_token_mismatch';
   END IF;
 
+  -- Lock the ORDER first, then the token — the SAME order->token acquisition
+  -- order the issuer uses (it locks the order, then deletes/inserts token rows
+  -- for it). Consistent lock ordering prevents a deadlock between a retry that
+  -- re-issues a token and a concurrent consume of the prior one.
+  SELECT o.notes, o.total, o.amount_paid, o.wallet_amount_used,
+         o.shipping_status, o.payment_status
+    INTO v_raw_notes, v_total, v_amount_paid, v_wallet_used,
+         v_shipping_status, v_payment_status
+  FROM public.orders AS o
+  WHERE o.id = p_order_id
+    AND o.merchant_id = p_merchant_id
+  LIMIT 1
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'order_not_found';
+  END IF;
+
   -- Look up and lock the capability token by hash (never by the raw value).
   v_hash := pg_catalog.encode(
     extensions.digest(p_checkout_token, 'sha256'),
@@ -98,21 +116,6 @@ BEGIN
   END IF;
   IF v_expires_at <= pg_catalog.now() THEN
     RAISE EXCEPTION 'checkout_token_expired';
-  END IF;
-
-  -- Re-read the order under lock: state may have changed since issue.
-  SELECT o.notes, o.total, o.amount_paid, o.wallet_amount_used,
-         o.shipping_status, o.payment_status
-    INTO v_raw_notes, v_total, v_amount_paid, v_wallet_used,
-         v_shipping_status, v_payment_status
-  FROM public.orders AS o
-  WHERE o.id = p_order_id
-    AND o.merchant_id = p_merchant_id
-  LIMIT 1
-  FOR UPDATE;
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'order_not_found';
   END IF;
 
   SELECT s.credit_direct_enabled

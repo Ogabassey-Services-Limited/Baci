@@ -191,17 +191,36 @@ export async function openCreditDirectCheckout(
       signData.amount > 0
         ? signData.amount
         : amount;
+    // Credit Direct's payout webhook validates the sum of `products` against the
+    // gateway amount. When the signed amount is a residual (wallet / deposit /
+    // partial payment) it no longer equals the full line-item total, so send a
+    // single balancing line item instead of the full-price items; when they
+    // match (full payment) keep the itemized breakdown.
+    const itemsTotal = items.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
+    const products =
+      Math.abs(itemsTotal - signedAmount) < 0.01
+        ? items.map((item) => ({
+            productId: item.id,
+            productName: item.name,
+            productAmount: item.price * item.quantity,
+          }))
+        : [
+            {
+              productId: orderId,
+              productName: 'Order balance',
+              productAmount: signedAmount,
+            },
+          ];
     const transaction: CreditDirectTransaction = {
       totalAmount: signedAmount,
       customerEmail,
       customerPhone: customerPhone || '',
       sessionId: signData.sessionId,
       metaData: orderId, // Store orderId for webhook reconciliation
-      products: items.map((item) => ({
-        productId: item.id,
-        productName: item.name,
-        productAmount: item.price * item.quantity,
-      })),
+      products,
     };
 
     // Step 4: Open checkout popup

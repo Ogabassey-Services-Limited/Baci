@@ -170,7 +170,7 @@ export const EXPECTED_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260724100200_s2p_harden_set_credit_direct_session.sql',
-    sha256: 'a072f04122e058bb6d09a613385d981c7c8a75432f67a7edcf8500ea211c6ea8',
+    sha256: 'cb454256cc5497a2073a38f85bf9ab5c7cc8f317a4779765829d793787c1e6a0',
   },
   {
     repositoryPath:
