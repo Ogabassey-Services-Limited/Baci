@@ -10,6 +10,10 @@ import { supabase } from '../lib/supabase';
 import { CustomerRowSchema } from '../lib/validation';
 import { CUSTOMER_SELECT_COLUMNS } from './auth-helpers';
 import type { AuthStoreGet, AuthStoreSet, Customer } from './auth-store.types';
+import {
+  mapDateOfBirthError,
+  mapUsernameError,
+} from './auth-store-error-messages';
 import { clearLocalAndDeactivatePushToken } from './auth-store-push';
 import { useCartStore } from './cart-store';
 import { useComparisonStore } from './comparison-store';
@@ -17,33 +21,6 @@ import { useQuizStore } from './quiz-store';
 import { useSavedStore } from './saved-store';
 
 const log = createLogger('AuthStore');
-
-// set_customer_username raises these as the Postgres error message.
-const USERNAME_ERROR_MESSAGES: Record<string, string> = {
-  username_taken: 'That username is already taken. Try another.',
-  reserved_username: 'That username is not available.',
-  invalid_username:
-    'Use 3-20 letters, numbers, or single . _ separators (start and end with a letter or number).',
-  customer_not_found: 'No shopper account found for this store.',
-  not_authenticated: 'Please sign in to choose a username.',
-};
-
-function mapUsernameError(message: string): string {
-  return USERNAME_ERROR_MESSAGES[message] ?? 'Could not set username';
-}
-
-// set_customer_date_of_birth raises these as the Postgres error message.
-const DATE_OF_BIRTH_ERROR_MESSAGES: Record<string, string> = {
-  invalid_date_of_birth: 'Enter a valid date of birth.',
-  customer_not_found: 'No shopper account found for this store.',
-  not_authenticated: 'Please sign in to continue.',
-};
-
-function mapDateOfBirthError(message: string): string {
-  return (
-    DATE_OF_BIRTH_ERROR_MESSAGES[message] ?? 'Could not save date of birth'
-  );
-}
 
 function clearUserStores() {
   queryClient.clear();

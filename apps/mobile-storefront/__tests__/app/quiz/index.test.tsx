@@ -52,13 +52,19 @@ jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
 }));
 
-// This route test exercises the start flow directly, so the customer
-// already has a username — the username gate itself is covered by
-// components/quiz/QuizScreen.test.tsx and useQuizStartGate.test.ts.
+// This route test exercises the start flow directly, so the customer already
+// has a username AND a date of birth — the username and 18+ date-of-birth gates
+// are covered by components/quiz/QuizScreen.test.tsx, useQuizStartGate.test.ts,
+// and useQuizDateOfBirthGate.test.ts.
 jest.mock('@/stores/auth-store', () => ({
   useAuthStore: (
-    selector: (state: { customer: { username: string } }) => unknown
-  ) => selector({ customer: { username: 'ogafan' } }),
+    selector: (state: {
+      customer: { username: string; date_of_birth: string };
+    }) => unknown
+  ) =>
+    selector({
+      customer: { username: 'ogafan', date_of_birth: '1990-06-15' },
+    }),
 }));
 
 jest.mock('@/services/quiz', () => ({
