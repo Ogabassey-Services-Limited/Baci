@@ -81,9 +81,6 @@ BEGIN
   -- succeed.
   IF NEW.nin IS DISTINCT FROM OLD.nin
     OR NEW.bvn IS DISTINCT FROM OLD.bvn
-    OR NEW.bank_account_number IS DISTINCT FROM OLD.bank_account_number
-    OR NEW.bank_account_name IS DISTINCT FROM OLD.bank_account_name
-    OR NEW.bank_code IS DISTINCT FROM OLD.bank_code
     OR NEW.stripe_customer_id IS DISTINCT FROM OLD.stripe_customer_id
     OR NEW.facebook_capi_token IS DISTINCT FROM OLD.facebook_capi_token
     OR NEW.facebook_capi_access_token
@@ -104,23 +101,32 @@ BEGIN
       USING ERRCODE = '42501';
   END IF;
 
-  -- The two payment-INTEGRATION columns are staff-writable under the same
-  -- integrations.manage permission the sanctioned flows already enforce: the
-  -- paystack/subaccount route writes paystack_subaccount_code, and the
-  -- virtual-terminal route/RPCs (set/clear_merchant_virtual_terminal_code*,
-  -- themselves integrations.manage-gated since #3173) mirror
-  -- virtual_terminal_code. Blocking those columns owner-only would break the
-  -- sanctioned staff flows; requiring integrations.manage here matches the
-  -- route gates exactly. check_staff_permission is wildcard-aware and, after
-  -- 20260724000001, reads deep-merged effective permissions.
+  -- The payment-INTEGRATION columns are staff-writable under the
+  -- integrations.manage permission the sanctioned flows already enforce:
+  --   * paystack_subaccount_code AND the three bank fields
+  --     (bank_account_number, bank_account_name, bank_code) are written
+  --     TOGETHER by /api/paystack/subaccount (manual + verified paths) — the
+  --     route saves the bank details alongside the subaccount code, so the bank
+  --     columns must share this gate or every staff subaccount setup 42501s
+  --     after the external Paystack subaccount is already created (orphan risk).
+  --   * virtual_terminal_code is mirrored by the virtual-terminal route/RPCs
+  --     (set/clear_merchant_virtual_terminal_code*, integrations.manage-gated
+  --     since #3173).
+  -- Owner bypasses this whole trigger; settings.edit-only staff (no
+  -- integrations.manage) remain blocked from bank/subaccount/terminal edits.
+  -- check_staff_permission is wildcard-aware and, after 20260724000001, reads
+  -- deep-merged effective permissions.
   IF (NEW.paystack_subaccount_code
         IS DISTINCT FROM OLD.paystack_subaccount_code
-      OR NEW.virtual_terminal_code IS DISTINCT FROM OLD.virtual_terminal_code)
+      OR NEW.virtual_terminal_code IS DISTINCT FROM OLD.virtual_terminal_code
+      OR NEW.bank_account_number IS DISTINCT FROM OLD.bank_account_number
+      OR NEW.bank_account_name IS DISTINCT FROM OLD.bank_account_name
+      OR NEW.bank_code IS DISTINCT FROM OLD.bank_code)
     AND NOT public.check_staff_permission(
       v_uid, OLD.id, 'integrations', 'manage'
     ) THEN
     RAISE EXCEPTION
-      'Staff without integrations.manage may not modify payment integration columns'
+      'Staff without integrations.manage may not modify payment integration or bank columns'
       USING ERRCODE = '42501';
   END IF;
 
