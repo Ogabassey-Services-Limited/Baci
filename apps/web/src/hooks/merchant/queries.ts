@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { mergeStaffPermissions } from '@/lib/staff-permissions-merge';
 import { defaultStaffAccess, ownerStaffAccess } from './constants';
 import { redactAlwaysSecretStaffFields } from './redact-always-secret-staff-fields';
 import type { MerchantData, StaffAccess, StaffRole } from './types';
@@ -295,15 +296,12 @@ export async function fetchDashboardMerchant(
           Record<string, boolean>
         >;
 
-        const mergedPermissions: Record<string, Record<string, boolean>> = {
-          ...defaultPerms,
-        };
-        for (const [resource, actions] of Object.entries(customPerms)) {
-          mergedPermissions[resource] = {
-            ...mergedPermissions[resource],
-            ...actions,
-          };
-        }
+        // Per-resource deep merge: custom actions override, default siblings
+        // kept. Mirrors the get_staff_permissions / get_user_access RPCs.
+        const mergedPermissions = mergeStaffPermissions(
+          defaultPerms,
+          customPerms
+        );
 
         return {
           // Strip the always-safe secret fields (national IDs, billing, terminal
