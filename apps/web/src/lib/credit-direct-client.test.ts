@@ -10,6 +10,7 @@ describe('openCreditDirectCheckout', () => {
     items: [{ id: 'product-1', name: 'Phone Case', price: 12000, quantity: 1 }],
     merchantSlug: 'test-store',
     orderId: 'order-123',
+    trackingToken: 'order-tracking-token',
     onClose: vi.fn(),
     onError: vi.fn(),
     onPopup: vi.fn(),
@@ -112,6 +113,41 @@ describe('openCreditDirectCheckout', () => {
       checkoutTransactionId: null,
       sessionId: 'session-123',
     });
+  });
+
+  it('forwards the tracking token and opens the popup with the server-signed amount', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      json: async () => ({
+        // Server-derived amount differs from the passed options.amount (12000)
+        // — e.g. a wallet/partial-payment residual. The popup must use it so the
+        // total matches the HMAC signature.
+        amount: 9999,
+        isLive: true,
+        publicKey: 'cd-public-key',
+        sessionId: 'session-123',
+        signature: 'signature-123',
+      }),
+      ok: true,
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    let capturedTotal: number | undefined;
+    window.Connect = function MockConnect(config: {
+      transaction: { totalAmount: number };
+    }) {
+      capturedTotal = config.transaction.totalAmount;
+      return { open: vi.fn(), setup: vi.fn() };
+    } as never;
+
+    await openCreditDirectCheckout(options);
+
+    // F1: the order tracking token is forwarded to the sign endpoint.
+    const requestBody = JSON.parse(
+      (fetchMock.mock.calls[0][1] as { body: string }).body
+    );
+    expect(requestBody.trackingToken).toBe('order-tracking-token');
+    // Popup uses the server-signed amount, not the caller-supplied one.
+    expect(capturedTotal).toBe(9999);
   });
 
   it('reports cancellation when Credit Direct closes before success', async () => {
