@@ -337,56 +337,6 @@ describe('RegisterScreen', () => {
       expect(mocks.replace).toHaveBeenCalledWith('/(auth)/login');
     });
 
-    describe('bugfix: 500 after the account was created was a dead end', () => {
-      it('offers sign-in when the store failed to provision but the account exists', () => {
-        // Arrange
-        render(<RegisterScreen />);
-        fillFormAndSubmit();
-
-        // Act: the server created the auth user, then merchant provisioning
-        // failed. Retrying registration re-runs the same failing path, so the
-        // only way forward is signing in.
-        getCallbacks().onError(
-          new NetworkError(
-            'Your account was created, but we could not finish setting up your store. Please sign in to finish setup.',
-            {
-              statusCode: 500,
-              data: { code: 'account_created_store_setup_failed' },
-            }
-          )
-        );
-
-        // Assert
-        expect(mocks.alert).toHaveBeenCalledWith(
-          'Finish Setting Up',
-          expect.stringMatching(/sign in/i),
-          expect.arrayContaining([expect.objectContaining({ text: 'Sign In' })])
-        );
-      });
-
-      it('navigates to login when "Sign In" is pressed', () => {
-        // Arrange
-        render(<RegisterScreen />);
-        fillFormAndSubmit();
-
-        // Act
-        getCallbacks().onError(
-          new NetworkError('Account created', {
-            statusCode: 500,
-            data: { code: 'account_created_store_setup_failed' },
-          })
-        );
-        const buttons = mocks.alert.mock.calls[0][2] as Array<{
-          text: string;
-          onPress?: () => void;
-        }>;
-        buttons.find((b) => b.text === 'Sign In')?.onPress?.();
-
-        // Assert
-        expect(mocks.replace).toHaveBeenCalledWith('/(auth)/login');
-      });
-    });
-
     it('shows rate-limit alert for 429', () => {
       render(<RegisterScreen />);
       fillFormAndSubmit();

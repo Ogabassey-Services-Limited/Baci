@@ -52,8 +52,8 @@ function readPostgresErrorShape(error: unknown): PostgresErrorShape {
 }
 
 export interface OnboardingFailureLogContext {
-  /** True when THIS request created the auth user. */
-  accountCreated?: boolean;
+  /** True when the caller owns an account but the client holds no session. */
+  accountExists?: boolean;
   /** Which provisioning step failed, when it is not the generic catch-all. */
   stage?: string;
   merchantId?: string;

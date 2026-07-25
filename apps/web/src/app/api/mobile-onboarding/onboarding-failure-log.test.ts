@@ -25,14 +25,14 @@ describe('logOnboardingFailure', () => {
         '42501',
         'new row violates row-level security policy for table "merchants"'
       ),
-      { accountCreated: true }
+      { accountExists: true }
     );
 
     // Assert
     const [label, payload] = errorSpy.mock.calls[0] as [string, string];
     expect(label).toBe('mobile-onboarding deployment_fault');
     expect(JSON.parse(payload)).toMatchObject({
-      accountCreated: true,
+      accountExists: true,
       pgCode: '42501',
     });
   });
@@ -84,7 +84,7 @@ describe('logOnboardingFailure', () => {
           'null value in column "email" violates not-null constraint',
           'Failing row contains (7d3f, victim@example.com, +2348012345678).'
         ),
-        { accountCreated: true }
+        { accountExists: true }
       );
 
       // Assert

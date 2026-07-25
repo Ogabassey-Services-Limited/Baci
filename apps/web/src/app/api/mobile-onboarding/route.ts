@@ -9,6 +9,7 @@ import { getCountryByCode } from '@/lib/countries';
 import { normalizeBusinessName } from '@/lib/normalize-business-name';
 import { checkPasswordBreach } from '@/lib/password-breach';
 import { resolveMerchantIdBySlugOrAlias } from '@/lib/resolve-merchant-by-slug';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { isReservedMerchantSlug } from '@/lib/validation';
 import { mobileOnboardingSchema } from '@/schemas/onboarding';
@@ -63,12 +64,14 @@ async function resolveMerchantSlug(
 // which sends Authorization Bearer tokens, not browser cookies. CSRF is a browser-specific
 // attack vector that exploits automatic cookie sending — mobile apps are not vulnerable.
 export async function POST(req: NextRequest) {
-  // Signup is not atomic: the auth user is created before the merchant row. If
-  // provisioning throws after this flips, the caller owns an account with no
-  // store and must be told to SIGN IN rather than retry registration (a retry
-  // re-runs the same failing path and, once the signup session is cached, no
-  // longer even reaches the "account exists" 409).
-  let accountCreated = false;
+  // True when the caller OWNS an account but the CLIENT holds no session, so
+  // "sign in to finish setup" is the actionable recovery. Signup is not atomic:
+  // the auth user is created before the merchant row, and a failure after that
+  // strands them. Crucially this also covers RETRIES from the register screen —
+  // those carry the cookie set by the earlier signUp, so getUser() succeeds and
+  // the signUp block is skipped, yet the app itself is still signed out. Without
+  // that case a retry would fall back to the dead-end generic 500.
+  let accountExists = false;
 
   try {
     const body = await req.json();
@@ -147,6 +150,9 @@ export async function POST(req: NextRequest) {
     } = await supabase.auth.getUser();
 
     let user: User | null = currentUser;
+    // A Bearer token means the APP holds the session (the complete-profile
+    // flow); a cookie-only match means it does not (a register-screen retry).
+    accountExists = Boolean(currentUser) && !req.headers.get('authorization');
 
     // If no authenticated user, try to Sign Up
     if (!user) {
@@ -279,7 +285,7 @@ export async function POST(req: NextRequest) {
         );
       }
       user = signUpData.user;
-      accountCreated = true;
+      accountExists = true;
 
       if (signUpData.session?.access_token) {
         // NOTE: We must construct a raw client here because the new user has
@@ -348,7 +354,7 @@ export async function POST(req: NextRequest) {
       // Reachable AFTER signUp, so it can strand a just-created account just
       // like a thrown error. Same recovery contract.
       return buildOnboardingFailureResponse(lookupError, {
-        accountCreated,
+        accountExists,
         message: 'Failed to check existing account.',
       });
     }
@@ -519,6 +525,9 @@ export async function POST(req: NextRequest) {
     // the response is sent while keeping the function alive on Vercel.
     after(() =>
       runDeferredOnboardingProvisioning({
+        // Constructed HERE: route.ts is the module the boundary contract
+        // authorizes to import the admin factory.
+        adminClient: createAdminClient(),
         merchantId,
         merchantSlug,
         businessName,
@@ -541,6 +550,6 @@ export async function POST(req: NextRequest) {
   } catch (error: unknown) {
     // Keeps the Postgres code (e.g. 42501) in the log and tells a caller whose
     // account already exists how to recover. See onboarding-failure-response.ts.
-    return buildOnboardingFailureResponse(error, { accountCreated });
+    return buildOnboardingFailureResponse(error, { accountExists });
   }
 }

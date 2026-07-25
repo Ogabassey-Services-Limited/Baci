@@ -23,7 +23,7 @@ describe('buildOnboardingFailureResponse', () => {
       // Act
       const res = buildOnboardingFailureResponse(
         postgrestError('42501', 'rls'),
-        { accountCreated: true }
+        { accountExists: true }
       );
       const body = await res.json();
 
@@ -41,7 +41,7 @@ describe('buildOnboardingFailureResponse', () => {
       // step-specific message must not replace it.
       const res = buildOnboardingFailureResponse(
         postgrestError('42501', 'rls'),
-        { accountCreated: true, message: 'Failed to check existing account.' }
+        { accountExists: true, message: 'Failed to check existing account.' }
       );
       const body = await res.json();
 
@@ -58,7 +58,7 @@ describe('buildOnboardingFailureResponse', () => {
 
       // Act
       const res = buildOnboardingFailureResponse(new Error('bad json'), {
-        accountCreated: false,
+        accountExists: false,
       });
       const body = await res.json();
 
@@ -74,7 +74,7 @@ describe('buildOnboardingFailureResponse', () => {
 
       // Act
       const res = buildOnboardingFailureResponse(new Error('db down'), {
-        accountCreated: false,
+        accountExists: false,
         message: 'Failed to check existing account.',
       });
       const body = await res.json();
@@ -92,7 +92,7 @@ describe('buildOnboardingFailureResponse', () => {
     // Act
     const res = buildOnboardingFailureResponse(
       postgrestError('42501', 'new row violates row-level security policy'),
-      { accountCreated: false }
+      { accountExists: false }
     );
     const body = await res.json();
 

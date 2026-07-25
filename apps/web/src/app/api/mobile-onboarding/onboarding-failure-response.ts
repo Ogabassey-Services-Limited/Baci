@@ -20,13 +20,14 @@ const ACCOUNT_CREATED_MESSAGE =
 
 export interface OnboardingFailureContext {
   /**
-   * True when THIS request created the auth user (the signUp path ran and
-   * succeeded). Determines whether the caller can recover by signing in.
+   * True when the caller owns an auth account but the client holds no
+   * session — either this request created it, or a cached signup cookie
+   * authenticated a retry. Determines whether signing in is the recovery.
    */
-  accountCreated: boolean;
+  accountExists: boolean;
   /**
    * Specific message for the non-recoverable case (no account was created).
-   * Ignored when `accountCreated` — an existing account always gets the
+   * Ignored when `accountExists` — an existing account always gets the
    * recovery copy, which is the actionable thing to say.
    */
   message?: string;
@@ -39,11 +40,11 @@ export interface OnboardingFailureContext {
  */
 export function buildOnboardingFailureResponse(
   error: unknown,
-  { accountCreated, message }: OnboardingFailureContext
+  { accountExists, message }: OnboardingFailureContext
 ): NextResponse {
-  logOnboardingFailure(error, { accountCreated });
+  logOnboardingFailure(error, { accountExists });
 
-  if (accountCreated) {
+  if (accountExists) {
     return NextResponse.json(
       {
         error: ACCOUNT_CREATED_MESSAGE,

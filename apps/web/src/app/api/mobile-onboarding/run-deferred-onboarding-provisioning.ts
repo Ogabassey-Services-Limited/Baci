@@ -1,4 +1,3 @@
-import { createAdminClient } from '@/lib/supabase/admin';
 import type { BrandColors } from '@/types';
 import { logOnboardingFailure } from './onboarding-failure-log';
 import {
@@ -23,7 +22,24 @@ const DEFAULT_BRAND_COLORS: BrandColors = {
   accent: '#F59E0B',
 };
 
+/**
+ * Minimal shape of the privileged client this needs. Injected rather than
+ * constructed here on purpose: the repository's boundary contract authorizes
+ * only route.ts to import the admin factory, and importing it from this module
+ * would register a new admin-authority edge. Taking the client as a parameter
+ * keeps the authority where it was already sanctioned — and makes this function
+ * testable without mocking the factory.
+ */
+export interface DeferredProvisioningAdminClient {
+  from: (table: string) => {
+    insert: (row: Record<string, unknown>) => PromiseLike<{
+      error: unknown;
+    }>;
+  };
+}
+
 export interface DeferredOnboardingProvisioningInput {
+  adminClient: DeferredProvisioningAdminClient;
   merchantId: string;
   merchantSlug: string;
   businessName: string;
@@ -41,6 +57,7 @@ export interface DeferredOnboardingProvisioningInput {
 }
 
 export async function runDeferredOnboardingProvisioning({
+  adminClient,
   merchantId,
   merchantSlug,
   businessName,
@@ -48,20 +65,27 @@ export async function runDeferredOnboardingProvisioning({
   brandColors,
   domainRepair,
 }: DeferredOnboardingProvisioningInput): Promise<void> {
-  // Admin client for background writes — the scoped client's Bearer token may
-  // expire, and this runs outside the original auth context.
-  const adminSupabase = createAdminClient();
-
   if (domainRepair) {
-    const retry = await provisionMerchantDomain(
-      domainRepair.client,
-      domainRepair.input
-    );
-    if (!retry.provisioned) {
-      // A merchant with no active domain row is the durable, queryable signal
-      // that repair is still owed.
-      logOnboardingFailure(retry.error, {
-        stage: 'domain_repair_exhausted',
+    // Guarded: a transport-level throw (rather than a resolved PostgREST error)
+    // would otherwise reject this whole task and skip the starter template and
+    // hero images below, leaving a merchant with no content on a response that
+    // already reported success.
+    try {
+      const retry = await provisionMerchantDomain(
+        domainRepair.client,
+        domainRepair.input
+      );
+      if (!retry.provisioned) {
+        // A merchant with no active domain row is the durable, queryable signal
+        // that repair is still owed.
+        logOnboardingFailure(retry.error, {
+          stage: 'domain_repair_exhausted',
+          merchantId,
+        });
+      }
+    } catch (error) {
+      logOnboardingFailure(error, {
+        stage: 'domain_repair_threw',
         merchantId,
       });
     }
@@ -77,7 +101,7 @@ export async function runDeferredOnboardingProvisioning({
       brandColors: brandColors || DEFAULT_BRAND_COLORS,
       merchant: { id: merchantId, slug: merchantSlug },
     });
-    const { error: pageConfigError } = await adminSupabase
+    const { error: pageConfigError } = await adminClient
       .from('page_configs')
       .insert({
         merchant_id: merchantId,

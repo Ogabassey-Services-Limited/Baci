@@ -6,12 +6,6 @@ const mocks = vi.hoisted(() => ({
   assignHeroImagesToMerchant: vi.fn(),
 }));
 
-vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: () => ({
-    from: () => ({ insert: mocks.pageConfigInsert }),
-  }),
-}));
-
 vi.mock('@/lib/initial-template-generator', () => ({
   generateInitialTemplate: mocks.generateInitialTemplate,
 }));
@@ -22,7 +16,12 @@ vi.mock('@/services/hero-image-generator', () => ({
 
 import { runDeferredOnboardingProvisioning } from './run-deferred-onboarding-provisioning';
 
+const adminClient = {
+  from: () => ({ insert: mocks.pageConfigInsert }),
+};
+
 const baseInput = {
+  adminClient,
   merchantId: 'merch-1',
   merchantSlug: 'test',
   businessName: 'Test Store',
@@ -149,6 +148,33 @@ describe('runDeferredOnboardingProvisioning', () => {
         'mobile-onboarding deployment_fault',
         expect.stringContaining('domain_repair_exhausted')
       );
+    });
+
+    it('keeps the rest of the deferred work running when the retry throws', async () => {
+      // Arrange — a transport-level throw, not a resolved PostgREST error.
+      const scopedClient = {
+        from: () => ({
+          insert: vi.fn().mockRejectedValue(new Error('socket hang up')),
+        }),
+      };
+
+      // Act
+      await runDeferredOnboardingProvisioning({
+        ...baseInput,
+        domainRepair: {
+          client: scopedClient,
+          input: {
+            merchantId: 'merch-1',
+            merchantSlug: 'test',
+            rootDomain: 'usebaci.com',
+          },
+        },
+      });
+
+      // Assert — the response already reported success, so a throw here must
+      // not cost the merchant their starter content.
+      expect(mocks.pageConfigInsert).toHaveBeenCalled();
+      expect(mocks.assignHeroImagesToMerchant).toHaveBeenCalled();
     });
   });
 
