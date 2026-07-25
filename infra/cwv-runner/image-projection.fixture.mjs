@@ -236,9 +236,9 @@ function archiveLayer(directory, layerRoot, variant) {
   const looseLayer = join(directory, 'layer.tar');
   execFileSync('tar', [
     '--format=ustar',
-    '--uid',
+    '--owner',
     '0',
-    '--gid',
+    '--group',
     '0',
     '-cf',
     looseLayer,

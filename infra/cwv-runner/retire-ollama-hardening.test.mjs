@@ -14,11 +14,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { promisify } from 'node:util';
-
 const root = new URL('.', import.meta.url);
 const script = new URL('./retire-ollama.sh', root);
 const execFileAsync = promisify(execFile);
-
 test('keeps the scan finite when nginx is not installed', async () => {
   const source = await readFile(script, 'utf8');
   assert.match(
@@ -26,7 +24,6 @@ test('keeps the scan finite when nginx is not installed', async () => {
     /scan_nginx_definitions\(\).*\[ -d \/etc\/nginx \] \|\| return 0/s
   );
 });
-
 test('classifies every non-environment consumer surface without retaining raw values', async () => {
   const source = await readFile(script, 'utf8');
   assert.match(source, /record_consumers\(\)/);
@@ -251,7 +248,18 @@ test('owns one private temporary directory and cleans it after a rejected apply'
   }
 });
 
-test('can be sourced without dispatching the CLI and preserves usage exit semantics', async () => {
+test('dispatches direct dash invocations and can still be sourced as a library', async () => {
+  for (const [argument, code, message] of [
+    ['--scan', 77, /root required/],
+    ['--unsupported', 64, /usage: retire-ollama\.sh/],
+  ])
+    await assert.rejects(
+      execFileAsync('/bin/dash', [script.pathname, argument], {
+        env: process.env,
+      }),
+      (error) => error.code === code && message.test(error.stderr)
+    );
+
   const { stdout } = await execFileAsync(
     'sh',
     [
@@ -263,14 +271,6 @@ test('can be sourced without dispatching the CLI and preserves usage exit semant
     { env: process.env }
   );
   assert.equal(stdout, 'normalize_revalidation_snapshot\nmain\n');
-
-  await assert.rejects(
-    execFileAsync('sh', [script.pathname, '--unsupported'], {
-      env: process.env,
-    }),
-    (error) =>
-      error.code === 64 && /usage: retire-ollama\.sh/.test(error.stderr)
-  );
 });
 
 test('extracts the flat scan snapshot before destructive revalidation', async () => {

@@ -36,6 +36,7 @@ jobs:
       test_plan_reason: ${{ steps.test-plan.outputs.reason }}
       web: ${{ steps.gate.outputs.web }}
       quiz_db: ${{ steps.gate.outputs.quiz_db }}
+      cwv_runner: ${{ steps.gate.outputs.cwv_runner }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -103,6 +104,14 @@ jobs:
               - '.github/scripts/split-sql-statements.test.mjs'
               - '.github/scripts/check-migration-versions.sh'
               - '.github/scripts/check-migration-versions.test.sh'
+            cwv_runner:
+              - 'infra/cwv-runner/**'
+              - '.github/scripts/cwv-runner-*.mjs'
+              - '.github/workflows/actionlint.yml'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/cwv-runner-attestation.yml'
+              - '.github/workflows/deploy.yml'
+              - '.github/actionlint.yaml'
             web:
               - 'apps/web/**'
               - 'apps/mobile-storefront/assets/quiz/**'
@@ -144,6 +153,7 @@ jobs:
           FILTER_MOBILE_STOREFRONT: ${{ steps.filter.outputs.mobile_storefront }}
           FILTER_WEB: ${{ steps.filter.outputs.web }}
           FILTER_QUIZ_DB: ${{ steps.filter.outputs.quiz_db }}
+          FILTER_CWV_RUNNER: ${{ steps.filter.outputs.cwv_runner }}
         run: |
           set -euo pipefail
           if [ "$EVENT_NAME" = "merge_group" ]; then
@@ -151,23 +161,46 @@ jobs:
             mobile_storefront=true
             web=true
             quiz_db=true
+            cwv_runner=true
           else
             mobile_admin="${FILTER_MOBILE_ADMIN:-false}"
             mobile_storefront="${FILTER_MOBILE_STOREFRONT:-false}"
             web="${FILTER_WEB:-false}"
             quiz_db="${FILTER_QUIZ_DB:-false}"
+            cwv_runner="${FILTER_CWV_RUNNER:-false}"
           fi
           {
             echo "mobile_admin=$mobile_admin"
             echo "mobile_storefront=$mobile_storefront"
             echo "web=$web"
             echo "quiz_db=$quiz_db"
+            echo "cwv_runner=$cwv_runner"
           } >> "$GITHUB_OUTPUT"
       - name: Resolve test plan
         id: test-plan
         env:
           EVENT_NAME: ${{ github.event_name }}
         run: node .github/scripts/resolve-ci-test-plan.mjs --event "$EVENT_NAME" --base "$TURBO_SCM_BASE"
+
+  cwv-runner-contracts:
+    name: CWV Runner Contracts
+    needs: [changes]
+    if: needs.changes.outputs.cwv_runner == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+      - uses: ./.github/actions/pnpm-install-cached
+      - name: Run CWV runner contract tests
+        run: node --test --test-concurrency=1 infra/cwv-runner/*.test.mjs .github/scripts/cwv-runner-*.test.mjs
+      - name: Check CWV runner formatting
+        run: pnpm exec biome check infra/cwv-runner .github/scripts/cwv-runner-*.mjs
+      - name: Run CWV workflow actionlint
+        uses: rhysd/actionlint@914e7df21a07ef503a81201c76d2b11c789d3fca # v1.7.12
 
   quality-lint:
     name: Quality Gate - Lint

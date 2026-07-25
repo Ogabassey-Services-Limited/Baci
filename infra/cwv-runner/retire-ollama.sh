@@ -234,4 +234,5 @@ apply() {
   ensure_receipt_dir; completion_pending=$(pending_for "$RECEIPT_DIR/completion.json"); jq -S -n --arg receiptSha256 "$(canonical_receipt_digest)" --argjson pre "$pre" --argjson post "$post" '{receiptSha256:$receiptSha256,prePostDeltas:{preDestructive:$pre,postDestructive:$post,deltas:{cgroupMemoryBytes:($post.cgroupMemoryBytes-$pre.cgroupMemoryBytes),hostAvailableMemoryBytes:($post.hostAvailableMemoryBytes-$pre.hostAvailableMemoryBytes),modelStoreBytes:($post.modelStoreBytes-$pre.modelStoreBytes)}},rollbackNeeds:["reinstall Ollama package","redownload models"]}' >"$completion_pending" || { discard_pending "$completion_pending"; die 'completion receipt failed'; }; publish_pending "$completion_pending" "$RECEIPT_DIR/completion.json"
 }
 main() { case "${1:-}" in --scan) scan;; --apply) apply;; *) usage;; esac; }
-if ! (return 0 2>/dev/null); then main "$@"; fi
+# Sourcing exposes helpers; execute only when this file is the CLI entrypoint.
+case "$0" in */retire-ollama.sh|retire-ollama.sh) main "$@";; esac

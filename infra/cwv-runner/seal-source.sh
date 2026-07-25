@@ -105,6 +105,10 @@ verify_tree() {
   [[ "$extracted" == "$expected" ]] || fail 'archive member set mismatch'
 }
 
+secure_tree_directories() {
+  "$FIND" "$1" -type d -exec "$CHMOD" 0700 -- {} +
+}
+
 usage() { fail 'usage: seal-source.sh --destination scan|final --source-sha SHA --source-archive PATH --source-archive-sha256 SHA --source-manifest PATH --source-manifest-sha256 SHA'; }
 
 inner=false
@@ -156,7 +160,7 @@ safe_archive_names "$root_archive"
 "$MKDIR" -m 0700 -- "$tree"
 "$TAR" --extract --file "$root_archive" --directory "$tree" --no-same-owner --no-same-permissions --no-recursion
 verify_tree "$tree" "$rows" "$actual"
-"$CHOWN" -R root:root -- "$tree"; "$CHMOD" 0700 -- "$tree"
+"$CHOWN" -R root:root -- "$tree"; secure_tree_directories "$tree"
 tree_digest=$(sha "$actual")
 hex "$tree_digest" || fail 'sealed tree digest mismatch'
 "$SYNC" -f "$root_manifest"; "$SYNC" -f "$root_archive"; "$SYNC" -f "$tree"
@@ -166,7 +170,7 @@ printf '%s\n' "$manifest_digest" > "$receipt/manifest.sha256"
 printf '%s\n' "$archive_digest" > "$receipt/archive.sha256"
 printf '%s\n' "$tree_digest" > "$receipt/tree.sha256"
 printf '{"archiveSha256":"%s","manifestSha256":"%s","schemaVersion":1,"sealedTreeSha256":"%s","sourceSha":"%s"}\n' "$archive_digest" "$manifest_digest" "$tree_digest" "$source_sha" > "$receipt/seal-receipt.json"
-"$CHOWN" -R root:root -- "$target" "$receipt"; "$CHMOD" 0700 -- "$target" "$receipt"; "$CHMOD" 0600 -- "$receipt"/*
+"$CHOWN" -R root:root -- "$target" "$receipt"; secure_tree_directories "$target"; "$CHMOD" 0700 -- "$receipt"; "$CHMOD" 0600 -- "$receipt"/*
 "$SYNC" -f "$receipt/seal-receipt.json"; "$SYNC" -f "$receipt"; "$SYNC" -f "$final_root"
 trap - EXIT HUP INT TERM
 printf '%s\n' "$target"

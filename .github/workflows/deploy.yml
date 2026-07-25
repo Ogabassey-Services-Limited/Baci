@@ -25,6 +25,7 @@ jobs:
     outputs:
       web: ${{ steps.filter.outputs.web }}
       migrations: ${{ steps.filter.outputs.migrations }}
+      cwv_runner: ${{ steps.filter.outputs.cwv_runner }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -55,12 +56,38 @@ jobs:
               - '.github/scripts/merge-static-union.sh'
               - '.github/scripts/merge-static-union.test.sh'
               - '.github/scripts/pnpm-install-with-retry.sh'
-              - 'infra/cwv-runner/**'
               - '.npmrc'
               - 'pnpm-workspace.yaml'
             migrations:
               - 'supabase/migrations/**'
               - '.github/workflows/deploy.yml'
+            cwv_runner:
+              - 'infra/cwv-runner/**'
+              - '.github/scripts/cwv-runner-*.mjs'
+              - '.github/workflows/actionlint.yml'
+              - '.github/workflows/cwv-runner-attestation.yml'
+              - '.github/workflows/deploy.yml'
+              - '.github/actionlint.yaml'
+
+  cwv-runner-contracts:
+    name: CWV Runner Contracts
+    needs: [changes]
+    if: needs.changes.outputs.cwv_runner == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+      - uses: ./.github/actions/pnpm-install-cached
+      - name: Run CWV runner contract tests
+        run: node --test --test-concurrency=1 infra/cwv-runner/*.test.mjs .github/scripts/cwv-runner-*.test.mjs
+      - name: Check CWV runner formatting
+        run: pnpm exec biome check infra/cwv-runner .github/scripts/cwv-runner-*.mjs
+      - name: Run CWV workflow actionlint
+        uses: rhysd/actionlint@914e7df21a07ef503a81201c76d2b11c789d3fca # v1.7.12
 
   # Apply any pending Supabase migrations BEFORE the Vercel deploy so
   # application code never lands ahead of the schema it depends on. Closes
@@ -95,12 +122,12 @@ jobs:
         run: .github/scripts/apply-pending-migrations.sh
 
   deploy-production:
-    needs: [changes, db-migrations]
+    needs: [changes, cwv-runner-contracts, db-migrations]
     # Hard-require db-migrations success — `result == 'success'` excludes both
     # 'skipped' and 'failure', so a skipped migrations job (e.g. if its `if`
     # condition becomes false in a future change) cannot let a web deploy
     # land against an out-of-date schema.
-    if: always() && github.ref == 'refs/heads/main' && needs.db-migrations.result == 'success' && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.web == 'true')
+    if: always() && github.ref == 'refs/heads/main' && needs.db-migrations.result == 'success' && (needs.cwv-runner-contracts.result == 'success' || needs.cwv-runner-contracts.result == 'skipped') && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.web == 'true' || needs.changes.outputs.cwv_runner == 'true')
     # Run production prebuilt deploys on GitHub-hosted runners while the VPS
     # provider is returning sustained CPU steal. This still uses a local
     # `vercel build --prod` followed by `vercel deploy --prebuilt --prod`, so

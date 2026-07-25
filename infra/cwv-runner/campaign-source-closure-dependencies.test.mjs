@@ -7,6 +7,16 @@ import { campaignSourceClosure as closure } from './campaign-source-closure.mjs'
 
 const read = (name) => fs.readFile(new URL(name, import.meta.url), 'utf8');
 
+const repositoryManifest = async () =>
+  JSON.parse(await read('../../package.json'));
+
+const rootLockImporter = async () => {
+  const lockfile = await read('../../pnpm-lock.yaml');
+  const start = lockfile.indexOf('  .:\n', lockfile.indexOf('importers:\n'));
+  const end = lockfile.indexOf('\n  apps/mobile-admin:', start);
+  return lockfile.slice(start, end);
+};
+
 await init;
 
 const localSourceDependencies = (source) =>
@@ -49,6 +59,16 @@ test('detects bare side-effect imports as local source dependencies', () => {
   assert.throws(
     () => localSourceDependencies("import '../outside-the-closure.mjs';\n"),
     /escapes the flat closure/
+  );
+});
+
+test('declares es-module-lexer directly for campaign source parsing', async () => {
+  const manifest = await repositoryManifest();
+
+  assert.equal(manifest.devDependencies['es-module-lexer'], '^2.3.1');
+  assert.match(
+    await rootLockImporter(),
+    /      es-module-lexer:\n        specifier: \^2\.3\.1\n        version: 2\.3\.1\n/
   );
 });
 

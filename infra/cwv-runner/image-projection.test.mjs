@@ -1,9 +1,42 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { chmodSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import { archiveIdentity } from './build-image.mjs';
 import { archiveFixture } from './image-projection.fixture.mjs';
 import { policy } from './image-projection-receipts.fixture.mjs';
+
+test('builds the fixture when GNU tar rejects BSD-only uid and gid flags', () => {
+  const tarDirectory = mkdtempSync(join(tmpdir(), 'gnu-tar-'));
+  const tar = join(tarDirectory, 'tar');
+  writeFileSync(
+    tar,
+    `#!/bin/sh
+for argument do
+  case "$argument" in
+    --uid|--gid|--uid=*|--gid=*)
+      echo "tar: unrecognized option '$argument'" >&2
+      exit 64
+      ;;
+  esac
+done
+exec /usr/bin/tar "$@"
+`
+  );
+  chmodSync(tar, 0o755);
+  const previousPath = process.env.PATH;
+  process.env.PATH = `${tarDirectory}:${previousPath}`;
+  try {
+    const fixture = archiveFixture();
+    assert.doesNotThrow(() =>
+      archiveIdentity(fixture.archive, fixture.sourceSha)
+    );
+  } finally {
+    process.env.PATH = previousPath;
+  }
+});
 
 test('accepts only the closed final image config, history, and source binding', () => {
   const fixture = archiveFixture();

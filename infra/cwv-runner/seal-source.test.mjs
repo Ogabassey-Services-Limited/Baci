@@ -105,6 +105,26 @@ test('binds the sealed tree rehash into the immutable receipt', () => {
   assert.match(source, /tree\.sha256/);
 });
 
+test('keeps manifest-derived file modes intact through final sealing and receipt publication', () => {
+  assert.match(
+    source,
+    /"\$CHMOD" "\$\(\[\[ "\$mode" == 100755 \]\] && printf 0755 \|\| printf 0644\)" -- "\$file"/
+  );
+  assert.match(
+    source,
+    /secure_tree_directories\(\) \{\n  "\$FIND" "\$1" -type d -exec "\$CHMOD" 0700 -- \{\} \+\n\}/
+  );
+  assert.match(
+    source,
+    /\$CHOWN" -R root:root -- "\$tree"; secure_tree_directories "\$tree"\ntree_digest=\$\(sha "\$actual"\)/
+  );
+  assert.match(
+    source,
+    /"sealedTreeSha256":"%s".*"\$tree_digest".*\n"\$CHOWN" -R root:root -- "\$target" "\$receipt"; secure_tree_directories "\$target"; "\$CHMOD" 0700 -- "\$receipt"; "\$CHMOD" 0600 -- "\$receipt"\/\*/s
+  );
+  assert.doesNotMatch(source, /\$CHMOD" -R 0700 -- "\$tree"|\$CHMOD" -R 0700 -- "\$target"/);
+});
+
 test('keeps the preflight schema disjoint from final merge sealing', () => {
   assert.match(source, /preflight-v1/);
   assert.match(source, /final SHA mismatch/);
