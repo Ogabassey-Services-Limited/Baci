@@ -10,10 +10,7 @@ import { supabase } from '../lib/supabase';
 import { CustomerRowSchema } from '../lib/validation';
 import { CUSTOMER_SELECT_COLUMNS } from './auth-helpers';
 import type { AuthStoreGet, AuthStoreSet, Customer } from './auth-store.types';
-import {
-  mapDateOfBirthError,
-  mapUsernameError,
-} from './auth-store-error-messages';
+import { profileRpcErrorMessages } from './auth-store-error-messages';
 import { clearLocalAndDeactivatePushToken } from './auth-store-push';
 import { useCartStore } from './cart-store';
 import { useComparisonStore } from './comparison-store';
@@ -210,7 +207,10 @@ export function createAccountActions(set: AuthStoreSet, get: AuthStoreGet) {
           p_username: cleaned,
         });
         if (error) {
-          return { success: false, error: mapUsernameError(error.message) };
+          return {
+            success: false,
+            error: profileRpcErrorMessages.username(error.message),
+          };
         }
 
         const stored = typeof data === 'string' ? data : cleaned;
@@ -259,7 +259,10 @@ export function createAccountActions(set: AuthStoreSet, get: AuthStoreGet) {
           }
         );
         if (error) {
-          return { success: false, error: mapDateOfBirthError(error.message) };
+          return {
+            success: false,
+            error: profileRpcErrorMessages.dateOfBirth(error.message),
+          };
         }
 
         const stored = typeof data === 'string' ? data : dateOfBirth;

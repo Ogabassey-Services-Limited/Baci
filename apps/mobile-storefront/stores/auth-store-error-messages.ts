@@ -13,18 +13,23 @@ const USERNAME_ERROR_MESSAGES: Record<string, string> = {
   not_authenticated: 'Please sign in to choose a username.',
 };
 
-export function mapUsernameError(message: string): string {
-  return USERNAME_ERROR_MESSAGES[message] ?? 'Could not set username';
-}
-
 const DATE_OF_BIRTH_ERROR_MESSAGES: Record<string, string> = {
   invalid_date_of_birth: 'Enter a valid date of birth.',
   customer_not_found: 'No shopper account found for this store.',
   not_authenticated: 'Please sign in to continue.',
 };
 
-export function mapDateOfBirthError(message: string): string {
-  return (
-    DATE_OF_BIRTH_ERROR_MESSAGES[message] ?? 'Could not save date of birth'
-  );
-}
+/**
+ * Single primary export: maps a profile-write RPC's raised Postgres error
+ * message to shopper-facing copy, one mapper per RPC.
+ */
+export const profileRpcErrorMessages = {
+  username(message: string): string {
+    return USERNAME_ERROR_MESSAGES[message] ?? 'Could not set username';
+  },
+  dateOfBirth(message: string): string {
+    return (
+      DATE_OF_BIRTH_ERROR_MESSAGES[message] ?? 'Could not save date of birth'
+    );
+  },
+};
