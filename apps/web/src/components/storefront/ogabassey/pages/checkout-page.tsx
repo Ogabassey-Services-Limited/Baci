@@ -71,6 +71,7 @@ import { toast } from '@/hooks/use-toast';
 import { createClient } from '@/lib/supabase/client';
 import { calculateCommerce } from '@/lib/supabase/client';
 import { buildCheckoutOrderItems } from '@/lib/checkout/build-order-items';
+import { toCreditDirectItems } from '@/lib/checkout/credit-direct-items';
 import { hasStorefrontPriceNegotiation } from '@/lib/storefront-price-negotiation';
 import {
   calculateCartCatalogSubtotal,
@@ -2519,12 +2520,11 @@ export const CheckoutPage: React.FC = () => {
           customerPhone,
           customerName: `${firstName} ${lastName}`.trim(),
 
-          items: displayItems.map((item) => ({
-            id: String(item.kind === 'cart' ? item.id : item.product_id),
-            name: item.kind === 'cart' ? item.name : item.product_name,
-            price: item.price,
-            quantity: item.quantity,
-          })),
+          // Weight the Credit Direct allocation by the CANONICAL order-item
+          // prices (negotiated applied, quiz vouchers 0) — not displayItems,
+          // whose price is the raw cart price. Using display prices would
+          // finance a voucher-covered item and under-allocate a paid one.
+          items: toCreditDirectItems(orderItems),
           onSuccess: ({ checkoutTransactionId, sessionId }) => {
             const completionMarker = captureCreditDirectClientCompletion({
               orderId: order.id,
