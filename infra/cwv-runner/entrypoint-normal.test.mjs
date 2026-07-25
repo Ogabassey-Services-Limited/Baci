@@ -52,6 +52,10 @@ test('normal lifecycle launches direct Listener run --once and forwards once', a
       assert.deepEqual(argv, ['run', '--once']);
       assert.equal(options.cwd, '/opt/runner');
       assert.equal(options.shell, false);
+      assert.equal(
+        options.env.ACTIONS_RUNNER_HOOK_JOB_STARTED,
+        '/run/baci-cwv-hooks/job-start-hook.sh'
+      );
       assert.equal(options.env.DISABLE_RUNNER_UPDATE, '1');
       assert.equal(options.env.TMPDIR, '/tmp/baci-cwv');
       return child;

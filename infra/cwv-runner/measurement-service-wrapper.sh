@@ -23,10 +23,10 @@ stat_identity() {
   esac
 }
 
-sha256_line() {
+sha256_digest() {
   case "$(/usr/bin/uname -s)" in
-    Linux) /usr/bin/sha256sum "$1" ;;
-    Darwin) /usr/bin/shasum -a 256 "$1" ;;
+    Linux) /usr/bin/sha256sum "$1" | /usr/bin/awk '{ print $1 }' ;;
+    Darwin) /usr/bin/shasum -a 256 "$1" | /usr/bin/awk '{ print $1 }' ;;
     *) fail 'unsupported host' ;;
   esac
 }
@@ -96,7 +96,7 @@ prepare() {
   assert_file "$image" 0:0:644
   assert_file "$receipt" 0:0:644
   image_value=$(validate_image_file "$image")
-  /usr/bin/printf '%s\n' "$(sha256_line "$image")" | /usr/bin/cmp -s - "$receipt" || fail 'image receipt mismatch'
+  /usr/bin/printf '%s\n' "$(sha256_digest "$image")" | /usr/bin/cmp -s - "$receipt" || fail 'image receipt mismatch'
   dynamic_value=$(validate_dynamic_file "$dynamic")
   [ ! -e "$snapshot" ] && [ ! -L "$snapshot" ] || assert_file "$snapshot" 0:0:400
   temporary=$(/usr/bin/mktemp "$directory/.measurement-service.XXXXXX") || fail 'snapshot create'

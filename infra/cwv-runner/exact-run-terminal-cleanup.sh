@@ -9,11 +9,15 @@ readonly STATE_ROOT=/srv/baci-cwv/campaigns CONTROL_ROOT=/srv/baci-cwv/exact-run
 readonly ALLOW_ROOT=/srv/baci-cwv/allow INVENTORY_ROOT=/srv/baci-cwv/inventory RELEASE_ROOT=/srv/baci-cwv/listener-release ENV_FILE=/etc/baci-cwv/measurement.env SAMPLER_ENV=/run/baci-cwv/host-sampler.env
 readonly SERVICE_CGROUP=/cwv-measurement-control.slice/baci-cwv-measurement.service MEASUREMENT_SLICE=/sys/fs/cgroup/cwv-measurement.slice
 
-[ "$#" -eq 1 ] || exit 64
-campaign_id=$1
+observe_terminal=0
+case "$#:${1-}" in
+  1:*) campaign_id=$1 ;;
+  2:--observe-terminal) observe_terminal=1; campaign_id=$2 ;;
+  *) exit 64 ;;
+esac
 printf '%s' "$campaign_id" | /usr/bin/grep -Eq '^[a-z0-9][a-z0-9-]{0,62}$' || exit 64
 directory="$CONTROL_ROOT/$campaign_id" active="$directory/active-transaction.json"
-[ -e "$active" ] || exit 0
+[ -e "$active" ] || { [ "$observe_terminal" -eq 1 ] && exit 1; exit 0; }
 root_mode() { [ -f "$1" ] && [ ! -L "$1" ] && [ "$(/usr/bin/stat -c '%u:%a' -- "$1")" = 0:600 ]; }
 digest() { /usr/bin/sha256sum "$1" | /usr/bin/cut -d' ' -f1; }
 replace_active() { temporary="$active.tmp-$$"; printf '%s' "$1" >"$temporary"; /bin/chmod 0600 "$temporary"; /usr/bin/sync -f "$temporary"; /bin/mv -T "$temporary" "$active"; /usr/bin/sync -f "$directory"; }
@@ -45,6 +49,45 @@ verify_runner_absent() {
   scope="/sys/fs/cgroup$cgroup_path"; empty_or_absent "$scope" || return 1
   for sibling in "$MEASUREMENT_SLICE"/docker-*.scope; do [ -e "$sibling" ] || continue; [ "$sibling" = "$scope" ] || return 1; empty_or_absent "$sibling" || return 1; done
 }
+
+observe_empty_or_absent() { [ ! -L "$1" ] && empty_or_absent "$1"; }
+observe_service_terminal() {
+  [ "$(/bin/systemctl show baci-cwv-measurement.service -p ActiveState --value)" = inactive ] && [ "$(/bin/systemctl show baci-cwv-measurement.service -p SubState --value)" = dead ] && [ "$(/bin/systemctl show baci-cwv-measurement.service -p MainPID --value)" = 0 ] || return 1
+  service_cgroup=$(/bin/systemctl show baci-cwv-measurement.service -p ControlGroup --value)
+  [ -z "$service_cgroup" ] || [ "$service_cgroup" = "$SERVICE_CGROUP" ] || return 1
+  observe_empty_or_absent "/sys/fs/cgroup$SERVICE_CGROUP"
+}
+observe_docker_terminal() {
+  [ -S "${DOCKER_SOCKET#unix://}" ] || return 1
+  docker_absent baci-cwv-measurement || return 1
+  containers=$(/usr/bin/docker --host "$DOCKER_SOCKET" ps -aq --no-trunc --filter 'label=baci.cwv.transaction') || return 1
+  [ -z "$containers" ]
+}
+observe_scopes_terminal() {
+  exact_scope=${1-}
+  [ -z "$exact_scope" ] || observe_empty_or_absent "/sys/fs/cgroup$exact_scope" || return 1
+  for sibling in "$MEASUREMENT_SLICE"/docker-*.scope; do observe_empty_or_absent "$sibling" || return 1; done
+}
+observe_runner_terminal() {
+  identity="$directory/process-identity.json"
+  [ ! -L "$identity" ] || return 1
+  if [ -e "$identity" ]; then
+    root_mode "$identity" || return 1
+    identity_canonical=$(/usr/bin/jq -cS . "$identity") && [ "$(/bin/cat "$identity")" = "$identity_canonical" ] || return 1
+    runner_id=$(/usr/bin/jq -er '.runnerContainerId' "$identity") || return 1; cgroup_path=$(/usr/bin/jq -er '.cgroupPath' "$identity") || return 1
+    /usr/bin/jq -e --arg id "$runner_id" --arg cgroup "$cgroup_path" 'keys == ["cgroupPath","cpuset","generation","processMapSha256","runnerContainerId"] and .runnerContainerId == $id and .cgroupPath == $cgroup and .generation == 1 and (.runnerContainerId|test("^[a-f0-9]{64}$")) and .cgroupPath == ("/cwv-measurement.slice/docker-" + .runnerContainerId + ".scope") and (.cpuset|test("^[0-9,-]+$")) and (.processMapSha256|test("^[a-f0-9]{64}$"))' "$identity" >/dev/null || return 1
+    docker_absent "$runner_id" || return 1
+  else
+    cgroup_path=
+  fi
+  observe_docker_terminal && observe_scopes_terminal "$cgroup_path"
+}
+
+if [ "$observe_terminal" -eq 1 ]; then
+  observe_service_terminal && observe_runner_terminal || exit 1
+  printf '%s\n' '{"busy":false,"phase":"terminal","processes":[]}'
+  exit 0
+fi
 
 stop_measurement && verify_runner_absent || exit 1
 remove_artifact allow "$ALLOW_ROOT/active.json"

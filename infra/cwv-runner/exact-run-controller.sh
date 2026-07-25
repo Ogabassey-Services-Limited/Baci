@@ -213,6 +213,7 @@ admit() {
   /bin/cat "$directory/hold.json"
 }
 
+validate_process_sample() { busy=$(/usr/bin/jq -r '.busy' "$directory/processes.json"); phase=$(/usr/bin/jq -er '.phase' "$directory/processes.json"); /usr/bin/jq -cS '.processes' "$directory/processes.json" >"$directory/process-list.json"; /usr/bin/node "$CONTRACT" validate-process "$phase" "$busy" "$run_id" "$PROCESS_MAP" "$campaign_directory/process-identity.json" "$directory/process-list.json" >/dev/null; }
 release() {
   id=$1 directory="$CONTROL_ROOT/$1" campaign_directory="$STATE_ROOT/$1"; ACTIVE_TRANSACTION="$directory/active-transaction.json"; verify_active_transaction "$id" || return 1; controller_timeout=$(policy /repositoryAuthority/controllerTimeoutSeconds); [ "$controller_timeout" -eq 1200 ] || return 1; terminal_deadline=$(( $(monotonic) + controller_timeout )); cleanup_armed=1; cleanup_phase=transaction
   /usr/bin/dd of="$directory/inventory.json" status=none; /bin/chmod 0600 "$directory/inventory.json"
@@ -230,16 +231,15 @@ release() {
   install_json "$directory/release.json" "$RELEASE_ROOT/release.json" 0440 baci-cwv
   printf '%s\n' acknowledged
   run_id=$(/usr/bin/jq -er .run.id "$directory/binding.json")
-  terminal_seen=0
   while /bin/systemctl is-active --quiet baci-cwv-measurement.service; do before_controller_deadline "$terminal_deadline" || return 1
     /usr/bin/timeout --signal=TERM --kill-after=1s "$((terminal_deadline - $(monotonic)))s" /usr/bin/docker --host "$SOCKET" exec "$(/usr/bin/jq -er .runnerContainerId "$campaign_directory/hold-identity.json")" /opt/runner/externals/node24/bin/node /opt/baci-cwv/process-inventory.mjs >"$directory/processes.json"
-    busy=$(/usr/bin/jq -r '.busy' "$directory/processes.json"); phase=$(/usr/bin/jq -er '.phase' "$directory/processes.json")
-    /usr/bin/jq -cS '.processes' "$directory/processes.json" >"$directory/process-list.json"
-    /usr/bin/node "$CONTRACT" validate-process "$phase" "$busy" "$run_id" "$PROCESS_MAP" "$campaign_directory/process-identity.json" "$directory/process-list.json" >/dev/null
-    if [ "$phase" = terminal ]; then terminal_seen=1; break; fi
+    validate_process_sample
+    [ "$phase" != terminal ] || return 1
     /bin/sleep 1
   done
-  [ "$terminal_seen" -eq 1 ]
+  until "$SCRIPT_DIR/exact-run-terminal-cleanup.sh" --observe-terminal "$id" >"$directory/processes.json"; do before_controller_deadline "$terminal_deadline" || return 1; /bin/sleep 1; done
+  validate_process_sample
+  [ "$phase" = terminal ]
   cleanup_armed=0; cleanup_phase=idle
 }
 

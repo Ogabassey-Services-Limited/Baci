@@ -20,13 +20,14 @@ const archiveAuthority = readFileSync(
 );
 
 const authorityModules = [
+  'canonical-json.mjs',
   'cwv-runner-authority.mjs',
   'cwv-runner-authority-core.mjs',
   'cwv-runner-authority-runtime.mjs',
   'cwv-runner-stable-attestation-builder.mjs',
+  'policy.schema.mjs',
 ];
 const runtimeSources = [
-  'canonical-json.mjs',
   'command-settings-contract.mjs',
   'container-attest-runtime.mjs',
   ...authorityModules,
@@ -37,7 +38,7 @@ const runtimeSources = [
   'isolation-probe.sh',
   'normal-release.mjs',
   'policy.json',
-  'policy.schema.mjs',
+  'process-inventory.mjs',
   'registration-egress-probe.mjs',
   'registration-release.mjs',
   'runner-identity-gate.mjs',
