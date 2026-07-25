@@ -101,10 +101,9 @@ const ZERO_DECIMAL_CURRENCIES: ReadonlySet<string> = new Set([
  * Per-currency fee configuration. NGN is capped; everything else is
  * percentage-only. Extend here (never in call sites) as new markets land.
  */
-export const CURRENCY_FEE_CONFIG: Readonly<Record<string, CurrencyFeeConfig>> =
-  {
-    NGN: { percentage: DEFAULT_PERCENTAGE, capMajor: NGN_CAP_MAJOR },
-  };
+const CURRENCY_FEE_CONFIG: Readonly<Record<string, CurrencyFeeConfig>> = {
+  NGN: { percentage: DEFAULT_PERCENTAGE, capMajor: NGN_CAP_MAJOR },
+};
 
 function getCurrencyFeeConfig(currency: string): CurrencyFeeConfig {
   return (
