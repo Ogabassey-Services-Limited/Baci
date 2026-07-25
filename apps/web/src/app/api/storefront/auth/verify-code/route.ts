@@ -163,7 +163,7 @@ export async function POST(request: Request) {
     const { data: customer } = await supabase
       .from('customers')
       .select(
-        'id, full_name, email, phone, saved_addresses, total_orders, total_spent'
+        'id, full_name, email, phone, date_of_birth, saved_addresses, total_orders, total_spent'
       )
       .eq('merchant_id', merchant.id)
       .eq('user_id', authData.user.id)

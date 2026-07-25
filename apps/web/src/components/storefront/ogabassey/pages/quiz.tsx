@@ -10,8 +10,10 @@ import type {
   QuizEventResponse,
   QuizResultResponse,
 } from '@/schemas/quiz';
+import { QUIZ_AGE_RESTRICTED_MESSAGE } from '@/schemas/quiz-age-gate-message';
 import { formatQuizDateRange } from './format-quiz-date-range';
 import { getQuizErrorMessage } from './get-quiz-error-message';
+import { QuizAgeGateModal } from './quiz-age-gate-modal';
 import { getQuizStartButtonText } from './get-quiz-start-button-text';
 import {
   loadQuizEvents,
@@ -22,6 +24,7 @@ import {
 } from './quiz-page-data';
 import { QuizQuestionPanel } from './quiz-question-panel';
 import { QuizResultPanel } from './quiz-result-panel';
+import { useQuizAgeGate } from './use-quiz-age-gate';
 import {
   quizPanel as panel,
   quizPrimaryButton as primaryButton,
@@ -32,7 +35,8 @@ type OgabasseyV2QuizProps = { merchantSlug: string };
 
 export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
   const pathname = usePathname();
-  const { isAuthenticated, isLoading } = useCustomerAuth();
+  const { customer, isAuthenticated, isLoading, updateCustomer } =
+    useCustomerAuth();
   const [status, setStatus] = useState<QuizStatus>('idle');
   const [events, setEvents] = useState<QuizEventResponse[]>([]);
   const [attempt, setAttempt] = useState<QuizAttemptResponse | null>(null);
@@ -60,8 +64,11 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
     // biome-ignore lint/correctness/useExhaustiveDependencies: loadEvents intentionally runs only when auth becomes ready
   }, [isAuthenticated, isLoading, merchantSlug, status]);
 
-  const handleStart = async (event: QuizEventResponse) => {
-    if (startInFlightRef.current) return;
+  // Returns the shopper-facing error when the start fails, or null on success,
+  // so the age gate can keep itself open (with the message) instead of closing
+  // and stranding the shopper — e.g. a mistyped/under-18 DOB the server rejects.
+  const runStart = async (event: QuizEventResponse): Promise<string | null> => {
+    if (startInFlightRef.current) return null;
     startInFlightRef.current = true;
     setError(null);
     setStatus('starting');
@@ -72,11 +79,41 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
       setResult(null);
       setSelectedAnswer(null);
       setStatus('question');
+      return null;
     } catch (error) {
-      setError(getQuizErrorMessage(error));
+      const message = getQuizErrorMessage(error);
+      setError(message);
       setStatus('ready');
+      return message;
     } finally {
       startInFlightRef.current = false;
+    }
+  };
+
+  // Super Quiz is 18+. When the customer has no date of birth on file, the start
+  // is deferred behind this gate (which owns its own concurrency safety) until
+  // they provide one; see use-quiz-age-gate.
+  const ageGate = useQuizAgeGate({
+    runStart,
+    updateCustomer,
+    clearStartError: () => setError(null),
+  });
+
+  const handleStart = async (event: QuizEventResponse) => {
+    // The server age gate (production) needs a date of birth on the customer
+    // profile; collect it once here before starting, otherwise start straight.
+    if (customer && !customer.date_of_birth) {
+      ageGate.open(event);
+      return;
+    }
+    const startError = await runStart(event);
+    // A stored DOB can still fail the server age gate (an adult mistyped it, so
+    // it saved but reads as under-18). The gate is the only DOB editor, and a
+    // rejected start never consumes an attempt, so reopen it with the reason
+    // instead of stranding the shopper behind the now-non-empty date_of_birth.
+    if (startError === QUIZ_AGE_RESTRICTED_MESSAGE) {
+      setError(null);
+      ageGate.open(event, startError);
     }
   };
 
@@ -234,6 +271,14 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
           />
         ) : null}
       </div>
+
+      <QuizAgeGateModal
+        onCancel={ageGate.cancel}
+        onSubmit={(dateOfBirth) => void ageGate.submit(dateOfBirth)}
+        open={ageGate.event !== null}
+        serverError={ageGate.error}
+        submitting={ageGate.submitting}
+      />
     </main>
   );
 }

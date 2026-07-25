@@ -6,6 +6,7 @@ import { PATCH } from './route';
 
 const mockGetUser = vi.fn();
 const mockFrom = vi.fn();
+const mockCheckCsrfProtection = vi.fn();
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn().mockResolvedValue({}),
@@ -16,6 +17,10 @@ vi.mock('@/lib/supabase/server', () => ({
     auth: { getUser: mockGetUser },
     from: mockFrom,
   })),
+}));
+
+vi.mock('@/lib/csrf', () => ({
+  checkCsrfProtection: (...args: unknown[]) => mockCheckCsrfProtection(...args),
 }));
 
 // --- Helpers ---
@@ -47,6 +52,29 @@ function mockChain(returnValue: { data: unknown; error: unknown }) {
 describe('PATCH /api/storefront/customer', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: a valid CSRF token. Individual tests override to exercise the
+    // rejection path.
+    mockCheckCsrfProtection.mockResolvedValue({ valid: true });
+  });
+
+  it('returns 403 when the CSRF token is missing or invalid', async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'user-123' } },
+      error: null,
+    });
+    mockCheckCsrfProtection.mockResolvedValue({ valid: false });
+
+    const request = makeRequest({
+      merchantSlug: 'test-store',
+      date_of_birth: '1990-06-15',
+    });
+    const response = await PATCH(request);
+    const json = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(json.error).toBe('Invalid CSRF token');
+    // The write must never happen when CSRF validation fails.
+    expect(mockFrom).not.toHaveBeenCalled();
   });
 
   it('returns 401 when user is not authenticated', async () => {

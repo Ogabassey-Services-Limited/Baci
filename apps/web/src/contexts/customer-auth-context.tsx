@@ -2,6 +2,7 @@
 
 import { createContext, type ReactNode, use, useEffect, useState } from 'react';
 import { clearCartStorage } from '@/hooks/use-cart';
+import { updateCustomerProfile } from '@/lib/storefront/update-customer-profile';
 
 export interface CustomerUser {
   id: string;
@@ -16,6 +17,8 @@ export interface Customer {
   email: string;
   phone?: string;
   address?: string;
+  /** ISO `YYYY-MM-DD`. Powers the quiz 18+ age gate; null until captured. */
+  date_of_birth?: string | null;
   saved_addresses?: SavedAddress[];
   store_credit?: number;
   total_orders?: number;
@@ -404,26 +407,11 @@ export function CustomerAuthProvider({
       return { success: false, error: 'Not authenticated' };
     }
 
-    try {
-      const response = await fetch('/api/storefront/customer', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...data, merchantSlug }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        return { success: false, error: result.error || 'Update failed' };
-      }
-
-      // Update local state
+    const result = await updateCustomerProfile(merchantSlug, data);
+    if (result.success) {
       setCustomer((prev) => (prev ? { ...prev, ...data } : null));
-      return { success: true };
-    } catch (error) {
-      console.error('Update customer error:', error);
-      return { success: false, error: 'Network error. Please try again.' };
     }
+    return result;
   };
 
   return (

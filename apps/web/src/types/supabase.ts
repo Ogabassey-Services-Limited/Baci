@@ -2819,6 +2819,7 @@ export type Database = {
           company_name: string | null;
           created_at: string | null;
           customer_type: string;
+          date_of_birth: string | null;
           deleted_at: string | null;
           email: string | null;
           first_name: string | null;
@@ -2843,6 +2844,7 @@ export type Database = {
           company_name?: string | null;
           created_at?: string | null;
           customer_type?: string;
+          date_of_birth?: string | null;
           deleted_at?: string | null;
           email?: string | null;
           first_name?: string | null;
@@ -2867,6 +2869,7 @@ export type Database = {
           company_name?: string | null;
           created_at?: string | null;
           customer_type?: string;
+          date_of_birth?: string | null;
           deleted_at?: string | null;
           email?: string | null;
           first_name?: string | null;
