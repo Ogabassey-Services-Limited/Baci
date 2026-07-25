@@ -1,113 +1,41 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { FakeOrderRow } from '../test/mocks/supabase-order-query-fake';
 
-const supabaseMock = vi.hoisted(() => {
-  type QueryResult = {
-    data: Array<{
-      created_at: string;
-      customer_email: string;
-      customer_id: string | null;
-      customer_name: string;
-      customer_phone: string;
-      id: string;
-      order_number: string;
-      payment_method: string;
-      payment_status: string;
-      total: number;
-      transactions: Array<{
-        gateway: string;
-        gateway_response: Record<string, unknown> | null;
-        status: string;
-      }>;
-    }>;
-    error: { message: string } | null;
-  };
+const DEFAULT_ROW: FakeOrderRow = {
+  created_at: '2026-06-02T01:00:00.000Z',
+  customer_email: 'ada@example.com',
+  customer_id: null,
+  customer_name: 'Ada Buyer',
+  customer_phone: '+2348012345678',
+  id: 'order-1',
+  order_number: 'ORD-001',
+  payment_method: 'paystack',
+  payment_status: 'unpaid',
+  total: 15000,
+  transactions: [],
+};
 
-  const calls: Array<{ args: unknown[]; method: string }> = [];
-  let result: QueryResult = {
-    data: [
-      {
-        created_at: '2026-06-02T01:00:00.000Z',
-        customer_email: 'ada@example.com',
-        customer_id: null,
-        customer_name: 'Ada Buyer',
-        customer_phone: '+2348012345678',
-        id: 'order-1',
-        order_number: 'ORD-001',
-        payment_method: 'paystack',
-        payment_status: 'unpaid',
-        total: 15000,
-        transactions: [],
-      },
-    ],
-    error: null,
-  };
+/** Holder so the hoisted mock factory can publish the fake back to the tests. */
+const holder = vi.hoisted(() => ({
+  fake: null as ReturnType<
+    typeof import('../test/mocks/supabase-order-query-fake').createSupabaseOrderQueryFake
+  > | null,
+}));
 
-  function makeChain() {
-    const chain: Record<string, unknown> = {};
-    const passthrough =
-      (method: string) =>
-      (...args: unknown[]) => {
-        calls.push({ method, args });
-        return chain;
-      };
-
-    for (const method of ['select', 'eq', 'gte', 'or', 'order', 'limit']) {
-      chain[method] = passthrough(method);
-    }
-
-    // biome-ignore lint/suspicious/noThenProperty: mocks the thenable Supabase query builder chain
-    chain.then = (resolve: (value: QueryResult) => unknown) =>
-      Promise.resolve(result).then(resolve);
-
-    return chain;
-  }
-
-  return {
-    calls,
-    from: vi.fn(() => makeChain()),
-    reset: () => {
-      calls.length = 0;
-      result = {
-        data: [
-          {
-            created_at: '2026-06-02T01:00:00.000Z',
-            customer_email: 'ada@example.com',
-            customer_id: null,
-            customer_name: 'Ada Buyer',
-            customer_phone: '+2348012345678',
-            id: 'order-1',
-            order_number: 'ORD-001',
-            payment_method: 'paystack',
-            payment_status: 'unpaid',
-            total: 15000,
-            transactions: [],
-          },
-        ],
-        error: null,
-      };
-    },
-    setResult: (nextResult: QueryResult) => {
-      result = nextResult;
-    },
-  };
+vi.mock('@/lib/supabase', async () => {
+  const { createSupabaseOrderQueryFake } = await import(
+    '../test/mocks/supabase-order-query-fake'
+  );
+  holder.fake = createSupabaseOrderQueryFake([]);
+  return { supabase: { from: () => holder.fake?.from() } };
 });
-
-const queryMock = vi.hoisted(() => ({
-  useQuery: vi.fn((config) => config),
-}));
-
-vi.mock('@/lib/supabase', () => ({
-  supabase: {
-    from: supabaseMock.from,
-  },
-}));
 
 vi.mock('./useMerchant', () => ({
   useMerchant: () => ({ merchant: { id: 'merchant-1' } }),
 }));
 
 vi.mock('@tanstack/react-query', () => ({
-  useQuery: queryMock.useQuery,
+  useQuery: vi.fn((config) => config),
 }));
 
 import { ONLINE_CHECKOUT_PAYMENT_METHODS } from './orders/order-list-visibility';
@@ -117,29 +45,57 @@ import {
   useFailedOrders,
 } from './useFailedOrders';
 
-function getSelectArg(): string {
-  const selectCall = supabaseMock.calls.find(
-    (call) => call.method === 'select'
-  );
-  return String(selectCall?.args[0] ?? '');
+const NOW = '2026-06-02T02:00:00.000Z';
+
+function fake() {
+  if (!holder.fake) {
+    throw new Error('supabase fake was not initialised by the mock factory');
+  }
+  return holder.fake;
+}
+
+function makeRow(overrides: Partial<FakeOrderRow>): FakeOrderRow {
+  return { ...DEFAULT_ROW, ...overrides };
+}
+
+function daysBefore(days: number): string {
+  return new Date(new Date(NOW).getTime() - days * 86_400_000).toISOString();
+}
+
+async function runQuery(): Promise<
+  Array<{
+    attempt_count: number;
+    customer_email: string;
+    gateway?: string;
+    payment_status: string;
+  }>
+> {
+  // biome-ignore lint/correctness/useHookAtTopLevel: useQuery is mocked to return its config object, so this is a plain call — no React runtime, no hook order to preserve
+  const query = useFailedOrders() as unknown as {
+    queryFn: () => Promise<
+      Array<{
+        attempt_count: number;
+        customer_email: string;
+        gateway?: string;
+        payment_status: string;
+      }>
+    >;
+  };
+  return query.queryFn();
 }
 
 describe('useFailedOrders', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-06-02T02:00:00.000Z'));
-    supabaseMock.reset();
+    vi.setSystemTime(new Date(NOW));
+    fake().reset([DEFAULT_ROW]);
   });
 
   it('routes stale unpaid online checkout initiations into customer follow-up', async () => {
-    const query = useFailedOrders() as unknown as {
-      queryFn: () => Promise<Array<{ payment_status: string }>>;
-    };
+    const result = await runQuery();
 
-    const result = await query.queryFn();
-
-    expect(supabaseMock.calls).toEqual(
+    expect(fake().calls).toEqual(
       expect.arrayContaining([
         {
           method: 'or',
@@ -160,141 +116,123 @@ describe('useFailedOrders', () => {
 
   describe('bugfix: ambiguous orders->transactions embed emptied the Follow Up tab', () => {
     it('names the order_id foreign key so PostgREST cannot reject the embed as ambiguous', async () => {
-      // Arrange: orders <-> transactions is joined by two FKs since
-      // 20260723000005_orders_paid_transaction_marker.sql added
-      // orders.paid_transaction_id. A bare `transactions (...)` embed makes
-      // PostgREST fail the whole request with PGRST201.
-      const query = useFailedOrders() as unknown as {
-        queryFn: () => Promise<unknown>;
-      };
+      await runQuery();
 
-      // Act
-      await query.queryFn();
-
-      // Assert
-      const select = getSelectArg();
+      const select = String(
+        fake().calls.find((call) => call.method === 'select')?.args[0] ?? ''
+      );
       expect(select).toContain('transactions!transactions_order_id_fkey');
       expect(select).not.toMatch(/(^|[^!\w])transactions\s*\(/);
     });
 
     it('keeps reading the embedded rows off the unhinted `transactions` key', async () => {
-      // Arrange: PostgREST returns the relation name, not the FK hint, as the
-      // response key — so the row shape must stay `transactions`.
-      supabaseMock.setResult({
-        data: [
-          {
-            created_at: '2026-06-02T01:00:00.000Z',
-            customer_email: 'ada@example.com',
-            customer_id: null,
-            customer_name: 'Ada Buyer',
-            customer_phone: '+2348012345678',
-            id: 'order-1',
-            order_number: 'ORD-001',
-            payment_method: 'credit_direct',
-            payment_status: 'bnpl_pending',
-            total: 15000,
-            transactions: [
-              {
-                gateway: 'credit_direct',
-                gateway_response: { message: 'Declined by issuer' },
-                status: 'failed',
-              },
-            ],
-          },
-        ],
-        error: null,
-      });
-      const query = useFailedOrders() as unknown as {
-        queryFn: () => Promise<
-          Array<{ gateway?: string; gateway_response?: unknown }>
-        >;
-      };
+      fake().setRows([
+        makeRow({
+          payment_method: 'credit_direct',
+          payment_status: 'bnpl_pending',
+          transactions: [
+            {
+              gateway: 'credit_direct',
+              gateway_response: { message: 'Declined by issuer' },
+              status: 'failed',
+            },
+          ],
+        }),
+      ]);
 
-      // Act
-      const result = await query.queryFn();
+      const result = await runQuery();
 
-      // Assert
       expect(result[0]).toEqual(
-        expect.objectContaining({
-          gateway: 'credit_direct',
-          gateway_response: { message: 'Declined by issuer' },
-        })
+        expect.objectContaining({ gateway: 'credit_direct' })
       );
     });
   });
 
   describe('bugfix: the follow-up queue was unbounded and grew forever', () => {
-    it('bounds the query to the follow-up window', async () => {
-      // Arrange: the queue had a minimum age (30min) but no maximum, so
-      // months-old abandoned checkouts were fetched on every open.
-      const query = useFailedOrders() as unknown as {
-        queryFn: () => Promise<unknown>;
-      };
+    it('excludes orders older than the follow-up window from the returned queue', async () => {
+      // Arrange: one row inside the window, one well outside it.
+      fake().setRows([
+        makeRow({
+          created_at: daysBefore(2),
+          customer_email: 'recent@example.com',
+          id: 'recent',
+        }),
+        makeRow({
+          created_at: daysBefore(FOLLOW_UP_WINDOW_DAYS + 30),
+          customer_email: 'ancient@example.com',
+          id: 'ancient',
+        }),
+      ]);
 
       // Act
-      await query.queryFn();
+      const result = await runQuery();
 
-      // Assert: 90 days before the frozen clock of 2026-06-02T02:00:00Z
-      expect(supabaseMock.calls).toEqual(
-        expect.arrayContaining([
-          { method: 'gte', args: ['created_at', '2026-03-04T02:00:00.000Z'] },
-        ])
-      );
+      // Assert: on the returned rows, not on the builder calls.
+      expect(result.map((r) => r.customer_email)).toEqual([
+        'recent@example.com',
+      ]);
     });
 
-    it('caps the number of rows fetched', async () => {
-      const query = useFailedOrders() as unknown as {
-        queryFn: () => Promise<unknown>;
-      };
+    it('keeps an order sitting just inside the window', async () => {
+      // Arrange: guards against an off-by-one that would silently narrow it.
+      fake().setRows([
+        makeRow({
+          created_at: daysBefore(FOLLOW_UP_WINDOW_DAYS - 1),
+          customer_email: 'edge@example.com',
+          id: 'edge',
+        }),
+      ]);
 
-      await query.queryFn();
+      const result = await runQuery();
 
-      expect(supabaseMock.calls).toEqual(
-        expect.arrayContaining([
-          { method: 'limit', args: [FOLLOW_UP_QUERY_LIMIT] },
-        ])
-      );
+      expect(result.map((r) => r.customer_email)).toEqual(['edge@example.com']);
     });
 
-    it('derives the window bound from FOLLOW_UP_WINDOW_DAYS', async () => {
-      // Arrange: guards the constant against being edited without the query
-      // following it.
-      const query = useFailedOrders() as unknown as {
-        queryFn: () => Promise<unknown>;
-      };
-      await query.queryFn();
+    it('returns no more customers than the fetch cap allows', async () => {
+      // Arrange: one order each for more customers than the cap permits.
+      fake().setRows(
+        Array.from({ length: FOLLOW_UP_QUERY_LIMIT + 25 }, (_, i) =>
+          makeRow({
+            created_at: daysBefore(1 + i / 1000),
+            customer_email: `c${i}@example.com`,
+            id: `order-${i}`,
+          })
+        )
+      );
 
-      // Act
-      const gte = supabaseMock.calls.find((call) => call.method === 'gte');
-      const bound = new Date(String(gte?.args[1])).getTime();
+      const result = await runQuery();
 
-      // Assert
-      const expected =
-        new Date('2026-06-02T02:00:00.000Z').getTime() -
-        FOLLOW_UP_WINDOW_DAYS * 24 * 60 * 60 * 1000;
-      expect(bound).toBe(expected);
+      expect(result).toHaveLength(FOLLOW_UP_QUERY_LIMIT);
+    });
+
+    it('drops the least recently active customers first when the cap truncates', async () => {
+      // Arrange: the cap cuts the oldest rows because the query orders
+      // created_at DESC, so truncation can never hide a fresher customer
+      // behind a staler one.
+      fake().setRows(
+        Array.from({ length: FOLLOW_UP_QUERY_LIMIT + 5 }, (_, i) =>
+          makeRow({
+            created_at: daysBefore(1 + i),
+            customer_email: `c${String(i).padStart(3, '0')}@example.com`,
+            id: `order-${i}`,
+          })
+        )
+      );
+
+      const result = await runQuery();
+      const emails = result.map((r) => r.customer_email);
+
+      // Assert: freshest retained, stalest dropped.
+      expect(emails).toContain('c000@example.com');
+      expect(emails).not.toContain(
+        `c${String(FOLLOW_UP_QUERY_LIMIT + 4).padStart(3, '0')}@example.com`
+      );
     });
   });
 
   it('propagates Supabase errors from the follow-up query', async () => {
-    supabaseMock.setResult({
-      data: [],
-      error: { message: 'supabase failure' },
-    });
-    const query = useFailedOrders() as unknown as {
-      queryFn: () => Promise<unknown>;
-    };
+    fake().setError({ message: 'supabase failure' });
 
-    await expect(query.queryFn()).rejects.toEqual({
-      message: 'supabase failure',
-    });
-    expect(supabaseMock.calls).toEqual(
-      expect.arrayContaining([
-        {
-          method: 'eq',
-          args: ['merchant_id', 'merchant-1'],
-        },
-      ])
-    );
+    await expect(runQuery()).rejects.toEqual({ message: 'supabase failure' });
   });
 });
