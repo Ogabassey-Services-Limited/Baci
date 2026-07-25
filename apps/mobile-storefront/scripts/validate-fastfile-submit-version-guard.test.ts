@@ -138,6 +138,39 @@ end`;
     );
   });
 
+  it('rejects a gate that is present but runs after the cancellation', () => {
+    const gateTooLate = VALID_SLOT.replace(
+      `  unless review_cancellation_allowed?
+    return false
+  end
+
+  ensure_replacement_build_exists!(
+    app,
+    platform,
+    app_version: app_version,
+    build_number: build_number
+  )
+
+  submission.cancel_submission`,
+      `  ensure_replacement_build_exists!(
+    app,
+    platform,
+    app_version: app_version,
+    build_number: build_number
+  )
+
+  submission.cancel_submission
+
+  unless review_cancellation_allowed?
+    return false
+  end`
+    );
+
+    expect(validateFastfileSubmitVersionGuard(VALID_FASTFILE, gateTooLate)).toContain(
+      'asc_version_slot.rb: cancel_submission must be guarded by review_cancellation_allowed?'
+    );
+  });
+
   it('rejects a helper missing the slot-readiness entry point entirely', () => {
     const withoutHelper = VALID_SLOT.replace(
       /def app_store_version_slot_ready\?\(app_version:, build_number:\)/,

@@ -299,12 +299,15 @@ jobs:
           SUBMIT_APP_VERSION: ${{ env.IOS_APP_VERSION }}
           IOS_RELEASE_NOTES: ${{ vars.IOS_STOREFRONT_RELEASE_NOTES }}
           IOS_REVIEW_NOTES: ${{ vars.IOS_STOREFRONT_REVIEW_NOTES }}
-          # App Store Connect has ONE editable version slot. When a previous
-          # submission still holds it, the lane skips submission rather than
-          # withdrawing a build Apple may be actively reviewing. Set this
-          # repository variable to 1/true/yes to opt into withdraw-and-replace.
-          # It is sticky — unset it once the replacement is under review.
-          IOS_STOREFRONT_CANCEL_REVIEW_FOR_RESUBMIT: ${{ vars.IOS_STOREFRONT_CANCEL_REVIEW_FOR_RESUBMIT }}
+          # IOS_STOREFRONT_CANCEL_REVIEW_FOR_RESUBMIT is deliberately NOT set
+          # here. This run is cancellable: the workflow-level group above
+          # cancels the whole run when a newer commit lands on main, and no
+          # job-level setting can prevent that. Withdrawing a review here could
+          # therefore be interrupted between cancel_submission and deliver,
+          # leaving the app with nothing under review. When the slot is taken
+          # this lane skips and the build waits on TestFlight; withdraw-and-
+          # replace lives in ios-storefront-submit.yml, whose run is never
+          # cancelled by a competing one.
         run: bundle exec fastlane ios submit
 
       - name: Clean up secrets

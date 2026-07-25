@@ -64,6 +64,18 @@ end
 # editable again. Polling for the submission to disappear would therefore return
 # too early. Poll for the editable version itself, which is the state
 # `set_changelog` actually needs.
+# Diagnostic only: names the version state holding the single editable slot so
+# the skip message is actionable. Never raises — a failed lookup must not turn a
+# successful upload into a failed build.
+def blocking_app_store_version_state(app, platform)
+  version = app.get_latest_app_store_version(platform: platform)
+  return "unknown" unless version
+
+  "#{version.version_string} #{version.app_version_state}"
+rescue StandardError => e
+  "unavailable (#{e.class})"
+end
+
 def wait_for_editable_app_store_version(app, platform)
   EDITABLE_VERSION_POLL_ATTEMPTS.times do |attempt|
     version = app.get_edit_app_store_version(platform: platform)
@@ -88,9 +100,16 @@ def app_store_version_slot_ready?(app_version:, build_number:)
 
   submission = app.get_in_progress_review_submission(platform: platform)
   if submission.nil?
+    # Nothing is in review, yet the slot is still occupied — e.g. a version in
+    # PENDING_DEVELOPER_RELEASE or PENDING_APPLE_RELEASE. There is no safe
+    # automatic remedy (clearing those means releasing an already-approved
+    # build to the public, which is a far bigger decision than withdrawing a
+    # review), so report the blocking state and let a human decide.
     UI.important(
-      "No editable App Store version is available and nothing is in review; skipping " \
-      "submission. The build is uploaded and can be submitted from App Store Connect."
+      "No editable App Store version is available and no submission is in review " \
+      "(blocking version state: #{blocking_app_store_version_state(app, platform)}). " \
+      "Skipping submission — the build is uploaded and can be submitted from App " \
+      "Store Connect once that version is released or cleared."
     )
     return false
   end

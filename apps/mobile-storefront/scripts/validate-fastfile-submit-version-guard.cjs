@@ -101,10 +101,16 @@ function validateFastfileSubmitVersionGuard(fastfileSource, versionSlotSource) {
   }
 
   const cancelIndex = activeSlot.indexOf('cancel_submission');
-  if (cancelIndex !== -1 && !/unless\s+review_cancellation_allowed\?/.test(activeSlot)) {
-    failures.push(
-      'asc_version_slot.rb: cancel_submission must be guarded by review_cancellation_allowed?'
-    );
+  if (cancelIndex !== -1) {
+    // Presence of the gate is not enough — it has to sit BEFORE the
+    // cancellation, otherwise a reordering edit would silently withdraw App
+    // Review without the opt-in while this validator stayed green.
+    const gateIndex = activeSlot.search(/unless\s+review_cancellation_allowed\?/);
+    if (gateIndex === -1 || gateIndex > cancelIndex) {
+      failures.push(
+        'asc_version_slot.rb: cancel_submission must be guarded by review_cancellation_allowed?'
+      );
+    }
   }
 
   if (cancelIndex !== -1) {
