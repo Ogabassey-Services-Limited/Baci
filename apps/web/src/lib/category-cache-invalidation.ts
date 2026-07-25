@@ -1,3 +1,4 @@
+import { after } from 'next/server';
 import { revalidateCategories } from '@/lib/cache-revalidation';
 import { purgeCloudflareHostnamesConfirmed } from '@/lib/cloudflare-purge';
 import { logger } from '@/lib/logger';
@@ -20,12 +21,14 @@ import { buildStorefrontPublicationPurgeHostnames } from '@/lib/storefront-publi
  */
 export interface CategoryCacheInvalidationResult {
   revalidatedSlugs: string[];
-  /** Hostnames a purge was ATTEMPTED for — not a delivery guarantee. */
+  /** False when tag revalidation threw AFTER the mutation had committed. */
+  revalidated: boolean;
+  /** Hostnames a purge was scheduled for — not a delivery guarantee. */
   purgeAttemptedHostnames: string[];
-  edgePurgeDelivered: boolean;
+  edgePurgeScheduled: boolean;
 }
 
-export async function invalidateCategoryCaches(input: {
+export function invalidateCategoryCaches(input: {
   merchantId: string;
   /** Storefront identifiers (slug and/or custom domain) for hostname resolution. */
   merchantIdentifiers: readonly string[];
@@ -33,7 +36,7 @@ export async function invalidateCategoryCaches(input: {
   previousSlug?: string | null;
   /** Slug after the mutation, when the category still exists. */
   nextSlug?: string | null;
-}): Promise<CategoryCacheInvalidationResult> {
+}): CategoryCacheInvalidationResult {
   const slugs = Array.from(
     new Set(
       [input.previousSlug, input.nextSlug].filter(
@@ -42,13 +45,27 @@ export async function invalidateCategoryCaches(input: {
     )
   );
 
-  // Authoritative, synchronous: tag-based revalidation of the category surfaces.
-  if (slugs.length === 0) {
-    revalidateCategories(input.merchantId);
-  } else {
-    for (const slug of slugs) {
-      revalidateCategories(input.merchantId, slug);
+  // Tag revalidation is synchronous, but the DB mutation has ALREADY committed
+  // by the time we get here — so a throwing cache backend must not surface as a
+  // 500. A client retrying a "failed" create would hit a duplicate-slug 409 for
+  // a category that actually exists. Report the failure instead of raising it.
+  let revalidated = true;
+  try {
+    if (slugs.length === 0) {
+      revalidateCategories(input.merchantId);
+    } else {
+      for (const slug of slugs) {
+        revalidateCategories(input.merchantId, slug);
+      }
     }
+  } catch (error) {
+    revalidated = false;
+    logger.error({
+      message: 'Category revalidation failed AFTER the mutation committed',
+      merchantId: input.merchantId,
+      slugs,
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 
   const hostnames = buildStorefrontPublicationPurgeHostnames(
@@ -58,41 +75,44 @@ export async function invalidateCategoryCaches(input: {
   if (hostnames.length === 0) {
     return {
       revalidatedSlugs: slugs,
+      revalidated,
       purgeAttemptedHostnames: [],
-      edgePurgeDelivered: false,
+      edgePurgeScheduled: false,
     };
   }
 
-  // Best effort: never let an edge-purge failure fail the mutation the merchant
-  // already committed. Logged so the gap is visible rather than silent.
-  let edgePurgeDelivered = false;
-  try {
-    const confirmation = await purgeCloudflareHostnamesConfirmed(hostnames);
-    // `not_required` is a legitimate no-op (no Cloudflare configuration), so it
-    // is not an error — but it is also not a delivered purge.
-    edgePurgeDelivered = confirmation.ok && confirmation.reason === 'purged';
-    if (!confirmation.ok) {
+  // Best effort AND off the response path: the purge helper has a 5s timeout, so
+  // awaiting it would add seconds to every merchant-facing write whenever
+  // Cloudflare is slow. `after()` runs it once the response is flushed; failures
+  // are logged, never thrown.
+  after(async () => {
+    try {
+      const confirmation = await purgeCloudflareHostnamesConfirmed(hostnames);
+      if (!confirmation.ok) {
+        logger.warn({
+          message: 'Category edge purge not delivered (best effort)',
+          merchantId: input.merchantId,
+          hostnames,
+          slugs,
+          reason: confirmation.reason,
+        });
+      }
+    } catch (error) {
       logger.warn({
-        message: 'Category edge purge not delivered (best effort)',
+        message: 'Category edge purge failed (best effort)',
         merchantId: input.merchantId,
         hostnames,
         slugs,
-        reason: confirmation.reason,
+        error: error instanceof Error ? error.message : String(error),
       });
     }
-  } catch (error) {
-    logger.warn({
-      message: 'Category edge purge failed (best effort)',
-      merchantId: input.merchantId,
-      hostnames,
-      slugs,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
+  });
 
   return {
     revalidatedSlugs: slugs,
+    revalidated,
     purgeAttemptedHostnames: hostnames,
-    edgePurgeDelivered,
+    // Scheduled, not confirmed — delivery happens after the response flushes.
+    edgePurgeScheduled: true,
   };
 }

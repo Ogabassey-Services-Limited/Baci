@@ -5,8 +5,16 @@ const mocks = vi.hoisted(() => ({
   purgeCloudflareHostnamesConfirmed: vi.fn(),
   buildStorefrontPublicationPurgeHostnames: vi.fn(),
   warn: vi.fn(),
+  error: vi.fn(),
+  /** Deferred `after()` callbacks, run explicitly to model a flushed response. */
+  afterCallbacks: [] as Array<() => unknown>,
 }));
 
+vi.mock('next/server', () => ({
+  after: (callback: () => unknown) => {
+    mocks.afterCallbacks.push(callback);
+  },
+}));
 vi.mock('@/lib/cache-revalidation', () => ({
   revalidateCategories: mocks.revalidateCategories,
 }));
@@ -17,16 +25,28 @@ vi.mock('@/lib/storefront-publication-purge-hostnames', () => ({
   buildStorefrontPublicationPurgeHostnames:
     mocks.buildStorefrontPublicationPurgeHostnames,
 }));
-vi.mock('@/lib/logger', () => ({ logger: { warn: mocks.warn } }));
+vi.mock('@/lib/logger', () => ({
+  logger: { warn: mocks.warn, error: mocks.error },
+}));
 
 import { invalidateCategoryCaches } from './category-cache-invalidation';
 
 const MERCHANT_ID = 'merchant-1';
 const IDENTIFIERS = ['test-store'];
 
+/** Drain the deferred work the way the runtime does once the response flushes. */
+async function flushAfter() {
+  const callbacks = [...mocks.afterCallbacks];
+  mocks.afterCallbacks.length = 0;
+  for (const callback of callbacks) {
+    await callback();
+  }
+}
+
 describe('invalidateCategoryCaches', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.afterCallbacks.length = 0;
     mocks.buildStorefrontPublicationPurgeHostnames.mockReturnValue([
       'test-store.baci.app',
     ]);
@@ -37,7 +57,7 @@ describe('invalidateCategoryCaches', () => {
   });
 
   it('revalidates both the old and new slug on a rename', async () => {
-    const result = await invalidateCategoryCaches({
+    const result = invalidateCategoryCaches({
       merchantId: MERCHANT_ID,
       merchantIdentifiers: IDENTIFIERS,
       previousSlug: 'phones',
@@ -53,11 +73,12 @@ describe('invalidateCategoryCaches', () => {
       'mobile-phones'
     );
     expect(result.revalidatedSlugs).toEqual(['phones', 'mobile-phones']);
-    expect(result.edgePurgeDelivered).toBe(true);
+    expect(result.revalidated).toBe(true);
+    expect(result.edgePurgeScheduled).toBe(true);
   });
 
   it('deduplicates when the slug did not change', async () => {
-    await invalidateCategoryCaches({
+    invalidateCategoryCaches({
       merchantId: MERCHANT_ID,
       merchantIdentifiers: IDENTIFIERS,
       previousSlug: 'phones',
@@ -68,7 +89,7 @@ describe('invalidateCategoryCaches', () => {
   });
 
   it('falls back to a merchant-wide revalidation when no slug is known', async () => {
-    await invalidateCategoryCaches({
+    invalidateCategoryCaches({
       merchantId: MERCHANT_ID,
       merchantIdentifiers: IDENTIFIERS,
     });
@@ -77,11 +98,12 @@ describe('invalidateCategoryCaches', () => {
   });
 
   it('resolves purge hostnames server-side from the merchant identifiers', async () => {
-    await invalidateCategoryCaches({
+    invalidateCategoryCaches({
       merchantId: MERCHANT_ID,
       merchantIdentifiers: IDENTIFIERS,
       nextSlug: 'phones',
     });
+    await flushAfter();
 
     expect(mocks.buildStorefrontPublicationPurgeHostnames).toHaveBeenCalledWith(
       IDENTIFIERS
@@ -91,37 +113,69 @@ describe('invalidateCategoryCaches', () => {
     ]);
   });
 
-  describe('edge purge is best effort — never fails the mutation', () => {
-    it('resolves when the purge provider rejects', async () => {
-      mocks.purgeCloudflareHostnamesConfirmed.mockResolvedValue({
-        ok: false,
-        reason: 'provider_rejected',
-      });
-
-      const result = await invalidateCategoryCaches({
+  describe('the purge is deferred off the response path', () => {
+    it('does not await the purge before returning', async () => {
+      invalidateCategoryCaches({
         merchantId: MERCHANT_ID,
         merchantIdentifiers: IDENTIFIERS,
         nextSlug: 'phones',
       });
 
-      expect(result.edgePurgeDelivered).toBe(false);
+      // The 5s-timeout purge must not sit inside the merchant's write latency.
+      expect(mocks.purgeCloudflareHostnamesConfirmed).not.toHaveBeenCalled();
+      expect(mocks.afterCallbacks).toHaveLength(1);
+    });
+
+    it('schedules nothing when no hostname resolves', async () => {
+      mocks.buildStorefrontPublicationPurgeHostnames.mockReturnValue([]);
+
+      const result = invalidateCategoryCaches({
+        merchantId: MERCHANT_ID,
+        merchantIdentifiers: [],
+        nextSlug: 'phones',
+      });
+      await flushAfter();
+
+      expect(mocks.purgeCloudflareHostnamesConfirmed).not.toHaveBeenCalled();
+      expect(result.purgeAttemptedHostnames).toEqual([]);
+      expect(result.edgePurgeScheduled).toBe(false);
+    });
+  });
+
+  describe('edge purge is best effort — never fails the mutation', () => {
+    it('logs, and does not throw, when the purge provider rejects', async () => {
+      mocks.purgeCloudflareHostnamesConfirmed.mockResolvedValue({
+        ok: false,
+        reason: 'provider_rejected',
+      });
+
+      const result = invalidateCategoryCaches({
+        merchantId: MERCHANT_ID,
+        merchantIdentifiers: IDENTIFIERS,
+        nextSlug: 'phones',
+      });
+      await expect(flushAfter()).resolves.toBeUndefined();
+
       // Next revalidation still happened — it is the authoritative path.
+      expect(result.revalidated).toBe(true);
       expect(mocks.revalidateCategories).toHaveBeenCalled();
       expect(mocks.warn).toHaveBeenCalled();
     });
 
-    it('resolves when the purge throws', async () => {
+    it('swallows a throwing purge inside the deferred callback', async () => {
       mocks.purgeCloudflareHostnamesConfirmed.mockRejectedValue(
         new Error('network down')
       );
 
-      await expect(
+      expect(
         invalidateCategoryCaches({
           merchantId: MERCHANT_ID,
           merchantIdentifiers: IDENTIFIERS,
           nextSlug: 'phones',
         })
-      ).resolves.toMatchObject({ edgePurgeDelivered: false });
+      ).toMatchObject({ edgePurgeScheduled: true });
+      await expect(flushAfter()).resolves.toBeUndefined();
+
       expect(mocks.warn).toHaveBeenCalled();
     });
 
@@ -131,27 +185,34 @@ describe('invalidateCategoryCaches', () => {
         reason: 'not_required',
       });
 
-      const result = await invalidateCategoryCaches({
+      invalidateCategoryCaches({
+        merchantId: MERCHANT_ID,
+        merchantIdentifiers: IDENTIFIERS,
+        nextSlug: 'phones',
+      });
+      await flushAfter();
+
+      expect(mocks.warn).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('bugfix: a committed mutation must not be reported as a failure', () => {
+    it('reports revalidated:false instead of throwing when revalidation fails', async () => {
+      // The row is ALREADY written by the time this runs. Rethrowing would give
+      // the client a 500 for a category that exists, and its retry would then
+      // collide with a duplicate-slug 409.
+      mocks.revalidateCategories.mockImplementation(() => {
+        throw new Error('cache backend unavailable');
+      });
+
+      const result = invalidateCategoryCaches({
         merchantId: MERCHANT_ID,
         merchantIdentifiers: IDENTIFIERS,
         nextSlug: 'phones',
       });
 
-      expect(result.edgePurgeDelivered).toBe(false);
-      expect(mocks.warn).not.toHaveBeenCalled();
-    });
-
-    it('skips the purge entirely when no hostname resolves', async () => {
-      mocks.buildStorefrontPublicationPurgeHostnames.mockReturnValue([]);
-
-      const result = await invalidateCategoryCaches({
-        merchantId: MERCHANT_ID,
-        merchantIdentifiers: [],
-        nextSlug: 'phones',
-      });
-
-      expect(mocks.purgeCloudflareHostnamesConfirmed).not.toHaveBeenCalled();
-      expect(result.purgeAttemptedHostnames).toEqual([]);
+      expect(result.revalidated).toBe(false);
+      expect(mocks.error).toHaveBeenCalled();
     });
   });
 });
