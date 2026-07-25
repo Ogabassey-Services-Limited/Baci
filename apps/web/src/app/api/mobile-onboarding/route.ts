@@ -9,7 +9,6 @@ import { getCountryByCode } from '@/lib/countries';
 import { normalizeBusinessName } from '@/lib/normalize-business-name';
 import { checkPasswordBreach } from '@/lib/password-breach';
 import { resolveMerchantIdBySlugOrAlias } from '@/lib/resolve-merchant-by-slug';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { isReservedMerchantSlug } from '@/lib/validation';
 import { mobileOnboardingSchema } from '@/schemas/onboarding';
@@ -17,6 +16,7 @@ import type { BrandColors } from '@/types';
 import { logOnboardingFailure } from './onboarding-failure-log';
 import { buildOnboardingFailureResponse } from './onboarding-failure-response';
 import { provisionMerchantDomain } from './provision-merchant-domain';
+import { runDeferredOnboardingProvisioning } from './run-deferred-onboarding-provisioning';
 
 // Allow up to 60s — template generation calls an AI model (Gemini)
 // and hero-image assignment can also be slow. The default 10s is not enough.
@@ -517,84 +517,20 @@ export async function POST(req: NextRequest) {
     // These are slow operations (AI model call for template + image assignment)
     // that must NOT block the registration response. after() runs them after
     // the response is sent while keeping the function alive on Vercel.
-    after(async () => {
-      // Use admin client for background writes — the scoped client's Bearer
-      // token may expire, and after() runs outside the original auth context.
-      const adminSupabase = createAdminClient();
-
-      // Retry the storefront address on the SAME caller-scoped client, never
-      // the privileged one: a persistent denial is a policy bug that must stay
-      // visible, not something to force through. A second failure leaves the
-      // merchant with no active domain row, which is itself the durable,
-      // queryable signal for repair — and is alerted on below.
-      if (!firstDomainAttempt.provisioned) {
-        const retry = await provisionMerchantDomain(
-          scopedSupabase,
-          domainProvisionInput
-        );
-        if (!retry.provisioned) {
-          logOnboardingFailure(retry.error, {
-            stage: 'domain_repair_exhausted',
-            merchantId,
-          });
-        }
-      }
-
-      // Generate Template
-      try {
-        const { generateInitialTemplate } = await import(
-          '@/lib/initial-template-generator'
-        );
-        const safeBrandColors = brandColors || {
-          primary: '#000000',
-          background: '#ffffff',
-          accent: '#F59E0B',
-        };
-        const config = await generateInitialTemplate({
-          businessName,
-          businessType: finalBusinessType,
-          brandColors: safeBrandColors,
-          merchant: { id: merchantId, slug: merchantSlug },
-        });
-        const { error: pageConfigError } = await adminSupabase
-          .from('page_configs')
-          .insert({
-            merchant_id: merchantId,
-            page_slug: 'home',
-            page_name: 'Home',
-            draft_config: config,
-            published_config: config,
-            is_published: true,
-          });
-        if (pageConfigError) {
-          console.error(
-            'Failed to insert page config for merchant',
-            merchantId,
-            pageConfigError
-          );
-        }
-      } catch (e) {
-        console.error('Template generation failed for merchant', merchantId, e);
-      }
-
-      // Hero Images
-      try {
-        const { assignHeroImagesToMerchant } = await import(
-          '@/services/hero-image-generator'
-        );
-        await assignHeroImagesToMerchant(
-          merchantId,
-          finalBusinessType.toLowerCase(),
-          false
-        );
-      } catch (e) {
-        console.error(
-          'Hero image assignment failed for merchant',
-          merchantId,
-          e
-        );
-      }
-    });
+    after(() =>
+      runDeferredOnboardingProvisioning({
+        merchantId,
+        merchantSlug,
+        businessName,
+        businessType: finalBusinessType,
+        brandColors,
+        // Only set when the in-request insert failed; carries the SAME scoped
+        // client so a real denial stays a denial.
+        domainRepair: firstDomainAttempt.provisioned
+          ? null
+          : { client: scopedSupabase, input: domainProvisionInput },
+      })
+    );
 
     return NextResponse.json({
       success: true,
