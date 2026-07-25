@@ -102,13 +102,19 @@ vi.mock('@/hooks/useMerchant', () => ({
 }));
 
 /**
- * Regression cover for the Follow Up tab reporting a *failed* query as
- * "All recent transactions are successful!". See PR #3200: an ambiguous
+ * Colocated cover for the CustomersScreen follow-up error surface.
+ *
+ * Regression origin: the Follow Up tab reported a *failed* query as "All
+ * recent transactions are successful!". See PR #3200 — an ambiguous
  * orders->transactions embed made every request fail with PostgREST
  * PGRST201, leaving `data` undefined and the success empty state on screen
  * while 145 orders awaited follow-up.
+ *
+ * The screen's broader rendering, tab, and pagination cases live in
+ * `__tests__/admin/tabs/customers.test.tsx`; these are kept separate so
+ * neither module exceeds the 300-line limit.
  */
-describe('bugfix: a failed follow-up query reported "No issues"', () => {
+describe('CustomersScreen follow-up error surface', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     customerHookMocks.useCustomers.mockReturnValue({
