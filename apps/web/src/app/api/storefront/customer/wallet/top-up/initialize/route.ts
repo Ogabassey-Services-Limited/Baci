@@ -49,7 +49,10 @@ function selectWalletTopUpGateway({
   settings: GatewaySettings;
 }): WalletTopUpGateway {
   const paystackEnabled = settings.paystack_enabled ?? true;
-  const korapayEnabled = settings.korapay_enabled ?? true;
+  // Korapay is opt-in (default OFF) — a missing feature-settings row or a null
+  // flag must NOT enable Korapay wallet top-ups. Matches the storefront checkout
+  // gate and the merchant_feature_settings default.
+  const korapayEnabled = settings.korapay_enabled ?? false;
 
   if (requestedGateway) {
     if (requestedGateway === 'paystack' && paystackEnabled) return 'paystack';

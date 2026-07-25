@@ -38,47 +38,11 @@ import { isBaciPaystackSettlementCountry } from '@/lib/checkout/payment-gateway-
 import { formatCurrencyCompact, getCurrencyCode } from '@/lib/currency';
 import { cn } from '@/lib/utils';
 import { VirtualTerminalSettings } from './components/virtual-terminal-settings';
-
-interface PaymentGatewaySettings {
-  paystack_enabled: boolean;
-  korapay_enabled: boolean;
-  pay_on_delivery_enabled: boolean;
-  preferred_local_gateway: 'paystack' | 'korapay';
-  preferred_international_gateway: 'paystack' | 'korapay';
-  // Credit Direct BNPL
-  credit_direct_enabled: boolean;
-}
-
-const DEFAULT_SETTINGS: PaymentGatewaySettings = {
-  paystack_enabled: true,
-  // Korapay is opt-in (default OFF) — consistent with the checkout gate and the
-  // merchant_feature_settings default. The toggle shows OFF until explicitly enabled.
-  korapay_enabled: false,
-  pay_on_delivery_enabled: false,
-  preferred_local_gateway: 'paystack',
-  preferred_international_gateway: 'korapay',
-  // Credit Direct BNPL defaults
-  credit_direct_enabled: false,
-};
-
-async function fetchPaymentSettings(): Promise<PaymentGatewaySettings | null> {
-  const response = await fetch('/api/merchant/features');
-  if (!response.ok) {
-    return null;
-  }
-
-  const data = await response.json();
-  return {
-    paystack_enabled: data.paystack_enabled ?? true,
-    korapay_enabled: data.korapay_enabled ?? false,
-    pay_on_delivery_enabled: data.pay_on_delivery_enabled ?? false,
-    preferred_local_gateway: data.preferred_local_gateway || 'paystack',
-    preferred_international_gateway:
-      data.preferred_international_gateway || 'korapay',
-    // Credit Direct BNPL
-    credit_direct_enabled: data.credit_direct_enabled ?? false,
-  };
-}
+import {
+  DEFAULT_PAYMENT_SETTINGS,
+  fetchPaymentSettings,
+  type PaymentGatewaySettings,
+} from './payment-settings';
 
 async function savePaymentSettings(
   settings: PaymentGatewaySettings,
@@ -119,8 +83,9 @@ async function savePaymentSettings(
 export default function PaymentSettingsPage() {
   const { toast } = useToast();
   const { merchant, loading: merchantLoading, reloadMerchant } = useMerchant();
-  const [settings, setSettings] =
-    useState<PaymentGatewaySettings>(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<PaymentGatewaySettings>(
+    DEFAULT_PAYMENT_SETTINGS
+  );
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
