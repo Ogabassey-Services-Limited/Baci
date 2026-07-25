@@ -86,10 +86,12 @@ export function QuizAgeGateModal({
 
   // The max attribute keeps the native picker from offering today or the
   // future — the latest acceptable DOB is yesterday (today is rejected by both
-  // the shared schema and the server DOB RPC).
-  const maxDate = new Date(Date.now() - 24 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 10);
+  // the shared schema and the server DOB RPC). `<input type="date">` reads this
+  // in the viewer's LOCAL timezone, so derive local yesterday rather than a
+  // UTC-minus-24h instant, which is off by a day for far-from-UTC viewers.
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const maxDate = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();

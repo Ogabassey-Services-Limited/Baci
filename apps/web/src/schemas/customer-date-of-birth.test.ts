@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { dateOfBirthSchema } from './customer-date-of-birth';
 
 describe('dateOfBirthSchema', () => {
@@ -26,9 +26,15 @@ describe('dateOfBirthSchema', () => {
   });
 
   it("rejects today's date to match the server DOB RPC (>= now()::date)", () => {
-    const now = new Date();
-    const today = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`;
-    expect(dateOfBirthSchema.safeParse(today).success).toBe(false);
+    // Freeze the clock so the test and the schema derive the same "today" — an
+    // independent read either side of UTC midnight would flake.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-15T12:00:00.000Z'));
+    try {
+      expect(dateOfBirthSchema.safeParse('2026-07-15').success).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('rejects an implausibly old date (>120 years)', () => {

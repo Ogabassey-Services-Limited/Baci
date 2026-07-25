@@ -39,16 +39,20 @@ export function useQuizAgeGate({
   const saveInFlightRef = useRef(false);
   const tokenRef = useRef(0);
 
-  // `initialError` seeds the gate's alert when we reopen it after the server
-  // rejected a stored DOB (18+), so the shopper sees why they must re-enter it.
+  // Opening or cancelling starts a new gate generation (bumps the token), so
+  // release the in-flight guard too — otherwise a resubmit for the new gate is
+  // dropped by a stale save that has not resolved yet. `initialError` seeds the
+  // alert when we reopen after the server rejected a stored DOB (18+).
   const open = (next: QuizEventResponse, initialError: string | null = null) => {
     tokenRef.current += 1;
+    saveInFlightRef.current = false;
     setError(initialError);
     setEvent(next);
   };
 
   const cancel = () => {
     tokenRef.current += 1;
+    saveInFlightRef.current = false;
     setEvent(null);
   };
 
@@ -74,8 +78,13 @@ export function useQuizAgeGate({
       }
       setEvent(null);
     } finally {
-      saveInFlightRef.current = false;
-      setSubmitting(false);
+      // Only the current generation may clear the shared flags: a stale save
+      // that resolves after a cancel/reopen must not reset the guard or the
+      // submitting state a newer submission has already set.
+      if (token === tokenRef.current) {
+        saveInFlightRef.current = false;
+        setSubmitting(false);
+      }
     }
   };
 

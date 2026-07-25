@@ -104,6 +104,47 @@ describe('useQuizAgeGate', () => {
     expect(runStart).not.toHaveBeenCalled();
   });
 
+  it('allows a resubmit for a new gate after cancelling an in-flight save', async () => {
+    // Regression: cancel must release the in-flight guard, otherwise the next
+    // submit is silently dropped while the first (stale) save is still pending.
+    let resolveFirst: (v: { success: boolean }) => void = () => {};
+    const updateCustomer = vi
+      .fn()
+      .mockReturnValueOnce(
+        new Promise<{ success: boolean }>((resolve) => {
+          resolveFirst = resolve;
+        })
+      )
+      .mockResolvedValue({ success: true });
+    const { view, runStart } = setup({ updateCustomer });
+    const eventB = { id: 'event-2', title: 'Weekly Quiz' } as QuizEventResponse;
+
+    // Submit for A (save stays pending), then cancel and reopen for B.
+    act(() => view.result.current.open(event));
+    act(() => {
+      void view.result.current.submit('1990-06-15');
+    });
+    act(() => view.result.current.cancel());
+    act(() => view.result.current.open(eventB));
+    await act(async () => {
+      await view.result.current.submit('1988-03-10');
+    });
+
+    // The second submit is NOT dropped, and it starts the new event.
+    expect(updateCustomer).toHaveBeenCalledTimes(2);
+    expect(updateCustomer).toHaveBeenLastCalledWith({
+      date_of_birth: '1988-03-10',
+    });
+    expect(runStart).toHaveBeenCalledTimes(1);
+    expect(runStart).toHaveBeenCalledWith(eventB);
+
+    // The stale first save resolving is a no-op (wrong generation).
+    await act(async () => {
+      resolveFirst({ success: true });
+    });
+    expect(runStart).toHaveBeenCalledTimes(1);
+  });
+
   it('surfaces the save error and does not start', async () => {
     const updateCustomer = vi
       .fn()

@@ -43,6 +43,22 @@ describe('QuizAgeGateModal', () => {
     expect(onSubmit).toHaveBeenCalledWith('1990-06-15');
   });
 
+  it('traps Tab focus within the dialog (last→first and first→last)', () => {
+    setup();
+    const input = screen.getByLabelText('Date of birth');
+    const continueButton = screen.getByRole('button', { name: 'Continue' });
+
+    // Tab from the last focusable wraps back to the first.
+    continueButton.focus();
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(input).toHaveFocus();
+
+    // Shift+Tab from the first focusable wraps to the last.
+    input.focus();
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+    expect(continueButton).toHaveFocus();
+  });
+
   it('blocks submission and shows an error for an invalid date', () => {
     const { onSubmit } = setup();
 
