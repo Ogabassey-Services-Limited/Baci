@@ -10,8 +10,39 @@ fi
 
 MAX_ATTEMPTS=${MAX_ATTEMPTS:-3}
 BACKOFF_SECONDS=${BACKOFF_SECONDS:-15}
+# Per-attempt wall-clock cap for the deploy command. Vercel CLI 57's
+# `vercel deploy --prebuilt --prod` has been observed to create the deployment
+# (READY + URL printed) and then hang without exiting, tying up the self-hosted
+# runner for the whole job and holding the deploy concurrency lock. Cap each
+# attempt so a hung deploy is terminated; the retry then hits Vercel's duplicate
+# custom-deployment-id error and the existing recovery path promotes the
+# already-created deployment. Set to 0 to disable the cap.
+DEPLOY_ATTEMPT_TIMEOUT_SECONDS=${DEPLOY_ATTEMPT_TIMEOUT_SECONDS:-1200}
+# Cap for the promote command so a hung `vercel promote` cannot run forever.
+PROMOTE_TIMEOUT_SECONDS=${PROMOTE_TIMEOUT_SECONDS:-300}
 deploy_command=("$@")
 last_deployment_target=""
+
+# Run "$@" under a wall-clock cap. `timeout` is coreutils (present on the Linux
+# deploy runners); `gtimeout` is its Homebrew name on macOS. Where neither
+# exists, run without a cap so the script and its tests stay portable.
+run_with_timeout() {
+  local seconds="$1"
+  shift
+
+  if [ "$seconds" -gt 0 ]; then
+    if command -v timeout >/dev/null 2>&1; then
+      timeout -k 30 "$seconds" "$@"
+      return
+    fi
+    if command -v gtimeout >/dev/null 2>&1; then
+      gtimeout -k 30 "$seconds" "$@"
+      return
+    fi
+  fi
+
+  "$@"
+}
 
 is_duplicate_custom_deployment_id_error() {
   local log_file="$1"
@@ -49,11 +80,11 @@ run_promote_command() {
   third_command="${deploy_command[2]:-}"
 
   if [ "$first_command" = "pnpm" ] && [ "$second_command" = "exec" ] && [ "$third_command" = "vercel" ]; then
-    "${deploy_command[0]}" "${deploy_command[1]}" "${deploy_command[2]}" promote "$last_deployment_target" --yes
+    run_with_timeout "$PROMOTE_TIMEOUT_SECONDS" "${deploy_command[0]}" "${deploy_command[1]}" "${deploy_command[2]}" promote "$last_deployment_target" --yes
   elif [ "$first_command" = "npx" ] && [ "$second_command" = "vercel" ]; then
-    "${deploy_command[0]}" "${deploy_command[1]}" promote "$last_deployment_target" --yes
+    run_with_timeout "$PROMOTE_TIMEOUT_SECONDS" "${deploy_command[0]}" "${deploy_command[1]}" promote "$last_deployment_target" --yes
   else
-    "${deploy_command[0]}" promote "$last_deployment_target" --yes
+    run_with_timeout "$PROMOTE_TIMEOUT_SECONDS" "${deploy_command[0]}" promote "$last_deployment_target" --yes
   fi
 }
 
@@ -76,9 +107,17 @@ for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
   attempt_log="$(mktemp)"
 
   set +e
-  "${deploy_command[@]}" 2>&1 | tee "$attempt_log"
+  run_with_timeout "$DEPLOY_ATTEMPT_TIMEOUT_SECONDS" "${deploy_command[@]}" 2>&1 | tee "$attempt_log"
   status=${PIPESTATUS[0]}
   set -e
+
+  # 124 is `timeout`'s exit code when it had to kill the command. The deploy may
+  # have already created the deployment before hanging, so fall through to the
+  # normal failure handling: the retry hits the duplicate custom-deployment-id
+  # error and promote_existing_deployment recovers the created deployment.
+  if [ "$status" -eq 124 ]; then
+    echo "Deploy attempt $attempt exceeded ${DEPLOY_ATTEMPT_TIMEOUT_SECONDS}s and was terminated; retrying to recover the created deployment." >&2
+  fi
 
   if [ "$status" -eq 0 ]; then
     echo "Deploy succeeded on attempt $attempt"

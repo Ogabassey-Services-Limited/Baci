@@ -1,8 +1,16 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { readFileSync, rmSync } from 'node:fs';
 import test from 'node:test';
 import { makeFakeCommand } from './deploy-with-retry.test-helpers.mjs';
 import { runScript } from './deploy-with-retry.run-script.mjs';
+
+// The hung-deploy recovery test needs `timeout`/`gtimeout` to cap the attempt;
+// skip it where neither is available (e.g. a bare macOS dev box without
+// coreutils). It runs on the Linux CI/deploy runners.
+const hasTimeoutCmd =
+  spawnSync('bash', ['-c', 'command -v timeout || command -v gtimeout'])
+    .status === 0;
 
 test('promotes the observed deployment when deploy succeeds first try', () => {
   const fakeCommand = makeFakeCommand('success');
@@ -160,6 +168,34 @@ test('refuses duplicate custom id recovery without an observed deployment target
     rmSync(fakeCommand.tempDir, { recursive: true, force: true });
   }
 });
+
+test(
+  'recovers a hung deploy attempt by promoting via the duplicate-id path',
+  { skip: hasTimeoutCmd ? false : 'timeout/gtimeout unavailable' },
+  () => {
+    const fakeCommand = makeFakeCommand('hang-then-duplicate');
+
+    try {
+      // Attempt 1 prints the deployment URL then hangs (exec sleep 60). The 2s
+      // cap terminates it; attempt 2 reports the duplicate custom id, and the
+      // already-created deployment is recovered by promotion.
+      const result = runScript(fakeCommand, ['fake-vercel', 'deploy'], {
+        DEPLOY_ATTEMPT_TIMEOUT_SECONDS: '2',
+      });
+
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stderr, /was terminated; retrying/);
+      assert.match(result.stdout, /promoting existing deployment/);
+      assert.match(result.stdout, /recovered success/);
+      assert.equal(
+        readFileSync(fakeCommand.promotedFile, 'utf8').trim(),
+        'https://baci-hang.vercel.app'
+      );
+    } finally {
+      rmSync(fakeCommand.tempDir, { recursive: true, force: true });
+    }
+  }
+);
 
 test('fails after max attempts for unrelated deploy errors', () => {
   const fakeCommand = makeFakeCommand('fatal');
