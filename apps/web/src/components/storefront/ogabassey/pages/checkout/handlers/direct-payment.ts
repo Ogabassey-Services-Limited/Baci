@@ -91,6 +91,7 @@ export async function executeDirectPayment({
       await openCreditDirectCheckout({
         merchantSlug: merchantSlug || 'ogabassey',
         orderId: resumedOrder.id,
+        trackingToken: resumedOrder.tracking_token ?? '',
         amount: paymentAmount,
         customerEmail: resumedOrder.customer_email,
         customerPhone: resumedOrder.customer_phone,

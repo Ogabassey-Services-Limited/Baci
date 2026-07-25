@@ -10,6 +10,7 @@ describe('openCreditDirectCheckout', () => {
     items: [{ id: 'product-1', name: 'Phone Case', price: 12000, quantity: 1 }],
     merchantSlug: 'test-store',
     orderId: 'order-123',
+    trackingToken: 'order-tracking-token',
     onClose: vi.fn(),
     onError: vi.fn(),
     onPopup: vi.fn(),
@@ -29,6 +30,9 @@ describe('openCreditDirectCheckout', () => {
       'fetch',
       vi.fn().mockResolvedValue({
         json: async () => ({
+          // The server-derived amount is REQUIRED; the client fails closed
+          // without it rather than trusting the caller-supplied amount.
+          amount: 12000,
           isLive: true,
           publicKey: 'cd-public-key',
           sessionId: 'session-123',
@@ -54,6 +58,45 @@ describe('openCreditDirectCheckout', () => {
     expect(options.onError).toHaveBeenCalledWith('Invalid request');
     expect(options.onSuccess).not.toHaveBeenCalled();
     expect(options.onClose).not.toHaveBeenCalled();
+  });
+
+  describe('bugfix: client-controlled popup total when the signed amount is missing', () => {
+    it.each([
+      ['omitted', undefined],
+      ['zero', 0],
+      ['negative', -500],
+      ['non-numeric', 'abc' as unknown as number],
+    ])('fails closed without opening the popup when the server amount is %s', async (_label, serverAmount) => {
+      // Arrange: signing response lacks a usable server-derived amount, while
+      // the caller supplies 12000 — the value we must NOT fall back to.
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          json: async () => ({
+            ...(serverAmount === undefined ? {} : { amount: serverAmount }),
+            isLive: true,
+            publicKey: 'cd-public-key',
+            sessionId: 'session-123',
+            signature: 'signature-123',
+          }),
+          ok: true,
+        })
+      );
+      const setup = vi.fn();
+      window.Connect = vi.fn(() => ({
+        setup,
+      })) as unknown as typeof window.Connect;
+
+      // Act
+      await openCreditDirectCheckout(options);
+
+      // Assert: no popup, explicit error, no success path.
+      expect(setup).not.toHaveBeenCalled();
+      expect(options.onError).toHaveBeenCalledWith(
+        'Credit Direct signing response has an invalid amount'
+      );
+      expect(options.onSuccess).not.toHaveBeenCalled();
+    });
   });
 
   it('reports script load failures', async () => {
@@ -112,6 +155,41 @@ describe('openCreditDirectCheckout', () => {
       checkoutTransactionId: null,
       sessionId: 'session-123',
     });
+  });
+
+  it('forwards the tracking token and opens the popup with the server-signed amount', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      json: async () => ({
+        // Server-derived amount differs from the passed options.amount (12000)
+        // — e.g. a wallet/partial-payment residual. The popup must use it so the
+        // total matches the HMAC signature.
+        amount: 9999,
+        isLive: true,
+        publicKey: 'cd-public-key',
+        sessionId: 'session-123',
+        signature: 'signature-123',
+      }),
+      ok: true,
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    let capturedTotal: number | undefined;
+    window.Connect = function MockConnect(config: {
+      transaction: { totalAmount: number };
+    }) {
+      capturedTotal = config.transaction.totalAmount;
+      return { open: vi.fn(), setup: vi.fn() };
+    } as never;
+
+    await openCreditDirectCheckout(options);
+
+    // F1: the order tracking token is forwarded to the sign endpoint.
+    const requestBody = JSON.parse(
+      (fetchMock.mock.calls[0][1] as { body: string }).body
+    );
+    expect(requestBody.trackingToken).toBe('order-tracking-token');
+    // Popup uses the server-signed amount, not the caller-supplied one.
+    expect(capturedTotal).toBe(9999);
   });
 
   it('reports cancellation when Credit Direct closes before success', async () => {

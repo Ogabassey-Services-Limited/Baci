@@ -384,6 +384,7 @@ async function launchBnplPayment({
             await openCreditDirectCheckout({
                 merchantSlug: slug,
                 orderId: order.id,
+                trackingToken: order.tracking_token ?? '',
                 amount: normalizedAmount,
                 customerEmail: checkoutCustomerEmail || '',
                 customerPhone: checkoutCustomerPhone || '',

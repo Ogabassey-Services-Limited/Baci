@@ -22,6 +22,55 @@ describe('event pipeline credential import analysis', () => {
     ).toBe(false);
   });
 
+  it('treats getAppUrl as a public accessor (not a credential edge)', () => {
+    // Regression: server-side-analytics.ts imports only getAppUrl from env.ts.
+    // getAppUrl reads NEXT_PUBLIC_APP_URL (public), so this edge must NOT be an
+    // authority edge — otherwise every transitive consumer (e.g. the checkout
+    // page) is dragged into the frozen authority closure.
+    const importer = 'apps/web/src/lib/server-side-analytics.ts';
+    const target = 'apps/web/src/env.ts';
+    const sources = new Map([
+      [importer, "import { getAppUrl } from '@/env';"],
+      [
+        target,
+        'export const getAppUrl = () => process.env.NEXT_PUBLIC_APP_URL; export const getSupabaseServiceRoleKey = () => process.env.SUPABASE_SERVICE_ROLE_KEY;',
+      ],
+    ]);
+
+    expect(
+      eventPipelineCredentialImportAnalysis.edgeIsRelevant(
+        importer,
+        target,
+        sources
+      )
+    ).toBe(false);
+  });
+
+  it('still flags a public accessor imported alongside a secret accessor', () => {
+    // The allowlist must not weaken the freeze: mixing getAppUrl with a secret
+    // accessor in the same import keeps the edge relevant (fail closed).
+    const importer = 'apps/web/src/lib/events/root.ts';
+    const target = 'apps/web/src/env.ts';
+    const sources = new Map([
+      [
+        importer,
+        "import { getAppUrl, getSupabaseServiceRoleKey } from '@/env';",
+      ],
+      [
+        target,
+        'export const getAppUrl = () => process.env.NEXT_PUBLIC_APP_URL; export const getSupabaseServiceRoleKey = () => process.env.SUPABASE_SERVICE_ROLE_KEY;',
+      ],
+    ]);
+
+    expect(
+      eventPipelineCredentialImportAnalysis.edgeIsRelevant(
+        importer,
+        target,
+        sources
+      )
+    ).toBe(true);
+  });
+
   it.each([
     "import {} from '@/env';",
     "export {} from '@/env';",

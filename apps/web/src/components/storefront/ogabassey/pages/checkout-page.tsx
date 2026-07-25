@@ -1680,6 +1680,7 @@ export const CheckoutPage: React.FC = () => {
         await openCreditDirectCheckout({
           merchantSlug: merchant?.slug || 'ogabassey',
           orderId: resumedOrder.id,
+          trackingToken: resumedOrder.tracking_token ?? '',
           amount: paymentAmount,
           customerEmail: resumedOrder.customer_email,
           customerPhone: resumedOrder.customer_phone,
@@ -2512,6 +2513,7 @@ export const CheckoutPage: React.FC = () => {
         await openCreditDirectCheckout({
           merchantSlug: merchant.slug || '',
           orderId: order.id,
+          trackingToken: order.tracking_token ?? '',
           amount: paymentAmount,
           customerEmail,
           customerPhone,

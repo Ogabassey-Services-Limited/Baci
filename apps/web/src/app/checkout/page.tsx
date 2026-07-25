@@ -59,6 +59,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { ShippingQuote } from '@/types/shipping-quote';
 import { handoffLegacyCreditDirectSuccess } from './credit-direct-success';
 import { captureLegacyCreditDirectPopup } from './legacy-credit-direct-popup';
+import { buildLegacyCreditDirectTransaction } from './legacy-credit-direct-transaction';
 import { notifyLastOrderSnapshotChanged } from './success/client-page-order-snapshot';
 
 const DEFAULT_SHIPPING_FEE = Number.parseFloat(
@@ -239,6 +240,12 @@ interface CreditDirectSignResult {
   publicKey: string;
   sessionId: string;
   isLive: boolean;
+  // Server-derived amount that was actually signed. For orders with a wallet,
+  // savings or prior partial payment this is the RESIDUAL, not order.total, and
+  // the HMAC folds it in — so the popup must use this value or the provider
+  // cannot complete checkout. Required: we fail closed rather than fall back to
+  // a client-side total.
+  amount: number;
 }
 
 type SignCreditDirectResult =
@@ -252,6 +259,7 @@ async function signCreditDirectCheckout(input: {
   totalAmount: unknown;
   merchantSlug: string | null;
   orderId: unknown;
+  trackingToken: unknown;
 }): Promise<SignCreditDirectResult> {
   try {
     const data = await apiPost<CreditDirectSignResult>(
@@ -261,8 +269,20 @@ async function signCreditDirectCheckout(input: {
         totalAmount: input.totalAmount,
         merchantSlug: input.merchantSlug,
         orderId: input.orderId,
+        // Required by the sign schema (guest capability binding); omitting it
+        // 400s before a checkout token is ever issued.
+        trackingToken: input.trackingToken,
       }
     );
+
+    // Fail closed: the popup must use the SERVER-signed amount, never a
+    // client-side total, or it diverges from the HMAC input.
+    if (!Number.isFinite(data.amount) || data.amount <= 0) {
+      return {
+        ok: false,
+        message: 'Credit Direct signing response has an invalid amount',
+      };
+    }
 
     return { ok: true, data };
   } catch (error) {
@@ -403,6 +423,7 @@ async function prepareCheckout(
         totalAmount: order.total,
         merchantSlug: input.merchantSlug,
         orderId: order.id,
+        trackingToken: order.tracking_token ?? '',
       });
 
       if (!signResult.ok) {
@@ -1471,18 +1492,16 @@ function CheckoutPageContent() {
       return;
     }
 
-    const transaction = {
-      totalAmount: order.total as number,
+    // Uses the SERVER-signed amount (never order.total) and balances the line
+    // items against it — see legacy-credit-direct-transaction.ts for why.
+    const transaction = buildLegacyCreditDirectTransaction({
+      signedAmount: sign.amount,
       customerEmail: data.email,
       customerPhone: data.phone,
       sessionId: sign.sessionId,
-      metaData: order.id as string,
-      products: cart.map((item) => ({
-        productName: item.name,
-        productAmount: item.price,
-        productId: item.id,
-      })),
-    };
+      orderId: order.id as string,
+      cart,
+    });
 
     const connect = new window.Connect({
       publicKey: sign.publicKey,
