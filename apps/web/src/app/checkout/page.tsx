@@ -59,7 +59,10 @@ import { createClient } from '@/lib/supabase/client';
 import type { ShippingQuote } from '@/types/shipping-quote';
 import { handoffLegacyCreditDirectSuccess } from './credit-direct-success';
 import { captureLegacyCreditDirectPopup } from './legacy-credit-direct-popup';
-import { buildLegacyCreditDirectTransaction } from './legacy-credit-direct-transaction';
+import {
+  buildLegacyCreditDirectTransaction,
+  type LegacyCreditDirectTransaction,
+} from './legacy-credit-direct-transaction';
 import { prepareLegacyCreditDirectCheckout } from './prepare-legacy-credit-direct-checkout';
 import { notifyLastOrderSnapshotChanged } from './success/client-page-order-snapshot';
 
@@ -1506,14 +1509,28 @@ function CheckoutPageContent() {
 
     // Uses the SERVER-signed amount (never order.total) and allocates it across
     // the canonical order items — see legacy-credit-direct-transaction.ts.
-    const transaction = buildLegacyCreditDirectTransaction({
-      signedAmount: sign.amount,
-      customerEmail: data.email,
-      customerPhone: data.phone,
-      sessionId: sign.sessionId,
-      orderId: order.id as string,
-      orderItems,
-    });
+    let transaction: LegacyCreditDirectTransaction;
+    try {
+      transaction = buildLegacyCreditDirectTransaction({
+        signedAmount: sign.amount,
+        customerEmail: data.email,
+        customerPhone: data.phone,
+        sessionId: sign.sessionId,
+        orderId: order.id as string,
+        orderItems,
+      });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'BNPL Checkout Failed',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Failed to start Credit Direct checkout',
+      });
+      setFormIsLoading(false);
+      return;
+    }
 
     const connect = new window.Connect({
       publicKey: sign.publicKey,
