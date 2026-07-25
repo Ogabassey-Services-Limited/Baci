@@ -59,10 +59,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { ShippingQuote } from '@/types/shipping-quote';
 import { handoffLegacyCreditDirectSuccess } from './credit-direct-success';
 import { captureLegacyCreditDirectPopup } from './legacy-credit-direct-popup';
-import {
-  buildLegacyCreditDirectTransaction,
-  type LegacyCreditDirectTransaction,
-} from './legacy-credit-direct-transaction';
+import { openLegacyCreditDirectPopup } from './open-legacy-credit-direct-popup';
 import { prepareLegacyCreditDirectCheckout } from './prepare-legacy-credit-direct-checkout';
 import { notifyLastOrderSnapshotChanged } from './success/client-page-order-snapshot';
 
@@ -1497,46 +1494,18 @@ function CheckoutPageContent() {
     orderItems: ReturnType<typeof buildCheckoutOrderItems>,
     data: ShippingFormValues
   ) => {
-    if (!window.Connect) {
-      toast({
-        variant: 'destructive',
-        title: 'BNPL Checkout Failed',
-        description: 'Credit Direct SDK not loaded',
-      });
-      setFormIsLoading(false);
-      return;
-    }
-
-    // Uses the SERVER-signed amount (never order.total) and allocates it across
-    // the canonical order items — see legacy-credit-direct-transaction.ts.
-    let transaction: LegacyCreditDirectTransaction;
-    try {
-      transaction = buildLegacyCreditDirectTransaction({
-        signedAmount: sign.amount,
-        customerEmail: data.email,
-        customerPhone: data.phone,
-        sessionId: sign.sessionId,
-        orderId: order.id as string,
-        orderItems,
-      });
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'BNPL Checkout Failed',
-        description:
-          error instanceof Error
-            ? error.message
-            : 'Failed to start Credit Direct checkout',
-      });
-      setFormIsLoading(false);
-      return;
-    }
-
-    const connect = new window.Connect({
-      publicKey: sign.publicKey,
-      signature: sign.signature,
-      transaction,
-      isLive: sign.isLive,
+    // SDK orchestration (guard, transaction build, fail-closed handling, cancel
+    // wiring, open) lives in the focused helper; the page injects its own
+    // success/popup handlers which need order/merchant/router context.
+    openLegacyCreditDirectPopup({
+      sign,
+      orderId: order.id as string,
+      orderItems,
+      customerEmail: data.email,
+      customerPhone: data.phone,
+      connect: window.Connect,
+      toast,
+      setLoading: setFormIsLoading,
       onSuccess: (response) => {
         if (typeof order.id !== 'string' || !order.id) {
           console.error('Credit Direct client completion skipped:', {
@@ -1558,13 +1527,6 @@ function CheckoutPageContent() {
           basePath,
           navigate: router.push,
         });
-      },
-      onClose: () => {
-        toast({
-          title: 'Checkout Cancelled',
-          description: 'You can complete your purchase anytime.',
-        });
-        setFormIsLoading(false);
       },
       onPopup: async (response) => {
         if (typeof order.id !== 'string' || !order.id) {
@@ -1599,9 +1561,6 @@ function CheckoutPageContent() {
         }
       },
     });
-
-    connect.setup();
-    connect.open();
   };
 
   const onShippingSubmit = async (data: ShippingFormValues) => {
