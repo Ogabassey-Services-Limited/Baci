@@ -5,9 +5,9 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { chmod, copyFile, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test, { after } from 'node:test';
-
 const directory = path.dirname(new URL(import.meta.url).pathname);
 const verifierPath = path.join(directory, 'verify-owner-cli.sh');
 const dispatcherPath = path.join(directory, 'owner-dispatch.sh');
@@ -21,12 +21,13 @@ const canonical = (value) => {
   return JSON.stringify(value);
 };
 async function fixture(additionalChecksumRows = '') {
-  const root = await mkdtemp('/private/tmp/baci-cwv-owner-test-');
+  const root = await mkdtemp(path.join(tmpdir(), 'baci-cwv-owner-test-'));
   fixtureRoots.add(root);
   await chmod(root, 0o700);
   const verifier = path.join(root, 'verify-owner-cli.sh');
   const dispatcher = path.join(root, 'owner-dispatch.sh');
-  await Promise.all([copyFile(verifierPath, verifier), copyFile(dispatcherPath, dispatcher)]);
+  const fixtureVerifier = (await readFile(verifierPath, 'utf8')).replace('/private/tmp/baci-cwv-*', path.join(tmpdir(), 'baci-cwv-owner-test-*'));
+  await Promise.all([writeFile(verifier, fixtureVerifier, { mode: 0o500 }), copyFile(dispatcherPath, dispatcher)]);
   await Promise.all([chmod(verifier, 0o500), chmod(dispatcher, 0o500)]);
   const archiveName = 'gh_2.93.0_macOS_arm64.zip';
   const archive = path.join(root, 'gh.tar.gz');
@@ -71,6 +72,7 @@ async function fixture(additionalChecksumRows = '') {
     verifier,
   };
 }
+test('creates owner verifier fixtures in the runtime temporary directory', async () => { const value = await fixture(); assert.equal(path.dirname(value.root), tmpdir()); });
 function run(file, args, input, extraEnv = {}) {
   return spawnSync(file, args, {
     encoding: 'utf8',
@@ -104,10 +106,9 @@ test('uses only fixed macOS tools and exposes the closed verifier modes', async 
   assert.doesNotMatch(dispatcher, /"\$gh" auth token/);
   assert.match(verifier, /ruleset\.rules\.0.*= update.*ruleset\.rules\.1.*= deletion/);
   assert.doesNotMatch(verifier, /"type":"creation"|= creation/);
-  assert.match(verifier, /private-key\.pem.*<"\$input"/);
+  assert.match(verifier, /private-key\.pem.*<"\$input"/); assert.match(verifier, /case "\$root" in \(\/private\/tmp\/baci-cwv-\*\)/);
   for (const operation of task7Operations.slice(8)) assert.match(verifier, new RegExp(operation));
 });
-
 test('claims both source-authorization destinations without mv no-clobber ambiguity', async () => { const verifier = await readFile(verifierPath, 'utf8'); for (const writer of [verifier.slice(verifier.indexOf('write_atomic()'), verifier.indexOf('\nwrite_digest()')), verifier.slice(verifier.indexOf('write_digest()'), verifier.indexOf('\noperation_set()'))]) { assert.match(writer, /\/bin\/ln "\$temporary" "\$destination" \|\| refuse/); assert.match(writer, /\/bin\/rm -f -- "\$temporary" \|\| refuse/); assert.doesNotMatch(writer, /\/bin\/mv -n/); } });
 test('creates and revalidates one task7 source authorization', async () => {
   const value = await fixture();
@@ -146,7 +147,6 @@ test('creates and revalidates one task7 source authorization', async () => {
     transactionId: path.basename(value.root),
   });
 });
-
 test('verifies archive, checksum row, binary, and version before rebound exec', async () => {
   const value = await fixture(`${'b'.repeat(64)}  unrelated-release.zip\n`);
   const sourceReceipt = path.join(value.root, 'source-authorization.json');
@@ -238,7 +238,6 @@ test('verifies archive, checksum row, binary, and version before rebound exec', 
   ]);
   assert.notEqual(replaced.status, 0);
 });
-
 test('refuses wrong purpose, arbitrary operation, caller argv, and checksum drift', async () => {
   const source = await readFile(verifierPath, 'utf8');
   assert.match(source, /task7-provisioning/);
@@ -260,7 +259,6 @@ test('refuses wrong purpose, arbitrary operation, caller argv, and checksum drif
   assert.notEqual(result.status, 0);
   assert.equal(result.stdout, '');
 });
-
 test('emits a Task 9 token only after immediate source and binary rebound, rejecting a Task 7 receipt', async () => {
   const value = await fixture();
   const sourceReceipt = path.join(value.root, 'source-authorization.json');

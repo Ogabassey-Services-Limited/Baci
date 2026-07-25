@@ -112,7 +112,7 @@ async function abortFixture({ campaign, foreign = false }) {
   const binding = { artifacts: { allow: '0'.repeat(64), environment: null, inventory: null, release: null, samplerEnvironment: null }, campaignId: activeCampaign, captureSha256: captureSha, controllerBindingSha256: digest('{}\n'), generation: 1, schemaVersion: 1 };
   await writeFile(path.join(directory, 'active-transaction.json'), `${JSON.stringify(binding)}\n`, { mode: 0o600 });
   const marker = path.join(root, 'systemctl-called'); await writeFile(path.join(root, 'systemctl'), `#!/bin/sh\ntouch ${marker}\n`, { mode: 0o700 });
-  let source = controller.replace(/root_file\(\) \{[^\n]*\}/, 'root_file() { [ -f "$1" ] && [ ! -L "$1" ]; }').replace(/\[ "\$\(\/usr\/bin\/id -u\)" -eq 0 \] \|\| \{ printf '%s\\n' 'root required' >&2; exit 77; \}/, 'true').replaceAll('/bin/systemctl', path.join(root, 'systemctl'));
+  let source = controller.replace(/root_file\(\) \{[^\n]*\}/, 'root_file() { [ -f "$1" ] && [ ! -L "$1" ]; }').replace(/root_mode\(\) \{[^\n]*\}/, 'root_mode() { root_file "$1"; }').replace(/^digest\(\).*$/m, `digest() { '${process.execPath}' -e 'const c=require("node:crypto"),f=require("node:fs");process.stdout.write(c.createHash("sha256").update(f.readFileSync(process.argv[1])).digest("hex")+"\\n")' "$1"; }`).replace(/\[ "\$\(\/usr\/bin\/id -u\)" -eq 0 \] \|\| \{ printf '%s\\n' 'root required' >&2; exit 77; \}/, 'true').replaceAll('/bin/systemctl', path.join(root, 'systemctl'));
   const artifactMarker = path.join(root, 'verify-artifact-called'); assert.match(source, /^verify_artifact\(\) \{$/m); source = source.replace(/^verify_artifact\(\) \{$/m, `verify_artifact() { : >"${artifactMarker}";`);
   for (const [name, value] of Object.entries({ STATE_ROOT: paths.state, CONTROL_ROOT: paths.control, ALLOW_ROOT: paths.allow, INVENTORY_ROOT: paths.inventory, RELEASE_ROOT: paths.release, ENV_FILE: path.join(root, 'measurement.env'), SAMPLER_ENV: path.join(paths.run, 'host-sampler.env') })) source = source.replace(new RegExp(`^${name}=.*$`, 'm'), `${name}=${value}`);
   const script = path.join(root, 'controller.sh'); await writeFile(script, source, { mode: 0o700 });
@@ -278,7 +278,7 @@ test('abort cannot stop or delete state for a foreign campaign or a drifted rece
     const { result, verified } = await abortFixture(value);
     assert.equal(result.error, undefined);
     assert.equal(result.status, 1);
-    assert.equal(verified, value.foreign === false);
+    assert.equal(verified, !value.foreign);
   }
 });
 test('job hook selects only named context and validates the raw-policy-bound finite five-second allow record', () => {

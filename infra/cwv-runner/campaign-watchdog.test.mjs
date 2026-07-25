@@ -104,6 +104,7 @@ test('restore reconciles capture state and watchdog handles timeout, reboot, and
       'crontab',
       `if [ "$*" = '-u bassey -l' ]; then cat '${crontab}'; else cp "$3" '${crontab}'; fi`
     ),
+    sha256sum: await makeStub('sha256sum', `exec '${process.execPath}' -e 'const c=require("node:crypto"),f=require("node:fs"),a=process.argv.slice(1),p=(v,n)=>process.stdout.write(c.createHash("sha256").update(v).digest("hex")+"  "+n+"\\n");if(a.length)for(const n of a)p(f.readFileSync(n),n);else p(f.readFileSync(0),"-");' "$@"`),
     sleep: await makeStub(
       'sleep',
       `for release in '${stateRoot}'/*/lease-release.json; do [ -e "$release" ] || continue; /bin/rm -f -- "$(/usr/bin/dirname "$release")/lease-holder.json"; done`
@@ -114,9 +115,7 @@ test('restore reconciles capture state and watchdog handles timeout, reboot, and
   const cronSha = sha256(archive);
   // biome-ignore format: keeps the integration fixture below the source ceiling.
   const inventoryKeys = 'nftables iptables ip6tables ipRules4 ipRules6 tc conntrack addresses routes dockerNetworks'.split(' ');
-  // biome-ignore format: keeps the integration fixture below the source ceiling.
   const registrationAddresses = Buffer.from(JSON.stringify([{ addr_info: [{ family: 'inet', local: '82.29.190.219' }] }]));
-  // biome-ignore format: keeps the integration fixture below the source ceiling.
   const registrationDockerNetworks = Buffer.from(JSON.stringify([{ IPAM: { Config: [{ Subnet: '172.18.0.0/16' }] } }]));
   const registrationServices = [{ uid: 2, unit: 'baci.service' }];
   // biome-ignore format: keeps the integration fixture below the source ceiling.
@@ -133,7 +132,7 @@ test('restore reconciles capture state and watchdog handles timeout, reboot, and
   const replacements = new Map([
     ['/srv/baci-cwv/campaigns', stateRoot],
     ['/usr/bin/node', process.execPath],
-    ['/usr/bin/sha256sum', '/sbin/sha256sum'],
+    ['/usr/bin/sha256sum', `/bin/sh ${tools.sha256sum}`],
     ['/usr/bin/sync', '/bin/sync'],
     ['/bin/systemctl', `/bin/sh ${systemctl}`],
     ['/usr/bin/docker', `/bin/sh ${docker}`],
@@ -165,7 +164,6 @@ test('restore reconciles capture state and watchdog handles timeout, reboot, and
   ]);
   const restore = path.join(source, 'campaign-restore.sh');
   await fs.writeFile(restore, await transform('campaign-restore.sh'));
-  // biome-ignore format: keeps the integration fixture below the source ceiling.
   await fs.writeFile(path.join(source, 'campaign-restore-post-commit.sh'), await transform('campaign-restore-post-commit.sh'));
   await fs.chmod(restore, 0o755);
   const watchdogPath = path.join(source, 'campaign-watchdog.sh');
@@ -181,6 +179,8 @@ test('restore reconciles capture state and watchdog handles timeout, reboot, and
       '"$RESTORE" "$transaction_id" "$capture_sha"',
       '/bin/sh "$RESTORE" "$transaction_id" "$capture_sha"'
     );
+  assert.match(await read('./campaign-watchdog.sh'), /\/usr\/bin\/sha256sum/, 'RED: production watchdog keeps its fixed checksum path');
+  assert.doesNotMatch(watchdogBody, /\/(?:usr|sbin)\/sha256sum/, 'GREEN: fixture injects a portable checksum command');
   await fs.writeFile(watchdogPath, watchdogBody);
   const sourceDigest = await campaignSourceDigest(source);
   const createTransaction = async (id, deadline = '999999999') => {

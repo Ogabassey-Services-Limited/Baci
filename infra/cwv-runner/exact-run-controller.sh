@@ -161,8 +161,8 @@ wait_for_sample() {
   attempt=0
   while [ "$attempt" -lt 15 ]; do
     now=$(/bin/date -u +%s)
-    if root_file "$EVIDENCE_ROOT/live-sample.json" && [ "$(/usr/bin/stat -c '%u:%g:%a' -- "$EVIDENCE_ROOT/live-sample.json")" = 0:10001:640 ] && /usr/bin/node "$LIVE_SAMPLE_CONTRACT" "$EVIDENCE_ROOT/live-sample.json" "$directory/live-sample-expected.json" "$now" >/dev/null; then
-      digest "$EVIDENCE_ROOT/live-sample.json" >"$directory/live-sample.sha256"
+    if root_file "$EVIDENCE_ROOT/live-sample.json" && [ "$(/usr/bin/stat -c '%u:%g:%a' -- "$EVIDENCE_ROOT/live-sample.json")" = 0:10001:640 ] && copy_receipt "$EVIDENCE_ROOT/live-sample.json" "$directory/live-sample.json" && root_mode "$directory/live-sample.json" 600 && /usr/bin/node "$LIVE_SAMPLE_CONTRACT" "$directory/live-sample.json" "$directory/live-sample-expected.json" "$now" >/dev/null; then
+      digest "$directory/live-sample.json" >"$directory/live-sample.sha256"
       return 0
     fi
     attempt=$((attempt + 1)); /bin/sleep 1

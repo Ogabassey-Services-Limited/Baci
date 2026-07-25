@@ -31,7 +31,7 @@ async function fixture({ badFingerprint = false, platform = 'Linux', replaceAfte
     await fs.writeFile(replacement, '82.29.190.219 ssh-ed25519 attacker\n');
   await fs.writeFile(
     paths.ssh,
-    `#!/usr/bin/env node\nconst fs=require("node:fs"),known=process.argv.find((value)=>value.startsWith("UserKnownHostsFile="));if(known)fs.writeFileSync(${JSON.stringify(knownHostsCapture)},fs.readFileSync(known.slice("UserKnownHostsFile=".length)));fs.writeFileSync(${JSON.stringify(capture)},process.argv.slice(2).join("\\n")+"\\n");\n`
+    `#!${process.execPath}\nconst fs=require("node:fs"),known=process.argv.find((value)=>value.startsWith("UserKnownHostsFile="));if(known)fs.writeFileSync(${JSON.stringify(knownHostsCapture)},fs.readFileSync(known.slice("UserKnownHostsFile=".length)));fs.writeFileSync(${JSON.stringify(capture)},process.argv.slice(2).join("\\n")+"\\n");\n`
   );
   await fs.writeFile(
     paths['ssh-keygen'],
@@ -39,11 +39,11 @@ async function fixture({ badFingerprint = false, platform = 'Linux', replaceAfte
   );
   await fs.writeFile(
     paths.sha256sum,
-    `#!/usr/bin/env node\nconst fs=require("node:fs"),crypto=require("node:crypto");const path=process.argv.at(-1),bytes=fs.readFileSync(path);${replaceAfterDigest ? `fs.rmSync(${JSON.stringify(join(dir, 'ogabassey-known-hosts'))},{force:true});fs.symlinkSync(${JSON.stringify(replacement)},${JSON.stringify(join(dir, 'ogabassey-known-hosts'))});` : ''}process.stdout.write(crypto.createHash("sha256").update(bytes).digest("hex")+"  "+path+"\\n");\n`
+    `#!${process.execPath}\nconst fs=require("node:fs"),crypto=require("node:crypto");const path=process.argv.at(-1),bytes=fs.readFileSync(path);${replaceAfterDigest ? `fs.rmSync(${JSON.stringify(join(dir, 'ogabassey-known-hosts'))},{force:true});fs.symlinkSync(${JSON.stringify(replacement)},${JSON.stringify(join(dir, 'ogabassey-known-hosts'))});` : ''}process.stdout.write(crypto.createHash("sha256").update(bytes).digest("hex")+"  "+path+"\\n");\n`
   );
   await fs.writeFile(
     paths.shasum,
-    '#!/usr/bin/env node\nconst fs=require("node:fs"),crypto=require("node:crypto");const path=process.argv.at(-1);process.stdout.write(crypto.createHash("sha256").update(fs.readFileSync(path)).digest("hex")+"  "+path+"\\n");\n'
+    `#!${process.execPath}\nconst fs=require("node:fs"),crypto=require("node:crypto");const path=process.argv.at(-1);process.stdout.write(crypto.createHash("sha256").update(fs.readFileSync(path)).digest("hex")+"  "+path+"\\n");\n`
   );
   await fs.writeFile(
     paths.uname,

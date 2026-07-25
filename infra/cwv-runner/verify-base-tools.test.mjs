@@ -107,9 +107,7 @@ esac
   );
   const dpkg = join(bin, 'dpkg-query');
   const dpkgFixture =
-    '#!/bin/sh\nif [ "$1" = -S ]; then name=$' +
-    '{2##*/}; case "$name" in awk-target) printf "mawk: %s" "$2" ;; *) printf "pkg-%s: %s" "$' +
-    '{name//:/-}" "$2" ;; esac; else printf 1; fi\n';
+    '#!/bin/sh\nif [ "$1" = -S ]; then name=${2##*/}; case "$name" in awk-target) printf "mawk: %s" "$2" ;; *) name=$(printf \'%s\' "$name" | tr \':\' \'-\'); printf "pkg-%s: %s" "$name" "$2" ;; esac; else printf 1; fi\n';
   writeFileSync(dpkg, dpkgFixture);
   const move = join(bin, 'mv');
   writeFileSync(
@@ -132,7 +130,13 @@ esac
       )
   );
   chmodSync(helper, 0o700);
-  return { helper, inventory, paths, receipt: join(root, 'receipt.json') };
+  return {
+    dpkg,
+    helper,
+    inventory,
+    paths,
+    receipt: join(root, 'receipt.json'),
+  };
 }
 
 const base = `ubuntu@sha256:${'a'.repeat(64)}`;
@@ -140,6 +144,17 @@ const run = (value) =>
   spawnSync('/bin/bash', [value.helper, base, value.inventory, value.receipt], {
     encoding: 'utf8',
   });
+
+test('runs the generated dpkg-query fixture under POSIX sh', () => {
+  const value = fixture();
+  const path = '/tmp/interpreter:loader';
+  const result = spawnSync('/bin/dash', [value.dpkg, '-S', path], {
+    encoding: 'utf8',
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, `pkg-interpreter-loader: ${path}`);
+});
 
 test('binds every base command, interpreter, transitive library, and keyring', () => {
   const value = fixture();

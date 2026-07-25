@@ -44,6 +44,12 @@ test('campaign lease remains exclusive until terminal release', async (t) => {
   await fs.writeFile(holder, body, { mode: 0o755 });
 
   const descriptor = await open(lock, 'a');
+  let descriptorClosed = false;
+  const closeDescriptor = async () => {
+    if (descriptorClosed) return;
+    descriptorClosed = true;
+    await descriptor.close();
+  };
   const token = 'b'.repeat(64);
   const child = spawn(
     '/bin/sh',
@@ -65,8 +71,13 @@ test('campaign lease remains exclusive until terminal release', async (t) => {
   );
   t.after(async () => {
     child.kill('SIGKILL');
-    await descriptor.close().catch(() => undefined);
+    await closeDescriptor().catch(() => undefined);
   });
+  await new Promise((resolve, reject) => {
+    child.once('spawn', resolve);
+    child.once('error', reject);
+  });
+  await closeDescriptor();
   const receipt = await waitFor(path.join(transaction, 'lease-holder.json'));
   assert.equal(receipt.lockHeld, true);
   assert.equal(

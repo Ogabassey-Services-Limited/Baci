@@ -39,6 +39,8 @@ test('blocks an infra-only CWV runner deploy until the complete CWV contract sui
     '${{ steps.gate.outputs.cwv_runner }}',
   );
   assert.match(filterPaths(ciChanges, 'cwv_runner'), /'infra\/cwv-runner\/\*\*'/);
+  assert.match(filterPaths(ciChanges, 'cwv_runner'), /'package\.json'/);
+  assert.match(filterPaths(ciChanges, 'cwv_runner'), /'pnpm-lock\.yaml'/);
   assert.doesNotMatch(filterPaths(ciChanges, 'web'), /'infra\/cwv-runner\/\*\*'/);
   assert.equal(ciGate.if, "needs.changes.outputs.cwv_runner == 'true'");
 
@@ -47,6 +49,8 @@ test('blocks an infra-only CWV runner deploy until the complete CWV contract sui
     '${{ steps.filter.outputs.cwv_runner }}',
   );
   assert.match(filterPaths(deployChanges, 'cwv_runner'), /'infra\/cwv-runner\/\*\*'/);
+  assert.match(filterPaths(deployChanges, 'cwv_runner'), /'package\.json'/);
+  assert.match(filterPaths(deployChanges, 'cwv_runner'), /'pnpm-lock\.yaml'/);
   assert.doesNotMatch(filterPaths(deployChanges, 'web'), /'infra\/cwv-runner\/\*\*'/);
   assert.equal(deployGate.if, "needs.changes.outputs.cwv_runner == 'true'");
 
