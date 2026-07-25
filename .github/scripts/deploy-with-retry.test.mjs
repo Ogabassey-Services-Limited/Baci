@@ -170,27 +170,32 @@ test('refuses duplicate custom id recovery without an observed deployment target
 });
 
 test(
-  'recovers a hung deploy attempt by promoting via the duplicate-id path',
+  'recovers a hung deploy by promoting the deployment it created (no retry)',
   { skip: hasTimeoutCmd ? false : 'timeout/gtimeout unavailable' },
   () => {
-    const fakeCommand = makeFakeCommand('hang-then-duplicate');
+    const fakeCommand = makeFakeCommand('hang-after-create');
 
     try {
-      // Attempt 1 prints the deployment URL then hangs (exec sleep 60). The 2s
-      // cap terminates it; attempt 2 reports the duplicate custom id, and the
-      // already-created deployment is recovered by promotion.
+      // The attempt prints the deployment URL then hangs (exec sleep 60). The 2s
+      // cap terminates it; because a --prebuilt retry would create a NEW
+      // deployment (no duplicate-id error), the created deployment is promoted
+      // directly instead of retrying.
       const result = runScript(fakeCommand, ['fake-vercel', 'deploy'], {
         DEPLOY_ATTEMPT_TIMEOUT_SECONDS: '2',
       });
 
       assert.equal(result.status, 0, result.stderr);
-      assert.match(result.stderr, /was terminated; retrying/);
-      assert.match(result.stdout, /promoting existing deployment/);
-      assert.match(result.stdout, /recovered success/);
+      assert.match(result.stderr, /was terminated/);
+      assert.match(
+        result.stdout,
+        /Recovered timed-out deploy by promoting https:\/\/baci-hang\.vercel\.app/
+      );
       assert.equal(
         readFileSync(fakeCommand.promotedFile, 'utf8').trim(),
         'https://baci-hang.vercel.app'
       );
+      // exactly ONE deploy attempt — recovered, not retried (no duplicate deploys)
+      assert.equal(readFileSync(fakeCommand.attemptsFile, 'utf8').trim(), '1');
     } finally {
       rmSync(fakeCommand.tempDir, { recursive: true, force: true });
     }

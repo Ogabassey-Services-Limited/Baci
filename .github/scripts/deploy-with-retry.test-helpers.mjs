@@ -72,13 +72,11 @@ case "${mode}" in
     echo "Error: custom deployment id already exists for this project" >&2
     exit 1
     ;;
-  hang-then-duplicate)
-    if [ "$attempt" -eq 1 ]; then
-      echo "Production: https://baci-hang.vercel.app"
-      exec sleep 60
-    fi
-    echo "Error: custom deployment id already exists for this project" >&2
-    exit 1
+  hang-after-create)
+    # Prints the deployment URL (deployment created + READY), then hangs the way
+    # CLI 57 vercel deploy --prod does after creating the deployment.
+    echo "Production: https://baci-hang.vercel.app"
+    exec sleep 60
     ;;
   fatal)
     echo "fatal deploy failure" >&2

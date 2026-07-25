@@ -111,12 +111,26 @@ for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
   status=${PIPESTATUS[0]}
   set -e
 
-  # 124 is `timeout`'s exit code when it had to kill the command. The deploy may
-  # have already created the deployment before hanging, so fall through to the
-  # normal failure handling: the retry hits the duplicate custom-deployment-id
-  # error and promote_existing_deployment recovers the created deployment.
+  # 124 is `timeout`'s exit code when it had to kill the command. CLI 57 keeps
+  # creating the deployment (READY, URL printed) and then hanging without
+  # exiting. A `vercel deploy --prebuilt` RETRY makes a brand-new deployment (it
+  # does NOT report a duplicate custom id), so recover by promoting the
+  # deployment THIS attempt already created rather than retrying.
   if [ "$status" -eq 124 ]; then
-    echo "Deploy attempt $attempt exceeded ${DEPLOY_ATTEMPT_TIMEOUT_SECONDS}s and was terminated; retrying to recover the created deployment." >&2
+    echo "Deploy attempt $attempt exceeded ${DEPLOY_ATTEMPT_TIMEOUT_SECONDS}s and was terminated." >&2
+    timed_out_target="$(extract_deployment_target "$attempt_log" || true)"
+    if [ -n "$timed_out_target" ]; then
+      last_deployment_target="$timed_out_target"
+      rm -f "$attempt_log"
+      echo "Promoting the deployment the timed-out attempt created: ${last_deployment_target}..."
+      if ! run_promote_command; then
+        echo "Promote of ${last_deployment_target} after timeout failed." >&2
+        exit 1
+      fi
+      echo "Recovered timed-out deploy by promoting ${last_deployment_target} to production."
+      exit 0
+    fi
+    echo "Timed-out attempt produced no deployment URL; will retry." >&2
   fi
 
   if [ "$status" -eq 0 ]; then
