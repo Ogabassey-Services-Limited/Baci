@@ -57,6 +57,17 @@ interface FailedOrderRow {
 /** Stale threshold: pending orders older than this are likely abandoned */
 const STALE_PENDING_MINUTES = 30;
 
+/**
+ * `orders` and `transactions` are joined by two foreign keys:
+ * - `transactions_order_id_fkey`      transactions.order_id -> orders.id (the payment attempts)
+ * - `orders_paid_transaction_id_fkey` orders.paid_transaction_id -> transactions.id (the settling attempt)
+ *
+ * PostgREST refuses an ambiguous embed (PGRST201) and fails the whole request,
+ * so the attempt-history relationship must be named explicitly.
+ */
+const FAILED_ORDER_TRANSACTIONS_RELATIONSHIP =
+  'transactions!transactions_order_id_fkey';
+
 export function useFailedOrders() {
   const { merchant } = useMerchant();
   const merchantId = merchant?.id;
@@ -86,7 +97,7 @@ export function useFailedOrders() {
           payment_status,
           payment_method,
           created_at,
-          transactions (
+          ${FAILED_ORDER_TRANSACTIONS_RELATIONSHIP} (
             gateway_response,
             status,
             gateway
