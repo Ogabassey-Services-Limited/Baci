@@ -6,6 +6,8 @@ import { useTheme } from '@/hooks/useTheme';
 import { quizDateOfBirthGateStyles as styles } from './QuizDateOfBirthGateModal.styles';
 
 interface QuizDateOfBirthGateModalProps {
+  /** Age-rejection reason shown when the gate reopens to correct a stored DOB. */
+  errorMessage?: string | null;
   onCancel: () => void;
   onSuccess: (dateOfBirth: string) => void;
   visible: boolean;
@@ -16,6 +18,7 @@ interface QuizDateOfBirthGateModalProps {
  * is 18+, and the server age gate reads the stored value to decide eligibility.
  */
 export function QuizDateOfBirthGateModal({
+  errorMessage,
   onCancel,
   onSuccess,
   visible,
@@ -50,6 +53,15 @@ export function QuizDateOfBirthGateModal({
       <Text style={[styles.helperText, { color: colors.textSecondary }]}>
         Super Quiz is 18+. Enter your date of birth to start this quiz.
       </Text>
+      {errorMessage ? (
+        <Text
+          accessibilityLiveRegion="polite"
+          accessibilityRole="alert"
+          style={[styles.errorText, { color: colors.error }]}
+        >
+          {errorMessage}
+        </Text>
+      ) : null}
       <DateOfBirthPrompt onSuccess={onSuccess} submitLabel="Continue" />
     </ModalSheet>
   );

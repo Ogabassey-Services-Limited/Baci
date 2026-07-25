@@ -62,38 +62,96 @@ describe('useQuizDateOfBirthGate', () => {
     act(() => {
       result.current.requestStart('event-1');
     });
+    const generation = result.current.generation;
     act(() => {
-      result.current.confirmGate();
+      result.current.confirmGate(generation);
     });
 
     expect(result.current.isGateVisible).toBe(false);
     expect(onStart).toHaveBeenCalledWith('event-1');
   });
 
-  it('does not start the quiz when a late success callback fires after cancellation', () => {
-    // Reproduces the cancel-race: the shopper taps Continue (which captures a
-    // confirmGate closure while an async setDateOfBirth is in flight), then taps
-    // Cancel before the RPC resolves. The captured (stale) confirmGate must be
-    // a no-op — the exam pass must not be spent against an explicit cancel.
+  it('ignores a stale confirm from a save that resolved after cancellation', () => {
+    // The shopper taps Continue (snapshotting the open-time generation while an
+    // async setDateOfBirth is in flight), then taps Cancel before it resolves.
+    // The stale confirm must be a no-op — an explicit cancel must not spend the
+    // exam pass.
     const onStart = jest.fn();
     const { result } = renderHook(() => useQuizDateOfBirthGate(onStart));
 
     act(() => {
       result.current.requestStart('event-1');
     });
-
-    const staleConfirmGate = result.current.confirmGate;
+    const staleGeneration = result.current.generation;
 
     act(() => {
       result.current.cancelGate();
     });
-
     act(() => {
-      staleConfirmGate();
+      result.current.confirmGate(staleGeneration);
     });
 
     expect(onStart).not.toHaveBeenCalled();
     expect(result.current.isGateVisible).toBe(false);
+  });
+
+  it('does not start the newly-pending event when a stale save from another event resolves', () => {
+    // Tvrvf race: submit for event-1, cancel, then request event-2 before the
+    // first save resolves. The stale confirm (bound to event-1's generation)
+    // must not start event-2, which the shopper never confirmed.
+    const onStart = jest.fn();
+    const { result } = renderHook(() => useQuizDateOfBirthGate(onStart));
+
+    act(() => {
+      result.current.requestStart('event-1');
+    });
+    const firstGeneration = result.current.generation;
+
+    act(() => {
+      result.current.cancelGate();
+    });
+    act(() => {
+      result.current.requestStart('event-2');
+    });
+
+    // The late event-1 save resolves with its (now stale) generation.
+    act(() => {
+      result.current.confirmGate(firstGeneration);
+    });
+    expect(onStart).not.toHaveBeenCalled();
+
+    // The current event-2 confirm still works.
+    act(() => {
+      result.current.confirmGate(result.current.generation);
+    });
+    expect(onStart).toHaveBeenCalledWith('event-2');
+    expect(onStart).toHaveBeenCalledTimes(1);
+  });
+
+  it('reopens the gate to correct a stored DOB that the server age gate rejected', () => {
+    // The DOB is already on file (an adult mistyped it), so requestStart would
+    // start straight through. reopenForCorrection forces the gate open with the
+    // rejection reason so the shopper can fix it.
+    mockCustomer = { date_of_birth: '2015-01-01' };
+    const onStart = jest.fn();
+    const { result } = renderHook(() => useQuizDateOfBirthGate(onStart));
+
+    act(() => {
+      result.current.reopenForCorrection(
+        'event-1',
+        'Quiz participation requires an adult profile (18+)'
+      );
+    });
+
+    expect(result.current.isGateVisible).toBe(true);
+    expect(result.current.correctionError).toBe(
+      'Quiz participation requires an adult profile (18+)'
+    );
+
+    act(() => {
+      result.current.confirmGate(result.current.generation);
+    });
+    expect(onStart).toHaveBeenCalledWith('event-1');
   });
 
   it('does nothing when confirmGate is called without a pending event', () => {
@@ -101,7 +159,7 @@ describe('useQuizDateOfBirthGate', () => {
     const { result } = renderHook(() => useQuizDateOfBirthGate(onStart));
 
     act(() => {
-      result.current.confirmGate();
+      result.current.confirmGate(result.current.generation);
     });
 
     expect(onStart).not.toHaveBeenCalled();

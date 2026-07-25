@@ -33,4 +33,9 @@ export const quizDateOfBirthGateStyles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
+  errorText: {
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 20,
+  },
 });
