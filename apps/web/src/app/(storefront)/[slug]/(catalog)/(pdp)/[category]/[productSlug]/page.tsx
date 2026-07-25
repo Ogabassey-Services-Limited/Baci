@@ -48,6 +48,7 @@ import {
   sanitizeLookupLogValue,
 } from '@/lib/cached-data';
 import { getCachedProductLcpHintPrimaryImage } from '@/lib/cached-product-lcp-hint-primary-image';
+import type { CurrencyConfig } from '@/lib/currency';
 import { isKorapayConfigured } from '@/lib/korapay';
 import { normalizeStorefrontCategorySlug } from '@/lib/normalize-storefront-category-slug';
 import { getKnownOgaBasseyMerchantId } from '@/lib/ogabassey-route-identity';
@@ -92,6 +93,7 @@ import {
   shouldRedirectVariantSelectionParams,
 } from './critical-variant-selection';
 import { OgabasseyPdpRequestScopedSemanticSections } from './ogabassey-pdp-request-scoped-semantic-sections';
+import { getPdpPriceFormatter } from './pdp-price-formatter';
 import {
   PRERENDER_PLACEHOLDER_PRODUCT_SLUG,
   resolveProductStaticParams,
@@ -120,8 +122,6 @@ const PRODUCT_NOT_FOUND_METADATA: Metadata = {
   },
 };
 
-const priceFormatterCache = new Map<string, Intl.NumberFormat>();
-
 function renderCategoryProductNotFoundContent(slug: string) {
   // generateMetadata keeps missing PDPs noindex/hard-not-found before render.
   // This stable body only covers render-time races after the storefront shell
@@ -135,28 +135,15 @@ function renderCategoryProductNotFoundContent(slug: string) {
   );
 }
 
-function getPriceFormatter(currency: string): Intl.NumberFormat {
-  let formatter = priceFormatterCache.get(currency);
-  if (!formatter) {
-    formatter = new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency,
-      minimumFractionDigits: 0,
-    });
-    priceFormatterCache.set(currency, formatter);
-  }
-  return formatter;
-}
-
 /**
  * Converts server-side Product to Ogabassey template format
  */
 function toOgabasseyProduct(
   product: Product,
-  currency = 'NGN'
+  currency: CurrencyConfig
 ): OgabasseyProduct {
-  // Format price with currency symbol
-  const formatter = getPriceFormatter(currency);
+  // Format price in the merchant's own currency AND locale
+  const formatter = getPdpPriceFormatter(currency);
 
   // Production data currently stores variant_attributes as either:
   // 1. a legacy object map { Storage: ['256GB'] }
@@ -317,14 +304,14 @@ type TemplateProductRenderMode = 'full' | 'belowFold';
  * Renders the correct template's product page based on merchant's template_id
  */
 async function renderTemplateProductPage({
-  currency = 'NGN',
+  currency,
   product,
   serverPrimaryDetails,
   semanticSections,
   storeSlug,
   templateId,
 }: {
-  currency?: string;
+  currency: CurrencyConfig;
   product: Product;
   renderMode?: TemplateProductRenderMode;
   serverPrimaryDetails: ReactNode;
@@ -1249,7 +1236,9 @@ async function CategoryProductPageContent({
       ? generateSlug(renderableProduct.category)
       : 'products');
   const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
-  const currency = resolveMerchantCurrencyConfig(merchant).code;
+  const currencyConfig = resolveMerchantCurrencyConfig(merchant);
+  // SEO copy / JSON-LD / payment methods all take the bare ISO code.
+  const currency = currencyConfig.code;
   const priceSeoCopy = buildProductPriceSeoCopy({
     product: renderableProduct,
     merchantDisplayName: merchant?.business_name || DEFAULT_STORE_NAME,
@@ -1329,7 +1318,7 @@ async function CategoryProductPageContent({
 
   const breadcrumbSchema = generateBreadcrumbSchema(breadcrumbItems);
   const productPage = await renderTemplateProductPage({
-    currency,
+    currency: currencyConfig,
     product: renderableProduct,
     renderMode,
     serverPrimaryDetails: (
