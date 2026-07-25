@@ -57,6 +57,31 @@ describe('buildOnboardingFailureResponse', () => {
       );
     });
 
+    it('keeps the failing row out of the log', () => {
+      // Arrange: Postgres puts the offending row in DETAIL for not-null/check/
+      // unique violations, which here would be the signing-up user's own data.
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const violation = Object.assign(
+        new Error('null value in column "email" violates not-null constraint'),
+        {
+          code: '23502',
+          details:
+            'Failing row contains (7d3f, victim@example.com, +2348012345678).',
+          hint: null,
+        }
+      );
+
+      // Act
+      buildOnboardingFailureResponse(violation, { accountCreated: true });
+
+      // Assert
+      const logged = errorSpy.mock.calls[0][1] as string;
+      expect(logged).not.toContain('victim@example.com');
+      expect(logged).not.toContain('Failing row contains');
+      // ...while the diagnosis is still there.
+      expect(JSON.parse(logged).pgCode).toBe('23502');
+    });
+
     it('does not leak the database message or details to the client', async () => {
       // Arrange
       vi.spyOn(console, 'error').mockImplementation(() => {});

@@ -69,6 +69,12 @@ export interface OnboardingFailureContext {
    * succeeded). Determines whether the caller can recover by signing in.
    */
   accountCreated: boolean;
+  /**
+   * Specific message for the non-recoverable case (no account was created).
+   * Ignored when `accountCreated` — an existing account always gets the
+   * recovery copy, which is the actionable thing to say.
+   */
+  message?: string;
 }
 
 /**
@@ -78,7 +84,7 @@ export interface OnboardingFailureContext {
  */
 export function buildOnboardingFailureResponse(
   error: unknown,
-  { accountCreated }: OnboardingFailureContext
+  { accountCreated, message }: OnboardingFailureContext
 ): NextResponse {
   const pg = readPostgresErrorShape(error);
   const isDeploymentFault = pg.code
@@ -97,7 +103,10 @@ export function buildOnboardingFailureResponse(
       message:
         pg.message ?? (error instanceof Error ? error.message : String(error)),
       pgCode: pg.code,
-      pgDetails: pg.details,
+      // pg.details is deliberately NOT logged. Postgres puts the offending row
+      // in DETAIL for not-null/check/unique violations ("Failing row contains
+      // (...)"), which on this route would write the signing-up user's email
+      // and profile values into the log. `code` carries the diagnosis anyway.
       pgHint: pg.hint,
       stack:
         error instanceof Error
@@ -117,7 +126,7 @@ export function buildOnboardingFailureResponse(
   }
 
   return NextResponse.json(
-    { error: 'Internal Server Error', code: 'onboarding_failed' },
+    { error: message ?? 'Internal Server Error', code: 'onboarding_failed' },
     { status: 500 }
   );
 }

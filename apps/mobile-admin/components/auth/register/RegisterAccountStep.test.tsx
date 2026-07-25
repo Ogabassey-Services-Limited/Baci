@@ -121,9 +121,15 @@ describe('RegisterAccountStep iOS AutoFill contract', () => {
     // Act
     const password = screen.getByLabelText('Password');
 
+    const confirmPassword = screen.getByLabelText('Confirm Password');
+
     // Assert — validatePassword only marks "complexity" at 10+ characters, so a
-    // shorter suggestion would land the user on a failing checklist.
+    // shorter suggestion would land the user on a failing checklist. Both
+    // fields must agree or iOS can generate a value the confirm field rejects.
     expect(password.getAttribute('data-password-rules')).toBe('minlength: 10;');
+    expect(confirmPassword.getAttribute('data-password-rules')).toBe(
+      'minlength: 10;'
+    );
   });
 
   it('declares identity content types on the name and email fields', () => {
@@ -137,7 +143,9 @@ describe('RegisterAccountStep iOS AutoFill contract', () => {
 
     // Assert
     expect(firstName.getAttribute('data-text-content-type')).toBe('givenName');
+    expect(firstName.getAttribute('data-autocomplete')).toBe('given-name');
     expect(lastName.getAttribute('data-text-content-type')).toBe('familyName');
+    expect(lastName.getAttribute('data-autocomplete')).toBe('family-name');
     expect(email.getAttribute('data-text-content-type')).toBe('emailAddress');
     expect(email.getAttribute('data-autocomplete')).toBe('email');
   });

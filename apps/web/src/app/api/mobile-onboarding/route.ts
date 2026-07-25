@@ -343,11 +343,12 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (lookupError) {
-      console.error('Merchant lookup failed:', lookupError);
-      return NextResponse.json(
-        { error: 'Failed to check existing account.' },
-        { status: 500 }
-      );
+      // Reachable AFTER signUp, so it can strand a just-created account just
+      // like a thrown error. Same recovery contract.
+      return buildOnboardingFailureResponse(lookupError, {
+        accountCreated,
+        message: 'Failed to check existing account.',
+      });
     }
 
     let merchantId: string;
@@ -481,15 +482,12 @@ export async function POST(req: NextRequest) {
     });
 
     if (domainError && domainError.code !== '23505') {
-      console.error(
-        'Domain creation failed for merchant',
-        merchantId,
-        domainError
-      );
-      return NextResponse.json(
-        { error: 'Failed to provision store domain. Please try again.' },
-        { status: 500 }
-      );
+      console.error('Domain creation failed for merchant', merchantId);
+      // Also post-signUp: the merchant row exists but the store is unreachable.
+      return buildOnboardingFailureResponse(domainError, {
+        accountCreated,
+        message: 'Failed to provision store domain. Please try again.',
+      });
     }
 
     // Upsert Staff Member (Profile Data)

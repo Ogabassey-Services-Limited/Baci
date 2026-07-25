@@ -1,8 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as NavigationBar from 'expo-navigation-bar';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -14,12 +13,12 @@ import {
 import { RegisterAccountStep } from '@/components/auth/register/RegisterAccountStep';
 import { RegisterBusinessStep } from '@/components/auth/register/RegisterBusinessStep';
 import { getStyles } from '@/components/auth/register/register.styles';
+import { resolveRegistrationErrorAlert } from '@/components/auth/register/registration-error-alert';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
-import { isRuntimePlatform } from '@/config/runtime-platform';
 import type { BusinessTypeId } from '@/constants/business-types';
+import { useLightNavigationBar } from '@/hooks/useLightNavigationBar';
 import { useRegistration } from '@/hooks/useRegistration';
 import { useTheme } from '@/hooks/useTheme';
-import type { NetworkError } from '@/lib/api-client';
 import {
   type PasswordValidationResult,
   validatePassword,
@@ -62,16 +61,7 @@ export default function RegisterScreen() {
   });
   const [confirmError, setConfirmError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!isRuntimePlatform('android')) {
-      return;
-    }
-
-    void NavigationBar.setStyle('light');
-    return () => {
-      void NavigationBar.setStyle(isDark ? 'light' : 'dark');
-    };
-  }, [isDark]);
+  useLightNavigationBar(isDark);
 
   const updateForm = <K extends keyof typeof formData>(
     key: K,
@@ -209,76 +199,26 @@ export default function RegisterScreen() {
         },
         onError: (error: Error) => {
           console.error('Registration error:', error.message);
-          const networkError = error as NetworkError;
+          const { title, message, buttons } =
+            resolveRegistrationErrorAlert(error);
 
-          // Handle specific server error codes
-          const errorCode = (networkError.data as { code?: string } | undefined)
-            ?.code;
-          if (
-            networkError.statusCode === 409 &&
-            errorCode === 'slug_unavailable'
-          ) {
-            // The user's chosen Store Link is taken/retired — offer to pick
-            // another, NOT "go to login" (which would be the wrong recovery).
-            Alert.alert(
-              'Store URL Unavailable',
-              'That store URL is already taken. Please choose a different one.'
-            );
-            return;
-          }
-          if (networkError.statusCode === 409) {
-            Alert.alert(
-              'Account Exists',
-              'An account with this email already exists. Please log in instead.',
-              [
-                {
-                  text: 'Go to Login',
-                  onPress: () => router.replace('/(auth)/login'),
-                },
-                { text: 'OK', style: 'cancel' },
-              ]
-            );
+          if (buttons.length === 0) {
+            Alert.alert(title, message);
             return;
           }
 
-          if (networkError.statusCode === 429) {
-            Alert.alert(
-              'Too Many Attempts',
-              'Please wait a minute before trying again.'
-            );
-            return;
-          }
-
-          // The account WAS created but store provisioning failed. Retrying
-          // registration re-runs the same failing path — and once the signup
-          // session is cached the server skips signUp entirely, so the user
-          // never even gets the "account exists" 409. Send them to sign-in,
-          // which routes a merchant-less user to complete-profile.
-          if (errorCode === 'account_created_store_setup_failed') {
-            Alert.alert(
-              'Finish Setting Up',
-              error.message ||
-                'Your account was created, but we could not finish setting up your store. Please sign in to finish setup.',
-              [
-                {
-                  text: 'Sign In',
-                  onPress: () => router.replace('/(auth)/login'),
-                },
-              ]
-            );
-            return;
-          }
-
-          let message = error.message || 'Please try again later.';
-          if (networkError.isTimeout) {
-            message =
-              'The server is taking too long to respond. Please check your connection and try again.';
-          } else if (networkError.isOffline) {
-            message =
-              'Could not reach the server. Please check your internet connection and try again.';
-          }
-
-          Alert.alert('Registration Failed', message);
+          Alert.alert(
+            title,
+            message,
+            buttons.map((button) => ({
+              text: button.text,
+              style: button.style,
+              onPress:
+                button.action === 'login'
+                  ? () => router.replace('/(auth)/login')
+                  : undefined,
+            }))
+          );
         },
       }
     );
