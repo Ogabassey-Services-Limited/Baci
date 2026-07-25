@@ -38,9 +38,9 @@ import { isBaciPaystackSettlementCountry } from '@/lib/checkout/payment-gateway-
 import { formatCurrencyCompact, getCurrencyCode } from '@/lib/currency';
 import { cn } from '@/lib/utils';
 import { VirtualTerminalSettings } from './components/virtual-terminal-settings';
+import { fetchPaymentSettings } from './fetch-payment-settings';
 import {
   DEFAULT_PAYMENT_SETTINGS,
-  fetchPaymentSettings,
   type PaymentGatewaySettings,
 } from './payment-settings';
 

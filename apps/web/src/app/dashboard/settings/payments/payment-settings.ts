@@ -63,13 +63,3 @@ export function normalizePaymentSettings(
     credit_direct_enabled: data.credit_direct_enabled ?? false,
   };
 }
-
-export async function fetchPaymentSettings(): Promise<PaymentGatewaySettings | null> {
-  const response = await fetch('/api/merchant/features');
-  if (!response.ok) {
-    return null;
-  }
-
-  const data = (await response.json()) as RawPaymentSettings;
-  return normalizePaymentSettings(data);
-}
