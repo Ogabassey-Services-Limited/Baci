@@ -5,6 +5,7 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { getStorefrontPublicationCacheIdentity } from '@/lib/get-storefront-publication-cache-identity';
+import { logger } from '@/lib/logger';
 import { getAuthenticatedUser } from '@/lib/supabase/mobile-auth';
 
 /**
@@ -38,24 +39,32 @@ export type CategoryRouteResolution =
   | { ok: true; context: CategoryRouteContext }
   | { ok: false; response: NextResponse };
 
+/** The authenticated caller, resolved before any body is read. */
+export interface CategoryRequestAuth {
+  userId: string;
+  supabase: CategoryRouteContext['supabase'];
+}
+
+export type CategoryAuthResolution =
+  | { ok: true; auth: CategoryRequestAuth }
+  | { ok: false; response: NextResponse };
+
 function isCategoryManager(access: { isOwner?: boolean }): boolean {
   return access.isOwner === true;
 }
 
 /**
- * Authenticate and derive the merchant SERVER-SIDE.
+ * Authenticate ONLY. Runs as the first statement of every handler, before CSRF
+ * handling and before the body is read, so an unauthenticated caller can never
+ * reach JSON parsing or schema validation.
  *
- * Deliberately takes NO body input: this runs before the request body is read,
- * so an unauthenticated caller can never reach CSRF handling, JSON parsing or
- * schema validation. Tenant selection is always session-derived — see
- * `assertRequestedMerchant` for the separate client-assertion check.
+ * Supports BOTH transports: Bearer (mobile-admin) and cookie (web). The mobile
+ * category mutation is the primary caller, so a cookie-only client would 401
+ * every mobile request. CSRF is separately exempt for Bearer.
  */
-export async function resolveCategoryRouteContext(
+export async function authenticateCategoryRequest(
   request: Request
-): Promise<CategoryRouteResolution> {
-  // Supports BOTH transports: Bearer (mobile-admin) and cookie (web). The
-  // mobile category mutation is the primary caller, so a cookie-only client
-  // would 401 every mobile request. CSRF is separately exempt for Bearer.
+): Promise<CategoryAuthResolution> {
   const auth = await getAuthenticatedUser(request);
   if (!auth?.user) {
     return {
@@ -63,9 +72,37 @@ export async function resolveCategoryRouteContext(
       response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
     };
   }
+  return {
+    ok: true,
+    auth: { userId: auth.user.id, supabase: auth.supabase },
+  };
+}
 
-  const { user, supabase } = auth;
-  const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+/**
+ * Resolve WHICH merchant this request acts on, then authorize it.
+ *
+ * `requestedMerchantId` selects among the merchants the CALLER already has
+ * access to — `getMerchantForApiRequest` filters owned merchants by `user_id`
+ * and staff rows by active membership, so an id the caller has no access to
+ * resolves to nothing and 404s. It is never authority on its own.
+ *
+ * This matters for owners with several stores: the mobile context RPC picks the
+ * lowest merchant UUID while the default here is the most recently created one.
+ * Ignoring the assertion and 403ing on mismatch made category creation
+ * impossible for whichever store the app was actually displaying.
+ */
+export async function resolveCategoryRouteContext(
+  auth: CategoryRequestAuth,
+  requestedMerchantId?: string
+): Promise<CategoryRouteResolution> {
+  const { supabase } = auth;
+  const merchantContext = await getMerchantForApiRequest(
+    supabase,
+    auth.userId,
+    {
+      requestedMerchantId: requestedMerchantId ?? null,
+    }
+  );
   if (!merchantContext) {
     return {
       ok: false,
@@ -86,24 +123,51 @@ export async function resolveCategoryRouteContext(
     };
   }
 
-  // Complete storefront identity — current slug, RETIRED slugs, and active
-  // custom/purchased domains. Passing only the current slug silently resolves
-  // to zero hostnames for a renamed merchant or one whose slug is legacy-null
-  // but has a live custom domain, which would skip edge eviction entirely.
-  const identity = await getStorefrontPublicationCacheIdentity(
-    supabase,
-    merchantContext.merchantId,
-    merchantContext.merchantSlug
-  );
-
   return {
     ok: true,
     context: {
       merchantId: merchantContext.merchantId,
-      merchantIdentifiers: [...identity.identifiers],
+      merchantIdentifiers: await resolvePurgeIdentifiers(
+        supabase,
+        merchantContext.merchantId,
+        merchantContext.merchantSlug
+      ),
       supabase,
     },
   };
+}
+
+/**
+ * Storefront identifiers for edge-purge hostname resolution: current slug,
+ * RETIRED slugs, and active custom/purchased domains. Passing only the current
+ * slug resolves to zero hostnames for a renamed merchant, or one whose slug is
+ * legacy-null but has a live custom domain, which skips edge eviction entirely.
+ *
+ * These are PURGE METADATA reads, and the purge is explicitly best-effort — a
+ * transient failure in the domains or retired-slug tables must not turn a
+ * category mutation into a 500. Fall back to the canonical slug and log.
+ */
+async function resolvePurgeIdentifiers(
+  supabase: CategoryRouteContext['supabase'],
+  merchantId: string,
+  merchantSlug: string | null | undefined
+): Promise<string[]> {
+  try {
+    const identity = await getStorefrontPublicationCacheIdentity(
+      supabase,
+      merchantId,
+      merchantSlug
+    );
+    return [...identity.identifiers];
+  } catch (error) {
+    logger.warn({
+      message:
+        'Category purge identity lookup failed; falling back to the canonical slug',
+      merchantId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return merchantSlug ? [merchantSlug] : [];
+  }
 }
 
 /**
@@ -114,19 +178,27 @@ export async function resolveCategoryRouteContext(
  * another merchant's category — hiding it from their own top-level navigation
  * and coupling it to a foreign row's lifecycle.
  */
+export type ParentOwnershipResult = 'owned' | 'absent' | 'lookup-failed';
+
 export async function isParentCategoryOwnedByMerchant(
   supabase: CategoryRouteContext['supabase'],
   merchantId: string,
   parentId: string
-): Promise<boolean> {
-  const { data } = await supabase
+): Promise<ParentOwnershipResult> {
+  const { data, error } = await supabase
     .from('categories')
     .select('id')
     .eq('id', parentId)
     .eq('merchant_id', merchantId)
     .maybeSingle();
 
-  return Boolean(data);
+  // A transient database failure also yields `data: null`. Reporting that as
+  // absence would answer a non-retryable 400 PARENT_NOT_FOUND for a parent that
+  // exists, so the two cases must stay distinguishable.
+  if (error) {
+    return 'lookup-failed';
+  }
+  return data ? 'owned' : 'absent';
 }
 
 /**
@@ -186,24 +258,6 @@ export async function wouldCreateCategoryCycle(
 
   // Depth bound hit: the existing chain is already looping or pathological.
   return true;
-}
-
-/**
- * A client-supplied `merchantId` is an ASSERTION, never a selector. If it
- * disagrees with the session-derived tenant the request is refused outright
- * rather than silently rewritten to the caller's own merchant, so a mis-wired
- * client surfaces as a hard error instead of writing to the wrong store.
- *
- * Returns the refusal response, or null when the assertion holds (or is absent).
- */
-export function assertRequestedMerchant(
-  context: CategoryRouteContext,
-  requestedMerchantId?: string
-): NextResponse | null {
-  if (requestedMerchantId && requestedMerchantId !== context.merchantId) {
-    return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
-  }
-  return null;
 }
 
 /**

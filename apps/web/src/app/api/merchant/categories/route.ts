@@ -1,10 +1,9 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { invalidateCategoryCaches } from '@/lib/category-cache-invalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
-import { sanitizeText } from '@/lib/sanitize-core';
 import { createMerchantCategorySchema } from '@/schemas/create-merchant-category';
 import {
-  assertRequestedMerchant,
+  authenticateCategoryRequest,
   firstValidationMessage,
   isParentCategoryOwnedByMerchant,
   resolveCategoryRouteContext,
@@ -21,12 +20,11 @@ import {
 export async function POST(request: NextRequest) {
   // Auth FIRST — before CSRF handling and before the body is read — so an
   // unauthenticated caller cannot probe validation behaviour or spend parsing
-  // work. Every subsequent step assumes an authenticated, owner-scoped caller.
-  const resolution = await resolveCategoryRouteContext(request);
-  if (!resolution.ok) {
-    return resolution.response;
+  // work. WHICH merchant is resolved later, once the body has been validated.
+  const authentication = await authenticateCategoryRequest(request);
+  if (!authentication.ok) {
+    return authentication.response;
   }
-  const { merchantId, merchantIdentifiers, supabase } = resolution.context;
 
   const { valid, response: csrfResponse } = await checkCsrfProtection(request);
   if (!valid) {
@@ -58,24 +56,36 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const mismatch = assertRequestedMerchant(
-    resolution.context,
+  // The asserted merchantId SELECTS among the merchants this caller already has
+  // access to — it never grants any. An owner with several stores would
+  // otherwise write to whichever one this server happens to default to.
+  const resolution = await resolveCategoryRouteContext(
+    authentication.auth,
     parsed.data.merchantId
   );
-  if (mismatch) {
-    return mismatch;
+  if (!resolution.ok) {
+    return resolution.response;
   }
+  const { merchantId, merchantIdentifiers, supabase } = resolution.context;
 
   // A parent must belong to the SAME merchant: the FK only proves the UUID
   // exists somewhere in `categories`, so without this an owner could nest their
   // category under a foreign tenant's row.
   if (parsed.data.parentId) {
-    const parentOwned = await isParentCategoryOwnedByMerchant(
+    const parentOwnership = await isParentCategoryOwnedByMerchant(
       supabase,
       merchantId,
       parsed.data.parentId
     );
-    if (!parentOwned) {
+    // A failed lookup is NOT absence: answering 400 PARENT_NOT_FOUND would tell
+    // the client to stop retrying a parent that exists.
+    if (parentOwnership === 'lookup-failed') {
+      return NextResponse.json(
+        { error: 'Could not verify the parent category' },
+        { status: 500 }
+      );
+    }
+    if (parentOwnership === 'absent') {
       return NextResponse.json(
         { error: 'Parent category not found', code: 'PARENT_NOT_FOUND' },
         { status: 400 }
@@ -85,14 +95,11 @@ export async function POST(request: NextRequest) {
 
   const row = {
     merchant_id: merchantId,
-    // Merchant-authored text renders on the public storefront; mobile-admin
-    // sanitized before its direct insert, so the API must not be the weaker
-    // path now that it owns the write.
-    name: sanitizeText(parsed.data.name, 160),
+    // Already sanitized by the schema, BEFORE its non-empty check — see
+    // schemas/sanitized-category-text.ts for why the order matters.
+    name: parsed.data.name,
     slug: parsed.data.slug,
-    description: parsed.data.description
-      ? sanitizeText(parsed.data.description, 2000)
-      : null,
+    description: parsed.data.description || null,
     image_url: parsed.data.imageUrl ?? null,
     parent_id: parsed.data.parentId ?? null,
     display_order: parsed.data.displayOrder ?? 0,

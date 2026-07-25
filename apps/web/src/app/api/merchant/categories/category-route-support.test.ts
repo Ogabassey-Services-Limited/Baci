@@ -22,7 +22,7 @@ vi.mock('@/lib/get-storefront-publication-cache-identity', () => ({
 
 import { z } from 'zod';
 import {
-  assertRequestedMerchant,
+  authenticateCategoryRequest,
   type CategoryRouteContext,
   firstValidationMessage,
   isParentCategoryOwnedByMerchant,
@@ -50,6 +50,10 @@ const request = new Request('https://baci.app/api/merchant/categories', {
   method: 'POST',
 });
 
+const AUTH = { userId: 'user-1', supabase: {} } as Parameters<
+  typeof resolveCategoryRouteContext
+>[0];
+
 describe('resolveCategoryRouteContext', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -61,7 +65,7 @@ describe('resolveCategoryRouteContext', () => {
   });
 
   it('resolves the merchant server-side for an owner', async () => {
-    const result = await resolveCategoryRouteContext(request);
+    const result = await resolveCategoryRouteContext(AUTH);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -71,30 +75,10 @@ describe('resolveCategoryRouteContext', () => {
     }
   });
 
-  it('returns 401 when unauthenticated', async () => {
-    setUser(null);
-
-    const result = await resolveCategoryRouteContext(request);
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.response.status).toBe(401);
-  });
-
-  it('returns 401 when the auth helper resolves to nothing at all', async () => {
-    // getAuthenticatedUser returns null (not { user: null }) for a missing or
-    // unparseable Bearer token — a bare `.user` read here would have thrown.
-    mocks.getAuthenticatedUser.mockResolvedValue(null);
-
-    const result = await resolveCategoryRouteContext(request);
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.response.status).toBe(401);
-  });
-
   it('returns 404 when the user has no merchant', async () => {
     mocks.getMerchantForApiRequest.mockResolvedValue(null);
 
-    const result = await resolveCategoryRouteContext(request);
+    const result = await resolveCategoryRouteContext(AUTH);
 
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.response.status).toBe(404);
@@ -108,7 +92,7 @@ describe('resolveCategoryRouteContext', () => {
       identifiers: ['test-store', 'old-store', 'shop.example.com'],
     });
 
-    const result = await resolveCategoryRouteContext(request);
+    const result = await resolveCategoryRouteContext(AUTH);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -132,7 +116,7 @@ describe('resolveCategoryRouteContext', () => {
         },
       });
 
-      const result = await resolveCategoryRouteContext(request);
+      const result = await resolveCategoryRouteContext(AUTH);
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
@@ -144,36 +128,68 @@ describe('resolveCategoryRouteContext', () => {
     });
   });
 
-  it('never lets a client value select the tenant', async () => {
-    // The resolver takes no body input at all, by construction.
-    expect(resolveCategoryRouteContext).toHaveLength(1);
+  it('forwards the asserted merchant id as a SELECTOR to the access-scoped lookup', async () => {
+    // getMerchantForApiRequest filters owned merchants by user_id and staff
+    // rows by active membership, so the id can only pick among merchants the
+    // caller already reaches — it never grants access.
+    await resolveCategoryRouteContext(AUTH, 'store-b');
 
-    const result = await resolveCategoryRouteContext(request);
+    expect(mocks.getMerchantForApiRequest).toHaveBeenCalledWith(
+      expect.anything(),
+      'user-1',
+      { requestedMerchantId: 'store-b' }
+    );
+  });
 
-    expect(result.ok).toBe(true);
-    if (result.ok) expect(result.context.merchantId).toBe(MERCHANT_ID);
+  describe('purge identity is auxiliary and must not fail the mutation', () => {
+    it('falls back to the canonical slug when the identity lookup throws', async () => {
+      // The domains / retired-slug reads exist only to widen the best-effort
+      // edge purge; a transient failure there previously 500'd the mutation.
+      mocks.getStorefrontPublicationCacheIdentity.mockRejectedValue(
+        new Error('domains table unavailable')
+      );
+
+      const result = await resolveCategoryRouteContext(AUTH);
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.context.merchantIdentifiers).toEqual(['test-store']);
+      }
+    });
   });
 });
 
-describe('assertRequestedMerchant', () => {
-  const context = {
-    merchantId: MERCHANT_ID,
-    merchantIdentifiers: ['test-store'],
-    supabase: {},
-  } as unknown as CategoryRouteContext;
-
-  it('rejects a mismatched client-supplied merchant id with 403', () => {
-    const response = assertRequestedMerchant(context, 'some-other-merchant');
-
-    expect(response?.status).toBe(403);
+describe('authenticateCategoryRequest', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setUser({ id: 'user-1' });
   });
 
-  it('accepts a matching assertion', () => {
-    expect(assertRequestedMerchant(context, MERCHANT_ID)).toBeNull();
+  it('resolves the caller for a valid session', async () => {
+    const result = await authenticateCategoryRequest(request);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.auth.userId).toBe('user-1');
   });
 
-  it('accepts an absent assertion', () => {
-    expect(assertRequestedMerchant(context)).toBeNull();
+  it('returns 401 when unauthenticated', async () => {
+    setUser(null);
+
+    const result = await authenticateCategoryRequest(request);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.response.status).toBe(401);
+  });
+
+  it('returns 401 when the auth helper resolves to nothing at all', async () => {
+    // getAuthenticatedUser returns null (not { user: null }) for a missing or
+    // unparseable Bearer token — a bare `.user` read would have thrown.
+    mocks.getAuthenticatedUser.mockResolvedValue(null);
+
+    const result = await authenticateCategoryRequest(request);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.response.status).toBe(401);
   });
 });
 
@@ -199,7 +215,7 @@ describe('isParentCategoryOwnedByMerchant', () => {
 
     await expect(
       isParentCategoryOwnedByMerchant(client, MERCHANT_ID, 'parent-1')
-    ).resolves.toBe(true);
+    ).resolves.toBe('owned');
 
     expect(select).toHaveBeenCalledWith('id');
     expect(eqId).toHaveBeenCalledWith('id', 'parent-1');
@@ -213,7 +229,26 @@ describe('isParentCategoryOwnedByMerchant', () => {
 
     await expect(
       isParentCategoryOwnedByMerchant(client, MERCHANT_ID, 'foreign-parent')
-    ).resolves.toBe(false);
+    ).resolves.toBe('absent');
+  });
+
+  it('reports a lookup FAILURE distinctly from absence', async () => {
+    // A transient error also yields data: null. Collapsing the two answered a
+    // non-retryable 400 PARENT_NOT_FOUND for a parent that exists.
+    const maybeSingle = vi
+      .fn()
+      .mockResolvedValue({ data: null, error: { message: 'timeout' } });
+    const client = {
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle })) })),
+        })),
+      })),
+    } as unknown as CategoryRouteContext['supabase'];
+
+    await expect(
+      isParentCategoryOwnedByMerchant(client, MERCHANT_ID, 'parent-1')
+    ).resolves.toBe('lookup-failed');
   });
 });
 

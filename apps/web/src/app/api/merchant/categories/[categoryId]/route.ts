@@ -1,11 +1,10 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { invalidateCategoryCaches } from '@/lib/category-cache-invalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
-import { sanitizeText } from '@/lib/sanitize-core';
 import { categoryIdParamSchema } from '@/schemas/category-id-param';
 import { updateMerchantCategorySchema } from '@/schemas/update-merchant-category';
 import {
-  assertRequestedMerchant,
+  authenticateCategoryRequest,
   firstValidationMessage,
   isParentCategoryOwnedByMerchant,
   resolveCategoryRouteContext,
@@ -26,11 +25,10 @@ interface RouteParams {
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   // Auth FIRST — before CSRF handling and before the body is read.
-  const resolution = await resolveCategoryRouteContext(request);
-  if (!resolution.ok) {
-    return resolution.response;
+  const authentication = await authenticateCategoryRequest(request);
+  if (!authentication.ok) {
+    return authentication.response;
   }
-  const { merchantId, merchantIdentifiers, supabase } = resolution.context;
 
   const { valid, response: csrfResponse } = await checkCsrfProtection(request);
   if (!valid) {
@@ -70,21 +68,32 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     );
   }
 
-  const mismatch = assertRequestedMerchant(
-    resolution.context,
+  // Selects among the merchants this caller already has access to — never
+  // grants any. See resolveCategoryRouteContext for the multi-store rationale.
+  const resolution = await resolveCategoryRouteContext(
+    authentication.auth,
     parsed.data.merchantId
   );
-  if (mismatch) {
-    return mismatch;
+  if (!resolution.ok) {
+    return resolution.response;
   }
+  const { merchantId, merchantIdentifiers, supabase } = resolution.context;
 
   if (parsed.data.parentId) {
-    const parentOwned = await isParentCategoryOwnedByMerchant(
+    const parentOwnership = await isParentCategoryOwnedByMerchant(
       supabase,
       merchantId,
       parsed.data.parentId
     );
-    if (!parentOwned) {
+    // A failed lookup is NOT absence — a non-retryable 400 for a parent that
+    // exists would be worse than an honest 500.
+    if (parentOwnership === 'lookup-failed') {
+      return NextResponse.json(
+        { error: 'Could not verify the parent category' },
+        { status: 500 }
+      );
+    }
+    if (parentOwnership === 'absent') {
       return NextResponse.json(
         { error: 'Parent category not found', code: 'PARENT_NOT_FOUND' },
         { status: 400 }
@@ -130,13 +139,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const updates: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
   };
-  if (parsed.data.name !== undefined)
-    updates.name = sanitizeText(parsed.data.name, 160);
+  // Already sanitized by the schema, before its non-empty check.
+  if (parsed.data.name !== undefined) updates.name = parsed.data.name;
   if (parsed.data.slug !== undefined) updates.slug = parsed.data.slug;
   if (parsed.data.description !== undefined)
-    updates.description = parsed.data.description
-      ? sanitizeText(parsed.data.description, 2000)
-      : null;
+    updates.description = parsed.data.description || null;
   if (parsed.data.imageUrl !== undefined)
     updates.image_url = parsed.data.imageUrl;
   if (parsed.data.parentId !== undefined)
@@ -194,11 +201,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
  * "delete then re-create" still works.
  */
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
-  const resolution = await resolveCategoryRouteContext(request);
-  if (!resolution.ok) {
-    return resolution.response;
+  const authentication = await authenticateCategoryRequest(request);
+  if (!authentication.ok) {
+    return authentication.response;
   }
-  const { merchantId, merchantIdentifiers, supabase } = resolution.context;
 
   const { valid, response: csrfResponse } = await checkCsrfProtection(request);
   if (!valid) {
@@ -215,6 +221,13 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       { status: 400 }
     );
   }
+
+  // DELETE carries no body, so there is no merchant assertion to honour.
+  const resolution = await resolveCategoryRouteContext(authentication.auth);
+  if (!resolution.ok) {
+    return resolution.response;
+  }
+  const { merchantId, merchantIdentifiers, supabase } = resolution.context;
 
   const { data: retired, error } = await supabase
     .from('categories')

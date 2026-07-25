@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
+  authenticateCategoryRequest: vi.fn(),
   resolveCategoryRouteContext: vi.fn(),
   isParentCategoryOwnedByMerchant: vi.fn(),
   wouldCreateCategoryCycle: vi.fn(),
@@ -10,20 +11,13 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('../category-route-support', async () => {
-  const { NextResponse: Response } = await import('next/server');
   return {
+    authenticateCategoryRequest: mocks.authenticateCategoryRequest,
     resolveCategoryRouteContext: mocks.resolveCategoryRouteContext,
     isParentCategoryOwnedByMerchant: mocks.isParentCategoryOwnedByMerchant,
     wouldCreateCategoryCycle: mocks.wouldCreateCategoryCycle,
     firstValidationMessage: (error: { issues: Array<{ message: string }> }) =>
       error.issues[0]?.message ?? 'Invalid input',
-    assertRequestedMerchant: (
-      context: { merchantId: string },
-      requested?: string
-    ) =>
-      requested && requested !== context.merchantId
-        ? Response.json({ error: 'Permission denied' }, { status: 403 })
-        : null,
   };
 });
 vi.mock('@/lib/csrf', () => ({
@@ -106,12 +100,17 @@ function supabaseFor(state: TableState) {
 }
 
 function setContext(state: TableState = {}) {
+  const supabase = supabaseFor(state);
+  mocks.authenticateCategoryRequest.mockResolvedValue({
+    ok: true,
+    auth: { userId: 'user-1', supabase },
+  });
   mocks.resolveCategoryRouteContext.mockResolvedValue({
     ok: true,
     context: {
       merchantId: MERCHANT_ID,
       merchantIdentifiers: ['test-store'],
-      supabase: supabaseFor(state),
+      supabase,
     },
   });
 }
@@ -143,12 +142,16 @@ const UNAUTHORIZED = {
   response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
 };
 
+function setUnauthenticated() {
+  mocks.authenticateCategoryRequest.mockResolvedValue(UNAUTHORIZED);
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   updatedRow = null;
   setContext();
   mocks.checkCsrfProtection.mockResolvedValue({ valid: true });
-  mocks.isParentCategoryOwnedByMerchant.mockResolvedValue(true);
+  mocks.isParentCategoryOwnedByMerchant.mockResolvedValue('owned');
   mocks.wouldCreateCategoryCycle.mockResolvedValue(false);
   mocks.invalidateCategoryCaches.mockReturnValue({
     revalidatedSlugs: ['phones', 'mobile-phones'],
@@ -175,7 +178,7 @@ describe('PATCH /api/merchant/categories/[categoryId]', () => {
   });
 
   it('returns 401 without touching CSRF or the request body', async () => {
-    mocks.resolveCategoryRouteContext.mockResolvedValue(UNAUTHORIZED);
+    setUnauthenticated();
     const request = patchRequest({ slug: 'mobile-phones' });
     const json = vi.spyOn(request, 'json');
 
@@ -241,7 +244,7 @@ describe('PATCH /api/merchant/categories/[categoryId]', () => {
     });
 
     it('checks ownership BEFORE walking the ancestor chain', async () => {
-      mocks.isParentCategoryOwnedByMerchant.mockResolvedValue(false);
+      mocks.isParentCategoryOwnedByMerchant.mockResolvedValue('absent');
 
       await PATCH(patchRequest({ parentId: PARENT_ID }), params());
 
@@ -249,8 +252,19 @@ describe('PATCH /api/merchant/categories/[categoryId]', () => {
       expect(mocks.wouldCreateCategoryCycle).not.toHaveBeenCalled();
     });
 
+    it('returns 500, not 400, when the parent lookup itself fails', async () => {
+      mocks.isParentCategoryOwnedByMerchant.mockResolvedValue('lookup-failed');
+
+      const response = await PATCH(
+        patchRequest({ parentId: PARENT_ID }),
+        params()
+      );
+
+      expect(response.status).toBe(500);
+    });
+
     it('rejects a parent owned by another merchant', async () => {
-      mocks.isParentCategoryOwnedByMerchant.mockResolvedValue(false);
+      mocks.isParentCategoryOwnedByMerchant.mockResolvedValue('absent');
 
       const response = await PATCH(
         patchRequest({ parentId: PARENT_ID }),
@@ -264,7 +278,7 @@ describe('PATCH /api/merchant/categories/[categoryId]', () => {
     });
   });
 
-  it('sanitizes merchant-authored name and description', async () => {
+  it('writes the sanitized name and description the schema produced', async () => {
     await PATCH(
       patchRequest({
         name: '<script>alert(1)</script>Phones',
@@ -275,6 +289,13 @@ describe('PATCH /api/merchant/categories/[categoryId]', () => {
 
     expect(String(updatedRow?.name)).not.toContain('<script>');
     expect(String(updatedRow?.description)).not.toContain('onerror');
+  });
+
+  it('rejects a rename to markup-only text instead of blanking the name', async () => {
+    const response = await PATCH(patchRequest({ name: '<b></b>' }), params());
+
+    expect(response.status).toBe(400);
+    expect(updatedRow).toBeNull();
   });
 
   it('maps a duplicate slug to 409', async () => {
@@ -309,7 +330,7 @@ describe('DELETE /api/merchant/categories/[categoryId]', () => {
   });
 
   it('returns 401 before CSRF handling', async () => {
-    mocks.resolveCategoryRouteContext.mockResolvedValue(UNAUTHORIZED);
+    setUnauthenticated();
 
     const response = await DELETE(deleteRequest(), params());
 

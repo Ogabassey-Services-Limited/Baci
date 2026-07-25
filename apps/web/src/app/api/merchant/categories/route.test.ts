@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
+  authenticateCategoryRequest: vi.fn(),
   resolveCategoryRouteContext: vi.fn(),
   isParentCategoryOwnedByMerchant: vi.fn(),
   checkCsrfProtection: vi.fn(),
@@ -9,20 +10,12 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('./category-route-support', async () => {
-  const { NextResponse: Response } = await import('next/server');
   return {
+    authenticateCategoryRequest: mocks.authenticateCategoryRequest,
     resolveCategoryRouteContext: mocks.resolveCategoryRouteContext,
     isParentCategoryOwnedByMerchant: mocks.isParentCategoryOwnedByMerchant,
-    // Real implementation — the assertion is part of what this suite exercises.
     firstValidationMessage: (error: { issues: Array<{ message: string }> }) =>
       error.issues[0]?.message ?? 'Invalid input',
-    assertRequestedMerchant: (
-      context: { merchantId: string },
-      requested?: string
-    ) =>
-      requested && requested !== context.merchantId
-        ? Response.json({ error: 'Permission denied' }, { status: 403 })
-        : null,
   };
 });
 vi.mock('@/lib/csrf', () => ({
@@ -93,6 +86,10 @@ function supabaseInserting(
 }
 
 function setContext(supabase: unknown) {
+  mocks.authenticateCategoryRequest.mockResolvedValue({
+    ok: true,
+    auth: { userId: 'user-1', supabase },
+  });
   mocks.resolveCategoryRouteContext.mockResolvedValue({
     ok: true,
     context: {
@@ -120,7 +117,7 @@ describe('POST /api/merchant/categories', () => {
     revivedRow = null;
     setContext(supabaseInserting());
     mocks.checkCsrfProtection.mockResolvedValue({ valid: true });
-    mocks.isParentCategoryOwnedByMerchant.mockResolvedValue(true);
+    mocks.isParentCategoryOwnedByMerchant.mockResolvedValue('owned');
     mocks.invalidateCategoryCaches.mockReturnValue({
       revalidatedSlugs: ['phones'],
       revalidated: true,
@@ -154,7 +151,7 @@ describe('POST /api/merchant/categories', () => {
 
   describe('authentication runs before anything else', () => {
     it('returns 401 without touching CSRF or the request body', async () => {
-      mocks.resolveCategoryRouteContext.mockResolvedValue({
+      mocks.authenticateCategoryRequest.mockResolvedValue({
         ok: false,
         response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
       });
@@ -230,18 +227,39 @@ describe('POST /api/merchant/categories', () => {
       });
     });
 
-    it('returns 403 when the client asserts a different merchant', async () => {
+    it('passes the asserted merchantId through as a SELECTOR, not authority', async () => {
+      // getMerchantForApiRequest filters owned merchants by user_id and staff
+      // rows by active membership, so an id the caller cannot reach 404s.
+      // Ignoring it broke multi-store owners: the app shows the lowest merchant
+      // UUID while this server defaults to the most recently created one.
+      await POST(postRequest({ ...VALID_BODY, merchantId: 'store-b' }));
+
+      expect(mocks.resolveCategoryRouteContext).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'user-1' }),
+        'store-b'
+      );
+    });
+
+    it('returns 404 when the asserted merchant is not reachable by the caller', async () => {
+      mocks.resolveCategoryRouteContext.mockResolvedValue({
+        ok: false,
+        response: NextResponse.json(
+          { error: 'Merchant not found' },
+          { status: 404 }
+        ),
+      });
+
       const response = await POST(
-        postRequest({ ...VALID_BODY, merchantId: 'someone-else' })
+        postRequest({ ...VALID_BODY, merchantId: 'someone-elses-store' })
       );
 
-      expect(response.status).toBe(403);
+      expect(response.status).toBe(404);
     });
   });
 
   describe('parent must belong to the same merchant', () => {
     it('returns 400 when the parent belongs to another tenant', async () => {
-      mocks.isParentCategoryOwnedByMerchant.mockResolvedValue(false);
+      mocks.isParentCategoryOwnedByMerchant.mockResolvedValue('absent');
 
       const response = await POST(
         postRequest({ ...VALID_BODY, parentId: PARENT_ID })
@@ -261,9 +279,10 @@ describe('POST /api/merchant/categories', () => {
   });
 
   describe('bugfix: merchant-authored text is sanitized server-side', () => {
-    it('strips markup from name and description before insert', async () => {
+    it('writes the SANITIZED value the schema produced', async () => {
       // mobile-admin sanitized before its direct insert; routing the write
-      // through the API must not become the weaker path.
+      // through the API must not become the weaker path. Sanitization moved
+      // into the schema so `.min(1)` guards the value actually stored.
       await POST(
         postRequest({
           name: '<script>alert(1)</script>Phones',
@@ -274,6 +293,29 @@ describe('POST /api/merchant/categories', () => {
 
       expect(insertedRow?.name).not.toContain('<script>');
       expect(String(insertedRow?.description)).not.toContain('onerror');
+    });
+
+    it('rejects a name that is nothing but markup', async () => {
+      // `<b></b>` passed the old `.min(1)` and reached the insert as '',
+      // creating a blank category (categories.name is only NOT NULL).
+      const response = await POST(
+        postRequest({ name: '<b></b>', slug: 'phones' })
+      );
+
+      expect(response.status).toBe(400);
+      expect(insertedRow).toBeNull();
+    });
+  });
+
+  describe('parent lookup failures are not absence', () => {
+    it('returns 500, not a non-retryable 400, when the lookup errors', async () => {
+      mocks.isParentCategoryOwnedByMerchant.mockResolvedValue('lookup-failed');
+
+      const response = await POST(
+        postRequest({ ...VALID_BODY, parentId: PARENT_ID })
+      );
+
+      expect(response.status).toBe(500);
     });
   });
 

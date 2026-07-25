@@ -1,5 +1,9 @@
 import { z } from 'zod';
 import { categorySlugSchema } from './category-slug';
+import {
+  requiredCategoryText,
+  sanitizedCategoryText,
+} from './sanitized-category-text';
 
 /**
  * `merchantId` is OPTIONAL and never authoritative: the route derives the
@@ -10,9 +14,9 @@ const merchantIdAssertion = z.string().trim().min(1).max(255).optional();
 
 export const createMerchantCategorySchema = z.object({
   merchantId: merchantIdAssertion,
-  name: z.string().trim().min(1).max(160),
+  name: requiredCategoryText(160),
   slug: categorySlugSchema,
-  description: z.string().trim().max(2000).nullish(),
+  description: sanitizedCategoryText(2000).nullish(),
   imageUrl: z.string().trim().url().max(2048).nullish(),
   parentId: z.uuid().nullish(),
   displayOrder: z.number().int().min(0).max(100_000).optional(),

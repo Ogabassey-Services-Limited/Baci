@@ -226,49 +226,7 @@ export function useCategories() {
   });
 }
 
-export function useCreateCategory() {
-  const queryClient = useQueryClient();
-  const { merchant } = useMerchant();
-
-  return useMutation({
-    mutationFn: async (name: string) => {
-      if (!merchant?.id) throw new Error('No merchant');
-      const sanitizedName = sanitizeText(name, 200);
-      if (!sanitizedName.trim()) throw new Error('Category name is required');
-      // Shared with the route's schema. The old inline generator produced an
-      // empty slug for a name with no ASCII characters (e.g. 手机) and had no
-      // length bound, so the server rejected both with an unactionable 400.
-      const slug = deriveCategorySlug(sanitizedName);
-      if (!slug) {
-        throw new Error(
-          'Category name must contain letters or numbers we can use in its web address'
-        );
-      }
-
-      // B1-lite: go through the web Route Handler instead of inserting
-      // directly. A direct insert only invalidated React Query, so the
-      // storefront's cached category surfaces (and the Cloudflare edge) kept
-      // serving stale data after a merchant added a category. The handler owns
-      // revalidation + best-effort purge. `merchantId` is sent only as an
-      // assertion the server 403s on if it disagrees with the session.
-      const { category } = await apiClient<{
-        category: { id: string; name: string; slug: string };
-      }>('/api/merchant/categories', {
-        method: 'POST',
-        body: JSON.stringify({
-          merchantId: merchant.id,
-          name: sanitizedName,
-          slug,
-        }),
-      });
-      return category;
-    },
-    mutationKey: ['createCategory'],
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories'] });
-    },
-  });
-}
+export { useCreateCategory } from './useCreateCategory';
 
 export function useInventoryStats() {
   const { merchant } = useMerchant();
