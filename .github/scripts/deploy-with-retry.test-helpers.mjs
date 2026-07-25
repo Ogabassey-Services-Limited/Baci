@@ -21,6 +21,12 @@ export function makeFakeCommand(mode) {
 set -euo pipefail
 command="\${1:-}"
 if [ "$command" = "promote" ]; then
+  case "${mode}" in
+    *promote-fails*)
+      echo "promote failed for \${2:-}" >&2
+      exit 1
+      ;;
+  esac
   echo "\${2:-}" > "${promotedFile}"
   echo "promoted \${2:-}"
   exit 0
@@ -82,6 +88,13 @@ case "${mode}" in
   killed-137-after-create)
     # Same, but exit 137 -- as timeout does when it escalates from TERM to
     # SIGKILL against a hung, TERM-resistant deploy.
+    echo "Production: https://baci-hang.vercel.app"
+    exit 137
+    ;;
+  killed-137-promote-fails)
+    # Killed (137) with a URL, but promotion fails (see the promote branch) --
+    # models an unrelated/OOM kill whose deployment is not promotable, which must
+    # retry instead of being treated as a recovered timeout.
     echo "Production: https://baci-hang.vercel.app"
     exit 137
     ;;

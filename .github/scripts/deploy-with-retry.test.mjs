@@ -172,7 +172,7 @@ test('recovers when a deploy attempt times out (exit 124) after creating the dep
     assert.equal(result.status, 0, result.stderr);
     assert.match(
       result.stdout,
-      /Recovered timed-out deploy by promoting https:\/\/baci-hang\.vercel\.app/
+      /Recovered killed deploy by promoting https:\/\/baci-hang\.vercel\.app/
     );
     assert.equal(
       readFileSync(fakeCommand.promotedFile, 'utf8').trim(),
@@ -196,13 +196,33 @@ test('recovers when a deploy attempt is SIGKILLed (exit 137) after creating the 
     assert.equal(result.status, 0, result.stderr);
     assert.match(
       result.stdout,
-      /Recovered timed-out deploy by promoting https:\/\/baci-hang\.vercel\.app/
+      /Recovered killed deploy by promoting https:\/\/baci-hang\.vercel\.app/
     );
     assert.equal(
       readFileSync(fakeCommand.promotedFile, 'utf8').trim(),
       'https://baci-hang.vercel.app'
     );
     assert.equal(readFileSync(fakeCommand.attemptsFile, 'utf8').trim(), '1');
+  } finally {
+    rmSync(fakeCommand.tempDir, { recursive: true, force: true });
+  }
+});
+
+test('retries (keeps its attempts) when a killed deploy cannot be promoted', () => {
+  const fakeCommand = makeFakeCommand('killed-137-promote-fails');
+
+  try {
+    // A 137 whose deployment is not promotable (unrelated/OOM kill, not a -k
+    // escalation) must NOT be treated as a recovered timeout: the promote fails
+    // and the run falls through to its normal retries rather than exiting.
+    const result = runScript(fakeCommand);
+
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Could not promote/);
+    assert.match(result.stdout, /Deploy failed after 2 attempts/);
+    // both attempts ran, and nothing was ever promoted
+    assert.equal(readFileSync(fakeCommand.attemptsFile, 'utf8').trim(), '2');
+    assert.throws(() => readFileSync(fakeCommand.promotedFile, 'utf8'));
   } finally {
     rmSync(fakeCommand.tempDir, { recursive: true, force: true });
   }
