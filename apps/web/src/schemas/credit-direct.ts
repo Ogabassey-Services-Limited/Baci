@@ -36,6 +36,10 @@ export const creditDirectSignSchema = z.object({
   totalAmount: creditDirectAmountSchema,
   merchantSlug: z.string().min(1),
   orderId: z.uuid(),
+  // The order's unguessable tracking token — the guest capability that gates
+  // capability-token minting (S2-P). Required so an anon caller cannot forge a
+  // BNPL session from just an order id + email.
+  trackingToken: z.string().min(1).max(200),
 });
 
 export type CreditDirectSignInput = z.infer<typeof creditDirectSignSchema>;

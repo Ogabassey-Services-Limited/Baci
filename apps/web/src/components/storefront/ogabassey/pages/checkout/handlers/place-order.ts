@@ -629,6 +629,7 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
       await openCreditDirectCheckout({
         merchantSlug: merchant.slug || '',
         orderId: order.id,
+        trackingToken: order.tracking_token ?? '',
         amount: paymentAmount,
         customerEmail,
         customerPhone,

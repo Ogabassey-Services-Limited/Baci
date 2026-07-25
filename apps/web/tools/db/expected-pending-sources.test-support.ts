@@ -159,6 +159,21 @@ export const EXPECTED_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260724100000_s2i_contain_credit_direct_public_mutation.sql',
+    sha256: 'a0f4d9cbfb59bb5df9d9a658bbe21e3f1753cad20532acf87aa4b5e784df66c5',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260724100100_s2p_credit_direct_checkout_tokens.sql',
+    sha256: 'e1ac8338dd870606df93984f8193d71b4ef66b72a2ef4440710a3ffcd9c4bea6',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260724100200_s2p_harden_set_credit_direct_session.sql',
+    sha256: 'cb454256cc5497a2073a38f85bf9ab5c7cc8f317a4779765829d793787c1e6a0',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260724120000_order_scoped_receipt_bank_details_rpc.sql',
     sha256: 'd94773042e415b149f6c66615aaf2a668af386c6a529e324f7cc2287cdcbb5f2',
   },
