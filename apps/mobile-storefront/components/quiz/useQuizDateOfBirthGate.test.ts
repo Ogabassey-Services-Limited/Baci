@@ -174,6 +174,35 @@ describe('useQuizDateOfBirthGate', () => {
     );
   });
 
+  it('auto-starts a pending event when a concurrent save fills the date of birth', () => {
+    // Event A's stale save resolves (filling date_of_birth) after the shopper
+    // cancelled A and opened B: B's requirement is now met, so it must start
+    // rather than strand behind a gate that has gone invisible.
+    const onStart = jest.fn();
+    const { result, rerender } = renderHook(
+      ({ tick }: { tick: number }) => {
+        void tick;
+        return useQuizDateOfBirthGate(onStart);
+      },
+      { initialProps: { tick: 0 } }
+    );
+
+    act(() => {
+      result.current.requestStart('event-2');
+    });
+    expect(result.current.isGateVisible).toBe(true);
+    expect(onStart).not.toHaveBeenCalled();
+
+    // A concurrent save fills the DOB; the store update re-renders the hook.
+    mockCustomer = { date_of_birth: '1990-06-15' };
+    act(() => {
+      rerender({ tick: 1 });
+    });
+
+    expect(onStart).toHaveBeenCalledWith('event-2');
+    expect(result.current.isGateVisible).toBe(false);
+  });
+
   it('does nothing when confirmGate is called without a pending event', () => {
     const onStart = jest.fn();
     const { result } = renderHook(() => useQuizDateOfBirthGate(onStart));

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuthStore } from '@/stores/auth-store';
 
 /**
@@ -15,13 +15,16 @@ import { useAuthStore } from '@/stores/auth-store';
  * is authoritative. That avoids both a modal flash for a returning shopper and
  * a dead Start button when hydration fails.
  *
- * Two concurrency/correctness safeguards (each start burns a limited attempt):
+ * Three concurrency/correctness safeguards (each start burns a limited attempt):
  * - A monotonic `generation` guards late `setDateOfBirth` completions. The
  *   prompt's save resolves asynchronously; if the shopper submits, cancels, and
  *   then reopens the gate for another event before the first save resolves, the
  *   in-flight promise still holds the pre-cancel confirm closure. `confirmGate`
  *   only starts when the generation it captured at open time still matches, so
  *   a stale completion cannot start the newly-pending event.
+ * - If that stale save nonetheless fills `date_of_birth` while another event is
+ *   pending, an effect starts the pending event — its requirement is now met,
+ *   so it must not strand behind a gate that has gone invisible.
  * - `reopenForCorrection` forces the gate open even when `date_of_birth` is
  *   already populated, so a stored DOB the server age gate rejected (an adult
  *   mistyped it) can still be corrected — a rejected start never creates an
@@ -96,6 +99,22 @@ export function useQuizDateOfBirthGate(onStart: (eventId: string) => void) {
       onStart(eventId);
     }
   };
+
+  // If a concurrent save fills date_of_birth while a request is still pending
+  // (the shopper cancelled event A mid-save, opened event B, then A's stale save
+  // resolved), B's DOB requirement is already met but its gate has gone
+  // invisible — start B rather than stranding its Start tap. Correction mode is
+  // excluded: there the stored DOB is the rejected value and must stay editable.
+  useEffect(() => {
+    if (pendingEventId !== null && dateOfBirth && correctionError === null) {
+      const eventId = pendingEventRef.current;
+      pendingEventRef.current = null;
+      setPendingEventId(null);
+      if (eventId) {
+        onStart(eventId);
+      }
+    }
+  }, [pendingEventId, dateOfBirth, correctionError, onStart]);
 
   return {
     cancelGate,
