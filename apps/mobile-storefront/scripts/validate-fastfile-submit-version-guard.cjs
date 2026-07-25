@@ -32,26 +32,44 @@ function extractIndentedBlock(source, declarationPattern, closingToken) {
   return lines.slice(startIndex, startIndex + endOffset + 2).join('\n');
 }
 
+/** Index of a call site, ignoring the `def` line that shares the same name. */
+function callSiteIndex(source, methodName) {
+  const match = new RegExp(
+    `^[ \\t]*(?:return\\s+\\w+\\s+if\\s+)?${methodName.replace(/[!?]/g, '\\$&')}\\(`,
+    'm'
+  ).exec(source);
+  return match ? match.index : -1;
+}
+
 /**
  * App Store Connect keeps one editable version. When a prior version still
  * holds that slot, `set_changelog` tries to CREATE the newly minted version and
  * Apple refuses ("You cannot create a new version of the App in the current
  * state"), killing the submit step after the binary already uploaded. The lane
  * must therefore resolve the slot BEFORE calling set_changelog, and must only
- * withdraw a build from active review behind an explicit opt-in.
+ * withdraw a build from active review behind an explicit opt-in — after
+ * confirming the replacement build exists, and waiting for the version to
+ * actually become editable again.
  */
-function validateFastfileSubmitVersionGuard(fastfileSource) {
+function validateFastfileSubmitVersionGuard(fastfileSource, versionSlotSource) {
   const failures = [];
-  const activeSource = stripRubyComments(fastfileSource);
+  const activeFastfile = stripRubyComments(fastfileSource);
+  const activeSlot = stripRubyComments(versionSlotSource ?? '');
 
-  if (!/def\s+app_store_version_slot_ready\?/.test(activeSource)) {
+  if (!/import\(["']asc_version_slot\.rb["']\)/.test(activeFastfile)) {
     failures.push(
-      'Fastfile: missing app_store_version_slot_ready? — submit would crash when the editable version slot is occupied'
+      'Fastfile: must import asc_version_slot.rb, otherwise the version-slot helpers are undefined'
+    );
+  }
+
+  if (!/def\s+app_store_version_slot_ready\?/.test(activeSlot)) {
+    failures.push(
+      'asc_version_slot.rb: missing app_store_version_slot_ready? — submit would crash when the editable version slot is occupied'
     );
   }
 
   const submitLane = extractIndentedBlock(
-    activeSource,
+    activeFastfile,
     /^\s*lane\s+:submit\s+do\s*$/,
     'end'
   );
@@ -74,20 +92,51 @@ function validateFastfileSubmitVersionGuard(fastfileSource) {
     failures.push('Fastfile: submit lane is missing set_changelog');
   }
 
-  const cancellationGate = /def\s+review_cancellation_allowed\?[\s\S]*?IOS_STOREFRONT_CANCEL_REVIEW_FOR_RESUBMIT/;
-  if (!cancellationGate.test(activeSource)) {
+  const cancellationGate =
+    /def\s+review_cancellation_allowed\?[\s\S]*?IOS_STOREFRONT_CANCEL_REVIEW_FOR_RESUBMIT/;
+  if (!cancellationGate.test(activeSlot)) {
     failures.push(
-      'Fastfile: withdrawing a build from App Review must stay gated behind IOS_STOREFRONT_CANCEL_REVIEW_FOR_RESUBMIT'
+      'asc_version_slot.rb: withdrawing a build from App Review must stay gated behind IOS_STOREFRONT_CANCEL_REVIEW_FOR_RESUBMIT'
     );
   }
 
-  if (
-    /cancel_submission/.test(activeSource) &&
-    !/unless\s+review_cancellation_allowed\?/.test(activeSource)
-  ) {
+  const cancelIndex = activeSlot.indexOf('cancel_submission');
+  if (cancelIndex !== -1 && !/unless\s+review_cancellation_allowed\?/.test(activeSlot)) {
     failures.push(
-      'Fastfile: cancel_submission must be guarded by review_cancellation_allowed?'
+      'asc_version_slot.rb: cancel_submission must be guarded by review_cancellation_allowed?'
     );
+  }
+
+  if (cancelIndex !== -1) {
+    // Withdrawing the live review before knowing the replacement build exists
+    // would leave the app with nothing under review at all.
+    const validationIndex = callSiteIndex(activeSlot, 'ensure_replacement_build_exists!');
+    if (validationIndex === -1 || validationIndex > cancelIndex) {
+      failures.push(
+        'asc_version_slot.rb: ensure_replacement_build_exists! must run BEFORE cancel_submission withdraws the live review'
+      );
+    }
+
+    // `get_in_progress_review_submission` stops matching as soon as Apple flips
+    // the submission to CANCELING, which happens before the version is editable
+    // again — so readiness must be confirmed by polling the editable version.
+    const waitIndex = callSiteIndex(activeSlot, 'wait_for_editable_app_store_version');
+    if (waitIndex === -1 || waitIndex < cancelIndex) {
+      failures.push(
+        'asc_version_slot.rb: after cancel_submission the lane must wait via wait_for_editable_app_store_version'
+      );
+    }
+
+    const waiter = extractIndentedBlock(
+      activeSlot,
+      /^\s*def\s+wait_for_editable_app_store_version\b/,
+      'end'
+    );
+    if (!waiter || !waiter.includes('get_edit_app_store_version')) {
+      failures.push(
+        'asc_version_slot.rb: wait_for_editable_app_store_version must poll get_edit_app_store_version, not the in-progress review submission'
+      );
+    }
   }
 
   return failures;

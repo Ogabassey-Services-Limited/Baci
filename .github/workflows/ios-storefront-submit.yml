@@ -15,6 +15,11 @@ on:
         description: 'What''s New in This Version (leave empty for default)'
         required: false
         type: string
+      cancel_review_for_resubmit:
+        description: 'Withdraw the in-progress App Review submission so this build can replace it'
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: ios-storefront-submit-${{ github.ref }}
@@ -91,6 +96,9 @@ jobs:
           IOS_RELEASE_NOTES: ${{ env.IOS_RELEASE_NOTES }}
           SUBMIT_BUILD_NUMBER: ${{ inputs.build_number }}
           SUBMIT_APP_VERSION: ${{ inputs.app_version }}
+          # Opt-in, per run: without it the lane skips submission instead of
+          # withdrawing a build Apple may be actively reviewing.
+          IOS_STOREFRONT_CANCEL_REVIEW_FOR_RESUBMIT: ${{ inputs.cancel_review_for_resubmit }}
         run: bundle exec fastlane ios submit
 
       - name: Clean up secrets

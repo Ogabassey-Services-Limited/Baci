@@ -4,32 +4,60 @@ import submitVersionGuardValidator from './validate-fastfile-submit-version-guar
 
 const { validateFastfileSubmitVersionGuard } = submitVersionGuardValidator;
 
-const GUARD_HELPERS = `def review_cancellation_allowed?
+const VALID_SLOT = `def review_cancellation_allowed?
   %w[1 true yes].include?(ENV["IOS_STOREFRONT_CANCEL_REVIEW_FOR_RESUBMIT"].to_s.strip.downcase)
 end
 
-def cancel_in_progress_review_submission!(app, platform)
+def ensure_replacement_build_exists!(app, platform, app_version:, build_number:)
+  build = Spaceship::ConnectAPI::Build.all(app_id: app.id, platform: platform).first
+  return build if build
+
+  UI.user_error!("no replacement build")
+end
+
+def wait_for_editable_app_store_version(app, platform)
+  EDITABLE_VERSION_POLL_ATTEMPTS.times do
+    version = app.get_edit_app_store_version(platform: platform)
+    return version if version
+
+    sleep(EDITABLE_VERSION_POLL_INTERVAL_SECONDS)
+  end
+
+  nil
+end
+
+def app_store_version_slot_ready?(app_version:, build_number:)
+  app = Spaceship::ConnectAPI::App.find(BUNDLE_ID)
+  platform = Spaceship::ConnectAPI::Platform::IOS
+  return true if app.get_edit_app_store_version(platform: platform)
+
   submission = app.get_in_progress_review_submission(platform: platform)
-  return true if submission.nil?
+  return false if submission.nil?
 
   unless review_cancellation_allowed?
     return false
   end
 
-  submission.cancel_submission
-  true
-end
+  ensure_replacement_build_exists!(
+    app,
+    platform,
+    app_version: app_version,
+    build_number: build_number
+  )
 
-def app_store_version_slot_ready?
-  true
+  submission.cancel_submission
+
+  return true if wait_for_editable_app_store_version(app, platform)
+
+  false
 end`;
 
-const VALID_FASTFILE = `${GUARD_HELPERS}
+const VALID_FASTFILE = `import("asc_version_slot.rb")
 
 lane :submit do
   api_key = asc_api_key
 
-  unless app_store_version_slot_ready?
+  unless app_store_version_slot_ready?(app_version: app_version, build_number: build_number)
     next
   end
 
@@ -38,70 +66,79 @@ lane :submit do
   deliver(deliver_opts)
 end`;
 
+const readFastlaneFile = (name: string) =>
+  readFileSync(join(__dirname, '..', 'fastlane', name), 'utf8');
+
 describe('validateFastfileSubmitVersionGuard', () => {
   it('accepts a submit lane that frees the version slot before set_changelog', () => {
-    expect(validateFastfileSubmitVersionGuard(VALID_FASTFILE)).toEqual([]);
+    expect(validateFastfileSubmitVersionGuard(VALID_FASTFILE, VALID_SLOT)).toEqual([]);
   });
 
-  it('accepts the real storefront Fastfile', () => {
-    const fastfile = readFileSync(
-      join(__dirname, '..', 'fastlane', 'Fastfile'),
-      'utf8'
-    );
+  it('accepts the real storefront Fastfile and version-slot helper', () => {
+    const fastfile = readFastlaneFile('Fastfile');
+    const versionSlot = readFastlaneFile('asc_version_slot.rb');
 
-    expect(validateFastfileSubmitVersionGuard(fastfile)).toEqual([]);
+    expect(validateFastfileSubmitVersionGuard(fastfile, versionSlot)).toEqual([]);
   });
 });
 
 describe('bugfix: submit lane died creating an App Store version Apple refuses to create', () => {
   it('rejects a lane that calls set_changelog without freeing the version slot', () => {
     const withoutGuard = VALID_FASTFILE.replace(
-      /  unless app_store_version_slot_ready\?\n    next\n  end\n\n/,
+      /  unless app_store_version_slot_ready\?\(app_version: app_version, build_number: build_number\)\n    next\n  end\n\n/,
       ''
     );
 
-    expect(validateFastfileSubmitVersionGuard(withoutGuard)).toContain(
+    expect(validateFastfileSubmitVersionGuard(withoutGuard, VALID_SLOT)).toContain(
       'Fastfile: submit lane must call app_store_version_slot_ready? before set_changelog'
     );
   });
 
   it('rejects a lane that frees the slot only after set_changelog already ran', () => {
-    const guardTooLate = `${GUARD_HELPERS}
+    const guardTooLate = `import("asc_version_slot.rb")
 
 lane :submit do
   set_changelog(changelog_opts)
 
-  unless app_store_version_slot_ready?
+  unless app_store_version_slot_ready?(app_version: app_version, build_number: build_number)
     next
   end
 
   deliver(deliver_opts)
 end`;
 
-    expect(validateFastfileSubmitVersionGuard(guardTooLate)).toContain(
+    expect(validateFastfileSubmitVersionGuard(guardTooLate, VALID_SLOT)).toContain(
       'Fastfile: app_store_version_slot_ready? must run BEFORE set_changelog, not after'
     );
   });
 
+  it('rejects a Fastfile that never imports the extracted version-slot helper', () => {
+    const withoutImport = VALID_FASTFILE.replace('import("asc_version_slot.rb")\n\n', '');
+
+    expect(validateFastfileSubmitVersionGuard(withoutImport, VALID_SLOT)).toContain(
+      'Fastfile: must import asc_version_slot.rb, otherwise the version-slot helpers are undefined'
+    );
+  });
+
   it('rejects withdrawing a build from review without the explicit opt-in', () => {
-    const ungatedCancellation = VALID_FASTFILE.replace(
+    const ungatedCancellation = VALID_SLOT.replace(
       /  unless review_cancellation_allowed\?\n    return false\n  end\n\n/,
       ''
     );
 
-    expect(validateFastfileSubmitVersionGuard(ungatedCancellation)).toContain(
-      'Fastfile: cancel_submission must be guarded by review_cancellation_allowed?'
+    expect(validateFastfileSubmitVersionGuard(VALID_FASTFILE, ungatedCancellation)).toContain(
+      'asc_version_slot.rb: cancel_submission must be guarded by review_cancellation_allowed?'
     );
   });
 
-  it('rejects a Fastfile missing the slot-readiness helper entirely', () => {
-    const withoutHelper = VALID_FASTFILE.replace(
-      /def app_store_version_slot_ready\?\n  true\nend/,
-      ''
+  it('rejects a helper missing the slot-readiness entry point entirely', () => {
+    const withoutHelper = VALID_SLOT.replace(
+      /def app_store_version_slot_ready\?\(app_version:, build_number:\)/,
+      'def something_else'
     );
 
-    expect(validateFastfileSubmitVersionGuard(withoutHelper)).toContain(
-      'Fastfile: missing app_store_version_slot_ready? — submit would crash when the editable version slot is occupied'
+    expect(validateFastfileSubmitVersionGuard(VALID_FASTFILE, withoutHelper)).toContain(
+      'asc_version_slot.rb: missing app_store_version_slot_ready? — submit would crash when the editable version slot is occupied'
     );
   });
 
@@ -111,6 +148,45 @@ end`;
       '  # unless app_store_version_slot_ready?'
     );
 
-    expect(validateFastfileSubmitVersionGuard(commentedGuard).length).toBeGreaterThan(0);
+    expect(
+      validateFastfileSubmitVersionGuard(commentedGuard, VALID_SLOT).length
+    ).toBeGreaterThan(0);
+  });
+});
+
+describe('bugfix: cancelling review could strand the app with nothing under review', () => {
+  it('rejects withdrawing the live review before the replacement build is confirmed', () => {
+    const cancelFirst = VALID_SLOT.replace(
+      /  ensure_replacement_build_exists!\(\n    app,\n    platform,\n    app_version: app_version,\n    build_number: build_number\n  \)\n\n/,
+      ''
+    );
+
+    expect(validateFastfileSubmitVersionGuard(VALID_FASTFILE, cancelFirst)).toContain(
+      'asc_version_slot.rb: ensure_replacement_build_exists! must run BEFORE cancel_submission withdraws the live review'
+    );
+  });
+
+  it('rejects treating the vanished in-progress submission as an editable version', () => {
+    // Apple flips the submission to CANCELING, which drops out of
+    // get_in_progress_review_submission's filter before the version is editable.
+    const pollsWrongResource = VALID_SLOT.replace(
+      '    version = app.get_edit_app_store_version(platform: platform)',
+      '    version = app.get_in_progress_review_submission(platform: platform)'
+    );
+
+    expect(validateFastfileSubmitVersionGuard(VALID_FASTFILE, pollsWrongResource)).toContain(
+      'asc_version_slot.rb: wait_for_editable_app_store_version must poll get_edit_app_store_version, not the in-progress review submission'
+    );
+  });
+
+  it('rejects skipping the editable-version wait after cancellation', () => {
+    const noWait = VALID_SLOT.replace(
+      '  return true if wait_for_editable_app_store_version(app, platform)\n\n  false',
+      '  true'
+    );
+
+    expect(validateFastfileSubmitVersionGuard(VALID_FASTFILE, noWait)).toContain(
+      'asc_version_slot.rb: after cancel_submission the lane must wait via wait_for_editable_app_store_version'
+    );
   });
 });

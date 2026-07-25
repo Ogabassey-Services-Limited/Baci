@@ -11,6 +11,13 @@ DEFAULT_ATT_REVIEW_NOTES = <<~NOTES.freeze
   On a fresh install, launch the app and wait for the animated startup splash to finish. The native ATT prompt appears automatically on the first visible storefront screen; no login or navigation is required. If this device has reviewed an earlier build, delete the app before reinstalling because iOS preserves the previous one-time ATT decision across updates. Advertising SDK initialization and advertising conversion tracking remain disabled unless the user selects Allow.
 NOTES
 
+# Frees App Store Connect's single editable-version slot before set_changelog.
+# `import` resolves relative to this Fastfile and evaluates in the same context,
+# so the helpers below are available to every lane (`require_relative` cannot be
+# used here: fastlane evaluates the Fastfile through `eval`, which leaves Ruby
+# with no basepath to resolve against).
+import("asc_version_slot.rb")
+
 def ensure_required_env!(keys)
   missing = keys.select { |key| ENV[key].to_s.strip.empty? }
   return if missing.empty?
@@ -38,71 +45,6 @@ def asc_api_key
     duration: 1200,
     in_house: false
   )
-end
-
-# App Store Connect keeps at most ONE editable version, and the release
-# workflow mints a fresh marketing version per run (2.1.<build>). While a
-# previous version still holds that slot in a non-editable state (in review,
-# pending developer release), `set_changelog` finds no version to rename and
-# POSTs a new one, which Apple refuses with "You cannot create a new version
-# of the App in the current state" — the whole submit step then dies AFTER the
-# binary already uploaded. `deliver`'s own `reject_if_possible` would clear the
-# way, but it runs inside `deliver`, long after `set_changelog` has failed.
-#
-# Resolve the slot up front instead. Cancelling withdraws a build Apple may be
-# actively reviewing, so it is opt-in: without it we skip submission and leave
-# the (already uploaded) build on TestFlight to submit by hand.
-REVIEW_CANCELLATION_POLL_ATTEMPTS = 40
-REVIEW_CANCELLATION_POLL_INTERVAL_SECONDS = 15
-
-def review_cancellation_allowed?
-  %w[1 true yes].include?(ENV["IOS_STOREFRONT_CANCEL_REVIEW_FOR_RESUBMIT"].to_s.strip.downcase)
-end
-
-def cancel_in_progress_review_submission!(app, platform)
-  submission = app.get_in_progress_review_submission(platform: platform)
-  return true if submission.nil?
-
-  unless review_cancellation_allowed?
-    UI.important(
-      "A previous submission is still with App Review. Set " \
-      "IOS_STOREFRONT_CANCEL_REVIEW_FOR_RESUBMIT=1 to withdraw and replace it."
-    )
-    return false
-  end
-
-  submission.cancel_submission
-  UI.message("Requested cancellation of the in-progress App Store review submission")
-
-  # Cancellation is not instant; the version stays non-editable until it lands.
-  REVIEW_CANCELLATION_POLL_ATTEMPTS.times do
-    return true if app.get_in_progress_review_submission(platform: platform).nil?
-
-    sleep(REVIEW_CANCELLATION_POLL_INTERVAL_SECONDS)
-  end
-
-  UI.important("Timed out waiting for the previous review submission to be cancelled")
-  false
-end
-
-# Returns true when an editable version is available (so set_changelog can
-# rename it) and false when submission must be skipped this run.
-def app_store_version_slot_ready?
-  app = Spaceship::ConnectAPI::App.find(BUNDLE_ID)
-  UI.user_error!("Could not find App Store Connect app #{BUNDLE_ID}") unless app
-
-  platform = Spaceship::ConnectAPI::Platform::IOS
-  return true if app.get_edit_app_store_version(platform: platform)
-
-  return false unless cancel_in_progress_review_submission!(app, platform)
-
-  return true if app.get_edit_app_store_version(platform: platform)
-
-  UI.important(
-    "No editable App Store version is available; skipping submission. The build " \
-    "is uploaded and can be submitted from App Store Connect."
-  )
-  false
 end
 
 def update_app_review_notes!(notes, app_version:)
@@ -290,8 +232,8 @@ platform :ios do
 
     # Free the single editable-version slot BEFORE set_changelog, which would
     # otherwise try to create a version Apple refuses to create.
-    unless app_store_version_slot_ready?
-      UI.important("Skipping App Store submission for #{app_version}; the binary is already on TestFlight.")
+    unless app_store_version_slot_ready?(app_version: app_version, build_number: build_number)
+      UI.important("Skipping App Store submission; the binary is already on TestFlight.")
       next
     end
 
