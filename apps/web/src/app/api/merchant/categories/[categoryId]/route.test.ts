@@ -4,8 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   authenticateCategoryRequest: vi.fn(),
   resolveCategoryRouteContext: vi.fn(),
-  isParentCategoryOwnedByMerchant: vi.fn(),
   promoteChildrenToRoots: vi.fn(),
+  validateCategoryParent: vi.fn(),
   wouldCreateCategoryCycle: vi.fn(),
   checkCsrfProtection: vi.fn(),
   invalidateCategoryCaches: vi.fn(),
@@ -15,13 +15,15 @@ vi.mock('../category-route-support', async () => {
   return {
     authenticateCategoryRequest: mocks.authenticateCategoryRequest,
     resolveCategoryRouteContext: mocks.resolveCategoryRouteContext,
-    isParentCategoryOwnedByMerchant: mocks.isParentCategoryOwnedByMerchant,
     promoteChildrenToRoots: mocks.promoteChildrenToRoots,
     wouldCreateCategoryCycle: mocks.wouldCreateCategoryCycle,
     firstValidationMessage: (error: { issues: Array<{ message: string }> }) =>
       error.issues[0]?.message ?? 'Invalid input',
   };
 });
+vi.mock('../validate-category-parent', () => ({
+  validateCategoryParent: mocks.validateCategoryParent,
+}));
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: mocks.checkCsrfProtection,
 }));
@@ -176,7 +178,7 @@ beforeEach(() => {
   updatedRow = null;
   setContext();
   mocks.checkCsrfProtection.mockResolvedValue({ valid: true });
-  mocks.isParentCategoryOwnedByMerchant.mockResolvedValue('owned');
+  mocks.validateCategoryParent.mockResolvedValue(null);
   mocks.promoteChildrenToRoots.mockResolvedValue(0);
   mocks.wouldCreateCategoryCycle.mockResolvedValue(false);
   mocks.invalidateCategoryCaches.mockReturnValue({
@@ -250,11 +252,12 @@ describe('PATCH /api/merchant/categories/[categoryId]', () => {
     expect(response.status).toBe(404);
   });
 
-  describe('parent integrity', () => {
-    it('rejects a parent that would close a loop', async () => {
-      // Not just self-parenting: storefront navigation walks down from
-      // `parent_id IS NULL` roots, so ANY ancestor loop detaches the branch.
-      mocks.wouldCreateCategoryCycle.mockResolvedValue(true);
+  describe('parent validation is delegated and includes this category', () => {
+    it('propagates the refusal response verbatim', async () => {
+      const { NextResponse: Response } = await import('next/server');
+      mocks.validateCategoryParent.mockResolvedValue(
+        Response.json({ code: 'PARENT_CYCLE' }, { status: 400 })
+      );
 
       const response = await PATCH(
         patchRequest({ parentId: PARENT_ID }),
@@ -267,38 +270,15 @@ describe('PATCH /api/merchant/categories/[categoryId]', () => {
       });
     });
 
-    it('checks ownership BEFORE walking the ancestor chain', async () => {
-      mocks.isParentCategoryOwnedByMerchant.mockResolvedValue('absent');
-
+    it('passes the edited categoryId so the ancestor walk can run', async () => {
       await PATCH(patchRequest({ parentId: PARENT_ID }), params());
 
-      // A foreign parent must not have its chain walked at all.
-      expect(mocks.wouldCreateCategoryCycle).not.toHaveBeenCalled();
-    });
-
-    it('returns 500, not 400, when the parent lookup itself fails', async () => {
-      mocks.isParentCategoryOwnedByMerchant.mockResolvedValue('lookup-failed');
-
-      const response = await PATCH(
-        patchRequest({ parentId: PARENT_ID }),
-        params()
+      expect(mocks.validateCategoryParent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          parentId: PARENT_ID,
+          categoryId: CATEGORY_ID,
+        })
       );
-
-      expect(response.status).toBe(500);
-    });
-
-    it('rejects a parent owned by another merchant', async () => {
-      mocks.isParentCategoryOwnedByMerchant.mockResolvedValue('absent');
-
-      const response = await PATCH(
-        patchRequest({ parentId: PARENT_ID }),
-        params()
-      );
-
-      expect(response.status).toBe(400);
-      await expect(response.json()).resolves.toMatchObject({
-        code: 'PARENT_NOT_FOUND',
-      });
     });
   });
 
@@ -338,20 +318,6 @@ describe('PATCH /api/merchant/categories/[categoryId]', () => {
       await PATCH(patchRequest({ slug: 'mobile-phones' }), params());
 
       expect(mocks.promoteChildrenToRoots).not.toHaveBeenCalled();
-    });
-  });
-
-  it('rejects a retired parent with 400 PARENT_RETIRED', async () => {
-    mocks.isParentCategoryOwnedByMerchant.mockResolvedValue('retired');
-
-    const response = await PATCH(
-      patchRequest({ parentId: PARENT_ID }),
-      params()
-    );
-
-    expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toMatchObject({
-      code: 'PARENT_RETIRED',
     });
   });
 

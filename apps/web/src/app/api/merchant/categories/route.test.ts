@@ -4,8 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   authenticateCategoryRequest: vi.fn(),
   resolveCategoryRouteContext: vi.fn(),
-  isParentCategoryOwnedByMerchant: vi.fn(),
   promoteChildrenToRoots: vi.fn(),
+  validateCategoryParent: vi.fn(),
   checkCsrfProtection: vi.fn(),
   invalidateCategoryCaches: vi.fn(),
 }));
@@ -14,12 +14,14 @@ vi.mock('./category-route-support', async () => {
   return {
     authenticateCategoryRequest: mocks.authenticateCategoryRequest,
     resolveCategoryRouteContext: mocks.resolveCategoryRouteContext,
-    isParentCategoryOwnedByMerchant: mocks.isParentCategoryOwnedByMerchant,
     promoteChildrenToRoots: mocks.promoteChildrenToRoots,
     firstValidationMessage: (error: { issues: Array<{ message: string }> }) =>
       error.issues[0]?.message ?? 'Invalid input',
   };
 });
+vi.mock('./validate-category-parent', () => ({
+  validateCategoryParent: mocks.validateCategoryParent,
+}));
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: mocks.checkCsrfProtection,
 }));
@@ -121,7 +123,7 @@ describe('POST /api/merchant/categories', () => {
     revivedRow = null;
     setContext(supabaseInserting());
     mocks.checkCsrfProtection.mockResolvedValue({ valid: true });
-    mocks.isParentCategoryOwnedByMerchant.mockResolvedValue('owned');
+    mocks.validateCategoryParent.mockResolvedValue(null);
     mocks.promoteChildrenToRoots.mockResolvedValue(0);
     mocks.invalidateCategoryCaches.mockReturnValue({
       revalidatedSlugs: ['phones'],
@@ -258,9 +260,12 @@ describe('POST /api/merchant/categories', () => {
     });
   });
 
-  describe('parent must belong to the same merchant', () => {
-    it('returns 400 when the parent belongs to another tenant', async () => {
-      mocks.isParentCategoryOwnedByMerchant.mockResolvedValue('absent');
+  describe('parent validation is delegated, and its refusal is returned', () => {
+    it('propagates the refusal response verbatim', async () => {
+      const { NextResponse: Response } = await import('next/server');
+      mocks.validateCategoryParent.mockResolvedValue(
+        Response.json({ code: 'PARENT_RETIRED' }, { status: 400 })
+      );
 
       const response = await POST(
         postRequest({ ...VALID_BODY, parentId: PARENT_ID })
@@ -268,14 +273,25 @@ describe('POST /api/merchant/categories', () => {
 
       expect(response.status).toBe(400);
       await expect(response.json()).resolves.toMatchObject({
-        code: 'PARENT_NOT_FOUND',
+        code: 'PARENT_RETIRED',
       });
     });
 
-    it('skips the lookup when no parent is supplied', async () => {
+    it('passes no categoryId, because a create has none yet', async () => {
+      await POST(postRequest({ ...VALID_BODY, parentId: PARENT_ID }));
+
+      expect(mocks.validateCategoryParent).toHaveBeenCalledWith(
+        expect.objectContaining({ parentId: PARENT_ID })
+      );
+      expect(
+        mocks.validateCategoryParent.mock.calls[0]?.[0]
+      ).not.toHaveProperty('categoryId');
+    });
+
+    it('skips validation entirely when no parent is supplied', async () => {
       await POST(postRequest(VALID_BODY));
 
-      expect(mocks.isParentCategoryOwnedByMerchant).not.toHaveBeenCalled();
+      expect(mocks.validateCategoryParent).not.toHaveBeenCalled();
     });
   });
 
@@ -305,21 +321,6 @@ describe('POST /api/merchant/categories', () => {
 
       expect(response.status).toBe(400);
       expect(insertedRow).toBeNull();
-    });
-  });
-
-  describe('a retired parent cannot adopt an active child', () => {
-    it('returns 400 PARENT_RETIRED', async () => {
-      mocks.isParentCategoryOwnedByMerchant.mockResolvedValue('retired');
-
-      const response = await POST(
-        postRequest({ ...VALID_BODY, parentId: PARENT_ID })
-      );
-
-      expect(response.status).toBe(400);
-      await expect(response.json()).resolves.toMatchObject({
-        code: 'PARENT_RETIRED',
-      });
     });
   });
 
@@ -357,18 +358,6 @@ describe('POST /api/merchant/categories', () => {
       const response = await POST(postRequest(VALID_BODY));
 
       // A 409 would tell the client to stop retrying something transient.
-      expect(response.status).toBe(500);
-    });
-  });
-
-  describe('parent lookup failures are not absence', () => {
-    it('returns 500, not a non-retryable 400, when the lookup errors', async () => {
-      mocks.isParentCategoryOwnedByMerchant.mockResolvedValue('lookup-failed');
-
-      const response = await POST(
-        postRequest({ ...VALID_BODY, parentId: PARENT_ID })
-      );
-
       expect(response.status).toBe(500);
     });
   });

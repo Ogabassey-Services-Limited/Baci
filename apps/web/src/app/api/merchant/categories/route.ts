@@ -5,9 +5,9 @@ import { createMerchantCategorySchema } from '@/schemas/create-merchant-category
 import {
   authenticateCategoryRequest,
   firstValidationMessage,
-  isParentCategoryOwnedByMerchant,
   resolveCategoryRouteContext,
 } from './category-route-support';
+import { validateCategoryParent } from './validate-category-parent';
 
 /**
  * Create a category (B1-lite).
@@ -68,37 +68,14 @@ export async function POST(request: NextRequest) {
   }
   const { merchantId, supabase } = resolution.context;
 
-  // A parent must belong to the SAME merchant: the FK only proves the UUID
-  // exists somewhere in `categories`, so without this an owner could nest their
-  // category under a foreign tenant's row.
   if (parsed.data.parentId) {
-    const parentOwnership = await isParentCategoryOwnedByMerchant(
+    const parentRefusal = await validateCategoryParent({
       supabase,
       merchantId,
-      parsed.data.parentId
-    );
-    // A failed lookup is NOT absence: answering 400 PARENT_NOT_FOUND would tell
-    // the client to stop retrying a parent that exists.
-    if (parentOwnership === 'lookup-failed') {
-      return NextResponse.json(
-        { error: 'Could not verify the parent category' },
-        { status: 500 }
-      );
-    }
-    if (parentOwnership === 'absent') {
-      return NextResponse.json(
-        { error: 'Parent category not found', code: 'PARENT_NOT_FOUND' },
-        { status: 400 }
-      );
-    }
-    if (parentOwnership === 'retired') {
-      return NextResponse.json(
-        {
-          error: 'That parent category has been retired',
-          code: 'PARENT_RETIRED',
-        },
-        { status: 400 }
-      );
+      parentId: parsed.data.parentId,
+    });
+    if (parentRefusal) {
+      return parentRefusal;
     }
   }
 

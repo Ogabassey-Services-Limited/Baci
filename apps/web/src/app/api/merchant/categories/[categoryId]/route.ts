@@ -7,11 +7,11 @@ import { updateMerchantCategorySchema } from '@/schemas/update-merchant-category
 import {
   authenticateCategoryRequest,
   firstValidationMessage,
-  isParentCategoryOwnedByMerchant,
   promoteChildrenToRoots,
   resolveCategoryRouteContext,
-  wouldCreateCategoryCycle,
 } from '../category-route-support';
+import { buildCategoryUpdatePayload } from '../category-update-payload';
+import { validateCategoryParent } from '../validate-category-parent';
 
 interface RouteParams {
   params: Promise<{ categoryId: string }>;
@@ -82,52 +82,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const { merchantId, supabase } = resolution.context;
 
   if (parsed.data.parentId) {
-    const parentOwnership = await isParentCategoryOwnedByMerchant(
+    const parentRefusal = await validateCategoryParent({
       supabase,
       merchantId,
-      parsed.data.parentId
-    );
-    // A failed lookup is NOT absence — a non-retryable 400 for a parent that
-    // exists would be worse than an honest 500.
-    if (parentOwnership === 'lookup-failed') {
-      return NextResponse.json(
-        { error: 'Could not verify the parent category' },
-        { status: 500 }
-      );
-    }
-    if (parentOwnership === 'absent') {
-      return NextResponse.json(
-        { error: 'Parent category not found', code: 'PARENT_NOT_FOUND' },
-        { status: 400 }
-      );
-    }
-    if (parentOwnership === 'retired') {
-      return NextResponse.json(
-        {
-          error: 'That parent category has been retired',
-          code: 'PARENT_RETIRED',
-        },
-        { status: 400 }
-      );
-    }
-
-    // Self-parenting is only the shortest cycle. Any ancestor loop detaches the
-    // whole branch, because storefront navigation walks down from
-    // `parent_id IS NULL` roots and a looped branch has none.
-    const cycle = await wouldCreateCategoryCycle(
-      supabase,
-      merchantId,
-      categoryId.data,
-      parsed.data.parentId
-    );
-    if (cycle) {
-      return NextResponse.json(
-        {
-          error: 'That parent would create a category loop',
-          code: 'PARENT_CYCLE',
-        },
-        { status: 400 }
-      );
+      parentId: parsed.data.parentId,
+      categoryId: categoryId.data,
+    });
+    if (parentRefusal) {
+      return parentRefusal;
     }
   }
 
@@ -147,22 +109,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Category not found' }, { status: 404 });
   }
 
-  const updates: Record<string, unknown> = {
-    updated_at: new Date().toISOString(),
-  };
-  // Already sanitized by the schema, before its non-empty check.
-  if (parsed.data.name !== undefined) updates.name = parsed.data.name;
-  if (parsed.data.slug !== undefined) updates.slug = parsed.data.slug;
-  if (parsed.data.description !== undefined)
-    updates.description = parsed.data.description || null;
-  if (parsed.data.imageUrl !== undefined)
-    updates.image_url = parsed.data.imageUrl;
-  if (parsed.data.parentId !== undefined)
-    updates.parent_id = parsed.data.parentId;
-  if (parsed.data.displayOrder !== undefined)
-    updates.display_order = parsed.data.displayOrder;
-  if (parsed.data.isActive !== undefined)
-    updates.is_active = parsed.data.isActive;
+  const updates = buildCategoryUpdatePayload(
+    parsed.data,
+    new Date().toISOString()
+  );
 
   const { data, error } = await supabase
     .from('categories')
