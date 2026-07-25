@@ -335,6 +335,25 @@ describe('wouldCreateCategoryCycle', () => {
     ).resolves.toBe(false);
   });
 
+  it('fails closed when an ancestor lookup ERRORS', async () => {
+    // A failed read cannot prove the absence of a loop; answering "no cycle"
+    // would let a transient error write the very edge this guard prevents.
+    const maybeSingle = vi
+      .fn()
+      .mockResolvedValue({ data: null, error: { message: 'timeout' } });
+    const client = {
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle })) })),
+        })),
+      })),
+    } as unknown as CategoryRouteContext['supabase'];
+
+    await expect(
+      wouldCreateCategoryCycle(client, MERCHANT_ID, CATEGORY, 'other')
+    ).resolves.toBe(true);
+  });
+
   it('fails closed on a pre-existing loop rather than spinning forever', async () => {
     // a -> b -> a already in the data, and neither is the edited category.
     const client = supabaseWithTree({ a: 'b', b: 'a' });

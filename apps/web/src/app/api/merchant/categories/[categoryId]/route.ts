@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { invalidateCategoryCaches } from '@/lib/category-cache-invalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { logger } from '@/lib/logger';
 import { categoryIdParamSchema } from '@/schemas/category-id-param';
 import { updateMerchantCategorySchema } from '@/schemas/update-merchant-category';
 import {
@@ -229,9 +230,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   }
   const { merchantId, merchantIdentifiers, supabase } = resolution.context;
 
+  const retiredAt = new Date().toISOString();
   const { data: retired, error } = await supabase
     .from('categories')
-    .update({ is_active: false, updated_at: new Date().toISOString() })
+    .update({ is_active: false, updated_at: retiredAt })
     .eq('id', categoryId.data)
     .eq('merchant_id', merchantId)
     .select('id, slug')
@@ -244,6 +246,28 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Category not found' }, { status: 404 });
   }
 
+  // Children would otherwise keep a non-null parent_id pointing at a retired
+  // row: navigation walks DOWN from `parent_id IS NULL` roots, so they would
+  // vanish from the storefront without ever being retired themselves — invisible
+  // and unreachable. Promote them to roots so they stay browsable.
+  const { data: orphaned, error: detachError } = await supabase
+    .from('categories')
+    .update({ parent_id: null, updated_at: retiredAt })
+    .eq('merchant_id', merchantId)
+    .eq('parent_id', categoryId.data)
+    .select('slug');
+
+  if (detachError) {
+    // The parent is already retired at this point, so failing the response
+    // would misreport a committed mutation. Report it instead.
+    logger.error({
+      message: 'Failed to detach children of a retired category',
+      merchantId,
+      categoryId: categoryId.data,
+      error: detachError.message,
+    });
+  }
+
   const invalidation = invalidateCategoryCaches({
     merchantId,
     merchantIdentifiers,
@@ -252,6 +276,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
   return NextResponse.json({
     deleted: { id: retired.id },
+    detachedChildren: orphaned?.length ?? 0,
+    childrenDetached: !detachError,
     cache: invalidation,
   });
 }

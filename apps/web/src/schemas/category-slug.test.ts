@@ -25,8 +25,9 @@ describe('categorySlugSchema', () => {
     expect(categorySlugSchema.safeParse(slug).success).toBe(false);
   });
 
-  it('rejects a slug longer than 120 characters', () => {
-    expect(categorySlugSchema.safeParse('a'.repeat(121)).success).toBe(false);
+  it('rejects a slug the storefront read RPCs would refuse (>64 bytes)', () => {
+    expect(categorySlugSchema.safeParse('a'.repeat(65)).success).toBe(false);
+    expect(categorySlugSchema.safeParse('a'.repeat(64)).success).toBe(true);
   });
 
   describe('reserved storefront segments', () => {

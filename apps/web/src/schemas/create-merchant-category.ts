@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { categoryImageUrlSchema } from './category-image-url';
 import { categorySlugSchema } from './category-slug';
 import {
   requiredCategoryText,
@@ -17,7 +18,7 @@ export const createMerchantCategorySchema = z.object({
   name: requiredCategoryText(160),
   slug: categorySlugSchema,
   description: sanitizedCategoryText(2000).nullish(),
-  imageUrl: z.string().trim().url().max(2048).nullish(),
+  imageUrl: categoryImageUrlSchema.nullish(),
   parentId: z.uuid().nullish(),
   displayOrder: z.number().int().min(0).max(100_000).optional(),
   isActive: z.boolean().optional(),

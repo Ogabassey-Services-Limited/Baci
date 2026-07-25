@@ -42,6 +42,8 @@ function supabaseInserting(
     error?: { code?: string; message: string };
     /** Row the revive update finds (null => no tombstone to revive). */
     revives?: { id: string; name: string; slug: string } | null;
+    /** Error the revive lookup itself returns. */
+    reviveError?: { message: string } | null;
   } = {}
 ) {
   return {
@@ -72,8 +74,8 @@ function supabaseInserting(
               eq: vi.fn(() => ({
                 select: vi.fn(() => ({
                   maybeSingle: vi.fn().mockResolvedValue({
-                    data: result.revives ?? null,
-                    error: null,
+                    data: result.reviveError ? null : (result.revives ?? null),
+                    error: result.reviveError ?? null,
                   }),
                 })),
               })),
@@ -304,6 +306,22 @@ describe('POST /api/merchant/categories', () => {
 
       expect(response.status).toBe(400);
       expect(insertedRow).toBeNull();
+    });
+  });
+
+  describe('revive lookup failures are not "no tombstone"', () => {
+    it('returns 500 rather than a misleading duplicate-slug 409', async () => {
+      setContext(
+        supabaseInserting({
+          error: { code: '23505', message: 'duplicate key' },
+          reviveError: { message: 'connection reset' },
+        })
+      );
+
+      const response = await POST(postRequest(VALID_BODY));
+
+      // A 409 would tell the client to stop retrying something transient.
+      expect(response.status).toBe(500);
     });
   });
 

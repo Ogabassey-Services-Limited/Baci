@@ -1,8 +1,17 @@
 /**
- * Longest slug the category API accepts. Kept in step with
- * `apps/web/src/schemas/category-slug.ts`.
+ * Longest category slug the STOREFRONT can actually read.
+ *
+ * Not an arbitrary API limit: the public read RPCs reject a longer value
+ * outright — `octet_length(p_category_slug) > 64` in
+ * `20260709213000_bounded_storefront_cluster_guide_candidates.sql:108` and the
+ * same bound on `raw_input.category_slug` in
+ * `20260710123000_storefront_public_read_snapshots.sql:1029`. Allowing more
+ * would let a merchant create a category the storefront cannot serve.
+ *
+ * Bytes, not characters — but the slug alphabet is `[a-z0-9-]`, so one
+ * character is one byte and the two bounds coincide.
  */
-export const MAX_CATEGORY_SLUG_LENGTH = 120;
+export const MAX_CATEGORY_SLUG_LENGTH = 64;
 
 /**
  * Derive a storefront-safe category slug from a merchant-typed name.

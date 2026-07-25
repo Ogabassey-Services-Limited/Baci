@@ -58,6 +58,17 @@ describe('deriveCategorySlug', () => {
 
       expect(slug).toBe('a'.repeat(MAX_CATEGORY_SLUG_LENGTH));
     });
+
+    it('matches the byte bound the storefront read RPCs enforce', () => {
+      // octet_length(p_category_slug) > 64 is rejected by the public read
+      // path, so a longer slug would create an unreadable category.
+      expect(MAX_CATEGORY_SLUG_LENGTH).toBe(64);
+
+      const slug = deriveCategorySlug('word '.repeat(40));
+      expect(
+        new TextEncoder().encode(slug as string).length
+      ).toBeLessThanOrEqual(64);
+    });
   });
 
   it('produces slugs the storefront route contract accepts', () => {

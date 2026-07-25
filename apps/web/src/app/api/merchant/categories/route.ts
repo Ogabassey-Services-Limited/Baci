@@ -126,6 +126,15 @@ export async function POST(request: NextRequest) {
       .select('id, name, slug, is_active')
       .maybeSingle();
 
+    // A failed revive lookup is not "no tombstone": falling through would
+    // report a duplicate-slug 409 for a transient database error, telling the
+    // client to stop retrying something that would have succeeded.
+    if (revived.error) {
+      return NextResponse.json(
+        { error: 'Could not create the category' },
+        { status: 500 }
+      );
+    }
     if (revived.data) {
       data = revived.data;
       error = null;

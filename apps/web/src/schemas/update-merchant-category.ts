@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { categoryImageUrlSchema } from './category-image-url';
 import { categorySlugSchema } from './category-slug';
 import {
   requiredCategoryText,
@@ -17,7 +18,7 @@ export const updateMerchantCategorySchema = z
     name: requiredCategoryText(160).optional(),
     slug: categorySlugSchema.optional(),
     description: sanitizedCategoryText(2000).nullish(),
-    imageUrl: z.string().trim().url().max(2048).nullish(),
+    imageUrl: categoryImageUrlSchema.nullish(),
     parentId: z.uuid().nullish(),
     displayOrder: z.number().int().min(0).max(100_000).optional(),
     // `false` is the "deactivate" operation — a soft disable, so the public read

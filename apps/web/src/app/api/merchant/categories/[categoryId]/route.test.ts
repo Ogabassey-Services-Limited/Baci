@@ -40,6 +40,8 @@ interface TableState {
   updateError?: { code?: string; message: string } | null;
   deleted?: { id: string; slug: string } | null;
   deleteError?: { message: string } | null;
+  /** Rows the children-detach update reports. */
+  detached?: Array<{ slug: string }>;
 }
 
 /** Captures the patch handed to `.update()`. */
@@ -63,7 +65,13 @@ function supabaseFor(state: TableState) {
         })),
       })),
       update: vi.fn((row: Record<string, unknown>) => {
-        updatedRow = row;
+        // The children-detach update sets parent_id and is not the row under
+        // test, so it must not clobber `updatedRow`.
+        if (
+          !('parent_id' in row && row.parent_id === null && !('name' in row))
+        ) {
+          updatedRow = row;
+        }
         const result = {
           data:
             state.deleted === undefined
@@ -74,23 +82,36 @@ function supabaseFor(state: TableState) {
         return {
           eq: vi.fn(() => ({
             eq: vi.fn(() => ({
-              select: vi.fn(() => ({
-                // DELETE tombstones through update(...).maybeSingle().
-                maybeSingle: vi.fn().mockResolvedValue(result),
-                single: vi.fn().mockResolvedValue({
-                  data:
-                    state.updated ??
-                    (state.updateError
-                      ? null
-                      : {
-                          id: CATEGORY_ID,
-                          name: 'Phones',
-                          slug: 'mobile-phones',
-                          is_active: true,
-                        }),
-                  error: state.updateError ?? null,
-                }),
-              })),
+              // Distinguished by projection. PATCH selects the full row
+              // and calls single(); the DELETE tombstone selects 'id, slug'
+              // and calls maybeSingle(); the children-detach update selects
+              // 'slug' and awaits the builder directly.
+              select: vi.fn((columns: string) => {
+                if (columns === 'slug') {
+                  return Promise.resolve({
+                    data: state.detached ?? [],
+                    error: null,
+                  });
+                }
+                if (columns === 'id, slug') {
+                  return { maybeSingle: vi.fn().mockResolvedValue(result) };
+                }
+                return {
+                  single: vi.fn().mockResolvedValue({
+                    data:
+                      state.updated ??
+                      (state.updateError
+                        ? null
+                        : {
+                            id: CATEGORY_ID,
+                            name: 'Phones',
+                            slug: 'mobile-phones',
+                            is_active: true,
+                          }),
+                    error: state.updateError ?? null,
+                  }),
+                };
+              }),
             })),
           })),
         };
@@ -315,6 +336,21 @@ describe('DELETE /api/merchant/categories/[categoryId]', () => {
     expect(mocks.invalidateCategoryCaches).toHaveBeenCalledWith(
       expect.objectContaining({ previousSlug: 'phones' })
     );
+  });
+
+  describe('bugfix: children of a retired parent became unreachable', () => {
+    it('promotes children to roots so they stay browsable', async () => {
+      // Navigation walks DOWN from `parent_id IS NULL`; a child still pointing
+      // at a retired parent is neither retired nor reachable.
+      setContext({ detached: [{ slug: 'android' }, { slug: 'ios' }] });
+
+      const response = await DELETE(deleteRequest(), params());
+
+      await expect(response.json()).resolves.toMatchObject({
+        detachedChildren: 2,
+        childrenDetached: true,
+      });
+    });
   });
 
   describe('bugfix: a hard delete revives the category URL', () => {

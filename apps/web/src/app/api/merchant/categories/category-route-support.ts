@@ -241,12 +241,22 @@ export async function wouldCreateCategoryCycle(
     }
     seen.add(cursor);
 
-    const result: { data: { parent_id: string | null } | null } = await supabase
+    const result: {
+      data: { parent_id: string | null } | null;
+      error: unknown;
+    } = await supabase
       .from('categories')
       .select('parent_id')
       .eq('id', cursor)
       .eq('merchant_id', merchantId)
       .maybeSingle();
+
+    // A failed read cannot prove the absence of a loop. Reporting "no cycle"
+    // here would let a transient error write the very edge this guard exists to
+    // prevent, so an unreadable chain fails CLOSED.
+    if (result.error) {
+      return true;
+    }
 
     // A missing row means the chain leaves this merchant — ownership is checked
     // separately, and there is no path back to `categoryId` from here.
