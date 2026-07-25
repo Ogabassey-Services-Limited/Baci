@@ -34,31 +34,62 @@ export function QuizAgeGateModal({
   const titleId = useId();
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLFormElement>(null);
+  const triggerRef = useRef<HTMLElement | null>(null);
   const [value, setValue] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  // Reset + focus each time the gate opens so a re-open starts clean.
+  // Reset + focus each time the gate opens so a re-open starts clean, and
+  // restore focus to the element that opened it (the Start button) on close.
   useEffect(() => {
-    if (open) {
-      setValue('');
-      setValidationError(null);
-      inputRef.current?.focus();
-    }
+    if (!open) return;
+    triggerRef.current = document.activeElement as HTMLElement | null;
+    setValue('');
+    setValidationError(null);
+    inputRef.current?.focus();
+    return () => triggerRef.current?.focus?.();
   }, [open]);
 
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onCancel();
+      // Ignore dismissal while a save is in flight: a late Escape must not
+      // abandon a submission that has already started the quiz.
+      if (event.key === 'Escape') {
+        if (!submitting) onCancel();
+        return;
+      }
+      // Trap Tab/Shift+Tab inside the dialog — `aria-modal` alone does not make
+      // the background inert, so focus could otherwise escape to quiz controls.
+      if (event.key !== 'Tab') return;
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+      const focusables = dialog.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [open, onCancel]);
+  }, [open, submitting, onCancel]);
 
   if (!open) return null;
 
-  // The max attribute keeps the native picker from offering future dates.
-  const today = new Date().toISOString().slice(0, 10);
+  // The max attribute keeps the native picker from offering today or the
+  // future — the latest acceptable DOB is yesterday (today is rejected by both
+  // the shared schema and the server DOB RPC).
+  const maxDate = new Date(Date.now() - 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -79,7 +110,7 @@ export function QuizAgeGateModal({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onCancel();
+        if (!submitting && event.target === event.currentTarget) onCancel();
       }}
     >
       <form
@@ -87,6 +118,7 @@ export function QuizAgeGateModal({
         aria-modal="true"
         className={`w-full max-w-sm ${panel}`}
         onSubmit={handleSubmit}
+        ref={dialogRef}
         role="dialog"
       >
         <h2 className="text-lg font-semibold" id={titleId}>
@@ -106,7 +138,7 @@ export function QuizAgeGateModal({
         <input
           className="mt-1 w-full rounded-lg border border-store-background-text/20 bg-transparent px-3 py-2 text-sm text-store-background-text"
           id={inputId}
-          max={today}
+          max={maxDate}
           onChange={(event) => setValue(event.target.value)}
           ref={inputRef}
           type="date"

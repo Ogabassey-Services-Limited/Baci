@@ -76,4 +76,32 @@ describe('QuizAgeGateModal', () => {
     expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
   });
+
+  it('cancels on Escape when not submitting', () => {
+    const { onCancel } = setup();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores Escape while submitting so a pending save is not abandoned', () => {
+    const { onCancel } = setup({ submitting: true });
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onCancel).not.toHaveBeenCalled();
+  });
+
+  it('ignores a backdrop click while submitting', () => {
+    const { onCancel } = setup({ submitting: true });
+    // The backdrop is the dialog's overlay parent.
+    const backdrop = screen.getByRole('dialog').parentElement as HTMLElement;
+    fireEvent.mouseDown(backdrop);
+    expect(onCancel).not.toHaveBeenCalled();
+  });
+
+  it('does not offer today or a future date in the picker (max is yesterday)', () => {
+    setup();
+    const input = screen.getByLabelText('Date of birth') as HTMLInputElement;
+    const today = new Date().toISOString().slice(0, 10);
+    expect(input.max).toBeTruthy();
+    expect(input.max < today).toBe(true);
+  });
 });

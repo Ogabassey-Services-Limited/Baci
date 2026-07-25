@@ -25,6 +25,12 @@ describe('dateOfBirthSchema', () => {
     );
   });
 
+  it("rejects today's date to match the server DOB RPC (>= now()::date)", () => {
+    const now = new Date();
+    const today = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`;
+    expect(dateOfBirthSchema.safeParse(today).success).toBe(false);
+  });
+
   it('rejects an implausibly old date (>120 years)', () => {
     const tooOld = new Date().getUTCFullYear() - 130;
     expect(dateOfBirthSchema.safeParse(`${tooOld}-01-01`).success).toBe(false);

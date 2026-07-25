@@ -239,6 +239,70 @@ describe('OgabasseyV2Quiz', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
+  it('does not start two attempts when Continue is double-submitted', async () => {
+    let resolveSave: (value: { success: boolean }) => void = () => {};
+    const savePromise = new Promise<{ success: boolean }>((resolve) => {
+      resolveSave = resolve;
+    });
+    const updateCustomer = mockCustomer(
+      { date_of_birth: null },
+      vi.fn().mockReturnValue(savePromise)
+    );
+    vi.mocked(apiGet).mockResolvedValue(eventResponse);
+    vi.mocked(apiPost).mockResolvedValueOnce(attemptResponse);
+
+    render(<OgabasseyV2Quiz merchantSlug="ogabassey" />);
+    fireEvent.click(
+      await screen.findByRole('button', { name: /start exam/i })
+    );
+    fireEvent.change(await screen.findByLabelText('Date of birth'), {
+      target: { value: '1990-06-15' },
+    });
+
+    // Two synchronous submits before the pending save resolves — the
+    // synchronous in-flight guard must swallow the second.
+    const dialog = screen.getByRole('dialog');
+    fireEvent.submit(dialog);
+    fireEvent.submit(dialog);
+
+    resolveSave({ success: true });
+    expect(
+      await screen.findByText('Pick the winning answer')
+    ).toBeInTheDocument();
+
+    expect(updateCustomer).toHaveBeenCalledTimes(1);
+    expect(apiPost).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the gate open with the error when the start is rejected after saving DOB', async () => {
+    mockCustomer(
+      { date_of_birth: null },
+      vi.fn().mockResolvedValue({ success: true })
+    );
+    vi.mocked(apiGet).mockResolvedValue(eventResponse);
+    // The save succeeds but the server rejects the start (e.g. under-18).
+    vi.mocked(apiPost).mockRejectedValueOnce(
+      new Error('Quiz participation requires an adult profile (18+)')
+    );
+
+    render(<OgabasseyV2Quiz merchantSlug="ogabassey" />);
+    fireEvent.click(
+      await screen.findByRole('button', { name: /start exam/i })
+    );
+    fireEvent.change(await screen.findByLabelText('Date of birth'), {
+      target: { value: '2020-06-15' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+
+    // The gate stays open so the shopper can correct their DOB — not stranded.
+    expect(
+      await screen.findByRole('dialog', { name: 'Confirm your date of birth' })
+    ).toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Quiz participation requires an adult profile (18+)'
+    );
+  });
+
   it('loads events, starts an exam, and submits an answer', async () => {
     vi.mocked(apiGet).mockResolvedValue(eventResponse);
     vi.mocked(apiPost)
