@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  createClient: vi.fn(),
+  getAuthenticatedUser: vi.fn(),
   getMerchantForApiRequest: vi.fn(),
 }));
 
-vi.mock('@/lib/supabase/server', () => ({ createClient: mocks.createClient }));
+vi.mock('@/lib/supabase/mobile-auth', () => ({
+  getAuthenticatedUser: mocks.getAuthenticatedUser,
+}));
 vi.mock('@/lib/get-merchant-for-api-request', () => ({
   getMerchantForApiRequest: mocks.getMerchantForApiRequest,
   toUserAccess: (ctx: { staffAccess: { isOwner?: boolean } }) => ({
@@ -18,9 +20,8 @@ import { resolveCategoryRouteContext } from './category-route-support';
 const MERCHANT_ID = 'merchant-1';
 
 function setUser(user: { id: string } | null) {
-  mocks.createClient.mockResolvedValue({
-    auth: { getUser: vi.fn().mockResolvedValue({ data: { user } }) },
-  });
+  // getAuthenticatedUser handles BOTH Bearer (mobile) and cookie (web).
+  mocks.getAuthenticatedUser.mockResolvedValue({ user, supabase: {} });
 }
 
 function setMerchant(overrides: Record<string, unknown> = {}) {

@@ -5,6 +5,7 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
+import { apiClient } from '@/lib/api-client';
 import type {
   AdminProductSearchFilters,
   AdminProductStockFilter,
@@ -238,13 +239,23 @@ export function useCreateCategory() {
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)/g, '');
 
-      const { data, error } = await supabase
-        .from('categories')
-        .insert([{ merchant_id: merchant.id, name: sanitizedName, slug }])
-        .select('id, name, slug')
-        .single();
-      if (error) throw error;
-      return data;
+      // B1-lite: go through the web Route Handler instead of inserting
+      // directly. A direct insert only invalidated React Query, so the
+      // storefront's cached category surfaces (and the Cloudflare edge) kept
+      // serving stale data after a merchant added a category. The handler owns
+      // revalidation + best-effort purge. `merchantId` is sent only as an
+      // assertion the server 403s on if it disagrees with the session.
+      const { category } = await apiClient<{
+        category: { id: string; name: string; slug: string };
+      }>('/api/merchant/categories', {
+        method: 'POST',
+        body: JSON.stringify({
+          merchantId: merchant.id,
+          name: sanitizedName,
+          slug,
+        }),
+      });
+      return category;
     },
     mutationKey: ['createCategory'],
     onSuccess: () => {

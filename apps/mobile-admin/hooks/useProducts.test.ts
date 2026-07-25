@@ -107,6 +107,16 @@ vi.mock('@tanstack/react-query', () => ({
   useQueryClient: () => mocks.queryClient,
 }));
 
+// B1-lite: createCategory now posts to the web Route Handler (which owns
+// revalidation + edge purge) instead of inserting directly, so the api-client
+// must be mocked — importing it for real pulls in RN transport internals the
+// test environment cannot load.
+vi.mock('@/lib/api-client', () => ({
+  apiClient: vi.fn().mockResolvedValue({
+    category: { id: 'category-1', name: 'Phones', slug: 'phones' },
+  }),
+}));
+
 vi.mock('@/lib/revalidate-storefront-products', () => ({
   revalidateStorefrontProducts: vi.fn(),
 }));

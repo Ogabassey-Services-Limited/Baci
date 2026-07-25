@@ -3,7 +3,7 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import { createClient } from '@/lib/supabase/server';
+import { getAuthenticatedUser } from '@/lib/supabase/mobile-auth';
 
 /**
  * Shared authorization for category management (B1-lite).
@@ -23,7 +23,13 @@ export interface CategoryRouteContext {
   merchantId: string;
   /** Storefront identifiers used to resolve purge hostnames server-side. */
   merchantIdentifiers: string[];
-  supabase: Awaited<ReturnType<typeof createClient>>;
+  /**
+   * The CALLER's client — Bearer-scoped for mobile, cookie-scoped for web — so
+   * RLS remains the final authority on every mutation.
+   */
+  supabase: NonNullable<
+    Awaited<ReturnType<typeof getAuthenticatedUser>>
+  >['supabase'];
 }
 
 export type CategoryRouteResolution =
@@ -43,18 +49,18 @@ export async function resolveCategoryRouteContext(
   request: Request,
   requestedMerchantId?: string
 ): Promise<CategoryRouteResolution> {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
+  // Supports BOTH transports: Bearer (mobile-admin) and cookie (web). The
+  // mobile category mutation is the primary caller, so a cookie-only client
+  // would 401 every mobile request. CSRF is separately exempt for Bearer.
+  const auth = await getAuthenticatedUser(request);
+  if (!auth?.user) {
     return {
       ok: false,
       response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
     };
   }
 
+  const { user, supabase } = auth;
   const merchantContext = await getMerchantForApiRequest(supabase, user.id);
   if (!merchantContext) {
     return {
