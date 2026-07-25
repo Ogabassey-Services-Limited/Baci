@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-  fetchDashboardMerchant,
   fetchMerchantBySlug,
   fetchPrimaryDomain,
   normalizeFeatureSettings,
@@ -109,6 +108,42 @@ describe('fetchMerchantBySlug', () => {
     expect(selectArg).not.toContain('google_product_sheet_url');
   });
 
+  // S1 containment: every column below is REVOKED from both the `anon` and the
+  // `authenticated` Postgres role. PostgREST rejects the WHOLE query with 42501
+  // if a select names any of them, so re-adding one here fails the storefront
+  // read closed. This module previously also carried a dead dashboard loader
+  // whose selects listed these columns; it was deleted rather than repaired.
+  it.each([
+    'paystack_subaccount_code',
+    'virtual_terminal_code',
+    'stripe_customer_id',
+    'stripe_subscription_id',
+    'facebook_capi_token',
+    'facebook_capi_access_token',
+    'ga4_api_secret',
+    'tiktok_access_token',
+    'snapchat_capi_token',
+    'google_product_sheet_url',
+    'nin',
+    'bvn',
+    'cac_number',
+    'firs_public_key',
+    'firs_certificate',
+    'firs_email',
+    'firs_password_encrypted',
+  ])('never selects the revoked column %s', async (revokedColumn) => {
+    const merchantsHandler = mockQueryChain({
+      data: { id: 'merchant-1' },
+      error: null,
+    });
+    const supabase = createMockSupabase({ merchants: merchantsHandler });
+
+    await fetchMerchantBySlug(supabase, 'test-store');
+
+    const selectArg = merchantsHandler.select.mock.calls[0]?.[0] as string;
+    expect(selectArg).not.toContain(revokedColumn);
+  });
+
   it('returns null when merchant not found', async () => {
     const supabase = createMockSupabase({
       merchants: mockQueryChain({
@@ -133,189 +168,6 @@ describe('fetchMerchantBySlug', () => {
       code: 'PGRST500',
       message: 'Server error',
     });
-  });
-});
-
-describe('fetchDashboardMerchant', () => {
-  it('returns merchant with owner access for valid owner', async () => {
-    const merchantData = {
-      id: 'merchant-1',
-      user_id: 'user-1',
-      business_name: 'Owner Store',
-      business_type: 'FASHION',
-      slug: 'owner-store',
-      feature_settings: null,
-      paystack_subaccount_code: null,
-      bank_account_number: '1234567890123456',
-      bank_account_name: 'Yodha Shopping',
-      bank_code: null,
-      bank_name: 'HDFC Bank',
-      support_email: 'support@ogabassey.com',
-      support_phone: '+2348000000000',
-      legal_entity_name: 'Ogabassey Gadgets Ltd',
-      registered_address: {
-        street: '12 Allen Avenue',
-        city: 'Ikeja',
-        state: 'Lagos',
-        country: 'Nigeria',
-      },
-      tax_identification_number: 'TIN-123',
-      trust_profile: {
-        founded_year: 2018,
-      },
-    };
-
-    const supabase = createMockSupabase({
-      merchants: mockQueryChain({ data: merchantData, error: null }),
-      staff_members: mockQueryChain({ data: null, error: null }),
-    });
-
-    const result = await fetchDashboardMerchant(supabase, 'user-1');
-
-    expect(result.merchant?.id).toBe('merchant-1');
-    expect(result.merchant?.support_email).toBe('support@ogabassey.com');
-    expect(result.merchant?.support_phone).toBe('+2348000000000');
-    expect(result.merchant?.legal_entity_name).toBe('Ogabassey Gadgets Ltd');
-    expect(result.merchant?.registered_address).toEqual({
-      street: '12 Allen Avenue',
-      city: 'Ikeja',
-      state: 'Lagos',
-      country: 'Nigeria',
-    });
-    expect(result.merchant?.tax_identification_number).toBe('TIN-123');
-    expect(result.merchant?.trust_profile).toEqual({
-      founded_year: 2018,
-    });
-    expect(result.merchant?.bank_account_number).toBe('1234567890123456');
-    expect(result.merchant?.bank_account_name).toBe('Yodha Shopping');
-    expect(result.merchant?.bank_code).toBeNull();
-    expect(result.merchant?.bank_name).toBe('HDFC Bank');
-    expect(result.staffAccess.isOwner).toBe(true);
-    expect(result.staffAccess.isStaff).toBe(false);
-  });
-
-  it('returns the merchant and merged permissions for an active staff member', async () => {
-    const supabase = createMockSupabase({
-      // Not the owner of any merchant.
-      merchants: mockQueryChain({ data: null, error: null }),
-      staff_members: mockQueryChain({
-        data: {
-          id: 'staff-1',
-          role: 'manager',
-          permissions: { settings: { view: true } },
-          status: 'active',
-          merchant_id: 'merchant-9',
-          merchants: {
-            id: 'merchant-9',
-            user_id: 'owner-user',
-            business_name: 'Staffed Store',
-            slug: 'staffed-store',
-            feature_settings: null,
-            support_email: 'ops@staffed-store.com',
-          },
-        },
-        error: null,
-      }),
-      role_permissions: mockQueryChain({
-        data: { permissions: { orders: { view: true } } },
-        error: null,
-      }),
-    });
-
-    const result = await fetchDashboardMerchant(supabase, 'staff-user');
-
-    expect(result.staffAccess.isStaff).toBe(true);
-    expect(result.staffAccess.isOwner).toBe(false);
-    expect(result.merchant?.id).toBe('merchant-9');
-    expect(result.merchant?.support_email).toBe('ops@staffed-store.com');
-    // Role defaults + custom overrides are merged.
-    expect(result.staffAccess.permissions.orders?.view).toBe(true);
-    expect(result.staffAccess.permissions.settings?.view).toBe(true);
-  });
-
-  it('treats owner rows without business details as incomplete', async () => {
-    const supabase = createMockSupabase({
-      merchants: mockQueryChain({
-        data: {
-          id: 'merchant-1',
-          user_id: 'user-1',
-          business_name: null,
-          business_type: null,
-          slug: null,
-          feature_settings: null,
-        },
-        error: null,
-      }),
-      staff_members: mockQueryChain({ data: null, error: null }),
-    });
-
-    const result = await fetchDashboardMerchant(supabase, 'user-1');
-
-    expect(result.merchant).toBeNull();
-    expect(result.staffAccess.isOwner).toBe(false);
-    expect(result.staffAccess.isStaff).toBe(false);
-  });
-
-  it('returns null merchant when no owner and no staff', async () => {
-    const supabase = createMockSupabase({
-      merchants: mockQueryChain({ data: null, error: null }),
-      staff_members: mockQueryChain({ data: null, error: null }),
-    });
-
-    const result = await fetchDashboardMerchant(supabase, 'user-1');
-
-    expect(result.merchant).toBeNull();
-    expect(result.staffAccess.isOwner).toBe(false);
-    expect(result.staffAccess.isStaff).toBe(false);
-  });
-
-  it('does not select custom_domain in dashboard lookups because the primary domain is resolved separately', async () => {
-    const merchantsHandler = mockQueryChain({
-      data: {
-        id: 'merchant-1',
-        user_id: 'user-1',
-        business_name: 'Owner Store',
-        business_type: 'FASHION',
-        slug: 'owner-store',
-        feature_settings: null,
-      },
-      error: null,
-    });
-    const supabase = createMockSupabase({
-      merchants: merchantsHandler,
-      staff_members: mockQueryChain({ data: null, error: null }),
-    });
-
-    await fetchDashboardMerchant(supabase, 'user-1');
-
-    const selectArg = merchantsHandler.select.mock.calls[0]?.[0] as string;
-    expect(selectArg).not.toContain('custom_domain');
-  });
-
-  it('selects bank details for dashboard payment settings hydration', async () => {
-    const merchantsHandler = mockQueryChain({
-      data: {
-        id: 'merchant-1',
-        user_id: 'user-1',
-        business_name: 'Owner Store',
-        business_type: 'FASHION',
-        slug: 'owner-store',
-        feature_settings: null,
-      },
-      error: null,
-    });
-    const supabase = createMockSupabase({
-      merchants: merchantsHandler,
-      staff_members: mockQueryChain({ data: null, error: null }),
-    });
-
-    await fetchDashboardMerchant(supabase, 'user-1');
-
-    const selectArg = merchantsHandler.select.mock.calls[0]?.[0] as string;
-    expect(selectArg).toContain('bank_account_number');
-    expect(selectArg).toContain('bank_account_name');
-    expect(selectArg).toContain('bank_code');
-    expect(selectArg).toContain('bank_name');
   });
 });
 
