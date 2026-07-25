@@ -16,6 +16,7 @@ import { mobileOnboardingSchema } from '@/schemas/onboarding';
 import type { BrandColors } from '@/types';
 import { logOnboardingFailure } from './onboarding-failure-log';
 import { buildOnboardingFailureResponse } from './onboarding-failure-response';
+import { provisionMerchantDomain } from './provision-merchant-domain';
 
 // Allow up to 60s — template generation calls an AI model (Gemini)
 // and hero-image assignment can also be slow. The default 10s is not enough.
@@ -472,28 +473,22 @@ export async function POST(req: NextRequest) {
       merchantSlug = created.data.slug;
     }
 
-    // Create Domain
-    const { error: domainError } = await scopedSupabase.from('domains').insert({
-      merchant_id: merchantId,
-      domain: `${merchantSlug}.${env.NEXT_PUBLIC_ROOT_DOMAIN}`,
-      tld: `.${env.NEXT_PUBLIC_ROOT_DOMAIN}`,
-      domain_type: 'subdomain',
-      status: 'active',
-      is_primary: true,
-    });
-
-    // 23505 = already provisioned. Any OTHER failure must NOT abort the request:
-    // the merchant row is already committed, so returning here would leave the
-    // account half-provisioned (no staff profile, no page config) AND
-    // unrepairable — after signing in, (auth)/_layout sends a user who HAS a
-    // merchant straight to the dashboard, never back through this endpoint. The
-    // address is derivable from the merchant, so hand the repair to after()
-    // instead and let provisioning finish.
-    const needsDomainRepair = Boolean(
-      domainError && domainError.code !== '23505'
+    // A failure here must NOT abort the request: the merchant row is already
+    // committed, so returning would leave the account half-provisioned (no
+    // staff profile, no page config) AND unrepairable — after signing in,
+    // (auth)/_layout sends a user who HAS a merchant straight to the dashboard,
+    // never back through this endpoint.
+    const domainProvisionInput = {
+      merchantId,
+      merchantSlug,
+      rootDomain: env.NEXT_PUBLIC_ROOT_DOMAIN,
+    };
+    const firstDomainAttempt = await provisionMerchantDomain(
+      scopedSupabase,
+      domainProvisionInput
     );
-    if (needsDomainRepair) {
-      logOnboardingFailure(domainError, {
+    if (!firstDomainAttempt.provisioned) {
+      logOnboardingFailure(firstDomainAttempt.error, {
         stage: 'domain_provisioning',
         merchantId,
       });
@@ -527,24 +522,19 @@ export async function POST(req: NextRequest) {
       // token may expire, and after() runs outside the original auth context.
       const adminSupabase = createAdminClient();
 
-      // Repair the storefront address if the scoped insert above failed. The
-      // merchant row is committed and the address is derived from it, so this
-      // needs no user action — and the user could not retry it anyway, since
-      // sign-in routes a merchant-owning user straight to the dashboard.
-      if (needsDomainRepair) {
-        const { error: repairError } = await adminSupabase
-          .from('domains')
-          .insert({
-            merchant_id: merchantId,
-            domain: `${merchantSlug}.${env.NEXT_PUBLIC_ROOT_DOMAIN}`,
-            tld: `.${env.NEXT_PUBLIC_ROOT_DOMAIN}`,
-            domain_type: 'subdomain',
-            status: 'active',
-            is_primary: true,
-          });
-        if (repairError && repairError.code !== '23505') {
-          logOnboardingFailure(repairError, {
-            stage: 'domain_repair',
+      // Retry the storefront address on the SAME caller-scoped client, never
+      // the privileged one: a persistent denial is a policy bug that must stay
+      // visible, not something to force through. A second failure leaves the
+      // merchant with no active domain row, which is itself the durable,
+      // queryable signal for repair — and is alerted on below.
+      if (!firstDomainAttempt.provisioned) {
+        const retry = await provisionMerchantDomain(
+          scopedSupabase,
+          domainProvisionInput
+        );
+        if (!retry.provisioned) {
+          logOnboardingFailure(retry.error, {
+            stage: 'domain_repair_exhausted',
             merchantId,
           });
         }

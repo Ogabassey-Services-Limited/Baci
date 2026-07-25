@@ -1058,6 +1058,15 @@ describe('POST /api/mobile-onboarding', () => {
   // --- Domain creation ---
 
   it('finishes provisioning and repairs the domain when its insert fails', async () => {
+    // Fails on the caller-scoped insert, then succeeds on the scoped retry.
+    const domainInsert = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: null,
+        error: { message: 'RLS violation', code: '42501' },
+      })
+      .mockResolvedValue({ data: null, error: null });
+
     mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
     mockSignUp.mockResolvedValue({
       data: {
@@ -1081,26 +1090,12 @@ describe('POST /api/mobile-onboarding', () => {
         };
       }
       if (table === 'domains') {
-        return {
-          insert: vi.fn().mockResolvedValue({
-            data: null,
-            error: { message: 'RLS violation', code: '42501' },
-          }),
-        };
+        return { insert: domainInsert };
       }
       return {
         upsert: vi.fn().mockResolvedValue({ data: null, error: null }),
       };
     });
-
-    const domainRepairInsert = vi
-      .fn()
-      .mockResolvedValue({ data: null, error: null });
-    mockAdminFrom.mockImplementation((table: string) =>
-      table === 'domains'
-        ? { insert: domainRepairInsert }
-        : { insert: vi.fn().mockResolvedValue({ data: null, error: null }) }
-    );
 
     const res = await POST(makeRequest(validBody));
     const body = await res.json();
@@ -1112,16 +1107,19 @@ describe('POST /api/mobile-onboarding', () => {
     expect(res.status).toBe(200);
     expect(body.success).toBe(true);
 
-    // The address is derived from the merchant, so after() repairs it with no
-    // user action.
+    // The address is derived from the merchant, so after() retries it with no
+    // user action — on the SAME caller-scoped client, never service-role, so a
+    // real policy denial stays visible instead of being forced through.
     await Promise.all(afterCallbacks.map((cb) => cb()));
-    expect(domainRepairInsert).toHaveBeenCalledWith(
+    expect(domainInsert).toHaveBeenCalledTimes(2);
+    expect(domainInsert).toHaveBeenLastCalledWith(
       expect.objectContaining({
         merchant_id: 'merch-1',
         domain: 'test.usebaci.com',
         is_primary: true,
       })
     );
+    expect(mockAdminFrom).not.toHaveBeenCalledWith('domains');
   });
 
   it('ignores duplicate domain error (code 23505)', async () => {
