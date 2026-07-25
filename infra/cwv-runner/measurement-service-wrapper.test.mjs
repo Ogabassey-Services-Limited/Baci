@@ -23,7 +23,7 @@ async function inputs(root) {
     writeFile(imagePath, image),
     writeFile(
       receiptPath,
-      `${createHash('sha256').update(image).digest('hex')}  ${imagePath}\n`
+      `${createHash('sha256').update(image).digest('hex')}\n`
     ),
     writeFile(dynamicPath, `${dynamic}\n`),
   ]);
@@ -88,6 +88,27 @@ test('creates a validated root-only snapshot that remains independent from the s
     (await readFile(input.snapshotPath)).length,
     Buffer.byteLength(`${image}${dynamic}\n`)
   );
+});
+
+test('accepts the installer-produced bare image digest receipt', async (context) => {
+  const root = await mkdtemp(join(tmpdir(), 'baci-measurement-wrapper-'));
+  context.after(() => rm(root, { force: true, recursive: true }));
+  const input = await inputs(root);
+  await writeFile(
+    input.receiptPath,
+    `${createHash('sha256').update(image).digest('hex')}\n`
+  );
+
+  const result = invoke([
+    'prepare',
+    input.snapshotPath,
+    input.imagePath,
+    input.receiptPath,
+    input.dynamicPath,
+  ]);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(await readFile(input.snapshotPath, 'utf8'), `${image}${dynamic}\n`);
 });
 
 test('refuses a bad first static input even when the receipt is valid', async (context) => {

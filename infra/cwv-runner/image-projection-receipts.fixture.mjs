@@ -148,6 +148,7 @@ export const sealedRuntimePaths = [
   'opt/baci-cwv/entrypoint.mjs',
   'opt/baci-cwv/entrypoint.sh',
   'opt/baci-cwv/normal-release.mjs',
+  'opt/baci-cwv/process-inventory.mjs',
   'opt/baci-cwv/registration-egress-probe.mjs',
   'opt/baci-cwv/registration-release.mjs',
   'opt/baci-cwv/runner-identity-gate.mjs',

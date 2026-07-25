@@ -28,7 +28,9 @@ const readRepositorySources = async () => {
     actionlintWorkflow: workflows['actionlint.yml'],
     authoritySources: {
       authority: await readFile(new URL('.github/scripts/cwv-runner-authority.mjs', root), 'utf8'),
+      canonical: await readFile(new URL('.github/scripts/canonical-json.mjs', root), 'utf8'),
       core: await readFile(new URL('.github/scripts/cwv-runner-authority-core.mjs', root), 'utf8'),
+      policy: await readFile(new URL('.github/scripts/policy.schema.mjs', root), 'utf8'),
       runtime: await readFile(new URL('.github/scripts/cwv-runner-authority-runtime.mjs', root), 'utf8'),
       stable: await readFile(new URL('.github/scripts/cwv-runner-stable-attestation-builder.mjs', root), 'utf8'),
     },
@@ -36,6 +38,11 @@ const readRepositorySources = async () => {
     workflows,
   };
 };
+
+test('YAML workflow contract parser declares its direct runtime dependency', async () => {
+  const manifest = JSON.parse(await readFile(new URL('package.json', root), 'utf8'));
+  assert.equal(manifest.devDependencies.yaml, '^2.9.0');
+});
 
 test('workflow discovery includes portable YAML file names and extensions', () => {
   assert.deepEqual(workflowSourceNames(['attest.yml', 'deploy.yaml', 'CI_WORKFLOW.YAML', 'release.candidate.yml', '.hidden.yml', 'release candidate (v2)!.yaml', 'café 日本語.yml', 'notes.yaml.bak', 'readme.md']), ['attest.yml', 'deploy.yaml', 'CI_WORKFLOW.YAML', 'release.candidate.yml', '.hidden.yml', 'release candidate (v2)!.yaml', 'café 日本語.yml']);

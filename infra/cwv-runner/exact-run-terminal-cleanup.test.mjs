@@ -1,16 +1,14 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { once } from 'node:events';
 import * as fs from 'node:fs/promises';
-import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
-const run = (value) =>
-  spawnSync('/bin/sh', [value.script, value.campaign], { encoding: 'utf8' });
+const run = (value, args = [value.campaign]) =>
+  spawnSync('/bin/sh', [value.script, ...args], { encoding: 'utf8' });
 
 async function fixture(t, options = {}) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'cwv-exact-terminal-'));
@@ -130,12 +128,7 @@ async function fixture(t, options = {}) {
   if (options.labelPresent) await fs.writeFile(labelState, 'present');
   const log = path.join(root, 'calls.log');
   const socket = path.join(root, 'docker.sock');
-  if (!options.noSocket) {
-    const server = net.createServer();
-    server.listen(socket);
-    await once(server, 'listening');
-    t.after(() => server.close());
-  }
+  if (!options.noSocket) await fs.writeFile(socket, 'test socket');
   const systemctl = path.join(fixed, 'systemctl');
   const stat = path.join(fixed, 'stat');
   const sync = path.join(fixed, 'sync');
@@ -156,7 +149,7 @@ async function fixture(t, options = {}) {
   );
   await fs.writeFile(
     docker,
-    `#!/bin/sh\nprintf '%s\\n' "$*" >>'${log}'\ncase "$*" in *'container inspect baci-cwv-measurement'*) [ -e '${fixedNameState}' ] || { printf 'Error response from daemon: No such container: baci-cwv-measurement' >&2; exit 1; }; printf '[{"Id":"measurement"}]\\n' ;; *'ps -aq --no-trunc --filter label=baci.cwv.transaction=${campaign}'*) [ ! -e '${labelState}' ] || printf '${runnerId}\\n' ;; *inspect*) [ -e '${dockerState}' ] || { printf 'Error response from daemon: No such container: ${runnerId}' >&2; exit 1; }; printf '%s\\n' '[{"Config":{"Labels":{"baci.cwv.transaction":"${campaign}"}},"HostConfig":{"CgroupParent":"cwv-measurement.slice"},"Id":"${runnerId}"}]' ;; *stop*) : ;; *rm*) rm -f '${dockerState}' '${fixedNameState}' '${labelState}'; rm -rf '${scopePath}' ;; esac\n`
+    `#!/bin/sh\nprintf '%s\\n' "$*" >>'${log}'\ncase "$*" in *'container inspect baci-cwv-measurement'*) [ -e '${fixedNameState}' ] || { printf 'Error response from daemon: No such container: baci-cwv-measurement' >&2; exit 1; }; printf '[{"Id":"measurement"}]\\n' ;; *'ps -aq --no-trunc --filter label=baci.cwv.transaction'*) [ ! -e '${labelState}' ] || printf '${runnerId}\\n' ;; *inspect*) [ -e '${dockerState}' ] || { printf 'Error response from daemon: No such container: ${runnerId}' >&2; exit 1; }; printf '%s\\n' '[{"Config":{"Labels":{"baci.cwv.transaction":"${campaign}"}},"HostConfig":{"CgroupParent":"cwv-measurement.slice"},"Id":"${runnerId}"}]' ;; *stop*) : ;; *rm*) rm -f '${dockerState}' '${fixedNameState}' '${labelState}'; rm -rf '${scopePath}' ;; esac\n`
   );
   await Promise.all(
     [systemctl, stat, sync, move, docker].map((file) => fs.chmod(file, 0o755))
@@ -181,6 +174,7 @@ async function fixture(t, options = {}) {
       )
       .replaceAll('/run/baci-cwv/docker/docker.sock', socket)
       .replaceAll('/run/baci-cwv/docker.sock', socket)
+      .replaceAll('[ -S "${DOCKER_SOCKET#unix://}" ]', '[ -e "${DOCKER_SOCKET#unix://}" ]')
       .replaceAll('/bin/systemctl', systemctl)
       .replaceAll('/usr/bin/docker', docker)
       .replaceAll('/usr/bin/stat', stat)
@@ -223,6 +217,16 @@ test('accepts an empty service ControlGroup when the expected control cgroup is 
     emptyControlGroup: true,
   });
   assert.equal(run(value).status, 0);
+});
+
+test('observes a terminal transaction without changing any cleanup state', async (t) => {
+  const value = await fixture(t, { absentContainer: true });
+  const before = await fs.readFile(path.join(value.control, 'active-transaction.json'), 'utf8');
+  const result = run(value, ['--observe-terminal', value.campaign]);
+  assert.equal(result.status, 0, result.stderr); assert.equal(result.stdout, '{"busy":false,"phase":"terminal","processes":[]}\n');
+  assert.equal(await fs.readFile(path.join(value.control, 'active-transaction.json'), 'utf8'), before);
+  for (const file of Object.values(value.artifacts)) await assert.doesNotReject(fs.access(file));
+  assert.doesNotMatch(await fs.readFile(value.log, 'utf8'), /\b(?:stop|rm)\b/);
 });
 // biome-ignore format: compact failure matrix preserves the 300-line contract
 for (const [name, options] of [
@@ -284,5 +288,6 @@ test('uses only the flat dedicated Docker socket', async () => {
     'utf8'
   );
   assert.match(source, /DOCKER_SOCKET=unix:\/\/\/run\/baci-cwv\/docker\.sock/);
+  assert.match(source, /\[ -S "\$\{DOCKER_SOCKET#unix:\/\/\}" \]/);
   assert.doesNotMatch(source, /\/run\/baci-cwv\/docker\/docker\.sock/);
 });

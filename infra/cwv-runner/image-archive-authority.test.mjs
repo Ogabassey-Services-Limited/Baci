@@ -153,6 +153,7 @@ test('requires every authority source exactly once in the source manifest', () =
     'normal-release.mjs',
     'policy.json',
     'policy.schema.mjs',
+    'process-inventory.mjs',
     'registration-egress-probe.mjs',
     'registration-release.mjs',
     'runner-identity-gate.mjs',

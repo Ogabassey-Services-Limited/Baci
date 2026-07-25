@@ -38,7 +38,6 @@ const signalExitStatus = (signal) => {
   return Number.isInteger(number) ? 128 + number : 1;
 };
 const listenerShutdownGraceMilliseconds = 5_000;
-
 // biome-ignore format: compact terminal error preserves the audited runtime cap.
 export class ListenerTerminalError extends Error { constructor(exitStatus) { super('listener terminal failure'); this.exitStatus = exitStatus; } }
 
@@ -233,6 +232,7 @@ export async function runListenerOnce(executable, dependencies = {}) {
   const child = spawnChild(executable, ['run', '--once'], {
     cwd: '/opt/runner',
     env: {
+      ACTIONS_RUNNER_HOOK_JOB_STARTED: '/run/baci-cwv-hooks/job-start-hook.sh',
       DISABLE_RUNNER_UPDATE: '1',
       HOME: '/home/runner',
       LANG: 'C.UTF-8',

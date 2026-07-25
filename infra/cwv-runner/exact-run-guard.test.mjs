@@ -234,11 +234,12 @@ test('terminal process inventory remains empty and every nonterminal phase needs
   assert.throws(() => validateProcessInventory({ busy: true, expectedRunId: 42, phase: 'terminal', processes: [] }), /terminal/);
   assert.throws(() => validateProcessInventory({ busy: false, expectedRunId: 42, phase: 'listener-idle', processes: [] }), /process map/);
 });
-test('controller never fabricates terminal process evidence after the runner exits', () => {
+test('controller seals a host-observed terminal inventory after nonterminal container samples', () => {
+  const release = controller.slice(controller.indexOf('release()'), controller.indexOf('complete_run()')); assert.match(controller, /validate_process_sample\(\)[\s\S]*validate-process/);
   assert.doesNotMatch(controller, /printf '%s\\n' '\[\]' >"\$directory\/process-list\.json"/);
-  assert.match(controller, /terminal_seen=0[\s\S]*phase" = terminal[\s\S]*terminal_seen=1[\s\S]*\[ "\$terminal_seen" -eq 1 \]/);
+  assert.match(release, /while \/bin\/systemctl is-active[\s\S]*process-inventory\.mjs[\s\S]*validate_process_sample[\s\S]*\[ "\$phase" != terminal \][\s\S]*done[\s\S]*until "\$SCRIPT_DIR\/exact-run-terminal-cleanup\.sh" --observe-terminal[\s\S]*before_controller_deadline/);
+  assert.match(release, /exact-run-terminal-cleanup\.sh" --observe-terminal "\$id" >"\$directory\/processes\.json"[\s\S]*validate_process_sample[\s\S]*\[ "\$phase" = terminal \]/);
 });
-
 test('terminal completion emits canonical empty inventory and a receipt-bound restore identity', () => {
   assert.match(controller, /--complete\|--abort/);
   assert.match(controller, /(?=[\s\S]*terminal-processes\.json)(?=[\s\S]*processes:\[\])(?=[\s\S]*restore-receipt\.json)/);
@@ -256,7 +257,6 @@ test('controller, process authority, wrapper, and host share the canonical measu
   assert.match(hostAuthority, /\/cwv-measurement\.slice\/docker-\$\{runtime\.runnerContainerId\}\.scope/);
   assert.match(hostAuthority, /\/cwv-measurement-control\.slice/);
 });
-
 test('cleanup refuses a foreign or drifted transaction before touching active state', () => {
   assert.match(controller, /ACTIVE_TRANSACTION=\$CONTROL_ROOT\/\$campaign_id\/active-transaction\.json/);
   assert.match(controller, /transaction\) restore_transaction "\$CONTROL_ROOT\/\$campaign_id"/); assert.match(controller, /restore_transaction\(\)[\s\S]*verify_active_transaction "\$campaign_id" \|\| return 1/);
