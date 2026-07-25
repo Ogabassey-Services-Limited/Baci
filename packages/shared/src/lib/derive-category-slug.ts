@@ -14,6 +14,14 @@
 export const MAX_CATEGORY_SLUG_LENGTH = 64;
 
 /**
+ * Longest category NAME the API accepts, shared so the mobile input and the
+ * server schema cannot disagree. The mobile hook previously allowed 200, so a
+ * 161–200 character name passed every local check and then failed with an API
+ * 400 the merchant could not have predicted.
+ */
+export const MAX_CATEGORY_NAME_LENGTH = 160;
+
+/**
  * Derive a storefront-safe category slug from a merchant-typed name.
  *
  * Shared because the mobile admin generates the slug client-side while the web

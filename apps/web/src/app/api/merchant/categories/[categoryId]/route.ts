@@ -1,13 +1,14 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { invalidateCategoryCaches } from '@/lib/category-cache-invalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
-import { logger } from '@/lib/logger';
 import { categoryIdParamSchema } from '@/schemas/category-id-param';
+import { merchantIdParamSchema } from '@/schemas/merchant-id-param';
 import { updateMerchantCategorySchema } from '@/schemas/update-merchant-category';
 import {
   authenticateCategoryRequest,
   firstValidationMessage,
   isParentCategoryOwnedByMerchant,
+  promoteChildrenToRoots,
   resolveCategoryRouteContext,
   wouldCreateCategoryCycle,
 } from '../category-route-support';
@@ -78,7 +79,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   if (!resolution.ok) {
     return resolution.response;
   }
-  const { merchantId, merchantIdentifiers, supabase } = resolution.context;
+  const { merchantId, supabase } = resolution.context;
 
   if (parsed.data.parentId) {
     const parentOwnership = await isParentCategoryOwnedByMerchant(
@@ -97,6 +98,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (parentOwnership === 'absent') {
       return NextResponse.json(
         { error: 'Parent category not found', code: 'PARENT_NOT_FOUND' },
+        { status: 400 }
+      );
+    }
+    if (parentOwnership === 'retired') {
+      return NextResponse.json(
+        {
+          error: 'That parent category has been retired',
+          code: 'PARENT_RETIRED',
+        },
         { status: 400 }
       );
     }
@@ -176,14 +186,32 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     );
   }
 
+  // A PATCH that deactivates is a retirement, so it owes the same subtree
+  // contract as DELETE: children of a deactivated parent would otherwise stay
+  // active but drop out of root-based navigation.
+  let detachedChildren: number | null = null;
+  if (parsed.data.isActive === false) {
+    detachedChildren = await promoteChildrenToRoots(
+      supabase,
+      merchantId,
+      categoryId.data,
+      String(updates.updated_at)
+    );
+  }
+
   const invalidation = invalidateCategoryCaches({
     merchantId,
-    merchantIdentifiers,
     previousSlug: existing.slug,
     nextSlug: data.slug,
   });
 
-  return NextResponse.json({ category: data, cache: invalidation });
+  return NextResponse.json({
+    category: data,
+    ...(detachedChildren !== null && { detachedChildren }),
+    childrenDetached:
+      parsed.data.isActive === false ? detachedChildren !== null : undefined,
+    cache: invalidation,
+  });
 }
 
 /**
@@ -223,12 +251,28 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     );
   }
 
-  // DELETE carries no body, so there is no merchant assertion to honour.
-  const resolution = await resolveCategoryRouteContext(authentication.auth);
+  // DELETE carries no body, so the merchant assertion arrives as a query
+  // parameter. Without it an owner with several stores could only ever delete
+  // from whichever store this server defaults to; every other store 404s.
+  const requestedMerchantId = request.nextUrl.searchParams.get('merchantId');
+  if (requestedMerchantId !== null) {
+    const merchantAssertion =
+      merchantIdParamSchema.safeParse(requestedMerchantId);
+    if (!merchantAssertion.success) {
+      return NextResponse.json(
+        { error: 'Invalid merchant id', code: 'INVALID_MERCHANT_ID' },
+        { status: 400 }
+      );
+    }
+  }
+  const resolution = await resolveCategoryRouteContext(
+    authentication.auth,
+    requestedMerchantId ?? undefined
+  );
   if (!resolution.ok) {
     return resolution.response;
   }
-  const { merchantId, merchantIdentifiers, supabase } = resolution.context;
+  const { merchantId, supabase } = resolution.context;
 
   const retiredAt = new Date().toISOString();
   const { data: retired, error } = await supabase
@@ -246,38 +290,22 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Category not found' }, { status: 404 });
   }
 
-  // Children would otherwise keep a non-null parent_id pointing at a retired
-  // row: navigation walks DOWN from `parent_id IS NULL` roots, so they would
-  // vanish from the storefront without ever being retired themselves — invisible
-  // and unreachable. Promote them to roots so they stay browsable.
-  const { data: orphaned, error: detachError } = await supabase
-    .from('categories')
-    .update({ parent_id: null, updated_at: retiredAt })
-    .eq('merchant_id', merchantId)
-    .eq('parent_id', categoryId.data)
-    .select('slug');
-
-  if (detachError) {
-    // The parent is already retired at this point, so failing the response
-    // would misreport a committed mutation. Report it instead.
-    logger.error({
-      message: 'Failed to detach children of a retired category',
-      merchantId,
-      categoryId: categoryId.data,
-      error: detachError.message,
-    });
-  }
+  const detachedChildren = await promoteChildrenToRoots(
+    supabase,
+    merchantId,
+    categoryId.data,
+    retiredAt
+  );
 
   const invalidation = invalidateCategoryCaches({
     merchantId,
-    merchantIdentifiers,
     previousSlug: retired.slug,
   });
 
   return NextResponse.json({
     deleted: { id: retired.id },
-    detachedChildren: orphaned?.length ?? 0,
-    childrenDetached: !detachError,
+    detachedChildren: detachedChildren ?? 0,
+    childrenDetached: detachedChildren !== null,
     cache: invalidation,
   });
 }

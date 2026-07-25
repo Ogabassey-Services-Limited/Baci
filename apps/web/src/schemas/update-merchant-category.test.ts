@@ -19,7 +19,16 @@ describe('updateMerchantCategorySchema', () => {
 
   it('rejects a patch carrying ONLY the merchant assertion', () => {
     expect(
-      updateMerchantCategorySchema.safeParse({ merchantId: 'm-1' }).success
+      updateMerchantCategorySchema.safeParse({
+        merchantId: '33333333-3333-4333-8333-333333333333',
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects a non-UUID merchantId', () => {
+    expect(
+      updateMerchantCategorySchema.safeParse({ merchantId: 'm-1', name: 'X' })
+        .success
     ).toBe(false);
   });
 

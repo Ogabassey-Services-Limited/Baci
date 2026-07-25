@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
   if (!resolution.ok) {
     return resolution.response;
   }
-  const { merchantId, merchantIdentifiers, supabase } = resolution.context;
+  const { merchantId, supabase } = resolution.context;
 
   // A parent must belong to the SAME merchant: the FK only proves the UUID
   // exists somewhere in `categories`, so without this an owner could nest their
@@ -88,6 +88,15 @@ export async function POST(request: NextRequest) {
     if (parentOwnership === 'absent') {
       return NextResponse.json(
         { error: 'Parent category not found', code: 'PARENT_NOT_FOUND' },
+        { status: 400 }
+      );
+    }
+    if (parentOwnership === 'retired') {
+      return NextResponse.json(
+        {
+          error: 'That parent category has been retired',
+          code: 'PARENT_RETIRED',
+        },
         { status: 400 }
       );
     }
@@ -119,7 +128,19 @@ export async function POST(request: NextRequest) {
   if (error?.code === '23505') {
     const revived = await supabase
       .from('categories')
-      .update({ ...row, updated_at: new Date().toISOString() })
+      // Reset EVERY merchant-authored field, not just those in `row`. The
+      // tombstone's seo_heading/seo_description/seo_features/seo_faq are read
+      // straight into the public category page by
+      // getCachedCategoryPageShellData, so reusing a slug for a different
+      // purpose would immediately republish the retired category's SEO copy.
+      .update({
+        ...row,
+        seo_description: null,
+        seo_faq: null,
+        seo_features: null,
+        seo_heading: null,
+        updated_at: new Date().toISOString(),
+      })
       .eq('merchant_id', merchantId)
       .eq('slug', parsed.data.slug)
       .eq('is_active', false)
@@ -163,7 +184,6 @@ export async function POST(request: NextRequest) {
 
   const invalidation = invalidateCategoryCaches({
     merchantId,
-    merchantIdentifiers,
     nextSlug: data.slug,
   });
 

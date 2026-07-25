@@ -1,4 +1,4 @@
-import { deriveCategorySlug } from '@baci/shared';
+import { deriveCategorySlug, MAX_CATEGORY_NAME_LENGTH } from '@baci/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMerchant } from '@/hooks/useMerchant';
 import { apiClient } from '@/lib/api-client';
@@ -18,7 +18,9 @@ export function useCreateCategory() {
   return useMutation({
     mutationFn: async (name: string) => {
       if (!merchant?.id) throw new Error('No merchant');
-      const sanitizedName = sanitizeText(name, 200);
+      // Shared with createMerchantCategorySchema — 200 here meant a 161–200
+      // character name passed locally and then 400'd at the API.
+      const sanitizedName = sanitizeText(name, MAX_CATEGORY_NAME_LENGTH);
       if (!sanitizedName.trim()) throw new Error('Category name is required');
       // Shared with the route's schema. The old inline generator produced an
       // empty slug for a name with no ASCII characters (e.g. 手机) and had no

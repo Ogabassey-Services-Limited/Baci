@@ -33,11 +33,29 @@ describe('createMerchantCategorySchema', () => {
 
   it('treats merchantId as an optional assertion, never a requirement', () => {
     // The route derives the tenant from the session; this field only ever
-    // triggers a 403 on mismatch.
+    // selects among merchants the caller already reaches.
     expect(createMerchantCategorySchema.safeParse(VALID).success).toBe(true);
+    expect(
+      createMerchantCategorySchema.safeParse({
+        ...VALID,
+        merchantId: '33333333-3333-4333-8333-333333333333',
+      }).success
+    ).toBe(true);
+  });
+
+  it('rejects a non-UUID merchantId before it reaches a UUID column', () => {
     expect(
       createMerchantCategorySchema.safeParse({ ...VALID, merchantId: 'm-1' })
         .success
-    ).toBe(true);
+    ).toBe(false);
+  });
+
+  it('rejects a name longer than the shared 160-character bound', () => {
+    expect(
+      createMerchantCategorySchema.safeParse({
+        ...VALID,
+        name: 'a'.repeat(161),
+      }).success
+    ).toBe(false);
   });
 });

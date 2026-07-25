@@ -214,9 +214,13 @@ export function useCategories() {
     enabled: !!merchant?.id,
     queryFn: async () => {
       const { data, error } = await supabase
+        // Retired categories are tombstoned (is_active = false) rather than
+        // deleted, so an unfiltered picker would keep offering them and let a
+        // product be assigned to a category the storefront refuses to serve.
         .from('categories')
         .select('id, name, slug')
         .eq('merchant_id', merchant?.id)
+        .eq('is_active', true)
         .order('name');
       if (error) throw new Error(error.message);
       return data;

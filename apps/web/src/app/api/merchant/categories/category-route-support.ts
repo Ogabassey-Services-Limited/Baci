@@ -4,7 +4,6 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import { getStorefrontPublicationCacheIdentity } from '@/lib/get-storefront-publication-cache-identity';
 import { logger } from '@/lib/logger';
 import { getAuthenticatedUser } from '@/lib/supabase/mobile-auth';
 
@@ -24,8 +23,6 @@ export const CATEGORY_MANAGEMENT_RULE = 'owner-only' as const;
 
 export interface CategoryRouteContext {
   merchantId: string;
-  /** Storefront identifiers used to resolve purge hostnames server-side. */
-  merchantIdentifiers: string[];
   /**
    * The CALLER's client — Bearer-scoped for mobile, cookie-scoped for web — so
    * RLS remains the final authority on every mutation.
@@ -127,47 +124,9 @@ export async function resolveCategoryRouteContext(
     ok: true,
     context: {
       merchantId: merchantContext.merchantId,
-      merchantIdentifiers: await resolvePurgeIdentifiers(
-        supabase,
-        merchantContext.merchantId,
-        merchantContext.merchantSlug
-      ),
       supabase,
     },
   };
-}
-
-/**
- * Storefront identifiers for edge-purge hostname resolution: current slug,
- * RETIRED slugs, and active custom/purchased domains. Passing only the current
- * slug resolves to zero hostnames for a renamed merchant, or one whose slug is
- * legacy-null but has a live custom domain, which skips edge eviction entirely.
- *
- * These are PURGE METADATA reads, and the purge is explicitly best-effort — a
- * transient failure in the domains or retired-slug tables must not turn a
- * category mutation into a 500. Fall back to the canonical slug and log.
- */
-async function resolvePurgeIdentifiers(
-  supabase: CategoryRouteContext['supabase'],
-  merchantId: string,
-  merchantSlug: string | null | undefined
-): Promise<string[]> {
-  try {
-    const identity = await getStorefrontPublicationCacheIdentity(
-      supabase,
-      merchantId,
-      merchantSlug
-    );
-    return [...identity.identifiers];
-  } catch (error) {
-    logger.warn({
-      message:
-        'Category purge identity lookup failed; falling back to the canonical slug',
-      merchantId,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return merchantSlug ? [merchantSlug] : [];
-  }
 }
 
 /**
@@ -178,7 +137,11 @@ async function resolvePurgeIdentifiers(
  * another merchant's category — hiding it from their own top-level navigation
  * and coupling it to a foreign row's lifecycle.
  */
-export type ParentOwnershipResult = 'owned' | 'absent' | 'lookup-failed';
+export type ParentOwnershipResult =
+  | 'owned'
+  | 'absent'
+  | 'retired'
+  | 'lookup-failed';
 
 export async function isParentCategoryOwnedByMerchant(
   supabase: CategoryRouteContext['supabase'],
@@ -187,10 +150,10 @@ export async function isParentCategoryOwnedByMerchant(
 ): Promise<ParentOwnershipResult> {
   const { data, error } = await supabase
     .from('categories')
-    .select('id')
+    .select('id, is_active')
     .eq('id', parentId)
     .eq('merchant_id', merchantId)
-    .maybeSingle();
+    .maybeSingle<{ id: string; is_active: boolean | null }>();
 
   // A transient database failure also yields `data: null`. Reporting that as
   // absence would answer a non-retryable 400 PARENT_NOT_FOUND for a parent that
@@ -198,7 +161,50 @@ export async function isParentCategoryOwnedByMerchant(
   if (error) {
     return 'lookup-failed';
   }
-  return data ? 'owned' : 'absent';
+  if (!data) {
+    return 'absent';
+  }
+  // A retired parent is a tombstone. Nesting an ACTIVE child under it leaves
+  // the child servable but absent from navigation, which walks down from
+  // `parent_id IS NULL` roots — the same orphaning DELETE goes out of its way
+  // to prevent.
+  return data.is_active === false ? 'retired' : 'owned';
+}
+
+/**
+ * Promote a retired category's children to roots.
+ *
+ * Storefront navigation walks DOWN from `parent_id IS NULL`, so a child still
+ * pointing at a deactivated parent is neither retired nor reachable — invisible
+ * with no route back. Used by DELETE and by a PATCH that deactivates.
+ *
+ * Never throws: the parent is already retired by the time this runs, so raising
+ * would misreport a committed mutation. Returns how many rows moved, or null
+ * when the detach itself failed.
+ */
+export async function promoteChildrenToRoots(
+  supabase: CategoryRouteContext['supabase'],
+  merchantId: string,
+  parentId: string,
+  updatedAt: string
+): Promise<number | null> {
+  const { data, error } = await supabase
+    .from('categories')
+    .update({ parent_id: null, updated_at: updatedAt })
+    .eq('merchant_id', merchantId)
+    .eq('parent_id', parentId)
+    .select('slug');
+
+  if (error) {
+    logger.error({
+      message: 'Failed to detach children of a retired category',
+      merchantId,
+      categoryId: parentId,
+      error: error.message,
+    });
+    return null;
+  }
+  return data?.length ?? 0;
 }
 
 /**

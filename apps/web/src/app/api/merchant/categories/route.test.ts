@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   authenticateCategoryRequest: vi.fn(),
   resolveCategoryRouteContext: vi.fn(),
   isParentCategoryOwnedByMerchant: vi.fn(),
+  promoteChildrenToRoots: vi.fn(),
   checkCsrfProtection: vi.fn(),
   invalidateCategoryCaches: vi.fn(),
 }));
@@ -14,6 +15,7 @@ vi.mock('./category-route-support', async () => {
     authenticateCategoryRequest: mocks.authenticateCategoryRequest,
     resolveCategoryRouteContext: mocks.resolveCategoryRouteContext,
     isParentCategoryOwnedByMerchant: mocks.isParentCategoryOwnedByMerchant,
+    promoteChildrenToRoots: mocks.promoteChildrenToRoots,
     firstValidationMessage: (error: { issues: Array<{ message: string }> }) =>
       error.issues[0]?.message ?? 'Invalid input',
   };
@@ -29,6 +31,7 @@ import { POST } from './route';
 
 const MERCHANT_ID = 'merchant-1';
 const PARENT_ID = '11111111-1111-4111-8111-111111111111';
+const OTHER_MERCHANT = '33333333-3333-4333-8333-333333333333';
 
 /** Captures the row handed to `.insert()` so sanitization can be asserted. */
 let insertedRow: Record<string, unknown> | null = null;
@@ -96,7 +99,6 @@ function setContext(supabase: unknown) {
     ok: true,
     context: {
       merchantId: MERCHANT_ID,
-      merchantIdentifiers: ['test-store'],
       supabase,
     },
   });
@@ -120,11 +122,10 @@ describe('POST /api/merchant/categories', () => {
     setContext(supabaseInserting());
     mocks.checkCsrfProtection.mockResolvedValue({ valid: true });
     mocks.isParentCategoryOwnedByMerchant.mockResolvedValue('owned');
+    mocks.promoteChildrenToRoots.mockResolvedValue(0);
     mocks.invalidateCategoryCaches.mockReturnValue({
       revalidatedSlugs: ['phones'],
       revalidated: true,
-      purgeAttemptedHostnames: ['test-store.baci.app'],
-      edgePurgeScheduled: true,
     });
   });
 
@@ -141,9 +142,7 @@ describe('POST /api/merchant/categories', () => {
   });
 
   it('scopes the insert to the SERVER-resolved merchant', async () => {
-    await POST(
-      postRequest({ ...VALID_BODY, merchantId: MERCHANT_ID, isActive: false })
-    );
+    await POST(postRequest({ ...VALID_BODY, isActive: false }));
 
     expect(insertedRow).toMatchObject({
       merchant_id: MERCHANT_ID,
@@ -234,11 +233,11 @@ describe('POST /api/merchant/categories', () => {
       // rows by active membership, so an id the caller cannot reach 404s.
       // Ignoring it broke multi-store owners: the app shows the lowest merchant
       // UUID while this server defaults to the most recently created one.
-      await POST(postRequest({ ...VALID_BODY, merchantId: 'store-b' }));
+      await POST(postRequest({ ...VALID_BODY, merchantId: OTHER_MERCHANT }));
 
       expect(mocks.resolveCategoryRouteContext).toHaveBeenCalledWith(
         expect.objectContaining({ userId: 'user-1' }),
-        'store-b'
+        OTHER_MERCHANT
       );
     });
 
@@ -252,7 +251,7 @@ describe('POST /api/merchant/categories', () => {
       });
 
       const response = await POST(
-        postRequest({ ...VALID_BODY, merchantId: 'someone-elses-store' })
+        postRequest({ ...VALID_BODY, merchantId: OTHER_MERCHANT })
       );
 
       expect(response.status).toBe(404);
@@ -306,6 +305,43 @@ describe('POST /api/merchant/categories', () => {
 
       expect(response.status).toBe(400);
       expect(insertedRow).toBeNull();
+    });
+  });
+
+  describe('a retired parent cannot adopt an active child', () => {
+    it('returns 400 PARENT_RETIRED', async () => {
+      mocks.isParentCategoryOwnedByMerchant.mockResolvedValue('retired');
+
+      const response = await POST(
+        postRequest({ ...VALID_BODY, parentId: PARENT_ID })
+      );
+
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toMatchObject({
+        code: 'PARENT_RETIRED',
+      });
+    });
+  });
+
+  describe('bugfix: reviving a tombstone republished its old SEO copy', () => {
+    it('clears the retired row seo_* fields on revive', async () => {
+      setContext(
+        supabaseInserting({
+          error: { code: '23505', message: 'duplicate key' },
+          revives: { id: 'cat-1', name: 'Phones', slug: 'phones' },
+        })
+      );
+
+      await POST(postRequest(VALID_BODY));
+
+      // getCachedCategoryPageShellData reads these straight onto the public
+      // page, so a reused slug would inherit the deleted category's copy.
+      expect(revivedRow).toMatchObject({
+        seo_description: null,
+        seo_faq: null,
+        seo_features: null,
+        seo_heading: null,
+      });
     });
   });
 

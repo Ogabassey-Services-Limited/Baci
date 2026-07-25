@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   authenticateCategoryRequest: vi.fn(),
   resolveCategoryRouteContext: vi.fn(),
   isParentCategoryOwnedByMerchant: vi.fn(),
+  promoteChildrenToRoots: vi.fn(),
   wouldCreateCategoryCycle: vi.fn(),
   checkCsrfProtection: vi.fn(),
   invalidateCategoryCaches: vi.fn(),
@@ -15,6 +16,7 @@ vi.mock('../category-route-support', async () => {
     authenticateCategoryRequest: mocks.authenticateCategoryRequest,
     resolveCategoryRouteContext: mocks.resolveCategoryRouteContext,
     isParentCategoryOwnedByMerchant: mocks.isParentCategoryOwnedByMerchant,
+    promoteChildrenToRoots: mocks.promoteChildrenToRoots,
     wouldCreateCategoryCycle: mocks.wouldCreateCategoryCycle,
     firstValidationMessage: (error: { issues: Array<{ message: string }> }) =>
       error.issues[0]?.message ?? 'Invalid input',
@@ -130,7 +132,6 @@ function setContext(state: TableState = {}) {
     ok: true,
     context: {
       merchantId: MERCHANT_ID,
-      merchantIdentifiers: ['test-store'],
       supabase,
     },
   });
@@ -151,9 +152,12 @@ function patchRequest(body: unknown) {
   );
 }
 
-function deleteRequest() {
+const MERCHANT_UUID = '33333333-3333-4333-8333-333333333333';
+
+function deleteRequest(merchantId?: string) {
+  const query = merchantId ? `?merchantId=${merchantId}` : '';
   return new NextRequest(
-    `https://baci.app/api/merchant/categories/${CATEGORY_ID}`,
+    `https://baci.app/api/merchant/categories/${CATEGORY_ID}${query}`,
     { method: 'DELETE' }
   );
 }
@@ -173,12 +177,11 @@ beforeEach(() => {
   setContext();
   mocks.checkCsrfProtection.mockResolvedValue({ valid: true });
   mocks.isParentCategoryOwnedByMerchant.mockResolvedValue('owned');
+  mocks.promoteChildrenToRoots.mockResolvedValue(0);
   mocks.wouldCreateCategoryCycle.mockResolvedValue(false);
   mocks.invalidateCategoryCaches.mockReturnValue({
     revalidatedSlugs: ['phones', 'mobile-phones'],
     revalidated: true,
-    purgeAttemptedHostnames: ['test-store.baci.app'],
-    edgePurgeScheduled: true,
   });
 });
 
@@ -319,6 +322,39 @@ describe('PATCH /api/merchant/categories/[categoryId]', () => {
     expect(updatedRow).toBeNull();
   });
 
+  describe('a deactivating PATCH owes the same subtree contract as DELETE', () => {
+    it('promotes children when isActive is set to false', async () => {
+      mocks.promoteChildrenToRoots.mockResolvedValue(3);
+
+      const response = await PATCH(patchRequest({ isActive: false }), params());
+
+      expect(mocks.promoteChildrenToRoots).toHaveBeenCalled();
+      await expect(response.json()).resolves.toMatchObject({
+        detachedChildren: 3,
+      });
+    });
+
+    it('leaves children alone for an ordinary rename', async () => {
+      await PATCH(patchRequest({ slug: 'mobile-phones' }), params());
+
+      expect(mocks.promoteChildrenToRoots).not.toHaveBeenCalled();
+    });
+  });
+
+  it('rejects a retired parent with 400 PARENT_RETIRED', async () => {
+    mocks.isParentCategoryOwnedByMerchant.mockResolvedValue('retired');
+
+    const response = await PATCH(
+      patchRequest({ parentId: PARENT_ID }),
+      params()
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'PARENT_RETIRED',
+    });
+  });
+
   it('maps a duplicate slug to 409', async () => {
     setContext({ updateError: { code: '23505', message: 'duplicate key' } });
 
@@ -342,7 +378,7 @@ describe('DELETE /api/merchant/categories/[categoryId]', () => {
     it('promotes children to roots so they stay browsable', async () => {
       // Navigation walks DOWN from `parent_id IS NULL`; a child still pointing
       // at a retired parent is neither retired nor reachable.
-      setContext({ detached: [{ slug: 'android' }, { slug: 'ios' }] });
+      mocks.promoteChildrenToRoots.mockResolvedValue(2);
 
       const response = await DELETE(deleteRequest(), params());
 
@@ -350,6 +386,34 @@ describe('DELETE /api/merchant/categories/[categoryId]', () => {
         detachedChildren: 2,
         childrenDetached: true,
       });
+    });
+
+    it('still reports success when the detach itself fails', async () => {
+      mocks.promoteChildrenToRoots.mockResolvedValue(null);
+
+      const response = await DELETE(deleteRequest(), params());
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({
+        childrenDetached: false,
+      });
+    });
+
+    it('accepts a merchantId selector so multi-store owners can delete', async () => {
+      // Without it, getMerchantForApiRequest picks the owner's most recent
+      // store and every other store 404s.
+      await DELETE(deleteRequest(MERCHANT_UUID), params());
+
+      expect(mocks.resolveCategoryRouteContext).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'user-1' }),
+        MERCHANT_UUID
+      );
+    });
+
+    it('rejects a non-UUID merchantId selector with 400', async () => {
+      const response = await DELETE(deleteRequest('not-a-uuid'), params());
+
+      expect(response.status).toBe(400);
     });
   });
 

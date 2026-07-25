@@ -13,6 +13,9 @@
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { after } from 'next/server';
 import { getBlogCacheTag } from '@/lib/blog-cache-tags';
+
+export { revalidateCategories } from '@/lib/revalidate-categories';
+
 import { purgeCloudflareUrls } from '@/lib/cloudflare-purge';
 import { buildMerchantPublicationDataCacheTags } from '@/lib/merchant-publication-data-cache-tags';
 import { normalizeMerchantId } from '@/lib/normalize-merchant-id';
@@ -70,21 +73,6 @@ function schedulePurgeCloudflareUrls(urls: string[]): void {
  * Revalidate all cached data related to a merchant's categories.
  * Call after category create/update/delete.
  */
-export function revalidateCategories(
-  merchantId: string,
-  categorySlug?: string
-) {
-  revalidateTag(`categories-${merchantId}`, 'categories');
-  revalidateTag('navigation-categories', 'categories');
-  revalidateTag('category-page-data', 'storefront-page');
-  revalidateTag('product-canonical-redirect', 'products');
-  revalidateTag('product-legacy-redirect', 'products');
-
-  if (categorySlug) {
-    revalidateTag(`category-${merchantId}-${categorySlug}`, 'categories');
-  }
-}
-
 /**
  * Revalidate all cached data related to a merchant store.
  * Call after ordinary merchant settings updates. Publication transitions must

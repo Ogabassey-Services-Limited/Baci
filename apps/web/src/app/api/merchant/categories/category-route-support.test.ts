@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   getAuthenticatedUser: vi.fn(),
   getMerchantForApiRequest: vi.fn(),
-  getStorefrontPublicationCacheIdentity: vi.fn(),
 }));
 
 vi.mock('@/lib/supabase/mobile-auth', () => ({
@@ -15,10 +14,6 @@ vi.mock('@/lib/get-merchant-for-api-request', () => ({
     isOwner: ctx.staffAccess.isOwner,
   }),
 }));
-vi.mock('@/lib/get-storefront-publication-cache-identity', () => ({
-  getStorefrontPublicationCacheIdentity:
-    mocks.getStorefrontPublicationCacheIdentity,
-}));
 
 import { z } from 'zod';
 import {
@@ -26,6 +21,7 @@ import {
   type CategoryRouteContext,
   firstValidationMessage,
   isParentCategoryOwnedByMerchant,
+  promoteChildrenToRoots,
   resolveCategoryRouteContext,
   wouldCreateCategoryCycle,
 } from './category-route-support';
@@ -59,9 +55,6 @@ describe('resolveCategoryRouteContext', () => {
     vi.clearAllMocks();
     setUser({ id: 'user-1' });
     setMerchant();
-    mocks.getStorefrontPublicationCacheIdentity.mockResolvedValue({
-      identifiers: ['test-store'],
-    });
   });
 
   it('resolves the merchant server-side for an owner', async () => {
@@ -70,8 +63,6 @@ describe('resolveCategoryRouteContext', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.context.merchantId).toBe(MERCHANT_ID);
-      // Identifiers drive server-side purge hostname resolution.
-      expect(result.context.merchantIdentifiers).toEqual(['test-store']);
     }
   });
 
@@ -82,26 +73,6 @@ describe('resolveCategoryRouteContext', () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.response.status).toBe(404);
-  });
-
-  it('carries retired slugs and custom domains into the purge identifiers', async () => {
-    // A renamed merchant still serves the OLD hostname from the edge, and a
-    // slug-null merchant with a live custom domain would otherwise resolve to
-    // zero hostnames and skip eviction entirely.
-    mocks.getStorefrontPublicationCacheIdentity.mockResolvedValue({
-      identifiers: ['test-store', 'old-store', 'shop.example.com'],
-    });
-
-    const result = await resolveCategoryRouteContext(AUTH);
-
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.context.merchantIdentifiers).toEqual([
-        'test-store',
-        'old-store',
-        'shop.example.com',
-      ]);
-    }
   });
 
   describe('permission contract is owner-only', () => {
@@ -140,23 +111,6 @@ describe('resolveCategoryRouteContext', () => {
       { requestedMerchantId: 'store-b' }
     );
   });
-
-  describe('purge identity is auxiliary and must not fail the mutation', () => {
-    it('falls back to the canonical slug when the identity lookup throws', async () => {
-      // The domains / retired-slug reads exist only to widen the best-effort
-      // edge purge; a transient failure there previously 500'd the mutation.
-      mocks.getStorefrontPublicationCacheIdentity.mockRejectedValue(
-        new Error('domains table unavailable')
-      );
-
-      const result = await resolveCategoryRouteContext(AUTH);
-
-      expect(result.ok).toBe(true);
-      if (result.ok) {
-        expect(result.context.merchantIdentifiers).toEqual(['test-store']);
-      }
-    });
-  });
 });
 
 describe('authenticateCategoryRequest', () => {
@@ -194,7 +148,7 @@ describe('authenticateCategoryRequest', () => {
 });
 
 describe('isParentCategoryOwnedByMerchant', () => {
-  function supabaseReturning(data: { id: string } | null) {
+  function supabaseReturning(data: { id: string; is_active?: boolean } | null) {
     const maybeSingle = vi.fn().mockResolvedValue({ data, error: null });
     const eqMerchant = vi.fn(() => ({ maybeSingle }));
     const eqId = vi.fn(() => ({ eq: eqMerchant }));
@@ -211,13 +165,14 @@ describe('isParentCategoryOwnedByMerchant', () => {
   it('accepts a parent belonging to the same merchant', async () => {
     const { client, select, eqId, eqMerchant } = supabaseReturning({
       id: 'parent-1',
+      is_active: true,
     });
 
     await expect(
       isParentCategoryOwnedByMerchant(client, MERCHANT_ID, 'parent-1')
     ).resolves.toBe('owned');
 
-    expect(select).toHaveBeenCalledWith('id');
+    expect(select).toHaveBeenCalledWith('id, is_active');
     expect(eqId).toHaveBeenCalledWith('id', 'parent-1');
     expect(eqMerchant).toHaveBeenCalledWith('merchant_id', MERCHANT_ID);
   });
@@ -230,6 +185,16 @@ describe('isParentCategoryOwnedByMerchant', () => {
     await expect(
       isParentCategoryOwnedByMerchant(client, MERCHANT_ID, 'foreign-parent')
     ).resolves.toBe('absent');
+  });
+
+  it('rejects a RETIRED parent so an active child is not orphaned', async () => {
+    // Navigation walks down from `parent_id IS NULL`; a live child under a
+    // tombstone is servable but invisible — the same orphaning DELETE avoids.
+    const { client } = supabaseReturning({ id: 'parent-1', is_active: false });
+
+    await expect(
+      isParentCategoryOwnedByMerchant(client, MERCHANT_ID, 'parent-1')
+    ).resolves.toBe('retired');
   });
 
   it('reports a lookup FAILURE distinctly from absence', async () => {
@@ -361,5 +326,53 @@ describe('wouldCreateCategoryCycle', () => {
     await expect(
       wouldCreateCategoryCycle(client, MERCHANT_ID, CATEGORY, 'a')
     ).resolves.toBe(true);
+  });
+});
+
+describe('promoteChildrenToRoots', () => {
+  function supabaseDetaching(result: {
+    data?: Array<{ slug: string }> | null;
+    error?: { message: string } | null;
+  }) {
+    const select = vi.fn().mockResolvedValue({
+      data: result.data ?? [],
+      error: result.error ?? null,
+    });
+    const eqParent = vi.fn(() => ({ select }));
+    const eqMerchant = vi.fn(() => ({ eq: eqParent }));
+    const update = vi.fn(() => ({ eq: eqMerchant }));
+    return {
+      client: {
+        from: vi.fn(() => ({ update })),
+      } as unknown as CategoryRouteContext['supabase'],
+      update,
+      eqParent,
+    };
+  }
+
+  it('clears parent_id for every child and reports the count', async () => {
+    const { client, update, eqParent } = supabaseDetaching({
+      data: [{ slug: 'android' }, { slug: 'ios' }],
+    });
+
+    await expect(
+      promoteChildrenToRoots(client, MERCHANT_ID, 'parent-1', 'NOW')
+    ).resolves.toBe(2);
+
+    expect(update).toHaveBeenCalledWith({ parent_id: null, updated_at: 'NOW' });
+    expect(eqParent).toHaveBeenCalledWith('parent_id', 'parent-1');
+  });
+
+  it('returns null instead of throwing when the detach fails', async () => {
+    // The parent is already retired by the time this runs, so raising would
+    // misreport a committed mutation.
+    const { client } = supabaseDetaching({
+      data: null,
+      error: { message: 'timeout' },
+    });
+
+    await expect(
+      promoteChildrenToRoots(client, MERCHANT_ID, 'parent-1', 'NOW')
+    ).resolves.toBeNull();
   });
 });

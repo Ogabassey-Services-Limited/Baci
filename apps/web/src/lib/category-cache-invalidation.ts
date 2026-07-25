@@ -1,41 +1,36 @@
-import { after } from 'next/server';
-import {
-  revalidateCategories,
-  revalidateProducts,
-} from '@/lib/cache-revalidation';
-import { purgeCloudflareHostnamesConfirmed } from '@/lib/cloudflare-purge';
 import { logger } from '@/lib/logger';
-import { buildStorefrontPublicationPurgeHostnames } from '@/lib/storefront-publication-purge-hostnames';
+import { productCacheRevalidation } from '@/lib/product-cache-revalidation';
+import { revalidateCategories } from '@/lib/revalidate-categories';
 
 /**
  * Cache invalidation for a category mutation (B1-lite).
  *
- * Two deliberate properties:
+ * BOTH SLUGS. A rename invalidates the OLD slug as well as the new one —
+ * otherwise the previous category URL keeps serving from cache after the route
+ * stops existing. Callers must capture the pre-mutation slug.
  *
- * 1. **Both slugs.** A rename invalidates the OLD slug as well as the new one —
- *    otherwise the previous category URL keeps serving from cache after the
- *    route stops existing. Callers must capture the pre-mutation slug.
- * 2. **Best effort at the edge.** Next revalidation is authoritative and
- *    synchronous; the Cloudflare purge is explicitly best-effort — it is not
- *    awaited into the response path and a failure is logged, never thrown.
- *    Cache directives are unchanged by this module; it only invalidates.
+ * PRODUCT TAGS TOO. Category-oriented tags are not sufficient: the storefront
+ * home products, the paginated product index and the Google/OpenAI feeds all
+ * embed joined category names and slugs while carrying product-only tags.
  *
- * Returns what was attempted so routes/telemetry can report it honestly.
+ * NO EDGE PURGE, DELIBERATELY. Calling `cloudflare-purge` here would put
+ * `getCloudflareApiToken` — a credential authority — into the static import
+ * graph of these API routes, which the event-pipeline boundary gate rejects for
+ * any new route. Widening that allowlist is a P0 security-boundary change and
+ * does not belong in a category-management PR, so this module imports only lean
+ * tag-revalidation helpers and CDN eviction is left to TTL. That is still a
+ * strict improvement: before B1-lite the mobile path invalidated nothing but
+ * React Query.
  */
 export interface CategoryCacheInvalidationResult {
   revalidatedSlugs: string[];
   /** False when tag revalidation threw AFTER the mutation had committed. */
   revalidated: boolean;
-  /** Hostnames a purge was scheduled for — not a delivery guarantee. */
-  purgeAttemptedHostnames: string[];
-  edgePurgeScheduled: boolean;
 }
 
 export function invalidateCategoryCaches(input: {
   merchantId: string;
-  /** Storefront identifiers (slug and/or custom domain) for hostname resolution. */
-  merchantIdentifiers: readonly string[];
-  /** Slug before the mutation, when it changed or the category was removed. */
+  /** Slug before the mutation, when it changed or the category was retired. */
   previousSlug?: string | null;
   /** Slug after the mutation, when the category still exists. */
   nextSlug?: string | null;
@@ -48,11 +43,10 @@ export function invalidateCategoryCaches(input: {
     )
   );
 
-  // Tag revalidation is synchronous, but the DB mutation has ALREADY committed
-  // by the time we get here — so a throwing cache backend must not surface as a
-  // 500. A client retrying a "failed" create would hit a duplicate-slug 409 for
-  // a category that actually exists. Report the failure instead of raising it.
-  let revalidated = true;
+  // The DB mutation has ALREADY committed by the time we get here, so a
+  // throwing cache backend must not surface as a 500. A client retrying a
+  // "failed" create would hit a duplicate-slug 409 for a category that exists.
+  // Report the failure instead of raising it.
   try {
     if (slugs.length === 0) {
       revalidateCategories(input.merchantId);
@@ -62,69 +56,20 @@ export function invalidateCategoryCaches(input: {
       }
     }
 
-    // Category-oriented tags are NOT sufficient. The storefront home products,
-    // the paginated product index and the Google/OpenAI feeds all embed joined
-    // category names and slugs while carrying product-only tags — so a rename,
-    // deactivation or removal would leave them serving the old category text,
-    // and the edge purge would simply refill from that stale Next cache.
     // `feedScope: 'merchant'` evicts this merchant's feed entries without
     // churning every other merchant's.
-    revalidateProducts(input.merchantId, undefined, { feedScope: 'merchant' });
+    productCacheRevalidation.revalidateProducts(input.merchantId, undefined, {
+      feedScope: 'merchant',
+    });
   } catch (error) {
-    revalidated = false;
     logger.error({
       message: 'Category revalidation failed AFTER the mutation committed',
       merchantId: input.merchantId,
       slugs,
       error: error instanceof Error ? error.message : String(error),
     });
+    return { revalidatedSlugs: slugs, revalidated: false };
   }
 
-  const hostnames = buildStorefrontPublicationPurgeHostnames(
-    input.merchantIdentifiers
-  );
-
-  if (hostnames.length === 0) {
-    return {
-      revalidatedSlugs: slugs,
-      revalidated,
-      purgeAttemptedHostnames: [],
-      edgePurgeScheduled: false,
-    };
-  }
-
-  // Best effort AND off the response path: the purge helper has a 5s timeout, so
-  // awaiting it would add seconds to every merchant-facing write whenever
-  // Cloudflare is slow. `after()` runs it once the response is flushed; failures
-  // are logged, never thrown.
-  after(async () => {
-    try {
-      const confirmation = await purgeCloudflareHostnamesConfirmed(hostnames);
-      if (!confirmation.ok) {
-        logger.warn({
-          message: 'Category edge purge not delivered (best effort)',
-          merchantId: input.merchantId,
-          hostnames,
-          slugs,
-          reason: confirmation.reason,
-        });
-      }
-    } catch (error) {
-      logger.warn({
-        message: 'Category edge purge failed (best effort)',
-        merchantId: input.merchantId,
-        hostnames,
-        slugs,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-  });
-
-  return {
-    revalidatedSlugs: slugs,
-    revalidated,
-    purgeAttemptedHostnames: hostnames,
-    // Scheduled, not confirmed — delivery happens after the response flushes.
-    edgePurgeScheduled: true,
-  };
+  return { revalidatedSlugs: slugs, revalidated: true };
 }
