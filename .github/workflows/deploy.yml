@@ -231,6 +231,11 @@ jobs:
       # IMPORTANT: --archive=tgz is required to prevent Vercel upload rate limiting.
       # Do NOT remove it — without it, each deploy uploads thousands of individual files.
       - name: Deploy to Vercel (with retry)
+        # Backstop in case a deploy hangs past the script's per-attempt cap
+        # (deploy-with-retry.sh times out each `vercel deploy` and recovers via
+        # the duplicate-id path). Keeps a stuck deploy from holding the runner
+        # and the deploy concurrency lock for the whole 150-minute job budget.
+        timeout-minutes: 45
         run: .github/scripts/deploy-with-retry.sh .github/scripts/run-pinned-vercel.sh deploy --yes --prebuilt --prod --archive=tgz
       - name: Purge and verify storefront release HTML
         run: node .github/scripts/storefront-release-coherence.mjs

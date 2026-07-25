@@ -25,6 +25,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { FollowUpEmptyState } from '@/components/customers/FollowUpEmptyState';
+import { FollowUpErrorBanner } from '@/components/customers/FollowUpErrorBanner';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import {
   type Customer,
@@ -459,6 +461,8 @@ export default function CustomersScreen() {
 
   const {
     data: failedOrders,
+    isError: isFailedOrdersError,
+    isFetching: isFetchingFailed,
     isLoading: isLoadingFailed,
     refetch: refetchFailed,
   } = useFailedOrders();
@@ -792,24 +796,24 @@ export default function CustomersScreen() {
               colors={[colors.gold]}
             />
           }
-          ListEmptyComponent={
-            !isLoadingFailed ? (
-              <View style={styles.emptyContainer}>
-                <Ionicons
-                  name="checkmark-circle-outline"
-                  size={56}
-                  color={colors.success}
-                />
-                <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                  No issues
-                </Text>
-                <Text
-                  style={[styles.emptyText, { color: colors.textSecondary }]}
-                >
-                  All recent transactions are successful!
-                </Text>
-              </View>
+          ListHeaderComponent={
+            /* The empty state only renders on an empty list, so a failed
+               refresh over cached rows needs its own notice. */
+            isFailedOrdersError && groupedFailedOrders.length > 0 ? (
+              <FollowUpErrorBanner
+                isRetrying={isFetchingFailed}
+                onRetry={refetchFailed}
+              />
             ) : null
+          }
+          ListEmptyComponent={
+            isLoadingFailed ? null : (
+              <FollowUpEmptyState
+                isError={isFailedOrdersError}
+                isRetrying={isFetchingFailed}
+                onRetry={refetchFailed}
+              />
+            )
           }
         />
       )}
