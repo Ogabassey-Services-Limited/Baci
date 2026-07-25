@@ -119,6 +119,29 @@ Detached `after()`/`void` execution is explicitly **not** a durable candidate. T
 - Editing `revalidateCategories` (`lib/cache-revalidation.ts:167`, currently `revalidateTag` only) is necessary but **not sufficient**: mobile-admin `hooks/useProducts.ts:242` inserts directly into `categories` and only invalidates React Query; it never invokes web revalidation.
 - **Authorization contract first:** category INSERT RLS is owner-only, while `/api/cache/revalidate` requires `settings:edit`. Choose one category-management permission (owner-only or an explicit `products` action) and enforce it identically at mutation/revalidation boundaries. Do not grant `settings:edit` merely to make purge work.
 - **B1-lite (independent of B0, strict improvement):** route mobile category create/rename/deactivate/delete through a narrow authenticated Route Handler using the shared Bearer-token client; authenticate first, validate with Zod, derive merchant identity server-side, reject cross-merchant ids, capture authoritative old/new slugs, execute the mutation, call `revalidateCategories`, resolve hostnames/URLs server-side, and invoke the existing best-effort scheduled Cloudflare purge. Keep current cache directives unchanged, label the delivery best-effort in code/telemetry, and test owner/permitted/denied staff, rollback, old+new slug construction, and that successful mutations attempt both Next and edge invalidation.
+
+  **STATUS — shipped (PR #3205).** The premise was verified accurate: mobile-admin
+  `hooks/useProducts.ts:242` did insert straight into `categories` and only called
+  `queryClient.invalidateQueries(['categories'])`, so category creation never reached web
+  revalidation or the edge. What shipped:
+  - `POST /api/merchant/categories` + `PATCH`/`DELETE /api/merchant/categories/[id]`, on the
+    shared Bearer-capable client (`getAuthenticatedUser`, which also serves web cookies).
+    CSRF is already Bearer-exempt (`lib/csrf.ts:147`).
+  - **Permission contract resolved: owner-only.** `categories_merchant_insert/update/delete`
+    are RLS-scoped to `merchants.user_id = auth.uid()` with no staff branch, so owner-only is
+    the only option needing no RLS widening and unable to diverge from the DB. Widening to a
+    `products` action later means changing `isCategoryManager` AND the three policies together.
+  - `invalidateCategoryCaches()` revalidates **both** the old and new slug on a rename,
+    resolves purge hostnames server-side, and treats the Cloudflare purge as explicitly
+    best-effort (failures logged, never thrown; `not_required` is a non-error no-op). Cache
+    directives unchanged.
+  - Mobile `createCategory` migrated off the direct insert onto the handler.
+
+  **Residual:** only *create* had a caller. `PATCH`/`DELETE` exist but are so far unused —
+  rename/deactivate/delete have no UI in any app. Production shows the table is edited
+  out-of-band (67 rows / 6 merchants, 65 updated in 90 days) and **nothing in the repo writes
+  it apart from the mobile create path**, so those direct edits remain invisible to the cache
+  until they move onto this API. That is an operational follow-up, not code.
 - **B1-durable (blocked on B0):** move mutation + semantic invalidation-intent creation into one DB transaction/RPC or narrow trigger; the chosen B0 drainer performs Next category/navigation/home invalidation before strict Cloudflare acknowledgement. Test no-intent-on-rollback, lease recovery, replay, tombstones, and dead-letter recovery.
 
 ### B2 — Complete PDP durable coverage before changing any cache directive
