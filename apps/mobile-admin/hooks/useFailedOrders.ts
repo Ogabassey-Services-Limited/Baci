@@ -58,6 +58,23 @@ interface FailedOrderRow {
 const STALE_PENDING_MINUTES = 30;
 
 /**
+ * Upper age bound on the follow-up queue.
+ *
+ * The queue had a minimum age but no maximum and no row cap, so it grew
+ * without bound — an order abandoned months ago is not an actionable
+ * follow-up, and every one of them was refetched on each open.
+ *
+ * Tune here: at 90 days ogabassey keeps 135 of 145 open follow-ups.
+ */
+export const FOLLOW_UP_WINDOW_DAYS = 90;
+
+/**
+ * Hard ceiling on rows fetched, independent of the window. Consolidation is
+ * by customer, so this bounds the request rather than the rendered list.
+ */
+export const FOLLOW_UP_QUERY_LIMIT = 250;
+
+/**
  * `orders` and `transactions` are joined by two foreign keys:
  * - `transactions_order_id_fkey`      transactions.order_id -> orders.id (the payment attempts)
  * - `orders_paid_transaction_id_fkey` orders.paid_transaction_id -> transactions.id (the settling attempt)
@@ -78,8 +95,12 @@ export function useFailedOrders() {
       const staleCutoff = new Date(
         Date.now() - STALE_PENDING_MINUTES * 60 * 1000
       ).toISOString();
+      const windowStart = new Date(
+        Date.now() - FOLLOW_UP_WINDOW_DAYS * 24 * 60 * 60 * 1000
+      ).toISOString();
 
-      // Fetch orders that need merchant follow-up:
+      // Fetch orders that need merchant follow-up, within the last
+      // FOLLOW_UP_WINDOW_DAYS:
       // - failed: payment attempt failed (card declined, etc.)
       // - bnpl_pending: BNPL started but not completed
       // - expired: DVA/payment link expired without payment
@@ -104,10 +125,12 @@ export function useFailedOrders() {
           )
         `)
         .eq('merchant_id', merchantId)
+        .gte('created_at', windowStart)
         .or(
           `payment_status.in.(bnpl_pending,failed,expired),and(payment_status.eq.pending,created_at.lt.${staleCutoff},payment_method.in.${ONLINE_CHECKOUT_PAYMENT_METHODS}),and(payment_status.eq.unpaid,created_at.lt.${staleCutoff},payment_method.in.${ONLINE_CHECKOUT_PAYMENT_METHODS})`
         )
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(FOLLOW_UP_QUERY_LIMIT);
 
       if (error) throw error;
 

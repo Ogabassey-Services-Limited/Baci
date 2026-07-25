@@ -51,7 +51,7 @@ const supabaseMock = vi.hoisted(() => {
         return chain;
       };
 
-    for (const method of ['select', 'eq', 'or', 'order']) {
+    for (const method of ['select', 'eq', 'gte', 'or', 'order', 'limit']) {
       chain[method] = passthrough(method);
     }
 
@@ -111,7 +111,11 @@ vi.mock('@tanstack/react-query', () => ({
 }));
 
 import { ONLINE_CHECKOUT_PAYMENT_METHODS } from './orders/order-list-visibility';
-import { useFailedOrders } from './useFailedOrders';
+import {
+  FOLLOW_UP_QUERY_LIMIT,
+  FOLLOW_UP_WINDOW_DAYS,
+  useFailedOrders,
+} from './useFailedOrders';
 
 function getSelectArg(): string {
   const selectCall = supabaseMock.calls.find(
@@ -216,6 +220,59 @@ describe('useFailedOrders', () => {
           gateway_response: { message: 'Declined by issuer' },
         })
       );
+    });
+  });
+
+  describe('bugfix: the follow-up queue was unbounded and grew forever', () => {
+    it('bounds the query to the follow-up window', async () => {
+      // Arrange: the queue had a minimum age (30min) but no maximum, so
+      // months-old abandoned checkouts were fetched on every open.
+      const query = useFailedOrders() as unknown as {
+        queryFn: () => Promise<unknown>;
+      };
+
+      // Act
+      await query.queryFn();
+
+      // Assert: 90 days before the frozen clock of 2026-06-02T02:00:00Z
+      expect(supabaseMock.calls).toEqual(
+        expect.arrayContaining([
+          { method: 'gte', args: ['created_at', '2026-03-04T02:00:00.000Z'] },
+        ])
+      );
+    });
+
+    it('caps the number of rows fetched', async () => {
+      const query = useFailedOrders() as unknown as {
+        queryFn: () => Promise<unknown>;
+      };
+
+      await query.queryFn();
+
+      expect(supabaseMock.calls).toEqual(
+        expect.arrayContaining([
+          { method: 'limit', args: [FOLLOW_UP_QUERY_LIMIT] },
+        ])
+      );
+    });
+
+    it('derives the window bound from FOLLOW_UP_WINDOW_DAYS', async () => {
+      // Arrange: guards the constant against being edited without the query
+      // following it.
+      const query = useFailedOrders() as unknown as {
+        queryFn: () => Promise<unknown>;
+      };
+      await query.queryFn();
+
+      // Act
+      const gte = supabaseMock.calls.find((call) => call.method === 'gte');
+      const bound = new Date(String(gte?.args[1])).getTime();
+
+      // Assert
+      const expected =
+        new Date('2026-06-02T02:00:00.000Z').getTime() -
+        FOLLOW_UP_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+      expect(bound).toBe(expected);
     });
   });
 
