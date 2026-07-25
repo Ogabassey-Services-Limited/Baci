@@ -9,7 +9,6 @@ export { MerchantProvider } from './merchant-provider';
 export { DEMO_MERCHANTS, getDemoMerchant } from './mock-data';
 // Queries (for advanced consumers)
 export {
-  fetchDashboardMerchant,
   fetchMerchantBySlug,
   fetchPrimaryDomain,
   normalizeFeatureSettings,
