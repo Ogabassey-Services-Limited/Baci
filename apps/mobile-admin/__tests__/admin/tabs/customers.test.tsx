@@ -245,6 +245,49 @@ describe('CustomersScreen UI rendering', () => {
     expect(screen.queryByText('No issues')).toBeNull();
   });
 
+  describe('bugfix: a failed follow-up query reported "No issues"', () => {
+    it('does not claim transactions are successful when the follow-up query errors', () => {
+      // Arrange: the query throws (e.g. PostgREST PGRST201 on an ambiguous
+      // embed), so `data` is undefined and the list renders empty.
+      customerHookMocks.useFailedOrders.mockReturnValue({
+        data: undefined,
+        isError: true,
+        isLoading: false,
+        refetch: vi.fn(),
+      });
+
+      // Act
+      render(<CustomersScreen />);
+
+      // Assert
+      expect(
+        screen.queryByText('All recent transactions are successful!')
+      ).toBeNull();
+      expect(screen.queryByText('No issues')).toBeNull();
+      expect(screen.getByText("Couldn't load follow-ups")).toBeTruthy();
+    });
+
+    it('refetches follow-ups when the error state retry is pressed', () => {
+      // Arrange
+      const refetch = vi.fn();
+      customerHookMocks.useFailedOrders.mockReturnValue({
+        data: undefined,
+        isError: true,
+        isLoading: false,
+        refetch,
+      });
+      render(<CustomersScreen />);
+
+      // Act
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Retry loading follow-ups' })
+      );
+
+      // Assert
+      expect(refetch).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it('suppresses the customer empty state while customers are loading', () => {
     customerHookMocks.useCustomers.mockReturnValue({
       data: { pages: [{ customers: [] }] },

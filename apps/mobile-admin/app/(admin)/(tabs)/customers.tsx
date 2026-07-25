@@ -25,6 +25,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { FollowUpEmptyState } from '@/components/customers/FollowUpEmptyState';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import {
   type Customer,
@@ -459,6 +460,7 @@ export default function CustomersScreen() {
 
   const {
     data: failedOrders,
+    isError: isFailedOrdersError,
     isLoading: isLoadingFailed,
     refetch: refetchFailed,
   } = useFailedOrders();
@@ -793,23 +795,12 @@ export default function CustomersScreen() {
             />
           }
           ListEmptyComponent={
-            !isLoadingFailed ? (
-              <View style={styles.emptyContainer}>
-                <Ionicons
-                  name="checkmark-circle-outline"
-                  size={56}
-                  color={colors.success}
-                />
-                <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                  No issues
-                </Text>
-                <Text
-                  style={[styles.emptyText, { color: colors.textSecondary }]}
-                >
-                  All recent transactions are successful!
-                </Text>
-              </View>
-            ) : null
+            isLoadingFailed ? null : (
+              <FollowUpEmptyState
+                isError={isFailedOrdersError}
+                onRetry={refetchFailed}
+              />
+            )
           }
         />
       )}

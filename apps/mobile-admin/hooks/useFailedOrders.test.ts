@@ -111,7 +111,17 @@ vi.mock('@tanstack/react-query', () => ({
 }));
 
 import { ONLINE_CHECKOUT_PAYMENT_METHODS } from './orders/order-list-visibility';
-import { useFailedOrders } from './useFailedOrders';
+import {
+  FAILED_ORDER_TRANSACTIONS_RELATIONSHIP,
+  useFailedOrders,
+} from './useFailedOrders';
+
+function getSelectArg(): string {
+  const selectCall = supabaseMock.calls.find(
+    (call) => call.method === 'select'
+  );
+  return String(selectCall?.args[0] ?? '');
+}
 
 describe('useFailedOrders', () => {
   beforeEach(() => {
@@ -145,6 +155,77 @@ describe('useFailedOrders', () => {
         payment_status: 'unpaid',
       }),
     ]);
+  });
+
+  describe('bugfix: ambiguous orders->transactions embed emptied the Follow Up tab', () => {
+    it('names the order_id foreign key so PostgREST cannot reject the embed as ambiguous', async () => {
+      // Arrange: orders <-> transactions is joined by two FKs since
+      // 20260723000005_orders_paid_transaction_marker.sql added
+      // orders.paid_transaction_id. A bare `transactions (...)` embed makes
+      // PostgREST fail the whole request with PGRST201.
+      const query = useFailedOrders() as unknown as {
+        queryFn: () => Promise<unknown>;
+      };
+
+      // Act
+      await query.queryFn();
+
+      // Assert
+      const select = getSelectArg();
+      expect(select).toContain('transactions!transactions_order_id_fkey');
+      expect(select).not.toMatch(/(^|[^!\w])transactions\s*\(/);
+    });
+
+    it('keeps reading the embedded rows off the unhinted `transactions` key', async () => {
+      // Arrange: PostgREST returns the relation name, not the FK hint, as the
+      // response key — so the row shape must stay `transactions`.
+      supabaseMock.setResult({
+        data: [
+          {
+            created_at: '2026-06-02T01:00:00.000Z',
+            customer_email: 'ada@example.com',
+            customer_id: null,
+            customer_name: 'Ada Buyer',
+            customer_phone: '+2348012345678',
+            id: 'order-1',
+            order_number: 'ORD-001',
+            payment_method: 'credit_direct',
+            payment_status: 'bnpl_pending',
+            total: 15000,
+            transactions: [
+              {
+                gateway: 'credit_direct',
+                gateway_response: { message: 'Declined by issuer' },
+                status: 'failed',
+              },
+            ],
+          },
+        ],
+        error: null,
+      });
+      const query = useFailedOrders() as unknown as {
+        queryFn: () => Promise<
+          Array<{ gateway?: string; gateway_response?: unknown }>
+        >;
+      };
+
+      // Act
+      const result = await query.queryFn();
+
+      // Assert
+      expect(result[0]).toEqual(
+        expect.objectContaining({
+          gateway: 'credit_direct',
+          gateway_response: { message: 'Declined by issuer' },
+        })
+      );
+    });
+
+    it('exports the relationship hint it actually sends', () => {
+      expect(FAILED_ORDER_TRANSACTIONS_RELATIONSHIP).toBe(
+        'transactions!transactions_order_id_fkey'
+      );
+    });
   });
 
   it('propagates Supabase errors from the follow-up query', async () => {
