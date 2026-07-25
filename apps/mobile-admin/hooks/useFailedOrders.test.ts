@@ -38,12 +38,12 @@ vi.mock('@tanstack/react-query', () => ({
   useQuery: vi.fn((config) => config),
 }));
 
-import { ONLINE_CHECKOUT_PAYMENT_METHODS } from './orders/order-list-visibility';
 import {
   FOLLOW_UP_QUERY_LIMIT,
   FOLLOW_UP_WINDOW_DAYS,
-  useFailedOrders,
-} from './useFailedOrders';
+} from '@/config/follow-up-queue';
+import { ONLINE_CHECKOUT_PAYMENT_METHODS } from './orders/order-list-visibility';
+import { useFailedOrders } from './useFailedOrders';
 
 const NOW = '2026-06-02T02:00:00.000Z';
 
