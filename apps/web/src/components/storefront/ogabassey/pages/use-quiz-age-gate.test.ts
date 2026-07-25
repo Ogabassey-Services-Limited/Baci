@@ -164,6 +164,41 @@ describe('useQuizAgeGate', () => {
     expect(runStart).toHaveBeenCalledWith(eventB);
   });
 
+  it('keeps savePending set across a cancel + reopen until the prior save settles', async () => {
+    // Regression (is6TyY8S): rather than silently dropping the reopened submit,
+    // savePending stays true while the prior PATCH is still settling so the modal
+    // can keep Continue disabled; it clears once that write resolves.
+    let resolveFirst: (v: { success: boolean }) => void = () => {};
+    const updateCustomer = vi
+      .fn()
+      .mockReturnValueOnce(
+        new Promise<{ success: boolean }>((resolve) => {
+          resolveFirst = resolve;
+        })
+      )
+      .mockResolvedValue({ success: true });
+    const { view } = setup({ updateCustomer });
+    const eventB = { id: 'event-2', title: 'Weekly Quiz' } as QuizEventResponse;
+
+    act(() => view.result.current.open(event));
+    act(() => {
+      void view.result.current.submit('1990-06-15');
+    });
+    expect(view.result.current.savePending).toBe(true);
+
+    // Cancel + reopen while A's save is still pending — savePending must persist
+    // so the reopened Continue stays disabled (not a silently dropped tap).
+    act(() => view.result.current.cancel());
+    act(() => view.result.current.open(eventB));
+    expect(view.result.current.savePending).toBe(true);
+
+    // A's PATCH settles → the guard releases and Continue becomes usable again.
+    await act(async () => {
+      resolveFirst({ success: true });
+    });
+    expect(view.result.current.savePending).toBe(false);
+  });
+
   it('discards the start when the account switches while the save is in flight', async () => {
     // Regression (is6Tw7tH): auth changes do not cancel this hook, so the token
     // stays current across an account switch. Without an identity check the

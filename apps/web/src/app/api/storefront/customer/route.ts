@@ -32,6 +32,14 @@ const patchBodySchema = z.object({
   phone: z.string().optional(),
   date_of_birth: dateOfBirthSchema.optional(),
   saved_addresses: z.array(savedAddressSchema).optional(),
+  /**
+   * The auth user the caller intended to write for. Cookies are ambient, so if
+   * the session switched to another shopper between capturing the form and this
+   * request landing, the write would silently target the new account. When
+   * provided we reject the mismatch (409) so a stale submit — e.g. the quiz 18+
+   * gate saving a DOB — cannot write to whoever is currently signed in.
+   */
+  expected_user_id: z.string().min(1).optional(),
 });
 
 export async function PATCH(request: NextRequest) {
@@ -85,7 +93,21 @@ export async function PATCH(request: NextRequest) {
       phone,
       date_of_birth,
       saved_addresses,
+      expected_user_id,
     } = parseResult.data;
+
+    // Bind the write to the shopper the caller intended: if the cookie session
+    // switched to a different user after the form was captured, reject rather
+    // than writing this data onto the new account.
+    if (expected_user_id !== undefined && expected_user_id !== user.id) {
+      return NextResponse.json(
+        {
+          error: 'Your session changed. Please try again.',
+          code: 'session_changed',
+        },
+        { status: 409 }
+      );
+    }
 
     // 3. Get merchant (alias-aware: a stale client on a just-renamed store passes
     // the retired slug in the body, which the proxy can't rewrite — resolve it via

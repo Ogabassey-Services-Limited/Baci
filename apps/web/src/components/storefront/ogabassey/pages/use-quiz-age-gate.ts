@@ -55,6 +55,11 @@ export function useQuizAgeGate({
   const [event, setEvent] = useState<QuizEventResponse | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Reactive mirror of `saveInFlightRef`: stays true across a cancel + reopen
+  // while the prior PATCH is still settling, so the reopened modal can keep
+  // Continue disabled instead of silently dropping a tap that the write guard
+  // would reject (see submit()).
+  const [savePending, setSavePending] = useState(false);
   const saveInFlightRef = useRef(false);
   const tokenRef = useRef(0);
   // Latest committed shopper identity, mirrored into a ref so the async submit
@@ -86,9 +91,11 @@ export function useQuizAgeGate({
   const submit = async (dateOfBirth: string) => {
     // `saveInFlightRef` also serializes across a cancel + reopen: while a prior
     // PATCH is unresolved this returns, so the earlier write cannot overlap and
-    // land after this one. The dropped tap is retried once the prior settles.
+    // land after this one. `savePending` keeps the reopened modal's Continue
+    // disabled during that window, so the shopper never taps into this no-op.
     if (!event || saveInFlightRef.current) return;
     saveInFlightRef.current = true;
+    setSavePending(true);
     const token = tokenRef.current;
     // Bind this submit to the shopper who initiated it.
     const submitCustomerId = currentCustomerIdRef.current;
@@ -131,11 +138,12 @@ export function useQuizAgeGate({
       // submitting state — a stale save resolving after a cancel/reopen must not
       // reset state a newer submission has already set.
       saveInFlightRef.current = false;
+      setSavePending(false);
       if (token === tokenRef.current) {
         setSubmitting(false);
       }
     }
   };
 
-  return { event, submitting, error, open, cancel, submit };
+  return { event, submitting, savePending, error, open, cancel, submit };
 }

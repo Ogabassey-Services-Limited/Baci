@@ -407,9 +407,24 @@ export function CustomerAuthProvider({
       return { success: false, error: 'Not authenticated' };
     }
 
-    const result = await updateCustomerProfile(merchantSlug, data);
+    // Snapshot the shopper this write is for, before any await. Cookies are
+    // ambient, so if the session switches mid-write the PATCH could target the
+    // new account; `expectedUserId` lets the server reject that (409).
+    const expectedUserId = user?.id;
+    const expectedCustomerId = customer.id;
+
+    const result = await updateCustomerProfile(
+      merchantSlug,
+      data,
+      expectedUserId
+    );
     if (result.success) {
-      setCustomer((prev) => (prev ? { ...prev, ...data } : null));
+      // Guard the local merge with the LIVE state (`prev`): if the account
+      // switched during the write, `prev` is now a different customer, so we
+      // must not fold this shopper's data into it.
+      setCustomer((prev) =>
+        prev && prev.id === expectedCustomerId ? { ...prev, ...data } : prev
+      );
     }
     return result;
   };

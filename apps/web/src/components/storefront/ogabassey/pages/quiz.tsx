@@ -19,12 +19,12 @@ import {
   loadQuizEvents,
   QUIZ_FORFEIT_ANSWER,
   type QuizStatus,
-  startQuizAttempt,
   submitQuizAnswer,
 } from './quiz-page-data';
 import { QuizQuestionPanel } from './quiz-question-panel';
 import { QuizResultPanel } from './quiz-result-panel';
 import { useQuizAgeGate } from './use-quiz-age-gate';
+import { useQuizAttemptStart } from './use-quiz-attempt-start';
 import {
   quizPanel as panel,
   quizPrimaryButton as primaryButton,
@@ -35,7 +35,7 @@ type OgabasseyV2QuizProps = { merchantSlug: string };
 
 export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
   const pathname = usePathname();
-  const { customer, isAuthenticated, isLoading, updateCustomer } =
+  const { customer, user, isAuthenticated, isLoading, updateCustomer } =
     useCustomerAuth();
   const [status, setStatus] = useState<QuizStatus>('idle');
   const [events, setEvents] = useState<QuizEventResponse[]>([]);
@@ -50,7 +50,6 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
   // next render, so a fast physical double-tap can fire two requests before the
   // button disables. The server does NOT dedupe start — each call burns one of
   // the player's limited attempts (QZ030 cap) — so guard synchronously.
-  const startInFlightRef = useRef(false);
   const submitInFlightRef = useRef(false);
   const routePrefix = pathname?.startsWith(`/${merchantSlug}`) ? `/${merchantSlug}` : '';
   const quizPath = pathname || `${routePrefix}/quiz`;
@@ -64,31 +63,19 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
     // biome-ignore lint/correctness/useExhaustiveDependencies: loadEvents intentionally runs only when auth becomes ready
   }, [isAuthenticated, isLoading, merchantSlug, status]);
 
-  // Returns the shopper-facing error when the start fails, or null on success,
-  // so the age gate can keep itself open (with the message) instead of closing
-  // and stranding the shopper — e.g. a mistyped/under-18 DOB the server rejects.
-  const runStart = async (event: QuizEventResponse): Promise<string | null> => {
-    if (startInFlightRef.current) return null;
-    startInFlightRef.current = true;
-    setError(null);
-    setStatus('starting');
-    try {
-      const nextAttempt = await startQuizAttempt(event.id);
-      setAttempt(nextAttempt);
-      setPlayedEventId(event.id);
-      setResult(null);
-      setSelectedAnswer(null);
-      setStatus('question');
-      return null;
-    } catch (error) {
-      const message = getQuizErrorMessage(error);
-      setError(message);
-      setStatus('ready');
-      return message;
-    } finally {
-      startInFlightRef.current = false;
-    }
-  };
+  // Starts a quiz attempt and commits it into page state. Returns the
+  // shopper-facing error on failure (so the age gate can stay open with the
+  // message) or null on success. Owns the double-tap guard and the
+  // account-switch identity guard; see use-quiz-attempt-start.
+  const runStart = useQuizAttemptStart({
+    currentUserId: user?.id ?? null,
+    setAttempt,
+    setError,
+    setPlayedEventId,
+    setResult,
+    setSelectedAnswer,
+    setStatus,
+  });
 
   // Super Quiz is 18+. When the customer has no date of birth on file, the start
   // is deferred behind this gate (which owns its own concurrency safety) until
@@ -97,9 +84,10 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
     runStart,
     updateCustomer,
     clearStartError: () => setError(null),
-    // Bind a deferred start to the current shopper so an account switch while
-    // the DOB save/start is in flight can't spend the new shopper's attempt.
-    currentCustomerId: customer?.id ?? null,
+    // Bind a deferred start to the current shopper (by auth user id, matching
+    // the server's expected_user_id gate) so an account switch while the DOB
+    // save/start is in flight can't act under the new shopper's session.
+    currentCustomerId: user?.id ?? null,
   });
 
   const handleStart = async (event: QuizEventResponse) => {
@@ -276,6 +264,7 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
       </div>
 
       <QuizAgeGateModal
+        disableSubmit={ageGate.savePending}
         onCancel={ageGate.cancel}
         onSubmit={(dateOfBirth) => void ageGate.submit(dateOfBirth)}
         open={ageGate.event !== null}

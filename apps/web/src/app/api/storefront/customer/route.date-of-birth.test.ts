@@ -174,4 +174,27 @@ describe('PATCH /api/storefront/customer — date of birth', () => {
     expect(json.error).toBe('Customer not found');
     expect(json.success).toBeUndefined();
   });
+
+  it('returns 409 without writing when expected_user_id does not match the session', async () => {
+    // Regression (is6TybOW): a deferred quiz DOB save must not land on whoever is
+    // signed in now. The caller pins the intended shopper via expected_user_id;
+    // if the cookie session switched, the gate rejects before any DB access.
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'user-123' } },
+      error: null,
+    });
+
+    const request = makeRequest({
+      merchantSlug: 'test-store',
+      date_of_birth: '1990-06-15',
+      expected_user_id: 'a-different-shopper',
+    });
+    const response = await PATCH(request);
+    const json = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(json.code).toBe('session_changed');
+    // The identity gate runs before any merchant/customer lookup or write.
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
 });
