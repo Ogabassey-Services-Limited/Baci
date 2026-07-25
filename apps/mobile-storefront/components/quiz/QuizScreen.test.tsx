@@ -243,6 +243,7 @@ describe('QuizScreen', () => {
     expect(startQuizAttempt).toHaveBeenCalledWith({
       deviceFingerprint: 'a'.repeat(64),
       eventId: 'event-1',
+      expectedUserId: 'quiz-shopper',
       integrityTier: 'device',
     });
 
@@ -283,6 +284,7 @@ describe('QuizScreen', () => {
       expect(startQuizAttempt).toHaveBeenCalledWith({
         deviceFingerprint: 'c'.repeat(64),
         eventId: 'event-1',
+        expectedUserId: 'quiz-shopper',
         integrityTier: 'device',
       })
     );
@@ -397,6 +399,7 @@ describe('QuizScreen', () => {
     expect(startQuizAttempt).toHaveBeenCalledWith({
       deviceFingerprint: 'a'.repeat(64),
       eventId: 'event-1',
+      expectedUserId: 'quiz-shopper',
       integrityTier: 'device',
     });
   });
@@ -453,6 +456,7 @@ describe('QuizScreen', () => {
       expect(startQuizAttempt).toHaveBeenCalledWith({
         deviceFingerprint: 'a'.repeat(64),
         eventId: 'event-1',
+        expectedUserId: 'quiz-shopper',
         integrityTier: 'device',
       });
     });

@@ -206,6 +206,7 @@ describe('QuizScreen date-of-birth gate', () => {
       expect(startQuizAttempt).toHaveBeenCalledWith({
         deviceFingerprint: 'a'.repeat(64),
         eventId: 'event-1',
+        expectedUserId: 'quiz-shopper',
         integrityTier: 'device',
       });
     });
