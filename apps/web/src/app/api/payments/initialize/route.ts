@@ -956,7 +956,11 @@ async function initializeKorapay(
   notificationUrl: string,
   merchantId: string
 ): Promise<PaymentResult> {
-  const fees = calculateKorapayFee(data.amount);
+  // Compute the platform fee in the ORDER's currency, not a hardcoded NGN. Korapay
+  // is charged in `data.currency` (see the charge below), so the naira ₦2,050 cap
+  // must only apply to NGN — every other Lane-0 currency is percentage-only. This
+  // persisted fee (p_platform_fee) is what settlement later trusts.
+  const fees = calculateKorapayFee(data.amount, data.currency as Currency);
 
   const korapayData = await initializeKorapayPayment({
     amount: data.amount,
