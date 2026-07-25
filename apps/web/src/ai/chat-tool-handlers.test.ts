@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   createAgenticScopedSupabaseClient: vi.fn(),
+  createAnonClient: vi.fn(),
   searchStorefrontProducts: vi.fn(),
 }));
 
@@ -9,18 +10,36 @@ vi.mock('@/lib/agentic/scoped-supabase', () => ({
   createAgenticScopedSupabaseClient: mocks.createAgenticScopedSupabaseClient,
 }));
 
+// The copilot tenant is now resolved slug -> id on a plain anon client before
+// the scoped client can be built, so this factory must be mocked or every
+// handler fails closed.
+vi.mock('@/lib/supabase/anon', () => ({
+  createAnonClient: mocks.createAnonClient,
+}));
+
 vi.mock('@/lib/storefront-search', () => ({
   searchStorefrontProducts: mocks.searchStorefrontProducts,
 }));
 
+import { resetAgenticMerchantIdCache } from '@/lib/agentic/agentic-merchant-id';
 import {
   handleCheckPaymentStatus,
+  handleCreateVirtualAccount,
   handleGetProductDetails,
   handleGetRecommendations,
   handleSearchProducts,
 } from './chat-tool-handlers';
 
 const OGABASSEY_MERCHANT_ID = '3bc72679-c0f7-4db4-9054-6a4a4a95a498';
+
+function mockTenantLookup(merchantId: string | null) {
+  const maybeSingle = vi
+    .fn()
+    .mockResolvedValue({ data: merchantId ? { id: merchantId } : null });
+  const eq = vi.fn(() => ({ maybeSingle }));
+  const select = vi.fn(() => ({ eq }));
+  mocks.createAnonClient.mockReturnValue({ from: vi.fn(() => ({ select })) });
+}
 
 type QueryResult = {
   data: unknown;
@@ -67,7 +86,16 @@ function createQueryMock(result: QueryResult = { data: null, error: null }) {
 describe('chat tool handlers', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.unstubAllEnvs();
     mocks.searchStorefrontProducts.mockReset();
+    resetAgenticMerchantIdCache();
+    vi.stubEnv('BACI_AGENTIC_MERCHANT_SLUG', 'ogabassey');
+    mockTenantLookup(OGABASSEY_MERCHANT_ID);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    resetAgenticMerchantIdCache();
   });
 
   it('searches active products across names, descriptions, brands, and categories with price filters', async () => {
@@ -625,5 +653,107 @@ describe('chat tool handlers', () => {
     });
 
     expect(result).toEqual([]);
+  });
+
+  describe('fails closed when the copilot tenant is unresolvable', () => {
+    beforeEach(() => {
+      // No BACI_AGENTIC_MERCHANT_SLUG configured: the tenant cannot be derived,
+      // so no handler may fall back to a hardcoded merchant.
+      vi.unstubAllEnvs();
+      resetAgenticMerchantIdCache();
+      mocks.createAgenticScopedSupabaseClient.mockReturnValue({
+        from: vi.fn(() => createQueryMock()),
+        rpc: vi.fn(),
+      });
+    });
+
+    it('returns no products from search without building a scoped client', async () => {
+      const result = await handleSearchProducts({ query: 'laptop' });
+
+      expect(result).toEqual({ products: [], total: 0 });
+      expect(mocks.createAgenticScopedSupabaseClient).not.toHaveBeenCalled();
+      expect(mocks.searchStorefrontProducts).not.toHaveBeenCalled();
+    });
+
+    it('returns null product details', async () => {
+      const result = await handleGetProductDetails({ productId: 'product-1' });
+
+      expect(result).toBeNull();
+      expect(mocks.createAgenticScopedSupabaseClient).not.toHaveBeenCalled();
+    });
+
+    it('returns no recommendations', async () => {
+      const result = await handleGetRecommendations({
+        productId: 'source-product',
+        type: 'upsell',
+      });
+
+      expect(result).toEqual([]);
+      expect(mocks.createAgenticScopedSupabaseClient).not.toHaveBeenCalled();
+    });
+
+    it('reports not_found for payment status', async () => {
+      const result = await handleCheckPaymentStatus(
+        { orderId: 'order-1' },
+        'session-1'
+      );
+
+      expect(result).toEqual({ status: 'not_found' });
+      expect(mocks.createAgenticScopedSupabaseClient).not.toHaveBeenCalled();
+    });
+
+    it('refuses virtual account creation without writing a chat order', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+      const result = await handleCreateVirtualAccount(
+        {
+          amount: 100,
+          items: [{ productId: 'p1', name: 'Phone', price: 100, quantity: 1 }],
+          customerEmail: 'buyer@example.com',
+          customerName: 'Buyer',
+        },
+        'session-1'
+      );
+
+      // Money-adjacent: no chat_orders row may be inserted under an unknown tenant.
+      expect(result).toEqual({
+        success: false,
+        error: 'Failed to create order',
+      });
+      expect(mocks.createAgenticScopedSupabaseClient).not.toHaveBeenCalled();
+    });
+  });
+
+  it('creates the chat order under the resolved tenant and still blocks the unintegrated Kuda transfer', async () => {
+    const insertQuery = createQueryMock({
+      data: { id: 'chat-order-1' },
+      error: null,
+    });
+    const insert = vi.fn(() => insertQuery);
+    mocks.createAgenticScopedSupabaseClient.mockReturnValue({
+      from: vi.fn(() => ({ insert })),
+    });
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const result = await handleCreateVirtualAccount(
+      {
+        amount: 200,
+        items: [{ productId: 'p1', name: 'Phone', price: 100, quantity: 2 }],
+        customerEmail: 'buyer@example.com',
+        customerName: 'Buyer',
+      },
+      'session-1'
+    );
+
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchant_id: OGABASSEY_MERCHANT_ID,
+        session_id: 'session-1',
+        subtotal: 200,
+        status: 'pending_payment',
+      })
+    );
+    expect(result.success).toBe(false);
+    expect(result.orderId).toBe('chat-order-1');
   });
 });

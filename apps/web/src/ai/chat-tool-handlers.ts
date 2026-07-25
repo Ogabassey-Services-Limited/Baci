@@ -5,8 +5,7 @@
  * These handlers are called when the AI invokes a tool.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
-import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
+import { createAgenticScopedChatClient } from '@/lib/agentic/agentic-scoped-chat-client';
 import { sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { searchStorefrontProducts } from '@/lib/storefront-search';
 import type {
@@ -18,21 +17,9 @@ import type {
   SearchProductsParams,
 } from './chat-tools';
 
-// Ogabassey merchant ID (hardcoded for now, can be made dynamic)
-const OGABASSEY_MERCHANT_ID = '3bc72679-c0f7-4db4-9054-6a4a4a95a498';
-const OGABASSEY_MERCHANT_SLUG = 'ogabassey';
-
-type ChatToolSupabaseClient = Pick<SupabaseClient, 'from' | 'rpc'>;
-
-function createChatToolSupabaseClient(
-  sessionId?: string
-): ChatToolSupabaseClient {
-  return createAgenticScopedSupabaseClient({
-    merchantId: OGABASSEY_MERCHANT_ID,
-    merchantSlug: OGABASSEY_MERCHANT_SLUG,
-    sessionId,
-  });
-}
+// The copilot tenant is resolved from BACI_AGENTIC_MERCHANT_SLUG rather than a
+// hardcoded merchant UUID, so these tools work outside production and can be
+// repointed without a deploy. Every handler fails closed when it is unresolvable.
 
 // ============================================
 // SEARCH PRODUCTS
@@ -73,7 +60,12 @@ function orderProductsByRankedIds<T extends { id: string }>(
 export async function handleSearchProducts(
   params: SearchProductsParams
 ): Promise<{ products: ProductSearchResult[]; total: number }> {
-  const supabase = createChatToolSupabaseClient();
+  const scoped = await createAgenticScopedChatClient();
+  if (!scoped) {
+    return { products: [], total: 0 };
+  }
+  const { merchantId, supabase } = scoped;
+
   const searchText = buildChatSearchText(params);
   let ranked: Awaited<ReturnType<typeof searchStorefrontProducts>> | null =
     null;
@@ -87,7 +79,7 @@ export async function handleSearchProducts(
           minPrice: params.minPrice ?? null,
         },
         limit: 10,
-        merchantId: OGABASSEY_MERCHANT_ID,
+        merchantId,
         query: searchText,
         trackAnalytics: false,
       });
@@ -102,7 +94,7 @@ export async function handleSearchProducts(
     .select(
       'id, name, price, description, brand, category, images, stock, status'
     )
-    .eq('merchant_id', OGABASSEY_MERCHANT_ID)
+    .eq('merchant_id', merchantId)
     .eq('status', 'active')
     .order('price', { ascending: false })
     .limit(10);
@@ -155,7 +147,11 @@ export async function handleSearchProducts(
 export async function handleGetProductDetails(
   params: GetProductDetailsParams
 ): Promise<ProductSearchResult | null> {
-  const supabase = createChatToolSupabaseClient();
+  const scoped = await createAgenticScopedChatClient();
+  if (!scoped) {
+    return null;
+  }
+  const { merchantId, supabase } = scoped;
 
   try {
     const { data, error } = await supabase
@@ -164,7 +160,7 @@ export async function handleGetProductDetails(
         'id, name, price, description, brand, category, images, stock, status'
       )
       .eq('id', params.productId)
-      .eq('merchant_id', OGABASSEY_MERCHANT_ID)
+      .eq('merchant_id', merchantId)
       .eq('status', 'active')
       .single();
 
@@ -214,7 +210,14 @@ export async function handleCreateVirtualAccount(
   params: CreateVirtualAccountParams,
   sessionId: string
 ): Promise<VirtualAccountResult> {
-  const supabase = createChatToolSupabaseClient(sessionId);
+  // Fail closed on an unresolvable tenant: no chat order is written at all,
+  // which is strictly safer than inserting a row under an unknown merchant.
+  const scoped = await createAgenticScopedChatClient(sessionId);
+  if (!scoped) {
+    console.error('[Chat Tools] Copilot tenant is not configured');
+    return { success: false, error: 'Failed to create order' };
+  }
+  const { merchantId, supabase } = scoped;
 
   try {
     // 1. Create the chat order first
@@ -226,7 +229,7 @@ export async function handleCreateVirtualAccount(
     const { data: order, error: orderError } = await supabase
       .from('chat_orders')
       .insert({
-        merchant_id: OGABASSEY_MERCHANT_ID,
+        merchant_id: merchantId,
         session_id: sessionId,
         customer_email: params.customerEmail,
         customer_name: params.customerName,
@@ -287,7 +290,11 @@ export async function handleCheckPaymentStatus(
   params: CheckPaymentStatusParams,
   sessionId: string
 ): Promise<PaymentStatusResult> {
-  const supabase = createChatToolSupabaseClient(sessionId);
+  const scoped = await createAgenticScopedChatClient(sessionId);
+  if (!scoped) {
+    return { status: 'not_found' };
+  }
+  const { merchantId, supabase } = scoped;
 
   try {
     let order: {
@@ -309,7 +316,7 @@ export async function handleCheckPaymentStatus(
           'id, status, paid_at, created_at, subtotal, virtual_account_number, virtual_account_bank, metadata'
         )
         .eq('id', params.orderId)
-        .eq('merchant_id', OGABASSEY_MERCHANT_ID)
+        .eq('merchant_id', merchantId)
         .eq('session_id', sessionId)
         .maybeSingle();
 
@@ -326,7 +333,7 @@ export async function handleCheckPaymentStatus(
           'id, status, paid_at, created_at, subtotal, virtual_account_number, virtual_account_bank, metadata'
         )
         .eq('customer_email', params.customerEmail)
-        .eq('merchant_id', OGABASSEY_MERCHANT_ID)
+        .eq('merchant_id', merchantId)
         .eq('session_id', sessionId)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -385,7 +392,11 @@ export async function handleCheckPaymentStatus(
 export async function handleGetRecommendations(
   params: GetRecommendationsParams
 ): Promise<ProductSearchResult[]> {
-  const supabase = createChatToolSupabaseClient();
+  const scoped = await createAgenticScopedChatClient();
+  if (!scoped) {
+    return [];
+  }
+  const { merchantId, supabase } = scoped;
 
   try {
     // First get the source product
@@ -393,7 +404,7 @@ export async function handleGetRecommendations(
       .from('products')
       .select('id, name, price, category, brand')
       .eq('id', params.productId)
-      .eq('merchant_id', OGABASSEY_MERCHANT_ID)
+      .eq('merchant_id', merchantId)
       .eq('status', 'active')
       .maybeSingle();
 
@@ -408,7 +419,7 @@ export async function handleGetRecommendations(
       .select(
         'id, name, price, description, brand, category, images, stock, status'
       )
-      .eq('merchant_id', OGABASSEY_MERCHANT_ID)
+      .eq('merchant_id', merchantId)
       .eq('status', 'active')
       .neq('id', params.productId)
       .limit(3);

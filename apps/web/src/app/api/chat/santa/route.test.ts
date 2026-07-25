@@ -52,6 +52,24 @@ vi.mock('@/lib/supabase/service', () => ({
   })),
 }));
 
+// The Santa tenant is resolved slug -> id on a plain anon client. Without this
+// mock the real factory builds a live client and the whole suite breaks.
+vi.mock('@/lib/supabase/anon', () => ({
+  createAnonClient: vi.fn(() => ({
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: () =>
+            Promise.resolve({
+              data: { id: '3bc72679-c0f7-4db4-9054-6a4a4a95a498' },
+              error: null,
+            }),
+        }),
+      }),
+    }),
+  })),
+}));
+
 vi.mock('@/ai/prompts/santa', () => ({
   SANTA_ERROR_MESSAGES: {
     general: 'Santa is taking a break. Please try again later!',
@@ -60,6 +78,7 @@ vi.mock('@/ai/prompts/santa', () => ({
 
 // ---- Import handler AFTER mocks ----
 import { generateText } from 'ai';
+import { resetAgenticMerchantIdCache } from '@/lib/agentic/agentic-merchant-id';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { POST } from './route';
 
@@ -101,12 +120,15 @@ describe('POST /api/chat/santa', () => {
     rateLimitAllowed = true;
     rateLimitResetIn = 0;
     mockProducts = 'Product List Here';
+    resetAgenticMerchantIdCache();
+    vi.stubEnv('BACI_AGENTIC_MERCHANT_SLUG', 'ogabassey');
     // Default: the leading (active) provider succeeds immediately.
     respondByModel({ 'mock-active-model': 'Ho ho ho!' });
   });
 
   afterEach(() => {
     vi.unstubAllEnvs();
+    resetAgenticMerchantIdCache();
   });
 
   it('returns 429 when rate limit is exceeded', async () => {
