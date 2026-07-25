@@ -13,6 +13,13 @@ const COUNTRY_CURRENCY_MAP: Record<string, string> = {
   TZ: 'TZS', // Tanzania
   UG: 'UGX', // Uganda
   RW: 'RWF', // Rwanda
+  // CFA zone — Korapay Lane-0 settlement currencies (previously fell through to
+  // USD, which mislabels CFA merchants' prices; countries.ts + korapay already
+  // map these correctly).
+  CM: 'XAF', // Cameroon (Central African CFA)
+  SN: 'XOF', // Senegal (West African CFA)
+  CI: 'XOF', // Côte d'Ivoire
+  BF: 'XOF', // Burkina Faso
 
   // Americas
   US: 'USD', // United States
