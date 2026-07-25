@@ -23,7 +23,12 @@ DECLARE
   v_korapay boolean;
   v_paystack boolean;
 BEGIN
-  -- Merchant A: NO merchant_feature_settings row at all.
+  -- The AFTER INSERT trigger trigger_create_merchant_feature_settings auto-creates
+  -- a merchant_feature_settings row for every new merchant, so we shape the two
+  -- cases AFTER insert rather than inserting the settings row ourselves.
+
+  -- Merchant A: NO merchant_feature_settings row — delete the auto-created row to
+  -- exercise the RPC's LEFT JOIN missing-row path.
   INSERT INTO public.merchants (id, email, business_name, slug)
   VALUES (
     v_no_row_merchant,
@@ -31,8 +36,10 @@ BEGIN
     'Korapay Default No-Row Store',
     'korapay-default-norow'
   );
+  DELETE FROM public.merchant_feature_settings WHERE merchant_id = v_no_row_merchant;
 
-  -- Merchant B: feature-settings row exists but korapay_enabled IS NULL.
+  -- Merchant B: feature-settings row exists but korapay_enabled IS NULL — null the
+  -- auto-created row's column.
   INSERT INTO public.merchants (id, email, business_name, slug)
   VALUES (
     v_null_merchant,
@@ -40,8 +47,9 @@ BEGIN
     'Korapay Default Null Store',
     'korapay-default-null'
   );
-  INSERT INTO public.merchant_feature_settings (merchant_id, korapay_enabled, paystack_enabled)
-  VALUES (v_null_merchant, NULL, true);
+  UPDATE public.merchant_feature_settings
+    SET korapay_enabled = NULL, paystack_enabled = true
+    WHERE merchant_id = v_null_merchant;
 
   -- Case 1: missing row -> korapay OFF, paystack still ON.
   SELECT korapay_enabled, paystack_enabled

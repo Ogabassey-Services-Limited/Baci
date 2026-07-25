@@ -1095,10 +1095,7 @@ interface DiscountResult {
 
 const DEFAULT_PAYMENT_SETTINGS: PaymentGatewaySettings = {
   paystackEnabled: true,
-  // Korapay is opt-in (default OFF): the checkout loading/error fallback must fail
-  // closed so a merchant whose setting is missing/null is not offered Korapay while
-  // the initialization route rejects it with GATEWAY_DISABLED.
-  korapayEnabled: false,
+  korapayEnabled: true,
   payOnDeliveryEnabled: false,
   creditDirectEnabled: false,
   creditDirectMinAmount: 10000,
@@ -1215,7 +1212,7 @@ function CheckoutPageContent() {
           const data = await response.json();
           setPaymentSettings({
             paystackEnabled: data.paystackEnabled ?? true,
-            korapayEnabled: data.korapayEnabled ?? false,
+            korapayEnabled: data.korapayEnabled ?? true,
             payOnDeliveryEnabled: data.payOnDeliveryEnabled ?? false,
             creditDirectEnabled: data.creditDirectEnabled ?? false,
             creditDirectMinAmount: data.creditDirectMinAmount ?? 10000,

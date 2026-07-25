@@ -10,73 +10,20 @@ import { initializeTransaction as initializePaystackTransaction } from '@/lib/pa
 import { resolveWalletTopUpMerchant } from '@/lib/resolve-wallet-top-up-merchant';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveVtuCustomer } from '@/lib/vtu-pending-transaction';
+import { walletTopUpInitializeSchema } from '@/schemas/wallet-top-up';
 import {
-  type WalletTopUpGateway,
-  walletTopUpInitializeSchema,
-} from '@/schemas/wallet-top-up';
-
-interface GatewaySettings {
-  korapay_enabled: boolean | null;
-  paystack_enabled: boolean | null;
-  preferred_local_gateway: string | null;
-}
-
-class WalletTopUpClientError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'WalletTopUpClientError';
-    Object.setPrototypeOf(this, WalletTopUpClientError.prototype);
-  }
-}
+  selectWalletTopUpGateway,
+  WalletTopUpClientError,
+  type WalletTopUpGatewaySettings,
+} from './wallet-top-up-gateway';
 
 function createErrorResponse(error: string, status = 400) {
   return NextResponse.json({ error }, { status });
 }
 
-function isWalletTopUpGateway(value: unknown): value is WalletTopUpGateway {
-  return value === 'paystack' || value === 'korapay';
-}
-
 // Merchant resolution uses id-first, slug-fallback via
 // resolveWalletTopUpMerchant so a stale merchantId does not 404 when a
 // valid merchantSlug is also supplied.
-
-function selectWalletTopUpGateway({
-  requestedGateway,
-  settings,
-}: {
-  requestedGateway?: WalletTopUpGateway;
-  settings: GatewaySettings;
-}): WalletTopUpGateway {
-  const paystackEnabled = settings.paystack_enabled ?? true;
-  // Korapay is opt-in (default OFF) — a missing feature-settings row or a null
-  // flag must NOT enable Korapay wallet top-ups. Matches the storefront checkout
-  // gate and the merchant_feature_settings default.
-  const korapayEnabled = settings.korapay_enabled ?? false;
-
-  if (requestedGateway) {
-    if (requestedGateway === 'paystack' && paystackEnabled) return 'paystack';
-    if (requestedGateway === 'korapay' && korapayEnabled) return 'korapay';
-    throw new WalletTopUpClientError(
-      `${requestedGateway} is not enabled for wallet top-ups`
-    );
-  }
-
-  if (
-    isWalletTopUpGateway(settings.preferred_local_gateway) &&
-    ((settings.preferred_local_gateway === 'paystack' && paystackEnabled) ||
-      (settings.preferred_local_gateway === 'korapay' && korapayEnabled))
-  ) {
-    return settings.preferred_local_gateway;
-  }
-
-  if (paystackEnabled) return 'paystack';
-  if (korapayEnabled) return 'korapay';
-
-  throw new WalletTopUpClientError(
-    'No wallet top-up gateway is enabled for this merchant'
-  );
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -153,7 +100,7 @@ export async function POST(request: NextRequest) {
 
     const gateway = selectWalletTopUpGateway({
       requestedGateway: parsed.data.gateway,
-      settings: (settings ?? {}) as GatewaySettings,
+      settings: (settings ?? {}) as WalletTopUpGatewaySettings,
     });
     const customerName =
       parsed.data.customerName ||
