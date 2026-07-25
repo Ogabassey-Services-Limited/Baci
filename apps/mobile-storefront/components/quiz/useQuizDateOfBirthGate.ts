@@ -102,10 +102,13 @@ export function useQuizDateOfBirthGate(onStart: (eventId: string) => void) {
     confirmGate,
     correctionError,
     generation,
+    // A server-confirmed correction (correctionError) opens the gate even when
+    // the customer row failed to hydrate — we have positive evidence a DOB is
+    // required, so there is no risk of a modal flash. Otherwise fall back to the
+    // "only when we can positively tell" rule: loaded row without a DOB.
     isGateVisible:
       pendingEventId !== null &&
-      isCustomerLoaded &&
-      (!dateOfBirth || correctionError !== null),
+      (correctionError !== null || (isCustomerLoaded && !dateOfBirth)),
     reopenForCorrection,
     requestStart,
   };

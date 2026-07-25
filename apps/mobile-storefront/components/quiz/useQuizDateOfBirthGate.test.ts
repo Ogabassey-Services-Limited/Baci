@@ -154,6 +154,26 @@ describe('useQuizDateOfBirthGate', () => {
     expect(onStart).toHaveBeenCalledWith('event-1');
   });
 
+  it('opens the correction gate even when the customer row has not hydrated', () => {
+    // Hydration failed (customer null), but the server age-gate 403 is positive
+    // evidence a DOB is required, so the correction gate must still open.
+    mockCustomer = null;
+    const onStart = jest.fn();
+    const { result } = renderHook(() => useQuizDateOfBirthGate(onStart));
+
+    act(() => {
+      result.current.reopenForCorrection(
+        'event-1',
+        'Quiz participation requires an adult profile (18+)'
+      );
+    });
+
+    expect(result.current.isGateVisible).toBe(true);
+    expect(result.current.correctionError).toBe(
+      'Quiz participation requires an adult profile (18+)'
+    );
+  });
+
   it('does nothing when confirmGate is called without a pending event', () => {
     const onStart = jest.fn();
     const { result } = renderHook(() => useQuizDateOfBirthGate(onStart));

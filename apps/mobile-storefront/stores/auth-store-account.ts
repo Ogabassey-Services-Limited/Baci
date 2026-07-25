@@ -233,8 +233,12 @@ export function createAccountActions(set: AuthStoreSet, get: AuthStoreGet) {
 
     setDateOfBirth: async (dateOfBirth: string) => {
       try {
-        const { customer, merchantId } = get();
-        if (!customer || !merchantId) {
+        // Only merchantId is required: the RPC re-derives the customer from
+        // auth.uid() + merchant, so a shopper whose local customer row failed to
+        // hydrate can still save (and then pass the server age gate). The
+        // getUser() check below still rejects a genuinely signed-out session.
+        const { merchantId } = get();
+        if (!merchantId) {
           return { success: false, error: 'Not logged in' };
         }
 
@@ -268,12 +272,13 @@ export function createAccountActions(set: AuthStoreSet, get: AuthStoreGet) {
         const stored = typeof data === 'string' ? data : dateOfBirth;
         // Re-read the customer instead of spreading the top-of-function
         // snapshot: two awaits (getUser + the RPC) ran since, during which a
-        // concurrent updateProfile could have replaced `customer`.
+        // concurrent updateProfile could have replaced `customer`. Patch local
+        // state only when the row is present; if hydration failed the write
+        // still succeeded server-side and is picked up on the next sync.
         const latestCustomer = get().customer;
-        if (!latestCustomer) {
-          return { success: false, error: 'Not logged in' };
+        if (latestCustomer) {
+          set({ customer: { ...latestCustomer, date_of_birth: stored } });
         }
-        set({ customer: { ...latestCustomer, date_of_birth: stored } });
         return { success: true, dateOfBirth: stored };
       } catch (error) {
         const message =

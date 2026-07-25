@@ -1722,6 +1722,30 @@ describe('useAuthStore', () => {
       expect(finalCustomer?.phone).toBe('+2348099999999');
     });
 
+    it('saves via the RPC when the local customer row has not hydrated', async () => {
+      // Post-auth hydration failed, leaving customer null. The RPC re-derives
+      // identity server-side, so the save must still succeed (the shopper can
+      // then pass the server age gate) rather than dead-ending on "Not logged in".
+      (useAuthStore.setState as (state: object) => void)({ customer: null });
+      (supabase.rpc as jest.Mock).mockResolvedValue({
+        data: '1990-06-15',
+        error: null,
+      });
+
+      let result!: { success: boolean; error?: string; dateOfBirth?: string };
+      await act(async () => {
+        result = await useAuthStore.getState().setDateOfBirth('1990-06-15');
+      });
+
+      expect(supabase.rpc).toHaveBeenCalledWith('set_customer_date_of_birth', {
+        p_merchant_id: MERCHANT_ID,
+        p_date_of_birth: '1990-06-15',
+      });
+      expect(result).toEqual({ success: true, dateOfBirth: '1990-06-15' });
+      // No local row to patch — must not crash or fabricate a customer.
+      expect(useAuthStore.getState().customer).toBeNull();
+    });
+
     it.each([
       ['invalid_date_of_birth', 'Enter a valid date of birth.'],
       ['customer_not_found', 'No shopper account found for this store.'],
