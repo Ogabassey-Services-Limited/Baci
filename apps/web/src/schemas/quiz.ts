@@ -1,6 +1,15 @@
 import { QUIZ_FREE_ENTRY_MODE } from '@baci/shared/constants';
 import { z } from 'zod';
 
+/**
+ * Shopper-facing copy returned when the server age gate rejects a start (18+).
+ * Shared so the server response and the client (which only receives this
+ * message string, not the error code, through apiPost) agree on the exact text
+ * used to detect an age rejection and reopen the correction gate.
+ */
+export const QUIZ_AGE_RESTRICTED_MESSAGE =
+  'Quiz participation requires an adult profile (18+)';
+
 const quizUuidSchema = z.uuid();
 const quizIsoDatetimeSchema = z.iso.datetime({ offset: true });
 const quizIntegrityTierSchema = z.enum(['basic', 'device', 'strong']);

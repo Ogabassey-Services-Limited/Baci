@@ -6,6 +6,7 @@ import {
   createQuizRpcServerProof,
   QuizRpcServerConfigError,
 } from '@/lib/quiz-proof';
+import { QUIZ_AGE_RESTRICTED_MESSAGE } from '@/schemas/quiz';
 import {
   QuizAgeGateError,
   QuizUsernameRequiredError,
@@ -85,7 +86,7 @@ export function quizAgeGateErrorResponse(error: unknown) {
     return NextResponse.json(
       {
         code: error.code,
-        error: 'Quiz participation requires an adult profile (18+)',
+        error: QUIZ_AGE_RESTRICTED_MESSAGE,
       },
       { status: error.status }
     );

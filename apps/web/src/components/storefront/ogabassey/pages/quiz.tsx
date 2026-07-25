@@ -10,6 +10,7 @@ import type {
   QuizEventResponse,
   QuizResultResponse,
 } from '@/schemas/quiz';
+import { QUIZ_AGE_RESTRICTED_MESSAGE } from '@/schemas/quiz';
 import { formatQuizDateRange } from './format-quiz-date-range';
 import { getQuizErrorMessage } from './get-quiz-error-message';
 import { QuizAgeGateModal } from './quiz-age-gate-modal';
@@ -98,14 +99,22 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
     clearStartError: () => setError(null),
   });
 
-  const handleStart = (event: QuizEventResponse) => {
+  const handleStart = async (event: QuizEventResponse) => {
     // The server age gate (production) needs a date of birth on the customer
     // profile; collect it once here before starting, otherwise start straight.
     if (customer && !customer.date_of_birth) {
       ageGate.open(event);
       return;
     }
-    void runStart(event);
+    const startError = await runStart(event);
+    // A stored DOB can still fail the server age gate (an adult mistyped it, so
+    // it saved but reads as under-18). The gate is the only DOB editor, and a
+    // rejected start never consumes an attempt, so reopen it with the reason
+    // instead of stranding the shopper behind the now-non-empty date_of_birth.
+    if (startError === QUIZ_AGE_RESTRICTED_MESSAGE) {
+      setError(null);
+      ageGate.open(event, startError);
+    }
   };
 
   const submitAnswer = async (answer: string) => {

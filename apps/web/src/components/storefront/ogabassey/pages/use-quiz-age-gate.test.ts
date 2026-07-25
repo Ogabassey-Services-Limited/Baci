@@ -27,8 +27,23 @@ describe('useQuizAgeGate', () => {
     const { view } = setup();
     act(() => view.result.current.open(event));
     expect(view.result.current.event).toBe(event);
+    expect(view.result.current.error).toBeNull();
     act(() => view.result.current.cancel());
     expect(view.result.current.event).toBeNull();
+  });
+
+  it('seeds the gate alert when reopened with an initial error', () => {
+    const { view } = setup();
+    act(() =>
+      view.result.current.open(
+        event,
+        'Quiz participation requires an adult profile (18+)'
+      )
+    );
+    expect(view.result.current.event).toBe(event);
+    expect(view.result.current.error).toBe(
+      'Quiz participation requires an adult profile (18+)'
+    );
   });
 
   it('saves the DOB then starts and closes on success', async () => {

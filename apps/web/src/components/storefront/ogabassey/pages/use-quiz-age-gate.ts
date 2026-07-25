@@ -39,9 +39,11 @@ export function useQuizAgeGate({
   const saveInFlightRef = useRef(false);
   const tokenRef = useRef(0);
 
-  const open = (next: QuizEventResponse) => {
+  // `initialError` seeds the gate's alert when we reopen it after the server
+  // rejected a stored DOB (18+), so the shopper sees why they must re-enter it.
+  const open = (next: QuizEventResponse, initialError: string | null = null) => {
     tokenRef.current += 1;
-    setError(null);
+    setError(initialError);
     setEvent(next);
   };
 

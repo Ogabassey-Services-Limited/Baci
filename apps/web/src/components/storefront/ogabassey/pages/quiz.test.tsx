@@ -274,6 +274,31 @@ describe('OgabasseyV2Quiz', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
+  it('reopens the age gate when a stored date of birth fails the server 18+ check', async () => {
+    // The shopper already has a DOB on file (e.g. mistyped earlier), so the
+    // start goes straight to the server, which rejects it as under-18. There is
+    // no other DOB editor, so the gate must reopen with the reason.
+    mockCustomer({ date_of_birth: '2015-06-15' });
+    vi.mocked(apiGet).mockResolvedValue(eventResponse);
+    vi.mocked(apiPost).mockRejectedValueOnce(
+      new Error('Quiz participation requires an adult profile (18+)')
+    );
+
+    render(<OgabasseyV2Quiz merchantSlug="ogabassey" />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: /start exam/i })
+    );
+
+    // The correction gate reopens, seeded with the rejection reason.
+    expect(
+      await screen.findByRole('dialog', { name: 'Confirm your date of birth' })
+    ).toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Quiz participation requires an adult profile (18+)'
+    );
+  });
+
   it('does not start two attempts when Continue is double-submitted', async () => {
     let resolveSave: (value: { success: boolean }) => void = () => {};
     const savePromise = new Promise<{ success: boolean }>((resolve) => {
