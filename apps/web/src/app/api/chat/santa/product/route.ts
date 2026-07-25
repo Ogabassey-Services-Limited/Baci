@@ -4,6 +4,7 @@ import { resolveAgenticMerchantId } from '@/lib/agentic/agentic-merchant-id';
 import { logger } from '@/lib/logger';
 import { getEffectiveStock } from '@/lib/product-stock';
 import { sanitizeForLog } from '@/lib/sanitize-core';
+import { createPublicClient } from '@/lib/supabase/public';
 import { createServiceClient } from '@/lib/supabase/service';
 
 const UNLIMITED_STOCK_QUANTITY = 9999;
@@ -16,10 +17,20 @@ async function handleProductLookup(productName: string): Promise<NextResponse> {
   const safeProductName = sanitizeForLog(productName);
   try {
     const supabase = createServiceClient();
+
     // Resolved from BACI_AGENTIC_MERCHANT_SLUG rather than a hardcoded UUID, so
     // this endpoint works outside production and can be repointed without a
     // deploy. Fail closed when the tenant is not configured.
-    const merchantId = await resolveAgenticMerchantId(supabase);
+    //
+    // Deliberately resolved on the ANONYMOUS client, not the service-role one:
+    // the anon policy on `merchants` is `USING (is_published IS TRUE)` since
+    // 20260713150000_s0a_merchants_anon_containment.sql, so a slug pointing at
+    // an unpublished or draft store resolves to nothing here. Resolving it with
+    // the service-role client would step over that gate and let this
+    // UNAUTHENTICATED endpoint serve an unpublished merchant's catalogue.
+    const merchantId = await resolveAgenticMerchantId(
+      createPublicClient({ clientInfo: 'baci-santa-tenant-resolve' })
+    );
     if (!merchantId) {
       logger.warn({ message: 'Santa Product tenant not configured' });
       return NextResponse.json(
