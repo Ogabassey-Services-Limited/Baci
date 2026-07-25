@@ -74,6 +74,13 @@ export interface StartQuizAttemptInput extends QuizServiceOptions {
    */
   deviceFingerprint?: string | null;
   eventId: string;
+  /**
+   * The signed-in shopper the caller intends to start for. The request is
+   * refused if the resolved auth session belongs to a different user (an
+   * account switch mid-request), so a stale start can't spend another
+   * shopper's attempt.
+   */
+  expectedUserId?: string;
   integrityTier: QuizIntegrityTier;
 }
 

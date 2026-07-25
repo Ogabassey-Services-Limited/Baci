@@ -81,6 +81,7 @@ export function useQuizStartFlow({
         return await startQuizAttempt({
           deviceFingerprint,
           eventId,
+          expectedUserId: startUserId,
           integrityTier,
         });
       } catch (error) {

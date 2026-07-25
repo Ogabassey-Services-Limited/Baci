@@ -481,6 +481,22 @@ describe('quiz service', () => {
     });
   });
 
+  it('refuses to start when the session user differs from the expected shopper', async () => {
+    // The auth session resolved to a different shopper (an account switch while
+    // the request was preparing) — refuse rather than spend their attempt.
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'user-2' } } });
+
+    await expect(
+      startQuizAttempt({
+        baseUrl: 'https://example.com',
+        eventId: 'event-1',
+        expectedUserId: 'user-1',
+        integrityTier: 'device',
+      })
+    ).rejects.toMatchObject({ code: 'quiz_session_changed', status: 409 });
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
   it('submits quiz answers with the encoded attempt path and bearer auth', async () => {
     mockFetch.mockResolvedValueOnce(
       new Response(

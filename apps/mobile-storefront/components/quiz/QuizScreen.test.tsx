@@ -42,23 +42,25 @@ const mockSetDateOfBirth =
     ) => Promise<{ success: boolean; error?: string; dateOfBirth?: string }>
   >();
 
-jest.mock('@/stores/auth-store', () => ({
-  useAuthStore: (
-    selector: (state: {
-      customer: {
-        username: string | null;
-        date_of_birth: string | null;
-      } | null;
-      setUsername: typeof mockSetUsername;
-      setDateOfBirth: typeof mockSetDateOfBirth;
-    }) => unknown
-  ) =>
-    selector({
-      customer: { username: mockUsername, date_of_birth: mockDateOfBirth },
-      setUsername: mockSetUsername,
-      setDateOfBirth: mockSetDateOfBirth,
-    }),
-}));
+jest.mock('@/stores/auth-store', () => {
+  const getState = () => ({
+    customer: {
+      id: 'customer-1',
+      username: mockUsername,
+      date_of_birth: mockDateOfBirth,
+    },
+    setUsername: mockSetUsername,
+    setDateOfBirth: mockSetDateOfBirth,
+    // useQuizStartFlow reads getState().user?.id to guard against account
+    // switches, so the mock must expose the static getState method too.
+    user: { id: 'quiz-shopper' },
+  });
+  const useAuthStore = (
+    selector: (state: ReturnType<typeof getState>) => unknown
+  ) => selector(getState());
+  useAuthStore.getState = getState;
+  return { useAuthStore };
+});
 
 // The date-of-birth gate transitively renders DateTimePickerField, which
 // imports the native picker. Mock it so the module resolves and a tapped field
