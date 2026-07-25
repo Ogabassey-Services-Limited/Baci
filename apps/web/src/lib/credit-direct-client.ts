@@ -33,6 +33,9 @@ export interface CreditDirectCheckoutOptions {
   merchantSlug: string;
   orderId: string;
   amount: number;
+  // The order's unguessable tracking token — forwarded to the sign endpoint so
+  // the DB can gate capability-token minting on it (S2-P).
+  trackingToken: string;
   customerEmail: string;
   customerPhone: string;
   customerName: string;
@@ -53,6 +56,13 @@ interface SignResponse {
   publicKey: string;
   sessionId: string;
   isLive: boolean;
+  // Server-derived amount that was actually signed. The popup MUST use this so
+  // transaction.totalAmount matches the HMAC signature (signTransaction folds
+  // the amount into the signature); a client-supplied amount can diverge from
+  // the DB residual for wallet/partial-payment orders. REQUIRED — we fail
+  // closed rather than fall back to the caller-supplied amount, which would
+  // reintroduce a client-controlled popup total on a stale/partial response.
+  amount: number;
   error?: string;
 }
 
@@ -132,6 +142,7 @@ export async function openCreditDirectCheckout(
     merchantSlug,
     orderId,
     amount,
+    trackingToken,
     customerEmail,
     customerPhone,
     items,
@@ -151,6 +162,7 @@ export async function openCreditDirectCheckout(
         totalAmount: amount,
         merchantSlug,
         orderId,
+        trackingToken,
       }),
     });
 
@@ -172,18 +184,44 @@ export async function openCreditDirectCheckout(
       throw new Error('Credit Direct SDK failed to load');
     }
 
-    // Step 3: Build transaction object
+    // Step 3: Build transaction object from the SERVER-signed amount only. Fail
+    // closed when it is absent or invalid: falling back to the caller-supplied
+    // `amount` would put a client-controlled total in the popup (and diverge
+    // from the HMAC signature) on a stale or partial signing response.
+    const signedAmount = signData.amount;
+    if (!Number.isFinite(signedAmount) || signedAmount <= 0) {
+      throw new Error('Credit Direct signing response has an invalid amount');
+    }
+    // Credit Direct's payout webhook validates the sum of `products` against the
+    // gateway amount. When the signed amount is a residual (wallet / deposit /
+    // partial payment) it no longer equals the full line-item total, so send a
+    // single balancing line item instead of the full-price items; when they
+    // match (full payment) keep the itemized breakdown.
+    const itemsTotal = items.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
+    const products =
+      Math.abs(itemsTotal - signedAmount) < 0.01
+        ? items.map((item) => ({
+            productId: item.id,
+            productName: item.name,
+            productAmount: item.price * item.quantity,
+          }))
+        : [
+            {
+              productId: orderId,
+              productName: 'Order balance',
+              productAmount: signedAmount,
+            },
+          ];
     const transaction: CreditDirectTransaction = {
-      totalAmount: amount,
+      totalAmount: signedAmount,
       customerEmail,
       customerPhone: customerPhone || '',
       sessionId: signData.sessionId,
       metaData: orderId, // Store orderId for webhook reconciliation
-      products: items.map((item) => ({
-        productId: item.id,
-        productName: item.name,
-        productAmount: item.price * item.quantity,
-      })),
+      products,
     };
 
     // Step 4: Open checkout popup

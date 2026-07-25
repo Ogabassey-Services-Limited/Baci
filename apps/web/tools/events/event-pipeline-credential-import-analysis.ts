@@ -4,7 +4,19 @@ import { analyticsDeliveryModuleGraph as moduleGraph } from './analytics-deliver
 import { serviceRoleCredentialAuthority } from './event-pipeline-service-role-credential-analysis';
 
 const ENV_PATH = 'apps/web/src/env.ts';
-const SAFE_ENV_BINDINGS = new Set(['getSupabaseAnonKey', 'getSupabaseUrl']);
+// Public, non-secret env accessors. Importing ONLY these from env.ts confers no
+// credential authority, so such an import edge is not a service-role authority
+// edge. `getAppUrl` reads only NEXT_PUBLIC_APP_URL (a public value with a
+// localhost fallback), exactly like the Supabase public URL/anon-key getters —
+// it must not drag every tracking-helper consumer (e.g. the checkout page,
+// which imports it transitively via server-side-analytics) into the frozen
+// authority closure. Secret accessors like getSupabaseServiceRoleKey are
+// deliberately absent, so any import that also pulls one still fails closed.
+const SAFE_ENV_BINDINGS = new Set([
+  'getAppUrl',
+  'getSupabaseAnonKey',
+  'getSupabaseUrl',
+]);
 
 function exportedCredentialBindings(
   path: string,
