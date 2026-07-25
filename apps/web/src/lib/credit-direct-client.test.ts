@@ -99,6 +99,28 @@ describe('openCreditDirectCheckout', () => {
     });
   });
 
+  it.each([
+    {
+      amount: 12000.001,
+      error:
+        'Credit Direct checkout amount must use at most two decimal places',
+      items: options.items,
+      label: 'the total has fractional minor units',
+    },
+    {
+      amount: 12000,
+      error: 'Credit Direct checkout requires items with a positive total',
+      items: [],
+      label: 'the basket is empty',
+    },
+  ])('rejects before signing when $label', async ({ amount, error, items }) => {
+    await openCreditDirectCheckout({ ...options, amount, items });
+
+    expect(options.onError).toHaveBeenCalledWith(error);
+    expect(fetch).not.toHaveBeenCalled();
+    expect(options.onSuccess).not.toHaveBeenCalled();
+  });
+
   it('reports script load failures', async () => {
     const appendSpy = vi
       .spyOn(document.head, 'appendChild')
