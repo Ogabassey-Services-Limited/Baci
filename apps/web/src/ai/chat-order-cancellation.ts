@@ -1,14 +1,9 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
-import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
+import { createAgenticScopedChatClient } from '@/lib/agentic/agentic-scoped-chat-client';
 import { getOrderNumberLookupCandidates } from '@/lib/order-number-lookup';
 import type { CancelOrderParams } from './chat-tools';
 
-const OGABASSEY_MERCHANT_ID = '3bc72679-c0f7-4db4-9054-6a4a4a95a498';
-const OGABASSEY_MERCHANT_SLUG = 'ogabassey';
 const CANCELLABLE_PAYMENT_STATUSES = ['pending', 'unpaid'];
 const CANCELLABLE_SHIPPING_STATUSES = ['pending'];
-
-type ChatOrderCancellationSupabaseClient = Pick<SupabaseClient, 'from'>;
 
 interface CancelOrderResult {
   success: boolean;
@@ -33,13 +28,6 @@ interface CancelledOrderRow {
   order_number: string | null;
   payment_status: string | null;
   shipping_status: string | null;
-}
-
-function createChatOrderCancellationSupabaseClient(): ChatOrderCancellationSupabaseClient {
-  return createAgenticScopedSupabaseClient({
-    merchantId: OGABASSEY_MERCHANT_ID,
-    merchantSlug: OGABASSEY_MERCHANT_SLUG,
-  });
 }
 
 function normalizeEmail(value: string | null): string {
@@ -75,13 +63,20 @@ export async function handleCancelOrder(
   const customerEmail = normalizeEmail(params.customerEmail);
 
   try {
-    const supabase = createChatOrderCancellationSupabaseClient();
+    // Tenant comes from BACI_AGENTIC_MERCHANT_SLUG, not a hardcoded UUID; an
+    // unresolvable tenant must never widen the cancellation scope.
+    const scoped = await createAgenticScopedChatClient();
+    if (!scoped) {
+      return createCancelOrderNotFoundResult();
+    }
+    const { merchantId, supabase } = scoped;
+
     let query = supabase
       .from('orders')
       .select(
         'id, order_number, customer_email, payment_status, shipping_status'
       )
-      .eq('merchant_id', OGABASSEY_MERCHANT_ID);
+      .eq('merchant_id', merchantId);
 
     if (params.orderId) {
       query = query.eq('id', params.orderId);
@@ -144,7 +139,7 @@ export async function handleCancelOrder(
         shipping_status: 'cancelled',
       })
       .eq('id', order.id)
-      .eq('merchant_id', OGABASSEY_MERCHANT_ID)
+      .eq('merchant_id', merchantId)
       .eq('customer_email', order.customer_email ?? '')
       .in('payment_status', CANCELLABLE_PAYMENT_STATUSES)
       .in('shipping_status', CANCELLABLE_SHIPPING_STATUSES)

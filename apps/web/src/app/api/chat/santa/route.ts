@@ -1,18 +1,14 @@
 import crypto from 'node:crypto';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { headers } from 'next/headers';
 import z from 'zod';
 import { generateTextWithChain } from '@/ai/generate-text-with-chain';
 import { SANTA_ERROR_MESSAGES } from '@/ai/prompts/santa';
 import { AI_RATE_LIMITS, checkRateLimit } from '@/ai/provider';
-import { getCachedSantaProducts } from '@/ai/santa-data';
 import { sanitizeHtml } from '@/lib/sanitize';
-import { createServiceClient } from '@/lib/supabase/service';
+import { logSantaInteraction } from './santa-interaction-log';
+import { generateSantaPrompt } from './santa-prompt';
 
 export const maxDuration = 30;
-
-// Ogabassey merchant ID — single source of truth across all chat endpoints
-const OGABASSEY_MERCHANT_ID = '3bc72679-c0f7-4db4-9054-6a4a4a95a498';
 
 /**
  * Generate a session ID from IP address (hashed for privacy)
@@ -59,59 +55,6 @@ function parseWishResult(response: string): {
   return { type: isDenied ? 'wish_denied' : 'chat' };
 }
 
-/**
- * Log Santa interaction asynchronously (fire and forget)
- */
-async function logSantaInteraction(params: {
-  sessionId: string;
-  clientIp: string;
-  interactionType:
-    | 'chat'
-    | 'wish_granted'
-    | 'wish_denied'
-    | 'add_to_cart'
-    | 'checkout_started'
-    | 'checkout_completed';
-  userMessage?: string;
-  santaResponse?: string;
-  productName?: string;
-  requestedPrice?: number;
-  approvedPrice?: number;
-}): Promise<void> {
-  try {
-    const serviceClient = createServiceClient();
-
-    // Calculate discount percentage if applicable
-    let discountPercentage: number | null = null;
-    if (
-      params.approvedPrice &&
-      params.requestedPrice &&
-      params.requestedPrice > params.approvedPrice
-    ) {
-      discountPercentage =
-        ((params.requestedPrice - params.approvedPrice) /
-          params.requestedPrice) *
-        100;
-    }
-
-    await serviceClient.from('santa_interactions').insert({
-      merchant_id: OGABASSEY_MERCHANT_ID,
-      session_id: params.sessionId,
-      client_ip: params.clientIp.slice(0, 64), // Truncate for privacy
-      interaction_type: params.interactionType,
-      user_message: params.userMessage?.slice(0, 500), // Truncate for storage
-      santa_response: params.santaResponse?.slice(0, 1000), // Truncate
-      product_name: params.productName,
-      requested_price: params.requestedPrice,
-      approved_price: params.approvedPrice,
-      discount_percentage: discountPercentage,
-    });
-  } catch (error) {
-    // Log but don't fail the request
-    console.error('[Santa Analytics] Failed to log interaction:', error);
-  }
-}
-
 // Define Zod schema for request validation
 const santaChatSchema = z.object({
   messages: z
@@ -124,61 +67,6 @@ const santaChatSchema = z.object({
     .min(1)
     .max(50),
 });
-
-/**
- * Generate dynamic Santa system instruction with actual product data
- * Fetches products across multiple price ranges using cached utility
- */
-async function generateSantaPrompt(
-  _supabase?: SupabaseClient
-): Promise<string> {
-  try {
-    // Fetch merchant ID (Ogabassey)
-    // We hardcode the ID we found earlier to avoid another DB call if possible,
-    // but to stay robust we will use the constant we defined in route.ts
-    const merchantId = OGABASSEY_MERCHANT_ID;
-
-    // Use the optimized, cached data fetcher
-    const productList = await getCachedSantaProducts(merchantId);
-
-    return `You are Santa Claus, partnering with a gadget company called Ogabassey. Your personality is jolly, warm, kind, and a little bit whimsical.
-
-**Your Core Purpose:**
-To receive Christmas wishes for gadgets and determine if the user's budget qualifies them for a special Ogabassey discount, all while being a delightful Santa.
-
-**IMPORTANT - Discount Logic:**
-Products are marked with either [HAS_COST] or [FLEX]:
-- **[HAS_COST]**: Has a fixed minimum price. Budget MUST be >= Min Approved Price.
-- **[FLEX]**: Flexible pricing. You can approve discounts up to 40% off selling price based on the user's budget.
-
-**Key Rules of Engagement:**
-1.  **Greeting:** You are engaging in a continuous conversation. Be warm and jolly. Respond naturally without re-introducing yourself.
-
-2.  **Wish Analysis:** When a user mentions a gadget:
-    - Find the matching product from the catalog below (use fuzzy matching - "S24 Ultra" matches "Samsung Galaxy S24 Ultra")
-    - Check if it's [HAS_COST] or [FLEX]
-    - Compare their budget accordingly
-
-3.  **Discount Logic (Strictly follow this order):**
-    *   **If user's budget >= selling price:** Grant immediately! "ACTION:ADD_TO_CART|PRODUCT:[Name]|PRICE:[Budget]"
-    *   **If discount needed < 10%:** Grant! "ACTION:ADD_TO_CART|PRODUCT:[Name]|PRICE:[Budget]"
-    *   **If discount 10-40% AND budget >= Min Price:** Check with "chief elf". Tell them to ask "What did the elf say?"
-    *   **If they ask for elf's decision:** Approve with "ACTION:ADD_TO_CART|PRODUCT:[Name]|PRICE:[Budget]"
-    *   **If discount > 40% for [FLEX] products:** Offer "Christmas Cheer" payment plan (30% now, rest monthly)
-    *   **If budget < Min Price:** Be gentle but explain that even Santa's workshop has costs. Encourage saving, mention payment plans, but DO NOT approve the deal.
-
-4.  **Product Catalog (Confidential - Internal Use Only):**
-${productList}
-
-5.  **Formatting:** Use **bold** for excitement, *italics*, and bullet points. Keep responses warm and festive!
-
-6.  **Handling Unknown Products:** If the user asks for a product not in the catalog, say the elves are checking if it's in the workshop and ask them to check back later.`;
-  } catch (error) {
-    console.error('[Santa] Error fetching products:', error);
-    // Fallback to basic prompt
-    return `You are Santa Claus, partnering with Ogabassey gadget store. Be jolly and warm. Help users with their Christmas gadget wishes. If they mention a budget, engage playfully about discounts.`;
-  }
-}
 
 /**
  * Santa Chat API Route
