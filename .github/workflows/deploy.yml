@@ -165,7 +165,7 @@ jobs:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      VERCEL_CLI_VERSION: "52.0.0"
+      VERCEL_CLI_VERSION: "57.0.0"
       # Next/Vercel prebuilt Skew Protection needs a stable custom deployment ID
       # at build time so old clients keep requesting assets/actions from the
       # deployment that served their HTML. Include run attempt to keep reruns of

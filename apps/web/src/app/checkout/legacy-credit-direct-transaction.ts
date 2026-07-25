@@ -8,21 +8,16 @@
  *    payment, the signed value is the RESIDUAL and the HMAC signature folds it
  *    in — sending `order.total` instead makes the popup total diverge from the
  *    signature and the provider cannot complete checkout.
- * 2. Credit Direct's payout webhook validates the sum of `products` against the
- *    gateway amount. When the signed residual no longer equals the line-item
- *    total we therefore send a single balancing line item rather than the
- *    full-price cart; when they agree we keep the itemized breakdown.
+ * 2. Credit Direct requires the sum of `products` to equal the gateway amount.
+ *    Shipping, tax, discounts, wallet credits, and partial payments can make
+ *    that amount differ from the raw line-item total, so the signed amount is
+ *    allocated proportionally across canonical order items in minor units.
  *
  * Mirrors `openCreditDirectCheckout` in `lib/credit-direct-client.ts`, which
  * serves the storefront path.
  */
 
-export interface LegacyCreditDirectCartItem {
-  id: string;
-  name: string;
-  price: number;
-  quantity: number;
-}
+import { prepareLegacyCreditDirectCheckout } from './prepare-legacy-credit-direct-checkout';
 
 export interface LegacyCreditDirectProduct {
   productId: string;
@@ -39,49 +34,28 @@ export interface LegacyCreditDirectTransaction {
   products: LegacyCreditDirectProduct[];
 }
 
-/** Tolerance for float comparison of money totals. */
-const AMOUNT_EPSILON = 0.01;
-
 export function buildLegacyCreditDirectTransaction(input: {
   signedAmount: number;
   customerEmail: string;
   customerPhone: string;
   sessionId: string;
   orderId: string;
-  cart: readonly LegacyCreditDirectCartItem[];
+  orderItems: Parameters<typeof prepareLegacyCreditDirectCheckout>[0];
 }): LegacyCreditDirectTransaction {
-  const { signedAmount, cart, orderId } = input;
+  const { signedAmount, orderId, orderItems } = input;
 
   if (!Number.isFinite(signedAmount) || signedAmount <= 0) {
     throw new Error('Credit Direct signing response has an invalid amount');
   }
 
-  const itemsTotal = cart.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0
-  );
-
-  const products: LegacyCreditDirectProduct[] =
-    Math.abs(itemsTotal - signedAmount) < AMOUNT_EPSILON
-      ? cart.map((item) => ({
-          productId: item.id,
-          productName: item.name,
-          productAmount: item.price * item.quantity,
-        }))
-      : [
-          {
-            productId: orderId,
-            productName: 'Order balance',
-            productAmount: signedAmount,
-          },
-        ];
+  const amounts = prepareLegacyCreditDirectCheckout(orderItems, signedAmount);
 
   return {
-    totalAmount: signedAmount,
+    totalAmount: amounts.totalAmount,
     customerEmail: input.customerEmail,
     customerPhone: input.customerPhone,
     sessionId: input.sessionId,
     metaData: orderId,
-    products,
+    products: amounts.products,
   };
 }

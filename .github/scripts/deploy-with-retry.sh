@@ -81,8 +81,28 @@ for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
   set -e
 
   if [ "$status" -eq 0 ]; then
-    rm -f "$attempt_log"
     echo "Deploy succeeded on attempt $attempt"
+    # Vercel stopped auto-assigning the production domains to `--prod` deploys
+    # (observed 2026-07-23): the deploy now lands as production but the domains
+    # stay on the previous deployment until it is promoted. Promote the
+    # just-created deployment so the production domains follow every deploy
+    # instead of silently freezing. Idempotent if Vercel restores auto-assign.
+    # Extract the target from THIS successful attempt only -- never fall back to
+    # a URL retained from an earlier failed attempt (remember_deployment_target
+    # keeps prior state), which would promote the wrong deployment when a retry
+    # succeeds without re-emitting a parseable target.
+    last_deployment_target="$(extract_deployment_target "$attempt_log" || true)"
+    rm -f "$attempt_log"
+    if [ -z "$last_deployment_target" ]; then
+      echo "Deploy succeeded but no deployment URL/ID was observed to promote." >&2
+      exit 1
+    fi
+    echo "Promoting deployment ${last_deployment_target} to production..."
+    if ! run_promote_command; then
+      echo "Deploy succeeded but promote failed for ${last_deployment_target}." >&2
+      exit 1
+    fi
+    echo "Promoted ${last_deployment_target} to production."
     exit 0
   fi
 
