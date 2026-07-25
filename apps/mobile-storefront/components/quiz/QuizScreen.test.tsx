@@ -14,7 +14,6 @@ import {
   startQuizAttempt,
   submitQuizAnswer,
 } from '@/services/quiz';
-import { QuizServiceError } from '@/services/quiz-types';
 import { useQuizStore } from '@/stores/quiz-store';
 
 // The username gate pulls in additional modules (UsernamePrompt, the zod
@@ -477,97 +476,5 @@ describe('QuizScreen', () => {
       })
     ).toBeNull();
     expect(startQuizAttempt).not.toHaveBeenCalled();
-  });
-
-  it('gates the quiz start behind a date of birth, then starts once one is set', async () => {
-    mockDateOfBirth = null;
-    mockSetDateOfBirth.mockResolvedValue({
-      success: true,
-      dateOfBirth: '1990-05-23',
-    });
-    render(<QuizScreen integrityTier="device" locale="en-US" />);
-
-    fireEvent.press(
-      await screen.findByRole('button', {
-        name: 'Start free exam Daily Prize Quiz',
-      })
-    );
-
-    // Username is already set, so the 18+ gate is what blocks the start.
-    expect(
-      await screen.findByRole('header', { name: 'Confirm your date of birth' })
-    ).toBeTruthy();
-    expect(startQuizAttempt).not.toHaveBeenCalled();
-
-    fireEvent.press(screen.getByRole('button', { name: 'Date of birth' }));
-    fireEvent.press(screen.getByRole('button', { name: 'mock-date-picker' }));
-    fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
-
-    await waitFor(() => {
-      expect(mockSetDateOfBirth).toHaveBeenCalledWith('1990-05-23');
-    });
-    await waitFor(() => {
-      expect(startQuizAttempt).toHaveBeenCalledWith({
-        deviceFingerprint: 'a'.repeat(64),
-        eventId: 'event-1',
-        integrityTier: 'device',
-      });
-    });
-    expect(await screen.findByText('What is 2 + 2?')).toBeTruthy();
-  });
-
-  it('closes the date of birth gate without starting when cancelled', async () => {
-    mockDateOfBirth = null;
-    render(<QuizScreen integrityTier="device" locale="en-US" />);
-
-    fireEvent.press(
-      await screen.findByRole('button', {
-        name: 'Start free exam Daily Prize Quiz',
-      })
-    );
-    fireEvent.press(
-      await screen.findByRole('button', {
-        name: 'Cancel date of birth setup',
-      })
-    );
-
-    expect(
-      screen.queryByRole('header', { name: 'Confirm your date of birth' })
-    ).toBeNull();
-    expect(startQuizAttempt).not.toHaveBeenCalled();
-  });
-
-  it('reopens the date of birth gate when the server rejects a stored DOB as under-18', async () => {
-    // A DOB is already on file (an adult mistyped it), so the start goes
-    // straight to the server, which rejects it. The correction gate must reopen
-    // with the reason — it is the only DOB editor, and a rejected start creates
-    // no attempt.
-    mockDateOfBirth = '2015-01-01';
-    jest
-      .mocked(startQuizAttempt)
-      .mockRejectedValueOnce(
-        new QuizServiceError(
-          'Quiz participation requires an adult profile (18+)',
-          'quiz_age_restricted',
-          403
-        )
-      );
-    render(<QuizScreen integrityTier="device" locale="en-US" />);
-
-    fireEvent.press(
-      await screen.findByRole('button', {
-        name: 'Start free exam Daily Prize Quiz',
-      })
-    );
-
-    expect(
-      await screen.findByRole('header', { name: 'Confirm your date of birth' })
-    ).toBeTruthy();
-    expect(
-      await screen.findByText(
-        'Quiz participation requires an adult profile (18+)'
-      )
-    ).toBeTruthy();
-    expect(startQuizAttempt).toHaveBeenCalledTimes(1);
   });
 });

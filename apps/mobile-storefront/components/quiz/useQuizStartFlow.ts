@@ -6,6 +6,7 @@ import {
   startQuizAttempt,
 } from '@/services/quiz';
 import { QuizServiceError } from '@/services/quiz-types';
+import { useAuthStore } from '@/stores/auth-store';
 import { getQuizErrorMessage } from './QuizScreen.utils';
 import { useQuizDateOfBirthGate } from './useQuizDateOfBirthGate';
 import { useQuizStartGate } from './useQuizStartGate';
@@ -58,6 +59,11 @@ export function useQuizStartFlow({
       const deviceFingerprint = await getQuizDeviceFingerprint().catch(
         () => null
       );
+      // Snapshot the signed-in shopper. If the account signs out or switches
+      // while this request is in flight, an age-rejection reopen would open this
+      // stale event under the new session (letting the new shopper start it), so
+      // skip the reopen unless the same identity is still signed in.
+      const startUserId = useAuthStore.getState().user?.id ?? null;
       try {
         return await startQuizAttempt({
           deviceFingerprint,
@@ -70,7 +76,9 @@ export function useQuizStartFlow({
         // page banner, which is suppressed while the gate is visible) shows why.
         if (
           error instanceof QuizServiceError &&
-          error.code === QUIZ_AGE_RESTRICTED_CODE
+          error.code === QUIZ_AGE_RESTRICTED_CODE &&
+          startUserId !== null &&
+          useAuthStore.getState().user?.id === startUserId
         ) {
           reopenDobForCorrectionRef.current?.(
             eventId,

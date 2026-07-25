@@ -11,9 +11,20 @@ const mockStartQuizAttempt = jest.fn<(args: unknown) => Promise<unknown>>();
 // Captured so the test can drive the gate callbacks the flow wires up.
 let dobOnStart: (eventId: string) => void = () => {};
 let usernameOnStart: (eventId: string) => void = () => {};
+// The currently signed-in shopper; tests mutate it to simulate an account
+// switch while a start request is in flight.
+let mockAuthUserId: string | null = 'user-a';
 
 jest.mock('@/lib/get-quiz-device-fingerprint', () => ({
   getQuizDeviceFingerprint: async () => 'fp',
+}));
+
+jest.mock('@/stores/auth-store', () => ({
+  useAuthStore: {
+    getState: () => ({
+      user: mockAuthUserId ? { id: mockAuthUserId } : null,
+    }),
+  },
 }));
 
 jest.mock('@/services/quiz', () => ({
@@ -57,6 +68,7 @@ const startEvent = jest.fn(
 describe('useQuizStartFlow', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockAuthUserId = 'user-a';
     mockStartQuizAttempt.mockResolvedValue({ attemptId: 'attempt-1' });
   });
 
@@ -92,6 +104,26 @@ describe('useQuizStartFlow', () => {
     mockStartQuizAttempt.mockRejectedValueOnce(
       new QuizServiceError('Server error', 'QUIZ_REQUEST_FAILED', 500)
     );
+    renderHook(() => useQuizStartFlow({ integrityTier: 'device', startEvent }));
+
+    dobOnStart('event-1');
+
+    await waitFor(() => expect(mockStartQuizAttempt).toHaveBeenCalled());
+    await Promise.resolve();
+    expect(mockReopenForCorrection).not.toHaveBeenCalled();
+  });
+
+  it('does not reopen the gate when the account switched mid-request', async () => {
+    // The signed-in shopper changes while the start is in flight; the stale
+    // age-rejection must not open the old event under the new session.
+    mockStartQuizAttempt.mockImplementationOnce(async () => {
+      mockAuthUserId = 'user-b';
+      throw new QuizServiceError(
+        'Quiz participation requires an adult profile (18+)',
+        'quiz_age_restricted',
+        403
+      );
+    });
     renderHook(() => useQuizStartFlow({ integrityTier: 'device', startEvent }));
 
     dobOnStart('event-1');
