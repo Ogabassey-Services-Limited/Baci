@@ -15,7 +15,7 @@ jest.mock('@/stores/auth-store', () => ({
   ) => selector({ setDateOfBirth: mockSetDateOfBirth }),
 }));
 
-// The native date picker fires a fixed, valid past date (2026-05-23) when the
+// The native date picker fires a fixed, valid past date (1990-05-23) when the
 // field is opened and tapped.
 type MockDateTimePickerProps = {
   onChange: (event: { type: 'set' }, date: Date) => void;
@@ -30,7 +30,7 @@ jest.mock('@react-native-community/datetimepicker', () => ({
       <Pressable
         accessibilityLabel="mock-date-picker"
         accessibilityRole="button"
-        onPress={() => onChange({ type: 'set' }, new Date(2026, 4, 23))}
+        onPress={() => onChange({ type: 'set' }, new Date(1990, 4, 23))}
       >
         <Text>mock picker</Text>
       </Pressable>
@@ -39,7 +39,7 @@ jest.mock('@react-native-community/datetimepicker', () => ({
 }));
 
 function pickDate() {
-  // Open the field, then tap the (mocked) native picker to select 2026-05-23.
+  // Open the field, then tap the (mocked) native picker to select 1990-05-23.
   fireEvent.press(screen.getByRole('button', { name: 'Date of birth' }));
   fireEvent.press(screen.getByRole('button', { name: 'mock-date-picker' }));
 }
@@ -64,7 +64,7 @@ describe('DateOfBirthPrompt', () => {
 
     pickDate();
 
-    expect(screen.getByText('2026-05-23')).toBeTruthy();
+    expect(screen.getByText('1990-05-23')).toBeTruthy();
     expect(
       screen.getByRole('button', { name: 'Save date of birth' })
     ).toHaveAccessibilityState({ disabled: false });
@@ -73,7 +73,7 @@ describe('DateOfBirthPrompt', () => {
   it('submits the picked date via the RPC and calls onSuccess', async () => {
     mockSetDateOfBirth.mockResolvedValue({
       success: true,
-      dateOfBirth: '2026-05-23',
+      dateOfBirth: '1990-05-23',
     });
     const onSuccess = jest.fn();
     render(<DateOfBirthPrompt onSuccess={onSuccess} submitLabel="Continue" />);
@@ -84,9 +84,9 @@ describe('DateOfBirthPrompt', () => {
     expect(
       await screen.findByRole('button', { name: 'Continue' })
     ).toBeTruthy();
-    expect(mockSetDateOfBirth).toHaveBeenCalledWith('2026-05-23');
+    expect(mockSetDateOfBirth).toHaveBeenCalledWith('1990-05-23');
     await Promise.resolve();
-    expect(onSuccess).toHaveBeenCalledWith('2026-05-23');
+    expect(onSuccess).toHaveBeenCalledWith('1990-05-23');
   });
 
   it('renders the returned friendly error when the RPC rejects the date', async () => {
@@ -101,6 +101,18 @@ describe('DateOfBirthPrompt', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Enter a valid date of birth.'
+    );
+  });
+
+  it('renders a fallback error when the RPC call throws', async () => {
+    mockSetDateOfBirth.mockRejectedValue(new Error('network error'));
+    render(<DateOfBirthPrompt />);
+
+    pickDate();
+    fireEvent.press(screen.getByRole('button', { name: 'Save date of birth' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Something went wrong. Please try again.'
     );
   });
 

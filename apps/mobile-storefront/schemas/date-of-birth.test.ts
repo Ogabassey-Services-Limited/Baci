@@ -42,10 +42,10 @@ describe('DateOfBirthSchema', () => {
     expect(DateOfBirthSchema.safeParse(`${tooOld}-01-01`).success).toBe(false);
   });
 
-  it('accepts today (age 0 is a real, non-future date)', () => {
+  it("rejects today's date to match the server RPC (v_dob >= now()::date)", () => {
     const now = new Date();
     const iso = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`;
-    expect(DateOfBirthSchema.safeParse(iso).success).toBe(true);
+    expect(DateOfBirthSchema.safeParse(iso).success).toBe(false);
   });
 });
 

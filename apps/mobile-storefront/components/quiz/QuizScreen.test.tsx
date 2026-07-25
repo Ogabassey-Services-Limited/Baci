@@ -62,7 +62,7 @@ jest.mock('@/stores/auth-store', () => ({
 
 // The date-of-birth gate transitively renders DateTimePickerField, which
 // imports the native picker. Mock it so the module resolves and a tapped field
-// yields a fixed, valid past date (2026-05-23).
+// yields a fixed, valid past date (1990-05-23).
 type MockDateTimePickerProps = {
   onChange: (event: { type: 'set' }, date: Date) => void;
 };
@@ -75,7 +75,7 @@ jest.mock('@react-native-community/datetimepicker', () => ({
       <Pressable
         accessibilityLabel="mock-date-picker"
         accessibilityRole="button"
-        onPress={() => onChange({ type: 'set' }, new Date(2026, 4, 23))}
+        onPress={() => onChange({ type: 'set' }, new Date(1990, 4, 23))}
       >
         <Text>mock picker</Text>
       </Pressable>
@@ -482,7 +482,7 @@ describe('QuizScreen', () => {
     mockDateOfBirth = null;
     mockSetDateOfBirth.mockResolvedValue({
       success: true,
-      dateOfBirth: '2026-05-23',
+      dateOfBirth: '1990-05-23',
     });
     render(<QuizScreen integrityTier="device" locale="en-US" />);
 
@@ -503,7 +503,7 @@ describe('QuizScreen', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
 
     await waitFor(() => {
-      expect(mockSetDateOfBirth).toHaveBeenCalledWith('2026-05-23');
+      expect(mockSetDateOfBirth).toHaveBeenCalledWith('1990-05-23');
     });
     await waitFor(() => {
       expect(startQuizAttempt).toHaveBeenCalledWith({

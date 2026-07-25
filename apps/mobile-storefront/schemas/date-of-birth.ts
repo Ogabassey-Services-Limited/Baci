@@ -30,8 +30,19 @@ function isRealCalendarDate(value: string): boolean {
 
 function isPastWithinLifespan(value: string): boolean {
   const dob = new Date(`${value}T00:00:00.000Z`).getTime();
+  if (Number.isNaN(dob)) {
+    return false;
+  }
   const now = new Date();
-  if (Number.isNaN(dob) || dob > now.getTime()) {
+  // Reject today and any future date. The set_customer_date_of_birth RPC rejects
+  // `>= now()::date`, and the native date picker opens on today, so accepting
+  // today here would let a value through the client only for the RPC to reject.
+  const todayUtc = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate()
+  );
+  if (dob >= todayUtc) {
     return false;
   }
   const earliest = Date.UTC(
