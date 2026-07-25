@@ -111,13 +111,14 @@ for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
   status=${PIPESTATUS[0]}
   set -e
 
-  # 124 is `timeout`'s exit code when it had to kill the command. CLI 57 keeps
-  # creating the deployment (READY, URL printed) and then hanging without
-  # exiting. A `vercel deploy --prebuilt` RETRY makes a brand-new deployment (it
+  # `timeout` exits 124 when it killed the hung command with TERM, or 137
+  # (128+9) when the command ignored TERM and the `-k` grace period escalated to
+  # KILL. Both mean CLI 57 hung after creating the deployment (READY, URL
+  # printed). A `vercel deploy --prebuilt` RETRY makes a brand-new deployment (it
   # does NOT report a duplicate custom id), so recover by promoting the
   # deployment THIS attempt already created rather than retrying.
-  if [ "$status" -eq 124 ]; then
-    echo "Deploy attempt $attempt exceeded ${DEPLOY_ATTEMPT_TIMEOUT_SECONDS}s and was terminated." >&2
+  if [ "$status" -eq 124 ] || [ "$status" -eq 137 ]; then
+    echo "Deploy attempt $attempt did not exit (status $status: timed out or killed)." >&2
     timed_out_target="$(extract_deployment_target "$attempt_log" || true)"
     if [ -n "$timed_out_target" ]; then
       last_deployment_target="$timed_out_target"
