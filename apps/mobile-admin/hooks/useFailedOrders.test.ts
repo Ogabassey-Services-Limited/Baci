@@ -209,10 +209,15 @@ describe('useFailedOrders', () => {
       // Arrange: the cap cuts the oldest rows because the query orders
       // created_at DESC, so truncation can never hide a fresher customer
       // behind a staler one.
+      //
+      // Every fixture must sit INSIDE the window, spread by fractions of a
+      // day. Spreading by whole days would let `.gte()` cut the set below
+      // the cap first, and the test would then pass without `.limit()` or
+      // the ordering ever being exercised.
       fake().setRows(
         Array.from({ length: FOLLOW_UP_QUERY_LIMIT + 5 }, (_, i) =>
           makeRow({
-            created_at: daysBefore(1 + i),
+            created_at: daysBefore(1 + i / 100),
             customer_email: `c${String(i).padStart(3, '0')}@example.com`,
             id: `order-${i}`,
           })
