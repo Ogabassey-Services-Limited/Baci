@@ -192,4 +192,9 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260724160000_korapay_storefront_setting_default_off.sql',
     sha256: '76ccee1969b595892e70322b5957fe03b6df444952d9f1b6bb9c1e59ffc55556',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260725120000_plan_tier_authoritative_snapshot_entitlement.sql',
+    sha256: '38617623446eccea3a8a426ca53e2935dfbc28091ce66a7c17543cd18936ffef',
+  },
 ];
