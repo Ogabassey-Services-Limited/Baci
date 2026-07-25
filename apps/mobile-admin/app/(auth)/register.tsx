@@ -249,6 +249,26 @@ export default function RegisterScreen() {
             return;
           }
 
+          // The account WAS created but store provisioning failed. Retrying
+          // registration re-runs the same failing path — and once the signup
+          // session is cached the server skips signUp entirely, so the user
+          // never even gets the "account exists" 409. Send them to sign-in,
+          // which routes a merchant-less user to complete-profile.
+          if (errorCode === 'account_created_store_setup_failed') {
+            Alert.alert(
+              'Finish Setting Up',
+              error.message ||
+                'Your account was created, but we could not finish setting up your store. Please sign in to finish setup.',
+              [
+                {
+                  text: 'Sign In',
+                  onPress: () => router.replace('/(auth)/login'),
+                },
+              ]
+            );
+            return;
+          }
+
           let message = error.message || 'Please try again later.';
           if (networkError.isTimeout) {
             message =

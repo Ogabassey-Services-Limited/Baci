@@ -14,6 +14,7 @@ import { createClient } from '@/lib/supabase/server';
 import { isReservedMerchantSlug } from '@/lib/validation';
 import { mobileOnboardingSchema } from '@/schemas/onboarding';
 import type { BrandColors } from '@/types';
+import { buildOnboardingFailureResponse } from './onboarding-failure-response';
 
 // Allow up to 60s — template generation calls an AI model (Gemini)
 // and hero-image assignment can also be slow. The default 10s is not enough.
@@ -60,6 +61,13 @@ async function resolveMerchantSlug(
 // which sends Authorization Bearer tokens, not browser cookies. CSRF is a browser-specific
 // attack vector that exploits automatic cookie sending — mobile apps are not vulnerable.
 export async function POST(req: NextRequest) {
+  // Signup is not atomic: the auth user is created before the merchant row. If
+  // provisioning throws after this flips, the caller owns an account with no
+  // store and must be told to SIGN IN rather than retry registration (a retry
+  // re-runs the same failing path and, once the signup session is cached, no
+  // longer even reaches the "account exists" 409).
+  let accountCreated = false;
+
   try {
     const body = await req.json();
 
@@ -269,6 +277,7 @@ export async function POST(req: NextRequest) {
         );
       }
       user = signUpData.user;
+      accountCreated = true;
 
       if (signUpData.session?.access_token) {
         // NOTE: We must construct a raw client here because the new user has
@@ -574,19 +583,8 @@ export async function POST(req: NextRequest) {
       message: 'Account created successfully',
     });
   } catch (error: unknown) {
-    const errMsg = error instanceof Error ? error.message : String(error);
-    const errName = error instanceof Error ? error.name : typeof error;
-    const errStack =
-      error instanceof Error
-        ? error.stack?.split('\n').slice(0, 3).join(' | ')
-        : undefined;
-    console.error(
-      'Mobile onboarding error:',
-      JSON.stringify({ name: errName, message: errMsg, stack: errStack })
-    );
-    return NextResponse.json(
-      { error: 'Internal Server Error' },
-      { status: 500 }
-    );
+    // Keeps the Postgres code (e.g. 42501) in the log and tells a caller whose
+    // account already exists how to recover. See onboarding-failure-response.ts.
+    return buildOnboardingFailureResponse(error, { accountCreated });
   }
 }

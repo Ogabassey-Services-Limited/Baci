@@ -421,6 +421,63 @@ describe('POST /api/mobile-onboarding', () => {
     );
   });
 
+  describe('bugfix: RLS rejection after signup left an unrecoverable orphan', () => {
+    it('tells the caller their account exists when the merchant INSERT is denied by RLS', async () => {
+      // Arrange: reproduce the 2026-07-22..07-25 outage — signUp succeeds, then
+      // the merchant INSERT ... RETURNING is rejected 42501 by the authenticated
+      // SELECT policy. This used to surface as a bare "Internal Server Error",
+      // leaving an auth user with no store and no route forward.
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+      mockSignUp.mockResolvedValue({
+        data: {
+          user: { id: 'user-1', email: 'test@example.com' },
+          session: { access_token: 'tok-123' },
+        },
+        error: null,
+      });
+
+      const merchantQuery = {
+        select: vi.fn().mockReturnThis(),
+        insert: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        single: vi.fn().mockResolvedValue({
+          data: null,
+          error: Object.assign(
+            new Error(
+              'new row violates row-level security policy for table "merchants"'
+            ),
+            { code: '42501', details: null, hint: null }
+          ),
+        }),
+      };
+      mockFrom.mockImplementation((table: string) =>
+        table === 'merchants'
+          ? merchantQuery
+          : { insert: vi.fn().mockResolvedValue({ data: null, error: null }) }
+      );
+
+      // Act
+      const res = await POST(makeRequest(validBody));
+      const body = await res.json();
+
+      // Assert: a recoverable, machine-readable outcome instead of a dead end.
+      expect(res.status).toBe(500);
+      expect(body.code).toBe('account_created_store_setup_failed');
+      expect(body.error).toMatch(/sign in/i);
+
+      // ...and the Postgres code reaches the log, which is what made this
+      // outage invisible for three days.
+      expect(errorSpy).toHaveBeenCalledWith(
+        'mobile-onboarding deployment_fault',
+        expect.stringContaining('"pgCode":"42501"')
+      );
+
+      errorSpy.mockRestore();
+    });
+  });
+
   it('preflights an EXPLICIT user-chosen slug and 409s BEFORE signup (no orphaned auth user, no silent change)', async () => {
     mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
     mockSignUp.mockResolvedValue({
@@ -1238,8 +1295,33 @@ describe('POST /api/mobile-onboarding', () => {
     const body = await res.json();
 
     expect(res.status).toBe(500);
-    expect(body.error).toBe('Internal Server Error');
+    // The signUp above succeeded, so this caller owns an account with no store:
+    // they get the recoverable "sign in to finish setup" outcome rather than a
+    // dead-end generic 500. The no-leak guarantee below is unchanged.
+    expect(body.code).toBe('account_created_store_setup_failed');
     // Must NOT contain the actual error message
+    expect(JSON.stringify(body)).not.toContain('SECRET_DB_CONNECTION_STRING');
+  });
+
+  it('returns a generic 500 with no message leak when the failure precedes signup', async () => {
+    // Arrange: an authenticated caller (no signUp runs), so there is no
+    // just-created account to recover into — the response stays generic.
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'user-1', email: 'test@example.com' } },
+      error: null,
+    });
+    mockFrom.mockImplementation(() => {
+      throw new Error('SECRET_DB_CONNECTION_STRING leaked');
+    });
+
+    // Act
+    const res = await POST(makeRequest(validBody));
+    const body = await res.json();
+
+    // Assert
+    expect(res.status).toBe(500);
+    expect(body.error).toBe('Internal Server Error');
+    expect(body.code).toBe('onboarding_failed');
     expect(JSON.stringify(body)).not.toContain('SECRET_DB_CONNECTION_STRING');
   });
 });
