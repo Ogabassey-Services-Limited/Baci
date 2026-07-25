@@ -1,3 +1,4 @@
+import { deriveCategorySlug } from '@baci/shared';
 import {
   keepPreviousData,
   useInfiniteQuery,
@@ -234,10 +235,15 @@ export function useCreateCategory() {
       if (!merchant?.id) throw new Error('No merchant');
       const sanitizedName = sanitizeText(name, 200);
       if (!sanitizedName.trim()) throw new Error('Category name is required');
-      const slug = sanitizedName
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '');
+      // Shared with the route's schema. The old inline generator produced an
+      // empty slug for a name with no ASCII characters (e.g. 手机) and had no
+      // length bound, so the server rejected both with an unactionable 400.
+      const slug = deriveCategorySlug(sanitizedName);
+      if (!slug) {
+        throw new Error(
+          'Category name must contain letters or numbers we can use in its web address'
+        );
+      }
 
       // B1-lite: go through the web Route Handler instead of inserting
       // directly. A direct insert only invalidated React Query, so the

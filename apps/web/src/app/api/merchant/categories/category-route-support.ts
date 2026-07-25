@@ -130,6 +130,65 @@ export async function isParentCategoryOwnedByMerchant(
 }
 
 /**
+ * Depth bound for the ancestor walk.
+ *
+ * Real catalogues are two or three levels deep. The bound exists so a cycle
+ * that ALREADY exists in the data cannot spin this loop forever — reaching it
+ * is treated as "would create a cycle", i.e. fail closed.
+ */
+const MAX_CATEGORY_DEPTH = 32;
+
+/**
+ * Would re-parenting `categoryId` under `parentId` create a cycle?
+ *
+ * The foreign key happily accepts a self-reference or a longer loop, and
+ * storefront navigation only selects `parent_id IS NULL` roots
+ * (`lib/cached-categories.ts`), so a cycle silently detaches the whole branch
+ * from the merchant's own navigation. Walk UP from the proposed parent: if we
+ * reach the category being edited, the edge would close a loop.
+ */
+export async function wouldCreateCategoryCycle(
+  supabase: CategoryRouteContext['supabase'],
+  merchantId: string,
+  categoryId: string,
+  parentId: string
+): Promise<boolean> {
+  if (parentId === categoryId) {
+    return true;
+  }
+
+  let cursor: string | null = parentId;
+  const seen = new Set<string>([categoryId]);
+
+  for (let depth = 0; depth < MAX_CATEGORY_DEPTH; depth += 1) {
+    if (cursor === null) {
+      return false;
+    }
+    if (seen.has(cursor)) {
+      return true;
+    }
+    seen.add(cursor);
+
+    const result: { data: { parent_id: string | null } | null } = await supabase
+      .from('categories')
+      .select('parent_id')
+      .eq('id', cursor)
+      .eq('merchant_id', merchantId)
+      .maybeSingle();
+
+    // A missing row means the chain leaves this merchant — ownership is checked
+    // separately, and there is no path back to `categoryId` from here.
+    if (!result.data) {
+      return false;
+    }
+    cursor = result.data.parent_id;
+  }
+
+  // Depth bound hit: the existing chain is already looping or pathological.
+  return true;
+}
+
+/**
  * A client-supplied `merchantId` is an ASSERTION, never a selector. If it
  * disagrees with the session-derived tenant the request is refused outright
  * rather than silently rewritten to the caller's own merchant, so a mis-wired

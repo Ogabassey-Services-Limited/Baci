@@ -40,8 +40,16 @@ const PARENT_ID = '11111111-1111-4111-8111-111111111111';
 /** Captures the row handed to `.insert()` so sanitization can be asserted. */
 let insertedRow: Record<string, unknown> | null = null;
 
+/** Captures the row handed to the tombstone-revive `.update()`. */
+let revivedRow: Record<string, unknown> | null = null;
+
 function supabaseInserting(
-  result: { data?: unknown; error?: { code?: string; message: string } } = {}
+  result: {
+    data?: unknown;
+    error?: { code?: string; message: string };
+    /** Row the revive update finds (null => no tombstone to revive). */
+    revives?: { id: string; name: string; slug: string } | null;
+  } = {}
 ) {
   return {
     from: vi.fn(() => ({
@@ -50,14 +58,33 @@ function supabaseInserting(
         return {
           select: vi.fn(() => ({
             single: vi.fn().mockResolvedValue({
-              data: result.data ?? {
-                id: 'cat-1',
-                name: 'Phones',
-                slug: 'phones',
-                is_active: true,
-              },
+              data: result.error
+                ? null
+                : (result.data ?? {
+                    id: 'cat-1',
+                    name: 'Phones',
+                    slug: 'phones',
+                    is_active: true,
+                  }),
               error: result.error ?? null,
             }),
+          })),
+        };
+      }),
+      update: vi.fn((row: Record<string, unknown>) => {
+        revivedRow = row;
+        return {
+          eq: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                select: vi.fn(() => ({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: result.revives ?? null,
+                    error: null,
+                  }),
+                })),
+              })),
+            })),
           })),
         };
       }),
@@ -90,6 +117,7 @@ describe('POST /api/merchant/categories', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     insertedRow = null;
+    revivedRow = null;
     setContext(supabaseInserting());
     mocks.checkCsrfProtection.mockResolvedValue({ valid: true });
     mocks.isParentCategoryOwnedByMerchant.mockResolvedValue(true);
@@ -249,9 +277,12 @@ describe('POST /api/merchant/categories', () => {
     });
   });
 
-  it('maps a duplicate slug to 409, not 500', async () => {
+  it('maps a duplicate LIVE slug to 409, not 500', async () => {
     setContext(
-      supabaseInserting({ error: { code: '23505', message: 'duplicate key' } })
+      supabaseInserting({
+        error: { code: '23505', message: 'duplicate key' },
+        revives: null, // no inactive row -> nothing to revive
+      })
     );
 
     const response = await POST(postRequest(VALID_BODY));
@@ -259,6 +290,23 @@ describe('POST /api/merchant/categories', () => {
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toMatchObject({
       code: 'CATEGORY_SLUG_TAKEN',
+    });
+  });
+
+  describe('bugfix: DELETE leaves a tombstone, so the slug must stay reusable', () => {
+    it('revives an inactive category with the same slug instead of 409ing', async () => {
+      setContext(
+        supabaseInserting({
+          error: { code: '23505', message: 'duplicate key' },
+          revives: { id: 'cat-1', name: 'Phones', slug: 'phones' },
+        })
+      );
+
+      const response = await POST(postRequest(VALID_BODY));
+
+      expect(response.status).toBe(201);
+      // The revive is scoped to is_active=false rows and reactivates them.
+      expect(revivedRow).toMatchObject({ is_active: true, slug: 'phones' });
     });
   });
 

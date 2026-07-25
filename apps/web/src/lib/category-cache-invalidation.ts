@@ -1,5 +1,8 @@
 import { after } from 'next/server';
-import { revalidateCategories } from '@/lib/cache-revalidation';
+import {
+  revalidateCategories,
+  revalidateProducts,
+} from '@/lib/cache-revalidation';
 import { purgeCloudflareHostnamesConfirmed } from '@/lib/cloudflare-purge';
 import { logger } from '@/lib/logger';
 import { buildStorefrontPublicationPurgeHostnames } from '@/lib/storefront-publication-purge-hostnames';
@@ -58,6 +61,15 @@ export function invalidateCategoryCaches(input: {
         revalidateCategories(input.merchantId, slug);
       }
     }
+
+    // Category-oriented tags are NOT sufficient. The storefront home products,
+    // the paginated product index and the Google/OpenAI feeds all embed joined
+    // category names and slugs while carrying product-only tags — so a rename,
+    // deactivation or removal would leave them serving the old category text,
+    // and the edge purge would simply refill from that stale Next cache.
+    // `feedScope: 'merchant'` evicts this merchant's feed entries without
+    // churning every other merchant's.
+    revalidateProducts(input.merchantId, undefined, { feedScope: 'merchant' });
   } catch (error) {
     revalidated = false;
     logger.error({

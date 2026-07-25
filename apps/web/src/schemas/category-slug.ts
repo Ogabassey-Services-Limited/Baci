@@ -1,3 +1,4 @@
+import { MAX_CATEGORY_SLUG_LENGTH } from '@baci/shared';
 import { z } from 'zod';
 
 /**
@@ -63,7 +64,7 @@ export const categorySlugSchema = z
   .string()
   .trim()
   .min(1)
-  .max(120)
+  .max(MAX_CATEGORY_SLUG_LENGTH)
   .regex(
     /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
     'Slug must be lowercase alphanumeric words separated by single dashes'

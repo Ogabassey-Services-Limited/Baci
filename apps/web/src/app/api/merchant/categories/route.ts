@@ -83,28 +83,49 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const { data, error } = await supabase
+  const row = {
+    merchant_id: merchantId,
+    // Merchant-authored text renders on the public storefront; mobile-admin
+    // sanitized before its direct insert, so the API must not be the weaker
+    // path now that it owns the write.
+    name: sanitizeText(parsed.data.name, 160),
+    slug: parsed.data.slug,
+    description: parsed.data.description
+      ? sanitizeText(parsed.data.description, 2000)
+      : null,
+    image_url: parsed.data.imageUrl ?? null,
+    parent_id: parsed.data.parentId ?? null,
+    display_order: parsed.data.displayOrder ?? 0,
+    is_active: parsed.data.isActive ?? true,
+  };
+
+  let { data, error } = await supabase
     .from('categories')
-    .insert({
-      merchant_id: merchantId,
-      // Merchant-authored text renders on the public storefront; mobile-admin
-      // sanitized before its direct insert, so the API must not be the weaker
-      // path now that it owns the write.
-      name: sanitizeText(parsed.data.name, 160),
-      slug: parsed.data.slug,
-      description: parsed.data.description
-        ? sanitizeText(parsed.data.description, 2000)
-        : null,
-      image_url: parsed.data.imageUrl ?? null,
-      parent_id: parsed.data.parentId ?? null,
-      display_order: parsed.data.displayOrder ?? 0,
-      is_active: parsed.data.isActive ?? true,
-    })
+    .insert(row)
     .select('id, name, slug, is_active')
     .single();
 
+  // 23505 = unique violation (duplicate slug for this merchant). DELETE leaves
+  // a deactivated tombstone rather than removing the row — see the handler's
+  // comment for why — so the slug it occupies must remain re-creatable.
+  // Reviving is scoped to INACTIVE rows: a live category still 409s.
+  if (error?.code === '23505') {
+    const revived = await supabase
+      .from('categories')
+      .update({ ...row, updated_at: new Date().toISOString() })
+      .eq('merchant_id', merchantId)
+      .eq('slug', parsed.data.slug)
+      .eq('is_active', false)
+      .select('id, name, slug, is_active')
+      .maybeSingle();
+
+    if (revived.data) {
+      data = revived.data;
+      error = null;
+    }
+  }
+
   if (error) {
-    // 23505 = unique violation (duplicate slug for this merchant).
     const status = error.code === '23505' ? 409 : 500;
     return NextResponse.json(
       {
@@ -115,6 +136,12 @@ export async function POST(request: NextRequest) {
         code: status === 409 ? 'CATEGORY_SLUG_TAKEN' : undefined,
       },
       { status }
+    );
+  }
+  if (!data) {
+    return NextResponse.json(
+      { error: 'Category could not be created' },
+      { status: 500 }
     );
   }
 

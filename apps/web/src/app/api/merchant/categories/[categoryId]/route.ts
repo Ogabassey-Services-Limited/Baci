@@ -9,6 +9,7 @@ import {
   firstValidationMessage,
   isParentCategoryOwnedByMerchant,
   resolveCategoryRouteContext,
+  wouldCreateCategoryCycle,
 } from '../category-route-support';
 
 interface RouteParams {
@@ -78,14 +79,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   }
 
   if (parsed.data.parentId) {
-    // Same-merchant parent, and never itself: a self-parent would make the
-    // category its own ancestor and break every tree walk over the catalogue.
-    if (parsed.data.parentId === categoryId.data) {
-      return NextResponse.json(
-        { error: 'A category cannot be its own parent', code: 'PARENT_SELF' },
-        { status: 400 }
-      );
-    }
     const parentOwned = await isParentCategoryOwnedByMerchant(
       supabase,
       merchantId,
@@ -94,6 +87,25 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (!parentOwned) {
       return NextResponse.json(
         { error: 'Parent category not found', code: 'PARENT_NOT_FOUND' },
+        { status: 400 }
+      );
+    }
+
+    // Self-parenting is only the shortest cycle. Any ancestor loop detaches the
+    // whole branch, because storefront navigation walks down from
+    // `parent_id IS NULL` roots and a looped branch has none.
+    const cycle = await wouldCreateCategoryCycle(
+      supabase,
+      merchantId,
+      categoryId.data,
+      parsed.data.parentId
+    );
+    if (cycle) {
+      return NextResponse.json(
+        {
+          error: 'That parent would create a category loop',
+          code: 'PARENT_CYCLE',
+        },
         { status: 400 }
       );
     }
@@ -166,7 +178,21 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   return NextResponse.json({ category: data, cache: invalidation });
 }
 
-/** Delete a category, invalidating the removed slug. */
+/**
+ * Retire a category (tombstone, NOT a hard delete).
+ *
+ * A hard delete REVIVES the URL. `getCachedCategoryPageShellData` falls back to
+ * `{ kind: 'legacy', categoryName }` when no `categories` row matches the slug,
+ * and that legacy scope matches products on the retained `products.category`
+ * text with an ILIKE — so the "deleted" category page keeps serving its old
+ * products and their canonical paths keep pointing at it. The same function
+ * maps an INACTIVE row to `{ kind: 'none' }` (cached-data.ts), which is exactly
+ * the empty state a deletion should produce.
+ *
+ * So the row is kept and deactivated. The slug therefore stays owned by this
+ * merchant; POST revives a tombstone with the same slug rather than 409ing, so
+ * "delete then re-create" still works.
+ */
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   const resolution = await resolveCategoryRouteContext(request);
   if (!resolution.ok) {
@@ -190,9 +216,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     );
   }
 
-  const { data: deleted, error } = await supabase
+  const { data: retired, error } = await supabase
     .from('categories')
-    .delete()
+    .update({ is_active: false, updated_at: new Date().toISOString() })
     .eq('id', categoryId.data)
     .eq('merchant_id', merchantId)
     .select('id, slug')
@@ -201,18 +227,18 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  if (!deleted) {
+  if (!retired) {
     return NextResponse.json({ error: 'Category not found' }, { status: 404 });
   }
 
   const invalidation = invalidateCategoryCaches({
     merchantId,
     merchantIdentifiers,
-    previousSlug: deleted.slug,
+    previousSlug: retired.slug,
   });
 
   return NextResponse.json({
-    deleted: { id: deleted.id },
+    deleted: { id: retired.id },
     cache: invalidation,
   });
 }

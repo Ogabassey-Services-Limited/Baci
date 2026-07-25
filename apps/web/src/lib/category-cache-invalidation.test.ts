@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   revalidateCategories: vi.fn(),
+  revalidateProducts: vi.fn(),
   purgeCloudflareHostnamesConfirmed: vi.fn(),
   buildStorefrontPublicationPurgeHostnames: vi.fn(),
   warn: vi.fn(),
@@ -17,6 +18,7 @@ vi.mock('next/server', () => ({
 }));
 vi.mock('@/lib/cache-revalidation', () => ({
   revalidateCategories: mocks.revalidateCategories,
+  revalidateProducts: mocks.revalidateProducts,
 }));
 vi.mock('@/lib/cloudflare-purge', () => ({
   purgeCloudflareHostnamesConfirmed: mocks.purgeCloudflareHostnamesConfirmed,
@@ -193,6 +195,39 @@ describe('invalidateCategoryCaches', () => {
       await flushAfter();
 
       expect(mocks.warn).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('bugfix: product-derived caches also carry category text', () => {
+    it('evicts the merchant product and feed tags, not just category tags', () => {
+      // Home products, the paginated index and the Google/OpenAI feeds embed
+      // joined category names while carrying product-only tags — leaving them
+      // means the edge purge just refills from a stale Next cache.
+      invalidateCategoryCaches({
+        merchantId: MERCHANT_ID,
+        merchantIdentifiers: IDENTIFIERS,
+        previousSlug: 'phones',
+        nextSlug: 'mobile-phones',
+      });
+
+      expect(mocks.revalidateProducts).toHaveBeenCalledWith(
+        MERCHANT_ID,
+        undefined,
+        { feedScope: 'merchant' }
+      );
+    });
+
+    it('scopes feed eviction to this merchant', () => {
+      invalidateCategoryCaches({
+        merchantId: MERCHANT_ID,
+        merchantIdentifiers: IDENTIFIERS,
+        previousSlug: 'phones',
+      });
+
+      // 'all' would churn every merchant's feed cache for one category edit.
+      expect(mocks.revalidateProducts.mock.calls[0]?.[2]).toEqual({
+        feedScope: 'merchant',
+      });
     });
   });
 

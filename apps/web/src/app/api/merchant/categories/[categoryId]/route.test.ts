@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   resolveCategoryRouteContext: vi.fn(),
   isParentCategoryOwnedByMerchant: vi.fn(),
+  wouldCreateCategoryCycle: vi.fn(),
   checkCsrfProtection: vi.fn(),
   invalidateCategoryCaches: vi.fn(),
 }));
@@ -13,6 +14,7 @@ vi.mock('../category-route-support', async () => {
   return {
     resolveCategoryRouteContext: mocks.resolveCategoryRouteContext,
     isParentCategoryOwnedByMerchant: mocks.isParentCategoryOwnedByMerchant,
+    wouldCreateCategoryCycle: mocks.wouldCreateCategoryCycle,
     firstValidationMessage: (error: { issues: Array<{ message: string }> }) =>
       error.issues[0]?.message ?? 'Invalid input',
     assertRequestedMerchant: (
@@ -68,10 +70,19 @@ function supabaseFor(state: TableState) {
       })),
       update: vi.fn((row: Record<string, unknown>) => {
         updatedRow = row;
+        const result = {
+          data:
+            state.deleted === undefined
+              ? { id: CATEGORY_ID, slug: 'phones' }
+              : state.deleted,
+          error: state.deleteError ?? null,
+        };
         return {
           eq: vi.fn(() => ({
             eq: vi.fn(() => ({
               select: vi.fn(() => ({
+                // DELETE tombstones through update(...).maybeSingle().
+                maybeSingle: vi.fn().mockResolvedValue(result),
                 single: vi.fn().mockResolvedValue({
                   data:
                     state.updated ??
@@ -90,21 +101,6 @@ function supabaseFor(state: TableState) {
           })),
         };
       }),
-      delete: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            select: vi.fn(() => ({
-              maybeSingle: vi.fn().mockResolvedValue({
-                data:
-                  state.deleted === undefined
-                    ? { id: CATEGORY_ID, slug: 'phones' }
-                    : state.deleted,
-                error: state.deleteError ?? null,
-              }),
-            })),
-          })),
-        })),
-      })),
     })),
   };
 }
@@ -153,6 +149,7 @@ beforeEach(() => {
   setContext();
   mocks.checkCsrfProtection.mockResolvedValue({ valid: true });
   mocks.isParentCategoryOwnedByMerchant.mockResolvedValue(true);
+  mocks.wouldCreateCategoryCycle.mockResolvedValue(false);
   mocks.invalidateCategoryCaches.mockReturnValue({
     revalidatedSlugs: ['phones', 'mobile-phones'],
     revalidated: true,
@@ -227,16 +224,29 @@ describe('PATCH /api/merchant/categories/[categoryId]', () => {
   });
 
   describe('parent integrity', () => {
-    it('rejects a self-parent', async () => {
+    it('rejects a parent that would close a loop', async () => {
+      // Not just self-parenting: storefront navigation walks down from
+      // `parent_id IS NULL` roots, so ANY ancestor loop detaches the branch.
+      mocks.wouldCreateCategoryCycle.mockResolvedValue(true);
+
       const response = await PATCH(
-        patchRequest({ parentId: CATEGORY_ID }),
+        patchRequest({ parentId: PARENT_ID }),
         params()
       );
 
       expect(response.status).toBe(400);
       await expect(response.json()).resolves.toMatchObject({
-        code: 'PARENT_SELF',
+        code: 'PARENT_CYCLE',
       });
+    });
+
+    it('checks ownership BEFORE walking the ancestor chain', async () => {
+      mocks.isParentCategoryOwnedByMerchant.mockResolvedValue(false);
+
+      await PATCH(patchRequest({ parentId: PARENT_ID }), params());
+
+      // A foreign parent must not have its chain walked at all.
+      expect(mocks.wouldCreateCategoryCycle).not.toHaveBeenCalled();
     });
 
     it('rejects a parent owned by another merchant', async () => {
@@ -277,13 +287,25 @@ describe('PATCH /api/merchant/categories/[categoryId]', () => {
 });
 
 describe('DELETE /api/merchant/categories/[categoryId]', () => {
-  it('deletes and invalidates the removed slug', async () => {
+  it('retires the category and invalidates the removed slug', async () => {
     const response = await DELETE(deleteRequest(), params());
 
     expect(response.status).toBe(200);
     expect(mocks.invalidateCategoryCaches).toHaveBeenCalledWith(
       expect.objectContaining({ previousSlug: 'phones' })
     );
+  });
+
+  describe('bugfix: a hard delete revives the category URL', () => {
+    it('tombstones the row instead of removing it', async () => {
+      // Removing the row makes getCachedCategoryPageShellData fall back to
+      // `{ kind: 'legacy' }`, which matches products on the retained
+      // `products.category` text — the "deleted" page keeps serving them.
+      // An INACTIVE row maps to `{ kind: 'none' }`, i.e. genuinely empty.
+      await DELETE(deleteRequest(), params());
+
+      expect(updatedRow).toMatchObject({ is_active: false });
+    });
   });
 
   it('returns 401 before CSRF handling', async () => {
