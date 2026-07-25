@@ -1,12 +1,11 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { getCachedSantaProductList } from '@/ai/santa-data';
+import { resolveAgenticMerchantId } from '@/lib/agentic/agentic-merchant-id';
 import { logger } from '@/lib/logger';
 import { getEffectiveStock } from '@/lib/product-stock';
 import { sanitizeForLog } from '@/lib/sanitize-core';
 import { createServiceClient } from '@/lib/supabase/service';
 
-// Ogabassey merchant ID — single source of truth across all chat endpoints
-const OGABASSEY_MERCHANT_ID = '3bc72679-c0f7-4db4-9054-6a4a4a95a498';
 const UNLIMITED_STOCK_QUANTITY = 9999;
 
 /**
@@ -16,10 +15,21 @@ async function handleProductLookup(productName: string): Promise<NextResponse> {
   // Sanitize for safe logging (prevent log injection)
   const safeProductName = sanitizeForLog(productName);
   try {
+    const supabase = createServiceClient();
+    // Resolved from BACI_AGENTIC_MERCHANT_SLUG rather than a hardcoded UUID, so
+    // this endpoint works outside production and can be repointed without a
+    // deploy. Fail closed when the tenant is not configured.
+    const merchantId = await resolveAgenticMerchantId(supabase);
+    if (!merchantId) {
+      logger.warn({ message: 'Santa Product tenant not configured' });
+      return NextResponse.json(
+        { error: 'Santa product lookup is not configured' },
+        { status: 503 }
+      );
+    }
+
     // Get products directly (bypass cache to ensure consistency)
-    const santaProducts = await getCachedSantaProductList(
-      OGABASSEY_MERCHANT_ID
-    );
+    const santaProducts = await getCachedSantaProductList(merchantId);
 
     logger.info({
       message: 'Santa Product searching',
@@ -50,13 +60,12 @@ async function handleProductLookup(productName: string): Promise<NextResponse> {
     });
 
     // Now get the full product details from database
-    const supabase = createServiceClient();
     const { data: fullProduct, error } = await supabase
       .from('products')
       .select(
         'id, name, slug, description, price, images, status, merchant_id, stock, stock_quantity, manage_stock, brand, sku'
       )
-      .eq('merchant_id', OGABASSEY_MERCHANT_ID)
+      .eq('merchant_id', merchantId)
       .eq('name', matchingProduct.name)
       .single();
 
@@ -78,7 +87,7 @@ async function handleProductLookup(productName: string): Promise<NextResponse> {
           imageLarge: '',
           imageHint: matchingProduct.name,
           status: 'active',
-          merchant_id: OGABASSEY_MERCHANT_ID,
+          merchant_id: merchantId,
           stock: UNLIMITED_STOCK_QUANTITY,
           manage_stock: false,
           brand: '',
