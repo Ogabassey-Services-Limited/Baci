@@ -65,7 +65,7 @@ const STALE_PENDING_MINUTES = 30;
  * PostgREST refuses an ambiguous embed (PGRST201) and fails the whole request,
  * so the attempt-history relationship must be named explicitly.
  */
-export const FAILED_ORDER_TRANSACTIONS_RELATIONSHIP =
+const FAILED_ORDER_TRANSACTIONS_RELATIONSHIP =
   'transactions!transactions_order_id_fkey';
 
 export function useFailedOrders() {

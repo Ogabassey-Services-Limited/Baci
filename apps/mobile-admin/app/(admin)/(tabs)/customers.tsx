@@ -26,6 +26,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FollowUpEmptyState } from '@/components/customers/FollowUpEmptyState';
+import { FollowUpErrorBanner } from '@/components/customers/FollowUpErrorBanner';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import {
   type Customer,
@@ -461,6 +462,7 @@ export default function CustomersScreen() {
   const {
     data: failedOrders,
     isError: isFailedOrdersError,
+    isFetching: isFetchingFailed,
     isLoading: isLoadingFailed,
     refetch: refetchFailed,
   } = useFailedOrders();
@@ -794,10 +796,21 @@ export default function CustomersScreen() {
               colors={[colors.gold]}
             />
           }
+          ListHeaderComponent={
+            /* The empty state only renders on an empty list, so a failed
+               refresh over cached rows needs its own notice. */
+            isFailedOrdersError && groupedFailedOrders.length > 0 ? (
+              <FollowUpErrorBanner
+                isRetrying={isFetchingFailed}
+                onRetry={refetchFailed}
+              />
+            ) : null
+          }
           ListEmptyComponent={
             isLoadingFailed ? null : (
               <FollowUpEmptyState
                 isError={isFailedOrdersError}
+                isRetrying={isFetchingFailed}
                 onRetry={refetchFailed}
               />
             )

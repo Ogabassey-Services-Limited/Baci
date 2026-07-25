@@ -2,7 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import CustomersScreen from '@/app/(admin)/(tabs)/customers';
+import CustomersScreen from './customers';
 
 vi.mock('@shopify/flash-list', async () => {
   const React = await import('react');
@@ -11,14 +11,17 @@ vi.mock('@shopify/flash-list', async () => {
       data,
       renderItem,
       ListEmptyComponent,
+      ListHeaderComponent,
     }: {
       data?: unknown[] | null;
       renderItem: (params: { item: unknown; index: number }) => React.ReactNode;
       ListEmptyComponent?: React.ReactNode;
+      ListHeaderComponent?: React.ReactNode;
     }) =>
       React.createElement(
         'div',
         null,
+        ListHeaderComponent,
         data && data.length > 0
           ? data.map((item: unknown, index: number) =>
               renderItem({ item, index })
@@ -179,5 +182,64 @@ describe('bugfix: a failed follow-up query reported "No issues"', () => {
     // Assert
     expect(screen.getByText('No issues')).toBeTruthy();
     expect(screen.queryByText("Couldn't load follow-ups")).toBeNull();
+  });
+
+  it('warns that rows are stale when a refresh fails over cached follow-ups', () => {
+    // Arrange: React Query keeps the cached rows on a failed refetch, so the
+    // empty state never renders and the staleness would go unannounced.
+    customerHookMocks.useFailedOrders.mockReturnValue({
+      data: [
+        {
+          attempt_count: 1,
+          created_at: '2026-07-24T10:00:00.000Z',
+          customer_email: 'ada@example.com',
+          customer_id: 'customer-1',
+          customer_name: 'Ada Buyer',
+          customer_phone: '+2348012345678',
+          id: 'order-1',
+          order_number: 'ORD-001',
+          payment_method: 'credit_direct',
+          payment_status: 'bnpl_pending',
+          total: 15000,
+        },
+      ],
+      isError: true,
+      isFetching: false,
+      isLoading: false,
+      refetch: vi.fn(),
+    });
+
+    // Act
+    render(<CustomersScreen />);
+
+    // Assert
+    expect(
+      screen.getByText("Couldn't refresh. Showing the last loaded follow-ups.")
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Retry loading follow-ups' })
+    ).toBeTruthy();
+  });
+
+  it('disables the retry control while a retry is already in flight', () => {
+    // Arrange: isLoading stays false once the query is in its error state, so
+    // only isFetching distinguishes an in-flight retry.
+    customerHookMocks.useFailedOrders.mockReturnValue({
+      data: undefined,
+      isError: true,
+      isFetching: true,
+      isLoading: false,
+      refetch: vi.fn(),
+    });
+
+    // Act
+    render(<CustomersScreen />);
+
+    // Assert
+    const retry = screen.getByRole('button', {
+      name: 'Retry loading follow-ups',
+    });
+    expect(retry).toBeDisabled();
+    expect(screen.getByText('Retrying…')).toBeTruthy();
   });
 });

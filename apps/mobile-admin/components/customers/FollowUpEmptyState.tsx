@@ -5,6 +5,7 @@ import { useTheme } from '@/hooks/useTheme';
 
 interface FollowUpEmptyStateProps {
   isError: boolean;
+  isRetrying: boolean;
   onRetry: () => void;
 }
 
@@ -17,6 +18,7 @@ interface FollowUpEmptyStateProps {
  */
 export function FollowUpEmptyState({
   isError,
+  isRetrying,
   onRetry,
 }: FollowUpEmptyStateProps) {
   const { colors } = useTheme();
@@ -36,14 +38,17 @@ export function FollowUpEmptyState({
           style={({ pressed }) => [
             styles.retryButton,
             { backgroundColor: colors.primaryLight },
-            pressed && { opacity: 0.7 },
+            isRetrying && styles.retryButtonDisabled,
+            pressed && !isRetrying && { opacity: 0.7 },
           ]}
           onPress={onRetry}
+          disabled={isRetrying}
           accessibilityLabel="Retry loading follow-ups"
           accessibilityRole="button"
+          accessibilityState={{ busy: isRetrying, disabled: isRetrying }}
         >
           <Text style={[styles.retryLabel, { color: colors.primary }]}>
-            Try again
+            {isRetrying ? 'Retrying…' : 'Try again'}
           </Text>
         </Pressable>
       </View>
@@ -89,6 +94,9 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
     minHeight: 44,
     justifyContent: 'center',
+  },
+  retryButtonDisabled: {
+    opacity: 0.5,
   },
   retryLabel: {
     fontSize: TYPOGRAPHY.size.sm,

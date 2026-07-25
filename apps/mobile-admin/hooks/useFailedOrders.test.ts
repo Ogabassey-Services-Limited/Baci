@@ -111,10 +111,7 @@ vi.mock('@tanstack/react-query', () => ({
 }));
 
 import { ONLINE_CHECKOUT_PAYMENT_METHODS } from './orders/order-list-visibility';
-import {
-  FAILED_ORDER_TRANSACTIONS_RELATIONSHIP,
-  useFailedOrders,
-} from './useFailedOrders';
+import { useFailedOrders } from './useFailedOrders';
 
 function getSelectArg(): string {
   const selectCall = supabaseMock.calls.find(
@@ -218,12 +215,6 @@ describe('useFailedOrders', () => {
           gateway: 'credit_direct',
           gateway_response: { message: 'Declined by issuer' },
         })
-      );
-    });
-
-    it('exports the relationship hint it actually sends', () => {
-      expect(FAILED_ORDER_TRANSACTIONS_RELATIONSHIP).toBe(
-        'transactions!transactions_order_id_fkey'
       );
     });
   });

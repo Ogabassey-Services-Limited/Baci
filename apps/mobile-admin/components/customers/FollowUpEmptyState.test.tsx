@@ -25,7 +25,13 @@ vi.mock('@/hooks/useTheme', () => ({
 
 describe('FollowUpEmptyState', () => {
   it('reports success when there are genuinely no follow-ups', () => {
-    render(<FollowUpEmptyState isError={false} onRetry={vi.fn()} />);
+    render(
+      <FollowUpEmptyState
+        isError={false}
+        isRetrying={false}
+        onRetry={vi.fn()}
+      />
+    );
 
     expect(screen.getByText('No issues')).toBeTruthy();
     expect(
@@ -35,7 +41,9 @@ describe('FollowUpEmptyState', () => {
   });
 
   it('reports a load failure instead of success when the query errored', () => {
-    render(<FollowUpEmptyState isError={true} onRetry={vi.fn()} />);
+    render(
+      <FollowUpEmptyState isError={true} isRetrying={false} onRetry={vi.fn()} />
+    );
 
     expect(screen.getByText("Couldn't load follow-ups")).toBeTruthy();
     expect(screen.getByText(/does not mean\s+there are none/)).toBeTruthy();
@@ -46,12 +54,30 @@ describe('FollowUpEmptyState', () => {
 
   it('calls onRetry when the retry button is pressed', () => {
     const onRetry = vi.fn();
-    render(<FollowUpEmptyState isError={true} onRetry={onRetry} />);
+    render(
+      <FollowUpEmptyState isError={true} isRetrying={false} onRetry={onRetry} />
+    );
 
     fireEvent.click(
       screen.getByRole('button', { name: 'Retry loading follow-ups' })
     );
 
     expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables retry and shows progress while a retry is in flight', () => {
+    const onRetry = vi.fn();
+    render(
+      <FollowUpEmptyState isError={true} isRetrying={true} onRetry={onRetry} />
+    );
+
+    const retry = screen.getByRole('button', {
+      name: 'Retry loading follow-ups',
+    });
+    expect(retry).toBeDisabled();
+    expect(screen.getByText('Retrying…')).toBeTruthy();
+
+    fireEvent.click(retry);
+    expect(onRetry).not.toHaveBeenCalled();
   });
 });
