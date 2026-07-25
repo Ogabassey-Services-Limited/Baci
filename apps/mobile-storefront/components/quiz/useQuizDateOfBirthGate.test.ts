@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { act, renderHook } from '@testing-library/react-native';
 import { useQuizDateOfBirthGate } from './useQuizDateOfBirthGate';
 
-type MockCustomer = { date_of_birth: string | null } | null;
-let mockCustomer: MockCustomer = { date_of_birth: null };
+type MockCustomer = { id?: string; date_of_birth: string | null } | null;
+let mockCustomer: MockCustomer = { id: 'cust-a', date_of_birth: null };
 
 jest.mock('@/stores/auth-store', () => ({
   useAuthStore: (selector: (state: { customer: MockCustomer }) => unknown) =>
@@ -12,7 +12,7 @@ jest.mock('@/stores/auth-store', () => ({
 
 describe('useQuizDateOfBirthGate', () => {
   beforeEach(() => {
-    mockCustomer = { date_of_birth: null };
+    mockCustomer = { id: 'cust-a', date_of_birth: null };
   });
 
   it('opens the gate instead of starting when the loaded customer has no date of birth', () => {
@@ -193,13 +193,41 @@ describe('useQuizDateOfBirthGate', () => {
     expect(result.current.isGateVisible).toBe(true);
     expect(onStart).not.toHaveBeenCalled();
 
-    // A concurrent save fills the DOB; the store update re-renders the hook.
-    mockCustomer = { date_of_birth: '1990-06-15' };
+    // The SAME shopper's concurrent save fills the DOB; re-render the hook.
+    mockCustomer = { id: 'cust-a', date_of_birth: '1990-06-15' };
     act(() => {
       rerender({ tick: 1 });
     });
 
     expect(onStart).toHaveBeenCalledWith('event-2');
+    expect(result.current.isGateVisible).toBe(false);
+  });
+
+  it('does not auto-start a pending event after the account switches', () => {
+    // Shopper A opens the gate (no DOB); the account then switches to shopper B
+    // who already has a DOB. The pending event must NOT start under B's session.
+    mockCustomer = { id: 'cust-a', date_of_birth: null };
+    const onStart = jest.fn();
+    const { result, rerender } = renderHook(
+      ({ tick }: { tick: number }) => {
+        void tick;
+        return useQuizDateOfBirthGate(onStart);
+      },
+      { initialProps: { tick: 0 } }
+    );
+
+    act(() => {
+      result.current.requestStart('event-2');
+    });
+    expect(result.current.isGateVisible).toBe(true);
+
+    // Account switches to a different shopper who already has a DOB.
+    mockCustomer = { id: 'cust-b', date_of_birth: '1990-06-15' };
+    act(() => {
+      rerender({ tick: 1 });
+    });
+
+    expect(onStart).not.toHaveBeenCalled();
     expect(result.current.isGateVisible).toBe(false);
   });
 
