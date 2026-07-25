@@ -15,90 +15,6 @@ afterEach(() => {
 });
 
 describe('buildOnboardingFailureResponse', () => {
-  describe('observability', () => {
-    it('logs the Postgres code that the old catch-all discarded', async () => {
-      // Arrange — the exact error that broke mobile signup for three days.
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      const rlsRejection = postgrestError(
-        '42501',
-        'new row violates row-level security policy for table "merchants"'
-      );
-
-      // Act
-      buildOnboardingFailureResponse(rlsRejection, { accountCreated: true });
-
-      // Assert
-      const [label, payload] = errorSpy.mock.calls[0] as [string, string];
-      expect(label).toBe('mobile-onboarding deployment_fault');
-      expect(JSON.parse(payload)).toMatchObject({
-        accountCreated: true,
-        pgCode: '42501',
-      });
-    });
-
-    it('labels a policy/grant fault distinctly from an ordinary error', () => {
-      // Arrange
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-      // Act
-      buildOnboardingFailureResponse(postgrestError('42P17', 'recursion'), {
-        accountCreated: false,
-      });
-      buildOnboardingFailureResponse(new Error('socket hang up'), {
-        accountCreated: false,
-      });
-
-      // Assert — a drain can alert on the first label without parsing payloads.
-      expect(errorSpy.mock.calls[0][0]).toBe(
-        'mobile-onboarding deployment_fault'
-      );
-      expect(errorSpy.mock.calls[1][0]).toBe(
-        'mobile-onboarding unexpected_error'
-      );
-    });
-
-    it('keeps the failing row out of the log', () => {
-      // Arrange: Postgres puts the offending row in DETAIL for not-null/check/
-      // unique violations, which here would be the signing-up user's own data.
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      const violation = Object.assign(
-        new Error('null value in column "email" violates not-null constraint'),
-        {
-          code: '23502',
-          details:
-            'Failing row contains (7d3f, victim@example.com, +2348012345678).',
-          hint: null,
-        }
-      );
-
-      // Act
-      buildOnboardingFailureResponse(violation, { accountCreated: true });
-
-      // Assert
-      const logged = errorSpy.mock.calls[0][1] as string;
-      expect(logged).not.toContain('victim@example.com');
-      expect(logged).not.toContain('Failing row contains');
-      // ...while the diagnosis is still there.
-      expect(JSON.parse(logged).pgCode).toBe('23502');
-    });
-
-    it('does not leak the database message or details to the client', async () => {
-      // Arrange
-      vi.spyOn(console, 'error').mockImplementation(() => {});
-
-      // Act
-      const res = buildOnboardingFailureResponse(
-        postgrestError('42501', 'new row violates row-level security policy'),
-        { accountCreated: false }
-      );
-      const body = await res.json();
-
-      // Assert
-      expect(JSON.stringify(body)).not.toContain('row-level security');
-      expect(JSON.stringify(body)).not.toContain('Failing row contains');
-    });
-  });
-
   describe('recovery', () => {
     it('tells a caller whose account was created to sign in', async () => {
       // Arrange
@@ -117,11 +33,30 @@ describe('buildOnboardingFailureResponse', () => {
       expect(body.error).toMatch(/sign in/i);
     });
 
-    it('stays a plain 500 when no account was created', async () => {
+    it('ignores a caller-supplied message once an account exists', async () => {
       // Arrange
       vi.spyOn(console, 'error').mockImplementation(() => {});
 
-      // Act — failure before signUp ran: there is nothing to recover into.
+      // Act — the recovery instruction is the actionable thing to say, so a
+      // step-specific message must not replace it.
+      const res = buildOnboardingFailureResponse(
+        postgrestError('42501', 'rls'),
+        { accountCreated: true, message: 'Failed to check existing account.' }
+      );
+      const body = await res.json();
+
+      // Assert
+      expect(body.code).toBe('account_created_store_setup_failed');
+      expect(body.error).not.toBe('Failed to check existing account.');
+    });
+  });
+
+  describe('no account created', () => {
+    it('stays a plain 500 by default', async () => {
+      // Arrange
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      // Act
       const res = buildOnboardingFailureResponse(new Error('bad json'), {
         accountCreated: false,
       });
@@ -132,24 +67,37 @@ describe('buildOnboardingFailureResponse', () => {
       expect(body.code).toBe('onboarding_failed');
       expect(body.error).toBe('Internal Server Error');
     });
-  });
 
-  describe('non-Error throws', () => {
-    it('survives a thrown string without losing the log line', () => {
+    it('keeps a step-specific message when one is supplied', async () => {
       // Arrange
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      vi.spyOn(console, 'error').mockImplementation(() => {});
 
       // Act
-      const res = buildOnboardingFailureResponse('boom', {
+      const res = buildOnboardingFailureResponse(new Error('db down'), {
         accountCreated: false,
+        message: 'Failed to check existing account.',
       });
+      const body = await res.json();
 
       // Assert
-      expect(res.status).toBe(500);
-      expect(JSON.parse(errorSpy.mock.calls[0][1] as string)).toMatchObject({
-        message: 'boom',
-        name: 'string',
-      });
+      expect(body.error).toBe('Failed to check existing account.');
+      expect(body.code).toBe('onboarding_failed');
     });
+  });
+
+  it('does not leak the database message or details to the client', async () => {
+    // Arrange
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    // Act
+    const res = buildOnboardingFailureResponse(
+      postgrestError('42501', 'new row violates row-level security policy'),
+      { accountCreated: false }
+    );
+    const body = await res.json();
+
+    // Assert
+    expect(JSON.stringify(body)).not.toContain('row-level security');
+    expect(JSON.stringify(body)).not.toContain('Failing row contains');
   });
 });

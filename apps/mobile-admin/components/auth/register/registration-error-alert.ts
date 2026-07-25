@@ -41,18 +41,18 @@ export function resolveRegistrationErrorAlert(
   const networkError = error as NetworkError;
   const errorCode = (networkError.data as { code?: string } | undefined)?.code;
 
-  // The user's chosen Store Link is taken/retired — offer to pick another, NOT
-  // "go to login", which would be the wrong recovery.
-  if (networkError.statusCode === 409 && errorCode === 'slug_unavailable') {
-    return {
-      title: 'Store URL Unavailable',
-      message:
-        'That store URL is already taken. Please choose a different one.',
-      buttons: [],
-    };
-  }
-
   if (networkError.statusCode === 409) {
+    // The user's chosen Store Link is taken/retired — offer to pick another,
+    // NOT "go to login", which would be the wrong recovery.
+    if (errorCode === 'slug_unavailable') {
+      return {
+        title: 'Store URL Unavailable',
+        message:
+          'That store URL is already taken. Please choose a different one.',
+        buttons: [],
+      };
+    }
+
     return {
       title: 'Account Exists',
       message:

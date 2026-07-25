@@ -1057,7 +1057,7 @@ describe('POST /api/mobile-onboarding', () => {
 
   // --- Domain creation ---
 
-  it('returns 500 for non-duplicate domain error', async () => {
+  it('finishes provisioning and repairs the domain when its insert fails', async () => {
     mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
     mockSignUp.mockResolvedValue({
       data: {
@@ -1093,13 +1093,35 @@ describe('POST /api/mobile-onboarding', () => {
       };
     });
 
+    const domainRepairInsert = vi
+      .fn()
+      .mockResolvedValue({ data: null, error: null });
+    mockAdminFrom.mockImplementation((table: string) =>
+      table === 'domains'
+        ? { insert: domainRepairInsert }
+        : { insert: vi.fn().mockResolvedValue({ data: null, error: null }) }
+    );
+
     const res = await POST(makeRequest(validBody));
     const body = await res.json();
 
-    expect(res.status).toBe(500);
-    // Post-signUp again: the account and merchant exist but the store is
-    // unreachable, so the caller is pointed at sign-in rather than a dead end.
-    expect(body.code).toBe('account_created_store_setup_failed');
+    // The merchant row is already committed, so aborting here would leave the
+    // account half-provisioned AND unrepairable: after sign-in, (auth)/_layout
+    // sends a user who HAS a merchant straight to the dashboard, never back
+    // through this endpoint.
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
+
+    // The address is derived from the merchant, so after() repairs it with no
+    // user action.
+    await Promise.all(afterCallbacks.map((cb) => cb()));
+    expect(domainRepairInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchant_id: 'merch-1',
+        domain: 'test.usebaci.com',
+        is_primary: true,
+      })
+    );
   });
 
   it('ignores duplicate domain error (code 23505)', async () => {

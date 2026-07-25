@@ -1,5 +1,5 @@
 import { renderHook } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   setStyle: vi.fn(),
@@ -13,7 +13,11 @@ vi.mock('@/config/runtime-platform', () => ({
 
 import { useLightNavigationBar } from './useLightNavigationBar';
 
-afterEach(() => {
+// Cleared BEFORE each test, not after: React Testing Library's auto-cleanup
+// unmounts any still-mounted hook between tests, and that unmount runs the
+// effect's teardown — which calls setStyle. Clearing up front makes each test
+// independent of that ordering.
+beforeEach(() => {
   vi.clearAllMocks();
 });
 
@@ -54,6 +58,22 @@ describe('useLightNavigationBar', () => {
 
     // Assert
     expect(mocks.setStyle).toHaveBeenCalledWith('light');
+  });
+
+  it('re-forces light icons when isDark flips while mounted', () => {
+    // Arrange
+    mocks.isRuntimePlatform.mockReturnValue(true);
+    const { rerender } = renderHook(
+      ({ isDark }) => useLightNavigationBar(isDark),
+      { initialProps: { isDark: false } }
+    );
+    mocks.setStyle.mockClear();
+
+    // Act — exercises the [isDark] dependency: cleanup runs, then the effect.
+    rerender({ isDark: true });
+
+    // Assert
+    expect(mocks.setStyle).toHaveBeenLastCalledWith('light');
   });
 
   it('does nothing off Android', () => {
