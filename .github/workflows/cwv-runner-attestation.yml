@@ -1,0 +1,92 @@
+name: CWV Runner Attestation
+run-name: CWV Runner Attestation ${{ inputs.admission_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      admission_id:
+        description: Exact-run admission nonce
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: cwv-runner-attestation
+  cancel-in-progress: false
+
+jobs:
+  attest:
+    runs-on: [self-hosted, baci-cwv-measurement]
+    timeout-minutes: 20
+    steps:
+      - name: Validate sealed runner admission
+        env:
+          BACI_CWV_ADMISSION_ID: ${{ inputs.admission_id }}
+        run: exec /opt/runner/externals/node24/bin/node /opt/baci-cwv/runner-identity-gate.mjs
+
+      - name: Create private authority scratch
+        env:
+          BACI_CWV_ADMISSION_ID: ${{ inputs.admission_id }}
+          BACI_CWV_HOST_EVIDENCE_DIR: /host-evidence
+        run: exec /opt/runner/externals/node24/bin/node /opt/baci-cwv/cwv-runner-authority.mjs --prepare-scratch
+
+      - name: Checkout exact reviewed source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Create read-only auditor token
+        id: auditor-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        with:
+          client-id: ${{ vars.BACI_CWV_RUNNER_AUDITOR_CLIENT_ID }}
+          private-key: ${{ secrets.BACI_CWV_RUNNER_AUDITOR_PRIVATE_KEY }}
+          owner: ogabasseyy
+          repositories: Baci
+          permission-administration: read
+          permission-metadata: read
+          github-api-url: https://api.github.com
+
+      - name: Verify authority and write projection
+        env:
+          BACI_CWV_AUDITOR_TOKEN: ${{ steps.auditor-token.outputs.token }}
+          BACI_CWV_AUDITOR_INSTALLATION_ID: ${{ steps.auditor-token.outputs.installation-id }}
+          BACI_CWV_AUDITOR_APP_SLUG: ${{ steps.auditor-token.outputs.app-slug }}
+          BACI_CWV_EXPECTED_APP_SLUG: baci-cwv-runner-auditor
+          BACI_CWV_EXPECTED_INSTALLATION_ID: ${{ vars.BACI_CWV_RUNNER_AUDITOR_INSTALLATION_ID }}
+          BACI_CWV_HOST_EVIDENCE_DIR: /host-evidence
+          BACI_CWV_POLICY_PATH: /opt/baci-cwv/policy.json
+        run: exec /opt/runner/externals/node24/bin/node /opt/baci-cwv/cwv-runner-authority.mjs --verify-and-project
+
+      - name: Upload projected attestation
+        id: upload-attestation
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: h0-runner-attestation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/cwv-runner-projection/h0-runner-attestation.json
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Verify uploaded artifact metadata
+        env:
+          BACI_CWV_ARTIFACT_ID: ${{ steps.upload-attestation.outputs.artifact-id }}
+          BACI_CWV_ARTIFACT_DIGEST: ${{ steps.upload-attestation.outputs.artifact-digest }}
+          BACI_CWV_ARTIFACT_TOKEN: ${{ github.token }}
+        run: exec /opt/runner/externals/node24/bin/node /opt/baci-cwv/cwv-runner-authority.mjs --verify-upload
+
+      - name: Download verified projected attestation
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          artifact-ids: ${{ steps.upload-attestation.outputs.artifact-id }}
+          path: ${{ runner.temp }}/cwv-runner-readback
+
+      - name: Verify projected artifact readback
+        run: exec /opt/runner/externals/node24/bin/node /opt/baci-cwv/cwv-runner-authority.mjs --verify-readback-and-clean
+
+      - name: Clean private state after platform token revocation registration
+        if: ${{ always() }}
+        run: exec /opt/runner/externals/node24/bin/node /opt/baci-cwv/cwv-runner-authority.mjs --cleanup

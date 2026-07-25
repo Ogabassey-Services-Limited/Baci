@@ -55,6 +55,7 @@ jobs:
               - '.github/scripts/merge-static-union.sh'
               - '.github/scripts/merge-static-union.test.sh'
               - '.github/scripts/pnpm-install-with-retry.sh'
+              - 'infra/cwv-runner/**'
               - '.npmrc'
               - 'pnpm-workspace.yaml'
             migrations:
