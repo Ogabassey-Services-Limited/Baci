@@ -1,126 +1,10 @@
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
-import {
-  mkdtempSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { readFileSync, rmSync } from 'node:fs';
 import test from 'node:test';
+import { makeFakeCommand } from './deploy-with-retry.test-helpers.mjs';
+import { runScript } from './deploy-with-retry.run-script.mjs';
 
-const scriptPath = fileURLToPath(new URL('deploy-with-retry.sh', import.meta.url));
-
-function makeFakeCommand(mode) {
-  const tempDir = mkdtempSync(join(tmpdir(), 'baci-deploy-retry-'));
-  const binDir = join(tempDir, 'bin');
-  const attemptsFile = join(tempDir, 'attempts');
-  const promotedFile = join(tempDir, 'promoted');
-  mkdirSync(binDir, { recursive: true });
-
-  const fakeVercelPath = join(binDir, 'fake-vercel');
-  const vercelPath = join(binDir, 'vercel');
-
-  writeFileSync(
-    fakeVercelPath,
-    `#!/usr/bin/env bash
-set -euo pipefail
-command="\${1:-}"
-if [ "$command" = "promote" ]; then
-  echo "\${2:-}" > "${promotedFile}"
-  echo "promoted \${2:-}"
-  exit 0
-fi
-attempt=0
-if [ -f "${attemptsFile}" ]; then
-  attempt="$(cat "${attemptsFile}")"
-fi
-attempt=$((attempt + 1))
-echo "$attempt" > "${attemptsFile}"
-case "${mode}" in
-  success)
-    echo "fake deploy ok"
-    exit 0
-    ;;
-  retry-success)
-    if [ "$attempt" -eq 1 ]; then
-      echo "temporary network failure" >&2
-      exit 1
-    fi
-    echo "fake deploy ok after retry"
-    exit 0
-    ;;
-  duplicate-id)
-    echo "Error: custom deployment id already exists for this project" >&2
-    exit 1
-    ;;
-  duplicate-id-after-created)
-    if [ "$attempt" -eq 1 ]; then
-      echo "Production: https://baci-recovered.vercel.app"
-      echo "network failed after deployment creation" >&2
-      exit 1
-    fi
-    echo "Error: custom deployment id already exists for this project" >&2
-    exit 1
-    ;;
-  fatal)
-    echo "fatal deploy failure" >&2
-    exit 1
-    ;;
-esac
-`,
-    { mode: 0o755 }
-  );
-
-  writeFileSync(
-    vercelPath,
-    `#!/usr/bin/env bash
-exec "${fakeVercelPath}" "$@"
-`,
-    { mode: 0o755 }
-  );
-
-  writeFileSync(
-    join(binDir, 'pnpm'),
-    `#!/usr/bin/env bash
-set -euo pipefail
-if [ "\${1:-}" = "exec" ]; then
-  shift
-fi
-exec "$@"
-`,
-    { mode: 0o755 }
-  );
-
-  writeFileSync(
-    join(binDir, 'npx'),
-    `#!/usr/bin/env bash
-set -euo pipefail
-exec "$@"
-`,
-    { mode: 0o755 }
-  );
-
-  return { attemptsFile, binDir, promotedFile, tempDir };
-}
-
-function runScript(fakeCommand, commandArgs = ['fake-vercel', 'deploy']) {
-  return spawnSync('bash', [scriptPath, ...commandArgs], {
-    cwd: fakeCommand.tempDir,
-    env: {
-      ...process.env,
-      BACKOFF_SECONDS: '0',
-      MAX_ATTEMPTS: '2',
-      PATH: `${fakeCommand.binDir}:${process.env.PATH ?? ''}`,
-    },
-    encoding: 'utf8',
-  });
-}
-
-test('exits successfully when deploy succeeds first try', () => {
+test('promotes the observed deployment when deploy succeeds first try', () => {
   const fakeCommand = makeFakeCommand('success');
 
   try {
@@ -128,13 +12,25 @@ test('exits successfully when deploy succeeds first try', () => {
 
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /Deploy succeeded on attempt 1/);
+    assert.match(
+      result.stdout,
+      /Promoting deployment https:\/\/baci-success\.vercel\.app to production/
+    );
+    assert.match(
+      result.stdout,
+      /Promoted https:\/\/baci-success\.vercel\.app to production/
+    );
     assert.equal(readFileSync(fakeCommand.attemptsFile, 'utf8').trim(), '1');
+    assert.equal(
+      readFileSync(fakeCommand.promotedFile, 'utf8').trim(),
+      'https://baci-success.vercel.app'
+    );
   } finally {
     rmSync(fakeCommand.tempDir, { recursive: true, force: true });
   }
 });
 
-test('retries transient deploy failures', () => {
+test('retries transient deploy failures and promotes the recovered deploy', () => {
   const fakeCommand = makeFakeCommand('retry-success');
 
   try {
@@ -143,6 +39,53 @@ test('retries transient deploy failures', () => {
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /Deploy failed, retrying/);
     assert.match(result.stdout, /Deploy succeeded on attempt 2/);
+    assert.match(
+      result.stdout,
+      /Promoted https:\/\/baci-retry\.vercel\.app to production/
+    );
+    assert.equal(readFileSync(fakeCommand.attemptsFile, 'utf8').trim(), '2');
+    assert.equal(
+      readFileSync(fakeCommand.promotedFile, 'utf8').trim(),
+      'https://baci-retry.vercel.app'
+    );
+  } finally {
+    rmSync(fakeCommand.tempDir, { recursive: true, force: true });
+  }
+});
+
+test('fails loudly when a successful deploy emits no promotable target', () => {
+  const fakeCommand = makeFakeCommand('success-without-target');
+
+  try {
+    const result = runScript(fakeCommand);
+
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /Deploy succeeded on attempt 1/);
+    assert.match(
+      result.stderr,
+      /no deployment URL\/ID was observed to promote/
+    );
+    assert.equal(readFileSync(fakeCommand.attemptsFile, 'utf8').trim(), '1');
+  } finally {
+    rmSync(fakeCommand.tempDir, { recursive: true, force: true });
+  }
+});
+
+test('rejects a stale earlier target when a later successful attempt emits none', () => {
+  const fakeCommand = makeFakeCommand('retry-success-stale-target');
+
+  try {
+    const result = runScript(fakeCommand);
+
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /Deploy succeeded on attempt 2/);
+    assert.match(
+      result.stderr,
+      /no deployment URL\/ID was observed to promote/
+    );
+    // The stale https://baci-stale.vercel.app from the failed first attempt must
+    // NOT be promoted — no promote command should have run at all.
+    assert.throws(() => readFileSync(fakeCommand.promotedFile, 'utf8'));
     assert.equal(readFileSync(fakeCommand.attemptsFile, 'utf8').trim(), '2');
   } finally {
     rmSync(fakeCommand.tempDir, { recursive: true, force: true });

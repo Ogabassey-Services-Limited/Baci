@@ -6,7 +6,7 @@ if [ "$#" -eq 0 ]; then
   exit 64
 fi
 
-vercel_cli_version="${VERCEL_CLI_VERSION:-52.0.0}"
+vercel_cli_version="${VERCEL_CLI_VERSION:-57.0.0}"
 runner_temp="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
 vercel_cli_dir="${VERCEL_CLI_DIR:-${runner_temp}/vercel-cli-${vercel_cli_version}}"
 vercel_cli_store="${VERCEL_CLI_STORE:-${runner_temp}/vercel-cli-store-${vercel_cli_version}}"
