@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { QUIZ_AGE_RESTRICTED_MESSAGE } from '@/schemas/quiz-age-gate-message';
 import type { QuizEventResponse } from '@/schemas/quiz';
 
 type UpdateCustomer = (data: {
@@ -72,8 +73,18 @@ export function useQuizAgeGate({
       const startError = await runStart(event);
       if (token !== tokenRef.current) return;
       if (startError) {
-        clearStartError();
-        setError(startError);
+        if (startError === QUIZ_AGE_RESTRICTED_MESSAGE) {
+          // Age rejection: keep the gate open so the DOB can be corrected, and
+          // take ownership of the single alert.
+          clearStartError();
+          setError(startError);
+        } else {
+          // Any other failure (attempt cap, closed event, transient API error)
+          // is unrelated to the DOB, which now saved fine — close the gate and
+          // let the page surface that error rather than re-prompting for
+          // unchanged data.
+          setEvent(null);
+        }
         return;
       }
       setEvent(null);

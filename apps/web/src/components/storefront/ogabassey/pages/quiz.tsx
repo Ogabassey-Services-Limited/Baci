@@ -10,7 +10,7 @@ import type {
   QuizEventResponse,
   QuizResultResponse,
 } from '@/schemas/quiz';
-import { QUIZ_AGE_RESTRICTED_MESSAGE } from '@/schemas/quiz';
+import { QUIZ_AGE_RESTRICTED_MESSAGE } from '@/schemas/quiz-age-gate-message';
 import { formatQuizDateRange } from './format-quiz-date-range';
 import { getQuizErrorMessage } from './get-quiz-error-message';
 import { QuizAgeGateModal } from './quiz-age-gate-modal';

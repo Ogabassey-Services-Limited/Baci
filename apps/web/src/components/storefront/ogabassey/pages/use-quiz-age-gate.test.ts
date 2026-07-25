@@ -178,4 +178,23 @@ describe('useQuizAgeGate', () => {
     expect(view.result.current.event).toBe(event);
     expect(clearStartError).toHaveBeenCalled();
   });
+
+  it('closes the gate on a non-age start failure and leaves the page alert', async () => {
+    const runStart = vi
+      .fn()
+      .mockResolvedValue(
+        "You've reached the maximum number of attempts for this quiz."
+      );
+    const clearStartError = vi.fn();
+    const { view } = setup({ runStart, clearStartError });
+    act(() => view.result.current.open(event));
+    await act(async () => {
+      await view.result.current.submit('1990-06-15');
+    });
+    // The DOB saved fine; an unrelated failure must not trap the shopper behind
+    // the gate re-entering unchanged data — close it and keep the page alert.
+    await waitFor(() => expect(view.result.current.event).toBeNull());
+    expect(clearStartError).not.toHaveBeenCalled();
+    expect(view.result.current.error).toBeNull();
+  });
 });

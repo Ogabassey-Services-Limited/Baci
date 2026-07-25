@@ -6,7 +6,7 @@ import {
   createQuizRpcServerProof,
   QuizRpcServerConfigError,
 } from '@/lib/quiz-proof';
-import { QUIZ_AGE_RESTRICTED_MESSAGE } from '@/schemas/quiz';
+import { QUIZ_AGE_RESTRICTED_MESSAGE } from '@/schemas/quiz-age-gate-message';
 import {
   QuizAgeGateError,
   QuizUsernameRequiredError,
