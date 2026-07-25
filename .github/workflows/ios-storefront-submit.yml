@@ -37,6 +37,12 @@ jobs:
     name: Submit Storefront to App Store Review
     runs-on: macos-26
     timeout-minutes: 30
+    # Shared with ios-storefront-release.yml's build-and-submit job so a manual
+    # submit can never race the automatic one over the single editable version
+    # slot (both may withdraw an in-progress review when opted in).
+    concurrency:
+      group: ios-storefront-app-store-submission
+      cancel-in-progress: false
 
     steps:
       - name: Checkout

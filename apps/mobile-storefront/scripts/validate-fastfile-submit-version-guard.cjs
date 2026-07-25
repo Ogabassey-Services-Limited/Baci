@@ -137,6 +137,45 @@ function validateFastfileSubmitVersionGuard(fastfileSource, versionSlotSource) {
         'asc_version_slot.rb: wait_for_editable_app_store_version must poll get_edit_app_store_version, not the in-progress review submission'
       );
     }
+
+    // A build that exists but is still processing, failed, invalid or expired
+    // cannot replace the review we are about to withdraw.
+    const buildCheck = extractIndentedBlock(
+      activeSlot,
+      /^\s*def\s+ensure_replacement_build_exists!/,
+      'end'
+    );
+    if (!buildCheck || !buildCheck.includes('processing_states:')) {
+      failures.push(
+        'asc_version_slot.rb: ensure_replacement_build_exists! must filter on processing_states so unusable builds cannot pass'
+      );
+    }
+    if (!buildCheck || !/reject\(&:expired\)/.test(buildCheck)) {
+      failures.push(
+        'asc_version_slot.rb: ensure_replacement_build_exists! must reject expired builds'
+      );
+    }
+    if (!buildCheck || !/^\s*version:/m.test(buildCheck)) {
+      failures.push(
+        'asc_version_slot.rb: ensure_replacement_build_exists! must scope the lookup to the requested app version'
+      );
+    }
+
+    // Once the review is withdrawn, skipping would report success with nothing
+    // under review at all — the timeout has to be a hard failure.
+    const guard = extractIndentedBlock(
+      activeSlot,
+      /^\s*def\s+app_store_version_slot_ready\?/,
+      'end'
+    );
+    const afterWait = guard
+      ? guard.slice(guard.indexOf('wait_for_editable_app_store_version('))
+      : '';
+    if (!guard || !afterWait.includes('UI.user_error!')) {
+      failures.push(
+        'asc_version_slot.rb: a post-cancellation timeout must fail the lane, not skip — the previous submission is already withdrawn'
+      );
+    }
   }
 
   return failures;

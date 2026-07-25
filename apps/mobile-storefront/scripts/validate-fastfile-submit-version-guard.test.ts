@@ -9,7 +9,14 @@ const VALID_SLOT = `def review_cancellation_allowed?
 end
 
 def ensure_replacement_build_exists!(app, platform, app_version:, build_number:)
-  build = Spaceship::ConnectAPI::Build.all(app_id: app.id, platform: platform).first
+  build = Spaceship::ConnectAPI::Build.all(
+    app_id: app.id,
+    version: requested_version,
+    build_number: requested_build,
+    platform: platform,
+    processing_states: SUBMITTABLE_BUILD_PROCESSING_STATE
+  ).reject(&:expired).first
+
   return build if build
 
   UI.user_error!("no replacement build")
@@ -49,7 +56,7 @@ def app_store_version_slot_ready?(app_version:, build_number:)
 
   return true if wait_for_editable_app_store_version(app, platform)
 
-  false
+  UI.user_error!("cancelled but no editable version appeared")
 end`;
 
 const VALID_FASTFILE = `import("asc_version_slot.rb")
@@ -181,12 +188,50 @@ describe('bugfix: cancelling review could strand the app with nothing under revi
 
   it('rejects skipping the editable-version wait after cancellation', () => {
     const noWait = VALID_SLOT.replace(
-      '  return true if wait_for_editable_app_store_version(app, platform)\n\n  false',
+      '  return true if wait_for_editable_app_store_version(app, platform)\n\n  UI.user_error!("cancelled but no editable version appeared")',
       '  true'
     );
 
     expect(validateFastfileSubmitVersionGuard(VALID_FASTFILE, noWait)).toContain(
       'asc_version_slot.rb: after cancel_submission the lane must wait via wait_for_editable_app_store_version'
+    );
+  });
+
+  it('rejects exiting green when the withdrawn review never frees the version', () => {
+    const silentTimeout = VALID_SLOT.replace(
+      '  UI.user_error!("cancelled but no editable version appeared")',
+      '  UI.important("timed out")\n  false'
+    );
+
+    expect(validateFastfileSubmitVersionGuard(VALID_FASTFILE, silentTimeout)).toContain(
+      'asc_version_slot.rb: a post-cancellation timeout must fail the lane, not skip — the previous submission is already withdrawn'
+    );
+  });
+
+  it('rejects accepting a build that is still processing, failed or invalid', () => {
+    const anyProcessingState = VALID_SLOT.replace(
+      ',\n    processing_states: SUBMITTABLE_BUILD_PROCESSING_STATE',
+      ''
+    );
+
+    expect(validateFastfileSubmitVersionGuard(VALID_FASTFILE, anyProcessingState)).toContain(
+      'asc_version_slot.rb: ensure_replacement_build_exists! must filter on processing_states so unusable builds cannot pass'
+    );
+  });
+
+  it('rejects accepting an expired build as the replacement', () => {
+    const keepsExpired = VALID_SLOT.replace('.reject(&:expired)', '');
+
+    expect(validateFastfileSubmitVersionGuard(VALID_FASTFILE, keepsExpired)).toContain(
+      'asc_version_slot.rb: ensure_replacement_build_exists! must reject expired builds'
+    );
+  });
+
+  it('rejects a latest-build lookup that ignores the requested app version', () => {
+    const unscoped = VALID_SLOT.replace('    version: requested_version,\n', '');
+
+    expect(validateFastfileSubmitVersionGuard(VALID_FASTFILE, unscoped)).toContain(
+      'asc_version_slot.rb: ensure_replacement_build_exists! must scope the lookup to the requested app version'
     );
   });
 });

@@ -14,39 +14,46 @@
 EDITABLE_VERSION_POLL_ATTEMPTS = 40
 EDITABLE_VERSION_POLL_INTERVAL_SECONDS = 15
 
+# Build.all defaults to "PROCESSING,FAILED,INVALID,VALID". Only VALID builds can
+# actually be attached to a submission, so anything else must not be treated as
+# a usable replacement for a review we are about to withdraw.
+SUBMITTABLE_BUILD_PROCESSING_STATE = "VALID"
+
 def review_cancellation_allowed?
   %w[1 true yes].include?(ENV["IOS_STOREFRONT_CANCEL_REVIEW_FOR_RESUBMIT"].to_s.strip.downcase)
 end
 
-# Mirrors deliver's own `select_build` lookup (same Spaceship::ConnectAPI::Build
-# filters, same "latest" fallback) so this pre-flight can never be stricter or
-# looser than the selection deliver performs later in the lane. Withdrawing a
-# live review before knowing the replacement exists would leave the app with
-# NOTHING under review, so this must run before `cancel_submission`.
+# Withdrawing a live review before knowing a usable replacement exists would
+# leave the app with NOTHING under review, so this must run before
+# `cancel_submission`. The lookup mirrors deliver's `select_build` (same
+# Spaceship::ConnectAPI::Build filters, same "latest" fallback) but is
+# deliberately stricter in two ways, because deliver only discovers these after
+# the review is already gone:
+#   * only VALID builds count — PROCESSING/FAILED/INVALID cannot be submitted;
+#   * expired builds are rejected;
+#   * the requested marketing version always scopes the query, including the
+#     "latest" fallback, so `deliver_opts[:app_version]` cannot end up pointing
+#     at a version that has no build behind it.
 def ensure_replacement_build_exists!(app, platform, app_version:, build_number:)
   requested_build = build_number.to_s.strip
   requested_version = app_version.to_s.strip
+  specific_build = !requested_build.empty? && requested_build != "latest"
 
-  build = if requested_build.empty? || requested_build == "latest"
-            Spaceship::ConnectAPI::Build.all(
-              app_id: app.id,
-              platform: platform
-            ).first
-          else
-            Spaceship::ConnectAPI::Build.all(
-              app_id: app.id,
-              version: requested_version.empty? ? nil : requested_version,
-              build_number: requested_build,
-              platform: platform
-            ).first
-          end
+  build = Spaceship::ConnectAPI::Build.all(
+    app_id: app.id,
+    version: requested_version.empty? ? nil : requested_version,
+    build_number: specific_build ? requested_build : nil,
+    platform: platform,
+    processing_states: SUBMITTABLE_BUILD_PROCESSING_STATE
+  ).reject(&:expired).first
 
   return build if build
 
   UI.user_error!(
-    "Refusing to withdraw the in-progress App Review submission: no TestFlight build " \
-    "matches version #{requested_version.empty? ? '(latest)' : requested_version} " \
-    "build #{requested_build.empty? ? '(latest)' : requested_build}. " \
+    "Refusing to withdraw the in-progress App Review submission: no unexpired, " \
+    "processed (#{SUBMITTABLE_BUILD_PROCESSING_STATE}) TestFlight build matches version " \
+    "#{requested_version.empty? ? '(latest)' : requested_version} build " \
+    "#{specific_build ? requested_build : '(latest)'}. " \
     "Correct SUBMIT_APP_VERSION / SUBMIT_BUILD_NUMBER and retry."
   )
 end
@@ -110,9 +117,13 @@ def app_store_version_slot_ready?(app_version:, build_number:)
 
   return true if wait_for_editable_app_store_version(app, platform)
 
-  UI.important(
-    "Timed out waiting for an editable App Store version after cancelling the previous " \
-    "review submission; skipping submission."
+  # Skipping is only safe while nothing has been destroyed. The previous
+  # submission is now withdrawn, so exiting green here would report success with
+  # NOTHING under review. Fail loudly instead.
+  UI.user_error!(
+    "Cancelled the previous App Review submission but no editable App Store version " \
+    "appeared within #{EDITABLE_VERSION_POLL_ATTEMPTS * EDITABLE_VERSION_POLL_INTERVAL_SECONDS} " \
+    "seconds. The previous submission has been withdrawn and this build was NOT submitted — " \
+    "finish the submission from App Store Connect."
   )
-  false
 end
