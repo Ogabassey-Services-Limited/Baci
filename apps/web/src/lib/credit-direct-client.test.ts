@@ -99,6 +99,28 @@ describe('openCreditDirectCheckout', () => {
     });
   });
 
+  it.each([
+    {
+      amount: 12000.001,
+      error:
+        'Credit Direct checkout amount must use at most two decimal places',
+      items: options.items,
+      label: 'the total has fractional minor units',
+    },
+    {
+      amount: 12000,
+      error: 'Credit Direct checkout requires items with a positive total',
+      items: [],
+      label: 'the basket is empty',
+    },
+  ])('rejects before signing when $label', async ({ amount, error, items }) => {
+    await openCreditDirectCheckout({ ...options, amount, items });
+
+    expect(options.onError).toHaveBeenCalledWith(error);
+    expect(fetch).not.toHaveBeenCalled();
+    expect(options.onSuccess).not.toHaveBeenCalled();
+  });
+
   it('reports script load failures', async () => {
     const appendSpy = vi
       .spyOn(document.head, 'appendChild')
@@ -244,5 +266,108 @@ describe('openCreditDirectCheckout', () => {
       sessionId: 'session-123',
     });
     expect(options.onError).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      amount: 16200,
+      expectedAmounts: [10800, 5400],
+      items: [
+        { id: 'product-1', name: 'Phone', price: 10000, quantity: 1 },
+        { id: 'product-2', name: 'Phone Case', price: 5000, quantity: 1 },
+      ],
+      label: 'shipping and tax increase the gateway amount',
+    },
+    {
+      amount: 9000,
+      expectedAmounts: [6000, 3000],
+      items: [
+        { id: 'product-1', name: 'Phone', price: 10000, quantity: 1 },
+        { id: 'product-2', name: 'Phone Case', price: 5000, quantity: 1 },
+      ],
+      label: 'discounts or wallet credit reduce the gateway amount',
+    },
+    {
+      amount: 10000,
+      expectedAmounts: [6666.66, 3333.34],
+      items: [
+        { id: 'product-1', name: 'Phone', price: 10000, quantity: 1 },
+        { id: 'product-2', name: 'Phone Case', price: 5000, quantity: 1 },
+      ],
+      label: 'proportional allocation leaves a minor-unit remainder',
+    },
+    {
+      amount: 5000,
+      expectedAmounts: [2500, 2500],
+      items: [
+        { id: 'product-1', name: 'Voucher phone', price: 0, quantity: 1 },
+        { id: 'product-2', name: 'Voucher case', price: 0, quantity: 1 },
+      ],
+      label: 'shipping is the only payable amount',
+    },
+  ])('keeps the Credit Direct product sum equal to totalAmount when $label', async ({
+    amount,
+    expectedAmounts,
+    items,
+  }) => {
+    let receivedTransaction:
+      | {
+          products: Array<{
+            productAmount: number;
+            productId: string;
+            productName: string;
+          }>;
+          totalAmount: number;
+        }
+      | undefined;
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        json: async () => ({
+          amount,
+          isLive: true,
+          publicKey: 'cd-public-key',
+          sessionId: 'session-123',
+          signature: 'signature-123',
+        }),
+        ok: true,
+      })
+    );
+    window.Connect = function MockConnect(config: {
+      transaction: NonNullable<typeof receivedTransaction>;
+    }) {
+      receivedTransaction = config.transaction;
+      return {
+        open: vi.fn(),
+        setup: vi.fn(),
+      };
+    } as never;
+
+    await openCreditDirectCheckout({
+      ...options,
+      amount,
+      items,
+    });
+
+    expect(receivedTransaction?.totalAmount).toBe(amount);
+    expect(receivedTransaction?.products).toEqual([
+      {
+        productAmount: expectedAmounts[0],
+        productId: items[0].id,
+        productName: items[0].name,
+      },
+      {
+        productAmount: expectedAmounts[1],
+        productId: items[1].id,
+        productName: items[1].name,
+      },
+    ]);
+    expect(
+      receivedTransaction?.products.reduce(
+        (sum, product) => sum + product.productAmount,
+        0
+      )
+    ).toBe(amount);
   });
 });

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { buildLegacyCreditDirectTransaction } from './legacy-credit-direct-transaction';
 
-const cart = [
-  { id: 'product-1', name: 'Phone Case', price: 5000, quantity: 2 },
-  { id: 'product-2', name: 'Charger', price: 2000, quantity: 1 },
+const orderItems = [
+  { product_id: 'product-1', name: 'Phone Case', price: 5000, quantity: 2 },
+  { product_id: 'product-2', name: 'Charger', price: 2000, quantity: 1 },
 ]; // itemsTotal = 12000
 
 const base = {
@@ -11,7 +11,7 @@ const base = {
   customerPhone: '08012345678',
   sessionId: 'session-123',
   orderId: 'order-123',
-  cart,
+  orderItems,
 };
 
 describe('buildLegacyCreditDirectTransaction', () => {
@@ -48,7 +48,7 @@ describe('buildLegacyCreditDirectTransaction', () => {
 });
 
 describe('bugfix: legacy popup total diverged from the signed residual', () => {
-  it('sends a single balancing line item when the signed amount is a residual', () => {
+  it('allocates the signed residual across the canonical order items', () => {
     // Arrange: wallet/partial payment leaves a 4500 residual on a 12000 cart —
     // the exact case where sending the full-price cart broke the payout check.
     const transaction = buildLegacyCreditDirectTransaction({
@@ -61,14 +61,53 @@ describe('bugfix: legacy popup total diverged from the signed residual', () => {
     // ...and products sum to it, so the payout webhook reconciles.
     expect(transaction.products).toEqual([
       {
-        productId: 'order-123',
-        productName: 'Order balance',
-        productAmount: 4500,
+        productId: 'product-1',
+        productName: 'Phone Case',
+        productAmount: 3750,
+      },
+      {
+        productId: 'product-2',
+        productName: 'Charger',
+        productAmount: 750,
       },
     ]);
     expect(
       transaction.products.reduce((s, p) => s + p.productAmount, 0)
     ).toBeCloseTo(4500, 2);
+  });
+
+  it('allocates paid shipping when voucher-covered merchandise is free', () => {
+    const transaction = buildLegacyCreditDirectTransaction({
+      ...base,
+      signedAmount: 5000,
+      orderItems: [
+        {
+          product_id: 'voucher-phone',
+          name: 'Voucher phone',
+          price: 0,
+          quantity: 1,
+        },
+        {
+          product_id: 'voucher-case',
+          name: 'Voucher case',
+          price: 0,
+          quantity: 1,
+        },
+      ],
+    });
+
+    expect(transaction.products).toEqual([
+      {
+        productId: 'voucher-phone',
+        productName: 'Voucher phone',
+        productAmount: 2500,
+      },
+      {
+        productId: 'voucher-case',
+        productName: 'Voucher case',
+        productAmount: 2500,
+      },
+    ]);
   });
 
   it.each([
