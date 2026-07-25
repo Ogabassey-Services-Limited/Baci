@@ -1,6 +1,9 @@
+import { createLogger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { getSafeErrorMessage } from '@/services/quiz-service-utils';
 import { QuizServiceError } from '@/services/quiz-types';
+
+const log = createLogger('QuizAuth');
 
 const QUIZ_AUTH_RETRY_DELAY_MS = 300;
 
@@ -44,7 +47,7 @@ export async function getQuizAuthHeaders(): Promise<{
       const accessToken = data.session?.access_token;
 
       if (error) {
-        console.warn('Unable to read quiz auth session', {
+        log.warn('Unable to read quiz auth session', {
           attempt,
           message: getSafeErrorMessage(error),
         });
@@ -55,7 +58,16 @@ export async function getQuizAuthHeaders(): Promise<{
         break;
       }
 
-      if (!accessToken) break;
+      if (!accessToken) {
+        // No session yet — during cold-start the store is still hydrating the
+        // session, so retry once before failing rather than spuriously rejecting
+        // the first quiz action.
+        if (canRetry) {
+          await waitForQuizAuthRetry();
+          continue;
+        }
+        break;
+      }
 
       const { data: userData, error: userError } =
         await supabase.auth.getUser(accessToken);
@@ -71,7 +83,7 @@ export async function getQuizAuthHeaders(): Promise<{
       }
 
       if (userError) {
-        console.warn('Unable to validate quiz auth session', {
+        log.warn('Unable to validate quiz auth session', {
           attempt,
           message: getSafeErrorMessage(userError),
         });
@@ -82,7 +94,7 @@ export async function getQuizAuthHeaders(): Promise<{
       }
       break;
     } catch (error) {
-      console.warn('Unable to read quiz auth session', {
+      log.warn('Unable to read quiz auth session', {
         attempt,
         message: getSafeErrorMessage(error),
       });

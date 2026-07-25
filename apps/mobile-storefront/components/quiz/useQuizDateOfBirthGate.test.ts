@@ -3,16 +3,22 @@ import { act, renderHook } from '@testing-library/react-native';
 import { useQuizDateOfBirthGate } from './useQuizDateOfBirthGate';
 
 type MockCustomer = { id?: string; date_of_birth: string | null } | null;
+type MockUser = { id: string } | null;
 let mockCustomer: MockCustomer = { id: 'cust-a', date_of_birth: null };
+// The gate binds to the AUTH user id (stable across customer-row hydration), so
+// the mock must expose `user` too.
+let mockUser: MockUser = { id: 'user-a' };
 
 jest.mock('@/stores/auth-store', () => ({
-  useAuthStore: (selector: (state: { customer: MockCustomer }) => unknown) =>
-    selector({ customer: mockCustomer }),
+  useAuthStore: (
+    selector: (state: { customer: MockCustomer; user: MockUser }) => unknown
+  ) => selector({ customer: mockCustomer, user: mockUser }),
 }));
 
 describe('useQuizDateOfBirthGate', () => {
   beforeEach(() => {
     mockCustomer = { id: 'cust-a', date_of_birth: null };
+    mockUser = { id: 'user-a' };
   });
 
   it('opens the gate instead of starting when the loaded customer has no date of birth', () => {
@@ -207,6 +213,7 @@ describe('useQuizDateOfBirthGate', () => {
     // Shopper A opens the gate (no DOB); the account then switches to shopper B
     // who already has a DOB. The pending event must NOT start under B's session.
     mockCustomer = { id: 'cust-a', date_of_birth: null };
+    mockUser = { id: 'user-a' };
     const onStart = jest.fn();
     const { result, rerender } = renderHook(
       ({ tick }: { tick: number }) => {
@@ -221,14 +228,56 @@ describe('useQuizDateOfBirthGate', () => {
     });
     expect(result.current.isGateVisible).toBe(true);
 
-    // Account switches to a different shopper who already has a DOB.
+    // Account switches to a different shopper (new auth user) who already has a
+    // DOB.
     mockCustomer = { id: 'cust-b', date_of_birth: '1990-06-15' };
+    mockUser = { id: 'user-b' };
     act(() => {
       rerender({ tick: 1 });
     });
 
     expect(onStart).not.toHaveBeenCalled();
     expect(result.current.isGateVisible).toBe(false);
+  });
+
+  it('preserves the correction gate when the customer row hydrates for the same user', () => {
+    // Regression (is6TybvO): Start is tapped mid-hydration (customer still null),
+    // the server rejects the stored DOB, and reopenForCorrection records the auth
+    // user id. When syncAuthenticatedState then hydrates the SAME shopper's
+    // customer row (customer.id null→cust-a), that must NOT be mistaken for an
+    // account switch — the correction gate must stay open, not be discarded.
+    mockCustomer = null;
+    mockUser = { id: 'user-a' };
+    const onStart = jest.fn();
+    const { result, rerender } = renderHook(
+      ({ tick }: { tick: number }) => {
+        void tick;
+        return useQuizDateOfBirthGate(onStart);
+      },
+      { initialProps: { tick: 0 } }
+    );
+
+    act(() => {
+      result.current.reopenForCorrection(
+        'event-1',
+        'Quiz participation requires an adult profile (18+)'
+      );
+    });
+    expect(result.current.isGateVisible).toBe(true);
+
+    // The same shopper's customer row hydrates (null → cust-a); auth user is
+    // unchanged. Correction mode keeps the stored DOB editable, so it must not
+    // auto-start either.
+    mockCustomer = { id: 'cust-a', date_of_birth: '2015-01-01' };
+    act(() => {
+      rerender({ tick: 1 });
+    });
+
+    expect(result.current.isGateVisible).toBe(true);
+    expect(result.current.correctionError).toBe(
+      'Quiz participation requires an adult profile (18+)'
+    );
+    expect(onStart).not.toHaveBeenCalled();
   });
 
   it('does nothing when confirmGate is called without a pending event', () => {

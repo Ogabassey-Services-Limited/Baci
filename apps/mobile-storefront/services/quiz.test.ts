@@ -54,6 +54,19 @@ jest.mock('@/lib/supabase', () => ({
   },
 }));
 
+// getQuizAuthHeaders routes its warnings through the shared logger; capture
+// log.warn so the retry tests can assert on it (the real logger prefixes the
+// message, so a console.warn spy would not match).
+const mockLogWarn = jest.fn();
+jest.mock('@/lib/logger', () => ({
+  createLogger: () => ({
+    debug: jest.fn(),
+    info: jest.fn(),
+    warn: mockLogWarn,
+    error: jest.fn(),
+  }),
+}));
+
 const mockExpoConstants = require('expo-constants').default as {
   expoConfig?: { extra?: Record<string, unknown> };
 };
@@ -69,6 +82,7 @@ describe('quiz service', () => {
     mockFetch.mockReset();
     mockGetSession.mockReset();
     mockGetUser.mockReset();
+    mockLogWarn.mockReset();
     mockExpoConstants.expoConfig = {
       extra: {
         merchantId: 'merchant-1',
@@ -298,24 +312,28 @@ describe('quiz service', () => {
     });
   });
 
-  it('fails closed before requests when the mobile bearer session is missing', async () => {
-    mockGetSession.mockResolvedValueOnce({ data: { session: null } });
+  it('fails closed before requests when the mobile bearer session is persistently missing', async () => {
+    jest.useFakeTimers();
+    // No session on either attempt: cold-start retries once, then fails closed.
+    mockGetSession.mockResolvedValue({ data: { session: null } });
 
-    await expect(
-      fetchQuizEvents({ baseUrl: 'https://example.com' })
-    ).rejects.toMatchObject({
+    const resultPromise = fetchQuizEvents({ baseUrl: 'https://example.com' });
+    // Attach the rejection expectation BEFORE advancing timers so the rejection
+    // (raised while the fake timer elapses) is never momentarily unhandled.
+    const expectation = expect(resultPromise).rejects.toMatchObject({
       code: 'QUIZ_AUTH_REQUIRED',
       message: 'Quiz authentication required',
       status: 401,
     });
+    await jest.advanceTimersByTimeAsync(300);
+    await expectation;
+
+    expect(mockGetSession).toHaveBeenCalledTimes(2);
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
   it('retries transient mobile bearer session read errors once', async () => {
     jest.useFakeTimers();
-    const warnSpy = jest
-      .spyOn(console, 'warn')
-      .mockImplementation(() => undefined);
     mockGetSession
       .mockResolvedValueOnce({
         data: { session: null },
@@ -337,7 +355,7 @@ describe('quiz service', () => {
     await expect(resultPromise).resolves.toEqual([]);
     expect(mockGetSession).toHaveBeenCalledTimes(2);
     expect(mockFetch).toHaveBeenCalledTimes(1);
-    expect(warnSpy).toHaveBeenCalledWith(
+    expect(mockLogWarn).toHaveBeenCalledWith(
       'Unable to read quiz auth session',
       expect.objectContaining({ attempt: 1, message: 'network timeout' })
     );
@@ -381,9 +399,6 @@ describe('quiz service', () => {
 
   it('retries transient mobile bearer token validation errors once', async () => {
     jest.useFakeTimers();
-    const warnSpy = jest
-      .spyOn(console, 'warn')
-      .mockImplementation(() => undefined);
     mockGetUser
       .mockResolvedValueOnce({
         data: { user: null },
@@ -405,7 +420,7 @@ describe('quiz service', () => {
     await expect(resultPromise).resolves.toEqual([]);
     expect(mockGetSession).toHaveBeenCalledTimes(2);
     expect(mockGetUser).toHaveBeenCalledTimes(2);
-    expect(warnSpy).toHaveBeenCalledWith(
+    expect(mockLogWarn).toHaveBeenCalledWith(
       'Unable to validate quiz auth session',
       expect.objectContaining({ attempt: 1, message: 'network timeout' })
     );

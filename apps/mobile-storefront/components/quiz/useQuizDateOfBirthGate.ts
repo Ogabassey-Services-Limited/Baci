@@ -34,10 +34,14 @@ export function useQuizDateOfBirthGate(onStart: (eventId: string) => void) {
   const customer = useAuthStore((state) => state.customer);
   const dateOfBirth = customer?.date_of_birth ?? null;
   const isCustomerLoaded = customer !== null;
-  // Reactive identity of the signed-in shopper. Bound to a pending gate so an
+  // Reactive identity of the signed-in shopper, bound to a pending gate so an
   // account switch mid-gate can't start the prior shopper's event under the new
-  // session.
-  const customerId = customer?.id ?? null;
+  // session. This is the AUTH user id, not `customer.id`: the customer row
+  // hydrates after the session is set, so `customer.id` is null during that
+  // window — binding to it would mistake the null→id hydration of the SAME
+  // shopper for an account switch and wrongly discard a pending correction. The
+  // auth user id is stable across hydration and only changes on a real switch.
+  const userId = useAuthStore((state) => state.user?.id ?? null);
 
   const [pendingEventId, setPendingEventId] = useState<string | null>(null);
   const [generation, setGeneration] = useState(0);
@@ -45,8 +49,8 @@ export function useQuizDateOfBirthGate(onStart: (eventId: string) => void) {
   // the gate visible despite a stored date of birth.
   const [correctionError, setCorrectionError] = useState<string | null>(null);
   const pendingEventRef = useRef<string | null>(null);
-  // The shopper who opened the currently-pending gate.
-  const pendingCustomerRef = useRef<string | null>(null);
+  // The auth user who opened the currently-pending gate.
+  const pendingUserRef = useRef<string | null>(null);
   const generationRef = useRef(0);
 
   // Bump on every open/cancel so any save started under a prior generation is
@@ -67,7 +71,7 @@ export function useQuizDateOfBirthGate(onStart: (eventId: string) => void) {
       // Loaded row with no date of birth: we know one is needed.
       bumpGeneration();
       pendingEventRef.current = eventId;
-      pendingCustomerRef.current = customerId;
+      pendingUserRef.current = userId;
       setPendingEventId(eventId);
       setCorrectionError(null);
       return;
@@ -80,7 +84,7 @@ export function useQuizDateOfBirthGate(onStart: (eventId: string) => void) {
   const reopenForCorrection = (eventId: string, message: string) => {
     bumpGeneration();
     pendingEventRef.current = eventId;
-    pendingCustomerRef.current = customerId;
+    pendingUserRef.current = userId;
     setPendingEventId(eventId);
     setCorrectionError(message);
   };
@@ -119,8 +123,10 @@ export function useQuizDateOfBirthGate(onStart: (eventId: string) => void) {
     }
     // Account switched (or signed out) while the gate was pending: the new
     // shopper never asked to start this event, so clear the pending request
-    // instead of starting it under their session.
-    if (customerId !== pendingCustomerRef.current) {
+    // instead of starting it under their session. Uses the auth user id, which
+    // is stable across customer-row hydration (a null→id transition for the
+    // same shopper is NOT a switch).
+    if (userId !== pendingUserRef.current) {
       pendingEventRef.current = null;
       setPendingEventId(null);
       setCorrectionError(null);
@@ -134,7 +140,7 @@ export function useQuizDateOfBirthGate(onStart: (eventId: string) => void) {
         onStart(eventId);
       }
     }
-  }, [pendingEventId, dateOfBirth, correctionError, customerId, onStart]);
+  }, [pendingEventId, dateOfBirth, correctionError, userId, onStart]);
 
   return {
     cancelGate,
