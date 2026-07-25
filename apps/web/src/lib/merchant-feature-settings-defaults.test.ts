@@ -8,10 +8,12 @@ describe('merchant feature settings defaults', () => {
     const publicDefaults =
       merchantFeatureSettingsDefaults.buildPublicDefault('merchant-1');
 
+    // Korapay defaults OFF (opt-in for all currencies) — aligned with the DB
+    // column default and the strict checkout gate; Paystack stays default ON.
     expect(protectedDefaults).toMatchObject({
       merchant_id: 'merchant-1',
       paystack_enabled: true,
-      korapay_enabled: true,
+      korapay_enabled: false,
       klump_max_amount: 1_000_000,
       preferred_local_gateway: 'paystack',
       preferred_international_gateway: 'korapay',
@@ -19,7 +21,7 @@ describe('merchant feature settings defaults', () => {
     expect(publicDefaults).toMatchObject({
       merchant_id: 'merchant-1',
       paystack_enabled: true,
-      korapay_enabled: true,
+      korapay_enabled: false,
       klump_max_amount: 1_000_000,
       preferred_local_gateway: 'paystack',
       preferred_international_gateway: 'korapay',

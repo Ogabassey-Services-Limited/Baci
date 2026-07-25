@@ -12,6 +12,7 @@
 
 import z from 'zod';
 import { logger } from './logger';
+import { calculatePlatformFee as computePlatformFee } from './payments/platform-fee';
 
 // =============================================================================
 // Configuration
@@ -26,7 +27,6 @@ const KORAPAY_PUBLIC_KEY = process.env.KORAPAY_PUBLIC_KEY || '';
 const PLATFORM_FEE_PERCENTAGE = Number.parseFloat(
   process.env.PLATFORM_FEE_PERCENTAGE || '2'
 );
-const PLATFORM_FEE_CAP = 2050;
 
 // =============================================================================
 // Type Definitions
@@ -609,24 +609,34 @@ export async function createVirtualBankAccount(
 // =============================================================================
 
 /**
- * Calculate platform fee and merchant amount
- * Platform takes 2%, capped at ₦2,050
+ * Calculate platform fee and merchant amount (amounts in major currency units).
+ *
+ * Platform takes 2%, **capped at ₦2,050 for NGN ONLY**. Every other Lane-0
+ * currency (KES/GHS/ZAR/XAF/XOF) is percentage-only / uncapped — Korapay is
+ * charged in the order's own currency, so applying the naira cap as a bare `2050`
+ * in a foreign currency silently under-collected the platform fee on every large
+ * non-NGN sale (a KES 500,000 order accrued KES 2,050 instead of KES 10,000).
+ *
+ * The `currency` is a REQUIRED input, not an assumption; it defaults to `'NGN'`
+ * so any un-threaded legacy caller keeps today's exact behaviour. The computation
+ * is delegated to the shared `lib/payments/platform-fee` module with the options
+ * that reproduce this function's historical arithmetic bit-for-bit (env-percentage
+ * override, major units, cents rounding), so NGN is byte-for-byte unchanged.
  */
-export function calculatePlatformFee(amount: number): {
+export function calculatePlatformFee(
+  amount: number,
+  currency: Currency = 'NGN'
+): {
   platformFee: number;
   merchantAmount: number;
   total: number;
 } {
-  let platformFee = (amount * PLATFORM_FEE_PERCENTAGE) / 100;
-  platformFee = Math.min(platformFee, PLATFORM_FEE_CAP);
-
-  const merchantAmount = amount - platformFee;
-
-  return {
-    platformFee: Math.round(platformFee * 100) / 100,
-    merchantAmount: Math.round(merchantAmount * 100) / 100,
-    total: amount,
-  };
+  return computePlatformFee(amount, {
+    currency,
+    unit: 'major',
+    rounding: 'cents',
+    honorEnvPercentageOverride: true,
+  });
 }
 
 /**

@@ -63,12 +63,19 @@ vi.mock('@/lib/juicyway', () => ({
 
 // Korapay mocks
 const mockInitializeKorapay = vi.fn();
-vi.mock('@/lib/korapay', () => ({
-  initializePayment: (...args: unknown[]) => mockInitializeKorapay(...args),
-  calculatePlatformFee: (amount: number) => ({
+// Spy so tests can assert the fee helper receives the RESOLVED order currency —
+// reverting the route to calculateKorapayFee(data.amount) would otherwise leave
+// the suite green and reintroduce the foreign-currency fee bug.
+const mockKorapayCalculatePlatformFee = vi.fn(
+  (amount: number, _currency?: string) => ({
     platformFee: amount * 0.015,
     merchantAmount: amount * 0.985,
-  }),
+  })
+);
+vi.mock('@/lib/korapay', () => ({
+  initializePayment: (...args: unknown[]) => mockInitializeKorapay(...args),
+  calculatePlatformFee: (...args: [number, string?]) =>
+    mockKorapayCalculatePlatformFee(...args),
   // Mirror the real korapay multi-currency support list so the
   // resolve-charge-currency helper (imported by the route) sees the same
   // gateway-support surface as production.
@@ -485,20 +492,16 @@ describe('POST /api/payments/initialize', () => {
       expect(mockInitializeKorapay).not.toHaveBeenCalled();
     });
 
-    it('uses shared default gateway settings when the feature row is missing', async () => {
-      mockInitializeKorapay.mockResolvedValue({
-        authorization_url: 'https://korapay.com/checkout/default',
-        checkout_url: 'https://korapay.com/checkout/default',
-      });
-
+    it('disables Korapay by default when the feature row is missing (opt-in)', async () => {
+      // Korapay is opt-in (default OFF). A merchant with no feature-settings row
+      // falls back to shared defaults, which now default korapay_enabled=false, so
+      // a Korapay charge is rejected rather than routed through Baci's own account.
       const res = await POST(makeRequest({ ...validBody, gateway: 'korapay' }));
       const json = await res.json();
 
-      expect(res.status).toBe(200);
-      expect(json.success).toBe(true);
-      expect(json.gateway).toBe('korapay');
-      expect(json.checkout_url).toBe('https://korapay.com/checkout/default');
-      expect(mockInitializeKorapay).toHaveBeenCalled();
+      expect(res.status).toBe(400);
+      expect(json.code).toBe('GATEWAY_DISABLED');
+      expect(mockInitializeKorapay).not.toHaveBeenCalled();
     });
 
     it('returns success with checkout_url for korapay', async () => {
@@ -1845,6 +1848,9 @@ describe('POST /api/payments/initialize', () => {
       expect(mockInitializeKorapay).toHaveBeenCalledWith(
         expect.objectContaining({ currency: 'GHS', amount: 5000 })
       );
+      // The fee helper MUST receive the resolved currency ('GHS'), not just the
+      // amount — this is the guard that keeps the foreign-currency fee correct.
+      expect(mockKorapayCalculatePlatformFee).toHaveBeenCalledWith(5000, 'GHS');
       const transactionCall = rpcCalls.find(
         (call) => call.name === 'create_payment_transaction'
       );
