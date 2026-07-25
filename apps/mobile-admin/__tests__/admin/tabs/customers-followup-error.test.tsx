@@ -1,0 +1,183 @@
+import '@testing-library/jest-dom/vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import type React from 'react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import CustomersScreen from '@/app/(admin)/(tabs)/customers';
+
+vi.mock('@shopify/flash-list', async () => {
+  const React = await import('react');
+  return {
+    FlashList: ({
+      data,
+      renderItem,
+      ListEmptyComponent,
+    }: {
+      data?: unknown[] | null;
+      renderItem: (params: { item: unknown; index: number }) => React.ReactNode;
+      ListEmptyComponent?: React.ReactNode;
+    }) =>
+      React.createElement(
+        'div',
+        null,
+        data && data.length > 0
+          ? data.map((item: unknown, index: number) =>
+              renderItem({ item, index })
+            )
+          : ListEmptyComponent
+      ),
+  };
+});
+
+vi.mock('@react-native-vector-icons/ionicons', async () => {
+  const React = await import('react');
+  return {
+    default: () => React.createElement('div', null),
+  };
+});
+
+vi.mock('react-native-safe-area-context', async () => {
+  const React = await import('react');
+  return {
+    SafeAreaView: ({ children }: { children: React.ReactNode }) =>
+      React.createElement('div', null, children),
+  };
+});
+
+vi.mock('expo-router', () => ({
+  router: { push: vi.fn(), replace: vi.fn() },
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+}));
+
+vi.mock('expo-linking', () => ({
+  openURL: vi.fn(),
+  parse: vi.fn(() => ({ queryParams: {} })),
+  createURL: vi.fn(() => 'baciadmin://'),
+}));
+
+vi.mock('@/hooks/useTheme', () => ({
+  useTheme: () => ({
+    colors: {
+      background: '#000000',
+      backgroundLight: '#f2f2f7',
+      card: '#1c1c1e',
+      cardHover: '#2c2c2e',
+      error: '#ff3b30',
+      gold: '#e6b800',
+      goldLight: '#fff9e6',
+      primary: '#0a84ff',
+      primaryLight: '#e6f2ff',
+      success: '#34c759',
+      successLight: '#eafaf1',
+      text: '#ffffff',
+      textSecondary: '#aeaeb2',
+      warning: '#ff9500',
+    },
+    shadows: { sm: {} },
+    isDark: true,
+  }),
+}));
+
+const customerHookMocks = vi.hoisted(() => ({
+  useCustomers: vi.fn(),
+  useFailedOrders: vi.fn(),
+  useCustomerStats: vi.fn(),
+  useMerchant: vi.fn(),
+}));
+
+vi.mock('@/hooks/useCustomers', () => ({
+  useCustomers: customerHookMocks.useCustomers,
+  useCustomerStats: customerHookMocks.useCustomerStats,
+  CustomerItem: () => null,
+}));
+
+vi.mock('@/hooks/useFailedOrders', () => ({
+  useFailedOrders: customerHookMocks.useFailedOrders,
+}));
+
+vi.mock('@/hooks/useMerchant', () => ({
+  useMerchant: customerHookMocks.useMerchant,
+}));
+
+/**
+ * Regression cover for the Follow Up tab reporting a *failed* query as
+ * "All recent transactions are successful!". See PR #3200: an ambiguous
+ * orders->transactions embed made every request fail with PostgREST
+ * PGRST201, leaving `data` undefined and the success empty state on screen
+ * while 145 orders awaited follow-up.
+ */
+describe('bugfix: a failed follow-up query reported "No issues"', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    customerHookMocks.useCustomers.mockReturnValue({
+      data: { pages: [{ customers: [] }] },
+      isLoading: false,
+      isFetchingNextPage: false,
+      hasNextPage: false,
+      fetchNextPage: vi.fn(),
+      refetch: vi.fn(),
+    });
+    customerHookMocks.useCustomerStats.mockReturnValue({
+      data: { total: 0, newThisWeek: 0, retentionRate: 0 },
+    });
+    customerHookMocks.useMerchant.mockReturnValue({
+      merchant: { id: 'merchant-1', payout_currency: 'NGN' },
+    });
+  });
+
+  it('does not claim transactions are successful when the follow-up query errors', () => {
+    // Arrange: the query throws, so `data` is undefined and the list is empty.
+    customerHookMocks.useFailedOrders.mockReturnValue({
+      data: undefined,
+      isError: true,
+      isLoading: false,
+      refetch: vi.fn(),
+    });
+
+    // Act
+    render(<CustomersScreen />);
+
+    // Assert
+    expect(
+      screen.queryByText('All recent transactions are successful!')
+    ).toBeNull();
+    expect(screen.queryByText('No issues')).toBeNull();
+    expect(screen.getByText("Couldn't load follow-ups")).toBeTruthy();
+  });
+
+  it('refetches follow-ups when the error state retry is pressed', () => {
+    // Arrange
+    const refetch = vi.fn();
+    customerHookMocks.useFailedOrders.mockReturnValue({
+      data: undefined,
+      isError: true,
+      isLoading: false,
+      refetch,
+    });
+    render(<CustomersScreen />);
+
+    // Act
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Retry loading follow-ups' })
+    );
+
+    // Assert
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('still reports success when the query succeeds with no follow-ups', () => {
+    // Arrange: the success path must survive the error branch being added.
+    customerHookMocks.useFailedOrders.mockReturnValue({
+      data: [],
+      isError: false,
+      isLoading: false,
+      refetch: vi.fn(),
+    });
+
+    // Act
+    render(<CustomersScreen />);
+
+    // Assert
+    expect(screen.getByText('No issues')).toBeTruthy();
+    expect(screen.queryByText("Couldn't load follow-ups")).toBeNull();
+  });
+});
