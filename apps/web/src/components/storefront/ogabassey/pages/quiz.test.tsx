@@ -224,6 +224,41 @@ describe('OgabasseyV2Quiz', () => {
     expect(await screen.findByText('Pick the winning answer')).toBeInTheDocument();
   });
 
+  it('keeps the gate open with the error when saving the date of birth fails', async () => {
+    const updateCustomer = mockCustomer(
+      { date_of_birth: null },
+      vi.fn().mockResolvedValue({
+        success: false,
+        error: 'Could not save your date of birth.',
+      })
+    );
+    vi.mocked(apiGet).mockResolvedValue(eventResponse);
+
+    render(<OgabasseyV2Quiz merchantSlug="ogabassey" />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: /start exam/i })
+    );
+    fireEvent.change(await screen.findByLabelText('Date of birth'), {
+      target: { value: '1990-06-15' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+
+    expect(updateCustomer).toHaveBeenCalledWith({
+      date_of_birth: '1990-06-15',
+    });
+    // The persistence error is surfaced and the gate stays open so the shopper
+    // can retry — a failed save must not strand them.
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Could not save your date of birth.'
+    );
+    expect(
+      screen.getByRole('dialog', { name: 'Confirm your date of birth' })
+    ).toBeInTheDocument();
+    // The attempt is never started when the DOB failed to persist.
+    expect(apiPost).not.toHaveBeenCalled();
+  });
+
   it('starts directly when the customer already has a date of birth', async () => {
     mockCustomer({ date_of_birth: '1990-06-15' });
     vi.mocked(apiGet).mockResolvedValue(eventResponse);

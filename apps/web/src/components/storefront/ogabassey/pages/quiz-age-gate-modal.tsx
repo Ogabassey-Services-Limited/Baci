@@ -147,7 +147,7 @@ export function QuizAgeGateModal({
 
         {message ? (
           <p
-            className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700"
+            className="mt-3 rounded-lg border border-[hsl(var(--destructive))]/30 bg-[hsl(var(--destructive))]/10 p-3 text-sm font-medium text-[hsl(var(--destructive))]"
             role="alert"
           >
             {message}

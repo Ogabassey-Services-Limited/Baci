@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { resolveMerchantIdBySlugOrAlias } from '@/lib/resolve-merchant-by-slug';
 import { createClient } from '@/lib/supabase/server';
 import { dateOfBirthSchema } from '@/schemas/customer-date-of-birth';
@@ -47,8 +48,21 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // 2. Parse and validate body
-    // CSRF: handled by Origin-based middleware in proxy.ts (guest storefront route)
+    // 2. CSRF: this route is cookie-authenticated (web shoppers), so a valid
+    // double-submit token is required on this PATCH — matching the other
+    // cookie-auth storefront mutations (e.g. receipt-claim routes). Bearer-token
+    // callers (mobile) are skipped inside checkCsrfProtection; the mobile app
+    // does not use this endpoint (it writes DOB via the set_customer_date_of_birth
+    // RPC), so cookie CSRF here does not affect it.
+    const csrf = await checkCsrfProtection(request);
+    if (!csrf.valid) {
+      return (
+        csrf.response ??
+        NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 })
+      );
+    }
+
+    // 3. Parse and validate body
     let body: unknown;
     try {
       body = await request.json();

@@ -1,3 +1,5 @@
+import { fetchWithCsrf } from '@/lib/api-client';
+
 export type UpdateCustomerProfileResult = {
   success: boolean;
   error?: string;
@@ -9,15 +11,16 @@ export type UpdateCustomerProfileResult = {
  *
  * Extracted from `CustomerAuthContext` so the profile-write concern lives in a
  * focused, testable module rather than growing the oversized context file.
- * CSRF is enforced by the origin-based middleware in `proxy.ts` for this guest
- * storefront route; callers own the local state update on success.
+ * Uses `fetchWithCsrf` so the double-submit CSRF token is attached (and
+ * refreshed/retried on a 403) — the server route now enforces it. Callers own
+ * the local state update on success.
  */
 export async function updateCustomerProfile(
   merchantSlug: string,
   updates: Record<string, unknown>
 ): Promise<UpdateCustomerProfileResult> {
   try {
-    const response = await fetch('/api/storefront/customer', {
+    const response = await fetchWithCsrf('/api/storefront/customer', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...updates, merchantSlug }),

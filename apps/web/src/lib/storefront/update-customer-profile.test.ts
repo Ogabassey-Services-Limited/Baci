@@ -1,22 +1,27 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { updateCustomerProfile } from './update-customer-profile';
 
-describe('updateCustomerProfile', () => {
-  const fetchMock = vi.fn();
+const mockFetchWithCsrf = vi.fn();
 
+// The helper now goes through fetchWithCsrf so the double-submit CSRF token is
+// attached (and refreshed/retried on a 403). Mock that boundary instead of the
+// global fetch.
+vi.mock('@/lib/api-client', () => ({
+  fetchWithCsrf: (...args: unknown[]) => mockFetchWithCsrf(...args),
+}));
+
+describe('updateCustomerProfile', () => {
   beforeEach(() => {
-    vi.stubGlobal('fetch', fetchMock);
-    fetchMock.mockReset();
+    mockFetchWithCsrf.mockReset();
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
-  it('PATCHes the customer route with the merchant slug and returns success', async () => {
-    fetchMock.mockResolvedValue({
+  it('PATCHes the customer route via fetchWithCsrf and returns success', async () => {
+    mockFetchWithCsrf.mockResolvedValue({
       ok: true,
       json: async () => ({ success: true }),
     });
@@ -26,7 +31,7 @@ describe('updateCustomerProfile', () => {
     });
 
     expect(result).toEqual({ success: true });
-    expect(fetchMock).toHaveBeenCalledWith(
+    expect(mockFetchWithCsrf).toHaveBeenCalledWith(
       '/api/storefront/customer',
       expect.objectContaining({
         method: 'PATCH',
@@ -39,7 +44,7 @@ describe('updateCustomerProfile', () => {
   });
 
   it('returns the server error message on a non-ok response', async () => {
-    fetchMock.mockResolvedValue({
+    mockFetchWithCsrf.mockResolvedValue({
       ok: false,
       json: async () => ({ error: 'Invalid input' }),
     });
@@ -52,7 +57,7 @@ describe('updateCustomerProfile', () => {
   });
 
   it('falls back to a generic message when the error body has no error string', async () => {
-    fetchMock.mockResolvedValue({ ok: false, json: async () => ({}) });
+    mockFetchWithCsrf.mockResolvedValue({ ok: false, json: async () => ({}) });
 
     const result = await updateCustomerProfile('ogabassey', {});
 
@@ -60,7 +65,7 @@ describe('updateCustomerProfile', () => {
   });
 
   it('returns a network error when the request throws', async () => {
-    fetchMock.mockRejectedValue(new Error('offline'));
+    mockFetchWithCsrf.mockRejectedValue(new Error('offline'));
 
     const result = await updateCustomerProfile('ogabassey', {
       date_of_birth: '1990-06-15',
