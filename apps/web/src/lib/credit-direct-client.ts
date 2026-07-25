@@ -59,8 +59,10 @@ interface SignResponse {
   // Server-derived amount that was actually signed. The popup MUST use this so
   // transaction.totalAmount matches the HMAC signature (signTransaction folds
   // the amount into the signature); a client-supplied amount can diverge from
-  // the DB residual for wallet/partial-payment orders.
-  amount?: number;
+  // the DB residual for wallet/partial-payment orders. REQUIRED — we fail
+  // closed rather than fall back to the caller-supplied amount, which would
+  // reintroduce a client-controlled popup total on a stale/partial response.
+  amount: number;
   error?: string;
 }
 
@@ -182,15 +184,14 @@ export async function openCreditDirectCheckout(
       throw new Error('Credit Direct SDK failed to load');
     }
 
-    // Step 3: Build transaction object. Prefer the server-signed amount so the
-    // popup total matches the signature; fall back to the passed amount only if
-    // the response omits it (older server).
-    const signedAmount =
-      typeof signData.amount === 'number' &&
-      Number.isFinite(signData.amount) &&
-      signData.amount > 0
-        ? signData.amount
-        : amount;
+    // Step 3: Build transaction object from the SERVER-signed amount only. Fail
+    // closed when it is absent or invalid: falling back to the caller-supplied
+    // `amount` would put a client-controlled total in the popup (and diverge
+    // from the HMAC signature) on a stale or partial signing response.
+    const signedAmount = signData.amount;
+    if (!Number.isFinite(signedAmount) || signedAmount <= 0) {
+      throw new Error('Credit Direct signing response has an invalid amount');
+    }
     // Credit Direct's payout webhook validates the sum of `products` against the
     // gateway amount. When the signed amount is a residual (wallet / deposit /
     // partial payment) it no longer equals the full line-item total, so send a

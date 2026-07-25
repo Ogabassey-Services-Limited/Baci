@@ -16,28 +16,38 @@
 -- the public mutation surface until the permanent guest-safe capability (S2-P)
 -- ships in the same bundle.
 --
--- SCOPE / BLAST RADIUS: exactly one merchant currently has
--- credit_direct_enabled = true (ogabassey). This takes that merchant's
--- Credit-Direct checkout option offline. It is a deliberate provider outage
--- and MUST NOT be applied without payment/ops owner approval + a
--- merchant-communication plan.
+-- SCOPE / BLAST RADIUS: NO provider outage. An earlier draft of this migration
+-- also flipped credit_direct_enabled = false for every enabled merchant
+-- (exactly one: ogabassey), taking Credit-Direct checkout offline. That flag
+-- flip is deliberately NOT part of this migration: it dated from before the
+-- S2-P permanent capability existed, when revoking the vulnerable surface left
+-- no working checkout path. It now would be pure downtime for no security gain,
+-- because the vulnerability is closed by the REPLACEMENT below, not by the flag:
+--   * this migration revokes the caller-controlled 5-arg identity, and
+--   * the sibling S2-P migrations (20260724100100 + 20260724100200) install the
+--     single-use capability token + the hardened token-gated function, which
+--     derives the amount from the locked order, requires credit_direct_enabled,
+--     and rejects non-payable orders.
+-- The guest sign route is migrated to that path in the same bundle, so checkout
+-- keeps working across the deploy and the attack surface is still removed.
+--
+-- DEPLOY NOTE: db-migrations run BEFORE the app deploy, so between the revoke
+-- and the new bundle going live, in-flight BNPL sign attempts on the OLD bundle
+-- fail closed (42501) for a few minutes. That is a fail-closed blip, not a
+-- money-path risk; deploy off-peak. If payment/ops would rather not expose the
+-- single merchant to brand-new checkout code immediately, disable the flag
+-- OPERATIONALLY (dashboard/feature setting), verify the token flow in prod, and
+-- re-enable — do not re-add a flag flip to this migration.
 --
 -- SAFETY: service_role retains EXECUTE, so any webhook / reconciliation path
 -- that runs as the trusted backend continues to work.
 --
--- RE-ENABLE: do NOT restore these grants or the flag except through S2-P (the
--- guest-safe single-use checkout capability installed in the sibling
--- migrations 20260724100100 + 20260724100200). Re-enabling is a separate
--- operational flag flip once the permanent path is live.
+-- RE-ENABLE: do NOT restore these grants except through S2-P (the guest-safe
+-- single-use checkout capability installed in the sibling migrations
+-- 20260724100100 + 20260724100200).
 
--- 1) Disable the checkout flag for every currently-enabled merchant (idempotent).
-UPDATE public.merchant_feature_settings
-SET credit_direct_enabled = false,
-    updated_at = now()
-WHERE credit_direct_enabled = true;
-
--- 2) Remove the public/anon/authenticated EXECUTE surface on the exact function
---    identity. Keep service_role (trusted backend) and the postgres owner.
+-- Remove the public/anon/authenticated EXECUTE surface on the exact function
+-- identity. Keep service_role (trusted backend) and the postgres owner.
 REVOKE EXECUTE ON FUNCTION
   public.set_credit_direct_session(uuid, text, uuid, text, numeric)
   FROM PUBLIC, anon, authenticated;

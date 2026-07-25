@@ -30,6 +30,9 @@ describe('openCreditDirectCheckout', () => {
       'fetch',
       vi.fn().mockResolvedValue({
         json: async () => ({
+          // The server-derived amount is REQUIRED; the client fails closed
+          // without it rather than trusting the caller-supplied amount.
+          amount: 12000,
           isLive: true,
           publicKey: 'cd-public-key',
           sessionId: 'session-123',
@@ -55,6 +58,45 @@ describe('openCreditDirectCheckout', () => {
     expect(options.onError).toHaveBeenCalledWith('Invalid request');
     expect(options.onSuccess).not.toHaveBeenCalled();
     expect(options.onClose).not.toHaveBeenCalled();
+  });
+
+  describe('bugfix: client-controlled popup total when the signed amount is missing', () => {
+    it.each([
+      ['omitted', undefined],
+      ['zero', 0],
+      ['negative', -500],
+      ['non-numeric', 'abc' as unknown as number],
+    ])('fails closed without opening the popup when the server amount is %s', async (_label, serverAmount) => {
+      // Arrange: signing response lacks a usable server-derived amount, while
+      // the caller supplies 12000 — the value we must NOT fall back to.
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          json: async () => ({
+            ...(serverAmount === undefined ? {} : { amount: serverAmount }),
+            isLive: true,
+            publicKey: 'cd-public-key',
+            sessionId: 'session-123',
+            signature: 'signature-123',
+          }),
+          ok: true,
+        })
+      );
+      const setup = vi.fn();
+      window.Connect = vi.fn(() => ({
+        setup,
+      })) as unknown as typeof window.Connect;
+
+      // Act
+      await openCreditDirectCheckout(options);
+
+      // Assert: no popup, explicit error, no success path.
+      expect(setup).not.toHaveBeenCalled();
+      expect(options.onError).toHaveBeenCalledWith(
+        'Credit Direct signing response has an invalid amount'
+      );
+      expect(options.onSuccess).not.toHaveBeenCalled();
+    });
   });
 
   it('reports script load failures', async () => {

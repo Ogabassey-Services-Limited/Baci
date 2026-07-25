@@ -160,7 +160,7 @@ export const EXPECTED_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260724100000_s2i_contain_credit_direct_public_mutation.sql',
-    sha256: '9d982df889a769e4b945aabd716e7b3b69693130f10f8acd77931626bfb6b05c',
+    sha256: 'a0f4d9cbfb59bb5df9d9a658bbe21e3f1753cad20532acf87aa4b5e784df66c5',
   },
   {
     repositoryPath:
