@@ -228,6 +228,29 @@ test('retries (keeps its attempts) when a killed deploy cannot be promoted', () 
   }
 });
 
+test('re-promotes the same deployment on a transient promote failure (no new deploy)', () => {
+  const fakeCommand = makeFakeCommand('killed-137-promote-flaky');
+
+  try {
+    // The first promote fails transiently and the second succeeds. The captured
+    // target is re-promoted rather than a fresh deploy being started, so there
+    // is still exactly ONE deploy attempt and no duplicate deployment.
+    const result = runScript(fakeCommand, ['fake-vercel', 'deploy'], {
+      PROMOTE_ATTEMPTS: '3',
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /Recovered killed deploy by promoting/);
+    assert.equal(
+      readFileSync(fakeCommand.promotedFile, 'utf8').trim(),
+      'https://baci-hang.vercel.app'
+    );
+    assert.equal(readFileSync(fakeCommand.attemptsFile, 'utf8').trim(), '1');
+  } finally {
+    rmSync(fakeCommand.tempDir, { recursive: true, force: true });
+  }
+});
+
 test('fails after max attempts for unrelated deploy errors', () => {
   const fakeCommand = makeFakeCommand('fatal');
 

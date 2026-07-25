@@ -10,6 +10,7 @@ export function makeFakeCommand(mode) {
   const binDir = join(tempDir, 'bin');
   const attemptsFile = join(tempDir, 'attempts');
   const promotedFile = join(tempDir, 'promoted');
+  const promoteCountFile = join(tempDir, 'promote-count');
   mkdirSync(binDir, { recursive: true });
 
   const fakeVercelPath = join(binDir, 'fake-vercel');
@@ -22,6 +23,16 @@ set -euo pipefail
 command="\${1:-}"
 if [ "$command" = "promote" ]; then
   case "${mode}" in
+    *promote-flaky*)
+      pcount=0
+      if [ -f "${promoteCountFile}" ]; then pcount="$(cat "${promoteCountFile}")"; fi
+      pcount=$((pcount + 1))
+      echo "$pcount" > "${promoteCountFile}"
+      if [ "$pcount" -eq 1 ]; then
+        echo "transient promote failure" >&2
+        exit 1
+      fi
+      ;;
     *promote-fails*)
       echo "promote failed for \${2:-}" >&2
       exit 1
@@ -95,6 +106,13 @@ case "${mode}" in
     # Killed (137) with a URL, but promotion fails (see the promote branch) --
     # models an unrelated/OOM kill whose deployment is not promotable, which must
     # retry instead of being treated as a recovered timeout.
+    echo "Production: https://baci-hang.vercel.app"
+    exit 137
+    ;;
+  killed-137-promote-flaky)
+    # Killed (137) with a URL; the first promote fails transiently and the second
+    # succeeds (see the promote branch), so the SAME target is re-promoted rather
+    # than a new deploy being started.
     echo "Production: https://baci-hang.vercel.app"
     exit 137
     ;;
