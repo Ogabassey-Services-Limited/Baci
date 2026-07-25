@@ -1990,7 +1990,9 @@ describe('[category]/[productSlug] page metadata', () => {
       .at(-1)
       ?.at(0) as { product?: { price?: string } } | undefined;
 
-    expect(ogabasseyProps?.product?.price).toBe('GHS 999');
+    // Ghanaian cedi symbol, not the ISO code: the PDP formatter must use the
+    // merchant's own locale (en-GH) instead of a hardcoded en-NG locale.
+    expect(ogabasseyProps?.product?.price).toBe('GH₵999');
     expect(ogabasseyProps?.product?.price).not.toContain('₦');
   });
 
