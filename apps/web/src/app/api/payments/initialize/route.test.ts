@@ -492,20 +492,16 @@ describe('POST /api/payments/initialize', () => {
       expect(mockInitializeKorapay).not.toHaveBeenCalled();
     });
 
-    it('uses shared default gateway settings when the feature row is missing', async () => {
-      mockInitializeKorapay.mockResolvedValue({
-        authorization_url: 'https://korapay.com/checkout/default',
-        checkout_url: 'https://korapay.com/checkout/default',
-      });
-
+    it('disables Korapay by default when the feature row is missing (opt-in)', async () => {
+      // Korapay is opt-in (default OFF). A merchant with no feature-settings row
+      // falls back to shared defaults, which now default korapay_enabled=false, so
+      // a Korapay charge is rejected rather than routed through Baci's own account.
       const res = await POST(makeRequest({ ...validBody, gateway: 'korapay' }));
       const json = await res.json();
 
-      expect(res.status).toBe(200);
-      expect(json.success).toBe(true);
-      expect(json.gateway).toBe('korapay');
-      expect(json.checkout_url).toBe('https://korapay.com/checkout/default');
-      expect(mockInitializeKorapay).toHaveBeenCalled();
+      expect(res.status).toBe(400);
+      expect(json.code).toBe('GATEWAY_DISABLED');
+      expect(mockInitializeKorapay).not.toHaveBeenCalled();
     });
 
     it('returns success with checkout_url for korapay', async () => {

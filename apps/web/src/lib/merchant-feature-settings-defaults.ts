@@ -7,7 +7,13 @@ const DEFAULT_MERCHANT_FEATURE_SETTINGS = {
   guest_checkout_enabled: true,
   agentic_checkout_enabled: true,
   paystack_enabled: true,
-  korapay_enabled: true,
+  // Korapay is OFF by default (opt-in for ALL currencies). This matches the DB
+  // column default (merchant_feature_settings.korapay_enabled DEFAULT false) and
+  // the strict checkout gate (isKorapayCheckoutAvailable === true). Do NOT set
+  // this true: a stored `true` would offer Korapay at NGN checkout alongside
+  // Paystack, routing funds through Baci's own Korapay account. Non-NGN corridors
+  // are enabled deliberately per merchant, not via this default.
+  korapay_enabled: false,
   pay_on_delivery_enabled: false,
   credit_direct_enabled: false,
   credit_direct_public_key: null,

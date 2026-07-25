@@ -280,7 +280,9 @@ describe('POST /api/storefront/customer/wallet/top-up/initialize', () => {
     expect(mockInitializePaystackTransaction).toHaveBeenCalledTimes(1);
   });
 
-  it('uses the database default when korapay setting is null', async () => {
+  it('rejects a requested korapay top-up when the korapay setting is null (opt-in)', async () => {
+    // Korapay is opt-in (default OFF): a null/absent korapay_enabled must not
+    // enable a Korapay wallet top-up, even when explicitly requested.
     mockSupabaseTables({
       settings: {
         korapay_enabled: null,
@@ -298,12 +300,9 @@ describe('POST /api/storefront/customer/wallet/top-up/initialize', () => {
     );
     const data = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(data).toMatchObject({
-      gateway: 'korapay',
-      success: true,
-    });
-    expect(mockInitializeKorapayPayment).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(400);
+    expect(data.error).toBe('korapay is not enabled for wallet top-ups');
+    expect(mockInitializeKorapayPayment).not.toHaveBeenCalled();
   });
 
   it('returns 500 without exposing upstream payment errors', async () => {
