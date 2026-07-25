@@ -120,6 +120,8 @@ export function useQuizDateOfBirthGate(onStart: (eventId: string) => void) {
     cancelGate,
     confirmGate,
     correctionError,
+    // The stored (rejected) DOB, so a correction can pre-fill it for editing.
+    dateOfBirth,
     generation,
     // A server-confirmed correction (correctionError) opens the gate even when
     // the customer row failed to hydrate — we have positive evidence a DOB is

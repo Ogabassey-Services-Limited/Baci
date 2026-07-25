@@ -54,16 +54,29 @@ export function useQuizStartFlow({
     // into the store, so the age-gate recovery lives inside the starter (the
     // only place the thrown error is observable).
     await startEvent(eventId, integrityTier, async () => {
+      // Snapshot the signed-in shopper BEFORE any await. If the account signs
+      // out or switches during the fingerprint lookup or the request, we must
+      // not send (or reopen) the start under the new session — the quiz-store
+      // generation guard can only discard the response, not undo a server-side
+      // start that already spent the new shopper's attempt.
+      const startUserId = useAuthStore.getState().user?.id ?? null;
       // Resolve inside the starter so startEvent enters its synchronous
       // in-flight state before this best-effort native lookup can yield.
       const deviceFingerprint = await getQuizDeviceFingerprint().catch(
         () => null
       );
-      // Snapshot the signed-in shopper. If the account signs out or switches
-      // while this request is in flight, an age-rejection reopen would open this
-      // stale event under the new session (letting the new shopper start it), so
-      // skip the reopen unless the same identity is still signed in.
-      const startUserId = useAuthStore.getState().user?.id ?? null;
+      // Re-verify identity immediately before issuing the request; abort if the
+      // shopper changed (or signed out) while the fingerprint was resolving.
+      if (
+        startUserId === null ||
+        useAuthStore.getState().user?.id !== startUserId
+      ) {
+        throw new QuizServiceError(
+          'Your session changed. Please try again.',
+          'quiz_session_changed',
+          409
+        );
+      }
       try {
         return await startQuizAttempt({
           deviceFingerprint,
@@ -71,13 +84,12 @@ export function useQuizStartFlow({
           integrityTier,
         });
       } catch (error) {
-        // Reopen the gate so the rejected DOB can be corrected. Re-throw so
-        // startEvent still exits its in-flight state; the reopened gate (not the
-        // page banner, which is suppressed while the gate is visible) shows why.
+        // Reopen the gate so the rejected DOB can be corrected — only while the
+        // same shopper is still signed in, so a switch during the request can't
+        // open this stale event under the new session.
         if (
           error instanceof QuizServiceError &&
           error.code === QUIZ_AGE_RESTRICTED_CODE &&
-          startUserId !== null &&
           useAuthStore.getState().user?.id === startUserId
         ) {
           reopenDobForCorrectionRef.current?.(

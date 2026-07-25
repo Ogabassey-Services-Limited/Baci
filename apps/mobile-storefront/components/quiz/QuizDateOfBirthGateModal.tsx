@@ -8,6 +8,8 @@ import { quizDateOfBirthGateStyles as styles } from './QuizDateOfBirthGateModal.
 interface QuizDateOfBirthGateModalProps {
   /** Age-rejection reason shown when the gate reopens to correct a stored DOB. */
   errorMessage?: string | null;
+  /** Pre-fills the field when reopening to correct a previously-entered DOB. */
+  initialValue?: string;
   onCancel: () => void;
   onSuccess: (dateOfBirth: string) => void;
   visible: boolean;
@@ -19,6 +21,7 @@ interface QuizDateOfBirthGateModalProps {
  */
 export function QuizDateOfBirthGateModal({
   errorMessage,
+  initialValue,
   onCancel,
   onSuccess,
   visible,
@@ -62,7 +65,11 @@ export function QuizDateOfBirthGateModal({
           {errorMessage}
         </Text>
       ) : null}
-      <DateOfBirthPrompt onSuccess={onSuccess} submitLabel="Continue" />
+      <DateOfBirthPrompt
+        initialValue={initialValue}
+        onSuccess={onSuccess}
+        submitLabel="Continue"
+      />
     </ModalSheet>
   );
 }

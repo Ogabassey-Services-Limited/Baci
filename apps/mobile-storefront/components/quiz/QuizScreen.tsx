@@ -267,6 +267,11 @@ export function QuizScreen({
       />
       <QuizDateOfBirthGateModal
         errorMessage={dobGate.correctionError}
+        initialValue={
+          dobGate.correctionError
+            ? (dobGate.dateOfBirth ?? undefined)
+            : undefined
+        }
         onCancel={dobGate.cancelGate}
         onSuccess={() => {
           // Pass the generation snapshotted at open time so a save that resolved

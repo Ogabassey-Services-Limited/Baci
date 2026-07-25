@@ -7,6 +7,7 @@ const mockReopenForCorrection = jest.fn();
 const mockDobRequestStart = jest.fn();
 const mockUsernameRequestStart = jest.fn();
 const mockStartQuizAttempt = jest.fn<(args: unknown) => Promise<unknown>>();
+const mockGetFingerprint = jest.fn<() => Promise<string | null>>();
 
 // Captured so the test can drive the gate callbacks the flow wires up.
 let dobOnStart: (eventId: string) => void = () => {};
@@ -16,7 +17,7 @@ let usernameOnStart: (eventId: string) => void = () => {};
 let mockAuthUserId: string | null = 'user-a';
 
 jest.mock('@/lib/get-quiz-device-fingerprint', () => ({
-  getQuizDeviceFingerprint: async () => 'fp',
+  getQuizDeviceFingerprint: () => mockGetFingerprint(),
 }));
 
 jest.mock('@/stores/auth-store', () => ({
@@ -69,6 +70,7 @@ describe('useQuizStartFlow', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockAuthUserId = 'user-a';
+    mockGetFingerprint.mockImplementation(async () => 'fp');
     mockStartQuizAttempt.mockResolvedValue({ attemptId: 'attempt-1' });
   });
 
@@ -130,6 +132,23 @@ describe('useQuizStartFlow', () => {
 
     await waitFor(() => expect(mockStartQuizAttempt).toHaveBeenCalled());
     await Promise.resolve();
+    expect(mockReopenForCorrection).not.toHaveBeenCalled();
+  });
+
+  it('does not start when the account switches during the fingerprint lookup', async () => {
+    // The shopper signs out / switches while getQuizDeviceFingerprint is
+    // resolving; the request must not be issued under the new session.
+    mockGetFingerprint.mockImplementationOnce(async () => {
+      mockAuthUserId = 'user-b';
+      return 'fp';
+    });
+    renderHook(() => useQuizStartFlow({ integrityTier: 'device', startEvent }));
+
+    dobOnStart('event-1');
+
+    await waitFor(() => expect(mockGetFingerprint).toHaveBeenCalled());
+    await Promise.resolve();
+    expect(mockStartQuizAttempt).not.toHaveBeenCalled();
     expect(mockReopenForCorrection).not.toHaveBeenCalled();
   });
 });

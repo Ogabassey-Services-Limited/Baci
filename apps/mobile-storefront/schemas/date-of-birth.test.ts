@@ -43,9 +43,15 @@ describe('DateOfBirthSchema', () => {
   });
 
   it("rejects today's date to match the server RPC (v_dob >= now()::date)", () => {
-    const now = new Date();
-    const iso = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`;
-    expect(DateOfBirthSchema.safeParse(iso).success).toBe(false);
+    // Freeze the clock so the test and the schema derive the same "today" — an
+    // independent read either side of UTC midnight would flake.
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-07-15T12:00:00.000Z'));
+    try {
+      expect(DateOfBirthSchema.safeParse('2026-07-15').success).toBe(false);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });
 

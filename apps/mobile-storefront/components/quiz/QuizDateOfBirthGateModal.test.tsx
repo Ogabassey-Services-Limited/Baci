@@ -74,4 +74,48 @@ describe('QuizDateOfBirthGateModal', () => {
       expect.objectContaining({ onSuccess })
     );
   });
+
+  it('renders the age-rejection error message as an alert', () => {
+    render(
+      <QuizDateOfBirthGateModal
+        errorMessage="Quiz participation requires an adult profile (18+)"
+        onCancel={jest.fn()}
+        onSuccess={jest.fn()}
+        visible
+      />
+    );
+
+    expect(
+      screen.getByText('Quiz participation requires an adult profile (18+)')
+    ).toBeTruthy();
+    expect(screen.getByRole('alert')).toBeTruthy();
+  });
+
+  it('renders no alert when there is no error message', () => {
+    render(
+      <QuizDateOfBirthGateModal
+        onCancel={jest.fn()}
+        onSuccess={jest.fn()}
+        visible
+      />
+    );
+
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('pre-fills the prompt with initialValue when correcting a stored DOB', () => {
+    render(
+      <QuizDateOfBirthGateModal
+        errorMessage="Quiz participation requires an adult profile (18+)"
+        initialValue="2015-01-01"
+        onCancel={jest.fn()}
+        onSuccess={jest.fn()}
+        visible
+      />
+    );
+
+    expect(mockRenderDateOfBirthPrompt).toHaveBeenCalledWith(
+      expect.objectContaining({ initialValue: '2015-01-01' })
+    );
+  });
 });

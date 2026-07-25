@@ -466,6 +466,11 @@ describe('useAuthStore', () => {
       ['not_authenticated', 'Please sign in to continue.'],
       ['some_unmapped_code', 'Could not save date of birth'],
     ])('maps RPC error %s to friendly copy and leaves state unchanged', async (code, message) => {
+      // Seed a known DOB so the assertion proves the stored value is PRESERVED
+      // on error, not merely absent.
+      (useAuthStore.setState as (state: object) => void)({
+        customer: { ...mockCustomerRow, date_of_birth: '1980-01-01' },
+      });
       (supabase.rpc as jest.Mock).mockResolvedValue({
         data: null,
         error: { message: code },
@@ -477,7 +482,9 @@ describe('useAuthStore', () => {
       });
 
       expect(result).toEqual({ success: false, error: message });
-      expect(useAuthStore.getState().customer?.date_of_birth).toBeUndefined();
+      expect(useAuthStore.getState().customer?.date_of_birth).toBe(
+        '1980-01-01'
+      );
     });
   });
 });

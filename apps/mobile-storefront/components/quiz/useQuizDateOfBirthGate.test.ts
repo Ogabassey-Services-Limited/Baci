@@ -96,9 +96,9 @@ describe('useQuizDateOfBirthGate', () => {
   });
 
   it('does not start the newly-pending event when a stale save from another event resolves', () => {
-    // Tvrvf race: submit for event-1, cancel, then request event-2 before the
-    // first save resolves. The stale confirm (bound to event-1's generation)
-    // must not start event-2, which the shopper never confirmed.
+    // Race: submit for event-1, cancel, then request event-2 before the first
+    // save resolves. The stale confirm (bound to event-1's generation) must not
+    // start event-2, which the shopper never confirmed.
     const onStart = jest.fn();
     const { result } = renderHook(() => useQuizDateOfBirthGate(onStart));
 
