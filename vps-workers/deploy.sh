@@ -6,6 +6,16 @@ set -euo pipefail
 
 VPS="bassey@82.29.190.219"
 REMOTE_DIR="/home/bassey/baci-workers"
+APP_SHA=$(git rev-parse HEAD)
+
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  echo "Refusing worker deployment from a dirty tracked checkout." >&2
+  exit 1
+fi
+if [ -n "$(git ls-files --others --exclude-standard)" ]; then
+  echo "Refusing worker deployment with untracked files." >&2
+  exit 1
+fi
 
 echo "==> Syncing worker files to $VPS:$REMOTE_DIR"
 rsync -av --delete --exclude='.env*' --exclude='node_modules' --exclude='logs' --exclude='locks' \
@@ -21,6 +31,80 @@ ssh "$VPS" "mkdir -p $REMOTE_DIR/logs $REMOTE_DIR/locks"
 echo "==> Resolving Node.js path on VPS"
 NODE_BIN=$(ssh "$VPS" "command -v node || echo /usr/bin/node")
 echo "    Using Node: $NODE_BIN"
+
+echo "==> Validating direct Petrock and quiz worker environment"
+if ! ssh "$VPS" "cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/preflight-direct-web-workers.mjs"; then
+  echo "Direct-worker environment preflight failed; crontab was not changed." >&2
+  exit 1
+fi
+
+echo "==> Verifying direct-worker application checkout"
+ssh "$VPS" "bash -s -- '$REMOTE_DIR' '$APP_SHA'" <<'REMOTE_SH'
+set -euo pipefail
+
+remote_dir="$1"
+expected_sha="$2"
+env_file="$remote_dir/.env"
+repo_dir="$(
+  awk '
+    /^BACI_REPO_DIR=/ {
+      sub(/^BACI_REPO_DIR=/, "")
+      print
+      exit
+    }
+  ' "$env_file"
+)"
+repo_dir="${repo_dir%\"}"
+repo_dir="${repo_dir#\"}"
+repo_dir="${repo_dir%\'}"
+repo_dir="${repo_dir#\'}"
+
+case "$repo_dir" in
+  /*) ;;
+  *)
+    echo "BACI_REPO_DIR must be an absolute path." >&2
+    exit 1
+    ;;
+esac
+
+actual_sha="$(git -C "$repo_dir" rev-parse --verify HEAD)"
+if [ -n "$(git -C "$repo_dir" status --porcelain=v1 --untracked-files=all)" ]; then
+  echo "Direct-worker checkout is dirty." >&2
+  exit 1
+fi
+if [ "$actual_sha" != "$expected_sha" ]; then
+  echo "Direct-worker checkout does not match the deploying commit." >&2
+  exit 1
+fi
+
+for script_path in \
+  apps/web/src/scripts/process-petrock-reconciliation.ts \
+  apps/web/src/scripts/process-quiz-finalization.ts
+do
+  if [ ! -f "$repo_dir/$script_path" ]; then
+    echo "Direct-worker checkout is missing $script_path." >&2
+    exit 1
+  fi
+done
+
+for wrapper_path in \
+  "$remote_dir/bin/process-petrock-reconciliation.sh" \
+  "$remote_dir/bin/process-quiz-finalization.sh"
+do
+  if [ ! -x "$wrapper_path" ]; then
+    echo "Missing or non-executable direct-worker wrapper: $wrapper_path" >&2
+    exit 1
+  fi
+done
+
+if ! (
+  cd "$repo_dir"
+  CI=true PUPPETEER_SKIP_DOWNLOAD=1 pnpm --filter @baci/web exec tsx --version >/dev/null
+); then
+  echo "Direct-worker checkout is missing the reviewed web toolchain." >&2
+  exit 1
+fi
+REMOTE_SH
 
 echo "==> Installing Vercel drain receiver user service"
 cat <<EOF | ssh "$VPS" "mkdir -p ~/.config/systemd/user && cat > ~/.config/systemd/user/baci-vercel-log-drain-receiver.service"
@@ -95,7 +179,7 @@ $CRON_BLOCK_START
 */5 *  * * * flock -n $REMOTE_DIR/locks/reconcile-vtu-processing.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/reconcile-vtu-processing' >> $REMOTE_DIR/logs/reconcile-vtu-processing.log 2>&1
 */5 *  * * * flock -n $REMOTE_DIR/locks/merchant-signup-health.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/merchant-signup-health' >> $REMOTE_DIR/logs/merchant-signup-health.log 2>&1
 20 *   * * * flock -n $REMOTE_DIR/locks/reconcile-gateway-paid-orders.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/reconcile-gateway-paid-orders' >> $REMOTE_DIR/logs/reconcile-gateway-paid-orders.log 2>&1
-* *    * * * flock -n $REMOTE_DIR/locks/petrock-reconcile.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/petrock-reconcile' >> $REMOTE_DIR/logs/petrock-reconcile.log 2>&1
+* *    * * * flock -n $REMOTE_DIR/locks/petrock-reconcile.lock bash -lc 'export NODE_ENV=production && export BACI_WORKER_PROFILE=petrock-reconciliation && cd $REMOTE_DIR && $REMOTE_DIR/bin/process-petrock-reconciliation.sh' >> $REMOTE_DIR/logs/petrock-reconcile.log 2>&1
 */5 * * * * flock -n $REMOTE_DIR/locks/order-notifications.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/order-notifications?batchSize=5' >> $REMOTE_DIR/logs/order-notifications.log 2>&1
 */15 * * * * flock -n $REMOTE_DIR/locks/vercel-error-remediator.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/vercel-error-remediator.mjs' >> $REMOTE_DIR/logs/vercel-error-remediator.log 2>&1
 */15 * * * * flock -n $REMOTE_DIR/locks/ollama-workload.lock flock -n $REMOTE_DIR/locks/agentic-commerce-health.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/agentic-commerce-health' >> $REMOTE_DIR/logs/agentic-commerce-health.log 2>&1
@@ -114,7 +198,7 @@ $CRON_BLOCK_START
 0 10   * * * flock -n $REMOTE_DIR/locks/storefront-update-nudge.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/storefront-update-nudge' >> $REMOTE_DIR/logs/storefront-update-nudge.log 2>&1
 30 9   * * * flock -n $REMOTE_DIR/locks/ios-live-build-sync.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/ios-live-build-sync' >> $REMOTE_DIR/logs/ios-live-build-sync.log 2>&1
 45 9   * * * flock -n $REMOTE_DIR/locks/android-live-build-sync.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/android-live-build-sync' >> $REMOTE_DIR/logs/android-live-build-sync.log 2>&1
-* * * * * flock -n $REMOTE_DIR/locks/quiz-finalize.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/quiz/finalize' >> $REMOTE_DIR/logs/quiz-finalize.log 2>&1
+* * * * * flock -n $REMOTE_DIR/locks/quiz-finalize.lock bash -lc 'export NODE_ENV=production && export BACI_WORKER_PROFILE=quiz-finalization && cd $REMOTE_DIR && $REMOTE_DIR/bin/process-quiz-finalization.sh' >> $REMOTE_DIR/logs/quiz-finalize.log 2>&1
 15 4   * * * flock -n $REMOTE_DIR/locks/sync-gigl-service-centres.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/sync-gigl-service-centres.mjs' >> $REMOTE_DIR/logs/sync-gigl-service-centres.log 2>&1
 $CRON_BLOCK_END
 EOF
@@ -213,6 +297,17 @@ echo "    Reminder: create $REMOTE_DIR/.env if not already present:"
 echo "         NEXT_PUBLIC_SUPABASE_URL=..."
 echo "         NEXT_PUBLIC_SUPABASE_ANON_KEY=..."
 echo "         SUPABASE_SERVICE_ROLE_KEY=..."
+echo "         IMEI_IDENTIFIER_ENCRYPTION_KEY=..."
+echo "         PETROCK_API_TOKEN=..."
+echo "         PETROCK_API_BASE_URL=https://api.petrock.biz/api/reseller/v1"
+echo "         PETROCK_ENABLED=true"
+echo "         PETROCK_ENABLED_TIERS=..."
+echo "         PETROCK_REMEDIATION_ENABLED=true"
+echo "         QUIZ_PHASE=1a"
+echo "         QUIZ_PRODUCTION_APPROVED=false"
+echo "         QUIZ_RPC_SERVER_SECRET=..."
+echo "         QUIZ_DEVICE_HASH_PEPPER=..."
+echo "         BACI_REPO_DIR=/opt/baci/app"
 echo "         GIGL_BASE_URL=..."
 echo "         GIGL_EMAIL=..."
 echo "         GIGL_PASSWORD=..."

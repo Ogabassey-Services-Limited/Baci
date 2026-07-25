@@ -186,6 +186,7 @@ describe('POST /api/cron/publish-scheduled-posts', () => {
     );
     expect(mockGetMerchantBlogCacheIdentifiers).toHaveBeenCalledTimes(1);
     expect(mockRevalidateBlogPosts).toHaveBeenCalledWith({
+      merchantId: 'merchant-1',
       identifiers: ['test-store', 'ogabassey.com'],
       canonicalMerchantSlug: 'test-store',
       listingCategories: ['reviews', 'laptops'],
@@ -290,6 +291,7 @@ describe('POST /api/cron/publish-scheduled-posts', () => {
     expect(mockGetMerchantBlogCacheIdentifiers).toHaveBeenCalledTimes(2);
     expect(mockRevalidateBlogPosts).toHaveBeenCalledTimes(1);
     expect(mockRevalidateBlogPosts).toHaveBeenCalledWith({
+      merchantId: 'merchant-2',
       identifiers: ['merchant-two'],
       canonicalMerchantSlug: 'merchant-two',
       listingCategories: ['laptops'],

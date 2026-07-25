@@ -1217,6 +1217,7 @@ describe('PATCH /api/merchant/blog/posts/[id]', () => {
       );
 
       expect(mockRevalidateBlogPosts).toHaveBeenCalledWith({
+        merchantId: MERCHANT_ID,
         identifiers: ['test-store', 'ogabassey.com'],
         canonicalMerchantSlug: 'test-store',
         listingCategories: [],
@@ -1527,6 +1528,7 @@ describe('DELETE /api/merchant/blog/posts/[id]', () => {
       );
 
       expect(mockRevalidateBlogPosts).toHaveBeenCalledWith({
+        merchantId: MERCHANT_ID,
         identifiers: ['test-store', 'ogabassey.com'],
         canonicalMerchantSlug: 'test-store',
         listingCategories: ['tech'],

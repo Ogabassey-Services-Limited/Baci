@@ -100,6 +100,19 @@ describe('env validation', () => {
     await expect(loadEnvModule()).resolves.toBeDefined();
   });
 
+  it.each(['petrock-reconciliation', 'quiz-finalization'])(
+    'allows the %s worker profile without unrelated agentic signing material',
+    async (workerProfile) => {
+      vi.stubEnv('NODE_ENV', 'production');
+      vi.stubEnv('GITHUB_ACTIONS', 'false');
+      vi.stubEnv('BACI_WORKER_PROFILE', workerProfile);
+      delete process.env.SUPABASE_JWT_SECRET;
+      delete process.env.SUPABASE_AGENTIC_JWT_PRIVATE_JWK;
+
+      await expect(loadEnvModule()).resolves.toBeDefined();
+    }
+  );
+
   it('rejects spoofed GitHub Actions builds without GitHub run context', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     vi.stubEnv('NODE_ENV', 'production');
@@ -325,19 +338,19 @@ describe('env validation', () => {
     );
   });
 
-  it.each([
-    'abc',
-    '-1',
-  ])('rejects invalid AI storefront timeouts in production: %s', async (value) => {
-    vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    vi.stubEnv('NODE_ENV', 'production');
-    vi.stubEnv('BACI_WORKER_PROFILE', 'ai-storefront-jobs');
-    vi.stubEnv('OLLAMA_STOREFRONT_TIMEOUT_MS', value);
+  it.each(['abc', '-1'])(
+    'rejects invalid AI storefront timeouts in production: %s',
+    async (value) => {
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      vi.stubEnv('NODE_ENV', 'production');
+      vi.stubEnv('BACI_WORKER_PROFILE', 'ai-storefront-jobs');
+      vi.stubEnv('OLLAMA_STOREFRONT_TIMEOUT_MS', value);
 
-    await expect(loadEnvModule()).rejects.toThrow(
-      'OLLAMA_STOREFRONT_TIMEOUT_MS'
-    );
-  });
+      await expect(loadEnvModule()).rejects.toThrow(
+        'OLLAMA_STOREFRONT_TIMEOUT_MS'
+      );
+    }
+  );
 
   it('loads server env when required production secrets are present', async () => {
     vi.stubEnv('NODE_ENV', 'production');

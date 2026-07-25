@@ -38,7 +38,6 @@ const WEB_CRON_CONFIG = new Map([
     { method: 'GET', timeoutMs: 6 * 60_000 },
   ],
   ['/api/cron/sync-petrock-catalog', { method: 'GET', timeoutMs: 5 * 60_000 }],
-  ['/api/cron/petrock-reconcile', { method: 'GET', timeoutMs: 5 * 60_000 }],
   [
     '/api/cron/agentic-commerce-health',
     { method: 'GET', timeoutMs: 5 * 60_000 },
@@ -52,7 +51,6 @@ const WEB_CRON_CONFIG = new Map([
   ],
   ['/api/cron/ios-live-build-sync', { method: 'GET', timeoutMs: 60_000 }],
   ['/api/cron/android-live-build-sync', { method: 'GET', timeoutMs: 60_000 }],
-  ['/api/quiz/finalize', { method: 'GET', timeoutMs: 5 * 60_000 }],
 ]);
 
 const RESPONSE_PREVIEW_LIMIT = 500;

@@ -12,6 +12,7 @@ const safeSlugSchema = z.string().trim().min(1).max(255);
  */
 export const internalRevalidateBlogBodySchema = z.strictObject({
   identifiers: z.array(safeIdentifierSchema).min(1).max(20),
+  merchantId: z.string().trim().uuid().optional(),
   canonicalMerchantSlug: safeIdentifierSchema.optional(),
   listingCategories: z.array(safeSlugSchema).max(50).optional(),
   listingPages: z.array(z.number().int().positive()).max(50).optional(),

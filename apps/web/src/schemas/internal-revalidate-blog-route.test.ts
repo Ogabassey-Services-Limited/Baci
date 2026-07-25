@@ -5,6 +5,7 @@ describe('internalRevalidateBlogBodySchema', () => {
   it('accepts and trims explicit blog revalidation inputs', () => {
     const result = internalRevalidateBlogBodySchema.safeParse({
       identifiers: [' ogabassey.com ', ' ogabassey '],
+      merchantId: ' 6b5cb8a4-5575-456c-b936-8cdfae30db74 ',
       canonicalMerchantSlug: ' ogabassey ',
       listingCategories: [' Smartphones '],
       listingPages: [1, 2],
@@ -14,6 +15,7 @@ describe('internalRevalidateBlogBodySchema', () => {
     expect(result.success).toBe(true);
     expect(result.data).toEqual({
       identifiers: ['ogabassey.com', 'ogabassey'],
+      merchantId: '6b5cb8a4-5575-456c-b936-8cdfae30db74',
       canonicalMerchantSlug: 'ogabassey',
       listingCategories: ['Smartphones'],
       listingPages: [1, 2],
@@ -45,6 +47,22 @@ describe('internalRevalidateBlogBodySchema', () => {
         postSlugs: ['post'],
       }).success
     ).toBe(false);
+  });
+
+  it('rejects an invalid merchant ID while keeping it optional for legacy senders', () => {
+    expect(
+      internalRevalidateBlogBodySchema.safeParse({
+        identifiers: ['ogabassey.com'],
+        merchantId: 'not-a-uuid',
+        postSlugs: ['post'],
+      }).success
+    ).toBe(false);
+    expect(
+      internalRevalidateBlogBodySchema.safeParse({
+        identifiers: ['ogabassey.com'],
+        postSlugs: ['post'],
+      }).success
+    ).toBe(true);
   });
 
   it('rejects unknown payload fields', () => {

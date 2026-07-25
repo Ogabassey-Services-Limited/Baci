@@ -381,6 +381,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         access.merchantId
       );
       revalidateBlogPosts({
+        merchantId: access.merchantId,
         identifiers: blogRevalidation.identifiers,
         canonicalMerchantSlug: blogRevalidation.canonicalMerchantSlug,
         listingCategories: [existingPost.category, updatedPost.category].filter(
@@ -547,6 +548,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
 
     // Invalidate blog caches after deletion
     revalidateBlogPosts({
+      merchantId: access.merchantId,
       identifiers: blogRevalidation.identifiers,
       canonicalMerchantSlug: blogRevalidation.canonicalMerchantSlug,
       listingCategories: existingPost?.category ? [existingPost.category] : [],

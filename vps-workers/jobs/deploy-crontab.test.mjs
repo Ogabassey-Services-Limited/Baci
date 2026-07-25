@@ -122,17 +122,113 @@ describe('deploy crontab', () => {
     );
   });
 
-  it('schedules Petrock reconciliation every minute through run-web-cron', () => {
+  it('schedules Petrock reconciliation directly every minute with its existing lock and log', () => {
+    const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
+    const cronLine = deployScript
+      .split('\n')
+      .find((line) => line.includes('petrock-reconcile.lock'));
+
+    assert.ok(cronLine);
+    assert.match(
+      cronLine,
+      /^\* \*\s+\* \* \* flock -n \$REMOTE_DIR\/locks\/petrock-reconcile\.lock bash -lc 'export NODE_ENV=production && export BACI_WORKER_PROFILE=petrock-reconciliation && cd \$REMOTE_DIR && \$REMOTE_DIR\/bin\/process-petrock-reconciliation\.sh' >> \$REMOTE_DIR\/logs\/petrock-reconcile\.log 2>&1$/
+    );
+    assert.doesNotMatch(
+      cronLine,
+      /run-web-cron|\/api\/cron\/petrock-reconcile/
+    );
+  });
+
+  it('schedules quiz finalization directly every minute with its existing lock and log', () => {
+    const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
+    const cronLine = deployScript
+      .split('\n')
+      .find((line) => line.includes('quiz-finalize.lock'));
+
+    assert.ok(cronLine);
+    assert.match(
+      cronLine,
+      /^\* \* \* \* \* flock -n \$REMOTE_DIR\/locks\/quiz-finalize\.lock bash -lc 'export NODE_ENV=production && export BACI_WORKER_PROFILE=quiz-finalization && cd \$REMOTE_DIR && \$REMOTE_DIR\/bin\/process-quiz-finalization\.sh' >> \$REMOTE_DIR\/logs\/quiz-finalize\.log 2>&1$/
+    );
+    assert.doesNotMatch(cronLine, /run-web-cron|\/api\/quiz\/finalize/);
+  });
+
+  it('runs the direct-worker environment preflight before installing crontab', () => {
+    const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
+    const preflightFailureBlock =
+      /if ! ssh "\$VPS" "cd \$REMOTE_DIR && \$NODE_BIN \$REMOTE_DIR\/jobs\/preflight-direct-web-workers\.mjs"; then[\s\S]*?echo "Direct-worker environment preflight failed; crontab was not changed\." >&2[\s\S]*?exit 1[\s\S]*?fi/;
+    const preflightMatch = deployScript.match(preflightFailureBlock);
+    const crontabIndex = deployScript.indexOf(
+      'Installing crontab entries on VPS'
+    );
+
+    assert.ok(preflightMatch);
+    assert.notEqual(crontabIndex, -1);
+    assert.ok(
+      deployScript.indexOf(preflightMatch[0]) < crontabIndex,
+      'the fail-closed preflight must run before crontab installation'
+    );
+  });
+
+  it('requires the remote worker checkout to match the deploying commit', () => {
     const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
 
+    assert.match(deployScript, /APP_SHA=\$\(git rev-parse HEAD\)/);
+    assert.match(deployScript, /git -C "\$repo_dir" rev-parse --verify HEAD/);
     assert.match(
       deployScript,
-      /\* \*\s+\* \* \* flock -n \$REMOTE_DIR\/locks\/petrock-reconcile\.lock/
+      /git -C "\$repo_dir" status --porcelain=v1 --untracked-files=all/
     );
     assert.match(
       deployScript,
-      /run-web-cron\.mjs \/api\/cron\/petrock-reconcile/
+      /Direct-worker checkout is dirty\.[\s\S]*?exit 1/
     );
+    assert.match(
+      deployScript,
+      /if \[ "\$actual_sha" != "\$expected_sha" \]; then[\s\S]*?echo "Direct-worker checkout does not match the deploying commit\." >&2[\s\S]*?exit 1[\s\S]*?fi/
+    );
+    assert.match(
+      deployScript,
+      /apps\/web\/src\/scripts\/process-petrock-reconciliation\.ts/
+    );
+    assert.match(
+      deployScript,
+      /apps\/web\/src\/scripts\/process-quiz-finalization\.ts/
+    );
+    assert.match(
+      deployScript,
+      /pnpm --filter @baci\/web exec tsx --version >\/dev\/null/
+    );
+    assert.match(
+      deployScript,
+      /Direct-worker checkout is missing \$script_path\.[\s\S]*?exit 1/
+    );
+    assert.match(
+      deployScript,
+      /Direct-worker checkout is missing the reviewed web toolchain\.[\s\S]*?exit 1/
+    );
+    assert.match(
+      deployScript,
+      /"\$remote_dir\/bin\/process-petrock-reconciliation\.sh"/
+    );
+    assert.match(
+      deployScript,
+      /"\$remote_dir\/bin\/process-quiz-finalization\.sh"/
+    );
+    assert.match(
+      deployScript,
+      /if \[ ! -x "\$wrapper_path" \]; then[\s\S]*?Missing or non-executable direct-worker wrapper: \$wrapper_path[\s\S]*?exit 1/
+    );
+    assert.ok(
+      deployScript.indexOf('Verifying direct-worker application checkout') <
+        deployScript.indexOf('Installing crontab entries on VPS')
+    );
+  });
+
+  it('prints the required full-checkout path in the environment reminder', () => {
+    const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
+
+    assert.match(deployScript, /BACI_REPO_DIR=\/opt\/baci\/app/);
   });
 
   it('schedules the iOS live-build sync daily backstop through run-web-cron', () => {
