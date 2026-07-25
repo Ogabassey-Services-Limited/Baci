@@ -9,13 +9,20 @@ function setup(overrides: {
   runStart?: (event: QuizEventResponse) => Promise<string | null>;
   updateCustomer?: () => Promise<{ success: boolean; error?: string }>;
   clearStartError?: () => void;
+  currentCustomerId?: string | null;
 } = {}) {
   const runStart = overrides.runStart ?? vi.fn().mockResolvedValue(null);
   const updateCustomer =
     overrides.updateCustomer ?? vi.fn().mockResolvedValue({ success: true });
   const clearStartError = overrides.clearStartError ?? vi.fn();
+  const currentCustomerId = overrides.currentCustomerId ?? 'shopper-1';
   const view = renderHook(() =>
-    useQuizAgeGate({ runStart, updateCustomer, clearStartError })
+    useQuizAgeGate({
+      runStart,
+      updateCustomer,
+      clearStartError,
+      currentCustomerId,
+    })
   );
   return { view, runStart, updateCustomer, clearStartError };
 }
@@ -104,9 +111,11 @@ describe('useQuizAgeGate', () => {
     expect(runStart).not.toHaveBeenCalled();
   });
 
-  it('allows a resubmit for a new gate after cancelling an in-flight save', async () => {
-    // Regression: cancel must release the in-flight guard, otherwise the next
-    // submit is silently dropped while the first (stale) save is still pending.
+  it('serializes a cancel + reopen resubmit behind the in-flight save so writes cannot overlap', async () => {
+    // Regression (is6Tw-aG): a resubmit for the reopened gate must NOT start a
+    // second profile write while the first is still pending — otherwise a stale
+    // save can land after (and overwrite) the corrected DOB. The write guard is
+    // held until the first PATCH settles; the resubmit then goes through.
     let resolveFirst: (v: { success: boolean }) => void = () => {};
     const updateCustomer = vi
       .fn()
@@ -126,23 +135,111 @@ describe('useQuizAgeGate', () => {
     });
     act(() => view.result.current.cancel());
     act(() => view.result.current.open(eventB));
+
+    // Resubmit for B WHILE A's save is still pending — it is held (not a second
+    // overlapping write), so only A's save exists so far.
     await act(async () => {
       await view.result.current.submit('1988-03-10');
     });
+    expect(updateCustomer).toHaveBeenCalledTimes(1);
+    expect(runStart).not.toHaveBeenCalled();
 
-    // The second submit is NOT dropped, and it starts the new event.
+    // A's stale save resolves: its continuation is a no-op (wrong generation),
+    // but the guard is released so a subsequent resubmit can proceed.
+    await act(async () => {
+      resolveFirst({ success: true });
+    });
+    expect(runStart).not.toHaveBeenCalled();
+
+    // Now B's resubmit goes through — a single, non-overlapping write that
+    // starts the reopened event with the corrected DOB.
+    await act(async () => {
+      await view.result.current.submit('1988-03-10');
+    });
     expect(updateCustomer).toHaveBeenCalledTimes(2);
     expect(updateCustomer).toHaveBeenLastCalledWith({
       date_of_birth: '1988-03-10',
     });
     expect(runStart).toHaveBeenCalledTimes(1);
     expect(runStart).toHaveBeenCalledWith(eventB);
+  });
 
-    // The stale first save resolving is a no-op (wrong generation).
-    await act(async () => {
-      resolveFirst({ success: true });
+  it('discards the start when the account switches while the save is in flight', async () => {
+    // Regression (is6Tw7tH): auth changes do not cancel this hook, so the token
+    // stays current across an account switch. Without an identity check the
+    // save's continuation would call runStart under shopper B's cookies and
+    // spend B's attempt on the event shopper A picked.
+    let resolveSave: (v: { success: boolean }) => void = () => {};
+    const updateCustomer = vi.fn().mockReturnValue(
+      new Promise<{ success: boolean }>((resolve) => {
+        resolveSave = resolve;
+      })
+    );
+    const runStart = vi.fn().mockResolvedValue(null);
+    const view = renderHook(
+      ({ customerId }: { customerId: string | null }) =>
+        useQuizAgeGate({
+          runStart,
+          updateCustomer,
+          clearStartError: vi.fn(),
+          currentCustomerId: customerId,
+        }),
+      { initialProps: { customerId: 'shopper-A' } }
+    );
+
+    act(() => view.result.current.open(event));
+    let submitDone: Promise<void> = Promise.resolve();
+    act(() => {
+      submitDone = view.result.current.submit('1990-06-15');
     });
+    // Account switches to shopper B while the save is pending.
+    view.rerender({ customerId: 'shopper-B' });
+    await act(async () => {
+      resolveSave({ success: true });
+      await submitDone;
+    });
+
+    // The save was A's intent; the start must NOT fire under B's session.
+    expect(runStart).not.toHaveBeenCalled();
+  });
+
+  it('discards the start when the account switches while runStart is in flight', async () => {
+    // The switch can also land in the second async window (after the save, while
+    // the start resolves) — the post-start identity re-check must catch it.
+    let resolveStart: (v: string | null) => void = () => {};
+    const runStart = vi.fn().mockReturnValue(
+      new Promise<string | null>((resolve) => {
+        resolveStart = resolve;
+      })
+    );
+    const view = renderHook(
+      ({ customerId }: { customerId: string | null }) =>
+        useQuizAgeGate({
+          runStart,
+          updateCustomer: vi.fn().mockResolvedValue({ success: true }),
+          clearStartError: vi.fn(),
+          currentCustomerId: customerId,
+        }),
+      { initialProps: { customerId: 'shopper-A' } }
+    );
+
+    act(() => view.result.current.open(event));
+    let submitDone: Promise<void> = Promise.resolve();
+    await act(async () => {
+      submitDone = view.result.current.submit('1990-06-15');
+    });
+    // runStart was reached (save succeeded under A) but has not resolved.
     expect(runStart).toHaveBeenCalledTimes(1);
+    // Account switches, then the start resolves successfully.
+    view.rerender({ customerId: 'shopper-B' });
+    await act(async () => {
+      resolveStart(null);
+      await submitDone;
+    });
+
+    // Gate must stay closed-out cleanly without acting under B's session — the
+    // event is not re-shown and no error is set for B.
+    expect(view.result.current.error).toBeNull();
   });
 
   it('surfaces the save error and does not start', async () => {

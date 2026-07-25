@@ -97,6 +97,9 @@ export function OgabasseyV2Quiz({ merchantSlug }: OgabasseyV2QuizProps) {
     runStart,
     updateCustomer,
     clearStartError: () => setError(null),
+    // Bind a deferred start to the current shopper so an account switch while
+    // the DOB save/start is in flight can't spend the new shopper's attempt.
+    currentCustomerId: customer?.id ?? null,
   });
 
   const handleStart = async (event: QuizEventResponse) => {

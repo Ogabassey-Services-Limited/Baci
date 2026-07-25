@@ -97,12 +97,16 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Store not found' }, { status: 404 });
     }
 
-    // Get customer record for this merchant
+    // Get customer record for this merchant — live rows only. A soft-deleted
+    // account (deleted_at set) must not be writable: the mobile RPC and
+    // start_quiz_attempt both exclude deleted customers, so resurrecting one
+    // here would let the quiz gate close on a row the server then rejects.
     const { data: customer, error: customerError } = await supabase
       .from('customers')
       .select('id')
       .eq('merchant_id', merchantId)
       .eq('user_id', user.id)
+      .is('deleted_at', null)
       .single();
 
     if (customerError || !customer) {
@@ -137,17 +141,32 @@ export async function PATCH(request: NextRequest) {
       updateData.saved_addresses = saved_addresses;
     }
 
-    // Update customer
-    const { error: updateError } = await supabase
+    // Update customer. Reassert `deleted_at IS NULL` on the write itself: the
+    // row could be soft-deleted between the lookup above and here, and .select()
+    // lets us confirm a live row actually matched instead of reporting a false
+    // success on zero affected rows.
+    const { data: updated, error: updateError } = await supabase
       .from('customers')
       .update(updateData)
-      .eq('id', customer.id);
+      .eq('id', customer.id)
+      .is('deleted_at', null)
+      .select('id')
+      .maybeSingle();
 
     if (updateError) {
       console.error('Customer update error:', updateError);
       return NextResponse.json(
         { error: 'Failed to update profile' },
         { status: 500 }
+      );
+    }
+
+    if (!updated) {
+      // No live row matched — the account was soft-deleted between the lookup
+      // and the update. Report not-found rather than a phantom success.
+      return NextResponse.json(
+        { error: 'Customer not found' },
+        { status: 404 }
       );
     }
 
