@@ -14,6 +14,10 @@ import { createClient } from '@/lib/supabase/server';
 import { isReservedMerchantSlug } from '@/lib/validation';
 import { mobileOnboardingSchema } from '@/schemas/onboarding';
 import type { BrandColors } from '@/types';
+import { logOnboardingFailure } from './onboarding-failure-log';
+import { buildOnboardingFailureResponse } from './onboarding-failure-response';
+import { provisionMerchantDomain } from './provision-merchant-domain';
+import { runDeferredOnboardingProvisioning } from './run-deferred-onboarding-provisioning';
 
 // Allow up to 60s — template generation calls an AI model (Gemini)
 // and hero-image assignment can also be slow. The default 10s is not enough.
@@ -60,6 +64,15 @@ async function resolveMerchantSlug(
 // which sends Authorization Bearer tokens, not browser cookies. CSRF is a browser-specific
 // attack vector that exploits automatic cookie sending — mobile apps are not vulnerable.
 export async function POST(req: NextRequest) {
+  // True when the caller OWNS an account but the CLIENT holds no session, so
+  // "sign in to finish setup" is the actionable recovery. Signup is not atomic:
+  // the auth user is created before the merchant row, and a failure after that
+  // strands them. Crucially this also covers RETRIES from the register screen —
+  // those carry the cookie set by the earlier signUp, so getUser() succeeds and
+  // the signUp block is skipped, yet the app itself is still signed out. Without
+  // that case a retry would fall back to the dead-end generic 500.
+  let accountExists = false;
+
   try {
     const body = await req.json();
 
@@ -137,6 +150,9 @@ export async function POST(req: NextRequest) {
     } = await supabase.auth.getUser();
 
     let user: User | null = currentUser;
+    // A Bearer token means the APP holds the session (the complete-profile
+    // flow); a cookie-only match means it does not (a register-screen retry).
+    accountExists = Boolean(currentUser) && !req.headers.get('authorization');
 
     // If no authenticated user, try to Sign Up
     if (!user) {
@@ -269,6 +285,7 @@ export async function POST(req: NextRequest) {
         );
       }
       user = signUpData.user;
+      accountExists = true;
 
       if (signUpData.session?.access_token) {
         // NOTE: We must construct a raw client here because the new user has
@@ -334,11 +351,12 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (lookupError) {
-      console.error('Merchant lookup failed:', lookupError);
-      return NextResponse.json(
-        { error: 'Failed to check existing account.' },
-        { status: 500 }
-      );
+      // Reachable AFTER signUp, so it can strand a just-created account just
+      // like a thrown error. Same recovery contract.
+      return buildOnboardingFailureResponse(lookupError, {
+        accountExists,
+        message: 'Failed to check existing account.',
+      });
     }
 
     let merchantId: string;
@@ -461,26 +479,25 @@ export async function POST(req: NextRequest) {
       merchantSlug = created.data.slug;
     }
 
-    // Create Domain
-    const { error: domainError } = await scopedSupabase.from('domains').insert({
-      merchant_id: merchantId,
-      domain: `${merchantSlug}.${env.NEXT_PUBLIC_ROOT_DOMAIN}`,
-      tld: `.${env.NEXT_PUBLIC_ROOT_DOMAIN}`,
-      domain_type: 'subdomain',
-      status: 'active',
-      is_primary: true,
-    });
-
-    if (domainError && domainError.code !== '23505') {
-      console.error(
-        'Domain creation failed for merchant',
+    // A failure here must NOT abort the request: the merchant row is already
+    // committed, so returning would leave the account half-provisioned (no
+    // staff profile, no page config) AND unrepairable — after signing in,
+    // (auth)/_layout sends a user who HAS a merchant straight to the dashboard,
+    // never back through this endpoint.
+    const domainProvisionInput = {
+      merchantId,
+      merchantSlug,
+      rootDomain: env.NEXT_PUBLIC_ROOT_DOMAIN,
+    };
+    const firstDomainAttempt = await provisionMerchantDomain(
+      scopedSupabase,
+      domainProvisionInput
+    );
+    if (!firstDomainAttempt.provisioned) {
+      logOnboardingFailure(firstDomainAttempt.error, {
+        stage: 'domain_provisioning',
         merchantId,
-        domainError
-      );
-      return NextResponse.json(
-        { error: 'Failed to provision store domain. Please try again.' },
-        { status: 500 }
-      );
+      });
     }
 
     // Upsert Staff Member (Profile Data)
@@ -506,66 +523,32 @@ export async function POST(req: NextRequest) {
     // These are slow operations (AI model call for template + image assignment)
     // that must NOT block the registration response. after() runs them after
     // the response is sent while keeping the function alive on Vercel.
-    after(async () => {
-      // Use admin client for background writes — the scoped client's Bearer
-      // token may expire, and after() runs outside the original auth context.
-      const adminSupabase = createAdminClient();
-
-      // Generate Template
-      try {
-        const { generateInitialTemplate } = await import(
-          '@/lib/initial-template-generator'
-        );
-        const safeBrandColors = brandColors || {
-          primary: '#000000',
-          background: '#ffffff',
-          accent: '#F59E0B',
-        };
-        const config = await generateInitialTemplate({
-          businessName,
-          businessType: finalBusinessType,
-          brandColors: safeBrandColors,
-          merchant: { id: merchantId, slug: merchantSlug },
-        });
-        const { error: pageConfigError } = await adminSupabase
-          .from('page_configs')
-          .insert({
+    after(() =>
+      runDeferredOnboardingProvisioning({
+        // Defined HERE, not handed over as a client: route.ts is the module
+        // the boundary contract authorizes, so the privileged capability is
+        // bounded to exactly this one write and cannot be repurposed.
+        publishHomePage: (config) =>
+          createAdminClient().from('page_configs').insert({
             merchant_id: merchantId,
             page_slug: 'home',
             page_name: 'Home',
             draft_config: config,
             published_config: config,
             is_published: true,
-          });
-        if (pageConfigError) {
-          console.error(
-            'Failed to insert page config for merchant',
-            merchantId,
-            pageConfigError
-          );
-        }
-      } catch (e) {
-        console.error('Template generation failed for merchant', merchantId, e);
-      }
-
-      // Hero Images
-      try {
-        const { assignHeroImagesToMerchant } = await import(
-          '@/services/hero-image-generator'
-        );
-        await assignHeroImagesToMerchant(
-          merchantId,
-          finalBusinessType.toLowerCase(),
-          false
-        );
-      } catch (e) {
-        console.error(
-          'Hero image assignment failed for merchant',
-          merchantId,
-          e
-        );
-      }
-    });
+          }),
+        merchantId,
+        merchantSlug,
+        businessName,
+        businessType: finalBusinessType,
+        brandColors,
+        // Only set when the in-request insert failed; carries the SAME scoped
+        // client so a real denial stays a denial.
+        domainRepair: firstDomainAttempt.provisioned
+          ? null
+          : { client: scopedSupabase, input: domainProvisionInput },
+      })
+    );
 
     return NextResponse.json({
       success: true,
@@ -574,19 +557,8 @@ export async function POST(req: NextRequest) {
       message: 'Account created successfully',
     });
   } catch (error: unknown) {
-    const errMsg = error instanceof Error ? error.message : String(error);
-    const errName = error instanceof Error ? error.name : typeof error;
-    const errStack =
-      error instanceof Error
-        ? error.stack?.split('\n').slice(0, 3).join(' | ')
-        : undefined;
-    console.error(
-      'Mobile onboarding error:',
-      JSON.stringify({ name: errName, message: errMsg, stack: errStack })
-    );
-    return NextResponse.json(
-      { error: 'Internal Server Error' },
-      { status: 500 }
-    );
+    // Keeps the Postgres code (e.g. 42501) in the log and tells a caller whose
+    // account already exists how to recover. See onboarding-failure-response.ts.
+    return buildOnboardingFailureResponse(error, { accountExists });
   }
 }
