@@ -153,21 +153,26 @@ describe('deploy crontab', () => {
     assert.doesNotMatch(cronLine, /run-web-cron|\/api\/quiz\/finalize/);
   });
 
-  it('runs the direct-worker environment preflight before installing crontab', () => {
+  it('runs the staged direct-worker preflight before promotion and crontab', () => {
     const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
     const preflightFailureBlock =
-      /if ! ssh "\$VPS" "cd \$REMOTE_DIR && \$NODE_BIN \$REMOTE_DIR\/jobs\/preflight-direct-web-workers\.mjs"; then[\s\S]*?echo "Direct-worker environment preflight failed; crontab was not changed\." >&2[\s\S]*?exit 1[\s\S]*?fi/;
+      /if ! ssh "\$VPS" "cd '\$STAGING_DIR' && \$NODE_BIN '\$STAGING_DIR\/jobs\/preflight-direct-web-workers\.mjs'"; then[\s\S]*?echo "Direct-worker environment preflight failed; live worker files and crontab were not changed\." >&2[\s\S]*?exit 1[\s\S]*?fi/;
     const preflightMatch = deployScript.match(preflightFailureBlock);
+    const promotionIndex = deployScript.indexOf(
+      'Promoting validated worker files'
+    );
     const crontabIndex = deployScript.indexOf(
       'Installing crontab entries on VPS'
     );
 
     assert.ok(preflightMatch);
+    assert.notEqual(promotionIndex, -1);
     assert.notEqual(crontabIndex, -1);
     assert.ok(
-      deployScript.indexOf(preflightMatch[0]) < crontabIndex,
-      'the fail-closed preflight must run before crontab installation'
+      deployScript.indexOf(preflightMatch[0]) < promotionIndex,
+      'the fail-closed preflight must run before live promotion'
     );
+    assert.ok(promotionIndex < crontabIndex);
   });
 
   it('requires the remote worker checkout to match the deploying commit', () => {
