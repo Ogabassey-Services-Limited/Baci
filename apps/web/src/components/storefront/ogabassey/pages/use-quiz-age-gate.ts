@@ -104,18 +104,26 @@ export function useQuizAgeGate({
     try {
       const saved = await updateCustomer({ date_of_birth: dateOfBirth });
       if (token !== tokenRef.current) return;
-      // Account switched or logged out during the save: discard rather than
-      // start under the new session (which would spend the new shopper's
-      // attempt on the event this shopper picked).
-      if (currentCustomerIdRef.current !== submitCustomerId) return;
+      // Account switched or logged out during the save: close the gate and
+      // discard rather than start (or leave a stale modal open) under the new
+      // session — it would spend the new shopper's attempt on this event, or let
+      // them submit their DOB against the previous shopper's selection.
+      if (currentCustomerIdRef.current !== submitCustomerId) {
+        setEvent(null);
+        return;
+      }
       if (!saved.success) {
         setError(saved.error ?? 'Could not save your date of birth.');
         return;
       }
       const startError = await runStart(event);
       if (token !== tokenRef.current) return;
-      // Re-check: the switch may land in this second async window too.
-      if (currentCustomerIdRef.current !== submitCustomerId) return;
+      // Re-check: the switch may land in this second async window too. Close the
+      // gate so the new shopper can't start the previous shopper's event.
+      if (currentCustomerIdRef.current !== submitCustomerId) {
+        setEvent(null);
+        return;
+      }
       if (startError) {
         if (startError === QUIZ_AGE_RESTRICTED_MESSAGE) {
           // Age rejection: keep the gate open so the DOB can be corrected, and

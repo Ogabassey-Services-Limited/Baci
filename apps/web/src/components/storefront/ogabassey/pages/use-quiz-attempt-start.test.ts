@@ -103,4 +103,37 @@ describe('useQuizAttemptStart', () => {
     expect(setAttempt).not.toHaveBeenCalled();
     expect(setStatus).toHaveBeenLastCalledWith('ready');
   });
+
+  it('discards the error when the account switches while a failing start is in flight', async () => {
+    // Regression (is6TzRI4): if the account switches and shopper A's start then
+    // rejects, the failure (e.g. an age-gate rejection) must NOT be published or
+    // returned under shopper B's session — otherwise handleStart would reopen the
+    // DOB modal for B.
+    let rejectStart: (error: Error) => void = () => {};
+    mockStartQuizAttempt.mockReturnValue(
+      new Promise((_resolve, reject) => {
+        rejectStart = reject;
+      })
+    );
+    const { view, setError, setStatus } = setup('user-a');
+
+    let done: Promise<string | null> = Promise.resolve(null);
+    act(() => {
+      done = view.result.current(event);
+    });
+    view.rerender({ uid: 'user-b' });
+
+    let outcome: string | null = 'unset';
+    await act(async () => {
+      rejectStart(new Error('Quiz participation requires an adult profile (18+)'));
+      outcome = await done;
+    });
+
+    expect(outcome).toBeNull();
+    // Only the initial setError(null) may have run — never the rejection message.
+    expect(setError.mock.calls.map((call) => call[0])).not.toContain(
+      'Quiz participation requires an adult profile (18+)'
+    );
+    expect(setStatus).toHaveBeenLastCalledWith('ready');
+  });
 });

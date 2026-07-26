@@ -234,8 +234,10 @@ describe('useQuizAgeGate', () => {
       await submitDone;
     });
 
-    // The save was A's intent; the start must NOT fire under B's session.
+    // The save was A's intent; the start must NOT fire under B's session, and
+    // the gate must close rather than leave A's event open for B to submit.
     expect(runStart).not.toHaveBeenCalled();
+    expect(view.result.current.event).toBeNull();
   });
 
   it('discards the start when the account switches while runStart is in flight', async () => {
@@ -272,8 +274,10 @@ describe('useQuizAgeGate', () => {
       await submitDone;
     });
 
-    // Gate must stay closed-out cleanly without acting under B's session — the
-    // event is not re-shown and no error is set for B.
+    // Gate must close cleanly without acting under B's session — the modal is
+    // dismissed (event null) so B can't submit against A's event, and no error
+    // is set for B.
+    expect(view.result.current.event).toBeNull();
     expect(view.result.current.error).toBeNull();
   });
 

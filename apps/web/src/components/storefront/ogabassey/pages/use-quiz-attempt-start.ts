@@ -78,6 +78,13 @@ export function useQuizAttemptStart({
       setStatus('question');
       return null;
     } catch (error) {
+      if (currentUserIdRef.current !== startUserId) {
+        // Account switched: the failure belongs to the previous shopper. Don't
+        // surface its error (or, for an age-gate rejection, reopen the DOB modal)
+        // under the new session — just return to the event list.
+        setStatus('ready');
+        return null;
+      }
       const message = getQuizErrorMessage(error);
       setError(message);
       setStatus('ready');
