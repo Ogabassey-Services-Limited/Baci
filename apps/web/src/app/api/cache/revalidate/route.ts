@@ -259,6 +259,7 @@ export async function POST(request: NextRequest) {
       );
 
       revalidateBlogPosts({
+        merchantId,
         identifiers: blogRevalidation.identifiers,
         canonicalMerchantSlug: blogRevalidation.canonicalMerchantSlug,
         listingCategories,

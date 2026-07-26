@@ -13,6 +13,7 @@
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { after } from 'next/server';
 import { getBlogCacheTag } from '@/lib/blog-cache-tags';
+import { getBlogContentLinksCacheTag } from '@/lib/blog-content-link-cache-tags';
 
 export { revalidateCategories } from '@/lib/revalidate-categories';
 
@@ -41,6 +42,7 @@ interface BlogRevalidationOptions {
   canonicalMerchantSlug?: string | null | undefined;
   listingCategories?: Array<string | null | undefined>;
   listingPages?: Array<number | null | undefined>;
+  merchantId?: string | null | undefined;
   postSlugs?: Array<string | null | undefined>;
 }
 
@@ -69,10 +71,6 @@ function schedulePurgeCloudflareUrls(urls: string[]): void {
   }
 }
 
-/**
- * Revalidate all cached data related to a merchant's categories.
- * Call after category create/update/delete.
- */
 /**
  * Revalidate all cached data related to a merchant store.
  * Call after ordinary merchant settings updates. Publication transitions must
@@ -194,6 +192,10 @@ export function revalidateBlogPosts(
     typeof identifierOrOptions === 'string'
       ? null
       : (identifierOrOptions.canonicalMerchantSlug ?? null);
+  const merchantId =
+    typeof identifierOrOptions === 'string'
+      ? ''
+      : (identifierOrOptions.merchantId?.trim() ?? '');
 
   const normalizedIdentifiers = Array.from(
     new Set(
@@ -240,6 +242,12 @@ export function revalidateBlogPosts(
     // feed path below narrows the route cache refresh for the canonical slug.
     revalidateTag('blog-rss-feed', 'merchant');
     revalidateTag('blog-posts', 'merchant');
+    revalidateTag(
+      merchantId
+        ? getBlogContentLinksCacheTag(merchantId)
+        : 'blog-content-links',
+      'merchant'
+    );
   }
 
   if (

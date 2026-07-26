@@ -249,6 +249,7 @@ export async function POST(request: Request) {
         );
         blogRevalidationByMerchant.set(merchantId, blogRevalidation);
         revalidateBlogPosts({
+          merchantId,
           identifiers: blogRevalidation.identifiers,
           canonicalMerchantSlug: blogRevalidation.canonicalMerchantSlug,
           listingCategories: Array.from(merchantPosts.categories),

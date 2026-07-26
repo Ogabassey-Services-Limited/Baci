@@ -409,6 +409,7 @@ export async function POST(request: NextRequest) {
         access.merchantId
       );
       revalidateBlogPosts({
+        merchantId: access.merchantId,
         identifiers: blogRevalidation.identifiers,
         canonicalMerchantSlug: blogRevalidation.canonicalMerchantSlug,
         listingCategories: newPost?.category ? [newPost.category] : [],

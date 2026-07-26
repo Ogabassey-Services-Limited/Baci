@@ -9,6 +9,7 @@ import {
   type CachedDataTestHarness,
   resetMockCreateClient,
 } from '@/lib/cached-data.test-utils';
+import { getCategoryPageDataCacheTag } from '@/lib/category-page-cache-tags';
 import { StorefrontReadUnavailableError } from '@/lib/storefront-read-result';
 
 vi.mock('@/env', () => ({
@@ -196,6 +197,13 @@ describe('getCachedCategoryPageData category routing and fallback logic', () => 
     expect(cacheLife).toHaveBeenCalledWith('products');
     expect(cacheTag).toHaveBeenCalledWith(
       'category-page-data',
+      'products',
+      'categories',
+      'products-merchant-123',
+      'categories-merchant-123'
+    );
+    expect(cacheTag).toHaveBeenCalledWith(
+      getCategoryPageDataCacheTag('merchant-123'),
       'products',
       'categories',
       'products-merchant-123',

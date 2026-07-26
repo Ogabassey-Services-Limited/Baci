@@ -1,0 +1,1 @@
+export const PDP_SEMANTIC_INVENTORY_LIMIT = 48;

@@ -1,4 +1,5 @@
 import { revalidateTag } from 'next/cache';
+import { getCategoryPageDataCacheTag } from '@/lib/category-page-cache-tags';
 import { logger } from '@/lib/logger';
 import { normalizeMerchantId } from '@/lib/normalize-merchant-id';
 import {
@@ -94,7 +95,12 @@ function revalidateProducts(
     );
   }
   results.push(revalidateProductTag('product-details', 'products'));
-  results.push(revalidateProductTag('category-page-data', 'storefront-page'));
+  results.push(
+    revalidateProductTag(
+      getCategoryPageDataCacheTag(normalizedMerchantId),
+      'storefront-page'
+    )
+  );
   results.push(
     revalidateProductTag(`product-index-${normalizedMerchantId}`, 'products')
   );
