@@ -155,7 +155,8 @@ describe('runDeferredOnboardingProvisioning', () => {
 
       // Assert
       expect(errorSpy).toHaveBeenCalledWith(
-        'mobile-onboarding deployment_fault',
+        'mobile-onboarding %s',
+        'deployment_fault',
         expect.stringContaining('domain_repair_exhausted')
       );
     });
@@ -230,7 +231,8 @@ describe('runDeferredOnboardingProvisioning', () => {
 
       // Assert
       expect(errorSpy).toHaveBeenCalledWith(
-        expect.stringContaining('mobile-onboarding'),
+        'mobile-onboarding %s',
+        'unexpected_error',
         expect.stringContaining('hero_image_assignment')
       );
     });
