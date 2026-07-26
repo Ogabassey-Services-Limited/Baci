@@ -221,25 +221,23 @@ describe('web cron worker', () => {
     assert.deepEqual(result, { status: 200, body: 'ok' });
   });
 
-  it('rejects the Petrock reconciliation endpoint because VPS runs it directly', () => {
-    assert.throws(
-      () =>
-        buildWebCronUrl({
-          baseUrl: 'https://ogabassey.com',
-          path: '/api/cron/petrock-reconcile',
-        }),
-      /Unsupported web cron path/
+  it('retains the Petrock reconciliation endpoint for safe deployment transitions', () => {
+    assert.equal(
+      buildWebCronUrl({
+        baseUrl: 'https://ogabassey.com',
+        path: '/api/cron/petrock-reconcile',
+      }).toString(),
+      'https://ogabassey.com/api/cron/petrock-reconcile'
     );
   });
 
-  it('rejects the quiz finalization endpoint because VPS runs it directly', () => {
-    assert.throws(
-      () =>
-        buildWebCronUrl({
-          baseUrl: 'https://ogabassey.com',
-          path: '/api/quiz/finalize',
-        }),
-      /Unsupported web cron path/
+  it('retains the quiz finalization endpoint for safe deployment transitions', () => {
+    assert.equal(
+      buildWebCronUrl({
+        baseUrl: 'https://ogabassey.com',
+        path: '/api/quiz/finalize',
+      }).toString(),
+      'https://ogabassey.com/api/quiz/finalize'
     );
   });
 

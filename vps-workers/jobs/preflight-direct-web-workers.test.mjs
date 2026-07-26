@@ -15,6 +15,7 @@ const commonEnv = {
   QUIZ_PHASE: '1a',
   QUIZ_PRODUCTION_APPROVED: 'false',
   SUPABASE_SERVICE_ROLE_KEY: 'service-role-key',
+  ZEPTOMAIL_TOKEN: 'zeptomail-token',
 };
 
 describe('direct worker environment preflight', () => {
@@ -43,6 +44,15 @@ describe('direct worker environment preflight', () => {
     });
 
     assert.deepEqual(problems, ['BACI_REPO_DIR is required']);
+  });
+
+  it('requires the notification credential used by Petrock reconciliation', () => {
+    const problems = getDirectWorkerPreflightProblems({
+      ...commonEnv,
+      ZEPTOMAIL_TOKEN: '',
+    });
+
+    assert.deepEqual(problems, ['ZEPTOMAIL_TOKEN is required']);
   });
 
   it('requires the full quiz production gate', () => {

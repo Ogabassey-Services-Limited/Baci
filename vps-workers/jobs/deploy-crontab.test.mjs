@@ -5,18 +5,25 @@ import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const workerRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
+const releaseHelper = readFileSync(
+  join(workerRoot, 'lib', 'prepare-worker-release.sh'),
+  'utf8'
+);
 
 describe('deploy crontab', () => {
   it('uses the resolved Node binary for systemd services', () => {
     const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
-    const nodeResolutionIndex = deployScript.indexOf('NODE_BIN=$(ssh');
+    const releasePreparationIndex = deployScript.indexOf(
+      'prepare_worker_release'
+    );
     const triggerServiceIndex = deployScript.indexOf(
       'Installing AI storefront trigger user service'
     );
 
-    assert.notEqual(nodeResolutionIndex, -1);
+    assert.match(releaseHelper, /NODE_BIN=\$\(ssh/);
+    assert.notEqual(releasePreparationIndex, -1);
     assert.notEqual(triggerServiceIndex, -1);
-    assert.ok(nodeResolutionIndex < triggerServiceIndex);
+    assert.ok(releasePreparationIndex < triggerServiceIndex);
     assert.doesNotMatch(deployScript, /ExecStart=\/usr\/bin\/node/);
     assert.match(
       deployScript,
@@ -131,7 +138,7 @@ describe('deploy crontab', () => {
     assert.ok(cronLine);
     assert.match(
       cronLine,
-      /^\* \*\s+\* \* \* flock -n \$REMOTE_DIR\/locks\/petrock-reconcile\.lock bash -lc 'export NODE_ENV=production && export BACI_WORKER_PROFILE=petrock-reconciliation && cd \$REMOTE_DIR && \$REMOTE_DIR\/bin\/process-petrock-reconciliation\.sh' >> \$REMOTE_DIR\/logs\/petrock-reconcile\.log 2>&1$/
+      /^\* \*\s+\* \* \* flock -n \$REMOTE_DIR\/locks\/petrock-reconcile\.lock bash -lc 'export NODE_ENV=production && export BACI_WORKER_PROFILE=petrock-reconciliation && cd \$REMOTE_DIR && timeout --signal=TERM --kill-after=30s 5m \$REMOTE_DIR\/bin\/process-petrock-reconciliation\.sh' >> \$REMOTE_DIR\/logs\/petrock-reconcile\.log 2>&1$/
     );
     assert.doesNotMatch(
       cronLine,
@@ -148,7 +155,7 @@ describe('deploy crontab', () => {
     assert.ok(cronLine);
     assert.match(
       cronLine,
-      /^\* \* \* \* \* flock -n \$REMOTE_DIR\/locks\/quiz-finalize\.lock bash -lc 'export NODE_ENV=production && export BACI_WORKER_PROFILE=quiz-finalization && cd \$REMOTE_DIR && \$REMOTE_DIR\/bin\/process-quiz-finalization\.sh' >> \$REMOTE_DIR\/logs\/quiz-finalize\.log 2>&1$/
+      /^\* \* \* \* \* flock -n \$REMOTE_DIR\/locks\/quiz-finalize\.lock bash -lc 'export NODE_ENV=production && export BACI_WORKER_PROFILE=quiz-finalization && cd \$REMOTE_DIR && timeout --signal=TERM --kill-after=30s 5m \$REMOTE_DIR\/bin\/process-quiz-finalization\.sh' >> \$REMOTE_DIR\/logs\/quiz-finalize\.log 2>&1$/
     );
     assert.doesNotMatch(cronLine, /run-web-cron|\/api\/quiz\/finalize/);
   });
@@ -157,8 +164,8 @@ describe('deploy crontab', () => {
     const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
     const preflightFailureBlock =
       /if ! ssh "\$VPS" "cd '\$STAGING_DIR' && \$NODE_BIN '\$STAGING_DIR\/jobs\/preflight-direct-web-workers\.mjs'"; then[\s\S]*?echo "Direct-worker environment preflight failed; live worker files and crontab were not changed\." >&2[\s\S]*?exit 1[\s\S]*?fi/;
-    const preflightMatch = deployScript.match(preflightFailureBlock);
-    const promotionIndex = deployScript.indexOf(
+    const preflightMatch = releaseHelper.match(preflightFailureBlock);
+    const promotionIndex = releaseHelper.indexOf(
       'Promoting validated worker files'
     );
     const crontabIndex = deployScript.indexOf(
@@ -169,63 +176,63 @@ describe('deploy crontab', () => {
     assert.notEqual(promotionIndex, -1);
     assert.notEqual(crontabIndex, -1);
     assert.ok(
-      deployScript.indexOf(preflightMatch[0]) < promotionIndex,
+      releaseHelper.indexOf(preflightMatch[0]) < promotionIndex,
       'the fail-closed preflight must run before live promotion'
     );
-    assert.ok(promotionIndex < crontabIndex);
+    assert.ok(deployScript.indexOf('prepare_worker_release') < crontabIndex);
   });
 
   it('requires the remote worker checkout to match the deploying commit', () => {
     const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
 
     assert.match(deployScript, /APP_SHA=\$\(git rev-parse HEAD\)/);
-    assert.match(deployScript, /git -C "\$repo_dir" rev-parse --verify HEAD/);
+    assert.match(releaseHelper, /git -C "\$repo_dir" rev-parse --verify HEAD/);
     assert.match(
-      deployScript,
+      releaseHelper,
       /git -C "\$repo_dir" status --porcelain=v1 --untracked-files=all/
     );
     assert.match(
-      deployScript,
+      releaseHelper,
       /Direct-worker checkout is dirty\.[\s\S]*?exit 1/
     );
     assert.match(
-      deployScript,
+      releaseHelper,
       /if \[ "\$actual_sha" != "\$expected_sha" \]; then[\s\S]*?echo "Direct-worker checkout does not match the deploying commit\." >&2[\s\S]*?exit 1[\s\S]*?fi/
     );
     assert.match(
-      deployScript,
+      releaseHelper,
       /apps\/web\/src\/scripts\/process-petrock-reconciliation\.ts/
     );
     assert.match(
-      deployScript,
+      releaseHelper,
       /apps\/web\/src\/scripts\/process-quiz-finalization\.ts/
     );
     assert.match(
-      deployScript,
+      releaseHelper,
       /pnpm --filter @baci\/web exec tsx --version >\/dev\/null/
     );
     assert.match(
-      deployScript,
+      releaseHelper,
       /Direct-worker checkout is missing \$script_path\.[\s\S]*?exit 1/
     );
     assert.match(
-      deployScript,
+      releaseHelper,
       /Direct-worker checkout is missing the reviewed web toolchain\.[\s\S]*?exit 1/
     );
     assert.match(
-      deployScript,
+      releaseHelper,
       /"\$remote_dir\/bin\/process-petrock-reconciliation\.sh"/
     );
     assert.match(
-      deployScript,
+      releaseHelper,
       /"\$remote_dir\/bin\/process-quiz-finalization\.sh"/
     );
     assert.match(
-      deployScript,
+      releaseHelper,
       /if \[ ! -x "\$wrapper_path" \]; then[\s\S]*?Missing or non-executable direct-worker wrapper: \$wrapper_path[\s\S]*?exit 1/
     );
     assert.ok(
-      deployScript.indexOf('Verifying direct-worker application checkout') <
+      deployScript.indexOf('prepare_worker_release') <
         deployScript.indexOf('Installing crontab entries on VPS')
     );
   });
@@ -355,5 +362,14 @@ describe('deploy crontab', () => {
       deployScript,
       /^\* \* \* \* \* flock -n \$REMOTE_DIR\/locks\/process-event-deliveries\.lock bash -lc 'export NODE_ENV=production && export BACI_WORKER_PROFILE=event-pipeline && cd \$REMOTE_DIR && \$REMOTE_DIR\/bin\/process-event-deliveries\.sh --once' >> \$REMOTE_DIR\/logs\/process-event-deliveries\.log 2>&1$/m
     );
+  });
+
+  it('keeps the deployment entrypoint within the repository size limit', () => {
+    const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
+    const lineCount = deployScript.endsWith('\n')
+      ? deployScript.split('\n').length - 1
+      : deployScript.split('\n').length;
+
+    assert.ok(lineCount <= 300);
   });
 });

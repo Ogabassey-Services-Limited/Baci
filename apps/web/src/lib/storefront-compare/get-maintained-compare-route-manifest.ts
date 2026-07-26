@@ -4,6 +4,7 @@ import {
   isActiveCompareProduct,
 } from '@/lib/storefront-link-modules/compare-link-graph';
 import { buildCategoryCompareGraphSlugSet } from '@/lib/storefront-link-modules/compare-maintained-slug';
+import { PDP_SEMANTIC_INVENTORY_LIMIT } from '@/lib/storefront-product/pdp-semantic-inventory-limit';
 import { parseCompareSlug } from './compare-slugs';
 
 const ANCHORED_COMPARE_ROUTE_LIMIT = 8;
@@ -18,11 +19,11 @@ export function getMaintainedCompareRouteManifest(
     curatedSlugs: ReadonlySet<string>;
   }
 ): ReadonlySet<string> {
+  const activeProducts = input.products.filter((product) =>
+    isActiveCompareProduct(product, input.productsAreKnownActive ?? false)
+  );
   const activeProductSlugs = new Set(
-    input.products
-      .filter((product) =>
-        isActiveCompareProduct(product, input.productsAreKnownActive ?? false)
-      )
+    activeProducts
       .map((product) => product.slug?.trim())
       .filter((slug): slug is string => Boolean(slug))
   );
@@ -44,12 +45,28 @@ export function getMaintainedCompareRouteManifest(
     slugs.add(slug);
   }
 
-  for (const anchorProductSlug of activeProductSlugs) {
+  for (const anchorProduct of activeProducts) {
+    const anchorProductSlug = anchorProduct.slug?.trim();
+    if (!anchorProductSlug) {
+      continue;
+    }
+
+    // Match the exact newest-first inventory window the PDP enrichment RPC
+    // returns: the current product plus the newest 48 other active products.
+    const pdpProducts = [
+      anchorProduct,
+      ...activeProducts
+        .filter((product) => product.slug?.trim() !== anchorProductSlug)
+        .slice(0, PDP_SEMANTIC_INVENTORY_LIMIT),
+    ];
+
     for (const entry of buildCompareLinkGraph({
       ...input,
       anchorProductSlug,
       currentComparisonSlug: undefined,
       maxLinks: ANCHORED_COMPARE_ROUTE_LIMIT,
+      products: pdpProducts,
+      productsAreKnownActive: true,
     })) {
       slugs.add(entry.comparisonSlug);
     }

@@ -24,6 +24,7 @@ const PETROCK_DIRECT_WORKER_REQUIRED_ENV = [
   'NEXT_PUBLIC_SUPABASE_URL',
   'PETROCK_API_TOKEN',
   'SUPABASE_SERVICE_ROLE_KEY',
+  'ZEPTOMAIL_TOKEN',
 ] as const;
 
 function hasPetrockDirectWorkerEnv(env: NodeJS.ProcessEnv) {

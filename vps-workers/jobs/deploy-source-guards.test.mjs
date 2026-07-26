@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url';
 const workerRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const repoRoot = join(workerRoot, '..');
 const deployScript = join(workerRoot, 'deploy.sh');
+const releaseHelper = join(workerRoot, 'lib', 'prepare-worker-release.sh');
 
 function writeExecutable(path, source) {
   writeFileSync(path, source);
@@ -61,7 +62,7 @@ esac
       join(binDirectory, 'rsync'),
       `#!/usr/bin/env bash
 touch "\${TEST_RSYNC_MARKER}"
-if [ "\${TEST_SCENARIO:-}" = "remote-preflight-failure" ]; then
+if [ "\${TEST_SCENARIO:-}" = "remote-preflight-failure" ] || [ "\${TEST_SCENARIO:-}" = "missing-remote-env" ]; then
   exit 0
 fi
 exit 73
@@ -84,6 +85,16 @@ if [ "\${TEST_SCENARIO:-}" = "remote-preflight-failure" ]; then
     *"rsync -a --delete"*)
       touch "\${TEST_PROMOTION_MARKER}"
       exit 0
+      ;;
+    *)
+      exit 0
+      ;;
+  esac
+fi
+if [ "\${TEST_SCENARIO:-}" = "missing-remote-env" ]; then
+  case "$*" in
+    *"test -f"*)
+      exit 75
       ;;
     *)
       exit 0
@@ -151,8 +162,17 @@ describe('deploy source guards', () => {
     assert.equal(outcome.promotionCalled, false);
   });
 
+  it('fails with an actionable message when the remote environment is missing', () => {
+    const outcome = runDeployGuardScenario('missing-remote-env');
+
+    assert.equal(outcome.result.status, 1);
+    assert.match(outcome.result.stderr, /Missing .*\.env; create it before/);
+    assert.equal(outcome.rsyncCalled, true);
+    assert.equal(outcome.promotionCalled, false);
+  });
+
   it('serializes live promotion and runtime-directory creation under one lock', () => {
-    const source = readFileSync(deployScript, 'utf8');
+    const source = readFileSync(releaseHelper, 'utf8');
     const promotionStart = source.indexOf(
       'flock -x /tmp/baci-workers-deploy.lock'
     );

@@ -40,6 +40,7 @@ describe('process-petrock-reconciliation', () => {
           NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
           PETROCK_API_TOKEN: 'petrock-token',
           SUPABASE_SERVICE_ROLE_KEY: 'service-role-key',
+          ZEPTOMAIL_TOKEN: 'zeptomail-token',
         },
         logger,
         runJob,
@@ -85,6 +86,31 @@ describe('process-petrock-reconciliation', () => {
     );
   });
 
+  it('fails closed when the Petrock notification token is missing', async () => {
+    const runJob = vi.fn();
+    const logger = { error: vi.fn(), info: vi.fn() };
+
+    await expect(
+      runPetrockReconciliationCli({
+        env: {
+          BACI_WEB_BASE_URL: 'https://usebaci.com',
+          IMEI_IDENTIFIER_ENCRYPTION_KEY: 'encryption-key',
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon-key',
+          NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
+          PETROCK_API_TOKEN: 'petrock-token',
+          SUPABASE_SERVICE_ROLE_KEY: 'service-role-key',
+        },
+        logger,
+        runJob,
+      })
+    ).resolves.toBe(1);
+
+    expect(runJob).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledWith(
+      '[petrock-reconciliation] preflight failed'
+    );
+  });
+
   it('sanitizes errors emitted by nested remediation helpers', async () => {
     const consoleError = vi
       .spyOn(console, 'error')
@@ -108,6 +134,7 @@ describe('process-petrock-reconciliation', () => {
         NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
         PETROCK_API_TOKEN: 'petrock-token',
         SUPABASE_SERVICE_ROLE_KEY: 'service-role-key',
+        ZEPTOMAIL_TOKEN: 'zeptomail-token',
       },
       logger,
       runJob,
