@@ -48,7 +48,7 @@ overrides:
   ajv@<6.14.0: 6.14.0
   glob@13: 13.0.6
   minimatch: 10.2.3
-  minimatch>brace-expansion: 5.0.7
+  minimatch>brace-expansion: 5.0.8
   ws@>=5 <5.2.5: 5.2.5
   ws@>=6 <6.2.4: 6.2.4
   ws@>=7 <7.5.11: 7.5.11
@@ -60,7 +60,7 @@ overrides:
   fast-uri: 3.1.4
   std-env: 4.1.0
   tinyrainbow: 3.1.0
-  postcss: 8.5.15
+  postcss: 8.5.18
   uuid@<7: 11.1.1
   uuid@>=7 <11.1.1: 11.1.1
   uuid@>=11 <11.1.1: 11.1.1
@@ -849,7 +849,7 @@ importers:
         version: 1.9.1
       '@posthog/nextjs-config':
         specifier: ^1.9.68
-        version: 1.9.68(next@16.2.11(patch_hash=a260b2d44237a5cdc4e61a090d1905d242c70cc5960455501317cee02e468617)(@babel/core@7.29.6)(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(webpack@5.107.2(esbuild@0.28.1)(postcss@8.5.15))
+        version: 1.9.68(next@16.2.11(patch_hash=a260b2d44237a5cdc4e61a090d1905d242c70cc5960455501317cee02e468617)(@babel/core@7.29.6)(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(webpack@5.107.2(esbuild@0.28.1)(postcss@8.5.18))
       '@puckeditor/core':
         specifier: 0.21.2
         version: 0.21.2(@floating-ui/dom@1.7.6)(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(immer@11.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(use-sync-external-store@1.6.0(react@19.2.3))
@@ -1242,8 +1242,8 @@ importers:
         specifier: ^2.1.9
         version: 2.1.9
       postcss:
-        specifier: 8.5.15
-        version: 8.5.15
+        specifier: 8.5.18
+        version: 8.5.18
       puppeteer:
         specifier: ^25.1.0
         version: 25.1.0
@@ -6611,9 +6611,9 @@ packages:
     resolution: {integrity: sha512-apC2+fspHGI3mMKj+dGevkGo/tCqVB8jMb6i+OX+E29p0Iposz07fABkRIfVUPNd5A5VbuOz1bZbnmkKLYF+wQ==}
     engines: {node: '>= 5.10.0'}
 
-  brace-expansion@5.0.7:
-    resolution: {integrity: sha512-7oFy703dxfY3/NLxC1fh2SUCQ0H9rmAY+5EpDVfXjUTTs+HEwR2nYaqLv+GWcTsumwxPfiz6CzCNkwXwBUwqCA==}
-    engines: {node: 18 || 20 || >=22}
+  brace-expansion@5.0.8:
+    resolution: {integrity: sha512-JZyDyq3D4AUifKTPOB7DELf6XsB3WdPuNxCtob1vFXPsSXhdAiHBWJ/tJ8HAc9aH84BK+5JFZLNkJKx3G9kzQg==}
+    engines: {node: 20 || >=22}
 
   braces@3.0.3:
     resolution: {integrity: sha512-yQbXgO/OSZVD2IsiLlro+7Hf6Q18EJrKSEsdoMzKePKXct3gvD8oLcOQdIzGupr5Fj+EDe8gO/lxc1BzfMpxvA==}
@@ -10838,8 +10838,8 @@ packages:
   postcss-value-parser@4.2.0:
     resolution: {integrity: sha512-1NNCs6uurfkVbeXG4S8JFT9t19m45ICnif8zWLd5oPSZ50QnwMfK+H3jv408d4jw/7Bttv5axS5IiHoLaVNHeQ==}
 
-  postcss@8.5.15:
-    resolution: {integrity: sha512-FfR8sjd4em2T6fb3I2MwAJU7HWVMr9zba+enmQeeWFfCbm+UOC/0X4DS8XtpUTMwWMGbjKYP7xjfNekzyGmB3A==}
+  postcss@8.5.18:
+    resolution: {integrity: sha512-xdB1oSLHbz1vRWgCDalrCqEFTWzFlhqFC5tIHLMOSUIjhm3XXQ1qrFy8S/ESr1JYRRXqM3c1QFiMZUJdUTqyMQ==}
     engines: {node: ^10 || ^12 || >=14}
 
   posthog-js@1.396.6:
@@ -14946,7 +14946,7 @@ snapshots:
       jsc-safe-url: 0.2.4
       lightningcss: 1.32.0
       picomatch: 4.0.4
-      postcss: 8.5.15
+      postcss: 8.5.18
       resolve-from: 5.0.0
     optionalDependencies:
       expo: 57.0.2(94e727008e281e0657af508aa8fb3f84)
@@ -14979,7 +14979,7 @@ snapshots:
       jsc-safe-url: 0.2.4
       lightningcss: 1.32.0
       picomatch: 4.0.4
-      postcss: 8.5.15
+      postcss: 8.5.18
       resolve-from: 5.0.0
     optionalDependencies:
       expo: 57.0.7(8cf80278306ad77d88c71062a7bccab8)
@@ -16581,11 +16581,11 @@ snapshots:
     dependencies:
       '@posthog/types': 1.392.1
 
-  '@posthog/nextjs-config@1.9.68(next@16.2.11(patch_hash=a260b2d44237a5cdc4e61a090d1905d242c70cc5960455501317cee02e468617)(@babel/core@7.29.6)(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(webpack@5.107.2(esbuild@0.28.1)(postcss@8.5.15))':
+  '@posthog/nextjs-config@1.9.68(next@16.2.11(patch_hash=a260b2d44237a5cdc4e61a090d1905d242c70cc5960455501317cee02e468617)(@babel/core@7.29.6)(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(webpack@5.107.2(esbuild@0.28.1)(postcss@8.5.18))':
     dependencies:
       '@posthog/cli': 0.7.33
       '@posthog/plugin-utils': 1.1.2
-      '@posthog/webpack-plugin': 1.5.24(webpack@5.107.2(esbuild@0.28.1)(postcss@8.5.15))
+      '@posthog/webpack-plugin': 1.5.24(webpack@5.107.2(esbuild@0.28.1)(postcss@8.5.18))
       next: 16.2.11(patch_hash=a260b2d44237a5cdc4e61a090d1905d242c70cc5960455501317cee02e468617)(@babel/core@7.29.6)(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       semver: 7.8.4
     transitivePeerDependencies:
@@ -16604,12 +16604,12 @@ snapshots:
 
   '@posthog/types@1.392.1': {}
 
-  '@posthog/webpack-plugin@1.5.24(webpack@5.107.2(esbuild@0.28.1)(postcss@8.5.15))':
+  '@posthog/webpack-plugin@1.5.24(webpack@5.107.2(esbuild@0.28.1)(postcss@8.5.18))':
     dependencies:
       '@posthog/cli': 0.7.33
       '@posthog/core': 1.37.3
       '@posthog/plugin-utils': 1.1.2
-      webpack: 5.107.2(esbuild@0.28.1)(postcss@8.5.15)
+      webpack: 5.107.2(esbuild@0.28.1)(postcss@8.5.18)
 
   '@preact/signals-core@1.14.2': {}
 
@@ -18143,7 +18143,7 @@ snapshots:
       '@alloc/quick-lru': 5.2.0
       '@tailwindcss/node': 4.3.1
       '@tailwindcss/oxide': 4.3.1
-      postcss: 8.5.15
+      postcss: 8.5.18
       tailwindcss: 4.3.1
 
   '@tailwindcss/typography@0.5.20(tailwindcss@4.3.1)':
@@ -19638,7 +19638,7 @@ snapshots:
     dependencies:
       big-integer: 1.6.52
 
-  brace-expansion@5.0.7:
+  brace-expansion@5.0.8:
     dependencies:
       balanced-match: 4.0.4
 
@@ -24673,7 +24673,7 @@ snapshots:
 
   minimatch@10.2.3:
     dependencies:
-      brace-expansion: 5.0.7
+      brace-expansion: 5.0.8
 
   minimist@1.2.8: {}
 
@@ -24715,8 +24715,7 @@ snapshots:
 
   nanoid@3.3.12: {}
 
-  nanoid@3.3.16:
-    optional: true
+  nanoid@3.3.16: {}
 
   nanoid@5.1.11: {}
 
@@ -24760,7 +24759,7 @@ snapshots:
       '@swc/helpers': 0.5.15
       baseline-browser-mapping: 2.11.0
       caniuse-lite: 1.0.30001806
-      postcss: 8.5.15
+      postcss: 8.5.18
       react: 19.2.3
       react-dom: 19.2.3(react@19.2.3)
       styled-jsx: 5.1.6(@babel/core@7.29.6)(react@19.2.3)
@@ -24787,7 +24786,7 @@ snapshots:
       '@swc/helpers': 0.5.15
       baseline-browser-mapping: 2.11.0
       caniuse-lite: 1.0.30001806
-      postcss: 8.5.15
+      postcss: 8.5.18
       react: 19.2.7
       react-dom: 19.2.7(react@19.2.7)
       styled-jsx: 5.1.6(react@19.2.7)
@@ -25265,9 +25264,9 @@ snapshots:
 
   postcss-value-parser@4.2.0: {}
 
-  postcss@8.5.15:
+  postcss@8.5.18:
     dependencies:
-      nanoid: 3.3.12
+      nanoid: 3.3.16
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
@@ -26494,7 +26493,7 @@ snapshots:
       is-plain-object: 5.0.0
       launder: 1.7.1
       parse-srcset: 1.0.2
-      postcss: 8.5.15
+      postcss: 8.5.18
 
   sax@1.6.0: {}
 
@@ -27058,16 +27057,16 @@ snapshots:
       ansi-escapes: 4.3.2
       supports-hyperlinks: 2.3.0
 
-  terser-webpack-plugin@5.6.1(esbuild@0.28.1)(postcss@8.5.15)(webpack@5.107.2(esbuild@0.28.1)(postcss@8.5.15)):
+  terser-webpack-plugin@5.6.1(esbuild@0.28.1)(postcss@8.5.18)(webpack@5.107.2(esbuild@0.28.1)(postcss@8.5.18)):
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
       jest-worker: 27.5.1
       schema-utils: 4.3.3
       terser: 5.49.0
-      webpack: 5.107.2(esbuild@0.28.1)(postcss@8.5.15)
+      webpack: 5.107.2(esbuild@0.28.1)(postcss@8.5.18)
     optionalDependencies:
       esbuild: 0.28.1
-      postcss: 8.5.15
+      postcss: 8.5.18
 
   terser@5.48.0:
     dependencies:
@@ -27566,7 +27565,7 @@ snapshots:
     dependencies:
       lightningcss: 1.32.0
       picomatch: 4.0.4
-      postcss: 8.5.15
+      postcss: 8.5.18
       rolldown: 1.0.3
       tinyglobby: 0.2.17
     optionalDependencies:
@@ -27582,7 +27581,7 @@ snapshots:
     dependencies:
       lightningcss: 1.32.0
       picomatch: 4.0.4
-      postcss: 8.5.15
+      postcss: 8.5.18
       rolldown: 1.0.3
       tinyglobby: 0.2.17
     optionalDependencies:
@@ -27704,7 +27703,7 @@ snapshots:
 
   webpack-sources@3.5.1: {}
 
-  webpack@5.107.2(esbuild@0.28.1)(postcss@8.5.15):
+  webpack@5.107.2(esbuild@0.28.1)(postcss@8.5.18):
     dependencies:
       '@types/estree': 1.0.9
       '@types/json-schema': 7.0.15
@@ -27726,7 +27725,7 @@ snapshots:
       neo-async: 2.6.2
       schema-utils: 4.3.3
       tapable: 2.3.3
-      terser-webpack-plugin: 5.6.1(esbuild@0.28.1)(postcss@8.5.15)(webpack@5.107.2(esbuild@0.28.1)(postcss@8.5.15))
+      terser-webpack-plugin: 5.6.1(esbuild@0.28.1)(postcss@8.5.18)(webpack@5.107.2(esbuild@0.28.1)(postcss@8.5.18))
       watchpack: 2.5.2
       webpack-sources: 3.5.1
     transitivePeerDependencies:

@@ -8,18 +8,30 @@ if [ $# -eq 0 ]; then
   exit 1
 fi
 
-MAX_ATTEMPTS=${MAX_ATTEMPTS:-3}
+# Two attempts fit the deploy step's timeout-minutes budget in deploy.yml: one
+# capped deploy (~20m) that recovers by promoting its created deployment (or, if
+# unpromotable, falls through) plus one fallback deploy (~20m). A third attempt
+# could not finish before the step deadline, so it would only create another
+# unpromoted deployment -- don't start one.
+MAX_ATTEMPTS=${MAX_ATTEMPTS:-2}
 BACKOFF_SECONDS=${BACKOFF_SECONDS:-15}
 # Per-attempt wall-clock cap for the deploy command. Vercel CLI 57's
 # `vercel deploy --prebuilt --prod` has been observed to create the deployment
 # (READY + URL printed) and then hang without exiting, tying up the self-hosted
 # runner for the whole job and holding the deploy concurrency lock. Cap each
-# attempt so a hung deploy is terminated; the retry then hits Vercel's duplicate
-# custom-deployment-id error and the existing recovery path promotes the
-# already-created deployment. Set to 0 to disable the cap.
+# attempt so a hung deploy is terminated and its created deployment promoted.
+# Set to 0 to disable the cap.
 DEPLOY_ATTEMPT_TIMEOUT_SECONDS=${DEPLOY_ATTEMPT_TIMEOUT_SECONDS:-1200}
 # Cap for the promote command so a hung `vercel promote` cannot run forever.
-PROMOTE_TIMEOUT_SECONDS=${PROMOTE_TIMEOUT_SECONDS:-300}
+PROMOTE_TIMEOUT_SECONDS=${PROMOTE_TIMEOUT_SECONDS:-120}
+# How many times to (re)try promoting a captured deployment before giving up on
+# it. Retrying the SAME target absorbs a transient promote failure (network blip
+# or the promote timeout) without starting a fresh deploy (which would create a
+# duplicate deployment). Kept small so the recovery budget -- one capped deploy
+# (DEPLOY_ATTEMPT_TIMEOUT_SECONDS) plus these promote retries -- still leaves a
+# fallback deploy attempt room to finish inside the deploy step's timeout-minutes
+# in deploy.yml (~20m + ~5m + ~20m < 55m).
+PROMOTE_ATTEMPTS=${PROMOTE_ATTEMPTS:-2}
 deploy_command=("$@")
 last_deployment_target=""
 
@@ -88,6 +100,24 @@ run_promote_command() {
   fi
 }
 
+# Promote last_deployment_target, retrying a transient promote failure before
+# giving up. Retrying the SAME target matters: giving up here would start
+# another deploy and create a brand-new deployment. Returns 0 once promoted,
+# 1 if every attempt failed (the target is genuinely unpromotable).
+promote_with_retries() {
+  local promote_attempt
+  for promote_attempt in $(seq 1 "$PROMOTE_ATTEMPTS"); do
+    if run_promote_command; then
+      return 0
+    fi
+    if [ "$promote_attempt" -lt "$PROMOTE_ATTEMPTS" ]; then
+      echo "Promote of ${last_deployment_target} failed (promote attempt ${promote_attempt}/${PROMOTE_ATTEMPTS}); retrying in ${BACKOFF_SECONDS}s..." >&2
+      sleep "$BACKOFF_SECONDS"
+    fi
+  done
+  return 1
+}
+
 promote_existing_deployment() {
   if [ -z "$last_deployment_target" ]; then
     echo "Duplicate deployment ID reported, but no deployment URL or ID was observed; refusing to treat retry as success." >&2
@@ -95,7 +125,7 @@ promote_existing_deployment() {
   fi
 
   echo "Deploy already exists for this custom deployment ID; promoting existing deployment ${last_deployment_target}."
-  if ! run_promote_command; then
+  if ! promote_with_retries; then
     echo "Failed to promote existing deployment ${last_deployment_target}; refusing to treat retry as success." >&2
     return 1
   fi
@@ -111,12 +141,30 @@ for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
   status=${PIPESTATUS[0]}
   set -e
 
-  # 124 is `timeout`'s exit code when it had to kill the command. The deploy may
-  # have already created the deployment before hanging, so fall through to the
-  # normal failure handling: the retry hits the duplicate custom-deployment-id
-  # error and promote_existing_deployment recovers the created deployment.
-  if [ "$status" -eq 124 ]; then
-    echo "Deploy attempt $attempt exceeded ${DEPLOY_ATTEMPT_TIMEOUT_SECONDS}s and was terminated; retrying to recover the created deployment." >&2
+  # `timeout` exits 124 (killed with TERM) or 137 (128+9, killed with KILL -- the
+  # `-k` grace escalating against a TERM-resistant hang, or an unrelated OOM /
+  # external kill). CLI 57 creates the deployment (READY, URL printed) then hangs,
+  # and a `vercel deploy --prebuilt` RETRY just makes a brand-new deployment (no
+  # duplicate-id error), so recover by promoting the deployment this attempt
+  # created. promote_with_retries absorbs a transient promote failure on the SAME
+  # target; only if promotion still fails (an unrelated kill left no promotable
+  # deployment) do we fall through to a fresh deploy so those failures keep their
+  # remaining attempts (status alone cannot tell a `-k` escalation from a child
+  # SIGKILL).
+  if [ "$status" -eq 124 ] || [ "$status" -eq 137 ]; then
+    echo "Deploy attempt $attempt was killed (status $status: timed out or signalled)." >&2
+    timed_out_target="$(extract_deployment_target "$attempt_log" || true)"
+    if [ -n "$timed_out_target" ]; then
+      last_deployment_target="$timed_out_target"
+      echo "Promoting the deployment it created: ${last_deployment_target}..."
+      if promote_with_retries; then
+        echo "Recovered killed deploy by promoting ${last_deployment_target} to production."
+        rm -f "$attempt_log"
+        exit 0
+      fi
+      echo "Could not promote ${last_deployment_target} after ${PROMOTE_ATTEMPTS} attempts; treating as a normal failure." >&2
+    fi
+    # No promotable deployment -- fall through to the duplicate-id check / retry.
   fi
 
   if [ "$status" -eq 0 ]; then
@@ -137,7 +185,7 @@ for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
       exit 1
     fi
     echo "Promoting deployment ${last_deployment_target} to production..."
-    if ! run_promote_command; then
+    if ! promote_with_retries; then
       echo "Deploy succeeded but promote failed for ${last_deployment_target}." >&2
       exit 1
     fi
