@@ -11,7 +11,7 @@ const migration = readFileSync(
 );
 
 describe('category hierarchy lifecycle migration', () => {
-  it('locks relevant parents and rejects invalid or cyclic hierarchy writes', () => {
+  it('serializes hierarchy reads without target-parent lock inversion', () => {
     const hierarchyStart = migration.indexOf(
       'CREATE OR REPLACE FUNCTION private.enforce_category_hierarchy_before_write()'
     );
@@ -23,7 +23,20 @@ describe('category hierarchy lifecycle migration', () => {
     expect(hierarchyEnd).toBeGreaterThan(hierarchyStart);
     const hierarchyFunction = migration.slice(hierarchyStart, hierarchyEnd);
 
-    expect(hierarchyFunction).toContain('FOR UPDATE');
+    const parentLookupStart = hierarchyFunction.indexOf(
+      'FROM public.categories AS parent'
+    );
+    const parentLookupEnd = hierarchyFunction.indexOf(
+      'IF NOT FOUND',
+      parentLookupStart
+    );
+    expect(parentLookupStart).toBeGreaterThanOrEqual(0);
+    expect(parentLookupEnd).toBeGreaterThan(parentLookupStart);
+    const parentLookup = hierarchyFunction.slice(
+      parentLookupStart,
+      parentLookupEnd
+    );
+    expect(parentLookup).not.toMatch(/FOR\s+(?:NO\s+KEY\s+)?UPDATE/);
     expect(migration).not.toContain('LOCK TABLE');
     expect(migration).not.toContain('FOR EACH STATEMENT');
     expect(hierarchyFunction).toContain('pg_advisory_xact_lock');
@@ -55,7 +68,7 @@ describe('category hierarchy lifecycle migration', () => {
       /NEW\.slug IS DISTINCT FROM OLD\.slug[\s\S]*SELECT id[\s\S]*slug = NEW\.slug[\s\S]*is_active IS DISTINCT FROM TRUE/
     );
     expect(migration).toMatch(
-      /IF \(OLD\.is_active IS TRUE AND NEW\.is_active IS DISTINCT FROM TRUE\)[\s\S]*OR \(OLD\.is_active IS NULL AND NEW\.is_active IS FALSE\)[\s\S]*UPDATE public\.categories[\s\S]*parent_id = NULL/
+      /IF NEW\.is_active IS FALSE THEN[\s\S]*UPDATE public\.categories[\s\S]*SET[\s\S]*parent_id = NULL[\s\S]*WHERE merchant_id = NEW\.merchant_id[\s\S]*AND parent_id = NEW\.id/
     );
     expect(migration).toMatch(
       /UPDATE public\.discount_codes[\s\S]*category_ids = COALESCE\(category_ids[\s\S]*- NEW\.id::text[\s\S]*is_active = CASE[\s\S]*THEN false/

@@ -28,7 +28,10 @@ BEGIN
      )
   THEN
     -- A transaction-scoped merchant key prevents two disjoint ancestor walks
-    -- from both accepting writes that form one indirect cycle together.
+    -- from both accepting writes that form one indirect cycle together. Do not
+    -- lock the parent tuple here: PostgreSQL already locked the target before
+    -- this row trigger, so cross-reparentings would otherwise invert their
+    -- target/parent locks around this advisory lock and deadlock.
     PERFORM pg_catalog.pg_advisory_xact_lock(
       pg_catalog.hashtextextended(NEW.merchant_id::text, 0)
     );
@@ -37,8 +40,7 @@ BEGIN
     FROM public.categories AS parent
     WHERE parent.id = NEW.parent_id
       AND parent.merchant_id = NEW.merchant_id
-      AND parent.is_active IS TRUE
-    FOR UPDATE;
+      AND parent.is_active IS TRUE;
 
     IF NOT FOUND THEN
       RAISE EXCEPTION USING
@@ -237,9 +239,7 @@ BEGIN
   -- Promotion is part of the same statement transaction as retirement. Any
   -- failure rolls the parent update back instead of leaving active children
   -- hidden beneath an inactive parent.
-  IF (OLD.is_active IS TRUE AND NEW.is_active IS DISTINCT FROM TRUE)
-     OR (OLD.is_active IS NULL AND NEW.is_active IS FALSE)
-  THEN
+  IF NEW.is_active IS FALSE THEN
     UPDATE public.categories
     SET
       parent_id = NULL,
