@@ -62,6 +62,10 @@ ruleset_body() {
   /usr/bin/plutil -extract ruleset.tagIncludes.3 raw -o - "$policy" >/dev/null 2>&1 && refuse
   [ "$excludes" = '[]' ] && [ "$bypasses" = '[]' ] && [ "$(json_get "$policy" ruleset.rules.0)" = update ] && [ "$(json_get "$policy" ruleset.rules.1)" = deletion ] || refuse
   /usr/bin/plutil -extract ruleset.rules.2 raw -o - "$policy" >/dev/null 2>&1 && refuse
+  /usr/bin/printf '{"name":"%s","target":"%s","enforcement":"%s","bypass_actors":%s,"conditions":{"ref_name":{"include":%s,"exclude":%s}},"rules":[{"type":"update"},{"type":"deletion"}]}' "$name" "$target" "$enforcement" "$bypasses" "$includes" "$excludes"; }
+ruleset_readback_body() {
+  response=$1; name=$(json_get "$response" name); target=$(json_get "$response" target); enforcement=$(json_get "$response" enforcement); includes=$(json_array "$response" conditions.ref_name.include); excludes=$(json_array "$response" conditions.ref_name.exclude); bypasses=$(json_array "$response" bypass_actors)
+  [ "$(json_get "$response" rules.0.type)" = update ] && [ "$(json_get "$response" rules.1.type)" = deletion ] || refuse; /usr/bin/plutil -extract rules.2 raw -o - "$response" >/dev/null 2>&1 && refuse
   /usr/bin/printf '{"name":"%s","target":"%s","enforcement":"%s","bypass_actors":%s,"conditions":{"ref_name":{"include":%s,"exclude":%s}},"rules":[{"type":"update"},{"type":"deletion"}]}' "$name" "$target" "$enforcement" "$bypasses" "$includes" "$excludes"
 }
 probe_sha() { sha=$(json_get "$policy" authority.implementationBaseSha); is_sha1 "$sha" || refuse; /usr/bin/printf '%s' "$sha"; }
@@ -109,8 +113,7 @@ create_probe_ref() {
   /bin/chmod 0400 "$ref_response"; verify_probe_receipt; [ "$(json_get "$ref_response" object.sha)" = "$object" ] || refuse; /bin/cat "$ref_response"
 }
 ruleset_active() {
-  verify_probe_binding; marker="$root/ruleset-activated.json"; assert_child "$root" "$marker"; [ "$(file_mode "$marker")" = 400 ] || refuse
-  id=$(json_get "$marker" id); case $id in (*[!0-9]*|'') refuse;; esac; [ "$(json_get "$marker" requestSha256)" = "$(sha256 "$root/ruleset-request.json")" ] || refuse
+  verify_probe_binding; marker="$root/ruleset-activated.json"; assert_child "$root" "$marker"; [ "$(file_mode "$marker")" = 400 ] || refuse; id=$(json_get "$marker" id); case $id in (*[!0-9]*|'') refuse;; esac; [ "$(json_get "$marker" requestSha256)" = "$(sha256 "$root/ruleset-request.json")" ] || refuse
 }
 expect_refusal() { stem=$1 docs=$2; shift 2; wire="$stem.wire"; body="$stem.body.json"; error="$stem.stderr"; for file in "$wire" "$body" "$error"; do [ ! -e "$file" ] && [ ! -L "$file" ] || refuse; done
   if "$@" >"$wire" 2>"$error"; then refuse; else result=$?; fi; [ "$result" -eq 1 ] || refuse; /bin/chmod 0400 "$wire" "$error"; assert_child "$root" "$wire"; assert_child "$root" "$error"
@@ -264,7 +267,10 @@ exec_task7() {
       [ ! -e "$response" ] && [ ! -L "$response" ] || refuse
       if [ -n "$id" ]; then "$gh" api --method PATCH -H "X-GitHub-Api-Version: $API_VERSION" "/repos/$REPOSITORY/rulesets/$id" --input "$root/ruleset-request.json" >"$response" || refuse; else "$gh" api --method POST -H "X-GitHub-Api-Version: $API_VERSION" "/repos/$REPOSITORY/rulesets" --input "$root/ruleset-request.json" >"$response" || refuse; fi
       /bin/chmod 0400 "$response"; assert_child "$root" "$response"; actual=$(json_get "$response" id); case $actual in (*[!0-9]*|'') refuse;; esac; [ -z "$id" ] || [ "$actual" = "$id" ] || refuse
-      write_atomic "$root/ruleset-activated.json" "{\"id\":$actual,\"requestSha256\":\"$(sha256 "$root/ruleset-request.json")\"}" 0400; /bin/cat "$response";;
+      readback="$root/ruleset-readback.json"; [ ! -e "$readback" ] && [ ! -L "$readback" ] || refuse; "$gh" api --method GET -H "X-GitHub-Api-Version: $API_VERSION" "/repos/$REPOSITORY/rulesets/$actual" >"$readback" || refuse
+      /bin/chmod 0400 "$readback"; assert_child "$root" "$readback"; [ "$(json_get "$readback" id)" = "$actual" ] && [ "$(ruleset_readback_body "$readback")" = "$body" ] || refuse; request_sha=$(sha256 "$root/ruleset-request.json")
+      /usr/bin/printf '%s\n' "$actual" | "$gh" variable set H0_RUNNER_RULESET_ID --repo "$REPOSITORY" --body - >/dev/null || refuse; /usr/bin/printf '%s\n' "$request_sha" | "$gh" variable set H0_RUNNER_RULESET_SHA256 --repo "$REPOSITORY" --body - >/dev/null || refuse
+      write_atomic "$root/ruleset-activated.json" "{\"id\":$actual,\"requestSha256\":\"$request_sha\"}" 0400; /bin/cat "$response";;
     (create-owned-probe-tag-object) create_probe_tag_object;;
     (create-owned-probe-ref) create_probe_ref;;
     (read-owned-probe-ref)
