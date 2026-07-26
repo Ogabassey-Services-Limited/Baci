@@ -1,16 +1,14 @@
 #!/bin/sh
 set -eu
 umask 077
-readonly API_VERSION=2026-03-10
-readonly REPOSITORY=ogabasseyy/Baci
+readonly API_VERSION=2026-03-10 REPOSITORY=ogabasseyy/Baci
 readonly TASK7_OPERATIONS='["set-auditor-private-key","set-auditor-app-id","set-auditor-client-id","set-auditor-installation-id","read-auditor-app-registration","read-repository-retention","read-rollout-ruleset","create-owned-probe-tag-object","create-owned-probe-ref","read-owned-probe-ref","rollback-owned-probe-ref","upsert-rollout-ruleset","assert-owned-probe-duplicate-create","assert-owned-probe-update","assert-owned-probe-force-update","assert-owned-probe-delete"]'
 readonly TASK9_OPERATIONS='["list-attestation-runs","dispatch-exact-run","read-exact-run","cancel-exact-run","read-failed-job-evidence","rerun-failed-exact-run","list-runner-inventory","read-exact-job","list-exact-artifacts","download-exact-artifact"]'
 refuse() { /usr/bin/printf '%s\n' 'owner CLI verification refused' >&2; exit 65; }
 sha256() { /usr/bin/shasum -a 256 "$1" | /usr/bin/awk 'NR==1 {print $1}'; }
 json_get() { /usr/bin/plutil -extract "$2" raw -o - "$1" 2>/dev/null || refuse; }
 json_array() { /usr/bin/plutil -extract "$2" json -o - "$1" 2>/dev/null || refuse; }
-is_sha256() { case $1 in (*[!0-9a-f]*|'') return 1;; esac; [ "${#1}" -eq 64 ]; }
-is_sha1() { case $1 in (*[!0-9a-f]*|'') return 1;; esac; [ "${#1}" -eq 40 ]; }
+is_sha256() { case $1 in (*[!0-9a-f]*|'') return 1;; esac; [ "${#1}" -eq 64 ]; }; is_sha1() { case $1 in (*[!0-9a-f]*|'') return 1;; esac; [ "${#1}" -eq 40 ]; }
 is_purpose() { [ "$1" = task7-provisioning ] || [ "$1" = task9-exact-run ]; }
 file_mode() { /usr/bin/stat -f '%Lp' "$1" 2>/dev/null || refuse; }
 file_owner() { /usr/bin/stat -f '%Su' "$1" 2>/dev/null || refuse; }
@@ -62,8 +60,13 @@ ruleset_body() {
   /usr/bin/plutil -extract ruleset.tagIncludes.3 raw -o - "$policy" >/dev/null 2>&1 && refuse
   [ "$excludes" = '[]' ] && [ "$bypasses" = '[]' ] && [ "$(json_get "$policy" ruleset.rules.0)" = update ] && [ "$(json_get "$policy" ruleset.rules.1)" = deletion ] || refuse
   /usr/bin/plutil -extract ruleset.rules.2 raw -o - "$policy" >/dev/null 2>&1 && refuse
+  /usr/bin/printf '{"name":"%s","target":"%s","enforcement":"%s","bypass_actors":%s,"conditions":{"ref_name":{"include":%s,"exclude":%s}},"rules":[{"type":"update"},{"type":"deletion"}]}' "$name" "$target" "$enforcement" "$bypasses" "$includes" "$excludes"; }
+ruleset_readback_body() {
+  response=$1; name=$(json_get "$response" name); target=$(json_get "$response" target); enforcement=$(json_get "$response" enforcement); includes=$(json_array "$response" conditions.ref_name.include); excludes=$(json_array "$response" conditions.ref_name.exclude); bypasses=$(json_array "$response" bypass_actors)
+  [ "$(json_get "$response" rules.0.type)" = update ] && [ "$(json_get "$response" rules.1.type)" = deletion ] || refuse; /usr/bin/plutil -extract rules.2 raw -o - "$response" >/dev/null 2>&1 && refuse
   /usr/bin/printf '{"name":"%s","target":"%s","enforcement":"%s","bypass_actors":%s,"conditions":{"ref_name":{"include":%s,"exclude":%s}},"rules":[{"type":"update"},{"type":"deletion"}]}' "$name" "$target" "$enforcement" "$bypasses" "$includes" "$excludes"
 }
+ruleset_reconciliation() { published=$1 unpublished=$2; write_atomic "$root/ruleset-variable-reconciliation.json" "{\"id\":$actual,\"publishedVariables\":$published,\"requestSha256\":\"$request_sha\",\"schemaVersion\":1,\"unpublishedVariables\":$unpublished}" 0400; }
 probe_sha() { sha=$(json_get "$policy" authority.implementationBaseSha); is_sha1 "$sha" || refuse; /usr/bin/printf '%s' "$sha"; }
 probe_ref() { case $probe_id in (0) /usr/bin/printf '%s' refs/tags/ogabassey-rollout-claim/h0-runner-ruleset-probe-v1;; (1) /usr/bin/printf '%s' refs/tags/ogabassey-rollout-progress/h0-runner-ruleset-probe-v1/start;; (2) /usr/bin/printf '%s' refs/tags/ogabassey-semantic-admission/h0-runner-ruleset-probe-v1;; (*) refuse;; esac; }
 probe_files() { stem="$root/probe-$probe_id"; tag_request="$stem-tag-request.json"; tag_response="$stem-tag-response.json"; ref_request="$stem-ref-request.json"; ref_response="$stem-ref-response.json"; ledger="$root/task7-probe-$probe_id.json"; }
@@ -109,8 +112,7 @@ create_probe_ref() {
   /bin/chmod 0400 "$ref_response"; verify_probe_receipt; [ "$(json_get "$ref_response" object.sha)" = "$object" ] || refuse; /bin/cat "$ref_response"
 }
 ruleset_active() {
-  verify_probe_binding; marker="$root/ruleset-activated.json"; assert_child "$root" "$marker"; [ "$(file_mode "$marker")" = 400 ] || refuse
-  id=$(json_get "$marker" id); case $id in (*[!0-9]*|'') refuse;; esac; [ "$(json_get "$marker" requestSha256)" = "$(sha256 "$root/ruleset-request.json")" ] || refuse
+  verify_probe_binding; [ ! -e "$root/ruleset-variable-reconciliation.json" ] && [ ! -L "$root/ruleset-variable-reconciliation.json" ] || refuse; marker="$root/ruleset-activated.json"; assert_child "$root" "$marker"; [ "$(file_mode "$marker")" = 400 ] || refuse; id=$(json_get "$marker" id); case $id in (*[!0-9]*|'') refuse;; esac; [ "$(json_get "$marker" requestSha256)" = "$(sha256 "$root/ruleset-request.json")" ] || refuse
 }
 expect_refusal() { stem=$1 docs=$2; shift 2; wire="$stem.wire"; body="$stem.body.json"; error="$stem.stderr"; for file in "$wire" "$body" "$error"; do [ ! -e "$file" ] && [ ! -L "$file" ] || refuse; done
   if "$@" >"$wire" 2>"$error"; then refuse; else result=$?; fi; [ "$result" -eq 1 ] || refuse; /bin/chmod 0400 "$wire" "$error"; assert_child "$root" "$wire"; assert_child "$root" "$error"
@@ -252,9 +254,9 @@ exec_task7() {
   gh="$root/tools/gh/bin/gh"
   case $operation in
     (set-auditor-private-key) input="$root/private-key.pem"; assert_owner_input "$input" pem; exec "$gh" secret set BACI_CWV_RUNNER_AUDITOR_PRIVATE_KEY --repo "$REPOSITORY" <"$input";;
-    (set-auditor-app-id) input="$root/auditor-app-id"; assert_owner_input "$input" numeric; exec "$gh" variable set BACI_CWV_RUNNER_AUDITOR_APP_ID --repo "$REPOSITORY" --body - <"$input";;
-    (set-auditor-client-id) input="$root/auditor-client-id"; assert_owner_input "$input" client_id; exec "$gh" variable set BACI_CWV_RUNNER_AUDITOR_CLIENT_ID --repo "$REPOSITORY" --body - <"$input";;
-    (set-auditor-installation-id) input="$root/auditor-installation-id"; assert_owner_input "$input" numeric; exec "$gh" variable set BACI_CWV_RUNNER_AUDITOR_INSTALLATION_ID --repo "$REPOSITORY" --body - <"$input";;
+    (set-auditor-app-id) input="$root/auditor-app-id"; assert_owner_input "$input" numeric; exec "$gh" variable set BACI_CWV_RUNNER_AUDITOR_APP_ID --repo "$REPOSITORY" <"$input";;
+    (set-auditor-client-id) input="$root/auditor-client-id"; assert_owner_input "$input" client_id; exec "$gh" variable set BACI_CWV_RUNNER_AUDITOR_CLIENT_ID --repo "$REPOSITORY" <"$input";;
+    (set-auditor-installation-id) input="$root/auditor-installation-id"; assert_owner_input "$input" numeric; exec "$gh" variable set BACI_CWV_RUNNER_AUDITOR_INSTALLATION_ID --repo "$REPOSITORY" <"$input";;
     (read-auditor-app-registration) exec "$gh" api --method GET -H "X-GitHub-Api-Version: $API_VERSION" "/apps/baci-cwv-runner-auditor";;
     (read-repository-retention) exec "$gh" api --method GET -H "X-GitHub-Api-Version: $API_VERSION" "/repos/$REPOSITORY/actions/permissions/artifact-and-log-retention";;
     (read-rollout-ruleset) exec "$gh" api --method GET -H "X-GitHub-Api-Version: $API_VERSION" "/repos/$REPOSITORY/rulesets";;
@@ -264,7 +266,10 @@ exec_task7() {
       [ ! -e "$response" ] && [ ! -L "$response" ] || refuse
       if [ -n "$id" ]; then "$gh" api --method PATCH -H "X-GitHub-Api-Version: $API_VERSION" "/repos/$REPOSITORY/rulesets/$id" --input "$root/ruleset-request.json" >"$response" || refuse; else "$gh" api --method POST -H "X-GitHub-Api-Version: $API_VERSION" "/repos/$REPOSITORY/rulesets" --input "$root/ruleset-request.json" >"$response" || refuse; fi
       /bin/chmod 0400 "$response"; assert_child "$root" "$response"; actual=$(json_get "$response" id); case $actual in (*[!0-9]*|'') refuse;; esac; [ -z "$id" ] || [ "$actual" = "$id" ] || refuse
-      write_atomic "$root/ruleset-activated.json" "{\"id\":$actual,\"requestSha256\":\"$(sha256 "$root/ruleset-request.json")\"}" 0400; /bin/cat "$response";;
+      readback="$root/ruleset-readback.json"; [ ! -e "$readback" ] && [ ! -L "$readback" ] || refuse; "$gh" api --method GET -H "X-GitHub-Api-Version: $API_VERSION" "/repos/$REPOSITORY/rulesets/$actual" >"$readback" || refuse
+      /bin/chmod 0400 "$readback"; assert_child "$root" "$readback"; [ "$(json_get "$readback" id)" = "$actual" ] && [ "$(ruleset_readback_body "$readback")" = "$body" ] || refuse; request_sha=$(sha256 "$root/ruleset-request.json"); write_atomic "$root/ruleset-activated.json" "{\"id\":$actual,\"requestSha256\":\"$request_sha\"}" 0400
+      if /usr/bin/printf '%s\n' "$actual" | "$gh" variable set H0_RUNNER_RULESET_ID --repo "$REPOSITORY" >/dev/null; then :; else ruleset_reconciliation '[]' '["H0_RUNNER_RULESET_ID","H0_RUNNER_RULESET_SHA256"]'; return 0; fi
+      if /usr/bin/printf '%s\n' "$request_sha" | "$gh" variable set H0_RUNNER_RULESET_SHA256 --repo "$REPOSITORY" >/dev/null; then :; else ruleset_reconciliation '["H0_RUNNER_RULESET_ID"]' '["H0_RUNNER_RULESET_SHA256"]'; return 0; fi; /bin/cat "$response";;
     (create-owned-probe-tag-object) create_probe_tag_object;;
     (create-owned-probe-ref) create_probe_ref;;
     (read-owned-probe-ref)

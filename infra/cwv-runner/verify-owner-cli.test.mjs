@@ -4,17 +4,15 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmod, copyFile, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { chmod, copyFile, mkdtemp, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test, { after } from 'node:test';
 
 const directory = path.dirname(new URL(import.meta.url).pathname);
 const darwinTest = process.platform === 'darwin' ? test : test.skip;
-const verifierPath = path.join(directory, 'verify-owner-cli.sh');
-const dispatcherPath = path.join(directory, 'owner-dispatch.sh');
-const fixtureRoots = new Set();
-after(async () => { await Promise.all([...fixtureRoots].map((root) => rm(root, { force: true, recursive: true }))); });
+const verifierPath = path.join(directory, 'verify-owner-cli.sh'); const dispatcherPath = path.join(directory, 'owner-dispatch.sh');
+const fixtureRoots = new Set(); after(async () => { await Promise.all([...fixtureRoots].map((root) => rm(root, { force: true, recursive: true }))); });
 const digest = (value) => createHash('sha256').update(value).digest('hex');
 const task7Operations = ['set-auditor-private-key', 'set-auditor-app-id', 'set-auditor-client-id', 'set-auditor-installation-id', 'read-auditor-app-registration', 'read-repository-retention', 'read-rollout-ruleset', 'create-owned-probe-tag-object', 'create-owned-probe-ref', 'read-owned-probe-ref', 'rollback-owned-probe-ref', 'upsert-rollout-ruleset', 'assert-owned-probe-duplicate-create', 'assert-owned-probe-update', 'assert-owned-probe-force-update', 'assert-owned-probe-delete'];
 const canonical = (value) => {
@@ -23,20 +21,23 @@ const canonical = (value) => {
   return JSON.stringify(value);
 };
 async function fixture(additionalChecksumRows = '') {
-  const root = await mkdtemp(path.join(tmpdir(), 'baci-cwv-owner-test-'));
+  const temporaryRoot = await realpath(tmpdir());
+  const root = await mkdtemp(path.join(temporaryRoot, 'baci-cwv-owner-test-'));
   fixtureRoots.add(root);
   await chmod(root, 0o700);
   const verifier = path.join(root, 'verify-owner-cli.sh');
   const dispatcher = path.join(root, 'owner-dispatch.sh');
-  const fixtureVerifier = (await readFile(verifierPath, 'utf8')).replace('/private/tmp/baci-cwv-*', path.join(tmpdir(), 'baci-cwv-owner-test-*'));
-  await Promise.all([writeFile(verifier, fixtureVerifier, { mode: 0o500 }), copyFile(dispatcherPath, dispatcher)]);
+  const fixtureVerifier = (await readFile(verifierPath, 'utf8')).replace('/private/tmp/baci-cwv-*', path.join(temporaryRoot, 'baci-cwv-owner-test-*'));
+  const fixtureDispatcher = (await readFile(dispatcherPath, 'utf8')).replace('/private/tmp/baci-cwv-*', path.join(temporaryRoot, 'baci-cwv-owner-test-*'));
+  await Promise.all([writeFile(verifier, fixtureVerifier, { mode: 0o500 }), writeFile(dispatcher, fixtureDispatcher, { mode: 0o500 })]);
   await Promise.all([chmod(verifier, 0o500), chmod(dispatcher, 0o500)]);
   const archiveName = 'gh_2.93.0_macOS_arm64.zip';
   const archive = path.join(root, 'gh.tar.gz');
   const binary = path.join(root, 'tools/gh/bin/gh');
   await import('node:fs/promises').then(({ mkdir }) => mkdir(path.dirname(binary), { recursive: true, mode: 0o700 }));
-  const fakeGh = Buffer.from('#!/bin/sh\n[ -z "${FAKE_GH_LOG-}" ] || printf \'%s\\n\' "$*" >>"$FAKE_GH_LOG"\nif [ "$1" = --version ]; then printf \'gh version 2.93.0 (fixture)\\nhttps://github.com/cli/cli/releases/tag/v2.93.0\\n\'; elif [ -n "${FAKE_REFUSAL-}" ]; then case "$*" in (*--include*) :;; (*) exit 72;; esac; case "$*" in (*\"--method POST\"*) docs=create-a-reference;; (*\"--method PATCH\"*) docs=update-a-reference;; (*\"--method DELETE\"*) docs=delete-a-reference;; (*) exit 73;; esac; case "$FAKE_REFUSAL" in (valid) printf \'HTTP/2.0 422 Unprocessable Entity\\r\\ncontent-type: application/json\\r\\n\\r\\n{"message":"Repository rule violations found","documentation_url":"https://docs.github.com/rest/git/refs#%s","status":"422"}\\n\' "$docs"; exit 1;; (wrong-status) printf \'HTTP/2.0 403 Forbidden\\r\\n\\r\\n{"message":"Repository rule violations found","documentation_url":"https://docs.github.com/rest/git/refs#%s","status":"403"}\\n\' "$docs"; exit 1;; (wrong-message) printf \'HTTP/2.0 422 Unprocessable Entity\\r\\n\\r\\n{"message":"Validation Failed","documentation_url":"https://docs.github.com/rest/git/refs#%s","status":"422"}\\n\' "$docs"; exit 1;; (wrong-docs) printf \'HTTP/2.0 422 Unprocessable Entity\\r\\n\\r\\n{"message":"Repository rule violations found","documentation_url":"https://docs.github.com/rest/git/refs#create-a-reference","status":"422"}\\n\'; exit 1;; (wrong-field) printf \'HTTP/2.0 422 Unprocessable Entity\\r\\n\\r\\n{"message":"Repository rule violations found","documentation_url":"https://docs.github.com/rest/git/refs#%s","status":422}\\n\' "$docs"; exit 1;; (redirect) printf \'HTTP/2.0 302 Found\\r\\nlocation: https://api.github.com/elsewhere\\r\\n\\r\\nHTTP/2.0 422 Unprocessable Entity\\r\\n\\r\\n{"message":"Repository rule violations found","documentation_url":"https://docs.github.com/rest/git/refs#%s","status":"422"}\\n\' "$docs"; exit 1;; (auth) printf \'HTTP/2.0 401 Unauthorized\\r\\n\\r\\n{"message":"Bad credentials","documentation_url":"https://docs.github.com/rest","status":"401"}\\n\'; exit 1;; (transport) exit 1;; (*) exit 75;; esac; elif printf \'%s\' "$*" | /usr/bin/grep -q -- \'--method GET.*rulesets\'; then case "$*" in (*\'?per_page=100&page=1\'*) page=1;; (*\'?per_page=100&page=2\'*) page=2;; (*\'?per_page=100&page=3\'*) page=3;; (*) exit 74;; esac; case "${FAKE_RULESET_MODE-}:$page" in (existing-page-2:1) printf \'[{"id":7,"name":"other"}]\\n\';; (existing-page-2:2) printf \'[{"id":17,"name":"ogabassey-rollout-progress-immutable"}]\\n\';; (existing-page-2:3) printf \'[]\\n\';; (duplicate-pages:1) printf \'[{"id":17,"name":"ogabassey-rollout-progress-immutable"}]\\n\';; (duplicate-pages:2) printf \'[{"id":19,"name":"ogabassey-rollout-progress-immutable"}]\\n\';; (duplicate-pages:3) printf \'[]\\n\';; (*:1) printf \'[]\\n\';; (*) exit 75;; esac; elif printf \'%s\' "$*" | /usr/bin/grep -q -- \'--method PATCH.*rulesets/17\'; then printf \'{"id":17}\\n\'; elif printf \'%s\' "$*" | /usr/bin/grep -q -- \'--method POST.*rulesets\'; then printf \'{"id":18}\\n\'; elif printf \'%s\' "$*" | /usr/bin/grep -q \'/git/tags\'; then printf \'{"sha":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}\\n\'; elif printf \'%s\' "$*" | /usr/bin/grep -q \'probe-2-ref-request.json\'; then printf \'{"ref":"refs/tags/ogabassey-semantic-admission/h0-runner-ruleset-probe-v1","object":{"sha":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}}\\n\'; else printf \'%s\\n\' "$*"; fi\n');
-  await Promise.all([writeFile(binary, fakeGh, { mode: 0o500 }), writeFile(archive, 'fixture archive', { mode: 0o400 })]);
+  const fakeGh = Buffer.from('#!/bin/sh\n[ -z "${FAKE_GH_LOG-}" ] || printf \'%s\\n\' "$*" >>"$FAKE_GH_LOG"\ncase "$*" in (*\"variable set H0_RUNNER_RULESET_\"*) case "$*" in (*\"H0_RUNNER_RULESET_ID\"*) variable=id;; (*) variable=sha;; esac; case "$*" in (*\"--body -\"*) value=-;; (*) value=$(/bin/cat);; esac; /usr/bin/printf \'stdin:%s\\n\' "$value" >>"$FAKE_GH_LOG"; [ "${FAKE_RULESET_VARIABLE_FAILURE-}" != "$variable" ] || exit 1;; esac\nif [ "$1" = --version ]; then printf \'gh version 2.93.0 (fixture)\\nhttps://github.com/cli/cli/releases/tag/v2.93.0\\n\'; elif [ -n "${FAKE_REFUSAL-}" ]; then case "$*" in (*--include*) :;; (*) exit 72;; esac; case "$*" in (*\"--method POST\"*) docs=create-a-reference;; (*\"--method PATCH\"*) docs=update-a-reference;; (*\"--method DELETE\"*) docs=delete-a-reference;; (*) exit 73;; esac; case "$FAKE_REFUSAL" in (valid) printf \'HTTP/2.0 422 Unprocessable Entity\\r\\ncontent-type: application/json\\r\\n\\r\\n{"message":"Repository rule violations found","documentation_url":"https://docs.github.com/rest/git/refs#%s","status":"422"}\\n\' "$docs"; exit 1;; (wrong-status) printf \'HTTP/2.0 403 Forbidden\\r\\n\\r\\n{"message":"Repository rule violations found","documentation_url":"https://docs.github.com/rest/git/refs#%s","status":"403"}\\n\' "$docs"; exit 1;; (wrong-message) printf \'HTTP/2.0 422 Unprocessable Entity\\r\\n\\r\\n{"message":"Validation Failed","documentation_url":"https://docs.github.com/rest/git/refs#%s","status":"422"}\\n\' "$docs"; exit 1;; (wrong-docs) printf \'HTTP/2.0 422 Unprocessable Entity\\r\\n\\r\\n{"message":"Repository rule violations found","documentation_url":"https://docs.github.com/rest/git/refs#create-a-reference","status":"422"}\\n\'; exit 1;; (wrong-field) printf \'HTTP/2.0 422 Unprocessable Entity\\r\\n\\r\\n{"message":"Repository rule violations found","documentation_url":"https://docs.github.com/rest/git/refs#%s","status":422}\\n\' "$docs"; exit 1;; (redirect) printf \'HTTP/2.0 302 Found\\r\\nlocation: https://api.github.com/elsewhere\\r\\n\\r\\nHTTP/2.0 422 Unprocessable Entity\\r\\n\\r\\n{"message":"Repository rule violations found","documentation_url":"https://docs.github.com/rest/git/refs#%s","status":"422"}\\n\' "$docs"; exit 1;; (auth) printf \'HTTP/2.0 401 Unauthorized\\r\\n\\r\\n{"message":"Bad credentials","documentation_url":"https://docs.github.com/rest","status":"401"}\\n\'; exit 1;; (transport) exit 1;; (*) exit 75;; esac; elif printf \'%s\' "$*" | /usr/bin/grep -q -- \'--method GET.*rulesets/[0-9]\'; then case "$*" in (*rulesets/17*) ruleset_id=17;; (*) ruleset_id=18;; esac; printf \'{"id":%s,"name":"ogabassey-rollout-progress-immutable","target":"tag","enforcement":"active","bypass_actors":[],"conditions":{"ref_name":{"include":["refs/tags/ogabassey-rollout-claim/*","refs/tags/ogabassey-rollout-progress/**/*","refs/tags/ogabassey-semantic-admission/*"],"exclude":[]}},"rules":[{"type":"update"},{"type":"deletion"}]}\\n\' "$ruleset_id"; elif printf \'%s\' "$*" | /usr/bin/grep -q -- \'--method GET.*rulesets\'; then case "$*" in (*\'?per_page=100&page=1\'*) page=1;; (*\'?per_page=100&page=2\'*) page=2;; (*\'?per_page=100&page=3\'*) page=3;; (*) exit 74;; esac; case "${FAKE_RULESET_MODE-}:$page" in (existing-page-2:1) printf \'[{"id":7,"name":"other"}]\\n\';; (existing-page-2:2) printf \'[{"id":17,"name":"ogabassey-rollout-progress-immutable"}]\\n\';; (existing-page-2:3) printf \'[]\\n\';; (duplicate-pages:1) printf \'[{"id":17,"name":"ogabassey-rollout-progress-immutable"}]\\n\';; (duplicate-pages:2) printf \'[{"id":19,"name":"ogabassey-rollout-progress-immutable"}]\\n\';; (duplicate-pages:3) printf \'[]\\n\';; (*:1) printf \'[]\\n\';; (*) exit 75;; esac; elif printf \'%s\' "$*" | /usr/bin/grep -q -- \'--method PATCH.*rulesets/17\'; then printf \'{"id":17}\\n\'; elif printf \'%s\' "$*" | /usr/bin/grep -q -- \'--method POST.*rulesets\'; then printf \'{"id":18}\\n\'; elif printf \'%s\' "$*" | /usr/bin/grep -q \'/git/tags\'; then printf \'{"sha":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}\\n\'; elif printf \'%s\' "$*" | /usr/bin/grep -q \'probe-2-ref-request.json\'; then printf \'{"ref":"refs/tags/ogabassey-semantic-admission/h0-runner-ruleset-probe-v1","object":{"sha":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}}\\n\'; else printf \'%s\\n\' "$*"; fi\n');
+  const fakeGhBody = fakeGh.toString().replace('variable set H0_RUNNER_RULESET_', 'variable set ').replace("else printf '%s\\n' \"$*\"; fi\n", "elif printf '%s' \"$*\" | /usr/bin/grep -q '/git/refs'; then case \"$*\" in (*probe-0*) printf '{\"ref\":\"refs/tags/ogabassey-rollout-claim/h0-runner-ruleset-probe-v1\",\"object\":{\"sha\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}}\\n';; (*probe-1*) printf '{\"ref\":\"refs/tags/ogabassey-rollout-progress/h0-runner-ruleset-probe-v1/start\",\"object\":{\"sha\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}}\\n';; (*) printf '{\"ref\":\"refs/tags/ogabassey-semantic-admission/h0-runner-ruleset-probe-v1\",\"object\":{\"sha\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}}\\n';; esac; else printf '%s\\n' \"$*\"; fi\n");
+  await Promise.all([writeFile(binary, fakeGhBody, { mode: 0o500 }), writeFile(archive, 'fixture archive', { mode: 0o400 })]);
   const archiveSha256 = digest(await readFile(archive));
   const checksums = path.join(root, 'gh-checksums.txt');
   const checksumBytes = Buffer.from(`${archiveSha256}  ${archiveName}\n${additionalChecksumRows}`);
@@ -50,7 +51,7 @@ async function fixture(additionalChecksumRows = '') {
         tagExcludes: [], tagIncludes: ['refs/tags/ogabassey-rollout-claim/*', 'refs/tags/ogabassey-rollout-progress/**/*', 'refs/tags/ogabassey-semantic-admission/*'], target: 'tag',
       },
       supplyChain: { node: { ownerDarwinArm64Sha256: '1'.repeat(64), version: '24.18.0' } },
-      supplyChainProvenance: { ownerCli: { archiveSha256, binarySha256: digest(fakeGh), checksumsSha256: digest(checksumBytes), version: '2.93.0' } },
+      supplyChainProvenance: { ownerCli: { archiveSha256, binarySha256: digest(fakeGhBody), checksumsSha256: digest(checksumBytes), version: '2.93.0' } },
     }));
   await writeFile(policy, policyBytes, { mode: 0o400 });
   const sourceManifest = path.join(root, 'source-manifest.json');
@@ -74,14 +75,9 @@ async function fixture(additionalChecksumRows = '') {
     verifier,
   };
 }
-test('creates owner verifier fixtures in the runtime temporary directory', async () => { const value = await fixture(); assert.equal(path.dirname(value.root), tmpdir()); });
-function run(file, args, input, extraEnv = {}) {
-  return spawnSync(file, args, {
-    encoding: 'utf8',
-    env: { ...extraEnv, LC_ALL: 'C', PATH: '/hostile/path', TZ: 'UTC' },
-    input,
-  });
-}
+test('creates owner verifier fixtures in the runtime temporary directory', async () => { const value = await fixture(); assert.equal(path.dirname(value.root), await realpath(tmpdir())); });
+function run(file, args, input, extraEnv = {}) { return spawnSync(file, args, { encoding: 'utf8', env: { ...extraEnv, LC_ALL: 'C', PATH: '/hostile/path', TZ: 'UTC' }, input }); }
+function task7(value) { const sourceReceipt = path.join(value.root, 'source-authorization.json'); const sourceDigest = path.join(value.root, 'source-authorization.sha256'); assert.equal(run(value.verifier, ['--verify-source', '--manifest', value.sourceManifest, '--manifest-sha256', value.manifestSha256, '--policy', value.policy, '--dispatcher', value.dispatcher, '--verifier', value.verifier, '--purpose', 'task7-provisioning', '--output-receipt', sourceReceipt, '--output-digest', sourceDigest]).status, 0); return { common: ['--policy', value.policy, '--checksum-file', value.checksums, '--archive', value.archive, '--receipt', path.join(value.root, 'gh-receipt.json'), '--source-authorization', sourceReceipt, '--source-authorization-sha256', sourceDigest, '--purpose', 'task7-provisioning'], sourceReceipt }; }
 test('uses only fixed macOS tools and exposes the closed verifier modes', async () => {
   const [verifier, dispatcher] = await Promise.all([
     readFile(verifierPath, 'utf8'),
@@ -92,6 +88,10 @@ test('uses only fixed macOS tools and exposes the closed verifier modes', async 
   for (const tool of ['/usr/bin/plutil', '/usr/bin/shasum', '/usr/bin/stat'])
     assert.match(verifier, new RegExp(tool));
   assert.doesNotMatch(verifier, /command -v|\/opt\/homebrew|\beval\b|--input -/);
+  assert.doesNotMatch(verifier, /H0_RUNNER_RULESET_(?:ID|SHA256).*--body -/);
+  assert.doesNotMatch(verifier, /BACI_CWV_RUNNER_AUDITOR_(?:APP_ID|CLIENT_ID|INSTALLATION_ID).*--body -/);
+  assert.match(verifier, /ruleset_active\(\)[\s\S]*ruleset-variable-reconciliation/);
+  assert.match(dispatcher, /task7_op upsert-rollout-ruleset[\s\S]*task7_activated=1/);
   assert.doesNotMatch(verifier, /--paginate|--slurp/);
   assert.match(verifier, /Repository rule violations found/);
   assert.match(verifier, /create-a-reference.*update-a-reference.*delete-a-reference/s);
@@ -151,26 +151,7 @@ darwinTest('creates and revalidates one task7 source authorization', async () =>
 });
 darwinTest('verifies archive, checksum row, binary, and version before rebound exec', async () => {
   const value = await fixture(`${'b'.repeat(64)}  unrelated-release.zip\n`);
-  const sourceReceipt = path.join(value.root, 'source-authorization.json');
-  const sourceDigest = path.join(value.root, 'source-authorization.sha256');
-  assert.equal(
-    run(value.verifier, [
-      '--verify-source', '--manifest', value.sourceManifest,
-      '--manifest-sha256', value.manifestSha256, '--policy', value.policy,
-      '--dispatcher', value.dispatcher, '--verifier', value.verifier,
-      '--purpose', 'task7-provisioning', '--output-receipt', sourceReceipt,
-      '--output-digest', sourceDigest,
-    ]).status,
-    0
-  );
-  const receipt = path.join(value.root, 'gh-receipt.json');
-  const common = [
-    '--policy', value.policy, '--checksum-file', value.checksums,
-    '--archive', value.archive, '--receipt', receipt,
-    '--source-authorization', sourceReceipt,
-    '--source-authorization-sha256', sourceDigest,
-    '--purpose', 'task7-provisioning',
-  ];
+  const { common, sourceReceipt } = task7(value);
   const verified = run(value.verifier, [...common, '--verify-only']);
   assert.equal(verified.status, 0, verified.stderr);
   const executed = run(value.verifier, [
@@ -180,23 +161,26 @@ darwinTest('verifies archive, checksum row, binary, and version before rebound e
   ]);
   assert.equal(executed.status, 0, executed.stderr);
   assert.match(executed.stdout, /^api --method GET /);
+  const rulesetLog = path.join(value.root, 'ruleset-variables.log');
   const ruleset = run(value.verifier, [
     ...common,
     '--exec-gh-operation',
     'upsert-rollout-ruleset',
-  ]);
+  ], undefined, { FAKE_GH_LOG: rulesetLog });
   assert.equal(ruleset.status, 0, ruleset.stderr);
   assert.deepEqual(JSON.parse(ruleset.stdout), { id: 18 });
   assert.deepEqual(JSON.parse(await readFile(path.join(value.root, 'ruleset-request.json'), 'utf8')), {
     bypass_actors: [], conditions: { ref_name: { exclude: [], include: ['refs/tags/ogabassey-rollout-claim/*', 'refs/tags/ogabassey-rollout-progress/**/*', 'refs/tags/ogabassey-semantic-admission/*'] } }, enforcement: 'active', name: 'ogabassey-rollout-progress-immutable', rules: [{ type: 'update' }, { type: 'deletion' }], target: 'tag',
   });
+  const [requestDigest, variableLog] = [digest(await readFile(path.join(value.root, 'ruleset-request.json'))), await readFile(rulesetLog, 'utf8')];
+  assert.match(variableLog, /--method GET .*\/rulesets\/18/); assert.match(variableLog, /variable set H0_RUNNER_RULESET_ID --repo ogabasseyy\/Baci\nstdin:18/); assert.match(variableLog, new RegExp(`variable set H0_RUNNER_RULESET_SHA256 --repo ogabasseyy/Baci\\nstdin:${requestDigest}`));
   const tag = run(value.verifier, [...common, '--exec-gh-operation', 'create-owned-probe-tag-object', '--probe-id', '2']);
   assert.equal(tag.status, 0, tag.stderr);
   const probe = run(value.verifier, [...common, '--exec-gh-operation', 'create-owned-probe-ref', '--probe-id', '2']);
   assert.equal(probe.status, 0, probe.stderr);
   assert.deepEqual(JSON.parse(await readFile(path.join(value.root, 'probe-2-tag-request.json'), 'utf8')), { message: 'H0 runner ruleset probe', object: 'a'.repeat(40), tag: 'ogabassey-semantic-admission/h0-runner-ruleset-probe-v1', type: 'commit' });
   assert.deepEqual(JSON.parse(await readFile(path.join(value.root, 'probe-2-ref-request.json'), 'utf8')), { ref: 'refs/tags/ogabassey-semantic-admission/h0-runner-ruleset-probe-v1', sha: 'b'.repeat(40) });
-  await Promise.all(['ruleset-activated.json', 'ruleset-binding.json', 'ruleset-list-1.json', 'ruleset-request.json', 'ruleset-response.json'].map((name) => rm(path.join(value.root, name))));
+  await Promise.all(['ruleset-activated.json', 'ruleset-binding.json', 'ruleset-list-1.json', 'ruleset-readback.json', 'ruleset-request.json', 'ruleset-response.json'].map((name) => rm(path.join(value.root, name))));
   const ghLog = path.join(value.root, 'gh-calls.log');
   const existing = run(value.verifier, [...common, '--exec-gh-operation', 'upsert-rollout-ruleset'], undefined, { FAKE_GH_LOG: ghLog, FAKE_RULESET_MODE: 'existing-page-2' });
   assert.equal(existing.status, 0, existing.stderr);
@@ -224,12 +208,11 @@ darwinTest('verifies archive, checksum row, binary, and version before rebound e
   }
   for (const invalid of ['', ' Iv1.abc', 'Iv1.abc ', 'Iv1.abc def', '.Iv1abc', 'Iv1.', 'Iv1..abc', 'Iv1.abc-def', 'Iv1./etc', 'Iv1.\u0001abc', 'Iv1.abc\nsecond', `ghp_${'s'.repeat(36)}`, `Iv1.${'A'.repeat(125)}`]) { await chmod(clientId, 0o600); await writeFile(clientId, `${invalid}\n`); await chmod(clientId, 0o400); const refused = run(value.verifier, [...common, '--exec-gh-operation', 'set-auditor-client-id']); assert.notEqual(refused.status, 0, JSON.stringify(invalid)); assert.equal(refused.stdout, '', JSON.stringify(invalid)); }
   for (const [name, operation] of [['auditor-app-id', 'set-auditor-app-id'], ['auditor-installation-id', 'set-auditor-installation-id']]) { const input = path.join(value.root, name); await writeFile(input, '123\n', { mode: 0o400 }); assert.equal(run(value.verifier, [...common, '--exec-gh-operation', operation]).status, 0, operation); await chmod(input, 0o600); await writeFile(input, 'Iv123\n'); await chmod(input, 0o400); const refused = run(value.verifier, [...common, '--exec-gh-operation', operation]); assert.notEqual(refused.status, 0, operation); assert.equal(refused.stdout, '', operation); }
-  await Promise.all(['ruleset-activated.json', 'ruleset-binding.json', 'ruleset-list-1.json', 'ruleset-list-2.json', 'ruleset-list-3.json', 'ruleset-request.json', 'ruleset-response.json'].map((name) => rm(path.join(value.root, name), { force: true })));
+  await Promise.all(['ruleset-activated.json', 'ruleset-binding.json', 'ruleset-list-1.json', 'ruleset-list-2.json', 'ruleset-list-3.json', 'ruleset-readback.json', 'ruleset-request.json', 'ruleset-response.json'].map((name) => rm(path.join(value.root, name), { force: true })));
   const duplicateLog = path.join(value.root, 'gh-duplicate-calls.log');
   const duplicate = run(value.verifier, [...common, '--exec-gh-operation', 'upsert-rollout-ruleset'], undefined, { FAKE_GH_LOG: duplicateLog, FAKE_RULESET_MODE: 'duplicate-pages' });
   assert.notEqual(duplicate.status, 0);
   assert.doesNotMatch(await readFile(duplicateLog, 'utf8'), /--method (?:POST|PATCH).*\/rulesets(?:\/|\s|$)/);
-
   await chmod(value.binary, 0o700);
   await writeFile(value.binary, '#!/bin/sh\nprintf bad\n');
   await chmod(value.binary, 0o500);
@@ -240,6 +223,10 @@ darwinTest('verifies archive, checksum row, binary, and version before rebound e
   ]);
   assert.notEqual(replaced.status, 0);
 });
+darwinTest('records ruleset variable reconciliation after activation', async () => { const value = await fixture(); const { common } = task7(value); const artifacts = ['ruleset-activated.json', 'ruleset-binding.json', 'ruleset-list-1.json', 'ruleset-readback.json', 'ruleset-request.json', 'ruleset-response.json']; for (const [failure, published] of [['id', []], ['sha', ['H0_RUNNER_RULESET_ID']]]) { const partial = run(value.verifier, [...common, '--exec-gh-operation', 'upsert-rollout-ruleset'], undefined, { FAKE_RULESET_VARIABLE_FAILURE: failure }); const requestSha256 = digest(await readFile(path.join(value.root, 'ruleset-request.json'))); assert.equal(partial.status, 0, partial.stderr); assert.deepEqual(JSON.parse(await readFile(path.join(value.root, 'ruleset-activated.json'), 'utf8')), { id: 18, requestSha256 }); assert.deepEqual(JSON.parse(await readFile(path.join(value.root, 'ruleset-variable-reconciliation.json'), 'utf8')), { id: 18, publishedVariables: published, requestSha256, schemaVersion: 1, unpublishedVariables: failure === 'id' ? ['H0_RUNNER_RULESET_ID', 'H0_RUNNER_RULESET_SHA256'] : ['H0_RUNNER_RULESET_SHA256'] }); await Promise.all([...artifacts, 'ruleset-variable-reconciliation.json'].map((name) => rm(path.join(value.root, name), { force: true }))); } });
+darwinTest('publishes verified ruleset values without --body', async () => { const value = await fixture(); const { common } = task7(value); const log = path.join(value.root, 'ruleset-values.log'); const result = run(value.verifier, [...common, '--exec-gh-operation', 'upsert-rollout-ruleset'], undefined, { FAKE_GH_LOG: log }); const requestSha256 = digest(await readFile(path.join(value.root, 'ruleset-request.json'))); assert.equal(result.status, 0, result.stderr); assert.match(await readFile(log, 'utf8'), new RegExp(`H0_RUNNER_RULESET_ID --repo ogabasseyy/Baci\\nstdin:18[\\s\\S]*H0_RUNNER_RULESET_SHA256 --repo ogabasseyy/Baci\\nstdin:${requestSha256}`)); });
+darwinTest('publishes fixed auditor variables without --body', async () => { const value = await fixture(); const { common } = task7(value); for (const [file, operation, valueToSet] of [['auditor-app-id', 'set-auditor-app-id', '123'], ['auditor-client-id', 'set-auditor-client-id', 'Iv1.TestClient'], ['auditor-installation-id', 'set-auditor-installation-id', '456']]) { const log = path.join(value.root, `${file}.log`); await writeFile(path.join(value.root, file), `${valueToSet}\n`, { mode: 0o400 }); const result = run(value.verifier, [...common, '--exec-gh-operation', operation], undefined, { FAKE_GH_LOG: log }); assert.equal(result.status, 0, result.stderr); assert.match(await readFile(log, 'utf8'), new RegExp(`variable set .* --repo ogabasseyy/Baci\\nstdin:${valueToSet}`)); } });
+darwinTest('dispatcher preserves activation after either ruleset variable failure', async () => { for (const failure of ['id', 'sha']) { const value = await fixture(); const { sourceReceipt } = task7(value); const log = path.join(value.root, `${failure}.log`); const result = run(value.dispatcher, ['--run-task7-probes', '--transaction-dir', value.root, '--policy', value.policy, '--source-authorization', sourceReceipt, '--source-authorization-sha256', path.join(value.root, 'source-authorization.sha256')], undefined, { FAKE_GH_LOG: log, FAKE_RULESET_VARIABLE_FAILURE: failure }); const marker = path.join(value.root, 'ruleset-activated.json'); assert.notEqual(result.status, 0); assert.ok(await stat(marker).then(() => true, () => false), result.stderr); assert.equal(JSON.parse(await readFile(marker, 'utf8')).id, 18); assert.ok(JSON.parse(await readFile(path.join(value.root, 'ruleset-variable-reconciliation.json'), 'utf8'))); assert.deepEqual(JSON.parse(await readFile(path.join(value.root, 'task7-manual-reconciliation.json'), 'utf8')), { reason: 'post-activation-refusal-failed', schemaVersion: 1 }); const calls = await readFile(log, 'utf8'); assert.doesNotMatch(calls, /--include|--method DELETE/); } });
 test('refuses wrong purpose, arbitrary operation, caller argv, and checksum drift', async () => {
   const source = await readFile(verifierPath, 'utf8');
   assert.match(source, /task7-provisioning/);
