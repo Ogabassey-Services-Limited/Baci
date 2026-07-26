@@ -29,8 +29,13 @@ describe('logOnboardingFailure', () => {
     );
 
     // Assert
-    const [label, payload] = errorSpy.mock.calls[0] as [string, string];
-    expect(label).toBe('mobile-onboarding deployment_fault');
+    const [format, kind, payload] = errorSpy.mock.calls[0] as [
+      string,
+      string,
+      string,
+    ];
+    expect(format).toBe('mobile-onboarding %s');
+    expect(kind).toBe('deployment_fault');
     expect(JSON.parse(payload)).toMatchObject({
       accountExists: true,
       pgCode: '42501',
@@ -45,13 +50,15 @@ describe('logOnboardingFailure', () => {
     logOnboardingFailure(postgrestError('42P17', 'recursion'));
     logOnboardingFailure(new Error('socket hang up'));
 
-    // Assert — a drain can alert on the label without parsing payloads.
-    expect(errorSpy.mock.calls[0][0]).toBe(
-      'mobile-onboarding deployment_fault'
-    );
-    expect(errorSpy.mock.calls[1][0]).toBe(
-      'mobile-onboarding unexpected_error'
-    );
+    // Assert — dynamic values are substitutions, never format templates.
+    expect(errorSpy.mock.calls[0].slice(0, 2)).toEqual([
+      'mobile-onboarding %s',
+      'deployment_fault',
+    ]);
+    expect(errorSpy.mock.calls[1].slice(0, 2)).toEqual([
+      'mobile-onboarding %s',
+      'unexpected_error',
+    ]);
   });
 
   it('records which provisioning stage failed', () => {
@@ -65,7 +72,7 @@ describe('logOnboardingFailure', () => {
     });
 
     // Assert
-    expect(JSON.parse(errorSpy.mock.calls[0][1] as string)).toMatchObject({
+    expect(JSON.parse(errorSpy.mock.calls[0][2] as string)).toMatchObject({
       stage: 'domain_provisioning',
       merchantId: 'merch-1',
     });
@@ -88,7 +95,7 @@ describe('logOnboardingFailure', () => {
       );
 
       // Assert
-      const logged = errorSpy.mock.calls[0][1] as string;
+      const logged = errorSpy.mock.calls[0][2] as string;
       expect(logged).not.toContain('victim@example.com');
       expect(logged).not.toContain('Failing row contains');
       // ...while the diagnosis is still there.
@@ -105,7 +112,7 @@ describe('logOnboardingFailure', () => {
       logOnboardingFailure('boom');
 
       // Assert
-      expect(JSON.parse(errorSpy.mock.calls[0][1] as string)).toMatchObject({
+      expect(JSON.parse(errorSpy.mock.calls[0][2] as string)).toMatchObject({
         message: 'boom',
         name: 'string',
       });
