@@ -209,7 +209,7 @@ darwinTest('verifies archive, checksum row, binary, and version before rebound e
   await chmod(key, 0o400);
   assert.notEqual(run(value.verifier, [...common, '--exec-gh-operation', 'set-auditor-private-key']).status, 0);
   const clientId = path.join(value.root, 'auditor-client-id');
-  for (const clientValue of ['Iv1.a2B3c4D5e6F7g8H9', 'Iv1a2B3c4D5e6F7g8H9', `Iv1.${'A'.repeat(124)}`]) {
+  for (const clientValue of ['Iv1.a2B3c4D5e6F7g8H9', 'Iv1a2B3c4D5e6F7g8H9', 'Iv23liKu2ydKKbRWnyg1', `Iv1.${'A'.repeat(124)}`]) {
     await rm(clientId, { force: true }); await writeFile(clientId, `${clientValue}\n`, { mode: 0o400 }); const acceptedClient = run(value.verifier, [...common, '--exec-gh-operation', 'set-auditor-client-id']);
     assert.equal(acceptedClient.status, 0, acceptedClient.stderr); assert.match(acceptedClient.stdout, /variable set BACI_CWV_RUNNER_AUDITOR_CLIENT_ID/); assert.doesNotMatch(acceptedClient.stdout, new RegExp(clientValue.replace('.', '\\.')));
   }

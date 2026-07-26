@@ -70,7 +70,7 @@ assert_owner_input() {
   file=$1 kind=$2; assert_child "$root" "$file"
   case $kind in
     (numeric) if [ "$(file_mode "$file")" = 400 ] && /usr/bin/awk 'NR == 1 && /^[1-9][0-9]*$/ {valid=1} END {exit !(NR == 1 && valid)}' "$file"; then :; else refuse; fi;;
-    (client_id) if [ "$(file_mode "$file")" = 400 ] && /usr/bin/awk 'NR == 1 && length($0) <= 128 && /^Iv1(\.)?[A-Za-z0-9]+$/ && $0 !~ /^(github_pat_|gh[pousr]_)/ {valid=1} END {exit !(NR == 1 && valid)}' "$file"; then :; else refuse; fi;;
+    (client_id) if [ "$(file_mode "$file")" = 400 ] && /usr/bin/awk 'NR == 1 && length($0) <= 128 && ($0 ~ /^Iv1(\.)?[A-Za-z0-9]+$/ || $0 ~ /^Iv[A-Za-z0-9]{18}$/) && $0 !~ /^(github_pat_|gh[pousr]_)/ {valid=1} END {exit !(NR == 1 && valid)}' "$file"; then :; else refuse; fi;;
     (pem) if [ "$(file_mode "$file")" = 600 ] && /usr/bin/awk 'NR == 1 && $0 == "-----BEGIN PRIVATE KEY-----" {begin=1} $0 == "-----END PRIVATE KEY-----" {end=NR} END {exit !(begin && end == NR)}' "$file"; then :; else refuse; fi;;
     (*) refuse;;
   esac
