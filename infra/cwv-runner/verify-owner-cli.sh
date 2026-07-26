@@ -161,20 +161,19 @@ verify_source() {
   [ "$output_digest" = "$root/source-authorization.sha256" ] && [ "$output" = "$root/source-authorization.json" ] || refuse
   for file in "$manifest" "$policy" "$dispatcher" "$verifier"; do assert_child "$root" "$file"; done
   [ "$(sha256 "$manifest")" = "$manifest_sha" ] || refuse
-  [ "$(json_get "$manifest" schema)" = preflight-v1 ] || refuse
+  [ "$(json_get "$manifest" schemaVersion)" = preflight-v1 ] || refuse
   policy_sha=$(sha256 "$policy")
   [ "$(json_get "$manifest" policyFileSha256)" = "$policy_sha" ] || refuse
   expected_paths='infra/cwv-runner/owner-dispatch.sh infra/cwv-runner/policy.json infra/cwv-runner/verify-owner-cli.sh'
-  index=0
   for expected_path in $expected_paths; do
-    case $index in (0|2) expected_mode=100755;; (1) expected_mode=100644;; (*) refuse;; esac
-    [ "$(json_get "$manifest" "sourceArchive.entries.$index.path")" = "$expected_path" ] || refuse
-    [ "$(json_get "$manifest" "sourceArchive.entries.$index.mode")" = "$expected_mode" ] || refuse
-    case $index in (0) source=$dispatcher;; (1) source=$policy;; (2) source=$verifier;; esac
-    [ "$(json_get "$manifest" "sourceArchive.entries.$index.sha256")" = "$(sha256 "$source")" ] || refuse
-    index=$((index + 1))
+    case $expected_path in (*/owner-dispatch.sh) expected_mode=100755 source=$dispatcher;; (*/policy.json) expected_mode=100644 source=$policy;; (*/verify-owner-cli.sh) expected_mode=100755 source=$verifier;; (*) refuse;; esac
+    index=0 matches=0
+    while candidate=$(/usr/bin/plutil -extract "sourceArchive.entries.$index.path" raw -o - "$manifest" 2>/dev/null); do
+      if [ "$candidate" = "$expected_path" ]; then matches=$((matches + 1)); [ "$(json_get "$manifest" "sourceArchive.entries.$index.mode")" = "$expected_mode" ] && [ "$(json_get "$manifest" "sourceArchive.entries.$index.blobSha256")" = "$(sha256 "$source")" ] || refuse; fi
+      index=$((index + 1))
+    done
+    [ "$matches" -eq 1 ] || refuse
   done
-  /usr/bin/plutil -extract sourceArchive.entries.3 raw -o - "$manifest" >/dev/null 2>&1 && refuse
   tx=$(/usr/bin/basename -- "$root"); operations=$(operation_set "$purpose")
   operations_sha=$(printf '%s' "$operations" | /usr/bin/shasum -a 256 | /usr/bin/awk '{print $1}')
   receipt=$(/usr/bin/printf '{"generation":0,"operationSet":%s,"operationSetDigest":"%s","policyFileSha256":"%s","provenance":{"manifestSha256":"%s","nodeProvenanceSha256":null,"runtimeSha256":null,"sourceArchiveSha256":null},"purpose":"%s","schemaVersion":1,"sourceBinding":null,"sourceHashes":{"bootstrapSha256":null,"dispatcherSha256":"%s","transportSha256":null,"verifierSha256":"%s"},"transactionId":"%s"}' "$operations" "$operations_sha" "$policy_sha" "$manifest_sha" "$purpose" "$(sha256 "$dispatcher")" "$(sha256 "$verifier")" "$tx")
