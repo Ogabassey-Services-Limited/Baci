@@ -83,11 +83,29 @@ describe('runDeferredOnboardingProvisioning', () => {
 
   describe('domain repair', () => {
     it('does not touch domains when the in-request insert succeeded', async () => {
-      // Arrange — the client is reachable, so a stray retry would show up.
+      // Arrange — the SAME client is used for both calls below, so the
+      // difference between them is attributable to domainRepair alone.
       const insert = vi.fn().mockResolvedValue({ error: null });
       const scopedClient = { from: vi.fn(() => ({ insert })) };
+      const repair = {
+        client: scopedClient,
+        input: {
+          merchantId: 'merch-1',
+          merchantSlug: 'test',
+          rootDomain: 'usebaci.com',
+        },
+      };
 
-      // Act — domainRepair null means the in-request insert already succeeded.
+      // Act — control: passing a repair DOES reach the client.
+      await runDeferredOnboardingProvisioning({
+        ...baseInput,
+        domainRepair: repair,
+      });
+      expect(insert).toHaveBeenCalledTimes(1);
+      insert.mockClear();
+      scopedClient.from.mockClear();
+
+      // Act — null means the in-request insert already succeeded.
       await runDeferredOnboardingProvisioning({
         ...baseInput,
         domainRepair: null,

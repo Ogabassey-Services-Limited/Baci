@@ -36,22 +36,35 @@ export interface ProvisionMerchantDomainResult {
   error?: unknown;
 }
 
+/**
+ * Total by construction: it reports failure, it never throws. Both callers run
+ * at points where the merchant row is already committed — mid-request before
+ * the staff upsert, and inside after() alongside other best-effort work — so a
+ * transport-level rejection escaping here would abort provisioning that has
+ * nothing to do with the domain. Only a *resolved* PostgREST error would be
+ * caught by the callers otherwise.
+ */
 export async function provisionMerchantDomain(
   client: DomainProvisionClient,
   { merchantId, merchantSlug, rootDomain }: ProvisionMerchantDomainInput
 ): Promise<ProvisionMerchantDomainResult> {
-  const { error } = await client.from('domains').insert({
-    merchant_id: merchantId,
-    domain: `${merchantSlug}.${rootDomain}`,
-    tld: `.${rootDomain}`,
-    domain_type: 'subdomain',
-    status: 'active',
-    is_primary: true,
-  });
+  try {
+    const { error } = await client.from('domains').insert({
+      merchant_id: merchantId,
+      domain: `${merchantSlug}.${rootDomain}`,
+      tld: `.${rootDomain}`,
+      domain_type: 'subdomain',
+      status: 'active',
+      is_primary: true,
+    });
 
-  if (!error || error.code === UNIQUE_VIOLATION) {
-    return { provisioned: true };
+    if (!error || error.code === UNIQUE_VIOLATION) {
+      return { provisioned: true };
+    }
+
+    return { provisioned: false, error };
+  } catch (error) {
+    // Transport/client rejection rather than a PostgREST error body.
+    return { provisioned: false, error };
   }
-
-  return { provisioned: false, error };
 }

@@ -65,78 +65,83 @@ export async function runDeferredOnboardingProvisioning({
   brandColors,
   domainRepair,
 }: DeferredOnboardingProvisioningInput): Promise<void> {
-  if (domainRepair) {
-    // Guarded: a transport-level throw (rather than a resolved PostgREST error)
-    // would otherwise reject this whole task and skip the starter template and
-    // hero images below, leaving a merchant with no content on a response that
-    // already reported success.
+  const repairDomain = async (): Promise<void> => {
+    if (!domainRepair) {
+      return;
+    }
+    // provisionMerchantDomain is total — it reports transport rejections as a
+    // failed result rather than throwing — so no guard is needed here.
+    const retry = await provisionMerchantDomain(
+      domainRepair.client,
+      domainRepair.input
+    );
+    if (!retry.provisioned) {
+      // A merchant with no active domain row is the durable, queryable signal
+      // that repair is still owed.
+      logOnboardingFailure(retry.error, {
+        stage: 'domain_repair_exhausted',
+        merchantId,
+      });
+    }
+  };
+
+  const generateTemplate = async (): Promise<void> => {
     try {
-      const retry = await provisionMerchantDomain(
-        domainRepair.client,
-        domainRepair.input
+      const { generateInitialTemplate } = await import(
+        '@/lib/initial-template-generator'
       );
-      if (!retry.provisioned) {
-        // A merchant with no active domain row is the durable, queryable signal
-        // that repair is still owed.
-        logOnboardingFailure(retry.error, {
-          stage: 'domain_repair_exhausted',
+      const config = await generateInitialTemplate({
+        businessName,
+        businessType,
+        brandColors: brandColors || DEFAULT_BRAND_COLORS,
+        merchant: { id: merchantId, slug: merchantSlug },
+      });
+      const { error: pageConfigError } = await adminClient
+        .from('page_configs')
+        .insert({
+          merchant_id: merchantId,
+          page_slug: 'home',
+          page_name: 'Home',
+          draft_config: config,
+          published_config: config,
+          is_published: true,
+        });
+      if (pageConfigError) {
+        logOnboardingFailure(pageConfigError, {
+          stage: 'page_config_insert',
           merchantId,
         });
       }
     } catch (error) {
+      logOnboardingFailure(error, { stage: 'template_generation', merchantId });
+    }
+  };
+
+  const assignHeroImages = async (): Promise<void> => {
+    try {
+      const { assignHeroImagesToMerchant } = await import(
+        '@/services/hero-image-generator'
+      );
+      await assignHeroImagesToMerchant(
+        merchantId,
+        businessType.toLowerCase(),
+        false
+      );
+    } catch (error) {
       logOnboardingFailure(error, {
-        stage: 'domain_repair_threw',
+        stage: 'hero_image_assignment',
         merchantId,
       });
     }
-  }
+  };
 
-  try {
-    const { generateInitialTemplate } = await import(
-      '@/lib/initial-template-generator'
-    );
-    const config = await generateInitialTemplate({
-      businessName,
-      businessType,
-      brandColors: brandColors || DEFAULT_BRAND_COLORS,
-      merchant: { id: merchantId, slug: merchantSlug },
-    });
-    const { error: pageConfigError } = await adminClient
-      .from('page_configs')
-      .insert({
-        merchant_id: merchantId,
-        page_slug: 'home',
-        page_name: 'Home',
-        draft_config: config,
-        published_config: config,
-        is_published: true,
-      });
-    if (pageConfigError) {
-      logOnboardingFailure(pageConfigError, {
-        stage: 'page_config_insert',
-        merchantId,
-      });
-    }
-  } catch (error) {
-    logOnboardingFailure(error, {
-      stage: 'template_generation',
-      merchantId,
-    });
-  }
-
-  try {
-    const { assignHeroImagesToMerchant } = await import(
-      '@/services/hero-image-generator'
-    );
-    await assignHeroImagesToMerchant(
-      merchantId,
-      businessType.toLowerCase(),
-      false
-    );
-  } catch (error) {
-    logOnboardingFailure(error, {
-      stage: 'hero_image_assignment',
-      merchantId,
-    });
-  }
+  // Independent of each other's outcome and each self-contained, so they run
+  // concurrently rather than summing their latencies — template generation
+  // calls an AI model, which is why this route carries maxDuration = 60.
+  // allSettled, not all: one rejecting must never cancel the others.
+  await Promise.allSettled([
+    repairDomain(),
+    generateTemplate(),
+    assignHeroImages(),
+  ]);
 }

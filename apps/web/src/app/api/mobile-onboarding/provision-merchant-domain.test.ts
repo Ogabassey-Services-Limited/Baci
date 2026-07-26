@@ -72,4 +72,22 @@ describe('provisionMerchantDomain', () => {
     expect(client.from).toHaveBeenCalledWith('domains');
     expect(insert).toHaveBeenCalledTimes(1);
   });
+
+  describe('bugfix: a transport rejection aborted unrelated provisioning', () => {
+    it('reports a thrown insert as a failed result instead of propagating', async () => {
+      // Arrange — a network-level rejection, not a PostgREST error body.
+      const insert = vi.fn().mockRejectedValue(new Error('socket hang up'));
+      const client = {
+        from: vi.fn(() => ({ insert })),
+      } as unknown as DomainProvisionClient;
+
+      // Act
+      const result = await provisionMerchantDomain(client, input);
+
+      // Assert — both call sites run after the merchant row is committed, so a
+      // throw escaping here would abort provisioning unrelated to the domain.
+      expect(result.provisioned).toBe(false);
+      expect(result.error).toBeInstanceOf(Error);
+    });
+  });
 });

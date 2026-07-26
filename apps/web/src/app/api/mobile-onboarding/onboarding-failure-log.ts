@@ -25,6 +25,20 @@ const DEPLOYMENT_FAULT_CODES = new Set([
   '42883', // undefined_function — a missing RPC
 ]);
 
+/**
+ * Error messages are developer-authored text and are the point of this log, so
+ * they are kept — but bounded, so a pathological message cannot flood the
+ * drain. This is deliberately NOT the same treatment as Postgres DETAIL, which
+ * is dropped entirely because it mechanically embeds the offending ROW.
+ */
+const MAX_LOGGED_MESSAGE_LENGTH = 300;
+
+function boundMessage(message: string): string {
+  return message.length > MAX_LOGGED_MESSAGE_LENGTH
+    ? `${message.slice(0, MAX_LOGGED_MESSAGE_LENGTH)}…[truncated]`
+    : message;
+}
+
 interface PostgresErrorShape {
   code?: string;
   hint?: string;
@@ -78,8 +92,9 @@ export function logOnboardingFailure(
     JSON.stringify({
       ...context,
       name: error instanceof Error ? error.name : typeof error,
-      message:
-        pg.message ?? (error instanceof Error ? error.message : String(error)),
+      message: boundMessage(
+        pg.message ?? (error instanceof Error ? error.message : String(error))
+      ),
       pgCode: pg.code,
       pgHint: pg.hint,
       stack:
