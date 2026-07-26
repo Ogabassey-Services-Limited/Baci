@@ -11,29 +11,37 @@ import { STOREFRONT_SPECIAL_COLLECTION_SLUGS } from '@/lib/storefront-special-co
  * silently point at the cart. Rejecting at write time is the only place this
  * can be caught cheaply.
  *
- * Kept in sync with `RESERVED_STOREFRONT_SEGMENTS` in `proxy.ts` (which is not
- * exported — it is middleware-internal). The C0 design gate (docs/architecture/
- * c0-route-classification-feasibility.md) proposes a generated artifact both
- * files would import; until that lands this list is duplicated deliberately,
- * and the colocated test pins the overlap so drift is visible.
+ * Kept in sync with valid slug-shaped entries in
+ * `RESERVED_STOREFRONT_SEGMENTS` and `MAIN_APP_ROUTES` in `proxy.ts` (which are
+ * middleware-internal), including the default PostHog relay path. The C0
+ * design gate proposes a generated artifact both files would import; until
+ * that lands this list is duplicated deliberately and its test pins the
+ * platform collisions.
  */
 export const RESERVED_CATEGORY_SLUGS = new Set<string>([
   ...STOREFRONT_SPECIAL_COLLECTION_SLUGS,
   'about',
   'account',
   'api',
+  'auth',
+  'baci-relay',
   'blog',
+  'builder',
   'cart',
   'category',
   'checkout',
   'compare',
   'contact',
+  'dashboard',
   'delete-account',
   'faq',
+  'forgot-password',
   'imei-check',
   'member-status',
+  'login',
   'my-account',
   'order-success',
+  'onboarding',
   'pages',
   'privacy',
   'privacy-policy',
@@ -44,11 +52,14 @@ export const RESERVED_CATEGORY_SLUGS = new Set<string>([
   'receipts',
   'repair',
   'repairs',
+  'reset-password',
   'returns',
   'reviews',
   'search',
   'shipping',
+  'signup',
   'sitemap',
+  'staff',
   'storefront',
   'swap',
   'terms',
@@ -56,6 +67,8 @@ export const RESERVED_CATEGORY_SLUGS = new Set<string>([
   'terms-of-service',
   'track-order',
   'unlock-orders',
+  'update-password',
+  'verify',
   'wallet',
   'warranty',
   'wishlist',

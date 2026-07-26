@@ -2,22 +2,9 @@
 --
 -- These triggers run as the authenticated caller (SECURITY INVOKER), so the
 -- existing owner-only categories/products/product_categories/discount_codes
--- RLS policies remain the authority. Category writes are rare and the
--- statement trigger takes a table-level write lock before PostgreSQL locks any
--- target row, avoiding row-lock/advisory-lock inversions while preserving
--- transactional hierarchy validation.
-
-CREATE OR REPLACE FUNCTION private.lock_category_writes_before_statement()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY INVOKER
-SET search_path = ''
-AS $$
-BEGIN
-  LOCK TABLE public.categories IN SHARE ROW EXCLUSIVE MODE;
-  RETURN NULL;
-END;
-$$;
+-- RLS policies remain the authority. The proposed parent row is locked below;
+-- concurrent conflicting hierarchy writes may deadlock and abort one caller,
+-- but cannot commit an invalid hierarchy or serialize unrelated merchants.
 
 CREATE OR REPLACE FUNCTION private.enforce_category_hierarchy_before_write()
 RETURNS trigger
@@ -113,6 +100,29 @@ BEGIN
 
     DELETE FROM public.product_categories
     WHERE category_id = NEW.id;
+
+    UPDATE public.categories
+    SET
+      parent_id = NULL,
+      updated_at = COALESCE(NEW.updated_at, pg_catalog.now())
+    WHERE merchant_id = NEW.merchant_id
+      AND parent_id = NEW.id;
+
+    UPDATE public.discount_codes
+    SET
+      category_ids = COALESCE(category_ids, '[]'::jsonb) - NEW.id::text,
+      is_active = CASE
+        WHEN pg_catalog.jsonb_array_length(
+          COALESCE(category_ids, '[]'::jsonb) - NEW.id::text
+        ) = 0 THEN false
+        ELSE is_active
+      END
+    WHERE merchant_id = NEW.merchant_id
+      AND applies_to = 'specific_categories'
+      AND pg_catalog.jsonb_typeof(
+        COALESCE(category_ids, '[]'::jsonb)
+      ) = 'array'
+      AND COALESCE(category_ids, '[]'::jsonb) ? NEW.id::text;
 
     NEW.metadata := COALESCE(NEW.metadata, '{}'::jsonb)
       - '_baci_reused_tombstone';
@@ -217,18 +227,10 @@ BEGIN
 END;
 $$;
 
-DROP TRIGGER IF EXISTS categories_write_lock_before_statement
-  ON public.categories;
-CREATE TRIGGER categories_write_lock_before_statement
-BEFORE INSERT OR UPDATE
-ON public.categories
-FOR EACH STATEMENT
-EXECUTE FUNCTION private.lock_category_writes_before_statement();
-
 DROP TRIGGER IF EXISTS categories_hierarchy_before_write
   ON public.categories;
 CREATE TRIGGER categories_hierarchy_before_write
-BEFORE INSERT OR UPDATE OF parent_id, is_active
+BEFORE INSERT OR UPDATE OF parent_id, is_active, slug
 ON public.categories
 FOR EACH ROW
 EXECUTE FUNCTION private.enforce_category_hierarchy_before_write();
@@ -244,6 +246,4 @@ EXECUTE FUNCTION private.apply_category_lifecycle_after_update();
 REVOKE ALL ON FUNCTION private.enforce_category_hierarchy_before_write()
   FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION private.apply_category_lifecycle_after_update()
-  FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION private.lock_category_writes_before_statement()
   FROM PUBLIC, anon, authenticated;

@@ -48,6 +48,23 @@ describe('categorySlugSchema', () => {
       }
     });
 
+    it.each([
+      'dashboard',
+      'auth',
+      'baci-relay',
+      'login',
+      'signup',
+      'forgot-password',
+      'update-password',
+      'verify',
+      'staff',
+      'onboarding',
+      'builder',
+      'reset-password',
+    ])('rejects the platform-only route %s', (slug) => {
+      expect(categorySlugSchema.safeParse(slug).success).toBe(false);
+    });
+
     it('names the reason so the merchant can act on it', () => {
       const result = categorySlugSchema.safeParse('checkout');
 

@@ -70,7 +70,7 @@ function supabaseInserting(
         return {
           eq: vi.fn(() => ({
             eq: vi.fn(() => ({
-              not: vi.fn((...filter: unknown[]) => {
+              eq: vi.fn((...filter: unknown[]) => {
                 reviveInactiveFilter = filter;
                 return reviveResult;
               }),
@@ -176,7 +176,7 @@ describe('POST category parent and tombstone behavior', () => {
     expect((await POST(postRequest(VALID_BODY))).status).toBe(409);
   });
 
-  it('revives false or legacy-null tombstones', async () => {
+  it('revives only explicit false tombstones, not public-active legacy nulls', async () => {
     setContext(
       supabaseInserting({
         error: { code: '23505', message: 'duplicate key' },
@@ -185,7 +185,7 @@ describe('POST category parent and tombstone behavior', () => {
     );
 
     expect((await POST(postRequest(VALID_BODY))).status).toBe(201);
-    expect(reviveInactiveFilter).toEqual(['is_active', 'is', true]);
+    expect(reviveInactiveFilter).toEqual(['is_active', false]);
     expect(revivedRow).toMatchObject({ is_active: true, slug: 'phones' });
   });
 

@@ -11,16 +11,29 @@ const migration = readFileSync(
 );
 
 describe('category hierarchy lifecycle migration', () => {
-  it('serializes hierarchy writes and rejects invalid or cyclic parents', () => {
-    expect(migration).toContain(
-      'LOCK TABLE public.categories IN SHARE ROW EXCLUSIVE MODE'
+  it('locks relevant parents and rejects invalid or cyclic hierarchy writes', () => {
+    const hierarchyStart = migration.indexOf(
+      'CREATE OR REPLACE FUNCTION private.enforce_category_hierarchy_before_write()'
     );
-    expect(migration).toContain('FOR EACH STATEMENT');
+    const hierarchyEnd = migration.indexOf(
+      'CREATE OR REPLACE FUNCTION private.apply_category_lifecycle_after_update()',
+      hierarchyStart
+    );
+    expect(hierarchyStart).toBeGreaterThanOrEqual(0);
+    expect(hierarchyEnd).toBeGreaterThan(hierarchyStart);
+    const hierarchyFunction = migration.slice(hierarchyStart, hierarchyEnd);
+
+    expect(hierarchyFunction).toContain('FOR UPDATE');
+    expect(migration).not.toContain('LOCK TABLE');
+    expect(migration).not.toContain('FOR EACH STATEMENT');
     expect(migration).not.toContain('pg_advisory_xact_lock');
     expect(migration).toContain('parent.is_active IS TRUE');
     expect(migration).toContain("MESSAGE = 'CATEGORY_PARENT_INVALID'");
     expect(migration).toContain("MESSAGE = 'CATEGORY_PARENT_CYCLE'");
     expect(migration).toContain('OLD.is_active IS DISTINCT FROM TRUE');
+    expect(migration).toContain(
+      'BEFORE INSERT OR UPDATE OF parent_id, is_active, slug'
+    );
   });
 
   it('keeps rename, revival, and retirement side effects transactional', () => {
@@ -41,10 +54,21 @@ describe('category hierarchy lifecycle migration', () => {
     expect(migration).toMatch(
       /UPDATE public\.discount_codes[\s\S]*category_ids = COALESCE\(category_ids[\s\S]*- NEW\.id::text[\s\S]*is_active = CASE[\s\S]*THEN false/
     );
+    const reuseStart = migration.indexOf('"_baci_reused_tombstone": true');
+    const reuseEnd = migration.indexOf(
+      'NEW.metadata := COALESCE(NEW.metadata',
+      reuseStart
+    );
+    expect(reuseStart).toBeGreaterThanOrEqual(0);
+    expect(reuseEnd).toBeGreaterThan(reuseStart);
+    const reuseBlock = migration.slice(reuseStart, reuseEnd);
+    expect(reuseBlock).toContain('UPDATE public.categories');
+    expect(reuseBlock).toContain('parent_id = NULL');
+    expect(reuseBlock).toContain('UPDATE public.discount_codes');
   });
 
   it('preserves caller RLS instead of creating privileged callable functions', () => {
-    expect(migration.match(/^SECURITY INVOKER$/gm)).toHaveLength(3);
+    expect(migration.match(/^SECURITY INVOKER$/gm)).toHaveLength(2);
     expect(migration).not.toContain('SECURITY DEFINER');
     expect(migration).toContain('FROM PUBLIC, anon, authenticated');
   });
