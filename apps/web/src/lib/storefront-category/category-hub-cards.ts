@@ -1,17 +1,12 @@
 import { CATEGORY_HUB_DEFAULTS } from '@/config/category-hub-defaults';
-import { generateSlug } from '@/lib/seo-utils';
-import { brandAuthorityTaxonomy } from '@/lib/storefront-category/brand-authority-taxonomy';
-import { countBrandsByActiveProduct } from '@/lib/storefront-category/category-hub-brand-utils';
+import { buildCategoryHubBrandCards } from '@/lib/storefront-category/category-hub-brand-cards';
 import { buildPriceBandCards } from '@/lib/storefront-category/category-hub-price-band-cards';
 import type {
   BrandAuthorityEntry,
   CategoryHubCard,
   CategoryHubProduct,
 } from '@/lib/storefront-category/category-hub-types';
-import {
-  buildBrandCompareCandidate,
-  buildPriceBandCandidate,
-} from '@/lib/storefront-compare/compare-eligibility';
+import { buildPriceBandCandidate } from '@/lib/storefront-compare/compare-eligibility';
 import { getCuratedPriceBands } from '@/lib/storefront-compare/price-band-taxonomy';
 
 function isNumber(value: unknown): value is number {
@@ -24,20 +19,6 @@ function getSpecNumber(
 ): number | null {
   const value = product.product_key_specs?.[key];
   return isNumber(value) ? value : null;
-}
-
-function pickFirstBrandProduct(
-  products: CategoryHubProduct[],
-  brand: string
-): CategoryHubProduct | null {
-  const brandProducts = products
-    .filter((product) => product.brand === brand)
-    .sort(
-      (left, right) =>
-        left.price - right.price || left.name.localeCompare(right.name)
-    );
-
-  return brandProducts[0] ?? null;
 }
 
 function pickRepresentativeProduct(
@@ -214,97 +195,6 @@ function buildBestForCards(input: {
   return [];
 }
 
-function buildBrandCards(input: {
-  categorySlug: string;
-  storeUrl: string;
-  products: CategoryHubProduct[];
-  brandAuthorityEntries?: Array<
-    BrandAuthorityEntry & {
-      productCount: number;
-      productCountIsLowerBound?: boolean;
-    }
-  >;
-}) {
-  const priorityDefaults =
-    CATEGORY_HUB_DEFAULTS[
-      input.categorySlug as keyof typeof CATEGORY_HUB_DEFAULTS
-    ];
-  if (!priorityDefaults) {
-    return [];
-  }
-
-  const sortedBrands = countBrandsByActiveProduct(input.products);
-  const explicitAuthorityEntries = input.brandAuthorityEntries ?? [];
-  const eligibleAuthorityEntries =
-    explicitAuthorityEntries.length > 0
-      ? explicitAuthorityEntries
-      : brandAuthorityTaxonomy.getEligibleEntries(
-          input.categorySlug,
-          input.products
-        );
-  const authorityEntries = new Map(
-    eligibleAuthorityEntries.map((entry) => [entry.brandKey, entry])
-  );
-  const canonicalBrandCandidate = buildBrandCompareCandidate({
-    categorySlug: input.categorySlug,
-    products: input.products,
-  });
-
-  const displayedBrands =
-    explicitAuthorityEntries.length > 0
-      ? [
-          ...explicitAuthorityEntries.slice(0, 5).map((entry) => ({
-            key: entry.brandKey,
-            label: entry.displayName,
-            count: entry.productCount,
-            countIsLowerBound: entry.productCountIsLowerBound ?? false,
-          })),
-          ...sortedBrands
-            .filter(
-              (entry) =>
-                !explicitAuthorityEntries.some(
-                  (authorityEntry) => authorityEntry.brandKey === entry.key
-                )
-            )
-            .slice(0, Math.max(0, 5 - explicitAuthorityEntries.length)),
-        ]
-      : sortedBrands.slice(0, authorityEntries.size > 0 ? 5 : 3);
-
-  return displayedBrands.flatMap((entry) => {
-    const representative = pickFirstBrandProduct(input.products, entry.label);
-    const authorityEntry = authorityEntries.get(entry.key);
-    if (!authorityEntry && !representative) {
-      return [];
-    }
-    const href = authorityEntry
-      ? `${input.storeUrl}/${input.categorySlug}/brands/${entry.key}`
-      : `${input.storeUrl}/${input.categorySlug}/${representative?.slug}`;
-
-    const productCountLabel =
-      'countIsLowerBound' in entry && entry.countIsLowerBound
-        ? `${entry.count}+`
-        : String(entry.count);
-    const card: CategoryHubCard = {
-      title: entry.label,
-      description: `${productCountLabel} active ${entry.count === 1 ? 'product' : 'products'} in this category.`,
-      href,
-      eyebrow: priorityDefaults.brandHighlights.heading,
-    };
-
-    if (
-      canonicalBrandCandidate?.isIndexable &&
-      [canonicalBrandCandidate.leftBrand, canonicalBrandCandidate.rightBrand]
-        .map((brand) => generateSlug(brand))
-        .includes(generateSlug(entry.key))
-    ) {
-      card.secondaryHref = `${input.storeUrl}/${input.categorySlug}/compare/${canonicalBrandCandidate.canonicalSlug}`;
-      card.secondaryLabel = `Compare ${canonicalBrandCandidate.leftBrand} vs ${canonicalBrandCandidate.rightBrand}`;
-    }
-
-    return [card];
-  });
-}
-
 export function buildCategoryHubCards(input: {
   categorySlug: string;
   storeUrl: string;
@@ -318,7 +208,7 @@ export function buildCategoryHubCards(input: {
 }) {
   return {
     bestForCards: buildBestForCards(input),
-    brandCards: buildBrandCards(input),
+    brandCards: buildCategoryHubBrandCards(input),
     priceBandCards: buildPriceBandCards(input),
   };
 }

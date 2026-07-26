@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockHydrate = vi.fn();
 const mockRange = vi.fn();
@@ -21,6 +21,8 @@ vi.mock('@/lib/storefront-category/brand-authority-public-data', () => ({
 }));
 
 describe('getCachedBrandAuthorityInventory', () => {
+  beforeEach(() => vi.clearAllMocks());
+
   it('hydrates availability and marks a full qualifying page as a lower bound', async () => {
     const products = Array.from({ length: 100 }, (_, index) => ({
       id: `p-${index}`,
@@ -40,5 +42,27 @@ describe('getCachedBrandAuthorityInventory', () => {
     );
     expect(result.productCount).toBe(100);
     expect(result.productCountIsLowerBound).toBe(true);
+  });
+
+  it('queries every curated brand alias for a combined authority hub', async () => {
+    mockRange.mockResolvedValue({ data: [], error: null });
+    mockHydrate.mockResolvedValue([]);
+    const { getCachedBrandAuthorityInventory } = await import(
+      './get-cached-brand-authority-inventory'
+    );
+
+    await getCachedBrandAuthorityInventory('merchant-1', 'smartphones', {
+      brandAliases: ['Redmi'],
+      brandKey: 'xiaomi',
+      brandQueryValue: 'Xiaomi',
+      categorySlug: 'smartphones',
+      displayName: 'Xiaomi and Redmi',
+      minimumProducts: 5,
+    });
+
+    expect(query.or).toHaveBeenCalledTimes(1);
+    expect(query.or).toHaveBeenCalledWith(
+      'and(is_parent.eq.true,brand.ilike.Xiaomi),and(parent_product_id.is.null,brand.ilike.Xiaomi),and(is_parent.eq.true,brand.ilike.Redmi),and(parent_product_id.is.null,brand.ilike.Redmi)'
+    );
   });
 });
