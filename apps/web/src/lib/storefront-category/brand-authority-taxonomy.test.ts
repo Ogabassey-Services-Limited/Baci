@@ -59,4 +59,36 @@ describe('brand authority taxonomy', () => {
     );
     expect(brandAuthorityTaxonomy.getEntries('unknown')).toEqual([]);
   });
+
+  it('maps Redmi inventory into the Xiaomi authority hub', () => {
+    // Arrange
+    const redmiProducts = makeProducts('Redmi', 5);
+
+    // Act
+    const xiaomiEntry = brandAuthorityTaxonomy.getEntry(
+      'smartphones',
+      'xiaomi'
+    );
+    const eligibleEntries = brandAuthorityTaxonomy.getEligibleEntries(
+      'smartphones',
+      redmiProducts
+    );
+    const oppoEntry = brandAuthorityTaxonomy.getEntry('smartphones', 'oppo');
+    const redmiEntry = brandAuthorityTaxonomy.getEntry('smartphones', 'redmi');
+
+    // Assert
+    expect(xiaomiEntry).toMatchObject({
+      brandAliases: ['Redmi'],
+      brandQueryValue: 'Xiaomi',
+      displayName: 'Xiaomi and Redmi',
+    });
+    expect(eligibleEntries).toEqual([
+      expect.objectContaining({ brandKey: 'xiaomi', productCount: 5 }),
+    ]);
+    expect(oppoEntry).toMatchObject({
+      brandQueryValue: 'Oppo',
+      displayName: 'Oppo',
+    });
+    expect(redmiEntry).toBeNull();
+  });
 });
