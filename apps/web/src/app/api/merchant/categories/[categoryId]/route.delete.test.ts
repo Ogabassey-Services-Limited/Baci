@@ -32,7 +32,7 @@ import { DELETE } from './route';
 import {
   createCategoryRouteTestHarness,
   MERCHANT_UUID,
-} from './route-test-harness';
+} from './route.test-support';
 
 const {
   deleteRequest,

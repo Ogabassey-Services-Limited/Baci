@@ -34,7 +34,7 @@ import { PATCH } from './route';
 import {
   CATEGORY_ID,
   createCategoryRouteTestHarness,
-} from './route-test-harness';
+} from './route.test-support';
 
 const PARENT_ID = '11111111-1111-4111-8111-111111111111';
 const {
