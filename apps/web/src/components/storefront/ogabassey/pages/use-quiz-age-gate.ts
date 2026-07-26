@@ -71,12 +71,13 @@ export function useQuizAgeGate({
     // Account switched (or logged out) while a gate is idle-open: close it so the
     // new shopper can't submit their DOB against the previous shopper's event.
     // Guarded to a real prior identity so a null→id hydration of the same shopper
-    // is not mistaken for a switch. Bumping the token also invalidates any
-    // in-flight save's continuation.
+    // is not mistaken for a switch. Bumping the token invalidates any in-flight
+    // save's continuation. We do NOT release `saveInFlightRef`/`savePending`: a
+    // PATCH still in flight for the previous shopper keeps the write guard until
+    // its own finally settles, so an A→B→A round-trip + resubmit can't start an
+    // overlapping second write that a late-committing original could overwrite.
     if (previous !== null && previous !== currentCustomerId) {
       tokenRef.current += 1;
-      saveInFlightRef.current = false;
-      setSavePending(false);
       setSubmitting(false);
       setError(null);
       setEvent(null);

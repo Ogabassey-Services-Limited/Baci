@@ -95,6 +95,59 @@ describe('useQuizAgeGate — concurrency & account switches', () => {
     expect(view.result.current.savePending).toBe(false);
   });
 
+  it('holds the write guard across an A→B→A round-trip so a resubmit cannot overlap the original PATCH', async () => {
+    // Regression (is6TzaA1): closing the idle gate on a switch must NOT release
+    // the in-flight write guard. Otherwise an A→B→A round-trip + resubmit starts a
+    // second PATCH while A's original is unresolved; if the original commits last
+    // it overwrites the correction.
+    let resolveFirst: (v: { success: boolean }) => void = () => {};
+    const updateCustomer = vi
+      .fn()
+      .mockReturnValueOnce(
+        new Promise<{ success: boolean }>((resolve) => {
+          resolveFirst = resolve;
+        })
+      )
+      .mockResolvedValue({ success: true });
+    const runStart = vi.fn().mockResolvedValue(null);
+    const view = renderHook(
+      ({ customerId }: { customerId: string | null }) =>
+        useQuizAgeGate({
+          runStart,
+          updateCustomer,
+          clearStartError: vi.fn(),
+          currentCustomerId: customerId,
+        }),
+      { initialProps: { customerId: 'shopper-A' } }
+    );
+
+    act(() => view.result.current.open(event));
+    act(() => {
+      void view.result.current.submit('1990-06-15');
+    });
+    // Round-trip A → B → A while A's PATCH is still pending.
+    view.rerender({ customerId: 'shopper-B' });
+    view.rerender({ customerId: 'shopper-A' });
+
+    // Reopen and resubmit under A — the write guard is still held, so no second
+    // overlapping write starts.
+    act(() => view.result.current.open(event));
+    await act(async () => {
+      await view.result.current.submit('1988-03-10');
+    });
+    expect(updateCustomer).toHaveBeenCalledTimes(1);
+
+    // Once the original PATCH settles, the guard releases and a resubmit goes
+    // through as a single, non-overlapping write.
+    await act(async () => {
+      resolveFirst({ success: true });
+    });
+    await act(async () => {
+      await view.result.current.submit('1988-03-10');
+    });
+    expect(updateCustomer).toHaveBeenCalledTimes(2);
+  });
+
   it('closes an idle open gate when the account switches before Continue', () => {
     // Regression (is6TzWK4): the gate is open (Start tapped, DOB not yet entered)
     // and the account switches. The modal must close so the new shopper can't
