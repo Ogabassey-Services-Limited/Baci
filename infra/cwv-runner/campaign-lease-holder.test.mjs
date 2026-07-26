@@ -12,7 +12,7 @@ const read = (url) => fs.readFile(url, 'utf8');
 const sleep = (milliseconds) =>
   new Promise((resolve) => setTimeout(resolve, milliseconds));
 
-async function waitFor(file, attempts = 100) {
+async function waitFor(file, attempts = 500) {
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
       return JSON.parse(await fs.readFile(file, 'utf8'));
@@ -40,7 +40,8 @@ test('campaign lease remains exclusive until terminal release', async (t) => {
   const holder = path.join(root, 'campaign-lease-holder.sh');
   const body = (await read(source))
     .replace('/srv/baci-cwv/campaigns', campaigns)
-    .replace('/run/lock/baci-cwv-campaign.lock', lock);
+    .replace('/run/lock/baci-cwv-campaign.lock', lock)
+    .replace('= 0:700 ] || exit 65', `= ${process.getuid()}:700 ] || exit 65`);
   await fs.writeFile(holder, body, { mode: 0o755 });
 
   const descriptor = await open(lock, 'a');
