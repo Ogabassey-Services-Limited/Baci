@@ -52,6 +52,7 @@ jobs:
               - '.github/scripts/storefront-release-coherence.mjs'
               - '.github/scripts/storefront-sitemap-purge.mjs'
               - '.github/scripts/deploy-with-retry.sh'
+              - '.github/scripts/inject-prebuilt-env-secret.mjs'
               - '.github/scripts/merge-static-union.sh'
               - '.github/scripts/merge-static-union.test.sh'
               - '.github/scripts/pnpm-install-with-retry.sh'
