@@ -7,8 +7,8 @@ import { request as httpsRequest } from 'node:https';
 import { dirname, join } from 'node:path';
 
 import { canonicalJson, projectPublicAttestation, verifyPublicArtifact, verifyRunnerAuthority } from './cwv-runner-authority-core.mjs';
-import { parseRunnerPolicy } from './policy.schema.mjs';
 import { readStableAttestation } from './cwv-runner-stable-attestation-builder.mjs';
+import { parseRunnerPolicy } from './policy.schema.mjs';
 
 const PINS = Object.freeze({
   checkout: 'actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0',
