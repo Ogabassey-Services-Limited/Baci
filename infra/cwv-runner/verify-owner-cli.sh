@@ -254,9 +254,9 @@ exec_task7() {
   gh="$root/tools/gh/bin/gh"
   case $operation in
     (set-auditor-private-key) input="$root/private-key.pem"; assert_owner_input "$input" pem; exec "$gh" secret set BACI_CWV_RUNNER_AUDITOR_PRIVATE_KEY --repo "$REPOSITORY" <"$input";;
-    (set-auditor-app-id) input="$root/auditor-app-id"; assert_owner_input "$input" numeric; exec "$gh" variable set BACI_CWV_RUNNER_AUDITOR_APP_ID --repo "$REPOSITORY" --body - <"$input";;
-    (set-auditor-client-id) input="$root/auditor-client-id"; assert_owner_input "$input" client_id; exec "$gh" variable set BACI_CWV_RUNNER_AUDITOR_CLIENT_ID --repo "$REPOSITORY" --body - <"$input";;
-    (set-auditor-installation-id) input="$root/auditor-installation-id"; assert_owner_input "$input" numeric; exec "$gh" variable set BACI_CWV_RUNNER_AUDITOR_INSTALLATION_ID --repo "$REPOSITORY" --body - <"$input";;
+    (set-auditor-app-id) input="$root/auditor-app-id"; assert_owner_input "$input" numeric; exec "$gh" variable set BACI_CWV_RUNNER_AUDITOR_APP_ID --repo "$REPOSITORY" <"$input";;
+    (set-auditor-client-id) input="$root/auditor-client-id"; assert_owner_input "$input" client_id; exec "$gh" variable set BACI_CWV_RUNNER_AUDITOR_CLIENT_ID --repo "$REPOSITORY" <"$input";;
+    (set-auditor-installation-id) input="$root/auditor-installation-id"; assert_owner_input "$input" numeric; exec "$gh" variable set BACI_CWV_RUNNER_AUDITOR_INSTALLATION_ID --repo "$REPOSITORY" <"$input";;
     (read-auditor-app-registration) exec "$gh" api --method GET -H "X-GitHub-Api-Version: $API_VERSION" "/apps/baci-cwv-runner-auditor";;
     (read-repository-retention) exec "$gh" api --method GET -H "X-GitHub-Api-Version: $API_VERSION" "/repos/$REPOSITORY/actions/permissions/artifact-and-log-retention";;
     (read-rollout-ruleset) exec "$gh" api --method GET -H "X-GitHub-Api-Version: $API_VERSION" "/repos/$REPOSITORY/rulesets";;
