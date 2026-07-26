@@ -38,6 +38,7 @@ let insertedRow: Record<string, unknown> | null = null;
 
 /** Captures the row handed to the tombstone-revive `.update()`. */
 let revivedRow: Record<string, unknown> | null = null;
+let reviveInactiveFilter: unknown[] | null = null;
 
 function supabaseInserting(
   result: {
@@ -71,17 +72,21 @@ function supabaseInserting(
       }),
       update: vi.fn((row: Record<string, unknown>) => {
         revivedRow = row;
+        const reviveResult = {
+          select: vi.fn(() => ({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: result.reviveError ? null : (result.revives ?? null),
+              error: result.reviveError ?? null,
+            }),
+          })),
+        };
         return {
           eq: vi.fn(() => ({
             eq: vi.fn(() => ({
-              eq: vi.fn(() => ({
-                select: vi.fn(() => ({
-                  maybeSingle: vi.fn().mockResolvedValue({
-                    data: result.reviveError ? null : (result.revives ?? null),
-                    error: result.reviveError ?? null,
-                  }),
-                })),
-              })),
+              not: vi.fn((...filter: unknown[]) => {
+                reviveInactiveFilter = filter;
+                return reviveResult;
+              }),
             })),
           })),
         };
@@ -119,6 +124,7 @@ describe('POST /api/merchant/categories', () => {
     vi.clearAllMocks();
     insertedRow = null;
     revivedRow = null;
+    reviveInactiveFilter = null;
     setContext(supabaseInserting());
     mocks.checkCsrfProtection.mockResolvedValue({ valid: true });
     mocks.validateCategoryParent.mockResolvedValue(null);
@@ -376,7 +382,7 @@ describe('POST /api/merchant/categories', () => {
   });
 
   describe('bugfix: DELETE leaves a tombstone, so the slug must stay reusable', () => {
-    it('revives an inactive category with the same slug instead of 409ing', async () => {
+    it('revives false or legacy-null tombstones instead of 409ing', async () => {
       setContext(
         supabaseInserting({
           error: { code: '23505', message: 'duplicate key' },
@@ -387,7 +393,9 @@ describe('POST /api/merchant/categories', () => {
       const response = await POST(postRequest(VALID_BODY));
 
       expect(response.status).toBe(201);
-      // The revive is scoped to is_active=false rows and reactivates them.
+      expect(reviveInactiveFilter).toEqual(['is_active', 'is', true]);
+      // `IS NOT TRUE` covers both false and legacy NULL without matching live
+      // rows.
       expect(revivedRow).toMatchObject({ is_active: true, slug: 'phones' });
     });
   });

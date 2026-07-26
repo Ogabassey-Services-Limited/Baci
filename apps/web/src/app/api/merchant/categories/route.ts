@@ -103,7 +103,8 @@ export async function POST(request: NextRequest) {
   // 23505 = unique violation (duplicate slug for this merchant). DELETE leaves
   // a deactivated tombstone rather than removing the row — see the handler's
   // comment for why — so the slug it occupies must remain re-creatable.
-  // Reviving is scoped to INACTIVE rows: a live category still 409s.
+  // Reviving is scoped to rows that are not active (false or legacy NULL): a
+  // live category still 409s.
   if (error?.code === '23505') {
     const revived = await supabase
       .from('categories')
@@ -122,7 +123,7 @@ export async function POST(request: NextRequest) {
       })
       .eq('merchant_id', merchantId)
       .eq('slug', parsed.data.slug)
-      .eq('is_active', false)
+      .not('is_active', 'is', true)
       .select('id, name, slug, is_active')
       .maybeSingle();
 

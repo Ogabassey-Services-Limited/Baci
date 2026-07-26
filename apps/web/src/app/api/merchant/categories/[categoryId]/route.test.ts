@@ -39,7 +39,7 @@ const PARENT_ID = '11111111-1111-4111-8111-111111111111';
 
 interface TableState {
   /** Row returned by the pre-mutation read (null => 404). */
-  existing?: { id: string; slug: string } | null;
+  existing?: { id: string; slug: string; is_active?: boolean | null } | null;
   updated?: Record<string, unknown> | null;
   updateError?: { code?: string; message: string } | null;
   deleted?: { id: string; slug: string } | null;
@@ -52,7 +52,7 @@ let updatedRow: Record<string, unknown> | null = null;
 function supabaseFor(state: TableState) {
   const existing =
     state.existing === undefined
-      ? { id: CATEGORY_ID, slug: 'phones' }
+      ? { id: CATEGORY_ID, slug: 'phones', is_active: true }
       : state.existing;
 
   return {
@@ -172,6 +172,20 @@ beforeEach(() => {
 });
 
 describe('PATCH /api/merchant/categories/[categoryId]', () => {
+  it('rejects reactivation when the stored slug is now reserved', async () => {
+    setContext({
+      existing: { id: CATEGORY_ID, slug: 'featured', is_active: false },
+    });
+
+    const response = await PATCH(patchRequest({ isActive: true }), params());
+
+    expect(response.status).toBe(400);
+    expect(updatedRow).toBeNull();
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'INVALID_INPUT',
+    });
+  });
+
   it('renames and invalidates BOTH the old and new slug', async () => {
     const response = await PATCH(
       patchRequest({ slug: 'mobile-phones' }),

@@ -4,6 +4,7 @@ import { invalidateCategoryCaches } from '@/lib/category-cache-invalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
 import { categoryIdParamSchema } from '@/schemas/category-id-param';
+import { categorySlugSchema } from '@/schemas/category-slug';
 import { merchantIdParamSchema } from '@/schemas/merchant-id-param';
 import { updateMerchantCategorySchema } from '@/schemas/update-merchant-category';
 import { categoryMutationErrorResponse } from '../category-mutation-error-response';
@@ -100,7 +101,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   // guessed id from another tenant reads as not-found rather than leaking.
   const { data: existing, error: readError } = await supabase
     .from('categories')
-    .select('id, slug')
+    .select('id, slug, is_active')
     .eq('id', categoryId.data)
     .eq('merchant_id', merchantId)
     .maybeSingle();
@@ -119,6 +120,23 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   }
   if (!existing) {
     return NextResponse.json({ error: 'Category not found' }, { status: 404 });
+  }
+
+  const resultingIsActive = parsed.data.isActive ?? existing.is_active;
+  if (resultingIsActive === true) {
+    const resultingSlug = categorySlugSchema.safeParse(
+      parsed.data.slug ?? existing.slug
+    );
+    if (!resultingSlug.success) {
+      return NextResponse.json(
+        {
+          error: firstValidationMessage(resultingSlug.error),
+          code: 'INVALID_INPUT',
+          details: z.flattenError(resultingSlug.error),
+        },
+        { status: 400 }
+      );
+    }
   }
 
   const updates = buildCategoryUpdatePayload(
