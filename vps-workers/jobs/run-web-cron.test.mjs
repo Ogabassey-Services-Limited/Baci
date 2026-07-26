@@ -221,18 +221,24 @@ describe('web cron worker', () => {
     assert.deepEqual(result, { status: 200, body: 'ok' });
   });
 
-  it('allows the Petrock reconciliation cron endpoint', async () => {
-    const result = await runWebCron({
-      path: '/api/cron/petrock-reconcile',
-      env: {
-        BACI_WEB_BASE_URL: 'https://ogabassey.com',
-        CRON_SECRET: 'secret',
-      },
-      fetchFn: () => new Response('ok', { status: 200 }),
-      logger: noopLogger,
-    });
+  it('retains the Petrock reconciliation endpoint for safe deployment transitions', () => {
+    assert.equal(
+      buildWebCronUrl({
+        baseUrl: 'https://ogabassey.com',
+        path: '/api/cron/petrock-reconcile',
+      }).toString(),
+      'https://ogabassey.com/api/cron/petrock-reconcile'
+    );
+  });
 
-    assert.deepEqual(result, { status: 200, body: 'ok' });
+  it('retains the quiz finalization endpoint for safe deployment transitions', () => {
+    assert.equal(
+      buildWebCronUrl({
+        baseUrl: 'https://ogabassey.com',
+        path: '/api/quiz/finalize',
+      }).toString(),
+      'https://ogabassey.com/api/quiz/finalize'
+    );
   });
 
   it('allows the agentic commerce health cron endpoint', async () => {

@@ -83,6 +83,8 @@ vi.mock('@/lib/storefront-product-purge', () => ({
 
 // ---- Import handler AFTER mocks ----
 import { getBlogCacheTag } from '@/lib/blog-cache-tags';
+import { getBlogContentLinksCacheTag } from '@/lib/blog-content-link-cache-tags';
+import { getCategoryPageDataCacheTag } from '@/lib/category-page-cache-tags';
 import { getProductScopedCacheTag } from '@/lib/product-cache-tags';
 import { POST } from './route';
 
@@ -561,7 +563,7 @@ describe('POST /api/cache/revalidate', () => {
         'products'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
-        'category-page-data',
+        getCategoryPageDataCacheTag(MERCHANT_ID),
         'storefront-page'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
@@ -857,7 +859,7 @@ describe('POST /api/cache/revalidate', () => {
         'categories'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
-        'category-page-data',
+        getCategoryPageDataCacheTag(MERCHANT_ID),
         'storefront-page'
       );
     });
@@ -1159,7 +1161,7 @@ describe('POST /api/cache/revalidate', () => {
         'categories'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
-        'category-page-data',
+        getCategoryPageDataCacheTag(MERCHANT_ID),
         'storefront-page'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith('merchants', 'merchant');
@@ -1169,6 +1171,14 @@ describe('POST /api/cache/revalidate', () => {
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
         'blog-list-test-store-all-1',
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        getBlogContentLinksCacheTag(MERCHANT_ID),
+        'merchant'
+      );
+      expect(mockRevalidateTag).not.toHaveBeenCalledWith(
+        'blog-content-links',
         'merchant'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(

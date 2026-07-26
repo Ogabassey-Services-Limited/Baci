@@ -1056,6 +1056,7 @@ describe('POST /api/merchant/blog/posts', () => {
       );
 
       expect(mockRevalidateBlogPosts).toHaveBeenCalledWith({
+        merchantId: MERCHANT_ID,
         identifiers: ['test-store', 'ogabassey.com'],
         canonicalMerchantSlug: 'test-store',
         listingCategories: [],
@@ -1106,6 +1107,7 @@ describe('POST /api/merchant/blog/posts', () => {
       );
 
       expect(mockRevalidateBlogPosts).toHaveBeenCalledWith({
+        merchantId: MERCHANT_ID,
         identifiers: ['test-store', 'ogabassey.com'],
         canonicalMerchantSlug: 'test-store',
         listingCategories: ['the-category-slug'],
@@ -1160,6 +1162,7 @@ describe('POST /api/merchant/blog/posts', () => {
         MERCHANT_ID
       );
       expect(mockRevalidateBlogPosts).toHaveBeenCalledWith({
+        merchantId: MERCHANT_ID,
         identifiers: ['test-store', 'ogabassey.com'],
         canonicalMerchantSlug: 'test-store',
         listingCategories: [],

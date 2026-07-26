@@ -19,10 +19,6 @@ import type {
 import { loadPublishedClusterPostsSafely } from '@/lib/storefront-content/load-published-cluster-posts-safely';
 import type { CompareLinkGraphEntry } from '@/lib/storefront-link-modules/compare-link-graph';
 import {
-  buildCategoryCompareGraphSlugSet,
-  isMaintainedCompareGraphSlug,
-} from '@/lib/storefront-link-modules/compare-maintained-slug';
-import {
   appendCountryContext,
   getCountryShoppingContext,
   getStorefrontLocale,
@@ -53,6 +49,7 @@ import {
   type CompareCategoryInventoryProduct,
   getCachedCompareCategoryInventory,
 } from './get-cached-compare-category-inventory';
+import { getCachedMaintainedCompareRouteManifest } from './get-cached-maintained-compare-route-manifest';
 
 interface CompareBreadcrumbItem {
   name: string;
@@ -289,17 +286,12 @@ type CachedComparePageModel =
   | (Omit<BrandComparePageModel, 'isIndexable' | 'isLegacyFallback'> &
       CanonicalCompareIndexability);
 
-// Request-degradable auxiliary data — buyer-guide links and the semantic-graph
-// related links / graph-based indexability — is loaded PER REQUEST by
-// applyComparePageOverlay, NOT inside the remote-cached model. Both loaders
-// degrade to empty on transient failure by contract (loadPublishedClusterPosts
-// Safely / loadCompareGraphProducts). Baking them into the model's `categories`
-// (1h) cache would freeze a seconds-long upstream blip for the whole window;
-// throwing instead (to avoid caching the degraded output) would 404 otherwise-
-// valid compare pages via the route's notFound(). Computing them outside the
-// cache degrades only the failing request — no caching, no 404. The cached core
-// carries the inputs the overlay needs; only load-bearing data (inventory,
-// product details) stays inside the cache and still throws on transient failure.
+// Request-degradable auxiliary data — buyer-guide and semantic-graph related
+// links — is loaded PER REQUEST by applyComparePageOverlay, NOT inside the
+// cached model. A maintained-route decision is instead computed once from the
+// bounded inventory in the core before product details hydrate. Auxiliary
+// failures therefore degrade only the current request's links, never route
+// approval or a valid page's cache entry.
 interface ProductCompareOverlayContext {
   kind: 'product';
   storeUrl: string;
@@ -312,7 +304,7 @@ interface ProductCompareOverlayContext {
   leftProductSlug: string;
   rightProductSlug: string;
   candidateIsIndexable: boolean;
-  isCuratedCanonicalSlug: boolean;
+  isMaintainedCanonicalSlug: boolean;
   guideLoadContext: BuildCommercialGuideLinksContext | null;
   guideBuildContext: BuildCommercialGuideLinksContext | null;
 }
@@ -551,54 +543,11 @@ async function applyComparePageOverlay(
     }),
   ]);
   const semanticCompareProducts = compareGraphProducts.products;
-  // The approval selector now recognizes that these pair candidates already
-  // passed buildProductCompareCandidate, so this category build is genuinely
-  // O(products^2), not O(products^2) nested inside up to 150 discovery builds.
-  // Build it from the SAME request inventory used by related links: this avoids
-  // a duplicate ~0.5MB Supabase read and removes the stale per-instance slug-set
-  // cache while keeping core, links, and indexability on one active-product
-  // snapshot.
-  const categoryGraphSlugs = compareGraphProducts.failed
-    ? undefined
-    : new Set(
-        buildCategoryCompareGraphSlugSet({
-          storeUrl: overlay.storeUrl,
-          categorySlug: overlay.categorySlug,
-          categoryName: overlay.categoryName,
-          products: semanticCompareProducts,
-          productsAreKnownActive: false,
-        })
-      );
   const routeApprovalProducts = compareGraphProducts.failed
     ? semanticCompareProducts
     : includeClickedCompareProducts({
         products: semanticCompareProducts,
         clickedProducts: [overlay.leftProduct, overlay.rightProduct],
-      });
-  // For categories beyond the bounded semantic inventory, a clicked product can
-  // resolve from the larger compare inventory and be appended to
-  // routeApprovalProducts. The category slug set was built from the bounded
-  // inventory ALONE, so it can't attest to those overflow pairs — force the
-  // uncached rebuild (over routeApprovalProducts incl. the clicked products) for
-  // that request rather than demoting a valid overflow pair to legacy/noindex.
-  const hasOverflowClickedProduct =
-    routeApprovalProducts.length > semanticCompareProducts.length;
-  // Only fall back to the curated-slug decision when the inventory read failed;
-  // without products the graph cannot be built. A successful read produces the
-  // graph set synchronously from that exact inventory, so approval cannot drift
-  // between two independent network reads.
-  const isMaintainedGraphCanonicalSlug = compareGraphProducts.failed
-    ? overlay.isCuratedCanonicalSlug
-    : isMaintainedCompareGraphSlug({
-        storeUrl: overlay.storeUrl,
-        categorySlug: overlay.categorySlug,
-        categoryName: overlay.categoryName,
-        products: routeApprovalProducts,
-        productsAreKnownActive: false,
-        comparisonSlug: overlay.canonicalSlug,
-        categoryGraphSlugs: hasOverflowClickedProduct
-          ? undefined
-          : categoryGraphSlugs,
       });
   const relatedCompareLinks = buildRelatedCompareLinks({
     storeUrl: overlay.storeUrl,
@@ -620,8 +569,8 @@ async function applyComparePageOverlay(
       : [],
     relatedCompareLinks,
     isCanonicalSlugIndexable:
-      overlay.candidateIsIndexable && isMaintainedGraphCanonicalSlug,
-    isCanonicalSlugCurated: isMaintainedGraphCanonicalSlug,
+      overlay.candidateIsIndexable && overlay.isMaintainedCanonicalSlug,
+    isCanonicalSlugCurated: overlay.isMaintainedCanonicalSlug,
   };
 }
 
@@ -766,8 +715,25 @@ async function getCachedComparePageModel(
     parsed.canonicalSlug,
     curatedCompareSlugs
   );
-
   if (leftProduct && rightProduct) {
+    const maintainedRouteManifest = new Set(
+      await getCachedMaintainedCompareRouteManifest(
+        merchant.id,
+        args.categorySlug,
+        args.merchantSlug,
+        storeUrl
+      )
+    );
+
+    if (!maintainedRouteManifest.has(parsed.canonicalSlug)) {
+      logCompareRouteMiss({
+        ...args,
+        canonicalSlug: parsed.canonicalSlug,
+        reason: 'unapproved_product_compare_route',
+      });
+      return null;
+    }
+
     // Only the load-bearing product details are fetched inside the cache. The
     // guide + semantic-graph loads moved to applyComparePageOverlay (outside
     // the cache) so their transient failures degrade one request instead of
@@ -918,7 +884,7 @@ async function getCachedComparePageModel(
         leftProductSlug: leftDetails.slug || parsed.leftKey,
         rightProductSlug: rightDetails.slug || parsed.rightKey,
         candidateIsIndexable: candidate.isIndexable,
-        isCuratedCanonicalSlug,
+        isMaintainedCanonicalSlug: true,
         // Faithful to the pre-overlay contexts: the guide LOAD used the raw
         // parsed URL keys, the guide BUILD used the resolved detail slugs.
         guideLoadContext: supportedClusterCategory

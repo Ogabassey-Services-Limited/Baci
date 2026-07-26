@@ -10,11 +10,11 @@ import { readGitSourceSnapshot } from './event-pipeline-git-source-snapshot';
 import { eventPipelineSourceFilePolicy } from './event-pipeline-source-file-policy';
 
 const FROZEN_EVENT_PIPELINE_BASE_SHA =
-  '9e3d1b14b1931a5e441fc23f0e5417c188056e47';
+  '091c10df641dfdf003b73cdd0eb5811de9c11690';
 // Rotation is two commits: first commit the reviewed production bytes, then
 // advance this receipt to that immutable parent. Never derive it from HEAD.
 const FROZEN_EVENT_PIPELINE_AUTHORITY_BYTE_BASE_SHA =
-  '3aba6709895656f3852c7342230f486ea8edf622';
+  '091c10df641dfdf003b73cdd0eb5811de9c11690';
 const FROZEN_PATH_INVENTORY_SHA256 =
   '8a0f0b5e61d39fe46144e0114a41c7e25a8501e756ce1b819cca5fb793c6d0dc';
 const explicitlyHashedAuthorityPaths = new Set([
