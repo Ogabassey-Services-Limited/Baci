@@ -58,6 +58,26 @@ test('requires the successful dispatch receipt to pass mandatory reconciliation 
   assert.deepEqual(after.postDispatchEvidence.run, run);
 });
 
+test('compares a dispatched run timestamp at GitHub API second precision', () => {
+  const before = accepted();
+  const createdSecond = Date.parse(row().created_at);
+  const sameSecond = reseal(before, {
+    dispatchIntent: { ...before.dispatchIntent, createdWallClockMs: createdSecond + 900 },
+  });
+  assert.equal(
+    consumeResponse(sameSecond, 'list-attestation-runs', page([row()], 20)).phase,
+    'QUEUED',
+  );
+
+  const laterSecond = reseal(before, {
+    dispatchIntent: { ...before.dispatchIntent, createdWallClockMs: createdSecond + 1000 },
+  });
+  assert.throws(
+    () => consumeResponse(laterSecond, 'list-attestation-runs', page([row()], 20)),
+    /invalid run evidence/,
+  );
+});
+
 test('uses the same list receipt to reconcile an indeterminate dispatch directly to QUEUED', () => {
   const intent = beginOperation(quiescent(), 'dispatch-exact-run');
   const after = consumeResponse(intent, 'list-attestation-runs', page([row()], 20));

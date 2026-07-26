@@ -40,7 +40,8 @@ function runRow(state, row) {
     fail('invalid run evidence');
   if (row.event !== 'workflow_dispatch') fail('invalid run evidence');
   const matches = row.display_title === titleFor(state);
-  if (matches && Date.parse(row.created_at) < (state.dispatchIntent?.createdWallClockMs ?? state.createdWallClockMs))
+  const dispatchWallClockMs = state.dispatchIntent?.createdWallClockMs ?? state.createdWallClockMs;
+  if (matches && Date.parse(row.created_at) < Math.floor(dispatchWallClockMs / 1000) * 1000)
     fail('invalid run evidence');
   if (matches && (row.workflow_id !== state.workflow.id || row.path !== state.workflow.path || row.head_branch !== 'main' || row.head_sha !== state.expectedSha || row.run_attempt !== (state.expectedAttempt ?? state.run?.attempt ?? 1) || row.url !== `https://api.github.com/repos/${state.repository.name}/actions/runs/${row.id}` || row.html_url !== `https://github.com/${state.repository.name}/actions/runs/${row.id}`)) fail('invalid run evidence');
   return {
