@@ -13,6 +13,10 @@ test('reads the private auditor App registration through an App JWT', async () =
     path.join(directory, 'verify-owner-cli.sh'),
     'utf8'
   );
+  assert.match(
+    source,
+    /app_jwt\(\) \{[^}]*assert_owner_input "\$key" pem; assert_owner_input "\$id_file" numeric;/
+  );
 
   assert.match(
     source,
@@ -53,7 +57,7 @@ test('mints a signed short-lived App JWT from sealed owner inputs', async (t) =>
   const executable = path.join(root, 'mint-jwt.sh');
   await writeFile(
     executable,
-    `${source.slice(0, source.indexOf('exec_task7() {'))}\nroot=$1\napp_jwt\n`,
+    `${source.slice(0, source.indexOf('exec_task7() {'))}\nassert_owner_input() { :; }\nroot=$1\napp_jwt\n`,
     { mode: 0o500 }
   );
   const minted = spawnSync(executable, [root], { encoding: 'utf8' });
