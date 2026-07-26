@@ -209,7 +209,17 @@ export const EXPECTED_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260726103000_atomic_category_hierarchy_lifecycle.sql',
+    sha256: '0edb40c674e426a144b2ab9e7de455a307a0f3920193576867e4df8bc1041da2',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260726110000_add_merchant_signup_policy_health_rpc.sql',
     sha256: '767937b88573d95bfaacb4777082d4955aca38c3c41b8aa2dee0e5787bcce6bb',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260726201000_harden_category_hierarchy_lifecycle.sql',
+    sha256: '57037c2a309da200410ddbb167cd58183f9a3977a9c285815f5d81af99fbc5c3',
   },
 ];

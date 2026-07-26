@@ -9,7 +9,6 @@ import type {
   AdminProductSearchFilters,
   AdminProductStockFilter,
 } from '@/lib/product-search';
-import { sanitizeText } from '@/lib/sanitize';
 import { supabase } from '@/lib/supabase';
 import type { ProductFormValues } from '@/lib/validators/product';
 import { fetchProductDetail } from './product-detail-query';
@@ -205,53 +204,8 @@ export function useUpdateProductStatus() {
   });
 }
 
-export function useCategories() {
-  const { merchant } = useMerchant();
-
-  return useQuery({
-    enabled: !!merchant?.id,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('categories')
-        .select('id, name, slug')
-        .eq('merchant_id', merchant?.id)
-        .order('name');
-      if (error) throw new Error(error.message);
-      return data;
-    },
-    queryKey: ['categories', merchant?.id],
-    staleTime: 1000 * 60 * 10,
-  });
-}
-
-export function useCreateCategory() {
-  const queryClient = useQueryClient();
-  const { merchant } = useMerchant();
-
-  return useMutation({
-    mutationFn: async (name: string) => {
-      if (!merchant?.id) throw new Error('No merchant');
-      const sanitizedName = sanitizeText(name, 200);
-      if (!sanitizedName.trim()) throw new Error('Category name is required');
-      const slug = sanitizedName
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '');
-
-      const { data, error } = await supabase
-        .from('categories')
-        .insert([{ merchant_id: merchant.id, name: sanitizedName, slug }])
-        .select('id, name, slug')
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    mutationKey: ['createCategory'],
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories'] });
-    },
-  });
-}
+export { useCategories } from './useCategories';
+export { useCreateCategory } from './useCreateCategory';
 
 export function useInventoryStats() {
   const { merchant } = useMerchant();

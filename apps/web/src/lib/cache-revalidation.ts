@@ -14,7 +14,9 @@ import { revalidatePath, revalidateTag } from 'next/cache';
 import { after } from 'next/server';
 import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import { getBlogContentLinksCacheTag } from '@/lib/blog-content-link-cache-tags';
-import { getCategoryPageDataCacheTag } from '@/lib/category-page-cache-tags';
+
+export { revalidateCategories } from '@/lib/revalidate-categories';
+
 import { purgeCloudflareUrls } from '@/lib/cloudflare-purge';
 import { buildMerchantPublicationDataCacheTags } from '@/lib/merchant-publication-data-cache-tags';
 import { normalizeMerchantId } from '@/lib/normalize-merchant-id';
@@ -66,25 +68,6 @@ function schedulePurgeCloudflareUrls(urls: string[]): void {
   } catch {
     // Not inside a request scope (standalone worker / test) — detach instead.
     void purgeCloudflareUrls(urls);
-  }
-}
-
-/**
- * Revalidate all cached data related to a merchant's categories.
- * Call after category create/update/delete.
- */
-export function revalidateCategories(
-  merchantId: string,
-  categorySlug?: string
-) {
-  revalidateTag(`categories-${merchantId}`, 'categories');
-  revalidateTag('navigation-categories', 'categories');
-  revalidateTag(getCategoryPageDataCacheTag(merchantId), 'storefront-page');
-  revalidateTag('product-canonical-redirect', 'products');
-  revalidateTag('product-legacy-redirect', 'products');
-
-  if (categorySlug) {
-    revalidateTag(`category-${merchantId}-${categorySlug}`, 'categories');
   }
 }
 

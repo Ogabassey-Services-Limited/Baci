@@ -1,5 +1,6 @@
 export * from './cac-registration';
 export * from './dedupe-by-id';
+export * from './derive-category-slug';
 export * from './fetch-with-timeout';
 export * from './filter-by-location-phrase';
 export * from './is-finite-number';
