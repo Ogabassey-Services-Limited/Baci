@@ -21,6 +21,9 @@ describe('category hierarchy lifecycle migration', () => {
 
   it('keeps rename, revival, and retirement side effects transactional', () => {
     expect(migration).toContain('ON CONFLICT (merchant_id, slug) DO NOTHING');
+    expect(migration).toMatch(
+      /UPDATE public\.products[\s\S]*SET category_id = NULL[\s\S]*category_id = NEW\.id[\s\S]*merchant_id = NEW\.merchant_id/
+    );
     expect(migration).toContain('DELETE FROM public.product_categories');
     expect(migration).toContain('NEW.seo_heading := NULL');
     expect(migration).toMatch(

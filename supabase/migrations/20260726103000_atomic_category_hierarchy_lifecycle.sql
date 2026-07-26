@@ -94,6 +94,11 @@ BEGIN
     NEW.seo_features := NULL;
     NEW.seo_faq := NULL;
 
+    UPDATE public.products
+    SET category_id = NULL
+    WHERE category_id = NEW.id
+      AND merchant_id = NEW.merchant_id;
+
     DELETE FROM public.product_categories
     WHERE category_id = NEW.id;
   END IF;

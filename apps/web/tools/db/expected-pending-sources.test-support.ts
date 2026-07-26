@@ -210,6 +210,6 @@ export const EXPECTED_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260726103000_atomic_category_hierarchy_lifecycle.sql',
-    sha256: '7ce92088c089998ac14c112c68e2b292fd9e4fe5e2fad8b7494f1207a3bf75ed',
+    sha256: '2d4509ee4d0c0f75241bb60ae5c4f423639891e16e201ee3474b90bd62ec2848',
   },
 ];
