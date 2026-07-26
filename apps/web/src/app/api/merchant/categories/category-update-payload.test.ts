@@ -65,13 +65,12 @@ describe('buildCategoryUpdatePayload', () => {
     });
   });
 
-  it('clears stale SEO fields when PATCH reactivates a category', () => {
-    expect(buildCategoryUpdatePayload({ isActive: true }, NOW)).toMatchObject({
-      is_active: true,
-      seo_description: null,
-      seo_faq: null,
-      seo_features: null,
-      seo_heading: null,
-    });
+  it('preserves SEO on an active-to-active edit that repeats isActive true', () => {
+    const payload = buildCategoryUpdatePayload({ isActive: true }, NOW);
+
+    expect(payload).toEqual({ is_active: true, updated_at: NOW });
+    expect(
+      Object.keys(payload).filter((key) => key.startsWith('seo_'))
+    ).toEqual([]);
   });
 });

@@ -1,9 +1,10 @@
 -- Keep category hierarchy and tombstone lifecycle changes atomic.
 --
 -- These triggers run as the authenticated caller (SECURITY INVOKER), so the
--- existing owner-only categories/product_categories RLS policies remain the
--- authority. The merchant-scoped advisory lock serializes competing hierarchy
--- writes without introducing a privileged application client.
+-- existing owner-only categories/products/product_categories/discount_codes
+-- RLS policies remain the authority. The merchant-scoped advisory lock
+-- serializes competing hierarchy writes without introducing a privileged
+-- application client.
 
 CREATE OR REPLACE FUNCTION private.enforce_category_hierarchy_before_write()
 RETURNS trigger
@@ -164,6 +165,25 @@ BEGIN
       updated_at = COALESCE(NEW.updated_at, pg_catalog.now())
     WHERE merchant_id = NEW.merchant_id
       AND parent_id = NEW.id;
+
+    -- A retired category UUID must not remain a live discount target. Remove
+    -- only this target so multi-category discounts keep working, and disable a
+    -- discount when the removal leaves it with no category scope.
+    UPDATE public.discount_codes
+    SET
+      category_ids = COALESCE(category_ids, '[]'::jsonb) - NEW.id::text,
+      is_active = CASE
+        WHEN pg_catalog.jsonb_array_length(
+          COALESCE(category_ids, '[]'::jsonb) - NEW.id::text
+        ) = 0 THEN false
+        ELSE is_active
+      END
+    WHERE merchant_id = NEW.merchant_id
+      AND applies_to = 'specific_categories'
+      AND pg_catalog.jsonb_typeof(
+        COALESCE(category_ids, '[]'::jsonb)
+      ) = 'array'
+      AND COALESCE(category_ids, '[]'::jsonb) ? NEW.id::text;
   END IF;
 
   RETURN NEW;

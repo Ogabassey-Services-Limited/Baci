@@ -22,13 +22,9 @@ export function buildCategoryUpdatePayload(
   if (input.parentId !== undefined) updates.parent_id = input.parentId;
   if (input.displayOrder !== undefined)
     updates.display_order = input.displayOrder;
+  // The database trigger owns transition-aware SEO cleanup. Clearing here on
+  // every `isActive: true` edit would erase SEO from an already-active row.
   if (input.isActive !== undefined) updates.is_active = input.isActive;
-  if (input.isActive === true) {
-    updates.seo_description = null;
-    updates.seo_faq = null;
-    updates.seo_features = null;
-    updates.seo_heading = null;
-  }
 
   return updates;
 }

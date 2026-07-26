@@ -29,6 +29,9 @@ describe('category hierarchy lifecycle migration', () => {
     expect(migration).toMatch(
       /IF OLD\.is_active IS TRUE[\s\S]*UPDATE public\.categories[\s\S]*parent_id = NULL/
     );
+    expect(migration).toMatch(
+      /UPDATE public\.discount_codes[\s\S]*category_ids = COALESCE\(category_ids[\s\S]*- NEW\.id::text[\s\S]*is_active = CASE[\s\S]*THEN false/
+    );
   });
 
   it('preserves caller RLS instead of creating privileged callable functions', () => {

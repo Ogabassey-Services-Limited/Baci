@@ -136,8 +136,14 @@ describe('invalidateCategoryCaches', () => {
       const specifiers = Array.from(
         source.matchAll(/(?:from\s+|import\s*)['"]([^'"]+)['"]/g)
       ).map((match) => match[1]);
-      expect(specifiers).not.toContain('@/lib/cloudflare-purge');
-      expect(specifiers).not.toContain('@/lib/cache-revalidation');
+      for (const forbiddenSpecifier of [
+        /cloudflare-purge/,
+        /(?:^|\/)cache-revalidation(?:$|[-/])/,
+      ]) {
+        expect(
+          specifiers.filter((specifier) => forbiddenSpecifier.test(specifier))
+        ).toEqual([]);
+      }
     });
   });
 
