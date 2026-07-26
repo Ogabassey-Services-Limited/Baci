@@ -32,15 +32,19 @@ describe('categoryHasChildren', () => {
   });
 
   it('ignores explicitly retired children when deciding whether a root can move', async () => {
+    // The query result models Supabase after applying the explicit-false filter:
+    // a retired-only child set produces no row.
     const supabase = supabaseReturning(null) as unknown as {
       from: ReturnType<typeof vi.fn>;
     };
 
-    await categoryHasChildren(
-      supabase as unknown as CategoryRouteContext['supabase'],
-      'merchant',
-      'parent'
-    );
+    await expect(
+      categoryHasChildren(
+        supabase as unknown as CategoryRouteContext['supabase'],
+        'merchant',
+        'parent'
+      )
+    ).resolves.toBe('no-children');
 
     const query = supabase.from.mock.results[0]?.value;
     const afterSelect = query.select.mock.results[0]?.value;

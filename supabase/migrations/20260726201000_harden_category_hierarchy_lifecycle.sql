@@ -176,7 +176,7 @@ BEGIN
     UPDATE public.categories
     SET
       parent_id = NULL,
-      updated_at = COALESCE(NEW.updated_at, pg_catalog.now())
+      updated_at = pg_catalog.now()
     WHERE merchant_id = NEW.merchant_id
       AND parent_id = v_consumed_category_id;
 

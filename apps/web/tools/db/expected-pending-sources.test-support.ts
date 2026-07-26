@@ -220,6 +220,6 @@ export const EXPECTED_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260726201000_harden_category_hierarchy_lifecycle.sql',
-    sha256: 'e6a64f576c43c86c803020cfaa7e4360bb5d79019baef5c763f2ba61c1c8238f',
+    sha256: 'f7983e77de6010666ce8c5351519665a7e27d1c3529e9ab9b79e7cdf52299e5b',
   },
 ];

@@ -35,6 +35,16 @@ describe('revalidateCategories', () => {
     );
   });
 
+  it('propagates cache API failures to the mutation caller', () => {
+    mocks.revalidateTag.mockImplementationOnce(() => {
+      throw new Error('cache unavailable');
+    });
+
+    expect(() => revalidateCategories(MERCHANT_ID)).toThrow(
+      'cache unavailable'
+    );
+  });
+
   it('stays free of credential-reaching imports', async () => {
     // The whole point of this module: category API routes import it instead of
     // cache-revalidation, which pulls cloudflare-purge -> getCloudflareApiToken.

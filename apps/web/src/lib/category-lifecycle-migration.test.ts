@@ -114,6 +114,8 @@ describe('category hierarchy lifecycle hardening migration', () => {
       /child\.parent_id = NEW\.id[\s\S]*child\.is_active IS NOT FALSE/
     );
     expect(hardeningMigration).toContain("MESSAGE = 'CATEGORY_DEPTH_EXCEEDED'");
+    expect(hardeningMigration.match(/^SECURITY INVOKER$/gm)).toHaveLength(2);
+    expect(hardeningMigration).not.toContain('SECURITY DEFINER');
   });
 
   it('consumes inactive reuse markers immediately and preserves NULL-live rows', () => {
@@ -145,5 +147,6 @@ describe('category hierarchy lifecycle hardening migration', () => {
       /to_jsonb\(NEW\) - 'category' - 'updated_at'[\s\S]*to_jsonb\(OLD\) - 'category' - 'updated_at'[\s\S]*NEW\.updated_at := OLD\.updated_at/
     );
     expect(hardeningMigration).toContain('BEFORE UPDATE OF category');
+    expect(hardeningMigration).toContain('updated_at = pg_catalog.now()');
   });
 });
