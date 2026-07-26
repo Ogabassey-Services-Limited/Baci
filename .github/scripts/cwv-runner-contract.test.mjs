@@ -64,6 +64,7 @@ test('CI and deploy gate every direct CWV dependency and aggregate its contract 
   const deploy = YAML.parse(workflows['deploy.yml']);
   const requiredPaths = [
     'infra/cwv-runner/**',
+    '.github/workflows/**',
     '.github/scripts/canonical-json.mjs',
     '.github/scripts/policy.json',
     '.github/scripts/policy.schema.mjs',
@@ -88,6 +89,16 @@ test('CI and deploy gate every direct CWV dependency and aggregate its contract 
     "${{ needs['cwv-runner-contracts'].result }}",
   );
   assert.match(quality.steps[0].run, /"\$CWV_RUNNER_CONTRACTS_RESULT"/);
+  assert.doesNotMatch(
+    deploy.jobs['deploy-production'].if,
+    /cwv_runner/,
+    'runner-only main pushes must not deploy production',
+  );
+  assert.match(
+    deploy.jobs['deploy-production'].if,
+    /github\.event_name == 'workflow_dispatch' \|\| needs\.changes\.outputs\.web == 'true'/,
+    'production deployment must remain available for manual dispatch or web changes',
+  );
 });
 
 test('workflow discovery includes portable YAML file names and extensions', () => {

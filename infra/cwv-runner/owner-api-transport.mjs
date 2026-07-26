@@ -208,7 +208,7 @@ export function consumeResponse(state, operation, response) {
     if (['DISPATCH_INTENT', 'DISPATCH_INDETERMINATE'].includes(state.phase)) return next(state, { ...clear, ...dispatchReconciliationPatch(state, collected.body, response.receivedMonotonicMs, collected.proofs) });
     if (state.phase === 'READY') return next(state, { ...clear, phase: 'QUIESCENT', preDispatchEvidence: preDispatchEvidence(state, collected.body, collected.proofs) });
     if (['DISPATCH_ACCEPTED', 'QUEUED', 'RUNNING'].includes(state.phase)) {
-      const reconciliation = postDispatchEvidence(state, collected.body, collected.proofs);
+      const reconciliation = postDispatchEvidence(state, collected.body, collected.proofs); if (!reconciliation) return next(state, clear);
       return next(state, { ...clear, phase: state.phase === 'DISPATCH_ACCEPTED' ? 'QUEUED' : state.phase, postDispatchEvidence: reconciliation, run: { ...reconciliation.run, queuedSinceMonotonicMs: state.run.queuedSinceMonotonicMs } });
     }
     fail('invalid run evidence');

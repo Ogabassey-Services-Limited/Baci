@@ -106,6 +106,7 @@ jobs:
               - '.github/scripts/check-migration-versions.test.sh'
             cwv_runner:
               - 'infra/cwv-runner/**'
+              - '.github/workflows/**'
               - '.github/scripts/cwv-runner-*.mjs'
               - '.github/scripts/canonical-json.mjs'
               - '.github/scripts/policy.json'

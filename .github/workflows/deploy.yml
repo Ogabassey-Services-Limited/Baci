@@ -63,6 +63,7 @@ jobs:
               - '.github/workflows/deploy.yml'
             cwv_runner:
               - 'infra/cwv-runner/**'
+              - '.github/workflows/**'
               - '.github/scripts/cwv-runner-*.mjs'
               - '.github/scripts/canonical-json.mjs'
               - '.github/scripts/policy.json'
@@ -135,7 +136,7 @@ jobs:
     # 'skipped' and 'failure', so a skipped migrations job (e.g. if its `if`
     # condition becomes false in a future change) cannot let a web deploy
     # land against an out-of-date schema.
-    if: always() && github.ref == 'refs/heads/main' && needs.db-migrations.result == 'success' && (needs.cwv-runner-contracts.result == 'success' || needs.cwv-runner-contracts.result == 'skipped') && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.web == 'true' || needs.changes.outputs.cwv_runner == 'true')
+    if: always() && github.ref == 'refs/heads/main' && needs.db-migrations.result == 'success' && (needs.cwv-runner-contracts.result == 'success' || needs.cwv-runner-contracts.result == 'skipped') && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.web == 'true')
     # Run production prebuilt deploys on GitHub-hosted runners while the VPS
     # provider is returning sustained CPU steal. This still uses a local
     # `vercel build --prod` followed by `vercel deploy --prebuilt --prod`, so

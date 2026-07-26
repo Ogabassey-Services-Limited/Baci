@@ -116,6 +116,7 @@ export function postDispatchEvidence(state, body, proofs = []) {
     state.preDispatchEvidence?.runs?.map((row) => row.id)
   );
   const matching = rows.filter((row) => row.matches && !previous.has(row.id));
+  if (!matching.length) return undefined;
   if (
     matching.length !== 1 ||
     !active.has(matching[0].status) ||

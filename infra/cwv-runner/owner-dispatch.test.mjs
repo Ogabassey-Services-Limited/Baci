@@ -121,7 +121,7 @@ test('spaces post-dispatch reconciliation until its monotonic propagation deadli
     `node=${process.execPath}`,
     'calls=0',
     'task9() { calls=$((calls + 1)); }',
-    `json_get() { case "$2" in (phase) [ "$calls" -lt 2 ] && printf '%s' DISPATCH_ACCEPTED || printf '%s' QUEUED;; (deadlineMonotonicMs) "$node" -e 'process.stdout.write(String(Number(process.hrtime.bigint()/1000000n)+5000))';; (postDispatchEvidence.run.id|run.id) printf '%s' 1;; (postDispatchEvidence.run.attempt|run.attempt) printf '%s' 1;; (*) exit 64;; esac; }`,
+    `json_get() { case "$2" in (phase) [ "$calls" -lt 2 ] && printf '%s' DISPATCH_ACCEPTED || printf '%s' QUEUED;; (queueDeadlineMonotonicMs) "$node" -e 'process.stdout.write(String(Number(process.hrtime.bigint()/1000000n)+5000))';; (postDispatchEvidence.run.id|run.id) printf '%s' 1;; (postDispatchEvidence.run.attempt|run.attempt) printf '%s' 1;; (*) exit 64;; esac; }`,
     `started=$($node -e 'process.stdout.write(String(Number(process.hrtime.bigint()/1000000n)))')`,
     'task9_until list-attestation-runs',
     `finished=$($node -e 'process.stdout.write(String(Number(process.hrtime.bigint()/1000000n)))')`,
@@ -131,7 +131,24 @@ test('spaces post-dispatch reconciliation until its monotonic propagation deadli
   assert.equal(result.error, undefined);
   assert.equal(result.status, 0);
   assert.match(result.stdout, /calls=2 elapsed=[1-9][0-9]{2,}/);
-  assert.match(reconcile, /deadlineMonotonicMs[\s\S]*\/bin\/sleep 1/);
+  assert.match(reconcile, /queueDeadlineMonotonicMs[\s\S]*dispatchIntent\.reconcileDeadlineMonotonicMs[\s\S]*\/bin\/sleep 1/);
+});
+
+test('continues a persisted indeterminate dispatch through bounded run-list reconciliation', () => {
+  const exact = source.match(/task9_exact\(\) \{[\s\S]*?\n\}/)?.[0];
+  const reconcile = source.match(/task9_until\(\) \{[^\n]+\}/)?.[0];
+  assert.ok(exact && reconcile);
+  const script = [
+    'set -eu', `node=${process.execPath}`, 'state=state state_sha=state.sha source_authorization=source source_authorization_sha256=source.sha',
+    'phase=QUIESCENT lists=0 dispatches=0 campaigns=0',
+    'json_get() { case "$2" in (sourceAuthorization.transactionId) printf transaction;; (phase) printf "%s" "$phase";; (postDispatchEvidence.run.id|run.id|postDispatchEvidence.run.attempt|run.attempt) printf 1;; (*) exit 64;; esac; }',
+    'task9() { case $1 in (list-attestation-runs) lists=$((lists + 1)); [ "$lists" = 1 ] && phase=QUIESCENT || phase=QUEUED;; (dispatch-exact-run) dispatches=$((dispatches + 1)); phase=DISPATCH_INDETERMINATE; return 1;; (*) exit 64;; esac; }',
+    'task9_campaign() { campaigns=$((campaigns + 1)); }; task9_cancel() { :; }; task9_manual() { :; }; task9_abort() { :; }', reconcile, exact, 'task9_exact', 'printf "lists=%s dispatches=%s campaigns=%s phase=%s\\n" "$lists" "$dispatches" "$campaigns" "$phase"',
+  ].join('\n');
+  const result = spawnSync('/bin/sh', ['-c', script], { encoding: 'utf8', timeout: 3000 });
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /lists=2 dispatches=1 campaigns=1 phase=QUEUED/);
 });
 
 test('rehashes the canonical Task 9 source closure and reconciles every terminal branch', () => {
@@ -144,8 +161,8 @@ test('rehashes the canonical Task 9 source closure and reconciles every terminal
   assert.doesNotMatch(source, /"\$node" "\$manifest" (?:verify|execute)/);
   assert.match(source, /\[ "\$vps" = "\$VPS_SSH" \][\s\S]*file_mode "\$vps"\)" = 755/);
   assert.match(source, /task9-owner-documents\.mjs"; assert_child_file "\$documents"; \[ "\$\(file_mode "\$documents"\)" = 644 \]/);
-  assert.match(source, /task9_root_started=0; task9_cleanup_confirmed=0; rerun_pending=0; trap 'task9_cancel; task9_manual; task9_abort' EXIT HUP INT TERM; task9_until list-attestation-runs[\s\S]*task9 dispatch-exact-run[\s\S]*task9_until list-attestation-runs/);
-  assert.match(source, /task9_until\(\).*postDispatchEvidence\.run\.id.*DISPATCH_ACCEPTED.*deadlineMonotonicMs.*runnerEvidence\.runnerId/);
+  assert.match(source, /task9_root_started=0; task9_cleanup_confirmed=0; rerun_pending=0; trap 'task9_cancel; task9_manual; task9_abort' EXIT HUP INT TERM; task9_until list-attestation-runs[\s\S]*if task9 dispatch-exact-run[\s\S]*phase=\$\(json_get "\$state" phase\)[\s\S]*\[ "\$phase" = DISPATCH_INDETERMINATE \][\s\S]*task9_until list-attestation-runs/);
+  assert.match(source, /task9_until\(\).*postDispatchEvidence\.run\.id.*DISPATCH_ACCEPTED\|DISPATCH_INDETERMINATE.*queueDeadlineMonotonicMs.*dispatchIntent\.reconcileDeadlineMonotonicMs.*runnerEvidence\.runnerId/);
   assert.match(source, /"phase":"MANUAL_RECONCILIATION"/);
 });
 

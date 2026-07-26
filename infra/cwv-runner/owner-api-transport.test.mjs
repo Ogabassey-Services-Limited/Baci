@@ -78,7 +78,12 @@ test('uses durable READY, QUIESCENT, DISPATCH_ACCEPTED, and reconciled QUEUED st
   const accepted = consumeResponse(beginOperation(quiescent, 'dispatch-exact-run'), 'dispatch-exact-run', dispatchResponse);
   assert.equal(accepted.phase, 'DISPATCH_ACCEPTED');
   assert.throws(() => consumeResponse(accepted, 'read-exact-run', { status: 200, body: { ...runRow, conclusion: null } }), /unexpected/);
-  assert.equal(consumeResponse(accepted, 'list-attestation-runs', { status: 200, body: { total_count: 1, workflow_runs: [runRow] } }).phase, 'QUEUED');
+  const delayed = consumeResponse(accepted, 'list-attestation-runs', { status: 200, body: { total_count: 0, workflow_runs: [] } });
+  assert.equal(delayed.phase, 'DISPATCH_ACCEPTED');
+  assert.equal(delayed.run.id, dispatchResponse.body.workflow_run_id);
+  assert.throws(() => consumeResponse(accepted, 'list-attestation-runs', { status: 200, body: { total_count: 1, workflow_runs: [{ ...runRow, display_title: 'other', id: 10 }] } }), /ambiguous/);
+  assert.throws(() => beginOperation(delayed, 'list-attestation-runs', delayed.queueDeadlineMonotonicMs + 1), /queue deadline/);
+  assert.equal(consumeResponse(delayed, 'list-attestation-runs', { status: 200, body: { total_count: 1, workflow_runs: [runRow] } }).phase, 'QUEUED');
 });
 test('writes DISPATCH_INTENT before the request, binds the required 200 run receipt, and never repeats an ambiguous mutation', async () => {
   const writes = [];
@@ -138,6 +143,7 @@ test('records an ambiguous dispatch as durable indeterminate state and forbids a
   assert.deepEqual(writes.map((value) => value.phase), ['DISPATCH_INTENT', 'DISPATCH_INDETERMINATE']);
   assert.equal(writes[1].dispatchIntent.admissionId, 'b'.repeat(64));
   assert.throws(() => beginOperation(writes[1], 'dispatch-exact-run'), /ambiguous/);
+  assert.equal(consumeResponse(writes[1], 'list-attestation-runs', { status: 200, receivedMonotonicMs: 20, body: { total_count: 1, workflow_runs: [runRow] } }).phase, 'QUEUED');
 });
 test('keeps a dispatch recoverable when network preparation fails before send begins', async () => {
   for (const failure of [
