@@ -160,6 +160,18 @@ jobs:
       # Bumping the pin requires re-checking that the new CLI's bundled
       # esbuild version is still on the allow list.
       - run: .github/scripts/run-pinned-vercel.sh pull --yes --environment=production
+      # QUIZ_RPC_SERVER_SECRET is a *sensitive* (write-only) Vercel env var, so
+      # `vercel pull` writes it as an empty QUIZ_RPC_SERVER_SECRET="". env.ts
+      # hard-requires it at build time once QUIZ_PHASE=production, so the local
+      # prebuilt `vercel build` below would fail env validation. Inject the real
+      # value from the GitHub Actions secret (kept out of Vercel's readable env)
+      # into the pulled build env. The script no-ops when the secret is unset, so
+      # quiz phase "1a" deploys are unaffected. The key is server-only (env.ts
+      # throws if read on the client; not NEXT_PUBLIC_), so it is never bundled.
+      - name: Inject sensitive quiz RPC secret into prebuilt build env
+        env:
+          QUIZ_RPC_SERVER_SECRET: ${{ secrets.QUIZ_RPC_SERVER_SECRET }}
+        run: node .github/scripts/inject-prebuilt-env-secret.mjs QUIZ_RPC_SERVER_SECRET .vercel/.env.production.local
       - name: Build for Vercel
         run: .github/scripts/run-pinned-vercel.sh build --yes --prod
       # Every production deploy replaces content-hashed _next/static chunk
