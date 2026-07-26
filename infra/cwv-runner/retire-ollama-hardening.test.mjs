@@ -1,3 +1,4 @@
+// biome-ignore-all format: compact hardening fixtures stay within the source ceiling.
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -15,7 +16,6 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { promisify } from 'node:util';
 
-// biome-ignore format: compact constants keep this fixture within the source ceiling.
 const root = new URL('.', import.meta.url); const script = new URL('./retire-ollama.sh', root); const execFileAsync = promisify(execFile);
 test('keeps the scan finite when nginx is not installed', async () => {
   const source = await readFile(script, 'utf8');
