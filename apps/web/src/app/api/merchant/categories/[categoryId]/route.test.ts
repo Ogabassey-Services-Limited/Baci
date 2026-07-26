@@ -159,6 +159,18 @@ describe('PATCH /api/merchant/categories/[categoryId]', () => {
     expect(response.status).toBe(404);
   });
 
+  it('returns 500 when the authoritative category lookup fails', async () => {
+    setContext({ existingError: { message: 'database unavailable' } });
+
+    const response = await PATCH(patchRequest({ slug: 'x-1' }), params());
+
+    expect(response.status).toBe(500);
+    expect(getUpdatedRow()).toBeNull();
+    await expect(response.json()).resolves.toEqual({
+      error: 'Could not load the category',
+    });
+  });
+
   describe('parent validation is delegated and includes this category', () => {
     it('propagates the refusal response verbatim', async () => {
       const { NextResponse: Response } = await import('next/server');

@@ -23,7 +23,7 @@ describe('isParentCategoryOwnedByMerchant', () => {
   it.each([
     [{ id: 'parent', is_active: true }, null, 'owned'],
     [{ id: 'parent', is_active: false }, null, 'retired'],
-    [{ id: 'parent', is_active: null }, null, 'retired'],
+    [{ id: 'parent', is_active: null }, null, 'owned'],
     [null, null, 'absent'],
     [null, { message: 'timeout' }, 'lookup-failed'],
   ] as const)('maps data %j and error %j to %s', async (data, error, expected) => {

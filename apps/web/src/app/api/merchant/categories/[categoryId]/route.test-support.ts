@@ -21,6 +21,7 @@ export interface TableState {
     is_active?: boolean | null;
     updated_at?: string | null;
   } | null;
+  existingError?: { message: string } | null;
   updated?: Record<string, unknown> | null;
   updateError?: { code?: string; message: string } | null;
   deleted?: { id: string; slug: string } | null;
@@ -46,9 +47,10 @@ export function createCategoryRouteTestHarness(mocks: RouteMocks) {
         select: vi.fn(() => ({
           eq: vi.fn(() => ({
             eq: vi.fn(() => ({
-              maybeSingle: vi
-                .fn()
-                .mockResolvedValue({ data: existing, error: null }),
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: state.existingError ? null : existing,
+                error: state.existingError ?? null,
+              }),
             })),
           })),
         })),

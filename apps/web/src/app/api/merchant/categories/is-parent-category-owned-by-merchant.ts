@@ -21,5 +21,5 @@ export async function isParentCategoryOwnedByMerchant(
 
   if (error) return 'lookup-failed';
   if (!data) return 'absent';
-  return data.is_active === true ? 'owned' : 'retired';
+  return data.is_active === false ? 'retired' : 'owned';
 }
