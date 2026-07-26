@@ -26,7 +26,10 @@ describe('category hierarchy lifecycle migration', () => {
     expect(hierarchyFunction).toContain('FOR UPDATE');
     expect(migration).not.toContain('LOCK TABLE');
     expect(migration).not.toContain('FOR EACH STATEMENT');
-    expect(migration).not.toContain('pg_advisory_xact_lock');
+    expect(hierarchyFunction).toContain('pg_advisory_xact_lock');
+    expect(hierarchyFunction).toContain(
+      'hashtextextended(NEW.merchant_id::text, 0)'
+    );
     expect(migration).toContain('parent.is_active IS TRUE');
     expect(migration).toContain("MESSAGE = 'CATEGORY_PARENT_INVALID'");
     expect(migration).toContain("MESSAGE = 'CATEGORY_PARENT_CYCLE'");
@@ -39,14 +42,14 @@ describe('category hierarchy lifecycle migration', () => {
   it('keeps rename, revival, and retirement side effects transactional', () => {
     expect(migration).toContain('ON CONFLICT (merchant_id, slug) DO NOTHING');
     expect(migration).toMatch(
-      /UPDATE public\.products[\s\S]*SET category_id = NULL[\s\S]*category_id = NEW\.id[\s\S]*merchant_id = NEW\.merchant_id/
+      /FOREACH v_consumed_category_id[\s\S]*UPDATE public\.products[\s\S]*category_id = NULL,[\s\S]*category = NULL[\s\S]*category_id = v_consumed_category_id[\s\S]*merchant_id = NEW\.merchant_id/
     );
     expect(migration).toContain('DELETE FROM public.product_categories');
     expect(migration).toContain('"_baci_reused_tombstone": true');
     expect(migration).toContain("- '_baci_reused_tombstone'");
     expect(migration).toContain('NEW.seo_heading := NULL');
     expect(migration).toMatch(
-      /NEW\.slug IS DISTINCT FROM OLD\.slug[\s\S]*DELETE FROM public\.categories[\s\S]*slug = NEW\.slug[\s\S]*is_active IS DISTINCT FROM TRUE/
+      /NEW\.slug IS DISTINCT FROM OLD\.slug[\s\S]*SELECT id[\s\S]*slug = NEW\.slug[\s\S]*is_active IS DISTINCT FROM TRUE/
     );
     expect(migration).toMatch(
       /IF \(OLD\.is_active IS TRUE AND NEW\.is_active IS DISTINCT FROM TRUE\)[\s\S]*OR \(OLD\.is_active IS NULL AND NEW\.is_active IS FALSE\)[\s\S]*UPDATE public\.categories[\s\S]*parent_id = NULL/
@@ -62,9 +65,10 @@ describe('category hierarchy lifecycle migration', () => {
     expect(reuseStart).toBeGreaterThanOrEqual(0);
     expect(reuseEnd).toBeGreaterThan(reuseStart);
     const reuseBlock = migration.slice(reuseStart, reuseEnd);
-    expect(reuseBlock).toContain('UPDATE public.categories');
-    expect(reuseBlock).toContain('parent_id = NULL');
-    expect(reuseBlock).toContain('UPDATE public.discount_codes');
+    expect(reuseBlock).toContain('array_append');
+    expect(migration).toMatch(
+      /SELECT id[\s\S]*INTO v_reused_category_id[\s\S]*slug = NEW\.slug[\s\S]*FOR UPDATE[\s\S]*array_append[\s\S]*FOREACH v_consumed_category_id[\s\S]*UPDATE public\.discount_codes[\s\S]*DELETE FROM public\.categories[\s\S]*id = v_consumed_category_id/
+    );
   });
 
   it('preserves caller RLS instead of creating privileged callable functions', () => {

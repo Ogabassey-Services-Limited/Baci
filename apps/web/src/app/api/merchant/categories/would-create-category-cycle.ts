@@ -36,5 +36,5 @@ export async function wouldCreateCategoryCycle(
     cursor = result.data.parent_id;
   }
 
-  return 'cycle';
+  return cursor === null ? 'safe' : 'cycle';
 }

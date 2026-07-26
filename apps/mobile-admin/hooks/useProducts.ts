@@ -204,29 +204,7 @@ export function useUpdateProductStatus() {
   });
 }
 
-export function useCategories() {
-  const { merchant } = useMerchant();
-
-  return useQuery({
-    enabled: !!merchant?.id,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        // Retired categories are tombstoned (is_active = false) rather than
-        // deleted, so an unfiltered picker would keep offering them and let a
-        // product be assigned to a category the storefront refuses to serve.
-        .from('categories')
-        .select('id, name, slug')
-        .eq('merchant_id', merchant?.id)
-        .eq('is_active', true)
-        .order('name');
-      if (error) throw new Error(error.message);
-      return data;
-    },
-    queryKey: ['categories', merchant?.id],
-    staleTime: 1000 * 60 * 10,
-  });
-}
-
+export { useCategories } from './useCategories';
 export { useCreateCategory } from './useCreateCategory';
 
 export function useInventoryStats() {

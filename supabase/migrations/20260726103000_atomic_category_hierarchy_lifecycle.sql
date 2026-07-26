@@ -2,9 +2,8 @@
 --
 -- These triggers run as the authenticated caller (SECURITY INVOKER), so the
 -- existing owner-only categories/products/product_categories/discount_codes
--- RLS policies remain the authority. The proposed parent row is locked below;
--- concurrent conflicting hierarchy writes may deadlock and abort one caller,
--- but cannot commit an invalid hierarchy or serialize unrelated merchants.
+-- RLS policies remain the authority. Hierarchy writes serialize per merchant;
+-- unrelated merchants remain independent.
 
 CREATE OR REPLACE FUNCTION private.enforce_category_hierarchy_before_write()
 RETURNS trigger
@@ -14,6 +13,9 @@ SET search_path = ''
 AS $$
 DECLARE
   v_cycle_detected boolean := false;
+  v_consumed_category_id uuid;
+  v_consumed_category_ids uuid[] := '{}'::uuid[];
+  v_reused_category_id uuid;
 BEGIN
   IF NEW.parent_id IS NOT NULL
      AND (
@@ -25,6 +27,12 @@ BEGIN
        )
      )
   THEN
+    -- A transaction-scoped merchant key prevents two disjoint ancestor walks
+    -- from both accepting writes that form one indirect cycle together.
+    PERFORM pg_catalog.pg_advisory_xact_lock(
+      pg_catalog.hashtextextended(NEW.merchant_id::text, 0)
+    );
+
     PERFORM 1
     FROM public.categories AS parent
     WHERE parent.id = NEW.parent_id
@@ -93,36 +101,10 @@ BEGIN
     NEW.seo_features := NULL;
     NEW.seo_faq := NULL;
 
-    UPDATE public.products
-    SET category_id = NULL
-    WHERE category_id = NEW.id
-      AND merchant_id = NEW.merchant_id;
-
-    DELETE FROM public.product_categories
-    WHERE category_id = NEW.id;
-
-    UPDATE public.categories
-    SET
-      parent_id = NULL,
-      updated_at = COALESCE(NEW.updated_at, pg_catalog.now())
-    WHERE merchant_id = NEW.merchant_id
-      AND parent_id = NEW.id;
-
-    UPDATE public.discount_codes
-    SET
-      category_ids = COALESCE(category_ids, '[]'::jsonb) - NEW.id::text,
-      is_active = CASE
-        WHEN pg_catalog.jsonb_array_length(
-          COALESCE(category_ids, '[]'::jsonb) - NEW.id::text
-        ) = 0 THEN false
-        ELSE is_active
-      END
-    WHERE merchant_id = NEW.merchant_id
-      AND applies_to = 'specific_categories'
-      AND pg_catalog.jsonb_typeof(
-        COALESCE(category_ids, '[]'::jsonb)
-      ) = 'array'
-      AND COALESCE(category_ids, '[]'::jsonb) ? NEW.id::text;
+    v_consumed_category_ids := pg_catalog.array_append(
+      v_consumed_category_ids,
+      NEW.id
+    );
 
     NEW.metadata := COALESCE(NEW.metadata, '{}'::jsonb)
       - '_baci_reused_tombstone';
@@ -132,12 +114,67 @@ BEGIN
   -- tombstone atomically; the AFTER trigger then tombstones the slug being
   -- replaced. A live target still reaches the uniqueness constraint.
   IF TG_OP = 'UPDATE' AND NEW.slug IS DISTINCT FROM OLD.slug THEN
-    DELETE FROM public.categories
+    SELECT id
+    INTO v_reused_category_id
+    FROM public.categories
     WHERE merchant_id = NEW.merchant_id
       AND slug = NEW.slug
       AND id IS DISTINCT FROM NEW.id
-      AND is_active IS DISTINCT FROM TRUE;
+      AND is_active IS DISTINCT FROM TRUE
+    FOR UPDATE;
+
+    IF v_reused_category_id IS NOT NULL THEN
+      v_consumed_category_ids := pg_catalog.array_append(
+        v_consumed_category_ids,
+        v_reused_category_id
+      );
+    END IF;
   END IF;
+
+  FOREACH v_consumed_category_id IN ARRAY v_consumed_category_ids
+  LOOP
+    UPDATE public.products
+    SET
+      category_id = NULL,
+      category = NULL
+    WHERE category_id = v_consumed_category_id
+      AND merchant_id = NEW.merchant_id;
+
+    DELETE FROM public.product_categories
+    WHERE category_id = v_consumed_category_id;
+
+    UPDATE public.categories
+    SET
+      parent_id = NULL,
+      updated_at = COALESCE(NEW.updated_at, pg_catalog.now())
+    WHERE merchant_id = NEW.merchant_id
+      AND parent_id = v_consumed_category_id;
+
+    UPDATE public.discount_codes
+    SET
+      category_ids = COALESCE(category_ids, '[]'::jsonb)
+        - v_consumed_category_id::text,
+      is_active = CASE
+        WHEN pg_catalog.jsonb_array_length(
+          COALESCE(category_ids, '[]'::jsonb)
+            - v_consumed_category_id::text
+        ) = 0 THEN false
+        ELSE is_active
+      END
+    WHERE merchant_id = NEW.merchant_id
+      AND applies_to = 'specific_categories'
+      AND pg_catalog.jsonb_typeof(
+        COALESCE(category_ids, '[]'::jsonb)
+      ) = 'array'
+      AND COALESCE(category_ids, '[]'::jsonb)
+        ? v_consumed_category_id::text;
+
+    IF v_consumed_category_id IS DISTINCT FROM NEW.id THEN
+      DELETE FROM public.categories
+      WHERE id = v_consumed_category_id
+        AND merchant_id = NEW.merchant_id;
+    END IF;
+  END LOOP;
 
   RETURN NEW;
 END;

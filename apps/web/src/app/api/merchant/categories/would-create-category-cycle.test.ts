@@ -56,6 +56,22 @@ describe('wouldCreateCategoryCycle', () => {
     ).resolves.toBe('safe');
   });
 
+  it('accepts a 32-ancestor chain when the final ancestor is the root', async () => {
+    const ancestorIds = Array.from({ length: 32 }, (_, index) => `a-${index}`);
+    const tree = Object.fromEntries(
+      ancestorIds.map((id, index) => [id, ancestorIds[index + 1] ?? null])
+    );
+
+    await expect(
+      wouldCreateCategoryCycle(
+        supabaseWithTree(tree),
+        'merchant',
+        'cat',
+        ancestorIds[0]
+      )
+    ).resolves.toBe('safe');
+  });
+
   it('fails closed when an ancestor lookup errors', async () => {
     await expect(
       wouldCreateCategoryCycle(
