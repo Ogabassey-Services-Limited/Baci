@@ -35,7 +35,7 @@ describe('category hierarchy lifecycle migration', () => {
     expect(migration).toContain("MESSAGE = 'CATEGORY_PARENT_CYCLE'");
     expect(migration).toContain('OLD.is_active IS DISTINCT FROM TRUE');
     expect(migration).toContain(
-      'BEFORE INSERT OR UPDATE OF parent_id, is_active, slug'
+      'BEFORE INSERT OR UPDATE OF parent_id, is_active, slug, name'
     );
   });
 
@@ -43,6 +43,9 @@ describe('category hierarchy lifecycle migration', () => {
     expect(migration).toContain('ON CONFLICT (merchant_id, slug) DO NOTHING');
     expect(migration).toMatch(
       /FOREACH v_consumed_category_id[\s\S]*UPDATE public\.products[\s\S]*category_id = NULL,[\s\S]*category = NULL[\s\S]*category_id = v_consumed_category_id[\s\S]*merchant_id = NEW\.merchant_id/
+    );
+    expect(migration).toMatch(
+      /NEW\.name IS DISTINCT FROM OLD\.name[\s\S]*UPDATE public\.products[\s\S]*SET category = NEW\.name[\s\S]*category_id = NEW\.id[\s\S]*merchant_id = NEW\.merchant_id/
     );
     expect(migration).toContain('DELETE FROM public.product_categories');
     expect(migration).toContain('"_baci_reused_tombstone": true');

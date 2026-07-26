@@ -176,6 +176,13 @@ BEGIN
     END IF;
   END LOOP;
 
+  IF TG_OP = 'UPDATE' AND NEW.name IS DISTINCT FROM OLD.name THEN
+    UPDATE public.products
+    SET category = NEW.name
+    WHERE category_id = NEW.id
+      AND merchant_id = NEW.merchant_id;
+  END IF;
+
   RETURN NEW;
 END;
 $$;
@@ -267,7 +274,7 @@ $$;
 DROP TRIGGER IF EXISTS categories_hierarchy_before_write
   ON public.categories;
 CREATE TRIGGER categories_hierarchy_before_write
-BEFORE INSERT OR UPDATE OF parent_id, is_active, slug
+BEFORE INSERT OR UPDATE OF parent_id, is_active, slug, name
 ON public.categories
 FOR EACH ROW
 EXECUTE FUNCTION private.enforce_category_hierarchy_before_write();
