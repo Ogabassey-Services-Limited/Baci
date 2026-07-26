@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "reviewStatus": "pending-privileged-scan",
+  "expectedCrontabSha256": "603d5005ad4f7b7d8c535be7ac8b8379b69a83b550014a56b2dfa6bbdb51ba8f",
+  "activeCrontabLines": [],
+  "activeCronProcessTrees": [],
+  "entries": [
+    {
+      "kind": "runner-root",
+      "path": "/home/bassey/actions-runner-cleancontacts-deploy",
+      "campaignDisposition": "pause"
+    },
+    {
+      "kind": "runner-root",
+      "path": "/home/bassey/actions-runners/baci-deploy-2",
+      "campaignDisposition": "pause"
+    }
+  ]
+}

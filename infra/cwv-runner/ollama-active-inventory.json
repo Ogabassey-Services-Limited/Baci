@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 2,
+  "reviewStatus": "pending-privileged-scan",
+  "approvedEndpointClasses": [
+    "disabled",
+    "external-provider",
+    "ollama-loopback"
+  ],
+  "receiptSha256": null,
+  "approvedDependencySha256": null,
+  "reviewRequirements": [
+    "complete this file only from the canonical root scan receipt and install it root-owned at mode 0600",
+    "perform an independent exact-diff review before setting approved",
+    "approve only receipt-bound units, paths, container, socket, daemon, model store, cron hashes, and dependency classifications"
+  ],
+  "records": []
+}
