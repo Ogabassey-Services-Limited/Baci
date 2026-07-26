@@ -35,6 +35,21 @@ describe('revalidateCategories', () => {
     );
   });
 
+  it('hard-expires category data before an outer CDN eviction', () => {
+    revalidateCategories(MERCHANT_ID, 'phones', {
+      expireImmediately: true,
+    });
+
+    expect(mocks.revalidateTag).toHaveBeenCalledWith(
+      `categories-${MERCHANT_ID}`,
+      { expire: 0 }
+    );
+    expect(mocks.revalidateTag).toHaveBeenCalledWith(
+      `category-${MERCHANT_ID}-phones`,
+      { expire: 0 }
+    );
+  });
+
   it('propagates cache API failures to the mutation caller', () => {
     mocks.revalidateTag.mockImplementationOnce(() => {
       throw new Error('cache unavailable');

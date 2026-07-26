@@ -1,6 +1,6 @@
 # Plan — resolve B1-lite's edge-invalidation conflict, then continue the retirement plan
 
-**Created:** 2026-07-26 · **Decision corrected:** 2026-07-26 · **Parent plan:** `docs/architecture/workaround-retirement-plan.md` (rev 25)
+**Created:** 2026-07-26 · **Decision corrected:** 2026-07-26 · **Parent plan:** `docs/architecture/workaround-retirement-plan.md` (rev 26)
 
 ## The conflict
 
@@ -66,12 +66,14 @@ the observed behavior. There is no defensible five-minute upper bound.
 
 ## Steps
 
-1. **Amend the parent plan (rev 25).** Record PR #3205 as a strict mutation-boundary improvement,
-   not completed edge freshness. Keep credential authority out of the merchant handler, record the
-   full SWR exposure, and leave B1-lite open until B1-durable bounds it.
+1. **Amend the parent plan (rev 26).** Record PR #3205 as the mutation-boundary foundation and
+   #3207 as the authorization-compatible Vercel eviction follow-up. Keep Cloudflare credential
+   authority out of the merchant handler and leave durable retries to B1-durable.
 2. **Record it in #3207** (`docs/b1-lite-status`), which already documents B1-lite status. It
    must not claim edge invalidation shipped.
-3. **Retain landed #3205.** It closes the direct mobile write and reaches Next invalidation.
+3. **Complete B1-lite in #3207.** Hard-expire the affected Next tags, then await deletion of the
+   existing tenant-scoped Vercel response tags. Report failure without misreporting the committed
+   database mutation.
 4. **Prioritise B0** by completing the exit checklist in the adopted
    `docs/architecture/adr/B0-durable-cache-invalidation-substrate.md`, then B1-durable. Do not
    recreate the ADR or repeat runtime selection.
@@ -104,21 +106,23 @@ if staleness materially exceeded five minutes or a legitimate allowlisted purge 
    `cloudflare-purge.ts` without a new privileged edge.
 2. The canonical category page uses layered Vercel/Cloudflare document headers; live Cloudflare
    was `DYNAMIC`, while Vercel was `HIT`. Full SWR and failed-origin-revalidation paths were counted.
-3. No authorization-compatible already-allowlisted category purge surface exists.
+3. The broad publication wrapper is authorization-incompatible, but its lower-level Vercel tag
+   deletion primitive is compatible: it reaches `@vercel/functions`, not `env.ts` credentials.
 4. The B0 ADR already selected the VPS cron/web-route runtime; its exit checklist is incomplete.
 5. Mutation volume is low, but frequency does not bound the age of a retained response.
 
 ### Applied decision criteria
 
-The staleness criterion falsified the recommendation. No allowlisted replacement was found.
-Widening `manifest.authority.*` remains unapproved and was not performed.
+Both falsifiers fired: staleness exceeded five minutes and a legitimate allowlisted Vercel path
+exists. B1-lite therefore uses that primitive. Widening `manifest.authority.*` remains unapproved
+and was not performed.
 
 ## Delegated decision — 2026-07-26 (corrected after exact-head review)
 
-**Decision: retain PR #3205 as a strict improvement, but keep B1-lite open until edge staleness is
-bounded by B1-durable (or another authorization-compatible mechanism). Do not add an in-handler
-Cloudflare credential and do not widen `manifest.authority.*`.** PR #3205 merged as
-`5e09cafc335f84fd4b54fbefe64f1497a660f01d`.
+**Decision: retain PR #3205 and complete B1-lite with immediate Next expiry followed by confirmed
+deletion of the existing tenant-scoped Vercel response tags. Do not add an in-handler Cloudflare
+credential and do not widen `manifest.authority.*`.** PR #3205 merged as
+`5e09cafc335f84fd4b54fbefe64f1497a660f01d`; the Vercel follow-up is in #3207.
 
 Evidence checked rather than inherited:
 
@@ -130,10 +134,11 @@ Evidence checked rather than inherited:
    Cloudflare `DYNAMIC`, but browser requests reported Vercel `HIT`. The browser object may be
    served stale anywhere in the full SWR allowance, and failed tag revalidation leaves the origin
    on its natural Next cache window, so exposure can exceed five minutes by hours.
-3. No legitimate already-allowlisted replacement was found. `/api/cache/revalidate` requires
-   `settings:edit` and cannot inherit category owner-only authority;
-   `storefront-publication-cache-eviction.ts` is publication-scoped; and the repository has no
-   category-capable durable cron/drainer today.
+3. A legitimate already-allowlisted replacement was found. The full publication wrapper is
+   unsuitable because it also reaches Cloudflare credentials, but
+   `purgeVercelStorefrontPublicationCache` plus `buildStorefrontPublicationCacheTags` imports no
+   `env.ts` credential authority and targets the exact `ps:`/`ph:` tags already carried by the
+   active HTML layer. #3207 uses that path after hard-expiring the inner Next tags.
 4. The adopted B0 ADR is the correct home for one privileged, retryable drainer rather than a new
    fire-and-forget credential edge. Complete its exit checklist instead of repeating runtime
    selection. Because the measured bound is materially worse than five minutes, move B0/B1-durable
@@ -141,9 +146,8 @@ Evidence checked rather than inherited:
 5. Category mutation volume appears low, but frequency does not bound the age of a retained
    response. Out-of-band edits must also move onto the API regardless of purge mechanism.
 
-Result: the staleness falsifier occurred, while the allowlisted-surface falsifier did not. The
-five-minute recommendation is withdrawn. PR #3205 remains valuable because it closes the direct
-mobile write and reaches Next invalidation, but it does not complete B1-lite's edge-freshness
-contract. The parent plan is corrected to rev 25 and B0 → B1-durable becomes the next
-architectural step. The B0 route's new service-role authority is explicitly blocked on separate
+Result: both falsifiers occurred. The five-minute recommendation is withdrawn, and the compatible
+Vercel primitive is used now rather than deferred. The parent plan is corrected to rev 26;
+B0 → B1-durable remains next for transactional intent, retries, out-of-band writers, and strict
+Cloudflare coverage. The B0 route's new service-role authority is explicitly blocked on separate
 owner/security approval; no credential-blast-radius change is performed here.

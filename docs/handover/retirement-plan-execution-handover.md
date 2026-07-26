@@ -1,6 +1,6 @@
 # Handover — workaround-retirement-plan execution (2026-07-26)
 
-Read `docs/architecture/workaround-retirement-plan.md` (rev 25) first, then
+Read `docs/architecture/workaround-retirement-plan.md` (rev 26) first, then
 `docs/handover/b1-lite-edge-invalidation-plan.md` next to this file.
 
 ## Where we are in the plan
@@ -9,7 +9,7 @@ Security lane (S0-A -> S0-B -> S1 -> S2 bundle) is COMPLETE, so the non-security
 implementation gate is OPEN. Per the plan's execution order:
 
     B1-lite FIRST            -> PR #3205   (MERGED 2026-07-26)
-    B1-lite decision record  -> PR #3207   (current; corrected SWR decision)
+    B1-lite Vercel follow-up -> PR #3207   (current; compatible active-edge eviction)
     B0 checklist/approval    -> next; existing ADR adopted, privileged edge needs sign-off
     B1-durable -> B2         -> blocked on B0; must evict Next + Vercel + Cloudflare
     D cleanup/filler         -> #3199, #3203, #3201 (after B1-durable)
@@ -90,16 +90,16 @@ and one was about pre-existing code (see #3203).
 
 ## Per-PR outstanding work
 
-### #3205 - B1-lite mutation boundary (merged; edge freshness remains open)
+### #3205 - B1-lite mutation-boundary foundation (merged)
 
 Merged after exact-head Codex clean, CodeRabbit approval, 25 successful checks, current-main
 verification, and a paginated audit of all 118 review threads. Squash commit:
 `5e09cafc335f84fd4b54fbefe64f1497a660f01d`.
 
-Exact-head review of #3207 corrected the SWR math: #3205 reaches Next invalidation but a retained
-Vercel browser object may still be served throughout the 86,400-second SWR allowance. Treat B0 →
-B1-durable as next; do not call B1-lite edge freshness complete and do not widen credential
-authority.
+Exact-head review of #3207 corrected the SWR math and found the compatible lower-level Vercel
+tag-deletion primitive. #3207 hard-expires the inner Next tags and awaits tenant `ps:`/`ph:`
+deletion without importing Cloudflare credentials. B0 → B1-durable remains next for transactional
+intent, retries, out-of-band writers, and strict Cloudflare coverage.
 
 ### #3196 - proxy unlock-orders segment
 
@@ -137,11 +137,12 @@ ignored deprecated parameter so the frozen file is not touched at all. plan_tier
 authoritative (the slug is ignored). Avoids the two-commit baseline rotation, which would leave
 main red between the PRs.
 
-### #3207 - plan status doc (current)
+### #3207 - B1-lite active-edge follow-up + plan status (current)
 
-#3205 is merged and is an ancestor of this branch. The plan now records #3205 as a partial
-mutation-boundary improvement, not completed edge freshness, and corrects the durable contract to
-include Vercel CDN deletion. Continue the exact-head review loop; there is no prerequisite hold.
+#3205 is merged and is an ancestor of this branch. #3207 uses the already-allowlisted Vercel
+primitive after immediate Next expiry, reports post-commit eviction failure honestly, and corrects
+the durable contract to Next → Vercel → Cloudflare. Continue the exact-head review loop; there is
+no prerequisite hold.
 
 ### #3193 / #3194 - A1 and C0 design gates
 

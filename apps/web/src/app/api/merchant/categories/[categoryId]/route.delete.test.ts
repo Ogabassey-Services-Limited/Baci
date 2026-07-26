@@ -31,6 +31,7 @@ vi.mock('@/lib/category-cache-invalidation', () => ({
 import { DELETE } from './route';
 import {
   createCategoryRouteTestHarness,
+  createDeferred,
   MERCHANT_UUID,
 } from './route.test-support';
 
@@ -47,7 +48,30 @@ beforeEach(() => reset());
 
 describe('DELETE /api/merchant/categories/[categoryId]', () => {
   it('retires the category and invalidates the removed slug', async () => {
-    const response = await DELETE(deleteRequest(), params());
+    const invalidation = createDeferred<{
+      revalidatedSlugs: string[];
+      revalidated: boolean;
+      vercelEvicted: boolean;
+    }>();
+    mocks.invalidateCategoryCaches.mockReturnValueOnce(invalidation.promise);
+
+    const responsePromise = DELETE(deleteRequest(), params());
+    await vi.waitFor(() =>
+      expect(mocks.invalidateCategoryCaches).toHaveBeenCalledOnce()
+    );
+    let responseSettled = false;
+    void responsePromise.then(() => {
+      responseSettled = true;
+    });
+    await Promise.resolve();
+    expect(responseSettled).toBe(false);
+
+    invalidation.resolve({
+      revalidatedSlugs: ['phones'],
+      revalidated: true,
+      vercelEvicted: true,
+    });
+    const response = await responsePromise;
 
     expect(response.status).toBe(200);
     expect(mocks.invalidateCategoryCaches).toHaveBeenCalledWith(
