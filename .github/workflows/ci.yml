@@ -131,6 +131,8 @@ jobs:
               - '.github/scripts/inject-prebuilt-env-secret.test.mjs'
               - '.github/scripts/run-pinned-vercel.sh'
               - '.github/scripts/run-pinned-vercel.test.mjs'
+              - '.github/scripts/sync-cloudflare-vercel-production-env.sh'
+              - '.github/scripts/sync-cloudflare-vercel-production-env.test.mjs'
               - '.github/workflows/deploy.yml'
             web:
               - 'apps/web/**'
@@ -396,6 +398,7 @@ jobs:
           .github/scripts/deploy-with-retry.test.mjs
           .github/scripts/run-pinned-vercel.test.mjs
           .github/scripts/inject-prebuilt-env-secret.test.mjs
+          .github/scripts/sync-cloudflare-vercel-production-env.test.mjs
       - name: Verify Quiz Assets
         if: needs.changes.outputs.web == 'true' || needs.changes.outputs.quiz_db == 'true'
         run: pnpm --filter @baci/web verify:quiz-assets
