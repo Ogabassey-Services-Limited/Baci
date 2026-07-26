@@ -1,5 +1,5 @@
 import { resolveAgenticChatTenant } from '@/lib/agentic/agentic-chat-tenant';
-import { createServiceClient } from '@/lib/supabase/service';
+import { createAnonClient } from '@/lib/supabase/anon';
 
 export type SantaInteractionType =
   | 'chat'
@@ -49,23 +49,35 @@ export async function logSantaInteraction(
       return;
     }
 
-    const serviceClient = createServiceClient();
+    // Insert via a bounded SECURITY DEFINER RPC using the RLS-scoped anon
+    // client — NOT a service-role client. santa_interactions grants INSERT only
+    // to service_role, so this anonymous storefront endpoint must go through the
+    // definer boundary rather than construct a privileged client in the request
+    // graph (see 20260726120000_log_santa_interaction_rpc.sql).
+    const supabase = createAnonClient();
 
-    await serviceClient.from('santa_interactions').insert({
-      merchant_id: tenant.merchantId,
-      session_id: params.sessionId,
-      client_ip: params.clientIp.slice(0, 64), // Truncate for privacy
-      interaction_type: params.interactionType,
-      user_message: params.userMessage?.slice(0, 500), // Truncate for storage
-      santa_response: params.santaResponse?.slice(0, 1000), // Truncate
-      product_name: params.productName,
-      requested_price: params.requestedPrice,
-      approved_price: params.approvedPrice,
-      discount_percentage: calculateDiscountPercentage(
+    const { error } = await supabase.rpc('log_santa_interaction', {
+      p_merchant_id: tenant.merchantId,
+      p_session_id: params.sessionId,
+      p_client_ip: params.clientIp.slice(0, 64), // Truncate for privacy
+      p_interaction_type: params.interactionType,
+      p_user_message: params.userMessage?.slice(0, 500) ?? null, // Truncate
+      p_santa_response: params.santaResponse?.slice(0, 1000) ?? null, // Truncate
+      p_product_name: params.productName ?? null,
+      p_requested_price: params.requestedPrice ?? null,
+      p_approved_price: params.approvedPrice ?? null,
+      p_discount_percentage: calculateDiscountPercentage(
         params.requestedPrice,
         params.approvedPrice
       ),
     });
+
+    if (error) {
+      console.error(
+        '[Santa Analytics] Failed to log interaction:',
+        error.message
+      );
+    }
   } catch (error) {
     // Log but don't fail the request
     console.error('[Santa Analytics] Failed to log interaction:', error);
