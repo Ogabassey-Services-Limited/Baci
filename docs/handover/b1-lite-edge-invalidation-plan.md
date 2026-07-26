@@ -1,6 +1,6 @@
 # Plan — resolve B1-lite's edge-invalidation conflict, then continue the retirement plan
 
-**Created:** 2026-07-26 · **Owner:** unassigned · **Parent plan:** `docs/architecture/workaround-retirement-plan.md` (rev 22)
+**Created:** 2026-07-26 · **Decision recorded:** 2026-07-26 · **Parent plan:** `docs/architecture/workaround-retirement-plan.md` (rev 23)
 
 ## The conflict
 
@@ -128,3 +128,34 @@ conclude that is genuinely the right answer, stop and say so rather than doing i
 - Update #3207 so it does not claim edge invalidation shipped.
 - Append your decision, the evidence, and the date to this file.
 - Continue the execution order in `retirement-plan-execution-handover.md`.
+
+---
+
+## Delegated decision — 2026-07-26
+
+**Decision: ship B1-lite with Next tag revalidation only. Do not add a Cloudflare purge and do
+not widen `manifest.authority.*`.** PR #3205 merged as `5e09cafc335f84fd4b54fbefe64f1497a660f01d`.
+
+Evidence checked rather than inherited:
+
+1. The repository authority graph follows both static and dynamic imports. A category mutation
+   path reaching `cloudflare-purge.ts` therefore reaches `env.ts` credential authority and is
+   rejected for a new merchant route. PR #3205's repository tests assert that this edge is absent.
+2. The category-document branch is the 300/86400 branch, not the 7200/172800 branch. More
+   importantly, live `ogabassey.com` responses reported Cloudflare `DYNAMIC`; browser requests
+   reported Vercel `HIT`, while Googlebot reported Vercel `BYPASS`. The live Cloudflare layer is
+   not retaining the category document that the proposed purge would target.
+3. No legitimate already-allowlisted replacement was found. `/api/cache/revalidate` requires
+   `settings:edit` and cannot inherit category owner-only authority;
+   `storefront-publication-cache-eviction.ts` is publication-scoped; and the repository has no
+   category-capable durable cron/drainer today.
+4. B0 is already the next architectural cache step after the D cleanup queue. It is the correct
+   home for one privileged, retryable drainer rather than a new fire-and-forget credential edge.
+5. Category mutation volume is low enough that this interim behavior does not falsify the
+   decision: the in-repo create path is sparse, while out-of-band edits must move onto the API
+   regardless of purge mechanism.
+
+Result: neither falsifier occurred. Staleness was not shown to be materially worse than the
+roughly five-minute origin directive, and no authorization-compatible allowlisted purge path
+exists. The parent plan is amended to rev 23; durable Cloudflare acknowledgement remains
+B0 → B1-durable work.

@@ -1,6 +1,6 @@
 # Handover — workaround-retirement-plan execution (2026-07-26)
 
-Read `docs/architecture/workaround-retirement-plan.md` (rev 22) first, then
+Read `docs/architecture/workaround-retirement-plan.md` (rev 23) first, then
 `docs/handover/b1-lite-edge-invalidation-plan.md` next to this file.
 
 ## Where we are in the plan
@@ -8,7 +8,8 @@ Read `docs/architecture/workaround-retirement-plan.md` (rev 22) first, then
 Security lane (S0-A -> S0-B -> S1 -> S2 bundle) is COMPLETE, so the non-security
 implementation gate is OPEN. Per the plan's execution order:
 
-    B1-lite FIRST            -> PR #3205   (in review, 7 rounds)
+    B1-lite FIRST            -> PR #3205   (MERGED 2026-07-26)
+    B1-lite decision record  -> PR #3207   (current)
     D cleanup/filler         -> #3199, #3203, #3201
     B0 -> B1-durable -> B2   -> not started   <- the real next architectural step
     C after C0 -> B3         -> blocked
@@ -24,6 +25,7 @@ All of this session's work happened here by switching branches inside it, delibe
 | Local branch | Tracks                               | PR    |
 |--------------|--------------------------------------|-------|
 | b1-round2    | feat/b1-lite-category-management      | #3205 |
+| docs/b1-lite-status | docs/b1-lite-status            | #3207 |
 | pr3196       | fix/reserve-unlock-orders-segment     | #3196 |
 | pr3199       | d/agentic-tenant-from-env             | #3199 |
 
@@ -83,41 +85,22 @@ and one was about pre-existing code (see #3203).
 | PR    | Branch                            | Head     | Checks | Open threads              | State       |
 |-------|-----------------------------------|----------|--------|---------------------------|-------------|
 | #3202 | -                                 | -        | -      | -                         | MERGED 7-25 |
-| #3205 | feat/b1-lite-category-management  | be70325  | green  | 12 Codex + 9 CodeRabbit   | B1-lite     |
+| #3205 | feat/b1-lite-category-management  | 7213aad  | green  | 0                         | MERGED 7-26 |
 | #3196 | fix/reserve-unlock-orders-segment | f67213e  | green  | 6 (stale: rev'd 93aa245)  | proxy fix   |
 | #3199 | d/agentic-tenant-from-env         | 158e981  | green  | 2 (stale: rev'd 42c5450)  | D           |
 | #3203 | d/agentic-tenant-chat-handlers    | 6b2f132  | green  | 3                         | D           |
 | #3201 | d/plan-tier-authoritative         | df010fa  | RED    | 1                         | D           |
-| #3207 | docs/b1-lite-status               | b7ed0ed  | green  | 1                         | plan status |
+| #3207 | docs/b1-lite-status               | pending  | rerun  | re-audit after push       | plan status |
 | #3193 | -                                 | d5b0b60  | green  | 7                         | A1 design   |
 | #3194 | -                                 | 9a6eb9f  | green  | 10                        | C0 design   |
 
 ## Per-PR outstanding work
 
-### #3205 - B1-lite (highest priority; be70325 is the first fully-green run)
+### #3205 - B1-lite (complete)
 
-Outstanding Codex findings - verify each before acting, one is already fixed:
-
-  - [DONE in round 7] Split the item route below the 300-line limit
-  - Preserve a tombstone at the old slug when renaming
-  - Clear stale SEO fields when PATCH REACTIVATES a category (revive-on-POST already does this)
-  - Clear old product memberships before reusing a tombstone
-  - Make cycle validation atomic with the hierarchy update
-  - Make retirement and child promotion atomic
-  - Treat is_active IS NULL parents as retired (currently only === false)
-  - Propagate product-tag failures into the cache result
-  - Propagate ancestor lookup failures as server errors
-  - Preserve database errors during merchant resolution
-  - Reserve the virtual collection slugs in schemas/category-slug.ts
-  - Add regression coverage for retired-category filtering in lib/discount-items.ts
-
-Plus 9 CodeRabbit threads (separate author; triage separately).
-
-TWO findings were ANSWERED rather than implemented - keep these answers if re-raised:
-propagating category renames into legacy products.category text (that fallback is deliberate and
-fires for every rename path in the product; needs its own PR + data migration), and hard-expiring
-cache tags (revalidateCategories/revalidateProducts are shared by every product mutation;
-changing expiry semantics from a category PR is wrong).
+Merged after exact-head Codex clean, CodeRabbit approval, 25 successful checks, current-main
+verification, and a paginated audit of all 118 review threads. Squash commit:
+`5e09cafc335f84fd4b54fbefe64f1497a660f01d`.
 
 ### #3196 - proxy unlock-orders segment
 
