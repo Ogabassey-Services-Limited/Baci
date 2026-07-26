@@ -257,7 +257,7 @@ exec_task7() {
     (set-auditor-app-id) input="$root/auditor-app-id"; assert_owner_input "$input" numeric; exec "$gh" variable set BACI_CWV_RUNNER_AUDITOR_APP_ID --repo "$REPOSITORY" <"$input";;
     (set-auditor-client-id) input="$root/auditor-client-id"; assert_owner_input "$input" client_id; exec "$gh" variable set BACI_CWV_RUNNER_AUDITOR_CLIENT_ID --repo "$REPOSITORY" <"$input";;
     (set-auditor-installation-id) input="$root/auditor-installation-id"; assert_owner_input "$input" numeric; exec "$gh" variable set BACI_CWV_RUNNER_AUDITOR_INSTALLATION_ID --repo "$REPOSITORY" <"$input";;
-    (read-auditor-app-registration) GH_TOKEN=$(app_jwt) exec "$gh" api --method GET -H "X-GitHub-Api-Version: $API_VERSION" /app;;
+    (read-auditor-app-registration) jwt=$(app_jwt) || refuse; GH_TOKEN=unused-placeholder exec "$gh" api --method GET -H "Authorization: Bearer $jwt" -H "X-GitHub-Api-Version: $API_VERSION" /app;;
     (read-repository-retention) exec "$gh" api --method GET -H "X-GitHub-Api-Version: $API_VERSION" "/repos/$REPOSITORY/actions/permissions/artifact-and-log-retention";;
     (read-rollout-ruleset) exec "$gh" api --method GET -H "X-GitHub-Api-Version: $API_VERSION" "/repos/$REPOSITORY/rulesets";;
     (upsert-rollout-ruleset)
