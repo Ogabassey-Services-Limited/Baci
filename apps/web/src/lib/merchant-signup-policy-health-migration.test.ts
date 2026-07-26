@@ -81,8 +81,19 @@ describe('merchant signup policy health migration', () => {
     expect(migrationSql).toContain("'alias_row_level_security_enabled'");
     expect(migrationSql).toContain("'alias_select_policy_is_expected'");
     expect(migrationSql).toContain("'slug aliases are publicly readable'");
+    expect(migrationSql).toContain("'no_restrictive_alias_select_policies'");
+    expect(migrationSql).toContain("'anon_select_policy_is_expected'");
+    expect(migrationSql).toContain("'Anon can view merchants'");
+    expect(migrationSql).toContain(
+      "'no_restrictive_anon_merchant_select_policies'"
+    );
+    expect(migrationSql).toContain(
+      "'no_unexpected_permissive_anon_merchant_select_policies'"
+    );
     expect(migrationSql).toContain("'anon_can_use_public_schema'");
     expect(migrationSql).toContain("'anon_has_no_alias_table_select'");
+    expect(migrationSql).toContain("'anon_has_no_merchant_table_select'");
+    expect(migrationSql).toContain("'auth_has_no_alias_table_select'");
   });
 
   it.each([
@@ -148,14 +159,26 @@ describe('merchant signup policy health migration', () => {
   });
 
   it('checks every table and column privilege used before merchant creation', () => {
-    expect(migrationSql).toContain("'public.merchants',\n      'INSERT'");
-    expect(migrationSql).toContain("'public.merchants',\n      'UPDATE'");
-    expect(migrationSql).toContain("'id',\n      'SELECT'");
-    expect(migrationSql).toContain("'slug',\n      'SELECT'");
-    expect(migrationSql).toContain("'business_name',\n      'SELECT'");
-    expect(migrationSql).toContain("'user_id',\n      'SELECT'");
-    expect(migrationSql).toContain("'old_slug',\n      'SELECT'");
-    expect(migrationSql).toContain("'merchant_id',\n      'SELECT'");
+    expect(migrationSql).toContain("'auth_can_insert'");
+    expect(migrationSql).toContain("'auth_can_update'");
+    expect(migrationSql).toContain("'can_read_id'");
+    expect(migrationSql).toContain("'can_read_slug'");
+    expect(migrationSql).toContain("'can_read_business_name'");
+    expect(migrationSql).toContain("'can_read_user_id'");
+    expect(migrationSql).toContain("'anon_can_read_alias_old_slug'");
+    expect(migrationSql).toContain("'anon_can_read_alias_merchant_id'");
+    expect(migrationSql).toContain("'anon_can_read_merchant_id'");
+    expect(migrationSql).toContain("'anon_can_read_merchant_slug'");
+    expect(migrationSql).toContain("'auth_can_read_alias_old_slug'");
+    expect(migrationSql).toContain("'auth_can_read_alias_merchant_id'");
+  });
+
+  it('checks helper execution privileges used during slug creation', () => {
+    expect(migrationSql).toContain("'auth_can_execute_reserved_slug_check'");
+    expect(migrationSql).toContain("'public.is_reserved_merchant_slug(text)'");
+    expect(migrationSql).toContain("'auth_can_execute_slug_generator'");
+    expect(migrationSql).toContain("'public.generate_slug(text)'");
+    expect(migrationSql).toContain('pg_catalog.has_function_privilege(');
   });
 
   it('pins the definer search path and exposes only the bounded facts to anon', () => {
@@ -166,7 +189,7 @@ describe('merchant signup policy health migration', () => {
     );
     expect(migrationSql).toContain('FROM authenticated, service_role');
     expect(migrationSql).toContain(
-      'GRANT EXECUTE ON FUNCTION public.get_merchant_signup_policy_health()\n  TO anon'
+      'GRANT EXECUTE ON FUNCTION public.get_merchant_signup_policy_health() TO anon'
     );
   });
 });

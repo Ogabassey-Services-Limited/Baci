@@ -8,18 +8,30 @@ interface MerchantSignupPolicyHealth {
   alias_select_policy_is_expected: boolean;
   anon_can_read_alias_merchant_id: boolean;
   anon_can_read_alias_old_slug: boolean;
+  anon_can_read_merchant_id: boolean;
+  anon_can_read_merchant_slug: boolean;
   anon_can_use_public_schema: boolean;
   anon_has_no_alias_table_select: boolean;
+  anon_has_no_merchant_table_select: boolean;
+  anon_select_policy_is_expected: boolean;
+  auth_can_execute_reserved_slug_check: boolean;
+  auth_can_execute_slug_generator: boolean;
   auth_can_insert: boolean;
+  auth_can_read_alias_merchant_id: boolean;
+  auth_can_read_alias_old_slug: boolean;
   auth_can_use_public_schema: boolean;
   auth_can_update: boolean;
+  auth_has_no_alias_table_select: boolean;
   auth_has_no_table_select: boolean;
   can_read_business_name: boolean;
   can_read_id: boolean;
   can_read_slug: boolean;
   can_read_user_id: boolean;
   insert_policy_allows_owner: boolean;
+  no_restrictive_alias_select_policies: boolean;
+  no_restrictive_anon_merchant_select_policies: boolean;
   no_restrictive_signup_policies: boolean;
+  no_unexpected_permissive_anon_merchant_select_policies: boolean;
   no_unexpected_permissive_signup_policies: boolean;
   row_level_security_enabled: boolean;
   select_policy_is_expected: boolean;
@@ -39,18 +51,30 @@ function isMerchantSignupPolicyHealth(
     candidate.alias_select_policy_is_expected,
     candidate.anon_can_read_alias_merchant_id,
     candidate.anon_can_read_alias_old_slug,
+    candidate.anon_can_read_merchant_id,
+    candidate.anon_can_read_merchant_slug,
     candidate.anon_can_use_public_schema,
     candidate.anon_has_no_alias_table_select,
+    candidate.anon_has_no_merchant_table_select,
+    candidate.anon_select_policy_is_expected,
+    candidate.auth_can_execute_reserved_slug_check,
+    candidate.auth_can_execute_slug_generator,
     candidate.auth_can_insert,
+    candidate.auth_can_read_alias_merchant_id,
+    candidate.auth_can_read_alias_old_slug,
     candidate.auth_can_use_public_schema,
     candidate.auth_can_update,
+    candidate.auth_has_no_alias_table_select,
     candidate.auth_has_no_table_select,
     candidate.can_read_business_name,
     candidate.can_read_id,
     candidate.can_read_slug,
     candidate.can_read_user_id,
     candidate.insert_policy_allows_owner,
+    candidate.no_restrictive_alias_select_policies,
+    candidate.no_restrictive_anon_merchant_select_policies,
     candidate.no_restrictive_signup_policies,
+    candidate.no_unexpected_permissive_anon_merchant_select_policies,
     candidate.no_unexpected_permissive_signup_policies,
     candidate.row_level_security_enabled,
     candidate.select_policy_is_expected,
