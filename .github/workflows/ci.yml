@@ -36,6 +36,7 @@ jobs:
       test_plan_reason: ${{ steps.test-plan.outputs.reason }}
       web: ${{ steps.gate.outputs.web }}
       quiz_db: ${{ steps.gate.outputs.quiz_db }}
+      cwv_runner: ${{ steps.gate.outputs.cwv_runner }}
       deploy_scripts: ${{ steps.gate.outputs.deploy_scripts }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -104,6 +105,23 @@ jobs:
               - '.github/scripts/split-sql-statements.test.mjs'
               - '.github/scripts/check-migration-versions.sh'
               - '.github/scripts/check-migration-versions.test.sh'
+            cwv_runner:
+              - 'infra/cwv-runner/**'
+              - '.github/workflows/**'
+              - '.github/scripts/cwv-runner-*.mjs'
+              - '.github/scripts/canonical-json.mjs'
+              - '.github/scripts/policy.json'
+              - '.github/scripts/policy.schema.mjs'
+              - '.github/scripts/actionlint-runner-label-contract.test.mjs'
+              - 'biome.json'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - '.github/workflows/actionlint.yml'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/cwv-runner-attestation.yml'
+              - '.github/workflows/deploy.yml'
+              - '.github/actionlint.yaml'
             deploy_scripts:
               - '.github/scripts/deploy-with-retry.sh'
               - '.github/scripts/deploy-with-retry.test.mjs'
@@ -155,6 +173,7 @@ jobs:
           FILTER_MOBILE_STOREFRONT: ${{ steps.filter.outputs.mobile_storefront }}
           FILTER_WEB: ${{ steps.filter.outputs.web }}
           FILTER_QUIZ_DB: ${{ steps.filter.outputs.quiz_db }}
+          FILTER_CWV_RUNNER: ${{ steps.filter.outputs.cwv_runner }}
           FILTER_DEPLOY_SCRIPTS: ${{ steps.filter.outputs.deploy_scripts }}
         run: |
           set -euo pipefail
@@ -163,12 +182,14 @@ jobs:
             mobile_storefront=true
             web=true
             quiz_db=true
+            cwv_runner=true
             deploy_scripts=true
           else
             mobile_admin="${FILTER_MOBILE_ADMIN:-false}"
             mobile_storefront="${FILTER_MOBILE_STOREFRONT:-false}"
             web="${FILTER_WEB:-false}"
             quiz_db="${FILTER_QUIZ_DB:-false}"
+            cwv_runner="${FILTER_CWV_RUNNER:-false}"
             deploy_scripts="${FILTER_DEPLOY_SCRIPTS:-false}"
           fi
           {
@@ -176,6 +197,7 @@ jobs:
             echo "mobile_storefront=$mobile_storefront"
             echo "web=$web"
             echo "quiz_db=$quiz_db"
+            echo "cwv_runner=$cwv_runner"
             echo "deploy_scripts=$deploy_scripts"
           } >> "$GITHUB_OUTPUT"
       - name: Resolve test plan
@@ -183,6 +205,26 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
         run: node .github/scripts/resolve-ci-test-plan.mjs --event "$EVENT_NAME" --base "$TURBO_SCM_BASE"
+
+  cwv-runner-contracts:
+    name: CWV Runner Contracts
+    needs: [changes]
+    if: needs.changes.outputs.cwv_runner == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+      - uses: ./.github/actions/pnpm-install-cached
+      - name: Run CWV runner contract tests
+        run: node --test --test-concurrency=1 infra/cwv-runner/*.test.mjs .github/scripts/cwv-runner-*.test.mjs .github/scripts/actionlint-runner-label-contract.test.mjs
+      - name: Check CWV runner formatting
+        run: pnpm exec biome check infra/cwv-runner .github/scripts/cwv-runner-*.mjs
+      - name: Run CWV workflow actionlint
+        uses: rhysd/actionlint@914e7df21a07ef503a81201c76d2b11c789d3fca # v1.7.12
 
   quality-lint:
     name: Quality Gate - Lint
@@ -433,7 +475,7 @@ jobs:
 
   quality:
     name: Quality Gate
-    needs: [changes, quality-lint, quality-typecheck, quality-test, quality-test-web, quality-misc, mobile-quality, silent-revert-guard]
+    needs: [changes, cwv-runner-contracts, quality-lint, quality-typecheck, quality-test, quality-test-web, quality-misc, mobile-quality, silent-revert-guard]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -441,6 +483,7 @@ jobs:
       - name: Verify split quality gate results
         env:
           CHANGES_RESULT: ${{ needs.changes.result }}
+          CWV_RUNNER_CONTRACTS_RESULT: ${{ needs['cwv-runner-contracts'].result }}
           LINT_RESULT: ${{ needs['quality-lint'].result }}
           TYPECHECK_RESULT: ${{ needs['quality-typecheck'].result }}
           TEST_RESULT: ${{ needs['quality-test'].result }}
@@ -456,7 +499,7 @@ jobs:
             exit 1
           fi
 
-          for result in "$LINT_RESULT" "$TYPECHECK_RESULT" "$TEST_RESULT" "$WEB_TEST_RESULT" "$MISC_RESULT" "$MOBILE_QUALITY_RESULT" "$SILENT_REVERT_GUARD_RESULT"; do
+          for result in "$CWV_RUNNER_CONTRACTS_RESULT" "$LINT_RESULT" "$TYPECHECK_RESULT" "$TEST_RESULT" "$WEB_TEST_RESULT" "$MISC_RESULT" "$MOBILE_QUALITY_RESULT" "$SILENT_REVERT_GUARD_RESULT"; do
             case "$result" in
               success|skipped)
                 ;;

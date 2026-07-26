@@ -1,0 +1,10 @@
+[Unit]
+Description=Baci CWV lease-bound host sampling timer
+
+[Timer]
+Unit=baci-cwv-host-sampler.service
+OnActiveSec=2s
+OnUnitInactiveSec=2s
+AccuracySec=100ms
+RandomizedDelaySec=0
+Persistent=false
