@@ -1,4 +1,5 @@
 import { revalidateTag } from 'next/cache';
+import { getCategoryPageDataCacheTag } from '@/lib/category-page-cache-tags';
 
 /**
  * Revalidate the cached category surfaces for a merchant.
@@ -17,7 +18,7 @@ export function revalidateCategories(
 ) {
   revalidateTag(`categories-${merchantId}`, 'categories');
   revalidateTag('navigation-categories', 'categories');
-  revalidateTag('category-page-data', 'storefront-page');
+  revalidateTag(getCategoryPageDataCacheTag(merchantId), 'storefront-page');
   revalidateTag('product-canonical-redirect', 'products');
   revalidateTag('product-legacy-redirect', 'products');
 

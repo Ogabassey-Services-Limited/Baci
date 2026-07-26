@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { getCategoryPageDataCacheTag } from './category-page-cache-tags';
 
 const mocks = vi.hoisted(() => ({ revalidateTag: vi.fn() }));
 vi.mock('next/cache', () => ({ revalidateTag: mocks.revalidateTag }));
@@ -19,7 +20,7 @@ describe('revalidateCategories', () => {
     expect(tags).toEqual([
       `categories-${MERCHANT_ID}`,
       'navigation-categories',
-      'category-page-data',
+      getCategoryPageDataCacheTag(MERCHANT_ID),
       'product-canonical-redirect',
       'product-legacy-redirect',
     ]);
@@ -45,6 +46,9 @@ describe('revalidateCategories', () => {
     );
 
     const imports = source.match(/^import .*$/gm) ?? [];
-    expect(imports).toEqual(["import { revalidateTag } from 'next/cache';"]);
+    expect(imports).toEqual([
+      "import { revalidateTag } from 'next/cache';",
+      "import { getCategoryPageDataCacheTag } from '@/lib/category-page-cache-tags';",
+    ]);
   });
 });
