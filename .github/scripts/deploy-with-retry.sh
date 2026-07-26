@@ -18,12 +18,15 @@ BACKOFF_SECONDS=${BACKOFF_SECONDS:-15}
 # Set to 0 to disable the cap.
 DEPLOY_ATTEMPT_TIMEOUT_SECONDS=${DEPLOY_ATTEMPT_TIMEOUT_SECONDS:-1200}
 # Cap for the promote command so a hung `vercel promote` cannot run forever.
-PROMOTE_TIMEOUT_SECONDS=${PROMOTE_TIMEOUT_SECONDS:-300}
+PROMOTE_TIMEOUT_SECONDS=${PROMOTE_TIMEOUT_SECONDS:-120}
 # How many times to (re)try promoting a captured deployment before giving up on
 # it. Retrying the SAME target absorbs a transient promote failure (network blip
 # or the promote timeout) without starting a fresh deploy (which would create a
-# duplicate deployment).
-PROMOTE_ATTEMPTS=${PROMOTE_ATTEMPTS:-3}
+# duplicate deployment). Kept small so the recovery budget -- one capped deploy
+# (DEPLOY_ATTEMPT_TIMEOUT_SECONDS) plus these promote retries -- still leaves a
+# fallback deploy attempt room to finish inside the deploy step's timeout-minutes
+# in deploy.yml (~20m + ~5m + ~20m < 55m).
+PROMOTE_ATTEMPTS=${PROMOTE_ATTEMPTS:-2}
 deploy_command=("$@")
 last_deployment_target=""
 

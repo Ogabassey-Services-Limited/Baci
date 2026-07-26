@@ -89,13 +89,6 @@ case "${mode}" in
     echo "Error: custom deployment id already exists for this project" >&2
     exit 1
     ;;
-  killed-124-after-create)
-    # Prints the URL (deployment created) then exits 124, as timeout does when it
-    # kills a hung deploy with TERM. Deterministic (no kill race) vs. an actual
-    # hang, so the created deployment is always in the log for the promote path.
-    echo "Production: https://baci-hang.vercel.app"
-    exit 124
-    ;;
   killed-137-after-create)
     # Same, but exit 137 -- as timeout does when it escalates from TERM to
     # SIGKILL against a hung, TERM-resistant deploy.
@@ -115,6 +108,15 @@ case "${mode}" in
     # than a new deploy being started.
     echo "Production: https://baci-hang.vercel.app"
     exit 137
+    ;;
+  hang-until-killed)
+    # A genuinely hanging deploy that only run_with_timeout's real timeout can
+    # stop -- the actual CLI-57 failure. The URL is emitted from a subshell whose
+    # exit flushes the pipe (so it survives in the log), then exec sleep makes the
+    # sleep THIS process (no orphaned child) so the timeout's signal terminates it
+    # cleanly.
+    ( echo "Production: https://baci-hang.vercel.app" )
+    exec sleep 3600
     ;;
   fatal)
     echo "fatal deploy failure" >&2
