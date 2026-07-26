@@ -27,7 +27,13 @@ test('reads the private auditor App registration through an App JWT', async () =
 
   assert.match(
     source,
-    /read-auditor-app-registration\) jwt=\$\(app_jwt\) \|\| refuse; GH_TOKEN=unused-placeholder exec "\$gh" api --method GET -H "Authorization: Bearer \$jwt" -H "X-GitHub-Api-Version: \$API_VERSION" \/app/
+    /read-auditor-app-registration\) jwt=\$\(app_jwt\) \|\| refuse; node=\$\(verified_task7_node\) \|\| refuse; \/usr\/bin\/printf '%s' "\$jwt" \| exec "\$node" --input-type=module -e /
+  );
+  assert.match(source, /Authorization:`Bearer \$\{jwt\}`/);
+  assert.match(source, /bytes>1048576\)\{fail\(\);request\.destroy\(\)/);
+  assert.match(
+    source,
+    /setTimeout\(30000,\(\)=>\{fail\(\);request\.destroy\(\)\}\)/
   );
   assert.doesNotMatch(source, /\/repos\/\$REPOSITORY\/installation/);
   assert.doesNotMatch(
@@ -43,13 +49,14 @@ test('uses Bearer auth and never invokes gh when App JWT minting fails', async (
   );
   const root = await mkdtemp(path.join(tmpdir(), 'baci-cwv-jwt-exec-test-'));
   t.after(() => rm(root, { force: true, recursive: true }));
-  const ghDirectory = path.join(root, 'tools', 'gh', 'bin');
-  await mkdir(ghDirectory, { recursive: true, mode: 0o700 });
+  const nodeDirectory = path.join(root, 'tools', 'node', 'bin');
+  await mkdir(nodeDirectory, { recursive: true, mode: 0o700 });
   const argumentsFile = path.join(root, 'arguments');
+  const environmentFile = path.join(root, 'environment');
   const tokenFile = path.join(root, 'gh-token');
   await writeFile(
-    path.join(ghDirectory, 'gh'),
-    `#!/bin/sh\nprintf '%s\\n' "$GH_TOKEN" > '${tokenFile}'\nprintf '%s\\n' "$@" > '${argumentsFile}'\n`,
+    path.join(nodeDirectory, 'node'),
+    `#!/bin/sh\n/usr/bin/env > '${environmentFile}'\nprintf '%s\\n' "$@" > '${argumentsFile}'\n/bin/cat > '${tokenFile}'\nprintf '{}\\n'\n`,
     { mode: 0o500 }
   );
   const execTask7 = source.slice(
@@ -61,25 +68,20 @@ test('uses Bearer auth and never invokes gh when App JWT minting fails', async (
 
   await writeFile(
     harness,
-    `${harnessPrefix}app_jwt() { printf '%s' a.b.c; }\nexec_task7\n`,
+    `${harnessPrefix}app_jwt() { printf '%s' a.b.c; }\nverified_task7_node() { printf '%s' "$root/tools/node/bin/node"; }\nexec_task7\n`,
     { mode: 0o700 }
   );
   const success = spawnSync(harness, [root], { encoding: 'utf8' });
   assert.equal(success.status, 0, success.stderr);
-  assert.equal(await readFile(tokenFile, 'utf8'), 'unused-placeholder\n');
-  assert.deepEqual((await readFile(argumentsFile, 'utf8')).trim().split('\n'), [
-    'api',
-    '--method',
-    'GET',
-    '-H',
-    'Authorization: Bearer a.b.c',
-    '-H',
-    'X-GitHub-Api-Version: 2026-03-10',
-    '/app',
-  ]);
+  assert.equal(await readFile(tokenFile, 'utf8'), 'a.b.c');
+  const argumentsText = await readFile(argumentsFile, 'utf8');
+  assert.match(argumentsText, /^--input-type=module\n-e\n/);
+  assert.doesNotMatch(argumentsText, /a\.b\.c/);
+  assert.doesNotMatch(await readFile(environmentFile, 'utf8'), /a\.b\.c/);
 
   await Promise.all([
     rm(argumentsFile, { force: true }),
+    rm(environmentFile, { force: true }),
     rm(tokenFile, { force: true }),
   ]);
   await writeFile(
@@ -90,6 +92,7 @@ test('uses Bearer auth and never invokes gh when App JWT minting fails', async (
   const failure = spawnSync(harness, [root], { encoding: 'utf8' });
   assert.equal(failure.status, 65);
   await assert.rejects(readFile(argumentsFile), { code: 'ENOENT' });
+  await assert.rejects(readFile(environmentFile), { code: 'ENOENT' });
   await assert.rejects(readFile(tokenFile), { code: 'ENOENT' });
 });
 
