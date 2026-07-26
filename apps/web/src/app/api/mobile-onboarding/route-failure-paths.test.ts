@@ -123,7 +123,8 @@ describe('POST /api/mobile-onboarding failure paths', () => {
       // ...and the Postgres code reaches the log, which is what made this
       // outage invisible for three days.
       expect(errorSpy).toHaveBeenCalledWith(
-        'mobile-onboarding deployment_fault',
+        'mobile-onboarding %s',
+        'deployment_fault',
         expect.stringContaining('"pgCode":"42501"')
       );
 
