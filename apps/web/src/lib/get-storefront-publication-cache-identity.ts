@@ -22,7 +22,12 @@ export async function getStorefrontPublicationCacheIdentity(
   merchantId: string,
   canonicalMerchantSlug: string | null | undefined
 ): Promise<StorefrontPublicationCacheIdentity> {
-  const [domainsResult, aliasesResult] = await Promise.all([
+  const [merchantResult, domainsResult, aliasesResult] = await Promise.all([
+    supabase
+      .from('merchants')
+      .select('slug')
+      .eq('id', merchantId)
+      .maybeSingle<{ slug: string | null }>(),
     supabase
       .from('domains')
       .select('domain')
@@ -35,6 +40,13 @@ export async function getStorefrontPublicationCacheIdentity(
       .eq('merchant_id', merchantId),
   ]);
 
+  if (merchantResult.error) {
+    console.error('Failed to refresh storefront publication slug', {
+      error: merchantResult.error,
+      merchantId,
+    });
+    throw merchantResult.error;
+  }
   if (domainsResult.error) {
     console.error('Failed to load storefront publication domains', {
       error: domainsResult.error,
@@ -50,11 +62,16 @@ export async function getStorefrontPublicationCacheIdentity(
     throw aliasesResult.error;
   }
 
-  const normalizedCanonicalSlug = normalizeIdentity(canonicalMerchantSlug);
+  const normalizedCapturedSlug = normalizeIdentity(canonicalMerchantSlug);
+  const normalizedCurrentSlug = normalizeIdentity(merchantResult.data?.slug);
+  const normalizedCanonicalSlug =
+    normalizedCurrentSlug || normalizedCapturedSlug;
   const merchantSlugs = new Set<string>();
   const customDomains = new Set<string>();
-  if (normalizedCanonicalSlug) {
-    merchantSlugs.add(normalizedCanonicalSlug);
+  for (const slug of [normalizedCurrentSlug, normalizedCapturedSlug]) {
+    if (slug) {
+      merchantSlugs.add(slug);
+    }
   }
 
   for (const alias of aliasesResult.data ?? []) {
