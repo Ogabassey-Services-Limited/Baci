@@ -1,7 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { categorySlugSchema, RESERVED_CATEGORY_SLUGS } from './category-slug';
 
 describe('categorySlugSchema', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
   it.each([
     'phones',
     'mobile-phones',
@@ -46,6 +50,17 @@ describe('categorySlugSchema', () => {
       for (const reserved of RESERVED_CATEGORY_SLUGS) {
         expect(categorySlugSchema.safeParse(reserved).success).toBe(false);
       }
+    });
+
+    it('rejects the configured PostHog relay first segment', async () => {
+      vi.stubEnv('NEXT_PUBLIC_POSTHOG_PROXY_PATH', '/baci-observe/collect');
+      vi.resetModules();
+
+      const configuredSchema = await import('./category-slug');
+
+      expect(
+        configuredSchema.categorySlugSchema.safeParse('baci-observe').success
+      ).toBe(false);
     });
 
     it.each([

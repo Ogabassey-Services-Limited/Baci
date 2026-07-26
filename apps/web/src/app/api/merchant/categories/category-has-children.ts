@@ -16,6 +16,7 @@ export async function categoryHasChildren(
     .select('id')
     .eq('merchant_id', merchantId)
     .eq('parent_id', categoryId)
+    .not('is_active', 'is', false)
     .limit(1)
     .maybeSingle<{ id: string }>();
 

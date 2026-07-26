@@ -9,6 +9,13 @@ const migration = readFileSync(
   ),
   'utf8'
 );
+const hardeningMigration = readFileSync(
+  resolve(
+    import.meta.dirname,
+    '../../../../supabase/migrations/20260726201000_harden_category_hierarchy_lifecycle.sql'
+  ),
+  'utf8'
+);
 
 describe('category hierarchy lifecycle migration', () => {
   it('serializes hierarchy reads without target-parent lock inversion', () => {
@@ -91,5 +98,52 @@ describe('category hierarchy lifecycle migration', () => {
     expect(migration.match(/^SECURITY INVOKER$/gm)).toHaveLength(2);
     expect(migration).not.toContain('SECURITY DEFINER');
     expect(migration).toContain('FROM PUBLIC, anon, authenticated');
+  });
+});
+
+describe('category hierarchy lifecycle hardening migration', () => {
+  it('serializes retirement and rechecks both depth invariants', () => {
+    expect(hardeningMigration).toContain(
+      'v_hierarchy_write := NEW.is_active IS FALSE'
+    );
+    expect(hardeningMigration).toContain('pg_advisory_xact_lock');
+    expect(hardeningMigration).toMatch(
+      /parent\.is_active IS NOT FALSE[\s\S]*parent\.parent_id IS NULL/
+    );
+    expect(hardeningMigration).toMatch(
+      /child\.parent_id = NEW\.id[\s\S]*child\.is_active IS NOT FALSE/
+    );
+    expect(hardeningMigration).toContain("MESSAGE = 'CATEGORY_DEPTH_EXCEEDED'");
+  });
+
+  it('consumes inactive reuse markers immediately and preserves NULL-live rows', () => {
+    const markerRemoval = "- '_baci_reused_tombstone'";
+    const markerStart = hardeningMigration.indexOf(
+      '@> \'{"_baci_reused_tombstone": true}\'::jsonb'
+    );
+    const markerEnd = hardeningMigration.indexOf(markerRemoval, markerStart);
+
+    expect(markerStart).toBeGreaterThanOrEqual(0);
+    expect(markerEnd).toBeGreaterThan(markerStart);
+    const markerBlock = hardeningMigration.slice(
+      markerStart,
+      markerEnd + markerRemoval.length
+    );
+    expect(markerBlock).not.toContain('NEW.is_active IS TRUE');
+    expect(markerBlock).toContain('array_append');
+    expect(markerBlock).toContain(markerRemoval);
+    expect(hardeningMigration).toMatch(
+      /slug = NEW\.slug[\s\S]*is_active IS FALSE[\s\S]*FOR UPDATE/
+    );
+  });
+
+  it('preserves freshness only for category-label-only product updates', () => {
+    expect(hardeningMigration).toContain(
+      'CREATE TRIGGER zz_preserve_product_category_label_updated_at'
+    );
+    expect(hardeningMigration).toMatch(
+      /to_jsonb\(NEW\) - 'category' - 'updated_at'[\s\S]*to_jsonb\(OLD\) - 'category' - 'updated_at'[\s\S]*NEW\.updated_at := OLD\.updated_at/
+    );
+    expect(hardeningMigration).toContain('BEFORE UPDATE OF category');
   });
 });

@@ -1,6 +1,13 @@
 import { MAX_CATEGORY_SLUG_LENGTH } from '@baci/shared';
 import { z } from 'zod';
+import { normalizePostHogProxyPath } from '@/lib/posthog/config';
 import { STOREFRONT_SPECIAL_COLLECTION_SLUGS } from '@/lib/storefront-special-collection-slugs';
+
+const postHogRelayFirstSegment = normalizePostHogProxyPath(
+  process.env.NEXT_PUBLIC_POSTHOG_PROXY_PATH
+)
+  .split('/')
+  .find(Boolean);
 
 /**
  * Storefront first-path segments a category slug must never take.
@@ -20,6 +27,7 @@ import { STOREFRONT_SPECIAL_COLLECTION_SLUGS } from '@/lib/storefront-special-co
  */
 export const RESERVED_CATEGORY_SLUGS = new Set<string>([
   ...STOREFRONT_SPECIAL_COLLECTION_SLUGS,
+  ...(postHogRelayFirstSegment ? [postHogRelayFirstSegment] : []),
   'about',
   'account',
   'api',

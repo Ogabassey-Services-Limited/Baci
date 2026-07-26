@@ -217,4 +217,9 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260726110000_add_merchant_signup_policy_health_rpc.sql',
     sha256: '767937b88573d95bfaacb4777082d4955aca38c3c41b8aa2dee0e5787bcce6bb',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260726201000_harden_category_hierarchy_lifecycle.sql',
+    sha256: 'e6a64f576c43c86c803020cfaa7e4360bb5d79019baef5c763f2ba61c1c8238f',
+  },
 ];

@@ -8,8 +8,10 @@ function supabaseReturning(data: { id: string } | null, error: unknown = null) {
       select: vi.fn(() => ({
         eq: vi.fn(() => ({
           eq: vi.fn(() => ({
-            limit: vi.fn(() => ({
-              maybeSingle: vi.fn().mockResolvedValue({ data, error }),
+            not: vi.fn(() => ({
+              limit: vi.fn(() => ({
+                maybeSingle: vi.fn().mockResolvedValue({ data, error }),
+              })),
             })),
           })),
         })),
@@ -27,5 +29,23 @@ describe('categoryHasChildren', () => {
     await expect(
       categoryHasChildren(supabaseReturning(data, error), 'merchant', 'parent')
     ).resolves.toBe(expected);
+  });
+
+  it('ignores explicitly retired children when deciding whether a root can move', async () => {
+    const supabase = supabaseReturning(null) as unknown as {
+      from: ReturnType<typeof vi.fn>;
+    };
+
+    await categoryHasChildren(
+      supabase as unknown as CategoryRouteContext['supabase'],
+      'merchant',
+      'parent'
+    );
+
+    const query = supabase.from.mock.results[0]?.value;
+    const afterSelect = query.select.mock.results[0]?.value;
+    const afterMerchant = afterSelect.eq.mock.results[0]?.value;
+    const afterParent = afterMerchant.eq.mock.results[0]?.value;
+    expect(afterParent.not).toHaveBeenCalledWith('is_active', 'is', false);
   });
 });
