@@ -41,7 +41,8 @@ test('campaign lease remains exclusive until terminal release', async (t) => {
   const body = (await read(source))
     .replace('/srv/baci-cwv/campaigns', campaigns)
     .replace('/run/lock/baci-cwv-campaign.lock', lock)
-    .replace('= 0:700 ] || exit 65', `= ${process.getuid()}:700 ] || exit 65`);
+    .replace('= 0:700 ] || exit 65', `= ${process.getuid()}:700 ] || exit 65`)
+    .replace('= 0:600 ] || exit 65', `= ${process.getuid()}:600 ] || exit 65`);
   await fs.writeFile(holder, body, { mode: 0o755 });
 
   const descriptor = await open(lock, 'a');
