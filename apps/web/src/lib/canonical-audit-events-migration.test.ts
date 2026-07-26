@@ -85,18 +85,17 @@ describe('canonical audit events migration contract', () => {
     expect(migrationSql).not.toContain('p_actor_type text');
     expect(migrationSql).not.toContain('p_actor_label text');
     expect(migrationSql).not.toContain('p_source text');
+    expect(migrationSql).not.toContain('private.begin_audit_event_write_v1');
     expect(migrationSql).toContain(
-      'CREATE OR REPLACE FUNCTION private.begin_audit_event_write_v1()'
+      'CREATE TABLE private.audit_event_writer_capabilities'
     );
     expect(migrationSql).toContain(
-      'CREATE TABLE private.audit_event_write_contexts'
+      'ALTER TABLE private.audit_event_writer_capabilities ENABLE ROW LEVEL SECURITY'
     );
+    expect(migrationSql).toContain('p_writer_capability uuid');
+    expect(migrationSql).toContain('audit_writer_capability_required');
     expect(migrationSql).toContain(
-      'ALTER TABLE private.audit_event_write_contexts ENABLE ROW LEVEL SECURITY'
-    );
-    expect(migrationSql).toContain('audit_writer_context_required');
-    expect(migrationSql).toContain(
-      'DELETE FROM private.audit_event_write_contexts'
+      'FROM private.audit_event_writer_capabilities'
     );
   });
 

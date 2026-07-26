@@ -126,49 +126,24 @@ CREATE TRIGGER reject_audit_event_mutation_v1
   BEFORE UPDATE OR DELETE ON public.audit_events
   FOR EACH ROW EXECUTE FUNCTION private.reject_audit_event_mutation_v1();
 
--- A capability is keyed to the current backend and transaction, and can only
--- be created by the private security-definer helper below. It is consumed by
--- the writer, so application callers cannot forge it with a custom GUC.
-CREATE TABLE private.audit_event_write_contexts (
-  database_transaction_id xid8 NOT NULL,
-  backend_pid integer NOT NULL CHECK (backend_pid > 0),
-  PRIMARY KEY (database_transaction_id, backend_pid)
+-- This opaque capability is generated once by the database and is neither
+-- callable nor readable by application roles. Later reviewed SECURITY DEFINER
+-- trigger wrappers run in the database-owner TCB and may read and pass it to
+-- the writer; arbitrary non-owner triggers cannot mint or obtain it.
+CREATE TABLE private.audit_event_writer_capabilities (
+  capability uuid PRIMARY KEY DEFAULT extensions.gen_random_uuid(),
+  capability_name text NOT NULL UNIQUE,
+  CONSTRAINT audit_event_writer_capabilities_name_check CHECK (
+    capability_name = 'canonical_audit_event_writer_v1'
+  )
 );
 
-ALTER TABLE private.audit_event_write_contexts ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON TABLE private.audit_event_write_contexts
+ALTER TABLE private.audit_event_writer_capabilities ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE private.audit_event_writer_capabilities
   FROM PUBLIC, anon, authenticated, service_role;
 
--- This capability is intentionally not attached to a business table. Future
--- reviewed SECURITY DEFINER trigger wrappers must begin an audit write before
--- calling the writer. The database/project owner is the trusted code base that
--- may create such wrappers; untrusted application roles cannot execute this.
-CREATE OR REPLACE FUNCTION private.begin_audit_event_write_v1()
-RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = ''
-AS $$
-BEGIN
-  IF pg_catalog.pg_trigger_depth() = 0 THEN
-    RAISE EXCEPTION 'audit_writer_requires_trigger' USING ERRCODE = '42501';
-  END IF;
-
-  INSERT INTO private.audit_event_write_contexts (
-    database_transaction_id,
-    backend_pid
-  ) VALUES (
-    pg_catalog.pg_current_xact_id(),
-    pg_catalog.pg_backend_pid()
-  ) ON CONFLICT DO NOTHING;
-END;
-$$;
-
-REVOKE ALL ON FUNCTION private.begin_audit_event_write_v1()
-  FROM PUBLIC, anon, authenticated, service_role;
-
-COMMENT ON FUNCTION private.begin_audit_event_write_v1() IS
-  'Only SECURITY DEFINER reviewed trigger wrappers may begin an audit write. The database/project owner remains trusted code.';
+INSERT INTO private.audit_event_writer_capabilities (capability_name)
+VALUES ('canonical_audit_event_writer_v1');
 
 CREATE OR REPLACE FUNCTION private.write_audit_event_v1(
   p_merchant_id uuid,
@@ -182,7 +157,8 @@ CREATE OR REPLACE FUNCTION private.write_audit_event_v1(
   p_correlation_id uuid,
   p_request_id uuid,
   p_schema_version smallint,
-  p_metadata jsonb
+  p_metadata jsonb,
+  p_writer_capability uuid
 ) RETURNS uuid
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -198,17 +174,17 @@ DECLARE
   v_actor_label text;
   v_source text;
   v_id uuid;
-  v_has_writer_context boolean;
 BEGIN
   IF pg_catalog.pg_trigger_depth() = 0 THEN
     RAISE EXCEPTION 'audit_writer_requires_trigger' USING ERRCODE = '42501';
   END IF;
-  DELETE FROM private.audit_event_write_contexts
-  WHERE database_transaction_id = pg_catalog.pg_current_xact_id()
-    AND backend_pid = pg_catalog.pg_backend_pid()
-  RETURNING true INTO v_has_writer_context;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'audit_writer_context_required' USING ERRCODE = '42501';
+  IF p_writer_capability IS NULL OR NOT EXISTS (
+    SELECT 1
+    FROM private.audit_event_writer_capabilities AS capability
+    WHERE capability.capability = p_writer_capability
+      AND capability.capability_name = 'canonical_audit_event_writer_v1'
+  ) THEN
+    RAISE EXCEPTION 'audit_writer_capability_required' USING ERRCODE = '42501';
   END IF;
   IF v_explicit_actor_setting IS NOT NULL THEN
     v_explicit_actor_user_id := v_explicit_actor_setting::uuid;
@@ -259,7 +235,7 @@ END;
 $$;
 
 REVOKE ALL ON FUNCTION private.write_audit_event_v1(
-  uuid, text, text, text, text, text[], jsonb, jsonb, uuid, uuid, smallint, jsonb
+  uuid, text, text, text, text, text[], jsonb, jsonb, uuid, uuid, smallint, jsonb, uuid
 ) FROM PUBLIC, anon, authenticated, service_role;
 
 CREATE OR REPLACE FUNCTION public.list_merchant_audit_events_v1(

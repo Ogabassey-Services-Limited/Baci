@@ -18,8 +18,12 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
 AS $$
+DECLARE
+  v_writer_capability uuid;
 BEGIN
-  PERFORM private.begin_audit_event_write_v1();
+  SELECT capability.capability INTO v_writer_capability
+  FROM private.audit_event_writer_capabilities AS capability
+  WHERE capability.capability_name = 'canonical_audit_event_writer_v1';
   PERFORM private.write_audit_event_v1(
     NEW.merchant_id,
     NEW.merchant_label,
@@ -32,7 +36,8 @@ BEGIN
     NULL::uuid,
     NULL::uuid,
     1::smallint,
-    NEW.metadata
+    NEW.metadata,
+    v_writer_capability
   );
   RETURN NEW;
 END;
@@ -44,8 +49,7 @@ CREATE TRIGGER capture_fixture_audit_v1
 
 GRANT INSERT ON pg_temp.audit_event_fixture TO anon, authenticated, service_role;
 
--- This unreviewed trigger deliberately lacks the private capability. It proves
--- pg_trigger_depth() alone is not sufficient to call the private writer.
+-- This unreviewed trigger deliberately lacks the opaque owner-only capability.
 CREATE TEMP TABLE audit_event_unreviewed_fixture (
   merchant_id uuid NOT NULL,
   resource_id text NOT NULL
@@ -70,7 +74,8 @@ BEGIN
     NULL::uuid,
     NULL::uuid,
     1::smallint,
-    '{}'::jsonb
+    '{}'::jsonb,
+    NULL::uuid
   );
   RETURN NEW;
 END;
@@ -81,6 +86,70 @@ CREATE TRIGGER capture_unreviewed_audit_v1
   FOR EACH ROW EXECUTE FUNCTION pg_temp.capture_unreviewed_audit_v1();
 
 GRANT INSERT ON pg_temp.audit_event_unreviewed_fixture TO authenticated;
+
+-- Model an arbitrary privileged SECURITY DEFINER trigger. It is deliberately
+-- granted writer EXECUTE and private-schema USAGE, but never SELECT/INSERT on
+-- the capability table. It must neither mint nor read the opaque capability,
+-- and therefore fails at the writer's capability check.
+CREATE ROLE audit_event_attacker NOLOGIN;
+GRANT USAGE ON SCHEMA private TO audit_event_attacker;
+GRANT EXECUTE ON FUNCTION private.write_audit_event_v1(
+  uuid, text, text, text, text, text[], jsonb, jsonb, uuid, uuid, smallint, jsonb, uuid
+) TO audit_event_attacker;
+
+CREATE TEMP TABLE audit_event_attacker_fixture (
+  merchant_id uuid NOT NULL,
+  resource_id text NOT NULL
+);
+
+SET LOCAL ROLE audit_event_attacker;
+CREATE OR REPLACE FUNCTION pg_temp.capture_attacker_audit_v1()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_writer_capability uuid;
+BEGIN
+  BEGIN
+    INSERT INTO private.audit_event_writer_capabilities (capability_name)
+    VALUES ('canonical_audit_event_writer_v1');
+    RAISE EXCEPTION 'attacker trigger minted an audit writer capability';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+  BEGIN
+    SELECT capability.capability INTO v_writer_capability
+    FROM private.audit_event_writer_capabilities AS capability
+    WHERE capability.capability_name = 'canonical_audit_event_writer_v1';
+    RAISE EXCEPTION 'attacker trigger read an audit writer capability';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+  PERFORM private.write_audit_event_v1(
+    NEW.merchant_id,
+    NULL::text,
+    'fixture.create'::text,
+    'fixture_record'::text,
+    NEW.resource_id,
+    ARRAY[]::text[],
+    NULL::jsonb,
+    NULL::jsonb,
+    NULL::uuid,
+    NULL::uuid,
+    1::smallint,
+    '{}'::jsonb,
+    v_writer_capability
+  );
+  RETURN NEW;
+END;
+$$;
+RESET ROLE;
+
+CREATE TRIGGER capture_attacker_audit_v1
+  AFTER INSERT ON pg_temp.audit_event_attacker_fixture
+  FOR EACH ROW EXECUTE FUNCTION pg_temp.capture_attacker_audit_v1();
+
+GRANT INSERT ON pg_temp.audit_event_attacker_fixture TO authenticated;
 
 DO $test$
 DECLARE
@@ -122,8 +191,7 @@ BEGIN
   IF EXISTS (
     SELECT 1
     FROM unnest(ARRAY[
-      'private.write_audit_event_v1(uuid,text,text,text,text,text[],jsonb,jsonb,uuid,uuid,smallint,jsonb)'::regprocedure,
-      'private.begin_audit_event_write_v1()'::regprocedure,
+      'private.write_audit_event_v1(uuid,text,text,text,text,text[],jsonb,jsonb,uuid,uuid,smallint,jsonb,uuid)'::regprocedure,
       'private.reject_audit_event_mutation_v1()'::regprocedure,
       'private.audit_event_metadata_valid_v1(jsonb)'::regprocedure,
       'private.audit_event_changed_fields_valid_v1(text[])'::regprocedure,
@@ -137,10 +205,10 @@ BEGIN
   IF EXISTS (
     SELECT 1
     FROM unnest(ARRAY['anon', 'authenticated', 'service_role']) AS role_name
-    WHERE has_table_privilege(role_name, 'private.audit_event_write_contexts', 'SELECT')
-       OR has_table_privilege(role_name, 'private.audit_event_write_contexts', 'INSERT')
-       OR has_table_privilege(role_name, 'private.audit_event_write_contexts', 'UPDATE')
-       OR has_table_privilege(role_name, 'private.audit_event_write_contexts', 'DELETE')
+    WHERE has_table_privilege(role_name, 'private.audit_event_writer_capabilities', 'SELECT')
+       OR has_table_privilege(role_name, 'private.audit_event_writer_capabilities', 'INSERT')
+       OR has_table_privilege(role_name, 'private.audit_event_writer_capabilities', 'UPDATE')
+       OR has_table_privilege(role_name, 'private.audit_event_writer_capabilities', 'DELETE')
   ) THEN
     RAISE EXCEPTION 'application roles must not access private audit writer capabilities';
   END IF;
@@ -195,7 +263,7 @@ BEGIN
   BEGIN
     PERFORM private.write_audit_event_v1(
       v_merchant_id, NULL::text, 'fixture.create'::text, 'fixture_record'::text, 'direct-authenticated'::text,
-      ARRAY[]::text[], NULL::jsonb, NULL::jsonb, NULL::uuid, NULL::uuid, 1::smallint, '{}'::jsonb
+      ARRAY[]::text[], NULL::jsonb, NULL::jsonb, NULL::uuid, NULL::uuid, 1::smallint, '{}'::jsonb, NULL::uuid
     );
     RAISE EXCEPTION 'authenticated direct audit writer EXECUTE unexpectedly succeeded';
   EXCEPTION WHEN insufficient_privilege THEN NULL;
@@ -234,7 +302,7 @@ BEGIN
   BEGIN
     PERFORM private.write_audit_event_v1(
       v_merchant_id, NULL::text, 'fixture.create'::text, 'fixture_record'::text, 'direct-service'::text,
-      ARRAY[]::text[], NULL::jsonb, NULL::jsonb, NULL::uuid, NULL::uuid, 1::smallint, '{}'::jsonb
+      ARRAY[]::text[], NULL::jsonb, NULL::jsonb, NULL::uuid, NULL::uuid, 1::smallint, '{}'::jsonb, NULL::uuid
     );
     RAISE EXCEPTION 'service_role direct audit writer EXECUTE unexpectedly succeeded';
   EXCEPTION WHEN insufficient_privilege THEN NULL;
@@ -242,8 +310,7 @@ BEGIN
   RESET ROLE;
 
   -- A generic trigger cannot forge a ledger event merely by executing inside a
-  -- trigger. Only a reviewed security-definer wrapper can acquire the private,
-  -- transaction-local writer capability.
+  -- trigger; it has no opaque owner-only writer capability.
   SET LOCAL ROLE authenticated;
   PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
   PERFORM set_config('request.jwt.claim.sub', v_actor_id::text, true);
@@ -252,7 +319,23 @@ BEGIN
     VALUES (v_merchant_id, 'unreviewed-trigger');
     RAISE EXCEPTION 'unreviewed trigger unexpectedly wrote an audit event';
   EXCEPTION WHEN insufficient_privilege THEN
-    IF SQLERRM <> 'audit_writer_context_required' THEN
+    IF SQLERRM <> 'audit_writer_capability_required' THEN
+      RAISE;
+    END IF;
+  END;
+  RESET ROLE;
+
+  -- Even an attacker-owned SECURITY DEFINER trigger granted writer EXECUTE
+  -- cannot mint or read the owner-only capability and is denied by the writer.
+  SET LOCAL ROLE authenticated;
+  PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
+  PERFORM set_config('request.jwt.claim.sub', v_actor_id::text, true);
+  BEGIN
+    INSERT INTO pg_temp.audit_event_attacker_fixture (merchant_id, resource_id)
+    VALUES (v_merchant_id, 'attacker-trigger');
+    RAISE EXCEPTION 'attacker-owned trigger unexpectedly wrote an audit event';
+  EXCEPTION WHEN insufficient_privilege THEN
+    IF SQLERRM <> 'audit_writer_capability_required' THEN
       RAISE;
     END IF;
   END;
@@ -460,8 +543,8 @@ BEGIN
   IF v_tx_count <> 1 THEN
     RAISE EXCEPTION 'same-transaction audit events must share a database transaction identifier';
   END IF;
-  IF EXISTS (SELECT 1 FROM private.audit_event_write_contexts) THEN
-    RAISE EXCEPTION 'successful audit writes must consume private writer capabilities';
+  IF (SELECT count(*) FROM private.audit_event_writer_capabilities) <> 1 THEN
+    RAISE EXCEPTION 'audit writer capability registry must contain exactly one owner-only capability';
   END IF;
 
   -- Snapshot UUIDs and labels survive source deletion; child cascade paths may
