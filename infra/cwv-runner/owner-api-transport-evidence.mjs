@@ -43,7 +43,7 @@ function runRow(state, row) {
   const dispatchWallClockMs = state.dispatchIntent?.createdWallClockMs ?? state.createdWallClockMs;
   if (matches && Date.parse(row.created_at) < Math.floor(dispatchWallClockMs / 1000) * 1000)
     fail('invalid run evidence');
-  if (matches && (row.workflow_id !== state.workflow.id || row.path !== state.workflow.path || row.head_branch !== 'main' || row.head_sha !== state.expectedSha || row.run_attempt !== (state.expectedAttempt ?? state.run?.attempt ?? 1) || row.url !== `https://api.github.com/repos/${state.repository.name}/actions/runs/${row.id}` || row.html_url !== `https://github.com/${state.repository.name}/actions/runs/${row.id}`)) fail('invalid run evidence');
+  if (matches && (row.actor.login !== state.repository.name.split('/')[0] || row.workflow_id !== state.workflow.id || row.path !== state.workflow.path || row.head_branch !== 'main' || row.head_sha !== state.expectedSha || row.run_attempt !== (state.expectedAttempt ?? state.run?.attempt ?? 1) || row.url !== `https://api.github.com/repos/${state.repository.name}/actions/runs/${row.id}` || row.html_url !== `https://github.com/${state.repository.name}/actions/runs/${row.id}`)) fail('invalid run evidence');
   return {
     actor: row.actor.login,
     admissionId: state.admissionId,
@@ -144,7 +144,7 @@ export function dispatchReconciliationPatch(state, body, receivedMonotonicMs, pr
   const rows = rowsFor(state, body); const raw = body.workflow_runs.filter((row) => row.display_title === titleFor(state)); const pollCount = (state.dispatchReconciliation?.pollCount ?? 0) + 1; const responseSha256 = hash(canonical({ body, proofs }));
   if (raw.length > 1) return { dispatchReconciliation: { pollCount, reason: 'multiple-same-admission', responseSha256 }, phase: 'MANUAL_RECONCILIATION', runPageCursor: undefined, runPages: undefined };
   if (!raw.length) {
-    const terminal = pollCount >= 3 || receivedMonotonicMs >= state.dispatchIntent.reconcileDeadlineMonotonicMs;
+    const terminal = receivedMonotonicMs >= state.dispatchIntent.reconcileDeadlineMonotonicMs;
     return { dispatchReconciliation: { pollCount, reason: terminal ? 'same-admission-not-found' : 'polling', responseSha256 }, phase: terminal ? 'MANUAL_RECONCILIATION' : 'DISPATCH_INDETERMINATE', runPageCursor: undefined, runPages: undefined };
   }
   const source = raw[0]; const row = rows.find((value) => value.id === source.id);

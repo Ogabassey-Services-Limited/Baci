@@ -203,7 +203,10 @@ test('uses the live transaction-local cleanup tool once and leaves durable compl
 });
 
 test('publishes every Task 9 and Task 7 receipt with atomic hard-link no-clobber', () => {
-  assert.match(source, /publish_once\(\).*\/bin\/sync -f "\$temporary"[\s\S]*\/bin\/ln "\$temporary" "\$output"[\s\S]*\/bin\/sync -f "\$output"[\s\S]*\/bin\/rm -f -- "\$temporary"/);
+  assert.match(source, /durable_sync\(\).*fs\.openSync\(value,fs\.constants\.O_RDONLY\|fs\.constants\.O_NOFOLLOW\|directory\)[\s\S]*fs\.fsyncSync\(descriptor\)[\s\S]*else \/bin\/sync/);
+  assert.match(source, /\[ "\$node" = "\$transaction_dir\/tools\/node\/bin\/node" \]/);
+  assert.match(source, /publish_once\(\).*durable_sync "\$temporary"[\s\S]*\/bin\/ln "\$temporary" "\$output"[\s\S]*durable_sync "\$output"[\s\S]*\/bin\/rm -f -- "\$temporary"/);
+  assert.doesNotMatch(source, /\/bin\/sync -f/);
   assert.doesNotMatch(source, />"\$transaction_dir\/(?:root-abort-trigger|root-completion-trigger)\.json"/);
   assert.doesNotMatch(source, /\/bin\/mv -n/);
 });

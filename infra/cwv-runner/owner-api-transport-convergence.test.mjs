@@ -17,7 +17,7 @@ function initial(overallMs = 1200000) { const value = source(); const bytes = Bu
 const page = (body, extra = {}) => ({ status: 200, linkValues: [], body, ...extra });
 const quiescent = () => consumeResponse(initial(), 'list-attestation-runs', page({ total_count: 0, workflow_runs: [] }));
 const dispatchReceipt = { status: 200, receivedMonotonicMs: 19, body: { workflow_run_id: 9, run_url: 'https://api.github.com/repos/ogabasseyy/Baci/actions/runs/9', html_url: 'https://github.com/ogabasseyy/Baci/actions/runs/9' } };
-const matchingRow = { actor: { login: 'owner' }, created_at: '2026-01-01T00:00:00Z', display_title: `CWV Runner Attestation ${'b'.repeat(64)}`, event: 'workflow_dispatch', head_branch: 'main', head_sha: 'a'.repeat(40), html_url: dispatchReceipt.body.html_url, id: 9, path: '.github/workflows/cwv-runner-attestation.yml', run_attempt: 1, status: 'queued', url: dispatchReceipt.body.run_url, workflow_id: 2 };
+const matchingRow = { actor: { login: 'ogabasseyy' }, created_at: '2026-01-01T00:00:00Z', display_title: `CWV Runner Attestation ${'b'.repeat(64)}`, event: 'workflow_dispatch', head_branch: 'main', head_sha: 'a'.repeat(40), html_url: dispatchReceipt.body.html_url, id: 9, path: '.github/workflows/cwv-runner-attestation.yml', run_attempt: 1, status: 'queued', url: dispatchReceipt.body.run_url, workflow_id: 2 };
 
 test('dispatches the frozen workflow path on main and requires reconciliation before a run read', () => {
   const before = quiescent();
@@ -108,7 +108,7 @@ test('binds workflow actor SHA attempt and status through mandatory reconciliati
   const reconciled = consumeResponse(accepted, 'list-attestation-runs', page({ total_count: 1, workflow_runs: [matchingRow] }));
   const queued = consumeResponse(reconciled, 'read-exact-run', { status: 200, body });
   assert.equal(queued.phase, 'QUEUED');
-  assert.deepEqual(queued.run, { actor: 'owner', admissionId: 'b'.repeat(64), attempt: 1, conclusion: null, displayTitle: `CWV Runner Attestation ${'b'.repeat(64)}`, event: 'workflow_dispatch', htmlUrl: dispatchReceipt.body.html_url, id: 9, queuedSinceMonotonicMs: 19, runUrl: dispatchReceipt.body.run_url, status: 'queued' });
+  assert.deepEqual(queued.run, { actor: 'ogabasseyy', admissionId: 'b'.repeat(64), attempt: 1, conclusion: null, displayTitle: `CWV Runner Attestation ${'b'.repeat(64)}`, event: 'workflow_dispatch', htmlUrl: dispatchReceipt.body.html_url, id: 9, queuedSinceMonotonicMs: 19, runUrl: dispatchReceipt.body.run_url, status: 'queued' });
 });
 
 test('binds one fresh post-dispatch reconciliation generation and rejects replay or SHA drift', () => {
@@ -131,14 +131,23 @@ test('reconciles durable intent and indeterminate states without ever permitting
   assert.equal(accepted.run.queuedSinceMonotonicMs, intent.createdMonotonicMs);
 });
 
-test('enters terminal manual reconciliation for bounded zero or multiple same-admission matches', () => {
+test('keeps zero-match reconciliation bounded by its receipt deadline, not a poll count', () => {
   let value = beginOperation(quiescent(), 'dispatch-exact-run');
   for (let attempt = 1; attempt <= 3; attempt += 1) value = consumeResponse(value, 'list-attestation-runs', page({ total_count: 0, workflow_runs: [] }, { receivedMonotonicMs: attempt + 1 }));
+  assert.equal(value.phase, 'DISPATCH_INDETERMINATE');
+  value = consumeResponse(value, 'list-attestation-runs', page({ total_count: 0, workflow_runs: [] }, { receivedMonotonicMs: value.dispatchIntent.reconcileDeadlineMonotonicMs }));
   assert.equal(value.phase, 'MANUAL_RECONCILIATION');
   assert.throws(() => beginOperation(value, 'dispatch-exact-run'), /ambiguous/);
   const intent = beginOperation(quiescent(), 'dispatch-exact-run');
   const multiple = consumeResponse(intent, 'list-attestation-runs', page({ total_count: 2, workflow_runs: [matchingRow, { ...matchingRow, id: 10, html_url: 'https://github.com/ogabasseyy/Baci/actions/runs/10', url: 'https://api.github.com/repos/ogabasseyy/Baci/actions/runs/10' }] }, { receivedMonotonicMs: 2 }));
   assert.equal(multiple.phase, 'MANUAL_RECONCILIATION');
+});
+
+test('rejects a same-admission run owned by a collaborator and binds the repository owner', () => {
+  const intent = beginOperation(quiescent(), 'dispatch-exact-run');
+  assert.throws(() => consumeResponse(intent, 'list-attestation-runs', page({ total_count: 1, workflow_runs: [{ ...matchingRow, actor: { login: 'collaborator' } }] }, { receivedMonotonicMs: 2 })), /run evidence/);
+  const queued = consumeResponse(intent, 'list-attestation-runs', page({ total_count: 1, workflow_runs: [matchingRow] }, { receivedMonotonicMs: 2 }));
+  assert.equal(queued.run.actor, 'ogabasseyy');
 });
 
 test('permits one rerun only from the canonical transport-loss join over authenticated root receipts and frozen job steps', () => {

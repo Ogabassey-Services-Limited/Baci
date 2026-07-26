@@ -117,7 +117,13 @@ export function runnerEvidence(body, proofs, hold) {
   const matching = normalized.runners.filter(
     (row) => row.labels.includes('baci-cwv-measurement')
   );
-  if (matching.length !== 1 || !hold) fail('invalid runner inventory');
+  if (
+    matching.length !== 1 ||
+    !hold ||
+    matching[0].status !== 'online' ||
+    matching[0].busy !== true
+  )
+    fail('invalid runner inventory');
   return {
     boundStateGeneration: hold.boundStateGeneration,
     challengeNonce: hold.challengeNonce,

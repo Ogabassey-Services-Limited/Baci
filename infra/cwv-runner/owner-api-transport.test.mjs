@@ -57,7 +57,7 @@ const state = (sourceAuthorization = authorization(), options = {}) => {
     deadlineMonotonicMs: 1200001,
   });
 };
-const runRow = { actor: { login: 'owner' }, created_at: '2026-01-01T00:00:00Z', display_title: `CWV Runner Attestation ${'b'.repeat(64)}`, event: 'workflow_dispatch', head_branch: 'main', head_sha: 'a'.repeat(40), html_url: 'https://github.com/ogabasseyy/Baci/actions/runs/9', id: 9, path: '.github/workflows/cwv-runner-attestation.yml', run_attempt: 1, status: 'queued', url: 'https://api.github.com/repos/ogabasseyy/Baci/actions/runs/9', workflow_id: 2 };
+const runRow = { actor: { login: 'ogabasseyy' }, created_at: '2026-01-01T00:00:00Z', display_title: `CWV Runner Attestation ${'b'.repeat(64)}`, event: 'workflow_dispatch', head_branch: 'main', head_sha: 'a'.repeat(40), html_url: 'https://github.com/ogabasseyy/Baci/actions/runs/9', id: 9, path: '.github/workflows/cwv-runner-attestation.yml', run_attempt: 1, status: 'queued', url: 'https://api.github.com/repos/ogabasseyy/Baci/actions/runs/9', workflow_id: 2 };
 const dispatchResponse = { status: 200, receivedMonotonicMs: 19, body: { html_url: runRow.html_url, run_url: runRow.url, workflow_run_id: 9 } };
 const ready = (value) => consumeResponse(value, 'list-attestation-runs', { status: 200, body: { total_count: 0, workflow_runs: [] } });
 const bound = (value) => { const accepted = consumeResponse(beginOperation(ready(value), 'dispatch-exact-run'), 'dispatch-exact-run', dispatchResponse); return consumeResponse(accepted, 'list-attestation-runs', { status: 200, body: { total_count: 1, workflow_runs: [runRow] } }); };
@@ -165,7 +165,7 @@ test('keeps a dispatch recoverable when network preparation fails before send be
 test('reconciles the sole post-dispatch run and rejects a generic failed-job rerun classification', () => {
   let next = bound(state());
   assert.deepEqual(next.run, {
-    actor: 'owner', admissionId: 'b'.repeat(64), attempt: 1,
+    actor: 'ogabasseyy', admissionId: 'b'.repeat(64), attempt: 1,
     displayTitle: `CWV Runner Attestation ${'b'.repeat(64)}`,
     event: 'workflow_dispatch', id: 9,
     runUrl: 'https://api.github.com/repos/ogabasseyy/Baci/actions/runs/9',
