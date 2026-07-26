@@ -58,7 +58,13 @@ export function useQuizAttemptStart({
     setError(null);
     setStatus('starting');
     try {
-      const nextAttempt = await startQuizAttempt(event.id);
+      // Pass the snapshot as expectedUserId so the server refuses (409) if the
+      // cookie session switched while the POST was deferred — the post-await
+      // check below only suppresses the UI, it can't undo a server-side start.
+      const nextAttempt = await startQuizAttempt(
+        event.id,
+        startUserId ?? undefined
+      );
       if (currentUserIdRef.current !== startUserId) {
         // Account switched during the start: discard the page-level commit and
         // return to the event list rather than rendering the stale attempt.

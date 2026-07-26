@@ -41,6 +41,8 @@ describe('useQuizAttemptStart', () => {
     });
 
     expect(outcome).toBeNull();
+    // The start is pinned to the initiating shopper (server-side 409 gate).
+    expect(mockStartQuizAttempt).toHaveBeenCalledWith(event.id, 'user-a');
     expect(setAttempt).toHaveBeenCalledWith(attempt);
     expect(setStatus).toHaveBeenLastCalledWith('question');
   });

@@ -2,7 +2,7 @@
 
 import { createContext, type ReactNode, use, useEffect, useState } from 'react';
 import { clearCartStorage } from '@/hooks/use-cart';
-import { updateCustomerProfile } from '@/lib/storefront/update-customer-profile';
+import { useCustomerProfileUpdate } from '@/hooks/use-customer-profile-update';
 
 export interface CustomerUser {
   id: string;
@@ -399,35 +399,14 @@ export function CustomerAuthProvider({
     await checkSession();
   };
 
-  // Update customer data
-  const updateCustomer = async (
-    data: Partial<Customer>
-  ): Promise<{ success: boolean; error?: string }> => {
-    if (!customer) {
-      return { success: false, error: 'Not authenticated' };
-    }
-
-    // Snapshot the shopper this write is for, before any await. Cookies are
-    // ambient, so if the session switches mid-write the PATCH could target the
-    // new account; `expectedUserId` lets the server reject that (409).
-    const expectedUserId = user?.id;
-    const expectedCustomerId = customer.id;
-
-    const result = await updateCustomerProfile(
-      merchantSlug,
-      data,
-      expectedUserId
-    );
-    if (result.success) {
-      // Guard the local merge with the LIVE state (`prev`): if the account
-      // switched during the write, `prev` is now a different customer, so we
-      // must not fold this shopper's data into it.
-      setCustomer((prev) =>
-        prev && prev.id === expectedCustomerId ? { ...prev, ...data } : prev
-      );
-    }
-    return result;
-  };
+  // Update customer data. The write-orchestration (identity snapshot, server
+  // expected_user_id gate, guarded local merge) lives in a focused hook.
+  const updateCustomer = useCustomerProfileUpdate({
+    customer,
+    merchantSlug,
+    setCustomer,
+    user,
+  });
 
   return (
     <CustomerAuthContext.Provider

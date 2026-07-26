@@ -4,43 +4,13 @@ import { z } from 'zod';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { resolveMerchantIdBySlugOrAlias } from '@/lib/resolve-merchant-by-slug';
 import { createClient } from '@/lib/supabase/server';
-import { dateOfBirthSchema } from '@/schemas/customer-date-of-birth';
+import { customerProfilePatchSchema } from '@/schemas/customer-profile-patch';
 
 /**
  * Customer Profile API
  *
  * PATCH - Update customer profile
  */
-
-const savedAddressSchema = z.object({
-  id: z.string().min(1),
-  label: z.string().min(1),
-  full_name: z.string().min(1),
-  phone: z.string().min(1),
-  address: z.string().min(1),
-  city: z.string().min(1),
-  state: z.string().min(1),
-  country: z.string().min(1),
-  postal_code: z.string().optional(),
-  is_default: z.boolean().optional(),
-});
-
-const patchBodySchema = z.object({
-  merchantSlug: z.string().min(1, 'Merchant slug is required'),
-  first_name: z.string().optional(),
-  last_name: z.string().optional(),
-  phone: z.string().optional(),
-  date_of_birth: dateOfBirthSchema.optional(),
-  saved_addresses: z.array(savedAddressSchema).optional(),
-  /**
-   * The auth user the caller intended to write for. Cookies are ambient, so if
-   * the session switched to another shopper between capturing the form and this
-   * request landing, the write would silently target the new account. When
-   * provided we reject the mismatch (409) so a stale submit — e.g. the quiz 18+
-   * gate saving a DOB — cannot write to whoever is currently signed in.
-   */
-  expected_user_id: z.string().min(1).optional(),
-});
 
 export async function PATCH(request: NextRequest) {
   try {
@@ -77,7 +47,7 @@ export async function PATCH(request: NextRequest) {
     } catch {
       return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
     }
-    const parseResult = patchBodySchema.safeParse(body);
+    const parseResult = customerProfilePatchSchema.safeParse(body);
 
     if (!parseResult.success) {
       return NextResponse.json(
