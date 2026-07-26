@@ -103,10 +103,9 @@ export async function POST(request: NextRequest) {
   // 23505 = unique violation (duplicate slug for this merchant). DELETE leaves
   // a deactivated tombstone rather than removing the row — see the handler's
   // comment for why — so the slug it occupies must remain re-creatable.
-  // Reviving is scoped to rows hidden by the public policy. This includes
-  // explicit tombstones and legacy NULL rows (`is_active = true` is required
-  // for anonymous reads), otherwise an invisible legacy row can reserve a slug
-  // forever.
+  // Reviving is scoped to explicit tombstones. Legacy NULL rows remain live:
+  // the storefront slug-state function and cached reads normalize NULL to
+  // active, so consuming one here would destructively replace a live category.
   if (error?.code === '23505') {
     const revived = await supabase
       .from('categories')
@@ -126,7 +125,7 @@ export async function POST(request: NextRequest) {
       })
       .eq('merchant_id', merchantId)
       .eq('slug', parsed.data.slug)
-      .or('is_active.eq.false,is_active.is.null')
+      .eq('is_active', false)
       .select('id, name, slug, is_active')
       .maybeSingle();
 

@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
+  categoryHasChildren: vi.fn(),
   isParentCategoryOwnedByMerchant: vi.fn(),
   wouldCreateCategoryCycle: vi.fn(),
 }));
 
 vi.mock('./category-route-support', () => ({
+  categoryHasChildren: mocks.categoryHasChildren,
   isParentCategoryOwnedByMerchant: mocks.isParentCategoryOwnedByMerchant,
   wouldCreateCategoryCycle: mocks.wouldCreateCategoryCycle,
 }));
@@ -23,6 +25,7 @@ describe('validateCategoryParent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.isParentCategoryOwnedByMerchant.mockResolvedValue('owned');
+    mocks.categoryHasChildren.mockResolvedValue('no-children');
     mocks.wouldCreateCategoryCycle.mockResolvedValue('safe');
   });
 
@@ -33,6 +36,7 @@ describe('validateCategoryParent', () => {
   it.each([
     ['absent', 400, 'PARENT_NOT_FOUND'],
     ['retired', 400, 'PARENT_RETIRED'],
+    ['nested', 400, 'PARENT_DEPTH_EXCEEDED'],
   ])('refuses an %s parent with %i', async (state, status, code) => {
     mocks.isParentCategoryOwnedByMerchant.mockResolvedValue(state);
 
@@ -60,6 +64,25 @@ describe('validateCategoryParent', () => {
     });
   });
 
+  it('refuses to move a category with children below another root', async () => {
+    mocks.categoryHasChildren.mockResolvedValue('has-children');
+
+    const response = await validateCategoryParent(BASE);
+
+    expect(response?.status).toBe(400);
+    await expect(response?.json()).resolves.toMatchObject({
+      code: 'CATEGORY_DEPTH_EXCEEDED',
+    });
+    expect(mocks.wouldCreateCategoryCycle).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when checking for children fails', async () => {
+    mocks.categoryHasChildren.mockResolvedValue('lookup-failed');
+
+    expect((await validateCategoryParent(BASE))?.status).toBe(500);
+    expect(mocks.wouldCreateCategoryCycle).not.toHaveBeenCalled();
+  });
+
   it('returns 500 when the ancestor walk fails', async () => {
     mocks.wouldCreateCategoryCycle.mockResolvedValue('lookup-failed');
 
@@ -76,6 +99,7 @@ describe('validateCategoryParent', () => {
       const { categoryId, ...create } = BASE;
 
       await expect(validateCategoryParent(create)).resolves.toBeNull();
+      expect(mocks.categoryHasChildren).not.toHaveBeenCalled();
       expect(mocks.wouldCreateCategoryCycle).not.toHaveBeenCalled();
     });
   });

@@ -3,7 +3,11 @@ import type { CategoryRouteContext } from './category-route-types';
 import { isParentCategoryOwnedByMerchant } from './is-parent-category-owned-by-merchant';
 
 function supabaseReturning(
-  data: { id: string; is_active: boolean | null } | null,
+  data: {
+    id: string;
+    is_active: boolean | null;
+    parent_id: string | null;
+  } | null,
   error: unknown = null
 ) {
   return {
@@ -21,9 +25,10 @@ function supabaseReturning(
 
 describe('isParentCategoryOwnedByMerchant', () => {
   it.each([
-    [{ id: 'parent', is_active: true }, null, 'owned'],
-    [{ id: 'parent', is_active: false }, null, 'retired'],
-    [{ id: 'parent', is_active: null }, null, 'owned'],
+    [{ id: 'parent', is_active: true, parent_id: null }, null, 'owned'],
+    [{ id: 'parent', is_active: false, parent_id: null }, null, 'retired'],
+    [{ id: 'parent', is_active: null, parent_id: null }, null, 'owned'],
+    [{ id: 'parent', is_active: true, parent_id: 'root' }, null, 'nested'],
     [null, null, 'absent'],
     [null, { message: 'timeout' }, 'lookup-failed'],
   ] as const)('maps data %j and error %j to %s', async (data, error, expected) => {

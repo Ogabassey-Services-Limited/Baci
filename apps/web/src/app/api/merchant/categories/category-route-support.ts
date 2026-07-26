@@ -1,4 +1,5 @@
 export { authenticateCategoryRequest } from './authenticate-category-request';
+export { categoryHasChildren } from './category-has-children';
 export { CATEGORY_MANAGEMENT_RULE } from './category-management-rule';
 export type {
   CategoryAuthResolution,

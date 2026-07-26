@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import {
   type CategoryRouteContext,
+  categoryHasChildren,
   isParentCategoryOwnedByMerchant,
   wouldCreateCategoryCycle,
 } from './category-route-support';
@@ -9,8 +10,9 @@ import {
  * Everything that must hold before a `parent_id` is written.
  *
  * Shared by POST and PATCH so the two cannot drift — they enforce the same
- * three rules: the parent belongs to this merchant, it is not a tombstone, and
- * (for an existing category) the edge closes no loop.
+ * hierarchy rules: the parent belongs to this merchant, it is an active root,
+ * and re-parenting neither creates a loop nor moves a branch below another
+ * root. Storefront aggregation supports roots and their direct children only.
  *
  * Returns the refusal response, or null when the parent is acceptable.
  */
@@ -52,9 +54,35 @@ export async function validateCategoryParent(options: {
       { status: 400 }
     );
   }
+  if (ownership === 'nested') {
+    return NextResponse.json(
+      {
+        error: 'Subcategories cannot contain another category',
+        code: 'PARENT_DEPTH_EXCEEDED',
+      },
+      { status: 400 }
+    );
+  }
 
   if (!categoryId) {
     return null;
+  }
+
+  const children = await categoryHasChildren(supabase, merchantId, categoryId);
+  if (children === 'lookup-failed') {
+    return NextResponse.json(
+      { error: 'Could not verify the category hierarchy' },
+      { status: 500 }
+    );
+  }
+  if (children === 'has-children') {
+    return NextResponse.json(
+      {
+        error: 'A category with subcategories cannot become a subcategory',
+        code: 'CATEGORY_DEPTH_EXCEEDED',
+      },
+      { status: 400 }
+    );
   }
 
   // Self-parenting is only the shortest cycle. Any ancestor loop detaches the
