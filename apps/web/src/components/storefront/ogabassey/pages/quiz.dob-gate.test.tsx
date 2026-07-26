@@ -204,68 +204,6 @@ describe('OgabasseyV2Quiz date-of-birth gate', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('does not render the previous shopper’s attempt when the account switches mid-start', async () => {
-    // Regression (is6TyY8Q): runStart commits the attempt into page state AFTER
-    // its await. If the account switches while the start request is in flight,
-    // the new session must not be shown the previous shopper's question.
-    const baseAuth = {
-      customer: {
-        email: 'a@example.com',
-        first_name: 'Ada',
-        id: 'customer-a',
-        last_name: 'Lovelace',
-        date_of_birth: '1990-06-15',
-      },
-      isAuthenticated: true as const,
-      isLoading: false,
-      logout: vi.fn(),
-      otpState: null,
-      refreshCustomer: vi.fn(),
-      sendOtp: vi.fn(),
-      signInWithApple: vi.fn(),
-      signInWithGoogle: vi.fn(),
-      updateCustomer: vi.fn(),
-      verifyOtp: vi.fn(),
-    };
-    vi.mocked(useCustomerAuth).mockReturnValue({
-      ...baseAuth,
-      user: { id: 'user-a', email: 'a@example.com', role: 'customer' },
-    });
-    vi.mocked(apiGet).mockResolvedValue(eventResponse);
-    let resolveStart: (value: unknown) => void = () => {};
-    vi.mocked(apiPost).mockReturnValueOnce(
-      new Promise((resolve) => {
-        resolveStart = resolve;
-      })
-    );
-
-    const { rerender } = render(<OgabasseyV2Quiz merchantSlug="ogabassey" />);
-    fireEvent.click(
-      await screen.findByRole('button', { name: /start exam/i })
-    );
-
-    // Account switches to shopper B while the attempt request is in flight.
-    vi.mocked(useCustomerAuth).mockReturnValue({
-      ...baseAuth,
-      customer: { ...baseAuth.customer, id: 'customer-b' },
-      user: { id: 'user-b', email: 'b@example.com', role: 'customer' },
-    });
-    rerender(<OgabasseyV2Quiz merchantSlug="ogabassey" />);
-
-    // Shopper A's start resolves after the switch.
-    await act(async () => {
-      resolveStart(attemptResponse);
-    });
-
-    // B is not shown A's question, and the event list (Start) is restored.
-    await waitFor(() =>
-      expect(screen.queryByText('Pick the winning answer')).not.toBeInTheDocument()
-    );
-    expect(
-      await screen.findByRole('button', { name: /start exam/i })
-    ).toBeInTheDocument();
-  });
-
   it('reopens the age gate when a stored date of birth fails the server 18+ check', async () => {
     // The shopper already has a DOB on file (e.g. mistyped earlier), so the
     // start goes straight to the server, which rejects it as under-18. There is

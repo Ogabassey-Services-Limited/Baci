@@ -66,7 +66,21 @@ export function useQuizAgeGate({
   // can read it synchronously (a state closure would see the submit-time value).
   const currentCustomerIdRef = useRef(currentCustomerId);
   useEffect(() => {
+    const previous = currentCustomerIdRef.current;
     currentCustomerIdRef.current = currentCustomerId;
+    // Account switched (or logged out) while a gate is idle-open: close it so the
+    // new shopper can't submit their DOB against the previous shopper's event.
+    // Guarded to a real prior identity so a null→id hydration of the same shopper
+    // is not mistaken for a switch. Bumping the token also invalidates any
+    // in-flight save's continuation.
+    if (previous !== null && previous !== currentCustomerId) {
+      tokenRef.current += 1;
+      saveInFlightRef.current = false;
+      setSavePending(false);
+      setSubmitting(false);
+      setError(null);
+      setEvent(null);
+    }
   }, [currentCustomerId]);
 
   // Opening or cancelling starts a new gate generation (bumps the token) and
