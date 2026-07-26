@@ -120,7 +120,8 @@ describe('productCacheRevalidation', () => {
       throw new Error('cache unavailable');
     });
 
-    productCacheRevalidation.revalidateProducts('merchant-1');
+    const revalidated =
+      productCacheRevalidation.revalidateProducts('merchant-1');
 
     expect(revalidateTag).toHaveBeenCalledWith(
       'dashboard-merchant-1',
@@ -132,5 +133,6 @@ describe('productCacheRevalidation', () => {
         tag: 'products-merchant-1',
       })
     );
+    expect(revalidated).toBe(false);
   });
 });

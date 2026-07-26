@@ -33,6 +33,7 @@ function createSelectableItemQuery(result?: {
     eq: vi.fn().mockReturnThis(),
     ilike: vi.fn().mockReturnThis(),
     limit: vi.fn().mockReturnThis(),
+    not: vi.fn().mockReturnThis(),
     select: vi.fn().mockReturnThis(),
   };
   return chain;
@@ -217,6 +218,7 @@ describe('fetchSelectableItems', () => {
     ]);
 
     expect(mockFrom).toHaveBeenCalledWith('categories');
+    expect(query.not).toHaveBeenCalledWith('is_active', 'is', false);
     expect(query.ilike).toHaveBeenCalledWith('name', '%phones%');
   });
 
