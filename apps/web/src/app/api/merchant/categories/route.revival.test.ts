@@ -31,7 +31,7 @@ const MERCHANT_ID = 'merchant-1';
 const PARENT_ID = '11111111-1111-4111-8111-111111111111';
 const VALID_BODY = { name: 'Phones', slug: 'phones' };
 let revivedRow: Record<string, unknown> | null = null;
-let reviveInactiveFilter: unknown[] | null = null;
+let reviveHiddenFilter: unknown[] | null = null;
 
 function supabaseInserting(
   result: {
@@ -70,8 +70,8 @@ function supabaseInserting(
         return {
           eq: vi.fn(() => ({
             eq: vi.fn(() => ({
-              eq: vi.fn((...filter: unknown[]) => {
-                reviveInactiveFilter = filter;
+              or: vi.fn((...filter: unknown[]) => {
+                reviveHiddenFilter = filter;
                 return reviveResult;
               }),
             })),
@@ -105,7 +105,7 @@ describe('POST category parent and tombstone behavior', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     revivedRow = null;
-    reviveInactiveFilter = null;
+    reviveHiddenFilter = null;
     setContext(supabaseInserting());
     mocks.checkCsrfProtection.mockResolvedValue({ valid: true });
     mocks.validateCategoryParent.mockResolvedValue(null);
@@ -176,7 +176,7 @@ describe('POST category parent and tombstone behavior', () => {
     expect((await POST(postRequest(VALID_BODY))).status).toBe(409);
   });
 
-  it('revives only explicit false tombstones, not public-active legacy nulls', async () => {
+  it('revives rows hidden by the public policy, including legacy nulls', async () => {
     setContext(
       supabaseInserting({
         error: { code: '23505', message: 'duplicate key' },
@@ -185,7 +185,9 @@ describe('POST category parent and tombstone behavior', () => {
     );
 
     expect((await POST(postRequest(VALID_BODY))).status).toBe(201);
-    expect(reviveInactiveFilter).toEqual(['is_active', false]);
+    expect(reviveHiddenFilter).toEqual([
+      'is_active.eq.false,is_active.is.null',
+    ]);
     expect(revivedRow).toMatchObject({ is_active: true, slug: 'phones' });
   });
 
