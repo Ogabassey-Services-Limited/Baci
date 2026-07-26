@@ -22,15 +22,12 @@ BEGIN
   PERFORM private.write_audit_event_v1(
     NEW.merchant_id,
     NEW.merchant_label,
-    'user',
-    'fixture actor',
     'fixture.create',
     'fixture_record',
     NEW.resource_id,
     NEW.changed_fields,
     NULL,
     jsonb_build_object('resource_id', NEW.resource_id),
-    'database',
     NULL,
     NULL,
     1,
@@ -86,9 +83,11 @@ BEGIN
   IF EXISTS (
     SELECT 1
     FROM unnest(ARRAY[
-      'private.write_audit_event_v1(uuid,text,text,text,text,text,text,text[],jsonb,jsonb,text,uuid,uuid,smallint,jsonb)'::regprocedure,
+      'private.write_audit_event_v1(uuid,text,text,text,text,text[],jsonb,jsonb,uuid,uuid,smallint,jsonb)'::regprocedure,
       'private.reject_audit_event_mutation_v1()'::regprocedure,
-      'private.audit_event_metadata_valid_v1(jsonb)'::regprocedure
+      'private.audit_event_metadata_valid_v1(jsonb)'::regprocedure,
+      'private.audit_event_changed_fields_valid_v1(text[])'::regprocedure,
+      'private.audit_event_json_object_valid_v1(jsonb,integer,integer)'::regprocedure
     ]) AS function_id
     CROSS JOIN unnest(ARRAY['anon', 'authenticated', 'service_role']) AS role_name
     WHERE has_function_privilege(role_name, function_id, 'EXECUTE')
@@ -133,6 +132,24 @@ BEGIN
     RAISE EXCEPTION 'authenticated direct audit_events INSERT unexpectedly succeeded';
   EXCEPTION WHEN insufficient_privilege THEN NULL;
   END;
+  BEGIN
+    UPDATE public.audit_events SET action = 'fixture.changed' WHERE false;
+    RAISE EXCEPTION 'authenticated direct audit_events UPDATE unexpectedly succeeded';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+  BEGIN
+    DELETE FROM public.audit_events WHERE false;
+    RAISE EXCEPTION 'authenticated direct audit_events DELETE unexpectedly succeeded';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+  BEGIN
+    PERFORM private.write_audit_event_v1(
+      v_merchant_id, NULL, 'fixture.create', 'fixture_record', 'direct-authenticated',
+      ARRAY[]::text[], NULL, NULL, NULL, NULL, 1, '{}'::jsonb
+    );
+    RAISE EXCEPTION 'authenticated direct audit writer EXECUTE unexpectedly succeeded';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
   RESET ROLE;
 
   SET LOCAL ROLE service_role;
@@ -148,10 +165,28 @@ BEGIN
       id, occurred_at, database_transaction_id, merchant_id, actor_user_id,
       actor_type, action, resource_type, resource_id, source
     ) VALUES (
-      extensions.gen_random_uuid(), '2000-01-01T00:00:00Z', 1, v_merchant_id, v_actor_id,
+      extensions.gen_random_uuid(), '2000-01-01T00:00:00Z', 'forged', v_merchant_id, v_actor_id,
       'user', 'fixture.create', 'fixture_record', 'direct-service', 'database'
     );
     RAISE EXCEPTION 'service_role caller overrides unexpectedly reached audit_events';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+  BEGIN
+    UPDATE public.audit_events SET action = 'fixture.changed' WHERE false;
+    RAISE EXCEPTION 'service_role direct audit_events UPDATE unexpectedly succeeded';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+  BEGIN
+    DELETE FROM public.audit_events WHERE false;
+    RAISE EXCEPTION 'service_role direct audit_events DELETE unexpectedly succeeded';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+  BEGIN
+    PERFORM private.write_audit_event_v1(
+      v_merchant_id, NULL, 'fixture.create', 'fixture_record', 'direct-service',
+      ARRAY[]::text[], NULL, NULL, NULL, NULL, 1, '{}'::jsonb
+    );
+    RAISE EXCEPTION 'service_role direct audit writer EXECUTE unexpectedly succeeded';
   EXCEPTION WHEN insufficient_privilege THEN NULL;
   END;
   RESET ROLE;
@@ -160,6 +195,7 @@ BEGIN
   SET LOCAL ROLE service_role;
   PERFORM set_config('request.jwt.claim.role', 'service_role', true);
   PERFORM set_config('request.jwt.claim.sub', v_actor_id::text, true);
+  PERFORM set_config('request.jwt.claims', jsonb_build_object('role', 'service_role', 'sub', v_actor_id::text)::text, true);
   INSERT INTO pg_temp.audit_event_fixture (merchant_id, merchant_label, resource_id)
   VALUES (v_merchant_id, 'Canonical Audit Owner', 'service-jwt');
   RESET ROLE;
@@ -170,7 +206,10 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM public.audit_events
     WHERE id = v_first_id
-      AND actor_user_id = v_actor_id
+      AND actor_user_id IS NULL
+      AND actor_type = 'service'
+      AND actor_label = 'service_role'
+      AND source = 'api'
       AND id IS NOT NULL
       AND occurred_at IS NOT NULL
       AND database_transaction_id IS NOT NULL
@@ -180,8 +219,9 @@ BEGIN
 
   -- Database/migration writes fail closed without JWT or a same-transaction principal.
   SET LOCAL ROLE service_role;
-  PERFORM set_config('request.jwt.claim.role', 'service_role', true);
+  PERFORM set_config('request.jwt.claim.role', '', true);
   PERFORM set_config('request.jwt.claim.sub', '', true);
+  PERFORM set_config('request.jwt.claims', '{}'::jsonb::text, true);
   PERFORM set_config('app.audit_actor_user_id', '', true);
   BEGIN
     INSERT INTO pg_temp.audit_event_fixture (merchant_id, merchant_label, resource_id)
@@ -218,6 +258,12 @@ BEGIN
     INSERT INTO pg_temp.audit_event_fixture (merchant_id, resource_id, changed_fields)
     VALUES (v_merchant_id, 'too-many-fields', array_fill('field'::text, ARRAY[65]));
     RAISE EXCEPTION 'too many changed fields unexpectedly succeeded';
+  EXCEPTION WHEN check_violation THEN NULL;
+  END;
+  BEGIN
+    INSERT INTO pg_temp.audit_event_fixture (merchant_id, resource_id, changed_fields)
+    VALUES (v_merchant_id, 'oversized-field', ARRAY[repeat('x', 65)]::text[]);
+    RAISE EXCEPTION 'oversized changed-field element unexpectedly succeeded';
   EXCEPTION WHEN check_violation THEN NULL;
   END;
   BEGIN
@@ -320,7 +366,7 @@ BEGIN
   FROM pg_attribute
   WHERE attrelid = 'pg_temp.audit_rpc_shape'::regclass AND attnum > 0 AND NOT attisdropped;
   IF v_names IS DISTINCT FROM 'id,occurred_at,database_transaction_id,merchant_id,merchant_label,actor_user_id,actor_type,actor_label,action,resource_type,resource_id,changed_fields,before_values,after_values,source,correlation_id,request_id,schema_version,metadata'
-     OR v_types IS DISTINCT FROM 'uuid,timestamp with time zone,bigint,uuid,text,uuid,text,text,text,text,text,text[],jsonb,jsonb,text,uuid,uuid,smallint,jsonb' THEN
+     OR v_types IS DISTINCT FROM 'uuid,timestamp with time zone,text,uuid,text,uuid,text,text,text,text,text,text[],jsonb,jsonb,text,uuid,uuid,smallint,jsonb' THEN
     RAISE EXCEPTION 'audit reader RPC return contract changed: names=%, types=%', v_names, v_types;
   END IF;
 

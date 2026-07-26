@@ -18,10 +18,50 @@ $$;
 REVOKE ALL ON FUNCTION private.audit_event_metadata_valid_v1(jsonb)
   FROM PUBLIC, anon, authenticated, service_role;
 
+CREATE OR REPLACE FUNCTION private.audit_event_changed_fields_valid_v1(p_fields text[])
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+SET search_path = ''
+AS $$
+  SELECT
+    COALESCE(array_length(p_fields, 1), 0) <= 64
+    AND COALESCE(octet_length(array_to_string(p_fields, ',')), 0) <= 4096
+    AND NOT EXISTS (
+      SELECT 1
+      FROM unnest(COALESCE(p_fields, ARRAY[]::text[])) AS field_name(name)
+      WHERE field_name.name IS NULL
+        OR char_length(field_name.name) NOT BETWEEN 1 AND 64
+        OR field_name.name !~ '^[a-z0-9][a-z0-9._-]*$'
+    );
+$$;
+
+REVOKE ALL ON FUNCTION private.audit_event_changed_fields_valid_v1(text[])
+  FROM PUBLIC, anon, authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION private.audit_event_json_object_valid_v1(
+  p_value jsonb,
+  p_max_keys integer,
+  p_max_bytes integer
+) RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+SET search_path = ''
+AS $$
+  SELECT
+    p_value IS NOT NULL
+    AND jsonb_typeof(p_value) = 'object'
+    AND (SELECT count(*) FROM jsonb_object_keys(p_value)) <= p_max_keys
+    AND octet_length(p_value::text) <= p_max_bytes;
+$$;
+
+REVOKE ALL ON FUNCTION private.audit_event_json_object_valid_v1(jsonb, integer, integer)
+  FROM PUBLIC, anon, authenticated, service_role;
+
 CREATE TABLE public.audit_events (
   id uuid PRIMARY KEY DEFAULT extensions.gen_random_uuid(),
   occurred_at timestamptz NOT NULL DEFAULT pg_catalog.clock_timestamp(),
-  database_transaction_id bigint NOT NULL DEFAULT pg_catalog.txid_current(),
+  database_transaction_id text NOT NULL,
   merchant_id uuid NOT NULL,
   merchant_label text,
   actor_user_id uuid,
@@ -45,17 +85,16 @@ CREATE TABLE public.audit_events (
   CONSTRAINT audit_events_action_check CHECK (char_length(action) BETWEEN 1 AND 100 AND action ~ '^[a-z0-9][a-z0-9._-]*$'),
   CONSTRAINT audit_events_resource_type_check CHECK (char_length(resource_type) BETWEEN 1 AND 80 AND resource_type ~ '^[a-z0-9][a-z0-9._-]*$'),
   CONSTRAINT audit_events_resource_id_check CHECK (char_length(resource_id) BETWEEN 1 AND 160),
-  CONSTRAINT audit_events_changed_fields_check CHECK (COALESCE(array_length(changed_fields, 1), 0) <= 64),
+  CONSTRAINT audit_events_changed_fields_check CHECK (private.audit_event_changed_fields_valid_v1(changed_fields)),
   CONSTRAINT audit_events_before_values_check CHECK (
-    before_values IS NULL OR (jsonb_typeof(before_values) = 'object' AND jsonb_object_length(before_values) <= 64 AND octet_length(before_values::text) <= 16384)
+    before_values IS NULL OR private.audit_event_json_object_valid_v1(before_values, 64, 16384)
   ),
   CONSTRAINT audit_events_after_values_check CHECK (
-    after_values IS NULL OR (jsonb_typeof(after_values) = 'object' AND jsonb_object_length(after_values) <= 64 AND octet_length(after_values::text) <= 16384)
+    after_values IS NULL OR private.audit_event_json_object_valid_v1(after_values, 64, 16384)
   ),
   CONSTRAINT audit_events_schema_version_check CHECK (schema_version BETWEEN 1 AND 9),
   CONSTRAINT audit_events_metadata_check CHECK (
-    jsonb_object_length(metadata) <= 16
-    AND octet_length(metadata::text) <= 8192
+    private.audit_event_json_object_valid_v1(metadata, 16, 8192)
     AND private.audit_event_metadata_valid_v1(metadata)
   )
 );
@@ -90,15 +129,12 @@ CREATE TRIGGER reject_audit_event_mutation_v1
 CREATE OR REPLACE FUNCTION private.write_audit_event_v1(
   p_merchant_id uuid,
   p_merchant_label text,
-  p_actor_type text,
-  p_actor_label text,
   p_action text,
   p_resource_type text,
   p_resource_id text,
   p_changed_fields text[],
   p_before_values jsonb,
   p_after_values jsonb,
-  p_source text,
   p_correlation_id uuid,
   p_request_id uuid,
   p_schema_version smallint,
@@ -109,9 +145,14 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE
+  v_jwt jsonb := COALESCE(auth.jwt(), '{}'::jsonb);
+  v_jwt_role text;
   v_actor_user_id uuid := (SELECT auth.uid());
   v_explicit_actor_setting text := NULLIF(pg_catalog.current_setting('app.audit_actor_user_id', true), '');
   v_explicit_actor_user_id uuid;
+  v_actor_type text;
+  v_actor_label text;
+  v_source text;
   v_id uuid;
 BEGIN
   IF pg_catalog.pg_trigger_depth() = 0 THEN
@@ -120,23 +161,44 @@ BEGIN
   IF v_explicit_actor_setting IS NOT NULL THEN
     v_explicit_actor_user_id := v_explicit_actor_setting::uuid;
   END IF;
-  IF v_actor_user_id IS NULL AND v_explicit_actor_user_id IS NULL THEN
+  v_jwt_role := NULLIF(v_jwt ->> 'role', '');
+  IF v_jwt_role IS NULL THEN
+    v_jwt_role := NULLIF(pg_catalog.current_setting('request.jwt.claim.role', true), '');
+  END IF;
+
+  IF v_jwt_role = 'service_role' THEN
+    v_actor_user_id := NULL;
+    v_actor_type := 'service';
+    v_actor_label := 'service_role';
+    v_source := 'api';
+  ELSIF v_actor_user_id IS NOT NULL THEN
+    v_actor_type := 'user';
+    v_actor_label := 'authenticated_user';
+    v_source := 'api';
+  ELSIF v_explicit_actor_user_id IS NOT NULL THEN
+    v_actor_user_id := v_explicit_actor_user_id;
+    v_actor_type := 'user';
+    v_actor_label := 'database_principal';
+    v_source := 'database';
+  ELSE
     RAISE EXCEPTION 'audit_actor_required' USING ERRCODE = '28000';
   END IF;
-  IF v_actor_user_id IS NOT NULL AND v_explicit_actor_user_id IS NOT NULL
+  IF v_jwt_role IS DISTINCT FROM 'service_role'
+     AND v_actor_user_id IS NOT NULL AND v_explicit_actor_user_id IS NOT NULL
      AND v_actor_user_id IS DISTINCT FROM v_explicit_actor_user_id THEN
     RAISE EXCEPTION 'audit_actor_conflict' USING ERRCODE = '22023';
   END IF;
 
   INSERT INTO public.audit_events (
-    merchant_id, merchant_label, actor_user_id, actor_type, actor_label,
+    id, occurred_at, database_transaction_id, merchant_id, merchant_label, actor_user_id, actor_type, actor_label,
     action, resource_type, resource_id, changed_fields, before_values,
     after_values, source, correlation_id, request_id, schema_version, metadata
   ) VALUES (
-    p_merchant_id, p_merchant_label, COALESCE(v_actor_user_id, v_explicit_actor_user_id),
-    p_actor_type, p_actor_label, p_action, p_resource_type, p_resource_id,
+    extensions.gen_random_uuid(), pg_catalog.clock_timestamp(), pg_catalog.pg_current_xact_id()::text,
+    p_merchant_id, p_merchant_label, v_actor_user_id,
+    v_actor_type, v_actor_label, p_action, p_resource_type, p_resource_id,
     COALESCE(p_changed_fields, ARRAY[]::text[]), p_before_values, p_after_values,
-    p_source, p_correlation_id, p_request_id, COALESCE(p_schema_version, 1),
+    v_source, p_correlation_id, p_request_id, COALESCE(p_schema_version, 1),
     COALESCE(p_metadata, '{}'::jsonb)
   ) RETURNING id INTO v_id;
   RETURN v_id;
@@ -144,8 +206,7 @@ END;
 $$;
 
 REVOKE ALL ON FUNCTION private.write_audit_event_v1(
-  uuid, text, text, text, text, text, text, text[], jsonb, jsonb, text,
-  uuid, uuid, smallint, jsonb
+  uuid, text, text, text, text, text[], jsonb, jsonb, uuid, uuid, smallint, jsonb
 ) FROM PUBLIC, anon, authenticated, service_role;
 
 CREATE OR REPLACE FUNCTION public.list_merchant_audit_events_v1(
@@ -158,7 +219,7 @@ CREATE OR REPLACE FUNCTION public.list_merchant_audit_events_v1(
 ) RETURNS TABLE (
   id uuid,
   occurred_at timestamptz,
-  database_transaction_id bigint,
+  database_transaction_id text,
   merchant_id uuid,
   merchant_label text,
   actor_user_id uuid,

@@ -19,8 +19,9 @@ describe('canonical audit events migration contract', () => {
     expect(migrationSql).toContain(
       'occurred_at timestamptz NOT NULL DEFAULT pg_catalog.clock_timestamp()'
     );
-    expect(migrationSql).toContain(
-      'database_transaction_id bigint NOT NULL DEFAULT pg_catalog.txid_current()'
+    expect(migrationSql).toContain('database_transaction_id text NOT NULL');
+    expect(migrationSql).not.toContain(
+      'database_transaction_id text NOT NULL DEFAULT'
     );
     expect(migrationSql).toContain('merchant_id uuid NOT NULL');
     expect(migrationSql).toContain('actor_user_id uuid');
@@ -41,19 +42,35 @@ describe('canonical audit events migration contract', () => {
     expect(migrationSql).toContain(
       'REVOKE ALL ON FUNCTION private.reject_audit_event_mutation_v1'
     );
+    expect(migrationSql).toContain('pg_catalog.pg_current_xact_id()::text');
   });
 
   it('bounds payloads and gives tenant pagination a deterministic order', () => {
     const migrationSql = readFileSync(migrationPath, 'utf8');
 
-    expect(migrationSql).toMatch(/array_length\(changed_fields, 1\).*<= 64/);
-    expect(migrationSql).toContain('jsonb_object_length(metadata) <= 16');
-    expect(migrationSql).toContain('octet_length(metadata::text) <= 8192');
+    expect(migrationSql).toMatch(/array_length\(p_fields, 1\).*<= 64/);
+    expect(migrationSql).toContain('octet_length(array_to_string(p_fields');
+    expect(migrationSql).toContain('private.audit_event_json_object_valid_v1');
     expect(migrationSql).toContain('idx_audit_events_merchant_occurred_id');
     expect(migrationSql).toContain('(merchant_id, occurred_at DESC, id DESC)');
     expect(migrationSql).toContain('idx_audit_events_resource_occurred_id');
     expect(migrationSql).not.toContain('to_jsonb(NEW)');
     expect(migrationSql).not.toContain('to_jsonb(OLD)');
+  });
+
+  it('derives actor attribution and source inside the private writer', () => {
+    const migrationSql = readFileSync(migrationPath, 'utf8');
+
+    expect(migrationSql).toContain('v_jwt jsonb := COALESCE(auth.jwt()');
+    expect(migrationSql).toContain(
+      "v_jwt_role := NULLIF(v_jwt ->> 'role', '')"
+    );
+    expect(migrationSql).toContain("v_actor_type := 'service'");
+    expect(migrationSql).toContain("v_actor_label := 'service_role'");
+    expect(migrationSql).toContain("v_source := 'database'");
+    expect(migrationSql).not.toContain('p_actor_type text');
+    expect(migrationSql).not.toContain('p_actor_label text');
+    expect(migrationSql).not.toContain('p_source text');
   });
 
   it('exposes only an authenticated, validated merchant-owner reader RPC', () => {
