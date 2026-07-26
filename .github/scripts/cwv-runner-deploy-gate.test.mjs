@@ -22,7 +22,7 @@ function step(job, name) {
   return job.steps.find((candidate) => candidate.name === name);
 }
 
-test('blocks an infra-only CWV runner deploy until the complete CWV contract suite succeeds', async () => {
+test('runs CWV contracts for runner changes without deploying an unchanged web app', async () => {
   const [ci, deploy] = await Promise.all([
     workflow('.github/workflows/ci.yml'),
     workflow('.github/workflows/deploy.yml'),
@@ -72,5 +72,9 @@ test('blocks an infra-only CWV runner deploy until the complete CWV contract sui
     deployProduction.if,
     /needs\.cwv-runner-contracts\.result == 'success' \|\| needs\.cwv-runner-contracts\.result == 'skipped'/,
   );
-  assert.match(deployProduction.if, /needs\.changes\.outputs\.cwv_runner == 'true'/);
+  assert.doesNotMatch(deployProduction.if, /needs\.changes\.outputs\.cwv_runner/);
+  assert.match(
+    deployProduction.if,
+    /github\.event_name == 'workflow_dispatch' \|\| needs\.changes\.outputs\.web == 'true'/,
+  );
 });
