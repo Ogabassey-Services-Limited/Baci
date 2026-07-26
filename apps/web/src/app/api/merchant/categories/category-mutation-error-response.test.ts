@@ -19,6 +19,20 @@ describe('categoryMutationErrorResponse', () => {
     });
   });
 
+  it('maps the concurrent depth guard to the same client error as preflight', async () => {
+    const response = categoryMutationErrorResponse(
+      { code: '23514', message: 'CATEGORY_DEPTH_EXCEEDED' },
+      'update'
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'A category with subcategories cannot become a subcategory',
+      code: 'CATEGORY_DEPTH_EXCEEDED',
+    });
+    expect(mocks.error).not.toHaveBeenCalled();
+  });
+
   it('returns a generic 500 and logs the database detail', async () => {
     const response = categoryMutationErrorResponse(
       { code: 'XX000', message: 'constraint secret_detail' },

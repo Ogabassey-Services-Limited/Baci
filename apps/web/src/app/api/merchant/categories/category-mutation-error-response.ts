@@ -34,6 +34,15 @@ export function categoryMutationErrorResponse(
       { status: 400 }
     );
   }
+  if (error.message?.includes('CATEGORY_DEPTH_EXCEEDED')) {
+    return NextResponse.json(
+      {
+        error: 'A category with subcategories cannot become a subcategory',
+        code: 'CATEGORY_DEPTH_EXCEEDED',
+      },
+      { status: 400 }
+    );
+  }
 
   logger.error({
     message: `Category ${operation} failed`,

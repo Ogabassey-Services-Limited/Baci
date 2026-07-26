@@ -32,6 +32,19 @@ BEGIN
   END IF;
 
   IF v_hierarchy_write THEN
+    IF TG_OP = 'UPDATE' AND NEW.is_active IS FALSE THEN
+      -- The row being retired is already locked before this row-level trigger
+      -- runs. Lock its children before taking the merchant advisory lock so a
+      -- concurrent child update can finish instead of forming this cycle:
+      -- child row -> advisory lock -> parent transaction -> child row.
+      PERFORM 1
+      FROM public.categories AS retirement_child
+      WHERE retirement_child.merchant_id = NEW.merchant_id
+        AND retirement_child.parent_id = NEW.id
+      ORDER BY retirement_child.id
+      FOR UPDATE;
+    END IF;
+
     -- Retirement, child attachment, and re-parenting share this lock. Whichever
     -- transaction runs second must validate against the first one's committed
     -- hierarchy instead of preserving an active child under a retired parent.
@@ -50,13 +63,13 @@ BEGIN
        )
      )
   THEN
-    -- Legacy NULL-active rows remain live throughout the storefront. Accept
-    -- them here too, but only when the proposed parent is still a root.
+    -- The public storefront exposes only explicitly active categories, so a
+    -- proposed parent must be explicitly active and still be a root.
     PERFORM 1
     FROM public.categories AS parent
     WHERE parent.id = NEW.parent_id
       AND parent.merchant_id = NEW.merchant_id
-      AND parent.is_active IS NOT FALSE
+      AND parent.is_active IS TRUE
       AND parent.parent_id IS NULL;
 
     IF NOT FOUND THEN
@@ -66,12 +79,12 @@ BEGIN
     END IF;
 
     -- Moving a branch below another root would create a third level. Ignore
-    -- explicit tombstones because they are not part of the live hierarchy.
+    -- inactive or legacy NULL rows because they are not publicly visible.
     PERFORM 1
     FROM public.categories AS child
     WHERE child.merchant_id = NEW.merchant_id
       AND child.parent_id = NEW.id
-      AND child.is_active IS NOT FALSE
+      AND child.is_active IS TRUE
     LIMIT 1;
 
     IF FOUND THEN

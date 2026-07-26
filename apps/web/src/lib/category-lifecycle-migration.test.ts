@@ -108,17 +108,32 @@ describe('category hierarchy lifecycle hardening migration', () => {
     );
     expect(hardeningMigration).toContain('pg_advisory_xact_lock');
     expect(hardeningMigration).toMatch(
-      /parent\.is_active IS NOT FALSE[\s\S]*parent\.parent_id IS NULL/
+      /parent\.is_active IS TRUE[\s\S]*parent\.parent_id IS NULL/
     );
     expect(hardeningMigration).toMatch(
-      /child\.parent_id = NEW\.id[\s\S]*child\.is_active IS NOT FALSE/
+      /child\.parent_id = NEW\.id[\s\S]*child\.is_active IS TRUE/
     );
     expect(hardeningMigration).toContain("MESSAGE = 'CATEGORY_DEPTH_EXCEEDED'");
     expect(hardeningMigration.match(/^SECURITY INVOKER$/gm)).toHaveLength(2);
     expect(hardeningMigration).not.toContain('SECURITY DEFINER');
   });
 
-  it('consumes inactive reuse markers immediately and preserves NULL-live rows', () => {
+  it('locks retirement children before the merchant advisory lock', () => {
+    const childLock = hardeningMigration.indexOf(
+      'FROM public.categories AS retirement_child'
+    );
+    const advisoryLock = hardeningMigration.indexOf(
+      'PERFORM pg_catalog.pg_advisory_xact_lock'
+    );
+
+    expect(childLock).toBeGreaterThanOrEqual(0);
+    expect(advisoryLock).toBeGreaterThan(childLock);
+    expect(hardeningMigration.slice(childLock, advisoryLock)).toMatch(
+      /retirement_child\.parent_id = NEW\.id[\s\S]*ORDER BY retirement_child\.id[\s\S]*FOR UPDATE/
+    );
+  });
+
+  it('consumes inactive reuse markers immediately', () => {
     const markerRemoval = "- '_baci_reused_tombstone'";
     const markerStart = hardeningMigration.indexOf(
       '@> \'{"_baci_reused_tombstone": true}\'::jsonb'
