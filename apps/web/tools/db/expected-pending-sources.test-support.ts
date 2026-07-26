@@ -210,6 +210,6 @@ export const EXPECTED_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260726110000_add_merchant_signup_policy_health_rpc.sql',
-    sha256: '755d553929d68fe3788624f03df0ebe25da5092c4d9851188161d8852de2c98c',
+    sha256: 'a77e9c3dafd316edd456c4b2f88d305a855eac9a7fda384c03681e4b7ad8f30c',
   },
 ];

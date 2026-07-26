@@ -35,9 +35,15 @@ function policyExclusionRegex(invariant: string): RegExp {
 
 function canonicalOwnerPredicate(expression: string): string {
   return expression
-    .replace(/SELECT|AS\s+uid|public\./gi, '')
-    .replace(/[\s()]/g, '')
+    .replace(/SELECT|AS\s+uid|public\.|::text/gi, '')
+    .replace(/[\s()'"]/g, '')
     .toLowerCase();
+}
+
+function canonicalUpdatePredicate(expression: string): string {
+  return expression
+    .replace(/SELECT|AS\s+uid|public\.|::text/gi, '')
+    .replace(/[\s()'"]/g, '');
 }
 
 describe('merchant signup policy health migration', () => {
@@ -59,11 +65,16 @@ describe('merchant signup policy health migration', () => {
       "policy.polname = 'Consolidated update permissions'"
     );
     expect(migrationSql).toContain("policy.polcmd = 'w'");
-    expect(migrationSql).toContain('check_staff_permission[(]');
+    expect(migrationSql).toContain(
+      'check_staff_permissionauth.uid,id,settings,edit'
+    );
     expect(migrationSql).toContain('policy.polwithcheck IS NULL');
     expect(migrationSql).toContain("= 'user_id=auth.uid'");
     expect(migrationSql).toContain(
       "= 'is_publishedistrueoruser_id=auth.uidorhas_merchant_accessid'"
+    );
+    expect(migrationSql).toContain(
+      "= 'user_id=auth.uidORcheck_staff_permissionauth.uid,id,settings,edit'"
     );
     expect(migrationSql).toContain("'no_restrictive_signup_policies'");
     expect(migrationSql).toContain('policy.polpermissive IS FALSE');
@@ -102,10 +113,6 @@ describe('merchant signup policy health migration', () => {
       'insert_policy_allows_owner',
       'user_id = ( SELECT ( SELECT auth.uid() AS uid) AS uid)',
     ],
-    [
-      'update_policy_allows_owner_or_staff',
-      'user_id = ( SELECT ( SELECT auth.uid() AS uid) AS uid)',
-    ],
   ])('matches the canonical owner predicate for %s', (invariant, expression) => {
     expect(policyOwnershipRegex(invariant).test(expression)).toBe(true);
   });
@@ -116,7 +123,6 @@ describe('merchant signup policy health migration', () => {
       'insert_policy_allows_owner',
       'user_id = ( SELECT ( SELECT ( SELECT auth.uid())))',
     ],
-    ['update_policy_allows_owner_or_staff', 'user_id = other.uid()'],
   ])('rejects a malformed owner predicate for %s', (invariant, expression) => {
     expect(policyOwnershipRegex(invariant).test(expression)).toBe(false);
   });
@@ -124,10 +130,6 @@ describe('merchant signup policy health migration', () => {
   it.each([
     ['select_policy_is_expected', 'NOT (user_id = (SELECT auth.uid()))'],
     ['insert_policy_allows_owner', 'NOT (user_id = (SELECT auth.uid()))'],
-    [
-      'update_policy_allows_owner_or_staff',
-      'NOT (user_id = (SELECT auth.uid()))',
-    ],
   ])('rejects negation in %s', (invariant, expression) => {
     expect(policyExclusionRegex(invariant).test(expression)).toBe(true);
   });
@@ -140,6 +142,30 @@ describe('merchant signup policy health migration', () => {
     expect(canonicalOwnerPredicate(expression) === 'user_id=auth.uid').toBe(
       expected
     );
+  });
+
+  it.each([
+    [
+      "user_id = (SELECT (SELECT auth.uid() AS uid) AS uid) OR public.check_staff_permission((SELECT (SELECT auth.uid() AS uid) AS uid), id, 'settings'::text, 'edit'::text)",
+      true,
+    ],
+    [
+      "user_id = (SELECT auth.uid()) OR public.check_staff_permission(auth.uid(), id, 'settings', 'edit') IS FALSE",
+      false,
+    ],
+    [
+      "user_id = (SELECT auth.uid()) OR public.check_staff_permission(auth.uid(), id, 'orders', 'edit')",
+      false,
+    ],
+    [
+      "user_id = (SELECT auth.uid()) OR public.check_staff_permission(auth.uid(), id, 'SETTINGS', 'EDIT')",
+      false,
+    ],
+  ])('pins the UPDATE owner-or-staff predicate %s to %s', (expression, expected) => {
+    expect(
+      canonicalUpdatePredicate(expression) ===
+        'user_id=auth.uidORcheck_staff_permissionauth.uid,id,settings,edit'
+    ).toBe(expected);
   });
 
   it.each([

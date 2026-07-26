@@ -83,7 +83,7 @@ AS $$
           ~* 'is_published[[:space:]]+IS[[:space:]]+TRUE'
         AND pg_catalog.pg_get_expr(policy.polqual, policy.polrelid)
           ~* '(public[.])?has_merchant_access[(]id[)]'
-        AND pg_catalog.lower(pg_catalog.regexp_replace(
+        AND pg_catalog.regexp_replace(
           pg_catalog.regexp_replace(
             pg_catalog.pg_get_expr(policy.polqual, policy.polrelid),
             '(SELECT|AS[[:space:]]+uid|public[.])',
@@ -138,20 +138,17 @@ AS $$
         AND policy.polpermissive IS TRUE
         AND policy.polroles = ARRAY[0::pg_catalog.oid]
         AND policy.polwithcheck IS NULL
-        AND pg_catalog.pg_get_expr(policy.polqual, policy.polrelid)
-          ~* 'user_id[[:space:]]*=[[:space:]]*[(]?[[:space:]]*SELECT[[:space:]]+([(][[:space:]]*SELECT[[:space:]]+)?auth[.]uid[(][)]'
-        AND pg_catalog.pg_get_expr(policy.polqual, policy.polrelid)
-          ~* '(public[.])?check_staff_permission[(]'
-        AND pg_catalog.pg_get_expr(policy.polqual, policy.polrelid)
-          !~* '(^|[^[:alnum:]_])(NOT|AND)([^[:alnum:]_]|$)'
-        AND (
-          SELECT pg_catalog.count(*)
-          FROM pg_catalog.regexp_matches(
+        AND pg_catalog.regexp_replace(
+          pg_catalog.regexp_replace(
             pg_catalog.pg_get_expr(policy.polqual, policy.polrelid),
-            '(^|[^[:alnum:]_])OR([^[:alnum:]_]|$)',
+            '(SELECT|AS[[:space:]]+uid|public[.]|::text)',
+            '',
             'gi'
-          )
-        ) = 1
+          ),
+          '[[:space:]()''"]',
+          '',
+          'g'
+        ) = 'user_id=auth.uidORcheck_staff_permissionauth.uid,id,settings,edit'
     ),
     'no_restrictive_signup_policies', NOT EXISTS (
       SELECT 1
