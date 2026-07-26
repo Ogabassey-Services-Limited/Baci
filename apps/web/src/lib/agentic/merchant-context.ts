@@ -2,13 +2,15 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   getAgenticApiKey,
   getAgenticConfirmationKeys,
-  getAgenticMerchantSlug,
   getAgenticSigningKeys,
 } from '@/env';
 import { readAgenticRequestControls } from '@/lib/agentic/agent-request-controls';
+import { getConfiguredAgenticMerchantSlug } from '@/lib/agentic/agentic-merchant-slug';
 import { hasUsableAgenticJwtSigningMaterial } from '@/lib/agentic/jwt-signing-material';
 import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
+
+export { getConfiguredAgenticMerchantSlug };
 
 export interface AgenticMerchantContext {
   agent_user_agent_allowlist: string[];
@@ -20,10 +22,6 @@ export interface AgenticMerchantContext {
   pay_on_delivery_enabled: boolean;
   paystack_subaccount_code: string | null;
   slug: string;
-}
-
-export function getConfiguredAgenticMerchantSlug(): string | undefined {
-  return getAgenticMerchantSlug();
 }
 
 export function isAgenticCheckoutRuntimeConfigured(): boolean {

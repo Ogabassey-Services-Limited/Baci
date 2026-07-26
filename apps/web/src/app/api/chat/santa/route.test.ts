@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 let rateLimitAllowed = true;
 let rateLimitResetIn = 0;
 let mockProducts = 'Product List Here';
+let mockProductsError: Error | null = null;
 
 // ---- Mocks ----
 
@@ -44,7 +45,10 @@ vi.mock('@/ai/provider', () => ({
 }));
 
 vi.mock('@/ai/santa-data', () => ({
-  getCachedSantaProducts: vi.fn(async () => mockProducts),
+  getCachedSantaProducts: vi.fn(async () => {
+    if (mockProductsError) throw mockProductsError;
+    return mockProducts;
+  }),
 }));
 
 vi.mock('@/lib/sanitize', () => ({
@@ -127,6 +131,7 @@ describe('POST /api/chat/santa', () => {
     rateLimitAllowed = true;
     rateLimitResetIn = 0;
     mockProducts = 'Product List Here';
+    mockProductsError = null;
     resetAgenticMerchantIdCache();
     vi.stubEnv('BACI_AGENTIC_MERCHANT_SLUG', 'ogabassey');
     // Default: the leading (active) provider succeeds immediately.
@@ -242,6 +247,44 @@ describe('POST /api/chat/santa', () => {
         abortSignal: expect.any(AbortSignal),
       })
     );
+  });
+
+  it('instructs full-price grants to use the catalog selling price', async () => {
+    await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'My budget covers the phone' }],
+      })
+    );
+
+    expect(generateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        system: expect.stringContaining('PRICE:[Selling Price]'),
+      })
+    );
+  });
+
+  it('fails closed without invoking the model when the tenant is unconfigured', async () => {
+    vi.stubEnv('BACI_AGENTIC_MERCHANT_SLUG', '');
+    vi.stubEnv('OPENAI_AGENTIC_MERCHANT_SLUG', '');
+    resetAgenticMerchantIdCache();
+
+    const response = await POST(
+      makeRequest({ messages: [{ role: 'user', content: 'I want a phone' }] })
+    );
+
+    expect(response.status).toBe(500);
+    expect(generateText).not.toHaveBeenCalled();
+  });
+
+  it('fails closed without invoking the model when the catalog lookup fails', async () => {
+    mockProductsError = new Error('catalog unavailable');
+
+    const response = await POST(
+      makeRequest({ messages: [{ role: 'user', content: 'I want a phone' }] })
+    );
+
+    expect(response.status).toBe(500);
+    expect(generateText).not.toHaveBeenCalled();
   });
 
   it('falls through to the fallback model when the active model fails', async () => {

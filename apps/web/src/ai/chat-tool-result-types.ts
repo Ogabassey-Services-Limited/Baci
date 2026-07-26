@@ -5,6 +5,13 @@
  * can live in focused modules without a circular dependency on each other.
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+export interface ChatToolTenantClient {
+  merchantId: string;
+  supabase: SupabaseClient;
+}
+
 export interface ProductSearchResult {
   id: string;
   name: string;

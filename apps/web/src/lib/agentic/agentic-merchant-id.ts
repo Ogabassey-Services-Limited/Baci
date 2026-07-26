@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getConfiguredAgenticMerchantSlug } from './merchant-context';
+import { getConfiguredAgenticMerchantSlug } from './agentic-merchant-slug';
 
 /**
  * Resolves the single agentic/copilot tenant's merchant id from the configured

@@ -5,10 +5,21 @@
  * These handlers are called when the AI invokes a tool.
  */
 
-import { createAgenticScopedChatClient } from '@/lib/agentic/agentic-scoped-chat-client';
+import { resolveAgenticChatTenant } from '@/lib/agentic/agentic-chat-tenant';
+import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
 import { sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { searchStorefrontProducts } from '@/lib/storefront-search';
-import type { ProductSearchResult } from './chat-tool-result-types';
+import {
+  checkPaymentStatusForTenant,
+  createVirtualAccountForTenant,
+} from './chat-payment-tool-handlers';
+import { getRecommendationsForTenant } from './chat-recommendation-tool-handlers';
+import type {
+  ChatToolTenantClient,
+  PaymentStatusResult,
+  ProductSearchResult,
+  VirtualAccountResult,
+} from './chat-tool-result-types';
 import type {
   AddToCartParams,
   CheckPaymentStatusParams,
@@ -21,6 +32,24 @@ import type {
 // The copilot tenant is resolved from BACI_AGENTIC_MERCHANT_SLUG rather than a
 // hardcoded merchant UUID, so these tools work outside production and can be
 // repointed without a deploy. Every handler fails closed when it is unresolvable.
+
+async function createChatToolTenantClient(
+  sessionId?: string
+): Promise<ChatToolTenantClient | null> {
+  const tenant = await resolveAgenticChatTenant();
+  if (!tenant) return null;
+
+  const { merchantId, merchantSlug } = tenant;
+  const scope =
+    sessionId === undefined
+      ? { merchantId, merchantSlug }
+      : { merchantId, merchantSlug, sessionId };
+
+  return {
+    merchantId,
+    supabase: createAgenticScopedSupabaseClient(scope),
+  };
+}
 
 // ============================================
 // SEARCH PRODUCTS
@@ -49,7 +78,7 @@ function orderProductsByRankedIds<T extends { id: string }>(
 export async function handleSearchProducts(
   params: SearchProductsParams
 ): Promise<{ products: ProductSearchResult[]; total: number }> {
-  const scoped = await createAgenticScopedChatClient();
+  const scoped = await createChatToolTenantClient();
   if (!scoped) {
     return { products: [], total: 0 };
   }
@@ -136,7 +165,7 @@ export async function handleSearchProducts(
 export async function handleGetProductDetails(
   params: GetProductDetailsParams
 ): Promise<ProductSearchResult | null> {
-  const scoped = await createAgenticScopedChatClient();
+  const scoped = await createChatToolTenantClient();
   if (!scoped) {
     return null;
   }
@@ -180,14 +209,34 @@ export async function handleGetProductDetails(
   }
 }
 
-// Payment + recommendation handlers live in focused modules to keep this file
-// under the modularity limit; re-exported here so tool dispatchers keep a
-// single import surface.
-export {
-  handleCheckPaymentStatus,
-  handleCreateVirtualAccount,
-} from './chat-payment-tool-handlers';
-export { handleGetRecommendations } from './chat-recommendation-tool-handlers';
+export async function handleCreateVirtualAccount(
+  params: CreateVirtualAccountParams,
+  sessionId: string
+): Promise<VirtualAccountResult> {
+  const scoped = await createChatToolTenantClient(sessionId);
+  if (!scoped) {
+    console.error('[Chat Tools] Copilot tenant is not configured');
+    return { success: false, error: 'Failed to create order' };
+  }
+  return createVirtualAccountForTenant(params, sessionId, scoped);
+}
+
+export async function handleCheckPaymentStatus(
+  params: CheckPaymentStatusParams,
+  sessionId: string
+): Promise<PaymentStatusResult> {
+  const scoped = await createChatToolTenantClient(sessionId);
+  return scoped
+    ? checkPaymentStatusForTenant(params, sessionId, scoped)
+    : { status: 'not_found' };
+}
+
+export async function handleGetRecommendations(
+  params: GetRecommendationsParams
+): Promise<ProductSearchResult[]> {
+  const scoped = await createChatToolTenantClient();
+  return scoped ? getRecommendationsForTenant(params, scoped) : [];
+}
 
 // ============================================
 // ADD TO CART (Returns product for frontend)

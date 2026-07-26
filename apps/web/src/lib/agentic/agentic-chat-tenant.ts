@@ -1,5 +1,5 @@
 import { resolveAgenticMerchantId } from '@/lib/agentic/agentic-merchant-id';
-import { getConfiguredAgenticMerchantSlug } from '@/lib/agentic/merchant-context';
+import { getConfiguredAgenticMerchantSlug } from '@/lib/agentic/agentic-merchant-slug';
 import { logger } from '@/lib/logger';
 import { createAnonClient } from '@/lib/supabase/anon';
 

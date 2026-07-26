@@ -6,17 +6,16 @@
  * unresolvable.
  */
 
-import { createAgenticScopedChatClient } from '@/lib/agentic/agentic-scoped-chat-client';
-import type { ProductSearchResult } from './chat-tool-result-types';
+import type {
+  ChatToolTenantClient,
+  ProductSearchResult,
+} from './chat-tool-result-types';
 import type { GetRecommendationsParams } from './chat-tools';
 
-export async function handleGetRecommendations(
-  params: GetRecommendationsParams
+export async function getRecommendationsForTenant(
+  params: GetRecommendationsParams,
+  scoped: ChatToolTenantClient
 ): Promise<ProductSearchResult[]> {
-  const scoped = await createAgenticScopedChatClient();
-  if (!scoped) {
-    return [];
-  }
   const { merchantId, supabase } = scoped;
 
   try {
