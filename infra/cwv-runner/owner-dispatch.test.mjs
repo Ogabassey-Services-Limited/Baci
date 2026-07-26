@@ -113,6 +113,27 @@ test('polls queued and running states until the exact transport deadline termina
   assert.doesNotMatch(terminal, /for second|\$second|manual reconciliation/);
 });
 
+test('spaces post-dispatch reconciliation until its monotonic propagation deadline', () => {
+  const reconcile = source.match(/task9_until\(\) \{[^\n]+\}/)?.[0];
+  assert.ok(reconcile);
+  const script = [
+    reconcile,
+    `node=${process.execPath}`,
+    'calls=0',
+    'task9() { calls=$((calls + 1)); }',
+    `json_get() { case "$2" in (phase) [ "$calls" -lt 2 ] && printf '%s' DISPATCH_ACCEPTED || printf '%s' QUEUED;; (deadlineMonotonicMs) "$node" -e 'process.stdout.write(String(Number(process.hrtime.bigint()/1000000n)+5000))';; (postDispatchEvidence.run.id|run.id) printf '%s' 1;; (postDispatchEvidence.run.attempt|run.attempt) printf '%s' 1;; (*) exit 64;; esac; }`,
+    `started=$($node -e 'process.stdout.write(String(Number(process.hrtime.bigint()/1000000n)))')`,
+    'task9_until list-attestation-runs',
+    `finished=$($node -e 'process.stdout.write(String(Number(process.hrtime.bigint()/1000000n)))')`,
+    `printf 'calls=%s elapsed=%s\\n' "$calls" "$((finished - started))"`,
+  ].join('\n');
+  const result = spawnSync('/bin/sh', ['-c', script], { encoding: 'utf8', timeout: 3000 });
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /calls=2 elapsed=[1-9][0-9]{2,}/);
+  assert.match(reconcile, /deadlineMonotonicMs[\s\S]*\/bin\/sleep 1/);
+});
+
 test('rehashes the canonical Task 9 source closure and reconciles every terminal branch', () => {
   const sources = TASK9_SOURCE_FILES.join(' ');
   assert.match(source, new RegExp(`readonly TASK9_SOURCES='${sources}'`));
@@ -124,7 +145,7 @@ test('rehashes the canonical Task 9 source closure and reconciles every terminal
   assert.match(source, /\[ "\$vps" = "\$VPS_SSH" \][\s\S]*file_mode "\$vps"\)" = 755/);
   assert.match(source, /task9-owner-documents\.mjs"; assert_child_file "\$documents"; \[ "\$\(file_mode "\$documents"\)" = 644 \]/);
   assert.match(source, /task9_root_started=0; task9_cleanup_confirmed=0; rerun_pending=0; trap 'task9_cancel; task9_manual; task9_abort' EXIT HUP INT TERM; task9_until list-attestation-runs[\s\S]*task9 dispatch-exact-run[\s\S]*task9_until list-attestation-runs/);
-  assert.match(source, /task9_until\(\).*count.*-le 10.*postDispatchEvidence\.run\.id.*runnerEvidence\.runnerId/);
+  assert.match(source, /task9_until\(\).*postDispatchEvidence\.run\.id.*DISPATCH_ACCEPTED.*deadlineMonotonicMs.*runnerEvidence\.runnerId/);
   assert.match(source, /"phase":"MANUAL_RECONCILIATION"/);
 });
 

@@ -68,6 +68,7 @@ jobs:
               - '.github/scripts/policy.json'
               - '.github/scripts/policy.schema.mjs'
               - '.github/scripts/actionlint-runner-label-contract.test.mjs'
+              - 'biome.json'
               - 'package.json'
               - 'pnpm-lock.yaml'
               - 'pnpm-workspace.yaml'

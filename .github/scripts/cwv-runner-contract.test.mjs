@@ -68,6 +68,7 @@ test('CI and deploy gate every direct CWV dependency and aggregate its contract 
     '.github/scripts/policy.json',
     '.github/scripts/policy.schema.mjs',
     '.github/scripts/actionlint-runner-label-contract.test.mjs',
+    'biome.json',
     'pnpm-workspace.yaml',
   ];
 

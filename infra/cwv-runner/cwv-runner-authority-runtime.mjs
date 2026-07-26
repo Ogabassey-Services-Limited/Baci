@@ -104,27 +104,31 @@ async function checkedRepositorySources(fs, workspace) {
   return { actionlint: await read('.github/actionlint.yaml'), actionlintWorkflow: await read('.github/workflows/actionlint.yml'), authoritySources: { authority: await read('.github/scripts/cwv-runner-authority.mjs'), canonical: await read('.github/scripts/canonical-json.mjs'), core: await read('.github/scripts/cwv-runner-authority-core.mjs'), policy: await read('.github/scripts/policy.schema.mjs'), runtime: await read('.github/scripts/cwv-runner-authority-runtime.mjs'), stable: await read('.github/scripts/cwv-runner-stable-attestation-builder.mjs') }, deploy: await read('.github/workflows/deploy.yml'), workflows };
 }
 
-function transport() {
+export function createGithubTransport({ request: requestImpl = httpsRequest, setTimeout: setDeadline = setTimeout, clearTimeout: clearDeadline = clearTimeout } = {}) {
   return { request({ method, path, token }) {
     if (!Buffer.isBuffer(token) || token.length < 1 || !['DELETE', 'GET'].includes(method) || !/^\/[A-Za-z0-9?&=._/-]+$/.test(path)) fail('GitHub request refused');
     const authorization = Buffer.concat([Buffer.from('Bearer '), token]);
     return new Promise((resolve, reject) => {
+      let request; let deadline; let settled = false;
+      const settle = (callback, value) => { if (!settled) { settled = true; clearDeadline(deadline); callback(value); } };
       try {
-        const request = httpsRequest({ headers: { accept: 'application/vnd.github+json', authorization, 'user-agent': 'baci-cwv-authority', 'x-github-api-version': '2022-11-28' }, hostname: 'api.github.com', method, path, port: 443, protocol: 'https:' }, (response) => {
+        deadline = setDeadline(() => { const error = new Error('GitHub request timed out'); request?.destroy(error); settle(reject, error); }, 5000);
+        if (settled) { clearDeadline(deadline); return; }
+        request = requestImpl({ headers: { accept: 'application/vnd.github+json', authorization, 'user-agent': 'baci-cwv-authority', 'x-github-api-version': '2022-11-28' }, hostname: 'api.github.com', method, path, port: 443, protocol: 'https:' }, (response) => {
           const chunks = []; let length = 0;
           response.on('data', (chunk) => { length += chunk.length; if (length > 4_194_304) response.destroy(new Error('GitHub response too large')); else chunks.push(chunk); });
-          response.on('error', reject);
+          response.on('error', (error) => settle(reject, error));
           response.on('end', () => {
             const bytes = Buffer.concat(chunks); const status = response.statusCode;
-            let body = null;
-            try { if (bytes.length) body = JSON.parse(bytes.toString('utf8')); } catch { reject(new Error('GitHub response invalid')); return; }
-            if (!Number.isInteger(status)) { reject(new Error('GitHub status missing')); return; }
-            if (status >= 200 && status < 300) resolve({ body, status });
-            else { const error = new Error(`GitHub ${status}`); error.status = status; error.body = body; reject(error); }
+            let body = null; try { if (bytes.length) body = JSON.parse(bytes.toString('utf8')); } catch { settle(reject, new Error('GitHub response invalid')); return; }
+            if (!Number.isInteger(status)) { settle(reject, new Error('GitHub status missing')); return; }
+            if (status >= 200 && status < 300) settle(resolve, { body, status });
+            else { const error = new Error(`GitHub ${status}`); error.status = status; error.body = body; settle(reject, error); }
           });
         });
-        request.setTimeout(5000, () => request.destroy(new Error('GitHub request timed out'))); request.on('error', reject); request.end();
-      } finally { authorization.fill(0); }
+        request.on('error', (error) => settle(reject, error)); request.end();
+      } catch (error) { settle(reject, error); }
+      finally { authorization.fill(0); }
     });
   } };
 }
@@ -234,7 +238,7 @@ async function wipe(fs, run, uid) {
   await wipeDirectory(fs, join(run.temp, 'cwv-runner-private'), uid, ['admission.json', 'app-authority.json', 'projection-proof.json', 'upload-proof.json'], 0o600, 'private scratch');
 }
 
-export async function runAuthorityCli({ args, env = process.env, fs = nodeFs, transport: transportClient = transport(), uid = process.getuid(), now = () => new Date() }) {
+export async function runAuthorityCli({ args, env = process.env, fs = nodeFs, transport: transportClient = createGithubTransport(), uid = process.getuid(), now = () => new Date() }) {
   if (!Array.isArray(args) || args.length !== 1 || !MODES.has(args[0])) fail('expected one authority mode');
   const token = args[0] === '--verify-and-project' ? takeToken(env, 'BACI_CWV_AUDITOR_TOKEN') : null;
   let run; let scratch; let projected; let authority;
