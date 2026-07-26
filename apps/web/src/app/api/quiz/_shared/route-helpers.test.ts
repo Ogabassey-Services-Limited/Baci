@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { checkCsrfProtection } from '@/lib/csrf';
-import { parseJsonBody, requireQuizCsrf } from './route-helpers';
+import {
+  parseJsonBody,
+  rejectQuizIdentityMismatch,
+  requireQuizCsrf,
+} from './route-helpers';
 
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: vi.fn(),
@@ -78,5 +82,22 @@ describe('quiz route-helpers', () => {
       expect(response).toBe(csrfResponse);
       expect(response?.status).toBe(403);
     });
+  });
+});
+
+describe('rejectQuizIdentityMismatch', () => {
+  it('returns null when no expected user is pinned', () => {
+    expect(rejectQuizIdentityMismatch(undefined, 'user-1')).toBeNull();
+  });
+
+  it('returns null when the expected user matches the session', () => {
+    expect(rejectQuizIdentityMismatch('user-1', 'user-1')).toBeNull();
+  });
+
+  it('returns a 409 session_changed response on a mismatch', async () => {
+    const response = rejectQuizIdentityMismatch('user-2', 'user-1');
+    expect(response).not.toBeNull();
+    expect(response?.status).toBe(409);
+    expect(await response?.json()).toMatchObject({ code: 'session_changed' });
   });
 });

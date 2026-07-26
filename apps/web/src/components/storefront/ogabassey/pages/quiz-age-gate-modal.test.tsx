@@ -93,6 +93,18 @@ describe('QuizAgeGateModal', () => {
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
   });
 
+  it('disables Continue (no spinner) when disableSubmit is set, keeping Cancel usable', () => {
+    // Regression (is6TyY8S): a prior save is still settling after a reopen, so
+    // Continue is disabled — but without the "Saving…" label — and the shopper
+    // can still cancel.
+    const { onCancel } = setup({ disableSubmit: true });
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled();
+    const cancel = screen.getByRole('button', { name: 'Cancel' });
+    expect(cancel).not.toBeDisabled();
+    fireEvent.click(cancel);
+    expect(onCancel).toHaveBeenCalled();
+  });
+
   it('cancels on Escape when not submitting', () => {
     const { onCancel } = setup();
     fireEvent.keyDown(document, { key: 'Escape' });

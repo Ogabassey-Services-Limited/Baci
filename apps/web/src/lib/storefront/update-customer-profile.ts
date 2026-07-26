@@ -17,13 +17,23 @@ export type UpdateCustomerProfileResult = {
  */
 export async function updateCustomerProfile(
   merchantSlug: string,
-  updates: Record<string, unknown>
+  updates: Record<string, unknown>,
+  /**
+   * The auth user id the caller intends to write for. Forwarded to the server,
+   * which rejects (409) if the cookie session has since switched — so a stale
+   * write (e.g. a deferred quiz DOB save) cannot land on another account.
+   */
+  expectedUserId?: string
 ): Promise<UpdateCustomerProfileResult> {
   try {
     const response = await fetchWithCsrf('/api/storefront/customer', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...updates, merchantSlug }),
+      body: JSON.stringify({
+        ...updates,
+        merchantSlug,
+        ...(expectedUserId ? { expected_user_id: expectedUserId } : {}),
+      }),
     });
 
     const result = await response.json().catch(() => ({}));
