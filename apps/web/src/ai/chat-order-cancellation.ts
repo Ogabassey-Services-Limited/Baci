@@ -1,4 +1,5 @@
-import { createAgenticScopedChatClient } from '@/lib/agentic/agentic-scoped-chat-client';
+import { resolveAgenticChatTenant } from '@/lib/agentic/agentic-chat-tenant';
+import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
 import { getOrderNumberLookupCandidates } from '@/lib/order-number-lookup';
 import type { CancelOrderParams } from './chat-tools';
 
@@ -65,11 +66,15 @@ export async function handleCancelOrder(
   try {
     // Tenant comes from BACI_AGENTIC_MERCHANT_SLUG, not a hardcoded UUID; an
     // unresolvable tenant must never widen the cancellation scope.
-    const scoped = await createAgenticScopedChatClient();
-    if (!scoped) {
+    const tenant = await resolveAgenticChatTenant();
+    if (!tenant) {
       return createCancelOrderNotFoundResult();
     }
-    const { merchantId, supabase } = scoped;
+    const { merchantId, merchantSlug } = tenant;
+    const supabase = createAgenticScopedSupabaseClient({
+      merchantId,
+      merchantSlug,
+    });
 
     let query = supabase
       .from('orders')
