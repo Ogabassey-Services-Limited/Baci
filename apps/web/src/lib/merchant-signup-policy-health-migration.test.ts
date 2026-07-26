@@ -1,0 +1,172 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+
+const migrationSql = readFileSync(
+  join(
+    process.cwd(),
+    '../../supabase/migrations/20260726110000_add_merchant_signup_policy_health_rpc.sql'
+  ),
+  'utf8'
+);
+
+function policyOwnershipRegex(invariant: string): RegExp {
+  const section = migrationSql.split(`'${invariant}'`)[1];
+  const pattern = section?.match(/~\* '([^']+)'/)?.[1];
+  if (!pattern) throw new Error(`Missing ownership regex for ${invariant}`);
+
+  return new RegExp(
+    pattern
+      .replaceAll('[[:space:]]', '\\s')
+      .replaceAll('[.]', '\\.')
+      .replaceAll('[(]', '\\(')
+      .replaceAll('[)]', '\\)'),
+    'i'
+  );
+}
+
+function policyExclusionRegex(invariant: string): RegExp {
+  const section = migrationSql.split(`'${invariant}'`)[1];
+  const pattern = section?.match(/!~\* '([^']+)'/)?.[1];
+  if (!pattern) throw new Error(`Missing exclusion regex for ${invariant}`);
+
+  return new RegExp(pattern.replaceAll('[:alnum:]', 'A-Za-z0-9'), 'i');
+}
+
+function canonicalOwnerPredicate(expression: string): string {
+  return expression
+    .replace(/SELECT|AS\s+uid|public\./gi, '')
+    .replace(/[\s()]/g, '')
+    .toLowerCase();
+}
+
+describe('merchant signup policy health migration', () => {
+  it('checks the exact read and write policy contracts', () => {
+    expect(migrationSql).toContain(
+      "policy.polname = 'Authenticated can view merchants'"
+    );
+    expect(migrationSql).toContain("policy.polcmd = 'r'");
+    expect(migrationSql).toContain('is_published[[:space:]]+IS');
+    expect(migrationSql).toContain('has_merchant_access[(]id[)]');
+    expect(migrationSql).toContain(
+      "policy.polname = 'Owner and staff can modify merchants'"
+    );
+    expect(migrationSql).toContain("policy.polcmd = 'a'");
+    expect(migrationSql).toContain(
+      'policy.polroles = ARRAY[0::pg_catalog.oid]'
+    );
+    expect(migrationSql).toContain(
+      "policy.polname = 'Consolidated update permissions'"
+    );
+    expect(migrationSql).toContain("policy.polcmd = 'w'");
+    expect(migrationSql).toContain('check_staff_permission[(]');
+    expect(migrationSql).toContain('policy.polwithcheck IS NULL');
+    expect(migrationSql).toContain("= 'user_id=auth.uid'");
+    expect(migrationSql).toContain(
+      "= 'is_publishedistrueoruser_id=auth.uidorhas_merchant_accessid'"
+    );
+    expect(migrationSql).toContain("'no_restrictive_signup_policies'");
+    expect(migrationSql).toContain('policy.polpermissive IS FALSE');
+    expect(migrationSql).toContain('pg_catalog.pg_has_role(');
+    expect(migrationSql).toContain("'USAGE'");
+    expect(migrationSql).not.toContain("'MEMBER'");
+    expect(migrationSql).toContain("'row_level_security_enabled'");
+    expect(migrationSql).toContain('relation.relrowsecurity');
+    expect(migrationSql).toContain("'auth_can_use_public_schema'");
+    expect(migrationSql).toContain('pg_catalog.has_schema_privilege(');
+    expect(migrationSql).toContain(
+      "'no_unexpected_permissive_signup_policies'"
+    );
+    expect(migrationSql).toContain("'auth_has_no_table_select'");
+    expect(migrationSql).toContain("'alias_row_level_security_enabled'");
+    expect(migrationSql).toContain("'alias_select_policy_is_expected'");
+    expect(migrationSql).toContain("'slug aliases are publicly readable'");
+    expect(migrationSql).toContain("'anon_can_use_public_schema'");
+    expect(migrationSql).toContain("'anon_has_no_alias_table_select'");
+  });
+
+  it.each([
+    ['select_policy_is_expected', 'user_id = ( SELECT auth.uid() AS uid)'],
+    [
+      'insert_policy_allows_owner',
+      'user_id = ( SELECT ( SELECT auth.uid() AS uid) AS uid)',
+    ],
+    [
+      'update_policy_allows_owner_or_staff',
+      'user_id = ( SELECT ( SELECT auth.uid() AS uid) AS uid)',
+    ],
+  ])('matches the canonical owner predicate for %s', (invariant, expression) => {
+    expect(policyOwnershipRegex(invariant).test(expression)).toBe(true);
+  });
+
+  it.each([
+    ['insert_policy_allows_owner', 'user_id = ( SELECT current_user)'],
+    [
+      'insert_policy_allows_owner',
+      'user_id = ( SELECT ( SELECT ( SELECT auth.uid())))',
+    ],
+    ['update_policy_allows_owner_or_staff', 'user_id = other.uid()'],
+  ])('rejects a malformed owner predicate for %s', (invariant, expression) => {
+    expect(policyOwnershipRegex(invariant).test(expression)).toBe(false);
+  });
+
+  it.each([
+    ['select_policy_is_expected', 'NOT (user_id = (SELECT auth.uid()))'],
+    ['insert_policy_allows_owner', 'NOT (user_id = (SELECT auth.uid()))'],
+    [
+      'update_policy_allows_owner_or_staff',
+      'NOT (user_id = (SELECT auth.uid()))',
+    ],
+  ])('rejects negation in %s', (invariant, expression) => {
+    expect(policyExclusionRegex(invariant).test(expression)).toBe(true);
+  });
+
+  it.each([
+    ['user_id = ( SELECT ( SELECT auth.uid() AS uid) AS uid)', true],
+    ['(user_id = (SELECT auth.uid())) IS FALSE', false],
+    ['(user_id = (SELECT auth.uid())) IS NOT TRUE', false],
+  ])('normalizes the INSERT owner predicate %s to %s', (expression, expected) => {
+    expect(canonicalOwnerPredicate(expression) === 'user_id=auth.uid').toBe(
+      expected
+    );
+  });
+
+  it.each([
+    [
+      'is_published IS TRUE OR user_id = (SELECT auth.uid() AS uid) OR public.has_merchant_access(id)',
+      true,
+    ],
+    [
+      'is_published IS TRUE OR (user_id = (SELECT auth.uid())) IS FALSE OR public.has_merchant_access(id)',
+      false,
+    ],
+  ])('normalizes the SELECT predicate %s to %s', (expression, expected) => {
+    expect(
+      canonicalOwnerPredicate(expression) ===
+        'is_publishedistrueoruser_id=auth.uidorhas_merchant_accessid'
+    ).toBe(expected);
+  });
+
+  it('checks every table and column privilege used before merchant creation', () => {
+    expect(migrationSql).toContain("'public.merchants',\n      'INSERT'");
+    expect(migrationSql).toContain("'public.merchants',\n      'UPDATE'");
+    expect(migrationSql).toContain("'id',\n      'SELECT'");
+    expect(migrationSql).toContain("'slug',\n      'SELECT'");
+    expect(migrationSql).toContain("'business_name',\n      'SELECT'");
+    expect(migrationSql).toContain("'user_id',\n      'SELECT'");
+    expect(migrationSql).toContain("'old_slug',\n      'SELECT'");
+    expect(migrationSql).toContain("'merchant_id',\n      'SELECT'");
+  });
+
+  it('pins the definer search path and exposes only the bounded facts to anon', () => {
+    expect(migrationSql).toContain('SECURITY DEFINER');
+    expect(migrationSql).toContain("SET search_path = ''");
+    expect(migrationSql).toContain(
+      'REVOKE ALL ON FUNCTION public.get_merchant_signup_policy_health() FROM PUBLIC'
+    );
+    expect(migrationSql).toContain('FROM authenticated, service_role');
+    expect(migrationSql).toContain(
+      'GRANT EXECUTE ON FUNCTION public.get_merchant_signup_policy_health()\n  TO anon'
+    );
+  });
+});

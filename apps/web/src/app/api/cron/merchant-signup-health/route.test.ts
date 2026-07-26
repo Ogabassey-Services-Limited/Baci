@@ -1,0 +1,165 @@
+import { NextRequest } from 'next/server';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({
+  createPublicClient: vi.fn(),
+  loggerError: vi.fn(),
+  rpc: vi.fn(),
+}));
+
+vi.mock('@/lib/logger', () => ({
+  logger: { error: mocks.loggerError },
+}));
+
+vi.mock('@/lib/supabase/public', () => ({
+  createPublicClient: mocks.createPublicClient,
+}));
+
+import { GET } from './route';
+
+const healthyResult = {
+  alias_row_level_security_enabled: true,
+  alias_select_policy_is_expected: true,
+  anon_can_read_alias_merchant_id: true,
+  anon_can_read_alias_old_slug: true,
+  anon_can_use_public_schema: true,
+  anon_has_no_alias_table_select: true,
+  auth_can_insert: true,
+  auth_can_use_public_schema: true,
+  auth_can_update: true,
+  auth_has_no_table_select: true,
+  can_read_business_name: true,
+  can_read_id: true,
+  can_read_slug: true,
+  can_read_user_id: true,
+  insert_policy_allows_owner: true,
+  no_restrictive_signup_policies: true,
+  no_unexpected_permissive_signup_policies: true,
+  row_level_security_enabled: true,
+  select_policy_is_expected: true,
+  update_policy_allows_owner_or_staff: true,
+};
+
+function cronRequest(authHeader: string | null = 'Bearer cron-secret') {
+  return new NextRequest(
+    'http://localhost:3000/api/cron/merchant-signup-health',
+    { headers: authHeader ? { authorization: authHeader } : {} }
+  );
+}
+
+describe('GET /api/cron/merchant-signup-health', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubEnv('CRON_SECRET', 'cron-secret');
+    mocks.createPublicClient.mockReturnValue({ rpc: mocks.rpc });
+    mocks.rpc.mockResolvedValue({ data: healthyResult, error: null });
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('returns 401 without calling the RPC when the cron secret is missing', async () => {
+    vi.stubEnv('CRON_SECRET', '');
+
+    const response = await GET(cronRequest());
+
+    expect(response.status).toBe(401);
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it('returns 401 without calling the RPC when authorization is invalid', async () => {
+    const response = await GET(cronRequest('Bearer wrong-secret'));
+
+    expect(response.status).toBe(401);
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it('returns 401 without calling the RPC when authorization is absent', async () => {
+    const response = await GET(cronRequest(null));
+
+    expect(response.status).toBe(401);
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it('returns healthy when every policy invariant holds', async () => {
+    const response = await GET(cronRequest());
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ healthy: true });
+    expect(mocks.rpc).toHaveBeenCalledWith('get_merchant_signup_policy_health');
+    expect(mocks.loggerError).not.toHaveBeenCalled();
+  });
+
+  it('returns 503 and logs each failed invariant when policy drift is detected', async () => {
+    mocks.rpc.mockResolvedValue({
+      data: {
+        ...healthyResult,
+        auth_can_insert: false,
+        select_policy_is_expected: false,
+      },
+      error: null,
+    });
+
+    const response = await GET(cronRequest());
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      healthy: false,
+      failed_invariants: ['auth_can_insert', 'select_policy_is_expected'],
+    });
+    expect(mocks.loggerError).toHaveBeenCalledWith({
+      message: 'mobile-onboarding deployment_fault',
+      component: 'merchant_signup_policy_health',
+      reason: 'policy_drift_detected',
+      failedInvariants: ['auth_can_insert', 'select_policy_is_expected'],
+    });
+  });
+
+  it('returns 500 and preserves the Postgres code when the RPC fails', async () => {
+    mocks.rpc.mockResolvedValue({
+      data: null,
+      error: { code: '42501', message: 'permission denied' },
+    });
+
+    const response = await GET(cronRequest());
+
+    expect(response.status).toBe(500);
+    expect(mocks.loggerError).toHaveBeenCalledWith({
+      message: 'mobile-onboarding deployment_fault',
+      component: 'merchant_signup_policy_health',
+      reason: 'health_rpc_failed',
+      pgCode: '42501',
+    });
+  });
+
+  it('returns 500 instead of reporting healthy for a malformed RPC result', async () => {
+    mocks.rpc.mockResolvedValue({
+      data: { ...healthyResult, can_read_slug: 'yes' },
+      error: null,
+    });
+
+    const response = await GET(cronRequest());
+
+    expect(response.status).toBe(500);
+    expect(mocks.loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: 'invalid_health_result' })
+    );
+  });
+
+  it('returns 500 and logs the stable tag when the public client throws', async () => {
+    mocks.createPublicClient.mockImplementation(() => {
+      throw new Error('Public Supabase configuration is missing');
+    });
+
+    const response = await GET(cronRequest());
+
+    expect(response.status).toBe(500);
+    expect(mocks.loggerError).toHaveBeenCalledWith({
+      message: 'mobile-onboarding deployment_fault',
+      component: 'merchant_signup_policy_health',
+      reason: 'health_rpc_threw',
+      error: 'Public Supabase configuration is missing',
+    });
+  });
+});
