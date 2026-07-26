@@ -162,15 +162,18 @@ jobs:
       - run: .github/scripts/run-pinned-vercel.sh pull --yes --environment=production
       # QUIZ_RPC_SERVER_SECRET is a *sensitive* (write-only) Vercel env var, so
       # `vercel pull` writes it as an empty QUIZ_RPC_SERVER_SECRET="". env.ts
-      # hard-requires it at build time once QUIZ_PHASE=production, so the local
-      # prebuilt `vercel build` below would fail env validation. Inject the real
-      # value from the GitHub Actions secret (kept out of Vercel's readable env)
-      # into the pulled build env. The script no-ops when the secret is unset, so
-      # quiz phase "1a" deploys are unaffected. The key is server-only (env.ts
-      # throws if read on the client; not NEXT_PUBLIC_), so it is never bundled.
-      - name: Inject sensitive quiz RPC secret into prebuilt build env
+      # hard-requires it to be PRESENT at build once QUIZ_PHASE=production, but
+      # the value is only consumed at RUNTIME (quiz-proof HMAC signing), where
+      # Vercel injects the real sensitive value and env.ts re-validates against
+      # it (getRuntimeEnvValue prefers live process.env). So the prebuilt build
+      # only needs a non-empty value present to pass validation. Inject the real
+      # value if it is configured as a GitHub Actions secret; otherwise inject a
+      # non-secret build-time presence stand-in that is never used at runtime.
+      # Keeps Vercel's copy sensitive; the key is server-only (not NEXT_PUBLIC_,
+      # env.ts throws if read on the client), so it is never bundled client-side.
+      - name: Ensure build-time presence of runtime-only quiz RPC secret
         env:
-          QUIZ_RPC_SERVER_SECRET: ${{ secrets.QUIZ_RPC_SERVER_SECRET }}
+          QUIZ_RPC_SERVER_SECRET: ${{ secrets.QUIZ_RPC_SERVER_SECRET || 'build-time-presence-stand-in-not-used-at-runtime-000000000000' }}
         run: node .github/scripts/inject-prebuilt-env-secret.mjs QUIZ_RPC_SERVER_SECRET .vercel/.env.production.local
       - name: Build for Vercel
         run: .github/scripts/run-pinned-vercel.sh build --yes --prod
