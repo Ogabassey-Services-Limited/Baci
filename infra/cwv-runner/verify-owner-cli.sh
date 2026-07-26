@@ -248,6 +248,7 @@ verify_cli() {
   if [ ! -e "$receipt" ]; then write_atomic "$receipt" "$expected" 0400; write_digest "$root/gh-receipt.sha256" "$(sha256 "$receipt")"; fi
   assert_child "$root" "$receipt"; [ "$(/bin/cat "$receipt")" = "$expected" ] || refuse
 }
+app_jwt() { key="$root/private-key.pem"; id_file="$root/auditor-app-id"; assert_owner_input "$key" pem; assert_owner_input "$id_file" numeric; app_id=$(/bin/cat "$id_file"); now=$(/bin/date +%s); header=$(/usr/bin/printf '%s' '{"alg":"RS256","typ":"JWT"}' | /usr/bin/openssl base64 -A | /usr/bin/tr '+/' '-_' | /usr/bin/tr -d '='); payload=$(/usr/bin/printf '{"iat":%s,"exp":%s,"iss":"%s"}' "$((now - 60))" "$((now + 540))" "$app_id" | /usr/bin/openssl base64 -A | /usr/bin/tr '+/' '-_' | /usr/bin/tr -d '='); signature=$(/usr/bin/printf '%s.%s' "$header" "$payload" | /usr/bin/openssl dgst -sha256 -sign "$key" | /usr/bin/openssl base64 -A | /usr/bin/tr '+/' '-_' | /usr/bin/tr -d '='); for value in "$header" "$payload" "$signature"; do case $value in (*[!A-Za-z0-9_-]*|'') refuse;; esac; done; [ "${#signature}" -ge 128 ] || refuse; /usr/bin/printf '%s.%s.%s' "$header" "$payload" "$signature"; }
 exec_task7() {
   [ "$purpose" = task7-provisioning ] || refuse
   gh="$root/tools/gh/bin/gh"
@@ -256,7 +257,7 @@ exec_task7() {
     (set-auditor-app-id) input="$root/auditor-app-id"; assert_owner_input "$input" numeric; exec "$gh" variable set BACI_CWV_RUNNER_AUDITOR_APP_ID --repo "$REPOSITORY" <"$input";;
     (set-auditor-client-id) input="$root/auditor-client-id"; assert_owner_input "$input" client_id; exec "$gh" variable set BACI_CWV_RUNNER_AUDITOR_CLIENT_ID --repo "$REPOSITORY" <"$input";;
     (set-auditor-installation-id) input="$root/auditor-installation-id"; assert_owner_input "$input" numeric; exec "$gh" variable set BACI_CWV_RUNNER_AUDITOR_INSTALLATION_ID --repo "$REPOSITORY" <"$input";;
-    (read-auditor-app-registration) exec "$gh" api --method GET -H "X-GitHub-Api-Version: $API_VERSION" "/apps/baci-cwv-runner-auditor";;
+    (read-auditor-app-registration) GH_TOKEN=$(app_jwt) exec "$gh" api --method GET -H "X-GitHub-Api-Version: $API_VERSION" /app;;
     (read-repository-retention) exec "$gh" api --method GET -H "X-GitHub-Api-Version: $API_VERSION" "/repos/$REPOSITORY/actions/permissions/artifact-and-log-retention";;
     (read-rollout-ruleset) exec "$gh" api --method GET -H "X-GitHub-Api-Version: $API_VERSION" "/repos/$REPOSITORY/rulesets";;
     (upsert-rollout-ruleset)
