@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -8,6 +8,20 @@ const migrationPath = resolve(
 );
 
 describe('canonical audit events migration contract', () => {
+  it('uses a unique migration version filename', () => {
+    const migrationDirectory = resolve(
+      process.cwd(),
+      '../../supabase/migrations'
+    );
+    const matchingMigrationFiles = readdirSync(migrationDirectory).filter(
+      (fileName) => fileName.startsWith('20260726160000_')
+    );
+
+    expect(matchingMigrationFiles).toEqual([
+      '20260726160000_create_canonical_audit_events.sql',
+    ]);
+  });
+
   it('creates an immutable, force-RLS ledger with database-controlled identity', () => {
     const migrationSql = readFileSync(migrationPath, 'utf8');
 
@@ -71,6 +85,19 @@ describe('canonical audit events migration contract', () => {
     expect(migrationSql).not.toContain('p_actor_type text');
     expect(migrationSql).not.toContain('p_actor_label text');
     expect(migrationSql).not.toContain('p_source text');
+    expect(migrationSql).toContain(
+      'CREATE OR REPLACE FUNCTION private.begin_audit_event_write_v1()'
+    );
+    expect(migrationSql).toContain(
+      'CREATE TABLE private.audit_event_write_contexts'
+    );
+    expect(migrationSql).toContain(
+      'ALTER TABLE private.audit_event_write_contexts ENABLE ROW LEVEL SECURITY'
+    );
+    expect(migrationSql).toContain('audit_writer_context_required');
+    expect(migrationSql).toContain(
+      'DELETE FROM private.audit_event_write_contexts'
+    );
   });
 
   it('exposes only an authenticated, validated merchant-owner reader RPC', () => {

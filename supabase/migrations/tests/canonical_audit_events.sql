@@ -19,18 +19,19 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 BEGIN
+  PERFORM private.begin_audit_event_write_v1();
   PERFORM private.write_audit_event_v1(
     NEW.merchant_id,
     NEW.merchant_label,
-    'fixture.create',
-    'fixture_record',
+    'fixture.create'::text,
+    'fixture_record'::text,
     NEW.resource_id,
     NEW.changed_fields,
-    NULL,
+    NULL::jsonb,
     jsonb_build_object('resource_id', NEW.resource_id),
-    NULL,
-    NULL,
-    1,
+    NULL::uuid,
+    NULL::uuid,
+    1::smallint,
     NEW.metadata
   );
   RETURN NEW;
@@ -42,6 +43,44 @@ CREATE TRIGGER capture_fixture_audit_v1
   FOR EACH ROW EXECUTE FUNCTION pg_temp.capture_fixture_audit_v1();
 
 GRANT INSERT ON pg_temp.audit_event_fixture TO anon, authenticated, service_role;
+
+-- This unreviewed trigger deliberately lacks the private capability. It proves
+-- pg_trigger_depth() alone is not sufficient to call the private writer.
+CREATE TEMP TABLE audit_event_unreviewed_fixture (
+  merchant_id uuid NOT NULL,
+  resource_id text NOT NULL
+);
+
+CREATE OR REPLACE FUNCTION pg_temp.capture_unreviewed_audit_v1()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  PERFORM private.write_audit_event_v1(
+    NEW.merchant_id,
+    NULL::text,
+    'fixture.create'::text,
+    'fixture_record'::text,
+    NEW.resource_id,
+    ARRAY[]::text[],
+    NULL::jsonb,
+    NULL::jsonb,
+    NULL::uuid,
+    NULL::uuid,
+    1::smallint,
+    '{}'::jsonb
+  );
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER capture_unreviewed_audit_v1
+  AFTER INSERT ON pg_temp.audit_event_unreviewed_fixture
+  FOR EACH ROW EXECUTE FUNCTION pg_temp.capture_unreviewed_audit_v1();
+
+GRANT INSERT ON pg_temp.audit_event_unreviewed_fixture TO authenticated;
 
 DO $test$
 DECLARE
@@ -63,10 +102,10 @@ BEGIN
   -- direct internal routine execution for application or service roles.
   IF EXISTS (
     SELECT 1
-    FROM pg_constraint AS constraint
-    WHERE constraint.conrelid = 'public.audit_events'::regclass
-      AND constraint.contype = 'f'
-      AND pg_get_constraintdef(constraint.oid) ~ '(merchant_id|actor_user_id)'
+    FROM pg_constraint AS audit_constraint
+    WHERE audit_constraint.conrelid = 'public.audit_events'::regclass
+      AND audit_constraint.contype = 'f'
+      AND pg_get_constraintdef(audit_constraint.oid) ~ '(merchant_id|actor_user_id)'
   ) THEN
     RAISE EXCEPTION 'audit_events must not retain foreign keys for merchant or actor snapshots';
   END IF;
@@ -84,6 +123,7 @@ BEGIN
     SELECT 1
     FROM unnest(ARRAY[
       'private.write_audit_event_v1(uuid,text,text,text,text,text[],jsonb,jsonb,uuid,uuid,smallint,jsonb)'::regprocedure,
+      'private.begin_audit_event_write_v1()'::regprocedure,
       'private.reject_audit_event_mutation_v1()'::regprocedure,
       'private.audit_event_metadata_valid_v1(jsonb)'::regprocedure,
       'private.audit_event_changed_fields_valid_v1(text[])'::regprocedure,
@@ -93,6 +133,16 @@ BEGIN
     WHERE has_function_privilege(role_name, function_id, 'EXECUTE')
   ) THEN
     RAISE EXCEPTION 'internal audit functions must not be directly executable by application roles';
+  END IF;
+  IF EXISTS (
+    SELECT 1
+    FROM unnest(ARRAY['anon', 'authenticated', 'service_role']) AS role_name
+    WHERE has_table_privilege(role_name, 'private.audit_event_write_contexts', 'SELECT')
+       OR has_table_privilege(role_name, 'private.audit_event_write_contexts', 'INSERT')
+       OR has_table_privilege(role_name, 'private.audit_event_write_contexts', 'UPDATE')
+       OR has_table_privilege(role_name, 'private.audit_event_write_contexts', 'DELETE')
+  ) THEN
+    RAISE EXCEPTION 'application roles must not access private audit writer capabilities';
   END IF;
 
   INSERT INTO auth.users (
@@ -144,8 +194,8 @@ BEGIN
   END;
   BEGIN
     PERFORM private.write_audit_event_v1(
-      v_merchant_id, NULL, 'fixture.create', 'fixture_record', 'direct-authenticated',
-      ARRAY[]::text[], NULL, NULL, NULL, NULL, 1, '{}'::jsonb
+      v_merchant_id, NULL::text, 'fixture.create'::text, 'fixture_record'::text, 'direct-authenticated'::text,
+      ARRAY[]::text[], NULL::jsonb, NULL::jsonb, NULL::uuid, NULL::uuid, 1::smallint, '{}'::jsonb
     );
     RAISE EXCEPTION 'authenticated direct audit writer EXECUTE unexpectedly succeeded';
   EXCEPTION WHEN insufficient_privilege THEN NULL;
@@ -183,11 +233,28 @@ BEGIN
   END;
   BEGIN
     PERFORM private.write_audit_event_v1(
-      v_merchant_id, NULL, 'fixture.create', 'fixture_record', 'direct-service',
-      ARRAY[]::text[], NULL, NULL, NULL, NULL, 1, '{}'::jsonb
+      v_merchant_id, NULL::text, 'fixture.create'::text, 'fixture_record'::text, 'direct-service'::text,
+      ARRAY[]::text[], NULL::jsonb, NULL::jsonb, NULL::uuid, NULL::uuid, 1::smallint, '{}'::jsonb
     );
     RAISE EXCEPTION 'service_role direct audit writer EXECUTE unexpectedly succeeded';
   EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+  RESET ROLE;
+
+  -- A generic trigger cannot forge a ledger event merely by executing inside a
+  -- trigger. Only a reviewed security-definer wrapper can acquire the private,
+  -- transaction-local writer capability.
+  SET LOCAL ROLE authenticated;
+  PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
+  PERFORM set_config('request.jwt.claim.sub', v_actor_id::text, true);
+  BEGIN
+    INSERT INTO pg_temp.audit_event_unreviewed_fixture (merchant_id, resource_id)
+    VALUES (v_merchant_id, 'unreviewed-trigger');
+    RAISE EXCEPTION 'unreviewed trigger unexpectedly wrote an audit event';
+  EXCEPTION WHEN insufficient_privilege THEN
+    IF SQLERRM <> 'audit_writer_context_required' THEN
+      RAISE;
+    END IF;
   END;
   RESET ROLE;
 
@@ -392,6 +459,9 @@ BEGIN
   WHERE merchant_id = v_merchant_id AND resource_id IN ('page-a', 'page-b');
   IF v_tx_count <> 1 THEN
     RAISE EXCEPTION 'same-transaction audit events must share a database transaction identifier';
+  END IF;
+  IF EXISTS (SELECT 1 FROM private.audit_event_write_contexts) THEN
+    RAISE EXCEPTION 'successful audit writes must consume private writer capabilities';
   END IF;
 
   -- Snapshot UUIDs and labels survive source deletion; child cascade paths may

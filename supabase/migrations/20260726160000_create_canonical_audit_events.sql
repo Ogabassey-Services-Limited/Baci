@@ -126,6 +126,50 @@ CREATE TRIGGER reject_audit_event_mutation_v1
   BEFORE UPDATE OR DELETE ON public.audit_events
   FOR EACH ROW EXECUTE FUNCTION private.reject_audit_event_mutation_v1();
 
+-- A capability is keyed to the current backend and transaction, and can only
+-- be created by the private security-definer helper below. It is consumed by
+-- the writer, so application callers cannot forge it with a custom GUC.
+CREATE TABLE private.audit_event_write_contexts (
+  database_transaction_id xid8 NOT NULL,
+  backend_pid integer NOT NULL CHECK (backend_pid > 0),
+  PRIMARY KEY (database_transaction_id, backend_pid)
+);
+
+ALTER TABLE private.audit_event_write_contexts ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE private.audit_event_write_contexts
+  FROM PUBLIC, anon, authenticated, service_role;
+
+-- This capability is intentionally not attached to a business table. Future
+-- reviewed SECURITY DEFINER trigger wrappers must begin an audit write before
+-- calling the writer. The database/project owner is the trusted code base that
+-- may create such wrappers; untrusted application roles cannot execute this.
+CREATE OR REPLACE FUNCTION private.begin_audit_event_write_v1()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  IF pg_catalog.pg_trigger_depth() = 0 THEN
+    RAISE EXCEPTION 'audit_writer_requires_trigger' USING ERRCODE = '42501';
+  END IF;
+
+  INSERT INTO private.audit_event_write_contexts (
+    database_transaction_id,
+    backend_pid
+  ) VALUES (
+    pg_catalog.pg_current_xact_id(),
+    pg_catalog.pg_backend_pid()
+  ) ON CONFLICT DO NOTHING;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION private.begin_audit_event_write_v1()
+  FROM PUBLIC, anon, authenticated, service_role;
+
+COMMENT ON FUNCTION private.begin_audit_event_write_v1() IS
+  'Only SECURITY DEFINER reviewed trigger wrappers may begin an audit write. The database/project owner remains trusted code.';
+
 CREATE OR REPLACE FUNCTION private.write_audit_event_v1(
   p_merchant_id uuid,
   p_merchant_label text,
@@ -154,9 +198,17 @@ DECLARE
   v_actor_label text;
   v_source text;
   v_id uuid;
+  v_has_writer_context boolean;
 BEGIN
   IF pg_catalog.pg_trigger_depth() = 0 THEN
     RAISE EXCEPTION 'audit_writer_requires_trigger' USING ERRCODE = '42501';
+  END IF;
+  DELETE FROM private.audit_event_write_contexts
+  WHERE database_transaction_id = pg_catalog.pg_current_xact_id()
+    AND backend_pid = pg_catalog.pg_backend_pid()
+  RETURNING true INTO v_has_writer_context;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'audit_writer_context_required' USING ERRCODE = '42501';
   END IF;
   IF v_explicit_actor_setting IS NOT NULL THEN
     v_explicit_actor_user_id := v_explicit_actor_setting::uuid;
@@ -201,6 +253,7 @@ BEGIN
     v_source, p_correlation_id, p_request_id, COALESCE(p_schema_version, 1),
     COALESCE(p_metadata, '{}'::jsonb)
   ) RETURNING id INTO v_id;
+
   RETURN v_id;
 END;
 $$;
