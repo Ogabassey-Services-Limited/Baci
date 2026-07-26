@@ -65,8 +65,10 @@ test('CI and deploy gate every direct CWV dependency and aggregate its contract 
   const requiredPaths = [
     'infra/cwv-runner/**',
     '.github/scripts/canonical-json.mjs',
+    '.github/scripts/policy.json',
     '.github/scripts/policy.schema.mjs',
     '.github/scripts/actionlint-runner-label-contract.test.mjs',
+    'pnpm-workspace.yaml',
   ];
 
   for (const workflow of [ci, deploy]) {
