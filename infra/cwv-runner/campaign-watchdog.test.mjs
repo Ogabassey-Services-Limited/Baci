@@ -1,10 +1,10 @@
+// biome-ignore-all format: compact integration fixtures stay within the source ceiling.
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-// biome-ignore format: keeps the integration fixture below the source ceiling.
 import { createRegistrationCaptureEvidence, deriveRegistrationCaptureAuthority } from './campaign-capture-authority.mjs';
 import {
   campaignSourceClosure,

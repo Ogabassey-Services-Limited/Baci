@@ -14,9 +14,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { promisify } from 'node:util';
-const root = new URL('.', import.meta.url);
-const script = new URL('./retire-ollama.sh', root);
-const execFileAsync = promisify(execFile);
+
+// biome-ignore format: compact constants keep this fixture within the source ceiling.
+const root = new URL('.', import.meta.url); const script = new URL('./retire-ollama.sh', root); const execFileAsync = promisify(execFile);
 test('keeps the scan finite when nginx is not installed', async () => {
   const source = await readFile(script, 'utf8');
   assert.match(

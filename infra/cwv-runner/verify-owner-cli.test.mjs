@@ -8,6 +8,7 @@ import { chmod, copyFile, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test, { after } from 'node:test';
+
 const directory = path.dirname(new URL(import.meta.url).pathname);
 const darwinTest = process.platform === 'darwin' ? test : test.skip;
 const verifierPath = path.join(directory, 'verify-owner-cli.sh');

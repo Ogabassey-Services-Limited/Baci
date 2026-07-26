@@ -1,3 +1,4 @@
+// biome-ignore-all format: compact sealing assertions remain one focused contract.
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -112,7 +113,7 @@ test('keeps manifest-derived file modes intact through final sealing and receipt
   );
   assert.match(
     source,
-    /secure_tree_directories\(\) \{\n  "\$FIND" "\$1" -type d -exec "\$CHMOD" 0700 -- \{\} \+\n\}/
+    /secure_tree_directories\(\) \{\n {2}"\$FIND" "\$1" -type d -exec "\$CHMOD" 0700 -- \{\} \+\n\}/
   );
   assert.match(
     source,

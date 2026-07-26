@@ -22,7 +22,7 @@ test('bugfix: sampler replacement after validation cannot change the bound sampl
       controller.indexOf('\nadmit()')
     )
     .replace(
-      /  campaign_directory=.*write_receipt "\$directory\/live-sample-expected\.json" "\$expected"\n/,
+      / {2}campaign_directory=.*write_receipt "\$directory\/live-sample-expected\.json" "\$expected"\n/,
       '  :\n'
     )
     .replace(

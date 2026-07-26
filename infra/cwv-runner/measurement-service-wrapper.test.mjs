@@ -1,3 +1,4 @@
+// biome-ignore-all format: compact service fixtures preserve focused contract readability.
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';

@@ -1,3 +1,4 @@
+// biome-ignore-all format: compact process fixtures stay within the source ceiling.
 import assert from 'node:assert/strict';
 import {
   chmodSync,

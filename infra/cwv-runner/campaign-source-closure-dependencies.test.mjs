@@ -68,7 +68,7 @@ test('declares es-module-lexer directly for campaign source parsing', async () =
   assert.equal(manifest.devDependencies['es-module-lexer'], '^2.3.1');
   assert.match(
     await rootLockImporter(),
-    /      es-module-lexer:\n        specifier: \^2\.3\.1\n        version: 2\.3\.1\n/
+    / {6}es-module-lexer:\n {8}specifier: \^2\.3\.1\n {8}version: 2\.3\.1\n/
   );
 });
 

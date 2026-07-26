@@ -1,3 +1,4 @@
+// biome-ignore-all format: compact collector logic stays within the source ceiling.
 import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync, readlinkSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';

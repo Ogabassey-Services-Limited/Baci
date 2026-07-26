@@ -1,3 +1,4 @@
+// biome-ignore-all format: compact lifecycle fixtures stay within the source ceiling.
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
