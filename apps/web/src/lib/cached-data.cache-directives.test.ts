@@ -339,7 +339,9 @@ describe('cached-data cache directives', () => {
       'getCachedCategoryPageProductsUncached'
     );
     expect(aggregateSource).toContain('totalProductCount');
-    expect(aggregateSource).toContain('fetchCategoryPageProductIdWindow');
+    expect(aggregateSource).toContain(
+      'categoryPageProductIdCache.fetchProductIdWindow'
+    );
     // Unbounded (no-limit) consumers assemble the complete ID list.
     expect(aggregateSource).toContain('fetchAllCategoryPageProductIds');
     // ...but NEVER page toward a total that the count query failed to produce.

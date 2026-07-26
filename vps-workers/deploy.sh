@@ -7,6 +7,7 @@ set -euo pipefail
 VPS="bassey@82.29.190.219"
 REMOTE_DIR="/home/bassey/baci-workers"
 APP_SHA=$(git rev-parse HEAD)
+STAGING_DIR="${REMOTE_DIR}.deploy-${APP_SHA}-$$"
 
 if ! git diff --quiet || ! git diff --cached --quiet; then
   echo "Refusing worker deployment from a dirty tracked checkout." >&2
@@ -17,29 +18,32 @@ if [ -n "$(git ls-files --others --exclude-standard)" ]; then
   exit 1
 fi
 
-echo "==> Syncing worker files to $VPS:$REMOTE_DIR"
+cleanup_staging() {
+  ssh "$VPS" "rm -rf '$STAGING_DIR'" >/dev/null 2>&1 || true
+}
+trap cleanup_staging EXIT
+
+echo "==> Staging worker files at $VPS:$STAGING_DIR"
 rsync -av --delete --exclude='.env*' --exclude='node_modules' --exclude='logs' --exclude='locks' \
-  vps-workers/ "$VPS:$REMOTE_DIR/"
+  vps-workers/ "$VPS:$STAGING_DIR/"
+ssh "$VPS" "cp '$REMOTE_DIR/.env' '$STAGING_DIR/.env'"
 
-echo "==> Installing dependencies on VPS"
+echo "==> Installing staged dependencies on VPS"
 # Note: commit vps-workers/pnpm-lock.yaml to enable --frozen-lockfile
-ssh "$VPS" "cd $REMOTE_DIR && CI=true pnpm install --frozen-lockfile --prod"
-
-echo "==> Creating runtime directories on VPS"
-ssh "$VPS" "mkdir -p $REMOTE_DIR/logs $REMOTE_DIR/locks"
+ssh "$VPS" "cd '$STAGING_DIR' && CI=true pnpm install --frozen-lockfile --prod"
 
 echo "==> Resolving Node.js path on VPS"
 NODE_BIN=$(ssh "$VPS" "command -v node || echo /usr/bin/node")
 echo "    Using Node: $NODE_BIN"
 
 echo "==> Validating direct Petrock and quiz worker environment"
-if ! ssh "$VPS" "cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/preflight-direct-web-workers.mjs"; then
-  echo "Direct-worker environment preflight failed; crontab was not changed." >&2
+if ! ssh "$VPS" "cd '$STAGING_DIR' && $NODE_BIN '$STAGING_DIR/jobs/preflight-direct-web-workers.mjs'"; then
+  echo "Direct-worker environment preflight failed; live worker files and crontab were not changed." >&2
   exit 1
 fi
 
 echo "==> Verifying direct-worker application checkout"
-ssh "$VPS" "bash -s -- '$REMOTE_DIR' '$APP_SHA'" <<'REMOTE_SH'
+ssh "$VPS" "bash -s -- '$STAGING_DIR' '$APP_SHA'" <<'REMOTE_SH'
 set -euo pipefail
 
 remote_dir="$1"
@@ -104,6 +108,19 @@ if ! (
   echo "Direct-worker checkout is missing the reviewed web toolchain." >&2
   exit 1
 fi
+REMOTE_SH
+
+echo "==> Promoting validated worker files to $VPS:$REMOTE_DIR"
+ssh "$VPS" "flock -x /tmp/baci-workers-deploy.lock bash -s -- '$STAGING_DIR' '$REMOTE_DIR'" <<'REMOTE_SH'
+set -euo pipefail
+
+staging_dir="$1"
+remote_dir="$2"
+
+mkdir -p "$remote_dir"
+rsync -a --delete --exclude='.env*' --exclude='logs' --exclude='locks' \
+  "$staging_dir/" "$remote_dir/"
+mkdir -p "$remote_dir/logs" "$remote_dir/locks"
 REMOTE_SH
 
 echo "==> Installing Vercel drain receiver user service"

@@ -5,6 +5,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -27,6 +28,7 @@ function runDeployGuardScenario(scenario) {
   const binDirectory = join(directory, 'bin');
   const rsyncMarker = join(directory, 'rsync-called');
   const sshMarker = join(directory, 'ssh-called');
+  const promotionMarker = join(directory, 'promotion-called');
 
   try {
     mkdirSync(binDirectory);
@@ -59,6 +61,9 @@ esac
       join(binDirectory, 'rsync'),
       `#!/usr/bin/env bash
 touch "\${TEST_RSYNC_MARKER}"
+if [ "\${TEST_SCENARIO:-}" = "remote-preflight-failure" ]; then
+  exit 0
+fi
 exit 73
 `
     );
@@ -66,6 +71,25 @@ exit 73
       join(binDirectory, 'ssh'),
       `#!/usr/bin/env bash
 touch "\${TEST_SSH_MARKER}"
+if [ "\${TEST_SCENARIO:-}" = "remote-preflight-failure" ]; then
+  payload="$(cat)"
+  case "$* $payload" in
+    *"command -v node"*)
+      echo /usr/bin/node
+      exit 0
+      ;;
+    *"preflight-direct-web-workers.mjs"*)
+      exit 74
+      ;;
+    *"rsync -a --delete"*)
+      touch "\${TEST_PROMOTION_MARKER}"
+      exit 0
+      ;;
+    *)
+      exit 0
+      ;;
+  esac
+fi
 exit 74
 `
     );
@@ -77,6 +101,7 @@ exit 74
         ...process.env,
         PATH: `${binDirectory}:${process.env.PATH ?? ''}`,
         TEST_RSYNC_MARKER: rsyncMarker,
+        TEST_PROMOTION_MARKER: promotionMarker,
         TEST_SCENARIO: scenario,
         TEST_SSH_MARKER: sshMarker,
       },
@@ -86,6 +111,7 @@ exit 74
       result,
       rsyncCalled: existsSync(rsyncMarker),
       sshCalled: existsSync(sshMarker),
+      promotionCalled: existsSync(promotionMarker),
     };
   } finally {
     rmSync(directory, { force: true, recursive: true });
@@ -112,6 +138,29 @@ describe('deploy source guards', () => {
 
     assert.equal(outcome.result.status, 73);
     assert.equal(outcome.rsyncCalled, true);
-    assert.equal(outcome.sshCalled, false);
+    assert.equal(outcome.sshCalled, true);
+  });
+
+  it('does not replace live workers when the staged preflight fails', () => {
+    const outcome = runDeployGuardScenario('remote-preflight-failure');
+
+    assert.equal(outcome.result.status, 1);
+    assert.match(outcome.result.stderr, /live worker files.*not changed/);
+    assert.equal(outcome.rsyncCalled, true);
+    assert.equal(outcome.sshCalled, true);
+    assert.equal(outcome.promotionCalled, false);
+  });
+
+  it('serializes live promotion and runtime-directory creation under one lock', () => {
+    const source = readFileSync(deployScript, 'utf8');
+    const promotionStart = source.indexOf(
+      'flock -x /tmp/baci-workers-deploy.lock'
+    );
+    const promotionEnd = source.indexOf('REMOTE_SH\n\n', promotionStart);
+    const promotionSource = source.slice(promotionStart, promotionEnd);
+
+    assert.notEqual(promotionStart, -1);
+    assert.match(promotionSource, /rsync -a --delete/);
+    assert.match(promotionSource, /mkdir -p.*logs.*locks/);
   });
 });

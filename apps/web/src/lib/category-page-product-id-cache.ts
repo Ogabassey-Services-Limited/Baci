@@ -100,7 +100,7 @@ function extractCategoryPageProductIds(data: unknown): string[] {
  * Remote canonical IDs/counts use merchant-scoped category tags so product or
  * category mutations propagate without evicting other merchants' entries.
  */
-export async function getCachedCategoryPageProductIds({
+async function getCachedCategoryPageProductIds({
   merchantId,
   scope,
 }: {
@@ -128,7 +128,7 @@ export async function getCachedCategoryPageProductIds({
   return extractCategoryPageProductIds(data);
 }
 
-export async function getCachedLegacyCategoryPageProductIds({
+async function getCachedLegacyCategoryPageProductIds({
   merchantId,
   scope,
 }: {
@@ -154,7 +154,7 @@ export async function getCachedLegacyCategoryPageProductIds({
   return extractCategoryPageProductIds(data);
 }
 
-export async function getCachedCategoryPageProductTotalCount({
+async function getCachedCategoryPageProductTotalCount({
   merchantId,
   scope,
 }: {
@@ -183,7 +183,7 @@ export async function getCachedCategoryPageProductTotalCount({
   return count ?? 0;
 }
 
-export async function getCachedLegacyCategoryPageProductTotalCount({
+async function getCachedLegacyCategoryPageProductTotalCount({
   merchantId,
   scope,
 }: {
@@ -210,7 +210,7 @@ export async function getCachedLegacyCategoryPageProductTotalCount({
   return count ?? 0;
 }
 
-export async function fetchCategoryPageProductIdWindow({
+async function fetchCategoryPageProductIdWindow({
   from,
   merchantId,
   scope,
@@ -231,3 +231,11 @@ export async function fetchCategoryPageProductIdWindow({
   if (error) throw error;
   return extractCategoryPageProductIds(data);
 }
+
+export const categoryPageProductIdCache = {
+  fetchProductIdWindow: fetchCategoryPageProductIdWindow,
+  getLegacyProductIds: getCachedLegacyCategoryPageProductIds,
+  getLegacyProductTotalCount: getCachedLegacyCategoryPageProductTotalCount,
+  getProductIds: getCachedCategoryPageProductIds,
+  getProductTotalCount: getCachedCategoryPageProductTotalCount,
+};

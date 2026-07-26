@@ -11,11 +11,7 @@ import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import {
   type CachedCategoryPageProductScope,
-  fetchCategoryPageProductIdWindow,
-  getCachedCategoryPageProductIds,
-  getCachedCategoryPageProductTotalCount,
-  getCachedLegacyCategoryPageProductIds,
-  getCachedLegacyCategoryPageProductTotalCount,
+  categoryPageProductIdCache,
   type SpecialCollectionSlug,
 } from '@/lib/category-page-product-id-cache';
 import { hydrateAndSanitizePublicProducts } from '@/lib/hydrate-public-products';
@@ -1947,7 +1943,7 @@ async function fetchAllCategoryPageProductIds({
       return ids;
     }
 
-    const window = await fetchCategoryPageProductIdWindow({
+    const window = await categoryPageProductIdCache.fetchProductIdWindow({
       merchantId,
       scope,
       from,
@@ -2006,8 +2002,11 @@ async function getCategoryPageProductIds({
   try {
     productIds =
       scope.kind === 'legacy'
-        ? await getCachedLegacyCategoryPageProductIds({ merchantId, scope })
-        : await getCachedCategoryPageProductIds({ merchantId, scope });
+        ? await categoryPageProductIdCache.getLegacyProductIds({
+            merchantId,
+            scope,
+          })
+        : await categoryPageProductIdCache.getProductIds({ merchantId, scope });
   } catch (error) {
     console.error('Product ID query failed outside cache:', error);
     return {
@@ -2021,11 +2020,14 @@ async function getCategoryPageProductIds({
   try {
     const exactCount =
       scope.kind === 'legacy'
-        ? await getCachedLegacyCategoryPageProductTotalCount({
+        ? await categoryPageProductIdCache.getLegacyProductTotalCount({
             merchantId,
             scope,
           })
-        : await getCachedCategoryPageProductTotalCount({ merchantId, scope });
+        : await categoryPageProductIdCache.getProductTotalCount({
+            merchantId,
+            scope,
+          });
 
     return {
       productIds,
@@ -2316,7 +2318,7 @@ async function getCachedCategoryPageProductsUncached({
     // is what stops a transient count failure from 404ing a valid deep page
     // (PR4b review r5).
     try {
-      productWindow = await fetchCategoryPageProductIdWindow({
+      productWindow = await categoryPageProductIdCache.fetchProductIdWindow({
         merchantId,
         scope,
         from: windowStart,
