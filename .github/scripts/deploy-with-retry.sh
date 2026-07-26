@@ -8,7 +8,12 @@ if [ $# -eq 0 ]; then
   exit 1
 fi
 
-MAX_ATTEMPTS=${MAX_ATTEMPTS:-3}
+# Two attempts fit the deploy step's timeout-minutes budget in deploy.yml: one
+# capped deploy (~20m) that recovers by promoting its created deployment (or, if
+# unpromotable, falls through) plus one fallback deploy (~20m). A third attempt
+# could not finish before the step deadline, so it would only create another
+# unpromoted deployment -- don't start one.
+MAX_ATTEMPTS=${MAX_ATTEMPTS:-2}
 BACKOFF_SECONDS=${BACKOFF_SECONDS:-15}
 # Per-attempt wall-clock cap for the deploy command. Vercel CLI 57's
 # `vercel deploy --prebuilt --prod` has been observed to create the deployment
