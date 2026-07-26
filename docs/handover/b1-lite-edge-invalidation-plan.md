@@ -1,6 +1,6 @@
 # Plan — resolve B1-lite's edge-invalidation conflict, then continue the retirement plan
 
-**Created:** 2026-07-26 · **Decision recorded:** 2026-07-26 · **Parent plan:** `docs/architecture/workaround-retirement-plan.md` (rev 23)
+**Created:** 2026-07-26 · **Decision corrected:** 2026-07-26 · **Parent plan:** `docs/architecture/workaround-retirement-plan.md` (rev 24)
 
 ## The conflict
 
@@ -23,10 +23,10 @@ Escape hatches that do **not** work:
   so any of its exports drags the same edge in. (This is why `revalidateCategories` was extracted
   into the lean `lib/revalidate-categories.ts`.)
 
-## Decision
+## Superseded recommendation
 
-**Ship B1-lite with origin-authoritative tag revalidation only. Do not restore the in-handler
-purge, and do not widen the credential allowlist.**
+The previous recommendation was to ship B1-lite with origin-authoritative tag revalidation only.
+The delegated decision below supersedes it after exact-head review corrected the SWR exposure.
 
 Rationale:
 
@@ -52,33 +52,32 @@ Category documents are served `s-maxage=300, stale-while-revalidate=86400`
 (`apps/web/src/proxy.ts:4590`); the Next `categories` profile is
 `stale 300 / revalidate 3600 / expire 86400` (`next.config.ts:175`).
 
-After a category mutation the origin is immediately correct (tags are revalidated). The CDN
-therefore serves stale for at most `s-maxage` (300s), then one stale response per PoP while SWR
-refetches from the already-correct origin. **Not** 24h — that figure is the SWR window, not the
-staleness window. Bounded and self-healing.
+After a category mutation the origin is immediately correct (tags are revalidated), but an HTTP
+cache that retained a pre-mutation response may serve that response during the entire SWR window.
+For example, an object cached just before the mutation and not requested again until hours later
+may still be served stale while that request starts revalidation. The browser branch therefore has
+a worst-case stale allowance of roughly `300 + 86400` seconds; the bot branch is
+`1800 + 7200` seconds when it is not bypassed. Cloudflare was `DYNAMIC` in the live probe, but
+Vercel was `HIT` for the browser request, so the Vercel window remains applicable.
 
 ## Steps
 
-1. **Amend the parent plan (rev 23).** In §B1, replace the B1-lite edge-purge clause with:
-   Next tag revalidation only; edge invalidation deferred to B1-durable because a new
-   merchant-facing route may not hold a CDN credential under the #3142 boundary gate. Update the
-   B1-lite test obligation from "attempt both Next and edge invalidation" to "attempt Next
-   invalidation, and assert the module holds no credential-reaching import". Record the measured
-   staleness budget above.
+1. **Amend the parent plan (rev 24).** Record PR #3205 as a strict mutation-boundary improvement,
+   not completed edge freshness. Keep credential authority out of the merchant handler, record the
+   full SWR exposure, and leave B1-lite open until B1-durable bounds it.
 2. **Record it in #3207** (`docs/b1-lite-status`), which already documents B1-lite status. It
    must not claim edge invalidation shipped.
-3. **Land #3205.** See the handover doc for its outstanding review findings.
-4. **Then Workstream D** — #3199, #3203, #3201 — per the parent plan's execution order.
-5. **Then prioritise B0** (durable invalidation substrate ADR + runtime selection). B0 is the
-   real unblock for edge freshness; it is also the prerequisite for B1-durable and B2.
+3. **Retain landed #3205.** It closes the direct mobile write and reaches Next invalidation.
+4. **Prioritise B0** (durable invalidation substrate ADR + runtime selection), then B1-durable.
+5. **Then Workstream D** — #3199, #3203, #3201 — after the edge-freshness bound is complete.
 
 ## Non-goals
 
 - Do **not** expand `manifest.authority.serviceImporters` / `adminImporters` /
   `trustedWrapperImporters` to make the purge work.
-- Do **not** rotate `FROZEN_EVENT_PIPELINE_*` baselines for this. That is the two-commit dance
-  (see `reference_event_pipeline_boundary_manifest_regen`) and would leave `main` red between
-  the two PRs.
+- Do **not** rotate `FROZEN_EVENT_PIPELINE_*` baselines for this. The repository has no documented
+  safe regeneration command for those frozen authority bytes; changing them ad hoc can leave
+  `main` red and is outside this decision.
 - Do **not** call `/api/cache/revalidate` from the category handler. The parent plan explicitly
   forbids granting `settings:edit` merely to make a purge run.
 
@@ -124,38 +123,41 @@ conclude that is genuinely the right answer, stop and say so rather than doing i
 
 ### After deciding
 
-- Amend `workaround-retirement-plan.md` to rev 23 per step 1 above so plan and code agree.
+- Amend `workaround-retirement-plan.md` to rev 24 per step 1 above so plan and code agree.
 - Update #3207 so it does not claim edge invalidation shipped.
 - Append your decision, the evidence, and the date to this file.
 - Continue the execution order in `retirement-plan-execution-handover.md`.
 
 ---
 
-## Delegated decision — 2026-07-26
+## Delegated decision — 2026-07-26 (corrected after exact-head review)
 
-**Decision: ship B1-lite with Next tag revalidation only. Do not add a Cloudflare purge and do
-not widen `manifest.authority.*`.** PR #3205 merged as `5e09cafc335f84fd4b54fbefe64f1497a660f01d`.
+**Decision: retain PR #3205 as a strict improvement, but keep B1-lite open until edge staleness is
+bounded by B1-durable (or another authorization-compatible mechanism). Do not add an in-handler
+Cloudflare credential and do not widen `manifest.authority.*`.** PR #3205 merged as
+`5e09cafc335f84fd4b54fbefe64f1497a660f01d`.
 
 Evidence checked rather than inherited:
 
 1. The repository authority graph follows both static and dynamic imports. A category mutation
    path reaching `cloudflare-purge.ts` therefore reaches `env.ts` credential authority and is
    rejected for a new merchant route. PR #3205's repository tests assert that this edge is absent.
-2. The category-document branch is the 300/86400 branch, not the 7200/172800 branch. More
-   importantly, live `ogabassey.com` responses reported Cloudflare `DYNAMIC`; browser requests
-   reported Vercel `HIT`, while Googlebot reported Vercel `BYPASS`. The live Cloudflare layer is
-   not retaining the category document that the proposed purge would target.
+2. The category-document browser branch is the 300/86400 branch. Live `ogabassey.com` responses
+   reported Cloudflare `DYNAMIC`, but browser requests reported Vercel `HIT` while Googlebot
+   reported Vercel `BYPASS`. The browser object may be served stale anywhere in the full SWR
+   allowance, so the observed Vercel path can exceed the delegated five-minute budget by hours.
 3. No legitimate already-allowlisted replacement was found. `/api/cache/revalidate` requires
    `settings:edit` and cannot inherit category owner-only authority;
    `storefront-publication-cache-eviction.ts` is publication-scoped; and the repository has no
    category-capable durable cron/drainer today.
-4. B0 is already the next architectural cache step after the D cleanup queue. It is the correct
-   home for one privileged, retryable drainer rather than a new fire-and-forget credential edge.
-5. Category mutation volume is low enough that this interim behavior does not falsify the
-   decision: the in-repo create path is sparse, while out-of-band edits must move onto the API
-   regardless of purge mechanism.
+4. B0 is the correct home for one privileged, retryable drainer rather than a new fire-and-forget
+   credential edge. Because the measured bound is now materially worse than five minutes, move
+   B0/B1-durable ahead of the unrelated D cleanup queue.
+5. Category mutation volume appears low, but frequency does not bound the age of a retained
+   response. Out-of-band edits must also move onto the API regardless of purge mechanism.
 
-Result: neither falsifier occurred. Staleness was not shown to be materially worse than the
-roughly five-minute origin directive, and no authorization-compatible allowlisted purge path
-exists. The parent plan is amended to rev 23; durable Cloudflare acknowledgement remains
-B0 → B1-durable work.
+Result: the staleness falsifier occurred, while the allowlisted-surface falsifier did not. The
+five-minute recommendation is withdrawn. PR #3205 remains valuable because it closes the direct
+mobile write and reaches Next invalidation, but it does not complete B1-lite's edge-freshness
+contract. The parent plan is corrected to rev 24 and B0 → B1-durable becomes the next
+architectural step. No credential-blast-radius change is proposed.

@@ -1,6 +1,6 @@
 # Handover — workaround-retirement-plan execution (2026-07-26)
 
-Read `docs/architecture/workaround-retirement-plan.md` (rev 23) first, then
+Read `docs/architecture/workaround-retirement-plan.md` (rev 24) first, then
 `docs/handover/b1-lite-edge-invalidation-plan.md` next to this file.
 
 ## Where we are in the plan
@@ -9,9 +9,9 @@ Security lane (S0-A -> S0-B -> S1 -> S2 bundle) is COMPLETE, so the non-security
 implementation gate is OPEN. Per the plan's execution order:
 
     B1-lite FIRST            -> PR #3205   (MERGED 2026-07-26)
-    B1-lite decision record  -> PR #3207   (current)
-    D cleanup/filler         -> #3199, #3203, #3201
-    B0 -> B1-durable -> B2   -> not started   <- the real next architectural step
+    B1-lite decision record  -> PR #3207   (current; corrected SWR decision)
+    B0 -> B1-durable -> B2   -> not started   <- next; edge bound is still open
+    D cleanup/filler         -> #3199, #3203, #3201 (after B1-durable)
     C after C0 -> B3         -> blocked
     A route code             -> blocked on A1 sign-off (#3193)
 
@@ -44,19 +44,12 @@ A full-disk event cost hours this session. Reuse the worktree above and switch b
     ../../node_modules/.bin/tsc --noEmit -p tsconfig.json
     cd <worktree> && node_modules/.bin/biome check --write <paths>
 
-### Pushing - GitHub API only
+### Pushing
 
-gh repo slug is ogabasseyy/Baci (NOT Baci-app). lefthook pre-push hangs under this harness, so
-pushes go blob -> tree -> commit -> ref with three assertions:
-
-  1. remote branch head == local HEAD^
-  2. each uploaded blob sha == git rev-parse HEAD:<path>
-  3. built tree sha == git rev-parse HEAD^{tree}
-
-Base64-encode file bytes; a $(cat) round-trip strips the trailing newline and breaks assertion 2.
-After pushing re-point the local branch:
-  git fetch origin <branch> && git checkout -B <local> FETCH_HEAD
-The API commit sha differs from the local one (different committer/time); the tree is identical.
+Use normal `git push` so the repository pre-push hook enforces the fetched-base ancestry gate and
+full typecheck. This session succeeded after setting `npm_config_verify_deps_before_run=false`.
+Do not update refs through the GitHub API: doing so bypasses the hook and can publish a branch that
+is behind `origin/main`.
 
 ### Governance gates that block CI
 
@@ -96,11 +89,16 @@ and one was about pre-existing code (see #3203).
 
 ## Per-PR outstanding work
 
-### #3205 - B1-lite (complete)
+### #3205 - B1-lite mutation boundary (merged; edge freshness remains open)
 
 Merged after exact-head Codex clean, CodeRabbit approval, 25 successful checks, current-main
 verification, and a paginated audit of all 118 review threads. Squash commit:
 `5e09cafc335f84fd4b54fbefe64f1497a660f01d`.
+
+Exact-head review of #3207 corrected the SWR math: #3205 reaches Next invalidation but a retained
+Vercel browser object may still be served throughout the 86,400-second SWR allowance. Treat B0 →
+B1-durable as next; do not call B1-lite edge freshness complete and do not widen credential
+authority.
 
 ### #3196 - proxy unlock-orders segment
 
