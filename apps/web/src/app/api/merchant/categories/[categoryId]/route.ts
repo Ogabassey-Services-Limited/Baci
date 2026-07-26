@@ -101,7 +101,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   // guessed id from another tenant reads as not-found rather than leaking.
   const { data: existing, error: readError } = await supabase
     .from('categories')
-    .select('id, slug, is_active')
+    .select('id, slug, is_active, updated_at')
     .eq('id', categoryId.data)
     .eq('merchant_id', merchantId)
     .maybeSingle();
@@ -155,15 +155,31 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     );
   }
 
-  const { data, error } = await supabase
+  let updateQuery = supabase
     .from('categories')
     .update(updates)
     .eq('id', categoryId.data)
     .eq('merchant_id', merchantId)
+    .eq('slug', existing.slug);
+  updateQuery =
+    existing.updated_at === null
+      ? updateQuery.is('updated_at', null)
+      : updateQuery.eq('updated_at', existing.updated_at);
+
+  const { data, error } = await updateQuery
     .select('id, name, slug, is_active')
-    .single();
+    .maybeSingle();
 
   if (error) return categoryMutationErrorResponse(error, 'update');
+  if (!data) {
+    return NextResponse.json(
+      {
+        error: 'Category changed while it was being updated',
+        code: 'CATEGORY_CONCURRENT_UPDATE',
+      },
+      { status: 409 }
+    );
+  }
 
   const invalidation = invalidateCategoryCaches({
     merchantId,

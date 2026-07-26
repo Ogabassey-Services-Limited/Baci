@@ -27,7 +27,7 @@ describe('category hierarchy lifecycle migration', () => {
     expect(migration).toContain('DELETE FROM public.product_categories');
     expect(migration).toContain('NEW.seo_heading := NULL');
     expect(migration).toMatch(
-      /IF OLD\.is_active IS TRUE[\s\S]*UPDATE public\.categories[\s\S]*parent_id = NULL/
+      /IF \(OLD\.is_active IS TRUE AND NEW\.is_active IS DISTINCT FROM TRUE\)[\s\S]*OR \(OLD\.is_active IS NULL AND NEW\.is_active IS FALSE\)[\s\S]*UPDATE public\.categories[\s\S]*parent_id = NULL/
     );
     expect(migration).toMatch(
       /UPDATE public\.discount_codes[\s\S]*category_ids = COALESCE\(category_ids[\s\S]*- NEW\.id::text[\s\S]*is_active = CASE[\s\S]*THEN false/

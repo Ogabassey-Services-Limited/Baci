@@ -39,7 +39,12 @@ const PARENT_ID = '11111111-1111-4111-8111-111111111111';
 
 interface TableState {
   /** Row returned by the pre-mutation read (null => 404). */
-  existing?: { id: string; slug: string; is_active?: boolean | null } | null;
+  existing?: {
+    id: string;
+    slug: string;
+    is_active?: boolean | null;
+    updated_at?: string | null;
+  } | null;
   updated?: Record<string, unknown> | null;
   updateError?: { code?: string; message: string } | null;
   deleted?: { id: string; slug: string } | null;
@@ -52,7 +57,12 @@ let updatedRow: Record<string, unknown> | null = null;
 function supabaseFor(state: TableState) {
   const existing =
     state.existing === undefined
-      ? { id: CATEGORY_ID, slug: 'phones', is_active: true }
+      ? {
+          id: CATEGORY_ID,
+          slug: 'phones',
+          is_active: true,
+          updated_at: '2026-07-26T10:00:00.000Z',
+        }
       : state.existing;
 
   return {
@@ -77,31 +87,37 @@ function supabaseFor(state: TableState) {
         };
         return {
           eq: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              // Distinguished by projection. PATCH selects the full row
-              // and calls single(); DELETE selects 'id, slug' and calls
-              // maybeSingle().
-              select: vi.fn((columns: string) => {
+            eq: vi.fn(() => {
+              const select = vi.fn((columns: string) => {
                 if (columns === 'id, slug') {
                   return { maybeSingle: vi.fn().mockResolvedValue(result) };
                 }
                 return {
-                  single: vi.fn().mockResolvedValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
                     data:
-                      state.updated ??
-                      (state.updateError
-                        ? null
-                        : {
-                            id: CATEGORY_ID,
-                            name: 'Phones',
-                            slug: 'mobile-phones',
-                            is_active: true,
-                          }),
+                      state.updated === undefined
+                        ? state.updateError
+                          ? null
+                          : {
+                              id: CATEGORY_ID,
+                              name: 'Phones',
+                              slug: 'mobile-phones',
+                              is_active: true,
+                            }
+                        : state.updated,
                     error: state.updateError ?? null,
                   }),
                 };
-              }),
-            })),
+              });
+              return {
+                select,
+                eq: vi.fn(() => ({
+                  select,
+                  eq: vi.fn(() => ({ select })),
+                  is: vi.fn(() => ({ select })),
+                })),
+              };
+            }),
           })),
         };
       }),
@@ -199,6 +215,36 @@ describe('PATCH /api/merchant/categories/[categoryId]', () => {
         nextSlug: 'mobile-phones',
       })
     );
+  });
+
+  it('rejects a rename when the slug changed after the authoritative read', async () => {
+    setContext({ updated: null });
+
+    const response = await PATCH(
+      patchRequest({ slug: 'mobile-phones' }),
+      params()
+    );
+
+    expect(response.status).toBe(409);
+    expect(mocks.invalidateCategoryCaches).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'CATEGORY_CONCURRENT_UPDATE',
+    });
+  });
+
+  it('rejects a same-slug edit when the category version changed after the read', async () => {
+    setContext({ updated: null });
+
+    const response = await PATCH(
+      patchRequest({ name: 'Updated phones' }),
+      params()
+    );
+
+    expect(response.status).toBe(409);
+    expect(mocks.invalidateCategoryCaches).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'CATEGORY_CONCURRENT_UPDATE',
+    });
   });
 
   it('returns 401 without touching CSRF or the request body', async () => {

@@ -158,7 +158,9 @@ BEGIN
   -- Promotion is part of the same statement transaction as retirement. Any
   -- failure rolls the parent update back instead of leaving active children
   -- hidden beneath an inactive parent.
-  IF OLD.is_active IS TRUE AND NEW.is_active IS DISTINCT FROM TRUE THEN
+  IF (OLD.is_active IS TRUE AND NEW.is_active IS DISTINCT FROM TRUE)
+     OR (OLD.is_active IS NULL AND NEW.is_active IS FALSE)
+  THEN
     UPDATE public.categories
     SET
       parent_id = NULL,
