@@ -41,6 +41,13 @@ export const startQuizAttemptSchema = z.object({
   entryMode: z.literal(QUIZ_FREE_ENTRY_MODE),
   deviceFingerprint: quizDeviceFingerprintSchema.optional(),
   eventId: quizUuidSchema,
+  /**
+   * The auth user the caller intended to start for. Cookies are ambient (and a
+   * CSRF re-init/retry can pause the POST), so if the session switched to
+   * another shopper the request would consume THEIR attempt. When present the
+   * route rejects a mismatch (409) — mirrors the customer DOB PATCH.
+   */
+  expectedUserId: z.string().min(1).optional(),
   integrityTier: quizIntegrityTierSchema,
 });
 

@@ -43,6 +43,44 @@ describe('updateCustomerProfile', () => {
     );
   });
 
+  it('forwards expected_user_id in the body when provided', async () => {
+    // Regression (is6TybOW): the intended shopper is pinned so the server can
+    // reject a stale write after an account switch.
+    mockFetchWithCsrf.mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true }),
+    });
+
+    await updateCustomerProfile(
+      'ogabassey',
+      { date_of_birth: '1990-06-15' },
+      'user-123'
+    );
+
+    expect(mockFetchWithCsrf).toHaveBeenCalledWith(
+      '/api/storefront/customer',
+      expect.objectContaining({
+        body: JSON.stringify({
+          date_of_birth: '1990-06-15',
+          merchantSlug: 'ogabassey',
+          expected_user_id: 'user-123',
+        }),
+      })
+    );
+  });
+
+  it('omits expected_user_id from the body when not provided', async () => {
+    mockFetchWithCsrf.mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true }),
+    });
+
+    await updateCustomerProfile('ogabassey', { first_name: 'Ada' });
+
+    const body = JSON.parse(mockFetchWithCsrf.mock.calls[0][1].body);
+    expect(body).not.toHaveProperty('expected_user_id');
+  });
+
   it('returns the server error message on a non-ok response', async () => {
     mockFetchWithCsrf.mockResolvedValue({
       ok: false,

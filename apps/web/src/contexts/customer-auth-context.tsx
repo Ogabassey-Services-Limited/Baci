@@ -2,7 +2,7 @@
 
 import { createContext, type ReactNode, use, useEffect, useState } from 'react';
 import { clearCartStorage } from '@/hooks/use-cart';
-import { updateCustomerProfile } from '@/lib/storefront/update-customer-profile';
+import { useCustomerProfileUpdate } from '@/hooks/use-customer-profile-update';
 
 export interface CustomerUser {
   id: string;
@@ -399,20 +399,14 @@ export function CustomerAuthProvider({
     await checkSession();
   };
 
-  // Update customer data
-  const updateCustomer = async (
-    data: Partial<Customer>
-  ): Promise<{ success: boolean; error?: string }> => {
-    if (!customer) {
-      return { success: false, error: 'Not authenticated' };
-    }
-
-    const result = await updateCustomerProfile(merchantSlug, data);
-    if (result.success) {
-      setCustomer((prev) => (prev ? { ...prev, ...data } : null));
-    }
-    return result;
-  };
+  // Update customer data. The write-orchestration (identity snapshot, server
+  // expected_user_id gate, guarded local merge) lives in a focused hook.
+  const updateCustomer = useCustomerProfileUpdate({
+    customer,
+    merchantSlug,
+    setCustomer,
+    user,
+  });
 
   return (
     <CustomerAuthContext.Provider

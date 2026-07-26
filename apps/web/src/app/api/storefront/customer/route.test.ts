@@ -37,14 +37,33 @@ function mockChain(returnValue: { data: unknown; error: unknown }) {
   const chain = {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
+    // The customer lookup filters live rows with .is('deleted_at', null).
+    is: vi.fn().mockReturnThis(),
     single: vi.fn().mockResolvedValue(returnValue),
     // The merchant lookup now goes through resolveMerchantIdBySlugOrAlias, which
     // uses maybeSingle (with a merchant_slug_aliases fallback on a miss).
     maybeSingle: vi.fn().mockResolvedValue(returnValue),
     update: vi.fn().mockReturnThis(),
   };
-  // update().eq() should resolve to returnValue for update calls
   return chain;
+}
+
+// Builds the PATCH update chain: .update().eq().is().select().maybeSingle().
+// `matched` is the live row the write returned (null => no live row matched, i.e.
+// the customer was soft-deleted between the lookup and the update).
+function mockUpdateChain(matched: { id: string } | null) {
+  const update = vi.fn().mockReturnValue({
+    eq: vi.fn().mockReturnValue({
+      is: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          maybeSingle: vi
+            .fn()
+            .mockResolvedValue({ data: matched, error: null }),
+        }),
+      }),
+    }),
+  });
+  return { update };
 }
 
 // --- Tests ---
@@ -137,11 +156,7 @@ describe('PATCH /api/storefront/customer', () => {
       data: { id: 'customer-1' },
       error: null,
     });
-    const updateChain = {
-      update: vi.fn().mockReturnValue({
-        eq: vi.fn().mockResolvedValue({ error: null }),
-      }),
-    };
+    const updateChain = mockUpdateChain({ id: 'customer-1' });
 
     let fromCallCount = 0;
     mockFrom.mockImplementation((table: string) => {
@@ -193,11 +208,7 @@ describe('PATCH /api/storefront/customer', () => {
       data: { id: 'customer-1' },
       error: null,
     });
-    const updateChain = {
-      update: vi.fn().mockReturnValue({
-        eq: vi.fn().mockResolvedValue({ error: null }),
-      }),
-    };
+    const updateChain = mockUpdateChain({ id: 'customer-1' });
 
     let fromCallCount = 0;
     mockFrom.mockImplementation((table: string) => {
