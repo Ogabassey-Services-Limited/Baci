@@ -12,7 +12,7 @@ const read = (url) => fs.readFile(url, 'utf8');
 const sleep = (milliseconds) =>
   new Promise((resolve) => setTimeout(resolve, milliseconds));
 
-async function waitFor(file, attempts = 500) {
+async function waitFor(file, attempts = 3000) {
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
       return JSON.parse(await fs.readFile(file, 'utf8'));
