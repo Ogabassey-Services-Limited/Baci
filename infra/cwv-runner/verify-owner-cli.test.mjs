@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test, { after } from 'node:test';
 const directory = path.dirname(new URL(import.meta.url).pathname);
+const darwinTest = process.platform === 'darwin' ? test : test.skip;
 const verifierPath = path.join(directory, 'verify-owner-cli.sh');
 const dispatcherPath = path.join(directory, 'owner-dispatch.sh');
 const fixtureRoots = new Set();
@@ -110,7 +111,7 @@ test('uses only fixed macOS tools and exposes the closed verifier modes', async 
   for (const operation of task7Operations.slice(8)) assert.match(verifier, new RegExp(operation));
 });
 test('claims both source-authorization destinations without mv no-clobber ambiguity', async () => { const verifier = await readFile(verifierPath, 'utf8'); for (const writer of [verifier.slice(verifier.indexOf('write_atomic()'), verifier.indexOf('\nwrite_digest()')), verifier.slice(verifier.indexOf('write_digest()'), verifier.indexOf('\noperation_set()'))]) { assert.match(writer, /\/bin\/ln "\$temporary" "\$destination" \|\| refuse/); assert.match(writer, /\/bin\/rm -f -- "\$temporary" \|\| refuse/); assert.doesNotMatch(writer, /\/bin\/mv -n/); } });
-test('creates and revalidates one task7 source authorization', async () => {
+darwinTest('creates and revalidates one task7 source authorization', async () => {
   const value = await fixture();
   const receipt = path.join(value.root, 'source-authorization.json');
   const receiptDigest = path.join(value.root, 'source-authorization.sha256');
@@ -147,7 +148,7 @@ test('creates and revalidates one task7 source authorization', async () => {
     transactionId: path.basename(value.root),
   });
 });
-test('verifies archive, checksum row, binary, and version before rebound exec', async () => {
+darwinTest('verifies archive, checksum row, binary, and version before rebound exec', async () => {
   const value = await fixture(`${'b'.repeat(64)}  unrelated-release.zip\n`);
   const sourceReceipt = path.join(value.root, 'source-authorization.json');
   const sourceDigest = path.join(value.root, 'source-authorization.sha256');
@@ -259,7 +260,7 @@ test('refuses wrong purpose, arbitrary operation, caller argv, and checksum drif
   assert.notEqual(result.status, 0);
   assert.equal(result.stdout, '');
 });
-test('emits a Task 9 token only after immediate source and binary rebound, rejecting a Task 7 receipt', async () => {
+darwinTest('emits a Task 9 token only after immediate source and binary rebound, rejecting a Task 7 receipt', async () => {
   const value = await fixture();
   const sourceReceipt = path.join(value.root, 'source-authorization.json');
   const sourceDigest = path.join(value.root, 'source-authorization.sha256');

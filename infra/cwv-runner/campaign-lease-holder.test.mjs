@@ -73,12 +73,8 @@ test('campaign lease remains exclusive until terminal release', async (t) => {
     child.kill('SIGKILL');
     await closeDescriptor().catch(() => undefined);
   });
-  await new Promise((resolve, reject) => {
-    child.once('spawn', resolve);
-    child.once('error', reject);
-  });
-  await closeDescriptor();
   const receipt = await waitFor(path.join(transaction, 'lease-holder.json'));
+  await closeDescriptor();
   assert.equal(receipt.lockHeld, true);
   assert.equal(
     spawnSync('/usr/bin/flock', ['-n', lock, '/bin/true']).status,
