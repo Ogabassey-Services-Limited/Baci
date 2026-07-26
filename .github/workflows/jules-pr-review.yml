@@ -349,6 +349,7 @@ jobs:
                 printf -- '- status: %s\n' "${status}"
                 printf -- '- additions: %s\n' "${additions}"
                 printf -- '- deletions: %s\n' "${deletions}"
+                # shellcheck disable=SC2016
                 printf '```diff\n%s\n```\n\n' "${rendered_patch}"
               } >> "${patch_sections_file}"
             done < <(jq -r '.[] | tojson | @base64' "${all_files_file}")

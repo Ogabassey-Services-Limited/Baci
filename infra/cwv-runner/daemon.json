@@ -1,0 +1,19 @@
+{
+  "bridge": "none",
+  "containerd": "/run/baci-cwv/containerd/containerd.sock",
+  "data-root": "/srv/baci-cwv/docker",
+  "exec-root": "/run/baci-cwv/docker-exec",
+  "hosts": ["unix:///run/baci-cwv/docker.sock"],
+  "ip-forward": false,
+  "ip-masq": false,
+  "iptables": false,
+  "ipv6": false,
+  "live-restore": false,
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-file": "3",
+    "max-size": "10m"
+  },
+  "pidfile": "/run/baci-cwv/docker.pid",
+  "userland-proxy": false
+}
