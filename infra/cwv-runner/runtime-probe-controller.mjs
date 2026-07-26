@@ -67,6 +67,7 @@ function requireContract(context, resources) {
     resources.memoryBytes <= 0 ||
     !Number.isSafeInteger(resources.memorySwapBytes) ||
     resources.memorySwapBytes < 0 ||
+    !Number.isSafeInteger(resources.memoryBytes + resources.memorySwapBytes) ||
     resources.pidsLimit !== 1024 ||
     resources.shmBytes !== 1073741824 ||
     resources.runnerUid !== 10001 ||
@@ -95,7 +96,7 @@ export function isolationProbeArgv(context, resources) {
     `--cgroup-parent=${resources.cgroupParent}`,
     `--cpuset-cpus=${resources.cpusetCpus}`,
     `--memory=${resources.memoryBytes}b`,
-    `--memory-swap=${resources.memorySwapBytes}b`,
+    `--memory-swap=${resources.memoryBytes + resources.memorySwapBytes}b`,
     `--pids-limit=${resources.pidsLimit}`,
     `--shm-size=${resources.shmBytes}`,
     '--user=10001:10001',
@@ -162,7 +163,7 @@ export function runtimeIdentityProbeArgv(context, resources) {
     `--cgroup-parent=${resources.cgroupParent}`,
     `--cpuset-cpus=${resources.cpusetCpus}`,
     `--memory=${resources.memoryBytes}b`,
-    `--memory-swap=${resources.memorySwapBytes}b`,
+    `--memory-swap=${resources.memoryBytes + resources.memorySwapBytes}b`,
     `--pids-limit=${resources.pidsLimit}`,
     `--shm-size=${resources.shmBytes}`,
     '--user=10001:10001',

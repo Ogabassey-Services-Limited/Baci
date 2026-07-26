@@ -14,7 +14,6 @@ import {
   validateRegistrationSnapshot,
 } from './registration-controller.mjs';
 import { observeRegistrationIdentity } from './registration-controller-state.mjs';
-
 test('defines exact root-only token, staging, and release layouts', () => {
   assert.deepEqual(registrationLayout(controllerContext), {
     handoff: {
@@ -149,6 +148,7 @@ test('aborts a timed-out token read and wipes a buffer that resolves late', asyn
 test('freezes pre-create argv without accepting caller-supplied runtime identity', () => {
   const argv = registrationContainerArgv(controllerContext, resourceContract);
   for (const value of [
+    '--memory-swap=8589934592b',
     '--entrypoint=/opt/node/bin/node',
     '/opt/baci-cwv/entrypoint.mjs',
     'registration',
