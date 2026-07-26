@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildCategoryCompareGraphSlugSet } from '@/lib/storefront-link-modules/compare-maintained-slug';
 import { buildCompareLinkGraph } from '@/lib/storefront-link-modules/compare-link-graph';
+import { buildCategoryCompareGraphSlugSet } from '@/lib/storefront-link-modules/compare-maintained-slug';
 import { getMaintainedCompareRouteManifest } from './get-maintained-compare-route-manifest';
 
 const products = Array.from({ length: 90 }, (_, index) => ({

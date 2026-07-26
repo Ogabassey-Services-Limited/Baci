@@ -745,13 +745,13 @@ describe('loadComparePage', () => {
       ...categoryPageData.products[0],
       slug: 'unapproved-left',
       name: 'Unapproved Left',
-      product_key_specs: { chipset: 'A19 Pro', ram_gb: 8 },
+      product_key_specs: { chipset: 'A19 Pro', ram_gb: 8, storage_gb: 256 },
     };
     const unapprovedRight = {
       ...categoryPageData.products[1],
       slug: 'unapproved-right',
       name: 'Unapproved Right',
-      product_key_specs: { chipset: 'A19 Pro', ram_gb: 8 },
+      product_key_specs: { chipset: 'A19 Pro', ram_gb: 8, storage_gb: 256 },
     };
     mockGetCachedCompareCategoryInventory.mockResolvedValue(
       toCompareInventory({

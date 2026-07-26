@@ -10,12 +10,12 @@ import { getSupabaseServiceRoleKey, getSupabaseUrl } from '@/env';
 import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import {
+  type CachedCategoryPageProductScope,
   fetchCategoryPageProductIdWindow,
   getCachedCategoryPageProductIds,
   getCachedCategoryPageProductTotalCount,
   getCachedLegacyCategoryPageProductIds,
   getCachedLegacyCategoryPageProductTotalCount,
-  type CachedCategoryPageProductScope,
   type SpecialCollectionSlug,
 } from '@/lib/category-page-product-id-cache';
 import { hydrateAndSanitizePublicProducts } from '@/lib/hydrate-public-products';

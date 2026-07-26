@@ -39,7 +39,6 @@ import {
   buildCuratedCompareSlugSet,
   isCuratedCompareSlug,
 } from './compare-indexability-policy';
-import { getCachedMaintainedCompareRouteManifest } from './get-cached-maintained-compare-route-manifest';
 import {
   buildRelatedCompareLinks,
   includeClickedCompareProducts,
@@ -50,6 +49,7 @@ import {
   type CompareCategoryInventoryProduct,
   getCachedCompareCategoryInventory,
 } from './get-cached-compare-category-inventory';
+import { getCachedMaintainedCompareRouteManifest } from './get-cached-maintained-compare-route-manifest';
 
 interface CompareBreadcrumbItem {
   name: string;

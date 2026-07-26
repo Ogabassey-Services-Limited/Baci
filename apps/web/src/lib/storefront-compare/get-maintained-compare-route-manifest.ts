@@ -1,9 +1,9 @@
-import { buildCategoryCompareGraphSlugSet } from '@/lib/storefront-link-modules/compare-maintained-slug';
 import {
-  buildCompareLinkGraph,
   type BuildCompareLinkGraphInput,
+  buildCompareLinkGraph,
   isActiveCompareProduct,
 } from '@/lib/storefront-link-modules/compare-link-graph';
+import { buildCategoryCompareGraphSlugSet } from '@/lib/storefront-link-modules/compare-maintained-slug';
 import { parseCompareSlug } from './compare-slugs';
 
 const ANCHORED_COMPARE_ROUTE_LIMIT = 8;

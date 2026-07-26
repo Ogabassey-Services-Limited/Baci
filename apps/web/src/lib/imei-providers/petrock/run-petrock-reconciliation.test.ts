@@ -4,10 +4,12 @@ const mocks = vi.hoisted(() => ({
   claim: vi.fn(),
   createAdminClient: vi.fn(() => ({})),
   getEncryptionKey: vi.fn(() => 'encryption-key'),
-  getPetrockConfig: vi.fn(() => ({
-    baseUrl: 'https://petrock.test',
-    token: 'token',
-  })),
+  getPetrockConfig: vi.fn<() => { baseUrl: string; token: string } | null>(
+    () => ({
+      baseUrl: 'https://petrock.test',
+      token: 'token',
+    })
+  ),
   markUnknown: vi.fn(),
   notifyRemediation: vi.fn(),
   reconcileRemediation: vi.fn(),

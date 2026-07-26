@@ -37,8 +37,8 @@ function sanitizePetrockSummary({
   status,
 }: Awaited<ReturnType<typeof runPetrockReconciliation>>) {
   const summary: Record<string, number | string> = {};
-  for (const key of PETROCK_COUNT_KEYS) {
-    if (key in body && typeof body[key] === 'number') {
+  if ('claimed' in body) {
+    for (const key of PETROCK_COUNT_KEYS) {
       summary[key] = body[key];
     }
   }
