@@ -34,7 +34,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.pageConfigInsert.mockResolvedValue({ error: null });
   mocks.generateInitialTemplate.mockResolvedValue({ root: {} });
-  mocks.assignHeroImagesToMerchant.mockResolvedValue(undefined);
+  mocks.assignHeroImagesToMerchant.mockResolvedValue({ success: true });
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 
@@ -220,6 +220,27 @@ describe('runDeferredOnboardingProvisioning', () => {
       await expect(
         runDeferredOnboardingProvisioning(baseInput)
       ).resolves.toBeUndefined();
+    });
+  });
+
+  describe('bugfix: hero-image failures were silently dropped', () => {
+    it('logs a resolved { success: false } result, which never throws', async () => {
+      // Arrange — assignHeroImagesToMerchant reports most failures by
+      // RESOLVING rather than throwing, so a try/catch alone misses them.
+      mocks.assignHeroImagesToMerchant.mockResolvedValue({
+        success: false,
+        error: 'Failed to fetch generated images',
+      });
+      const errorSpy = vi.spyOn(console, 'error');
+
+      // Act
+      await runDeferredOnboardingProvisioning(baseInput);
+
+      // Assert
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('mobile-onboarding'),
+        expect.stringContaining('hero_image_assignment')
+      );
     });
   });
 });

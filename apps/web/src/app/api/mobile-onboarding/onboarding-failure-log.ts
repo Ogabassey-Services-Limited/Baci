@@ -98,8 +98,8 @@ export function logOnboardingFailure(
       pgCode: pg.code,
       pgHint: pg.hint,
       stack:
-        error instanceof Error
-          ? error.stack?.split('\n').slice(0, 3).join(' | ')
+        error instanceof Error && error.stack
+          ? boundMessage(error.stack.split('\n').slice(0, 3).join(' | '))
           : undefined,
     })
   );

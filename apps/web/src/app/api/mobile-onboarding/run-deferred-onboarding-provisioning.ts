@@ -122,11 +122,19 @@ export async function runDeferredOnboardingProvisioning({
       const { assignHeroImagesToMerchant } = await import(
         '@/services/hero-image-generator'
       );
-      await assignHeroImagesToMerchant(
+      // Reports most failures by RESOLVING { success: false, error } rather
+      // than throwing, so the catch below would never see them.
+      const result = await assignHeroImagesToMerchant(
         merchantId,
         businessType.toLowerCase(),
         false
       );
+      if (!result?.success) {
+        logOnboardingFailure(result?.error ?? 'hero image assignment failed', {
+          stage: 'hero_image_assignment',
+          merchantId,
+        });
+      }
     } catch (error) {
       logOnboardingFailure(error, {
         stage: 'hero_image_assignment',
