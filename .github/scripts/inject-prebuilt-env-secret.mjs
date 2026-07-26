@@ -8,32 +8,31 @@
 // server-only (env.ts throws if read on the client, not NEXT_PUBLIC_), so it is
 // never bundled client-side.
 //
-// Usage: node inject-prebuilt-env-secret.mjs <KEY> <ENV_FILE>
-// Env:
-//   <KEY>                 real value (e.g. a GitHub Actions secret). If non-empty,
-//                         it is injected unconditionally.
-//   <KEY>__BUILD_STANDIN  optional non-secret build-time stand-in. Used only when
-//                         <KEY> is empty AND the pulled file already contains a
-//                         `<KEY>=` entry — i.e. the sensitive var EXISTS in Vercel
-//                         (pulled empty) and will be injected at runtime. If the
-//                         key is absent, the var is genuinely missing from Vercel,
-//                         so a stand-in would let the build pass while runtime has
-//                         no secret matching the database; the script fails loudly
-//                         instead of masking that.
+// Usage: node inject-prebuilt-env-secret.mjs <KEY> <ENV_FILE> [STANDIN]
+//   process.env[<KEY>]  real value (e.g. a GitHub Actions secret). If non-empty,
+//                       it is injected unconditionally.
+//   [STANDIN]           optional non-secret build-time stand-in (a CLI arg). Used
+//                       only when process.env[<KEY>] is empty AND the pulled file
+//                       already contains a `<KEY>=` entry — i.e. the sensitive var
+//                       EXISTS in Vercel (pulled empty) and will be injected at
+//                       runtime. If the key is absent, the var is genuinely missing
+//                       from Vercel, so a stand-in would let the build pass while
+//                       runtime has no secret matching the database; the script
+//                       fails loudly instead of masking that.
 // No-op (exit 0) when neither is set, so deploys with nothing configured (e.g.
 // quiz phase "1a") are unaffected.
 
 import fs from 'node:fs';
 
-const [key, file] = process.argv.slice(2);
+const [key, file, standinArg] = process.argv.slice(2);
 
 if (!key || !file) {
-  console.error('Usage: inject-prebuilt-env-secret.mjs <KEY> <ENV_FILE>');
+  console.error('Usage: inject-prebuilt-env-secret.mjs <KEY> <ENV_FILE> [STANDIN]');
   process.exit(2);
 }
 
 const realValue = process.env[key];
-const standinValue = process.env[`${key}__BUILD_STANDIN`];
+const standinValue = standinArg;
 
 let value;
 let usingStandin = false;
@@ -47,13 +46,16 @@ if (realValue !== undefined && realValue !== '') {
   process.exit(0);
 }
 
-// dotenv values are written as KEY="value". A double quote, backslash, or newline
-// would require escaping the build-time parser may not honour identically, risking
-// a corrupted secret in the build. Refuse instead.
-if (/["\\\r\n]/.test(value)) {
+// dotenv values are written as KEY="value" and then parsed by @next/env, which
+// runs dotenv-expand: a `$` (even inside double quotes) triggers variable
+// expansion, and a double quote / backslash / newline needs escaping the parser
+// may not honour identically. Any of these could silently corrupt the value in
+// the build. Refuse instead — hex/base64 secrets and the stand-in contain none.
+if (/["\\$\r\n]/.test(value)) {
   console.error(
-    `${key} contains a double-quote, backslash, CR, or LF that cannot be safely ` +
-      `written to ${file}. Use a value without those characters (hex/base64 is safe).`,
+    `${key} contains a double-quote, backslash, dollar sign, CR, or LF that cannot ` +
+      `be safely written to ${file} (dotenv-expand would mangle "$"). Use a value ` +
+      `without those characters (hex/base64 is safe).`,
   );
   process.exit(1);
 }
