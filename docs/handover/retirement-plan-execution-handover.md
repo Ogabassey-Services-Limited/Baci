@@ -1,6 +1,6 @@
 # Handover — workaround-retirement-plan execution (2026-07-26)
 
-Read `docs/architecture/workaround-retirement-plan.md` (rev 24) first, then
+Read `docs/architecture/workaround-retirement-plan.md` (rev 25) first, then
 `docs/handover/b1-lite-edge-invalidation-plan.md` next to this file.
 
 ## Where we are in the plan
@@ -10,7 +10,8 @@ implementation gate is OPEN. Per the plan's execution order:
 
     B1-lite FIRST            -> PR #3205   (MERGED 2026-07-26)
     B1-lite decision record  -> PR #3207   (current; corrected SWR decision)
-    B0 -> B1-durable -> B2   -> not started   <- next; edge bound is still open
+    B0 checklist/approval    -> next; existing ADR adopted, privileged edge needs sign-off
+    B1-durable -> B2         -> blocked on B0; must evict Next + Vercel + Cloudflare
     D cleanup/filler         -> #3199, #3203, #3201 (after B1-durable)
     C after C0 -> B3         -> blocked
     A route code             -> blocked on A1 sign-off (#3193)
@@ -136,11 +137,11 @@ ignored deprecated parameter so the frozen file is not touched at all. plan_tier
 authoritative (the slug is ignored). Avoids the two-commit baseline rotation, which would leave
 main red between the PRs.
 
-### #3207 - plan status doc
+### #3207 - plan status doc (current)
 
-HOLD until #3205 merges - the doc states B1-lite shipped, and Codex correctly flagged that the
-implementation is not an ancestor of that commit. Also update it per step 2 of
-b1-lite-edge-invalidation-plan.md: it must not claim edge invalidation shipped.
+#3205 is merged and is an ancestor of this branch. The plan now records #3205 as a partial
+mutation-boundary improvement, not completed edge freshness, and corrects the durable contract to
+include Vercel CDN deletion. Continue the exact-head review loop; there is no prerequisite hold.
 
 ### #3193 / #3194 - A1 and C0 design gates
 
