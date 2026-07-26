@@ -202,4 +202,9 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260725120000_guard_customer_dob_soft_delete.sql',
     sha256: 'c1e76853223a105701c2ef28c2a7a1211508af13a7b27d12393590454b36bcd8',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260725164445_restore_merchant_owner_row_select_branch.sql',
+    sha256: '9823a697f756bb2865a5de62d2a202d2bf348b284ead1d5cee9c6838a477ca27',
+  },
 ];
