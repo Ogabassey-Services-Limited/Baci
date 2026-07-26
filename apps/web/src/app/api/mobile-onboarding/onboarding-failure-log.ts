@@ -88,7 +88,8 @@ export function logOnboardingFailure(
       : 'unexpected_error';
 
   console.error(
-    `mobile-onboarding ${kind}`,
+    'mobile-onboarding %s',
+    kind,
     JSON.stringify({
       ...context,
       name: error instanceof Error ? error.name : typeof error,
