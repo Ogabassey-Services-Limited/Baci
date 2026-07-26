@@ -83,7 +83,7 @@ AS $$
           ~* 'is_published[[:space:]]+IS[[:space:]]+TRUE'
         AND pg_catalog.pg_get_expr(policy.polqual, policy.polrelid)
           ~* '(public[.])?has_merchant_access[(]id[)]'
-        AND pg_catalog.regexp_replace(
+        AND pg_catalog.lower(pg_catalog.regexp_replace(
           pg_catalog.regexp_replace(
             pg_catalog.pg_get_expr(policy.polqual, policy.polrelid),
             '(SELECT|AS[[:space:]]+uid|public[.])',

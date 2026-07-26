@@ -48,6 +48,10 @@ function canonicalUpdatePredicate(expression: string): string {
 
 describe('merchant signup policy health migration', () => {
   it('checks the exact read and write policy contracts', () => {
+    const selectPolicySection = migrationSql
+      .split("'select_policy_is_expected'")[1]
+      ?.split("'insert_policy_allows_owner'")[0];
+
     expect(migrationSql).toContain(
       "policy.polname = 'Authenticated can view merchants'"
     );
@@ -72,6 +76,9 @@ describe('merchant signup policy health migration', () => {
     expect(migrationSql).toContain("= 'user_id=auth.uid'");
     expect(migrationSql).toContain(
       "= 'is_publishedistrueoruser_id=auth.uidorhas_merchant_accessid'"
+    );
+    expect(selectPolicySection).toContain(
+      'pg_catalog.lower(pg_catalog.regexp_replace('
     );
     expect(migrationSql).toContain(
       "= 'user_id=auth.uidORcheck_staff_permissionauth.uid,id,settings,edit'"
