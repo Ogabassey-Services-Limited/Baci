@@ -4,10 +4,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 let rateLimitAllowed = true;
 let rateLimitResetIn = 0;
 let mockProducts = 'Product List Here';
+let mockProductsError: Error | null = null;
 
 // ---- Mocks ----
 
 vi.mock('ai', () => ({ generateText: vi.fn() }));
+
+// `after` requires a request scope that vitest does not provide; no-op it so the
+// route returns normally (the log itself is covered by santa-interaction-log.test.ts).
+vi.mock('next/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/server')>()),
+  after: vi.fn(),
+}));
 
 vi.mock('next/headers', () => ({
   headers: vi.fn(async () => ({
@@ -37,7 +45,10 @@ vi.mock('@/ai/provider', () => ({
 }));
 
 vi.mock('@/ai/santa-data', () => ({
-  getCachedSantaProducts: vi.fn(async () => mockProducts),
+  getCachedSantaProducts: vi.fn(async () => {
+    if (mockProductsError) throw mockProductsError;
+    return mockProducts;
+  }),
 }));
 
 vi.mock('@/lib/sanitize', () => ({
@@ -52,6 +63,24 @@ vi.mock('@/lib/supabase/service', () => ({
   })),
 }));
 
+// The Santa tenant is resolved slug -> id on a plain anon client. Without this
+// mock the real factory builds a live client and the whole suite breaks.
+vi.mock('@/lib/supabase/anon', () => ({
+  createAnonClient: vi.fn(() => ({
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: () =>
+            Promise.resolve({
+              data: { id: '3bc72679-c0f7-4db4-9054-6a4a4a95a498' },
+              error: null,
+            }),
+        }),
+      }),
+    }),
+  })),
+}));
+
 vi.mock('@/ai/prompts/santa', () => ({
   SANTA_ERROR_MESSAGES: {
     general: 'Santa is taking a break. Please try again later!',
@@ -60,6 +89,7 @@ vi.mock('@/ai/prompts/santa', () => ({
 
 // ---- Import handler AFTER mocks ----
 import { generateText } from 'ai';
+import { resetAgenticMerchantIdCache } from '@/lib/agentic/agentic-merchant-id';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { POST } from './route';
 
@@ -101,12 +131,16 @@ describe('POST /api/chat/santa', () => {
     rateLimitAllowed = true;
     rateLimitResetIn = 0;
     mockProducts = 'Product List Here';
+    mockProductsError = null;
+    resetAgenticMerchantIdCache();
+    vi.stubEnv('BACI_AGENTIC_MERCHANT_SLUG', 'ogabassey');
     // Default: the leading (active) provider succeeds immediately.
     respondByModel({ 'mock-active-model': 'Ho ho ho!' });
   });
 
   afterEach(() => {
     vi.unstubAllEnvs();
+    resetAgenticMerchantIdCache();
   });
 
   it('returns 429 when rate limit is exceeded', async () => {
@@ -213,6 +247,44 @@ describe('POST /api/chat/santa', () => {
         abortSignal: expect.any(AbortSignal),
       })
     );
+  });
+
+  it('instructs full-price grants to use the catalog selling price', async () => {
+    await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'My budget covers the phone' }],
+      })
+    );
+
+    expect(generateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        system: expect.stringContaining('PRICE:[Selling Price]'),
+      })
+    );
+  });
+
+  it('fails closed without invoking the model when the tenant is unconfigured', async () => {
+    vi.stubEnv('BACI_AGENTIC_MERCHANT_SLUG', '');
+    vi.stubEnv('OPENAI_AGENTIC_MERCHANT_SLUG', '');
+    resetAgenticMerchantIdCache();
+
+    const response = await POST(
+      makeRequest({ messages: [{ role: 'user', content: 'I want a phone' }] })
+    );
+
+    expect(response.status).toBe(500);
+    expect(generateText).not.toHaveBeenCalled();
+  });
+
+  it('fails closed without invoking the model when the catalog lookup fails', async () => {
+    mockProductsError = new Error('catalog unavailable');
+
+    const response = await POST(
+      makeRequest({ messages: [{ role: 'user', content: 'I want a phone' }] })
+    );
+
+    expect(response.status).toBe(500);
+    expect(generateText).not.toHaveBeenCalled();
   });
 
   it('falls through to the fallback model when the active model fails', async () => {

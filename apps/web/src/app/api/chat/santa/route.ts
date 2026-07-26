@@ -1,18 +1,16 @@
 import crypto from 'node:crypto';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { headers } from 'next/headers';
+import { after } from 'next/server';
 import z from 'zod';
 import { generateTextWithChain } from '@/ai/generate-text-with-chain';
 import { SANTA_ERROR_MESSAGES } from '@/ai/prompts/santa';
 import { AI_RATE_LIMITS, checkRateLimit } from '@/ai/provider';
 import { getCachedSantaProducts } from '@/ai/santa-data';
+import { resolveAgenticChatTenant } from '@/lib/agentic/agentic-chat-tenant';
 import { sanitizeHtml } from '@/lib/sanitize';
-import { createServiceClient } from '@/lib/supabase/service';
+import { logSantaInteraction } from './santa-interaction-log';
 
 export const maxDuration = 30;
-
-// Ogabassey merchant ID — single source of truth across all chat endpoints
-const OGABASSEY_MERCHANT_ID = '3bc72679-c0f7-4db4-9054-6a4a4a95a498';
 
 /**
  * Generate a session ID from IP address (hashed for privacy)
@@ -59,89 +57,15 @@ function parseWishResult(response: string): {
   return { type: isDenied ? 'wish_denied' : 'chat' };
 }
 
-/**
- * Log Santa interaction asynchronously (fire and forget)
- */
-async function logSantaInteraction(params: {
-  sessionId: string;
-  clientIp: string;
-  interactionType:
-    | 'chat'
-    | 'wish_granted'
-    | 'wish_denied'
-    | 'add_to_cart'
-    | 'checkout_started'
-    | 'checkout_completed';
-  userMessage?: string;
-  santaResponse?: string;
-  productName?: string;
-  requestedPrice?: number;
-  approvedPrice?: number;
-}): Promise<void> {
-  try {
-    const serviceClient = createServiceClient();
-
-    // Calculate discount percentage if applicable
-    let discountPercentage: number | null = null;
-    if (
-      params.approvedPrice &&
-      params.requestedPrice &&
-      params.requestedPrice > params.approvedPrice
-    ) {
-      discountPercentage =
-        ((params.requestedPrice - params.approvedPrice) /
-          params.requestedPrice) *
-        100;
-    }
-
-    await serviceClient.from('santa_interactions').insert({
-      merchant_id: OGABASSEY_MERCHANT_ID,
-      session_id: params.sessionId,
-      client_ip: params.clientIp.slice(0, 64), // Truncate for privacy
-      interaction_type: params.interactionType,
-      user_message: params.userMessage?.slice(0, 500), // Truncate for storage
-      santa_response: params.santaResponse?.slice(0, 1000), // Truncate
-      product_name: params.productName,
-      requested_price: params.requestedPrice,
-      approved_price: params.approvedPrice,
-      discount_percentage: discountPercentage,
-    });
-  } catch (error) {
-    // Log but don't fail the request
-    console.error('[Santa Analytics] Failed to log interaction:', error);
+async function generateSantaPrompt(): Promise<string> {
+  const tenant = await resolveAgenticChatTenant();
+  if (!tenant) {
+    throw new Error('Santa tenant is not configured');
   }
-}
 
-// Define Zod schema for request validation
-const santaChatSchema = z.object({
-  messages: z
-    .array(
-      z.object({
-        role: z.enum(['user', 'assistant', 'system']),
-        content: z.string().min(1).max(10000),
-      })
-    )
-    .min(1)
-    .max(50),
-});
+  const productList = await getCachedSantaProducts(tenant.merchantId);
 
-/**
- * Generate dynamic Santa system instruction with actual product data
- * Fetches products across multiple price ranges using cached utility
- */
-async function generateSantaPrompt(
-  _supabase?: SupabaseClient
-): Promise<string> {
-  try {
-    // Fetch merchant ID (Ogabassey)
-    // We hardcode the ID we found earlier to avoid another DB call if possible,
-    // but to stay robust we will use the constant we defined in route.ts
-    const merchantId = OGABASSEY_MERCHANT_ID;
-
-    // Use the optimized, cached data fetcher
-    const productList = await getCachedSantaProducts(merchantId);
-
-    return `You are Santa Claus, partnering with a gadget company called Ogabassey. Your personality is jolly, warm, kind, and a little bit whimsical.
+  return `You are Santa Claus, partnering with a gadget company called Ogabassey. Your personality is jolly, warm, kind, and a little bit whimsical.
 
 **Your Core Purpose:**
 To receive Christmas wishes for gadgets and determine if the user's budget qualifies them for a special Ogabassey discount, all while being a delightful Santa.
@@ -160,7 +84,7 @@ Products are marked with either [HAS_COST] or [FLEX]:
     - Compare their budget accordingly
 
 3.  **Discount Logic (Strictly follow this order):**
-    *   **If user's budget >= selling price:** Grant immediately! "ACTION:ADD_TO_CART|PRODUCT:[Name]|PRICE:[Budget]"
+    *   **If user's budget >= selling price:** Grant immediately at the catalog price! "ACTION:ADD_TO_CART|PRODUCT:[Name]|PRICE:[Selling Price]"
     *   **If discount needed < 10%:** Grant! "ACTION:ADD_TO_CART|PRODUCT:[Name]|PRICE:[Budget]"
     *   **If discount 10-40% AND budget >= Min Price:** Check with "chief elf". Tell them to ask "What did the elf say?"
     *   **If they ask for elf's decision:** Approve with "ACTION:ADD_TO_CART|PRODUCT:[Name]|PRICE:[Budget]"
@@ -173,12 +97,20 @@ ${productList}
 5.  **Formatting:** Use **bold** for excitement, *italics*, and bullet points. Keep responses warm and festive!
 
 6.  **Handling Unknown Products:** If the user asks for a product not in the catalog, say the elves are checking if it's in the workshop and ask them to check back later.`;
-  } catch (error) {
-    console.error('[Santa] Error fetching products:', error);
-    // Fallback to basic prompt
-    return `You are Santa Claus, partnering with Ogabassey gadget store. Be jolly and warm. Help users with their Christmas gadget wishes. If they mention a budget, engage playfully about discounts.`;
-  }
 }
+
+// Define Zod schema for request validation
+const santaChatSchema = z.object({
+  messages: z
+    .array(
+      z.object({
+        role: z.enum(['user', 'assistant', 'system']),
+        content: z.string().min(1).max(10000),
+      })
+    )
+    .min(1)
+    .max(50),
+});
 
 /**
  * Santa Chat API Route
@@ -290,18 +222,22 @@ export async function POST(req: Request) {
       overallTimeoutMs: 24_000,
     });
 
-    // Log the interaction after response is complete (fire and forget)
+    // Log the interaction after the response is sent. `after()` keeps the
+    // serverless function alive until the awaited insert flushes — a bare
+    // fire-and-forget promise can be frozen by Vercel before the DB write lands.
     const wishResult = parseWishResult(text);
-    logSantaInteraction({
-      sessionId,
-      clientIp,
-      interactionType: wishResult.type,
-      userMessage: latestUserMessage,
-      santaResponse: text,
-      productName: wishResult.productName,
-      requestedPrice,
-      approvedPrice: wishResult.approvedPrice,
-    }).catch((err) => console.error('[Santa Analytics] Logging error:', err));
+    after(() =>
+      logSantaInteraction({
+        sessionId,
+        clientIp,
+        interactionType: wishResult.type,
+        userMessage: latestUserMessage,
+        santaResponse: text,
+        productName: wishResult.productName,
+        requestedPrice,
+        approvedPrice: wishResult.approvedPrice,
+      }).catch((err) => console.error('[Santa Analytics] Logging error:', err))
+    );
 
     return new Response(text, {
       headers: { 'Content-Type': 'text/plain; charset=utf-8' },

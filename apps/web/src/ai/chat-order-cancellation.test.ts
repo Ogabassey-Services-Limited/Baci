@@ -1,17 +1,34 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   createAgenticScopedSupabaseClient: vi.fn(),
+  createAnonClient: vi.fn(),
 }));
 
 vi.mock('@/lib/agentic/scoped-supabase', () => ({
   createAgenticScopedSupabaseClient: mocks.createAgenticScopedSupabaseClient,
 }));
 
+// The tenant is resolved slug -> id on a plain anon client before the scoped
+// client is built, so this factory must be mocked or cancellation fails closed.
+vi.mock('@/lib/supabase/anon', () => ({
+  createAnonClient: mocks.createAnonClient,
+}));
+
+import { resetAgenticMerchantIdCache } from '@/lib/agentic/agentic-merchant-id';
 import { handleCancelOrder } from './chat-order-cancellation';
 
 const OGABASSEY_MERCHANT_ID = '3bc72679-c0f7-4db4-9054-6a4a4a95a498';
 const ORDER_ID = '11111111-1111-4111-8111-111111111111';
+
+function mockTenantLookup(merchantId: string | null) {
+  const maybeSingle = vi
+    .fn()
+    .mockResolvedValue({ data: merchantId ? { id: merchantId } : null });
+  const eq = vi.fn(() => ({ maybeSingle }));
+  const select = vi.fn(() => ({ eq }));
+  mocks.createAnonClient.mockReturnValue({ from: vi.fn(() => ({ select })) });
+}
 
 type QueryResult = {
   data: unknown;
@@ -76,6 +93,15 @@ describe('handleCancelOrder', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.clearAllMocks();
+    vi.unstubAllEnvs();
+    resetAgenticMerchantIdCache();
+    vi.stubEnv('BACI_AGENTIC_MERCHANT_SLUG', 'ogabassey');
+    mockTenantLookup(OGABASSEY_MERCHANT_ID);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    resetAgenticMerchantIdCache();
   });
 
   it('cancels only a matching Ogabassey order that is unpaid and pending', async () => {
@@ -297,5 +323,22 @@ describe('handleCancelOrder', () => {
       '[Chat Tools] Cancel order error:',
       expect.any(Error)
     );
+  });
+
+  it('fails closed without building a scoped client when the copilot tenant is unresolvable', async () => {
+    // Arrange: no BACI_AGENTIC_MERCHANT_SLUG configured
+    vi.unstubAllEnvs();
+    resetAgenticMerchantIdCache();
+    mockLookupThenUpdate();
+
+    // Act
+    const result = await handleCancelOrder({
+      orderNumber: '#00001234',
+      customerEmail: 'buyer@example.com',
+    });
+
+    // Assert: never widen the cancellation scope to an unknown merchant.
+    expect(result).toMatchObject({ success: false, status: 'not_found' });
+    expect(mocks.createAgenticScopedSupabaseClient).not.toHaveBeenCalled();
   });
 });
