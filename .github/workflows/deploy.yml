@@ -25,6 +25,7 @@ jobs:
     outputs:
       web: ${{ steps.filter.outputs.web }}
       migrations: ${{ steps.filter.outputs.migrations }}
+      cwv_runner: ${{ steps.filter.outputs.cwv_runner }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -37,6 +38,7 @@ jobs:
           filters: |
             web:
               - 'apps/web/**'
+              - 'infra/cwv-runner/**'
               - 'public/badges/**'
               - 'packages/shared/**'
               - 'next.config.ts'
@@ -61,6 +63,42 @@ jobs:
             migrations:
               - 'supabase/migrations/**'
               - '.github/workflows/deploy.yml'
+            cwv_runner:
+              - 'infra/cwv-runner/**'
+              - '.github/workflows/**'
+              - '.github/scripts/cwv-runner-*.mjs'
+              - '.github/scripts/canonical-json.mjs'
+              - '.github/scripts/policy.json'
+              - '.github/scripts/policy.schema.mjs'
+              - '.github/scripts/actionlint-runner-label-contract.test.mjs'
+              - 'biome.json'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - '.github/workflows/actionlint.yml'
+              - '.github/workflows/cwv-runner-attestation.yml'
+              - '.github/workflows/deploy.yml'
+              - '.github/actionlint.yaml'
+
+  cwv-runner-contracts:
+    name: CWV Runner Contracts
+    needs: [changes]
+    if: needs.changes.outputs.cwv_runner == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+      - uses: ./.github/actions/pnpm-install-cached
+      - name: Run CWV runner contract tests
+        run: node --test --test-concurrency=1 infra/cwv-runner/*.test.mjs .github/scripts/cwv-runner-*.test.mjs .github/scripts/actionlint-runner-label-contract.test.mjs
+      - name: Check CWV runner formatting
+        run: pnpm exec biome check infra/cwv-runner .github/scripts/cwv-runner-*.mjs
+      - name: Run CWV workflow actionlint
+        uses: rhysd/actionlint@914e7df21a07ef503a81201c76d2b11c789d3fca # v1.7.12
 
   # Apply any pending Supabase migrations BEFORE the Vercel deploy so
   # application code never lands ahead of the schema it depends on. Closes
@@ -95,12 +133,12 @@ jobs:
         run: .github/scripts/apply-pending-migrations.sh
 
   deploy-production:
-    needs: [changes, db-migrations]
+    needs: [changes, cwv-runner-contracts, db-migrations]
     # Hard-require db-migrations success — `result == 'success'` excludes both
     # 'skipped' and 'failure', so a skipped migrations job (e.g. if its `if`
     # condition becomes false in a future change) cannot let a web deploy
     # land against an out-of-date schema.
-    if: always() && github.ref == 'refs/heads/main' && needs.db-migrations.result == 'success' && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.web == 'true')
+    if: always() && github.ref == 'refs/heads/main' && needs.db-migrations.result == 'success' && (needs.cwv-runner-contracts.result == 'success' || needs.cwv-runner-contracts.result == 'skipped') && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.web == 'true')
     # Run production prebuilt deploys on GitHub-hosted runners while the VPS
     # provider is returning sustained CPU steal. This still uses a local
     # `vercel build --prod` followed by `vercel deploy --prebuilt --prod`, so
@@ -163,18 +201,21 @@ jobs:
       - run: .github/scripts/run-pinned-vercel.sh pull --yes --environment=production
       # QUIZ_RPC_SERVER_SECRET is a *sensitive* (write-only) Vercel env var, so
       # `vercel pull` writes it as an empty QUIZ_RPC_SERVER_SECRET="". env.ts
-      # hard-requires it to be PRESENT at build once QUIZ_PHASE=production, but
-      # the value is only consumed at RUNTIME (quiz-proof HMAC signing), where
-      # Vercel injects the real sensitive value and env.ts re-validates against
-      # it (getRuntimeEnvValue prefers live process.env). So the prebuilt build
-      # only needs a non-empty value present to pass validation. Inject the real
-      # value if it is configured as a GitHub Actions secret; otherwise inject a
-      # non-secret build-time presence stand-in that is never used at runtime.
-      # Keeps Vercel's copy sensitive; the key is server-only (not NEXT_PUBLIC_,
-      # env.ts throws if read on the client), so it is never bundled client-side.
+      # hard-requires it PRESENT at build once QUIZ_PHASE=production, but the
+      # value is only consumed at RUNTIME (quiz-proof HMAC signing), where Vercel
+      # injects the real sensitive value and env.ts re-validates against it
+      # (getRuntimeEnvValue prefers live process.env). So the build only needs a
+      # non-empty value present. Inject the real value if configured as a GitHub
+      # Actions secret; otherwise a non-secret build-time stand-in is substituted
+      # ONLY when the pulled file already has the (empty) sensitive entry -- proof
+      # the var exists in Vercel and will be injected at runtime. If the var is
+      # genuinely missing, the helper fails rather than mask a missing runtime
+      # secret. Keeps Vercel's copy sensitive; the key is server-only (not
+      # NEXT_PUBLIC_, env.ts throws if read on the client), never bundled.
       - name: Ensure build-time presence of runtime-only quiz RPC secret
         env:
-          QUIZ_RPC_SERVER_SECRET: ${{ secrets.QUIZ_RPC_SERVER_SECRET || 'build-time-presence-stand-in-not-used-at-runtime-000000000000' }}
+          QUIZ_RPC_SERVER_SECRET: ${{ secrets.QUIZ_RPC_SERVER_SECRET }}
+          QUIZ_RPC_SERVER_SECRET__BUILD_STANDIN: build-time-presence-stand-in-not-used-at-runtime-000000000000
         run: node .github/scripts/inject-prebuilt-env-secret.mjs QUIZ_RPC_SERVER_SECRET .vercel/.env.production.local
       - name: Build for Vercel
         run: .github/scripts/run-pinned-vercel.sh build --yes --prod

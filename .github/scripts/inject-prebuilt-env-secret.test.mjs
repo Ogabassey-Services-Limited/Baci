@@ -9,17 +9,25 @@ import { fileURLToPath } from 'node:url';
 const SCRIPT = fileURLToPath(
   new URL('./inject-prebuilt-env-secret.mjs', import.meta.url),
 );
+const KEY = 'QUIZ_RPC_SERVER_SECRET';
+const STANDIN_ENV = `${KEY}__BUILD_STANDIN`;
+const STANDIN = 'build-time-presence-stand-in-not-used-at-runtime-000000000000';
 
-// A representative pulled env file: a sensitive var written empty by `vercel pull`
-// plus ordinary quoted vars that must survive untouched.
-const PULLED = [
+// A pulled env file where the sensitive var exists in Vercel (written empty by
+// `vercel pull`) alongside ordinary quoted vars that must survive untouched.
+const PULLED_WITH_KEY = [
   'AI_CHAT_MODEL="cerebras"',
-  'QUIZ_RPC_SERVER_SECRET=""',
+  `${KEY}=""`,
   'QUIZ_PHASE="production"',
   '',
 ].join('\n');
 
-function makeEnvFile(contents = PULLED) {
+// A pulled env file where the sensitive var is genuinely absent from Vercel.
+const PULLED_WITHOUT_KEY = ['AI_CHAT_MODEL="cerebras"', 'QUIZ_PHASE="production"', ''].join(
+  '\n',
+);
+
+function makeEnvFile(contents = PULLED_WITH_KEY) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'inject-env-'));
   const file = path.join(dir, '.env.production.local');
   fs.writeFileSync(file, contents);
@@ -28,7 +36,7 @@ function makeEnvFile(contents = PULLED) {
 
 function run(args, env = {}) {
   return execFileSync('node', [SCRIPT, ...args], {
-    env: { ...process.env, ...env },
+    env: { ...process.env, [KEY]: '', [STANDIN_ENV]: '', ...env },
     encoding: 'utf8',
   });
 }
@@ -43,49 +51,65 @@ function runExpectFailure(args, env = {}) {
   }
 }
 
-test('overwrites the empty sensitive line with the injected value', () => {
+test('injects the real value, overwriting the empty sensitive line', () => {
   const file = makeEnvFile();
-  run(['QUIZ_RPC_SERVER_SECRET', file], {
-    QUIZ_RPC_SERVER_SECRET: 'a'.repeat(48),
-  });
+  run([KEY, file], { [KEY]: 'a'.repeat(48) });
   const out = fs.readFileSync(file, 'utf8');
   assert.match(out, /^QUIZ_RPC_SERVER_SECRET="a{48}"$/m);
-  // Exactly one occurrence — the empty one was removed, not duplicated.
   assert.equal(out.match(/^QUIZ_RPC_SERVER_SECRET=/gm).length, 1);
+});
+
+test('real value wins over the stand-in when both are set', () => {
+  const file = makeEnvFile();
+  run([KEY, file], { [KEY]: 'r'.repeat(40), [STANDIN_ENV]: STANDIN });
+  const out = fs.readFileSync(file, 'utf8');
+  assert.match(out, /^QUIZ_RPC_SERVER_SECRET="r{40}"$/m);
+});
+
+test('real value is injected even when the key is absent from the file', () => {
+  const file = makeEnvFile(PULLED_WITHOUT_KEY);
+  run([KEY, file], { [KEY]: 'r'.repeat(40) });
+  const out = fs.readFileSync(file, 'utf8');
+  assert.match(out, /^QUIZ_RPC_SERVER_SECRET="r{40}"$/m);
+});
+
+test('stand-in is injected when the empty sensitive entry is present', () => {
+  const file = makeEnvFile(PULLED_WITH_KEY);
+  const stdout = run([KEY, file], { [STANDIN_ENV]: STANDIN });
+  const out = fs.readFileSync(file, 'utf8');
+  assert.match(out, new RegExp(`^QUIZ_RPC_SERVER_SECRET="${STANDIN}"$`, 'm'));
+  assert.match(stdout, /build-time stand-in/);
+});
+
+test('stand-in is REFUSED (exit 1) when the sensitive var is absent from Vercel', () => {
+  const file = makeEnvFile(PULLED_WITHOUT_KEY);
+  const before = fs.readFileSync(file, 'utf8');
+  const { status, stderr } = runExpectFailure([KEY, file], { [STANDIN_ENV]: STANDIN });
+  assert.equal(status, 1);
+  assert.match(stderr, /absent|missing/i);
+  assert.equal(fs.readFileSync(file, 'utf8'), before); // untouched
 });
 
 test('leaves every other pulled var byte-for-byte intact', () => {
   const file = makeEnvFile();
-  run(['QUIZ_RPC_SERVER_SECRET', file], { QUIZ_RPC_SERVER_SECRET: 'x'.repeat(40) });
+  run([KEY, file], { [KEY]: 'x'.repeat(40) });
   const out = fs.readFileSync(file, 'utf8');
   assert.match(out, /^AI_CHAT_MODEL="cerebras"$/m);
   assert.match(out, /^QUIZ_PHASE="production"$/m);
 });
 
-test('is a no-op when the secret is unset (1a deploy path)', () => {
+test('is a no-op when neither real value nor stand-in is set', () => {
   const file = makeEnvFile();
   const before = fs.readFileSync(file, 'utf8');
-  const stdout = run(['QUIZ_RPC_SERVER_SECRET', file], {
-    QUIZ_RPC_SERVER_SECRET: '',
-  });
+  const stdout = run([KEY, file]);
   assert.equal(fs.readFileSync(file, 'utf8'), before);
   assert.match(stdout, /leaving .* unchanged/);
 });
 
-test('replaces an already-populated value instead of appending', () => {
-  const file = makeEnvFile(
-    'QUIZ_RPC_SERVER_SECRET="old-value-old-value-old-value-01"\n',
-  );
-  run(['QUIZ_RPC_SERVER_SECRET', file], { QUIZ_RPC_SERVER_SECRET: 'n'.repeat(36) });
-  const out = fs.readFileSync(file, 'utf8');
-  assert.equal(out.match(/^QUIZ_RPC_SERVER_SECRET=/gm).length, 1);
-  assert.doesNotMatch(out, /old-value/);
-});
-
 test('does not accumulate trailing blank lines across runs', () => {
   const file = makeEnvFile();
-  run(['QUIZ_RPC_SERVER_SECRET', file], { QUIZ_RPC_SERVER_SECRET: 'y'.repeat(32) });
-  run(['QUIZ_RPC_SERVER_SECRET', file], { QUIZ_RPC_SERVER_SECRET: 'z'.repeat(32) });
+  run([KEY, file], { [KEY]: 'y'.repeat(32) });
+  run([KEY, file], { [KEY]: 'z'.repeat(32) });
   const out = fs.readFileSync(file, 'utf8');
   assert.doesNotMatch(out, /\n\n$/);
   assert.equal(out.match(/^QUIZ_RPC_SERVER_SECRET=/gm).length, 1);
@@ -94,19 +118,18 @@ test('does not accumulate trailing blank lines across runs', () => {
 test('fails loudly rather than corrupt a value containing a double quote', () => {
   const file = makeEnvFile();
   const before = fs.readFileSync(file, 'utf8');
-  const { status, stderr } = runExpectFailure(['QUIZ_RPC_SERVER_SECRET', file], {
-    QUIZ_RPC_SERVER_SECRET: 'has"quote'.padEnd(40, 'x'),
+  const { status, stderr } = runExpectFailure([KEY, file], {
+    [KEY]: 'has"quote'.padEnd(40, 'x'),
   });
   assert.equal(status, 1);
   assert.match(stderr, /double-quote|backslash/);
-  // File untouched on refusal.
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
 test('fails when the env file is missing', () => {
   const { status, stderr } = runExpectFailure(
-    ['QUIZ_RPC_SERVER_SECRET', '/nonexistent/dir/.env.production.local'],
-    { QUIZ_RPC_SERVER_SECRET: 'q'.repeat(40) },
+    [KEY, '/nonexistent/dir/.env.production.local'],
+    { [KEY]: 'q'.repeat(40) },
   );
   assert.equal(status, 1);
   assert.match(stderr, /does not exist/);
