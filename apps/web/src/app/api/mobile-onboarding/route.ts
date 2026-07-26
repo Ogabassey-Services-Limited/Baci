@@ -525,9 +525,18 @@ export async function POST(req: NextRequest) {
     // the response is sent while keeping the function alive on Vercel.
     after(() =>
       runDeferredOnboardingProvisioning({
-        // Constructed HERE: route.ts is the module the boundary contract
-        // authorizes to import the admin factory.
-        adminClient: createAdminClient(),
+        // Defined HERE, not handed over as a client: route.ts is the module
+        // the boundary contract authorizes, so the privileged capability is
+        // bounded to exactly this one write and cannot be repurposed.
+        publishHomePage: (config) =>
+          createAdminClient().from('page_configs').insert({
+            merchant_id: merchantId,
+            page_slug: 'home',
+            page_name: 'Home',
+            draft_config: config,
+            published_config: config,
+            is_published: true,
+          }),
         merchantId,
         merchantSlug,
         businessName,

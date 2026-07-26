@@ -23,23 +23,24 @@ const DEFAULT_BRAND_COLORS: BrandColors = {
 };
 
 /**
- * Minimal shape of the privileged client this needs. Injected rather than
- * constructed here on purpose: the repository's boundary contract authorizes
- * only route.ts to import the admin factory, and importing it from this module
- * would register a new admin-authority edge. Taking the client as a parameter
- * keeps the authority where it was already sanctioned — and makes this function
- * testable without mocking the factory.
+ * A single, narrowly-scoped capability rather than a privileged client.
+ *
+ * This module deliberately does NOT receive a service-role client. Handing over
+ * a whole admin client would extend RLS-bypassing authority to a sibling
+ * module, which the repository forbids — no sibling inherits that
+ * authorization. Instead route.ts, the module the boundary contract authorizes,
+ * both imports the factory AND defines exactly what the privileged operation
+ * is: publish this merchant's home page. Nothing else here can perform a
+ * privileged write.
  */
-export interface DeferredProvisioningAdminClient {
-  from: (table: string) => {
-    insert: (row: Record<string, unknown>) => PromiseLike<{
-      error: unknown;
-    }>;
-  };
-}
+// PromiseLike, not Promise: a PostgREST query builder is thenable but is not a
+// Promise instance, so the authorized caller can hand its builder straight back.
+export type PublishHomePage = (
+  config: unknown
+) => PromiseLike<{ error: unknown }>;
 
 export interface DeferredOnboardingProvisioningInput {
-  adminClient: DeferredProvisioningAdminClient;
+  publishHomePage: PublishHomePage;
   merchantId: string;
   merchantSlug: string;
   businessName: string;
@@ -57,7 +58,7 @@ export interface DeferredOnboardingProvisioningInput {
 }
 
 export async function runDeferredOnboardingProvisioning({
-  adminClient,
+  publishHomePage,
   merchantId,
   merchantSlug,
   businessName,
@@ -96,16 +97,7 @@ export async function runDeferredOnboardingProvisioning({
         brandColors: brandColors || DEFAULT_BRAND_COLORS,
         merchant: { id: merchantId, slug: merchantSlug },
       });
-      const { error: pageConfigError } = await adminClient
-        .from('page_configs')
-        .insert({
-          merchant_id: merchantId,
-          page_slug: 'home',
-          page_name: 'Home',
-          draft_config: config,
-          published_config: config,
-          is_published: true,
-        });
+      const { error: pageConfigError } = await publishHomePage(config);
       if (pageConfigError) {
         logOnboardingFailure(pageConfigError, {
           stage: 'page_config_insert',

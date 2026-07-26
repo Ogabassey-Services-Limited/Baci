@@ -16,12 +16,8 @@ vi.mock('@/services/hero-image-generator', () => ({
 
 import { runDeferredOnboardingProvisioning } from './run-deferred-onboarding-provisioning';
 
-const adminClient = {
-  from: () => ({ insert: mocks.pageConfigInsert }),
-};
-
 const baseInput = {
-  adminClient,
+  publishHomePage: mocks.pageConfigInsert,
   merchantId: 'merch-1',
   merchantSlug: 'test',
   businessName: 'Test Store',
@@ -49,11 +45,7 @@ describe('runDeferredOnboardingProvisioning', () => {
 
     // Assert
     expect(mocks.pageConfigInsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        merchant_id: 'merch-1',
-        page_slug: 'home',
-        is_published: true,
-      })
+      expect.objectContaining({ root: {} })
     );
   });
 
