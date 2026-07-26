@@ -10,6 +10,7 @@ export function makeFakeCommand(mode) {
   const binDir = join(tempDir, 'bin');
   const attemptsFile = join(tempDir, 'attempts');
   const promotedFile = join(tempDir, 'promoted');
+  const promoteCountFile = join(tempDir, 'promote-count');
   mkdirSync(binDir, { recursive: true });
 
   const fakeVercelPath = join(binDir, 'fake-vercel');
@@ -21,6 +22,22 @@ export function makeFakeCommand(mode) {
 set -euo pipefail
 command="\${1:-}"
 if [ "$command" = "promote" ]; then
+  case "${mode}" in
+    *promote-flaky*)
+      pcount=0
+      if [ -f "${promoteCountFile}" ]; then pcount="$(cat "${promoteCountFile}")"; fi
+      pcount=$((pcount + 1))
+      echo "$pcount" > "${promoteCountFile}"
+      if [ "$pcount" -eq 1 ]; then
+        echo "transient promote failure" >&2
+        exit 1
+      fi
+      ;;
+    *promote-fails*)
+      echo "promote failed for \${2:-}" >&2
+      exit 1
+      ;;
+  esac
   echo "\${2:-}" > "${promotedFile}"
   echo "promoted \${2:-}"
   exit 0
@@ -71,6 +88,35 @@ case "${mode}" in
     fi
     echo "Error: custom deployment id already exists for this project" >&2
     exit 1
+    ;;
+  killed-137-after-create)
+    # Same, but exit 137 -- as timeout does when it escalates from TERM to
+    # SIGKILL against a hung, TERM-resistant deploy.
+    echo "Production: https://baci-hang.vercel.app"
+    exit 137
+    ;;
+  killed-137-promote-fails)
+    # Killed (137) with a URL, but promotion fails (see the promote branch) --
+    # models an unrelated/OOM kill whose deployment is not promotable, which must
+    # retry instead of being treated as a recovered timeout.
+    echo "Production: https://baci-hang.vercel.app"
+    exit 137
+    ;;
+  killed-137-promote-flaky)
+    # Killed (137) with a URL; the first promote fails transiently and the second
+    # succeeds (see the promote branch), so the SAME target is re-promoted rather
+    # than a new deploy being started.
+    echo "Production: https://baci-hang.vercel.app"
+    exit 137
+    ;;
+  hang-until-killed)
+    # A genuinely hanging deploy that only run_with_timeout's real timeout can
+    # stop -- the actual CLI-57 failure. The URL is emitted from a subshell whose
+    # exit flushes the pipe (so it survives in the log), then exec sleep makes the
+    # sleep THIS process (no orphaned child) so the timeout's signal terminates it
+    # cleanly.
+    ( echo "Production: https://baci-hang.vercel.app" )
+    exec sleep 3600
     ;;
   fatal)
     echo "fatal deploy failure" >&2

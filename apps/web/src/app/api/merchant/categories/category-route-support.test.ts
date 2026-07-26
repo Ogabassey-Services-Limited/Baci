@@ -2,17 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   getAuthenticatedUser: vi.fn(),
-  getMerchantForApiRequest: vi.fn(),
+  resolveCategoryOwnerAccess: vi.fn(),
 }));
 
 vi.mock('@/lib/supabase/mobile-auth', () => ({
   getAuthenticatedUser: mocks.getAuthenticatedUser,
 }));
-vi.mock('@/lib/get-merchant-for-api-request', () => ({
-  getMerchantForApiRequest: mocks.getMerchantForApiRequest,
-  toUserAccess: (ctx: { staffAccess: { isOwner?: boolean } }) => ({
-    isOwner: ctx.staffAccess.isOwner,
-  }),
+vi.mock('./resolve-category-owner-access', () => ({
+  resolveCategoryOwnerAccess: mocks.resolveCategoryOwnerAccess,
 }));
 
 import { z } from 'zod';
@@ -21,7 +18,6 @@ import {
   type CategoryRouteContext,
   firstValidationMessage,
   isParentCategoryOwnedByMerchant,
-  promoteChildrenToRoots,
   resolveCategoryRouteContext,
   wouldCreateCategoryCycle,
 } from './category-route-support';
@@ -33,12 +29,10 @@ function setUser(user: { id: string } | null) {
   mocks.getAuthenticatedUser.mockResolvedValue({ user, supabase: {} });
 }
 
-function setMerchant(overrides: Record<string, unknown> = {}) {
-  mocks.getMerchantForApiRequest.mockResolvedValue({
+function setMerchant() {
+  mocks.resolveCategoryOwnerAccess.mockResolvedValue({
+    kind: 'owner',
     merchantId: MERCHANT_ID,
-    merchantSlug: 'test-store',
-    staffAccess: { isOwner: true, isStaff: false },
-    ...overrides,
   });
 }
 
@@ -67,7 +61,7 @@ describe('resolveCategoryRouteContext', () => {
   });
 
   it('returns 404 when the user has no merchant', async () => {
-    mocks.getMerchantForApiRequest.mockResolvedValue(null);
+    mocks.resolveCategoryOwnerAccess.mockResolvedValue({ kind: 'absent' });
 
     const result = await resolveCategoryRouteContext(AUTH);
 
@@ -79,13 +73,7 @@ describe('resolveCategoryRouteContext', () => {
     it('denies staff even with broad permissions', async () => {
       // Deliberate: categories_merchant_* RLS has no staff branch, so allowing
       // staff here would diverge from the database and fail at the write.
-      setMerchant({
-        staffAccess: {
-          isOwner: false,
-          isStaff: true,
-          permissions: { full_access: { all: true } },
-        },
-      });
+      mocks.resolveCategoryOwnerAccess.mockResolvedValue({ kind: 'staff' });
 
       const result = await resolveCategoryRouteContext(AUTH);
 
@@ -100,16 +88,26 @@ describe('resolveCategoryRouteContext', () => {
   });
 
   it('forwards the asserted merchant id as a SELECTOR to the access-scoped lookup', async () => {
-    // getMerchantForApiRequest filters owned merchants by user_id and staff
-    // rows by active membership, so the id can only pick among merchants the
-    // caller already reaches — it never grants access.
+    // resolveCategoryOwnerAccess filters owners by user_id and staff by active
+    // membership, so the id only selects among merchants the caller reaches.
     await resolveCategoryRouteContext(AUTH, 'store-b');
 
-    expect(mocks.getMerchantForApiRequest).toHaveBeenCalledWith(
+    expect(mocks.resolveCategoryOwnerAccess).toHaveBeenCalledWith(
       expect.anything(),
       'user-1',
-      { requestedMerchantId: 'store-b' }
+      'store-b'
     );
+  });
+
+  it('returns 500 when merchant access lookup fails', async () => {
+    mocks.resolveCategoryOwnerAccess.mockResolvedValue({
+      kind: 'lookup-failed',
+    });
+
+    const result = await resolveCategoryRouteContext(AUTH);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.response.status).toBe(500);
   });
 });
 
@@ -148,7 +146,9 @@ describe('authenticateCategoryRequest', () => {
 });
 
 describe('isParentCategoryOwnedByMerchant', () => {
-  function supabaseReturning(data: { id: string; is_active?: boolean } | null) {
+  function supabaseReturning(
+    data: { id: string; is_active?: boolean | null } | null
+  ) {
     const maybeSingle = vi.fn().mockResolvedValue({ data, error: null });
     const eqMerchant = vi.fn(() => ({ maybeSingle }));
     const eqId = vi.fn(() => ({ eq: eqMerchant }));
@@ -191,6 +191,17 @@ describe('isParentCategoryOwnedByMerchant', () => {
     // Navigation walks down from `parent_id IS NULL`; a live child under a
     // tombstone is servable but invisible — the same orphaning DELETE avoids.
     const { client } = supabaseReturning({ id: 'parent-1', is_active: false });
+
+    await expect(
+      isParentCategoryOwnedByMerchant(client, MERCHANT_ID, 'parent-1')
+    ).resolves.toBe('retired');
+  });
+
+  it('rejects a null-active parent hidden by public reads', async () => {
+    const { client } = supabaseReturning({
+      id: 'parent-1',
+      is_active: null,
+    });
 
     await expect(
       isParentCategoryOwnedByMerchant(client, MERCHANT_ID, 'parent-1')
@@ -265,7 +276,7 @@ describe('wouldCreateCategoryCycle', () => {
 
     await expect(
       wouldCreateCategoryCycle(client, MERCHANT_ID, CATEGORY, CATEGORY)
-    ).resolves.toBe(true);
+    ).resolves.toBe('cycle');
   });
 
   it('rejects a parent that is a DESCENDANT of the category', async () => {
@@ -279,7 +290,7 @@ describe('wouldCreateCategoryCycle', () => {
 
     await expect(
       wouldCreateCategoryCycle(client, MERCHANT_ID, CATEGORY, 'grandchild')
-    ).resolves.toBe(true);
+    ).resolves.toBe('cycle');
   });
 
   it('accepts an unrelated parent', async () => {
@@ -287,7 +298,7 @@ describe('wouldCreateCategoryCycle', () => {
 
     await expect(
       wouldCreateCategoryCycle(client, MERCHANT_ID, CATEGORY, 'other')
-    ).resolves.toBe(false);
+    ).resolves.toBe('safe');
   });
 
   it('accepts a parent whose chain leaves this merchant', async () => {
@@ -297,7 +308,7 @@ describe('wouldCreateCategoryCycle', () => {
 
     await expect(
       wouldCreateCategoryCycle(client, MERCHANT_ID, CATEGORY, 'other')
-    ).resolves.toBe(false);
+    ).resolves.toBe('safe');
   });
 
   it('fails closed when an ancestor lookup ERRORS', async () => {
@@ -316,7 +327,7 @@ describe('wouldCreateCategoryCycle', () => {
 
     await expect(
       wouldCreateCategoryCycle(client, MERCHANT_ID, CATEGORY, 'other')
-    ).resolves.toBe(true);
+    ).resolves.toBe('lookup-failed');
   });
 
   it('fails closed on a pre-existing loop rather than spinning forever', async () => {
@@ -325,54 +336,6 @@ describe('wouldCreateCategoryCycle', () => {
 
     await expect(
       wouldCreateCategoryCycle(client, MERCHANT_ID, CATEGORY, 'a')
-    ).resolves.toBe(true);
-  });
-});
-
-describe('promoteChildrenToRoots', () => {
-  function supabaseDetaching(result: {
-    data?: Array<{ slug: string }> | null;
-    error?: { message: string } | null;
-  }) {
-    const select = vi.fn().mockResolvedValue({
-      data: result.data ?? [],
-      error: result.error ?? null,
-    });
-    const eqParent = vi.fn(() => ({ select }));
-    const eqMerchant = vi.fn(() => ({ eq: eqParent }));
-    const update = vi.fn(() => ({ eq: eqMerchant }));
-    return {
-      client: {
-        from: vi.fn(() => ({ update })),
-      } as unknown as CategoryRouteContext['supabase'],
-      update,
-      eqParent,
-    };
-  }
-
-  it('clears parent_id for every child and reports the count', async () => {
-    const { client, update, eqParent } = supabaseDetaching({
-      data: [{ slug: 'android' }, { slug: 'ios' }],
-    });
-
-    await expect(
-      promoteChildrenToRoots(client, MERCHANT_ID, 'parent-1', 'NOW')
-    ).resolves.toBe(2);
-
-    expect(update).toHaveBeenCalledWith({ parent_id: null, updated_at: 'NOW' });
-    expect(eqParent).toHaveBeenCalledWith('parent_id', 'parent-1');
-  });
-
-  it('returns null instead of throwing when the detach fails', async () => {
-    // The parent is already retired by the time this runs, so raising would
-    // misreport a committed mutation.
-    const { client } = supabaseDetaching({
-      data: null,
-      error: { message: 'timeout' },
-    });
-
-    await expect(
-      promoteChildrenToRoots(client, MERCHANT_ID, 'parent-1', 'NOW')
-    ).resolves.toBeNull();
+    ).resolves.toBe('cycle');
   });
 });

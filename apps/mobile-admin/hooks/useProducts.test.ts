@@ -108,7 +108,7 @@ vi.mock('@tanstack/react-query', () => ({
 }));
 
 // B1-lite: createCategory now posts to the web Route Handler (which owns
-// revalidation + edge purge) instead of inserting directly, so the api-client
+// origin cache revalidation) instead of inserting directly, so the api-client
 // must be mocked — importing it for real pulls in RN transport internals the
 // test environment cannot load.
 vi.mock('@/lib/api-client', () => ({
@@ -268,7 +268,7 @@ describe('useProducts branch semantics', () => {
     });
 
     // The category MOVE snapshot must reach the save layer so the OLD category's
-    // cached storefront URLs are also purged.
+    // cached storefront data is also revalidated.
     expect(mocks.updateProductRecord).toHaveBeenCalledWith({
       id: 'product-1',
       merchantId: 'merchant-1',

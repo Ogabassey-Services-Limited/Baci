@@ -1,19 +1,7 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { act, renderHook } from '@testing-library/react';
+import { createElement, type ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-interface MutationConfig {
-  mutationFn?: (variables: unknown) => unknown;
-}
-
-/** Captures each useMutation config so the mutationFn can be invoked directly. */
-const mutationConfigs: MutationConfig[] = [];
-
-vi.mock('@tanstack/react-query', () => ({
-  useMutation: (config: MutationConfig) => {
-    mutationConfigs.push(config);
-    return {};
-  },
-  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
-}));
 
 vi.mock('@/hooks/useMerchant', () => ({
   useMerchant: () => ({ merchant: { id: 'merchant-1' } }),
@@ -36,22 +24,22 @@ describe('useCreateCategory slug generation', () => {
     vi.clearAllMocks();
   });
 
-  // Named `use*` so the hook call inside satisfies the rules-of-hooks lint,
-  // matching how the suite already calls useProducts() directly.
-  async function useCategoryCreate(name: string) {
+  async function createCategory(name: string) {
     const { useCreateCategory } = await import('./useCreateCategory');
-    // The useMutation mock records each config; the last one is this hook's.
-    mutationConfigs.length = 0;
-    useCreateCategory();
-    const config = mutationConfigs.at(-1);
-    if (!config?.mutationFn) throw new Error('mutationFn not registered');
-    return config.mutationFn(name);
+    const queryClient = new QueryClient({
+      defaultOptions: { mutations: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+    const { result } = renderHook(() => useCreateCategory(), { wrapper });
+
+    return act(() => result.current.mutateAsync(name));
   }
 
   it('posts a route-compatible slug derived from the name', async () => {
     const { apiClient } = await import('@/lib/api-client');
 
-    await useCategoryCreate('Mobile Phones');
+    await createCategory('Mobile Phones');
 
     expect(apiClient).toHaveBeenCalledWith(
       '/api/merchant/categories',
@@ -68,7 +56,7 @@ describe('useCreateCategory slug generation', () => {
       const { apiClient } = await import('@/lib/api-client');
 
       // The old inline generator turned 手机 into '' and the route answered 400.
-      await expect(useCategoryCreate('手机')).rejects.toThrow(
+      await expect(createCategory('手机')).rejects.toThrow(
         /letters or numbers/i
       );
       expect(apiClient).not.toHaveBeenCalled();
@@ -77,7 +65,7 @@ describe('useCreateCategory slug generation', () => {
     it('bounds a very long name to the slug maximum the route accepts', async () => {
       const { apiClient } = await import('@/lib/api-client');
 
-      await useCategoryCreate(`${'word '.repeat(60)}end`);
+      await createCategory(`${'word '.repeat(60)}end`);
 
       const body = JSON.parse(
         (vi.mocked(apiClient).mock.calls[0]?.[1] as { body: string }).body

@@ -52,14 +52,27 @@ jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
 }));
 
-// This route test exercises the start flow directly, so the customer
-// already has a username — the username gate itself is covered by
-// components/quiz/QuizScreen.test.tsx and useQuizStartGate.test.ts.
-jest.mock('@/stores/auth-store', () => ({
-  useAuthStore: (
-    selector: (state: { customer: { username: string } }) => unknown
-  ) => selector({ customer: { username: 'ogafan' } }),
-}));
+// This route test exercises the start flow directly, so the customer already
+// has a username AND a date of birth — the username and 18+ date-of-birth gates
+// are covered by components/quiz/QuizScreen.test.tsx, useQuizStartGate.test.ts,
+// and useQuizDateOfBirthGate.test.ts.
+jest.mock('@/stores/auth-store', () => {
+  const getState = () => ({
+    customer: {
+      id: 'customer-1',
+      username: 'ogafan',
+      date_of_birth: '1990-06-15',
+    },
+    // useQuizStartFlow reads getState().user?.id to guard against account
+    // switches, so the mock must expose the static getState method too.
+    user: { id: 'quiz-shopper' },
+  });
+  const useAuthStore = (
+    selector: (state: ReturnType<typeof getState>) => unknown
+  ) => selector(getState());
+  useAuthStore.getState = getState;
+  return { useAuthStore };
+});
 
 jest.mock('@/services/quiz', () => ({
   fetchQuizEvents: jest.fn(async () => mockEvents),

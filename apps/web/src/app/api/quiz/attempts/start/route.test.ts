@@ -256,6 +256,26 @@ describe('start quiz attempt route', () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
+  it('returns 409 before the start RPC when expectedUserId does not match the session', async () => {
+    // Regression (is6TzDuB): an account switch while the POST is deferred (CSRF
+    // init/retry) would otherwise consume the NEW shopper's attempt. The pinned
+    // expectedUserId is rejected before any RPC mutation.
+    const { rpc } = mockAuthenticatedSupabase();
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      jsonRequest({
+        eventId: EVENT_ID,
+        expectedUserId: 'a-different-shopper',
+        integrityTier: 'device',
+      })
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ code: 'session_changed' });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
   it('rejects legacy clients before creating an attempt', async () => {
     const { rpc } = mockAuthenticatedSupabase();
     const request = new NextRequest(

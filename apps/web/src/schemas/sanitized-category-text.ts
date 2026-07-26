@@ -13,8 +13,10 @@ import { sanitizeText } from '@/lib/sanitize-core';
 export function sanitizedCategoryText(max: number) {
   return z
     .string()
-    .max(max)
-    .transform((value) => sanitizeText(value, max).trim());
+    .transform((value) => sanitizeText(value, Number.POSITIVE_INFINITY).trim())
+    .refine((value) => value.length <= max, {
+      message: `Must be at most ${max} characters`,
+    });
 }
 
 /** Required text: must survive sanitization with something left. */

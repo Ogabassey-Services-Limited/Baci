@@ -1,7 +1,9 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { invalidateCategoryCaches } from '@/lib/category-cache-invalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { createMerchantCategorySchema } from '@/schemas/create-merchant-category';
+import { categoryMutationErrorResponse } from './category-mutation-error-response';
 import {
   authenticateCategoryRequest,
   firstValidationMessage,
@@ -15,7 +17,7 @@ import { validateCategoryParent } from './validate-category-parent';
  * The mutation runs on the caller's AUTHENTICATED client, so RLS
  * (`categories_merchant_insert`, owner-scoped) is the final authority — the
  * route's owner check is defence in depth, not the only gate. On success the
- * category surfaces are revalidated and an edge purge is scheduled.
+ * category surfaces are revalidated at the origin.
  */
 export async function POST(request: NextRequest) {
   // Auth FIRST — before CSRF handling and before the body is read — so an
@@ -50,7 +52,7 @@ export async function POST(request: NextRequest) {
       {
         error: firstValidationMessage(parsed.error),
         code: 'INVALID_INPUT',
-        details: parsed.error.flatten(),
+        details: z.flattenError(parsed.error),
       },
       { status: 400 }
     );
@@ -127,31 +129,15 @@ export async function POST(request: NextRequest) {
     // A failed revive lookup is not "no tombstone": falling through would
     // report a duplicate-slug 409 for a transient database error, telling the
     // client to stop retrying something that would have succeeded.
-    if (revived.error) {
-      return NextResponse.json(
-        { error: 'Could not create the category' },
-        { status: 500 }
-      );
-    }
+    if (revived.error)
+      return categoryMutationErrorResponse(revived.error, 'create');
     if (revived.data) {
       data = revived.data;
       error = null;
     }
   }
 
-  if (error) {
-    const status = error.code === '23505' ? 409 : 500;
-    return NextResponse.json(
-      {
-        error:
-          status === 409
-            ? 'A category with that slug already exists'
-            : error.message,
-        code: status === 409 ? 'CATEGORY_SLUG_TAKEN' : undefined,
-      },
-      { status }
-    );
-  }
+  if (error) return categoryMutationErrorResponse(error, 'create');
   if (!data) {
     return NextResponse.json(
       { error: 'Category could not be created' },

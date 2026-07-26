@@ -23,7 +23,7 @@ describe('validateCategoryParent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.isParentCategoryOwnedByMerchant.mockResolvedValue('owned');
-    mocks.wouldCreateCategoryCycle.mockResolvedValue(false);
+    mocks.wouldCreateCategoryCycle.mockResolvedValue('safe');
   });
 
   it('accepts an owned, active, non-looping parent', async () => {
@@ -50,13 +50,24 @@ describe('validateCategoryParent', () => {
   });
 
   it('refuses a parent that would close a loop', async () => {
-    mocks.wouldCreateCategoryCycle.mockResolvedValue(true);
+    mocks.wouldCreateCategoryCycle.mockResolvedValue('cycle');
 
     const response = await validateCategoryParent(BASE);
 
     expect(response?.status).toBe(400);
     await expect(response?.json()).resolves.toMatchObject({
       code: 'PARENT_CYCLE',
+    });
+  });
+
+  it('returns 500 when the ancestor walk fails', async () => {
+    mocks.wouldCreateCategoryCycle.mockResolvedValue('lookup-failed');
+
+    const response = await validateCategoryParent(BASE);
+
+    expect(response?.status).toBe(500);
+    await expect(response?.json()).resolves.toEqual({
+      error: 'Could not verify the category hierarchy',
     });
   });
 

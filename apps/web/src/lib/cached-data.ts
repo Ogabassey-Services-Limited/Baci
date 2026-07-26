@@ -42,6 +42,7 @@ import {
   StorefrontReadUnavailableError,
   unwrapStorefrontReadResultForCache,
 } from '@/lib/storefront-read-result';
+import { STOREFRONT_SPECIAL_COLLECTION_SLUGS } from '@/lib/storefront-special-collection-slugs';
 import type { VariantAttributeSource } from '@/lib/storefront-specs/variant-attributes';
 import { createTimeoutComposedFetch } from '@/lib/supabase/compose-fetch-signal';
 import {
@@ -1594,12 +1595,7 @@ export const getStorefrontCategories = cache(
 
 const CATEGORY_PAGE_PRODUCT_DETAIL_CHUNK_SIZE = 48;
 const CATEGORY_PAGE_PRODUCT_DETAIL_CONCURRENCY = 3;
-const SPECIAL_COLLECTIONS = [
-  'new-arrivals',
-  'best-sellers',
-  'on-sale',
-  'featured',
-] as const;
+const SPECIAL_COLLECTIONS = STOREFRONT_SPECIAL_COLLECTION_SLUGS;
 
 type SpecialCollectionSlug = (typeof SPECIAL_COLLECTIONS)[number];
 

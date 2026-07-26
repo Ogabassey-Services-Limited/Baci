@@ -1,16 +1,19 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { invalidateCategoryCaches } from '@/lib/category-cache-invalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { logger } from '@/lib/logger';
 import { categoryIdParamSchema } from '@/schemas/category-id-param';
 import { merchantIdParamSchema } from '@/schemas/merchant-id-param';
 import { updateMerchantCategorySchema } from '@/schemas/update-merchant-category';
+import { categoryMutationErrorResponse } from '../category-mutation-error-response';
 import {
   authenticateCategoryRequest,
   firstValidationMessage,
-  promoteChildrenToRoots,
   resolveCategoryRouteContext,
 } from '../category-route-support';
 import { buildCategoryUpdatePayload } from '../category-update-payload';
+import { getCategoryChildSlugs } from '../get-category-child-slugs';
 import { validateCategoryParent } from '../validate-category-parent';
 
 interface RouteParams {
@@ -64,7 +67,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       {
         error: firstValidationMessage(parsed.error),
         code: 'INVALID_INPUT',
-        details: parsed.error.flatten(),
+        details: z.flattenError(parsed.error),
       },
       { status: 400 }
     );
@@ -103,7 +106,16 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     .maybeSingle();
 
   if (readError) {
-    return NextResponse.json({ error: readError.message }, { status: 500 });
+    logger.error({
+      message: 'Category lookup failed before update',
+      merchantId,
+      categoryId: categoryId.data,
+      error: readError.message,
+    });
+    return NextResponse.json(
+      { error: 'Could not load the category' },
+      { status: 500 }
+    );
   }
   if (!existing) {
     return NextResponse.json({ error: 'Category not found' }, { status: 404 });
@@ -114,6 +126,17 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     new Date().toISOString()
   );
 
+  const childSlugs =
+    parsed.data.isActive === false
+      ? await getCategoryChildSlugs(supabase, merchantId, categoryId.data)
+      : { ok: true as const, slugs: [] };
+  if (!childSlugs.ok) {
+    return NextResponse.json(
+      { error: 'Could not load child categories' },
+      { status: 500 }
+    );
+  }
+
   const { data, error } = await supabase
     .from('categories')
     .update(updates)
@@ -122,44 +145,21 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     .select('id, name, slug, is_active')
     .single();
 
-  if (error) {
-    const status = error.code === '23505' ? 409 : 500;
-    return NextResponse.json(
-      {
-        error:
-          status === 409
-            ? 'A category with that slug already exists'
-            : error.message,
-        code: status === 409 ? 'CATEGORY_SLUG_TAKEN' : undefined,
-      },
-      { status }
-    );
-  }
-
-  // A PATCH that deactivates is a retirement, so it owes the same subtree
-  // contract as DELETE: children of a deactivated parent would otherwise stay
-  // active but drop out of root-based navigation.
-  let detachedChildren: number | null = null;
-  if (parsed.data.isActive === false) {
-    detachedChildren = await promoteChildrenToRoots(
-      supabase,
-      merchantId,
-      categoryId.data,
-      String(updates.updated_at)
-    );
-  }
+  if (error) return categoryMutationErrorResponse(error, 'update');
 
   const invalidation = invalidateCategoryCaches({
     merchantId,
     previousSlug: existing.slug,
     nextSlug: data.slug,
+    relatedSlugs: childSlugs.slugs,
   });
 
   return NextResponse.json({
     category: data,
-    ...(detachedChildren !== null && { detachedChildren }),
-    childrenDetached:
-      parsed.data.isActive === false ? detachedChildren !== null : undefined,
+    ...(parsed.data.isActive === false && {
+      detachedChildren: childSlugs.slugs.length,
+      childrenDetached: true,
+    }),
     cache: invalidation,
   });
 }
@@ -225,6 +225,17 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   const { merchantId, supabase } = resolution.context;
 
   const retiredAt = new Date().toISOString();
+  const childSlugs = await getCategoryChildSlugs(
+    supabase,
+    merchantId,
+    categoryId.data
+  );
+  if (!childSlugs.ok) {
+    return NextResponse.json(
+      { error: 'Could not load child categories' },
+      { status: 500 }
+    );
+  }
   const { data: retired, error } = await supabase
     .from('categories')
     .update({ is_active: false, updated_at: retiredAt })
@@ -234,28 +245,22 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     .maybeSingle();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return categoryMutationErrorResponse(error, 'retire');
   }
   if (!retired) {
     return NextResponse.json({ error: 'Category not found' }, { status: 404 });
   }
 
-  const detachedChildren = await promoteChildrenToRoots(
-    supabase,
-    merchantId,
-    categoryId.data,
-    retiredAt
-  );
-
   const invalidation = invalidateCategoryCaches({
     merchantId,
     previousSlug: retired.slug,
+    relatedSlugs: childSlugs.slugs,
   });
 
   return NextResponse.json({
     deleted: { id: retired.id },
-    detachedChildren: detachedChildren ?? 0,
-    childrenDetached: detachedChildren !== null,
+    detachedChildren: childSlugs.slugs.length,
+    childrenDetached: true,
     cache: invalidation,
   });
 }

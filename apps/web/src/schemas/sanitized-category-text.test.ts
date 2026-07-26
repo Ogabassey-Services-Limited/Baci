@@ -30,6 +30,14 @@ describe('sanitizedCategoryText', () => {
     );
   });
 
+  it('checks the stored text length after removing markup', () => {
+    const result = sanitizedCategoryText(6).safeParse(
+      '<div><span>Phones</span></div>'
+    );
+
+    expect(result).toMatchObject({ success: true, data: 'Phones' });
+  });
+
   it('allows an empty result — description may legitimately be blank', () => {
     expect(sanitizedCategoryText(2000).safeParse('<b></b>').success).toBe(true);
   });

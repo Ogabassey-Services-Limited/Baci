@@ -2,18 +2,11 @@ import { MAX_CATEGORY_NAME_LENGTH } from '@baci/shared';
 import { z } from 'zod';
 import { categoryImageUrlSchema } from './category-image-url';
 import { categorySlugSchema } from './category-slug';
+import { merchantIdParamSchema } from './merchant-id-param';
 import {
   requiredCategoryText,
   sanitizedCategoryText,
 } from './sanitized-category-text';
-
-/**
- * A UUID, not any string: `getMerchantForApiRequest` compares this directly
- * against UUID columns, so `not-a-uuid` produced a driver-level filter error
- * that the resolver collapsed to `null` and the route misreported as a 404
- * merchant miss instead of a 400.
- */
-const merchantIdAssertion = z.uuid().optional();
 
 /**
  * Every field optional, but at least one must be present — an empty PATCH would
@@ -21,7 +14,7 @@ const merchantIdAssertion = z.uuid().optional();
  */
 export const updateMerchantCategorySchema = z
   .object({
-    merchantId: merchantIdAssertion,
+    merchantId: merchantIdParamSchema.optional(),
     name: requiredCategoryText(MAX_CATEGORY_NAME_LENGTH).optional(),
     slug: categorySlugSchema.optional(),
     description: sanitizedCategoryText(2000).nullish(),

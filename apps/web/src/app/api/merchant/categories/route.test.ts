@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   authenticateCategoryRequest: vi.fn(),
   resolveCategoryRouteContext: vi.fn(),
-  promoteChildrenToRoots: vi.fn(),
   validateCategoryParent: vi.fn(),
   checkCsrfProtection: vi.fn(),
   invalidateCategoryCaches: vi.fn(),
@@ -14,7 +13,6 @@ vi.mock('./category-route-support', async () => {
   return {
     authenticateCategoryRequest: mocks.authenticateCategoryRequest,
     resolveCategoryRouteContext: mocks.resolveCategoryRouteContext,
-    promoteChildrenToRoots: mocks.promoteChildrenToRoots,
     firstValidationMessage: (error: { issues: Array<{ message: string }> }) =>
       error.issues[0]?.message ?? 'Invalid input',
   };
@@ -124,7 +122,6 @@ describe('POST /api/merchant/categories', () => {
     setContext(supabaseInserting());
     mocks.checkCsrfProtection.mockResolvedValue({ valid: true });
     mocks.validateCategoryParent.mockResolvedValue(null);
-    mocks.promoteChildrenToRoots.mockResolvedValue(0);
     mocks.invalidateCategoryCaches.mockReturnValue({
       revalidatedSlugs: ['phones'],
       revalidated: true,

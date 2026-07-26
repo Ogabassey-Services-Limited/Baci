@@ -1,4 +1,3 @@
-import { deriveCategorySlug } from '@baci/shared';
 import {
   keepPreviousData,
   useInfiniteQuery,
@@ -6,12 +5,10 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import { apiClient } from '@/lib/api-client';
 import type {
   AdminProductSearchFilters,
   AdminProductStockFilter,
 } from '@/lib/product-search';
-import { sanitizeText } from '@/lib/sanitize';
 import { supabase } from '@/lib/supabase';
 import type { ProductFormValues } from '@/lib/validators/product';
 import { fetchProductDetail } from './product-detail-query';

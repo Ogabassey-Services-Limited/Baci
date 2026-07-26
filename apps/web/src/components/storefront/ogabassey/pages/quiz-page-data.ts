@@ -37,12 +37,15 @@ export async function fetchQuizEvents(merchantSlug: string) {
   return parsed.data.events;
 }
 
-export async function startQuizAttempt(eventId: string) {
+export async function startQuizAttempt(eventId: string, expectedUserId?: string) {
   const parsed = quizAttemptResponseSchema.safeParse(
     await apiPost<unknown>('/api/quiz/attempts/start', {
       entryMode: QUIZ_FREE_ENTRY_MODE,
       eventId,
       integrityTier: QUIZ_INTEGRITY_TIER,
+      // Pins the start to the initiating shopper; the route rejects (409) if the
+      // cookie session switched while the POST was deferred (CSRF init/retry).
+      ...(expectedUserId ? { expectedUserId } : {}),
     })
   );
   if (!parsed.success) throw new Error('Invalid quiz response');

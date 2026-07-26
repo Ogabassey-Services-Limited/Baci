@@ -59,6 +59,8 @@ export function RegisterAccountStep({
             placeholder="John"
             placeholderTextColor={colors.textMuted}
             autoCapitalize="words"
+            autoComplete="given-name"
+            textContentType="givenName"
             value={formData.firstName}
             onChangeText={(text) => updateForm('firstName', text)}
             returnKeyType="next"
@@ -75,6 +77,8 @@ export function RegisterAccountStep({
             placeholder="Doe"
             placeholderTextColor={colors.textMuted}
             autoCapitalize="words"
+            autoComplete="family-name"
+            textContentType="familyName"
             value={formData.lastName}
             onChangeText={(text) => updateForm('lastName', text)}
             returnKeyType="next"
@@ -94,6 +98,8 @@ export function RegisterAccountStep({
           placeholderTextColor={colors.textMuted}
           keyboardType="email-address"
           autoCapitalize="none"
+          autoComplete="email"
+          textContentType="emailAddress"
           value={formData.email}
           onChangeText={(text) => updateForm('email', text)}
           returnKeyType="next"
@@ -112,6 +118,15 @@ export function RegisterAccountStep({
             placeholder="••••••••"
             placeholderTextColor={colors.textMuted}
             secureTextEntry={!showPassword}
+            // Both password fields declare newPassword so iOS drives its
+            // create-account AutoFill flow deterministically instead of
+            // guessing from two adjacent secure fields — the guess is what
+            // leaves the fields stuck under the yellow AutoFill highlight.
+            // passwordRules keeps a generated password past validatePassword's
+            // "complexity" rule, which needs 10+ characters.
+            autoComplete="password-new"
+            textContentType="newPassword"
+            passwordRules="minlength: 10;"
             value={formData.password}
             onChangeText={(text) => updateForm('password', text)}
             returnKeyType="next"
@@ -144,6 +159,9 @@ export function RegisterAccountStep({
             placeholder="••••••••"
             placeholderTextColor={colors.textMuted}
             secureTextEntry={!showPassword}
+            autoComplete="password-new"
+            textContentType="newPassword"
+            passwordRules="minlength: 10;"
             value={formData.confirmPassword}
             onChangeText={(text) => updateForm('confirmPassword', text)}
             returnKeyType="done"

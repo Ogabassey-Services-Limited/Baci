@@ -34,10 +34,16 @@ export function invalidateCategoryCaches(input: {
   previousSlug?: string | null;
   /** Slug after the mutation, when the category still exists. */
   nextSlug?: string | null;
+  /** Child slugs whose hierarchy placement changed in the same transaction. */
+  relatedSlugs?: readonly string[];
 }): CategoryCacheInvalidationResult {
   const slugs = Array.from(
     new Set(
-      [input.previousSlug, input.nextSlug].filter(
+      [
+        input.previousSlug,
+        input.nextSlug,
+        ...(input.relatedSlugs ?? []),
+      ].filter(
         (slug): slug is string => typeof slug === 'string' && slug.length > 0
       )
     )
@@ -58,9 +64,16 @@ export function invalidateCategoryCaches(input: {
 
     // `feedScope: 'merchant'` evicts this merchant's feed entries without
     // churning every other merchant's.
-    productCacheRevalidation.revalidateProducts(input.merchantId, undefined, {
-      feedScope: 'merchant',
-    });
+    const productsRevalidated = productCacheRevalidation.revalidateProducts(
+      input.merchantId,
+      undefined,
+      {
+        feedScope: 'merchant',
+      }
+    );
+    if (!productsRevalidated) {
+      return { revalidatedSlugs: slugs, revalidated: false };
+    }
   } catch (error) {
     logger.error({
       message: 'Category revalidation failed AFTER the mutation committed',

@@ -64,4 +64,14 @@ describe('buildCategoryUpdatePayload', () => {
       is_active: false,
     });
   });
+
+  it('clears stale SEO fields when PATCH reactivates a category', () => {
+    expect(buildCategoryUpdatePayload({ isActive: true }, NOW)).toMatchObject({
+      is_active: true,
+      seo_description: null,
+      seo_faq: null,
+      seo_features: null,
+      seo_heading: null,
+    });
+  });
 });

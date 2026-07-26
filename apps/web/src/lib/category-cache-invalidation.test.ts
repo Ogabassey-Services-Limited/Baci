@@ -21,6 +21,7 @@ const MERCHANT_ID = 'merchant-1';
 describe('invalidateCategoryCaches', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.revalidateProducts.mockReturnValue(true);
   });
 
   it('revalidates both the old and new slug on a rename', () => {
@@ -54,6 +55,22 @@ describe('invalidateCategoryCaches', () => {
     expect(mocks.revalidateCategories).toHaveBeenCalledTimes(1);
   });
 
+  it('revalidates child slugs promoted by retirement', () => {
+    const result = invalidateCategoryCaches({
+      merchantId: MERCHANT_ID,
+      previousSlug: 'phones',
+      relatedSlugs: ['android', 'ios'],
+    });
+
+    for (const slug of ['phones', 'android', 'ios']) {
+      expect(mocks.revalidateCategories).toHaveBeenCalledWith(
+        MERCHANT_ID,
+        slug
+      );
+    }
+    expect(result.revalidatedSlugs).toEqual(['phones', 'android', 'ios']);
+  });
+
   it('falls back to a merchant-wide revalidation when no slug is known', () => {
     invalidateCategoryCaches({ merchantId: MERCHANT_ID });
 
@@ -75,6 +92,17 @@ describe('invalidateCategoryCaches', () => {
         undefined,
         { feedScope: 'merchant' }
       );
+    });
+
+    it('reports partial failure when product-tag invalidation fails', () => {
+      mocks.revalidateProducts.mockReturnValue(false);
+
+      const result = invalidateCategoryCaches({
+        merchantId: MERCHANT_ID,
+        previousSlug: 'phones',
+      });
+
+      expect(result.revalidated).toBe(false);
     });
 
     it('scopes feed eviction to this merchant', () => {
@@ -103,11 +131,13 @@ describe('invalidateCategoryCaches', () => {
         'utf8'
       );
 
-      // Inspect the IMPORT statements, not prose: the doc comment names the
-      // module it deliberately avoids.
-      const imports = source.match(/^import .*$/gm) ?? [];
-      expect(imports.join('\n')).not.toContain('cloudflare-purge');
-      expect(imports.join('\n')).not.toContain('@/lib/cache-revalidation');
+      // Capture both multi-line `from` imports and side-effect imports so a
+      // formatting change cannot hide a credential-reaching specifier.
+      const specifiers = Array.from(
+        source.matchAll(/(?:from\s+|import\s*)['"]([^'"]+)['"]/g)
+      ).map((match) => match[1]);
+      expect(specifiers).not.toContain('@/lib/cloudflare-purge');
+      expect(specifiers).not.toContain('@/lib/cache-revalidation');
     });
   });
 

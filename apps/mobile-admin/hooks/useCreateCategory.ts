@@ -34,9 +34,9 @@ export function useCreateCategory() {
 
       // B1-lite: go through the web Route Handler instead of inserting
       // directly. A direct insert only invalidated React Query, so the
-      // storefront's cached category surfaces (and the Cloudflare edge) kept
-      // serving stale data after a merchant added a category. The handler owns
-      // revalidation + best-effort purge. `merchantId` is sent only as an
+      // storefront's cached category surfaces kept serving stale data after a
+      // merchant added a category. The handler owns origin cache revalidation.
+      // `merchantId` is sent only as an
       // assertion the server 403s on if it disagrees with the session.
       const { category } = await apiClient<{
         category: { id: string; name: string; slug: string };

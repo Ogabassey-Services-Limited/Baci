@@ -66,7 +66,13 @@ export async function validateCategoryParent(options: {
     categoryId,
     parentId
   );
-  if (cycle) {
+  if (cycle === 'lookup-failed') {
+    return NextResponse.json(
+      { error: 'Could not verify the category hierarchy' },
+      { status: 500 }
+    );
+  }
+  if (cycle === 'cycle') {
     return NextResponse.json(
       {
         error: 'That parent would create a category loop',

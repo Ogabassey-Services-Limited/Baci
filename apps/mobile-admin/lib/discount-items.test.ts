@@ -217,6 +217,7 @@ describe('fetchSelectableItems', () => {
     ]);
 
     expect(mockFrom).toHaveBeenCalledWith('categories');
+    expect(query.eq).toHaveBeenCalledWith('is_active', true);
     expect(query.ilike).toHaveBeenCalledWith('name', '%phones%');
   });
 

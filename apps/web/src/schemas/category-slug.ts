@@ -1,5 +1,6 @@
 import { MAX_CATEGORY_SLUG_LENGTH } from '@baci/shared';
 import { z } from 'zod';
+import { STOREFRONT_SPECIAL_COLLECTION_SLUGS } from '@/lib/storefront-special-collection-slugs';
 
 /**
  * Storefront first-path segments a category slug must never take.
@@ -17,6 +18,7 @@ import { z } from 'zod';
  * and the colocated test pins the overlap so drift is visible.
  */
 export const RESERVED_CATEGORY_SLUGS = new Set<string>([
+  ...STOREFRONT_SPECIAL_COLLECTION_SLUGS,
   'about',
   'account',
   'api',

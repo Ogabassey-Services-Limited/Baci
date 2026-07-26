@@ -11,6 +11,12 @@ import {
 type QuizAgeGateModalProps = {
   open: boolean;
   submitting: boolean;
+  /**
+   * Disables Continue without showing the saving spinner: a prior submission's
+   * write is still settling (after a cancel + reopen), so a new submit would be
+   * a no-op until it releases. Cancel stays enabled.
+   */
+  disableSubmit?: boolean;
   /** Server-side error surfaced back to the modal (e.g. under-18 rejection). */
   serverError: string | null;
   onCancel: () => void;
@@ -27,6 +33,7 @@ type QuizAgeGateModalProps = {
 export function QuizAgeGateModal({
   open,
   submitting,
+  disableSubmit = false,
   serverError,
   onCancel,
   onSubmit,
@@ -165,7 +172,11 @@ export function QuizAgeGateModal({
           >
             Cancel
           </button>
-          <button className={primaryButton} disabled={submitting} type="submit">
+          <button
+            className={primaryButton}
+            disabled={submitting || disableSubmit}
+            type="submit"
+          >
             {submitting ? 'Saving…' : 'Continue'}
           </button>
         </div>

@@ -1,11 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { ZodError } from 'zod';
-import {
-  getMerchantForApiRequest,
-  toUserAccess,
-} from '@/lib/get-merchant-for-api-request';
-import { logger } from '@/lib/logger';
 import { getAuthenticatedUser } from '@/lib/supabase/mobile-auth';
+import { resolveCategoryOwnerAccess } from './resolve-category-owner-access';
 
 /**
  * Shared authorization for category management (B1-lite).
@@ -14,8 +10,9 @@ import { getAuthenticatedUser } from '@/lib/supabase/mobile-auth';
  * `categories_merchant_insert/update/delete` are RLS-scoped to
  * `merchants.user_id = auth.uid()` with no staff branch, so owner-only is the
  * one choice that needs NO RLS widening and cannot diverge from the database.
- * The retirement plan explicitly forbids granting `settings:edit` merely so a
- * purge can run. To let permitted staff manage categories later, change
+ * The retirement plan explicitly forbids granting `settings:edit` merely to
+ * reuse an unrelated cache-management surface. To let permitted staff manage
+ * categories later, change
  * `isCategoryManager` AND the three RLS policies together — enforcing the same
  * rule at both boundaries is the whole point.
  */
@@ -45,10 +42,6 @@ export interface CategoryRequestAuth {
 export type CategoryAuthResolution =
   | { ok: true; auth: CategoryRequestAuth }
   | { ok: false; response: NextResponse };
-
-function isCategoryManager(access: { isOwner?: boolean }): boolean {
-  return access.isOwner === true;
-}
 
 /**
  * Authenticate ONLY. Runs as the first statement of every handler, before CSRF
@@ -93,14 +86,21 @@ export async function resolveCategoryRouteContext(
   requestedMerchantId?: string
 ): Promise<CategoryRouteResolution> {
   const { supabase } = auth;
-  const merchantContext = await getMerchantForApiRequest(
+  const access = await resolveCategoryOwnerAccess(
     supabase,
     auth.userId,
-    {
-      requestedMerchantId: requestedMerchantId ?? null,
-    }
+    requestedMerchantId
   );
-  if (!merchantContext) {
+  if (access.kind === 'lookup-failed') {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { error: 'Could not resolve merchant access' },
+        { status: 500 }
+      ),
+    };
+  }
+  if (access.kind === 'absent') {
     return {
       ok: false,
       response: NextResponse.json(
@@ -110,7 +110,7 @@ export async function resolveCategoryRouteContext(
     };
   }
 
-  if (!isCategoryManager(toUserAccess(merchantContext))) {
+  if (access.kind === 'staff') {
     return {
       ok: false,
       response: NextResponse.json(
@@ -123,7 +123,7 @@ export async function resolveCategoryRouteContext(
   return {
     ok: true,
     context: {
-      merchantId: merchantContext.merchantId,
+      merchantId: access.merchantId,
       supabase,
     },
   };
@@ -168,43 +168,7 @@ export async function isParentCategoryOwnedByMerchant(
   // the child servable but absent from navigation, which walks down from
   // `parent_id IS NULL` roots — the same orphaning DELETE goes out of its way
   // to prevent.
-  return data.is_active === false ? 'retired' : 'owned';
-}
-
-/**
- * Promote a retired category's children to roots.
- *
- * Storefront navigation walks DOWN from `parent_id IS NULL`, so a child still
- * pointing at a deactivated parent is neither retired nor reachable — invisible
- * with no route back. Used by DELETE and by a PATCH that deactivates.
- *
- * Never throws: the parent is already retired by the time this runs, so raising
- * would misreport a committed mutation. Returns how many rows moved, or null
- * when the detach itself failed.
- */
-export async function promoteChildrenToRoots(
-  supabase: CategoryRouteContext['supabase'],
-  merchantId: string,
-  parentId: string,
-  updatedAt: string
-): Promise<number | null> {
-  const { data, error } = await supabase
-    .from('categories')
-    .update({ parent_id: null, updated_at: updatedAt })
-    .eq('merchant_id', merchantId)
-    .eq('parent_id', parentId)
-    .select('slug');
-
-  if (error) {
-    logger.error({
-      message: 'Failed to detach children of a retired category',
-      merchantId,
-      categoryId: parentId,
-      error: error.message,
-    });
-    return null;
-  }
-  return data?.length ?? 0;
+  return data.is_active === true ? 'owned' : 'retired';
 }
 
 /**
@@ -225,14 +189,16 @@ const MAX_CATEGORY_DEPTH = 32;
  * from the merchant's own navigation. Walk UP from the proposed parent: if we
  * reach the category being edited, the edge would close a loop.
  */
+export type CategoryCycleResult = 'safe' | 'cycle' | 'lookup-failed';
+
 export async function wouldCreateCategoryCycle(
   supabase: CategoryRouteContext['supabase'],
   merchantId: string,
   categoryId: string,
   parentId: string
-): Promise<boolean> {
+): Promise<CategoryCycleResult> {
   if (parentId === categoryId) {
-    return true;
+    return 'cycle';
   }
 
   let cursor: string | null = parentId;
@@ -240,10 +206,10 @@ export async function wouldCreateCategoryCycle(
 
   for (let depth = 0; depth < MAX_CATEGORY_DEPTH; depth += 1) {
     if (cursor === null) {
-      return false;
+      return 'safe';
     }
     if (seen.has(cursor)) {
-      return true;
+      return 'cycle';
     }
     seen.add(cursor);
 
@@ -261,19 +227,19 @@ export async function wouldCreateCategoryCycle(
     // here would let a transient error write the very edge this guard exists to
     // prevent, so an unreadable chain fails CLOSED.
     if (result.error) {
-      return true;
+      return 'lookup-failed';
     }
 
     // A missing row means the chain leaves this merchant — ownership is checked
     // separately, and there is no path back to `categoryId` from here.
     if (!result.data) {
-      return false;
+      return 'safe';
     }
     cursor = result.data.parent_id;
   }
 
   // Depth bound hit: the existing chain is already looping or pathological.
-  return true;
+  return 'cycle';
 }
 
 /**

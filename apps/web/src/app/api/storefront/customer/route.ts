@@ -4,35 +4,13 @@ import { z } from 'zod';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { resolveMerchantIdBySlugOrAlias } from '@/lib/resolve-merchant-by-slug';
 import { createClient } from '@/lib/supabase/server';
-import { dateOfBirthSchema } from '@/schemas/customer-date-of-birth';
+import { customerProfilePatchSchema } from '@/schemas/customer-profile-patch';
 
 /**
  * Customer Profile API
  *
  * PATCH - Update customer profile
  */
-
-const savedAddressSchema = z.object({
-  id: z.string().min(1),
-  label: z.string().min(1),
-  full_name: z.string().min(1),
-  phone: z.string().min(1),
-  address: z.string().min(1),
-  city: z.string().min(1),
-  state: z.string().min(1),
-  country: z.string().min(1),
-  postal_code: z.string().optional(),
-  is_default: z.boolean().optional(),
-});
-
-const patchBodySchema = z.object({
-  merchantSlug: z.string().min(1, 'Merchant slug is required'),
-  first_name: z.string().optional(),
-  last_name: z.string().optional(),
-  phone: z.string().optional(),
-  date_of_birth: dateOfBirthSchema.optional(),
-  saved_addresses: z.array(savedAddressSchema).optional(),
-});
 
 export async function PATCH(request: NextRequest) {
   try {
@@ -69,7 +47,7 @@ export async function PATCH(request: NextRequest) {
     } catch {
       return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
     }
-    const parseResult = patchBodySchema.safeParse(body);
+    const parseResult = customerProfilePatchSchema.safeParse(body);
 
     if (!parseResult.success) {
       return NextResponse.json(
@@ -85,7 +63,21 @@ export async function PATCH(request: NextRequest) {
       phone,
       date_of_birth,
       saved_addresses,
+      expected_user_id,
     } = parseResult.data;
+
+    // Bind the write to the shopper the caller intended: if the cookie session
+    // switched to a different user after the form was captured, reject rather
+    // than writing this data onto the new account.
+    if (expected_user_id !== undefined && expected_user_id !== user.id) {
+      return NextResponse.json(
+        {
+          error: 'Your session changed. Please try again.',
+          code: 'session_changed',
+        },
+        { status: 409 }
+      );
+    }
 
     // 3. Get merchant (alias-aware: a stale client on a just-renamed store passes
     // the retired slug in the body, which the proxy can't rewrite — resolve it via
@@ -97,12 +89,16 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Store not found' }, { status: 404 });
     }
 
-    // Get customer record for this merchant
+    // Get customer record for this merchant — live rows only. A soft-deleted
+    // account (deleted_at set) must not be writable: the mobile RPC and
+    // start_quiz_attempt both exclude deleted customers, so resurrecting one
+    // here would let the quiz gate close on a row the server then rejects.
     const { data: customer, error: customerError } = await supabase
       .from('customers')
       .select('id')
       .eq('merchant_id', merchantId)
       .eq('user_id', user.id)
+      .is('deleted_at', null)
       .single();
 
     if (customerError || !customer) {
@@ -137,17 +133,32 @@ export async function PATCH(request: NextRequest) {
       updateData.saved_addresses = saved_addresses;
     }
 
-    // Update customer
-    const { error: updateError } = await supabase
+    // Update customer. Reassert `deleted_at IS NULL` on the write itself: the
+    // row could be soft-deleted between the lookup above and here, and .select()
+    // lets us confirm a live row actually matched instead of reporting a false
+    // success on zero affected rows.
+    const { data: updated, error: updateError } = await supabase
       .from('customers')
       .update(updateData)
-      .eq('id', customer.id);
+      .eq('id', customer.id)
+      .is('deleted_at', null)
+      .select('id')
+      .maybeSingle();
 
     if (updateError) {
       console.error('Customer update error:', updateError);
       return NextResponse.json(
         { error: 'Failed to update profile' },
         { status: 500 }
+      );
+    }
+
+    if (!updated) {
+      // No live row matched — the account was soft-deleted between the lookup
+      // and the update. Report not-found rather than a phantom success.
+      return NextResponse.json(
+        { error: 'Customer not found' },
+        { status: 404 }
       );
     }
 

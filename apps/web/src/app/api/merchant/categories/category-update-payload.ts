@@ -23,6 +23,12 @@ export function buildCategoryUpdatePayload(
   if (input.displayOrder !== undefined)
     updates.display_order = input.displayOrder;
   if (input.isActive !== undefined) updates.is_active = input.isActive;
+  if (input.isActive === true) {
+    updates.seo_description = null;
+    updates.seo_faq = null;
+    updates.seo_features = null;
+    updates.seo_heading = null;
+  }
 
   return updates;
 }

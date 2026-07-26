@@ -31,6 +31,15 @@ describe('categorySlugSchema', () => {
   });
 
   describe('reserved storefront segments', () => {
+    it.each([
+      'new-arrivals',
+      'best-sellers',
+      'on-sale',
+      'featured',
+    ])('rejects the virtual collection slug %s', (slug) => {
+      expect(categorySlugSchema.safeParse(slug).success).toBe(false);
+    });
+
     it('rejects every reserved slug', () => {
       // A category slugged `cart` is unreachable at its own URL: the STATIC
       // route wins over the dynamic category route.

@@ -4,9 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   authenticateCategoryRequest: vi.fn(),
   resolveCategoryRouteContext: vi.fn(),
-  promoteChildrenToRoots: vi.fn(),
+  getCategoryChildSlugs: vi.fn(),
   validateCategoryParent: vi.fn(),
-  wouldCreateCategoryCycle: vi.fn(),
   checkCsrfProtection: vi.fn(),
   invalidateCategoryCaches: vi.fn(),
 }));
@@ -15,14 +14,15 @@ vi.mock('../category-route-support', async () => {
   return {
     authenticateCategoryRequest: mocks.authenticateCategoryRequest,
     resolveCategoryRouteContext: mocks.resolveCategoryRouteContext,
-    promoteChildrenToRoots: mocks.promoteChildrenToRoots,
-    wouldCreateCategoryCycle: mocks.wouldCreateCategoryCycle,
     firstValidationMessage: (error: { issues: Array<{ message: string }> }) =>
       error.issues[0]?.message ?? 'Invalid input',
   };
 });
 vi.mock('../validate-category-parent', () => ({
   validateCategoryParent: mocks.validateCategoryParent,
+}));
+vi.mock('../get-category-child-slugs', () => ({
+  getCategoryChildSlugs: mocks.getCategoryChildSlugs,
 }));
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: mocks.checkCsrfProtection,
@@ -44,8 +44,6 @@ interface TableState {
   updateError?: { code?: string; message: string } | null;
   deleted?: { id: string; slug: string } | null;
   deleteError?: { message: string } | null;
-  /** Rows the children-detach update reports. */
-  detached?: Array<{ slug: string }>;
 }
 
 /** Captures the patch handed to `.update()`. */
@@ -69,13 +67,7 @@ function supabaseFor(state: TableState) {
         })),
       })),
       update: vi.fn((row: Record<string, unknown>) => {
-        // The children-detach update sets parent_id and is not the row under
-        // test, so it must not clobber `updatedRow`.
-        if (
-          !('parent_id' in row && row.parent_id === null && !('name' in row))
-        ) {
-          updatedRow = row;
-        }
+        updatedRow = row;
         const result = {
           data:
             state.deleted === undefined
@@ -87,16 +79,9 @@ function supabaseFor(state: TableState) {
           eq: vi.fn(() => ({
             eq: vi.fn(() => ({
               // Distinguished by projection. PATCH selects the full row
-              // and calls single(); the DELETE tombstone selects 'id, slug'
-              // and calls maybeSingle(); the children-detach update selects
-              // 'slug' and awaits the builder directly.
+              // and calls single(); DELETE selects 'id, slug' and calls
+              // maybeSingle().
               select: vi.fn((columns: string) => {
-                if (columns === 'slug') {
-                  return Promise.resolve({
-                    data: state.detached ?? [],
-                    error: null,
-                  });
-                }
                 if (columns === 'id, slug') {
                   return { maybeSingle: vi.fn().mockResolvedValue(result) };
                 }
@@ -179,8 +164,7 @@ beforeEach(() => {
   setContext();
   mocks.checkCsrfProtection.mockResolvedValue({ valid: true });
   mocks.validateCategoryParent.mockResolvedValue(null);
-  mocks.promoteChildrenToRoots.mockResolvedValue(0);
-  mocks.wouldCreateCategoryCycle.mockResolvedValue(false);
+  mocks.getCategoryChildSlugs.mockResolvedValue({ ok: true, slugs: [] });
   mocks.invalidateCategoryCaches.mockReturnValue({
     revalidatedSlugs: ['phones', 'mobile-phones'],
     revalidated: true,
@@ -303,12 +287,15 @@ describe('PATCH /api/merchant/categories/[categoryId]', () => {
   });
 
   describe('a deactivating PATCH owes the same subtree contract as DELETE', () => {
-    it('promotes children when isActive is set to false', async () => {
-      mocks.promoteChildrenToRoots.mockResolvedValue(3);
+    it('reports the children promoted by the atomic lifecycle trigger', async () => {
+      mocks.getCategoryChildSlugs.mockResolvedValue({
+        ok: true,
+        slugs: ['android', 'ios', 'tablets'],
+      });
 
       const response = await PATCH(patchRequest({ isActive: false }), params());
 
-      expect(mocks.promoteChildrenToRoots).toHaveBeenCalled();
+      expect(mocks.getCategoryChildSlugs).toHaveBeenCalled();
       await expect(response.json()).resolves.toMatchObject({
         detachedChildren: 3,
       });
@@ -317,7 +304,7 @@ describe('PATCH /api/merchant/categories/[categoryId]', () => {
     it('leaves children alone for an ordinary rename', async () => {
       await PATCH(patchRequest({ slug: 'mobile-phones' }), params());
 
-      expect(mocks.promoteChildrenToRoots).not.toHaveBeenCalled();
+      expect(mocks.getCategoryChildSlugs).not.toHaveBeenCalled();
     });
   });
 
@@ -341,10 +328,13 @@ describe('DELETE /api/merchant/categories/[categoryId]', () => {
   });
 
   describe('bugfix: children of a retired parent became unreachable', () => {
-    it('promotes children to roots so they stay browsable', async () => {
+    it('reports promoted children and invalidates their slugs', async () => {
       // Navigation walks DOWN from `parent_id IS NULL`; a child still pointing
       // at a retired parent is neither retired nor reachable.
-      mocks.promoteChildrenToRoots.mockResolvedValue(2);
+      mocks.getCategoryChildSlugs.mockResolvedValue({
+        ok: true,
+        slugs: ['android', 'ios'],
+      });
 
       const response = await DELETE(deleteRequest(), params());
 
@@ -352,17 +342,18 @@ describe('DELETE /api/merchant/categories/[categoryId]', () => {
         detachedChildren: 2,
         childrenDetached: true,
       });
+      expect(mocks.invalidateCategoryCaches).toHaveBeenCalledWith(
+        expect.objectContaining({ relatedSlugs: ['android', 'ios'] })
+      );
     });
 
-    it('still reports success when the detach itself fails', async () => {
-      mocks.promoteChildrenToRoots.mockResolvedValue(null);
+    it('fails before retirement when child cache identities cannot be read', async () => {
+      mocks.getCategoryChildSlugs.mockResolvedValue({ ok: false });
 
       const response = await DELETE(deleteRequest(), params());
 
-      expect(response.status).toBe(200);
-      await expect(response.json()).resolves.toMatchObject({
-        childrenDetached: false,
-      });
+      expect(response.status).toBe(500);
+      expect(updatedRow).toBeNull();
     });
 
     it('accepts a merchantId selector so multi-store owners can delete', async () => {
