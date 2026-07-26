@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { verify } from 'node:crypto';
 import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
@@ -29,7 +30,7 @@ test('mints a signed short-lived App JWT from sealed owner inputs', async (t) =>
     path.join(directory, 'verify-owner-cli.sh'),
     'utf8'
   );
-  const root = await mkdtemp('/private/tmp/baci-cwv-jwt-test-');
+  const root = await mkdtemp(path.join(tmpdir(), 'baci-cwv-jwt-test-'));
   t.after(() => rm(root, { force: true, recursive: true }));
   await chmod(root, 0o700);
   const privateKey = path.join(root, 'private-key.pem');
