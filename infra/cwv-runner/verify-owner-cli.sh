@@ -142,6 +142,13 @@ verify_source_receipt() (
     (*) refuse;;
   esac
 )
+verify_preflight_manifest() {
+  manifest=$1 manifest_sha=$2 policy=$3
+  canonical=$(/usr/bin/jq -cS 'def exact($wanted):(keys|sort)==($wanted|sort); def hex($size):type=="string" and length==$size and test("^[0-9a-f]+$"); def positive_integer:type=="number" and .>0 and floor==.; def archive_entry:exact(["blobSha256","mode","path"]) and (.blobSha256|hex(64)) and (.mode=="100644" or .mode=="100755") and (.path|type=="string" and startswith("infra/cwv-runner/")); def changed_entry:((.status=="D" and exact(["absent","path","status"]) and .absent==true) or ((.status=="A" or .status=="M") and exact(["blobSha256","mode","path","status"]) and (.blobSha256|hex(64)) and (.mode=="100644" or .mode=="100755"))) and (.path|type=="string" and length>0); select(exact(["authority","baseSha","entries","policyCanonicalSha256","policyFileSha256","prNumber","reviewedHeadSha","schemaVersion","sourceArchive"]) and .schemaVersion=="preflight-v1" and (.prNumber|positive_integer) and (.reviewedHeadSha|hex(40)) and (.baseSha|hex(40)) and (.policyCanonicalSha256|hex(64)) and (.policyFileSha256|hex(64)) and (.authority|exact(["deploymentMarker","deploymentRunAttempt","deploymentRunId","implementationBaseSha","normativeContractPath","normativeContractSha256"]) and (.deploymentMarker|type=="string" and length>0) and (.deploymentRunAttempt|positive_integer) and (.deploymentRunId|positive_integer) and (.implementationBaseSha|hex(40)) and (.normativeContractPath|type=="string" and length>0) and (.normativeContractSha256|hex(64))) and (.entries|type=="array" and all(.[];changed_entry)) and (.sourceArchive|exact(["entries","prefix"]) and .prefix=="infra/cwv-runner/" and (.entries|type=="array" and length>0 and all(.[];archive_entry))))' "$manifest" 2>/dev/null) || refuse
+  [ "$(/usr/bin/printf '%s' "$canonical" | /usr/bin/shasum -a 256 | /usr/bin/awk '{print $1}')" = "$manifest_sha" ] || refuse
+  policy_canonical=$(/usr/bin/jq -cS . "$policy" 2>/dev/null) || refuse; [ "$(/usr/bin/printf '%s' "$policy_canonical" | /usr/bin/shasum -a 256 | /usr/bin/awk '{print $1}')" = "$(json_get "$manifest" policyCanonicalSha256)" ] || refuse
+  [ "$(/usr/bin/jq -cS .authority "$manifest" 2>/dev/null)" = "$(/usr/bin/jq -cS .authority "$policy" 2>/dev/null)" ] || refuse
+}
 verify_source() {
   manifest='' manifest_sha='' policy='' dispatcher='' verifier='' purpose='' output='' output_digest=''
   while [ "$#" -gt 0 ]; do
@@ -161,20 +168,19 @@ verify_source() {
   [ "$output_digest" = "$root/source-authorization.sha256" ] && [ "$output" = "$root/source-authorization.json" ] || refuse
   for file in "$manifest" "$policy" "$dispatcher" "$verifier"; do assert_child "$root" "$file"; done
   [ "$(sha256 "$manifest")" = "$manifest_sha" ] || refuse
-  [ "$(json_get "$manifest" schema)" = preflight-v1 ] || refuse
+  verify_preflight_manifest "$manifest" "$manifest_sha" "$policy"
   policy_sha=$(sha256 "$policy")
   [ "$(json_get "$manifest" policyFileSha256)" = "$policy_sha" ] || refuse
-  expected_paths='infra/cwv-runner/owner-dispatch.sh infra/cwv-runner/policy.json infra/cwv-runner/verify-owner-cli.sh'
-  index=0
+  expected_paths='infra/cwv-runner/owner-dispatch.sh infra/cwv-runner/policy.json infra/cwv-runner/verify-owner-cli.sh'; archive_count=$(xml_count "$manifest" sourceArchive.entries 'count(/plist/array/*)'); case $archive_count in (*[!0-9]*|'') refuse;; esac; [ "$archive_count" -gt 0 ] || refuse
   for expected_path in $expected_paths; do
-    case $index in (0|2) expected_mode=100755;; (1) expected_mode=100644;; (*) refuse;; esac
-    [ "$(json_get "$manifest" "sourceArchive.entries.$index.path")" = "$expected_path" ] || refuse
-    [ "$(json_get "$manifest" "sourceArchive.entries.$index.mode")" = "$expected_mode" ] || refuse
-    case $index in (0) source=$dispatcher;; (1) source=$policy;; (2) source=$verifier;; esac
-    [ "$(json_get "$manifest" "sourceArchive.entries.$index.sha256")" = "$(sha256 "$source")" ] || refuse
-    index=$((index + 1))
+    case $expected_path in (*/owner-dispatch.sh) expected_mode=100755 source=$dispatcher;; (*/policy.json) expected_mode=100644 source=$policy;; (*/verify-owner-cli.sh) expected_mode=100755 source=$verifier;; (*) refuse;; esac
+    index=0 matches=0
+    while [ "$index" -lt "$archive_count" ]; do candidate=$(json_get "$manifest" "sourceArchive.entries.$index.path")
+      if [ "$candidate" = "$expected_path" ]; then matches=$((matches + 1)); [ "$(json_get "$manifest" "sourceArchive.entries.$index.mode")" = "$expected_mode" ] && [ "$(json_get "$manifest" "sourceArchive.entries.$index.blobSha256")" = "$(sha256 "$source")" ] || refuse; fi
+      index=$((index + 1))
+    done
+    [ "$matches" -eq 1 ] || refuse
   done
-  /usr/bin/plutil -extract sourceArchive.entries.3 raw -o - "$manifest" >/dev/null 2>&1 && refuse
   tx=$(/usr/bin/basename -- "$root"); operations=$(operation_set "$purpose")
   operations_sha=$(printf '%s' "$operations" | /usr/bin/shasum -a 256 | /usr/bin/awk '{print $1}')
   receipt=$(/usr/bin/printf '{"generation":0,"operationSet":%s,"operationSetDigest":"%s","policyFileSha256":"%s","provenance":{"manifestSha256":"%s","nodeProvenanceSha256":null,"runtimeSha256":null,"sourceArchiveSha256":null},"purpose":"%s","schemaVersion":1,"sourceBinding":null,"sourceHashes":{"bootstrapSha256":null,"dispatcherSha256":"%s","transportSha256":null,"verifierSha256":"%s"},"transactionId":"%s"}' "$operations" "$operations_sha" "$policy_sha" "$manifest_sha" "$purpose" "$(sha256 "$dispatcher")" "$(sha256 "$verifier")" "$tx")
