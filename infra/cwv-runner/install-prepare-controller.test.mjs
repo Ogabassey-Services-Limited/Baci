@@ -219,6 +219,42 @@ test('refuses a prepare file mutated in place after its content is read', async 
   );
 });
 
+test('bugfix: refuses same-length in-place bytes that retain the observed metadata', async (context) => {
+  const root = await mkdtemp(join(tmpdir(), 'baci-prepare-byte-race-'));
+  context.after(async () =>
+    import('node:fs/promises').then(({ rm }) =>
+      rm(root, { recursive: true, force: true })
+    )
+  );
+  await chmod(root, 0o700);
+  const target = join(root, 'prepare-a');
+  await writeFile(target, 'trusted', { mode: 0o600 });
+  const stable = await lstat(target, { bigint: true });
+  let reads = 0;
+
+  await assert.rejects(
+    () =>
+      buildOwnedPrepareReceipt(root, 'prepare-a', 'file', false, {
+        lstat: async (path, options) =>
+          path === target ? stable : await lstat(path, options),
+        open: async (...args) => {
+          const handle = await open(...args);
+          return {
+            close: () => handle.close(),
+            readFile: async () => {
+              const bytes = await handle.readFile();
+              if (++reads === 1) await writeFile(target, 'mutated');
+              return bytes;
+            },
+            stat: async () => stable,
+          };
+        },
+        readdir,
+      }),
+    /changed/
+  );
+});
+
 test('does not accept a target before copied and synthetic proofs', async (context) => {
   const directory = await mkdtemp(join(tmpdir(), 'baci-prepare-refuse-'));
   context.after(async () =>

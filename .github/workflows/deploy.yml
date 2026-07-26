@@ -64,6 +64,9 @@ jobs:
             cwv_runner:
               - 'infra/cwv-runner/**'
               - '.github/scripts/cwv-runner-*.mjs'
+              - '.github/scripts/canonical-json.mjs'
+              - '.github/scripts/policy.schema.mjs'
+              - '.github/scripts/actionlint-runner-label-contract.test.mjs'
               - 'package.json'
               - 'pnpm-lock.yaml'
               - '.github/workflows/actionlint.yml'
@@ -85,7 +88,7 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/pnpm-install-cached
       - name: Run CWV runner contract tests
-        run: node --test --test-concurrency=1 infra/cwv-runner/*.test.mjs .github/scripts/cwv-runner-*.test.mjs
+        run: node --test --test-concurrency=1 infra/cwv-runner/*.test.mjs .github/scripts/cwv-runner-*.test.mjs .github/scripts/actionlint-runner-label-contract.test.mjs
       - name: Check CWV runner formatting
         run: pnpm exec biome check infra/cwv-runner .github/scripts/cwv-runner-*.mjs
       - name: Run CWV workflow actionlint

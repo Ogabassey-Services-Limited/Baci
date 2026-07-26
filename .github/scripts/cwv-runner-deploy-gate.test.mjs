@@ -58,7 +58,7 @@ test('blocks an infra-only CWV runner deploy until the complete CWV contract sui
     assert.deepEqual(gate.needs, ['changes']);
     assert.match(
       step(gate, 'Run CWV runner contract tests').run,
-      /^node --test --test-concurrency=1 infra\/cwv-runner\/\*\.test\.mjs \.github\/scripts\/cwv-runner-\*\.test\.mjs$/,
+      /^node --test --test-concurrency=1 infra\/cwv-runner\/\*\.test\.mjs \.github\/scripts\/cwv-runner-\*\.test\.mjs \.github\/scripts\/actionlint-runner-label-contract\.test\.mjs$/,
     );
     assert.equal(
       step(gate, 'Check CWV runner formatting').run,

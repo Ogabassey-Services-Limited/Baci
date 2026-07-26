@@ -36,7 +36,7 @@ function requireStableNode(expected, actual, type) {
     throw new Error('owned prepare resource changed during snapshot');
 }
 
-async function readStableFile(path, expected, filesystem) {
+async function readHeldFile(path, expected, filesystem) {
   const handle = await filesystem.open(
     path,
     constants.O_RDONLY | constants.O_NOFOLLOW
@@ -54,6 +54,19 @@ async function readStableFile(path, expected, filesystem) {
   } finally {
     await handle.close();
   }
+}
+
+async function readStableFile(path, expected, filesystem) {
+  const first = await readHeldFile(path, expected, filesystem);
+  const second = await readHeldFile(path, expected, filesystem);
+  if (!first.equals(second))
+    throw new Error('owned prepare resource changed during snapshot');
+  requireStableNode(
+    expected,
+    await filesystem.lstat(path, { bigint: true }),
+    'file'
+  );
+  return first;
 }
 
 async function treeHash(root, expected, filesystem) {

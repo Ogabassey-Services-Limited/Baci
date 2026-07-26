@@ -107,6 +107,9 @@ jobs:
             cwv_runner:
               - 'infra/cwv-runner/**'
               - '.github/scripts/cwv-runner-*.mjs'
+              - '.github/scripts/canonical-json.mjs'
+              - '.github/scripts/policy.schema.mjs'
+              - '.github/scripts/actionlint-runner-label-contract.test.mjs'
               - 'package.json'
               - 'pnpm-lock.yaml'
               - '.github/workflows/actionlint.yml'
@@ -198,7 +201,7 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/pnpm-install-cached
       - name: Run CWV runner contract tests
-        run: node --test --test-concurrency=1 infra/cwv-runner/*.test.mjs .github/scripts/cwv-runner-*.test.mjs
+        run: node --test --test-concurrency=1 infra/cwv-runner/*.test.mjs .github/scripts/cwv-runner-*.test.mjs .github/scripts/actionlint-runner-label-contract.test.mjs
       - name: Check CWV runner formatting
         run: pnpm exec biome check infra/cwv-runner .github/scripts/cwv-runner-*.mjs
       - name: Run CWV workflow actionlint
@@ -446,7 +449,7 @@ jobs:
 
   quality:
     name: Quality Gate
-    needs: [changes, quality-lint, quality-typecheck, quality-test, quality-test-web, quality-misc, mobile-quality, silent-revert-guard]
+    needs: [changes, cwv-runner-contracts, quality-lint, quality-typecheck, quality-test, quality-test-web, quality-misc, mobile-quality, silent-revert-guard]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -454,6 +457,7 @@ jobs:
       - name: Verify split quality gate results
         env:
           CHANGES_RESULT: ${{ needs.changes.result }}
+          CWV_RUNNER_CONTRACTS_RESULT: ${{ needs['cwv-runner-contracts'].result }}
           LINT_RESULT: ${{ needs['quality-lint'].result }}
           TYPECHECK_RESULT: ${{ needs['quality-typecheck'].result }}
           TEST_RESULT: ${{ needs['quality-test'].result }}
@@ -469,7 +473,7 @@ jobs:
             exit 1
           fi
 
-          for result in "$LINT_RESULT" "$TYPECHECK_RESULT" "$TEST_RESULT" "$WEB_TEST_RESULT" "$MISC_RESULT" "$MOBILE_QUALITY_RESULT" "$SILENT_REVERT_GUARD_RESULT"; do
+          for result in "$CWV_RUNNER_CONTRACTS_RESULT" "$LINT_RESULT" "$TYPECHECK_RESULT" "$TEST_RESULT" "$WEB_TEST_RESULT" "$MISC_RESULT" "$MOBILE_QUALITY_RESULT" "$SILENT_REVERT_GUARD_RESULT"; do
             case "$result" in
               success|skipped)
                 ;;

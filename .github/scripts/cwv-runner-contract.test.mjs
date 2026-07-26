@@ -21,6 +21,12 @@ const expressionPaths = (value, expression, path = '') => {
   if (value === null || typeof value !== 'object') return [];
   return Object.entries(value).flatMap(([key, nested]) => expressionPaths(nested, expression, path ? `${path}.${key}` : key));
 };
+const filterPaths = (workflow, name) => {
+  const source = workflow.jobs.changes.steps.find((step) => step.id === 'filter').with.filters;
+  const match = source.match(new RegExp(`^${name}:\\n(?<paths>(?:  - .+\\n?)+)`, 'm'));
+
+  return match?.groups?.paths ?? '';
+};
 const readRepositorySources = async () => {
   const workflows = Object.fromEntries(await Promise.all(workflowSourceNames(await readdir(new URL('.github/workflows/', root))).map(async (name) => [name, await readFile(new URL(`.github/workflows/${name}`, root), 'utf8')])));
   return {
@@ -50,6 +56,35 @@ test('YAML workflow contract parser declares its direct runtime dependency', asy
     lockfile.importers['.'].devDependencies.yaml.specifier,
     workspace.overrides.yaml
   );
+});
+
+test('CI and deploy gate every direct CWV dependency and aggregate its contract result', async () => {
+  const { workflows } = await readRepositorySources();
+  const ci = YAML.parse(workflows['ci.yml']);
+  const deploy = YAML.parse(workflows['deploy.yml']);
+  const requiredPaths = [
+    'infra/cwv-runner/**',
+    '.github/scripts/canonical-json.mjs',
+    '.github/scripts/policy.schema.mjs',
+    '.github/scripts/actionlint-runner-label-contract.test.mjs',
+  ];
+
+  for (const workflow of [ci, deploy]) {
+    const paths = filterPaths(workflow, 'cwv_runner');
+    for (const path of requiredPaths) assert.ok(paths.includes(`'${path}'`), `${path} must trigger the CWV contract gate`);
+    assert.match(
+      workflow.jobs['cwv-runner-contracts'].steps.find((step) => step.name === 'Run CWV runner contract tests').run,
+      /\.github\/scripts\/actionlint-runner-label-contract\.test\.mjs/,
+    );
+  }
+
+  const quality = ci.jobs.quality;
+  assert.ok(quality.needs.includes('cwv-runner-contracts'));
+  assert.equal(
+    quality.steps[0].env.CWV_RUNNER_CONTRACTS_RESULT,
+    "${{ needs['cwv-runner-contracts'].result }}",
+  );
+  assert.match(quality.steps[0].run, /"\$CWV_RUNNER_CONTRACTS_RESULT"/);
 });
 
 test('workflow discovery includes portable YAML file names and extensions', () => {
