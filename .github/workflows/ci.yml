@@ -36,6 +36,7 @@ jobs:
       test_plan_reason: ${{ steps.test-plan.outputs.reason }}
       web: ${{ steps.gate.outputs.web }}
       quiz_db: ${{ steps.gate.outputs.quiz_db }}
+      deploy_scripts: ${{ steps.gate.outputs.deploy_scripts }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -103,6 +104,14 @@ jobs:
               - '.github/scripts/split-sql-statements.test.mjs'
               - '.github/scripts/check-migration-versions.sh'
               - '.github/scripts/check-migration-versions.test.sh'
+            deploy_scripts:
+              - '.github/scripts/deploy-with-retry.sh'
+              - '.github/scripts/deploy-with-retry.test.mjs'
+              - '.github/scripts/deploy-with-retry.test-helpers.mjs'
+              - '.github/scripts/deploy-with-retry.run-script.mjs'
+              - '.github/scripts/run-pinned-vercel.sh'
+              - '.github/scripts/run-pinned-vercel.test.mjs'
+              - '.github/workflows/deploy.yml'
             web:
               - 'apps/web/**'
               - 'apps/mobile-storefront/assets/quiz/**'
@@ -144,6 +153,7 @@ jobs:
           FILTER_MOBILE_STOREFRONT: ${{ steps.filter.outputs.mobile_storefront }}
           FILTER_WEB: ${{ steps.filter.outputs.web }}
           FILTER_QUIZ_DB: ${{ steps.filter.outputs.quiz_db }}
+          FILTER_DEPLOY_SCRIPTS: ${{ steps.filter.outputs.deploy_scripts }}
         run: |
           set -euo pipefail
           if [ "$EVENT_NAME" = "merge_group" ]; then
@@ -151,17 +161,20 @@ jobs:
             mobile_storefront=true
             web=true
             quiz_db=true
+            deploy_scripts=true
           else
             mobile_admin="${FILTER_MOBILE_ADMIN:-false}"
             mobile_storefront="${FILTER_MOBILE_STOREFRONT:-false}"
             web="${FILTER_WEB:-false}"
             quiz_db="${FILTER_QUIZ_DB:-false}"
+            deploy_scripts="${FILTER_DEPLOY_SCRIPTS:-false}"
           fi
           {
             echo "mobile_admin=$mobile_admin"
             echo "mobile_storefront=$mobile_storefront"
             echo "web=$web"
             echo "quiz_db=$quiz_db"
+            echo "deploy_scripts=$deploy_scripts"
           } >> "$GITHUB_OUTPUT"
       - name: Resolve test plan
         id: test-plan
@@ -311,7 +324,7 @@ jobs:
   quality-misc:
     name: Quality Gate - Misc
     needs: [changes]
-    if: (needs.changes.outputs.web == 'true' || needs.changes.outputs.mobile_storefront == 'true' || needs.changes.outputs.quiz_db == 'true') && needs.changes.outputs.test_plan_mode != 'config-smoke'
+    if: (needs.changes.outputs.web == 'true' || needs.changes.outputs.mobile_storefront == 'true' || needs.changes.outputs.quiz_db == 'true' || needs.changes.outputs.deploy_scripts == 'true') && needs.changes.outputs.test_plan_mode != 'config-smoke'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -332,6 +345,12 @@ jobs:
       - name: Run CI Test Planner Unit Tests
         if: needs.changes.outputs.web == 'true'
         run: node --test .github/scripts/resolve-ci-test-plan.test.mjs .github/scripts/resolve-ci-test-plan-config.test.mjs
+      - name: Test Vercel Deploy Scripts
+        if: needs.changes.outputs.deploy_scripts == 'true'
+        run: >-
+          node --test
+          .github/scripts/deploy-with-retry.test.mjs
+          .github/scripts/run-pinned-vercel.test.mjs
       - name: Verify Quiz Assets
         if: needs.changes.outputs.web == 'true' || needs.changes.outputs.quiz_db == 'true'
         run: pnpm --filter @baci/web verify:quiz-assets
