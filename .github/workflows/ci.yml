@@ -110,6 +110,7 @@ jobs:
               - '.github/scripts/deploy-with-retry.test-helpers.mjs'
               - '.github/scripts/deploy-with-retry.run-script.mjs'
               - '.github/scripts/run-pinned-vercel.sh'
+              - '.github/scripts/run-pinned-vercel.test.mjs'
               - '.github/workflows/deploy.yml'
             web:
               - 'apps/web/**'
