@@ -1,4 +1,3 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -31,160 +30,24 @@ vi.mock('@/lib/category-cache-invalidation', () => ({
   invalidateCategoryCaches: mocks.invalidateCategoryCaches,
 }));
 
-import { DELETE, PATCH } from './route';
+import { PATCH } from './route';
+import {
+  CATEGORY_ID,
+  createCategoryRouteTestHarness,
+} from './route-test-harness';
 
-const MERCHANT_ID = 'merchant-1';
-const CATEGORY_ID = '22222222-2222-4222-8222-222222222222';
 const PARENT_ID = '11111111-1111-4111-8111-111111111111';
-
-interface TableState {
-  /** Row returned by the pre-mutation read (null => 404). */
-  existing?: {
-    id: string;
-    slug: string;
-    is_active?: boolean | null;
-    updated_at?: string | null;
-  } | null;
-  updated?: Record<string, unknown> | null;
-  updateError?: { code?: string; message: string } | null;
-  deleted?: { id: string; slug: string } | null;
-  deleteError?: { message: string } | null;
-}
-
-/** Captures the patch handed to `.update()`. */
-let updatedRow: Record<string, unknown> | null = null;
-
-function supabaseFor(state: TableState) {
-  const existing =
-    state.existing === undefined
-      ? {
-          id: CATEGORY_ID,
-          slug: 'phones',
-          is_active: true,
-          updated_at: '2026-07-26T10:00:00.000Z',
-        }
-      : state.existing;
-
-  return {
-    from: vi.fn(() => ({
-      select: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            maybeSingle: vi
-              .fn()
-              .mockResolvedValue({ data: existing, error: null }),
-          })),
-        })),
-      })),
-      update: vi.fn((row: Record<string, unknown>) => {
-        updatedRow = row;
-        const result = {
-          data:
-            state.deleted === undefined
-              ? { id: CATEGORY_ID, slug: 'phones' }
-              : state.deleted,
-          error: state.deleteError ?? null,
-        };
-        return {
-          eq: vi.fn(() => ({
-            eq: vi.fn(() => {
-              const select = vi.fn((columns: string) => {
-                if (columns === 'id, slug') {
-                  return { maybeSingle: vi.fn().mockResolvedValue(result) };
-                }
-                return {
-                  maybeSingle: vi.fn().mockResolvedValue({
-                    data:
-                      state.updated === undefined
-                        ? state.updateError
-                          ? null
-                          : {
-                              id: CATEGORY_ID,
-                              name: 'Phones',
-                              slug: 'mobile-phones',
-                              is_active: true,
-                            }
-                        : state.updated,
-                    error: state.updateError ?? null,
-                  }),
-                };
-              });
-              return {
-                select,
-                eq: vi.fn(() => ({
-                  select,
-                  eq: vi.fn(() => ({ select })),
-                  is: vi.fn(() => ({ select })),
-                })),
-              };
-            }),
-          })),
-        };
-      }),
-    })),
-  };
-}
-
-function setContext(state: TableState = {}) {
-  const supabase = supabaseFor(state);
-  mocks.authenticateCategoryRequest.mockResolvedValue({
-    ok: true,
-    auth: { userId: 'user-1', supabase },
-  });
-  mocks.resolveCategoryRouteContext.mockResolvedValue({
-    ok: true,
-    context: {
-      merchantId: MERCHANT_ID,
-      supabase,
-    },
-  });
-}
-
-function params(categoryId = CATEGORY_ID) {
-  return { params: Promise.resolve({ categoryId }) };
-}
-
-function patchRequest(body: unknown) {
-  return new NextRequest(
-    `https://baci.app/api/merchant/categories/${CATEGORY_ID}`,
-    {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
-    }
-  );
-}
-
-const MERCHANT_UUID = '33333333-3333-4333-8333-333333333333';
-
-function deleteRequest(merchantId?: string) {
-  const query = merchantId ? `?merchantId=${merchantId}` : '';
-  return new NextRequest(
-    `https://baci.app/api/merchant/categories/${CATEGORY_ID}${query}`,
-    { method: 'DELETE' }
-  );
-}
-
-const UNAUTHORIZED = {
-  ok: false,
-  response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
-};
-
-function setUnauthenticated() {
-  mocks.authenticateCategoryRequest.mockResolvedValue(UNAUTHORIZED);
-}
+const {
+  getUpdatedRow,
+  params,
+  patchRequest,
+  reset,
+  setContext,
+  setUnauthenticated,
+} = createCategoryRouteTestHarness(mocks);
 
 beforeEach(() => {
-  vi.clearAllMocks();
-  updatedRow = null;
-  setContext();
-  mocks.checkCsrfProtection.mockResolvedValue({ valid: true });
-  mocks.validateCategoryParent.mockResolvedValue(null);
-  mocks.getCategoryChildSlugs.mockResolvedValue({ ok: true, slugs: [] });
-  mocks.invalidateCategoryCaches.mockReturnValue({
-    revalidatedSlugs: ['phones', 'mobile-phones'],
-    revalidated: true,
-  });
+  reset();
 });
 
 describe('PATCH /api/merchant/categories/[categoryId]', () => {
@@ -196,7 +59,7 @@ describe('PATCH /api/merchant/categories/[categoryId]', () => {
     const response = await PATCH(patchRequest({ isActive: true }), params());
 
     expect(response.status).toBe(400);
-    expect(updatedRow).toBeNull();
+    expect(getUpdatedRow()).toBeNull();
     await expect(response.json()).resolves.toMatchObject({
       code: 'INVALID_INPUT',
     });
@@ -335,15 +198,15 @@ describe('PATCH /api/merchant/categories/[categoryId]', () => {
       params()
     );
 
-    expect(String(updatedRow?.name)).not.toContain('<script>');
-    expect(String(updatedRow?.description)).not.toContain('onerror');
+    expect(String(getUpdatedRow()?.name)).not.toContain('<script>');
+    expect(String(getUpdatedRow()?.description)).not.toContain('onerror');
   });
 
   it('rejects a rename to markup-only text instead of blanking the name', async () => {
     const response = await PATCH(patchRequest({ name: '<b></b>' }), params());
 
     expect(response.status).toBe(400);
-    expect(updatedRow).toBeNull();
+    expect(getUpdatedRow()).toBeNull();
   });
 
   describe('a deactivating PATCH owes the same subtree contract as DELETE', () => {
@@ -374,99 +237,5 @@ describe('PATCH /api/merchant/categories/[categoryId]', () => {
     const response = await PATCH(patchRequest({ slug: 'taken' }), params());
 
     expect(response.status).toBe(409);
-  });
-});
-
-describe('DELETE /api/merchant/categories/[categoryId]', () => {
-  it('retires the category and invalidates the removed slug', async () => {
-    const response = await DELETE(deleteRequest(), params());
-
-    expect(response.status).toBe(200);
-    expect(mocks.invalidateCategoryCaches).toHaveBeenCalledWith(
-      expect.objectContaining({ previousSlug: 'phones' })
-    );
-  });
-
-  describe('bugfix: children of a retired parent became unreachable', () => {
-    it('reports promoted children and invalidates their slugs', async () => {
-      // Navigation walks DOWN from `parent_id IS NULL`; a child still pointing
-      // at a retired parent is neither retired nor reachable.
-      mocks.getCategoryChildSlugs.mockResolvedValue({
-        ok: true,
-        slugs: ['android', 'ios'],
-      });
-
-      const response = await DELETE(deleteRequest(), params());
-
-      await expect(response.json()).resolves.toMatchObject({
-        detachedChildren: 2,
-        childrenDetached: true,
-      });
-      expect(mocks.invalidateCategoryCaches).toHaveBeenCalledWith(
-        expect.objectContaining({ relatedSlugs: ['android', 'ios'] })
-      );
-    });
-
-    it('fails before retirement when child cache identities cannot be read', async () => {
-      mocks.getCategoryChildSlugs.mockResolvedValue({ ok: false });
-
-      const response = await DELETE(deleteRequest(), params());
-
-      expect(response.status).toBe(500);
-      expect(updatedRow).toBeNull();
-    });
-
-    it('accepts a merchantId selector so multi-store owners can delete', async () => {
-      // Without it, getMerchantForApiRequest picks the owner's most recent
-      // store and every other store 404s.
-      await DELETE(deleteRequest(MERCHANT_UUID), params());
-
-      expect(mocks.resolveCategoryRouteContext).toHaveBeenCalledWith(
-        expect.objectContaining({ userId: 'user-1' }),
-        MERCHANT_UUID
-      );
-    });
-
-    it('rejects a non-UUID merchantId selector with 400', async () => {
-      const response = await DELETE(deleteRequest('not-a-uuid'), params());
-
-      expect(response.status).toBe(400);
-    });
-  });
-
-  describe('bugfix: a hard delete revives the category URL', () => {
-    it('tombstones the row instead of removing it', async () => {
-      // Removing the row makes getCachedCategoryPageShellData fall back to
-      // `{ kind: 'legacy' }`, which matches products on the retained
-      // `products.category` text — the "deleted" page keeps serving them.
-      // An INACTIVE row maps to `{ kind: 'none' }`, i.e. genuinely empty.
-      await DELETE(deleteRequest(), params());
-
-      expect(updatedRow).toMatchObject({ is_active: false });
-    });
-  });
-
-  it('returns 401 before CSRF handling', async () => {
-    setUnauthenticated();
-
-    const response = await DELETE(deleteRequest(), params());
-
-    expect(response.status).toBe(401);
-    expect(mocks.checkCsrfProtection).not.toHaveBeenCalled();
-  });
-
-  it('rejects a malformed categoryId with 400', async () => {
-    const response = await DELETE(deleteRequest(), params('not-a-uuid'));
-
-    expect(response.status).toBe(400);
-  });
-
-  it('returns 404 when nothing was deleted', async () => {
-    setContext({ deleted: null });
-
-    const response = await DELETE(deleteRequest(), params());
-
-    expect(response.status).toBe(404);
-    expect(mocks.invalidateCategoryCaches).not.toHaveBeenCalled();
   });
 });

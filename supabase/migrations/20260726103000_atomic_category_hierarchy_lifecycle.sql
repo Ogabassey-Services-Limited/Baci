@@ -2,9 +2,22 @@
 --
 -- These triggers run as the authenticated caller (SECURITY INVOKER), so the
 -- existing owner-only categories/products/product_categories/discount_codes
--- RLS policies remain the authority. The merchant-scoped advisory lock
--- serializes competing hierarchy writes without introducing a privileged
--- application client.
+-- RLS policies remain the authority. Category writes are rare and the
+-- statement trigger takes a table-level write lock before PostgreSQL locks any
+-- target row, avoiding row-lock/advisory-lock inversions while preserving
+-- transactional hierarchy validation.
+
+CREATE OR REPLACE FUNCTION private.lock_category_writes_before_statement()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+BEGIN
+  LOCK TABLE public.categories IN SHARE ROW EXCLUSIVE MODE;
+  RETURN NULL;
+END;
+$$;
 
 CREATE OR REPLACE FUNCTION private.enforce_category_hierarchy_before_write()
 RETURNS trigger
@@ -15,10 +28,6 @@ AS $$
 DECLARE
   v_cycle_detected boolean := false;
 BEGIN
-  PERFORM pg_catalog.pg_advisory_xact_lock(
-    pg_catalog.hashtextextended(NEW.merchant_id::text, 0)
-  );
-
   IF NEW.parent_id IS NOT NULL
      AND (
        TG_OP = 'INSERT'
@@ -84,11 +93,13 @@ BEGIN
     END IF;
   END IF;
 
-  -- Reusing a retired row must not republish its former SEO copy or retain
-  -- product memberships from its previous meaning.
+  -- Only POST tombstone reuse changes the meaning of an existing row. An
+  -- ordinary PATCH reactivation preserves the category's product assignments.
   IF TG_OP = 'UPDATE'
      AND NEW.is_active IS TRUE
      AND OLD.is_active IS DISTINCT FROM TRUE
+     AND COALESCE(NEW.metadata, '{}'::jsonb)
+       @> '{"_baci_reused_tombstone": true}'::jsonb
   THEN
     NEW.seo_heading := NULL;
     NEW.seo_description := NULL;
@@ -102,6 +113,20 @@ BEGIN
 
     DELETE FROM public.product_categories
     WHERE category_id = NEW.id;
+
+    NEW.metadata := COALESCE(NEW.metadata, '{}'::jsonb)
+      - '_baci_reused_tombstone';
+  END IF;
+
+  -- Renaming back to a previously retired slug consumes that inactive
+  -- tombstone atomically; the AFTER trigger then tombstones the slug being
+  -- replaced. A live target still reaches the uniqueness constraint.
+  IF TG_OP = 'UPDATE' AND NEW.slug IS DISTINCT FROM OLD.slug THEN
+    DELETE FROM public.categories
+    WHERE merchant_id = NEW.merchant_id
+      AND slug = NEW.slug
+      AND id IS DISTINCT FROM NEW.id
+      AND is_active IS DISTINCT FROM TRUE;
   END IF;
 
   RETURN NEW;
@@ -192,6 +217,14 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS categories_write_lock_before_statement
+  ON public.categories;
+CREATE TRIGGER categories_write_lock_before_statement
+BEFORE INSERT OR UPDATE
+ON public.categories
+FOR EACH STATEMENT
+EXECUTE FUNCTION private.lock_category_writes_before_statement();
+
 DROP TRIGGER IF EXISTS categories_hierarchy_before_write
   ON public.categories;
 CREATE TRIGGER categories_hierarchy_before_write
@@ -211,4 +244,6 @@ EXECUTE FUNCTION private.apply_category_lifecycle_after_update();
 REVOKE ALL ON FUNCTION private.enforce_category_hierarchy_before_write()
   FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION private.apply_category_lifecycle_after_update()
+  FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION private.lock_category_writes_before_statement()
   FROM PUBLIC, anon, authenticated;

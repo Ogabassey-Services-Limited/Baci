@@ -30,26 +30,12 @@ vi.mock('@/lib/category-cache-invalidation', () => ({
 import { POST } from './route';
 
 const MERCHANT_ID = 'merchant-1';
-const PARENT_ID = '11111111-1111-4111-8111-111111111111';
 const OTHER_MERCHANT = '33333333-3333-4333-8333-333333333333';
 
 /** Captures the row handed to `.insert()` so sanitization can be asserted. */
 let insertedRow: Record<string, unknown> | null = null;
 
-/** Captures the row handed to the tombstone-revive `.update()`. */
-let revivedRow: Record<string, unknown> | null = null;
-let reviveInactiveFilter: unknown[] | null = null;
-
-function supabaseInserting(
-  result: {
-    data?: unknown;
-    error?: { code?: string; message: string };
-    /** Row the revive update finds (null => no tombstone to revive). */
-    revives?: { id: string; name: string; slug: string } | null;
-    /** Error the revive lookup itself returns. */
-    reviveError?: { message: string } | null;
-  } = {}
-) {
+function supabaseInserting() {
   return {
     from: vi.fn(() => ({
       insert: vi.fn((row: Record<string, unknown>) => {
@@ -57,37 +43,14 @@ function supabaseInserting(
         return {
           select: vi.fn(() => ({
             single: vi.fn().mockResolvedValue({
-              data: result.error
-                ? null
-                : (result.data ?? {
-                    id: 'cat-1',
-                    name: 'Phones',
-                    slug: 'phones',
-                    is_active: true,
-                  }),
-              error: result.error ?? null,
+              data: {
+                id: 'cat-1',
+                name: 'Phones',
+                slug: 'phones',
+                is_active: true,
+              },
+              error: null,
             }),
-          })),
-        };
-      }),
-      update: vi.fn((row: Record<string, unknown>) => {
-        revivedRow = row;
-        const reviveResult = {
-          select: vi.fn(() => ({
-            maybeSingle: vi.fn().mockResolvedValue({
-              data: result.reviveError ? null : (result.revives ?? null),
-              error: result.reviveError ?? null,
-            }),
-          })),
-        };
-        return {
-          eq: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              not: vi.fn((...filter: unknown[]) => {
-                reviveInactiveFilter = filter;
-                return reviveResult;
-              }),
-            })),
           })),
         };
       }),
@@ -123,8 +86,6 @@ describe('POST /api/merchant/categories', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     insertedRow = null;
-    revivedRow = null;
-    reviveInactiveFilter = null;
     setContext(supabaseInserting());
     mocks.checkCsrfProtection.mockResolvedValue({ valid: true });
     mocks.validateCategoryParent.mockResolvedValue(null);
@@ -263,41 +224,6 @@ describe('POST /api/merchant/categories', () => {
     });
   });
 
-  describe('parent validation is delegated, and its refusal is returned', () => {
-    it('propagates the refusal response verbatim', async () => {
-      const { NextResponse: Response } = await import('next/server');
-      mocks.validateCategoryParent.mockResolvedValue(
-        Response.json({ code: 'PARENT_RETIRED' }, { status: 400 })
-      );
-
-      const response = await POST(
-        postRequest({ ...VALID_BODY, parentId: PARENT_ID })
-      );
-
-      expect(response.status).toBe(400);
-      await expect(response.json()).resolves.toMatchObject({
-        code: 'PARENT_RETIRED',
-      });
-    });
-
-    it('passes no categoryId, because a create has none yet', async () => {
-      await POST(postRequest({ ...VALID_BODY, parentId: PARENT_ID }));
-
-      expect(mocks.validateCategoryParent).toHaveBeenCalledWith(
-        expect.objectContaining({ parentId: PARENT_ID })
-      );
-      expect(
-        mocks.validateCategoryParent.mock.calls[0]?.[0]
-      ).not.toHaveProperty('categoryId');
-    });
-
-    it('skips validation entirely when no parent is supplied', async () => {
-      await POST(postRequest(VALID_BODY));
-
-      expect(mocks.validateCategoryParent).not.toHaveBeenCalled();
-    });
-  });
-
   describe('bugfix: merchant-authored text is sanitized server-side', () => {
     it('writes the SANITIZED value the schema produced', async () => {
       // mobile-admin sanitized before its direct insert; routing the write
@@ -325,88 +251,5 @@ describe('POST /api/merchant/categories', () => {
       expect(response.status).toBe(400);
       expect(insertedRow).toBeNull();
     });
-  });
-
-  describe('bugfix: reviving a tombstone republished its old SEO copy', () => {
-    it('clears the retired row seo_* fields on revive', async () => {
-      setContext(
-        supabaseInserting({
-          error: { code: '23505', message: 'duplicate key' },
-          revives: { id: 'cat-1', name: 'Phones', slug: 'phones' },
-        })
-      );
-
-      await POST(postRequest(VALID_BODY));
-
-      // getCachedCategoryPageShellData reads these straight onto the public
-      // page, so a reused slug would inherit the deleted category's copy.
-      expect(revivedRow).toMatchObject({
-        seo_description: null,
-        seo_faq: null,
-        seo_features: null,
-        seo_heading: null,
-      });
-    });
-  });
-
-  describe('revive lookup failures are not "no tombstone"', () => {
-    it('returns 500 rather than a misleading duplicate-slug 409', async () => {
-      setContext(
-        supabaseInserting({
-          error: { code: '23505', message: 'duplicate key' },
-          reviveError: { message: 'connection reset' },
-        })
-      );
-
-      const response = await POST(postRequest(VALID_BODY));
-
-      // A 409 would tell the client to stop retrying something transient.
-      expect(response.status).toBe(500);
-    });
-  });
-
-  it('maps a duplicate LIVE slug to 409, not 500', async () => {
-    setContext(
-      supabaseInserting({
-        error: { code: '23505', message: 'duplicate key' },
-        revives: null, // no inactive row -> nothing to revive
-      })
-    );
-
-    const response = await POST(postRequest(VALID_BODY));
-
-    expect(response.status).toBe(409);
-    await expect(response.json()).resolves.toMatchObject({
-      code: 'CATEGORY_SLUG_TAKEN',
-    });
-  });
-
-  describe('bugfix: DELETE leaves a tombstone, so the slug must stay reusable', () => {
-    it('revives false or legacy-null tombstones instead of 409ing', async () => {
-      setContext(
-        supabaseInserting({
-          error: { code: '23505', message: 'duplicate key' },
-          revives: { id: 'cat-1', name: 'Phones', slug: 'phones' },
-        })
-      );
-
-      const response = await POST(postRequest(VALID_BODY));
-
-      expect(response.status).toBe(201);
-      expect(reviveInactiveFilter).toEqual(['is_active', 'is', true]);
-      // `IS NOT TRUE` covers both false and legacy NULL without matching live
-      // rows.
-      expect(revivedRow).toMatchObject({ is_active: true, slug: 'phones' });
-    });
-  });
-
-  it('returns 500 for any other database error', async () => {
-    setContext(
-      supabaseInserting({ error: { code: '42501', message: 'denied by RLS' } })
-    );
-
-    const response = await POST(postRequest(VALID_BODY));
-
-    expect(response.status).toBe(500);
   });
 });

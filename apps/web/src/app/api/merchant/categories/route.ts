@@ -119,6 +119,7 @@ export async function POST(request: NextRequest) {
         seo_faq: null,
         seo_features: null,
         seo_heading: null,
+        metadata: { _baci_reused_tombstone: true },
         updated_at: new Date().toISOString(),
       })
       .eq('merchant_id', merchantId)
