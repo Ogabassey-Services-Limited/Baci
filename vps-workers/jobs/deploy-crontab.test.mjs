@@ -75,6 +75,23 @@ describe('deploy crontab', () => {
     );
   });
 
+  it('schedules the merchant signup policy health check every five minutes', () => {
+    const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
+
+    assert.match(
+      deployScript,
+      /\*\/5 \*\s+\* \* \* flock -n \$REMOTE_DIR\/locks\/merchant-signup-health\.lock/
+    );
+    assert.match(
+      deployScript,
+      /\$NODE_BIN \$REMOTE_DIR\/jobs\/run-web-cron\.mjs \/api\/cron\/merchant-signup-health/
+    );
+    assert.match(
+      deployScript,
+      />> \$REMOTE_DIR\/logs\/merchant-signup-health\.log 2>&1/
+    );
+  });
+
   it('schedules the storefront update nudge daily through run-web-cron', () => {
     const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
 
