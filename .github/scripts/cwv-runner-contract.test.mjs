@@ -41,7 +41,15 @@ const readRepositorySources = async () => {
 
 test('YAML workflow contract parser declares its direct runtime dependency', async () => {
   const manifest = JSON.parse(await readFile(new URL('package.json', root), 'utf8'));
+  const lockfile = YAML.parse(await readFile(new URL('pnpm-lock.yaml', root), 'utf8'));
+  const workspace = YAML.parse(
+    await readFile(new URL('pnpm-workspace.yaml', root), 'utf8')
+  );
   assert.equal(manifest.devDependencies.yaml, '^2.9.0');
+  assert.equal(
+    lockfile.importers['.'].devDependencies.yaml.specifier,
+    workspace.overrides.yaml
+  );
 });
 
 test('workflow discovery includes portable YAML file names and extensions', () => {
