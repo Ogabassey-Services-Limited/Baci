@@ -38,6 +38,7 @@ jobs:
           filters: |
             web:
               - 'apps/web/**'
+              - 'infra/cwv-runner/**'
               - 'public/badges/**'
               - 'packages/shared/**'
               - 'next.config.ts'

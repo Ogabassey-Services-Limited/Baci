@@ -208,7 +208,7 @@ test('requires a fresh authenticated hold challenge before runner page one while
   const hold = { challenge, holdDigest: 'e'.repeat(64), identity: { campaignId: 'baci-cwv-1', hostname: 'a'.repeat(12), runnerContainerId: 'd'.repeat(64), runnerIp: '172.24.0.2', runnerPeerIfindex: 17, runnerVeth: 'veth0' }, liveSampleDigest: 'c'.repeat(64), schemaVersion: 1 };
   const holdBytes = Buffer.from(canonical(hold));
   value = bindRunnerInventoryHold(value, { authenticated: true, channel: 'ssh-controller', holdBytes, holdSha256: hash(holdBytes), receivedMonotonicMs: 80, transactionId: 'baci-cwv-1' });
-  const dedicated = { busy: true, id: 7, labels: ['Linux', 'X64', 'baci-cwv-measurement', 'self-hosted'], name: 'baci-cwv-measurement-01', os: 'linux', status: 'online' };
+  const dedicated = { busy: false, id: 7, labels: ['Linux', 'X64', 'baci-cwv-measurement', 'self-hosted'], name: 'baci-cwv-measurement-01', os: 'linux', status: 'offline' };
   const unrelated = { busy: false, id: 8, labels: ['Linux', 'ARM64', 'self-hosted'], name: 'general-runner', os: 'linux', status: 'offline' };
   value = consumeResponse(value, 'list-runner-inventory', { status: 200, receivedMonotonicMs: 81, linkValues: [], body: { runners: [dedicated, unrelated], total_count: 2 } });
   assert.equal(value.runnerEvidence.runnerId, 7); assert.equal(value.runnerEvidence.challengeNonce, challenge.nonce);

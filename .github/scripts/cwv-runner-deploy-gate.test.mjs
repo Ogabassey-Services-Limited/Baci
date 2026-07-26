@@ -22,7 +22,7 @@ function step(job, name) {
   return job.steps.find((candidate) => candidate.name === name);
 }
 
-test('runs CWV contracts for runner changes without deploying an unchanged web app', async () => {
+test('runs CWV contracts and production deployment for runner-only main changes', async () => {
   const [ci, deploy] = await Promise.all([
     workflow('.github/workflows/ci.yml'),
     workflow('.github/workflows/deploy.yml'),
@@ -51,7 +51,7 @@ test('runs CWV contracts for runner changes without deploying an unchanged web a
   assert.match(filterPaths(deployChanges, 'cwv_runner'), /'infra\/cwv-runner\/\*\*'/);
   assert.match(filterPaths(deployChanges, 'cwv_runner'), /'package\.json'/);
   assert.match(filterPaths(deployChanges, 'cwv_runner'), /'pnpm-lock\.yaml'/);
-  assert.doesNotMatch(filterPaths(deployChanges, 'web'), /'infra\/cwv-runner\/\*\*'/);
+  assert.match(filterPaths(deployChanges, 'web'), /'infra\/cwv-runner\/\*\*'/);
   assert.equal(deployGate.if, "needs.changes.outputs.cwv_runner == 'true'");
 
   for (const gate of [ciGate, deployGate]) {

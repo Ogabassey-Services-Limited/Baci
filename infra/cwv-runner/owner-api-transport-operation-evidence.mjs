@@ -120,8 +120,8 @@ export function runnerEvidence(body, proofs, hold) {
   if (
     matching.length !== 1 ||
     !hold ||
-    matching[0].status !== 'online' ||
-    matching[0].busy !== true
+    matching[0].status !== 'offline' ||
+    matching[0].busy !== false
   )
     fail('invalid runner inventory');
   return {

@@ -91,7 +91,7 @@ function assertRepositoryClosure(sources, workflowText) {
   if (sources.actionlint.trim() !== 'self-hosted-runner:\n  labels:\n    - baci-android\n    - baci-deploy\n    - baci-lighthouse\n    - baci-cwv-measurement' || !sources.actionlintWorkflow.includes('.github/actionlint.yaml')) fail('actionlint refused');
   const selectorCount = Object.values(sources.workflows).join('').split('baci-cwv-measurement').length - 1;
   if (sources.workflows['cwv-runner-attestation.yml'] !== workflowText || selectorCount !== 1) fail('measurement selector refused');
-  if ((sources.deploy.match(/'infra\/cwv-runner\/\*\*'/g) ?? []).length !== 1) fail('deploy filter refused');
+  if ((sources.deploy.match(/'infra\/cwv-runner\/\*\*'/g) ?? []).length !== 2) fail('deploy filter refused');
   const { authority, canonical, core, policy, runtime, stable } = sources.authoritySources;
   if (![authority, canonical, core, policy, runtime, stable].every((source) => typeof source === 'string') || !same(localImports(authority), ['./cwv-runner-authority-core.mjs', './cwv-runner-authority-runtime.mjs']) || !same(localImports(canonical), []) || !same(localImports(core), []) || !same(localImports(policy), ['./canonical-json.mjs']) || !same(localImports(runtime), ['./cwv-runner-authority-core.mjs', './cwv-runner-stable-attestation-builder.mjs', './policy.schema.mjs']) || !same(localImports(stable), ['./cwv-runner-authority-core.mjs'])) fail('source closure refused');
 }

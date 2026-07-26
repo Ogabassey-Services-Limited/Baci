@@ -279,17 +279,17 @@ test('retains only complete canonical runner pages with closed labels and a labe
   );
 });
 
-test('binds dedicated runner evidence only while the selected runner is online and busy', () => {
-  const runner = (patch = {}) => ({ busy: true, id: 7, labels: ['Linux', 'X64', 'baci-cwv-measurement', 'self-hosted'], name: 'baci-cwv-measurement-01', os: 'linux', status: 'online', ...patch });
+test('binds pre-release runner evidence only while the dedicated runner is offline and idle', () => {
+  const runner = (patch = {}) => ({ busy: false, id: 7, labels: ['Linux', 'X64', 'baci-cwv-measurement', 'self-hosted'], name: 'baci-cwv-measurement-01', os: 'linux', status: 'offline', ...patch });
   const body = (selected) => ({ runners: [selected], total_count: 1 });
   const hold = { boundStateGeneration: 2, challengeNonce: 'nonce', holdDigest: 'a'.repeat(64) };
 
   assert.throws(
-    () => runnerEvidence(body(runner({ status: 'offline' })), [], hold),
+    () => runnerEvidence(body(runner({ status: 'online' })), [], hold),
     /runner inventory/
   );
   assert.throws(
-    () => runnerEvidence(body(runner({ busy: false })), [], hold), /runner inventory/
+    () => runnerEvidence(body(runner({ busy: true })), [], hold), /runner inventory/
   );
   assert.equal(runnerEvidence(body(runner()), [], hold).runnerId, 7);
 });
