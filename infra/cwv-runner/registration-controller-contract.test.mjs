@@ -14,6 +14,7 @@ import {
   validateRegistrationSnapshot,
 } from './registration-controller.mjs';
 import { observeRegistrationIdentity } from './registration-controller-state.mjs';
+
 test('defines exact root-only token, staging, and release layouts', () => {
   assert.deepEqual(registrationLayout(controllerContext), {
     handoff: {
@@ -55,7 +56,6 @@ test('defines exact root-only token, staging, and release layouts', () => {
     },
   });
 });
-
 test('reads one bounded token line only after the caller invokes the reader', async () => {
   const calls = [];
   const source = Buffer.from(`${'A'.repeat(29)}\n`);
