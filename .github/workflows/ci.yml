@@ -344,9 +344,12 @@ jobs:
       - name: Run CI Test Planner Unit Tests
         if: needs.changes.outputs.web == 'true'
         run: node --test .github/scripts/resolve-ci-test-plan.test.mjs .github/scripts/resolve-ci-test-plan-config.test.mjs
-      - name: Test Deploy-with-retry Recovery
+      - name: Test Vercel Deploy Scripts
         if: needs.changes.outputs.deploy_scripts == 'true'
-        run: node --test .github/scripts/deploy-with-retry.test.mjs
+        run: >-
+          node --test
+          .github/scripts/deploy-with-retry.test.mjs
+          .github/scripts/run-pinned-vercel.test.mjs
       - name: Verify Quiz Assets
         if: needs.changes.outputs.web == 'true' || needs.changes.outputs.quiz_db == 'true'
         run: pnpm --filter @baci/web verify:quiz-assets
