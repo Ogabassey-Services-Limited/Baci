@@ -46,4 +46,25 @@ describe('claimedEventDeliverySchema', () => {
       }).success
     ).toBe(false);
   });
+
+  it('accepts the generation fence returned by the cache claim RPC', () => {
+    expect(
+      claimedEventDeliverySchema.safeParse({
+        ...delivery,
+        destination: 'storefront_cache_transition',
+        generation: 1,
+        obligation_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a232',
+      }).success
+    ).toBe(true);
+  });
+
+  it('requires the cache generation fence while retaining analytics claims', () => {
+    expect(
+      claimedEventDeliverySchema.safeParse({
+        ...delivery,
+        destination: 'storefront_cache_transition',
+      }).success
+    ).toBe(false);
+    expect(claimedEventDeliverySchema.safeParse(delivery).success).toBe(true);
+  });
 });

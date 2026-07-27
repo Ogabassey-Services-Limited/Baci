@@ -56,4 +56,25 @@ describe('parseDomainEventV1', () => {
       success: false,
     });
   });
+
+  it('parses the canonical database cache-transition event', () => {
+    expect(
+      parseDomainEventV1({
+        data: {},
+        domain_event_id: '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a234',
+        event_name: 'storefront.cache_transition.v1',
+        idempotency_key: 'cache-transition-1',
+        metadata: { environment: 'database' },
+        occurred_at: '2026-07-12T12:00:00.000Z',
+        producer: 'database',
+        schema_version: 1,
+        source: { operation: 'UPDATE', schema: 'public', table: 'categories' },
+        subject: { id: 'category-1', type: 'category' },
+        trust_level: 'database',
+      })
+    ).toMatchObject({
+      event: { event_name: 'storefront.cache_transition.v1' },
+      success: true,
+    });
+  });
 });

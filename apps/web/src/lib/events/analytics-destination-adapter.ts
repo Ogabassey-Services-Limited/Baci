@@ -15,9 +15,14 @@ import type { EventDestination } from './event-route-registry';
 import { loadPaidOrderDeliveryEvent } from './paid-order-delivery-event';
 import { createStableAnalyticsClientId } from './stable-analytics-client-id';
 
+type AnalyticsEventDestination = Exclude<
+  EventDestination,
+  'storefront_cache_transition'
+>;
+
 function configured(
   config: AnalyticsPlatformConfig,
-  destination: EventDestination
+  destination: AnalyticsEventDestination
 ): boolean {
   if (destination === 'facebook') {
     return Boolean(config.facebook_pixel_id && config.facebook_capi_token);
@@ -31,7 +36,9 @@ function configured(
   return Boolean(config.google_analytics_id && config.ga4_api_secret);
 }
 
-function providerTarget(destination: EventDestination): AdPlatformTarget {
+function providerTarget(
+  destination: AnalyticsEventDestination
+): AdPlatformTarget {
   return destination === 'ga4' ? 'google' : destination;
 }
 
@@ -165,7 +172,7 @@ function toClientConversion(event: DomainEventV1): ConversionEvent {
 export async function deliverAnalyticsEvent(
   supabase: ServiceRoleClient,
   event: DomainEventV1,
-  destination: EventDestination,
+  destination: AnalyticsEventDestination,
   signal?: AbortSignal
 ): Promise<EventDestinationResult> {
   if (!event.merchant_id) {

@@ -8,8 +8,9 @@ import type { DomainEventWorkerMessage } from './domain-event-worker-message';
 const WORKER_ERROR_BACKOFF_MS = 5_000;
 
 interface DomainEventWorkerOptions {
+  cacheTransitionRoutingEnabled?: boolean;
   once?: boolean;
-  routingMode: 'active' | 'shadow';
+  routingMode: 'active' | 'disabled' | 'shadow';
   wait?: (milliseconds: number) => Promise<void>;
 }
 
@@ -76,7 +77,12 @@ async function runDomainEventWorker(
           await domainEventWorkerBatch.processDomainEventBatch(
             supabase,
             batch,
-            options.routingMode === 'shadow',
+            {
+              cacheTransitionRoutingEnabled:
+                options.cacheTransitionRoutingEnabled === true,
+              routingMode: options.routingMode,
+              workerId,
+            },
             () => stopping
           );
         if (failed > 0) {

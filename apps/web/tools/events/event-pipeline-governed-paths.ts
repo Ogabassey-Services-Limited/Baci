@@ -24,6 +24,10 @@ const explicitlyHashedAuthorityPaths = new Set([
     analyticsDeliveryAuthorityManifest.verifiedContextHelperHashes
   ),
   analyticsDeliveryAuthorityManifest.platformRouteHash.path,
+  ...Object.keys(
+    eventPipelineBoundaryManifest.storefrontCacheActuatorCredentialClosure
+      .sourceHashes
+  ),
 ]);
 
 function repoRoot(): string {

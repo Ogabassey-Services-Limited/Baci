@@ -19,6 +19,24 @@ const event = {
 } as DomainEventV1;
 
 describe('deliverDomainEvent', () => {
+  it('does not dispatch a cache transition destination through analytics adapters', async () => {
+    const result = await deliverDomainEvent({
+      destination: 'storefront_cache_transition',
+      event: {
+        ...event,
+        event_name: 'analytics.purchase.v1',
+      },
+      supabase: serviceClient(),
+    });
+
+    expect(mocks.deliver).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      errorCode: 'unsupported_event',
+      errorMessage: 'No destination adapter for this event domain',
+      success: false,
+    });
+  });
+
   afterEach(() => {
     vi.clearAllMocks();
     vi.useRealTimers();

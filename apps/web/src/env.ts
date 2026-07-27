@@ -2,6 +2,7 @@
 import z from 'zod';
 import { DEFAULT_ROOT_DOMAIN } from '@/lib/default-root-domain';
 import { normalizeEnvBoolean } from '@/lib/env-boolean';
+import { storefrontCacheActuatorEnvironment } from '@/lib/events/storefront-cache-actuator-environment';
 import { buildLlmBearerAuthHeader } from '@/lib/llm-auth';
 import { supabaseAgenticJwtPrivateJwkStringSchema } from '@/schemas/supabase-agentic-jwt-private-jwk';
 
@@ -371,6 +372,7 @@ const serverSchema = z
       .int()
       .positive()
       .default(5000),
+    ...storefrontCacheActuatorEnvironment.shape,
 
     // LLM server (llama.cpp / OpenAI-compatible — Gemma 4 + MTP drafter on VPS)
     LLM_SERVER_URL: httpsOrLocalhostUrl('LLM_SERVER_URL').optional(),
@@ -423,6 +425,7 @@ const serverSchema = z
       path: ['SUPABASE_AGENTIC_JWT_PRIVATE_JWK'],
     });
   })
+  .superRefine(storefrontCacheActuatorEnvironment.validate)
   .superRefine((value, ctx) => {
     if (value.QUIZ_PHASE === 'production' && !value.QUIZ_RPC_SERVER_SECRET) {
       ctx.addIssue({
@@ -736,6 +739,12 @@ const getEnv = () => {
           process.env.AI_STOREFRONT_GENERATION_ENABLED,
         AI_STOREFRONT_TRIGGER_URL: process.env.AI_STOREFRONT_TRIGGER_URL,
         AI_STOREFRONT_TRIGGER_SECRET: process.env.AI_STOREFRONT_TRIGGER_SECRET,
+        STOREFRONT_CACHE_ACTUATOR_URL:
+          process.env.STOREFRONT_CACHE_ACTUATOR_URL,
+        STOREFRONT_CACHE_ACTUATOR_SECRET:
+          process.env.STOREFRONT_CACHE_ACTUATOR_SECRET,
+        STOREFRONT_CACHE_CANARY_MERCHANT_ID:
+          process.env.STOREFRONT_CACHE_CANARY_MERCHANT_ID,
         AI_STOREFRONT_TRIGGER_TIMEOUT_MS:
           process.env.AI_STOREFRONT_TRIGGER_TIMEOUT_MS,
         LLM_SERVER_URL: process.env.LLM_SERVER_URL,

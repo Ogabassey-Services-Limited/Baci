@@ -1,4 +1,15 @@
 import type { Database, Json } from '@/types/supabase';
+import {
+  EVENT_PIPELINE_FUNCTION_NAMES,
+  productionHistoryFunctionNames,
+  storefrontCacheTransitionLocalFunctionNames,
+} from './event-pipeline-function-inventory';
+
+export {
+  EVENT_PIPELINE_FUNCTION_NAMES,
+  productionHistoryFunctionNames,
+  storefrontCacheTransitionLocalFunctionNames,
+};
 export function toEventPipelineJson(
   value: unknown,
   ancestors = new WeakSet<object>()
@@ -78,27 +89,6 @@ export function validateEventPipelineSelection(
       findings.push(`${path}: unauthorized ${table} column ${name}`);
   }
 }
-export const EVENT_PIPELINE_FUNCTION_NAMES = [
-  'claim_event_deliveries_v1',
-  'cleanup_domain_event_pipeline_v1',
-  'dead_letter_ingress_event_v1',
-  'enqueue_domain_event_v1',
-  'finish_event_delivery_v1',
-  'get_domain_event_queue_metrics_v1',
-  'get_event_pipeline_operations_v1',
-  'is_event_ingress_capability_v1',
-  'list_event_pipeline_deliveries_v1',
-  'list_event_pipeline_ingress_failures_v1',
-  'read_domain_events_v1',
-  'record_analytics_domain_event_v1',
-  'record_event_worker_heartbeat_v1',
-  'record_platform_domain_event_v1',
-  'replay_event_deliveries_batch_v1',
-  'replay_event_delivery_v1',
-  'replay_ingress_dead_letter_v1',
-  'route_domain_event_v1',
-  'select_event_pipeline_replay_ids_v1',
-] as const satisfies readonly (keyof Database['public']['Functions'])[];
 const frozenRoutes = {
   'apps/web/src/app/api/analytics/ads/route.ts':
     'b714f0bedeed7bded973fbe743c74517622ea8e0069dfca35051752dc45571dd',
@@ -121,10 +111,11 @@ const runtimeCallers = {
   'apps/web/src/lib/events/enqueue-paid-order-domain-event.ts': ['enqueue_domain_event_v1'],
   'apps/web/src/lib/events/record-analytics-domain-event.ts': ['record_analytics_domain_event_v1'],
   'apps/web/src/lib/events/record-platform-domain-event.ts': ['record_platform_domain_event_v1'],
-  'apps/web/src/scripts/domain-event-worker-batch.ts': ['dead_letter_ingress_event_v1', 'route_domain_event_v1'],
+  'apps/web/src/scripts/domain-event-worker-batch.ts': ['dead_letter_ingress_event_v1', 'route_domain_event_v1', 'route_storefront_cache_transition_v1'],
   'apps/web/src/scripts/domain-event-worker.ts': ['read_domain_events_v1', 'record_event_worker_heartbeat_v1'],
   'apps/web/src/scripts/event-delivery-worker.ts': ['claim_event_deliveries_v1', 'record_event_worker_heartbeat_v1'],
   'apps/web/src/scripts/process-claimed-event-delivery.ts': ['finish_event_delivery_v1'],
+  'apps/web/src/scripts/process-storefront-cache-transition.ts': ['claim_storefront_cache_transition_deliveries_v1', 'finish_storefront_cache_transition_delivery_v1'],
   'vps-workers/jobs/supabase-retention-cleanup.mjs': ['cleanup_domain_event_pipeline_v1'],
 } as const;
 export const EVENT_PIPELINE_BOUNDARY = {

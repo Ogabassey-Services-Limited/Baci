@@ -1,78 +1,50 @@
-# ADR B0 — Durable cache-invalidation substrate & drainer runtime
+# ADR B0 — Canonical durable storefront cache transitions
 
-**Status:** proposed (design adopted 2026-07-11; exit checklist incomplete) · **Owner/security sign-off required for:** the new service-role/credential-bearing cron route and boundary-manifest change, the VPS deploy step (crontab + `deploy.sh`), and the drain-latency SLA.
-**Context source:** `docs/architecture/discovery/B0-drainer-runtime-brief.md`. **Revalidated vs** `origin/main@6758e4db3f`.
-
-## Context
-
-Raising Cloudflare/Vercel cache TTLs (the cost + LCP win in Workstream B2) is only safe if cache invalidation is *durable* — a dropped purge under a 1-hour TTL serves up to an hour of stale/removed content. Today `schedulePurgeCloudflareUrls` (`cache-revalidation.ts:61`) is fire-and-forget (`after()` / detached `void`), so purges can be silently lost. B0 selects and proves the durable substrate before any queue code, migration, or TTL change.
-
-A durable system = a **claim-based outbox ledger** (Postgres) + a **drainer runtime** that scans it and performs ordered Next, Vercel, and Cloudflare invalidation. The repo already has the ledger *pattern* (`payment_side_effects`) but **no drainer runtime**.
+**Status:** adopted design; implementation gated · **Date:** 2026-07-27
 
 ## Decision
 
-### D1 — Runtime: VPS cron sweep → a `CRON_SECRET`-gated web route (incumbent option c)
+B0 extends PR #3077's canonical pipeline. Each cache transition is one normal canonical PGMQ event named `storefront.cache_transition.v1`, with one canonical `event_deliveries.destination` value, `storefront_cache_transition`. It reuses `domain_event_ledger`, PGMQ identity, `event_deliveries`, attempt audit, retry/backoff, dead letter, replay, heartbeats, continuous VPS services, and service-role claim-token rules.
 
-Adopt the existing VPS worker as the durable scheduler. Add **one** `CRON_SECRET`-gated route `POST /api/cron/drain-invalidations`, driven by the VPS `run-web-cron.mjs` on a `flock`-guarded crontab line — the same shape already used for ~15 jobs (`cleanup-orders`, `process-settlements`, `agentic-commerce-health`, …).
+It does not create `cache_invalidation_outbox`, a second PGMQ queue, queue-less ledger/direct-ingress records, two cache delivery destinations, a cron drainer route, a new schedule/service/listener, or a parallel retry/DLQ/replay system.
 
-**Why the drainer is a web route and NOT a direct-Supabase `.mjs` job (hard constraint, resolves the brief's open Q2):** delivery must invalidate the Next Data Cache first (`revalidateTag`/`revalidatePath`, imported from `next/cache` in `cache-revalidation.ts:13`), then delete affected Vercel CDN tags before purging Cloudflare. A standalone `.mjs` VPS job cannot run the Next APIs, so an outer-edge purge could refill from stale inner data. The drainer therefore runs *in the Next runtime*, invoked by the VPS.
+`storefront_cache_transition_obligations` is permitted only as specialized, transactionally visible cache semantics. It is keyed to the canonical `domain_event_id`, stores server-derived target data and generation/successor state, and is never itself a queue. The service-only `storefront_cache_transition_canaries` table is the executable merchant gate. Private SQL-internal `ensure_storefront_cache_transition_from_category_row_v1` accepts `TG_OP` plus explicit safe OLD/NEW snapshots (`id`, `merchant_id`, `slug`, `name`, `is_active`, `parent_id`) from the trigger; it has no client grants or merchant input, so DELETE remains valid after its source row disappears. It creates/reuses the obligation and normal canonical PGMQ event atomically. The event envelope carries only `obligation_id`; the authoritative DB obligation is the current identity/slugs payload source.
 
-**Rejected:**
-- **Vercel Cron** — reverses the documented decision (`docs/ops/vps-workers.md`: "Do not re-enable Vercel Cron…"), bills per invocation (Vercel cost is a tracked concern), 1-minute latency floor, no overlap guarantee. Keep only a manual/fallback `GET` on the route, never the primary schedule.
-- **`pg_cron` + `pg_net` watchdog** — would be the project's *first committed* `cron.schedule()` (migration-drift risk; the repo has "recorded ≠ applied" scars), and `net.http_post` is fire-and-forget (no delivery guarantee, weak failure paging). Default **no**; revisit only if an independent drain-liveness watchdog is ever wanted.
+## Routing and exclusion contract
 
-### D2 — Latency: transactional outbox + best-effort immediate web drain + durable VPS sweep (no new listener)
+The capable existing PGMQ router reads normal messages and dispatches the exact database-trusted name `storefront.cache_transition.v1` to one specialized routing operation. That operation validates the linked obligation, inserts/reuses one `storefront_cache_transition` delivery, marks the obligation routed, and archives the exact PGMQ message atomically. It is the only normal-router branch for this event name.
 
-Refinement of the brief's option-c lean: a cache purge is short and web-executable, so **no `baci-*-trigger` signed-listener is needed** (those exist for import jobs that spawn long VPS processes). Design:
-1. Each covered mutation writes an **outbox row in the SAME DB transaction** as the mutation (transactional → cannot be lost; a post-commit `after()` enqueue would be lossy).
-2. The web request may fire a **best-effort immediate drain** of its own row right after commit (keeps today's seconds-level latency on the happy path).
-3. The **VPS cron sweep (every 2 min)** drains any row not `completed` — the durability guarantee that catches drops.
+PGMQ `read_with_poll` has no predicate, so B0 does not claim pre-read SQL isolation. The bounded shared-ingress risk is explicit: a stale router that sees the event must database-refuse/defer it and never dead-letter it; producer activation requires a fresh capable router and delivery-worker heartbeat; queue-age alerts and load/poison-message latency tests are launch gates. Generic ingress dead-letter RPCs refuse linked cache messages, while generic analytics delivery claims exclude `storefront_cache_transition`. The separate destination-filtered cache delivery lane uses the same continuous worker and canonical delivery lifecycle.
 
-Merchant-facing freshness: happy path ≈ today (seconds); worst case (web-side drop) ≤ the sweep interval. If a tighter *guaranteed* floor is later required, the signed-trigger leg can be added without redesign. **Drain-latency SLA to confirm with owner: 2-minute sweep (proposed default).**
+The existing continuous `process-domain-events.ts` service gains the exact capable-router branch/flag. The existing continuous `process-event-deliveries.ts` service gains an independent cache-delivery loop/flag that claims only `storefront_cache_transition`. The existing service installation and one-minute recovery sweeps remain unchanged; B0 adds no cron route, crontab entry, service, or schedule.
 
-### D3 — Ledger schema (generalize `payment_side_effects`, keep the claim/lease core)
+## Atomic producer and generation contract
 
-New table `public.cache_invalidation_outbox`, one row per invalidation target, generation-aware so a new mutation of an already-completed target re-queues (B2a's "never let a completed purge suppress a later mutation"):
+The category `AFTER INSERT OR UPDATE OR DELETE` trigger is server-side gated by `domain_event_producer_config` plus canary merchant configuration held in the database. It serializes only safe category identity, old/new slugs, and server-derived cache keys. It invokes `ensure_storefront_cache_transition_from_category_row_v1` in the source mutation transaction. If event/obligation creation fails for an enabled canary, the category mutation rolls back; if disabled/not-canary, no event exists.
 
-| column | purpose |
-|---|---|
-| `merchant_id uuid` + `target_kind text` + `target_id text` | **PK** = one concrete invalidation target (`target_kind` ∈ product_cache / category_listing / storefront_document / sitemap / merchant_feed …; `target_id` = the exact tag/path/URL key). `merchant_id` is the immutable tenant/tombstone key. A rename/domain move enqueues separate old and new targets, so later coalescing cannot discard an earlier stale path. |
-| `merchant_ref uuid` | Insert-time FK to `merchants(id)` with `ON DELETE SET NULL` and a check that a non-null ref equals `merchant_id`. It rejects invalid merchant IDs while preserving the immutable tenant key and queued storefront/sitemap/feed purge work after merchant deletion. |
-| `generation bigint` | bumped on every enqueue; the "latest mutation" marker |
-| `status text` (`pending`/`claimed`/`completed`/`failed`/`dead_letter`) | drain state; `dead_letter` is excluded from claims and requires operator action |
-| `claim_token uuid`, `claimed_generation bigint`, `claimed_by text`, `claimed_at timestamptz` | lease |
-| `completed_generation bigint`, `completed_at`, `attempts int`, `next_attempt_at timestamptz`, `last_error text` | terminal/retry state and the earliest time a failed row may be reclaimed |
-| `payload jsonb` | delivery metadata for this concrete target; never the sole storage for additional stale paths |
+The obligation carries `generation`, authoritative target payload, and `successor_of`; it has no per-stage checkpoints. A newer pre-claim change increments the one pending obligation generation. Once claimed, it creates or updates at most one pending successor event/obligation and never mutates the claimed generation. The database permits a claimed predecessor plus one pending successor, but permits only one pending tail per `(merchant_id, category_id)` and one pending row per `successor_of`; further mutations coalesce into that tail. Cache claim refuses a successor until its predecessor delivery is terminal. The worker materializes current obligation state, not its stale event envelope. `finish_storefront_cache_transition_delivery_v1` first fences `(delivery_id, claim_token, obligation_id, generation)` and then applies canonical terminal/retry semantics in one transaction, preventing an old worker from completing newer work. Rename data preserves both old and new semantic targets in the same generation; no client supplies a URL, hostname, tag, or path.
 
-- **Open-work index:** `... (status, next_attempt_at, claimed_at) WHERE status NOT IN ('completed','dead_letter')` — the drainer's queue query.
-- **Enqueue** (in-mutation): `INSERT … generation=1, status='pending' ON CONFLICT (merchant_id,target_kind,target_id) DO UPDATE SET generation = outbox.generation + 1, status = 'pending', attempts = 0, payload = EXCLUDED.payload` — re-queues even a completed/dead-letter row. Enqueue one row per concrete target (for A→B→C, retain A, B, and C target rows). The helper is `SECURITY DEFINER` but ungranted to client roles and is invoked only by trusted definer mutation RPCs/triggers; it must not reject an outer authenticated JWT by checking `auth.role()`.
-- **Claim** (`SECURITY DEFINER`, `service_role`-only + null-safe `auth.role() IS DISTINCT FROM 'service_role'` guard, mirroring `claim_payment_side_effect`): take a `pending`, due `failed` (`next_attempt_at <= now()`), or stale-`claimed` (> lease) row only while `attempts < max_attempts`, set `claimed_generation = generation`, `status='claimed'`, `claim_token`, `claimed_at=now()`, `attempts += 1`; return `we_won`. If a worker crashes on the threshold attempt, the next claim call parks the expired lease as `dead_letter` instead of leaving it stranded as `claimed`.
-- **Complete:** `UPDATE … SET status='completed', completed_generation=claimed_generation WHERE claim_token=? AND generation = claimed_generation` — **if `generation` advanced during the drain, the row is NOT marked complete and re-drains** (generation-aware idempotency). Re-purging a tag/URL is idempotent, so a mid-lease crash after purging but before completing is harmless.
-- **Fail:** a service-role-only, null-safe `fail_cache_invalidation` transition requires the matching claim token and generation, records `last_error`, and moves the row to `failed` with `next_attempt_at = now() + retry_delay` or `dead_letter` once `attempts >= max_attempts`. The drainer passes `max(parsed Retry-After, exponential backoff + jitter)` for provider throttles; ordinary retryable errors use the bounded default delay, so one loop cannot burn the retry budget immediately.
-- **Lease and deadlines:** replace the unproven 30-second lease with a prototype-derived bound for
-  all three stages. Provider calls need bounded per-stage deadlines; the lease must exceed the
-  demonstrated worst-case full attempt with headroom, or be token-checked and renewed before each
-  serial Vercel/Cloudflare batch. Include a delayed-Vercel case so a live worker cannot be reclaimed,
-  consume extra attempts, or dead-letter work while its provider call is still active.
-- **ACL:** RLS enabled; `REVOKE ALL FROM PUBLIC, anon, authenticated`; `GRANT` to `service_role`; explicit `service_role_all` policy — identical lockdown to `payment_side_effects`.
+## Delivery contract
 
-### D4 — Drain route (`POST /api/cron/drain-invalidations`, `CRON_SECRET`-gated)
+For each claimed cache delivery, the existing event-delivery worker calls one narrow authenticated Vercel-origin actuator and consumes its typed full-barrier receipt. The actuator implements a dedicated category barrier using existing low-level primitives in order: positional `revalidateCategories(merchantId, slug, { expireImmediately: true })` for old/new/related slugs; `productCacheRevalidation.revalidateProducts(merchantId, undefined, { expireImmediately: true, feedScope: 'merchant' })` and requires `true`; foreground `purgeVercelStorefrontPublicationCache(buildStorefrontPublicationCacheTags(identity))`; then foreground `purgeCloudflareHostnamesConfirmed(buildStorefrontPublicationPurgeHostnames(identity.identifiers))`. Every stage fails closed. `evictStorefrontPublicationCaches` is evidence for ordering and credential closure, not the callable because its Next invalidation is publication-only. Canonical delivery finishes only after the whole category barrier succeeds. The worker has no Cloudflare token and no invented per-stage checkpoint RPCs.
 
-Loop while it can claim a row (bounded by `maxDuration`/batch): claim → **stage 1** hard-expire the target's Next tags/paths with `{ expire: 0 }` (the named stale profile is forbidden here) → **stage 2** confirm Vercel tag deletion for every affected HTML response tag via the supported deletion control plane → **stage 3** purge Cloudflare URLs via a **new strict primitive** that returns structured per-batch outcomes (missing config / timeout / non-2xx / `200 + success:false` / partial failure / `429`+`Retry-After` are all retryable and never marked complete — replacing today's swallow-everything `purgeCloudflareUrls(): Promise<void>`, which is kept only as the legacy fail-open wrapper) → complete (generation-checked). Category invalidation must either purge the existing `ps:`/`ph:` tenant publication response tags or introduce and prove a category-specific HTML tag; Next data tags alone do not evict a Vercel CDN `HIT`. On any stage error the drainer calls the token-checked failure transition immediately; it records `last_error`, schedules `next_attempt_at` from bounded exponential backoff plus jitter (and never earlier than `Retry-After`), and parks the threshold attempt as `dead_letter` for alerting.
+The actuator has dedicated worker authentication and executes only its bounded full category barrier. It has no Supabase/service-role client, raw Cloudflare token, claim, retry, finish, replay, or database authority. A caller cannot choose arbitrary cache operations; the worker sends the obligation ID, generation, exact configured canary merchant ID, and bounded old/new/related category slugs under the request-bound HMAC contract. It sends no host, URL, identity array, or operation selector.
 
-**Authority gate:** this route would be a new importer of service-role claim/fail/complete authority and CDN credentials. The existing temporary analytics exception does not authorize it. Owner/security approval of the exact route, RPC grants, credential projection, and boundary-manifest entry is required before implementation; no implementation plan may silently widen `manifest.authority.*`.
+URL-only purge is correctness-incomplete because shared category navigation is embedded in cached home, category, PDP, blog, static, trust, and compare HTML. The B0 production canary reuses the existing confirmed hostname-purge surface, whose builder maps only the approved canary merchant/domain to `ogabassey.com` and `www.ogabassey.com` and rejects unknown stores. The actuator fails closed unless running on Vercel; it must not inherit the publication route's tolerated `not_running_on_vercel` result. Missing configuration, unknown store, non-Vercel runtime, timeout, transport error, non-2xx, malformed response, `success:false`, partial failure, and `429` produce a retryable full-barrier failure. Since Next, Vercel, and hostname purge are idempotent, a retry reruns the entire barrier. Cache-Tag purge, origin `Cache-Tag` emission, protected `proxy.ts`, arbitrary aliases/hosts, and all TTL/cache-directive changes are out of scope.
 
-### D5 — Deploy discipline
+## Flags and authority
 
-The crontab line + `WEB_CRON_CONFIG` entry + `deploy.sh` block + `docs/ops/vps-workers.md` update ship in **one PR** (runbook mandate). Applying it to the VPS is a **separate owner-run step**. `CRON_SECRET` already matches web+VPS.
+All controls default disabled and are independent:
 
-## Consequences
+- The service-only `storefront_cache_transition_canaries` row plus the producer configuration gate the trigger's server-side enqueue.
+- `STOREFRONT_CACHE_TRANSITION_ROUTING_ENABLED` gates the specialized lane in `process-domain-events.ts`.
+- `STOREFRONT_CACHE_TRANSITION_DELIVERY_ENABLED` gates the specialized lane in `process-event-deliveries.ts`.
+- `STOREFRONT_CACHE_ACTUATOR_SECRET` authenticates only worker-to-actuator requests.
 
-- **Positive:** matches the documented VPS-only scheduling architecture; reuses proven `run-web-cron` non-2xx alerting + `flock` overlap-prevention; zero Vercel cost; the ledger is durable in Postgres, so a VPS outage **delays, never loses** invalidations; the "big new build" shrinks to *generalize one table + add one route + one crontab line*.
-- **Negative / accepted:** single VPS = a freshness SPOF (not a correctness one); adds to the VPS ops surface; crontab↔`deploy.sh` drift risk (mitigated by same-PR discipline); worst-case happy-path-drop latency = the sweep interval unless the optional trigger leg is added later.
+The event-pipeline authority manifest must explicitly allow exact new cache RPCs from the existing worker scripts. The actuator has dedicated request authentication; its closure excludes Supabase service/admin clients, raw Cloudflare token/environment access, and database claim/retry/finish modules, while permitting only the exact existing Cloudflare helper/builder closure. No new Cloudflare authority is granted to the worker. The narrow authority approval is already satisfied; every `EVENT_PIPELINE_BOUNDARY.authority.*` array remains byte-identical.
 
-## B0 exit checklist (before durable B1/B2 implementation)
-- [ ] This ADR signed (owner: drain-latency SLA + VPS deploy discipline; owner/security: exact privileged route/RPC/credential authority and boundary-manifest change).
-- [ ] Prototype migration `cache_invalidation_outbox` + enqueue/claim/complete/fail RPCs (draft: `supabase/migrations/…_cache_invalidation_outbox.sql`).
-- [ ] Timed prototype demonstrating: claim → simulated crash → recover after lease expiry; retry failure → not reclaimable before `next_attempt_at` → reclaim after the delay; immediate Next expiry with no stale refill → mocked confirmed Vercel tag deletion (including a delayed multi-batch case inside the lease/deadline bound) → mocked strict Cloudflare call → generation-checked completion, with each stage failure preventing completion.
-- [ ] Owner confirms VPS deploy step (crontab + `deploy.sh` + runbook in one PR).
+## Scope, rollout, and rollback
+
+B0 delivers the reusable substrate and one category canary only. It excludes critical-shell generations, renderer work, product/PDP/blog/inventory/import coverage, broad merchant canaries, TTL changes, and Cloudflare Cache-Tag work.
+
+Deploy the migration and existing worker code with all flags disabled; prove generic-lane exclusions and empty specialized loops; enable specialized routing/delivery; enable one staging category canary; drill crash between every stage, stale claim, retry, dead letter, and replay; enable one production merchant/category for 48 hours while comparing analytics behaviour; then hand the substrate to B1-durable. Roll back by disabling enqueue, routing, then delivery; retain canonical events, obligations, deliveries, attempts, and dead letters. Repair only forward with append-only migrations.

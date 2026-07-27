@@ -30,4 +30,7 @@ test('installs restart-on-failure event workers behind shared flock locks', () =
     source,
     /flock is required to install the event-pipeline services/
   );
+  assert.doesNotMatch(source, /storefront-cache-transition\.service/);
+  assert.doesNotMatch(source, /drain-storefront-cache-invalidations/);
+  assert.doesNotMatch(source, /STOREFRONT_CACHE_ACTUATOR_SECRET/);
 });

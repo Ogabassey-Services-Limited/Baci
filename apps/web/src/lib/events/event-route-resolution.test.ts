@@ -127,6 +127,21 @@ describe('resolveEventRoute', () => {
     ).toEqual({ destinations: [], kind: 'no_route' });
   });
 
+  it('routes the cache transition only from the database producer', () => {
+    expect(
+      resolveEventRoute(
+        event({
+          event_name: 'storefront.cache_transition.v1',
+          producer: 'database',
+          trust_level: 'database',
+        })
+      )
+    ).toEqual({
+      destinations: ['storefront_cache_transition'],
+      kind: 'route',
+    });
+  });
+
   it('dead-letters unknown names', () => {
     expect(
       resolveEventRoute(event({ event_name: 'unknown.event.created.v1' }))

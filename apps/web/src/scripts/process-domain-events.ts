@@ -1,6 +1,9 @@
 import 'dotenv/config';
 import { pathToFileURL } from 'node:url';
-import { getEventPipelineRoutingMode } from '@/lib/events/event-pipeline-config';
+import {
+  getEventPipelineRoutingMode,
+  isStorefrontCacheTransitionRoutingEnabled,
+} from '@/lib/events/event-pipeline-config';
 import { createServiceClient } from '@/lib/supabase/service';
 import { domainEventWorkerBatch } from './domain-event-worker-batch';
 import { runDomainEventWorker as runWorker } from './domain-event-worker';
@@ -10,7 +13,9 @@ const { processDomainEventBatch, processDomainEventMessage } =
 
 async function runDomainEventWorker(options: { once?: boolean } = {}) {
   const routingMode = getEventPipelineRoutingMode();
-  if (routingMode === 'disabled') {
+  const cacheTransitionRoutingEnabled =
+    isStorefrontCacheTransitionRoutingEnabled();
+  if (routingMode === 'disabled' && !cacheTransitionRoutingEnabled) {
     console.log(
       JSON.stringify({ status: 'disabled', worker: 'domain-event-router' })
     );
@@ -18,7 +23,11 @@ async function runDomainEventWorker(options: { once?: boolean } = {}) {
   }
 
   const supabase = createServiceClient('event-pipeline');
-  await runWorker(supabase, { once: options.once, routingMode });
+  await runWorker(supabase, {
+    cacheTransitionRoutingEnabled,
+    once: options.once,
+    routingMode,
+  });
 }
 
 export {

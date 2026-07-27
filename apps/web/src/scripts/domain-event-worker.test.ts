@@ -73,7 +73,11 @@ describe('runDomainEventWorker', () => {
     expect(mocks.processBatch).toHaveBeenCalledWith(
       expect.anything(),
       [queuedMessage],
-      false,
+      expect.objectContaining({
+        cacheTransitionRoutingEnabled: false,
+        routingMode: 'active',
+        workerId: expect.any(String),
+      }),
       expect.any(Function)
     );
     expect(rpc).toHaveBeenCalledWith(

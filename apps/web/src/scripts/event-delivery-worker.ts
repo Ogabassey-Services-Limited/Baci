@@ -6,11 +6,17 @@ import type { ServiceRoleClient } from '@/lib/supabase/service';
 import { claimedEventDeliverySchema } from '@/schemas/claimed-event-delivery-schema';
 import { getEventDeliveryClaimBatchSize } from './event-delivery-claim-batch-size';
 import { processClaimedEventDelivery } from './process-claimed-event-delivery';
+import {
+  claimStorefrontCacheTransitionBatch,
+  processStorefrontCacheTransition,
+} from './process-storefront-cache-transition';
 
 const WORKER_ERROR_BACKOFF_MS = 5_000;
 type ClaimedEventDelivery = z.infer<typeof claimedEventDeliverySchema>;
 
 interface EventDeliveryWorkerOptions {
+  analyticsDeliveryEnabled?: boolean;
+  cacheTransitionDeliveryEnabled?: boolean;
   concurrency: number;
   once?: boolean;
   wait?: (milliseconds: number) => Promise<void>;
@@ -83,20 +89,31 @@ async function runEventDeliveryWorker(
     do {
       let failureHeartbeatRecorded = false;
       try {
-        const batch = await claimBatch(
-          supabase,
-          workerId,
-          getEventDeliveryClaimBatchSize(concurrency)
+        const cacheBatch = options.cacheTransitionDeliveryEnabled
+          ? await claimStorefrontCacheTransitionBatch(supabase, workerId)
+          : [];
+        const cacheOutcomes = await settleWithConcurrency(
+          cacheBatch,
+          concurrency,
+          (delivery) => processStorefrontCacheTransition(supabase, delivery)
         );
-        const outcomes = await settleWithConcurrency(
-          batch,
+        const genericBatch =
+          options.analyticsDeliveryEnabled === false
+            ? []
+            : await claimBatch(
+                supabase,
+                workerId,
+                getEventDeliveryClaimBatchSize(concurrency)
+              );
+        const genericOutcomes = await settleWithConcurrency(
+          genericBatch,
           concurrency,
           (delivery) => processClaimedEventDelivery(supabase, delivery)
         );
-        const failed = outcomes.filter(
+        const failed = [...cacheOutcomes, ...genericOutcomes].filter(
           (outcome) => outcome.status === 'rejected'
         );
-        const processed = outcomes.length - failed.length;
+        const processed = cacheOutcomes.length + genericOutcomes.length - failed.length;
         if (failed.length > 0) {
           lastSuccessHeartbeatAt = null;
           await heartbeat(
@@ -127,7 +144,12 @@ async function runEventDeliveryWorker(
         }
         if (failed.length > 0 && !stopping) {
           await waitFor(WORKER_ERROR_BACKOFF_MS);
-        } else if (batch.length === 0 && !options.once && !stopping) {
+        } else if (
+          cacheBatch.length === 0 &&
+          genericBatch.length === 0 &&
+          !options.once &&
+          !stopping
+        ) {
           await waitFor(1_000);
         }
       } catch (error) {
