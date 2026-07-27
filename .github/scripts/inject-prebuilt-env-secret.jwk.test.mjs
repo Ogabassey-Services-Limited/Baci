@@ -124,6 +124,55 @@ for (const [state, contents] of [
   });
 }
 
+for (const [description, value, state] of [
+  ['whitespace', '"   "', 'empty'],
+  ['an unset expansion', '"${UNSET_SIGNING_SECRET}"', 'an unresolved interpolation'],
+]) {
+  test(`generated JWK stand-in rejects ${description} as an empty legacy fallback`, () => {
+    const file = makeEnvFile(`${LEGACY_JWT_KEY}=${value}\n`);
+    const before = fs.readFileSync(file, 'utf8');
+    const { status, stderr } = runExpectFailure([
+      JWK_KEY,
+      file,
+      GENERATE_ES256_JWK_STANDIN,
+    ]);
+
+    assert.equal(status, 1);
+    assert.match(
+      stderr,
+      new RegExp(`fallback is ${state}.*without signing material`, 'i'),
+    );
+    assert.equal(fs.readFileSync(file, 'utf8'), before);
+  });
+}
+
+test('generated JWK stand-in rejects a nonempty fallback with an unresolved reference', () => {
+  const file = makeEnvFile(
+    `${LEGACY_JWT_KEY}="prefix-$BACI_TEST_MISSING_SIGNING_SECRET"\n`,
+  );
+  const before = fs.readFileSync(file, 'utf8');
+  const { status, stderr } = runExpectFailure([
+    JWK_KEY,
+    file,
+    GENERATE_ES256_JWK_STANDIN,
+  ]);
+
+  assert.equal(status, 1);
+  assert.match(stderr, /fallback is an unresolved interpolation/i);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('generated JWK stand-in accepts a fully resolved nonempty fallback', () => {
+  const file = makeEnvFile(
+    `JWT_PREFIX=legacy\n${LEGACY_JWT_KEY}="$JWT_PREFIX-signing-value"\n`,
+  );
+  const before = fs.readFileSync(file, 'utf8');
+  const stdout = run([JWK_KEY, file, GENERATE_ES256_JWK_STANDIN]);
+
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+  assert.match(stdout, /verified.*legacy signing-secret fallback/i);
+});
+
 test('generated JWK stand-in accepts only explicit blank dotenv forms', () => {
   const generatedValues = [];
 
