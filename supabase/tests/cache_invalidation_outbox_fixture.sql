@@ -80,6 +80,16 @@ CREATE TABLE public.product_categories (
   created_at timestamptz DEFAULT now(),
   UNIQUE (product_id, category_id)
 );
+CREATE TABLE public.merchant_feature_settings (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  merchant_id uuid NOT NULL UNIQUE REFERENCES public.merchants(id)
+    ON DELETE CASCADE,
+  wishlist_enabled boolean DEFAULT true,
+  paystack_enabled boolean DEFAULT true,
+  custom_settings jsonb DEFAULT '{}'::jsonb,
+  facebook_capi_token text,
+  updated_at timestamptz DEFAULT now()
+);
 ALTER TABLE public.product_categories ENABLE ROW LEVEL SECURITY;
 GRANT USAGE ON SCHEMA public, auth TO authenticated;
 GRANT SELECT ON public.merchants, public.products, public.categories

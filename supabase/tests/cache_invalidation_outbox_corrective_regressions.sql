@@ -29,7 +29,7 @@ BEGIN
   END IF;
   IF (SELECT generation FROM public.cache_invalidation_outbox
       WHERE merchant_id = 'a1000000-0000-4000-8000-000000000001'
-        AND target_id = 'legacy-one') <> 1
+        AND target_id = 'legacy-one') <> 2
     OR EXISTS (
       SELECT 1 FROM public.cache_invalidation_outbox
       WHERE merchant_id = 'a1000000-0000-4000-8000-000000000002'

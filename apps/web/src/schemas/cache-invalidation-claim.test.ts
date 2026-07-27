@@ -17,6 +17,21 @@ describe('cacheInvalidationClaimSchema', () => {
     ).toBe(true);
   });
 
+  it('accepts an independently coalesced storefront product target', () => {
+    expect(
+      cacheInvalidationClaimSchema.safeParse({
+        attempts: 1,
+        claim_token: '11111111-1111-4111-8111-111111111111',
+        generation: 3,
+        merchant_id: '22222222-2222-4222-8222-222222222222',
+        product_slugs: ['renamed-phone'],
+        related_identifiers: [],
+        target_id: 'renamed-phone',
+        target_kind: 'storefront_product',
+      }).success
+    ).toBe(true);
+  });
+
   it('rejects unknown target kinds and malformed claim fences', () => {
     expect(
       cacheInvalidationClaimSchema.safeParse({

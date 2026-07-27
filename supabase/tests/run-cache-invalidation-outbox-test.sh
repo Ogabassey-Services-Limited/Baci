@@ -22,10 +22,14 @@ docker exec -i "$container" psql -v ON_ERROR_STOP=1 -U postgres \
 docker exec -i "$container" psql -v ON_ERROR_STOP=1 -U postgres \
   < "$repo_root/supabase/migrations/20260727110000_complete_cache_invalidation_trigger_coverage.sql"
 docker exec -i "$container" psql -v ON_ERROR_STOP=1 -U postgres \
+  < "$repo_root/supabase/migrations/20260727150000_exact_product_and_feature_cache_invalidation.sql"
+docker exec -i "$container" psql -v ON_ERROR_STOP=1 -U postgres \
   < "$repo_root/supabase/tests/cache_invalidation_outbox.sql"
 docker exec -i "$container" psql -v ON_ERROR_STOP=1 -U postgres \
   < "$repo_root/supabase/tests/cache_invalidation_outbox_review_regressions.sql"
 docker exec -i "$container" psql -v ON_ERROR_STOP=1 -U postgres \
   < "$repo_root/supabase/tests/cache_invalidation_outbox_corrective_regressions.sql"
+docker exec -i "$container" psql -v ON_ERROR_STOP=1 -U postgres \
+  < "$repo_root/supabase/tests/cache_invalidation_outbox_exact_product_regressions.sql"
 
 echo 'Cache invalidation outbox SQL tests passed'

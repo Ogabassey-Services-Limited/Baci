@@ -8,7 +8,11 @@ export const cacheInvalidationClaimSchema = z.object({
   product_slugs: z.array(z.string().trim().min(1).max(253)).max(100),
   related_identifiers: z.array(z.string().trim().min(1).max(253)).max(40),
   target_id: z.string().trim().min(1).max(253),
-  target_kind: z.enum(['storefront_slug', 'storefront_hostname']),
+  target_kind: z.enum([
+    'storefront_slug',
+    'storefront_hostname',
+    'storefront_product',
+  ]),
 });
 
 export type CacheInvalidationClaim = z.infer<

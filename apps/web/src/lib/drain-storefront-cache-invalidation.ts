@@ -62,12 +62,16 @@ export async function drainStorefrontCacheInvalidation(
   { vercelTimeoutMs = DEFAULT_VERCEL_TIMEOUT_MS } = {}
 ): Promise<CacheInvalidationDrainResult> {
   const identity = targetIdentity(claim);
+  const productIdentifiers =
+    claim.target_kind === 'storefront_product'
+      ? [claim.target_id]
+      : claim.product_slugs;
   const dataTags = buildMerchantPublicationDataCacheTags({
     canonicalMerchantSlug: identity.merchantSlugs[0],
     identifiers: claim.related_identifiers,
     merchantId: claim.merchant_id,
   });
-  const exactProductTags = claim.product_slugs.flatMap((productSlug) => [
+  const exactProductTags = productIdentifiers.flatMap((productSlug) => [
     getProductScopedCacheTag('product', claim.merchant_id, productSlug),
     getProductScopedCacheTag(
       'product-lcp-image',
@@ -75,6 +79,29 @@ export async function drainStorefrontCacheInvalidation(
       productSlug
     ),
   ]);
+  if (claim.target_kind === 'storefront_product') {
+    try {
+      for (const tag of exactProductTags) {
+        revalidateTag(tag, { expire: 0 });
+      }
+    } catch {
+      return { errorCode: 'next_revalidation_failed', ok: false };
+    }
+    const exactVercelResult = await purgeVercelWithTimeout(
+      exactProductTags,
+      vercelTimeoutMs
+    );
+    if (!exactVercelResult.ok || exactVercelResult.reason !== 'deleted') {
+      return {
+        errorCode:
+          exactVercelResult.reason === 'timeout'
+            ? 'vercel_timeout'
+            : `vercel_${exactVercelResult.reason}`,
+        ok: false,
+      };
+    }
+    return { ok: true };
+  }
   const productTags = ['product-lcp-image', ...exactProductTags];
   try {
     const productsInvalidated = productCacheRevalidation.revalidateProducts(

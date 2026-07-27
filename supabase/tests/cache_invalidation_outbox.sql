@@ -47,7 +47,14 @@ BEGIN
     SELECT 1 FROM public.cache_invalidation_outbox
     WHERE merchant_id = v_merchant AND target_id = 'cache.example.com'
       AND related_identifiers @> ARRAY['cache-store', 'cache.example.com']
-      AND product_slugs @> ARRAY['cache-phone', v_product::text]
+  ) OR NOT EXISTS (
+    SELECT 1 FROM public.cache_invalidation_outbox
+    WHERE merchant_id = v_merchant AND target_kind = 'storefront_product'
+      AND target_id = 'cache-phone' AND product_slugs = ARRAY['cache-phone']
+  ) OR NOT EXISTS (
+    SELECT 1 FROM public.cache_invalidation_outbox
+    WHERE merchant_id = v_merchant AND target_kind = 'storefront_product'
+      AND target_id = v_product::text AND product_slugs = ARRAY[v_product::text]
   ) THEN
     RAISE EXCEPTION 'each target must carry independently drainable identity snapshots';
   END IF;
