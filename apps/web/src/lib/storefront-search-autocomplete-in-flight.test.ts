@@ -105,10 +105,14 @@ describe('bugfix: bounded autocomplete in-flight requests', () => {
     expect(supabase.rpc).toHaveBeenCalledTimes(2);
   });
 
-  it('does not coalesce overflow requests beyond the in-flight capacity', async () => {
+  it('rejects overflow without starting an RPC and admits work after capacity releases', async () => {
     vi.useFakeTimers();
     const supabase = createAutocompleteSupabase();
-    supabase.rpc.mockReturnValue(new Promise<RankedRpcResult>(() => undefined));
+    let resolveRankedSearch: ((result: RankedRpcResult) => void) | undefined;
+    const rankedSearch = new Promise<RankedRpcResult>((resolve) => {
+      resolveRankedSearch = resolve;
+    });
+    supabase.rpc.mockReturnValue(rankedSearch);
 
     const pendingLookups = Array.from({ length: 256 }, (_, index) =>
       getStorefrontAutocompleteProducts({
@@ -118,26 +122,36 @@ describe('bugfix: bounded autocomplete in-flight requests', () => {
         limit: 10,
       })
     );
-    const overflowFirst = getStorefrontAutocompleteProducts({
+    const overflow = getStorefrontAutocompleteProducts({
       supabase,
       merchantId: MERCHANT_ID,
       query: 'overflow-lookup',
       limit: 10,
     });
-    const overflowSecond = getStorefrontAutocompleteProducts({
-      supabase,
-      merchantId: MERCHANT_ID,
-      query: 'overflow-lookup',
-      limit: 10,
+    let overflowRejection: unknown;
+    void overflow.catch((error: unknown) => {
+      overflowRejection = error;
     });
-    const allLookups = [...pendingLookups, overflowFirst, overflowSecond];
-    for (const lookup of allLookups) {
-      void lookup.catch(() => undefined);
-    }
 
-    expect(supabase.rpc).toHaveBeenCalledTimes(258);
+    await vi.advanceTimersByTimeAsync(0);
 
-    await vi.advanceTimersByTimeAsync(5_001);
-    await Promise.allSettled(allLookups);
+    expect(overflowRejection).toMatchObject({
+      code: '57014',
+      name: 'AutocompleteInFlightTimeoutError',
+    });
+    expect(supabase.rpc).toHaveBeenCalledTimes(256);
+
+    resolveRankedSearch?.({ data: [], error: null });
+    await Promise.all(pendingLookups);
+
+    await expect(
+      getStorefrontAutocompleteProducts({
+        supabase,
+        merchantId: MERCHANT_ID,
+        query: 'admitted-after-release',
+        limit: 10,
+      })
+    ).resolves.toEqual({ suggestions: [], popularSearches: [] });
+    expect(supabase.rpc).toHaveBeenCalledTimes(257);
   });
 });
