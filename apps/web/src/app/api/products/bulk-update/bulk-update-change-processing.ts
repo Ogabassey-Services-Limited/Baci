@@ -1,9 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { generateProductSlug, generateSlug } from '@/lib/seo-utils';
-import {
-  resolveProductPurgeCategorySegment,
-  type StorefrontProductPurgeEntry,
-} from '@/lib/storefront-product-purge-urls';
+import type { StorefrontProductPurgeEntry } from '@/lib/storefront-product-purge-urls';
 import {
   type BulkUpdateChange,
   groupBulkUpdateChanges,
@@ -114,7 +111,7 @@ async function processBulkUpdateChange({
         change.details.sku ||
         generateSlug(change.details.name).toUpperCase().substring(0, 20);
 
-      const { data: insertedRow, error } = await supabase
+      const { error } = await supabase
         .from('products')
         .insert({
           merchant_id: merchantId,
@@ -152,19 +149,6 @@ async function processBulkUpdateChange({
         .maybeSingle();
 
       if (error) throw error;
-      const createdPurgeSlug = slug?.trim() || insertedRow?.id;
-      if (createdPurgeSlug) {
-        onPurgeEntries?.([
-          {
-            slug: createdPurgeSlug,
-            categorySegment: resolveProductPurgeCategorySegment({
-              slug: createdPurgeSlug,
-              name: change.details.name,
-              category: change.details.category || 'General',
-            }),
-          },
-        ]);
-      }
       result.created = 1;
       return result;
     }
