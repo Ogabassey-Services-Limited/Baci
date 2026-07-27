@@ -79,6 +79,19 @@ describe('useFollowUpQueue', () => {
     expect(mocks.refetchFailed).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps refresh progress active while cached merchant context revalidates', () => {
+    mocks.useMerchant.mockReturnValue({
+      error: null,
+      isFetching: true,
+      isLoading: false,
+      merchant: { id: 'merchant-1', payout_currency: 'NGN' },
+    });
+
+    const { result } = renderHook(() => useFollowUpQueue());
+
+    expect(result.current.isRefreshing).toBe(true);
+  });
+
   it('resolves and still refetches Follow Up when merchant invalidation rejects', async () => {
     mocks.useMerchant.mockReturnValue({
       error: null,

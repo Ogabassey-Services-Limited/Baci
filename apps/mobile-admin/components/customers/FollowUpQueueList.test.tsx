@@ -1,0 +1,166 @@
+import '@testing-library/jest-dom/vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import type React from 'react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { FollowUpQueueList } from './FollowUpQueueList';
+
+const mocks = vi.hoisted(() => ({
+  refresh: vi.fn(),
+  useFollowUpQueue: vi.fn(),
+}));
+
+vi.mock('@shopify/flash-list', async () => {
+  const React = await import('react');
+  return {
+    FlashList: ({
+      data,
+      ListEmptyComponent,
+      refreshControl,
+    }: {
+      data?: unknown[] | null;
+      ListEmptyComponent?: React.ReactNode;
+      refreshControl?: React.ReactNode;
+    }) => {
+      const refreshProps = React.isValidElement(refreshControl)
+        ? (refreshControl.props as {
+            onRefresh?: () => void;
+            refreshing?: boolean;
+          })
+        : undefined;
+
+      return React.createElement(
+        React.Fragment,
+        null,
+        React.createElement(
+          'button',
+          {
+            'aria-label': 'Refresh follow-ups',
+            'data-refreshing': String(Boolean(refreshProps?.refreshing)),
+            onClick: refreshProps?.onRefresh,
+            type: 'button',
+          },
+          'Refresh follow-ups'
+        ),
+        data && data.length > 0 ? null : ListEmptyComponent
+      );
+    },
+  };
+});
+
+vi.mock('@react-native-vector-icons/ionicons', async () => {
+  const React = await import('react');
+  return { default: () => React.createElement('div', null) };
+});
+
+vi.mock('@/hooks/useFollowUpQueue', () => ({
+  useFollowUpQueue: mocks.useFollowUpQueue,
+}));
+
+vi.mock('@/hooks/useTheme', () => ({
+  useTheme: () => ({
+    colors: {
+      background: '#000000',
+      backgroundLight: '#f2f2f7',
+      error: '#ff3b30',
+      gold: '#e6b800',
+      primary: '#0a84ff',
+      primaryLight: '#e6f2ff',
+      success: '#34c759',
+      text: '#ffffff',
+      textMuted: '#666666',
+      textSecondary: '#aeaeb2',
+      warning: '#ff9500',
+    },
+  }),
+}));
+
+const defaultProps = {
+  currencySymbol: '₦',
+  onFollowUpCountChange: vi.fn(),
+  onScroll: vi.fn(),
+  renderOrder: vi.fn(() => null),
+  searchQuery: '',
+};
+
+describe('FollowUpQueueList', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.useFollowUpQueue.mockReturnValue({
+      failedOrders: [],
+      isFailedOrdersError: false,
+      isRefreshing: false,
+      merchant: { id: 'merchant-1' },
+      refresh: mocks.refresh,
+      viewState: { status: 'empty' },
+    });
+  });
+
+  it('shows pull-to-refresh progress while cached merchant context revalidates', () => {
+    mocks.useFollowUpQueue.mockReturnValue({
+      failedOrders: [
+        {
+          attempt_count: 1,
+          created_at: '2026-07-27T08:00:00.000Z',
+          customer_email: 'ada@example.test',
+          customer_id: 'customer-1',
+          customer_name: 'Ada Buyer',
+          customer_phone: '+2348012345678',
+          id: 'order-1',
+          order_number: 'ORD-001',
+          payment_method: 'card',
+          payment_status: 'failed',
+          total: 15000,
+        },
+      ],
+      isFailedOrdersError: false,
+      isRefreshing: true,
+      merchant: { id: 'merchant-1' },
+      refresh: mocks.refresh,
+      viewState: { status: 'ready' },
+    });
+
+    render(<FollowUpQueueList {...defaultProps} />);
+
+    expect(
+      screen.getByRole('button', { name: 'Refresh follow-ups' })
+    ).toHaveAttribute('data-refreshing', 'true');
+  });
+
+  it('routes pull-to-refresh to the queue recovery callback', () => {
+    render(<FollowUpQueueList {...defaultProps} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh follow-ups' }));
+
+    expect(mocks.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('explains when a search excludes every available follow-up', () => {
+    mocks.useFollowUpQueue.mockReturnValue({
+      failedOrders: [
+        {
+          attempt_count: 1,
+          created_at: '2026-07-27T08:00:00.000Z',
+          customer_email: 'ada@example.test',
+          customer_id: 'customer-1',
+          customer_name: 'Ada Buyer',
+          customer_phone: '+2348012345678',
+          id: 'order-1',
+          order_number: 'ORD-001',
+          payment_method: 'card',
+          payment_status: 'failed',
+          total: 15000,
+        },
+      ],
+      isFailedOrdersError: false,
+      isRefreshing: false,
+      merchant: { id: 'merchant-1' },
+      refresh: mocks.refresh,
+      viewState: { status: 'ready' },
+    });
+
+    render(<FollowUpQueueList {...defaultProps} searchQuery="not-a-match" />);
+
+    expect(screen.getByText('No matching follow-ups')).toBeTruthy();
+    expect(screen.queryByText('No issues')).toBeNull();
+  });
+});
