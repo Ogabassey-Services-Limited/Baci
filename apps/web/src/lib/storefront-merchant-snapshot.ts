@@ -12,7 +12,7 @@ const MERCHANT_SNAPSHOT_RUNTIME_DEADLINE_MS = 5_000;
 const MERCHANT_SNAPSHOT_BUILD_DEADLINE_MS = 30_000;
 
 function merchantSnapshotDeadlineMs() {
-  return process.env.BACI_STOREFRONT_BUILD_READS === 'serialized'
+  return process.env.BACI_STOREFRONT_BUILD_READS === 'bounded'
     ? MERCHANT_SNAPSHOT_BUILD_DEADLINE_MS
     : MERCHANT_SNAPSHOT_RUNTIME_DEADLINE_MS;
 }

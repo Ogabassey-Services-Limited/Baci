@@ -31,7 +31,7 @@ describe('getPublicSupabaseClient', () => {
   });
 
   it('shares one read gate across public clients during production builds', () => {
-    vi.stubEnv('BACI_STOREFRONT_BUILD_READS', 'serialized');
+    vi.stubEnv('BACI_STOREFRONT_BUILD_READS', 'bounded');
     mockCreateClient.mockReturnValue({ from: vi.fn() });
 
     getPublicSupabaseClient();

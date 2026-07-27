@@ -2,31 +2,27 @@ import { describe, expect, it, vi } from 'vitest';
 import { createStorefrontBuildReadFetch } from './storefront-build-read-fetch';
 
 describe('createStorefrontBuildReadFetch', () => {
-  it('serializes reads created by separate public clients', async () => {
-    let releaseFirst: (() => void) | undefined;
-    const firstPending = new Promise<void>((resolve) => {
-      releaseFirst = resolve;
-    });
-    const upstream = vi
-      .fn<typeof fetch>()
-      .mockImplementationOnce(async () => {
-        await firstPending;
-        return new Response('first');
-      })
-      .mockResolvedValueOnce(new Response('second'));
-    const firstClientFetch = createStorefrontBuildReadFetch(upstream);
-    const secondClientFetch = createStorefrontBuildReadFetch(upstream);
+  it('bounds concurrent reads created by separate public clients', async () => {
+    const releases: Array<() => void> = [];
+    const upstream = vi.fn<typeof fetch>().mockImplementation(
+      async () =>
+        new Promise<Response>((resolve) => {
+          releases.push(() => resolve(new Response('ok')));
+        })
+    );
+    const clientFetches = Array.from({ length: 4 }, () =>
+      createStorefrontBuildReadFetch(upstream)
+    );
 
-    const first = firstClientFetch('https://example.com/first');
-    await vi.waitFor(() => expect(upstream).toHaveBeenCalledTimes(1));
-    const second = secondClientFetch('https://example.com/second');
-    await Promise.resolve();
+    const reads = clientFetches.map((clientFetch, index) =>
+      clientFetch(`https://example.com/${index}`)
+    );
+    await vi.waitFor(() => expect(upstream).toHaveBeenCalledTimes(3));
 
-    expect(upstream).toHaveBeenCalledTimes(1);
-    releaseFirst?.();
-    await expect(first).resolves.toBeInstanceOf(Response);
-    await expect(second).resolves.toBeInstanceOf(Response);
-    expect(upstream).toHaveBeenCalledTimes(2);
+    releases.shift()?.();
+    await vi.waitFor(() => expect(upstream).toHaveBeenCalledTimes(4));
+    for (const release of releases) release();
+    await expect(Promise.all(reads)).resolves.toHaveLength(4);
   });
 
   it('releases the next read when the active read rejects', async () => {

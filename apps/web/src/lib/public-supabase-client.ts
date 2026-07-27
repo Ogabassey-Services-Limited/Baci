@@ -18,7 +18,7 @@ export function getPublicSupabaseClient(options?: { timeoutMs?: number }) {
     options?.timeoutMs ?? CACHED_CLIENT_DEFAULT_TIMEOUT_MS
   );
   const publicFetch =
-    process.env.BACI_STOREFRONT_BUILD_READS === 'serialized'
+    process.env.BACI_STOREFRONT_BUILD_READS === 'bounded'
       ? createStorefrontBuildReadFetch(timedFetch)
       : timedFetch;
 

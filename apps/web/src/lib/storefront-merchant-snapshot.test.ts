@@ -90,7 +90,7 @@ describe('readStorefrontMerchantSnapshot', () => {
     await readStorefrontMerchantSnapshot(client, 'runtime-store');
     expect(timeout).toHaveBeenLastCalledWith(5_000);
 
-    vi.stubEnv('BACI_STOREFRONT_BUILD_READS', 'serialized');
+    vi.stubEnv('BACI_STOREFRONT_BUILD_READS', 'bounded');
     await readStorefrontMerchantSnapshot(client, 'build-store');
     expect(timeout).toHaveBeenLastCalledWith(30_000);
   });

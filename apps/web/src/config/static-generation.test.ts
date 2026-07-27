@@ -51,7 +51,7 @@ describe('STATIC_GENERATION_LIMITS', () => {
     ) as { scripts?: { build?: string } };
 
     expect(packageJson.scripts?.build).toBe(
-      'BACI_STOREFRONT_BUILD_READS=serialized NODE_ENV=production next build'
+      'BACI_STOREFRONT_BUILD_READS=bounded NODE_ENV=production next build'
     );
   });
 
