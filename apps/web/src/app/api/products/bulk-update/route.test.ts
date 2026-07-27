@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createBulkUpdateRouteQueryBuilder } from './bulk-update-route-query-builder.test-support';
 
 // ---- Mocks ----
 
@@ -142,28 +143,9 @@ let updateError: unknown = null;
 let insertError: unknown = null;
 let productInserts: unknown[] = [];
 let productUpdates: unknown[] = [];
-// Rows returned by the `.select(...)` appended to the update/archive queries so
-// the route can derive the Cloudflare purge targets.
+// Rows returned before and after update/archive queries so the route can derive
+// publication-state-aware Cloudflare purge targets.
 let productUpdateSelectRows: unknown[] = [];
-
-// Creates a query builder that supports chaining .eq(); resolves with { error }
-// when awaited directly, or with { data, error } when `.select(...)` is called
-// (the purge path appends a returning select to the update/archive queries).
-function createQueryBuilder(
-  getError: () => unknown,
-  getRows: () => unknown[] = () => []
-) {
-  const builder: Record<string, unknown> = {};
-  builder.eq = vi.fn(() => builder);
-  builder.select = vi.fn(() =>
-    Promise.resolve({ data: getRows(), error: getError() })
-  );
-  // biome-ignore lint/suspicious/noThenProperty: Needed for vitest promise mocking
-  builder.then = vi.fn((resolve: (value: { error: unknown }) => void) =>
-    resolve({ error: getError() })
-  );
-  return builder;
-}
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn().mockResolvedValue({
@@ -205,9 +187,15 @@ vi.mock('@/lib/supabase/server', () => ({
       }
       if (table === 'products') {
         return {
+          select: vi.fn(() =>
+            createBulkUpdateRouteQueryBuilder(
+              () => updateError,
+              () => productUpdateSelectRows
+            )
+          ),
           update: vi.fn((payload: unknown) => {
             productUpdates.push(payload);
-            return createQueryBuilder(
+            return createBulkUpdateRouteQueryBuilder(
               () => updateError,
               () => productUpdateSelectRows
             );
@@ -424,6 +412,7 @@ describe('POST /api/products/bulk-update', () => {
         id: 'product-1',
         slug: 'updated-product',
         category: 'Electronics',
+        status: 'active',
         categories: null,
         product_categories: [],
       },
@@ -456,6 +445,7 @@ describe('POST /api/products/bulk-update', () => {
         id: 'legacy-id',
         slug: null,
         category: null,
+        status: 'active',
         categories: null,
         product_categories: [],
       },
@@ -487,6 +477,7 @@ describe('POST /api/products/bulk-update', () => {
       id: `p-${index}`,
       slug: `slug-${index}`,
       category: 'Electronics',
+      status: 'active',
       categories: null,
       product_categories: [],
     }));

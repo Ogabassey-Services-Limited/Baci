@@ -13,6 +13,7 @@ describe('getBulkPurgeEntries', () => {
           id: 'product-1',
           slug: '  rog-ally  ',
           category: 'Legacy Text',
+          status: 'active',
           categories: { slug: 'gaming-laptops' },
         },
       ])
@@ -31,6 +32,7 @@ describe('getBulkPurgeEntries', () => {
           id: 'legacy-product-1',
           slug: '  ',
           category: null,
+          status: 'active',
           product_categories: [{ categories: { slug: 'accessories' } }],
         },
       ])
@@ -40,5 +42,16 @@ describe('getBulkPurgeEntries', () => {
         categorySegment: 'accessories',
       },
     ]);
+  });
+
+  it('returns no public entries for 51 draft products', () => {
+    const draftRows = Array.from({ length: 51 }, (_, index) => ({
+      id: `draft-${index}`,
+      slug: `draft-product-${index}`,
+      category: 'Drafts',
+      status: 'draft',
+    }));
+
+    expect(getBulkPurgeEntries(draftRows)).toEqual([]);
   });
 });
