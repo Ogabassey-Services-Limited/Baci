@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { STATIC_GENERATION_LIMITS } from './static-generation';
 
 const STOREFRONT_READ_ENVELOPE = 3;
-const RESERVED_BUILD_READS = 1;
+const RESERVED_BUILD_READS = 2;
 const PAGES_REQUIRING_A_FOURTH_WORKER = 4_801;
 
 async function simulateStorefrontPrerenders(
