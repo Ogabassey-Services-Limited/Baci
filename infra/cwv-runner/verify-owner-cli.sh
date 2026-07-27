@@ -41,14 +41,13 @@ ruleset_body() {
   name=$(json_get "$policy" ruleset.name)
   target=$(json_get "$policy" ruleset.target)
   enforcement=$(json_get "$policy" ruleset.enforcement)
-  includes=$(json_array "$policy" ruleset.tagIncludes)
+  include_source=$(json_get "$policy" ruleset.tagIncludes)
   excludes=$(json_array "$policy" ruleset.tagExcludes)
   bypasses=$(json_array "$policy" ruleset.bypassActors)
   [ "$name" = ogabassey-rollout-progress-immutable ] || refuse
   [ "$target" = tag ] && [ "$enforcement" = active ] || refuse
-  for index in 0 1 2; do /usr/bin/plutil -extract "ruleset.tagIncludes.$index" raw -o - "$policy" >/dev/null 2>&1 || refuse; done
-  [ "$(json_get "$policy" ruleset.tagIncludes.0)" = 'refs/tags/ogabassey-rollout-claim/*' ] && [ "$(json_get "$policy" ruleset.tagIncludes.1)" = 'refs/tags/ogabassey-rollout-progress/**/*' ] && [ "$(json_get "$policy" ruleset.tagIncludes.2)" = 'refs/tags/ogabassey-semantic-admission/*' ] || refuse
-  /usr/bin/plutil -extract ruleset.tagIncludes.3 raw -o - "$policy" >/dev/null 2>&1 && refuse
+  [ "$include_source" = 'refs/tags/ogabassey-rollout-claim/*|refs/tags/ogabassey-rollout-progress/**/*|refs/tags/ogabassey-semantic-admission/*' ] || refuse
+  includes='["refs\/tags\/ogabassey-rollout-claim\/*","refs\/tags\/ogabassey-rollout-progress\/**\/*","refs\/tags\/ogabassey-semantic-admission\/*"]'
   [ "$excludes" = '[]' ] && [ "$bypasses" = '[]' ] && [ "$(json_get "$policy" ruleset.rules.0)" = update ] && [ "$(json_get "$policy" ruleset.rules.1)" = deletion ] || refuse
   /usr/bin/plutil -extract ruleset.rules.2 raw -o - "$policy" >/dev/null 2>&1 && refuse
   /usr/bin/printf '{"name":"%s","target":"%s","enforcement":"%s","bypass_actors":%s,"conditions":{"ref_name":{"include":%s,"exclude":%s}},"rules":[{"type":"update"},{"type":"deletion"}]}' "$name" "$target" "$enforcement" "$bypasses" "$includes" "$excludes"; }

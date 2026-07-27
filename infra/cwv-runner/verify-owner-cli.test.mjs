@@ -9,8 +9,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test, { after } from 'node:test';
 
-const directory = path.dirname(new URL(import.meta.url).pathname);
-const darwinTest = process.platform === 'darwin' ? test : test.skip;
+const directory = path.dirname(new URL(import.meta.url).pathname); const darwinTest = process.platform === 'darwin' ? test : test.skip;
 const verifierPath = path.join(directory, 'verify-owner-cli.sh'); const dispatcherPath = path.join(directory, 'owner-dispatch.sh');
 const fixtureRoots = new Set(); after(async () => { await Promise.all([...fixtureRoots].map((root) => rm(root, { force: true, recursive: true }))); });
 const digest = (value) => createHash('sha256').update(value).digest('hex');
@@ -49,7 +48,7 @@ async function fixture(additionalChecksumRows = '') {
       authority: { deploymentMarker: '1_1_aaaaaaaaaaaaaaaaaaaa', deploymentRunAttempt: 1, deploymentRunId: 1, implementationBaseSha: 'a'.repeat(40), normativeContractPath: 'docs/contract.md', normativeContractSha256: 'b'.repeat(64) },
       ruleset: {
         bypassActors: [], enforcement: 'active', name: 'ogabassey-rollout-progress-immutable', rules: ['update', 'deletion'],
-        tagExcludes: [], tagIncludes: ['refs/tags/ogabassey-rollout-claim/*', 'refs/tags/ogabassey-rollout-progress/**/*', 'refs/tags/ogabassey-semantic-admission/*'], target: 'tag',
+        tagExcludes: [], tagIncludes: 'refs/tags/ogabassey-rollout-claim/*|refs/tags/ogabassey-rollout-progress/**/*|refs/tags/ogabassey-semantic-admission/*', target: 'tag',
       },
       supplyChain: { node: { ownerDarwinArm64Sha256: '1'.repeat(64), version: '24.18.0' } },
       supplyChainProvenance: { ownerCli: { archiveSha256, binarySha256: digest(fakeGhBody), checksumsSha256: digest(checksumBytes), version: '2.93.0' } },
@@ -116,6 +115,7 @@ test('uses only fixed macOS tools and exposes the closed verifier modes', async 
   assert.match(verifier, /private-key\.pem.*<"\$input"/); assert.match(verifier, /case "\$root" in \(\/private\/tmp\/baci-cwv-\*\)/);
   for (const operation of task7Operations.slice(8)) assert.match(verifier, new RegExp(operation));
 });
+darwinTest('renders pipe-delimited ruleset includes as the exact GitHub array', async () => { const value = await fixture(); const { common } = task7(value); const result = run(value.verifier, [...common, '--exec-gh-operation', 'upsert-rollout-ruleset']); assert.equal(result.status, 0, result.stderr); assert.deepEqual(JSON.parse(await readFile(path.join(value.root, 'ruleset-request.json'), 'utf8')).conditions.ref_name.include, ['refs/tags/ogabassey-rollout-claim/*', 'refs/tags/ogabassey-rollout-progress/**/*', 'refs/tags/ogabassey-semantic-admission/*']); });
 test('claims both source-authorization destinations without mv no-clobber ambiguity', async () => { const verifier = await readFile(verifierPath, 'utf8'); for (const writer of [verifier.slice(verifier.indexOf('write_atomic()'), verifier.indexOf('\nwrite_digest()')), verifier.slice(verifier.indexOf('write_digest()'), verifier.indexOf('\noperation_set()'))]) { assert.match(writer, /\/bin\/ln "\$temporary" "\$destination" \|\| refuse/); assert.match(writer, /\/bin\/rm -f -- "\$temporary" \|\| refuse/); assert.doesNotMatch(writer, /\/bin\/mv -n/); } });
 darwinTest('refuses malformed middle archive rows before a duplicate governed member', async () => { const result = await sourceMutationStatus((manifest) => { const row = manifest.sourceArchive.entries.find((entry) => entry.path.endsWith('/owner-dispatch.sh')); const insertion = manifest.sourceArchive.entries.findIndex((entry) => entry.path.endsWith('/verify-owner-cli.sh')) + 1; manifest.sourceArchive.entries.splice(insertion, 0, { blobSha256: 'e'.repeat(64), mode: '100644' }, { ...row }); }); assert.notEqual(result.status, 0); });
 darwinTest('refuses incomplete or noncanonical preflight identity', async () => { assert.notEqual((await sourceMutationStatus((manifest) => { delete manifest.prNumber; })).status, 0); assert.notEqual((await sourceMutationStatus(() => undefined, (manifest) => JSON.stringify(manifest, null, 2))).status, 0); });
