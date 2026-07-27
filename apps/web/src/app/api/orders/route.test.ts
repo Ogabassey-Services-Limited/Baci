@@ -20,7 +20,6 @@ const {
   mockCreateAdminClient,
   mockRevalidateProducts,
   mockRevalidateProductSlugs,
-  mockScheduleStorefrontInventoryProductPurge,
 } = vi.hoisted(() => ({
   MockQuizProductionNotApprovedError: class MockQuizProductionNotApprovedError extends Error {
     code = 'quiz_production_not_approved' as const;
@@ -58,16 +57,11 @@ const {
   mockCreateAdminClient: vi.fn(),
   mockRevalidateProducts: vi.fn(),
   mockRevalidateProductSlugs: vi.fn(),
-  mockScheduleStorefrontInventoryProductPurge: vi.fn(),
 }));
 
 vi.mock('@/lib/cache-revalidation', () => ({
   revalidateProducts: mockRevalidateProducts,
   revalidateProductSlugs: mockRevalidateProductSlugs,
-}));
-vi.mock('@/lib/storefront-inventory-product-purge', () => ({
-  scheduleStorefrontInventoryProductPurge:
-    mockScheduleStorefrontInventoryProductPurge,
 }));
 
 vi.mock('@/lib/paystack', () => ({
@@ -3092,7 +3086,7 @@ describe('POST /api/orders — product cache revalidation after order creation',
     expect(mockRevalidateProducts).toHaveBeenCalledExactlyOnceWith(MERCHANT_ID);
   });
 
-  it('resolves the touched product slugs and revalidates their per-slug PDP and edge caches', async () => {
+  it('resolves the touched product slugs and revalidates their per-slug PDP caches', async () => {
     const supabaseMod = await import('@/lib/supabase/server');
     vi.mocked(supabaseMod.createClient).mockImplementation(
       () =>
@@ -3114,14 +3108,6 @@ describe('POST /api/orders — product cache revalidation after order creation',
       MERCHANT_ID,
       ['test-widget']
     );
-    expect(mockScheduleStorefrontInventoryProductPurge).toHaveBeenCalledWith(
-      expect.objectContaining({
-        merchantId: MERCHANT_ID,
-        merchantSlug: 'test-merchant',
-        operation: 'order creation',
-        products: [expect.objectContaining({ slug: 'test-widget' })],
-      })
-    );
   });
 
   it('logs and still returns a successful order when the slug lookup fails', async () => {
@@ -3134,12 +3120,11 @@ describe('POST /api/orders — product cache revalidation after order creation',
         if (table !== 'products') {
           return original;
         }
-        // Only the inventory cache lookup selects this projection — the
+        // Only the slug-revalidation lookup selects exactly 'slug' — the
         // pre-existing tax/negotiation product lookup selects other columns
         // and must keep resolving via the default chain.
         const select = vi.fn((columns: string) =>
-          columns ===
-          'id, slug, category, categories:category_id(slug), product_categories(categories(slug))'
+          columns === 'slug'
             ? {
                 eq: vi.fn().mockReturnThis(),
                 in: vi.fn().mockReturnThis(),

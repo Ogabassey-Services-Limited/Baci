@@ -10,8 +10,6 @@ import { storeAgenticIdempotencyResponse } from '@/lib/agentic/idempotency';
 import { logger } from '@/lib/logger';
 import { productCacheRevalidation } from '@/lib/product-cache-revalidation';
 
-const mockScheduleStorefrontInventoryProductPurge = vi.fn();
-
 vi.mock('@/lib/agentic/checkout-order-dispatch', () => ({
   createAgenticCheckoutOrder: vi.fn(),
   markAgenticCheckoutOrderCanceled: vi.fn(),
@@ -28,10 +26,6 @@ vi.mock('@/lib/product-cache-revalidation', () => ({
     revalidateProductSlugs: vi.fn(),
     revalidateProducts: vi.fn(),
   },
-}));
-vi.mock('@/lib/storefront-inventory-product-purge', () => ({
-  scheduleStorefrontInventoryProductPurge: (...args: unknown[]) =>
-    mockScheduleStorefrontInventoryProductPurge(...args),
 }));
 
 const { revalidateDashboard, revalidateProductSlugs, revalidateProducts } =
@@ -96,14 +90,7 @@ function createUpdateChain(
 }
 
 function createProductsChain(
-  data: Array<{
-    categories?: unknown;
-    category?: string | null;
-    id?: string;
-    manage_stock: boolean | null;
-    product_categories?: unknown;
-    slug: string;
-  }> | null = [],
+  data: Array<{ manage_stock: boolean | null; slug: string }> | null = [],
   error: unknown = null
 ) {
   const chain: {
@@ -598,12 +585,7 @@ describe('finalizeAgenticCheckoutPayment', () => {
     const markerChain = createUpdateChain({ session_id: 'agentic_session_1' });
     const finalChain = createUpdateChain({ session_id: 'agentic_session_1' });
     const productsChain = createProductsChain([
-      {
-        category: 'Smartphones',
-        id: 'product-1',
-        manage_stock: true,
-        slug: 'phone-slug',
-      },
+      { manage_stock: true, slug: 'phone-slug' },
     ]);
     const supabase = createSupabaseWithUpdateChains(
       [claimChain, markerChain, finalChain],
@@ -623,27 +605,11 @@ describe('finalizeAgenticCheckoutPayment', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(productsChain.select).toHaveBeenCalledWith(
-      'id, slug, category, manage_stock, categories:category_id(slug), product_categories(categories(slug))'
-    );
+    expect(productsChain.select).toHaveBeenCalledWith('slug, manage_stock');
     expect(productsChain.in).toHaveBeenCalledWith('id', ['product-1']);
     expect(revalidateProductSlugs).toHaveBeenCalledExactlyOnceWith(
       'merchant-1',
       ['phone-slug']
-    );
-    expect(mockScheduleStorefrontInventoryProductPurge).toHaveBeenCalledWith(
-      expect.objectContaining({
-        merchantId: 'merchant-1',
-        operation: 'agentic checkout order creation',
-        products: [
-          expect.objectContaining({
-            category: 'Smartphones',
-            id: 'product-1',
-            slug: 'phone-slug',
-          }),
-        ],
-        supabase,
-      })
     );
   });
 

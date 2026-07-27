@@ -2,19 +2,10 @@ import { generateText } from 'ai';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { activeImageModel } from '@/ai/provider';
-import {
-  revalidateProductSlugs,
-  revalidateProducts,
-} from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
+import { productCacheRevalidation } from '@/lib/product-cache-revalidation';
 import { checkRateLimit } from '@/lib/rate-limiter';
-import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
-import {
-  type ProductPurgeCategoryRow,
-  resolveProductPurgeCategorySegmentForRow,
-  type StorefrontProductPurgeEntry,
-} from '@/lib/storefront-product-purge-urls';
 
 interface GeminiAIResponse {
   candidates?: Array<{
@@ -111,9 +102,7 @@ export async function POST(req: NextRequest) {
     // Start building the query
     let query = supabase
       .from('products')
-      .select(
-        'id, name, color, images, parent_product_id, slug, category, categories:category_id(slug), product_categories(categories(slug))'
-      )
+      .select('id, name, color, images, parent_product_id, slug')
       .eq('merchant_id', merchantId)
       .eq('status', 'active');
 
@@ -133,7 +122,7 @@ export async function POST(req: NextRequest) {
 
     const processed: Record<string, unknown>[] = [];
     const errors: Record<string, unknown>[] = [];
-    const publicPurgeEntries: StorefrontProductPurgeEntry[] = [];
+    const processedSlugs: string[] = [];
 
     // Filter locally
     const candidates = (products || [])
@@ -236,14 +225,9 @@ export async function POST(req: NextRequest) {
             name: product.name,
             new_image: publicUrl,
           });
-          const productRow = product as ProductPurgeCategoryRow;
-          const purgeSlug = productRow.slug?.trim() || productRow.id?.trim();
-          if (purgeSlug) {
-            publicPurgeEntries.push({
-              slug: purgeSlug,
-              categorySegment:
-                resolveProductPurgeCategorySegmentForRow(productRow),
-            });
+          const productSlug = product.slug?.trim() || product.id?.trim();
+          if (productSlug) {
+            processedSlugs.push(productSlug);
           }
         }
       } catch (err: unknown) {
@@ -252,27 +236,19 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (publicPurgeEntries.length > 0) {
-      // The source query is active-only, so every completed image update is a
-      // public product mutation. Revalidate its Next data before asking the
-      // outer edge to refill, and never let cache work change the API result.
+    if (processedSlugs.length > 0) {
       try {
-        revalidateProducts(merchantId);
-        revalidateProductSlugs(
+        productCacheRevalidation.revalidateProducts(merchantId, undefined, {
+          feedScope: 'merchant',
+        });
+        productCacheRevalidation.revalidateProductSlugs(
           merchantId,
-          publicPurgeEntries.map((entry) => entry.slug)
+          processedSlugs
         );
-        scheduleStorefrontProductPurge(
-          merchantContext.merchantSlug,
-          publicPurgeEntries
-        );
-      } catch (purgeError) {
-        console.warn(
-          'Skipped Cloudflare product purge after image generation',
-          {
-            purgeError,
-          }
-        );
+      } catch (cacheError) {
+        console.warn('Skipped product cache refresh after image generation', {
+          cacheError,
+        });
       }
     }
 

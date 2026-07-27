@@ -13,7 +13,6 @@ const mocks = vi.hoisted(() => ({
   revalidateProductSlugs: vi.fn(),
   revalidateProducts: vi.fn(),
   revalidatePath: vi.fn(),
-  scheduleStorefrontProductPurge: vi.fn(),
 }));
 
 vi.mock('ai', () => ({ generateText: mocks.generateText }));
@@ -29,14 +28,13 @@ vi.mock('@/ai/provider', () => ({
 }));
 vi.mock('next/cache', () => ({ revalidatePath: mocks.revalidatePath }));
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({})) }));
-vi.mock('@/lib/cache-revalidation', () => ({
-  revalidateProducts: (...args: unknown[]) => mocks.revalidateProducts(...args),
-  revalidateProductSlugs: (...args: unknown[]) =>
-    mocks.revalidateProductSlugs(...args),
-}));
-vi.mock('@/lib/storefront-product-purge', () => ({
-  scheduleStorefrontProductPurge: (...args: unknown[]) =>
-    mocks.scheduleStorefrontProductPurge(...args),
+vi.mock('@/lib/product-cache-revalidation', () => ({
+  productCacheRevalidation: {
+    revalidateProducts: (...args: unknown[]) =>
+      mocks.revalidateProducts(...args),
+    revalidateProductSlugs: (...args: unknown[]) =>
+      mocks.revalidateProductSlugs(...args),
+  },
 }));
 
 vi.mock('@/lib/merchant-server', () => {
@@ -380,7 +378,7 @@ describe('saveSEOSettings', () => {
     expect(result).toEqual({ success: true, updated: 1, failed: 0 });
   });
 
-  it('revalidates and purges active products after successful SEO writes', async () => {
+  it('revalidates active products after successful SEO writes', async () => {
     authenticate();
     const updateBuilder = createQueryBuilder({ data: null });
     const publicProductsBuilder = createQueryBuilder({
@@ -406,22 +404,17 @@ describe('saveSEOSettings', () => {
     const result = await saveSEOSettings(MERCHANT_ID, [validOptimization]);
 
     expect(result).toEqual({ success: true, updated: 1, failed: 0 });
-    expect(mocks.revalidateProducts).toHaveBeenCalledWith(MERCHANT_ID);
+    expect(mocks.revalidateProducts).toHaveBeenCalledWith(
+      MERCHANT_ID,
+      undefined,
+      { feedScope: 'merchant' }
+    );
     expect(mocks.revalidateProductSlugs).toHaveBeenCalledWith(MERCHANT_ID, [
       'leather-tote',
     ]);
-    expect(mocks.scheduleStorefrontProductPurge).toHaveBeenCalledWith(
-      'test-store',
-      [{ slug: 'leather-tote', categorySegment: 'bags' }]
-    );
-    expect(
-      mocks.revalidateProductSlugs.mock.invocationCallOrder[0]
-    ).toBeLessThan(
-      mocks.scheduleStorefrontProductPurge.mock.invocationCallOrder[0]
-    );
   });
 
-  it('purges only fulfilled active SEO writes when the batch partially fails', async () => {
+  it('revalidates only fulfilled active SEO writes when the batch partially fails', async () => {
     authenticate();
     const successfulUpdateBuilder = createQueryBuilder({ data: null });
     const failedUpdateBuilder = createQueryBuilder({
@@ -462,9 +455,5 @@ describe('saveSEOSettings', () => {
     expect(mocks.revalidateProductSlugs).toHaveBeenCalledWith(MERCHANT_ID, [
       'leather-tote',
     ]);
-    expect(mocks.scheduleStorefrontProductPurge).toHaveBeenCalledWith(
-      'test-store',
-      [{ slug: 'leather-tote', categorySegment: 'bags' }]
-    );
   });
 });

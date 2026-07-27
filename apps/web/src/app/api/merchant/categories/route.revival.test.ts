@@ -7,7 +7,6 @@ const mocks = vi.hoisted(() => ({
   validateCategoryParent: vi.fn(),
   checkCsrfProtection: vi.fn(),
   invalidateCategoryCaches: vi.fn(),
-  scheduleInternalStorefrontPurge: vi.fn(),
 }));
 
 vi.mock('./category-route-support', () => ({
@@ -24,9 +23,6 @@ vi.mock('@/lib/csrf', () => ({
 }));
 vi.mock('@/lib/category-cache-invalidation', () => ({
   invalidateCategoryCaches: mocks.invalidateCategoryCaches,
-}));
-vi.mock('@/lib/internal-storefront-purge-bridge', () => ({
-  scheduleInternalStorefrontPurge: mocks.scheduleInternalStorefrontPurge,
 }));
 
 import { POST } from './route';

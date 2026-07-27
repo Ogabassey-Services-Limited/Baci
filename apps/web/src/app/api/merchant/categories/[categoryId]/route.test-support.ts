@@ -12,7 +12,6 @@ interface RouteMocks {
   validateCategoryParent: ReturnType<typeof vi.fn>;
   checkCsrfProtection: ReturnType<typeof vi.fn>;
   invalidateCategoryCaches: ReturnType<typeof vi.fn>;
-  scheduleInternalStorefrontPurge: ReturnType<typeof vi.fn>;
 }
 
 export interface TableState {

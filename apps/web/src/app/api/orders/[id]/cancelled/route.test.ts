@@ -8,7 +8,6 @@ const mocks = vi.hoisted(() => ({
   revalidateDashboard: vi.fn(),
   revalidateProductSlugs: vi.fn(),
   revalidateProducts: vi.fn(),
-  scheduleStorefrontInventoryProductPurge: vi.fn(),
 }));
 
 vi.mock('@/lib/api-auth', () => ({
@@ -21,10 +20,6 @@ vi.mock('@/lib/product-cache-revalidation', () => ({
     revalidateProductSlugs: mocks.revalidateProductSlugs,
     revalidateProducts: mocks.revalidateProducts,
   },
-}));
-vi.mock('@/lib/storefront-inventory-product-purge', () => ({
-  scheduleStorefrontInventoryProductPurge:
-    mocks.scheduleStorefrontInventoryProductPurge,
 }));
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: mocks.checkCsrfProtection,
@@ -42,14 +37,7 @@ function createSupabase() {
     error: null,
   });
   const productsIn = vi.fn().mockResolvedValue({
-    data: [
-      {
-        category: 'Smartphones',
-        id: 'product-1',
-        manage_stock: true,
-        slug: 'phone',
-      },
-    ],
+    data: [{ manage_stock: true, slug: 'phone' }],
     error: null,
   });
   const supabase = {
@@ -129,20 +117,6 @@ describe('POST /api/orders/[id]/cancelled', () => {
     expect(mocks.revalidateProductSlugs).toHaveBeenCalledWith('merchant-1', [
       'phone',
     ]);
-    expect(mocks.scheduleStorefrontInventoryProductPurge).toHaveBeenCalledWith(
-      expect.objectContaining({
-        merchantId: 'merchant-1',
-        operation: 'order cancellation',
-        products: [
-          expect.objectContaining({
-            category: 'Smartphones',
-            id: 'product-1',
-            slug: 'phone',
-          }),
-        ],
-        supabase,
-      })
-    );
     await expect(response.json()).resolves.toMatchObject({
       message: 'Cancellation completed; side effects are queued',
       sideEffects: { customerEmail: 'queued', refund: 'queued_if_required' },

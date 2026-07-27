@@ -2,7 +2,6 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { invalidateCategoryCaches } from '@/lib/category-cache-invalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
-import { scheduleInternalStorefrontPurge } from '@/lib/internal-storefront-purge-bridge';
 import { logger } from '@/lib/logger';
 import { categoryIdParamSchema } from '@/schemas/category-id-param';
 import { categorySlugSchema } from '@/schemas/category-slug';
@@ -185,7 +184,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     relatedSlugs: childSlugs.slugs,
     supabase,
   });
-  scheduleInternalStorefrontPurge(merchantId, canonicalMerchantSlug);
 
   return NextResponse.json({
     category: data,
@@ -291,7 +289,6 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     relatedSlugs: childSlugs.slugs,
     supabase,
   });
-  scheduleInternalStorefrontPurge(merchantId, canonicalMerchantSlug);
 
   return NextResponse.json({
     deleted: { id: retired.id },

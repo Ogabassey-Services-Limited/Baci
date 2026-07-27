@@ -33,7 +33,6 @@ const mocks = vi.hoisted(() => ({
   persistAgenticIdempotencyResponse: vi.fn(),
   recordPayOnDeliveryOrderCreated: vi.fn(),
   releasePayOnDeliveryClaimSafely: vi.fn(),
-  scheduleStorefrontInventoryProductPurge: vi.fn(),
   sendAgenticOrderCreatedWebhook: vi.fn(),
 }));
 
@@ -48,10 +47,6 @@ vi.mock('@/lib/product-cache-revalidation', () => ({
     revalidateProductSlugs: mocks.revalidateProductSlugs,
     revalidateProducts: mocks.revalidateProducts,
   },
-}));
-vi.mock('@/lib/storefront-inventory-product-purge', () => ({
-  scheduleStorefrontInventoryProductPurge:
-    mocks.scheduleStorefrontInventoryProductPurge,
 }));
 
 vi.mock('@/lib/agentic/checkout-order-finalization-claim', () => ({
@@ -156,14 +151,7 @@ function buildSessionUpdateMock(result: unknown) {
 }
 
 function createProductsChain(
-  data: Array<{
-    categories?: unknown;
-    category?: string | null;
-    id?: string;
-    manage_stock: boolean | null;
-    product_categories?: unknown;
-    slug: string;
-  }> | null = [],
+  data: Array<{ manage_stock: boolean | null; slug: string }> | null = [],
   error: unknown = null
 ) {
   const chain: {
@@ -378,12 +366,7 @@ describe('finalizeAgenticPayOnDeliveryCheckout', () => {
       error: null,
     });
     const productsChain = createProductsChain([
-      {
-        category: 'Smartphones',
-        id: 'product-1',
-        manage_stock: true,
-        slug: 'phone-slug',
-      },
+      { manage_stock: true, slug: 'phone-slug' },
     ]);
     const supabase = {
       from: vi.fn((table: string) =>
@@ -403,12 +386,7 @@ describe('finalizeAgenticPayOnDeliveryCheckout', () => {
       error: null,
     });
     const productsChain = createProductsChain([
-      {
-        category: 'Smartphones',
-        id: 'product-1',
-        manage_stock: true,
-        slug: 'phone-slug',
-      },
+      { manage_stock: true, slug: 'phone-slug' },
     ]);
     const supabase = {
       from: vi.fn((table: string) =>
@@ -424,27 +402,11 @@ describe('finalizeAgenticPayOnDeliveryCheckout', () => {
       undefined,
       { feedScope: 'merchant' }
     );
-    expect(productsChain.select).toHaveBeenCalledWith(
-      'id, slug, category, manage_stock, categories:category_id(slug), product_categories(categories(slug))'
-    );
+    expect(productsChain.select).toHaveBeenCalledWith('slug, manage_stock');
     expect(productsChain.in).toHaveBeenCalledWith('id', ['product-1']);
     expect(mocks.revalidateProductSlugs).toHaveBeenCalledExactlyOnceWith(
       'merchant-1',
       ['phone-slug']
-    );
-    expect(mocks.scheduleStorefrontInventoryProductPurge).toHaveBeenCalledWith(
-      expect.objectContaining({
-        merchantId: 'merchant-1',
-        operation: 'agentic pay-on-delivery order creation',
-        products: [
-          expect.objectContaining({
-            category: 'Smartphones',
-            id: 'product-1',
-            slug: 'phone-slug',
-          }),
-        ],
-        supabase,
-      })
     );
   });
 
