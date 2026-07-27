@@ -7,6 +7,7 @@ vi.mock('@/lib/logger', () => ({
   logger: { error: vi.fn(), warn: vi.fn() },
 }));
 
+import { getCategoryPageDataCacheTag } from '@/lib/category-page-cache-tags';
 import { logger } from '@/lib/logger';
 import { productCacheRevalidation } from '@/lib/product-cache-revalidation';
 
@@ -58,6 +59,24 @@ describe('productCacheRevalidation', () => {
     expect(revalidateTag).not.toHaveBeenCalledWith(
       'merchant-feed-review-signals-merchant-1',
       'products'
+    );
+  });
+
+  it('hard-expires product-derived category data before an outer CDN eviction', () => {
+    productCacheRevalidation.revalidateProducts('merchant-1', undefined, {
+      expireImmediately: true,
+      feedScope: 'merchant',
+    });
+
+    expect(revalidateTag).toHaveBeenCalledWith('products-merchant-1', {
+      expire: 0,
+    });
+    expect(revalidateTag).toHaveBeenCalledWith('merchant-feed-merchant-1', {
+      expire: 0,
+    });
+    expect(revalidateTag).toHaveBeenCalledWith(
+      getCategoryPageDataCacheTag('merchant-1'),
+      { expire: 0 }
     );
   });
 

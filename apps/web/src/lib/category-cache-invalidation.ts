@@ -1,6 +1,10 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { getStorefrontPublicationCacheIdentity } from '@/lib/get-storefront-publication-cache-identity';
 import { logger } from '@/lib/logger';
 import { productCacheRevalidation } from '@/lib/product-cache-revalidation';
 import { revalidateCategories } from '@/lib/revalidate-categories';
+import { buildStorefrontPublicationCacheTags } from '@/lib/storefront-publication-cache-tags';
+import { purgeVercelStorefrontPublicationCache } from '@/lib/vercel-storefront-publication-cache';
 
 /**
  * Cache invalidation for a category mutation (B1-lite).
@@ -13,30 +17,50 @@ import { revalidateCategories } from '@/lib/revalidate-categories';
  * home products, the paginated product index and the Google/OpenAI feeds all
  * embed joined category names and slugs while carrying product-only tags.
  *
- * NO EDGE PURGE, DELIBERATELY. Calling `cloudflare-purge` here would put
- * `getCloudflareApiToken` — a credential authority — into the static import
- * graph of these API routes, which the event-pipeline boundary gate rejects for
- * any new route. Widening that allowlist is a P0 security-boundary change and
- * does not belong in a category-management PR, so this module imports only lean
- * tag-revalidation helpers and CDN eviction is left to TTL. That is still a
- * strict improvement: before B1-lite the mobile path invalidated nothing but
- * React Query.
+ * VERCEL EDGE EVICTION, WITHOUT CLOUDFLARE CREDENTIALS. The active category
+ * HTML layer is Vercel and already carries tenant publication tags. Hard-expire
+ * the inner Next data first, then delete those response tags through Vercel's
+ * supported runtime primitive. Do not import `cloudflare-purge`: it reaches
+ * `getCloudflareApiToken`, which is credential authority forbidden to these new
+ * merchant routes by the event-pipeline boundary gate.
  */
 export interface CategoryCacheInvalidationResult {
   revalidatedSlugs: string[];
   /** False when tag revalidation threw AFTER the mutation had committed. */
   revalidated: boolean;
+  /** False when the active Vercel HTML layer could not be evicted. */
+  vercelEvicted: boolean;
 }
 
-export function invalidateCategoryCaches(input: {
+function reportVercelEvictionFailure(
+  merchantId: string,
+  slugs: string[],
+  detail: { error: string } | { reason: string }
+): CategoryCacheInvalidationResult {
+  logger.error({
+    message:
+      'Category Vercel cache eviction failed AFTER the mutation committed',
+    merchantId,
+    ...detail,
+  });
+  return {
+    revalidatedSlugs: slugs,
+    revalidated: true,
+    vercelEvicted: false,
+  };
+}
+
+export async function invalidateCategoryCaches(input: {
+  canonicalMerchantSlug: string | null;
   merchantId: string;
+  supabase: SupabaseClient;
   /** Slug before the mutation, when it changed or the category was retired. */
   previousSlug?: string | null;
   /** Slug after the mutation, when the category still exists. */
   nextSlug?: string | null;
   /** Child slugs whose hierarchy placement changed in the same transaction. */
   relatedSlugs?: readonly string[];
-}): CategoryCacheInvalidationResult {
+}): Promise<CategoryCacheInvalidationResult> {
   const slugs = Array.from(
     new Set(
       [
@@ -55,10 +79,14 @@ export function invalidateCategoryCaches(input: {
   // Report the failure instead of raising it.
   try {
     if (slugs.length === 0) {
-      revalidateCategories(input.merchantId);
+      revalidateCategories(input.merchantId, undefined, {
+        expireImmediately: true,
+      });
     } else {
       for (const slug of slugs) {
-        revalidateCategories(input.merchantId, slug);
+        revalidateCategories(input.merchantId, slug, {
+          expireImmediately: true,
+        });
       }
     }
 
@@ -68,11 +96,22 @@ export function invalidateCategoryCaches(input: {
       input.merchantId,
       undefined,
       {
+        expireImmediately: true,
         feedScope: 'merchant',
       }
     );
     if (!productsRevalidated) {
-      return { revalidatedSlugs: slugs, revalidated: false };
+      logger.error({
+        message:
+          'Product cache revalidation failed AFTER the mutation committed',
+        merchantId: input.merchantId,
+        slugs,
+      });
+      return {
+        revalidatedSlugs: slugs,
+        revalidated: false,
+        vercelEvicted: false,
+      };
     }
   } catch (error) {
     logger.error({
@@ -81,8 +120,38 @@ export function invalidateCategoryCaches(input: {
       slugs,
       error: error instanceof Error ? error.message : String(error),
     });
-    return { revalidatedSlugs: slugs, revalidated: false };
+    return {
+      revalidatedSlugs: slugs,
+      revalidated: false,
+      vercelEvicted: false,
+    };
   }
 
-  return { revalidatedSlugs: slugs, revalidated: true };
+  try {
+    const identity = await getStorefrontPublicationCacheIdentity(
+      input.supabase,
+      input.merchantId,
+      input.canonicalMerchantSlug
+    );
+    const tags = buildStorefrontPublicationCacheTags({
+      customDomains: identity.customDomains,
+      merchantSlugs: identity.merchantSlugs,
+    });
+    const result = await purgeVercelStorefrontPublicationCache(tags);
+    if (!result.ok) {
+      return reportVercelEvictionFailure(input.merchantId, slugs, {
+        reason: result.reason,
+      });
+    }
+  } catch (error) {
+    return reportVercelEvictionFailure(input.merchantId, slugs, {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  return {
+    revalidatedSlugs: slugs,
+    revalidated: true,
+    vercelEvicted: true,
+  };
 }

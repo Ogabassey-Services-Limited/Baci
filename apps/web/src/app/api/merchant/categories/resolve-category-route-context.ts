@@ -46,6 +46,10 @@ export async function resolveCategoryRouteContext(
 
   return {
     ok: true,
-    context: { merchantId: access.merchantId, supabase },
+    context: {
+      canonicalMerchantSlug: access.canonicalMerchantSlug,
+      merchantId: access.merchantId,
+      supabase,
+    },
   };
 }

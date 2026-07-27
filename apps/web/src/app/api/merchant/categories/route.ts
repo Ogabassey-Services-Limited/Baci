@@ -17,7 +17,8 @@ import { validateCategoryParent } from './validate-category-parent';
  * The mutation runs on the caller's AUTHENTICATED client, so RLS
  * (`categories_merchant_insert`, owner-scoped) is the final authority — the
  * route's owner check is defence in depth, not the only gate. On success the
- * category surfaces are revalidated at the origin.
+ * category surfaces are hard-expired at the origin before the active Vercel
+ * HTML tags are deleted.
  */
 export async function POST(request: NextRequest) {
   // Auth FIRST — before CSRF handling and before the body is read — so an
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
   if (!resolution.ok) {
     return resolution.response;
   }
-  const { merchantId, supabase } = resolution.context;
+  const { canonicalMerchantSlug, merchantId, supabase } = resolution.context;
 
   if (parsed.data.parentId) {
     const parentRefusal = await validateCategoryParent({
@@ -148,9 +149,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const invalidation = invalidateCategoryCaches({
+  const invalidation = await invalidateCategoryCaches({
+    canonicalMerchantSlug,
     merchantId,
     nextSlug: data.slug,
+    supabase,
   });
 
   return NextResponse.json(

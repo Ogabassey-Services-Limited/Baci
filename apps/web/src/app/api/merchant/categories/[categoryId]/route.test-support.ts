@@ -28,6 +28,14 @@ export interface TableState {
   deleteError?: { message: string } | null;
 }
 
+export function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+}
+
 export function createCategoryRouteTestHarness(mocks: RouteMocks) {
   let updatedRow: Record<string, unknown> | null = null;
 
@@ -113,7 +121,11 @@ export function createCategoryRouteTestHarness(mocks: RouteMocks) {
     });
     mocks.resolveCategoryRouteContext.mockResolvedValue({
       ok: true,
-      context: { merchantId: MERCHANT_ID, supabase },
+      context: {
+        canonicalMerchantSlug: 'merchant-one',
+        merchantId: MERCHANT_ID,
+        supabase,
+      },
     });
   }
 
@@ -124,9 +136,10 @@ export function createCategoryRouteTestHarness(mocks: RouteMocks) {
     mocks.checkCsrfProtection.mockResolvedValue({ valid: true });
     mocks.validateCategoryParent.mockResolvedValue(null);
     mocks.getCategoryChildSlugs.mockResolvedValue({ ok: true, slugs: [] });
-    mocks.invalidateCategoryCaches.mockReturnValue({
+    mocks.invalidateCategoryCaches.mockResolvedValue({
       revalidatedSlugs: ['phones', 'mobile-phones'],
       revalidated: true,
+      vercelEvicted: true,
     });
   }
 

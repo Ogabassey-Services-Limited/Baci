@@ -2,6 +2,7 @@ import type { NextResponse } from 'next/server';
 import type { getAuthenticatedUser } from '@/lib/supabase/mobile-auth';
 
 export interface CategoryRouteContext {
+  canonicalMerchantSlug: string | null;
   merchantId: string;
   /** The caller-scoped client, preserving RLS as the final authority. */
   supabase: NonNullable<
