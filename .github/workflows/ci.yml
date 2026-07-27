@@ -101,7 +101,7 @@ jobs:
               - '.github/workflows/ci.yml'
               - 'supabase/migrations/**'
               - 'supabase/tests/cache_invalidation_outbox*.sql'
-              - 'supabase/tests/run-cache-invalidation-outbox-test.sh'
+              - 'supabase/tests/run-cache-invalidation-outbox-test*.sh'
               - '.github/scripts/apply-pending-migrations.sh'
               - '.github/scripts/apply-pending-migrations.test.sh'
               - '.github/scripts/split-sql-statements.mjs'
@@ -395,7 +395,9 @@ jobs:
         run: bash .github/scripts/check-migration-versions.sh
       - name: Test Cache Invalidation Outbox SQL
         if: needs.changes.outputs.quiz_db == 'true'
-        run: bash supabase/tests/run-cache-invalidation-outbox-test.sh
+        run: >-
+          bash supabase/tests/run-cache-invalidation-outbox-test-runner.test.sh &&
+          bash supabase/tests/run-cache-invalidation-outbox-test.sh
       - name: Run CI Test Planner Unit Tests
         if: needs.changes.outputs.web == 'true'
         run: node --test .github/scripts/resolve-ci-test-plan.test.mjs .github/scripts/resolve-ci-test-plan-config.test.mjs

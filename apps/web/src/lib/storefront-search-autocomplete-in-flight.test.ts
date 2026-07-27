@@ -24,6 +24,11 @@ type ProductQuery = PromiseLike<{
   eq: (column: string, value: string) => ProductQuery;
 };
 
+type AbortableRankedQuery = PromiseLike<RankedRpcResult> & {
+  abortSignal: (signal: AbortSignal) => AbortableRankedQuery;
+  retry: (enabled: boolean) => AbortableRankedQuery;
+};
+
 function createAutocompleteSupabase() {
   const query: ProductQuery = {
     in: vi.fn(() => query),
@@ -48,7 +53,10 @@ function createAutocompleteSupabase() {
   return {
     from: vi.fn(() => ({ select: vi.fn(() => query) })),
     rpc: vi.fn<
-      (fn: string, args: Record<string, unknown>) => Promise<RankedRpcResult>
+      (
+        fn: string,
+        args: Record<string, unknown>
+      ) => PromiseLike<RankedRpcResult>
     >(),
   } satisfies AutocompleteSupabase;
 }
@@ -131,6 +139,50 @@ describe('bugfix: bounded autocomplete in-flight requests', () => {
       name: 'AutocompleteInFlightTimeoutError',
     });
     expect(supabase.rpc).toHaveBeenCalledTimes(1);
+  });
+
+  it('aborts cooperative ranked searches and disables their automatic retries on timeout', async () => {
+    vi.useFakeTimers();
+    const supabase = createAutocompleteSupabase();
+    let boundSignal: AbortSignal | undefined;
+    let rejectRankedSearch: ((reason?: unknown) => void) | undefined;
+    const rankedSearch = new Promise<RankedRpcResult>((_resolve, reject) => {
+      rejectRankedSearch = reject;
+    });
+    const abortableRankedSearch: AbortableRankedQuery = {
+      abortSignal: vi.fn((signal) => {
+        boundSignal = signal;
+        signal.addEventListener('abort', () => {
+          rejectRankedSearch?.(new Error('request aborted'));
+        });
+        return abortableRankedSearch;
+      }),
+      retry: vi.fn(() => abortableRankedSearch),
+      // biome-ignore lint/suspicious/noThenProperty: thenable mock mirrors Supabase query builders
+      then: (onFulfilled, onRejected) =>
+        rankedSearch.then(onFulfilled, onRejected),
+    };
+    supabase.rpc.mockReturnValue(abortableRankedSearch);
+
+    const pending = getStorefrontAutocompleteProducts({
+      supabase,
+      merchantId: MERCHANT_ID,
+      query: 'cooperative-abort',
+      limit: 10,
+    });
+    const result = pending.then(
+      () => undefined,
+      (error: unknown) => error
+    );
+
+    expect(abortableRankedSearch.abortSignal).toHaveBeenCalledTimes(1);
+    expect(abortableRankedSearch.retry).toHaveBeenCalledWith(false);
+    expect(boundSignal?.aborted).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(5_001);
+
+    await expect(result).resolves.toMatchObject({ code: '57014' });
+    expect(boundSignal?.aborted).toBe(true);
   });
 
   it('keeps timed-out non-cooperative lookups at capacity until their transports settle', async () => {

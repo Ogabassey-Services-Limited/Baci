@@ -1,6 +1,7 @@
-import { withAutocompleteInFlightDeadline } from './storefront-search-autocomplete-in-flight';
-
-const POSTGRES_QUERY_CANCELED_CODE = '57014';
+import {
+  POSTGRES_QUERY_CANCELED_CODE,
+  withAutocompleteInFlightDeadline,
+} from './storefront-search-autocomplete-in-flight';
 
 export async function runBoundedAutocompleteRequest<T>({
   cacheKey,

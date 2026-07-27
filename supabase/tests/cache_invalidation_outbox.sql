@@ -168,10 +168,25 @@ BEGIN
   END IF;
 
   UPDATE public.cache_invalidation_outbox SET
-    status = CASE WHEN target_id = 'cache-store-new' THEN 'pending' ELSE 'completed' END,
+    status = CASE
+      WHEN target_kind = 'storefront_product' AND target_id = 'cache-phone'
+        THEN 'pending'
+      ELSE 'completed'
+    END,
     next_attempt_at = now();
   SELECT * INTO v_claim FROM public.claim_cache_invalidations(1, 'sql-worker');
+  IF v_claim.claim_token IS NULL
+    OR v_claim.target_kind <> 'storefront_product'
+    OR v_claim.target_id <> 'cache-phone'
+  THEN
+    RAISE EXCEPTION 'expected a due claim before the stale-recovery scenario';
+  END IF;
   UPDATE public.products SET meta_title = 'crashed newer generation' WHERE id = v_product;
+  UPDATE public.cache_invalidation_outbox
+  SET status = 'completed'
+  WHERE merchant_id = v_merchant
+    AND target_kind = 'storefront_product'
+    AND target_id <> v_claim.target_id;
   UPDATE public.cache_invalidation_outbox
   SET attempts = max_attempts, claimed_at = now() - interval '3 minutes'
   WHERE merchant_id = v_merchant AND target_kind = v_claim.target_kind

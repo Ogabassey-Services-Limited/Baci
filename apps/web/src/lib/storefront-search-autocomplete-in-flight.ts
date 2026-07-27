@@ -1,4 +1,4 @@
-const POSTGRES_QUERY_CANCELED_CODE = '57014';
+export const POSTGRES_QUERY_CANCELED_CODE = '57014';
 
 function createAutocompleteInFlightTimeoutError() {
   const error = new Error('Autocomplete request timed out');

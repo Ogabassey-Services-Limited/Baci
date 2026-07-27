@@ -1,7 +1,11 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { runBoundedAutocompleteRequest } from './storefront-search-autocomplete-request';
 
 describe('runBoundedAutocompleteRequest', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('coalesces a key and releases its slot after success', async () => {
     const inFlight = new Map<string, Promise<string>>();
     let resolveOperation: ((value: string) => void) | undefined;
@@ -49,5 +53,69 @@ describe('runBoundedAutocompleteRequest', () => {
         timeoutMs: 5_000,
       })
     ).rejects.toThrow('saturated');
+  });
+
+  it('retains a timed-out slot until its non-cooperative operation settles', async () => {
+    vi.useFakeTimers();
+    const inFlight = new Map<string, Promise<string>>();
+    let resolveOperation: ((value: string) => void) | undefined;
+    const pending = runBoundedAutocompleteRequest({
+      cacheKey: 'merchant:hanging-phone',
+      createSaturationError: () => new Error('saturated'),
+      inFlight,
+      maxEntries: 1,
+      onSuccess: vi.fn(),
+      operation: () =>
+        new Promise<string>((resolve) => {
+          resolveOperation = resolve;
+        }),
+      timeoutMs: 5_000,
+    });
+    const result = pending.then(
+      () => undefined,
+      (error: unknown) => error
+    );
+
+    await vi.advanceTimersByTimeAsync(5_001);
+
+    await expect(result).resolves.toMatchObject({ code: '57014' });
+    expect(inFlight.has('merchant:hanging-phone')).toBe(true);
+
+    resolveOperation?.('late completion');
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(inFlight.has('merchant:hanging-phone')).toBe(false);
+  });
+
+  it('releases a timed-out slot when its non-cooperative operation rejects late', async () => {
+    vi.useFakeTimers();
+    const inFlight = new Map<string, Promise<string>>();
+    let rejectOperation: ((reason?: unknown) => void) | undefined;
+    const pending = runBoundedAutocompleteRequest({
+      cacheKey: 'merchant:failing-phone',
+      createSaturationError: () => new Error('saturated'),
+      inFlight,
+      maxEntries: 1,
+      onSuccess: vi.fn(),
+      operation: () =>
+        new Promise<string>((_resolve, reject) => {
+          rejectOperation = reject;
+        }),
+      timeoutMs: 5_000,
+    });
+    const result = pending.then(
+      () => undefined,
+      (error: unknown) => error
+    );
+
+    await vi.advanceTimersByTimeAsync(5_001);
+
+    await expect(result).resolves.toMatchObject({ code: '57014' });
+    expect(inFlight.has('merchant:failing-phone')).toBe(true);
+
+    rejectOperation?.(new Error('late failure'));
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(inFlight.has('merchant:failing-phone')).toBe(false);
   });
 });

@@ -81,6 +81,19 @@ describe('scheduleStorefrontProductPurge', () => {
     expect(mockPurgeCloudflareUrls).not.toHaveBeenCalled();
   });
 
+  it('purges URLs instead of hostnames at the exact 50-entry threshold', () => {
+    const entries = Array.from({ length: 50 }, (_, index) => ({
+      slug: `product-${index}`,
+      categorySegment: 'smartphones',
+    }));
+
+    scheduleStorefrontProductPurge('ogabassey', entries);
+
+    expect(mockAfter).toHaveBeenCalledTimes(1);
+    expect(mockPurgeCloudflareUrls).toHaveBeenCalledTimes(1);
+    expect(mockPurgeCloudflareHostnamesConfirmed).not.toHaveBeenCalled();
+  });
+
   it('keeps the hostname purge promise alive for the post-response lifetime', async () => {
     let afterCallbackResult: unknown;
     mockAfter.mockImplementationOnce((callback: () => unknown) => {

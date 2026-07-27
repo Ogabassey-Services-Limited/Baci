@@ -32,10 +32,12 @@ CREATE TABLE public.merchants (
 );
 CREATE TABLE public.merchant_slug_aliases (
   old_slug text PRIMARY KEY,
-  merchant_id uuid NOT NULL
+  merchant_id uuid NOT NULL REFERENCES public.merchants(id) ON DELETE CASCADE
 );
 CREATE TABLE public.domains (
-  id uuid PRIMARY KEY, merchant_id uuid NOT NULL, domain text NOT NULL,
+  id uuid PRIMARY KEY,
+  merchant_id uuid NOT NULL REFERENCES public.merchants(id) ON DELETE CASCADE,
+  domain text NOT NULL,
   domain_type text, status text, verified_at timestamptz, is_primary boolean
 );
 CREATE TABLE public.categories (
@@ -46,7 +48,9 @@ CREATE TABLE public.categories (
   metadata jsonb
 );
 CREATE TABLE public.products (
-  id uuid PRIMARY KEY, merchant_id uuid NOT NULL, name text, slug text,
+  id uuid PRIMARY KEY,
+  merchant_id uuid NOT NULL REFERENCES public.merchants(id) ON DELETE CASCADE,
+  name text, slug text,
   description text, price numeric, compare_at_price numeric, images jsonb,
   color_images jsonb, image_hint text, status text, category text,
   category_id uuid, meta_title text, meta_description text, keywords text[],
@@ -67,7 +71,10 @@ CREATE TABLE public.products (
   vat_category_code text, commodity_code text, unit_code text
 );
 CREATE TABLE public.product_variants (
-  id uuid PRIMARY KEY, merchant_id uuid, product_id uuid NOT NULL, sku text,
+  id uuid PRIMARY KEY,
+  merchant_id uuid REFERENCES public.merchants(id) ON DELETE CASCADE,
+  product_id uuid NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+  sku text,
   stock_quantity integer, attributes jsonb, condition text, images jsonb,
   primary_image text, price_override numeric, variant_key text,
   inventory_tracking_policy text, is_inventory_anchor boolean DEFAULT false

@@ -27,7 +27,7 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
-import { internalRevalidateProductEntrySchema } from '@/schemas/internal-revalidate-products-route';
+import { cacheRevalidateRequestSchema } from '@/schemas/cache-revalidate-route';
 
 /**
  * Cache Revalidation API
@@ -36,40 +36,6 @@ import { internalRevalidateProductEntrySchema } from '@/schemas/internal-revalid
  * Allows authenticated merchants to manually purge cached data for their store.
  * Useful after bulk imports, external data changes, or debugging stale data.
  */
-
-const revalidateSchema = z.object({
-  // Which entity types to revalidate
-  targets: z
-    .array(
-      z.enum([
-        'products',
-        'categories',
-        'merchant',
-        'blog',
-        'reviews',
-        'features',
-        'pages',
-        'all',
-      ])
-    )
-    .min(1, 'At least one target is required'),
-  // Optional: specific products whose public storefront URLs should also be
-  // evicted from Cloudflare (in addition to the Next tag revalidation). Used by
-  // the mobile-admin save path, which mutates products via the Supabase RPC
-  // (no web route runs, so no purge fires) — after a save it posts the saved
-  // product's slug/category here. Only honored when the `products` target (or
-  // `all`) is requested.
-  products: z.array(internalRevalidateProductEntrySchema).max(1000).optional(),
-  // Optional: the ACTIVE merchant whose product was just mutated. Mobile-admin
-  // sends this so a staff user belonging to MULTIPLE merchants purges the RIGHT
-  // storefront: without it the route falls back to the caller's DEFAULT access
-  // (`get_user_access`), which may resolve a different merchant than the one
-  // that owns the saved product. When present and different from the default
-  // merchant, the route VERIFIES the caller actually has access to it (owner or
-  // active staff) before using it — an unverified id is a hard 403, never a
-  // silent fall-back.
-  merchantId: z.string().trim().min(1).max(255).optional(),
-});
 
 export async function POST(request: NextRequest) {
   const { valid, response } = await checkCsrfProtection(request);
@@ -89,7 +55,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const result = revalidateSchema.safeParse(body);
+  const result = cacheRevalidateRequestSchema.safeParse(body);
   if (!result.success) {
     return NextResponse.json(
       {

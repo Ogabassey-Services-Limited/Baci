@@ -245,6 +245,10 @@ export async function POST(req: NextRequest) {
           merchantId,
           processedSlugs
         );
+        // The products.images write above is covered by the transactional
+        // cache-invalidation outbox trigger. That durable path performs the
+        // ordered Vercel/Cloudflare eviction without importing edge-provider
+        // credentials into this API route's authority graph.
       } catch (cacheError) {
         console.warn('Skipped product cache refresh after image generation', {
           cacheError,
