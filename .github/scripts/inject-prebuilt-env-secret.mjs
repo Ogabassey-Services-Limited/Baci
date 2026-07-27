@@ -27,6 +27,7 @@ import fs from 'node:fs';
 
 const GENERATED_ES256_JWK_STANDIN = '--generate-es256-jwk-standin';
 const GENERATED_ES256_JWK_STANDIN_KID = 'baci-build-only-es256-jwk-standin';
+const LEGACY_SUPABASE_JWT_SECRET = 'SUPABASE_JWT_SECRET';
 const dotenvAssignmentPattern = /^(?:export[ \t]+)?([A-Za-z_][A-Za-z0-9_]*)[ \t]*=(.*)$/;
 
 const [key, file, standinArg, ...extraArgs] = process.argv.slice(2);
@@ -72,8 +73,28 @@ const lines = fs.readFileSync(file, 'utf8').split('\n');
 const assignments = findDotenvAssignments(lines, key);
 
 if (usingGeneratedStandin && assignments.length === 0) {
+  const legacyAssignments = findDotenvAssignments(lines, LEGACY_SUPABASE_JWT_SECRET);
+  const legacyValue = legacyAssignments[0]?.value.trim();
+  if (
+    legacyAssignments.length !== 1 ||
+    legacyValue === undefined ||
+    isExplicitlyBlankDotenvValue(legacyValue)
+  ) {
+    const legacyState =
+      legacyAssignments.length === 0
+        ? 'absent'
+        : legacyAssignments.length > 1
+          ? 'ambiguous'
+          : 'empty';
+    console.error(
+      `${key} and its ${LEGACY_SUPABASE_JWT_SECRET} fallback cannot be verified in ${file}: ` +
+        `the fallback is ${legacyState}. Refusing to continue without signing material.`,
+    );
+    process.exit(1);
+  }
+
   console.log(
-    `${key} is absent from ${file}; leaving the legacy signing-secret fallback unchanged.`,
+    `${key} is absent from ${file}; verified the legacy signing-secret fallback assignment.`,
   );
   process.exit(0);
 }

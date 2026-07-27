@@ -16,6 +16,7 @@ const DEPLOY_WORKFLOW = fileURLToPath(new URL('../workflows/deploy.yml', import.
 const KEY = 'QUIZ_RPC_SERVER_SECRET';
 const STANDIN = 'build-time-presence-stand-in-not-used-at-runtime-000000000000';
 const JWK_KEY = 'SUPABASE_AGENTIC_JWT_PRIVATE_JWK';
+const LEGACY_JWT_KEY = 'SUPABASE_JWT_SECRET';
 const GENERATE_ES256_JWK_STANDIN = '--generate-es256-jwk-standin';
 const GENERATED_ES256_JWK_STANDIN_KID = 'baci-build-only-es256-jwk-standin';
 
@@ -142,13 +143,48 @@ test('generated JWK stand-in refuses a nonblank pulled value', () => {
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
-test('generated JWK stand-in leaves an absent optional key unchanged', () => {
-  const file = makeEnvFile(PULLED_WITHOUT_KEY);
+test('generated JWK stand-in preserves a verified legacy signing-secret fallback', () => {
+  const file = makeEnvFile(
+    [
+      'AI_CHAT_MODEL="cerebras"',
+      `${LEGACY_JWT_KEY}="legacy-build-value"`,
+      'QUIZ_PHASE="production"',
+      '',
+    ].join('\n'),
+  );
   const before = fs.readFileSync(file, 'utf8');
   const stdout = run([JWK_KEY, file, GENERATE_ES256_JWK_STANDIN]);
 
   assert.equal(fs.readFileSync(file, 'utf8'), before);
-  assert.match(stdout, /absent.*legacy signing-secret fallback/i);
+  assert.match(stdout, /absent.*verified.*legacy signing-secret fallback/i);
+});
+
+test('generated JWK stand-in fails closed when both signing keys are absent', () => {
+  const file = makeEnvFile(PULLED_WITHOUT_KEY);
+  const before = fs.readFileSync(file, 'utf8');
+  const { status, stderr } = runExpectFailure([
+    JWK_KEY,
+    file,
+    GENERATE_ES256_JWK_STANDIN,
+  ]);
+
+  assert.equal(status, 1);
+  assert.match(stderr, /fallback is absent.*without signing material/i);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('generated JWK stand-in fails closed when the legacy fallback is empty', () => {
+  const file = makeEnvFile(`${LEGACY_JWT_KEY}=""\n`);
+  const before = fs.readFileSync(file, 'utf8');
+  const { status, stderr } = runExpectFailure([
+    JWK_KEY,
+    file,
+    GENERATE_ES256_JWK_STANDIN,
+  ]);
+
+  assert.equal(status, 1);
+  assert.match(stderr, /fallback is empty.*without signing material/i);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
 test('generated JWK stand-in accepts only explicit blank dotenv forms', () => {
