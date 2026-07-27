@@ -106,10 +106,10 @@ create_probe_ref() {
 ruleset_active() {
   verify_probe_binding; marker="$root/ruleset-activated.json"; assert_child "$root" "$marker"; [ "$(file_mode "$marker")" = 400 ] || refuse; id=$(json_get "$marker" id); case $id in (*[!0-9]*|'') refuse;; esac; [ "$(json_get "$marker" requestSha256)" = "$(sha256 "$root/ruleset-request.json")" ] || refuse; ruleset_reconciliation_closed
 }
-expect_refusal() { stem=$1 docs=$2; shift 2; wire="$stem.wire"; body="$stem.body.json"; error="$stem.stderr"; for file in "$wire" "$body" "$error"; do [ ! -e "$file" ] && [ ! -L "$file" ] || refuse; done
+expect_refusal() { stem=$1 docs=$2 expected_kind=$3; shift 3; wire="$stem.wire"; body="$stem.body.json"; error="$stem.stderr"; for file in "$wire" "$body" "$error"; do [ ! -e "$file" ] && [ ! -L "$file" ] || refuse; done
   if "$@" >"$wire" 2>"$error"; then refuse; else result=$?; fi; [ "$result" -eq 1 ] || refuse; /bin/chmod 0400 "$wire" "$error"; assert_child "$root" "$wire"; assert_child "$root" "$error"
   /usr/bin/awk 'BEGIN {count=0} /^HTTP\/[0-9.]+ [0-9][0-9][0-9]/ {count++; code=$2} END {exit !(count==1 && code==422)}' "$wire" || refuse; /usr/bin/awk 'BEGIN {body=0} {line=$0; sub(/\r$/, "", line); if (body) {print; next} if (line=="") body=1} END {if (!body) exit 1}' "$wire" >"$body" || refuse; /bin/chmod 0400 "$body"; assert_child "$root" "$body"
-  if [ "$(json_get "$body" message)" = 'Repository rule violations found' ] && [ "$(json_get "$body" documentation_url)" = "$docs" ] && /usr/bin/plutil -extract status xml1 -o - "$body" 2>/dev/null | /usr/bin/grep -q '<string>422</string>'; then :; else refuse; fi
+  message=$(json_get "$body" message); case "$expected_kind:$message" in ('duplicate:Reference already exists'|'duplicate:Repository rule violations found'|'ruleset:Repository rule violations found') :;; (*) refuse;; esac; if [ "$(json_get "$body" documentation_url)" = "$docs" ] && /usr/bin/plutil -extract status xml1 -o - "$body" 2>/dev/null | /usr/bin/grep -q '<string>422</string>'; then :; else refuse; fi
 }
 verify_source_receipt() (
   receipt=$1 digest_file=$2 purpose=$3 policy=$4 dispatcher=$5 verifier=$6
@@ -282,12 +282,12 @@ exec_task7() {
       ref=$(probe_ref) || refuse; ref=${ref#refs/tags/}
       exec "$gh" api --method DELETE -H "X-GitHub-Api-Version: $API_VERSION" "/repos/$REPOSITORY/git/refs/tags/$ref";;
     (assert-owned-probe-duplicate-create)
-      ruleset_active; probe_files; expect_refusal "$root/probe-$probe_id-duplicate-create-refusal" 'https://docs.github.com/rest/git/refs#create-a-reference' "$gh" api --include --method POST -H "X-GitHub-Api-Version: $API_VERSION" "/repos/$REPOSITORY/git/refs" --input "$ref_request";;
+      ruleset_active; probe_files; expect_refusal "$root/probe-$probe_id-duplicate-create-refusal" 'https://docs.github.com/rest/git/refs#create-a-reference' duplicate "$gh" api --include --method POST -H "X-GitHub-Api-Version: $API_VERSION" "/repos/$REPOSITORY/git/refs" --input "$ref_request";;
     (assert-owned-probe-update|assert-owned-probe-force-update)
       ruleset_active; ref=${ref#refs/tags/}; case $operation in (*force*) force=true;; (*) force=false;; esac
-      write_request "$root/probe-$probe_id-${operation#assert-owned-probe-}-request.json" "{\"force\":$force,\"sha\":\"$(probe_sha)\"}"; expect_refusal "$root/probe-$probe_id-${operation#assert-owned-probe-}-refusal" 'https://docs.github.com/rest/git/refs#update-a-reference' "$gh" api --include --method PATCH -H "X-GitHub-Api-Version: $API_VERSION" "/repos/$REPOSITORY/git/refs/tags/$ref" --input "$root/probe-$probe_id-${operation#assert-owned-probe-}-request.json";;
+      write_request "$root/probe-$probe_id-${operation#assert-owned-probe-}-request.json" "{\"force\":$force,\"sha\":\"$(probe_sha)\"}"; expect_refusal "$root/probe-$probe_id-${operation#assert-owned-probe-}-refusal" 'https://docs.github.com/rest/git/refs#update-a-reference' ruleset "$gh" api --include --method PATCH -H "X-GitHub-Api-Version: $API_VERSION" "/repos/$REPOSITORY/git/refs/tags/$ref" --input "$root/probe-$probe_id-${operation#assert-owned-probe-}-request.json";;
     (assert-owned-probe-delete)
-      ruleset_active; ref=${ref#refs/tags/}; expect_refusal "$root/probe-$probe_id-delete-refusal" 'https://docs.github.com/rest/git/refs#delete-a-reference' "$gh" api --include --method DELETE -H "X-GitHub-Api-Version: $API_VERSION" "/repos/$REPOSITORY/git/refs/tags/$ref";;
+      ruleset_active; ref=${ref#refs/tags/}; expect_refusal "$root/probe-$probe_id-delete-refusal" 'https://docs.github.com/rest/git/refs#delete-a-reference' ruleset "$gh" api --include --method DELETE -H "X-GitHub-Api-Version: $API_VERSION" "/repos/$REPOSITORY/git/refs/tags/$ref";;
     (*) refuse;;
   esac
 }
