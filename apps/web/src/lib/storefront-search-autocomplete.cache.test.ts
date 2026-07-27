@@ -126,6 +126,48 @@ describe('getStorefrontAutocompleteProducts cache', () => {
     expect(supabase.from).toHaveBeenCalledTimes(1);
   });
 
+  it('does not share in-flight or cached results across different internal whitespace', async () => {
+    const supabase = createAutocompleteSupabase();
+    supabase.rpc.mockResolvedValue({
+      data: [{ product_id: 'product-1', total_count: 1 }],
+      error: null,
+    });
+
+    await Promise.all([
+      getStorefrontAutocompleteProducts({
+        supabase,
+        merchantId: FIRST_MERCHANT_ID,
+        query: 'AB 12',
+        limit: 10,
+      }),
+      getStorefrontAutocompleteProducts({
+        supabase,
+        merchantId: FIRST_MERCHANT_ID,
+        query: 'AB  12',
+        limit: 10,
+      }),
+    ]);
+
+    await getStorefrontAutocompleteProducts({
+      supabase,
+      merchantId: FIRST_MERCHANT_ID,
+      query: 'ab 12',
+      limit: 10,
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledTimes(2);
+    expect(supabase.rpc).toHaveBeenNthCalledWith(
+      1,
+      'search_products_v2',
+      expect.objectContaining({ search_query: 'AB 12' })
+    );
+    expect(supabase.rpc).toHaveBeenNthCalledWith(
+      2,
+      'search_products_v2',
+      expect.objectContaining({ search_query: 'AB  12' })
+    );
+  });
+
   it('keeps autocomplete cache entries isolated by merchant', async () => {
     const supabase = createAutocompleteSupabase();
     supabase.rpc.mockResolvedValue({
