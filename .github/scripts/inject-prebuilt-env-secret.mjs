@@ -14,8 +14,11 @@
 //                       blank `<KEY>=`, `<KEY>=''`, or `<KEY>=""` entry.
 //   --generate-es256-jwk-standin
 //                       generate an ephemeral ES256 private JWK only after the
-//                       same explicit-blank check. It is written directly to
-//                       the pulled file and is never logged or passed as an arg.
+//                       same explicit-blank check. When the optional key is
+//                       absent, leave the file unchanged so production can use
+//                       the configured legacy signing-secret fallback. The JWK
+//                       is written directly to the pulled file and is never
+//                       logged or passed as an arg.
 // No-op (exit 0) when neither a real value nor stand-in mode is provided, so
 // deploys with nothing configured (for example quiz phase "1a") are unaffected.
 
@@ -67,6 +70,13 @@ if (!fs.existsSync(file)) {
 
 const lines = fs.readFileSync(file, 'utf8').split('\n');
 const assignments = findDotenvAssignments(lines, key);
+
+if (usingGeneratedStandin && assignments.length === 0) {
+  console.log(
+    `${key} is absent from ${file}; leaving the legacy signing-secret fallback unchanged.`,
+  );
+  process.exit(0);
+}
 
 // A stand-in may only substitute for Vercel's write-only blank placeholder.
 // Refusing absent, duplicated, nonblank, or malformed-looking entries avoids

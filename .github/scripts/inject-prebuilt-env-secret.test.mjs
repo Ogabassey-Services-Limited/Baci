@@ -142,6 +142,15 @@ test('generated JWK stand-in refuses a nonblank pulled value', () => {
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
+test('generated JWK stand-in leaves an absent optional key unchanged', () => {
+  const file = makeEnvFile(PULLED_WITHOUT_KEY);
+  const before = fs.readFileSync(file, 'utf8');
+  const stdout = run([JWK_KEY, file, GENERATE_ES256_JWK_STANDIN]);
+
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+  assert.match(stdout, /absent.*legacy signing-secret fallback/i);
+});
+
 test('generated JWK stand-in accepts only explicit blank dotenv forms', () => {
   const generatedValues = [];
 
