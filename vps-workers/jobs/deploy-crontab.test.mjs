@@ -65,6 +65,20 @@ describe('deploy crontab', () => {
     );
   });
 
+  it('schedules ordered cache invalidation through the bounded Next drainer', () => {
+    const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
+
+    assert.match(
+      deployScript,
+      /\*\/2 \* \* \* \* flock -n \$REMOTE_DIR\/locks\/cache-invalidations\.lock/
+    );
+    assert.match(
+      deployScript,
+      /run-web-cron\.mjs \/api\/cron\/drain-cache-invalidations/
+    );
+    assert.doesNotMatch(deployScript, /process-storefront-purge-outbox/);
+  });
+
   it('schedules the agentic commerce health cron through run-web-cron', () => {
     const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
 

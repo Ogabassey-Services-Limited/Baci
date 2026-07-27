@@ -68,6 +68,22 @@ The crontab line + `WEB_CRON_CONFIG` entry + `deploy.sh` block + `docs/ops/vps-w
 
 ## Consequences
 
+### Implementation boundary (2026-07-27)
+
+The approved implementation uses `public.cache_invalidation_outbox` with one
+immutable row per merchant and concrete storefront slug/hostname target. The
+only drainer is `GET /api/cron/drain-cache-invalidations`, authenticated with
+`CRON_SECRET` and invoked every two minutes through the existing VPS
+`run-web-cron.mjs` wrapper. Its exact route/helper credential graph and
+claim/finish RPCs are recorded in the event-pipeline boundary manifest. The VPS
+receives no Supabase service-role or Cloudflare authority for this job.
+
+Each claimed generation hard-expires Next data, awaits Vercel tag deletion,
+then confirms Cloudflare hostname purge before token-fenced completion. Any
+stage failure records a bounded retry; a later generation cannot be completed
+by an older claim. Applying the migration, installing the crontab, and raising
+the five-minute TTL remain separate live-operations gates.
+
 - **Positive:** matches the documented VPS-only scheduling architecture; reuses proven `run-web-cron` non-2xx alerting + `flock` overlap-prevention; zero Vercel cost; the ledger is durable in Postgres, so a VPS outage **delays, never loses** invalidations; the "big new build" shrinks to *generalize one table + add one route + one crontab line*.
 - **Negative / accepted:** single VPS = a freshness SPOF (not a correctness one); adds to the VPS ops surface; crontab↔`deploy.sh` drift risk (mitigated by same-PR discipline); worst-case happy-path-drop latency = the sweep interval unless the optional trigger leg is added later.
 

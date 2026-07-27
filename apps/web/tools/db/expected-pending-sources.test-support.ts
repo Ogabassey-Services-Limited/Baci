@@ -222,4 +222,9 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260726201000_harden_category_hierarchy_lifecycle.sql',
     sha256: '57037c2a309da200410ddbb167cd58183f9a3977a9c285815f5d81af99fbc5c3',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260727033000_cache_invalidation_outbox.sql',
+    sha256: '429d8681f42744b359cde853299cc7d0272238848c5147e228dce86e2c570d81',
+  },
 ];

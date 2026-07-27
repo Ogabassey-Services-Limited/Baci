@@ -23,6 +23,28 @@ describe('web cron worker', () => {
     );
   });
 
+  it('allows the ordered cache invalidation endpoint', async () => {
+    const calls = [];
+    await runWebCron({
+      path: '/api/cron/drain-cache-invalidations',
+      env: {
+        BACI_WEB_BASE_URL: 'https://ogabassey.com',
+        CRON_SECRET: 'secret',
+      },
+      fetchFn: (url, init) => {
+        calls.push({ url, init });
+        return new Response('ok', { status: 200 });
+      },
+      logger: noopLogger,
+    });
+
+    assert.equal(
+      calls[0].url,
+      'https://ogabassey.com/api/cron/drain-cache-invalidations'
+    );
+    assert.equal(calls[0].init.method, 'GET');
+  });
+
   it('allows the gateway paid-order reconcile drain endpoint', async () => {
     const calls = [];
     const result = await runWebCron({
