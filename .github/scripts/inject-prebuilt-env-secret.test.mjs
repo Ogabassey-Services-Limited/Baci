@@ -9,7 +9,6 @@ import { fileURLToPath } from 'node:url';
 import nextEnv from '@next/env';
 
 const { loadEnvConfig, resetEnv } = nextEnv;
-
 const SCRIPT = fileURLToPath(
   new URL('./inject-prebuilt-env-secret.mjs', import.meta.url),
 );
@@ -17,17 +16,8 @@ const DEPLOY_WORKFLOW = fileURLToPath(new URL('../workflows/deploy.yml', import.
 const KEY = 'QUIZ_RPC_SERVER_SECRET';
 const STANDIN = 'build-time-presence-stand-in-not-used-at-runtime-000000000000';
 const JWK_KEY = 'SUPABASE_AGENTIC_JWT_PRIVATE_JWK';
-// Public Supabase documentation's import example. This is deliberately a
-// build-only fixture, never a project signing key or a Vercel runtime value.
-const JWK_STANDIN = JSON.stringify({
-  alg: 'ES256',
-  crv: 'P-256',
-  d: 'RDbwqThwtGP4WnvACvO_0nL0oMMSmMFSYMPosprlAog',
-  kid: 'baci-prebuilt-jwk-standin',
-  kty: 'EC',
-  x: 'gyLVvp9dyEgylYH7nR2E2qdQ_-9Pv5i1tk7c2qZD4Nk',
-  y: 'CD9RfYOTyjR5U-PC9UDlsthRpc7vAQQQ2FTt8UsX0fY',
-});
+const GENERATE_ES256_JWK_STANDIN = '--generate-es256-jwk-standin';
+const GENERATED_ES256_JWK_STANDIN_KID = 'baci-build-only-es256-jwk-standin';
 
 // A pulled env file where the sensitive var exists in Vercel (written empty by
 // `vercel pull`) alongside ordinary quoted vars that must survive untouched.
@@ -48,6 +38,17 @@ function makeEnvFile(contents = PULLED_WITH_KEY) {
   const file = path.join(dir, '.env.production.local');
   fs.writeFileSync(file, contents);
   return file;
+}
+
+function makePulledJwkEnvFile(value = '""') {
+  return makeEnvFile(
+    [
+      'AI_CHAT_MODEL="cerebras"',
+      `${JWK_KEY}=${value}`,
+      'QUIZ_PHASE="production"',
+      '',
+    ].join('\n'),
+  );
 }
 
 function run(args, env = {}) {
@@ -77,6 +78,18 @@ function parseSingleQuotedValue(file, key) {
   return line.slice(`${key}='`.length, -1);
 }
 
+function assertGeneratedEs256PrivateJwk(serializedJwk) {
+  const jwk = JSON.parse(serializedJwk);
+  assert.equal(jwk.alg, 'ES256');
+  assert.equal(jwk.crv, 'P-256');
+  assert.equal(jwk.kid, GENERATED_ES256_JWK_STANDIN_KID);
+  assert.equal(jwk.kty, 'EC');
+  for (const field of ['d', 'x', 'y']) {
+    assert.match(jwk[field], /^[A-Za-z0-9_-]+$/);
+  }
+  assert.doesNotThrow(() => createPrivateKey({ key: jwk, format: 'jwk' }));
+}
+
 test('injects the real value, overwriting the empty sensitive line', () => {
   const file = makeEnvFile();
   run([KEY, file], { [KEY]: 'a'.repeat(48) });
@@ -99,7 +112,7 @@ test('real value is injected even when the key is absent from the file', () => {
   assert.match(out, /^QUIZ_RPC_SERVER_SECRET="r{40}"$/m);
 });
 
-test('stand-in (CLI arg) is injected when the empty sensitive entry is present', () => {
+test('stand-in is injected when one explicitly blank sensitive entry is present', () => {
   const file = makeEnvFile(PULLED_WITH_KEY);
   const stdout = run([KEY, file, STANDIN]);
   const out = fs.readFileSync(file, 'utf8');
@@ -107,13 +120,88 @@ test('stand-in (CLI arg) is injected when the empty sensitive entry is present',
   assert.match(stdout, /build-time stand-in/);
 });
 
-test('stand-in is REFUSED (exit 1) when the sensitive var is absent from Vercel', () => {
+test('stand-in is refused when the sensitive var is absent from Vercel', () => {
   const file = makeEnvFile(PULLED_WITHOUT_KEY);
   const before = fs.readFileSync(file, 'utf8');
   const { status, stderr } = runExpectFailure([KEY, file, STANDIN]);
   assert.equal(status, 1);
   assert.match(stderr, /absent|missing/i);
-  assert.equal(fs.readFileSync(file, 'utf8'), before); // untouched
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('generated JWK stand-in refuses a nonblank pulled value', () => {
+  const file = makePulledJwkEnvFile('"opaque-pulled-value"');
+  const before = fs.readFileSync(file, 'utf8');
+  const { status, stderr } = runExpectFailure([
+    JWK_KEY,
+    file,
+    GENERATE_ES256_JWK_STANDIN,
+  ]);
+  assert.equal(status, 1);
+  assert.match(stderr, /explicitly blank|opaque|nonblank/i);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('generated JWK stand-in accepts only explicit blank dotenv forms', () => {
+  const generatedValues = [];
+
+  for (const blankValue of ['', "''", '""']) {
+    const file = makePulledJwkEnvFile(blankValue);
+    const stdout = run([JWK_KEY, file, GENERATE_ES256_JWK_STANDIN]);
+    const generatedValue = parseSingleQuotedValue(file, JWK_KEY);
+    assertGeneratedEs256PrivateJwk(generatedValue);
+    assert.equal(stdout.includes(generatedValue), false);
+    generatedValues.push(generatedValue);
+  }
+
+  assert.notEqual(generatedValues[0], generatedValues[1]);
+});
+
+test('writes a generated JWK that @next/env reads unchanged for build validation', () => {
+  const file = makePulledJwkEnvFile();
+  const originalValue = process.env[JWK_KEY];
+
+  try {
+    run([JWK_KEY, file, GENERATE_ES256_JWK_STANDIN]);
+    const generatedValue = parseSingleQuotedValue(file, JWK_KEY);
+    delete process.env[JWK_KEY];
+    loadEnvConfig(path.dirname(file), false, console, true);
+    assert.equal(process.env[JWK_KEY], generatedValue);
+    assertGeneratedEs256PrivateJwk(process.env[JWK_KEY]);
+  } finally {
+    resetEnv();
+    if (originalValue === undefined) delete process.env[JWK_KEY];
+    else process.env[JWK_KEY] = originalValue;
+  }
+});
+
+test('configured process value wins over an opaque pulled JWK and is not logged', () => {
+  const file = makePulledJwkEnvFile('"opaque-pulled-value"');
+  const runtimeValue = JSON.stringify({ kid: 'runtime-owned-kid', source: 'vercel-runtime' });
+  const runtimeOutput = run([JWK_KEY, file, GENERATE_ES256_JWK_STANDIN], {
+    [JWK_KEY]: runtimeValue,
+  });
+  assert.equal(parseSingleQuotedValue(file, JWK_KEY), runtimeValue);
+  assert.equal(runtimeOutput.includes(runtimeValue), false);
+  assert.doesNotMatch(runtimeOutput, /generated ES256 build-time stand-in/);
+});
+
+test('workflow generates the JWK internally and keeps runtime injection Vercel-owned', () => {
+  const workflow = fs.readFileSync(DEPLOY_WORKFLOW, 'utf8');
+  const stepStart = workflow.indexOf(
+    '      - name: Ensure build-time presence of runtime-only scoped Supabase JWT key',
+  );
+  const buildStart = workflow.indexOf('      - name: Build for Vercel', stepStart);
+  assert.ok(stepStart >= 0);
+  assert.ok(buildStart > stepStart);
+
+  const step = workflow.slice(stepStart, buildStart);
+  assert.match(step, new RegExp(GENERATE_ES256_JWK_STANDIN));
+  assert.doesNotMatch(step, /public Supabase documentation example/);
+  assert.doesNotMatch(step, /"d"\s*:/);
+  assert.doesNotMatch(step, /"kty"\s*:\s*"EC"/);
+  assert.doesNotMatch(step, /^\s+env:/m);
+  assert.doesNotMatch(step, /\$\{\{\s*secrets\./);
 });
 
 test('refuses a value containing a dollar sign because dotenv-expand can mangle it', () => {
@@ -157,80 +245,6 @@ test('single-quotes compact JSON containing double quotes', () => {
   const file = makeEnvFile();
   run([KEY, file], { [KEY]: jsonValue });
   assert.equal(parseSingleQuotedValue(file, KEY), jsonValue);
-});
-
-test('injects a valid build-only JWK stand-in without logging its value', () => {
-  assert.doesNotThrow(() =>
-    createPrivateKey({ key: JSON.parse(JWK_STANDIN), format: 'jwk' }),
-  );
-
-  const file = makeEnvFile([
-    'AI_CHAT_MODEL="cerebras"',
-    `${JWK_KEY}=""`,
-    'QUIZ_PHASE="production"',
-    '',
-  ].join('\n'));
-
-  const standinOutput = run([JWK_KEY, file, JWK_STANDIN]);
-  assert.equal(parseSingleQuotedValue(file, JWK_KEY), JWK_STANDIN);
-  assert.match(standinOutput, /build-time stand-in/);
-  assert.equal(standinOutput.includes(JWK_STANDIN), false);
-});
-
-test('writes a compact JWK that @next/env reads unchanged for build validation', () => {
-  const file = makeEnvFile([
-    'AI_CHAT_MODEL="cerebras"',
-    `${JWK_KEY}=""`,
-    'QUIZ_PHASE="production"',
-    '',
-  ].join('\n'));
-  const originalValue = process.env[JWK_KEY];
-
-  try {
-    run([JWK_KEY, file, JWK_STANDIN]);
-    delete process.env[JWK_KEY];
-    loadEnvConfig(path.dirname(file), false, console, true);
-    assert.equal(process.env[JWK_KEY], JWK_STANDIN);
-  } finally {
-    resetEnv();
-    if (originalValue === undefined) delete process.env[JWK_KEY];
-    else process.env[JWK_KEY] = originalValue;
-  }
-});
-
-test('does not replace a configured JWK with the stand-in or log either value', () => {
-  const file = makeEnvFile([
-    'AI_CHAT_MODEL="cerebras"',
-    `${JWK_KEY}=""`,
-    'QUIZ_PHASE="production"',
-    '',
-  ].join('\n'));
-  const runtimeValue = JSON.stringify({ ...JSON.parse(JWK_STANDIN), kid: 'runtime-owned-kid' });
-  const runtimeOutput = run([JWK_KEY, file, JWK_STANDIN], {
-    [JWK_KEY]: runtimeValue,
-  });
-  assert.equal(parseSingleQuotedValue(file, JWK_KEY), runtimeValue);
-  assert.equal(runtimeOutput.includes(runtimeValue), false);
-  assert.equal(runtimeOutput.includes(JWK_STANDIN), false);
-  assert.doesNotMatch(runtimeOutput, /build-time stand-in/);
-});
-
-test('keeps the JWK stand-in build-only and leaves runtime injection Vercel-owned', () => {
-  const workflow = fs.readFileSync(DEPLOY_WORKFLOW, 'utf8');
-  const stepStart = workflow.indexOf(
-    '      - name: Ensure build-time presence of runtime-only scoped Supabase JWT key',
-  );
-  const buildStart = workflow.indexOf('      - name: Build for Vercel', stepStart);
-  assert.ok(stepStart >= 0);
-  assert.ok(buildStart > stepStart);
-
-  const step = workflow.slice(stepStart, buildStart);
-  assert.match(step, /public Supabase documentation example/);
-  assert.match(step, /real sensitive production value\s+.*Vercel at runtime/);
-  assert.match(step, /SUPABASE_AGENTIC_JWT_PRIVATE_JWK/);
-  assert.equal(step.includes(JWK_STANDIN), true);
-  assert.doesNotMatch(step, /^\s+env:/m);
-  assert.doesNotMatch(step, /\$\{\{\s*secrets\./);
 });
 
 test('fails when a value contains an apostrophe or backslash', () => {
