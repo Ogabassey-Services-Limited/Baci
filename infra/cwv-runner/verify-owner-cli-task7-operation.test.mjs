@@ -27,8 +27,9 @@ test('reads the private auditor App registration through an App JWT', async () =
 
   assert.match(
     source,
-    /read-auditor-app-registration\) jwt=\$\(app_jwt\) \|\| refuse; node=\$\(verified_task7_node\) \|\| refuse; \/usr\/bin\/printf '%s' "\$jwt" \| exec "\$node" --input-type=module -e /
+    /read-auditor-app-registration\) jwt=\$\(app_jwt\) \|\| refuse; node=\$\(verified_task7_node\) \|\| refuse; printf '%s' "\$jwt" \| exec "\$node" --input-type=module -e /
   );
+  assert.doesNotMatch(source, /\/usr\/bin\/printf '%s' "\$jwt"/);
   assert.match(source, /Authorization:`Bearer \$\{jwt\}`/);
   assert.match(source, /bytes>1048576\)\{fail\(\);request\.destroy\(\)/);
   assert.match(
