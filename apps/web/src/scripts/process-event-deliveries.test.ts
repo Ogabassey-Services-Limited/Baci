@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   getClaimBatchSize: vi.fn(),
   getConcurrency: vi.fn(() => 4),
   getMaxAttempts: vi.fn(() => 8),
+  isCacheDeliveryEnabled: vi.fn(),
   isEnabled: vi.fn(),
   processDelivery: vi.fn(),
   runWorker: vi.fn(),
@@ -14,6 +15,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/lib/events/event-pipeline-config', () => ({
   getEventDeliveryConcurrency: mocks.getConcurrency,
   getEventDeliveryMaxAttempts: mocks.getMaxAttempts,
+  isStorefrontCacheTransitionDeliveryEnabled: mocks.isCacheDeliveryEnabled,
   isEventPipelineDeliveryEnabled: mocks.isEnabled,
 }));
 vi.mock('@/lib/supabase/service', () => ({
@@ -54,6 +56,7 @@ describe('process-event-deliveries CLI facade', () => {
 
   it('constructs the authorized client and delegates configured concurrency', async () => {
     mocks.isEnabled.mockReturnValue(true);
+    mocks.isCacheDeliveryEnabled.mockReturnValue(false);
     const serviceClient = { rpc: vi.fn() } as unknown as ServiceRoleClient;
     mocks.createServiceClient.mockReturnValue(serviceClient);
     mocks.runWorker.mockResolvedValue(undefined);
@@ -62,6 +65,8 @@ describe('process-event-deliveries CLI facade', () => {
 
     expect(mocks.createServiceClient).toHaveBeenCalledWith('event-pipeline');
     expect(mocks.runWorker).toHaveBeenCalledWith(serviceClient, {
+      analyticsDeliveryEnabled: true,
+      cacheTransitionDeliveryEnabled: false,
       concurrency: 4,
       once: true,
     });
@@ -69,6 +74,7 @@ describe('process-event-deliveries CLI facade', () => {
 
   it('propagates a delegated worker rejection', async () => {
     mocks.isEnabled.mockReturnValue(true);
+    mocks.isCacheDeliveryEnabled.mockReturnValue(false);
     const serviceClient = { rpc: vi.fn() } as unknown as ServiceRoleClient;
     mocks.createServiceClient.mockReturnValue(serviceClient);
     mocks.runWorker.mockRejectedValue(new Error('event_delivery_worker_failed'));
@@ -81,5 +87,39 @@ describe('process-event-deliveries CLI facade', () => {
   it('keeps delivery compatibility exports on the original path', () => {
     expect(getEventDeliveryClaimBatchSize).toBe(mocks.getClaimBatchSize);
     expect(processClaimedEventDelivery).toBe(mocks.processDelivery);
+  });
+
+  it('runs only the specialized cache lane when its independent flag is enabled', async () => {
+    mocks.isEnabled.mockReturnValue(false);
+    mocks.isCacheDeliveryEnabled.mockReturnValue(true);
+    const serviceClient = { rpc: vi.fn() } as unknown as ServiceRoleClient;
+    mocks.createServiceClient.mockReturnValue(serviceClient);
+    mocks.runWorker.mockResolvedValue(undefined);
+
+    await runEventDeliveryWorker({ once: true });
+
+    expect(mocks.runWorker).toHaveBeenCalledWith(serviceClient, {
+      analyticsDeliveryEnabled: false,
+      cacheTransitionDeliveryEnabled: true,
+      concurrency: 4,
+      once: true,
+    });
+  });
+
+  it('starts both lanes without using the analytics flag as cache authority', async () => {
+    mocks.isEnabled.mockReturnValue(true);
+    mocks.isCacheDeliveryEnabled.mockReturnValue(true);
+    const serviceClient = { rpc: vi.fn() } as unknown as ServiceRoleClient;
+    mocks.createServiceClient.mockReturnValue(serviceClient);
+    mocks.runWorker.mockResolvedValue(undefined);
+
+    await runEventDeliveryWorker({ once: true });
+
+    expect(mocks.runWorker).toHaveBeenCalledWith(serviceClient, {
+      analyticsDeliveryEnabled: true,
+      cacheTransitionDeliveryEnabled: true,
+      concurrency: 4,
+      once: true,
+    });
   });
 });

@@ -248,8 +248,13 @@ git commit -m "feat: add idempotent cache actuator"
 **Files:**
 - Create: `apps/web/src/scripts/process-storefront-cache-transition.ts`
 - Create: `apps/web/src/scripts/process-storefront-cache-transition.test.ts`
+- Create: `apps/web/src/lib/events/storefront-cache-transition-actuator-client.ts`
+- Create: `apps/web/src/lib/events/storefront-cache-transition-actuator-client.test.ts`
 - Modify: `apps/web/src/scripts/event-delivery-worker.ts`
+- Create: `apps/web/src/scripts/event-delivery-worker-cache-lane.test.ts`
 - Modify: `apps/web/src/scripts/process-event-deliveries.ts`
+- Modify: `apps/web/src/scripts/process-event-deliveries.test.ts`
+- Create: `apps/web/src/scripts/process-event-deliveries.node-import.test.ts`
 - Create: `apps/web/src/lib/events/storefront-cache-transition-delivery-enabled.ts`
 - Create: `apps/web/src/lib/events/storefront-cache-transition-delivery-enabled.test.ts`
 - Modify: `apps/web/src/lib/events/event-pipeline-config.ts`
@@ -258,7 +263,7 @@ git commit -m "feat: add idempotent cache actuator"
 - Produces `processStorefrontCacheTransition(client, delivery, dependencies): Promise<void>`.
 - Claims only `storefront_cache_transition`; generic analytics claim excludes it.
 
-- [ ] **Step 1: Write failing full-barrier receipt/finish tests**
+- [x] **Step 1: Write failing full-barrier receipt/finish tests**
 
 ```ts
 await processStorefrontCacheTransition(client, delivery, deps);
@@ -267,26 +272,26 @@ expect(deps.receipt).toEqual(expect.objectContaining({ ok: true }));
 expect(deps.finishStorefrontCacheTransition).toHaveBeenCalledWith(expect.objectContaining({ generation, outcome: 'delivered' }));
 ```
 
-- [ ] **Step 2: Run tests and confirm failure**
+- [x] **Step 2: Run tests and confirm failure**
 
 Run: `pnpm --filter web exec vitest run src/scripts/process-storefront-cache-transition.test.ts src/lib/events/storefront-cache-transition-delivery-enabled.test.ts`
 
 Expected: FAIL because lane is absent.
 
-- [ ] **Step 3: Implement persisted stages**
+- [x] **Step 3: Implement persisted stages**
 
 Add a dedicated `isStorefrontCacheTransitionDeliveryEnabled` config leaf that defaults false, export it from the existing config barrel, and wire an isolated existing-worker lane. Materialize current obligation/successor, call the fixed HTTPS `STOREFRONT_CACHE_ACTUATOR_URL`, and use its exact request-bound typed receipt as the only success boundary before `finish_storefront_cache_transition_delivery_v1`. That RPC atomically fences delivery claim, obligation ID, and generation before applying canonical terminal/retry semantics. Stale token/generation updates zero rows. The worker has no Cloudflare credential, hostname builder, or per-stage checkpoint RPC.
 
 Treat actuator rejection of request authentication or Vercel runtime provenance, unknown merchant, `not_running_on_vercel`, timeout, network failure, missing receipt, or invalid/mismatched receipt as cache-specific retryable/fail-closed. The response contract is the exact request-bound typed receipt over HTTPS; it does not invent a second unsigned response-signature header. Because every barrier stage is idempotent, retry reruns the whole barrier; only an exact matching typed receipt succeeds. Existing retry ceiling/DLQ/replay/audit remain authoritative. Keep legacy `purgeCloudflareUrls()` unchanged.
 
-- [ ] **Step 4: Run validation and commit**
+- [x] **Step 4: Run validation and commit**
 
 Run: `pnpm --filter web exec vitest run src/scripts/process-storefront-cache-transition.test.ts src/scripts/process-event-deliveries.test.ts src/lib/events/storefront-cache-transition-delivery-enabled.test.ts`
 
 Expected: PASS for crash/retry after each stage, successor, stale token, 429, DLQ, replay.
 
 ```bash
-git add apps/web/src/scripts/process-storefront-cache-transition.ts apps/web/src/scripts/process-storefront-cache-transition.test.ts apps/web/src/scripts/event-delivery-worker.ts apps/web/src/scripts/process-event-deliveries.ts apps/web/src/lib/events/storefront-cache-transition-delivery-enabled.ts apps/web/src/lib/events/storefront-cache-transition-delivery-enabled.test.ts apps/web/src/lib/events/event-pipeline-config.ts
+git add apps/web/src/scripts/process-storefront-cache-transition.ts apps/web/src/scripts/process-storefront-cache-transition.test.ts apps/web/src/lib/events/storefront-cache-transition-actuator-client.ts apps/web/src/lib/events/storefront-cache-transition-actuator-client.test.ts apps/web/src/scripts/event-delivery-worker.ts apps/web/src/scripts/event-delivery-worker-cache-lane.test.ts apps/web/src/scripts/process-event-deliveries.ts apps/web/src/scripts/process-event-deliveries.test.ts apps/web/src/scripts/process-event-deliveries.node-import.test.ts apps/web/src/lib/events/storefront-cache-transition-delivery-enabled.ts apps/web/src/lib/events/storefront-cache-transition-delivery-enabled.test.ts apps/web/src/lib/events/event-pipeline-config.ts docs/superpowers/plans/2026-07-27-b0-durable-cache-invalidation-on-3077.md
 git commit -m "feat: deliver cache transition in existing worker"
 ```
 

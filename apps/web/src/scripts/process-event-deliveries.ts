@@ -3,12 +3,16 @@ import { pathToFileURL } from 'node:url';
 import {
   getEventDeliveryConcurrency,
   isEventPipelineDeliveryEnabled,
+  isStorefrontCacheTransitionDeliveryEnabled,
 } from '@/lib/events/event-pipeline-config';
 import { createServiceClient } from '@/lib/supabase/service';
 import { runEventDeliveryWorker as runWorker } from './event-delivery-worker';
 
 async function runEventDeliveryWorker(options: { once?: boolean } = {}) {
-  if (!isEventPipelineDeliveryEnabled()) {
+  const analyticsDeliveryEnabled = isEventPipelineDeliveryEnabled();
+  const cacheTransitionDeliveryEnabled =
+    isStorefrontCacheTransitionDeliveryEnabled();
+  if (!analyticsDeliveryEnabled && !cacheTransitionDeliveryEnabled) {
     console.log(
       JSON.stringify({ status: 'disabled', worker: 'event-delivery-worker' })
     );
@@ -16,9 +20,14 @@ async function runEventDeliveryWorker(options: { once?: boolean } = {}) {
   }
 
   const supabase = createServiceClient('event-pipeline');
-  await runWorker(supabase, {
+  const workerOptions = {
     concurrency: getEventDeliveryConcurrency(),
     once: options.once,
+  };
+  await runWorker(supabase, {
+    ...workerOptions,
+    analyticsDeliveryEnabled,
+    cacheTransitionDeliveryEnabled,
   });
 }
 
