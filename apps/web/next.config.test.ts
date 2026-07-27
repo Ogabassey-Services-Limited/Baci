@@ -65,6 +65,7 @@ describe('next.config OgaBassey resource headers', () => {
   it('bounds static generation pressure and retries transient page failures', () => {
     expect(nextConfig.experimental).toEqual(
       expect.objectContaining({
+        cpus: 3,
         staticGenerationMaxConcurrency: 1,
         staticGenerationMinPagesPerWorker: 1_600,
         staticGenerationRetryCount: 3,
