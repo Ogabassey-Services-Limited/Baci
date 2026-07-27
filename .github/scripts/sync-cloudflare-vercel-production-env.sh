@@ -27,7 +27,7 @@ for key in "${cloudflare_keys[@]}"; do
 
   # Keep values out of argv and logs. Suppress CLI output as a defensive guard:
   # an implementation must never reflect a sensitive stdin value into Actions.
-  if ! printf '%s\n' "$value" | "$vercel_wrapper" env add "$key" production --sensitive --force --yes >/dev/null 2>&1; then
+  if ! printf '%s' "$value" | "$vercel_wrapper" env add "$key" production --sensitive --force --yes >/dev/null 2>&1; then
     echo "Failed to synchronize $key to Vercel Production." >&2
     exit 1
   fi

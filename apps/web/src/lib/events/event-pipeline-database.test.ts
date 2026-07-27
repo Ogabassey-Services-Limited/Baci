@@ -234,7 +234,6 @@ describe('event pipeline generated database boundary', () => {
     expect(EVENT_PIPELINE_BOUNDARY.callers).toEqual({
       'apps/web/src/app/api/admin/event-pipeline/dead-letters/route.ts': ['get_event_pipeline_operations_v1', 'list_event_pipeline_deliveries_v1', 'list_event_pipeline_ingress_failures_v1'],
       'apps/web/src/app/api/admin/event-pipeline/replay/route.ts': ['replay_event_deliveries_batch_v1', 'replay_ingress_dead_letter_v1', 'select_event_pipeline_replay_ids_v1'],
-      'apps/web/src/app/api/cron/drain-cache-invalidations/route.ts': ['claim_cache_invalidations', 'finish_cache_invalidation'],
       'apps/web/src/lib/events/enqueue-paid-order-domain-event.ts': ['enqueue_domain_event_v1'],
       'apps/web/src/lib/events/record-analytics-domain-event.ts': ['record_analytics_domain_event_v1'],
       'apps/web/src/lib/events/record-platform-domain-event.ts': ['record_platform_domain_event_v1'],
@@ -243,6 +242,7 @@ describe('event pipeline generated database boundary', () => {
       'apps/web/src/scripts/event-delivery-worker.ts': ['claim_event_deliveries_v1', 'record_event_worker_heartbeat_v1'],
       'apps/web/src/scripts/process-claimed-event-delivery.ts': ['finish_event_delivery_v1'],
       'vps-workers/jobs/supabase-retention-cleanup.mjs': ['cleanup_domain_event_pipeline_v1'],
+      'vps-workers/jobs/drain-cache-invalidations.mjs': ['claim_cache_invalidations', 'finish_cache_invalidation'],
     });
     for (const path of ['apps/web/src/scripts/process-domain-events.ts', 'apps/web/src/scripts/process-event-deliveries.ts']) {
       expect(EVENT_PIPELINE_BOUNDARY.authority.serviceImporters).toContain(path);

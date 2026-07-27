@@ -8,6 +8,8 @@ DECLARE
   v_second_merchant uuid := '71000000-0000-4000-8000-000000000002';
   v_product uuid := '72000000-0000-4000-8000-000000000001';
   v_second_product uuid := '72000000-0000-4000-8000-000000000002';
+  v_draft_product uuid := '72000000-0000-4000-8000-000000000003';
+  v_category uuid := '75000000-0000-4000-8000-000000000001';
   v_variant uuid := '74000000-0000-4000-8000-000000000001';
   v_claim record;
   v_completed boolean;
@@ -72,6 +74,53 @@ BEGIN
     RAISE EXCEPTION 'customer-visible merchant fields must enqueue';
   END IF;
 
+  SELECT generation INTO v_generation FROM public.cache_invalidation_outbox
+  WHERE merchant_id = v_merchant AND target_id = 'cache-store';
+  INSERT INTO public.products (id, merchant_id, name, price, slug, status)
+  VALUES (v_draft_product, v_merchant, 'Private Draft', 50, 'private-draft', 'draft');
+  DELETE FROM public.products WHERE id = v_draft_product;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.cache_invalidation_outbox
+    WHERE merchant_id = v_merchant AND target_id = 'cache-store'
+      AND generation = v_generation
+  ) THEN
+    RAISE EXCEPTION 'inactive product inserts and deletes must not enqueue';
+  END IF;
+
+  INSERT INTO public.merchant_slug_aliases (old_slug, merchant_id)
+  VALUES ('cache-store-retired', v_merchant);
+  SELECT generation INTO v_generation FROM public.cache_invalidation_outbox
+  WHERE merchant_id = v_merchant AND target_kind = 'storefront_slug'
+    AND target_id = 'cache-store-retired';
+  UPDATE public.products SET gtin = '00012345678905' WHERE id = v_product;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.cache_invalidation_outbox
+    WHERE merchant_id = v_merchant AND target_kind = 'storefront_slug'
+      AND target_id = 'cache-store-retired'
+      AND (v_generation IS NULL OR generation > v_generation)
+  ) THEN
+    RAISE EXCEPTION 'retired merchant aliases must remain purge targets';
+  END IF;
+  SELECT generation INTO v_generation FROM public.cache_invalidation_outbox
+  WHERE merchant_id = v_merchant AND target_id = 'cache-store';
+  INSERT INTO public.categories (id, merchant_id, name, slug, is_active)
+  VALUES (v_category, v_merchant, 'Phones', 'phones', true);
+  SELECT generation INTO v_generation FROM public.cache_invalidation_outbox
+  WHERE merchant_id = v_merchant AND target_id = 'cache-store';
+  INSERT INTO public.product_categories (product_id, category_id)
+  VALUES (v_product, v_category);
+  UPDATE public.product_categories SET is_primary = true
+  WHERE product_id = v_product AND category_id = v_category;
+  DELETE FROM public.product_categories
+  WHERE product_id = v_product AND category_id = v_category;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.cache_invalidation_outbox
+    WHERE merchant_id = v_merchant AND target_id = 'cache-store'
+      AND generation = v_generation + 3
+  ) THEN
+    RAISE EXCEPTION 'product category membership mutations must enqueue';
+  END IF;
+
   INSERT INTO public.merchants (id, email, business_name, slug)
   VALUES (v_second_merchant, 'cache-two@example.com', 'Cache Two', 'cache-two');
   INSERT INTO public.products (
@@ -103,7 +152,9 @@ BEGIN
   UPDATE public.products SET manage_stock = false WHERE id = v_second_product;
   SELECT generation INTO v_new_generation FROM public.cache_invalidation_outbox
   WHERE merchant_id = v_second_merchant AND target_id = 'cache-two';
-  UPDATE public.products SET stock_quantity = 99 WHERE id = v_second_product;
+  UPDATE public.products
+  SET stock_quantity = 99, updated_at = clock_timestamp()
+  WHERE id = v_second_product;
   IF NOT EXISTS (
     SELECT 1 FROM public.cache_invalidation_outbox
     WHERE merchant_id = v_second_merchant AND target_id = 'cache-two'
@@ -131,6 +182,9 @@ BEGIN
   SET status = CASE WHEN target_id = 'cache-store-new' THEN 'pending' ELSE 'completed' END,
       next_attempt_at = now();
   SELECT * INTO v_claim FROM public.claim_cache_invalidations(1, 'sql-worker');
+  IF v_claim.claim_token IS NULL THEN
+    RAISE EXCEPTION 'claim must return a claim token';
+  END IF;
   IF v_claim.target_id <> 'cache-store-new' OR v_claim.attempts <> 1 THEN
     RAISE EXCEPTION 'claim must select one due immutable target: %', v_claim;
   END IF;
@@ -170,6 +224,9 @@ BEGIN
   WHERE merchant_id = v_merchant AND target_kind = v_claim.target_kind
     AND target_id = v_claim.target_id;
   SELECT * INTO v_claim FROM public.claim_cache_invalidations(1, 'sql-recovery');
+  IF v_claim.claim_token IS NULL THEN
+    RAISE EXCEPTION 'recovery claim must return a claim token';
+  END IF;
   IF v_claim.attempts <> 1 THEN
     RAISE EXCEPTION 'stale newer generation must receive a fresh retry budget';
   END IF;

@@ -227,4 +227,9 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260727033000_cache_invalidation_outbox.sql',
     sha256: '429d8681f42744b359cde853299cc7d0272238848c5147e228dce86e2c570d81',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260727090000_harden_cache_invalidation_outbox.sql',
+    sha256: '098213abe45c4ad088ba9d3eb037341ffbba2cc70f6addbede3d8f857f8e1833',
+  },
 ];

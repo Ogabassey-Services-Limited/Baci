@@ -5,26 +5,52 @@ const service = 'apps/web/src/lib/supabase/service.ts';
 const admin = 'apps/web/src/lib/supabase/admin.ts';
 
 describe('event pipeline service authority graph', () => {
-  it.each([
-    'apps/web/src/app/api/cron/drain-cache-invalidations/route.ts',
-    'apps/web/src/lib/drain-storefront-cache-invalidation.ts',
-    'apps/web/src/lib/strict-cloudflare-hostname-purge.ts',
-  ])('rejects an extra credential import from B0 module %s', (root) => {
-    const env = 'apps/web/src/env.ts';
-    const route = 'apps/web/src/app/api/cron/security-probe/route.ts';
+  it('allows the approved direct VPS cache invalidation worker', () => {
+    const root = 'vps-workers/jobs/drain-cache-invalidations.mjs';
     const sources = new Map([
-      [root, "import { getSupabaseServiceRoleKey } from '@/env';"],
-      [env, 'use(process.env.SUPABASE_SERVICE_ROLE_KEY);'],
+      [
+        root,
+        "import { createClient } from '@supabase/supabase-js'; createClient(url, process.env.SUPABASE_SERVICE_ROLE_KEY);",
+      ],
     ]);
-    if (root !== route && !root.includes('/app/api/')) {
-      sources.set(
+
+    const findings = serviceAuthorityGraphFindings(sources, [root]);
+
+    expect(findings).toEqual([]);
+  });
+
+  it('rejects a route that imports the approved privileged worker', () => {
+    const approved = 'vps-workers/jobs/drain-cache-invalidations.mjs';
+    const route = 'apps/web/src/app/api/cache-wrapper/route.ts';
+    const sources = new Map([
+      [
         route,
-        `import '${root.replace('apps/web/src/', '@/').replace(/\.ts$/, '')}';`
-      );
-    }
-    const productionRoot = root.includes('/app/api/') ? root : route;
-    expect(serviceAuthorityGraphFindings(sources, [productionRoot])).toContain(
-      `${productionRoot}: API import graph reaches credential authority ${env}${productionRoot === root ? '' : ` via ${productionRoot} -> ${root} -> ${env}`}`
+        "import '../../../../../../vps-workers/jobs/drain-cache-invalidations.mjs';",
+      ],
+      [
+        approved,
+        "import { createClient } from '@supabase/supabase-js'; createClient(url, process.env.SUPABASE_SERVICE_ROLE_KEY);",
+      ],
+    ]);
+
+    const approvedFindings = serviceAuthorityGraphFindings(sources, [approved]);
+    const routeFindings = serviceAuthorityGraphFindings(sources, [route]);
+
+    expect(approvedFindings).toEqual([]);
+    expect(routeFindings).toContainEqual(
+      expect.stringContaining(
+        `${route}: API import graph reaches credential authority ${approved}`
+      )
+    );
+  });
+
+  it('rejects service-role authority from a sibling cache worker', () => {
+    const root = 'vps-workers/jobs/cache-invalidation-helper.mjs';
+    const sources = new Map([
+      [root, 'use(process.env.SUPABASE_SERVICE_ROLE_KEY);'],
+    ]);
+    expect(serviceAuthorityGraphFindings(sources, [root])).toContain(
+      `${root}: service-role credential read is forbidden`
     );
   });
 

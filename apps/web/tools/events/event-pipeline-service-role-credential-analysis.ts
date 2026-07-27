@@ -5,12 +5,17 @@ import { resolveLexicalString } from './analytics-delivery-static-string';
 import { isTestSourcePath } from './event-pipeline-source-path';
 
 type CredentialReaderLedgers = {
+  approvedB0ReaderHashes?: Readonly<Record<string, string>>;
   approvedTask6ReaderHashes: Readonly<Record<string, string>>;
   preExistingReaderHashes: Readonly<Record<string, string>>;
   testSupportReaderHashes: Readonly<Record<string, string>>;
 };
 
 const defaultLedgers: CredentialReaderLedgers = {
+  approvedB0ReaderHashes: {
+    'vps-workers/jobs/drain-cache-invalidations.mjs':
+      'dca2767e887c877e86e280021c96092140953e258e7da131f49020e2f8f5d00b',
+  },
   approvedTask6ReaderHashes: {
     'apps/web/src/lib/supabase/service.ts':
       '13e10a25092e1a53c8f091b3576e804f6e1268f55d63393d2a2231ddc46cc5bc',
@@ -156,13 +161,14 @@ function findings(
 ): string[] {
   const results: string[] = [];
   const categories = [
+    ['B0 approved', ledgers.approvedB0ReaderHashes],
     ['Task 6 approved', ledgers.approvedTask6ReaderHashes],
     ['pre-existing', ledgers.preExistingReaderHashes],
     ['test-support', ledgers.testSupportReaderHashes],
   ] as const;
   const classified = new Map<string, { category: string; hash: string }>();
   for (const [category, ledger] of categories)
-    for (const [path, hash] of Object.entries(ledger))
+    for (const [path, hash] of Object.entries(ledger ?? {}))
       classified.set(path, { category, hash });
   for (const [path, source] of sources) {
     if (isTestSourcePath(path) || !readsCredential(path, source)) continue;

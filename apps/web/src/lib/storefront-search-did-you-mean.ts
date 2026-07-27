@@ -34,5 +34,15 @@ export async function findStorefrontSearchDidYouMean({
     return null;
   }
 
-  return (suggestion[0] as { suggested_term?: string }).suggested_term ?? null;
+  const firstSuggestion: unknown = suggestion[0];
+  if (
+    typeof firstSuggestion !== 'object' ||
+    firstSuggestion === null ||
+    !('suggested_term' in firstSuggestion) ||
+    typeof firstSuggestion.suggested_term !== 'string'
+  ) {
+    return null;
+  }
+
+  return firstSuggestion.suggested_term;
 }

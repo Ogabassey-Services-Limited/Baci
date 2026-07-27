@@ -1,8 +1,63 @@
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { serviceRoleCredentialAuthority } from './event-pipeline-service-role-credential-analysis';
 
+const b0WorkerPath = 'vps-workers/jobs/drain-cache-invalidations.mjs';
+const b0WorkerSource = readFileSync(
+  join(process.cwd(), '../../vps-workers/jobs/drain-cache-invalidations.mjs'),
+  'utf8'
+);
+const b0OnlyLedgers = {
+  approvedB0ReaderHashes:
+    serviceRoleCredentialAuthority.ledgers.approvedB0ReaderHashes,
+  approvedTask6ReaderHashes: {},
+  preExistingReaderHashes: {},
+  testSupportReaderHashes: {},
+};
+
 describe('serviceRoleCredentialAuthority', () => {
+  it('accepts only the byte-approved B0 worker source', () => {
+    const findings = serviceRoleCredentialAuthority.findings(
+      new Map([[b0WorkerPath, b0WorkerSource]]),
+      b0OnlyLedgers
+    );
+
+    expect(findings).toEqual([]);
+  });
+
+  it('rejects B0 worker hash drift, a missing worker, and an unclassified reader', () => {
+    const drift = serviceRoleCredentialAuthority.findings(
+      new Map([[b0WorkerPath, `${b0WorkerSource}\n// drift`]]),
+      b0OnlyLedgers
+    );
+    const missing = serviceRoleCredentialAuthority.findings(
+      new Map(),
+      b0OnlyLedgers
+    );
+    const unclassified = serviceRoleCredentialAuthority.findings(
+      new Map([
+        [b0WorkerPath, b0WorkerSource],
+        [
+          'vps-workers/jobs/rogue-reader.mjs',
+          'process.env.SUPABASE_SERVICE_ROLE_KEY',
+        ],
+      ]),
+      b0OnlyLedgers
+    );
+
+    expect(drift).toContain(
+      `${b0WorkerPath}: B0 approved service-role credential reader hash drift`
+    );
+    expect(missing).toContain(
+      `${b0WorkerPath}: classified service-role credential reader is missing`
+    );
+    expect(unclassified).toContain(
+      'vps-workers/jobs/rogue-reader.mjs: unclassified production service-role credential read'
+    );
+  });
+
   it.each([
     'process.env.SUPABASE_SERVICE_ROLE_KEY',
     "process.env['SUPABASE_' + 'SERVICE_ROLE_KEY']",

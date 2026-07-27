@@ -116,7 +116,6 @@ const frozenRoutes = {
 const columns = (value: string) => value.split(' ');
 // biome-ignore format: compact RPC ownership map preserves the 300-line verifier gate.
 const runtimeCallers = {
-  'apps/web/src/app/api/cron/drain-cache-invalidations/route.ts': ['claim_cache_invalidations', 'finish_cache_invalidation'],
   'apps/web/src/app/api/admin/event-pipeline/dead-letters/route.ts': ['get_event_pipeline_operations_v1', 'list_event_pipeline_deliveries_v1', 'list_event_pipeline_ingress_failures_v1'],
   'apps/web/src/app/api/admin/event-pipeline/replay/route.ts': ['replay_event_deliveries_batch_v1', 'replay_ingress_dead_letter_v1', 'select_event_pipeline_replay_ids_v1'],
   'apps/web/src/lib/events/enqueue-paid-order-domain-event.ts': ['enqueue_domain_event_v1'],
@@ -127,6 +126,7 @@ const runtimeCallers = {
   'apps/web/src/scripts/event-delivery-worker.ts': ['claim_event_deliveries_v1', 'record_event_worker_heartbeat_v1'],
   'apps/web/src/scripts/process-claimed-event-delivery.ts': ['finish_event_delivery_v1'],
   'vps-workers/jobs/supabase-retention-cleanup.mjs': ['cleanup_domain_event_pipeline_v1'],
+  'vps-workers/jobs/drain-cache-invalidations.mjs': ['claim_cache_invalidations', 'finish_cache_invalidation'],
 } as const;
 export const EVENT_PIPELINE_BOUNDARY = {
   allFunctions: EVENT_PIPELINE_FUNCTION_NAMES,
@@ -145,8 +145,6 @@ export const EVENT_PIPELINE_BOUNDARY = {
       'apps/web/src/lib/analytics/fetch-analytics-platform-config.ts',
       'apps/web/src/lib/merchant-feature-gates.ts',
     ],
-    // Full import paths only. B0 needs no service-role credential-path bypass:
-    // its route has separately constrained service-factory authority.
     credentialPaths: [],
     factoryModules: [
       'apps/web/src/lib/supabase/admin.ts',
@@ -154,7 +152,7 @@ export const EVENT_PIPELINE_BOUNDARY = {
       'apps/web/src/lib/supabase/service.ts',
     ],
     // biome-ignore format: compact compatibility allowlist preserves the 300-line verifier gate.
-    legacySdkImporters: ['apps/web/src/lib/events/event-ingress-capability.ts', 'apps/web/src/lib/events/event-pipeline-test-client.ts', 'vps-workers/jobs/supabase-retention-cleanup.mjs'],
+    legacySdkImporters: ['apps/web/src/lib/events/event-ingress-capability.ts', 'apps/web/src/lib/events/event-pipeline-test-client.ts', 'vps-workers/jobs/drain-cache-invalidations.mjs', 'vps-workers/jobs/supabase-retention-cleanup.mjs'],
     serverImporters: [
       ...Object.keys(frozenRoutes),
       'apps/web/src/app/(platform)/onboarding/actions.ts',
@@ -166,7 +164,6 @@ export const EVENT_PIPELINE_BOUNDARY = {
       'apps/web/src/lib/platform-admin-auth.ts',
     ],
     serviceImporters: [
-      'apps/web/src/app/api/cron/drain-cache-invalidations/route.ts',
       'apps/web/src/app/api/analytics/conversion/route.ts',
       'apps/web/src/app/api/events/route.ts',
       'apps/web/src/lib/events/event-pipeline-service-role-test-client.ts',
@@ -186,6 +183,10 @@ export const EVENT_PIPELINE_BOUNDARY = {
           .filter(([path]) => path.endsWith('.ts'))
           .flatMap(([, names]) => names)
       ),
+    ],
+    vpsCacheInvalidation: [
+      'claim_cache_invalidations',
+      'finish_cache_invalidation',
     ],
     vpsCleanup: ['cleanup_domain_event_pipeline_v1'],
   },

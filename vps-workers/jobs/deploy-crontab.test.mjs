@@ -65,7 +65,7 @@ describe('deploy crontab', () => {
     );
   });
 
-  it('schedules ordered cache invalidation through the bounded Next drainer', () => {
+  it('schedules ordered cache invalidation directly on the VPS', () => {
     const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
 
     assert.match(
@@ -74,9 +74,12 @@ describe('deploy crontab', () => {
     );
     assert.match(
       deployScript,
+      /timeout --signal=TERM --kill-after=10s 90s \$NODE_BIN \$REMOTE_DIR\/jobs\/drain-cache-invalidations\.mjs/
+    );
+    assert.doesNotMatch(
+      deployScript,
       /run-web-cron\.mjs \/api\/cron\/drain-cache-invalidations/
     );
-    assert.doesNotMatch(deployScript, /process-storefront-purge-outbox/);
   });
 
   it('schedules the agentic commerce health cron through run-web-cron', () => {

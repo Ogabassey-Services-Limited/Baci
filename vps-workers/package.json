@@ -11,6 +11,7 @@
     "cleanup-import-uploads": "node jobs/cleanup-import-uploads.mjs",
     "supabase-retention-cleanup": "node jobs/supabase-retention-cleanup.mjs",
     "cleanup-agentic-request-records": "node jobs/cleanup-agentic-request-records.mjs",
+    "drain-cache-invalidations": "node jobs/drain-cache-invalidations.mjs",
     "push-receipts": "node jobs/push-receipts.mjs",
     "sync-gigl-service-centres": "node jobs/sync-gigl-service-centres.mjs",
     "agentic-commerce-health": "node jobs/run-web-cron.mjs /api/cron/agentic-commerce-health",

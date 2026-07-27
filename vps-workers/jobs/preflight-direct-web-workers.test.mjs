@@ -5,8 +5,12 @@ import { getDirectWorkerPreflightProblems } from './preflight-direct-web-workers
 const commonEnv = {
   BACI_REPO_DIR: '/opt/baci/app',
   BACI_WEB_BASE_URL: 'https://usebaci.com',
+  CLOUDFLARE_API_TOKEN: 'cloudflare-token',
+  CLOUDFLARE_ZONE_ID: 'cloudflare-zone',
+  CLOUDFLARE_ZONE_NAME: 'ogabassey.com',
   IMEI_IDENTIFIER_ENCRYPTION_KEY: 'encryption-key',
   NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon-key',
+  NEXT_PUBLIC_ROOT_DOMAIN: 'usebaci.com',
   NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
   PETROCK_API_TOKEN: 'petrock-token',
   PETROCK_ENABLED: 'true',
@@ -15,6 +19,9 @@ const commonEnv = {
   QUIZ_PHASE: '1a',
   QUIZ_PRODUCTION_APPROVED: 'false',
   SUPABASE_SERVICE_ROLE_KEY: 'service-role-key',
+  VERCEL_PROJECT_ID: 'vercel-project',
+  VERCEL_TEAM_ID: 'vercel-team',
+  VERCEL_TOKEN: 'vercel-token',
   ZEPTOMAIL_TOKEN: 'zeptomail-token',
 };
 
@@ -36,6 +43,23 @@ describe('direct worker environment preflight', () => {
     ]);
     assert.doesNotMatch(problems.join(' '), /petrock-token|service-role-key/);
   });
+
+  for (const name of [
+    'CLOUDFLARE_API_TOKEN',
+    'CLOUDFLARE_ZONE_ID',
+    'CLOUDFLARE_ZONE_NAME',
+    'NEXT_PUBLIC_ROOT_DOMAIN',
+    'VERCEL_PROJECT_ID',
+    'VERCEL_TEAM_ID',
+    'VERCEL_TOKEN',
+  ]) {
+    it(`requires ${name} for direct cache invalidation`, () => {
+      assert.deepEqual(
+        getDirectWorkerPreflightProblems({ ...commonEnv, [name]: '' }),
+        [`${name} is required`]
+      );
+    });
+  }
 
   it('requires an explicit full-checkout path for direct TypeScript jobs', () => {
     const problems = getDirectWorkerPreflightProblems({

@@ -76,6 +76,13 @@ chmod 600 /home/bassey/baci-workers/.env
 NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
+NEXT_PUBLIC_ROOT_DOMAIN=usebaci.com
+VERCEL_TOKEN=...
+VERCEL_PROJECT_ID=...
+VERCEL_TEAM_ID=...
+CLOUDFLARE_API_TOKEN=...
+CLOUDFLARE_ZONE_ID=...
+CLOUDFLARE_ZONE_NAME=ogabassey.com
 IMEI_IDENTIFIER_ENCRYPTION_KEY=...
 PETROCK_API_TOKEN=...
 PETROCK_API_BASE_URL=https://api.petrock.biz/api/reseller/v1
@@ -203,7 +210,6 @@ $CRON_SECRET`; `/api/cron/process-settlements` uses `POST` and the others use
 - `/api/cron/cleanup-orders`
 - `/api/cron/process-settlements`
 - `/api/cron/publish-scheduled-posts`
-- `/api/cron/drain-cache-invalidations`
 - `/api/cron/vtu-cashback-summaries`
 - `/api/cron/wallet-payouts`
 - `/api/inventory/push-alerts`
@@ -230,11 +236,17 @@ variables or the project's secret manager, keep it aligned between the VPS
 worker and web deployment, and rotate it through the normal secret-management
 process. No API keys, passwords, or tokens should be stored in repo files.
 
-The two-minute `drain-cache-invalidations` sweep uses only the existing
-`BACI_WEB_BASE_URL` and `CRON_SECRET` web-cron boundary. The Next route claims
-transactional cache targets and enforces Next → Vercel → Cloudflare ordering;
-this cache drainer never receives Supabase service-role or Cloudflare
-credentials.
+The two-minute `drain-cache-invalidations` sweep is a standalone VPS process.
+It claims transactional targets with the VPS's existing service-role client,
+hard-deletes production Vercel Data/CDN tags through the Vercel REST API, then
+requires a successful Cloudflare hostname purge before token-fenced completion.
+It never calls the Baci web deployment, so the sweep consumes no Vercel
+Function runtime. Hard deletion makes the next request block on revalidation
+and can burst origin traffic, so origin-health monitoring and request-rate
+protection must be active before enabling the sweep. `VERCEL_TOKEN` must be
+scoped only to the owning Baci team; mandatory `VERCEL_TEAM_ID` and
+`VERCEL_PROJECT_ID` values target and verify the intended project. The
+Cloudflare token must have only Cache Purge permission for the configured zone.
 
 `/api/ai-jobs/worker` is intentionally retained only for short legacy web-safe
 jobs such as price list processing. Long `storefront_layout_generation` jobs

@@ -18,6 +18,8 @@ docker exec -i "$container" psql -v ON_ERROR_STOP=1 -U postgres \
 docker exec -i "$container" psql -v ON_ERROR_STOP=1 -U postgres \
   < "$repo_root/supabase/migrations/20260727033000_cache_invalidation_outbox.sql"
 docker exec -i "$container" psql -v ON_ERROR_STOP=1 -U postgres \
+  < "$repo_root/supabase/migrations/20260727090000_harden_cache_invalidation_outbox.sql"
+docker exec -i "$container" psql -v ON_ERROR_STOP=1 -U postgres \
   < "$repo_root/supabase/tests/cache_invalidation_outbox.sql"
 
 echo 'Cache invalidation outbox SQL tests passed'

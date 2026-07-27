@@ -29,6 +29,9 @@ CREATE TABLE public.domains (
   id uuid PRIMARY KEY, merchant_id uuid NOT NULL, domain text NOT NULL,
   domain_type text, status text, verified_at timestamptz, is_primary boolean
 );
+CREATE TABLE public.merchant_slug_aliases (
+  old_slug text PRIMARY KEY, merchant_id uuid NOT NULL, created_at timestamptz DEFAULT now()
+);
 CREATE TABLE public.categories (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(), merchant_id uuid NOT NULL,
   name text, slug text, description text, image_url text, parent_id uuid,
@@ -44,8 +47,15 @@ CREATE TABLE public.products (
   canonical_url text, schema_markup jsonb, faqs jsonb, specifications jsonb,
   offers jsonb, available_conditions text[], condition text,
   has_condition_offers boolean, has_variants boolean, brand text, color text,
+  gtin text, mpn text, google_product_category text,
   parent_product_id uuid, default_variant_id uuid, manage_stock boolean,
-  inventory_tracking_policy text, stock integer, stock_quantity integer
+  inventory_tracking_policy text, stock integer, stock_quantity integer,
+  updated_at timestamptz DEFAULT now()
+);
+CREATE TABLE public.product_categories (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), product_id uuid NOT NULL,
+  category_id uuid NOT NULL, is_primary boolean DEFAULT false,
+  created_at timestamptz DEFAULT now()
 );
 CREATE TABLE public.product_variants (
   id uuid PRIMARY KEY, merchant_id uuid, product_id uuid NOT NULL, sku text,
