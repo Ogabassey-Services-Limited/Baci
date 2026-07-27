@@ -1,5 +1,16 @@
 # Testing & Modularity Enforcement
 
+## Android Emulator QA Contract
+
+Use the repository-owned mobile-admin commands for Android emulator QA:
+
+```bash
+pnpm --filter baci-mobile-admin android:emulator
+pnpm --filter baci-mobile-admin android:install
+pnpm --filter baci-mobile-admin android:metro
+pnpm --filter baci-mobile-admin android:launch
+```
+
 ## Mandatory Test Coverage
 
 Every new or significantly modified file MUST have a colocated test file:
