@@ -179,6 +179,9 @@ importers:
       '@biomejs/biome':
         specifier: ^2.5.0
         version: 2.5.0
+      '@next/env':
+        specifier: 16.2.11
+        version: 16.2.11
       '@typescript/native':
         specifier: npm:typescript@~7.0.2
         version: typescript@7.0.2
