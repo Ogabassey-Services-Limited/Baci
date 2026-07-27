@@ -2,13 +2,14 @@ import { describe, expect, it, vi } from 'vitest';
 import type { StorefrontProductPurgeEntry } from '@/lib/storefront-product-purge-urls';
 import { processBulkUpdateChanges } from './bulk-update-change-processing';
 
-function createProductsQuery(error: unknown) {
+function createProductsQuery(error: unknown, data: unknown[] = []) {
   const query: Record<string, unknown> = {};
   query.eq = vi.fn(() => query);
   query.select = vi.fn(() => query);
   // biome-ignore lint/suspicious/noThenProperty: Supabase builders are thenable.
-  query.then = vi.fn((resolve: (value: { error: unknown }) => void) =>
-    resolve({ error })
+  query.then = vi.fn(
+    (resolve: (value: { data: unknown[]; error: unknown }) => void) =>
+      resolve({ data, error })
   );
   return query;
 }
@@ -21,6 +22,7 @@ describe('processBulkUpdateChanges', () => {
       from: vi.fn((table: string) => {
         expect(table).toBe('products');
         return {
+          select: vi.fn(() => createProductsQuery(null)),
           update: vi.fn((payload: Record<string, unknown>) => {
             updates.push(payload);
             return createProductsQuery(null);
@@ -92,6 +94,7 @@ describe('processBulkUpdateChanges', () => {
     let maxActiveGroups = 0;
     const supabase = {
       from: vi.fn(() => ({
+        select: vi.fn(() => createProductsQuery(null)),
         update: vi.fn(() => {
           const query: Record<string, unknown> = {};
           query.eq = vi.fn(() => query);
@@ -135,6 +138,7 @@ describe('processBulkUpdateChanges', () => {
     let maxActiveUpdates = 0;
     const supabase = {
       from: vi.fn(() => ({
+        select: vi.fn(() => createProductsQuery(null)),
         update: vi.fn(() => {
           const query: Record<string, unknown> = {};
           query.eq = vi.fn(() => query);
@@ -193,6 +197,7 @@ describe('processBulkUpdateChanges', () => {
     };
     const supabase = {
       from: vi.fn(() => ({
+        select: vi.fn(() => createProductsQuery(null)),
         update: vi.fn(() => {
           const query: Record<string, unknown> = {};
           query.eq = vi.fn(() => query);

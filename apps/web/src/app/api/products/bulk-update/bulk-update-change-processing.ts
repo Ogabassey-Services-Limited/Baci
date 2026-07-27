@@ -83,6 +83,25 @@ async function processBulkUpdateChange({
         updates.cost_price = null;
       }
 
+      let previousQuery = supabase
+        .from('products')
+        .select(BULK_PURGE_ROW_COLUMNS);
+      if (productId) {
+        previousQuery = previousQuery
+          .eq('id', productId)
+          .eq('merchant_id', merchantId);
+      } else if (sku) {
+        previousQuery = previousQuery
+          .eq('sku', sku)
+          .eq('merchant_id', merchantId);
+      } else {
+        previousQuery = previousQuery
+          .eq('name', name)
+          .eq('merchant_id', merchantId);
+      }
+      const { data: previousRows, error: previousError } = await previousQuery;
+      if (previousError) throw previousError;
+
       let matchQuery = supabase.from('products').update(updates);
       if (productId) {
         matchQuery = matchQuery
@@ -99,7 +118,10 @@ async function processBulkUpdateChange({
       );
       if (error) throw error;
       onPurgeEntries?.(
-        getBulkPurgeEntries(updatedRows as BulkPurgeProductRow[] | null)
+        getBulkPurgeEntries(
+          updatedRows as BulkPurgeProductRow[] | null,
+          previousRows as BulkPurgeProductRow[] | null
+        )
       );
       result.updated = 1;
       return result;
@@ -154,6 +176,13 @@ async function processBulkUpdateChange({
     }
 
     if (change.type === 'remove' && change.productId) {
+      const { data: previousRows, error: previousError } = await supabase
+        .from('products')
+        .select(BULK_PURGE_ROW_COLUMNS)
+        .eq('id', change.productId)
+        .eq('merchant_id', merchantId);
+      if (previousError) throw previousError;
+
       const { data: archivedRows, error } = await supabase
         .from('products')
         .update({ status: 'archived' })
@@ -162,7 +191,10 @@ async function processBulkUpdateChange({
         .select(BULK_PURGE_ROW_COLUMNS);
       if (error) throw error;
       onPurgeEntries?.(
-        getBulkPurgeEntries(archivedRows as BulkPurgeProductRow[] | null)
+        getBulkPurgeEntries(
+          archivedRows as BulkPurgeProductRow[] | null,
+          previousRows as BulkPurgeProductRow[] | null
+        )
       );
       result.removed = 1;
     }
