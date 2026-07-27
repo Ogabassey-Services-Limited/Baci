@@ -4626,11 +4626,10 @@ function applySecurityHeaders(
     if (!hasAuthSessionHint && cacheable) {
       const cachePolicy = getStorefrontPublicCachePolicy(pathname, hostname);
       cacheKind = cachePolicy
-        ? isStorefrontPdpDocument(pathname, hostname, routeType)
-          ? 'cacheable-pdp'
-          : !canUseLongDownstreamStorefrontCache(pathname, hostname, routeType)
-            ? 'cacheable-self-healing'
-            : 'cacheable'
+        ? isStorefrontPdpDocument(pathname, hostname, routeType) ||
+          !canUseLongDownstreamStorefrontCache(pathname, hostname, routeType)
+          ? 'cacheable-self-healing'
+          : 'cacheable'
         : 'cacheable-vercel-only';
     }
     applyStorefrontDocumentCacheHeaders(

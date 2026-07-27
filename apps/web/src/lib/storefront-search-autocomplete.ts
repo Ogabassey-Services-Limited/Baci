@@ -79,7 +79,10 @@ function getImageSmall(images: unknown): string | null {
 }
 
 function normalizeAutocompleteQuery(query: string) {
-  return sanitizeSearchQuery(query).replace(/\s+/g, ' ').toLowerCase();
+  // Match search_products_v2's lower(trim(...)) query identity. Internal
+  // whitespace can affect exact and fuzzy SKU ranking, so it must remain part
+  // of the cache and in-flight key.
+  return sanitizeSearchQuery(query).toLowerCase();
 }
 
 function getAutocompleteCacheKey({

@@ -30,19 +30,7 @@ describe('buildStorefrontDocumentCacheHeaders', () => {
     });
   });
 
-  it('keeps canonical PDPs fresh for one hour on Cloudflare and five minutes on Vercel', () => {
-    const headers = buildStorefrontDocumentCacheHeaders('cacheable-pdp');
-
-    expect(headers.cacheControl).toBe('public, max-age=0, must-revalidate');
-    expect(headers.vercelCdnCacheControl).toBe(
-      'max-age=300, stale-while-revalidate=86400'
-    );
-    expect(headers.cdnCacheControl).toBe(
-      'max-age=3600, stale-while-revalidate=86400, stale-if-error=86400'
-    );
-  });
-
-  it('keeps self-healing storefront documents on the five-minute downstream fresh window', () => {
+  it('keeps self-healing PDPs on the five-minute downstream fresh window', () => {
     const headers = buildStorefrontDocumentCacheHeaders(
       'cacheable-self-healing'
     );
