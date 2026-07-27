@@ -122,6 +122,50 @@ describe('GET /api/cron/drain-cache-invalidations', () => {
     );
   });
 
+  it('persists an unexpected drainer failure and continues the claimed batch', async () => {
+    const firstClaim = makeClaim(1);
+    const secondClaim = makeClaim(2);
+    const batches = [[firstClaim, secondClaim], []];
+    rpc.mockImplementation((name: string) => {
+      if (name === 'claim_cache_invalidations') {
+        return Promise.resolve({ data: batches.shift() ?? [], error: null });
+      }
+      if (name === 'has_cache_invalidation_dead_letters') {
+        return Promise.resolve({ data: false, error: null });
+      }
+      return Promise.resolve({ data: true, error: null });
+    });
+    mocks.drain
+      .mockRejectedValueOnce(new Error('unexpected provider failure'))
+      .mockResolvedValueOnce({ ok: true });
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      claimed: 2,
+      completed: 1,
+      failed: 1,
+    });
+    expect(rpc).toHaveBeenNthCalledWith(
+      2,
+      'finish_cache_invalidation',
+      expect.objectContaining({
+        p_claim_token: firstClaim.claim_token,
+        p_error_code: 'drain_unexpected_failure',
+        p_succeeded: false,
+      })
+    );
+    expect(rpc).toHaveBeenNthCalledWith(
+      3,
+      'finish_cache_invalidation',
+      expect.objectContaining({
+        p_claim_token: secondClaim.claim_token,
+        p_succeeded: true,
+      })
+    );
+  });
+
   it('drains successive claim batches before reporting the invocation summary', async () => {
     const batches = [
       Array.from({ length: 2 }, (_, index) => makeClaim(index + 1)),

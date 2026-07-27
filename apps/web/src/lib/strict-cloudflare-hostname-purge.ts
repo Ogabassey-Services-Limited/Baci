@@ -34,8 +34,11 @@ export async function strictCloudflareHostnamePurge(
   if (!token || !zoneId) {
     return { errorCode: 'cloudflare_missing_configuration', ok: false };
   }
-  const hosts = Array.from(new Set(hostnames)).slice(0, 30);
+  const hosts = Array.from(new Set(hostnames));
   if (hosts.length === 0) return { ok: true };
+  if (hosts.length > 30) {
+    return { errorCode: 'cloudflare_hostname_limit_exceeded', ok: false };
+  }
 
   let response: Response;
   try {
@@ -62,7 +65,7 @@ export async function strictCloudflareHostnamePurge(
     return {
       errorCode: `cloudflare_http_${response.status}`,
       ok: false,
-      ...(retryAfter ? { retryAfterSeconds: retryAfter } : {}),
+      ...(retryAfter === undefined ? {} : { retryAfterSeconds: retryAfter }),
     };
   }
   const payload: unknown = await response.json().catch(() => null);

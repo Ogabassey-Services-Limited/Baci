@@ -17,12 +17,30 @@ BEGIN
   INSERT INTO public.merchant_slug_aliases (old_slug, merchant_id) VALUES
     ('review-store-old', v_merchant),
     ('review-store-older', v_merchant);
+  INSERT INTO public.categories (id, merchant_id, name, slug, is_active)
+  VALUES (
+    '83000000-0000-4000-8000-000000000001', v_merchant,
+    'Review category', 'review-category', true
+  );
+  INSERT INTO public.brands (id, merchant_id, name)
+  VALUES ('83000000-0000-4000-8000-000000000002', v_merchant, 'Baci');
+  INSERT INTO public.products (id, merchant_id, name, slug, status)
+  VALUES (
+    '83000000-0000-4000-8000-000000000003', v_merchant,
+    'Review parent', 'review-parent', 'active'
+  );
   INSERT INTO public.products (
     id, merchant_id, name, price, slug, status, manage_stock, stock_quantity
   ) VALUES (
     v_product, v_merchant, 'Review Phone', 100, 'review-phone',
     'active', true, 2
   );
+  INSERT INTO public.product_variants (id, merchant_id, product_id, sku)
+  VALUES
+    ('83000000-0000-4000-8000-000000000004', v_merchant, v_product,
+      'REVIEW-DEFAULT'),
+    ('83000000-0000-4000-8000-000000000005', v_merchant, v_product,
+      'REVIEW-ANCHOR');
 
   IF NOT EXISTS (
     SELECT 1 FROM public.cache_invalidation_outbox

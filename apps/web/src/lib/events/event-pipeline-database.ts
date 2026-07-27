@@ -146,9 +146,15 @@ export const EVENT_PIPELINE_BOUNDARY = {
       'apps/web/src/lib/analytics/fetch-analytics-platform-config.ts',
       'apps/web/src/lib/merchant-feature-gates.ts',
     ],
-    // Full import paths only. B0 needs no service-role credential-path bypass:
-    // its route has separately constrained service-factory authority.
-    credentialPaths: [],
+    // Full import paths only. This is the sole fail-open Cloudflare hostname
+    // scheduler path; it cannot grant URL purging or Supabase authority.
+    credentialPaths: [
+      [
+        'apps/web/src/lib/storefront-product-purge-hostnames.ts',
+        'apps/web/src/lib/cloudflare-purge.ts',
+        'apps/web/src/env.ts',
+      ],
+    ],
     factoryModules: [
       'apps/web/src/lib/supabase/admin.ts',
       'apps/web/src/lib/supabase/server.ts',

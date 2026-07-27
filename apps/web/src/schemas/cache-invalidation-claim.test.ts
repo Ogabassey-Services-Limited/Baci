@@ -32,6 +32,21 @@ describe('cacheInvalidationClaimSchema', () => {
     ).toBe(true);
   });
 
+  it('accepts a storefront hostname target', () => {
+    expect(
+      cacheInvalidationClaimSchema.safeParse({
+        attempts: 2,
+        claim_token: '11111111-1111-4111-8111-111111111111',
+        generation: 4,
+        merchant_id: '22222222-2222-4222-8222-222222222222',
+        product_slugs: ['renamed-phone'],
+        related_identifiers: ['store.example.com'],
+        target_id: 'store.example.com',
+        target_kind: 'storefront_hostname',
+      }).success
+    ).toBe(true);
+  });
+
   it('rejects unknown target kinds and malformed claim fences', () => {
     expect(
       cacheInvalidationClaimSchema.safeParse({

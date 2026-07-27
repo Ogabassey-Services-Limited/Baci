@@ -110,7 +110,8 @@ BEGIN
     AND target_kind = 'storefront_product'
     AND target_id = 'renamed-product');
   SELECT * INTO v_claim FROM public.claim_cache_invalidations(1, 'exact-worker');
-  IF v_claim.target_kind <> 'storefront_product'
+  IF v_claim.claim_token IS NULL
+    OR v_claim.target_kind <> 'storefront_product'
     OR v_claim.target_id <> 'renamed-product' THEN
     RAISE EXCEPTION 'exact product target must be independently claimable';
   END IF;
@@ -134,7 +135,8 @@ BEGIN
     AND target_kind = 'storefront_product'
     AND target_id = 'renamed-product');
   SELECT * INTO v_claim FROM public.claim_cache_invalidations(1, 'retry-worker');
-  IF v_claim.target_kind <> 'storefront_product'
+  IF v_claim.claim_token IS NULL
+    OR v_claim.target_kind <> 'storefront_product'
     OR v_claim.target_id <> 'renamed-product' THEN
     RAISE EXCEPTION 'retry claim must retain exact product identity';
   END IF;
@@ -154,7 +156,8 @@ BEGIN
   WHERE merchant_id = v_merchant AND target_kind = 'storefront_product'
     AND target_id = 'renamed-product';
   SELECT * INTO v_claim FROM public.claim_cache_invalidations(1, 'retry-worker');
-  IF v_claim.target_kind <> 'storefront_product'
+  IF v_claim.claim_token IS NULL
+    OR v_claim.target_kind <> 'storefront_product'
     OR v_claim.target_id <> 'renamed-product' THEN
     RAISE EXCEPTION 'successful retry must retain exact product identity';
   END IF;
@@ -193,10 +196,12 @@ BEGIN
   FROM public.claim_cache_invalidations(1, 'barrier-worker-one');
   SELECT * INTO v_claim_two
   FROM public.claim_cache_invalidations(1, 'barrier-worker-two');
-  IF v_claim.target_kind <> 'storefront_product'
+  IF v_claim.claim_token IS NULL
+    OR v_claim_two.claim_token IS NULL
+    OR v_claim.target_kind <> 'storefront_slug'
     OR v_claim_two.target_kind <> 'storefront_product'
-    OR v_claim.claim_token = v_claim_two.claim_token THEN
-    RAISE EXCEPTION 'concurrent claims must skip-lock distinct product targets';
+    OR v_claim.claim_token IS NOT DISTINCT FROM v_claim_two.claim_token THEN
+    RAISE EXCEPTION 'broad purge must not wait behind exact product work';
   END IF;
   PERFORM public.finish_cache_invalidation(
     v_claim.merchant_id, v_claim.target_kind, v_claim.target_id,
@@ -207,39 +212,22 @@ BEGIN
     v_claim_two.generation, v_claim_two.claim_token, true, NULL, NULL
   );
 
-  FOR v_index IN 1..99 LOOP
-    SELECT * INTO v_claim
-    FROM public.claim_cache_invalidations(1, 'barrier-drain');
-    IF v_claim.target_kind <> 'storefront_product' THEN
-      RAISE EXCEPTION 'broad target escaped before 101 products completed';
-    END IF;
-    PERFORM public.finish_cache_invalidation(
-      v_claim.merchant_id, v_claim.target_kind, v_claim.target_id,
-      v_claim.generation, v_claim.claim_token, true, NULL, NULL
-    );
-  END LOOP;
-  SELECT * INTO v_claim
-  FROM public.claim_cache_invalidations(1, 'barrier-release');
-  IF v_claim.merchant_id <> v_barrier_merchant
-    OR v_claim.target_kind <> 'storefront_slug' THEN
-    RAISE EXCEPTION 'broad target must become live after product completion';
-  END IF;
-  PERFORM public.finish_cache_invalidation(
-    v_claim.merchant_id, v_claim.target_kind, v_claim.target_id,
-    v_claim.generation, v_claim.claim_token, true, NULL, NULL
+  PERFORM public.enqueue_storefront_product_cache_target(
+    v_barrier_merchant, 'blocked-product'
   );
-
-  PERFORM public.enqueue_storefront_cache_targets(
-    v_barrier_merchant, NULL, NULL, ARRAY['blocked-product']
-  );
+  UPDATE public.cache_invalidation_outbox
+  SET next_attempt_at = now() + interval '1 hour'
+  WHERE merchant_id = v_barrier_merchant
+    AND target_kind = 'storefront_product' AND target_id <> 'blocked-product';
   UPDATE public.cache_invalidation_outbox
   SET status = 'dead_letter', attempts = max_attempts
   WHERE merchant_id = v_barrier_merchant
     AND target_kind = 'storefront_product' AND target_id = 'blocked-product';
+  PERFORM public.enqueue_storefront_cache_targets(v_barrier_merchant);
   SELECT * INTO v_claim
   FROM public.claim_cache_invalidations(1, 'barrier-dead-letter');
   IF v_claim.merchant_id IS NOT NULL THEN
-    RAISE EXCEPTION 'dead-letter product target must fail-close broad purge';
+    RAISE EXCEPTION 'dead-letter exact product must block the broad purge';
   END IF;
 END;
 $$;

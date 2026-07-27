@@ -63,7 +63,7 @@ describe('verifySupabaseHistoryReplayManifest', () => {
     expect(result.bootstrapSources).toHaveLength(125);
     expect(result.verifiedSources).toHaveLength(424);
     expect(result.postReplaySources).toHaveLength(12);
-    expect(result.manifest.pendingSources).toHaveLength(48);
+    expect(result.manifest.pendingSources).toHaveLength(49);
     expect(result.productionEffectProvenance.exceptionalRecords).toHaveLength(
       31
     );

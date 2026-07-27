@@ -28,7 +28,8 @@ CREATE TABLE public.merchants (
   favicon_png_192_url text, favicon_apple_touch_url text,
   vat_registration_status text, vat_rate numeric, feature_settings jsonb,
   published_config jsonb, pages jsonb, about_page jsonb, faq_items jsonb,
-  gmc_variants_enabled boolean DEFAULT false
+  gmc_variants_enabled boolean DEFAULT false,
+  paystack_subaccount_code text
 );
 CREATE TABLE public.merchant_slug_aliases (
   old_slug text PRIMARY KEY,
@@ -46,6 +47,11 @@ CREATE TABLE public.categories (
   display_order integer, is_active boolean, buying_guide_url text,
   seo_heading text, seo_description text, seo_features jsonb, seo_faq jsonb,
   metadata jsonb
+);
+CREATE TABLE public.brands (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  merchant_id uuid NOT NULL REFERENCES public.merchants(id) ON DELETE CASCADE,
+  name text NOT NULL
 );
 CREATE TABLE public.products (
   id uuid PRIMARY KEY,
@@ -97,6 +103,19 @@ CREATE TABLE public.merchant_feature_settings (
   facebook_capi_token text,
   updated_at timestamptz DEFAULT now()
 );
+ALTER TABLE public.products
+  ADD CONSTRAINT products_brand_id_fkey
+    FOREIGN KEY (brand_id) REFERENCES public.brands(id) ON DELETE SET NULL,
+  ADD CONSTRAINT products_category_id_fkey
+    FOREIGN KEY (category_id) REFERENCES public.categories(id) ON DELETE SET NULL,
+  ADD CONSTRAINT products_default_variant_id_fkey
+    FOREIGN KEY (default_variant_id) REFERENCES public.product_variants(id)
+      ON DELETE SET NULL,
+  ADD CONSTRAINT products_parent_product_id_fkey
+    FOREIGN KEY (parent_product_id) REFERENCES public.products(id);
+ALTER TABLE public.categories
+  ADD CONSTRAINT categories_parent_id_fkey
+    FOREIGN KEY (parent_id) REFERENCES public.categories(id) ON DELETE SET NULL;
 ALTER TABLE public.product_categories ENABLE ROW LEVEL SECURITY;
 GRANT USAGE ON SCHEMA public, auth TO authenticated;
 GRANT SELECT ON public.merchants, public.products, public.categories

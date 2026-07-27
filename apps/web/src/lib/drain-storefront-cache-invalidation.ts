@@ -102,7 +102,7 @@ export async function drainStorefrontCacheInvalidation(
     }
     return { ok: true };
   }
-  const productTags = ['product-lcp-image', ...exactProductTags];
+  const productTags = exactProductTags;
   try {
     const productsInvalidated = productCacheRevalidation.revalidateProducts(
       claim.merchant_id,

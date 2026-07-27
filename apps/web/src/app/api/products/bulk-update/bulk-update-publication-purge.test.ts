@@ -4,11 +4,11 @@ import { processBulkUpdateChanges } from './bulk-update-change-processing';
 
 type ProductStatus = 'active' | 'archived' | 'draft';
 
-function createProductRow(id: string, status: ProductStatus) {
+function createProductRow(id: string, status: ProductStatus, category: string) {
   return {
     id,
     slug: `slug-${id}`,
-    category: 'Electronics',
+    category,
     status,
     categories: null,
     product_categories: [],
@@ -56,18 +56,22 @@ function createProductQuery(result: () => { data: unknown; error: null }) {
 function createSupabase(input: {
   beforeStatus: ProductStatus;
   afterStatus: ProductStatus;
+  beforeCategory: string;
+  afterCategory: string;
 }) {
   return {
     from: vi.fn(() => ({
       select: vi.fn(() =>
         createProductQuery(() => ({
-          data: [createProductRow('', input.beforeStatus)],
+          data: [
+            createProductRow('', input.beforeStatus, input.beforeCategory),
+          ],
           error: null,
         }))
       ),
       update: vi.fn(() =>
         createProductQuery(() => ({
-          data: [createProductRow('', input.afterStatus)],
+          data: [createProductRow('', input.afterStatus, input.afterCategory)],
           error: null,
         }))
       ),
@@ -80,6 +84,8 @@ async function processExistingProducts(input: {
   count: number;
   beforeStatus: ProductStatus;
   afterStatus: ProductStatus;
+  beforeCategory?: string;
+  afterCategory?: string;
 }) {
   const purgeEntries: StorefrontProductPurgeEntry[] = [];
   const changes = Array.from({ length: input.count }, (_, index) =>
@@ -93,7 +99,10 @@ async function processExistingProducts(input: {
           type: 'update' as const,
           productId: `product-${index}`,
           newPrice: index + 1,
-          details: { price: index + 1 },
+          details: {
+            price: index + 1,
+            category: input.afterCategory ?? 'Electronics',
+          },
         } as const)
   );
 
@@ -103,7 +112,11 @@ async function processExistingProducts(input: {
     merchantBusinessName: 'Test Store',
     merchantId: 'merchant-1',
     onPurgeEntries: (entries) => purgeEntries.push(...entries),
-    supabase: createSupabase(input) as never,
+    supabase: createSupabase({
+      ...input,
+      beforeCategory: input.beforeCategory ?? 'Electronics',
+      afterCategory: input.afterCategory ?? 'Electronics',
+    }) as never,
   });
 
   return purgeEntries;
@@ -132,16 +145,19 @@ describe('bulk update public purge entries', () => {
     ).resolves.toEqual([]);
   });
 
-  it('emits an entry for an active product field update', async () => {
+  it('emits previous and new entries for an active product category update', async () => {
     await expect(
       processExistingProducts({
         changeType: 'update',
         count: 1,
         beforeStatus: 'active',
         afterStatus: 'active',
+        beforeCategory: 'Electronics',
+        afterCategory: 'Books',
       })
     ).resolves.toEqual([
       { slug: 'slug-product-0', categorySegment: 'electronics' },
+      { slug: 'slug-product-0', categorySegment: 'books' },
     ]);
   });
 

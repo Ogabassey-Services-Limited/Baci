@@ -59,6 +59,27 @@ describe('findStorefrontSearchDidYouMean', () => {
     });
   });
 
+  it('returns no suggestion and records a warning when the RPC rejects', async () => {
+    const supabase = {
+      rpc: vi.fn().mockRejectedValue(new Error('suggestion rpc rejected')),
+    } satisfies StorefrontSearchSupabase;
+
+    await expect(
+      findStorefrontSearchDidYouMean({
+        supabase,
+        merchantId: MERCHANT_ID,
+        query: 'iphon',
+      })
+    ).resolves.toBeNull();
+
+    expect(logger.warn).toHaveBeenCalledWith({
+      message: 'Search suggestion lookup failed; returning no suggestion',
+      error: 'suggestion rpc rejected',
+      merchantId: MERCHANT_ID,
+      query: 'iphon',
+    });
+  });
+
   it.each([
     [null],
     ['iphone'],

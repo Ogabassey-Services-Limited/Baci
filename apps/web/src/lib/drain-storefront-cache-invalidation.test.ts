@@ -62,10 +62,15 @@ describe('drainStorefrontCacheInvalidation', () => {
     expect(mocks.vercel).toHaveBeenCalledWith(
       expect.arrayContaining([
         'merchant-ogabassey.com',
-        'product-lcp-image',
         'product-lcp-image-22222222-2222-4222-8222-222222222222-cache-phone',
       ])
     );
+    expect(mocks.vercel).not.toHaveBeenCalledWith(
+      expect.arrayContaining(['product-lcp-image'])
+    );
+    expect(mocks.revalidateTag).not.toHaveBeenCalledWith('product-lcp-image', {
+      expire: 0,
+    });
   });
 
   it('completes a non-policy storefront without calling Cloudflare', async () => {

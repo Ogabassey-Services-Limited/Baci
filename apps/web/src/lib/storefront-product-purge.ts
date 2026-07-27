@@ -1,15 +1,12 @@
 import { after } from 'next/server';
-import {
-  purgeCloudflareHostnamesConfirmed,
-  purgeCloudflareUrls,
-} from '@/lib/cloudflare-purge';
+import { purgeCloudflareUrls } from '@/lib/cloudflare-purge';
+import { scheduleStorefrontHostnamePurge } from '@/lib/storefront-product-purge-hostnames';
 import {
   buildStorefrontProductPurgeUrls,
   countDistinctProductPurgeEntries,
   PURGE_WHOLE_STOREFRONT_THRESHOLD,
   type StorefrontProductPurgeEntry,
 } from '@/lib/storefront-product-purge-urls';
-import { resolvePurgeHostnames } from '@/lib/storefront-purge-shared';
 
 /**
  * Fire-and-forget Cloudflare eviction of a product's affected public URLs.
@@ -63,42 +60,6 @@ export function scheduleStorefrontProductPurge(
     console.warn('Skipped Cloudflare product purge scheduling', {
       identifier,
       entryCount: entries.length,
-      error,
-    });
-  }
-}
-
-/**
- * Bound an unusually broad storefront mutation to the configured public
- * hostnames. A hostname purge evicts every cached PDP without requiring an
- * unbounded per-product URL fan-out.
- */
-export function scheduleStorefrontHostnamePurge(
-  identifier: string | null | undefined
-): void {
-  try {
-    const normalizedIdentifier = identifier?.trim();
-    if (!normalizedIdentifier) {
-      return;
-    }
-
-    const hostnames = resolvePurgeHostnames(normalizedIdentifier);
-    if (hostnames.length === 0) {
-      return;
-    }
-
-    const purge = async () => {
-      await purgeCloudflareHostnamesConfirmed([...hostnames]);
-    };
-    try {
-      after(purge);
-    } catch {
-      // Not inside a request scope (standalone worker / test) — detach instead.
-      void purge();
-    }
-  } catch (error) {
-    console.warn('Skipped Cloudflare storefront hostname purge scheduling', {
-      identifier,
       error,
     });
   }

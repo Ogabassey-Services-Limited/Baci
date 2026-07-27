@@ -455,5 +455,6 @@ describe('saveSEOSettings', () => {
     expect(mocks.revalidateProductSlugs).toHaveBeenCalledWith(MERCHANT_ID, [
       'leather-tote',
     ]);
+    expect(publicProductsBuilder.in).toHaveBeenCalledWith('id', [PRODUCT_ID]);
   });
 });

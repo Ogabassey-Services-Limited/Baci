@@ -138,7 +138,8 @@ BEGIN
   SET status = CASE WHEN target_id = 'cache-store-new' THEN 'pending' ELSE 'completed' END,
       next_attempt_at = now();
   SELECT * INTO v_claim FROM public.claim_cache_invalidations(1, 'sql-worker');
-  IF v_claim.target_id <> 'cache-store-new' OR v_claim.attempts <> 1 THEN
+  IF v_claim.claim_token IS NULL
+    OR v_claim.target_id <> 'cache-store-new' OR v_claim.attempts <> 1 THEN
     RAISE EXCEPTION 'claim must select one due immutable target: %', v_claim;
   END IF;
   IF NOT (v_claim.related_identifiers @> ARRAY['cache-store-new']) THEN
@@ -192,7 +193,7 @@ BEGIN
   WHERE merchant_id = v_merchant AND target_kind = v_claim.target_kind
     AND target_id = v_claim.target_id;
   SELECT * INTO v_claim FROM public.claim_cache_invalidations(1, 'sql-recovery');
-  IF v_claim.attempts <> 1 THEN
+  IF v_claim.claim_token IS NULL OR v_claim.attempts <> 1 THEN
     RAISE EXCEPTION 'stale newer generation must receive a fresh retry budget';
   END IF;
 

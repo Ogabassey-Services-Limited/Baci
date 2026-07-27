@@ -33,10 +33,7 @@ vi.mock('@/lib/storefront-product-purge-urls', async (importOriginal) => {
 
 import { buildStorefrontProductPurgeUrls } from '@/lib/storefront-product-purge-urls';
 // ---- Import function AFTER mocks ----
-import {
-  scheduleStorefrontHostnamePurge,
-  scheduleStorefrontProductPurge,
-} from './storefront-product-purge';
+import { scheduleStorefrontProductPurge } from './storefront-product-purge';
 
 // ---- Tests ----
 
@@ -92,18 +89,6 @@ describe('scheduleStorefrontProductPurge', () => {
     expect(mockAfter).toHaveBeenCalledTimes(1);
     expect(mockPurgeCloudflareUrls).toHaveBeenCalledTimes(1);
     expect(mockPurgeCloudflareHostnamesConfirmed).not.toHaveBeenCalled();
-  });
-
-  it('keeps the hostname purge promise alive for the post-response lifetime', async () => {
-    let afterCallbackResult: unknown;
-    mockAfter.mockImplementationOnce((callback: () => unknown) => {
-      afterCallbackResult = callback();
-    });
-
-    scheduleStorefrontHostnamePurge('ogabassey');
-
-    expect(afterCallbackResult).toBeInstanceOf(Promise);
-    await expect(afterCallbackResult).resolves.toBeUndefined();
   });
 
   it('does not schedule a purge for a missing identifier', () => {

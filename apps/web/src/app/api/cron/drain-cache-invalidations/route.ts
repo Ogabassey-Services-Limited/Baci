@@ -1,17 +1,13 @@
 import { NextResponse } from 'next/server';
-import { z } from 'zod';
 import { hasValidCronSecret } from '@/lib/cron-secret-auth';
 import { drainStorefrontCacheInvalidation } from '@/lib/drain-storefront-cache-invalidation';
 import { createServiceClient } from '@/lib/supabase/service';
-import { cacheInvalidationClaimSchema } from '@/schemas/cache-invalidation-claim';
+import { cacheInvalidationDrainCronResponseSchemas } from '@/schemas/cache-invalidation-drain-cron';
 
 export const maxDuration = 60;
 const BATCH_SIZE = 2;
 const TARGET_BUDGET = 10;
 const CLAIM_CUTOFF_MS = 30_000;
-const claimsSchema = z.array(cacheInvalidationClaimSchema).max(BATCH_SIZE);
-const deadLetterSchema = z.boolean();
-
 export async function GET(request: Request): Promise<NextResponse> {
   if (!hasValidCronSecret(request.headers, process.env.CRON_SECRET)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -34,7 +30,9 @@ export async function GET(request: Request): Promise<NextResponse> {
         { status: 500 }
       );
     }
-    const parsed = claimsSchema.safeParse(data ?? []);
+    const parsed = cacheInvalidationDrainCronResponseSchemas.claims.safeParse(
+      data ?? []
+    );
     if (!parsed.success) {
       return NextResponse.json(
         { error: 'Invalid claim payload' },
@@ -45,7 +43,12 @@ export async function GET(request: Request): Promise<NextResponse> {
 
     claimed += parsed.data.length;
     for (const claim of parsed.data) {
-      const result = await drainStorefrontCacheInvalidation(claim);
+      let result: Awaited<ReturnType<typeof drainStorefrontCacheInvalidation>>;
+      try {
+        result = await drainStorefrontCacheInvalidation(claim);
+      } catch {
+        result = { errorCode: 'drain_unexpected_failure', ok: false };
+      }
       const finish = await supabase.rpc('finish_cache_invalidation', {
         p_claim_token: claim.claim_token,
         p_error_code: result.ok ? null : result.errorCode,
@@ -73,7 +76,10 @@ export async function GET(request: Request): Promise<NextResponse> {
   const deadLetterResult = await supabase.rpc(
     'has_cache_invalidation_dead_letters'
   );
-  const deadLetters = deadLetterSchema.safeParse(deadLetterResult.data);
+  const deadLetters =
+    cacheInvalidationDrainCronResponseSchemas.deadLetters.safeParse(
+      deadLetterResult.data
+    );
   if (deadLetterResult.error || !deadLetters.success) {
     return NextResponse.json(
       { error: 'Failed to read invalidation alert state' },
