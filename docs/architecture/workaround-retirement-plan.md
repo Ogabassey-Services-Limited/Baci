@@ -102,21 +102,37 @@ Next.js confirms runtime `searchParams` **defer** metadata and that a streamed e
 
 > Product + blog purge remain best-effort fire-and-forget legacy paths. B1-lite deliberately does not copy that credential-bearing pattern into a new merchant route; durability, category edge eviction, and any TTL expansion remain gated on B0.
 
-### B0 — Complete the adopted durable-invalidation ADR exit checklist
+### B0 — Canonical #3077 cache-ingress and drainer exit checklist
 
 **Verified current hosting state (`origin/main@cff335b0fd`):** `vercel.json` has one daily observability cron (`/api/cron/web-vitals-health`, `0 4 * * *`) but no queue drainer; no migration installs `cron.schedule()`; Vercel Functions are request-scoped; and the existing `payment_side_effects` precedent is claimed/drained inline by payment processing with manual reconciliation, not by a general lease worker. Its claim-token, stale-takeover, attempts, and service-role-only ACL pattern is reusable, but its table is order-specific (`order_id`/`transaction_id` FKs + fixed payment-step enum), so direct table reuse is not assumed.
 
-`docs/architecture/adr/B0-durable-cache-invalidation-substrate.md` already adopts the VPS cron →
-`CRON_SECRET`-gated web-route runtime. Do not repeat runtime selection. Complete its sign-off and
-prototype checklist, amended to prove three ordered stages: Next tag/path invalidation, confirmed
-Vercel CDN tag deletion for the exact affected storefront documents, then strict Cloudflare purge.
+`docs/architecture/adr/B0-durable-cache-invalidation-substrate.md` adopts the existing continuous
+#3077 router/delivery services and their existing recovery sweeps, plus canonical `domain_event_ledger`,
+`event_deliveries`, their attempt/retry/dead-letter/replay lifecycle, and a specialized,
+transactionally visible cache obligation. Do not create a standalone cache outbox or second PGMQ
+queue. Complete the sign-off and prototype checklist with one normal canonical PGMQ event
+`storefront.cache_transition.v1`, one `storefront_cache_transition` delivery destination, and a
+service-only database canary gate. The capable existing router dispatches the trusted event and
+atomically archives it; shared PGMQ ingress remains a bounded risk because PGMQ reads have no
+predicate, so stale routers must DB-defer/refuse (never dead-letter), fresh capable worker
+heartbeats and queue-age/poison-load tests gate activation. The narrow worker-owned delivery lane
+must preserve successor-generation fences and prove the actuator's idempotent full category/product
+→ Vercel → strict `ogabassey.com`/`www.ogabassey.com` hostname barrier; the worker consumes only
+its typed receipt.
+URL-only purge is insufficient for shared category navigation cached in other storefront documents.
+B0 does
+not select Cache-Tag purge: no origin `Cache-Tag` emission is currently proven, and adding it must
+not modify protected `proxy.ts` without explicit approval.
 
-**Privileged-edge gate:** the proposed drainer claims service-role-only outbox RPCs and reaches CDN
-credentials from a new cron Route Handler. No existing temporary authority exception transfers to
-that route. Before implementation, obtain explicit owner/security approval for the exact route,
-RPCs, credential imports, and boundary-manifest change. This plan does not authorize widening
-`manifest.authority.*`. Detached `after()`/`void` execution remains non-durable. Until B0 exits,
-no durable-worker estimate or TTL increase is schedulable.
+**Privileged-edge gate:** the existing delivery worker claims the one service-role-only cache
+destination but has no Cloudflare credential. Its narrow authenticated Next/Vercel actuator builds
+the dedicated category barrier from existing category, publication-tag, and confirmed-hostname
+primitives; the publication helper is an ordering/credential pattern, not its callable. The actuator
+has no Supabase claim/retry/finish authority. No existing temporary analytics exception transfers to either surface. Before
+implementation, the user-approved exact worker RPCs and actuator closure are already satisfied;
+every `manifest.authority.*` array remains byte-identical. Detached
+`after()`/`void` execution remains non-durable. Until B0 exits, no durable-worker estimate or TTL
+increase is schedulable.
 
 ### B1 — Category mutation reaches Next invalidation now, then joins the durable substrate
 
@@ -162,7 +178,7 @@ no durable-worker estimate or TTL increase is schedulable.
 
 ### B2 — Complete PDP durable coverage before changing any cache directive
 
-Cache-tag/prefix purge are **CF Enterprise-only** (this zone is non-Enterprise, 30-URL batches, `lib/cloudflare-purge.ts:~19`). Current PDP HTML is `cacheable-self-healing`: Vercel receives `max-age=300, stale-while-revalidate=86400`; Cloudflare receives `max-age=300, stale-while-revalidate=86400, stale-if-error=86400`. Raising Cloudflare freshness to `3600` while retaining the 86,400-second stale directives permits roughly 25 hours of stale serving after a dropped purge/origin failure. Define a maximum-staleness budget, then set `Vercel-CDN-Cache-Control`, downstream `CDN-Cache-Control`, and in-scope product API `STOREFRONT_CACHE` directives deliberately.
+Cloudflare currently documents URL, host, prefix, and Cache-Tag purge for all plans, with up to 100 URLs per request. B0 uses the separately-approved cache-transition edge scope only and does not add origin `Cache-Tag` emission. Current PDP HTML is `cacheable-self-healing`: Vercel receives `max-age=300, stale-while-revalidate=86400`; Cloudflare receives `max-age=300, stale-while-revalidate=86400, stale-if-error=86400`. Raising Cloudflare freshness to `3600` while retaining the 86,400-second stale directives permits roughly 25 hours of stale serving after a dropped purge/origin failure. Define a maximum-staleness budget, then set `Vercel-CDN-Cache-Control`, downstream `CDN-Cache-Control`, and in-scope product API `STOREFRONT_CACHE` directives deliberately.
 
 After B0 selects/proves the runtime, B2 must:
 
