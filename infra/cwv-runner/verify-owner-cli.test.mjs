@@ -49,7 +49,7 @@ async function fixture(additionalChecksumRows = '') {
       authority: { deploymentMarker: '1_1_aaaaaaaaaaaaaaaaaaaa', deploymentRunAttempt: 1, deploymentRunId: 1, implementationBaseSha: 'a'.repeat(40), normativeContractPath: 'docs/contract.md', normativeContractSha256: 'b'.repeat(64) },
       ruleset: {
         bypassActors: [], enforcement: 'active', name: 'ogabassey-rollout-progress-immutable', rules: ['update', 'deletion'],
-        tagExcludes: [], tagIncludes: ['refs/tags/ogabassey-rollout-claim/*', 'refs/tags/ogabassey-rollout-progress/**/*', 'refs/tags/ogabassey-semantic-admission/*'], target: 'tag',
+        tagExcludes: [], tagIncludes: 'refs/tags/ogabassey-rollout-claim/*|refs/tags/ogabassey-rollout-progress/**/*|refs/tags/ogabassey-semantic-admission/*', target: 'tag',
       },
       supplyChain: { node: { ownerDarwinArm64Sha256: '1'.repeat(64), version: '24.18.0' } },
       supplyChainProvenance: { ownerCli: { archiveSha256, binarySha256: digest(fakeGhBody), checksumsSha256: digest(checksumBytes), version: '2.93.0' } },
