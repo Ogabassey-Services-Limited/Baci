@@ -46,16 +46,18 @@ if (realValue !== undefined && realValue !== '') {
   process.exit(0);
 }
 
-// dotenv values are written as KEY="value" and then parsed by @next/env, which
-// runs dotenv-expand: a `$` (even inside double quotes) triggers variable
-// expansion, and a double quote / backslash / newline needs escaping the parser
-// may not honour identically. Any of these could silently corrupt the value in
-// the build. Refuse instead — hex/base64 secrets and the stand-in contain none.
-if (/["\\$\r\n]/.test(value)) {
+// dotenv values are normally written as KEY="value" and then parsed by
+// @next/env, which runs dotenv-expand. That format cannot safely carry a JSON
+// JWK: its double quotes would terminate the value. A single-quoted dotenv
+// value preserves JSON's double quotes. We still refuse apostrophes,
+// backslashes, dollar signs, and line breaks because this small injector
+// deliberately supports only simple scalar secrets and compact JWK JSON, not
+// an arbitrary dotenv serializer.
+const requiresSingleQuotes = value.includes('"');
+if (/['\\$\r\n]/.test(value)) {
   console.error(
-    `${key} contains a double-quote, backslash, dollar sign, CR, or LF that cannot ` +
-      `be safely written to ${file} (dotenv-expand would mangle "$"). Use a value ` +
-      `without those characters (hex/base64 is safe).`,
+    `${key} contains an apostrophe, backslash, dollar sign, CR, or LF that cannot ` +
+      `be safely written to ${file}. Use compact JSON or a simple scalar value.`,
   );
   process.exit(1);
 }
@@ -88,7 +90,9 @@ if (usingStandin && !hasKey) {
 const kept = lines.filter((line) => !line.startsWith(`${key}=`));
 // Drop trailing blank lines so repeated runs do not accumulate them.
 while (kept.length > 0 && kept[kept.length - 1] === '') kept.pop();
-kept.push(`${key}="${value}"`);
+kept.push(
+  `${key}=${requiresSingleQuotes ? `'${value}'` : `"${value}"`}`,
+);
 
 fs.writeFileSync(file, `${kept.join('\n')}\n`);
 console.log(

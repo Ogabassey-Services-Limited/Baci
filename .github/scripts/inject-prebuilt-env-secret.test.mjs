@@ -1,16 +1,33 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { createPrivateKey } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import nextEnv from '@next/env';
+
+const { loadEnvConfig, resetEnv } = nextEnv;
 
 const SCRIPT = fileURLToPath(
   new URL('./inject-prebuilt-env-secret.mjs', import.meta.url),
 );
+const DEPLOY_WORKFLOW = fileURLToPath(new URL('../workflows/deploy.yml', import.meta.url));
 const KEY = 'QUIZ_RPC_SERVER_SECRET';
 const STANDIN = 'build-time-presence-stand-in-not-used-at-runtime-000000000000';
+const JWK_KEY = 'SUPABASE_AGENTIC_JWT_PRIVATE_JWK';
+// Public Supabase documentation's import example. This is deliberately a
+// build-only fixture, never a project signing key or a Vercel runtime value.
+const JWK_STANDIN = JSON.stringify({
+  alg: 'ES256',
+  crv: 'P-256',
+  d: 'RDbwqThwtGP4WnvACvO_0nL0oMMSmMFSYMPosprlAog',
+  kid: 'baci-prebuilt-jwk-standin',
+  kty: 'EC',
+  x: 'gyLVvp9dyEgylYH7nR2E2qdQ_-9Pv5i1tk7c2qZD4Nk',
+  y: 'CD9RfYOTyjR5U-PC9UDlsthRpc7vAQQQ2FTt8UsX0fY',
+});
 
 // A pulled env file where the sensitive var exists in Vercel (written empty by
 // `vercel pull`) alongside ordinary quoted vars that must survive untouched.
@@ -35,7 +52,7 @@ function makeEnvFile(contents = PULLED_WITH_KEY) {
 
 function run(args, env = {}) {
   return execFileSync('node', [SCRIPT, ...args], {
-    env: { ...process.env, [KEY]: '', ...env },
+    env: { ...process.env, [KEY]: '', [JWK_KEY]: '', ...env },
     encoding: 'utf8',
   });
 }
@@ -48,6 +65,16 @@ function runExpectFailure(args, env = {}) {
     if (err.status === undefined) throw err;
     return { status: err.status, stderr: String(err.stderr ?? '') };
   }
+}
+
+function parseSingleQuotedValue(file, key) {
+  const line = fs
+    .readFileSync(file, 'utf8')
+    .split('\n')
+    .find((entry) => entry.startsWith(`${key}=`));
+  assert.ok(line);
+  assert.match(line, new RegExp(`^${key}='.*'$`));
+  return line.slice(`${key}='`.length, -1);
 }
 
 test('injects the real value, overwriting the empty sensitive line', () => {
@@ -89,7 +116,7 @@ test('stand-in is REFUSED (exit 1) when the sensitive var is absent from Vercel'
   assert.equal(fs.readFileSync(file, 'utf8'), before); // untouched
 });
 
-test('refuses a value containing a dollar sign (dotenv-expand would mangle it)', () => {
+test('refuses a value containing a dollar sign because dotenv-expand can mangle it', () => {
   const file = makeEnvFile();
   const before = fs.readFileSync(file, 'utf8');
   const { status, stderr } = runExpectFailure([KEY, file], {
@@ -125,14 +152,95 @@ test('does not accumulate trailing blank lines across runs', () => {
   assert.equal(out.match(/^QUIZ_RPC_SERVER_SECRET=/gm).length, 1);
 });
 
-test('fails loudly rather than corrupt a value containing a double quote', () => {
+test('single-quotes compact JSON containing double quotes', () => {
+  const jsonValue = '{"safe":"json"}';
+  const file = makeEnvFile();
+  run([KEY, file], { [KEY]: jsonValue });
+  assert.equal(parseSingleQuotedValue(file, KEY), jsonValue);
+});
+
+test('injects a valid build-only JWK stand-in without logging its value', () => {
+  assert.doesNotThrow(() =>
+    createPrivateKey({ key: JSON.parse(JWK_STANDIN), format: 'jwk' }),
+  );
+
+  const file = makeEnvFile([
+    'AI_CHAT_MODEL="cerebras"',
+    `${JWK_KEY}=""`,
+    'QUIZ_PHASE="production"',
+    '',
+  ].join('\n'));
+
+  const standinOutput = run([JWK_KEY, file, JWK_STANDIN]);
+  assert.equal(parseSingleQuotedValue(file, JWK_KEY), JWK_STANDIN);
+  assert.match(standinOutput, /build-time stand-in/);
+  assert.equal(standinOutput.includes(JWK_STANDIN), false);
+});
+
+test('writes a compact JWK that @next/env reads unchanged for build validation', () => {
+  const file = makeEnvFile([
+    'AI_CHAT_MODEL="cerebras"',
+    `${JWK_KEY}=""`,
+    'QUIZ_PHASE="production"',
+    '',
+  ].join('\n'));
+  const originalValue = process.env[JWK_KEY];
+
+  try {
+    run([JWK_KEY, file, JWK_STANDIN]);
+    delete process.env[JWK_KEY];
+    loadEnvConfig(path.dirname(file), false, console, true);
+    assert.equal(process.env[JWK_KEY], JWK_STANDIN);
+  } finally {
+    resetEnv();
+    if (originalValue === undefined) delete process.env[JWK_KEY];
+    else process.env[JWK_KEY] = originalValue;
+  }
+});
+
+test('does not replace a configured JWK with the stand-in or log either value', () => {
+  const file = makeEnvFile([
+    'AI_CHAT_MODEL="cerebras"',
+    `${JWK_KEY}=""`,
+    'QUIZ_PHASE="production"',
+    '',
+  ].join('\n'));
+  const runtimeValue = JSON.stringify({ ...JSON.parse(JWK_STANDIN), kid: 'runtime-owned-kid' });
+  const runtimeOutput = run([JWK_KEY, file, JWK_STANDIN], {
+    [JWK_KEY]: runtimeValue,
+  });
+  assert.equal(parseSingleQuotedValue(file, JWK_KEY), runtimeValue);
+  assert.equal(runtimeOutput.includes(runtimeValue), false);
+  assert.equal(runtimeOutput.includes(JWK_STANDIN), false);
+  assert.doesNotMatch(runtimeOutput, /build-time stand-in/);
+});
+
+test('keeps the JWK stand-in build-only and leaves runtime injection Vercel-owned', () => {
+  const workflow = fs.readFileSync(DEPLOY_WORKFLOW, 'utf8');
+  const stepStart = workflow.indexOf(
+    '      - name: Ensure build-time presence of runtime-only scoped Supabase JWT key',
+  );
+  const buildStart = workflow.indexOf('      - name: Build for Vercel', stepStart);
+  assert.ok(stepStart >= 0);
+  assert.ok(buildStart > stepStart);
+
+  const step = workflow.slice(stepStart, buildStart);
+  assert.match(step, /public Supabase documentation example/);
+  assert.match(step, /real sensitive production value\s+.*Vercel at runtime/);
+  assert.match(step, /SUPABASE_AGENTIC_JWT_PRIVATE_JWK/);
+  assert.equal(step.includes(JWK_STANDIN), true);
+  assert.doesNotMatch(step, /^\s+env:/m);
+  assert.doesNotMatch(step, /\$\{\{\s*secrets\./);
+});
+
+test('fails when a value contains an apostrophe or backslash', () => {
   const file = makeEnvFile();
   const before = fs.readFileSync(file, 'utf8');
   const { status, stderr } = runExpectFailure([KEY, file], {
-    [KEY]: 'has"quote'.padEnd(40, 'x'),
+    [KEY]: "has'apostrophe",
   });
   assert.equal(status, 1);
-  assert.match(stderr, /double-quote|backslash/);
+  assert.match(stderr, /apostrophe|backslash/);
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 

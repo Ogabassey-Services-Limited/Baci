@@ -207,6 +207,16 @@ jobs:
         env:
           QUIZ_RPC_SERVER_SECRET: ${{ secrets.QUIZ_RPC_SERVER_SECRET }}
         run: node .github/scripts/inject-prebuilt-env-secret.mjs QUIZ_RPC_SERVER_SECRET .vercel/.env.production.local 'build-time-presence-stand-in-not-used-at-runtime-000000000000'
+      - name: Ensure build-time presence of runtime-only scoped Supabase JWT key
+        # Vercel pulls sensitive runtime values as empty strings. The compact
+        # JWK below is the public Supabase documentation example, used only to
+        # satisfy build-time validation; the real sensitive production value
+        # remains injected by Vercel at runtime.
+        run: >-
+          node .github/scripts/inject-prebuilt-env-secret.mjs
+          SUPABASE_AGENTIC_JWT_PRIVATE_JWK
+          .vercel/.env.production.local
+          '{"alg":"ES256","crv":"P-256","d":"RDbwqThwtGP4WnvACvO_0nL0oMMSmMFSYMPosprlAog","kid":"baci-prebuilt-jwk-standin","kty":"EC","x":"gyLVvp9dyEgylYH7nR2E2qdQ_-9Pv5i1tk7c2qZD4Nk","y":"CD9RfYOTyjR5U-PC9UDlsthRpc7vAQQQ2FTt8UsX0fY"}'
       - name: Build for Vercel
         run: .github/scripts/run-pinned-vercel.sh build --yes --prod
       # Every production deploy replaces content-hashed _next/static chunk
