@@ -125,6 +125,7 @@ export interface MerchantData {
   storeUrl: string;
   isLive: boolean;
   isLoading: boolean;
+  isFetching: boolean;
   error: Error | null;
 }
 
@@ -216,7 +217,7 @@ export async function fetchMerchantData(
 export function useMerchant(): MerchantData {
   const { user } = useAuth();
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isFetching, isLoading, error } = useQuery({
     queryKey: ['merchant', user?.id],
     queryFn: () => {
       if (!user?.id) throw new Error('No user authenticated');
@@ -244,6 +245,7 @@ export function useMerchant(): MerchantData {
     primaryDomain,
     storeUrl,
     isLive: merchant?.is_published ?? false,
+    isFetching,
     isLoading,
     error: error as Error | null,
   };
