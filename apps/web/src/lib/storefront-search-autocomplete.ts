@@ -5,12 +5,15 @@ import {
   type StorefrontSearchSupabase,
   searchStorefrontProducts,
 } from '@/lib/storefront-search';
+import { withAutocompleteInFlightDeadline } from './storefront-search-autocomplete-in-flight';
 
 const AUTOCOMPLETE_PRODUCT_SELECT = 'id, name, category, price, images, slug';
 const MAX_AUTOCOMPLETE_LIMIT = 100;
 const AUTOCOMPLETE_CACHE_VERSION = 'v1';
 const AUTOCOMPLETE_CACHE_TTL_MS = 5_000;
 const MAX_AUTOCOMPLETE_CACHE_ENTRIES = 256;
+const AUTOCOMPLETE_IN_FLIGHT_TIMEOUT_MS = 5_000;
+const MAX_AUTOCOMPLETE_IN_FLIGHT_ENTRIES = 256;
 
 interface AutocompleteProductRow {
   id: string;
@@ -56,6 +59,11 @@ export interface AutocompleteResponse {
 interface AutocompleteCacheEntry {
   expiresAt: number;
   response: AutocompleteResponse;
+}
+
+interface AbortableAutocompleteQuery<T> extends PromiseLike<T> {
+  abortSignal?: (signal: AbortSignal) => AbortableAutocompleteQuery<T>;
+  retry?: (enabled: boolean) => AbortableAutocompleteQuery<T>;
 }
 
 const autocompleteCache = new Map<string, AutocompleteCacheEntry>();
@@ -121,19 +129,39 @@ function cacheAutocompleteResponse(
   }
 }
 
+function withAutocompleteAbortSignal<T>(
+  query: PromiseLike<T>,
+  signal: AbortSignal
+): PromiseLike<T> {
+  const abortableQuery = query as AbortableAutocompleteQuery<T>;
+  if (typeof abortableQuery.abortSignal !== 'function') {
+    return query;
+  }
+
+  const deadlineBoundQuery = abortableQuery.abortSignal(signal);
+  return typeof deadlineBoundQuery.retry === 'function'
+    ? deadlineBoundQuery.retry(false)
+    : deadlineBoundQuery;
+}
+
 async function fetchStorefrontAutocompleteProducts({
   supabase,
   merchantId,
   query,
   limit,
+  signal,
 }: {
   supabase: AutocompleteSupabase;
   merchantId: string;
   query: string;
   limit: number;
+  signal: AbortSignal;
 }): Promise<AutocompleteResponse> {
   const ranked = await searchStorefrontProducts({
-    supabase,
+    supabase: {
+      rpc: (fn, args) =>
+        withAutocompleteAbortSignal(supabase.rpc(fn, args), signal),
+    },
     merchantId,
     query,
     limit,
@@ -145,12 +173,16 @@ async function fetchStorefrontAutocompleteProducts({
     return { suggestions: [], popularSearches: [] };
   }
 
-  const { data, error } = await supabase
+  const productQuery = supabase
     .from('products')
     .select(AUTOCOMPLETE_PRODUCT_SELECT)
     .in('id', ranked.productIds)
     .eq('merchant_id', merchantId)
     .eq('status', 'active');
+  const { data, error } = await withAutocompleteAbortSignal(
+    productQuery,
+    signal
+  );
 
   if (error) {
     throw error;
@@ -217,19 +249,28 @@ export async function getStorefrontAutocompleteProducts({
     return existingRequest;
   }
 
-  const request = fetchStorefrontAutocompleteProducts({
-    supabase,
-    merchantId,
-    query: sanitizedQuery,
-    limit,
-  });
-  autocompleteInFlight.set(cacheKey, request);
+  const request = withAutocompleteInFlightDeadline(
+    (signal) =>
+      fetchStorefrontAutocompleteProducts({
+        supabase,
+        merchantId,
+        query: sanitizedQuery,
+        limit,
+        signal,
+      }),
+    AUTOCOMPLETE_IN_FLIGHT_TIMEOUT_MS
+  );
+  if (autocompleteInFlight.size < MAX_AUTOCOMPLETE_IN_FLIGHT_ENTRIES) {
+    autocompleteInFlight.set(cacheKey, request);
+  }
 
   try {
     const response = await request;
     cacheAutocompleteResponse(cacheKey, response);
     return response;
   } finally {
-    autocompleteInFlight.delete(cacheKey);
+    if (autocompleteInFlight.get(cacheKey) === request) {
+      autocompleteInFlight.delete(cacheKey);
+    }
   }
 }
