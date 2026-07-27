@@ -212,7 +212,7 @@ git commit -m "feat: route canonical cache transition event"
 
 **Raw request contract:** strict schema v1 is `{ schemaVersion: 1, obligationId: uuid, generation: positiveInt, merchantId: uuid, previousSlug: string|null, nextSlug: string|null, relatedSlugs: string[] }`. It accepts no identity arrays, hosts, URLs, or operation names. At least one previous/next/related slug is required; normalize/dedupe under the existing category-slug grammar and cap the array. Header `x-baci-storefront-cache-timestamp` is base-10 Unix seconds and `x-baci-storefront-cache-signature` is exact `v1=<64 lowercase hex>`. Before JSON parsing, reject skew over 60 seconds, compute UTF-8 `${timestamp}\n${sha256(rawBody).lowerHex}`, HMAC-SHA256 it with the actuator secret, decode and compare MACs with `timingSafeEqual`. The typed receipt binds `{ schemaVersion:1, obligationId, generation, requestBodySha256, completedAt }`; worker accepts only an exact match. Same signed replay in-window is allowed because the barrier is idempotent.
 
-- [ ] **Step 1: Write failing auth/isolation tests**
+- [x] **Step 1: Write failing auth/isolation tests**
 
 ```ts
 expect((await POST(unsignedRequest)).status).toBe(401);
@@ -222,17 +222,17 @@ expect(responseBody).toEqual({ ok: true, receipt: expect.any(Object) });
 expect(source).not.toMatch(/supabase|finish_event_delivery/);
 ```
 
-- [ ] **Step 2: Run tests and confirm failure**
+- [x] **Step 2: Run tests and confirm failure**
 
 Run: `pnpm --filter web exec vitest run src/app/api/internal/storefront-cache-actuator/route.test.ts src/lib/events/storefront-cache-actuator-auth.test.ts src/schemas/storefront-cache-actuator.test.ts src/lib/storefront-category-cache-barrier.test.ts src/lib/events/storefront-cache-transition-boundary.test.ts`
 
 Expected: FAIL because actuator is absent.
 
-- [ ] **Step 3: Implement idempotent bounded operation**
+- [x] **Step 3: Implement idempotent bounded operation**
 
 Implement strict Zod `storefrontCacheActuatorSchema` for the exact raw request contract above; reject unknown fields, absolute URLs, identity arrays, explicit hosts/purge targets, and caller-selected operations. Route only authenticates, validates, and delegates. Server-only `runStorefrontCategoryCacheBarrier` requires the signed merchant UUID to equal `STOREFRONT_CACHE_CANARY_MERCHANT_ID`, reconstructs the fixed OgaBassey publication identity, and verifies the existing builder returns exactly `ogabassey.com,www.ogabassey.com`. It fails closed outside Vercel, then calls positional `revalidateCategories(merchantId, slug, { expireImmediately: true })`, requires `productCacheRevalidation.revalidateProducts(merchantId, undefined, { expireImmediately: true, feedScope: 'merchant' }) === true`, foreground Vercel publication-tag purge, then confirmed hostname purge. Reject `not_running_on_vercel` and all failed stages; return the exact request-bound typed receipt only on success.
 
-- [ ] **Step 4: Run focused validation and commit**
+- [x] **Step 4: Run focused validation and commit**
 
 Run: `pnpm --filter web exec vitest run src/app/api/internal/storefront-cache-actuator/route.test.ts src/lib/events/storefront-cache-actuator-auth.test.ts src/schemas/storefront-cache-actuator.test.ts src/lib/storefront-category-cache-barrier.test.ts src/lib/events/storefront-cache-transition-boundary.test.ts`
 
