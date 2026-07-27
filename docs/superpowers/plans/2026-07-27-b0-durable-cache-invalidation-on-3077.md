@@ -40,17 +40,17 @@
 
 **Approved scope:** owner approval is limited to (a) exact new cache RPC caller receipts pinned after their real implementations in Task 5, and (b) one dedicated-auth actuator with a narrow server-only closure over existing category/publication/confirmed-hostname primitives in Task 3. It does not approve a worker Cloudflare credential, TTL/SWR/directive changes, `proxy.ts`, Cache-Tag work, any `EVENT_PIPELINE_BOUNDARY.authority.*` widening, a new VPS service/schedule, or analytics authority change.
 
-- [ ] **Step 1: Prove the current authority baseline before recording the decision**
+- [x] **Step 1: Prove the current authority baseline before recording the decision**
 
 Run: `pnpm --filter web exec vitest run src/lib/events/event-pipeline-boundary-manifest.test.ts && git diff --check`
 
 Expected: PASS. This documentation-only gate does not add unpublished RPC names to the typed boundary and does not rewrite production-history attestation fixtures.
 
-- [ ] **Step 2: Record the adopted architecture and exact authority ceiling**
+- [x] **Step 2: Record the adopted architecture and exact authority ceiling**
 
 Keep the ADR, retirement plan, and this implementation plan consistent on one event/destination, normal #3077 PGMQ ingress, existing services only, Vercel-side full barrier, fixed OgaBassey hostname scope, and byte-identical authority arrays.
 
-- [ ] **Step 3: Re-run the baseline and commit the approval record**
+- [x] **Step 3: Re-run the baseline and commit the approval record**
 
 Run: `pnpm --filter web exec vitest run src/lib/events/event-pipeline-boundary-manifest.test.ts && git diff --check`
 
@@ -65,8 +65,10 @@ git commit -m "docs: adopt canonical cache transition design"
 
 **Files:**
 - Create: `supabase/migrations/20260727143000_storefront_cache_transition.sql`
+- Create: `supabase/migrations/20260727143100_storefront_cache_transition_delivery.sql`
 - Create: `supabase/tests/storefront_cache_transition.sql`
 - Create: `supabase/tests/event_pipeline_local_catalog.sql`
+- Create: `supabase/tests/storefront_cache_transition_replay.sql`
 - Modify: `apps/web/src/lib/domain-event-pipeline-migration.test.ts`
 - Modify: `apps/web/tools/db/supabase-history-replay-sources.ts`
 - Modify: `apps/web/tools/db/expected-pending-sources.test-support.ts`
@@ -88,7 +90,7 @@ git commit -m "docs: adopt canonical cache transition design"
 - Produces `storefront_cache_transition_canaries(merchant_id uuid primary key, enabled boolean, updated_at timestamptz)`.
 - Produces `storefront_cache_transition_obligations(id uuid primary key, domain_event_id uuid unique, successor_of uuid, generation bigint, status text, payload jsonb)`.
 
-- [ ] **Step 1: Write failing migration-contract tests**
+- [x] **Step 1: Write failing migration-contract tests**
 
 ```ts
 expect(sql).toContain("'storefront.cache_transition.v1'");
@@ -99,19 +101,19 @@ expect(sql).toContain('successor_of');
 expect(sql).toContain('generic_cache_transition_dead_letter_forbidden');
 ```
 
-- [ ] **Step 2: Run the test and confirm failure**
+- [x] **Step 2: Run the test and confirm failure**
 
 Run: `pnpm --filter web exec vitest run src/lib/domain-event-pipeline-migration.test.ts src/lib/events/event-contract.test.ts src/lib/events/event-route-destination.test.ts src/lib/events/event-route-resolution.test.ts src/lib/events/event-pipeline-active-destinations.test.ts src/schemas/claimed-event-delivery-schema.test.ts`
 
 Expected: FAIL because the migration is absent.
 
-- [ ] **Step 3: Implement the one canonical transaction**
+- [x] **Step 3: Implement the one canonical transaction**
 
 Complete the single migration before committing it: create the RLS-forced, service-role-only canary and obligation tables; the category trigger and revoked/private `ensure_storefront_cache_transition_from_category_row_v1`; and all three specialized route, claim, and generation-fenced finish RPCs. The helper receives only the trigger's TG_OP and safe OLD/NEW scalar snapshots. It supports DELETE without a post-delete lookup, derives merchant/category/old-new semantic keys, and uses #3077’s normal enqueue path so ledger and PGMQ identity commit with the source mutation. It has no client grants or merchant, URL, hostname, tag, or path input. The migration also installs the stale-router defer/no-generic-dead-letter guards and excludes `storefront_cache_transition` from the generic delivery claim. Task 2 wires TypeScript callers to this already-committed SQL; it does not reopen the migration.
 
 Before claim, update one pending obligation in place by incrementing `generation`. Once claimed, never mutate its generation: create or update at most one pending successor event/obligation via `successor_of`. The schema allows a claimed predecessor plus one pending successor; cache claim blocks that successor until the predecessor delivery is terminal, while further mutations coalesce into the pending successor. The delivery worker materializes current obligation state, not the stale envelope.
 
-- [ ] **Step 4: Add SQL lifecycle cases**
+- [x] **Step 4: Add SQL lifecycle cases**
 
 ```sql
 -- Rollback category DML leaves zero ledger, PGMQ, obligation, and delivery rows.
@@ -123,18 +125,20 @@ Before claim, update one pending obligation in place by incrementing `generation
 -- Older completion cannot complete successor generation.
 ```
 
-Add a separate local-only catalog contract in `supabase/tests/event_pipeline_local_catalog.sql`. It must derive canonical function identities from `pg_get_function_identity_arguments`, hash reviewed definitions/configuration/security/ACL material from the live replay catalog, and assert exact signatures and digests for the full 22-function `EVENT_PIPELINE_FUNCTION_NAMES` set. The existing 19-function production-effect query and receipt remain untouched. After the migration bytes are final, register its SHA in `supabase-history-replay-sources.ts`, mirror it in `expected-pending-sources.test-support.ts`, and update the manifest pending-source count test from 44 to 45.
+Add a separate local-only catalog contract in `supabase/tests/event_pipeline_local_catalog.sql`. It must derive canonical function identities from `pg_get_function_identity_arguments`, hash reviewed definitions/configuration/security/ACL material from the live replay catalog, and assert exact signatures and digests for the full 22-function `EVENT_PIPELINE_FUNCTION_NAMES` set. The existing 19-function production-effect query and receipt remain untouched. Keep both B0 migrations within the repository's 300-line ceiling. After the migration bytes are final, register both SHAs in `supabase-history-replay-sources.ts`, mirror them in `expected-pending-sources.test-support.ts`, and update the manifest pending-source count test from 44 to 46.
 
-- [ ] **Step 5: Apply locally, refresh checked-in types, and run focused validation**
+- [x] **Step 5: Apply locally, refresh checked-in types, and run focused validation**
 
-Run: `pnpm --filter web exec tsx tools/db/run-supabase-history-replay.ts --mode chronological --pending-repair-state materialized --comparison-mode classify --sql-check supabase/tests/storefront_cache_transition.sql --sql-check supabase/tests/event_pipeline_local_catalog.sql --types-output apps/web/src/types/supabase.ts && pnpm --filter web exec vitest run src/lib/domain-event-pipeline-migration.test.ts src/lib/events/event-contract.test.ts src/lib/events/event-route-destination.test.ts src/lib/events/event-route-resolution.test.ts src/lib/events/event-pipeline-active-destinations.test.ts src/schemas/claimed-event-delivery-schema.test.ts tools/db/supabase-history-replay-manifest.test.ts tools/db/verify-supabase-history-replay-manifest.test.ts`
+The historical replay intentionally excludes `PENDING_SOURCES`. Use a local-only overlay check that `\ir`s exactly `20260726103000_atomic_category_hierarchy_lifecycle.sql`, `20260726201000_harden_category_hierarchy_lifecycle.sql`, and both ordered B0 migrations before it runs the lifecycle and catalog contracts. Do not change replay materialization or apply the unrelated pending migration batch.
+
+Run: `pnpm --filter web exec tsx tools/db/run-supabase-history-replay.ts --mode chronological --pending-repair-state materialized --comparison-mode classify --sql-check supabase/tests/storefront_cache_transition_replay.sql --types-output apps/web/src/types/supabase.ts && pnpm --filter web exec vitest run src/lib/domain-event-pipeline-migration.test.ts src/lib/events/event-contract.test.ts src/lib/events/event-route-destination.test.ts src/lib/events/event-route-resolution.test.ts src/lib/events/event-pipeline-active-destinations.test.ts src/schemas/claimed-event-delivery-schema.test.ts tools/db/supabase-history-replay-manifest.test.ts tools/db/verify-supabase-history-replay-manifest.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
-git add supabase/migrations/20260727143000_storefront_cache_transition.sql supabase/tests/storefront_cache_transition.sql supabase/tests/event_pipeline_local_catalog.sql apps/web/src/lib/domain-event-pipeline-migration.test.ts apps/web/tools/db/supabase-history-replay-sources.ts apps/web/tools/db/expected-pending-sources.test-support.ts apps/web/tools/db/verify-supabase-history-replay-manifest.test.ts apps/web/src/lib/events/event-contract.ts apps/web/src/lib/events/event-contract.test.ts apps/web/src/lib/events/event-route-destination.ts apps/web/src/lib/events/event-route-destination.test.ts apps/web/src/lib/events/event-route-resolution.ts apps/web/src/lib/events/event-route-resolution.test.ts apps/web/src/lib/events/event-pipeline-active-destinations.ts apps/web/src/lib/events/event-pipeline-active-destinations.test.ts apps/web/src/schemas/claimed-event-delivery-schema.ts apps/web/src/schemas/claimed-event-delivery-schema.test.ts apps/web/src/types/supabase.ts
+git add supabase/migrations/20260727143000_storefront_cache_transition.sql supabase/migrations/20260727143100_storefront_cache_transition_delivery.sql supabase/tests/storefront_cache_transition.sql supabase/tests/event_pipeline_local_catalog.sql supabase/tests/storefront_cache_transition_replay.sql apps/web/src/lib/domain-event-pipeline-migration.test.ts apps/web/tools/db/supabase-history-replay-sources.ts apps/web/tools/db/expected-pending-sources.test-support.ts apps/web/tools/db/verify-supabase-history-replay-manifest.test.ts apps/web/src/lib/events/event-contract.ts apps/web/src/lib/events/event-contract.test.ts apps/web/src/lib/events/event-route-destination.ts apps/web/src/lib/events/event-route-destination.test.ts apps/web/src/lib/events/event-route-resolution.ts apps/web/src/lib/events/event-route-resolution.test.ts apps/web/src/lib/events/event-pipeline-active-destinations.ts apps/web/src/lib/events/event-pipeline-active-destinations.test.ts apps/web/src/schemas/claimed-event-delivery-schema.ts apps/web/src/schemas/claimed-event-delivery-schema.test.ts apps/web/src/types/supabase.ts
 git commit -m "feat: add canonical cache transition obligation"
 ```
 
