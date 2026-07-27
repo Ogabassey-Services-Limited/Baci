@@ -53,6 +53,8 @@ main() {
   docker exec -i "$container" psql -v ON_ERROR_STOP=1 -U postgres \
     < "$repo_root/supabase/migrations/20260727185139_preserve_exact_product_identifier_case.sql"
   docker exec -i "$container" psql -v ON_ERROR_STOP=1 -U postgres \
+    < "$repo_root/supabase/migrations/20260727195209_allow_platform_admin_read_product_category_archive.sql"
+  docker exec -i "$container" psql -v ON_ERROR_STOP=1 -U postgres \
     < "$repo_root/supabase/tests/cache_invalidation_outbox.sql"
   docker exec -i "$container" psql -v ON_ERROR_STOP=1 -U postgres \
     < "$repo_root/supabase/tests/cache_invalidation_outbox_review_regressions.sql"
@@ -70,6 +72,8 @@ main() {
     < "$repo_root/supabase/tests/cache_invalidation_outbox_round7_owner_guard_regressions.sql"
   docker exec -i "$container" psql -v ON_ERROR_STOP=1 -U postgres \
     < "$repo_root/supabase/tests/cache_invalidation_outbox_round7_case_regressions.sql"
+  docker exec -i "$container" psql -v ON_ERROR_STOP=1 -U postgres \
+    < "$repo_root/supabase/tests/cache_invalidation_outbox_round8_archive_policy_regressions.sql"
 
   echo 'Cache invalidation outbox SQL tests passed'
 }

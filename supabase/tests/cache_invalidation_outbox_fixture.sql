@@ -29,7 +29,8 @@ CREATE TABLE public.merchants (
   vat_registration_status text, vat_rate numeric, feature_settings jsonb,
   published_config jsonb, pages jsonb, about_page jsonb, faq_items jsonb,
   gmc_variants_enabled boolean DEFAULT false,
-  paystack_subaccount_code text
+  paystack_subaccount_code text,
+  is_platform_admin boolean DEFAULT false
 );
 CREATE TABLE public.merchant_slug_aliases (
   old_slug text PRIMARY KEY,
