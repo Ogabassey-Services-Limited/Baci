@@ -1,6 +1,13 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockCreateClient = vi.fn();
+const { mockCreateClient, mockCreateStorefrontBuildReadFetch } = vi.hoisted(
+  () => ({
+    mockCreateClient: vi.fn(),
+    mockCreateStorefrontBuildReadFetch: vi.fn(
+      (fetcher: typeof fetch) => fetcher
+    ),
+  })
+);
 
 vi.mock('@/env', () => ({
   getSupabaseAnonKey: vi.fn(() => 'test-anon-key'),
@@ -9,11 +16,38 @@ vi.mock('@/env', () => ({
 vi.mock('@supabase/supabase-js', () => ({
   createClient: (...args: unknown[]) => mockCreateClient(...args),
 }));
+vi.mock('./storefront-build-read-fetch', () => ({
+  createStorefrontBuildReadFetch: (fetcher: typeof fetch) =>
+    mockCreateStorefrontBuildReadFetch(fetcher),
+}));
 
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { getPublicSupabaseClient } from './public-supabase-client';
 
 describe('getPublicSupabaseClient', () => {
+  beforeEach(() => {
+    vi.unstubAllEnvs();
+    vi.clearAllMocks();
+  });
+
+  it('shares one read gate across public clients during production builds', () => {
+    vi.stubEnv('BACI_STOREFRONT_BUILD_READS', 'serialized');
+    mockCreateClient.mockReturnValue({ from: vi.fn() });
+
+    getPublicSupabaseClient();
+    getPublicSupabaseClient();
+
+    expect(mockCreateStorefrontBuildReadFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('leaves runtime public reads ungated', () => {
+    mockCreateClient.mockReturnValue({ from: vi.fn() });
+
+    getPublicSupabaseClient();
+
+    expect(mockCreateStorefrontBuildReadFetch).not.toHaveBeenCalled();
+  });
+
   it('creates a cookie-free anonymous client for cached public reads', () => {
     mockCreateClient.mockReturnValue({ from: vi.fn() });
 

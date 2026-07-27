@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "NODE_ENV=production next build",
+    "build": "BACI_STOREFRONT_BUILD_READS=serialized NODE_ENV=production next build",
     "start": "next start",
     "lint": "biome check .",
     "format": "biome format --write .",

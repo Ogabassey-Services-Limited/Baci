@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { STATIC_GENERATION_LIMITS } from './static-generation';
 
@@ -43,6 +45,16 @@ function configuredStaticWorkerCount(totalPages: number) {
 }
 
 describe('STATIC_GENERATION_LIMITS', () => {
+  it('activates the shared public-read gate only for production builds', () => {
+    const packageJson = JSON.parse(
+      readFileSync(resolve(process.cwd(), 'package.json'), 'utf8')
+    ) as { scripts?: { build?: string } };
+
+    expect(packageJson.scripts?.build).toBe(
+      'BACI_STOREFRONT_BUILD_READS=serialized NODE_ENV=production next build'
+    );
+  });
+
   it('bounds build pressure and retries transient page failures', () => {
     expect(STATIC_GENERATION_LIMITS).toEqual({
       cpus: STOREFRONT_READ_ENVELOPE - RESERVED_BUILD_READS,
