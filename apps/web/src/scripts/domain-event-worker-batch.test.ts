@@ -11,9 +11,7 @@ import {
 import { createEventPipelineServiceRoleTestClient } from '@/lib/events/event-pipeline-service-role-test-client';
 import { domainEventWorkerBatch } from './domain-event-worker-batch';
 
-const { processDomainEventBatch, processDomainEventMessage } =
-  domainEventWorkerBatch;
-
+const { processDomainEventBatch, processDomainEventMessage } = domainEventWorkerBatch;
 type Rpc = (
   name: string,
   args: Record<string, unknown>
@@ -53,6 +51,15 @@ const validMessage = {
   visible_at: '2026-07-12T12:01:00.000Z',
 };
 
+const routing = (
+  routingMode: 'active' | 'disabled' | 'shadow' = 'active',
+  cacheTransitionRoutingEnabled = false
+) => ({
+    cacheTransitionRoutingEnabled,
+    routingMode,
+    workerId: 'domain-event-router:test',
+  });
+
 const activeDestinationsKey = 'EVENT_PIPELINE_ACTIVE_DESTINATIONS';
 const canaryMerchantsKey = 'EVENT_PIPELINE_CANARY_MERCHANT_IDS';
 let activeDestinationsBeforeTest: string | undefined;
@@ -79,8 +86,7 @@ afterEach(() => {
 describe('domain event worker batch', () => {
   it('atomically archives a valid no-route observation', async () => {
     const rpc = vi.fn().mockResolvedValue({ data: [], error: null });
-
-    await processDomainEventMessage(client(rpc), validMessage, true);
+    await processDomainEventMessage(client(rpc), validMessage, routing('shadow'));
 
     expect(rpc).toHaveBeenCalledWith('route_domain_event_v1', {
       p_active_destinations: [],
@@ -96,7 +102,6 @@ describe('domain event worker batch', () => {
     process.env.EVENT_PIPELINE_CANARY_MERCHANT_IDS =
       '019bbd89-8f5f-7f8c-a4fd-42b5d7e7a235';
     const rpc = vi.fn().mockResolvedValue({ data: [], error: null });
-
     await processDomainEventMessage(
       client(rpc),
       {
@@ -109,7 +114,7 @@ describe('domain event worker batch', () => {
           trust_level: 'tenant_verified_client',
         },
       },
-      false
+      routing()
     );
 
     expect(rpc).toHaveBeenCalledWith(
@@ -128,7 +133,7 @@ describe('domain event worker batch', () => {
       await processDomainEventMessage(
         client(rpc),
         { ...validMessage, message: { password: 'do-not-copy' } },
-        false
+        routing()
       );
     } finally {
       expect(JSON.stringify(consoleError.mock.calls)).not.toContain('password');
@@ -152,7 +157,7 @@ describe('domain event worker batch', () => {
           metadata: { environment: 'test', shadow_only: true },
         },
       },
-      false
+      routing()
     );
 
     expect(rpc).toHaveBeenCalledWith(
@@ -169,7 +174,7 @@ describe('domain event worker batch', () => {
     await processDomainEventMessage(
       client(rpc),
       { ...validMessage, read_ct: 5 },
-      false,
+      routing(),
       5
     );
     expect(rpc).toHaveBeenLastCalledWith(
@@ -187,9 +192,9 @@ describe('domain event worker batch', () => {
       processDomainEventBatch(
         client(rpc),
         [validMessage, { ...validMessage, msg_id: 2 }],
-        false
+        routing()
       )
-    ).resolves.toEqual({ failed: 1, processed: 1 });
+    ).resolves.toEqual({ cacheTransitions: 0, failed: 1, processed: 1 });
   });
 
   it('logs only safe message identity when one batch item fails', async () => {
@@ -216,10 +221,10 @@ describe('domain event worker batch', () => {
             },
           },
         ],
-        false
+        routing()
       );
 
-      expect(result).toEqual({ failed: 1, processed: 0 });
+      expect(result).toEqual({ cacheTransitions: 0, failed: 1, processed: 0 });
       expect(consoleError).toHaveBeenCalledOnce();
       expect(consoleError).toHaveBeenCalledWith(
         JSON.stringify({
@@ -244,10 +249,10 @@ describe('domain event worker batch', () => {
       processDomainEventBatch(
         client(rpc),
         [validMessage, { ...validMessage, msg_id: 2 }],
-        false,
+        routing(),
         shouldStop
       )
-    ).resolves.toEqual({ failed: 0, processed: 1 });
+    ).resolves.toEqual({ cacheTransitions: 0, failed: 0, processed: 1 });
     expect(rpc).toHaveBeenCalledTimes(1);
   });
 

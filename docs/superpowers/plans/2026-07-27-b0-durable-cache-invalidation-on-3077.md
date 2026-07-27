@@ -147,6 +147,9 @@ git commit -m "feat: add canonical cache transition obligation"
 **Files:**
 - Modify: `apps/web/src/scripts/domain-event-worker-batch.ts`
 - Modify: `apps/web/src/scripts/domain-event-worker-batch.test.ts`
+- Create: `apps/web/src/scripts/domain-event-worker-cache-routing.test.ts`
+- Modify: `apps/web/src/scripts/domain-event-worker.ts`
+- Modify: `apps/web/src/scripts/domain-event-worker.test.ts`
 - Modify: `apps/web/src/scripts/process-domain-events.ts`
 - Modify: `apps/web/src/lib/events/event-pipeline-config.ts`
 - Create: `apps/web/src/lib/events/storefront-cache-transition-routing-enabled.ts`
@@ -156,7 +159,7 @@ git commit -m "feat: add canonical cache transition obligation"
 - Consumes the Task 1 `capture_category_cache_transition_v1()` trigger and specialized route RPC without changing their committed migration.
 - Consumes only parsed/trusted `storefront.cache_transition.v1` PGMQ records.
 
-- [ ] **Step 1: Write failing trigger/router tests**
+- [x] **Step 1: Write failing trigger/router tests**
 
 ```ts
 expect(await routeBatch(cacheMessage)).toEqual({ cacheTransitions: 1 });
@@ -165,28 +168,28 @@ expect(genericDeadLetter).not.toHaveBeenCalled();
 
 Add the runner matrix: both flags disabled exits before creating a client; generic disabled/cache enabled routes cache and defers analytics; generic enabled/cache disabled routes analytics and DB-defers cache without dead-letter; both enabled route each through its own branch. Cache-only shared reads remain subject to the documented queue-age/load gate and may not activate generic analytics delivery.
 
-- [ ] **Step 2: Run tests and confirm failure**
+- [x] **Step 2: Run tests and confirm failure**
 
 Run: `pnpm --filter web exec vitest run src/scripts/domain-event-worker-batch.test.ts src/scripts/process-domain-events.test.ts src/lib/events/storefront-cache-transition-routing-enabled.test.ts`
 
 Expected: FAIL because trigger/router branch is absent.
 
-- [ ] **Step 3: Implement the trigger and bounded shared ingress**
+- [x] **Step 3: Implement the trigger and bounded shared ingress**
 
 Use the `AFTER INSERT OR UPDATE OR DELETE` category trigger and specialized RPCs already committed in Task 1. The trigger checks producer config plus the service-only canary table; enabled failures roll back the mutation. In the existing capable router, dispatch only the exact parsed event to the specialized operation that validates obligation, inserts/reuses one delivery, marks it routed, and atomically archives the exact PGMQ message.
 
 Add DB refusal/defer for stale router and DB refusal for generic ingress dead letter. Do not claim pre-read isolation. Add the dedicated routing flag leaf default false and export it from the existing config barrel. Refactor the current early return so a cache-only run can create the client/read shared ingress while analytics messages are deferred, never routed merely because the cache flag is on. Unit tests prove the four runner modes, cache poison isolation, and specialized-route ownership. The existing heartbeat schema has no build/capability field and the repository has signals but no alert transport, so deployed-artifact capability, fresh heartbeat, queue-age alert wiring, and load/poison latency are Task 5 rollout proofs rather than synthetic Task 2 claims.
 
-- [ ] **Step 4: Run focused validation**
+- [x] **Step 4: Run focused validation**
 
 Run: `pnpm --filter web exec vitest run src/scripts/domain-event-worker-batch.test.ts src/scripts/process-domain-events.test.ts src/lib/events/storefront-cache-transition-routing-enabled.test.ts`
 
 Expected: PASS with analytics routing unchanged.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
-git add apps/web/src/scripts/domain-event-worker-batch.ts apps/web/src/scripts/domain-event-worker-batch.test.ts apps/web/src/scripts/process-domain-events.ts apps/web/src/lib/events/event-pipeline-config.ts apps/web/src/lib/events/storefront-cache-transition-routing-enabled.ts apps/web/src/lib/events/storefront-cache-transition-routing-enabled.test.ts
+git add apps/web/src/scripts/domain-event-worker-batch.ts apps/web/src/scripts/domain-event-worker-batch.test.ts apps/web/src/scripts/domain-event-worker-cache-routing.test.ts apps/web/src/scripts/domain-event-worker.ts apps/web/src/scripts/domain-event-worker.test.ts apps/web/src/scripts/process-domain-events.ts apps/web/src/scripts/process-domain-events.test.ts apps/web/src/lib/events/event-pipeline-config.ts apps/web/src/lib/events/storefront-cache-transition-routing-enabled.ts apps/web/src/lib/events/storefront-cache-transition-routing-enabled.test.ts docs/superpowers/plans/2026-07-27-b0-durable-cache-invalidation-on-3077.md
 git commit -m "feat: route canonical cache transition event"
 ```
 

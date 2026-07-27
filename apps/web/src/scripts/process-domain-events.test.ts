@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   getActiveDestinations: vi.fn(() => []),
   getMaxReads: vi.fn(() => 5),
   getRoutingMode: vi.fn(),
+  isCacheTransitionRoutingEnabled: vi.fn(() => false),
   isCanaryMerchant: vi.fn(() => false),
   processBatch: vi.fn(),
   processMessage: vi.fn(),
@@ -17,6 +18,8 @@ vi.mock('@/lib/events/event-pipeline-config', () => ({
   getEventPipelineActiveDestinations: mocks.getActiveDestinations,
   getEventPipelineRoutingMode: mocks.getRoutingMode,
   isEventPipelineCanaryMerchant: mocks.isCanaryMerchant,
+  isStorefrontCacheTransitionRoutingEnabled:
+    mocks.isCacheTransitionRoutingEnabled,
 }));
 vi.mock('@/lib/supabase/service', () => ({
   createServiceClient: mocks.createServiceClient,
@@ -40,6 +43,7 @@ import {
 afterEach(() => {
   vi.restoreAllMocks();
   vi.clearAllMocks();
+  mocks.isCacheTransitionRoutingEnabled.mockReturnValue(false);
 });
 
 describe('process-domain-events CLI facade', () => {
@@ -64,8 +68,57 @@ describe('process-domain-events CLI facade', () => {
 
     expect(mocks.createServiceClient).toHaveBeenCalledWith('event-pipeline');
     expect(mocks.runWorker).toHaveBeenCalledWith(serviceClient, {
+      cacheTransitionRoutingEnabled: false,
       once: true,
       routingMode: 'shadow',
+    });
+  });
+
+  it('runs the capable reader in cache-only mode while deferring analytics', async () => {
+    mocks.getRoutingMode.mockReturnValue('disabled');
+    mocks.isCacheTransitionRoutingEnabled.mockReturnValue(true);
+    const serviceClient = { rpc: vi.fn() } as unknown as ServiceRoleClient;
+    mocks.createServiceClient.mockReturnValue(serviceClient);
+    mocks.runWorker.mockResolvedValue(undefined);
+
+    await runDomainEventWorker({ once: true });
+
+    expect(mocks.createServiceClient).toHaveBeenCalledWith('event-pipeline');
+    expect(mocks.runWorker).toHaveBeenCalledWith(serviceClient, {
+      cacheTransitionRoutingEnabled: true,
+      once: true,
+      routingMode: 'disabled',
+    });
+  });
+
+  it('runs generic routing without enabling the cache-transition branch', async () => {
+    mocks.getRoutingMode.mockReturnValue('active');
+    const serviceClient = { rpc: vi.fn() } as unknown as ServiceRoleClient;
+    mocks.createServiceClient.mockReturnValue(serviceClient);
+    mocks.runWorker.mockResolvedValue(undefined);
+
+    await runDomainEventWorker({ once: true });
+
+    expect(mocks.runWorker).toHaveBeenCalledWith(serviceClient, {
+      cacheTransitionRoutingEnabled: false,
+      once: true,
+      routingMode: 'active',
+    });
+  });
+
+  it('keeps generic routing active when both router branches are enabled', async () => {
+    mocks.getRoutingMode.mockReturnValue('active');
+    mocks.isCacheTransitionRoutingEnabled.mockReturnValue(true);
+    const serviceClient = { rpc: vi.fn() } as unknown as ServiceRoleClient;
+    mocks.createServiceClient.mockReturnValue(serviceClient);
+    mocks.runWorker.mockResolvedValue(undefined);
+
+    await runDomainEventWorker({ once: true });
+
+    expect(mocks.runWorker).toHaveBeenCalledWith(serviceClient, {
+      cacheTransitionRoutingEnabled: true,
+      once: true,
+      routingMode: 'active',
     });
   });
 

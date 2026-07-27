@@ -10,4 +10,5 @@ export {
   getEventPipelineRoutingMode,
 } from './event-pipeline-routing-mode';
 export { isLegacyAnalyticsFanoutDisabled } from './legacy-analytics-fanout-disabled';
+export { isStorefrontCacheTransitionRoutingEnabled } from './storefront-cache-transition-routing-enabled';
 export { isUnverifiedEventTelemetryEnabled } from './unverified-event-telemetry-enabled';
