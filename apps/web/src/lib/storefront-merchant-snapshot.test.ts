@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { StorefrontDatabase } from '@/types/storefront-database';
 import { readStorefrontMerchantSnapshot } from './storefront-merchant-snapshot';
 
@@ -18,6 +18,11 @@ function createClient(response: unknown) {
 }
 
 describe('readStorefrontMerchantSnapshot', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
   it('uses the public GET RPC under one total deadline and returns found data', async () => {
     const row = {
       resolution_status: 'found',
@@ -65,6 +70,29 @@ describe('readStorefrontMerchantSnapshot', () => {
     await expect(
       readStorefrontMerchantSnapshot(client, 'missing-store')
     ).resolves.toEqual({ status: 'not_found' });
+  });
+
+  it('allows queued build reads a fresh transport window without changing the runtime deadline', async () => {
+    const timeout = vi.spyOn(AbortSignal, 'timeout');
+    const { client } = createClient({
+      data: [
+        {
+          resolution_status: 'not_found',
+          merchant_data: null,
+          custom_domain: null,
+          feature_settings: null,
+        },
+      ],
+      error: null,
+      status: 200,
+    });
+
+    await readStorefrontMerchantSnapshot(client, 'runtime-store');
+    expect(timeout).toHaveBeenLastCalledWith(5_000);
+
+    vi.stubEnv('BACI_STOREFRONT_BUILD_READS', 'serialized');
+    await readStorefrontMerchantSnapshot(client, 'build-store');
+    expect(timeout).toHaveBeenLastCalledWith(30_000);
   });
 
   it('treats a successful empty RPC response as contract unavailability', async () => {

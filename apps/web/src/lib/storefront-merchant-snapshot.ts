@@ -8,7 +8,14 @@ import {
   type StorefrontReadResult,
 } from './storefront-read-result';
 
-const MERCHANT_SNAPSHOT_TOTAL_DEADLINE_MS = 5_000;
+const MERCHANT_SNAPSHOT_RUNTIME_DEADLINE_MS = 5_000;
+const MERCHANT_SNAPSHOT_BUILD_DEADLINE_MS = 30_000;
+
+function merchantSnapshotDeadlineMs() {
+  return process.env.BACI_STOREFRONT_BUILD_READS === 'serialized'
+    ? MERCHANT_SNAPSHOT_BUILD_DEADLINE_MS
+    : MERCHANT_SNAPSHOT_RUNTIME_DEADLINE_MS;
+}
 
 function isJsonObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -26,7 +33,7 @@ export async function readStorefrontMerchantSnapshot(
   const boundedQuery =
     typeof query.abortSignal === 'function'
       ? query
-          .abortSignal(AbortSignal.timeout(MERCHANT_SNAPSHOT_TOTAL_DEADLINE_MS))
+          .abortSignal(AbortSignal.timeout(merchantSnapshotDeadlineMs()))
           // Disable postgrest-js's automatic GET retry so the bounded deadline
           // isn't extended by retry backoff on a native TimeoutError.
           // Pinned by supabase/postgrest-timeout-retry.test.ts.
