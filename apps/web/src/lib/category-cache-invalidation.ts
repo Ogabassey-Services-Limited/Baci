@@ -23,6 +23,9 @@ import { purgeVercelStorefrontPublicationCache } from '@/lib/vercel-storefront-p
  * supported runtime primitive. Do not import `cloudflare-purge`: it reaches
  * `getCloudflareApiToken`, which is credential authority forbidden to these new
  * merchant routes by the event-pipeline boundary gate.
+ * These category routes do not schedule a Cloudflare purge because they do not
+ * hold credential authority. The five-minute edge TTL bounds any remaining
+ * stale Cloudflare response after the Next and Vercel invalidations complete.
  */
 export interface CategoryCacheInvalidationResult {
   revalidatedSlugs: string[];

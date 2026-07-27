@@ -41,7 +41,7 @@ describe('event pipeline authority manifest', () => {
         'ad_tracking',
       ],
     });
-    expect(manifest.functions.typescriptApplication).toHaveLength(15);
+    expect(manifest.functions.typescriptApplication).toHaveLength(18);
     expect(manifest.functions.vpsCleanup).toEqual([
       'cleanup_domain_event_pipeline_v1',
     ]);
@@ -146,6 +146,7 @@ describe('event pipeline authority manifest', () => {
       'apps/web/src/lib/events/record-platform-order-created-event.ts',
     ]);
     expect(manifest.authority.serviceImporters).toEqual([
+      'apps/web/src/app/api/cron/drain-cache-invalidations/route.ts',
       'apps/web/src/app/api/analytics/conversion/route.ts',
       'apps/web/src/app/api/events/route.ts',
       'apps/web/src/lib/events/event-pipeline-service-role-test-client.ts',

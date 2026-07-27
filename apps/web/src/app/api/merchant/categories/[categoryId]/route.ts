@@ -83,7 +83,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return resolution.response;
   }
   const { canonicalMerchantSlug, merchantId, supabase } = resolution.context;
-
   if (parsed.data.parentId) {
     const parentRefusal = await validateCategoryParent({
       supabase,

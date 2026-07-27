@@ -1,13 +1,21 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { hasPermission } from '@/lib/api-auth';
-import { revalidateProducts } from '@/lib/cache-revalidation';
+import {
+  revalidateProductSlugs,
+  revalidateProducts,
+} from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { generateProductSlug } from '@/lib/seo-utils';
+import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
+import {
+  resolveProductPurgeCategorySegment,
+  type StorefrontProductPurgeEntry,
+} from '@/lib/storefront-product-purge-urls';
 import { createClient } from '@/lib/supabase/server';
 
 interface CSVRow {
@@ -125,6 +133,7 @@ export async function POST(request: NextRequest) {
     let successCount = 0;
     let failedCount = 0;
     const errors: string[] = [];
+    const publicPurgeEntries: StorefrontProductPurgeEntry[] = [];
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -171,15 +180,32 @@ export async function POST(request: NextRequest) {
           images: [],
         };
 
-        const { error: insertError } = await supabase
+        const { data: insertedProduct, error: insertError } = await supabase
           .from('products')
-          .insert(productData);
+          .insert(productData)
+          .select('id')
+          .maybeSingle();
 
         if (insertError) {
           errors.push(`Row ${i + 2}: ${insertError.message}`);
           failedCount++;
         } else {
           successCount++;
+          // Draft imports are not publicly addressable, so they need the
+          // existing merchant-wide tag refresh but must not trigger an edge
+          // purge. Successful active rows must evict both their PDP and the
+          // product listings that can now include them.
+          const purgeSlug = productData.slug.trim() || insertedProduct?.id;
+          if (productData.status === 'active' && purgeSlug) {
+            publicPurgeEntries.push({
+              slug: purgeSlug,
+              categorySegment: resolveProductPurgeCategorySegment({
+                slug: purgeSlug,
+                name: productData.name,
+                category: productData.category,
+              }),
+            });
+          }
         }
       } catch (error) {
         errors.push(`Row ${i + 2}: ${(error as Error).message}`);
@@ -190,6 +216,27 @@ export async function POST(request: NextRequest) {
     // Invalidate product caches after bulk import
     if (successCount > 0) {
       revalidateProducts(merchantId);
+    }
+
+    if (publicPurgeEntries.length > 0) {
+      // Per-slug Next cache entries survive the merchant-wide revalidation
+      // above, so clear them before the Cloudflare purge can cause a refill.
+      // An edge purge is always best-effort: its failure must never turn a
+      // completed CSV import into an API error.
+      try {
+        revalidateProductSlugs(
+          merchantId,
+          publicPurgeEntries.map((entry) => entry.slug)
+        );
+        scheduleStorefrontProductPurge(
+          merchantContext.merchantSlug,
+          publicPurgeEntries
+        );
+      } catch (purgeError) {
+        console.warn('Skipped Cloudflare product purge after bulk import', {
+          purgeError,
+        });
+      }
     }
 
     return NextResponse.json({

@@ -203,6 +203,7 @@ $CRON_SECRET`; `/api/cron/process-settlements` uses `POST` and the others use
 - `/api/cron/cleanup-orders`
 - `/api/cron/process-settlements`
 - `/api/cron/publish-scheduled-posts`
+- `/api/cron/drain-cache-invalidations`
 - `/api/cron/vtu-cashback-summaries`
 - `/api/cron/wallet-payouts`
 - `/api/inventory/push-alerts`
@@ -228,6 +229,12 @@ agent route latency does not depend on retention cleanup.
 variables or the project's secret manager, keep it aligned between the VPS
 worker and web deployment, and rotate it through the normal secret-management
 process. No API keys, passwords, or tokens should be stored in repo files.
+
+The two-minute `drain-cache-invalidations` sweep uses only the existing
+`BACI_WEB_BASE_URL` and `CRON_SECRET` web-cron boundary. The Next route claims
+transactional cache targets and enforces Next → Vercel → Cloudflare ordering;
+this cache drainer never receives Supabase service-role or Cloudflare
+credentials.
 
 `/api/ai-jobs/worker` is intentionally retained only for short legacy web-safe
 jobs such as price list processing. Long `storefront_layout_generation` jobs

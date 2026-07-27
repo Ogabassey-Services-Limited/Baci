@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // ---- Mocks ----
 
 const mockPurgeCloudflareUrls = vi.fn();
+const mockPurgeCloudflareHostnamesConfirmed = vi.fn();
 const mockAfter = vi.fn((callback: () => unknown) => {
   callback();
 });
@@ -12,6 +13,8 @@ vi.mock('next/server', () => ({
 }));
 vi.mock('@/lib/cloudflare-purge', () => ({
   purgeCloudflareUrls: (...args: unknown[]) => mockPurgeCloudflareUrls(...args),
+  purgeCloudflareHostnamesConfirmed: (...args: unknown[]) =>
+    mockPurgeCloudflareHostnamesConfirmed(...args),
 }));
 // Keep the real URL builder (so purge-URL assertions run against real output)
 // but make it spy-able so one test can force it to throw.
@@ -59,26 +62,33 @@ describe('scheduleStorefrontProductPurge', () => {
     ]);
   });
 
-  it('forwards listingsOnly so only the shared listing surfaces are purged', () => {
-    scheduleStorefrontProductPurge(
-      'ogabassey',
-      [
-        { slug: 'iphone-15', categorySegment: 'smartphones' },
-        { slug: 'ipad-air', categorySegment: 'tablets' },
-      ],
-      { listingsOnly: true }
-    );
+  it('uses a bounded hostname purge that evicts every PDP past the high-cardinality threshold', () => {
+    const entries = Array.from({ length: 51 }, (_, index) => ({
+      slug: `product-${index}`,
+      categorySegment: 'smartphones',
+    }));
 
-    expect(mockPurgeCloudflareUrls).toHaveBeenCalledWith([
-      'https://ogabassey.com/',
-      'https://ogabassey.com/products',
-      'https://ogabassey.com/smartphones',
-      'https://ogabassey.com/tablets',
-      'https://www.ogabassey.com/',
-      'https://www.ogabassey.com/products',
-      'https://www.ogabassey.com/smartphones',
-      'https://www.ogabassey.com/tablets',
+    scheduleStorefrontProductPurge('ogabassey', entries);
+
+    expect(mockAfter).toHaveBeenCalledTimes(1);
+    expect(mockPurgeCloudflareHostnamesConfirmed).toHaveBeenCalledWith([
+      'ogabassey.com',
+      'www.ogabassey.com',
     ]);
+    expect(mockPurgeCloudflareUrls).not.toHaveBeenCalled();
+  });
+
+  it('purges URLs instead of hostnames at the exact 50-entry threshold', () => {
+    const entries = Array.from({ length: 50 }, (_, index) => ({
+      slug: `product-${index}`,
+      categorySegment: 'smartphones',
+    }));
+
+    scheduleStorefrontProductPurge('ogabassey', entries);
+
+    expect(mockAfter).toHaveBeenCalledTimes(1);
+    expect(mockPurgeCloudflareUrls).toHaveBeenCalledTimes(1);
+    expect(mockPurgeCloudflareHostnamesConfirmed).not.toHaveBeenCalled();
   });
 
   it('does not schedule a purge for a missing identifier', () => {

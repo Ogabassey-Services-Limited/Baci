@@ -98,7 +98,10 @@ jobs:
             # Root Next config changes affect the web app even when apps/web/**
             # is untouched; keep them in the web quality-gate filter.
             quiz_db:
+              - '.github/workflows/ci.yml'
               - 'supabase/migrations/**'
+              - 'supabase/tests/cache_invalidation_outbox*.sql'
+              - 'supabase/tests/run-cache-invalidation-outbox-test*.sh'
               - '.github/scripts/apply-pending-migrations.sh'
               - '.github/scripts/apply-pending-migrations.test.sh'
               - '.github/scripts/split-sql-statements.mjs'
@@ -123,6 +126,8 @@ jobs:
               - '.github/workflows/deploy.yml'
               - '.github/actionlint.yaml'
             deploy_scripts:
+              - '.github/workflows/ci.yml'
+              - 'vps-workers/**'
               - '.github/scripts/deploy-with-retry.sh'
               - '.github/scripts/deploy-with-retry.test.mjs'
               - '.github/scripts/deploy-with-retry.test-helpers.mjs'
@@ -131,6 +136,8 @@ jobs:
               - '.github/scripts/inject-prebuilt-env-secret.test.mjs'
               - '.github/scripts/run-pinned-vercel.sh'
               - '.github/scripts/run-pinned-vercel.test.mjs'
+              - '.github/scripts/sync-cloudflare-vercel-production-env.sh'
+              - '.github/scripts/sync-cloudflare-vercel-production-env.test.mjs'
               - '.github/workflows/deploy.yml'
             web:
               - 'apps/web/**'
@@ -386,16 +393,23 @@ jobs:
           node --test .github/scripts/split-sql-statements.test.mjs
       - name: Verify Migration Versions
         run: bash .github/scripts/check-migration-versions.sh
+      - name: Test Cache Invalidation Outbox SQL
+        if: needs.changes.outputs.quiz_db == 'true'
+        run: >-
+          bash supabase/tests/run-cache-invalidation-outbox-test-runner.test.sh &&
+          bash supabase/tests/run-cache-invalidation-outbox-test.sh
       - name: Run CI Test Planner Unit Tests
         if: needs.changes.outputs.web == 'true'
         run: node --test .github/scripts/resolve-ci-test-plan.test.mjs .github/scripts/resolve-ci-test-plan-config.test.mjs
-      - name: Test Vercel Deploy Scripts
+      - name: Test Deployment and VPS Worker Scripts
         if: needs.changes.outputs.deploy_scripts == 'true'
         run: >-
+          pnpm --dir vps-workers test &&
           node --test
           .github/scripts/deploy-with-retry.test.mjs
           .github/scripts/run-pinned-vercel.test.mjs
           .github/scripts/inject-prebuilt-env-secret.test.mjs
+          .github/scripts/sync-cloudflare-vercel-production-env.test.mjs
       - name: Verify Quiz Assets
         if: needs.changes.outputs.web == 'true' || needs.changes.outputs.quiz_db == 'true'
         run: pnpm --filter @baci/web verify:quiz-assets

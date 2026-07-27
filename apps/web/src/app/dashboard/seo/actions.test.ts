@@ -3,12 +3,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const MERCHANT_ID = '0b9f6b1a-3c2d-4e5f-8a7b-9c0d1e2f3a4b';
 const OTHER_MERCHANT_ID = '9f8e7d6c-5b4a-4f3e-8d2c-1b0a9f8e7d6c';
 const PRODUCT_ID = '1c8e5a2b-4d3c-4f6a-9b8c-0d1e2f3a4b5c';
+const SECOND_PRODUCT_ID = '2c8e5a2b-4d3c-4f6a-9b8c-0d1e2f3a4b5c';
 
 const mocks = vi.hoisted(() => ({
   ensurePermission: vi.fn(),
   from: vi.fn(),
   generateText: vi.fn(),
   getUser: vi.fn(),
+  revalidateProductSlugs: vi.fn(),
+  revalidateProducts: vi.fn(),
   revalidatePath: vi.fn(),
 }));
 
@@ -25,6 +28,14 @@ vi.mock('@/ai/provider', () => ({
 }));
 vi.mock('next/cache', () => ({ revalidatePath: mocks.revalidatePath }));
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({})) }));
+vi.mock('@/lib/product-cache-revalidation', () => ({
+  productCacheRevalidation: {
+    revalidateProducts: (...args: unknown[]) =>
+      mocks.revalidateProducts(...args),
+    revalidateProductSlugs: (...args: unknown[]) =>
+      mocks.revalidateProductSlugs(...args),
+  },
+}));
 
 vi.mock('@/lib/merchant-server', () => {
   class MerchantAuthenticationRequiredError extends Error {
@@ -70,6 +81,7 @@ interface QueryBuilder {
   update: ReturnType<typeof vi.fn>;
   eq: ReturnType<typeof vi.fn>;
   in: ReturnType<typeof vi.fn>;
+  maybeSingle: ReturnType<typeof vi.fn>;
 }
 
 // Awaiting a non-thenable resolves to the object itself, so the action's
@@ -86,6 +98,9 @@ function createQueryBuilder(result: {
   builder.update = vi.fn(() => builder);
   builder.eq = vi.fn(() => builder);
   builder.in = vi.fn(() => builder);
+  builder.maybeSingle = vi.fn(() =>
+    Promise.resolve({ data: builder.data, error: builder.error })
+  );
   return builder;
 }
 
@@ -122,6 +137,7 @@ function authenticate() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.from.mockReset();
   // Force the keyless (Gemini-only, 2-provider) chain so provider-count
   // assertions below are deterministic regardless of ambient env.
   vi.stubEnv('CEREBRAS_API_KEY', '');
@@ -360,5 +376,85 @@ describe('saveSEOSettings', () => {
     expect(builder.eq).toHaveBeenCalledWith('merchant_id', MERCHANT_ID);
     expect(mocks.revalidatePath).toHaveBeenCalledWith('/dashboard/seo');
     expect(result).toEqual({ success: true, updated: 1, failed: 0 });
+  });
+
+  it('revalidates active products after successful SEO writes', async () => {
+    authenticate();
+    const updateBuilder = createQueryBuilder({ data: null });
+    const publicProductsBuilder = createQueryBuilder({
+      data: [
+        {
+          id: PRODUCT_ID,
+          slug: 'leather-tote',
+          name: product.name,
+          category: 'Bags',
+          categories: null,
+          product_categories: [],
+        },
+      ],
+    });
+    const merchantBuilder = createQueryBuilder({
+      data: { slug: 'test-store' },
+    });
+    mocks.from
+      .mockReturnValueOnce(updateBuilder)
+      .mockReturnValueOnce(publicProductsBuilder)
+      .mockReturnValueOnce(merchantBuilder);
+
+    const result = await saveSEOSettings(MERCHANT_ID, [validOptimization]);
+
+    expect(result).toEqual({ success: true, updated: 1, failed: 0 });
+    expect(mocks.revalidateProducts).toHaveBeenCalledWith(
+      MERCHANT_ID,
+      undefined,
+      { feedScope: 'merchant' }
+    );
+    expect(mocks.revalidateProductSlugs).toHaveBeenCalledWith(MERCHANT_ID, [
+      'leather-tote',
+    ]);
+  });
+
+  it('revalidates only fulfilled active SEO writes when the batch partially fails', async () => {
+    authenticate();
+    const successfulUpdateBuilder = createQueryBuilder({ data: null });
+    const failedUpdateBuilder = createQueryBuilder({
+      error: { message: 'write failed' },
+    });
+    const publicProductsBuilder = createQueryBuilder({
+      data: [
+        {
+          id: PRODUCT_ID,
+          slug: 'leather-tote',
+          name: product.name,
+          category: 'Bags',
+          categories: null,
+          product_categories: [],
+        },
+      ],
+    });
+    const merchantBuilder = createQueryBuilder({
+      data: { slug: 'test-store' },
+    });
+    mocks.from
+      .mockReturnValueOnce(successfulUpdateBuilder)
+      .mockReturnValueOnce(failedUpdateBuilder)
+      .mockReturnValueOnce(publicProductsBuilder)
+      .mockReturnValueOnce(merchantBuilder);
+
+    const result = await saveSEOSettings(MERCHANT_ID, [
+      validOptimization,
+      { ...validOptimization, productId: SECOND_PRODUCT_ID },
+    ]);
+
+    expect(result).toEqual({
+      success: true,
+      updated: 1,
+      failed: 1,
+      message: 'Updated 1 products, 1 failed',
+    });
+    expect(mocks.revalidateProductSlugs).toHaveBeenCalledWith(MERCHANT_ID, [
+      'leather-tote',
+    ]);
+    expect(publicProductsBuilder.in).toHaveBeenCalledWith('id', [PRODUCT_ID]);
   });
 });
