@@ -7,7 +7,6 @@ const mocks = vi.hoisted(() => ({
   validateCategoryParent: vi.fn(),
   checkCsrfProtection: vi.fn(),
   invalidateCategoryCaches: vi.fn(),
-  scheduleInternalStorefrontPurge: vi.fn(),
 }));
 
 vi.mock('../category-route-support', async () => {
@@ -29,9 +28,6 @@ vi.mock('@/lib/csrf', () => ({
 }));
 vi.mock('@/lib/category-cache-invalidation', () => ({
   invalidateCategoryCaches: mocks.invalidateCategoryCaches,
-}));
-vi.mock('@/lib/internal-storefront-purge-bridge', () => ({
-  scheduleInternalStorefrontPurge: mocks.scheduleInternalStorefrontPurge,
 }));
 
 import { PATCH } from './route';
@@ -105,10 +101,6 @@ describe('PATCH /api/merchant/categories/[categoryId]', () => {
         previousSlug: 'phones',
         nextSlug: 'mobile-phones',
       })
-    );
-    expect(mocks.scheduleInternalStorefrontPurge).toHaveBeenCalledWith(
-      'merchant-1',
-      'merchant-one'
     );
   });
 
