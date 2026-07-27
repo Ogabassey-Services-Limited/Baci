@@ -30,13 +30,17 @@ function clientWithResults(
 describe('resolveCategoryOwnerAccess', () => {
   it('returns the selected owned merchant', async () => {
     const { client, ownerQuery } = clientWithResults(
-      { data: { id: 'merchant-1' }, error: null },
+      { data: { id: 'merchant-1', slug: 'merchant-one' }, error: null },
       { data: null, error: null }
     );
 
     await expect(
       resolveCategoryOwnerAccess(client as never, 'user-1', 'merchant-1')
-    ).resolves.toEqual({ kind: 'owner', merchantId: 'merchant-1' });
+    ).resolves.toEqual({
+      kind: 'owner',
+      canonicalMerchantSlug: 'merchant-one',
+      merchantId: 'merchant-1',
+    });
     expect(ownerQuery.eq).toHaveBeenCalledWith('id', 'merchant-1');
   });
 

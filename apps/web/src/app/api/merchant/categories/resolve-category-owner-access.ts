@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type CategoryOwnerAccessResult =
-  | { kind: 'owner'; merchantId: string }
+  | { kind: 'owner'; canonicalMerchantSlug: string | null; merchantId: string }
   | { kind: 'staff' }
   | { kind: 'absent' }
   | { kind: 'lookup-failed' };
@@ -19,7 +19,7 @@ export async function resolveCategoryOwnerAccess(
 ): Promise<CategoryOwnerAccessResult> {
   let ownerQuery = supabase
     .from('merchants')
-    .select('id')
+    .select('id, slug')
     .eq('user_id', userId);
 
   ownerQuery = requestedMerchantId
@@ -29,9 +29,17 @@ export async function resolveCategoryOwnerAccess(
         .order('id', { ascending: true })
         .limit(1);
 
-  const owner = await ownerQuery.maybeSingle<{ id: string }>();
+  const owner = await ownerQuery.maybeSingle<{
+    id: string;
+    slug: string | null;
+  }>();
   if (owner.error) return { kind: 'lookup-failed' };
-  if (owner.data) return { kind: 'owner', merchantId: owner.data.id };
+  if (owner.data)
+    return {
+      kind: 'owner',
+      canonicalMerchantSlug: owner.data.slug,
+      merchantId: owner.data.id,
+    };
 
   let staffQuery = supabase
     .from('staff_members')

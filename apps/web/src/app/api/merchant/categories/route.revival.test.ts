@@ -89,7 +89,11 @@ function setContext(supabase: unknown) {
   });
   mocks.resolveCategoryRouteContext.mockResolvedValue({
     ok: true,
-    context: { merchantId: MERCHANT_ID, supabase },
+    context: {
+      canonicalMerchantSlug: 'merchant-one',
+      merchantId: MERCHANT_ID,
+      supabase,
+    },
   });
 }
 
@@ -109,7 +113,10 @@ describe('POST category parent and tombstone behavior', () => {
     setContext(supabaseInserting());
     mocks.checkCsrfProtection.mockResolvedValue({ valid: true });
     mocks.validateCategoryParent.mockResolvedValue(null);
-    mocks.invalidateCategoryCaches.mockReturnValue({ revalidated: true });
+    mocks.invalidateCategoryCaches.mockResolvedValue({
+      revalidated: true,
+      vercelEvicted: true,
+    });
   });
 
   it('propagates a parent refusal verbatim', async () => {

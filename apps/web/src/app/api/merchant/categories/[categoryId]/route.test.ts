@@ -34,6 +34,7 @@ import { PATCH } from './route';
 import {
   CATEGORY_ID,
   createCategoryRouteTestHarness,
+  createDeferred,
 } from './route.test-support';
 
 const PARENT_ID = '11111111-1111-4111-8111-111111111111';
@@ -66,10 +67,33 @@ describe('PATCH /api/merchant/categories/[categoryId]', () => {
   });
 
   it('renames and invalidates BOTH the old and new slug', async () => {
-    const response = await PATCH(
+    const invalidation = createDeferred<{
+      revalidatedSlugs: string[];
+      revalidated: boolean;
+      vercelEvicted: boolean;
+    }>();
+    mocks.invalidateCategoryCaches.mockReturnValueOnce(invalidation.promise);
+
+    const responsePromise = PATCH(
       patchRequest({ slug: 'mobile-phones' }),
       params()
     );
+    await vi.waitFor(() =>
+      expect(mocks.invalidateCategoryCaches).toHaveBeenCalledOnce()
+    );
+    let responseSettled = false;
+    void responsePromise.then(() => {
+      responseSettled = true;
+    });
+    await Promise.resolve();
+    expect(responseSettled).toBe(false);
+
+    invalidation.resolve({
+      revalidatedSlugs: ['phones', 'mobile-phones'],
+      revalidated: true,
+      vercelEvicted: true,
+    });
+    const response = await responsePromise;
 
     expect(response.status).toBe(200);
     expect(mocks.invalidateCategoryCaches).toHaveBeenCalledWith(

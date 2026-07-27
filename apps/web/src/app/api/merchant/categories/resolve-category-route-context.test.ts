@@ -17,6 +17,7 @@ describe('resolveCategoryRouteContext', () => {
   it('returns the selected merchant for its owner', async () => {
     resolveCategoryOwnerAccess.mockResolvedValue({
       kind: 'owner',
+      canonicalMerchantSlug: 'merchant-one',
       merchantId: 'merchant-1',
     });
 
@@ -24,7 +25,10 @@ describe('resolveCategoryRouteContext', () => {
 
     expect(result).toMatchObject({
       ok: true,
-      context: { merchantId: 'merchant-1' },
+      context: {
+        canonicalMerchantSlug: 'merchant-one',
+        merchantId: 'merchant-1',
+      },
     });
     expect(resolveCategoryOwnerAccess).toHaveBeenCalledWith(
       expect.anything(),

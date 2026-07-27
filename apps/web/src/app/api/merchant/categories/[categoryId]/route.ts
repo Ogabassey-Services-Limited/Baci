@@ -20,7 +20,6 @@ import { validateCategoryParent } from '../validate-category-parent';
 interface RouteParams {
   params: Promise<{ categoryId: string }>;
 }
-
 /**
  * Rename / edit / deactivate a category (B1-lite).
  *
@@ -83,7 +82,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   if (!resolution.ok) {
     return resolution.response;
   }
-  const { merchantId, supabase } = resolution.context;
+  const { canonicalMerchantSlug, merchantId, supabase } = resolution.context;
 
   if (parsed.data.parentId) {
     const parentRefusal = await validateCategoryParent({
@@ -121,7 +120,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   if (!existing) {
     return NextResponse.json({ error: 'Category not found' }, { status: 404 });
   }
-
   const resultingIsActive = parsed.data.isActive ?? existing.is_active;
   if (resultingIsActive === true) {
     const resultingSlug = categorySlugSchema.safeParse(
@@ -143,7 +141,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     parsed.data,
     new Date().toISOString()
   );
-
   const childSlugs =
     parsed.data.isActive === false
       ? await getCategoryChildSlugs(supabase, merchantId, categoryId.data)
@@ -180,12 +177,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       { status: 409 }
     );
   }
-
-  const invalidation = invalidateCategoryCaches({
+  const invalidation = await invalidateCategoryCaches({
+    canonicalMerchantSlug,
     merchantId,
     previousSlug: existing.slug,
     nextSlug: data.slug,
     relatedSlugs: childSlugs.slugs,
+    supabase,
   });
 
   return NextResponse.json({
@@ -256,7 +254,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   if (!resolution.ok) {
     return resolution.response;
   }
-  const { merchantId, supabase } = resolution.context;
+  const { canonicalMerchantSlug, merchantId, supabase } = resolution.context;
 
   const retiredAt = new Date().toISOString();
   const childSlugs = await getCategoryChildSlugs(
@@ -285,10 +283,12 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Category not found' }, { status: 404 });
   }
 
-  const invalidation = invalidateCategoryCaches({
+  const invalidation = await invalidateCategoryCaches({
+    canonicalMerchantSlug,
     merchantId,
     previousSlug: retired.slug,
     relatedSlugs: childSlugs.slugs,
+    supabase,
   });
 
   return NextResponse.json({

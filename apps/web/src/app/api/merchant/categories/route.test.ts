@@ -34,6 +34,7 @@ const OTHER_MERCHANT = '33333333-3333-4333-8333-333333333333';
 
 /** Captures the row handed to `.insert()` so sanitization can be asserted. */
 let insertedRow: Record<string, unknown> | null = null;
+let activeSupabase: ReturnType<typeof supabaseInserting>;
 
 function supabaseInserting() {
   return {
@@ -66,6 +67,7 @@ function setContext(supabase: unknown) {
   mocks.resolveCategoryRouteContext.mockResolvedValue({
     ok: true,
     context: {
+      canonicalMerchantSlug: 'merchant-one',
       merchantId: MERCHANT_ID,
       supabase,
     },
@@ -82,28 +84,66 @@ function postRequest(body: unknown) {
 
 const VALID_BODY = { name: 'Phones', slug: 'phones' };
 
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+}
+
 describe('POST /api/merchant/categories', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     insertedRow = null;
-    setContext(supabaseInserting());
+    activeSupabase = supabaseInserting();
+    setContext(activeSupabase);
     mocks.checkCsrfProtection.mockResolvedValue({ valid: true });
     mocks.validateCategoryParent.mockResolvedValue(null);
-    mocks.invalidateCategoryCaches.mockReturnValue({
+    mocks.invalidateCategoryCaches.mockResolvedValue({
       revalidatedSlugs: ['phones'],
       revalidated: true,
+      vercelEvicted: true,
     });
   });
 
   it('creates the category and invalidates the new slug', async () => {
-    const response = await POST(postRequest(VALID_BODY));
+    const invalidation = createDeferred<{
+      revalidatedSlugs: string[];
+      revalidated: boolean;
+      vercelEvicted: boolean;
+    }>();
+    mocks.invalidateCategoryCaches.mockReturnValueOnce(invalidation.promise);
+
+    const responsePromise = POST(postRequest(VALID_BODY));
+    await vi.waitFor(() =>
+      expect(mocks.invalidateCategoryCaches).toHaveBeenCalledOnce()
+    );
+    let responseSettled = false;
+    void responsePromise.then(() => {
+      responseSettled = true;
+    });
+    await Promise.resolve();
+    expect(responseSettled).toBe(false);
+
+    invalidation.resolve({
+      revalidatedSlugs: ['phones'],
+      revalidated: true,
+      vercelEvicted: true,
+    });
+    const response = await responsePromise;
 
     expect(response.status).toBe(201);
     await expect(response.json()).resolves.toMatchObject({
       category: { id: 'cat-1', slug: 'phones' },
     });
     expect(mocks.invalidateCategoryCaches).toHaveBeenCalledWith(
-      expect.objectContaining({ merchantId: MERCHANT_ID, nextSlug: 'phones' })
+      expect.objectContaining({
+        canonicalMerchantSlug: 'merchant-one',
+        merchantId: MERCHANT_ID,
+        nextSlug: 'phones',
+        supabase: activeSupabase,
+      })
     );
   });
 
