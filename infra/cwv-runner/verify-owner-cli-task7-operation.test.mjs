@@ -31,9 +31,12 @@ test('reads the private auditor App registration through an App JWT', async () =
   );
   assert.doesNotMatch(source, /\/usr\/bin\/printf '%s' "\$jwt"/);
   assert.match(source, /Authorization:`Bearer \$\{jwt\}`/);
-  assert.match(source, /bytes>1048576\)\{fail\(\);request\.destroy\(\)/);
   assert.match(source, /const deadline=setTimeout\(.*30000\)/);
   assert.match(source, /clearTimeout\(deadline\)/);
+  assert.match(
+    source,
+    /bytes>1048576\)\{clearTimeout\(deadline\);fail\(\);request\.destroy\(\)/
+  );
   assert.doesNotMatch(source, /\/repos\/\$REPOSITORY\/installation/);
   assert.doesNotMatch(
     source,
