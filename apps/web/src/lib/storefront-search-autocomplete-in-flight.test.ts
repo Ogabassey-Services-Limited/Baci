@@ -167,22 +167,16 @@ describe('bugfix: bounded autocomplete in-flight requests', () => {
       )
     ).toBe(true);
 
-    const overflow = getStorefrontAutocompleteProducts({
-      supabase,
-      merchantId: MERCHANT_ID,
-      query: 'overflow-lookup',
-      limit: 10,
-    });
-    let overflowRejection: unknown;
-    void overflow.catch((error: unknown) => {
-      overflowRejection = error;
-    });
-
-    await vi.advanceTimersByTimeAsync(0);
-
-    expect(overflowRejection).toMatchObject({
-      code: '57014',
-      name: 'AutocompleteInFlightTimeoutError',
+    await expect(
+      getStorefrontAutocompleteProducts({
+        supabase,
+        merchantId: MERCHANT_ID,
+        query: 'overflow-lookup',
+        limit: 10,
+      })
+    ).rejects.toMatchObject({
+      code: 'autocomplete_saturated',
+      name: 'AutocompleteSaturationError',
     });
     expect(supabase.rpc).toHaveBeenCalledTimes(256);
 

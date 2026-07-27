@@ -90,11 +90,11 @@ test('syncs both production credentials with exact argv and stdin-only values', 
     );
     assert.equal(
       readFileSync(join(runtime.stdinDirectory, 'CLOUDFLARE_API_TOKEN'), 'utf8'),
-      `${API_TOKEN}\n`,
+      API_TOKEN,
     );
     assert.equal(
       readFileSync(join(runtime.stdinDirectory, 'CLOUDFLARE_ZONE_ID'), 'utf8'),
-      `${ZONE_ID}\n`,
+      ZONE_ID,
     );
     assert.doesNotMatch(`${result.stdout}${result.stderr}`, new RegExp(API_TOKEN));
     assert.doesNotMatch(`${result.stdout}${result.stderr}`, new RegExp(ZONE_ID));

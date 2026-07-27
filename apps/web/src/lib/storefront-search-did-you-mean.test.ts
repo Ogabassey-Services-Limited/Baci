@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { logger } from './logger';
+import type { StorefrontSearchSupabase } from './storefront-search';
 import { findStorefrontSearchDidYouMean } from './storefront-search-did-you-mean';
 
 vi.mock('./logger', () => ({
@@ -17,11 +18,11 @@ describe('findStorefrontSearchDidYouMean', () => {
         data: [{ suggested_term: 'iphone' }],
         error: null,
       }),
-    };
+    } satisfies StorefrontSearchSupabase;
 
     await expect(
       findStorefrontSearchDidYouMean({
-        supabase: supabase as never,
+        supabase,
         merchantId: MERCHANT_ID,
         query: 'iphon',
       })
@@ -40,11 +41,11 @@ describe('findStorefrontSearchDidYouMean', () => {
     const lookupError = { message: 'suggestion rpc exploded' };
     const supabase = {
       rpc: vi.fn().mockResolvedValue({ data: null, error: lookupError }),
-    };
+    } satisfies StorefrontSearchSupabase;
 
     await expect(
       findStorefrontSearchDidYouMean({
-        supabase: supabase as never,
+        supabase,
         merchantId: MERCHANT_ID,
         query: 'iphon',
       })
@@ -56,5 +57,23 @@ describe('findStorefrontSearchDidYouMean', () => {
       merchantId: MERCHANT_ID,
       query: 'iphon',
     });
+  });
+
+  it.each([
+    [null],
+    ['iphone'],
+    [{ suggested_term: 42 }],
+  ])('returns no suggestion for a malformed RPC row: %j', async (row) => {
+    const supabase = {
+      rpc: vi.fn().mockResolvedValue({ data: [row], error: null }),
+    } satisfies StorefrontSearchSupabase;
+
+    await expect(
+      findStorefrontSearchDidYouMean({
+        supabase,
+        merchantId: MERCHANT_ID,
+        query: 'iphon',
+      })
+    ).resolves.toBeNull();
   });
 });

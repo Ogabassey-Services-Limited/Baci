@@ -5,7 +5,7 @@ import {
   type StorefrontSearchSupabase,
   searchStorefrontProducts,
 } from '@/lib/storefront-search';
-import { withAutocompleteInFlightDeadline } from './storefront-search-autocomplete-in-flight';
+import { runBoundedAutocompleteRequest } from './storefront-search-autocomplete-request';
 
 const AUTOCOMPLETE_PRODUCT_SELECT = 'id, name, category, price, images, slug';
 const MAX_AUTOCOMPLETE_LIMIT = 100;
@@ -14,7 +14,16 @@ const AUTOCOMPLETE_CACHE_TTL_MS = 5_000;
 const MAX_AUTOCOMPLETE_CACHE_ENTRIES = 256;
 const AUTOCOMPLETE_IN_FLIGHT_TIMEOUT_MS = 5_000;
 const MAX_AUTOCOMPLETE_IN_FLIGHT_ENTRIES = 256;
-const AUTOCOMPLETE_SATURATION_TIMEOUT_MS = 0;
+export const AUTOCOMPLETE_SATURATED_CODE = 'autocomplete_saturated';
+
+class AutocompleteSaturationError extends Error {
+  readonly code = AUTOCOMPLETE_SATURATED_CODE;
+
+  constructor() {
+    super('Autocomplete request capacity is temporarily exhausted');
+    this.name = 'AutocompleteSaturationError';
+  }
+}
 
 interface AutocompleteProductRow {
   id: string;
@@ -248,21 +257,13 @@ export async function getStorefrontAutocompleteProducts({
     return cachedResponse;
   }
 
-  const existingRequest = autocompleteInFlight.get(cacheKey);
-  if (existingRequest) {
-    return existingRequest;
-  }
-
-  if (autocompleteInFlight.size >= MAX_AUTOCOMPLETE_IN_FLIGHT_ENTRIES) {
-    return withAutocompleteInFlightDeadline(
-      () => new Promise<AutocompleteResponse>(() => undefined),
-      AUTOCOMPLETE_SATURATION_TIMEOUT_MS
-    );
-  }
-
-  let request: Promise<AutocompleteResponse>;
-  request = withAutocompleteInFlightDeadline(
-    (signal) =>
+  return await runBoundedAutocompleteRequest({
+    cacheKey,
+    createSaturationError: () => new AutocompleteSaturationError(),
+    inFlight: autocompleteInFlight,
+    maxEntries: MAX_AUTOCOMPLETE_IN_FLIGHT_ENTRIES,
+    onSuccess: (response) => cacheAutocompleteResponse(cacheKey, response),
+    operation: (signal) =>
       fetchStorefrontAutocompleteProducts({
         supabase,
         merchantId,
@@ -270,16 +271,6 @@ export async function getStorefrontAutocompleteProducts({
         limit,
         signal,
       }),
-    AUTOCOMPLETE_IN_FLIGHT_TIMEOUT_MS,
-    () => {
-      if (autocompleteInFlight.get(cacheKey) === request) {
-        autocompleteInFlight.delete(cacheKey);
-      }
-    }
-  );
-  autocompleteInFlight.set(cacheKey, request);
-
-  const response = await request;
-  cacheAutocompleteResponse(cacheKey, response);
-  return response;
+    timeoutMs: AUTOCOMPLETE_IN_FLIGHT_TIMEOUT_MS,
+  });
 }
