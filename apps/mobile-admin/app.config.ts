@@ -142,6 +142,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   android: {
     package: 'com.ogabassey.baci',
     versionCode: _androidVersionCode ?? 9,
+    // expo-tracking-transparency adds AD_ID for its optional Android
+    // getAdvertisingId API. Baci only invokes its ATT APIs on iOS, so remove
+    // the transitive Android permission to keep the Play declaration accurate.
+    blockedPermissions: ['com.google.android.gms.permission.AD_ID'],
     adaptiveIcon: {
       foregroundImage: './assets/images/adaptive-icon.png',
       backgroundColor: '#f0bf58',

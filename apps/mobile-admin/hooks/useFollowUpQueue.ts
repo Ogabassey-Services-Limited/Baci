@@ -12,6 +12,7 @@ export function useFollowUpQueue() {
   const queryClient = useQueryClient();
   const {
     merchant,
+    isFetching: isMerchantFetching,
     isLoading: isMerchantLoading,
     error: merchantError,
   } = useMerchant();
@@ -44,11 +45,15 @@ export function useFollowUpQueue() {
     await Promise.allSettled(refreshes);
   };
 
+  // `isLoading` only covers the first merchant request. Refreshing a merchant
+  // context that has cached data sets React Query's `isFetching` instead, so
+  // this must combine both sides of the Follow Up refresh.
+  const isRefreshing = isMerchantFetching || isFetchingFailed;
+
   return {
     failedOrders,
     isFailedOrdersError,
-    isFetchingFailed,
-    isLoadingFailed,
+    isRefreshing,
     merchant,
     refresh,
     viewState,

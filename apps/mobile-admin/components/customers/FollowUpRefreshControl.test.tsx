@@ -29,6 +29,9 @@ vi.mock('@shopify/flash-list', async () => {
       const onRefresh = React.isValidElement(refreshControl)
         ? (refreshControl.props as { onRefresh?: () => void }).onRefresh
         : undefined;
+      const refreshing = React.isValidElement(refreshControl)
+        ? (refreshControl.props as { refreshing?: boolean }).refreshing
+        : undefined;
 
       return React.createElement(
         React.Fragment,
@@ -37,6 +40,7 @@ vi.mock('@shopify/flash-list', async () => {
           'button',
           {
             'aria-label': 'Refresh follow-ups',
+            'data-refreshing': String(Boolean(refreshing)),
             onClick: onRefresh,
             type: 'button',
           },
@@ -189,5 +193,41 @@ describe('CustomersScreen Follow Up pull-to-refresh', () => {
 
     expect(screen.getByText('No matching follow-ups')).toBeTruthy();
     expect(screen.queryByText('No issues')).toBeNull();
+  });
+
+  it('shows pull-to-refresh progress while a cached merchant context revalidates', () => {
+    mocks.useMerchant.mockReturnValue({
+      error: null,
+      isFetching: true,
+      isLoading: false,
+      merchant: { id: 'merchant-1', payout_currency: 'NGN' },
+    });
+    mocks.useFailedOrders.mockReturnValue({
+      data: [
+        {
+          attempt_count: 1,
+          created_at: '2026-07-27T08:00:00.000Z',
+          customer_email: 'ada@example.test',
+          customer_id: 'customer-1',
+          customer_name: 'Ada Buyer',
+          customer_phone: '+2348012345678',
+          id: 'order-1',
+          order_number: 'ORD-001',
+          payment_method: 'card',
+          payment_status: 'failed',
+          total: 15000,
+        },
+      ],
+      isError: false,
+      isFetching: false,
+      isLoading: false,
+      refetch: mocks.refetchFailed,
+    });
+
+    render(<CustomersScreen />);
+
+    expect(
+      screen.getByRole('button', { name: 'Refresh follow-ups' })
+    ).toHaveAttribute('data-refreshing', 'true');
   });
 });
