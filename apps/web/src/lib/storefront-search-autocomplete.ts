@@ -1,9 +1,16 @@
 import { getPrimaryProductImage } from '@/lib/product-image';
-import type { StorefrontSearchSupabase } from '@/lib/storefront-search';
-import { searchStorefrontProducts } from '@/lib/storefront-search';
+import { isValidUuid, sanitizeSearchQuery } from '@/lib/sanitize-core';
+import {
+  InvalidMerchantIdError,
+  type StorefrontSearchSupabase,
+  searchStorefrontProducts,
+} from '@/lib/storefront-search';
 
 const AUTOCOMPLETE_PRODUCT_SELECT = 'id, name, category, price, images, slug';
 const MAX_AUTOCOMPLETE_LIMIT = 100;
+const AUTOCOMPLETE_CACHE_VERSION = 'v1';
+const AUTOCOMPLETE_CACHE_TTL_MS = 5_000;
+const MAX_AUTOCOMPLETE_CACHE_ENTRIES = 256;
 
 interface AutocompleteProductRow {
   id: string;
@@ -46,6 +53,14 @@ export interface AutocompleteResponse {
   popularSearches: Array<{ search_query: string; search_count: number }>;
 }
 
+interface AutocompleteCacheEntry {
+  expiresAt: number;
+  response: AutocompleteResponse;
+}
+
+const autocompleteCache = new Map<string, AutocompleteCacheEntry>();
+const autocompleteInFlight = new Map<string, Promise<AutocompleteResponse>>();
+
 function getImageSmall(images: unknown): string | null {
   // Catalog images may be plain string URLs or `{ url, alt, order }` objects;
   // reuse the shared resolver so autocomplete thumbnails match the storefront.
@@ -54,7 +69,59 @@ function getImageSmall(images: unknown): string | null {
   );
 }
 
-export async function getStorefrontAutocompleteProducts({
+function normalizeAutocompleteQuery(query: string) {
+  return sanitizeSearchQuery(query).replace(/\s+/g, ' ').toLowerCase();
+}
+
+function getAutocompleteCacheKey({
+  merchantId,
+  normalizedQuery,
+  limit,
+}: {
+  merchantId: string;
+  normalizedQuery: string;
+  limit: number;
+}) {
+  return `${AUTOCOMPLETE_CACHE_VERSION}:${merchantId}:${normalizedQuery}:${limit}`;
+}
+
+function getCachedAutocompleteResponse(cacheKey: string) {
+  const entry = autocompleteCache.get(cacheKey);
+  if (!entry) {
+    return undefined;
+  }
+
+  if (entry.expiresAt <= Date.now()) {
+    autocompleteCache.delete(cacheKey);
+    return undefined;
+  }
+
+  // Re-inserting on a hit keeps the map in least-recently-used order.
+  autocompleteCache.delete(cacheKey);
+  autocompleteCache.set(cacheKey, entry);
+  return entry.response;
+}
+
+function cacheAutocompleteResponse(
+  cacheKey: string,
+  response: AutocompleteResponse
+) {
+  autocompleteCache.delete(cacheKey);
+  autocompleteCache.set(cacheKey, {
+    expiresAt: Date.now() + AUTOCOMPLETE_CACHE_TTL_MS,
+    response,
+  });
+
+  while (autocompleteCache.size > MAX_AUTOCOMPLETE_CACHE_ENTRIES) {
+    const oldestCacheKey = autocompleteCache.keys().next().value;
+    if (oldestCacheKey === undefined) {
+      break;
+    }
+    autocompleteCache.delete(oldestCacheKey);
+  }
+}
+
+async function fetchStorefrontAutocompleteProducts({
   supabase,
   merchantId,
   query,
@@ -65,20 +132,12 @@ export async function getStorefrontAutocompleteProducts({
   query: string;
   limit: number;
 }): Promise<AutocompleteResponse> {
-  const trimmedQuery = query.trim();
-  if (trimmedQuery.length < 2) {
-    return { suggestions: [], popularSearches: [] };
-  }
-
-  if (!Number.isInteger(limit) || limit < 1 || limit > MAX_AUTOCOMPLETE_LIMIT) {
-    throw new Error(`limit must be between 1 and ${MAX_AUTOCOMPLETE_LIMIT}`);
-  }
-
   const ranked = await searchStorefrontProducts({
     supabase,
     merchantId,
-    query: trimmedQuery,
+    query,
     limit,
+    includeDidYouMean: false,
     trackAnalytics: false,
   });
 
@@ -117,4 +176,60 @@ export async function getStorefrontAutocompleteProducts({
     );
 
   return { suggestions, popularSearches: [] };
+}
+
+export async function getStorefrontAutocompleteProducts({
+  supabase,
+  merchantId,
+  query,
+  limit,
+}: {
+  supabase: AutocompleteSupabase;
+  merchantId: string;
+  query: string;
+  limit: number;
+}): Promise<AutocompleteResponse> {
+  const sanitizedQuery = sanitizeSearchQuery(query);
+  if (sanitizedQuery.length < 2) {
+    return { suggestions: [], popularSearches: [] };
+  }
+
+  if (!Number.isInteger(limit) || limit < 1 || limit > MAX_AUTOCOMPLETE_LIMIT) {
+    throw new Error(`limit must be between 1 and ${MAX_AUTOCOMPLETE_LIMIT}`);
+  }
+
+  if (!isValidUuid(merchantId)) {
+    throw new InvalidMerchantIdError();
+  }
+
+  const cacheKey = getAutocompleteCacheKey({
+    merchantId,
+    normalizedQuery: normalizeAutocompleteQuery(sanitizedQuery),
+    limit,
+  });
+  const cachedResponse = getCachedAutocompleteResponse(cacheKey);
+  if (cachedResponse) {
+    return cachedResponse;
+  }
+
+  const existingRequest = autocompleteInFlight.get(cacheKey);
+  if (existingRequest) {
+    return existingRequest;
+  }
+
+  const request = fetchStorefrontAutocompleteProducts({
+    supabase,
+    merchantId,
+    query: sanitizedQuery,
+    limit,
+  });
+  autocompleteInFlight.set(cacheKey, request);
+
+  try {
+    const response = await request;
+    cacheAutocompleteResponse(cacheKey, response);
+    return response;
+  } finally {
+    autocompleteInFlight.delete(cacheKey);
+  }
 }
