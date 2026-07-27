@@ -3,6 +3,7 @@ import { withPostHogConfig } from '@posthog/nextjs-config';
 import type { NextConfig } from 'next';
 import { OGABASSEY_DOCUMENT_LINK_HEADER_VALUE } from './src/config/early-hints-link-header';
 import { applyNextDeploymentIdEnv } from './src/config/next-deployment-id';
+import { STATIC_GENERATION_LIMITS } from './src/config/static-generation';
 import {
   STOREFRONT_METADATA_BLOCKING_BOT_USER_AGENT_REGEX,
   STOREFRONT_METADATA_CACHE_BUCKET_HEADER,
@@ -322,6 +323,8 @@ const nextConfig: NextConfig = {
   },
 
   experimental: {
+    ...STATIC_GENERATION_LIMITS,
+
     // SRI (Subresource Integrity) temporarily disabled
     // Causes ENOENT subresource-integrity-manifest.json in Vercel CLI deploys
     // Re-enable when Vercel monorepo support for SRI is stable
