@@ -1,18 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { generateTextWithChain } from '@/ai/generate-text-with-chain';
+import { generatedSEOContentSchema } from '@/schemas/generated-seo-content';
+import type { Database } from '@/types/supabase';
 import { analyzeSEO, type SEOOptimization } from './seo-analysis';
 
-interface GeneratedSEOContent {
-  meta_title: string;
-  meta_description: string;
-  keywords: string[];
-  focus_keyword: string;
-  suggestions?: string[];
-}
-
-function parseGeneratedSEOContent(response: string): GeneratedSEOContent {
+function parseGeneratedSEOContent(response: string) {
+  let parsedResponse: unknown;
   try {
-    return JSON.parse(response) as GeneratedSEOContent;
+    parsedResponse = JSON.parse(response);
   } catch {
     const jsonMatch =
       response.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/) ||
@@ -20,8 +15,14 @@ function parseGeneratedSEOContent(response: string): GeneratedSEOContent {
     if (!jsonMatch) {
       throw new Error('Invalid JSON response');
     }
-    return JSON.parse(jsonMatch[1] || jsonMatch[0]) as GeneratedSEOContent;
+    parsedResponse = JSON.parse(jsonMatch[1] || jsonMatch[0]);
   }
+
+  const parsed = generatedSEOContentSchema.safeParse(parsedResponse);
+  if (!parsed.success) {
+    throw new Error('Invalid generated SEO response');
+  }
+  return parsed.data;
 }
 
 function buildSEOGenerationPrompt(product: {
@@ -34,7 +35,7 @@ function buildSEOGenerationPrompt(product: {
   return `You are an expert SEO specialist for Nigerian e-commerce. Generate optimized SEO content for this product:
 
 Product Name: ${product.name}
-Description: ${product.description}
+Description: ${product.description ?? 'No description provided'}
 Category: ${product.category || 'General'}
 Brand: ${product.brand || 'N/A'}
 Price: ${product.price ? `₦${product.price.toLocaleString()}` : 'Contact for price'}
@@ -60,7 +61,7 @@ Return ONLY valid JSON, no markdown or explanation.`;
 }
 
 export async function generateSEOSuggestionsForMerchant(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   merchantId: string,
   productIds: string[]
 ): Promise<SEOOptimization[]> {
@@ -96,9 +97,9 @@ export async function generateSEOSuggestionsForMerchant(
         productId: product.id,
         productName: product.name,
         original: {
-          meta_title: product.meta_title,
-          meta_description: product.meta_description,
-          keywords: product.keywords,
+          meta_title: product.meta_title ?? undefined,
+          meta_description: product.meta_description ?? undefined,
+          keywords: product.keywords ?? undefined,
         },
         optimized: {
           meta_title: parsed.meta_title,

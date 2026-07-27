@@ -85,6 +85,22 @@ CREATE TABLE public.product_variants (
   primary_image text, price_override numeric, variant_key text,
   inventory_tracking_policy text, is_inventory_anchor boolean DEFAULT false
 );
+CREATE TABLE public.product_offers (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  product_id uuid NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+  merchant_id uuid NOT NULL REFERENCES public.merchants(id) ON DELETE CASCADE,
+  condition text NOT NULL,
+  price numeric NOT NULL,
+  stock_quantity integer NOT NULL DEFAULT 0,
+  status text DEFAULT 'active'
+);
+CREATE TABLE public.product_key_specs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  product_id uuid NOT NULL UNIQUE REFERENCES public.products(id) ON DELETE CASCADE,
+  chipset text,
+  ram_gb integer,
+  storage_gb integer
+);
 CREATE TABLE public.product_categories (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   product_id uuid NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,

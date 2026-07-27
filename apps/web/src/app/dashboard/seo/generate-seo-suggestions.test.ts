@@ -31,7 +31,7 @@ describe('generateSEOSuggestionsForMerchant', () => {
       {
         id: 'product-1',
         name: 'Leather Tote Bag',
-        description: 'A leather tote for everyday use.',
+        description: null,
         category: 'Bags',
         brand: 'Baci',
         price: 25000,
@@ -49,10 +49,65 @@ describe('generateSEOSuggestionsForMerchant', () => {
 
     expect(query.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
     expect(query.in).toHaveBeenCalledWith('id', ['product-1']);
+    expect(mocks.generateTextWithChain).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: expect.stringContaining('Description: No description provided'),
+      })
+    );
     expect(result[0]).toMatchObject({
       productId: 'product-1',
       productName: 'Leather Tote Bag',
       optimized: { focus_keyword: 'leather tote' },
     });
+  });
+
+  it('skips a product when generated SEO output does not match the schema', async () => {
+    mocks.generateTextWithChain.mockResolvedValue({
+      text: JSON.stringify({
+        meta_title: 'Premium Leather Tote Bag for Nigeria',
+        keywords: ['leather tote'],
+        focus_keyword: 'leather tote',
+      }),
+    });
+    const { supabase } = createSupabase([
+      {
+        id: 'product-1',
+        name: 'Leather Tote Bag',
+        description: 'A leather tote for everyday use.',
+        category: 'Bags',
+        brand: 'Baci',
+        price: 25000,
+        meta_title: null,
+        meta_description: null,
+        keywords: [],
+      },
+    ]);
+
+    await expect(
+      generateSEOSuggestionsForMerchant(supabase, 'merchant-1', ['product-1'])
+    ).resolves.toEqual([]);
+  });
+
+  it('skips a product when the SEO generation provider rejects', async () => {
+    mocks.generateTextWithChain.mockRejectedValue(
+      new Error('generation provider unavailable')
+    );
+    const { supabase } = createSupabase([
+      {
+        id: 'product-1',
+        name: 'Leather Tote Bag',
+        description: 'A leather tote for everyday use.',
+        category: 'Bags',
+        brand: 'Baci',
+        price: 25000,
+        meta_title: null,
+        meta_description: null,
+        keywords: [],
+      },
+    ]);
+
+    await expect(
+      generateSEOSuggestionsForMerchant(supabase, 'merchant-1', ['product-1'])
+    ).resolves.toEqual([]);
   });
 });

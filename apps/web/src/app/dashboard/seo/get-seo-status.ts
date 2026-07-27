@@ -1,8 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@/types/supabase';
 import { analyzeSEO, type ProductSEO, type SEOSummary } from './seo-analysis';
 
 export async function getSEOStatusForMerchant(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   merchantId: string
 ): Promise<{ products: ProductSEO[]; summary: SEOSummary | null }> {
   const { data: products, error } = await supabase
@@ -34,7 +35,7 @@ export async function getSEOStatusForMerchant(
       seoScore: qualityAnalysis.score,
       hasTitle: !!product.meta_title,
       hasDescription: !!product.meta_description,
-      hasKeywords: product.keywords && product.keywords.length > 0,
+      hasKeywords: Boolean(product.keywords?.length),
       issues: qualityAnalysis.issues,
     };
   });

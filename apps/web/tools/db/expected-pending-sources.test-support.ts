@@ -234,6 +234,11 @@ export const EXPECTED_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260727105959_archive_cross_tenant_product_category_memberships.sql',
+    sha256: '4ef89a73c4b71df4a7187ff61091de5447a3d500142c024fc82969cc79c5c1a6',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260727110000_complete_cache_invalidation_trigger_coverage.sql',
     sha256: 'fdb1e8751714cc7eff59ae88a1452e9c1cf62292bac817c30865fee716a0bbc3',
   },
@@ -246,5 +251,10 @@ export const EXPECTED_PENDING_SOURCES = [
     repositoryPath:
       'supabase/migrations/20260727170000_fix_cache_invalidation_outbox_fairness.sql',
     sha256: '95996acb8eeb804f8c63e817731fdd106955b5974cf83044784efe53b0891be8',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260727170936_add_product_offer_and_key_spec_cache_invalidation.sql',
+    sha256: '0c08f39e96aaefad73ede1037402107c8944b19398eafcb88027e614b3c7b10d',
   },
 ];

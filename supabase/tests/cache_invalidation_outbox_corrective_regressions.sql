@@ -27,6 +27,15 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'legacy cross-merchant memberships must be removed';
   END IF;
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.product_category_cross_tenant_archive AS archive
+    WHERE archive.membership_id = 'a4000000-0000-4000-8000-000000000001'
+      AND archive.product_id = 'a2000000-0000-4000-8000-000000000001'
+      AND archive.category_id = 'a3000000-0000-4000-8000-000000000001'
+  ) THEN
+    RAISE EXCEPTION 'legacy cross-merchant memberships must remain archived';
+  END IF;
   IF (SELECT generation FROM public.cache_invalidation_outbox
       WHERE merchant_id = 'a1000000-0000-4000-8000-000000000001'
         AND target_id = 'legacy-one') <> 3
