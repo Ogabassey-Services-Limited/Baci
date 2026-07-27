@@ -70,7 +70,7 @@ describe('bugfix: bounded autocomplete in-flight requests', () => {
     vi.useRealTimers();
   });
 
-  it('releases a never-settling lookup after the in-flight deadline', async () => {
+  it('keeps coalescing a timed-out key while its transport remains unsettled', async () => {
     vi.useFakeTimers();
     const supabase = createAutocompleteSupabase();
     supabase.rpc.mockReturnValue(new Promise<RankedRpcResult>(() => undefined));
@@ -93,7 +93,6 @@ describe('bugfix: bounded autocomplete in-flight requests', () => {
       name: 'AutocompleteInFlightTimeoutError',
     });
 
-    supabase.rpc.mockResolvedValue({ data: [], error: null });
     await expect(
       getStorefrontAutocompleteProducts({
         supabase,
@@ -101,11 +100,14 @@ describe('bugfix: bounded autocomplete in-flight requests', () => {
         query: 'hanging-lookup',
         limit: 10,
       })
-    ).resolves.toEqual({ suggestions: [], popularSearches: [] });
-    expect(supabase.rpc).toHaveBeenCalledTimes(2);
+    ).rejects.toMatchObject({
+      code: '57014',
+      name: 'AutocompleteInFlightTimeoutError',
+    });
+    expect(supabase.rpc).toHaveBeenCalledTimes(1);
   });
 
-  it('rejects overflow without starting an RPC and admits work after capacity releases', async () => {
+  it('keeps timed-out non-cooperative lookups at capacity until their transports settle', async () => {
     vi.useFakeTimers();
     const supabase = createAutocompleteSupabase();
     let resolveRankedSearch: ((result: RankedRpcResult) => void) | undefined;
@@ -122,6 +124,23 @@ describe('bugfix: bounded autocomplete in-flight requests', () => {
         limit: 10,
       })
     );
+    const settledPendingLookups = Promise.allSettled(pendingLookups);
+
+    await vi.advanceTimersByTimeAsync(5_001);
+
+    const timedOutResults = await settledPendingLookups;
+    expect(timedOutResults).toHaveLength(256);
+    expect(
+      timedOutResults.every(
+        (result) =>
+          result.status === 'rejected' &&
+          typeof result.reason === 'object' &&
+          result.reason !== null &&
+          'code' in result.reason &&
+          result.reason.code === '57014'
+      )
+    ).toBe(true);
+
     const overflow = getStorefrontAutocompleteProducts({
       supabase,
       merchantId: MERCHANT_ID,
@@ -142,7 +161,7 @@ describe('bugfix: bounded autocomplete in-flight requests', () => {
     expect(supabase.rpc).toHaveBeenCalledTimes(256);
 
     resolveRankedSearch?.({ data: [], error: null });
-    await Promise.all(pendingLookups);
+    await vi.advanceTimersByTimeAsync(0);
 
     await expect(
       getStorefrontAutocompleteProducts({

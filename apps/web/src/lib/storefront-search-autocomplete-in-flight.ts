@@ -12,7 +12,8 @@ function createAutocompleteInFlightTimeoutError() {
  */
 export function withAutocompleteInFlightDeadline<T>(
   operation: (signal: AbortSignal) => Promise<T>,
-  timeoutMs: number
+  timeoutMs: number,
+  onOperationSettled?: () => void
 ): Promise<T> {
   const controller = new AbortController();
   let timeout: ReturnType<typeof setTimeout> | undefined;
@@ -30,8 +31,13 @@ export function withAutocompleteInFlightDeadline<T>(
     request = Promise.reject(error);
   }
   // A deadline can win the race before a non-cooperative transport settles.
-  // Keep a late rejection explicitly handled in that case.
-  request.catch(() => undefined);
+  // Keep a late rejection explicitly handled and report the transport's actual
+  // settlement separately so callers do not release capacity on timeout alone.
+  if (onOperationSettled) {
+    void request.then(onOperationSettled, onOperationSettled);
+  } else {
+    request.catch(() => undefined);
+  }
 
   return Promise.race([request, deadline]).finally(() => {
     if (timeout !== undefined) {

@@ -257,7 +257,8 @@ export async function getStorefrontAutocompleteProducts({
     );
   }
 
-  const request = withAutocompleteInFlightDeadline(
+  let request: Promise<AutocompleteResponse>;
+  request = withAutocompleteInFlightDeadline(
     (signal) =>
       fetchStorefrontAutocompleteProducts({
         supabase,
@@ -266,17 +267,16 @@ export async function getStorefrontAutocompleteProducts({
         limit,
         signal,
       }),
-    AUTOCOMPLETE_IN_FLIGHT_TIMEOUT_MS
+    AUTOCOMPLETE_IN_FLIGHT_TIMEOUT_MS,
+    () => {
+      if (autocompleteInFlight.get(cacheKey) === request) {
+        autocompleteInFlight.delete(cacheKey);
+      }
+    }
   );
   autocompleteInFlight.set(cacheKey, request);
 
-  try {
-    const response = await request;
-    cacheAutocompleteResponse(cacheKey, response);
-    return response;
-  } finally {
-    if (autocompleteInFlight.get(cacheKey) === request) {
-      autocompleteInFlight.delete(cacheKey);
-    }
-  }
+  const response = await request;
+  cacheAutocompleteResponse(cacheKey, response);
+  return response;
 }
