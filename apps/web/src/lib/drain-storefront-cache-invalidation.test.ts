@@ -29,8 +29,8 @@ const claim = {
   generation: 2,
   merchant_id: '22222222-2222-4222-8222-222222222222',
   product_slugs: ['cache-phone', '33333333-3333-4333-8333-333333333333'],
-  related_identifiers: ['shop-one', 'shop.example.com'],
-  target_id: 'shop-one',
+  related_identifiers: ['ogabassey', 'ogabassey.com'],
+  target_id: 'ogabassey',
   target_kind: 'storefront_slug' as const,
 };
 
@@ -55,14 +55,47 @@ describe('drainStorefrontCacheInvalidation', () => {
     expect(mocks.vercel.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.cloudflare.mock.invocationCallOrder[0]
     );
-    expect(mocks.cloudflare).toHaveBeenCalledWith(['shop-one.usebaci.com']);
+    expect(mocks.cloudflare).toHaveBeenCalledWith([
+      'ogabassey.com',
+      'www.ogabassey.com',
+    ]);
     expect(mocks.vercel).toHaveBeenCalledWith(
       expect.arrayContaining([
-        'merchant-shop.example.com',
+        'merchant-ogabassey.com',
         'product-lcp-image',
         'product-lcp-image-22222222-2222-4222-8222-222222222222-cache-phone',
       ])
     );
+  });
+
+  it('completes a non-policy storefront without calling Cloudflare', async () => {
+    const nonPolicyClaim = {
+      ...claim,
+      related_identifiers: ['shop-one', 'shop.example.com'],
+      target_id: 'shop-one',
+    };
+
+    await expect(
+      drainStorefrontCacheInvalidation(nonPolicyClaim)
+    ).resolves.toEqual({ ok: true });
+
+    expect(mocks.vercel).toHaveBeenCalled();
+    expect(mocks.cloudflare).not.toHaveBeenCalled();
+  });
+
+  it('resolves a policy custom-domain target to every policy hostname', async () => {
+    await expect(
+      drainStorefrontCacheInvalidation({
+        ...claim,
+        target_id: 'ogabassey.com',
+        target_kind: 'storefront_hostname',
+      })
+    ).resolves.toEqual({ ok: true });
+
+    expect(mocks.cloudflare).toHaveBeenCalledWith([
+      'ogabassey.com',
+      'www.ogabassey.com',
+    ]);
   });
 
   it('times out a delayed Vercel deletion before reaching Cloudflare', async () => {

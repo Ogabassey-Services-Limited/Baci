@@ -5,10 +5,14 @@ CREATE SCHEMA auth;
 CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$
   SELECT current_setting('request.jwt.claim.role', true)
 $$;
+CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
+  SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
+$$;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE TABLE public.merchants (
   id uuid PRIMARY KEY,
+  user_id uuid,
   email text,
   business_name text,
   slug text,
@@ -23,7 +27,8 @@ CREATE TABLE public.merchants (
   mobile_hero_slides jsonb, favicon_svg_url text, favicon_png_32_url text,
   favicon_png_192_url text, favicon_apple_touch_url text,
   vat_registration_status text, vat_rate numeric, feature_settings jsonb,
-  published_config jsonb, pages jsonb, about_page jsonb, faq_items jsonb
+  published_config jsonb, pages jsonb, about_page jsonb, faq_items jsonb,
+  gmc_variants_enabled boolean DEFAULT false
 );
 CREATE TABLE public.merchant_slug_aliases (
   old_slug text PRIMARY KEY,
@@ -65,5 +70,38 @@ CREATE TABLE public.product_variants (
   id uuid PRIMARY KEY, merchant_id uuid, product_id uuid NOT NULL, sku text,
   stock_quantity integer, attributes jsonb, condition text, images jsonb,
   primary_image text, price_override numeric, variant_key text,
-  inventory_tracking_policy text
+  inventory_tracking_policy text, is_inventory_anchor boolean DEFAULT false
 );
+CREATE TABLE public.product_categories (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  product_id uuid NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+  category_id uuid NOT NULL REFERENCES public.categories(id) ON DELETE CASCADE,
+  is_primary boolean DEFAULT false,
+  created_at timestamptz DEFAULT now(),
+  UNIQUE (product_id, category_id)
+);
+ALTER TABLE public.product_categories ENABLE ROW LEVEL SECURITY;
+GRANT USAGE ON SCHEMA public, auth TO authenticated;
+GRANT SELECT ON public.merchants, public.products, public.categories
+  TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.product_categories
+  TO authenticated;
+
+-- Legacy malformed edge used to prove the corrective migration cleans it up.
+INSERT INTO public.merchants (id, user_id, email, business_name, slug) VALUES
+  ('a1000000-0000-4000-8000-000000000001', gen_random_uuid(),
+    'legacy-one@example.com', 'Legacy One', 'legacy-one'),
+  ('a1000000-0000-4000-8000-000000000002', gen_random_uuid(),
+    'legacy-two@example.com', 'Legacy Two', 'legacy-two');
+INSERT INTO public.products (id, merchant_id, name, slug, status) VALUES
+  ('a2000000-0000-4000-8000-000000000001',
+    'a1000000-0000-4000-8000-000000000001', 'Legacy product',
+    'legacy-product', 'active');
+INSERT INTO public.categories (id, merchant_id, name, slug, is_active) VALUES
+  ('a3000000-0000-4000-8000-000000000001',
+    'a1000000-0000-4000-8000-000000000002', 'Legacy category',
+    'legacy-category', true);
+INSERT INTO public.product_categories (id, product_id, category_id) VALUES
+  ('a4000000-0000-4000-8000-000000000001',
+    'a2000000-0000-4000-8000-000000000001',
+    'a3000000-0000-4000-8000-000000000001');

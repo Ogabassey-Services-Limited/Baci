@@ -6,6 +6,7 @@ import { productCacheRevalidation } from '@/lib/product-cache-revalidation';
 import { getProductScopedCacheTag } from '@/lib/product-cache-tags';
 import { revalidateCategories } from '@/lib/revalidate-categories';
 import { buildStorefrontPublicationCacheTags } from '@/lib/storefront-publication-cache-tags';
+import { buildStorefrontPublicationPurgeHostnames } from '@/lib/storefront-publication-purge-hostnames';
 import { strictCloudflareHostnamePurge } from '@/lib/strict-cloudflare-hostname-purge';
 import { purgeVercelStorefrontPublicationCache } from '@/lib/vercel-storefront-publication-cache';
 import type { CacheInvalidationClaim } from '@/schemas/cache-invalidation-claim';
@@ -27,25 +28,9 @@ function targetIdentity(claim: CacheInvalidationClaim) {
   );
   const merchantSlugs = identifiers.filter((value) => SAFE_SLUG.test(value));
   const customDomains = identifiers.filter((value) => value.includes('.'));
-  if (claim.target_kind === 'storefront_slug') {
-    const rootDomain =
-      process.env.NEXT_PUBLIC_ROOT_DOMAIN?.trim().toLowerCase();
-    if (!rootDomain) return null;
-    return {
-      customDomains,
-      hostnames: [`${claim.target_id}.${rootDomain}`],
-      merchantSlugs,
-    };
-  }
-  const hostname = claim.target_id.toLowerCase();
   return {
     customDomains,
-    hostnames: [
-      hostname,
-      hostname.startsWith('www.')
-        ? hostname.slice('www.'.length)
-        : `www.${hostname}`,
-    ],
+    hostnames: buildStorefrontPublicationPurgeHostnames(identifiers),
     merchantSlugs,
   };
 }
@@ -77,7 +62,6 @@ export async function drainStorefrontCacheInvalidation(
   { vercelTimeoutMs = DEFAULT_VERCEL_TIMEOUT_MS } = {}
 ): Promise<CacheInvalidationDrainResult> {
   const identity = targetIdentity(claim);
-  if (!identity) return { errorCode: 'missing_root_domain', ok: false };
   const dataTags = buildMerchantPublicationDataCacheTags({
     canonicalMerchantSlug: identity.merchantSlugs[0],
     identifiers: claim.related_identifiers,
@@ -129,5 +113,6 @@ export async function drainStorefrontCacheInvalidation(
     };
   }
 
+  if (identity.hostnames.length === 0) return { ok: true };
   return strictCloudflareHostnamePurge(identity.hostnames);
 }
