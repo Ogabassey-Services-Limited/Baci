@@ -111,10 +111,13 @@ describe('storefront cache actuator credential closure receipt', () => {
     'extra',
   ] as const)('rejects a %s receipt hash entry', (kind) => {
     const current = sources();
-    const approved = receipt(current);
-    if (kind === 'missing') delete approved.sourceHashes[env];
-    else
-      approved.sourceHashes['apps/web/src/lib/unreviewed.ts'] = '0'.repeat(64);
+    const baseReceipt = receipt(current);
+    const sourceHashes: Record<string, string> = {
+      ...baseReceipt.sourceHashes,
+    };
+    if (kind === 'missing') delete sourceHashes[env];
+    else sourceHashes['apps/web/src/lib/unreviewed.ts'] = '0'.repeat(64);
+    const approved = { ...baseReceipt, sourceHashes };
 
     expect(
       serviceAuthorityGraphFindings(
