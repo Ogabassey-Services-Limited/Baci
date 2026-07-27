@@ -229,6 +229,11 @@ export const EXPECTED_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260726160200_audit_staff_access_changes.sql',
+    sha256: '4d91153bcc2ed316c7f2505e96177b3d31e7fe76520f4172e40edfd60f240c94',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260726201000_harden_category_hierarchy_lifecycle.sql',
     sha256: '57037c2a309da200410ddbb167cd58183f9a3977a9c285815f5d81af99fbc5c3',
   },
