@@ -219,6 +219,11 @@ BEGIN
     (v_outsider_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
      'canonical-audit-outsider@example.com', 'test', now(), now(), now(), '{}'::jsonb, '{}'::jsonb);
 
+  -- The final merchant-identity trigger fails closed without either a JWT actor
+  -- or a bounded database principal. Keep this fixture setup explicit while
+  -- preserving the later no-actor writer regression.
+  PERFORM set_config('app.audit_actor_user_id', v_actor_id::text, true);
+
   INSERT INTO public.merchants (id, user_id, email, business_name, slug)
   VALUES
     (v_merchant_id, v_actor_id, 'canonical-audit-owner-merchant@example.com', 'Canonical Audit Owner', 'canonical-audit-owner'),

@@ -315,7 +315,7 @@ SELECT set_config('request.jwt.claim.role', 'authenticated', true);
 SELECT set_config('request.jwt.claim.sub', '7e3f2e10-0000-4000-8000-000000000001', true);
 SELECT public.update_merchant_social_media(
   '7e3f2e10-0000-4000-8000-000000000002',
-  '{"instagram":" @ogabassey_social ","linkedin":"https://linkedin.example/ogabassey"}'::jsonb,
+  '{"instagram":" @ogabassey_social ","linkedin":"https://linkedin.com/in/ogabassey"}'::jsonb,
   false,
   '{"legal_entity_name":"Ogabassey Trading Ltd","state_code":"LA","registered_address":{"street":"2 Audit Avenue","city":"Ikeja","state":"Lagos","postal_code":"100001","country":"Nigeria"}}'::jsonb
 );
@@ -331,7 +331,7 @@ BEGIN
   ORDER BY occurred_at DESC, id DESC LIMIT 1;
   IF v_after_count <> v_before_count + 1
      OR NOT (v_event.changed_fields @> ARRAY['social_media', 'legal_entity_name', 'registered_address', 'business_address']::text[])
-     OR v_event.after_values -> 'social_media' <> '{"instagram":"@ogabassey_social","linkedin":"https://linkedin.example/ogabassey"}'::jsonb
+     OR v_event.after_values -> 'social_media' <> '{"instagram":"@ogabassey_social","linkedin":"https://linkedin.com/in/ogabassey"}'::jsonb
      OR v_event.after_values ->> 'legal_entity_name' <> 'Ogabassey Trading Ltd'
      OR v_event.after_values -> 'registered_address' <> '{"present":true}'::jsonb
      OR v_event.after_values -> 'business_address' <> '{"present":true}'::jsonb THEN
@@ -389,6 +389,64 @@ BEGIN
 END;
 $test$;
 
+-- Direct table writes may retain legacy arbitrary values, but the immutable
+-- audit payload must admit only bounded public handle/official-URL projections.
+-- This protects the ledger even when an allowed key carries a token, a
+-- lookalike domain, URL credentials, a query, a fragment, or a port.
+INSERT INTO audit_identity_event_counts
+SELECT 'unsafe-social-before', count(*) FROM public.audit_events
+WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002';
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.role', 'authenticated', true);
+SELECT set_config('request.jwt.claim.sub', '7e3f2e10-0000-4000-8000-000000000001', true);
+UPDATE public.merchants
+SET social_media = pg_catalog.jsonb_build_object(
+  'instagram', '@' || pg_catalog.repeat('p', 256),
+  'linkedin', 'https://linkedin.evil.example/ogabassey',
+  'facebook', 'https://audit-user@facebook.com/audit_safe_handle',
+  'tiktok', 'https://www.tiktok.com/@audit_safe_handle?token=tiktok-secret',
+  'youtube', 'https://www.youtube.com/@audit_safe_handle#youtube-secret',
+  'snapchat', 'https://www.snapchat.com:443/add/audit_safe_handle',
+  'pinterest', 'facebook-capi-secret',
+  'twitter', '@audit_safe'
+)
+WHERE id = '7e3f2e10-0000-4000-8000-000000000002';
+RESET ROLE;
+
+DO $test$
+DECLARE v_event record; v_before_count integer; v_after_count integer;
+  v_payload text; v_social_media jsonb;
+BEGIN
+  SELECT event_count INTO v_before_count FROM audit_identity_event_counts WHERE label = 'unsafe-social-before';
+  SELECT count(*) INTO v_after_count FROM public.audit_events WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002';
+  SELECT * INTO v_event FROM public.audit_events
+  WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+  ORDER BY occurred_at DESC, id DESC LIMIT 1;
+  SELECT social_media INTO v_social_media FROM public.merchants
+  WHERE id = '7e3f2e10-0000-4000-8000-000000000002';
+  v_payload := COALESCE(v_event.before_values::text, '') || COALESCE(v_event.after_values::text, '');
+  IF v_after_count <> v_before_count + 1
+     OR pg_catalog.octet_length(v_social_media ->> 'instagram') <> 257
+     OR v_social_media ->> 'linkedin' <> 'https://linkedin.evil.example/ogabassey'
+     OR v_social_media ->> 'facebook' <> 'https://audit-user@facebook.com/audit_safe_handle'
+     OR v_social_media ->> 'tiktok' <> 'https://www.tiktok.com/@audit_safe_handle?token=tiktok-secret'
+     OR v_social_media ->> 'youtube' <> 'https://www.youtube.com/@audit_safe_handle#youtube-secret'
+     OR v_social_media ->> 'snapchat' <> 'https://www.snapchat.com:443/add/audit_safe_handle'
+     OR v_social_media ->> 'pinterest' <> 'facebook-capi-secret'
+     OR v_event.before_values -> 'social_media' <> '{"instagram":"@redacted"}'::jsonb
+     OR v_event.after_values -> 'social_media' <> '{"twitter":"@audit_safe"}'::jsonb
+     OR position('facebook-capi-secret' in v_payload) > 0
+     OR position('https://linkedin.evil.example/ogabassey' in v_payload) > 0
+     OR position('https://audit-user@facebook.com/audit_safe_handle' in v_payload) > 0
+     OR position('https://www.tiktok.com/@audit_safe_handle?token=tiktok-secret' in v_payload) > 0
+     OR position('https://www.youtube.com/@audit_safe_handle#youtube-secret' in v_payload) > 0
+     OR position('https://www.snapchat.com:443/add/audit_safe_handle' in v_payload) > 0
+     OR position(pg_catalog.repeat('p', 128) in v_payload) > 0 THEN
+    RAISE EXCEPTION 'identity audit payload admitted an unsafe allowed-key social value';
+  END IF;
+END;
+$test$;
+
 -- No-op governed updates, a whitespace-only social-handle representation, and
 -- updated_at-only writes must be silent. The raw social_media JSON does change
 -- here, but its allowlisted public projection remains the same normalized
@@ -402,7 +460,16 @@ SELECT set_config('request.jwt.claim.sub', '7e3f2e10-0000-4000-8000-000000000001
 UPDATE public.merchants SET business_name = business_name
 WHERE id = '7e3f2e10-0000-4000-8000-000000000002';
 UPDATE public.merchants
-SET social_media = '{"instagram":"  @redacted  ","internal_token":"social-secret-value"}'::jsonb
+SET social_media = pg_catalog.jsonb_build_object(
+  'instagram', '@' || pg_catalog.repeat('p', 256),
+  'linkedin', 'https://linkedin.evil.example/ogabassey',
+  'facebook', 'https://audit-user@facebook.com/audit_safe_handle',
+  'tiktok', 'https://www.tiktok.com/@audit_safe_handle?token=tiktok-secret',
+  'youtube', 'https://www.youtube.com/@audit_safe_handle#youtube-secret',
+  'snapchat', 'https://www.snapchat.com:443/add/audit_safe_handle',
+  'pinterest', 'another-social-secret',
+  'twitter', '  @audit_safe  '
+)
 WHERE id = '7e3f2e10-0000-4000-8000-000000000002';
 UPDATE public.merchants SET updated_at = pg_catalog.now()
 WHERE id = '7e3f2e10-0000-4000-8000-000000000002';
@@ -416,8 +483,48 @@ BEGIN
   SELECT social_media INTO v_social_media FROM public.merchants
   WHERE id = '7e3f2e10-0000-4000-8000-000000000002';
   IF v_after_count <> v_before_count
-     OR v_social_media ->> 'instagram' <> '  @redacted  ' THEN
+     OR v_social_media ->> 'twitter' <> '  @audit_safe  ' THEN
     RAISE EXCEPTION 'no-op, normalized social handle, or updated_at-only merchant update emitted an identity event';
+  END IF;
+END;
+$test$;
+
+-- Non-object legacy JSON must neither crash the trigger nor appear verbatim in
+-- the ledger. The scalar removes the previous safe projection once; the
+-- following array has the same empty projection and is silent.
+INSERT INTO audit_identity_event_counts
+SELECT 'non-object-social-before', count(*) FROM public.audit_events
+WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002';
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.role', 'authenticated', true);
+SELECT set_config('request.jwt.claim.sub', '7e3f2e10-0000-4000-8000-000000000001', true);
+UPDATE public.merchants
+SET social_media = '"untrusted-social-scalar"'::jsonb
+WHERE id = '7e3f2e10-0000-4000-8000-000000000002';
+UPDATE public.merchants
+SET social_media = '["untrusted-social-array"]'::jsonb
+WHERE id = '7e3f2e10-0000-4000-8000-000000000002';
+RESET ROLE;
+
+DO $test$
+DECLARE v_event record; v_before_count integer; v_after_count integer;
+  v_payload text; v_social_media jsonb;
+BEGIN
+  SELECT event_count INTO v_before_count FROM audit_identity_event_counts WHERE label = 'non-object-social-before';
+  SELECT count(*) INTO v_after_count FROM public.audit_events WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002';
+  SELECT * INTO v_event FROM public.audit_events
+  WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+  ORDER BY occurred_at DESC, id DESC LIMIT 1;
+  SELECT social_media INTO v_social_media FROM public.merchants
+  WHERE id = '7e3f2e10-0000-4000-8000-000000000002';
+  v_payload := COALESCE(v_event.before_values::text, '') || COALESCE(v_event.after_values::text, '');
+  IF v_after_count <> v_before_count + 1
+     OR pg_catalog.jsonb_typeof(v_social_media) <> 'array'
+     OR v_event.before_values -> 'social_media' <> '{"twitter":"@audit_safe"}'::jsonb
+     OR v_event.after_values -> 'social_media' <> '{}'::jsonb
+     OR position('untrusted-social-scalar' in v_payload) > 0
+     OR position('untrusted-social-array' in v_payload) > 0 THEN
+    RAISE EXCEPTION 'non-object social_media leaked or did not retain a safe projection';
   END IF;
 END;
 $test$;

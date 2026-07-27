@@ -1,6 +1,150 @@
 -- Canonical audit coverage for merchant-owned identity and public storefront data.
 -- Sensitive configuration remains deliberately outside this trigger's payload.
 
+-- The settings path historically stores arbitrary bounded strings for several
+-- social keys. Audit events are immutable, so project that legacy state through
+-- a narrower, syntactic public contract instead of copying those values into
+-- the ledger. This function never changes stored merchant state.
+CREATE OR REPLACE FUNCTION private.project_merchant_social_media_for_audit_v1(
+  p_social_media jsonb
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+IMMUTABLE
+SET search_path = ''
+AS $$
+DECLARE
+  v_result jsonb := '{}'::jsonb;
+  v_social_key text;
+  v_value text;
+  v_match text[];
+  v_projected text;
+BEGIN
+  IF p_social_media IS NULL
+    OR pg_catalog.jsonb_typeof(p_social_media) IS DISTINCT FROM 'object' THEN
+    RETURN v_result;
+  END IF;
+
+  FOREACH v_social_key IN ARRAY ARRAY[
+    'twitter', 'facebook', 'instagram', 'tiktok', 'youtube', 'pinterest',
+    'linkedin', 'snapchat'
+  ]::text[] LOOP
+    IF pg_catalog.jsonb_typeof(p_social_media -> v_social_key) <> 'string' THEN
+      CONTINUE;
+    END IF;
+
+    v_value := NULLIF(
+      pg_catalog.lower(pg_catalog.btrim(p_social_media ->> v_social_key)),
+      ''
+    );
+    IF v_value IS NULL OR pg_catalog.octet_length(v_value) > 255 THEN
+      CONTINUE;
+    END IF;
+
+    v_match := NULL;
+    v_projected := NULL;
+    CASE v_social_key
+      WHEN 'twitter' THEN
+        IF v_value ~ '^@[a-z0-9_]{1,15}$' THEN
+          v_projected := v_value;
+        ELSE
+          v_match := pg_catalog.regexp_match(
+            v_value,
+            '^https://(www[.])?(x[.]com|twitter[.]com)/([a-z0-9_]{1,15})/?$'
+          );
+          IF v_match IS NOT NULL THEN
+            v_projected := '@' || v_match[3];
+          END IF;
+        END IF;
+      WHEN 'instagram' THEN
+        IF v_value ~ '^@[a-z0-9][a-z0-9._]{0,29}$' THEN
+          v_projected := v_value;
+        ELSE
+          v_match := pg_catalog.regexp_match(
+            v_value,
+            '^https://(www[.])?instagram[.]com/([a-z0-9][a-z0-9._]{0,29})/?$'
+          );
+          IF v_match IS NOT NULL THEN
+            v_projected := '@' || v_match[2];
+          END IF;
+        END IF;
+      WHEN 'tiktok' THEN
+        IF v_value ~ '^@[a-z0-9][a-z0-9._]{0,23}$' THEN
+          v_projected := v_value;
+        ELSE
+          v_match := pg_catalog.regexp_match(
+            v_value,
+            '^https://(www[.])?tiktok[.]com/@([a-z0-9][a-z0-9._]{0,23})/?$'
+          );
+          IF v_match IS NOT NULL THEN
+            v_projected := '@' || v_match[2];
+          END IF;
+        END IF;
+      WHEN 'snapchat' THEN
+        IF v_value ~ '^@[a-z0-9][a-z0-9._-]{0,63}$' THEN
+          v_projected := v_value;
+        ELSE
+          v_match := pg_catalog.regexp_match(
+            v_value,
+            '^https://(www[.])?snapchat[.]com/(add|@)/([a-z0-9][a-z0-9._-]{0,63})/?$'
+          );
+          IF v_match IS NOT NULL THEN
+            v_projected := '@' || v_match[3];
+          END IF;
+        END IF;
+      WHEN 'facebook' THEN
+        v_match := pg_catalog.regexp_match(
+          v_value,
+          '^https://(www[.]|m[.])?facebook[.]com/([a-z0-9][a-z0-9._-]{0,63})/?$'
+        );
+        IF v_match IS NOT NULL THEN
+          v_projected := 'https://facebook.com/' || v_match[2];
+        END IF;
+      WHEN 'youtube' THEN
+        v_match := pg_catalog.regexp_match(
+          v_value,
+          '^https://(www[.])?youtube[.]com/@([a-z0-9][a-z0-9._-]{0,63})/?$'
+        );
+        IF v_match IS NOT NULL THEN
+          v_projected := 'https://youtube.com/@' || v_match[2];
+        END IF;
+      WHEN 'pinterest' THEN
+        v_match := pg_catalog.regexp_match(
+          v_value,
+          '^https://(www[.])?pinterest[.]com/([a-z0-9][a-z0-9._-]{0,63})/?$'
+        );
+        IF v_match IS NOT NULL THEN
+          v_projected := 'https://pinterest.com/' || v_match[2];
+        END IF;
+      WHEN 'linkedin' THEN
+        v_match := pg_catalog.regexp_match(
+          v_value,
+          '^https://(www[.])?linkedin[.]com/(in|company)/([a-z0-9][a-z0-9-]{0,99})/?$'
+        );
+        IF v_match IS NOT NULL THEN
+          v_projected := 'https://linkedin.com/' || v_match[2] || '/' || v_match[3];
+        END IF;
+      ELSE
+        v_projected := NULL;
+    END CASE;
+
+    IF v_projected IS NOT NULL THEN
+      v_result := v_result || pg_catalog.jsonb_build_object(
+        v_social_key,
+        v_projected
+      );
+    END IF;
+  END LOOP;
+
+  RETURN v_result;
+END;
+$$;
+
+ALTER FUNCTION private.project_merchant_social_media_for_audit_v1(jsonb)
+  OWNER TO postgres;
+REVOKE ALL ON FUNCTION private.project_merchant_social_media_for_audit_v1(jsonb)
+  FROM PUBLIC, anon, authenticated, service_role;
+
 CREATE OR REPLACE FUNCTION private.audit_merchant_identity_change_v1()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -59,8 +203,6 @@ DECLARE
   v_changed_fields text[] := ARRAY[]::text[];
   v_presence_changed_fields text[] := ARRAY[]::text[];
   v_field text;
-  v_social_key text;
-  v_social_value text;
   v_merchant_id uuid;
   v_merchant_label text;
   v_action text;
@@ -167,20 +309,9 @@ BEGIN
       )
     );
 
-    FOREACH v_social_key IN ARRAY ARRAY[
-      'twitter', 'facebook', 'instagram', 'tiktok', 'youtube', 'pinterest',
-      'linkedin', 'snapchat'
-    ]::text[] LOOP
-      IF pg_catalog.jsonb_typeof(OLD.social_media -> v_social_key) = 'string' THEN
-        v_social_value := OLD.social_media ->> v_social_key;
-        IF NULLIF(pg_catalog.btrim(v_social_value), '') IS NOT NULL THEN
-          v_old_social_media := v_old_social_media || pg_catalog.jsonb_build_object(
-            v_social_key,
-            pg_catalog.btrim(v_social_value)
-          );
-        END IF;
-      END IF;
-    END LOOP;
+    v_old_social_media := private.project_merchant_social_media_for_audit_v1(
+      OLD.social_media
+    );
   END IF;
 
   IF TG_OP <> 'DELETE' THEN
@@ -225,20 +356,9 @@ BEGIN
       )
     );
 
-    FOREACH v_social_key IN ARRAY ARRAY[
-      'twitter', 'facebook', 'instagram', 'tiktok', 'youtube', 'pinterest',
-      'linkedin', 'snapchat'
-    ]::text[] LOOP
-      IF pg_catalog.jsonb_typeof(NEW.social_media -> v_social_key) = 'string' THEN
-        v_social_value := NEW.social_media ->> v_social_key;
-        IF NULLIF(pg_catalog.btrim(v_social_value), '') IS NOT NULL THEN
-          v_new_social_media := v_new_social_media || pg_catalog.jsonb_build_object(
-            v_social_key,
-            pg_catalog.btrim(v_social_value)
-          );
-        END IF;
-      END IF;
-    END LOOP;
+    v_new_social_media := private.project_merchant_social_media_for_audit_v1(
+      NEW.social_media
+    );
   END IF;
 
   FOREACH v_field IN ARRAY v_exact_fields LOOP

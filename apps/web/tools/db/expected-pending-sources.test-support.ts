@@ -225,7 +225,7 @@ export const EXPECTED_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260726160100_audit_merchant_identity_changes.sql',
-    sha256: 'f70149fd749dfb7c05c6a193595c4aea5ed2c32844be711684ee81c079aad608',
+    sha256: 'e5e417d37454d20d3ce60e48d53ace5cb541464bfd62e6dda9ed2396dddfa9d9',
   },
   {
     repositoryPath:

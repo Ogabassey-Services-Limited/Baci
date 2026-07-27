@@ -111,6 +111,13 @@ describe('merchant identity audit migration contract', () => {
     expect(migrationSql).toContain('merchant.identity.create');
     expect(migrationSql).toContain('merchant.identity.update');
     expect(migrationSql).toContain('merchant.identity.delete');
+    expect(migrationSql).toContain(
+      'private.project_merchant_social_media_for_audit_v1'
+    );
+    expect(migrationSql).toContain(
+      'REVOKE ALL ON FUNCTION private.project_merchant_social_media_for_audit_v1(jsonb)'
+    );
+    expect(migrationSql).toContain('octet_length(v_value) > 255');
     expect(migrationSql).not.toMatch(/to_jsonb\(\s*(?:OLD|NEW)\s*\)/);
     expect(migrationSql).not.toMatch(/(?:left|substring)\s*\(/i);
   });
@@ -127,6 +134,11 @@ describe('merchant identity audit migration contract', () => {
     expect(sqlRegression).toContain('update_merchant_social_media');
     expect(sqlRegression).toContain('service_role');
     expect(sqlRegression).toContain('facebook-capi-secret');
+    expect(sqlRegression).toContain('unsafe-social-before');
+    expect(sqlRegression).toContain('linkedin.evil.example');
+    expect(sqlRegression).toContain('audit_safe_handle');
+    expect(sqlRegression).toContain('untrusted-social-scalar');
+    expect(sqlRegression).toContain('untrusted-social-array');
     expect(sqlRegression).toContain('normalized social handle');
     expect(sqlRegression).toContain('updated_at-only');
   });
