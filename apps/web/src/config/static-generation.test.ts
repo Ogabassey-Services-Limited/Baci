@@ -2,13 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { STATIC_GENERATION_LIMITS } from './static-generation';
 
 const STOREFRONT_READ_ENVELOPE = 3;
+const RESERVED_BUILD_READS = 1;
 const PAGES_REQUIRING_A_FOURTH_WORKER = 4_801;
 
 async function simulateStorefrontPrerenders(
   workerCount: number,
-  pagesPerWorker: number
+  pagesPerWorker: number,
+  baselineReads = 0
 ) {
-  let activeReads = 0;
+  let activeReads = baselineReads;
   const readPage = async () => {
     activeReads += 1;
     try {
@@ -43,7 +45,7 @@ function configuredStaticWorkerCount(totalPages: number) {
 describe('STATIC_GENERATION_LIMITS', () => {
   it('bounds build pressure and retries transient page failures', () => {
     expect(STATIC_GENERATION_LIMITS).toEqual({
-      cpus: STOREFRONT_READ_ENVELOPE,
+      cpus: STOREFRONT_READ_ENVELOPE - RESERVED_BUILD_READS,
       staticGenerationMaxConcurrency: 1,
       staticGenerationMinPagesPerWorker: 1_600,
       staticGenerationRetryCount: 3,
@@ -51,9 +53,13 @@ describe('STATIC_GENERATION_LIMITS', () => {
   });
 
   it('caps total storefront reads when the page set would allocate a fourth worker', async () => {
-    await expect(simulateStorefrontPrerenders(4, 1)).rejects.toThrow(
-      'merchant_snapshot timeout'
-    );
+    await expect(
+      simulateStorefrontPrerenders(
+        STOREFRONT_READ_ENVELOPE,
+        1,
+        RESERVED_BUILD_READS
+      )
+    ).rejects.toThrow('merchant_snapshot timeout');
 
     const workerCount = configuredStaticWorkerCount(
       PAGES_REQUIRING_A_FOURTH_WORKER
@@ -61,7 +67,8 @@ describe('STATIC_GENERATION_LIMITS', () => {
     await expect(
       simulateStorefrontPrerenders(
         workerCount,
-        STATIC_GENERATION_LIMITS.staticGenerationMaxConcurrency
+        STATIC_GENERATION_LIMITS.staticGenerationMaxConcurrency,
+        RESERVED_BUILD_READS
       )
     ).resolves.toBeUndefined();
   });
