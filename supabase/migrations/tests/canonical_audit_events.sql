@@ -87,22 +87,18 @@ CREATE TRIGGER capture_unreviewed_audit_v1
 
 GRANT INSERT ON pg_temp.audit_event_unreviewed_fixture TO authenticated;
 
--- Model an arbitrary privileged SECURITY DEFINER trigger. It is deliberately
--- granted writer EXECUTE and private-schema USAGE, but never SELECT/INSERT on
--- the capability table. It must neither mint nor read the opaque capability,
--- and therefore fails at the writer's capability check.
-CREATE ROLE audit_event_attacker NOLOGIN;
-GRANT USAGE ON SCHEMA private TO audit_event_attacker;
-GRANT EXECUTE ON FUNCTION private.write_audit_event_v1(
-  uuid, text, text, text, text, text[], jsonb, jsonb, uuid, uuid, smallint, jsonb, uuid
-) TO audit_event_attacker;
+-- Model an attacker-owned SECURITY DEFINER trigger with the pre-existing,
+-- settable authenticated application role. It gets private-schema USAGE to
+-- compile its body, but writer EXECUTE is granted only after the direct-ACL
+-- assertions below. It never gets capability-table access.
+GRANT USAGE ON SCHEMA private TO authenticated;
 
 CREATE TEMP TABLE audit_event_attacker_fixture (
   merchant_id uuid NOT NULL,
   resource_id text NOT NULL
 );
 
-SET LOCAL ROLE audit_event_attacker;
+SET LOCAL ROLE authenticated;
 CREATE OR REPLACE FUNCTION pg_temp.capture_attacker_audit_v1()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -212,7 +208,6 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'application roles must not access private audit writer capabilities';
   END IF;
-
   INSERT INTO auth.users (
     id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
     created_at, updated_at, raw_app_meta_data, raw_user_meta_data
@@ -234,7 +229,6 @@ BEGIN
     v_merchant_id, v_staff_id, 'canonical-audit-staff@example.com', 'Audit Staff', 'sales_rep',
     '{"settings":{"view":true}}'::jsonb, 'active'
   );
-
   -- Direct table reads and mutations are denied even to the service role.
   SET LOCAL ROLE authenticated;
   PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
@@ -260,14 +254,15 @@ BEGIN
     RAISE EXCEPTION 'authenticated direct audit_events DELETE unexpectedly succeeded';
   EXCEPTION WHEN insufficient_privilege THEN NULL;
   END;
-  BEGIN
-    PERFORM private.write_audit_event_v1(
-      v_merchant_id, NULL::text, 'fixture.create'::text, 'fixture_record'::text, 'direct-authenticated'::text,
-      ARRAY[]::text[], NULL::jsonb, NULL::jsonb, NULL::uuid, NULL::uuid, 1::smallint, '{}'::jsonb, NULL::uuid
-    );
-    RAISE EXCEPTION 'authenticated direct audit writer EXECUTE unexpectedly succeeded';
-  EXCEPTION WHEN insufficient_privilege THEN NULL;
-  END;
+  -- Assert the exact direct-call ACL without invoking the revoked internal
+  -- SECURITY DEFINER routine from this PL/pgSQL exception block.
+  IF has_function_privilege(
+    current_user,
+    'private.write_audit_event_v1(uuid,text,text,text,text,text[],jsonb,jsonb,uuid,uuid,smallint,jsonb,uuid)'::regprocedure,
+    'EXECUTE'
+  ) THEN
+    RAISE EXCEPTION 'authenticated direct audit writer EXECUTE unexpectedly granted';
+  END IF;
   RESET ROLE;
 
   SET LOCAL ROLE service_role;
@@ -299,15 +294,16 @@ BEGIN
     RAISE EXCEPTION 'service_role direct audit_events DELETE unexpectedly succeeded';
   EXCEPTION WHEN insufficient_privilege THEN NULL;
   END;
-  BEGIN
-    PERFORM private.write_audit_event_v1(
-      v_merchant_id, NULL::text, 'fixture.create'::text, 'fixture_record'::text, 'direct-service'::text,
-      ARRAY[]::text[], NULL::jsonb, NULL::jsonb, NULL::uuid, NULL::uuid, 1::smallint, '{}'::jsonb, NULL::uuid
-    );
-    RAISE EXCEPTION 'service_role direct audit writer EXECUTE unexpectedly succeeded';
-  EXCEPTION WHEN insufficient_privilege THEN NULL;
-  END;
+  IF has_function_privilege(
+    current_user,
+    'private.write_audit_event_v1(uuid,text,text,text,text,text[],jsonb,jsonb,uuid,uuid,smallint,jsonb,uuid)'::regprocedure,
+    'EXECUTE'
+  ) THEN
+    RAISE EXCEPTION 'service_role direct audit writer EXECUTE unexpectedly granted';
+  END IF;
   RESET ROLE;
+
+  EXECUTE 'GRANT EXECUTE ON FUNCTION private.write_audit_event_v1(uuid, text, text, text, text, text[], jsonb, jsonb, uuid, uuid, smallint, jsonb, uuid) TO authenticated';
 
   -- A generic trigger cannot forge a ledger event merely by executing inside a
   -- trigger; it has no opaque owner-only writer capability.
@@ -580,19 +576,23 @@ BEGIN
   -- The reader is not callable by anon/service roles and refuses a missing identity.
   SET LOCAL ROLE anon;
   PERFORM set_config('request.jwt.claim.role', 'anon', true);
-  BEGIN
-    PERFORM public.list_merchant_audit_events_v1(v_other_merchant_id, 1, NULL, NULL, NULL, NULL);
-    RAISE EXCEPTION 'anon reader RPC execution unexpectedly succeeded';
-  EXCEPTION WHEN insufficient_privilege THEN NULL;
-  END;
+  IF has_function_privilege(
+    current_user,
+    'public.list_merchant_audit_events_v1(uuid,integer,timestamptz,uuid,text,text)'::regprocedure,
+    'EXECUTE'
+  ) THEN
+    RAISE EXCEPTION 'anon reader RPC EXECUTE unexpectedly granted';
+  END IF;
   RESET ROLE;
   SET LOCAL ROLE service_role;
   PERFORM set_config('request.jwt.claim.role', 'service_role', true);
-  BEGIN
-    PERFORM public.list_merchant_audit_events_v1(v_other_merchant_id, 1, NULL, NULL, NULL, NULL);
-    RAISE EXCEPTION 'service-role reader RPC execution unexpectedly succeeded';
-  EXCEPTION WHEN insufficient_privilege THEN NULL;
-  END;
+  IF has_function_privilege(
+    current_user,
+    'public.list_merchant_audit_events_v1(uuid,integer,timestamptz,uuid,text,text)'::regprocedure,
+    'EXECUTE'
+  ) THEN
+    RAISE EXCEPTION 'service-role reader RPC EXECUTE unexpectedly granted';
+  END IF;
   RESET ROLE;
   SET LOCAL ROLE authenticated;
   PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
