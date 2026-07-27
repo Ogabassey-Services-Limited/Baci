@@ -14,6 +14,7 @@ const AUTOCOMPLETE_CACHE_TTL_MS = 5_000;
 const MAX_AUTOCOMPLETE_CACHE_ENTRIES = 256;
 const AUTOCOMPLETE_IN_FLIGHT_TIMEOUT_MS = 5_000;
 const MAX_AUTOCOMPLETE_IN_FLIGHT_ENTRIES = 256;
+const AUTOCOMPLETE_SATURATION_TIMEOUT_MS = 0;
 
 interface AutocompleteProductRow {
   id: string;
@@ -249,6 +250,13 @@ export async function getStorefrontAutocompleteProducts({
     return existingRequest;
   }
 
+  if (autocompleteInFlight.size >= MAX_AUTOCOMPLETE_IN_FLIGHT_ENTRIES) {
+    return withAutocompleteInFlightDeadline(
+      () => new Promise<AutocompleteResponse>(() => undefined),
+      AUTOCOMPLETE_SATURATION_TIMEOUT_MS
+    );
+  }
+
   const request = withAutocompleteInFlightDeadline(
     (signal) =>
       fetchStorefrontAutocompleteProducts({
@@ -260,9 +268,7 @@ export async function getStorefrontAutocompleteProducts({
       }),
     AUTOCOMPLETE_IN_FLIGHT_TIMEOUT_MS
   );
-  if (autocompleteInFlight.size < MAX_AUTOCOMPLETE_IN_FLIGHT_ENTRIES) {
-    autocompleteInFlight.set(cacheKey, request);
-  }
+  autocompleteInFlight.set(cacheKey, request);
 
   try {
     const response = await request;
