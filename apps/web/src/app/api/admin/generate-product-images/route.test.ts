@@ -10,6 +10,9 @@ const {
   mockGetMerchantForApiRequest,
   mockGetPublicUrl,
   mockGetUser,
+  mockRevalidateProductSlugs,
+  mockRevalidateProducts,
+  mockScheduleStorefrontProductPurge,
   mockStorageFrom,
   mockUpload,
 } = vi.hoisted(() => ({
@@ -21,6 +24,9 @@ const {
   mockGetMerchantForApiRequest: vi.fn(),
   mockGetPublicUrl: vi.fn(),
   mockGetUser: vi.fn(),
+  mockRevalidateProductSlugs: vi.fn(),
+  mockRevalidateProducts: vi.fn(),
+  mockScheduleStorefrontProductPurge: vi.fn(),
   mockStorageFrom: vi.fn(),
   mockUpload: vi.fn(),
 }));
@@ -41,6 +47,15 @@ vi.mock('@/lib/get-merchant-for-api-request', () => ({
 }));
 vi.mock('@/lib/rate-limiter', () => ({
   checkRateLimit: mockCheckRateLimit,
+}));
+vi.mock('@/lib/cache-revalidation', () => ({
+  revalidateProducts: (...args: unknown[]) => mockRevalidateProducts(...args),
+  revalidateProductSlugs: (...args: unknown[]) =>
+    mockRevalidateProductSlugs(...args),
+}));
+vi.mock('@/lib/storefront-product-purge', () => ({
+  scheduleStorefrontProductPurge: (...args: unknown[]) =>
+    mockScheduleStorefrontProductPurge(...args),
 }));
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => ({
@@ -128,6 +143,7 @@ describe('POST /api/admin/generate-product-images', () => {
     });
     mockGetMerchantForApiRequest.mockResolvedValue({
       merchantId: MERCHANT_ID,
+      merchantSlug: 'test-store',
       staffAccess: { isStaff: false },
     });
     mockCheckRateLimit.mockResolvedValue(true);
@@ -236,6 +252,8 @@ describe('POST /api/admin/generate-product-images', () => {
           color: 'blue',
           images: [],
           parent_product_id: 'parent-1',
+          slug: 'baci-phone',
+          category: 'Phones',
         },
       ],
     });
@@ -278,6 +296,17 @@ describe('POST /api/admin/generate-product-images', () => {
     expect(productsTable.update).toHaveBeenCalledWith({
       images: ['https://cdn.usebaci.com/product-1/gen.png'],
     });
+    expect(mockRevalidateProducts).toHaveBeenCalledWith(MERCHANT_ID);
+    expect(mockRevalidateProductSlugs).toHaveBeenCalledWith(MERCHANT_ID, [
+      'baci-phone',
+    ]);
+    expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+      'test-store',
+      [{ slug: 'baci-phone', categorySegment: 'phones' }]
+    );
+    expect(mockRevalidateProductSlugs.mock.invocationCallOrder[0]).toBeLessThan(
+      mockScheduleStorefrontProductPurge.mock.invocationCallOrder[0]
+    );
   });
 
   it('returns a no-op message when no products are eligible', async () => {

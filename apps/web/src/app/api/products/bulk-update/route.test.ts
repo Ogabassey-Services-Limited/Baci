@@ -1,6 +1,5 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { PURGE_LISTINGS_ONLY_THRESHOLD } from '@/lib/storefront-product-purge-urls';
 
 // ---- Mocks ----
 
@@ -446,8 +445,7 @@ describe('POST /api/products/bulk-update', () => {
     expect(res.status).toBe(200);
     expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
       'ogabassey',
-      [{ slug: 'updated-product', categorySegment: 'electronics' }],
-      { listingsOnly: false }
+      [{ slug: 'updated-product', categorySegment: 'electronics' }]
     );
   });
 
@@ -477,8 +475,7 @@ describe('POST /api/products/bulk-update', () => {
 
     expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
       'ogabassey',
-      [{ slug: 'legacy-id', categorySegment: null }],
-      { listingsOnly: false }
+      [{ slug: 'legacy-id', categorySegment: null }]
     );
   });
 
@@ -520,25 +517,21 @@ describe('POST /api/products/bulk-update', () => {
 
     expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
       'ogabassey',
-      [{ slug: 'new-product', categorySegment: 'audio' }],
-      { listingsOnly: false }
+      [{ slug: 'new-product', categorySegment: 'audio' }]
     );
   });
 
-  it('purges only listing surfaces past the per-op product threshold', async () => {
+  it('forwards every high-cardinality product to the shared bounded purge scheduler', async () => {
     const { POST } = await import('./route');
-    // One update matching more rows than the shared threshold triggers the
-    // listings-only fan-out guard.
-    productUpdateSelectRows = Array.from(
-      { length: PURGE_LISTINGS_ONLY_THRESHOLD + 1 },
-      (_, index) => ({
-        id: `p-${index}`,
-        slug: `slug-${index}`,
-        category: 'Electronics',
-        categories: null,
-        product_categories: [],
-      })
-    );
+    // The shared scheduler now owns the bounded hostname-purge strategy, so
+    // this caller must not omit PDP entries from a large mutation.
+    productUpdateSelectRows = Array.from({ length: 51 }, (_, index) => ({
+      id: `p-${index}`,
+      slug: `slug-${index}`,
+      category: 'Electronics',
+      categories: null,
+      product_categories: [],
+    }));
 
     await POST(
       makeRequest({
@@ -552,9 +545,13 @@ describe('POST /api/products/bulk-update', () => {
       })
     );
 
-    const call = mockScheduleStorefrontProductPurge.mock.calls[0];
-    expect(call[0]).toBe('ogabassey');
-    expect(call[2]).toEqual({ listingsOnly: true });
+    expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+      'ogabassey',
+      expect.arrayContaining([
+        { slug: 'slug-0', categorySegment: 'electronics' },
+        { slug: 'slug-50', categorySegment: 'electronics' },
+      ])
+    );
   });
 
   it('does not persist whitespace-only product names during targeted updates', async () => {

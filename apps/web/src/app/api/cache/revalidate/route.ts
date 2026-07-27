@@ -27,10 +27,6 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
-import {
-  countDistinctProductPurgeEntries,
-  PURGE_LISTINGS_ONLY_THRESHOLD,
-} from '@/lib/storefront-product-purge-urls';
 import { internalRevalidateProductEntrySchema } from '@/schemas/internal-revalidate-products-route';
 
 /**
@@ -212,14 +208,9 @@ export async function POST(request: NextRequest) {
         }
         const merchantSlug = merchantRow?.slug ?? null;
         if (merchantSlug) {
-          // Base the fan-out threshold on the DISTINCT (slug, segment) count so
-          // duplicate entries for one product do not inflate the count and
-          // wrongly suppress its per-PDP purge. Counts the old-category entries
-          // too so a move that adds a distinct old target is reflected here.
-          const distinctPurgeCount = countDistinctProductPurgeEntries(entries);
-          scheduleStorefrontProductPurge(merchantSlug, entries, {
-            listingsOnly: distinctPurgeCount > PURGE_LISTINGS_ONLY_THRESHOLD,
-          });
+          // The shared scheduler switches to a bounded hostname purge above its
+          // distinct-entry threshold, so it still evicts every affected PDP.
+          scheduleStorefrontProductPurge(merchantSlug, entries);
         }
       } catch (purgeError) {
         console.error('Skipped Cloudflare product purge in cache/revalidate:', {

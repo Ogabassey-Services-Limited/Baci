@@ -31,6 +31,7 @@ import { buildStoredAgenticIdempotencyResponse } from '@/lib/agentic/idempotency
 import { logger } from '@/lib/logger';
 import { productCacheRevalidation } from '@/lib/product-cache-revalidation';
 import { sanitizeForLog } from '@/lib/sanitize-core';
+import { scheduleStorefrontInventoryProductPurge } from '@/lib/storefront-inventory-product-purge';
 
 type CheckoutCalculation = Awaited<ReturnType<typeof calculateCheckoutSession>>;
 
@@ -212,10 +213,21 @@ export async function finalizeAgenticCheckoutPayment({
         const { data: productsForRevalidate, error: slugLookupError } =
           await supabase
             .from('products')
-            .select('slug, manage_stock')
+            .select(
+              'id, slug, category, manage_stock, categories:category_id(slug), product_categories(categories(slug))'
+            )
             .in('id', productIds)
             .eq('merchant_id', merchantId)
-            .returns<Array<{ manage_stock: boolean | null; slug: string }>>();
+            .returns<
+              Array<{
+                categories: unknown;
+                category: string | null;
+                id: string;
+                manage_stock: boolean | null;
+                product_categories: unknown;
+                slug: string;
+              }>
+            >();
         if (slugLookupError) {
           productCacheRevalidation.revalidateProducts(merchantId, undefined, {
             feedScope: 'merchant',
@@ -237,6 +249,12 @@ export async function finalizeAgenticCheckoutPayment({
               merchantId,
               trackedProducts.map((product) => product.slug)
             );
+            await scheduleStorefrontInventoryProductPurge({
+              merchantId,
+              operation: 'agentic checkout order creation',
+              products: trackedProducts,
+              supabase,
+            });
           } else {
             productCacheRevalidation.revalidateDashboard(merchantId);
           }

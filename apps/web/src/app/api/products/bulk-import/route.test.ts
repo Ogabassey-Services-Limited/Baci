@@ -11,12 +11,26 @@ vi.mock('@/env', () => ({
 }));
 
 const mockRevalidateProducts = vi.fn();
+const mockRevalidateProductSlugs = vi.fn();
 vi.mock('@/lib/cache-revalidation', () => ({
   revalidateProducts: (...args: unknown[]) => mockRevalidateProducts(...args),
+  revalidateProductSlugs: (...args: unknown[]) =>
+    mockRevalidateProductSlugs(...args),
 }));
+
+const mockScheduleStorefrontProductPurge = vi.fn();
+vi.mock('@/lib/storefront-product-purge', () => ({
+  scheduleStorefrontProductPurge: (...args: unknown[]) =>
+    mockScheduleStorefrontProductPurge(...args),
+}));
+
+const mockGenerateProductSlug = vi.hoisted(() =>
+  vi.fn((name: string) => name.toLowerCase().replace(/\s+/g, '-'))
+);
 
 type MerchantContextMock = {
   merchantId: string;
+  merchantSlug?: string;
   businessName: string;
   staffAccess: {
     isOwner: boolean;
@@ -29,6 +43,7 @@ type MerchantContextMock = {
 const merchantContextMock = {
   current: {
     merchantId: 'merchant-123',
+    merchantSlug: 'test-store',
     businessName: 'Test Store',
     staffAccess: {
       isOwner: true,
@@ -59,7 +74,15 @@ vi.mock('@/lib/get-merchant-for-api-request', () => ({
 
 vi.mock('@/lib/seo-utils', () => ({
   generateProductSlug: (name: string) =>
-    name.toLowerCase().replace(/\s+/g, '-'),
+    mockGenerateProductSlug(name) as string,
+  getProductUrl: (product: {
+    slug?: string | null;
+    category?: string | null;
+  }) => {
+    const slug = product.slug ?? '';
+    const category = product.category?.toLowerCase().replace(/\s+/g, '-');
+    return category ? `/${category}/${slug}` : `/products/${slug}`;
+  },
 }));
 
 // Supabase mock
@@ -110,7 +133,16 @@ vi.mock('@/lib/supabase/server', () => ({
       }
       if (table === 'products') {
         return {
-          insert: vi.fn(() => Promise.resolve({ error: insertError })),
+          insert: vi.fn(() => ({
+            select: vi.fn(() => ({
+              maybeSingle: vi.fn(() =>
+                Promise.resolve({
+                  data: insertError ? null : { id: 'created-product-1' },
+                  error: insertError,
+                })
+              ),
+            })),
+          })),
         };
       }
       return {
@@ -186,6 +218,7 @@ describe('POST /api/products/bulk-import', () => {
     merchant = { id: MERCHANT_ID };
     merchantContextMock.current = {
       merchantId: MERCHANT_ID,
+      merchantSlug: 'test-store',
       businessName: 'Test Store',
       staffAccess: {
         isOwner: true,
@@ -195,6 +228,9 @@ describe('POST /api/products/bulk-import', () => {
       },
     };
     insertError = null;
+    mockGenerateProductSlug.mockImplementation((name: string) =>
+      name.toLowerCase().replace(/\s+/g, '-')
+    );
   });
 
   it('returns 401 when not authenticated', async () => {
@@ -251,6 +287,60 @@ describe('POST /api/products/bulk-import', () => {
     expect(json.success).toBe(2);
     expect(json.failed).toBe(0);
     expect(mockRevalidateProducts).toHaveBeenCalledWith(MERCHANT_ID);
+  });
+
+  it('purges only the successful public rows after a partially successful import', async () => {
+    const { POST } = await import('./route');
+
+    const csv =
+      'name,price,category,status\nProduct A,100,Electronics,active\nDraft Item,50,Books,draft\nInvalid Item,-5,Electronics,active';
+    const res = await POST(makeImportRequest(csv));
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json).toMatchObject({ success: 2, failed: 1 });
+    expect(mockRevalidateProducts).toHaveBeenCalledWith(MERCHANT_ID);
+    expect(mockRevalidateProductSlugs).toHaveBeenCalledWith(MERCHANT_ID, [
+      'product-a',
+    ]);
+    expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+      'test-store',
+      [{ slug: 'product-a', categorySegment: 'electronics' }]
+    );
+    expect(mockRevalidateProductSlugs.mock.invocationCallOrder[0]).toBeLessThan(
+      mockScheduleStorefrontProductPurge.mock.invocationCallOrder[0]
+    );
+  });
+
+  it('does not schedule a public purge for draft-only imports', async () => {
+    const { POST } = await import('./route');
+
+    const res = await POST(
+      makeImportRequest('name,price,category,status\nDraft Item,50,Books,draft')
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockRevalidateProducts).toHaveBeenCalledWith(MERCHANT_ID);
+    expect(mockRevalidateProductSlugs).not.toHaveBeenCalled();
+    expect(mockScheduleStorefrontProductPurge).not.toHaveBeenCalled();
+  });
+
+  it('uses the persisted product id when an active import has a blank slug', async () => {
+    const { POST } = await import('./route');
+    mockGenerateProductSlug.mockReturnValueOnce('');
+
+    const response = await POST(
+      makeImportRequest('name,price\nEmoji Product,50')
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockRevalidateProductSlugs).toHaveBeenCalledWith(MERCHANT_ID, [
+      'created-product-1',
+    ]);
+    expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+      'test-store',
+      [{ slug: 'created-product-1', categorySegment: null }]
+    );
   });
 
   it('does not call revalidateProducts when all rows fail', async () => {

@@ -5,6 +5,7 @@ const mockGetInternalApiSecret = vi.fn();
 const mockRevalidateProducts = vi.fn();
 const mockRevalidateProductSlugs = vi.fn();
 const mockScheduleStorefrontProductPurge = vi.fn();
+const mockScheduleStorefrontHostnamePurge = vi.fn();
 const mockCreateAdminClient = vi.fn();
 
 vi.mock('@/env', () => ({
@@ -18,6 +19,8 @@ vi.mock('@/lib/cache-revalidation', () => ({
 vi.mock('@/lib/storefront-product-purge', () => ({
   scheduleStorefrontProductPurge: (...args: unknown[]) =>
     mockScheduleStorefrontProductPurge(...args),
+  scheduleStorefrontHostnamePurge: (...args: unknown[]) =>
+    mockScheduleStorefrontHostnamePurge(...args),
 }));
 vi.mock('@/lib/supabase/public', () => ({
   createPublicClient: (...args: unknown[]) => mockCreateAdminClient(...args),
@@ -86,6 +89,26 @@ describe('POST /api/internal/revalidate-products', () => {
     expect(mockScheduleStorefrontProductPurge).not.toHaveBeenCalled();
   });
 
+  it('schedules the bounded hostname purge for an explicit whole-storefront mutation', async () => {
+    const res = await POST(
+      request(
+        {
+          merchantId: MERCHANT_ID,
+          merchantSlug: 'ogabassey',
+          purgeWholeStorefront: true,
+        },
+        `Bearer ${SECRET}`
+      )
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockRevalidateProducts).toHaveBeenCalledWith(MERCHANT_ID);
+    expect(mockScheduleStorefrontHostnamePurge).toHaveBeenCalledWith(
+      'ogabassey'
+    );
+    expect(mockScheduleStorefrontProductPurge).not.toHaveBeenCalled();
+  });
+
   it('schedules a purge when merchantSlug and products are present', async () => {
     const res = await POST(
       request(
@@ -102,8 +125,7 @@ describe('POST /api/internal/revalidate-products', () => {
     expect(mockRevalidateProducts).toHaveBeenCalledWith(MERCHANT_ID);
     expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
       'ogabassey',
-      [{ slug: 'iphone-15', categorySegment: 'smartphones' }],
-      { listingsOnly: false }
+      [{ slug: 'iphone-15', categorySegment: 'smartphones' }]
     );
   });
 
@@ -138,8 +160,7 @@ describe('POST /api/internal/revalidate-products', () => {
     // Authoritative slug + category resolved from the row (not the uuid path).
     expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
       'ogabassey',
-      [{ slug: 'iphone-15', categorySegment: 'smartphones' }],
-      { listingsOnly: false }
+      [{ slug: 'iphone-15', categorySegment: 'smartphones' }]
     );
     // Per-slug Next caches busted for the authoritative slug + id, BEFORE the
     // edge purge is scheduled.

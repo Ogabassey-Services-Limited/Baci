@@ -41,6 +41,7 @@ describe('resolveCategoryOwnerAccess', () => {
       canonicalMerchantSlug: 'merchant-one',
       merchantId: 'merchant-1',
     });
+    expect(ownerQuery.select).toHaveBeenCalledWith('id, slug');
     expect(ownerQuery.eq).toHaveBeenCalledWith('id', 'merchant-1');
   });
 

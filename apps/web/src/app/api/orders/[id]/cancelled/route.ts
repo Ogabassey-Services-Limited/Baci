@@ -6,6 +6,7 @@ import {
 import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
 import { productCacheRevalidation } from '@/lib/product-cache-revalidation';
+import { scheduleStorefrontInventoryProductPurge } from '@/lib/storefront-inventory-product-purge';
 import { merchantOrderCancellationSchema } from '@/schemas/orders';
 
 /**
@@ -111,7 +112,9 @@ export async function POST(
       if (productIds.length > 0) {
         const { data: products, error: productsError } = await supabase
           .from('products')
-          .select('slug, manage_stock')
+          .select(
+            'id, slug, category, manage_stock, categories:category_id(slug), product_categories(categories(slug))'
+          )
           .eq('merchant_id', merchantId)
           .in('id', productIds);
         if (productsError) throw productsError;
@@ -126,6 +129,12 @@ export async function POST(
             merchantId,
             trackedProducts.map((product) => product.slug)
           );
+          await scheduleStorefrontInventoryProductPurge({
+            merchantId,
+            operation: 'order cancellation',
+            products: trackedProducts,
+            supabase,
+          });
         }
       }
     } catch (error) {

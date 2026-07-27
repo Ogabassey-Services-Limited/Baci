@@ -1,6 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { revalidateProducts } from '@/lib/cache-revalidation';
+import {
+  revalidateProductSlugs,
+  revalidateProducts,
+} from '@/lib/cache-revalidation';
 import { logger } from '@/lib/logger';
+import { scheduleStorefrontInventoryProductPurge } from '@/lib/storefront-inventory-product-purge';
 
 export class SerializedInventoryUnavailableError extends Error {
   constructor() {
@@ -62,6 +66,46 @@ export async function ensurePaidOrderInventoryConfirmed(
   if ((result?.reclaimedUnitCount ?? 0) > 0) {
     try {
       revalidateProducts(merchantId);
+      const { data: orderItems, error: orderItemsError } = await supabase
+        .from('order_items')
+        .select('product_id')
+        .eq('order_id', orderId);
+      if (orderItemsError) {
+        throw orderItemsError;
+      }
+      const productIds = Array.from(
+        new Set(
+          (orderItems ?? [])
+            .map((item) => item.product_id)
+            .filter((productId): productId is string => Boolean(productId))
+        )
+      );
+      if (productIds.length > 0) {
+        const { data: products, error: productsError } = await supabase
+          .from('products')
+          .select(
+            'id, slug, category, categories:category_id(slug), product_categories(categories(slug))'
+          )
+          .eq('merchant_id', merchantId)
+          .in('id', productIds);
+        if (productsError) {
+          throw productsError;
+        }
+        const productRows = products ?? [];
+        const identifiers = productRows.flatMap((product) => {
+          const identifier = product.slug?.trim() || product.id?.trim();
+          return identifier ? [identifier] : [];
+        });
+        if (identifiers.length > 0) {
+          revalidateProductSlugs(merchantId, identifiers);
+          await scheduleStorefrontInventoryProductPurge({
+            merchantId,
+            operation: 'paid inventory reclaim',
+            products: productRows,
+            supabase,
+          });
+        }
+      }
     } catch (revalidateError) {
       logger.error({
         error: revalidateError,
