@@ -1012,6 +1012,72 @@ export type Database = {
           },
         ];
       };
+      cache_invalidation_outbox: {
+        Row: {
+          attempts: number;
+          claim_token: string | null;
+          claimed_at: string | null;
+          claimed_by: string | null;
+          claimed_generation: number | null;
+          completed_at: string | null;
+          completed_generation: number | null;
+          created_at: string;
+          generation: number;
+          last_error_code: string | null;
+          max_attempts: number;
+          merchant_id: string;
+          next_attempt_at: string;
+          product_slugs: string[];
+          related_identifiers: string[];
+          status: string;
+          target_id: string;
+          target_kind: string;
+          updated_at: string;
+        };
+        Insert: {
+          attempts?: number;
+          claim_token?: string | null;
+          claimed_at?: string | null;
+          claimed_by?: string | null;
+          claimed_generation?: number | null;
+          completed_at?: string | null;
+          completed_generation?: number | null;
+          created_at?: string;
+          generation?: number;
+          last_error_code?: string | null;
+          max_attempts?: number;
+          merchant_id: string;
+          next_attempt_at?: string;
+          product_slugs?: string[];
+          related_identifiers?: string[];
+          status?: string;
+          target_id: string;
+          target_kind: string;
+          updated_at?: string;
+        };
+        Update: {
+          attempts?: number;
+          claim_token?: string | null;
+          claimed_at?: string | null;
+          claimed_by?: string | null;
+          claimed_generation?: number | null;
+          completed_at?: string | null;
+          completed_generation?: number | null;
+          created_at?: string;
+          generation?: number;
+          last_error_code?: string | null;
+          max_attempts?: number;
+          merchant_id?: string;
+          next_attempt_at?: string;
+          product_slugs?: string[];
+          related_identifiers?: string[];
+          status?: string;
+          target_id?: string;
+          target_kind?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       categories: {
         Row: {
           buying_guide_url: string | null;
@@ -14812,6 +14878,19 @@ export type Database = {
         Args: { p_order_id: string; p_reason?: string };
         Returns: boolean;
       };
+      claim_cache_invalidations: {
+        Args: { p_batch_size?: number; p_worker_id?: string };
+        Returns: {
+          attempts: number;
+          claim_token: string;
+          generation: number;
+          merchant_id: string;
+          product_slugs: string[];
+          related_identifiers: string[];
+          target_id: string;
+          target_kind: string;
+        }[];
+      };
       claim_order_cancellation_side_effect: {
         Args: { p_claim_token: string; p_order_id: string; p_step: string };
         Returns: { current_status: string; we_won: boolean }[];
@@ -15944,6 +16023,19 @@ export type Database = {
           similarity_score: number;
           suggested_term: string;
         }[];
+      };
+      finish_cache_invalidation: {
+        Args: {
+          p_claim_token: string;
+          p_error_code?: string | null;
+          p_generation: number;
+          p_merchant_id: string;
+          p_retry_after_seconds?: number | null;
+          p_succeeded: boolean;
+          p_target_id: string;
+          p_target_kind: string;
+        };
+        Returns: boolean;
       };
       finish_event_delivery_v1: {
         Args: {

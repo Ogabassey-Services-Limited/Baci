@@ -9,6 +9,10 @@ import { config } from 'dotenv';
 // These paths expose CRON_SECRET-gated wrappers that delegate to the underlying
 // scheduled work. The VPS worker must not call OAuth callbacks.
 const WEB_CRON_CONFIG = new Map([
+  [
+    '/api/cron/drain-cache-invalidations',
+    { method: 'GET', timeoutMs: 90_000 },
+  ],
   ['/api/ai-jobs/worker', { method: 'GET', timeoutMs: 15 * 60_000 }],
   ['/api/cron/alert-stuck-bnpl', { method: 'GET', timeoutMs: 5 * 60_000 }],
   ['/api/cron/merchant-signup-health', { method: 'GET', timeoutMs: 60_000 }],
