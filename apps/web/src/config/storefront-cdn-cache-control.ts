@@ -47,6 +47,7 @@ const NON_CACHEABLE_BROWSER_CACHE_CONTROL =
 
 export type StorefrontDocumentCacheKind =
   | 'cacheable'
+  | 'cacheable-pdp'
   | 'cacheable-self-healing'
   | 'cacheable-vercel-only'
   | 'non-cacheable';
@@ -71,6 +72,14 @@ export function buildStorefrontDocumentCacheHeaders(
   kind: StorefrontDocumentCacheKind
 ): StorefrontDocumentCacheHeaders {
   if (kind === 'cacheable') {
+    return {
+      cacheControl: CACHEABLE_BROWSER_CACHE_CONTROL,
+      vercelCdnCacheControl: CACHEABLE_VERCEL_CDN_CACHE_CONTROL,
+      cdnCacheControl: CACHEABLE_CDN_CACHE_CONTROL,
+    };
+  }
+
+  if (kind === 'cacheable-pdp') {
     return {
       cacheControl: CACHEABLE_BROWSER_CACHE_CONTROL,
       vercelCdnCacheControl: CACHEABLE_VERCEL_CDN_CACHE_CONTROL,
