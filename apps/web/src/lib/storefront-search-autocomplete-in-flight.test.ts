@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AutocompleteSupabase } from './storefront-search-autocomplete';
+import { withAutocompleteInFlightDeadline } from './storefront-search-autocomplete-in-flight';
 
 const MERCHANT_ID = '123e4567-e89b-12d3-a456-426614174000';
 
@@ -68,6 +69,31 @@ describe('bugfix: bounded autocomplete in-flight requests', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it('does not emit an unhandled rejection when the settlement observer throws', async () => {
+    let unhandledRejection: unknown;
+    const onUnhandledRejection = (reason: unknown) => {
+      unhandledRejection = reason;
+    };
+    process.once('unhandledRejection', onUnhandledRejection);
+
+    try {
+      await expect(
+        withAutocompleteInFlightDeadline(
+          () => Promise.resolve('completed'),
+          5_000,
+          () => {
+            throw new Error('settlement observer failed');
+          }
+        )
+      ).resolves.toBe('completed');
+      await new Promise<void>((resolve) => setImmediate(resolve));
+
+      expect(unhandledRejection).toBeUndefined();
+    } finally {
+      process.removeListener('unhandledRejection', onUnhandledRejection);
+    }
   });
 
   it('keeps coalescing a timed-out key while its transport remains unsettled', async () => {
