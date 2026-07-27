@@ -27,15 +27,13 @@ test('reads the private auditor App registration through an App JWT', async () =
 
   assert.match(
     source,
-    /read-auditor-app-registration\) jwt=\$\(app_jwt\) \|\| refuse; node=\$\(verified_task7_node\) \|\| refuse; printf '%s' "\$jwt" \| exec "\$node" --input-type=module -e /
+    /read-auditor-app-registration\) jwt=\$\(app_jwt\) \|\| refuse; node=\$\(verified_task7_node\) \|\| refuse; printf '%s' "\$jwt" \| exec \/usr\/bin\/env -i "\$node" --input-type=module -e /
   );
   assert.doesNotMatch(source, /\/usr\/bin\/printf '%s' "\$jwt"/);
   assert.match(source, /Authorization:`Bearer \$\{jwt\}`/);
   assert.match(source, /bytes>1048576\)\{fail\(\);request\.destroy\(\)/);
-  assert.match(
-    source,
-    /setTimeout\(30000,\(\)=>\{fail\(\);request\.destroy\(\)\}\)/
-  );
+  assert.match(source, /const deadline=setTimeout\(.*30000\)/);
+  assert.match(source, /clearTimeout\(deadline\)/);
   assert.doesNotMatch(source, /\/repos\/\$REPOSITORY\/installation/);
   assert.doesNotMatch(
     source,
@@ -72,13 +70,25 @@ test('uses Bearer auth and never invokes gh when App JWT minting fails', async (
     `${harnessPrefix}app_jwt() { printf '%s' a.b.c; }\nverified_task7_node() { printf '%s' "$root/tools/node/bin/node"; }\nexec_task7\n`,
     { mode: 0o700 }
   );
-  const success = spawnSync(harness, [root], { encoding: 'utf8' });
+  const success = spawnSync(harness, [root], {
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      NODE_EXTRA_CA_CERTS: '/tmp/attacker-ca.pem',
+      NODE_OPTIONS: '--require=/tmp/attacker-preload.cjs',
+      NODE_TLS_REJECT_UNAUTHORIZED: '0',
+    },
+  });
   assert.equal(success.status, 0, success.stderr);
   assert.equal(await readFile(tokenFile, 'utf8'), 'a.b.c');
   const argumentsText = await readFile(argumentsFile, 'utf8');
   assert.match(argumentsText, /^--input-type=module\n-e\n/);
   assert.doesNotMatch(argumentsText, /a\.b\.c/);
-  assert.doesNotMatch(await readFile(environmentFile, 'utf8'), /a\.b\.c/);
+  const environmentText = await readFile(environmentFile, 'utf8');
+  assert.doesNotMatch(environmentText, /a\.b\.c/);
+  assert.doesNotMatch(environmentText, /NODE_OPTIONS/);
+  assert.doesNotMatch(environmentText, /NODE_EXTRA_CA_CERTS/);
+  assert.doesNotMatch(environmentText, /NODE_TLS_REJECT_UNAUTHORIZED/);
 
   await Promise.all([
     rm(argumentsFile, { force: true }),
