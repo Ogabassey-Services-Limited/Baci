@@ -2,9 +2,10 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
+import type { FollowUpViewState } from './follow-up-view-state';
 
 interface FollowUpEmptyStateProps {
-  isError: boolean;
+  viewState: Exclude<FollowUpViewState, { status: 'ready' }>;
   isRetrying: boolean;
   onRetry: () => void;
 }
@@ -17,22 +18,31 @@ interface FollowUpEmptyStateProps {
  * unseen. Errors get their own state with a retry affordance.
  */
 export function FollowUpEmptyState({
-  isError,
+  viewState,
   isRetrying,
   onRetry,
 }: FollowUpEmptyStateProps) {
   const { colors } = useTheme();
 
-  if (isError) {
+  if (viewState.status === 'loading') {
+    return (
+      <View style={styles.container}>
+        <Text style={[styles.title, { color: colors.text }]}>
+          Loading follow-ups…
+        </Text>
+      </View>
+    );
+  }
+
+  if (viewState.status === 'error') {
     return (
       <View style={styles.container}>
         <Ionicons name="cloud-offline-outline" size={56} color={colors.error} />
         <Text style={[styles.title, { color: colors.text }]}>
-          Couldn't load follow-ups
+          {viewState.title}
         </Text>
         <Text style={[styles.body, { color: colors.textSecondary }]}>
-          We couldn't check for unsuccessful transactions. This does not mean
-          there are none.
+          {viewState.message}
         </Text>
         <Pressable
           style={({ pressed }) => [

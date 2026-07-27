@@ -27,6 +27,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FollowUpEmptyState } from '@/components/customers/FollowUpEmptyState';
 import { FollowUpErrorBanner } from '@/components/customers/FollowUpErrorBanner';
+import { FollowUpFilteredEmptyState } from '@/components/customers/FollowUpFilteredEmptyState';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import {
   type Customer,
@@ -34,8 +35,8 @@ import {
   useCustomers,
 } from '@/hooks/useCustomers';
 import { useDebounce } from '@/hooks/useDebounce';
-import { type FailedOrder, useFailedOrders } from '@/hooks/useFailedOrders';
-import { useMerchant } from '@/hooks/useMerchant';
+import type { FailedOrder } from '@/hooks/useFailedOrders';
+import { useFollowUpQueue } from '@/hooks/useFollowUpQueue';
 import { useTheme } from '@/hooks/useTheme';
 import {
   type GroupedFailedOrderListItem,
@@ -398,7 +399,15 @@ const CUSTOMER_TABS: Array<{
 
 export default function CustomersScreen() {
   const { colors, shadows, isDark } = useTheme();
-  const { merchant } = useMerchant();
+  const {
+    failedOrders,
+    isFailedOrdersError,
+    isFetchingFailed,
+    isLoadingFailed,
+    merchant,
+    refresh: refreshFollowUps,
+    viewState: followUpViewState,
+  } = useFollowUpQueue();
   const currencySymbol = getCurrencySymbol(merchant?.payout_currency);
   const router = useRouter();
   const [activeTab, setActiveTab] = React.useState<CustomerTab>('failed');
@@ -459,14 +468,6 @@ export default function CustomersScreen() {
     customerType: customerTypeFilter,
   });
 
-  const {
-    data: failedOrders,
-    isError: isFailedOrdersError,
-    isFetching: isFetchingFailed,
-    isLoading: isLoadingFailed,
-    refetch: refetchFailed,
-  } = useFailedOrders();
-
   const { data: stats } = useCustomerStats();
 
   // Flatten pages into single array and filter by search
@@ -496,7 +497,10 @@ export default function CustomersScreen() {
 
   const { data: groupedFailedOrders, stickyHeaderIndices } =
     groupFailedOrdersByDate(filteredFailedOrders);
-
+  const hasFilteredFollowUpSearchEmpty =
+    followUpViewState.status === 'ready' &&
+    searchQuery.trim().length > 0 &&
+    groupedFailedOrders.length === 0;
   const handleLoadMore = () => {
     if (activeTab !== 'failed' && hasNextPage && !isFetchingNextPage) {
       fetchNextPage();
@@ -791,7 +795,7 @@ export default function CustomersScreen() {
           refreshControl={
             <RefreshControl
               refreshing={isLoadingFailed}
-              onRefresh={refetchFailed}
+              onRefresh={refreshFollowUps}
               tintColor={colors.gold}
               colors={[colors.gold]}
             />
@@ -802,16 +806,18 @@ export default function CustomersScreen() {
             isFailedOrdersError && groupedFailedOrders.length > 0 ? (
               <FollowUpErrorBanner
                 isRetrying={isFetchingFailed}
-                onRetry={refetchFailed}
+                onRetry={refreshFollowUps}
               />
             ) : null
           }
           ListEmptyComponent={
-            isLoadingFailed ? null : (
+            hasFilteredFollowUpSearchEmpty ? (
+              <FollowUpFilteredEmptyState />
+            ) : followUpViewState.status === 'ready' ? null : (
               <FollowUpEmptyState
-                isError={isFailedOrdersError}
+                viewState={followUpViewState}
                 isRetrying={isFetchingFailed}
-                onRetry={refetchFailed}
+                onRetry={refreshFollowUps}
               />
             )
           }

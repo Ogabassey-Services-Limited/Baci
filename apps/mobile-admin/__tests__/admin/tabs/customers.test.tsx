@@ -91,10 +91,17 @@ vi.mock('@/hooks/useTheme', () => ({
 }));
 
 const customerHookMocks = vi.hoisted(() => ({
+  invalidateQueries: vi.fn(),
   useCustomers: vi.fn(),
   useFailedOrders: vi.fn(),
   useCustomerStats: vi.fn(),
   useMerchant: vi.fn(),
+}));
+
+vi.mock('@tanstack/react-query', () => ({
+  useQueryClient: () => ({
+    invalidateQueries: customerHookMocks.invalidateQueries,
+  }),
 }));
 
 vi.mock('@/hooks/useCustomers', () => ({

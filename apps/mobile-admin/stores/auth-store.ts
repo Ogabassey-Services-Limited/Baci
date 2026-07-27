@@ -8,6 +8,7 @@
 
 import type { Session, User } from '@supabase/supabase-js';
 import { create } from 'zustand';
+import { isConnectivityError } from '@/lib/api-errors';
 import {
   classifyAuthError,
   getAuthErrorCode,
@@ -145,8 +146,9 @@ export const useAuthStore = create<AuthStore>((set, get) => {
 
         return { error: null };
       } catch (error) {
-        const message =
-          error instanceof Error
+        const message = isConnectivityError(error)
+          ? 'Unable to connect. Please check your internet connection.'
+          : error instanceof Error
             ? error.message
             : 'Password sign-in failed. Please try again.';
 
