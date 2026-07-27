@@ -81,10 +81,17 @@ vi.mock('@/hooks/useTheme', () => ({
 }));
 
 const customerHookMocks = vi.hoisted(() => ({
+  invalidateQueries: vi.fn(),
   useCustomers: vi.fn(),
   useFailedOrders: vi.fn(),
   useCustomerStats: vi.fn(),
   useMerchant: vi.fn(),
+}));
+
+vi.mock('@tanstack/react-query', () => ({
+  useQueryClient: () => ({
+    invalidateQueries: customerHookMocks.invalidateQueries,
+  }),
 }));
 
 vi.mock('@/hooks/useCustomers', () => ({
@@ -188,6 +195,37 @@ describe('CustomersScreen follow-up error surface', () => {
     // Assert
     expect(screen.getByText('No issues')).toBeTruthy();
     expect(screen.queryByText("Couldn't load follow-ups")).toBeNull();
+  });
+
+  it('does not report no issues when merchant context fails and retries merchant context', () => {
+    // Arrange: useFailedOrders is disabled without a merchant id, so its
+    // undefined data must not be mistaken for a successful empty queue.
+    customerHookMocks.useMerchant.mockReturnValue({
+      merchant: null,
+      isLoading: false,
+      error: new Error('merchant context failed'),
+    });
+    customerHookMocks.useFailedOrders.mockReturnValue({
+      data: undefined,
+      isError: false,
+      isLoading: false,
+      refetch: vi.fn(),
+    });
+
+    // Act
+    render(<CustomersScreen />);
+
+    // Assert
+    expect(screen.queryByText('No issues')).toBeNull();
+    expect(screen.getByText('Failed to load store')).toBeTruthy();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Retry loading follow-ups' })
+    );
+
+    expect(customerHookMocks.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['merchant'],
+    });
   });
 
   it('warns that rows are stale when a refresh fails over cached follow-ups', () => {
