@@ -64,6 +64,25 @@ NODE_ENV=production ~/baci-workers/bin/process-domain-events.sh --once
 NODE_ENV=production ~/baci-workers/bin/process-event-deliveries.sh --once
 ```
 
+### Storefront cache transition canary
+
+The cache transition uses the existing router and delivery services. Do not add
+a cache-specific systemd service, timer, cron entry, wrapper, or worker-side
+Cloudflare credential. Before enabling either cache flag, deploy the migration
+first, then the web/VPS artifacts with all cache flags false. Configure the
+worker with the paired HTTPS `STOREFRONT_CACHE_ACTUATOR_URL` and
+`STOREFRONT_CACHE_ACTUATOR_SECRET`; configure Vercel with that secret and the
+same `STOREFRONT_CACHE_CANARY_MERCHANT_ID`. Verify configured values by
+presence/equality only—never print secrets or UUIDs.
+
+Keep cache enqueue, routing, and delivery flags disabled until a capable
+router/delivery heartbeat, queue-age alert transport, cache load/poison drill,
+and database-to-Vercel canary UUID comparison have passed. Enable one
+OgaBassey category transition, preserve the
+canonical obligation/delivery records for every retry or replay, and observe
+for 48 hours before considering wider rollout. Rollback means disable enqueue,
+routing, and delivery flags; repair forward rather than deleting durable rows.
+
 ## Operational API
 
 A platform administrator can inspect safe summaries at:

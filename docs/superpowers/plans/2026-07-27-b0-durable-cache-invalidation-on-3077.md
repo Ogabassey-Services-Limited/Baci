@@ -300,16 +300,22 @@ git commit -m "feat: deliver cache transition in existing worker"
 **Files:**
 - Modify: `apps/web/src/lib/events/event-pipeline-database.ts`
 - Modify: `apps/web/src/lib/events/event-pipeline-database.test.ts`
+- Create: `apps/web/src/lib/events/event-pipeline-function-inventory.ts`
+- Create: `apps/web/src/lib/events/event-pipeline-function-inventory.test.ts`
 - Modify: `apps/web/src/lib/events/event-pipeline-boundary-manifest.ts`
 - Modify: `apps/web/src/lib/events/event-pipeline-boundary-manifest.test.ts`
+- Modify: `apps/web/tools/events/event-pipeline-service-authority-graph.ts`
+- Create: `apps/web/tools/events/event-pipeline-storefront-cache-credential-closure.test.ts`
+- Modify: `apps/web/tools/events/verify-event-pipeline-boundaries.ts`
+- Modify: `apps/web/tools/events/event-pipeline-governed-paths.ts`
+- Modify: `apps/web/tools/events/event-pipeline-service-role-credential-analysis.ts`
 - Modify: `apps/web/src/env.ts`
-- Modify: `apps/web/src/env.test.ts`
-- Modify: `vps-workers/install-event-pipeline-services.sh`
-- Modify: `vps-workers/deploy.sh`
-- Modify: `vps-workers/jobs/deploy-crontab.test.mjs`
+- Create: `apps/web/src/lib/events/storefront-cache-actuator-environment.ts`
+- Create: `apps/web/src/lib/events/storefront-cache-actuator-environment.test.ts`
+- Modify: `vps-workers/install-event-pipeline-services.test.mjs`
 - Modify: `docs/ops/durable-event-pipeline.md`
 
-- [ ] **Step 1: Write failing authority/deployment tests**
+- [x] **Step 1: Write authority/deployment tests**
 
 ```ts
 expect(manifest.callers['apps/web/src/scripts/process-storefront-cache-transition.ts']).toContain('finish_storefront_cache_transition_delivery_v1');
@@ -327,27 +333,33 @@ assert.doesNotMatch(deployScript, /drain-storefront-cache-invalidations/);
 assert.doesNotMatch(deployScript, /storefront-cache-transition\.service/);
 ```
 
-- [ ] **Step 2: Run tests and confirm failure**
+- [x] **Step 2: Run focused governance tests**
 
-Run: `pnpm --filter web exec vitest run src/lib/events/event-pipeline-database.test.ts src/lib/events/event-pipeline-boundary-manifest.test.ts src/lib/events/storefront-cache-transition-boundary.test.ts src/env.test.ts && node --test vps-workers/jobs/deploy-crontab.test.mjs`
+Run: `pnpm --filter web exec vitest run src/lib/events/event-pipeline-function-inventory.test.ts src/lib/events/event-pipeline-database.test.ts src/lib/events/event-pipeline-boundary-manifest.test.ts src/lib/events/storefront-cache-actuator-environment.test.ts tools/events/event-pipeline-storefront-cache-credential-closure.test.ts && node --test vps-workers/install-event-pipeline-services.test.mjs`
 
-Expected: FAIL until finite receipts/current-service configuration exist.
+Expected: PASS once finite receipts and current-service configuration are pinned.
 
-- [ ] **Step 3: Implement authority/deployment and prove rollout**
+- [x] **Step 3: Implement repository authority/deployment gates**
 
 Now that the migration-generated types and all runtime sources exist, add the three typed RPC names, exact caller map, signatures, production roots, and actuator closure receipt. Split database evidence explicitly: `productionHistoryFunctionNames` remains the existing frozen 19-name list and alone filters/asserts `tools/db/fixtures/production-history-effects.json`; `storefrontCacheTransitionLocalFunctionNames` is the exact three-name list proved by Task 1's executable isolated-replay catalog contract; and their sorted union must equal the full 22-name `EVENT_PIPELINE_FUNCTION_NAMES`. Do not change `supabase-history-effects.sql`, `supabase-history-effect-scope.ts`, `supabase-history-effect-query-contract.ts`, the fixed 19-function production assertion/digest vector, or `production-history-effects.json` before a real post-deploy attestation. Re-run the Task 1 isolated replay command so the full 22-name types/signatures and local catalog contract are proven together.
 
-Allow exact specialized RPCs only from existing worker modules; preserve analytics receipts and keep every `EVENT_PIPELINE_BOUNDARY.authority.*` array byte-identical. Worker config requires HTTPS `STOREFRONT_CACHE_ACTUATOR_URL` plus `STOREFRONT_CACHE_ACTUATOR_SECRET`; Vercel config requires that secret plus `STOREFRONT_CACHE_CANARY_MERCHANT_ID`. The actuator reconstructs only fixed `ogabassey` identity after signed `merchantId` equals that configured UUID, and its hostname builder must return exactly sorted `ogabassey.com,www.ogabassey.com` or fail. The worker receives no Cloudflare token. Do not add service/schedule. Migration must deploy before prebuilt web/VPS artifacts. Before enqueue: prove capable router/delivery heartbeats, stale-router defer/no-dead-letter, queue-age alert, load/poison latency, production presence of Cloudflare env values without logging them, and DB canary UUID equality with Vercel configured UUID without logging either value. Keep actuator disabled until all preflights succeed.
+Allow exact specialized RPCs only from existing worker modules; preserve analytics receipts and keep every `EVENT_PIPELINE_BOUNDARY.authority.*` array byte-identical. Worker config requires HTTPS `STOREFRONT_CACHE_ACTUATOR_URL` plus `STOREFRONT_CACHE_ACTUATOR_SECRET`; Vercel config requires that secret plus `STOREFRONT_CACHE_CANARY_MERCHANT_ID`. The actuator reconstructs only fixed `ogabassey` identity after signed `merchantId` equals that configured UUID, and its hostname builder must return exactly sorted `ogabassey.com,www.ogabassey.com` or fail. The worker receives no Cloudflare token. Do not add service/schedule. Migration must deploy before prebuilt web/VPS artifacts. Before enqueue: prove capable router/delivery heartbeats, stale-router defer/no-dead-letter, queue-age alert, load/poison latency, production presence of Cloudflare env values without logging them, and DB canary UUID equality with Vercel configured UUID without logging either value. Keep cache enqueue, routing, and delivery flags disabled until all preflights succeed.
 
 Run: `pnpm turbo lint && pnpm turbo typecheck && pnpm turbo test && pnpm --filter web exec vitest run tools/events/verify-event-pipeline-boundaries.live.test.ts && supabase test db --file supabase/tests/domain_event_ingress_pipeline.sql && supabase test db --file supabase/tests/event_delivery_pipeline.sql && supabase test db --file supabase/tests/storefront_cache_transition.sql`
 
 Expected: PASS; deploy all flags false, stage one database canary, drill atomic rollback/crashes/DLQ/replay, then observe one production merchant/category for 48 hours. Roll back enqueue, routing, delivery; preserve every canonical record and repair forward append-only.
 
-- [ ] **Step 4: Commit**
+**External rollout remains pending owner-approved deployment authority:** apply
+the migration first, deploy prebuilt web/VPS artifacts with cache flags false,
+set secrets/canary outside source control, run the live preflights and drills,
+then observe the one-merchant canary for 48 hours. No repository task may
+perform those external-state actions.
+
+- [x] **Step 4: Commit**
 
 ```bash
-git add apps/web/src/lib/events/event-pipeline-database.ts apps/web/src/lib/events/event-pipeline-database.test.ts apps/web/src/lib/events/event-pipeline-boundary-manifest.ts apps/web/src/lib/events/event-pipeline-boundary-manifest.test.ts apps/web/src/env.ts apps/web/src/env.test.ts vps-workers/install-event-pipeline-services.sh vps-workers/deploy.sh vps-workers/jobs/deploy-crontab.test.mjs docs/ops/durable-event-pipeline.md
-git commit -m "docs: gate cache transition canary rollout"
+git add apps/web/src/lib/events/event-pipeline-database.ts apps/web/src/lib/events/event-pipeline-database.test.ts apps/web/src/lib/events/event-pipeline-function-inventory.ts apps/web/src/lib/events/event-pipeline-function-inventory.test.ts apps/web/src/lib/events/event-pipeline-boundary-manifest.ts apps/web/src/lib/events/event-pipeline-boundary-manifest.test.ts apps/web/src/lib/events/storefront-cache-actuator-environment.ts apps/web/src/lib/events/storefront-cache-actuator-environment.test.ts apps/web/tools/events/event-pipeline-service-authority-graph.ts apps/web/tools/events/event-pipeline-storefront-cache-credential-closure.test.ts apps/web/tools/events/verify-event-pipeline-boundaries.ts apps/web/tools/events/event-pipeline-governed-paths.ts apps/web/tools/events/event-pipeline-service-role-credential-analysis.ts apps/web/src/env.ts vps-workers/install-event-pipeline-services.test.mjs docs/ops/durable-event-pipeline.md docs/superpowers/plans/2026-07-27-b0-durable-cache-invalidation-on-3077.md
+git commit -m "feat: gate cache transition canary rollout"
 ```
 
 ## Required implementation detail addendum
@@ -395,7 +407,7 @@ finish_storefront_cache_transition_delivery_v1(
 ) returns boolean;
 ```
 
-Generic `claim_event_deliveries_v1` excludes `storefront_cache_transition`; the cache claim includes only it. Lease is 90 seconds, actuator full-barrier deadline 60 seconds, and atomic terminal fence is `(delivery_id, claim_token, obligation_id, generation, status='claimed')`. Retryable outcomes use existing exponential backoff. A timeout, network failure, missing receipt, or invalid/mismatched receipt is cache-specific retryable because every barrier operation is idempotent; only an exact request-bound typed receipt may complete the delivery. A retry reruns the whole barrier rather than resuming an invented per-stage checkpoint.
+Generic `claim_event_deliveries_v1` excludes `storefront_cache_transition`; the cache claim includes only it. Lease is 90 seconds, actuator full-barrier deadline is 50 seconds, and atomic terminal fence is `(delivery_id, claim_token, obligation_id, generation, status='claimed')`. Retryable outcomes use existing exponential backoff. A timeout, network failure, missing receipt, or invalid/mismatched receipt is cache-specific retryable because every barrier operation is idempotent; only an exact request-bound typed receipt may complete the delivery. A retry reruns the whole barrier rather than resuming an invented per-stage checkpoint.
 
 ### Contract, schema, and worker wiring inventory
 

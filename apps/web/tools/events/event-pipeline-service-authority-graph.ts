@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { eventPipelineBoundaryManifest as manifest } from '../../src/lib/events/event-pipeline-boundary-manifest';
 import { analyticsDeliveryModuleGraph as moduleGraph } from './analytics-delivery-module-graph';
 import { eventPipelineCredentialImportAnalysis as credentialImports } from './event-pipeline-credential-import-analysis';
@@ -8,7 +9,18 @@ import { eventPipelineStaticModuleGraph as staticGraph } from './event-pipeline-
 
 type FactoryKind = 'admin' | 'sdk' | 'service';
 type AuthorityKind = FactoryKind | 'credential';
-type AuthorityEdge = { key: string; message: string; path: string };
+type AuthorityEdge = {
+  importPath?: readonly string[];
+  key: string;
+  kind: AuthorityKind;
+  message: string;
+  path: string;
+};
+export type CredentialClosureReceipt = {
+  credentialPaths: readonly (readonly string[])[];
+  roots: readonly string[];
+  sourceHashes: Readonly<Record<string, string>>;
+};
 
 const factoryTargets = new Map<string, FactoryKind>([
   ['apps/web/src/lib/supabase/admin.ts', 'admin'],
@@ -91,6 +103,7 @@ function collectAuthorityEdges(
     if (credentialFinding) {
       edges.push({
         key: JSON.stringify(['direct', path, 'credential']),
+        kind: 'credential',
         message: credentialFinding,
         path,
       });
@@ -107,6 +120,7 @@ function collectAuthorityEdges(
       }
       edges.push({
         key: JSON.stringify(['direct', path, reference.kind, reference.target]),
+        kind: reference.kind,
         message: `${path}: unauthorized ${reference.kind} factory importer`,
         path,
       });
@@ -170,6 +184,7 @@ function collectAuthorityEdges(
         const message = pathMessage(root, kind, target, path);
         for (let index = 1; index < path.length; index += 1) {
           edges.push({
+            importPath: path,
             key: JSON.stringify([
               'path',
               root,
@@ -177,6 +192,7 @@ function collectAuthorityEdges(
               path[index],
               kind,
             ]),
+            kind,
             message,
             path: path[index - 1] ?? root,
           });
@@ -187,20 +203,66 @@ function collectAuthorityEdges(
   return edges;
 }
 
+function matchesStorefrontCacheActuatorCredentialClosure(
+  edge: AuthorityEdge,
+  sources: ReadonlyMap<string, string>,
+  receipt: CredentialClosureReceipt
+): boolean {
+  if (edge.kind !== 'credential' || !edge.importPath) return false;
+  if (!receipt.roots.includes(edge.importPath[0] ?? '')) return false;
+  if (
+    !receipt.credentialPaths.some(
+      (path) =>
+        path.length === edge.importPath?.length &&
+        path.every((item, index) => item === edge.importPath?.[index])
+    )
+  )
+    return false;
+  const approvedNodes = new Set(receipt.credentialPaths.flat());
+  const hashedNodes = Object.keys(receipt.sourceHashes);
+  if (
+    approvedNodes.size !== hashedNodes.length ||
+    hashedNodes.some((path) => !approvedNodes.has(path))
+  )
+    return false;
+  return Object.entries(receipt.sourceHashes).every(([path, expectedHash]) => {
+    const source = sources.get(path);
+    return (
+      source !== undefined &&
+      createHash('sha256').update(source).digest('hex') === expectedHash
+    );
+  });
+}
+
 export function serviceAuthorityGraphFindings(
   sources: ReadonlyMap<string, string>,
   roots: readonly string[] = [...sources.keys()],
   frozenSources?: ReadonlyMap<string, string>,
   freezeInheritedPaths: ReadonlySet<string> = new Set(),
-  authorityByteSources?: ReadonlyMap<string, string>
+  authorityByteSources?: ReadonlyMap<string, string>,
+  credentialClosure?: CredentialClosureReceipt
 ): string[] {
+  const effectiveRoots = credentialClosure
+    ? [...new Set([...roots, ...credentialClosure.roots])]
+    : roots;
   const scanAllDirect = Boolean(frozenSources);
   const frozenEdges = frozenSources
-    ? collectAuthorityEdges(frozenSources, roots, scanAllDirect)
+    ? collectAuthorityEdges(frozenSources, effectiveRoots, scanAllDirect)
     : [];
   const inherited = new Set(frozenEdges.map(({ key }) => key));
-  const findings = collectAuthorityEdges(sources, roots, scanAllDirect)
-    .filter(({ key }) => !inherited.has(key))
+  const findings = collectAuthorityEdges(sources, effectiveRoots, scanAllDirect)
+    .filter(
+      (edge) =>
+        !inherited.has(edge.key) &&
+        !(
+          credentialClosure &&
+          matchesStorefrontCacheActuatorCredentialClosure(
+            edge,
+            sources,
+            credentialClosure
+          )
+        )
+    )
     .map(({ message }) => message);
   if (freezeInheritedPaths.size > 0 && !authorityByteSources) {
     findings.push(

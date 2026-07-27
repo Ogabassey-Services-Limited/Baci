@@ -12,6 +12,35 @@ export const eventPipelineBoundaryManifest = {
   },
   // biome-ignore format: compact allowlist preserves the 300-line verifier gate.
   trustedWrapperImporters: ['apps/web/src/app/api/analytics/conversion/route.ts', 'apps/web/src/app/api/events/route.ts'],
+  storefrontCacheActuatorCredentialClosure: {
+    roots: [
+      'apps/web/src/app/api/internal/storefront-cache-actuator/route.ts',
+      'apps/web/src/lib/storefront-category-cache-barrier.ts',
+    ],
+    sourceHashes: {
+      'apps/web/src/app/api/internal/storefront-cache-actuator/route.ts':
+        'c0a5c0f4f2b7045a41545487eaa6952e1bb0cf33915a6ce9759f9220277b2fc0',
+      'apps/web/src/lib/cloudflare-purge.ts':
+        '11a81b8cf8633085c6c5545b9fce6cbd00d0a3fafe8494f8110d3ffddf8e022e',
+      'apps/web/src/lib/storefront-category-cache-barrier.ts':
+        '9b43b3498d1d696ece058b9657023505180430624cfc9d5581522d023795fa21',
+      'apps/web/src/env.ts':
+        '29def629a4bac307f1fd00044e10fdb86e0c03880425ea8fbdd2e85c45a747b6',
+    },
+    credentialPaths: [
+      [
+        'apps/web/src/app/api/internal/storefront-cache-actuator/route.ts',
+        'apps/web/src/lib/storefront-category-cache-barrier.ts',
+        'apps/web/src/lib/cloudflare-purge.ts',
+        'apps/web/src/env.ts',
+      ],
+      [
+        'apps/web/src/lib/storefront-category-cache-barrier.ts',
+        'apps/web/src/lib/cloudflare-purge.ts',
+        'apps/web/src/env.ts',
+      ],
+    ],
+  },
 } as const;
 export function memberName(expression: ts.Expression) {
   if (ts.isPropertyAccessExpression(expression)) return expression.name.text;

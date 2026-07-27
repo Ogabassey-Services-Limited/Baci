@@ -7,6 +7,10 @@ import type {
   EventPipelineFunctionArgs,
   EventPipelineFunctionReturns,
 } from './event-pipeline-database';
+import {
+  EVENT_PIPELINE_FUNCTION_NAMES,
+  productionHistoryFunctionNames,
+} from './event-pipeline-function-inventory';
 
 const cleanupArgs: EventPipelineFunctionArgs<'cleanup_domain_event_pipeline_v1'> =
   {
@@ -20,28 +24,6 @@ const modulePath = resolve(
   process.cwd(),
   'src/lib/events/event-pipeline-database.ts'
 );
-
-const functionNames = [
-  'claim_event_deliveries_v1',
-  'cleanup_domain_event_pipeline_v1',
-  'dead_letter_ingress_event_v1',
-  'enqueue_domain_event_v1',
-  'finish_event_delivery_v1',
-  'get_domain_event_queue_metrics_v1',
-  'get_event_pipeline_operations_v1',
-  'is_event_ingress_capability_v1',
-  'list_event_pipeline_deliveries_v1',
-  'list_event_pipeline_ingress_failures_v1',
-  'read_domain_events_v1',
-  'record_analytics_domain_event_v1',
-  'record_event_worker_heartbeat_v1',
-  'record_platform_domain_event_v1',
-  'replay_event_deliveries_batch_v1',
-  'replay_event_delivery_v1',
-  'replay_ingress_dead_letter_v1',
-  'route_domain_event_v1',
-  'select_event_pipeline_replay_ids_v1',
-] as const;
 
 describe('event pipeline generated database boundary', () => {
   it('compiles cleanup worker Args and Returns beside its source proof', () => {
@@ -98,7 +80,9 @@ describe('event pipeline generated database boundary', () => {
 
     const moduleUrl = pathToFileURL(modulePath).href;
     const boundary = await import(/* @vite-ignore */ moduleUrl);
-    expect(boundary.EVENT_PIPELINE_FUNCTION_NAMES).toEqual(functionNames);
+    expect(boundary.EVENT_PIPELINE_FUNCTION_NAMES).toEqual(
+      EVENT_PIPELINE_FUNCTION_NAMES
+    );
 
     const artifact = JSON.parse(
       readFileSync(
@@ -211,12 +195,14 @@ describe('event pipeline generated database boundary', () => {
         ({ category, identity }) =>
           category === 'function' &&
           identity.startsWith('public.') &&
-          functionNames.some((name) => identity.startsWith(`public.${name}(`))
+          productionHistoryFunctionNames.some((name) =>
+            identity.startsWith(`public.${name}(`)
+          )
       )
       .map(({ identity, sha256 }) => [identity.slice(7), sha256]);
     expect(actual).toEqual(expected);
     expect(expected.map(([identity]) => identity.replace(/\(.*/, ''))).toEqual(
-      functionNames
+      productionHistoryFunctionNames
     );
 
     const regression = readFileSync(
@@ -237,10 +223,11 @@ describe('event pipeline generated database boundary', () => {
       'apps/web/src/lib/events/enqueue-paid-order-domain-event.ts': ['enqueue_domain_event_v1'],
       'apps/web/src/lib/events/record-analytics-domain-event.ts': ['record_analytics_domain_event_v1'],
       'apps/web/src/lib/events/record-platform-domain-event.ts': ['record_platform_domain_event_v1'],
-      'apps/web/src/scripts/domain-event-worker-batch.ts': ['dead_letter_ingress_event_v1', 'route_domain_event_v1'],
+      'apps/web/src/scripts/domain-event-worker-batch.ts': ['dead_letter_ingress_event_v1', 'route_domain_event_v1', 'route_storefront_cache_transition_v1'],
       'apps/web/src/scripts/domain-event-worker.ts': ['read_domain_events_v1', 'record_event_worker_heartbeat_v1'],
       'apps/web/src/scripts/event-delivery-worker.ts': ['claim_event_deliveries_v1', 'record_event_worker_heartbeat_v1'],
       'apps/web/src/scripts/process-claimed-event-delivery.ts': ['finish_event_delivery_v1'],
+      'apps/web/src/scripts/process-storefront-cache-transition.ts': ['claim_storefront_cache_transition_deliveries_v1', 'finish_storefront_cache_transition_delivery_v1'],
       'vps-workers/jobs/supabase-retention-cleanup.mjs': ['cleanup_domain_event_pipeline_v1'],
     });
     for (const path of ['apps/web/src/scripts/process-domain-events.ts', 'apps/web/src/scripts/process-event-deliveries.ts']) {

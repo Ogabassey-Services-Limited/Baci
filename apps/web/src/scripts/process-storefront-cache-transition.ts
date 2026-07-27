@@ -250,8 +250,8 @@ async function claimStorefrontCacheTransitionBatch(
     'claim_storefront_cache_transition_deliveries_v1',
     {
       p_batch_size: 1,
-      p_deadline_seconds: 55,
-      p_lease_seconds: 60,
+      p_deadline_seconds: 50,
+      p_lease_seconds: 90,
       p_worker_id: workerId,
     }
   );

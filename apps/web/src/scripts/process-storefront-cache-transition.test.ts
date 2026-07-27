@@ -3,7 +3,10 @@ import { getStorefrontCacheActuatorRequestBodySha256 } from '@/lib/events/storef
 import { createEventPipelineServiceRoleTestClient } from '@/lib/events/event-pipeline-service-role-test-client';
 import type { ServiceRoleClient } from '@/lib/supabase/service';
 import { storefrontCacheActuatorSchema } from '@/schemas/storefront-cache-actuator';
-import { processStorefrontCacheTransition } from './process-storefront-cache-transition';
+import {
+  claimStorefrontCacheTransitionBatch,
+  processStorefrontCacheTransition,
+} from './process-storefront-cache-transition';
 
 const delivery = {
   attempt_number: 1,
@@ -61,6 +64,24 @@ function matchingReceipt() {
 }
 
 describe('processStorefrontCacheTransition', () => {
+  it('keeps the actuator deadline safely inside the specialized claim lease', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: [delivery], error: null });
+
+    await expect(
+      claimStorefrontCacheTransitionBatch(serviceClient(rpc), 'cache-worker')
+    ).resolves.toEqual([delivery]);
+
+    expect(rpc).toHaveBeenCalledWith(
+      'claim_storefront_cache_transition_deliveries_v1',
+      {
+        p_batch_size: 1,
+        p_deadline_seconds: 50,
+        p_lease_seconds: 90,
+        p_worker_id: 'cache-worker',
+      }
+    );
+  });
+
   it('finishes only after the exact request-bound actuator receipt succeeds', async () => {
     const callActuator = vi.fn().mockResolvedValue(matchingReceipt());
     const finishStorefrontCacheTransition = vi.fn().mockResolvedValue(true);

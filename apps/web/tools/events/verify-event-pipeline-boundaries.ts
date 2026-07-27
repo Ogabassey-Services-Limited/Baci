@@ -203,6 +203,8 @@ function sourceViewFindings(
     ...eventPipelineBoundaryManifest.frozenProjectionFiles,
     ...eventPipelineBoundaryManifest.frozenRoutes,
     ...eventPipelineBoundaryManifest.sdkConstructorHashes,
+    ...eventPipelineBoundaryManifest.storefrontCacheActuatorCredentialClosure
+      .sourceHashes,
   };
   for (const [path, expectedHash] of Object.entries(frozenFiles)) {
     const source = sources.get(path);
@@ -229,15 +231,8 @@ function sourceViewFindings(
   findings.push(...serviceRoleCredentialAuthority.findings(sources));
   // biome-ignore format: compact union preserves the 300-line verifier gate.
   const authorityRoots = [...new Set([...eventPipelineBoundaryManifest.trustedWrapperImporters, ...governed.productionPaths, ...governed.changedPaths, ...[...sources].filter(([path, source]) => eventPipelineProductionSurface.isIndependent(path, source)).map(([path]) => path)])];
-  findings.push(
-    ...serviceAuthorityGraphFindings(
-      sources,
-      authorityRoots,
-      frozenSources,
-      inheritedAuthorityFreezePaths,
-      authorityByteSources
-    )
-  );
+  // biome-ignore format: compact receipt preserves the 300-line verifier gate.
+  findings.push(...serviceAuthorityGraphFindings(sources, authorityRoots, frozenSources, inheritedAuthorityFreezePaths, authorityByteSources, eventPipelineBoundaryManifest.storefrontCacheActuatorCredentialClosure));
   for (const [path, source] of sources) {
     const enforceClassification = governedPaths.has(path);
     const enforceEscapes = enforceClassification || seedPaths.has(path);
