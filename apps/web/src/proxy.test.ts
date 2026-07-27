@@ -2856,7 +2856,7 @@ describe('Middleware Proxy', () => {
       'max-age=300, stale-while-revalidate=86400'
     );
     expect(res.headers.get('CDN-Cache-Control')).toBe(
-      'max-age=300, stale-while-revalidate=86400, stale-if-error=86400'
+      'max-age=3600, stale-while-revalidate=86400, stale-if-error=86400'
     );
     expect(res.headers.get('Vary') ?? '').not.toContain('Cookie');
   });
@@ -3037,7 +3037,7 @@ describe('Middleware Proxy', () => {
     { edgeCached: true, url: 'https://ogabassey.com/smartphones' },
     {
       downstreamCacheControl:
-        'max-age=300, stale-while-revalidate=86400, stale-if-error=86400',
+        'max-age=3600, stale-while-revalidate=86400, stale-if-error=86400',
       edgeCached: true,
       url: 'https://ogabassey.com/smartphones/samsung-galaxy-z-fold-4',
     },
