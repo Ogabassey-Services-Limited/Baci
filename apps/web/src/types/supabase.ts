@@ -13200,6 +13200,124 @@ export type Database = {
           },
         ];
       };
+      storefront_cache_transition_canaries: {
+        Row: {
+          enabled: boolean;
+          merchant_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          enabled?: boolean;
+          merchant_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          enabled?: boolean;
+          merchant_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'storefront_cache_transition_canaries_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: true;
+            referencedRelation: 'merchant_health';
+            referencedColumns: ['merchant_id'];
+          },
+          {
+            foreignKeyName: 'storefront_cache_transition_canaries_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: true;
+            referencedRelation: 'merchants';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'storefront_cache_transition_canaries_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: true;
+            referencedRelation: 'top_merchants';
+            referencedColumns: ['merchant_id'];
+          },
+        ];
+      };
+      storefront_cache_transition_obligations: {
+        Row: {
+          category_id: string;
+          created_at: string;
+          domain_event_id: string;
+          generation: number;
+          id: string;
+          last_receipt: Json | null;
+          merchant_id: string;
+          payload: Json;
+          status: string;
+          successor_of: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          category_id: string;
+          created_at?: string;
+          domain_event_id: string;
+          generation?: number;
+          id?: string;
+          last_receipt?: Json | null;
+          merchant_id: string;
+          payload: Json;
+          status?: string;
+          successor_of?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          category_id?: string;
+          created_at?: string;
+          domain_event_id?: string;
+          generation?: number;
+          id?: string;
+          last_receipt?: Json | null;
+          merchant_id?: string;
+          payload?: Json;
+          status?: string;
+          successor_of?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'storefront_cache_transition_obligations_domain_event_id_fkey';
+            columns: ['domain_event_id'];
+            isOneToOne: true;
+            referencedRelation: 'domain_event_ledger';
+            referencedColumns: ['domain_event_id'];
+          },
+          {
+            foreignKeyName: 'storefront_cache_transition_obligations_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchant_health';
+            referencedColumns: ['merchant_id'];
+          },
+          {
+            foreignKeyName: 'storefront_cache_transition_obligations_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchants';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'storefront_cache_transition_obligations_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'top_merchants';
+            referencedColumns: ['merchant_id'];
+          },
+          {
+            foreignKeyName: 'storefront_cache_transition_obligations_successor_of_fkey';
+            columns: ['successor_of'];
+            isOneToOne: false;
+            referencedRelation: 'storefront_cache_transition_obligations';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       transactions: {
         Row: {
           amount: number;
@@ -15103,6 +15221,23 @@ export type Database = {
           terminal: boolean;
         }[];
       };
+      claim_storefront_cache_transition_deliveries_v1: {
+        Args: {
+          p_batch_size: number;
+          p_deadline_seconds: number;
+          p_lease_seconds: number;
+          p_worker_id: string;
+        };
+        Returns: {
+          attempt_number: number;
+          claim_token: string;
+          domain_event_id: string;
+          generation: number;
+          id: string;
+          obligation_id: string;
+          payload: Json;
+        }[];
+      };
       claim_variant_inventory_units_for_order_item: {
         Args: {
           p_merchant_id: string;
@@ -15976,6 +16111,21 @@ export type Database = {
           p_result?: Json;
           p_status: string;
           p_step: string;
+        };
+        Returns: boolean;
+      };
+      finish_storefront_cache_transition_delivery_v1: {
+        Args: {
+          p_available_at: string;
+          p_claim_token: string;
+          p_delivery_id: string;
+          p_error_code: string;
+          p_error_message: string;
+          p_generation: number;
+          p_http_status: number;
+          p_obligation_id: string;
+          p_outcome: string;
+          p_receipt: Json;
         };
         Returns: boolean;
       };
@@ -17882,6 +18032,14 @@ export type Database = {
           archived: boolean;
           delivery_count: number;
         }[];
+      };
+      route_storefront_cache_transition_v1: {
+        Args: {
+          p_domain_event_id: string;
+          p_queue_message_id: number;
+          p_worker_id: string;
+        };
+        Returns: boolean;
       };
       sanitize_text_input: { Args: { input_text: string }; Returns: string };
       save_merchant_email_domain_registration: {

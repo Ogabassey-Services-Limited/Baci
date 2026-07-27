@@ -34,4 +34,10 @@ describe('getEventPipelineActiveDestinations', () => {
     delete process.env.EVENT_PIPELINE_ACTIVE_DESTINATIONS;
     expect(getEventPipelineActiveDestinations()).toEqual([]);
   });
+
+  it('does not activate the cache-transition lane from analytics configuration', () => {
+    process.env.EVENT_PIPELINE_ACTIVE_DESTINATIONS =
+      'storefront_cache_transition,facebook';
+    expect(getEventPipelineActiveDestinations()).toEqual(['facebook']);
+  });
 });

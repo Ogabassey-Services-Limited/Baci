@@ -30,6 +30,8 @@ const files = [
   '20260714000200_scope_public_event_ingress.sql',
   '20260714000300_allow_tenant_verified_event_ingress_fallback.sql',
   '20260714000400_drop_legacy_event_ingress_rpc_overloads.sql',
+  '20260727143000_storefront_cache_transition.sql',
+  '20260727143100_storefront_cache_transition_delivery.sql',
 ] as const;
 
 const sql = Object.fromEntries(
@@ -219,6 +221,30 @@ describe('durable domain-event migration contract', () => {
     );
     expect(overloadCleanup).toContain(
       'text, text, jsonb, text, uuid, text, text, text, text, text, timestamptz, jsonb'
+    );
+  });
+
+  it('defines one isolated cache-transition producer and delivery lane', () => {
+    const cacheTransition = [
+      sql['20260727143000_storefront_cache_transition.sql'],
+      sql['20260727143100_storefront_cache_transition_delivery.sql'],
+    ].join('\n');
+    expect(cacheTransition).toContain("'storefront.cache_transition.v1'");
+    expect(cacheTransition).toContain("'storefront_cache_transition'");
+    expect(cacheTransition).toContain('storefront_cache_transition_canaries');
+    expect(cacheTransition).toContain(
+      'storefront_cache_transition_obligations'
+    );
+    expect(cacheTransition).toContain('successor_of');
+    expect(cacheTransition).toContain(
+      'generic_cache_transition_dead_letter_forbidden'
+    );
+    expect(cacheTransition).toContain(
+      'generic_cache_transition_finish_forbidden'
+    );
+    expect(cacheTransition).toContain("'lease_expired'");
+    expect(cacheTransition).toContain(
+      'replay_attempts = delivery.replay_attempts + 1'
     );
   });
 });

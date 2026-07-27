@@ -34,6 +34,10 @@ const CLIENT_PUBLIC_ROUTE = {
 } as const;
 
 const EVENT_ROUTES: Record<string, RouteDefinition> = {
+  'storefront.cache_transition.v1': {
+    ...SERVER_ROUTE,
+    destinations: ['storefront_cache_transition'],
+  },
   'analytics.add_payment_info.v1': {
     ...CLIENT_VERIFIED_ROUTE,
     destinations: ['facebook', 'tiktok', 'snapchat'],

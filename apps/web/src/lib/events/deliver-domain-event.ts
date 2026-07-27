@@ -9,7 +9,10 @@ const REQUEST_TIMEOUT_MS = 10_000;
 
 const adapter: EventDestinationAdapter = {
   async deliver(context) {
-    if (context.event.event_name.startsWith('analytics.')) {
+    if (
+      context.event.event_name.startsWith('analytics.') &&
+      context.destination !== 'storefront_cache_transition'
+    ) {
       return await deliverAnalyticsEvent(
         context.supabase,
         context.event,
