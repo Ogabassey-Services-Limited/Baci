@@ -34,7 +34,9 @@ export function withAutocompleteInFlightDeadline<T>(
   // Keep a late rejection explicitly handled and report the transport's actual
   // settlement separately so callers do not release capacity on timeout alone.
   if (onOperationSettled) {
-    void request.then(onOperationSettled, onOperationSettled);
+    void request
+      .then(onOperationSettled, onOperationSettled)
+      .catch(() => undefined);
   } else {
     request.catch(() => undefined);
   }
