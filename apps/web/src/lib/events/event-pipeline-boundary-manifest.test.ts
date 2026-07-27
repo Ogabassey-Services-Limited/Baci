@@ -41,7 +41,7 @@ describe('event pipeline authority manifest', () => {
         'ad_tracking',
       ],
     });
-    expect(manifest.functions.typescriptApplication).toHaveLength(17);
+    expect(manifest.functions.typescriptApplication).toHaveLength(18);
     expect(manifest.functions.vpsCleanup).toEqual([
       'cleanup_domain_event_pipeline_v1',
     ]);

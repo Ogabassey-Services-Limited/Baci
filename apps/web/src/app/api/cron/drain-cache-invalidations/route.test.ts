@@ -24,6 +24,14 @@ const claim = {
   target_kind: 'storefront_slug',
 };
 
+function makeClaim(index: number) {
+  return {
+    ...claim,
+    claim_token: `11111111-1111-4111-8111-${index.toString().padStart(12, '0')}`,
+    target_id: `shop-${index}`,
+  };
+}
+
 function request(secret = 'cron-secret') {
   return new Request(
     'https://app.usebaci.com/api/cron/drain-cache-invalidations',
@@ -35,16 +43,26 @@ function request(secret = 'cron-secret') {
 
 describe('GET /api/cron/drain-cache-invalidations', () => {
   const rpc = vi.fn();
+  let claimCalls = 0;
 
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubEnv('CRON_SECRET', 'cron-secret');
     mocks.createServiceClient.mockReturnValue({ rpc });
-    rpc.mockImplementation((name: string) =>
-      name === 'claim_cache_invalidations'
-        ? Promise.resolve({ data: [claim], error: null })
-        : Promise.resolve({ data: true, error: null })
-    );
+    claimCalls = 0;
+    rpc.mockImplementation((name: string) => {
+      if (name === 'claim_cache_invalidations') {
+        claimCalls += 1;
+        return Promise.resolve({
+          data: claimCalls === 1 ? [claim] : [],
+          error: null,
+        });
+      }
+      if (name === 'has_cache_invalidation_dead_letters') {
+        return Promise.resolve({ data: false, error: null });
+      }
+      return Promise.resolve({ data: true, error: null });
+    });
     mocks.drain.mockResolvedValue({ ok: true });
   });
 
@@ -58,7 +76,7 @@ describe('GET /api/cron/drain-cache-invalidations', () => {
       failed: 0,
     });
     expect(rpc).toHaveBeenNthCalledWith(1, 'claim_cache_invalidations', {
-      p_batch_size: 5,
+      p_batch_size: 2,
       p_worker_id: expect.stringMatching(/^next-cron-/),
     });
     expect(rpc).toHaveBeenNthCalledWith(
@@ -102,5 +120,135 @@ describe('GET /api/cron/drain-cache-invalidations', () => {
         p_succeeded: false,
       })
     );
+  });
+
+  it('drains successive claim batches before reporting the invocation summary', async () => {
+    const batches = [
+      Array.from({ length: 2 }, (_, index) => makeClaim(index + 1)),
+      [makeClaim(3)],
+      [],
+    ];
+    rpc.mockImplementation((name: string) => {
+      if (name === 'claim_cache_invalidations') {
+        return Promise.resolve({ data: batches.shift() ?? [], error: null });
+      }
+      if (name === 'has_cache_invalidation_dead_letters') {
+        return Promise.resolve({ data: false, error: null });
+      }
+      return Promise.resolve({ data: true, error: null });
+    });
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      claimed: 3,
+      completed: 3,
+      failed: 0,
+    });
+    expect(
+      rpc.mock.calls.filter(([name]) => name === 'claim_cache_invalidations')
+    ).toHaveLength(3);
+  });
+
+  it('stops at the fixed target budget even while full batches remain ready', async () => {
+    let nextIndex = 1;
+    rpc.mockImplementation((name: string) => {
+      if (name === 'claim_cache_invalidations') {
+        const batch = Array.from({ length: 2 }, () => makeClaim(nextIndex++));
+        return Promise.resolve({ data: batch, error: null });
+      }
+      if (name === 'has_cache_invalidation_dead_letters') {
+        return Promise.resolve({ data: false, error: null });
+      }
+      return Promise.resolve({ data: true, error: null });
+    });
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      claimed: 10,
+      completed: 10,
+      failed: 0,
+    });
+    expect(
+      rpc.mock.calls.filter(([name]) => name === 'claim_cache_invalidations')
+    ).toHaveLength(5);
+  });
+
+  it('stops claiming when the invocation reaches the reserved time cutoff', async () => {
+    const now = vi
+      .spyOn(Date, 'now')
+      .mockReturnValueOnce(1_000)
+      .mockReturnValueOnce(1_000)
+      .mockReturnValue(31_000);
+    rpc.mockImplementation((name: string) => {
+      if (name === 'claim_cache_invalidations') {
+        return Promise.resolve({
+          data: [makeClaim(1), makeClaim(2)],
+          error: null,
+        });
+      }
+      if (name === 'has_cache_invalidation_dead_letters') {
+        return Promise.resolve({ data: false, error: null });
+      }
+      return Promise.resolve({ data: true, error: null });
+    });
+
+    const response = await GET(request());
+    now.mockRestore();
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      claimed: 2,
+      completed: 2,
+      failed: 0,
+    });
+    expect(
+      rpc.mock.calls.filter(([name]) => name === 'claim_cache_invalidations')
+    ).toHaveLength(1);
+  });
+
+  it('returns a fixed non-2xx alert while terminal dead letters exist', async () => {
+    rpc.mockImplementation((name: string) => {
+      if (name === 'claim_cache_invalidations') {
+        return Promise.resolve({ data: [], error: null });
+      }
+      if (name === 'has_cache_invalidation_dead_letters') {
+        return Promise.resolve({ data: true, error: null });
+      }
+      return Promise.resolve({ data: true, error: null });
+    });
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      error: 'Cache invalidations require intervention',
+      code: 'cache_invalidation_dead_letter',
+    });
+  });
+
+  it('fails closed when the dead-letter alert state cannot be read', async () => {
+    rpc.mockImplementation((name: string) => {
+      if (name === 'claim_cache_invalidations') {
+        return Promise.resolve({ data: [], error: null });
+      }
+      if (name === 'has_cache_invalidation_dead_letters') {
+        return Promise.resolve({
+          data: null,
+          error: { message: 'database unavailable' },
+        });
+      }
+      return Promise.resolve({ data: true, error: null });
+    });
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      error: 'Failed to read invalidation alert state',
+    });
   });
 });

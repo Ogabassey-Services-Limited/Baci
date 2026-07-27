@@ -25,6 +25,10 @@ CREATE TABLE public.merchants (
   vat_registration_status text, vat_rate numeric, feature_settings jsonb,
   published_config jsonb, pages jsonb, about_page jsonb, faq_items jsonb
 );
+CREATE TABLE public.merchant_slug_aliases (
+  old_slug text PRIMARY KEY,
+  merchant_id uuid NOT NULL
+);
 CREATE TABLE public.domains (
   id uuid PRIMARY KEY, merchant_id uuid NOT NULL, domain text NOT NULL,
   domain_type text, status text, verified_at timestamptz, is_primary boolean
@@ -45,7 +49,17 @@ CREATE TABLE public.products (
   offers jsonb, available_conditions text[], condition text,
   has_condition_offers boolean, has_variants boolean, brand text, color text,
   parent_product_id uuid, default_variant_id uuid, manage_stock boolean,
-  inventory_tracking_policy text, stock integer, stock_quantity integer
+  inventory_tracking_policy text, stock integer, stock_quantity integer,
+  updated_at timestamptz DEFAULT now(), created_at timestamptz DEFAULT now(),
+  condition_detail text, brand_id uuid, gtin text, mpn text,
+  google_product_category text, sku text, low_stock_threshold integer,
+  variant_attributes jsonb, variant_model text, min_variant_price numeric,
+  max_variant_price numeric, dimensions jsonb, weight_value numeric,
+  weight_unit text, metadata jsonb, fulfillment_details jsonb,
+  fulfillment_fields jsonb, average_rating numeric, review_count integer,
+  is_parent boolean, inventory_anchor_variant_id uuid, taxable boolean,
+  tax_exempt boolean, tax_code text, vat_rate numeric,
+  vat_category_code text, commodity_code text, unit_code text
 );
 CREATE TABLE public.product_variants (
   id uuid PRIMARY KEY, merchant_id uuid, product_id uuid NOT NULL, sku text,

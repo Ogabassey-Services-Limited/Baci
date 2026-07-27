@@ -45,6 +45,29 @@ describe('web cron worker', () => {
     assert.equal(calls[0].init.method, 'GET');
   });
 
+  it('fails the VPS invocation on the cache dead-letter alert response', async () => {
+    await assert.rejects(
+      () =>
+        runWebCron({
+          path: '/api/cron/drain-cache-invalidations',
+          env: {
+            BACI_WEB_BASE_URL: 'https://ogabassey.com',
+            CRON_SECRET: 'secret',
+          },
+          fetchFn: () =>
+            new Response(
+              JSON.stringify({
+                code: 'cache_invalidation_dead_letter',
+                error: 'Cache invalidations require intervention',
+              }),
+              { status: 503 }
+            ),
+          logger: noopLogger,
+        }),
+      /HTTP 503:.*cache_invalidation_dead_letter/
+    );
+  });
+
   it('allows the gateway paid-order reconcile drain endpoint', async () => {
     const calls = [];
     const result = await runWebCron({

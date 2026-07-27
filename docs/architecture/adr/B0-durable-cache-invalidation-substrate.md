@@ -78,6 +78,14 @@ only drainer is `GET /api/cron/drain-cache-invalidations`, authenticated with
 claim/finish RPCs are recorded in the event-pipeline boundary manifest. The VPS
 receives no Supabase service-role or Cloudflare authority for this job.
 
+The route claims successive two-target batches up to a fixed ten-target budget,
+stops new claims after 30 seconds to reserve provider-call headroom inside its
+60-second runtime, and fails with a fixed non-2xx signal whenever the aggregate
+dead-letter alert RPC reports terminal work. Storefront slug targets include
+the current slug and every durable historical alias; product triggers cover
+all mutable storefront/feed projections while suppressing stock-only writes for
+unlimited-stock products even when the generic `updated_at` stamp changes.
+
 Each claimed generation hard-expires Next data, awaits Vercel tag deletion,
 then confirms Cloudflare hostname purge before token-fenced completion. Any
 stage failure records a bounded retry; a later generation cannot be completed

@@ -16872,6 +16872,10 @@ export type Database = {
         };
         Returns: Json;
       };
+      has_cache_invalidation_dead_letters: {
+        Args: never;
+        Returns: boolean;
+      };
       has_merchant_access: {
         Args: { p_merchant_id: string };
         Returns: boolean;
