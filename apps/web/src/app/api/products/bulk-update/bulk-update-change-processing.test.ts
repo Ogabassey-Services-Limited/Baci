@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { StorefrontProductPurgeEntry } from '@/lib/storefront-product-purge-urls';
 import { processBulkUpdateChanges } from './bulk-update-change-processing';
 
 function createProductsQuery(error: unknown) {
@@ -236,5 +237,38 @@ describe('processBulkUpdateChanges', () => {
     });
 
     expect(maxActiveChanges).toBe(1);
+  });
+
+  it('does not emit public purge entries for 51 draft creations', async () => {
+    const purgeEntries: StorefrontProductPurgeEntry[] = [];
+    const supabase = {
+      from: vi.fn(() => ({
+        insert: vi.fn((row: Record<string, unknown>) => ({
+          select: vi.fn(() => ({
+            maybeSingle: vi.fn(() =>
+              Promise.resolve({
+                data: { id: `created-${String(row.name)}` },
+                error: null,
+              })
+            ),
+          })),
+        })),
+      })),
+    };
+
+    const result = await processBulkUpdateChanges({
+      changes: Array.from({ length: 51 }, (_, index) => ({
+        type: 'new' as const,
+        details: { name: `Draft Product ${index}`, price: index + 1 },
+      })),
+      currency: 'NGN',
+      merchantBusinessName: 'Test Store',
+      merchantId: 'merchant-1',
+      onPurgeEntries: (entries) => purgeEntries.push(...entries),
+      supabase: supabase as never,
+    });
+
+    expect(result.created).toBe(51);
+    expect(purgeEntries).toEqual([]);
   });
 });

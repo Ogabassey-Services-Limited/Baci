@@ -479,48 +479,6 @@ describe('POST /api/products/bulk-update', () => {
     );
   });
 
-  it('falls back to the created id when a bulk-created slug is blank', async () => {
-    mockGenerateProductSlug.mockReturnValueOnce('');
-    const { POST } = await import('./route');
-
-    const res = await POST(
-      makeRequest({
-        changes: [
-          {
-            type: 'new',
-            details: { name: 'X', price: 100, category: 'Gadgets' },
-          },
-        ],
-      })
-    );
-
-    expect(res.status).toBe(200);
-    const entries = mockScheduleStorefrontProductPurge.mock.calls[0]?.[1];
-    expect(entries).toEqual([
-      expect.objectContaining({ slug: 'created-id-1' }),
-    ]);
-  });
-
-  it('schedules a Cloudflare purge for newly created products', async () => {
-    const { POST } = await import('./route');
-
-    await POST(
-      makeRequest({
-        changes: [
-          {
-            type: 'new',
-            details: { name: 'New Product', price: 20, category: 'Audio' },
-          },
-        ],
-      })
-    );
-
-    expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
-      'ogabassey',
-      [{ slug: 'new-product', categorySegment: 'audio' }]
-    );
-  });
-
   it('forwards every high-cardinality product to the shared bounded purge scheduler', async () => {
     const { POST } = await import('./route');
     // The shared scheduler now owns the bounded hostname-purge strategy, so
