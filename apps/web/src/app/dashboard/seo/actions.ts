@@ -14,6 +14,7 @@ import {
   saveSEOSettingsInputSchema,
   seoMerchantIdSchema,
 } from '@/schemas/dashboard-seo-actions';
+import { revalidateSeoProductCaches } from './revalidate-seo-product-caches';
 
 export interface ProductSEO {
   productId: string;
@@ -484,6 +485,18 @@ export async function saveSEOSettings(
     (r) =>
       r.status === 'rejected' || (r.status === 'fulfilled' && r.value.error)
   );
+
+  // A partial batch can still have persisted public SEO changes. Refresh only
+  // those fulfilled IDs; the helper resolves active rows + the merchant slug
+  // and fails open so cache trouble never changes this action's result.
+  const fulfilledProductIds = results.flatMap((result, index) => {
+    const optimization = parsed.data.optimizations[index];
+    if (result.status === 'fulfilled' && !result.value.error && optimization) {
+      return [optimization.productId];
+    }
+    return [];
+  });
+  await revalidateSeoProductCaches(supabase, merchant.id, fulfilledProductIds);
 
   if (errors.length > 0) {
     console.error('Failed to update some products:', errors);

@@ -2,9 +2,19 @@ import { generateText } from 'ai';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { activeImageModel } from '@/ai/provider';
+import {
+  revalidateProductSlugs,
+  revalidateProducts,
+} from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { checkRateLimit } from '@/lib/rate-limiter';
+import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
+import {
+  type ProductPurgeCategoryRow,
+  resolveProductPurgeCategorySegmentForRow,
+  type StorefrontProductPurgeEntry,
+} from '@/lib/storefront-product-purge-urls';
 
 interface GeminiAIResponse {
   candidates?: Array<{
@@ -101,7 +111,9 @@ export async function POST(req: NextRequest) {
     // Start building the query
     let query = supabase
       .from('products')
-      .select('id, name, color, images, parent_product_id')
+      .select(
+        'id, name, color, images, parent_product_id, slug, category, categories:category_id(slug), product_categories(categories(slug))'
+      )
       .eq('merchant_id', merchantId)
       .eq('status', 'active');
 
@@ -121,6 +133,7 @@ export async function POST(req: NextRequest) {
 
     const processed: Record<string, unknown>[] = [];
     const errors: Record<string, unknown>[] = [];
+    const publicPurgeEntries: StorefrontProductPurgeEntry[] = [];
 
     // Filter locally
     const candidates = (products || [])
@@ -223,10 +236,43 @@ export async function POST(req: NextRequest) {
             name: product.name,
             new_image: publicUrl,
           });
+          const productRow = product as ProductPurgeCategoryRow;
+          const purgeSlug = productRow.slug?.trim() || productRow.id?.trim();
+          if (purgeSlug) {
+            publicPurgeEntries.push({
+              slug: purgeSlug,
+              categorySegment:
+                resolveProductPurgeCategorySegmentForRow(productRow),
+            });
+          }
         }
       } catch (err: unknown) {
         console.error(`Failed to process ${product.id}:`, err);
         errors.push({ id: product.id, error: (err as Error).message });
+      }
+    }
+
+    if (publicPurgeEntries.length > 0) {
+      // The source query is active-only, so every completed image update is a
+      // public product mutation. Revalidate its Next data before asking the
+      // outer edge to refill, and never let cache work change the API result.
+      try {
+        revalidateProducts(merchantId);
+        revalidateProductSlugs(
+          merchantId,
+          publicPurgeEntries.map((entry) => entry.slug)
+        );
+        scheduleStorefrontProductPurge(
+          merchantContext.merchantSlug,
+          publicPurgeEntries
+        );
+      } catch (purgeError) {
+        console.warn(
+          'Skipped Cloudflare product purge after image generation',
+          {
+            purgeError,
+          }
+        );
       }
     }
 

@@ -6,11 +6,20 @@ import {
 } from '@/lib/payments/ensure-paid-order-inventory-confirmed';
 
 const mockRevalidateProducts = vi.fn();
+const mockRevalidateProductSlugs = vi.fn();
+const mockScheduleStorefrontInventoryProductPurge = vi.fn();
 vi.mock('@/lib/cache-revalidation', () => ({
   revalidateProducts: (...args: unknown[]) => mockRevalidateProducts(...args),
+  revalidateProductSlugs: (...args: unknown[]) =>
+    mockRevalidateProductSlugs(...args),
+}));
+vi.mock('@/lib/storefront-inventory-product-purge', () => ({
+  scheduleStorefrontInventoryProductPurge: (...args: unknown[]) =>
+    mockScheduleStorefrontInventoryProductPurge(...args),
 }));
 
 interface MockSupabaseRpcClient {
+  from?: ReturnType<typeof vi.fn>;
   rpc: ReturnType<typeof vi.fn>;
 }
 
@@ -57,9 +66,44 @@ function createRollbackMissingRowBuilder() {
   return builder;
 }
 
+function createReclaimedInventorySupabase(mockRpc: ReturnType<typeof vi.fn>) {
+  const orderItemsEq = vi.fn().mockResolvedValue({
+    data: [{ product_id: 'product-1' }],
+    error: null,
+  });
+  const productsIn = vi.fn().mockResolvedValue({
+    data: [
+      {
+        category: 'Smartphones',
+        id: 'product-1',
+        slug: 'iphone-15',
+      },
+    ],
+    error: null,
+  });
+  return {
+    from: vi.fn((table: string) => {
+      if (table === 'order_items') {
+        return { select: vi.fn(() => ({ eq: orderItemsEq })) };
+      }
+      if (table === 'products') {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({ in: productsIn })),
+          })),
+        };
+      }
+      throw new Error(`Unexpected table ${table}`);
+    }),
+    rpc: mockRpc,
+  };
+}
+
 describe('ensurePaidOrderInventoryConfirmed', () => {
   beforeEach(() => {
     mockRevalidateProducts.mockReset();
+    mockRevalidateProductSlugs.mockReset();
+    mockScheduleStorefrontInventoryProductPurge.mockReset();
   });
 
   it('succeeds without throwing when RPC returns no exception codes', async () => {
@@ -172,9 +216,7 @@ describe('ensurePaidOrderInventoryConfirmed', () => {
       error: null,
     });
 
-    const mockSupabase: MockSupabaseRpcClient = {
-      rpc: mockRpc,
-    };
+    const mockSupabase = createReclaimedInventorySupabase(mockRpc);
 
     await ensurePaidOrderInventoryConfirmed(
       asSupabaseClient(mockSupabase),
@@ -184,6 +226,24 @@ describe('ensurePaidOrderInventoryConfirmed', () => {
 
     expect(mockRevalidateProducts).toHaveBeenCalledExactlyOnceWith(
       'merchant-123'
+    );
+    expect(mockRevalidateProductSlugs).toHaveBeenCalledExactlyOnceWith(
+      'merchant-123',
+      ['iphone-15']
+    );
+    expect(mockScheduleStorefrontInventoryProductPurge).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchantId: 'merchant-123',
+        operation: 'paid inventory reclaim',
+        products: [
+          expect.objectContaining({
+            category: 'Smartphones',
+            id: 'product-1',
+            slug: 'iphone-15',
+          }),
+        ],
+        supabase: mockSupabase,
+      })
     );
   });
 
@@ -201,9 +261,7 @@ describe('ensurePaidOrderInventoryConfirmed', () => {
       error: null,
     });
 
-    const mockSupabase: MockSupabaseRpcClient = {
-      rpc: mockRpc,
-    };
+    const mockSupabase = createReclaimedInventorySupabase(mockRpc);
 
     // The re-claim already committed via the RPC even though a different
     // item's exception makes this call reject — caches must still be busted.
@@ -218,6 +276,11 @@ describe('ensurePaidOrderInventoryConfirmed', () => {
     expect(mockRevalidateProducts).toHaveBeenCalledExactlyOnceWith(
       'merchant-123'
     );
+    expect(mockRevalidateProductSlugs).toHaveBeenCalledExactlyOnceWith(
+      'merchant-123',
+      ['iphone-15']
+    );
+    expect(mockScheduleStorefrontInventoryProductPurge).toHaveBeenCalledOnce();
   });
 
   it('does not throw when revalidateProducts itself throws', async () => {

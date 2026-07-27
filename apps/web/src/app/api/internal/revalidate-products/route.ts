@@ -7,11 +7,10 @@ import {
 } from '@/lib/cache-revalidation';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { logger } from '@/lib/logger';
-import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
 import {
-  countDistinctProductPurgeEntries,
-  PURGE_LISTINGS_ONLY_THRESHOLD,
-} from '@/lib/storefront-product-purge-urls';
+  scheduleStorefrontHostnamePurge,
+  scheduleStorefrontProductPurge,
+} from '@/lib/storefront-product-purge';
 import { createPublicClient } from '@/lib/supabase/public';
 import { internalRevalidateProductsBodySchema } from '@/schemas/internal-revalidate-products-route';
 
@@ -62,7 +61,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const { merchantId, merchantSlug, products } = parsed.data;
+  const { merchantId, merchantSlug, products, purgeWholeStorefront } =
+    parsed.data;
 
   // Runs in a route context, so revalidateTag works here (unlike the CLI worker).
   revalidateProducts(merchantId);
@@ -99,14 +99,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // and is NOT invalidated by the slug-less revalidateProducts above, so a
       // Cloudflare MISS would otherwise refill from stale Next data until TTL.
       revalidateProductSlugs(merchantId, resolvedSlugs);
-      if (merchantSlug) {
-        // Base the fan-out threshold on the DISTINCT (slug, segment) count so
-        // duplicate entries for one product do not inflate the count and
-        // wrongly suppress its per-PDP purge.
-        const distinctPurgeCount = countDistinctProductPurgeEntries(entries);
-        scheduleStorefrontProductPurge(merchantSlug, entries, {
-          listingsOnly: distinctPurgeCount > PURGE_LISTINGS_ONLY_THRESHOLD,
-        });
+      if (merchantSlug && !purgeWholeStorefront) {
+        scheduleStorefrontProductPurge(merchantSlug, entries);
       }
     } catch (purgeError) {
       logger.error({
@@ -114,6 +108,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         error: purgeError,
       });
     }
+  }
+
+  // Category path changes are structural: the affected public documents cannot
+  // be enumerated safely from a category mutation, so use the bounded hostname
+  // purge rather than a partial URL list. The schema requires merchantSlug for
+  // this flag, but keep the guard as defence in depth for future callers.
+  if (purgeWholeStorefront && merchantSlug) {
+    scheduleStorefrontHostnamePurge(merchantSlug);
   }
 
   return NextResponse.json({ ok: true }, { status: 200 });

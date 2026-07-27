@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { invalidateCategoryCaches } from '@/lib/category-cache-invalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { scheduleInternalStorefrontPurge } from '@/lib/internal-storefront-purge-bridge';
 import { createMerchantCategorySchema } from '@/schemas/create-merchant-category';
 import { categoryMutationErrorResponse } from './category-mutation-error-response';
 import {
@@ -155,6 +156,7 @@ export async function POST(request: NextRequest) {
     nextSlug: data.slug,
     supabase,
   });
+  scheduleInternalStorefrontPurge(merchantId, canonicalMerchantSlug);
 
   return NextResponse.json(
     { category: data, cache: invalidation },

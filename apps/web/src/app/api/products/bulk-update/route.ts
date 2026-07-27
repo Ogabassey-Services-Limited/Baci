@@ -12,11 +12,7 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
-import {
-  countDistinctProductPurgeEntries,
-  PURGE_LISTINGS_ONLY_THRESHOLD,
-  type StorefrontProductPurgeEntry,
-} from '@/lib/storefront-product-purge-urls';
+import type { StorefrontProductPurgeEntry } from '@/lib/storefront-product-purge-urls';
 import { createClient } from '@/lib/supabase/server';
 import { BulkUpdateChangesSchema } from '@/schemas/dashboard-product-import-actions';
 import { processBulkUpdateChanges } from './bulk-update-change-processing';
@@ -108,13 +104,9 @@ export async function POST(request: NextRequest) {
     // Evict the Cloudflare-fronted public URLs the batch changed so the raised
     // edge TTL never serves stale listings/PDPs. Fire-and-forget: a purge is
     // always survivable (caches self-heal on their TTL), so it must never break
-    // the bulk update. Past the threshold, purge only the shared listing
-    // surfaces to bound the outbound fan-out (see the threshold's docs).
+    // the bulk update. The shared scheduler uses a bounded hostname purge for
+    // high-cardinality batches so every affected PDP is still evicted.
     try {
-      // Base the fan-out threshold on the DISTINCT (slug, segment) count so a
-      // sheet with repeated rows for one product does not inflate the count and
-      // wrongly suppress its per-PDP purge.
-      const distinctPurgeCount = countDistinctProductPurgeEntries(purgeEntries);
       // Bust every purged slug's Next product cache BEFORE the edge purge —
       // revalidateProducts(merchantId) above is slug-less and leaves the
       // per-slug scoped tags cached, so a CF MISS would refill stale.
@@ -124,10 +116,7 @@ export async function POST(request: NextRequest) {
       );
       scheduleStorefrontProductPurge(
         merchantContext.merchantSlug,
-        purgeEntries,
-        {
-          listingsOnly: distinctPurgeCount > PURGE_LISTINGS_ONLY_THRESHOLD,
-        }
+        purgeEntries
       );
     } catch (purgeError) {
       console.warn('Skipped Cloudflare product purge after bulk update', {

@@ -86,6 +86,7 @@ import {
   enrichShippingAddressWithQuoteDestination,
   OrderQuoteDestinationMismatchError,
 } from '@/lib/shipping/order-quote-destination';
+import { scheduleStorefrontInventoryProductPurge } from '@/lib/storefront-inventory-product-purge';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
@@ -2827,10 +2828,20 @@ export async function POST(request: NextRequest) {
           const { data: revalidateProductRows, error: revalidateSlugError } =
             await supabase
               .from('products')
-              .select('slug')
+              .select(
+                'id, slug, category, categories:category_id(slug), product_categories(categories(slug))'
+              )
               .eq('merchant_id', merchant_id)
               .in('id', revalidateProductIds)
-              .returns<Array<{ slug: string }>>();
+              .returns<
+                Array<{
+                  categories: unknown;
+                  category: string | null;
+                  id: string;
+                  product_categories: unknown;
+                  slug: string;
+                }>
+              >();
           if (revalidateSlugError) {
             logger.error({
               message:
@@ -2844,6 +2855,13 @@ export async function POST(request: NextRequest) {
               merchant_id,
               revalidateProductRows.map((row) => row.slug)
             );
+            await scheduleStorefrontInventoryProductPurge({
+              merchantId: merchant_id,
+              merchantSlug: merchant.slug,
+              operation: 'order creation',
+              products: revalidateProductRows,
+              supabase,
+            });
           }
         }
       } catch (revalidateError) {

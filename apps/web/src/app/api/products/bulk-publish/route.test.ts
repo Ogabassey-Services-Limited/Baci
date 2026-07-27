@@ -11,8 +11,17 @@ vi.mock('@/env', () => ({
 }));
 
 const mockRevalidateProducts = vi.fn();
+const mockRevalidateProductSlugs = vi.fn();
 vi.mock('@/lib/cache-revalidation', () => ({
   revalidateProducts: (...args: unknown[]) => mockRevalidateProducts(...args),
+  revalidateProductSlugs: (...args: unknown[]) =>
+    mockRevalidateProductSlugs(...args),
+}));
+
+const mockScheduleStorefrontProductPurge = vi.fn();
+vi.mock('@/lib/storefront-product-purge', () => ({
+  scheduleStorefrontProductPurge: (...args: unknown[]) =>
+    mockScheduleStorefrontProductPurge(...args),
 }));
 
 const mockCheckCsrfProtection = vi.fn();
@@ -32,6 +41,7 @@ const USER_ID = 'user-123';
 let authUser: { id: string } | null = { id: USER_ID };
 let merchantContext: {
   merchantId: string;
+  merchantSlug?: string;
   staffAccess: {
     isStaff: boolean;
     isOwner: boolean;
@@ -40,6 +50,7 @@ let merchantContext: {
   };
 } | null = {
   merchantId: MERCHANT_ID,
+  merchantSlug: 'test-store',
   staffAccess: {
     isStaff: false,
     isOwner: true,
@@ -131,6 +142,7 @@ describe('POST /api/products/bulk-publish', () => {
     authUser = { id: USER_ID };
     merchantContext = {
       merchantId: MERCHANT_ID,
+      merchantSlug: 'test-store',
       staffAccess: {
         isStaff: false,
         isOwner: true,
@@ -207,6 +219,45 @@ describe('POST /api/products/bulk-publish', () => {
     await POST(createRequest());
 
     expect(mockRevalidateProducts).toHaveBeenCalledWith(MERCHANT_ID);
+  });
+
+  it('revalidates per-slug tags and purges products that became public', async () => {
+    const { POST } = await import('./route');
+    updateData = [
+      {
+        id: 'product-1',
+        slug: 'baci-phone',
+        name: 'Baci Phone',
+        category: 'Phones',
+      },
+    ];
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(200);
+    expect(mockRevalidateProductSlugs).toHaveBeenCalledWith(MERCHANT_ID, [
+      'baci-phone',
+    ]);
+    expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+      'test-store',
+      [{ slug: 'baci-phone', categorySegment: 'phones' }]
+    );
+    expect(mockRevalidateProductSlugs.mock.invocationCallOrder[0]).toBeLessThan(
+      mockScheduleStorefrontProductPurge.mock.invocationCallOrder[0]
+    );
+  });
+
+  it('does not purge deleted drafts when no products became public', async () => {
+    const { POST } = await import('./route');
+    deleteData = [{ id: 'draft-1' }];
+    updateData = [];
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(200);
+    expect(mockRevalidateProducts).toHaveBeenCalledWith(MERCHANT_ID);
+    expect(mockRevalidateProductSlugs).not.toHaveBeenCalled();
+    expect(mockScheduleStorefrontProductPurge).not.toHaveBeenCalled();
   });
 
   it('returns 500 when update fails', async () => {
