@@ -14,16 +14,24 @@
 //                       blank `<KEY>=`, `<KEY>=''`, or `<KEY>=""` entry.
 //   --generate-es256-jwk-standin
 //                       generate an ephemeral ES256 private JWK only after the
-//                       same explicit-blank check. It is written directly to
-//                       the pulled file and is never logged or passed as an arg.
+//                       same explicit-blank check. When the optional key is
+//                       absent, leave the file unchanged so production can use
+//                       the configured legacy signing-secret fallback. The JWK
+//                       is written directly to the pulled file and is never
+//                       logged or passed as an arg.
 // No-op (exit 0) when neither a real value nor stand-in mode is provided, so
 // deploys with nothing configured (for example quiz phase "1a") are unaffected.
 
 import { generateKeyPairSync } from 'node:crypto';
 import fs from 'node:fs';
+import path from 'node:path';
+import nextEnv from '@next/env';
+
+const { processEnv, resetEnv } = nextEnv;
 
 const GENERATED_ES256_JWK_STANDIN = '--generate-es256-jwk-standin';
 const GENERATED_ES256_JWK_STANDIN_KID = 'baci-build-only-es256-jwk-standin';
+const LEGACY_SUPABASE_JWT_SECRET = 'SUPABASE_JWT_SECRET';
 const dotenvAssignmentPattern = /^(?:export[ \t]+)?([A-Za-z_][A-Za-z0-9_]*)[ \t]*=(.*)$/;
 
 const [key, file, standinArg, ...extraArgs] = process.argv.slice(2);
@@ -46,6 +54,36 @@ function isExplicitlyBlankDotenvValue(value) {
   return value === '' || value === "''" || value === '""';
 }
 
+function readExpandedDotenvValue(contents, file, targetKey) {
+  const originalValue = process.env[targetKey];
+  delete process.env[targetKey];
+
+  try {
+    const [, parsed] = processEnv(
+      [{ path: file, contents, env: {} }],
+      path.dirname(file),
+      { error() {} },
+      true,
+    );
+    return parsed[targetKey];
+  } finally {
+    resetEnv();
+    if (originalValue === undefined) delete process.env[targetKey];
+    else process.env[targetKey] = originalValue;
+  }
+}
+
+function hasUnresolvedDotenvReference(rawValue, lines) {
+  const referencePattern = /(?<!\\)\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))/g;
+  return [...rawValue.matchAll(referencePattern)].some((match) => {
+    const referencedKey = match[1] ?? match[2];
+    return (
+      process.env[referencedKey] === undefined &&
+      findDotenvAssignments(lines, referencedKey).length === 0
+    );
+  });
+}
+
 const realValue = process.env[key];
 const hasRealValue = realValue !== undefined && realValue !== '';
 const usingStandin =
@@ -65,8 +103,45 @@ if (!fs.existsSync(file)) {
   process.exit(1);
 }
 
-const lines = fs.readFileSync(file, 'utf8').split('\n');
+const contents = fs.readFileSync(file, 'utf8');
+const lines = contents.split('\n');
 const assignments = findDotenvAssignments(lines, key);
+
+if (usingGeneratedStandin && assignments.length === 0) {
+  const legacyAssignments = findDotenvAssignments(lines, LEGACY_SUPABASE_JWT_SECRET);
+  const hasUnresolvedReference =
+    legacyAssignments.length === 1 &&
+    hasUnresolvedDotenvReference(legacyAssignments[0].value, lines);
+  const legacyValue =
+    legacyAssignments.length === 1
+      ? readExpandedDotenvValue(contents, file, LEGACY_SUPABASE_JWT_SECRET)?.trim()
+      : undefined;
+  if (
+    legacyAssignments.length !== 1 ||
+    hasUnresolvedReference ||
+    legacyValue === undefined ||
+    legacyValue === ''
+  ) {
+    const legacyState =
+      legacyAssignments.length === 0
+        ? 'absent'
+        : legacyAssignments.length > 1
+          ? 'ambiguous'
+          : hasUnresolvedReference
+            ? 'an unresolved interpolation'
+          : 'empty';
+    console.error(
+      `${key} and its ${LEGACY_SUPABASE_JWT_SECRET} fallback cannot be verified in ${file}: ` +
+        `the fallback is ${legacyState}. Refusing to continue without signing material.`,
+    );
+    process.exit(1);
+  }
+
+  console.log(
+    `${key} is absent from ${file}; verified the legacy signing-secret fallback assignment.`,
+  );
+  process.exit(0);
+}
 
 // A stand-in may only substitute for Vercel's write-only blank placeholder.
 // Refusing absent, duplicated, nonblank, or malformed-looking entries avoids
