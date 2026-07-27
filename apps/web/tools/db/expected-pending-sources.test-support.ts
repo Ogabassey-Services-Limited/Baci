@@ -257,4 +257,14 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260727170936_add_product_offer_and_key_spec_cache_invalidation.sql',
     sha256: '0c08f39e96aaefad73ede1037402107c8944b19398eafcb88027e614b3c7b10d',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260727184356_enforce_ordered_exact_cache_and_membership_ownership.sql',
+    sha256: 'd4c7e5484a34f6496bd749f381e8b647762e975bfd1e9598e2a58fd515b99d38',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260727185139_preserve_exact_product_identifier_case.sql',
+    sha256: '35225e92f3841ea6a1e802efb3acae85ed2720ba6ddf33e5839976cda7c44a89',
+  },
 ];

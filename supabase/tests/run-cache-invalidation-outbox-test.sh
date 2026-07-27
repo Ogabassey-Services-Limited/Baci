@@ -49,6 +49,10 @@ main() {
   docker exec -i "$container" psql -v ON_ERROR_STOP=1 -U postgres \
     < "$repo_root/supabase/migrations/20260727170936_add_product_offer_and_key_spec_cache_invalidation.sql"
   docker exec -i "$container" psql -v ON_ERROR_STOP=1 -U postgres \
+    < "$repo_root/supabase/migrations/20260727184356_enforce_ordered_exact_cache_and_membership_ownership.sql"
+  docker exec -i "$container" psql -v ON_ERROR_STOP=1 -U postgres \
+    < "$repo_root/supabase/migrations/20260727185139_preserve_exact_product_identifier_case.sql"
+  docker exec -i "$container" psql -v ON_ERROR_STOP=1 -U postgres \
     < "$repo_root/supabase/tests/cache_invalidation_outbox.sql"
   docker exec -i "$container" psql -v ON_ERROR_STOP=1 -U postgres \
     < "$repo_root/supabase/tests/cache_invalidation_outbox_review_regressions.sql"
@@ -60,6 +64,12 @@ main() {
     < "$repo_root/supabase/tests/cache_invalidation_outbox_round5_regressions.sql"
   docker exec -i "$container" psql -v ON_ERROR_STOP=1 -U postgres \
     < "$repo_root/supabase/tests/cache_invalidation_outbox_round6_regressions.sql"
+  docker exec -i "$container" psql -v ON_ERROR_STOP=1 -U postgres \
+    < "$repo_root/supabase/tests/cache_invalidation_outbox_round7_ordering_regressions.sql"
+  docker exec -i "$container" psql -v ON_ERROR_STOP=1 -U postgres \
+    < "$repo_root/supabase/tests/cache_invalidation_outbox_round7_owner_guard_regressions.sql"
+  docker exec -i "$container" psql -v ON_ERROR_STOP=1 -U postgres \
+    < "$repo_root/supabase/tests/cache_invalidation_outbox_round7_case_regressions.sql"
 
   echo 'Cache invalidation outbox SQL tests passed'
 }

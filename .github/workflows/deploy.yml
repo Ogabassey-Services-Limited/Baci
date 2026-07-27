@@ -102,8 +102,28 @@ jobs:
       - name: Run CWV workflow actionlint
         uses: rhysd/actionlint@914e7df21a07ef503a81201c76d2b11c789d3fca # v1.7.12
 
-  # Apply any pending Supabase migrations BEFORE the Vercel deploy so
-  # application code never lands ahead of the schema it depends on. Closes
+  # Enqueue-capable migrations must never land until the production VPS has
+  # the matching cache-invalidation drain schedule. Verify live crontab state
+  # on the VPS-hosted deploy runner first; missing worker files and
+  # missing/duplicate entries fail closed before database credentials are
+  # exposed to a job.
+  vps-drain-readiness:
+    if: github.ref == 'refs/heads/main'
+    runs-on: baci-deploy
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - name: Verify production cache-invalidation drain installation
+        env:
+          VPS_WORKER_REMOTE_DIR: ${{ vars.VPS_WORKER_REMOTE_DIR || '/home/bassey/baci-workers' }}
+        run: vps-workers/bin/verify-cache-invalidation-drain-installed.sh
+
+  # Apply any pending Supabase migrations AFTER drain readiness and BEFORE the
+  # Vercel deploy so application code never lands ahead of the schema it depends on. Closes
   # the gap that let 12 Apr 2026 migrations sit unapplied on production for
   # nearly a week.
   #
@@ -119,7 +139,8 @@ jobs:
   # `-- disable-transaction` are split into top-level statements first so
   # CREATE INDEX CONCURRENTLY can run without blocking production writes.
   db-migrations:
-    if: github.ref == 'refs/heads/main'
+    needs: [vps-drain-readiness]
+    if: github.ref == 'refs/heads/main' && needs.vps-drain-readiness.result == 'success'
     runs-on: ubuntu-24.04
     environment:
       name: production
