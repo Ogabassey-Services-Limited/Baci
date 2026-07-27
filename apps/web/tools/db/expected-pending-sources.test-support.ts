@@ -230,7 +230,7 @@ export const EXPECTED_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260726160200_audit_staff_access_changes.sql',
-    sha256: '4d91153bcc2ed316c7f2505e96177b3d31e7fe76520f4172e40edfd60f240c94',
+    sha256: 'e54641d40c6f50feaea2348e9ce45188326f932d5f2aea3803f7499e2aaeb4d1',
   },
   {
     repositoryPath:

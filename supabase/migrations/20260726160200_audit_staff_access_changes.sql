@@ -145,9 +145,9 @@ DECLARE
   v_acceptance_state_fields text[] := ARRAY['accepted_at']::text[];
   v_identity_fields text[] := ARRAY['user_id']::text[];
   v_tenant_identity_fields text[] := ARRAY['merchant_id']::text[];
-  v_forbidden_fields text[] := ARRAY['invitation_token']::text[];
+  v_forbidden_fields text[] := ARRAY['id', 'invitation_token']::text[];
   v_ignored_fields text[] := ARRAY[
-    'created_at', 'id', 'last_login_at', 'updated_at'
+    'created_at', 'last_login_at', 'updated_at'
   ]::text[];
   v_classified_fields text[];
   v_old_access_values jsonb := '{}'::jsonb;
@@ -211,8 +211,27 @@ BEGIN
       USING ERRCODE = '55000';
   END IF;
 
+  IF TG_OP = 'UPDATE' AND OLD.id IS DISTINCT FROM NEW.id THEN
+    RAISE EXCEPTION 'audit_staff_access_id_reassignment_forbidden'
+      USING ERRCODE = '22023';
+  END IF;
+
   IF TG_OP = 'UPDATE' AND OLD.merchant_id IS DISTINCT FROM NEW.merchant_id THEN
     RAISE EXCEPTION 'audit_staff_access_merchant_reassignment_forbidden'
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF TG_OP <> 'INSERT'
+    AND OLD.permissions IS NOT NULL
+    AND pg_catalog.jsonb_typeof(OLD.permissions) IS DISTINCT FROM 'object' THEN
+    RAISE EXCEPTION 'audit_staff_access_permissions_shape_invalid'
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF TG_OP <> 'DELETE'
+    AND NEW.permissions IS NOT NULL
+    AND pg_catalog.jsonb_typeof(NEW.permissions) IS DISTINCT FROM 'object' THEN
+    RAISE EXCEPTION 'audit_staff_access_permissions_shape_invalid'
       USING ERRCODE = '22023';
   END IF;
 

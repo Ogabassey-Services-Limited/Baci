@@ -14,11 +14,18 @@ DECLARE
   v_target_id uuid := '7e3f2e10-0000-4000-8000-000000000102';
   v_merchant_id uuid := '7e3f2e10-0000-4000-8000-000000000103';
   v_staff_id uuid := '7e3f2e10-0000-4000-8000-000000000104';
+  v_reassigned_staff_id uuid := '7e3f2e10-0000-4000-8000-000000000108';
   v_other_merchant_id uuid := '7e3f2e10-0000-4000-8000-000000000105';
   v_profile_staff_id uuid := '7e3f2e10-0000-4000-8000-000000000106';
   v_other_owner_id uuid := '7e3f2e10-0000-4000-8000-000000000107';
   v_event record;
+  v_id_reassignment_rejected boolean := false;
   v_merchant_reassignment_rejected boolean := false;
+  v_permissions_array_rejected boolean := false;
+  v_permissions_json_null_rejected boolean := false;
+  v_effective_permissions jsonb;
+  v_event_count_before integer;
+  v_event_count_after integer;
   v_orders_edit_granted boolean;
   v_orders_view_granted boolean;
   v_live_columns text[];
@@ -197,6 +204,33 @@ BEGIN
     RAISE EXCEPTION 'staff merchant reassignment was not rejected';
   END IF;
 
+  -- Owners can otherwise update this row through authenticated RLS. The stable
+  -- row identity must still remain immutable so later events cannot fork onto
+  -- a different resource id without an audit record.
+  SET LOCAL ROLE authenticated;
+  PERFORM pg_catalog.set_config('request.jwt.claim.role', 'authenticated', true);
+  PERFORM pg_catalog.set_config('request.jwt.claim.sub', v_actor_id::text, true);
+  PERFORM pg_catalog.set_config(
+    'request.jwt.claims',
+    pg_catalog.jsonb_build_object('role', 'authenticated', 'sub', v_actor_id::text)::text,
+    true
+  );
+  BEGIN
+    UPDATE public.staff_members
+    SET id = v_reassigned_staff_id
+    WHERE id = v_staff_id;
+  EXCEPTION
+    WHEN SQLSTATE '22023' THEN
+      IF SQLERRM IS DISTINCT FROM 'audit_staff_access_id_reassignment_forbidden' THEN
+        RAISE EXCEPTION 'staff id reassignment raised unexpected error: %', SQLERRM;
+      END IF;
+      v_id_reassignment_rejected := true;
+  END;
+  RESET ROLE;
+  IF NOT v_id_reassignment_rejected THEN
+    RAISE EXCEPTION 'staff id reassignment was not rejected';
+  END IF;
+
   -- The PATCH contract permits a status-only activation. It must not be
   -- mislabeled as an invitation acceptance without target and acceptance state.
   SET LOCAL ROLE authenticated;
@@ -362,6 +396,88 @@ BEGIN
      OR v_event.after_values ->> 'target_user_id' IS DISTINCT FROM v_target_id::text
      OR v_event.after_values -> 'acceptance' IS DISTINCT FROM '{"accepted":true}'::jsonb THEN
     RAISE EXCEPTION 'accepted invitation did not derive the invitee actor, row merchant, resource, or safe target state';
+  END IF;
+
+  -- Runtime permission resolution deep-merges only SQL NULL with role defaults;
+  -- non-object JSON would instead make jsonb_each fail later. Reject malformed
+  -- direct authenticated writes before they can leave a broken membership row.
+  SET LOCAL ROLE authenticated;
+  PERFORM pg_catalog.set_config('request.jwt.claim.role', 'authenticated', true);
+  PERFORM pg_catalog.set_config('request.jwt.claim.sub', v_actor_id::text, true);
+  PERFORM pg_catalog.set_config(
+    'request.jwt.claims',
+    pg_catalog.jsonb_build_object('role', 'authenticated', 'sub', v_actor_id::text)::text,
+    true
+  );
+  BEGIN
+    UPDATE public.staff_members
+    SET permissions = '[]'::jsonb
+    WHERE id = v_staff_id;
+  EXCEPTION
+    WHEN SQLSTATE '22023' THEN
+      IF SQLERRM IS DISTINCT FROM 'audit_staff_access_permissions_shape_invalid' THEN
+        RAISE EXCEPTION 'array permissions raised unexpected error: %', SQLERRM;
+      END IF;
+      v_permissions_array_rejected := true;
+  END;
+  BEGIN
+    UPDATE public.staff_members
+    SET permissions = 'null'::jsonb
+    WHERE id = v_staff_id;
+  EXCEPTION
+    WHEN SQLSTATE '22023' THEN
+      IF SQLERRM IS DISTINCT FROM 'audit_staff_access_permissions_shape_invalid' THEN
+        RAISE EXCEPTION 'JSON null permissions raised unexpected error: %', SQLERRM;
+      END IF;
+      v_permissions_json_null_rejected := true;
+  END;
+  RESET ROLE;
+  IF NOT v_permissions_array_rejected OR NOT v_permissions_json_null_rejected THEN
+    RAISE EXCEPTION 'non-object permissions were not rejected';
+  END IF;
+
+  SET LOCAL ROLE authenticated;
+  PERFORM pg_catalog.set_config('request.jwt.claim.role', 'authenticated', true);
+  PERFORM pg_catalog.set_config('request.jwt.claim.sub', v_actor_id::text, true);
+  PERFORM pg_catalog.set_config(
+    'request.jwt.claims',
+    pg_catalog.jsonb_build_object('role', 'authenticated', 'sub', v_actor_id::text)::text,
+    true
+  );
+  UPDATE public.staff_members
+  SET permissions = NULL
+  WHERE id = v_staff_id;
+  RESET ROLE;
+
+  SELECT * INTO v_event
+  FROM public.audit_events
+  WHERE merchant_id = v_merchant_id
+    AND resource_type = 'staff_member'
+    AND resource_id = v_staff_id::text
+  ORDER BY occurred_at DESC, id DESC
+  LIMIT 1;
+  IF NOT FOUND OR v_event.action IS DISTINCT FROM 'staff.permissions_changed'
+     OR v_event.after_values -> 'permissions'
+        IS DISTINCT FROM '["orders.view"]'::jsonb THEN
+    RAISE EXCEPTION 'SQL NULL permissions did not retain role-default audit semantics';
+  END IF;
+
+  SET LOCAL ROLE authenticated;
+  PERFORM pg_catalog.set_config('request.jwt.claim.role', 'authenticated', true);
+  PERFORM pg_catalog.set_config('request.jwt.claim.sub', v_actor_id::text, true);
+  PERFORM pg_catalog.set_config(
+    'request.jwt.claims',
+    pg_catalog.jsonb_build_object('role', 'authenticated', 'sub', v_actor_id::text)::text,
+    true
+  );
+  SELECT public.get_staff_permissions(v_staff_id) INTO v_effective_permissions;
+  RESET ROLE;
+  IF v_effective_permissions IS DISTINCT FROM (
+    SELECT permissions
+    FROM public.role_permissions
+    WHERE role = 'sales_rep'
+  ) THEN
+    RAISE EXCEPTION 'SQL NULL permissions did not preserve runtime role defaults';
   END IF;
 
   -- The runtime permission helpers accept PostgreSQL boolean spellings from
@@ -696,6 +812,43 @@ BEGIN
      OR v_event.actor_user_id IS DISTINCT FROM v_target_id
      OR v_event.after_values ->> 'target_user_id' IS DISTINCT FROM v_target_id::text THEN
     RAISE EXCEPTION 're-invited staff acceptance did not derive the invitee actor and target identity';
+  END IF;
+
+  SELECT count(*) INTO v_event_count_before
+  FROM public.audit_events
+  WHERE merchant_id = v_merchant_id
+    AND resource_type = 'staff_member'
+    AND resource_id = v_staff_id::text;
+
+  SET LOCAL ROLE authenticated;
+  PERFORM pg_catalog.set_config('request.jwt.claim.role', 'authenticated', true);
+  PERFORM pg_catalog.set_config('request.jwt.claim.sub', v_actor_id::text, true);
+  PERFORM pg_catalog.set_config(
+    'request.jwt.claims',
+    pg_catalog.jsonb_build_object('role', 'authenticated', 'sub', v_actor_id::text)::text,
+    true
+  );
+  UPDATE public.staff_members
+  SET status = status
+  WHERE id = v_staff_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'staff no-op update did not target the fixture row';
+  END IF;
+  UPDATE public.staff_members
+  SET updated_at = updated_at + interval '1 microsecond'
+  WHERE id = v_staff_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'staff updated_at-only update did not target the fixture row';
+  END IF;
+  RESET ROLE;
+
+  SELECT count(*) INTO v_event_count_after
+  FROM public.audit_events
+  WHERE merchant_id = v_merchant_id
+    AND resource_type = 'staff_member'
+    AND resource_id = v_staff_id::text;
+  IF v_event_count_after IS DISTINCT FROM v_event_count_before THEN
+    RAISE EXCEPTION 'staff no-op or updated_at-only update emitted an audit event';
   END IF;
 
   INSERT INTO audit_staff_access_event_counts

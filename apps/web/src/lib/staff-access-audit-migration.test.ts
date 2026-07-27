@@ -109,6 +109,14 @@ describe('staff access audit migration contract', () => {
     expect(migrationSql).toContain(
       'audit_staff_access_merchant_reassignment_forbidden'
     );
+    expect(migrationSql).toContain(
+      'audit_staff_access_id_reassignment_forbidden'
+    );
+    expect(migrationSql).toContain(
+      'audit_staff_access_permissions_shape_invalid'
+    );
+    expect(migrationSql).toContain('pg_catalog.jsonb_typeof(OLD.permissions)');
+    expect(migrationSql).toContain('pg_catalog.jsonb_typeof(NEW.permissions)');
     const removalActionIndex = migrationSql.indexOf(
       "v_action := 'staff.removed';"
     );
@@ -143,6 +151,19 @@ describe('staff access audit migration contract', () => {
     expect(sqlRegression).toContain('staff.access_changed');
     expect(sqlRegression).toContain(
       'audit_staff_access_merchant_reassignment_forbidden'
+    );
+    expect(sqlRegression).toContain(
+      'audit_staff_access_id_reassignment_forbidden'
+    );
+    expect(sqlRegression).toContain(
+      'audit_staff_access_permissions_shape_invalid'
+    );
+    expect(sqlRegression).toContain("permissions = '[]'::jsonb");
+    expect(sqlRegression).toContain("permissions = 'null'::jsonb");
+    expect(sqlRegression).toContain('SET permissions = NULL');
+    expect(sqlRegression).toContain('SET status = status');
+    expect(sqlRegression).toContain(
+      "updated_at = updated_at + interval '1 microsecond'"
     );
     expect(sqlRegression).toContain('ROLLBACK TO SAVEPOINT');
     expect(sqlRegression).toContain('audit_staff_access_unclassified_probe');
