@@ -72,6 +72,23 @@ describe('useAuthStore signIn', () => {
     expect(mocks.clearAdminQueryCache).not.toHaveBeenCalled();
   });
 
+  it('shows a friendly connectivity message when Android SSL handshake sign-in fails', async () => {
+    mocks.signInWithPassword.mockRejectedValue(
+      new Error(
+        'fetch failed: javax.net.ssl.SSLHandshakeException: connection closed'
+      )
+    );
+
+    const result = await useAuthStore
+      .getState()
+      .signIn('test+network@example.test', 'secret');
+
+    expect(result.error).toBe(
+      'Unable to connect. Please check your internet connection.'
+    );
+    expect(result.error).not.toContain('SSLHandshakeException');
+  });
+
   it('commits the returned session immediately after Google sign-in', async () => {
     const session = createSession();
 

@@ -27,7 +27,7 @@ describe('FollowUpEmptyState', () => {
   it('reports success when there are genuinely no follow-ups', () => {
     render(
       <FollowUpEmptyState
-        isError={false}
+        viewState={{ status: 'empty' }}
         isRetrying={false}
         onRetry={vi.fn()}
       />
@@ -42,7 +42,16 @@ describe('FollowUpEmptyState', () => {
 
   it('reports a load failure instead of success when the query errored', () => {
     render(
-      <FollowUpEmptyState isError={true} isRetrying={false} onRetry={vi.fn()} />
+      <FollowUpEmptyState
+        viewState={{
+          status: 'error',
+          title: "Couldn't load follow-ups",
+          message:
+            "We couldn't check for unsuccessful transactions. This does not mean there are none.",
+        }}
+        isRetrying={false}
+        onRetry={vi.fn()}
+      />
     );
 
     expect(screen.getByText("Couldn't load follow-ups")).toBeTruthy();
@@ -55,7 +64,15 @@ describe('FollowUpEmptyState', () => {
   it('calls onRetry when the retry button is pressed', () => {
     const onRetry = vi.fn();
     render(
-      <FollowUpEmptyState isError={true} isRetrying={false} onRetry={onRetry} />
+      <FollowUpEmptyState
+        viewState={{
+          status: 'error',
+          title: "Couldn't load follow-ups",
+          message: 'Retry the request.',
+        }}
+        isRetrying={false}
+        onRetry={onRetry}
+      />
     );
 
     fireEvent.click(
@@ -68,7 +85,15 @@ describe('FollowUpEmptyState', () => {
   it('disables retry and shows progress while a retry is in flight', () => {
     const onRetry = vi.fn();
     render(
-      <FollowUpEmptyState isError={true} isRetrying={true} onRetry={onRetry} />
+      <FollowUpEmptyState
+        viewState={{
+          status: 'error',
+          title: "Couldn't load follow-ups",
+          message: 'Retry the request.',
+        }}
+        isRetrying={true}
+        onRetry={onRetry}
+      />
     );
 
     const retry = screen.getByRole('button', {
@@ -79,5 +104,18 @@ describe('FollowUpEmptyState', () => {
 
     fireEvent.click(retry);
     expect(onRetry).not.toHaveBeenCalled();
+  });
+
+  it('does not report success while follow-ups are still loading', () => {
+    render(
+      <FollowUpEmptyState
+        viewState={{ status: 'loading' }}
+        isRetrying={false}
+        onRetry={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Loading follow-ups…')).toBeTruthy();
+    expect(screen.queryByText('No issues')).toBeNull();
   });
 });
