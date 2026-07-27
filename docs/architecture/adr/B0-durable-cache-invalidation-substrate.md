@@ -84,7 +84,7 @@ stage failure records a bounded retry; a later generation cannot be completed
 by an older claim. Applying the migration, installing the crontab, and raising
 the five-minute TTL remain separate live-operations gates.
 
-- **Positive:** matches the documented VPS-only scheduling architecture; reuses proven `run-web-cron` non-2xx alerting + `flock` overlap-prevention; zero Vercel cost; the ledger is durable in Postgres, so a VPS outage **delays, never loses** invalidations; the "big new build" shrinks to *generalize one table + add one route + one crontab line*.
+- **Positive:** matches the documented VPS-only scheduling architecture; reuses proven `run-web-cron` non-2xx alerting + `flock` overlap-prevention; avoids Vercel Cron scheduling and limits runtime to one bounded invocation per sweep; the ledger is durable in Postgres, so a VPS outage **delays, never loses** invalidations; the "big new build" shrinks to *generalize one table + add one route + one crontab line*.
 - **Negative / accepted:** single VPS = a freshness SPOF (not a correctness one); adds to the VPS ops surface; crontab↔`deploy.sh` drift risk (mitigated by same-PR discipline); worst-case happy-path-drop latency = the sweep interval unless the optional trigger leg is added later.
 
 ## B0 exit checklist (before durable B1/B2 implementation)
