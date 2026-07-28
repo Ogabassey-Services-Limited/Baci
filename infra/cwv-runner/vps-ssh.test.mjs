@@ -31,7 +31,7 @@ async function fixture({ badFingerprint = false, platform = 'Linux', replaceAfte
     await fs.writeFile(replacement, '82.29.190.219 ssh-ed25519 attacker\n');
   await fs.writeFile(
     paths.ssh,
-    `#!${process.execPath}\nconst fs=require("node:fs"),known=process.argv.find((value)=>value.startsWith("UserKnownHostsFile="));if(known)fs.writeFileSync(${JSON.stringify(knownHostsCapture)},fs.readFileSync(known.slice("UserKnownHostsFile=".length)));fs.writeFileSync(${JSON.stringify(capture)},process.argv.slice(2).join("\\n")+"\\n");\n`
+    `#!${process.execPath}\nconst fs=require("node:fs"),known=process.argv.find((value)=>value.startsWith("KnownHostsCommand="));if(known)fs.writeFileSync(${JSON.stringify(knownHostsCapture)},known.slice("KnownHostsCommand=".length));fs.writeFileSync(${JSON.stringify(capture)},process.argv.slice(2).join("\\n")+"\\n");\n`
   );
   await fs.writeFile(
     paths['ssh-keygen'],
@@ -150,11 +150,9 @@ test('freezes complete hostile-config-independent SSH argv', async () => {
   const fix = await fixture();
   await run(fix, ['--tty', '--', 'printf ok']);
   const actual = await argv(fix);
-  const knownHosts = actual.find((value) =>
-    value.startsWith('UserKnownHostsFile=')
-  );
-  assert.match(knownHosts, /^UserKnownHostsFile=\/dev\/fd\/[3-9]\d*$/);
-  actual[actual.indexOf(knownHosts)] = 'UserKnownHostsFile=<descriptor>';
+  const knownHosts = actual.find((value) => value.startsWith('KnownHostsCommand='));
+  assert.equal(knownHosts, `KnownHostsCommand=/usr/bin/printf '%%s\\n' '${hosts.trim()}'`);
+  actual[actual.indexOf(knownHosts)] = 'KnownHostsCommand=<validated-authority>';
   assert.deepEqual(actual, [
     '-F',
     '/dev/null',
@@ -170,9 +168,11 @@ test('freezes complete hostile-config-independent SSH argv', async () => {
     '-o',
     'CheckHostIP=yes',
     '-o',
-    'GlobalKnownHostsFile=/dev/null',
+    'GlobalKnownHostsFile=none',
     '-o',
-    'UserKnownHostsFile=<descriptor>',
+    'UserKnownHostsFile=none',
+    '-o',
+    'KnownHostsCommand=<validated-authority>',
     '-o',
     'ProxyCommand=none',
     '-o',
@@ -248,10 +248,10 @@ test('refuses writable, symlinked, byte-drifted, and fingerprint-drifted authori
     /SSH authority verification failed/
   );
 });
-test('passes only descriptor-held authority bytes to SSH after a pathname replacement race', async () => {
+test('passes only validated authority bytes to SSH after a pathname replacement race', async () => {
   const fix = await fixture({ replaceAfterDigest: true });
   await run(fix, ['--', 'id']);
-  assert.equal(await fs.readFile(fix.knownHostsCapture, 'utf8'), hosts);
+  assert.equal(await fs.readFile(fix.knownHostsCapture, 'utf8'), `/usr/bin/printf '%%s\\n' '${hosts.trim()}'`);
 });
 test('rejects a caller-preseeded writable descriptor even when its authority bytes match', async () => {
   const fix = await fixture();
@@ -277,7 +277,9 @@ test('contains no mutable SSH authority or caller-selected transport surface', (
     '"-F", "/dev/null"',
     'HostKeyAlgorithms=ssh-ed25519',
     'StrictHostKeyChecking=yes',
-    'GlobalKnownHostsFile=/dev/null',
+    'GlobalKnownHostsFile=none',
+    'UserKnownHostsFile=none',
+    'KnownHostsCommand=',
     'ProxyCommand=none',
     'ProxyJump=none',
     'ClearAllForwardings=yes',
