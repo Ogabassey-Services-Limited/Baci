@@ -114,7 +114,7 @@ test('runs the verified unique internal self-copy outside the noexec runtime mou
 });
 
 test(
-  'removes its unique outer self-copy when raw helper verification fails',
+  'removes its unique self-copy when raw verification or lock acquisition fails',
   { skip: !rootMountFixtureAvailable, timeout: 30_000 },
   () => {
     const root = mkdtempSync(join(tmpdir(), 'baci-cwv-outer-cleanup-'));
@@ -134,6 +134,14 @@ test(
         `if BACI_CWV_SEAL_SOURCE_RAW_SHA=${'0'.repeat(64)} ${JSON.stringify(path)} --destination final --source-sha ${sourceSha} --source-archive /run/archive --source-archive-sha256 "$archive_sha" --source-manifest /run/manifest --source-manifest-sha256 "$manifest_sha" >/run/result.out 2>/run/result.err; then exit 90; fi`,
         "grep -q 'helper raw digest mismatch' /run/result.err",
         '[ -z "$(find /var/lib/baci-cwv/seal-source -mindepth 1 -type d -print -quit)" ]',
+        'parent=/var/lib/baci-cwv/seal-source/work.ABC12345',
+        `mkdir -m 0700 "$parent"; cp ${JSON.stringify(path)} "$parent/seal-source.sh"`,
+        'chown root:root "$parent" "$parent/seal-source.sh"; chmod 0500 "$parent/seal-source.sh"',
+        'exec 9</var/lib/baci-cwv/seal-source; /usr/bin/flock -n 9',
+        `if BACI_CWV_SEAL_SOURCE_RAW_SHA=${'0'.repeat(64)} "$parent/seal-source.sh" --sealed-inner --destination final --source-sha ${sourceSha} --source-archive /run/archive --source-archive-sha256 "$archive_sha" --source-manifest /run/manifest --source-manifest-sha256 "$manifest_sha" >/run/result.out 2>/run/result.err; then exit 91; fi`,
+        "grep -q 'source seal already running' /run/result.err",
+        '[ ! -e "$parent" ]',
+        '/usr/bin/flock -u 9; exec 9<&-',
       ].join('\n'),
       'utf8'
     );

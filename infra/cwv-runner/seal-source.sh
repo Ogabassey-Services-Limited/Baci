@@ -198,12 +198,12 @@ git_sha "$source_sha"; hex "$archive_digest"; hex "$manifest_digest"
 if [[ "$inner" == true ]]; then
   verify_inner_helper
   secure_self_root
-  exec 9<"$SELF_ROOT"
-  "$FLOCK" -n 9 || fail 'source seal already running'
   trap cleanup EXIT
   trap 'signal HUP 129' HUP
   trap 'signal INT 130' INT
   trap 'signal TERM 143' TERM
+  exec 9<"$SELF_ROOT"
+  "$FLOCK" -n 9 || fail 'source seal already running'
 else
   self_copy "${arguments[@]}"
 fi
