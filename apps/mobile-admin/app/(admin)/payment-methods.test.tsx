@@ -31,6 +31,26 @@ describe('PaymentMethodsScreen', () => {
     });
   });
 
+  it('writes the exact Paystack field through the captured gateway mutation', async () => {
+    // Arrange
+    render(<PaymentMethodsScreen />);
+    const mutationFn = mocks.mutationConfig?.mutationFn;
+    if (!mutationFn) {
+      throw new Error('Expected the payment gateway mutation function');
+    }
+
+    // Act
+    await mutationFn({
+      field: 'paystack_enabled',
+      value: false,
+    });
+
+    // Assert
+    expect(mocks.from).toHaveBeenCalledWith('merchant_feature_settings');
+    expect(mocks.update).toHaveBeenCalledWith({ paystack_enabled: false });
+    expect(mocks.eq).toHaveBeenCalledWith('id', 'settings-1');
+  });
+
   it('hides payment methods whose backing settings columns are unavailable', () => {
     const { klump_enabled: _klumpEnabled, ...settingsWithoutKlump } =
       paymentSettings;
