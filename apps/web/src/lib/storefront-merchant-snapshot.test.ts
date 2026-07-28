@@ -8,7 +8,7 @@ function createClient(response: unknown) {
   // rpc(...).abortSignal(signal).retry(false) → awaitable response.
   const retry = vi.fn().mockResolvedValue(response);
   const abortSignal = vi.fn(() => ({ retry }));
-  const rpc = vi.fn(() => ({ abortSignal }));
+  const rpc = vi.fn(() => ({ abortSignal, retry }));
   return {
     abortSignal,
     retry,
@@ -72,7 +72,7 @@ describe('readStorefrontMerchantSnapshot', () => {
     ).resolves.toEqual({ status: 'not_found' });
   });
 
-  it('allows queued build reads a fresh transport window without changing the runtime deadline', async () => {
+  it('leaves the build transport deadline to the admitted public client', async () => {
     const timeout = vi.spyOn(AbortSignal, 'timeout');
     const { client } = createClient({
       data: [
@@ -92,7 +92,28 @@ describe('readStorefrontMerchantSnapshot', () => {
 
     vi.stubEnv('BACI_STOREFRONT_BUILD_READS', 'bounded');
     await readStorefrontMerchantSnapshot(client, 'build-store');
-    expect(timeout).toHaveBeenLastCalledWith(30_000);
+    expect(timeout).toHaveBeenCalledTimes(1);
+  });
+
+  it('defers the build deadline to the admitted public-client transport', async () => {
+    vi.stubEnv('BACI_STOREFRONT_BUILD_READS', 'bounded');
+    const { abortSignal, client, retry } = createClient({
+      data: [
+        {
+          resolution_status: 'not_found',
+          merchant_data: null,
+          custom_domain: null,
+          feature_settings: null,
+        },
+      ],
+      error: null,
+      status: 200,
+    });
+
+    await readStorefrontMerchantSnapshot(client, 'queued-build-store');
+
+    expect(abortSignal).not.toHaveBeenCalled();
+    expect(retry).toHaveBeenCalledWith(false);
   });
 
   it('treats a successful empty RPC response as contract unavailability', async () => {

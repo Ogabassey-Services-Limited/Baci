@@ -1,14 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const {
-  mockCreateClient,
-  mockCreateStorefrontBuildReadFetch,
-  mockCreateTimeoutComposedFetch,
-} = vi.hoisted(() => ({
-  mockCreateClient: vi.fn(),
-  mockCreateStorefrontBuildReadFetch: vi.fn((fetcher: typeof fetch) => fetcher),
-  mockCreateTimeoutComposedFetch: vi.fn((_: number) => fetch),
-}));
+const { mockCreateClient, mockCreateStorefrontPublicReadFetch } = vi.hoisted(
+  () => ({
+    mockCreateClient: vi.fn(),
+    mockCreateStorefrontPublicReadFetch: vi.fn((_timeoutMs?: number) => fetch),
+  })
+);
 
 vi.mock('@/env', () => ({
   getSupabaseAnonKey: vi.fn(() => 'test-anon-key'),
@@ -17,13 +14,9 @@ vi.mock('@/env', () => ({
 vi.mock('@supabase/supabase-js', () => ({
   createClient: (...args: unknown[]) => mockCreateClient(...args),
 }));
-vi.mock('./storefront-build-read-fetch', () => ({
-  createStorefrontBuildReadFetch: (fetcher: typeof fetch) =>
-    mockCreateStorefrontBuildReadFetch(fetcher),
-}));
-vi.mock('@/lib/supabase/compose-fetch-signal', () => ({
-  createTimeoutComposedFetch: (timeoutMs: number) =>
-    mockCreateTimeoutComposedFetch(timeoutMs),
+vi.mock('./storefront-public-read-fetch', () => ({
+  createStorefrontPublicReadFetch: (timeoutMs?: number) =>
+    mockCreateStorefrontPublicReadFetch(timeoutMs),
 }));
 
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
@@ -42,7 +35,7 @@ describe('getPublicSupabaseClient', () => {
     getPublicSupabaseClient();
     getPublicSupabaseClient();
 
-    expect(mockCreateStorefrontBuildReadFetch).toHaveBeenCalledTimes(2);
+    expect(mockCreateStorefrontPublicReadFetch).toHaveBeenCalledTimes(2);
   });
 
   it('uses the 30-second build deadline instead of the 10-second runtime cap', () => {
@@ -51,7 +44,7 @@ describe('getPublicSupabaseClient', () => {
 
     getPublicSupabaseClient();
 
-    expect(mockCreateTimeoutComposedFetch).toHaveBeenCalledWith(30_000);
+    expect(mockCreateStorefrontPublicReadFetch).toHaveBeenCalledWith(undefined);
   });
 
   it('leaves runtime public reads ungated', () => {
@@ -59,7 +52,7 @@ describe('getPublicSupabaseClient', () => {
 
     getPublicSupabaseClient();
 
-    expect(mockCreateStorefrontBuildReadFetch).not.toHaveBeenCalled();
+    expect(mockCreateStorefrontPublicReadFetch).toHaveBeenCalledWith(undefined);
   });
 
   it('creates a cookie-free anonymous client for cached public reads', () => {

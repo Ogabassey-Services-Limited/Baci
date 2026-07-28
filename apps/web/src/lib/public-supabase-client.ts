@@ -1,10 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
-import { createTimeoutComposedFetch } from '@/lib/supabase/compose-fetch-signal';
-import { createStorefrontBuildReadFetch } from './storefront-build-read-fetch';
-
-const CACHED_CLIENT_DEFAULT_TIMEOUT_MS = 10_000;
-const CACHED_CLIENT_BUILD_TIMEOUT_MS = 30_000;
+import { createStorefrontPublicReadFetch } from './storefront-public-read-fetch';
 
 /** Creates the anonymous, cookie-free client used by public cached reads. */
 export function getPublicSupabaseClient(options?: { timeoutMs?: number }) {
@@ -15,16 +11,7 @@ export function getPublicSupabaseClient(options?: { timeoutMs?: number }) {
     throw new Error('Supabase configuration is missing');
   }
 
-  const timeoutMs =
-    options?.timeoutMs ??
-    (process.env.BACI_STOREFRONT_BUILD_READS === 'bounded'
-      ? CACHED_CLIENT_BUILD_TIMEOUT_MS
-      : CACHED_CLIENT_DEFAULT_TIMEOUT_MS);
-  const timedFetch = createTimeoutComposedFetch(timeoutMs);
-  const publicFetch =
-    process.env.BACI_STOREFRONT_BUILD_READS === 'bounded'
-      ? createStorefrontBuildReadFetch(timedFetch)
-      : timedFetch;
+  const publicFetch = createStorefrontPublicReadFetch(options?.timeoutMs);
 
   return createClient(url, key, {
     auth: {
