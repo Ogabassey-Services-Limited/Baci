@@ -150,8 +150,7 @@ test('freezes complete hostile-config-independent SSH argv', async () => {
   const fix = await fixture();
   await run(fix, ['--tty', '--', 'printf ok']);
   const actual = await argv(fix);
-  const knownHosts = actual.find((value) => value.startsWith('KnownHostsCommand='));
-  assert.equal(knownHosts, `KnownHostsCommand=/usr/bin/printf '%%s\\n' '${hosts.trim()}'`);
+  const knownHosts = actual.find((value) => value.startsWith('KnownHostsCommand=')); assert.equal(knownHosts, `KnownHostsCommand=/bin/echo '${hosts.trim()}'`);
   actual[actual.indexOf(knownHosts)] = 'KnownHostsCommand=<validated-authority>';
   assert.deepEqual(actual, [
     '-F',
@@ -251,7 +250,8 @@ test('refuses writable, symlinked, byte-drifted, and fingerprint-drifted authori
 test('passes only validated authority bytes to SSH after a pathname replacement race', async () => {
   const fix = await fixture({ replaceAfterDigest: true });
   await run(fix, ['--', 'id']);
-  assert.equal(await fs.readFile(fix.knownHostsCapture, 'utf8'), `/usr/bin/printf '%%s\\n' '${hosts.trim()}'`);
+  const command = await fs.readFile(fix.knownHostsCapture, 'utf8'); assert.equal(command, `/bin/echo '${hosts.trim()}'`);
+  assert.equal((await exec('/bin/sh', ['-c', command])).stdout, hosts);
 });
 test('rejects a caller-preseeded writable descriptor even when its authority bytes match', async () => {
   const fix = await fixture();
