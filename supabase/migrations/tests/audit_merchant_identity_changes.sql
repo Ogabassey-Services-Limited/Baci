@@ -127,11 +127,16 @@ BEGIN
     '{"instagram":"@ogabassey"}'::jsonb
   );
 
+  -- A merchant insert can legitimately produce a separate Task 4
+  -- configuration event. This fixture proves only the identity domain.
   SELECT count(*) INTO v_event_count
-  FROM public.audit_events WHERE merchant_id = v_merchant_id;
+  FROM public.audit_events
+  WHERE merchant_id = v_merchant_id
+    AND action LIKE 'merchant.identity.%';
   SELECT * INTO v_event
   FROM public.audit_events
   WHERE merchant_id = v_merchant_id
+    AND action LIKE 'merchant.identity.%'
   ORDER BY occurred_at DESC, id DESC LIMIT 1;
   IF v_event_count <> 1
      OR v_event.action <> 'merchant.identity.create'
@@ -171,7 +176,8 @@ ALTER TABLE public.merchants
 INSERT INTO audit_identity_event_counts
 SELECT 'pqthhi-before', count(*)
 FROM public.audit_events
-WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002';
+WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+  AND action LIKE 'merchant.identity.%';
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.role', 'authenticated', true);
 SELECT set_config('request.jwt.claim.sub', '7e3f2e10-0000-4000-8000-000000000001', true);
@@ -189,7 +195,8 @@ BEGIN
   SELECT event_count INTO v_before_count
   FROM audit_identity_event_counts WHERE label = 'pqthhi-before';
   SELECT count(*) INTO v_after_count FROM public.audit_events
-  WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002';
+  WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+    AND action LIKE 'merchant.identity.%';
   SELECT * INTO v_event
   FROM public.audit_events
   WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
@@ -228,6 +235,7 @@ BEGIN
   ) OR EXISTS (
     SELECT 1 FROM public.audit_events
     WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+      AND action LIKE 'merchant.identity.%'
       AND after_values ->> 'business_name' = 'rollback-only identity change'
   ) THEN
     RAISE EXCEPTION 'rolled-back merchant identity mutation leaked state or audit evidence';
@@ -238,7 +246,8 @@ $test$;
 -- Mobile direct settings writes are normal authenticated table updates.
 INSERT INTO audit_identity_event_counts
 SELECT 'mobile-before', count(*) FROM public.audit_events
-WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002';
+WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+  AND action LIKE 'merchant.identity.%';
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.role', 'authenticated', true);
 SELECT set_config('request.jwt.claim.sub', '7e3f2e10-0000-4000-8000-000000000001', true);
@@ -254,9 +263,12 @@ DO $test$
 DECLARE v_event record; v_before_count integer; v_after_count integer;
 BEGIN
   SELECT event_count INTO v_before_count FROM audit_identity_event_counts WHERE label = 'mobile-before';
-  SELECT count(*) INTO v_after_count FROM public.audit_events WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002';
+  SELECT count(*) INTO v_after_count FROM public.audit_events
+  WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+    AND action LIKE 'merchant.identity.%';
   SELECT * INTO v_event FROM public.audit_events
   WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+    AND action LIKE 'merchant.identity.%'
   ORDER BY occurred_at DESC, id DESC LIMIT 1;
   IF v_after_count <> v_before_count + 1
      OR NOT (v_event.changed_fields @> ARRAY['support_email', 'support_phone', 'state_code', 'lga_code']::text[])
@@ -272,7 +284,8 @@ $test$;
 -- Generic web writes cover public storefront/SEO identity fields exactly.
 INSERT INTO audit_identity_event_counts
 SELECT 'web-before', count(*) FROM public.audit_events
-WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002';
+WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+  AND action LIKE 'merchant.identity.%';
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.role', 'authenticated', true);
 SELECT set_config('request.jwt.claim.sub', '7e3f2e10-0000-4000-8000-000000000001', true);
@@ -293,9 +306,12 @@ DO $test$
 DECLARE v_event record; v_before_count integer; v_after_count integer;
 BEGIN
   SELECT event_count INTO v_before_count FROM audit_identity_event_counts WHERE label = 'web-before';
-  SELECT count(*) INTO v_after_count FROM public.audit_events WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002';
+  SELECT count(*) INTO v_after_count FROM public.audit_events
+  WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+    AND action LIKE 'merchant.identity.%';
   SELECT * INTO v_event FROM public.audit_events
   WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+    AND action LIKE 'merchant.identity.%'
   ORDER BY occurred_at DESC, id DESC LIMIT 1;
   IF v_after_count <> v_before_count + 1
      OR NOT (v_event.after_values @> '{"logo_url":"https://cdn.example/logo.svg","email_logo_url":"https://cdn.example/email-logo.svg","site_title":"Ogabassey Store","site_tagline":"Trusted goods","site_description":"Public storefront description"}'::jsonb)
@@ -309,7 +325,8 @@ $test$;
 -- including only allowlisted social handles and safe settings projections.
 INSERT INTO audit_identity_event_counts
 SELECT 'social-rpc-before', count(*) FROM public.audit_events
-WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002';
+WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+  AND action LIKE 'merchant.identity.%';
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.role', 'authenticated', true);
 SELECT set_config('request.jwt.claim.sub', '7e3f2e10-0000-4000-8000-000000000001', true);
@@ -325,9 +342,12 @@ DO $test$
 DECLARE v_event record; v_before_count integer; v_after_count integer;
 BEGIN
   SELECT event_count INTO v_before_count FROM audit_identity_event_counts WHERE label = 'social-rpc-before';
-  SELECT count(*) INTO v_after_count FROM public.audit_events WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002';
+  SELECT count(*) INTO v_after_count FROM public.audit_events
+  WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+    AND action LIKE 'merchant.identity.%';
   SELECT * INTO v_event FROM public.audit_events
   WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+    AND action LIKE 'merchant.identity.%'
   ORDER BY occurred_at DESC, id DESC LIMIT 1;
   IF v_after_count <> v_before_count + 1
      OR NOT (v_event.changed_fields @> ARRAY['social_media', 'legal_entity_name', 'registered_address', 'business_address']::text[])
@@ -344,7 +364,8 @@ $test$;
 -- and secret-bearing columns are excluded even when they share the UPDATE.
 INSERT INTO audit_identity_event_counts
 SELECT 'redaction-before', count(*) FROM public.audit_events
-WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002';
+WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+  AND action LIKE 'merchant.identity.%';
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.role', 'authenticated', true);
 SELECT set_config('request.jwt.claim.sub', '7e3f2e10-0000-4000-8000-000000000001', true);
@@ -364,9 +385,12 @@ DO $test$
 DECLARE v_event record; v_before_count integer; v_after_count integer; v_payload text;
 BEGIN
   SELECT event_count INTO v_before_count FROM audit_identity_event_counts WHERE label = 'redaction-before';
-  SELECT count(*) INTO v_after_count FROM public.audit_events WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002';
+  SELECT count(*) INTO v_after_count FROM public.audit_events
+  WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+    AND action LIKE 'merchant.identity.%';
   SELECT * INTO v_event FROM public.audit_events
   WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+    AND action LIKE 'merchant.identity.%'
   ORDER BY occurred_at DESC, id DESC LIMIT 1;
   v_payload := COALESCE(v_event.before_values::text, '') || COALESCE(v_event.after_values::text, '');
   IF v_after_count <> v_before_count + 1
@@ -395,7 +419,8 @@ $test$;
 -- lookalike domain, URL credentials, a query, a fragment, or a port.
 INSERT INTO audit_identity_event_counts
 SELECT 'unsafe-social-before', count(*) FROM public.audit_events
-WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002';
+WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+  AND action LIKE 'merchant.identity.%';
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.role', 'authenticated', true);
 SELECT set_config('request.jwt.claim.sub', '7e3f2e10-0000-4000-8000-000000000001', true);
@@ -418,9 +443,12 @@ DECLARE v_event record; v_before_count integer; v_after_count integer;
   v_payload text; v_social_media jsonb;
 BEGIN
   SELECT event_count INTO v_before_count FROM audit_identity_event_counts WHERE label = 'unsafe-social-before';
-  SELECT count(*) INTO v_after_count FROM public.audit_events WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002';
+  SELECT count(*) INTO v_after_count FROM public.audit_events
+  WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+    AND action LIKE 'merchant.identity.%';
   SELECT * INTO v_event FROM public.audit_events
   WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+    AND action LIKE 'merchant.identity.%'
   ORDER BY occurred_at DESC, id DESC LIMIT 1;
   SELECT social_media INTO v_social_media FROM public.merchants
   WHERE id = '7e3f2e10-0000-4000-8000-000000000002';
@@ -453,7 +481,8 @@ $test$;
 -- handle, so this is intentionally not an identity-domain event.
 INSERT INTO audit_identity_event_counts
 SELECT 'silent-before', count(*) FROM public.audit_events
-WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002';
+WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+  AND action LIKE 'merchant.identity.%';
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.role', 'authenticated', true);
 SELECT set_config('request.jwt.claim.sub', '7e3f2e10-0000-4000-8000-000000000001', true);
@@ -479,7 +508,9 @@ DO $test$
 DECLARE v_before_count integer; v_after_count integer; v_social_media jsonb;
 BEGIN
   SELECT event_count INTO v_before_count FROM audit_identity_event_counts WHERE label = 'silent-before';
-  SELECT count(*) INTO v_after_count FROM public.audit_events WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002';
+  SELECT count(*) INTO v_after_count FROM public.audit_events
+  WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+    AND action LIKE 'merchant.identity.%';
   SELECT social_media INTO v_social_media FROM public.merchants
   WHERE id = '7e3f2e10-0000-4000-8000-000000000002';
   IF v_after_count <> v_before_count
@@ -494,7 +525,8 @@ $test$;
 -- following array has the same empty projection and is silent.
 INSERT INTO audit_identity_event_counts
 SELECT 'non-object-social-before', count(*) FROM public.audit_events
-WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002';
+WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+  AND action LIKE 'merchant.identity.%';
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.role', 'authenticated', true);
 SELECT set_config('request.jwt.claim.sub', '7e3f2e10-0000-4000-8000-000000000001', true);
@@ -511,9 +543,12 @@ DECLARE v_event record; v_before_count integer; v_after_count integer;
   v_payload text; v_social_media jsonb;
 BEGIN
   SELECT event_count INTO v_before_count FROM audit_identity_event_counts WHERE label = 'non-object-social-before';
-  SELECT count(*) INTO v_after_count FROM public.audit_events WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002';
+  SELECT count(*) INTO v_after_count FROM public.audit_events
+  WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+    AND action LIKE 'merchant.identity.%';
   SELECT * INTO v_event FROM public.audit_events
   WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+    AND action LIKE 'merchant.identity.%'
   ORDER BY occurred_at DESC, id DESC LIMIT 1;
   SELECT social_media INTO v_social_media FROM public.merchants
   WHERE id = '7e3f2e10-0000-4000-8000-000000000002';
@@ -532,7 +567,8 @@ $test$;
 -- Service-role onboarding/repair writes receive the generic service principal.
 INSERT INTO audit_identity_event_counts
 SELECT 'service-before', count(*) FROM public.audit_events
-WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002';
+WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+  AND action LIKE 'merchant.identity.%';
 SET LOCAL ROLE service_role;
 SELECT set_config('request.jwt.claim.role', 'service_role', true);
 SELECT set_config('request.jwt.claim.sub', '7e3f2e10-0000-4000-8000-000000000001', true);
@@ -545,9 +581,12 @@ DO $test$
 DECLARE v_event record; v_before_count integer; v_after_count integer;
 BEGIN
   SELECT event_count INTO v_before_count FROM audit_identity_event_counts WHERE label = 'service-before';
-  SELECT count(*) INTO v_after_count FROM public.audit_events WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002';
+  SELECT count(*) INTO v_after_count FROM public.audit_events
+  WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+    AND action LIKE 'merchant.identity.%';
   SELECT * INTO v_event FROM public.audit_events
   WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+    AND action LIKE 'merchant.identity.%'
   ORDER BY occurred_at DESC, id DESC LIMIT 1;
   IF v_after_count <> v_before_count + 1
      OR v_event.actor_user_id IS NOT NULL
@@ -564,7 +603,8 @@ $test$;
 -- change; page-config propagation must not duplicate identity events.
 INSERT INTO audit_identity_event_counts
 SELECT 'publish-before', count(*) FROM public.audit_events
-WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002';
+WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+  AND action LIKE 'merchant.identity.%';
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.role', 'authenticated', true);
 SELECT set_config('request.jwt.claim.sub', '7e3f2e10-0000-4000-8000-000000000001', true);
@@ -576,8 +616,12 @@ DO $test$
 DECLARE v_event record; v_before_count integer; v_after_count integer;
 BEGIN
   SELECT event_count INTO v_before_count FROM audit_identity_event_counts WHERE label = 'publish-before';
-  SELECT count(*) INTO v_after_count FROM public.audit_events WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002';
-  SELECT * INTO v_event FROM public.audit_events WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+  SELECT count(*) INTO v_after_count FROM public.audit_events
+  WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+    AND action LIKE 'merchant.identity.%';
+  SELECT * INTO v_event FROM public.audit_events
+  WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+    AND action LIKE 'merchant.identity.%'
   ORDER BY occurred_at DESC, id DESC LIMIT 1;
   IF v_after_count <> v_before_count + 1
      OR v_event.changed_fields <> ARRAY['is_published']::text[]
@@ -589,7 +633,8 @@ $test$;
 
 INSERT INTO audit_identity_event_counts
 SELECT 'rename-before', count(*) FROM public.audit_events
-WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002';
+WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+  AND action LIKE 'merchant.identity.%';
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.role', 'authenticated', true);
 SELECT set_config('request.jwt.claim.sub', '7e3f2e10-0000-4000-8000-000000000001', true);
@@ -603,8 +648,12 @@ DO $test$
 DECLARE v_event record; v_before_count integer; v_after_count integer;
 BEGIN
   SELECT event_count INTO v_before_count FROM audit_identity_event_counts WHERE label = 'rename-before';
-  SELECT count(*) INTO v_after_count FROM public.audit_events WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002';
-  SELECT * INTO v_event FROM public.audit_events WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+  SELECT count(*) INTO v_after_count FROM public.audit_events
+  WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+    AND action LIKE 'merchant.identity.%';
+  SELECT * INTO v_event FROM public.audit_events
+  WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+    AND action LIKE 'merchant.identity.%'
   ORDER BY occurred_at DESC, id DESC LIMIT 1;
   IF v_after_count <> v_before_count + 1
      OR v_event.changed_fields <> ARRAY['slug']::text[]
@@ -616,7 +665,8 @@ $test$;
 
 INSERT INTO audit_identity_event_counts
 SELECT 'delete-before', count(*) FROM public.audit_events
-WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002';
+WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+  AND action LIKE 'merchant.identity.%';
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.role', 'authenticated', true);
 SELECT set_config('request.jwt.claim.sub', '7e3f2e10-0000-4000-8000-000000000001', true);
@@ -628,9 +678,12 @@ DO $test$
 DECLARE v_event record; v_before_count integer; v_after_count integer;
 BEGIN
   SELECT event_count INTO v_before_count FROM audit_identity_event_counts WHERE label = 'delete-before';
-  SELECT count(*) INTO v_after_count FROM public.audit_events WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002';
+  SELECT count(*) INTO v_after_count FROM public.audit_events
+  WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+    AND action LIKE 'merchant.identity.%';
   SELECT * INTO v_event FROM public.audit_events
   WHERE merchant_id = '7e3f2e10-0000-4000-8000-000000000002'
+    AND action LIKE 'merchant.identity.%'
   ORDER BY occurred_at DESC, id DESC LIMIT 1;
   IF v_after_count <> v_before_count + 1
      OR v_event.action <> 'merchant.identity.delete'

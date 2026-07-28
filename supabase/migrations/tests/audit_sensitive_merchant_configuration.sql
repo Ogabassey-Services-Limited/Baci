@@ -76,7 +76,8 @@ INSERT INTO audit_sensitive_redaction_sentinels (lifecycle, value) VALUES
   ('create_delete', 'https://task4-delete-certificate-sentinel.example/certificate-WXYZ'),
   ('create_delete', 'task4-delete-firs-password-sentinel-QRTV'),
   ('create_delete', 'task4-delete-firs-public-key-sentinel-WXZY'),
-  ('create_delete', 'task4-delete-firs-service-sentinel-ZVTR'),
+  -- firs_service_id is varchar(8) in the live schema.
+  ('create_delete', 'FIRSQWZX'),
   ('create_delete', 'task4-delete-analytics-secret-sentinel-QXTV'),
   ('create_delete', 'task4-delete-facebook-token-sentinel-WZQR'),
   ('create_delete', 'task4-delete-facebook-capi-token-sentinel-XWZR'),
@@ -336,6 +337,10 @@ BEGIN
        '{"present":true,"state":"configured"}'::jsonb
      OR v_event.after_values -> 'cac_rc_number' IS DISTINCT FROM
        '{"present":true,"state":"configured"}'::jsonb
+     -- The current merchant schema assigns an endpoint scheme during creation,
+     -- so replacing it in this update must retain a rotated lifecycle state.
+     OR v_event.after_values -> 'endpoint_scheme_id' IS DISTINCT FROM
+       '{"present":true,"state":"rotated"}'::jsonb
      OR v_event.after_values -> 'paystack_subaccount_code' IS DISTINCT FROM
        '{"present":true,"state":"configured"}'::jsonb
      OR v_event.after_values -> 'ga4_api_secret' IS DISTINCT FROM
@@ -369,6 +374,7 @@ BEGIN
          'tiktok_access_token', 'tiktok_pixel_id', 'twitter_pixel_id', 'user_id',
          'virtual_terminal_code'
        ]::text[])
+         AND field_name <> 'endpoint_scheme_id'
          AND field_value IS DISTINCT FROM
            '{"present":true,"state":"configured"}'::jsonb
      ) THEN
@@ -623,6 +629,16 @@ $test$;
 
 -- Sensitive merchant creation and deletion retain only usable state across
 -- bank, tax/KYC, FIRS, certificate, and analytics lifecycle data.
+INSERT INTO auth.users (
+  id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
+  created_at, updated_at, raw_app_meta_data, raw_user_meta_data
+) VALUES (
+  '7e3f2e40-0000-4000-8000-000000000005',
+  '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+  'sensitive-merchant-delete-owner@example.com', 'test', now(), now(), now(),
+  '{}'::jsonb, '{}'::jsonb
+);
+
 INSERT INTO public.merchants (
   id, user_id, email, phone, business_name, slug, country, support_email,
   support_phone, bank_account_name, bank_account_number, bank_code, bank_name,
@@ -636,7 +652,7 @@ INSERT INTO public.merchants (
   vat_registration_status
 ) VALUES (
   '7e3f2e40-0000-4000-8000-000000000004',
-  '7e3f2e40-0000-4000-8000-000000000001',
+  '7e3f2e40-0000-4000-8000-000000000005',
   'sensitive-merchant-delete@example.com', '+2348012345679',
   'Sensitive Merchant Delete Audit', 'sensitive-merchant-delete-audit',
   'Nigeria', 'support-delete@sensitive-merchant.example', '+2348007654322',
@@ -654,7 +670,7 @@ INSERT INTO public.merchants (
   'https://task4-delete-certificate-sentinel.example/certificate-WXYZ',
   'task4-delete-firs-password-sentinel-QRTV',
   'task4-delete-firs-public-key-sentinel-WXZY',
-  'task4-delete-firs-service-sentinel-ZVTR',
+  'FIRSQWZX',
   'task4-delete-analytics-secret-sentinel-QXTV',
   'task4-delete-google-analytics-sentinel-XQTR',
   'https://task4-delete-product-sheet-sentinel.example/feed-WXQZ',
@@ -715,12 +731,16 @@ BEGIN
 END;
 $test$;
 
+-- The deletion must execute as this merchant's distinct owner so final RLS
+-- policy and audit attribution agree.
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.role', 'authenticated', true);
-SELECT set_config('request.jwt.claim.sub', '7e3f2e40-0000-4000-8000-000000000001', true);
+SELECT set_config('request.jwt.claim.sub', '7e3f2e40-0000-4000-8000-000000000005', true);
+SELECT set_config('app.audit_actor_user_id', '7e3f2e40-0000-4000-8000-000000000005', true);
 DELETE FROM public.merchants
 WHERE id = '7e3f2e40-0000-4000-8000-000000000004';
 RESET ROLE;
+SELECT set_config('app.audit_actor_user_id', '7e3f2e40-0000-4000-8000-000000000001', true);
 
 DO $test$
 DECLARE v_event record; v_audit_text text;
@@ -735,7 +755,7 @@ BEGIN
   WHERE merchant_id = '7e3f2e40-0000-4000-8000-000000000004';
 
   IF v_event.action IS DISTINCT FROM 'merchant.configuration.delete'
-     OR v_event.actor_user_id IS DISTINCT FROM '7e3f2e40-0000-4000-8000-000000000001'
+     OR v_event.actor_user_id IS DISTINCT FROM '7e3f2e40-0000-4000-8000-000000000005'
      OR v_event.before_values -> 'bank_account_number' IS DISTINCT FROM
        '{"present":true}'::jsonb
      OR v_event.before_values -> 'firs_certificate' IS DISTINCT FROM
