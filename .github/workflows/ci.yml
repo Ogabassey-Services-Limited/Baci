@@ -164,6 +164,7 @@ jobs:
               - '.github/scripts/resolve-ci-test-plan-config.mjs'
               - '.github/scripts/resolve-ci-test-plan-config.test.mjs'
               - '.github/scripts/tools-worker-typecheck-contract.test.mjs'
+              - '.github/scripts/web-build-timeout-contract.test.mjs'
               - '.github/scripts/resolve-ci-test-plan.test.mjs'
               - '.github/workflows/ci.yml'
               - 'package.json'
@@ -560,9 +561,10 @@ jobs:
     # PR head: max(test, build) instead of test-then-build.
     needs: [changes]
     runs-on: ubuntu-24.04
-    # Cold Next.js builds currently take ~19 minutes before Actions cleanup.
-    # Keep enough headroom for setup and post-job cache/checkout cleanup.
-    timeout-minutes: 30
+    # Bounded build-time storefront reads can extend page-data collection past
+    # 30 minutes on a cold runner. Keep enough headroom for that safe pressure
+    # control plus setup and post-job cache/checkout cleanup.
+    timeout-minutes: 45
     steps:
       - if: needs.changes.outputs.web == 'true' && needs.changes.outputs.test_plan_mode != 'config-smoke'
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0

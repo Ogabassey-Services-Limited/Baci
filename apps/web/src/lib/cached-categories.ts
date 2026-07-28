@@ -2,6 +2,7 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { cacheLife, cacheTag } from 'next/cache';
 import { cache } from 'react';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
+import { createStorefrontPublicReadFetch } from './storefront-public-read-fetch';
 
 export interface CategoryNavItem {
   name: string;
@@ -24,6 +25,9 @@ function getPublicSupabaseClient() {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
+    },
+    global: {
+      fetch: createStorefrontPublicReadFetch(),
     },
   });
 }

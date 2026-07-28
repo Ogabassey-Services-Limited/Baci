@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { StorefrontDatabase } from '@/types/storefront-database';
 import { readStorefrontMerchantSnapshot } from './storefront-merchant-snapshot';
 
@@ -8,7 +8,7 @@ function createClient(response: unknown) {
   // rpc(...).abortSignal(signal).retry(false) → awaitable response.
   const retry = vi.fn().mockResolvedValue(response);
   const abortSignal = vi.fn(() => ({ retry }));
-  const rpc = vi.fn(() => ({ abortSignal }));
+  const rpc = vi.fn(() => ({ abortSignal, retry }));
   return {
     abortSignal,
     retry,
@@ -18,6 +18,11 @@ function createClient(response: unknown) {
 }
 
 describe('readStorefrontMerchantSnapshot', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
   it('uses the public GET RPC under one total deadline and returns found data', async () => {
     const row = {
       resolution_status: 'found',
@@ -65,6 +70,50 @@ describe('readStorefrontMerchantSnapshot', () => {
     await expect(
       readStorefrontMerchantSnapshot(client, 'missing-store')
     ).resolves.toEqual({ status: 'not_found' });
+  });
+
+  it('leaves the build transport deadline to the admitted public client', async () => {
+    const timeout = vi.spyOn(AbortSignal, 'timeout');
+    const { client } = createClient({
+      data: [
+        {
+          resolution_status: 'not_found',
+          merchant_data: null,
+          custom_domain: null,
+          feature_settings: null,
+        },
+      ],
+      error: null,
+      status: 200,
+    });
+
+    await readStorefrontMerchantSnapshot(client, 'runtime-store');
+    expect(timeout).toHaveBeenLastCalledWith(5_000);
+
+    vi.stubEnv('BACI_STOREFRONT_BUILD_READS', 'bounded');
+    await readStorefrontMerchantSnapshot(client, 'build-store');
+    expect(timeout).toHaveBeenCalledTimes(1);
+  });
+
+  it('defers the build deadline to the admitted public-client transport', async () => {
+    vi.stubEnv('BACI_STOREFRONT_BUILD_READS', 'bounded');
+    const { abortSignal, client, retry } = createClient({
+      data: [
+        {
+          resolution_status: 'not_found',
+          merchant_data: null,
+          custom_domain: null,
+          feature_settings: null,
+        },
+      ],
+      error: null,
+      status: 200,
+    });
+
+    await readStorefrontMerchantSnapshot(client, 'queued-build-store');
+
+    expect(abortSignal).not.toHaveBeenCalled();
+    expect(retry).toHaveBeenCalledWith(false);
   });
 
   it('treats a successful empty RPC response as contract unavailability', async () => {
