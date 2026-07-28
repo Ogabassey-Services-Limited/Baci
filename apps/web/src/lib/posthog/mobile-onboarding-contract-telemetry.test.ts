@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   captureServerEvent: vi.fn(),
@@ -15,7 +15,12 @@ describe('recordMobileOnboardingContractInvocation', () => {
     vi.clearAllMocks();
     vi.stubEnv('POSTHOG_RELEASE_VERSION', 'release-1');
     vi.stubEnv('VERCEL_ENV', 'production');
+    vi.stubEnv('VERCEL_GIT_COMMIT_REF', 'main');
     vi.stubEnv('VERCEL_GIT_COMMIT_SHA', 'sha-1');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it.each([
@@ -33,6 +38,7 @@ describe('recordMobileOnboardingContractInvocation', () => {
         contract,
         release_version: 'release-1',
         git_commit_sha: 'sha-1',
+        git_commit_ref: 'main',
         vercel_environment: 'production',
       }
     );
@@ -68,6 +74,7 @@ describe('recordMobileOnboardingContractInvocation', () => {
         contract: 'v2_authenticated',
         release_version: 'release-1',
         git_commit_sha: 'sha-1',
+        git_commit_ref: 'main',
         vercel_environment: 'production',
       })
     );
