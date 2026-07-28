@@ -2,62 +2,98 @@
 // Ensure a single key is present in a Vercel-pulled dotenv file so the local
 // prebuilt `vercel build` passes env.ts's build-time presence validation for a
 // *sensitive* (write-only) Vercel env var — which `vercel pull` returns EMPTY
-// (`KEY=""`). The value is consumed only at RUNTIME (e.g. quiz-proof HMAC
-// signing), where Vercel injects the real sensitive value and env.ts re-validates
-// against it (getRuntimeEnvValue prefers live process.env). The injected key is
-// server-only (env.ts throws if read on the client, not NEXT_PUBLIC_), so it is
-// never bundled client-side.
+// (`KEY=""`). The value is consumed only at RUNTIME, where Vercel injects the
+// real sensitive value and env.ts re-validates against it. The injected key is
+// server-only (not `NEXT_PUBLIC_`), so it is never bundled client-side.
 //
 // Usage: node inject-prebuilt-env-secret.mjs <KEY> <ENV_FILE> [STANDIN]
-//   process.env[<KEY>]  real value (e.g. a GitHub Actions secret). If non-empty,
-//                       it is injected unconditionally.
-//   [STANDIN]           optional non-secret build-time stand-in (a CLI arg). Used
-//                       only when process.env[<KEY>] is empty AND the pulled file
-//                       already contains a `<KEY>=` entry — i.e. the sensitive var
-//                       EXISTS in Vercel (pulled empty) and will be injected at
-//                       runtime. If the key is absent, the var is genuinely missing
-//                       from Vercel, so a stand-in would let the build pass while
-//                       runtime has no secret matching the database; the script
-//                       fails loudly instead of masking that.
-// No-op (exit 0) when neither is set, so deploys with nothing configured (e.g.
-// quiz phase "1a") are unaffected.
+//   process.env[<KEY>]  real value (for example, a GitHub Actions secret). If
+//                       non-empty, it is injected unconditionally.
+//   [STANDIN]           optional build-time stand-in. Used only when the real
+//                       value is empty and Vercel pulled exactly one explicitly
+//                       blank `<KEY>=`, `<KEY>=''`, or `<KEY>=""` entry.
+//   --generate-es256-jwk-standin
+//                       generate an ephemeral ES256 private JWK only after the
+//                       same explicit-blank check. When the optional key is
+//                       absent, leave the file unchanged so production can use
+//                       the configured legacy signing-secret fallback. The JWK
+//                       is written directly to the pulled file and is never
+//                       logged or passed as an arg.
+// No-op (exit 0) when neither a real value nor stand-in mode is provided, so
+// deploys with nothing configured (for example quiz phase "1a") are unaffected.
 
+import { generateKeyPairSync } from 'node:crypto';
 import fs from 'node:fs';
+import path from 'node:path';
+import nextEnv from '@next/env';
 
-const [key, file, standinArg] = process.argv.slice(2);
+const { processEnv, resetEnv } = nextEnv;
 
-if (!key || !file) {
+const GENERATED_ES256_JWK_STANDIN = '--generate-es256-jwk-standin';
+const GENERATED_ES256_JWK_STANDIN_KID = 'baci-build-only-es256-jwk-standin';
+const LEGACY_SUPABASE_JWT_SECRET = 'SUPABASE_JWT_SECRET';
+const dotenvAssignmentPattern = /^(?:export[ \t]+)?([A-Za-z_][A-Za-z0-9_]*)[ \t]*=(.*)$/;
+
+const [key, file, standinArg, ...extraArgs] = process.argv.slice(2);
+
+if (!key || !file || extraArgs.length > 0) {
   console.error('Usage: inject-prebuilt-env-secret.mjs <KEY> <ENV_FILE> [STANDIN]');
   process.exit(2);
 }
 
-const realValue = process.env[key];
-const standinValue = standinArg;
-
-let value;
-let usingStandin = false;
-if (realValue !== undefined && realValue !== '') {
-  value = realValue;
-} else if (standinValue !== undefined && standinValue !== '') {
-  value = standinValue;
-  usingStandin = true;
-} else {
-  console.log(`${key} not present in environment; leaving ${file} unchanged.`);
-  process.exit(0);
+function findDotenvAssignments(lines, targetKey) {
+  return lines.flatMap((line, index) => {
+    const parsedLine = line.endsWith('\r') ? line.slice(0, -1) : line;
+    const match = parsedLine.match(dotenvAssignmentPattern);
+    if (!match || match[1] !== targetKey) return [];
+    return [{ index, value: match[2] }];
+  });
 }
 
-// dotenv values are written as KEY="value" and then parsed by @next/env, which
-// runs dotenv-expand: a `$` (even inside double quotes) triggers variable
-// expansion, and a double quote / backslash / newline needs escaping the parser
-// may not honour identically. Any of these could silently corrupt the value in
-// the build. Refuse instead — hex/base64 secrets and the stand-in contain none.
-if (/["\\$\r\n]/.test(value)) {
-  console.error(
-    `${key} contains a double-quote, backslash, dollar sign, CR, or LF that cannot ` +
-      `be safely written to ${file} (dotenv-expand would mangle "$"). Use a value ` +
-      `without those characters (hex/base64 is safe).`,
-  );
-  process.exit(1);
+function isExplicitlyBlankDotenvValue(value) {
+  return value === '' || value === "''" || value === '""';
+}
+
+function readExpandedDotenvValue(contents, file, targetKey) {
+  const originalValue = process.env[targetKey];
+  delete process.env[targetKey];
+
+  try {
+    const [, parsed] = processEnv(
+      [{ path: file, contents, env: {} }],
+      path.dirname(file),
+      { error() {} },
+      true,
+    );
+    return parsed[targetKey];
+  } finally {
+    resetEnv();
+    if (originalValue === undefined) delete process.env[targetKey];
+    else process.env[targetKey] = originalValue;
+  }
+}
+
+function hasUnresolvedDotenvReference(rawValue, lines) {
+  const referencePattern = /(?<!\\)\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))/g;
+  return [...rawValue.matchAll(referencePattern)].some((match) => {
+    const referencedKey = match[1] ?? match[2];
+    return (
+      process.env[referencedKey] === undefined &&
+      findDotenvAssignments(lines, referencedKey).length === 0
+    );
+  });
+}
+
+const realValue = process.env[key];
+const hasRealValue = realValue !== undefined && realValue !== '';
+const usingStandin =
+  !hasRealValue && standinArg !== undefined && standinArg !== '';
+const usingGeneratedStandin =
+  usingStandin && standinArg === GENERATED_ES256_JWK_STANDIN;
+
+if (!usingStandin && !hasRealValue) {
+  console.log(`${key} not present in environment; leaving ${file} unchanged.`);
+  process.exit(0);
 }
 
 if (!fs.existsSync(file)) {
@@ -67,30 +103,108 @@ if (!fs.existsSync(file)) {
   process.exit(1);
 }
 
-const lines = fs.readFileSync(file, 'utf8').split('\n');
-const hasKey = lines.some((line) => line.startsWith(`${key}=`));
+const contents = fs.readFileSync(file, 'utf8');
+const lines = contents.split('\n');
+const assignments = findDotenvAssignments(lines, key);
 
-// A stand-in may only substitute for a sensitive var that already EXISTS in
-// Vercel — evidenced by `vercel pull` writing an (empty) `KEY=` entry. If the key
-// is absent, the sensitive var is genuinely missing (not merely write-only), and a
-// stand-in would let the build pass while the runtime has no secret matching the
-// database. Fail loudly rather than mask a missing runtime secret.
-if (usingStandin && !hasKey) {
+if (usingGeneratedStandin && assignments.length === 0) {
+  const legacyAssignments = findDotenvAssignments(lines, LEGACY_SUPABASE_JWT_SECRET);
+  const hasUnresolvedReference =
+    legacyAssignments.length === 1 &&
+    hasUnresolvedDotenvReference(legacyAssignments[0].value, lines);
+  const legacyValue =
+    legacyAssignments.length === 1
+      ? readExpandedDotenvValue(contents, file, LEGACY_SUPABASE_JWT_SECRET)?.trim()
+      : undefined;
+  if (
+    legacyAssignments.length !== 1 ||
+    hasUnresolvedReference ||
+    legacyValue === undefined ||
+    legacyValue === ''
+  ) {
+    const legacyState =
+      legacyAssignments.length === 0
+        ? 'absent'
+        : legacyAssignments.length > 1
+          ? 'ambiguous'
+          : hasUnresolvedReference
+            ? 'an unresolved interpolation'
+          : 'empty';
+    console.error(
+      `${key} and its ${LEGACY_SUPABASE_JWT_SECRET} fallback cannot be verified in ${file}: ` +
+        `the fallback is ${legacyState}. Refusing to continue without signing material.`,
+    );
+    process.exit(1);
+  }
+
+  console.log(
+    `${key} is absent from ${file}; verified the legacy signing-secret fallback assignment.`,
+  );
+  process.exit(0);
+}
+
+// A stand-in may only substitute for Vercel's write-only blank placeholder.
+// Refusing absent, duplicated, nonblank, or malformed-looking entries avoids
+// replacing a value that Vercel pull did expose or an opaque dotenv construct.
+if (
+  usingStandin &&
+  (assignments.length !== 1 || !isExplicitlyBlankDotenvValue(assignments[0].value))
+) {
+  const state =
+    assignments.length === 0
+      ? 'absent'
+      : assignments.length > 1
+        ? 'ambiguous'
+        : 'not explicitly blank';
   console.error(
-    `${key} is absent from ${file}: the sensitive Vercel variable appears to be ` +
-      `missing, not just write-only. Refusing to inject a build-time stand-in, which ` +
-      `would mask a missing runtime secret. Configure ${key} in Vercel, or set the ` +
-      `${key} GitHub Actions secret.`,
+    `${key} is ${state} in ${file}. Refusing to replace it with a build-time ` +
+      'stand-in; configure Vercel with a write-only sensitive value or provide a real value.',
   );
   process.exit(1);
 }
 
-const kept = lines.filter((line) => !line.startsWith(`${key}=`));
+let value;
+let injectionMode;
+if (usingGeneratedStandin) {
+  const { privateKey } = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+  const privateJwk = privateKey.export({ format: 'jwk' });
+  value = JSON.stringify({
+    ...privateJwk,
+    alg: 'ES256',
+    kid: GENERATED_ES256_JWK_STANDIN_KID,
+  });
+  injectionMode = 'generated ES256 build-time stand-in';
+} else if (usingStandin) {
+  value = standinArg;
+  injectionMode = 'build-time stand-in';
+} else {
+  value = realValue;
+  injectionMode = 'configured value';
+}
+
+// dotenv values are normally written as KEY="value" and then parsed by
+// @next/env, which runs dotenv-expand. That format cannot safely carry a JSON
+// JWK: its double quotes would terminate the value. A single-quoted dotenv
+// value preserves JSON's double quotes. We still refuse apostrophes,
+// backslashes, dollar signs, and line breaks because this small injector
+// deliberately supports only simple scalar secrets and compact JWK JSON, not
+// an arbitrary dotenv serializer.
+const requiresSingleQuotes = value.includes('"');
+if (/['\\$\r\n]/.test(value)) {
+  console.error(
+    `${key} contains an apostrophe, backslash, dollar sign, CR, or LF that cannot ` +
+      `be safely written to ${file}. Use compact JSON or a simple scalar value.`,
+  );
+  process.exit(1);
+}
+
+const assignmentIndexes = new Set(assignments.map((assignment) => assignment.index));
+const kept = lines.filter((_, index) => !assignmentIndexes.has(index));
 // Drop trailing blank lines so repeated runs do not accumulate them.
 while (kept.length > 0 && kept[kept.length - 1] === '') kept.pop();
-kept.push(`${key}="${value}"`);
+kept.push(`${key}=${requiresSingleQuotes ? `'${value}'` : `"${value}"`}`);
 
 fs.writeFileSync(file, `${kept.join('\n')}\n`);
 console.log(
-  `Injected ${key} into ${file} (${usingStandin ? 'build-time stand-in' : 'configured value'}, length ${value.length}).`,
+  `Injected ${key} into ${file} (${injectionMode}, length ${value.length}).`,
 );

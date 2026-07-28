@@ -1,5 +1,16 @@
 # Testing & Modularity Enforcement
 
+## Android Emulator QA Contract
+
+Use the repository-owned mobile-admin commands for Android emulator QA:
+
+```bash
+pnpm --filter baci-mobile-admin android:emulator
+pnpm --filter baci-mobile-admin android:install
+pnpm --filter baci-mobile-admin android:metro
+pnpm --filter baci-mobile-admin android:launch
+```
+
 ## Mandatory Test Coverage
 
 Every new or significantly modified file MUST have a colocated test file:
@@ -114,17 +125,3 @@ Before marking any task as complete, verify:
 3. No files exceed 300 lines
 4. No duplicated logic across files (extract to shared)
 5. All exports are typed (no implicit `any`)
-
-## Android Emulator QA
-
-For `apps/mobile-admin`, Android emulator QA must start from:
-
-```bash
-pnpm --filter baci-mobile-admin android:emulator
-```
-
-This is the only supported emulator launch path for agents and automation. Do not launch the emulator directly or with `-gpu swiftshader_indirect`; the repo launcher owns GPU mode, Quick Boot, ADB reset, boot waiting, Android settle checks, the Metro ADB reverse, and ADB shell stability checks.
-The default launcher AVD is `Baci_Pixel_9_Pro_XL_API_36_Google`, an Android 16 API 36 Google APIs Pixel 9 Pro XL profile with `auto` GPU, 2 CPU cores, and 4096 MB RAM. Use `BACI_ANDROID_AVD_NAME` only for explicit emulator-infrastructure fallback triage.
-Build with `cd apps/mobile-admin/android && ./gradlew :app:assembleDebug -PreactNativeArchitectures=arm64-v8a --console=plain`, then install with `pnpm --filter baci-mobile-admin android:install`; do not use Gradle `installDebug` for emulator QA on this host.
-Run Metro for Android with `pnpm --filter baci-mobile-admin android:metro`; do not use a localhost-only Metro host for emulator QA because the dev client connects through `10.0.2.2`.
-Launch the Android dev client with `pnpm --filter baci-mobile-admin android:launch`; do not use raw `adb shell am start` commands because the repo launcher owns the Metro reverse, settled-load check, package force-stop, and Expo dev-client URL.

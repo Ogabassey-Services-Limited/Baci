@@ -10,6 +10,8 @@ const {
   mockGetMerchantForApiRequest,
   mockGetPublicUrl,
   mockGetUser,
+  mockRevalidateProductSlugs,
+  mockRevalidateProducts,
   mockStorageFrom,
   mockUpload,
 } = vi.hoisted(() => ({
@@ -21,6 +23,8 @@ const {
   mockGetMerchantForApiRequest: vi.fn(),
   mockGetPublicUrl: vi.fn(),
   mockGetUser: vi.fn(),
+  mockRevalidateProductSlugs: vi.fn(),
+  mockRevalidateProducts: vi.fn(),
   mockStorageFrom: vi.fn(),
   mockUpload: vi.fn(),
 }));
@@ -41,6 +45,13 @@ vi.mock('@/lib/get-merchant-for-api-request', () => ({
 }));
 vi.mock('@/lib/rate-limiter', () => ({
   checkRateLimit: mockCheckRateLimit,
+}));
+vi.mock('@/lib/product-cache-revalidation', () => ({
+  productCacheRevalidation: {
+    revalidateProducts: (...args: unknown[]) => mockRevalidateProducts(...args),
+    revalidateProductSlugs: (...args: unknown[]) =>
+      mockRevalidateProductSlugs(...args),
+  },
 }));
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => ({
@@ -128,6 +139,7 @@ describe('POST /api/admin/generate-product-images', () => {
     });
     mockGetMerchantForApiRequest.mockResolvedValue({
       merchantId: MERCHANT_ID,
+      merchantSlug: 'test-store',
       staffAccess: { isStaff: false },
     });
     mockCheckRateLimit.mockResolvedValue(true);
@@ -236,6 +248,8 @@ describe('POST /api/admin/generate-product-images', () => {
           color: 'blue',
           images: [],
           parent_product_id: 'parent-1',
+          slug: 'baci-phone',
+          category: 'Phones',
         },
       ],
     });
@@ -278,6 +292,14 @@ describe('POST /api/admin/generate-product-images', () => {
     expect(productsTable.update).toHaveBeenCalledWith({
       images: ['https://cdn.usebaci.com/product-1/gen.png'],
     });
+    expect(mockRevalidateProducts).toHaveBeenCalledWith(
+      MERCHANT_ID,
+      undefined,
+      { feedScope: 'merchant' }
+    );
+    expect(mockRevalidateProductSlugs).toHaveBeenCalledWith(MERCHANT_ID, [
+      'baci-phone',
+    ]);
   });
 
   it('returns a no-op message when no products are eligible', async () => {

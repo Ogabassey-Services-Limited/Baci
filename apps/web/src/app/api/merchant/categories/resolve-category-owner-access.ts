@@ -1,7 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type CategoryOwnerAccessResult =
-  | { kind: 'owner'; canonicalMerchantSlug: string | null; merchantId: string }
+  | {
+      kind: 'owner';
+      canonicalMerchantSlug: string | null;
+      merchantId: string;
+    }
   | { kind: 'staff' }
   | { kind: 'absent' }
   | { kind: 'lookup-failed' };
@@ -34,12 +38,13 @@ export async function resolveCategoryOwnerAccess(
     slug: string | null;
   }>();
   if (owner.error) return { kind: 'lookup-failed' };
-  if (owner.data)
+  if (owner.data) {
     return {
       kind: 'owner',
-      canonicalMerchantSlug: owner.data.slug,
+      canonicalMerchantSlug: owner.data.slug?.trim() || null,
       merchantId: owner.data.id,
     };
+  }
 
   let staffQuery = supabase
     .from('staff_members')

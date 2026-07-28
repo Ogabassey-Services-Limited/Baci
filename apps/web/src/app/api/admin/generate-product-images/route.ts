@@ -4,6 +4,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { activeImageModel } from '@/ai/provider';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
+import { productCacheRevalidation } from '@/lib/product-cache-revalidation';
 import { checkRateLimit } from '@/lib/rate-limiter';
 
 interface GeminiAIResponse {
@@ -101,7 +102,7 @@ export async function POST(req: NextRequest) {
     // Start building the query
     let query = supabase
       .from('products')
-      .select('id, name, color, images, parent_product_id')
+      .select('id, name, color, images, parent_product_id, slug')
       .eq('merchant_id', merchantId)
       .eq('status', 'active');
 
@@ -121,6 +122,7 @@ export async function POST(req: NextRequest) {
 
     const processed: Record<string, unknown>[] = [];
     const errors: Record<string, unknown>[] = [];
+    const processedSlugs: string[] = [];
 
     // Filter locally
     const candidates = (products || [])
@@ -223,10 +225,34 @@ export async function POST(req: NextRequest) {
             name: product.name,
             new_image: publicUrl,
           });
+          const productSlug = product.slug?.trim() || product.id?.trim();
+          if (productSlug) {
+            processedSlugs.push(productSlug);
+          }
         }
       } catch (err: unknown) {
         console.error(`Failed to process ${product.id}:`, err);
         errors.push({ id: product.id, error: (err as Error).message });
+      }
+    }
+
+    if (processedSlugs.length > 0) {
+      try {
+        productCacheRevalidation.revalidateProducts(merchantId, undefined, {
+          feedScope: 'merchant',
+        });
+        productCacheRevalidation.revalidateProductSlugs(
+          merchantId,
+          processedSlugs
+        );
+        // The products.images write above is covered by the transactional
+        // cache-invalidation outbox trigger. That durable path performs the
+        // ordered Vercel/Cloudflare eviction without importing edge-provider
+        // credentials into this API route's authority graph.
+      } catch (cacheError) {
+        console.warn('Skipped product cache refresh after image generation', {
+          cacheError,
+        });
       }
     }
 

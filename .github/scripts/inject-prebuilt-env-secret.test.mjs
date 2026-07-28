@@ -5,12 +5,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-
 const SCRIPT = fileURLToPath(
   new URL('./inject-prebuilt-env-secret.mjs', import.meta.url),
 );
 const KEY = 'QUIZ_RPC_SERVER_SECRET';
 const STANDIN = 'build-time-presence-stand-in-not-used-at-runtime-000000000000';
+const JWK_KEY = 'SUPABASE_AGENTIC_JWT_PRIVATE_JWK';
 
 // A pulled env file where the sensitive var exists in Vercel (written empty by
 // `vercel pull`) alongside ordinary quoted vars that must survive untouched.
@@ -35,7 +35,7 @@ function makeEnvFile(contents = PULLED_WITH_KEY) {
 
 function run(args, env = {}) {
   return execFileSync('node', [SCRIPT, ...args], {
-    env: { ...process.env, [KEY]: '', ...env },
+    env: { ...process.env, [KEY]: '', [JWK_KEY]: '', ...env },
     encoding: 'utf8',
   });
 }
@@ -48,6 +48,16 @@ function runExpectFailure(args, env = {}) {
     if (err.status === undefined) throw err;
     return { status: err.status, stderr: String(err.stderr ?? '') };
   }
+}
+
+function parseSingleQuotedValue(file, key) {
+  const line = fs
+    .readFileSync(file, 'utf8')
+    .split('\n')
+    .find((entry) => entry.startsWith(`${key}=`));
+  assert.ok(line);
+  assert.match(line, new RegExp(`^${key}='.*'$`));
+  return line.slice(`${key}='`.length, -1);
 }
 
 test('injects the real value, overwriting the empty sensitive line', () => {
@@ -72,7 +82,7 @@ test('real value is injected even when the key is absent from the file', () => {
   assert.match(out, /^QUIZ_RPC_SERVER_SECRET="r{40}"$/m);
 });
 
-test('stand-in (CLI arg) is injected when the empty sensitive entry is present', () => {
+test('stand-in is injected when one explicitly blank sensitive entry is present', () => {
   const file = makeEnvFile(PULLED_WITH_KEY);
   const stdout = run([KEY, file, STANDIN]);
   const out = fs.readFileSync(file, 'utf8');
@@ -80,16 +90,16 @@ test('stand-in (CLI arg) is injected when the empty sensitive entry is present',
   assert.match(stdout, /build-time stand-in/);
 });
 
-test('stand-in is REFUSED (exit 1) when the sensitive var is absent from Vercel', () => {
+test('stand-in is refused when the sensitive var is absent from Vercel', () => {
   const file = makeEnvFile(PULLED_WITHOUT_KEY);
   const before = fs.readFileSync(file, 'utf8');
   const { status, stderr } = runExpectFailure([KEY, file, STANDIN]);
   assert.equal(status, 1);
   assert.match(stderr, /absent|missing/i);
-  assert.equal(fs.readFileSync(file, 'utf8'), before); // untouched
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 
-test('refuses a value containing a dollar sign (dotenv-expand would mangle it)', () => {
+test('refuses a value containing a dollar sign because dotenv-expand can mangle it', () => {
   const file = makeEnvFile();
   const before = fs.readFileSync(file, 'utf8');
   const { status, stderr } = runExpectFailure([KEY, file], {
@@ -125,14 +135,21 @@ test('does not accumulate trailing blank lines across runs', () => {
   assert.equal(out.match(/^QUIZ_RPC_SERVER_SECRET=/gm).length, 1);
 });
 
-test('fails loudly rather than corrupt a value containing a double quote', () => {
+test('single-quotes compact JSON containing double quotes', () => {
+  const jsonValue = '{"safe":"json"}';
+  const file = makeEnvFile();
+  run([KEY, file], { [KEY]: jsonValue });
+  assert.equal(parseSingleQuotedValue(file, KEY), jsonValue);
+});
+
+test('fails when a value contains an apostrophe or backslash', () => {
   const file = makeEnvFile();
   const before = fs.readFileSync(file, 'utf8');
   const { status, stderr } = runExpectFailure([KEY, file], {
-    [KEY]: 'has"quote'.padEnd(40, 'x'),
+    [KEY]: "has'apostrophe",
   });
   assert.equal(status, 1);
-  assert.match(stderr, /double-quote|backslash/);
+  assert.match(stderr, /apostrophe|backslash/);
   assert.equal(fs.readFileSync(file, 'utf8'), before);
 });
 

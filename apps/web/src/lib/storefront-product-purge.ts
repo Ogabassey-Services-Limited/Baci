@@ -1,8 +1,10 @@
 import { after } from 'next/server';
 import { purgeCloudflareUrls } from '@/lib/cloudflare-purge';
+import { scheduleStorefrontHostnamePurge } from '@/lib/storefront-product-purge-hostnames';
 import {
-  type BuildStorefrontProductPurgeUrlsOptions,
   buildStorefrontProductPurgeUrls,
+  countDistinctProductPurgeEntries,
+  PURGE_WHOLE_STOREFRONT_THRESHOLD,
   type StorefrontProductPurgeEntry,
 } from '@/lib/storefront-product-purge-urls';
 
@@ -24,8 +26,7 @@ import {
  */
 export function scheduleStorefrontProductPurge(
   identifier: string | null | undefined,
-  entries: readonly StorefrontProductPurgeEntry[],
-  options: BuildStorefrontProductPurgeUrlsOptions = {}
+  entries: readonly StorefrontProductPurgeEntry[]
 ): void {
   try {
     const normalizedIdentifier = identifier?.trim();
@@ -33,10 +34,17 @@ export function scheduleStorefrontProductPurge(
       return;
     }
 
+    if (
+      countDistinctProductPurgeEntries(entries) >
+      PURGE_WHOLE_STOREFRONT_THRESHOLD
+    ) {
+      scheduleStorefrontHostnamePurge(normalizedIdentifier);
+      return;
+    }
+
     const urls = buildStorefrontProductPurgeUrls(
       [normalizedIdentifier],
-      entries,
-      options
+      entries
     );
     if (urls.length === 0) {
       return;
