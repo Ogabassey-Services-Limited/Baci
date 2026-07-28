@@ -2,6 +2,7 @@ import type { Session, User } from '@supabase/supabase-js';
 import { expect, vi } from 'vitest';
 
 const authStoreMocks = vi.hoisted(() => ({
+  checkPasswordBreach: vi.fn(async () => ({ isBreached: false })),
   clearAdminQueryCache: vi.fn(),
   getClaims: vi.fn(),
   getSession: vi.fn(),
@@ -22,6 +23,10 @@ const authStoreMocks = vi.hoisted(() => ({
 }));
 
 export const mocks = authStoreMocks;
+
+vi.mock('@/lib/auth/check-password-breach', () => ({
+  checkPasswordBreach: authStoreMocks.checkPasswordBreach,
+}));
 
 vi.mock('@/lib/query-client', () => ({
   clearAdminQueryCache: authStoreMocks.clearAdminQueryCache,
