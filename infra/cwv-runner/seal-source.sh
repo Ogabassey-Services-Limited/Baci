@@ -150,16 +150,15 @@ verify_tree() {
   : > "$actual"
   while IFS=$'\t' read -r path mode digest; do
     [[ -n "$path" && "$path" == infra/cwv-runner/* ]] || fail 'invalid projected path'
-    local rel=${path#infra/cwv-runner/} file
-    [[ "$rel" != *'..'* && "$rel" != /* && -n "$rel" ]] || fail 'unsafe projected path'
-    file="$tree/$rel"
+    [[ "$path" != *'..'* && "$path" != /* ]] || fail 'unsafe projected path'
+    local file="$tree/$path"
     [[ -f "$file" && ! -L "$file" && "$(sha "$file")" == "$digest" ]] || fail 'extracted member hash mismatch'
     "$CHMOD" "$([[ "$mode" == 100755 ]] && printf 0755 || printf 0644)" -- "$file"
     printf '%s\t%s\t%s\n' "$path" "$mode" "$digest" >> "$actual"
   done < "$rows"
   "$SORT" -c "$rows" || fail 'manifest archive rows are not sorted'
   local extracted
-  extracted=$("$FIND" "$tree" -type f -print | "$AWK" -v root="$tree/" '{sub(root, "infra/cwv-runner/"); print}' | "$SORT")
+  extracted=$("$FIND" "$tree" -type f -print | "$AWK" -v root="$tree/" '{sub(root, ""); print}' | "$SORT")
   local expected
   # Awk prints the first manifest column.
   # shellcheck disable=SC2016
@@ -225,18 +224,19 @@ root_archive="$tmp/archive"; root_manifest="$tmp/manifest.json"
 regular "$root_archive"; regular "$root_manifest"
 [[ "$(sha "$root_archive")" == "$archive_digest" && "$(sha "$root_manifest")" == "$manifest_digest" ]] || fail 'root-copied input digest mismatch'
 canonical_manifest "$root_manifest" "$source_sha" "$destination"
-rows="$tmp/rows"; actual="$tmp/actual"; tree="$tmp/tree"
+rows="$tmp/rows"; actual="$tmp/actual"; tree="$tmp/tree"; projection="$tree/infra/cwv-runner"
 manifest_rows "$root_manifest" > "$rows"; [[ -s "$rows" ]] || fail 'empty archive projection'
 safe_archive_names "$root_archive"
 "$MKDIR" -m 0700 -- "$tree"
 "$TAR" --extract --file "$root_archive" --directory "$tree" --no-same-owner --no-same-permissions --no-recursion
 verify_tree "$tree" "$rows" "$actual"
+[[ -d "$projection" && ! -L "$projection" ]] || fail 'archive projection root missing'
 "$CHOWN" -R root:root -- "$tree"; secure_tree_directories "$tree"
 tree_digest=$(sha "$actual")
 hex "$tree_digest" || fail 'sealed tree digest mismatch'
 "$SYNC" -f "$root_manifest"; "$SYNC" -f "$root_archive"; "$SYNC" -f "$tree"
 target_owned=true
-"$MV" -T -- "$tree" "$target"
+"$MV" -T -- "$projection" "$target"
 receipt_owned=true; "$MKDIR" -m 0700 -- "$receipt"
 "$CP" --preserve=mode -- "$root_manifest" "$receipt/manifest.json"
 printf '%s\n' "$manifest_digest" > "$receipt/manifest.sha256"

@@ -6,6 +6,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
+import { createSourceArchive } from './source-archive.mjs';
+
 const path = new URL('./seal-source.sh', import.meta.url).pathname;
 const source = readFileSync(path, 'utf8');
 const shell = (...args) => spawnSync('/bin/bash', args, { encoding: 'utf8' });
@@ -88,6 +90,36 @@ test('seals only a complete regular-file archive projection and rejects unsafe m
   assert.match(source, /trap cleanup EXIT/);
 });
 
+test('resolves extracted members at their full manifest paths', () => {
+  const root = mkdtempSync(join(tmpdir(), 'baci-cwv-prefixed-archive-'));
+  const archive = join(root, 'source.tar');
+  const member = 'infra/cwv-runner/example.txt';
+  const bytes = Buffer.from('sealed source\n');
+  writeFileSync(
+    archive,
+    createSourceArchive([{ bytes, mode: '100644', path: member }])
+  );
+  try {
+    const result = spawnSync('/usr/bin/tar', ['-xf', archive, '-C', root], {
+      encoding: 'utf8',
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(readFileSync(join(root, member)), bytes);
+    assert.deepEqual(
+      readFileSync(join(root, 'infra/cwv-runner', 'example.txt')),
+      bytes
+    );
+    assert.match(source, /local file="\$tree\/\$path"/);
+    assert.match(source, /sub\(root, ""\)/);
+    assert.match(source, /projection="\$tree\/infra\/cwv-runner"/);
+    assert.match(source, /"\$MV" -T -- "\$projection" "\$target"/);
+    assert.doesNotMatch(source, /"\$MV" -T -- "\$tree" "\$target"/);
+    assert.doesNotMatch(source, /\$\{path#infra\/cwv-runner\/\}/);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
 test('self-copies and raw-hash-verifies the first root helper before inner execution', () => {
   for (const token of [
     'BACI_CWV_SEAL_SOURCE_RAW_SHA',
@@ -161,7 +193,7 @@ test('uses a new unique copy and serializes publication under the sealed root lo
   assert.match(source, /readonly FLOCK=\/usr\/bin\/flock/);
   assert.match(source, /exec 9<"\$SELF_ROOT"/);
   assert.match(source, /"\$FLOCK" -n 9 \|\| fail 'source seal already running'/);
-  assert.match(source, /"\$MV" -T -- "\$tree" "\$target"/);
+  assert.match(source, /"\$MV" -T -- "\$projection" "\$target"/);
   assert.match(source, /unsafe self-copy parent/);
 });
 
@@ -220,7 +252,7 @@ test('rolls back owned publication before commit and preserves it after final fs
   assert.match(source, /if \[\[ "\$committed" != true \]\]; then/);
   assert.match(source, /"\$RM" -rf -- "\$receipt"/);
   assert.match(source, /"\$RM" -rf -- "\$target"/);
-  assert.match(source, /target_owned=true\n"\$MV" -T -- "\$tree" "\$target"/);
+  assert.match(source, /target_owned=true\n"\$MV" -T -- "\$projection" "\$target"/);
   assert.match(source, /receipt_owned=true; "\$MKDIR" -m 0700 -- "\$receipt"/);
   assert.match(source, /"\$SYNC" -f "\$receipt"; "\$SYNC" -f "\$final_root"\ncommitted=true/);
 });
