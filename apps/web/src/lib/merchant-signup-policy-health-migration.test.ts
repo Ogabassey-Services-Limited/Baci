@@ -9,6 +9,13 @@ const migrationSql = readFileSync(
   ),
   'utf8'
 );
+const provisioningMigrationSql = readFileSync(
+  join(
+    process.cwd(),
+    '../../supabase/migrations/20260728091958_provision_mobile_merchant_v2.sql'
+  ),
+  'utf8'
+);
 
 function policyOwnershipRegex(invariant: string): RegExp {
   const section = migrationSql.split(`'${invariant}'`)[1];
@@ -223,6 +230,34 @@ describe('merchant signup policy health migration', () => {
     expect(migrationSql).toContain('FROM authenticated, service_role');
     expect(migrationSql).toContain(
       'GRANT EXECUTE ON FUNCTION public.get_merchant_signup_policy_health() TO anon'
+    );
+  });
+
+  it('extends health with the exact mobile provisioning function grants', () => {
+    expect(provisioningMigrationSql).toContain(
+      'CREATE OR REPLACE FUNCTION public.get_merchant_signup_policy_health()'
+    );
+    expect(provisioningMigrationSql).toContain(
+      "'mobile_provisioning_rpc_is_invoker'"
+    );
+    expect(provisioningMigrationSql).toContain(
+      "'auth_can_execute_mobile_provisioning_rpc'"
+    );
+    expect(provisioningMigrationSql).toContain(
+      "'anon_cannot_execute_mobile_provisioning_rpc'"
+    );
+    expect(provisioningMigrationSql).toContain(
+      "'public_cannot_execute_mobile_provisioning_rpc'"
+    );
+    expect(provisioningMigrationSql).toContain('prosecdef IS FALSE');
+    expect(provisioningMigrationSql).toContain(
+      "'public.provision_mobile_merchant_v2(text,text,text,text,text,text,text,text,boolean,text,jsonb,text)'"
+    );
+    expect(provisioningMigrationSql).toContain(
+      'REVOKE ALL ON FUNCTION public.provision_mobile_merchant_v2'
+    );
+    expect(provisioningMigrationSql).toContain(
+      'GRANT EXECUTE ON FUNCTION public.provision_mobile_merchant_v2'
     );
   });
 });

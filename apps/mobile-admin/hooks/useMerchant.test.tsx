@@ -90,6 +90,7 @@ describe('fetchMerchantData', () => {
     expect(result.merchant?.plan_tier).toBe('pro');
     expect(result.merchant?.premium_features).toEqual(['custom_domain']);
     expect(result.primaryDomain?.domain).toBe('baci.usebaci.com');
+    expect(result.resolvedForUserId).toBe('user-1');
     expect(mockFrom).not.toHaveBeenCalled();
   });
 

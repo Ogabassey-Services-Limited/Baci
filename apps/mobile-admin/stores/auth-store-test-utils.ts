@@ -18,6 +18,7 @@ const authStoreMocks = vi.hoisted(() => ({
   signUp: vi.fn(),
   trackAuthTelemetry: vi.fn(),
   removeAuthStorageKeys: vi.fn(),
+  verifyOtp: vi.fn(),
 }));
 
 export const mocks = authStoreMocks;
@@ -36,6 +37,7 @@ vi.mock('@/lib/supabase', () => ({
       signInWithPassword: authStoreMocks.signInWithPassword,
       signOut: authStoreMocks.signOut,
       signUp: authStoreMocks.signUp,
+      verifyOtp: authStoreMocks.verifyOtp,
     },
   },
   supabaseAuthStorageKey: 'sb-test-auth-token',

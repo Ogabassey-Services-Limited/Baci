@@ -3,6 +3,8 @@ import {
   fillFormAndSubmit,
   getRegisterScreenMocks,
 } from './register-screen-test-harness';
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   act,
   cleanup,
@@ -12,7 +14,6 @@ import {
   waitFor,
 } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { NetworkError } from '@/lib/api-client';
 import RegisterScreen from '../../app/(auth)/register';
 import { APP_KEYBOARD_CONTAINER_LABEL } from './app-keyboard-container.mock';
 
@@ -21,8 +22,10 @@ const mocks = getRegisterScreenMocks();
 describe('RegisterScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.mutateAsync.mockResolvedValue({ success: true });
-    mocks.signIn.mockResolvedValue({ error: null });
+    mocks.signUp.mockResolvedValue({
+      error: null,
+      sessionEstablished: true,
+    });
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
   });
 
@@ -31,160 +34,139 @@ describe('RegisterScreen', () => {
     vi.restoreAllMocks();
   });
 
-  it('submits the normalized registration payload', async () => {
+  it('creates the native account exactly once with sentence-cased metadata', async () => {
     render(<RegisterScreen />);
     expect(
       screen.getByRole('region', { name: APP_KEYBOARD_CONTAINER_LABEL })
     ).toBeTruthy();
-    expect(screen.getByLabelText('Back')).toBeTruthy();
-    fillFormAndSubmit();
 
-    await waitFor(() => expect(mocks.mutateAsync).toHaveBeenCalledTimes(1));
-    const [payload] = mocks.mutateAsync.mock.calls[0];
-    expect(payload).toMatchObject({
+    const submitButton = screen.getByRole('button', {
+      name: 'Proceed to next step',
+    });
+    fillFormAndSubmit();
+    fireEvent.click(submitButton);
+
+    await waitFor(() => expect(mocks.signUp).toHaveBeenCalledTimes(1));
+    expect(mocks.signUp).toHaveBeenCalledWith({
       email: 'test@example.com',
+      password: 'StrongP@ss123!',
       firstName: 'Test',
       lastName: 'User',
-      businessName: 'Test Store',
-      businessType: 'fashion',
-      country: 'IN',
+      fullName: 'Test User',
     });
   });
 
-  it('clears stale otherBusinessType when switching away from Other', async () => {
+  it('routes a returned session to authenticated profile completion', async () => {
+    render(<RegisterScreen />);
+    fillFormAndSubmit();
+
+    await waitFor(() => {
+      expect(mocks.replace).toHaveBeenCalledWith('/(auth)/complete-profile');
+    });
+  });
+
+  it('routes confirmation-required signup to email verification', async () => {
+    mocks.signUp.mockResolvedValue({
+      error: null,
+      needsEmailConfirmation: true,
+    });
+    render(<RegisterScreen />);
+    fillFormAndSubmit();
+
+    await waitFor(() => {
+      expect(mocks.replace).toHaveBeenCalledWith(
+        '/(auth)/verify?email=test%40example.com'
+      );
+    });
+  });
+
+  it('offers sign-in for an existing account without blaming the store URL', async () => {
+    mocks.signUp.mockResolvedValue({ error: null, accountExists: true });
+    render(<RegisterScreen />);
+    fillFormAndSubmit();
+
+    await waitFor(() => expect(mocks.alert).toHaveBeenCalled());
+    const [title, message, buttons] = mocks.alert.mock.calls[0] as [
+      string,
+      string,
+      Array<{ text: string; onPress?: () => void }>,
+    ];
+    expect(title).toBe('Account Exists');
+    expect(message).toBe(
+      'An account with this email already exists. Please sign in instead.'
+    );
+    expect(message.toLowerCase()).not.toContain('store');
+    buttons.find((button) => button.text === 'Sign In')?.onPress?.();
+    expect(mocks.replace).toHaveBeenCalledWith('/(auth)/login');
+  });
+
+  it.each([
+    'Too many attempts. Please wait a minute and try again.',
+    'Unable to connect. Please check your internet connection.',
+    'Password is too weak.',
+  ])('keeps the account screen open for auth error: %s', async (error) => {
+    mocks.signUp.mockResolvedValue({ error });
+    render(<RegisterScreen />);
+    fillFormAndSubmit();
+
+    await waitFor(() => {
+      expect(mocks.alert).toHaveBeenCalledWith('Sign Up Failed', error);
+    });
+    expect(mocks.replace).not.toHaveBeenCalled();
+  });
+
+  it('does not erase the auth-store session if the screen unmounts during signup', async () => {
+    const signup = Promise.withResolvers<{
+      error: null;
+      sessionEstablished: true;
+    }>();
+    mocks.signUp.mockReturnValue(signup.promise);
+    const rendered = render(<RegisterScreen />);
+
+    fillFormAndSubmit();
+    rendered.unmount();
+    await act(async () => {
+      signup.resolve({ error: null, sessionEstablished: true });
+      await signup.promise;
+    });
+
+    expect(mocks.signUp).toHaveBeenCalledOnce();
+  });
+
+  it('disables account submission while signup is in flight', async () => {
+    const signup = Promise.withResolvers<{
+      error: null;
+      sessionEstablished: true;
+    }>();
+    mocks.signUp.mockReturnValue(signup.promise);
     render(<RegisterScreen />);
 
-    fireEvent.change(screen.getByPlaceholderText('John'), {
-      target: { value: 'Test' },
-    });
-    fireEvent.change(screen.getByPlaceholderText('Doe'), {
-      target: { value: 'User' },
-    });
-    fireEvent.change(screen.getByPlaceholderText('you@example.com'), {
-      target: { value: 'test@example.com' },
-    });
-    const passwordFields = screen.getAllByPlaceholderText('••••••••');
-    fireEvent.change(passwordFields[0], {
-      target: { value: 'StrongP@ss123!' },
-    });
-    fireEvent.change(passwordFields[1], {
-      target: { value: 'StrongP@ss123!' },
-    });
+    fillFormAndSubmit();
 
-    fireEvent.click(screen.getByText('Next Step'));
-    fireEvent.change(screen.getByPlaceholderText('My Awesome Store'), {
-      target: { value: 'Test Store' },
-    });
-
-    fireEvent.click(screen.getByText('Other'));
-    fireEvent.change(screen.getByPlaceholderText('e.g. Pet Supplies'), {
-      target: { value: 'Custom Type' },
-    });
-    fireEvent.click(screen.getByText('Fashion & Apparel'));
-    fireEvent.click(screen.getByText('Launch Store'));
-
-    await waitFor(() => expect(mocks.mutateAsync).toHaveBeenCalledTimes(1));
-    const [payload] = mocks.mutateAsync.mock.calls[0];
-    expect(payload).toMatchObject({
-      businessType: 'fashion',
-      otherBusinessType: '',
+    await waitFor(() =>
+      expect(
+        (
+          screen.getByRole('button', {
+            name: 'Creating account...',
+          }) as HTMLButtonElement
+        ).disabled
+      ).toBe(true)
+    );
+    await act(async () => {
+      signup.resolve({ error: null, sessionEstablished: true });
+      await signup.promise;
     });
   });
 
-  describe('onSuccess', () => {
-    it('establishes the client session when registration unmounts before onboarding resolves', async () => {
-      let resolveRegistration: (() => void) | undefined;
-      mocks.mutateAsync.mockReturnValue(
-        new Promise((resolve) => {
-          resolveRegistration = () => resolve({ success: true });
-        })
-      );
-      const rendered = render(<RegisterScreen />);
+  it('contains no server-owned onboarding or automatic sign-in fallback', () => {
+    const source = fs.readFileSync(
+      path.resolve(process.cwd(), 'app/(auth)/register.tsx'),
+      'utf8'
+    );
 
-      fillFormAndSubmit();
-      rendered.unmount();
-      await act(async () => resolveRegistration?.());
-
-      await waitFor(() => {
-        expect(mocks.signIn).toHaveBeenCalledWith(
-          'test@example.com',
-          'StrongP@ss123!'
-        );
-      });
-    });
-
-    it('establishes the new account session before navigating to the dashboard', async () => {
-      render(<RegisterScreen />);
-      fillFormAndSubmit();
-
-      await waitFor(() => {
-        expect(mocks.replace).toHaveBeenCalledWith('/(admin)/(tabs)');
-      });
-      expect(mocks.signIn).toHaveBeenCalledWith(
-        'test@example.com',
-        'StrongP@ss123!'
-      );
-      expect(mocks.signIn.mock.invocationCallOrder[0]).toBeLessThan(
-        mocks.replace.mock.invocationCallOrder[0]
-      );
-      expect(mocks.push).not.toHaveBeenCalled();
-    });
-
-    it('stays on registration when the new session cannot be established', async () => {
-      mocks.signIn.mockResolvedValue({ error: 'Invalid login credentials' });
-      render(<RegisterScreen />);
-      fillFormAndSubmit();
-
-      await waitFor(() => expect(mocks.alert).toHaveBeenCalled());
-      expect(mocks.replace).not.toHaveBeenCalled();
-      expect(mocks.alert).toHaveBeenCalledWith(
-        'Store Created',
-        'Your store was created, but we could not sign you in automatically. Please sign in with your new account.',
-        expect.any(Array)
-      );
-    });
-  });
-
-  describe('onError', () => {
-    it('shows an account conflict and navigates only when its login action is pressed', async () => {
-      mocks.mutateAsync.mockRejectedValue(
-        new NetworkError('User already exists', { statusCode: 409 })
-      );
-      render(<RegisterScreen />);
-      fillFormAndSubmit();
-
-      await waitFor(() => expect(mocks.alert).toHaveBeenCalled());
-      expect(mocks.alert).toHaveBeenCalledWith(
-        'Account Exists',
-        'An account with this email already exists. Please log in instead.',
-        expect.arrayContaining([
-          expect.objectContaining({ text: 'Go to Login' }),
-          expect.objectContaining({ text: 'OK', style: 'cancel' }),
-        ])
-      );
-      const buttons = mocks.alert.mock.calls[0][2] as Array<{
-        text: string;
-        onPress?: () => void;
-      }>;
-      buttons.find((b) => b.text === 'Go to Login')?.onPress?.();
-
-      expect(mocks.replace).toHaveBeenCalledWith('/(auth)/login');
-    });
-
-    it('shows a rate-limit error without navigating', async () => {
-      mocks.mutateAsync.mockRejectedValue(
-        new NetworkError('Too many attempts', { statusCode: 429 })
-      );
-      render(<RegisterScreen />);
-      fillFormAndSubmit();
-
-      await waitFor(() => expect(mocks.alert).toHaveBeenCalled());
-      expect(mocks.alert).toHaveBeenCalledWith(
-        'Too Many Attempts',
-        'Please wait a minute before trying again.'
-      );
-      expect(mocks.replace).not.toHaveBeenCalled();
-      expect(mocks.push).not.toHaveBeenCalled();
-    });
+    expect(source).not.toContain('/api/mobile-onboarding');
+    expect(source).not.toContain('/api/mobile/merchant-provisioning');
+    expect(source).not.toContain('signIn(');
+    expect(source).not.toContain('useRegistration');
   });
 });

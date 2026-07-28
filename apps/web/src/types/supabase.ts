@@ -16278,6 +16278,11 @@ export type Database = {
         Args: { p_merchant_id: string };
         Returns: boolean;
       };
+      get_merchant_signup_policy_health: { Args: never; Returns: Json };
+      get_merchant_signup_policy_health_pre_mobile_v2: {
+        Args: never;
+        Returns: Json;
+      };
       get_merchant_verification_flags: {
         Args: { p_merchant_id: string };
         Returns: Json;
@@ -17244,6 +17249,27 @@ export type Database = {
           product_sku: string;
         };
         Returns: unknown;
+      };
+      provision_mobile_merchant_v2: {
+        Args: {
+          p_brand_colors: Json;
+          p_business_name: string;
+          p_business_type: string;
+          p_country: string;
+          p_first_name: string;
+          p_last_name: string;
+          p_logo_url: string;
+          p_other_business_type: string;
+          p_phone: string;
+          p_signup_source: string;
+          p_slug: string;
+          p_slug_is_custom: boolean;
+        };
+        Returns: {
+          created: boolean;
+          merchant_id: string;
+          merchant_slug: string;
+        }[];
       };
       quiz_answer_key_hash: { Args: { p_answer: string }; Returns: string };
       quiz_answer_key_matches: {

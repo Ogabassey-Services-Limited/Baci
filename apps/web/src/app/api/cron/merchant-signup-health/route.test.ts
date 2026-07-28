@@ -30,6 +30,7 @@ const healthyResult = {
   anon_select_policy_is_expected: true,
   auth_can_execute_reserved_slug_check: true,
   auth_can_execute_slug_generator: true,
+  auth_can_execute_mobile_provisioning_rpc: true,
   auth_can_insert: true,
   auth_can_read_alias_merchant_id: true,
   auth_can_read_alias_old_slug: true,
@@ -50,7 +51,23 @@ const healthyResult = {
   row_level_security_enabled: true,
   select_policy_is_expected: true,
   update_policy_allows_owner_or_staff: true,
+  mobile_provisioning_rpc_is_invoker: true,
+  anon_cannot_execute_mobile_provisioning_rpc: true,
+  public_cannot_execute_mobile_provisioning_rpc: true,
+  domain_insert_policy_is_expected: true,
+  staff_insert_policy_is_expected: true,
+  staff_update_policy_is_expected: true,
 };
+
+const mobileV2Invariants = [
+  'auth_can_execute_mobile_provisioning_rpc',
+  'mobile_provisioning_rpc_is_invoker',
+  'anon_cannot_execute_mobile_provisioning_rpc',
+  'public_cannot_execute_mobile_provisioning_rpc',
+  'domain_insert_policy_is_expected',
+  'staff_insert_policy_is_expected',
+  'staff_update_policy_is_expected',
+] as const;
 
 function cronRequest(authHeader: string | null = 'Bearer cron-secret') {
   return new NextRequest(
@@ -128,6 +145,23 @@ describe('GET /api/cron/merchant-signup-health', () => {
     });
   });
 
+  it.each(
+    mobileV2Invariants
+  )('returns 503 when mobile v2 invariant %s drifts', async (invariant) => {
+    mocks.rpc.mockResolvedValue({
+      data: { ...healthyResult, [invariant]: false },
+      error: null,
+    });
+
+    const response = await GET(cronRequest());
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      healthy: false,
+      failed_invariants: [invariant],
+    });
+  });
+
   it('returns 500 and preserves the Postgres code when the RPC fails', async () => {
     mocks.rpc.mockResolvedValue({
       data: null,
@@ -154,6 +188,28 @@ describe('GET /api/cron/merchant-signup-health', () => {
     const response = await GET(cronRequest());
 
     expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Merchant signup health check failed',
+    });
+    expect(mocks.loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: 'invalid_health_result' })
+    );
+  });
+
+  it('returns 500 when the RPC omits a required mobile v2 invariant', async () => {
+    const { staff_update_policy_is_expected: _omitted, ...incompleteResult } =
+      healthyResult;
+    mocks.rpc.mockResolvedValue({
+      data: incompleteResult,
+      error: null,
+    });
+
+    const response = await GET(cronRequest());
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Merchant signup health check failed',
+    });
     expect(mocks.loggerError).toHaveBeenCalledWith(
       expect.objectContaining({ reason: 'invalid_health_result' })
     );

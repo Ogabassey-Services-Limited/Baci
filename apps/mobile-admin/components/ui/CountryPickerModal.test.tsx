@@ -149,6 +149,8 @@ describe('CountryPickerModal', () => {
 
     expect(screen.getByLabelText('country-page-sheet')).toBeInTheDocument();
     expect(screen.getByText('Select Country')).toBeInTheDocument();
+    expect(screen.getByText('🇳🇬')).toBeInTheDocument();
+    expect(screen.getByText('🇬🇭')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Nigeria' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Ghana' })).toBeInTheDocument();
 
@@ -194,6 +196,37 @@ describe('CountryPickerModal', () => {
 
     expect(screen.getByRole('button', { name: 'Nigeria' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Kenya' })).toBeInTheDocument();
+  });
+
+  it('supports a caller-owned bounded country catalog', () => {
+    render(
+      <CountryPickerModal
+        countries={[
+          {
+            code: 'NG',
+            currency: 'NGN',
+            currencySymbol: '₦',
+            flag: '🇳🇬',
+            name: 'Nigeria',
+          },
+          {
+            code: 'INVALID',
+            currency: 'N/A',
+            currencySymbol: '-',
+            name: 'Nowhere',
+          },
+        ]}
+        onClose={vi.fn()}
+        onSelect={vi.fn()}
+        selectedCountry="NG"
+        visible={true}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Nigeria' })).toBeInTheDocument();
+    expect(screen.getByText('🇳🇬')).toBeInTheDocument();
+    expect(screen.queryByText('🇮🇳')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Ghana' })).toBeNull();
   });
 
   it('gives the clear-search button a 13pt hitSlop so the effective tap area meets 44pt', () => {

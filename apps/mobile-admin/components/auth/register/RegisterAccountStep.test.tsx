@@ -14,6 +14,7 @@ vi.mock('react-native', async () => {
   const React = await import('react');
 
   return {
+    ActivityIndicator: () => React.createElement('span', null, 'loading'),
     useColorScheme: vi.fn(() => 'dark'),
     StyleSheet: {
       create: (s: Record<string, unknown>) => s,
@@ -25,15 +26,17 @@ vi.mock('react-native', async () => {
     Pressable: ({
       accessibilityLabel,
       children,
+      disabled,
       onPress,
     }: {
       accessibilityLabel?: string;
       children?: React.ReactNode;
+      disabled?: boolean;
       onPress?: () => void;
     }) =>
       React.createElement(
         'button',
-        { onClick: onPress, 'aria-label': accessibilityLabel },
+        { onClick: onPress, 'aria-label': accessibilityLabel, disabled },
         children
       ),
     TextInput: ({
@@ -162,6 +165,37 @@ describe('RegisterAccountStep iOS AutoFill contract', () => {
     expect(lastName.getAttribute('data-autocomplete')).toBe('family-name');
     expect(email.getAttribute('data-text-content-type')).toBe('emailAddress');
     expect(email.getAttribute('data-autocomplete')).toBe('email');
+  });
+});
+
+describe('RegisterAccountStep pending state', () => {
+  it('disables the next-step action while account creation is pending', () => {
+    render(
+      <RegisterAccountStep
+        confirmError={null}
+        formData={{
+          confirmPassword: 'StrongP@ss123!',
+          email: 'ada@example.com',
+          firstName: 'Ada',
+          lastName: 'Lovelace',
+          password: 'StrongP@ss123!',
+        }}
+        isLoading={true}
+        onNext={vi.fn()}
+        onTogglePassword={vi.fn()}
+        passwordState={passwordState}
+        showPassword={false}
+        updateForm={vi.fn()}
+      />
+    );
+
+    expect(
+      (
+        screen.getByRole('button', {
+          name: 'Creating account...',
+        }) as HTMLButtonElement
+      ).disabled
+    ).toBe(true);
   });
 });
 

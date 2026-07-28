@@ -24,13 +24,13 @@ export function StoreNotPublished({ businessName }: StoreNotPublishedProps) {
 
         <div className={styles.content}>
           <p className={styles.eyebrow}>
-            <Sparkles aria-hidden="true" size={15} />
-            A new shopping destination
+            <Sparkles aria-hidden="true" size={15} />A new shopping destination
           </p>
           <h1 className={styles.title}>{businessName}</h1>
           <p className={styles.message}>
-            We&apos;re curating something worth the wait. Fresh finds, thoughtful
-            details, and a brand-new storefront are almost ready for you.
+            We&apos;re curating something worth the wait. Fresh finds,
+            thoughtful details, and a brand-new storefront are almost ready for
+            you.
           </p>
         </div>
 

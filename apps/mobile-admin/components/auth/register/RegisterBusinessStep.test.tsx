@@ -7,47 +7,13 @@ import { RegisterBusinessStep } from './RegisterBusinessStep';
 vi.mock('@react-native-vector-icons/ionicons', () => ({
   default: () => null,
 }));
-
-vi.mock('@/components/ui/CountryPickerModal', () => ({
-  CountryPickerModal: ({
-    onClose,
-    onSelect,
-    selectedCountry,
-    visible,
-  }: {
-    onClose: () => void;
-    onSelect: (country: {
-      code: string;
-      currency: string;
-      currencySymbol: string;
-      name: string;
-    }) => void;
-    selectedCountry: string;
-    visible: boolean;
-  }) =>
-    visible ? (
-      <section aria-label="country picker">
-        <span>{selectedCountry}</span>
-        <button
-          aria-label="Ghana"
-          onClick={() =>
-            onSelect({
-              code: 'GH',
-              currency: 'GHS',
-              currencySymbol: '₵',
-              name: 'Ghana',
-            })
-          }
-          type="button"
-        />
-        <button
-          aria-label="Close country picker"
-          onClick={onClose}
-          type="button"
-        />
-      </section>
-    ) : null,
-}));
+vi.mock('expo-linear-gradient', async () => {
+  const ReactRuntime = await import('react');
+  return {
+    LinearGradient: ({ children }: { children?: React.ReactNode }) =>
+      ReactRuntime.createElement('div', null, children),
+  };
+});
 
 vi.mock('react-native', async () => {
   const React = await import('react');
@@ -118,63 +84,65 @@ vi.mock('@/hooks/useTheme', () => ({
 
 function renderStep({
   businessType = '',
-  country = 'NG',
-}: { businessType?: string; country?: string } = {}) {
-  const onCountryChange = vi.fn();
+  slugError,
+}: {
+  businessType?: string;
+  slugError?: string;
+} = {}) {
   render(
     <RegisterBusinessStep
+      firstName="Ada"
       formData={{
         businessName: '',
         businessType,
-        country,
         otherBusinessType: '',
         slug: '',
       }}
       isLoading={false}
+      onBack={vi.fn()}
       onBusinessNameChange={vi.fn()}
       onBusinessTypeChange={vi.fn()}
-      onCountryChange={onCountryChange}
       onLaunchStore={vi.fn()}
       onOtherBusinessTypeChange={vi.fn()}
       onSlugChange={vi.fn()}
+      slugError={slugError}
     />
   );
-
-  return { onCountryChange };
 }
 
 describe('RegisterBusinessStep conditional business type', () => {
-  it('shows Please specify between Business Type and Country / Region when Other is selected', () => {
+  it('shows Please specify when Other is selected', () => {
     renderStep({ businessType: 'other' });
 
-    const specifyInput = screen.getByLabelText('Please specify');
-    const countrySelector = screen.getByRole('button', {
-      name: 'Country / Region, Nigeria',
-    });
-
-    expect(
-      specifyInput.compareDocumentPosition(countrySelector) &
-        Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
+    expect(screen.getByLabelText('Please specify')).toBeInTheDocument();
   });
 });
 
 describe('RegisterBusinessStep business name normalization', () => {
+  it('welcomes the owner by first name on the business page', () => {
+    renderStep();
+
+    expect(screen.getByText('Welcome, Ada!')).toBeInTheDocument();
+    expect(
+      screen.getByText('Add your business details to launch your store.')
+    ).toBeInTheDocument();
+  });
+
   it('capitalizes every word typed or pasted into Business Name', () => {
     const onBusinessNameChange = vi.fn();
     render(
       <RegisterBusinessStep
+        firstName="Ada"
         formData={{
           businessName: '',
           businessType: '',
-          country: 'NG',
           otherBusinessType: '',
           slug: '',
         }}
         isLoading={false}
+        onBack={vi.fn()}
         onBusinessNameChange={onBusinessNameChange}
         onBusinessTypeChange={vi.fn()}
-        onCountryChange={vi.fn()}
         onLaunchStore={vi.fn()}
         onOtherBusinessTypeChange={vi.fn()}
         onSlugChange={vi.fn()}
@@ -191,46 +159,12 @@ describe('RegisterBusinessStep business name normalization', () => {
   });
 });
 
-describe('RegisterBusinessStep country selector', () => {
-  it('shows the selected country and opens the searchable picker', () => {
-    renderStep({ country: 'NG' });
+describe('RegisterBusinessStep store link validation', () => {
+  it('shows a specific unavailable-slug error beside the store link', () => {
+    renderStep({ slugError: 'That store link is already taken.' });
 
     expect(
-      screen.getByRole('button', { name: 'Country / Region, Nigeria' })
+      screen.getByText('That store link is already taken.')
     ).toBeInTheDocument();
-    expect(screen.queryByLabelText('country picker')).not.toBeInTheDocument();
-
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Country / Region, Nigeria' })
-    );
-
-    expect(screen.getByLabelText('country picker')).toBeInTheDocument();
-    expect(screen.getByText('NG')).toBeInTheDocument();
-  });
-
-  it('stores the selected country code and closes the picker', () => {
-    const { onCountryChange } = renderStep({ country: 'NG' });
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Country / Region, Nigeria' })
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: 'Ghana' }));
-
-    expect(onCountryChange).toHaveBeenCalledWith('GH');
-    expect(screen.queryByLabelText('country picker')).not.toBeInTheDocument();
-  });
-
-  it('closes without changing the selected country', () => {
-    const { onCountryChange } = renderStep({ country: 'NG' });
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Country / Region, Nigeria' })
-    );
-
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Close country picker' })
-    );
-
-    expect(onCountryChange).not.toHaveBeenCalled();
-    expect(screen.queryByLabelText('country picker')).not.toBeInTheDocument();
   });
 });

@@ -67,6 +67,27 @@ describe('resolveMobileUpdatePrompt', () => {
     expect(checkForUpdateAsync).not.toHaveBeenCalled();
   });
 
+  it.each([
+    '/register',
+    '/verify',
+    '/complete-profile',
+  ])('does not let the release gate interrupt onboarding route %s', async (pathname) => {
+    const fetchPolicy = createFetchPolicyMock();
+    const checkForUpdateAsync = createCheckForUpdateMock();
+
+    const result = await resolveMobileUpdatePrompt({
+      ...baseInput,
+      checkForUpdateAsync,
+      fetchPolicy,
+      isOtaEnabled: true,
+      pathname,
+    });
+
+    expect(result).toEqual({ kind: 'deferred' });
+    expect(fetchPolicy).not.toHaveBeenCalled();
+    expect(checkForUpdateAsync).not.toHaveBeenCalled();
+  });
+
   it('returns native-required without checking OTA when server policy requires a store update', async () => {
     const checkForUpdateAsync = createCheckForUpdateMock();
 

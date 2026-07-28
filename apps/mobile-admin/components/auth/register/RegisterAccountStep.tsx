@@ -1,10 +1,17 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useRef } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import type { PasswordValidationResult } from '@/lib/password-utils';
 import { PasswordVisibilityToggle } from '../PasswordVisibilityToggle';
 import { PasswordChecklist } from './PasswordChecklist';
+import { PersonNameFields } from './PersonNameFields';
 import { getStyles } from './register.styles';
 
 interface RegisterFormData {
@@ -18,6 +25,7 @@ interface RegisterFormData {
 interface RegisterAccountStepProps {
   confirmError: string | null;
   formData: RegisterFormData;
+  isLoading?: boolean;
   onNext: () => void;
   passwordState: PasswordValidationResult;
   showPassword: boolean;
@@ -28,20 +36,10 @@ interface RegisterAccountStepProps {
   onTogglePassword: () => void;
 }
 
-function toSentenceCase(value: string): string {
-  const firstCharacterIndex = value.search(/\S/);
-  if (firstCharacterIndex === -1) {
-    return value;
-  }
-
-  return `${value.slice(0, firstCharacterIndex)}${value
-    .charAt(firstCharacterIndex)
-    .toUpperCase()}${value.slice(firstCharacterIndex + 1).toLowerCase()}`;
-}
-
 export function RegisterAccountStep({
   confirmError,
   formData,
+  isLoading = false,
   onNext,
   passwordState,
   showPassword,
@@ -51,7 +49,6 @@ export function RegisterAccountStep({
   const { colors } = useTheme();
   const styles = getStyles(colors);
 
-  const lastNameRef = useRef<TextInput>(null);
   const emailRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
   const confirmPasswordRef = useRef<TextInput>(null);
@@ -61,47 +58,13 @@ export function RegisterAccountStep({
       <Text style={styles.sectionTitle}>Account Details</Text>
       <Text style={styles.sectionValidation}>Required</Text>
 
-      <View style={styles.nameRow}>
-        <View style={styles.nameInputGroup}>
-          <Text style={styles.label}>First Name</Text>
-          <TextInput
-            accessibilityLabel="First Name"
-            style={styles.input}
-            placeholder="John"
-            placeholderTextColor={colors.textMuted}
-            autoCapitalize="words"
-            autoComplete="given-name"
-            textContentType="givenName"
-            value={formData.firstName}
-            onChangeText={(text) =>
-              updateForm('firstName', toSentenceCase(text))
-            }
-            returnKeyType="next"
-            blurOnSubmit={false}
-            onSubmitEditing={() => lastNameRef.current?.focus()}
-          />
-        </View>
-        <View style={styles.nameInputGroup}>
-          <Text style={styles.label}>Last Name</Text>
-          <TextInput
-            ref={lastNameRef}
-            accessibilityLabel="Last Name"
-            style={styles.input}
-            placeholder="Doe"
-            placeholderTextColor={colors.textMuted}
-            autoCapitalize="words"
-            autoComplete="family-name"
-            textContentType="familyName"
-            value={formData.lastName}
-            onChangeText={(text) =>
-              updateForm('lastName', toSentenceCase(text))
-            }
-            returnKeyType="next"
-            blurOnSubmit={false}
-            onSubmitEditing={() => emailRef.current?.focus()}
-          />
-        </View>
-      </View>
+      <PersonNameFields
+        firstName={formData.firstName}
+        lastName={formData.lastName}
+        onFirstNameChange={(value) => updateForm('firstName', value)}
+        onLastNameChange={(value) => updateForm('lastName', value)}
+        onLastSubmit={() => emailRef.current?.focus()}
+      />
 
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Email Address</Text>
@@ -197,13 +160,31 @@ export function RegisterAccountStep({
       </View>
 
       <Pressable
-        style={({ pressed }) => [styles.button, pressed && { opacity: 0.7 }]}
+        style={({ pressed }) => [
+          styles.button,
+          isLoading && { opacity: 0.7 },
+          pressed && !isLoading && { opacity: 0.7 },
+        ]}
+        disabled={isLoading}
         onPress={onNext}
         accessibilityRole="button"
-        accessibilityLabel="Proceed to next step"
+        accessibilityLabel={
+          isLoading ? 'Creating account...' : 'Proceed to next step'
+        }
+        accessibilityState={{ busy: isLoading, disabled: isLoading }}
       >
-        <Text style={styles.buttonText}>Next Step</Text>
-        <Ionicons name="arrow-forward" size={20} color={colors.textOnPrimary} />
+        {isLoading ? (
+          <ActivityIndicator color={colors.textOnPrimary} />
+        ) : (
+          <>
+            <Text style={styles.buttonText}>Next Step</Text>
+            <Ionicons
+              name="arrow-forward"
+              size={20}
+              color={colors.textOnPrimary}
+            />
+          </>
+        )}
       </Pressable>
     </View>
   );

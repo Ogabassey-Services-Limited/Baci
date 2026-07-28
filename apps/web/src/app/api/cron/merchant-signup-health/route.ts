@@ -16,6 +16,7 @@ interface MerchantSignupPolicyHealth {
   anon_select_policy_is_expected: boolean;
   auth_can_execute_reserved_slug_check: boolean;
   auth_can_execute_slug_generator: boolean;
+  auth_can_execute_mobile_provisioning_rpc: boolean;
   auth_can_insert: boolean;
   auth_can_read_alias_merchant_id: boolean;
   auth_can_read_alias_old_slug: boolean;
@@ -33,6 +34,12 @@ interface MerchantSignupPolicyHealth {
   no_restrictive_signup_policies: boolean;
   no_unexpected_permissive_anon_merchant_select_policies: boolean;
   no_unexpected_permissive_signup_policies: boolean;
+  mobile_provisioning_rpc_is_invoker: boolean;
+  anon_cannot_execute_mobile_provisioning_rpc: boolean;
+  public_cannot_execute_mobile_provisioning_rpc: boolean;
+  domain_insert_policy_is_expected: boolean;
+  staff_insert_policy_is_expected: boolean;
+  staff_update_policy_is_expected: boolean;
   row_level_security_enabled: boolean;
   select_policy_is_expected: boolean;
   update_policy_allows_owner_or_staff: boolean;
@@ -59,6 +66,7 @@ function isMerchantSignupPolicyHealth(
     candidate.anon_select_policy_is_expected,
     candidate.auth_can_execute_reserved_slug_check,
     candidate.auth_can_execute_slug_generator,
+    candidate.auth_can_execute_mobile_provisioning_rpc,
     candidate.auth_can_insert,
     candidate.auth_can_read_alias_merchant_id,
     candidate.auth_can_read_alias_old_slug,
@@ -76,6 +84,12 @@ function isMerchantSignupPolicyHealth(
     candidate.no_restrictive_signup_policies,
     candidate.no_unexpected_permissive_anon_merchant_select_policies,
     candidate.no_unexpected_permissive_signup_policies,
+    candidate.mobile_provisioning_rpc_is_invoker,
+    candidate.anon_cannot_execute_mobile_provisioning_rpc,
+    candidate.public_cannot_execute_mobile_provisioning_rpc,
+    candidate.domain_insert_policy_is_expected,
+    candidate.staff_insert_policy_is_expected,
+    candidate.staff_update_policy_is_expected,
     candidate.row_level_security_enabled,
     candidate.select_policy_is_expected,
     candidate.update_policy_allows_owner_or_staff,

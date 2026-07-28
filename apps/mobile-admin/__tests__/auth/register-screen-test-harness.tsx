@@ -6,8 +6,7 @@ const mocks = vi.hoisted(() => ({
   alert: vi.fn(),
   replace: vi.fn(),
   push: vi.fn(),
-  mutateAsync: vi.fn(),
-  signIn: vi.fn(),
+  signUp: vi.fn(),
   setNavigationBarStyle: vi.fn(),
 }));
 
@@ -15,35 +14,6 @@ vi.mock('@/components/ui/AppFormScreen', async () => {
   const { createAppFormScreenMock } = await import('./app-form-screen.mock');
   return createAppFormScreenMock();
 });
-
-vi.mock('@/components/ui/CountryPickerModal', () => ({
-  CountryPickerModal: ({
-    onSelect,
-    visible,
-  }: {
-    onSelect: (country: {
-      code: string;
-      currency: string;
-      currencySymbol: string;
-      name: string;
-    }) => void;
-    visible: boolean;
-  }) =>
-    visible ? (
-      <button
-        aria-label="India"
-        onClick={() =>
-          onSelect({
-            code: 'IN',
-            currency: 'INR',
-            currencySymbol: '₹',
-            name: 'India',
-          })
-        }
-        type="button"
-      />
-    ) : null,
-}));
 
 // --- Mock react-native with HTML-compatible components ---
 vi.mock('react-native', async () => {
@@ -66,17 +36,20 @@ vi.mock('react-native', async () => {
       onPress?: () => void;
     }) => React.createElement('span', { onClick: onPress }, children),
     TextInput: ({
+      accessibilityLabel,
       onChangeText,
       placeholder,
       value,
       secureTextEntry,
     }: {
+      accessibilityLabel?: string;
       onChangeText?: (t: string) => void;
       placeholder?: string;
       value?: string;
       secureTextEntry?: boolean;
     }) =>
       React.createElement('input', {
+        'aria-label': accessibilityLabel,
         placeholder,
         value: value ?? '',
         type: secureTextEntry ? 'password' : 'text',
@@ -158,19 +131,11 @@ vi.mock('@/lib/supabase', () => ({
   },
 }));
 
-vi.mock('@/hooks/useRegistration', () => ({
-  useRegistration: () => ({
-    register: {
-      mutateAsync: mocks.mutateAsync,
-      isPending: false,
-    },
-    completeProfile: { mutate: vi.fn(), isPending: false },
-    isLoading: false,
-  }),
-}));
-
 vi.mock('@/hooks/useAuth', () => ({
-  useAuth: () => ({ signIn: mocks.signIn }),
+  useAuth: () => ({
+    signUp: mocks.signUp,
+    isAuthenticating: false,
+  }),
 }));
 
 vi.mock('@/components/ui/AppKeyboardContainer', async () => {
@@ -196,9 +161,8 @@ vi.mock('@/lib/sanitize', () => ({ getEmailError: () => null }));
 
 // --- Helpers ---
 
-/** Fill the 2-step registration form and click "Launch Store" */
+/** Fill the account form and submit native signup. */
 export function fillFormAndSubmit() {
-  // Step 1: Account details
   fireEvent.change(screen.getByPlaceholderText('John'), {
     target: { value: 'Test' },
   });
@@ -208,29 +172,16 @@ export function fillFormAndSubmit() {
   fireEvent.change(screen.getByPlaceholderText('you@example.com'), {
     target: { value: 'test@example.com' },
   });
-  const passwordFields = screen.getAllByPlaceholderText('••••••••');
-  fireEvent.change(passwordFields[0], {
+  fireEvent.change(screen.getByLabelText('Password'), {
     target: { value: 'StrongP@ss123!' },
   });
-  fireEvent.change(passwordFields[1], {
+  fireEvent.change(screen.getByLabelText('Confirm Password'), {
     target: { value: 'StrongP@ss123!' },
   });
 
-  // Click "Next Step" to go to step 2
+  // "Next Step" now creates the native account/session. Authenticated merchant
+  // setup lives on complete-profile and never retains this password.
   fireEvent.click(screen.getByText('Next Step'));
-
-  // Step 2: Business info
-  fireEvent.change(screen.getByPlaceholderText('My Awesome Store'), {
-    target: { value: 'Test Store' },
-  });
-  fireEvent.click(screen.getByText('Fashion & Apparel'));
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Country / Region, Nigeria' })
-  );
-  fireEvent.click(screen.getByRole('button', { name: 'India' }));
-
-  // Submit the form.
-  fireEvent.click(screen.getByText('Launch Store'));
 }
 
 export function getRegisterScreenMocks() {
