@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockCreateClient, mockCreateStorefrontBuildReadFetch } = vi.hoisted(
-  () => ({
-    mockCreateClient: vi.fn(),
-    mockCreateStorefrontBuildReadFetch: vi.fn(
-      (fetcher: typeof fetch) => fetcher
-    ),
-  })
-);
+const {
+  mockCreateClient,
+  mockCreateStorefrontBuildReadFetch,
+  mockCreateTimeoutComposedFetch,
+} = vi.hoisted(() => ({
+  mockCreateClient: vi.fn(),
+  mockCreateStorefrontBuildReadFetch: vi.fn((fetcher: typeof fetch) => fetcher),
+  mockCreateTimeoutComposedFetch: vi.fn((_: number) => fetch),
+}));
 
 vi.mock('@/env', () => ({
   getSupabaseAnonKey: vi.fn(() => 'test-anon-key'),
@@ -19,6 +20,10 @@ vi.mock('@supabase/supabase-js', () => ({
 vi.mock('./storefront-build-read-fetch', () => ({
   createStorefrontBuildReadFetch: (fetcher: typeof fetch) =>
     mockCreateStorefrontBuildReadFetch(fetcher),
+}));
+vi.mock('@/lib/supabase/compose-fetch-signal', () => ({
+  createTimeoutComposedFetch: (timeoutMs: number) =>
+    mockCreateTimeoutComposedFetch(timeoutMs),
 }));
 
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
@@ -38,6 +43,15 @@ describe('getPublicSupabaseClient', () => {
     getPublicSupabaseClient();
 
     expect(mockCreateStorefrontBuildReadFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('uses the 30-second build deadline instead of the 10-second runtime cap', () => {
+    vi.stubEnv('BACI_STOREFRONT_BUILD_READS', 'bounded');
+    mockCreateClient.mockReturnValue({ from: vi.fn() });
+
+    getPublicSupabaseClient();
+
+    expect(mockCreateTimeoutComposedFetch).toHaveBeenCalledWith(30_000);
   });
 
   it('leaves runtime public reads ungated', () => {
