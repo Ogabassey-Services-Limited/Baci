@@ -9,6 +9,9 @@ import test from 'node:test';
 const path = new URL('./seal-source.sh', import.meta.url).pathname;
 const source = readFileSync(path, 'utf8');
 const shell = (...args) => spawnSync('/bin/bash', args, { encoding: 'utf8' });
+const rootMountFixtureAvailable =
+  process.platform === 'linux' &&
+  spawnSync('sudo', ['-n', 'unshare', '--mount', '--fork', '/usr/bin/true']).status === 0;
 
 test('is syntactically valid and refuses incomplete arguments before a mutation path', () => {
   assert.equal(shell('-n', path).status, 0);
@@ -110,11 +113,56 @@ test('runs the verified unique internal self-copy outside the noexec runtime mou
   assert.match(source, /\[\[ -d "\$SELF_PARENT" && ! -L "\$SELF_PARENT" \]\]/);
 });
 
-test('uses a new unique copy when an inert stale sibling remains after interruption', () => {
+test('uses a new unique copy and serializes publication under the sealed root lock', () => {
   assert.match(source, /work\.XXXXXXXX/);
-  assert.doesNotMatch(source, /SELF_WORK=|readonly FLOCK|self-copy already running/);
+  assert.match(source, /readonly FLOCK=\/usr\/bin\/flock/);
+  assert.match(source, /exec 9<"\$SELF_ROOT"/);
+  assert.match(source, /"\$FLOCK" -n 9 \|\| fail 'source seal already running'/);
+  assert.match(source, /"\$MV" -T -- "\$tree" "\$target"/);
   assert.match(source, /unsafe self-copy parent/);
 });
+
+test(
+  'uses the real helper after a noexec runtime control fails and leaves no work child',
+  { skip: !rootMountFixtureAvailable, timeout: 30_000 },
+  () => {
+    const root = mkdtempSync(join(tmpdir(), 'baci-cwv-noexec-fixture-'));
+    const fixture = join(root, 'fixture.sh');
+    const raw = spawnSync('/usr/bin/sha256sum', [path], { encoding: 'utf8' }).stdout.split(/\s+/)[0];
+    const sourceSha = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    writeFileSync(
+      fixture,
+      [
+        'set -eu',
+        'mount --make-rprivate /',
+        'mount -t tmpfs -o noexec tmpfs /run',
+        "printf '#!/bin/sh\\nexit 0\\n' > /run/noexec-control",
+        'chmod 0500 /run/noexec-control',
+        'if /run/noexec-control >/dev/null 2>&1; then exit 90; else control=$?; fi',
+        '[ "$control" -eq 126 ] || exit 91',
+        'mount -t tmpfs tmpfs /var/lib',
+        'mount -t tmpfs tmpfs /srv',
+        "printf x > /run/archive; printf '{}' > /run/manifest",
+        'chown root:root /run/archive /run/manifest; chmod 0600 /run/archive /run/manifest',
+        "archive_sha=$(/usr/bin/sha256sum /run/archive | /usr/bin/awk '{print $1}')",
+        "manifest_sha=$(/usr/bin/sha256sum /run/manifest | /usr/bin/awk '{print $1}')",
+        `if BACI_CWV_SEAL_SOURCE_RAW_SHA=${raw} ${JSON.stringify(path)} --destination final --source-sha ${sourceSha} --source-archive /run/archive --source-archive-sha256 "$archive_sha" --source-manifest /run/manifest --source-manifest-sha256 "$manifest_sha" >/run/result.out 2>/run/result.err; then exit 92; fi`,
+        "grep -q 'manifest is not canonical schema-v1 JSON' /run/result.err",
+        `[ ! -e /srv/baci-cwv/source/${sourceSha} ]`,
+        '[ -z "$(find /var/lib/baci-cwv/seal-source -mindepth 1 -type d -print -quit)" ]',
+      ].join('\n'),
+      'utf8'
+    );
+    try {
+      const result = spawnSync('sudo', ['-n', 'unshare', '--mount', '--fork', '/bin/bash', fixture], {
+        encoding: 'utf8',
+      });
+      assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    } finally {
+      rmSync(root, { force: true, recursive: true });
+    }
+  }
+);
 
 test('cleans up and exits with the received signal status', () => {
   assert.doesNotMatch(source, /readonly KILL|wait "\$child"/);
@@ -129,7 +177,7 @@ test('rolls back owned publication before commit and preserves it after final fs
   assert.match(source, /if \[\[ "\$committed" != true \]\]; then/);
   assert.match(source, /"\$RM" -rf -- "\$receipt"/);
   assert.match(source, /"\$RM" -rf -- "\$target"/);
-  assert.match(source, /target_owned=true\n"\$MV" -- "\$tree" "\$target"/);
+  assert.match(source, /target_owned=true\n"\$MV" -T -- "\$tree" "\$target"/);
   assert.match(source, /receipt_owned=true; "\$MKDIR" -m 0700 -- "\$receipt"/);
   assert.match(source, /"\$SYNC" -f "\$receipt"; "\$SYNC" -f "\$final_root"\ncommitted=true/);
 });

@@ -16,6 +16,7 @@ readonly SORT=/usr/bin/sort
 readonly GREP=/usr/bin/grep
 readonly AWK=/usr/bin/awk
 readonly SYNC=/usr/bin/sync
+readonly FLOCK=/usr/bin/flock
 readonly MKTEMP=/usr/bin/mktemp
 readonly SELF=${BASH_SOURCE[0]}
 readonly SELF_ROOT=/var/lib/baci-cwv/seal-source
@@ -176,6 +177,9 @@ done
 git_sha "$source_sha"; hex "$archive_digest"; hex "$manifest_digest"
 if [[ "$inner" == true ]]; then
   verify_inner_helper
+  secure_self_root
+  exec 9<"$SELF_ROOT"
+  "$FLOCK" -n 9 || fail 'source seal already running'
   trap cleanup EXIT
   trap 'signal HUP 129' HUP
   trap 'signal INT 130' INT
@@ -212,7 +216,7 @@ tree_digest=$(sha "$actual")
 hex "$tree_digest" || fail 'sealed tree digest mismatch'
 "$SYNC" -f "$root_manifest"; "$SYNC" -f "$root_archive"; "$SYNC" -f "$tree"
 target_owned=true
-"$MV" -- "$tree" "$target"
+"$MV" -T -- "$tree" "$target"
 receipt_owned=true; "$MKDIR" -m 0700 -- "$receipt"
 "$CP" --preserve=mode -- "$root_manifest" "$receipt/manifest.json"
 printf '%s\n' "$manifest_digest" > "$receipt/manifest.sha256"
