@@ -62,7 +62,10 @@ exec "$ENV_BIN" -i PATH="$PATH" "$PERL_BIN" -MFcntl=O_RDONLY,O_NOFOLLOW,F_GETFD,
   my $fingerprint = output($keygen, "-lf", $known_hosts, "-E", "sha256");
   $fingerprint eq "256 $expected_fingerprint 82.29.190.219 (ED25519)\n" or fail();
   sysseek($frozen, 0, 0) or fail();
-  my @args = ("-F", "/dev/null", $tty, "-o", "BatchMode=yes", "-o", "IdentitiesOnly=yes", "-o", "HostKeyAlgorithms=ssh-ed25519", "-o", "StrictHostKeyChecking=yes", "-o", "CheckHostIP=yes", "-o", "GlobalKnownHostsFile=/dev/null", "-o", "UserKnownHostsFile=$known_hosts", "-o", "ProxyCommand=none", "-o", "ProxyJump=none", "-o", "PermitLocalCommand=no", "-o", "ClearAllForwardings=yes", "-o", "ForwardAgent=no", "-o", "ForwardX11=no", "-o", "ControlMaster=no", "-o", "ControlPath=none", "-o", "ControlPersist=no", "-o", "IdentityAgent=none", "-o", "Tunnel=no", "-p", "22", "bassey\@82.29.190.219");
+  my $authority = do { local $/; <$frozen> };
+  defined $authority && $authority =~ s/\n\z// && $authority !~ /\x27/ or fail();
+  my $known_hosts_command = "/bin/echo \x27$authority\x27";
+  my @args = ("-F", "/dev/null", $tty, "-o", "BatchMode=yes", "-o", "IdentitiesOnly=yes", "-o", "HostKeyAlgorithms=ssh-ed25519", "-o", "StrictHostKeyChecking=yes", "-o", "CheckHostIP=yes", "-o", "GlobalKnownHostsFile=none", "-o", "UserKnownHostsFile=none", "-o", "KnownHostsCommand=$known_hosts_command", "-o", "ProxyCommand=none", "-o", "ProxyJump=none", "-o", "PermitLocalCommand=no", "-o", "ClearAllForwardings=yes", "-o", "ForwardAgent=no", "-o", "ForwardX11=no", "-o", "ControlMaster=no", "-o", "ControlPath=none", "-o", "ControlPersist=no", "-o", "IdentityAgent=none", "-o", "Tunnel=no", "-p", "22", "bassey\@82.29.190.219");
   push @args, $command if length $command;
   exec {$ssh} $ssh, @args;
   fail();
