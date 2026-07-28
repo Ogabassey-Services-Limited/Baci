@@ -6,8 +6,12 @@ import { join } from 'node:path';
 import test from 'node:test';
 
 const sourcePath = new URL('./install.sh', import.meta.url);
+const identityContractPath = new URL(
+  './identity-contract.json',
+  import.meta.url
+);
 
-test('rejects containerd 1.x before bootstrap mutation and accepts the pinned 2.x release', async (context) => {
+test('reads the checked-in identity schema before accepting the pinned containerd release', async (context) => {
   const directory = await mkdtemp(
     join(tmpdir(), 'baci-cwv-containerd-version-')
   );
@@ -16,9 +20,7 @@ test('rejects containerd 1.x before bootstrap mutation and accepts the pinned 2.
   const install = join(directory, 'install.sh');
   await writeFile(
     join(directory, 'identity-contract.json'),
-    JSON.stringify({
-      host: { hostBinaries: { expectation: { containerdVersion: '2.2.6' } } },
-    })
+    await readFile(identityContractPath)
   );
   const source = await readFile(sourcePath, 'utf8');
   assert.match(
