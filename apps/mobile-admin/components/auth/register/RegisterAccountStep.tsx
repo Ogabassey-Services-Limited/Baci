@@ -28,6 +28,17 @@ interface RegisterAccountStepProps {
   onTogglePassword: () => void;
 }
 
+function toSentenceCase(value: string): string {
+  const firstCharacterIndex = value.search(/\S/);
+  if (firstCharacterIndex === -1) {
+    return value;
+  }
+
+  return `${value.slice(0, firstCharacterIndex)}${value
+    .charAt(firstCharacterIndex)
+    .toUpperCase()}${value.slice(firstCharacterIndex + 1).toLowerCase()}`;
+}
+
 export function RegisterAccountStep({
   confirmError,
   formData,
@@ -62,7 +73,9 @@ export function RegisterAccountStep({
             autoComplete="given-name"
             textContentType="givenName"
             value={formData.firstName}
-            onChangeText={(text) => updateForm('firstName', text)}
+            onChangeText={(text) =>
+              updateForm('firstName', toSentenceCase(text))
+            }
             returnKeyType="next"
             blurOnSubmit={false}
             onSubmitEditing={() => lastNameRef.current?.focus()}
@@ -80,7 +93,9 @@ export function RegisterAccountStep({
             autoComplete="family-name"
             textContentType="familyName"
             value={formData.lastName}
-            onChangeText={(text) => updateForm('lastName', text)}
+            onChangeText={(text) =>
+              updateForm('lastName', toSentenceCase(text))
+            }
             returnKeyType="next"
             blurOnSubmit={false}
             onSubmitEditing={() => emailRef.current?.focus()}

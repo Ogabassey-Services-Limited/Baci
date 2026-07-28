@@ -2,7 +2,6 @@ import {
   createClient as createSupabaseClient,
   type User,
 } from '@supabase/supabase-js';
-import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
 import { env, getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { getCountryByCode } from '@/lib/countries';
@@ -10,10 +9,10 @@ import { normalizeBusinessName } from '@/lib/normalize-business-name';
 import { checkPasswordBreach } from '@/lib/password-breach';
 import { resolveMerchantIdBySlugOrAlias } from '@/lib/resolve-merchant-by-slug';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { createClient } from '@/lib/supabase/server';
 import { isReservedMerchantSlug } from '@/lib/validation';
 import { mobileOnboardingSchema } from '@/schemas/onboarding';
 import type { BrandColors } from '@/types';
+import { buildNumberedSlugCandidate } from './build-numbered-slug-candidate';
 import { logOnboardingFailure } from './onboarding-failure-log';
 import { buildOnboardingFailureResponse } from './onboarding-failure-response';
 import { provisionMerchantDomain } from './provision-merchant-domain';
@@ -24,6 +23,20 @@ import { runDeferredOnboardingProvisioning } from './run-deferred-onboarding-pro
 export const maxDuration = 60;
 
 const MOBILE_ONBOARDING_OWNER_PROFILE_STAFF_ROLE = 'admin';
+const MAX_AUTO_SLUG_FALLBACK_ATTEMPTS = 20;
+
+function createOnboardingClient(authorization: string | null) {
+  return createSupabaseClient(getSupabaseUrl(), getSupabaseAnonKey(), {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+    ...(authorization
+      ? { global: { headers: { Authorization: authorization } } }
+      : {}),
+  });
+}
 
 type SlugResolverClient = {
   rpc: (
@@ -64,13 +77,10 @@ async function resolveMerchantSlug(
 // which sends Authorization Bearer tokens, not browser cookies. CSRF is a browser-specific
 // attack vector that exploits automatic cookie sending — mobile apps are not vulnerable.
 export async function POST(req: NextRequest) {
-  // True when the caller OWNS an account but the CLIENT holds no session, so
-  // "sign in to finish setup" is the actionable recovery. Signup is not atomic:
-  // the auth user is created before the merchant row, and a failure after that
-  // strands them. Crucially this also covers RETRIES from the register screen —
-  // those carry the cookie set by the earlier signUp, so getUser() succeeds and
-  // the signUp block is skipped, yet the app itself is still signed out. Without
-  // that case a retry would fall back to the dead-end generic 500.
+  // True only after this request creates a new auth account, so a later
+  // provisioning failure can direct that signed-out caller to sign in and
+  // finish setup. Bearer-authenticated profile completion already owns a client
+  // session and should receive the ordinary failure contract.
   let accountExists = false;
 
   try {
@@ -138,8 +148,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    // Mobile registration and profile completion must never inherit browser or
+    // stale native-cookie identity. Anonymous registration gets a cookie-free
+    // anon client; authenticated completion is scoped exclusively to the app's
+    // explicit Bearer token.
+    const authorizationHeader = req.headers.get('authorization');
+    const bearerAuthorization = /^Bearer\s+\S+$/i.test(
+      authorizationHeader ?? ''
+    )
+      ? authorizationHeader
+      : null;
+    const supabase = createOnboardingClient(bearerAuthorization);
     let scopedSupabase = supabase;
 
     // --- 2. User Creation / Auth ---
@@ -150,10 +169,6 @@ export async function POST(req: NextRequest) {
     } = await supabase.auth.getUser();
 
     let user: User | null = currentUser;
-    // A Bearer token means the APP holds the session (the complete-profile
-    // flow); a cookie-only match means it does not (a register-screen retry).
-    accountExists = Boolean(currentUser) && !req.headers.get('authorization');
-
     // If no authenticated user, try to Sign Up
     if (!user) {
       if (!password) {
@@ -289,23 +304,10 @@ export async function POST(req: NextRequest) {
 
       if (signUpData.session?.access_token) {
         // NOTE: We must construct a raw client here because the new user has
-        // no cookie session yet. We inject their access_token as a Bearer
+        // no client session yet. We inject their access_token as a Bearer
         // header so subsequent DB operations run under their RLS identity.
-        scopedSupabase = createSupabaseClient(
-          getSupabaseUrl(),
-          getSupabaseAnonKey(),
-          {
-            auth: {
-              persistSession: false,
-              autoRefreshToken: false,
-              detectSessionInUrl: false,
-            },
-            global: {
-              headers: {
-                Authorization: `Bearer ${signUpData.session.access_token}`,
-              },
-            },
-          }
+        scopedSupabase = createOnboardingClient(
+          `Bearer ${signUpData.session.access_token}`
         );
       } else {
         return NextResponse.json(
@@ -447,15 +449,45 @@ export async function POST(req: NextRequest) {
           .single();
 
       const created = await (async () => {
-        const first = await insertNewMerchant(slug);
+        let candidateResult = await insertNewMerchant(slug);
         // Explicit user choice, or a non-collision error: don't retry.
-        if (first.error?.code !== '23505' || isExplicitSlug) {
-          return first;
+        if (candidateResult.error?.code !== '23505' || isExplicitSlug) {
+          return candidateResult;
         }
-        const retrySlug = await resolveMerchantSlug(scopedSupabase, slug, slug);
-        // If generate_slug couldn't produce a different slug (RPC error fell back
-        // to the same value), don't re-insert the same colliding slug.
-        return retrySlug === slug ? first : insertNewMerchant(retrySlug);
+
+        const generatedSlug = await resolveMerchantSlug(
+          scopedSupabase,
+          slug,
+          slug
+        );
+        if (generatedSlug !== slug) {
+          candidateResult = await insertNewMerchant(generatedSlug);
+          if (candidateResult.error?.code !== '23505') {
+            return candidateResult;
+          }
+        }
+
+        // generate_slug() runs under caller RLS. A retired alias or hidden
+        // platform slug can therefore collide at the trigger while remaining
+        // invisible to the RPC, which returns the same failed slug. Probe a
+        // bounded sequence of DNS-safe suffixes through the write boundary so
+        // an autogenerated choice never strands the newly created auth account.
+        for (
+          let suffix = 1;
+          suffix <= MAX_AUTO_SLUG_FALLBACK_ATTEMPTS;
+          suffix += 1
+        ) {
+          const numberedSlug = buildNumberedSlugCandidate(slug, suffix);
+          if (numberedSlug === generatedSlug) {
+            continue;
+          }
+          candidateResult = await insertNewMerchant(numberedSlug);
+          if (candidateResult.error?.code !== '23505') {
+            return candidateResult;
+          }
+        }
+
+        return candidateResult;
       })();
 
       if (created.error) {

@@ -1,4 +1,5 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -6,6 +7,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { CountryPickerModal } from '@/components/ui/CountryPickerModal';
 import type { BusinessTypeId } from '@/constants/business-types';
 import { COUNTRIES } from '@/constants/countries';
 import { useTheme } from '@/hooks/useTheme';
@@ -32,6 +34,12 @@ interface RegisterBusinessStepProps {
   onSlugChange: (text: string) => void;
 }
 
+function toTitleCase(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/(^|[\s'’-])\S/g, (match) => match.toUpperCase());
+}
+
 export function RegisterBusinessStep({
   formData,
   isLoading,
@@ -44,6 +52,12 @@ export function RegisterBusinessStep({
 }: RegisterBusinessStepProps) {
   const { colors } = useTheme();
   const styles = getStyles(colors);
+  const [isCountryPickerVisible, setIsCountryPickerVisible] = useState(false);
+  const selectedCountry = COUNTRIES.find(
+    (country) => country.code === formData.country
+  );
+  const selectedCountryName = selectedCountry?.name ?? 'Select country';
+
   return (
     <View style={styles.formSection}>
       <Text style={styles.sectionTitle}>Business Info</Text>
@@ -56,8 +70,9 @@ export function RegisterBusinessStep({
           style={styles.input}
           placeholder="My Awesome Store"
           placeholderTextColor={colors.textMuted}
+          autoCapitalize="words"
           value={formData.businessName}
-          onChangeText={onBusinessNameChange}
+          onChangeText={(text) => onBusinessNameChange(toTitleCase(text))}
         />
       </View>
 
@@ -91,40 +106,6 @@ export function RegisterBusinessStep({
         />
       </View>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Country/Region</Text>
-        <View style={styles.countryOptions}>
-          {COUNTRIES.map((country) => {
-            const isSelected = formData.country === country.code;
-            return (
-              <Pressable
-                accessibilityLabel={`Country ${country.name}`}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isSelected }}
-                key={country.code}
-                onPress={() => onCountryChange(country.code)}
-                style={[
-                  styles.countryOption,
-                  isSelected && {
-                    backgroundColor: colors.primary,
-                    borderColor: colors.primary,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.countryOptionText,
-                    isSelected && { color: colors.textOnPrimary },
-                  ]}
-                >
-                  {country.name}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
-
       {formData.businessType === 'other' ? (
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Please specify</Text>
@@ -138,6 +119,25 @@ export function RegisterBusinessStep({
           />
         </View>
       ) : null}
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>Country / Region</Text>
+        <View style={styles.countrySelector}>
+          <Pressable
+            accessibilityLabel={`Country / Region, ${selectedCountryName}`}
+            accessibilityRole="button"
+            onPress={() => setIsCountryPickerVisible(true)}
+            style={styles.countrySelectorPressable}
+          >
+            <Text style={styles.countrySelectorText}>{selectedCountryName}</Text>
+            <Ionicons
+              name="chevron-down"
+              size={20}
+              color={colors.textSecondary}
+            />
+          </Pressable>
+        </View>
+      </View>
 
       <Pressable
         style={({ pressed }) => [
@@ -166,6 +166,18 @@ export function RegisterBusinessStep({
       </Pressable>
 
       <RegisterLegalText prefixText="By creating an account, you agree to our" />
+
+      {isCountryPickerVisible ? (
+        <CountryPickerModal
+          onClose={() => setIsCountryPickerVisible(false)}
+          onSelect={(country) => {
+            onCountryChange(country.code);
+            setIsCountryPickerVisible(false);
+          }}
+          selectedCountry={formData.country}
+          visible={true}
+        />
+      ) : null}
     </View>
   );
 }

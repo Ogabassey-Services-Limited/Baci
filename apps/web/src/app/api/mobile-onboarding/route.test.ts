@@ -12,6 +12,7 @@ const mockSupabaseServer = {
   from: mockFrom,
   rpc: mockRpc,
 };
+const mockCreateSupabaseClient = vi.hoisted(() => vi.fn());
 
 const mockAdminFrom = vi.fn();
 const mockAdminClient = { from: mockAdminFrom };
@@ -43,7 +44,7 @@ vi.mock('@/lib/supabase/admin', () => ({
 }));
 
 vi.mock('@supabase/supabase-js', () => ({
-  createClient: vi.fn(() => mockSupabaseServer),
+  createClient: mockCreateSupabaseClient,
 }));
 
 vi.mock('@/env', () => ({
@@ -100,6 +101,7 @@ const validBody = {
 describe('POST /api/mobile-onboarding', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockCreateSupabaseClient.mockReturnValue(mockSupabaseServer);
     afterCallbacks.length = 0;
     mockRpc.mockResolvedValue({
       data: 'generated-mobile-slug',
@@ -115,6 +117,51 @@ describe('POST /api/mobile-onboarding', () => {
 
     expect(res.status).toBe(400);
     expect(body.error).toContain('Validation failed');
+  });
+
+  it('uses a cookie-free Supabase client for anonymous mobile registration', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+    const { password, confirmPassword, ...bodyWithoutPassword } = validBody;
+
+    const res = await POST(makeRequest(bodyWithoutPassword));
+
+    expect(res.status).toBe(400);
+    expect(mockCreateSupabaseClient).toHaveBeenCalledWith(
+      'https://test.supabase.co',
+      'test-anon-key',
+      {
+        auth: {
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+          persistSession: false,
+        },
+      }
+    );
+  });
+
+  it('binds the mobile bearer token into the profile-completion client', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+    const { password, confirmPassword, ...bodyWithoutPassword } = validBody;
+
+    const res = await POST(
+      makeRequest(bodyWithoutPassword, {
+        Authorization: 'Bearer app-session',
+      })
+    );
+
+    expect(res.status).toBe(400);
+    expect(mockCreateSupabaseClient).toHaveBeenCalledWith(
+      'https://test.supabase.co',
+      'test-anon-key',
+      {
+        auth: {
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+          persistSession: false,
+        },
+        global: { headers: { Authorization: 'Bearer app-session' } },
+      }
+    );
   });
 
   it('returns 400 for invalid email', async () => {
@@ -380,6 +427,66 @@ describe('POST /api/mobile-onboarding', () => {
     expect(mockRpc).toHaveBeenCalledWith('generate_slug', {
       text_input: expect.any(String),
     });
+  });
+
+  it('uses a numbered fallback when generate_slug returns the same colliding auto slug', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+    mockSignUp.mockResolvedValue({
+      data: {
+        user: { id: 'user-1', email: 'test@example.com' },
+        session: { access_token: 'tok-123' },
+      },
+      error: null,
+    });
+    // Reproduces a retired alias hidden by caller RLS: the RPC cannot see the
+    // collision and hands the route the same slug that just failed.
+    mockRpc.mockResolvedValue({ data: 'test', error: null });
+
+    const singleMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: null,
+        error: { code: '23505', message: 'slug_is_retired_alias' },
+      })
+      .mockResolvedValueOnce({
+        data: { id: 'merch-1', slug: 'test-1' },
+        error: null,
+      });
+    const insertSpy = vi.fn().mockReturnThis();
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'merchants') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          insert: insertSpy,
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+          single: singleMock,
+        };
+      }
+      if (table === 'domains') {
+        return { insert: vi.fn().mockResolvedValue({ data: null, error: null }) };
+      }
+      if (table === 'staff_members') {
+        return { upsert: vi.fn().mockResolvedValue({ data: null, error: null }) };
+      }
+      return { insert: vi.fn().mockResolvedValue({ data: null, error: null }) };
+    });
+
+    const res = await POST(
+      makeRequest({
+        ...validBody,
+        slug: 'test',
+        slugIsCustom: false,
+      })
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.merchant.slug).toBe('test-1');
+    expect(insertSpy).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ slug: 'test-1' })
+    );
   });
 
   it('returns 409 when even the retried slug collides (concurrent race)', async () => {

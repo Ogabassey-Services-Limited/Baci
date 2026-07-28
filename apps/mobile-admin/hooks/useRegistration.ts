@@ -54,6 +54,10 @@ export function useRegistration() {
   // Register Mutation — no auth needed (new user doesn't have a session yet)
   // Increased timeout: server does auth + DB writes + deferred AI template generation
   const registerMutation = useMutation({
+    // Account and merchant creation have side effects before every possible
+    // error response. Retrying a deterministic 4xx can replace the original
+    // actionable error (for example, Store URL Unavailable) with Account Exists.
+    retry: false,
     mutationFn: (data: RegisterPayload): Promise<OnboardingResponse> =>
       apiClient<OnboardingResponse>(ONBOARDING_ENDPOINT, {
         method: 'POST',
@@ -71,6 +75,7 @@ export function useRegistration() {
 
   // Complete Profile Mutation
   const completeProfileMutation = useMutation({
+    retry: false,
     mutationFn: (data: CompleteProfilePayload): Promise<OnboardingResponse> =>
       apiClient<OnboardingResponse>(ONBOARDING_ENDPOINT, {
         method: 'POST',

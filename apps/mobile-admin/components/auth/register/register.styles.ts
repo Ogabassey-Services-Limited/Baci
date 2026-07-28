@@ -88,23 +88,28 @@ export const getStyles = (colors: ThemeColors) =>
       borderWidth: 1,
       borderColor: colors.border,
     },
-    countryOptions: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: SPACING.sm,
-    },
-    countryOption: {
-      borderWidth: 1,
+    countrySelector: {
+      backgroundColor: colors.inputBg,
       borderColor: colors.border,
-      borderRadius: RADIUS.full,
-      paddingHorizontal: SPACING.md,
-      paddingVertical: SPACING.sm,
-      backgroundColor: colors.card,
+      borderRadius: RADIUS.md,
+      borderWidth: 1,
+      minHeight: 48,
+      overflow: 'hidden',
     },
-    countryOptionText: {
+    countrySelectorPressable: {
+      alignItems: 'center',
+      flex: 1,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      minHeight: 48,
+      padding: SPACING.md,
+    },
+    countrySelectorText: {
       color: colors.text,
-      fontSize: TYPOGRAPHY.size.sm,
-      fontFamily: TYPOGRAPHY.fontFamily.medium,
+      flex: 1,
+      fontFamily: TYPOGRAPHY.fontFamily.regular,
+      fontSize: TYPOGRAPHY.size.md,
+      marginRight: SPACING.sm,
     },
     passwordContainer: {
       flexDirection: 'row',

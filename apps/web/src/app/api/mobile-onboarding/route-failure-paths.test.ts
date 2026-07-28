@@ -1,4 +1,3 @@
-import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
@@ -255,38 +254,5 @@ describe('POST /api/mobile-onboarding failure paths', () => {
     expect(body.error).toBe('Internal Server Error');
     expect(body.code).toBe('onboarding_failed');
     expect(JSON.stringify(body)).not.toContain('SECRET_DB_CONNECTION_STRING');
-  });
-
-  describe('bugfix: a cookie-authenticated retry got the dead-end 500', () => {
-    it('still offers recovery when signUp is skipped because the signup cookie authenticated the retry', async () => {
-      // Arrange: this is what a real retry from the register screen looks like.
-      // The earlier signUp set cookies that iOS fetch keeps, so getUser()
-      // succeeds and the signUp block is skipped entirely — yet the APP holds
-      // no session, which is why it sends no Authorization header. Provisioning
-      // is still failing, as during the outage.
-      vi.spyOn(console, 'error').mockImplementation(() => {});
-      mockGetUser.mockResolvedValue({
-        data: { user: { id: 'user-1', email: 'test@example.com' } },
-        error: null,
-      });
-      mockFrom.mockImplementation(() => ({
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        maybeSingle: vi.fn().mockResolvedValue({
-          data: null,
-          error: Object.assign(new Error('rls'), { code: '42501' }),
-        }),
-      }));
-
-      // Act — no Authorization header: the client owns no session.
-      const res = await POST(makeOnboardingRequest(validOnboardingBody));
-      const body = await res.json();
-
-      // Assert: without this the retry fell back to the generic 500 and the
-      // user was told nothing actionable, forever.
-      expect(res.status).toBe(500);
-      expect(body.code).toBe('account_created_store_setup_failed');
-      expect(mockSignUp).not.toHaveBeenCalled();
-    });
   });
 });

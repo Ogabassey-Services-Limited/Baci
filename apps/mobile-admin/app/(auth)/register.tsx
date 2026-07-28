@@ -16,6 +16,7 @@ import { getStyles } from '@/components/auth/register/register.styles';
 import { resolveRegistrationErrorAlert } from '@/components/auth/register/registration-error-alert';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
 import type { BusinessTypeId } from '@/constants/business-types';
+import { useAuth } from '@/hooks/useAuth';
 import { useLightNavigationBar } from '@/hooks/useLightNavigationBar';
 import { useRegistration } from '@/hooks/useRegistration';
 import { useTheme } from '@/hooks/useTheme';
@@ -29,6 +30,7 @@ export default function RegisterScreen() {
   const { colors, isDark } = useTheme();
   const styles = getStyles(colors);
   const router = useRouter();
+  const { signIn } = useAuth();
   const { register, isLoading } = useRegistration();
   const [step, setStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
@@ -60,7 +62,6 @@ export default function RegisterScreen() {
     },
   });
   const [confirmError, setConfirmError] = useState<string | null>(null);
-
   useLightNavigationBar(isDark);
 
   const updateForm = <K extends keyof typeof formData>(
@@ -147,7 +148,7 @@ export default function RegisterScreen() {
     }
   };
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     if (!formData.businessName || !formData.businessType) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
@@ -162,8 +163,8 @@ export default function RegisterScreen() {
     }
 
     const email = formData.email.toLowerCase();
-    register.mutate(
-      {
+    try {
+      await register.mutateAsync({
         email,
         password: formData.password,
         confirmPassword: formData.confirmPassword,
@@ -173,10 +174,6 @@ export default function RegisterScreen() {
         businessType: formData.businessType,
         country: formData.country,
         otherBusinessType: formData.otherBusinessType,
-        // Send the DISPLAYED Store Link (so the URL the user sees is what gets
-        // provisioned when free) plus whether they edited it: an edited slug is
-        // honored verbatim (409 if taken); an untouched auto-slug is a preference
-        // the server de-dupes via generate_slug (never a surprising 409).
         slug: formData.slug || undefined,
         slugIsCustom: isSlugEdited,
         brandColors: JSON.stringify({
@@ -186,42 +183,53 @@ export default function RegisterScreen() {
         }),
         logoUrl: '',
         brandPreferences: '',
-      },
-      {
-        onSuccess: () => {
-          // Navigate directly to dashboard — email confirmation is disabled,
-          // so signup returns a session immediately and the merchant is ready.
-          // Staff invitees do NOT come through here: merchant registration
-          // creates an owner store and the merchant-context RPC prefers owner
-          // over staff, which would pin the invitee to their own empty store.
-          // Invitees use the account-only /(auth)/staff-signup flow instead.
-          router.replace('/(admin)/(tabs)');
-        },
-        onError: (error: Error) => {
-          console.error('Registration error:', error.message);
-          const { title, message, buttons } =
-            resolveRegistrationErrorAlert(error);
+      });
+    } catch (cause) {
+      const error =
+        cause instanceof Error ? cause : new Error('Registration failed');
+      console.error('Registration error:', error.message);
+      const { title, message, buttons } = resolveRegistrationErrorAlert(error);
 
-          if (buttons.length === 0) {
-            Alert.alert(title, message);
-            return;
-          }
-
-          Alert.alert(
-            title,
-            message,
-            buttons.map((button) => ({
-              text: button.text,
-              style: button.style,
-              onPress:
-                button.action === 'login'
-                  ? () => router.replace('/(auth)/login')
-                  : undefined,
-            }))
-          );
-        },
+      if (buttons.length === 0) {
+        Alert.alert(title, message);
+        return;
       }
-    );
+
+      Alert.alert(
+        title,
+        message,
+        buttons.map((button) => ({
+          text: button.text,
+          style: button.style,
+          onPress:
+            button.action === 'login'
+              ? () => router.replace('/(auth)/login')
+              : undefined,
+        }))
+      );
+      return;
+    }
+
+    const signInResult = await signIn(email, formData.password);
+    if (signInResult.error) {
+      console.error(
+        'Automatic sign-in after registration failed:',
+        signInResult.error
+      );
+      Alert.alert(
+        'Store Created',
+        'Your store was created, but we could not sign you in automatically. Please sign in with your new account.',
+        [
+          {
+            text: 'Sign In',
+            onPress: () => router.replace('/(auth)/login'),
+          },
+        ]
+      );
+      return;
+    }
+
+    router.replace('/(admin)/(tabs)');
   };
 
   return (
