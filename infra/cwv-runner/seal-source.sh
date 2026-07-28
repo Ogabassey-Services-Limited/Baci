@@ -21,6 +21,7 @@ readonly MKTEMP=/usr/bin/mktemp
 readonly SELF=${BASH_SOURCE[0]}
 readonly SELF_ROOT=/var/lib/baci-cwv/seal-source
 readonly SELF_PARENT=${SELF%/*}
+outer_self_copy=''
 
 fail() { printf '%s\n' "seal-source: $*" >&2; exit 1; }
 # Awk owns its field expressions.
@@ -39,6 +40,20 @@ validate_self_parent() {
   local parent=$1 suffix=${1#"$SELF_ROOT/work."}
   [[ "$parent" == "$SELF_ROOT"/work.* && "$suffix" =~ ^[A-Za-z0-9]{8}$ && -d "$parent" && ! -L "$parent" ]] || fail 'unsafe self-copy parent'
   [[ "$("$STAT" -c '%u:%a' -- "$parent")" == '0:700' ]] || fail 'unsafe self-copy parent'
+}
+
+cleanup_outer_self_copy() {
+  local parent=$outer_self_copy suffix=${outer_self_copy#"$SELF_ROOT/work."}
+  outer_self_copy=''
+  [[ "$parent" == "$SELF_ROOT"/work.* && "$suffix" =~ ^[A-Za-z0-9]{8}$ && -d "$parent" && ! -L "$parent" ]] || return 0
+  "$RM" -rf -- "$parent" || :
+}
+
+outer_exit() { cleanup_outer_self_copy; }
+outer_signal() {
+  cleanup_outer_self_copy
+  trap - EXIT HUP INT TERM
+  exit "$1"
 }
 
 cleanup_self_copy() { "$RM" -rf -- "$SELF_PARENT"; }
@@ -66,6 +81,11 @@ self_copy() {
   [[ -f "$SELF" && ! -L "$SELF" ]] || fail 'helper is not a regular file'
   "$MKDIR" -p -m 0700 -- "$SELF_ROOT"; secure_self_root
   parent=$("$MKTEMP" -d "$SELF_ROOT/work.XXXXXXXX") || fail 'self-copy directory unavailable'
+  outer_self_copy=$parent
+  trap outer_exit EXIT
+  trap 'outer_signal 129' HUP
+  trap 'outer_signal 130' INT
+  trap 'outer_signal 143' TERM
   "$CHOWN" root:root -- "$parent"; "$CHMOD" 0700 -- "$parent"; validate_self_parent "$parent"
   copied="$parent/seal-source.sh"; "$CP" -- "$SELF" "$copied"
   [[ "$(sha "$copied")" == "$expected" ]] || fail 'helper raw digest mismatch'

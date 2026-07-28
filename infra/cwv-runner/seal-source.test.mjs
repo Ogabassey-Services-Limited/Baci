@@ -113,6 +113,41 @@ test('runs the verified unique internal self-copy outside the noexec runtime mou
   assert.match(source, /\[\[ -d "\$SELF_PARENT" && ! -L "\$SELF_PARENT" \]\]/);
 });
 
+test(
+  'removes its unique outer self-copy when raw helper verification fails',
+  { skip: !rootMountFixtureAvailable, timeout: 30_000 },
+  () => {
+    const root = mkdtempSync(join(tmpdir(), 'baci-cwv-outer-cleanup-'));
+    const fixture = join(root, 'fixture.sh');
+    const sourceSha = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+    writeFileSync(
+      fixture,
+      [
+        'set -eu',
+        'mount --make-rprivate /',
+        'mount -t tmpfs tmpfs /var/lib',
+        'mount -t tmpfs tmpfs /srv',
+        "printf x > /run/archive; printf '{}' > /run/manifest",
+        'chown root:root /run/archive /run/manifest; chmod 0600 /run/archive /run/manifest',
+        "archive_sha=$(/usr/bin/sha256sum /run/archive | /usr/bin/awk '{print $1}')",
+        "manifest_sha=$(/usr/bin/sha256sum /run/manifest | /usr/bin/awk '{print $1}')",
+        `if BACI_CWV_SEAL_SOURCE_RAW_SHA=${'0'.repeat(64)} ${JSON.stringify(path)} --destination final --source-sha ${sourceSha} --source-archive /run/archive --source-archive-sha256 "$archive_sha" --source-manifest /run/manifest --source-manifest-sha256 "$manifest_sha" >/run/result.out 2>/run/result.err; then exit 90; fi`,
+        "grep -q 'helper raw digest mismatch' /run/result.err",
+        '[ -z "$(find /var/lib/baci-cwv/seal-source -mindepth 1 -type d -print -quit)" ]',
+      ].join('\n'),
+      'utf8'
+    );
+    try {
+      const result = spawnSync('sudo', ['-n', 'unshare', '--mount', '--fork', '/bin/bash', fixture], {
+        encoding: 'utf8',
+      });
+      assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    } finally {
+      rmSync(root, { force: true, recursive: true });
+    }
+  }
+);
+
 test('uses a new unique copy and serializes publication under the sealed root lock', () => {
   assert.match(source, /work\.XXXXXXXX/);
   assert.match(source, /readonly FLOCK=\/usr\/bin\/flock/);
