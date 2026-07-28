@@ -82,7 +82,7 @@ test('seals only a complete regular-file archive projection and rejects unsafe m
   assert.match(source, /sourceArchive/);
   assert.match(source, /reviewedHeadSha/);
   assert.match(source, /mergeSha/);
-  assert.match(source, /trap cleanup EXIT HUP INT TERM/);
+  assert.match(source, /trap cleanup EXIT/);
 });
 
 test('self-copies and raw-hash-verifies the first root helper before inner execution', () => {
@@ -98,6 +98,40 @@ test('self-copies and raw-hash-verifies the first root helper before inner execu
       source,
       new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
     );
+});
+
+test('runs the verified unique internal self-copy outside the noexec runtime mount', () => {
+  assert.doesNotMatch(source, /readonly SELF_ROOT=\/run\//);
+  assert.match(source, /readonly SELF_ROOT=\/var\/lib\/baci-cwv\/seal-source/);
+  assert.match(source, /readonly MKTEMP=\/usr\/bin\/mktemp/);
+  assert.match(source, /"\$MKTEMP" -d "\$SELF_ROOT\/work\.XXXXXXXX"/);
+  assert.match(source, /exec "\$copied" --sealed-inner "\$@"/);
+  assert.match(source, /cleanup_self_copy/);
+  assert.match(source, /\[\[ -d "\$SELF_PARENT" && ! -L "\$SELF_PARENT" \]\]/);
+});
+
+test('uses a new unique copy when an inert stale sibling remains after interruption', () => {
+  assert.match(source, /work\.XXXXXXXX/);
+  assert.doesNotMatch(source, /SELF_WORK=|readonly FLOCK|self-copy already running/);
+  assert.match(source, /unsafe self-copy parent/);
+});
+
+test('cleans up and exits with the received signal status', () => {
+  assert.doesNotMatch(source, /readonly KILL|wait "\$child"/);
+  assert.match(source, /exit "\$code"/);
+  assert.match(source, /trap 'signal HUP 129' HUP/);
+  assert.match(source, /trap 'signal INT 130' INT/);
+  assert.match(source, /trap 'signal TERM 143' TERM/);
+});
+
+test('rolls back owned publication before commit and preserves it after final fsync', () => {
+  assert.match(source, /target_owned=false receipt_owned=false committed=false/);
+  assert.match(source, /if \[\[ "\$committed" != true \]\]; then/);
+  assert.match(source, /"\$RM" -rf -- "\$receipt"/);
+  assert.match(source, /"\$RM" -rf -- "\$target"/);
+  assert.match(source, /target_owned=true\n"\$MV" -- "\$tree" "\$target"/);
+  assert.match(source, /receipt_owned=true; "\$MKDIR" -m 0700 -- "\$receipt"/);
+  assert.match(source, /"\$SYNC" -f "\$receipt"; "\$SYNC" -f "\$final_root"\ncommitted=true/);
 });
 
 test('binds the sealed tree rehash into the immutable receipt', () => {
