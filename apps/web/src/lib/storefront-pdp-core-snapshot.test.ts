@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { StorefrontDatabase } from '@/types/storefront-database';
 import { readStorefrontPdpCoreSnapshot } from './storefront-pdp-core-snapshot';
 
@@ -8,7 +8,7 @@ function createClient(response: unknown) {
   // rpc(...).abortSignal(signal).retry(false) → awaitable response.
   const retry = vi.fn().mockResolvedValue(response);
   const abortSignal = vi.fn(() => ({ retry }));
-  const rpc = vi.fn(() => ({ abortSignal }));
+  const rpc = vi.fn(() => ({ abortSignal, retry }));
   return {
     abortSignal,
     retry,
@@ -18,6 +18,11 @@ function createClient(response: unknown) {
 }
 
 describe('readStorefrontPdpCoreSnapshot', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
   it('uses one bounded GET RPC and returns the complete core product', async () => {
     const row = {
       resolution_status: 'found',
@@ -92,6 +97,39 @@ describe('readStorefrontPdpCoreSnapshot', () => {
       },
       { get: true }
     );
+  });
+
+  it('keeps the eight-second runtime query deadline', async () => {
+    const timeout = vi.spyOn(AbortSignal, 'timeout');
+    const { client } = createClient({
+      data: [{ resolution_status: 'not_found', product_data: null }],
+      error: null,
+      status: 200,
+    });
+
+    await readStorefrontPdpCoreSnapshot(client, {
+      merchantId: 'merchant-1',
+      productSlug: 'runtime-product',
+    });
+
+    expect(timeout).toHaveBeenCalledWith(8_000);
+  });
+
+  it('defers the bounded-build deadline until the public read transport is admitted', async () => {
+    vi.stubEnv('BACI_STOREFRONT_BUILD_READS', 'bounded');
+    const { abortSignal, client, retry } = createClient({
+      data: [{ resolution_status: 'not_found', product_data: null }],
+      error: null,
+      status: 200,
+    });
+
+    await readStorefrontPdpCoreSnapshot(client, {
+      merchantId: 'merchant-1',
+      productSlug: 'queued-product',
+    });
+
+    expect(abortSignal).not.toHaveBeenCalled();
+    expect(retry).toHaveBeenCalledWith(false);
   });
 
   it('preserves explicit not-found separately from read failures', async () => {

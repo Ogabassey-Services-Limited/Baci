@@ -26,6 +26,7 @@ import {
   getCachedNavigationCategories,
   getStorefrontNavigationCategories,
 } from './cached-categories';
+import { createPublicClient } from './supabase/public';
 
 describe('getCachedNavigationCategories', () => {
   beforeEach(() => {
@@ -33,6 +34,7 @@ describe('getCachedNavigationCategories', () => {
   });
 
   afterEach(() => {
+    vi.unstubAllEnvs();
     vi.restoreAllMocks();
   });
 
@@ -83,6 +85,41 @@ describe('getCachedNavigationCategories', () => {
     await expect(getCachedNavigationCategories('merchant-1')).resolves.toEqual(
       []
     );
+  });
+
+  it('shares the bounded build-read envelope with other public storefront clients', async () => {
+    vi.stubEnv('BACI_STOREFRONT_BUILD_READS', 'bounded');
+    mockOrder.mockResolvedValueOnce({ data: [], error: null });
+    const releases: Array<() => void> = [];
+    const upstream = vi.spyOn(globalThis, 'fetch').mockImplementation(
+      async () =>
+        new Promise<Response>((resolve) => {
+          releases.push(() => resolve(new Response('ok')));
+        })
+    );
+
+    await getCachedNavigationCategories('merchant-1');
+    createPublicClient({ clientInfo: 'baci-storefront-other-read-1' });
+    createPublicClient({ clientInfo: 'baci-storefront-other-read-2' });
+    createPublicClient({ clientInfo: 'baci-storefront-other-read-3' });
+
+    const configuredFetches = mockCreateClient.mock.calls.map(
+      ([_url, _key, options]) =>
+        (options as { global?: { fetch?: typeof fetch } }).global?.fetch
+    );
+    const reads = configuredFetches.map((configuredFetch, index) =>
+      (configuredFetch ?? globalThis.fetch)(`https://example.com/read-${index}`)
+    );
+
+    try {
+      await vi.waitFor(() => expect(upstream).toHaveBeenCalledTimes(3));
+      releases.shift()?.();
+      await vi.waitFor(() => expect(upstream).toHaveBeenCalledTimes(4));
+    } finally {
+      for (const release of releases) release();
+    }
+
+    await expect(Promise.all(reads)).resolves.toHaveLength(4);
   });
 });
 
