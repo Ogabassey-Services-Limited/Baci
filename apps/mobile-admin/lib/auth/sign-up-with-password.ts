@@ -13,6 +13,7 @@
 
 import { isAuthApiError, type Session, type User } from '@supabase/supabase-js';
 import { isConnectivityError } from '@/lib/api-errors';
+import { checkPasswordBreach } from '@/lib/auth/check-password-breach';
 import { supabase } from '@/lib/supabase';
 import { trackAuthTelemetry } from '@/services/auth-telemetry';
 
@@ -84,6 +85,19 @@ export async function runPasswordSignUp({
   trackAuthTelemetry({ provider: 'password', stage: 'start' });
 
   try {
+    const { count, isBreached } = await checkPasswordBreach(password);
+    if (isBreached) {
+      trackAuthTelemetry({
+        code: 'password_breached',
+        durationMs: Date.now() - startedAt,
+        provider: 'password',
+        stage: 'failure',
+      });
+      return {
+        error: `This password has appeared in ${(count ?? 1).toLocaleString()} known data breaches. Please choose a different, more secure password.`,
+      };
+    }
+
     const normalizedFirstName = toSentenceCase(firstName);
     const normalizedLastName = toSentenceCase(lastName);
     const normalizedFullName =

@@ -1,5 +1,18 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({
+  isLoading: false,
+  user: {
+    id: 'user-1',
+    email: 'ada@example.com',
+    user_metadata: { first_name: 'Ada' },
+  } as null | {
+    id: string;
+    email: string;
+    user_metadata: Record<string, unknown>;
+  },
+}));
 
 vi.mock('react-native', async () => {
   const React = await import('react');
@@ -17,6 +30,9 @@ vi.mock('react-native', async () => {
   };
 });
 vi.mock('expo-linear-gradient', () => ({ LinearGradient: () => null }));
+vi.mock('expo-router', () => ({
+  Redirect: ({ href }: { href: string }) => <span>redirect:{href}</span>,
+}));
 vi.mock('@react-native-vector-icons/ionicons', () => ({ default: () => null }));
 vi.mock('@/components/ui/AppFormScreen', async () => {
   const React = await import('react');
@@ -40,11 +56,8 @@ vi.mock('@/components/auth/register/MerchantSetupForm', () => ({
 }));
 vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({
-    user: {
-      id: 'user-1',
-      email: 'ada@example.com',
-      user_metadata: { first_name: 'Ada' },
-    },
+    isLoading: mocks.isLoading,
+    user: mocks.user,
   }),
 }));
 vi.mock('@/hooks/useTheme', () => ({
@@ -61,11 +74,39 @@ vi.mock('@/hooks/useTheme', () => ({
 import CompleteProfileScreen from './complete-profile';
 
 describe('CompleteProfileScreen', () => {
+  beforeEach(() => {
+    mocks.isLoading = false;
+    mocks.user = {
+      id: 'user-1',
+      email: 'ada@example.com',
+      user_metadata: { first_name: 'Ada' },
+    };
+  });
+
   it('hosts authenticated merchant setup without a second registration path', () => {
     render(<CompleteProfileScreen />);
 
     expect(screen.getByText('Complete Setup')).toBeTruthy();
     expect(screen.queryByText('Welcome, Ada!')).toBeNull();
     expect(screen.getByText('merchant setup form')).toBeTruthy();
+  });
+
+  it('redirects a signed-out deep link to login after auth initializes', () => {
+    mocks.user = null;
+
+    render(<CompleteProfileScreen />);
+
+    expect(screen.getByText('redirect:/(auth)/login')).toBeTruthy();
+    expect(screen.queryByText('loading')).toBeNull();
+  });
+
+  it('shows loading only while auth is still initializing', () => {
+    mocks.isLoading = true;
+    mocks.user = null;
+
+    render(<CompleteProfileScreen />);
+
+    expect(screen.getByText('loading')).toBeTruthy();
+    expect(screen.queryByText('redirect:/(auth)/login')).toBeNull();
   });
 });

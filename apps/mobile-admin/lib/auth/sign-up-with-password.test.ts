@@ -2,12 +2,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runPasswordSignUp } from './sign-up-with-password';
 
 const mocks = vi.hoisted(() => ({
+  checkPasswordBreach: vi.fn(),
   signUp: vi.fn(),
   trackAuthTelemetry: vi.fn(),
 }));
 
 vi.mock('@/lib/supabase', () => ({
   supabase: { auth: { signUp: mocks.signUp } },
+}));
+
+vi.mock('@/lib/auth/check-password-breach', () => ({
+  checkPasswordBreach: mocks.checkPasswordBreach,
 }));
 
 vi.mock('@/services/auth-telemetry', () => ({
@@ -33,6 +38,19 @@ function makeOptions(overrides: Record<string, unknown> = {}) {
 describe('runPasswordSignUp', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.checkPasswordBreach.mockResolvedValue({ isBreached: false });
+  });
+
+  it('rejects a breached password before creating the auth account', async () => {
+    mocks.checkPasswordBreach.mockResolvedValue({
+      count: 12_345,
+      isBreached: true,
+    });
+
+    const result = await runPasswordSignUp(makeOptions());
+
+    expect(result.error).toMatch(/12,345 known data breaches/i);
+    expect(mocks.signUp).not.toHaveBeenCalled();
   });
 
   it('commits the session and resets stores for a brand-new user', async () => {

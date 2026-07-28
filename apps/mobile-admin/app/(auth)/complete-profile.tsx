@@ -1,5 +1,6 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Redirect } from 'expo-router';
 import {
   ActivityIndicator,
   StatusBar,
@@ -18,9 +19,9 @@ export default function CompleteProfileScreen() {
   const { colors, isDark } = useTheme();
   const styles = getStyles(colors);
   const setupStyles = getMerchantSetupStyles(colors);
-  const { user } = useAuth();
+  const { isLoading, user } = useAuth();
 
-  if (!user) {
+  if (isLoading) {
     return (
       <View
         style={[
@@ -35,6 +36,10 @@ export default function CompleteProfileScreen() {
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
+  }
+
+  if (!user) {
+    return <Redirect href="/(auth)/login" />;
   }
 
   return (
