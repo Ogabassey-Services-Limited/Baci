@@ -8,9 +8,15 @@ vi.mock('@/env', () => ({
 }));
 
 const mocks = vi.hoisted(() => ({
+  runMobileOnboardingContractHealthCheck: vi.fn(),
   runWebVitalsHealthCheck: vi.fn(),
   loggerError: vi.fn(),
   loggerInfo: vi.fn(),
+}));
+
+vi.mock('@/lib/posthog/mobile-onboarding-contract-health', () => ({
+  runMobileOnboardingContractHealthCheck:
+    mocks.runMobileOnboardingContractHealthCheck,
 }));
 
 vi.mock('@/lib/posthog/web-vitals-health', () => ({
@@ -52,6 +58,16 @@ beforeEach(() => {
     },
     warnings: [],
   } satisfies WebVitalsHealthResult);
+  mocks.runMobileOnboardingContractHealthCheck.mockResolvedValue({
+    status: 'ok',
+    checkedDays: 8,
+    contiguousHealthyDays: 8,
+    legacyInvocations: 0,
+    v2Invocations: 5,
+    legacyDetected: false,
+    telemetryGap: false,
+    missingCanaryDays: [],
+  });
 });
 
 afterEach(() => {
@@ -85,8 +101,70 @@ describe('GET /api/cron/web-vitals-health', () => {
 
     expect(response.status).toBe(200);
     expect(body.status).toBe('ok');
+    expect(body.mobile_onboarding).toMatchObject({
+      status: 'ok',
+      v2Invocations: 5,
+    });
     expect(body.checked_at).toEqual(expect.any(String));
     expect(mocks.loggerError).not.toHaveBeenCalled();
+    expect(mocks.loggerInfo).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'mobile_onboarding_contract_health_checked',
+        checkedDays: 8,
+        contiguousHealthyDays: 8,
+      })
+    );
+  });
+
+  it('logs legacy contract traffic separately without hiding web-vitals health', async () => {
+    mocks.runMobileOnboardingContractHealthCheck.mockResolvedValue({
+      status: 'ok',
+      checkedDays: 8,
+      contiguousHealthyDays: 0,
+      legacyInvocations: 2,
+      v2Invocations: 5,
+      legacyDetected: true,
+      telemetryGap: false,
+      missingCanaryDays: [],
+    });
+
+    const response = await GET(cronRequest(`Bearer ${SECRET}`));
+    const body = await response.json();
+
+    expect(body.status).toBe('ok');
+    expect(body.mobile_onboarding.legacyDetected).toBe(true);
+    expect(mocks.loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'mobile_onboarding_contract_health_legacy_detected',
+        legacyInvocations: 2,
+      })
+    );
+  });
+
+  it('logs a telemetry gap when contract health cannot prove zero legacy traffic', async () => {
+    mocks.runMobileOnboardingContractHealthCheck.mockResolvedValue({
+      status: 'unavailable',
+      reason: 'daily_canary_missing',
+      checkedDays: 8,
+      contiguousHealthyDays: 0,
+      legacyInvocations: 0,
+      v2Invocations: 0,
+      legacyDetected: false,
+      telemetryGap: true,
+      missingCanaryDays: ['2026-07-27'],
+    });
+
+    const response = await GET(cronRequest(`Bearer ${SECRET}`));
+    const body = await response.json();
+
+    expect(body.status).toBe('ok');
+    expect(body.mobile_onboarding.status).toBe('unavailable');
+    expect(mocks.loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'mobile_onboarding_contract_health_telemetry_gap',
+        reason: 'daily_canary_missing',
+      })
+    );
   });
 
   it('logs a stable degraded tag when the capture health regresses', async () => {

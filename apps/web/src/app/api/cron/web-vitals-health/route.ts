@@ -7,6 +7,10 @@ import {
   getPostHogServerApiKey,
 } from '@/lib/posthog/config';
 import {
+  type MobileOnboardingContractHealthResult,
+  runMobileOnboardingContractHealthCheck,
+} from '@/lib/posthog/mobile-onboarding-contract-health';
+import {
   runWebVitalsHealthCheck,
   type WebVitalsHealthResult,
 } from '@/lib/posthog/web-vitals-health';
@@ -22,6 +26,11 @@ const DEGRADED_LOG_TAG = 'web_vitals_health_degraded';
 // errored, or skipped despite being configured). Without this, error/skipped
 // results return 200 silently and the daily check rots invisibly.
 const UNAVAILABLE_LOG_TAG = 'web_vitals_health_unavailable';
+const ONBOARDING_CHECKED_LOG_TAG = 'mobile_onboarding_contract_health_checked';
+const ONBOARDING_LEGACY_LOG_TAG =
+  'mobile_onboarding_contract_health_legacy_detected';
+const ONBOARDING_GAP_LOG_TAG =
+  'mobile_onboarding_contract_health_telemetry_gap';
 
 function isPostHogQueryConfigured(): boolean {
   return Boolean(getPostHogServerApiKey() && getPostHogProjectId());
@@ -41,6 +50,26 @@ function isUnavailable(result: WebVitalsHealthResult): boolean {
   return result.status === 'skipped' && isPostHogQueryConfigured();
 }
 
+function logMobileOnboardingHealth(
+  result: MobileOnboardingContractHealthResult
+): void {
+  const details = {
+    checkedDays: result.checkedDays,
+    contiguousHealthyDays: result.contiguousHealthyDays,
+    legacyInvocations: result.legacyInvocations,
+    v2Invocations: result.v2Invocations,
+    status: result.status,
+    reason: result.reason,
+  };
+  if (result.telemetryGap || result.status === 'unavailable') {
+    logger.error({ message: ONBOARDING_GAP_LOG_TAG, ...details });
+  } else if (result.legacyDetected) {
+    logger.error({ message: ONBOARDING_LEGACY_LOG_TAG, ...details });
+  } else {
+    logger.info({ message: ONBOARDING_CHECKED_LOG_TAG, ...details });
+  }
+}
+
 export async function GET(request: NextRequest) {
   // Auth: fail-closed when CRON_SECRET is not configured.
   const cronSecret = getCronSecret();
@@ -57,7 +86,10 @@ export async function GET(request: NextRequest) {
 
   // Fail-open: runWebVitalsHealthCheck never throws for PostHog-side errors, so
   // the cron always returns 200 with a status the schedule can inspect.
-  const result = await runWebVitalsHealthCheck();
+  const [result, mobileOnboarding] = await Promise.all([
+    runWebVitalsHealthCheck(),
+    runMobileOnboardingContractHealthCheck(),
+  ]);
 
   if (result.status === 'degraded') {
     logger.error({
@@ -80,6 +112,11 @@ export async function GET(request: NextRequest) {
       captureRatio: result.captureRatio,
     });
   }
+  logMobileOnboardingHealth(mobileOnboarding);
 
-  return NextResponse.json({ checked_at: new Date().toISOString(), ...result });
+  return NextResponse.json({
+    checked_at: new Date().toISOString(),
+    ...result,
+    mobile_onboarding: mobileOnboarding,
+  });
 }

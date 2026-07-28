@@ -1,5 +1,5 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -12,6 +12,7 @@ import { AppPageSheet } from '@/components/ui/AppPageSheet';
 import { COUNTRIES } from '@/constants/countries';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
+import { countryFlag } from './country-flag';
 
 // Touch-target hitSlop for the clear-search icon. The visible icon is small
 // (18pt), so a 13pt slop on each side brings the effective tap area to 44pt
@@ -19,13 +20,23 @@ import { useTheme } from '@/hooks/useTheme';
 const CLEAR_SEARCH_HIT_SLOP = 13;
 
 interface CountryPickerModalProps {
+  countries?: readonly CountryPickerOption[];
   visible: boolean;
   selectedCountry: string;
-  onSelect: (country: (typeof COUNTRIES)[0]) => void;
+  onSelect: (country: CountryPickerOption) => void;
   onClose: () => void;
 }
 
+interface CountryPickerOption {
+  code: string;
+  currency: string;
+  currencySymbol: string;
+  flag?: string;
+  name: string;
+}
+
 export function CountryPickerModal({
+  countries = COUNTRIES,
   visible,
   selectedCountry,
   onSelect,
@@ -34,7 +45,13 @@ export function CountryPickerModal({
   const { colors } = useTheme();
   const [search, setSearch] = useState('');
 
-  const filteredCountries = COUNTRIES.filter(
+  useEffect(() => {
+    if (visible) {
+      setSearch('');
+    }
+  }, [visible]);
+
+  const filteredCountries = countries.filter(
     (c) =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
       c.code.toLowerCase().includes(search.toLowerCase())
@@ -119,26 +136,31 @@ export function CountryPickerModal({
                 accessibilityLabel={item.name}
                 accessibilityState={{ selected: isSelected }}
               >
-                <View>
-                  <Text
-                    style={[
-                      styles.countryName,
-                      {
-                        color: colors.text,
-                        fontWeight: isSelected ? 'bold' : 'normal',
-                      },
-                    ]}
-                  >
-                    {item.name}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.currencyText,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    {item.currency} ({item.currencySymbol})
-                  </Text>
+                <View style={styles.countryIdentity}>
+                  {countryFlag(item) ? (
+                    <Text style={styles.countryFlag}>{countryFlag(item)}</Text>
+                  ) : null}
+                  <View>
+                    <Text
+                      style={[
+                        styles.countryName,
+                        {
+                          color: colors.text,
+                          fontWeight: isSelected ? 'bold' : 'normal',
+                        },
+                      ]}
+                    >
+                      {item.name}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.currencyText,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      {item.currency} ({item.currencySymbol})
+                    </Text>
+                  </View>
                 </View>
                 {isSelected ? (
                   <Ionicons
@@ -193,6 +215,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: RADIUS.md,
     marginBottom: SPACING.sm,
+  },
+  countryIdentity: {
+    alignItems: 'center',
+    flexDirection: 'row',
+  },
+  countryFlag: {
+    fontSize: TYPOGRAPHY.size.xl,
+    marginRight: SPACING.md,
   },
   countryName: {
     fontSize: TYPOGRAPHY.size.md,

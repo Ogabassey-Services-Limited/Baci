@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -13,7 +14,7 @@ const mocks = vi.hoisted(() => ({
   alert: vi.fn(),
   back: vi.fn(),
   replace: vi.fn(),
-  verifyOtp: vi.fn(),
+  verifySignupOtp: vi.fn(),
   resend: vi.fn(),
 }));
 
@@ -166,9 +167,14 @@ vi.mock('@/lib/supabase', () => ({
   supabase: {
     auth: {
       resend: mocks.resend,
-      verifyOtp: mocks.verifyOtp,
     },
   },
+}));
+
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: () => ({
+    verifySignupOtp: mocks.verifySignupOtp,
+  }),
 }));
 
 import VerifyScreen from './verify';
@@ -176,12 +182,16 @@ import VerifyScreen from './verify';
 describe('VerifyScreen OTP keyboard controls', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.verifyOtp.mockResolvedValue({ error: null });
+    mocks.verifySignupOtp.mockResolvedValue({
+      error: null,
+      sessionEstablished: true,
+    });
     mocks.resend.mockResolvedValue({ error: null });
   });
 
   afterEach(() => {
     cleanup();
+    vi.useRealTimers();
   });
 
   it('labels every OTP digit and exposes cross-platform previous and next controls', () => {
@@ -213,11 +223,91 @@ describe('VerifyScreen OTP keyboard controls', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Verify code' }));
 
     await waitFor(() => {
-      expect(mocks.verifyOtp).toHaveBeenCalledWith({
-        email: 'merchant@example.com',
-        token: '123456',
-        type: 'signup',
-      });
+      expect(mocks.verifySignupOtp).toHaveBeenCalledWith(
+        'merchant@example.com',
+        '123456'
+      );
     });
+  });
+
+  it('offers setup only after the exact verified session is committed, then replaces the route', async () => {
+    const verification = Promise.withResolvers<{
+      error: null;
+      sessionEstablished: true;
+    }>();
+    mocks.verifySignupOtp.mockReturnValue(verification.promise);
+    render(<VerifyScreen />);
+
+    for (const [index, digit] of ['1', '2', '3', '4', '5', '6'].entries()) {
+      fireEvent.change(screen.getByLabelText(`Digit ${index + 1} of 6`), {
+        target: { value: digit },
+      });
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Verify Email' }));
+
+    expect(screen.queryByRole('button', { name: 'Continue setup' })).toBeNull();
+    expect(mocks.replace).not.toHaveBeenCalled();
+
+    verification.resolve({ error: null, sessionEstablished: true });
+
+    const continueButton = await screen.findByRole('button', {
+      name: 'Continue setup',
+    });
+    expect(
+      screen.queryByRole('button', { name: 'Enter Dashboard' })
+    ).toBeNull();
+    expect(mocks.replace).not.toHaveBeenCalled();
+
+    fireEvent.click(continueButton);
+
+    expect(mocks.replace).toHaveBeenCalledWith('/(auth)/complete-profile');
+  });
+
+  it('stays on verification when Supabase does not return a complete session', async () => {
+    mocks.verifySignupOtp.mockResolvedValue({
+      error:
+        'Email verification did not finish. Request a new code and try again.',
+    });
+    render(<VerifyScreen />);
+
+    for (const [index, digit] of ['1', '2', '3', '4', '5', '6'].entries()) {
+      fireEvent.change(screen.getByLabelText(`Digit ${index + 1} of 6`), {
+        target: { value: digit },
+      });
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Verify Email' }));
+
+    await waitFor(() => {
+      expect(mocks.alert).toHaveBeenCalledWith(
+        'Verification Failed',
+        'Email verification did not finish. Request a new code and try again.'
+      );
+    });
+    expect(mocks.replace).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Continue setup' })).toBeNull();
+  });
+
+  it('resends only a signup OTP and presents a stable rate-limit message', async () => {
+    vi.useFakeTimers();
+    mocks.resend.mockResolvedValue({
+      error: new Error('For security purposes, wait 60 seconds'),
+    });
+    render(<VerifyScreen />);
+
+    act(() => {
+      vi.advanceTimersByTime(30_000);
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Resend code' }));
+    });
+
+    expect(mocks.resend).toHaveBeenCalledWith({
+      email: 'merchant@example.com',
+      type: 'signup',
+    });
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'Could Not Resend Code',
+      'Please wait before requesting another code.'
+    );
   });
 });

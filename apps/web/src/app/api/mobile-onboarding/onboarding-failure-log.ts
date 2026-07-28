@@ -70,7 +70,8 @@ export interface OnboardingFailureLogContext {
   accountExists?: boolean;
   /** Which provisioning step failed, when it is not the generic catch-all. */
   stage?: string;
-  merchantId?: string;
+  /** Versioned route contract only; never user, merchant, or business data. */
+  contract?: 'v1_legacy' | 'v2_authenticated';
 }
 
 /**

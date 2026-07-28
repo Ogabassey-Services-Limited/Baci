@@ -2,12 +2,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runPasswordSignUp } from './sign-up-with-password';
 
 const mocks = vi.hoisted(() => ({
+  checkPasswordBreach: vi.fn(),
   signUp: vi.fn(),
   trackAuthTelemetry: vi.fn(),
 }));
 
 vi.mock('@/lib/supabase', () => ({
   supabase: { auth: { signUp: mocks.signUp } },
+}));
+
+vi.mock('@/lib/auth/check-password-breach', () => ({
+  checkPasswordBreach: mocks.checkPasswordBreach,
 }));
 
 vi.mock('@/services/auth-telemetry', () => ({
@@ -24,7 +29,7 @@ function makeOptions(overrides: Record<string, unknown> = {}) {
     email: 'staff@example.com',
     password: 'sup3r-secret-pw',
     getCurrentUserId: vi.fn(() => undefined),
-    onResetUserStores: vi.fn(),
+    onResetUserStores: vi.fn().mockResolvedValue(undefined),
     setState: vi.fn(),
     ...overrides,
   };
@@ -33,6 +38,19 @@ function makeOptions(overrides: Record<string, unknown> = {}) {
 describe('runPasswordSignUp', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.checkPasswordBreach.mockResolvedValue({ isBreached: false });
+  });
+
+  it('rejects a breached password before creating the auth account', async () => {
+    mocks.checkPasswordBreach.mockResolvedValue({
+      count: 12_345,
+      isBreached: true,
+    });
+
+    const result = await runPasswordSignUp(makeOptions());
+
+    expect(result.error).toMatch(/12,345 known data breaches/i);
+    expect(mocks.signUp).not.toHaveBeenCalled();
   });
 
   it('commits the session and resets stores for a brand-new user', async () => {
@@ -43,7 +61,7 @@ describe('runPasswordSignUp', () => {
 
     const result = await runPasswordSignUp(opts);
 
-    expect(result).toEqual({ error: null });
+    expect(result).toEqual({ error: null, sessionEstablished: true });
     expect(opts.setState).toHaveBeenCalledWith(
       expect.objectContaining({ isAuthenticated: true, session, user })
     );
@@ -58,7 +76,7 @@ describe('runPasswordSignUp', () => {
 
     const result = await runPasswordSignUp(opts);
 
-    expect(result).toEqual({ error: null });
+    expect(result).toEqual({ error: null, sessionEstablished: true });
     expect(opts.onResetUserStores).not.toHaveBeenCalled();
   });
 
@@ -70,7 +88,7 @@ describe('runPasswordSignUp', () => {
     expect(result).toEqual({ error: 'network exploded' });
   });
 
-  it('passes the full name as user metadata when provided', async () => {
+  it('passes sentence-cased first, last, and full names as user metadata', async () => {
     mocks.signUp.mockResolvedValue({
       data: {
         session: { access_token: 't' },
@@ -79,12 +97,56 @@ describe('runPasswordSignUp', () => {
       error: null,
     });
 
-    await runPasswordSignUp(makeOptions({ fullName: 'Ada Lovelace' }));
+    await runPasswordSignUp(
+      makeOptions({
+        firstName: 'aDA',
+        lastName: 'lOVELACE',
+        fullName: 'aDA lOVELACE',
+      })
+    );
 
     expect(mocks.signUp).toHaveBeenCalledWith(
       expect.objectContaining({
-        options: { data: { full_name: 'Ada Lovelace' } },
+        options: {
+          data: {
+            first_name: 'Ada',
+            last_name: 'Lovelace',
+            full_name: 'Ada Lovelace',
+          },
+        },
       })
+    );
+  });
+
+  it('awaits prior-user cache clearing before committing and resolving signup', async () => {
+    const session = { access_token: 't' };
+    const user = { id: 'new-user', identities: [{ id: 'i' }] };
+    const reset = Promise.withResolvers<void>();
+    const opts = makeOptions({
+      getCurrentUserId: vi.fn(() => 'prior-user'),
+      onResetUserStores: vi.fn(() => reset.promise),
+    });
+    mocks.signUp.mockResolvedValue({ data: { session, user }, error: null });
+
+    let resolved = false;
+    const resultPromise = runPasswordSignUp(opts).then((result) => {
+      resolved = true;
+      return result;
+    });
+    await vi.waitFor(() => expect(opts.onResetUserStores).toHaveBeenCalled());
+
+    expect(resolved).toBe(false);
+    expect(opts.setState).not.toHaveBeenCalledWith(
+      expect.objectContaining({ isAuthenticated: true })
+    );
+
+    reset.resolve();
+    await expect(resultPromise).resolves.toEqual({
+      error: null,
+      sessionEstablished: true,
+    });
+    expect(opts.setState).toHaveBeenCalledWith(
+      expect.objectContaining({ isAuthenticated: true, user })
     );
   });
 

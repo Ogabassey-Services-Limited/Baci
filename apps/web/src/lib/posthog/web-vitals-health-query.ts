@@ -92,11 +92,17 @@ SELECT
   -- once, so the largest per-metric count is a $pageview_id-independent lower
   -- bound on the number of pageviews that reported vitals.
   greatest(
-    countIf(event = 'web_vitals' AND properties.metric = 'LCP'),
-    countIf(event = 'web_vitals' AND properties.metric = 'FCP'),
-    countIf(event = 'web_vitals' AND properties.metric = 'TTFB'),
-    countIf(event = 'web_vitals' AND properties.metric = 'CLS'),
-    countIf(event = 'web_vitals' AND properties.metric = 'INP')
+    greatest(
+      countIf(event = 'web_vitals' AND properties.metric = 'LCP'),
+      countIf(event = 'web_vitals' AND properties.metric = 'FCP')
+    ),
+    greatest(
+      countIf(event = 'web_vitals' AND properties.metric = 'TTFB'),
+      greatest(
+        countIf(event = 'web_vitals' AND properties.metric = 'CLS'),
+        countIf(event = 'web_vitals' AND properties.metric = 'INP')
+      )
+    )
   ) AS vitals_pageviews,
   countIf(${NON_BLOG_PAGEVIEW_PREDICATE}) AS non_blog_pageviews
 FROM events

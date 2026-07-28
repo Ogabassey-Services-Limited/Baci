@@ -68,13 +68,13 @@ describe('logOnboardingFailure', () => {
     // Act
     logOnboardingFailure(postgrestError('42501', 'denied'), {
       stage: 'domain_provisioning',
-      merchantId: 'merch-1',
+      contract: 'v1_legacy',
     });
 
     // Assert
     expect(JSON.parse(errorSpy.mock.calls[0][2] as string)).toMatchObject({
       stage: 'domain_provisioning',
-      merchantId: 'merch-1',
+      contract: 'v1_legacy',
     });
   });
 

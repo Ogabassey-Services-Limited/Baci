@@ -135,7 +135,7 @@ vi.mock('@/stores/auth-store', () => ({
   },
 }));
 
-import RootLayout from './_layout';
+import RootLayout from '@/app/_layout';
 
 describe('mobile-admin RootLayout', () => {
   beforeEach(() => {

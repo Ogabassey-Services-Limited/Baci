@@ -33,6 +33,20 @@ export const getStyles = (colors: ThemeColors) =>
     content: {
       padding: SPACING.lg,
     },
+    introSection: {
+      gap: SPACING.sm,
+      marginBottom: SPACING.xl,
+    },
+    introTitle: {
+      color: colors.text,
+      fontFamily: TYPOGRAPHY.fontFamily.bold,
+      fontSize: TYPOGRAPHY.size['3xl'],
+    },
+    introText: {
+      color: colors.textSecondary,
+      fontSize: TYPOGRAPHY.size.md,
+      lineHeight: 24,
+    },
     progressContainer: {
       height: 4,
       backgroundColor: colors.border,
@@ -49,6 +63,17 @@ export const getStyles = (colors: ThemeColors) =>
       fontSize: TYPOGRAPHY.size.sm,
       marginBottom: SPACING.xl,
       textAlign: 'right',
+    },
+    previousStepButton: {
+      alignSelf: 'flex-start',
+      minHeight: 44,
+      justifyContent: 'center',
+      paddingHorizontal: SPACING.xs,
+    },
+    previousStepText: {
+      color: colors.primary,
+      fontFamily: TYPOGRAPHY.fontFamily.medium,
+      fontSize: TYPOGRAPHY.size.md,
     },
     formSection: {
       gap: SPACING.xl,
@@ -88,23 +113,67 @@ export const getStyles = (colors: ThemeColors) =>
       borderWidth: 1,
       borderColor: colors.border,
     },
-    countryOptions: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: SPACING.sm,
-    },
-    countryOption: {
-      borderWidth: 1,
+    countrySelector: {
+      backgroundColor: colors.inputBg,
       borderColor: colors.border,
-      borderRadius: RADIUS.full,
-      paddingHorizontal: SPACING.md,
-      paddingVertical: SPACING.sm,
-      backgroundColor: colors.card,
+      borderRadius: RADIUS.md,
+      borderWidth: 1,
+      minHeight: 48,
+      overflow: 'hidden',
     },
-    countryOptionText: {
+    countrySelectorPressable: {
+      alignItems: 'center',
+      flex: 1,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      minHeight: 48,
+      padding: SPACING.md,
+    },
+    countrySelectorValue: {
+      alignItems: 'center',
+      flex: 1,
+      flexDirection: 'row',
+    },
+    countrySelectorFlag: {
+      fontSize: TYPOGRAPHY.size.lg,
+      marginRight: SPACING.sm,
+    },
+    countrySelectorText: {
       color: colors.text,
-      fontSize: TYPOGRAPHY.size.sm,
-      fontFamily: TYPOGRAPHY.fontFamily.medium,
+      flex: 1,
+      fontFamily: TYPOGRAPHY.fontFamily.regular,
+      fontSize: TYPOGRAPHY.size.md,
+      marginRight: SPACING.sm,
+    },
+    phoneField: {
+      alignItems: 'center',
+      backgroundColor: colors.inputBg,
+      borderColor: colors.border,
+      borderRadius: RADIUS.md,
+      borderWidth: 1,
+      flexDirection: 'row',
+      minHeight: 52,
+    },
+    phoneCountryButton: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      minHeight: 52,
+      paddingHorizontal: SPACING.md,
+    },
+    phoneCountryCode: {
+      color: colors.text,
+      fontSize: TYPOGRAPHY.size.md,
+    },
+    phoneFieldDivider: {
+      alignSelf: 'stretch',
+      backgroundColor: colors.border,
+      width: 1,
+    },
+    phoneInput: {
+      color: colors.text,
+      flex: 1,
+      fontSize: TYPOGRAPHY.size.md,
+      padding: SPACING.md,
     },
     passwordContainer: {
       flexDirection: 'row',

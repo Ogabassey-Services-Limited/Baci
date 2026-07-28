@@ -87,7 +87,7 @@ vi.mock('@/hooks/useAdminAnalyticsSync', () => ({
   useAdminAnalyticsSync: mocks.analyticsSync.useAdminAnalyticsSync,
 }));
 
-import AdminLayout from './_layout';
+import AdminLayout from '@/app/(admin)/_layout';
 
 describe('AdminLayout analytics instrumentation', () => {
   beforeEach(() => {

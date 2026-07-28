@@ -1,0 +1,171 @@
+import { StyleSheet } from 'react-native';
+import {
+  RADIUS,
+  SPACING,
+  type ThemeColors,
+  TYPOGRAPHY,
+} from '@/constants/theme';
+
+export const getVerifyStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    content: {
+      flex: 1,
+      padding: SPACING.lg,
+      paddingTop: SPACING['3xl'],
+    },
+    header: {
+      marginBottom: SPACING['3xl'],
+    },
+    backButton: {
+      marginBottom: SPACING.lg,
+    },
+    title: {
+      color: colors.text,
+      fontSize: TYPOGRAPHY.size['3xl'],
+      fontFamily: TYPOGRAPHY.fontFamily.bold,
+      marginBottom: SPACING.sm,
+    },
+    subtitle: {
+      color: colors.textSecondary,
+      fontSize: TYPOGRAPHY.size.md,
+      lineHeight: 24,
+    },
+    otpContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: SPACING.xs,
+      marginBottom: SPACING.sm,
+    },
+    otpInput: {
+      width: 45,
+      height: 55,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: RADIUS.md,
+      backgroundColor: colors.inputBg,
+      color: colors.text,
+      fontSize: TYPOGRAPHY.size.xl,
+      textAlign: 'center',
+      fontFamily: TYPOGRAPHY.fontFamily.bold,
+    },
+    otpActionRow: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: SPACING.xl,
+    },
+    otpActionButton: {
+      borderRadius: RADIUS.full,
+      paddingHorizontal: SPACING.lg,
+      paddingVertical: SPACING.sm,
+    },
+    otpActionPrimaryButton: {
+      backgroundColor: colors.primary,
+      borderRadius: RADIUS.full,
+      paddingHorizontal: SPACING.lg,
+      paddingVertical: SPACING.sm,
+    },
+    otpActionDisabled: {
+      opacity: 0.4,
+    },
+    otpActionPressed: {
+      opacity: 0.7,
+    },
+    otpActionText: {
+      color: colors.text,
+      fontSize: TYPOGRAPHY.size.md,
+      fontFamily: TYPOGRAPHY.fontFamily.medium,
+    },
+    otpActionPrimaryText: {
+      color: colors.textOnPrimary,
+      fontSize: TYPOGRAPHY.size.md,
+      fontFamily: TYPOGRAPHY.fontFamily.bold,
+    },
+    button: {
+      backgroundColor: colors.primary,
+      paddingVertical: 16,
+      borderRadius: RADIUS.full,
+      alignItems: 'center',
+      marginBottom: SPACING.lg,
+    },
+    buttonText: {
+      color: colors.textOnPrimary,
+      fontSize: TYPOGRAPHY.size.lg,
+      fontFamily: TYPOGRAPHY.fontFamily.bold,
+    },
+    resendButton: {
+      alignItems: 'center',
+      padding: SPACING.md,
+    },
+    resendText: {
+      color: colors.primary,
+      fontSize: TYPOGRAPHY.size.md,
+      fontFamily: TYPOGRAPHY.fontFamily.medium,
+    },
+    successOverlay: {
+      backgroundColor: 'rgba(0,0,0,0.85)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: SPACING.xl,
+      zIndex: 100,
+    },
+    successCard: {
+      width: '100%',
+      backgroundColor: colors.card,
+      borderRadius: RADIUS.xl,
+      padding: SPACING['2xl'],
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.1)',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.51,
+      shadowRadius: 13.16,
+      elevation: 20,
+    },
+    iconContainer: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      backgroundColor: colors.success,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: SPACING.xl,
+      shadowColor: colors.success,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+    },
+    successTitle: {
+      color: colors.text,
+      fontSize: TYPOGRAPHY.size['2xl'],
+      fontFamily: TYPOGRAPHY.fontFamily.bold,
+      marginBottom: SPACING.sm,
+    },
+    successMessage: {
+      color: colors.textSecondary,
+      fontSize: TYPOGRAPHY.size.md,
+      textAlign: 'center',
+      marginBottom: SPACING['2xl'],
+      lineHeight: 24,
+    },
+    successButton: {
+      width: '100%',
+      backgroundColor: colors.primary,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 16,
+      borderRadius: RADIUS.full,
+      gap: SPACING.sm,
+    },
+    successButtonText: {
+      color: colors.textOnPrimary,
+      fontSize: TYPOGRAPHY.size.lg,
+      fontFamily: TYPOGRAPHY.fontFamily.bold,
+    },
+  });

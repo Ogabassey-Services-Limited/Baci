@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { RegisterAccountStep } from '@/components/auth/register/RegisterAccountStep';
 import type { PasswordValidationResult } from '@/lib/password-utils';
@@ -14,6 +14,7 @@ vi.mock('react-native', async () => {
   const React = await import('react');
 
   return {
+    ActivityIndicator: () => React.createElement('span', null, 'loading'),
     useColorScheme: vi.fn(() => 'dark'),
     StyleSheet: {
       create: (s: Record<string, unknown>) => s,
@@ -25,15 +26,17 @@ vi.mock('react-native', async () => {
     Pressable: ({
       accessibilityLabel,
       children,
+      disabled,
       onPress,
     }: {
       accessibilityLabel?: string;
       children?: React.ReactNode;
+      disabled?: boolean;
       onPress?: () => void;
     }) =>
       React.createElement(
         'button',
-        { onClick: onPress, 'aria-label': accessibilityLabel },
+        { onClick: onPress, 'aria-label': accessibilityLabel, disabled },
         children
       ),
     TextInput: ({
@@ -43,6 +46,7 @@ vi.mock('react-native', async () => {
       secureTextEntry,
       textContentType,
       value,
+      onChangeText,
     }: {
       accessibilityLabel?: string;
       autoComplete?: string;
@@ -50,6 +54,7 @@ vi.mock('react-native', async () => {
       secureTextEntry?: boolean;
       textContentType?: string;
       value?: string;
+      onChangeText?: (value: string) => void;
     }) =>
       React.createElement('input', {
         'aria-label': accessibilityLabel,
@@ -57,6 +62,8 @@ vi.mock('react-native', async () => {
         'data-password-rules': passwordRules ?? '',
         'data-text-content-type': textContentType ?? '',
         readOnly: true,
+        onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
+          onChangeText?.(event.target.value),
         type: secureTextEntry ? 'password' : 'text',
         value: value ?? '',
       }),
@@ -74,7 +81,16 @@ const passwordState: PasswordValidationResult = {
   },
 };
 
-function renderStep() {
+function renderStep(
+  updateForm = vi.fn(),
+  formDataOverrides: Partial<{
+    confirmPassword: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    password: string;
+  }> = {}
+) {
   return render(
     <RegisterAccountStep
       confirmError={null}
@@ -84,12 +100,13 @@ function renderStep() {
         firstName: '',
         lastName: '',
         password: '',
+        ...formDataOverrides,
       }}
       onNext={vi.fn()}
       onTogglePassword={vi.fn()}
       passwordState={passwordState}
       showPassword={false}
-      updateForm={vi.fn()}
+      updateForm={updateForm}
     />
   );
 }
@@ -148,5 +165,68 @@ describe('RegisterAccountStep iOS AutoFill contract', () => {
     expect(lastName.getAttribute('data-autocomplete')).toBe('family-name');
     expect(email.getAttribute('data-text-content-type')).toBe('emailAddress');
     expect(email.getAttribute('data-autocomplete')).toBe('email');
+  });
+});
+
+describe('RegisterAccountStep pending state', () => {
+  it('disables the next-step action while account creation is pending', () => {
+    render(
+      <RegisterAccountStep
+        confirmError={null}
+        formData={{
+          confirmPassword: 'StrongP@ss123!',
+          email: 'ada@example.com',
+          firstName: 'Ada',
+          lastName: 'Lovelace',
+          password: 'StrongP@ss123!',
+        }}
+        isLoading={true}
+        onNext={vi.fn()}
+        onTogglePassword={vi.fn()}
+        passwordState={passwordState}
+        showPassword={false}
+        updateForm={vi.fn()}
+      />
+    );
+
+    expect(
+      (
+        screen.getByRole('button', {
+          name: 'Creating account...',
+        }) as HTMLButtonElement
+      ).disabled
+    ).toBe(true);
+  });
+});
+
+describe('RegisterAccountStep name normalization', () => {
+  it('forces typed or pasted first and last names to sentence case', () => {
+    const updateForm = vi.fn();
+    renderStep(updateForm);
+
+    fireEvent.change(screen.getByLabelText('First Name'), {
+      target: { value: 'aDA' },
+    });
+    fireEvent.change(screen.getByLabelText('Last Name'), {
+      target: { value: 'lOVELACE' },
+    });
+
+    expect(updateForm).toHaveBeenNthCalledWith(1, 'firstName', 'Ada');
+    expect(updateForm).toHaveBeenNthCalledWith(2, 'lastName', 'Lovelace');
+  });
+
+  it('preserves empty and whitespace-only name input without throwing', () => {
+    const updateForm = vi.fn();
+    renderStep(updateForm, { firstName: 'Ada', lastName: 'Lovelace' });
+
+    fireEvent.change(screen.getByLabelText('First Name'), {
+      target: { value: '' },
+    });
+    fireEvent.change(screen.getByLabelText('Last Name'), {
+      target: { value: '   ' },
+    });
+
+    expect(updateForm).toHaveBeenNthCalledWith(1, 'firstName', '');
+    expect(updateForm).toHaveBeenNthCalledWith(2, 'lastName', '   ');
   });
 });

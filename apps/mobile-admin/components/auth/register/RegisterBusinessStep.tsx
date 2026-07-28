@@ -1,170 +1,158 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import {
-  ActivityIndicator,
-  Pressable,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Text, TextInput, View } from 'react-native';
 import type { BusinessTypeId } from '@/constants/business-types';
-import { COUNTRIES } from '@/constants/countries';
 import { useTheme } from '@/hooks/useTheme';
 import { BusinessTypeSelector } from '../BusinessTypeSelector';
+import { MerchantSetupActionButton } from './MerchantSetupActionButton';
+import { MerchantSetupHero } from './MerchantSetupHero';
+import { getMerchantSetupStyles } from './merchant-setup.styles';
 import { RegisterLegalText } from './RegisterLegalText';
 import { getStyles } from './register.styles';
 
 interface RegisterFormData {
   businessName: string;
   businessType: string;
-  country: string;
   otherBusinessType: string;
   slug: string;
 }
 
 interface RegisterBusinessStepProps {
+  firstName: string;
   formData: RegisterFormData;
   isLoading: boolean;
+  onBack: () => void;
   onBusinessTypeChange: (typeId: BusinessTypeId) => void;
-  onCountryChange: (countryCode: string) => void;
   onLaunchStore: () => void;
   onOtherBusinessTypeChange: (text: string) => void;
   onBusinessNameChange: (text: string) => void;
   onSlugChange: (text: string) => void;
+  slugError?: string | null;
+}
+
+function toTitleCase(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/(^|[\s'’-])\S/g, (match) => match.toUpperCase());
 }
 
 export function RegisterBusinessStep({
+  firstName,
   formData,
   isLoading,
+  onBack,
   onBusinessNameChange,
   onBusinessTypeChange,
-  onCountryChange,
   onLaunchStore,
   onOtherBusinessTypeChange,
   onSlugChange,
+  slugError,
 }: RegisterBusinessStepProps) {
   const { colors } = useTheme();
   const styles = getStyles(colors);
+  const setupStyles = getMerchantSetupStyles(colors);
+
   return (
     <View style={styles.formSection}>
-      <Text style={styles.sectionTitle}>Business Info</Text>
-      <Text style={styles.sectionValidation}>Tell us about your store</Text>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Business Name</Text>
-        <TextInput
-          accessibilityLabel="Business Name"
-          style={styles.input}
-          placeholder="My Awesome Store"
-          placeholderTextColor={colors.textMuted}
-          value={formData.businessName}
-          onChangeText={onBusinessNameChange}
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Store Link</Text>
-        <View style={styles.urlInputContainer}>
-          <TextInput
-            accessibilityLabel="Store Link"
-            style={[styles.urlInput, { textAlign: 'right' }]}
-            placeholder="my-store"
-            placeholderTextColor={colors.textMuted}
-            autoCapitalize="none"
-            value={formData.slug}
-            onChangeText={onSlugChange}
-          />
-          <Text style={styles.urlSuffix}>.usebaci.com</Text>
-        </View>
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Business Type</Text>
-        <BusinessTypeSelector
-          borderColor={colors.border}
-          cardBackgroundColor={colors.card}
-          onSelect={onBusinessTypeChange}
-          selectedBackgroundColor={colors.primary}
-          selectedBorderColor={colors.primary}
-          selectedTextColor={colors.textOnPrimary}
-          selectedType={formData.businessType}
-          textColor={colors.textSecondary}
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Country/Region</Text>
-        <View style={styles.countryOptions}>
-          {COUNTRIES.map((country) => {
-            const isSelected = formData.country === country.code;
-            return (
-              <Pressable
-                accessibilityLabel={`Country ${country.name}`}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isSelected }}
-                key={country.code}
-                onPress={() => onCountryChange(country.code)}
-                style={[
-                  styles.countryOption,
-                  isSelected && {
-                    backgroundColor: colors.primary,
-                    borderColor: colors.primary,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.countryOptionText,
-                    isSelected && { color: colors.textOnPrimary },
-                  ]}
-                >
-                  {country.name}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
-
-      {formData.businessType === 'other' ? (
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Please specify</Text>
-          <TextInput
-            accessibilityLabel="Please specify"
-            style={styles.input}
-            placeholder="e.g. Pet Supplies"
-            placeholderTextColor={colors.textMuted}
-            value={formData.otherBusinessType}
-            onChangeText={onOtherBusinessTypeChange}
-          />
-        </View>
-      ) : null}
-
-      <Pressable
-        style={({ pressed }) => [
-          styles.button,
-          isLoading && { opacity: 0.7 },
-          pressed && !isLoading && { opacity: 0.7 },
-        ]}
-        onPress={onLaunchStore}
-        disabled={isLoading}
-        accessibilityRole="button"
-        accessibilityLabel={isLoading ? 'Launching store...' : 'Launch Store'}
-        accessibilityState={{ disabled: isLoading, busy: isLoading }}
-      >
-        {isLoading ? (
-          <ActivityIndicator color={colors.textOnPrimary} />
-        ) : (
-          <>
-            <Text style={styles.buttonText}>Launch Store</Text>
+      <MerchantSetupHero
+        firstName={firstName}
+        onBack={onBack}
+        step="business"
+      />
+      <View style={setupStyles.formCard}>
+        <View style={setupStyles.formCardHeader}>
+          <View style={setupStyles.formCardIcon}>
             <Ionicons
-              name="rocket-outline"
-              size={20}
-              color={colors.textOnPrimary}
+              color={colors.primary}
+              name="storefront-outline"
+              size={21}
             />
-          </>
-        )}
-      </Pressable>
-
+          </View>
+          <View style={setupStyles.formCardHeadingGroup}>
+            <Text style={setupStyles.formCardTitle}>Store identity</Text>
+            <Text style={setupStyles.formCardSubtitle}>
+              Choose how customers will find you
+            </Text>
+          </View>
+        </View>
+        <View style={setupStyles.cardFields}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Business Name</Text>
+            <TextInput
+              accessibilityLabel="Business Name"
+              autoCapitalize="words"
+              onChangeText={(text) => onBusinessNameChange(toTitleCase(text))}
+              placeholder="My Awesome Store"
+              placeholderTextColor={colors.textMuted}
+              style={styles.input}
+              value={formData.businessName}
+            />
+          </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Store Link</Text>
+            <View style={styles.urlInputContainer}>
+              <TextInput
+                accessibilityLabel="Store Link"
+                autoCapitalize="none"
+                onChangeText={onSlugChange}
+                placeholder="my-store"
+                placeholderTextColor={colors.textMuted}
+                style={[styles.urlInput, { textAlign: 'right' }]}
+                value={formData.slug}
+              />
+              <Text style={styles.urlSuffix}>.usebaci.com</Text>
+            </View>
+            {slugError ? (
+              <Text style={styles.errorText}>{slugError}</Text>
+            ) : null}
+          </View>
+        </View>
+      </View>
+      <View style={setupStyles.formCard}>
+        <View style={setupStyles.formCardHeader}>
+          <View style={setupStyles.formCardIcon}>
+            <Ionicons color={colors.primary} name="grid-outline" size={21} />
+          </View>
+          <View style={setupStyles.formCardHeadingGroup}>
+            <Text style={setupStyles.formCardTitle}>Business category</Text>
+            <Text style={setupStyles.formCardSubtitle}>
+              We will tailor your tools and suggestions
+            </Text>
+          </View>
+        </View>
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Choose one</Text>
+          <BusinessTypeSelector
+            borderColor={colors.border}
+            cardBackgroundColor={colors.inputBg}
+            onSelect={onBusinessTypeChange}
+            selectedBackgroundColor={colors.primaryLight}
+            selectedBorderColor={colors.primary}
+            selectedTextColor={colors.text}
+            selectedType={formData.businessType}
+            textColor={colors.textSecondary}
+          />
+        </View>
+        {formData.businessType === 'other' ? (
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Please specify</Text>
+            <TextInput
+              accessibilityLabel="Please specify"
+              onChangeText={onOtherBusinessTypeChange}
+              placeholder="e.g. Pet Supplies"
+              placeholderTextColor={colors.textMuted}
+              style={styles.input}
+              value={formData.otherBusinessType}
+            />
+          </View>
+        ) : null}
+      </View>
+      <MerchantSetupActionButton
+        icon="rocket-outline"
+        isLoading={isLoading}
+        label="Launch Store"
+        loadingLabel="Launching store..."
+        onPress={onLaunchStore}
+      />
       <RegisterLegalText prefixText="By creating an account, you agree to our" />
     </View>
   );
