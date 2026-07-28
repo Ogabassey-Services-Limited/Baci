@@ -80,13 +80,7 @@ export function MerchantSetupForm() {
   );
   const [isSlugEdited, setIsSlugEdited] = useState(false);
   const [slugError, setSlugError] = useState<string | null>(null);
-  const [setupStep, setSetupStep] = useState<1 | 2>(() =>
-    user &&
-    ownerNamesFromMetadata(user).firstName &&
-    ownerNamesFromMetadata(user).lastName
-      ? 2
-      : 1
-  );
+  const [setupStep, setSetupStep] = useState<1 | 2>(1);
   const hydratedUserId = useRef<string | null>(user?.id ?? null);
 
   useEffect(() => {
@@ -101,13 +95,13 @@ export function MerchantSetupForm() {
     hydratedUserId.current = user.id;
     if (userChanged) {
       setFormData(defaults);
-      setSetupStep(defaults.firstName && defaults.lastName ? 2 : 1);
+      setSetupStep(1);
       setIsSlugEdited(false);
       setSlugError(null);
       return;
     }
     if (wasUnauthenticated) {
-      setSetupStep(defaults.firstName && defaults.lastName ? 2 : 1);
+      setSetupStep(1);
     }
     setFormData((previous) =>
       previous.firstName && previous.lastName

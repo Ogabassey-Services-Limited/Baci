@@ -1,5 +1,5 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -44,6 +44,12 @@ export function CountryPickerModal({
 }: CountryPickerModalProps) {
   const { colors } = useTheme();
   const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    if (visible) {
+      setSearch('');
+    }
+  }, [visible]);
 
   const filteredCountries = countries.filter(
     (c) =>

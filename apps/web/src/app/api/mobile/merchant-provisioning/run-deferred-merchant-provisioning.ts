@@ -31,7 +31,7 @@ function getPostgresCode(error: unknown): string | null {
 }
 
 function logDeferredFailure(
-  stage: 'template_generation' | 'page_config_upsert',
+  stage: 'template_generation' | 'page_config_insert',
   merchantId: string,
   error: unknown
 ): void {
@@ -67,19 +67,16 @@ export async function runDeferredMerchantProvisioning({
     return;
   }
 
-  const { error } = await supabase.from('page_configs').upsert(
-    {
-      merchant_id: merchantId,
-      page_slug: 'home',
-      page_name: 'Home',
-      draft_config: config,
-      published_config: config,
-      is_published: true,
-    },
-    { onConflict: 'merchant_id,page_slug' }
-  );
+  const { error } = await supabase.from('page_configs').insert({
+    merchant_id: merchantId,
+    page_slug: 'home',
+    page_name: 'Home',
+    draft_config: config,
+    published_config: config,
+    is_published: true,
+  });
 
-  if (error) {
-    logDeferredFailure('page_config_upsert', merchantId, error);
+  if (error && getPostgresCode(error) !== '23505') {
+    logDeferredFailure('page_config_insert', merchantId, error);
   }
 }

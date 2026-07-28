@@ -125,14 +125,11 @@ describe('MerchantSetupForm step navigation', () => {
     };
   });
 
-  it('returns from business info to editable owner details and preserves edits', () => {
+  it('requires the owner and country step even when saved names are complete', () => {
     render(<MerchantSetupForm />);
 
-    expect(screen.getByLabelText('Business Name')).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Back to owner details' })
-    );
     expect(screen.queryByLabelText('Business Name')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('First Name')).toHaveValue('Ada');
     fireEvent.change(screen.getByLabelText('First Name'), {
       target: { value: 'Augusta' },
     });

@@ -37,7 +37,7 @@ function provisioningErrorResponse(error: unknown, accountCreated: boolean) {
         { status: 409 }
       );
     }
-    if (error.pgCode === 'PT400') {
+    if (error.pgCode === 'PT400' && !accountCreated) {
       return NextResponse.json(
         {
           error: 'Please check the information you entered.',

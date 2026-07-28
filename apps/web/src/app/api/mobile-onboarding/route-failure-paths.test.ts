@@ -105,6 +105,25 @@ describe('POST /api/mobile-onboarding provisioning failures', () => {
     });
   });
 
+  it('routes a just-created account to sign-in recovery after RPC validation fails', async () => {
+    mocks.signup.mockResolvedValue({
+      ok: true,
+      user: { id: 'user-1', email: 'ada@example.com' },
+      supabase: { rpc: vi.fn() },
+      accountCreated: true,
+    });
+    mocks.provision.mockRejectedValue(new MobileProvisioningError('PT400'));
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'account_created_store_setup_failed',
+      error: expect.stringMatching(/sign in/i),
+    });
+  });
+
   it('never exposes an unexpected database error message', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     mocks.provision.mockRejectedValue(

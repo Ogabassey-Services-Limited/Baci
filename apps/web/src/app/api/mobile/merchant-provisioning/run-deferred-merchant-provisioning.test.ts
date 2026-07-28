@@ -12,9 +12,9 @@ vi.mock('@/lib/initial-template-generator', () => ({
 import { runDeferredMerchantProvisioning } from './run-deferred-merchant-provisioning';
 
 describe('runDeferredMerchantProvisioning', () => {
-  const upsert = vi.fn();
+  const insert = vi.fn();
   const supabase = {
-    from: vi.fn(() => ({ upsert })),
+    from: vi.fn(() => ({ insert })),
   } as unknown as SupabaseClient;
 
   beforeEach(() => {
@@ -28,7 +28,7 @@ describe('runDeferredMerchantProvisioning', () => {
         },
       ],
     });
-    upsert.mockResolvedValue({ error: null });
+    insert.mockResolvedValue({ error: null });
   });
 
   it('normalizes the business name once and idempotently publishes home through the caller client', async () => {
@@ -56,7 +56,7 @@ describe('runDeferredMerchantProvisioning', () => {
       merchant: { id: 'merchant-1', slug: 'analytical-engines' },
     });
     expect(supabase.from).toHaveBeenCalledWith('page_configs');
-    expect(upsert).toHaveBeenCalledWith(
+    expect(insert).toHaveBeenCalledWith(
       expect.objectContaining({
         merchant_id: 'merchant-1',
         page_slug: 'home',
@@ -64,9 +64,28 @@ describe('runDeferredMerchantProvisioning', () => {
         is_published: true,
         draft_config: expect.any(Object),
         published_config: expect.any(Object),
-      }),
-      { onConflict: 'merchant_id,page_slug' }
+      })
     );
+  });
+
+  it('does not overwrite an existing customized homepage on a delayed retry', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    insert.mockResolvedValue({ error: { code: '23505' } });
+
+    await expect(
+      runDeferredMerchantProvisioning({
+        supabase,
+        merchantId: 'merchant-1',
+        merchantSlug: 'analytical-engines',
+        businessName: 'Analytical Engines',
+        businessType: 'technology',
+        brandColors: null,
+      })
+    ).resolves.toBeUndefined();
+
+    expect(insert).toHaveBeenCalledTimes(1);
+    expect(errorSpy).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
   });
 
   it('keeps the coming-soon fallback untouched when template generation fails', async () => {
@@ -84,7 +103,7 @@ describe('runDeferredMerchantProvisioning', () => {
       })
     ).resolves.toBeUndefined();
 
-    expect(upsert).not.toHaveBeenCalled();
+    expect(insert).not.toHaveBeenCalled();
     expect(errorSpy).toHaveBeenCalledWith(
       'mobile-merchant-provisioning %s',
       'deferred_failure',
@@ -95,7 +114,7 @@ describe('runDeferredMerchantProvisioning', () => {
 
   it('logs a caller-scoped page upsert failure without throwing', async () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    upsert.mockResolvedValue({ error: { code: '42501' } });
+    insert.mockResolvedValue({ error: { code: '42501' } });
 
     await expect(
       runDeferredMerchantProvisioning({

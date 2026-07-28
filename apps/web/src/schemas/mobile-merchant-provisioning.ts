@@ -63,7 +63,6 @@ export const mobileMerchantProvisioningSchema = z
       z
         .string()
         .min(3)
-        .max(63)
         .regex(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/)
         .optional()
     ),
@@ -87,6 +86,13 @@ export const mobileMerchantProvisioningSchema = z
       context.addIssue({
         code: 'custom',
         message: 'Please choose a store link.',
+        path: ['slug'],
+      });
+    }
+    if (value.slugIsCustom && value.slug && value.slug.length > 63) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Store link must be at most 63 characters.',
         path: ['slug'],
       });
     }

@@ -198,6 +198,34 @@ describe('CountryPickerModal', () => {
     expect(screen.getByRole('button', { name: 'Kenya' })).toBeInTheDocument();
   });
 
+  it('clears a previous search whenever the picker is reopened', async () => {
+    const props = {
+      onClose: vi.fn(),
+      onSelect: vi.fn(),
+      selectedCountry: '',
+    };
+    const { rerender } = render(
+      <CountryPickerModal {...props} visible={true} />
+    );
+
+    fireEvent.change(screen.getByLabelText('Search countries'), {
+      target: { value: 'gha' },
+    });
+    expect(
+      screen.queryByRole('button', { name: 'Nigeria' })
+    ).not.toBeInTheDocument();
+
+    rerender(<CountryPickerModal {...props} visible={false} />);
+    rerender(<CountryPickerModal {...props} visible={true} />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Search countries')).toHaveValue('');
+      expect(
+        screen.getByRole('button', { name: 'Nigeria' })
+      ).toBeInTheDocument();
+    });
+  });
+
   it('supports a caller-owned bounded country catalog', () => {
     render(
       <CountryPickerModal

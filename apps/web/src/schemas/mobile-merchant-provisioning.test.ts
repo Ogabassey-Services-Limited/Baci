@@ -93,6 +93,16 @@ describe('mobileMerchantProvisioningSchema', () => {
     ).toBe(true);
   });
 
+  it('allows an overlong automatic slug so the RPC can truncate and de-duplicate it', () => {
+    expect(
+      mobileMerchantProvisioningSchema.safeParse({
+        ...validInput,
+        slug: `a${'b'.repeat(62)}c`,
+        slugIsCustom: false,
+      }).success
+    ).toBe(true);
+  });
+
   it('accepts documented lower and upper boundaries', () => {
     expect(
       mobileMerchantProvisioningSchema.safeParse({
