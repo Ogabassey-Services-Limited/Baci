@@ -16,8 +16,12 @@ readonly SORT=/usr/bin/sort
 readonly GREP=/usr/bin/grep
 readonly AWK=/usr/bin/awk
 readonly SYNC=/usr/bin/sync
+readonly FLOCK=/usr/bin/flock
+readonly MKTEMP=/usr/bin/mktemp
 readonly SELF=${BASH_SOURCE[0]}
-readonly SELF_ROOT=/run/baci-cwv-seal-source
+readonly SELF_ROOT=/var/lib/baci-cwv/seal-source
+readonly SELF_PARENT=${SELF%/*}
+outer_self_copy=''
 
 fail() { printf '%s\n' "seal-source: $*" >&2; exit 1; }
 # Awk owns its field expressions.
@@ -26,16 +30,74 @@ sha() { "$SHA" -- "$1" | "$AWK" '{print $1}'; }
 hex() { [[ "$1" =~ ^[0-9a-f]{64}$ ]] || fail 'invalid digest'; }
 git_sha() { [[ "$1" =~ ^[0-9a-f]{40}$ ]] || fail 'invalid source SHA'; }
 
+secure_self_root() {
+  [[ -d "$SELF_ROOT" && ! -L "$SELF_ROOT" ]] || fail 'unsafe self-copy root'
+  "$CHOWN" root:root -- "$SELF_ROOT"; "$CHMOD" 0700 -- "$SELF_ROOT"
+  [[ "$("$STAT" -c '%u:%a' -- "$SELF_ROOT")" == '0:700' ]] || fail 'unsafe self-copy root'
+}
+
+validate_self_parent() {
+  local parent=$1 suffix=${1#"$SELF_ROOT/work."}
+  [[ "$parent" == "$SELF_ROOT"/work.* && "$suffix" =~ ^[A-Za-z0-9]{8}$ && -d "$parent" && ! -L "$parent" ]] || fail 'unsafe self-copy parent'
+  [[ "$("$STAT" -c '%u:%a' -- "$parent")" == '0:700' ]] || fail 'unsafe self-copy parent'
+}
+
+cleanup_outer_self_copy() {
+  local parent=$outer_self_copy suffix=${outer_self_copy#"$SELF_ROOT/work."}
+  outer_self_copy=''
+  [[ "$parent" == "$SELF_ROOT"/work.* && "$suffix" =~ ^[A-Za-z0-9]{8}$ && -d "$parent" && ! -L "$parent" ]] || return 0
+  "$RM" -rf -- "$parent" || :
+}
+
+outer_exit() { cleanup_outer_self_copy; }
+outer_signal() {
+  cleanup_outer_self_copy
+  trap - EXIT HUP INT TERM
+  exit "$1"
+}
+
+cleanup_self_copy() { "$RM" -rf -- "$SELF_PARENT"; }
+
+tmp='' target='' receipt='' target_owned=false receipt_owned=false committed=false
+cleanup() {
+  if [[ "$committed" != true ]]; then
+    if [[ "$receipt_owned" == true ]]; then "$RM" -rf -- "$receipt"; fi
+    if [[ "$target_owned" == true ]]; then "$RM" -rf -- "$target"; fi
+  fi
+  if [[ -n "$tmp" ]]; then "$RM" -rf -- "$tmp"; fi
+  cleanup_self_copy
+}
+
+signal() {
+  local code=$2
+  cleanup
+  trap - EXIT HUP INT TERM
+  exit "$code"
+}
+
 self_copy() {
   local expected=${BACI_CWV_SEAL_SOURCE_RAW_SHA:-} copied parent
   hex "$expected"
   [[ -f "$SELF" && ! -L "$SELF" ]] || fail 'helper is not a regular file'
-  parent="$SELF_ROOT/$$"; "$MKDIR" -p -m 0700 -- "$parent"
-  "$CHOWN" root:root -- "$parent"; "$CHMOD" 0700 -- "$parent"
+  "$MKDIR" -p -m 0700 -- "$SELF_ROOT"; secure_self_root
+  parent=$("$MKTEMP" -d "$SELF_ROOT/work.XXXXXXXX") || fail 'self-copy directory unavailable'
+  outer_self_copy=$parent
+  trap outer_exit EXIT
+  trap 'outer_signal 129' HUP
+  trap 'outer_signal 130' INT
+  trap 'outer_signal 143' TERM
+  "$CHOWN" root:root -- "$parent"; "$CHMOD" 0700 -- "$parent"; validate_self_parent "$parent"
   copied="$parent/seal-source.sh"; "$CP" -- "$SELF" "$copied"
   [[ "$(sha "$copied")" == "$expected" ]] || fail 'helper raw digest mismatch'
   "$CHOWN" root:root -- "$copied"; "$CHMOD" 0500 -- "$copied"
   exec "$copied" --sealed-inner "$@"
+}
+
+verify_inner_helper() {
+  [[ "$SELF" == "$SELF_PARENT/seal-source.sh" && -f "$SELF" && ! -L "$SELF" ]] || fail 'unsafe sealed helper'
+  [[ -d "$SELF_PARENT" && ! -L "$SELF_PARENT" ]] || fail 'unsafe sealed helper'
+  validate_self_parent "$SELF_PARENT"
+  [[ "$("$STAT" -c '%u:%a' -- "$SELF")" == '0:500' ]] || fail 'unsafe sealed helper'
 }
 
 regular() {
@@ -133,7 +195,18 @@ while (($#)); do
 done
 [[ -n "$destination" && -n "$source_sha" && -n "$archive" && -n "$archive_digest" && -n "$manifest" && -n "$manifest_digest" ]] || usage
 git_sha "$source_sha"; hex "$archive_digest"; hex "$manifest_digest"
-[[ "$inner" == true ]] || self_copy "${arguments[@]}"
+if [[ "$inner" == true ]]; then
+  verify_inner_helper
+  secure_self_root
+  trap cleanup EXIT
+  trap 'signal HUP 129' HUP
+  trap 'signal INT 130' INT
+  trap 'signal TERM 143' TERM
+  exec 9<"$SELF_ROOT"
+  "$FLOCK" -n 9 || fail 'source seal already running'
+else
+  self_copy "${arguments[@]}"
+fi
 regular "$archive"; regular "$manifest"
 
 case "$destination" in
@@ -145,8 +218,6 @@ target="$final_root/$source_sha"; receipt="$receipt_root/$source_sha"
 [[ ! -e "$target" && ! -e "$receipt" ]] || fail 'sealed destination already exists'
 "$MKDIR" -p -m 0700 -- "$final_root" "$receipt_root"
 tmp="$final_root/.seal-${source_sha}-$$"; "$MKDIR" -m 0700 -- "$tmp"
-cleanup() { "$RM" -rf -- "$tmp"; }
-trap cleanup EXIT HUP INT TERM
 root_archive="$tmp/archive"; root_manifest="$tmp/manifest.json"
 "$CP" --preserve=mode -- "$archive" "$root_archive"
 "$CP" --preserve=mode -- "$manifest" "$root_manifest"
@@ -164,7 +235,9 @@ verify_tree "$tree" "$rows" "$actual"
 tree_digest=$(sha "$actual")
 hex "$tree_digest" || fail 'sealed tree digest mismatch'
 "$SYNC" -f "$root_manifest"; "$SYNC" -f "$root_archive"; "$SYNC" -f "$tree"
-"$MV" -- "$tree" "$target"; "$MKDIR" -m 0700 -- "$receipt"
+target_owned=true
+"$MV" -T -- "$tree" "$target"
+receipt_owned=true; "$MKDIR" -m 0700 -- "$receipt"
 "$CP" --preserve=mode -- "$root_manifest" "$receipt/manifest.json"
 printf '%s\n' "$manifest_digest" > "$receipt/manifest.sha256"
 printf '%s\n' "$archive_digest" > "$receipt/archive.sha256"
@@ -172,5 +245,7 @@ printf '%s\n' "$tree_digest" > "$receipt/tree.sha256"
 printf '{"archiveSha256":"%s","manifestSha256":"%s","schemaVersion":1,"sealedTreeSha256":"%s","sourceSha":"%s"}\n' "$archive_digest" "$manifest_digest" "$tree_digest" "$source_sha" > "$receipt/seal-receipt.json"
 "$CHOWN" -R root:root -- "$target" "$receipt"; secure_tree_directories "$target"; "$CHMOD" 0700 -- "$receipt"; "$CHMOD" 0600 -- "$receipt"/*
 "$SYNC" -f "$receipt/seal-receipt.json"; "$SYNC" -f "$receipt"; "$SYNC" -f "$final_root"
+committed=true
+cleanup
 trap - EXIT HUP INT TERM
 printf '%s\n' "$target"
