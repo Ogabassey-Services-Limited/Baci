@@ -25,17 +25,27 @@ test('disables loaded and enabled watchdog instances without mutating the templa
   const root = await mkdtemp(join(tmpdir(), 'baci-watchdog-units-'));
   context.after(() => rm(root, { force: true, recursive: true }));
   const systemd = join(root, 'systemd');
+  const runtimeSystemd = join(root, 'runtime-systemd');
   const wants = join(systemd, 'multi-user.target.wants');
+  const runtimeWants = join(runtimeSystemd, 'multi-user.target.wants');
   const template = join(systemd, 'baci-cwv-campaign-watchdog@.service');
   const enabled = join(wants, 'baci-cwv-campaign-watchdog@enabled.service');
   const secondEnabled = join(
     wants,
     'baci-cwv-campaign-watchdog@second-enabled.service'
   );
-  await mkdir(wants, { recursive: true });
+  const runtimeEnabled = join(
+    runtimeWants,
+    'baci-cwv-campaign-watchdog@runtime-enabled.service'
+  );
+  await Promise.all([
+    mkdir(wants, { recursive: true }),
+    mkdir(runtimeWants, { recursive: true }),
+  ]);
   await writeFile(template, 'fixture');
   await symlink('../baci-cwv-campaign-watchdog@.service', enabled);
   await symlink('../baci-cwv-campaign-watchdog@.service', secondEnabled);
+  await symlink(template, runtimeEnabled);
   const log = join(root, 'systemctl.log');
   const find = join(root, 'find');
   const systemctl = join(root, 'systemctl');
@@ -48,7 +58,7 @@ case "$1" in
   daemon-reload) exit 0 ;;
   list-units) [ "\${FAIL_LIST_UNITS:-0}" != 1 ] || exit 66; [ "\${MALFORMED_GLYPH:-0}" != 1 ] || { printf '%s\n' '▲ baci-cwv-campaign-watchdog@live.service loaded failed failed fixture'; exit 0; }; printf '%s\n' '● baci-cwv-campaign-watchdog@live.service loaded failed failed fixture'; exit 0 ;;
   list-unit-files) [ "\${FAIL_LIST_UNIT_FILES:-0}" != 1 ] || exit 67; printf '%s\n' 'baci-cwv-campaign-watchdog@.service indirect enabled'; exit 0 ;;
-  disable) [ "$3" != 'baci-cwv-campaign-watchdog@.service' ] || exit 64; exit 0 ;;
+  disable) for last; do :; done; [ "$last" != 'baci-cwv-campaign-watchdog@.service' ] || exit 64; exit 0 ;;
   show) case "$2" in *'@'*) unit_state=disabled;; *) unit_state=static;; esac; printf 'loaded\ninactive\n%s\n' "$unit_state"; exit 0 ;;
   is-enabled) printf 'disabled\n'; exit 1 ;;
 esac
@@ -59,7 +69,11 @@ exit 65
     find,
     `#!/bin/sh
 [ "\${FAIL_FIND:-0}" != 1 ] || exit 68
-printf '%s\\n' "$ENABLED_LINK" "$SECOND_ENABLED_LINK"
+case "$1" in
+  "$PERSISTENT_SYSTEMD") printf '%s\\n' "$ENABLED_LINK" "$SECOND_ENABLED_LINK" ;;
+  "$RUNTIME_SYSTEMD") printf '%s\\n' "$RUNTIME_ENABLED_LINK" ;;
+  *) exit 69 ;;
+esac
 `
   );
   await writeFile(node, '#!/bin/sh\nexit 0\n');
@@ -69,6 +83,7 @@ printf '%s\\n' "$ENABLED_LINK" "$SECOND_ENABLED_LINK"
     'install_sealed_helpers() {'
   )
     .replaceAll('/etc/systemd/system', systemd)
+    .replaceAll('/run/systemd/system', runtimeSystemd)
     .replaceAll('/usr/bin/find', find)
     .replaceAll('/bin/systemctl', systemctl)
     .replaceAll('/usr/bin/node', node);
@@ -85,6 +100,9 @@ install_units`;
       env: {
         ...process.env,
         ENABLED_LINK: enabled,
+        PERSISTENT_SYSTEMD: systemd,
+        RUNTIME_ENABLED_LINK: runtimeEnabled,
+        RUNTIME_SYSTEMD: runtimeSystemd,
         SECOND_ENABLED_LINK: secondEnabled,
         SYSTEMCTL_LOG: log,
         ...extra,
@@ -97,6 +115,7 @@ install_units`;
   assert.match(calls, /disable --now .*watchdog@live\.service/);
   assert.match(calls, /disable --now .*watchdog@enabled\.service/);
   assert.match(calls, /disable --now .*watchdog@second-enabled\.service/);
+  assert.match(calls, /disable --runtime .*watchdog@runtime-enabled\.service/);
   assert.match(calls, /is-enabled .*watchdog@\.service/);
   for (const failure of [
     'FAIL_LIST_UNITS',
