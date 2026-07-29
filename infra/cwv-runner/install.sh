@@ -138,13 +138,13 @@ bootstrap() {
   [ "$#" -eq 6 ] || die 'usage: --bootstrap-control --source-sha <sha> --source-manifest <path> --source-manifest-sha256 <path>'
   [ "$1" = --source-sha ] && [ "$3" = --source-manifest ] && [ "$5" = --source-manifest-sha256 ] || die 'invalid bootstrap arguments'
   assert_sealed_source "$2" "$4" "$6"
-  assert_containerd_compatible; ensure_directory /var/lib/baci-cwv 0700 root:root; ensure_directory "$BOOTSTRAP_ROOT" 0700 root:root
+  assert_containerd_compatible; exec 8>/run/lock/baci-cwv-campaign.lock; /usr/bin/flock -n 8 || die 'campaign lock refused during bootstrap'; ensure_directory /var/lib/baci-cwv 0700 root:root; ensure_directory "$BOOTSTRAP_ROOT" 0700 root:root
   transaction="bootstrap-$(/usr/bin/printf '%s' "$2" | /usr/bin/cut -c1-12)"; BOOTSTRAP_DIRECTORY="$BOOTSTRAP_ROOT/$transaction"; export BOOTSTRAP_DIRECTORY
   policy_file_sha=$(sha256 "$SCRIPT_DIR/policy.json")
   plan=$(/usr/bin/mktemp "$BOOTSTRAP_ROOT/../.plan.XXXXXX") || die 'bootstrap plan failed'
   trap '/bin/rm -f -- "$plan"' EXIT HUP INT TERM
   /usr/bin/node "$SCRIPT_DIR/install-bootstrap-plan.mjs" "$SCRIPT_DIR" "$2" "$(/bin/cat "$6")" "$policy_file_sha" "$(sha256 "$SCRIPT_DIR/install.sh")" "$transaction" >"$plan"
-  /bin/chmod 0600 "$plan"; /usr/bin/sync -f "$plan"; exec 8>/run/lock/baci-cwv-campaign.lock; /usr/bin/flock -n 8 || die 'campaign lock refused during bootstrap'
+  /bin/chmod 0600 "$plan"; /usr/bin/sync -f "$plan"
   if [ -d "$BOOTSTRAP_DIRECTORY" ]; then
     phase=$(/usr/bin/node "$SCRIPT_DIR/install-bootstrap-controller.mjs" resume "$BOOTSTRAP_DIRECTORY" "$plan")
     if [ "$phase" = complete ]; then /usr/bin/node "$SCRIPT_DIR/install-bootstrap-controller.mjs" verify "$BOOTSTRAP_DIRECTORY" "$plan" >/dev/null; if [ -e "$BOOTSTRAP_DIRECTORY/replacement-intent.json" ] || [ -L "$BOOTSTRAP_DIRECTORY/replacement-intent.json" ] || [ -e "$BOOTSTRAP_DIRECTORY/replacement-receipt.json" ] || [ -L "$BOOTSTRAP_DIRECTORY/replacement-receipt.json" ]; then /usr/bin/node "$SCRIPT_DIR/install-bootstrap-controller.mjs" replacement-complete "$BOOTSTRAP_DIRECTORY" || die 'bootstrap replacement completion refused'; fi; trap - EXIT HUP INT TERM; /bin/rm -f -- "$plan"; return 0; fi

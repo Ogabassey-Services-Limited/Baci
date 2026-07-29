@@ -10,6 +10,8 @@ const UNITS = [
   'baci-cwv-host-sampler.service',
   'baci-cwv-host-sampler.timer',
   'baci-cwv-measurement.service',
+  'cwv-measurement-control.slice',
+  'cwv-measurement.slice',
 ];
 const SYSTEMD_ROOTS = ['/etc/systemd/system', '/run/systemd/system'];
 const WATCHDOG_TEMPLATE = 'baci-cwv-campaign-watchdog@.service';
