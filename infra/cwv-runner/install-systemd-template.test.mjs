@@ -59,7 +59,8 @@ case "$1" in
   list-units) [ "\${FAIL_LIST_UNITS:-0}" != 1 ] || exit 66; [ "\${MALFORMED_GLYPH:-0}" != 1 ] || { printf '%s\n' '▲ baci-cwv-campaign-watchdog@live.service loaded failed failed fixture'; exit 0; }; printf '%s\n' '● baci-cwv-campaign-watchdog@live.service loaded failed failed fixture'; exit 0 ;;
   list-unit-files) [ "\${FAIL_LIST_UNIT_FILES:-0}" != 1 ] || exit 67; printf '%s\n' 'baci-cwv-campaign-watchdog@.service indirect enabled'; exit 0 ;;
   disable) for last; do :; done; [ "$last" != 'baci-cwv-campaign-watchdog@.service' ] || exit 64; exit 0 ;;
-  show) case "$2" in *'@'*) unit_state=disabled;; *) unit_state=static;; esac; printf 'loaded\ninactive\n%s\n' "$unit_state"; exit 0 ;;
+  reset-failed) exit 0 ;;
+  show) case "$2" in *'@live.service') /usr/bin/grep -Fq "reset-failed $2" "$SYSTEMCTL_LOG" || { printf 'loaded\nfailed\ndisabled\n'; exit 0; };; esac; case "$2" in *'@'*) unit_state=disabled;; *) unit_state=static;; esac; printf 'loaded\ninactive\n%s\n' "$unit_state"; exit 0 ;;
   is-enabled) printf 'disabled\n'; exit 1 ;;
 esac
 exit 65
@@ -113,10 +114,13 @@ install_units`;
   const calls = await readFile(log, 'utf8');
   assert.doesNotMatch(calls, /disable --now .*watchdog@\.service/);
   assert.match(calls, /disable --now .*watchdog@live\.service/);
+  assert.match(calls, /reset-failed .*watchdog@live\.service/);
   assert.match(calls, /disable --now .*watchdog@enabled\.service/);
   assert.match(calls, /disable --now .*watchdog@second-enabled\.service/);
   assert.match(calls, /disable --runtime .*watchdog@runtime-enabled\.service/);
   assert.match(calls, /is-enabled .*watchdog@\.service/);
+  assert.match(calls, /list-units .* --full /);
+  assert.match(calls, /list-unit-files .* --full /);
   for (const failure of [
     'FAIL_LIST_UNITS',
     'FAIL_LIST_UNIT_FILES',
@@ -140,4 +144,13 @@ test('bootstrap holds the campaign lock until its transaction completes', () => 
   const lock = bootstrap.indexOf('flock -n 8');
   assert.ok(lock >= 0 && lock < bootstrap.indexOf('install_units'));
   assert.ok(bootstrap.indexOf(' complete ', lock) > lock);
+});
+
+test('requests full watchdog names from both systemd inventories', () => {
+  const installUnits = sourceSlice(
+    'install_units() {',
+    'install_sealed_helpers() {'
+  );
+  assert.match(installUnits, /list-units[^\n]+ --full /);
+  assert.match(installUnits, /list-unit-files[^\n]+ --full /);
 });
