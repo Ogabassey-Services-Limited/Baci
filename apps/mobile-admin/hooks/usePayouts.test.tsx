@@ -146,8 +146,9 @@ describe('usePayouts', () => {
     expect(completed).toBe(true);
   });
 
-  it('does not start broad or readiness invalidation without a merchant id', async () => {
+  it('saves payout settings when merchant context is temporarily unavailable', async () => {
     currentMerchant = null;
+    mockApiClient.mockResolvedValueOnce({ subaccount_code: 'SUB_123' });
     const { queryClient, Wrapper } = createWrapper();
     const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
     const { result } = renderHook(() => usePayouts(), { wrapper: Wrapper });
@@ -158,8 +159,11 @@ describe('usePayouts', () => {
         bankCode: '044',
         businessName: 'Baci Store',
       })
-    ).rejects.toThrow('No merchant');
-    expect(invalidateQueries).not.toHaveBeenCalled();
+    ).resolves.toEqual({ subaccount_code: 'SUB_123' });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['merchant'] });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['merchant-payout'],
+    });
     expect(mockInvalidateStoreReadiness).not.toHaveBeenCalled();
   });
 

@@ -50,19 +50,18 @@ export function usePayouts() {
         body: JSON.stringify(data),
       }),
     onMutate: () => {
-      const capturedMerchantId = merchantId?.trim();
-      if (!capturedMerchantId) throw new Error('No merchant');
-      return { merchantId: capturedMerchantId };
+      return { merchantId: merchantId?.trim() };
     },
     onSuccess: async (_data, _variables, context) => {
       const invalidations: Promise<unknown>[] = [
         queryClient.invalidateQueries({ queryKey: ['merchant'] }),
         queryClient.invalidateQueries({ queryKey: ['merchant-payout'] }),
       ];
-      if (context?.merchantId) {
+      const readinessMerchantId = context?.merchantId;
+      if (readinessMerchantId) {
         invalidations.push(
           tryRefreshStoreReadiness(() =>
-            invalidateStoreReadiness(queryClient, context.merchantId)
+            invalidateStoreReadiness(queryClient, readinessMerchantId)
           )
         );
       }
