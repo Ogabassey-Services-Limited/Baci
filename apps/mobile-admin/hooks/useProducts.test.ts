@@ -247,6 +247,23 @@ describe('useProducts branch semantics', () => {
     expect(mocks.invalidateStoreReadiness).not.toHaveBeenCalled();
   });
 
+  it('uses unscoped product keys after a stock update settles without merchant context', async () => {
+    mocks.merchant = null;
+    useUpdateProductStock();
+
+    await mocks.mutationConfigs[0]?.onSettled?.(undefined, undefined, {
+      productId: 'product-1',
+      stock: 7,
+    });
+
+    expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['products'],
+    });
+    expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['product'],
+    });
+  });
+
   it('invalidates readiness only when a created product is active', async () => {
     useCreateProduct();
 

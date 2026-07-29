@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom/vitest';
+import type { MobileStoreReadiness } from '@baci/shared';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -24,7 +25,7 @@ const mocks = vi.hoisted(() => ({
     surface: 'mobile' as const,
     totalRecommended: 2,
     totalRequired: 5,
-  },
+  } as MobileStoreReadiness | null,
   error: null as Error | null,
   isFetching: false,
   isLoading: false,
@@ -140,6 +141,11 @@ vi.mock('react-native-safe-area-context', () => ({
 
 import SetupChecklistScreen from './setup-checklist';
 
+function requireReadiness() {
+  if (!mocks.readiness) throw new Error('Expected readiness fixture');
+  return mocks.readiness;
+}
+
 describe('SetupChecklistScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -178,7 +184,8 @@ describe('SetupChecklistScreen', () => {
   });
 
   it('hides the publish button when setup is not ready or already published', () => {
-    mocks.readiness.isReady = false;
+    const readiness = requireReadiness();
+    readiness.isReady = false;
 
     const { rerender } = render(<SetupChecklistScreen />);
 
@@ -186,8 +193,8 @@ describe('SetupChecklistScreen', () => {
       screen.queryByRole('button', { name: /publish store now/i })
     ).not.toBeInTheDocument();
 
-    mocks.readiness.isReady = true;
-    mocks.readiness.isPublished = true;
+    readiness.isReady = true;
+    readiness.isPublished = true;
 
     rerender(<SetupChecklistScreen />);
 
@@ -197,16 +204,15 @@ describe('SetupChecklistScreen', () => {
   });
 
   it('navigates checklist items through the local mobile route adapter', () => {
-    mocks.readiness.items = [
-      {
-        category: 'payments',
-        completed: false,
-        description: 'Required to receive payments via Paystack',
-        id: 'bank_account',
-        label: 'Add bank account',
-        priority: 'required',
-      },
-    ] as never;
+    const bankAccountItem: MobileStoreReadiness['items'][number] = {
+      category: 'payments',
+      completed: false,
+      description: 'Required to receive payments via Paystack',
+      id: 'bank_account',
+      label: 'Add bank account',
+      priority: 'required',
+    };
+    requireReadiness().items = [bankAccountItem];
 
     render(<SetupChecklistScreen />);
 
@@ -245,7 +251,7 @@ describe('SetupChecklistScreen', () => {
   });
 
   it('shows an accessible retry state when the first readiness request fails', () => {
-    mocks.readiness = null as never;
+    mocks.readiness = null;
     mocks.error = new Error('offline');
 
     render(<SetupChecklistScreen />);

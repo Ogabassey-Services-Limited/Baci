@@ -100,19 +100,18 @@ describe('useKycVerificationRefresh', () => {
       const refreshPromise = result.current.refreshAfterVerification();
       // All cache invalidations begin together; none depends on merchant first.
       await Promise.resolve();
-      expect(events).toEqual([
-        'invalidate:merchant',
-        'invalidate:verification-status',
-        'invalidate:store-readiness',
-      ]);
+      expect(events).toHaveLength(3);
+      expect(events).toEqual(
+        expect.arrayContaining([
+          'invalidate:merchant',
+          'invalidate:verification-status',
+          'invalidate:store-readiness',
+        ])
+      );
       resolveMerchant?.();
       await refreshPromise;
     });
 
-    expect(events[0]).toBe('invalidate:merchant');
-    expect(events).toContain('invalidate:store-readiness');
-    expect(events).toContain('invalidate:verification-status');
-    expect(events.indexOf('invalidate:store-readiness')).toBeGreaterThan(-1);
     expect(invalidateQueries).toHaveBeenCalledTimes(3);
   });
 

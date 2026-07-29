@@ -210,10 +210,13 @@ export function useUpdateProductStock() {
       return { previousQueriesData };
     },
     onSettled: async (_data, _error, { productId }) => {
+      const merchantId = merchant?.id;
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['products', merchant?.id] }),
         queryClient.invalidateQueries({
-          queryKey: ['product', merchant?.id, productId],
+          queryKey: productListQueryKey(merchantId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: productDetailQueryKey(merchantId, productId),
         }),
       ]);
     },

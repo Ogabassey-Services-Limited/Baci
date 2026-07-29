@@ -2,7 +2,7 @@
 
 ## Scope
 
-- Worktree: `/Users/mac/Baci-app/.worktrees/readiness-task9-app-focus`
+- Worktree: `.worktrees/readiness-task9-app-focus` (relative to the repository root)
 - Branch: `codex/readiness-task9-app-focus`
 - Base: `907cdb724bfa9a63a8a1189396d9f5c8673b2c1b`
 - Code commit: `726648f0b9eb90ffc80d46860c9a3000a7808899`

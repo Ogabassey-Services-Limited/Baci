@@ -35,8 +35,11 @@ ported.
 
 ## Final validation (reviewed exact head)
 
-- `pnpm --filter baci-mobile-admin exec vitest run …` — PASS (16 files, 103 tests)
-- `pnpm exec biome check …` — PASS (Task 10 changed files)
+- Focused mutation/UI suite (abbreviated command; 16 exact test targets were
+  captured in the Task 10 commit receipt): `pnpm --filter baci-mobile-admin
+  exec vitest run <Task-10-targets>` — PASS (16 files, 103 tests)
+- Changed-file Biome command (abbreviated; same Task 10 target set):
+  `pnpm exec biome check <Task-10-changed-files>` — PASS
 - `pnpm --filter baci-mobile-admin typecheck` — PASS
 
 ## Constraints / handoff
@@ -49,8 +52,8 @@ ported.
 - The Task 10 commits were cherry-picked only after the fresh Sol xhigh review.
 - Subsequent exact-head review rounds hardened post-success refresh isolation,
   mutation-time merchant scoping, mock lifecycle, and settings extraction.
-- The latest Sol xhigh re-review approved integrated head `55b61f846a` with no
-  Critical or Important findings.
+- The latest integration-stage Sol xhigh re-review approved integrated head
+  `55b61f846a` with no Critical or Important findings.
 - Controller focused readiness suites, changed-file Biome, and mobile/web
   package typechecks passed. The final exact-head CodeRabbit verification and
   serial full monorepo test receipt remain Task 11 gates.
@@ -87,6 +90,6 @@ ported.
   missing-merchant, draft/AI, and stock-only exclusions.
 - CAC now asserts the verified result transition after the awaited KYC refresh
   resolves; NIN and BVN retain their existing success/error lifecycle coverage.
-- Fresh Sol xhigh review approved exact head
-  `961ce278b4e52e9a6e2370c9ed561f4bac5a568d` with no remaining Task 10
-  findings.
+- The historical Task 10 isolated-worktree Sol xhigh review approved exact
+  head `961ce278b4e52e9a6e2370c9ed561f4bac5a568d` with no remaining Task 10
+  findings. The later integration-stage review is recorded separately above.

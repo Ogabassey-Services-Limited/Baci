@@ -59,14 +59,21 @@ const baseConfig = {
   root: { title: 'Home' },
   zones: {},
 };
-let latestQueryClient: QueryClient | null = null;
 
-function wrapper({ children }: { children: ReactNode }) {
-  const client = new QueryClient({
+function createWrapper() {
+  const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  latestQueryClient = client;
-  return React.createElement(QueryClientProvider, { client }, children);
+
+  function Wrapper({ children }: { children: ReactNode }) {
+    return React.createElement(
+      QueryClientProvider,
+      { client: queryClient },
+      children
+    );
+  }
+
+  return { queryClient, Wrapper };
 }
 
 describe('useBuilderConfig', () => {
@@ -77,12 +84,14 @@ describe('useBuilderConfig', () => {
       isPublished: false,
     });
     mockInvalidateStoreReadiness.mockResolvedValue(undefined);
-    latestQueryClient = null;
     merchantMocks.merchant = { id: 'merchant-1' };
   });
 
   it('loads builder config through the centralized mobile API client', async () => {
-    const { result } = renderHook(() => useBuilderConfig('home'), { wrapper });
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useBuilderConfig('home'), {
+      wrapper: Wrapper,
+    });
 
     await waitFor(() => {
       expect(result.current.config).toEqual(baseConfig);
@@ -104,7 +113,10 @@ describe('useBuilderConfig', () => {
         })
       );
 
-    const { result } = renderHook(() => useBuilderConfig('home'), { wrapper });
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useBuilderConfig('home'), {
+      wrapper: Wrapper,
+    });
 
     await waitFor(() => {
       expect(result.current.config).toEqual(baseConfig);
@@ -161,7 +173,10 @@ describe('useBuilderConfig', () => {
           root: { title: 'AI draft' },
         },
       });
-    const { result } = renderHook(() => useBuilderConfig('home'), { wrapper });
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useBuilderConfig('home'), {
+      wrapper: Wrapper,
+    });
 
     await waitFor(() => {
       expect(result.current.config).toEqual(baseConfig);
@@ -213,13 +228,15 @@ describe('useBuilderConfig', () => {
       .mockResolvedValueOnce({ config: baseConfig, isPublished: false })
       .mockResolvedValueOnce(undefined)
       .mockResolvedValueOnce(undefined);
-    const { result } = renderHook(() => useBuilderConfig('home'), { wrapper });
+    const { queryClient, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useBuilderConfig('home'), {
+      wrapper: Wrapper,
+    });
 
     await waitFor(() => {
       expect(result.current.config).toEqual(baseConfig);
     });
-    if (!latestQueryClient) throw new Error('Expected query client');
-    vi.spyOn(latestQueryClient, 'invalidateQueries').mockReturnValue(builder);
+    vi.spyOn(queryClient, 'invalidateQueries').mockReturnValue(builder);
     act(() => {
       result.current.publish();
     });
@@ -233,7 +250,7 @@ describe('useBuilderConfig', () => {
         expect.anything(),
         'merchant-1'
       );
-      expect(latestQueryClient?.invalidateQueries).toHaveBeenCalledWith({
+      expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
         queryKey: ['builderConfig', 'home'],
       });
       expect(result.current.isPublishing).toBe(true);
@@ -253,7 +270,10 @@ describe('useBuilderConfig', () => {
       .mockResolvedValueOnce(undefined)
       .mockResolvedValueOnce({ config: baseConfig, isPublished: false })
       .mockRejectedValueOnce(new Error('Publish failed'));
-    const { result } = renderHook(() => useBuilderConfig('home'), { wrapper });
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useBuilderConfig('home'), {
+      wrapper: Wrapper,
+    });
 
     await waitFor(() => {
       expect(result.current.config).toEqual(baseConfig);
@@ -276,7 +296,10 @@ describe('useBuilderConfig', () => {
     mockInvalidateStoreReadiness.mockRejectedValueOnce(
       new Error('Readiness refresh failed')
     );
-    const { result } = renderHook(() => useBuilderConfig('home'), { wrapper });
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useBuilderConfig('home'), {
+      wrapper: Wrapper,
+    });
 
     await waitFor(() => {
       expect(result.current.config).toEqual(baseConfig);
@@ -304,13 +327,15 @@ describe('useBuilderConfig', () => {
       if (options?.method === 'PUT') return publishRequest;
       return Promise.resolve(undefined);
     });
-    const { result } = renderHook(() => useBuilderConfig('home'), { wrapper });
+    const { queryClient, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useBuilderConfig('home'), {
+      wrapper: Wrapper,
+    });
 
     await waitFor(() => {
       expect(result.current.config).toEqual(baseConfig);
     });
-    if (!latestQueryClient) throw new Error('Expected query client');
-    const invalidateQueries = vi.spyOn(latestQueryClient, 'invalidateQueries');
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
 
     act(() => {
       result.current.publish();
