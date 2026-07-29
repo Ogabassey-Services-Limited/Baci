@@ -46,6 +46,39 @@ test('bootstrap captures before mutation, journals, completes, and disables conc
   assert.match(source, /atomic_line\(\) \(/);
 });
 
+test('bootstrap authorizes and completes a receipt-bound source generation replacement', () => {
+  const bootstrap = sourceSlice(
+    source,
+    'bootstrap() {',
+    'assert_bootstrap() {'
+  );
+  assert.ok(
+    anchor(bootstrap, 'replacement-authorize') <
+      anchor(bootstrap, 'install_account')
+  );
+  assert.ok(
+    bootstrap.lastIndexOf('replacement-complete') >
+      anchor(bootstrap, 'install-bootstrap-controller.mjs" complete')
+  );
+  assert.match(
+    bootstrap,
+    /phase" = complete[\s\S]*replacement-intent\.json[\s\S]*replacement-complete/
+  );
+  const assertion = sourceSlice(
+    source,
+    'assert_bootstrap() {',
+    'lstat_external() {'
+  );
+  assert.match(assertion, /replacement-intent\.json/);
+  assert.match(assertion, /replacement-verify/);
+  assert.match(source, /install-bootstrap-replacement-file\.mjs" source/);
+  assert.match(source, /install-bootstrap-replacement-file\.mjs" line/);
+  assert.match(
+    source,
+    /BACI_CWV_BOOTSTRAP_REPLACEMENT.*replacement intent required/s
+  );
+});
+
 test('installs the watchdog template before the first daemon reload or disable', () => {
   const bootstrap = sourceSlice(
     source,

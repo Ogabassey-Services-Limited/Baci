@@ -9,6 +9,33 @@ import {
 } from './install-bootstrap.mjs';
 import { readInstalledProjection } from './install-bootstrap-installed.mjs';
 import { buildBootstrapInput } from './install-bootstrap-plan.mjs';
+import {
+  authorizeBootstrapReplacement,
+  authorizeBootstrapReplacementIfNeeded,
+  completeBootstrapReplacement,
+  persistBootstrapReplacementIntent,
+  persistBootstrapReplacementReceipt,
+  readBootstrapReplacementDownstream,
+  readBootstrapReplacementIntent,
+  readBootstrapReplacementReceipt,
+  verifyBootstrapReplacementCompletion,
+} from './install-bootstrap-replacement-controller.mjs';
+
+export {
+  planBootstrapReplacement,
+  resolveBootstrapReplacementChain,
+} from './install-bootstrap-replacement.mjs';
+export {
+  authorizeBootstrapReplacement,
+  authorizeBootstrapReplacementIfNeeded,
+  completeBootstrapReplacement,
+  persistBootstrapReplacementIntent,
+  persistBootstrapReplacementReceipt,
+  readBootstrapReplacementDownstream,
+  readBootstrapReplacementIntent,
+  readBootstrapReplacementReceipt,
+  verifyBootstrapReplacementCompletion,
+};
 
 export async function captureBootstrap(stateRoot, input) {
   return await persistBootstrapCapture(stateRoot, beginBootstrap(input));
@@ -114,6 +141,24 @@ async function main(argv) {
     await resumeBootstrap(first, input);
     const state = await verifyBootstrapTransaction(first);
     process.stdout.write(`${state.receiptSha256}\n`);
+    return;
+  }
+  if (command === 'replacement-authorize') {
+    const plan = await authorizeBootstrapReplacementIfNeeded({
+      currentDirectory: first,
+      stateRoot: second,
+      root: third,
+      prepareRoot: fourth,
+    });
+    process.stdout.write(`${plan ? JSON.stringify(plan) : 'none'}\n`);
+    return;
+  }
+  if (command === 'replacement-complete') {
+    await completeBootstrapReplacement({ currentDirectory: first });
+    return;
+  }
+  if (command === 'replacement-verify') {
+    await verifyBootstrapReplacementCompletion({ currentDirectory: first });
     return;
   }
   throw new Error(`unsupported bootstrap controller command: ${command}`);

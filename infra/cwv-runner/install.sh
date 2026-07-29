@@ -1,5 +1,4 @@
 #!/bin/sh
-# Root-only installer, inert until invoked from a sealed merge-tree copy.
 set -eu
 PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export PATH LC_ALL=C.UTF-8 TZ=Etc/UTC
@@ -29,8 +28,8 @@ policy() { /usr/bin/node "$SCRIPT_DIR/policy.schema.mjs" get "$1"; }
 atomic_line() (
   destination=$1 value=$2 mode=$3 owner=$4 directory=${1%/*}
   if [ -e "$destination" ]; then
-    regular "$destination" && root_mode "$destination" "$owner:$mode" &&
-      [ "$(/bin/cat -- "$destination")" = "$value" ] || die 'installed line drift'
+    if ! regular "$destination" || ! root_mode "$destination" "$owner:$mode"; then die 'installed line drift'; fi
+    if [ "$(/bin/cat -- "$destination")" != "$value" ]; then if [ "${BACI_CWV_BOOTSTRAP_REPLACEMENT-}" != 1 ] || ! regular "$BOOTSTRAP_DIRECTORY/replacement-intent.json"; then die 'replacement intent required'; fi; /usr/bin/node "$SCRIPT_DIR/install-bootstrap-replacement-file.mjs" line "$BOOTSTRAP_DIRECTORY" "$destination" "$value" >/dev/null || die 'installed line drift'; fi
     return 0
   fi
   temporary=$(/usr/bin/mktemp "$directory/.tmp.XXXXXX") || die 'temporary file failed'
@@ -40,19 +39,18 @@ atomic_line() (
   /bin/chown "$owner" "$temporary"; /bin/chmod "$mode" "$temporary"
   /bin/mv -f -- "$temporary" "$destination"; /usr/bin/sync -f "$directory" || die 'directory fsync failed'
   trap - EXIT HUP INT TERM
-)
-ensure_directory() {
+); ensure_directory() {
   directory=$1 mode=$2 owner=$3
   [ ! -L "$directory" ] || die 'symlink directory refused'
   /usr/bin/install -d -m "$mode" -o "${owner%:*}" -g "${owner#*:}" "$directory"
   root_mode "$directory" "${owner}:$mode" || die 'directory ownership or mode drift'
-}
-ensure_file() {
+}; ensure_file() {
   source=$1 destination=$2 mode=$3 owner=${4:-root:root}
   case "$destination" in "$ROOT/sealed/"*token*|"$ROOT/sealed/"*credential*|"$ROOT/sealed/"*secret*) case "$owner:$mode" in root:root:0400|root:root:0500|root:root:0600) ;; *) die 'sealed credential must be root-only';; esac;; esac
   regular "$source" || die 'source file must be a regular nonsymlink'
   if [ -e "$destination" ]; then
-    if ! regular "$destination" || ! root_mode "$destination" "$owner:$mode" || ! /usr/bin/cmp -s "$source" "$destination"; then die 'installed file drift'; fi
+    if ! regular "$destination" || ! root_mode "$destination" "$owner:$mode"; then die 'installed file drift'; fi
+    if ! /usr/bin/cmp -s "$source" "$destination"; then if [ "${BACI_CWV_BOOTSTRAP_REPLACEMENT-}" != 1 ] || ! regular "$BOOTSTRAP_DIRECTORY/replacement-intent.json"; then die 'replacement intent required'; fi; /usr/bin/node "$SCRIPT_DIR/install-bootstrap-replacement-file.mjs" source "$BOOTSTRAP_DIRECTORY" "$destination" "$source" >/dev/null || die 'installed file drift'; fi
     return 0
   fi
   temporary=$(/usr/bin/mktemp "${destination%/*}/.tmp.XXXXXX") || die 'temporary file failed'
@@ -83,8 +81,7 @@ assert_sealed_source() {
   regular "$SCRIPT_DIR/policy.json" || die 'sealed policy required'
   policy_sha=$(sha256 "$SCRIPT_DIR/policy.json")
   /usr/bin/jq -e --arg sha "$policy_sha" '.sourceArchive.entries[]? | select(.path == "infra/cwv-runner/policy.json" and .blobSha256 == $sha)' "$manifest" >/dev/null || die 'sealed policy is not manifest-bound'
-}
-assert_containerd_compatible() { regular "$SCRIPT_DIR/identity-contract.json" || die 'identity contract required'; expected=$(/usr/bin/jq -er '.fields.hostBinaries.expectation.containerdVersion' "$SCRIPT_DIR/identity-contract.json") || die 'containerd version contract refused'; /usr/bin/printf '%s' "$expected" | /usr/bin/grep -Eq '^2\.[0-9]+\.[0-9]+$' || die 'containerd version contract refused'; version=$(/usr/bin/containerd --version 2>/dev/null | /usr/bin/awk 'NR == 1 { for (i = 1; i <= NF; i += 1) if ($i ~ /^v[0-9]+\.[0-9]+\.[0-9]+$/) { print substr($i, 2); found = 1; exit } } END { exit !found }') || die 'containerd version refused'; [ "$version" = "$expected" ] || die 'containerd version refused'; }
+}; assert_containerd_compatible() { regular "$SCRIPT_DIR/identity-contract.json" || die 'identity contract required'; expected=$(/usr/bin/jq -er '.fields.hostBinaries.expectation.containerdVersion' "$SCRIPT_DIR/identity-contract.json") || die 'containerd version contract refused'; /usr/bin/printf '%s' "$expected" | /usr/bin/grep -Eq '^2\.[0-9]+\.[0-9]+$' || die 'containerd version contract refused'; version=$(/usr/bin/containerd --version 2>/dev/null | /usr/bin/awk 'NR == 1 { for (i = 1; i <= NF; i += 1) if ($i ~ /^v[0-9]+\.[0-9]+\.[0-9]+$/) { print substr($i, 2); found = 1; exit } } END { exit !found }') || die 'containerd version refused'; [ "$version" = "$expected" ] || die 'containerd version refused'; }
 install_account() {
   user=$(policy /host/runnerAccount) || die 'runner account policy refused'
   uid=$(policy /host/runnerUid) || die 'runner uid policy refused'
@@ -144,14 +141,15 @@ bootstrap() {
   assert_containerd_compatible; ensure_directory /var/lib/baci-cwv 0700 root:root; ensure_directory "$BOOTSTRAP_ROOT" 0700 root:root
   transaction="bootstrap-$(/usr/bin/printf '%s' "$2" | /usr/bin/cut -c1-12)"; BOOTSTRAP_DIRECTORY="$BOOTSTRAP_ROOT/$transaction"; export BOOTSTRAP_DIRECTORY
   policy_file_sha=$(sha256 "$SCRIPT_DIR/policy.json")
-  plan=$(/usr/bin/mktemp "$BOOTSTRAP_ROOT/.plan.XXXXXX") || die 'bootstrap plan failed'
+  plan=$(/usr/bin/mktemp "$BOOTSTRAP_ROOT/../.plan.XXXXXX") || die 'bootstrap plan failed'
   trap '/bin/rm -f -- "$plan"' EXIT HUP INT TERM
   /usr/bin/node "$SCRIPT_DIR/install-bootstrap-plan.mjs" "$SCRIPT_DIR" "$2" "$(/bin/cat "$6")" "$policy_file_sha" "$(sha256 "$SCRIPT_DIR/install.sh")" "$transaction" >"$plan"
   /bin/chmod 0600 "$plan"; /usr/bin/sync -f "$plan"; exec 8>/run/lock/baci-cwv-campaign.lock; /usr/bin/flock -n 8 || die 'campaign lock refused during bootstrap'
   if [ -d "$BOOTSTRAP_DIRECTORY" ]; then
     phase=$(/usr/bin/node "$SCRIPT_DIR/install-bootstrap-controller.mjs" resume "$BOOTSTRAP_DIRECTORY" "$plan")
-    if [ "$phase" = complete ]; then /usr/bin/node "$SCRIPT_DIR/install-bootstrap-controller.mjs" verify "$BOOTSTRAP_DIRECTORY" "$plan" >/dev/null; trap - EXIT HUP INT TERM; /bin/rm -f -- "$plan"; return 0; fi
+    if [ "$phase" = complete ]; then /usr/bin/node "$SCRIPT_DIR/install-bootstrap-controller.mjs" verify "$BOOTSTRAP_DIRECTORY" "$plan" >/dev/null; if [ -e "$BOOTSTRAP_DIRECTORY/replacement-intent.json" ] || [ -L "$BOOTSTRAP_DIRECTORY/replacement-intent.json" ] || [ -e "$BOOTSTRAP_DIRECTORY/replacement-receipt.json" ] || [ -L "$BOOTSTRAP_DIRECTORY/replacement-receipt.json" ]; then /usr/bin/node "$SCRIPT_DIR/install-bootstrap-controller.mjs" replacement-complete "$BOOTSTRAP_DIRECTORY" || die 'bootstrap replacement completion refused'; fi; trap - EXIT HUP INT TERM; /bin/rm -f -- "$plan"; return 0; fi
   else /usr/bin/node "$SCRIPT_DIR/install-bootstrap-controller.mjs" begin "$BOOTSTRAP_ROOT" "$plan" >/dev/null; fi
+  replacement=$(/usr/bin/node "$SCRIPT_DIR/install-bootstrap-controller.mjs" replacement-authorize "$BOOTSTRAP_DIRECTORY" "$BOOTSTRAP_ROOT" "$ROOT" "$PREPARE_ROOT") || die 'bootstrap replacement refused'; if [ "$replacement" != none ]; then BACI_CWV_BOOTSTRAP_REPLACEMENT=1; export BACI_CWV_BOOTSTRAP_REPLACEMENT; fi
   install_account; install_layout; install_sealed_helpers; render_watchdog "$2"; install_units
   atomic_line "$ROOT/sealed/policy.sha256" "$policy_file_sha" 0640 root:baci-cwv
   atomic_line "$ROOT/sealed/bootstrap.sha256" "$(sha256 "$SCRIPT_DIR/install.sh")" 0600 root:root
@@ -160,6 +158,7 @@ bootstrap() {
   /usr/bin/systemd-analyze verify /etc/systemd/system/baci-cwv-containerd.service /etc/systemd/system/baci-cwv-docker.service /etc/systemd/system/baci-cwv-measurement.service /etc/systemd/system/baci-cwv-host-sampler.service /etc/systemd/system/baci-cwv-host-sampler.timer /etc/systemd/system/baci-cwv-campaign-watchdog@.service
   unit_states="$BOOTSTRAP_DIRECTORY/unit-states.json"; /usr/bin/printf '%s\n' "$UNIT_STATES" >"$unit_states"; /bin/chmod 0600 "$unit_states"; /usr/bin/sync -f "$unit_states"
   /usr/bin/node "$SCRIPT_DIR/install-bootstrap-controller.mjs" complete "$BOOTSTRAP_DIRECTORY" "$unit_states"
+  if [ "${BACI_CWV_BOOTSTRAP_REPLACEMENT-}" = 1 ]; then /usr/bin/node "$SCRIPT_DIR/install-bootstrap-controller.mjs" replacement-complete "$BOOTSTRAP_DIRECTORY"; fi
   trap - EXIT HUP INT TERM; /bin/rm -f -- "$plan"
 }
 assert_bootstrap() {
@@ -170,6 +169,7 @@ assert_bootstrap() {
   directory="$BOOTSTRAP_ROOT/bootstrap-$(/usr/bin/printf '%s' "$source_sha" | /usr/bin/cut -c1-12)"
   manifest_sha=$(/bin/cat "$ROOT/sealed/source-manifest.sha256")
   /usr/bin/node "$SCRIPT_DIR/install-bootstrap-controller.mjs" verify-current "$directory" "$SCRIPT_DIR" "$source_sha" "$manifest_sha" "$(sha256 "$SCRIPT_DIR/policy.json")" "$(sha256 "$SCRIPT_DIR/install.sh")" "bootstrap-$(/usr/bin/printf '%s' "$source_sha" | /usr/bin/cut -c1-12)" >/dev/null || die 'complete bootstrap transaction required'
+  if [ -e "$directory/replacement-intent.json" ] || [ -L "$directory/replacement-intent.json" ] || [ -e "$directory/replacement-receipt.json" ] || [ -L "$directory/replacement-receipt.json" ]; then /usr/bin/node "$SCRIPT_DIR/install-bootstrap-controller.mjs" replacement-verify "$directory" >/dev/null || die 'complete bootstrap replacement required'; fi
 }
 lstat_external() {
   row=$(/usr/bin/stat -c '%F|%d|%i' -- "$1") || die 'external input lstat failed'
