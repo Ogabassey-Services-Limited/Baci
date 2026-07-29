@@ -11,11 +11,23 @@ const mocks = vi.hoisted(() => ({
     completedRequired: 5,
     isPublished: false,
     isReady: true,
+    merchantId: 'merchant-1',
     items: [],
     overallProgress: 90,
+    storeBuild: {
+      aiStatus: 'not_started',
+      canApplyAiDraft: false,
+      latestJobId: null,
+      message: 'Starter storefront is ready.',
+      starterStoreReady: true,
+    },
+    surface: 'mobile' as const,
     totalRecommended: 2,
     totalRequired: 5,
   },
+  error: null as Error | null,
+  isFetching: false,
+  isLoading: false,
   refetch: vi.fn(),
   routerPush: vi.fn(),
 }));
@@ -58,7 +70,9 @@ vi.mock('@/hooks/useMerchant', () => ({
 vi.mock('@/hooks/useStoreReadiness', () => ({
   useStoreReadiness: () => ({
     readiness: mocks.readiness,
-    isLoading: false,
+    error: mocks.error,
+    isFetching: mocks.isFetching,
+    isLoading: mocks.isLoading,
     refetch: mocks.refetch,
   }),
 }));
@@ -122,6 +136,28 @@ import SetupChecklistScreen from './setup-checklist';
 describe('SetupChecklistScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.error = null;
+    mocks.isFetching = false;
+    mocks.isLoading = false;
+    mocks.readiness = {
+      completedRecommended: 1,
+      completedRequired: 5,
+      isPublished: false,
+      isReady: true,
+      merchantId: 'merchant-1',
+      items: [],
+      overallProgress: 90,
+      storeBuild: {
+        aiStatus: 'not_started',
+        canApplyAiDraft: false,
+        latestJobId: null,
+        message: 'Starter storefront is ready.',
+        starterStoreReady: true,
+      },
+      surface: 'mobile',
+      totalRecommended: 2,
+      totalRequired: 5,
+    };
     mocks.readiness.isPublished = false;
     mocks.readiness.isReady = true;
   });
@@ -153,6 +189,24 @@ describe('SetupChecklistScreen', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('navigates checklist items through the local mobile route adapter', () => {
+    mocks.readiness.items = [
+      {
+        category: 'payments',
+        completed: false,
+        description: 'Required to receive payments via Paystack',
+        id: 'bank_account',
+        label: 'Add bank account',
+        priority: 'required',
+      },
+    ] as never;
+
+    render(<SetupChecklistScreen />);
+
+    fireEvent.click(screen.getByRole('button', { name: /add bank account/i }));
+    expect(mocks.routerPush).toHaveBeenCalledWith('/payout-settings');
+  });
+
   it('publishes through the shared publish hook', () => {
     mocks.publishStore.mockResolvedValueOnce(undefined);
 
@@ -181,5 +235,29 @@ describe('SetupChecklistScreen', () => {
     const [, message] = mocks.alert.mock.calls[0] ?? [];
     expect(message).toContain('Cannot publish store');
     expect(message).toContain('Bank account details');
+  });
+
+  it('shows an accessible retry state when the first readiness request fails', () => {
+    mocks.readiness = null as never;
+    mocks.error = new Error('offline');
+
+    render(<SetupChecklistScreen />);
+
+    expect(
+      screen.getByText('Unable to load store setup right now.')
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(mocks.refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('retains confirmed readiness when a background refresh fails', () => {
+    mocks.error = new Error('offline');
+
+    render(<SetupChecklistScreen />);
+
+    expect(screen.getByText('Ready to Launch 🚀')).toBeInTheDocument();
+    expect(
+      screen.queryByText('Unable to load store setup right now.')
+    ).not.toBeInTheDocument();
   });
 });

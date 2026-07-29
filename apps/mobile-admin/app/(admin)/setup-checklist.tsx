@@ -1,3 +1,7 @@
+import type {
+  MobileStoreReadinessItemId,
+  StoreReadinessItem,
+} from '@baci/shared';
 import Ionicons, {
   type IoniconsIconName,
 } from '@react-native-vector-icons/ionicons';
@@ -12,13 +16,14 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { StoreReadinessLoadError } from '@/components/setup/StoreReadinessLoadError';
+import { getMobileStoreReadinessRoute } from '@/constants/store-readiness-routes';
 import type { ThemeColors } from '@/constants/theme';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useStorePublish } from '@/hooks/useStorePublish';
 import { useStoreReadiness } from '@/hooks/useStoreReadiness';
 import { useTheme } from '@/hooks/useTheme';
-import type { SetupItem } from '@/types/readiness';
 
 const CATEGORY_ICONS: Record<string, string> = {
   payments: 'card-outline',
@@ -47,7 +52,8 @@ const PRIORITY_LABELS = {
 export default function SetupChecklistScreen() {
   const { colors } = useTheme();
   const router = useRouter();
-  const { readiness, isLoading, refetch } = useStoreReadiness();
+  const { readiness, isLoading, isFetching, error, refetch } =
+    useStoreReadiness();
   const { merchant } = useMerchant();
   const { isPublishing, publishStore } = useStorePublish({
     merchantId: merchant?.id,
@@ -87,9 +93,25 @@ export default function SetupChecklistScreen() {
     );
   }
 
+  if (error && !readiness) {
+    return (
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+      >
+        <StoreReadinessLoadError
+          isRetrying={isFetching}
+          onRetry={() => void refetch()}
+        />
+      </SafeAreaView>
+    );
+  }
+
   if (!readiness) return null;
 
-  const renderItem = (item: SetupItem, isNext: boolean) => {
+  const renderItem = (
+    item: StoreReadinessItem<MobileStoreReadinessItemId>,
+    isNext: boolean
+  ) => {
     const priorityColor = getPriorityColors(colors)[item.priority];
     const _iconName =
       (CATEGORY_ICONS[item.category] as IoniconsIconName) || 'list-outline';
@@ -97,16 +119,7 @@ export default function SetupChecklistScreen() {
     return (
       <Pressable
         key={item.id}
-        onPress={() =>
-          // item.href is a dynamic string from CHECKLIST_ITEMS config; the
-          // typed `pathname/params` form requires a literal pathname
-          // known at compile time. Cast is intentional for config-driven
-          // navigation. New routes added to CHECKLIST_ITEMS must still be
-          // valid Expo Router paths.
-          item.href.startsWith('/')
-            ? router.push(item.href as Parameters<typeof router.push>[0])
-            : undefined
-        }
+        onPress={() => router.push(getMobileStoreReadinessRoute(item.id))}
         style={[
           styles.itemCard,
           {
