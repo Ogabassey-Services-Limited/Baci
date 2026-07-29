@@ -2,10 +2,8 @@ import { basename, join } from 'node:path';
 import { canonicalJson } from './canonical-json.mjs';
 import { readBootstrapState } from './install-bootstrap.mjs';
 import { readInstalledProjection } from './install-bootstrap-installed.mjs';
-import {
-  planBootstrapReplacement,
-  resolveBootstrapReplacementChain,
-} from './install-bootstrap-replacement.mjs';
+import { planBootstrapReplacement } from './install-bootstrap-replacement.mjs';
+import { resolveBootstrapReplacementChain } from './install-bootstrap-replacement-chain.mjs';
 import {
   persistBootstrapReplacementIntent,
   readBootstrapReplacementIntent,

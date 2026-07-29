@@ -21,10 +21,8 @@ import {
   verifyBootstrapReplacementCompletion,
 } from './install-bootstrap-replacement-controller.mjs';
 
-export {
-  planBootstrapReplacement,
-  resolveBootstrapReplacementChain,
-} from './install-bootstrap-replacement.mjs';
+export { planBootstrapReplacement } from './install-bootstrap-replacement.mjs';
+export { resolveBootstrapReplacementChain } from './install-bootstrap-replacement-chain.mjs';
 export {
   authorizeBootstrapReplacement,
   authorizeBootstrapReplacementIfNeeded,

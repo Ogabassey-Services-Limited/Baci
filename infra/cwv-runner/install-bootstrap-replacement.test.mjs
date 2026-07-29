@@ -1,10 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-  planBootstrapReplacement,
-  resolveBootstrapReplacementChain,
-} from './install-bootstrap-replacement.mjs';
+import { planBootstrapReplacement } from './install-bootstrap-replacement.mjs';
 
 const oldSource = 'a'.repeat(40);
 const newSource = 'b'.repeat(40);
@@ -60,17 +57,6 @@ const nextState = {
   captureSha256: '6'.repeat(64),
   prior: previousFiles,
   files: nextFiles,
-};
-const completedNextState = {
-  ...nextState,
-  phase: 'complete',
-  receiptSha256: '8'.repeat(64),
-  receipt: {
-    sourceSha: newSource,
-    sourceManifestSha256: nextState.sourceManifestSha256,
-    policyFileSha256: policy,
-    files: nextFiles,
-  },
 };
 const inertHost = {
   acceptedImageFiles: 0,
@@ -155,138 +141,5 @@ test('refuses an unbound prior generation or downstream provisioning', () => {
         downstreamState: { ...inertHost, registrationArtifacts: 1 },
       }),
     /downstream provisioning exists/
-  );
-});
-
-test('proves a mixed projection through receipt-bound interrupted generations', () => {
-  const intermediateSource = 'f'.repeat(40);
-  const intermediate = {
-    ...nextState,
-    sourceSha: intermediateSource,
-    captureSha256: '8'.repeat(64),
-    prior: previousFiles,
-    files: {
-      [bootstrapPath]: { ...newBootstrap, sha256: '7'.repeat(64) },
-      [watchdogPath]: newWatchdog,
-    },
-  };
-  const current = {
-    ...nextState,
-    prior: { [bootstrapPath]: oldBootstrap, [watchdogPath]: newWatchdog },
-  };
-  assert.deepEqual(
-    resolveBootstrapReplacementChain(
-      [current, intermediate, previousState],
-      current
-    ).map((state) => state.sourceSha),
-    [oldSource, intermediateSource, newSource]
-  );
-  assert.throws(
-    () =>
-      resolveBootstrapReplacementChain(
-        [
-          current,
-          {
-            ...intermediate,
-            prior: {
-              ...previousFiles,
-              [bootstrapPath]: { ...oldBootstrap, sha256: '9'.repeat(64) },
-            },
-          },
-          previousState,
-        ],
-        current
-      ),
-    /replacement authority chain/
-  );
-});
-
-test('uses the latest completed baseline while retaining its completed ancestor', () => {
-  const current = {
-    ...nextState,
-    sourceSha: 'f'.repeat(40),
-    captureSha256: '9'.repeat(64),
-    prior: nextFiles,
-  };
-
-  assert.deepEqual(
-    resolveBootstrapReplacementChain(
-      [previousState, completedNextState, current],
-      current
-    ).map((state) => state.sourceSha),
-    [newSource, current.sourceSha]
-  );
-});
-
-test('refuses orphaned or ambiguous completed replacement history', () => {
-  const current = {
-    ...nextState,
-    sourceSha: 'f'.repeat(40),
-    captureSha256: '9'.repeat(64),
-    prior: nextFiles,
-  };
-  const unrelated = {
-    ...previousState,
-    sourceSha: '0'.repeat(40),
-    receipt: {
-      ...previousState.receipt,
-      sourceSha: '0'.repeat(40),
-      files: nextFiles,
-    },
-  };
-  const competing = {
-    ...previousState,
-    sourceSha: '1'.repeat(40),
-    receipt: { ...previousState.receipt, sourceSha: '1'.repeat(40) },
-  };
-
-  for (const extra of [unrelated, competing])
-    assert.throws(
-      () =>
-        resolveBootstrapReplacementChain(
-          [previousState, completedNextState, current, extra],
-          current
-        ),
-      /replacement authority chain/
-    );
-});
-
-test('proves a first-install chain only from one all-absent pristine capture', () => {
-  const pristineSource = '0'.repeat(40);
-  const absent = { absent: true };
-  const pristine = {
-    ...nextState,
-    sourceSha: pristineSource,
-    captureSha256: '0'.repeat(64),
-    prior: { [bootstrapPath]: absent, [watchdogPath]: absent },
-    files: previousFiles,
-  };
-  const current = { ...nextState, prior: previousFiles };
-  const chain = resolveBootstrapReplacementChain([current, pristine], current);
-  const plan = planBootstrapReplacement({
-    authorityChain: chain,
-    nextState: current,
-    installedProjection: previousFiles,
-    downstreamState: inertHost,
-  });
-  assert.equal(plan.baselineKind, 'pristine');
-  assert.equal(plan.baselineSourceSha, pristineSource);
-  assert.equal(plan.baselineStateSha256, pristine.captureSha256);
-});
-
-test('refuses a captured root that is neither complete nor all-absent', () => {
-  const invalidRoot = {
-    ...nextState,
-    sourceSha: '0'.repeat(40),
-    captureSha256: '0'.repeat(64),
-    prior: {
-      [bootstrapPath]: { absent: true },
-      [watchdogPath]: oldWatchdog,
-    },
-    files: previousFiles,
-  };
-  assert.throws(
-    () => resolveBootstrapReplacementChain([invalidRoot, nextState], nextState),
-    /replacement authority chain/
   );
 });

@@ -34,14 +34,15 @@ async function atomicReplace(destination, bytes, expected, dependencies) {
   if (!/^[a-z0-9-]+$/.test(attempt))
     throw new TypeError('invalid replacement attempt identity');
   const temporary = join(directory, `${temporaryPrefix}${attempt}`);
-  const handle = await open(temporary, 'wx', 0o600);
+  let created = false;
+  let handle;
   try {
+    handle = await dependencies.openFile(temporary, 'wx', 0o600);
+    created = true;
     await handle.writeFile(bytes);
     await handle.sync();
-  } finally {
     await handle.close();
-  }
-  try {
+    handle = undefined;
     const [uid, gid] = owners[expected.owner] ?? [];
     if (uid === undefined) throw new TypeError('unsupported replacement owner');
     await dependencies.chownFile(temporary, uid, gid);
@@ -50,7 +51,25 @@ async function atomicReplace(destination, bytes, expected, dependencies) {
     await rename(temporary, destination);
     await dependencies.syncDirectory(directory);
   } catch (error) {
-    await dependencies.removeFile(temporary, { force: true });
+    if (handle) {
+      try {
+        await handle.close();
+      } catch {
+        // Preserve the replacement failure that initiated cleanup.
+      }
+    }
+    if (created) {
+      try {
+        await dependencies.removeFile(temporary, { force: true });
+      } catch {
+        // A cleanup failure must not replace the original write failure.
+      }
+      try {
+        await dependencies.syncDirectory(directory);
+      } catch {
+        // Best effort only: preserve the original replacement failure.
+      }
+    }
     throw error;
   }
 }
@@ -83,6 +102,7 @@ async function reconcileTemporaries(destination, expected, dependencies) {
 export async function replaceBootstrapFile(input, descriptor = {}) {
   const dependencies = {
     chownFile: descriptor.chownFile ?? chown,
+    openFile: descriptor.openFile ?? open,
     readIntent: descriptor.readIntent ?? readBootstrapReplacementIntent,
     readDirectory: descriptor.readDirectory ?? readdir,
     readProjection: descriptor.readProjection ?? readInstalledProjection,

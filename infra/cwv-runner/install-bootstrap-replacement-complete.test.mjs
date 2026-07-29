@@ -34,3 +34,44 @@ test('publishes a generation receipt only after the target projection is complet
   assert.equal(receipt.receiptSha256, complete.receiptSha256);
   assert.deepEqual(persisted, [receipt]);
 });
+
+test('refuses captured state without publishing a generation receipt', async () => {
+  const persisted = [];
+
+  await assert.rejects(
+    completeBootstrapReplacement(
+      { currentDirectory: '/state/bootstrap-bbbbbbbbbbbb' },
+      {
+        readState: async () => ({ ...complete, phase: 'captured' }),
+        readIntent: async () => intent,
+        readProjection: async () => files,
+        persistReceipt: async (_directory, value) => persisted.push(value),
+      }
+    ),
+    /completed replacement projection required/
+  );
+
+  assert.deepEqual(persisted, []);
+});
+
+test('refuses a mismatched installed projection without publishing a generation receipt', async () => {
+  const persisted = [];
+  const mismatchedFiles = {
+    [path]: { ...files[path], sha256: '3'.repeat(64) },
+  };
+
+  await assert.rejects(
+    completeBootstrapReplacement(
+      { currentDirectory: '/state/bootstrap-bbbbbbbbbbbb' },
+      {
+        readState: async () => complete,
+        readIntent: async () => intent,
+        readProjection: async () => mismatchedFiles,
+        persistReceipt: async (_directory, value) => persisted.push(value),
+      }
+    ),
+    /completed replacement projection required/
+  );
+
+  assert.deepEqual(persisted, []);
+});
