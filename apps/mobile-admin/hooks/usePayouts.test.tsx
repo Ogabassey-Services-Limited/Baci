@@ -43,7 +43,9 @@ function createWrapper() {
 
 describe('usePayouts', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    merchantMock.mockReset();
+    mockApiClient.mockReset();
+    mockInvalidateStoreReadiness.mockReset();
     mockInvalidateStoreReadiness.mockResolvedValue(undefined);
     currentMerchant = { id: 'merchant-1' };
     merchantMock.mockImplementation(() => ({ merchant: currentMerchant }));
@@ -161,7 +163,8 @@ describe('usePayouts', () => {
     expect(mockInvalidateStoreReadiness).not.toHaveBeenCalled();
   });
 
-  it('keeps a successful save successful if merchant context disappears before onSuccess', async () => {
+  it('uses the trimmed merchant id captured at mutation start after merchant context disappears', async () => {
+    currentMerchant = { id: ' merchant-1 ' };
     let releaseSave!: () => void;
     const response = new Promise<{ subaccount_code: string }>((resolve) => {
       releaseSave = () => resolve({ subaccount_code: 'SUB_123' });
@@ -188,7 +191,10 @@ describe('usePayouts', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ['merchant-payout'],
     });
-    expect(mockInvalidateStoreReadiness).not.toHaveBeenCalled();
+    expect(mockInvalidateStoreReadiness).toHaveBeenCalledWith(
+      queryClient,
+      'merchant-1'
+    );
   });
 
   it('preserves a successful save when only readiness invalidation fails', async () => {

@@ -44,22 +44,25 @@ export function usePayouts() {
 
   // Create Subaccount (Save Payout Settings)
   const savePayoutSettingsMutation = useMutation({
-    mutationFn: (data: CreateSubaccountPayload) => {
-      if (!merchantId?.trim()) throw new Error('No merchant');
-      return apiClient<CreateSubaccountResponse>('/api/paystack/subaccount', {
+    mutationFn: (data: CreateSubaccountPayload) =>
+      apiClient<CreateSubaccountResponse>('/api/paystack/subaccount', {
         method: 'POST',
         body: JSON.stringify(data),
-      });
+      }),
+    onMutate: () => {
+      const capturedMerchantId = merchantId?.trim();
+      if (!capturedMerchantId) throw new Error('No merchant');
+      return { merchantId: capturedMerchantId };
     },
-    onSuccess: async () => {
+    onSuccess: async (_data, _variables, context) => {
       const invalidations: Promise<unknown>[] = [
         queryClient.invalidateQueries({ queryKey: ['merchant'] }),
         queryClient.invalidateQueries({ queryKey: ['merchant-payout'] }),
       ];
-      if (merchantId?.trim()) {
+      if (context?.merchantId) {
         invalidations.push(
           tryRefreshStoreReadiness(() =>
-            invalidateStoreReadiness(queryClient, merchantId)
+            invalidateStoreReadiness(queryClient, context.merchantId)
           )
         );
       }

@@ -78,7 +78,10 @@ describe('NinVerificationCard readiness handoff', () => {
     expect(mocks.alert).not.toHaveBeenCalled();
     release();
     await completion;
-    expect(mocks.alert).toHaveBeenCalledWith('Success', expect.any(String));
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'Success',
+      'Your NIN has been verified successfully.'
+    );
   });
 
   it('preserves verified success when the readiness refresh rejects', async () => {
@@ -95,7 +98,10 @@ describe('NinVerificationCard readiness handoff', () => {
 
     await completeVerifiedMutation();
 
-    expect(mocks.alert).toHaveBeenCalledWith('Success', expect.any(String));
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'Success',
+      'Your NIN has been verified successfully. Your setup status will refresh shortly.'
+    );
     expect(mocks.alert).not.toHaveBeenCalledWith(
       'Verification Error',
       expect.any(String)

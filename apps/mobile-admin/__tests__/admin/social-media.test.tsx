@@ -169,7 +169,19 @@ vi.mock('react-native', async () => {
 
 describe('SocialMediaScreen', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mocks.alert.mockReset();
+    mocks.back.mockReset();
+    mocks.invalidateStoreReadiness.mockReset();
+    mocks.invalidateStoreReadiness.mockResolvedValue(undefined);
+    mocks.invalidateQueries.mockReset();
+    mocks.invalidateQueries.mockResolvedValue(undefined);
+    mocks.updateMerchantSettings.mockReset();
+    mocks.useMutation.mockReset();
+    mocks.useMerchant.mockReset();
+    mocks.useMerchant.mockReturnValue({
+      merchant: { id: 'merchant-1', social_media: {} },
+      isLoading: false,
+    });
   });
 
   it('renders loading skeleton when merchant data is loading', () => {
@@ -405,6 +417,35 @@ describe('SocialMediaScreen', () => {
       );
     });
     expect(mocks.alert).not.toHaveBeenCalledWith('Error', expect.any(String));
+  });
+
+  it('preserves save success when merchant invalidation rejects after a successful save', async () => {
+    mocks.useMerchant.mockReturnValue({
+      merchant: { id: 'merchant-1', social_media: { instagram: 'insta' } },
+      isLoading: false,
+    });
+    mocks.updateMerchantSettings.mockResolvedValueOnce({});
+    mocks.invalidateQueries.mockRejectedValueOnce(
+      new Error('Merchant refresh failed')
+    );
+
+    render(<SocialMediaScreen />);
+    fireEvent.change(screen.getByLabelText('Instagram Handle'), {
+      target: { value: 'insta_changed' },
+    });
+    fireEvent.click(screen.getByText('Save'));
+
+    await waitFor(() => {
+      expect(mocks.alert).toHaveBeenCalledWith(
+        'Success',
+        'Social media links updated',
+        expect.any(Array)
+      );
+    });
+    expect(mocks.alert).not.toHaveBeenCalledWith(
+      'Error',
+      'Merchant refresh failed'
+    );
   });
 
   // ---- V4 drift guards ----

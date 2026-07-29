@@ -38,4 +38,26 @@ describe('invalidateStoreSettingsAfterSave', () => {
       'merchant-1'
     );
   });
+
+  it.each([
+    undefined,
+    '   ',
+  ])('skips readiness refresh when the merchant id is absent or whitespace only (%j)', async (merchantId) => {
+    const queryClient = new QueryClient();
+    const invalidateQueries = vi
+      .spyOn(queryClient, 'invalidateQueries')
+      .mockResolvedValue(undefined);
+
+    await expect(
+      invalidateStoreSettingsAfterSave(queryClient, merchantId)
+    ).resolves.toBeUndefined();
+
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['merchant'],
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['merchant-settings'],
+    });
+    expect(mockInvalidateStoreReadiness).not.toHaveBeenCalled();
+  });
 });

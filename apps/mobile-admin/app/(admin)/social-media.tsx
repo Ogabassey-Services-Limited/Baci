@@ -112,7 +112,7 @@ export default function SocialMediaScreen() {
           )
         );
       }
-      await Promise.all(invalidations);
+      await Promise.allSettled(invalidations);
       Alert.alert('Success', 'Social media links updated', [
         { text: 'OK', onPress: () => router.back() },
       ]);
