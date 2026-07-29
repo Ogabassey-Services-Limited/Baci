@@ -246,4 +246,20 @@ describe('GET /api/merchant/readiness', () => {
       error: 'Failed to load store readiness',
     });
   });
+
+  it('returns the stable 500 contract when merchant resolution fails', async () => {
+    mocks.getMerchantForApiRequest.mockRejectedValue(
+      new Error('merchant lookup unavailable')
+    );
+    const { GET } = await import('./route');
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      code: 'READINESS_LOAD_FAILED',
+      error: 'Failed to load store readiness',
+    });
+    expect(mocks.loadStoreReadiness).not.toHaveBeenCalled();
+  });
 });

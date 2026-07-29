@@ -153,6 +153,28 @@ describe('useStorePublish', () => {
     expect(completed).toBe(true);
   });
 
+  it('preserves publish success when only readiness invalidation fails', async () => {
+    const { queryClient, Wrapper } = createWrapper();
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+    const onPublished = vi.fn().mockResolvedValue(undefined);
+    mockApiClient.mockResolvedValueOnce({ success: true });
+    mockInvalidateStoreReadiness.mockRejectedValueOnce(
+      new Error('Readiness refresh failed')
+    );
+    const { result } = renderHook(
+      () => useStorePublish({ merchantId: 'merchant-1', onPublished }),
+      { wrapper: Wrapper }
+    );
+
+    await expect(result.current.publishStore()).resolves.toBeUndefined();
+
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['merchant'] });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['merchant-payout'],
+    });
+    expect(onPublished).toHaveBeenCalledTimes(1);
+  });
+
   it('surfaces validation errors with missingItems when apiClient throws NetworkError', async () => {
     const { queryClient, Wrapper } = createWrapper();
     const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');

@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { invalidateStoreReadiness } from '@/lib/invalidate-store-readiness';
+import { tryRefreshStoreReadiness } from '@/lib/try-refresh-store-readiness';
 import { useMerchant } from './useMerchant';
 
 interface ResolveAccountPayload {
@@ -51,12 +52,18 @@ export function usePayouts() {
       });
     },
     onSuccess: async () => {
-      if (!merchantId?.trim()) throw new Error('No merchant');
-      await Promise.all([
+      const invalidations: Promise<unknown>[] = [
         queryClient.invalidateQueries({ queryKey: ['merchant'] }),
         queryClient.invalidateQueries({ queryKey: ['merchant-payout'] }),
-        invalidateStoreReadiness(queryClient, merchantId),
-      ]);
+      ];
+      if (merchantId?.trim()) {
+        invalidations.push(
+          tryRefreshStoreReadiness(() =>
+            invalidateStoreReadiness(queryClient, merchantId)
+          )
+        );
+      }
+      await Promise.all(invalidations);
     },
   });
 

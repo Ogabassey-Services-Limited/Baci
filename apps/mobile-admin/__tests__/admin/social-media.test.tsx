@@ -381,7 +381,7 @@ describe('SocialMediaScreen', () => {
     expect(mocks.invalidateStoreReadiness).not.toHaveBeenCalled();
   });
 
-  it('surfaces readiness failures through the mutation error path', async () => {
+  it('preserves save success when only the readiness refresh fails', async () => {
     mocks.useMerchant.mockReturnValue({
       merchant: { id: 'merchant-1', social_media: { instagram: 'insta' } },
       isLoading: false,
@@ -399,10 +399,12 @@ describe('SocialMediaScreen', () => {
 
     await waitFor(() => {
       expect(mocks.alert).toHaveBeenCalledWith(
-        'Error',
-        'Readiness refresh failed'
+        'Success',
+        'Social media links updated',
+        expect.any(Array)
       );
     });
+    expect(mocks.alert).not.toHaveBeenCalledWith('Error', expect.any(String));
   });
 
   // ---- V4 drift guards ----

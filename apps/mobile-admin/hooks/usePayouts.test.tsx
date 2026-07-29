@@ -23,6 +23,8 @@ vi.mock('@/lib/invalidate-store-readiness', () => ({
   invalidateStoreReadiness: mockInvalidateStoreReadiness,
 }));
 
+let currentMerchant: { id: string } | null = { id: 'merchant-1' };
+
 function createWrapper() {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -42,7 +44,8 @@ function createWrapper() {
 describe('usePayouts', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    merchantMock.mockReturnValue({ merchant: { id: 'merchant-1' } });
+    currentMerchant = { id: 'merchant-1' };
+    merchantMock.mockImplementation(() => ({ merchant: currentMerchant }));
   });
 
   it('resolves accounts through the canonical paystack route', async () => {
@@ -141,7 +144,7 @@ describe('usePayouts', () => {
   });
 
   it('does not start broad or readiness invalidation without a merchant id', async () => {
-    merchantMock.mockReturnValue({ merchant: null });
+    currentMerchant = null;
     const { queryClient, Wrapper } = createWrapper();
     const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
     const { result } = renderHook(() => usePayouts(), { wrapper: Wrapper });
@@ -155,5 +158,53 @@ describe('usePayouts', () => {
     ).rejects.toThrow('No merchant');
     expect(invalidateQueries).not.toHaveBeenCalled();
     expect(mockInvalidateStoreReadiness).not.toHaveBeenCalled();
+  });
+
+  it('keeps a successful save successful if merchant context disappears before onSuccess', async () => {
+    let releaseSave!: () => void;
+    const response = new Promise<{ subaccount_code: string }>((resolve) => {
+      releaseSave = () => resolve({ subaccount_code: 'SUB_123' });
+    });
+    mockApiClient.mockReturnValueOnce(response);
+    const { queryClient, Wrapper } = createWrapper();
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+    const { result, rerender } = renderHook(() => usePayouts(), {
+      wrapper: Wrapper,
+    });
+    const save = result.current.savePayoutSettings.mutateAsync({
+      accountNumber: '1234567890',
+      bankCode: '044',
+      businessName: 'Baci Store',
+    });
+    await vi.waitFor(() => expect(mockApiClient).toHaveBeenCalled());
+
+    currentMerchant = null;
+    rerender();
+    releaseSave();
+
+    await expect(save).resolves.toEqual({ subaccount_code: 'SUB_123' });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['merchant'] });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['merchant-payout'],
+    });
+    expect(mockInvalidateStoreReadiness).not.toHaveBeenCalled();
+  });
+
+  it('preserves a successful save when only readiness invalidation fails', async () => {
+    mockApiClient.mockResolvedValueOnce({ subaccount_code: 'SUB_123' });
+    mockInvalidateStoreReadiness.mockRejectedValueOnce(
+      new Error('Readiness refresh failed')
+    );
+    const { result } = renderHook(() => usePayouts(), {
+      wrapper: createWrapper().Wrapper,
+    });
+
+    await expect(
+      result.current.savePayoutSettings.mutateAsync({
+        accountNumber: '1234567890',
+        bankCode: '044',
+        businessName: 'Baci Store',
+      })
+    ).resolves.toEqual({ subaccount_code: 'SUB_123' });
   });
 });

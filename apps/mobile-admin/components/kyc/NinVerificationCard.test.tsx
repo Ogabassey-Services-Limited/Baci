@@ -53,7 +53,7 @@ describe('NinVerificationCard readiness handoff', () => {
     mocks.options = null;
   });
 
-  it('awaits refresh before the verified success UI and routes refresh rejection through mutation error', async () => {
+  it('awaits the readiness refresh before showing verified success', async () => {
     const events: string[] = [];
     let release!: () => void;
     const refresh = new Promise<void>((resolve) => {

@@ -2,6 +2,7 @@ import { type QueryClient, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { apiClient, NetworkError } from '@/lib/api-client';
 import { invalidateStoreReadiness } from '@/lib/invalidate-store-readiness';
+import { tryRefreshStoreReadiness } from '@/lib/try-refresh-store-readiness';
 
 interface PublishStoreResponse {
   message?: string;
@@ -73,7 +74,9 @@ async function executePublish({
 
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['merchant'] }),
-      invalidateStoreReadiness(queryClient, merchantId),
+      tryRefreshStoreReadiness(() =>
+        invalidateStoreReadiness(queryClient, merchantId)
+      ),
       queryClient.invalidateQueries({ queryKey: ['merchant-payout'] }),
     ]);
 

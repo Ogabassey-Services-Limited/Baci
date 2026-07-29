@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import { apiClient } from '@/lib/api-client';
-import { tryRefreshVerifiedReadiness } from '@/lib/try-refresh-verified-readiness';
+import { tryRefreshStoreReadiness } from '@/lib/try-refresh-store-readiness';
 import BvnMobileNumberField from './BvnMobileNumberField';
 import { showBvnVerificationError } from './bvn-verification-alerts';
 import DateOfBirthPicker from './DateOfBirthPicker';
@@ -90,8 +90,7 @@ export default function BvnVerificationCard({
       }),
     onSuccess: async (data) => {
       if (data.verified) {
-        const readinessRefreshed =
-          await tryRefreshVerifiedReadiness(onVerified);
+        const readinessRefreshed = await tryRefreshStoreReadiness(onVerified);
         Alert.alert(
           'Success',
           readinessRefreshed

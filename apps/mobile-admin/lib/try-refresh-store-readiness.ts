@@ -1,4 +1,4 @@
-export async function tryRefreshVerifiedReadiness(
+export async function tryRefreshStoreReadiness(
   refresh: () => Promise<unknown>
 ): Promise<boolean> {
   try {

@@ -24,6 +24,7 @@ import { type MerchantSocialMedia, useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { invalidateStoreReadiness } from '@/lib/invalidate-store-readiness';
 import { updateMerchantSettings } from '@/lib/merchant-settings';
+import { tryRefreshStoreReadiness } from '@/lib/try-refresh-store-readiness';
 
 export default function SocialMediaScreen() {
   const { colors, shadows } = useTheme();
@@ -105,7 +106,11 @@ export default function SocialMediaScreen() {
         queryClient.invalidateQueries({ queryKey: ['merchant'] }),
       ];
       if (merchant?.id) {
-        invalidations.push(invalidateStoreReadiness(queryClient, merchant.id));
+        invalidations.push(
+          tryRefreshStoreReadiness(() =>
+            invalidateStoreReadiness(queryClient, merchant.id)
+          )
+        );
       }
       await Promise.all(invalidations);
       Alert.alert('Success', 'Social media links updated', [

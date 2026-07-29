@@ -24,21 +24,24 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const merchantContext = await getMerchantForApiRequest(
-    auth.supabase,
-    auth.user.id,
-    { requestedMerchantId: parsedQuery.data.merchantId }
-  );
-  if (!merchantContext) {
-    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
-  }
-
-  const access = toUserAccess(merchantContext);
-  if (!hasPermission(access, 'dashboard', 'view')) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
-
   try {
+    const merchantContext = await getMerchantForApiRequest(
+      auth.supabase,
+      auth.user.id,
+      { requestedMerchantId: parsedQuery.data.merchantId }
+    );
+    if (!merchantContext) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
+    }
+
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'dashboard', 'view')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const readiness = await loadStoreReadiness({
       supabase: auth.supabase,
       merchantId: merchantContext.merchantId,
@@ -47,7 +50,7 @@ export async function GET(request: NextRequest) {
     });
     return NextResponse.json(readiness);
   } catch (error) {
-    console.error('[Readiness API] load failed', error);
+    console.error('[Readiness API] request failed', error);
     return NextResponse.json(
       {
         error: 'Failed to load store readiness',

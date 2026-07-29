@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import { apiClient, apiFormData, NetworkError } from '@/lib/api-client';
-import { tryRefreshVerifiedReadiness } from '@/lib/try-refresh-verified-readiness';
+import { tryRefreshStoreReadiness } from '@/lib/try-refresh-store-readiness';
 import { createUploadFile } from '@/types/upload';
 import CacResultStep from './CacResultStep';
 import CacSearchStep from './CacSearchStep';
@@ -147,7 +147,7 @@ export default function CacVerificationCard({
     },
     onSuccess: async (data) => {
       const readinessRefreshed = data.verified
-        ? await tryRefreshVerifiedReadiness(onVerified)
+        ? await tryRefreshStoreReadiness(onVerified)
         : true;
       setVerifyResult(data);
       setCacStep('result');
