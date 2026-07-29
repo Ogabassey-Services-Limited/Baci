@@ -55,3 +55,10 @@ ported.
   `lib/analytics-save-readiness.ts`, keeping the screen focused on UI state.
 - RED: the new archive success assertion initially failed because readiness was
   never invalidated. GREEN: archive/KYC/analytics focused suite passed 11/11.
+
+## Sol review fix round 2
+
+- Added focused NIN, BVN, and CAC card mutation tests. Each holds the refresh
+  Promise and proves verified success completion remains pending until it
+  resolves; removing the card-level `await` makes those regressions fail.
+- Current expanded Task 10 focused suite: 16 files, 76 tests passing.
