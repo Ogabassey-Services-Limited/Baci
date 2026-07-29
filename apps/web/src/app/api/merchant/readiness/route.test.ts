@@ -242,10 +242,11 @@ describe('GET /api/merchant/readiness', () => {
     const { GET } = await import('./route');
 
     const response = await GET(request());
+    const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual(readiness);
-    expect(JSON.stringify(readiness)).not.toContain('href');
+    expect(body).toEqual(readiness);
+    expect(JSON.stringify(body)).not.toContain('href');
   });
 
   it('returns a stable 500 code when readiness loading fails', async () => {

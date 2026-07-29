@@ -44,6 +44,17 @@ ported.
 - No full monorepo suite or CodeRabbit was run, per the parallel-task brief.
 - This task is ready for a fresh Sol xhigh review before cherry-pick.
 
+## Controller integration verification
+
+- The Task 10 commits were cherry-picked only after the fresh Sol xhigh review.
+- Subsequent exact-head review rounds hardened post-success refresh isolation,
+  mutation-time merchant scoping, mock lifecycle, and settings extraction.
+- The latest Sol xhigh re-review approved integrated head `55b61f846a` with no
+  Critical or Important findings.
+- Controller focused readiness suites, changed-file Biome, and mobile/web
+  package typechecks passed. The final exact-head CodeRabbit verification and
+  serial full monorepo test receipt remain Task 11 gates.
+
 ## Sol review fix round 1
 
 - Added exact awaited readiness invalidation after successful product archive;
