@@ -57,6 +57,28 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
   __esModule: true,
 }));
 
+vi.mock('@gorhom/bottom-sheet', async () => {
+  const React = await import('react');
+
+  return {
+    default: ({ children }: { children?: ReactNode }) => (
+      <section aria-label="Product category drawer">{children}</section>
+    ),
+    BottomSheetBackdrop: () => null,
+    BottomSheetScrollView: ({ children }: { children?: ReactNode }) => (
+      <div>{children}</div>
+    ),
+    BottomSheetTextInput: (props: Record<string, unknown>) =>
+      React.createElement('input', props),
+  };
+});
+
+vi.mock('react-native-gesture-handler', () => ({
+  GestureHandlerRootView: ({ children }: { children?: ReactNode }) => (
+    <div>{children}</div>
+  ),
+}));
+
 vi.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children }: { children?: ReactNode }) => (
     <div>{children}</div>
