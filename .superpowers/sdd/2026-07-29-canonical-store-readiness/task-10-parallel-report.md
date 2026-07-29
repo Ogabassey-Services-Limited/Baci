@@ -33,10 +33,10 @@ ported.
   after concurrent cache invalidations settle.
 - Ported the bank picker bottom-safe-area theme background regression test.
 
-## Validation
+## Final validation (reviewed exact head)
 
-- `pnpm --filter baci-mobile-admin exec vitest run …` — PASS (10 files, 65 tests)
-- `pnpm --filter baci-mobile-admin exec biome check …` — PASS (21 changed/task files)
+- `pnpm --filter baci-mobile-admin exec vitest run …` — PASS (16 files, 103 tests)
+- `pnpm exec biome check …` — PASS (Task 10 changed files)
 - `pnpm --filter baci-mobile-admin typecheck` — PASS
 
 ## Constraints / handoff
@@ -61,4 +61,21 @@ ported.
 - Added focused NIN, BVN, and CAC card mutation tests. Each holds the refresh
   Promise and proves verified success completion remains pending until it
   resolves; removing the card-level `await` makes those regressions fail.
-- Current expanded Task 10 focused suite: 16 files, 76 tests passing.
+- Expanded the lifecycle coverage for archive, KYC, analytics, builder, payout,
+  product, and publish flows. The final reviewed count is recorded above.
+
+## Sol review fix round 3 and final approval
+
+- Product archive now performs its authoritative product/list/inventory refreshes
+  and its success-only exact readiness refresh in one awaited `onSettled`
+  `Promise.all`. Failed archives still await the authoritative product refreshes
+  but never refresh readiness.
+- Deferred-promise tests prove co-start and completion waiting for payout,
+  analytics, builder publish, active product creation, explicit product status
+  changes, product archive, and store publish. They also retain failure,
+  missing-merchant, draft/AI, and stock-only exclusions.
+- CAC now asserts the verified result transition after the awaited KYC refresh
+  resolves; NIN and BVN retain their existing success/error lifecycle coverage.
+- Fresh Sol xhigh review approved exact head
+  `961ce278b4e52e9a6e2370c9ed561f4bac5a568d` with no remaining Task 10
+  findings.
