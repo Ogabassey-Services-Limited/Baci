@@ -18,7 +18,7 @@ const owners = {
   'root:baci-cwv': [0, 10001],
 };
 
-async function syncDirectory(path) {
+async function syncPath(path) {
   const handle = await open(path, 'r');
   try {
     await handle.sync();
@@ -45,8 +45,9 @@ async function atomicReplace(destination, bytes, expected, dependencies) {
     if (uid === undefined) throw new TypeError('unsupported replacement owner');
     await dependencies.chownFile(temporary, uid, gid);
     await chmod(temporary, Number.parseInt(expected.mode, 8));
+    await dependencies.syncMetadata(temporary);
     await rename(temporary, destination);
-    await syncDirectory(directory);
+    await syncPath(directory);
   } catch (error) {
     await import('node:fs/promises').then(({ rm }) =>
       rm(temporary, { force: true })
@@ -61,6 +62,7 @@ export async function replaceBootstrapFile(input, descriptor = {}) {
     readIntent: descriptor.readIntent ?? readBootstrapReplacementIntent,
     readProjection: descriptor.readProjection ?? readInstalledProjection,
     readState: descriptor.readState ?? readBootstrapState,
+    syncMetadata: descriptor.syncMetadata ?? syncPath,
     temporaryId: descriptor.temporaryId ?? randomUUID,
   };
   const { currentDirectory, destination, bytes } = input;

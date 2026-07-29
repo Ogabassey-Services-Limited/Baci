@@ -59,6 +59,7 @@ async function fixture(context) {
 
 test('atomically replaces only a receipt-bound prior bootstrap file', async (context) => {
   const value = await fixture(context);
+  const publication = [];
   const projection = async () => ({
     [value.destination]: {
       sha256: sha256(await readFile(value.destination)),
@@ -81,11 +82,16 @@ test('atomically replaces only a receipt-bound prior bootstrap file', async (con
         readState: async () => value.state,
         readIntent: async () => value.intent,
         readProjection: projection,
-        chownFile: async () => undefined,
+        chownFile: async () => publication.push('chown'),
+        syncMetadata: async (path) => {
+          assert.equal((await stat(path)).mode.toString(8).slice(-3), '600');
+          publication.push('sync');
+        },
       }
     ),
     'replaced'
   );
+  assert.deepEqual(publication, ['chown', 'sync']);
   assert.deepEqual(await readFile(value.destination), value.newBytes);
   assert.equal(
     await replaceBootstrapFile(
@@ -98,7 +104,8 @@ test('atomically replaces only a receipt-bound prior bootstrap file', async (con
         readState: async () => value.state,
         readIntent: async () => value.intent,
         readProjection: projection,
-        chownFile: async () => undefined,
+        chownFile: async () => publication.push('unexpected'),
+        syncMetadata: async () => publication.push('unexpected'),
       }
     ),
     'current'
