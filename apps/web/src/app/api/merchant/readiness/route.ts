@@ -7,35 +7,6 @@ import {
 import { loadStoreReadiness } from '@/lib/store-readiness/load-store-readiness';
 import { storeReadinessQuerySchema } from '@/schemas/store-readiness-query';
 
-/** @deprecated Use the shared readiness contract and a presentation adapter. */
-export interface SetupItem {
-  id: string;
-  label: string;
-  description: string;
-  completed: boolean;
-  href: string;
-  priority: 'required' | 'recommended' | 'optional';
-  category: 'payments' | 'products' | 'store' | 'legal' | 'marketing';
-}
-/** @deprecated Use StoreReadiness from @baci/shared. */
-export interface StoreReadiness {
-  isReady: boolean;
-  isPublished: boolean;
-  completedRequired: number;
-  totalRequired: number;
-  completedRecommended: number;
-  totalRecommended: number;
-  overallProgress: number;
-  items: SetupItem[];
-  storeBuild: {
-    starterStoreReady: boolean;
-    aiStatus: string;
-    latestJobId: string | null;
-    canApplyAiDraft: boolean;
-    message: string;
-  };
-}
-
 export async function GET(request: NextRequest) {
   const auth = await authenticateApiRequest(request);
   if (!auth.user || !auth.supabase) {
