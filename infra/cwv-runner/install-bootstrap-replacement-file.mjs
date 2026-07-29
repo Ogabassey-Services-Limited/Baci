@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { chmod, chown, open, rename } from 'node:fs/promises';
+import { chmod, chown, open, readdir, rename, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { canonicalJson } from './canonical-json.mjs';
 import { readBootstrapState } from './install-bootstrap.mjs';
@@ -17,6 +17,7 @@ const owners = {
   'root:root': [0, 0],
   'root:baci-cwv': [0, 10001],
 };
+const temporaryPrefix = '.baci-bootstrap-replacement-';
 
 async function syncPath(path) {
   const handle = await open(path, 'r');
@@ -32,7 +33,7 @@ async function atomicReplace(destination, bytes, expected, dependencies) {
   const attempt = dependencies.temporaryId();
   if (!/^[a-z0-9-]+$/.test(attempt))
     throw new TypeError('invalid replacement attempt identity');
-  const temporary = join(directory, `.baci-bootstrap-replacement-${attempt}`);
+  const temporary = join(directory, `${temporaryPrefix}${attempt}`);
   const handle = await open(temporary, 'wx', 0o600);
   try {
     await handle.writeFile(bytes);
@@ -47,12 +48,30 @@ async function atomicReplace(destination, bytes, expected, dependencies) {
     await chmod(temporary, Number.parseInt(expected.mode, 8));
     await dependencies.syncMetadata(temporary);
     await rename(temporary, destination);
-    await syncPath(directory);
+    await dependencies.syncDirectory(directory);
   } catch (error) {
-    await import('node:fs/promises').then(({ rm }) =>
-      rm(temporary, { force: true })
-    );
+    await dependencies.removeFile(temporary, { force: true });
     throw error;
+  }
+}
+
+async function reconcileTemporaries(destination, expected, dependencies) {
+  const directory = dirname(destination);
+  const entries = (await dependencies.readDirectory(directory)).sort();
+  for (const entry of entries) {
+    if (!entry.startsWith('.baci-bootstrap-replacement')) continue;
+    if (!/^\.baci-bootstrap-replacement-[a-z0-9-]+$/.test(entry))
+      throw new TypeError('unexpected bootstrap replacement residue');
+    const temporary = join(directory, entry);
+    const actual = (
+      await dependencies.readProjection({
+        [temporary]: expected,
+      })
+    )[temporary];
+    if (!same(actual, expected))
+      throw new TypeError('bootstrap replacement temporary drift');
+    await dependencies.removeFile(temporary);
+    await dependencies.syncDirectory(directory);
   }
 }
 
@@ -60,8 +79,11 @@ export async function replaceBootstrapFile(input, descriptor = {}) {
   const dependencies = {
     chownFile: descriptor.chownFile ?? chown,
     readIntent: descriptor.readIntent ?? readBootstrapReplacementIntent,
+    readDirectory: descriptor.readDirectory ?? readdir,
     readProjection: descriptor.readProjection ?? readInstalledProjection,
     readState: descriptor.readState ?? readBootstrapState,
+    removeFile: descriptor.removeFile ?? rm,
+    syncDirectory: descriptor.syncDirectory ?? syncPath,
     syncMetadata: descriptor.syncMetadata ?? syncPath,
     temporaryId: descriptor.temporaryId ?? randomUUID,
   };
@@ -84,6 +106,7 @@ export async function replaceBootstrapFile(input, descriptor = {}) {
   const expected = state.files[destination];
   if (sha256(bytes) !== expected.sha256)
     throw new TypeError('bootstrap replacement bytes mismatch');
+  await reconcileTemporaries(destination, expected, dependencies);
   const actual = (
     await dependencies.readProjection({
       [destination]: expected,

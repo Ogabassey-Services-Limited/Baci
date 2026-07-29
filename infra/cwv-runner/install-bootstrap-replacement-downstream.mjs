@@ -1,6 +1,6 @@
 import { execFile as execFileCallback } from 'node:child_process';
-import { lstat, readdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import { lstat, readdir, readlink } from 'node:fs/promises';
+import { dirname, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 
 const execFile = promisify(execFileCallback);
@@ -11,6 +11,10 @@ const UNITS = [
   'baci-cwv-host-sampler.timer',
   'baci-cwv-measurement.service',
 ];
+const SYSTEMD_ROOTS = ['/etc/systemd/system', '/run/systemd/system'];
+const WATCHDOG_TEMPLATE = 'baci-cwv-campaign-watchdog@.service';
+const WATCHDOG_INSTANCE = /^baci-cwv-campaign-watchdog@[^/@\s]+\.service$/;
+const ABSENT_UNIT_STATE = 'not-found\ninactive\n\n';
 
 async function countDirectory(path) {
   let details;
@@ -35,18 +39,18 @@ async function exists(path) {
   }
 }
 
-async function systemUnitIsActive(name) {
+async function systemUnitIsActive(name, runSystemctl = execFile) {
   try {
-    await execFile('/bin/systemctl', ['is-active', '--quiet', name]);
+    await runSystemctl('/bin/systemctl', ['is-active', '--quiet', name]);
     return true;
   } catch (error) {
-    if (error.code === 3) return false;
+    if (error.code === 3 || error.code === 4) return false;
     throw error;
   }
 }
 
-async function systemUnitState(name) {
-  const { stdout } = await execFile('/bin/systemctl', [
+async function systemUnitState(name, runSystemctl = execFile) {
+  const { stdout } = await runSystemctl('/bin/systemctl', [
     'show',
     name,
     '--property=LoadState',
@@ -58,9 +62,52 @@ async function systemUnitState(name) {
   return stdout;
 }
 
-async function systemWatchdogInstances() {
+async function watchdogWantsLinks(systemdRoots) {
+  const [persistentRoot] = systemdRoots;
+  let count = 0;
+  for (const root of systemdRoots) {
+    let rootDetails;
+    try {
+      rootDetails = await lstat(root);
+    } catch (error) {
+      if (error.code === 'ENOENT') continue;
+      throw error;
+    }
+    if (!rootDetails.isDirectory() || rootDetails.isSymbolicLink())
+      throw new TypeError(`unsafe systemd inventory root: ${root}`);
+    const rootEntries = await readdir(root, { withFileTypes: true });
+    for (const entry of rootEntries.filter(({ name }) =>
+      name.endsWith('.wants')
+    )) {
+      const wants = join(root, entry.name);
+      const wantsDetails = await lstat(wants);
+      if (!wantsDetails.isDirectory() || wantsDetails.isSymbolicLink())
+        throw new TypeError(`unsafe systemd wants directory: ${wants}`);
+      for (const candidate of await readdir(wants, { withFileTypes: true })) {
+        if (!WATCHDOG_INSTANCE.test(candidate.name)) continue;
+        const link = join(wants, candidate.name);
+        if (!candidate.isSymbolicLink())
+          throw new TypeError(`unsafe watchdog instance link: ${link}`);
+        const target = resolve(dirname(link), await readlink(link));
+        const allowedTargets = new Set([
+          join(root, WATCHDOG_TEMPLATE),
+          join(persistentRoot, WATCHDOG_TEMPLATE),
+        ]);
+        if (!allowedTargets.has(target))
+          throw new TypeError(`unsafe watchdog instance link: ${link}`);
+        count += 1;
+      }
+    }
+  }
+  return count;
+}
+
+async function systemWatchdogInstances(
+  runSystemctl = execFile,
+  systemdRoots = SYSTEMD_ROOTS
+) {
   const outputs = await Promise.all([
-    execFile('/bin/systemctl', [
+    runSystemctl('/bin/systemctl', [
       'list-units',
       'baci-cwv-campaign-watchdog@*.service',
       '--all',
@@ -69,7 +116,7 @@ async function systemWatchdogInstances() {
       '--full',
       '--no-pager',
     ]),
-    execFile('/bin/systemctl', [
+    runSystemctl('/bin/systemctl', [
       'list-unit-files',
       'baci-cwv-campaign-watchdog@*.service',
       '--no-legend',
@@ -77,21 +124,33 @@ async function systemWatchdogInstances() {
       '--no-pager',
     ]),
   ]);
-  return outputs
+  const systemdCount = outputs
     .flatMap(({ stdout }) => stdout.split('\n'))
     .map((line) => line.trim().split(/\s+/)[0])
-    .filter((name) => name && name !== 'baci-cwv-campaign-watchdog@.service')
-    .length;
+    .filter(
+      (name) => name && name !== 'baci-cwv-campaign-watchdog@.service'
+    ).length;
+  return systemdCount + (await watchdogWantsLinks(systemdRoots));
 }
 
 export async function readBootstrapReplacementDownstream(
   { root, prepareRoot },
   dependencies = {}
 ) {
-  const unitIsActive = dependencies.unitIsActive ?? systemUnitIsActive;
-  const readUnitState = dependencies.readUnitState ?? systemUnitState;
+  const runSystemctl = dependencies.runSystemctl ?? execFile;
+  const unitIsActive =
+    dependencies.unitIsActive ??
+    ((name) => systemUnitIsActive(name, runSystemctl));
+  const readUnitState =
+    dependencies.readUnitState ??
+    ((name) => systemUnitState(name, runSystemctl));
   const listWatchdogInstances =
-    dependencies.listWatchdogInstances ?? systemWatchdogInstances;
+    dependencies.listWatchdogInstances ??
+    (() =>
+      systemWatchdogInstances(
+        runSystemctl,
+        dependencies.systemdRoots ?? SYSTEMD_ROOTS
+      ));
   const active = await Promise.all(UNITS.map(unitIsActive));
   const states = await Promise.all(UNITS.map((name) => readUnitState(name)));
   const templateState = await readUnitState(
@@ -119,8 +178,14 @@ export async function readBootstrapReplacementDownstream(
       join(root, 'sealed/actions-runner')
     ),
     unsafeUnitStates:
-      states.filter((state) => state !== 'loaded\ninactive\nstatic\n').length +
-      (templateState === 'loaded\ninactive\ndisabled\n' ? 0 : 1),
+      states.filter(
+        (state) =>
+          state !== 'loaded\ninactive\nstatic\n' && state !== ABSENT_UNIT_STATE
+      ).length +
+      (templateState === 'loaded\ninactive\ndisabled\n' ||
+      templateState === ABSENT_UNIT_STATE
+        ? 0
+        : 1),
     watchdogInstances: await listWatchdogInstances(),
   };
 }

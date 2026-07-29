@@ -5,7 +5,9 @@ import {
   mkdtemp,
   readdir,
   readFile,
+  rm,
   stat,
+  symlink,
   writeFile,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -192,4 +194,106 @@ test('uses an attempt-unique temporary and preserves prior bytes on replacement 
   assert.deepEqual(await readdir(join(value.destination, '..')), [
     'bootstrap.sha256',
   ]);
+});
+
+test('reconciles an exact temporary left by death after metadata sync', async (context) => {
+  const value = await fixture(context);
+  const directory = join(value.destination, '..');
+  const stale = join(directory, '.baci-bootstrap-replacement-dead-at-rename');
+  await writeFile(stale, value.newBytes, { mode: 0o600 });
+  const projection = async (files) => {
+    const result = {};
+    for (const path of Object.keys(files)) {
+      result[path] = {
+        sha256: sha256(await readFile(path)),
+        mode: (await stat(path)).mode.toString(8).slice(-3).padStart(4, '0'),
+        owner: 'root:root',
+      };
+    }
+    return result;
+  };
+  assert.equal(
+    await replaceBootstrapFile(
+      {
+        currentDirectory: '/state/bootstrap-bbbbbbbbbbbb',
+        destination: value.destination,
+        bytes: value.newBytes,
+      },
+      {
+        readState: async () => value.state,
+        readIntent: async () => value.intent,
+        readProjection: projection,
+        temporaryId: () => 'retry',
+        chownFile: async () => undefined,
+      }
+    ),
+    'replaced'
+  );
+  assert.deepEqual(await readdir(directory), ['bootstrap.sha256']);
+  await writeFile(stale, value.newBytes, { mode: 0o600 });
+  assert.equal(
+    await replaceBootstrapFile(
+      {
+        currentDirectory: '/state/bootstrap-bbbbbbbbbbbb',
+        destination: value.destination,
+        bytes: value.newBytes,
+      },
+      {
+        readState: async () => value.state,
+        readIntent: async () => value.intent,
+        readProjection: projection,
+      }
+    ),
+    'current'
+  );
+  assert.deepEqual(await readdir(directory), ['bootstrap.sha256']);
+});
+
+test('fails closed on unsafe or unexpected replacement temporary residue', async (context) => {
+  const value = await fixture(context);
+  const directory = join(value.destination, '..');
+  await writeFile(value.destination, value.newBytes, { mode: 0o600 });
+  const target = join(directory, 'attacker');
+  await writeFile(target, value.newBytes, { mode: 0o600 });
+  await symlink(target, join(directory, '.baci-bootstrap-replacement-symlink'));
+
+  const dependencies = {
+    readState: async () => value.state,
+    readIntent: async () => value.intent,
+    readProjection: (files) => {
+      const [path] = Object.keys(files);
+      if (path === value.destination)
+        return { [path]: value.state.files[path] };
+      throw new TypeError(`unsafe installed bootstrap path: ${path}`);
+    },
+  };
+  await assert.rejects(
+    replaceBootstrapFile(
+      {
+        currentDirectory: '/state/bootstrap-bbbbbbbbbbbb',
+        destination: value.destination,
+        bytes: value.newBytes,
+      },
+      dependencies
+    ),
+    /unsafe installed bootstrap path/
+  );
+
+  await rm(join(directory, '.baci-bootstrap-replacement-symlink'));
+  await writeFile(
+    join(directory, '.baci-bootstrap-replacement-UPPER'),
+    value.newBytes,
+    { mode: 0o600 }
+  );
+  await assert.rejects(
+    replaceBootstrapFile(
+      {
+        currentDirectory: '/state/bootstrap-bbbbbbbbbbbb',
+        destination: value.destination,
+        bytes: value.newBytes,
+      },
+      dependencies
+    ),
+    /unexpected bootstrap replacement residue/
+  );
 });

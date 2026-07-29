@@ -20,7 +20,7 @@ const functionSource = (name, next) => {
   return source.slice(start, end);
 };
 
-test('replaces only an exact watchdog render from a prior sealed source', async (context) => {
+test('routes a changed watchdog render through receipt-bound replacement', async (context) => {
   const root = await mkdtemp(join(tmpdir(), 'baci-watchdog-recovery-'));
   context.after(() => rm(root, { force: true, recursive: true }));
   const oldSha = 'a'.repeat(40);
@@ -29,11 +29,14 @@ test('replaces only an exact watchdog render from a prior sealed source', async 
   const current = join(sourceRoot, nextSha);
   const prior = join(sourceRoot, oldSha);
   const units = join(root, 'units');
+  const bootstrap = join(root, 'bootstrap');
   await Promise.all([
     mkdir(current, { recursive: true }),
     mkdir(prior, { recursive: true }),
     mkdir(units, { recursive: true }),
+    mkdir(bootstrap, { recursive: true }),
   ]);
+  await writeFile(join(bootstrap, 'replacement-intent.json'), '{}');
   const template = await readFile(
     new URL('./baci-cwv-campaign-watchdog@.service', import.meta.url),
     'utf8'
@@ -44,21 +47,37 @@ test('replaces only an exact watchdog render from a prior sealed source', async 
       template
     );
   const target = join(units, 'baci-cwv-campaign-watchdog@.service');
-  await writeFile(target, template.replace('@BACI_CWV_SOURCE_SHA@', oldSha), {
+  const expectedPrior = join(root, 'expected-prior.service');
+  const initialPrior = template.replace('@BACI_CWV_SOURCE_SHA@', oldSha);
+  await writeFile(target, initialPrior, {
     mode: 0o644,
   });
+  await writeFile(expectedPrior, initialPrior);
   const node = join(root, 'node');
-  await writeFile(node, '#!/bin/sh\nexit 0\n');
+  await writeFile(
+    node,
+    `#!/bin/sh
+case "$1" in
+  *install-bootstrap-replacement-file.mjs)
+    [ "$2" = source ] || exit 64
+    /usr/bin/cmp -s "$4" ${JSON.stringify(expectedPrior)} || exit 65
+    /bin/cp -- "$5" "$4"
+    ;;
+esac
+exit 0
+`
+  );
   await chmod(node, 0o755);
   const rawRender = functionSource('render_watchdog', 'install_units');
-  const fsync = rawRender.indexOf('/usr/bin/sync -f "$temporary"');
-  const replace = rawRender.indexOf('/bin/mv -T -- "$temporary"');
-  assert.ok(fsync >= 0 && fsync < replace);
+  const renderWrite = rawRender.indexOf('>"$temporary"');
+  const authorizedReplace = rawRender.indexOf(
+    'install-bootstrap-replacement-file.mjs" source'
+  );
+  assert.ok(renderWrite >= 0 && renderWrite < authorizedReplace);
   const render = rawRender
     .replaceAll('/etc/systemd/system', units)
     .replaceAll('/usr/bin/node', node)
     .replaceAll('/usr/bin/sync -f', '/usr/bin/true')
-    .replaceAll('/bin/mv -T --', '/bin/mv -f --')
     .replace('/bin/chown root:root "$temporary"', ':');
   const command = `set -eu
 die() { printf '%s\n' "$*" >&2; exit 65; }
@@ -68,7 +87,8 @@ sha256() { printf '%064d\n' 0; }
 git_sha() { printf '%s' "$1" | grep -Eq '^[a-f0-9]{40}$'; }
 SOURCE_ROOT=${JSON.stringify(sourceRoot)}
 SCRIPT_DIR=${JSON.stringify(current)}
-BOOTSTRAP_DIRECTORY=/fixture
+BOOTSTRAP_DIRECTORY=${JSON.stringify(bootstrap)}
+BACI_CWV_BOOTSTRAP_REPLACEMENT=1
 ${render}
 render_watchdog ${nextSha}`;
   const runRender = () =>
@@ -93,10 +113,18 @@ render_watchdog ${nextSha}`;
     target,
     differentPrior.replace('@BACI_CWV_SOURCE_SHA@', oldSha)
   );
+  await writeFile(
+    expectedPrior,
+    differentPrior.replace('@BACI_CWV_SOURCE_SHA@', oldSha)
+  );
   const sourceDrift = runRender();
-  assert.equal(sourceDrift.status, 65);
-  assert.match(sourceDrift.stderr, /watchdog unit drift/);
+  assert.equal(sourceDrift.status, 0, sourceDrift.stderr);
+  assert.equal(
+    await readFile(target, 'utf8'),
+    template.replace('@BACI_CWV_SOURCE_SHA@', nextSha)
+  );
   await writeFile(join(prior, 'baci-cwv-campaign-watchdog@.service'), template);
+  await writeFile(expectedPrior, initialPrior);
 
   await writeFile(
     target,

@@ -1,5 +1,12 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  stat,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -188,5 +195,93 @@ test('treats absent downstream directories as empty before layout creation', asy
       unsafeUnitStates: 0,
       watchdogInstances: 0,
     }
+  );
+});
+
+test('accepts only proven-absent never-installed dedicated units', async (context) => {
+  const root = await temporary(context, 'baci-bootstrap-absent-units-');
+  const runSystemctl = (_command, arguments_) => {
+    if (arguments_[0] === 'is-active') {
+      throw Object.assign(new Error('unknown unit'), { code: 4 });
+    }
+    assert.equal(arguments_[0], 'show');
+    return { stdout: 'not-found\ninactive\n\n' };
+  };
+  const downstream = await readBootstrapReplacementDownstream(
+    { root, prepareRoot: join(root, 'prepare') },
+    { runSystemctl, listWatchdogInstances: async () => 0 }
+  );
+
+  assert.equal(downstream.activeDedicatedUnits, 0);
+  assert.equal(downstream.unsafeUnitStates, 0);
+
+  const active = await readBootstrapReplacementDownstream(
+    { root, prepareRoot: join(root, 'prepare') },
+    {
+      runSystemctl: (_command, arguments_) => {
+        if (arguments_[0] === 'is-active') return { stdout: '' };
+        return { stdout: 'loaded\nactive\nenabled\n' };
+      },
+      listWatchdogInstances: async () => 0,
+    }
+  );
+  assert.equal(active.activeDedicatedUnits, 5);
+  assert.equal(active.unsafeUnitStates, 6);
+});
+
+test('inventories validated persistent and runtime watchdog wants links', async (context) => {
+  const root = await temporary(context, 'baci-bootstrap-watchdog-links-');
+  const persistent = join(root, 'etc-systemd');
+  const runtime = join(root, 'run-systemd');
+  const persistentWants = join(persistent, 'multi-user.target.wants');
+  const runtimeWants = join(runtime, 'multi-user.target.wants');
+  const template = join(persistent, 'baci-cwv-campaign-watchdog@.service');
+  await Promise.all([
+    mkdir(persistentWants, { recursive: true }),
+    mkdir(runtimeWants, { recursive: true }),
+  ]);
+  await writeFile(template, 'fixture');
+  await Promise.all([
+    symlink(
+      '../baci-cwv-campaign-watchdog@.service',
+      join(persistentWants, 'baci-cwv-campaign-watchdog@persistent.service')
+    ),
+    symlink(
+      template,
+      join(runtimeWants, 'baci-cwv-campaign-watchdog@runtime.service')
+    ),
+  ]);
+  const dependencies = {
+    unitIsActive: async () => false,
+    readUnitState: async (name) =>
+      name.includes('@')
+        ? 'loaded\ninactive\ndisabled\n'
+        : 'loaded\ninactive\nstatic\n',
+    runSystemctl: async () => ({ stdout: '' }),
+    systemdRoots: [persistent, runtime],
+  };
+
+  assert.equal(
+    (
+      await readBootstrapReplacementDownstream(
+        { root, prepareRoot: join(root, 'prepare') },
+        dependencies
+      )
+    ).watchdogInstances,
+    2
+  );
+
+  await writeFile(join(persistent, 'wrong.service'), 'wrong');
+  const invalid = join(
+    persistentWants,
+    'baci-cwv-campaign-watchdog@invalid.service'
+  );
+  await symlink('../wrong.service', invalid);
+  await assert.rejects(
+    readBootstrapReplacementDownstream(
+      { root, prepareRoot: join(root, 'prepare') },
+      dependencies
+    ),
+    /unsafe watchdog instance link/
   );
 });
