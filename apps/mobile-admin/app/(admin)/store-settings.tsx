@@ -27,9 +27,8 @@ import { useMerchant } from '@/hooks/useMerchant';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useSubscriptionManagement } from '@/hooks/useSubscriptionManagement';
 import { useTheme } from '@/hooks/useTheme';
-import { invalidateStoreReadiness } from '@/lib/invalidate-store-readiness';
+import { invalidateStoreSettingsAfterSave } from '@/lib/store-settings-save-readiness';
 import { supabase } from '@/lib/supabase';
-import { tryRefreshStoreReadiness } from '@/lib/try-refresh-store-readiness';
 import { SubscriptionManagement } from '@/utils/SubscriptionManagement';
 
 export default function StoreSettingsScreen() {
@@ -170,15 +169,7 @@ export default function StoreSettingsScreen() {
       }
     },
     onSuccess: async () => {
-      const invalidations: Promise<unknown>[] = [invalidateMerchantQueries()];
-      if (merchant?.id) {
-        invalidations.push(
-          tryRefreshStoreReadiness(() =>
-            invalidateStoreReadiness(queryClient, merchant.id)
-          )
-        );
-      }
-      await Promise.all(invalidations);
+      await invalidateStoreSettingsAfterSave(queryClient, merchant?.id);
       setStatusModal({
         visible: true,
         type: 'success',

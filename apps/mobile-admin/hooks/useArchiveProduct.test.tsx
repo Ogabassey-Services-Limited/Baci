@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   apiClient: vi.fn(),
   invalidateStoreReadiness: vi.fn().mockResolvedValue(undefined),
+  merchant: { id: 'merchant-1' } as { id: string } | null,
 }));
 
 vi.mock('@/lib/api-client', () => ({
@@ -13,7 +14,7 @@ vi.mock('@/lib/api-client', () => ({
 }));
 
 vi.mock('./useMerchant', () => ({
-  useMerchant: () => ({ merchant: { id: 'merchant-1' } }),
+  useMerchant: () => ({ merchant: mocks.merchant }),
 }));
 
 vi.mock('@/lib/invalidate-store-readiness', () => ({
@@ -32,8 +33,10 @@ function createWrapper(queryClient: QueryClient) {
 
 describe('archiveProductById', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mocks.apiClient.mockReset();
+    mocks.invalidateStoreReadiness.mockReset();
     mocks.invalidateStoreReadiness.mockResolvedValue(undefined);
+    mocks.merchant = { id: 'merchant-1' };
     mocks.apiClient.mockResolvedValue({
       product: { id: 'product 1', status: 'archived' },
       success: true,
@@ -60,7 +63,10 @@ describe('archiveProductById', () => {
 
 describe('useArchiveProduct', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mocks.apiClient.mockReset();
+    mocks.invalidateStoreReadiness.mockReset();
+    mocks.invalidateStoreReadiness.mockResolvedValue(undefined);
+    mocks.merchant = { id: 'merchant-1' };
     mocks.apiClient.mockResolvedValue({
       product: { id: 'product-1', status: 'archived' },
       success: true,
@@ -161,6 +167,57 @@ describe('useArchiveProduct', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ['inventory-stats', 'merchant-1'],
     });
+  });
+
+  it('uses the merchant present when archive starts after the context disappears before settlement', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+    let releaseArchive: (() => void) | undefined;
+    mocks.apiClient.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releaseArchive = () =>
+            resolve({
+              product: { id: 'product-1', status: 'archived' },
+              success: true,
+            });
+        })
+    );
+    const { rerender, result } = renderHook(() => useArchiveProduct(), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    const archive = result.current.mutateAsync({ productId: 'product-1' });
+    await vi.waitFor(() => expect(releaseArchive).toBeTypeOf('function'));
+    mocks.merchant = null;
+    rerender();
+    if (!releaseArchive) {
+      throw new Error('Archive request did not start');
+    }
+    releaseArchive();
+
+    await expect(archive).resolves.toEqual({
+      product: { id: 'product-1', status: 'archived' },
+      success: true,
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['products', 'merchant-1'],
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['product', 'merchant-1', 'product-1'],
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['inventory-stats', 'merchant-1'],
+    });
+    expect(mocks.invalidateStoreReadiness).toHaveBeenCalledWith(
+      queryClient,
+      'merchant-1'
+    );
   });
 
   it('surfaces errors and still settles product query invalidation', async () => {

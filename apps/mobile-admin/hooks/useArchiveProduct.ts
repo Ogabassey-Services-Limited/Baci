@@ -12,6 +12,10 @@ interface ArchiveProductResponse {
   success: boolean;
 }
 
+interface ArchiveProductMutationContext {
+  merchantId: string | undefined;
+}
+
 export function archiveProductById(
   productId: string
 ): Promise<ArchiveProductResponse> {
@@ -33,8 +37,11 @@ export function useArchiveProduct() {
     mutationFn: ({ productId }: { productId: string }) =>
       archiveProductById(productId),
     mutationKey: ['archiveProduct'],
-    onSettled: async (_data, error, { productId }) => {
-      const merchantId = merchant?.id;
+    onMutate: (): ArchiveProductMutationContext => ({
+      merchantId: merchant?.id?.trim() || undefined,
+    }),
+    onSettled: async (_data, error, { productId }, context) => {
+      const merchantId = context?.merchantId;
       const invalidations: Promise<unknown>[] = [
         queryClient.invalidateQueries({ queryKey: ['products', merchantId] }),
         queryClient.invalidateQueries({

@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockInvalidateStoreReadiness = vi.hoisted(() => vi.fn());
 vi.mock('./invalidate-store-readiness', () => ({
@@ -9,6 +9,11 @@ vi.mock('./invalidate-store-readiness', () => ({
 import { invalidateAnalyticsSaveReadiness } from './analytics-save-readiness';
 
 describe('invalidateAnalyticsSaveReadiness', () => {
+  beforeEach(() => {
+    mockInvalidateStoreReadiness.mockReset();
+    mockInvalidateStoreReadiness.mockResolvedValue(undefined);
+  });
+
   it('awaits merchant, analytics, and exact readiness invalidations together', async () => {
     const queryClient = new QueryClient();
     const events: string[] = [];
