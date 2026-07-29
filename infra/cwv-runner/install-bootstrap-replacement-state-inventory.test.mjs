@@ -1,5 +1,12 @@
 import assert from 'node:assert/strict';
-import { lstat, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import {
+  lstat,
+  mkdir,
+  mkdtemp,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -45,6 +52,21 @@ test('removes a parent legacy plan only when its exact bytes bind to a captured 
   await assert.rejects(lstat(legacy), { code: 'ENOENT' });
 });
 
+test('removes an original in-root legacy plan only when its exact bytes bind to a captured transaction', async (context) => {
+  const parent = await mkdtemp(join(tmpdir(), 'baci-legacy-plan-'));
+  const stateRoot = join(parent, 'bootstrap');
+  await mkdir(stateRoot, { mode: 0o700 });
+  context.after(() => rm(parent, { recursive: true, force: true }));
+  await persistBootstrapCapture(stateRoot, state);
+  const legacy = join(stateRoot, '.plan.A1b2C3');
+  await writeFile(legacy, `${JSON.stringify(input)}\n`, { mode: 0o600 });
+
+  assert.deepEqual(await readBootstrapReplacementStateInventory(stateRoot), [
+    input.transactionId,
+  ]);
+  await assert.rejects(lstat(legacy), { code: 'ENOENT' });
+});
+
 test('refuses parent legacy bytes that do not match their captured transaction', async () => {
   const drifted = { ...input, sourceManifestSha256: 'f'.repeat(64) };
   let removed = false;
@@ -70,6 +92,67 @@ test('refuses parent legacy bytes that do not match their captured transaction',
     }),
     /invalid legacy bootstrap plan/
   );
+  assert.equal(removed, false);
+});
+
+test('does not remove either historical plan when one exact plan has digest drift', async () => {
+  const drifted = { ...input, sourceManifestSha256: 'f'.repeat(64) };
+  const removed = [];
+
+  await assert.rejects(
+    readBootstrapReplacementStateInventory('/state', {
+      listStateDirectories: async () => [input.transactionId, '.plan.A1b2C3'],
+      listPlanDirectories: async () => ['.plan.D4e5F6'],
+      readPinnedFile: async (file) => ({
+        bytes: Buffer.from(
+          `${JSON.stringify(file.startsWith('/state/') ? input : drifted)}\n`
+        ),
+        details,
+      }),
+      readState: async () => state,
+      removeFile: async (file) => removed.push(file),
+    }),
+    /invalid legacy bootstrap plan/
+  );
+  assert.deepEqual(removed, []);
+});
+
+test('refuses an exact legacy-plan symlink without deleting it', async (context) => {
+  const parent = await mkdtemp(join(tmpdir(), 'baci-legacy-plan-'));
+  const stateRoot = join(parent, 'bootstrap');
+  await mkdir(stateRoot, { mode: 0o700 });
+  context.after(() => rm(parent, { recursive: true, force: true }));
+  await persistBootstrapCapture(stateRoot, state);
+  const target = join(parent, 'target');
+  const legacy = join(stateRoot, '.plan.A1b2C3');
+  await writeFile(target, `${JSON.stringify(input)}\n`, { mode: 0o600 });
+  await symlink(target, legacy);
+
+  await assert.rejects(
+    readBootstrapReplacementStateInventory(stateRoot),
+    /unsafe bootstrap source path/
+  );
+  assert.equal((await lstat(legacy)).isSymbolicLink(), true);
+});
+
+test('refuses a noncanonical parent plan-like name without reading or deleting it', async () => {
+  let read = false;
+  let removed = false;
+
+  await assert.rejects(
+    readBootstrapReplacementStateInventory('/state', {
+      listStateDirectories: async () => [input.transactionId],
+      listPlanDirectories: async () => ['.plan.A1b2C3.extra'],
+      readPinnedFile: () => {
+        read = true;
+      },
+      removeFile: () => {
+        removed = true;
+      },
+    }),
+    /invalid legacy bootstrap plan/
+  );
+  assert.equal(read, false);
   assert.equal(removed, false);
 });
 

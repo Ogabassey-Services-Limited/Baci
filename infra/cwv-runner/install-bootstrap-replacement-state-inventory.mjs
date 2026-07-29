@@ -30,16 +30,33 @@ export async function readBootstrapReplacementStateInventory(
   const readPinnedFile = dependencies.readPinnedFile ?? readPinnedBootstrapFile;
   const removeFile = dependencies.removeFile ?? unlink;
   const syncPlanRoot = dependencies.syncDirectory ?? syncDirectory;
-  const names = await listStateDirectories(stateRoot);
-  if (names.some((name) => !TRANSACTION.test(name)))
+  const stateEntries = await listStateDirectories(stateRoot);
+  if (
+    stateEntries.some(
+      (name) => !TRANSACTION.test(name) && !LEGACY_PLAN.test(name)
+    )
+  )
     throw new TypeError('invalid bootstrap replacement state inventory');
+  const names = stateEntries.filter((name) => TRANSACTION.test(name));
 
   const planRoot = dirname(stateRoot);
-  const legacy = (await listPlanDirectories(planRoot)).filter((name) =>
-    LEGACY_PLAN.test(name)
-  );
-  for (const name of legacy) {
-    const file = join(planRoot, name);
+  const parentEntries = await listPlanDirectories(planRoot);
+  if (
+    parentEntries.some(
+      (name) => name.startsWith('.plan.') && !LEGACY_PLAN.test(name)
+    )
+  )
+    throw new TypeError('invalid legacy bootstrap plan');
+  const legacyPlans = [
+    ...stateEntries
+      .filter((name) => LEGACY_PLAN.test(name))
+      .map((name) => ({ name, root: stateRoot })),
+    ...parentEntries
+      .filter((name) => LEGACY_PLAN.test(name))
+      .map((name) => ({ name, root: planRoot })),
+  ];
+  for (const { name, root } of legacyPlans) {
+    const file = join(root, name);
     const { bytes, details } = await readPinnedFile(file);
     if (
       bytes.length > 1024 * 1024 ||
@@ -66,7 +83,8 @@ export async function readBootstrapReplacementStateInventory(
     if (state.captureSha256 !== capture.captureSha256)
       throw new TypeError('invalid legacy bootstrap plan');
   }
-  for (const name of legacy) await removeFile(join(planRoot, name));
-  if (legacy.length) await syncPlanRoot(planRoot);
+  for (const { name, root } of legacyPlans) await removeFile(join(root, name));
+  for (const root of new Set(legacyPlans.map(({ root }) => root)))
+    await syncPlanRoot(root);
   return names;
 }
