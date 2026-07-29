@@ -1,0 +1,26 @@
+# SDD ledger — plan: /Users/mac/Baci-app/.worktrees/mobile-admin-registration-fields-recovered/docs/superpowers/plans/2026-07-29-canonical-store-readiness.md
+
+Baseline: dd4ef53f0dd7939c0b8c692419defac628f8a029 on codex/canonical-store-readiness
+Execution worktree: /Users/mac/Baci-app/.worktrees/canonical-store-readiness
+Recovered payout patch remains in /Users/mac/Baci-app/.worktrees/mobile-admin-registration-fields-recovered for deliberate Task 10 transplant.
+
+Baseline: clean — shared 77 files/781 tests; mobile-admin 619 files/3175 tests; web 3261 passed + 1 skipped files/25487 passed + 1 todo tests. Existing jsdom, sourcemap, and temp-fixture stderr noise observed before implementation.
+Execution note: use `pnpm --filter <package> exec vitest run <files>` for focused RED/GREEN; the package `test -- <files>` form expands to the full suite in this repository.
+Task 1: minor (deferred): literal membership checks use localized type assertions; final review should decide whether a dependency-free isOneOf helper materially improves narrowing.
+Task 1: fix round 1/5 (1 addressed, 0 open — added unexpected storeBuild-key regression; commit 9dfd024dd3)
+Task 1: complete (commits dd4ef53f0d..9dfd024dd3, review clean)
+Task 2: external gate (open): CodeRabbit did not analyze the new files because untracked mode skipped them and all mode was organization-rate-limited; rerun an exact committed/branch review before shipping.
+Task 2: minor (deferred): explicitly project dynamic payment item fields instead of spreading the payment facts object.
+Task 2: minor (deferred): add isolated supportPhone success plus incomplete bank/payment variant cases if final review judges current matrix insufficient.
+Task 2: fix round 1/5 (1 addressed, 0 open — launch builder is sole isReady owner; commit 0b445a7c6d)
+Task 2: complete (commits 9dfd024dd3..0b445a7c6d, review clean; CodeRabbit external gate remains open)
+Task 3: BLOCKED — required ordered local Supabase replay fails before Task 3 at existing migration 20260525140048 line 300 (`pg_catalog.extract(epoch FROM ...)`, SQLSTATE 42601). Prepared migration/SQL test/server-only wrapper/tests remain untracked; TS RED/GREEN complete (4/4), SQL replay/type generation/commit not complete. Existing migration is protected and requires explicit owner approval for the one-line syntax correction.
+Task 3: resumed — owner approved and retained the exact one-line repair. Sol investigation found canonical local runner `apps/web/tools/db/run-supabase-history-replay.ts`; raw Supabase CLI does not implement Baci's marker and is replaced by the repository replay gate. See task-3-replay-amendment.md.
+Task 3: generated-schema reconciliation complete — accepted the full mechanical 402+/49- type regeneration after semantic inspection (3 added/2 changed tables, 20 added/3 changed functions, no removals); restored `supabase/.temp/cli-latest`; no remote Supabase access.
+Task 3: gates GREEN — canonical PostgreSQL 17 replay and SQL check passed with effect `71cba5629959c75352726e26cafcbfec8de99b1b52d10e6ad70fd85f07e4d253`; focused replay/wrapper 84/84, route 9/9, web typecheck, full lint/typecheck/test all exit 0; web 3266 files/25532 tests passed plus 1 skipped/1 todo.
+Task 3: CodeRabbit completed without rate limit (6 findings); one valid verbose-SQLSTATE parser issue fixed and verified 9/9, historical migration alerts rejected by explicit owner approval plus successful canonical replay.
+Task 3: CodeRabbit narrow re-review of 865ed497bd completed without rate limit; its sole minor suggestion was already covered by the test's anchored exact sanitized-error assertion, so no follow-up change was required.
+Task 3: complete — commits ab0a10c0cf, e7a742d925, eeae8abf9a, a6400539af, 865ed497bd.
+Task 4: complete — commit 0d88765724. Focused loader/store-build tests 3 files/22 tests, changed-file Biome, web typecheck, full turbo lint/typecheck/test, pre-commit Podfile/lint/knip, and diff check passed. Loader uses caller-scoped client only; no remote Supabase/admin client. CodeRabbit uncommitted invocation completed setup/summarizing without a findings/result payload; committed-range retry was externally rate-limited for 38 minutes, so the exact-head CodeRabbit gate remains open.
+Task 4: independent Sol review approved with no Critical or Important findings. Deferred minors for later tasks/final review: mobile currently still loads web-only page data; add explicit mobile/non-owner access coverage; add exact merchant-projection assertions.
+Task 5: ready to commit — strict schema and route TDD complete. RED: missing schema module, then legacy direct-cookie route failed all 12 bearer/cookie transport cases. GREEN: focused schema/route/auth/loader 4 files/41 tests. Changed-file Biome, web typecheck, full turbo lint/typecheck/test, and diff check all passed. Route uses authenticateApiRequest first, then query validation, caller-scoped merchant resolution, dashboard.view, and canonical loader; no admin/client/cookie/direct-DB chain. CodeRabbit uncommitted review was attempted but externally rate-limited for 28 minutes/no assigned organization seat; exact-head review remains open. See task-5-report.md.
