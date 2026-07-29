@@ -17,7 +17,12 @@ const mocks = vi.hoisted(() => {
 
   return {
     back: vi.fn(),
+    invalidateStoreReadiness: vi.fn().mockResolvedValue(undefined),
     invalidateQueries: vi.fn(),
+    mutationOptions: null as {
+      onError?: (error: Error) => void;
+      onSuccess?: () => Promise<void> | void;
+    } | null,
     update,
     eq,
     select,
@@ -34,13 +39,13 @@ function createMutationMock() {
   }: {
     mutationFn: () => Promise<void>;
     onError?: (error: Error) => void;
-    onSuccess?: () => void;
+    onSuccess?: () => Promise<void> | void;
   }) => ({
     isPending: false,
     mutate: async () => {
       try {
         await mutationFn();
-        onSuccess?.();
+        await onSuccess?.();
       } catch (error) {
         onError?.(error as Error);
       }
@@ -53,7 +58,14 @@ function Text({ children }: { children?: React.ReactNode }) {
 }
 
 vi.mock('@tanstack/react-query', () => ({
-  useMutation: createMutationMock(),
+  useMutation: (options: {
+    mutationFn: () => Promise<void>;
+    onError?: (error: Error) => void;
+    onSuccess?: () => Promise<void> | void;
+  }) => {
+    mocks.mutationOptions = options;
+    return createMutationMock()(options);
+  },
   useQueryClient: () => ({
     invalidateQueries: mocks.invalidateQueries,
   }),
@@ -221,6 +233,10 @@ vi.mock('@/hooks/useMerchant', () => ({
   useMerchant: mocks.useMerchant,
 }));
 
+vi.mock('@/lib/invalidate-store-readiness', () => ({
+  invalidateStoreReadiness: mocks.invalidateStoreReadiness,
+}));
+
 vi.mock('@/hooks/useRevenueCat', () => ({
   useRevenueCat: () => ({ isPro: true }),
 }));
@@ -350,6 +366,7 @@ describe('StoreSettingsScreen', () => {
     // `vi.clearAllMocks` resets call history but not shared object state.
     mocks.selectResult.data = [{ id: 'merchant-1' }];
     mocks.selectResult.error = null;
+    mocks.invalidateStoreReadiness.mockResolvedValue(undefined);
     mocks.useMerchant.mockReturnValue({
       merchant: {
         id: 'merchant-1',
@@ -408,6 +425,38 @@ describe('StoreSettingsScreen', () => {
 
     expect(await screen.findByText('Success!')).toBeInTheDocument();
     expect(mocks.eq).toHaveBeenCalledWith('id', 'merchant-1');
+  });
+
+  it('does not show save success until merchant and readiness invalidations finish', async () => {
+    let releaseReadiness!: () => void;
+    const readiness = new Promise<void>((resolve) => {
+      releaseReadiness = resolve;
+    });
+    mocks.invalidateStoreReadiness.mockReturnValueOnce(readiness);
+
+    render(<StoreSettingsScreen />);
+    fireEvent.change(screen.getByLabelText('Business Name'), {
+      target: { value: 'Baci Foods Ltd' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save store settings' })
+    );
+
+    await waitFor(() => {
+      expect(mocks.update).toHaveBeenCalledTimes(1);
+      expect(mocks.invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ['merchant'],
+      });
+      expect(mocks.invalidateStoreReadiness).toHaveBeenCalledWith(
+        expect.anything(),
+        'merchant-1'
+      );
+    });
+    expect(screen.queryByText('Success!')).not.toBeInTheDocument();
+
+    releaseReadiness();
+
+    expect(await screen.findByText('Success!')).toBeInTheDocument();
   });
 
   it('treats whitespace-only persisted slugs as first-time slug setup', async () => {
@@ -488,6 +537,7 @@ describe('StoreSettingsScreen', () => {
         'These settings changed elsewhere. Reopen the page and try again.'
       )
     ).toBeInTheDocument();
+    expect(mocks.invalidateStoreReadiness).not.toHaveBeenCalled();
   });
 
   it('keeps phone and support_phone as distinct columns instead of collapsing them', async () => {

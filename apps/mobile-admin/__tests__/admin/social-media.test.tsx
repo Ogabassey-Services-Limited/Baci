@@ -4,22 +4,22 @@ import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import SocialMediaScreen from '@/app/(admin)/social-media';
 
-vi.mock('@/lib/invalidate-store-readiness', () => ({
-  invalidateStoreReadiness: vi.fn().mockResolvedValue(undefined),
-}));
-
 const mocks = vi.hoisted(() => ({
   alert: vi.fn(),
   back: vi.fn(),
+  invalidateStoreReadiness: vi.fn().mockResolvedValue(undefined),
   useMerchant: vi.fn(),
   updateMerchantSettings: vi.fn(),
   useMutation: vi.fn(),
   invalidateQueries: vi.fn(),
 }));
+vi.mock('@/lib/invalidate-store-readiness', () => ({
+  invalidateStoreReadiness: mocks.invalidateStoreReadiness,
+}));
 type MutationOptions = {
   mutationFn: () => Promise<unknown>;
   onError?: (error: unknown) => void;
-  onSuccess?: (data: unknown) => void;
+  onSuccess?: (data: unknown) => Promise<void> | void;
 };
 vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: () => null,
@@ -73,7 +73,7 @@ vi.mock('@tanstack/react-query', () => ({
       mutate: async () => {
         try {
           const data = await options.mutationFn();
-          options.onSuccess?.(data);
+          await options.onSuccess?.(data);
         } catch (error) {
           options.onError?.(error);
         }
@@ -293,6 +293,50 @@ describe('SocialMediaScreen', () => {
     });
   });
 
+  it('waits for merchant and readiness invalidation before presenting success', async () => {
+    let releaseReadiness!: () => void;
+    const readiness = new Promise<void>((resolve) => {
+      releaseReadiness = resolve;
+    });
+    mocks.invalidateStoreReadiness.mockReturnValueOnce(readiness);
+    mocks.useMerchant.mockReturnValue({
+      merchant: { id: 'merchant-1', social_media: { instagram: 'old_insta' } },
+      isLoading: false,
+    });
+    mocks.updateMerchantSettings.mockResolvedValueOnce({});
+
+    render(<SocialMediaScreen />);
+    fireEvent.change(screen.getByLabelText('Instagram Handle'), {
+      target: { value: 'new_insta' },
+    });
+    fireEvent.click(screen.getByText('Save'));
+
+    await waitFor(() => {
+      expect(mocks.invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ['merchant'],
+      });
+      expect(mocks.invalidateStoreReadiness).toHaveBeenCalledWith(
+        expect.anything(),
+        'merchant-1'
+      );
+    });
+    expect(mocks.alert).not.toHaveBeenCalledWith(
+      'Success',
+      expect.any(String),
+      expect.any(Array)
+    );
+
+    releaseReadiness();
+
+    await waitFor(() => {
+      expect(mocks.alert).toHaveBeenCalledWith(
+        'Success',
+        'Social media links updated',
+        expect.any(Array)
+      );
+    });
+  });
+
   it('handles save errors gracefully', async () => {
     mocks.useMerchant.mockReturnValue({
       merchant: {
@@ -318,6 +362,31 @@ describe('SocialMediaScreen', () => {
 
     await waitFor(() => {
       expect(mocks.alert).toHaveBeenCalledWith('Error', 'Network Error');
+    });
+    expect(mocks.invalidateStoreReadiness).not.toHaveBeenCalled();
+  });
+
+  it('surfaces readiness failures through the mutation error path', async () => {
+    mocks.useMerchant.mockReturnValue({
+      merchant: { id: 'merchant-1', social_media: { instagram: 'insta' } },
+      isLoading: false,
+    });
+    mocks.updateMerchantSettings.mockResolvedValueOnce({});
+    mocks.invalidateStoreReadiness.mockRejectedValueOnce(
+      new Error('Readiness refresh failed')
+    );
+
+    render(<SocialMediaScreen />);
+    fireEvent.change(screen.getByLabelText('Instagram Handle'), {
+      target: { value: 'insta_changed' },
+    });
+    fireEvent.click(screen.getByText('Save'));
+
+    await waitFor(() => {
+      expect(mocks.alert).toHaveBeenCalledWith(
+        'Error',
+        'Readiness refresh failed'
+      );
     });
   });
 

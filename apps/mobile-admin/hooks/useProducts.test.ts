@@ -252,6 +252,71 @@ describe('useProducts branch semantics', () => {
     );
   });
 
+  it('does not invalidate readiness when a created product remains a draft', async () => {
+    useCreateProduct();
+
+    await mocks.mutationConfigs[0]?.onSuccess?.(
+      { id: 'product-1', status: 'draft' },
+      {}
+    );
+
+    expect(mocks.invalidateStoreReadiness).not.toHaveBeenCalled();
+  });
+
+  it('does not invalidate readiness after a failed product create', async () => {
+    mocks.createProductRecord.mockRejectedValueOnce(new Error('Create failed'));
+    useCreateProduct();
+
+    await expect(mocks.mutationConfigs[0]?.mutationFn?.({})).rejects.toThrow(
+      'Create failed'
+    );
+
+    expect(mocks.invalidateStoreReadiness).not.toHaveBeenCalled();
+  });
+
+  it('invalidates readiness only for a status field update and awaits it with product invalidations', async () => {
+    let releaseReadiness!: () => void;
+    const readiness = new Promise<void>((resolve) => {
+      releaseReadiness = resolve;
+    });
+    mocks.invalidateStoreReadiness.mockReturnValueOnce(readiness);
+    useUpdateProduct();
+
+    await mocks.mutationConfigs[0]?.onSuccess?.(
+      { id: 'product-1' },
+      { updates: { name: 'Renamed product' } }
+    );
+    expect(mocks.invalidateStoreReadiness).not.toHaveBeenCalled();
+
+    let completed = false;
+    const completion = Promise.resolve(
+      mocks.mutationConfigs[0]?.onSuccess?.(
+        { id: 'product-1' },
+        { updates: { status: 'active' } }
+      )
+    );
+    completion?.then(() => {
+      completed = true;
+    });
+
+    await Promise.resolve();
+    expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['product', 'merchant-1', 'product-1'],
+    });
+    expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['products', 'merchant-1'],
+    });
+    expect(mocks.invalidateStoreReadiness).toHaveBeenCalledWith(
+      mocks.queryClient,
+      'merchant-1'
+    );
+    expect(completed).toBe(false);
+
+    releaseReadiness();
+    await completion;
+    expect(completed).toBe(true);
+  });
+
   it('invalidates readiness after a successful product status change', async () => {
     useUpdateProductStatus();
 

@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiClient, NetworkError } from '@/lib/api-client';
+import { invalidateStoreReadiness } from '@/lib/invalidate-store-readiness';
 import { useBuilderConfig } from './useBuilderConfig';
 
 vi.mock('@/hooks/useAuth', () => ({
@@ -47,6 +48,7 @@ vi.mock('@/lib/api-client', async () => {
 });
 
 const mockApiClient = vi.mocked(apiClient);
+const mockInvalidateStoreReadiness = vi.mocked(invalidateStoreReadiness);
 
 const baseConfig = {
   content: [{ type: 'Hero', props: { id: 'hero', title: 'Current' } }],
@@ -138,5 +140,112 @@ describe('useBuilderConfig', () => {
         currentConfig: baseConfig,
       }),
     });
+  });
+
+  it('does not refresh readiness when saving a draft or applying an AI draft edit', async () => {
+    mockApiClient
+      .mockResolvedValueOnce({ config: baseConfig, isPublished: false })
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce({
+        config: {
+          ...baseConfig,
+          root: { title: 'AI draft' },
+        },
+      });
+    const { result } = renderHook(() => useBuilderConfig('home'), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.config).toEqual(baseConfig);
+    });
+
+    act(() => {
+      result.current.saveDraft();
+    });
+    await waitFor(() => {
+      expect(mockApiClient).toHaveBeenCalledWith('/api/builder', {
+        method: 'POST',
+        body: JSON.stringify({
+          slug: 'home',
+          config: baseConfig,
+          name: 'Home',
+        }),
+      });
+    });
+
+    await act(async () => {
+      await result.current.sendMessage('Give the hero a brighter title');
+    });
+
+    expect(mockApiClient).toHaveBeenCalledWith('/api/builder/gemini', {
+      method: 'POST',
+      timeout: 30_000,
+      body: JSON.stringify({
+        prompt: 'Give the hero a brighter title',
+        currentConfig: {
+          ...baseConfig,
+          root: { title: 'AI draft' },
+        },
+      }),
+    });
+    expect(mockInvalidateStoreReadiness).not.toHaveBeenCalled();
+  });
+
+  it('keeps publish pending until builder and readiness invalidations finish', async () => {
+    let releaseReadiness!: () => void;
+    const readiness = new Promise<void>((resolve) => {
+      releaseReadiness = resolve;
+    });
+    mockInvalidateStoreReadiness.mockReturnValueOnce(readiness);
+    mockApiClient
+      .mockResolvedValueOnce({ config: baseConfig, isPublished: false })
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined);
+    const { result } = renderHook(() => useBuilderConfig('home'), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.config).toEqual(baseConfig);
+    });
+    act(() => {
+      result.current.publish();
+    });
+
+    await waitFor(() => {
+      expect(mockApiClient).toHaveBeenCalledWith('/api/builder', {
+        method: 'PUT',
+        body: JSON.stringify({ slug: 'home' }),
+      });
+      expect(mockInvalidateStoreReadiness).toHaveBeenCalledWith(
+        expect.anything(),
+        'merchant-1'
+      );
+      expect(result.current.isPublishing).toBe(true);
+    });
+
+    releaseReadiness();
+
+    await waitFor(() => {
+      expect(result.current.isPublishing).toBe(false);
+    });
+  });
+
+  it('does not refresh readiness when publishing fails before the publish request succeeds', async () => {
+    mockApiClient
+      .mockResolvedValueOnce({ config: baseConfig, isPublished: false })
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce({ config: baseConfig, isPublished: false })
+      .mockRejectedValueOnce(new Error('Publish failed'));
+    const { result } = renderHook(() => useBuilderConfig('home'), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.config).toEqual(baseConfig);
+    });
+    act(() => {
+      result.current.publish();
+    });
+
+    await waitFor(() => {
+      expect(result.current.publishError).toEqual(new Error('Publish failed'));
+    });
+    expect(mockInvalidateStoreReadiness).not.toHaveBeenCalled();
   });
 });
