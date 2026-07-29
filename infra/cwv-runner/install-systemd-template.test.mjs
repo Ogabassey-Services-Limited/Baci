@@ -94,7 +94,8 @@ ensure_file() { :; }
 sha256() { printf '%064d\n' 0; }
 ROOT=/fixture SCRIPT_DIR=/fixture BOOTSTRAP_DIRECTORY=/fixture
 ${installUnits}
-install_units`;
+install_units
+printf '%s' "$UNIT_STATES"`;
   const run = (extra = {}) =>
     spawnSync('/bin/sh', ['-c', command], {
       encoding: 'utf8',
@@ -111,6 +112,22 @@ install_units`;
     });
   const result = run();
   assert.equal(result.status, 0, result.stderr);
+  const unitStates = JSON.parse(result.stdout);
+  assert.deepEqual(
+    Object.keys(unitStates).sort(),
+    [
+      'baci-cwv-containerd.service',
+      'baci-cwv-docker.service',
+      'baci-cwv-host-sampler.service',
+      'baci-cwv-host-sampler.timer',
+      'baci-cwv-measurement.service',
+      'baci-cwv-campaign-watchdog@.service',
+    ].sort()
+  );
+  for (const state of Object.values(unitStates)) {
+    assert.match(state, /^loaded\ninactive\n(?:disabled|static)\n$/);
+    assert.doesNotMatch(state, /\\n$/);
+  }
   const calls = await readFile(log, 'utf8');
   assert.doesNotMatch(calls, /disable --now .*watchdog@\.service/);
   assert.match(calls, /disable --now .*watchdog@live\.service/);
