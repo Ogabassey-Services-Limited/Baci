@@ -142,7 +142,6 @@ export default function StoreSettingsScreen() {
         slug,
       });
 
-      // Nothing changed — skip the write entirely.
       if (Object.keys(payload).length === 0) {
         return;
       }
@@ -170,11 +169,11 @@ export default function StoreSettingsScreen() {
       }
     },
     onSuccess: async () => {
-      if (!merchant?.id) throw new Error('No merchant found');
-      await Promise.all([
-        invalidateMerchantQueries(),
-        invalidateStoreReadiness(queryClient, merchant.id),
-      ]);
+      const invalidations: Promise<unknown>[] = [invalidateMerchantQueries()];
+      if (merchant?.id) {
+        invalidations.push(invalidateStoreReadiness(queryClient, merchant.id));
+      }
+      await Promise.all(invalidations);
       setStatusModal({
         visible: true,
         type: 'success',

@@ -207,13 +207,15 @@ export function useBuilderConfig(pageSlug: string = 'home') {
       });
     },
     onSuccess: async () => {
-      if (!merchant?.id) throw new Error('No merchant');
-      await Promise.all([
+      const invalidations: Promise<unknown>[] = [
         queryClient.invalidateQueries({
           queryKey: ['builderConfig', pageSlug],
         }),
-        invalidateStoreReadiness(queryClient, merchant.id),
-      ]);
+      ];
+      if (merchant?.id) {
+        invalidations.push(invalidateStoreReadiness(queryClient, merchant.id));
+      }
+      await Promise.all(invalidations);
     },
   });
 

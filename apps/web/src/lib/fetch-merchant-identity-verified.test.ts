@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
+import type { Database } from '@/types/supabase';
 import { fetchMerchantIdentityVerified } from './fetch-merchant-identity-verified';
 
 vi.mock('server-only', () => ({}));
@@ -10,7 +11,7 @@ function clientWithRpc(result: { data?: unknown; error?: unknown }) {
       data: result.data ?? null,
       error: result.error ?? null,
     }),
-  } as unknown as SupabaseClient;
+  } as unknown as SupabaseClient<Database>;
 }
 
 describe('fetchMerchantIdentityVerified', () => {

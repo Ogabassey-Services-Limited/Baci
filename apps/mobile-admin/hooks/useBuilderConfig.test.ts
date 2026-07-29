@@ -7,6 +7,10 @@ import { apiClient, NetworkError } from '@/lib/api-client';
 import { invalidateStoreReadiness } from '@/lib/invalidate-store-readiness';
 import { useBuilderConfig } from './useBuilderConfig';
 
+const merchantMocks = vi.hoisted(() => ({
+  merchant: { id: 'merchant-1' } as { id: string } | null,
+}));
+
 vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({
     session: { access_token: 'token-1' },
@@ -15,7 +19,7 @@ vi.mock('@/hooks/useAuth', () => ({
 }));
 
 vi.mock('@/hooks/useMerchant', () => ({
-  useMerchant: () => ({ merchant: { id: 'merchant-1' } }),
+  useMerchant: () => ({ merchant: merchantMocks.merchant }),
 }));
 
 vi.mock('@/lib/invalidate-store-readiness', () => ({
@@ -73,6 +77,7 @@ describe('useBuilderConfig', () => {
       isPublished: false,
     });
     latestQueryClient = null;
+    merchantMocks.merchant = { id: 'merchant-1' };
   });
 
   it('loads builder config through the centralized mobile API client', async () => {
@@ -258,6 +263,49 @@ describe('useBuilderConfig', () => {
 
     await waitFor(() => {
       expect(result.current.publishError).toEqual(new Error('Publish failed'));
+    });
+    expect(mockInvalidateStoreReadiness).not.toHaveBeenCalled();
+  });
+
+  it('keeps a successful publish successful when merchant context is temporarily unavailable', async () => {
+    merchantMocks.merchant = null;
+    let releasePublish!: () => void;
+    const publishRequest = new Promise<void>((resolve) => {
+      releasePublish = resolve;
+    });
+    mockApiClient.mockImplementation((url, options) => {
+      if (url === '/api/builder?slug=home') {
+        return Promise.resolve({ config: baseConfig, isPublished: false });
+      }
+      if (options?.method === 'PUT') return publishRequest;
+      return Promise.resolve(undefined);
+    });
+    const { result } = renderHook(() => useBuilderConfig('home'), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.config).toEqual(baseConfig);
+    });
+    if (!latestQueryClient) throw new Error('Expected query client');
+    const invalidateQueries = vi.spyOn(latestQueryClient, 'invalidateQueries');
+
+    act(() => {
+      result.current.publish();
+    });
+
+    await waitFor(() => {
+      expect(mockApiClient).toHaveBeenCalledWith('/api/builder', {
+        method: 'PUT',
+        body: JSON.stringify({ slug: 'home' }),
+      });
+      expect(result.current.isPublishing).toBe(true);
+    });
+    releasePublish();
+    await waitFor(() => {
+      expect(result.current.isPublishing).toBe(false);
+      expect(result.current.publishError).toBeNull();
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['builderConfig', 'home'],
     });
     expect(mockInvalidateStoreReadiness).not.toHaveBeenCalled();
   });

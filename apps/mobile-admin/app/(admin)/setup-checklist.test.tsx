@@ -102,15 +102,22 @@ vi.mock('react-native', () => {
       alert: mocks.alert,
     },
     Pressable: ({
+      accessibilityLabel,
       children,
       disabled,
       onPress,
     }: {
+      accessibilityLabel?: string;
       children?: ReactNode;
       disabled?: boolean;
       onPress?: () => void;
     }) => (
-      <button disabled={disabled} onClick={() => onPress?.()} type="button">
+      <button
+        aria-label={accessibilityLabel}
+        disabled={disabled}
+        onClick={() => onPress?.()}
+        type="button"
+      >
         {children}
       </button>
     ),
@@ -246,7 +253,9 @@ describe('SetupChecklistScreen', () => {
     expect(
       screen.getByText('Unable to load store setup right now.')
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Retry loading store setup' })
+    );
     expect(mocks.refetch).toHaveBeenCalledTimes(1);
   });
 

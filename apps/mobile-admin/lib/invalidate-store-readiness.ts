@@ -5,11 +5,12 @@ export async function invalidateStoreReadiness(
   queryClient: QueryClient,
   merchantId: string
 ): Promise<void> {
-  if (!merchantId.trim()) {
+  const normalizedMerchantId = merchantId.trim();
+  if (!normalizedMerchantId) {
     throw new Error('Merchant ID is required to invalidate store readiness');
   }
 
   await queryClient.invalidateQueries({
-    queryKey: storeReadinessKeys.detail(merchantId),
+    queryKey: storeReadinessKeys.detail(normalizedMerchantId),
   });
 }

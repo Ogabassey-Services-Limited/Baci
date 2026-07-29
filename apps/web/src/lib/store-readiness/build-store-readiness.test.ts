@@ -64,7 +64,7 @@ function completion(
 
 describe('buildStoreReadiness', () => {
   afterEach(() => {
-    vi.mocked(buildStoreLaunchReadiness).mockReset();
+    vi.mocked(buildStoreLaunchReadiness).mockClear();
   });
 
   it.each([
@@ -197,7 +197,7 @@ describe('buildStoreReadiness', () => {
       ...buildStoreLaunchReadiness(BASE_FACTS),
       isReady: false,
     };
-    vi.mocked(buildStoreLaunchReadiness).mockReturnValue(launch);
+    vi.mocked(buildStoreLaunchReadiness).mockReturnValueOnce(launch);
 
     const result = buildStoreReadiness(BASE_FACTS, surface);
 

@@ -4,10 +4,6 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import StoreSettingsScreen from './store-settings';
 
-vi.mock('@/lib/invalidate-store-readiness', () => ({
-  invalidateStoreReadiness: vi.fn().mockResolvedValue(undefined),
-}));
-
 interface MockMerchant {
   business_name: string;
   country: string;
@@ -30,6 +26,9 @@ const mocks = vi.hoisted(() => ({
   getManagementLabel: vi.fn(() => 'Manage from helper'),
   getPlanLabel: vi.fn(() => 'Baci Pro'),
   useCachedImageUri: vi.fn(() => ({ isLoading: false, uri: null })),
+  invalidateQueries: vi.fn().mockResolvedValue(undefined),
+  invalidateStoreReadiness: vi.fn().mockResolvedValue(undefined),
+  useMutation: vi.fn(),
   useMerchantResult: {
     isLoading: false,
     merchant: {
@@ -51,6 +50,10 @@ const mocks = vi.hoisted(() => ({
   },
 }));
 
+vi.mock('@/lib/invalidate-store-readiness', () => ({
+  invalidateStoreReadiness: mocks.invalidateStoreReadiness,
+}));
+
 function Text({ children }: { children?: ReactNode }) {
   return <span>{children}</span>;
 }
@@ -66,12 +69,15 @@ vi.mock('expo-router', async () => {
 });
 
 vi.mock('@tanstack/react-query', () => ({
-  useMutation: () => ({
-    isPending: false,
-    mutate: vi.fn(),
-  }),
+  useMutation: (options: { onSuccess?: () => Promise<void> | void }) => {
+    mocks.useMutation(options);
+    return {
+      isPending: false,
+      mutate: vi.fn(),
+    };
+  },
   useQueryClient: () => ({
-    invalidateQueries: vi.fn(),
+    invalidateQueries: mocks.invalidateQueries,
   }),
 }));
 
@@ -294,5 +300,18 @@ describe('StoreSettingsScreen', () => {
 
     expect(screen.getByText('loading')).toBeInTheDocument();
     expect(screen.queryByText('subscription-card')).not.toBeInTheDocument();
+  });
+
+  it('still refreshes merchant data when success settles without merchant context', async () => {
+    mocks.useMerchantResult.merchant = null;
+
+    render(<StoreSettingsScreen />);
+    const mutationOptions = mocks.useMutation.mock.calls.at(-1)?.[0] as
+      | { onSuccess?: () => Promise<void> | void }
+      | undefined;
+
+    await expect(mutationOptions?.onSuccess?.()).resolves.toBeUndefined();
+    expect(mocks.invalidateQueries).toHaveBeenCalled();
+    expect(mocks.invalidateStoreReadiness).not.toHaveBeenCalled();
   });
 });

@@ -1,8 +1,8 @@
-# SDD ledger — plan: /Users/mac/Baci-app/.worktrees/mobile-admin-registration-fields-recovered/docs/superpowers/plans/2026-07-29-canonical-store-readiness.md
+# SDD ledger — plan: docs/superpowers/plans/2026-07-29-canonical-store-readiness.md
 
 Baseline: dd4ef53f0dd7939c0b8c692419defac628f8a029 on codex/canonical-store-readiness
-Execution worktree: /Users/mac/Baci-app/.worktrees/canonical-store-readiness
-Recovered payout patch remains in /Users/mac/Baci-app/.worktrees/mobile-admin-registration-fields-recovered for deliberate Task 10 transplant.
+Execution worktree: isolated `canonical-store-readiness` worktree
+Recovered payout patch remained isolated for deliberate Task 10 transplant.
 
 Baseline: clean — shared 77 files/781 tests; mobile-admin 619 files/3175 tests; web 3261 passed + 1 skipped files/25487 passed + 1 todo tests. Existing jsdom, sourcemap, and temp-fixture stderr noise observed before implementation.
 Execution note: use `pnpm --filter <package> exec vitest run <files>` for focused RED/GREEN; the package `test -- <files>` form expands to the full suite in this repository.
@@ -27,3 +27,5 @@ Task 5: complete — implementation commit 227492819f. Strict schema and route T
 Task 6: complete pending independent review — commit 8e6512aeae. Strict RED captured the missing mapper, legacy CSRF-before-auth 403s, and absent canonical loader; GREEN focused build/loader/mapper/publish 4 files/59 tests. Changed-file Biome and diff check passed; web/turbo typecheck and turbo lint passed before final test-only additions, with lint passing again via pre-commit. One broad turbo test tree ran ~16m and exited but its final status did not reach this worker, so no full-test pass claim is made. CodeRabbit uncommitted review connected/analyzed but no findings/verdict payload arrived; exact committed-head review remains open. See task-6-report.md.
 Task 6: fix round 1 — controller broad RED identified the missing colocated `publish/route.test.ts` after splitting. Restored real entrypoint, POST/DELETE suites, and shared helper; added no-effect 404/403 and terminal update `.eq` scope regressions. Controller focused GREEN: authority contract plus 5 route test files/44 tests in 29.65s. Controller owns post-commit broad rerun.
 Task 6: fix round 2 — test-only split-coverage restoration. Exact POST/DELETE envelopes, cache-eviction codes, cache-identity/merchant-lookup no-effect behavior, successful and null-slug eviction arguments, and inactive-product copy restored. No genuine RED: current production already satisfied the newly restored assertions. GREEN: route split 4 files/33; launch builder/loader/mapper 3 files/33; repository authority 1 file/13; changed-file Biome, web typecheck, and diff check passed. All route modules remain <=300 lines. Controller owns broad rerun; no CodeRabbit.
+Task 11: exact-head CodeRabbit round 1 completed with 14 comments. Valid findings received RED/GREEN coverage for DTO metric coherence, normalized merchant keys, accessible retry naming, and post-success cache recovery; typing, mock lifecycle, test naming, and worktree-path hygiene were also corrected. Historical migration replacement was rejected because the owner explicitly approved the hash-bound one-line repair, and `isReady` remains owned by canonical launch policy rather than surface checklist arithmetic.
+Task 11: review-fix focused GREEN — shared 18/18, web 18/18, mobile-admin 36/36; changed-file Biome, full turbo lint, full turbo typecheck, and diff check passed. Exact committed-head CodeRabbit rerun remains pending.

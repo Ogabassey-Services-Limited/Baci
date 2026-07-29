@@ -79,9 +79,34 @@ describe('store readiness contract', () => {
       },
     ],
     ['invalid progress', { ...VALID_READINESS_FIXTURE, overallProgress: 101 }],
-    ['missing store build status', { ...VALID_READINESS_FIXTURE, storeBuild: undefined }],
+    [
+      'required completion count inconsistent with items',
+      { ...VALID_READINESS_FIXTURE, completedRequired: 1 },
+    ],
+    [
+      'required total inconsistent with items',
+      { ...VALID_READINESS_FIXTURE, totalRequired: 2 },
+    ],
+    [
+      'recommended metrics inconsistent with items',
+      { ...VALID_READINESS_FIXTURE, totalRecommended: 1 },
+    ],
+    [
+      'overall progress inconsistent with items',
+      { ...VALID_READINESS_FIXTURE, overallProgress: 50 },
+    ],
+    [
+      'missing store build status',
+      { ...VALID_READINESS_FIXTURE, storeBuild: undefined },
+    ],
   ])('rejects %s', (_name, value) => {
     expect(isStoreReadiness(value)).toBe(false);
+  });
+
+  it('keeps canonical launch readiness independent from surface item metrics', () => {
+    expect(
+      isStoreReadiness({ ...VALID_READINESS_FIXTURE, isReady: true })
+    ).toBe(true);
   });
 
   it('keeps the stable item-id set explicit', () => {

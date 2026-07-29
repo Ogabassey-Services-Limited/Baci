@@ -39,4 +39,15 @@ describe('invalidateStoreReadiness', () => {
 
     expect(invalidateQueries).not.toHaveBeenCalled();
   });
+
+  it('normalizes surrounding whitespace before building the merchant query key', async () => {
+    const queryClient = new QueryClient();
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+
+    await invalidateStoreReadiness(queryClient, '  merchant-123  ');
+
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['store-readiness', 'mobile', 'merchant-123'],
+    });
+  });
 });

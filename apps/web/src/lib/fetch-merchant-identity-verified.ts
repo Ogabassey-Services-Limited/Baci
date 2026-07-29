@@ -1,6 +1,7 @@
 import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@/types/supabase';
 
 /**
  * Read the caller-authorized aggregate identity-verification state used by
@@ -8,7 +9,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * or individual verification flags.
  */
 export async function fetchMerchantIdentityVerified(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   merchantId: string
 ): Promise<boolean> {
   const { data, error } = await supabase.rpc('get_merchant_identity_verified', {

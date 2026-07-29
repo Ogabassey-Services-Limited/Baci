@@ -118,7 +118,6 @@ const STORE_READINESS_KEYS = [
   'items',
   'storeBuild',
 ] as const;
-
 const STORE_READINESS_ITEM_KEYS = [
   'id',
   'label',
@@ -127,7 +126,6 @@ const STORE_READINESS_ITEM_KEYS = [
   'priority',
   'category',
 ] as const;
-
 const STORE_BUILD_STATUS_KEYS = [
   'starterStoreReady',
   'aiStatus',
@@ -135,13 +133,11 @@ const STORE_BUILD_STATUS_KEYS = [
   'canApplyAiDraft',
   'message',
 ] as const;
-
 const STORE_READINESS_ITEM_PRIORITIES = [
   'required',
   'recommended',
   'optional',
 ] as const;
-
 const STORE_READINESS_ITEM_CATEGORIES = [
   'payments',
   'products',
@@ -149,7 +145,6 @@ const STORE_READINESS_ITEM_CATEGORIES = [
   'legal',
   'marketing',
 ] as const;
-
 const STORE_BUILD_AI_STATUSES = [
   'not_started',
   'pending',
@@ -201,7 +196,7 @@ function isStoreBuildStatus(value: unknown): value is StoreBuildStatus {
 function isStoreReadinessItem(
   value: unknown,
   allowedItemIds: readonly StoreReadinessItemId[]
-): boolean {
+): value is StoreReadinessItem {
   if (!isRecord(value) || !hasExactKeys(value, STORE_READINESS_ITEM_KEYS)) {
     return false;
   }
@@ -220,6 +215,39 @@ function isStoreReadinessItem(
     STORE_READINESS_ITEM_CATEGORIES.includes(
       value.category as (typeof STORE_READINESS_ITEM_CATEGORIES)[number]
     )
+  );
+}
+
+function hasConsistentReadinessMetrics(value: {
+  completedRecommended: number;
+  completedRequired: number;
+  items: unknown[];
+  overallProgress: number;
+  totalRecommended: number;
+  totalRequired: number;
+}): boolean {
+  const items: StoreReadinessItem[] = [];
+  for (const item of value.items) {
+    if (!isStoreReadinessItem(item, STORE_READINESS_ITEM_IDS)) return false;
+    items.push(item);
+  }
+
+  const requiredItems = items.filter((item) => item.priority === 'required');
+  const recommendedItems = items.filter(
+    (item) => item.priority === 'recommended'
+  );
+  const completedItems = items.filter((item) => item.completed).length;
+  const expectedProgress =
+    items.length === 0 ? 0 : Math.round((completedItems / items.length) * 100);
+
+  return (
+    value.completedRequired ===
+      requiredItems.filter((item) => item.completed).length &&
+    value.totalRequired === requiredItems.length &&
+    value.completedRecommended ===
+      recommendedItems.filter((item) => item.completed).length &&
+    value.totalRecommended === recommendedItems.length &&
+    value.overallProgress === expectedProgress
   );
 }
 
@@ -258,5 +286,15 @@ export function isStoreReadiness(value: unknown): value is StoreReadiness {
       ? MOBILE_STORE_READINESS_ITEM_IDS
       : WEB_STORE_READINESS_ITEM_IDS;
 
-  return value.items.every((item) => isStoreReadinessItem(item, allowedItemIds));
+  return (
+    value.items.every((item) => isStoreReadinessItem(item, allowedItemIds)) &&
+    hasConsistentReadinessMetrics({
+      completedRecommended: value.completedRecommended,
+      completedRequired: value.completedRequired,
+      items: value.items,
+      overallProgress: value.overallProgress,
+      totalRecommended: value.totalRecommended,
+      totalRequired: value.totalRequired,
+    })
+  );
 }

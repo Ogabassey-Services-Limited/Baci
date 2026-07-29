@@ -101,11 +101,13 @@ export default function SocialMediaScreen() {
         social_media: socialMedia,
       }),
     onSuccess: async () => {
-      if (!merchant?.id) throw new Error('No merchant found');
-      await Promise.all([
+      const invalidations: Promise<unknown>[] = [
         queryClient.invalidateQueries({ queryKey: ['merchant'] }),
-        invalidateStoreReadiness(queryClient, merchant.id),
-      ]);
+      ];
+      if (merchant?.id) {
+        invalidations.push(invalidateStoreReadiness(queryClient, merchant.id));
+      }
+      await Promise.all(invalidations);
       Alert.alert('Success', 'Social media links updated', [
         { text: 'OK', onPress: () => router.back() },
       ]);

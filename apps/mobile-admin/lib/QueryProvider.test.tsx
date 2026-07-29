@@ -25,7 +25,7 @@ describe('QueryProvider', () => {
     vi.clearAllMocks();
   });
 
-  it('installs the React Query focus bridge once', () => {
+  it('invokes the React Query app-focus hook when the provider renders', () => {
     // Act
     render(
       <QueryProvider>

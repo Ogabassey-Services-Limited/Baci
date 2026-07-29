@@ -366,6 +366,21 @@ describe('SocialMediaScreen', () => {
     expect(mocks.invalidateStoreReadiness).not.toHaveBeenCalled();
   });
 
+  it('still refreshes merchant data when success settles without merchant context', async () => {
+    mocks.useMerchant.mockReturnValue({ merchant: null, isLoading: false });
+
+    render(<SocialMediaScreen />);
+    const mutationOptions = mocks.useMutation.mock.calls[0]?.[0] as
+      | MutationOptions
+      | undefined;
+
+    await expect(mutationOptions?.onSuccess?.({})).resolves.toBeUndefined();
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['merchant'],
+    });
+    expect(mocks.invalidateStoreReadiness).not.toHaveBeenCalled();
+  });
+
   it('surfaces readiness failures through the mutation error path', async () => {
     mocks.useMerchant.mockReturnValue({
       merchant: { id: 'merchant-1', social_media: { instagram: 'insta' } },
