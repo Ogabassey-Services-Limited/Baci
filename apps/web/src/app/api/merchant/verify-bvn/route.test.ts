@@ -416,6 +416,67 @@ describe('POST /api/merchant/verify-bvn', () => {
     await expect(res.json()).resolves.toMatchObject({ verified: false });
   });
 
+  it('reports the mobile number mismatch from Monnify field-level results', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        requestSuccessful: true,
+        responseBody: {
+          name: { matchStatus: 'FULL_MATCH', matchPercentage: 100 },
+          dateOfBirth: 'FULL_MATCH',
+          mobileNo: 'NO_MATCH',
+        },
+      }),
+    } as Response);
+
+    const res = await POST(makeRequest(validBvnBody));
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({
+      verified: false,
+      mismatchFields: ['mobile_number'],
+    });
+  });
+
+  it('accepts Monnify current-guide overall match responses', async () => {
+    const supabaseMock = makeSupabaseMock();
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: { id: 'user-1' },
+      error: null,
+      supabase: supabaseMock,
+    } as unknown as Awaited<ReturnType<typeof authenticateApiRequest>>);
+    vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        requestSuccessful: true,
+        responseBody: { bvnInformationMatch: true },
+      }),
+    } as Response);
+
+    const res = await POST(makeRequest(validBvnBody));
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ verified: true });
+    expect(supabaseMock.rpc).toHaveBeenCalledOnce();
+  });
+
+  it('rejects undocumented Monnify success payloads instead of treating them as a mismatch', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        requestSuccessful: true,
+        responseBody: {},
+      }),
+    } as Response);
+
+    const res = await POST(makeRequest(validBvnBody));
+
+    expect(res.status).toBe(502);
+    await expect(res.json()).resolves.toEqual({
+      error: 'BVN verification service returned invalid data',
+    });
+  });
+
   it('returns 500 when Monnify API fails', async () => {
     vi.mocked(getMonnifyToken).mockRejectedValueOnce(new Error('Auth failed'));
 

@@ -25,7 +25,19 @@ vi.mock('@/lib/api-client', () => ({
 vi.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({ colors: {}, shadows: {} }),
 }));
-vi.mock('@react-native-vector-icons/ionicons', () => ({ default: () => null }));
+vi.mock('@react-native-vector-icons/ionicons', () => ({
+  default: ({
+    accessibilityLabel,
+    name,
+  }: {
+    accessibilityLabel?: string;
+    name: string;
+  }) => (
+    <span aria-label={accessibilityLabel} role="img">
+      {name}
+    </span>
+  ),
+}));
 vi.mock('react-native', () => ({
   Alert: { alert: mocks.alert },
   Pressable: ({
@@ -78,6 +90,25 @@ describe('CacVerificationCard readiness handoff', () => {
     mocks.options.length = 0;
   });
 
+  it('presents CAC onboarding as Business Verification', () => {
+    const { getByText, queryByText } = render(
+      <CacVerificationCard onVerified={vi.fn()} verified={false} />
+    );
+
+    expect(getByText('Business Verification')).not.toBeNull();
+    expect(queryByText('CAC Verification')).toBeNull();
+  });
+
+  it('shows a business icon in the verification header', () => {
+    const { getByLabelText } = render(
+      <CacVerificationCard onVerified={vi.fn()} verified={false} />
+    );
+
+    expect(getByLabelText('Business verification icon').textContent).toBe(
+      'business-outline'
+    );
+  });
+
   it('awaits refresh before showing the verified result', async () => {
     let release!: () => void;
     const refresh = new Promise<void>((resolve) => {
@@ -87,7 +118,7 @@ describe('CacVerificationCard readiness handoff', () => {
       <CacVerificationCard onVerified={() => refresh} verified={false} />
     );
     fireEvent.click(
-      getByRole('button', { name: 'Toggle CAC Verification section' })
+      getByRole('button', { name: 'Toggle Business Verification section' })
     );
     const done = completeVerifiedMutation();
     await Promise.resolve();
@@ -107,7 +138,7 @@ describe('CacVerificationCard readiness handoff', () => {
       />
     );
     fireEvent.click(
-      getByRole('button', { name: 'Toggle CAC Verification section' })
+      getByRole('button', { name: 'Toggle Business Verification section' })
     );
 
     await act(completeVerifiedMutation);

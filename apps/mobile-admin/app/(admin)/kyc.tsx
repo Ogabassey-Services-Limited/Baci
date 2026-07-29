@@ -5,23 +5,21 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  ScrollView,
   StatusBar,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import BvnVerificationCard from '@/components/kyc/BvnVerificationCard';
 import CacVerificationCard from '@/components/kyc/CacVerificationCard';
 import NinVerificationCard from '@/components/kyc/NinVerificationCard';
 import type { VerificationIdentityDraft } from '@/components/kyc/verification-identity';
-import { SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { AppKeyboardContainer } from '@/components/ui/AppKeyboardContainer';
 import { useAuth } from '@/hooks/useAuth';
 import { useKycVerificationRefresh } from '@/hooks/useKycVerificationRefresh';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
+import { styles } from './kyc-screen.styles';
 
 interface VerificationStatus {
   nin_verified: boolean;
@@ -144,9 +142,10 @@ export default function KYCScreen() {
       >
         <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
-        <ScrollView
+        <AppKeyboardContainer
+          align="start"
           contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
+          keyboardVerticalOffset={0}
         >
           <View style={styles.header}>
             <View
@@ -222,17 +221,10 @@ export default function KYCScreen() {
           ) : (
             <View style={styles.cards}>
               <NinVerificationCard
+                bvnVerified={status?.bvn_verified ?? false}
                 verified={status?.nin_verified ?? false}
-                prefillNin={merchant?.nin}
-                firstName={identityDraft.firstName}
-                lastName={identityDraft.lastName}
-                dateOfBirth={identityDraft.dateOfBirth}
-                onIdentityChange={setIdentityDraft}
-                onVerified={refreshAfterVerification}
-              />
-              <BvnVerificationCard
-                verified={status?.bvn_verified ?? false}
                 prefillBvn={merchant?.bvn}
+                prefillNin={merchant?.nin}
                 firstName={identityDraft.firstName}
                 lastName={identityDraft.lastName}
                 dateOfBirth={identityDraft.dateOfBirth}
@@ -261,65 +253,8 @@ export default function KYCScreen() {
               Your data is encrypted and used only for verification purposes.
             </Text>
           </View>
-        </ScrollView>
+        </AppKeyboardContainer>
       </SafeAreaView>
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  scrollContent: { padding: SPACING.lg, paddingBottom: SPACING['3xl'] },
-  header: { alignItems: 'center', marginBottom: SPACING.xl },
-  iconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
-  title: {
-    fontSize: TYPOGRAPHY.size.xl,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    marginBottom: SPACING.xs,
-  },
-  subtitle: {
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    textAlign: 'center',
-    paddingHorizontal: SPACING.md,
-  },
-  cards: { gap: SPACING.lg },
-  loader: { marginTop: SPACING['2xl'] },
-  ownerOnlyBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.md,
-    padding: SPACING.lg,
-    borderRadius: 12,
-  },
-  ownerOnlyText: {
-    flex: 1,
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-  },
-  securityNote: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.xs,
-    marginTop: SPACING.xl,
-  },
-  securityNoteText: {
-    fontSize: TYPOGRAPHY.size.xs,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-  },
-  tryAgainText: {
-    marginTop: SPACING.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-  },
-  errorBody: {
-    flex: 1,
-  },
-});

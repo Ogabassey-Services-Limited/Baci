@@ -209,10 +209,18 @@ export default function CacVerificationCard({
         ]}
       >
         <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.text }]}>
-            CAC Verification
-          </Text>
-          <VerificationStatusBadge verified />
+          <View style={styles.headerLeft}>
+            <Ionicons
+              accessibilityLabel="Business verification icon"
+              color={colors.primary}
+              name="business-outline"
+              size={22}
+            />
+            <Text style={[styles.title, { color: colors.text }]}>
+              Business Verification
+            </Text>
+          </View>
+          <VerificationStatusBadge status="verified" />
         </View>
         {cacApprovedName ? (
           <Text style={[styles.approvedName, { color: colors.success }]}>
@@ -235,13 +243,19 @@ export default function CacVerificationCard({
         style={styles.header}
         onPress={() => setExpanded((prev) => !prev)}
         accessibilityRole="button"
-        accessibilityLabel="Toggle CAC Verification section"
+        accessibilityLabel="Toggle Business Verification section"
       >
         <View style={styles.headerLeft}>
+          <Ionicons
+            accessibilityLabel="Business verification icon"
+            color={colors.primary}
+            name="business-outline"
+            size={22}
+          />
           <Text style={[styles.title, { color: colors.text }]}>
-            CAC Verification
+            Business Verification
           </Text>
-          <VerificationStatusBadge verified={false} />
+          <VerificationStatusBadge status="not-started" />
         </View>
         <Ionicons
           name={expanded ? 'chevron-up' : 'chevron-down'}

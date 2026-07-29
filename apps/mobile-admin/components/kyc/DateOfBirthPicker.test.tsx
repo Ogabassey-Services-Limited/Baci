@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   appDatePickerProps: {
     onConfirm: ((_date: Date) => undefined) as (date: Date) => void,
   },
+  dismissKeyboard: vi.fn(),
 }));
 
 vi.mock('@/components/ui/AppDatePickerField', async () => {
@@ -42,6 +43,7 @@ vi.mock('@react-native-vector-icons/ionicons', async () => {
 });
 
 vi.mock('react-native', () => ({
+  Keyboard: { dismiss: mocks.dismissKeyboard },
   StatusBar: () => null,
   Pressable: ({
     accessibilityLabel,
@@ -80,6 +82,15 @@ describe('DateOfBirthPicker', () => {
     render(<DateOfBirthPicker colors={colors} onChange={vi.fn()} value="" />);
 
     expect(screen.getByText('Select date of birth')).toBeInTheDocument();
+  });
+
+  it('dismisses the text keyboard before opening the date picker', () => {
+    render(<DateOfBirthPicker colors={colors} onChange={vi.fn()} value="" />);
+
+    fireEvent.click(screen.getByLabelText('Select date of birth'));
+
+    expect(mocks.dismissKeyboard).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('picker')).toBeInTheDocument();
   });
 
   it('normalizes confirmed dates to YYYY-MM-DD', () => {

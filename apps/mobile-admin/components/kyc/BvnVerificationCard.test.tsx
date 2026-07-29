@@ -1,9 +1,13 @@
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 type MutationOptions = {
   onError: (error: unknown) => void;
-  onSuccess: (data: { verified: boolean }) => Promise<void>;
+  onSuccess: (data: {
+    verified: boolean;
+    mismatchFields?: string[];
+  }) => Promise<void>;
 };
 
 const mocks = vi.hoisted(() => ({
@@ -22,15 +26,22 @@ vi.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({ colors: {}, shadows: {} }),
 }));
 vi.mock('@react-native-vector-icons/ionicons', () => ({ default: () => null }));
-vi.mock('react-native', () => ({
-  ActivityIndicator: () => null,
-  Alert: { alert: mocks.alert },
-  Pressable: () => null,
-  Text: () => null,
-  TextInput: () => null,
-  View: () => null,
-  StyleSheet: { create: (value: unknown) => value },
-}));
+vi.mock('react-native', async () => {
+  const { createElement } = await import('react');
+  return {
+    ActivityIndicator: () => null,
+    Alert: { alert: mocks.alert },
+    Pressable: ({ children }: { children?: ReactNode }) =>
+      createElement('button', null, children),
+    Text: ({ children }: { children?: ReactNode }) =>
+      createElement('span', null, children),
+    TextInput: ({ accessibilityLabel }: { accessibilityLabel?: string }) =>
+      createElement('input', { 'aria-label': accessibilityLabel }),
+    View: ({ children }: { children?: ReactNode }) =>
+      createElement('div', null, children),
+    StyleSheet: { create: (value: unknown) => value },
+  };
+});
 vi.mock('./BvnMobileNumberField', () => ({ default: () => null }));
 vi.mock('./DateOfBirthPicker', () => ({ default: () => null }));
 vi.mock('./VerificationStatusBadge', () => ({ default: () => null }));
@@ -40,10 +51,13 @@ vi.mock('./bvn-verification-alerts', () => ({
 
 import BvnVerificationCard from './BvnVerificationCard';
 
-async function completeVerifiedMutation(): Promise<void> {
+async function completeMutation(
+  verified: boolean,
+  mismatchFields?: string[]
+): Promise<void> {
   if (!mocks.options) throw new Error('Expected verification mutation options');
   try {
-    await mocks.options.onSuccess({ verified: true });
+    await mocks.options.onSuccess({ verified, mismatchFields });
   } catch (error) {
     mocks.options.onError(error);
   }
@@ -66,17 +80,20 @@ describe('BvnVerificationCard readiness handoff', () => {
         firstName="A"
         lastName="B"
         mobileNo="08000000000"
-        onIdentityChange={vi.fn()}
+        onMobileNumberChange={vi.fn()}
         onVerified={() => refresh}
         verified={false}
       />
     );
-    const done = completeVerifiedMutation();
+    const done = completeMutation(true);
     await Promise.resolve();
     expect(mocks.alert).not.toHaveBeenCalled();
     release();
     await done;
-    expect(mocks.alert).toHaveBeenCalledWith('Success', expect.any(String));
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'Success',
+      'Your BVN has been verified successfully.'
+    );
   });
 
   it('preserves verified success when the readiness refresh rejects', async () => {
@@ -86,15 +103,79 @@ describe('BvnVerificationCard readiness handoff', () => {
         firstName="A"
         lastName="B"
         mobileNo="08000000000"
-        onIdentityChange={vi.fn()}
+        onMobileNumberChange={vi.fn()}
         onVerified={() => Promise.reject(new Error('Readiness failed'))}
         verified={false}
       />
     );
 
-    await completeVerifiedMutation();
+    await completeMutation(true);
 
-    expect(mocks.alert).toHaveBeenCalledWith('Success', expect.any(String));
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'Success',
+      'Your BVN has been verified successfully. Your setup status will refresh shortly.'
+    );
     expect(mocks.showBvnVerificationError).not.toHaveBeenCalled();
+  });
+
+  it('reports a failed match without refreshing readiness', async () => {
+    const onVerified = vi.fn().mockResolvedValue(undefined);
+    render(
+      <BvnVerificationCard
+        dateOfBirth="2000-01-01"
+        firstName="A"
+        lastName="B"
+        mobileNo="08000000000"
+        onMobileNumberChange={vi.fn()}
+        onVerified={onVerified}
+        verified={false}
+      />
+    );
+
+    await completeMutation(false);
+
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'Verification Failed',
+      "The details you provided don't match BVN records."
+    );
+    expect(onVerified).not.toHaveBeenCalled();
+  });
+
+  it('reports an explicit mobile number mismatch returned by the server', async () => {
+    render(
+      <BvnVerificationCard
+        dateOfBirth="2000-01-01"
+        firstName="A"
+        lastName="B"
+        mobileNo="08000000000"
+        onMobileNumberChange={vi.fn()}
+        onVerified={vi.fn()}
+        verified={false}
+      />
+    );
+
+    await completeMutation(false, ['mobile_number']);
+
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'Verification Failed',
+      'The mobile number does not match your BVN records.'
+    );
+  });
+
+  it('folds the BVN form after verification completes', () => {
+    render(
+      <BvnVerificationCard
+        dateOfBirth="2000-01-01"
+        firstName="A"
+        lastName="B"
+        mobileNo="08000000000"
+        onMobileNumberChange={vi.fn()}
+        onVerified={vi.fn()}
+        verified
+      />
+    );
+
+    expect(screen.queryByLabelText('BVN input')).toBeNull();
+    expect(screen.getByText('BVN Verification')).not.toBeNull();
   });
 });

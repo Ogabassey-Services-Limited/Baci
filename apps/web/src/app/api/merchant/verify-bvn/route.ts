@@ -6,23 +6,12 @@ import { checkCsrfProtection } from '@/lib/csrf';
 import { getMonnifyToken } from '@/lib/monnify';
 import { checkRateLimit } from '@/lib/rate-limiter';
 import { bvnVerifySchema } from '@/schemas/verification';
-import type { MonnifyBVNMatchResponse } from '@/types/monnify';
+import normalizeBvnMatchResult from './normalize-bvn-match-result';
 
 const MOBILE_REGEX = /^0\d{10}$/;
-const MONNIFY_MONTHS = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
+const MONNIFY_MONTHS = 'Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec'.split(
+  ' '
+);
 
 const SAFE_MONNIFY_VALIDATION_MESSAGES = new Set([
   'Invalid date format supplied. Accepted date format - dd-MMM-yyyy',
@@ -242,9 +231,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const data = (await monnifyRes.json()) as MonnifyBVNMatchResponse;
+    const matchResult = normalizeBvnMatchResult(await monnifyRes.json());
 
-    if (!data.responseBody) {
+    if (!matchResult) {
       console.error('verify-bvn: unexpected Monnify response structure');
       return NextResponse.json(
         { error: 'BVN verification service returned invalid data' },
@@ -252,9 +241,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const matched = data.responseBody.matchStatus === 'FULL_MATCH';
-
-    if (matched) {
+    if (matchResult.verified) {
       const { error: rpcError } = await auth.supabase.rpc(
         'record_bvn_verification',
         {
@@ -275,7 +262,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ verified: matched });
+    return NextResponse.json(matchResult);
   } catch (err) {
     const errorMessage =
       err instanceof Error ? err.message : 'Unknown BVN verification error';

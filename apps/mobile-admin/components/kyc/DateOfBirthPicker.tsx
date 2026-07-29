@@ -1,6 +1,6 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Keyboard, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppDatePickerField } from '@/components/ui/AppDatePickerField';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import type { useTheme } from '@/hooks/useTheme';
@@ -53,6 +53,7 @@ export default function DateOfBirthPicker({
   const [showPicker, setShowPicker] = useState(false);
 
   const handleOpenPicker = () => {
+    Keyboard.dismiss();
     setShowPicker(true);
   };
 
