@@ -98,7 +98,7 @@ describe('createReplayCommand', () => {
     const psql = path.join(root, 'psql');
     await writeFile(
       psql,
-      "#!/bin/sh\nprintf 'psql:/owned/replay/secret.sql:42: ERROR:  42501\\nidentity@example.test postgresql://user:password@localhost/db\\n' >&2\nexit 1\n",
+      "#!/bin/sh\nprintf 'psql:/owned/replay/secret.sql:42: ERROR:  42501: permission denied\\nidentity@example.test postgresql://user:password@localhost/db\\n' >&2\nexit 1\n",
       { mode: 0o700 }
     );
     const runCommand = replayCommandRuntime.create(root);

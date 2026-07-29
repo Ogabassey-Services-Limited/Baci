@@ -51,7 +51,7 @@ function boundedPsqlDiagnostic(
   }
   const output = Buffer.concat(stderr).toString('utf8');
   const match =
-    /^psql:[^\r\n]*:(\d+):\s+(?:ERROR|error):(?:\s{2}([0-9A-Z]{5})(?:\s|$))?/m.exec(
+    /^psql:[^\r\n]*:(\d+):[ \t]+(?:ERROR|error):(?:[ \t]+([0-9A-Z]{5})(?=[: \t]|$))?/m.exec(
       output
     );
   const line = Number(match?.[1]);
