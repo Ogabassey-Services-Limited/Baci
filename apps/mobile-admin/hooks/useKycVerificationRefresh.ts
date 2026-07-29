@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { invalidateStoreReadiness } from '@/lib/invalidate-store-readiness';
+import { tryRefreshStoreReadiness } from '@/lib/try-refresh-store-readiness';
 
 interface UseKycVerificationRefreshOptions {
   merchantId: string;
@@ -22,7 +23,9 @@ export function useKycVerificationRefresh({
       queryClient.invalidateQueries({
         queryKey: ['verification-status', merchantId],
       }),
-      invalidateStoreReadiness(queryClient, merchantId),
+      tryRefreshStoreReadiness(() =>
+        invalidateStoreReadiness(queryClient, merchantId)
+      ),
     ]);
 
     await refetchVerificationStatus();

@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { invalidateStoreReadiness } from '@/lib/invalidate-store-readiness';
+import { tryRefreshStoreReadiness } from '@/lib/try-refresh-store-readiness';
 import { useMerchant } from './useMerchant';
 
 interface ArchiveProductResponse {
@@ -34,7 +35,7 @@ export function useArchiveProduct() {
     mutationKey: ['archiveProduct'],
     onSettled: async (_data, error, { productId }) => {
       const merchantId = merchant?.id;
-      const invalidations = [
+      const invalidations: Promise<unknown>[] = [
         queryClient.invalidateQueries({ queryKey: ['products', merchantId] }),
         queryClient.invalidateQueries({
           queryKey: ['product', merchantId, productId],
@@ -44,7 +45,11 @@ export function useArchiveProduct() {
         }),
       ];
       if (!error && merchantId?.trim()) {
-        invalidations.push(invalidateStoreReadiness(queryClient, merchantId));
+        invalidations.push(
+          tryRefreshStoreReadiness(() =>
+            invalidateStoreReadiness(queryClient, merchantId)
+          )
+        );
       }
       await Promise.all(invalidations);
     },

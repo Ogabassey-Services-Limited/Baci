@@ -76,6 +76,7 @@ describe('useBuilderConfig', () => {
       config: baseConfig,
       isPublished: false,
     });
+    mockInvalidateStoreReadiness.mockResolvedValue(undefined);
     latestQueryClient = null;
     merchantMocks.merchant = { id: 'merchant-1' };
   });
@@ -265,6 +266,29 @@ describe('useBuilderConfig', () => {
       expect(result.current.publishError).toEqual(new Error('Publish failed'));
     });
     expect(mockInvalidateStoreReadiness).not.toHaveBeenCalled();
+  });
+
+  it('preserves a successful builder publish when only readiness refresh fails', async () => {
+    mockApiClient
+      .mockResolvedValueOnce({ config: baseConfig, isPublished: false })
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined);
+    mockInvalidateStoreReadiness.mockRejectedValueOnce(
+      new Error('Readiness refresh failed')
+    );
+    const { result } = renderHook(() => useBuilderConfig('home'), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.config).toEqual(baseConfig);
+    });
+    act(() => {
+      result.current.publish();
+    });
+
+    await waitFor(() => {
+      expect(result.current.isPublishing).toBe(false);
+      expect(result.current.publishError).toBeNull();
+    });
   });
 
   it('keeps a successful publish successful when merchant context is temporarily unavailable', async () => {

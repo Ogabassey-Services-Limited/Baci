@@ -67,6 +67,7 @@ function createWrapper() {
 describe('useStorePublish', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockInvalidateStoreReadiness.mockResolvedValue(undefined);
   });
 
   it('publishes via the web API and invalidates merchant readiness data', async () => {

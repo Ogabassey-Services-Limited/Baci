@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   chainCalls: [] as Array<{ method: string; args: unknown[] }>,
   createProductRecord: vi.fn(),
   invalidateStoreReadiness: vi.fn().mockResolvedValue(undefined),
+  merchant: { id: 'merchant-1' } as { id: string } | null,
   fetchProductDetail: vi.fn(),
   infiniteQueryConfigs: [] as Array<{
     queryFn: (args: { pageParam?: number }) => Promise<unknown>;
@@ -130,7 +131,7 @@ vi.mock('@/lib/revalidate-storefront-products', () => ({
 }));
 
 vi.mock('@/hooks/useMerchant', () => ({
-  useMerchant: () => ({ merchant: { id: 'merchant-1' } }),
+  useMerchant: () => ({ merchant: mocks.merchant }),
 }));
 
 vi.mock('@/hooks/useBranchScope', () => ({
@@ -178,6 +179,7 @@ describe('useProducts branch semantics', () => {
     mocks.queryConfigs.length = 0;
     mocks.queryPromises.length = 0;
     mocks.fetchProductDetail.mockReset();
+    mocks.merchant = { id: 'merchant-1' };
     mocks.productQueryResult = { count: 0, data: [], error: null };
     mocks.queryClient.cancelQueries.mockReset();
     mocks.queryClient.getQueriesData.mockReset();
@@ -270,6 +272,24 @@ describe('useProducts branch semantics', () => {
     expect(mocks.invalidateStoreReadiness).not.toHaveBeenCalled();
   });
 
+  it('preserves an active product create when only readiness refresh fails', async () => {
+    mocks.invalidateStoreReadiness.mockRejectedValueOnce(
+      new Error('Readiness refresh failed')
+    );
+    useCreateProduct();
+
+    await expect(
+      mocks.mutationConfigs[0]?.onSuccess?.(
+        { id: 'product-1', status: 'active' },
+        {}
+      )
+    ).resolves.toBeUndefined();
+
+    expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['products', 'merchant-1'],
+    });
+  });
+
   it('co-starts and awaits product-list and readiness refreshes for an active create', async () => {
     const releases: Array<() => void> = [];
     const deferred = () =>
@@ -348,6 +368,27 @@ describe('useProducts branch semantics', () => {
     expect(completed).toBe(true);
   });
 
+  it('preserves a saved product update when only readiness refresh fails', async () => {
+    mocks.invalidateStoreReadiness.mockRejectedValueOnce(
+      new Error('Readiness refresh failed')
+    );
+    useUpdateProduct();
+
+    await expect(
+      mocks.mutationConfigs[0]?.onSuccess?.(
+        { id: 'product-1' },
+        { updates: { status: 'active' } }
+      )
+    ).resolves.toBeUndefined();
+
+    expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['product', 'merchant-1', 'product-1'],
+    });
+    expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['products', 'merchant-1'],
+    });
+  });
+
   it('invalidates readiness after a successful product status change', async () => {
     useUpdateProductStatus();
 
@@ -360,6 +401,45 @@ describe('useProducts branch semantics', () => {
       mocks.queryClient,
       'merchant-1'
     );
+  });
+
+  it('preserves a successful status update when only readiness refresh fails', async () => {
+    mocks.invalidateStoreReadiness.mockRejectedValueOnce(
+      new Error('Readiness refresh failed')
+    );
+    useUpdateProductStatus();
+
+    await expect(
+      mocks.mutationConfigs[0]?.onSuccess?.(
+        { id: 'product-1' },
+        { productId: 'product-1', status: 'active' }
+      )
+    ).resolves.toBeUndefined();
+
+    expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['product', 'merchant-1', 'product-1'],
+    });
+    expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['products', 'merchant-1'],
+    });
+  });
+
+  it('invalidates product list and detail caches after a persisted status update without merchant context', async () => {
+    mocks.merchant = null;
+    useUpdateProductStatus();
+
+    await mocks.mutationConfigs[0]?.onSuccess?.(
+      { id: 'product-1' },
+      { productId: 'product-1', status: 'active' }
+    );
+
+    expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['products'],
+    });
+    expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['product'],
+    });
+    expect(mocks.invalidateStoreReadiness).not.toHaveBeenCalled();
   });
 
   it('does not invalidate product or readiness queries when a status mutation fails', async () => {

@@ -44,6 +44,7 @@ function createWrapper() {
 describe('usePayouts', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockInvalidateStoreReadiness.mockResolvedValue(undefined);
     currentMerchant = { id: 'merchant-1' };
     merchantMock.mockImplementation(() => ({ merchant: currentMerchant }));
   });

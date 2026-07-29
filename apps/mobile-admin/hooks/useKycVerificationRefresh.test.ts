@@ -137,4 +137,29 @@ describe('useKycVerificationRefresh', () => {
     expect(invalidateQueries).not.toHaveBeenCalled();
     expect(refetchVerificationStatus).not.toHaveBeenCalled();
   });
+
+  it('refetches authoritative verification status when readiness refresh fails', async () => {
+    const { queryClient, Wrapper } = createWrapper();
+    vi.spyOn(queryClient, 'invalidateQueries').mockImplementation((filters) => {
+      if (filters?.queryKey?.[0] === 'store-readiness') {
+        return Promise.reject(new Error('Readiness refresh failed'));
+      }
+      return Promise.resolve();
+    });
+    const refetchVerificationStatus = vi.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(
+      () =>
+        useKycVerificationRefresh({
+          merchantId: 'merchant-1',
+          refetchVerificationStatus,
+        }),
+      { wrapper: Wrapper }
+    );
+
+    await expect(
+      result.current.refreshAfterVerification()
+    ).resolves.toBeUndefined();
+
+    expect(refetchVerificationStatus).toHaveBeenCalledTimes(1);
+  });
 });

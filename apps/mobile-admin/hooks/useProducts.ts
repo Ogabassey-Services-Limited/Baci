@@ -11,6 +11,7 @@ import type {
   AdminProductStockFilter,
 } from '@/lib/product-search';
 import { supabase } from '@/lib/supabase';
+import { tryRefreshStoreReadiness } from '@/lib/try-refresh-store-readiness';
 import type { ProductFormValues } from '@/lib/validators/product';
 import { fetchProductDetail } from './product-detail-query';
 import { createProductRecord, updateProductRecord } from './product-save';
@@ -33,6 +34,17 @@ import { useMerchant } from './useMerchant';
 
 export type StockFilter = AdminProductStockFilter;
 export type { InventoryStats, Product, ProductStatus, ProductsPage };
+
+function productListQueryKey(merchantId?: string) {
+  return merchantId ? ['products', merchantId] : ['products'];
+}
+
+function productDetailQueryKey(
+  merchantId: string | undefined,
+  productId: string
+) {
+  return merchantId ? ['product', merchantId, productId] : ['product'];
+}
 
 export function useProducts(filters?: AdminProductSearchFilters) {
   const { merchant } = useMerchant();
@@ -81,14 +93,21 @@ export function useUpdateProduct() {
     },
     mutationKey: ['updateProduct'],
     onSuccess: async (data, variables) => {
-      const invalidations = [
+      const merchantId = merchant?.id;
+      const invalidations: Promise<unknown>[] = [
         queryClient.invalidateQueries({
-          queryKey: ['product', merchant?.id, data.id],
+          queryKey: productDetailQueryKey(merchantId, data.id),
         }),
-        queryClient.invalidateQueries({ queryKey: ['products', merchant?.id] }),
+        queryClient.invalidateQueries({
+          queryKey: productListQueryKey(merchantId),
+        }),
       ];
-      if (merchant?.id && variables.updates.status !== undefined) {
-        invalidations.push(invalidateStoreReadiness(queryClient, merchant.id));
+      if (merchantId && variables.updates.status !== undefined) {
+        invalidations.push(
+          tryRefreshStoreReadiness(() =>
+            invalidateStoreReadiness(queryClient, merchantId)
+          )
+        );
       }
       await Promise.all(invalidations);
     },
@@ -106,11 +125,18 @@ export function useCreateProduct() {
     },
     mutationKey: ['createProduct'],
     onSuccess: async (data) => {
-      const invalidations = [
-        queryClient.invalidateQueries({ queryKey: ['products', merchant?.id] }),
+      const merchantId = merchant?.id;
+      const invalidations: Promise<unknown>[] = [
+        queryClient.invalidateQueries({
+          queryKey: productListQueryKey(merchantId),
+        }),
       ];
-      if (merchant?.id && data.status === 'active') {
-        invalidations.push(invalidateStoreReadiness(queryClient, merchant.id));
+      if (merchantId && data.status === 'active') {
+        invalidations.push(
+          tryRefreshStoreReadiness(() =>
+            invalidateStoreReadiness(queryClient, merchantId)
+          )
+        );
       }
       await Promise.all(invalidations);
     },
@@ -211,13 +237,21 @@ export function useUpdateProductStatus() {
     },
     mutationKey: ['updateProductStatus'],
     onSuccess: async (_data, { productId }) => {
-      if (!merchant?.id) return;
+      const merchantId = merchant?.id;
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['products', merchant.id] }),
         queryClient.invalidateQueries({
-          queryKey: ['product', merchant.id, productId],
+          queryKey: productListQueryKey(merchantId),
         }),
-        invalidateStoreReadiness(queryClient, merchant.id),
+        queryClient.invalidateQueries({
+          queryKey: productDetailQueryKey(merchantId, productId),
+        }),
+        ...(merchantId
+          ? [
+              tryRefreshStoreReadiness(() =>
+                invalidateStoreReadiness(queryClient, merchantId)
+              ),
+            ]
+          : []),
       ]);
     },
   });

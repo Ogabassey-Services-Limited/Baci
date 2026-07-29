@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { apiClient } from '@/lib/api-client';
 import { invalidateStoreReadiness } from '@/lib/invalidate-store-readiness';
+import { tryRefreshStoreReadiness } from '@/lib/try-refresh-store-readiness';
 import { formatAiCopilotError } from './format-ai-copilot-error';
 import { useMerchant } from './useMerchant';
 
@@ -213,7 +214,11 @@ export function useBuilderConfig(pageSlug: string = 'home') {
         }),
       ];
       if (merchant?.id) {
-        invalidations.push(invalidateStoreReadiness(queryClient, merchant.id));
+        invalidations.push(
+          tryRefreshStoreReadiness(() =>
+            invalidateStoreReadiness(queryClient, merchant.id)
+          )
+        );
       }
       await Promise.all(invalidations);
     },
