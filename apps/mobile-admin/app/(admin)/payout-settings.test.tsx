@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   keyboardContainerProps: [] as Array<{
     align?: 'start' | 'center' | 'end';
     scrollEnabled?: boolean;
+    style?: unknown;
   }>,
   savePayoutSettings: {
     isPending: false,
@@ -90,7 +91,7 @@ vi.mock('@/hooks/usePayoutAccountVerification', () => ({
 vi.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({
     colors: {
-      background: '#ffffff',
+      background: '#0b0b1a',
       border: '#e2e8f0',
       card: '#f8fafc',
       error: '#dc2626',
@@ -116,12 +117,14 @@ vi.mock('@/components/ui/AppKeyboardContainer', () => ({
     align,
     children,
     scrollEnabled,
+    style,
   }: {
     align?: 'start' | 'center' | 'end';
     children?: ReactNode;
     scrollEnabled?: boolean;
+    style?: unknown;
   }) => {
-    mocks.keyboardContainerProps.push({ align, scrollEnabled });
+    mocks.keyboardContainerProps.push({ align, scrollEnabled, style });
     return <section aria-label="bank-modal-keyboard">{children}</section>;
   },
 }));
@@ -251,6 +254,18 @@ describe('PayoutSettingsScreen', () => {
         (entry) => entry.align === 'start' && entry.scrollEnabled === false
       )
     ).toBe(true);
+  });
+
+  it('paints the bank picker keyboard container through the bottom safe area', () => {
+    render(<PayoutSettingsScreen />);
+
+    fireEvent.click(screen.getByLabelText('Select bank'));
+
+    expect(mocks.keyboardContainerProps.at(-1)?.style).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ backgroundColor: '#0b0b1a' }),
+      ])
+    );
   });
 
   it('blocks save when account verification has not produced an account name', () => {

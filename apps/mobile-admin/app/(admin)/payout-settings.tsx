@@ -335,7 +335,10 @@ export default function PayoutSettingsScreen() {
           <AppKeyboardContainer
             align="start"
             scrollEnabled={false}
-            style={styles.modalContainer}
+            style={[
+              styles.modalContainer,
+              { backgroundColor: colors.background },
+            ]}
           >
             <View
               style={[
