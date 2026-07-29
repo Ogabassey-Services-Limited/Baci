@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StatusBar, View } from 'react-native';
 import { StoreLogoSection } from '@/components/store-settings/StoreLogoSection';
@@ -34,6 +34,7 @@ import { SubscriptionManagement } from '@/utils/SubscriptionManagement';
 export default function StoreSettingsScreen() {
   const { colors, shadows, isDark } = useTheme();
   const router = useRouter();
+  const { from } = useLocalSearchParams<{ from?: string }>();
   const queryClient = useQueryClient();
   const { merchant, isLoading } = useMerchant();
   const { isPro } = useRevenueCat();
@@ -170,6 +171,10 @@ export default function StoreSettingsScreen() {
     },
     onSuccess: async () => {
       await invalidateStoreSettingsAfterSave(queryClient, merchant?.id);
+      if (from === 'setup') {
+        router.back();
+        return;
+      }
       setStatusModal({
         visible: true,
         type: 'success',
@@ -197,7 +202,7 @@ export default function StoreSettingsScreen() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || !merchant) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <ScreenSkeleton variant="settings" cards={5} />
@@ -205,9 +210,11 @@ export default function StoreSettingsScreen() {
     );
   }
 
-  const selectedCountryLabel =
-    COUNTRIES.find((c) => c.code === country || c.name === country)?.name ||
-    country;
+  const selectedCountry = COUNTRIES.find(
+    (candidate) => candidate.code === country || candidate.name === country
+  );
+  const selectedCountryCode = selectedCountry?.code || COUNTRIES[0].code;
+  const selectedCountryLabel = selectedCountry?.name || country;
   const planLabel = SubscriptionManagement.getPlanLabel(isPro) || 'Free Plan';
   const manageSubscriptionLabel =
     SubscriptionManagement.getManagementLabel() || 'Manage Subscription';
@@ -253,9 +260,12 @@ export default function StoreSettingsScreen() {
           address={address}
           businessName={businessName}
           colors={colors}
+          countryCode={selectedCountryCode}
           countryLabel={selectedCountryLabel}
           currency={currency}
           email={email}
+          googleMapsApiKey={process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}
+          isDark={isDark}
           onAddressChange={setAddress}
           onBusinessNameChange={handleBusinessNameChange}
           onEmailChange={setEmail}

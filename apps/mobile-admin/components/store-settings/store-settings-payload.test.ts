@@ -154,11 +154,22 @@ describe('store settings payload helpers', () => {
     expect(form.currency).toBe(DEFAULT_COUNTRY.currency);
   });
 
-  it('does not use auth email as an editable support email fallback', () => {
+  it('prefills an empty support email with the merchant auth email', () => {
     expect(
       buildInitialFormValues(
         makeMerchant({ email: 'owner@usebaci.com', support_email: null })
       ).email
-    ).toBe('');
+    ).toBe('owner@usebaci.com');
+  });
+
+  it('keeps an existing support email instead of replacing it', () => {
+    expect(
+      buildInitialFormValues(
+        makeMerchant({
+          email: 'owner@usebaci.com',
+          support_email: 'help@usebaci.com',
+        })
+      ).email
+    ).toBe('help@usebaci.com');
   });
 });

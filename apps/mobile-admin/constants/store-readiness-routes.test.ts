@@ -14,7 +14,15 @@ describe('mobile store readiness routes', () => {
     expect(getMobileStoreReadinessRoute('payment_method')).toBe(
       '/payment-methods'
     );
-    expect(getMobileStoreReadinessRoute('store_url')).toBe('/store-settings');
+    expect(getMobileStoreReadinessRoute('store_url')).toBe(
+      '/store-settings?from=setup'
+    );
+    expect(getMobileStoreReadinessRoute('contact_info')).toBe(
+      '/store-settings?from=setup'
+    );
+    expect(getMobileStoreReadinessRoute('business_address')).toBe(
+      '/store-settings?from=setup'
+    );
     expect(getMobileStoreReadinessRoute('first_product')).toBe('/product/new');
     expect(getMobileStoreReadinessRoute('hero_carousel')).toBe('/customize');
   });

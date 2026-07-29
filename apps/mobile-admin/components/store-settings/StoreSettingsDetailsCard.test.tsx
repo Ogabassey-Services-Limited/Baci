@@ -1,8 +1,46 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { LIGHT_COLORS, SHADOWS } from '@/constants/theme';
+import { DARK_COLORS, LIGHT_COLORS, SHADOWS } from '@/constants/theme';
 import { StoreSettingsDetailsCard } from './StoreSettingsDetailsCard';
+
+const nativeFieldState = vi.hoisted(() => ({
+  addressProps: null as Record<string, unknown> | null,
+  phoneProps: [] as Record<string, unknown>[],
+}));
+
+vi.mock('react-native-phone-number-input', async () => {
+  const React = await import('react');
+  return {
+    default: (props: Record<string, unknown>) => {
+      nativeFieldState.phoneProps.push(props);
+      const textInputProps = (props.textInputProps ?? {}) as {
+        accessibilityLabel?: string;
+      };
+      return React.createElement('input', {
+        'aria-label': textInputProps.accessibilityLabel,
+        defaultValue: String(props.defaultValue ?? ''),
+      });
+    },
+  };
+});
+
+vi.mock('./StoreSettingsAddressField', async () => {
+  const React = await import('react');
+  return {
+    StoreSettingsAddressField: (props: Record<string, unknown>) => {
+      nativeFieldState.addressProps = props;
+      return React.createElement('input', {
+        'aria-label': 'Business Address',
+        onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
+          (props.onAddressChange as (value: string) => void)(
+            event.target.value
+          ),
+        value: String(props.address ?? ''),
+      });
+    },
+  };
+});
 
 vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: ({ name }: { name: string }) => <span>{name}</span>,
@@ -76,9 +114,12 @@ describe('StoreSettingsDetailsCard', () => {
         address="12 Allen Avenue"
         businessName="Baci Foods"
         colors={LIGHT_COLORS}
+        countryCode="NG"
         countryLabel="Nigeria"
         currency="NGN"
         email="support@usebaci.com"
+        googleMapsApiKey="maps-test-key"
+        isDark={false}
         phone="+2348012345678"
         shadowStyle={SHADOWS.sm}
         slugLocked={false}
@@ -90,6 +131,8 @@ describe('StoreSettingsDetailsCard', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    nativeFieldState.addressProps = null;
+    nativeFieldState.phoneProps = [];
   });
 
   it('renders the current values', () => {
@@ -111,12 +154,14 @@ describe('StoreSettingsDetailsCard', () => {
     fireEvent.change(screen.getByLabelText('Business Name'), {
       target: { value: 'Baci Stores' },
     });
-    fireEvent.change(screen.getByLabelText('Phone Number'), {
-      target: { value: '+2348099999999' },
-    });
-    fireEvent.change(screen.getByLabelText('Support Phone'), {
-      target: { value: '+2347111111111' },
-    });
+    const primaryPhoneProps = nativeFieldState.phoneProps[0];
+    const supportPhoneProps = nativeFieldState.phoneProps[1];
+    (primaryPhoneProps.onChangeFormattedText as (value: string) => void)(
+      '+2348099999999'
+    );
+    (supportPhoneProps.onChangeFormattedText as (value: string) => void)(
+      '+2347111111111'
+    );
     fireEvent.change(screen.getByLabelText('Support Email'), {
       target: { value: 'hello@usebaci.com' },
     });
@@ -137,6 +182,99 @@ describe('StoreSettingsDetailsCard', () => {
     expect(callbacks.onSlugChange).toHaveBeenCalledWith('baci-stores');
   });
 
+  it('uses flag-aware phone fields tied to the selected merchant country', () => {
+    renderCard();
+
+    expect(nativeFieldState.phoneProps).toHaveLength(2);
+    expect(nativeFieldState.phoneProps[0]).toMatchObject({
+      defaultCode: 'NG',
+      defaultValue: '+2348012345678',
+    });
+    expect(nativeFieldState.phoneProps[1]).toMatchObject({
+      defaultCode: 'NG',
+      defaultValue: '+2347000000000',
+    });
+
+    for (const phoneProps of nativeFieldState.phoneProps) {
+      expect(phoneProps.containerStyle).toEqual(
+        expect.arrayContaining([expect.objectContaining({ height: 58 })])
+      );
+      expect(phoneProps.textInputStyle).toEqual(
+        expect.arrayContaining([expect.objectContaining({ height: 54 })])
+      );
+    }
+  });
+
+  it('renders the phone country selector for the active color scheme', () => {
+    render(
+      <StoreSettingsDetailsCard
+        address="12 Allen Avenue"
+        businessName="Baci Foods"
+        colors={DARK_COLORS}
+        countryCode="NG"
+        countryLabel="Nigeria"
+        currency="NGN"
+        email="support@usebaci.com"
+        googleMapsApiKey="maps-test-key"
+        isDark
+        phone="+2348012345678"
+        shadowStyle={SHADOWS.sm}
+        slug="baci-foods"
+        slugLocked={false}
+        supportPhone="+2347000000000"
+        {...callbacks}
+      />
+    );
+
+    for (const phoneProps of nativeFieldState.phoneProps) {
+      expect(phoneProps).toMatchObject({
+        withDarkTheme: true,
+      });
+      expect(phoneProps.countryPickerButtonStyle).toEqual(
+        expect.objectContaining({ minWidth: 72, width: 72 })
+      );
+    }
+  });
+
+  it('configures address suggestions for the selected merchant country', () => {
+    renderCard();
+
+    expect(nativeFieldState.addressProps).toMatchObject({
+      address: '12 Allen Avenue',
+      countryCode: 'NG',
+      googleMapsApiKey: 'maps-test-key',
+    });
+  });
+
+  it('keeps manual address entry available when Google Places is not configured', () => {
+    render(
+      <StoreSettingsDetailsCard
+        address="12 Allen Avenue"
+        businessName="Baci Foods"
+        colors={LIGHT_COLORS}
+        countryCode="NG"
+        countryLabel="Nigeria"
+        currency="NGN"
+        email="support@usebaci.com"
+        googleMapsApiKey={undefined}
+        isDark={false}
+        phone="+2348012345678"
+        shadowStyle={SHADOWS.sm}
+        slug="baci-foods"
+        slugLocked={false}
+        supportPhone="+2347000000000"
+        {...callbacks}
+      />
+    );
+
+    expect(screen.getByLabelText('Business Address')).toHaveValue(
+      '12 Allen Avenue'
+    );
+    expect(nativeFieldState.addressProps).toMatchObject({
+      googleMapsApiKey: undefined,
+    });
+  });
+
   it('forwards the country picker action', () => {
     renderCard();
 
@@ -151,9 +289,12 @@ describe('StoreSettingsDetailsCard', () => {
         address="12 Allen Avenue"
         businessName="Baci Foods"
         colors={LIGHT_COLORS}
+        countryCode="NG"
         countryLabel="Nigeria"
         currency="NGN"
         email="support@usebaci.com"
+        googleMapsApiKey="maps-test-key"
+        isDark={false}
         phone="+2348012345678"
         shadowStyle={SHADOWS.sm}
         slug="baci-foods"

@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => {
 
   return {
     back: vi.fn(),
+    routeParams: {} as { from?: string },
     invalidateStoreReadiness: vi.fn().mockResolvedValue(undefined),
     invalidateQueries: vi.fn(),
     mutationOptions: null as {
@@ -315,6 +316,7 @@ vi.mock('expo-router', async () => {
       back: mocks.back,
       push: vi.fn(),
     }),
+    useLocalSearchParams: () => mocks.routeParams,
   };
 });
 
@@ -366,6 +368,7 @@ describe('StoreSettingsScreen', () => {
     // `vi.clearAllMocks` resets call history but not shared object state.
     mocks.selectResult.data = [{ id: 'merchant-1' }];
     mocks.selectResult.error = null;
+    mocks.routeParams = {};
     mocks.invalidateStoreReadiness.mockResolvedValue(undefined);
     mocks.useMerchant.mockReturnValue({
       merchant: {
@@ -569,7 +572,7 @@ describe('StoreSettingsScreen', () => {
     expect(mocks.update.mock.calls[0][0]).not.toHaveProperty('phone');
   });
 
-  it('uses a newly entered phone as support_phone when no public contact exists', async () => {
+  it('saves the prefilled merchant email as public support contact', async () => {
     mocks.useMerchant.mockReturnValue({
       merchant: {
         id: 'merchant-1',
@@ -602,7 +605,7 @@ describe('StoreSettingsScreen', () => {
     });
     expect(mocks.update).toHaveBeenCalledWith({
       phone: '+2348011111111',
-      support_phone: '+2348011111111',
+      support_email: 'owner@usebaci.com',
     });
   });
 

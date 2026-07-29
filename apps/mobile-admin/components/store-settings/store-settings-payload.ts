@@ -83,7 +83,7 @@ export function buildInitialFormValues(
     businessName: merchant.business_name || '',
     phone: merchant.phone || '',
     supportPhone: merchant.support_phone || '',
-    email: merchant.support_email || '',
+    email: merchant.support_email || merchant.email || '',
     address: merchant.business_address || '',
     country,
     currency:

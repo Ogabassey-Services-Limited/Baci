@@ -23,6 +23,8 @@ interface MockUseMerchantResult {
 }
 
 const mocks = vi.hoisted(() => ({
+  routerBack: vi.fn(),
+  routeParams: {} as { from?: string },
   getManagementLabel: vi.fn(() => 'Manage from helper'),
   getPlanLabel: vi.fn(() => 'Baci Pro'),
   useCachedImageUri: vi.fn(() => ({ isLoading: false, uri: null })),
@@ -48,6 +50,10 @@ const mocks = vi.hoisted(() => ({
     manageSubscriptionLabel: '',
     planLabel: '',
   },
+  detailsCardProps: {
+    countryCode: '',
+    email: '',
+  },
   statusModalProps: {
     message: '',
     title: '',
@@ -67,7 +73,8 @@ function Text({ children }: { children?: ReactNode }) {
 vi.mock('expo-router', async () => {
   const React = await import('react');
   return {
-    useRouter: () => ({ back: vi.fn() }),
+    useLocalSearchParams: () => mocks.routeParams,
+    useRouter: () => ({ back: mocks.routerBack }),
     Stack: {
       Screen: () => React.createElement('div', null),
     },
@@ -153,11 +160,20 @@ vi.mock('@/components/store-settings/StoreSubscriptionCard', () => ({
 }));
 
 vi.mock('@/components/store-settings/StoreSettingsDetailsCard', () => ({
-  StoreSettingsDetailsCard: () => (
-    <div>
-      <Text>details-card</Text>
-    </div>
-  ),
+  StoreSettingsDetailsCard: ({
+    countryCode,
+    email,
+  }: {
+    countryCode: string;
+    email: string;
+  }) => {
+    mocks.detailsCardProps = { countryCode, email };
+    return (
+      <div>
+        <Text>details-card</Text>
+      </div>
+    );
+  },
 }));
 
 vi.mock('@/components/ui/CountryPickerModal', () => ({
@@ -231,6 +247,8 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
 describe('StoreSettingsScreen', () => {
   beforeEach(() => {
     mocks.getManagementLabel.mockReset();
+    mocks.routerBack.mockReset();
+    mocks.routeParams = {};
     mocks.getPlanLabel.mockReset();
     mocks.useCachedImageUri.mockReset();
     mocks.useCachedImageUri.mockReturnValue({ isLoading: false, uri: null });
@@ -253,6 +271,7 @@ describe('StoreSettingsScreen', () => {
     };
     mocks.subscriptionCardProps.manageSubscriptionLabel = '';
     mocks.subscriptionCardProps.planLabel = '';
+    mocks.detailsCardProps = { countryCode: '', email: '' };
     mocks.statusModalProps = {
       message: '',
       title: '',
@@ -275,6 +294,20 @@ describe('StoreSettingsScreen', () => {
       'Manage from helper'
     );
     expect(mocks.subscriptionCardProps.planLabel).toBe('Baci Pro');
+  });
+
+  it('prefills support email from the merchant email and passes a valid phone country code', () => {
+    if (mocks.useMerchantResult.merchant) {
+      mocks.useMerchantResult.merchant.country = 'Nigeria';
+      mocks.useMerchantResult.merchant.support_email = null;
+    }
+
+    render(<StoreSettingsScreen />);
+
+    expect(mocks.detailsCardProps).toEqual({
+      countryCode: 'NG',
+      email: 'owner@baci.test',
+    });
   });
 
   it('requests a target-sized store logo', () => {
@@ -364,5 +397,20 @@ describe('StoreSettingsScreen', () => {
     expect(
       screen.getByRole('status', { name: 'save-status' })
     ).toHaveTextContent('Success!: Store settings updated successfully.');
+  });
+
+  it('returns to the checklist without a success popup after a checklist save', async () => {
+    mocks.routeParams = { from: 'setup' };
+    render(<StoreSettingsScreen />);
+    const mutationOptions = mocks.useMutation.mock.calls.at(-1)?.[0] as
+      | { onSuccess?: () => Promise<void> | void }
+      | undefined;
+
+    await act(async () => {
+      await expect(mutationOptions?.onSuccess?.()).resolves.toBeUndefined();
+    });
+
+    expect(mocks.routerBack).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('status', { name: 'save-status' })).toBeNull();
   });
 });
