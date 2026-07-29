@@ -31,6 +31,7 @@ import {
   buildAnalyticsDiff,
 } from '@/lib/analytics-config-diff';
 import { baciFeatureGates } from '@/lib/feature-gates';
+import { invalidateStoreReadiness } from '@/lib/invalidate-store-readiness';
 import { supabase } from '@/lib/supabase';
 
 const INITIAL_STATE: AnalyticsState = {
@@ -202,6 +203,7 @@ export default function AnalyticsConfigScreen() {
   const { colors, shadows } = useTheme();
   const { user } = useAuth();
   const { merchant: merchantContext } = useMerchant();
+  const merchantId = merchantContext?.id;
   const router = useRouter();
   const queryClient = useQueryClient();
   const hasGrowthIntegrations = baciFeatureGates.hasFeature(
@@ -266,6 +268,9 @@ export default function AnalyticsConfigScreen() {
   // entirely so unchanged analytics fields are never rewritten.
   const saveMutation = useMutation({
     mutationFn: async (submittedAnalytics?: AnalyticsState) => {
+      if (!merchantId) {
+        throw new Error('No merchant found');
+      }
       if (!seededSnapshot) {
         throw new Error(
           'Analytics settings are still loading. Please try again.'
@@ -293,7 +298,9 @@ export default function AnalyticsConfigScreen() {
       if (error) throw error;
       return savedAnalytics;
     },
-    onSuccess: (savedAnalytics = analyticsRef.current) => {
+    onSuccess: async (savedAnalytics = analyticsRef.current) => {
+      const readinessMerchantId = merchantId;
+      if (!readinessMerchantId) throw new Error('No merchant found');
       const hasPendingEdits = !analyticsStatesEqual(
         analyticsRef.current,
         savedAnalytics
@@ -304,9 +311,13 @@ export default function AnalyticsConfigScreen() {
         analytics: savedAnalytics,
         isOwner: true,
       });
-      queryClient.invalidateQueries({ queryKey: ['merchant'] });
-      queryClient.invalidateQueries({ queryKey: ['merchant-analytics-full'] });
-      queryClient.invalidateQueries({ queryKey: ['store-readiness'] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['merchant'] }),
+        queryClient.invalidateQueries({
+          queryKey: ['merchant-analytics-full'],
+        }),
+        invalidateStoreReadiness(queryClient, readinessMerchantId),
+      ]);
       Alert.alert('Success', 'Analytics settings saved!', [
         { text: 'OK', onPress: () => router.back() },
       ]);

@@ -212,6 +212,10 @@ vi.mock('@/lib/supabase', () => ({
   },
 }));
 
+vi.mock('@/lib/invalidate-store-readiness', () => ({
+  invalidateStoreReadiness: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock('@/components/ui/ScreenSkeleton', () => ({
   ScreenSkeleton: () => null,
 }));
@@ -252,7 +256,7 @@ describe('AnalyticsConfigScreen — theme token regression (#1636)', () => {
     mutationMocks.state.options = null;
     accessMocks.useMerchant.mockReturnValue({
       isLoading: false,
-      merchant: { plan_tier: 'pro', premium_features: [] },
+      merchant: { id: 'merchant-1', plan_tier: 'pro', premium_features: [] },
     });
     accessMocks.useRevenueCat.mockReturnValue({ isPro: true });
     queryMocks.useQuery.mockReturnValue({
@@ -380,7 +384,7 @@ describe('AnalyticsConfigScreen — background refetch must not clobber edits (V
     mutationMocks.state.options = null;
     accessMocks.useMerchant.mockReturnValue({
       isLoading: false,
-      merchant: { plan_tier: 'pro', premium_features: [] },
+      merchant: { id: 'merchant-1', plan_tier: 'pro', premium_features: [] },
     });
     accessMocks.useRevenueCat.mockReturnValue({ isPro: true });
   });
@@ -704,7 +708,7 @@ describe('bugfix: tracking credentials load via get_user_merchant_context (revok
     mutationMocks.state.options = null;
     accessMocks.useMerchant.mockReturnValue({
       isLoading: false,
-      merchant: { plan_tier: 'pro', premium_features: [] },
+      merchant: { id: 'merchant-1', plan_tier: 'pro', premium_features: [] },
     });
     accessMocks.useRevenueCat.mockReturnValue({ isPro: true });
     queryMocks.useQuery.mockReturnValue({

@@ -27,6 +27,7 @@ import { useMerchant } from '@/hooks/useMerchant';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useSubscriptionManagement } from '@/hooks/useSubscriptionManagement';
 import { useTheme } from '@/hooks/useTheme';
+import { invalidateStoreReadiness } from '@/lib/invalidate-store-readiness';
 import { supabase } from '@/lib/supabase';
 import { SubscriptionManagement } from '@/utils/SubscriptionManagement';
 
@@ -115,9 +116,11 @@ export default function StoreSettingsScreen() {
     setSlug(sanitized);
   };
 
-  const invalidateMerchantQueries = () => {
-    queryClient.invalidateQueries({ queryKey: ['merchant'] });
-    queryClient.invalidateQueries({ queryKey: ['merchant-settings'] });
+  const invalidateMerchantQueries = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['merchant'] }),
+      queryClient.invalidateQueries({ queryKey: ['merchant-settings'] }),
+    ]);
   };
 
   const saveMutation = useMutation({
@@ -166,9 +169,12 @@ export default function StoreSettingsScreen() {
         );
       }
     },
-    onSuccess: () => {
-      invalidateMerchantQueries();
-      queryClient.invalidateQueries({ queryKey: ['store-readiness'] });
+    onSuccess: async () => {
+      if (!merchant?.id) throw new Error('No merchant found');
+      await Promise.all([
+        invalidateMerchantQueries(),
+        invalidateStoreReadiness(queryClient, merchant.id),
+      ]);
       setStatusModal({
         visible: true,
         type: 'success',

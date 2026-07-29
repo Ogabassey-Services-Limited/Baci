@@ -1,6 +1,7 @@
 import { type QueryClient, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { apiClient, NetworkError } from '@/lib/api-client';
+import { invalidateStoreReadiness } from '@/lib/invalidate-store-readiness';
 
 interface PublishStoreResponse {
   message?: string;
@@ -38,6 +39,7 @@ function buildPublishErrorMessage(error: NetworkError): string {
 }
 
 interface ExecutePublishOptions {
+  merchantId: string;
   onPublished?: () => Promise<unknown>;
   queryClient: QueryClient;
   setIsPublishing: (publishing: boolean) => void;
@@ -46,6 +48,7 @@ interface ExecutePublishOptions {
 // Module-scope helper: the try/finally (and throws inside try/catch) cannot
 // live in the hook body because React Compiler does not lower that syntax yet.
 async function executePublish({
+  merchantId,
   onPublished,
   queryClient,
   setIsPublishing,
@@ -68,13 +71,9 @@ async function executePublish({
       throw error;
     }
 
-    // Refresh the merchant cache FIRST so derived queries (store readiness,
-    // payout status) recompute against the newly-published merchant row.
-    // Running these in parallel can race and cache stale readiness data
-    // right after a successful publish.
-    await queryClient.invalidateQueries({ queryKey: ['merchant'] });
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['store-readiness'] }),
+      queryClient.invalidateQueries({ queryKey: ['merchant'] }),
+      invalidateStoreReadiness(queryClient, merchantId),
       queryClient.invalidateQueries({ queryKey: ['merchant-payout'] }),
     ]);
 
@@ -96,7 +95,12 @@ export function useStorePublish({
       throw new Error('Merchant not loaded. Please try again.');
     }
 
-    await executePublish({ onPublished, queryClient, setIsPublishing });
+    await executePublish({
+      merchantId,
+      onPublished,
+      queryClient,
+      setIsPublishing,
+    });
   }
 
   return {

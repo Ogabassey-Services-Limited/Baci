@@ -13,6 +13,14 @@ vi.mock('@/hooks/useAuth', () => ({
   }),
 }));
 
+vi.mock('@/hooks/useMerchant', () => ({
+  useMerchant: () => ({ merchant: { id: 'merchant-1' } }),
+}));
+
+vi.mock('@/lib/invalidate-store-readiness', () => ({
+  invalidateStoreReadiness: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock('expo-constants', () => ({
   default: { expoConfig: { hostUri: 'localhost:8081' } },
 }));

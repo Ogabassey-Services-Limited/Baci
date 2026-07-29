@@ -5,6 +5,7 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
+import { invalidateStoreReadiness } from '@/lib/invalidate-store-readiness';
 import type {
   AdminProductSearchFilters,
   AdminProductStockFilter,
@@ -79,11 +80,17 @@ export function useUpdateProduct() {
       );
     },
     mutationKey: ['updateProduct'],
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({
-        queryKey: ['product', merchant?.id, data.id],
-      });
-      queryClient.invalidateQueries({ queryKey: ['products', merchant?.id] });
+    onSuccess: async (data, variables) => {
+      const invalidations = [
+        queryClient.invalidateQueries({
+          queryKey: ['product', merchant?.id, data.id],
+        }),
+        queryClient.invalidateQueries({ queryKey: ['products', merchant?.id] }),
+      ];
+      if (merchant?.id && variables.updates.status !== undefined) {
+        invalidations.push(invalidateStoreReadiness(queryClient, merchant.id));
+      }
+      await Promise.all(invalidations);
     },
   });
 }
@@ -98,8 +105,14 @@ export function useCreateProduct() {
       return createProductRecord({ merchantId: merchant.id, newProduct });
     },
     mutationKey: ['createProduct'],
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products', merchant?.id] });
+    onSuccess: async (data) => {
+      const invalidations = [
+        queryClient.invalidateQueries({ queryKey: ['products', merchant?.id] }),
+      ];
+      if (merchant?.id && data.status === 'active') {
+        invalidations.push(invalidateStoreReadiness(queryClient, merchant.id));
+      }
+      await Promise.all(invalidations);
     },
   });
 }
@@ -170,11 +183,13 @@ export function useUpdateProductStock() {
 
       return { previousQueriesData };
     },
-    onSettled: (_data, _error, { productId }) => {
-      queryClient.invalidateQueries({ queryKey: ['products', merchant?.id] });
-      queryClient.invalidateQueries({
-        queryKey: ['product', merchant?.id, productId],
-      });
+    onSettled: async (_data, _error, { productId }) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['products', merchant?.id] }),
+        queryClient.invalidateQueries({
+          queryKey: ['product', merchant?.id, productId],
+        }),
+      ]);
     },
   });
 }
@@ -195,11 +210,15 @@ export function useUpdateProductStatus() {
       return updateProductStatus(productId, status, merchant.id);
     },
     mutationKey: ['updateProductStatus'],
-    onSettled: (_data, _error, { productId }) => {
-      queryClient.invalidateQueries({ queryKey: ['products', merchant?.id] });
-      queryClient.invalidateQueries({
-        queryKey: ['product', merchant?.id, productId],
-      });
+    onSuccess: async (_data, { productId }) => {
+      if (!merchant?.id) return;
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['products', merchant.id] }),
+        queryClient.invalidateQueries({
+          queryKey: ['product', merchant.id, productId],
+        }),
+        invalidateStoreReadiness(queryClient, merchant.id),
+      ]);
     },
   });
 }

@@ -22,6 +22,7 @@ import {
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { type MerchantSocialMedia, useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
+import { invalidateStoreReadiness } from '@/lib/invalidate-store-readiness';
 import { updateMerchantSettings } from '@/lib/merchant-settings';
 
 export default function SocialMediaScreen() {
@@ -99,9 +100,12 @@ export default function SocialMediaScreen() {
       updateMerchantSettings({
         social_media: socialMedia,
       }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['merchant'] });
-      queryClient.invalidateQueries({ queryKey: ['store-readiness'] });
+    onSuccess: async () => {
+      if (!merchant?.id) throw new Error('No merchant found');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['merchant'] }),
+        invalidateStoreReadiness(queryClient, merchant.id),
+      ]);
       Alert.alert('Success', 'Social media links updated', [
         { text: 'OK', onPress: () => router.back() },
       ]);

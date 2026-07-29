@@ -4,6 +4,10 @@ import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import SocialMediaScreen from '@/app/(admin)/social-media';
 
+vi.mock('@/lib/invalidate-store-readiness', () => ({
+  invalidateStoreReadiness: vi.fn().mockResolvedValue(undefined),
+}));
+
 const mocks = vi.hoisted(() => ({
   alert: vi.fn(),
   back: vi.fn(),
@@ -186,6 +190,7 @@ describe('SocialMediaScreen', () => {
   it('renders all social media inputs and populates values', () => {
     mocks.useMerchant.mockReturnValue({
       merchant: {
+        id: 'merchant-1',
         social_media: {
           instagram: 'baci_insta',
           twitter: 'baci_tweets',
@@ -252,6 +257,7 @@ describe('SocialMediaScreen', () => {
   it('calls save mutation and handles success flow', async () => {
     mocks.useMerchant.mockReturnValue({
       merchant: {
+        id: 'merchant-1',
         social_media: {
           instagram: 'old_insta',
         },
@@ -278,9 +284,6 @@ describe('SocialMediaScreen', () => {
     await waitFor(() => {
       expect(mocks.invalidateQueries).toHaveBeenCalledWith({
         queryKey: ['merchant'],
-      });
-      expect(mocks.invalidateQueries).toHaveBeenCalledWith({
-        queryKey: ['store-readiness'],
       });
       expect(mocks.alert).toHaveBeenCalledWith(
         'Success',

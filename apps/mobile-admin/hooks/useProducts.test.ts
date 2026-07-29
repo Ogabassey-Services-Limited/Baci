@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   chainCalls: [] as Array<{ method: string; args: unknown[] }>,
   createProductRecord: vi.fn(),
+  invalidateStoreReadiness: vi.fn().mockResolvedValue(undefined),
   fetchProductDetail: vi.fn(),
   infiniteQueryConfigs: [] as Array<{
     queryFn: (args: { pageParam?: number }) => Promise<unknown>;
@@ -16,6 +17,7 @@ const mocks = vi.hoisted(() => ({
       error: unknown,
       variables: { productId: string; stock: number }
     ) => void;
+    onSuccess?: (data: unknown, variables: Record<string, unknown>) => unknown;
   }>,
   updateProductRecord: vi.fn(),
   productQueryResult: {
@@ -90,6 +92,7 @@ vi.mock('@tanstack/react-query', () => ({
       error: unknown,
       variables: { productId: string; stock: number }
     ) => void;
+    onSuccess?: (data: unknown, variables: Record<string, unknown>) => unknown;
   }) => {
     mocks.mutationConfigs.push(config);
     return {};
@@ -115,6 +118,10 @@ vi.mock('@/lib/api-client', () => ({
   apiClient: vi.fn().mockResolvedValue({
     category: { id: 'category-1', name: 'Phones', slug: 'phones' },
   }),
+}));
+
+vi.mock('@/lib/invalidate-store-readiness', () => ({
+  invalidateStoreReadiness: mocks.invalidateStoreReadiness,
 }));
 
 vi.mock('@/lib/revalidate-storefront-products', () => ({
@@ -148,10 +155,12 @@ vi.mock('./product-save', () => ({
 }));
 
 import {
+  useCreateProduct,
   useInventoryStats,
   useProduct,
   useProducts,
   useUpdateProduct,
+  useUpdateProductStatus,
   useUpdateProductStock,
 } from './useProducts';
 
@@ -172,6 +181,8 @@ describe('useProducts branch semantics', () => {
     mocks.queryClient.setQueryData.mockReset();
     mocks.rpc.mockReset();
     mocks.createProductRecord.mockReset();
+    mocks.invalidateStoreReadiness.mockReset();
+    mocks.invalidateStoreReadiness.mockResolvedValue(undefined);
     mocks.updateProductRecord.mockReset();
   });
 
@@ -224,6 +235,35 @@ describe('useProducts branch semantics', () => {
     expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({
       queryKey: ['product', 'merchant-1', 'product-1'],
     });
+    expect(mocks.invalidateStoreReadiness).not.toHaveBeenCalled();
+  });
+
+  it('invalidates readiness only when a created product is active', async () => {
+    useCreateProduct();
+
+    await mocks.mutationConfigs[0]?.onSuccess?.(
+      { id: 'product-1', status: 'active' },
+      {}
+    );
+
+    expect(mocks.invalidateStoreReadiness).toHaveBeenCalledWith(
+      mocks.queryClient,
+      'merchant-1'
+    );
+  });
+
+  it('invalidates readiness after a successful product status change', async () => {
+    useUpdateProductStatus();
+
+    await mocks.mutationConfigs[0]?.onSuccess?.(
+      { id: 'product-1' },
+      { productId: 'product-1', status: 'active' }
+    );
+
+    expect(mocks.invalidateStoreReadiness).toHaveBeenCalledWith(
+      mocks.queryClient,
+      'merchant-1'
+    );
   });
 
   it('calls inventory stats RPC only with merchant id', () => {

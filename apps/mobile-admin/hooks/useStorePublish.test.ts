@@ -88,7 +88,7 @@ describe('useStorePublish', () => {
     });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['merchant'] });
     expect(invalidateQueries).toHaveBeenCalledWith({
-      queryKey: ['store-readiness'],
+      queryKey: ['store-readiness', 'mobile', 'merchant-1'],
     });
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ['merchant-payout'],

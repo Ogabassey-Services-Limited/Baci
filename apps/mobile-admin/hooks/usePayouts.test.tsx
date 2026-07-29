@@ -4,12 +4,21 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { usePayouts } from '@/hooks/usePayouts';
 
-const { mockApiClient } = vi.hoisted(() => ({
+const { mockApiClient, mockInvalidateStoreReadiness } = vi.hoisted(() => ({
   mockApiClient: vi.fn(),
+  mockInvalidateStoreReadiness: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('@/lib/api-client', () => ({
   apiClient: (...args: unknown[]) => mockApiClient(...args),
+}));
+
+vi.mock('@/hooks/useMerchant', () => ({
+  useMerchant: () => ({ merchant: { id: 'merchant-1' } }),
+}));
+
+vi.mock('@/lib/invalidate-store-readiness', () => ({
+  invalidateStoreReadiness: mockInvalidateStoreReadiness,
 }));
 
 function createWrapper() {
@@ -57,5 +66,46 @@ describe('usePayouts', () => {
         bank_code: '044',
       }),
     });
+  });
+
+  it('invalidates only the active merchant readiness after a successful payout save', async () => {
+    mockApiClient.mockResolvedValueOnce({ subaccount_code: 'SUB_123' });
+
+    const { result } = renderHook(() => usePayouts(), {
+      wrapper: createWrapper(),
+    });
+
+    await act(async () => {
+      await result.current.savePayoutSettings.mutateAsync({
+        accountNumber: '1234567890',
+        bankCode: '044',
+        businessName: 'Baci Store',
+      });
+    });
+
+    expect(mockInvalidateStoreReadiness).toHaveBeenCalledWith(
+      expect.anything(),
+      'merchant-1'
+    );
+  });
+
+  it('does not invalidate readiness when payout saving fails', async () => {
+    mockApiClient.mockRejectedValueOnce(new Error('payout failed'));
+
+    const { result } = renderHook(() => usePayouts(), {
+      wrapper: createWrapper(),
+    });
+
+    await act(async () => {
+      await expect(
+        result.current.savePayoutSettings.mutateAsync({
+          accountNumber: '1234567890',
+          bankCode: '044',
+          businessName: 'Baci Store',
+        })
+      ).rejects.toThrow('payout failed');
+    });
+
+    expect(mockInvalidateStoreReadiness).not.toHaveBeenCalled();
   });
 });

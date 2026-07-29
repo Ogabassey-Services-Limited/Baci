@@ -8,7 +8,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { apiClient } from '@/lib/api-client';
+import { invalidateStoreReadiness } from '@/lib/invalidate-store-readiness';
 import { formatAiCopilotError } from './format-ai-copilot-error';
+import { useMerchant } from './useMerchant';
 
 export interface BuilderConfig {
   content: Array<{
@@ -57,6 +59,7 @@ interface ChatMessage {
 export function useBuilderConfig(pageSlug: string = 'home') {
   const queryClient = useQueryClient();
   const { session, isLoading } = useAuth();
+  const { merchant } = useMerchant();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [currentConfig, setCurrentConfig] = useState<BuilderConfig | null>(
     null
@@ -203,8 +206,14 @@ export function useBuilderConfig(pageSlug: string = 'home') {
         }),
       });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['builderConfig', pageSlug] });
+    onSuccess: async () => {
+      if (!merchant?.id) throw new Error('No merchant');
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ['builderConfig', pageSlug],
+        }),
+        invalidateStoreReadiness(queryClient, merchant.id),
+      ]);
     },
   });
 

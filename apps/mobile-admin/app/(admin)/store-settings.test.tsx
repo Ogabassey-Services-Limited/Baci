@@ -4,6 +4,10 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import StoreSettingsScreen from './store-settings';
 
+vi.mock('@/lib/invalidate-store-readiness', () => ({
+  invalidateStoreReadiness: vi.fn().mockResolvedValue(undefined),
+}));
+
 interface MockMerchant {
   business_name: string;
   country: string;

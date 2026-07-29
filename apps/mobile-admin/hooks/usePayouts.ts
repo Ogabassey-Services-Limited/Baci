@@ -1,5 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
+import { invalidateStoreReadiness } from '@/lib/invalidate-store-readiness';
+import { useMerchant } from './useMerchant';
 
 interface ResolveAccountPayload {
   account_number: string;
@@ -27,6 +29,8 @@ interface CreateSubaccountResponse {
 
 export function usePayouts() {
   const queryClient = useQueryClient();
+  const { merchant } = useMerchant();
+  const merchantId = merchant?.id;
 
   // Resolve Bank Account
   const resolveAccountMutation = useMutation({
@@ -39,15 +43,20 @@ export function usePayouts() {
 
   // Create Subaccount (Save Payout Settings)
   const savePayoutSettingsMutation = useMutation({
-    mutationFn: (data: CreateSubaccountPayload) =>
-      apiClient<CreateSubaccountResponse>('/api/paystack/subaccount', {
+    mutationFn: (data: CreateSubaccountPayload) => {
+      if (!merchantId?.trim()) throw new Error('No merchant');
+      return apiClient<CreateSubaccountResponse>('/api/paystack/subaccount', {
         method: 'POST',
         body: JSON.stringify(data),
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['merchant'] });
-      queryClient.invalidateQueries({ queryKey: ['merchant-payout'] });
-      queryClient.invalidateQueries({ queryKey: ['store-readiness'] });
+      });
+    },
+    onSuccess: async () => {
+      if (!merchantId?.trim()) throw new Error('No merchant');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['merchant'] }),
+        queryClient.invalidateQueries({ queryKey: ['merchant-payout'] }),
+        invalidateStoreReadiness(queryClient, merchantId),
+      ]);
     },
   });
 
