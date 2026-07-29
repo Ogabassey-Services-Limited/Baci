@@ -31,6 +31,7 @@ async function writeExclusiveOrExact(path, bytes, drift) {
   try {
     const handle = await open(path, 'wx', 0o600);
     try {
+      await handle.chmod(0o600);
       await handle.writeFile(bytes);
       await handle.sync();
     } finally {

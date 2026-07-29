@@ -85,6 +85,63 @@ test('discovers the complete chain and persists its source provenance', async ()
   assert.equal(persisted[0].baselineKind, 'complete');
   assert.equal(persisted[0].baselineSourceSha, previous.sourceSha);
   assert.equal(persisted[0].baselineStateSha256, previous.receiptSha256);
+
+  const resumed = await authorizeBootstrapReplacement(
+    {
+      stateRoot: '/state',
+      currentDirectory: '/state/bootstrap-bbbbbbbbbbbb',
+      downstreamState: inert,
+    },
+    {
+      listDirectories: async () => [
+        'bootstrap-aaaaaaaaaaaa',
+        'bootstrap-bbbbbbbbbbbb',
+      ],
+      readState: async (directory) =>
+        directory.endsWith('aaaaaaaaaaaa') ? previous : current,
+      readProjection: async () => ({ [path]: newFile }),
+      readIntent: async () => persisted[0],
+      validateSourceState: async ({ state }) => ({
+        ...validated(state),
+        journalTipSha256:
+          state.sourceSha === newSource
+            ? 'f'.repeat(64)
+            : validated(state).journalTipSha256,
+      }),
+      persistIntent: () => {
+        throw new Error('resume must not republish intent');
+      },
+    }
+  );
+  assert.deepEqual(resumed.alreadyCurrent, [path]);
+
+  await assert.rejects(
+    authorizeBootstrapReplacement(
+      {
+        stateRoot: '/state',
+        currentDirectory: '/state/bootstrap-bbbbbbbbbbbb',
+        downstreamState: inert,
+      },
+      {
+        listDirectories: async () => [
+          'bootstrap-aaaaaaaaaaaa',
+          'bootstrap-bbbbbbbbbbbb',
+        ],
+        readState: async (directory) =>
+          directory.endsWith('aaaaaaaaaaaa') ? previous : current,
+        readProjection: async () => ({ [path]: newFile }),
+        readIntent: async () => persisted[0],
+        validateSourceState: async ({ state }) => ({
+          ...validated(state),
+          journalTipSha256:
+            state.sourceSha === oldSource
+              ? '0'.repeat(64)
+              : validated(state).journalTipSha256,
+        }),
+      }
+    ),
+    /replacement intent authority drift/
+  );
 });
 
 test('skips only a fresh all-absent bootstrap and refuses unbound residue', async () => {

@@ -108,6 +108,8 @@ export function planBootstrapReplacement({
       `installed bootstrap path is neither prior nor current: ${path}`
     );
   }
+  if (!transitionPaths.length)
+    throw new TypeError('bootstrap replacement transition required');
   return {
     baselineKind: pristine ? 'pristine' : 'complete',
     baselineSourceSha: baselineState.sourceSha,
@@ -183,18 +185,7 @@ export function resolveBootstrapReplacementChain(states, current) {
   const chains = walk(current, new Set([current.sourceSha])).filter(
     (chain) => chain.length === states.length
   );
-  const baselines = new Set(
-    chains.map(
-      (chain) =>
-        `${chain[0].sourceSha}:${chain[0].receiptSha256 ?? chain[0].captureSha256 ?? ''}`
-    )
-  );
-  if (baselines.size !== 1 || chains.length !== 1)
+  if (chains.length !== 1)
     throw new TypeError('invalid bootstrap replacement authority chain');
-  return chains.sort((left, right) =>
-    left
-      .map((state) => state.sourceSha)
-      .join(':')
-      .localeCompare(right.map((state) => state.sourceSha).join(':'))
-  )[0];
+  return chains[0];
 }

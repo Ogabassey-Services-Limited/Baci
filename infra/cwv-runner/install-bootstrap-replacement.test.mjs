@@ -106,6 +106,20 @@ test('refuses third-party drift instead of treating it as prior or next bytes', 
   );
 });
 
+test('refuses an empty replacement transition before persisting an unreadable intent', () => {
+  const unchanged = { ...nextState, files: previousFiles };
+  assert.throws(
+    () =>
+      planBootstrapReplacement({
+        authorityChain: [previousState, unchanged],
+        nextState: unchanged,
+        installedProjection: previousFiles,
+        downstreamState: inertHost,
+      }),
+    /bootstrap replacement transition required/
+  );
+});
+
 test('refuses an unbound prior generation or downstream provisioning', () => {
   const unbound = {
     ...nextState,

@@ -98,9 +98,21 @@ export async function authorizeBootstrapReplacement(
     if (error.code !== 'ENOENT') throw error;
   }
   if (existing) {
+    const existingCurrent = existing.authorityChain.find(
+      (row) => row.sourceSha === intent.sourceSha
+    );
+    const comparableAuthorityChain = intent.authorityChain.map((row) =>
+      row.sourceSha === intent.sourceSha && existingCurrent
+        ? {
+            ...row,
+            journalTipSha256: existingCurrent.journalTipSha256,
+          }
+        : row
+    );
     if (
       !same(existing, {
         ...intent,
+        authorityChain: comparableAuthorityChain,
         installedProjectionSha256: existing.installedProjectionSha256,
       })
     )

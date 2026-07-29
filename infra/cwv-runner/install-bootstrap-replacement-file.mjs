@@ -1,6 +1,7 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { chmod, chown, open, rename } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { canonicalJson } from './canonical-json.mjs';
 import { readBootstrapState } from './install-bootstrap.mjs';
 import {
   readInstalledProjection,
@@ -9,7 +10,7 @@ import {
 import { readBootstrapReplacementIntent } from './install-bootstrap-replacement-controller.mjs';
 
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
-const same = (left, right) => JSON.stringify(left) === JSON.stringify(right);
+const same = (left, right) => canonicalJson(left) === canonicalJson(right);
 const stable = (value) =>
   JSON.stringify(Array.isArray(value) ? [...value].sort() : value);
 const owners = {
@@ -28,10 +29,10 @@ async function syncDirectory(path) {
 
 async function atomicReplace(destination, bytes, expected, dependencies) {
   const directory = dirname(destination);
-  const temporary = join(
-    directory,
-    `.baci-bootstrap-replacement-${process.pid}`
-  );
+  const attempt = dependencies.temporaryId();
+  if (!/^[a-z0-9-]+$/.test(attempt))
+    throw new TypeError('invalid replacement attempt identity');
+  const temporary = join(directory, `.baci-bootstrap-replacement-${attempt}`);
   const handle = await open(temporary, 'wx', 0o600);
   try {
     await handle.writeFile(bytes);
@@ -60,6 +61,7 @@ export async function replaceBootstrapFile(input, descriptor = {}) {
     readIntent: descriptor.readIntent ?? readBootstrapReplacementIntent,
     readProjection: descriptor.readProjection ?? readInstalledProjection,
     readState: descriptor.readState ?? readBootstrapState,
+    temporaryId: descriptor.temporaryId ?? randomUUID,
   };
   const { currentDirectory, destination, bytes } = input;
   const [state, intent] = await Promise.all([

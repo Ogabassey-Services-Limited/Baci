@@ -13,7 +13,13 @@ const UNITS = [
 ];
 
 async function countDirectory(path) {
-  const details = await lstat(path);
+  let details;
+  try {
+    details = await lstat(path);
+  } catch (error) {
+    if (error.code === 'ENOENT') return 0;
+    throw error;
+  }
   if (!details.isDirectory() || details.isSymbolicLink())
     throw new TypeError(`unsafe bootstrap replacement directory: ${path}`);
   return (await readdir(path)).length;

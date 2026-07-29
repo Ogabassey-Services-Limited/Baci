@@ -108,6 +108,54 @@ test('refuses source bytes, tree receipts, or projected capture drift', async ()
   );
 });
 
+test('rejects dot-segment entries before resolving sealed source paths', async () => {
+  const invalidEntry = { ...entry, path: 'infra/cwv-runner/..' };
+  const invalidManifest = {
+    ...manifest,
+    sourceArchive: { ...manifest.sourceArchive, entries: [invalidEntry] },
+  };
+  const invalidManifestBytes = Buffer.from(canonicalJson(invalidManifest));
+  const invalidManifestSha = sha256(invalidManifestBytes);
+  const invalidTreeSha = sha256(
+    Buffer.from(
+      `${invalidEntry.path}\t${invalidEntry.mode}\t${invalidEntry.blobSha256}\n`
+    )
+  );
+  const invalidSeal = {
+    ...seal,
+    manifestSha256: invalidManifestSha,
+    sealedTreeSha256: invalidTreeSha,
+  };
+  const receipts = new Map([
+    ['manifest.json', invalidManifestBytes],
+    ['manifest.sha256', Buffer.from(`${invalidManifestSha}\n`)],
+    ['archive.sha256', Buffer.from(`${invalidSeal.archiveSha256}\n`)],
+    ['tree.sha256', Buffer.from(`${invalidTreeSha}\n`)],
+    ['seal-receipt.json', Buffer.from(`${canonicalJson(invalidSeal)}\n`)],
+  ]);
+
+  await assert.rejects(
+    validateBootstrapReplacementSourceState(
+      {
+        state: { ...state, sourceManifestSha256: invalidManifestSha },
+        sourceRoot: '/srv/source',
+        receiptRoot: '/srv/receipts',
+      },
+      dependencies({
+        readPinned: async (path) => ({
+          bytes: receipts.get(path.split('/').at(-1)) ?? installBytes,
+          details: {
+            gid: 0,
+            mode: receipts.has(path.split('/').at(-1)) ? 0o100600 : 0o100755,
+            uid: 0,
+          },
+        }),
+      })
+    ),
+    /invalid sealed source entry/
+  );
+});
+
 test('refuses a completed baseline whose live-unit receipt is not canonical', async () => {
   await assert.rejects(
     validateBootstrapReplacementSourceState(

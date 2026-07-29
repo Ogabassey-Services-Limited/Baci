@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { chmod, mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  mkdtemp,
+  readdir,
+  readFile,
+  stat,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -24,9 +31,9 @@ async function fixture(context) {
   await writeFile(destination, oldBytes, { mode: 0o600 });
   await chmod(destination, 0o600);
   const metadata = (bytes) => ({
-    sha256: sha256(bytes),
     mode: '0600',
     owner: 'root:root',
+    sha256: sha256(bytes),
   });
   const state = {
     phase: 'captured',
@@ -145,4 +152,37 @@ test('refuses an unplanned path, unexpected bytes, or third-party installed drif
     ),
     /installed bootstrap replacement drift/
   );
+});
+
+test('uses an attempt-unique temporary and preserves prior bytes on replacement failure', async (context) => {
+  const value = await fixture(context);
+  let temporary;
+
+  await assert.rejects(
+    replaceBootstrapFile(
+      {
+        currentDirectory: '/state/bootstrap-bbbbbbbbbbbb',
+        destination: value.destination,
+        bytes: value.newBytes,
+      },
+      {
+        readState: async () => value.state,
+        readIntent: async () => value.intent,
+        readProjection: async () => ({
+          [value.destination]: value.state.prior[value.destination],
+        }),
+        temporaryId: () => 'attempt-unique',
+        chownFile: (path) => {
+          temporary = path;
+          throw new Error('chown failed');
+        },
+      }
+    ),
+    /chown failed/
+  );
+  assert.match(temporary, /attempt-unique$/);
+  assert.deepEqual(await readFile(value.destination), value.oldBytes);
+  assert.deepEqual(await readdir(join(value.destination, '..')), [
+    'bootstrap.sha256',
+  ]);
 });

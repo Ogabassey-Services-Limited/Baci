@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -75,6 +75,24 @@ test('resumes an interrupted intent digest write without changing value bytes', 
   );
 });
 
+test('persists replacement receipts at mode 0600 under a restrictive umask', async (context) => {
+  const directory = await temporary(context, 'baci-bootstrap-mode-');
+  const previousUmask = process.umask(0o277);
+  try {
+    await persistBootstrapReplacementIntent(directory, intent);
+  } finally {
+    process.umask(previousUmask);
+  }
+  assert.equal(
+    (await stat(join(directory, 'replacement-intent.json'))).mode & 0o777,
+    0o600
+  );
+  assert.equal(
+    (await stat(join(directory, 'replacement-intent.sha256'))).mode & 0o777,
+    0o600
+  );
+});
+
 test('resumes an interrupted receipt and refuses value drift', async (context) => {
   const directory = await temporary(context, 'baci-bootstrap-receipt-');
   const receipt = { ...intent, receiptSha256: 'a'.repeat(64) };
@@ -142,5 +160,33 @@ test('reads the fixed downstream boundary and detects accepted-image residue', a
       )
     ).acceptedImageFiles,
     1
+  );
+});
+
+test('treats absent downstream directories as empty before layout creation', async (context) => {
+  const root = await temporary(context, 'baci-bootstrap-empty-downstream-');
+  const dependencies = {
+    unitIsActive: async () => false,
+    readUnitState: async (name) =>
+      name.includes('@')
+        ? 'loaded\ninactive\ndisabled\n'
+        : 'loaded\ninactive\nstatic\n',
+    listWatchdogInstances: async () => 0,
+  };
+
+  assert.deepEqual(
+    await readBootstrapReplacementDownstream(
+      { root, prepareRoot: join(root, 'prepare') },
+      dependencies
+    ),
+    {
+      acceptedImageFiles: 0,
+      activeDedicatedUnits: 0,
+      prepareTransactions: 0,
+      registrationArtifacts: 0,
+      runnerConfigurationFiles: 0,
+      unsafeUnitStates: 0,
+      watchdogInstances: 0,
+    }
   );
 });
