@@ -1,14 +1,14 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   createMockSupabase,
   incompleteLaunchReadiness,
   MERCHANT_ID,
+  mockMerchantUpdate,
 } from './route.test-support';
 
 describe('publish route test support', () => {
   it('retains canonical product totals and captures mutation scope', async () => {
-    const update = vi.fn();
-    const supabase = createMockSupabase(update);
+    const supabase = createMockSupabase();
     const result = await supabase
       .from('merchants')
       .update({ ok: true })
@@ -17,7 +17,11 @@ describe('publish route test support', () => {
     expect(
       incompleteLaunchReadiness('first_product', 5).totalProductCount
     ).toBe(5);
-    expect(update).toBeTypeOf('function');
+    expect(mockMerchantUpdate).toHaveBeenCalledWith(
+      { ok: true },
+      'id',
+      MERCHANT_ID
+    );
     expect(result.error).toBeNull();
   });
 });

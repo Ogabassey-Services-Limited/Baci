@@ -28,7 +28,9 @@ describe('DELETE /api/merchant/publish', () => {
       error: 'Unauthorized',
     });
     mockCheckCsrfProtection.mockResolvedValue({ valid: false, response: null });
-    expect((await DELETE(makeRequest('DELETE'))).status).toBe(401);
+    const response = await DELETE(makeRequest('DELETE'));
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ error: 'Unauthorized' });
     expect(mockCheckCsrfProtection).not.toHaveBeenCalled();
   });
 
@@ -51,7 +53,11 @@ describe('DELETE /api/merchant/publish', () => {
     mockGetUserAccess.mockResolvedValue(access);
     if (status === 403) mockHasPermission.mockReturnValue(false);
 
-    expect((await DELETE(makeRequest('DELETE'))).status).toBe(status);
+    const response = await DELETE(makeRequest('DELETE'));
+    expect(response.status).toBe(status);
+    await expect(response.json()).resolves.toEqual({
+      error: status === 404 ? 'Merchant not found' : 'Permission denied',
+    });
     expect(mockLoadStoreLaunchReadiness).not.toHaveBeenCalled();
     expect(mockMerchantUpdate).not.toHaveBeenCalled();
     expect(mockGetStorefrontPublicationCacheIdentity).not.toHaveBeenCalled();
@@ -74,7 +80,8 @@ describe('DELETE /api/merchant/publish', () => {
     const supabase = setupAuthenticatedRequest();
     const identity = { identifiers: ['test-store', 'shop.example.com'] };
     mockGetStorefrontPublicationCacheIdentity.mockResolvedValue(identity);
-    expect((await DELETE(makeRequest('DELETE'))).status).toBe(200);
+    const response = await DELETE(makeRequest('DELETE'));
+    expect(response.status).toBe(200);
     expect(mockGetStorefrontPublicationCacheIdentity).toHaveBeenCalledWith(
       supabase,
       MERCHANT_ID,
@@ -86,6 +93,10 @@ describe('DELETE /api/merchant/publish', () => {
       MERCHANT_ID
     );
     expect(mockEvictStorefrontPublicationCaches).toHaveBeenCalledWith(identity);
+    await expect(response.json()).resolves.toEqual({
+      success: true,
+      message: 'Store unpublished successfully',
+    });
   });
 
   it('unpublishes a null-slug merchant with resolved custom domains', async () => {
@@ -100,43 +111,78 @@ describe('DELETE /api/merchant/publish', () => {
       MERCHANT_ID,
       null
     );
+    expect(mockEvictStorefrontPublicationCaches).toHaveBeenCalledWith(identity);
   });
 
   it.each([
     [
-      'cache eviction',
+      'Cloudflare cache eviction',
       () =>
-        mockEvictStorefrontPublicationCaches.mockResolvedValue({ ok: false }),
-      503,
+        mockEvictStorefrontPublicationCaches.mockResolvedValue({
+          ok: false,
+          reason: 'request_failed',
+          stage: 'cloudflare',
+        }),
     ],
     [
-      'merchant lookup',
+      'Vercel cache eviction',
       () =>
-        setupAuthenticatedRequest(
-          createMockSupabase({ merchantError: { message: 'unavailable' } })
-        ),
-      500,
+        mockEvictStorefrontPublicationCaches.mockResolvedValue({
+          ok: false,
+          reason: 'request_failed',
+          stage: 'vercel',
+        }),
     ],
-    [
-      'cache identity lookup',
-      () =>
-        mockGetStorefrontPublicationCacheIdentity.mockRejectedValue(
-          new Error('alias lookup failed')
-        ),
-      500,
-    ],
-    [
-      'merchant update',
-      () =>
-        setupAuthenticatedRequest(
-          createMockSupabase({ updateError: { message: 'unavailable' } })
-        ),
-      500,
-    ],
-  ])('preserves the unpublish failure response for %s failure', async (_name, arrange, status) => {
-    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+  ])('returns the cache-eviction failure code after %s', async (_name, arrange) => {
     setupAuthenticatedRequest();
     arrange();
-    expect((await DELETE(makeRequest('DELETE'))).status).toBe(status);
+    const response = await DELETE(makeRequest('DELETE'));
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      error:
+        'Store state changed, but storefront cache eviction could not be confirmed',
+      code: 'STOREFRONT_CACHE_EVICTION_FAILED',
+      retryable: true,
+    });
+  });
+
+  it('returns the stable merchant lookup failure envelope without mutation', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    setupAuthenticatedRequest(
+      createMockSupabase({ merchantError: { message: 'unavailable' } })
+    );
+    const response = await DELETE(makeRequest('DELETE'));
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Failed to load merchant',
+    });
+    expect(mockMerchantUpdate).not.toHaveBeenCalled();
+    expect(mockEvictStorefrontPublicationCaches).not.toHaveBeenCalled();
+  });
+
+  it('does not mutate or evict when unpublish cache identity lookup fails', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    setupAuthenticatedRequest();
+    mockGetStorefrontPublicationCacheIdentity.mockRejectedValue(
+      new Error('alias lookup failed')
+    );
+    const response = await DELETE(makeRequest('DELETE'));
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Internal server error',
+    });
+    expect(mockMerchantUpdate).not.toHaveBeenCalled();
+    expect(mockEvictStorefrontPublicationCaches).not.toHaveBeenCalled();
+  });
+
+  it('returns the stable unpublish failure envelope when the update fails', async () => {
+    setupAuthenticatedRequest(
+      createMockSupabase({ updateError: { message: 'unavailable' } })
+    );
+    const response = await DELETE(makeRequest('DELETE'));
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Failed to unpublish store',
+    });
   });
 });
