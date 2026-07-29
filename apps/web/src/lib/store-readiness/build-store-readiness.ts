@@ -59,7 +59,6 @@ function calculateReadinessMetrics(items: readonly StoreReadinessItem[]) {
   const completedItems = items.filter((item) => item.completed).length;
 
   return {
-    isReady: completedRequired === requiredItems.length,
     completedRequired,
     totalRequired: requiredItems.length,
     completedRecommended,
@@ -144,6 +143,7 @@ export function buildStoreReadiness(
   ];
   const base = {
     merchantId: facts.merchantId,
+    isReady: launch.isReady,
     isPublished: facts.isPublished,
     storeBuild: facts.storeBuild,
   };

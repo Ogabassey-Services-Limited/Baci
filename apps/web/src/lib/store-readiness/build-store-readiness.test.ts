@@ -1,10 +1,20 @@
 import type { StoreReadinessItemId } from '@baci/shared';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildStoreLaunchReadiness } from './build-store-launch-readiness';
 import {
   buildStoreReadiness,
   type StoreReadinessFacts,
 } from './build-store-readiness';
+
+vi.mock('./build-store-launch-readiness', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('./build-store-launch-readiness')>();
+
+  return {
+    ...actual,
+    buildStoreLaunchReadiness: vi.fn(actual.buildStoreLaunchReadiness),
+  };
+});
 
 const BASE_FACTS = {
   merchantId: 'merchant-123',
@@ -53,6 +63,10 @@ function completion(
 }
 
 describe('buildStoreReadiness', () => {
+  afterEach(() => {
+    vi.mocked(buildStoreLaunchReadiness).mockReset();
+  });
+
   it.each([
     [
       'requires a non-empty about page',
@@ -173,5 +187,20 @@ describe('buildStoreReadiness', () => {
     expect(result.overallProgress).toBe(
       Math.round((completedItems / result.items.length) * 100)
     );
+  });
+
+  it.each([
+    'web',
+    'mobile',
+  ] as const)('uses the launch readiness decision on %s', (surface) => {
+    const launch = {
+      ...buildStoreLaunchReadiness(BASE_FACTS),
+      isReady: false,
+    };
+    vi.mocked(buildStoreLaunchReadiness).mockReturnValue(launch);
+
+    const result = buildStoreReadiness(BASE_FACTS, surface);
+
+    expect(result.isReady).toBe(launch.isReady);
   });
 });
