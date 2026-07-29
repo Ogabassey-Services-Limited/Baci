@@ -113,6 +113,17 @@ printf '%s' "$UNIT_STATES"`;
   const result = run();
   assert.equal(result.status, 0, result.stderr);
   const unitStates = JSON.parse(result.stdout);
+  assert.deepEqual(
+    Object.keys(unitStates).sort(),
+    [
+      'baci-cwv-containerd.service',
+      'baci-cwv-docker.service',
+      'baci-cwv-host-sampler.service',
+      'baci-cwv-host-sampler.timer',
+      'baci-cwv-measurement.service',
+      'baci-cwv-campaign-watchdog@.service',
+    ].sort()
+  );
   for (const state of Object.values(unitStates)) {
     assert.match(state, /^loaded\ninactive\n(?:disabled|static)\n$/);
     assert.doesNotMatch(state, /\\n$/);
