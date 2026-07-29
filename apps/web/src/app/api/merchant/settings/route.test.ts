@@ -190,6 +190,40 @@ describe('PATCH /api/merchant/settings', () => {
     expect(response.status).toBe(500);
   });
 
+  it('returns a reauthentication challenge for a stale identity-settings session', async () => {
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: { message: 'merchant_settings_reauthentication_required' },
+    });
+
+    const response = await PATCH(
+      createPatchRequest(JSON.stringify({ legal_entity_name: 'Baci Limited' }))
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      code: 'REAUTHENTICATION_REQUIRED',
+      error: 'Sign in again before changing merchant settings.',
+    });
+  });
+
+  it('returns an MFA challenge when a verified factor has not been asserted', async () => {
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: { message: 'merchant_settings_mfa_required' },
+    });
+
+    const response = await PATCH(
+      createPatchRequest(JSON.stringify({ legal_entity_name: 'Baci Limited' }))
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      code: 'MFA_REQUIRED',
+      error: 'Verify your second factor before changing merchant settings.',
+    });
+  });
+
   it('merges a partial social payload over existing handles so untouched ones survive', async () => {
     const response = await PATCH(
       createPatchRequest(

@@ -220,6 +220,10 @@ vi.mock('@/lib/supabase', () => ({
   },
 }));
 
+vi.mock('@/lib/merchant-settings', () => ({
+  updateMerchantIdentitySettings: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock('react-native', () => ({
   StatusBar: () => null,
   ActivityIndicator: () => <output aria-label="loading" />,

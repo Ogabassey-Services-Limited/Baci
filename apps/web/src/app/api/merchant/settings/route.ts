@@ -22,6 +22,30 @@ function isFullBlankSocialMediaPayload(
   );
 }
 
+function merchantSettingsAuthError(message: string) {
+  if (message.includes('merchant_settings_mfa_required')) {
+    return NextResponse.json(
+      {
+        code: 'MFA_REQUIRED',
+        error: 'Verify your second factor before changing merchant settings.',
+      },
+      { status: 403 }
+    );
+  }
+
+  if (message.includes('merchant_settings_reauthentication_required')) {
+    return NextResponse.json(
+      {
+        code: 'REAUTHENTICATION_REQUIRED',
+        error: 'Sign in again before changing merchant settings.',
+      },
+      { status: 403 }
+    );
+  }
+
+  return null;
+}
+
 export async function PATCH(request: NextRequest) {
   const auth = await authenticateApiRequest(request);
   if (auth.error || !auth.user || !auth.supabase) {
@@ -117,6 +141,9 @@ export async function PATCH(request: NextRequest) {
     );
 
     if (error || !merchant) {
+      const authErrorResponse = merchantSettingsAuthError(error?.message ?? '');
+      if (authErrorResponse) return authErrorResponse;
+
       console.error('Merchant settings update failed:', error);
       return NextResponse.json(
         { error: 'Failed to update merchant settings' },

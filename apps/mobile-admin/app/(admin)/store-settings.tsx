@@ -28,8 +28,8 @@ import { useMerchant } from '@/hooks/useMerchant';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useSubscriptionManagement } from '@/hooks/useSubscriptionManagement';
 import { useTheme } from '@/hooks/useTheme';
+import { updateMerchantIdentitySettings } from '@/lib/merchant-settings';
 import { invalidateStoreSettingsAfterSave } from '@/lib/store-settings-save-readiness';
-import { supabase } from '@/lib/supabase';
 import { SubscriptionManagement } from '@/utils/SubscriptionManagement';
 
 export default function StoreSettingsScreen() {
@@ -133,24 +133,17 @@ export default function StoreSettingsScreen() {
         return;
       }
 
-      let query = supabase
-        .from('merchants')
-        .update(payload)
-        .eq('id', merchant.id);
-
       const loadedUpdatedAt = syncedMerchant?.updated_at;
-      if (loadedUpdatedAt) {
-        query = query.eq('updated_at', loadedUpdatedAt);
-      }
-
-      const { data, error } = await query.select('id');
-      if (error) throw error;
-
-      if (loadedUpdatedAt && (!data || data.length === 0)) {
+      if (!loadedUpdatedAt) {
         throw new Error(
-          'These settings changed elsewhere. Reopen the page and try again.'
+          'These settings need to be reloaded before they can be saved.'
         );
       }
+      await updateMerchantIdentitySettings({
+        expectedUpdatedAt: loadedUpdatedAt,
+        merchantId: merchant.id,
+        settings: payload,
+      });
     },
     onSuccess: async () => {
       await invalidateStoreSettingsAfterSave(queryClient, merchant?.id);

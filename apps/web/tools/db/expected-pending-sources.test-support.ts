@@ -282,4 +282,19 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260729100000_add_merchant_identity_verified_rpc.sql',
     sha256: '60be0be8990407b279108981c8c47815a90f8855a05a106d6a9024e23cb6998d',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260729195913_guard_merchant_identity_updates.sql',
+    sha256: '12c758bd0bfd54643076b0d5e4c2b48092808493b2c0fb7caed9c16eb35db185',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260729195914_update_merchant_identity_settings.sql',
+    sha256: '6e63f92629949491d21c2a5ca2e47367d91e398c061fa3d1419e2a7a0c3ff61b',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260729195915_guard_merchant_social_media.sql',
+    sha256: '54a9e1448588945f4fae6a758740ecf48be61e7536962438accf7c02cca854a3',
+  },
 ];

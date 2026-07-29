@@ -4,17 +4,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { APP_KEYBOARD_CONTAINER_LABEL } from '../auth/app-keyboard-container.mock';
 
 const mocks = vi.hoisted(() => {
-  // Rows returned by the terminal `.select('id')`. Default: one row updated.
-  const selectResult: { data: Array<{ id: string }> | null; error: unknown } = {
-    data: [{ id: 'merchant-1' }],
-    error: null,
-  };
-  const select = vi.fn(async (_columns?: string) => selectResult);
-  // `.eq()` is chainable (id, then optional updated_at) and terminal via select.
-  const eq = vi.fn((_column: string, _value: unknown) => builder);
-  const builder = { eq, select };
-  const update = vi.fn((_payload: Record<string, unknown>) => builder);
-
   return {
     back: vi.fn(),
     routeParams: {} as { from?: string },
@@ -24,10 +13,7 @@ const mocks = vi.hoisted(() => {
       onError?: (error: Error) => void;
       onSuccess?: () => Promise<void> | void;
     } | null,
-    update,
-    eq,
-    select,
-    selectResult,
+    updateMerchantIdentitySettings: vi.fn().mockResolvedValue(undefined),
     useMerchant: vi.fn(),
   };
 });
@@ -261,12 +247,8 @@ vi.mock('@/hooks/useTheme', () => ({
   }),
 }));
 
-vi.mock('@/lib/supabase', () => ({
-  supabase: {
-    from: () => ({
-      update: mocks.update,
-    }),
-  },
+vi.mock('@/lib/merchant-settings', () => ({
+  updateMerchantIdentitySettings: mocks.updateMerchantIdentitySettings,
 }));
 
 vi.mock('@/utils/SubscriptionManagement', () => ({
@@ -365,11 +347,9 @@ const DEFAULT_COUNTRY = COUNTRIES[0];
 describe('StoreSettingsScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // `vi.clearAllMocks` resets call history but not shared object state.
-    mocks.selectResult.data = [{ id: 'merchant-1' }];
-    mocks.selectResult.error = null;
     mocks.routeParams = {};
     mocks.invalidateStoreReadiness.mockResolvedValue(undefined);
+    mocks.updateMerchantIdentitySettings.mockResolvedValue(undefined);
     mocks.useMerchant.mockReturnValue({
       merchant: {
         id: 'merchant-1',
@@ -419,15 +399,15 @@ describe('StoreSettingsScreen', () => {
     );
 
     await waitFor(() => {
-      expect(mocks.update).toHaveBeenCalledTimes(1);
+      expect(mocks.updateMerchantIdentitySettings).toHaveBeenCalledTimes(1);
     });
-    // Payload contains ONLY the changed column — no blanket snapshot.
-    expect(mocks.update).toHaveBeenCalledWith({
-      business_name: 'Baci Foods Ltd',
+    expect(mocks.updateMerchantIdentitySettings).toHaveBeenCalledWith({
+      expectedUpdatedAt: '2026-06-17T08:00:00.000Z',
+      merchantId: 'merchant-1',
+      settings: { business_name: 'Baci Foods Ltd' },
     });
 
     expect(await screen.findByText('Success!')).toBeInTheDocument();
-    expect(mocks.eq).toHaveBeenCalledWith('id', 'merchant-1');
   });
 
   it('does not show save success until merchant and readiness invalidations finish', async () => {
@@ -446,7 +426,7 @@ describe('StoreSettingsScreen', () => {
     );
 
     await waitFor(() => {
-      expect(mocks.update).toHaveBeenCalledTimes(1);
+      expect(mocks.updateMerchantIdentitySettings).toHaveBeenCalledTimes(1);
       expect(mocks.invalidateQueries).toHaveBeenCalledWith({
         queryKey: ['merchant'],
       });
@@ -491,11 +471,15 @@ describe('StoreSettingsScreen', () => {
     );
 
     await waitFor(() => {
-      expect(mocks.update).toHaveBeenCalledTimes(1);
+      expect(mocks.updateMerchantIdentitySettings).toHaveBeenCalledTimes(1);
     });
-    expect(mocks.update).toHaveBeenCalledWith({
-      business_name: 'Yodha Shopping',
-      slug: 'yodha-shopping',
+    expect(mocks.updateMerchantIdentitySettings).toHaveBeenCalledWith({
+      expectedUpdatedAt: '2026-06-17T08:00:00.000Z',
+      merchantId: 'merchant-1',
+      settings: {
+        business_name: 'Yodha Shopping',
+        slug: 'yodha-shopping',
+      },
     });
   });
 
@@ -510,17 +494,22 @@ describe('StoreSettingsScreen', () => {
     );
 
     await waitFor(() => {
-      expect(mocks.update).toHaveBeenCalledTimes(1);
+      expect(mocks.updateMerchantIdentitySettings).toHaveBeenCalledTimes(1);
     });
 
-    expect(mocks.eq).toHaveBeenCalledWith(
-      'updated_at',
-      '2026-06-17T08:00:00.000Z'
+    expect(mocks.updateMerchantIdentitySettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expectedUpdatedAt: '2026-06-17T08:00:00.000Z',
+      })
     );
   });
 
   it('shows a conflict error when the OCC guard detects a stale write', async () => {
-    mocks.selectResult.data = [];
+    mocks.updateMerchantIdentitySettings.mockRejectedValue(
+      new Error(
+        'These settings changed elsewhere. Reopen the page and try again.'
+      )
+    );
 
     render(<StoreSettingsScreen />);
 
@@ -563,13 +552,15 @@ describe('StoreSettingsScreen', () => {
     );
 
     await waitFor(() => {
-      expect(mocks.update).toHaveBeenCalledTimes(1);
+      expect(mocks.updateMerchantIdentitySettings).toHaveBeenCalledTimes(1);
     });
-    expect(mocks.update).toHaveBeenCalledWith({
-      support_phone: '+2349999999999',
+    expect(mocks.updateMerchantIdentitySettings).toHaveBeenCalledWith({
+      expectedUpdatedAt: '2026-06-17T08:00:00.000Z',
+      merchantId: 'merchant-1',
+      settings: { support_phone: '+2349999999999' },
     });
-    // Primary phone is NOT part of the payload — the columns stay independent.
-    expect(mocks.update.mock.calls[0][0]).not.toHaveProperty('phone');
+    const [{ settings }] = mocks.updateMerchantIdentitySettings.mock.calls[0];
+    expect(settings).not.toHaveProperty('phone');
   });
 
   it('saves the prefilled merchant email as public support contact', async () => {
@@ -601,11 +592,15 @@ describe('StoreSettingsScreen', () => {
     );
 
     await waitFor(() => {
-      expect(mocks.update).toHaveBeenCalledTimes(1);
+      expect(mocks.updateMerchantIdentitySettings).toHaveBeenCalledTimes(1);
     });
-    expect(mocks.update).toHaveBeenCalledWith({
-      phone: '+2348011111111',
-      support_email: 'owner@usebaci.com',
+    expect(mocks.updateMerchantIdentitySettings).toHaveBeenCalledWith({
+      expectedUpdatedAt: '2026-06-17T08:00:00.000Z',
+      merchantId: 'merchant-1',
+      settings: {
+        phone: '+2348011111111',
+        support_email: 'owner@usebaci.com',
+      },
     });
   });
 
@@ -618,7 +613,7 @@ describe('StoreSettingsScreen', () => {
 
     expect(await screen.findByText('Success!')).toBeInTheDocument();
     // No edits → no write at all.
-    expect(mocks.update).not.toHaveBeenCalled();
+    expect(mocks.updateMerchantIdentitySettings).not.toHaveBeenCalled();
   });
 
   it('writes the default country/currency when they were never persisted', async () => {
@@ -657,12 +652,16 @@ describe('StoreSettingsScreen', () => {
     );
 
     await waitFor(() => {
-      expect(mocks.update).toHaveBeenCalledTimes(1);
+      expect(mocks.updateMerchantIdentitySettings).toHaveBeenCalledTimes(1);
     });
     // Saving the visible default persists the columns instead of an empty diff.
-    expect(mocks.update).toHaveBeenCalledWith({
-      country: DEFAULT_COUNTRY.code,
-      payout_currency: DEFAULT_COUNTRY.currency,
+    expect(mocks.updateMerchantIdentitySettings).toHaveBeenCalledWith({
+      expectedUpdatedAt: '2026-06-17T08:00:00.000Z',
+      merchantId: 'merchant-1',
+      settings: {
+        country: DEFAULT_COUNTRY.code,
+        payout_currency: DEFAULT_COUNTRY.currency,
+      },
     });
   });
 

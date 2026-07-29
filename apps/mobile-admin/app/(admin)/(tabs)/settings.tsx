@@ -230,6 +230,7 @@ export default function SettingsScreen() {
             icon="shield-checkmark-outline"
             title="Security"
             subtitle="Password, 2FA"
+            onPress={() => _router.push('/(admin)/security')}
           />
           <SettingItem icon="help-circle-outline" title="Help & Support" />
         </View>
