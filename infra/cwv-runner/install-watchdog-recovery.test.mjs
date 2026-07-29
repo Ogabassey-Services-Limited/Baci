@@ -50,7 +50,11 @@ test('replaces only an exact watchdog render from a prior sealed source', async 
   const node = join(root, 'node');
   await writeFile(node, '#!/bin/sh\nexit 0\n');
   await chmod(node, 0o755);
-  const render = functionSource('render_watchdog', 'install_units')
+  const rawRender = functionSource('render_watchdog', 'install_units');
+  const fsync = rawRender.indexOf('/usr/bin/sync -f "$temporary"');
+  const replace = rawRender.indexOf('/bin/mv -T -- "$temporary"');
+  assert.ok(fsync >= 0 && fsync < replace);
+  const render = rawRender
     .replaceAll('/etc/systemd/system', units)
     .replaceAll('/usr/bin/node', node)
     .replaceAll('/usr/bin/sync -f', '/usr/bin/true')
@@ -76,6 +80,23 @@ render_watchdog ${nextSha}`;
     await readFile(target, 'utf8'),
     template.replace('@BACI_CWV_SOURCE_SHA@', nextSha)
   );
+
+  const differentPrior = template.replace(
+    'Description=Baci CWV campaign watchdog %i',
+    'Description=Prior Baci CWV campaign watchdog %i'
+  );
+  await writeFile(
+    join(prior, 'baci-cwv-campaign-watchdog@.service'),
+    differentPrior
+  );
+  await writeFile(
+    target,
+    differentPrior.replace('@BACI_CWV_SOURCE_SHA@', oldSha)
+  );
+  const sourceDrift = runRender();
+  assert.equal(sourceDrift.status, 65);
+  assert.match(sourceDrift.stderr, /watchdog unit drift/);
+  await writeFile(join(prior, 'baci-cwv-campaign-watchdog@.service'), template);
 
   await writeFile(
     target,
