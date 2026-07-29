@@ -1,19 +1,15 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { StoreLaunchReadiness } from '@/lib/store-readiness/build-store-launch-readiness';
 
-// ---- Mocks ----
-
-vi.mock('@/env', () => ({
-  getSupabaseUrl: () => 'https://test.supabase.co',
-  getSupabaseAnonKey: () => 'test-anon-key',
-  getSupabaseServiceRoleKey: () => 'test-service-role-key',
-  getRootDomain: () => 'localhost',
-}));
-
-// Mock api-auth
 const mockAuthenticateApiRequest = vi.fn();
 const mockGetUserAccess = vi.fn();
 const mockHasPermission = vi.fn();
+const mockCheckCsrfProtection = vi.fn();
+const mockLoadStoreLaunchReadiness = vi.fn();
+const mockGetStorefrontPublicationCacheIdentity = vi.fn();
+const mockEvictStorefrontPublicationCaches = vi.fn();
+const mockMerchantUpdate = vi.fn();
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) =>
@@ -22,1086 +18,455 @@ vi.mock('@/lib/api-auth', () => ({
   hasPermission: (...args: unknown[]) => mockHasPermission(...args),
 }));
 
-const mockGetStorefrontPublicationCacheIdentity = vi.fn();
-const mockEvictStorefrontPublicationCaches = vi.fn();
+vi.mock('@/lib/csrf', () => ({
+  checkCsrfProtection: (...args: unknown[]) => mockCheckCsrfProtection(...args),
+}));
+
+vi.mock('@/lib/store-readiness/load-store-launch-readiness', () => ({
+  loadStoreLaunchReadiness: (...args: unknown[]) =>
+    mockLoadStoreLaunchReadiness(...args),
+}));
 
 vi.mock('@/lib/get-storefront-publication-cache-identity', () => ({
   getStorefrontPublicationCacheIdentity: (...args: unknown[]) =>
     mockGetStorefrontPublicationCacheIdentity(...args),
 }));
+
 vi.mock('@/lib/storefront-publication-cache-eviction', () => ({
   evictStorefrontPublicationCaches: (...args: unknown[]) =>
     mockEvictStorefrontPublicationCaches(...args),
 }));
 
-// Mock Supabase
-const MERCHANT_ID = '6b5cb8a4-5575-456c-b936-8cdfae30db74';
-
-let mockMerchantData: { data: unknown; error: unknown };
-let mockPublishedProductCount: number;
-let mockTotalProductCount: number;
-let mockUpdateResult: { data: unknown; error: unknown };
-let mockVerificationData: { data: unknown; error: unknown };
-let mockFeatureSettingsData: { data: unknown; error: unknown };
-const mockMerchantUpdate = vi.fn();
-
-function createMockSupabase() {
-  let productQueryCount = 0;
-
-  return {
-    from: (table: string) => {
-      if (table === 'merchants') {
-        return {
-          select: () => ({
-            eq: () => ({
-              maybeSingle: () => Promise.resolve(mockMerchantData),
-            }),
-          }),
-          update: (data: unknown) => {
-            mockMerchantUpdate(data);
-            return { eq: () => Promise.resolve(mockUpdateResult) };
-          },
-        };
-      }
-
-      if (table === 'products') {
-        productQueryCount++;
-        const count =
-          productQueryCount === 1
-            ? mockPublishedProductCount
-            : mockTotalProductCount;
-        const result = {
-          count,
-          error: null,
-        };
-        return {
-          select: () => ({
-            eq: () => ({
-              eq: () => Promise.resolve(result),
-              ...result,
-            }),
-            ...result,
-          }),
-        };
-      }
-
-      if (table === 'merchant_feature_settings') {
-        return {
-          select: () => ({
-            eq: () => ({
-              maybeSingle: () => Promise.resolve(mockFeatureSettingsData),
-            }),
-          }),
-        };
-      }
-
-      return {
-        select: () => ({ eq: () => ({ maybeSingle: () => ({}) }) }),
-      };
-    },
-  };
-}
-
-function createMockAdminSupabase() {
-  return {
-    from: (table: string) => {
-      // The admin client is retained ONLY for the merchant_verifications KYC
-      // read (getVerificationStatus). The merchant row — including the revoked
-      // paystack_subaccount_code — is no longer read here; it is read on the
-      // authenticated client (non-secret cols) plus the bounded RPC helper.
-      if (table === 'merchant_verifications') {
-        return {
-          select: () => ({
-            eq: () => ({
-              maybeSingle: () => Promise.resolve(mockVerificationData),
-            }),
-          }),
-        };
-      }
-
-      return {
-        select: () => ({
-          eq: () => ({
-            maybeSingle: () => Promise.resolve({ data: null, error: null }),
-          }),
-        }),
-      };
-    },
-  };
-}
-
-const mockCreateAdminClient = vi.fn();
-
-vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: (...args: unknown[]) => mockCreateAdminClient(...args),
-}));
-
-const mockFetchPaystackSubaccountCode = vi.fn();
-
-vi.mock('@/lib/fetch-merchant-payment-secret', () => ({
-  fetchMerchantPaystackSubaccountCode: (...args: unknown[]) =>
-    mockFetchPaystackSubaccountCode(...args),
-}));
-
-vi.mock('@/lib/csrf', () => ({
-  checkCsrfProtection: vi.fn(() =>
-    Promise.resolve({ valid: true, response: null })
-  ),
-}));
-
-// ---- Import handlers AFTER mocks ----
 import { DELETE, POST } from './route';
 
-// ---- Helpers ----
+const MERCHANT_ID = '6b5cb8a4-5575-456c-b936-8cdfae30db74';
 
-function makeRequest(method: 'POST' | 'DELETE') {
+function makeRequest(
+  method: 'POST' | 'DELETE',
+  authorization?: string
+): NextRequest {
   return new NextRequest('http://localhost:3000/api/merchant/publish', {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      ...(authorization ? { Authorization: authorization } : {}),
+      'Content-Type': 'application/json',
+    },
   });
 }
 
-function setupAuth(hasAccess = true, hasPermissionValue = true) {
-  mockAuthenticateApiRequest.mockResolvedValue({
-    user: hasAccess ? { id: 'user-123' } : null,
-    supabase: hasAccess ? createMockSupabase() : null,
-    error: hasAccess ? null : 'Unauthorized',
-  });
+function createMockSupabase(
+  options: {
+    merchant?: { id: string; slug: string | null } | null;
+    merchantError?: { message: string } | null;
+    updateError?: { message: string } | null;
+  } = {}
+) {
+  const merchant =
+    'merchant' in options
+      ? options.merchant
+      : { id: MERCHANT_ID, slug: 'test-store' };
 
-  mockGetUserAccess.mockResolvedValue(
-    hasAccess
-      ? {
-          merchantId: MERCHANT_ID,
-          role: 'owner',
-        }
-      : null
-  );
+  return {
+    from: vi.fn((table: string) => {
+      if (table !== 'merchants') {
+        throw new Error(`Unexpected route-local ${table} query`);
+      }
 
-  mockHasPermission.mockReturnValue(hasPermissionValue);
-}
-
-function setupMerchantData(data: Record<string, unknown> | null) {
-  mockMerchantData = {
-    data: data
-      ? {
-          id: MERCHANT_ID,
-          business_name: 'Test Store',
-          country: 'NG',
-          email: 'owner@example.com',
-          phone: null,
-          support_email: 'test@example.com',
-          support_phone: '+2341234567890',
-          bank_code: '044',
-          bank_account_number: '1234567890',
-          paystack_subaccount_code: 'ACCT_test',
-          slug: 'test-store',
-          ...data,
-        }
-      : null,
-    error: null,
+      return {
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: merchant,
+              error: options.merchantError ?? null,
+            }),
+          })),
+        })),
+        update: vi.fn((data: unknown) => {
+          mockMerchantUpdate(data);
+          return {
+            eq: vi.fn().mockResolvedValue({
+              data: null,
+              error: options.updateError ?? null,
+            }),
+          };
+        }),
+      };
+    }),
   };
 }
 
-function setupMerchantQueryError(errorMessage: string) {
-  mockMerchantData = {
-    data: null,
-    error: { message: errorMessage },
-  };
-}
-
-function setupPublicationIdentity({
-  canonicalMerchantSlug = 'test-store',
-  customDomains = [],
-  merchantSlugs = ['test-store'],
-}: {
-  canonicalMerchantSlug?: string | null;
-  customDomains?: string[];
-  merchantSlugs?: string[];
-} = {}) {
-  const identity = {
-    canonicalMerchantSlug,
-    customDomains,
-    identifiers: [...merchantSlugs, ...customDomains],
+function readyLaunchReadiness(
+  overrides: Partial<StoreLaunchReadiness> = {}
+): StoreLaunchReadiness {
+  return {
     merchantId: MERCHANT_ID,
-    merchantSlugs,
+    slug: 'test-store',
+    activeProductCount: 1,
+    totalProductCount: 1,
+    completedRequired: 6,
+    totalRequired: 6,
+    isReady: true,
+    items: [],
+    ...overrides,
   };
-  mockGetStorefrontPublicationCacheIdentity.mockResolvedValue(identity);
-  return identity;
 }
 
-function setupProductCount(publishedCount: number, totalCount: number) {
-  mockPublishedProductCount = publishedCount;
-  mockTotalProductCount = totalCount;
+function incompleteLaunchReadiness(
+  id: StoreLaunchReadiness['items'][number]['id'],
+  options: { totalProductCount?: number } = {}
+): StoreLaunchReadiness {
+  return readyLaunchReadiness({
+    activeProductCount: 0,
+    totalProductCount: options.totalProductCount ?? 0,
+    completedRequired: 0,
+    isReady: false,
+    items: [
+      {
+        id,
+        label: id,
+        description: id,
+        completed: false,
+        priority: 'required',
+        category: 'store',
+      },
+    ],
+  });
 }
 
-function setupUpdateSuccess() {
-  mockUpdateResult = {
-    data: null,
+function setupAuthenticatedRequest(supabase = createMockSupabase()) {
+  mockAuthenticateApiRequest.mockResolvedValue({
+    user: { id: 'user-123' },
+    supabase,
     error: null,
-  };
+  });
+  mockGetUserAccess.mockResolvedValue({
+    merchantId: MERCHANT_ID,
+    role: 'owner',
+  });
+  mockHasPermission.mockReturnValue(true);
+  return supabase;
 }
 
-function setupUpdateError(errorMessage: string) {
-  mockUpdateResult = {
-    data: null,
-    error: { message: errorMessage },
-  };
-}
-
-function setupVerification(
-  flags: Partial<{
-    nin_verified: boolean;
-    bvn_verified: boolean;
-    cac_verified: boolean;
-  }> | null = { nin_verified: true }
-) {
-  mockVerificationData = {
-    data: flags
-      ? {
-          nin_verified: flags.nin_verified ?? false,
-          bvn_verified: flags.bvn_verified ?? false,
-          cac_verified: flags.cac_verified ?? false,
-        }
-      : null,
-    error: null,
-  };
-}
-
-function setupFeatureSettings(
-  data: Record<string, unknown> | null = {},
-  error: { message: string } | null = null
-) {
-  mockFeatureSettingsData = {
-    data:
-      data === null || error
-        ? null
-        : {
-            pay_on_delivery_enabled: false,
-            paystack_enabled: true,
-            korapay_enabled: true,
-            ...data,
-          },
-    error,
-  };
-}
-
-// ---- Tests ----
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockCheckCsrfProtection.mockResolvedValue({ valid: true, response: null });
+  mockLoadStoreLaunchReadiness.mockResolvedValue(readyLaunchReadiness());
+  mockGetStorefrontPublicationCacheIdentity.mockResolvedValue({
+    merchantId: MERCHANT_ID,
+    canonicalMerchantSlug: 'test-store',
+    merchantSlugs: ['test-store'],
+    customDomains: [],
+    identifiers: ['test-store'],
+  });
+  mockEvictStorefrontPublicationCaches.mockResolvedValue({ ok: true });
+});
 
 describe('POST /api/merchant/publish', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockMerchantData = { data: null, error: null };
-    mockPublishedProductCount = 0;
-    mockTotalProductCount = 0;
-    mockUpdateResult = { data: null, error: null };
-    setupPublicationIdentity();
-    mockEvictStorefrontPublicationCaches.mockResolvedValue({ ok: true });
-    setupFeatureSettings();
-    // Default: merchant has a verified NIN so KYC does not block the tests
-    // that aren't specifically exercising the verification gate.
-    setupVerification({ nin_verified: true });
-    // Restore default admin mock implementation
-    mockCreateAdminClient.mockImplementation(() => createMockAdminSupabase());
-    // The revoked paystack_subaccount_code is read via the bounded RPC helper.
-    // Serve whatever value the current merchant fixture carries so the
-    // launch-payment gate sees the same code the old admin read returned.
-    mockFetchPaystackSubaccountCode.mockImplementation(() =>
-      Promise.resolve(
-        (
-          mockMerchantData?.data as {
-            paystack_subaccount_code?: string | null;
-          } | null
-        )?.paystack_subaccount_code ?? null
-      )
+  it('authenticates before evaluating CSRF for an unauthenticated request', async () => {
+    mockAuthenticateApiRequest.mockResolvedValue({
+      user: null,
+      supabase: null,
+      error: 'Unauthorized',
+    });
+    mockCheckCsrfProtection.mockResolvedValue({ valid: false, response: null });
+
+    const response = await POST(makeRequest('POST'));
+
+    expect(response.status).toBe(401);
+    expect(mockCheckCsrfProtection).not.toHaveBeenCalled();
+  });
+
+  it('enforces a rejected cookie CSRF check after authenticating', async () => {
+    setupAuthenticatedRequest();
+    mockCheckCsrfProtection.mockResolvedValue({ valid: false, response: null });
+
+    const response = await POST(makeRequest('POST'));
+
+    expect(response.status).toBe(403);
+    expect(mockGetUserAccess).not.toHaveBeenCalled();
+  });
+
+  it('retains the bearer-authenticated CSRF bypass result', async () => {
+    const supabase = setupAuthenticatedRequest();
+    mockCheckCsrfProtection.mockImplementation(
+      async (request: NextRequest) => ({
+        valid:
+          request.headers.get('authorization')?.startsWith('Bearer ') === true,
+        response: null,
+      })
+    );
+
+    const response = await POST(makeRequest('POST', 'Bearer mobile-token'));
+
+    expect(response.status).toBe(200);
+    expect(mockCheckCsrfProtection).toHaveBeenCalledTimes(1);
+    expect(mockLoadStoreLaunchReadiness).toHaveBeenCalledWith({
+      supabase,
+      merchantId: MERCHANT_ID,
+    });
+  });
+
+  it('uses only the canonical launch loader on the caller-scoped client', async () => {
+    const supabase = setupAuthenticatedRequest();
+
+    const response = await POST(makeRequest('POST'));
+
+    expect(response.status).toBe(200);
+    expect(mockLoadStoreLaunchReadiness).toHaveBeenCalledWith({
+      supabase,
+      merchantId: MERCHANT_ID,
+    });
+    expect(supabase.from).toHaveBeenCalledTimes(1);
+    expect(supabase.from).toHaveBeenCalledWith('merchants');
+  });
+
+  it.each([
+    'verify_kyc',
+    'bank_account',
+    'payment_method',
+    'store_url',
+    'first_product',
+    'country',
+    'contact_info',
+  ] as const)('blocks publication for incomplete canonical %s', async (id) => {
+    setupAuthenticatedRequest();
+    mockLoadStoreLaunchReadiness.mockResolvedValue(
+      incompleteLaunchReadiness(id)
+    );
+
+    const response = await POST(makeRequest('POST'));
+
+    expect(response.status).toBe(400);
+    expect(mockMerchantUpdate).not.toHaveBeenCalled();
+    expect(mockGetStorefrontPublicationCacheIdentity).not.toHaveBeenCalled();
+  });
+
+  it('uses the canonical active and total product facts for inactive-product copy', async () => {
+    setupAuthenticatedRequest();
+    mockLoadStoreLaunchReadiness.mockResolvedValue(
+      incompleteLaunchReadiness('first_product', { totalProductCount: 5 })
+    );
+
+    const response = await POST(makeRequest('POST'));
+    const body = await response.json();
+
+    expect(body.missingItems).toEqual([
+      'At least one active product (you have 5 product(s) but none are active - go to Products and activate them)',
+    ]);
+  });
+
+  it('returns the stable 500 failure shape without publishing when readiness loading fails', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    setupAuthenticatedRequest();
+    mockLoadStoreLaunchReadiness.mockRejectedValue(
+      new Error('readiness unavailable')
+    );
+
+    const response = await POST(makeRequest('POST'));
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Internal server error',
+    });
+    expect(mockMerchantUpdate).not.toHaveBeenCalled();
+  });
+
+  it('publishes using the canonical merchant ID and normalized slug', async () => {
+    const supabase = setupAuthenticatedRequest();
+    const cacheIdentity = { identifiers: ['normalized-store'] };
+    mockLoadStoreLaunchReadiness.mockResolvedValue(
+      readyLaunchReadiness({ slug: 'normalized-store' })
+    );
+    mockGetStorefrontPublicationCacheIdentity.mockResolvedValue(cacheIdentity);
+
+    const response = await POST(makeRequest('POST'));
+
+    expect(response.status).toBe(200);
+    expect(mockGetStorefrontPublicationCacheIdentity).toHaveBeenCalledWith(
+      supabase,
+      MERCHANT_ID,
+      'normalized-store'
+    );
+    expect(mockEvictStorefrontPublicationCaches).toHaveBeenCalledWith(
+      cacheIdentity
+    );
+    expect(mockMerchantUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ is_published: true })
     );
   });
 
-  describe('authentication', () => {
-    it('returns 401 when user is not authenticated', async () => {
-      setupAuth(false);
+  it('does not claim success when cache eviction fails after publication', async () => {
+    setupAuthenticatedRequest();
+    mockEvictStorefrontPublicationCaches.mockResolvedValue({ ok: false });
 
-      const res = await POST(makeRequest('POST'));
-      const json = await res.json();
+    const response = await POST(makeRequest('POST'));
 
-      expect(res.status).toBe(401);
-      expect(json.error).toBe('Unauthorized');
-    });
-
-    it('returns 404 when merchant not found', async () => {
-      mockAuthenticateApiRequest.mockResolvedValue({
-        user: { id: 'user-123' },
-        supabase: createMockSupabase(),
-        error: null,
-      });
-      mockGetUserAccess.mockResolvedValue(null);
-
-      const res = await POST(makeRequest('POST'));
-      const json = await res.json();
-
-      expect(res.status).toBe(404);
-      expect(json.error).toBe('Merchant not found');
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'STOREFRONT_CACHE_EVICTION_FAILED',
     });
   });
 
-  describe('permissions', () => {
-    it('returns 403 when user lacks settings edit permission', async () => {
-      setupAuth(true, false);
+  it('does not mutate when publication cache identity lookup fails', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    setupAuthenticatedRequest();
+    mockGetStorefrontPublicationCacheIdentity.mockRejectedValue(
+      new Error('alias lookup failed')
+    );
 
-      const res = await POST(makeRequest('POST'));
-      const json = await res.json();
+    const response = await POST(makeRequest('POST'));
 
-      expect(res.status).toBe(403);
-      expect(json.error).toBe('Permission denied');
-      expect(mockHasPermission).toHaveBeenCalledWith(
-        expect.anything(),
-        'settings',
-        'edit'
-      );
-    });
+    expect(response.status).toBe(500);
+    expect(mockMerchantUpdate).not.toHaveBeenCalled();
+    expect(mockEvictStorefrontPublicationCaches).not.toHaveBeenCalled();
   });
 
-  describe('secret column containment', () => {
-    it('reads the revoked paystack_subaccount_code via the bounded RPC helper on the authenticated client (never a service-role admin client)', async () => {
-      setupAuth(true, true);
-      // mockMerchantData holds a valid, publishable row; the helper serves the
-      // secret code from that fixture.
-      setupMerchantData({});
-      setupProductCount(1, 1);
-      setupUpdateSuccess();
-
-      // Pin the authenticated client so we can assert the helper runs on it.
-      const authClient = createMockSupabase();
-      mockAuthenticateApiRequest.mockResolvedValue({
-        user: { id: 'user-123' },
-        supabase: authClient,
-        error: null,
-      });
-
-      const res = await POST(makeRequest('POST'));
-
-      // The non-secret merchant read resolves on the authenticated client and
-      // the revoked secret resolves through the RPC helper on that same client.
-      expect(res.status).toBe(200);
-      expect(mockFetchPaystackSubaccountCode).toHaveBeenCalledWith(
-        authClient,
-        MERCHANT_ID
-      );
-    });
-  });
-
-  describe('validation - bank details', () => {
-    it('returns 400 when bank account details are missing', async () => {
-      setupAuth(true, true);
-      setupMerchantData({
-        bank_code: null,
-        bank_account_number: null,
-        paystack_subaccount_code: null,
-      });
-
-      const res = await POST(makeRequest('POST'));
-      const json = await res.json();
-
-      expect(res.status).toBe(400);
-      expect(json.error).toBe('Cannot publish store');
-      expect(json.missingItems).toContain('Bank account details');
-    });
-
-    it('returns 400 when only bank code is missing', async () => {
-      setupAuth(true, true);
-      setupMerchantData({
-        bank_code: null,
-        bank_account_number: '1234567890',
-        paystack_subaccount_code: 'ACCT_test',
-      });
-
-      const res = await POST(makeRequest('POST'));
-      const json = await res.json();
-
-      expect(res.status).toBe(400);
-      expect(json.missingItems).toContain('Bank account details');
-    });
-
-    it('returns 400 when only paystack subaccount is missing', async () => {
-      setupAuth(true, true);
-      setupMerchantData({
-        paystack_subaccount_code: null,
-      });
-
-      const res = await POST(makeRequest('POST'));
-      const json = await res.json();
-
-      expect(res.status).toBe(400);
-      expect(json.missingItems).toContain('Bank account details');
-    });
-
-    it('publishes an India merchant when Pay on Delivery is enabled and Paystack bank details are missing', async () => {
-      setupAuth(true, true);
-      setupMerchantData({
-        country: 'IN',
-        bank_code: null,
-        bank_account_number: null,
-        paystack_subaccount_code: null,
-      });
-      setupFeatureSettings({
-        pay_on_delivery_enabled: true,
-        paystack_enabled: false,
-      });
-      setupVerification({
-        nin_verified: false,
-        bvn_verified: false,
-        cac_verified: false,
-      });
-      setupProductCount(1, 1);
-      setupUpdateSuccess();
-      const identity = setupPublicationIdentity();
-
-      const res = await POST(makeRequest('POST'));
-      const json = await res.json();
-
-      expect(res.status).toBe(200);
-      expect(json.success).toBe(true);
-      expect(mockGetStorefrontPublicationCacheIdentity).toHaveBeenCalledWith(
-        expect.anything(),
-        MERCHANT_ID,
-        'test-store'
-      );
-      expect(mockEvictStorefrontPublicationCaches).toHaveBeenCalledWith(
-        identity
-      );
-    });
-
-    it('returns 500 when payment settings cannot be loaded', async () => {
-      setupAuth(true, true);
-      setupMerchantData({
-        country: 'IN',
-        bank_code: null,
-        bank_account_number: null,
-        paystack_subaccount_code: null,
-      });
-      setupFeatureSettings(null, { message: 'database unavailable' });
-      setupProductCount(1, 1);
-
-      const res = await POST(makeRequest('POST'));
-      const json = await res.json();
-
-      expect(res.status).toBe(500);
-      expect(json.error).toBe('Failed to load payment settings');
-      expect(mockGetStorefrontPublicationCacheIdentity).not.toHaveBeenCalled();
-      expect(mockEvictStorefrontPublicationCaches).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('validation - country', () => {
-    it('returns 400 when country is missing', async () => {
-      setupAuth(true, true);
-      setupMerchantData({
-        country: null,
-      });
-
-      const res = await POST(makeRequest('POST'));
-      const json = await res.json();
-
-      expect(res.status).toBe(400);
-      expect(json.missingItems).toContain('Country/region setting');
-    });
-  });
-
-  describe('validation - contact info', () => {
-    it('returns 400 when both email and phone are missing', async () => {
-      setupAuth(true, true);
-      setupMerchantData({
-        email: null,
-        phone: null,
-        support_email: null,
-        support_phone: null,
-      });
-
-      const res = await POST(makeRequest('POST'));
-      const json = await res.json();
-
-      expect(res.status).toBe(400);
-      expect(json.missingItems).toContain(
-        'Contact information (email or phone)'
-      );
-    });
-
-    it('succeeds when only email is provided', async () => {
-      setupAuth(true, true);
-      setupMerchantData({
-        support_email: 'test@example.com',
-        support_phone: null,
-      });
-      setupProductCount(1, 1);
-      setupUpdateSuccess();
-
-      const res = await POST(makeRequest('POST'));
-
-      expect(res.status).toBe(200);
-    });
-
-    it('succeeds when only account email is provided', async () => {
-      setupAuth(true, true);
-      setupMerchantData({
-        email: 'owner@example.com',
-        phone: null,
-        support_email: null,
-        support_phone: null,
-      });
-      setupProductCount(1, 1);
-      setupUpdateSuccess();
-
-      const res = await POST(makeRequest('POST'));
-
-      expect(res.status).toBe(200);
-    });
-
-    it('succeeds when only phone is provided', async () => {
-      setupAuth(true, true);
-      setupMerchantData({
-        support_email: null,
-        support_phone: '+2341234567890',
-      });
-      setupProductCount(1, 1);
-      setupUpdateSuccess();
-
-      const res = await POST(makeRequest('POST'));
-
-      expect(res.status).toBe(200);
-    });
-  });
-
-  describe('validation - kyc', () => {
-    it('returns 400 when no KYC identifier is verified', async () => {
-      setupAuth(true, true);
-      setupMerchantData({});
-      setupVerification({
-        nin_verified: false,
-        bvn_verified: false,
-        cac_verified: false,
-      });
-      setupProductCount(1, 1);
-
-      const res = await POST(makeRequest('POST'));
-      const json = await res.json();
-
-      expect(res.status).toBe(400);
-      expect(json.missingItems).toContain(
-        'Identity verification (NIN, BVN, or CAC)'
-      );
-    });
-
-    it('returns 400 when no merchant_verifications row exists', async () => {
-      setupAuth(true, true);
-      setupMerchantData({});
-      setupVerification(null);
-      setupProductCount(1, 1);
-
-      const res = await POST(makeRequest('POST'));
-      const json = await res.json();
-
-      expect(res.status).toBe(400);
-      expect(json.missingItems).toContain(
-        'Identity verification (NIN, BVN, or CAC)'
-      );
-    });
-
-    it('succeeds when only BVN is verified', async () => {
-      setupAuth(true, true);
-      setupMerchantData({});
-      setupVerification({ bvn_verified: true });
-      setupProductCount(1, 1);
-      setupUpdateSuccess();
-
-      const res = await POST(makeRequest('POST'));
-
-      expect(res.status).toBe(200);
-    });
-
-    it('succeeds when only CAC is verified', async () => {
-      setupAuth(true, true);
-      setupMerchantData({});
-      setupVerification({ cac_verified: true });
-      setupProductCount(1, 1);
-      setupUpdateSuccess();
-
-      const res = await POST(makeRequest('POST'));
-
-      expect(res.status).toBe(200);
-    });
-
-    it('returns 500 when verification lookup fails', async () => {
-      setupAuth(true, true);
-      setupMerchantData({});
-      setupProductCount(1, 1);
-      // Simulate merchant_verifications admin read failing (e.g., DB
-      // outage or service-role misconfiguration). Must surface as a
-      // backend error rather than collapse to a false KYC gap.
-      mockVerificationData = {
-        data: null,
-        error: { message: 'connection refused' },
-      };
-
-      const res = await POST(makeRequest('POST'));
-      const json = await res.json();
-
-      expect(res.status).toBe(500);
-      expect(json.error).toBe('Internal server error');
-      expect(json.missingItems).toBeUndefined();
-    });
-  });
-
-  describe('validation - products', () => {
-    it('returns 400 when no active products exist', async () => {
-      setupAuth(true, true);
-      setupMerchantData({});
-      setupProductCount(0, 0);
-
-      const res = await POST(makeRequest('POST'));
-      const json = await res.json();
-
-      expect(res.status).toBe(400);
-      expect(json.missingItems).toContain('At least one active product');
-    });
-
-    it('returns 400 with helpful message when products exist but none active', async () => {
-      setupAuth(true, true);
-      setupMerchantData({});
-      setupProductCount(0, 5);
-
-      const res = await POST(makeRequest('POST'));
-      const json = await res.json();
-
-      expect(res.status).toBe(400);
-      expect(json.missingItems).toEqual(
-        expect.arrayContaining([
-          expect.stringContaining(
-            'At least one active product (you have 5 product(s) but none are active'
-          ),
-        ])
-      );
-    });
-  });
-
-  describe('validation - multiple missing items', () => {
-    it('returns all missing items in the error response', async () => {
-      setupAuth(true, true);
-      setupVerification({
-        nin_verified: false,
-        bvn_verified: false,
-        cac_verified: false,
-      });
-      setupMerchantData({
-        country: null,
-        email: null,
-        phone: null,
-        support_email: null,
-        support_phone: null,
-        bank_code: null,
-        bank_account_number: null,
-        paystack_subaccount_code: null,
-      });
-      setupProductCount(0, 0);
-
-      const res = await POST(makeRequest('POST'));
-      const json = await res.json();
-
-      expect(res.status).toBe(400);
-      expect(json.error).toBe('Cannot publish store');
-      expect(json.message).toBe(
-        'Please complete the following required items:'
-      );
-      expect(json.missingItems).toHaveLength(5);
-      expect(json.missingItems).toContain(
-        'Identity verification (NIN, BVN, or CAC)'
-      );
-      expect(json.missingItems).toContain('Bank account details');
-      expect(json.missingItems).toContain('Country/region setting');
-      expect(json.missingItems).toContain(
-        'Contact information (email or phone)'
-      );
-      expect(json.missingItems).toContain('At least one active product');
-    });
-  });
-
-  describe('success path', () => {
-    it('publishes store and returns success when all requirements met', async () => {
-      setupAuth(true, true);
-      setupMerchantData({});
-      setupProductCount(3, 3);
-      setupUpdateSuccess();
-      const identity = setupPublicationIdentity();
-
-      const res = await POST(makeRequest('POST'));
-      const json = await res.json();
-
-      expect(res.status).toBe(200);
-      expect(json.success).toBe(true);
-      expect(json.message).toBe('Store published successfully');
-      expect(mockEvictStorefrontPublicationCaches).toHaveBeenCalledWith(
-        identity
-      );
-    });
-
-    it('succeeds when products are available', async () => {
-      setupAuth(true, true);
-      setupMerchantData({});
-      setupProductCount(2, 5);
-      setupUpdateSuccess();
-
-      const res = await POST(makeRequest('POST'));
-      const json = await res.json();
-
-      expect(res.status).toBe(200);
-      expect(json.success).toBe(true);
-    });
-
-    it('evicts every retired slug and active custom domain identity', async () => {
-      setupAuth(true, true);
-      setupMerchantData({});
-      setupProductCount(1, 1);
-      setupUpdateSuccess();
-      const identity = setupPublicationIdentity({
-        customDomains: ['shop.example.com', 'secondary.example.com'],
-        merchantSlugs: ['test-store', 'old-store'],
-      });
-
-      const res = await POST(makeRequest('POST'));
-
-      expect(res.status).toBe(200);
-      expect(mockEvictStorefrontPublicationCaches).toHaveBeenCalledWith(
-        identity
-      );
-    });
-  });
-
-  describe('error handling', () => {
-    it('rejects a legacy merchant without a slug before publishing', async () => {
-      setupAuth(true, true);
-      setupMerchantData({ slug: null });
-      setupProductCount(1, 1);
-      setupUpdateSuccess();
-
-      const res = await POST(makeRequest('POST'));
-      const json = await res.json();
-
-      expect(res.status).toBe(400);
-      expect(json.error).toBe('Cannot publish store');
-      expect(json.missingItems).toContain('Store URL');
-      expect(mockGetStorefrontPublicationCacheIdentity).not.toHaveBeenCalled();
-      expect(mockEvictStorefrontPublicationCaches).not.toHaveBeenCalled();
-    });
-
-    it('does not claim publish success when edge eviction fails', async () => {
-      setupAuth(true, true);
-      setupMerchantData({});
-      setupProductCount(1, 1);
-      setupUpdateSuccess();
-      mockEvictStorefrontPublicationCaches.mockResolvedValueOnce({
-        ok: false,
-        reason: 'provider_rejected',
-        stage: 'cloudflare',
-      });
-
-      const res = await POST(makeRequest('POST'));
-      const json = await res.json();
-
-      expect(res.status).toBe(503);
-      expect(json.success).not.toBe(true);
-      expect(json.code).toBe('STOREFRONT_CACHE_EVICTION_FAILED');
-    });
-
-    it('does not claim publish success when Vercel eviction fails', async () => {
-      setupAuth(true, true);
-      setupMerchantData({});
-      setupProductCount(1, 1);
-      setupUpdateSuccess();
-      mockEvictStorefrontPublicationCaches.mockResolvedValueOnce({
-        ok: false,
-        reason: 'request_failed',
-        stage: 'vercel',
-      });
-
-      const res = await POST(makeRequest('POST'));
-      const json = await res.json();
-
-      expect(res.status).toBe(503);
-      expect(json.success).not.toBe(true);
-      expect(json.code).toBe('STOREFRONT_CACHE_EVICTION_FAILED');
-    });
-
-    it('returns 404 when the merchant does not exist', async () => {
-      setupAuth(true, true);
-      setupMerchantData(null);
-
-      const res = await POST(makeRequest('POST'));
-      const json = await res.json();
-
-      expect(res.status).toBe(404);
-      expect(json.error).toBe('Merchant not found');
-    });
-
-    it('returns 500 for a merchant query error instead of treating it as missing', async () => {
-      vi.spyOn(console, 'error').mockImplementation(() => undefined);
-      setupAuth(true, true);
-      setupMerchantQueryError('column does not exist');
-
-      const res = await POST(makeRequest('POST'));
-      const json = await res.json();
-
-      expect(res.status).toBe(500);
-      expect(json.error).toBe('Failed to load merchant');
-      expect(mockMerchantUpdate).not.toHaveBeenCalled();
-    });
-
-    it('does not mutate publication state when identity lookup fails', async () => {
-      vi.spyOn(console, 'error').mockImplementation(() => undefined);
-      setupAuth(true, true);
-      setupMerchantData({});
-      setupProductCount(1, 1);
-      mockGetStorefrontPublicationCacheIdentity.mockRejectedValueOnce({
-        message: 'domain lookup failed',
-      });
-
-      const res = await POST(makeRequest('POST'));
-
-      expect(res.status).toBe(500);
-      expect(mockMerchantUpdate).not.toHaveBeenCalled();
-      expect(mockEvictStorefrontPublicationCaches).not.toHaveBeenCalled();
-    });
-
-    it('returns 500 when update fails', async () => {
-      setupAuth(true, true);
-      setupMerchantData({});
-      setupProductCount(1, 1);
-      setupUpdateError('Database error');
-
-      const res = await POST(makeRequest('POST'));
-      const json = await res.json();
-
-      expect(res.status).toBe(500);
-      expect(json.error).toBe('Failed to publish store');
-    });
-
-    it('returns 500 on unexpected exception', async () => {
-      setupAuth(true, true);
-      // Force getUserAccess to throw an unexpected error inside the try block
-      mockGetUserAccess.mockImplementation(() => {
-        throw new Error('Unexpected error');
-      });
-
-      const res = await POST(makeRequest('POST'));
-      const json = await res.json();
-
-      expect(res.status).toBe(500);
-      expect(json.error).toBe('Internal server error');
+  it('returns the existing publish failure response when the update fails', async () => {
+    setupAuthenticatedRequest(
+      createMockSupabase({ updateError: { message: 'database unavailable' } })
+    );
+
+    const response = await POST(makeRequest('POST'));
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Failed to publish store',
     });
   });
 });
 
 describe('DELETE /api/merchant/publish', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockMerchantData = { data: null, error: null };
-    mockUpdateResult = { data: null, error: null };
-    setupPublicationIdentity();
-    mockEvictStorefrontPublicationCaches.mockResolvedValue({ ok: true });
+  it('authenticates before evaluating CSRF for an unauthenticated request', async () => {
+    mockAuthenticateApiRequest.mockResolvedValue({
+      user: null,
+      supabase: null,
+      error: 'Unauthorized',
+    });
+    mockCheckCsrfProtection.mockResolvedValue({ valid: false, response: null });
+
+    const response = await DELETE(makeRequest('DELETE'));
+
+    expect(response.status).toBe(401);
+    expect(mockCheckCsrfProtection).not.toHaveBeenCalled();
   });
 
-  describe('authentication', () => {
-    it('returns 401 when user is not authenticated', async () => {
-      setupAuth(false);
+  it('enforces a rejected cookie CSRF check after authenticating', async () => {
+    setupAuthenticatedRequest();
+    mockCheckCsrfProtection.mockResolvedValue({ valid: false, response: null });
 
-      const res = await DELETE(makeRequest('DELETE'));
-      const json = await res.json();
+    const response = await DELETE(makeRequest('DELETE'));
 
-      expect(res.status).toBe(401);
-      expect(json.error).toBe('Unauthorized');
-    });
-
-    it('returns 404 when merchant not found', async () => {
-      mockAuthenticateApiRequest.mockResolvedValue({
-        user: { id: 'user-123' },
-        supabase: createMockSupabase(),
-        error: null,
-      });
-      mockGetUserAccess.mockResolvedValue(null);
-
-      const res = await DELETE(makeRequest('DELETE'));
-      const json = await res.json();
-
-      expect(res.status).toBe(404);
-      expect(json.error).toBe('Merchant not found');
-    });
+    expect(response.status).toBe(403);
+    expect(mockGetUserAccess).not.toHaveBeenCalled();
   });
 
-  describe('permissions', () => {
-    it('returns 403 when user lacks settings edit permission', async () => {
-      setupAuth(true, false);
+  it('retains the bearer-authenticated CSRF bypass result', async () => {
+    setupAuthenticatedRequest();
+    mockCheckCsrfProtection.mockImplementation(
+      async (request: NextRequest) => ({
+        valid:
+          request.headers.get('authorization')?.startsWith('Bearer ') === true,
+        response: null,
+      })
+    );
 
-      const res = await DELETE(makeRequest('DELETE'));
-      const json = await res.json();
+    const response = await DELETE(makeRequest('DELETE', 'Bearer mobile-token'));
 
-      expect(res.status).toBe(403);
-      expect(json.error).toBe('Permission denied');
-      expect(mockHasPermission).toHaveBeenCalledWith(
-        expect.anything(),
-        'settings',
-        'edit'
-      );
-    });
+    expect(response.status).toBe(200);
   });
 
-  describe('success path', () => {
-    it('unpublishes store and returns success', async () => {
-      setupAuth(true, true);
-      setupMerchantData({
-        id: MERCHANT_ID,
-      });
-      setupUpdateSuccess();
-      const identity = setupPublicationIdentity();
+  it('unpublishes and evicts every resolved storefront identity', async () => {
+    const supabase = setupAuthenticatedRequest();
+    const cacheIdentity = { identifiers: ['test-store', 'shop.example.com'] };
+    mockGetStorefrontPublicationCacheIdentity.mockResolvedValue(cacheIdentity);
 
-      const res = await DELETE(makeRequest('DELETE'));
-      const json = await res.json();
+    const response = await DELETE(makeRequest('DELETE'));
 
-      expect(res.status).toBe(200);
-      expect(json.success).toBe(true);
-      expect(json.message).toBe('Store unpublished successfully');
-      expect(mockEvictStorefrontPublicationCaches).toHaveBeenCalledWith(
-        identity
-      );
-    });
+    expect(response.status).toBe(200);
+    expect(mockGetStorefrontPublicationCacheIdentity).toHaveBeenCalledWith(
+      supabase,
+      MERCHANT_ID,
+      'test-store'
+    );
+    expect(mockMerchantUpdate).toHaveBeenCalledWith({ is_published: false });
+    expect(mockEvictStorefrontPublicationCaches).toHaveBeenCalledWith(
+      cacheIdentity
+    );
+  });
 
-    it('does not claim unpublish success when edge eviction fails', async () => {
-      setupAuth(true, true);
-      setupMerchantData({ id: MERCHANT_ID });
-      setupUpdateSuccess();
-      mockEvictStorefrontPublicationCaches.mockResolvedValueOnce({
-        ok: false,
-        reason: 'request_failed',
-        stage: 'cloudflare',
-      });
+  it('unpublishes a legacy null-slug merchant with its resolved custom domains', async () => {
+    const supabase = setupAuthenticatedRequest(
+      createMockSupabase({ merchant: { id: MERCHANT_ID, slug: null } })
+    );
+    const cacheIdentity = {
+      identifiers: ['retired-store', 'shop.example.com'],
+    };
+    mockGetStorefrontPublicationCacheIdentity.mockResolvedValue(cacheIdentity);
 
-      const res = await DELETE(makeRequest('DELETE'));
-      const json = await res.json();
+    const response = await DELETE(makeRequest('DELETE'));
 
-      expect(res.status).toBe(503);
-      expect(json.success).not.toBe(true);
-      expect(json.code).toBe('STOREFRONT_CACHE_EVICTION_FAILED');
-    });
+    expect(response.status).toBe(200);
+    expect(mockGetStorefrontPublicationCacheIdentity).toHaveBeenCalledWith(
+      supabase,
+      MERCHANT_ID,
+      null
+    );
+    expect(mockEvictStorefrontPublicationCaches).toHaveBeenCalledWith(
+      cacheIdentity
+    );
+  });
 
-    it('does not claim unpublish success when Vercel eviction fails', async () => {
-      setupAuth(true, true);
-      setupMerchantData({ id: MERCHANT_ID });
-      setupUpdateSuccess();
-      mockEvictStorefrontPublicationCaches.mockResolvedValueOnce({
-        ok: false,
-        reason: 'request_failed',
-        stage: 'vercel',
-      });
+  it('does not claim success when cache eviction fails after unpublishing', async () => {
+    setupAuthenticatedRequest();
+    mockEvictStorefrontPublicationCaches.mockResolvedValue({ ok: false });
 
-      const res = await DELETE(makeRequest('DELETE'));
-      const json = await res.json();
+    const response = await DELETE(makeRequest('DELETE'));
 
-      expect(res.status).toBe(503);
-      expect(json.success).not.toBe(true);
-      expect(json.code).toBe('STOREFRONT_CACHE_EVICTION_FAILED');
-    });
-
-    it('unpublishes a legacy null-slug merchant and evicts its custom domain', async () => {
-      setupAuth(true, true);
-      setupMerchantData({
-        id: MERCHANT_ID,
-        slug: null,
-      });
-      setupUpdateSuccess();
-      const identity = setupPublicationIdentity({
-        canonicalMerchantSlug: null,
-        customDomains: ['ogabassey.com', 'secondary.example.com'],
-        merchantSlugs: ['retired-store'],
-      });
-
-      const res = await DELETE(makeRequest('DELETE'));
-      const json = await res.json();
-
-      expect(res.status).toBe(200);
-      expect(json.success).toBe(true);
-      expect(mockGetStorefrontPublicationCacheIdentity).toHaveBeenCalledWith(
-        expect.anything(),
-        MERCHANT_ID,
-        null
-      );
-      expect(mockEvictStorefrontPublicationCaches).toHaveBeenCalledWith(
-        identity
-      );
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'STOREFRONT_CACHE_EVICTION_FAILED',
     });
   });
 
-  describe('error handling', () => {
-    it('returns 404 when merchant not found during query', async () => {
-      setupAuth(true, true);
-      setupMerchantData(null);
+  it('returns the existing failure response when the merchant lookup fails', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    setupAuthenticatedRequest(
+      createMockSupabase({ merchantError: { message: 'database unavailable' } })
+    );
 
-      const res = await DELETE(makeRequest('DELETE'));
-      const json = await res.json();
+    const response = await DELETE(makeRequest('DELETE'));
 
-      expect(res.status).toBe(404);
-      expect(json.error).toBe('Merchant not found');
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Failed to load merchant',
     });
+    expect(mockMerchantUpdate).not.toHaveBeenCalled();
+  });
 
-    it('returns 500 when the merchant query itself fails', async () => {
-      vi.spyOn(console, 'error').mockImplementation(() => undefined);
-      setupAuth(true, true);
-      setupMerchantQueryError('database unavailable');
+  it('does not mutate when unpublish cache identity lookup fails', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    setupAuthenticatedRequest();
+    mockGetStorefrontPublicationCacheIdentity.mockRejectedValue(
+      new Error('alias lookup failed')
+    );
 
-      const res = await DELETE(makeRequest('DELETE'));
-      const json = await res.json();
+    const response = await DELETE(makeRequest('DELETE'));
 
-      expect(res.status).toBe(500);
-      expect(json.error).toBe('Failed to load merchant');
-      expect(mockMerchantUpdate).not.toHaveBeenCalled();
-    });
+    expect(response.status).toBe(500);
+    expect(mockMerchantUpdate).not.toHaveBeenCalled();
+    expect(mockEvictStorefrontPublicationCaches).not.toHaveBeenCalled();
+  });
 
-    it('does not unpublish when retired-slug identity lookup fails', async () => {
-      vi.spyOn(console, 'error').mockImplementation(() => undefined);
-      setupAuth(true, true);
-      setupMerchantData({ id: MERCHANT_ID });
-      mockGetStorefrontPublicationCacheIdentity.mockRejectedValueOnce({
-        message: 'alias lookup failed',
-      });
+  it('returns the existing unpublish failure response when the update fails', async () => {
+    setupAuthenticatedRequest(
+      createMockSupabase({ updateError: { message: 'database unavailable' } })
+    );
 
-      const res = await DELETE(makeRequest('DELETE'));
+    const response = await DELETE(makeRequest('DELETE'));
 
-      expect(res.status).toBe(500);
-      expect(mockMerchantUpdate).not.toHaveBeenCalled();
-      expect(mockEvictStorefrontPublicationCaches).not.toHaveBeenCalled();
-    });
-
-    it('returns 500 when update fails', async () => {
-      setupAuth(true, true);
-      setupMerchantData({
-        id: MERCHANT_ID,
-      });
-      setupUpdateError('Database error');
-
-      const res = await DELETE(makeRequest('DELETE'));
-      const json = await res.json();
-
-      expect(res.status).toBe(500);
-      expect(json.error).toBe('Failed to unpublish store');
-    });
-
-    it('returns 500 on unexpected exception', async () => {
-      setupAuth(true, true);
-      // Force getUserAccess to throw an unexpected error inside the try block
-      mockGetUserAccess.mockImplementation(() => {
-        throw new Error('Unexpected error');
-      });
-
-      const res = await DELETE(makeRequest('DELETE'));
-      const json = await res.json();
-
-      expect(res.status).toBe(500);
-      expect(json.error).toBe('Internal server error');
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Failed to unpublish store',
     });
   });
 });

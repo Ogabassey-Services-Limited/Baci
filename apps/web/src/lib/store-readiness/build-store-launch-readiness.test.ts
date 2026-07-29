@@ -101,11 +101,32 @@ describe('buildStoreLaunchReadiness', () => {
       true,
     ],
     [
+      'accepts the support email as contact information',
+      {
+        supportEmail: 'support@example.com',
+        merchantEmail: null,
+        merchantPhone: null,
+      },
+      'contact_info',
+      true,
+    ],
+    [
       'accepts the merchant owner phone as contact information',
       {
         supportEmail: null,
         merchantEmail: null,
         merchantPhone: '+2348000000000',
+      },
+      'contact_info',
+      true,
+    ],
+    [
+      'accepts the support phone as contact information',
+      {
+        supportEmail: null,
+        supportPhone: '+2348000000000',
+        merchantEmail: null,
+        merchantPhone: null,
       },
       'contact_info',
       true,
