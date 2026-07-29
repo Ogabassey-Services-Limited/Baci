@@ -25,7 +25,7 @@ interface NinVerificationCardProps {
   onIdentityChange: React.Dispatch<
     React.SetStateAction<VerificationIdentityDraft>
   >;
-  onVerified: () => void;
+  onVerified: () => Promise<unknown>;
   verified: boolean;
   prefillNin?: string | null;
 }
@@ -70,10 +70,10 @@ export default function NinVerificationCard({
           dateOfBirth: dateOfBirth.trim(),
         }),
       }),
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       if (data.verified) {
+        await onVerified();
         Alert.alert('Success', 'Your NIN has been verified successfully.');
-        onVerified();
       } else {
         Alert.alert(
           'Verification Failed',

@@ -30,8 +30,8 @@ import {
   analyticsStatesEqual,
   buildAnalyticsDiff,
 } from '@/lib/analytics-config-diff';
+import { invalidateAnalyticsSaveReadiness } from '@/lib/analytics-save-readiness';
 import { baciFeatureGates } from '@/lib/feature-gates';
-import { invalidateStoreReadiness } from '@/lib/invalidate-store-readiness';
 import { supabase } from '@/lib/supabase';
 
 const INITIAL_STATE: AnalyticsState = {
@@ -311,13 +311,7 @@ export default function AnalyticsConfigScreen() {
         analytics: savedAnalytics,
         isOwner: true,
       });
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['merchant'] }),
-        queryClient.invalidateQueries({
-          queryKey: ['merchant-analytics-full'],
-        }),
-        invalidateStoreReadiness(queryClient, readinessMerchantId),
-      ]);
+      await invalidateAnalyticsSaveReadiness(queryClient, readinessMerchantId);
       Alert.alert('Success', 'Analytics settings saved!', [
         { text: 'OK', onPress: () => router.back() },
       ]);

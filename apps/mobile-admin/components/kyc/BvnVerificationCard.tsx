@@ -28,7 +28,7 @@ interface BvnVerificationCardProps {
   onIdentityChange: React.Dispatch<
     React.SetStateAction<VerificationIdentityDraft>
   >;
-  onVerified: () => void;
+  onVerified: () => Promise<unknown>;
   verified: boolean;
   prefillBvn?: string | null;
 }
@@ -87,10 +87,10 @@ export default function BvnVerificationCard({
           mobileNo: mobileNo.trim(),
         }),
       }),
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       if (data.verified) {
+        await onVerified();
         Alert.alert('Success', 'Your BVN has been verified successfully.');
-        onVerified();
       } else {
         Alert.alert(
           'Verification Failed',

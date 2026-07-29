@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   apiClient: vi.fn(),
+  invalidateStoreReadiness: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('@/lib/api-client', () => ({
@@ -13,6 +14,10 @@ vi.mock('@/lib/api-client', () => ({
 
 vi.mock('./useMerchant', () => ({
   useMerchant: () => ({ merchant: { id: 'merchant-1' } }),
+}));
+
+vi.mock('@/lib/invalidate-store-readiness', () => ({
+  invalidateStoreReadiness: mocks.invalidateStoreReadiness,
 }));
 
 import { archiveProductById, useArchiveProduct } from './useArchiveProduct';
@@ -77,6 +82,10 @@ describe('useArchiveProduct', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ['products', 'merchant-1'],
     });
+    expect(mocks.invalidateStoreReadiness).toHaveBeenCalledWith(
+      queryClient,
+      'merchant-1'
+    );
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ['product', 'merchant-1', 'product-1'],
     });
@@ -110,5 +119,6 @@ describe('useArchiveProduct', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ['inventory-stats', 'merchant-1'],
     });
+    expect(mocks.invalidateStoreReadiness).not.toHaveBeenCalled();
   });
 });

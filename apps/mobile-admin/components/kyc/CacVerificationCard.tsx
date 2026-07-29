@@ -26,7 +26,7 @@ import VerificationStatusBadge from './VerificationStatusBadge';
 
 interface CacVerificationCardProps {
   cacApprovedName?: string | null;
-  onVerified: () => void;
+  onVerified: () => Promise<unknown>;
   prefillRcNumber?: string | null;
   verified: boolean;
 }
@@ -144,10 +144,10 @@ export default function CacVerificationCard({
         formData
       );
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
+      if (data.verified) await onVerified();
       setVerifyResult(data);
       setCacStep('result');
-      if (data.verified) onVerified();
     },
     onError: (error: unknown) => handleMutationError(error),
   });

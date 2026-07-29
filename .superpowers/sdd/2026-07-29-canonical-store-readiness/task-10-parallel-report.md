@@ -43,3 +43,15 @@ ported.
 
 - No full monorepo suite or CodeRabbit was run, per the parallel-task brief.
 - This task is ready for a fresh Sol xhigh review before cherry-pick.
+
+## Sol review fix round 1
+
+- Added exact awaited readiness invalidation after successful product archive;
+  failed archives retain their existing list/detail/inventory refresh only.
+- NIN, BVN, and CAC verification cards now await the KYC refresh before their
+  verified success UI is shown. A refresh rejection propagates through the
+  mutation lifecycle to each existing error path.
+- Extracted analytics save cache/readiness invalidation into
+  `lib/analytics-save-readiness.ts`, keeping the screen focused on UI state.
+- RED: the new archive success assertion initially failed because readiness was
+  never invalidated. GREEN: archive/KYC/analytics focused suite passed 11/11.
