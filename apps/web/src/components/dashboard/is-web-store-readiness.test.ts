@@ -44,4 +44,14 @@ describe('isWebStoreReadiness', () => {
   it('rejects malformed readiness data', () => {
     expect(isWebStoreReadiness({ ...readiness, merchantId: '' })).toBe(false);
   });
+
+  it.each([
+    null,
+    undefined,
+    'readiness',
+    1,
+    [],
+  ])('rejects non-object readiness input: %j', (value) => {
+    expect(isWebStoreReadiness(value)).toBe(false);
+  });
 });

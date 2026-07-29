@@ -126,19 +126,72 @@ function client(
     }),
   } as unknown as SupabaseClient;
 
-  return { activeProducts, home, job, optionalMerchant, supabase };
+  return {
+    activeProducts,
+    from: supabase.from as unknown as ReturnType<typeof vi.fn>,
+    home,
+    job,
+    optionalMerchant,
+    rpc: supabase.rpc as unknown as ReturnType<typeof vi.fn>,
+    supabase,
+  };
 }
 
 async function load(authenticatedClient: ReturnType<typeof client>) {
   return loadStoreReadiness({
     supabase: authenticatedClient.supabase,
-    merchantId: 'merchant-1',
+    merchantId: ' merchant-1 ',
     access,
     surface: 'web',
   });
 }
 
+async function expectReadinessAccessRejection(
+  accessCandidate: unknown,
+  merchantId = 'merchant-1'
+) {
+  const authenticatedClient = client();
+
+  await expect(
+    loadStoreReadiness({
+      supabase: authenticatedClient.supabase,
+      merchantId,
+      access: accessCandidate as UserAccess,
+      surface: 'web',
+    })
+  ).rejects.toThrow('does not match the authorized merchant');
+
+  expect(authenticatedClient.from).not.toHaveBeenCalled();
+  expect(authenticatedClient.rpc).not.toHaveBeenCalled();
+}
+
 describe('loadStoreReadiness', () => {
+  it.each([
+    [
+      'an owner access record for another merchant',
+      { ...access, merchantId: 'merchant-2' },
+    ],
+    [
+      'a staff access record for another merchant',
+      {
+        ...access,
+        isOwner: false,
+        isStaff: true,
+        merchantId: 'merchant-2',
+        role: 'staff',
+      },
+    ],
+  ])('rejects %s before issuing readiness queries', (_name, unauthorizedAccess) =>
+    expectReadinessAccessRejection(unauthorizedAccess, ' merchant-1 '));
+
+  it.each([
+    ['null', null],
+    ['undefined', undefined],
+    ['a primitive', 'merchant-1'],
+    ['an array', [access]],
+  ])('rejects %s access before issuing readiness queries', (_name, invalidAccess) =>
+    expectReadinessAccessRejection(invalidAccess));
+
   it('uses the published home config only and scopes it to the authorized home page', async () => {
     const authenticatedClient = client();
 

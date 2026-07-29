@@ -24,6 +24,26 @@ function throwQueryError(source: string, error: { message: string }): never {
   throw new Error(`Failed to load ${source}: ${error.message}`);
 }
 
+function requireAuthorizedMerchantId(
+  access: unknown,
+  merchantId: unknown
+): string {
+  const normalizedMerchantId =
+    typeof merchantId === 'string' ? merchantId.trim() : null;
+
+  if (
+    !normalizedMerchantId ||
+    !unknownValueGuards.isRecord(access) ||
+    access.merchantId !== normalizedMerchantId
+  ) {
+    throw new Error(
+      'Store readiness merchant does not match the authorized merchant'
+    );
+  }
+
+  return normalizedMerchantId;
+}
+
 async function loadReadinessOptionalMerchant(
   supabase: SupabaseClient<Database>,
   merchantId: string
@@ -88,16 +108,18 @@ export async function loadStoreReadiness({
   access,
   surface,
 }: LoadStoreReadinessInput): Promise<StoreReadiness> {
+  const authorizedMerchantId = requireAuthorizedMerchantId(access, merchantId);
+
   const [
     launchReadiness,
     optionalMerchant,
     homePageConfig,
     latestStorefrontJob,
   ] = await Promise.all([
-    loadStoreLaunchReadiness({ supabase, merchantId }),
-    loadReadinessOptionalMerchant(supabase, merchantId),
-    loadHomePageConfig(supabase, merchantId),
-    loadLatestStorefrontJob(supabase, merchantId),
+    loadStoreLaunchReadiness({ supabase, merchantId: authorizedMerchantId }),
+    loadReadinessOptionalMerchant(supabase, authorizedMerchantId),
+    loadHomePageConfig(supabase, authorizedMerchantId),
+    loadLatestStorefrontJob(supabase, authorizedMerchantId),
   ]);
 
   const hasPublishedHomeConfig = homePageConfig?.is_published === true;
