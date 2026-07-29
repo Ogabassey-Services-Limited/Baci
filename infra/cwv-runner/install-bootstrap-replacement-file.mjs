@@ -68,7 +68,12 @@ async function reconcileTemporaries(destination, expected, dependencies) {
         [temporary]: expected,
       })
     )[temporary];
-    if (!same(actual, expected))
+    const permitted = [
+      expected,
+      { ...expected, mode: '0600', owner: expected.owner },
+      { ...expected, mode: '0600', owner: 'root:root' },
+    ];
+    if (!permitted.some((projection) => same(actual, projection)))
       throw new TypeError('bootstrap replacement temporary drift');
     await dependencies.removeFile(temporary);
     await dependencies.syncDirectory(directory);

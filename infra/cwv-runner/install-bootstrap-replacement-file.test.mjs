@@ -56,7 +56,12 @@ async function fixture(context) {
     policyFileSha256: '5'.repeat(64),
     transitionPaths: [destination],
   };
-  return { destination, intent, newBytes, oldBytes, state };
+  const input = {
+    currentDirectory: '/state/bootstrap-bbbbbbbbbbbb',
+    destination,
+    bytes: newBytes,
+  };
+  return { destination, input, intent, newBytes, oldBytes, state };
 }
 
 test('atomically replaces only a receipt-bound prior bootstrap file', async (context) => {
@@ -74,42 +79,28 @@ test('atomically replaces only a receipt-bound prior bootstrap file', async (con
   });
 
   assert.equal(
-    await replaceBootstrapFile(
-      {
-        currentDirectory: '/state/bootstrap-bbbbbbbbbbbb',
-        destination: value.destination,
-        bytes: value.newBytes,
+    await replaceBootstrapFile(value.input, {
+      readState: async () => value.state,
+      readIntent: async () => value.intent,
+      readProjection: projection,
+      chownFile: async () => publication.push('chown'),
+      syncMetadata: async (path) => {
+        assert.equal((await stat(path)).mode.toString(8).slice(-3), '600');
+        publication.push('sync');
       },
-      {
-        readState: async () => value.state,
-        readIntent: async () => value.intent,
-        readProjection: projection,
-        chownFile: async () => publication.push('chown'),
-        syncMetadata: async (path) => {
-          assert.equal((await stat(path)).mode.toString(8).slice(-3), '600');
-          publication.push('sync');
-        },
-      }
-    ),
+    }),
     'replaced'
   );
   assert.deepEqual(publication, ['chown', 'sync']);
   assert.deepEqual(await readFile(value.destination), value.newBytes);
   assert.equal(
-    await replaceBootstrapFile(
-      {
-        currentDirectory: '/state/bootstrap-bbbbbbbbbbbb',
-        destination: value.destination,
-        bytes: value.newBytes,
-      },
-      {
-        readState: async () => value.state,
-        readIntent: async () => value.intent,
-        readProjection: projection,
-        chownFile: async () => publication.push('unexpected'),
-        syncMetadata: async () => publication.push('unexpected'),
-      }
-    ),
+    await replaceBootstrapFile(value.input, {
+      readState: async () => value.state,
+      readIntent: async () => value.intent,
+      readProjection: projection,
+      chownFile: async () => publication.push('unexpected'),
+      syncMetadata: async () => publication.push('unexpected'),
+    }),
     'current'
   );
 });
@@ -130,35 +121,20 @@ test('refuses an unplanned path, unexpected bytes, or third-party installed drif
 
   await assert.rejects(
     replaceBootstrapFile(
-      {
-        currentDirectory: '/state/bootstrap-bbbbbbbbbbbb',
-        destination: `${value.destination}.other`,
-        bytes: value.newBytes,
-      },
+      { ...value.input, destination: `${value.destination}.other` },
       dependencies
     ),
     /not authorized/
   );
   await assert.rejects(
     replaceBootstrapFile(
-      {
-        currentDirectory: '/state/bootstrap-bbbbbbbbbbbb',
-        destination: value.destination,
-        bytes: Buffer.from('unexpected'),
-      },
+      { ...value.input, bytes: Buffer.from('unexpected') },
       dependencies
     ),
     /replacement bytes mismatch/
   );
   await assert.rejects(
-    replaceBootstrapFile(
-      {
-        currentDirectory: '/state/bootstrap-bbbbbbbbbbbb',
-        destination: value.destination,
-        bytes: value.newBytes,
-      },
-      dependencies
-    ),
+    replaceBootstrapFile(value.input, dependencies),
     /installed bootstrap replacement drift/
   );
 });
@@ -168,25 +144,18 @@ test('uses an attempt-unique temporary and preserves prior bytes on replacement 
   let temporary;
 
   await assert.rejects(
-    replaceBootstrapFile(
-      {
-        currentDirectory: '/state/bootstrap-bbbbbbbbbbbb',
-        destination: value.destination,
-        bytes: value.newBytes,
+    replaceBootstrapFile(value.input, {
+      readState: async () => value.state,
+      readIntent: async () => value.intent,
+      readProjection: async () => ({
+        [value.destination]: value.state.prior[value.destination],
+      }),
+      temporaryId: () => 'attempt-unique',
+      chownFile: (path) => {
+        temporary = path;
+        throw new Error('chown failed');
       },
-      {
-        readState: async () => value.state,
-        readIntent: async () => value.intent,
-        readProjection: async () => ({
-          [value.destination]: value.state.prior[value.destination],
-        }),
-        temporaryId: () => 'attempt-unique',
-        chownFile: (path) => {
-          temporary = path;
-          throw new Error('chown failed');
-        },
-      }
-    ),
+    }),
     /chown failed/
   );
   assert.match(temporary, /attempt-unique$/);
@@ -196,54 +165,56 @@ test('uses an attempt-unique temporary and preserves prior bytes on replacement 
   ]);
 });
 
-test('reconciles an exact temporary left by death after metadata sync', async (context) => {
+test('reconciles exact temporaries left before or after metadata sync', async (context) => {
   const value = await fixture(context);
   const directory = join(value.destination, '..');
   const stale = join(directory, '.baci-bootstrap-replacement-dead-at-rename');
+  value.state.files[value.destination] = {
+    ...value.state.files[value.destination],
+    mode: '0550',
+    owner: 'root:baci-cwv',
+  };
+  let staleOwner = 'root:root';
   await writeFile(stale, value.newBytes, { mode: 0o600 });
   const projection = async (files) => {
     const result = {};
     for (const path of Object.keys(files)) {
+      const details = await stat(path);
       result[path] = {
         sha256: sha256(await readFile(path)),
-        mode: (await stat(path)).mode.toString(8).slice(-3).padStart(4, '0'),
-        owner: 'root:root',
+        mode: details.mode.toString(8).slice(-3).padStart(4, '0'),
+        owner:
+          path === stale
+            ? staleOwner
+            : sha256(await readFile(path)) === sha256(value.newBytes)
+              ? 'root:baci-cwv'
+              : 'root:root',
       };
     }
     return result;
   };
+  const dependencies = {
+    readState: async () => value.state,
+    readIntent: async () => value.intent,
+    readProjection: projection,
+    temporaryId: () => 'retry',
+    chownFile: async () => undefined,
+  };
   assert.equal(
-    await replaceBootstrapFile(
-      {
-        currentDirectory: '/state/bootstrap-bbbbbbbbbbbb',
-        destination: value.destination,
-        bytes: value.newBytes,
-      },
-      {
-        readState: async () => value.state,
-        readIntent: async () => value.intent,
-        readProjection: projection,
-        temporaryId: () => 'retry',
-        chownFile: async () => undefined,
-      }
-    ),
+    await replaceBootstrapFile(value.input, dependencies),
     'replaced'
   );
   assert.deepEqual(await readdir(directory), ['bootstrap.sha256']);
   await writeFile(stale, value.newBytes, { mode: 0o600 });
+  staleOwner = 'root:baci-cwv';
   assert.equal(
-    await replaceBootstrapFile(
-      {
-        currentDirectory: '/state/bootstrap-bbbbbbbbbbbb',
-        destination: value.destination,
-        bytes: value.newBytes,
-      },
-      {
-        readState: async () => value.state,
-        readIntent: async () => value.intent,
-        readProjection: projection,
-      }
-    ),
+    await replaceBootstrapFile(value.input, dependencies),
+    'current'
+  );
+  await writeFile(stale, value.newBytes, { mode: 0o600 });
+  await chmod(stale, 0o550);
+  assert.equal(
+    await replaceBootstrapFile(value.input, dependencies),
     'current'
   );
   assert.deepEqual(await readdir(directory), ['bootstrap.sha256']);
@@ -268,14 +239,7 @@ test('fails closed on unsafe or unexpected replacement temporary residue', async
     },
   };
   await assert.rejects(
-    replaceBootstrapFile(
-      {
-        currentDirectory: '/state/bootstrap-bbbbbbbbbbbb',
-        destination: value.destination,
-        bytes: value.newBytes,
-      },
-      dependencies
-    ),
+    replaceBootstrapFile(value.input, dependencies),
     /unsafe installed bootstrap path/
   );
 
@@ -286,14 +250,40 @@ test('fails closed on unsafe or unexpected replacement temporary residue', async
     { mode: 0o600 }
   );
   await assert.rejects(
-    replaceBootstrapFile(
-      {
-        currentDirectory: '/state/bootstrap-bbbbbbbbbbbb',
-        destination: value.destination,
-        bytes: value.newBytes,
-      },
-      dependencies
-    ),
+    replaceBootstrapFile(value.input, dependencies),
     /unexpected bootstrap replacement residue/
+  );
+  await rm(join(directory, '.baci-bootstrap-replacement-UPPER'));
+  const validResidue = join(
+    directory,
+    '.baci-bootstrap-replacement-valid-name'
+  );
+  const projectResidue = async (files) => {
+    const [path] = Object.keys(files);
+    if (path === value.destination) return { [path]: value.state.files[path] };
+    return {
+      [path]: {
+        sha256: sha256(await readFile(path)),
+        mode: (await stat(path)).mode.toString(8).slice(-3).padStart(4, '0'),
+        owner: 'root:root',
+      },
+    };
+  };
+  await writeFile(validResidue, Buffer.from('wrong bytes'), { mode: 0o600 });
+  await assert.rejects(
+    replaceBootstrapFile(value.input, {
+      ...dependencies,
+      readProjection: projectResidue,
+    }),
+    /bootstrap replacement temporary drift/
+  );
+  await rm(validResidue);
+  await writeFile(validResidue, value.newBytes, { mode: 0o644 });
+  await assert.rejects(
+    replaceBootstrapFile(value.input, {
+      ...dependencies,
+      readProjection: projectResidue,
+    }),
+    /bootstrap replacement temporary drift/
   );
 });
