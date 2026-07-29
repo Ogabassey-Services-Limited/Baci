@@ -55,6 +55,23 @@ afterEach(async () => {
 });
 
 describe('verifySupabaseHistoryReplayManifest', () => {
+  it('uses the approved repaired bytes for the historical quiz migration', async () => {
+    const result = await verifySupabaseHistoryReplayManifest(WORKSPACE_ROOT, {
+      pendingRepairState: 'materialized',
+    });
+
+    expect(
+      result.verifiedSources.find(
+        ({ repositoryPath }) =>
+          repositoryPath ===
+          'supabase/migrations/20260525140048_quiz_authoritative_answer_scoring.sql'
+      )
+    ).toMatchObject({
+      sha256:
+        '13d774436dc584b5b38b094932fdf671012a8b8b2981b30a228b985f6ca05973',
+    });
+  }, 60_000);
+
   it('verifies the frozen base without Docker, Supabase, or network I/O', async () => {
     const result = await verifySupabaseHistoryReplayManifest(WORKSPACE_ROOT, {
       pendingRepairState: 'materialized',
@@ -63,7 +80,7 @@ describe('verifySupabaseHistoryReplayManifest', () => {
     expect(result.bootstrapSources).toHaveLength(125);
     expect(result.verifiedSources).toHaveLength(424);
     expect(result.postReplaySources).toHaveLength(12);
-    expect(result.manifest.pendingSources).toHaveLength(55);
+    expect(result.manifest.pendingSources).toHaveLength(56);
     expect(result.productionEffectProvenance.exceptionalRecords).toHaveLength(
       31
     );

@@ -277,4 +277,9 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260728091958_provision_mobile_merchant_v2.sql',
     sha256: '9e4df9812810ef2c7e0659a238390d6c97222b2891454ba00740ddbff6cc6104',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260729100000_add_merchant_identity_verified_rpc.sql',
+    sha256: '60be0be8990407b279108981c8c47815a90f8855a05a106d6a9024e23cb6998d',
+  },
 ];
