@@ -156,6 +156,25 @@ function canFollow(previous, next) {
   );
 }
 
+const canPrecedeCompleted = (previous, next) =>
+  next?.phase === 'complete' &&
+  canFollow(previous, { ...next, phase: 'captured' });
+
+function hasUniqueCompletedHistory(states, baseline) {
+  if (states.some((state) => state.phase !== 'complete')) return false;
+  const count = (next, remaining) => {
+    if (!remaining.length) return 1;
+    let output = 0;
+    for (const [index, previous] of remaining.entries()) {
+      if (!canPrecedeCompleted(previous, next)) continue;
+      output += count(previous, remaining.toSpliced(index, 1));
+      if (output > 1) return output;
+    }
+    return output;
+  };
+  return count(baseline, states) === 1;
+}
+
 export function resolveBootstrapReplacementChain(states, current) {
   if (!Array.isArray(states) || current?.phase !== 'captured')
     throw new TypeError('invalid bootstrap replacement authority chain');
@@ -182,8 +201,11 @@ export function resolveBootstrapReplacementChain(states, current) {
     }
     return output;
   };
-  const chains = walk(current, new Set([current.sourceSha])).filter(
-    (chain) => chain.length === states.length
+  const chains = walk(current, new Set([current.sourceSha])).filter((chain) =>
+    hasUniqueCompletedHistory(
+      states.filter((state) => !chain.includes(state)),
+      chain[0]
+    )
   );
   if (chains.length !== 1)
     throw new TypeError('invalid bootstrap replacement authority chain');

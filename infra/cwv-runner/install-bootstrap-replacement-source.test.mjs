@@ -71,6 +71,45 @@ function dependencies(overrides = {}) {
   };
 }
 
+function sealedPathFixture(path) {
+  const candidate = { ...entry, path };
+  const candidateManifest = {
+    ...manifest,
+    sourceArchive: { ...manifest.sourceArchive, entries: [candidate] },
+  };
+  const candidateManifestBytes = Buffer.from(canonicalJson(candidateManifest));
+  const candidateManifestSha = sha256(candidateManifestBytes);
+  const candidateTreeSha = sha256(
+    Buffer.from(`${path}\t${candidate.mode}\t${candidate.blobSha256}\n`)
+  );
+  const candidateSeal = {
+    ...seal,
+    manifestSha256: candidateManifestSha,
+    sealedTreeSha256: candidateTreeSha,
+  };
+  const receipts = new Map([
+    ['manifest.json', candidateManifestBytes],
+    ['manifest.sha256', Buffer.from(`${candidateManifestSha}\n`)],
+    ['archive.sha256', Buffer.from(`${candidateSeal.archiveSha256}\n`)],
+    ['tree.sha256', Buffer.from(`${candidateTreeSha}\n`)],
+    ['seal-receipt.json', Buffer.from(`${canonicalJson(candidateSeal)}\n`)],
+  ]);
+  return {
+    descriptor: dependencies({
+      listSourcePaths: async () => [path.slice('infra/cwv-runner/'.length)],
+      readPinned: async (file) => ({
+        bytes: receipts.get(file.split('/').at(-1)) ?? installBytes,
+        details: {
+          gid: 0,
+          mode: receipts.has(file.split('/').at(-1)) ? 0o100600 : 0o100755,
+          uid: 0,
+        },
+      }),
+    }),
+    state: { ...state, sourceManifestSha256: candidateManifestSha },
+  };
+}
+
 test('rederives a bootstrap capture from its sealed source and receipt tree', async () => {
   const result = await validateBootstrapReplacementSourceState(
     { state, sourceRoot: '/srv/source', receiptRoot: '/srv/receipts' },
@@ -82,6 +121,48 @@ test('rederives a bootstrap capture from its sealed source and receipt tree', as
     sealReceiptSha256: sha256(Buffer.from(`${canonicalJson(seal)}\n`)),
     sourceSha,
   });
+});
+
+test('accepts the sealed watchdog systemd template repository path', async () => {
+  const fixture = sealedPathFixture(
+    'infra/cwv-runner/baci-cwv-campaign-watchdog@.service'
+  );
+
+  const result = await validateBootstrapReplacementSourceState(
+    {
+      state: fixture.state,
+      sourceRoot: '/srv/source',
+      receiptRoot: '/srv/receipts',
+    },
+    fixture.descriptor
+  );
+
+  assert.equal(result.sourceSha, sourceSha);
+});
+
+test('rejects unsafe sealed repository path forms', async () => {
+  for (const path of [
+    '/infra/cwv-runner/install.sh',
+    'infra/cwv-runner/.',
+    'infra/cwv-runner/../install.sh',
+    'infra/cwv-runner/watchdog/service',
+    'infra/cwv-runner/watchdog@.service\tinstall.sh',
+    'infra/cwv-runner/watchdog@.service:install.sh',
+  ]) {
+    const fixture = sealedPathFixture(path);
+    await assert.rejects(
+      validateBootstrapReplacementSourceState(
+        {
+          state: fixture.state,
+          sourceRoot: '/srv/source',
+          receiptRoot: '/srv/receipts',
+        },
+        fixture.descriptor
+      ),
+      /invalid sealed source entry/,
+      path
+    );
+  }
 });
 
 test('refuses source bytes, tree receipts, or projected capture drift', async () => {

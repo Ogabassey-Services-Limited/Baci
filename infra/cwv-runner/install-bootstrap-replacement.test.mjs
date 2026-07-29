@@ -61,6 +61,17 @@ const nextState = {
   prior: previousFiles,
   files: nextFiles,
 };
+const completedNextState = {
+  ...nextState,
+  phase: 'complete',
+  receiptSha256: '8'.repeat(64),
+  receipt: {
+    sourceSha: newSource,
+    sourceManifestSha256: nextState.sourceManifestSha256,
+    policyFileSha256: policy,
+    files: nextFiles,
+  },
+};
 const inertHost = {
   acceptedImageFiles: 0,
   activeDedicatedUnits: 0,
@@ -188,6 +199,56 @@ test('proves a mixed projection through receipt-bound interrupted generations', 
       ),
     /replacement authority chain/
   );
+});
+
+test('uses the latest completed baseline while retaining its completed ancestor', () => {
+  const current = {
+    ...nextState,
+    sourceSha: 'f'.repeat(40),
+    captureSha256: '9'.repeat(64),
+    prior: nextFiles,
+  };
+
+  assert.deepEqual(
+    resolveBootstrapReplacementChain(
+      [previousState, completedNextState, current],
+      current
+    ).map((state) => state.sourceSha),
+    [newSource, current.sourceSha]
+  );
+});
+
+test('refuses orphaned or ambiguous completed replacement history', () => {
+  const current = {
+    ...nextState,
+    sourceSha: 'f'.repeat(40),
+    captureSha256: '9'.repeat(64),
+    prior: nextFiles,
+  };
+  const unrelated = {
+    ...previousState,
+    sourceSha: '0'.repeat(40),
+    receipt: {
+      ...previousState.receipt,
+      sourceSha: '0'.repeat(40),
+      files: nextFiles,
+    },
+  };
+  const competing = {
+    ...previousState,
+    sourceSha: '1'.repeat(40),
+    receipt: { ...previousState.receipt, sourceSha: '1'.repeat(40) },
+  };
+
+  for (const extra of [unrelated, competing])
+    assert.throws(
+      () =>
+        resolveBootstrapReplacementChain(
+          [previousState, completedNextState, current, extra],
+          current
+        ),
+      /replacement authority chain/
+    );
 });
 
 test('proves a first-install chain only from one all-absent pristine capture', () => {

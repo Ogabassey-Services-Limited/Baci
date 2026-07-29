@@ -138,7 +138,7 @@ export async function validateBootstrapReplacementSourceState(
   for (const entry of entries) {
     if (
       !same(Object.keys(entry).sort(), ['blobSha256', 'mode', 'path']) ||
-      !/^infra\/cwv-runner\/(?!\.{1,2}$)[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(
+      !/^infra\/cwv-runner\/(?!\.{1,2}$)[a-zA-Z0-9][a-zA-Z0-9._@-]*$/.test(
         entry.path
       ) ||
       !/^100(?:644|755)$/.test(entry.mode) ||

@@ -28,9 +28,9 @@ policy() { /usr/bin/node "$SCRIPT_DIR/policy.schema.mjs" get "$1"; }
 atomic_line() (
   destination=$1 value=$2 mode=$3 owner=$4 directory=${1%/*}
   if [ -e "$destination" ]; then
-    if ! regular "$destination" || ! root_mode "$destination" "$owner:$mode"; then die 'installed line drift'; fi
-    if [ "$(/bin/cat -- "$destination")" != "$value" ]; then if [ "${BACI_CWV_BOOTSTRAP_REPLACEMENT-}" != 1 ] || ! regular "$BOOTSTRAP_DIRECTORY/replacement-intent.json"; then die 'replacement intent required'; fi; /usr/bin/node "$SCRIPT_DIR/install-bootstrap-replacement-file.mjs" line "$BOOTSTRAP_DIRECTORY" "$destination" "$value" >/dev/null || die 'installed line drift'; fi
-    return 0
+    regular "$destination" || die 'installed line drift'; if root_mode "$destination" "$owner:$mode" && [ "$(/bin/cat -- "$destination")" = "$value" ]; then return 0; fi
+    if [ "${BACI_CWV_BOOTSTRAP_REPLACEMENT-}" = 1 ] && regular "$BOOTSTRAP_DIRECTORY/replacement-intent.json"; then /usr/bin/node "$SCRIPT_DIR/install-bootstrap-replacement-file.mjs" line "$BOOTSTRAP_DIRECTORY" "$destination" "$value" >/dev/null || die 'installed line drift'; return 0; fi
+    root_mode "$destination" "$owner:$mode" || die 'installed line drift'; die 'replacement intent required'
   fi
   temporary=$(/usr/bin/mktemp "$directory/.tmp.XXXXXX") || die 'temporary file failed'
   trap '/bin/rm -f -- "$temporary"' EXIT HUP INT TERM
@@ -49,9 +49,9 @@ atomic_line() (
   case "$destination" in "$ROOT/sealed/"*token*|"$ROOT/sealed/"*credential*|"$ROOT/sealed/"*secret*) case "$owner:$mode" in root:root:0400|root:root:0500|root:root:0600) ;; *) die 'sealed credential must be root-only';; esac;; esac
   regular "$source" || die 'source file must be a regular nonsymlink'
   if [ -e "$destination" ]; then
-    if ! regular "$destination" || ! root_mode "$destination" "$owner:$mode"; then die 'installed file drift'; fi
-    if ! /usr/bin/cmp -s "$source" "$destination"; then if [ "${BACI_CWV_BOOTSTRAP_REPLACEMENT-}" != 1 ] || ! regular "$BOOTSTRAP_DIRECTORY/replacement-intent.json"; then die 'replacement intent required'; fi; /usr/bin/node "$SCRIPT_DIR/install-bootstrap-replacement-file.mjs" source "$BOOTSTRAP_DIRECTORY" "$destination" "$source" >/dev/null || die 'installed file drift'; fi
-    return 0
+    regular "$destination" || die 'installed file drift'; if root_mode "$destination" "$owner:$mode" && /usr/bin/cmp -s "$source" "$destination"; then return 0; fi
+    if [ "${BACI_CWV_BOOTSTRAP_REPLACEMENT-}" = 1 ] && regular "$BOOTSTRAP_DIRECTORY/replacement-intent.json"; then /usr/bin/node "$SCRIPT_DIR/install-bootstrap-replacement-file.mjs" source "$BOOTSTRAP_DIRECTORY" "$destination" "$source" >/dev/null || die 'installed file drift'; return 0; fi
+    root_mode "$destination" "$owner:$mode" || die 'installed file drift'; die 'replacement intent required'
   fi
   temporary=$(/usr/bin/mktemp "${destination%/*}/.tmp.XXXXXX") || die 'temporary file failed'
   /bin/cp -- "$source" "$temporary"; /usr/bin/sync -f "$temporary" || die 'fsync failed'

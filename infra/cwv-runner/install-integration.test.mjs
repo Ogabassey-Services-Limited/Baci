@@ -79,6 +79,29 @@ test('bootstrap authorizes and completes a receipt-bound source generation repla
   );
 });
 
+test('receipt-authorized file and line replacements validate prior metadata in the replacement helper', () => {
+  const installers = [
+    sourceSlice(source, 'atomic_line() (', '); ensure_directory()'),
+    sourceSlice(source, 'ensure_file() {', '\nassert_sealed_source()'),
+  ];
+
+  for (const installer of installers) {
+    const replacement = anchor(
+      installer,
+      'install-bootstrap-replacement-file.mjs"'
+    );
+    const expectedMetadata = installer.lastIndexOf('root_mode "$destination"');
+    assert.ok(
+      replacement < expectedMetadata,
+      'only unapproved metadata drift may fail after the receipt-bound helper'
+    );
+    assert.match(
+      installer,
+      /root_mode "\$destination"[\s\S]*installed (?:file|line) drift/
+    );
+  }
+});
+
 test('installs the watchdog template before the first daemon reload or disable', () => {
   const bootstrap = sourceSlice(
     source,
