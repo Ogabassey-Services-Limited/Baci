@@ -1,6 +1,12 @@
 'use client';
 
 import {
+  isStoreReadiness,
+  type StoreReadinessItem,
+  type WebStoreReadiness,
+  type WebStoreReadinessItemId,
+} from '@baci/shared';
+import {
   AlertCircle,
   AlertTriangle,
   ArrowRight,
@@ -19,10 +25,6 @@ import {
 import type { Route } from 'next';
 import Link from 'next/link';
 import { type Dispatch, type SetStateAction, useEffect, useState } from 'react';
-import type {
-  SetupItem,
-  StoreReadiness,
-} from '@/app/api/merchant/readiness/route';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -43,6 +45,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { requestMerchantPublish } from '@/lib/merchant-publish-client';
 import { cn } from '@/lib/utils';
+import { getWebStoreReadinessHref } from './store-readiness-hrefs';
 
 const categoryIcons = {
   payments: CreditCard,
@@ -67,58 +70,7 @@ const priorityLabels = {
   optional: 'Optional',
 };
 
-const setupItemPriorities = new Set<SetupItem['priority']>([
-  'required',
-  'recommended',
-  'optional',
-]);
-
-const setupItemCategories = new Set<SetupItem['category']>([
-  'payments',
-  'products',
-  'store',
-  'legal',
-  'marketing',
-]);
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function isSetupItem(value: unknown): value is SetupItem {
-  if (!isRecord(value)) {
-    return false;
-  }
-
-  return (
-    typeof value.id === 'string' &&
-    typeof value.label === 'string' &&
-    typeof value.description === 'string' &&
-    typeof value.completed === 'boolean' &&
-    typeof value.href === 'string' &&
-    setupItemPriorities.has(value.priority as SetupItem['priority']) &&
-    setupItemCategories.has(value.category as SetupItem['category'])
-  );
-}
-
-function isStoreReadiness(value: unknown): value is StoreReadiness {
-  if (!isRecord(value)) {
-    return false;
-  }
-
-  return (
-    typeof value.isReady === 'boolean' &&
-    typeof value.isPublished === 'boolean' &&
-    typeof value.completedRequired === 'number' &&
-    typeof value.totalRequired === 'number' &&
-    typeof value.completedRecommended === 'number' &&
-    typeof value.totalRecommended === 'number' &&
-    typeof value.overallProgress === 'number' &&
-    Array.isArray(value.items) &&
-    value.items.every(isSetupItem) &&
-    isRecord(value.storeBuild)
-  );
-}
+type SetupItem = StoreReadinessItem<WebStoreReadinessItemId>;
 
 interface SetupChecklistProps {
   onPublish?: () => void;
@@ -131,7 +83,7 @@ function SetupChecklistMobileWidget({
   readiness,
   onClick,
 }: {
-  readiness: StoreReadiness;
+  readiness: WebStoreReadiness;
   onClick: () => void;
 }) {
   if (readiness.isReady && readiness.isPublished) return null;
@@ -203,7 +155,7 @@ interface ChecklistContentProps {
   compact: boolean;
   displayItems: SetupItem[];
   incompleteItems: SetupItem[];
-  readiness: StoreReadiness;
+  readiness: WebStoreReadiness;
   requiredIncomplete: SetupItem[];
   setShowAll: Dispatch<SetStateAction<boolean>>;
   showAll: boolean;
@@ -288,7 +240,7 @@ function ChecklistContent({
 interface DrawerHeaderProps {
   onPublish: () => void;
   publishing: boolean;
-  readiness: StoreReadiness;
+  readiness: WebStoreReadiness;
 }
 
 // Drawer Header (for mobile)
@@ -352,7 +304,7 @@ export function SetupChecklist({
   dismissible = false,
 }: SetupChecklistProps) {
   const { toast } = useToast();
-  const [readiness, setReadiness] = useState<StoreReadiness | null>(null);
+  const [readiness, setReadiness] = useState<WebStoreReadiness | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
@@ -392,7 +344,7 @@ export function SetupChecklist({
           throw new Error('Failed to fetch readiness');
         }
         const data: unknown = await response.json();
-        if (!isStoreReadiness(data)) {
+        if (!isStoreReadiness(data) || data.surface !== 'web') {
           throw new Error('Invalid readiness payload');
         }
         if (active) {
@@ -651,8 +603,9 @@ export function SetupChecklist({
 
 function SetupItemRow({ item, isNext }: { item: SetupItem; isNext?: boolean }) {
   const Icon = categoryIcons[item.category];
+  const itemHref = getWebStoreReadinessHref(item.id);
   const href =
-    `${item.href}${item.href.includes('?') ? '&' : '?'}onboarding=true` as Route;
+    `${itemHref}${itemHref.includes('?') ? '&' : '?'}onboarding=true` as Route;
 
   return (
     <Link

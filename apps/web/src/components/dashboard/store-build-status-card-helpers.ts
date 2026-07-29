@@ -1,18 +1,10 @@
-import type { StoreBuildStatus } from '@/lib/store-build-status';
-
-export interface ReadinessPayload {
-  storeBuild?: StoreBuildStatus;
-}
+import type { StoreBuildStatus } from '@baci/shared';
 
 export interface ApplyResponsePayload {
   error?: string;
   code?: string;
   message?: string;
   lastUpdated?: string | null;
-}
-
-export function isReadinessPayload(value: unknown): value is ReadinessPayload {
-  return typeof value === 'object' && value !== null && 'storeBuild' in value;
 }
 
 export function isApplyResponsePayload(

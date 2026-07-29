@@ -1,8 +1,8 @@
+import type { WebStoreReadiness } from '@baci/shared';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { act } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { StoreReadiness } from '@/app/api/merchant/readiness/route';
 import { SetupChecklist } from './setup-checklist';
 
 vi.mock('next/link', () => ({
@@ -31,6 +31,8 @@ vi.mock('@/lib/merchant-publish-client', () => ({
 }));
 
 const readiness = {
+  merchantId: '11111111-1111-4111-8111-111111111111',
+  surface: 'web',
   isReady: false,
   isPublished: false,
   completedRequired: 0,
@@ -47,52 +49,47 @@ const readiness = {
   },
   items: [
     {
-      id: 'payments',
+      id: 'payment_method',
       label: 'Add payment method',
       description: 'Connect a payment provider.',
       completed: false,
-      href: '/dashboard/payments',
       priority: 'required',
       category: 'payments',
     },
     {
-      id: 'products',
+      id: 'first_product',
       label: 'Add products',
       description: 'Create your first products.',
       completed: false,
-      href: '/dashboard/products',
       priority: 'required',
       category: 'products',
     },
     {
-      id: 'store',
+      id: 'hero_carousel',
       label: 'Customize storefront',
       description: 'Set up your storefront branding.',
       completed: false,
-      href: '/builder',
       priority: 'required',
       category: 'store',
     },
     {
-      id: 'legal',
+      id: 'about_page',
       label: 'Complete business profile',
       description: 'Add required business details.',
       completed: false,
-      href: '/dashboard/settings',
       priority: 'required',
       category: 'legal',
     },
     {
-      id: 'marketing',
+      id: 'analytics',
       label: 'Add marketing pixels',
       description: 'Configure optional tracking.',
       completed: false,
-      href: '/dashboard/marketing',
       priority: 'optional',
       category: 'marketing',
     },
   ],
-} satisfies StoreReadiness;
+} satisfies WebStoreReadiness;
 
 describe('SetupChecklist', () => {
   beforeEach(() => {
@@ -135,5 +132,16 @@ describe('SetupChecklist', () => {
     expect(
       await screen.findByText('Failed to load your setup checklist.')
     ).toBeInTheDocument();
+  });
+
+  it('resolves checklist item navigation in the web adapter', async () => {
+    render(<SetupChecklist compact />);
+
+    expect(
+      await screen.findByRole('link', { name: /add payment method/i })
+    ).toHaveAttribute('href', '/dashboard/settings/payments?onboarding=true');
+    expect(
+      screen.getByRole('link', { name: /customize storefront/i })
+    ).toHaveAttribute('href', '/builder?onboarding=true');
   });
 });

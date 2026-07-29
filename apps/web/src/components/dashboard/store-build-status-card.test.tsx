@@ -28,21 +28,44 @@ vi.mock('@/lib/api-client', () => ({
   fetchWithCsrf: mockFetchWithCsrf,
 }));
 
+function createReadinessPayload(canApplyAiDraft = false) {
+  return {
+    merchantId: '11111111-1111-4111-8111-111111111111',
+    surface: 'web' as const,
+    isReady: false,
+    isPublished: false,
+    completedRequired: 0,
+    totalRequired: 7,
+    completedRecommended: 0,
+    totalRecommended: 8,
+    overallProgress: 0,
+    items: [
+      {
+        id: 'first_product' as const,
+        label: 'Publish your first product',
+        description: 'You need at least one published product to start selling',
+        completed: false,
+        priority: 'required' as const,
+        category: 'products' as const,
+      },
+    ],
+    storeBuild: {
+      starterStoreReady: true,
+      aiStatus: 'ready' as const,
+      latestJobId: '5c0a0676-bd3f-495e-9f98-589f208c0d79',
+      canApplyAiDraft,
+      message: 'Your AI storefront is ready to preview and apply.',
+    },
+  };
+}
+
 describe('StoreBuildStatusCard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // Initial readiness uses global fetch; apply mutations use fetchWithCsrf.
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
-      json: async () => ({
-        storeBuild: {
-          starterStoreReady: true,
-          aiStatus: 'ready',
-          latestJobId: '5c0a0676-bd3f-495e-9f98-589f208c0d79',
-          canApplyAiDraft: false,
-          message: 'Your AI storefront is ready to preview and apply.',
-        },
-      }),
+      json: async () => createReadinessPayload(),
     } as Response);
   });
 
@@ -70,15 +93,7 @@ describe('StoreBuildStatusCard', () => {
   it('applies a ready AI design successfully', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
-      json: async () => ({
-        storeBuild: {
-          starterStoreReady: true,
-          aiStatus: 'ready',
-          latestJobId: '5c0a0676-bd3f-495e-9f98-589f208c0d79',
-          canApplyAiDraft: true,
-          message: 'Your AI storefront is ready to preview and apply.',
-        },
-      }),
+      json: async () => createReadinessPayload(true),
     } as Response);
     mockFetchWithCsrf.mockResolvedValueOnce({
       ok: true,
@@ -154,15 +169,7 @@ describe('StoreBuildStatusCard', () => {
   ])('shows an apply error toast on %s', async (_, applyResult) => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
-      json: async () => ({
-        storeBuild: {
-          starterStoreReady: true,
-          aiStatus: 'ready',
-          latestJobId: '5c0a0676-bd3f-495e-9f98-589f208c0d79',
-          canApplyAiDraft: true,
-          message: 'Your AI storefront is ready to preview and apply.',
-        },
-      }),
+      json: async () => createReadinessPayload(true),
     } as Response);
     mockFetchWithCsrf.mockImplementationOnce(applyResult);
 
@@ -182,15 +189,7 @@ describe('StoreBuildStatusCard', () => {
   it('retries stale apply requests only after accessible confirmation', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
-      json: async () => ({
-        storeBuild: {
-          starterStoreReady: true,
-          aiStatus: 'ready',
-          latestJobId: '5c0a0676-bd3f-495e-9f98-589f208c0d79',
-          canApplyAiDraft: true,
-          message: 'Your AI storefront is ready to preview and apply.',
-        },
-      }),
+      json: async () => createReadinessPayload(true),
     } as Response);
     mockFetchWithCsrf
       .mockResolvedValueOnce({
@@ -239,15 +238,7 @@ describe('StoreBuildStatusCard', () => {
   it('does not force apply when stale confirmation is cancelled', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
-      json: async () => ({
-        storeBuild: {
-          starterStoreReady: true,
-          aiStatus: 'ready',
-          latestJobId: '5c0a0676-bd3f-495e-9f98-589f208c0d79',
-          canApplyAiDraft: true,
-          message: 'Your AI storefront is ready to preview and apply.',
-        },
-      }),
+      json: async () => createReadinessPayload(true),
     } as Response);
     mockFetchWithCsrf.mockResolvedValueOnce({
       ok: false,
@@ -271,5 +262,19 @@ describe('StoreBuildStatusCard', () => {
 
     expect(mockFetchWithCsrf).toHaveBeenCalledTimes(1);
     expect(mockToast).not.toHaveBeenCalled();
+  });
+
+  it('shows the existing retry state when readiness only contains store build data', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ storeBuild: createReadinessPayload().storeBuild }),
+    } as Response);
+
+    render(<StoreBuildStatusCard />);
+
+    expect(
+      await screen.findByText('Failed to load store build status.')
+    ).toBeInTheDocument();
   });
 });
