@@ -297,7 +297,7 @@ BEGIN
   END IF;
 
   v_answered_in_ms := pg_catalog.floor(
-    pg_catalog.extract('epoch', (pg_catalog.now() - v_issued_at)) * 1000
+    pg_catalog.extract(epoch FROM (pg_catalog.now() - v_issued_at)) * 1000
   )::integer;
 
   IF v_answered_in_ms < 400 THEN
