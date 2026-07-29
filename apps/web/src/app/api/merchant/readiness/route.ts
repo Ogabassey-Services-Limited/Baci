@@ -9,7 +9,7 @@ import { storeReadinessQuerySchema } from '@/schemas/store-readiness-query';
 
 export async function GET(request: NextRequest) {
   const auth = await authenticateApiRequest(request);
-  if (!auth.user || !auth.supabase) {
+  if (auth.error || !auth.user || !auth.supabase) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

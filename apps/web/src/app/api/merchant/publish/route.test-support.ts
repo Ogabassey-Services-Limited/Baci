@@ -2,36 +2,46 @@ import { NextRequest } from 'next/server';
 import { vi } from 'vitest';
 import type { StoreLaunchReadiness } from '@/lib/store-readiness/build-store-launch-readiness';
 
+const mocks = vi.hoisted(() => ({
+  authenticateApiRequest: vi.fn(),
+  checkCsrfProtection: vi.fn(),
+  evictStorefrontPublicationCaches: vi.fn(),
+  getStorefrontPublicationCacheIdentity: vi.fn(),
+  getUserAccess: vi.fn(),
+  hasPermission: vi.fn(),
+  loadStoreLaunchReadiness: vi.fn(),
+  merchantUpdate: vi.fn(),
+}));
+
 export const MERCHANT_ID = '6b5cb8a4-5575-456c-b936-8cdfae30db74';
-export const mockAuthenticateApiRequest = vi.fn();
-export const mockGetUserAccess = vi.fn();
-export const mockHasPermission = vi.fn();
-export const mockCheckCsrfProtection = vi.fn();
-export const mockLoadStoreLaunchReadiness = vi.fn();
-export const mockGetStorefrontPublicationCacheIdentity = vi.fn();
-export const mockEvictStorefrontPublicationCaches = vi.fn();
-export const mockMerchantUpdate = vi.fn();
+export const mockAuthenticateApiRequest = mocks.authenticateApiRequest;
+export const mockGetUserAccess = mocks.getUserAccess;
+export const mockHasPermission = mocks.hasPermission;
+export const mockCheckCsrfProtection = mocks.checkCsrfProtection;
+export const mockLoadStoreLaunchReadiness = mocks.loadStoreLaunchReadiness;
+export const mockGetStorefrontPublicationCacheIdentity =
+  mocks.getStorefrontPublicationCacheIdentity;
+export const mockEvictStorefrontPublicationCaches =
+  mocks.evictStorefrontPublicationCaches;
+export const mockMerchantUpdate = mocks.merchantUpdate;
 
 vi.mock('@/lib/api-auth', () => ({
-  authenticateApiRequest: (...args: unknown[]) =>
-    mockAuthenticateApiRequest(...args),
-  getUserAccess: (...args: unknown[]) => mockGetUserAccess(...args),
-  hasPermission: (...args: unknown[]) => mockHasPermission(...args),
+  authenticateApiRequest: mocks.authenticateApiRequest,
+  getUserAccess: mocks.getUserAccess,
+  hasPermission: mocks.hasPermission,
 }));
 vi.mock('@/lib/csrf', () => ({
-  checkCsrfProtection: (...args: unknown[]) => mockCheckCsrfProtection(...args),
+  checkCsrfProtection: mocks.checkCsrfProtection,
 }));
 vi.mock('@/lib/store-readiness/load-store-launch-readiness', () => ({
-  loadStoreLaunchReadiness: (...args: unknown[]) =>
-    mockLoadStoreLaunchReadiness(...args),
+  loadStoreLaunchReadiness: mocks.loadStoreLaunchReadiness,
 }));
 vi.mock('@/lib/get-storefront-publication-cache-identity', () => ({
-  getStorefrontPublicationCacheIdentity: (...args: unknown[]) =>
-    mockGetStorefrontPublicationCacheIdentity(...args),
+  getStorefrontPublicationCacheIdentity:
+    mocks.getStorefrontPublicationCacheIdentity,
 }));
 vi.mock('@/lib/storefront-publication-cache-eviction', () => ({
-  evictStorefrontPublicationCaches: (...args: unknown[]) =>
-    mockEvictStorefrontPublicationCaches(...args),
+  evictStorefrontPublicationCaches: mocks.evictStorefrontPublicationCaches,
 }));
 
 export function makeRequest(
@@ -140,7 +150,8 @@ export function setupAuthenticatedRequest(supabase = createMockSupabase()) {
 }
 
 export function resetPublishRouteMocks() {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
+  setupAuthenticatedRequest();
   mockCheckCsrfProtection.mockResolvedValue({ valid: true, response: null });
   mockLoadStoreLaunchReadiness.mockResolvedValue(readyLaunchReadiness());
   mockGetStorefrontPublicationCacheIdentity.mockResolvedValue({

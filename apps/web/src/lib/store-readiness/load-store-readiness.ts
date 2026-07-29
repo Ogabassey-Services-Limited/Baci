@@ -7,12 +7,14 @@ import {
   buildStoreBuildStatus,
   type StorefrontBuildJob,
 } from '@/lib/store-build-status';
+import { unknownValueGuards } from '@/lib/unknown-value-guards';
+import type { Database } from '@/types/supabase';
 import { buildStoreReadiness } from './build-store-readiness';
 import { hasPublishedHero } from './has-published-hero';
 import { loadStoreLaunchReadiness } from './load-store-launch-readiness';
 
 export interface LoadStoreReadinessInput {
-  supabase: SupabaseClient;
+  supabase: SupabaseClient<Database>;
   merchantId: string;
   access: UserAccess;
   surface: StoreReadinessSurface;
@@ -23,7 +25,7 @@ function throwQueryError(source: string, error: { message: string }): never {
 }
 
 async function loadReadinessOptionalMerchant(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   merchantId: string
 ) {
   const result = await supabase
@@ -45,7 +47,7 @@ async function loadReadinessOptionalMerchant(
 }
 
 async function loadHomePageConfig(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   merchantId: string
 ) {
   const result = await supabase
@@ -60,7 +62,7 @@ async function loadHomePageConfig(
 }
 
 async function loadLatestStorefrontJob(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   merchantId: string
 ) {
   const result = await supabase
@@ -107,11 +109,12 @@ export async function loadStoreReadiness({
       ...launchReadiness.facts,
       isPublished: optionalMerchant.is_published === true,
       businessAddress: optionalMerchant.business_address,
-      pages: optionalMerchant.pages as Record<string, unknown> | null,
-      socialMedia: optionalMerchant.social_media as Record<
-        string,
-        unknown
-      > | null,
+      pages: unknownValueGuards.isRecord(optionalMerchant.pages)
+        ? optionalMerchant.pages
+        : null,
+      socialMedia: unknownValueGuards.isRecord(optionalMerchant.social_media)
+        ? optionalMerchant.social_media
+        : null,
       analyticsIds: [
         optionalMerchant.google_analytics_id,
         optionalMerchant.facebook_pixel_id,

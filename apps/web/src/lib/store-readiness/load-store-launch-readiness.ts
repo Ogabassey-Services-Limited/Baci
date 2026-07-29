@@ -7,6 +7,7 @@ import {
 } from '@/lib/checkout/payment-gateway-availability';
 import { fetchMerchantIdentityVerified } from '@/lib/fetch-merchant-identity-verified';
 import { fetchMerchantPaystackConfigured } from '@/lib/fetch-merchant-paystack-configured';
+import type { Database } from '@/types/supabase';
 import {
   buildStoreLaunchReadiness,
   type StoreLaunchFacts,
@@ -14,7 +15,7 @@ import {
 } from './build-store-launch-readiness';
 
 export interface LoadStoreLaunchReadinessInput {
-  supabase: SupabaseClient;
+  supabase: SupabaseClient<Database>;
   merchantId: string;
 }
 

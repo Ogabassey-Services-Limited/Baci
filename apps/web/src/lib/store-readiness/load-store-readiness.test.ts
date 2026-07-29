@@ -43,6 +43,8 @@ function client(
     homeError?: { message: string } | null;
     jobError?: { message: string } | null;
     optionalMerchantError?: { message: string } | null;
+    pages?: unknown;
+    socialMedia?: unknown;
     activeProductCount?: number;
   } = {}
 ) {
@@ -65,9 +67,9 @@ function client(
       facebook_pixel_id: null,
       google_analytics_id: null,
       is_published: false,
-      pages: null,
+      pages: options.pages ?? null,
       snapchat_pixel_id: null,
-      social_media: null,
+      social_media: options.socialMedia ?? null,
       tiktok_pixel_id: null,
       twitter_pixel_id: null,
     },
@@ -206,6 +208,26 @@ describe('loadStoreReadiness', () => {
     );
     expect(result.items).toContainEqual(
       expect.objectContaining({ id: 'multiple_products', completed: false })
+    );
+  });
+
+  it('does not complete content checklist items from JSON arrays', async () => {
+    const pages = Object.assign(['about page'], { about: 'injected value' });
+    const socialMedia = Object.assign(['instagram'], {
+      instagram: '@injected',
+    });
+    const authenticatedClient = client({
+      pages,
+      socialMedia,
+    });
+
+    const result = await load(authenticatedClient);
+
+    expect(result.items).toContainEqual(
+      expect.objectContaining({ id: 'about_page', completed: false })
+    );
+    expect(result.items).toContainEqual(
+      expect.objectContaining({ id: 'social_media', completed: false })
     );
   });
 

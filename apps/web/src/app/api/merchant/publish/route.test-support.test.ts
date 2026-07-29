@@ -3,7 +3,10 @@ import {
   createMockSupabase,
   incompleteLaunchReadiness,
   MERCHANT_ID,
+  mockAuthenticateApiRequest,
   mockMerchantUpdate,
+  resetPublishRouteMocks,
+  setupAuthenticatedRequest,
 } from './route.test-support';
 
 describe('publish route test support', () => {
@@ -23,5 +26,22 @@ describe('publish route test support', () => {
       MERCHANT_ID
     );
     expect(result.error).toBeNull();
+  });
+
+  it('clears queued auth outcomes and restores authenticated defaults between tests', async () => {
+    mockAuthenticateApiRequest.mockResolvedValueOnce({
+      error: 'Expired session',
+      supabase: null,
+      user: null,
+    });
+
+    resetPublishRouteMocks();
+    const supabase = setupAuthenticatedRequest();
+
+    await expect(mockAuthenticateApiRequest()).resolves.toEqual({
+      error: null,
+      supabase,
+      user: { id: 'user-123' },
+    });
   });
 });

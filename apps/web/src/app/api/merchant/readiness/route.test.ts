@@ -106,6 +106,22 @@ describe('GET /api/merchant/readiness', () => {
     expect(mocks.loadStoreReadiness).not.toHaveBeenCalled();
   });
 
+  it('returns 401 when authentication reports an error despite a populated client and user', async () => {
+    mocks.authenticateApiRequest.mockResolvedValue({
+      error: 'Expired session',
+      supabase: scopedClient,
+      user: { id: 'user-1' },
+    });
+    const { GET } = await import('./route');
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({ error: 'Unauthorized' });
+    expect(mocks.getMerchantForApiRequest).not.toHaveBeenCalled();
+    expect(mocks.loadStoreReadiness).not.toHaveBeenCalled();
+  });
+
   it('passes the bearer-scoped client to merchant resolution and the loader', async () => {
     const { GET } = await import('./route');
     const input = bearerRequest('?surface=mobile');
