@@ -1,4 +1,5 @@
-import { render } from '@testing-library/react';
+import { act, fireEvent, render } from '@testing-library/react';
+import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 type MutationOptions = {
@@ -27,14 +28,31 @@ vi.mock('@/hooks/useTheme', () => ({
 vi.mock('@react-native-vector-icons/ionicons', () => ({ default: () => null }));
 vi.mock('react-native', () => ({
   Alert: { alert: mocks.alert },
-  Pressable: () => null,
-  Text: () => null,
-  View: () => null,
+  Pressable: ({
+    accessibilityLabel,
+    children,
+    onPress,
+  }: {
+    accessibilityLabel?: string;
+    children?: React.ReactNode;
+    onPress?: () => void;
+  }) => (
+    <button aria-label={accessibilityLabel} onClick={onPress} type="button">
+      {children}
+    </button>
+  ),
+  Text: ({ children }: { children?: React.ReactNode }) => (
+    <span>{children}</span>
+  ),
+  View: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
   StyleSheet: { create: (value: unknown) => value },
 }));
 vi.mock('./CacSearchStep', () => ({ default: () => null }));
 vi.mock('./CacUploadStep', () => ({ default: () => null }));
-vi.mock('./CacResultStep', () => ({ default: () => null }));
+vi.mock('./CacResultStep', () => ({
+  default: ({ verified }: { verified: boolean }) =>
+    verified ? <span>Verified result</span> : <span>Unverified result</span>,
+}));
 vi.mock('./VerificationStatusBadge', () => ({ default: () => null }));
 vi.mock('./cac-certificate-picker', () => ({
   chooseCertificateSource: vi.fn(),
@@ -60,14 +78,20 @@ describe('CacVerificationCard readiness handoff', () => {
     const refresh = new Promise<void>((resolve) => {
       release = resolve;
     });
-    const { queryByText } = render(
+    const { getByRole, queryByText } = render(
       <CacVerificationCard onVerified={() => refresh} verified={false} />
+    );
+    fireEvent.click(
+      getByRole('button', { name: 'Toggle CAC Verification section' })
     );
     const done = completeVerifiedMutation();
     await Promise.resolve();
     expect(queryByText(/verified/i)).toBeNull();
-    release();
-    await done;
+    await act(async () => {
+      release();
+      await done;
+    });
+    expect(queryByText('Verified result')).not.toBeNull();
   });
 
   it('routes a rejected readiness refresh through the existing mutation error UI', async () => {

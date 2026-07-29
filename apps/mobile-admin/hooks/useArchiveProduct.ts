@@ -31,19 +31,22 @@ export function useArchiveProduct() {
   return useMutation({
     mutationFn: ({ productId }: { productId: string }) =>
       archiveProductById(productId),
-    onSuccess: async () => {
-      if (!merchant?.id) return;
-      await invalidateStoreReadiness(queryClient, merchant.id);
-    },
     mutationKey: ['archiveProduct'],
-    onSettled: (_data, _error, { productId }) => {
-      queryClient.invalidateQueries({ queryKey: ['products', merchant?.id] });
-      queryClient.invalidateQueries({
-        queryKey: ['product', merchant?.id, productId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ['inventory-stats', merchant?.id],
-      });
+    onSettled: async (_data, error, { productId }) => {
+      const merchantId = merchant?.id;
+      const invalidations = [
+        queryClient.invalidateQueries({ queryKey: ['products', merchantId] }),
+        queryClient.invalidateQueries({
+          queryKey: ['product', merchantId, productId],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['inventory-stats', merchantId],
+        }),
+      ];
+      if (!error && merchantId?.trim()) {
+        invalidations.push(invalidateStoreReadiness(queryClient, merchantId));
+      }
+      await Promise.all(invalidations);
     },
   });
 }

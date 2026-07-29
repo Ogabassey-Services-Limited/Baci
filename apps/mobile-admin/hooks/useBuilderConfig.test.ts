@@ -55,11 +55,13 @@ const baseConfig = {
   root: { title: 'Home' },
   zones: {},
 };
+let latestQueryClient: QueryClient | null = null;
 
 function wrapper({ children }: { children: ReactNode }) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
+  latestQueryClient = client;
   return React.createElement(QueryClientProvider, { client }, children);
 }
 
@@ -70,6 +72,7 @@ describe('useBuilderConfig', () => {
       config: baseConfig,
       isPublished: false,
     });
+    latestQueryClient = null;
   });
 
   it('loads builder config through the centralized mobile API client', async () => {
@@ -191,7 +194,11 @@ describe('useBuilderConfig', () => {
   });
 
   it('keeps publish pending until builder and readiness invalidations finish', async () => {
+    let releaseBuilder!: () => void;
     let releaseReadiness!: () => void;
+    const builder = new Promise<void>((resolve) => {
+      releaseBuilder = resolve;
+    });
     const readiness = new Promise<void>((resolve) => {
       releaseReadiness = resolve;
     });
@@ -205,6 +212,8 @@ describe('useBuilderConfig', () => {
     await waitFor(() => {
       expect(result.current.config).toEqual(baseConfig);
     });
+    if (!latestQueryClient) throw new Error('Expected query client');
+    vi.spyOn(latestQueryClient, 'invalidateQueries').mockReturnValue(builder);
     act(() => {
       result.current.publish();
     });
@@ -218,9 +227,13 @@ describe('useBuilderConfig', () => {
         expect.anything(),
         'merchant-1'
       );
+      expect(latestQueryClient?.invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ['builderConfig', 'home'],
+      });
       expect(result.current.isPublishing).toBe(true);
     });
 
+    releaseBuilder();
     releaseReadiness();
 
     await waitFor(() => {

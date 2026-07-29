@@ -263,6 +263,30 @@ describe('useProducts branch semantics', () => {
     expect(mocks.invalidateStoreReadiness).not.toHaveBeenCalled();
   });
 
+  it('co-starts and awaits product-list and readiness refreshes for an active create', async () => {
+    const releases: Array<() => void> = [];
+    const deferred = () =>
+      new Promise<void>((resolve) => releases.push(resolve));
+    mocks.queryClient.invalidateQueries.mockImplementation(deferred);
+    mocks.invalidateStoreReadiness.mockImplementation(deferred);
+    useCreateProduct();
+    let completed = false;
+    const completion = Promise.resolve(
+      mocks.mutationConfigs[0]?.onSuccess?.(
+        { id: 'product-1', status: 'active' },
+        {}
+      )
+    ).then(() => {
+      completed = true;
+    });
+
+    expect(releases).toHaveLength(2);
+    expect(completed).toBe(false);
+    for (const release of releases) release();
+    await completion;
+    expect(completed).toBe(true);
+  });
+
   it('does not invalidate readiness after a failed product create', async () => {
     mocks.createProductRecord.mockRejectedValueOnce(new Error('Create failed'));
     useCreateProduct();
@@ -329,6 +353,30 @@ describe('useProducts branch semantics', () => {
       mocks.queryClient,
       'merchant-1'
     );
+  });
+
+  it('co-starts and awaits list, detail, and readiness refreshes for an explicit status mutation', async () => {
+    const releases: Array<() => void> = [];
+    const deferred = () =>
+      new Promise<void>((resolve) => releases.push(resolve));
+    mocks.queryClient.invalidateQueries.mockImplementation(deferred);
+    mocks.invalidateStoreReadiness.mockImplementation(deferred);
+    useUpdateProductStatus();
+    let completed = false;
+    const completion = Promise.resolve(
+      mocks.mutationConfigs[0]?.onSuccess?.(
+        {},
+        { productId: 'product-1', status: 'active' }
+      )
+    ).then(() => {
+      completed = true;
+    });
+
+    expect(releases).toHaveLength(3);
+    expect(completed).toBe(false);
+    for (const release of releases) release();
+    await completion;
+    expect(completed).toBe(true);
   });
 
   it('calls inventory stats RPC only with merchant id', () => {

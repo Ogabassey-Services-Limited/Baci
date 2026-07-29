@@ -17,6 +17,9 @@ const queryClientMocks = vi.hoisted(() => ({
   invalidateQueries: vi.fn(),
   setQueryData: vi.fn(),
 }));
+const readinessMocks = vi.hoisted(() => ({
+  invalidateStoreReadiness: vi.fn().mockResolvedValue(undefined),
+}));
 const accessMocks = vi.hoisted(() => ({
   useMerchant: vi.fn(),
   useRevenueCat: vi.fn(),
@@ -44,7 +47,7 @@ const supabaseMocks = vi.hoisted(() => {
 const mutationMocks = vi.hoisted(() => {
   type MutationOptions = {
     mutationFn: (variables?: unknown) => Promise<unknown>;
-    onSuccess?: (data?: unknown) => void;
+    onSuccess?: (data?: unknown) => Promise<void> | void;
   };
   const state: { options: MutationOptions | null } = { options: null };
   return {
@@ -54,8 +57,8 @@ const mutationMocks = vi.hoisted(() => {
       return {
         isPending: false,
         mutate: (variables?: unknown) => {
-          void options.mutationFn(variables).then((data) => {
-            options.onSuccess?.(data);
+          void options.mutationFn(variables).then(async (data) => {
+            await options.onSuccess?.(data);
           });
         },
       };
@@ -213,7 +216,7 @@ vi.mock('@/lib/supabase', () => ({
 }));
 
 vi.mock('@/lib/invalidate-store-readiness', () => ({
-  invalidateStoreReadiness: vi.fn().mockResolvedValue(undefined),
+  invalidateStoreReadiness: readinessMocks.invalidateStoreReadiness,
 }));
 
 vi.mock('@/components/ui/ScreenSkeleton', () => ({
@@ -689,6 +692,38 @@ describe('AnalyticsConfigScreen — background refetch must not clobber edits (V
 
     await mutationMocks.state.options?.mutationFn();
     expect(supabaseMocks.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('waits for readiness invalidation before showing analytics save success', async () => {
+    let releaseReadiness!: () => void;
+    const readiness = new Promise<void>((resolve) => {
+      releaseReadiness = resolve;
+    });
+    readinessMocks.invalidateStoreReadiness.mockReturnValueOnce(readiness);
+    queryMocks.useQuery.mockReturnValue({
+      data: { analytics: { ...merchantAnalytics }, isOwner: true },
+      isError: false,
+      isLoading: false,
+    });
+    render(<AnalyticsConfigScreen />);
+
+    const completion = mutationMocks.state.options?.onSuccess?.({
+      ...merchantAnalytics,
+    });
+    await Promise.resolve();
+    expect(Alert.alert).not.toHaveBeenCalledWith(
+      'Success',
+      'Analytics settings saved!',
+      expect.any(Array)
+    );
+
+    releaseReadiness();
+    await completion;
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Success',
+      'Analytics settings saved!',
+      expect.any(Array)
+    );
   });
 });
 

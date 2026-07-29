@@ -94,6 +94,41 @@ describe('useArchiveProduct', () => {
     });
   });
 
+  it('starts all authoritative refreshes together and waits for each after a successful archive', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
+    const releases: Array<() => void> = [];
+    const deferred = () =>
+      new Promise<void>((resolve) => {
+        releases.push(resolve);
+      });
+    vi.spyOn(queryClient, 'invalidateQueries').mockImplementation(deferred);
+    mocks.invalidateStoreReadiness.mockImplementation(deferred);
+    const { result } = renderHook(() => useArchiveProduct(), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    let completed = false;
+    const archive = result.current
+      .mutateAsync({ productId: 'product-1' })
+      .then(() => {
+        completed = true;
+      });
+
+    await vi.waitFor(() => {
+      expect(releases).toHaveLength(4);
+    });
+    expect(completed).toBe(false);
+
+    for (const release of releases) release();
+    await archive;
+    expect(completed).toBe(true);
+  });
+
   it('surfaces errors and still settles product query invalidation', async () => {
     mocks.apiClient.mockRejectedValueOnce(new Error('archive failed'));
     const queryClient = new QueryClient({
