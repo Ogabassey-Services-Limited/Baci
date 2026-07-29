@@ -725,6 +725,32 @@ describe('AnalyticsConfigScreen — background refetch must not clobber edits (V
       expect.any(Array)
     );
   });
+
+  it('reports analytics save success when the post-save readiness refresh rejects', async () => {
+    // Regression: the settings write has already persisted, so a best-effort
+    // readiness refresh must not turn that successful save into an error.
+    readinessMocks.invalidateStoreReadiness.mockRejectedValueOnce(
+      new Error('readiness unavailable')
+    );
+    queryMocks.useQuery.mockReturnValue({
+      data: { analytics: { ...merchantAnalytics }, isOwner: true },
+      isError: false,
+      isLoading: false,
+    });
+    render(<AnalyticsConfigScreen />);
+
+    await act(async () => {
+      await expect(
+        mutationMocks.state.options?.onSuccess?.({ ...merchantAnalytics })
+      ).resolves.toBeUndefined();
+    });
+
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Success',
+      'Analytics settings saved!',
+      expect.any(Array)
+    );
+  });
 });
 
 describe('bugfix: tracking credentials load via get_user_merchant_context (revoked-column 42501)', () => {

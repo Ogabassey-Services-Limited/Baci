@@ -43,14 +43,15 @@ describe('invalidateAnalyticsSaveReadiness', () => {
     expect(completed).toBe(true);
   });
 
-  it('propagates readiness invalidation failures', async () => {
+  it('keeps analytics saves successful when readiness invalidation fails', async () => {
     const queryClient = new QueryClient();
     vi.spyOn(queryClient, 'invalidateQueries').mockResolvedValue(undefined);
-    const failure = new Error('Readiness refresh failed');
-    mockInvalidateStoreReadiness.mockRejectedValueOnce(failure);
+    mockInvalidateStoreReadiness.mockRejectedValueOnce(
+      new Error('Readiness refresh failed')
+    );
 
     await expect(
       invalidateAnalyticsSaveReadiness(queryClient, 'merchant-1')
-    ).rejects.toBe(failure);
+    ).resolves.toBeUndefined();
   });
 });

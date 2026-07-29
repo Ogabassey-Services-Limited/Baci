@@ -1,5 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { invalidateStoreReadiness } from './invalidate-store-readiness';
+import { tryRefreshStoreReadiness } from './try-refresh-store-readiness';
 
 export async function invalidateAnalyticsSaveReadiness(
   queryClient: QueryClient,
@@ -8,6 +9,8 @@ export async function invalidateAnalyticsSaveReadiness(
   await Promise.all([
     queryClient.invalidateQueries({ queryKey: ['merchant'] }),
     queryClient.invalidateQueries({ queryKey: ['merchant-analytics-full'] }),
-    invalidateStoreReadiness(queryClient, merchantId),
+    tryRefreshStoreReadiness(() =>
+      invalidateStoreReadiness(queryClient, merchantId)
+    ),
   ]);
 }

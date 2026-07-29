@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import StoreSettingsScreen from './store-settings';
@@ -47,6 +47,12 @@ const mocks = vi.hoisted(() => ({
   subscriptionCardProps: {
     manageSubscriptionLabel: '',
     planLabel: '',
+  },
+  statusModalProps: {
+    message: '',
+    title: '',
+    type: '',
+    visible: false,
   },
 }));
 
@@ -171,7 +177,21 @@ vi.mock('@/components/ui/ScreenSkeleton', () => ({
 }));
 
 vi.mock('@/components/ui/StatusModal', () => ({
-  StatusModal: () => null,
+  StatusModal: ({
+    status,
+  }: {
+    status: {
+      message: string;
+      title: string;
+      type: string;
+      visible: boolean;
+    };
+  }) => {
+    mocks.statusModalProps = status;
+    return status.visible ? (
+      <output aria-label="save-status">{`${status.title}: ${status.message}`}</output>
+    ) : null;
+  },
 }));
 
 vi.mock('@/lib/supabase', () => ({
@@ -233,6 +253,17 @@ describe('StoreSettingsScreen', () => {
     };
     mocks.subscriptionCardProps.manageSubscriptionLabel = '';
     mocks.subscriptionCardProps.planLabel = '';
+    mocks.statusModalProps = {
+      message: '',
+      title: '',
+      type: '',
+      visible: false,
+    };
+    mocks.invalidateQueries.mockReset();
+    mocks.invalidateQueries.mockResolvedValue(undefined);
+    mocks.invalidateStoreReadiness.mockReset();
+    mocks.invalidateStoreReadiness.mockResolvedValue(undefined);
+    mocks.useMutation.mockClear();
   });
 
   it('uses SubscriptionManagement helper label for subscription actions', () => {
@@ -310,8 +341,28 @@ describe('StoreSettingsScreen', () => {
       | { onSuccess?: () => Promise<void> | void }
       | undefined;
 
-    await expect(mutationOptions?.onSuccess?.()).resolves.toBeUndefined();
+    await act(async () => {
+      await expect(mutationOptions?.onSuccess?.()).resolves.toBeUndefined();
+    });
     expect(mocks.invalidateQueries).toHaveBeenCalled();
     expect(mocks.invalidateStoreReadiness).not.toHaveBeenCalled();
+  });
+
+  it('shows saved settings when the post-save readiness refresh rejects', async () => {
+    mocks.invalidateStoreReadiness.mockRejectedValueOnce(
+      new Error('readiness unavailable')
+    );
+    render(<StoreSettingsScreen />);
+    const mutationOptions = mocks.useMutation.mock.calls.at(-1)?.[0] as
+      | { onSuccess?: () => Promise<void> | void }
+      | undefined;
+
+    await act(async () => {
+      await expect(mutationOptions?.onSuccess?.()).resolves.toBeUndefined();
+    });
+
+    expect(
+      screen.getByRole('status', { name: 'save-status' })
+    ).toHaveTextContent('Success!: Store settings updated successfully.');
   });
 });
