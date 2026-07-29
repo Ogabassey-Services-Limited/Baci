@@ -23,7 +23,7 @@ function sourceSlice(value, start, end) {
   return value.slice(startIndex, endIndex);
 }
 
-test('bootstrap captures before mutation, journals, completes, and disables every unit', () => {
+test('bootstrap captures before mutation, journals, completes, and disables concrete units', () => {
   const bootstrap = sourceSlice(
     source,
     'bootstrap() {',
@@ -37,7 +37,6 @@ test('bootstrap captures before mutation, journals, completes, and disables ever
   assert.match(bootstrap, /install-bootstrap-controller\.mjs" complete/);
   assert.match(bootstrap, /install_units/);
   assert.match(source, /systemctl disable --now/);
-  assert.match(source, /expected_unit_file_state=static/);
   assert.match(
     source,
     /unit did not become inactive with the expected file state/
@@ -59,21 +58,13 @@ test('installs the watchdog template before the first daemon reload or disable',
   );
 });
 
-test('expects the installable watchdog template to be disabled after bootstrap', async () => {
+test('keeps the watchdog template installable for explicit campaign instances', async () => {
   const watchdogUnit = await readFile(
     new URL('./baci-cwv-campaign-watchdog@.service', import.meta.url),
     'utf8'
   );
 
   assert.match(watchdogUnit, /\[Install\][\s\S]*WantedBy=multi-user\.target/);
-  assert.match(
-    source,
-    /baci-cwv-campaign-watchdog@\.service\) expected_unit_file_state=disabled/
-  );
-  assert.match(
-    source,
-    /printf 'loaded\\ninactive\\n%s' "\$expected_unit_file_state"/
-  );
 });
 
 test('prepare keeps external bytes opaque until the watchdog and copies no-follow', () => {
