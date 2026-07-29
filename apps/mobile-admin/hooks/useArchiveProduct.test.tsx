@@ -101,6 +101,32 @@ describe('useArchiveProduct', () => {
     });
   });
 
+  it('uses unscoped query prefixes after archiving without merchant context', async () => {
+    mocks.merchant = null;
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+    const { result } = renderHook(() => useArchiveProduct(), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    await act(async () => {
+      await result.current.mutateAsync({ productId: 'product-1' });
+    });
+
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['products'],
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['product'],
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['inventory-stats'],
+    });
+    expect(mocks.invalidateStoreReadiness).not.toHaveBeenCalled();
+  });
+
   it('starts all authoritative refreshes together and waits for each after a successful archive', async () => {
     const queryClient = new QueryClient({
       defaultOptions: {

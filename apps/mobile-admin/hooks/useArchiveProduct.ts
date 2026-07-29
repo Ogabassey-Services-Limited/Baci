@@ -42,14 +42,19 @@ export function useArchiveProduct() {
     }),
     onSettled: async (_data, error, { productId }, context) => {
       const merchantId = context?.merchantId;
+      const productsQueryKey = merchantId
+        ? ['products', merchantId]
+        : ['products'];
+      const productQueryKey = merchantId
+        ? ['product', merchantId, productId]
+        : ['product'];
+      const inventoryStatsQueryKey = merchantId
+        ? ['inventory-stats', merchantId]
+        : ['inventory-stats'];
       const invalidations: Promise<unknown>[] = [
-        queryClient.invalidateQueries({ queryKey: ['products', merchantId] }),
-        queryClient.invalidateQueries({
-          queryKey: ['product', merchantId, productId],
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ['inventory-stats', merchantId],
-        }),
+        queryClient.invalidateQueries({ queryKey: productsQueryKey }),
+        queryClient.invalidateQueries({ queryKey: productQueryKey }),
+        queryClient.invalidateQueries({ queryKey: inventoryStatsQueryKey }),
       ];
       if (!error && merchantId?.trim()) {
         invalidations.push(
