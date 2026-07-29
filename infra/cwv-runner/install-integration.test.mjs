@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 
 const source = await readFile(new URL('./install.sh', import.meta.url), 'utf8');
@@ -23,7 +26,7 @@ function sourceSlice(value, start, end) {
   return value.slice(startIndex, endIndex);
 }
 
-test('bootstrap captures before mutation, journals, completes, and disables every unit', () => {
+test('bootstrap captures before mutation, journals, completes, and disables concrete units', () => {
   const bootstrap = sourceSlice(
     source,
     'bootstrap() {',
@@ -37,7 +40,6 @@ test('bootstrap captures before mutation, journals, completes, and disables ever
   assert.match(bootstrap, /install-bootstrap-controller\.mjs" complete/);
   assert.match(bootstrap, /install_units/);
   assert.match(source, /systemctl disable --now/);
-  assert.match(source, /expected_unit_file_state=static/);
   assert.match(
     source,
     /unit did not become inactive with the expected file state/
@@ -59,21 +61,92 @@ test('installs the watchdog template before the first daemon reload or disable',
   );
 });
 
-test('expects the installable watchdog template to be disabled after bootstrap', async () => {
+test('keeps the watchdog template installable for explicit campaign instances', async () => {
   const watchdogUnit = await readFile(
     new URL('./baci-cwv-campaign-watchdog@.service', import.meta.url),
     'utf8'
   );
 
   assert.match(watchdogUnit, /\[Install\][\s\S]*WantedBy=multi-user\.target/);
-  assert.match(
-    source,
-    /baci-cwv-campaign-watchdog@\.service\) expected_unit_file_state=disabled/
+});
+
+test('disables concrete watchdog instances without operating on the uninstantiated template', async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), 'baci-watchdog-units-'));
+  context.after(() => rm(directory, { force: true, recursive: true }));
+  const log = join(directory, 'systemctl.log');
+  const systemctl = join(directory, 'systemctl');
+  const node = join(directory, 'node');
+  await writeFile(
+    systemctl,
+    `#!/bin/sh
+printf '%s\n' "$*" >>"$SYSTEMCTL_LOG"
+case "$1" in
+  daemon-reload) exit 0 ;;
+  list-units) [ "\${FAIL_LIST_UNITS:-0}" != 1 ] || exit 66; printf '%s\n' 'baci-cwv-campaign-watchdog@live.service loaded active running fixture'; exit 0 ;;
+  list-unit-files) [ "\${FAIL_LIST_UNIT_FILES:-0}" != 1 ] || exit 67; printf '%s\n' 'baci-cwv-campaign-watchdog@.service disabled enabled' 'baci-cwv-campaign-watchdog@enabled.service enabled enabled'; exit 0 ;;
+  disable) [ "$3" != 'baci-cwv-campaign-watchdog@.service' ] || exit 64; exit 0 ;;
+  show) case "$2" in *'@'*) unit_state=disabled;; *) unit_state=static;; esac; printf 'loaded\ninactive\n%s\n' "$unit_state"; exit 0 ;;
+  is-enabled) printf 'disabled\n'; exit 1 ;;
+esac
+exit 65
+`
   );
-  assert.match(
+  await writeFile(node, '#!/bin/sh\nexit 0\n');
+  await Promise.all([chmod(systemctl, 0o755), chmod(node, 0o755)]);
+  const installUnits = sourceSlice(
     source,
-    /printf 'loaded\\ninactive\\n%s' "\$expected_unit_file_state"/
+    'install_units() {',
+    'install_sealed_helpers() {'
+  )
+    .replaceAll('/bin/systemctl', systemctl)
+    .replaceAll('/usr/bin/node', node);
+  const result = spawnSync(
+    '/bin/sh',
+    [
+      '-c',
+      `set -eu
+die() { printf '%s\n' "$*" >&2; exit 65; }
+ensure_file() { :; }
+sha256() { printf '%064d\n' 0; }
+ROOT=/fixture SCRIPT_DIR=/fixture BOOTSTRAP_DIRECTORY=/fixture
+${installUnits}
+install_units`,
+    ],
+    { encoding: 'utf8', env: { ...process.env, SYSTEMCTL_LOG: log } }
   );
+  assert.equal(result.status, 0, result.stderr);
+  const calls = await readFile(log, 'utf8');
+  assert.doesNotMatch(
+    calls,
+    /disable --now baci-cwv-campaign-watchdog@\.service/
+  );
+  assert.match(calls, /disable --now baci-cwv-campaign-watchdog@live\.service/);
+  assert.match(
+    calls,
+    /disable --now baci-cwv-campaign-watchdog@enabled\.service/
+  );
+  assert.match(calls, /is-enabled baci-cwv-campaign-watchdog@\.service/);
+  for (const failure of ['FAIL_LIST_UNITS', 'FAIL_LIST_UNIT_FILES']) {
+    const refused = spawnSync(
+      '/bin/sh',
+      [
+        '-c',
+        `set -eu
+die() { printf '%s\n' "$*" >&2; exit 65; }
+ensure_file() { :; }
+sha256() { printf '%064d\n' 0; }
+ROOT=/fixture SCRIPT_DIR=/fixture BOOTSTRAP_DIRECTORY=/fixture
+${installUnits}
+install_units`,
+      ],
+      {
+        encoding: 'utf8',
+        env: { ...process.env, SYSTEMCTL_LOG: log, [failure]: '1' },
+      }
+    );
+    assert.equal(refused.status, 65, `${failure}: ${refused.stderr}`);
+    assert.match(refused.stderr, /watchdog instance inventory refused/);
+  }
 });
 
 test('prepare keeps external bytes opaque until the watchdog and copies no-follow', () => {
