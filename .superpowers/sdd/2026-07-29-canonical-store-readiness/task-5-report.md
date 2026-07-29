@@ -62,6 +62,11 @@ organization review service returned a recoverable rate limit (28-minute wait;
 no assigned organization seat). This is an external open exact-head review gate,
 not a clean CodeRabbit result.
 
+## Commit
+
+Task implementation commit: `227492819f` (`refactor(api): serve canonical
+readiness to web and mobile`).
+
 ## Notes for follow-up
 
 - Task 7 must remove the deprecated route-only presentation types as it moves
