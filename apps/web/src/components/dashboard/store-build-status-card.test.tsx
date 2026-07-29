@@ -1,3 +1,4 @@
+import { isStoreReadiness } from '@baci/shared';
 import {
   cleanup,
   fireEvent,
@@ -56,6 +57,13 @@ function createReadinessPayload(canApplyAiDraft = false) {
       canApplyAiDraft,
       message: 'Your AI storefront is ready to preview and apply.',
     },
+  };
+}
+
+function createMobileReadinessPayload() {
+  return {
+    ...createReadinessPayload(),
+    surface: 'mobile' as const,
   };
 }
 
@@ -269,6 +277,22 @@ describe('StoreBuildStatusCard', () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
       ok: true,
       json: async () => ({ storeBuild: createReadinessPayload().storeBuild }),
+    } as Response);
+
+    render(<StoreBuildStatusCard />);
+
+    expect(
+      await screen.findByText('Failed to load store build status.')
+    ).toBeInTheDocument();
+  });
+
+  it('shows the existing retry state for an otherwise valid mobile readiness payload', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const payload = createMobileReadinessPayload();
+    expect(isStoreReadiness(payload)).toBe(true);
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => payload,
     } as Response);
 
     render(<StoreBuildStatusCard />);

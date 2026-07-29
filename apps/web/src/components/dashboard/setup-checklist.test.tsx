@@ -1,4 +1,8 @@
-import type { WebStoreReadiness } from '@baci/shared';
+import {
+  isStoreReadiness,
+  type MobileStoreReadiness,
+  type WebStoreReadiness,
+} from '@baci/shared';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { act } from 'react';
@@ -91,6 +95,35 @@ const readiness = {
   ],
 } satisfies WebStoreReadiness;
 
+const mobileReadiness = {
+  merchantId: '11111111-1111-4111-8111-111111111111',
+  surface: 'mobile',
+  isReady: false,
+  isPublished: false,
+  completedRequired: 0,
+  totalRequired: 7,
+  completedRecommended: 0,
+  totalRecommended: 0,
+  overallProgress: 0,
+  storeBuild: {
+    starterStoreReady: false,
+    aiStatus: 'not_started',
+    latestJobId: null,
+    canApplyAiDraft: false,
+    message: 'Store setup is incomplete.',
+  },
+  items: [
+    {
+      id: 'first_product',
+      label: 'Publish your first product',
+      description: 'You need at least one published product to start selling',
+      completed: false,
+      priority: 'required',
+      category: 'products',
+    },
+  ],
+} satisfies MobileStoreReadiness;
+
 describe('SetupChecklist', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -125,6 +158,21 @@ describe('SetupChecklist', () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
       ok: true,
       json: async () => ({ isReady: false }),
+    } as Response);
+
+    render(<SetupChecklist compact />);
+
+    expect(
+      await screen.findByText('Failed to load your setup checklist.')
+    ).toBeInTheDocument();
+  });
+
+  it('shows a load error for an otherwise valid mobile readiness payload', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    expect(isStoreReadiness(mobileReadiness)).toBe(true);
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => mobileReadiness,
     } as Response);
 
     render(<SetupChecklist compact />);
