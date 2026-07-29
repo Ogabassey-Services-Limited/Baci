@@ -23,6 +23,10 @@ const temporaryPattern =
 const legacyTemporaryPattern = /^\.baci-bootstrap-replacement-[a-z0-9-]+$/;
 
 const destinationIdentity = (destination) => sha256(destination);
+const safeObsoleteTemporary = (actual, expectedSha256) =>
+  actual.sha256 === expectedSha256 &&
+  actual.mode === '0600' &&
+  Object.hasOwn(owners, actual.owner);
 
 function temporaryName(destination, expectedSha256, attempt) {
   if (!/^[0-9a-f]{64}$/.test(expectedSha256))
@@ -103,12 +107,14 @@ async function reconcileTemporaries(destination, expected, dependencies) {
         [temporary]: expected,
       })
     )[temporary];
-    if (
-      bound &&
-      (bound[1] !== destinationIdentity(destination) ||
-        bound[2] !== expected.sha256)
-    )
+    if (bound && bound[1] !== destinationIdentity(destination)) continue;
+    if (bound && bound[2] !== expected.sha256) {
+      if (!safeObsoleteTemporary(actual, bound[2]))
+        throw new TypeError('bootstrap replacement temporary drift');
+      await dependencies.removeFile(temporary);
+      await dependencies.syncDirectory(directory);
       continue;
+    }
     const permitted = [
       expected,
       { ...expected, mode: '0600', owner: expected.owner },

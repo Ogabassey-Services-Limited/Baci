@@ -82,6 +82,12 @@ test('recovers generation C without claiming an interrupted generation B tempora
   );
   assert.ok(bTemporary);
   assert.deepEqual(await readFile(join(root, bTemporary)), bBytes);
+  const unrelatedDestination = join(root, 'watchdog.service');
+  const unrelatedTemporary = join(
+    root,
+    `.baci-bootstrap-replacement-v2-${sha256(unrelatedDestination)}-${sha256(bBytes)}-unrelated`
+  );
+  await writeFile(unrelatedTemporary, bBytes, { mode: 0o600 });
 
   const stateC = stateFor('c'.repeat(40), cBytes);
   assert.equal(
@@ -98,5 +104,58 @@ test('recovers generation C without claiming an interrupted generation B tempora
     'replaced'
   );
   assert.deepEqual(await readFile(destination), cBytes);
-  assert.deepEqual(await readFile(join(root, bTemporary)), bBytes);
+  await assert.rejects(readFile(join(root, bTemporary)), { code: 'ENOENT' });
+  assert.deepEqual(await readFile(unrelatedTemporary), bBytes);
+});
+
+test('refuses obsolete same-destination residue with inconsistent content or metadata', async () => {
+  const destination = '/srv/baci-cwv/sealed/bootstrap.sha256';
+  const oldBytes = Buffer.from('generation-a\n');
+  const currentBytes = Buffer.from('generation-c\n');
+  const obsoleteSha256 = '8'.repeat(64);
+  const entry = `.baci-bootstrap-replacement-v2-${sha256(destination)}-${obsoleteSha256}-obsolete`;
+  const state = {
+    phase: 'captured',
+    sourceSha: 'c'.repeat(40),
+    captureSha256: '3'.repeat(64),
+    policyFileSha256: '5'.repeat(64),
+    prior: { [destination]: metadata(oldBytes) },
+    files: { [destination]: metadata(currentBytes) },
+  };
+  const intent = {
+    sourceSha: state.sourceSha,
+    captureSha256: state.captureSha256,
+    policyFileSha256: state.policyFileSha256,
+    pathSetSha256: sha256(JSON.stringify([destination])),
+    transitionPaths: [destination],
+  };
+  let removals = 0;
+  for (const actual of [
+    { sha256: '7'.repeat(64), mode: '0600', owner: 'root:root' },
+    { sha256: obsoleteSha256, mode: '0644', owner: 'root:root' },
+    { sha256: obsoleteSha256, mode: '0600', owner: 'unknown' },
+  ]) {
+    await assert.rejects(
+      replaceBootstrapFile(
+        {
+          currentDirectory: '/state/generation-c',
+          destination,
+          bytes: currentBytes,
+        },
+        {
+          readState: async () => state,
+          readIntent: async () => intent,
+          readDirectory: async () => [entry],
+          readProjection: async (files) => ({
+            [Object.keys(files)[0]]: actual,
+          }),
+          removeFile: () => {
+            removals += 1;
+          },
+        }
+      ),
+      /bootstrap replacement temporary drift/
+    );
+  }
+  assert.equal(removals, 0);
 });
