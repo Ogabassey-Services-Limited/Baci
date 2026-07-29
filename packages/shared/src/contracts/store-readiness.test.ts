@@ -59,6 +59,16 @@ describe('store readiness contract', () => {
       'internal slug leakage',
       { ...VALID_READINESS_FIXTURE, slug: 'private-store-slug' },
     ],
+    [
+      'unexpected store build key',
+      {
+        ...VALID_READINESS_FIXTURE,
+        storeBuild: {
+          ...VALID_READINESS_FIXTURE.storeBuild,
+          rawPaymentState: 'enabled',
+        },
+      },
+    ],
     ['empty merchant id', { ...VALID_READINESS_FIXTURE, merchantId: '' }],
     ['unknown surface', { ...VALID_READINESS_FIXTURE, surface: 'desktop' }],
     [
