@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import { mkdtemp, realpath, rm } from 'node:fs/promises';
+import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
@@ -90,6 +90,21 @@ describe('createReplayCommand', () => {
     });
     await expect(throwingRun('unsafe command', [])).rejects.toThrow(
       /^command failed: spawn-error$/
+    );
+  });
+
+  it('reports only the SQL line and SQLSTATE from a failed psql command', async () => {
+    const root = await temporaryRoot();
+    const psql = path.join(root, 'psql');
+    await writeFile(
+      psql,
+      "#!/bin/sh\nprintf 'psql:/owned/replay/secret.sql:42: ERROR:  42501\\nidentity@example.test postgresql://user:password@localhost/db\\n' >&2\nexit 1\n",
+      { mode: 0o700 }
+    );
+    const runCommand = replayCommandRuntime.create(root);
+
+    await expect(runCommand(psql, [])).rejects.toThrow(
+      /^psql failed: non-zero-exit \(line=42,sqlstate=42501\)$/
     );
   });
 

@@ -42,8 +42,33 @@ function sanitizedCommandName(command: string): string {
   return /^[A-Za-z0-9._-]+$/.test(basename) ? basename : 'command';
 }
 
-function commandFailure(command: string, failure: FailureClass): Error {
-  return new Error(`${sanitizedCommandName(command)} failed: ${failure}`);
+function boundedPsqlDiagnostic(
+  command: string,
+  stderr: readonly Buffer[]
+): string {
+  if (!/^psql(?:-[A-Za-z0-9._-]+)?$/.test(sanitizedCommandName(command))) {
+    return '';
+  }
+  const output = Buffer.concat(stderr).toString('utf8');
+  const match =
+    /^psql:[^\r\n]*:(\d+):\s+(?:ERROR|error):(?:\s{2}([0-9A-Z]{5})(?:\s|$))?/m.exec(
+      output
+    );
+  const line = Number(match?.[1]);
+  if (!Number.isSafeInteger(line) || line < 1) return '';
+  return ` (line=${line}${match?.[2] ? `,sqlstate=${match[2]}` : ''})`;
+}
+
+function commandFailure(
+  command: string,
+  failure: FailureClass,
+  stderr: readonly Buffer[] = []
+): Error {
+  const diagnostic =
+    failure === 'non-zero-exit' ? boundedPsqlDiagnostic(command, stderr) : '';
+  return new Error(
+    `${sanitizedCommandName(command)} failed: ${failure}${diagnostic}`
+  );
 }
 
 function createReplayCommand(
@@ -140,7 +165,7 @@ function createReplayCommand(
             return;
           }
           if (code !== 0) {
-            reject(commandFailure(command, 'non-zero-exit'));
+            reject(commandFailure(command, 'non-zero-exit', stderr));
             return;
           }
           resolve({

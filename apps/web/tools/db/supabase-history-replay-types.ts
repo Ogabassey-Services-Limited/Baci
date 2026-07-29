@@ -87,6 +87,12 @@ export type ReplayTransform = {
   search: string;
 };
 
+export type HistoricalMigrationRepair = {
+  originalSha256: string;
+  repairedSha256: string;
+  repositoryPath: string;
+};
+
 export type SupabaseHistoryReplayManifest = {
   aliasReceipt: { path: string; sha256: string };
   baseRegistry: {
@@ -144,7 +150,7 @@ export type SupabaseHistoryReplayManifest = {
   };
   repair: { body: string; path: string; sha256: string };
   semanticFixture: { path: string; sha256: string; sourceCount: number };
-  transforms: readonly ReplayTransform[];
+  historicalRepairs: readonly HistoricalMigrationRepair[];
 };
 
 export type PendingRepairState = 'materialized' | 'not-materialized';

@@ -189,20 +189,15 @@ describe('supabaseHistoryReplayManifest', () => {
     });
   });
 
-  it('binds the only replay transform and exact overlay', () => {
-    expect(supabaseHistoryReplayManifest.transforms).toEqual([
+  it('binds the approved historical repair without a replay-only overlay', () => {
+    expect(supabaseHistoryReplayManifest.historicalRepairs).toEqual([
       {
         originalSha256:
           '2b1ebac0ab9514d5b6c91e0ebf4543e3470b9fa71b0a80ab0746c9cccc9a4c41',
-        outputSha256:
-          '6f6444120e4cefe5febaba935ea70e7a304bf2d330702afc838d4ab70a77b9d8',
-        overlayPath:
-          'supabase/tests/migration_history_overlays/20260525140048_quiz_authoritative_answer_scoring.sql',
+        repairedSha256:
+          '13d774436dc584b5b38b094932fdf671012a8b8b2981b30a228b985f6ca05973',
         repositoryPath:
           'supabase/migrations/20260525140048_quiz_authoritative_answer_scoring.sql',
-        replacement: 'extract(epoch FROM (pg_catalog.now() - v_issued_at))',
-        search:
-          'pg_catalog.extract(epoch FROM (pg_catalog.now() - v_issued_at))',
       },
     ]);
   });
