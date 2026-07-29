@@ -96,6 +96,17 @@ describe('store readiness contract', () => {
       { ...VALID_READINESS_FIXTURE, overallProgress: 50 },
     ],
     [
+      'duplicate canonical item ids',
+      {
+        ...VALID_READINESS_FIXTURE,
+        items: [
+          VALID_READINESS_FIXTURE.items[0],
+          VALID_READINESS_FIXTURE.items[0],
+        ],
+        totalRequired: 2,
+      },
+    ],
+    [
       'missing store build status',
       { ...VALID_READINESS_FIXTURE, storeBuild: undefined },
     ],

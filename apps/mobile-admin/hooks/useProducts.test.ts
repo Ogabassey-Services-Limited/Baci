@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
     ) => void;
     onSuccess?: (data: unknown, variables: Record<string, unknown>) => unknown;
   }>,
+  updateProductStatus: vi.fn(),
   updateProductRecord: vi.fn(),
   productQueryResult: {
     count: 0,
@@ -154,6 +155,11 @@ vi.mock('./product-save', () => ({
   updateProductRecord: mocks.updateProductRecord,
 }));
 
+vi.mock('./products-data', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./products-data')>();
+  return { ...actual, updateProductStatus: mocks.updateProductStatus };
+});
+
 import {
   useCreateProduct,
   useInventoryStats,
@@ -183,6 +189,7 @@ describe('useProducts branch semantics', () => {
     mocks.createProductRecord.mockReset();
     mocks.invalidateStoreReadiness.mockReset();
     mocks.invalidateStoreReadiness.mockResolvedValue(undefined);
+    mocks.updateProductStatus.mockReset();
     mocks.updateProductRecord.mockReset();
   });
 
@@ -353,6 +360,20 @@ describe('useProducts branch semantics', () => {
       mocks.queryClient,
       'merchant-1'
     );
+  });
+
+  it('does not invalidate product or readiness queries when a status mutation fails', async () => {
+    const failure = new Error('Status update failed');
+    mocks.updateProductStatus.mockRejectedValueOnce(failure);
+    useUpdateProductStatus();
+    const mutation = mocks.mutationConfigs[0]?.mutationFn;
+
+    await expect(
+      mutation?.({ productId: 'product-1', status: 'active' })
+    ).rejects.toBe(failure);
+
+    expect(mocks.queryClient.invalidateQueries).not.toHaveBeenCalled();
+    expect(mocks.invalidateStoreReadiness).not.toHaveBeenCalled();
   });
 
   it('co-starts and awaits list, detail, and readiness refreshes for an explicit status mutation', async () => {

@@ -1,10 +1,9 @@
 'use client';
 
-import {
-  isStoreReadiness,
-  type StoreReadinessItem,
-  type WebStoreReadiness,
-  type WebStoreReadinessItemId,
+import type {
+  StoreReadinessItem,
+  WebStoreReadiness,
+  WebStoreReadinessItemId,
 } from '@baci/shared';
 import {
   AlertCircle,
@@ -45,6 +44,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { requestMerchantPublish } from '@/lib/merchant-publish-client';
 import { cn } from '@/lib/utils';
+import { isWebStoreReadiness } from './is-web-store-readiness';
 import { getWebStoreReadinessHref } from './store-readiness-hrefs';
 
 const categoryIcons = {
@@ -344,7 +344,7 @@ export function SetupChecklist({
           throw new Error('Failed to fetch readiness');
         }
         const data: unknown = await response.json();
-        if (!isStoreReadiness(data) || data.surface !== 'web') {
+        if (!isWebStoreReadiness(data)) {
           throw new Error('Invalid readiness payload');
         }
         if (active) {

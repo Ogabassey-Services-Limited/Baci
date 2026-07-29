@@ -36,9 +36,9 @@ function createReadinessPayload(canApplyAiDraft = false) {
     isReady: false,
     isPublished: false,
     completedRequired: 0,
-    totalRequired: 7,
+    totalRequired: 1,
     completedRecommended: 0,
-    totalRecommended: 8,
+    totalRecommended: 0,
     overallProgress: 0,
     items: [
       {

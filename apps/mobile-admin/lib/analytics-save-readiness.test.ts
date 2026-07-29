@@ -42,4 +42,15 @@ describe('invalidateAnalyticsSaveReadiness', () => {
     expect(events).toEqual(['merchant', 'merchant-analytics-full']);
     expect(completed).toBe(true);
   });
+
+  it('propagates readiness invalidation failures', async () => {
+    const queryClient = new QueryClient();
+    vi.spyOn(queryClient, 'invalidateQueries').mockResolvedValue(undefined);
+    const failure = new Error('Readiness refresh failed');
+    mockInvalidateStoreReadiness.mockRejectedValueOnce(failure);
+
+    await expect(
+      invalidateAnalyticsSaveReadiness(queryClient, 'merchant-1')
+    ).rejects.toBe(failure);
+  });
 });

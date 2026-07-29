@@ -1,5 +1,5 @@
 import { render } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 type MutationOptions = {
   onError: (error: unknown) => void;
@@ -50,6 +50,11 @@ async function completeVerifiedMutation(): Promise<void> {
 }
 
 describe('BvnVerificationCard readiness handoff', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.options = null;
+  });
+
   it('awaits refresh before success UI', async () => {
     let release!: () => void;
     const refresh = new Promise<void>((resolve) => {
@@ -74,7 +79,7 @@ describe('BvnVerificationCard readiness handoff', () => {
     expect(mocks.alert).toHaveBeenCalledWith('Success', expect.any(String));
   });
 
-  it('routes a rejected readiness refresh through the existing mutation error handler', async () => {
+  it('preserves verified success when the readiness refresh rejects', async () => {
     render(
       <BvnVerificationCard
         dateOfBirth="2000-01-01"
@@ -89,8 +94,7 @@ describe('BvnVerificationCard readiness handoff', () => {
 
     await completeVerifiedMutation();
 
-    expect(mocks.showBvnVerificationError).toHaveBeenCalledWith(
-      new Error('Readiness failed')
-    );
+    expect(mocks.alert).toHaveBeenCalledWith('Success', expect.any(String));
+    expect(mocks.showBvnVerificationError).not.toHaveBeenCalled();
   });
 });

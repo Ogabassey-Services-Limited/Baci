@@ -153,7 +153,6 @@ const STORE_BUILD_AI_STATUSES = [
   'applied',
   'failed',
 ] as const;
-
 function hasExactKeys(
   value: Record<string, unknown>,
   expectedKeys: readonly string[]
@@ -167,11 +166,9 @@ function hasExactKeys(
     )
   );
 }
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
-
 function isNonNegativeCount(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0;
 }
@@ -227,8 +224,11 @@ function hasConsistentReadinessMetrics(value: {
   totalRequired: number;
 }): boolean {
   const items: StoreReadinessItem[] = [];
+  const itemIds = new Set<StoreReadinessItemId>();
   for (const item of value.items) {
     if (!isStoreReadinessItem(item, STORE_READINESS_ITEM_IDS)) return false;
+    if (itemIds.has(item.id)) return false;
+    itemIds.add(item.id);
     items.push(item);
   }
 

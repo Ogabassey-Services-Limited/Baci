@@ -1,6 +1,6 @@
 'use client';
 
-import { isStoreReadiness, type StoreBuildStatus } from '@baci/shared';
+import type { StoreBuildStatus } from '@baci/shared';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -35,6 +35,7 @@ import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { fetchWithCsrf } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
+import { isWebStoreReadiness } from './is-web-store-readiness';
 import {
   getFallbackProgress,
   getStatusAccent,
@@ -71,7 +72,7 @@ export function StoreBuildStatusCard({ onApplied }: StoreBuildStatusCardProps) {
         return response.json() as Promise<unknown>;
       })
       .then((payload) => {
-        if (!isStoreReadiness(payload) || payload.surface !== 'web') {
+        if (!isWebStoreReadiness(payload)) {
           throw new Error('Invalid readiness payload');
         }
 

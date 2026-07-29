@@ -1,6 +1,6 @@
 import { act, fireEvent, render } from '@testing-library/react';
 import type React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 type MutationOptions = {
   onError: (error: unknown) => void;
@@ -73,6 +73,11 @@ async function completeVerifiedMutation(): Promise<void> {
 }
 
 describe('CacVerificationCard readiness handoff', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.options.length = 0;
+  });
+
   it('awaits refresh before showing the verified result', async () => {
     let release!: () => void;
     const refresh = new Promise<void>((resolve) => {
@@ -94,16 +99,20 @@ describe('CacVerificationCard readiness handoff', () => {
     expect(queryByText('Verified result')).not.toBeNull();
   });
 
-  it('routes a rejected readiness refresh through the existing mutation error UI', async () => {
-    render(
+  it('preserves the verified result when the readiness refresh rejects', async () => {
+    const { getByRole, queryByText } = render(
       <CacVerificationCard
         onVerified={() => Promise.reject(new Error('Readiness failed'))}
         verified={false}
       />
     );
+    fireEvent.click(
+      getByRole('button', { name: 'Toggle CAC Verification section' })
+    );
 
-    await completeVerifiedMutation();
+    await act(completeVerifiedMutation);
 
-    expect(mocks.alert).toHaveBeenCalledWith('Error', 'Readiness failed');
+    expect(queryByText('Verified result')).not.toBeNull();
+    expect(mocks.alert).not.toHaveBeenCalledWith('Error', expect.any(String));
   });
 });

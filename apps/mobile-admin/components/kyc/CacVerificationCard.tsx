@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import { apiClient, apiFormData, NetworkError } from '@/lib/api-client';
+import { tryRefreshVerifiedReadiness } from '@/lib/try-refresh-verified-readiness';
 import { createUploadFile } from '@/types/upload';
 import CacResultStep from './CacResultStep';
 import CacSearchStep from './CacSearchStep';
@@ -145,9 +146,17 @@ export default function CacVerificationCard({
       );
     },
     onSuccess: async (data) => {
-      if (data.verified) await onVerified();
+      const readinessRefreshed = data.verified
+        ? await tryRefreshVerifiedReadiness(onVerified)
+        : true;
       setVerifyResult(data);
       setCacStep('result');
+      if (data.verified && !readinessRefreshed) {
+        Alert.alert(
+          'Verified',
+          'Your CAC has been verified. Your setup status will refresh shortly.'
+        );
+      }
     },
     onError: (error: unknown) => handleMutationError(error),
   });

@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import { apiClient, NetworkError } from '@/lib/api-client';
+import { tryRefreshVerifiedReadiness } from '@/lib/try-refresh-verified-readiness';
 import DateOfBirthPicker from './DateOfBirthPicker';
 import { isDateInPast, isValidCalendarDate } from './date-utils';
 import VerificationStatusBadge from './VerificationStatusBadge';
@@ -72,8 +73,14 @@ export default function NinVerificationCard({
       }),
     onSuccess: async (data) => {
       if (data.verified) {
-        await onVerified();
-        Alert.alert('Success', 'Your NIN has been verified successfully.');
+        const readinessRefreshed =
+          await tryRefreshVerifiedReadiness(onVerified);
+        Alert.alert(
+          'Success',
+          readinessRefreshed
+            ? 'Your NIN has been verified successfully.'
+            : 'Your NIN has been verified successfully. Your setup status will refresh shortly.'
+        );
       } else {
         Alert.alert(
           'Verification Failed',
