@@ -93,7 +93,7 @@ test('cleans a partial temporary without masking initial write failures', async 
     );
     assert.deepEqual(events, [
       'close',
-      `remove:${join(root, `.baci-bootstrap-replacement-${failurePoint}`)}`,
+      `remove:${join(root, `.baci-bootstrap-replacement-v2-${sha256(destination)}-${sha256(newBytes)}-${failurePoint}`)}`,
       `directory:${root}`,
     ]);
     assert.deepEqual((await readdir(root)).sort(), [

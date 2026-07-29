@@ -168,7 +168,10 @@ test('uses an attempt-unique temporary and preserves prior bytes on replacement 
 test('reconciles exact temporaries left before or after metadata sync', async (context) => {
   const value = await fixture(context);
   const directory = join(value.destination, '..');
-  const stale = join(directory, '.baci-bootstrap-replacement-dead-at-rename');
+  const stale = join(
+    directory,
+    `.baci-bootstrap-replacement-v2-${sha256(value.destination)}-${sha256(value.newBytes)}-dead-at-rename`
+  );
   value.state.files[value.destination] = {
     ...value.state.files[value.destination],
     mode: '0550',
@@ -226,7 +229,11 @@ test('fails closed on unsafe or unexpected replacement temporary residue', async
   await writeFile(value.destination, value.newBytes, { mode: 0o600 });
   const target = join(directory, 'attacker');
   await writeFile(target, value.newBytes, { mode: 0o600 });
-  await symlink(target, join(directory, '.baci-bootstrap-replacement-symlink'));
+  const foreignSymlink = join(
+    directory,
+    `.baci-bootstrap-replacement-v2-${sha256(value.destination)}-${'9'.repeat(64)}-symlink`
+  );
+  await symlink(target, foreignSymlink);
 
   const dependencies = {
     readState: async () => value.state,
@@ -243,7 +250,7 @@ test('fails closed on unsafe or unexpected replacement temporary residue', async
     /unsafe installed bootstrap path/
   );
 
-  await rm(join(directory, '.baci-bootstrap-replacement-symlink'));
+  await rm(foreignSymlink);
   await writeFile(
     join(directory, '.baci-bootstrap-replacement-UPPER'),
     value.newBytes,

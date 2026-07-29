@@ -18,6 +18,17 @@ const owners = {
   'root:baci-cwv': [0, 10001],
 };
 const temporaryPrefix = '.baci-bootstrap-replacement-';
+const temporaryPattern =
+  /^\.baci-bootstrap-replacement-v2-([0-9a-f]{64})-([0-9a-f]{64})-([a-z0-9-]+)$/;
+const legacyTemporaryPattern = /^\.baci-bootstrap-replacement-[a-z0-9-]+$/;
+
+const destinationIdentity = (destination) => sha256(destination);
+
+function temporaryName(destination, expectedSha256, attempt) {
+  if (!/^[0-9a-f]{64}$/.test(expectedSha256))
+    throw new TypeError('invalid replacement expected digest');
+  return `${temporaryPrefix}v2-${destinationIdentity(destination)}-${expectedSha256}-${attempt}`;
+}
 
 async function syncPath(path) {
   const handle = await open(path, 'r');
@@ -33,7 +44,10 @@ async function atomicReplace(destination, bytes, expected, dependencies) {
   const attempt = dependencies.temporaryId();
   if (!/^[a-z0-9-]+$/.test(attempt))
     throw new TypeError('invalid replacement attempt identity');
-  const temporary = join(directory, `${temporaryPrefix}${attempt}`);
+  const temporary = join(
+    directory,
+    temporaryName(destination, expected.sha256, attempt)
+  );
   let created = false;
   let handle;
   try {
@@ -48,7 +62,7 @@ async function atomicReplace(destination, bytes, expected, dependencies) {
     await dependencies.chownFile(temporary, uid, gid);
     await chmod(temporary, Number.parseInt(expected.mode, 8));
     await dependencies.syncMetadata(temporary);
-    await rename(temporary, destination);
+    await dependencies.renameFile(temporary, destination);
     await dependencies.syncDirectory(directory);
   } catch (error) {
     if (handle) {
@@ -79,7 +93,9 @@ async function reconcileTemporaries(destination, expected, dependencies) {
   const entries = (await dependencies.readDirectory(directory)).sort();
   for (const entry of entries) {
     if (!entry.startsWith('.baci-bootstrap-replacement')) continue;
-    if (!/^\.baci-bootstrap-replacement-[a-z0-9-]+$/.test(entry))
+    const bound = temporaryPattern.exec(entry);
+    const legacy = legacyTemporaryPattern.test(entry);
+    if (!bound && !legacy)
       throw new TypeError('unexpected bootstrap replacement residue');
     const temporary = join(directory, entry);
     const actual = (
@@ -87,6 +103,12 @@ async function reconcileTemporaries(destination, expected, dependencies) {
         [temporary]: expected,
       })
     )[temporary];
+    if (
+      bound &&
+      (bound[1] !== destinationIdentity(destination) ||
+        bound[2] !== expected.sha256)
+    )
+      continue;
     const permitted = [
       expected,
       { ...expected, mode: '0600', owner: expected.owner },
@@ -107,6 +129,7 @@ export async function replaceBootstrapFile(input, descriptor = {}) {
     readDirectory: descriptor.readDirectory ?? readdir,
     readProjection: descriptor.readProjection ?? readInstalledProjection,
     readState: descriptor.readState ?? readBootstrapState,
+    renameFile: descriptor.renameFile ?? rename,
     removeFile: descriptor.removeFile ?? rm,
     syncDirectory: descriptor.syncDirectory ?? syncPath,
     syncMetadata: descriptor.syncMetadata ?? syncPath,
