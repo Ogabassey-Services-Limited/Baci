@@ -98,7 +98,7 @@ export function SetupChecklist({
     }
 
     setPublishing(true);
-    requestMerchantPublish(false)
+    requestMerchantPublish(readiness.merchantId, false)
       .then((response) => {
         if (!response.ok) throw new Error('Failed to publish');
         toast({

@@ -9,8 +9,8 @@ import {
   mockAuthenticateApiRequest,
   mockCheckCsrfProtection,
   mockEvictStorefrontPublicationCaches,
+  mockGetMerchantForApiRequest,
   mockGetStorefrontPublicationCacheIdentity,
-  mockGetUserAccess,
   mockHasPermission,
   mockLoadStoreLaunchReadiness,
   mockMerchantUpdate,
@@ -38,19 +38,27 @@ describe('DELETE /api/merchant/publish', () => {
     setupAuthenticatedRequest();
     mockCheckCsrfProtection.mockResolvedValue({ valid: false, response: null });
     expect((await DELETE(makeRequest('DELETE'))).status).toBe(403);
-    expect(mockGetUserAccess).not.toHaveBeenCalled();
+    expect(mockGetMerchantForApiRequest).not.toHaveBeenCalled();
   });
 
   it.each([
-    ['access is missing', null, 404],
+    ['requested merchant access is missing', null, 404],
     [
       'settings permission is denied',
-      { merchantId: MERCHANT_ID, role: 'owner' },
+      {
+        merchantId: MERCHANT_ID,
+        staffAccess: {
+          isOwner: true,
+          isStaff: false,
+          permissions: { full_access: { all: true } },
+          role: 'owner',
+        },
+      },
       403,
     ],
-  ] as const)('stops before publication effects when %s', async (_name, access, status) => {
+  ] as const)('stops before publication effects when %s', async (_name, merchantContext, status) => {
     setupAuthenticatedRequest();
-    mockGetUserAccess.mockResolvedValue(access);
+    mockGetMerchantForApiRequest.mockResolvedValue(merchantContext);
     if (status === 403) mockHasPermission.mockReturnValue(false);
 
     const response = await DELETE(makeRequest('DELETE'));
@@ -62,6 +70,18 @@ describe('DELETE /api/merchant/publish', () => {
     expect(mockMerchantUpdate).not.toHaveBeenCalled();
     expect(mockGetStorefrontPublicationCacheIdentity).not.toHaveBeenCalled();
     expect(mockEvictStorefrontPublicationCaches).not.toHaveBeenCalled();
+  });
+
+  it('rejects an unpublish request without a valid merchant ID before resolving access', async () => {
+    setupAuthenticatedRequest();
+
+    const response = await DELETE(makeRequest('DELETE', undefined, null));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Invalid request body',
+    });
+    expect(mockGetMerchantForApiRequest).not.toHaveBeenCalled();
   });
 
   it('retains the bearer-authenticated CSRF bypass result', async () => {
@@ -97,6 +117,41 @@ describe('DELETE /api/merchant/publish', () => {
       success: true,
       message: 'Store unpublished successfully',
     });
+  });
+
+  it('unpublishes only the merchant explicitly selected by the request', async () => {
+    const supabase = setupAuthenticatedRequest();
+    const requestedMerchantId = '33333333-3333-4333-8333-333333333333';
+    mockGetMerchantForApiRequest.mockResolvedValue({
+      merchantId: requestedMerchantId,
+      staffAccess: {
+        isOwner: true,
+        isStaff: false,
+        permissions: { full_access: { all: true } },
+        role: 'owner',
+      },
+    });
+
+    const response = await DELETE(
+      makeRequest('DELETE', undefined, { merchantId: requestedMerchantId })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockGetMerchantForApiRequest).toHaveBeenCalledWith(
+      supabase,
+      'user-123',
+      { requestedMerchantId }
+    );
+    expect(mockMerchantUpdate).toHaveBeenCalledWith(
+      { is_published: false },
+      'id',
+      requestedMerchantId
+    );
+    expect(mockGetStorefrontPublicationCacheIdentity).toHaveBeenCalledWith(
+      supabase,
+      requestedMerchantId,
+      'test-store'
+    );
   });
 
   it('unpublishes a null-slug merchant with resolved custom domains', async () => {

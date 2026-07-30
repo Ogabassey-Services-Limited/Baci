@@ -10,6 +10,7 @@ import {
   mockAuthenticateApiRequest,
   mockCheckCsrfProtection,
   mockEvictStorefrontPublicationCaches,
+  mockGetMerchantForApiRequest,
   mockGetStorefrontPublicationCacheIdentity,
   mockGetUserAccess,
   mockHasPermission,
@@ -44,15 +45,23 @@ describe('POST /api/merchant/publish', () => {
   });
 
   it.each([
-    ['access is missing', null, 404],
+    ['requested merchant access is missing', null, 404],
     [
       'settings permission is denied',
-      { merchantId: MERCHANT_ID, role: 'owner' },
+      {
+        merchantId: MERCHANT_ID,
+        staffAccess: {
+          isOwner: true,
+          isStaff: false,
+          permissions: { full_access: { all: true } },
+          role: 'owner',
+        },
+      },
       403,
     ],
-  ] as const)('stops before publication effects when %s', async (_name, access, status) => {
+  ] as const)('stops before publication effects when %s', async (_name, merchantContext, status) => {
     setupAuthenticatedRequest();
-    mockGetUserAccess.mockResolvedValue(access);
+    mockGetMerchantForApiRequest.mockResolvedValue(merchantContext);
     if (status === 403) mockHasPermission.mockReturnValue(false);
 
     const response = await POST(makeRequest('POST'));
@@ -64,6 +73,19 @@ describe('POST /api/merchant/publish', () => {
     expect(mockMerchantUpdate).not.toHaveBeenCalled();
     expect(mockGetStorefrontPublicationCacheIdentity).not.toHaveBeenCalled();
     expect(mockEvictStorefrontPublicationCaches).not.toHaveBeenCalled();
+  });
+
+  it('rejects a publish request without a valid merchant ID before resolving access', async () => {
+    setupAuthenticatedRequest();
+
+    const response = await POST(makeRequest('POST', undefined, null));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Invalid request body',
+    });
+    expect(mockGetMerchantForApiRequest).not.toHaveBeenCalled();
+    expect(mockLoadStoreLaunchReadiness).not.toHaveBeenCalled();
   });
 
   it('retains the bearer-authenticated CSRF bypass result', async () => {
@@ -81,6 +103,48 @@ describe('POST /api/merchant/publish', () => {
       supabase,
       merchantId: MERCHANT_ID,
     });
+  });
+
+  it('publishes the merchant explicitly selected by the mobile request', async () => {
+    const supabase = setupAuthenticatedRequest();
+    const requestedMerchantId = '33333333-3333-4333-8333-333333333333';
+    mockGetMerchantForApiRequest.mockResolvedValue({
+      merchantId: requestedMerchantId,
+      staffAccess: {
+        isOwner: true,
+        isStaff: false,
+        permissions: { full_access: { all: true } },
+        role: 'owner',
+      },
+    });
+    mockLoadStoreLaunchReadiness.mockResolvedValue(
+      readyLaunchReadiness({ merchantId: requestedMerchantId })
+    );
+
+    const response = await POST(
+      makeRequest('POST', undefined, { merchantId: requestedMerchantId })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockGetMerchantForApiRequest).toHaveBeenCalledWith(
+      supabase,
+      'user-123',
+      { requestedMerchantId }
+    );
+    expect(mockLoadStoreLaunchReadiness).toHaveBeenCalledWith({
+      supabase,
+      merchantId: requestedMerchantId,
+    });
+    expect(mockMerchantUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ is_published: true }),
+      'id',
+      requestedMerchantId
+    );
+    expect(mockGetStorefrontPublicationCacheIdentity).toHaveBeenCalledWith(
+      supabase,
+      requestedMerchantId,
+      'test-store'
+    );
   });
 
   it.each([

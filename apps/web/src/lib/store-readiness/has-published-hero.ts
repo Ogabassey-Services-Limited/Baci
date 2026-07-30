@@ -13,6 +13,8 @@ export function hasPublishedHero(value: unknown): boolean {
       typeof component === 'object' &&
       component !== null &&
       'type' in component &&
-      (component.type === 'Hero' || component.type === 'HeroCarousel')
+      (component.type === 'Hero' ||
+        component.type === 'HeroCarousel' ||
+        component.type === 'OgabasseyHero')
   );
 }

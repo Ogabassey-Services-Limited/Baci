@@ -60,6 +60,7 @@ async function executePublish({
     try {
       await apiClient<PublishStoreResponse>('/api/merchant/publish', {
         method: 'POST',
+        body: JSON.stringify({ merchantId }),
       });
     } catch (error) {
       // apiClient throws NetworkError on any non-2xx. The publish route

@@ -14,6 +14,12 @@ describe('hasPublishedHero', () => {
     ).toBe(true);
   });
 
+  it('recognizes the OgabasseyHero registered by the Ogabassey template', () => {
+    expect(
+      hasPublishedHero({ content: [{ type: 'OgabasseyHero', props: {} }] })
+    ).toBe(true);
+  });
+
   it('does not treat a non-hero component as a published hero', () => {
     expect(
       hasPublishedHero({ content: [{ type: 'Products', props: {} }] })

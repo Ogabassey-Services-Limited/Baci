@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   checkCsrfProtection: vi.fn(),
   evictStorefrontPublicationCaches: vi.fn(),
   getStorefrontPublicationCacheIdentity: vi.fn(),
+  getMerchantForApiRequest: vi.fn(),
   getUserAccess: vi.fn(),
   hasPermission: vi.fn(),
   loadStoreLaunchReadiness: vi.fn(),
@@ -15,6 +16,7 @@ const mocks = vi.hoisted(() => ({
 
 export const MERCHANT_ID = '6b5cb8a4-5575-456c-b936-8cdfae30db74';
 export const mockAuthenticateApiRequest = mocks.authenticateApiRequest;
+export const mockGetMerchantForApiRequest = mocks.getMerchantForApiRequest;
 export const mockGetUserAccess = mocks.getUserAccess;
 export const mockHasPermission = mocks.hasPermission;
 export const mockCheckCsrfProtection = mocks.checkCsrfProtection;
@@ -29,6 +31,16 @@ vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: mocks.authenticateApiRequest,
   getUserAccess: mocks.getUserAccess,
   hasPermission: mocks.hasPermission,
+}));
+vi.mock('@/lib/get-merchant-for-api-request', () => ({
+  getMerchantForApiRequest: mocks.getMerchantForApiRequest,
+  toUserAccess: (context: {
+    merchantId: string;
+    staffAccess: Record<string, unknown>;
+  }) => ({
+    merchantId: context.merchantId,
+    ...context.staffAccess,
+  }),
 }));
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: mocks.checkCsrfProtection,
@@ -46,7 +58,8 @@ vi.mock('@/lib/storefront-publication-cache-eviction', () => ({
 
 export function makeRequest(
   method: 'POST' | 'DELETE',
-  authorization?: string
+  authorization?: string,
+  body?: unknown
 ): NextRequest {
   return new NextRequest('http://localhost:3000/api/merchant/publish', {
     method,
@@ -54,6 +67,9 @@ export function makeRequest(
       ...(authorization ? { Authorization: authorization } : {}),
       'Content-Type': 'application/json',
     },
+    body: JSON.stringify(
+      body === undefined ? { merchantId: MERCHANT_ID } : body
+    ),
   });
 }
 
@@ -144,6 +160,15 @@ export function setupAuthenticatedRequest(supabase = createMockSupabase()) {
   mockGetUserAccess.mockResolvedValue({
     merchantId: MERCHANT_ID,
     role: 'owner',
+  });
+  mockGetMerchantForApiRequest.mockResolvedValue({
+    merchantId: MERCHANT_ID,
+    staffAccess: {
+      isOwner: true,
+      isStaff: false,
+      permissions: { full_access: { all: true } },
+      role: 'owner',
+    },
   });
   mockHasPermission.mockReturnValue(true);
   return supabase;

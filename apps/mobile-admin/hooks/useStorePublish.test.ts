@@ -70,7 +70,7 @@ describe('useStorePublish', () => {
     mockInvalidateStoreReadiness.mockResolvedValue(undefined);
   });
 
-  it('publishes via the web API and invalidates merchant readiness data', async () => {
+  it('publishes the captured merchant and invalidates that merchant readiness data', async () => {
     const { queryClient, Wrapper } = createWrapper();
     const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
     const onPublished = vi.fn().mockResolvedValue(undefined);
@@ -92,6 +92,7 @@ describe('useStorePublish', () => {
 
     expect(mockApiClient).toHaveBeenCalledWith('/api/merchant/publish', {
       method: 'POST',
+      body: JSON.stringify({ merchantId: 'merchant-1' }),
     });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['merchant'] });
     expect(mockInvalidateStoreReadiness).toHaveBeenCalledWith(

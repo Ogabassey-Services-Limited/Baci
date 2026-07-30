@@ -1,14 +1,15 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import {
-  authenticateApiRequest,
-  getUserAccess,
-  hasPermission,
-} from '@/lib/api-auth';
+import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { getStorefrontPublicationCacheIdentity } from '@/lib/get-storefront-publication-cache-identity';
 import { loadStoreLaunchReadiness } from '@/lib/store-readiness/load-store-launch-readiness';
 import { getStorePublicationMissingItems } from '@/lib/store-readiness/store-publication-missing-items';
 import { evictStorefrontPublicationCaches } from '@/lib/storefront-publication-cache-eviction';
+import { merchantIdParamSchema } from '@/schemas/merchant-id-param';
 
 function storefrontCacheEvictionFailureResponse(): NextResponse {
   return NextResponse.json(
@@ -45,22 +46,50 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const access = await getUserAccess(auth.supabase);
-    if (!access) {
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
+
+    const parsedMerchantId = merchantIdParamSchema.safeParse(
+      typeof body === 'object' && body !== null && 'merchantId' in body
+        ? body.merchantId
+        : undefined
+    );
+    if (!parsedMerchantId.success) {
+      return NextResponse.json(
+        { error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
+
+    const merchantContext = await getMerchantForApiRequest(
+      auth.supabase,
+      auth.user.id,
+      { requestedMerchantId: parsedMerchantId.data }
+    );
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
 
+    const access = toUserAccess(merchantContext);
     if (!hasPermission(access, 'settings', 'edit')) {
       return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
 
     const supabase = auth.supabase;
+    const merchantId = merchantContext.merchantId;
     const launchReadiness = await loadStoreLaunchReadiness({
       supabase,
-      merchantId: access.merchantId,
+      merchantId,
     });
 
     if (!launchReadiness.isReady) {
@@ -79,7 +108,7 @@ export async function POST(request: NextRequest) {
     const publicationCacheIdentity =
       await getStorefrontPublicationCacheIdentity(
         supabase,
-        launchReadiness.merchantId,
+        merchantId,
         launchReadiness.slug
       );
 
@@ -90,7 +119,7 @@ export async function POST(request: NextRequest) {
         is_published: true,
         published_at: new Date().toISOString(),
       })
-      .eq('id', launchReadiness.merchantId);
+      .eq('id', merchantId);
 
     if (updateError) {
       console.error('Error publishing store:', updateError);
@@ -139,14 +168,41 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const access = await getUserAccess(auth.supabase);
-    if (!access) {
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
+
+    const parsedMerchantId = merchantIdParamSchema.safeParse(
+      typeof body === 'object' && body !== null && 'merchantId' in body
+        ? body.merchantId
+        : undefined
+    );
+    if (!parsedMerchantId.success) {
+      return NextResponse.json(
+        { error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
+
+    const merchantContext = await getMerchantForApiRequest(
+      auth.supabase,
+      auth.user.id,
+      { requestedMerchantId: parsedMerchantId.data }
+    );
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
 
+    const access = toUserAccess(merchantContext);
     if (!hasPermission(access, 'settings', 'edit')) {
       return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
@@ -154,12 +210,13 @@ export async function DELETE(request: NextRequest) {
     // Use the auth-scoped client from authenticateApiRequest so mobile
     // (Bearer token) requests satisfy RLS. See POST handler for context.
     const supabase = auth.supabase;
+    const merchantId = merchantContext.merchantId;
 
     // Get merchant
     const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
       .select('id, slug')
-      .eq('id', access.merchantId)
+      .eq('id', merchantId)
       .maybeSingle();
 
     if (merchantError) {
@@ -181,7 +238,7 @@ export async function DELETE(request: NextRequest) {
     const publicationCacheIdentity =
       await getStorefrontPublicationCacheIdentity(
         supabase,
-        merchant.id,
+        merchantId,
         merchant.slug
       );
 
@@ -191,7 +248,7 @@ export async function DELETE(request: NextRequest) {
       .update({
         is_published: false,
       })
-      .eq('id', merchant.id);
+      .eq('id', merchantId);
 
     if (updateError) {
       console.error('Error unpublishing store:', updateError);

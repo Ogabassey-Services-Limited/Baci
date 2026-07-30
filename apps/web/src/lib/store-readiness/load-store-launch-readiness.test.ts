@@ -34,6 +34,7 @@ function client(
     totalProductError?: { message: string } | null;
     paystackError?: { message: string } | null;
     identityError?: { message: string } | null;
+    country?: string;
     activeProductCount?: number;
     totalProductCount?: number;
   } = {}
@@ -42,7 +43,7 @@ function client(
     data: {
       bank_account_number: '0001112223',
       bank_code: '044',
-      country: 'NG',
+      country: options.country ?? 'NG',
       email: 'owner@example.com',
       phone: null,
       slug: 'merchant-one',
@@ -143,6 +144,30 @@ describe('loadStoreLaunchReadiness', () => {
     );
     expect(result.activeProductCount).toBe(1);
     expect(result.totalProductCount).toBe(3);
+  });
+
+  it('does not fail non-Nigerian readiness when the irrelevant identity RPC is unavailable', async () => {
+    const authenticatedClient = client({
+      country: 'GH',
+      identityError: { message: 'identity unavailable' },
+    });
+
+    const result = await loadStoreLaunchReadiness({
+      supabase: authenticatedClient.supabase,
+      merchantId: 'merchant-1',
+    });
+
+    expect(result.items).toContainEqual(
+      expect.objectContaining({
+        id: 'verify_kyc',
+        completed: true,
+        priority: 'recommended',
+      })
+    );
+    expect(authenticatedClient.supabase.rpc).not.toHaveBeenCalledWith(
+      'get_merchant_identity_verified',
+      { p_merchant_id: 'merchant-1' }
+    );
   });
 
   it.each([

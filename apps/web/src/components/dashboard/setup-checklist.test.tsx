@@ -7,6 +7,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { act } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { requestMerchantPublish } from '@/lib/merchant-publish-client';
 import { SetupChecklist } from './setup-checklist';
 
 vi.mock('next/link', () => ({
@@ -191,6 +192,34 @@ describe('SetupChecklist', () => {
     expect(
       screen.getByRole('link', { name: /customize storefront/i })
     ).toHaveAttribute('href', '/builder?onboarding=true');
+  });
+
+  it('publishes the merchant returned by the readiness query', async () => {
+    const readyReadiness = {
+      ...readiness,
+      isReady: true,
+      completedRequired: readiness.totalRequired,
+      overallProgress: 100,
+      items: readiness.items.map((item) => ({ ...item, completed: true })),
+    };
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => readyReadiness,
+    } as Response);
+    vi.mocked(requestMerchantPublish).mockResolvedValue(new Response('{}'));
+
+    render(<SetupChecklist compact />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Publish Store' })
+    );
+
+    await waitFor(() => {
+      expect(requestMerchantPublish).toHaveBeenCalledWith(
+        readyReadiness.merchantId,
+        false
+      );
+    });
   });
 
   it('removes only setup_complete while preserving other URL state', () => {

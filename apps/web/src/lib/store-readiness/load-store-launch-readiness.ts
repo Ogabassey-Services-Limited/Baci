@@ -42,7 +42,6 @@ export async function loadStoreLaunchReadiness({
     activeProductResult,
     totalProductResult,
     paystackConfigured,
-    hasVerifiedIdentity,
   ] = await Promise.all([
     supabase
       .from('merchants')
@@ -66,7 +65,6 @@ export async function loadStoreLaunchReadiness({
       .select('id', { count: 'exact', head: true })
       .eq('merchant_id', merchantId),
     fetchMerchantPaystackConfigured(supabase, merchantId),
-    fetchMerchantIdentityVerified(supabase, merchantId),
   ]);
 
   if (merchantResult.error) {
@@ -92,6 +90,10 @@ export async function loadStoreLaunchReadiness({
     feature_settings: featureSettingsResult.data ?? undefined,
     paystack_subaccount_configured: paystackConfigured,
   };
+  const kycRequired = requiresNigerianKycForLaunch(merchant);
+  const hasVerifiedIdentity = kycRequired
+    ? await fetchMerchantIdentityVerified(supabase, merchantId)
+    : false;
 
   const facts: StoreLaunchFacts = {
     merchantId,
@@ -103,7 +105,7 @@ export async function loadStoreLaunchReadiness({
     merchantPhone: merchant.phone,
     activeProductCount: activeProductResult.count ?? 0,
     totalProductCount: totalProductResult.count ?? 0,
-    kycRequired: requiresNigerianKycForLaunch(merchant),
+    kycRequired,
     hasVerifiedIdentity,
     paymentRequirement: getLaunchPaymentRequirement(merchant),
   };

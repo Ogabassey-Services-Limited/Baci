@@ -107,6 +107,7 @@ function useIsMounted() {
 
 interface PublishToggleContext {
   isPublished: boolean | undefined | null;
+  merchantId: string | undefined;
   toast: ReturnType<typeof useToast>['toast'];
   reloadMerchant: ReturnType<typeof useMerchant>['reloadMerchant'];
   router: ReturnType<typeof useRouter>;
@@ -117,14 +118,24 @@ interface PublishToggleContext {
 // Compiler out of memoizing the whole page.
 async function togglePublishState({
   isPublished,
+  merchantId,
   toast,
   reloadMerchant,
   router,
   setIsPublishing,
 }: PublishToggleContext) {
+  if (!merchantId) {
+    toast({
+      title: 'Store unavailable',
+      description: 'Reload the dashboard and try again.',
+      variant: 'destructive',
+    });
+    return;
+  }
+
   setIsPublishing(true);
   try {
-    const response = await requestMerchantPublish(isPublished);
+    const response = await requestMerchantPublish(merchantId, isPublished);
     const data = await response.json();
 
     if (!response.ok) {
@@ -214,6 +225,7 @@ export default function DashboardClientPage({
   const handlePublishToggle = () =>
     togglePublishState({
       isPublished: merchant?.is_published,
+      merchantId: merchant?.id,
       toast,
       reloadMerchant,
       router,
