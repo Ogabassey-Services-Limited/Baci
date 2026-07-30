@@ -12,6 +12,8 @@ const stable = (value) =>
 const same = (left, right) =>
   JSON.stringify(stable(left)) === JSON.stringify(stable(right));
 const absent = { absent: true };
+const SHA256 = /^[0-9a-f]{64}$/;
+const SOURCE = /^[0-9a-f]{40}$/;
 
 const isCompletedNoop = (state) =>
   state?.phase === 'complete' &&
@@ -23,6 +25,20 @@ const isCompletedNoop = (state) =>
   !Array.isArray(state.files) &&
   same(state.prior, state.files) &&
   same(state.receipt?.files, state.files);
+
+const isAuthenticatedCapturedNoop = (state) =>
+  state?.phase === 'captured' &&
+  SOURCE.test(state.sourceSha ?? '') &&
+  SHA256.test(state.sourceManifestSha256 ?? '') &&
+  SHA256.test(state.policyFileSha256 ?? '') &&
+  SHA256.test(state.captureSha256 ?? '') &&
+  state.prior &&
+  typeof state.prior === 'object' &&
+  !Array.isArray(state.prior) &&
+  state.files &&
+  typeof state.files === 'object' &&
+  !Array.isArray(state.files) &&
+  same(state.prior, state.files);
 
 function canFollow(previous, next) {
   if (
@@ -74,6 +90,13 @@ const canPrecedeHistory = (previous, next) =>
     next?.phase === 'complete' ? { ...next, phase: 'captured' } : next
   );
 
+const isBoundCapturedNoop = (state, chain) =>
+  chain.some((previous, index) =>
+    chain
+      .slice(index + 1)
+      .some((next) => canFollow(previous, state) && canFollow(state, next))
+  );
+
 function hasUniqueBoundHistory(states, baseline) {
   const count = (next, remaining) => {
     if (!remaining.length) return isAuthorityRoot(next) ? 1 : 0;
@@ -91,8 +114,13 @@ function hasUniqueBoundHistory(states, baseline) {
 export function resolveBootstrapReplacementChain(states, current) {
   if (!Array.isArray(states) || current?.phase !== 'captured')
     throw new TypeError('invalid bootstrap replacement authority chain');
+  const capturedNoops = states.filter(
+    (state) => state !== current && isAuthenticatedCapturedNoop(state)
+  );
   const effectiveStates = states.filter(
-    (state) => state === current || !isCompletedNoop(state)
+    (state) =>
+      state === current ||
+      (!isCompletedNoop(state) && !isAuthenticatedCapturedNoop(state))
   );
   const walk = (next, visited) => {
     if (isAuthorityRoot(next)) return [[next]];
@@ -112,11 +140,12 @@ export function resolveBootstrapReplacementChain(states, current) {
     }
     return output;
   };
-  const chains = walk(current, new Set([current.sourceSha])).filter((chain) =>
-    hasUniqueBoundHistory(
-      effectiveStates.filter((state) => !chain.includes(state)),
-      chain[0]
-    )
+  const chains = walk(current, new Set([current.sourceSha])).filter(
+    (chain) =>
+      hasUniqueBoundHistory(
+        effectiveStates.filter((state) => !chain.includes(state)),
+        chain[0]
+      ) && capturedNoops.every((state) => isBoundCapturedNoop(state, chain))
   );
   if (chains.length !== 1)
     throw new TypeError('invalid bootstrap replacement authority chain');

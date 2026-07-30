@@ -90,6 +90,12 @@ exit 0
         : '/usr/bin/stat -c %h'
     )
     .replaceAll(
+      '/usr/bin/stat -c %s',
+      process.platform === 'darwin'
+        ? '/usr/bin/stat -f %z'
+        : '/usr/bin/stat -c %s'
+    )
+    .replaceAll(
       '/usr/bin/sha256sum',
       process.platform === 'darwin'
         ? '/usr/bin/shasum -a 256'
@@ -100,7 +106,17 @@ exit 0
   const command = `set -eu
 die() { printf '%s\n' "$*" >&2; exit 65; }
 regular() { [ -f "$1" ] && [ ! -L "$1" ]; }
-root_mode() { return 0; }
+root_mode() {
+  case "$2" in
+    root:root:0644)
+      [ "$(/usr/bin/stat ${process.platform === 'darwin' ? '-f %Lp' : '-c %a'} -- "$1")" = 644 ]
+      ;;
+    root:root:0600)
+      [ "$(/usr/bin/stat ${process.platform === 'darwin' ? '-f %Lp' : '-c %a'} -- "$1")" = 600 ]
+      ;;
+    *) return 0 ;;
+  esac
+}
 sha256() { ${process.platform === 'darwin' ? '/usr/bin/shasum -a 256' : '/usr/bin/sha256sum'} -- "$1" | /usr/bin/awk '{print $1}'; }
 is_sha() { printf '%s' "$1" | grep -Eq '^[a-f0-9]{64}$'; }
 git_sha() { printf '%s' "$1" | grep -Eq '^[a-f0-9]{40}$'; }
@@ -125,6 +141,42 @@ render_watchdog ${nextSha}`;
     ),
     []
   );
+
+  await writeFile(target, initialPrior, { mode: 0o644 });
+  const beforeMetadata = join(units, '.baci-cwv-watchdog.R3t4Y5');
+  await writeFile(beforeMetadata, expectedNext, { mode: 0o600 });
+  await chmod(beforeMetadata, 0o600);
+  const retryAfterMetadataCrash = runRender();
+  assert.equal(
+    retryAfterMetadataCrash.status,
+    0,
+    retryAfterMetadataCrash.stderr
+  );
+  assert.deepEqual(
+    (await readdir(units)).filter((name) =>
+      name.startsWith('.baci-cwv-watchdog.')
+    ),
+    []
+  );
+
+  const retryFromPreMetadataResidue = async (name, bytes) => {
+    await writeFile(target, initialPrior, { mode: 0o644 });
+    const residue = join(units, `.baci-cwv-watchdog.${name}`);
+    await writeFile(residue, bytes, { mode: 0o600 });
+    await chmod(residue, 0o600);
+    const retry = runRender();
+    assert.equal(retry.status, 0, retry.stderr);
+    assert.deepEqual(
+      (await readdir(units)).filter((entry) =>
+        entry.startsWith('.baci-cwv-watchdog.')
+      ),
+      []
+    );
+  };
+
+  await retryFromPreMetadataResidue('E6m7P8', '');
+  await retryFromPreMetadataResidue('F7n8Q9', expectedNext.slice(0, 29));
+
   await rm(target);
   const absent = runRender();
   assert.equal(absent.status, 0, absent.stderr);
@@ -169,7 +221,8 @@ render_watchdog ${nextSha}`;
   assert.match(drift.stderr, /watchdog unit drift/);
 
   const foreign = join(units, '.baci-cwv-watchdog.D4e5F6');
-  await writeFile(foreign, 'foreign\n', { mode: 0o644 });
+  await writeFile(foreign, 'foreign\n', { mode: 0o600 });
+  await chmod(foreign, 0o600);
   const foreignResult = runRender();
   assert.equal(foreignResult.status, 65);
   assert.match(foreignResult.stderr, /watchdog render temporary drift/);

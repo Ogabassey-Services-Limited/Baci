@@ -46,3 +46,47 @@ test('retires superseded completed no-op generations before a later change', () 
     [original.sourceSha, changed.sourceSha]
   );
 });
+
+test('retires authenticated captured no-op generations before a later change', () => {
+  const original = completed(captured('1', 'a', absent, file('1')), 'f');
+  const firstNoop = captured('2', 'b', file('1'), file('1'));
+  const secondNoop = captured('3', 'c', file('1'), file('1'));
+  const changed = captured('4', 'd', file('1'), file('4'));
+
+  assert.deepEqual(
+    resolveBootstrapReplacementChain(
+      [secondNoop, changed, original, firstNoop],
+      changed
+    ).map((state) => state.sourceSha),
+    [original.sourceSha, changed.sourceSha]
+  );
+});
+
+test('keeps a changed captured generation in the bound authority chain', () => {
+  const original = completed(captured('1', 'a', absent, file('1')), 'f');
+  const interruptedChange = captured('2', 'b', file('1'), file('2'));
+  const changed = captured('3', 'c', file('1'), file('3'));
+
+  assert.deepEqual(
+    resolveBootstrapReplacementChain(
+      [changed, original, interruptedChange],
+      changed
+    ).map((state) => state.sourceSha),
+    [original.sourceSha, interruptedChange.sourceSha, changed.sourceSha]
+  );
+});
+
+test('refuses an unbound authenticated captured no-op', () => {
+  const original = completed(captured('1', 'a', absent, file('1')), 'f');
+  const unboundNoop = captured('2', 'b', file('8'), file('8'));
+  const changed = captured('3', 'c', file('1'), file('3'));
+
+  assert.throws(
+    () =>
+      resolveBootstrapReplacementChain(
+        [changed, unboundNoop, original],
+        changed
+      ),
+    /replacement authority chain/
+  );
+});
