@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { chmod, lstat, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { chmod, link, lstat, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -116,6 +116,52 @@ test('removes an authenticated truncated receipt staging prefix before retrying'
   await persistBootstrapReceipt(directory, complete);
   await assert.rejects(lstat(temporary), { code: 'ENOENT' });
   assert.equal((await readBootstrapState(directory)).phase, 'complete');
+});
+
+test('retires authenticated post-link receipt staging hard links after a crash', async (context) => {
+  const root = await stateRoot(context, 'baci-bootstrap-retry-linked-');
+  const captured = capture('bootstrap-retry-linked');
+  const complete = completeBootstrap(captured, files, disabledUnits);
+  const directory = await persistBootstrapCapture(root, captured);
+  const pairs = [
+    ['receipt.json', complete.receiptBytes],
+    ['receipt.sha256', `${complete.receiptSha256}\n`],
+  ];
+
+  for (const [name, bytes] of pairs) {
+    const temporary = join(directory, `.${name}.tmp.${sha256(bytes)}`);
+    await writeFile(temporary, bytes, { mode: 0o600 });
+    await link(temporary, join(directory, name));
+  }
+
+  await persistBootstrapReceipt(directory, complete);
+  for (const [name, bytes] of pairs) {
+    const temporary = join(directory, `.${name}.tmp.${sha256(bytes)}`);
+    await assert.rejects(lstat(temporary), { code: 'ENOENT' });
+    assert.equal((await lstat(join(directory, name))).nlink, 1);
+  }
+  assert.equal((await readBootstrapState(directory)).phase, 'complete');
+});
+
+test('refuses matching post-link names that are not the same hard link', async (context) => {
+  const root = await stateRoot(context, 'baci-bootstrap-retry-unlinked-');
+  const captured = capture('bootstrap-retry-unlinked');
+  const complete = completeBootstrap(captured, files, disabledUnits);
+  const directory = await persistBootstrapCapture(root, captured);
+  const temporary = join(
+    directory,
+    `.receipt.json.tmp.${sha256(complete.receiptBytes)}`
+  );
+  await writeFile(temporary, complete.receiptBytes, { mode: 0o600 });
+  await writeFile(join(directory, 'receipt.json'), complete.receiptBytes, {
+    mode: 0o600,
+  });
+
+  await assert.rejects(
+    persistBootstrapReceipt(directory, complete),
+    /receipt residue mismatch/
+  );
+  assert.equal((await readBootstrapState(directory)).phase, 'captured');
 });
 
 test('refuses foreign receipt staging residue', async (context) => {
