@@ -433,6 +433,8 @@ BEGIN
   SET LOCAL ROLE authenticated;
   PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
   PERFORM set_config('request.jwt.claim.sub', v_actor_id::text, true);
+  -- Merchant and limit are required; cursor and filters default to NULL.
+  PERFORM public.list_merchant_audit_events_v1(v_merchant_id, 1);
   BEGIN
     PERFORM public.list_merchant_audit_events_v1(NULL, 1, NULL, NULL, NULL, NULL);
     RAISE EXCEPTION 'null merchant id unexpectedly succeeded';

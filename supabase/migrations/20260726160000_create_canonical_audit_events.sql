@@ -241,10 +241,10 @@ REVOKE ALL ON FUNCTION private.write_audit_event_v1(
 CREATE OR REPLACE FUNCTION public.list_merchant_audit_events_v1(
   p_merchant_id uuid,
   p_limit integer,
-  p_before_occurred_at timestamptz,
-  p_before_id uuid,
-  p_resource_type text,
-  p_action text
+  p_before_occurred_at timestamptz DEFAULT NULL,
+  p_before_id uuid DEFAULT NULL,
+  p_resource_type text DEFAULT NULL,
+  p_action text DEFAULT NULL
 ) RETURNS TABLE (
   id uuid,
   occurred_at timestamptz,

@@ -220,7 +220,7 @@ export const EXPECTED_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260726160000_create_canonical_audit_events.sql',
-    sha256: '874992d2f678dffb4991a443b4c091fa49c85ef733fa83ff0edf6a171a4dec4e',
+    sha256: '946a896f0690e9a77f963929fbff17d81fdf2fe93bdfb2e04ba046c3b68eb444',
   },
   {
     repositoryPath:
