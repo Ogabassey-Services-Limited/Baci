@@ -16,9 +16,15 @@ export async function writeBootstrapStateFileAtomic(
   bytes,
   descriptor = {}
 ) {
-  if (name !== 'capture.json')
+  const temporaryName =
+    name === 'capture.json'
+      ? '.capture-json-stage'
+      : name === 'capture.sha256'
+        ? '.capture-sha256-stage'
+        : undefined;
+  if (!temporaryName)
     throw new TypeError('invalid atomic bootstrap state file');
-  const temporary = join(directory, '.capture-json-stage');
+  const temporary = join(directory, temporaryName);
   const destination = join(directory, name);
   const openFile = descriptor.openFile ?? open;
   const renameFile = descriptor.renameFile ?? rename;

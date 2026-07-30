@@ -1,4 +1,5 @@
-import { readFile } from 'node:fs/promises';
+import { lstat, readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import {
   appendBootstrapJournal,
   beginBootstrap,
@@ -9,6 +10,7 @@ import {
 } from './install-bootstrap.mjs';
 import { readInstalledProjection } from './install-bootstrap-installed.mjs';
 import { buildBootstrapInput } from './install-bootstrap-plan.mjs';
+import { reconcileBootstrapPreCapture } from './install-bootstrap-pre-capture.mjs';
 import {
   authorizeBootstrapReplacement,
   authorizeBootstrapReplacementIfNeeded,
@@ -36,7 +38,22 @@ export {
 };
 
 export async function captureBootstrap(stateRoot, input) {
-  return await persistBootstrapCapture(stateRoot, beginBootstrap(input));
+  const capture = beginBootstrap(input);
+  const directory = join(stateRoot, capture.transactionId);
+  try {
+    await lstat(directory);
+  } catch (error) {
+    if (error.code === 'ENOENT')
+      return await persistBootstrapCapture(stateRoot, capture);
+    throw error;
+  }
+  try {
+    await resumeBootstrap(directory, input);
+    return directory;
+  } catch {
+    await reconcileBootstrapPreCapture(directory, { expectedCapture: capture });
+    return await persistBootstrapCapture(stateRoot, capture);
+  }
 }
 
 const stable = (value) =>

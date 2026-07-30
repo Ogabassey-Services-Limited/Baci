@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { lstat, mkdir, open, readFile, rename } from 'node:fs/promises';
 import { join } from 'node:path';
+import { readRecoverableBootstrapJournal } from './install-bootstrap-journal.mjs';
 
 export { persistBootstrapCapture } from './install-bootstrap-capture-persistence.mjs';
 
@@ -208,7 +209,6 @@ export async function appendBootstrapJournal(directory, event) {
   }
   return JSON.parse(output);
 }
-
 export async function persistBootstrapReceipt(directory, complete) {
   const current = await readBootstrapState(directory);
   if (current.phase !== 'captured' || complete.phase !== 'complete')
@@ -222,7 +222,6 @@ export async function persistBootstrapReceipt(directory, complete) {
   );
   await atomicPhase(directory, 'complete');
 }
-
 export async function readBootstrapState(directory) {
   await privateDirectory(directory);
   const captureBytes = await readFile(join(directory, 'capture.json'), 'utf8');
@@ -231,9 +230,8 @@ export async function readBootstrapState(directory) {
   if (!HEX.test(captureSha256) || sha256(captureBytes) !== captureSha256)
     fail('capture digest mismatch');
   const capture = JSON.parse(captureBytes);
-  const journalSource = await readFile(
-    join(directory, 'journal.ndjson'),
-    'utf8'
+  const journalSource = await readRecoverableBootstrapJournal(
+    join(directory, 'journal.ndjson')
   );
   const journal = journalSource
     .split('\n')

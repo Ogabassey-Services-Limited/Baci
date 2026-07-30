@@ -45,7 +45,12 @@ async function syncDirectory(path) {
   }
 }
 
-async function validateCapture(directory, entries, readStateFile) {
+async function validateCapture(
+  directory,
+  entries,
+  readStateFile,
+  expectedCapture
+) {
   if (!entries.includes('capture.json')) return;
   const bytes = await readStateFile(join(directory, 'capture.json'), 'utf8');
   let stored;
@@ -66,15 +71,18 @@ async function validateCapture(directory, entries, readStateFile) {
   if (
     stored.transactionId !== basename(directory) ||
     stored.transactionId !== `bootstrap-${stored.sourceSha.slice(0, 12)}` ||
-    bytes !== capture.captureBytes
+    bytes !== capture.captureBytes ||
+    (expectedCapture && bytes !== expectedCapture.captureBytes)
   )
     refuse();
-  if (
-    entries.includes('capture.sha256') &&
-    (await readStateFile(join(directory, 'capture.sha256'), 'utf8')) !==
-      `${capture.captureSha256}\n`
-  )
-    refuse();
+  for (const name of ['capture.sha256', '.capture-sha256-stage'])
+    if (
+      entries.includes(name) &&
+      !`${capture.captureSha256}\n`.startsWith(
+        await readStateFile(join(directory, name), 'utf8')
+      )
+    )
+      refuse();
 }
 
 export async function reconcileBootstrapPreCapture(directory, descriptor = {}) {
@@ -94,6 +102,7 @@ export async function reconcileBootstrapPreCapture(directory, descriptor = {}) {
   const allowed = new Set([
     marker,
     '.capture-json-stage',
+    '.capture-sha256-stage',
     'capture.json',
     'capture.sha256',
     'journal.ndjson',
@@ -103,8 +112,11 @@ export async function reconcileBootstrapPreCapture(directory, descriptor = {}) {
     phaseTemporaries.length > 1 ||
     initial.some((name) => !allowed.has(name)) ||
     (!cleaning &&
-      ((initial.includes('capture.sha256') &&
+      (((initial.includes('capture.sha256') ||
+        initial.includes('.capture-sha256-stage')) &&
         !initial.includes('capture.json')) ||
+        (initial.includes('capture.sha256') &&
+          initial.includes('.capture-sha256-stage')) ||
         (initial.includes('journal.ndjson') &&
           !initial.includes('capture.sha256')) ||
         (phaseTemporaries.length === 1 && !initial.includes('journal.ndjson'))))
@@ -116,7 +128,12 @@ export async function reconcileBootstrapPreCapture(directory, descriptor = {}) {
     const details = await readDetails(join(directory, marker));
     if (details.size !== 0) refuse();
   } else {
-    await validateCapture(directory, initial, readStateFile);
+    await validateCapture(
+      directory,
+      initial,
+      readStateFile,
+      descriptor.expectedCapture
+    );
     if (
       initial.includes('journal.ndjson') &&
       (await readStateFile(join(directory, 'journal.ndjson'), 'utf8')) !== ''

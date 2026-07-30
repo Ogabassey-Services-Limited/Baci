@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { lstat, mkdtemp, readdir, rm } from 'node:fs/promises';
+import { lstat, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -40,6 +40,23 @@ test('a crash while writing leaves no visible legacy plan', async (context) => {
     (await readdir(root)).some((name) => name.startsWith('.plan.')),
     false
   );
+  assert.equal(
+    (await readdir(root)).some((name) =>
+      name.startsWith('.bootstrap-plan-stage.')
+    ),
+    false
+  );
+});
+
+test('reconciles an unpublished staging file left before the hard link', async (context) => {
+  const root = await mkdtemp(join(tmpdir(), 'baci-plan-publication-'));
+  context.after(() => rm(root, { recursive: true, force: true }));
+  const stale = join(root, `.bootstrap-plan-stage.${'a'.repeat(32)}`);
+  await writeFile(stale, bytes.subarray(0, 19), { mode: 0o600 });
+
+  const plan = await publishBootstrapPlan(root, bytes);
+
+  assert.deepEqual(await readdir(root), [plan.split('/').at(-1)]);
 });
 
 test('publishes canonical bytes atomically after synchronizing the staging file', async (context) => {

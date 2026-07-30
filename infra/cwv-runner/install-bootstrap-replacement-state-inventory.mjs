@@ -1,5 +1,6 @@
 import { open, readdir, unlink } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { canonicalJson } from './canonical-json.mjs';
 import { beginBootstrap, readBootstrapState } from './install-bootstrap.mjs';
 import { readPinnedBootstrapFile } from './install-bootstrap-installed.mjs';
 import { reconcileBootstrapPreCapture } from './install-bootstrap-pre-capture.mjs';
@@ -15,6 +16,13 @@ const safePlanDetails = (details) =>
 
 const sameInode = (left, right) =>
   left.dev === right.dev && left.ino === right.ino;
+
+const sameRetryAuthority = (state, capture) =>
+  state.transactionId === capture.transactionId &&
+  state.sourceSha === capture.sourceSha &&
+  state.sourceManifestSha256 === capture.sourceManifestSha256 &&
+  state.policyFileSha256 === capture.policyFileSha256 &&
+  canonicalJson(state.files) === canonicalJson(capture.files);
 
 async function syncDirectory(path) {
   const handle = await open(path, 'r');
@@ -109,7 +117,10 @@ export async function readBootstrapReplacementStateInventory(
       const directory = join(stateRoot, input.transactionId);
       try {
         const state = await readState(directory);
-        if (state.captureSha256 !== capture.captureSha256)
+        if (
+          state.captureSha256 !== capture.captureSha256 &&
+          (root !== planRoot || !sameRetryAuthority(state, capture))
+        )
           throw new TypeError('invalid legacy bootstrap plan');
       } catch (error) {
         if (error.message === 'invalid legacy bootstrap plan') throw error;

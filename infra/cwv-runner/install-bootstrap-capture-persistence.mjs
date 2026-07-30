@@ -55,9 +55,16 @@ export async function persistBootstrapCapture(
       syncDirectory: descriptor.syncCaptureDirectory,
     }
   );
-  await writeExclusive(
-    join(directory, 'capture.sha256'),
-    `${capture.captureSha256}\n`
+  await writeBootstrapStateFileAtomic(
+    directory,
+    'capture.sha256',
+    `${capture.captureSha256}\n`,
+    {
+      openFile: descriptor.openCaptureDigestFile,
+      removeFile: descriptor.removeCaptureDigestFile,
+      renameFile: descriptor.renameCaptureDigestFile,
+      syncDirectory: descriptor.syncCaptureDigestDirectory,
+    }
   );
   await writeExclusive(join(directory, 'journal.ndjson'), '');
   const phase = join(directory, `.phase-${process.pid}`);
