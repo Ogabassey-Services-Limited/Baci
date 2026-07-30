@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CacVerificationCard from '@/components/kyc/CacVerificationCard';
+import { styles } from '@/components/kyc/kyc-screen.styles';
 import NinVerificationCard from '@/components/kyc/NinVerificationCard';
 import type { VerificationIdentityDraft } from '@/components/kyc/verification-identity';
 import { AppKeyboardContainer } from '@/components/ui/AppKeyboardContainer';
@@ -19,7 +20,6 @@ import { useKycVerificationRefresh } from '@/hooks/useKycVerificationRefresh';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-import { styles } from './kyc-screen.styles';
 
 interface VerificationStatus {
   nin_verified: boolean;

@@ -6,7 +6,6 @@ import { readGitObjectBytes } from './read-git-object-bytes';
 import { resolveSafeReplayPath } from './resolve-safe-replay-path';
 import { supabaseHistoryReplayManifest as manifest } from './supabase-history-replay-manifest';
 import type {
-  HistoricalMigrationRepair,
   PendingRepairState,
   ReplaySource,
   VerifiedReplayManifest,
@@ -125,12 +124,9 @@ async function verifyCurrentSources(
   registryPaths: readonly string[],
   expectedHashes: ReadonlyMap<string, string>
 ): Promise<ReplaySource[]> {
-  const repairsByPath = new Map<string, HistoricalMigrationRepair>();
-  for (const repair of manifest.historicalRepairs) {
-    if (repairsByPath.has(repair.repositoryPath)) {
-      throw new Error('Duplicate historical migration repair');
-    }
-    repairsByPath.set(repair.repositoryPath, repair);
+  const transform = manifest.transforms[0];
+  if (manifest.transforms.length !== 1 || !transform) {
+    throw new Error('Exactly one replay transform is required');
   }
   const verifiedSources: ReplaySource[] = [];
   for (const repositoryPath of registryPaths) {
@@ -142,18 +138,9 @@ async function verifyCurrentSources(
       await resolveSafeReplayPath(root, repositoryPath)
     );
     const frozenSha = sha256(frozenBody);
-    const currentSha = sha256(currentBody);
-    const repair = repairsByPath.get(repositoryPath);
-    if (
-      repair
-        ? frozenSha !== repair.originalSha256 ||
-          currentSha !== repair.repairedSha256
-        : currentSha !== frozenSha || !currentBody.equals(frozenBody)
-    ) {
+    if (sha256(currentBody) !== frozenSha || !currentBody.equals(frozenBody)) {
       throw new Error(
-        repair
-          ? `Historical migration repair hash drift: ${repositoryPath}`
-          : `Current-tree source drift from git show base: ${repositoryPath}`
+        `Current-tree source drift from git show base: ${repositoryPath}`
       );
     }
     const boundSha = expectedHashes.get(repositoryPath);
@@ -163,15 +150,18 @@ async function verifyCurrentSources(
     verifiedSources.push({
       receiptId: `base:${repositoryPath}`,
       repositoryPath,
-      sha256: repair ? currentSha : frozenSha,
+      sha256: frozenSha,
+      ...(repositoryPath === transform.repositoryPath
+        ? {
+            transform: {
+              originalSha256: transform.originalSha256,
+              outputSha256: transform.outputSha256,
+              replacement: transform.replacement,
+              search: transform.search,
+            },
+          }
+        : {}),
     });
-  }
-  if (
-    [...repairsByPath.keys()].some(
-      (repositoryPath) => !registryPaths.includes(repositoryPath)
-    )
-  ) {
-    throw new Error('Historical migration repair is absent from base');
   }
   const forwardPaths = new Set([
     manifest.repair.path,
@@ -209,6 +199,37 @@ function verifyBootstrap(
     throw new Error('Bootstrap migration receipt drift');
   }
   return bootstrapSources;
+}
+
+async function verifyTransform(root: string): Promise<void> {
+  const transform = manifest.transforms[0];
+  if (manifest.transforms.length !== 1 || !transform) {
+    throw new Error('Exactly one replay transform is required');
+  }
+  const targetBytes = await readFile(
+    await resolveSafeReplayPath(root, transform.repositoryPath)
+  );
+  const target = targetBytes.toString('utf8');
+  const overlay = await readFile(
+    await resolveSafeReplayPath(root, transform.overlayPath),
+    'utf8'
+  );
+  const expectedOverlay =
+    `-- replay-only-transform\n-- original-sha256: ${transform.originalSha256}\n` +
+    `-- output-sha256: ${transform.outputSha256}\n-- search: ${transform.search}\n` +
+    `-- replacement: ${transform.replacement}\n`;
+  const occurrenceCount = target.split(transform.search).length - 1;
+  if (
+    overlay !== expectedOverlay ||
+    sha256(targetBytes) !== transform.originalSha256 ||
+    occurrenceCount !== 1 ||
+    sha256(target.replace(transform.search, transform.replacement)) !==
+      transform.outputSha256
+  ) {
+    throw new Error(
+      'Replay transform recipe, occurrence count, or materialized hash drift'
+    );
+  }
 }
 
 export async function verifySupabaseHistoryReplayManifest(
@@ -252,6 +273,7 @@ export async function verifySupabaseHistoryReplayManifest(
     ...manifest.pendingSources.map(({ repositoryPath }) => repositoryPath),
   ]);
   const bootstrapSources = verifyBootstrap(verifiedSources);
+  await verifyTransform(root);
   return {
     bootstrapSources,
     forwardRepairDeploymentReceipt: receipts.forwardRepairDeploymentReceipt,

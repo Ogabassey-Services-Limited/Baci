@@ -55,7 +55,7 @@ afterEach(async () => {
 });
 
 describe('verifySupabaseHistoryReplayManifest', () => {
-  it('uses the approved repaired bytes for the historical quiz migration', async () => {
+  it('keeps the historical quiz migration immutable and replay-transformable', async () => {
     const result = await verifySupabaseHistoryReplayManifest(WORKSPACE_ROOT, {
       pendingRepairState: 'materialized',
     });
@@ -68,7 +68,11 @@ describe('verifySupabaseHistoryReplayManifest', () => {
       )
     ).toMatchObject({
       sha256:
-        '13d774436dc584b5b38b094932fdf671012a8b8b2981b30a228b985f6ca05973',
+        '2b1ebac0ab9514d5b6c91e0ebf4543e3470b9fa71b0a80ab0746c9cccc9a4c41',
+      transform: {
+        outputSha256:
+          '6f6444120e4cefe5febaba935ea70e7a304bf2d330702afc838d4ab70a77b9d8',
+      },
     });
   }, 60_000);
 
