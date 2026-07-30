@@ -1,7 +1,7 @@
 'use client';
 
 import { AlertTriangle, Loader2, RefreshCw } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useMerchant } from '@/hooks/use-merchant-client';
@@ -21,12 +21,14 @@ import {
 
 async function savePaymentSettings(
   settings: PaymentGatewaySettings,
-  isPaystackSupported: boolean
+  isPaystackSupported: boolean,
+  merchantId: string
 ): Promise<'saved' | 'redirecting'> {
   const response = await fetchWithCsrf('/api/merchant/features', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
+      merchantId,
       ...settings,
       paystack_enabled: isPaystackSupported ? settings.paystack_enabled : false,
       preferred_local_gateway:
@@ -45,7 +47,6 @@ async function savePaymentSettings(
   if (
     new URLSearchParams(window.location.search).get('onboarding') === 'true'
   ) {
-    window.location.href = '/dashboard?setup_complete=payments';
     return 'redirecting';
   }
   return 'saved';
@@ -70,8 +71,12 @@ export default function PaymentSettingsPage() {
   );
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadedMerchantId, setLoadedMerchantId] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
-  const [saving, setSaving] = useState(false);
+  const [savingMerchantId, setSavingMerchantId] = useState<string | null>(null);
+  const saveEpochRef = useRef(0);
+  const currentMerchantIdRef = useRef<string | null>(null);
+  currentMerchantIdRef.current = merchant?.id ?? null;
 
   const countryCode = merchant?.country ?? null;
   const isPaystackSupported = isBaciPaystackSettlementCountry(countryCode);
@@ -81,15 +86,34 @@ export default function PaymentSettingsPage() {
     ? formatCurrencyCompact(2050, 'NG')
     : null;
   const paystackFixedFee = formatCurrencyCompact(100, 'NG');
+  const hasCurrentMerchantSettings = loadedMerchantId === merchant?.id;
+  const isSavingCurrentMerchant = savingMerchantId === merchant?.id;
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: reloadToken intentionally retriggers the load on retry
   useEffect(() => {
+    if (!merchant?.id) {
+      saveEpochRef.current += 1;
+      setSettings(DEFAULT_PAYMENT_SETTINGS);
+      setLoadedMerchantId(null);
+      setSavingMerchantId(null);
+      setLoading(false);
+      return;
+    }
+
     let isStale = false;
-    fetchPaymentSettings()
+    const merchantId = merchant.id;
+    saveEpochRef.current += 1;
+    setLoading(true);
+    setLoadError(null);
+    setLoadedMerchantId(null);
+    setSavingMerchantId(null);
+    setSettings(DEFAULT_PAYMENT_SETTINGS);
+    fetchPaymentSettings(merchantId)
       .then((fetchedSettings) => {
         if (isStale) return;
         if (fetchedSettings) {
           setSettings(fetchedSettings);
+          setLoadedMerchantId(merchantId);
           setLoadError(null);
         } else {
           setLoadError('Failed to load payment settings.');
@@ -106,7 +130,7 @@ export default function PaymentSettingsPage() {
     return () => {
       isStale = true;
     };
-  }, [reloadToken]);
+  }, [merchant?.id, reloadToken]);
 
   const retryLoad = () => {
     setLoading(true);
@@ -115,27 +139,50 @@ export default function PaymentSettingsPage() {
   };
 
   const handleSave = () => {
-    setSaving(true);
-    savePaymentSettings(settings, isPaystackSupported)
+    if (!merchant || !hasCurrentMerchantSettings) return;
+
+    const merchantId = merchant.id;
+    const saveEpoch = saveEpochRef.current;
+    setSavingMerchantId(merchantId);
+    savePaymentSettings(settings, isPaystackSupported, merchantId)
       .then((outcome) => {
-        if (outcome === 'redirecting') return;
+        if (
+          saveEpochRef.current !== saveEpoch ||
+          currentMerchantIdRef.current !== merchantId
+        ) {
+          return;
+        }
+        if (outcome === 'redirecting') {
+          window.location.href = '/dashboard?setup_complete=payments';
+          return;
+        }
         toast({
           title: 'Settings Saved',
           description: 'Payment gateway settings have been updated.',
         });
-        setSaving(false);
+        setSavingMerchantId(null);
       })
       .catch(() => {
+        if (
+          saveEpochRef.current !== saveEpoch ||
+          currentMerchantIdRef.current !== merchantId
+        ) {
+          return;
+        }
         toast({
           variant: 'destructive',
           title: 'Error',
           description: 'Failed to save payment settings.',
         });
-        setSaving(false);
+        setSavingMerchantId(null);
       });
   };
 
-  if (loading || merchantLoading) {
+  if (
+    loading ||
+    merchantLoading ||
+    (Boolean(merchant?.id) && !hasCurrentMerchantSettings && !loadError)
+  ) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="size-8 animate-spin" />
@@ -219,8 +266,13 @@ export default function PaymentSettingsPage() {
         settings={settings}
       />
       <div className="flex justify-end">
-        <Button disabled={saving} onClick={handleSave}>
-          {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+        <Button
+          disabled={isSavingCurrentMerchant || !hasCurrentMerchantSettings}
+          onClick={handleSave}
+        >
+          {isSavingCurrentMerchant && (
+            <Loader2 className="mr-2 size-4 animate-spin" />
+          )}
           Save Settings
         </Button>
       </div>

@@ -8,8 +8,13 @@ import {
  * normalize the payload (Korapay defaults OFF on a null/absent flag). Returns
  * `null` on a non-OK response so the caller can surface a load error.
  */
-export async function fetchPaymentSettings(): Promise<PaymentGatewaySettings | null> {
-  const response = await fetch('/api/merchant/features');
+export async function fetchPaymentSettings(
+  merchantId?: string
+): Promise<PaymentGatewaySettings | null> {
+  const query = merchantId
+    ? `?${new URLSearchParams({ merchantId }).toString()}`
+    : '';
+  const response = await fetch(`/api/merchant/features${query}`);
   if (!response.ok) {
     return null;
   }

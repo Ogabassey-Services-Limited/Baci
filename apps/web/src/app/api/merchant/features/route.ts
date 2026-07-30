@@ -20,6 +20,7 @@ import {
   redactMerchantFeatureSettingsResponse,
 } from '@/lib/merchant-feature-settings-redaction';
 import { merchantFeatureSettingsPatchSchema } from '@/schemas/merchant-features';
+import { resolveSelectedMerchantAccess } from './resolve-selected-merchant-access';
 
 /**
  * Merchant Feature Settings API
@@ -348,7 +349,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const access = await getUserAccess(auth.supabase);
+    const requestedMerchantId = request.nextUrl.searchParams.get('merchantId');
+    const { access, invalidMerchantId } = await resolveSelectedMerchantAccess({
+      requestedMerchantId,
+      supabase: auth.supabase,
+      userId: auth.user.id,
+    });
+    if (invalidMerchantId) {
+      return jsonNoStore({ error: 'Invalid merchant ID' }, { status: 400 });
+    }
     if (!access) {
       return jsonNoStore({ error: 'Merchant not found' }, { status: 404 });
     }
@@ -410,15 +419,6 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const access = await getUserAccess(auth.supabase);
-    if (!access) {
-      return jsonNoStore({ error: 'Merchant not found' }, { status: 404 });
-    }
-
-    if (!hasPermission(access, 'settings', 'edit')) {
-      return jsonNoStore({ error: 'Permission denied' }, { status: 403 });
-    }
-
     let updates: Record<string, unknown>;
     try {
       updates = await request.json();
@@ -426,7 +426,25 @@ export async function PATCH(request: NextRequest) {
       return jsonNoStore({ error: 'Invalid JSON body' }, { status: 400 });
     }
 
-    const parsedUpdates = merchantFeatureSettingsPatchSchema.safeParse(updates);
+    const { merchantId: requestedMerchantId, ...featureUpdates } = updates;
+    const { access: selectedAccess, invalidMerchantId } =
+      await resolveSelectedMerchantAccess({
+        requestedMerchantId,
+        supabase: auth.supabase,
+        userId: auth.user.id,
+      });
+    if (invalidMerchantId) {
+      return jsonNoStore({ error: 'Invalid merchant ID' }, { status: 400 });
+    }
+    if (!selectedAccess) {
+      return jsonNoStore({ error: 'Merchant not found' }, { status: 404 });
+    }
+    if (!hasPermission(selectedAccess, 'settings', 'edit')) {
+      return jsonNoStore({ error: 'Permission denied' }, { status: 403 });
+    }
+
+    const parsedUpdates =
+      merchantFeatureSettingsPatchSchema.safeParse(featureUpdates);
     if (!parsedUpdates.success) {
       return jsonNoStore(
         {
@@ -437,6 +455,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
     const sanitizedUpdates = parsedUpdates.data;
+    const access = selectedAccess;
 
     // Sync rewards_page_enabled with loyalty_enabled
     if ('loyalty_enabled' in sanitizedUpdates) {

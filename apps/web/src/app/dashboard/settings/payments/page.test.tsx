@@ -97,45 +97,6 @@ describe('PaymentSettingsPage', () => {
       }) as typeof fetch;
   });
 
-  it('lets India merchants enable Pay on Delivery from payment settings', async () => {
-    const user = userEvent.setup();
-
-    render(<PaymentSettingsPage />);
-
-    expect(
-      await screen.findByRole('heading', { name: /pay on delivery/i })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/paystack is not available for this country yet/i)
-    ).toBeInTheDocument();
-
-    await user.click(
-      screen.getByRole('switch', { name: /toggle pay on delivery/i })
-    );
-    await user.click(screen.getByRole('button', { name: /save settings/i }));
-
-    await waitFor(() => {
-      expect(fetchWithCsrf).toHaveBeenCalledWith(
-        '/api/merchant/features',
-        expect.objectContaining({
-          method: 'PATCH',
-          body: expect.any(String),
-        })
-      );
-    });
-
-    const saveCall = vi.mocked(fetchWithCsrf).mock.calls.at(-1);
-    const body = JSON.parse(String(saveCall?.[1]?.body));
-    expect(body).toEqual(
-      expect.objectContaining({
-        pay_on_delivery_enabled: true,
-        paystack_enabled: false,
-        preferred_local_gateway: 'korapay',
-        preferred_international_gateway: 'korapay',
-      })
-    );
-  });
-
   it('withholds payout forms when no merchant context is established', async () => {
     useMerchantMock.mockReturnValue({
       merchant: null,

@@ -15,11 +15,14 @@ describe('fetchPaymentSettings', () => {
       })
     );
 
-    const result = await fetchPaymentSettings();
+    const result = await fetchPaymentSettings('merchant-b');
 
     expect(result).not.toBeNull();
     expect(result?.korapay_enabled).toBe(false);
     expect(result?.paystack_enabled).toBe(true);
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/merchant/features?merchantId=merchant-b'
+    );
   });
 
   it('honours an explicit korapay opt-in from the response', async () => {
