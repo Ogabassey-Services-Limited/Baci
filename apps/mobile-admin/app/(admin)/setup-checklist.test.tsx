@@ -217,7 +217,9 @@ describe('SetupChecklistScreen', () => {
     render(<SetupChecklistScreen />);
 
     fireEvent.click(screen.getByRole('button', { name: /add bank account/i }));
-    expect(mocks.routerPush).toHaveBeenCalledWith('/payout-settings');
+    expect(mocks.routerPush).toHaveBeenCalledWith(
+      '/payout-settings?from=setup'
+    );
   });
 
   it('publishes through the shared publish hook', () => {

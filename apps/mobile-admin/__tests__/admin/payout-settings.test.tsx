@@ -101,6 +101,7 @@ vi.mock('expo-router', async () => {
       }
     ),
     useRouter: () => mocks.router,
+    useLocalSearchParams: () => ({}),
   };
 });
 vi.mock('react-native-safe-area-context', () => ({

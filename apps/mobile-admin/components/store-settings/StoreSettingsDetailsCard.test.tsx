@@ -139,8 +139,8 @@ describe('StoreSettingsDetailsCard', () => {
     renderCard();
 
     expect(screen.getByDisplayValue('Baci Foods')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('+2348012345678')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('+2347000000000')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('8012345678')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('7000000000')).toBeInTheDocument();
     expect(screen.getByDisplayValue('support@usebaci.com')).toBeInTheDocument();
     expect(screen.getByDisplayValue('12 Allen Avenue')).toBeInTheDocument();
     expect(screen.getByDisplayValue('baci-foods')).toBeInTheDocument();
@@ -188,11 +188,11 @@ describe('StoreSettingsDetailsCard', () => {
     expect(nativeFieldState.phoneProps).toHaveLength(2);
     expect(nativeFieldState.phoneProps[0]).toMatchObject({
       defaultCode: 'NG',
-      defaultValue: '+2348012345678',
+      defaultValue: '8012345678',
     });
     expect(nativeFieldState.phoneProps[1]).toMatchObject({
       defaultCode: 'NG',
-      defaultValue: '+2347000000000',
+      defaultValue: '7000000000',
     });
 
     for (const phoneProps of nativeFieldState.phoneProps) {
