@@ -164,6 +164,19 @@ async function writeExclusive(path, bytes) {
     await handle.close();
   }
 }
+// biome-ignore format: bounded source file keeps crash-safe receipt reconciliation compact
+async function writeExactReceipt(path, bytes) {
+  try {
+    await writeExclusive(path, bytes);
+  } catch (error) {
+    if (error?.code !== 'EEXIST') throw error;
+    const before = await lstat(path);
+    if (!before.isFile() || before.isSymbolicLink() || before.uid !== process.getuid() || (before.mode & 0o777) !== 0o600 || before.nlink !== 1 || before.size !== Buffer.byteLength(bytes)) fail('receipt residue mismatch');
+    const actual = await readFile(path);
+    const after = await lstat(path);
+    if (!actual.equals(Buffer.from(bytes)) || before.ino !== after.ino || before.ctimeMs !== after.ctimeMs) fail('receipt residue mismatch');
+  }
+}
 async function fsyncDirectory(path) {
   const handle = await open(path, 'r');
   try {
@@ -215,8 +228,9 @@ export async function persistBootstrapReceipt(directory, complete) {
     fail('invalid bootstrap completion');
   if (complete.captureSha256 !== current.captureSha256)
     fail('capture digest mismatch');
-  await writeExclusive(join(directory, 'receipt.json'), complete.receiptBytes);
-  await writeExclusive(
+  // biome-ignore format: bounded source file keeps fixed receipt publication compact
+  await writeExactReceipt(join(directory, 'receipt.json'), complete.receiptBytes);
+  await writeExactReceipt(
     join(directory, 'receipt.sha256'),
     `${complete.receiptSha256}\n`
   );

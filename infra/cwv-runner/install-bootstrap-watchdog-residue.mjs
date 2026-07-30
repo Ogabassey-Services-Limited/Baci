@@ -47,7 +47,7 @@ export async function reconcileBootstrapWatchdogResidue(
   };
   const [current, intent] = await Promise.all([
     dependencies.readState(currentDirectory),
-    dependencies.readIntent(currentDirectory),
+    descriptor.intent ?? dependencies.readIntent(currentDirectory),
   ]);
   const currentRow = intent.authorityChain?.at(-1);
   if (

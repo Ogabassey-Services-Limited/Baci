@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { basename, join } from 'node:path';
 import { readBootstrapState } from './install-bootstrap.mjs';
 import { reconcileBootstrapPreCapture } from './install-bootstrap-pre-capture.mjs';
@@ -7,6 +8,14 @@ import { readBootstrapReplacementDownstream } from './install-bootstrap-replacem
 import { isBootstrapReplacementNoop } from './install-bootstrap-replacement-noop.mjs';
 import { reconcileBootstrapReplacementResidue } from './install-bootstrap-replacement-residue.mjs';
 import { readBootstrapReplacementStateInventory } from './install-bootstrap-replacement-state-inventory.mjs';
+import { reconcileBootstrapWatchdogResidue } from './install-bootstrap-watchdog-residue.mjs';
+
+const watchdogDestination = (files) =>
+  Object.keys(files ?? {}).find(
+    (destination) =>
+      basename(destination) === 'baci-cwv-campaign-watchdog@.service'
+  );
+const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 
 export async function authorizeBootstrapReplacementIfNeeded(
   { stateRoot, currentDirectory, root, prepareRoot },
@@ -51,10 +60,38 @@ export async function authorizeBootstrapReplacementIfNeeded(
         },
         dependencies
       );
+    const destination = watchdogDestination(currentState.files);
+    if (destination)
+      await reconcileBootstrapWatchdogResidue(
+        { currentDirectory, destination },
+        {
+          ...dependencies,
+          intent: {
+            sourceSha: currentState.sourceSha,
+            captureSha256: currentState.captureSha256,
+            policyFileSha256: currentState.policyFileSha256,
+            pathSetSha256: sha256(
+              JSON.stringify(Object.keys(currentState.files).sort())
+            ),
+            transitionPaths: [destination],
+            authorityChain,
+          },
+        }
+      );
     return null;
   }
   const names = inventory.filter((name) => name !== basename(currentDirectory));
   if (!names.length) {
+    for (const destination of Object.keys(currentState.files ?? {}).sort())
+      await reconcileBootstrapReplacementResidue(
+        {
+          destination,
+          prior: currentState.prior?.[destination],
+          expected: currentState.files[destination],
+          authorizedState: currentState,
+        },
+        dependencies
+      );
     if (
       Object.values(currentState.prior ?? {}).every(
         (value) => value.absent === true
