@@ -22,6 +22,7 @@ import {
   readBootstrapReplacementReceipt,
   verifyBootstrapReplacementCompletion,
 } from './install-bootstrap-replacement-controller.mjs';
+import { readBootstrapReplacementStateInventory } from './install-bootstrap-replacement-state-inventory.mjs';
 
 export { planBootstrapReplacement } from './install-bootstrap-replacement.mjs';
 export { resolveBootstrapReplacementChain } from './install-bootstrap-replacement-chain.mjs';
@@ -166,6 +167,12 @@ async function main(argv) {
       prepareRoot: fourth,
     });
     process.stdout.write(`${plan ? JSON.stringify(plan) : 'none'}\n`);
+    return;
+  }
+  if (command === 'replacement-inventory') {
+    process.stdout.write(
+      `${JSON.stringify(await readBootstrapReplacementStateInventory(first))}\n`
+    );
     return;
   }
   if (command === 'replacement-complete') {

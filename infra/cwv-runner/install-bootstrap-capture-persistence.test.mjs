@@ -124,3 +124,49 @@ test('atomically publishes the digest and retries a truncated legacy digest', as
   );
   assert.equal((await resumeBootstrap(directory, input)).phase, 'captured');
 });
+
+test('retries after process death leaves a truncated phase temporary', async (context) => {
+  const stateRoot = await mkdtemp(join(tmpdir(), 'baci-bootstrap-phase-'));
+  context.after(() => rm(stateRoot, { recursive: true, force: true }));
+  await chmod(stateRoot, 0o700);
+  const path = '/srv/baci-cwv/sealed/bootstrap.sha256';
+  const input = {
+    transactionId: 'bootstrap-cccccccccccc',
+    sourceSha: 'c'.repeat(40),
+    sourceManifestSha256: 'd'.repeat(64),
+    policyFileSha256: 'e'.repeat(64),
+    prior: { [path]: { absent: true } },
+    files: {
+      [path]: {
+        sha256: 'f'.repeat(64),
+        mode: '0600',
+        owner: 'root:root',
+      },
+    },
+  };
+  const capture = beginBootstrap(input);
+
+  await assert.rejects(
+    persistBootstrapCapture(stateRoot, capture, {
+      async renamePhaseFile(temporary) {
+        await writeFile(temporary, 'capt');
+        throw new Error('simulated process death during phase publication');
+      },
+    }),
+    /simulated process death during phase publication/
+  );
+
+  const directory = join(stateRoot, capture.transactionId);
+  assert.equal(
+    await readFile(join(directory, `.phase-${process.pid}`), 'utf8'),
+    'capt'
+  );
+  await writeFile(join(directory, `.phase-${process.pid}`), 'captX');
+  await assert.rejects(captureBootstrap(stateRoot, input), {
+    name: 'TypeError',
+    message: 'invalid pre-capture bootstrap transaction',
+  });
+  await writeFile(join(directory, `.phase-${process.pid}`), 'capt');
+  assert.equal(await captureBootstrap(stateRoot, input), directory);
+  assert.equal((await resumeBootstrap(directory, input)).phase, 'captured');
+});

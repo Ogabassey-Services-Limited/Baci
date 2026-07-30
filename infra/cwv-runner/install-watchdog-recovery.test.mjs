@@ -2,10 +2,13 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import {
   chmod,
+  lstat,
   mkdir,
   mkdtemp,
+  readdir,
   readFile,
   rm,
+  symlink,
   writeFile,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -80,6 +83,7 @@ exit 0
   const render = rawRender
     .replaceAll('/etc/systemd/system', units)
     .replaceAll('/usr/bin/node', node)
+    .replaceAll('/usr/bin/stat -c %h', '/usr/bin/stat -f %l')
     .replaceAll('/usr/bin/sync -f', '/usr/bin/true')
     .replace('/bin/chown root:root "$temporary"', ':');
   const command = `set -eu
@@ -96,12 +100,18 @@ ${render}
 render_watchdog ${nextSha}`;
   const runRender = () =>
     spawnSync('/bin/sh', ['-c', command], { encoding: 'utf8' });
+  const expectedNext = template.replace('@BACI_CWV_SOURCE_SHA@', nextSha);
+  const interrupted = join(units, '.baci-cwv-watchdog.A1b2C3');
+  await writeFile(interrupted, expectedNext, { mode: 0o644 });
   const result = runRender();
 
   assert.equal(result.status, 0, result.stderr);
-  assert.equal(
-    await readFile(target, 'utf8'),
-    template.replace('@BACI_CWV_SOURCE_SHA@', nextSha)
+  assert.equal(await readFile(target, 'utf8'), expectedNext);
+  assert.deepEqual(
+    (await readdir(units)).filter((name) =>
+      name.startsWith('.baci-cwv-watchdog.')
+    ),
+    []
   );
   await rm(target);
   const absent = runRender();
@@ -145,6 +155,21 @@ render_watchdog ${nextSha}`;
   const drift = runRender();
   assert.equal(drift.status, 65);
   assert.match(drift.stderr, /watchdog unit drift/);
+
+  const foreign = join(units, '.baci-cwv-watchdog.D4e5F6');
+  await writeFile(foreign, 'foreign\n', { mode: 0o644 });
+  const foreignResult = runRender();
+  assert.equal(foreignResult.status, 65);
+  assert.match(foreignResult.stderr, /watchdog render temporary drift/);
+  assert.equal(await readFile(foreign, 'utf8'), 'foreign\n');
+
+  await rm(foreign);
+  const unsafe = join(units, '.baci-cwv-watchdog.G7h8I9');
+  await symlink(target, unsafe);
+  const unsafeResult = runRender();
+  assert.equal(unsafeResult.status, 65);
+  assert.match(unsafeResult.stderr, /watchdog render temporary drift/);
+  assert.ok((await lstat(unsafe)).isSymbolicLink());
 });
 
 test('routes receipt-bound absent file and line installs through the helper', () => {
@@ -163,6 +188,6 @@ test('routes receipt-bound absent file and line installs through the helper', ()
   const watchdog = functionSource('render_watchdog', 'install_units');
   assert.ok(
     watchdog.indexOf('install-bootstrap-replacement-file.mjs') <
-      watchdog.indexOf('/usr/bin/cmp -s')
+      watchdog.indexOf('/usr/bin/cmp -s "$temporary" "$target"')
   );
 });

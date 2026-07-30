@@ -149,8 +149,9 @@ export async function reconcileBootstrapPreCapture(directory, descriptor = {}) {
       throw new TypeError('pre-capture bootstrap transaction changed');
     if (
       phaseTemporaries.length === 1 &&
-      (await readStateFile(join(directory, phaseTemporaries[0]), 'utf8')) !==
-        'captured\n'
+      !'captured\n'.startsWith(
+        await readStateFile(join(directory, phaseTemporaries[0]), 'utf8')
+      )
     )
       refuse();
     const handle = await open(join(directory, marker), 'wx', 0o600);
