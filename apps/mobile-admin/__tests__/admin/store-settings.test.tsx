@@ -410,6 +410,28 @@ describe('StoreSettingsScreen', () => {
     expect(await screen.findByText('Success!')).toBeInTheDocument();
   });
 
+  it('preserves dirty edits when an app-focus merchant refetch returns a new object', () => {
+    const rendered = render(<StoreSettingsScreen />);
+
+    fireEvent.change(screen.getByLabelText('Business Name'), {
+      target: { value: 'Unsaved local name' },
+    });
+
+    mocks.useMerchant.mockReturnValue({
+      merchant: {
+        ...mocks.useMerchant.mock.results.at(-1)?.value.merchant,
+        business_name: 'Refetched server name',
+        updated_at: '2026-06-17T08:01:00.000Z',
+      },
+      isLoading: false,
+    });
+    rendered.rerender(<StoreSettingsScreen />);
+
+    expect(screen.getByLabelText('Business Name')).toHaveValue(
+      'Unsaved local name'
+    );
+  });
+
   it('does not show save success until merchant and readiness invalidations finish', async () => {
     let releaseReadiness!: () => void;
     const readiness = new Promise<void>((resolve) => {

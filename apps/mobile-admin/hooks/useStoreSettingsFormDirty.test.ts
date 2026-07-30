@@ -1,0 +1,15 @@
+import { act, renderHook } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { useStoreSettingsFormDirty } from './useStoreSettingsFormDirty';
+
+describe('useStoreSettingsFormDirty', () => {
+  it('marks local edits dirty until a completed save resets them', () => {
+    const { result } = renderHook(() => useStoreSettingsFormDirty());
+
+    act(() => result.current.markFormDirty());
+    expect(result.current.isFormDirty).toBe(true);
+
+    act(() => result.current.resetFormDirty());
+    expect(result.current.isFormDirty).toBe(false);
+  });
+});

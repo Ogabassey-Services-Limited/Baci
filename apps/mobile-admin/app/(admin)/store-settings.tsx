@@ -26,6 +26,7 @@ import {
 import { COUNTRIES } from '@/constants/countries';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
+import { useStoreSettingsFormDirty } from '@/hooks/useStoreSettingsFormDirty';
 import { useSubscriptionManagement } from '@/hooks/useSubscriptionManagement';
 import { useTheme } from '@/hooks/useTheme';
 import { updateMerchantIdentitySettings } from '@/lib/merchant-settings';
@@ -55,6 +56,8 @@ export default function StoreSettingsScreen() {
   const [currency, setCurrency] = useState(COUNTRIES[0].currency);
   const [slug, setSlug] = useState('');
   const [isSlugEdited, setIsSlugEdited] = useState(false);
+  const { isFormDirty, markFormDirty, resetFormDirty } =
+    useStoreSettingsFormDirty();
   const [syncedMerchant, setSyncedMerchant] = useState<typeof merchant | null>(
     null
   );
@@ -65,7 +68,7 @@ export default function StoreSettingsScreen() {
     setStatusModal,
   });
 
-  if (merchant && merchant !== syncedMerchant) {
+  if (merchant && merchant !== syncedMerchant && !isFormDirty) {
     setSyncedMerchant(merchant);
     const initialForm = buildInitialFormValues(merchant);
     setBusinessName(initialForm.businessName);
@@ -83,12 +86,14 @@ export default function StoreSettingsScreen() {
   const hasEstablishedMerchantSlug = hasNonEmptyTrimmedValue(baseline?.slug);
 
   const handleCountrySelect = (selected: (typeof COUNTRIES)[0]) => {
+    markFormDirty();
     setCountry(selected.code);
     setCurrency(selected.currency);
     setShowCountryModal(false);
   };
 
   const handleBusinessNameChange = (text: string) => {
+    markFormDirty();
     setBusinessName(text);
     if (!(isSlugEdited || hasEstablishedMerchantSlug)) {
       const generated = text
@@ -102,6 +107,7 @@ export default function StoreSettingsScreen() {
   const handleSlugChange = (text: string) => {
     if (hasEstablishedMerchantSlug) return;
 
+    markFormDirty();
     setIsSlugEdited(true);
     const sanitized = text.toLowerCase().replace(/[^a-z0-9-]/g, '');
     setSlug(sanitized);
@@ -112,6 +118,11 @@ export default function StoreSettingsScreen() {
       queryClient.invalidateQueries({ queryKey: ['merchant'] }),
       queryClient.invalidateQueries({ queryKey: ['merchant-settings'] }),
     ]);
+  };
+
+  const updateFormValue = (setter: (value: string) => void, value: string) => {
+    markFormDirty();
+    setter(value);
   };
 
   const saveMutation = useMutation({
@@ -147,6 +158,7 @@ export default function StoreSettingsScreen() {
     },
     onSuccess: async () => {
       await invalidateStoreSettingsAfterSave(queryClient, merchant?.id);
+      resetFormDirty();
       if (from === 'setup') {
         router.back();
         return;
@@ -253,13 +265,15 @@ export default function StoreSettingsScreen() {
           email={email}
           googleMapsApiKey={process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}
           isDark={isDark}
-          onAddressChange={setAddress}
+          onAddressChange={(value) => updateFormValue(setAddress, value)}
           onBusinessNameChange={handleBusinessNameChange}
-          onEmailChange={setEmail}
+          onEmailChange={(value) => updateFormValue(setEmail, value)}
           onOpenCountryPicker={() => setShowCountryModal(true)}
-          onPhoneChange={setPhone}
+          onPhoneChange={(value) => updateFormValue(setPhone, value)}
           onSlugChange={handleSlugChange}
-          onSupportPhoneChange={setSupportPhone}
+          onSupportPhoneChange={(value) =>
+            updateFormValue(setSupportPhone, value)
+          }
           phone={phone}
           shadowStyle={shadows.sm}
           slugLocked={hasEstablishedMerchantSlug}
