@@ -46,14 +46,16 @@ function boundedPsqlDiagnostic(
   command: string,
   stderr: readonly Buffer[]
 ): string {
-  if (!/^psql(?:-[A-Za-z0-9._-]+)?$/.test(sanitizedCommandName(command))) {
+  const commandName = sanitizedCommandName(command);
+  if (!/^psql(?:-[A-Za-z0-9._-]+)?$/.test(commandName)) {
     return '';
   }
   const output = Buffer.concat(stderr).toString('utf8');
-  const match =
-    /^psql:[^\r\n]*:(\d+):[ \t]+(?:ERROR|error):(?:[ \t]+([0-9A-Z]{5})(?=[: \t]|$))?/m.exec(
-      output
-    );
+  const escapedCommandName = commandName.replaceAll('.', '\\.');
+  const match = new RegExp(
+    `^${escapedCommandName}:[^\\r\\n]*:(\\d+):[ \\t]+(?:ERROR|error):(?:[ \\t]+([0-9A-Z]{5})(?=[: \\t]|$))?`,
+    'm'
+  ).exec(output);
   const line = Number(match?.[1]);
   if (!Number.isSafeInteger(line) || line < 1) return '';
   return ` (line=${line}${match?.[2] ? `,sqlstate=${match[2]}` : ''})`;

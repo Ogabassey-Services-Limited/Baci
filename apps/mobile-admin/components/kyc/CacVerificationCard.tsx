@@ -134,11 +134,11 @@ export default function CacVerificationCard({
       );
     },
     onSuccess: async (data) => {
+      setVerifyResult(data);
+      setCacStep('result');
       const readinessRefreshed = data.verified
         ? await tryRefreshStoreReadiness(onVerified)
         : true;
-      setVerifyResult(data);
-      setCacStep('result');
       if (data.verified && !readinessRefreshed) {
         Alert.alert(
           'Verified',

@@ -108,6 +108,21 @@ describe('createReplayCommand', () => {
     );
   });
 
+  it('reports bounded diagnostics from a versioned psql executable', async () => {
+    const root = await temporaryRoot();
+    const psql = path.join(root, 'psql-18.3');
+    await writeFile(
+      psql,
+      "#!/bin/sh\nprintf 'psql-18.3:/owned/replay/secret.sql:17: ERROR:  23505: duplicate key\\nprivate detail\\n' >&2\nexit 1\n",
+      { mode: 0o700 }
+    );
+    const runCommand = replayCommandRuntime.create(root);
+
+    await expect(runCommand(psql, [])).rejects.toThrow(
+      /^psql-18\.3 failed: non-zero-exit \(line=17,sqlstate=23505\)$/
+    );
+  });
+
   it('reports timeout after the child exits on SIGTERM', async () => {
     const root = await temporaryRoot();
     const runCommand = replayCommandRuntime.create(root, {

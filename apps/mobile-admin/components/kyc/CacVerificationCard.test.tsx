@@ -109,7 +109,7 @@ describe('CacVerificationCard readiness handoff', () => {
     );
   });
 
-  it('awaits refresh before showing the verified result', async () => {
+  it('shows the verified result before readiness refresh completes', async () => {
     let release!: () => void;
     const refresh = new Promise<void>((resolve) => {
       release = resolve;
@@ -120,9 +120,12 @@ describe('CacVerificationCard readiness handoff', () => {
     fireEvent.click(
       getByRole('button', { name: 'Toggle Business Verification section' })
     );
-    const done = completeVerifiedMutation();
-    await Promise.resolve();
-    expect(queryByText(/verified/i)).toBeNull();
+    let done!: Promise<void>;
+    await act(async () => {
+      done = completeVerifiedMutation();
+      await Promise.resolve();
+    });
+    expect(queryByText('Verified result')).not.toBeNull();
     await act(async () => {
       release();
       await done;
