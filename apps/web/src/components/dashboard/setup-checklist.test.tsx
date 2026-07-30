@@ -192,4 +192,18 @@ describe('SetupChecklist', () => {
       screen.getByRole('link', { name: /customize storefront/i })
     ).toHaveAttribute('href', '/builder?onboarding=true');
   });
+
+  it('removes only setup_complete while preserving other URL state', () => {
+    window.history.pushState(
+      {},
+      '',
+      '/dashboard?setup_complete=true&tab=orders#recent'
+    );
+
+    render(<SetupChecklist compact />);
+
+    expect(window.location.pathname).toBe('/dashboard');
+    expect(window.location.search).toBe('?tab=orders');
+    expect(window.location.hash).toBe('#recent');
+  });
 });

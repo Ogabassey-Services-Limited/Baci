@@ -37,7 +37,13 @@ export function SetupChecklist({
     const params = new URLSearchParams(window.location.search);
     if (!params.get('setup_complete')) return;
 
-    window.history.replaceState({}, '', window.location.pathname);
+    params.delete('setup_complete');
+    const query = params.toString();
+    window.history.replaceState(
+      {},
+      '',
+      `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`
+    );
     toast({
       title: 'Step Completed! 🎉',
       description: 'Great job! Moving to the next step.',

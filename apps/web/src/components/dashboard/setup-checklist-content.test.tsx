@@ -44,12 +44,9 @@ describe('SetupChecklistContent', () => {
     const setShowAll = vi.fn();
     const incompleteItems = [
       ...readiness.items,
-      ...readiness.items.map((item, index) => ({
-        ...item,
-        id: `extra-${index}`,
-      })),
-      { ...readiness.items[0], id: 'extra-two' },
-      { ...readiness.items[0], id: 'extra-three' },
+      { ...readiness.items[0], id: 'first_product' as const },
+      { ...readiness.items[0], id: 'country' as const },
+      { ...readiness.items[0], id: 'contact_info' as const },
     ];
 
     render(

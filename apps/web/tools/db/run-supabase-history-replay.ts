@@ -150,8 +150,6 @@ export async function runSupabaseHistoryReplay(
     const versionArgs = ['-X', '-w', '-At', '-c', 'SHOW server_version_num'];
     const version = async () =>
       (await run(contract.psqlBin, versionArgs, { env })).stdout.trim();
-    if ((await version()) !== '170006')
-      throw new Error('Local server version mismatch');
     const orderedSources = runtime.materializeReplay(verified, options.mode);
     if (
       verified.bootstrapSources.length !== 125 ||

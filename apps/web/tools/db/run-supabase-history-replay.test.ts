@@ -35,7 +35,6 @@ describe('runSupabaseHistoryReplay', () => {
       `supabase migration up --local --workdir ${fixture.workdir}`,
       `supabase status --workdir ${fixture.workdir} -o env`,
       'psql -X -w -v ON_ERROR_STOP=1 -At',
-      'psql -X -w -At -c SHOW server_version_num',
       `psql -X -w -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -f ${fixture.workdir}/sql/126-00000000000126_migration.sql`,
       `psql -X -w -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -f ${fixture.workdir}/sql/127-00000000000127_migration.sql`,
       `psql -X -w -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -f ${fixture.root}/supabase/tests/one.sql`,
@@ -68,6 +67,33 @@ describe('runSupabaseHistoryReplay', () => {
     expect(fixture.writes[0]?.bytes).not.toContain(fixture.databaseUrl);
     expect(fixture.deps.output).toHaveBeenCalledTimes(2);
     expect(fixture.removed).toEqual([fixture.workdir]);
+  });
+
+  it('verifies effects before rejecting a mismatched server version', async () => {
+    const fixture = createSupabaseReplayRuntimeFixture();
+    const stages: string[] = [];
+    const verifyEffects = fixture.deps.verifyEffects;
+    fixture.deps.verifyEffects = vi.fn(async (options) => {
+      stages.push('effects');
+      return verifyEffects(options);
+    });
+    const createCommand = fixture.deps.createCommand;
+    fixture.deps.createCommand = (root) => {
+      const run = createCommand(root);
+      return async (command, args, options) => {
+        if (args.includes('SHOW server_version_num')) {
+          stages.push('version');
+          return { stderr: '', stdout: '160000\n' };
+        }
+        return run(command, args, options);
+      };
+    };
+
+    await expect(
+      runSupabaseHistoryReplay(fixture.replayOptions(), fixture.deps)
+    ).rejects.toThrow('Local server version mismatch');
+
+    expect(stages).toEqual(['effects', 'version']);
   });
 
   it('applies the verified current-tree suffix after effects and before checks and types', async () => {

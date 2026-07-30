@@ -15,7 +15,7 @@ const readiness = {
   overallProgress: 100,
   storeBuild: {
     starterStoreReady: true,
-    aiStatus: 'completed',
+    aiStatus: 'ready',
     latestJobId: null,
     canApplyAiDraft: false,
     message: 'Ready.',
@@ -50,5 +50,30 @@ describe('SetupChecklistDesktopCard', () => {
     );
     expect(onPublish).toHaveBeenCalledOnce();
     expect(onDismiss).toHaveBeenCalledOnce();
+  });
+
+  it('hides publish and dismiss actions when they are unavailable', () => {
+    render(
+      <SetupChecklistDesktopCard
+        compact={false}
+        dismissible={false}
+        displayItems={[]}
+        incompleteItems={[]}
+        onDismiss={vi.fn()}
+        onPublish={vi.fn()}
+        publishing={false}
+        readiness={{ ...readiness, isReady: false, overallProgress: 0 }}
+        requiredIncomplete={[]}
+        setShowAll={vi.fn()}
+        showAll={false}
+      />
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'Publish Store' })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Dismiss setup checklist' })
+    ).not.toBeInTheDocument();
   });
 });

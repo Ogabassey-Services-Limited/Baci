@@ -59,4 +59,19 @@ describe('invalidateAnalyticsSaveReadiness', () => {
       invalidateAnalyticsSaveReadiness(queryClient, 'merchant-1')
     ).resolves.toBeUndefined();
   });
+
+  it('keeps analytics saves successful when merchant cache invalidation fails', async () => {
+    const queryClient = new QueryClient();
+    vi.spyOn(queryClient, 'invalidateQueries')
+      .mockRejectedValueOnce(new Error('Merchant refresh failed'))
+      .mockRejectedValueOnce(new Error('Analytics refresh failed'));
+
+    await expect(
+      invalidateAnalyticsSaveReadiness(queryClient, 'merchant-1')
+    ).resolves.toBeUndefined();
+    expect(mockInvalidateStoreReadiness).toHaveBeenCalledWith(
+      queryClient,
+      'merchant-1'
+    );
+  });
 });

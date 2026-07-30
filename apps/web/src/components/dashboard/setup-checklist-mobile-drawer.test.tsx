@@ -64,4 +64,48 @@ describe('SetupChecklistMobileDrawer', () => {
     );
     expect(onOpenChange).toHaveBeenCalledWith(true);
   });
+
+  it('uses the launch label when ready but not published', () => {
+    render(
+      <SetupChecklistMobileDrawer
+        compact={false}
+        displayItems={[]}
+        incompleteItems={[]}
+        isOpen={false}
+        onOpenChange={vi.fn()}
+        onPublish={vi.fn()}
+        publishing={false}
+        readiness={{ ...readiness, isReady: true }}
+        requiredIncomplete={[]}
+        setShowAll={vi.fn()}
+        showAll={false}
+      />
+    );
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Ready to Launch, tap to publish your store',
+      })
+    ).toBeInTheDocument();
+  });
+
+  it('renders nothing when the store is ready and published', () => {
+    const { container } = render(
+      <SetupChecklistMobileDrawer
+        compact={false}
+        displayItems={[]}
+        incompleteItems={[]}
+        isOpen={false}
+        onOpenChange={vi.fn()}
+        onPublish={vi.fn()}
+        publishing={false}
+        readiness={{ ...readiness, isReady: true, isPublished: true }}
+        requiredIncomplete={[]}
+        setShowAll={vi.fn()}
+        showAll={false}
+      />
+    );
+
+    expect(container).toBeEmptyDOMElement();
+  });
 });
