@@ -77,6 +77,7 @@ test('reconciles an interrupted predecessor temporary before an unchanged no-op 
     phase: 'complete',
     sourceSha: 'a'.repeat(40),
     receiptSha256: '4'.repeat(64),
+    prior: { [destination]: { absent: true } },
     receipt: {
       sourceSha: 'a'.repeat(40),
       sourceManifestSha256: predecessor.sourceManifestSha256,
@@ -110,6 +111,78 @@ test('reconciles an interrupted predecessor temporary before an unchanged no-op 
               candidate === join(root, temporary)
                 ? metadata(interrupted)
                 : metadata(bytes),
+            ])
+          ),
+        readDownstream: () => {
+          throw new Error('downstream state must not be inspected');
+        },
+      }
+    ),
+    null
+  );
+  assert.deepEqual(await readdir(root), []);
+});
+
+test('uses predecessor authority to retire an executable post-exchange temporary before a no-op returns', async (context) => {
+  const root = await mkdtemp(join(tmpdir(), 'baci-noop-executable-residue-'));
+  context.after(() => rm(root, { recursive: true, force: true }));
+  const destination = join(root, 'bootstrap-helper');
+  const bytes = {
+    baseline: Buffer.from('baseline helper\n'),
+    interrupted: Buffer.from('interrupted helper\n'),
+  };
+  const digest = (value) => createHash('sha256').update(value).digest('hex');
+  const metadata = (value) => ({
+    sha256: digest(value),
+    mode: '0500',
+    owner: 'root:root',
+  });
+  const baseline = {
+    phase: 'captured',
+    sourceSha: 'a'.repeat(40),
+    captureSha256: '4'.repeat(64),
+    sourceManifestSha256: '5'.repeat(64),
+    policyFileSha256: '6'.repeat(64),
+    prior: { [destination]: { absent: true } },
+    files: { [destination]: metadata(bytes.baseline) },
+  };
+  const interrupted = {
+    ...baseline,
+    sourceSha: 'b'.repeat(40),
+    captureSha256: '7'.repeat(64),
+    prior: { [destination]: metadata(bytes.baseline) },
+    files: { [destination]: metadata(bytes.interrupted) },
+  };
+  const noOp = {
+    ...interrupted,
+    sourceSha: 'c'.repeat(40),
+    captureSha256: '8'.repeat(64),
+    prior: { [destination]: metadata(bytes.baseline) },
+    files: { [destination]: metadata(bytes.baseline) },
+  };
+  const temporary = `.baci-bootstrap-replacement-v2-${digest(destination)}-${digest(bytes.interrupted)}-generation-b`;
+  await writeFile(join(root, temporary), bytes.baseline, { mode: 0o500 });
+
+  assert.equal(
+    await authorizeBootstrapReplacementIfNeeded(
+      { ...options, currentDirectory: '/state/bootstrap-cccccccccccc' },
+      {
+        readState: async (directory) =>
+          directory.endsWith('aaaaaaaaaaaa')
+            ? baseline
+            : directory.endsWith('bbbbbbbbbbbb')
+              ? interrupted
+              : noOp,
+        listDirectories: async () => [
+          'bootstrap-aaaaaaaaaaaa',
+          'bootstrap-bbbbbbbbbbbb',
+          'bootstrap-cccccccccccc',
+        ],
+        readProjection: async (projection) =>
+          Object.fromEntries(
+            Object.keys(projection).map((candidate) => [
+              candidate,
+              metadata(bytes.baseline),
             ])
           ),
         readDownstream: () => {

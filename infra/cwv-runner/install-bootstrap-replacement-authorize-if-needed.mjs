@@ -2,6 +2,7 @@ import { basename, join } from 'node:path';
 import { readBootstrapState } from './install-bootstrap.mjs';
 import { reconcileBootstrapPreCapture } from './install-bootstrap-pre-capture.mjs';
 import { authorizeBootstrapReplacement } from './install-bootstrap-replacement-authorize.mjs';
+import { resolveBootstrapReplacementChain } from './install-bootstrap-replacement-chain.mjs';
 import { readBootstrapReplacementDownstream } from './install-bootstrap-replacement-downstream.mjs';
 import { isBootstrapReplacementNoop } from './install-bootstrap-replacement-noop.mjs';
 import { reconcileBootstrapReplacementResidue } from './install-bootstrap-replacement-residue.mjs';
@@ -18,14 +19,23 @@ export async function authorizeBootstrapReplacementIfNeeded(
     dependencies
   );
   if (isBootstrapReplacementNoop(currentState)) {
+    const states = [currentState];
     for (const name of inventory) {
       if (name === basename(currentDirectory)) continue;
       try {
-        await readState(join(stateRoot, name));
+        states.push(await readState(join(stateRoot, name)));
       } catch {
         await reconcileBootstrapPreCapture(join(stateRoot, name), dependencies);
       }
     }
+    const authorityChain = resolveBootstrapReplacementChain(
+      states,
+      currentState
+    ).map((state) => ({
+      sourceSha: state.sourceSha,
+      stateSha256:
+        state.phase === 'complete' ? state.receiptSha256 : state.captureSha256,
+    }));
     for (const destination of Object.keys(currentState.files).sort())
       await reconcileBootstrapReplacementResidue(
         {
@@ -36,7 +46,7 @@ export async function authorizeBootstrapReplacementIfNeeded(
             ...currentState,
             currentDirectory,
             destination,
-            intent: { authorityChain: [] },
+            intent: { authorityChain },
           },
         },
         dependencies
