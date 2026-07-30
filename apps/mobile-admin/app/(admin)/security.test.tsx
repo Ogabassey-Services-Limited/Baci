@@ -165,6 +165,44 @@ describe('SecurityScreen', () => {
     await waitFor(() => expect(mocks.enroll).toHaveBeenCalledTimes(1));
   });
 
+  it('restarts an interrupted backup before allowing another enrollment', async () => {
+    mocks.listFactors.mockResolvedValue({
+      data: {
+        all: [
+          {
+            id: 'primary-factor',
+            factor_type: 'totp',
+            status: 'verified',
+          },
+          {
+            id: 'interrupted-backup',
+            factor_type: 'totp',
+            status: 'unverified',
+          },
+        ],
+        totp: [{ id: 'primary-factor', status: 'verified' }],
+      },
+      error: null,
+    });
+
+    render(<SecurityScreen />);
+
+    const restartButton = await screen.findByRole('button', {
+      name: 'Restart backup authenticator setup',
+    });
+    expect(
+      screen.queryByRole('button', { name: 'Add backup authenticator' })
+    ).not.toBeInTheDocument();
+    fireEvent.click(restartButton);
+
+    await waitFor(() => {
+      expect(mocks.unenroll).toHaveBeenCalledWith({
+        factorId: 'interrupted-backup',
+      });
+      expect(mocks.enroll).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it('verifies a session with the selected backup authenticator', async () => {
     mocks.listFactors.mockResolvedValue({
       data: {

@@ -12,10 +12,13 @@ import {
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
+import {
+  SecurityFactorSelector,
+  type VerifiedTotpFactor,
+} from './security-factor-selector';
 import { securityStyles as styles } from './security-styles';
 
 type TotpSetup = { factorId: string; secret: string };
-type VerifiedTotpFactor = { id: string; name: string };
 
 export default function SecurityScreen() {
   const { colors } = useTheme();
@@ -24,6 +27,7 @@ export default function SecurityScreen() {
   const [hasVerifiedFactor, setHasVerifiedFactor] = useState(false);
   const [isAal2, setIsAal2] = useState(false);
   const [isBusy, setIsBusy] = useState(true);
+  const [pendingFactorId, setPendingFactorId] = useState<string | null>(null);
   const [setup, setSetup] = useState<TotpSetup | null>(null);
   const [verifiedFactors, setVerifiedFactors] = useState<VerifiedTotpFactor[]>(
     []
@@ -58,6 +62,7 @@ export default function SecurityScreen() {
       setFactorId(verifiedFactor?.id ?? pendingFactor?.id ?? null);
       setHasVerifiedFactor(Boolean(verifiedFactor));
       setIsAal2(assurance?.currentLevel === 'aal2');
+      setPendingFactorId(pendingFactor?.id ?? null);
       setVerifiedFactors(verifiedFactors);
       setIsBusy(false);
     });
@@ -111,10 +116,13 @@ export default function SecurityScreen() {
   };
 
   const restartEnrollment = async () => {
-    if (!factorId) return;
+    const factorToReplace = pendingFactorId ?? factorId;
+    if (!factorToReplace) return;
 
     setIsBusy(true);
-    const { error } = await supabase.auth.mfa.unenroll({ factorId });
+    const { error } = await supabase.auth.mfa.unenroll({
+      factorId: factorToReplace,
+    });
     setIsBusy(false);
     if (error) {
       Alert.alert('Could not restart 2FA setup', error.message);
@@ -122,6 +130,7 @@ export default function SecurityScreen() {
     }
 
     setFactorId(null);
+    setPendingFactorId(null);
     await startEnrollment();
   };
 
@@ -167,7 +176,7 @@ export default function SecurityScreen() {
             </Pressable>
           ) : null}
 
-          {hasVerifiedFactor && !setup ? (
+          {hasVerifiedFactor && !pendingFactorId && !setup ? (
             <Pressable
               accessibilityRole="button"
               onPress={startEnrollment}
@@ -175,6 +184,18 @@ export default function SecurityScreen() {
             >
               <Text style={[styles.link, { color: colors.primary }]}>
                 Add backup authenticator
+              </Text>
+            </Pressable>
+          ) : null}
+
+          {hasVerifiedFactor && pendingFactorId && !setup ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={restartEnrollment}
+              style={[styles.secondaryButton, { borderColor: colors.border }]}
+            >
+              <Text style={[styles.link, { color: colors.primary }]}>
+                Restart backup authenticator setup
               </Text>
             </Pressable>
           ) : null}
@@ -191,32 +212,12 @@ export default function SecurityScreen() {
             </Pressable>
           ) : null}
 
-          {verifiedFactors.length > 1 && !setup ? (
-            <View accessibilityRole="radiogroup">
-              <Text style={[styles.label, { color: colors.text }]}>
-                Choose an authenticator
-              </Text>
-              {verifiedFactors.map((factor) => (
-                <Pressable
-                  accessibilityLabel={`Use ${factor.name}`}
-                  accessibilityRole="radio"
-                  accessibilityState={{ checked: factor.id === factorId }}
-                  key={factor.id}
-                  onPress={() => setFactorId(factor.id)}
-                  style={[
-                    styles.secondaryButton,
-                    {
-                      borderColor:
-                        factor.id === factorId ? colors.primary : colors.border,
-                    },
-                  ]}
-                >
-                  <Text style={[styles.link, { color: colors.text }]}>
-                    {factor.name}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
+          {!setup ? (
+            <SecurityFactorSelector
+              factors={verifiedFactors}
+              onSelect={setFactorId}
+              selectedFactorId={factorId}
+            />
           ) : null}
 
           {setup ? (
