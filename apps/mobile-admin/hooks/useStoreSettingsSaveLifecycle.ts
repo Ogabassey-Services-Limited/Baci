@@ -6,13 +6,19 @@ import {
 } from '@/components/store-settings/store-settings-payload';
 import type { StatusModalState } from '@/components/ui/StatusModal';
 import type { Merchant } from '@/hooks/useMerchant';
-import { updateMerchantIdentitySettings } from '@/lib/merchant-settings';
+import {
+  type MerchantIdentitySettingsReceipt,
+  updateMerchantIdentitySettings,
+} from '@/lib/merchant-settings';
 import { invalidateStoreSettingsAfterSave } from '@/lib/store-settings-save-readiness';
 
 type StoreSettingsSaveToken = {
   merchantId: string;
+  receipt: MerchantIdentitySettingsReceipt | null;
   revision: number;
 };
+
+export type RefreshedLocalStoreSettingsSave = MerchantIdentitySettingsReceipt;
 
 type StoreSettingsRouter = {
   back: () => void;
@@ -24,6 +30,7 @@ type UseStoreSettingsSaveLifecycleArgs = {
   from?: string;
   getFormRevision: () => number;
   merchant: Pick<Merchant, 'id' | 'updated_at'> | null | undefined;
+  onRefreshedLocalSave: (save: RefreshedLocalStoreSettingsSave) => void;
   queryClient: QueryClient;
   resetFormDirty: () => void;
   router: StoreSettingsRouter;
@@ -38,6 +45,7 @@ export function useStoreSettingsSaveLifecycle({
   from,
   getFormRevision,
   merchant,
+  onRefreshedLocalSave,
   queryClient,
   resetFormDirty,
   router,
@@ -61,13 +69,13 @@ export function useStoreSettingsSaveLifecycle({
     mutationFn: async () => {
       if (!merchant?.id || !baseline) throw new Error('No merchant found');
 
+      const payload = buildMerchantUpdatePayload(baseline, formValues);
       const saveToken = {
         merchantId: merchant.id,
+        receipt: null,
         revision: getFormRevision(),
       };
       activeSaveTokenRef.current = saveToken;
-
-      const payload = buildMerchantUpdatePayload(baseline, formValues);
       if (Object.keys(payload).length === 0) return saveToken;
 
       if (!syncedMerchantUpdatedAt) {
@@ -75,18 +83,24 @@ export function useStoreSettingsSaveLifecycle({
           'These settings need to be reloaded before they can be saved.'
         );
       }
-      await updateMerchantIdentitySettings({
+      const receipt = await updateMerchantIdentitySettings({
         expectedUpdatedAt: syncedMerchantUpdatedAt,
         merchantId: merchant.id,
         settings: payload,
       });
-      return saveToken;
+      return { ...saveToken, receipt };
     },
     onSuccess: async (saveToken) => {
       await invalidateStoreSettingsAfterSave(
         queryClient,
         saveToken?.merchantId
       );
+      if (
+        saveToken?.receipt &&
+        merchantIdRef.current === saveToken.receipt.merchantId
+      ) {
+        onRefreshedLocalSave(saveToken.receipt);
+      }
       if (!isCurrentSaveToken(saveToken)) {
         activeSaveTokenRef.current = null;
         return;

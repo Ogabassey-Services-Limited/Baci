@@ -26,7 +26,10 @@ import { COUNTRIES } from '@/constants/countries';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useStoreSettingsFormDirty } from '@/hooks/useStoreSettingsFormDirty';
-import { useStoreSettingsSaveLifecycle } from '@/hooks/useStoreSettingsSaveLifecycle';
+import {
+  type RefreshedLocalStoreSettingsSave,
+  useStoreSettingsSaveLifecycle,
+} from '@/hooks/useStoreSettingsSaveLifecycle';
 import { useSubscriptionManagement } from '@/hooks/useSubscriptionManagement';
 import { useTheme } from '@/hooks/useTheme';
 import { SubscriptionManagement } from '@/utils/SubscriptionManagement';
@@ -59,6 +62,9 @@ export default function StoreSettingsScreen() {
   const [syncedMerchant, setSyncedMerchant] = useState<typeof merchant | null>(
     null
   );
+  const [syncedMerchantUpdatedAt, setSyncedMerchantUpdatedAt] = useState<
+    string | null
+  >(null);
   const [baseline, setBaseline] = useState<StoreSettingsFormValues | null>(
     null
   );
@@ -75,7 +81,9 @@ export default function StoreSettingsScreen() {
   ) {
     if (hasMerchantChanged) resetFormDirty();
     setSyncedMerchant(merchant);
+    setSyncedMerchantUpdatedAt(merchant.updated_at ?? null);
     const initialForm = buildInitialFormValues(merchant);
+    setBaseline(buildBaselineFromMerchant(merchant));
     setBusinessName(initialForm.businessName);
     setPhone(initialForm.phone);
     setSupportPhone(initialForm.supportPhone);
@@ -85,7 +93,6 @@ export default function StoreSettingsScreen() {
     setCurrency(initialForm.currency);
     setSlug(initialForm.slug);
     setIsSlugEdited(hasNonEmptyTrimmedValue(merchant.slug));
-    setBaseline(buildBaselineFromMerchant(merchant));
   }
 
   const hasEstablishedMerchantSlug = hasNonEmptyTrimmedValue(baseline?.slug);
@@ -130,6 +137,13 @@ export default function StoreSettingsScreen() {
     setter(value);
   };
 
+  const adoptRefreshedLocalSave = (save: RefreshedLocalStoreSettingsSave) => {
+    setSyncedMerchantUpdatedAt(save.updatedAt);
+    setBaseline((previous) =>
+      previous ? { ...previous, ...save.savedValues } : previous
+    );
+  };
+
   const { handleCloseStatusModal, saveMutation } =
     useStoreSettingsSaveLifecycle({
       baseline,
@@ -146,11 +160,12 @@ export default function StoreSettingsScreen() {
       from,
       getFormRevision,
       merchant,
+      onRefreshedLocalSave: adoptRefreshedLocalSave,
       queryClient,
       resetFormDirty,
       router,
       setStatusModal,
-      syncedMerchantUpdatedAt: syncedMerchant?.updated_at,
+      syncedMerchantUpdatedAt,
     });
 
   if (isLoading) {

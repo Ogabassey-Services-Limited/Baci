@@ -75,6 +75,7 @@ describe('useStoreSettingsSaveLifecycle', () => {
           from: undefined,
           getFormRevision: () => revision,
           merchant: { id: 'merchant-1', updated_at: '2026-07-30T12:00:00Z' },
+          onRefreshedLocalSave: vi.fn(),
           queryClient,
           resetFormDirty,
           router: { back: vi.fn() },
@@ -101,5 +102,78 @@ describe('useStoreSettingsSaveLifecycle', () => {
     );
     expect(resetFormDirty).not.toHaveBeenCalled();
     expect(result.current.statusModal.visible).toBe(false);
+  });
+
+  it('adopts the immutable RPC receipt when the merchant ref changes during invalidation', async () => {
+    let releaseInvalidation!: () => void;
+    mocks.invalidateAfterSave.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        releaseInvalidation = resolve;
+      })
+    );
+    mocks.updateMerchant.mockResolvedValueOnce({
+      merchantId: 'merchant-1',
+      savedValues: {
+        ...baseline,
+        business_name: 'Saved server name',
+        support_email: 'owner@example.com',
+      },
+      updatedAt: '2026-07-30T20:00:00.000Z',
+    });
+    const onRefreshedLocalSave = vi.fn();
+    const queryClient = new QueryClient({
+      defaultOptions: { mutations: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+    let merchant = {
+      id: 'merchant-1',
+      updated_at: '2026-07-30T12:00:00Z',
+    };
+    const { result, rerender } = renderHook(
+      () => {
+        const [, setStatusModal] = useState<StatusModalState>({
+          visible: false,
+          type: 'success',
+          title: '',
+          message: '',
+        });
+        return useStoreSettingsSaveLifecycle({
+          baseline,
+          formValues,
+          from: undefined,
+          getFormRevision: () => 0,
+          merchant,
+          onRefreshedLocalSave,
+          queryClient,
+          resetFormDirty: vi.fn(),
+          router: { back: vi.fn() },
+          setStatusModal,
+          syncedMerchantUpdatedAt: '2026-07-30T12:00:00Z',
+        });
+      },
+      { wrapper }
+    );
+
+    act(() => result.current.saveMutation.mutate());
+    await waitFor(() => expect(mocks.invalidateAfterSave).toHaveBeenCalled());
+
+    merchant = {
+      id: 'merchant-1',
+      updated_at: '2026-07-30T20:01:00.000Z',
+    };
+    rerender();
+    await act(async () => releaseInvalidation());
+
+    expect(onRefreshedLocalSave).toHaveBeenCalledWith({
+      merchantId: 'merchant-1',
+      savedValues: {
+        ...baseline,
+        business_name: 'Saved server name',
+        support_email: 'owner@example.com',
+      },
+      updatedAt: '2026-07-30T20:00:00.000Z',
+    });
   });
 });

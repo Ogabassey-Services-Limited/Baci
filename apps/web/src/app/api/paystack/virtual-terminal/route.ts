@@ -1,6 +1,5 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import z from 'zod';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
@@ -12,27 +11,10 @@ import { createVirtualTerminal } from '@/lib/paystack';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { validateTerminalAssignments } from './validate-terminal-assignments';
-
-const CreateTerminalSchema = z.object({
-  name: z.string().min(2, 'Account name must be at least 2 characters'),
-  staffId: z.uuid().optional(), // Optional staff assignment
-  branchId: z.uuid().optional(), // Optional branch assignment
-  destinations: z
-    .array(
-      z.object({
-        target: z
-          .string()
-          .regex(
-            /^\+\d{10,15}$/,
-            'Invalid phone number (E.164 format required)'
-          ),
-        name: z.string().min(1, 'Destination name is required'),
-      })
-    )
-    .max(5, 'Maximum 5 WhatsApp destinations allowed')
-    .optional()
-    .default([]),
-});
+import {
+  createVirtualTerminalSchema,
+  virtualTerminalListQuerySchema,
+} from './virtual-terminal-request-schemas';
 
 // =============================================================================
 // Route Handlers
@@ -64,7 +46,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    // Parse and validate request body
+    const body = await request.json();
+    const parseResult = createVirtualTerminalSchema.safeParse(body);
+
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: parseResult.error.issues[0].message },
+        { status: 400 }
+      );
+    }
+
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id, {
+      requestedMerchantId: parseResult.data.merchantId,
+    });
     if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
@@ -79,18 +74,6 @@ export async function POST(request: NextRequest) {
 
     const merchantId = merchantContext.merchantId;
     const businessName = merchantContext.businessName;
-
-    // Parse and validate request body
-    const body = await request.json();
-    const parseResult = CreateTerminalSchema.safeParse(body);
-
-    if (!parseResult.success) {
-      return NextResponse.json(
-        { error: parseResult.error.issues[0].message },
-        { status: 400 }
-      );
-    }
-
     const { name, staffId, branchId, destinations } = parseResult.data;
 
     const adminSupabase = createAdminClient();
@@ -237,7 +220,19 @@ export async function GET(request: NextRequest) {
     const { user } = auth;
     const supabase = auth.supabase;
 
-    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    const parsedQuery = virtualTerminalListQuerySchema.safeParse({
+      merchantId: request.nextUrl.searchParams.get('merchantId') ?? undefined,
+    });
+    if (!parsedQuery.success) {
+      return NextResponse.json(
+        { error: 'Invalid merchant context' },
+        { status: 400 }
+      );
+    }
+
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id, {
+      requestedMerchantId: parsedQuery.data.merchantId,
+    });
     if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },

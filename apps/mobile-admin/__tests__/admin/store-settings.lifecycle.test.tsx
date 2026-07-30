@@ -17,7 +17,7 @@ import StoreSettingsScreen from './store-settings.test-subject';
 describe('StoreSettingsScreen lifecycle', () => {
   beforeEach(resetStoreSettingsMocks);
 
-  it('preserves dirty edits when an app-focus merchant refetch returns a new object', () => {
+  it('does not adopt an external refetch token while preserving dirty edits', async () => {
     const rendered = render(<StoreSettingsScreen />);
     fireEvent.change(screen.getByLabelText('Business Name'), {
       target: { value: 'Unsaved local name' },
@@ -33,6 +33,16 @@ describe('StoreSettingsScreen lifecycle', () => {
     rendered.rerender(<StoreSettingsScreen />);
     expect(screen.getByLabelText('Business Name')).toHaveValue(
       'Unsaved local name'
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save store settings' })
+    );
+    await waitFor(() =>
+      expect(mocks.updateMerchantIdentitySettings).toHaveBeenCalledWith({
+        expectedUpdatedAt: defaultMerchant.updated_at,
+        merchantId: 'merchant-1',
+        settings: { business_name: 'Unsaved local name' },
+      })
     );
   });
 
@@ -105,6 +115,78 @@ describe('StoreSettingsScreen lifecycle', () => {
     expect(screen.getByLabelText('Business Name')).toHaveValue(
       'Typed while saving'
     );
+  });
+
+  it('uses the refreshed token and saved baseline when saving an edit made during the prior save', async () => {
+    let completeFirstSave!: () => void;
+    let releaseMerchantRefresh!: () => void;
+    mocks.invalidateQueries.mockReturnValue(
+      new Promise<void>((resolve) => {
+        releaseMerchantRefresh = resolve;
+      })
+    );
+    mocks.updateMerchantIdentitySettings.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          completeFirstSave = () =>
+            resolve({
+              merchantId: 'merchant-1',
+              savedValues: {
+                business_address: '12 Allen Avenue',
+                business_name: 'Saved server name',
+                country: 'NG',
+                payout_currency: 'NGN',
+                phone: '+2348012345678',
+                slug: 'baci-foods',
+                support_email: 'support@usebaci.com',
+                support_phone: '+2347000000000',
+              },
+              updatedAt: '2026-07-30T18:00:00.000Z',
+            });
+        })
+    );
+    const rendered = render(<StoreSettingsScreen />);
+    fireEvent.change(screen.getByLabelText('Business Name'), {
+      target: { value: 'Saved server name' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save store settings' })
+    );
+    await waitFor(() =>
+      expect(mocks.updateMerchantIdentitySettings).toHaveBeenCalledTimes(1)
+    );
+
+    fireEvent.change(screen.getByLabelText('Phone Number'), {
+      target: { value: '+2348099999999' },
+    });
+    act(completeFirstSave);
+    await waitFor(() =>
+      expect(mocks.invalidateQueries).toHaveBeenCalledTimes(2)
+    );
+
+    mocks.useMerchant.mockReturnValue({
+      merchant: {
+        ...defaultMerchant,
+        business_name: 'Saved server name',
+        updated_at: '2026-07-30T18:01:00.000Z',
+      },
+      isLoading: false,
+    });
+    rendered.rerender(<StoreSettingsScreen />);
+    expect(screen.getByLabelText('Phone Number')).toHaveValue('+2348099999999');
+    await act(async () => releaseMerchantRefresh());
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save store settings' })
+    );
+    await waitFor(() =>
+      expect(mocks.updateMerchantIdentitySettings).toHaveBeenCalledTimes(2)
+    );
+    expect(mocks.updateMerchantIdentitySettings).toHaveBeenLastCalledWith({
+      expectedUpdatedAt: '2026-07-30T18:00:00.000Z',
+      merchantId: 'merchant-1',
+      settings: { phone: '+2348099999999' },
+    });
   });
 
   it('stays on the setup form when another edit is made during its save', async () => {

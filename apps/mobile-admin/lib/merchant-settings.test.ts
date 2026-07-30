@@ -9,6 +9,19 @@ const mocks = vi.hoisted(() => ({
   rpc: vi.fn(),
 }));
 
+const committedIdentitySettings = {
+  id: 'merchant-1',
+  business_address: '12 Allen Avenue',
+  business_name: 'Baci Store',
+  country: 'NG',
+  payout_currency: 'NGN',
+  phone: null,
+  slug: 'baci-store',
+  support_email: 'owner@example.com',
+  support_phone: '+2348012345678',
+  updated_at: '2026-07-30T20:00:00.000Z',
+};
+
 vi.mock('./supabase', () => ({
   supabase: { rpc: mocks.rpc },
 }));
@@ -21,7 +34,10 @@ describe('merchant settings mutation clients', () => {
   beforeEach(() => {
     mocks.apiClient.mockReset();
     mocks.rpc.mockReset();
-    mocks.rpc.mockResolvedValue({ data: { id: 'merchant-1' }, error: null });
+    mocks.rpc.mockResolvedValue({
+      data: committedIdentitySettings,
+      error: null,
+    });
   });
 
   it('sends the active merchant ID with the settings payload', async () => {
@@ -82,6 +98,51 @@ describe('merchant settings mutation clients', () => {
         p_settings: { support_email: 'support@example.com' },
       }
     );
+  });
+
+  it('returns an immutable committed receipt with server-normalized form values', async () => {
+    const receipt = await updateMerchantIdentitySettings({
+      expectedUpdatedAt: '2026-07-29T10:00:00Z',
+      merchantId: 'merchant-1',
+      settings: {
+        business_name: '  Baci Store  ',
+        payout_currency: ' ngn ',
+        phone: '   ',
+        support_email: ' Owner@Example.COM ',
+      },
+    });
+
+    expect(receipt).toEqual({
+      merchantId: 'merchant-1',
+      savedValues: {
+        business_address: '12 Allen Avenue',
+        business_name: 'Baci Store',
+        country: 'NG',
+        payout_currency: 'NGN',
+        phone: '',
+        slug: 'baci-store',
+        support_email: 'owner@example.com',
+        support_phone: '+2348012345678',
+      },
+      updatedAt: '2026-07-30T20:00:00.000Z',
+    });
+    expect(Object.isFrozen(receipt)).toBe(true);
+    expect(Object.isFrozen(receipt.savedValues)).toBe(true);
+  });
+
+  it('rejects a non-exact committed receipt from the RPC', async () => {
+    mocks.rpc.mockResolvedValueOnce({
+      data: { ...committedIdentitySettings, unexpected: 'unsafe' },
+      error: null,
+    });
+
+    await expect(
+      updateMerchantIdentitySettings({
+        expectedUpdatedAt: '2026-07-29T10:00:00Z',
+        merchantId: 'merchant-1',
+        settings: { business_name: 'Baci Store' },
+      })
+    ).rejects.toThrow('Invalid store settings update response');
   });
 
   it('requires a fresh login when the server rejects a stale session', async () => {

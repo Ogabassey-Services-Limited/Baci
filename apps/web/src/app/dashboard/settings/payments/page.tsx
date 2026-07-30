@@ -255,7 +255,10 @@ export default function PaymentSettingsPage() {
         paystackFixedFee={paystackFixedFee}
         settings={settings}
       />
-      <VirtualTerminalSettings businessName={merchant.business_name} />
+      <VirtualTerminalSettings
+        businessName={merchant.business_name}
+        merchantId={merchant.id}
+      />
       <PaymentPreferencesCard
         hasPaystackSubaccount={hasPaystackSubaccount}
         isPaystackSupported={isPaystackSupported}

@@ -34,6 +34,67 @@ export interface MerchantIdentitySettingsPayload {
   support_phone?: string | null;
 }
 
+type MerchantIdentitySettingsFormValues = {
+  [Key in keyof MerchantIdentitySettingsPayload]-?: string;
+};
+
+export type MerchantIdentitySettingsReceipt = Readonly<{
+  merchantId: string;
+  savedValues: Readonly<MerchantIdentitySettingsFormValues>;
+  updatedAt: string;
+}>;
+
+const merchantIdentitySettingKeys = [
+  'business_address',
+  'business_name',
+  'country',
+  'payout_currency',
+  'phone',
+  'slug',
+  'support_email',
+  'support_phone',
+] as const satisfies readonly (keyof MerchantIdentitySettingsPayload)[];
+const merchantIdentityReceiptKeys = new Set<string>([
+  'id',
+  'updated_at',
+  ...merchantIdentitySettingKeys,
+]);
+
+function parseMerchantIdentitySettingsReceipt(
+  value: unknown,
+  expectedMerchantId: string
+): MerchantIdentitySettingsReceipt {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Invalid store settings update response');
+  }
+  const record = value as Record<string, unknown>;
+  const recordKeys = Object.keys(record);
+  if (
+    recordKeys.length !== merchantIdentityReceiptKeys.size ||
+    recordKeys.some((key) => !merchantIdentityReceiptKeys.has(key)) ||
+    record.id !== expectedMerchantId ||
+    typeof record.updated_at !== 'string' ||
+    Number.isNaN(Date.parse(record.updated_at))
+  ) {
+    throw new Error('Invalid store settings update response');
+  }
+
+  const savedValues = {} as MerchantIdentitySettingsFormValues;
+  for (const key of merchantIdentitySettingKeys) {
+    const setting = record[key];
+    if (setting !== null && typeof setting !== 'string') {
+      throw new Error('Invalid store settings update response');
+    }
+    savedValues[key] = setting ?? '';
+  }
+
+  return Object.freeze({
+    merchantId: expectedMerchantId,
+    savedValues: Object.freeze(savedValues),
+    updatedAt: record.updated_at,
+  });
+}
+
 function merchantIdentityUpdateError(message: string): Error {
   if (message.includes('merchant_settings_mfa_required')) {
     return new Error(
@@ -60,14 +121,18 @@ export async function updateMerchantIdentitySettings(params: {
   expectedUpdatedAt: string;
   merchantId: string;
   settings: MerchantIdentitySettingsPayload;
-}): Promise<void> {
-  const { error } = await supabase.rpc('update_merchant_identity_settings', {
-    p_expected_updated_at: params.expectedUpdatedAt,
-    p_merchant_id: params.merchantId,
-    p_settings: params.settings,
-  });
+}): Promise<MerchantIdentitySettingsReceipt> {
+  const { data, error } = await supabase.rpc(
+    'update_merchant_identity_settings',
+    {
+      p_expected_updated_at: params.expectedUpdatedAt,
+      p_merchant_id: params.merchantId,
+      p_settings: params.settings,
+    }
+  );
 
   if (error) {
     throw merchantIdentityUpdateError(error.message);
   }
+  return parseMerchantIdentitySettingsReceipt(data, params.merchantId);
 }

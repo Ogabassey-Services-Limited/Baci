@@ -5,6 +5,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const reloadMerchantMock = vi.hoisted(() => vi.fn());
 const toastMock = vi.hoisted(() => vi.fn());
 const useMerchantMock = vi.hoisted(() => vi.fn());
+const virtualTerminalProps = vi.hoisted(
+  () => [] as { businessName?: string; merchantId: string }[]
+);
 
 vi.mock('@/components/merchant-bank-form', () => ({
   MerchantBankForm: () => <div data-testid="merchant-bank-form" />,
@@ -23,9 +26,13 @@ vi.mock('@/lib/api-client', () => ({
 }));
 
 vi.mock('./components/virtual-terminal-settings', () => ({
-  VirtualTerminalSettings: () => (
-    <div data-testid="virtual-terminal-settings" />
-  ),
+  VirtualTerminalSettings: (props: {
+    businessName?: string;
+    merchantId: string;
+  }) => {
+    virtualTerminalProps.push(props);
+    return <div data-testid="virtual-terminal-settings" />;
+  },
 }));
 
 import { fetchWithCsrf } from '@/lib/api-client';
@@ -59,6 +66,7 @@ const merchantBSettings = {
 describe('PaymentSettingsPage merchant switching', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    virtualTerminalProps.length = 0;
     window.history.replaceState({}, '', '/dashboard/settings/payments');
     useMerchantMock.mockReturnValue({
       merchant: merchantA,
@@ -80,6 +88,9 @@ describe('PaymentSettingsPage merchant switching', () => {
     await screen.findByRole('heading', { name: /payment settings/i });
     expect(global.fetch).toHaveBeenCalledWith(
       `/api/merchant/features?merchantId=${merchantA.id}`
+    );
+    expect(virtualTerminalProps.at(-1)).toEqual(
+      expect.objectContaining({ merchantId: merchantA.id })
     );
 
     await user.click(screen.getByRole('button', { name: /save settings/i }));
@@ -196,6 +207,9 @@ describe('PaymentSettingsPage merchant switching', () => {
       name: /save settings/i,
     });
     expect(merchantBSave).toBeEnabled();
+    expect(virtualTerminalProps.at(-1)).toEqual(
+      expect.objectContaining({ merchantId: merchantB.id })
+    );
 
     settleMerchantASave?.({ ok: saveSucceeds } as Response);
 
