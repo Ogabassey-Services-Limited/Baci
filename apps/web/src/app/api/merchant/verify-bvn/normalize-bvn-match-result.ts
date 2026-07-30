@@ -24,6 +24,15 @@ export default function normalizeBvnMatchResult(
 ): NormalizedBvnMatchResult | null {
   if (!isRecord(payload) || !isRecord(payload.responseBody)) return null;
 
+  // Older Monnify responses omitted this envelope. Preserve that compatibility,
+  // but never trust a body when the envelope explicitly reports a failure.
+  if (
+    payload.requestSuccessful === false ||
+    (Object.hasOwn(payload, 'responseCode') && payload.responseCode !== '0')
+  ) {
+    return null;
+  }
+
   const body = payload.responseBody;
   if (typeof body.bvnInformationMatch === 'boolean') {
     return { verified: body.bvnInformationMatch };

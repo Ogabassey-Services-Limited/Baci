@@ -33,10 +33,7 @@ export async function POST(request: NextRequest) {
   try {
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user || !auth.supabase) {
-      return NextResponse.json(
-        { error: auth.error || 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { valid: csrfValid, response: csrfResponse } =
@@ -130,10 +127,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user || !auth.supabase) {
-      return NextResponse.json(
-        { error: auth.error || 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { valid: csrfValid, response: csrfResponse } =

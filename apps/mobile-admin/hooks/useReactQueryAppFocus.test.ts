@@ -33,6 +33,7 @@ describe('useReactQueryAppFocus', () => {
     // Arrange
     const { unmount } = renderHook(() => useReactQueryAppFocus());
     const listener = appStateMocks.addEventListener.mock.calls[0]?.[1];
+    expect(listener).toBeTypeOf('function');
 
     // Act
     listener('active');

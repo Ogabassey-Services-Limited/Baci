@@ -95,7 +95,7 @@ export default function KYCScreen() {
     staleTime: 1000 * 60 * 5,
   });
   const { refreshAfterVerification } = useKycVerificationRefresh({
-    merchantId: merchant?.id ?? '',
+    merchantId: merchant?.id,
     refetchVerificationStatus: refetch,
   });
 

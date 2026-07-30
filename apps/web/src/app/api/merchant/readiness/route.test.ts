@@ -1,3 +1,4 @@
+import type { StoreReadiness } from '@baci/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -36,7 +37,7 @@ const merchantContext = {
   },
 };
 
-const readiness = {
+const readiness: StoreReadiness = {
   completedRecommended: 0,
   completedRequired: 1,
   isPublished: false,

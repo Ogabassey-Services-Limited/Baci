@@ -11,11 +11,11 @@ export const storeReadinessKeys = {
 export function storeReadinessOptions(merchantId: string) {
   return queryOptions({
     queryKey: storeReadinessKeys.detail(merchantId),
-    queryFn: async (): Promise<MobileStoreReadiness> => {
+    queryFn: async ({ signal }): Promise<MobileStoreReadiness> => {
       const endpoint =
         `/api/merchant/readiness?merchantId=${encodeURIComponent(merchantId)}` +
         '&surface=mobile';
-      const value = await apiClient<unknown>(endpoint);
+      const value = await apiClient<unknown>(endpoint, { signal });
 
       if (
         !isStoreReadiness(value) ||

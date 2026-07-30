@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import StoreSettingsScreen from './store-settings';
@@ -223,14 +223,30 @@ vi.mock('@/lib/supabase', () => ({
 vi.mock('react-native', () => ({
   StatusBar: () => null,
   ActivityIndicator: () => <output aria-label="loading" />,
-  Pressable: ({ children }: { children?: ReactNode }) => (
-    <button type="button">{children}</button>
+  Pressable: ({
+    accessibilityLabel,
+    children,
+    onPress,
+  }: {
+    accessibilityLabel?: string;
+    children?: ReactNode;
+    onPress?: () => void;
+  }) => (
+    <button aria-label={accessibilityLabel} onClick={onPress} type="button">
+      {children}
+    </button>
   ),
   StyleSheet: {
     create: (styles: Record<string, unknown>) => styles,
   },
   Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
-  View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  View: ({
+    accessibilityRole,
+    children,
+  }: {
+    accessibilityRole?: string;
+    children?: ReactNode;
+  }) => <div role={accessibilityRole}>{children}</div>,
 }));
 
 vi.mock('@react-native-vector-icons/ionicons', () => ({
@@ -364,6 +380,27 @@ describe('StoreSettingsScreen', () => {
 
     expect(screen.getByText('loading')).toBeInTheDocument();
     expect(screen.queryByText('subscription-card')).not.toBeInTheDocument();
+  });
+
+  it('shows a retry state when merchant loading settles without a merchant', () => {
+    mocks.useMerchantResult = {
+      isLoading: false,
+      merchant: null,
+    };
+
+    render(<StoreSettingsScreen />);
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      "Couldn't load store settings. Please try again."
+    );
+    expect(screen.queryByText('loading')).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Retry loading store settings' })
+    );
+
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['merchant'],
+    });
   });
 
   it('still refreshes merchant data when success settles without merchant context', async () => {

@@ -3,7 +3,7 @@ import { invalidateStoreReadiness } from '@/lib/invalidate-store-readiness';
 import { tryRefreshStoreReadiness } from '@/lib/try-refresh-store-readiness';
 
 interface UseKycVerificationRefreshOptions {
-  merchantId: string;
+  merchantId: string | null | undefined;
   refetchVerificationStatus: () => Promise<unknown>;
 }
 
@@ -14,17 +14,18 @@ export function useKycVerificationRefresh({
   const queryClient = useQueryClient();
 
   async function refreshAfterVerification() {
-    if (!merchantId.trim()) {
+    const normalizedMerchantId = merchantId?.trim();
+    if (!normalizedMerchantId) {
       throw new Error('Merchant ID is required to refresh verification');
     }
 
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['merchant'] }),
       queryClient.invalidateQueries({
-        queryKey: ['verification-status', merchantId],
+        queryKey: ['verification-status', normalizedMerchantId],
       }),
       tryRefreshStoreReadiness(() =>
-        invalidateStoreReadiness(queryClient, merchantId)
+        invalidateStoreReadiness(queryClient, normalizedMerchantId)
       ),
     ]);
 

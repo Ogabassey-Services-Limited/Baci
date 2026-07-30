@@ -205,6 +205,33 @@ describe('StoreSettingsDetailsCard', () => {
     }
   });
 
+  it('resolves persisted country names before choosing the phone fallback country', () => {
+    render(
+      <StoreSettingsDetailsCard
+        address="12 Oxford Street"
+        businessName="Baci Ghana"
+        colors={LIGHT_COLORS}
+        countryCode="Ghana"
+        countryLabel="Ghana"
+        currency="GHS"
+        email="support@usebaci.com"
+        googleMapsApiKey="maps-test-key"
+        isDark={false}
+        phone="+233201234567"
+        shadowStyle={SHADOWS.sm}
+        slug="baci-ghana"
+        slugLocked={false}
+        supportPhone="+233701234567"
+        {...callbacks}
+      />
+    );
+
+    expect(nativeFieldState.phoneProps).toHaveLength(2);
+    expect(nativeFieldState.phoneProps[0]).toMatchObject({ defaultCode: 'GH' });
+    expect(nativeFieldState.phoneProps[1]).toMatchObject({ defaultCode: 'GH' });
+    expect(nativeFieldState.addressProps).toMatchObject({ countryCode: 'GH' });
+  });
+
   it('renders the phone country selector for the active color scheme', () => {
     render(
       <StoreSettingsDetailsCard
@@ -273,6 +300,12 @@ describe('StoreSettingsDetailsCard', () => {
     expect(nativeFieldState.addressProps).toMatchObject({
       googleMapsApiKey: undefined,
     });
+
+    fireEvent.change(screen.getByLabelText('Business Address'), {
+      target: { value: '14 Bode Thomas' },
+    });
+
+    expect(callbacks.onAddressChange).toHaveBeenCalledWith('14 Bode Thomas');
   });
 
   it('forwards the country picker action', () => {

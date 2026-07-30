@@ -2,6 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { storeReadinessOptions } from '@/lib/store-readiness-query';
 import { useMerchant } from './useMerchant';
 
+const UNRESOLVED_MERCHANT_ID = 'unresolved';
+
 export function useStoreReadiness() {
   const {
     merchant,
@@ -11,16 +13,17 @@ export function useStoreReadiness() {
     refetch: refetchMerchant,
   } = useMerchant();
   const query = useQuery({
-    ...storeReadinessOptions(merchant?.id ?? 'unresolved'),
+    ...storeReadinessOptions(merchant?.id ?? UNRESOLVED_MERCHANT_ID),
     enabled: Boolean(merchant?.id),
   });
 
-  function refetch() {
+  async function refetch(): Promise<void> {
     if (merchant?.id) {
-      return query.refetch();
+      await query.refetch();
+      return;
     }
 
-    return refetchMerchant();
+    await refetchMerchant();
   }
 
   return {

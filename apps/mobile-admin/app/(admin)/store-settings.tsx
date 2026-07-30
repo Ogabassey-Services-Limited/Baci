@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StatusBar, View } from 'react-native';
+import { Pressable, StatusBar, Text, View } from 'react-native';
 import { StoreLogoSection } from '@/components/store-settings/StoreLogoSection';
 import { StoreSettingsBackButton } from '@/components/store-settings/StoreSettingsBackButton';
 import { StoreSettingsDetailsCard } from '@/components/store-settings/StoreSettingsDetailsCard';
@@ -202,10 +202,34 @@ export default function StoreSettingsScreen() {
     }
   };
 
-  if (isLoading || !merchant) {
+  if (isLoading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <ScreenSkeleton variant="settings" cards={5} />
+      </View>
+    );
+  }
+
+  if (!merchant) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View
+          accessibilityRole="alert"
+          style={[styles.card, { backgroundColor: colors.card }]}
+        >
+          <Text style={[styles.label, { color: colors.text }]}>
+            Couldn't load store settings. Please try again.
+          </Text>
+          <Pressable
+            accessibilityLabel="Retry loading store settings"
+            accessibilityRole="button"
+            onPress={() =>
+              void queryClient.invalidateQueries({ queryKey: ['merchant'] })
+            }
+          >
+            <Text style={{ color: colors.primary }}>Retry</Text>
+          </Pressable>
+        </View>
       </View>
     );
   }

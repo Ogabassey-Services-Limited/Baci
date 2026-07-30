@@ -137,6 +137,28 @@ describe('useKycVerificationRefresh', () => {
     expect(refetchVerificationStatus).not.toHaveBeenCalled();
   });
 
+  it('rejects without issuing broad invalidations when merchant id is null during initial loading', async () => {
+    const { queryClient, Wrapper } = createWrapper();
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+    const refetchVerificationStatus = vi.fn().mockResolvedValue(undefined);
+
+    const { result } = renderHook(
+      () =>
+        useKycVerificationRefresh({
+          merchantId: null,
+          refetchVerificationStatus,
+        }),
+      { wrapper: Wrapper }
+    );
+
+    await expect(result.current.refreshAfterVerification()).rejects.toThrow(
+      'Merchant ID is required to refresh verification'
+    );
+
+    expect(invalidateQueries).not.toHaveBeenCalled();
+    expect(refetchVerificationStatus).not.toHaveBeenCalled();
+  });
+
   it('refetches authoritative verification status when readiness refresh fails', async () => {
     const { queryClient, Wrapper } = createWrapper();
     vi.spyOn(queryClient, 'invalidateQueries').mockImplementation((filters) => {

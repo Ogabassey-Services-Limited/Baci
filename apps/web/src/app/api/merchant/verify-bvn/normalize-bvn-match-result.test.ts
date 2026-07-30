@@ -25,6 +25,42 @@ describe('normalizeBvnMatchResult', () => {
     ).toEqual({ verified: true });
   });
 
+  it('rejects an explicitly unsuccessful Monnify envelope even when its body claims a match', () => {
+    expect(
+      normalizeBvnMatchResult({
+        requestSuccessful: false,
+        responseCode: '0',
+        responseBody: { bvnInformationMatch: true },
+      })
+    ).toBeNull();
+  });
+
+  it('rejects an explicit non-success response code before reading the body', () => {
+    expect(
+      normalizeBvnMatchResult({
+        requestSuccessful: true,
+        responseCode: '99',
+        responseBody: { bvnInformationMatch: true },
+      })
+    ).toBeNull();
+  });
+
+  it('reports only the name field for an explicit name mismatch', () => {
+    expect(
+      normalizeBvnMatchResult({
+        responseBody: {
+          name: {
+            matchStatus: 'NO_MATCH',
+            firstName: 'Provider First Name',
+            lastName: 'Provider Last Name',
+          },
+          dateOfBirth: 'FULL_MATCH',
+          mobileNo: 'FULL_MATCH',
+        },
+      })
+    ).toEqual({ verified: false, mismatchFields: ['name'] });
+  });
+
   it('keeps compatibility with the existing legacy match status', () => {
     expect(
       normalizeBvnMatchResult({

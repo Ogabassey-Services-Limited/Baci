@@ -20,6 +20,22 @@ function isSupportedCountryCode(code: string): code is CountryCode {
   return COUNTRIES.some((country) => country.code === code);
 }
 
+function resolvePhoneCountryCode(country: string): CountryCode {
+  const normalizedCode = country.trim().toUpperCase();
+  if (isSupportedCountryCode(normalizedCode)) {
+    return normalizedCode;
+  }
+
+  const normalizedName = country.trim().toLocaleLowerCase();
+  const matchingCountry = COUNTRIES.find(
+    (candidate) => candidate.name.toLocaleLowerCase() === normalizedName
+  );
+
+  return matchingCountry && isSupportedCountryCode(matchingCountry.code)
+    ? matchingCountry.code
+    : 'NG';
+}
+
 interface StoreSettingsDetailsCardProps {
   address: string;
   businessName: string;
@@ -67,10 +83,7 @@ export function StoreSettingsDetailsCard({
   slug,
   supportPhone,
 }: StoreSettingsDetailsCardProps) {
-  const normalizedCountryCode = countryCode.toUpperCase();
-  const phoneCountryCode = isSupportedCountryCode(normalizedCountryCode)
-    ? normalizedCountryCode
-    : 'NG';
+  const phoneCountryCode = resolvePhoneCountryCode(countryCode);
   const sharedInputStyle: StyleProp<TextStyle> = [
     styles.input,
     {

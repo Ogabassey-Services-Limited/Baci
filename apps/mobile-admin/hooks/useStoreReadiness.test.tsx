@@ -60,11 +60,13 @@ function readiness(completed: boolean) {
   };
 }
 
-function wrapper({ children }: { children: ReactNode }) {
+function createWrapper() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  return React.createElement(QueryClientProvider, { client }, children);
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return React.createElement(QueryClientProvider, { client }, children);
+  };
 }
 
 describe('useStoreReadiness', () => {
@@ -84,7 +86,9 @@ describe('useStoreReadiness', () => {
       .mockResolvedValueOnce(readiness(false))
       .mockResolvedValueOnce(readiness(true));
 
-    const { result } = renderHook(() => useStoreReadiness(), { wrapper });
+    const { result } = renderHook(() => useStoreReadiness(), {
+      wrapper: createWrapper(),
+    });
 
     await waitFor(() => {
       expect(result.current.readiness?.items[0]?.completed).toBe(false);
@@ -106,7 +110,9 @@ describe('useStoreReadiness', () => {
       .mockRejectedValueOnce(new Error('offline'))
       .mockResolvedValueOnce(readiness(true));
 
-    const { result } = renderHook(() => useStoreReadiness(), { wrapper });
+    const { result } = renderHook(() => useStoreReadiness(), {
+      wrapper: createWrapper(),
+    });
 
     await waitFor(() => {
       expect(result.current.error).toEqual(new Error('offline'));
@@ -138,6 +144,7 @@ describe('useStoreReadiness', () => {
       });
     });
     mocks.apiClient.mockResolvedValueOnce(readiness(true));
+    const wrapper = createWrapper();
 
     const { result, rerender } = renderHook(() => useStoreReadiness(), {
       wrapper,
@@ -153,7 +160,8 @@ describe('useStoreReadiness', () => {
       expect(result.current.readiness?.isReady).toBe(true);
     });
     expect(mocks.apiClient).toHaveBeenCalledWith(
-      `/api/merchant/readiness?merchantId=${merchantId}&surface=mobile`
+      `/api/merchant/readiness?merchantId=${merchantId}&surface=mobile`,
+      { signal: expect.any(AbortSignal) }
     );
   });
 
@@ -166,7 +174,9 @@ describe('useStoreReadiness', () => {
       refetch: mocks.refetchMerchant,
     });
 
-    const { result } = renderHook(() => useStoreReadiness(), { wrapper });
+    const { result } = renderHook(() => useStoreReadiness(), {
+      wrapper: createWrapper(),
+    });
 
     expect(result.current.isFetching).toBe(true);
   });

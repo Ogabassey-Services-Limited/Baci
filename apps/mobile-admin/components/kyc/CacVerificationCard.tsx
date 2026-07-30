@@ -4,7 +4,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
-import { apiClient, apiFormData, NetworkError } from '@/lib/api-client';
+import { apiClient, apiFormData } from '@/lib/api-client';
 import { tryRefreshStoreReadiness } from '@/lib/try-refresh-store-readiness';
 import { createUploadFile } from '@/types/upload';
 import CacResultStep from './CacResultStep';
@@ -23,6 +23,7 @@ import {
   normalizeCacStatus,
   type SelectedCacDocument,
 } from './cac-types';
+import { showCacVerificationError } from './cac-verification-alerts';
 import VerificationStatusBadge from './VerificationStatusBadge';
 
 interface CacVerificationCardProps {
@@ -30,19 +31,6 @@ interface CacVerificationCardProps {
   onVerified: () => Promise<unknown>;
   prefillRcNumber?: string | null;
   verified: boolean;
-}
-
-function handleMutationError(error: unknown): void {
-  if (error instanceof NetworkError && error.statusCode === 429) {
-    Alert.alert(
-      'Rate Limited',
-      'Rate limit exceeded. Please wait a minute and try again.'
-    );
-    return;
-  }
-  const message =
-    error instanceof Error ? error.message : 'An unexpected error occurred';
-  Alert.alert('Error', message);
 }
 
 export default function CacVerificationCard({
@@ -116,7 +104,7 @@ export default function CacVerificationCard({
         setCacStep('search');
       }
     },
-    onError: (error: unknown) => handleMutationError(error),
+    onError: (error: unknown) => showCacVerificationError(error),
   });
 
   const uploadMutation = useMutation({
@@ -158,7 +146,7 @@ export default function CacVerificationCard({
         );
       }
     },
-    onError: (error: unknown) => handleMutationError(error),
+    onError: (error: unknown) => showCacVerificationError(error),
   });
 
   function handleSearch() {

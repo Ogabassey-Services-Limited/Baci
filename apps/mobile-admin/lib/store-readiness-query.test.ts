@@ -82,7 +82,8 @@ describe('store readiness query options', () => {
     await readinessQuery()(queryContext());
 
     expect(mocks.apiClient).toHaveBeenCalledWith(
-      `/api/merchant/readiness?merchantId=${merchantId}&surface=mobile`
+      `/api/merchant/readiness?merchantId=${merchantId}&surface=mobile`,
+      { signal: expect.any(AbortSignal) }
     );
   });
 
