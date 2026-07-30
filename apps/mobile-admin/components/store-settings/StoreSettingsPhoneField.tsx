@@ -5,7 +5,10 @@ import type { CountryCode } from 'react-native-country-picker-modal';
 import PhoneInput from 'react-native-phone-number-input';
 import { countryFlag } from '@/components/ui/country-flag';
 import type { ThemeColors } from '@/constants/theme';
-import { getNationalPhoneNumber } from '@/lib/phone-country';
+import {
+  getNationalPhoneNumber,
+  getPhoneCountryFromValue,
+} from '@/lib/phone-country';
 import { storeSettingsDetailsStyles as styles } from './StoreSettingsDetailsCard.styles';
 
 interface StoreSettingsPhoneFieldProps {
@@ -31,13 +34,17 @@ export function StoreSettingsPhoneField({
   shadowStyle,
   value,
 }: StoreSettingsPhoneFieldProps) {
+  const resolvedCountryCode = value.trim().startsWith('+')
+    ? (getPhoneCountryFromValue(value).code as CountryCode)
+    : countryCode;
+
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, shadowStyle]}>
       <Text style={[styles.label, { color: colors.textSecondary }]}>
         {label}
       </Text>
       <PhoneInput
-        key={`${accessibilityLabel}-${countryCode}`}
+        key={`${accessibilityLabel}-${resolvedCountryCode}`}
         codeTextStyle={[styles.phoneCodeText, { color: colors.text }]}
         containerStyle={[
           styles.phoneContainer,
@@ -50,12 +57,14 @@ export function StoreSettingsPhoneField({
             countryCode?: CountryCode;
           }) => (
             <Text allowFontScaling={false} style={styles.phoneFlag}>
-              {countryFlag({ code: activeCountryCode ?? countryCode })}
+              {countryFlag({
+                code: activeCountryCode ?? resolvedCountryCode,
+              })}
             </Text>
           ),
         }}
         countryPickerButtonStyle={styles.phoneCountryPicker}
-        defaultCode={countryCode}
+        defaultCode={resolvedCountryCode}
         defaultValue={getNationalPhoneNumber(value)}
         layout="first"
         onChangeFormattedText={onChange}

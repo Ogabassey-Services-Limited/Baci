@@ -91,4 +91,25 @@ describe('StoreSettingsPhoneField', () => {
     );
     expect(onChange).toHaveBeenCalledWith('+2347111111111');
   });
+
+  it('uses the stored E.164 country to keep its national digits intact', () => {
+    render(
+      <StoreSettingsPhoneField
+        accessibilityLabel="Phone Number"
+        colors={DARK_COLORS}
+        countryCode="NG"
+        isDark
+        label="Phone Number"
+        onChange={vi.fn()}
+        placeholder="Enter phone number"
+        shadowStyle={SHADOWS.sm}
+        value="+447700900123"
+      />
+    );
+
+    expect(phoneState.props).toMatchObject({
+      defaultCode: 'GB',
+      defaultValue: '7700900123',
+    });
+  });
 });
