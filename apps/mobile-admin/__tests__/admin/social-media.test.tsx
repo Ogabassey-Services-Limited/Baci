@@ -281,6 +281,32 @@ describe('SocialMediaScreen', () => {
     );
   });
 
+  it('clears an unsaved draft when switching to a different merchant with identical social media', () => {
+    let currentMerchant = {
+      id: 'merchant-1',
+      social_media: {},
+    };
+    mocks.useMerchant.mockImplementation(() => ({
+      merchant: currentMerchant,
+      isLoading: false,
+    }));
+
+    const rendered = render(<SocialMediaScreen />);
+    fireEvent.change(screen.getByLabelText('Instagram Handle'), {
+      target: { value: 'merchant_one_draft' },
+    });
+
+    currentMerchant = {
+      id: 'merchant-2',
+      social_media: {},
+    };
+    rendered.rerender(<SocialMediaScreen />);
+
+    expect(screen.getByLabelText('Instagram Handle')).toHaveValue('');
+    fireEvent.click(screen.getByText('Save'));
+    expect(mocks.updateMerchantSettings).not.toHaveBeenCalled();
+  });
+
   it('calls save mutation and handles success flow', async () => {
     mocks.useMerchant.mockReturnValue({
       merchant: {

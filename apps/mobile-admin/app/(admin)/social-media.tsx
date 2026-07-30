@@ -69,6 +69,7 @@ export default function SocialMediaScreen() {
     snapchat,
   } satisfies MerchantSocialMedia;
   const merchantSocialMediaKey = [
+    merchant?.id ?? '',
     instagram,
     twitter,
     facebook,
