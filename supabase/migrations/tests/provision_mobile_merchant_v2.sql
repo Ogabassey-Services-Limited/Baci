@@ -56,6 +56,7 @@ DECLARE
   v_first record;
   v_retry record;
   v_count integer;
+  v_phone text;
 BEGIN
   SELECT * INTO v_first
   FROM public.provision_mobile_merchant_v2(
@@ -76,6 +77,13 @@ BEGIN
   IF v_retry.created OR v_retry.merchant_id <> v_first.merchant_id
      OR v_retry.merchant_slug <> 'mobile-owner-store' THEN
     RAISE EXCEPTION 'retry did not converge or preserved slug was renamed';
+  END IF;
+  SELECT phone INTO v_phone
+    FROM public.merchants
+   WHERE id = v_first.merchant_id;
+  IF v_phone IS DISTINCT FROM '+2348099999999' THEN
+    RAISE EXCEPTION 'authenticated provisioning retry did not update phone: %',
+      v_phone;
   END IF;
 
   SELECT count(*) INTO v_count FROM public.merchants
@@ -429,10 +437,16 @@ RESET ROLE;
 DO $test$
 DECLARE
   v_args text[];
+  v_definition text;
+  v_is_security_definer boolean;
 BEGIN
-  SELECT proargnames INTO v_args FROM pg_catalog.pg_proc
-  WHERE oid =
-    'public.provision_mobile_merchant_v2(text,text,text,text,text,text,text,text,boolean,text,jsonb,text)'::regprocedure;
+  SELECT function_row.proargnames,
+         pg_catalog.pg_get_functiondef(function_row.oid),
+         function_row.prosecdef
+    INTO v_args, v_definition, v_is_security_definer
+    FROM pg_catalog.pg_proc AS function_row
+   WHERE function_row.oid =
+     'public.provision_mobile_merchant_v2(text,text,text,text,text,text,text,text,boolean,text,jsonb,text)'::regprocedure;
   IF v_args && ARRAY[
     'p_user_id', 'p_email', 'p_merchant_id', 'p_root_domain',
     'p_domain', 'p_role', 'p_is_published', 'p_payout_currency'
@@ -445,6 +459,21 @@ BEGIN
     'EXECUTE'
   ) THEN
     RAISE EXCEPTION 'anon can execute mobile provisioning';
+  END IF;
+  IF v_is_security_definer IS DISTINCT FROM false THEN
+    RAISE EXCEPTION 'mobile provisioning must remain security invoker';
+  END IF;
+  IF (
+    pg_catalog.length(v_definition)
+    - pg_catalog.length(pg_catalog.replace(
+      v_definition,
+      'PERFORM pg_catalog.set_config(''app.merchant_sensitive_update_authorized'', ''true'', true);',
+      ''
+    ))
+  ) / pg_catalog.length(
+    'PERFORM pg_catalog.set_config(''app.merchant_sensitive_update_authorized'', ''true'', true);'
+  ) <> 1 THEN
+    RAISE EXCEPTION 'mobile provisioning must set one sensitive-update capability';
   END IF;
 END
 $test$;

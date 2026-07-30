@@ -219,6 +219,15 @@ BEGIN
   END;
 END;
 $$;
+-- Social links are public branding data, not a payment/identity value. They
+-- still require a live, fresh session but must remain editable on the web
+-- while the merchant has a verified MFA factor and no AAL2 UI is available.
+SELECT public.update_merchant_social_media(
+  'a3100000-0000-4000-8000-000000000002',
+  '{"linkedin":"https://linkedin.com/company/secure"}'::jsonb,
+  false,
+  '{}'::jsonb
+);
 RESET ROLE;
 SELECT set_config(
   'request.jwt.claims',

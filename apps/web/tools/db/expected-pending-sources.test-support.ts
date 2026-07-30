@@ -297,4 +297,9 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260729195915_guard_merchant_social_media.sql',
     sha256: '54a9e1448588945f4fae6a758740ecf48be61e7536962438accf7c02cca854a3',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260730084051_repair_merchant_identity_guard_paths.sql',
+    sha256: '960cae13fc8c97e50624cd1b4fc53fa785c7044f0dc233d87c6a057ffce82a28',
+  },
 ];
