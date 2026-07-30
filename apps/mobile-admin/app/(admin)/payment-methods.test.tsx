@@ -103,6 +103,32 @@ describe('PaymentMethodsScreen', () => {
     );
   });
 
+  it('refreshes the originating merchant readiness after a successful toggle', async () => {
+    render(<PaymentMethodsScreen />);
+
+    const context = await mocks.mutationConfig?.onMutate?.({
+      field: 'klump_enabled',
+      value: false,
+    });
+
+    mocks.useMerchantResult = {
+      isLoading: false,
+      merchant: { id: 'merchant-2' },
+      error: null,
+    };
+
+    await mocks.mutationConfig?.onSuccess?.(
+      undefined,
+      { field: 'klump_enabled', value: false },
+      context
+    );
+
+    expect(mocks.invalidateStoreReadiness).toHaveBeenCalledWith(
+      expect.any(Object),
+      'merchant-1'
+    );
+  });
+
   it('retries payment settings fetch when PostgREST reports missing columns', async () => {
     let capturedQueryFn: (() => Promise<unknown>) | undefined;
 

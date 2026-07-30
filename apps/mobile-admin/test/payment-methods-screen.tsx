@@ -7,11 +7,20 @@ type QueryConfig = {
 };
 
 type MutationConfig = {
+  onMutate?: (variables: {
+    field: string;
+    value: boolean;
+  }) => Promise<{ merchantId?: string; previousSettings?: unknown }>;
   onError?: (
     error: Error,
     variables: unknown,
-    context?: { previousSettings?: unknown }
+    context?: { merchantId?: string; previousSettings?: unknown }
   ) => void;
+  onSuccess?: (
+    data: unknown,
+    variables: unknown,
+    context?: { merchantId?: string; previousSettings?: unknown }
+  ) => Promise<void>;
 };
 
 interface MockUseMerchantResult {
@@ -24,6 +33,7 @@ const hoistedMocks = vi.hoisted(() => ({
   alert: vi.fn(),
   eq: vi.fn(),
   invalidateQueries: vi.fn(),
+  invalidateStoreReadiness: vi.fn().mockResolvedValue(undefined),
   mutate: vi.fn(),
   mutationConfig: undefined as MutationConfig | undefined,
   openURL: vi.fn(),
@@ -91,6 +101,10 @@ vi.mock('@/hooks/useTheme', () => ({
 
 vi.mock('@/hooks/useMerchant', () => ({
   useMerchant: () => mocks.useMerchantResult,
+}));
+
+vi.mock('@/lib/invalidate-store-readiness', () => ({
+  invalidateStoreReadiness: mocks.invalidateStoreReadiness,
 }));
 
 vi.mock('@/components/ui/ScreenSkeleton', async () => {
@@ -184,6 +198,8 @@ export function resetPaymentMethodsScreenMocks() {
   mocks.alert.mockReset();
   mocks.eq.mockReset();
   mocks.invalidateQueries.mockReset();
+  mocks.invalidateStoreReadiness.mockReset();
+  mocks.invalidateStoreReadiness.mockResolvedValue(undefined);
   mocks.mutate.mockReset();
   mocks.mutationConfig = undefined;
   mocks.openURL.mockReset();

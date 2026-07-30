@@ -24,6 +24,7 @@ import { fetchPaymentSettings } from '@/components/payment-methods/payment-setti
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
+import { invalidateStoreReadiness } from '@/lib/invalidate-store-readiness';
 import { supabase } from '@/lib/supabase';
 import type { PaymentSettings } from '@/schemas/payment-settings';
 
@@ -111,7 +112,15 @@ export default function PaymentMethodsScreen() {
       );
 
       // Return a context object with the snapshotted value
-      return { previousSettings };
+      return {
+        merchantId: merchant?.id.trim(),
+        previousSettings,
+      };
+    },
+    onSuccess: async (_data, _variables, context) => {
+      if (context?.merchantId) {
+        await invalidateStoreReadiness(queryClient, context.merchantId);
+      }
     },
     onError: (error, _variables, context) => {
       // If the mutation fails, use the context returned from onMutate to roll back
