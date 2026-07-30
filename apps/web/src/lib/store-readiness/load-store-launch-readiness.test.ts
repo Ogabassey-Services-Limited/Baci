@@ -37,6 +37,8 @@ function client(
     country?: string;
     activeProductCount?: number;
     totalProductCount?: number;
+    paystackEnabled?: boolean;
+    payOnDeliveryEnabled?: boolean | null;
   } = {}
 ) {
   const merchants = query({
@@ -55,8 +57,11 @@ function client(
   const settings = query({
     data: {
       korapay_enabled: false,
-      pay_on_delivery_enabled: false,
-      paystack_enabled: true,
+      pay_on_delivery_enabled:
+        options.payOnDeliveryEnabled === undefined
+          ? false
+          : options.payOnDeliveryEnabled,
+      paystack_enabled: options.paystackEnabled ?? true,
     },
     error: options.paymentError ?? null,
   });
@@ -167,6 +172,38 @@ describe('loadStoreLaunchReadiness', () => {
     expect(authenticatedClient.supabase.rpc).not.toHaveBeenCalledWith(
       'get_merchant_identity_verified',
       { p_merchant_id: 'merchant-1' }
+    );
+  });
+
+  it('classifies a disabled Nigerian Paystack gateway as an incomplete payment-method task', async () => {
+    const authenticatedClient = client({ paystackEnabled: false });
+
+    const result = await loadStoreLaunchReadiness({
+      supabase: authenticatedClient.supabase,
+      merchantId: 'merchant-1',
+    });
+
+    expect(result.items).toContainEqual(
+      expect.objectContaining({ id: 'payment_method', completed: false })
+    );
+    expect(result.items).not.toContainEqual(
+      expect.objectContaining({ id: 'bank_account', completed: false })
+    );
+  });
+
+  it('treats a missing Pay on Delivery flag as unavailable when Paystack is disabled', async () => {
+    const authenticatedClient = client({
+      paystackEnabled: false,
+      payOnDeliveryEnabled: null,
+    });
+
+    const result = await loadStoreLaunchReadiness({
+      supabase: authenticatedClient.supabase,
+      merchantId: 'merchant-1',
+    });
+
+    expect(result.items).toContainEqual(
+      expect.objectContaining({ id: 'payment_method', completed: false })
     );
   });
 

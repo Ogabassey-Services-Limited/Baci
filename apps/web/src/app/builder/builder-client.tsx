@@ -39,7 +39,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BuilderSidebar } from '@/components/builder/builder-sidebar';
 import { builderConfig } from '@/components/builder/config';
 import { GeminiCommandBar } from '@/components/builder/gemini-command-bar';
@@ -74,14 +74,10 @@ import { useToast } from '@/hooks/use-toast';
 import { defaultTheme, type ThemeConfiguration } from '@/lib/theme-config';
 import { applyTheme } from '@/lib/theme-manager';
 import type { BuilderDegradedReason } from '@/schemas/builder';
-import { applyAiDraftRequest } from './apply-ai-draft-request';
 import type { BuilderPreviewMode } from './builder-client-types';
-import {
-  getDegradedBuilderDescription,
-  getReadOnlyBuilderDescription,
-} from './builder-descriptions';
+import { getDegradedBuilderDescription } from './builder-descriptions';
 import { loadBuilderData } from './load-builder-data';
-import { runBuilderAiCommand } from './run-builder-ai-command';
+import { useBuilderAiDraftActions } from './use-builder-ai-draft-actions';
 import { useBuilderMutationActions } from './use-builder-mutation-actions';
 
 // Component icon mapping - using component functions for dynamic sizing
@@ -195,11 +191,6 @@ export default function BuilderClient() {
   const { merchant, loading: merchantLoading } = useMerchant();
   const userId = user?.id ?? null;
   const merchantId = merchant?.id ?? null;
-  const merchantIdRef = useRef(merchantId);
-  merchantIdRef.current = merchantId;
-  const aiMerchantIdRef = useRef(merchantId);
-  const aiRequestSequenceRef = useRef(0);
-
   // Register CopilotKit actions for AI-driven component manipulation
   useCopilotBuilderActions({ data, setData });
 
@@ -279,13 +270,6 @@ export default function BuilderClient() {
     };
   }, [userId, merchantId, authLoading, merchantLoading, router, toast]);
 
-  useEffect(() => {
-    if (aiMerchantIdRef.current === merchantId) return;
-    aiMerchantIdRef.current = merchantId;
-    aiRequestSequenceRef.current += 1;
-    setIsAiLoading(false);
-  }, [merchantId]);
-
   const { handlePublish, handleSave } = useBuilderMutationActions({
     canEdit,
     data,
@@ -302,56 +286,27 @@ export default function BuilderClient() {
     toast,
   });
 
-  const handleAiCommand = async (command: string) => {
-    if (!merchantId || !canEdit) {
-      toast({
-        title: 'Builder is read-only',
-        description: getReadOnlyBuilderDescription(previewMode, degradedReason),
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    const requestSequence = ++aiRequestSequenceRef.current;
-    await runBuilderAiCommand({
-      merchantId,
-      isCurrentRequest: () =>
-        aiRequestSequenceRef.current === requestSequence &&
-        merchantIdRef.current === merchantId,
-      command,
-      currentConfig: data,
-      setData,
-      setIsAiLoading,
-      toast,
-    });
-  };
-
-  const applyAiDraft = async (force = false) => {
-    if (!aiDraftJobId || !canApplyAiDraft) {
-      toast({
-        title: 'Cannot apply this draft',
-        description:
-          'You need builder edit access before this AI design can replace the starter draft.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    await applyAiDraftRequest({
-      aiDraftJobId,
-      force,
-      router,
-      toast,
-      setShowStaleAiDraftDialog,
-      setApplyingAiDraft,
-      setLastUpdated,
-      setCanEdit,
-      setDegradedReason,
-      setPreviewMode,
-      setAiDraftJobId,
-      setCanApplyAiDraft,
-    });
-  };
+  const { applyAiDraft, handleAiCommand } = useBuilderAiDraftActions({
+    aiDraftJobId,
+    canApplyAiDraft,
+    canEdit,
+    data,
+    degradedReason,
+    merchantId,
+    previewMode,
+    router,
+    setAiDraftJobId,
+    setApplyingAiDraft,
+    setCanApplyAiDraft,
+    setCanEdit,
+    setData,
+    setDegradedReason,
+    setIsAiLoading,
+    setLastUpdated,
+    setPreviewMode,
+    setShowStaleAiDraftDialog,
+    toast,
+  });
 
   if (authLoading || merchantLoading || pageLoading) {
     return (

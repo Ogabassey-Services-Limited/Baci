@@ -26,6 +26,7 @@ function createParams(force = false) {
   return {
     aiDraftJobId: 'job-123',
     force,
+    isCurrentRequest: () => true,
     router: { push: vi.fn() } as unknown as ApplyAiDraftRequestParams['router'],
     toast: createToastMock<ApplyAiDraftRequestParams>(),
     setShowStaleAiDraftDialog: vi.fn(),
@@ -104,6 +105,36 @@ describe('applyAiDraftRequest', () => {
     expect(params.setShowStaleAiDraftDialog).toHaveBeenCalledWith(true);
     expect(params.toast).not.toHaveBeenCalled();
     expect(params.setApplyingAiDraft).toHaveBeenLastCalledWith(false);
+  });
+
+  it('does not let a stale merchant apply response mutate the next merchant preview', async () => {
+    let resolveResponse!: (response: Response) => void;
+    mockFetchWithCsrf.mockReturnValue(
+      new Promise((resolve) => {
+        resolveResponse = resolve;
+      })
+    );
+    let isCurrent = true;
+    const params = {
+      ...createParams(),
+      isCurrentRequest: () => isCurrent,
+    };
+    const apply = applyAiDraftRequest(params);
+
+    isCurrent = false;
+    resolveResponse(
+      jsonResponse({ code: 'ai_draft_stale' }, { ok: false, status: 409 })
+    );
+
+    await apply;
+    expect(params.setShowStaleAiDraftDialog).not.toHaveBeenCalled();
+    expect(params.setLastUpdated).not.toHaveBeenCalled();
+    expect(params.setPreviewMode).not.toHaveBeenCalled();
+    expect(params.setCanEdit).not.toHaveBeenCalled();
+    expect(params.toast).not.toHaveBeenCalled();
+    expect(params.router.push).not.toHaveBeenCalled();
+    expect(params.setApplyingAiDraft).toHaveBeenCalledTimes(1);
+    expect(params.setApplyingAiDraft).toHaveBeenCalledWith(true);
   });
 
   it('shows a destructive toast for non-ok errors', async () => {

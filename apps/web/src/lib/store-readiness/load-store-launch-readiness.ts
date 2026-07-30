@@ -94,6 +94,18 @@ export async function loadStoreLaunchReadiness({
   const hasVerifiedIdentity = kycRequired
     ? await fetchMerchantIdentityVerified(supabase, merchantId)
     : false;
+  const paymentRequirement = getLaunchPaymentRequirement(merchant);
+  const hasConfiguredPaystackBankDetails = Boolean(
+    merchant.bank_account_number?.trim() &&
+      merchant.bank_code?.trim() &&
+      merchant.paystack_subaccount_configured
+  );
+  const hasDisabledConfiguredPaystack =
+    paymentRequirement.id === 'bank_account' &&
+    !paymentRequirement.completed &&
+    hasConfiguredPaystackBankDetails &&
+    merchant.feature_settings?.paystack_enabled === false &&
+    merchant.feature_settings?.pay_on_delivery_enabled !== true;
 
   const facts: StoreLaunchFacts = {
     merchantId,
@@ -107,7 +119,15 @@ export async function loadStoreLaunchReadiness({
     totalProductCount: totalProductResult.count ?? 0,
     kycRequired,
     hasVerifiedIdentity,
-    paymentRequirement: getLaunchPaymentRequirement(merchant),
+    paymentRequirement: hasDisabledConfiguredPaystack
+      ? {
+          id: 'payment_method',
+          label: 'Enable a payment method',
+          description:
+            'Enable Paystack or Pay on Delivery for customer checkout',
+          completed: false,
+        }
+      : paymentRequirement,
   };
 
   return {
