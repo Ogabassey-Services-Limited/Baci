@@ -23,4 +23,18 @@ describe('getWebStoreReadinessHref', () => {
     );
     expect(getWebStoreReadinessHref('hero_carousel')).toBe('/builder');
   });
+
+  it('routes every legal setup task to the existing shared pages editor', () => {
+    const legalItemIds = [
+      'about_page',
+      'privacy_policy',
+      'terms_conditions',
+    ] as const;
+
+    expect(legalItemIds.map((id) => getWebStoreReadinessHref(id))).toEqual([
+      '/dashboard/pages',
+      '/dashboard/pages',
+      '/dashboard/pages',
+    ]);
+  });
 });
