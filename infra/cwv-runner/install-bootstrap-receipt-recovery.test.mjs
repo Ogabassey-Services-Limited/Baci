@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { chmod, lstat, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -77,6 +77,60 @@ test('refuses mismatched interrupted receipt residue', async (context) => {
       directory,
       completeBootstrap(captured, files, disabledUnits)
     ),
+    /receipt residue mismatch/
+  );
+  assert.equal((await readBootstrapState(directory)).phase, 'captured');
+});
+
+test('refuses a truncated receipt destination from a direct-write crash', async (context) => {
+  const root = await stateRoot(context, 'baci-bootstrap-retry-destination-');
+  const captured = capture('bootstrap-retry-destination');
+  const complete = completeBootstrap(captured, files, disabledUnits);
+  const directory = await persistBootstrapCapture(root, captured);
+  await writeFile(
+    join(directory, 'receipt.json'),
+    complete.receiptBytes.slice(0, 8),
+    { mode: 0o600 }
+  );
+
+  await assert.rejects(
+    persistBootstrapReceipt(directory, complete),
+    /receipt residue mismatch/
+  );
+  assert.equal((await readBootstrapState(directory)).phase, 'captured');
+});
+
+test('removes an authenticated truncated receipt staging prefix before retrying', async (context) => {
+  const root = await stateRoot(context, 'baci-bootstrap-retry-prefix-');
+  const captured = capture('bootstrap-retry-prefix');
+  const complete = completeBootstrap(captured, files, disabledUnits);
+  const directory = await persistBootstrapCapture(root, captured);
+  const temporary = join(
+    directory,
+    `.receipt.json.tmp.${sha256(complete.receiptBytes)}`
+  );
+  await writeFile(temporary, complete.receiptBytes.slice(0, 8), {
+    mode: 0o600,
+  });
+
+  await persistBootstrapReceipt(directory, complete);
+  await assert.rejects(lstat(temporary), { code: 'ENOENT' });
+  assert.equal((await readBootstrapState(directory)).phase, 'complete');
+});
+
+test('refuses foreign receipt staging residue', async (context) => {
+  const root = await stateRoot(context, 'baci-bootstrap-retry-foreign-');
+  const captured = capture('bootstrap-retry-foreign');
+  const complete = completeBootstrap(captured, files, disabledUnits);
+  const directory = await persistBootstrapCapture(root, captured);
+  await writeFile(
+    join(directory, `.receipt.json.tmp.${'f'.repeat(64)}`),
+    complete.receiptBytes,
+    { mode: 0o600 }
+  );
+
+  await assert.rejects(
+    persistBootstrapReceipt(directory, complete),
     /receipt residue mismatch/
   );
   assert.equal((await readBootstrapState(directory)).phase, 'captured');

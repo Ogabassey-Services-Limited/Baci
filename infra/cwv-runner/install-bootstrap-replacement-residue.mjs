@@ -3,7 +3,10 @@ import { open, readdir, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { canonicalJson } from './canonical-json.mjs';
 import { readBootstrapState } from './install-bootstrap.mjs';
-import { readInstalledProjection } from './install-bootstrap-installed.mjs';
+import {
+  readInstalledProjection,
+  readPinnedBootstrapFile,
+} from './install-bootstrap-installed.mjs';
 import { retireObsolete } from './install-bootstrap-replacement-temp-authority.mjs';
 
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
@@ -30,13 +33,14 @@ async function syncDirectory(path) {
 }
 
 export async function reconcileBootstrapReplacementResidue(
-  { destination, prior, expected, authorizedState },
+  { destination, prior, expected, expectedBytes, authorizedState },
   descriptor = {}
 ) {
   const dependencies = {
     readDirectory: descriptor.readDirectory ?? readdir,
     readProjection: descriptor.readProjection ?? readInstalledProjection,
     readState: descriptor.readState ?? readBootstrapState,
+    readTemporary: descriptor.readTemporary ?? readPinnedBootstrapFile,
     removeFile: descriptor.removeFile ?? rm,
     syncDirectory: descriptor.syncDirectory ?? syncDirectory,
   };
@@ -83,8 +87,20 @@ export async function reconcileBootstrapReplacementResidue(
     const permitted = [expected, prior]
       .filter((projection) => !projection.absent)
       .flatMap(projections);
-    if (!permitted.some((projection) => same(actual, projection)))
-      throw new TypeError('bootstrap replacement temporary drift');
+    if (!permitted.some((projection) => same(actual, projection))) {
+      const temporaryFile = Buffer.isBuffer(expectedBytes)
+        ? await dependencies.readTemporary(temporary)
+        : undefined;
+      const temporaryBytes = temporaryFile?.bytes;
+      const partial =
+        temporaryBytes !== undefined &&
+        temporaryFile.details.nlink === 1 &&
+        actual.mode === '0600' &&
+        actual.owner === 'root:root' &&
+        temporaryBytes.equals(expectedBytes.subarray(0, temporaryBytes.length));
+      if (!partial)
+        throw new TypeError('bootstrap replacement temporary drift');
+    }
     await dependencies.removeFile(temporary);
     await dependencies.syncDirectory(directory);
   }

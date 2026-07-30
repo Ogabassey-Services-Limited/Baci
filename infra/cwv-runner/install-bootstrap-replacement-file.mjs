@@ -185,6 +185,7 @@ export async function replaceBootstrapFile(input, descriptor = {}) {
       destination,
       prior: state.prior[destination],
       expected,
+      expectedBytes: bytes,
       authorizedState: { ...state, currentDirectory, destination, intent },
     },
     dependencies
