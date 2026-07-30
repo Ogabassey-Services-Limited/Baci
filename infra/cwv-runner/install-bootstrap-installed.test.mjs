@@ -182,3 +182,21 @@ test('closes the pinned installed-file descriptor after a successful read', asyn
 
   assert.equal(handle.closed(), true);
 });
+
+test('projects an absent installed path for interrupted first-install recovery', async () => {
+  const missing = '/srv/baci-cwv/sealed/missing-bootstrap-file';
+  const error = new Error('missing');
+  error.code = 'ENOENT';
+
+  assert.deepEqual(
+    await readInstalledProjection(
+      { [missing]: {} },
+      {
+        lstatFile: () => {
+          throw error;
+        },
+      }
+    ),
+    { [missing]: { absent: true } }
+  );
+});

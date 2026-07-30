@@ -58,7 +58,10 @@ const helpers = [
   'install-prepare-content-safety.mjs',
   'install-prepare-synthetic.mjs',
   'install-prepare-runtime-receipt.mjs',
-  ...['install-bootstrap-installed.mjs', 'install-account-identity.sh'],
+  ...'install-bootstrap.mjs install-bootstrap-atomic-state-file.mjs install-bootstrap-capture-persistence.mjs install-bootstrap-installed.mjs install-bootstrap-journal.mjs install-bootstrap-plan-publication.mjs install-bootstrap-watchdog-residue.mjs install-account-identity.sh'.split(
+    ' '
+  ),
+  'install-bootstrap-rename-exchange.pl',
   'campaign-capture-authority.mjs',
   'measurement-container-projection.mjs',
   'measurement-service-wrapper.sh',
@@ -112,13 +115,11 @@ const helpers = [
   'root-runtime-registration-adapter.mjs',
   'root-runtime-post-egress-recovery.mjs',
   'root-runtime-operations.mjs',
-  ...[
-    'rootfs-projection-contract.mjs',
-    'rootfs-source-membership.mjs',
-    'rootfs-source-membership-input.mjs',
-    'rootfs-source-inventory.mjs',
-    'source-tree-projection.mjs',
-  ],
+  'rootfs-projection-contract.mjs',
+  'rootfs-source-membership.mjs',
+  'rootfs-source-membership-input.mjs',
+  'rootfs-source-inventory.mjs',
+  'source-tree-projection.mjs',
   'runner-runtime-archive-snapshot.mjs',
   'runner-runtime-identity-manifest.mjs',
   'runner-runtime-manifest-producer-cli.mjs',
@@ -233,6 +234,7 @@ export async function buildBootstrapInput(options, descriptor = {}) {
     policyFileSha256,
     bootstrapFileSha256,
     transactionId,
+    fileSpecs = bootstrapFileSpecs(sourceSha),
   } = options;
   if (
     ![sourceManifestSha256, policyFileSha256, bootstrapFileSha256].every(
@@ -244,7 +246,7 @@ export async function buildBootstrapInput(options, descriptor = {}) {
   const prior = {};
   const readPinned = (path) =>
     readPinnedBootstrapFile(path, { lstatFile: lstat, ...descriptor });
-  for (const spec of bootstrapFileSpecs(sourceSha)) {
+  for (const spec of fileSpecs) {
     let bytes;
     if (spec.source) {
       const path = `${sourceRoot}/${spec.source}`;

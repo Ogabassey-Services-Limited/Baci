@@ -1,4 +1,5 @@
-import { readFile } from 'node:fs/promises';
+import { lstat, readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import {
   appendBootstrapJournal,
   beginBootstrap,
@@ -9,9 +10,51 @@ import {
 } from './install-bootstrap.mjs';
 import { readInstalledProjection } from './install-bootstrap-installed.mjs';
 import { buildBootstrapInput } from './install-bootstrap-plan.mjs';
+import { reconcileBootstrapPreCapture } from './install-bootstrap-pre-capture.mjs';
+import {
+  authorizeBootstrapReplacement,
+  authorizeBootstrapReplacementIfNeeded,
+  completeBootstrapReplacement,
+  persistBootstrapReplacementIntent,
+  persistBootstrapReplacementReceipt,
+  readBootstrapReplacementDownstream,
+  readBootstrapReplacementIntent,
+  readBootstrapReplacementReceipt,
+  verifyBootstrapReplacementCompletion,
+} from './install-bootstrap-replacement-controller.mjs';
+import { readBootstrapReplacementStateInventory } from './install-bootstrap-replacement-state-inventory.mjs';
+
+export { planBootstrapReplacement } from './install-bootstrap-replacement.mjs';
+export { resolveBootstrapReplacementChain } from './install-bootstrap-replacement-chain.mjs';
+export {
+  authorizeBootstrapReplacement,
+  authorizeBootstrapReplacementIfNeeded,
+  completeBootstrapReplacement,
+  persistBootstrapReplacementIntent,
+  persistBootstrapReplacementReceipt,
+  readBootstrapReplacementDownstream,
+  readBootstrapReplacementIntent,
+  readBootstrapReplacementReceipt,
+  verifyBootstrapReplacementCompletion,
+};
 
 export async function captureBootstrap(stateRoot, input) {
-  return await persistBootstrapCapture(stateRoot, beginBootstrap(input));
+  const capture = beginBootstrap(input);
+  const directory = join(stateRoot, capture.transactionId);
+  try {
+    await lstat(directory);
+  } catch (error) {
+    if (error.code === 'ENOENT')
+      return await persistBootstrapCapture(stateRoot, capture);
+    throw error;
+  }
+  try {
+    await resumeBootstrap(directory, input);
+    return directory;
+  } catch {
+    await reconcileBootstrapPreCapture(directory, { expectedCapture: capture });
+    return await persistBootstrapCapture(stateRoot, capture);
+  }
 }
 
 const stable = (value) =>
@@ -114,6 +157,30 @@ async function main(argv) {
     await resumeBootstrap(first, input);
     const state = await verifyBootstrapTransaction(first);
     process.stdout.write(`${state.receiptSha256}\n`);
+    return;
+  }
+  if (command === 'replacement-authorize') {
+    const plan = await authorizeBootstrapReplacementIfNeeded({
+      currentDirectory: first,
+      stateRoot: second,
+      root: third,
+      prepareRoot: fourth,
+    });
+    process.stdout.write(`${plan ? JSON.stringify(plan) : 'none'}\n`);
+    return;
+  }
+  if (command === 'replacement-inventory') {
+    process.stdout.write(
+      `${JSON.stringify(await readBootstrapReplacementStateInventory(first))}\n`
+    );
+    return;
+  }
+  if (command === 'replacement-complete') {
+    await completeBootstrapReplacement({ currentDirectory: first });
+    return;
+  }
+  if (command === 'replacement-verify') {
+    await verifyBootstrapReplacementCompletion({ currentDirectory: first });
     return;
   }
   throw new Error(`unsupported bootstrap controller command: ${command}`);

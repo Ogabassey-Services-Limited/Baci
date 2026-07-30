@@ -59,7 +59,14 @@ export async function readInstalledProjection(
     throw new TypeError('bootstrap file projection required');
   const projection = {};
   for (const path of Object.keys(files).sort()) {
-    const before = await lstatFile(path);
+    let before;
+    try {
+      before = await lstatFile(path);
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+      projection[path] = { absent: true };
+      continue;
+    }
     if (!safeInstalledFile(before)) refuse(path);
     const handle = await openFile(
       path,

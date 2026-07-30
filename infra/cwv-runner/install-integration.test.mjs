@@ -46,6 +46,62 @@ test('bootstrap captures before mutation, journals, completes, and disables conc
   assert.match(source, /atomic_line\(\) \(/);
 });
 
+test('bootstrap authorizes and completes a receipt-bound source generation replacement', () => {
+  const bootstrap = sourceSlice(
+    source,
+    'bootstrap() {',
+    'assert_bootstrap() {'
+  );
+  assert.ok(
+    anchor(bootstrap, 'replacement-authorize') <
+      anchor(bootstrap, 'install_account')
+  );
+  assert.ok(
+    bootstrap.lastIndexOf('replacement-complete') >
+      anchor(bootstrap, 'install-bootstrap-controller.mjs" complete')
+  );
+  assert.match(
+    bootstrap,
+    /phase" = complete[\s\S]*replacement-intent\.json[\s\S]*replacement-complete/
+  );
+  const assertion = sourceSlice(
+    source,
+    'assert_bootstrap() {',
+    'lstat_external() {'
+  );
+  assert.match(assertion, /replacement-intent\.json/);
+  assert.match(assertion, /replacement-verify/);
+  assert.match(source, /install-bootstrap-replacement-file\.mjs" source/);
+  assert.match(source, /install-bootstrap-replacement-file\.mjs" line/);
+  assert.match(
+    source,
+    /BACI_CWV_BOOTSTRAP_REPLACEMENT.*replacement intent required/s
+  );
+});
+
+test('receipt-authorized file and line replacements validate prior metadata in the replacement helper', () => {
+  const installers = [
+    sourceSlice(source, 'atomic_line() (', '); ensure_directory()'),
+    sourceSlice(source, 'ensure_file() {', '\nassert_sealed_source()'),
+  ];
+
+  for (const installer of installers) {
+    const replacement = anchor(
+      installer,
+      'install-bootstrap-replacement-file.mjs"'
+    );
+    const expectedMetadata = installer.lastIndexOf('root_mode "$destination"');
+    assert.ok(
+      replacement < expectedMetadata,
+      'only unapproved metadata drift may fail after the receipt-bound helper'
+    );
+    assert.match(
+      installer,
+      /root_mode "\$destination"[\s\S]*installed (?:file|line) drift/
+    );
+  }
+});
+
 test('installs the watchdog template before the first daemon reload or disable', () => {
   const bootstrap = sourceSlice(
     source,
