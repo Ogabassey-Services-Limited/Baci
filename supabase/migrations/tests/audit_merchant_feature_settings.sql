@@ -1,4 +1,4 @@
--- Regression contract for 20260726160400_audit_merchant_feature_settings.sql.
+-- Regression contract for 20260730000400_audit_merchant_feature_settings.sql.
 -- This fixture runs after every pending migration and rolls back all rows.
 
 BEGIN;

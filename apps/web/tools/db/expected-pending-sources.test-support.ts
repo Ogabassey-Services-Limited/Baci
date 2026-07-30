@@ -1,6 +1,8 @@
 // Expected PENDING replay sources, extracted from the manifest test (Codex #3171)
 // so the binding test stays under the 300-line modularity gate. Independently
 // hand-verified against supabase-history-replay-sources.ts PENDING_SOURCES.
+import { AUDIT_PENDING_SOURCES } from './expected-pending-audit-sources.test-support';
+
 export const EXPECTED_PENDING_SOURCES = [
   {
     repositoryPath:
@@ -219,36 +221,6 @@ export const EXPECTED_PENDING_SOURCES = [
   },
   {
     repositoryPath:
-      'supabase/migrations/20260726160000_create_canonical_audit_events.sql',
-    sha256: '946a896f0690e9a77f963929fbff17d81fdf2fe93bdfb2e04ba046c3b68eb444',
-  },
-  {
-    repositoryPath:
-      'supabase/migrations/20260726160100_audit_merchant_identity_changes.sql',
-    sha256: 'e5e417d37454d20d3ce60e48d53ace5cb541464bfd62e6dda9ed2396dddfa9d9',
-  },
-  {
-    repositoryPath:
-      'supabase/migrations/20260726160200_audit_staff_access_changes.sql',
-    sha256: 'e54641d40c6f50feaea2348e9ce45188326f932d5f2aea3803f7499e2aaeb4d1',
-  },
-  {
-    repositoryPath:
-      'supabase/migrations/20260726160300_audit_sensitive_merchant_configuration.sql',
-    sha256: '882460e6bb4230c1060398d3e86020d0d0d386f95caa6b126716b0538c08911a',
-  },
-  {
-    repositoryPath:
-      'supabase/migrations/20260726160400_audit_merchant_feature_settings.sql',
-    sha256: '8e25c0b17634cb745256db289bb8cc769c1a8bdf5cd3526640709037e7d109e5',
-  },
-  {
-    repositoryPath:
-      'supabase/migrations/20260726160500_audit_payment_credential_lifecycle.sql',
-    sha256: '6b7e66282316fefb58a666b98b3c29dc1dbb60499ebc65dcbd98b8bb7f030130',
-  },
-  {
-    repositoryPath:
       'supabase/migrations/20260726201000_harden_category_hierarchy_lifecycle.sql',
     sha256: '57037c2a309da200410ddbb167cd58183f9a3977a9c285815f5d81af99fbc5c3',
   },
@@ -307,4 +279,5 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260728091958_provision_mobile_merchant_v2.sql',
     sha256: '9e4df9812810ef2c7e0659a238390d6c97222b2891454ba00740ddbff6cc6104',
   },
+  ...AUDIT_PENDING_SOURCES,
 ];

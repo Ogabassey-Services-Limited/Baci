@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 const migrationDirectory = resolve(process.cwd(), '../../supabase/migrations');
 const migrationPath = resolve(
   migrationDirectory,
-  '20260726160200_audit_staff_access_changes.sql'
+  '20260730000200_audit_staff_access_changes.sql'
 );
 const sqlRegressionPath = resolve(
   migrationDirectory,
@@ -34,11 +34,11 @@ const classifiedStaffMemberFields = [
 describe('staff access audit migration contract', () => {
   it('uses the reserved migration version exactly once', () => {
     const matchingMigrationFiles = readdirSync(migrationDirectory).filter(
-      (fileName) => fileName.startsWith('20260726160200_')
+      (fileName) => fileName.startsWith('20260730000200_')
     );
 
     expect(matchingMigrationFiles).toEqual([
-      '20260726160200_audit_staff_access_changes.sql',
+      '20260730000200_audit_staff_access_changes.sql',
     ]);
   });
 

@@ -1,4 +1,4 @@
--- Regression contract for 20260726160200_audit_staff_access_changes.sql.
+-- Regression contract for 20260730000200_audit_staff_access_changes.sql.
 -- This fixture runs after the canonical ledger and merchant identity fixtures.
 
 BEGIN;

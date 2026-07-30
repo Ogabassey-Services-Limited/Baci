@@ -1078,6 +1078,67 @@ export type Database = {
           },
         ];
       };
+      byok_fee_accruals: {
+        Row: {
+          created_at: string;
+          currency: string;
+          fee_amount: number;
+          id: number;
+          merchant_id: string;
+          order_amount: number;
+          order_id: string | null;
+          provider: string;
+          transaction_reference: string | null;
+          waived: boolean;
+        };
+        Insert: {
+          created_at?: string;
+          currency: string;
+          fee_amount?: number;
+          id?: never;
+          merchant_id: string;
+          order_amount: number;
+          order_id?: string | null;
+          provider: string;
+          transaction_reference?: string | null;
+          waived?: boolean;
+        };
+        Update: {
+          created_at?: string;
+          currency?: string;
+          fee_amount?: number;
+          id?: never;
+          merchant_id?: string;
+          order_amount?: number;
+          order_id?: string | null;
+          provider?: string;
+          transaction_reference?: string | null;
+          waived?: boolean;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'byok_fee_accruals_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchant_health';
+            referencedColumns: ['merchant_id'];
+          },
+          {
+            foreignKeyName: 'byok_fee_accruals_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchants';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'byok_fee_accruals_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'top_merchants';
+            referencedColumns: ['merchant_id'];
+          },
+        ];
+      };
       cache_invalidation_outbox: {
         Row: {
           attempts: number;
@@ -1143,67 +1204,6 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [];
-      };
-      byok_fee_accruals: {
-        Row: {
-          created_at: string;
-          currency: string;
-          fee_amount: number;
-          id: number;
-          merchant_id: string;
-          order_amount: number;
-          order_id: string | null;
-          provider: string;
-          transaction_reference: string | null;
-          waived: boolean;
-        };
-        Insert: {
-          created_at?: string;
-          currency: string;
-          fee_amount?: number;
-          id?: never;
-          merchant_id: string;
-          order_amount: number;
-          order_id?: string | null;
-          provider: string;
-          transaction_reference?: string | null;
-          waived?: boolean;
-        };
-        Update: {
-          created_at?: string;
-          currency?: string;
-          fee_amount?: number;
-          id?: never;
-          merchant_id?: string;
-          order_amount?: number;
-          order_id?: string | null;
-          provider?: string;
-          transaction_reference?: string | null;
-          waived?: boolean;
-        };
-        Relationships: [
-          {
-            foreignKeyName: 'byok_fee_accruals_merchant_id_fkey';
-            columns: ['merchant_id'];
-            isOneToOne: false;
-            referencedRelation: 'merchant_health';
-            referencedColumns: ['merchant_id'];
-          },
-          {
-            foreignKeyName: 'byok_fee_accruals_merchant_id_fkey';
-            columns: ['merchant_id'];
-            isOneToOne: false;
-            referencedRelation: 'merchants';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'byok_fee_accruals_merchant_id_fkey';
-            columns: ['merchant_id'];
-            isOneToOne: false;
-            referencedRelation: 'top_merchants';
-            referencedColumns: ['merchant_id'];
-          },
-        ];
       };
       categories: {
         Row: {
@@ -9745,6 +9745,39 @@ export type Database = {
           },
         ];
       };
+      product_category_cross_tenant_archive: {
+        Row: {
+          archived_at: string;
+          category_id: string;
+          category_merchant_id: string;
+          is_primary: boolean | null;
+          membership_created_at: string | null;
+          membership_id: string;
+          product_id: string;
+          product_merchant_id: string;
+        };
+        Insert: {
+          archived_at?: string;
+          category_id: string;
+          category_merchant_id: string;
+          is_primary?: boolean | null;
+          membership_created_at?: string | null;
+          membership_id: string;
+          product_id: string;
+          product_merchant_id: string;
+        };
+        Update: {
+          archived_at?: string;
+          category_id?: string;
+          category_merchant_id?: string;
+          is_primary?: boolean | null;
+          membership_created_at?: string | null;
+          membership_id?: string;
+          product_id?: string;
+          product_merchant_id?: string;
+        };
+        Relationships: [];
+      };
       product_feed_images: {
         Row: {
           created_at: string;
@@ -15094,23 +15127,6 @@ export type Database = {
         Args: { p_order_id: string; p_reason?: string };
         Returns: boolean;
       };
-      claim_cache_invalidations: {
-        Args: { p_batch_size?: number; p_worker_id?: string };
-        Returns: {
-          attempts: number;
-          claim_token: string;
-          generation: number;
-          merchant_id: string;
-          product_slugs: string[];
-          related_identifiers: string[];
-          target_id: string;
-          target_kind: string;
-        }[];
-      };
-      claim_order_cancellation_side_effect: {
-        Args: { p_claim_token: string; p_order_id: string; p_step: string };
-        Returns: { current_status: string; we_won: boolean }[];
-      };
       cancel_provider_shipment_order_and_release_inventory: {
         Args: {
           p_cancelled_at?: string;
@@ -15150,6 +15166,19 @@ export type Database = {
           p_user_id: string;
         };
         Returns: boolean;
+      };
+      claim_cache_invalidations: {
+        Args: { p_batch_size?: number; p_worker_id?: string };
+        Returns: {
+          attempts: number;
+          claim_token: string;
+          generation: number;
+          merchant_id: string;
+          product_slugs: string[];
+          related_identifiers: string[];
+          target_id: string;
+          target_kind: string;
+        }[];
       };
       claim_customer_on_phone_auth: {
         Args: {
@@ -16076,6 +16105,16 @@ export type Database = {
         Returns: Json;
       };
       encode_base32_crockford: { Args: { num: number }; Returns: string };
+      enqueue_cache_invalidation_target: {
+        Args: {
+          p_merchant_id: string;
+          p_product_slugs?: string[];
+          p_related_identifiers?: string[];
+          p_target_id: string;
+          p_target_kind: string;
+        };
+        Returns: undefined;
+      };
       enqueue_domain_event_v1: {
         Args: {
           p_causation_id?: string;
@@ -16099,6 +16138,19 @@ export type Database = {
           domain_event_id: string;
           queue_message_id: number;
         }[];
+      };
+      enqueue_storefront_cache_targets: {
+        Args: {
+          p_additional_hostname?: string;
+          p_additional_slug?: string;
+          p_merchant_id: string;
+          p_product_slugs?: string[];
+        };
+        Returns: undefined;
+      };
+      enqueue_storefront_product_cache_target: {
+        Args: { p_merchant_id: string; p_product_identifier: string };
+        Returns: undefined;
       };
       expire_order_wallet_funding_intents: {
         Args: {
@@ -16267,10 +16319,10 @@ export type Database = {
       finish_cache_invalidation: {
         Args: {
           p_claim_token: string;
-          p_error_code?: string | null;
+          p_error_code?: string;
           p_generation: number;
           p_merchant_id: string;
-          p_retry_after_seconds?: number | null;
+          p_retry_after_seconds?: number;
           p_succeeded: boolean;
           p_target_id: string;
           p_target_kind: string;
@@ -16538,14 +16590,6 @@ export type Database = {
           platform: string;
           token: string;
         }[];
-      };
-      get_merchant_paystack_subaccount_code: {
-        Args: { p_merchant_id: string };
-        Returns: string;
-      };
-      get_merchant_paystack_subaccount_configured: {
-        Args: { p_merchant_id: string };
-        Returns: boolean;
       };
       get_merchant_signup_policy_health: { Args: never; Returns: Json };
       get_merchant_signup_policy_health_pre_mobile_v2: {
@@ -17147,10 +17191,7 @@ export type Database = {
         };
         Returns: Json;
       };
-      has_cache_invalidation_dead_letters: {
-        Args: never;
-        Returns: boolean;
-      };
+      has_cache_invalidation_dead_letters: { Args: never; Returns: boolean };
       has_merchant_access: {
         Args: { p_merchant_id: string };
         Returns: boolean;
@@ -17377,6 +17418,12 @@ export type Database = {
           slug: string;
           title: string;
         }[];
+      };
+      merchant_feature_settings_public_cache_projection: {
+        Args: {
+          p_settings: Database['public']['Tables']['merchant_feature_settings']['Row'];
+        };
+        Returns: Json;
       };
       mint_quiz_event_ranked_awards: {
         Args: { p_event_id: string };

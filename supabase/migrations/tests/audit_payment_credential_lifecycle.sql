@@ -1,4 +1,4 @@
--- Regression contract for 20260726160500_audit_payment_credential_lifecycle.sql.
+-- Regression contract for 20260730000500_audit_payment_credential_lifecycle.sql.
 -- This fixture runs after every pending migration and rolls back all rows.
 
 BEGIN;

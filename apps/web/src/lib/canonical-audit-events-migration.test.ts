@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const migrationPath = resolve(
   process.cwd(),
-  '../../supabase/migrations/20260726160000_create_canonical_audit_events.sql'
+  '../../supabase/migrations/20260730000000_create_canonical_audit_events.sql'
 );
 
 describe('canonical audit events migration contract', () => {
@@ -14,11 +14,11 @@ describe('canonical audit events migration contract', () => {
       '../../supabase/migrations'
     );
     const matchingMigrationFiles = readdirSync(migrationDirectory).filter(
-      (fileName) => fileName.startsWith('20260726160000_')
+      (fileName) => fileName.startsWith('20260730000000_')
     );
 
     expect(matchingMigrationFiles).toEqual([
-      '20260726160000_create_canonical_audit_events.sql',
+      '20260730000000_create_canonical_audit_events.sql',
     ]);
   });
 

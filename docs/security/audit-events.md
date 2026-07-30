@@ -3,7 +3,7 @@
 ## Status and scope
 
 This document governs the Phase 1 canonical audit ledger introduced by the
-20260726160000 through 20260726160500 migrations. It is a data-handling and
+20260730000000 through 20260730000500 migrations. It is a data-handling and
 release contract for the immutable audit ledger, not a grant of broader
 database or support access.
 

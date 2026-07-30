@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 const migrationDirectory = resolve(process.cwd(), '../../supabase/migrations');
 const migrationPath = resolve(
   migrationDirectory,
-  '20260726160300_audit_sensitive_merchant_configuration.sql'
+  '20260730000300_audit_sensitive_merchant_configuration.sql'
 );
 const sqlRegressionPath = resolve(
   migrationDirectory,
@@ -119,11 +119,11 @@ const task2OwnedFields = [
 describe('sensitive merchant configuration audit migration contract', () => {
   it('reserves the Task 4 migration version exactly once', () => {
     const matchingMigrationFiles = readdirSync(migrationDirectory).filter(
-      (fileName) => fileName.startsWith('20260726160300_')
+      (fileName) => fileName.startsWith('20260730000300_')
     );
 
     expect(matchingMigrationFiles).toEqual([
-      '20260726160300_audit_sensitive_merchant_configuration.sql',
+      '20260730000300_audit_sensitive_merchant_configuration.sql',
     ]);
   });
 

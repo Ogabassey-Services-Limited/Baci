@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 const migrationDirectory = resolve(process.cwd(), '../../supabase/migrations');
 const migrationPath = resolve(
   migrationDirectory,
-  '20260726160500_audit_payment_credential_lifecycle.sql'
+  '20260730000500_audit_payment_credential_lifecycle.sql'
 );
 const sqlRegressionPath = resolve(
   migrationDirectory,
@@ -73,11 +73,11 @@ function extractDeclaredFields(
 describe('payment credential audit migration contract', () => {
   it('reserves the Task 6 migration version exactly once', () => {
     const matchingMigrationFiles = readdirSync(migrationDirectory).filter(
-      (fileName) => fileName.startsWith('20260726160500_')
+      (fileName) => fileName.startsWith('20260730000500_')
     );
 
     expect(matchingMigrationFiles).toEqual([
-      '20260726160500_audit_payment_credential_lifecycle.sql',
+      '20260730000500_audit_payment_credential_lifecycle.sql',
     ]);
   });
 

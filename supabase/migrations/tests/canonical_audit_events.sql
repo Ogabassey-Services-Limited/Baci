@@ -1,4 +1,4 @@
--- Regression contract for 20260726160000_create_canonical_audit_events.sql.
+-- Regression contract for 20260730000000_create_canonical_audit_events.sql.
 -- The temporary fixture is intentionally test-only: production trigger wiring
 -- belongs to later phases. Everything below rolls back.
 
