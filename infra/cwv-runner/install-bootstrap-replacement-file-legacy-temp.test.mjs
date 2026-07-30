@@ -90,6 +90,83 @@ test('removes only exact historical ensure-file temporary residue', async (conte
   assert.equal(await readFile(unrelated, 'utf8'), 'retain');
 });
 
+test('reconciles a later authorized path temporary before processing the first path', async (context) => {
+  const value = await fixture(context);
+  const laterDestination = join(value.root, 'source-manifest.sha256');
+  const laterOldBytes = Buffer.from('later-old\n');
+  const laterNewBytes = Buffer.from('later-new\n');
+  value.state.prior[laterDestination] = {
+    sha256: sha256(laterOldBytes),
+    mode: '0600',
+    owner: 'root:root',
+  };
+  value.state.files[laterDestination] = {
+    sha256: sha256(laterNewBytes),
+    mode: '0600',
+    owner: 'root:root',
+  };
+  value.intent.transitionPaths.push(laterDestination);
+  value.intent.pathSetSha256 = sha256(
+    JSON.stringify(Object.keys(value.state.files).sort())
+  );
+  await writeFile(value.destination, value.newBytes, { mode: 0o600 });
+  const residue = join(value.root, '.tmp.A1b2C3');
+  await writeFile(residue, laterNewBytes, { mode: 0o600 });
+
+  assert.equal(
+    await replaceBootstrapFile(
+      {
+        currentDirectory: '/state/current',
+        destination: value.destination,
+        bytes: value.newBytes,
+      },
+      {
+        readState: async () => value.state,
+        readIntent: async () => value.intent,
+        readProjection: value.projection,
+      }
+    ),
+    'current'
+  );
+  await assert.rejects(readFile(residue), { code: 'ENOENT' });
+});
+
+test('does not attribute an unbound temporary to an authorized path in another directory', async (context) => {
+  const value = await fixture(context);
+  const elsewhere = join(value.root, 'elsewhere', 'source.sha256');
+  const elsewhereBytes = Buffer.from('elsewhere\n');
+  value.state.prior[elsewhere] = { absent: true };
+  value.state.files[elsewhere] = {
+    sha256: sha256(elsewhereBytes),
+    mode: '0600',
+    owner: 'root:root',
+  };
+  value.intent.transitionPaths.push(elsewhere);
+  value.intent.pathSetSha256 = sha256(
+    JSON.stringify(Object.keys(value.state.files).sort())
+  );
+  await writeFile(value.destination, value.newBytes, { mode: 0o600 });
+  const residue = join(value.root, '.tmp.A1b2C3');
+  await writeFile(residue, elsewhereBytes, { mode: 0o600 });
+
+  await assert.rejects(
+    replaceBootstrapFile(
+      {
+        currentDirectory: '/state/current',
+        destination: value.destination,
+        bytes: value.newBytes,
+      },
+      {
+        readState: async () => value.state,
+        readIntent: async () => value.intent,
+        readProjection: value.projection,
+      }
+    ),
+    /bootstrap replacement temporary drift/
+  );
+  assert.deepEqual(await readFile(residue), elsewhereBytes);
+});
+
 test('rejects a symlink in the exact historical temporary namespace', async (context) => {
   const value = await fixture(context);
   await writeFile(value.destination, value.newBytes, { mode: 0o600 });

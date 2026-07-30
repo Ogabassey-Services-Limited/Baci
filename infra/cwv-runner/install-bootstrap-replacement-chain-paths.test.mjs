@@ -20,6 +20,17 @@ const captured = ({ source, prior, files }) => ({
   prior,
   files,
 });
+const completed = (state) => ({
+  ...state,
+  phase: 'complete',
+  receiptSha256: 'f'.repeat(64),
+  receipt: {
+    sourceSha: state.sourceSha,
+    sourceManifestSha256: state.sourceManifestSha256,
+    policyFileSha256: state.policyFileSha256,
+    files: state.files,
+  },
+});
 
 test('allows a captured generation to add a path proven previously absent', () => {
   const first = captured({
@@ -42,6 +53,58 @@ test('allows a captured generation to add a path proven previously absent', () =
   assert.deepEqual(
     resolveBootstrapReplacementChain([first, current], current),
     [first, current]
+  );
+});
+
+test('allows a completed generation to add a path proven previously absent', () => {
+  const first = completed(
+    captured({
+      source: '1',
+      prior: { [existingPath]: absent },
+      files: { [existingPath]: file('1') },
+    })
+  );
+  const current = captured({
+    source: '2',
+    prior: {
+      [existingPath]: file('1'),
+      [addedPath]: absent,
+    },
+    files: {
+      [existingPath]: file('2'),
+      [addedPath]: file('3'),
+    },
+  });
+
+  assert.deepEqual(
+    resolveBootstrapReplacementChain([first, current], current),
+    [first, current]
+  );
+});
+
+test('refuses a completed-generation addition not proven absent', () => {
+  const first = completed(
+    captured({
+      source: '1',
+      prior: { [existingPath]: absent },
+      files: { [existingPath]: file('1') },
+    })
+  );
+  const current = captured({
+    source: '2',
+    prior: {
+      [existingPath]: file('1'),
+      [addedPath]: file('9'),
+    },
+    files: {
+      [existingPath]: file('2'),
+      [addedPath]: file('3'),
+    },
+  });
+
+  assert.throws(
+    () => resolveBootstrapReplacementChain([first, current], current),
+    /replacement authority chain/
   );
 });
 

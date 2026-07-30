@@ -166,8 +166,9 @@ test('bootstrap holds the campaign lock until its transaction completes', () => 
 test('a losing concurrent bootstrap cannot publish a legacy plan', () => {
   const bootstrap = sourceSlice('bootstrap() {', 'assert_bootstrap() {');
   const lock = bootstrap.indexOf('flock -n 8');
-  const plan = bootstrap.indexOf('mktemp "$BOOTSTRAP_ROOT/../.plan.XXXXXX"');
+  const plan = bootstrap.indexOf('install-bootstrap-plan-publication.mjs');
   assert.ok(lock >= 0 && plan > lock);
+  assert.doesNotMatch(bootstrap, /mktemp[^\n]+\.plan\./);
 });
 
 test('requests full watchdog names from both systemd inventories', () => {

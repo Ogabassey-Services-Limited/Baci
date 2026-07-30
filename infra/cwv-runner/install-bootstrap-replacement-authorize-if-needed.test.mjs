@@ -38,3 +38,27 @@ test('skips only a fresh all-absent bootstrap and refuses unbound residue', asyn
     /prior bootstrap generation required/
   );
 });
+
+test('skips an unchanged managed projection before inventory and downstream validation', async () => {
+  let inventoryRead = false;
+  assert.equal(
+    await authorizeBootstrapReplacementIfNeeded(options, {
+      readState: async () => ({
+        ...current,
+        sourceSha: 'c'.repeat(40),
+        sourceManifestSha256: '7'.repeat(64),
+        policyFileSha256: '8'.repeat(64),
+        files: current.prior,
+      }),
+      listDirectories: () => {
+        inventoryRead = true;
+        throw new Error('stale predecessor must not be inspected');
+      },
+      readDownstream: () => {
+        throw new Error('downstream state must not be inspected');
+      },
+    }),
+    null
+  );
+  assert.equal(inventoryRead, false);
+});

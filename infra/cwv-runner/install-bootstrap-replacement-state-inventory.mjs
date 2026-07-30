@@ -4,7 +4,7 @@ import { beginBootstrap, readBootstrapState } from './install-bootstrap.mjs';
 import { readPinnedBootstrapFile } from './install-bootstrap-installed.mjs';
 
 const TRANSACTION = /^bootstrap-[0-9a-f]{12}$/;
-const LEGACY_PLAN = /^\.plan\.[A-Za-z0-9]{6}$/;
+const LEGACY_PLAN = /^\.plan\.(?:[A-Za-z0-9]{6}|[0-9a-f]{32})$/;
 
 async function syncDirectory(path) {
   const handle = await open(path, 'r');

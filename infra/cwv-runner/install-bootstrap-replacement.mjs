@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { resolveBootstrapReplacementChain } from './install-bootstrap-replacement-chain.mjs';
+import { isBootstrapReplacementNoop } from './install-bootstrap-replacement-noop.mjs';
 
 const HEX = /^[0-9a-f]{64}$/;
 const SOURCE = /^[0-9a-f]{40}$/;
@@ -41,6 +42,7 @@ export function planBootstrapReplacement({
   installedProjection,
   downstreamState,
 }) {
+  if (isBootstrapReplacementNoop(nextState)) return null;
   const resolvedAuthorityChain = resolveBootstrapReplacementChain(
     authorityChain,
     nextState

@@ -18,10 +18,7 @@ const sameIdentity = (left, right) =>
   left.dev === right.dev && left.ino === right.ino;
 const stable = (value) =>
   JSON.stringify(Array.isArray(value) ? [...value].sort() : value);
-const owners = {
-  'root:root': [0, 0],
-  'root:baci-cwv': [0, 10001],
-};
+const owners = { 'root:root': [0, 0], 'root:baci-cwv': [0, 10001] };
 const temporaryPrefix = '.baci-bootstrap-replacement-';
 const temporaryPattern =
   /^\.baci-bootstrap-replacement-v2-([0-9a-f]{64})-([0-9a-f]{64})-([a-z0-9-]+)$/;
@@ -162,6 +159,7 @@ async function reconcileTemporaries(
   destination,
   prior,
   expected,
+  authorizedState,
   dependencies
 ) {
   const directory = dirname(destination);
@@ -181,7 +179,12 @@ async function reconcileTemporaries(
       })
     )[temporary];
     if (historical) {
-      const permitted = [prior, expected]
+      const permitted = Object.keys(authorizedState.files)
+        .filter((path) => dirname(path) === directory)
+        .flatMap((path) => [
+          authorizedState.prior[path],
+          authorizedState.files[path],
+        ])
         .filter((projection) => !projection.absent)
         .flatMap(temporaryProjections)
         .some((projection) => same(actual, projection));
@@ -250,6 +253,7 @@ export async function replaceBootstrapFile(input, descriptor = {}) {
     destination,
     state.prior[destination],
     expected,
+    state,
     dependencies
   );
   const actual = (

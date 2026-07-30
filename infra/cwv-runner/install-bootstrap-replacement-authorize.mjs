@@ -50,6 +50,7 @@ export async function authorizeBootstrapReplacement(
     installedProjection: await readProjection(nextState.files),
     downstreamState,
   });
+  if (!plan) return null;
   const intent = {
     schemaVersion: 1,
     baselineKind: plan.baselineKind,

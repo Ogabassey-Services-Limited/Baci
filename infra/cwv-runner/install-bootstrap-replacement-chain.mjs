@@ -22,8 +22,19 @@ function canFollow(previous, next) {
     return false;
   const paths = Object.keys(next.files ?? {}).sort();
   if (!same(paths, Object.keys(next.prior ?? {}).sort())) return false;
-  if (previous.phase === 'complete')
-    return same(previous.receipt?.files, next.prior);
+  if (previous.phase === 'complete') {
+    const previousFiles = previous.receipt?.files;
+    if (!previousFiles || typeof previousFiles !== 'object') return false;
+    const previousPaths = Object.keys(previousFiles ?? {}).sort();
+    const previousPathSet = new Set(previousPaths);
+    if (previousPaths.some((path) => !paths.includes(path))) return false;
+    return paths.every(
+      (path) =>
+        (previousPathSet.has(path) &&
+          same(next.prior[path], previousFiles[path])) ||
+        (!previousPathSet.has(path) && same(next.prior[path], absent))
+    );
+  }
   if (previous.phase !== 'captured') return false;
   const previousPaths = Object.keys(previous.files ?? {}).sort();
   const previousPathSet = new Set(previousPaths);

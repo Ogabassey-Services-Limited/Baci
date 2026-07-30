@@ -103,17 +103,16 @@ test('refuses third-party drift instead of treating it as prior or next bytes', 
   );
 });
 
-test('refuses an empty replacement transition before persisting an unreadable intent', () => {
+test('skips a distinct source generation with an identical managed projection before host validation', () => {
   const unchanged = { ...nextState, files: previousFiles };
-  assert.throws(
-    () =>
-      planBootstrapReplacement({
-        authorityChain: [previousState, unchanged],
-        nextState: unchanged,
-        installedProjection: previousFiles,
-        downstreamState: inertHost,
-      }),
-    /bootstrap replacement transition required/
+  assert.equal(
+    planBootstrapReplacement({
+      authorityChain: [],
+      nextState: unchanged,
+      installedProjection: previousFiles,
+      downstreamState: { ...inertHost, registrationArtifacts: 1 },
+    }),
+    null
   );
 });
 
