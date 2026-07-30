@@ -1,10 +1,11 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StatusBar, Text, View } from 'react-native';
+import { StatusBar, View } from 'react-native';
 import { StoreLogoSection } from '@/components/store-settings/StoreLogoSection';
 import { StoreSettingsBackButton } from '@/components/store-settings/StoreSettingsBackButton';
 import { StoreSettingsDetailsCard } from '@/components/store-settings/StoreSettingsDetailsCard';
+import { StoreSettingsLoadError } from '@/components/store-settings/StoreSettingsLoadError';
 import { StoreSettingsSaveButton } from '@/components/store-settings/StoreSettingsSaveButton';
 import { StoreSubscriptionCard } from '@/components/store-settings/StoreSubscriptionCard';
 import { storeSettingsStyles as styles } from '@/components/store-settings/store-settings.styles';
@@ -57,7 +58,6 @@ export default function StoreSettingsScreen() {
   const [syncedMerchant, setSyncedMerchant] = useState<typeof merchant | null>(
     null
   );
-  // Snapshot of the form values as loaded, used to diff only the edited columns.
   const [baseline, setBaseline] = useState<StoreSettingsFormValues | null>(
     null
   );
@@ -65,13 +65,8 @@ export default function StoreSettingsScreen() {
     setStatusModal,
   });
 
-  // Adjust form state during render when the merchant identity changes so the
-  // form never paints a stale frame (https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
   if (merchant && merchant !== syncedMerchant) {
     setSyncedMerchant(merchant);
-
-    // Form state uses UI fallbacks (e.g. a default country/currency) so the
-    // picker is never empty.
     const initialForm = buildInitialFormValues(merchant);
     setBusinessName(initialForm.businessName);
     setPhone(initialForm.phone);
@@ -82,11 +77,6 @@ export default function StoreSettingsScreen() {
     setCurrency(initialForm.currency);
     setSlug(initialForm.slug);
     setIsSlugEdited(hasNonEmptyTrimmedValue(merchant.slug));
-
-    // The baseline diffs against the merchant's REAL persisted columns (null →
-    // empty string), never the UI fallback. Otherwise a merchant whose country
-    // is null would baseline to the visible default, so saving that default
-    // would produce an empty diff and never write the column.
     setBaseline(buildBaselineFromMerchant(merchant));
   }
 
@@ -128,10 +118,6 @@ export default function StoreSettingsScreen() {
     mutationFn: async () => {
       if (!merchant?.id || !baseline) throw new Error('No merchant found');
 
-      // Build the payload from a dirty-field diff against the loaded snapshot so
-      // only edited columns are written. This stops a stale full-form snapshot
-      // from reverting columns the user never touched (the recurring identity
-      // drift) and keeps phone/support_phone as independent columns.
       const payload = buildMerchantUpdatePayload(baseline, {
         business_name: businessName,
         phone,
@@ -152,9 +138,6 @@ export default function StoreSettingsScreen() {
         .update(payload)
         .eq('id', merchant.id);
 
-      // Optimistic-concurrency guard: only overwrite the row we actually loaded.
-      // If the row moved on (updated_at differs), the filter matches no rows and
-      // we surface a conflict instead of silently clobbering the newer write.
       const loadedUpdatedAt = syncedMerchant?.updated_at;
       if (loadedUpdatedAt) {
         query = query.eq('updated_at', loadedUpdatedAt);
@@ -212,25 +195,12 @@ export default function StoreSettingsScreen() {
 
   if (!merchant) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View
-          accessibilityRole="alert"
-          style={[styles.card, { backgroundColor: colors.card }]}
-        >
-          <Text style={[styles.label, { color: colors.text }]}>
-            Couldn't load store settings. Please try again.
-          </Text>
-          <Pressable
-            accessibilityLabel="Retry loading store settings"
-            accessibilityRole="button"
-            onPress={() =>
-              void queryClient.invalidateQueries({ queryKey: ['merchant'] })
-            }
-          >
-            <Text style={{ color: colors.primary }}>Retry</Text>
-          </Pressable>
-        </View>
-      </View>
+      <StoreSettingsLoadError
+        colors={colors}
+        onRetry={() =>
+          void queryClient.invalidateQueries({ queryKey: ['merchant'] })
+        }
+      />
     );
   }
 
