@@ -2,6 +2,7 @@ import { open, readdir, unlink } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { beginBootstrap, readBootstrapState } from './install-bootstrap.mjs';
 import { readPinnedBootstrapFile } from './install-bootstrap-installed.mjs';
+import { reconcileBootstrapPreCapture } from './install-bootstrap-pre-capture.mjs';
 
 const TRANSACTION = /^bootstrap-[0-9a-f]{12}$/;
 const LEGACY_PLAN = /^\.plan\.(?:[A-Za-z0-9]{6}|[0-9a-f]{32})$/;
@@ -46,7 +47,7 @@ export async function readBootstrapReplacementStateInventory(
     )
   )
     throw new TypeError('invalid bootstrap replacement state inventory');
-  const names = stateEntries.filter((name) => TRANSACTION.test(name));
+  let names = stateEntries.filter((name) => TRANSACTION.test(name));
 
   const planRoot = dirname(stateRoot);
   const parentEntries = await listPlanDirectories(planRoot);
@@ -105,9 +106,16 @@ export async function readBootstrapReplacementStateInventory(
     if (input.transactionId !== `bootstrap-${capture.sourceSha.slice(0, 12)}`)
       throw new TypeError('invalid legacy bootstrap plan');
     if (names.includes(input.transactionId)) {
-      const state = await readState(join(stateRoot, input.transactionId));
-      if (state.captureSha256 !== capture.captureSha256)
-        throw new TypeError('invalid legacy bootstrap plan');
+      const directory = join(stateRoot, input.transactionId);
+      try {
+        const state = await readState(directory);
+        if (state.captureSha256 !== capture.captureSha256)
+          throw new TypeError('invalid legacy bootstrap plan');
+      } catch (error) {
+        if (error.message === 'invalid legacy bootstrap plan') throw error;
+        await reconcileBootstrapPreCapture(directory, dependencies);
+        names = names.filter((candidate) => candidate !== input.transactionId);
+      }
     }
   }
   for (const linked of linkedPlans) await removeFile(linked.stage);

@@ -11,7 +11,7 @@ import {
   readPinnedBootstrapFile,
 } from './install-bootstrap-installed.mjs';
 import { readBootstrapReplacementIntent } from './install-bootstrap-replacement-controller.mjs';
-import { retireObsolete } from './install-bootstrap-replacement-temp-authority.mjs';
+import { reconcileBootstrapReplacementResidue } from './install-bootstrap-replacement-residue.mjs';
 
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const same = (left, right) => canonicalJson(left) === canonicalJson(right);
@@ -21,20 +21,11 @@ const stable = (value) =>
   JSON.stringify(Array.isArray(value) ? [...value].sort() : value);
 const owners = { 'root:root': [0, 0], 'root:baci-cwv': [0, 10001] };
 const temporaryPrefix = '.baci-bootstrap-replacement-';
-const temporaryPattern =
-  /^\.baci-bootstrap-replacement-v2-([0-9a-f]{64})-([0-9a-f]{64})-([a-z0-9-]+)$/;
-const legacyTemporaryPattern = /^\.baci-bootstrap-replacement-[a-z0-9-]+$/;
-const historicalTemporaryPattern = /^\.tmp\.[A-Za-z0-9]{6}$/;
 const executeFile = promisify(execFile);
 const renameExchangeHelper = fileURLToPath(
   new URL('./install-bootstrap-rename-exchange.pl', import.meta.url)
 );
 const destinationIdentity = (destination) => sha256(destination);
-const temporaryProjections = (expected) => [
-  expected,
-  { ...expected, mode: '0600', owner: expected.owner },
-  { ...expected, mode: '0600', owner: 'root:root' },
-];
 function temporaryName(destination, expectedSha256, attempt) {
   if (!/^[0-9a-f]{64}$/.test(expectedSha256))
     throw new TypeError('invalid replacement expected digest');
@@ -152,66 +143,6 @@ async function atomicReplace(
     throw error;
   }
 }
-async function reconcileTemporaries(
-  destination,
-  prior,
-  expected,
-  authorizedState,
-  dependencies
-) {
-  const directory = dirname(destination);
-  const entries = (await dependencies.readDirectory(directory)).sort();
-  for (const entry of entries) {
-    const historical = historicalTemporaryPattern.test(entry);
-    if (!entry.startsWith('.baci-bootstrap-replacement') && !historical)
-      continue;
-    const bound = temporaryPattern.exec(entry);
-    const legacy = legacyTemporaryPattern.test(entry);
-    if (!bound && !legacy && !historical)
-      throw new TypeError('unexpected bootstrap replacement residue');
-    const temporary = join(directory, entry);
-    const actual = (
-      await dependencies.readProjection({
-        [temporary]: expected,
-      })
-    )[temporary];
-    if (historical) {
-      const permitted = Object.keys(authorizedState.files)
-        .filter((path) => dirname(path) === directory)
-        .flatMap((path) => [
-          authorizedState.prior[path],
-          authorizedState.files[path],
-        ])
-        .filter((projection) => !projection.absent)
-        .flatMap(temporaryProjections)
-        .some((projection) => same(actual, projection));
-      if (!permitted)
-        throw new TypeError('bootstrap replacement temporary drift');
-      await dependencies.removeFile(temporary);
-      await dependencies.syncDirectory(directory);
-      continue;
-    }
-    if (bound && bound[1] !== destinationIdentity(destination)) continue;
-    if (bound && bound[2] !== expected.sha256) {
-      await retireObsolete(
-        actual,
-        bound,
-        authorizedState,
-        temporary,
-        dependencies
-      );
-      continue;
-    }
-    const permitted = [expected, prior]
-      .filter((projection) => !projection.absent)
-      .flatMap(temporaryProjections);
-    if (!permitted.some((projection) => same(actual, projection)))
-      throw new TypeError('bootstrap replacement temporary drift');
-    await dependencies.removeFile(temporary);
-    await dependencies.syncDirectory(directory);
-  }
-}
-
 export async function replaceBootstrapFile(input, descriptor = {}) {
   const dependencies = {
     chownFile: descriptor.chownFile ?? chown,
@@ -249,11 +180,13 @@ export async function replaceBootstrapFile(input, descriptor = {}) {
   const expected = state.files[destination];
   if (sha256(bytes) !== expected.sha256)
     throw new TypeError('bootstrap replacement bytes mismatch');
-  await reconcileTemporaries(
-    destination,
-    state.prior[destination],
-    expected,
-    { ...state, currentDirectory, destination, intent },
+  await reconcileBootstrapReplacementResidue(
+    {
+      destination,
+      prior: state.prior[destination],
+      expected,
+      authorizedState: { ...state, currentDirectory, destination, intent },
+    },
     dependencies
   );
   const actual = (

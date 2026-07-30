@@ -1,4 +1,8 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 
 import { authorizeBootstrapReplacementIfNeeded } from './install-bootstrap-replacement-authorize-if-needed.mjs';
@@ -39,26 +43,81 @@ test('skips only a fresh all-absent bootstrap and refuses unbound residue', asyn
   );
 });
 
-test('skips an unchanged managed projection before inventory and downstream validation', async () => {
-  let inventoryRead = false;
+test('reconciles an interrupted predecessor temporary before an unchanged no-op returns', async (context) => {
+  const root = await mkdtemp(join(tmpdir(), 'baci-noop-residue-'));
+  context.after(() => rm(root, { recursive: true, force: true }));
+  const destination = join(root, 'bootstrap.sha256');
+  const bytes = Buffer.from('current\n');
+  const interrupted = Buffer.from('interrupted\n');
+  const digest = (value) => createHash('sha256').update(value).digest('hex');
+  const metadata = (value) => ({
+    sha256: digest(value),
+    mode: '0600',
+    owner: 'root:root',
+  });
+  const noOp = {
+    ...current,
+    sourceSha: 'c'.repeat(40),
+    sourceManifestSha256: '7'.repeat(64),
+    policyFileSha256: '8'.repeat(64),
+    prior: { [destination]: metadata(bytes) },
+    files: { [destination]: metadata(bytes) },
+  };
+  const predecessor = {
+    ...current,
+    sourceSha: 'b'.repeat(40),
+    captureSha256: '5'.repeat(64),
+    sourceManifestSha256: '6'.repeat(64),
+    policyFileSha256: noOp.policyFileSha256,
+    prior: { [destination]: metadata(bytes) },
+    files: { [destination]: metadata(interrupted) },
+  };
+  const baseline = {
+    ...predecessor,
+    phase: 'complete',
+    sourceSha: 'a'.repeat(40),
+    receiptSha256: '4'.repeat(64),
+    receipt: {
+      sourceSha: 'a'.repeat(40),
+      sourceManifestSha256: predecessor.sourceManifestSha256,
+      policyFileSha256: noOp.policyFileSha256,
+      files: predecessor.prior,
+    },
+    files: predecessor.prior,
+  };
+  const temporary = `.baci-bootstrap-replacement-v2-${digest(destination)}-${digest(interrupted)}-generation-b`;
+  await writeFile(join(root, temporary), interrupted, { mode: 0o600 });
+
   assert.equal(
-    await authorizeBootstrapReplacementIfNeeded(options, {
-      readState: async () => ({
-        ...current,
-        sourceSha: 'c'.repeat(40),
-        sourceManifestSha256: '7'.repeat(64),
-        policyFileSha256: '8'.repeat(64),
-        files: current.prior,
-      }),
-      listDirectories: () => {
-        inventoryRead = true;
-        throw new Error('stale predecessor must not be inspected');
-      },
-      readDownstream: () => {
-        throw new Error('downstream state must not be inspected');
-      },
-    }),
+    await authorizeBootstrapReplacementIfNeeded(
+      { ...options, currentDirectory: '/state/bootstrap-cccccccccccc' },
+      {
+        readState: async (directory) =>
+          directory.endsWith('aaaaaaaaaaaa')
+            ? baseline
+            : directory.endsWith('bbbbbbbbbbbb')
+              ? predecessor
+              : noOp,
+        listDirectories: async () => [
+          'bootstrap-aaaaaaaaaaaa',
+          'bootstrap-bbbbbbbbbbbb',
+          'bootstrap-cccccccccccc',
+        ],
+        readProjection: async (projection) =>
+          Object.fromEntries(
+            Object.keys(projection).map((candidate) => [
+              candidate,
+              candidate === join(root, temporary)
+                ? metadata(interrupted)
+                : metadata(bytes),
+            ])
+          ),
+        readDownstream: () => {
+          throw new Error('downstream state must not be inspected');
+        },
+      }
+    ),
     null
   );
-  assert.equal(inventoryRead, false);
+  assert.deepEqual(await readdir(root), []);
 });

@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
-import { link, open, unlink } from 'node:fs/promises';
+import { link, open, readdir, unlink } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
@@ -42,9 +42,42 @@ async function assertExactRegularFile(path, bytes, drift) {
     )
       throw new TypeError(drift);
     if ((await handle.readFile('utf8')) !== bytes) throw new TypeError(drift);
+    return details;
   } finally {
     await handle.close();
   }
+}
+
+const escapeRegularExpression = (value) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+async function reconcilePublishedTemporaries(path, bytes, drift) {
+  const destination = await assertExactRegularFile(path, bytes, drift);
+  const directory = dirname(path);
+  const filename = basename(path);
+  const generatedName = new RegExp(
+    `^\\.${escapeRegularExpression(filename)}\\.[1-9][0-9]*\\.[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\\.tmp$`
+  );
+  let removed = false;
+  for (const entry of (await readdir(directory)).sort()) {
+    if (!generatedName.test(entry)) continue;
+    const candidate = join(directory, entry);
+    let handle;
+    try {
+      handle = await open(candidate, constants.O_RDONLY | constants.O_NOFOLLOW);
+      const details = await handle.stat();
+      if (details.dev !== destination.dev || details.ino !== destination.ino)
+        continue;
+    } catch (error) {
+      if (error.code === 'ENOENT' || error.code === 'ELOOP') continue;
+      throw error;
+    } finally {
+      await handle?.close();
+    }
+    await unlink(candidate);
+    removed = true;
+  }
+  if (removed) await syncDirectory(directory);
 }
 
 async function removeTemporary(handle, temporaryPath, directory) {
@@ -80,7 +113,7 @@ async function writeExclusiveOrExact(path, bytes, drift, dependencies = {}) {
       await link(temporaryPath, path);
     } catch (error) {
       if (error.code !== 'EEXIST') throw error;
-      await assertExactRegularFile(path, bytes, drift);
+      await reconcilePublishedTemporaries(path, bytes, drift);
       created = false;
     }
     if (created) await syncDirectory(directory);

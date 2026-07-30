@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 import { lstat, mkdir, open, readFile, rename } from 'node:fs/promises';
 import { join } from 'node:path';
 
+export { persistBootstrapCapture } from './install-bootstrap-capture-persistence.mjs';
+
 const HEX = /^[0-9a-f]{64}$/;
 const SOURCE = /^[0-9a-f]{40}$/;
 const TRANSACTION = /^bootstrap-[a-z0-9][a-z0-9-]{0,50}$/;
@@ -175,20 +177,6 @@ async function atomicPhase(directory, phase) {
   await rename(temporary, join(directory, 'phase'));
   await fsyncDirectory(directory);
 }
-export async function persistBootstrapCapture(stateRoot, capture) {
-  await privateDirectory(stateRoot);
-  if (capture.phase !== 'captured') fail('captured bootstrap state required');
-  const directory = join(stateRoot, capture.transactionId);
-  await privateDirectory(directory, true);
-  await fsyncDirectory(stateRoot);
-  await writeExclusive(join(directory, 'capture.json'), capture.captureBytes);
-  // biome-ignore format: bounded source file keeps this durable receipt write compact
-  await writeExclusive(join(directory, 'capture.sha256'), `${capture.captureSha256}\n`);
-  await writeExclusive(join(directory, 'journal.ndjson'), '');
-  await atomicPhase(directory, 'captured');
-  return directory;
-}
-
 export async function appendBootstrapJournal(directory, event) {
   const state = await readBootstrapState(directory);
   if (state.phase !== 'captured') fail('bootstrap journal is closed');
