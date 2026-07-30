@@ -101,7 +101,7 @@ export default function BvnVerificationCard({
         }),
       }),
     onSuccess: async (data) => {
-      if (data.verified && isActive()) {
+      if (data.verified) {
         const readinessRefreshed = await tryRefreshStoreReadiness(onVerified);
         if (!isActive()) return;
 

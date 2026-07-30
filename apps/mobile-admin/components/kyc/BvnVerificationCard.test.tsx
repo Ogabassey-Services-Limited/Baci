@@ -118,6 +118,27 @@ describe('BvnVerificationCard readiness handoff', () => {
     expect(mocks.showBvnVerificationError).not.toHaveBeenCalled();
   });
 
+  it('refreshes the verified merchant but suppresses stale BVN success UI', async () => {
+    const onVerified = vi.fn().mockResolvedValue(undefined);
+    render(
+      <BvnVerificationCard
+        dateOfBirth="2000-01-01"
+        firstName="A"
+        isActive={() => false}
+        lastName="B"
+        mobileNo="08000000000"
+        onMobileNumberChange={vi.fn()}
+        onVerified={onVerified}
+        verified={false}
+      />
+    );
+
+    await completeMutation(true);
+
+    expect(onVerified).toHaveBeenCalledTimes(1);
+    expect(mocks.alert).not.toHaveBeenCalled();
+  });
+
   it('reports a failed match without refreshing readiness', async () => {
     const onVerified = vi.fn().mockResolvedValue(undefined);
     render(

@@ -149,4 +149,21 @@ describe('CacVerificationCard readiness handoff', () => {
     expect(queryByText('Verified result')).not.toBeNull();
     expect(mocks.alert).not.toHaveBeenCalledWith('Error', expect.any(String));
   });
+
+  it('refreshes the verified merchant but suppresses stale CAC completion UI', async () => {
+    const onVerified = vi.fn().mockResolvedValue(undefined);
+    const { queryByText } = render(
+      <CacVerificationCard
+        isActive={() => false}
+        onVerified={onVerified}
+        verified={false}
+      />
+    );
+
+    await act(completeVerifiedMutation);
+
+    expect(onVerified).toHaveBeenCalledTimes(1);
+    expect(queryByText('Verified result')).toBeNull();
+    expect(mocks.alert).not.toHaveBeenCalled();
+  });
 });

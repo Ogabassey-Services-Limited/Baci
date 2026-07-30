@@ -136,15 +136,14 @@ export default function CacVerificationCard({
       );
     },
     onSuccess: async (data) => {
-      if (!isActive()) return;
-
-      setVerifyResult(data);
-      setCacStep('result');
+      if (isActive()) setVerifyResult(data);
+      if (isActive()) setCacStep('result');
       const readinessRefreshed = data.verified
         ? await tryRefreshStoreReadiness(onVerified)
         : true;
+      if (!isActive()) return;
 
-      if (data.verified && !readinessRefreshed && isActive()) {
+      if (data.verified && !readinessRefreshed) {
         Alert.alert(
           'Verified',
           'Your CAC has been verified. Your setup status will refresh shortly.'

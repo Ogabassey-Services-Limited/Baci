@@ -280,7 +280,7 @@ describe('NinVerificationCard readiness handoff', () => {
     );
   });
 
-  it('ignores a NIN completion after its merchant session is no longer active', async () => {
+  it('refreshes the verified merchant but suppresses stale NIN success UI', async () => {
     const onVerified = vi.fn().mockResolvedValue(undefined);
     render(
       <NinVerificationCard
@@ -300,7 +300,7 @@ describe('NinVerificationCard readiness handoff', () => {
 
     await completion.onSuccess({ verified: true });
 
-    expect(onVerified).not.toHaveBeenCalled();
+    expect(onVerified).toHaveBeenCalledTimes(1);
     expect(mocks.alert).not.toHaveBeenCalled();
   });
 });

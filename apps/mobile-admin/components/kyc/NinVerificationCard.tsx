@@ -78,7 +78,7 @@ export default function NinVerificationCard({
         }),
       }),
     onSuccess: async (data) => {
-      if (data.verified && isActive()) {
+      if (data.verified) {
         const readinessRefreshed = await tryRefreshStoreReadiness(onVerified);
         if (!isActive()) return;
         Alert.alert(
