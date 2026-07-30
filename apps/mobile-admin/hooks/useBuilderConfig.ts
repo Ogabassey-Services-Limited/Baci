@@ -57,6 +57,10 @@ interface ChatMessage {
   timestamp: Date;
 }
 
+interface PublishVariables {
+  merchantId: string | null;
+}
+
 export function useBuilderConfig(pageSlug: string = 'home') {
   const queryClient = useQueryClient();
   const { session, isLoading } = useAuth();
@@ -191,7 +195,7 @@ export function useBuilderConfig(pageSlug: string = 'home') {
 
   // Publish
   const publishMutation = useMutation({
-    mutationFn: async (): Promise<void> => {
+    mutationFn: async (_variables: PublishVariables): Promise<void> => {
       // First save the current config as draft
       await saveDraftMutation.mutateAsync();
 
@@ -207,16 +211,17 @@ export function useBuilderConfig(pageSlug: string = 'home') {
         }),
       });
     },
-    onSuccess: async () => {
+    onSuccess: async (_data, variables) => {
       const invalidations: Promise<unknown>[] = [
         queryClient.invalidateQueries({
           queryKey: ['builderConfig', pageSlug],
         }),
       ];
-      if (merchant?.id) {
+      const merchantId = variables.merchantId;
+      if (merchantId) {
         invalidations.push(
           tryRefreshStoreReadiness(() =>
-            invalidateStoreReadiness(queryClient, merchant.id)
+            invalidateStoreReadiness(queryClient, merchantId)
           )
         );
       }
@@ -256,7 +261,10 @@ export function useBuilderConfig(pageSlug: string = 'home') {
     isSavingDraft: saveDraftMutation.isPending,
     saveDraftError: saveDraftMutation.error,
 
-    publish: publishMutation.mutate,
+    publish: (
+      _variables?: undefined,
+      options?: Parameters<typeof publishMutation.mutate>[1]
+    ) => publishMutation.mutate({ merchantId: merchant?.id ?? null }, options),
     isPublishing: publishMutation.isPending,
     publishError: publishMutation.error,
 

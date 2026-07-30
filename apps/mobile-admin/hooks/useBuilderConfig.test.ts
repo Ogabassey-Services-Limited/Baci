@@ -358,4 +358,48 @@ describe('useBuilderConfig', () => {
     });
     expect(mockInvalidateStoreReadiness).not.toHaveBeenCalled();
   });
+
+  it('refreshes the merchant that started publishing after the active merchant changes', async () => {
+    let releasePublish!: () => void;
+    const publishRequest = new Promise<void>((resolve) => {
+      releasePublish = resolve;
+    });
+    mockApiClient.mockImplementation((url, options) => {
+      if (url === '/api/builder?slug=home') {
+        return Promise.resolve({ config: baseConfig, isPublished: false });
+      }
+      if (options?.method === 'PUT') return publishRequest;
+      return Promise.resolve(undefined);
+    });
+    const { Wrapper } = createWrapper();
+    const { result, rerender } = renderHook(() => useBuilderConfig('home'), {
+      wrapper: Wrapper,
+    });
+
+    await waitFor(() => {
+      expect(result.current.config).toEqual(baseConfig);
+    });
+    act(() => {
+      result.current.publish();
+    });
+    await waitFor(() => {
+      expect(result.current.isPublishing).toBe(true);
+    });
+
+    merchantMocks.merchant = { id: 'merchant-2' };
+    rerender();
+    releasePublish();
+
+    await waitFor(() => {
+      expect(mockInvalidateStoreReadiness).toHaveBeenCalledWith(
+        expect.anything(),
+        'merchant-1'
+      );
+      expect(result.current.isPublishing).toBe(false);
+    });
+    expect(mockInvalidateStoreReadiness).not.toHaveBeenCalledWith(
+      expect.anything(),
+      'merchant-2'
+    );
+  });
 });
