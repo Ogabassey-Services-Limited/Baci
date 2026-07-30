@@ -9,7 +9,7 @@ describe('mobile store readiness routes', () => {
 
   it('keeps the core readiness destinations explicit', () => {
     expect(getMobileStoreReadinessRoute('bank_account')).toBe(
-      '/payout-settings'
+      '/payout-settings?from=setup'
     );
     expect(getMobileStoreReadinessRoute('payment_method')).toBe(
       '/payment-methods'
@@ -25,5 +25,11 @@ describe('mobile store readiness routes', () => {
     );
     expect(getMobileStoreReadinessRoute('first_product')).toBe('/product/new');
     expect(getMobileStoreReadinessRoute('hero_carousel')).toBe('/customize');
+    expect(getMobileStoreReadinessRoute('social_media')).toBe(
+      '/social-media?from=setup'
+    );
+    expect(getMobileStoreReadinessRoute('analytics')).toBe(
+      '/analytics-config?from=setup'
+    );
   });
 });

@@ -7,6 +7,8 @@ import PayoutSettingsScreen from './payout-settings';
 const mocks = vi.hoisted(() => ({
   alert: vi.fn(),
   accountName: null as string | null,
+  routeParams: {} as { from?: string },
+  routerBack: vi.fn(),
   isVerifying: false,
   keyboardContainerProps: [] as Array<{
     align?: 'start' | 'center' | 'end';
@@ -30,7 +32,8 @@ const mocks = vi.hoisted(() => ({
 vi.mock('expo-router', async () => {
   const React = await import('react');
   return {
-    useRouter: () => ({ back: vi.fn() }),
+    useLocalSearchParams: () => mocks.routeParams,
+    useRouter: () => ({ back: mocks.routerBack }),
     Stack: {
       Screen: ({
         options,
@@ -231,6 +234,8 @@ describe('PayoutSettingsScreen', () => {
       business_name: 'Baci Store',
     };
     mocks.savePayoutSettings.mutate.mockReset();
+    mocks.routeParams = {};
+    mocks.routerBack.mockReset();
     mocks.verifyError = null;
   });
 
@@ -333,6 +338,31 @@ describe('PayoutSettingsScreen', () => {
     expect(mocks.alert).toHaveBeenCalledWith(
       'Error',
       'Cannot save: Unable to verify account'
+    );
+  });
+
+  it('returns to the checklist without a success alert after a checklist payout save', () => {
+    mocks.accountName = 'Baci Store';
+    mocks.routeParams = { from: 'setup' };
+
+    render(<PayoutSettingsScreen />);
+    fireEvent.change(screen.getByPlaceholderText('0123456789'), {
+      target: { value: '0123456789' },
+    });
+    fireEvent.click(screen.getByLabelText('Select bank'));
+    fireEvent.click(screen.getByText('GTBank'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    const options = mocks.savePayoutSettings.mutate.mock.calls[0]?.[1] as
+      | { onSuccess?: () => void }
+      | undefined;
+    options?.onSuccess?.();
+
+    expect(mocks.routerBack).toHaveBeenCalledTimes(1);
+    expect(mocks.alert).not.toHaveBeenCalledWith(
+      'Success',
+      expect.any(String),
+      expect.any(Array)
     );
   });
 });

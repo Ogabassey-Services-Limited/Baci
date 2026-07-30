@@ -1,6 +1,6 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -19,6 +19,7 @@ import {
   EMPTY_SOCIAL_MEDIA,
   SOCIAL_MEDIA_FIELDS,
 } from '@/constants/social-media-fields';
+import { isStoreReadinessSetupOrigin } from '@/constants/store-readiness-routes';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { type MerchantSocialMedia, useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
@@ -30,6 +31,7 @@ export default function SocialMediaScreen() {
   const { colors, shadows } = useTheme();
   const { merchant, isLoading } = useMerchant();
   const router = useRouter();
+  const { from } = useLocalSearchParams<{ from?: string }>();
   const queryClient = useQueryClient();
   const screenOptions = {
     title: 'Social Media',
@@ -113,6 +115,10 @@ export default function SocialMediaScreen() {
         );
       }
       await Promise.allSettled(invalidations);
+      if (isStoreReadinessSetupOrigin(from)) {
+        router.back();
+        return;
+      }
       Alert.alert('Success', 'Social media links updated', [
         { text: 'OK', onPress: () => router.back() },
       ]);

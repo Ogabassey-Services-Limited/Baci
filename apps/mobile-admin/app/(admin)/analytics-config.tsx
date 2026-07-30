@@ -2,7 +2,7 @@ import Ionicons, {
   type IoniconsIconName,
 } from '@react-native-vector-icons/ionicons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import type React from 'react';
 import { useRef, useState } from 'react';
 import {
@@ -20,6 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AnalyticsNoticeScreen } from '@/components/analytics/AnalyticsNoticeScreen';
 import { FeatureGateScreen } from '@/components/billing/FeatureGateScreen';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
+import { isStoreReadinessSetupOrigin } from '@/constants/store-readiness-routes';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useMerchant } from '@/hooks/useMerchant';
@@ -205,6 +206,7 @@ export default function AnalyticsConfigScreen() {
   const { merchant: merchantContext } = useMerchant();
   const merchantId = merchantContext?.id;
   const router = useRouter();
+  const { from } = useLocalSearchParams<{ from?: string }>();
   const queryClient = useQueryClient();
   const hasGrowthIntegrations = baciFeatureGates.hasFeature(
     merchantContext,
@@ -312,6 +314,10 @@ export default function AnalyticsConfigScreen() {
         isOwner: true,
       });
       await invalidateAnalyticsSaveReadiness(queryClient, readinessMerchantId);
+      if (isStoreReadinessSetupOrigin(from)) {
+        router.back();
+        return;
+      }
       Alert.alert('Success', 'Analytics settings saved!', [
         { text: 'OK', onPress: () => router.back() },
       ]);

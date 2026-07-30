@@ -1,6 +1,6 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useQuery } from '@tanstack/react-query';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppKeyboardContainer } from '@/components/ui/AppKeyboardContainer';
 import { getVirtualizedListProps } from '@/components/ui/virtualized-list-props';
+import { isStoreReadinessSetupOrigin } from '@/constants/store-readiness-routes';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { usePayoutAccountVerification } from '@/hooks/usePayoutAccountVerification';
@@ -37,6 +38,7 @@ export default function PayoutSettingsScreen() {
   const { user, session } = useAuth();
   const { savePayoutSettings } = usePayouts();
   const router = useRouter();
+  const { from } = useLocalSearchParams<{ from?: string }>();
 
   const [accountnumber, setAccountNumber] = useState('');
   const [selectedBank, setSelectedBank] = useState<PaystackBank | null>(null);
@@ -132,6 +134,10 @@ export default function PayoutSettingsScreen() {
       },
       {
         onSuccess: () => {
+          if (isStoreReadinessSetupOrigin(from)) {
+            router.back();
+            return;
+          }
           Alert.alert('Success', 'Payout settings saved successfully', [
             { text: 'OK', onPress: () => router.back() },
           ]);

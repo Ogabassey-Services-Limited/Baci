@@ -24,6 +24,10 @@ const accessMocks = vi.hoisted(() => ({
   useMerchant: vi.fn(),
   useRevenueCat: vi.fn(),
 }));
+const routeMocks = vi.hoisted(() => ({
+  back: vi.fn(),
+  params: {} as { from?: string },
+}));
 
 // Captures the Supabase `.update()` payload so tests can assert exactly which
 // analytics fields were written (drift vector V3: a save must not rewrite
@@ -175,7 +179,8 @@ vi.mock('@react-native-vector-icons/ionicons', async () => {
 
 vi.mock('expo-router', () => ({
   Stack: { Screen: () => null },
-  useRouter: () => ({ back: vi.fn(), push: vi.fn() }),
+  useLocalSearchParams: () => routeMocks.params,
+  useRouter: () => ({ back: routeMocks.back, push: vi.fn() }),
 }));
 
 vi.mock('@/hooks/useTheme', () => ({
@@ -257,6 +262,8 @@ describe('AnalyticsConfigScreen — theme token regression (#1636)', () => {
       error: null,
     }));
     mutationMocks.state.options = null;
+    routeMocks.back.mockReset();
+    routeMocks.params = {};
     accessMocks.useMerchant.mockReturnValue({
       isLoading: false,
       merchant: { id: 'merchant-1', plan_tier: 'pro', premium_features: [] },
@@ -748,6 +755,29 @@ describe('AnalyticsConfigScreen — background refetch must not clobber edits (V
     expect(Alert.alert).toHaveBeenCalledWith(
       'Success',
       'Analytics settings saved!',
+      expect.any(Array)
+    );
+  });
+
+  it('returns to the checklist without a success alert after a checklist analytics save', async () => {
+    routeMocks.params = { from: 'setup' };
+    queryMocks.useQuery.mockReturnValue({
+      data: { analytics: { ...merchantAnalytics }, isOwner: true },
+      isError: false,
+      isLoading: false,
+    });
+    render(<AnalyticsConfigScreen />);
+
+    await act(async () => {
+      await mutationMocks.state.options?.onSuccess?.({
+        ...merchantAnalytics,
+      });
+    });
+
+    expect(routeMocks.back).toHaveBeenCalledTimes(1);
+    expect(Alert.alert).not.toHaveBeenCalledWith(
+      'Success',
+      expect.any(String),
       expect.any(Array)
     );
   });

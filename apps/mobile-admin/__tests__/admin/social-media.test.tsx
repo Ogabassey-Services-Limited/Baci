@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   updateMerchantSettings: vi.fn(),
   useMutation: vi.fn(),
   invalidateQueries: vi.fn(),
+  routeParams: {} as { from?: string },
 }));
 vi.mock('@/lib/invalidate-store-readiness', () => ({
   invalidateStoreReadiness: mocks.invalidateStoreReadiness,
@@ -41,6 +42,7 @@ vi.mock('expo-router', () => ({
   useRouter: () => ({
     back: mocks.back,
   }),
+  useLocalSearchParams: () => mocks.routeParams,
 }));
 vi.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({
@@ -176,6 +178,7 @@ describe('SocialMediaScreen', () => {
     mocks.invalidateQueries.mockReset();
     mocks.invalidateQueries.mockResolvedValue(undefined);
     mocks.updateMerchantSettings.mockReset();
+    mocks.routeParams = {};
     mocks.useMutation.mockReset();
     mocks.useMerchant.mockReset();
     mocks.useMerchant.mockReturnValue({
@@ -303,6 +306,33 @@ describe('SocialMediaScreen', () => {
         expect.any(Array)
       );
     });
+  });
+
+  it('returns to the checklist without a success alert after a checklist save', async () => {
+    mocks.routeParams = { from: 'setup' };
+    mocks.useMerchant.mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        social_media: { instagram: 'old_insta' },
+      },
+      isLoading: false,
+    });
+    mocks.updateMerchantSettings.mockResolvedValueOnce({});
+
+    render(<SocialMediaScreen />);
+    fireEvent.change(screen.getByLabelText('Instagram Handle'), {
+      target: { value: 'new_insta' },
+    });
+    fireEvent.click(screen.getByText('Save'));
+
+    await waitFor(() => {
+      expect(mocks.back).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.alert).not.toHaveBeenCalledWith(
+      'Success',
+      expect.any(String),
+      expect.any(Array)
+    );
   });
 
   it('waits for merchant and readiness invalidation before presenting success', async () => {
