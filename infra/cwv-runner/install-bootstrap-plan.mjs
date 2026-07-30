@@ -59,6 +59,7 @@ const helpers = [
   'install-prepare-synthetic.mjs',
   'install-prepare-runtime-receipt.mjs',
   ...['install-bootstrap-installed.mjs', 'install-account-identity.sh'],
+  'install-bootstrap-rename-exchange.pl',
   'campaign-capture-authority.mjs',
   'measurement-container-projection.mjs',
   'measurement-service-wrapper.sh',

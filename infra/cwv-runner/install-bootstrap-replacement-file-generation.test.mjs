@@ -14,6 +14,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 
 import { replaceBootstrapFile } from './install-bootstrap-replacement-file.mjs';
+import { exchangeTestPaths } from './install-bootstrap-replacement-file.test-helper.mjs';
 
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const metadata = (bytes) => ({
@@ -71,7 +72,7 @@ test('recovers generation C without claiming an interrupted generation B tempora
         readProjection: projection,
         temporaryId: () => 'attempt-b',
         chownFile: async () => undefined,
-        renameFile: () => Promise.reject(interrupted),
+        exchangeFile: () => Promise.reject(interrupted),
         removeFile: async () => undefined,
       }
     ),
@@ -97,6 +98,7 @@ test('recovers generation C without claiming an interrupted generation B tempora
         readState: async () => stateC,
         readIntent: async () => intentFor(stateC),
         readProjection: projection,
+        exchangeFile: exchangeTestPaths,
         temporaryId: () => 'attempt-c',
         chownFile: async () => undefined,
       }

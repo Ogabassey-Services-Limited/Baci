@@ -1,15 +1,9 @@
+import { execFile } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
-import {
-  chmod,
-  chown,
-  link,
-  lstat,
-  open,
-  readdir,
-  rename,
-  rm,
-} from 'node:fs/promises';
+import { chmod, chown, link, open, readdir, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 import { canonicalJson } from './canonical-json.mjs';
 import { readBootstrapState } from './install-bootstrap.mjs';
 import {
@@ -31,18 +25,16 @@ const temporaryPattern =
   /^\.baci-bootstrap-replacement-v2-([0-9a-f]{64})-([0-9a-f]{64})-([a-z0-9-]+)$/;
 const legacyTemporaryPattern = /^\.baci-bootstrap-replacement-[a-z0-9-]+$/;
 const historicalTemporaryPattern = /^\.tmp\.[A-Za-z0-9]{6}$/;
+const executeFile = promisify(execFile);
+const renameExchangeHelper = fileURLToPath(
+  new URL('./install-bootstrap-rename-exchange.pl', import.meta.url)
+);
 
 const destinationIdentity = (destination) => sha256(destination);
 const safeObsoleteTemporary = (actual, expectedSha256) =>
   actual.sha256 === expectedSha256 &&
   actual.mode === '0600' &&
   Object.hasOwn(owners, actual.owner);
-const sameIdentity = (left, right) =>
-  left.absent || right.absent
-    ? left.absent === true && right.absent === true
-    : ['dev', 'ino', 'size', 'mode', 'uid', 'gid', 'mtimeMs', 'ctimeMs'].every(
-        (key) => left[key] === right[key]
-      );
 const temporaryProjections = (expected) => [
   expected,
   { ...expected, mode: '0600', owner: expected.owner },
@@ -64,20 +56,23 @@ async function syncPath(path) {
   }
 }
 
-async function readIdentity(path, dependencies) {
-  try {
-    return await dependencies.lstatFile(path);
-  } catch (error) {
-    if (error.code !== 'ENOENT') throw error;
-    return { absent: true };
-  }
+async function exchangePaths(left, right, descriptor) {
+  const platform = descriptor.exchangePlatform ?? process.platform;
+  const architecture = descriptor.exchangeArchitecture ?? process.arch;
+  if (platform !== 'linux' || architecture !== 'x64')
+    throw new TypeError('atomic replacement primitive unavailable');
+  const execute = descriptor.executeExchange ?? executeFile;
+  await execute('/usr/bin/perl', [renameExchangeHelper, left, right], {
+    env: {},
+    timeout: 5000,
+  });
 }
 
 async function atomicReplace(
   destination,
   bytes,
   expected,
-  priorIdentity,
+  prior,
   dependencies
 ) {
   const directory = dirname(destination);
@@ -102,21 +97,33 @@ async function atomicReplace(
     await dependencies.chownFile(temporary, uid, gid);
     await chmod(temporary, Number.parseInt(expected.mode, 8));
     await dependencies.syncMetadata(temporary);
-    if (
-      !sameIdentity(
-        priorIdentity,
-        await readIdentity(destination, dependencies)
-      )
-    )
-      throw new TypeError('installed bootstrap replacement drift');
-    if (priorIdentity.absent) {
+    if (prior.absent) {
       await dependencies.linkFile(temporary, destination);
       await dependencies.syncDirectory(directory);
       await dependencies.removeFile(temporary);
       created = false;
       await dependencies.syncDirectory(directory);
     } else {
-      await dependencies.renameFile(temporary, destination);
+      await dependencies.exchangeFile(temporary, destination);
+      created = false;
+      const published = await dependencies.readProjection({
+        [temporary]: prior,
+        [destination]: expected,
+      });
+      if (
+        !same(published[temporary], prior) ||
+        !same(published[destination], expected)
+      ) {
+        try {
+          await dependencies.exchangeFile(temporary, destination);
+          await dependencies.syncDirectory(directory);
+        } catch {
+          throw new TypeError('bootstrap replacement rollback failed');
+        }
+        throw new TypeError('installed bootstrap replacement drift');
+      }
+      await dependencies.syncDirectory(directory);
+      await dependencies.removeFile(temporary);
       await dependencies.syncDirectory(directory);
     }
   } catch (error) {
@@ -184,7 +191,9 @@ async function reconcileTemporaries(
       await dependencies.syncDirectory(directory);
       continue;
     }
-    const permitted = temporaryProjections(expected);
+    const permitted = [expected, prior]
+      .filter((projection) => !projection.absent)
+      .flatMap(temporaryProjections);
     if (!permitted.some((projection) => same(actual, projection)))
       throw new TypeError('bootstrap replacement temporary drift');
     await dependencies.removeFile(temporary);
@@ -195,14 +204,15 @@ async function reconcileTemporaries(
 export async function replaceBootstrapFile(input, descriptor = {}) {
   const dependencies = {
     chownFile: descriptor.chownFile ?? chown,
+    exchangeFile:
+      descriptor.exchangeFile ??
+      ((left, right) => exchangePaths(left, right, descriptor)),
     openFile: descriptor.openFile ?? open,
     readIntent: descriptor.readIntent ?? readBootstrapReplacementIntent,
     readDirectory: descriptor.readDirectory ?? readdir,
-    lstatFile: descriptor.lstatFile ?? lstat,
     linkFile: descriptor.linkFile ?? link,
     readProjection: descriptor.readProjection ?? readInstalledProjection,
     readState: descriptor.readState ?? readBootstrapState,
-    renameFile: descriptor.renameFile ?? rename,
     removeFile: descriptor.removeFile ?? rm,
     syncDirectory: descriptor.syncDirectory ?? syncPath,
     syncMetadata: descriptor.syncMetadata ?? syncPath,
@@ -233,15 +243,11 @@ export async function replaceBootstrapFile(input, descriptor = {}) {
     expected,
     dependencies
   );
-  const identityBefore = await readIdentity(destination, dependencies);
   const actual = (
     await dependencies.readProjection({
       [destination]: expected,
     })
   )[destination];
-  const priorIdentity = await readIdentity(destination, dependencies);
-  if (!sameIdentity(identityBefore, priorIdentity))
-    throw new TypeError('installed bootstrap replacement drift');
   if (same(actual, expected)) return 'current';
   if (!same(actual, state.prior[destination]))
     throw new TypeError('installed bootstrap replacement drift');
@@ -249,7 +255,7 @@ export async function replaceBootstrapFile(input, descriptor = {}) {
     destination,
     bytes,
     expected,
-    priorIdentity,
+    state.prior[destination],
     dependencies
   );
   const replaced = (

@@ -13,6 +13,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 
 import { replaceBootstrapFile } from './install-bootstrap-replacement-file.mjs';
+import { exchangeTestPaths } from './install-bootstrap-replacement-file.test-helper.mjs';
 
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 
@@ -107,15 +108,21 @@ test('cleans a partial temporary without masking initial write failures', async 
         {
           readState: async () => state,
           readIntent: async () => intent,
-          readProjection: async () => {
-            const bytes = await readFile(destination);
-            return {
-              [destination]:
-                sha256(bytes) === sha256(newBytes)
-                  ? state.files[destination]
-                  : state.prior[destination],
-            };
-          },
+          readProjection: async (files) =>
+            Object.fromEntries(
+              await Promise.all(
+                Object.keys(files).map(async (path) => {
+                  const bytes = await readFile(path);
+                  return [
+                    path,
+                    sha256(bytes) === sha256(newBytes)
+                      ? state.files[destination]
+                      : state.prior[destination],
+                  ];
+                })
+              )
+            ),
+          exchangeFile: exchangeTestPaths,
           temporaryId: () => `${failurePoint}-retry`,
           chownFile: async () => undefined,
         }

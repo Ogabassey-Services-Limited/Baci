@@ -15,6 +15,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 
 import { replaceBootstrapFile } from './install-bootstrap-replacement-file.mjs';
+import { exchangeTestPaths } from './install-bootstrap-replacement-file.test-helper.mjs';
 
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const oldSource = 'a'.repeat(40);
@@ -67,22 +68,23 @@ async function fixture(context) {
 test('atomically replaces only a receipt-bound prior bootstrap file', async (context) => {
   const value = await fixture(context);
   const publication = [];
-  const projection = async () => ({
-    [value.destination]: {
-      sha256: sha256(await readFile(value.destination)),
-      mode: (await stat(value.destination)).mode
-        .toString(8)
-        .slice(-3)
-        .padStart(4, '0'),
-      owner: 'root:root',
-    },
-  });
+  const projection = async (files) => {
+    const result = {};
+    for (const path of Object.keys(files))
+      result[path] = {
+        sha256: sha256(await readFile(path)),
+        mode: (await stat(path)).mode.toString(8).slice(-3).padStart(4, '0'),
+        owner: 'root:root',
+      };
+    return result;
+  };
 
   assert.equal(
     await replaceBootstrapFile(value.input, {
       readState: async () => value.state,
       readIntent: async () => value.intent,
       readProjection: projection,
+      exchangeFile: exchangeTestPaths,
       chownFile: async () => publication.push('chown'),
       syncMetadata: async (path) => {
         assert.equal((await stat(path)).mode.toString(8).slice(-3), '600');
@@ -200,6 +202,7 @@ test('reconciles exact temporaries left before or after metadata sync', async (c
     readState: async () => value.state,
     readIntent: async () => value.intent,
     readProjection: projection,
+    exchangeFile: exchangeTestPaths,
     temporaryId: () => 'retry',
     chownFile: async () => undefined,
   };

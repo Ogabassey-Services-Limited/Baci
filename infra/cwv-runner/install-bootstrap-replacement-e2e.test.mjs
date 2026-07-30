@@ -17,6 +17,7 @@ import {
   completeBootstrapReplacement,
 } from './install-bootstrap-replacement-controller.mjs';
 import { replaceBootstrapFile } from './install-bootstrap-replacement-file.mjs';
+import { exchangeTestPaths } from './install-bootstrap-replacement-file.test-helper.mjs';
 
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const policy = '9'.repeat(64);
@@ -124,6 +125,7 @@ test('repairs the exact interrupted multi-generation bootstrap sequence and resu
     );
   const currentDirectory = join(stateRoot, current.transactionId);
   const dependencies = {
+    exchangeFile: exchangeTestPaths,
     listDirectories: async () => [...states.keys()],
     readProjection,
     readState: async (directory) => states.get(directory.split('/').at(-1)),

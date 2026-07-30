@@ -36,7 +36,6 @@ test('routes a changed watchdog render through receipt-bound replacement', async
     mkdir(units, { recursive: true }),
     mkdir(bootstrap, { recursive: true }),
   ]);
-  await writeFile(join(bootstrap, 'replacement-intent.json'), '{}');
   const template = await readFile(
     new URL('./baci-cwv-campaign-watchdog@.service', import.meta.url),
     'utf8'
@@ -47,6 +46,10 @@ test('routes a changed watchdog render through receipt-bound replacement', async
       template
     );
   const target = join(units, 'baci-cwv-campaign-watchdog@.service');
+  await writeFile(
+    join(bootstrap, 'replacement-intent.json'),
+    JSON.stringify({ transitionPaths: [target] })
+  );
   const expectedPrior = join(root, 'expected-prior.service');
   const initialPrior = template.replace('@BACI_CWV_SOURCE_SHA@', oldSha);
   await writeFile(target, initialPrior, {
@@ -151,8 +154,15 @@ test('routes receipt-bound absent file and line installs through the helper', ()
   ]) {
     const body = functionSource(name, next);
     assert.ok(
-      body.indexOf('install-bootstrap-replacement-file.mjs') <
-        body.indexOf('if [ -e "$destination" ]')
+      body.indexOf('transitionPaths') <
+        body.indexOf('install-bootstrap-replacement-file.mjs') &&
+        body.indexOf('install-bootstrap-replacement-file.mjs') <
+          body.indexOf('if [ -e "$destination" ]')
     );
   }
+  const watchdog = functionSource('render_watchdog', 'install_units');
+  assert.ok(
+    watchdog.indexOf('install-bootstrap-replacement-file.mjs') <
+      watchdog.indexOf('/usr/bin/cmp -s')
+  );
 });
