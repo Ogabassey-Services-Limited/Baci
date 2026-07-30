@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { StatusBar, View } from 'react-native';
 import { StoreLogoSection } from '@/components/store-settings/StoreLogoSection';
 import { StoreSettingsBackButton } from '@/components/store-settings/StoreSettingsBackButton';
@@ -56,7 +56,7 @@ export default function StoreSettingsScreen() {
   const [currency, setCurrency] = useState(COUNTRIES[0].currency);
   const [slug, setSlug] = useState('');
   const [isSlugEdited, setIsSlugEdited] = useState(false);
-  const { isFormDirty, markFormDirty, resetFormDirty } =
+  const { getFormRevision, isFormDirty, markFormDirty, resetFormDirty } =
     useStoreSettingsFormDirty();
   const [syncedMerchant, setSyncedMerchant] = useState<typeof merchant | null>(
     null
@@ -67,8 +67,17 @@ export default function StoreSettingsScreen() {
   const { handleManageSubscription } = useSubscriptionManagement({
     setStatusModal,
   });
+  const merchantIdRef = useRef<string | null>(merchant?.id ?? null);
+  merchantIdRef.current = merchant?.id ?? null;
 
-  if (merchant && merchant !== syncedMerchant && !isFormDirty) {
+  const hasMerchantChanged = merchant?.id !== syncedMerchant?.id;
+
+  if (
+    merchant &&
+    merchant !== syncedMerchant &&
+    (!isFormDirty || hasMerchantChanged)
+  ) {
+    if (hasMerchantChanged) resetFormDirty();
     setSyncedMerchant(merchant);
     const initialForm = buildInitialFormValues(merchant);
     setBusinessName(initialForm.businessName);
@@ -129,6 +138,11 @@ export default function StoreSettingsScreen() {
     mutationFn: async () => {
       if (!merchant?.id || !baseline) throw new Error('No merchant found');
 
+      const saveToken = {
+        merchantId: merchant.id,
+        revision: getFormRevision(),
+      };
+
       const payload = buildMerchantUpdatePayload(baseline, {
         business_name: businessName,
         phone,
@@ -141,7 +155,7 @@ export default function StoreSettingsScreen() {
       });
 
       if (Object.keys(payload).length === 0) {
-        return;
+        return saveToken;
       }
 
       const loadedUpdatedAt = syncedMerchant?.updated_at;
@@ -155,10 +169,17 @@ export default function StoreSettingsScreen() {
         merchantId: merchant.id,
         settings: payload,
       });
+      return saveToken;
     },
-    onSuccess: async () => {
+    onSuccess: async (saveToken) => {
       await invalidateStoreSettingsAfterSave(queryClient, merchant?.id);
-      resetFormDirty();
+      if (
+        saveToken &&
+        merchantIdRef.current === saveToken.merchantId &&
+        getFormRevision() === saveToken.revision
+      ) {
+        resetFormDirty();
+      }
       if (from === 'setup') {
         router.back();
         return;

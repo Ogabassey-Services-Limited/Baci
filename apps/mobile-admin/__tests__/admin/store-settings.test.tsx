@@ -9,30 +9,26 @@ const mocks = vi.hoisted(() => {
     routeParams: {} as { from?: string },
     invalidateStoreReadiness: vi.fn().mockResolvedValue(undefined),
     invalidateQueries: vi.fn(),
-    mutationOptions: null as {
-      onError?: (error: Error) => void;
-      onSuccess?: () => Promise<void> | void;
-    } | null,
     updateMerchantIdentitySettings: vi.fn().mockResolvedValue(undefined),
     useMerchant: vi.fn(),
   };
 });
 
-function createMutationMock() {
+function createMutationMock<TData>() {
   return ({
     mutationFn,
     onError,
     onSuccess,
   }: {
-    mutationFn: () => Promise<void>;
+    mutationFn: () => Promise<TData>;
     onError?: (error: Error) => void;
-    onSuccess?: () => Promise<void> | void;
+    onSuccess?: (data: TData) => Promise<void> | void;
   }) => ({
     isPending: false,
     mutate: async () => {
       try {
-        await mutationFn();
-        await onSuccess?.();
+        const data = await mutationFn();
+        await onSuccess?.(data);
       } catch (error) {
         onError?.(error as Error);
       }
@@ -45,13 +41,12 @@ function Text({ children }: { children?: React.ReactNode }) {
 }
 
 vi.mock('@tanstack/react-query', () => ({
-  useMutation: (options: {
-    mutationFn: () => Promise<void>;
+  useMutation: <TData,>(options: {
+    mutationFn: () => Promise<TData>;
     onError?: (error: Error) => void;
-    onSuccess?: () => Promise<void> | void;
+    onSuccess?: (data: TData) => Promise<void> | void;
   }) => {
-    mocks.mutationOptions = options;
-    return createMutationMock()(options);
+    return createMutationMock<TData>()(options);
   },
   useQueryClient: () => ({
     invalidateQueries: mocks.invalidateQueries,
@@ -429,6 +424,84 @@ describe('StoreSettingsScreen', () => {
 
     expect(screen.getByLabelText('Business Name')).toHaveValue(
       'Unsaved local name'
+    );
+  });
+
+  it('reseeds the form when merchant identity changes despite prior dirty edits', async () => {
+    const rendered = render(<StoreSettingsScreen />);
+    const firstMerchant = mocks.useMerchant.mock.results.at(-1)?.value.merchant;
+
+    fireEvent.change(screen.getByLabelText('Business Name'), {
+      target: { value: 'Unsaved first merchant name' },
+    });
+    mocks.useMerchant.mockReturnValue({
+      merchant: {
+        ...firstMerchant,
+        business_name: 'Second Merchant Store',
+        id: 'merchant-2',
+        updated_at: '2026-06-17T08:01:00.000Z',
+      },
+      isLoading: false,
+    });
+    rendered.rerender(<StoreSettingsScreen />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Business Name')).toHaveValue(
+        'Second Merchant Store'
+      );
+    });
+
+    fireEvent.change(screen.getByLabelText('Business Name'), {
+      target: { value: 'Second Merchant Store Ltd' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save store settings' })
+    );
+
+    await waitFor(() => {
+      expect(mocks.updateMerchantIdentitySettings).toHaveBeenCalledWith({
+        expectedUpdatedAt: '2026-06-17T08:01:00.000Z',
+        merchantId: 'merchant-2',
+        settings: { business_name: 'Second Merchant Store Ltd' },
+      });
+    });
+  });
+
+  it('keeps an edit made while a settings save is in flight dirty after it succeeds', async () => {
+    let completeSave!: () => void;
+    mocks.updateMerchantIdentitySettings.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          completeSave = resolve;
+        })
+    );
+    const rendered = render(<StoreSettingsScreen />);
+    const merchant = mocks.useMerchant.mock.results.at(-1)?.value.merchant;
+
+    fireEvent.change(screen.getByLabelText('Business Name'), {
+      target: { value: 'Saved server name' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save store settings' })
+    );
+    await waitFor(() => {
+      expect(mocks.updateMerchantIdentitySettings).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.change(screen.getByLabelText('Business Name'), {
+      target: { value: 'Typed while saving' },
+    });
+    completeSave();
+    await screen.findByText('Success!');
+
+    mocks.useMerchant.mockReturnValue({
+      merchant: { ...merchant, business_name: 'Saved server name' },
+      isLoading: false,
+    });
+    rendered.rerender(<StoreSettingsScreen />);
+
+    expect(screen.getByLabelText('Business Name')).toHaveValue(
+      'Typed while saving'
     );
   });
 

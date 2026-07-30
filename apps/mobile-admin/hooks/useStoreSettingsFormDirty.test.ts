@@ -8,8 +8,10 @@ describe('useStoreSettingsFormDirty', () => {
 
     act(() => result.current.markFormDirty());
     expect(result.current.isFormDirty).toBe(true);
+    expect(result.current.getFormRevision()).toBe(1);
 
     act(() => result.current.resetFormDirty());
     expect(result.current.isFormDirty).toBe(false);
+    expect(result.current.getFormRevision()).toBe(1);
   });
 });
