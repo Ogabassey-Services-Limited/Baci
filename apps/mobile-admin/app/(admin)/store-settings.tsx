@@ -33,6 +33,11 @@ import { updateMerchantIdentitySettings } from '@/lib/merchant-settings';
 import { invalidateStoreSettingsAfterSave } from '@/lib/store-settings-save-readiness';
 import { SubscriptionManagement } from '@/utils/SubscriptionManagement';
 
+type StoreSettingsSaveToken = {
+  merchantId: string;
+  revision: number;
+};
+
 export default function StoreSettingsScreen() {
   const { colors, shadows, isDark } = useTheme();
   const router = useRouter();
@@ -68,7 +73,17 @@ export default function StoreSettingsScreen() {
     setStatusModal,
   });
   const merchantIdRef = useRef<string | null>(merchant?.id ?? null);
+  const activeSaveTokenRef = useRef<StoreSettingsSaveToken | null>(null);
   merchantIdRef.current = merchant?.id ?? null;
+
+  const isCurrentSaveToken = (
+    saveToken: StoreSettingsSaveToken | null | undefined
+  ) =>
+    Boolean(
+      saveToken &&
+        merchantIdRef.current === saveToken.merchantId &&
+        getFormRevision() === saveToken.revision
+    );
 
   const hasMerchantChanged = merchant?.id !== syncedMerchant?.id;
 
@@ -142,6 +157,7 @@ export default function StoreSettingsScreen() {
         merchantId: merchant.id,
         revision: getFormRevision(),
       };
+      activeSaveTokenRef.current = saveToken;
 
       const payload = buildMerchantUpdatePayload(baseline, {
         business_name: businessName,
@@ -176,16 +192,14 @@ export default function StoreSettingsScreen() {
         queryClient,
         saveToken?.merchantId
       );
-      const isCurrentSave = Boolean(
-        saveToken &&
-          merchantIdRef.current === saveToken.merchantId &&
-          getFormRevision() === saveToken.revision
-      );
-      if (isCurrentSave) {
-        resetFormDirty();
+      const isCurrentSave = isCurrentSaveToken(saveToken);
+      if (!isCurrentSave) {
+        activeSaveTokenRef.current = null;
+        return;
       }
+      resetFormDirty();
       if (from === 'setup') {
-        if (isCurrentSave) router.back();
+        router.back();
         return;
       }
       setStatusModal({
@@ -196,6 +210,9 @@ export default function StoreSettingsScreen() {
       });
     },
     onError: (error: unknown) => {
+      const isCurrentSave = isCurrentSaveToken(activeSaveTokenRef.current);
+      activeSaveTokenRef.current = null;
+      if (!isCurrentSave) return;
       console.error('Update error:', error);
       setStatusModal({
         visible: true,
@@ -209,7 +226,8 @@ export default function StoreSettingsScreen() {
   const handleCloseStatusModal = () => {
     if (statusModal.type === 'success' && statusModal.title === 'Success!') {
       setStatusModal((prev) => ({ ...prev, visible: false }));
-      router.back();
+      if (isCurrentSaveToken(activeSaveTokenRef.current)) router.back();
+      activeSaveTokenRef.current = null;
     } else {
       setStatusModal((prev) => ({ ...prev, visible: false }));
     }

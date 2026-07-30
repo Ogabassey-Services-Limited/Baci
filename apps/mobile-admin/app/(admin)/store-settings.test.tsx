@@ -447,7 +447,9 @@ describe('StoreSettingsScreen', () => {
       | undefined;
 
     await act(async () => {
-      await expect(mutationOptions?.onSuccess?.()).resolves.toBeUndefined();
+      await expect(
+        mutationOptions?.onSuccess?.({ merchantId: 'merchant-1', revision: 0 })
+      ).resolves.toBeUndefined();
     });
 
     expect(

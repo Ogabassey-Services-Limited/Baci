@@ -502,7 +502,10 @@ describe('StoreSettingsScreen', () => {
       target: { value: 'Typed while saving' },
     });
     completeSave();
-    await screen.findByText('Success!');
+    await waitFor(() => {
+      expect(mocks.invalidateStoreReadiness).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.queryByText('Success!')).toBeNull();
 
     mocks.useMerchant.mockReturnValue({
       merchant: { ...merchant, business_name: 'Saved server name' },
