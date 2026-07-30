@@ -194,3 +194,72 @@ test('uses predecessor authority to retire an executable post-exchange temporary
   );
   assert.deepEqual(await readdir(root), []);
 });
+
+test('authenticates and retires a partial first-install ensure-file temporary', async (context) => {
+  const root = await mkdtemp(join(tmpdir(), 'baci-first-partial-residue-'));
+  context.after(() => rm(root, { recursive: true, force: true }));
+  const destination = join(root, 'bootstrap-helper');
+  const expected = Buffer.from('authenticated sealed helper bytes\n');
+  const partial = expected.subarray(0, 13);
+  const temporary = join(root, '.tmp.A1b2C3');
+  const digest = (value) => createHash('sha256').update(value).digest('hex');
+  const state = {
+    phase: 'captured',
+    sourceSha: 'd'.repeat(40),
+    captureSha256: '4'.repeat(64),
+    sourceManifestSha256: '5'.repeat(64),
+    policyFileSha256: '6'.repeat(64),
+    prior: { [destination]: { absent: true } },
+    files: {
+      [destination]: {
+        sha256: digest(expected),
+        mode: '0500',
+        owner: 'root:root',
+      },
+    },
+  };
+  let validated = false;
+  await writeFile(temporary, partial, { mode: 0o600 });
+
+  assert.equal(
+    await authorizeBootstrapReplacementIfNeeded(
+      {
+        stateRoot: '/state',
+        currentDirectory: '/state/bootstrap-dddddddddddd',
+        root,
+        prepareRoot: '/prepare',
+      },
+      {
+        listDirectories: async () => ['bootstrap-dddddddddddd'],
+        readState: async () => state,
+        validateSourceState: ({ state: candidate, sourceRoot }) => {
+          assert.equal(candidate, state);
+          assert.equal(sourceRoot, join(root, 'source'));
+          validated = true;
+        },
+        readPinned: (source) => {
+          assert.equal(validated, true);
+          assert.equal(
+            source,
+            join(root, 'source', state.sourceSha, 'bootstrap-helper')
+          );
+          return { bytes: expected, details: {} };
+        },
+        readProjection: (files) => {
+          const [candidate] = Object.keys(files);
+          assert.equal(candidate, temporary);
+          return {
+            [candidate]: {
+              sha256: digest(partial),
+              mode: '0600',
+              owner: 'root:root',
+            },
+          };
+        },
+      }
+    ),
+    null
+  );
+  assert.equal(validated, true);
+  assert.deepEqual(await readdir(root), []);
+});

@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
   chmod,
+  link,
   lstat,
   mkdir,
   mkdtemp,
@@ -23,6 +24,10 @@ const functionSource = (name, next) => {
   assert.ok(start >= 0 && end > start, `${name} source`);
   return source.slice(start, end);
 };
+const watchdogResidues = async (units) =>
+  (await readdir(units)).filter((name) =>
+    name.startsWith('.baci-cwv-watchdog')
+  );
 
 test('routes a changed watchdog render through receipt-bound replacement', async (context) => {
   const root = await mkdtemp(join(tmpdir(), 'baci-watchdog-recovery-'));
@@ -129,6 +134,12 @@ ${render}
 render_watchdog ${nextSha}`;
   const runRender = () =>
     spawnSync('/bin/sh', ['-c', command], { encoding: 'utf8' });
+  const firstInstallCommand = command.replace(
+    'BACI_CWV_BOOTSTRAP_REPLACEMENT=1',
+    'unset BACI_CWV_BOOTSTRAP_REPLACEMENT'
+  );
+  const runFirstInstall = () =>
+    spawnSync('/bin/sh', ['-c', firstInstallCommand], { encoding: 'utf8' });
   const expectedNext = template.replace('@BACI_CWV_SOURCE_SHA@', nextSha);
   const digest = (value) => createHash('sha256').update(value).digest('hex');
   const boundName = (attempt, bytes = expectedNext) =>
@@ -139,12 +150,7 @@ render_watchdog ${nextSha}`;
 
   assert.equal(result.status, 0, result.stderr);
   assert.equal(await readFile(target, 'utf8'), expectedNext);
-  assert.deepEqual(
-    (await readdir(units)).filter((name) =>
-      name.startsWith('.baci-cwv-watchdog.')
-    ),
-    []
-  );
+  assert.deepEqual(await watchdogResidues(units), []);
 
   await writeFile(target, initialPrior, { mode: 0o644 });
   const beforeMetadata = join(units, '.baci-cwv-watchdog.R3t4Y5');
@@ -156,12 +162,7 @@ render_watchdog ${nextSha}`;
     0,
     retryAfterMetadataCrash.stderr
   );
-  assert.deepEqual(
-    (await readdir(units)).filter((name) =>
-      name.startsWith('.baci-cwv-watchdog.')
-    ),
-    []
-  );
+  assert.deepEqual(await watchdogResidues(units), []);
 
   const retryFromPreMetadataResidue = async (name, bytes) => {
     await writeFile(target, initialPrior, { mode: 0o644 });
@@ -170,12 +171,7 @@ render_watchdog ${nextSha}`;
     await chmod(residue, 0o600);
     const retry = runRender();
     assert.equal(retry.status, 0, retry.stderr);
-    assert.deepEqual(
-      (await readdir(units)).filter((entry) =>
-        entry.startsWith('.baci-cwv-watchdog.')
-      ),
-      []
-    );
+    assert.deepEqual(await watchdogResidues(units), []);
   };
 
   await retryFromPreMetadataResidue('E6m7P8', '');
@@ -194,12 +190,7 @@ render_watchdog ${nextSha}`;
     const retry = runRender();
     assert.equal(retry.status, 0, retry.stderr);
     assert.equal(await readFile(target, 'utf8'), expectedNext);
-    assert.deepEqual(
-      (await readdir(units)).filter((entry) =>
-        entry.startsWith('.baci-cwv-watchdog')
-      ),
-      []
-    );
+    assert.deepEqual(await watchdogResidues(units), []);
   }
 
   await rm(target);
@@ -209,6 +200,24 @@ render_watchdog ${nextSha}`;
     await readFile(target, 'utf8'),
     template.replace('@BACI_CWV_SOURCE_SHA@', nextSha)
   );
+  await rm(target);
+  const linkedResidue = join(units, '.baci-cwv-watchdog.L1m2N3');
+  await writeFile(linkedResidue, expectedNext, { mode: 0o644 });
+  await link(linkedResidue, target);
+  const linkedRetry = runFirstInstall();
+  assert.equal(linkedRetry.status, 0, linkedRetry.stderr);
+  assert.equal((await lstat(target)).nlink, 1);
+  assert.equal(await readFile(target, 'utf8'), expectedNext);
+
+  const unboundResidue = join(units, '.baci-cwv-watchdog.M2n3O4');
+  const unboundLink = join(units, 'unbound-watchdog-link');
+  await writeFile(unboundResidue, expectedNext, { mode: 0o644 });
+  await link(unboundResidue, unboundLink);
+  const unboundRetry = runFirstInstall();
+  assert.equal(unboundRetry.status, 65);
+  assert.match(unboundRetry.stderr, /watchdog render temporary drift/);
+  await rm(unboundResidue);
+  await rm(unboundLink);
 
   const differentPrior = template.replace(
     'Description=Baci CWV campaign watchdog %i',

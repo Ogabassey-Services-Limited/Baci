@@ -135,6 +135,25 @@ test('removes historical residue authorized by a same-directory state row', asyn
   assert.deepEqual(value.synced, [directory]);
 });
 
+test('recovers an initial-install historical partial expected write', async () => {
+  const name = '.tmp.A1b2C3';
+  const path = join(directory, name);
+  const partial = expectedBytes.subarray(0, 9);
+  const value = fixture({
+    entries: [name],
+    projections: {
+      [path]: { sha256: sha256(partial), mode: '0600', owner: 'root:root' },
+    },
+    temporaryFiles: { [path]: { bytes: partial, details: { nlink: 1 } } },
+  });
+  value.authorizedState.prior[destination] = { absent: true };
+
+  await reconcile(value);
+
+  assert.deepEqual(value.removed, [path]);
+  assert.deepEqual(value.synced, [directory]);
+});
+
 test('recovers an exact partial expected write only when pinned and singly linked', async () => {
   const name = boundName();
   const path = join(directory, name);
@@ -164,6 +183,10 @@ test('rejects malformed namespaces and drift without removing residue', async ()
       name: '.tmp.A1b2C3',
       error: /bootstrap replacement temporary drift/,
       projection: { sha256: 'f'.repeat(64), mode: '0600', owner: 'root:root' },
+      temporary: {
+        bytes: Buffer.from('foreign'),
+        details: { nlink: 1 },
+      },
     },
   ];
   for (const current of cases) {
@@ -171,6 +194,7 @@ test('rejects malformed namespaces and drift without removing residue', async ()
     const value = fixture({
       entries: [current.name],
       projections: current.projection ? { [path]: current.projection } : {},
+      temporaryFiles: current.temporary ? { [path]: current.temporary } : {},
     });
     await assert.rejects(reconcile(value), current.error);
     assert.deepEqual(value.removed, []);
@@ -208,6 +232,37 @@ test('rejects partial bytes, extra links, and non-root metadata', async () => {
         [path]: {
           sha256: sha256(current.bytes),
           mode: current.mode,
+          owner: current.owner,
+        },
+      },
+      temporaryFiles: {
+        [path]: { bytes: current.bytes, details: { nlink: current.nlink } },
+      },
+    });
+    await assert.rejects(
+      reconcile(value),
+      /bootstrap replacement temporary drift/
+    );
+    assert.deepEqual(value.removed, []);
+    assert.deepEqual(value.synced, []);
+  }
+});
+
+test('rejects unsafe or foreign historical partial writes', async () => {
+  const cases = [
+    { bytes: Buffer.from('foreign'), nlink: 1, owner: 'root:root' },
+    { bytes: expectedBytes.subarray(0, 8), nlink: 2, owner: 'root:root' },
+    { bytes: expectedBytes.subarray(0, 8), nlink: 1, owner: '1000:1000' },
+  ];
+  for (const [index, current] of cases.entries()) {
+    const name = `.tmp.A1b2C${index}`;
+    const path = join(directory, name);
+    const value = fixture({
+      entries: [name],
+      projections: {
+        [path]: {
+          sha256: sha256(current.bytes),
+          mode: '0600',
           owner: current.owner,
         },
       },

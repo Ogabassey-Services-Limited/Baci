@@ -22,6 +22,8 @@ const projections = (expected) => [
   { ...expected, mode: '0600', owner: expected.owner },
   { ...expected, mode: '0600', owner: 'root:root' },
 ];
+const resolveExpectedBytes = async (value) =>
+  typeof value === 'function' ? await value() : value;
 
 async function syncDirectory(path) {
   const handle = await open(path, 'r');
@@ -58,7 +60,7 @@ export async function reconcileBootstrapReplacementResidue(
       await dependencies.readProjection({ [temporary]: expected })
     )[temporary];
     if (historical) {
-      const permitted = Object.keys(authorizedState.files)
+      let permitted = Object.keys(authorizedState.files)
         .filter((path) => dirname(path) === directory)
         .flatMap((path) => [
           authorizedState.prior[path],
@@ -67,6 +69,28 @@ export async function reconcileBootstrapReplacementResidue(
         .filter((projection) => !projection.absent)
         .flatMap(projections)
         .some((projection) => same(actual, projection));
+      if (!permitted && expectedBytes !== undefined) {
+        const authenticatedBytes = await resolveExpectedBytes(expectedBytes);
+        const candidates = Buffer.isBuffer(authenticatedBytes)
+          ? [authenticatedBytes]
+          : authenticatedBytes;
+        if (
+          !Array.isArray(candidates) ||
+          candidates.some((bytes) => !Buffer.isBuffer(bytes))
+        )
+          throw new TypeError('invalid bootstrap replacement expected bytes');
+        const temporaryFile = await dependencies.readTemporary(temporary);
+        const temporaryBytes = temporaryFile.bytes;
+        permitted =
+          temporaryFile.details.nlink === 1 &&
+          actual.mode === '0600' &&
+          actual.owner === 'root:root' &&
+          candidates.some(
+            (bytes) =>
+              temporaryBytes.length <= bytes.length &&
+              temporaryBytes.equals(bytes.subarray(0, temporaryBytes.length))
+          );
+      }
       if (!permitted)
         throw new TypeError('bootstrap replacement temporary drift');
       await dependencies.removeFile(temporary);
