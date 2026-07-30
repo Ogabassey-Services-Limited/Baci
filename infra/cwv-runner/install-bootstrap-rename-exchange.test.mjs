@@ -108,7 +108,10 @@ test('propagates a denied renameat2 syscall without mutation', {
     process.getuid?.() === 0,
 }, async (context) => {
   const root = await mkdtemp(join(tmpdir(), 'baci-rename-denied-'));
-  context.after(() => rm(root, { recursive: true, force: true }));
+  context.after(async () => {
+    await chmod(root, 0o700);
+    await rm(root, { recursive: true, force: true });
+  });
   const left = join(
     root,
     `.baci-bootstrap-replacement-v2-${'1'.repeat(64)}-${'2'.repeat(64)}-test`
