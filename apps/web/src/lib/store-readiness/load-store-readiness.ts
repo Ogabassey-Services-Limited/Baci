@@ -20,6 +20,31 @@ export interface LoadStoreReadinessInput {
   surface: StoreReadinessSurface;
 }
 
+const WEB_OPTIONAL_MERCHANT_READINESS_COLUMNS =
+  'is_published, pages, business_address, social_media, google_analytics_id, facebook_pixel_id, tiktok_pixel_id, snapchat_pixel_id, twitter_pixel_id';
+
+const MOBILE_OPTIONAL_MERCHANT_READINESS_COLUMNS =
+  'is_published, business_address, social_media, google_analytics_id, facebook_pixel_id, tiktok_pixel_id, snapchat_pixel_id, twitter_pixel_id';
+
+type ReadinessOptionalMerchant = Pick<
+  Database['public']['Tables']['merchants']['Row'],
+  | 'business_address'
+  | 'facebook_pixel_id'
+  | 'google_analytics_id'
+  | 'is_published'
+  | 'pages'
+  | 'snapchat_pixel_id'
+  | 'social_media'
+  | 'tiktok_pixel_id'
+  | 'twitter_pixel_id'
+>;
+
+function getOptionalMerchantReadinessColumns(surface: StoreReadinessSurface) {
+  return surface === 'web'
+    ? WEB_OPTIONAL_MERCHANT_READINESS_COLUMNS
+    : MOBILE_OPTIONAL_MERCHANT_READINESS_COLUMNS;
+}
+
 function throwQueryError(source: string, error: { message: string }): never {
   throw new Error(`Failed to load ${source}: ${error.message}`);
 }
@@ -46,15 +71,14 @@ function requireAuthorizedMerchantId(
 
 async function loadReadinessOptionalMerchant(
   supabase: SupabaseClient<Database>,
-  merchantId: string
+  merchantId: string,
+  surface: StoreReadinessSurface
 ) {
   const result = await supabase
     .from('merchants')
-    .select(
-      'is_published, pages, business_address, social_media, google_analytics_id, facebook_pixel_id, tiktok_pixel_id, snapchat_pixel_id, twitter_pixel_id'
-    )
+    .select(getOptionalMerchantReadinessColumns(surface))
     .eq('id', merchantId)
-    .maybeSingle();
+    .maybeSingle<ReadinessOptionalMerchant>();
 
   if (result.error) throwQueryError('merchant readiness details', result.error);
   if (!result.data) {
@@ -117,7 +141,7 @@ export async function loadStoreReadiness({
     latestStorefrontJob,
   ] = await Promise.all([
     loadStoreLaunchReadiness({ supabase, merchantId: authorizedMerchantId }),
-    loadReadinessOptionalMerchant(supabase, authorizedMerchantId),
+    loadReadinessOptionalMerchant(supabase, authorizedMerchantId, surface),
     loadHomePageConfig(supabase, authorizedMerchantId),
     loadLatestStorefrontJob(supabase, authorizedMerchantId),
   ]);
@@ -131,9 +155,10 @@ export async function loadStoreReadiness({
       ...launchReadiness.facts,
       isPublished: optionalMerchant.is_published === true,
       businessAddress: optionalMerchant.business_address,
-      pages: unknownValueGuards.isRecord(optionalMerchant.pages)
-        ? optionalMerchant.pages
-        : null,
+      pages:
+        surface === 'web' && unknownValueGuards.isRecord(optionalMerchant.pages)
+          ? optionalMerchant.pages
+          : null,
       socialMedia: unknownValueGuards.isRecord(optionalMerchant.social_media)
         ? optionalMerchant.social_media
         : null,

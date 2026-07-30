@@ -4,20 +4,32 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock child verification forms to keep tests focused on the orchestrator
 vi.mock('./nin-verification', () => ({
-  NinVerification: (props: { verified: boolean }) => (
-    <div data-testid="nin-form" data-verified={String(props.verified)} />
+  NinVerification: (props: { merchantId: string; verified: boolean }) => (
+    <section
+      aria-label="NIN verification form"
+      data-merchant-id={props.merchantId}
+      data-verified={String(props.verified)}
+    />
   ),
 }));
 
 vi.mock('./bvn-verification', () => ({
-  BvnVerification: (props: { verified: boolean }) => (
-    <div data-testid="bvn-form" data-verified={String(props.verified)} />
+  BvnVerification: (props: { merchantId: string; verified: boolean }) => (
+    <section
+      aria-label="BVN verification form"
+      data-merchant-id={props.merchantId}
+      data-verified={String(props.verified)}
+    />
   ),
 }));
 
 vi.mock('./cac-verification', () => ({
-  CacVerification: (props: { verified: boolean }) => (
-    <div data-testid="cac-form" data-verified={String(props.verified)} />
+  CacVerification: (props: { merchantId: string; verified: boolean }) => (
+    <section
+      aria-label="CAC verification form"
+      data-merchant-id={props.merchantId}
+      data-verified={String(props.verified)}
+    />
   ),
 }));
 
@@ -30,6 +42,7 @@ vi.mock('next/navigation', () => ({
 import { KycVerification } from './kyc-verification';
 
 const baseProps = {
+  merchantId: '11111111-1111-4111-8111-111111111111',
   verificationStatus: {
     nin_verified: false,
     bvn_verified: false,
@@ -186,9 +199,15 @@ describe('KycVerification', () => {
     await openAllAccordions();
 
     // Assert
-    expect(screen.getByTestId('nin-form')).toBeInTheDocument();
-    expect(screen.getByTestId('bvn-form')).toBeInTheDocument();
-    expect(screen.getByTestId('cac-form')).toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: 'NIN verification form' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: 'BVN verification form' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: 'CAC verification form' })
+    ).toBeInTheDocument();
   });
 
   it('passes verified status to child form components', async () => {
@@ -208,18 +227,29 @@ describe('KycVerification', () => {
     await openAllAccordions();
 
     // Assert
-    expect(screen.getByTestId('nin-form')).toHaveAttribute(
-      'data-verified',
-      'true'
-    );
-    expect(screen.getByTestId('bvn-form')).toHaveAttribute(
-      'data-verified',
-      'false'
-    );
-    expect(screen.getByTestId('cac-form')).toHaveAttribute(
-      'data-verified',
-      'true'
-    );
+    expect(
+      screen.getByRole('region', { name: 'NIN verification form' })
+    ).toHaveAttribute('data-verified', 'true');
+    expect(
+      screen.getByRole('region', { name: 'BVN verification form' })
+    ).toHaveAttribute('data-verified', 'false');
+    expect(
+      screen.getByRole('region', { name: 'CAC verification form' })
+    ).toHaveAttribute('data-verified', 'true');
+  });
+
+  it('passes the authorized merchant to every verification form', async () => {
+    render(<KycVerification {...baseProps} />);
+
+    await openAllAccordions();
+
+    for (const form of [
+      screen.getByRole('region', { name: 'NIN verification form' }),
+      screen.getByRole('region', { name: 'BVN verification form' }),
+      screen.getByRole('region', { name: 'CAC verification form' }),
+    ]) {
+      expect(form).toHaveAttribute('data-merchant-id', baseProps.merchantId);
+    }
   });
 
   it('renders the security notice at the bottom', () => {

@@ -163,6 +163,8 @@ export default async function KycSettingsPage() {
   return (
     <div className="container max-w-2xl py-8">
       <KycVerification
+        key={view.merchant.id}
+        merchantId={view.merchant.id}
         verificationStatus={view.status}
         prefillNin={view.merchant.nin ?? null}
         prefillBvn={view.merchant.bvn ?? null}

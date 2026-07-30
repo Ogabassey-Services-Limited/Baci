@@ -1,7 +1,11 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/lib/api-client', () => ({ fetchWithCsrf: vi.fn() }));
+const mockFetchWithCsrf = vi.fn();
+vi.mock('@/lib/api-client', () => ({
+  fetchWithCsrf: (...args: unknown[]) => mockFetchWithCsrf(...args),
+}));
 vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: vi.fn() }),
 }));
@@ -9,6 +13,7 @@ vi.mock('@/hooks/use-toast', () => ({
 import { BvnVerification } from './bvn-verification';
 
 const baseProps = {
+  merchantId: '11111111-1111-4111-8111-111111111111',
   verified: false,
   prefillBvn: null,
   prefillFirstName: null,
@@ -68,5 +73,36 @@ describe('BvnVerification', () => {
     expect(screen.getByLabelText(/last name/i)).toHaveValue('Smith');
     expect(screen.getByLabelText(/date of birth/i)).toHaveValue('1985-12-01');
     expect(screen.getByLabelText(/mobile number/i)).toHaveValue('08012345678');
+  });
+
+  it('submits the authorized merchant ID with the BVN verification payload', async () => {
+    const user = userEvent.setup();
+    mockFetchWithCsrf.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ verified: false }),
+    });
+    render(
+      <BvnVerification
+        {...baseProps}
+        prefillBvn="22345678901"
+        prefillDateOfBirth="1985-12-01"
+        prefillFirstName="John"
+        prefillLastName="Smith"
+        prefillPhone="08012345678"
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: /verify bvn/i }));
+
+    await waitFor(() => expect(mockFetchWithCsrf).toHaveBeenCalledOnce());
+    const [, request] = mockFetchWithCsrf.mock.calls[0] as [
+      string,
+      { body: string },
+    ];
+    expect(JSON.parse(request.body)).toMatchObject({
+      merchantId: baseProps.merchantId,
+      bvn: '22345678901',
+    });
   });
 });

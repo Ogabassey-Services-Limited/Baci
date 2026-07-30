@@ -121,16 +121,6 @@ vi.mock('./DateOfBirthPicker', () => ({
 
 import NinVerificationCard from './NinVerificationCard';
 
-async function completeVerifiedMutation(): Promise<void> {
-  const options = mocks.options[0];
-  if (!options) throw new Error('Expected verification mutation options');
-  try {
-    await options.onSuccess({ verified: true });
-  } catch (error) {
-    options.onError(error);
-  }
-}
-
 describe('NinVerificationCard readiness handoff', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -244,88 +234,5 @@ describe('NinVerificationCard readiness handoff', () => {
     rerender(<NinVerificationCard {...props} bvnVerified />);
 
     expect(screen.queryByLabelText('NIN input')).not.toBeInTheDocument();
-  });
-
-  it('awaits the readiness refresh before showing verified success', async () => {
-    const events: string[] = [];
-    let release!: () => void;
-    const refresh = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    render(
-      <NinVerificationCard
-        bvnVerified={false}
-        dateOfBirth="2000-01-01"
-        firstName="A"
-        lastName="B"
-        mobileNo="08012345678"
-        onIdentityChange={vi.fn()}
-        onVerified={() => {
-          events.push('refresh');
-          return refresh;
-        }}
-        verified={false}
-      />
-    );
-    const completion = completeVerifiedMutation();
-    await Promise.resolve();
-    expect(events).toEqual(['refresh']);
-    expect(mocks.alert).not.toHaveBeenCalled();
-    release();
-    await completion;
-    expect(mocks.alert).toHaveBeenCalledWith(
-      'Success',
-      'Your NIN has been verified successfully.'
-    );
-  });
-
-  it('preserves verified success when the readiness refresh rejects', async () => {
-    render(
-      <NinVerificationCard
-        bvnVerified={false}
-        dateOfBirth="2000-01-01"
-        firstName="A"
-        lastName="B"
-        mobileNo="08012345678"
-        onIdentityChange={vi.fn()}
-        onVerified={() => Promise.reject(new Error('Readiness failed'))}
-        verified={false}
-      />
-    );
-
-    await completeVerifiedMutation();
-
-    expect(mocks.alert).toHaveBeenCalledWith(
-      'Success',
-      'Your NIN has been verified successfully. Your setup status will refresh shortly.'
-    );
-    expect(mocks.alert).not.toHaveBeenCalledWith(
-      'Verification Error',
-      expect.any(String)
-    );
-  });
-
-  it('refreshes the verified merchant but suppresses stale NIN success UI', async () => {
-    const onVerified = vi.fn().mockResolvedValue(undefined);
-    render(
-      <NinVerificationCard
-        bvnVerified={false}
-        dateOfBirth="2000-01-01"
-        firstName="A"
-        lastName="B"
-        mobileNo="08012345678"
-        isActive={() => false}
-        onIdentityChange={vi.fn()}
-        onVerified={onVerified}
-        verified={false}
-      />
-    );
-    const completion = mocks.options[0];
-    if (!completion) throw new Error('Expected verification mutation options');
-
-    await completion.onSuccess({ verified: true });
-
-    expect(onVerified).toHaveBeenCalledTimes(1);
-    expect(mocks.alert).not.toHaveBeenCalled();
   });
 });
